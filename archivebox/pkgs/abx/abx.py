@@ -284,7 +284,7 @@ def get_plugin(plugin: PluginId | ModuleType | Type) -> PluginInfo:
         
         # raise ValueError(f'Invalid plugin, must be a module, class, or plugin ID (package name): {plugin}')
     
-    assert module
+    assert module and hasattr(module, '__package__')
     
     plugin_file = Path(inspect.getfile(module))
     plugin_package = module.__package__ or module.__name__
@@ -356,10 +356,22 @@ def get_all_hook_specs() -> Dict[str, Dict[str, Any]]:
     
     for hook_name in get_all_hook_names():
         for plugin_module in pm.get_plugins():
-            if hasattr(plugin_module, hook_name):
-                hookspecopts = pm.parse_hookspec_opts(plugin_module, hook_name)
+            if inspect.ismodule(plugin_module):
+                plugin = plugin_module
+                plugin_module = plugin_module
+            elif inspect.isclass(plugin_module):
+                plugin = plugin_module
+                plugin_module = inspect.getmodule(plugin)
+            else:
+                plugin = type(plugin_module)
+                plugin_module = inspect.getmodule(plugin)
+
+            assert plugin and plugin_module and hasattr(plugin_module, '__package__')
+                
+            if hasattr(plugin, hook_name):
+                hookspecopts = pm.parse_hookspec_opts(plugin, hook_name)
                 if hookspecopts:
-                    method = getattr(plugin_module, hook_name)
+                    method = getattr(plugin, hook_name)
                     signature = inspect.signature(method)
                     return_type = signature.return_annotation if signature.return_annotation != inspect._empty else None
                     
@@ -381,9 +393,10 @@ def get_all_hook_specs() -> Dict[str, Dict[str, Any]]:
                         'signature': call_signature,
                         'hookspec_opts': hookspecopts,
                         'hookspec_signature': signature,
-                        'hookspec_plugin': plugin_module.__package__,
+                        'hookspec_plugin': method.__package__,
                     }
-    return hook_specs
+                
+    return benedict(hook_specs)
     
 
 
@@ -466,7 +479,8 @@ def get_plugin_hooks(plugin: PluginId | ModuleType | Type | None) -> Dict[AttrNa
     elif inspect.ismodule(plugin) or inspect.isclass(plugin):
         plugin_module = plugin
     else:
-        raise ValueError(f'Invalid plugin, cannot get hooks: {plugin}')
+        plugin_module = type(plugin)
+        # raise ValueError(f'Invalid plugin, cannot get hooks: {plugin}')
     
     for attr_name in dir(plugin_module):
         if attr_name.startswith('_'):
