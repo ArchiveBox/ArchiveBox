@@ -1,34 +1,44 @@
 #!/usr/bin/env python3
 
 __package__ = 'archivebox.cli'
-__command__ = 'archivebox status'
 
-import sys
-import argparse
 from pathlib import Path
-from typing import Optional, List, IO
 
+import rich_click as click
 from rich import print
 
-from archivebox.misc.util import docstring
-from archivebox.config import DATA_DIR
-from archivebox.misc.logging_util import SmartFormatter, reject_stdin
+from archivebox.misc.util import enforce_types, docstring
+from archivebox.config import DATA_DIR, CONSTANTS, ARCHIVE_DIR
+from archivebox.config.common import SHELL_CONFIG
+from archivebox.index.json import parse_json_links_details
+from archivebox.index import (
+    load_main_index,
+    get_indexed_folders,
+    get_archived_folders,
+    get_invalid_folders,
+    get_unarchived_folders,
+    get_present_folders,
+    get_valid_folders,
+    get_duplicate_folders,
+    get_orphaned_folders,
+    get_corrupted_folders,
+    get_unrecognized_folders,
+)
+from archivebox.misc.system import get_dir_size
+from archivebox.misc.logging_util import printable_filesize
 
 
-
-
-# @enforce_types
+@enforce_types
 def status(out_dir: Path=DATA_DIR) -> None:
     """Print out some info and statistics about the archive collection"""
 
-    check_data_folder()
-
-    from core.models import Snapshot
     from django.contrib.auth import get_user_model
+    from archivebox.index.sql import get_admins
+    from core.models import Snapshot
     User = get_user_model()
 
-    print('{green}[*] Scanning archive main index...{reset}'.format(**SHELL_CONFIG.ANSI))
-    print(SHELL_CONFIG.ANSI['lightyellow'], f'   {out_dir}/*', SHELL_CONFIG.ANSI['reset'])
+    print('[green]\\[*] Scanning archive main index...[/green]')
+    print(f'[yellow]   {out_dir}/*[/yellow]')
     num_bytes, num_dirs, num_files = get_dir_size(out_dir, recursive=False, pattern='index.')
     size = printable_filesize(num_bytes)
     print(f'    Index size: {size} across {num_files} files')
@@ -40,12 +50,12 @@ def status(out_dir: Path=DATA_DIR) -> None:
     print(f'    > SQL Main Index: {num_sql_links} links'.ljust(36), f'(found in {CONSTANTS.SQL_INDEX_FILENAME})')
     print(f'    > JSON Link Details: {num_link_details} links'.ljust(36), f'(found in {ARCHIVE_DIR.name}/*/index.json)')
     print()
-    print('{green}[*] Scanning archive data directories...{reset}'.format(**SHELL_CONFIG.ANSI))
-    print(SHELL_CONFIG.ANSI['lightyellow'], f'   {ARCHIVE_DIR}/*', SHELL_CONFIG.ANSI['reset'])
+    print('[green]\\[*] Scanning archive data directories...[/green]')
+    print(f'[yellow]   {ARCHIVE_DIR}/*[/yellow]')
     num_bytes, num_dirs, num_files = get_dir_size(ARCHIVE_DIR)
     size = printable_filesize(num_bytes)
     print(f'    Size: {size} across {num_files} files in {num_dirs} directories')
-    print(SHELL_CONFIG.ANSI['black'])
+
     num_indexed = len(get_indexed_folders(links, out_dir=out_dir))
     num_archived = len(get_archived_folders(links, out_dir=out_dir))
     num_unarchived = len(get_unarchived_folders(links, out_dir=out_dir))
@@ -57,36 +67,34 @@ def status(out_dir: Path=DATA_DIR) -> None:
     num_valid = len(get_valid_folders(links, out_dir=out_dir))
     print()
     print(f'    > present: {num_present}'.ljust(36), f'({get_present_folders.__doc__})')
-    print(f'      > valid: {num_valid}'.ljust(36), f'({get_valid_folders.__doc__})')
+    print(f'      > [green]valid:[/green] {num_valid}'.ljust(36), f'               ({get_valid_folders.__doc__})')
     
     duplicate = get_duplicate_folders(links, out_dir=out_dir)
     orphaned = get_orphaned_folders(links, out_dir=out_dir)
     corrupted = get_corrupted_folders(links, out_dir=out_dir)
     unrecognized = get_unrecognized_folders(links, out_dir=out_dir)
     num_invalid = len({**duplicate, **orphaned, **corrupted, **unrecognized})
-    print(f'      > invalid: {num_invalid}'.ljust(36), f'({get_invalid_folders.__doc__})')
+    print(f'      > [red]invalid:[/red] {num_invalid}'.ljust(36), f'           ({get_invalid_folders.__doc__})')
     print(f'        > duplicate: {len(duplicate)}'.ljust(36), f'({get_duplicate_folders.__doc__})')
     print(f'        > orphaned: {len(orphaned)}'.ljust(36), f'({get_orphaned_folders.__doc__})')
     print(f'        > corrupted: {len(corrupted)}'.ljust(36), f'({get_corrupted_folders.__doc__})')
     print(f'        > unrecognized: {len(unrecognized)}'.ljust(36), f'({get_unrecognized_folders.__doc__})')
-        
-    print(SHELL_CONFIG.ANSI['reset'])
 
     if num_indexed:
-        print('    {lightred}Hint:{reset} You can list link data directories by status like so:'.format(**SHELL_CONFIG.ANSI))
-        print('        archivebox list --status=<status>  (e.g. indexed, corrupted, archived, etc.)')
+        print('    [violet]Hint:[/violet] You can list link data directories by status like so:')
+        print('        [green]archivebox list --status=<status>  (e.g. indexed, corrupted, archived, etc.)[/green]')
 
     if orphaned:
-        print('    {lightred}Hint:{reset} To automatically import orphaned data directories into the main index, run:'.format(**SHELL_CONFIG.ANSI))
-        print('        archivebox init')
+        print('    [violet]Hint:[/violet] To automatically import orphaned data directories into the main index, run:')
+        print('        [green]archivebox init[/green]')
 
     if num_invalid:
-        print('    {lightred}Hint:{reset} You may need to manually remove or fix some invalid data directories, afterwards make sure to run:'.format(**SHELL_CONFIG.ANSI))
-        print('        archivebox init')
+        print('    [violet]Hint:[/violet] You may need to manually remove or fix some invalid data directories, afterwards make sure to run:')
+        print('        [green]archivebox init[/green]')
     
     print()
-    print('{green}[*] Scanning recent archive changes and user logins:{reset}'.format(**SHELL_CONFIG.ANSI))
-    print(SHELL_CONFIG.ANSI['lightyellow'], f'   {CONSTANTS.LOGS_DIR}/*', SHELL_CONFIG.ANSI['reset'])
+    print('[green]\\[*] Scanning recent archive changes and user logins:[/green]')
+    print(f'[yellow]   {CONSTANTS.LOGS_DIR}/*[/yellow]')
     users = get_admins().values_list('username', flat=True)
     print(f'    UI users {len(users)}: {", ".join(users)}')
     last_login = User.objects.order_by('last_login').last()
@@ -98,39 +106,31 @@ def status(out_dir: Path=DATA_DIR) -> None:
 
     if not users:
         print()
-        print('    {lightred}Hint:{reset} You can create an admin user by running:'.format(**SHELL_CONFIG.ANSI))
-        print('        archivebox manage createsuperuser')
+        print('    [violet]Hint:[/violet] You can create an admin user by running:')
+        print('        [green]archivebox manage createsuperuser[/green]')
 
     print()
     for snapshot in links.order_by('-downloaded_at')[:10]:
         if not snapshot.downloaded_at:
             continue
         print(
-            SHELL_CONFIG.ANSI['black'],
+            '[grey53] ' +
             (
                 f'   > {str(snapshot.downloaded_at)[:16]} '
                 f'[{snapshot.num_outputs} {("X", "√")[snapshot.is_archived]} {printable_filesize(snapshot.archive_size)}] '
                 f'"{snapshot.title}": {snapshot.url}'
-            )[:SHELL_CONFIG.TERM_WIDTH],
-            SHELL_CONFIG.ANSI['reset'],
+            )[:SHELL_CONFIG.TERM_WIDTH]
+            + '[grey53]',
         )
-    print(SHELL_CONFIG.ANSI['black'], '   ...', SHELL_CONFIG.ANSI['reset'])
+    print('[grey53]   ...')
 
 
-
+@click.command()
 @docstring(status.__doc__)
-def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
-    parser = argparse.ArgumentParser(
-        prog=__command__,
-        description=status.__doc__,
-        add_help=True,
-        formatter_class=SmartFormatter,
-    )
-    parser.parse_args(args or ())
-    reject_stdin(__command__, stdin)
-
-    status(out_dir=Path(pwd) if pwd else DATA_DIR)
+def main(**kwargs):
+    """Print out some info and statistics about the archive collection"""
+    status(**kwargs)
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[1:], stdin=sys.stdin)
+    main()
