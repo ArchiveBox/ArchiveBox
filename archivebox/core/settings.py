@@ -223,39 +223,38 @@ MIGRATION_MODULES = {'signal_webhooks': None}
 # as much as I'd love this to be a UUID or ULID field, it's not supported yet as of Django 5.0
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+HUEY = {
+    "huey_class": "huey.SqliteHuey",
+    "filename": CONSTANTS.QUEUE_DATABASE_FILENAME,
+    "name": "commands",
+    "results": True,
+    "store_none": True,
+    "immediate": False,
+    "utc": True,
+    "consumer": {
+        "workers": 1,
+        "worker_type": "thread",
+        "initial_delay": 0.1,  # Smallest polling interval, same as -d.
+        "backoff": 1.15,  # Exponential backoff using this rate, -b.
+        "max_delay": 10.0,  # Max possible polling interval, -m.
+        "scheduler_interval": 1,  # Check schedule every second, -s.
+        "periodic": True,  # Enable crontab feature.
+        "check_worker_health": True,  # Enable worker health checks.
+        "health_check_interval": 1,  # Check worker health every second.
+    },
+}
 
-if not IS_GETTING_VERSION_OR_HELP:             # dont create queue.sqlite3 file if we're just running to get --version or --help
-    HUEY = {
-        "huey_class": "huey.SqliteHuey",
-        "filename": CONSTANTS.QUEUE_DATABASE_FILENAME,
-        "name": "commands",
-        "results": True,
-        "store_none": True,
-        "immediate": False,
-        "utc": True,
-        "consumer": {
-            "workers": 1,
-            "worker_type": "thread",
-            "initial_delay": 0.1,  # Smallest polling interval, same as -d.
-            "backoff": 1.15,  # Exponential backoff using this rate, -b.
-            "max_delay": 10.0,  # Max possible polling interval, -m.
-            "scheduler_interval": 1,  # Check schedule every second, -s.
-            "periodic": True,  # Enable crontab feature.
-            "check_worker_health": True,  # Enable worker health checks.
-            "health_check_interval": 1,  # Check worker health every second.
-        },
-    }
+# https://huey.readthedocs.io/en/latest/contrib.html#setting-things-up
+# https://github.com/gaiacoop/django-huey
+DJANGO_HUEY = {
+    "default": "commands",
+    "queues": {
+        HUEY["name"]: HUEY.copy(),
+        # more registered here at plugin import-time by BaseQueue.register()
+        **abx.as_dict(abx.pm.hook.get_DJANGO_HUEY_QUEUES(QUEUE_DATABASE_NAME=CONSTANTS.QUEUE_DATABASE_FILENAME)),
+    },
+}
 
-    # https://huey.readthedocs.io/en/latest/contrib.html#setting-things-up
-    # https://github.com/gaiacoop/django-huey
-    DJANGO_HUEY = {
-        "default": "commands",
-        "queues": {
-            HUEY["name"]: HUEY.copy(),
-            # more registered here at plugin import-time by BaseQueue.register()
-            **abx.as_dict(abx.pm.hook.get_DJANGO_HUEY_QUEUES(QUEUE_DATABASE_NAME=CONSTANTS.QUEUE_DATABASE_FILENAME)),
-        },
-    }
 
 class HueyDBRouter:
     """

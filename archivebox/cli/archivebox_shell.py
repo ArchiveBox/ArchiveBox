@@ -1,46 +1,27 @@
 #!/usr/bin/env python3
 
 __package__ = 'archivebox.cli'
-__command__ = 'archivebox shell'
 
-import sys
-import argparse
-from pathlib import Path
-from typing import Optional, List, IO
+from typing import Iterable
+
+import rich_click as click
 
 from archivebox.misc.util import docstring
-from archivebox.config import DATA_DIR
-from archivebox.misc.logging_util import SmartFormatter, reject_stdin
 
 
-
-#@enforce_types
-def shell(out_dir: Path=DATA_DIR) -> None:
+def shell(args: Iterable[str]=()) -> None:
     """Enter an interactive ArchiveBox Django shell"""
 
-    check_data_folder()
-
     from django.core.management import call_command
-    call_command("shell_plus")
+    call_command("shell_plus", *args)
 
 
-
-
+@click.command(add_help_option=False, context_settings=dict(ignore_unknown_options=True))
+@click.argument('args', nargs=-1)
 @docstring(shell.__doc__)
-def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
-    parser = argparse.ArgumentParser(
-        prog=__command__,
-        description=shell.__doc__,
-        add_help=True,
-        formatter_class=SmartFormatter,
-    )
-    parser.parse_args(args or ())
-    reject_stdin(__command__, stdin)
-    
-    shell(
-        out_dir=Path(pwd) if pwd else DATA_DIR,
-    )
-    
+def main(args: Iterable[str]=()) -> None:
+    shell(args=args)
+
 
 if __name__ == '__main__':
-    main(args=sys.argv[1:], stdin=sys.stdin)
+    main()

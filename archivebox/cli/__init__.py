@@ -87,15 +87,18 @@ class ArchiveBoxGroup(click.Group):
 
 @click.group(cls=ArchiveBoxGroup, invoke_without_command=True)
 @click.option('--help', '-h', is_flag=True, help='Show help')
-@click.version_option(version=VERSION, package_name='archivebox', message='%(version)s')
+@click.version_option(VERSION, '-v', '--version', package_name='archivebox', message='%(version)s')
 @click.pass_context
 def cli(ctx, help=False):
     """ArchiveBox: The self-hosted internet archive"""
     
+    # if --help is passed or no subcommand is given, show custom help message
     if help or ctx.invoked_subcommand is None:
         ctx.invoke(ctx.command.get_command(ctx, 'help'))
     
-    if ctx.invoked_subcommand in ArchiveBoxGroup.archive_commands:
+    # if the subcommand is in the archive_commands dict and is not 'manage',
+    # then we need to set up the django environment and check that we're in a valid data folder
+    if ctx.invoked_subcommand in ArchiveBoxGroup.archive_commands and ctx.invoked_subcommand != 'manage':
         # print('SETUP DJANGO AND CHECK DATA FOLDER')
         from archivebox.config.django import setup_django
         from archivebox.misc.checks import check_data_folder
