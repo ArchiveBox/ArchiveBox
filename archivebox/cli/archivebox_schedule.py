@@ -6,11 +6,11 @@ import sys
 from pathlib import Path
 
 import rich_click as click
+from rich import print
 
 from archivebox.misc.util import enforce_types, docstring
 from archivebox.config import DATA_DIR, CONSTANTS
-from archivebox.config.common import ARCHIVING_CONFIG, SHELL_CONFIG
-from archivebox.misc.logging_util import stderr
+from archivebox.config.common import ARCHIVING_CONFIG
 from archivebox.config.permissions import USER
 
 
@@ -79,11 +79,11 @@ def schedule(add: bool=False,
         elif CronSlices.is_valid(every):
             new_job.setall(every)
         else:
-            stderr('{red}[X] Got invalid timeperiod for cron task.{reset}'.format(**SHELL_CONFIG.ANSI))
-            stderr('    It must be one of minute/hour/day/month')
-            stderr('    or a quoted cron-format schedule like:')
-            stderr('        archivebox init --every=day --depth=1 https://example.com/some/rss/feed.xml')
-            stderr('        archivebox init --every="0/5 * * * *" --depth=1 https://example.com/some/rss/feed.xml')
+            print('[red]\\[X] Got invalid timeperiod for cron task.[/red]')
+            print('    It must be one of minute/hour/day/month')
+            print('    or a quoted cron-format schedule like:')
+            print('        archivebox init --every=day --depth=1 https://example.com/some/rss/feed.xml')
+            print('        archivebox init --every="0/5 * * * *" --depth=1 https://example.com/some/rss/feed.xml')
             raise SystemExit(1)
 
         cron = dedupe_cron_jobs(cron)
@@ -94,32 +94,32 @@ def schedule(add: bool=False,
         existing_jobs = list(cron.find_command('archivebox'))
 
         print()
-        print('{green}[√] Scheduled new ArchiveBox cron job for user: {} ({} jobs are active).{reset}'.format(USER, len(existing_jobs), **SHELL_CONFIG.ANSI))
+        print('[green]\\[√] Scheduled new ArchiveBox cron job for user: {} ({} jobs are active).[/green]'.format(USER, len(existing_jobs)))
         print('\n'.join(f'  > {cmd}' if str(cmd) == str(new_job) else f'    {cmd}' for cmd in existing_jobs))
         if total_runs > 60 and not quiet:
-            stderr()
-            stderr('{lightyellow}[!] With the current cron config, ArchiveBox is estimated to run >{} times per year.{reset}'.format(total_runs, **SHELL_CONFIG.ANSI))
-            stderr('    Congrats on being an enthusiastic internet archiver! 👌')
-            stderr()
-            stderr('    Make sure you have enough storage space available to hold all the data.')
-            stderr('    Using a compressed/deduped filesystem like ZFS is recommended if you plan on archiving a lot.')
-            stderr('')
+            print()
+            print('[yellow]\\[!] With the current cron config, ArchiveBox is estimated to run >{} times per year.[/yellow]'.format(total_runs))
+            print('    Congrats on being an enthusiastic internet archiver! 👌')
+            print()
+            print('    [violet]Make sure you have enough storage space available to hold all the data.[/violet]')
+            print('    Using a compressed/deduped filesystem like ZFS is recommended if you plan on archiving a lot.')
+            print()
     elif show:
         if existing_jobs:
             print('\n'.join(str(cmd) for cmd in existing_jobs))
         else:
-            stderr('{red}[X] There are no ArchiveBox cron jobs scheduled for your user ({}).{reset}'.format(USER, **SHELL_CONFIG.ANSI))
-            stderr('    To schedule a new job, run:')
-            stderr('        archivebox schedule --every=[timeperiod] --depth=1 https://example.com/some/rss/feed.xml')
+            print('[red]\\[X] There are no ArchiveBox cron jobs scheduled for your user ({}).[/red]'.format(USER))
+            print('    To schedule a new job, run:')
+            print('        archivebox schedule --every=[timeperiod] --depth=1 https://example.com/some/rss/feed.xml')
         raise SystemExit(0)
 
     if foreground or run_all:
         if not existing_jobs:
-            stderr('{red}[X] You must schedule some jobs first before running in foreground mode.{reset}'.format(**SHELL_CONFIG.ANSI))
-            stderr('    archivebox schedule --every=hour --depth=1 https://example.com/some/rss/feed.xml')
+            print('[red]\\[X] You must schedule some jobs first before running in foreground mode.[/red]')
+            print('    archivebox schedule --every=hour --depth=1 https://example.com/some/rss/feed.xml')
             raise SystemExit(1)
 
-        print('{green}[*] Running {} ArchiveBox jobs in foreground task scheduler...{reset}'.format(len(existing_jobs), **SHELL_CONFIG.ANSI))
+        print('[green]\\[*] Running {} ArchiveBox jobs in foreground task scheduler...[/green]'.format(len(existing_jobs)))
         if run_all:
             try:
                 for job in existing_jobs:
@@ -129,7 +129,7 @@ def schedule(add: bool=False,
                     job.run()
                     sys.stdout.write(f'\r    √ {job.command.split("/archivebox ")[-1]}\n')
             except KeyboardInterrupt:
-                print('\n{green}[√] Stopped.{reset}'.format(**SHELL_CONFIG.ANSI))
+                print('\n[green]\\[√] Stopped.[/green] (Ctrl+C)')
                 raise SystemExit(1)
 
         if foreground:
@@ -139,7 +139,7 @@ def schedule(add: bool=False,
                 for result in cron.run_scheduler():
                     print(result)
             except KeyboardInterrupt:
-                print('\n{green}[√] Stopped.{reset}'.format(**SHELL_CONFIG.ANSI))
+                print('\n[green]\\[√] Stopped.[/green] (Ctrl+C)')
                 raise SystemExit(1)
 
 
