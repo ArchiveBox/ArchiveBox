@@ -1,30 +1,36 @@
 #!/usr/bin/env python3
 
 __package__ = 'archivebox.cli'
-__command__ = 'archivebox init'
 
+import os
 import sys
-import argparse
 from pathlib import Path
-from typing import Optional, List, IO
+
+from rich import print
+import rich_click as click
+
+from archivebox.misc.util import docstring, enforce_types
 
 
-from archivebox.misc.util import docstring
-from archivebox.config import DATA_DIR
-from archivebox.misc.logging_util import SmartFormatter, reject_stdin
-
-
-def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Path=DATA_DIR) -> None:
+@enforce_types
+def init(force: bool=False, quick: bool=False, install: bool=False, setup: bool=False) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
     
-    from core.models import Snapshot
-    from rich import print
+    install = install or setup
+    
+    from archivebox.config import CONSTANTS, VERSION, DATA_DIR
+    from archivebox.config.common import SERVER_CONFIG
+    from archivebox.config.collection import write_config_file
+    from archivebox.index import load_main_index, write_main_index, fix_invalid_folder_locations, get_invalid_folders
+    from archivebox.index.schema import Link
+    from archivebox.index.json import parse_json_main_index, parse_json_links_details
+    from archivebox.index.sql import apply_migrations
     
     # if os.access(out_dir / CONSTANTS.JSON_INDEX_FILENAME, os.F_OK):
     #     print("[red]:warning: This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.[/red]", file=sys.stderr)
     #     print("[red]    You can run `archivebox list --json --with-headers > static_index.json` to manually generate it.[/red]", file=sys.stderr)
 
-    is_empty = not len(set(os.listdir(out_dir)) - CONSTANTS.ALLOWED_IN_DATA_DIR)
+    is_empty = not len(set(os.listdir(DATA_DIR)) - CONSTANTS.ALLOWED_IN_DATA_DIR)
     existing_index = os.path.isfile(CONSTANTS.DATABASE_FILE)
     if is_empty and not existing_index:
         print(f'[turquoise4][+] Initializing a new ArchiveBox v{VERSION} collection...[/turquoise4]')
@@ -62,7 +68,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     
     # create the .archivebox_id file with a unique ID for this collection
     from archivebox.config.paths import _get_collection_id
-    _get_collection_id(CONSTANTS.DATA_DIR, force_create=True)
+    _get_collection_id(DATA_DIR, force_create=True)
     
     # create the ArchiveBox.conf file
     write_config_file({'SECRET_KEY': SERVER_CONFIG.SECRET_KEY})
@@ -73,7 +79,10 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     else:
         print('\n[green][+] Building main SQL index and running initial migrations...[/green]')
     
-    for migration_line in apply_migrations(out_dir):
+    from archivebox.config.django import setup_django
+    setup_django()
+    
+    for migration_line in apply_migrations(DATA_DIR):
         sys.stdout.write(f'    {migration_line}\n')
 
     assert os.path.isfile(CONSTANTS.DATABASE_FILE) and os.access(CONSTANTS.DATABASE_FILE, os.R_OK)
@@ -88,11 +97,13 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     print()
     print('[dodger_blue3][*] Checking links from indexes and archive folders (safe to Ctrl+C)...[/dodger_blue3]')
 
+    from core.models import Snapshot
+
     all_links = Snapshot.objects.none()
-    pending_links: Dict[str, Link] = {}
+    pending_links: dict[str, Link] = {}
 
     if existing_index:
-        all_links = load_main_index(out_dir=out_dir, warn=False)
+        all_links = load_main_index(DATA_DIR, warn=False)
         print(f'    √ Loaded {all_links.count()} links from existing main index.')
 
     if quick:
@@ -100,7 +111,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     else:
         try:
             # Links in data folders that dont match their timestamp
-            fixed, cant_fix = fix_invalid_folder_locations(out_dir=out_dir)
+            fixed, cant_fix = fix_invalid_folder_locations(DATA_DIR)
             if fixed:
                 print(f'    [yellow]√ Fixed {len(fixed)} data directory locations that didn\'t match their link timestamps.[/yellow]')
             if cant_fix:
@@ -109,7 +120,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
             # Links in JSON index but not in main index
             orphaned_json_links = {
                 link.url: link
-                for link in parse_json_main_index(out_dir)
+                for link in parse_json_main_index(DATA_DIR)
                 if not all_links.filter(url=link.url).exists()
             }
             if orphaned_json_links:
@@ -119,7 +130,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
             # Links in data dir indexes but not in main index
             orphaned_data_dir_links = {
                 link.url: link
-                for link in parse_json_links_details(out_dir)
+                for link in parse_json_links_details(DATA_DIR)
                 if not all_links.filter(url=link.url).exists()
             }
             if orphaned_data_dir_links:
@@ -129,7 +140,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
             # Links in invalid/duplicate data dirs
             invalid_folders = {
                 folder: link
-                for folder, link in get_invalid_folders(all_links, out_dir=out_dir).items()
+                for folder, link in get_invalid_folders(all_links, DATA_DIR).items()
             }
             if invalid_folders:
                 print(f'    [red]! Skipped adding {len(invalid_folders)} invalid link data directories.[/red]')
@@ -148,7 +159,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
             print('        archivebox init --quick', file=sys.stderr)
             raise SystemExit(1)
         
-        write_main_index(list(pending_links.values()), out_dir=out_dir)
+        write_main_index(list(pending_links.values()), DATA_DIR)
 
     print('\n[green]----------------------------------------------------------------------[/green]')
 
@@ -163,13 +174,6 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     else:
         print(f'[green][√] Done. A new ArchiveBox collection was initialized ({len(all_links) + len(pending_links)} links).[/green]')
 
-    json_index = out_dir / CONSTANTS.JSON_INDEX_FILENAME
-    html_index = out_dir / CONSTANTS.HTML_INDEX_FILENAME
-    index_name = f"{date.today()}_index_old"
-    if os.access(json_index, os.F_OK):
-        json_index.rename(f"{index_name}.json")
-    if os.access(html_index, os.F_OK):
-        html_index.rename(f"{index_name}.html")
     
     CONSTANTS.PERSONAS_DIR.mkdir(parents=True, exist_ok=True)
     CONSTANTS.DEFAULT_TMP_DIR.mkdir(parents=True, exist_ok=True)
@@ -180,7 +184,8 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     STORAGE_CONFIG.LIB_DIR.mkdir(parents=True, exist_ok=True)
     
     if install:
-        run_subcommand('install', pwd=out_dir)
+        from archivebox.cli.archivebox_install import install as install_method
+        install_method()
 
     if Snapshot.objects.count() < 25:     # hide the hints for experienced users
         print()
@@ -194,44 +199,16 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
         print('        archivebox help')
 
 
-@docstring(init.__doc__)
-def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
-    parser = argparse.ArgumentParser(
-        prog=__command__,
-        description=init.__doc__,
-        add_help=True,
-        formatter_class=SmartFormatter,
-    )
-    parser.add_argument(
-        '--force', # '-f',
-        action='store_true',
-        help='Ignore unrecognized files in current directory and initialize anyway',
-    )
-    parser.add_argument(
-        '--quick', '-q',
-        action='store_true',
-        help='Run any updates or migrations without rechecking all snapshot dirs',
-    )
-    parser.add_argument(
-        '--install', #'-s',
-        action='store_true',
-        help='Automatically install dependencies and extras used for archiving',
-    )
-    parser.add_argument(
-        '--setup', #'-s',
-        action='store_true',
-        help='DEPRECATED: equivalent to --install',
-    )
-    command = parser.parse_args(args or ())
-    reject_stdin(__command__, stdin)
 
-    init(
-        force=command.force,
-        quick=command.quick,
-        install=command.install or command.setup,
-        out_dir=pwd or DATA_DIR,
-    )
-    
+@click.command()
+@click.option('--force', '-f', is_flag=True, help='Ignore unrecognized files in current directory and initialize anyway')
+@click.option('--quick', '-q', is_flag=True, help='Run any updates or migrations without rechecking all snapshot dirs')
+@click.option('--install', '-s', is_flag=True, help='Automatically install dependencies and extras used for archiving')
+@click.option('--setup', '-s', is_flag=True, help='DEPRECATED: equivalent to --install')
+@docstring(init.__doc__)
+def main(**kwargs) -> None:
+    init(**kwargs)
+
 
 if __name__ == '__main__':
-    main(args=sys.argv[1:], stdin=sys.stdin)
+    main()
