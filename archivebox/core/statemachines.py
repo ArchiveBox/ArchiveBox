@@ -1,10 +1,13 @@
 __package__ = 'archivebox.core'
 
 import time
+import os
 from datetime import timedelta
 from typing import ClassVar
 
 from django.utils import timezone
+
+from rich import print
 
 from statemachine import State, StateMachine
 
@@ -39,10 +42,16 @@ class SnapshotMachine(StateMachine, strict_states=True):
         self.snapshot = snapshot
         super().__init__(snapshot, *args, **kwargs)
         
+    def __repr__(self) -> str:
+        return f'[grey53]Snapshot\\[{self.snapshot.ABID}] 🏃‍♂️ Worker\\[pid={os.getpid()}].tick()[/grey53] [blue]{self.snapshot.status.upper()}[/blue] ⚙️ [grey37]Machine[/grey37]'
+    
+    def __str__(self) -> str:
+        return self.__repr__()
+        
     def can_start(self) -> bool:
         can_start = bool(self.snapshot.url)
         if not can_start:
-            print(f'SnapshotMachine[{self.snapshot.ABID}].can_start() False: {self.snapshot.url} {self.snapshot.retry_at} {timezone.now()}')
+            print(f'{self}.can_start() [blue]QUEUED[/blue] ➡️❌ [blue]STARTED[/blue] cant start yet +{timezone.now() - self.snapshot.retry_at}s')
         return can_start
         
     def is_finished(self) -> bool:
@@ -57,12 +66,12 @@ class SnapshotMachine(StateMachine, strict_states=True):
         # otherwise archiveresults exist and are all finished, so it's finished
         return True
         
-    def on_transition(self, event, state):
-        print(f'SnapshotMachine[{self.snapshot.ABID}].on_transition() {event} -> {state}')
+    # def on_transition(self, event, state):
+    #     print(f'{self}.on_transition() [blue]{str(state).upper()}[/blue] ➡️ ...')
         
     @queued.enter
     def enter_queued(self):
-        print(f'SnapshotMachine[{self.snapshot.ABID}].on_queued(): snapshot.retry_at = now()')
+        print(f'{self}.on_queued() ↳ snapshot.retry_at = now()')
         self.snapshot.update_for_workers(
             retry_at=timezone.now(),
             status=Snapshot.StatusChoices.QUEUED,
@@ -70,7 +79,7 @@ class SnapshotMachine(StateMachine, strict_states=True):
         
     @started.enter
     def enter_started(self):
-        print(f'SnapshotMachine[{self.snapshot.ABID}].on_started(): snapshot.create_pending_archiveresults() + snapshot.bump_retry_at(+60s)')
+        print(f'{self}.on_started() ↳ snapshot.create_pending_archiveresults() + snapshot.bump_retry_at(+60s)')
         # lock the snapshot while we create the pending archiveresults
         self.snapshot.update_for_workers(
             retry_at=timezone.now() + timedelta(seconds=30),  # if failed, wait 30s before retrying
@@ -86,7 +95,7 @@ class SnapshotMachine(StateMachine, strict_states=True):
         
     @sealed.enter
     def enter_sealed(self):
-        print(f'SnapshotMachine[{self.snapshot.ABID}].on_sealed(): snapshot.retry_at=None')
+        print(f'{self}.on_sealed() ↳ snapshot.retry_at=None')
         self.snapshot.update_for_workers(
             retry_at=None,
             status=Snapshot.StatusChoices.SEALED,
@@ -144,11 +153,17 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
     def __init__(self, archiveresult, *args, **kwargs):
         self.archiveresult = archiveresult
         super().__init__(archiveresult, *args, **kwargs)
+    
+    def __repr__(self) -> str:
+        return f'[grey53]ArchiveResult\\[{self.archiveresult.ABID}] 🏃‍♂️ Worker\\[pid={os.getpid()}].tick()[/grey53] [blue]{self.archiveresult.status.upper()}[/blue] ⚙️ [grey37]Machine[/grey37]'
+    
+    def __str__(self) -> str:
+        return self.__repr__()
         
     def can_start(self) -> bool:
         can_start = bool(self.archiveresult.snapshot.url)
         if not can_start:
-            print(f'ArchiveResultMachine[{self.archiveresult.ABID}].can_start() False: {self.archiveresult.snapshot.url} {self.archiveresult.retry_at} {timezone.now()}')
+            print(f'{self}.can_start() [blue]QUEUED[/blue] ➡️❌ [blue]STARTED[/blue]: cant start yet +{timezone.now() - self.archiveresult.retry_at}s')
         return can_start
     
     def is_succeeded(self) -> bool:
@@ -172,7 +187,7 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
 
     @queued.enter
     def enter_queued(self):
-        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_queued(): archiveresult.retry_at = now()')
+        print(f'{self}.on_queued() ↳ archiveresult.retry_at = now()')
         self.archiveresult.update_for_workers(
             retry_at=timezone.now(),
             status=ArchiveResult.StatusChoices.QUEUED,
@@ -181,7 +196,7 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
         
     @started.enter
     def enter_started(self):
-        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_started(): archiveresult.start_ts + create_output_dir() + bump_retry_at(+60s)')
+        print(f'{self}.on_started() ↳ archiveresult.start_ts + create_output_dir() + bump_retry_at(+60s)')
         # lock the object for the next 30sec
         self.archiveresult.update_for_workers(
             retry_at=timezone.now() + timedelta(seconds=30),
@@ -205,7 +220,7 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
 
     @backoff.enter
     def enter_backoff(self):
-        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_backoff(): archiveresult.retries += 1, archiveresult.bump_retry_at(+60s), archiveresult.end_ts = None')
+        print(f'{self}.on_backoff() ↳ archiveresult.retries += 1, archiveresult.bump_retry_at(+60s), archiveresult.end_ts = None')
         self.archiveresult.update_for_workers(
             retry_at=timezone.now() + timedelta(seconds=60),
             status=ArchiveResult.StatusChoices.BACKOFF,
@@ -216,7 +231,7 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
         
     @succeeded.enter
     def enter_succeeded(self):
-        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_succeeded(): archiveresult.retry_at = None, archiveresult.end_ts = now()')
+        print(f'{self}.on_succeeded() ↳ archiveresult.retry_at = None, archiveresult.end_ts = now()')
         self.archiveresult.update_for_workers(
             retry_at=None,
             status=ArchiveResult.StatusChoices.SUCCEEDED,
@@ -227,7 +242,7 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
 
     @failed.enter
     def enter_failed(self):
-        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_failed(): archivebox.retry_at = None, archiveresult.end_ts = now()')
+        print(f'{self}.on_failed() ↳ archiveresult.retry_at = None, archiveresult.end_ts = now()')
         self.archiveresult.update_for_workers(
             retry_at=None,
             status=ArchiveResult.StatusChoices.FAILED,

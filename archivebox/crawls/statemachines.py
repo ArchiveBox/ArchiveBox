@@ -1,8 +1,11 @@
 __package__ = 'archivebox.crawls'
 
+import os
 from typing import ClassVar
 from datetime import timedelta
 from django.utils import timezone
+
+from rich import print
 
 from statemachine import State, StateMachine
 
@@ -31,6 +34,12 @@ class CrawlMachine(StateMachine, strict_states=True):
     def __init__(self, crawl, *args, **kwargs):
         self.crawl = crawl
         super().__init__(crawl, *args, **kwargs)
+    
+    def __repr__(self) -> str:
+        return f'[grey53]Crawl\\[{self.crawl.ABID}] 🏃‍♂️ Worker\\[pid={os.getpid()}].tick()[/grey53] [blue]{self.crawl.status.upper()}[/blue] ⚙️ [grey37]Machine[/grey37]'
+    
+    def __str__(self) -> str:
+        return self.__repr__()
         
     def can_start(self) -> bool:
         return bool(self.crawl.seed and self.crawl.seed.uri)
@@ -64,7 +73,7 @@ class CrawlMachine(StateMachine, strict_states=True):
 
     @started.enter
     def enter_started(self):
-        print(f'CrawlMachine[{self.crawl.ABID}].on_started(): crawl.create_root_snapshot() + crawl.bump_retry_at(+10s)')
+        print(f'{self}.on_started(): [blue]↳ STARTED[/blue] crawl.create_root_snapshot() + crawl.bump_retry_at(+10s)')
         # lock the crawl object for 2s while we create the root snapshot
         self.crawl.update_for_workers(
             retry_at=timezone.now() + timedelta(seconds=5),
@@ -80,7 +89,7 @@ class CrawlMachine(StateMachine, strict_states=True):
 
     @sealed.enter        
     def enter_sealed(self):
-        print(f'CrawlMachine[{self.crawl.ABID}].on_sealed(): crawl.retry_at=None')
+        print(f'{self}.on_sealed(): [blue]↳ SEALED[/blue] crawl.retry_at=None')
         self.crawl.update_for_workers(
             retry_at=None,
             status=Crawl.StatusChoices.SEALED,

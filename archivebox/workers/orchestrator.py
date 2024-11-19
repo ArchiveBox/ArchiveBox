@@ -2,6 +2,7 @@ __package__ = 'archivebox.workers'
 
 import os
 import time
+import sys
 import itertools
 from typing import Dict, Type, Literal, TYPE_CHECKING
 from django.utils.functional import classproperty
@@ -122,9 +123,9 @@ class Orchestrator:
         # abx.pm.hook.on_orchestrator_shutdown(self)
         
     def on_tick_started(self, all_queues):
-        total_pending = sum(queue.count() for queue in all_queues.values())
-        if total_pending:
-            print(f'👨‍✈️ {self}.on_tick_started()', f'total_pending={total_pending}')
+        # total_pending = sum(queue.count() for queue in all_queues.values())
+        # if total_pending:
+        #     print(f'👨‍✈️ {self}.on_tick_started()', f'total_pending={total_pending}')
         # abx.pm.hook.on_orchestrator_tick_started(self, actor_types, all_queues)
         pass
     
@@ -136,7 +137,8 @@ class Orchestrator:
         pass
 
     def on_idle(self, all_queues):
-        print(f'👨‍✈️ {self}.on_idle()', f'idle_count={self.idle_count}')
+        # print(f'👨‍✈️ {self}.on_idle()', f'idle_count={self.idle_count}')
+        print('.', end='', flush=True, file=sys.stderr)
         # abx.pm.hook.on_orchestrator_idle(self)
         # check for orphaned objects left behind
         if self.idle_count == 60:
@@ -170,6 +172,7 @@ class Orchestrator:
                         continue
         
                     next_obj = queue.first()
+                    print()
                     print(f'🏃‍♂️ {self}.runloop() {actor_type.__name__.ljust(20)} queue={str(queue.count()).ljust(3)} next={next_obj.abid if next_obj else "None"} {next_obj.status if next_obj else "None"} {(timezone.now() - next_obj.retry_at).total_seconds() if next_obj and next_obj.retry_at else "None"}')
                     self.idle_count = 0
                     try:

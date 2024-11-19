@@ -110,7 +110,8 @@ class ActorType(Generic[ModelType]):
     def __repr__(self) -> str:
         """-> FaviconActor[pid=1234]"""
         label = 'pid' if self.mode == 'process' else 'tid'
-        return f'[underline]{self.name}[/underline]\\[{label}={self.pid}]'
+        # return f'[underline]{self.name}[/underline]\\[{label}={self.pid}]'
+        return f'[underline]Worker[/underline]\\[{label}={self.pid}]'
     
     @staticmethod
     def _state_to_str(state: ObjectState) -> str:
@@ -210,6 +211,10 @@ class ActorType(Generic[ModelType]):
         cls._SPAWNED_ACTOR_PIDS.append(psutil.Process(pid=bg_actor_process.pid))
         return bg_actor_process.pid
     
+    @classmethod
+    def _obj_repr(cls, obj: ModelType | Any) -> str:
+        """Get a string representation of the given django Model instance"""
+        return f'[grey53]{type(obj).__name__}\\[{obj.ABID}][/grey53]'
     
     ### Class Methods: Called by Orchestrator on ActorType class before it has been spawned
     
@@ -328,7 +333,7 @@ class ActorType(Generic[ModelType]):
                     if self.idle_count >= 3:
                         break             # stop looping and exit if queue is empty and we have idled for 30sec
                     else:
-                        print('Actor runloop()', f'pid={self.pid}', 'queue empty, rechecking...')
+                        # print('Actor runloop()', f'pid={self.pid}', 'queue empty, rechecking...')
                         self.idle_count += 1
                         time.sleep(1)
                         continue
@@ -339,7 +344,7 @@ class ActorType(Generic[ModelType]):
                     self.tick(obj_to_process)
                 except Exception as err:
                     last_error = err
-                    print(f'[red]🏃‍♂️ {self}.tick()[/red] {obj_to_process} ERROR: [red]{type(err).__name__}: {err}[/red]')
+                    print(f'[red]{self._obj_repr(obj_to_process)} 🏃‍♂️ {self}.tick()[/red] ERROR: [red]{type(err).__name__}: {err}[/red]')
                     db.connections.close_all()                         # always reset the db connection after an exception to clear any pending transactions
                     self.on_tick_exception(obj_to_process, err)
                     traceback.print_exc()
@@ -351,7 +356,7 @@ class ActorType(Generic[ModelType]):
             if isinstance(err, KeyboardInterrupt):
                 print()
             else:
-                print(f'\n[red]🏃‍♂️ {self}.runloop() FATAL:[/red] {type(err).__name__}: {err}')
+                print(f'\n[red]{self._obj_repr(obj_to_process)} 🏃‍♂️ {self}.runloop() FATAL:[/red] {type(err).__name__}: {err}')
                 print(f'    Last processed object: {obj_to_process}')
                 raise
         finally:
@@ -449,7 +454,7 @@ class ActorType(Generic[ModelType]):
 
     def tick(self, obj_to_process: ModelType) -> None:
         """Call the object.sm.tick() method to process the object"""
-        print(f'[blue]🏃‍♂️ {self}.tick()[/blue] {obj_to_process.ABID} {obj_to_process.status} {obj_to_process.retry_at}')
+        print(f'\n[grey53]{self._obj_repr(obj_to_process)} 🏃‍♂️ {self}.tick()[/grey53] [blue]{obj_to_process.status.upper()}[/blue] ➡️ ...  +{(obj_to_process.retry_at - timezone.now()).total_seconds() if obj_to_process.retry_at else "-"}s')
         
         # get the StateMachine instance from the object
         obj_statemachine = self._get_state_machine_instance(obj_to_process)
@@ -477,17 +482,18 @@ class ActorType(Generic[ModelType]):
         # abx.pm.hook.on_actor_startup(actor=self)
         
     def on_shutdown(self, last_obj: ModelType | None=None, last_error: BaseException | None=None) -> None:
-        if isinstance(last_error, KeyboardInterrupt) or last_error is None:
-            last_error_str = '[green](CTRL-C)[/green]'
-        elif isinstance(last_error, ActorQueueIsEmpty):
-            last_error_str = '[green](queue empty)[/green]'
-        elif isinstance(last_error, ActorObjectAlreadyClaimed):
-            last_error_str = '[green](queue race)[/green]'
-        else:
-            last_error_str = f'[red]{type(last_error).__name__}: {last_error}[/red]'
+        # if isinstance(last_error, KeyboardInterrupt) or last_error is None:
+        #     last_error_str = '[green](CTRL-C)[/green]'
+        # elif isinstance(last_error, ActorQueueIsEmpty):
+        #     last_error_str = '[green](queue empty)[/green]'
+        # elif isinstance(last_error, ActorObjectAlreadyClaimed):
+        #     last_error_str = '[green](queue race)[/green]'
+        # else:
+        #     last_error_str = f'[red]{type(last_error).__name__}: {last_error}[/red]'
 
-        print(f'[grey53]🏃‍♂️ {self}.on_shutdown() SHUTTING DOWN[/grey53] {last_error_str}')
+        # print(f'[grey53]🏃‍♂️ {self}.on_shutdown() SHUTTING DOWN[/grey53] {last_error_str}')
         # abx.pm.hook.on_actor_shutdown(actor=self, last_obj=last_obj, last_error=last_error)
+        pass
         
     def on_tick_start(self, obj_to_process: ModelType) -> None:
         # print(f'🏃‍♂️ {self}.on_tick_start() {obj_to_process.ABID} {obj_to_process.status} {obj_to_process.retry_at}')
@@ -505,11 +511,11 @@ class ActorType(Generic[ModelType]):
 
     
     def on_tick_exception(self, obj_to_process: ModelType, error: Exception) -> None:
-        print(f'[red]🏃‍♂️ {self}.on_tick_exception()[/red] {obj_to_process.ABID} {obj_to_process.status} {obj_to_process.retry_at}: [red]{type(error).__name__}: {error}[/red]')
+        print(f'[red]{self._obj_repr(obj_to_process)} 🏃‍♂️ {self}.on_tick_exception()[/red] [blue]{obj_to_process.status}[/blue] +{(obj_to_process.retry_at - timezone.now()).total_seconds() if obj_to_process.retry_at else "-"}s: [red]{type(error).__name__}: {error}[/red]')
         # abx.pm.hook.on_actor_tick_exception(actor=self, obj_to_process=obj_to_process, error=error)
 
     def on_state_change(self, obj_to_process: ModelType, starting_state, ending_state) -> None:
-        print(f'🏃‍♂️ {self}.on_state_change() {obj_to_process.ABID} {starting_state} ➡️ {ending_state}')
+        print(f'[blue]{self._obj_repr(obj_to_process)} 🏃‍♂️ {self}.on_state_change() {starting_state} ➡️ {ending_state}[/blue] +{(obj_to_process.retry_at - timezone.now()).total_seconds() if obj_to_process.retry_at else "-"}s')
         # abx.pm.hook.on_actor_state_change(actor=self, obj_to_process=obj_to_process, starting_state=starting_state, ending_state=ending_state)
 
 

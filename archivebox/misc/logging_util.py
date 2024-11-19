@@ -468,7 +468,7 @@ def log_list_started(filter_patterns: Optional[List[str]], filter_type: str):
     print('    {}'.format(' '.join(filter_patterns or ())))
 
 def log_list_finished(links):
-    from ..index.csv import links_to_csv
+    from archivebox.index.csv import links_to_csv
     print()
     print('---------------------------------------------------------------------------------------------------')
     print(links_to_csv(links, cols=['timestamp', 'is_archived', 'num_outputs', 'url'], header=True, ljust=16, separator=' | '))
@@ -492,7 +492,7 @@ def log_removal_started(links: List["Link"], yes: bool, delete: bool):
 
     if not yes:
         print()
-        print('[yellow3][?] Do you want to proceed with removing these {len(links)} links?[/]')
+        print(f'[yellow3][?] Do you want to proceed with removing these {len(links)} links?[/]')
         try:
             assert input('    y/[n]: ').lower() == 'y'
         except (KeyboardInterrupt, EOFError, AssertionError):
