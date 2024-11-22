@@ -57,10 +57,11 @@ body:
   - type: textarea
     id: version
     attributes:
-      label: What version of ArchiveBox are you currently using?
+      label: Share the entire output of the `archivebox version` command for the current verison you are using.
       description: |
-        We need to know what version of ArchiveBox and what OS you're currently using in order to contextualize your feature request.  
-        Sometimes we've already fixed the issues in newer BETA versions, sometimes features already exist but may not be available in specific environments/versions.
+        DO NOT JUST ENTER "the latest verion" OR YOUR ISSUE WILL BE CLOSED.  
+        We need to know what version of ArchiveBox and what feature flags you're currently running with in order to contextualize your feature request.  
+        Sometimes we've already fixed the issues in newer BETA versions, sometimes features already exist but may not be available in your specific environment.
           
         Run the `archivebox version` command inside your current collection dir and paste the *full output* here (*not just the version number*).  
         For Docker Compose run: `docker compose run archivebox version`  
