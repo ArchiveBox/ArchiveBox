@@ -204,6 +204,10 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
             start_ts=timezone.now(),
         )   # lock the obj for the next ~30s to limit racing with other workers
         
+        # run_subcommand([
+        #     'archivebox', 'extract', self.archiveresult.ABID,
+        # ])
+        
         # create the output directory and fork the new extractor job subprocess
         self.archiveresult.create_output_dir()
         # self.archiveresult.extract(background=True)

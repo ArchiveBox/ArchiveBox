@@ -97,8 +97,8 @@ class CrawlSchema(Schema):
 def get_crawls(request):
     return Crawl.objects.all().distinct()
 
-@router.get("/crawl/{crawl_id}", response=CrawlSchema, url_name="get_crawl")
-def get_crawl(request, crawl_id: str, with_snapshots: bool=False, with_archiveresults: bool=False):
+@router.get("/crawl/{crawl_id}", response=CrawlSchema | str, url_name="get_crawl")
+def get_crawl(request, crawl_id: str, as_rss: bool=False, with_snapshots: bool=False, with_archiveresults: bool=False):
     """Get a specific Crawl by id or abid."""
     
     crawl = None
@@ -114,5 +114,18 @@ def get_crawl(request, crawl_id: str, with_snapshots: bool=False, with_archivere
         crawl = crawl or Crawl.objects.get(id__icontains=crawl_id)
     except Exception:
         pass
+    
+    if crawl and as_rss:
+        # return snapshots as XML rss feed
+        urls = [
+            {'url': snapshot.url, 'title': snapshot.title, 'bookmarked_at': snapshot.bookmarked_at, 'tags': snapshot.tags_str}
+            for snapshot in crawl.snapshot_set.all()
+        ]
+        xml = '<rss version="2.0"><channel>'
+        for url in urls:
+            xml += f'<item><url>{url["url"]}</url><title>{url["title"]}</title><bookmarked_at>{url["bookmarked_at"]}</bookmarked_at><tags>{url["tags"]}</tags></item>'
+        xml += '</channel></rss>'
+        return xml
+    
     return crawl
 
