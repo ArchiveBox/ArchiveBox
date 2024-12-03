@@ -93,6 +93,11 @@ class SnapshotMachine(StateMachine, strict_states=True):
             status=Snapshot.StatusChoices.STARTED,
         )
         
+        # run_subcommand([
+        #     'archivebox', 'snapshot', self.snapshot.ABID,
+        #     '--start',
+        # ])
+        
     @sealed.enter
     def enter_sealed(self):
         print(f'{self}.on_sealed() ↳ snapshot.retry_at=None')
@@ -183,7 +188,6 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
     
     def is_finished(self) -> bool:
         return self.is_failed() or self.is_succeeded()
-    
 
     @queued.enter
     def enter_queued(self):

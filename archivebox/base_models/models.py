@@ -18,8 +18,13 @@ from django.utils.functional import classproperty
 from django.db.utils import OperationalError
 from django.contrib.auth import get_user_model
 from django.urls import reverse_lazy
+from django.conf import settings
+# from django.contrib.contenttypes.models import ContentType
+# from django.contrib.contenttypes.fields import GenericForeignKey
+# from django.contrib.contenttypes.fields import GenericRelation
 
 from django_stubs_ext.db.models import TypedModelMeta
+
 
 from archivebox.index.json import to_json
 
@@ -74,6 +79,89 @@ class ABIDError(Exception):
     pass
 
 
+# class LabelType:
+#     """
+#     A Many:1 reference to an object by a human-readable or machine-readable label, e.g.:
+#     """
+#
+#     name: str
+#     verbose_name: str
+#
+# class UUIDLabelType(LabelType):
+#     name = 'UUID'
+#     verbose_name = 'UUID'
+#
+# class ABIDLabelType(LabelType):
+#     name = 'ABID'
+#     verbose_name = 'ABID'
+#
+# class TimestampLabelType(LabelType):
+#     name = 'TIMESTAMP'
+#     verbose_name = 'Timestamp'
+
+
+# class Label(models.Model):
+#     """
+#     A 1:1 reference to an object by a human-readable or machine-readable label, e.g.:
+#
+#     Label(label='snp_01BJQMF54D093DXEAWZ6JYRPAQ', content_object=snapshot, reftype='ABID')
+#     """
+#     class RefTypeChoices(models.TextChoices):
+#         UUID = UUIDLabelType.name, UUIDLabelType.verbose_name
+#         ABID = ABIDLabelType.name, ABIDLabelType.verbose_name
+#         URI = URILabelType.name, URILabelType.verbose_name
+#         TAG = TagLabelType.name, TagLabelType.verbose_name
+#         TIMESTAMP = TimestampLabelType.name, TimestampLabelType.verbose_name
+#
+#     id = models.CharField(max_length=255, primary_key=True, null=False, blank=False, db_index=True)
+#     reftype = models.CharField(choices=RefTypeChoices.choices, default=RefTypeChoices.ABID, max_length=32)
+#
+#     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+#     object_id = models.UUIDField(default=None, null=False, editable=False)
+#     content_object = GenericForeignKey("content_type", "object_id")
+#
+#     @property
+#     def created_by(self) -> User:
+#         return self.content_object.created_by
+#
+#     @property
+#     def created_by_id(self) -> int:
+#         return self.content_object.created_by_id
+#
+#     @created_by.setter
+#     def created_by(self, value: User) -> None:
+#         self.content_object.created_by = value
+#
+#     @created_by_id.setter
+#     def created_by_id(self, value: int) -> None:
+#         self.content_object.created_by_id = value
+#
+#     @property
+#     def abid_prefix(self) -> str:
+#         return self.content_object.abid_prefix
+#
+#     @property
+#     def ABID(self) -> ABID:
+#         return ABID.parse(self.abid_prefix + self.abid.split('_', 1)[-1])
+#
+#     def __str__(self):
+#         return self.tag
+#
+#     class Meta:
+#         indexes = [
+#             models.Index(fields=["content_type", "object_id"]),
+#         ]
+#
+# class ModelWithLabels(models.Model):
+#     labels = GenericRelation(Label)
+#
+#     def UUID(self) -> uuid4.UUID:
+#         return uuid4.UUID(self.labels.filter(reftype=Label.RefTypeChoices.UUID).first().id)
+#
+#     def ABID(self) -> ABID:
+#         return ABID.parse(self.labels.filter(reftype=Label.RefTypeChoices.ABID).first().id)
+
+
 class ABIDModel(models.Model):
     """
     Abstract Base Model for other models to depend on. Provides ArchiveBox ID (ABID) interface and other helper methods.
@@ -86,12 +174,14 @@ class ABIDModel(models.Model):
     abid_salt: str = DEFAULT_ABID_URI_SALT           # combined with self.uri to anonymize hashes on a per-install basis (default is shared globally with all users, means everyone will hash ABC to -> 123 the same around the world, makes it easy to share ABIDs across installs and see if they are for the same URI. Change this if you dont want your hashes to be guessable / in the same hash space as all other users)
     abid_drift_allowed: bool = False                 # set to True to allow abid_field values to change after a fixed ABID has been issued (NOT RECOMMENDED: means values can drift out of sync from original ABID)
 
-    # id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
-    # abid = ABIDField(prefix=abid_prefix)
+    id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
+    abid = ABIDField(prefix=abid_prefix)
 
-    # created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, db_index=True)
-    # created_at = AutoDateTimeField(default=None, null=False, db_index=True)
-    # modified_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, db_index=True)
+    created_at = AutoDateTimeField(default=None, null=False, db_index=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    
+    # labels = GenericRelation(Label)
     
     # if ModelWithNotesMixin model:
     #   notes = models.TextField(blank=True, null=False, default='', help_text='Any extra notes this snapshot should have')
@@ -134,6 +224,14 @@ class ABIDModel(models.Model):
         # Used as an alternative to auto_now_add=True + auto_now=True which can produce two different times & requires saving to DB to get the TS.
         # (ordinarily fields cant depend on other fields until the obj is saved to db and recalled)
         self._init_timestamp = ts_from_abid(abid_part_from_ts(timezone.now()))
+
+    def check(self):
+        super().check()
+        assert 'id' in self._meta.get_fields(), 'All ABIDModel subclasses must define an id field'
+        assert 'abid' in self._meta.get_fields(), 'All ABIDModel subclasses must define an abid field'
+        assert 'created_at' in self._meta.get_fields(), 'All ABIDModel subclasses must define a created_at field'
+        assert 'modified_at' in self._meta.get_fields(), 'All ABIDModel subclasses must define a modified_at field'
+        assert 'created_by' in self._meta.get_fields(), 'All ABIDModel subclasses must define a created_by field'
 
     def clean(self, abid_drift_allowed: bool | None=None) -> None:
         if self._state.adding:
@@ -386,6 +484,27 @@ class ModelWithHealthStats(models.Model):
         return round(success_pct)
 
 
+class ModelWithConfig(ABIDModel):
+    """
+    Base Model that adds a config property to any ABIDModel.
+    This config is retrieved by abx.pm.hook.get_scope_config(...) later whenever this model is used.
+    """
+    config = models.JSONField(default=dict, null=False, blank=False, editable=True)
+    
+    class Meta:
+        abstract = True
+
+    # @property
+    # def unique_config(self) -> dict[str, Any]:
+    #     """Get the unique config that this model is adding to the default config"""
+    #     without_us = archivebox.pm.hook.get_scope_config()
+    #     with_us = archivebox.pm.hook.get_scope_config(extra_config=self.config)
+    #     return {
+    #         key: value
+    #         for key, value in with_us.items()
+    #         if key not in without_us
+    #         or without_us[key] != value
+    #     }
 
 
 class ModelWithOutputDir(ABIDModel):
@@ -415,7 +534,7 @@ class ModelWithOutputDir(ABIDModel):
             self.write_indexes()  # write the index.html, merkle hashes, symlinks, send indexable texts to search backend, etc.
 
     @property
-    def output_dir_type(self) -> str:
+    def output_dir_parent(self) -> str:
         """Get the model type parent directory name that holds this object's data e.g. 'archiveresults'"""
         parent_dir = getattr(self, 'output_dir_parent', f'{self._meta.model_name}s')
         assert len(parent_dir) > 2, f'output_dir_parent must be a non-empty string, got: "{parent_dir}"'
@@ -430,7 +549,7 @@ class ModelWithOutputDir(ABIDModel):
     @property
     def output_dir_str(self) -> str:
         """Get relateive the filesystem directory Path that holds that data for this object e.g. 'snapshots/snp_2342353k2jn3j32l4324'"""
-        return f'{self.output_dir_type}/{self.output_dir_name}'  # e.g. snapshots/snp_2342353k2jn3j32l4324
+        return f'{self.output_dir_parent}/{self.output_dir_name}'  # e.g. snapshots/snp_2342353k2jn3j32l4324
         
     @property
     def OUTPUT_DIR(self) -> Path:

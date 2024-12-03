@@ -29,7 +29,7 @@ from archivebox.misc.util import parse_date, base_url
 from archivebox.index.schema import Link
 from archivebox.index.html import snapshot_icons
 from archivebox.extractors import ARCHIVE_METHODS_INDEXING_PRECEDENCE
-from archivebox.base_models.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithOutputDir
+from archivebox.base_models.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithOutputDir, ModelWithConfig
 
 from workers.models import ModelWithStateMachine
 from workers.tasks import bg_archive_snapshot
@@ -145,22 +145,20 @@ class SnapshotManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().prefetch_related('tags', 'archiveresult_set')  # .annotate(archiveresult_count=models.Count('archiveresult')).distinct()
 
-class Snapshot(ModelWithOutputDir, ModelWithStateMachine, ABIDModel):
+class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithStateMachine, ABIDModel):
     abid_prefix = 'snp_'
     abid_ts_src = 'self.created_at'
     abid_uri_src = 'self.url'
     abid_subtype_src = '"01"'
     abid_rand_src = 'self.id'
     abid_drift_allowed = True
-
+    
     state_machine_name = 'core.statemachines.SnapshotMachine'
     state_field_name = 'status'
     retry_at_field_name = 'retry_at'
     StatusChoices = ModelWithStateMachine.StatusChoices
     active_state = StatusChoices.STARTED
-    
-    output_dir_parent = 'snapshots'
-    
+
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
 
@@ -168,9 +166,8 @@ class Snapshot(ModelWithOutputDir, ModelWithStateMachine, ABIDModel):
     created_at = AutoDateTimeField(default=None, null=False, db_index=True)  # loaded from self._init_timestamp
     modified_at = models.DateTimeField(auto_now=True)
     
-    status = ModelWithStateMachine.StatusField(choices=StatusChoices, default=StatusChoices.QUEUED)
     retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
-    
+    status = ModelWithStateMachine.StatusField(choices=StatusChoices, default=StatusChoices.QUEUED)
     notes = models.TextField(blank=True, null=False, default='', help_text='Any extra notes this snapshot should have')
 
     bookmarked_at = AutoDateTimeField(default=None, null=False, editable=True, db_index=True)
@@ -183,13 +180,61 @@ class Snapshot(ModelWithOutputDir, ModelWithStateMachine, ABIDModel):
     tags = models.ManyToManyField(Tag, blank=True, through=SnapshotTag, related_name='snapshot_set', through_fields=('snapshot', 'tag'))
     title = models.CharField(max_length=512, null=True, blank=True, db_index=True)
 
-    # config = models.JSONField(default=dict, null=False, blank=False, editable=True)
 
     keys = ('url', 'timestamp', 'title', 'tags', 'downloaded_at', 'created_at', 'status', 'retry_at', 'abid', 'id')
 
     archiveresult_set: models.Manager['ArchiveResult']
 
     objects = SnapshotManager()
+    
+    ### Inherited from ModelWithStateMachine #################################
+    # StatusChoices = ModelWithStateMachine.StatusChoices
+    #
+    # status = ModelWithStateMachine.StatusField(choices=StatusChoices, default=StatusChoices.QUEUED)
+    # retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
+    #
+    # state_machine_name = 'core.statemachines.SnapshotMachine'
+    # state_field_name = 'status'
+    # retry_at_field_name = 'retry_at'
+    # active_state = StatusChoices.STARTED
+    ########################################################################
+    
+    ### Inherited from ModelWithConfig #######################################
+    # config = models.JSONField(default=dict, null=False, blank=False, editable=True)
+    ########################################################################
+    
+    ### Inherited from ModelWithOutputDir:
+    # output_dir = models.FilePathField(path=CONSTANTS.ARCHIVE_DIR, recursive=True, match='.*', default=None, null=True, blank=True, editable=True)
+    
+    # self.save(): creates OUTPUT_DIR, writes index.json, writes indexes
+    # self.output_dir_parent -> str 'archive/snapshots/<YYYY-MM-DD>/<example.com>'
+    # self.output_dir_name -> '<abid>'
+    # self.output_dir_str -> 'archive/snapshots/<YYYY-MM-DD>/<example.com>/<abid>'
+    # self.OUTPUT_DIR -> Path('/data/archive/snapshots/<YYYY-MM-DD>/<example.com>/<abid>')
+    
+    ### Inherited from ABIDModel:
+    # id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
+    # abid = ABIDField(prefix=abid_prefix)
+    # created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, related_name='snapshot_set', db_index=True)
+    # created_at = AutoDateTimeField(default=None, null=False, db_index=True)  # loaded from self._init_timestamp
+    # modified_at = models.DateTimeField(auto_now=True)
+    
+    # abid_prefix = 'snp_'
+    # abid_ts_src = 'self.created_at'
+    # abid_uri_src = 'self.url'
+    # abid_subtype_src = '"01"'
+    # abid_rand_src = 'self.id'
+    # abid_drift_allowed = True
+    # self.clean() -> sets self._timestamp
+    # self.save() -> issues new ABID if creating new, otherwise uses existing ABID
+    # self.ABID -> ABID
+    # self.api_url -> '/api/v1/core/snapshot/{uulid}'
+    # self.api_docs_url -> '/api/v1/docs#/Core%20Models/api_v1_core_get_snapshot'
+    # self.admin_change_url -> '/admin/core/snapshot/{pk}/change/'
+    # self.get_absolute_url() -> '/{self.archive_path}'
+    # self.update_for_workers() -> bool
+    # self.as_json() -> dict[str, Any]
+    
 
     def save(self, *args, **kwargs):
         print(f'Snapshot[{self.ABID}].save()')
@@ -551,7 +596,7 @@ class ArchiveResultManager(models.Manager):
             ).order_by('indexing_precedence')
         return qs
 
-class ArchiveResult(ModelWithOutputDir, ModelWithStateMachine, ABIDModel):
+class ArchiveResult(ModelWithConfig, ModelWithOutputDir, ModelWithStateMachine, ABIDModel):
     abid_prefix = 'res_'
     abid_ts_src = 'self.snapshot.created_at'
     abid_uri_src = 'self.snapshot.url'
@@ -573,8 +618,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithStateMachine, ABIDModel):
     state_field_name = 'status'
     active_state = StatusChoices.STARTED
     
-    output_dir_parent = 'archiveresults'
-
     EXTRACTOR_CHOICES = (
         ('htmltotext', 'htmltotext'),
         ('git', 'git'),
@@ -681,6 +724,10 @@ class ArchiveResult(ModelWithOutputDir, ModelWithStateMachine, ABIDModel):
     def extractor_module(self) -> Any | None:
         return abx.as_dict(abx.pm.hook.get_EXTRACTORS()).get(self.extractor, None)
 
+    @property
+    def EXTRACTOR(self) -> object:
+        # return self.extractor_module
+        return self.extractor_module(archiveresult=self)
 
     def embed_path(self) -> str | None:
         """
