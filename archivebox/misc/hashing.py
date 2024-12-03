@@ -20,12 +20,13 @@ def _cached_file_hashes(filepath: str, size: int, mtime: float) -> tuple[str, st
     
     return sha256_hash.hexdigest(), blake3_hash.hexdigest()
 
+@lru_cache(maxsize=10)
 def hash_file(file_path: Path, pwd: Path | None = None) -> tuple[str, str]:
     """Calculate SHA256 and BLAKE3 hashes of a file with caching based on path, size and mtime."""
     pwd = Path(pwd) if pwd else None
     file_path = Path(file_path)
     if not file_path.is_absolute():
-        file_path = pwd.joinpath(file_path) if pwd else file_path.absolute()
+        file_path = pwd / file_path if pwd else file_path.absolute()
     
     abs_path = file_path.resolve()
     stat_info = abs_path.stat()
@@ -36,12 +37,13 @@ def hash_file(file_path: Path, pwd: Path | None = None) -> tuple[str, str]:
         stat_info.st_mtime
     )
 
+@lru_cache(maxsize=10)
 def get_dir_hashes(dir_path: Path, pwd: Path | None = None, filter_func: Callable | None = None, max_depth: int = -1) -> dict[str, tuple[str, str]]:
     """Calculate SHA256 and BLAKE3 hashes for all files and directories recursively."""
     pwd = Path(pwd) if pwd else None
     dir_path = Path(dir_path)
     if not dir_path.is_absolute():
-        dir_path = pwd.joinpath(dir_path) if pwd else dir_path.absolute()
+        dir_path = pwd / dir_path if pwd else dir_path.absolute()
     
     if not dir_path.is_dir():
         raise ValueError(f"Not a directory: {dir_path}")
@@ -108,7 +110,7 @@ def get_dir_entries(dir_path: Path, pwd: Path | None = None, recursive: bool = T
     pwd = Path(pwd) if pwd else None
     dir_path = Path(dir_path)
     if not dir_path.is_absolute():
-        dir_path = pwd.joinpath(dir_path) if pwd else dir_path.absolute()
+        dir_path = pwd / dir_path if pwd else dir_path.absolute()
     
     results = []
     
@@ -160,12 +162,13 @@ def get_dir_sizes(dir_path: Path, pwd: Path | None = None, **kwargs) -> dict[str
     return sizes
 
 
+@lru_cache(maxsize=10)
 def get_dir_info(dir_path: Path, pwd: Path | None = None, filter_func: Callable | None = None, max_depth: int = -1) -> dict:
     """Get detailed information about directory contents including both hash types and sizes."""
     pwd = Path(pwd) if pwd else None
     dir_path = Path(dir_path)
     if not dir_path.is_absolute():
-        dir_path = pwd.joinpath(dir_path) if pwd else dir_path.absolute()
+        dir_path = pwd / dir_path if pwd else dir_path.absolute()
     
     hashes = get_dir_hashes(dir_path, pwd=pwd, filter_func=filter_func, max_depth=max_depth)
     sizes = get_dir_sizes(str(dir_path), pwd=pwd, filter_func=filter_func, max_depth=max_depth)
@@ -180,7 +183,8 @@ def get_dir_info(dir_path: Path, pwd: Path | None = None, filter_func: Callable 
         is_dir = abs_path.is_dir()
         if is_dir:
             mime_type = 'inode/directory'
-            extension = None
+            basename = abs_path.name
+            extension = ''
             num_bytes = sizes[filename + '/']
             if filename == '.':
                 num_subpaths = num_total_subpaths
@@ -191,9 +195,11 @@ def get_dir_info(dir_path: Path, pwd: Path | None = None, filter_func: Callable 
             num_subpaths = None
             mime_type = mimetypes.guess_type(str(abs_path))[0]
             extension = abs_path.suffix
+            basename = abs_path.name.rsplit(extension, 1)[0]
             num_bytes = sizes[filename]
         
         details[filename] = {
+            'basename': basename,
             'mime_type': mime_type,
             'extension': extension,
             'num_subpaths': num_subpaths,
