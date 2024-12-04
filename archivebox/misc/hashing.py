@@ -221,3 +221,53 @@ if __name__ == '__main__':
     dir_info = get_dir_info(Path('.'), max_depth=6)
     with open('.hashes.json', 'w') as f:
         json.dump(dir_info, f, indent=4)
+    print('√ Wrote .hashes.json')
+
+# Example output:
+# {
+#     ".": {
+#         "basename": "misc",
+#         "mime_type": "inode/directory",
+#         "extension": "",
+#         "num_subpaths": 25,
+#         "num_bytes": 214677,
+#         "hash_sha256": "addfacf88b2ff6b564846415fb7b21dcb7e63ee4e911bc0aec255ee354958530",
+#         "hash_blake3": "3403a1f876453c7749f17ee3502769eff05cff20b5d6c2f2cf458e6353a380db",
+#         "created_at": "2024-12-04T00:08:38.537449",
+#         "modified_at": "2024-12-04T00:08:38.537449"
+#     },
+#     "__init__.py": {
+#         "basename": "__init__",
+#         "mime_type": "text/x-python",
+#         "extension": ".py",
+#         "num_subpaths": null,
+#         "num_bytes": 32,
+#         "hash_sha256": "b0e5e7ff17db3b60535cf664282787767c336e3e203a43e21b6326c6fe457551",
+#         "hash_blake3": "4a801eb2a4cdde8d3422be1e2074b78574a5890afb3027cbe6f3b3cf4d113fd1",
+#         "created_at": "2024-10-08T00:51:41.001359",
+#         "modified_at": "2024-10-08T00:51:41.001359"
+#     },
+#     "__pycache__/": {
+#         "basename": "__pycache__",
+#         "mime_type": "inode/directory",
+#         "extension": "",
+#         "num_subpaths": 8,
+#         "num_bytes": 107593,
+#         "hash_sha256": "9e917a438be774ffc7ea9125de71008c29a7d9003b6f5e09e2085aa1ef3157b3",
+#         "hash_blake3": "e87184485bd67bd9b723a9ee4d472e8c1d24a4388d373046a27e5a1e10467a06",
+#         "created_at": "2024-12-04T00:00:16.149390",
+#         "modified_at": "2024-12-04T00:00:16.149390"
+#     },
+#     "__pycache__/__init__.cpython-313.pyc": {
+#         "basename": "__init__.cpython-313",
+#         "mime_type": "application/x-python-code",
+#         "extension": ".pyc",
+#         "num_subpaths": null,
+#         "num_bytes": 223,
+#         "hash_sha256": "d29e3ee5e6b9b564422d9ef2c7325d28cf759b9fb868f59551ba43cd991d51be",
+#         "hash_blake3": "279a6dc4c8161d6ddb18fa72c882f375324ed152dc6c7c7eac9ef5fdd066f2fd",
+#         "created_at": "2024-12-03T03:13:43.257430",
+#         "modified_at": "2024-12-03T03:13:43.257308"
+#     },
+#     ...
+# }

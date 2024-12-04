@@ -213,6 +213,10 @@ DATABASES = {
         "NAME": CONSTANTS.QUEUE_DATABASE_FILE,
         **SQLITE_CONNECTION_OPTIONS,
     },
+    # "filestore": {
+    #     "NAME": CONSTANTS.FILESTORE_DATABASE_FILE,
+    #     **SQLITE_CONNECTION_OPTIONS,
+    # },
     # 'cache': {
     #     'NAME': CACHE_DB_PATH,
     #     **SQLITE_CONNECTION_OPTIONS,
@@ -266,15 +270,16 @@ class HueyDBRouter:
     """
 
     route_app_labels = {"huey_monitor", "django_huey", "djhuey"}
+    db_name = "queue"
 
     def db_for_read(self, model, **hints):
         if model._meta.app_label in self.route_app_labels:
-            return "queue"
+            return self.db_name
         return 'default'
 
     def db_for_write(self, model, **hints):
         if model._meta.app_label in self.route_app_labels:
-            return "queue"
+            return self.db_name
         return 'default'
 
     def allow_relation(self, obj1, obj2, **hints):
@@ -284,8 +289,38 @@ class HueyDBRouter:
 
     def allow_migrate(self, db, app_label, model_name=None, **hints):
         if app_label in self.route_app_labels:
-            return db == "queue"
+            return db == self.db_name
         return db == "default"
+
+# class FilestoreDBRouter:
+#     """
+#     A router to store all the File models in the filestore.sqlite3 database.
+#     This data just mirrors what is in the file system, so we want to keep it in a separate database
+#     from the main index database to avoid contention.
+#     """
+
+#     route_app_labels = {"filestore"}
+#     db_name = "filestore"
+
+#     def db_for_read(self, model, **hints):
+#         if model._meta.app_label in self.route_app_labels:
+#             return self.db_name
+#         return 'default'
+
+#     def db_for_write(self, model, **hints):
+#         if model._meta.app_label in self.route_app_labels:
+#             return self.db_name
+#         return 'default'
+
+#     def allow_relation(self, obj1, obj2, **hints):
+#         if obj1._meta.app_label in self.route_app_labels or obj2._meta.app_label in self.route_app_labels:
+#             return obj1._meta.app_label == obj2._meta.app_label
+#         return None
+
+#     def allow_migrate(self, db, app_label, model_name=None, **hints):
+#         if app_label in self.route_app_labels:
+#             return db == self.db_name
+#         return db == "default"
 
 DATABASE_ROUTERS = ['core.settings.HueyDBRouter']
 
@@ -313,6 +348,13 @@ STORAGES = {
             "location": ARCHIVE_DIR,
         },
     },
+    # "snapshots": {
+    #     "BACKEND": "django.core.files.storage.FileSystemStorage",
+    #     "OPTIONS": {
+    #         "base_url": "/snapshots/",
+    #         "location": CONSTANTS.SNAPSHOTS_DIR,
+    #     },
+    # },
     # "personas": {
     #     "BACKEND": "django.core.files.storage.FileSystemStorage",
     #     "OPTIONS": {
