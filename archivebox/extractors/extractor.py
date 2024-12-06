@@ -194,7 +194,6 @@ class Extractor:
                 self.archiveresult.outputs.append({
                     'type': 'PDF',
                     'path': file.relative_to(cwd),
-                    ''
                 })
                 
             if 'text/plain' in mimetypes.guess_type(file):
