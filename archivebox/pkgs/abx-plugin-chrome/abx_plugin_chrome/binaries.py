@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+
+__package__ = 'abx_plugin_chrome'
 import os
 import platform
 from pathlib import Path
@@ -147,3 +150,7 @@ class ChromeBinary(Binary):
 
 CHROME_BINARY = ChromeBinary()
 
+
+if __name__ == '__main__':
+    binary = CHROME_BINARY.load()
+    print(binary.version, '  ', binary.abspath)

@@ -1,5 +1,8 @@
+#!/usr/bin/env python3
+
 import os
 from pathlib import Path
+import sys
 from typing import List, Optional
 
 from pydantic import Field
@@ -79,16 +82,67 @@ class ChromeConfig(BaseConfigSet):
     # Chrome Binary
     CHROME_BINARY: str                      = Field(default='chrome')
     CHROME_DEFAULT_ARGS: List[str]          = Field(default=[
+        "--disable-sync",
+        "--no-pings",
         "--no-first-run",                                              # dont show any first run ui / setup prompts
-        '--virtual-time-budget=15000',                                 # accellerate any animations on the page by 15s into the future
-        '--disable-features=DarkMode',                                 # disable dark mode for archiving
-        "--run-all-compositor-stages-before-draw",                     # dont draw partially rendered content, wait until everything is ready
-        "--hide-scrollbars",                                           # hide scrollbars to prevent layout shift / scrollbar visible in screenshots
-        "--autoplay-policy=no-user-gesture-required",                  # allow media autoplay without user gesture (e.g. on mobile)
-        "--use-fake-ui-for-media-stream",                              # provide fake camera if site tries to request camera access
+        "--no-default-browser-check",
+        "--disable-default-apps",
+        "--ash-no-nudges",
+        "--disable-infobars",
+        "--disable-blink-features=AutomationControlled",
+        "--js-flags=--random-seed=1157259159",
+        "--deterministic-mode",
+        "--deterministic-fetch",
+        "--start-maximized",
+        "--test-type=gpu",
+        "--disable-search-engine-choice-screen",
+        "--disable-session-crashed-bubble", 
+        "--hide-crash-restore-bubble",
+        "--suppress-message-center-popups",
+        "--disable-client-side-phishing-detection",
+        "--disable-domain-reliability",
+        "--disable-component-update",
+        "--disable-datasaver-prompt",
+        "--disable-hang-monitor",
+        "--disable-session-crashed-bubble",
+        "--disable-speech-synthesis-api",
+        "--disable-speech-api",
+        "--disable-print-preview",
+        "--safebrowsing-disable-auto-update",
+        "--deny-permission-prompts",
+        "--disable-external-intent-requests",
+        "--disable-notifications",
+        "--disable-desktop-notifications",
+        "--noerrdialogs",
+        "--disable-popup-blocking",
+        "--disable-prompt-on-repost",
+        "--silent-debugger-extension-api",
+        "--block-new-web-contents",
+        "--metrics-recording-only",
+        "--disable-breakpad",
+        "--run-all-compositor-stages-before-draw",
         "--use-fake-device-for-media-stream",                          # provide fake camera if site tries to request camera access
-        "--simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT'",   # ignore chrome updates
-        "--force-gpu-mem-available-mb=4096",                           # allows for longer full page screenshots https://github.com/puppeteer/puppeteer/issues/5530
+        "--simulate-outdated-no-au=Tue, 31 Dec 2099 23:59:59 GMT",   # ignore chrome updates
+        "--force-gpu-mem-available-mb=4096",     # allows for longer full page screenshots https://github.com/puppeteer/puppeteer/issues/5530
+        "--password-store=basic",
+        "--use-mock-keychain",
+        "--disable-cookie-encryption",
+        "--allow-legacy-extension-manifests",
+        "--disable-gesture-requirement-for-media-playback",
+        "--font-render-hinting=none",
+        "--force-color-profile=srgb",
+        "--disable-partial-raster",
+        "--disable-skia-runtime-opts",
+        "--disable-2d-canvas-clip-aa",
+        "--disable-lazy-loading",
+        "--disable-renderer-backgrounding",
+        "--disable-background-networking",
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-ipc-flooding-protection",
+        "--disable-extensions-http-throttling",
+        "--disable-field-trial-config",
+        "--disable-back-forward-cache",
     ])
     CHROME_EXTRA_ARGS: List[str]           = Field(default=[])
     
@@ -99,6 +153,7 @@ class ChromeConfig(BaseConfigSet):
     CHROME_RESOLUTION: str                  = Field(default=lambda: ARCHIVING_CONFIG.RESOLUTION)
     CHROME_CHECK_SSL_VALIDITY: bool         = Field(default=lambda: ARCHIVING_CONFIG.CHECK_SSL_VALIDITY)
     
+    
     # Cookies & Auth
     CHROME_USER_AGENT: str                  = Field(default=lambda: ARCHIVING_CONFIG.USER_AGENT)
     CHROME_USER_DATA_DIR: Path | None       = Field(default=CONSTANTS.PERSONAS_DIR / 'Default' / 'chrome_profile')
@@ -108,6 +163,8 @@ class ChromeConfig(BaseConfigSet):
     SAVE_SCREENSHOT: bool                   = Field(default=True, alias='FETCH_SCREENSHOT')
     SAVE_DOM: bool                          = Field(default=True, alias='FETCH_DOM')
     SAVE_PDF: bool                          = Field(default=True, alias='FETCH_PDF')
+    
+    OVERWRITE: bool                         = Field(default=lambda: ARCHIVING_CONFIG.OVERWRITE)
 
     def validate(self):
         from archivebox.config.paths import create_and_chown_dir
@@ -147,7 +204,11 @@ class ChromeConfig(BaseConfigSet):
                 
                 self.update_in_place(CHROME_USER_DATA_DIR=None)
             
-
+    @property
+    def CHROME_ARGS(self) -> str:
+        # import shlex
+        # return '\n'.join(shlex.quote(arg) for arg in self.chrome_args())
+        return '\n'.join(self.chrome_args())
     def chrome_args(self, **options) -> List[str]:
         """helper to build up a chrome shell command with arguments"""
     
@@ -157,8 +218,8 @@ class ChromeConfig(BaseConfigSet):
     
         cmd_args = [*options.CHROME_DEFAULT_ARGS, *options.CHROME_EXTRA_ARGS]
     
-        if options.CHROME_HEADLESS:
-            cmd_args += ["--headless=new"]   # expects chrome version >= 111
+        # if options.CHROME_HEADLESS:
+        #     cmd_args += ["--headless"]   # expects chrome version >= 111
     
         if not options.CHROME_SANDBOX:
             # assume this means we are running inside a docker container
@@ -205,3 +266,12 @@ class ChromeConfig(BaseConfigSet):
 
 CHROME_CONFIG = ChromeConfig()
 
+
+if __name__ == '__main__':
+    if len(sys.argv) > 1:
+        result = getattr(CHROME_CONFIG, sys.argv[1], '')
+        if callable(result):
+            result = result()
+        print(result)
+    else:
+        print(CHROME_CONFIG.model_dump_json(indent=4))

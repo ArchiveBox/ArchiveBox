@@ -3,11 +3,12 @@ This file provides the Django ABIDField and ABIDModel base model to inherit from
 """
 
 
-from typing import Any, Dict, Union, List, Set, cast
 
+import json
 from uuid import uuid4
 from functools import partial
 from pathlib import Path
+from typing import Any, Dict, Union, List, Set, cast
 from charidfield import CharIDField  # type: ignore[import-untyped]
 
 from django.contrib import admin
@@ -27,6 +28,7 @@ from django_stubs_ext.db.models import TypedModelMeta
 
 
 from archivebox.index.json import to_json
+from archivebox.misc.hashing import get_dir_info
 
 from .abid import (
     ABID,
@@ -590,18 +592,20 @@ class ModelWithOutputDir(ABIDModel):
         """Write the ./.index.merkle file to the output dir"""
         # write self.generate_merkle_tree() to self.output_dir / '.index.merkle'
         print(f'{type(self).__name__}[{self.ABID}].save_merkle_index()')
+        dir_info = get_dir_info(self.OUTPUT_DIR, max_depth=6)
+        with open(self.OUTPUT_DIR / '.hashes.json', 'w') as f:
+            json.dump(dir_info, f)
         pass
     
     def save_html_index(self, **kwargs) -> None:
         # write self.as_html() to self.output_dir / 'index.html'
         print(f'{type(self).__name__}[{self.ABID}].save_html_index()')
-        pass
+        (self.OUTPUT_DIR / 'index.html').write_text(self.as_html())
     
     def save_json_index(self, **kwargs) -> None:
         print(f'{type(self).__name__}[{self.ABID}].save_json_index()')
         # write self.as_json() to self.output_dir / 'index.json'
         (self.OUTPUT_DIR / 'index.json').write_text(to_json(self.as_json()))
-        pass
     
     def save_symlinks_index(self) -> None:
         print(f'{type(self).__name__}[{self.ABID}].save_symlinks_index()')
@@ -610,26 +614,26 @@ class ModelWithOutputDir(ABIDModel):
         # ln -s self.output_dir data/archive/1453452234234.21445
         pass
 
-    def as_json(self) -> dict:
+    def as_json(self, *keys) -> dict:
         """Get the object's properties as a dict"""
-        # dump the object's properties to a json-ready dict
         return {
             'TYPE': self.TYPE,
-            'id': self.id,
+            'id': str(self.id),
             'abid': str(self.ABID),
             'str': str(self),
-            'modified_at': self.modified_at,
-            'created_at': self.created_at,
             'created_by_id': self.created_by_id,
+            'created_at': self.created_at,
+            'modified_at': self.modified_at,
             'status': getattr(self, 'status', None),
             'retry_at': getattr(self, 'retry_at', None),
             'notes': getattr(self, 'notes', None),
+            **{key: getattr(self, key) for key in keys},
         }
     
     def as_html(self) -> str:
         """Get the object's properties as a html string"""
         # render snapshot_detail.html template with self as context and return html string
-        return ''
+        return str(self)
 
 
 ####################################################

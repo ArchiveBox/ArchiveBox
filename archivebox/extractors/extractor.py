@@ -2,11 +2,14 @@ import hashlib
 import mimetypes
 import os
 
+import subprocess
 from typing import ClassVar
 from datetime import timedelta
 from zipfile import Path
 
 from django.utils import timezone
+
+from archivebox.misc.hashing import get_dir_info
 
 from core.models import ArchiveResult
 
@@ -205,9 +208,7 @@ class Extractor:
     
     def after_extract(self, error: Exception | None=None):
         status, retry_at = self.determine_status()
-        
-        self.archiveresult.outputs = []
-        
+
         
         self.archiveresult.error = f'{type(error).__name__}: {error}' if error else None
         self.archiveresult.status = self.archiveresult.StatusChoices.FAILED if error else self.archiveresult.StatusChoices.SUCCEEDED
