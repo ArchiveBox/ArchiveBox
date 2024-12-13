@@ -422,27 +422,9 @@ WORKER_TYPES = [
 
 def get_worker_type(name: str) -> Type[WorkerType]:
     for worker_type in WORKER_TYPES:
-        if worker_type.name == name:
+        matches_verbose_name = (worker_type.name == name)
+        matches_class_name = (worker_type.__name__.lower() == name.lower())
+        matches_listens_to = (worker_type.listens_to.strip('_').lower() == name.strip('_').lower())
+        if matches_verbose_name or matches_class_name or matches_listens_to:
             return worker_type
     raise Exception(f'Worker type not found: {name}')
-
-# class CrawlActorTest(unittest.TestCase):
-
-#     def test_crawl_creation(self):
-#         seed = Seed.objects.create(uri='https://example.com')
-#         Event.dispatch('CRAWL_CREATE', {'seed_id': seed.id})
-        
-#         crawl_actor = CrawlActor()
-        
-#         output_events = list(crawl_actor.process_next_event())
-        
-#         assert len(output_events) == 1
-#         assert output_events[0].get('name', 'unset') == 'FS_WRITE'
-#         assert output_events[0].get('path') == '/tmp/test_crawl/index.json'
-
-#         output_events = list(crawl_actor.process_next_event())
-#         assert len(output_events) == 1
-#         assert output_events[0].get('name', 'unset') == 'CRAWL_CREATED'
-        
-#         assert Crawl.objects.filter(seed_id=seed.id).exists(), 'Crawl was not created'
-
