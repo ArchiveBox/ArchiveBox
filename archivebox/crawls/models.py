@@ -1,6 +1,6 @@
 __package__ = 'archivebox.crawls'
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 from pathlib import Path
 from django_stubs_ext.db.models import TypedModelMeta
 
@@ -12,9 +12,9 @@ from django.urls import reverse_lazy
 from django.utils import timezone
 
 from archivebox.config import CONSTANTS
-from base_models.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats, get_or_create_system_user_pk
-
+from base_models.models import ModelWithReadOnlyFields, ModelWithSerializers, ModelWithUUID, ModelWithKVTags, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats, get_or_create_system_user_pk
 from workers.models import ModelWithStateMachine
+from tags.models import KVTag, GenericRelation
 
 if TYPE_CHECKING:
     from core.models import Snapshot, ArchiveResult
@@ -84,6 +84,21 @@ class Seed(ModelWithReadOnlyFields, ModelWithSerializers, ModelWithUUID, ModelWi
     abid_rand_src = 'self.id'
     abid_drift_allowed = True
     
+    ### ModelWithOutputDir:
+    output_dir = models.FilePathField(path=settings.ARCHIVE_DIR, null=False, blank=True, default='', help_text='The directory to store the output of this crawl')
+    output_dir_template = 'archive/seeds/{self.created_at.strftime("%Y%m%d")}/{self.abid}'
+    output_dir_symlinks = [
+        ('index.json',      'self.as_json()'),
+        ('config.toml',     'benedict(self.config).as_toml()'),
+        ('seed/',           'self.seed.output_dir.relative_to(self.output_dir)'),
+        ('persona/',        'self.persona.output_dir.relative_to(self.output_dir)'),
+        ('created_by/',     'self.created_by.output_dir.relative_to(self.output_dir)'),
+        ('schedule/',       'self.schedule.output_dir.relative_to(self.output_dir)'),
+        ('sessions/',       '[session.output_dir for session in self.session_set.all()]'),
+        ('snapshots/',      '[snapshot.output_dir for snapshot in self.snapshot_set.all()]'),
+        ('archiveresults/', '[archiveresult.output_dir for archiveresult in self.archiveresult_set.all()]'),
+    ]
+    
     ### Managers:
     crawl_set: models.Manager['Crawl']
 
@@ -149,12 +164,20 @@ class CrawlSchedule(ModelWithReadOnlyFields, ModelWithSerializers, ModelWithUUID
     It pulls from a given Seed and creates a new Crawl for each scheduled run.
     The new Crawl will inherit all the properties of the crawl_template Crawl.
     """
+    ### ABIDModel:
+    abid_prefix = 'cws_'
+    abid_ts_src = 'self.created_at'
+    abid_uri_src = 'self.template.seed.uri'
+    abid_subtype_src = 'self.template.persona'
+    abid_rand_src = 'self.id'
+    abid_drift_allowed = True
+    abid = ABIDField(prefix=abid_prefix)
+    
     ### ModelWithReadOnlyFields:
     read_only_fields = ('id', 'abid', 'created_at', 'created_by', 'template_id')
     
     ### Immutable fields:
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
-    abid = ABIDField(prefix=abid_prefix)
     created_at = AutoDateTimeField(default=None, null=False, db_index=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
     template: 'Crawl' = models.ForeignKey('Crawl', on_delete=models.CASCADE, null=False, blank=False, help_text='The base crawl that each new scheduled job should copy as a template')  # type: ignore
@@ -174,14 +197,6 @@ class CrawlSchedule(ModelWithReadOnlyFields, ModelWithSerializers, ModelWithUUID
         object_id_field="obj_id",
         order_by=('name',),
     )
-    
-    ### ABIDModel:
-    abid_prefix = 'cws_'
-    abid_ts_src = 'self.created_at'
-    abid_uri_src = 'self.template.seed.uri'
-    abid_subtype_src = 'self.template.persona'
-    abid_rand_src = 'self.id'
-    abid_drift_allowed = True
     
     ### Managers:
     crawl_set: models.Manager['Crawl']
@@ -317,6 +332,20 @@ class Crawl(ModelWithReadOnlyFields, ModelWithSerializers, ModelWithUUID, ModelW
     abid_subtype_src = 'self.persona'
     abid_rand_src = 'self.id'
     abid_drift_allowed = True
+    
+    ### ModelWithOutputDir:
+    output_dir = models.FilePathField(path=settings.ARCHIVE_DIR, null=False, blank=True, default='', help_text='The directory to store the output of this crawl')
+    output_dir_template = 'archive/crawls/{getattr(crawl, crawl.abid_ts_src).strftime("%Y%m%d")}/{crawl.abid}'
+    output_dir_symlinks = [
+        ('index.json', 'self.as_json'),
+        ('seed/', 'self.seed.output_dir'),
+        ('persona/', 'self.persona.output_dir'),
+        ('created_by/', 'self.created_by.output_dir'),
+        ('schedule/', 'self.schedule.output_dir'),
+        ('sessions/', '[session.output_dir for session in self.session_set.all()]'),
+        ('snapshots/', '[snapshot.output_dir for snapshot in self.snapshot_set.all()]'),
+        ('archiveresults/', '[archiveresult.output_dir for archiveresult in self.archiveresult_set.all()]'),
+    ]
     
     ### Managers:    
     snapshot_set: models.Manager['Snapshot']

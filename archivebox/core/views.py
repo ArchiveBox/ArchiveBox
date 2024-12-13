@@ -249,6 +249,12 @@ class SnapshotView(View):
                 return HttpResponse(
                     format_html(
                         (
+                            '<html><head>'
+                            '<title>Snapshot Not Found</title>'
+                            #'<script>'
+                            #'setTimeout(() => { window.location.reload(); }, 5000);'
+                            #'</script>'
+                            '</head><body>'
                             '<center><br/><br/><br/>'
                             f'Snapshot <a href="/archive/{snapshot.timestamp}/index.html" target="_top"><b><code>[{snapshot.timestamp}]</code></b></a>: <a href="{snapshot.url}" target="_blank" rel="noreferrer">{snapshot.url}</a><br/>'
                             f'was queued on {str(snapshot.bookmarked_at).split(".")[0]}, '
@@ -267,6 +273,7 @@ class SnapshotView(View):
                             f'- go to the <a href="/admin/core/snapshot/?id__exact={snapshot.id}" target="_top">Snapshot actions</a> to re-archive<br/>'
                             '- or return to <a href="/" target="_top">the main index...</a></div>'
                             '</center>'
+                            '</body></html>'
                         ),
                         archivefile if str(archivefile) != 'None' else '',
                         f'the {archivefile} resource could not be fetched' if str(archivefile) != 'None' else 'the original site was not available',
