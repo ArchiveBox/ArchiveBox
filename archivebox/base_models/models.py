@@ -2,16 +2,19 @@
 This file provides the Django ABIDField and ABIDModel base model to inherit from.
 """
 
-
+import io
+import csv
+import json
+from typing import Any, Dict, Union, List, Set, cast, ClassVar, Iterable
 
 import json
 from uuid import uuid4
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Union, List, Set, cast
 from charidfield import CharIDField  # type: ignore[import-untyped]
 
 from django.contrib import admin
+from django.core import checks
 from django.core.exceptions import ValidationError, NON_FIELD_ERRORS
 from django.db import models
 from django.utils import timezone
@@ -26,7 +29,9 @@ from django.conf import settings
 
 from django_stubs_ext.db.models import TypedModelMeta
 
+from tags.models import KVTag, ModelWithKVTags
 
+from archivebox import DATA_DIR
 from archivebox.index.json import to_json
 from archivebox.misc.hashing import get_dir_info
 
@@ -44,6 +49,8 @@ from .abid import (
 )
 
 ####################################################
+
+DEFAULT_ICON = '<img src="data:image/png;base64,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" alt="Icon"/>'
 
 
 # Database Field for typeid/ulid style IDs with a prefix, e.g. snp_01BJQMF54D093DXEAWZ6JYRPAQ
@@ -81,90 +88,168 @@ class ABIDError(Exception):
     pass
 
 
-# class LabelType:
-#     """
-#     A Many:1 reference to an object by a human-readable or machine-readable label, e.g.:
-#     """
-#
-#     name: str
-#     verbose_name: str
-#
-# class UUIDLabelType(LabelType):
-#     name = 'UUID'
-#     verbose_name = 'UUID'
-#
-# class ABIDLabelType(LabelType):
-#     name = 'ABID'
-#     verbose_name = 'ABID'
-#
-# class TimestampLabelType(LabelType):
-#     name = 'TIMESTAMP'
-#     verbose_name = 'Timestamp'
+
+class ModelWithReadOnlyFields(models.Model):
+    """
+    Base class for models that have some read-only fields enforced by .save().
+    """
+    read_only_fields: ClassVar[tuple[str, ...]] = ()
+    
+    class Meta:
+        abstract = True
+        
+    def _fresh_from_db(self):
+        try:
+            return self.objects.get(pk=self.pk)
+        except self.__class__.DoesNotExist:
+            return None
+    
+    def diff_from_db(self, keys: Iterable[str]=()) -> dict[str, tuple[Any, Any]]:
+        """Get a dictionary of the fields that have changed from the values in the database"""
+        keys = keys or [field.name for field in self._meta.get_fields()]
+        if not keys:
+            return {}
+        
+        in_db = self._fresh_from_db()
+        if not in_db:
+            return {}
+    
+        diff = {}
+        for field in keys:
+            new_value = getattr(self, field, None)
+            existing_value = getattr(in_db, field, None)
+            if new_value != existing_value:
+                diff[field] = (existing_value, new_value)
+        return diff
+        
+    def save(self, *args, **kwargs) -> None:
+        diff = self.diff_from_db(keys=self.read_only_fields)
+        if diff:
+            changed_key = next(iter(diff.keys()))
+            existing_value, new_value = diff[changed_key]
+            raise AttributeError(f'{self}.{changed_key} is read-only and cannot be changed from {existing_value} -> {new_value}')
+        super().save(*args, **kwargs)
 
 
-# class Label(models.Model):
-#     """
-#     A 1:1 reference to an object by a human-readable or machine-readable label, e.g.:
-#
-#     Label(label='snp_01BJQMF54D093DXEAWZ6JYRPAQ', content_object=snapshot, reftype='ABID')
-#     """
-#     class RefTypeChoices(models.TextChoices):
-#         UUID = UUIDLabelType.name, UUIDLabelType.verbose_name
-#         ABID = ABIDLabelType.name, ABIDLabelType.verbose_name
-#         URI = URILabelType.name, URILabelType.verbose_name
-#         TAG = TagLabelType.name, TagLabelType.verbose_name
-#         TIMESTAMP = TimestampLabelType.name, TimestampLabelType.verbose_name
-#
-#     id = models.CharField(max_length=255, primary_key=True, null=False, blank=False, db_index=True)
-#     reftype = models.CharField(choices=RefTypeChoices.choices, default=RefTypeChoices.ABID, max_length=32)
-#
-#     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-#     object_id = models.UUIDField(default=None, null=False, editable=False)
-#     content_object = GenericForeignKey("content_type", "object_id")
-#
-#     @property
-#     def created_by(self) -> User:
-#         return self.content_object.created_by
-#
-#     @property
-#     def created_by_id(self) -> int:
-#         return self.content_object.created_by_id
-#
-#     @created_by.setter
-#     def created_by(self, value: User) -> None:
-#         self.content_object.created_by = value
-#
-#     @created_by_id.setter
-#     def created_by_id(self, value: int) -> None:
-#         self.content_object.created_by_id = value
-#
-#     @property
-#     def abid_prefix(self) -> str:
-#         return self.content_object.abid_prefix
-#
-#     @property
-#     def ABID(self) -> ABID:
-#         return ABID.parse(self.abid_prefix + self.abid.split('_', 1)[-1])
-#
-#     def __str__(self):
-#         return self.tag
-#
-#     class Meta:
-#         indexes = [
-#             models.Index(fields=["content_type", "object_id"]),
-#         ]
-#
-# class ModelWithLabels(models.Model):
-#     labels = GenericRelation(Label)
-#
-#     def UUID(self) -> uuid4.UUID:
-#         return uuid4.UUID(self.labels.filter(reftype=Label.RefTypeChoices.UUID).first().id)
-#
-#     def ABID(self) -> ABID:
-#         return ABID.parse(self.labels.filter(reftype=Label.RefTypeChoices.ABID).first().id)
+class ModelWithUUID(ModelWithReadOnlyFields, ModelWithKVTags):
+    
+    read_only_fields = ('id', 'created_at')
+    
+    id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
+    created_at = AutoDateTimeField(default=None, null=False, db_index=True)
+    
+    class Meta(TypedModelMeta):
+        abstract = True
+    
+    default_json_keys: ClassVar[tuple[str, ...]] = (
+        'TYPE',
+        'id',
+        'abid',
+        'str',
+        'modified_at',
+        'created_at',
+        'created_by_id',
+        'status',
+        'retry_at',
+        'notes',
+    )
+    
+    @classmethod
+    def from_dict(cls, fields: dict[str, Any]) -> Self:
+        init_kwargs = {k: v for k, v in fields.items() if hasattr(cls, k)}
+        return cls(**init_kwargs)
+    
+    def update(self, **kwargs) -> None:
+        """Update the object's properties from a dict"""
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+        self.save()
+    
+    def as_json(self, keys: Iterable[str]=()) -> dict:
+        """Get the object's properties as a dict"""
+        return benedict({
+            key: getattr(self, key)
+            for key in (keys or self.default_json_keys)
+            if hasattr(self, key)
+        })
+        
+    @classproperty
+    def TYPE(cls) -> str:
+        """Get the full Python dotted-import path for this model, e.g. 'core.models.Snapshot'"""
+        return f'{cls.__module__}.{cls.__name__}'
+        
+    @property
+    def admin_change_url(self) -> str:
+        """get the admin URL e.g. /admin/core/snapshot/abcd-1234-1234-asdfjkl23jsdf4/change/"""
+        return f"/admin/{self._meta.app_label}/{self._meta.model_name}/{self.pk}/change/"
 
 
-class ABIDModel(models.Model):
+class ModelWithSerializers(ModelWithUUID):
+    
+    def as_csv_row(self, keys: Iterable[str]=(), separator: str=',') -> str:
+        """Get the object's properties as a csv string"""
+        keys = keys or self.as_json().keys()
+        # return separator.join(
+        #     str(getattr(self, key, ''))
+        #     for key in keys
+        # )
+        # use real csv lib instead:
+        buffer = io.StringIO()
+        csv_writer = csv.writer(buffer, delimiter=separator)
+        csv_writer.writerow(
+            str(getattr(self, key, ''))
+            for key in keys
+        )
+        return buffer.getvalue()
+
+    def as_jsonl_row(self, keys: Iterable[str]=(), **json_kwargs) -> str:
+        """Get the object's properties as a jsonl string"""
+        keys = keys or self.as_json().keys()
+        return json.dumps({
+            key: getattr(self, key, '')
+            for key in keys
+        }, **{'sort_keys': True, 'indent': None, **json_kwargs})
+
+    def as_html_icon(self) -> str:
+        """Get a representation of this object as a simple html <img> tag or emoji"""
+        # render snapshot_detail.html template with self as context and return html string
+        return DEFAULT_ICON
+    
+    def as_html_row(self) -> str:
+        """Get a representation of this object as a static html table <tr>...</tr> string"""
+        # render snapshot_detail.html template with self as context and return html string
+        # TODO: replace with a real django template
+        return f'<tr><td>{self.as_html_icon()}</td><td>{self.as_csv_row()}</td></tr>'
+    
+    def as_html_embed(self) -> str:
+        """Get a representation of this object suitable for embedding inside a roughly 400x300px iframe"""
+        # render snapshot_detail.html template with self as context and return html string
+        # TODO: replace with a real django template
+        return f'{self.as_html_row()}'
+    
+    def as_html_fullpage(self) -> str:
+        """Get a static html page representation of this object"""
+        # TODO: replace with a real django template
+        return f'''
+            <html>
+                <head>
+                    <title>{self}</title>
+                </head>
+                <body>
+                    <header>
+                        <h1>{self}</h1>
+                        <pre>{self.as_jsonl_row()}</pre>
+                    </header>
+                    <hr/>
+                    <article>
+                        {self.as_html_embed()}
+                    </article>
+                </body>
+            </html>
+        '''
+
+
+class ABIDModel(ModelWithReadOnlyFields, ModelWithUUID):
     """
     Abstract Base Model for other models to depend on. Provides ArchiveBox ID (ABID) interface and other helper methods.
     """
@@ -173,46 +258,24 @@ class ABIDModel(models.Model):
     abid_uri_src = 'None'                            # e.g. 'self.uri'                (MUST BE SET)
     abid_subtype_src = 'self.__class__.__name__'     # e.g. 'self.extractor'
     abid_rand_src = 'self.id'                        # e.g. 'self.uuid' or 'self.id'
-    abid_salt: str = DEFAULT_ABID_URI_SALT           # combined with self.uri to anonymize hashes on a per-install basis (default is shared globally with all users, means everyone will hash ABC to -> 123 the same around the world, makes it easy to share ABIDs across installs and see if they are for the same URI. Change this if you dont want your hashes to be guessable / in the same hash space as all other users)
+    
     abid_drift_allowed: bool = False                 # set to True to allow abid_field values to change after a fixed ABID has been issued (NOT RECOMMENDED: means values can drift out of sync from original ABID)
+    abid_salt: str = DEFAULT_ABID_URI_SALT           # combined with self.uri to anonymize hashes on a per-install basis (default is shared globally with all users, means everyone will hash ABC to -> 123 the same around the world, makes it easy to share ABIDs across installs and see if they are for the same URI. Change this if you dont want your hashes to be guessable / in the same hash space as all other users)
 
+    # **all abid_*_src fields listed above should be in read_only_fields!
+    read_only_fields = ('id', 'abid', 'created_at', 'created_by')
+    
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
-
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, db_index=True)
     created_at = AutoDateTimeField(default=None, null=False, db_index=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
-    
-    # labels = GenericRelation(Label)
-    
-    # if ModelWithNotesMixin model:
-    #   notes = models.TextField(blank=True, null=False, default='', help_text='Any extra notes this snapshot should have')
-    
-    # if StateMachineMixin model:
-    #   retry_at = models.DateTimeField(default=None, null=True, db_index=True)
-    #   status = models.CharField(max_length=16, choices=StatusChoices.choices, default=StatusChoices.QUEUED)
-    #
-    #   StatusChoices: ClassVar[Type[DefaultStatusChoices]] = DefaultStatusChoices
-    #   state_machine_attr: ClassVar[str]      = 'sm'
-    #   state_machine_name: ClassVar[str]      = 'core.statemachines.ArchiveResultMachine'
-    #   retry_at_field_name: ClassVar[str]     = 'retry_at'
-    #   state_field_name: ClassVar[str]        = 'status'
-    #   active_state: ClassVar[str]            = StatusChoices.STARTED
-    
-    # if ModelWithHealthStats model:
-    #   num_uses_failed = models.PositiveIntegerField(default=0)
-    #   num_uses_succeeded = models.PositiveIntegerField(default=0)
     
     _prefetched_objects_cache: Dict[str, Any]
 
     class Meta(TypedModelMeta):
         abstract = True
 
-    @classproperty
-    def TYPE(cls) -> str:
-        """Get the full Python dotted-import path for this model, e.g. 'core.models.Snapshot'"""
-        return f'{cls.__module__}.{cls.__name__}'
-    
     @admin.display(description='Summary')
     def __str__(self) -> str:
         return f'[{self.abid or (self.abid_prefix + "NEW")}] {self.__class__.__name__} {eval(self.abid_uri_src)}'
@@ -227,15 +290,29 @@ class ABIDModel(models.Model):
         # (ordinarily fields cant depend on other fields until the obj is saved to db and recalled)
         self._init_timestamp = ts_from_abid(abid_part_from_ts(timezone.now()))
 
-    def check(self):
-        super().check()
-        assert 'id' in self._meta.get_fields(), 'All ABIDModel subclasses must define an id field'
-        assert 'abid' in self._meta.get_fields(), 'All ABIDModel subclasses must define an abid field'
-        assert 'created_at' in self._meta.get_fields(), 'All ABIDModel subclasses must define a created_at field'
-        assert 'modified_at' in self._meta.get_fields(), 'All ABIDModel subclasses must define a modified_at field'
-        assert 'created_by' in self._meta.get_fields(), 'All ABIDModel subclasses must define a created_by field'
+    @classmethod
+    def check(cls, **kwargs):
+        errors = super().check(**kwargs)
+        
+        try:
+            assert hasattr(cls, 'id'), f'{cls.__name__}: All ABIDModel subclasses must define an id field'
+            assert hasattr(cls, 'abid'), f'{cls.__name__}: All ABIDModel subclasses must define an abid field'
+            assert hasattr(cls, 'created_at'), f'{cls.__name__}: All ABIDModel subclasses must define a created_at field'
+            assert hasattr(cls, 'modified_at'), f'{cls.__name__}: All ABIDModel subclasses must define a modified_at field'
+            assert hasattr(cls, 'created_by'), f'{cls.__name__}: All ABIDModel subclasses must define a created_by field'
+        except AssertionError as e:
+            errors.append(checks.Error(
+                str(e),
+                # hint='...',
+                obj=cls,
+                id=f"{cls.__module__}.{cls.__name__}.E001",
+            ))
+        return errors
 
     def clean(self, abid_drift_allowed: bool | None=None) -> None:
+        # TODO: ideally issuing new ABIDs should be farmed out to a separate service that makes sure they're all unique and monotonic
+        # but for now this works and is much faster, we just calculate ABID on first save, and warn if updating any fields would ever invalidate it
+        
         if self._state.adding:
             # only runs once when a new object is first saved to the DB
             # sets self.id, self.pk, self.created_by, self.created_at, self.modified_at
@@ -362,6 +439,8 @@ class ABIDModel(models.Model):
     def issue_new_abid(self, overwrite=False) -> ABID:
         """
         Issue a new ABID based on the current object's properties, can only be called once on new objects (before they are saved to DB).
+        TODO: eventually we should move this to a separate service that makes sure they're all unique and monotonic
+        perhaps it could be moved to a KVTag as well, and we could just use the KVTag service + Events to issue new ABIDs
         """
         if not overwrite:
             assert self._state.adding, 'Can only issue new ABID when model._state.adding is True'
@@ -373,7 +452,7 @@ class ABIDModel(models.Model):
         self.pk = self.id
         self.created_at = self.created_at or self._init_timestamp  # cut off precision to match precision of TS component
         self.modified_at = self.modified_at or self.created_at
-        self.created_by_id = (hasattr(self, 'created_by_id') and self.created_by_id) or get_or_create_system_user_pk()
+        self.created_by_id = getattr(self, 'created_by_id', None) or get_or_create_system_user_pk()
         
         # Compute fresh ABID values & hashes based on object's live properties
         abid_fresh_values = self.ABID_FRESH_VALUES
@@ -444,18 +523,24 @@ class ABIDModel(models.Model):
         """
         return f'/api/v1/docs#/{self._meta.app_label.title()}%20Models/api_v1_{self._meta.app_label}_get_{self._meta.db_table}'
 
-    @property
-    def admin_change_url(self) -> str:
-        return f"/admin/{self._meta.app_label}/{self._meta.model_name}/{self.pk}/change/"
-
-    def get_absolute_url(self):
-        return self.api_docs_url
     
-    def update_for_workers(self, **update_kwargs) -> bool:
-        """Immediately update the **kwargs on the object in DB, and reset the retry_at to now()"""
-        updated = bool(self._meta.model.objects.filter(pk=self.pk).update(**{'retry_at': timezone.now(), **update_kwargs}))
-        self.refresh_from_db()
-        return updated
+
+    
+# class ModelWithStateMachine(models.Model):
+#     ... see workers/models.py ...
+#     retry_at = models.DateTimeField(default=None, null=True, db_index=True)
+#     status = models.CharField(max_length=16, choices=StatusChoices.choices, default=StatusChoices.QUEUED)
+
+
+class ModelWithNotes(models.Model):
+    """
+    Very simple Model that adds a notes field to any model.
+    """
+    # label = models.CharField(max_length=63, blank=True, null=False, default='', help_text='A custom label for this object')
+    notes = models.TextField(blank=True, null=False, default='', help_text='Any extra extra custom notes')
+    
+    class Meta:
+        abstract = True
 
 
 class ModelWithHealthStats(models.Model):
@@ -465,15 +550,15 @@ class ModelWithHealthStats(models.Model):
     class Meta:
         abstract = True
     
-    def record_health_failure(self) -> None:
+    def increment_num_uses_failed(self) -> None:
         self.num_uses_failed += 1
         self.save()
 
-    def record_health_success(self) -> None:
+    def increment_num_uses_succeeded(self) -> None:
         self.num_uses_succeeded += 1
         self.save()
         
-    def reset_health(self) -> None:
+    def reset_health_counts(self) -> None:
         # move all the failures to successes when resetting so we dont lose track of the total count
         self.num_uses_succeeded = self.num_uses_failed + self.num_uses_succeeded
         self.num_uses_failed = 0
@@ -486,7 +571,7 @@ class ModelWithHealthStats(models.Model):
         return round(success_pct)
 
 
-class ModelWithConfig(ABIDModel):
+class ModelWithConfig(models.Model):
     """
     Base Model that adds a config property to any ABIDModel.
     This config is retrieved by abx.pm.hook.get_scope_config(...) later whenever this model is used.
@@ -509,7 +594,7 @@ class ModelWithConfig(ABIDModel):
     #     }
 
 
-class ModelWithOutputDir(ABIDModel):
+class ModelWithOutputDir(ModelsWithSerializers, ModelWithUUID, ABIDModel):
     """
     Base Model that adds an output_dir property to any ABIDModel.
     
@@ -556,37 +641,36 @@ class ModelWithOutputDir(ABIDModel):
     @property
     def OUTPUT_DIR(self) -> Path:
         """Get absolute filesystem directory Path that holds that data for this object e.g. Path('/data/snapshots/snp_2342353k2jn3j32l4324')"""
-        from archivebox import DATA_DIR
         return DATA_DIR / self.output_dir_str        # e.g. /data/snapshots/snp_2342353k2jn3j32l4324
         
     def write_indexes(self):
         """Write the Snapshot json, html, and merkle indexes to its output dir"""
         print(f'{type(self).__name__}[{self.ABID}].write_indexes()')
         self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        self.migrate_output_dir()
+        # self.migrate_output_dir()
         self.save_merkle_index()
         self.save_html_index()
         self.save_symlinks_index()
         
-    def migrate_output_dir(self):
-        """Move the output files to the new folder structure if needed"""
-        print(f'{type(self).__name__}[{self.ABID}].migrate_output_dir()')
-        self.migrate_from_0_7_2()
-        self.migrate_from_0_8_6()
-        # ... future migrations here
+    # def migrate_output_dir(self):
+    #     """Move the output files to the new folder structure if needed"""
+    #     print(f'{type(self).__name__}[{self.ABID}].migrate_output_dir()')
+    #     self.migrate_from_0_7_2()
+    #     self.migrate_from_0_8_6()
+    #     # ... future migrations here
     
-    def migrate_from_0_7_2(self) -> None:
-        """Migrate output_dir generated by ArchiveBox <= 0.7.2 to current version"""
-        print(f'{type(self).__name__}[{self.ABID}].migrate_from_0_7_2()')
-        # move /data/archive/<timestamp> -> /data/archive/snapshots/<abid>
-        # update self.output_path = /data/archive/snapshots/<abid>
-        pass
+    # def migrate_from_0_7_2(self) -> None:
+    #     """Migrate output_dir generated by ArchiveBox <= 0.7.2 to current version"""
+    #     print(f'{type(self).__name__}[{self.ABID}].migrate_from_0_7_2()')
+    #     # move /data/archive/<timestamp> -> /data/archive/snapshots/<abid>
+    #     # update self.output_path = /data/archive/snapshots/<abid>
+    #     pass
     
-    def migrate_from_0_8_6(self) -> None:
-        """Migrate output_dir generated by ArchiveBox <= 0.8.6 to current version"""
-        # ... future migration code here ...
-        print(f'{type(self).__name__}[{self.ABID}].migrate_from_0_8_6()')
-        pass
+    # def migrate_from_0_8_6(self) -> None:
+    #     """Migrate output_dir generated by ArchiveBox <= 0.8.6 to current version"""
+    #     # ... future migration code here ...
+    #     print(f'{type(self).__name__}[{self.ABID}].migrate_from_0_8_6()')
+    #     pass
 
     def save_merkle_index(self, **kwargs) -> None:
         """Write the ./.index.merkle file to the output dir"""
@@ -603,11 +687,13 @@ class ModelWithOutputDir(ABIDModel):
         (self.OUTPUT_DIR / 'index.html').write_text(self.as_html())
     
     def save_json_index(self, **kwargs) -> None:
+        """Save a JSON dump of the object to the output dir"""
         print(f'{type(self).__name__}[{self.ABID}].save_json_index()')
         # write self.as_json() to self.output_dir / 'index.json'
         (self.OUTPUT_DIR / 'index.json').write_text(to_json(self.as_json()))
     
     def save_symlinks_index(self) -> None:
+        """Set up the symlink farm pointing to this object's data"""
         print(f'{type(self).__name__}[{self.ABID}].save_symlinks_index()')
         # ln -s ../../../../self.output_dir data/index/snapshots_by_date/2024-01-01/example.com/<abid>
         # ln -s ../../../../self.output_dir data/index/snapshots_by_domain/example.com/2024-01-01/<abid>
@@ -693,10 +779,12 @@ def find_model_from_abid(abid: ABID) -> type[models.Model] | None:
 
 def find_obj_from_abid_rand(rand: Union[ABID, str], model=None) -> List[ABIDModel]:
     """
+    This is a huge hack and should only be used for debugging, never use this in real code / expose this to users.
+    
     Find an object corresponding to an ABID by exhaustively searching using its random suffix (slow).
     e.g. 'obj_....................JYRPAQ' -> Snapshot('snp_01BJQMF54D093DXEAWZ6JYRPAQ')
-    Honestly should only be used for debugging, no reason to expose this ability to users.
     """
+    raise Exception('THIS FUNCTION IS FOR DEBUGGING ONLY, comment this line out temporarily when you need to use it, but dont commit it!')
 
     # convert str to ABID if necessary
     if isinstance(rand, ABID):
@@ -782,4 +870,6 @@ def find_obj_from_abid(abid: ABID, model=None, fuzzy=False) -> Any:
         return match_by_rand
 
     raise model.DoesNotExist
+
+
 
