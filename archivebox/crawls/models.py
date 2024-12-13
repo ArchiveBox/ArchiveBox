@@ -12,7 +12,7 @@ from django.urls import reverse_lazy
 from django.utils import timezone
 
 from archivebox.config import CONSTANTS
-from archivebox.base_models.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats, get_or_create_system_user_pk
+from base_models.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats, get_or_create_system_user_pk
 
 from workers.models import ModelWithStateMachine
 
@@ -21,7 +21,8 @@ if TYPE_CHECKING:
 
 
 
-class Seed(ABIDModel, ModelWithHealthStats):
+
+class Seed(ModelWithReadOnlyFields, ModelWithSerializers, ModelWithUUID, ModelWithKVTags, ABIDModel, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats):
     """
     A fountain that produces URLs (+metadata) each time it's queried e.g.
         - file:///data/sources/2024-01-02_11-57-51__cli_add.txt
@@ -42,6 +43,40 @@ class Seed(ABIDModel, ModelWithHealthStats):
     stateful remote services, files with contents that change, directories that have new files within, etc.
     """
     
+    ### ModelWithReadOnlyFields:
+    read_only_fields = ('id', 'abid', 'created_at', 'created_by', 'uri')
+    
+    ### Immutable fields
+    id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
+    abid = ABIDField(prefix=abid_prefix)
+    created_at = AutoDateTimeField(default=None, null=False, db_index=True)                  # unique source location where URLs will be loaded from
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
+    
+    ### Mutable fields:
+    extractor = models.CharField(default='auto', max_length=32, help_text='The parser / extractor to use to load URLs from this source (default: auto)')
+    tags_str = models.CharField(max_length=255, null=False, blank=True, default='', help_text='An optional comma-separated list of tags to attach to any URLs that come from this source')
+    label = models.CharField(max_length=255, null=False, blank=True, default='', help_text='A human-readable label for this seed')
+    modified_at = models.DateTimeField(auto_now=True)
+
+    ### ModelWithConfig:
+    config = models.JSONField(default=dict, help_text='An optional JSON object containing extra config to put in scope when loading URLs from this source')
+
+    ### ModelWithOutputDir:
+    output_dir = models.CharField(max_length=255, null=False, blank=True, default='', help_text='The directory to store the output of this seed')
+
+    ### ModelWithNotes:
+    notes = models.TextField(blank=True, null=False, default='', help_text='Any extra notes this seed should have')
+
+    ### ModelWithKVTags:
+    tag_set = GenericRelation(
+        KVTag,
+        related_query_name="seed",
+        content_type_field="obj_type",
+        object_id_field="obj_id",
+        order_by=('name',),
+    )
+    
+    ### ABIDModel:
     abid_prefix = 'src_'
     abid_ts_src = 'self.created_at'
     abid_uri_src = 'self.uri'
@@ -49,29 +84,14 @@ class Seed(ABIDModel, ModelWithHealthStats):
     abid_rand_src = 'self.id'
     abid_drift_allowed = True
     
-    id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
-    abid = ABIDField(prefix=abid_prefix)
-    
-    uri = models.URLField(max_length=2000, blank=False, null=False)                          # unique source location where URLs will be loaded from
-    label = models.CharField(max_length=255, null=False, blank=True, default='', help_text='A human-readable label for this seed')
-    notes = models.TextField(blank=True, null=False, default='', help_text='Any extra notes this seed should have')
-    
-    extractor = models.CharField(default='auto', max_length=32, help_text='The parser / extractor to use to load URLs from this source (default: auto)')
-    tags_str = models.CharField(max_length=255, null=False, blank=True, default='', help_text='An optional comma-separated list of tags to attach to any URLs that come from this source')
-    config = models.JSONField(default=dict, help_text='An optional JSON object containing extra config to put in scope when loading URLs from this source')
-    
-    created_at = AutoDateTimeField(default=None, null=False, db_index=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False)
-
-
+    ### Managers:
     crawl_set: models.Manager['Crawl']
 
     class Meta:
         verbose_name = 'Seed'
         verbose_name_plural = 'Seeds'
         
-        unique_together = (('created_by', 'uri', 'extractor'),)
+        unique_together = (('created_by', 'uri', 'extractor'),('created_by', 'label'))
 
 
     @classmethod
@@ -122,35 +142,48 @@ class Seed(ABIDModel, ModelWithHealthStats):
 
 
 
-
-class CrawlSchedule(ABIDModel, ModelWithHealthStats):
+class CrawlSchedule(ModelWithReadOnlyFields, ModelWithSerializers, ModelWithUUID, ModelWithKVTags, ABIDModel, ModelWithNotes, ModelWithHealthStats):
     """
     A record for a job that should run repeatedly on a given schedule.
     
     It pulls from a given Seed and creates a new Crawl for each scheduled run.
     The new Crawl will inherit all the properties of the crawl_template Crawl.
     """
-    abid_prefix = 'cws_'
-    abid_ts_src = 'self.created_at'
-    abid_uri_src = 'self.created_by_id'
-    abid_subtype_src = 'self.schedule'
-    abid_rand_src = 'self.id'
+    ### ModelWithReadOnlyFields:
+    read_only_fields = ('id', 'abid', 'created_at', 'created_by', 'template_id')
     
+    ### Immutable fields:
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
-    
-    schedule = models.CharField(max_length=64, blank=False, null=False, help_text='The schedule to run this crawl on in CRON syntax e.g. 0 0 * * * (see https://crontab.guru/)')
-    label = models.CharField(max_length=64, blank=True, null=False, default='', help_text='A human-readable label for this scheduled crawl')
-    notes = models.TextField(blank=True, null=False, default='', help_text='Any extra notes this crawl should have')
-    
+    created_at = AutoDateTimeField(default=None, null=False, db_index=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
     template: 'Crawl' = models.ForeignKey('Crawl', on_delete=models.CASCADE, null=False, blank=False, help_text='The base crawl that each new scheduled job should copy as a template')  # type: ignore
     
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False)
-    created_at = AutoDateTimeField(default=None, null=False, db_index=True)
+    ### Mutable fields
+    schedule = models.CharField(max_length=64, blank=False, null=False, help_text='The schedule to run this crawl on in CRON syntax e.g. 0 0 * * * (see https://crontab.guru/)')
+    is_enabled = models.BooleanField(default=True)
+    label = models.CharField(max_length=64, blank=True, null=False, default='', help_text='A human-readable label for this scheduled crawl')
+    notes = models.TextField(blank=True, null=False, default='', help_text='Any extra notes this crawl should have')
     modified_at = models.DateTimeField(auto_now=True)
     
-    is_enabled = models.BooleanField(default=True)
+    ### ModelWithKVTags:
+    tag_set = GenericRelation(
+        KVTag,
+        related_query_name="crawlschedule",
+        content_type_field="obj_type",
+        object_id_field="obj_id",
+        order_by=('name',),
+    )
     
+    ### ABIDModel:
+    abid_prefix = 'cws_'
+    abid_ts_src = 'self.created_at'
+    abid_uri_src = 'self.template.seed.uri'
+    abid_subtype_src = 'self.template.persona'
+    abid_rand_src = 'self.id'
+    abid_drift_allowed = True
+    
+    ### Managers:
     crawl_set: models.Manager['Crawl']
     
     class Meta(TypedModelMeta):
@@ -189,9 +222,44 @@ class CrawlSchedule(ABIDModel, ModelWithHealthStats):
         return Snapshot.objects.filter(crawl_id__in=crawl_ids)
     
 
-    
+class CrawlManager(models.Manager):
+    pass
 
-class Crawl(ABIDModel, ModelWithHealthStats, ModelWithStateMachine):
+class CrawlQuerySet(models.QuerySet):
+    """
+    Enhanced QuerySet for Crawl that adds some useful methods.
+    
+    To get all the snapshots for a given set of Crawls:
+        Crawl.objects.filter(seed__uri='https://example.com/some/rss.xml').snapshots() -> QuerySet[Snapshot]
+    
+    To get all the archiveresults for a given set of Crawls:
+        Crawl.objects.filter(seed__uri='https://example.com/some/rss.xml').archiveresults() -> QuerySet[ArchiveResult]
+    
+    To export the list of Crawls as a CSV or JSON:
+        Crawl.objects.filter(seed__uri='https://example.com/some/rss.xml').export_as_csv() -> str
+        Crawl.objects.filter(seed__uri='https://example.com/some/rss.xml').export_as_json() -> str
+    """
+    def snapshots(self, **filter_kwargs) -> QuerySet['Snapshot']:
+        return Snapshot.objects.filter(crawl_id__in=self.values_list('pk', flat=True), **filter_kwargs)
+    
+    def archiveresults(self) -> QuerySet['ArchiveResult']:
+        return ArchiveResult.objects.filter(snapshot__crawl_id__in=self.values_list('pk', flat=True))
+    
+    def as_csv_str(self, keys: Iterable[str]=()) -> str:
+        return '\n'.join(
+            row.as_csv(keys=keys)
+            for row in self.all()
+        )
+    
+    def as_jsonl_str(self, keys: Iterable[str]=()) -> str:
+        return '\n'.join([
+            row.as_jsonl_row(keys=keys)
+            for row in self.all()
+        ])
+
+
+
+class Crawl(ModelWithReadOnlyFields, ModelWithSerializers, ModelWithUUID, ModelWithKVTags, ABIDModel, ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWithStateMachine):
     """
     A single session of URLs to archive starting from a given Seed and expanding outwards. An "archiving session" so to speak.
 
@@ -201,6 +269,48 @@ class Crawl(ABIDModel, ModelWithHealthStats, ModelWithStateMachine):
     Every "Add" task triggered from the Web UI, CLI, or Scheduled Crawl should create a new Crawl with the seed set to a 
     file URI e.g. file:///sources/<date>_{ui,cli}_add.txt containing the user's input.
     """
+    
+    ### ModelWithReadOnlyFields:
+    read_only_fields = ('id', 'abid', 'created_at', 'created_by', 'seed')
+    
+    ### Immutable fields:
+    id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
+    abid = ABIDField(prefix=abid_prefix)
+    created_at = AutoDateTimeField(default=None, null=False, db_index=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
+    seed = models.ForeignKey(Seed, on_delete=models.PROTECT, related_name='crawl_set', null=False, blank=False)
+    
+    ### Mutable fields:
+    urls = models.TextField(blank=True, null=False, default='', help_text='The log of URLs discovered in this crawl, one per line, should be 1:1 with snapshot_set')
+    config = models.JSONField(default=dict)
+    max_depth = models.PositiveSmallIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(4)])
+    tags_str = models.CharField(max_length=1024, blank=True, null=False, default='')
+    persona_id = models.UUIDField(null=True, blank=True)  # TODO: replace with self.persona = models.ForeignKey(Persona, on_delete=models.SET_NULL, null=True, blank=True, editable=True)
+    label = models.CharField(max_length=64, blank=True, null=False, default='', help_text='A human-readable label for this crawl')
+    notes = models.TextField(blank=True, null=False, default='', help_text='Any extra notes this crawl should have')
+    schedule = models.ForeignKey(CrawlSchedule, on_delete=models.SET_NULL, null=True, blank=True, editable=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    
+    ### ModelWithKVTags:
+    tag_set = GenericRelation(
+        KVTag,
+        related_query_name="crawl",
+        content_type_field="obj_type",
+        object_id_field="obj_id",
+        order_by=('name',),
+    )
+    
+    ### ModelWithStateMachine:
+    state_machine_name = 'crawls.statemachines.CrawlMachine'
+    retry_at_field_name = 'retry_at'
+    state_field_name = 'status'
+    StatusChoices = ModelWithStateMachine.StatusChoices
+    active_state = StatusChoices.STARTED
+    
+    status = ModelWithStateMachine.StatusField(choices=StatusChoices, default=StatusChoices.QUEUED)
+    retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
+
+    ### ABIDModel:
     abid_prefix = 'cwl_'
     abid_ts_src = 'self.created_at'
     abid_uri_src = 'self.seed.uri'
@@ -208,41 +318,13 @@ class Crawl(ABIDModel, ModelWithHealthStats, ModelWithStateMachine):
     abid_rand_src = 'self.id'
     abid_drift_allowed = True
     
-    state_machine_name = 'crawls.statemachines.CrawlMachine'
-    retry_at_field_name = 'retry_at'
-    state_field_name = 'status'
-    StatusChoices = ModelWithStateMachine.StatusChoices
-    active_state = StatusChoices.STARTED
-    
-    id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
-    abid = ABIDField(prefix=abid_prefix)
-
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, related_name='crawl_set')
-    created_at = AutoDateTimeField(default=None, null=False, db_index=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    
-    status = ModelWithStateMachine.StatusField(choices=StatusChoices, default=StatusChoices.QUEUED)
-    retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
-
-    seed = models.ForeignKey(Seed, on_delete=models.PROTECT, related_name='crawl_set', null=False, blank=False)
-    urls = models.TextField(blank=True, null=False, default='', help_text='The log of URLs discovered in this crawl')
-    
-    label = models.CharField(max_length=64, blank=True, null=False, default='', help_text='A human-readable label for this crawl')
-    notes = models.TextField(blank=True, null=False, default='', help_text='Any extra notes this crawl should have')
-    
-    max_depth = models.PositiveSmallIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(4)])
-    tags_str = models.CharField(max_length=1024, blank=True, null=False, default='')
-    persona = models.CharField(max_length=32, blank=True, null=False, default='auto')
-    config = models.JSONField(default=dict)
-    
-    schedule = models.ForeignKey(CrawlSchedule, on_delete=models.SET_NULL, null=True, blank=True, editable=True)
-    
-    # crawler = models.CharField(choices=CRAWLER_CHOICES, default='breadth_first', max_length=32)
-    # tags = models.ManyToManyField(Tag, blank=True, related_name='crawl_set', through='CrawlTag')
-    # schedule = models.JSONField()
-    # config = models.JSONField()
-    
+    ### Managers:    
     snapshot_set: models.Manager['Snapshot']
+    
+    # @property
+    # def persona(self) -> Persona:
+    #     # TODO: replace with self.persona = models.ForeignKey(Persona, on_delete=models.SET_NULL, null=True, blank=True, editable=True)
+    #     return self.persona_id
     
 
     class Meta(TypedModelMeta):
@@ -305,7 +387,7 @@ class Crawl(ABIDModel, ModelWithHealthStats, ModelWithStateMachine):
             return Snapshot.objects.get(crawl=self, url=self.seed.uri)
         except Snapshot.DoesNotExist:
             pass
-  
+
         root_snapshot, _ = Snapshot.objects.update_or_create(
             crawl=self,
             url=self.seed.uri,
@@ -320,8 +402,10 @@ class Crawl(ABIDModel, ModelWithHealthStats, ModelWithStateMachine):
         return root_snapshot
 
 
-class Outlink(models.Model):
+class Outlink(ModelWithReadOnlyFields, ModelWithSerializers, ModelWithUUID, ModelWithKVTags):
     """A record of a link found on a page, pointing to another page."""
+    read_only_fields = ('id', 'src', 'dst', 'crawl', 'via')
+    
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     
     src = models.URLField()   # parent page where the outlink/href was found       e.g. https://example.com/downloads
