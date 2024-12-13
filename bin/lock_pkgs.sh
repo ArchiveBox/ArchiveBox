@@ -45,10 +45,10 @@ echo
 echo
 
 echo "[+] Generating dev & prod requirements.txt & pdm.lock from pyproject.toml..."
-uv venv --allow-existing --python 3.12
+uv venv --allow-existing --python 3.11
 source .venv/bin/activate
 echo
-echo "pyproject.toml:    archivebox $(grep 'version = ' pyproject.toml | awk '{print $3}' | jq -r)"
+echo "pyproject.toml:    archivebox $(grep 'version = ' pyproject.toml | head -n 1 | awk '{print $3}' | jq -r)"
 echo "$(which python):   $(python --version | head -n 1)"
 echo "$(which uv):       $(uv --version | head -n 1)"
 
