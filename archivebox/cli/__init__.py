@@ -37,6 +37,7 @@ class ArchiveBoxGroup(click.Group):
         'server': 'archivebox.cli.archivebox_server.main',
         'shell': 'archivebox.cli.archivebox_shell.main',
         'manage': 'archivebox.cli.archivebox_manage.main',
+        'worker': 'archivebox.cli.archivebox_worker.main',
     }
     all_subcommands = {
         **meta_commands,
