@@ -11,7 +11,7 @@ from rich import print
 
 from statemachine import State, StateMachine
 
-from workers.actor import ActorType
+# from workers.actor import ActorType
 
 from core.models import Snapshot, ArchiveResult
 
@@ -107,19 +107,19 @@ class SnapshotMachine(StateMachine, strict_states=True):
         )
 
 
-class SnapshotWorker(ActorType[Snapshot]):
-    """
-    The primary actor for progressing Snapshot objects
-    through their lifecycle using the SnapshotMachine.
-    """
-    Model = Snapshot
-    StateMachineClass = SnapshotMachine
+# class SnapshotWorker(ActorType[Snapshot]):
+#     """
+#     The primary actor for progressing Snapshot objects
+#     through their lifecycle using the SnapshotMachine.
+#     """
+#     Model = Snapshot
+#     StateMachineClass = SnapshotMachine
     
-    ACTIVE_STATE: ClassVar[State] = SnapshotMachine.started                    # 'started'
+#     ACTIVE_STATE: ClassVar[State] = SnapshotMachine.started                    # 'started'
     
-    MAX_CONCURRENT_ACTORS: ClassVar[int] = 3
-    MAX_TICK_TIME: ClassVar[int] = 10
-    CLAIM_FROM_TOP_N: ClassVar[int] = MAX_CONCURRENT_ACTORS * 10
+#     MAX_CONCURRENT_ACTORS: ClassVar[int] = 3
+#     MAX_TICK_TIME: ClassVar[int] = 10
+#     CLAIM_FROM_TOP_N: ClassVar[int] = MAX_CONCURRENT_ACTORS * 10
 
 
 
@@ -263,16 +263,16 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
         self.archiveresult.snapshot.update_for_workers()  # bump snapshot retry time so it picks up all the new changes
 
 
-class ArchiveResultWorker(ActorType[ArchiveResult]):
-    """
-    The primary actor for progressing ArchiveResult objects
-    through their lifecycle using the ArchiveResultMachine.
-    """
-    Model = ArchiveResult
-    StateMachineClass = ArchiveResultMachine
+# class ArchiveResultWorker(ActorType[ArchiveResult]):
+#     """
+#     The primary actor for progressing ArchiveResult objects
+#     through their lifecycle using the ArchiveResultMachine.
+#     """
+#     Model = ArchiveResult
+#     StateMachineClass = ArchiveResultMachine
     
-    ACTIVE_STATE: ClassVar[State] = ArchiveResultMachine.started                # 'started'
+#     ACTIVE_STATE: ClassVar[State] = ArchiveResultMachine.started                # 'started'
     
-    MAX_CONCURRENT_ACTORS: ClassVar[int] = 6
-    MAX_TICK_TIME: ClassVar[int] = 60
-    CLAIM_FROM_TOP_N: ClassVar[int] = MAX_CONCURRENT_ACTORS * 10
+#     MAX_CONCURRENT_ACTORS: ClassVar[int] = 6
+#     MAX_TICK_TIME: ClassVar[int] = 60
+#     CLAIM_FROM_TOP_N: ClassVar[int] = MAX_CONCURRENT_ACTORS * 10

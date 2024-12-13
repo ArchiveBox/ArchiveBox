@@ -9,7 +9,7 @@ from rich import print
 
 from statemachine import State, StateMachine
 
-from workers.actor import ActorType
+# from workers.actor import ActorType
 from crawls.models import Crawl
 
 
@@ -96,17 +96,17 @@ class CrawlMachine(StateMachine, strict_states=True):
         )
 
 
-class CrawlWorker(ActorType[Crawl]):
-    """The Actor that manages the lifecycle of all Crawl objects"""
+# class CrawlWorker(ActorType[Crawl]):
+#     """The Actor that manages the lifecycle of all Crawl objects"""
     
-    Model = Crawl
-    StateMachineClass = CrawlMachine
+#     Model = Crawl
+#     StateMachineClass = CrawlMachine
     
-    ACTIVE_STATE: ClassVar[State] = CrawlMachine.started
-    FINAL_STATES: ClassVar[list[State]] = CrawlMachine.final_states
-    STATE_FIELD_NAME: ClassVar[str] = Crawl.state_field_name
+#     ACTIVE_STATE: ClassVar[State] = CrawlMachine.started
+#     FINAL_STATES: ClassVar[list[State]] = CrawlMachine.final_states
+#     STATE_FIELD_NAME: ClassVar[str] = Crawl.state_field_name
     
-    MAX_CONCURRENT_ACTORS: ClassVar[int] = 3
-    MAX_TICK_TIME: ClassVar[int] = 10
-    CLAIM_FROM_TOP_N: ClassVar[int] = MAX_CONCURRENT_ACTORS * 10
+#     MAX_CONCURRENT_ACTORS: ClassVar[int] = 3
+#     MAX_TICK_TIME: ClassVar[int] = 10
+#     CLAIM_FROM_TOP_N: ClassVar[int] = MAX_CONCURRENT_ACTORS * 10
 

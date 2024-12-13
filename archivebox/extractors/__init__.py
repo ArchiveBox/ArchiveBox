@@ -249,16 +249,16 @@ def get_extractors(dir: Path=EXTRACTORS_DIR) -> Dict[str, ExtractorModuleProtoco
     """iterate through archivebox/extractors/*.py and load extractor modules"""
     EXTRACTORS = {}
 
-    for filename in EXTRACTORS_DIR.glob('*.py'):
-        if filename.name.startswith('__'):
-            continue
+    # for filename in EXTRACTORS_DIR.glob('*.py'):
+    #     if filename.name.startswith('__'):
+    #         continue
 
-        extractor_name = filename.name.replace('.py', '')
+    #     extractor_name = filename.name.replace('.py', '')
 
-        extractor_module = cast(ExtractorModuleProtocol, import_module(f'.{extractor_name}', package=__package__))
+    #     extractor_module = cast(ExtractorModuleProtocol, import_module(f'.{extractor_name}', package=__package__))
 
-        assert getattr(extractor_module, 'get_output_path')
-        EXTRACTORS[extractor_name] = extractor_module
+    #     # assert getattr(extractor_module, 'get_output_path')
+    #     EXTRACTORS[extractor_name] = extractor_module
 
     return EXTRACTORS
 
