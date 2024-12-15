@@ -1,155 +1,134 @@
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox'
-
 import os
 import sys
-import argparse
-
-from typing import Optional, Dict, List, IO, Union
-from pathlib import Path
-
-from ..config import OUTPUT_DIR, check_data_folder, check_migrations
-
 from importlib import import_module
 
-CLI_DIR = Path(__file__).resolve().parent
+import rich_click as click
+from rich import print
 
-# these common commands will appear sorted before any others for ease-of-use
-meta_cmds = ('help', 'version')                               # dont require valid data folder at all
-main_cmds = ('init', 'config', 'setup')                       # dont require existing db present
-archive_cmds = ('add', 'remove', 'update', 'list', 'status')  # require existing db present
-fake_db = ("oneshot",)                                        # use fake in-memory db
-
-display_first = (*meta_cmds, *main_cmds, *archive_cmds)
-
-# every imported command module must have these properties in order to be valid
-required_attrs = ('__package__', '__command__', 'main')
-
-# basic checks to make sure imported files are valid subcommands
-is_cli_module = lambda fname: fname.startswith('archivebox_') and fname.endswith('.py')
-is_valid_cli_module = lambda module, subcommand: (
-    all(hasattr(module, attr) for attr in required_attrs)
-    and module.__command__.split(' ')[-1] == subcommand
-)
+from archivebox.config.version import VERSION
 
 
-def list_subcommands() -> Dict[str, str]:
-    """find and import all valid archivebox_<subcommand>.py files in CLI_DIR"""
 
-    COMMANDS = []
-    for filename in os.listdir(CLI_DIR):
-        if is_cli_module(filename):
-            subcommand = filename.replace('archivebox_', '').replace('.py', '')
-            module = import_module('.archivebox_{}'.format(subcommand), __package__)
-            assert is_valid_cli_module(module, subcommand)
-            COMMANDS.append((subcommand, module.main.__doc__))
-            globals()[subcommand] = module.main
-
-    display_order = lambda cmd: (
-        display_first.index(cmd[0])
-        if cmd[0] in display_first else
-        100 + len(cmd[0])
-    )
-
-    return dict(sorted(COMMANDS, key=display_order))
+if '--debug' in sys.argv:
+    os.environ['DEBUG'] = 'True'
+    sys.argv.remove('--debug')
 
 
-def run_subcommand(subcommand: str,
-                   subcommand_args: List[str]=None,
-                   stdin: Optional[IO]=None,
-                   pwd: Union[Path, str, None]=None) -> None:
-    """Run a given ArchiveBox subcommand with the given list of args"""
+class ArchiveBoxGroup(click.Group):
+    """lazy loading click group for archivebox commands"""
+    meta_commands = {
+        'help': 'archivebox.cli.archivebox_help.main',
+        'version': 'archivebox.cli.archivebox_version.main',
+    }
+    setup_commands = {
+        'init': 'archivebox.cli.archivebox_init.main',
+        'install': 'archivebox.cli.archivebox_install.main',
+    }
+    archive_commands = {
+        'add': 'archivebox.cli.archivebox_add.main',
+        'remove': 'archivebox.cli.archivebox_remove.main',
+        'update': 'archivebox.cli.archivebox_update.main',
+        'search': 'archivebox.cli.archivebox_search.main',
+        'status': 'archivebox.cli.archivebox_status.main',
+        'config': 'archivebox.cli.archivebox_config.main',
+        'schedule': 'archivebox.cli.archivebox_schedule.main',
+        'server': 'archivebox.cli.archivebox_server.main',
+        'shell': 'archivebox.cli.archivebox_shell.main',
+        'manage': 'archivebox.cli.archivebox_manage.main',
+        'worker': 'archivebox.cli.archivebox_worker.main',
+    }
+    all_subcommands = {
+        **meta_commands,
+        **setup_commands,
+        **archive_commands,
+    }
+    renamed_commands = {
+        'setup': 'install',
+        'list': 'search',
+        'import': 'add',
+        'archive': 'add',
+        'export': 'search',
+    }
+    
+    @classmethod
+    def get_canonical_name(cls, cmd_name):
+        return cls.renamed_commands.get(cmd_name, cmd_name)
+    
 
-    subcommand_args = subcommand_args or []
+    def get_command(self, ctx, cmd_name):
+        # handle renamed commands
+        if cmd_name in self.renamed_commands:
+            new_name = self.renamed_commands[cmd_name]
+            print(f' [violet]Hint:[/violet] `archivebox {cmd_name}` has been renamed to `archivebox {new_name}`')
+            cmd_name = new_name
+            ctx.invoked_subcommand = cmd_name
+        
+        # handle lazy loading of commands
+        if cmd_name in self.all_subcommands:
+            return self._lazy_load(cmd_name)
+        
+        # fall-back to using click's default command lookup
+        return super().get_command(ctx, cmd_name)
 
-    if subcommand not in meta_cmds:
-        from ..config import setup_django
-
-        cmd_requires_db = subcommand in archive_cmds
-        init_pending = '--init' in subcommand_args or '--quick-init' in subcommand_args
-
-        if cmd_requires_db:
-            check_data_folder(pwd)
-
-        setup_django(in_memory_db=subcommand in fake_db, check_db=cmd_requires_db and not init_pending)
-
-        if cmd_requires_db:
-            check_migrations()
-
-    module = import_module('.archivebox_{}'.format(subcommand), __package__)
-    module.main(args=subcommand_args, stdin=stdin, pwd=pwd)    # type: ignore
-
-
-SUBCOMMANDS = list_subcommands()
-
-class NotProvided:
-    pass
-
-
-def main(args: Optional[List[str]]=NotProvided, stdin: Optional[IO]=NotProvided, pwd: Optional[str]=None) -> None:
-    args = sys.argv[1:] if args is NotProvided else args
-    stdin = sys.stdin if stdin is NotProvided else stdin
-
-    subcommands = list_subcommands()
-    parser = argparse.ArgumentParser(
-        prog=__command__,
-        description='ArchiveBox: The self-hosted internet archive',
-        add_help=False,
-    )
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument(
-        '--help', '-h',
-        action='store_true',
-        help=subcommands['help'],
-    )
-    group.add_argument(
-        '--version',
-        action='store_true',
-        help=subcommands['version'],
-    )
-    group.add_argument(
-        "subcommand",
-        type=str,
-        help= "The name of the subcommand to run",
-        nargs='?',
-        choices=subcommands.keys(),
-        default=None,
-    )
-    parser.add_argument(
-        "subcommand_args",
-        help="Arguments for the subcommand",
-        nargs=argparse.REMAINDER,
-    )
-    command = parser.parse_args(args or ())
-
-    if command.version:
-        command.subcommand = 'version'
-    elif command.help or command.subcommand is None:
-        command.subcommand = 'help'
-
-    if command.subcommand not in ('help', 'version', 'status'):
-        from ..logging_util import log_cli_command
-
-        log_cli_command(
-            subcommand=command.subcommand,
-            subcommand_args=command.subcommand_args,
-            stdin=stdin,
-            pwd=pwd or OUTPUT_DIR
-        )
-
-    run_subcommand(
-        subcommand=command.subcommand,
-        subcommand_args=command.subcommand_args,
-        stdin=stdin,
-        pwd=pwd or OUTPUT_DIR,
-    )
+    @classmethod
+    def _lazy_load(cls, cmd_name):
+        import_path = cls.all_subcommands[cmd_name]
+        modname, funcname = import_path.rsplit('.', 1)
+        
+        # print(f'LAZY LOADING {import_path}')
+        mod = import_module(modname)
+        func = getattr(mod, funcname)
+        
+        if not hasattr(func, '__doc__'):
+            raise ValueError(f'lazy loading of {import_path} failed - no docstring found on method')
+        
+        # if not isinstance(cmd, click.BaseCommand):
+            # raise ValueError(f'lazy loading of {import_path} failed - not a click command')
+            
+        return func
 
 
-__all__ = (
-    'SUBCOMMANDS',
-    'list_subcommands',
-    'run_subcommand',
-    *SUBCOMMANDS.keys(),
-)
+@click.group(cls=ArchiveBoxGroup, invoke_without_command=True)
+@click.option('--help', '-h', is_flag=True, help='Show help')
+@click.version_option(VERSION, '-v', '--version', package_name='archivebox', message='%(version)s')
+@click.pass_context
+def cli(ctx, help=False):
+    """ArchiveBox: The self-hosted internet archive"""
+    
+    subcommand = ArchiveBoxGroup.get_canonical_name(ctx.invoked_subcommand)
+    
+    # if --help is passed or no subcommand is given, show custom help message
+    if help or ctx.invoked_subcommand is None:
+        ctx.invoke(ctx.command.get_command(ctx, 'help'))
+    
+    # if the subcommand is in the archive_commands dict and is not 'manage',
+    # then we need to set up the django environment and check that we're in a valid data folder
+    if subcommand in ArchiveBoxGroup.archive_commands:
+        # print('SETUP DJANGO AND CHECK DATA FOLDER')
+        try:
+            from archivebox.config.django import setup_django
+            from archivebox.misc.checks import check_data_folder
+            setup_django()
+            check_data_folder()
+        except Exception as e:
+            print(f'[red][X] Error setting up Django or checking data folder: {e}[/red]', file=sys.stderr)
+            if subcommand not in ('manage', 'shell'):   # not all management commands need django to be setup beforehand
+                raise
+            
+
+def main(args=None, prog_name=None):
+    # show `docker run archivebox xyz` in help messages if running in docker
+    IN_DOCKER = os.environ.get('IN_DOCKER', False) in ('1', 'true', 'True', 'TRUE', 'yes')
+    IS_TTY = sys.stdin.isatty()
+    prog_name = prog_name or (f'docker compose run{"" if IS_TTY else " -T"} archivebox' if IN_DOCKER else 'archivebox')
+
+    try:
+        cli(args=args, prog_name=prog_name)
+    except KeyboardInterrupt:
+        print('\n\n[red][X] Got CTRL+C. Exiting...[/red]')
 
 
+if __name__ == '__main__':
+    main()

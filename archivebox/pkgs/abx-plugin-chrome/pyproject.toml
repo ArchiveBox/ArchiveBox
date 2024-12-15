@@ -1,0 +1,18 @@
+[project]
+name = "abx-plugin-chrome"
+version = "2024.10.28"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "abx>=0.1.0",
+    "abx-spec-config>=0.1.0",
+    "abx-spec-abx-pkg>=0.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.entry-points.abx]
+abx_plugin_chrome = "abx_plugin_chrome"

@@ -38,3 +38,9 @@ def result_list_tag(parser, token):
         template_name='snapshots_grid.html',
         takes_context=False,
     )
+
+@register.simple_tag(takes_context=True)
+def url_replace(context, **kwargs):
+    dict_ = context['request'].GET.copy()
+    dict_.update(**kwargs)
+    return dict_.urlencode()

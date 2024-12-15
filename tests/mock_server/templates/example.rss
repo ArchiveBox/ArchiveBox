@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:admin="http://webns.net/mvcb/"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<channel>
+  <title>Sample Feed</title>
+  <link>http://example.org/</link>
+  <description>For documentation only</description>
+  <dc:language>en-us</dc:language>
+  <dc:creator>Nobody (nobody@example.org)</dc:creator>
+  <dc:rights>Public domain</dc:rights>
+  <dc:date>2024-02-26T17:28:12-08:00</dc:date>
+  <admin:generatorAgent rdf:resource="http://www.example.org/"/>
+  <admin:errorReportsTo rdf:resource="mailto:nobody@example.org"/>
+
+  <item>
+    <title>First!</title>
+    <link>http://127.0.0.1:8080/static/example.com.html</link>
+    <guid isPermaLink="false">just-an@example.org</guid>
+    <description>
+      This has a description.
+    </description>
+    <dc:subject>Tag1 Tag2</dc:subject>
+    <dc:date>2024-02-26T17:28:12-08:00</dc:date>
+    <content:encoded><![CDATA[
+      This has a <b>description</b>.]]>
+    </content:encoded>
+  </item>
+</channel>
+</rss>

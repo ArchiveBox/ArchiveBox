@@ -1,60 +1,66 @@
-from django.contrib import admin
+__package__ = 'archivebox.core'
 
-from django.urls import path, include
+from django.urls import path, re_path, include
 from django.views import static
-from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.conf import settings
 from django.views.generic.base import RedirectView
 
+from archivebox.misc.serve_static import serve_static
+
+from core.admin_site import archivebox_admin
 from core.views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthCheckView
 
+from workers.views import JobsDashboardView
+
 # GLOBAL_CONTEXT doesn't work as-is, disabled for now: https://github.com/ArchiveBox/ArchiveBox/discussions/1306
-# from config import VERSION, VERSIONS_AVAILABLE, CAN_UPGRADE
+# from archivebox.config import VERSION, VERSIONS_AVAILABLE, CAN_UPGRADE
 # GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': VERSIONS_AVAILABLE, 'CAN_UPGRADE': CAN_UPGRADE}
 
 
 # print('DEBUG', settings.DEBUG)
 
 urlpatterns = [
-    path('public/', PublicIndexView.as_view(), name='public-index'),
+    re_path(r"^static/(?P<path>.*)$", serve_static),
+    # re_path(r"^media/(?P<path>.*)$", static.serve, {"document_root": settings.MEDIA_ROOT}),
 
     path('robots.txt', static.serve, {'document_root': settings.STATICFILES_DIRS[0], 'path': 'robots.txt'}),
     path('favicon.ico', static.serve, {'document_root': settings.STATICFILES_DIRS[0], 'path': 'favicon.ico'}),
 
     path('docs/', RedirectView.as_view(url='https://github.com/ArchiveBox/ArchiveBox/wiki'), name='Docs'),
 
+    path('public/', PublicIndexView.as_view(), name='public-index'),
+    
     path('archive/', RedirectView.as_view(url='/')),
     path('archive/<path:path>', SnapshotView.as_view(), name='Snapshot'),
 
     path('admin/core/snapshot/add/', RedirectView.as_view(url='/add/')),
     path('add/', AddView.as_view(), name='add'),
+    
+    path("jobs/",     JobsDashboardView.as_view(), name='jobs_dashboard'),
 
     path('accounts/login/', RedirectView.as_view(url='/admin/login/')),
     path('accounts/logout/', RedirectView.as_view(url='/admin/logout/')),
 
 
     path('accounts/', include('django.contrib.auth.urls')),
-    path('admin/', admin.site.urls),
+    path('admin/', archivebox_admin.urls),
     
-    # do not add extra_context like this as not all admin views (e.g. ModelAdmin.autocomplete_view accept extra kwargs)
-    # path('admin/', admin.site.urls, {'extra_context': GLOBAL_CONTEXT}),
+    path("api/",      include('api.urls'), name='api'),
 
     path('health/', HealthCheckView.as_view(), name='healthcheck'),
-    path('error/', lambda _: 1/0),
+    path('error/', lambda *_: 1/0),                                             # type: ignore
 
     # path('jet_api/', include('jet_django.urls')),  Enable to use https://www.jetadmin.io/integrations/django
 
     path('index.html', RedirectView.as_view(url='/')),
-    path('index.json', static.serve, {'document_root': settings.OUTPUT_DIR, 'path': 'index.json'}),
     path('', HomepageView.as_view(), name='Home'),
 ]
-urlpatterns += staticfiles_urlpatterns()
 
 if settings.DEBUG_TOOLBAR:
-    import debug_toolbar
-    urlpatterns += [
-        path('__debug__/', include(debug_toolbar.urls)),
-    ]
+    urlpatterns += [path('__debug__/', include("debug_toolbar.urls"))]
+
+if settings.DEBUG_REQUESTS_TRACKER:
+    urlpatterns += [path("__requests_tracker__/", include("requests_tracker.urls"))]
 
 
 # # Proposed FUTURE URLs spec

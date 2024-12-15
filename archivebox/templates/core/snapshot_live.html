@@ -1,0 +1,557 @@
+{% load static tz core_tags %}
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>{{title}}</title>
+        <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+        <link href="{% static 'bootstrap.min.css' %}" rel="stylesheet">
+        <style>
+            /* Keep this inline, don't move to external css file because this template is used to generate static exports that need to be usable as-is without an accompanying staticfiles dir */
+            html, body {
+                width: 100%;
+                height: 100%;
+                background-color: #ddd;
+            }
+            header {
+                background-color: #aa1e55;
+            }
+            small {
+                font-weight: 200;
+            }
+            header a:hover {
+                text-decoration: none;
+            }
+            .header-top {
+                width: 100%;
+                height: auto;
+                min-height: 40px;
+                margin: 0px;
+                text-align: center;
+                color: #f6f6f6;
+                font-size: calc(10px + 0.84vw);
+                font-weight: 200;
+                padding: 3px 4px;
+                background-color: #aa1e55;
+            }
+            .header-top .nav {
+                width: 100%;
+            }
+            .nav > div {
+                min-height: 30px;
+                line-height: 1.2;
+            }
+            .header-top .header-url {
+                display: inline-block;
+                width: 100%;
+                background-color: rgb(216, 216, 235, 0.05);
+                text-align: center;
+                line-height: 1.3;
+                font-family: monospace;
+                white-space: nowrap;
+                font-weight: 200;
+                display: block;
+                margin-top: -1px;
+                font-size: 23px;
+                opacity: 0.8;
+                border-radius: 0px 0px 8px 8px;
+            }
+            .header-top .header-url a.header-url-text {
+                color: #f6f6f6;
+                user-select: all;
+                text-overflow: ellipsis;
+            }
+            .header-top .header-url a.header-url-text:hover {
+                color: rgb(144, 161, 255);
+            }
+            .header-top a {
+                text-decoration: none;
+                color: rgba(0,0,0,0.6);
+            }
+            .header-top a:hover {
+                text-decoration: none;
+                color: rgba(0,0,0,0.9);
+            }
+            .header-top .header-title {
+                color: rgba(0,0,0,0.6);
+            }
+            .header-top .favicon {
+                height: 24px;
+                vertical-align: -5px;
+                margin-right: 4px;
+            }
+            .header-top .col-lg-4 {
+                text-align: center;
+                padding-top: 4px;
+                padding-bottom: 4px;
+            }
+            .header-archivebox img {
+                display: inline-block;
+                margin-right: 3px;
+                height: 30px;
+                margin-left: 12px;
+                margin-top: -4px;
+                margin-bottom: 2px;
+            }
+            .header-archivebox img:hover {
+                opacity: 0.5;
+            }
+            header small code {
+                white-space: nowrap;
+                font-weight: 200;
+                display: block;
+                margin-top: -1px;
+                font-size: 13px;
+                opacity: 0.8;
+                user-select: all;
+            }
+            .header-toggle {
+                line-height: 12px;
+                font-size: 70px;
+                vertical-align: -12px;
+                margin-left: 4px;
+            }
+            
+            .info-row {
+                margin-top: 2px;
+                margin-bottom: 5px;
+            }
+            .info-row .alert {
+                margin-bottom: 0px;
+            }
+            .row.header-bottom {
+                margin-left: -10px;
+                margin-right: -10px;
+            }
+            .header-bottom .col-lg-2 {
+                padding-left: 4px;
+                padding-right: 4px;
+            }
+
+            .header-bottom-frames .card {
+                box-shadow: 2px 2px 7px 0px rgba(0, 0, 0, 0.1);
+                margin-bottom: 5px;
+                border: 1px solid rgba(0, 0, 0, 0.06);
+                border-radius: 10px;
+                background-color: #efefef;
+                overflow: hidden;
+                height: 130px;
+            }
+            .card h4 {
+                font-size: 0.8em;
+                display: inline-block;
+                width: auto;
+                text-transform: uppercase;
+                margin-top: 0px;
+                margin-bottom: 5px;
+                color: rgb(93, 105, 110);
+            }
+            .card-body {
+                font-size: 14px;
+                padding: 4px 10px;
+                padding-bottom: 0px;
+                /* padding-left: 3px; */
+                /* padding-right: 3px; */
+                /* padding-bottom: 3px; */
+                line-height: 1;
+                word-wrap: break-word;
+                max-height: 102px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                color: #d3d3d3;
+            }
+            .card-title {
+                margin-bottom: 4px;
+                text-transform: uppercase;
+            }
+            .card-img-top {
+                border: 0px;
+                padding: 0px;
+                margin: 0px;
+                overflow: hidden;
+                opacity: 0.8;
+                border-top: 1px solid rgba(0,0,0,0);
+                border-radius: 4px;
+                border-bottom: 1px solid rgba(0,0,0,0);
+                height: 430px;
+                width: 405%;
+                margin-bottom: -330px;
+                background-color: #333;
+                margin-left: -1%;
+                margin-right: -1%;
+                pointer-events: none;
+
+                transform: scale(0.25); 
+                transform-origin: 0 0;
+            }
+            #main-frame {
+                border-top: 1px solid #ddd;
+                width: 100%;
+                height: calc(100vh - 210px);
+                margin: 0px;
+                border: 0px;
+                border-top: 3px solid #aa1e55;
+            }
+            .card.selected-card {
+                border: 2px solid orange;
+                box-shadow: 0px -6px 13px 1px rgba(0,0,0,0.05);
+            }
+            .iframe-large {
+                height: calc(100vh - 70px);
+            }
+            img.external {
+                height: 30px;
+                margin-right: -10px;
+                padding: 3px;
+                border-radius: 4px;
+                vertical-align: middle;
+                border: 4px solid rgba(0,0,0,0);
+            }
+            img.external:hover {
+                border: 4px solid green;
+            }
+            .screenshot {
+                background-color: #333;
+                transform: none;
+                width: 100%;
+                min-height: 100px;
+                max-height: 100px;
+                margin-bottom: 0px;
+                object-fit: cover;
+                object-position: top center;
+            }
+            .header-bottom {
+                border-top: 1px solid rgba(170, 30, 85, 0.9);
+                padding-bottom: 1px;
+                border-bottom: 5px solid rgb(170, 30, 85);
+                margin-bottom: -1px;
+
+                border-radius: 0px;
+                background-color: #f4eeee;
+                border: 1px solid rgba(0,0,0,0.2);
+                box-shadow: 4px 4px 4px rgba(0,0,0,0.2);
+                margin-top: 0px;
+            }
+            .header-bottom-info {
+                color: #6f6f6f;
+                padding-top: 0px;
+                padding-bottom: 0px;
+                margin: 0px -15px;
+            }
+
+            .header-bottom-info > div {
+                text-align: center;
+            }
+            .header-bottom-info h5 {
+                font-size: 12px;
+                font-weight: 400;
+                margin-top: 3px;
+                margin-bottom: 3px;
+            }
+            .info-chunk {
+                width: auto;
+                display: inline-block;
+                text-align: center;
+                margin: 8px 4px;
+                vertical-align: top;
+                font-size: 14px;
+            }
+            header .badge {
+                margin-top: 3px;
+                font-size: 0.9rem;
+                font-weight: 200;
+                font-family: monospace;
+            }
+            header .internal-links {
+                text-align: left;
+                opacity: 1;
+                background-color: rgba(0,0,0,0.03);
+                padding: 1px 3px;
+            }
+            header .external-links {
+                text-align: center;
+                opacity: 0.9;
+                /*background-color: rgba(0,0,0,0.03);*/
+                margin-top: 0px;
+                padding: 1px 3px;
+                font-size: 14px;
+                color: #ddd;
+                width: 100%;
+                overflow: hidden;
+            }
+            .header-bottom-frames {
+                padding-top: 5px;
+                justify-content: center;
+            }
+            .header-bottom-frames .card-title {
+                width: 100%;
+                text-align: center;
+                font-size: 17px;
+                margin-bottom: 0px;
+                display: inline-block;
+                color: #d3d3d3;
+                font-weight: 200;
+                vertical-align: 3px;
+            }
+            .header-bottom-frames .card-text {
+/*                width: 100%;
+                text-align: center;*/
+                font-size: 0.9em;
+                display: inline-block;
+                position: relative;
+/*                top: -11px;*/
+            }
+            .card-text code {
+                padding: .1rem .2rem;
+                font-size: 90%;
+                color: #bd4147;
+                background-color: rgb(204, 204, 204, 0.28);
+                border-radius: .25rem;
+            }
+
+            /*@media(max-width: 1092px) {
+                iframe {
+                    display: none;
+                }
+            }*/
+                
+
+            @media(max-width: 728px) {
+                .card h4 {
+                    font-size: 5vw;
+                }
+                .card-body {
+                    font-size: 4vw;
+                }
+                .card {
+                    margin-bottom: 5px;
+                }
+                header > h1 > a.header-url, header > h1 > a.header-archivebox {
+                    display: none;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <div class="header-top container-fluid">
+                <div class="row nav">
+                    <div class="col-lg-2" style="line-height: 58px; vertical-align: middle">
+                        <a href="../../index.html" class="header-archivebox" title="Go to Main Index...">
+                            <img src="../../static/archive.png" alt="Archive Icon">
+                            ArchiveBox
+                        </a>
+                    </div>
+                    <div class="col-lg-8">
+                        <div class="header-url">
+                            <a class="header-url-text" href="{{url}}" title="Open original URL in new window..." target="_blank" rel="noreferrer">
+                                {{url}}
+                            </a>
+                        </div>
+                        <div class="badge badge-{{status_color}}" style="float: left">
+                            <a href="/admin/core/snapshot/?q={{snapshot_id}}" title="Click to see options to pull, re-snapshot, or delete this Snapshot">
+                                {{status|upper}}
+                            </a>
+                        </div>
+                        <div class="badge badge-default" style="float: left; font-weight: 200">
+                            {{num_outputs}}
+                            {% if num_failures %}
+                                + {{num_failures}} <small>errors</small>
+                            {% endif %}
+                        </div>
+                        <div class="badge badge-info" style="float: right">
+                            <a href="/admin/core/snapshot/{{snapshot_id}}/change/" title="Click to edit this Snapshot in the Admin UI">
+                                {{size}}
+                            </a>
+                        </div>
+                        <div class="badge badge-default" style="float: right">
+                            <a href="/admin/core/snapshot/{{snapshot_id}}/change/" title="Click to edit this Snapshot in the Admin UI">
+                                {{extension}}
+                            </a>
+                        </div>
+                        <small class="header-title header-toggle-trigger">
+                            <img src="favicon.ico" onerror="this.style.opacity=0" alt="Favicon" class="favicon"/>
+                            {{title|truncatechars:120|safe}} <a href="#" class="header-toggle header-toggle-trigger">▾</a>
+                            <br/>
+                            {% for tag in tags_str|split:',' %}
+                                <div class="badge badge-default tag" style="word-break: break-all;">{{tag}}</div>
+                            {% endfor %}
+                        </small>
+                    </div>
+                    <div class="col-lg-2" style="padding-top: 4px">
+                        <a href="/archive/{{url}}" title="Date Added: {{bookmarked_date}}  |  First Archived: {{oldest_archive_date|default:downloaded_datestr}}  |  Last Checked: {{downloaded_datestr}}   (UTC)">
+                            {{oldest_archive_date|default:downloaded_datestr|default:bookmarked_date}}
+                        </a>
+                        <br/>
+                        <div class="external-links">
+                            ↗️ &nbsp;
+                            <a href="./index.json" title="Get the Snapshot details as a JSON file" target="_blank">JSON</a> &nbsp;|&nbsp; 🗃️ 
+                            <a href="{{warc_path}}" title="Download the ArchiveBox-generated WARC file" target="_blank">WARC</a>  &nbsp;|&nbsp; 
+                            <a href="https://web.archive.org/web/{{url}}" title="Search for a copy of the URL saved in Archive.org" target="_blank" rel="noreferrer">🏛️ Archive.org</a>
+                            <!--<a href="https://archive.md/{{url}}" title="Search for a copy of the URL saved in Archive.today" target="_blank" rel="noreferrer">Archive.today</a>  &nbsp;|&nbsp; -->
+                            <!--<a href="https://ghostarchive.org/search?term={{url|urlencode}}" title="Search for a copy of the URL saved in GhostArchive.org" target="_blank" rel="noreferrer">More...</a>-->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="header-bottom container-fluid">
+                <div class="row header-bottom-frames">
+                    
+                    
+                    {% for result in archiveresults %}
+                        <div class="col-lg-2">
+                            <div class="card {% if forloop.first %}selected-card{% endif %}">
+                                <div class="card-body">
+                                    <a href="{{result.path|urlencode}}" target="preview" title="./{{result.path}} (downloaded {{result.ts}})">
+                                        <h4>{{result.name|truncatechars:24}} <small>({{result.size|filesizeformat}})</small></h4>
+                                        <!-- <p class="card-text" ><code>./{{result.path|truncatechars:30}}</code></p> -->
+                                    </a>
+                                    <!--<a href="{{result.path}}" target="preview"><h4 class="card-title">{{result.name}}</h4></a>-->
+                                </div>
+                                <iframe class="card-img-top" src="{{result.path|urlencode}}?autoplay=0" allow="autoplay 'none'; fullscreen 'none'; navigation-override 'none'; " sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
+                            </div>
+                        </div>
+                    {% endfor %}
+
+
+                    <div class="col-lg-2">
+                        <div class="card">
+                            <div class="card-body">
+                                <a href="./" target="preview">
+                                    <h4>Headers, JSON, etc.</h4>
+                                </a>
+                                <!--<a href="{{result.path|urlencode}}" target="preview"><h4 class="card-title">{{result.name}}</h4></a>-->
+                            </div>
+                            <iframe class="card-img-top" src="./" sandbox="" scrolling="no" loading="lazy"></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+
+
+        <iframe id="main-frame" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe" src="{{best_result.path|urlencode}}" name="preview"></iframe>
+    
+
+
+        <script src="{% static 'jquery.min.js' %}" type="text/javascript"></script>
+
+        <script>
+            // un-sandbox iframes showing pdfs (required to display pdf viewer)
+            jQuery('iframe').map(function() {
+                if (this.src.endsWith('.pdf')) {
+                    this.removeAttribute('sandbox')
+                    this.src = this.src + '#toolbar=0'
+                }
+                this.onload = function() {
+                    if (this.src.includes('.pdf')) {
+                        this.removeAttribute('sandbox')
+                        this.src = this.src.split('?autoplay=')[0] + '#toolbar=0'
+                    }
+                    try {
+                        // doesnt work if frame origin rules prevent accessing its DOM via JS
+                        this.contentWindow.scrollTo(0, 0);
+                    } catch(err) {}
+                }
+            })
+
+            function getPreviewTypeFromPath(link) {
+                if (link.getAttribute('href') == './') {
+                    return 'all'
+                }
+                return link.getAttribute('href')
+            }
+
+            const iframe_elem = document.getElementById('main-frame')
+
+            for (const card of [...document.querySelectorAll('.card')]) {
+                card.addEventListener('click', function(event) {
+                    const target = event.currentTarget.querySelector('a').href
+
+                    jQuery('.selected-card').removeClass('selected-card')
+                    jQuery(event.currentTarget).closest('.card').addClass('selected-card')
+
+                    if (target.endsWith('.pdf')) {
+                        jQuery('#main-frame')[0].removeAttribute('sandbox')
+                    } else {
+                        jQuery('#main-frame')[0].sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms"
+                    }
+                    window.location.hash = getPreviewTypeFromPath(event.currentTarget.querySelector('a'))
+
+                    iframe_elem.src = target
+                })
+            }
+
+
+            function hideSnapshotHeader() {
+                console.log('Collapsing Snapshot header...')
+                jQuery('.header-toggle').text('▸')
+                jQuery('.header-bottom').hide()
+                jQuery('#main-frame').addClass('iframe-large')
+                try {
+                    localStorage.setItem("archivebox-snapshot-header-visible", "false")
+                } catch (e) {
+                    console.log('Could not use localStorage to persist header collapse state', e)
+                }
+            }
+            function showSnapshotHeader() {
+                console.log('Expanding Snapshot header...')
+                jQuery('.header-toggle').text('▾')
+                jQuery('.header-bottom').show()
+                jQuery('#main-frame').removeClass('iframe-large')
+                try {
+                    localStorage.setItem("archivebox-snapshot-header-visible", "true")
+                } catch (e) {
+                    console.log('Could not use localStorage to persist header collapse state', e)
+                }
+            }
+            function loadSnapshotHeaderState() {
+                // collapse snapshot header if user has previously hidden it
+                let snapshotHeaderIsExpanded = 'false'
+                try {
+                    snapshotHeaderIsExpanded = localStorage.getItem("archivebox-snapshot-header-visible") || 'false'
+                } catch (e) {
+                    console.log('Could not use localStorage to get header collapse state', e)
+                }
+                if (snapshotHeaderIsExpanded === 'false') {
+                    hideSnapshotHeader()
+                }
+            }
+            function handleSnapshotHeaderToggle() {
+                if (jQuery('.header-toggle').text().includes('▾')) {
+                    hideSnapshotHeader()
+                } else {
+                    showSnapshotHeader()
+                }
+                return true
+            }
+
+            // hide header when collapse icon is clicked
+            jQuery('.header-toggle').on('click', handleSnapshotHeaderToggle)
+            jQuery('.header-toggle-trigger').on('click', handleSnapshotHeaderToggle)
+
+            // check URL for hash e.g. #git and load relevant preview
+            jQuery(document).ready(function() {
+                if (window.location.hash) {
+                    for (const link of jQuery('a[target=preview]')) {
+                        console.log(link.pathname)
+                        if (getPreviewTypeFromPath(link) == window.location.hash.slice(1).toLowerCase()) {
+                            jQuery(link).closest('.card').click()
+                            jQuery(link).click()
+                            link.click()
+                        }
+                    }
+                }
+                loadSnapshotHeaderState()
+            })
+
+            
+
+            // hide all preview iframes on small screens
+            // if (window.innerWidth < 1091) {
+            //     jQuery('.card a[target=preview]').attr('target', '_self')
+            // }
+        </script>
+    </body>
+</html>

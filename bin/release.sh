@@ -18,21 +18,17 @@ cd "$REPO_DIR"
 # ./bin/lint.sh
 # ./bin/test.sh
 
-# Run all the build scripts
-./bin/build_git.sh
-./bin/build_docs.sh
-./bin/build_pip.sh
-./bin/build_deb.sh
-./bin/build_brew.sh
-./bin/build_docker.sh
+# # Run all the build scripts
+# ./bin/build_git.sh
+# ./bin/build_docs.sh
+# ./bin/build_pip.sh
+# ./bin/build_docker.sh
 
 # Push relase to public repositories
-./bin/release_git.sh
-./bin/release_docs.sh
-./bin/release_pip.sh
-./bin/release_deb.sh
-./bin/release_brew.sh
-./bin/release_docker.sh
+# ./bin/release_docs.sh
+./bin/release_git.sh "$@"
+./bin/release_pip.sh "$@"
+./bin/release_docker.sh "$@"
 
-VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
+VERSION="$(grep '^version = ' "${REPO_DIR}/pyproject.toml" | awk -F'"' '{print $2}')"
 echo "[√] Done. Published version v$VERSION"

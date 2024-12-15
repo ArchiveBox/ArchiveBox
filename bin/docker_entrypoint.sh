@@ -18,6 +18,7 @@
 # https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
 # set -o xtrace
 # set -o nounset
+shopt -s nullglob
 set -o errexit
 set -o errtrace
 set -o pipefail
@@ -35,7 +36,7 @@ export DEFAULT_PGID=911
 if [[ "$PUID" == "0" ]]; then
     echo -e "\n[X] Error: Got PUID=$PUID and PGID=$PGID but ArchiveBox is not allowed to be run as root, please change or unset PUID & PGID and try again." > /dev/stderr
     echo -e "    Hint: some NFS/SMB/FUSE/etc. filesystems force-remap/ignore all permissions," > /dev/stderr
-        echo -e "          leave PUID/PGID unset, or use values the filesystem prefers (defaults to $DEFAULT_PUID:$DEFAULT_PGID)" > /dev/stderr
+        echo -e "          leave PUID/PGID unset, disable root_squash, or use values the drive prefers (default is $DEFAULT_PUID:$DEFAULT_PGID)" > /dev/stderr
         echo -e "    https://linux.die.net/man/8/mount.cifs#:~:text=does%20not%20provide%20unix%20ownership" > /dev/stderr
     exit 3
 fi
@@ -46,6 +47,7 @@ export DETECTED_PGID="$(stat -c '%g' "$DATA_DIR/logs/errors.log" 2>/dev/null || 
 
 # If data directory exists but is owned by root, use defaults instead of root because root is not allowed
 [[ "$DETECTED_PUID" == "0" ]] && export DETECTED_PUID="$DEFAULT_PUID"
+# (GUID / DETECTED_GUID is allowed to be 0 though)
 
 # Set archivebox user and group ids to desired PUID/PGID
 usermod -o -u "${PUID:-$DETECTED_PUID}" "$ARCHIVEBOX_USER" > /dev/null 2>&1
@@ -56,6 +58,13 @@ groupmod -o -g "${PGID:-$DETECTED_PGID}" "$ARCHIVEBOX_USER" > /dev/null 2>&1
 export PUID="$(id -u archivebox)"
 export PGID="$(id -g archivebox)"
 
+# Check if user attempted to run it in the root of their home folder or hard drive (common mistake)
+if [[ -d "$DATA_DIR/Documents" || -d "$DATA_DIR/.config" || -d "$DATA_DIR/usr" || -f "$DATA_DIR/.bashrc" || -f "$DATA_DIR/.zshrc" ]]; then
+    echo -e "\n[X] ERROR: ArchiveBox was run from inside a home folder"
+    echo -e "      Make sure you are inside an existing collection directory or a new empty directory and try again"
+    exit 3
+fi
+
 # Check the permissions of the data dir (or create if it doesn't exist)
 if [[ -d "$DATA_DIR/archive" ]]; then
     if touch "$DATA_DIR/archive/.permissions_test_safe_to_delete" 2>/dev/null; then
@@ -64,33 +73,60 @@ if [[ -d "$DATA_DIR/archive" ]]; then
         # echo "[√] Permissions are correct"
     else
      # the only time this fails is if the host filesystem doesn't allow us to write as root (e.g. some NFS mapall/maproot problems, connection issues, drive dissapeared, etc.)
-        echo -e "\n[X] Error: archivebox user (PUID=$PUID) is not able to write to your ./data dir (currently owned by $(stat -c '%u' "$DATA_DIR"):$(stat -c '%g' "$DATA_DIR")." >&2
+        echo -e "\n[X] Error: archivebox user (PUID=$PUID) is not able to write to your ./data/archive dir (currently owned by $(stat -c '%u' "$DATA_DIR/archive"):$(stat -c '%g' "$DATA_DIR/archive")." > /dev/stderr
         echo -e "    Change ./data to be owned by PUID=$PUID PGID=$PGID on the host and retry:" > /dev/stderr
         echo -e "       \$ chown -R $PUID:$PGID ./data\n" > /dev/stderr
         echo -e "    Configure the PUID & PGID environment variables to change the desired owner:" > /dev/stderr
         echo -e "       https://docs.linuxserver.io/general/understanding-puid-and-pgid\n" > /dev/stderr
         echo -e "    Hint: some NFS/SMB/FUSE/etc. filesystems force-remap/ignore all permissions," > /dev/stderr
-        echo -e "          leave PUID/PGID unset, or use values the filesystem prefers (defaults to $DEFAULT_PUID:$DEFAULT_PGID)" > /dev/stderr
+        echo -e "          leave PUID/PGID unset, disable root_squash, or use values the drive prefers (default is $DEFAULT_PUID:$DEFAULT_PGID)" > /dev/stderr
         echo -e "    https://linux.die.net/man/8/mount.cifs#:~:text=does%20not%20provide%20unix%20ownership" > /dev/stderr
         exit 3
     fi
 else
-    # create data directory
+    # create data directory (and logs, since its the first dir ArchiveBox needs to write to)
     mkdir -p "$DATA_DIR/logs"
+fi
+
+# check if novnc x11 $DISPLAY is available
+export DISPLAY="${DISPLAY:-"novnc:0.0"}"
+if ! xdpyinfo > /dev/null 2>&1; then
+    # cant connect to x11 display, unset it so that chrome doesn't try to connect to it and hang indefinitely
+    unset DISPLAY
 fi
 
 # force set the ownership of the data dir contents to the archivebox user and group
 # this is needed because Docker Desktop often does not map user permissions from the host properly
 chown $PUID:$PGID "$DATA_DIR"
-chown $PUID:$PGID "$DATA_DIR"/*
+if ! chown $PUID:$PGID "$DATA_DIR"/* > /dev/null 2>&1; then
+    # users may store the ./data/archive folder on a network mount that prevents chmod/chown
+    # fallback to chowning everything else in ./data and leaving ./data/archive alone
+    find "$DATA_DIR" -type d -not -path "$DATA_DIR/archive*" -exec chown $PUID:$PGID {} \; > /dev/null 2>&1
+    find "$DATA_DIR" -type f -not -path "$DATA_DIR/archive/*" -exec chown $PUID:$PGID {} \; > /dev/null 2>&1
+fi
+    
 
-# also chown BROWSERS_DIR because otherwise 'archivebox setup' wont be able to install chrome at runtime
+# also chown BROWSERS_DIR because otherwise 'archivebox setup' wont be able to 'playwright install chromium' at runtime
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/browsers}"
 mkdir -p "$PLAYWRIGHT_BROWSERS_PATH/permissions_test_safe_to_delete"
-chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"
-chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/*
 rm -Rf "$PLAYWRIGHT_BROWSERS_PATH/permissions_test_safe_to_delete"
+chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"
+if [[ -d "$PLAYWRIGHT_BROWSERS_PATH/.links" ]]; then
+    chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/*
+    chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/.*
+    chown -h $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/.links/*
+fi
 
+# also create and chown tmp dir and lib dir (and their default equivalents inside data/)
+# mkdir -p "$DATA_DIR"/lib/bin
+# chown $PUID:$PGID "$DATA_DIR"/lib "$DATA_DIR"/lib/*
+chown $PUID:$PGID "$LIB_DIR" 2>/dev/null
+chown $PUID:$PGID "$LIB_DIR/*" 2>/dev/null &
+
+# mkdir -p "$DATA_DIR"/tmp/workers
+# chown $PUID:$PGID "$DATA_DIR"/tmp "$DATA_DIR"/tmp/*
+chown $PUID:$PGID "$TMP_DIR" 2>/dev/null
+chown $PUID:$PGID "$TMP_DIR/*" 2>/dev/null &
 
 # (this check is written in blood in 2023, QEMU silently breaks things in ways that are not obvious)
 export IN_QEMU="$(pmap 1 | grep qemu >/dev/null && echo 'True' || echo 'False')"
@@ -100,7 +136,7 @@ if [[ "$IN_QEMU" == "True" ]]; then
     echo -e "    See here for more info: https://github.com/microsoft/playwright/issues/17395#issuecomment-1250830493\n" > /dev/stderr
 fi
 
-# check disk space free on / and /data, warn on <500Mb free, error on <100Mb free
+# check disk space free on /, /data, and /data/archive, warn on <500Mb free, error on <100Mb free
 export ROOT_USAGE="$(df --output=pcent,avail / | tail -n 1 | xargs)"
 export ROOT_USED_PCT="${ROOT_USAGE%%%*}"
 export ROOT_AVAIL_KB="$(echo "$ROOT_USAGE" | awk '{print $2}')"
@@ -117,21 +153,58 @@ elif [[ "$ROOT_USED_PCT" -ge 99 ]] || [[ "$ROOT_AVAIL_KB" -lt 500000 ]]; then
     df -kh / > /dev/stderr
 fi
 
-export DATA_USAGE="$(df --output=pcent,avail /data | tail -n 1 | xargs)"
+export DATA_USAGE="$(df --output=pcent,avail "$DATA_DIR" | tail -n 1 | xargs)"
 export DATA_USED_PCT="${DATA_USAGE%%%*}"
 export DATA_AVAIL_KB="$(echo "$DATA_USAGE" | awk '{print $2}')"
 if [[ "$DATA_AVAIL_KB" -lt 100000 ]]; then
-    echo -e "\n[!] Warning: Docker data volume is completely out of space! (${DATA_USED_PCT}% used on /data)" > /dev/stderr
+    echo -e "\n[!] Warning: Docker data volume is completely out of space! (${DATA_USED_PCT}% used on $DATA_DIR)" > /dev/stderr
     echo -e "    you need to free up at least 100Mb on the drive holding your data directory" > /dev/stderr
     echo -e "    \$ ncdu -x data\n" > /dev/stderr
-    df -kh /data > /dev/stderr
+    df -kh "$DATA_DIR" > /dev/stderr
     sleep 5
 elif [[ "$DATA_USED_PCT" -ge 99 ]] || [[ "$ROOT_AVAIL_KB" -lt 500000 ]]; then
-    echo -e "\n[!] Warning: Docker data volume is running out of space! (${DATA_USED_PCT}% used on /data)" > /dev/stderr
+    echo -e "\n[!] Warning: Docker data volume is running out of space! (${DATA_USED_PCT}% used on $DATA_DIR)" > /dev/stderr
     echo -e "    you may need to free up space on the drive holding your data directory soon" > /dev/stderr
     echo -e "    \$ ncdu -x data\n" > /dev/stderr
-    df -kh /data > /dev/stderr
+    df -kh "$DATA_DIR" > /dev/stderr
+else
+    # data/ has space available, but check data/archive separately, because it might be on a network mount or external drive
+    if [[ -d "$DATA_DIR/archive" ]]; then
+        export ARCHIVE_USAGE="$(df --output=pcent,avail "$DATA_DIR/archive" | tail -n 1 | xargs)"
+        export ARCHIVE_USED_PCT="${ARCHIVE_USAGE%%%*}"
+        export ARCHIVE_AVAIL_KB="$(echo "$ARCHIVE_USAGE" | awk '{print $2}')"
+        if [[ "$ARCHIVE_AVAIL_KB" -lt 100000 ]]; then
+            echo -e "\n[!] Warning: data/archive folder is completely out of space! (${ARCHIVE_USED_PCT}% used on $DATA_DIR/archive)" > /dev/stderr
+            echo -e "    you need to free up at least 100Mb on the drive holding your data/archive directory" > /dev/stderr
+            echo -e "    \$ ncdu -x data/archive\n" > /dev/stderr
+            df -kh "$DATA_DIR/archive" > /dev/stderr
+            sleep 5
+        elif [[ "$ARCHIVE_USED_PCT" -ge 99 ]] || [[ "$ROOT_AVAIL_KB" -lt 500000 ]]; then
+            echo -e "\n[!] Warning: data/archive folder is running out of space! (${ARCHIVE_USED_PCT}% used on $DATA_DIR/archive)" > /dev/stderr
+            echo -e "    you may need to free up space on the drive holding your data/archive directory soon" > /dev/stderr
+            echo -e "    \$ ncdu -x data/archive\n" > /dev/stderr
+            df -kh "$DATA_DIR/archive" > /dev/stderr
+        fi
+    fi
 fi
+
+# symlink etc crontabs into place
+mkdir -p "$DATA_DIR"/crontabs
+if ! test -L /var/spool/cron/crontabs; then
+    # move files from old location into new data dir location
+    for existing_file in /var/spool/cron/crontabs/*; do
+        mv "$existing_file" "$DATA_DIR/crontabs/"
+    done
+    # replace old system path with symlink to data dir location
+    rm -Rf /var/spool/cron/crontabs
+    ln -sf "$DATA_DIR/crontabs" /var/spool/cron/crontabs
+fi
+chown -R $PUID "$DATA_DIR"/crontabs
+
+# set DBUS_SYSTEM_BUS_ADDRESS & DBUS_SESSION_BUS_ADDRESS
+# (dbus is not actually needed, it makes chrome log fewer warnings but isn't worth making our docker images bigger)
+# service dbus start >/dev/null 2>&1 &
+# export $(dbus-launch --close-stderr)
 
 
 export ARCHIVEBOX_BIN_PATH="$(which archivebox)"

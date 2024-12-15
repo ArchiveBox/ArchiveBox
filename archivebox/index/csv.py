@@ -2,7 +2,7 @@ __package__ = 'archivebox.index'
 
 from typing import List, Optional, Any
 
-from ..util import enforce_types
+from archivebox.misc.util import enforce_types
 from .schema import Link
 
 

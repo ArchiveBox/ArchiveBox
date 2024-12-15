@@ -1,28 +1,3 @@
 [submodule "docs"]
     path = docs
     url = https://github.com/ArchiveBox/ArchiveBox.wiki.git
-
-[submodule "deb_dist"]
-    path = deb_dist
-    url = https://github.com/ArchiveBox/debian-archivebox.git
-[submodule "brew_dist"]
-	path = brew_dist
-	url = https://github.com/ArchiveBox/homebrew-archivebox.git
-[submodule "pip_dist"]
-	path = pip_dist
-	url = https://github.com/ArchiveBox/pip-archivebox.git
-[submodule "docker"]
-	path = docker
-	url = https://github.com/ArchiveBox/docker-archivebox.git
-[submodule "archivebox/vendor/base32-crockford"]
-	path = archivebox/vendor/base32-crockford
-	url = https://github.com/jbittel/base32-crockford
-[submodule "archivebox/vendor/pocket"]
-	path = archivebox/vendor/pocket
-	url = https://github.com/tapanpandita/pocket
-[submodule "archivebox/vendor/django-taggit"]
-	path = archivebox/vendor/django-taggit
-	url = https://github.com/jazzband/django-taggit
-[submodule "archivebox/vendor/python-atomicwrites"]
-	path = archivebox/vendor/python-atomicwrites
-	url = https://github.com/untitaker/python-atomicwrites

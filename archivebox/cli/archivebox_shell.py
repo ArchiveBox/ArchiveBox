@@ -1,34 +1,27 @@
 #!/usr/bin/env python3
 
 __package__ = 'archivebox.cli'
-__command__ = 'archivebox shell'
 
-import sys
-import argparse
+from typing import Iterable
 
-from typing import Optional, List, IO
+import rich_click as click
 
-from ..main import shell
-from ..util import docstring
-from ..config import OUTPUT_DIR
-from ..logging_util import SmartFormatter, reject_stdin
+from archivebox.misc.util import docstring
 
 
+def shell(args: Iterable[str]=()) -> None:
+    """Enter an interactive ArchiveBox Django shell"""
+
+    from django.core.management import call_command
+    call_command("shell_plus", *args)
+
+
+@click.command(add_help_option=False, context_settings=dict(ignore_unknown_options=True))
+@click.argument('args', nargs=-1)
 @docstring(shell.__doc__)
-def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
-    parser = argparse.ArgumentParser(
-        prog=__command__,
-        description=shell.__doc__,
-        add_help=True,
-        formatter_class=SmartFormatter,
-    )
-    parser.parse_args(args or ())
-    reject_stdin(__command__, stdin)
-    
-    shell(
-        out_dir=pwd or OUTPUT_DIR,
-    )
-    
+def main(args: Iterable[str]=()) -> None:
+    shell(args=args)
+
 
 if __name__ == '__main__':
-    main(args=sys.argv[1:], stdin=sys.stdin)
+    main()

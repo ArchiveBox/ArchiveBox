@@ -7,7 +7,7 @@ from datetime import datetime
 from xml.etree import ElementTree
 
 from ..index.schema import Link
-from ..util import (
+from archivebox.misc.util import (
     htmldecode,
     enforce_types,
 )

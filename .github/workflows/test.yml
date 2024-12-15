@@ -102,7 +102,7 @@ jobs:
         # TODO: remove this exception for windows once we get tests passing on that platform
         if: ${{ !contains(matrix.os, 'windows') }}
         run: |
-          python -m pytest -s --basetemp=tests/out --ignore=archivebox/vendor --ignore=deb_dist --ignore=pip_dist --ignore=brew_dist
+          python -m pytest -s --basetemp=tests/out --ignore=archivebox/pkgs
 
   docker_tests:
     runs-on: ubuntu-latest

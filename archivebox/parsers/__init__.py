@@ -7,31 +7,25 @@ For examples of supported import formats see tests/.
 
 __package__ = 'archivebox.parsers'
 
-import re
 from io import StringIO
 
 from typing import IO, Tuple, List, Optional
 from datetime import datetime, timezone
 from pathlib import Path 
 
-from ..system import atomic_write
-from ..config import (
-    ANSI,
-    OUTPUT_DIR,
-    SOURCES_DIR_NAME,
-    TIMEOUT,
-    stderr,
-    hint,
-)
-from ..util import (
+from archivebox.config import DATA_DIR, CONSTANTS
+from archivebox.config.common import SHELL_CONFIG, ARCHIVING_CONFIG
+from archivebox.misc.system import atomic_write
+from archivebox.misc.logging import stderr, hint
+from archivebox.misc.logging_util import TimedProgress, log_source_saved
+from archivebox.misc.util import (
     basename,
     htmldecode,
     download_url,
     enforce_types,
-    URL_REGEX,
 )
+
 from ..index.schema import Link
-from ..logging_util import TimedProgress, log_source_saved
 
 from . import pocket_api
 from . import readwise_reader_api
@@ -40,10 +34,10 @@ from . import pocket_html
 from . import pinboard_rss
 from . import shaarli_rss
 from . import medium_rss
-
 from . import netscape_html
 from . import generic_rss
 from . import generic_json
+from . import generic_jsonl
 from . import generic_html
 from . import generic_txt
 from . import url_list
@@ -63,6 +57,7 @@ PARSERS = {
     netscape_html.KEY:  (netscape_html.NAME,    netscape_html.PARSER),
     generic_rss.KEY:    (generic_rss.NAME,      generic_rss.PARSER),
     generic_json.KEY:   (generic_json.NAME,     generic_json.PARSER),
+    generic_jsonl.KEY:  (generic_jsonl.NAME,    generic_jsonl.PARSER),
     generic_html.KEY:   (generic_html.NAME,     generic_html.PARSER),
 
     # Catchall fallback parser
@@ -79,7 +74,7 @@ def parse_links_memory(urls: List[str], root_url: Optional[str]=None):
     parse a list of URLS without touching the filesystem
     """
 
-    timer = TimedProgress(TIMEOUT * 4)
+    timer = TimedProgress(ARCHIVING_CONFIG.TIMEOUT * 4)
     #urls = list(map(lambda x: x + "\n", urls))
     file = StringIO()
     file.writelines(urls)
@@ -98,7 +93,7 @@ def parse_links(source_file: str, root_url: Optional[str]=None, parser: str="aut
        RSS feed, bookmarks export, or text file
     """
 
-    timer = TimedProgress(TIMEOUT * 4)
+    timer = TimedProgress(ARCHIVING_CONFIG.TIMEOUT * 4)
     with open(source_file, 'r', encoding='utf-8') as file:
         links, parser = run_parser_functions(file, timer, root_url=root_url, parser=parser)
 
@@ -148,18 +143,19 @@ def run_parser_functions(to_parse: IO[str], timer, root_url: Optional[str]=None,
 
 
 @enforce_types
-def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: Path=OUTPUT_DIR) -> str:
+def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: Path=DATA_DIR) -> str:
     ts = str(datetime.now(timezone.utc).timestamp()).split('.', 1)[0]
-    source_path = str(out_dir / SOURCES_DIR_NAME / filename.format(ts=ts))
+    source_path = str(CONSTANTS.SOURCES_DIR / filename.format(ts=ts))
 
     referenced_texts = ''
 
-    for entry in raw_text.split():
-        try:
-            if Path(entry).exists():
-                referenced_texts += Path(entry).read_text()
-        except Exception as err:
-            print(err)
+    # dont attempt to read local files from the text, security risk:
+    # for entry in raw_text.split():
+    #     try:
+    #         if Path(entry).exists():
+    #             referenced_texts += Path(entry).read_text()
+    #     except Exception as err:
+    #         print(err)
 
     atomic_write(source_path, raw_text + '\n' + referenced_texts)
     log_source_saved(source_file=source_path)
@@ -167,10 +163,10 @@ def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: 
 
 
 @enforce_types
-def save_file_as_source(path: str, timeout: int=TIMEOUT, filename: str='{ts}-{basename}.txt', out_dir: Path=OUTPUT_DIR) -> str:
+def save_file_as_source(path: str, timeout: int=ARCHIVING_CONFIG.TIMEOUT, filename: str='{ts}-{basename}.txt', out_dir: Path=DATA_DIR) -> str:
     """download a given url's content into output/sources/domain-<timestamp>.txt"""
     ts = str(datetime.now(timezone.utc).timestamp()).split('.', 1)[0]
-    source_path = str(OUTPUT_DIR / SOURCES_DIR_NAME / filename.format(basename=basename(path), ts=ts))
+    source_path = str(CONSTANTS.SOURCES_DIR / filename.format(basename=basename(path), ts=ts))
 
     if any(path.startswith(s) for s in ('http://', 'https://', 'ftp://')):
         # Source is a URL that needs to be downloaded
@@ -183,9 +179,9 @@ def save_file_as_source(path: str, timeout: int=TIMEOUT, filename: str='{ts}-{ba
         except Exception as e:
             timer.end()
             print('{}[!] Failed to download {}{}\n'.format(
-                ANSI['red'],
+                SHELL_CONFIG.ANSI['red'],
                 path,
-                ANSI['reset'],
+                SHELL_CONFIG.ANSI['reset'],
             ))
             print('    ', e)
             raise e
@@ -200,54 +196,3 @@ def save_file_as_source(path: str, timeout: int=TIMEOUT, filename: str='{ts}-{ba
     log_source_saved(source_file=source_path)
 
     return source_path
-
-
-# Check that plain text regex URL parsing works as expected
-#   this is last-line-of-defense to make sure the URL_REGEX isn't
-#   misbehaving due to some OS-level or environment level quirks (e.g. bad regex lib)
-#   the consequences of bad URL parsing could be disastrous and lead to many
-#   incorrect/badly parsed links being added to the archive, so this is worth the cost of checking
-_test_url_strs = {
-    'example.com': 0,
-    '/example.com': 0,
-    '//example.com': 0,
-    ':/example.com': 0,
-    '://example.com': 0,
-    'htt://example8.com': 0,
-    '/htt://example.com': 0,
-    'https://example': 1,
-    'https://localhost/2345': 1,
-    'https://localhost:1234/123': 1,
-    '://': 0,
-    'https://': 0,
-    'http://': 0,
-    'ftp://': 0,
-    'ftp://example.com': 0,
-    'https://example.com': 1,
-    'https://example.com/': 1,
-    'https://a.example.com': 1,
-    'https://a.example.com/': 1,
-    'https://a.example.com/what/is/happening.html': 1,
-    'https://a.example.com/what/ís/happening.html': 1,
-    'https://a.example.com/what/is/happening.html?what=1&2%20b#höw-about-this=1a': 1,
-    'https://a.example.com/what/is/happéning/?what=1&2%20b#how-aboüt-this=1a': 1,
-    'HTtpS://a.example.com/what/is/happening/?what=1&2%20b#how-about-this=1af&2f%20b': 1,
-    'https://example.com/?what=1#how-about-this=1&2%20baf': 1,
-    'https://example.com?what=1#how-about-this=1&2%20baf': 1,
-    '<test>http://example7.com</test>': 1,
-    'https://<test>': 0,
-    'https://[test]': 0,
-    'http://"test"': 0,
-    'http://\'test\'': 0,
-    '[https://example8.com/what/is/this.php?what=1]': 1,
-    '[and http://example9.com?what=1&other=3#and-thing=2]': 1,
-    '<what>https://example10.com#and-thing=2 "</about>': 1,
-    'abc<this["https://example11.com/what/is#and-thing=2?whoami=23&where=1"]that>def': 1,
-    'sdflkf[what](https://example12.com/who/what.php?whoami=1#whatami=2)?am=hi': 1,
-    '<or>http://examplehttp://15.badc</that>': 2,
-    'https://a.example.com/one.html?url=http://example.com/inside/of/another?=http://': 2,
-    '[https://a.example.com/one.html?url=http://example.com/inside/of/another?=](http://a.example.com)': 3,
-}
-for url_str, num_urls in _test_url_strs.items():
-    assert len(re.findall(URL_REGEX, url_str)) == num_urls, (
-        f'{url_str} does not contain {num_urls} urls')

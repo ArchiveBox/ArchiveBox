@@ -1,11 +1,12 @@
 {% load i18n static %}
 
 <div id="user-tools">
-    <a href="{% url 'admin:Add' %}">Add ➕</a> &nbsp; &nbsp;
+    <a href="{% url 'add' %}">Add ➕</a> &nbsp; &nbsp;
     <a href="{% url 'Home' %}">Snapshots</a> |
     <a href="/admin/core/tag/">Tags</a> |
     <a href="/admin/core/archiveresult/?o=-1">Log</a> &nbsp; &nbsp;
-    <a href="{% url 'Docs' %}">Docs</a> | 
+    <a href="{% url 'Docs' %}" target="_blank" rel="noopener noreferrer">Docs</a> | 
+    <a href="/api">API</a> | 
     <a href="{% url 'public-index' %}">Public</a> | 
     <a href="/admin/">Admin</a>
      &nbsp; &nbsp;
@@ -16,7 +17,7 @@
         {% endblock %}
         {% block userlinks %}
             {% if user.has_usable_password %}
-                <a href="{% url 'admin:password_change' %}">Account</a> /
+                <a href="{% url 'admin:password_change' %}" title="Change your account password">Account</a> /
             {% endif %}
             <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
         {% endblock %}

@@ -45,6 +45,13 @@
             {% endif %}
         {% endblock %}
         
+        <script
+            src="{% static 'jquery-3.7.1.slim.min.js' %}"
+            integrity="sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8="
+            crossorigin="anonymous"></script>
+        <link href="{% static 'select2.min.css' %}" rel="stylesheet"/>
+        <script src="{% static 'select2.min.js' %}"></script>
+
         <link rel="stylesheet" type="text/css" href="{% static "admin.css" %}">
         
         <script>
@@ -141,6 +148,7 @@
             {% block footer %}<div id="footer"></div>{% endblock %}
         </div>
 
+        {% comment %} 
         {% if user.is_authenticated and user.is_superuser and CAN_UPGRADE %}
             <script>
                 if (!localStorage.getItem("bannerDismissed")) {
@@ -177,6 +185,7 @@
                 }
             </script>
         {% endif %}
+        {% endcomment %}
         
         <script>
             $ = django.jQuery;
@@ -264,8 +273,13 @@
                         .appendTo(buttons)
                 })
                 console.log('Converted', buttons.children().length, 'admin actions from dropdown to buttons')
+                jQuery('select[multiple]').select2();
             }
-            
+            function fixInlineAddRow() {
+                $('#id_snapshottag-MAX_NUM_FORMS').val('1000')
+                $('.add-row').show()
+            }
+
             function setupSnapshotGridListToggle() {
                 $("#snapshot-view-list").click(selectSnapshotListView)
                 $("#snapshot-view-grid").click(selectSnapshotGridView)
@@ -277,10 +291,23 @@
                         $(this).parents('.card').removeClass('selected-card')
                 })
             };
+            function selectSnapshotIfHotlinked() {
+                // if we arrive at the index with a url like ??id__startswith=...
+                // we were hotlinked here with the intention of making it easy for the user to perform some
+                // actions on the given snapshot. therefore we should preselect the snapshot to save them a click
+                if (window.location.search.startsWith('?')) {
+                    const result_checkboxes = [...document.querySelectorAll('#result_list .action-checkbox input[type=checkbox]')]
+                    if (result_checkboxes.length === 1) {
+                        result_checkboxes[0].click()
+                    }
+                }
+            }
             $(document).ready(function() {
                 fix_actions()
+                fixInlineAddRow()
                 setupSnapshotGridListToggle()
                 setTimeOffset()
+                selectSnapshotIfHotlinked()
             })
         </script>
     </body>

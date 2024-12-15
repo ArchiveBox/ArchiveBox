@@ -5,27 +5,25 @@ from datetime import datetime, timezone
 from collections import defaultdict
 from typing import List, Optional, Iterator, Mapping
 
-from django.utils.html import format_html, mark_safe
+from django.utils.html import format_html, mark_safe   # type: ignore
 from django.core.cache import cache
 
-from .schema import Link
-from ..system import atomic_write
-from ..logging_util import printable_filesize
-from ..util import (
+import abx
+
+from archivebox.misc.system import atomic_write
+from archivebox.misc.util import (
     enforce_types,
     ts_to_date_str,
     urlencode,
     htmlencode,
     urldecode,
 )
-from ..config import (
-    OUTPUT_DIR,
-    VERSION,
-    FOOTER_INFO,
-    HTML_INDEX_FILENAME,
-    SAVE_ARCHIVE_DOT_ORG,
-    PREVIEW_ORIGINALS,
-)
+from archivebox.config import CONSTANTS, DATA_DIR, VERSION
+from archivebox.config.common import SERVER_CONFIG
+from archivebox.config.version import get_COMMIT_HASH
+from archivebox.misc.logging_util import printable_filesize
+
+from .schema import Link
 
 MAIN_INDEX_TEMPLATE = 'static_index.html'
 MINIMAL_INDEX_TEMPLATE = 'minimal_index.html'
@@ -36,10 +34,10 @@ TITLE_LOADING_MSG = 'Not yet archived...'
 ### Main Links Index
 
 @enforce_types
-def parse_html_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[str]:
+def parse_html_main_index(out_dir: Path=DATA_DIR) -> Iterator[str]:
     """parse an archive index html file and return the list of urls"""
 
-    index_path = Path(out_dir) / HTML_INDEX_FILENAME
+    index_path = Path(out_dir) / CONSTANTS.HTML_INDEX_FILENAME
     if index_path.exists():
         with open(index_path, 'r', encoding='utf-8') as f:
             for line in f:
@@ -61,12 +59,12 @@ def main_index_template(links: List[Link], template: str=MAIN_INDEX_TEMPLATE) ->
 
     return render_django_template(template, {
         'version': VERSION,
-        'git_sha': VERSION,  # not used anymore, but kept for backwards compatibility
+        'git_sha': get_COMMIT_HASH() or VERSION,
         'num_links': str(len(links)),
         'date_updated': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
         'time_updated': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M'),
         'links': [link._asdict(extended=True) for link in links],
-        'FOOTER_INFO': FOOTER_INFO,
+        'FOOTER_INFO': SERVER_CONFIG.FOOTER_INFO,
     })
 
 
@@ -77,13 +75,15 @@ def write_html_link_details(link: Link, out_dir: Optional[str]=None) -> None:
     out_dir = out_dir or link.link_dir
 
     rendered_html = link_details_template(link)
-    atomic_write(str(Path(out_dir) / HTML_INDEX_FILENAME), rendered_html)
+    atomic_write(str(Path(out_dir) / CONSTANTS.HTML_INDEX_FILENAME), rendered_html)
 
 
 @enforce_types
 def link_details_template(link: Link) -> str:
-
-    from ..extractors.wget import wget_output_path
+    
+    from abx_plugin_wget_extractor.wget import wget_output_path
+    
+    SAVE_ARCHIVE_DOT_ORG = abx.pm.hook.get_FLAT_CONFIG().SAVE_ARCHIVE_DOT_ORG
 
     link_info = link._asdict(extended=True)
 
@@ -106,7 +106,7 @@ def link_details_template(link: Link) -> str:
         'status_color': 'success' if link.is_archived else 'danger',
         'oldest_archive_date': ts_to_date_str(link.oldest_archive_date),
         'SAVE_ARCHIVE_DOT_ORG': SAVE_ARCHIVE_DOT_ORG,
-        'PREVIEW_ORIGINALS': PREVIEW_ORIGINALS,
+        'PREVIEW_ORIGINALS': SERVER_CONFIG.PREVIEW_ORIGINALS,
     })
 
 @enforce_types
@@ -118,13 +118,22 @@ def render_django_template(template: str, context: Mapping[str, str]) -> str:
 
 
 def snapshot_icons(snapshot) -> str:
-    cache_key = f'{snapshot.id}-{(snapshot.updated or snapshot.added).timestamp()}-snapshot-icons'
+    cache_key = f'result_icons:{snapshot.pk}:{(snapshot.downloaded_at or snapshot.modified_at or snapshot.created_at or snapshot.bookmarked_at).timestamp()}'
     
     def calc_snapshot_icons():
-        from core.models import EXTRACTORS
+        from core.models import ArchiveResult
         # start = datetime.now(timezone.utc)
 
-        archive_results = snapshot.archiveresult_set.filter(status="succeeded", output__isnull=False)
+        if hasattr(snapshot, '_prefetched_objects_cache') and 'archiveresult_set' in snapshot._prefetched_objects_cache:
+            archive_results = [
+                result
+                for result in snapshot.archiveresult_set.all()
+                if result.status == "succeeded" and result.output
+            ]
+        else:
+            archive_results = snapshot.archiveresult_set.filter(status="succeeded", output__isnull=False)
+
+        # import ipdb; ipdb.set_trace()
         link = snapshot.as_link()
         path = link.archive_path
         canon = link.canonical_outputs()
@@ -147,12 +156,12 @@ def snapshot_icons(snapshot) -> str:
         # Missing specific entry for WARC
 
         extractor_outputs = defaultdict(lambda: None)
-        for extractor, _ in EXTRACTORS:
+        for extractor, _ in ArchiveResult.EXTRACTOR_CHOICES:
             for result in archive_results:
                 if result.extractor == extractor and result:
                     extractor_outputs[extractor] = result
 
-        for extractor, _ in EXTRACTORS:
+        for extractor, _ in ArchiveResult.EXTRACTOR_CHOICES:
             if extractor not in exclude:
                 existing = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
                 # Check filesystsem to see if anything is actually present (too slow, needs optimization/caching)
@@ -189,7 +198,12 @@ def snapshot_icons(snapshot) -> str:
         # print(((end - start).total_seconds()*1000) // 1, 'ms')
         return result
 
-    return cache.get_or_set(cache_key, calc_snapshot_icons)
-    # return calc_snapshot_icons()
+    cache_result = cache.get(cache_key)
+    if cache_result:
+        return cache_result
+    
+    fresh_result = calc_snapshot_icons()
+    cache.set(cache_key, fresh_result, timeout=60 * 60 * 24)
+    return fresh_result
 
    

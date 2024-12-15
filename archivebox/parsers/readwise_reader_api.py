@@ -8,18 +8,12 @@ from datetime import datetime
 from typing import IO, Iterable, Optional
 from configparser import ConfigParser
 
-from pathlib import Path
+import abx
+
+from archivebox.misc.util import enforce_types
+from archivebox.misc.system import atomic_write
 
 from ..index.schema import Link
-from ..util import enforce_types
-from ..system import atomic_write
-from ..config import (
-    SOURCES_DIR,
-    READWISE_READER_TOKENS,
-)
-
-
-API_DB_PATH = Path(SOURCES_DIR) / "readwise_reader_api.db"
 
 
 class ReadwiseReaderAPI:
@@ -69,26 +63,30 @@ def link_from_article(article: dict, sources: list):
 
 
 def write_cursor(username: str, since: str):
-    if not API_DB_PATH.exists():
-        atomic_write(API_DB_PATH, "")
+    READWISE_DB_PATH = abx.pm.hook.get_CONFIG().READWISE_DB_PATH
+    
+    if not READWISE_DB_PATH.exists():
+        atomic_write(READWISE_DB_PATH, "")
 
     since_file = ConfigParser()
     since_file.optionxform = str
-    since_file.read(API_DB_PATH)
+    since_file.read(READWISE_DB_PATH)
 
     since_file[username] = {"since": since}
 
-    with open(API_DB_PATH, "w+") as new:
+    with open(READWISE_DB_PATH, "w+") as new:
         since_file.write(new)
 
 
 def read_cursor(username: str) -> Optional[str]:
-    if not API_DB_PATH.exists():
-        atomic_write(API_DB_PATH, "")
+    READWISE_DB_PATH = abx.pm.hook.get_CONFIG().READWISE_DB_PATH
+    
+    if not READWISE_DB_PATH.exists():
+        atomic_write(READWISE_DB_PATH, "")
 
     config_file = ConfigParser()
     config_file.optionxform = str
-    config_file.read(API_DB_PATH)
+    config_file.read(READWISE_DB_PATH)
 
     return config_file.get(username, "since", fallback=None)
 
@@ -103,6 +101,8 @@ def should_parse_as_readwise_reader_api(text: str) -> bool:
 @enforce_types
 def parse_readwise_reader_api_export(input_buffer: IO[str], **_kwargs) -> Iterable[Link]:
     """Parse bookmarks from the Readwise Reader API"""
+
+    READWISE_READER_TOKENS = abx.pm.hook.get_CONFIG().READWISE_READER_TOKENS
 
     input_buffer.seek(0)
     pattern = re.compile(r"^readwise-reader:\/\/(\w+)")

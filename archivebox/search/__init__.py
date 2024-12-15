@@ -1,35 +1,70 @@
-from typing import List, Union
+__package__ = 'archivebox.search'
+
 from pathlib import Path
-from importlib import import_module
+from typing import List, Union
 
 from django.db.models import QuerySet
+from django.conf import settings
 
+import abx
+import archivebox
 from archivebox.index.schema import Link
-from archivebox.util import enforce_types
-from archivebox.config import stderr, OUTPUT_DIR, USE_INDEXING_BACKEND, USE_SEARCHING_BACKEND, SEARCH_BACKEND_ENGINE
+from archivebox.misc.util import enforce_types
+from archivebox.misc.logging import stderr
+from archivebox.config.common import SEARCH_BACKEND_CONFIG
 
-from .utils import get_indexable_content, log_index_started
 
-def indexing_enabled():
-    return USE_INDEXING_BACKEND
+def log_index_started(url):
+    print('[green][*] Indexing url: {} in the search index[/]'.format(url))
+    print( )
 
-def search_backend_enabled():
-    return USE_SEARCHING_BACKEND
+def get_file_result_content(res, extra_path, use_pwd=False):
+    if use_pwd: 
+        fpath = f'{res.pwd}/{res.output}'
+    else:
+        fpath = f'{res.output}'
+    
+    if extra_path:
+        fpath = f'{fpath}/{extra_path}'
 
-def get_backend():
-    return f'search.backends.{SEARCH_BACKEND_ENGINE}'
+    with open(fpath, 'r', encoding='utf-8') as file:
+        data = file.read()
+    if data:
+        return [data]
+    return []
+
+
+# TODO: This should be abstracted by a plugin interface for extractors
+@enforce_types
+def get_indexable_content(results: QuerySet):
+    if not results:
+        return []
+    # Only use the first method available
+    res, method = results.first(), results.first().extractor
+    if method not in ('readability', 'singlefile', 'dom', 'wget'):
+        return []
+    # This should come from a plugin interface
+
+    # TODO: banish this duplication and get these from the extractor file
+    if method == 'readability':
+        return get_file_result_content(res, 'content.txt', use_pwd=True)
+    elif method == 'singlefile':
+        return get_file_result_content(res, '', use_pwd=True)
+    elif method == 'dom':
+        return get_file_result_content(res, '', use_pwd=True)
+    elif method == 'wget':
+        return get_file_result_content(res, '', use_pwd=True)
+
 
 def import_backend():
-    backend_string = get_backend()
-    try:
-        backend = import_module(backend_string)
-    except Exception as err:
-        raise Exception("Could not load '%s' as a backend: %s" % (backend_string, err))
-    return backend
+    for backend in abx.as_dict(archivebox.pm.hook.get_SEARCHBACKENDS()).values():
+        if backend.name == SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE:
+            return backend
+    raise Exception(f'Could not load {SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE} as search backend')
 
 @enforce_types
-def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: Path=OUTPUT_DIR, skip_text_index: bool=False) -> None:
-    if not indexing_enabled():
+def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: Path=settings.DATA_DIR, skip_text_index: bool=False) -> None:
+    if not SEARCH_BACKEND_CONFIG.USE_INDEXING_BACKEND:
         return
 
     if not skip_text_index and texts:
@@ -39,7 +74,7 @@ def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: 
         backend = import_backend()
         if snap:
             try:
-                backend.index(snapshot_id=str(snap.id), texts=texts)
+                backend.index(snapshot_id=str(snap.pk), texts=texts)
             except Exception as err:
                 stderr()
                 stderr(
@@ -48,13 +83,13 @@ def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: 
                 )
 
 @enforce_types
-def query_search_index(query: str, out_dir: Path=OUTPUT_DIR) -> QuerySet:
+def query_search_index(query: str, out_dir: Path=settings.DATA_DIR) -> QuerySet:
     from core.models import Snapshot
 
-    if search_backend_enabled():
+    if SEARCH_BACKEND_CONFIG.USE_SEARCHING_BACKEND:
         backend = import_backend()
         try:
-            snapshot_ids = backend.search(query)
+            snapshot_pks = backend.search(query)
         except Exception as err:
             stderr()
             stderr(
@@ -64,19 +99,19 @@ def query_search_index(query: str, out_dir: Path=OUTPUT_DIR) -> QuerySet:
             raise
         else:
             # TODO preserve ordering from backend
-            qsearch = Snapshot.objects.filter(pk__in=snapshot_ids)
+            qsearch = Snapshot.objects.filter(pk__in=snapshot_pks)
             return qsearch
     
     return Snapshot.objects.none()
 
 @enforce_types
 def flush_search_index(snapshots: QuerySet):
-    if not indexing_enabled() or not snapshots:
+    if not SEARCH_BACKEND_CONFIG.USE_INDEXING_BACKEND or not snapshots:
         return
     backend = import_backend()
-    snapshot_ids=(str(pk) for pk in snapshots.values_list('pk',flat=True))
+    snapshot_pks = (str(pk) for pk in snapshots.values_list('pk', flat=True))
     try:
-        backend.flush(snapshot_ids)
+        backend.flush(snapshot_pks)
     except Exception as err:
         stderr()
         stderr(
@@ -85,7 +120,7 @@ def flush_search_index(snapshots: QuerySet):
         )
 
 @enforce_types
-def index_links(links: Union[List[Link],None], out_dir: Path=OUTPUT_DIR):
+def index_links(links: Union[List[Link],None], out_dir: Path=settings.DATA_DIR):
     if not links:
         return
 

@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.contrib.auth.middleware import RemoteUserMiddleware
 from django.core.exceptions import ImproperlyConfigured
 
-from ..config import PUBLIC_SNAPSHOTS, REVERSE_PROXY_USER_HEADER, REVERSE_PROXY_WHITELIST
+from archivebox.config.common import SERVER_CONFIG
 
 
 def detect_timezone(request, activate: bool=True):
@@ -32,7 +32,7 @@ def CacheControlMiddleware(get_response):
         response = get_response(request)
 
         if '/archive/' in request.path or '/static/' in request.path:
-            policy = 'public' if PUBLIC_SNAPSHOTS else 'private'
+            policy = 'public' if SERVER_CONFIG.PUBLIC_SNAPSHOTS else 'private'
             response['Cache-Control'] = f'{policy}, max-age=60, stale-while-revalidate=300'
             # print('Set Cache-Control header to', response['Cache-Control'])
         return response
@@ -40,15 +40,15 @@ def CacheControlMiddleware(get_response):
     return middleware
 
 class ReverseProxyAuthMiddleware(RemoteUserMiddleware):
-    header = 'HTTP_{normalized}'.format(normalized=REVERSE_PROXY_USER_HEADER.replace('-', '_').upper())
+    header = 'HTTP_{normalized}'.format(normalized=SERVER_CONFIG.REVERSE_PROXY_USER_HEADER.replace('-', '_').upper())
 
     def process_request(self, request):
-        if REVERSE_PROXY_WHITELIST == '':
+        if SERVER_CONFIG.REVERSE_PROXY_WHITELIST == '':
             return
 
         ip = request.META.get('REMOTE_ADDR')
 
-        for cidr in REVERSE_PROXY_WHITELIST.split(','):
+        for cidr in SERVER_CONFIG.REVERSE_PROXY_WHITELIST.split(','):
             try:
                 network = ipaddress.ip_network(cidr)
             except ValueError:

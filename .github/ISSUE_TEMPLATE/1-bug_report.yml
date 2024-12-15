@@ -1,0 +1,198 @@
+name: 🐞 Bug report
+description: Report a bug or error you encountered in ArchiveBox
+title: "Bug: ..."
+assignees:
+  - pirate
+type: 'Bug'
+body:
+  - type: markdown
+    attributes:
+      value: |
+        *Please note:* it is normal to see errors occasionally for some extractors on some URLs (not every extractor will work on every type of page).  
+        Please report archiving errors if you are seeing them *consistently across many URLs* or if they are *preventing you from using ArchiveBox*.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Provide a screenshot and describe the bug
+      description: |
+        Attach a screenshot and describe what the issue is, what you expected to happen, and if relevant, the *URLs you were trying to archive*.  
+      placeholder: |
+        Got a bunch of 'singlefile was unable to archive this page' errors when trying to archive URLs from this site: https://example.com/xyz ...
+        I also tried to archive the same URLs using `singlefile` directly and some of them worked but not all of them. etc. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Please include the exact steps you took to trigger the issue.
+      render: markdown
+      placeholder: |
+        1. Started ArchiveBox by running: `docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox:latest`
+        2. Went to the https://127.0.0.1:8000/add/ page in Google Chrome
+        3. Typed 'https://example.com/xyz' into the 'Add URL' input field
+        4. Clicked the 'Add+' button
+        5. Got a 500 error and saw the errors below in terminal
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or errors
+      description: "Paste any terminal output, logs, or errors (check `data/logs/errors.log` as well)."
+      placeholder: |
+        ╭─────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+        │ [2024-11-02 19:54:28] ArchiveBox v0.8.6rc0: archivebox add https://example.com#1234567                  │
+        ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+        
+        [+] [2024-11-02 19:54:29] Adding 1 links to index (crawl depth=0)...
+            > Saved verbatim input to sources/1730577269-import.txt
+            > Parsed 1 URLs from input (Generic TXT)
+            ...
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: version
+    attributes:
+      label: ArchiveBox Version
+      description: |
+        **REQUIRED:** Run the `archivebox version` command inside your collection dir and paste the *full output* here (*not just the version number*).  
+        For Docker Compose run: `docker compose run archivebox version`  
+        For plain Docker run:   `docker run -v $PWD:/data archivebox/archivebox version`  
+      render: shell
+      placeholder: |
+        0.8.6
+        ArchiveBox v0.8.6rc0 COMMIT_HASH=721427a BUILD_TIME=2024-10-21 12:57:02 1729515422
+        IN_DOCKER=False IN_QEMU=False ARCH=arm64 OS=Darwin PLATFORM=macOS-15.1-arm64-arm-64bit PYTHON=Cpython (venv)
+        EUID=502:20 UID=502:20 PUID=502:20 FS_UID=502:20 FS_PERMS=644 FS_ATOMIC=True FS_REMOTE=False
+        DEBUG=False IS_TTY=True SUDO=False ID=dfa11485:aa78ad45 SEARCH_BACKEND=ripgrep LDAP=False
+        
+        Binary Dependencies:
+        √  python     3.11.9     venv_pip   ~/.venv/bin/python
+        √  django     5.1.2      venv_pip   ~/.venv/lib/python3.11/site-packages/django/__init__.py
+        √  sqlite     2.6.0      venv_pip   ~/.venv/lib/python3.11/site-packages/django/db/backends/sqlite3/base.py
+        √  pip        24.3.1     venv_pip   ~/.venv/bin/pip
+        ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install_method
+    validations:
+      required: true
+    attributes:
+      label: How did you install the version of ArchiveBox you are using?
+      multiple: false
+      options:
+        - pip
+        - apt
+        - brew
+        - nix
+        - Docker (or other container system like podman/LXC/Kubernetes or TrueNAS/Cloudron/YunoHost/etc.)
+        - Other
+
+  - type: dropdown
+    id: operating_system
+    validations:
+      required: true
+    attributes:
+      label: What operating system are you running on?
+      description: |
+        Please note we are *unable to provide support for Windows users* unless you are using [Docker on Windows](https://github.com/ArchiveBox/archivebox#:~:text=windows%20without%20docker).
+      multiple: false
+      options:
+        - Linux (Ubuntu/Debian/Arch/Alpine/etc.)
+        - macOS (including Docker on macOS)
+        - BSD (FreeBSD/OpenBSD/NetBSD/etc.)
+        - Windows (including WSL, WSL2, Docker Desktop on Windows)
+        - Other
+
+  - type: checkboxes
+    id: filesystem
+    attributes:
+      label: What type of drive are you using to store your ArchiveBox data?
+      description: Are you using a [remote filesystem](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-Up-Storage#supported-remote-filesystems) or FUSE mount for `data/` or `data/archive` (e.g. NFS/SMB/CIFS/etc. or FUSE/RClone/S3/B2/OneDrive/etc.)?
+      options:
+        - label: "`data/` is on a local SSD or NVMe drive"
+          required: false
+        - label: "`data/` is on a spinning hard drive or external USB drive"
+          required: false
+        - label: "`data/` is on a network mount (e.g. NFS/SMB/CIFS/etc.)"
+          required: false
+        - label: "`data/` is on a FUSE mount (e.g. SSHFS/RClone/S3/B2/OneDrive, etc.)"
+          required: false
+  
+
+  - type: textarea
+    id: docker_compose_yml
+    attributes:
+      label: Docker Compose Configuration
+      description: "If using Docker Compose, please share your full `docker-compose.yml` file. If using plain Docker, paste the `docker run ...` command you use."
+      placeholder: |
+        services:
+            archivebox:
+                image: archivebox/archivebox:latest
+                ports:
+                    - 8000:8000
+                volumes:
+                    - ./data:/data
+                environment:
+                    - ADMIN_USERNAME=admin
+                    - ADMIN_PASSWORD=****<redact any passwords>****
+                    - ALLOWED_HOSTS=*
+                    - CSRF_TRUSTED_ORIGINS=https://archivebox.example.com
+                    - PUBLIC_INDEX=True
+                    - PUBLIC_SNAPSHOTS=True
+                    - PUBLIC_ADD_VIEW=False
+                    ...
+
+            archivebox_scheduler:
+                image: archivebox/archivebox:latest
+                command: schedule --foreground --update --every=day
+                environment:
+                    ...
+      
+          ...
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: ArchiveBox Configuration
+      description: "Please share your full `data/ArchiveBox.conf` file here."
+      render: shell
+      placeholder: |
+        [SERVER_CONFIG]
+        SECRET_KEY = "*********<redact any secrets/passwords>************"
+
+        WGET_RESTRICT_FILE_NAMES=windows
+        USE_SYSTEM_WGET=true
+        CHECK_SSL_VALIDITY=false
+        ...
+    validations:
+      required: false
+
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+          
+        We strive to answer issues as quickly as possible, it usually takes us *about a ~week* to respond.  
+        Make sure your `data/` is [**fully backed up**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#disk-layout) before trying anything suggested here, **we are not responsible for data loss**.  
+          
+        In the meantime please consider:  
+          
+          - 💰 [Donating to support ArchiveBox open-source](https://github.com/ArchiveBox/ArchiveBox/wiki/Donations)
+          - 👨‍✈️ [Hiring us for corporate deployments](https://docs.monadical.com/s/archivebox-consulting-services) with professional support, custom feature development, and help with CAPTCHAs/rate-limits
+          - 🔍 [Searching the Documentation](https://docs.archivebox.io/) for answers to common questions
+          - 📚 Reading the [Troubleshooting Guide](https://github.com/ArchiveBox/ArchiveBox/wiki)
+          - ✨ Testing out a newer [`BETA` release](https://github.com/ArchiveBox/ArchiveBox/releases) (issues are often already fixed in our latest `BETA` releases)
+        

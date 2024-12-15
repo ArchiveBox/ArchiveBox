@@ -1,0 +1,128 @@
+name: 💡 Feature or enhancement request
+description: Suggest an idea or improvement for this project
+title: "Feature Request: ..."
+assignees:
+  - pirate
+type: 'Enhancement'
+labels: 'status: idea phase'
+body:
+  - type: dropdown
+    id: suggestion_type
+    validations:
+      required: true
+    attributes:
+      label: "What type of suggestion are you making?"
+      multiple: false
+      options:
+        - New extractor / type of content to save
+        - Proposing a new feature
+        - Modification of existing behavior
+        - Web UI or UX design improvement
+
+  - type: textarea
+    id: current_problem
+    attributes:
+      label: "What is the problem that your feature request solves?"
+      description: |
+        Describe the problem that your feature request solves, feel free to include any screenshots or examples.
+      placeholder: |
+        e.g. I need to be able to archive spanish and french subtitle files from a particular movie site https://example.com/somevideos that's going down soon.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: "What is your proposed solution?"
+      description: |
+        Describe the ideal specific solution you'd want, and whether it fits into any broader scope of changes.
+      placeholder: |
+        e.g. I specifically need a new archive method to look for multilingual subtitle files related to pages.  
+        The bigger picture solution is the ability for custom user scripts to be run in a puppeteer context during archiving.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workarounds_tried
+    attributes:
+      label: "What hacks or alternative solutions have you tried to solve the problem?"
+      description: |
+        A clear and concise description of any alternative solutions, workarounds, or other software you've considered using to fix the problem.
+      placeholder: |
+        e.g. I wait for archivebox to finish archiving the page, then I manually run `yt-dlp --subs <URL>` inside 
+        the `data/archive/<timestamp>/` directory to download the subtitle files and add them to the snapshot folder.
+    validations:
+      required: true
+
+  - type: textarea
+    id: version
+    attributes:
+      label: Share the entire output of the `archivebox version` command for the current verison you are using.
+      description: |
+        DO NOT JUST ENTER "the latest verion" OR YOUR ISSUE WILL BE CLOSED.  
+        We need to know what version of ArchiveBox and what feature flags you're currently running with in order to contextualize your feature request.  
+        Sometimes we've already fixed the issues in newer BETA versions, sometimes features already exist but may not be available in your specific environment.
+          
+        Run the `archivebox version` command inside your current collection dir and paste the *full output* here (*not just the version number*).  
+        For Docker Compose run: `docker compose run archivebox version`  
+        For plain Docker run:   `docker run -v $PWD:/data archivebox/archivebox version`  
+      render: shell
+      placeholder: |
+        0.8.6
+        ArchiveBox v0.8.6rc0 COMMIT_HASH=721427a BUILD_TIME=2024-10-21 12:57:02 1729515422
+        IN_DOCKER=False IN_QEMU=False ARCH=arm64 OS=Darwin PLATFORM=macOS-15.1-arm64-arm-64bit PYTHON=Cpython (venv)
+        EUID=502:20 UID=502:20 PUID=502:20 FS_UID=502:20 FS_PERMS=644 FS_ATOMIC=True FS_REMOTE=False
+        DEBUG=False IS_TTY=True SUDO=False ID=dfa11485:aa78ad45 SEARCH_BACKEND=ripgrep LDAP=False
+        
+        Binary Dependencies:
+        √  python     3.11.9     venv_pip   ~/.venv/bin/python
+        √  django     5.1.2      venv_pip   ~/.venv/lib/python3.11/site-packages/django/__init__.py
+        √  sqlite     2.6.0      venv_pip   ~/.venv/lib/python3.11/site-packages/django/db/backends/sqlite3/base.py
+        √  pip        24.3.1     venv_pip   ~/.venv/bin/pip
+        ...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: priority
+    attributes:
+      label: "How badly do you want this new feature?"
+      options:
+        - label: "It's an urgent deal-breaker, I can't live without it"
+          required: false
+        - label: "It's important to add it in the near-mid term future"
+          required: false
+        - label: "It would be nice to have eventually"
+          required: false
+        - label: "I'm willing to [work on a PR](https://github.com/ArchiveBox/ArchiveBox#archivebox-development) to develop this myself"
+          required: false
+        - label: "I have [donated money](https://github.com/ArchiveBox/ArchiveBox/wiki/Donations) to go towards fixing this issue"
+          required: false
+  
+  - type: checkboxes
+    id: satisfaction_survey
+    attributes:
+      label: Mini Survey
+      description: How do you like ArchiveBox so far?
+      options:
+        - label: "I like ArchiveBox so far / would recommend it to a friend"
+          required: false
+        - label: "I've had a lot of difficulty getting ArchiveBox set up"
+          required: false
+        - label: "I would pay $10/mo for a hosted version of ArchiveBox if it had this feature"
+          required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+          
+        We strive to answer issues as quickly as possible, it usually takes us *about a ~week* to respond.  
+        Make sure your `data/` is [**fully backed up**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#disk-layout) before trying any workarounds or BETAs suggested here, **we are not responsible for data loss**.  
+          
+        In the meantime please consider:  
+          
+          - 💰 [Donating to support ArchiveBox open-source](https://github.com/ArchiveBox/ArchiveBox/wiki/Donations)
+          - 📊 [Hiring us for corporate deployments](https://docs.monadical.com/s/archivebox-consulting-services) with professional support, custom feature development, and help with CAPTCHAs/rate-limits
+          - 🔍 [Searching the Documentation](https://docs.archivebox.io/) for answers to common questions
+          - ✨ Testing out a newer [`BETA` release](https://github.com/ArchiveBox/ArchiveBox/releases) (issues are often already fixed in our latest `BETA` releases)

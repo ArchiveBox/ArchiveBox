@@ -6,27 +6,22 @@ import re
 from typing import IO, Iterable, Optional
 from configparser import ConfigParser
 
-from pathlib import Path
-from ..vendor.pocket import Pocket
+import archivebox
+from archivebox.config import CONSTANTS
+from archivebox.misc.util import enforce_types
+from archivebox.misc.system import atomic_write
 
 from ..index.schema import Link
-from ..util import enforce_types
-from ..system import atomic_write
-from ..config import (
-    SOURCES_DIR,
-    POCKET_CONSUMER_KEY,
-    POCKET_ACCESS_TOKENS,
-)
 
 
 COUNT_PER_PAGE = 500
-API_DB_PATH = Path(SOURCES_DIR) / 'pocket_api.db'
+API_DB_PATH = CONSTANTS.SOURCES_DIR / 'pocket_api.db'
 
 # search for broken protocols that sometimes come from the Pocket API
 _BROKEN_PROTOCOL_RE = re.compile('^(http[s]?)(:/(?!/))')
 
 
-def get_pocket_articles(api: Pocket, since=None, page=0):
+def get_pocket_articles(api, since=None, page=0):
     body, headers = api.get(
         state='archive',
         sort='oldest',
@@ -98,13 +93,17 @@ def should_parse_as_pocket_api(text: str) -> bool:
 def parse_pocket_api_export(input_buffer: IO[str], **_kwargs) -> Iterable[Link]:
     """Parse bookmarks from the Pocket API"""
 
+    from pocket import Pocket
+
+    FLAT_CONFIG = archivebox.pm.hook.get_FLAT_CONFIG()
+
     input_buffer.seek(0)
     pattern = re.compile(r"^pocket:\/\/(\w+)")
     for line in input_buffer:
         if should_parse_as_pocket_api(line):
             
             username = pattern.search(line).group(1)
-            api = Pocket(POCKET_CONSUMER_KEY, POCKET_ACCESS_TOKENS[username])
+            api = Pocket(FLAT_CONFIG.POCKET_CONSUMER_KEY, FLAT_CONFIG.POCKET_ACCESS_TOKENS[username])
             api.last_since = None
     
             for article in get_pocket_articles(api, since=read_since(username)):
