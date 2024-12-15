@@ -1,6 +1,6 @@
 {
   "name": "archivebox",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "ArchiveBox: The self-hosted internet archive",
   "author": "Nick Sweeting <archivebox-npm@sweeting.me>",
   "repository": "github:ArchiveBox/ArchiveBox",

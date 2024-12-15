@@ -8,12 +8,10 @@
 # Documentation:
 #     https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker-compose
 
-version: '3.9'
-
 services:
     archivebox:
         #image: ${DOCKER_IMAGE:-archivebox/archivebox:dev}
-        image: archivebox/archivebox:dev
+        image: archivebox/archivebox:stable
         command: server --quick-init 0.0.0.0:8000
         ports:
             - 8000:8000
@@ -41,7 +39,7 @@ services:
             # ...
             # add further configuration options from archivebox/config.py as needed (to apply them only to this container)
             # or set using `docker compose run archivebox config --set SOME_KEY=someval` (to persist config across all containers)
-        
+
         # For ad-blocking during archiving, uncomment this section and pihole service section below 
         # networks:
         #   - dns
@@ -51,13 +49,10 @@ services:
 
     ######## Optional Addons: tweak examples below as needed for your specific use case ########
 
-    ### Example: To run the Sonic full-text search backend, first download the config file to sonic.cfg
-    #   $ curl -O https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/etc/sonic.cfg
-    # After starting, backfill any existing Snapshots into the full-text index:
-    #   $ docker-compose run archivebox update --index-only
+    ### Example: To run the Sonic full-text search backend, uncomment this block and the sonic config above
 
     # sonic:
-    #    image: valeriansaliou/sonic:latest
+    #    image: archivebox/sonic:latest
     #    expose:
     #        - 1491
     #    environment:
@@ -65,8 +60,8 @@ services:
     #    volumes:
     #        - ./sonic.cfg:/etc/sonic.cfg:ro
     #        - ./data/sonic:/var/lib/sonic/store
-    
-    
+
+
     ### Example: To run pihole in order to block ad/tracker requests during archiving,
     # uncomment this block and set up pihole using its admin interface
 
