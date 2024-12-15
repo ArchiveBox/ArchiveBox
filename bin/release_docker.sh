@@ -26,8 +26,8 @@ SELECTED_PLATFORMS="${2:-$SUPPORTED_PLATFORMS}"
 # docker login --username=nikisweeting
 # docker login ghcr.io --username=pirate
 
-echo "[^] Building docker image"
-./bin/build_docker.sh "$TAG_NAME" "$SELECTED_PLATFORMS"
+# echo "[^] Building docker image"
+# ./bin/build_docker.sh "$TAG_NAME" "$SELECTED_PLATFORMS"
 
 echo "[^] Uploading docker image"
 docker buildx build --platform "$SELECTED_PLATFORMS" --push . \
@@ -37,14 +37,18 @@ docker buildx build --platform "$SELECTED_PLATFORMS" --push . \
                -t archivebox/archivebox:$SHORT_VERSION \
                -t archivebox/archivebox:$GIT_SHA \
                -t archivebox/archivebox:latest \
+               -t archivebox/archivebox:stable \
                -t nikisweeting/archivebox \
                -t nikisweeting/archivebox:$TAG_NAME \
                -t nikisweeting/archivebox:$VERSION \
                -t nikisweeting/archivebox:$SHORT_VERSION \
                -t nikisweeting/archivebox:$GIT_SHA \
                -t nikisweeting/archivebox:latest \
+               -t nikisweeting/archivebox:stable \
                -t ghcr.io/archivebox/archivebox/archivebox:$TAG_NAME \
                -t ghcr.io/archivebox/archivebox/archivebox:$VERSION \
                -t ghcr.io/archivebox/archivebox/archivebox:$SHORT_VERSION \
-               -t ghcr.io/archivebox/archivebox/archivebox:$GIT_SHA
+               -t ghcr.io/archivebox/archivebox/archivebox:$GIT_SHA \
+               -t ghcr.io/archivebox/archivebox/archivebox:latest \
+               -t ghcr.io/archivebox/archivebox/archivebox:stable
 
