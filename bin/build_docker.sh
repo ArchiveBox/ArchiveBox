@@ -73,7 +73,7 @@ check_platforms || (recreate_builder && check_platforms) || exit 1
 
 # Build python package lists
 echo "[+] Generating requirements.txt and pdm.lock from pyproject.toml..."
-pdm lock --group=':all' --strategy="cross_platform" --production
+pdm lock --group=':all' --strategy="inherit_metadata" --production
 pdm export --group=':all' --production --without-hashes -o requirements.txt
 
 
@@ -88,14 +88,17 @@ docker buildx build --platform "$SELECTED_PLATFORMS" --load . \
                -t archivebox/archivebox:$SHORT_VERSION \
                -t archivebox/archivebox:$GIT_SHA \
                -t archivebox/archivebox:latest \
+               -t archivebox/archivebox:stable \
                -t nikisweeting/archivebox \
                -t nikisweeting/archivebox:$TAG_NAME \
                -t nikisweeting/archivebox:$VERSION \
                -t nikisweeting/archivebox:$SHORT_VERSION \
                -t nikisweeting/archivebox:$GIT_SHA \
                -t nikisweeting/archivebox:latest \
+               -t nikisweeting/archivebox:stable \
                -t ghcr.io/archivebox/archivebox/archivebox:$TAG_NAME \
                -t ghcr.io/archivebox/archivebox/archivebox:$VERSION \
                -t ghcr.io/archivebox/archivebox/archivebox:$SHORT_VERSION \
                -t ghcr.io/archivebox/archivebox/archivebox:$GIT_SHA \
-               -t ghcr.io/archivebox/archivebox/archivebox:latest
+               -t ghcr.io/archivebox/archivebox/archivebox:latest \
+               -t ghcr.io/archivebox/archivebox/archivebox:stable
