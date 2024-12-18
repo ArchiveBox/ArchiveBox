@@ -38,12 +38,11 @@ fi
 echo "[+] Building Docker image for $SELECTED_PLATFORMS: branch=$BRANCH_NAME version=$VERSION tags=${TAG_NAMES[*]}"
 
 declare -a FULL_TAG_NAMES
-# for each tag in TAG_NAMES, add archivebox/archivebox:tag and nikisweeting/archivebox:tag to FULL_TAG_NAMES
+# for each tag in TAG_NAMES, add archivebox/archivebox:tag and its mirrors to FULL_TAG_NAMES
 for TAG_NAME in "${TAG_NAMES[@]}"; do
     [[ "$TAG_NAME" == "" ]] && continue
-    FULL_TAG_NAMES+=("-t archivebox/archivebox:$TAG_NAME")
-    FULL_TAG_NAMES+=("-t nikisweeting/archivebox:$TAG_NAME")
-    FULL_TAG_NAMES+=("-t ghcr.io/archivebox/archivebox:$TAG_NAME")
+    FULL_TAG_NAMES+=("-t archivebox/archivebox:$TAG_NAME")              # ArchiveBox official Docker repo
+    FULL_TAG_NAMES+=("-t ghcr.io/archivebox/archivebox:$TAG_NAME")      # Github Container Repo mirror
 done
 echo "${FULL_TAG_NAMES[@]}"
 

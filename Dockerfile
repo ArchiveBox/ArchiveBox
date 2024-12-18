@@ -1,24 +1,35 @@
-# This is the Dockerfile for ArchiveBox, it bundles the following dependencies:
-#     python3, ArchiveBox, curl, wget, git, chromium, youtube-dl, yt-dlp, single-file
+# This is the Dockerfile for ArchiveBox, it bundles the following main dependencies:
+#     python3.11, pip, pipx, uv, python3-ldap
+#     curl, wget, git, dig, ping, tree, nano
+#     node, npm, single-file, readability-extractor, postlight-parser
+#     ArchiveBox, yt-dlp, playwright, chromium
 # Usage:
-#     git submodule update --init --recursive
-#     git pull --recurse-submodules
-#     docker build . -t archivebox --no-cache
+#     git clone https://github.com/ArchiveBox/ArchiveBox && cd ArchiveBox
+#     docker build . -t archivebox
 #     docker run -v "$PWD/data":/data archivebox init
 #     docker run -v "$PWD/data":/data archivebox add 'https://example.com'
 #     docker run -v "$PWD/data":/data -it archivebox manage createsuperuser
 #     docker run -v "$PWD/data":/data -p 8000:8000 archivebox server
 # Multi-arch build:
 #     docker buildx create --use
-#     docker buildx build . --platform=linux/amd64,linux/arm64--push -t archivebox/archivebox:0.7.5 -t archivebox/archivebox:dev
-#
-# Read more about [developing Archivebox](https://github.com/ArchiveBox/ArchiveBox#archivebox-development).
+#     docker buildx build . --platform=linux/amd64,linux/arm64--push -t archivebox/archivebox:dev -t archivebox/archivebox:sha-abc123
+# Read more here: https://github.com/ArchiveBox/ArchiveBox#archivebox-development
+
 
 #########################################################################################
 
-# Use Debian 12 w/ faster package updates: https://packages.debian.org/bookworm-backports/
+### Example: Using ArchiveBox in your own project's Dockerfile ########
+
+# FROM python:3.12-slim
+# WORKDIR /data
+# RUN pip install archivebox>=0.8.5rc51   # use latest release here
+# RUN archivebox install
+# RUN useradd -ms /bin/bash archivebox && chown -R archivebox /data
+
+#########################################################################################
+
 FROM python:3.11-slim-bookworm
-# FROM debian:bookworm-backports
+# FROM debian:bookworm-backports  # Tried using faster bookworm-backports but wasn't worth it due to more frequent breakages: https://packages.debian.org/bookworm-backports/
 
 LABEL name="archivebox" \
     maintainer="Nick Sweeting <dockerfile@archivebox.io>" \
@@ -47,7 +58,7 @@ ARG TARGETVARIANT
 
 ######### Environment Variables #################################
 
-# Global system-level config
+# Global built-time and runtime environment constants + default pkg manager config
 ENV TZ=UTC \
     LANGUAGE=en_US:en \
     LC_ALL=C.UTF-8 \
@@ -59,33 +70,34 @@ ENV TZ=UTC \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     npm_config_loglevel=error
 
-# Version config
+# Language Version config
 ENV PYTHON_VERSION=3.11 \
     NODE_VERSION=22
 
-# User config
+# Non-root User config
 ENV ARCHIVEBOX_USER="archivebox" \
     DEFAULT_PUID=911 \
     DEFAULT_PGID=911 \
     IN_DOCKER=True
 
-# Global paths
+# ArchiveBox Source Code + Lib + Data paths
 ENV CODE_DIR=/app \
     DATA_DIR=/data \
     PLAYWRIGHT_BROWSERS_PATH=/browsers
     # GLOBAL_VENV=/venv \
     # TODO: add TMP_DIR and LIB_DIR?
 
-# Build shell config
+# Bash SHELL config
+# http://redsymbol.net/articles/unofficial-bash-strict-mode/
 SHELL ["/bin/bash", "-o", "pipefail", "-o", "errexit", "-o", "errtrace", "-o", "nounset", "-c"] 
 
 ######### System Environment ####################################
 
-# Detect ArchiveBox version number by reading pyproject.toml
-COPY --chown=root:root --chmod=755 pyproject.toml "$CODE_DIR/"
-RUN grep '^version = ' "${CODE_DIR}/pyproject.toml" | awk -F'"' '{print $2}' > /VERSION.txt
+# Detect ArchiveBox version number by reading pyproject.toml (also serves to invalidate the entire build cache whenever pyproject.toml changes)
+RUN --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
+    grep '^version = ' "/app/pyproject.toml" | awk -F'"' '{print $2}' > /VERSION.txt
 
-# Force apt to leave downloaded binaries in /var/cache/apt (massively speeds up Docker builds)
+# Force apt to leave downloaded binaries in /var/cache/apt (massively speeds up back-to-back Docker builds)
 RUN echo 'Binary::apt::APT::Keep-Downloaded-Packages "1";' > /etc/apt/apt.conf.d/99keep-cache \
     && echo 'APT::Install-Recommends "0";' > /etc/apt/apt.conf.d/99no-intall-recommends \
     && echo 'APT::Install-Suggests "0";' > /etc/apt/apt.conf.d/99no-intall-suggests \
@@ -119,7 +131,7 @@ RUN echo "[*] Setting up $ARCHIVEBOX_USER user uid=${DEFAULT_PUID}..." \
 
 # Install system apt dependencies (adding backports to access more recent apt updates)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing APT base system dependencies for $TARGETPLATFORM..." \
+    echo "[+] APT Installing base system dependencies for $TARGETPLATFORM..." \
     && echo 'deb https://deb.debian.org/debian bookworm-backports main contrib non-free' > /etc/apt/sources.list.d/backports.list \
     && mkdir -p /etc/apt/keyrings \
     && apt-get update -qq \
@@ -143,7 +155,7 @@ RUN (which sonic && sonic --version) | tee -a /VERSION.txt
 # Set up Python environment
 #RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
 #    --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
-RUN echo "[+] Setting up Python $PYTHON_VERSION system environment..." \
+RUN echo "[+] APT Installing PYTHON $PYTHON_VERSION for $TARGETPLATFORM (skipped, provided by base image)..." \
     # NOT NEEDED because we're using a pre-built python image, keeping this here in case we switch back to custom-building our own:
     # && apt-get update -qq \
     # && apt-get install -qq -y -t bookworm-backports --no-upgrade \
@@ -169,7 +181,7 @@ RUN echo "[+] Setting up Python $PYTHON_VERSION system environment..." \
 # Set up Node environment
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
     --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing Node $NODE_VERSION system environment..." \
+    echo "[+] APT Installing NODE $NODE_VERSION for $TARGETPLATFORM..." \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" >> /etc/apt/sources.list.d/nodejs.list \
     && curl -fsSL "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key" | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && apt-get update -qq \
@@ -192,7 +204,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 
 # Install apt binary dependencies for exractors
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing APT extractor dependencies globally using apt..." \
+    echo "[+] APT Installing extractor dependencies for $TARGETPLATFORM..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports \
         curl wget git ffmpeg ripgrep pipx \
@@ -210,7 +222,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 
 # Install apt font & rendering dependencies for chromium browser
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing APT dependencies for browser fonts & rendering..." \
+    echo "[+] APT Installing CHROMIUM dependencies, fonts, and display libraries for $TARGETPLATFORM..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports \
         fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-khmeros fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
@@ -228,11 +240,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
     --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
     --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=browsers-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing Playwright browser binary to $PLAYWRIGHT_BROWSERS_PATH..." \
+    echo "[+] PIP Installing playwright into /venv and CHROMIUM binary into $PLAYWRIGHT_BROWSERS_PATH..." \
     && apt-get update -qq \
     # install Chromium using playwright
     # && cp -r /root/.cache/ms-playwright "$PLAYWRIGHT_BROWSERS_PATH" \
-    && pip install playwright \
+    && pip install "playwright>=1.49.1" \
     && playwright install chromium \
     && export CHROME_BINARY="$(python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" \
     && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
@@ -252,7 +264,7 @@ ENV PATH="/home/$ARCHIVEBOX_USER/.npm/bin:$PATH"
 USER $ARCHIVEBOX_USER
 WORKDIR "/home/$ARCHIVEBOX_USER/.npm"
 RUN --mount=type=cache,target=/home/$ARCHIVEBOX_USER/.npm_cache,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT,uid=$DEFAULT_PUID,gid=$DEFAULT_PGID \
-    echo "[+] Installing NPM extractor dependencies in /home/$ARCHIVEBOX_USER/.npm..." \
+    echo "[+] NPM Installing extractor dependencies into /home/$ARCHIVEBOX_USER/.npm..." \
     && npm config set prefix "/home/$ARCHIVEBOX_USER/.npm" \
     && npm install --global --prefer-offline --no-fund --no-audit --cache "/home/$ARCHIVEBOX_USER/.npm_cache" \
         "@postlight/parser@^2.2.3" \
@@ -304,46 +316,51 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 # Install ArchiveBox Python venv dependencies from uv.lock
 COPY --chown=root:root --chmod=755 "./pyproject.toml" "uv.lock" "$CODE_DIR"/
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing ArchiveBox Python PIP dependencies from uv.lock for ${TARGETPLATFORM}..." \
+    echo "[+] PIP Installing ArchiveBox dependencies from pyproject.toml and uv.lock..." \
     && uv sync \
         --frozen \
-        --no-install-project \
         --all-extras \
+        --no-install-project \
         --no-install-workspace
+    # installs the pip packages that archivebox depends on, defined in pyproject.toml and uv.lock dependencies
 
 # Install ArchiveBox Python package + workspace dependencies from source
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
     echo "[*] Installing ArchiveBox Python source code from $CODE_DIR..." \
-    && uv sync --all-extras --frozen
+    && uv sync \
+        --all-extras \
+        --frozen
+    # installs archivebox itself, and any other vendored packages in pkgs/*, defined in pyproject.toml workspaces
 
 ####################################################
 
 # Setup ArchiveBox runtime config
+ENV TMP_DIR=/tmp/archivebox \
+    LIB_DIR=/usr/share/archivebox/lib \
+    GOOGLE_API_KEY=no \
+    GOOGLE_DEFAULT_CLIENT_ID=no \
+    GOOGLE_DEFAULT_CLIENT_SECRET=no
+
 WORKDIR "$DATA_DIR"
 RUN openssl rand -hex 16 > /etc/machine-id \
-    && mkdir -p "/tmp/archivebox" \
-    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/tmp/archivebox" \
-    && mkdir -p "/usr/share/archivebox/lib" \
-    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/usr/share/archivebox/lib"
-
-ENV GOOGLE_API_KEY=no \
-    GOOGLE_DEFAULT_CLIENT_ID=no \
-    GOOGLE_DEFAULT_CLIENT_SECRET=no \
-    TMP_DIR=/tmp/archivebox \
-    LIB_DIR=/usr/share/archivebox/lib \
-    ALLOWED_HOSTS=*
+    && mkdir -p "$TMP_DIR" \
+    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "$TMP_DIR" \
+    && mkdir -p "$LIB_DIR" \
+    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "$LIB_DIR"
 
 # Print version for nice docker finish summary
 RUN (echo -e "\n\n[√] Finished Docker build succesfully. Saving build summary in: /VERSION.txt" \
     && echo -e "PLATFORM=${TARGETPLATFORM} ARCH=$(uname -m) ($(uname -s) ${TARGETARCH} ${TARGETVARIANT})\n" \
     && echo -e "BUILD_END_TIME=$(date +"%Y-%m-%d %H:%M:%S %s")\n\n" \
     ) | tee -a /VERSION.txt
+
+# Run   $ archivebox version                                >> /VERSION.txt
 RUN "$CODE_DIR"/bin/docker_entrypoint.sh version 2>&1 | tee -a /VERSION.txt
 
 ####################################################
 
-# Open up the interfaces to the outside world
+# Expose ArchiveBox's main interfaces to the outside world
 WORKDIR "$DATA_DIR"
 VOLUME "$DATA_DIR"
 EXPOSE 8000
