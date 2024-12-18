@@ -140,9 +140,10 @@ RUN (which sonic && sonic --version) | tee -a /VERSION.txt
 
 ######### Language Environments ####################################
 
-# Install Python environment
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Setting up Python $PYTHON_VERSION runtime..." \
+# Set up Python environment
+#RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
+#    --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
+RUN echo "[+] Setting up Python $PYTHON_VERSION system environment..." \
     # NOT NEEDED because we're using a pre-built python image, keeping this here in case we switch back to custom-building our own:
     # && apt-get update -qq \
     # && apt-get install -qq -y -t bookworm-backports --no-upgrade \
@@ -165,10 +166,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
 
-
-# Install Node environment
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing Node $NODE_VERSION environment..." \
+# Set up Node environment
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
+    --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
+    echo "[+] Installing Node $NODE_VERSION system environment..." \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" >> /etc/apt/sources.list.d/nodejs.list \
     && curl -fsSL "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key" | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && apt-get update -qq \
@@ -189,12 +190,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 
 ######### Extractor Dependencies ##################################
 
-# Install apt dependencies
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
+# Install apt binary dependencies for exractors
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing APT extractor dependencies globally using apt..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports \
-        curl wget git ffmpeg ripgrep \
+        curl wget git ffmpeg ripgrep pipx \
         # Packages we have also needed in the past:
         # youtube-dl wget2 aria2 python3-pyxattr rtmpdump libfribidi-bin mpv \
     && rm -rf /var/lib/apt/lists/* \
@@ -207,10 +208,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
 
-
-# Install chromium browser using playwright
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=browsers-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing Browser binary dependencies to $PLAYWRIGHT_BROWSERS_PATH..." \
+# Install apt font & rendering dependencies for chromium browser
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
+    echo "[+] Installing APT dependencies for browser fonts & rendering..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports \
         fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-khmeros fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
@@ -222,24 +222,32 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         # chrome can run without dbus/upower technically, it complains about missing dbus but should run ok anyway
         # libxss1 dbus dbus-x11 upower \
     # && service dbus start \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install chromium browser binary using playwright
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
+    --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
+    --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=browsers-$TARGETARCH$TARGETVARIANT \
+    echo "[+] Installing Playwright browser binary to $PLAYWRIGHT_BROWSERS_PATH..." \
+    && apt-get update -qq \
     # install Chromium using playwright
+    # && cp -r /root/.cache/ms-playwright "$PLAYWRIGHT_BROWSERS_PATH" \
     && pip install playwright \
-    && cp -r /root/.cache/ms-playwright "$PLAYWRIGHT_BROWSERS_PATH" \
     && playwright install chromium \
     && export CHROME_BINARY="$(python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" \
-    && rm -rf /var/lib/apt/lists/* \
     && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
     && mkdir -p "/home/${ARCHIVEBOX_USER}/.config/chromium/Crash Reports/pending/" \
     && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/home/${ARCHIVEBOX_USER}/.config" \
     && mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" \
     && chown -R $ARCHIVEBOX_USER "$PLAYWRIGHT_BROWSERS_PATH" \
+    && rm -rf /var/lib/apt/lists/* \
     # Save version info
     && ( \
         which chromium-browser && /usr/bin/chromium-browser --version || /usr/lib/chromium/chromium --version \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
 
-# Install Node dependencies
+# Install Node extractor dependencies
 ENV PATH="/home/$ARCHIVEBOX_USER/.npm/bin:$PATH"
 USER $ARCHIVEBOX_USER
 WORKDIR "/home/$ARCHIVEBOX_USER/.npm"
@@ -265,35 +273,49 @@ RUN ( \
 
 ######### Build Dependencies ####################################
 
-# Install ArchiveBox Python dependencies
+# Set up uv and main app /venv
 WORKDIR "$CODE_DIR"
-COPY --chown=root:root --chmod=755 "./pyproject.toml" "requirements.txt" "$CODE_DIR"/
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt for ${TARGETPLATFORM}..." \
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/venv \
+    PATH="/venv/bin:$PATH"
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
+    uv venv
+
+# Install ArchiveBox C-compiled/apt-installed Python dependencies in app /venv
+WORKDIR "$CODE_DIR"
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
+    --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
+    echo "[+] Installing ArchiveBox C-compiled PIP dependencies from uv.lock for ${TARGETPLATFORM}..." \
     && apt-get update -qq \
-    && apt-get install -qq -y -t bookworm-backports \
+    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
         build-essential gcc \
         libssl-dev libldap2-dev libsasl2-dev \
         python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps \
-        pipx \
-    # && ln -s "$GLOBAL_VENV" "$APP_VENV" \
-    # && pdm use --venv in-project \
-    # && pdm run python -m ensurepip \
-    # && pdm sync --fail-fast --no-editable --group :all --no-self \
-    # && pdm export -o requirements.txt --without-hashes \
-    # && source $GLOBAL_VENV/bin/activate \
-    && pip install -r requirements.txt \
+    && source /venv/bin/activate \
+    && pip install \
+        "python-ldap>=3.4.3" \
     && apt-get purge -y \
         build-essential gcc \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Install ArchiveBox Python package from source
+# Install ArchiveBox Python venv dependencies from uv.lock
+COPY --chown=root:root --chmod=755 "./pyproject.toml" "uv.lock" "$CODE_DIR"/
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
+    echo "[+] Installing ArchiveBox Python PIP dependencies from uv.lock for ${TARGETPLATFORM}..." \
+    && uv sync \
+        --frozen \
+        --no-install-project \
+        --all-extras \
+        --no-install-workspace
+
+# Install ArchiveBox Python package + workspace dependencies from source
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
-RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
-    echo "[*] Installing PIP ArchiveBox package from $CODE_DIR..." \
-    && pip install -e "${CODE_DIR}[all]" \
-    && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
+    echo "[*] Installing ArchiveBox Python source code from $CODE_DIR..." \
+    && uv sync --all-extras --frozen
 
 ####################################################
 

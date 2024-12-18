@@ -16,10 +16,12 @@ __pycache__/
 venv/
 .venv/
 .venv-old/
+.docker_venv/
 .docker-venv/
 node_modules/
 chrome/
 chromeprofile/
+chrome_profile/
 
 pdm.dev.lock
 pdm.lock
