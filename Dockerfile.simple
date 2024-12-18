@@ -4,7 +4,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN pip install archivebox==0.8.5rc50
+RUN pip install archivebox==0.8.5rc51
 RUN archivebox install
 
 RUN useradd -ms /bin/bash archivebox && chown -R archivebox /app
