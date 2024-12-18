@@ -33,7 +33,7 @@ from archivebox.index.html import snapshot_icons
 from archivebox.extractors import ARCHIVE_METHODS_INDEXING_PRECEDENCE
 from archivebox.base_models.models import (
     ABIDModel, ABIDField, AutoDateTimeField, get_or_create_system_user_pk,
-    ModelWithReadOnlyFields, ModelWithSerializers, ModelWithUUID, ModelWithKVTags  # ModelWithStateMachine
+    ModelWithReadOnlyFields, ModelWithSerializers, ModelWithUUID, ModelWithKVTags,  # ModelWithStateMachine
     ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats
 )
 from workers.models import ModelWithStateMachine
