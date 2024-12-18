@@ -35,13 +35,14 @@ cd blobs/sha256 || exit 1
 for LAYERFILE in ./*; do
     if [ -f "${LAYERFILE}" ]; then
         mv "${LAYERFILE}" "${LAYERFILE}.tar"
-        tar -xzf "${LAYERFILE}.tar"
+        mkdir -p "${LAYERFILE}"
+        tar -xzf "${LAYERFILE}.tar" -C "${LAYERFILE}"
         rm "${LAYERFILE}.tar"
         echo "-----------------------------------------------------------------"
         echo "Contents of layer: ${LAYERFILE%/}"
         echo "-----------------------------------------------------------------"
         # List the files in the layer.tar without extracting
-        tree -L 2
+        tree -L 2 "${LAYERFILE}"
         echo
     fi
 done

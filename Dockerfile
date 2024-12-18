@@ -147,7 +147,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     echo "[+] APT Installing extractor dependencies for $TARGETPLATFORM..." \
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
-        git ffmpeg ripgrep \
+        git ripgrep \
         # Packages we have also needed in the past:
         # youtube-dl wget2 aria2 python3-pyxattr rtmpdump libfribidi-bin mpv \
         # curl wget (already installed above)
@@ -157,7 +157,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         which curl && curl --version | head -n1 \
         && which wget && wget --version 2>&1 | head -n1 \
         && which git && git --version 2>&1 | head -n1 \
-        && which ffmpeg && (ffmpeg --version 2>&1 | head -n1) || true \
+        # && which ffmpeg && (ffmpeg --version 2>&1 | head -n1) || true \
         && which rg && rg --version 2>&1 | head -n1 \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
@@ -260,31 +260,30 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 
 # Install apt font & rendering dependencies for chromium browser
 # TODO: figure out how much of this overlaps with `playwright install-deps chromium`
+# RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
+
+# Install chromium browser binary using playwright
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
+    --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=browsers-$TARGETARCH$TARGETVARIANT \
+    --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
     echo "[+] APT Installing CHROMIUM dependencies, fonts, and display libraries for $TARGETPLATFORM..." \
     && apt-get update -qq \
     && apt-get install -qq -y \
-        fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-khmeros fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
-        at-spi2-common fonts-liberation fonts-noto-color-emoji fonts-tlwg-loma-otf fonts-unifont libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 libavahi-client3 \
-        libavahi-common-data libavahi-common3 libcups2 libfontenc1 libice6 libnspr4 libnss3 libsm6 libunwind8 \
-        libxaw7 libxcomposite1 libxdamage1 libxfont2 \
+        #fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-khmeros fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
+        #at-spi2-common fonts-liberation fonts-noto-color-emoji fonts-tlwg-loma-otf fonts-unifont libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 libavahi-client3 \
+        #libavahi-common-data libavahi-common3 libcups2 libfontenc1 libice6 libnspr4 libnss3 libsm6 libunwind8 \
+        #libxaw7 libxcomposite1 libxdamage1 libxfont2 \
         libxkbfile1 libxmu6 libxpm4 libxt6 x11-xkb-utils x11-utils xfonts-encodings \
         # xfonts-scalable xfonts-utils xserver-common xvfb \
         # chrome can run without dbus/upower technically, it complains about missing dbus but should run ok anyway
         # libxss1 dbus dbus-x11 upower \
     # && service dbus start \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install chromium browser binary using playwright
-RUN --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=browsers-$TARGETARCH$TARGETVARIANT \
-    # --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
-    --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
-    echo "[+] PIP Installing playwright into /venv and CHROMIUM binary into $PLAYWRIGHT_BROWSERS_PATH..." \
+    && echo "[+] PIP Installing playwright into /venv and CHROMIUM binary into $PLAYWRIGHT_BROWSERS_PATH..." \
     && uv pip install "playwright>=1.49.1" \
-    && uv run playwright install chromium --no-shell \  
-    # --with-deps \
+    && uv run playwright install chromium --no-shell --with-deps \  
     && export CHROME_BINARY="$(uv run python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" \
     && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
+    && ln -s /browsers/ffmpeg-*/ffmpeg-linux /usr/bin/ffmpeg \
     && mkdir -p "/home/${ARCHIVEBOX_USER}/.config/chromium/Crash Reports/pending/" \
     && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/home/${ARCHIVEBOX_USER}/.config" \
     && mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" \
@@ -292,10 +291,11 @@ RUN --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=brows
     # delete extra full copy of node that playwright installs (saves >100mb)
     && rm -f /venv/lib/python$PYTHON_VERSION/site-packages/playwright/driver/node \
     # Save version info
+    && rm -rf /var/lib/apt/lists/* \
     && ( \
         uv pip show playwright \
-        # && uv run playwright --version \
         && which chromium-browser && /usr/bin/chromium-browser --version || /usr/lib/chromium/chromium --version \
+        && which ffmpeg && ffmpeg -version \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
 
