@@ -94,6 +94,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-o", "errexit", "-o", "errtrace", "-o", "
 ######### System Environment ####################################
 
 # Detect ArchiveBox version number by reading pyproject.toml (also serves to invalidate the entire build cache whenever pyproject.toml changes)
+WORKDIR "$CODE_DIR"
+
 RUN --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
     grep '^version = ' "/app/pyproject.toml" | awk -F'"' '{print $2}' > /VERSION.txt
 
@@ -153,10 +155,10 @@ RUN (which sonic && sonic --version) | tee -a /VERSION.txt
 ######### Language Environments ####################################
 
 # Set up Python environment
+# NOT NEEDED because we're using a pre-built python image, keeping this here in case we switch back to custom-building our own:
 #RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
 #    --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
-RUN echo "[+] APT Installing PYTHON $PYTHON_VERSION for $TARGETPLATFORM (skipped, provided by base image)..." \
-    # NOT NEEDED because we're using a pre-built python image, keeping this here in case we switch back to custom-building our own:
+# RUN echo "[+] APT Installing PYTHON $PYTHON_VERSION for $TARGETPLATFORM (skipped, provided by base image)..." \
     # && apt-get update -qq \
     # && apt-get install -qq -y -t bookworm-backports --no-upgrade \
     #     python${PYTHON_VERSION} python${PYTHON_VERSION}-minimal python3-pip python${PYTHON_VERSION}-venv pipx \
@@ -171,12 +173,13 @@ RUN echo "[+] APT Installing PYTHON $PYTHON_VERSION for $TARGETPLATFORM (skipped
     # install global dependencies / python build dependencies in GLOBAL_VENV
     # && pip install --upgrade pip setuptools wheel \
     # Save version info
-    && ( \
-        which python3 && python3 --version | grep " $PYTHON_VERSION" \
-        && which pip && pip --version \
-        # && which pdm && pdm --version \
-        && echo -e '\n\n' \
-    ) | tee -a /VERSION.txt
+    # && ( \
+    #     which python3 && python3 --version | grep " $PYTHON_VERSION" \
+    #     && which pip && pip --version \
+    #     # && which pdm && pdm --version \
+    #     && echo -e '\n\n' \
+    # ) | tee -a /VERSION.txt
+
 
 # Set up Node environment
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
@@ -199,8 +202,48 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     ) | tee -a /VERSION.txt
 
 
+# Set up uv and main app /venv
+COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /uvx /bin/
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/venv \
+    PATH="/venv/bin:$PATH"
+WORKDIR "$CODE_DIR"
+# COPY --chown=root:root --chmod=755 pyproject.toml "$CODE_DIR/"
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
+    echo "[+] UV Creating /venv using python ${PYTHON_VERSION} for ${TARGETPLATFORM} (provided by base image)..." \
+    && uv venv \
+    && uv pip install setuptools pip \
+    && ln -s /venv "$CODE_DIR/.venv" \
+    && ( \
+        which python3 && python3 --version | grep " $PYTHON_VERSION" \
+        && which pip && pip --version \
+        && which uv && uv version \
+        && echo -e '\n\n' \
+    ) | tee -a /VERSION.txt
 
-######### Extractor Dependencies ##################################
+
+
+######### ArchiveBox & Extractor Dependencies ##################################
+
+# Install ArchiveBox C-compiled/apt-installed Python dependencies in app /venv (currently only used for python-ldap)
+WORKDIR "$CODE_DIR"
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
+    --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
+    #--mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
+    echo "[+] APT Installing + Compiling python3-ldap for PIP archivebox[ldap] on ${TARGETPLATFORM}..." \
+    && apt-get update -qq \
+    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+        build-essential gcc \
+        libssl-dev libldap2-dev libsasl2-dev python3-ldap \
+        python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps \
+    && uv pip install \
+        "python-ldap>=3.4.3" \
+    && apt-get purge -y \
+        build-essential gcc \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
 
 # Install apt binary dependencies for exractors
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
@@ -237,25 +280,23 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     && rm -rf /var/lib/apt/lists/*
 
 # Install chromium browser binary using playwright
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
-    --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
-    --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=browsers-$TARGETARCH$TARGETVARIANT \
+RUN --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=browsers-$TARGETARCH$TARGETVARIANT \
+    # --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
+    --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
     echo "[+] PIP Installing playwright into /venv and CHROMIUM binary into $PLAYWRIGHT_BROWSERS_PATH..." \
-    && apt-get update -qq \
-    # install Chromium using playwright
-    # && cp -r /root/.cache/ms-playwright "$PLAYWRIGHT_BROWSERS_PATH" \
-    && pip install "playwright>=1.49.1" \
-    && playwright install chromium \
-    && export CHROME_BINARY="$(python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" \
+    && uv pip install "playwright>=1.49.1" \
+    && uv run playwright install chromium --with-deps \
+    && export CHROME_BINARY="$(uv run python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" \
     && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
     && mkdir -p "/home/${ARCHIVEBOX_USER}/.config/chromium/Crash Reports/pending/" \
     && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/home/${ARCHIVEBOX_USER}/.config" \
     && mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" \
     && chown -R $ARCHIVEBOX_USER "$PLAYWRIGHT_BROWSERS_PATH" \
-    && rm -rf /var/lib/apt/lists/* \
     # Save version info
     && ( \
-        which chromium-browser && /usr/bin/chromium-browser --version || /usr/lib/chromium/chromium --version \
+        uv pip show playwright \
+        && uv run playwright --version \
+        && which chromium-browser && /usr/bin/chromium-browser --version || /usr/lib/chromium/chromium --version \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
 
@@ -273,6 +314,7 @@ RUN --mount=type=cache,target=/home/$ARCHIVEBOX_USER/.npm_cache,sharing=locked,i
         "puppeteer@^23.5.0" \
         "@puppeteer/browsers@^2.4.0"
 USER root
+WORKDIR "$CODE_DIR"
 RUN ( \
         which node && node --version \
         && which npm && npm version \
@@ -285,36 +327,10 @@ RUN ( \
 
 ######### Build Dependencies ####################################
 
-# Set up uv and main app /venv
-WORKDIR "$CODE_DIR"
-ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
-    UV_PROJECT_ENVIRONMENT=/venv \
-    PATH="/venv/bin:$PATH"
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
-    uv venv
 
-# Install ArchiveBox C-compiled/apt-installed Python dependencies in app /venv
-WORKDIR "$CODE_DIR"
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
-    --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing ArchiveBox C-compiled PIP dependencies from uv.lock for ${TARGETPLATFORM}..." \
-    && apt-get update -qq \
-    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        build-essential gcc \
-        libssl-dev libldap2-dev libsasl2-dev \
-        python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps \
-    && source /venv/bin/activate \
-    && pip install \
-        "python-ldap>=3.4.3" \
-    && apt-get purge -y \
-        build-essential gcc \
-    && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
 
 # Install ArchiveBox Python venv dependencies from uv.lock
-COPY --chown=root:root --chmod=755 "./pyproject.toml" "uv.lock" "$CODE_DIR"/
+COPY --chown=root:root --chmod=755 "pyproject.toml" "uv.lock" "$CODE_DIR"/
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
     echo "[+] PIP Installing ArchiveBox dependencies from pyproject.toml and uv.lock..." \
     && uv sync \
@@ -330,7 +346,12 @@ RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$T
     echo "[*] Installing ArchiveBox Python source code from $CODE_DIR..." \
     && uv sync \
         --all-extras \
-        --frozen
+        --frozen \
+    && ( \
+        uv tree \
+        && which archivebox \
+        && echo -e '\n\n' \
+    ) | tee -a /VERSION.txt
     # installs archivebox itself, and any other vendored packages in pkgs/*, defined in pyproject.toml workspaces
 
 ####################################################
@@ -347,7 +368,8 @@ RUN openssl rand -hex 16 > /etc/machine-id \
     && mkdir -p "$TMP_DIR" \
     && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "$TMP_DIR" \
     && mkdir -p "$LIB_DIR" \
-    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "$LIB_DIR"
+    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "$LIB_DIR" \
+    && echo -e "\nTMP_DIR=$TMP_DIR\nLIB_DIR=$LIB_DIR\nMACHINE_ID=$(cat /etc/machine-id)\n" | tee -a /VERSION.txt
 
 # Print version for nice docker finish summary
 RUN (echo -e "\n\n[√] Finished Docker build succesfully. Saving build summary in: /VERSION.txt" \
@@ -356,6 +378,7 @@ RUN (echo -e "\n\n[√] Finished Docker build succesfully. Saving build summary 
     ) | tee -a /VERSION.txt
 
 # Run   $ archivebox version                                >> /VERSION.txt
+# RUN "$CODE_DIR"/bin/docker_entrypoint.sh init 2>&1 | tee -a /VERSION.txt
 RUN "$CODE_DIR"/bin/docker_entrypoint.sh version 2>&1 | tee -a /VERSION.txt
 
 ####################################################
