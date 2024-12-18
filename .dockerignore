@@ -37,6 +37,7 @@ docker/
 website/
 typings/
 
+tmp/
 data/
 data*/
 output/
