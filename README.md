@@ -1371,11 +1371,17 @@ git pull --recurse-submodules
 ```bash
 # Install ArchiveBox + python dependencies
 pip install uv
-uv venv
-uv sync
+./bin/lock_pkgs.sh         # (aka `uv venv; uv sync;` + generate requirements.txt)
 
-archivebox init
-archivebox setup
+# Install ArchiveBox runtime dependencies
+mkdir -p data && cd data
+archivebox install         # on >=v0.8.5 (otherwise `archivebox setup`)
+
+# Run the development server w/ autoreloading (but no bg workers)
+archivebox manage runserver --debug --reload 0.0.0.0:8000
+
+# Run the production server (with bg workers but no autoreloading)
+archivebox server 0.0.0.0:8000
 ```
 
 #### 2. Option B: Build the docker container and use that for development instead
@@ -1384,14 +1390,15 @@ archivebox setup
 # Optional: develop via docker by mounting the code dir into the container
 # if you edit e.g. ./archivebox/core/models.py on the docker host, runserver
 # inside the container will reload and pick up your changes
-docker build . -t archivebox
-docker run -it \
-    -v $PWD/data:/data \
-    archivebox init --setup
-docker run -it -p 8000:8000 \
-    -v $PWD/data:/data \
-    -v $PWD/archivebox:/app/archivebox \
-    archivebox server 0.0.0.0:8000 --debug --reload
+./bin/build_docker.sh dev
+
+docker run -it -v $PWD/data:/data archivebox/archivebox:dev init --setup
+
+# Run the development server w/ autoreloading (but no bg workers)
+docker run -it -v $PWD/data:/data -v $PWD/archivebox:/app/archivebox -p 8000:8000 archivebox/archivebox:dev manage runserver 0.0.0.0:8000 --debug --reload
+
+# Run the production server (with bg workers but no autoreloading)
+docker run -it -v $PWD/data:/data -v $PWD/archivebox:/app/archivebox -p 8000:8000 archivebox/archivebox:dev server
 
 # (remove the --reload flag and add the --nothreading flag when profiling with the django debug toolbar)
 # When using --reload, make sure any files you create can be read by the user in the Docker container, eg with 'chmod a+rX'.
@@ -1409,11 +1416,15 @@ You can also run all these in Docker. For more examples see the GitHub Actions C
 <details><summary><i>Click to expand...</i></summary>
 
 ```bash
+# set up persistent DEBUG=True for all runs
 archivebox config --set DEBUG=True
+
+# OR you can run a dev server with DEBUG=True in a few ways:
+archivebox manage runserver --debug --reload 0.0.0.0:8000
 # or
-archivebox server --debug ...
-# faster dev version wo/ bg workers enabled:
-daphne -b 0.0.0.0 -p 8000 archivebox.core.asgi:application
+archivebox server --debug 0.0.0.0:8000
+# or
+env DEBUG=True daphne -b 0.0.0.0 -p 8000 archivebox.core.asgi:application
 ```
 
 https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-django-is-running
