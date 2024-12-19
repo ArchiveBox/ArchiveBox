@@ -31,31 +31,33 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           architecture: x64
 
-      - uses: awalsh128/cache-apt-pkgs-action@latest
+      - name: APT install archivebox dev + run dependencies
+        uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: ripgrep build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 gnupg2 curl wget python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
           version: 1.0
 
-      - name: Install uv build dependencies
+      - name: UV install archivebox dev + run sub-dependencies
         run: uv sync --frozen --all-extras --no-install-project --no-install-workspace
 
-      - name: Build package
+      - name: UV build archivebox and archivebox/pkgs/* packages
         run: |
           uv build --all
 
-      - name: Publish package distributions to PyPI
+      - name: Publish new package wheels and sdists to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_PAT_SECRET }}
 
+      - name: UV install archivebox and archivebox/pkgs/* locally for tests
+        run: uv sync --frozen --all-extras
 
-      # - name: Install from build
-      #   run: uv pip install ./dist/*.whl
-
-      # - name: Add some links to test
-      #   run: |
-      #     mkdir data && cd data
-      #     archivebox init
-      #     archivebox add 'https://example.com'
-      #     archivebox version
-      #     archivebox status
-
+      - name: UV run archivebox init + archivebox version
+        run: |
+          mkdir -p data && cd data
+          uv run archivebox init \
+          && uv run archivebox version
+          # && uv run archivebox add 'https://example.com' \
+          # && uv run archivebox status \
+          # || (echo "UV Failed to run archivebox!" && exit 1)
 
