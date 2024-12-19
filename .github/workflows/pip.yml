@@ -3,76 +3,58 @@ name: Build Pip package
 on:
   workflow_dispatch:
   push:
+    branches:
+      - '**'
+    tags:
+      - 'v*'
 
+env:
+  PYTHON_VERSION: 3.11
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
-
     permissions:
       id-token: write
 
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          submodules: true
-          fetch-depth: 1
+          enable-cache: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
           architecture: x64
 
-      - uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: ripgrep build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 gnupg2 curl wget python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
-          version: 1.0
-
-      - uses: pdm-project/setup-pdm@v3
-        with:
-          python-version: '3.11'
-          cache: true
-
-      - name: Install dependencies
-        run: pdm install --fail-fast --no-lock --dev --group=':all' --no-self
+      - name: Install uv build dependencies
+        run: uv sync --frozen --all-extras --no-install-project --no-install-workspace
 
       - name: Build package
         run: |
-          pdm build
+          uv build --all
 
-      - name: Install from build
-        run: pip install ./dist/archivebox-*.whl
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
 
-      - name: Add some links to test
-        run: |
-          mkdir data && cd data
-          archivebox init
-          archivebox add 'https://example.com'
-          archivebox version
-          archivebox status
-
-      #- name: Publish package distributions to PyPI
-      #  run: pdm publish --no-build
-
-      # - name: Push build to PyPI
-      #   run: |
-      #     cd pip_dist/
-      #     python3 -m twine upload --repository testpypi pip_dist/*.{whl,tar.gz}
-      #     python3 -m twine upload --repository pypi pip_dist/*.{whl,tar.gz}
-
-      # - name: Commit built package
-      #   run: |
-      #     cd pip_dist/
-      #     git config --local user.email "action@github.com"
-      #     git config --local user.name "GitHub Action"
-      #     git commit -m "Pip package autobuild" -a
-      
-      # - name: Push build to Github
-      #   uses: ad-m/github-push-action@master
+      # - uses: awalsh128/cache-apt-pkgs-action@latest
       #   with:
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      #     repository: ArchiveBox/pip-archivebox
-      #     branch: ${{ github.ref }}
-      #     directory: pip_dist
+      #     packages: ripgrep build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 gnupg2 curl wget python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
+      #     version: 1.0
+
+      # - name: Install from build
+      #   run: uv pip install ./dist/*.whl
+
+      # - name: Add some links to test
+      #   run: |
+      #     mkdir data && cd data
+      #     archivebox init
+      #     archivebox add 'https://example.com'
+      #     archivebox version
+      #     archivebox status
+
 
