@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 from rich import print
 from rich.panel import Panel
-from rich_argparse import RichHelpFormatter
 from django.core.management.base import DjangoHelpFormatter
 
 from archivebox.config import CONSTANTS, DATA_DIR, VERSION
