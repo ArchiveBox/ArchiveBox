@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.8.6rc2"
+version = "0.8.6rc3"
 requires-python = ">=3.10"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
@@ -39,52 +39,65 @@ classifiers = [
 
 
 dependencies = [
-    # ... archivebox/pkgs/*             # see vendored libs here
-    ############# Django / Core Libraries #############
-    "setuptools>=74.1.0",
+    ### Django libraries
+    "setuptools>=74.1.0",   # for: django 5 on python >=3.12, distutils is no longer in stdlib but django 5.1 expects distutils (TODO: check if this can be removed eventually)
     "django>=5.1.4,<6.0",
+    "channels[daphne]>=4.1.0",
     "django-ninja>=1.3.0",
     "django-extensions>=3.2.3",
-    "mypy-extensions>=1.0.0",
-    "typing_extensions>=4.12.2",
-    "channels[daphne]>=4.1.0",
+    "django-huey>=1.2.1",
+    "django-huey-monitor>=0.9.0",
     "django-signal-webhooks>=0.3.0",
     "django-admin-data-views>=0.4.1",
     "django-object-actions>=4.3.0",
-    "django-charid-field>=0.4",
-    "django-pydantic-field>=0.3.10",
-    "django-jsonform>=2.22.0",
-    "django-stubs>=5.0.4",
-    "django-huey>=1.2.1",
-    "django-huey-monitor>=0.9.0",
-    ############# Python Helper Libraries ############
-    "pluggy>=1.5.0",
-    "requests>=2.32.3",
-    "dateparser>=1.2.0",
-    "tzdata>=2024.2", # needed for dateparser {TZ: UTC} on some systems: https://github.com/ArchiveBox/ArchiveBox/issues/1553
-    "feedparser>=6.0.11",
-    "w3lib>=2.2.1",
-    "rich>=13.8.0",
-    "rich-argparse>=1.5.2",
-    "ulid-py>=1.1.0",
-    "typeid-python>=0.3.1",
-    "psutil>=6.0.0",
-    "supervisor>=4.2.5",
-    "python-crontab>=3.2.0", # for: archivebox schedule
-    "croniter>=3.0.3", # for: archivebox schedule
-    "ipython>=8.27.0", # for: archivebox shell
-    "py-machineid>=0.6.0", # for: machine/detect.py calculating machine guid
-    "python-benedict[io,parse]>=0.33.2",
-    "pydantic-settings>=2.5.2",
-    "atomicwrites==1.4.1",
-    "django-taggit==6.1.0",
-    "base32-crockford==0.3.0",
-    "platformdirs>=4.3.6",
-    "abx-pkg>=0.6.0",
-    "pocket>=0.3.6",
+    "django-charid-field>=0.4",  # TODO: remove this and dedicated ABID field in favor of using KVTag for charids
+    "django-taggit==6.1.0",     # TODO: remove this in favor of KVTags only
+
+    ### State Management
+    "pluggy>=1.5.0",         # for: archivebox plugin system (abx)
+    "python-statemachine>=2.3.6",
+
+    ### CLI / Logging
+    "click>=8.1.7",          # for: nicer CLI command + argument definintions
+    "rich>=13.8.0",          # for: pretty CLI output
+    "rich-click>=1.8.4",     # for: pretty CLI command help text & output
+    "ipython>=8.27.0",       # for: archivebox shell (TODO: replace with bpython?)
+    
+    ### Host OS / System
+    "abx-pkg>=0.6.0",        # for: Binary, BinProvider, SemVer and archivebox install
+    "supervisor>=4.2.5",     # for: archivebox server starting daphne and workers
+    "psutil>=6.0.0",         # for: monitoring orchestractor,actors,workers,etc. and machine.models.Process
+    "platformdirs>=4.3.6",   # for: finding a xdg-config dir to store tmp/lib files in
+    "py-machineid>=0.6.0",   # for: machine/detect.py calculating unique machine guid
+    "atomicwrites==1.4.1",   # for: config file writes, index.json file writes, etc. (TODO: remove this deprecated lib in favor of archivebox.filestore.util/os.rename/os.replace)
+    "python-crontab>=3.2.0", # for: archivebox schedule (TODO: remove this in favor of our own custom archivebox scheduler)
+    "croniter>=3.0.3",       # for: archivebox schedule (TODO: remove this in favor of our own custom archivebox scheduler)
+    
+    ### Base Types
+    "pydantic>=2.8.0",       # for: archivebox.api (django-ninja), Binary & BinProvider (abx-pkg), archivebox.config (pydantic-settings), and archivebox.index.schema (pydantic)
+    "pydantic-settings>=2.5.2", # for: archivebox.config
+    "python-benedict[io,parse]>=0.33.2", # for: dict replacement all over the codebase to allow .attr-style access
+    "ulid-py>=1.1.0",        # TODO: remove this in favor of pure ABID / UUID4
+    "typeid-python>=0.3.1",  # TODO: remove this in favor of pure ABID / UUID4
+    "base32-crockford==0.3.0",  # TODO: remove this in favor of pure ABID / UUID4
+    "blake3>=1.0.0",         # TODO: remove this in favor of sha256 everywhere?
+    
+    ### Static Typing
+    "mypy-extensions>=1.0.0", # for: django-stubs type hints (TODO: remove in favor of pylance/pyright?)
+    "django-stubs>=5.0.4",    # for: vscode type hints on models and common django APIs
+
+    ### API clients
+    "requests>=2.32.3",      # for: fetching title, static files, headers (TODO: replace with httpx?)
     "sonic-client>=1.0.0",
-    "yt-dlp>=2024.8.6", # for: media"
-    ############# Plugin Dependencies ################
+    "pocket>=0.3.6",         # for: importing URLs from Pocket API
+
+    ### Parsers
+    "feedparser>=6.0.11",    # for: parsing pocket/pinboard/etc. RSS/bookmarks imports
+    "dateparser>=1.2.0",     # for: parsing pocket/pinboard/etc. RSS/bookmark import dates
+    "tzdata>=2024.2",        # needed for dateparser {TZ: UTC} on some systems: https://github.com/ArchiveBox/ArchiveBox/issues/1553
+    "w3lib>=2.2.1",          # used for parsing content-type encoding from http response headers & html tags
+
+    ### Main Plugin Interfaces
     "abx>=0.1.0",
     "abx-spec-abx-pkg>=0.1.1",
     "abx-spec-config>=0.1.0",
@@ -92,6 +105,8 @@ dependencies = [
     "abx-spec-django>=0.1.0",
     "abx-spec-extractor>=0.1.0",
     "abx-spec-searchbackend>=0.1.0",
+
+    ### Default Plugins
     "abx-plugin-default-binproviders>=2024.10.24",
     "abx-plugin-pip>=2024.10.24",
     "abx-plugin-npm>=2024.10.24",
@@ -114,22 +129,23 @@ dependencies = [
     "abx-plugin-readability>=2024.10.28",
     "abx-plugin-mercury>=2024.10.28",
     "abx-plugin-htmltotext>=2024.10.28",
-    "python-statemachine>=2.3.6",
-    "click>=8.1.7",
-    "rich-click>=1.8.4",
-    "blake3>=1.0.0",
+    # TODO: add gallery-dl
+    # TODO: add forum-dl
 ]
 
 [project.optional-dependencies]
 sonic = [
+    # sonic client lib now included by default, sonic group is now a no-op:
+    # "sonic-client>=1.0.0",
+
+    # to use sonic make sure you have a sonic server running in docker (archivebox/sonic) or locally:
     # echo "deb [signed-by=/usr/share/keyrings/valeriansaliou_sonic.gpg] https://packagecloud.io/valeriansaliou/sonic/debian/ bookworm main" > /etc/apt/sources.list.d/valeriansaliou_sonic.list
     # curl -fsSL https://packagecloud.io/valeriansaliou/sonic/gpgkey | gpg --dearmor -o /usr/share/keyrings/valeriansaliou_sonic.gpg
     # apt install sonic
-    # no-op, now included by default:
-    # "sonic-client>=1.0.0",
 ]
 ldap = [
-    # apt install libsasl2-dev python-dev-is-python3 libldap2-dev libssl-dev
+    # python-ldap depends on the openldap bindings which provide no prebuilt wheels becuase they link against tons of other system packages
+    # apt install build-essential python3-dev python3-ldap libsasl2-dev libldap2-dev libssl-dev
     "python-ldap>=3.4.3",
     "django-auth-ldap>=4.1.0",
 ]
