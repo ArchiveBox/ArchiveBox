@@ -18,6 +18,7 @@ pdm.dev.lock
 requirements-dev.txt
 
 # Packaging artifacts
+requirements.txt
 .pdm-python
 .pdm-build
 archivebox.egg-info
