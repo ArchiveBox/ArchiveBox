@@ -31,6 +31,11 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           architecture: x64
 
+      - uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: ripgrep build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 gnupg2 curl wget python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
+          version: 1.0
+
       - name: Install uv build dependencies
         run: uv sync --frozen --all-extras --no-install-project --no-install-workspace
 
@@ -41,10 +46,6 @@ jobs:
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
-      # - uses: awalsh128/cache-apt-pkgs-action@latest
-      #   with:
-      #     packages: ripgrep build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 gnupg2 curl wget python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
-      #     version: 1.0
 
       # - name: Install from build
       #   run: uv pip install ./dist/*.whl
