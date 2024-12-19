@@ -10,9 +10,8 @@ import inspect
 import importlib
 import itertools
 from pathlib import Path
-from typing import Dict, Callable, List, Set, Tuple, Iterable, Any, TypeVar, TypedDict, Type, cast, Generic, Mapping, overload, Final, ParamSpec, Literal, Protocol
+from typing import Dict, Callable, List, Set, Tuple, Iterable, Any, TypeVar, TypedDict, Type, cast, Generic, Mapping, overload, Final, ParamSpec, Literal, Protocol, Annotated
 from types import ModuleType
-from typing_extensions import Annotated
 from functools import cache
 
 from benedict import benedict

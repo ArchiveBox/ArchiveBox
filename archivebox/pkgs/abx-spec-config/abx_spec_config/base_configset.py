@@ -4,8 +4,7 @@ import os
 import sys
 import re
 from pathlib import Path
-from typing import Type, Tuple, Callable, ClassVar, Dict, Any
-from typing_extensions import Annotated
+from typing import Type, Tuple, Callable, ClassVar, Dict, Any, Annotated
 
 import toml
 from rich import print

@@ -56,7 +56,6 @@ INSTALLED_APPS = [
     'django.contrib.admin',
 
     # 3rd-party apps from PyPI
-    'django_jsonform',           # handles rendering Pydantic models to Django HTML widgets/forms  https://github.com/bhch/django-jsonform
     'signal_webhooks',           # handles REST API outbound webhooks                              https://github.com/MrThearMan/django-signal-webhooks
     'django_object_actions',     # provides easy Django Admin action buttons on change views       https://github.com/crccheck/django-object-actions
 

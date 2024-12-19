@@ -80,15 +80,6 @@ def get_fd_info(fd) -> Dict[str, Any]:
 # debug_dict_summary(get_fd_info(sys.stderr))
 
 
-
-class SmartFormatter(DjangoHelpFormatter, RichHelpFormatter):
-    """Patched formatter that prints newlines in argparse help strings"""
-    def _split_lines(self, text, width):
-        if '\n' in text:
-            return text.splitlines()
-        return RichHelpFormatter._split_lines(self, text, width)
-
-
 def reject_stdin(caller: str, stdin: Optional[IO]=sys.stdin) -> None:
     """Tell the user they passed stdin to a command that doesn't accept it"""
 

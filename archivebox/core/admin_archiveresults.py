@@ -8,7 +8,6 @@ from django.utils.html import format_html, mark_safe
 from django.core.exceptions import ValidationError
 from django.urls import reverse, resolve
 from django.utils import timezone
-from django_jsonform.forms.fields import JSONFormField
 
 from huey_monitor.admin import TaskModel
 
@@ -83,7 +82,7 @@ class ArchiveResultInline(admin.TabularInline):
         formset.form.base_fields['cmd_version'].initial = '-'
         formset.form.base_fields['pwd'].initial = str(snapshot.link_dir)
         formset.form.base_fields['created_by'].initial = request.user
-        formset.form.base_fields['cmd'] = JSONFormField(initial=['-'])
+        formset.form.base_fields['cmd'].initial = '["-"]'
         formset.form.base_fields['output'].initial = 'Manually recorded cmd output...'
         
         if obj is not None:
