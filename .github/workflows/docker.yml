@@ -18,9 +18,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: true
-          fetch-depth: 1
+        # with:
+        #   submodules: true
+        #   fetch-depth: 1
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -40,26 +40,34 @@ jobs:
         run: echo ${{ steps.buildx.outputs.platforms }}
 
       - name: Cache Docker layers
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: Docker Login
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         if: github.event_name != 'pull_request'
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Collect Docker tags
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Collect Full Release Docker tags
         # https://github.com/docker/metadata-action
         id: docker_meta
         uses: docker/metadata-action@v5
+        if: github.event_name == 'workflow_dispatch'
         with:
-          images: archivebox/archivebox,nikisweeting/archivebox
+          images: archivebox/archivebox,ghcr.io/archivebox/archivebox
           tags: |
               # :stable
               type=ref,event=branch
@@ -71,6 +79,19 @@ jobs:
               type=sha
               # :latest
               type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'stable') }}
+      
+      - name: Collect Non-Release Docker tags
+        # https://github.com/docker/metadata-action
+        id: docker_meta_non_release
+        uses: docker/metadata-action@v5
+        if: github.event_name != 'workflow_dispatch'
+        with:
+          images: archivebox/archivebox,ghcr.io/archivebox/archivebox
+          tags: |
+              # :stable
+              type=ref,event=branch
+              # :sha-463ea54
+              type=sha
 
       - name: Build and push
         id: docker_build
@@ -80,8 +101,8 @@ jobs:
           file: ./Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          labels: ${{ steps.docker_meta.outputs.labels }}
+          tags: ${{ github.event_name == 'workflow_dispatch' ? steps.docker_meta.outputs.tags : steps.docker_meta_non_release.outputs.tags }}
+          labels: ${{ github.event_name == 'workflow_dispatch' ? steps.docker_meta.outputs.labels : steps.docker_meta_non_release.outputs.labels }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new
           platforms: linux/amd64,linux/arm64
