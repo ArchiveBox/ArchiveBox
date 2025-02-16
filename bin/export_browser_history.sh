@@ -74,7 +74,7 @@ if [[ "$1" == "--safari" ]]; then
     if [[ -e "$2" ]]; then
         cp "$2" "$OUTPUT_DIR/safari_history.db.tmp"
     else
-        default="~/Library/Safari/History.db"
+        default=~"/Library/Safari/History.db"
         echo "Defaulting to history db: $default"
         echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
         cp "$default" "$OUTPUT_DIR/safari_history.db.tmp"
