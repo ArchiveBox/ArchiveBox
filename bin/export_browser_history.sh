@@ -34,11 +34,20 @@ export_chrome() {
     echo "    $OUTPUT_DIR/chrome_history.json"
 }
 
+get_places_sqlite() {
+    # shellcheck disable=SC2012  # `ls` is good enough, don't need `find`
+    if [[ "$(uname -s)" == "Linux" ]]; then
+        ls ~/.mozilla/firefox/*.default*/places.sqlite | head -n 1
+    else
+        ls ~/Library/Application\ Support/Firefox/Profiles/*.default*/places.sqlite | head -n 1
+    fi
+}
+
 export_firefox() {
     if [[ -e "$2" ]]; then
         cp "$2" "$OUTPUT_DIR/firefox_history.db.tmp"
     else
-        default=$(ls ~/Library/Application\ Support/Firefox/Profiles/*.default/places.sqlite)
+        default="$(get_places_sqlite)"
         echo "Defaulting to history db: $default"
         echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
         cp "$default" "$OUTPUT_DIR/firefox_history.db.tmp"
