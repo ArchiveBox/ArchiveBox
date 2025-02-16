@@ -44,7 +44,7 @@ export_firefox() {
         cp "$default" "$OUTPUT_DIR/firefox_history.db.tmp"
     fi
 
-    sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "SELECT \"[\" || group_concat(json_object('timestamp', last_visit_date, 'description', title, 'href', url)) || \"]\" FROM moz_places;" > "$OUTPUT_DIR/firefox_history.json"
+    sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "SELECT '[' || group_concat(json_object('timestamp', last_visit_date, 'description', title, 'href', url)) || ']' FROM moz_places;" > "$OUTPUT_DIR/firefox_history.json"
 
     sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "
     with recursive tags AS (
