@@ -11,6 +11,8 @@
 #        firefox_bookmarks.json
 #        safari_history.json
 
+set -eo pipefail
+
 BROWSER_TO_EXPORT="${1?Please specify --chrome, --firefox, or --safari}"
 OUTPUT_DIR="$(pwd)"
 
