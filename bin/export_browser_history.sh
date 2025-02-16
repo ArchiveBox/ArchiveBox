@@ -11,10 +11,10 @@
 #        firefox_bookmarks.json
 #        safari_history.json
 
+BROWSER_TO_EXPORT="${1?Please specify --chrome, --firefox, or --safari}"
 OUTPUT_DIR="$(pwd)"
 
-if [[ "$1" == "--chrome" ]]; then
-    # Google Chrome / Chromium
+export_chrome() {
     if [[ -e "$2" ]]; then
         cp "$2" "$OUTPUT_DIR/chrome_history.db.tmp"
     else
@@ -26,14 +26,13 @@ if [[ "$1" == "--chrome" ]]; then
 
     sqlite3 "$OUTPUT_DIR/chrome_history.db.tmp" "SELECT \"[\" || group_concat(json_object('timestamp', last_visit_time, 'description', title, 'href', url)) || \"]\" FROM urls;" > "$OUTPUT_DIR/chrome_history.json"
     jq < "$(dirname "${2:-$default}")"/Bookmarks '.roots.other.children[] | {href: .url, description: .name, timestamp: .date_added}' > "$OUTPUT_DIR/chrome_bookmarks.json"
-    
+
     rm "$OUTPUT_DIR"/chrome_history.db.*
     echo "Chrome history exported to:"
     echo "    $OUTPUT_DIR/chrome_history.json"
-fi
+}
 
-if [[ "$1" == "--firefox" ]]; then
-    # Firefox
+export_firefox() {
     if [[ -e "$2" ]]; then
         cp "$2" "$OUTPUT_DIR/firefox_history.db.tmp"
     else
@@ -42,7 +41,7 @@ if [[ "$1" == "--firefox" ]]; then
         echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
         cp "$default" "$OUTPUT_DIR/firefox_history.db.tmp"
     fi
-    
+
     sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "SELECT \"[\" || group_concat(json_object('timestamp', last_visit_date, 'description', title, 'href', url)) || \"]\" FROM moz_places;" > "$OUTPUT_DIR/firefox_history.json"
 
     sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "
@@ -62,15 +61,14 @@ if [[ "$1" == "--firefox" ]]; then
         JOIN moz_places AS f ON f.id = b.fk
         JOIN tags ON tags.id = b.parent
         WHERE f.url LIKE '%://%';" > "$OUTPUT_DIR/firefox_bookmarks.json"
-    
+
     rm "$OUTPUT_DIR"/firefox_history.db.*
     echo "Firefox history exported to:"
     echo "    $OUTPUT_DIR/firefox_history.json"
     echo "    $OUTPUT_DIR/firefox_bookmarks.json"
-fi
+}
 
-if [[ "$1" == "--safari" ]]; then
-    # Safari
+export_safari() {
     if [[ -e "$2" ]]; then
         cp "$2" "$OUTPUT_DIR/safari_history.db.tmp"
     else
@@ -79,10 +77,21 @@ if [[ "$1" == "--safari" ]]; then
         echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
         cp "$default" "$OUTPUT_DIR/safari_history.db.tmp"
     fi
-    
+
     sqlite3 "$OUTPUT_DIR/safari_history.db.tmp" "select url from history_items" > "$OUTPUT_DIR/safari_history.json"
-    
+
     rm "$OUTPUT_DIR"/safari_history.db.*
     echo "Safari history exported to:"
     echo "    $OUTPUT_DIR/safari_history.json"
+}
+
+if [[ "$BROWSER_TO_EXPORT" == "--chrome" ]]; then
+    export_chrome "$@"
+elif [[ "$BROWSER_TO_EXPORT" == "--firefox" ]]; then
+    export_firefox "@"
+elif [[ "$BROWSER_TO_EXPORT" == "--safari" ]]; then
+    export_safari "$@"
+else
+    echo "Unrecognized argument: $1" >&2
+    exit 1
 fi
