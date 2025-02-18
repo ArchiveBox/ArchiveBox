@@ -43,9 +43,21 @@ find_firefox_places_db() {
     fi
 }
 
-get_chrome_history_db() {
+find_chrome_history_db() {
     if is_linux; then
-        echo ~/.config/chromium/Default/History
+        local config_home="${XDG_CONFIG_HOME:-${HOME}/.config}"
+        for path in \
+            "${config_home}/chromium/Default/History" \
+            "${config_home}/google-chrome/Default/History";
+        do
+            if [ -f "${path}" ]; then
+                echo "${path}"
+                return
+            fi
+        done
+
+        echo "Unable to find Chrome history database. You can supply it manually as a second parameter." >&2
+        exit 1
     else
         echo ~/Library/Application\ Support/Google/Chrome/Default/History
     fi
@@ -55,7 +67,7 @@ export_chrome() {
     if [[ -e "$2" ]]; then
         cp "$2" "$OUTPUT_DIR/chrome_history.db.tmp"
     else
-        default="$(get_chrome_history_db)"
+        default="$(find_chrome_history_db)"
         echo "Defaulting to history db: $default"
         echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
         cp "$default" "$OUTPUT_DIR/chrome_history.db.tmp"
