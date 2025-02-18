@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+#
 # Helper script to export browser history and bookmarks to a format ArchiveBox can ingest.
 # Usage:
 #    curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/export_browser_history.sh'
@@ -7,53 +8,95 @@
 #    bash export_browser_history.sh --safari
 #    ls
 #        chrome_history.json
+#        chrome_bookmarks.json
 #        firefox_history.json
 #        firefox_bookmarks.json
 #        safari_history.json
+#
+# Assumptions:
+#
+# * you're running this on macOS or Linux
+# * you're running a reasonably modern version of Bash
+#   * macOS users: `brew install bash`
+#
+# Dependencies:
+#
+# * sqlite
+# * jq (for chrome bookmarks)
+#
 
 set -eo pipefail
 
 BROWSER_TO_EXPORT="${1?Please specify --chrome, --firefox, or --safari}"
 OUTPUT_DIR="$(pwd)"
 
-export_chrome() {
-    if [[ -e "$2" ]]; then
-        cp "$2" "$OUTPUT_DIR/chrome_history.db.tmp"
-    else
-        default=$(ls ~/Library/Application\ Support/Google/Chrome/Default/History)
-        echo "Defaulting to history db: $default"
-        echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
-        cp "$default" "$OUTPUT_DIR/chrome_history.db.tmp"
-    fi
-
-    sqlite3 "$OUTPUT_DIR/chrome_history.db.tmp" "SELECT \"[\" || group_concat(json_object('timestamp', last_visit_time, 'description', title, 'href', url)) || \"]\" FROM urls;" > "$OUTPUT_DIR/chrome_history.json"
-    jq < "$(dirname "${2:-$default}")"/Bookmarks '.roots.other.children[] | {href: .url, description: .name, timestamp: .date_added}' > "$OUTPUT_DIR/chrome_bookmarks.json"
-
-    rm "$OUTPUT_DIR"/chrome_history.db.*
-    echo "Chrome history exported to:"
-    echo "    $OUTPUT_DIR/chrome_history.json"
+is_linux() {
+    [[ "$(uname -s)" == "Linux" ]]
 }
 
-get_places_sqlite() {
-    # shellcheck disable=SC2012  # `ls` is good enough, don't need `find`
-    if [[ "$(uname -s)" == "Linux" ]]; then
+find_firefox_places_db() {
+    # shellcheck disable=SC2012  # `ls` with path expansion is good enough, don't need `find`
+    if is_linux; then
         ls ~/.mozilla/firefox/*.default*/places.sqlite | head -n 1
     else
         ls ~/Library/Application\ Support/Firefox/Profiles/*.default*/places.sqlite | head -n 1
     fi
 }
 
+get_chrome_history_db() {
+    if is_linux; then
+        echo ~/.config/chromium/Default/History
+    else
+        echo ~/Library/Application\ Support/Google/Chrome/Default/History
+    fi
+}
+
+export_chrome() {
+    if [[ -e "$2" ]]; then
+        cp "$2" "$OUTPUT_DIR/chrome_history.db.tmp"
+    else
+        default="$(get_chrome_history_db)"
+        echo "Defaulting to history db: $default"
+        echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
+        cp "$default" "$OUTPUT_DIR/chrome_history.db.tmp"
+    fi
+
+    sqlite3 "$OUTPUT_DIR/chrome_history.db.tmp" "
+    SELECT '[' || group_concat(
+        json_object('timestamp', last_visit_time, 'description', title, 'href', url)
+    ) || ']'
+    FROM urls;" > "$OUTPUT_DIR/chrome_history.json"
+
+    jq '.roots.other.children[] | {href: .url, description: .name, timestamp: .date_added}' \
+       < "$(dirname "${2:-$default}")"/Bookmarks \
+       > "$OUTPUT_DIR/chrome_bookmarks.json"
+
+    rm "$OUTPUT_DIR"/chrome_history.db.*
+    echo "Chrome history exported to:"
+    echo "    $OUTPUT_DIR/chrome_history.json"
+    echo "    $OUTPUT_DIR/chrome_bookmarks.json"
+}
+
 export_firefox() {
     if [[ -e "$2" ]]; then
         cp "$2" "$OUTPUT_DIR/firefox_history.db.tmp"
     else
-        default="$(get_places_sqlite)"
+        default="$(find_firefox_places_db)"
         echo "Defaulting to history db: $default"
         echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
         cp "$default" "$OUTPUT_DIR/firefox_history.db.tmp"
     fi
 
-    sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "SELECT '[' || group_concat(json_object('timestamp', last_visit_date, 'description', title, 'href', url)) || ']' FROM moz_places;" > "$OUTPUT_DIR/firefox_history.json"
+    sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "
+    SELECT
+        '[' || group_concat(
+            json_object(
+                'timestamp', last_visit_date,
+                'description', title,
+                'href', url
+            )
+        ) || ']'
+    FROM moz_places;" > "$OUTPUT_DIR/firefox_history.json"
 
     sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "
     with recursive tags AS (
