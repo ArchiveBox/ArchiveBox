@@ -142,7 +142,7 @@ export_safari() {
 if [[ "$BROWSER_TO_EXPORT" == "--chrome" ]]; then
     export_chrome "$@"
 elif [[ "$BROWSER_TO_EXPORT" == "--firefox" ]]; then
-    export_firefox "@"
+    export_firefox "$@"
 elif [[ "$BROWSER_TO_EXPORT" == "--safari" ]]; then
     export_safari "$@"
 else
