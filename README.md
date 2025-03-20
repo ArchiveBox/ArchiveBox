@@ -1235,7 +1235,7 @@ ArchiveBox differentiates itself from [similar self-hosted projects](https://git
 
 *If you want better fidelity for very complex interactive pages with heavy JS/streams/API requests, check out [ArchiveWeb.page](https://archiveweb.page) and [ReplayWeb.page](https://replayweb.page).*
 
-*If you want more bookmark categorization and note-taking features, check out [Archivy](https://archivy.github.io/), [Memex](https://github.com/WorldBrain/Memex), [Polar](https://getpolarized.io/), or [LinkAce](https://www.linkace.org/).*
+*If you want more bookmark categorization and note-taking features, check out [Memex](https://github.com/WorldBrain/Memex), [Hoarder](https://github.com/hoarder-app/hoarder), [LinkWarden](https://github.com/linkwarden/linkwarden),  [Archivy](https://archivy.github.io/), or [LinkAce](https://www.linkace.org/).*
 
 *If you need more advanced recursive spider/crawling ability beyond `--depth=1`, check out [Browsertrix](https://github.com/webrecorder/browsertrix-crawler), [Photon](https://github.com/s0md3v/Photon), or [Scrapy](https://scrapy.org/) and pipe the outputted URLs into ArchiveBox.*
 
