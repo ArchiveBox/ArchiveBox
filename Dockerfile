@@ -227,12 +227,14 @@ WORKDIR "$CODE_DIR"
 # COPY --chown=root:root --chmod=755 pyproject.toml "$CODE_DIR/"
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
     echo "[+] UV Creating /venv using python ${PYTHON_VERSION} for ${TARGETPLATFORM} (provided by base image)..." \
+    && uv python find --system \
     && uv venv /venv
 ENV VIRTUAL_ENV=/venv PATH="/venv/bin:$PATH"
 RUN uv pip install setuptools pip \
     && ( \
         which python3 && python3 --version \
         && which uv && uv version \
+        && uv python find --system && uv python find \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
 
