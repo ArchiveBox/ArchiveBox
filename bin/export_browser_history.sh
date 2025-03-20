@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+#
 # Helper script to export browser history and bookmarks to a format ArchiveBox can ingest.
 # Usage:
 #    curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/export_browser_history.sh'
@@ -7,43 +8,107 @@
 #    bash export_browser_history.sh --safari
 #    ls
 #        chrome_history.json
+#        chrome_bookmarks.json
 #        firefox_history.json
 #        firefox_bookmarks.json
 #        safari_history.json
+#
+# Assumptions:
+#
+# * you're running this on macOS or Linux
+# * you're running a reasonably modern version of Bash
+#   * macOS users: `brew install bash`
+#
+# Dependencies:
+#
+# * sqlite
+# * jq (for chrome bookmarks)
+#
 
+set -eo pipefail
+
+BROWSER_TO_EXPORT="${1?Please specify --chrome, --firefox, or --safari}"
 OUTPUT_DIR="$(pwd)"
 
-if [[ "$1" == "--chrome" ]]; then
-    # Google Chrome / Chromium
+is_linux() {
+    [[ "$(uname -s)" == "Linux" ]]
+}
+
+find_firefox_places_db() {
+    # shellcheck disable=SC2012  # `ls` with path expansion is good enough, don't need `find`
+    if is_linux; then
+        ls ~/.mozilla/firefox/*.default*/places.sqlite | head -n 1
+    else
+        ls ~/Library/Application\ Support/Firefox/Profiles/*.default*/places.sqlite | head -n 1
+    fi
+}
+
+find_chrome_history_db() {
+    if is_linux; then
+        local config_home="${XDG_CONFIG_HOME:-${HOME}/.config}"
+        for path in \
+            "${config_home}/chromium/Default/History" \
+            "${config_home}/google-chrome/Default/History";
+        do
+            if [ -f "${path}" ]; then
+                echo "${path}"
+                return
+            fi
+        done
+
+        echo "Unable to find Chrome history database. You can supply it manually as a second parameter." >&2
+        exit 1
+    else
+        echo ~/Library/Application\ Support/Google/Chrome/Default/History
+    fi
+}
+
+export_chrome() {
     if [[ -e "$2" ]]; then
         cp "$2" "$OUTPUT_DIR/chrome_history.db.tmp"
     else
-        default=$(ls ~/Library/Application\ Support/Google/Chrome/Default/History)
+        default="$(find_chrome_history_db)"
         echo "Defaulting to history db: $default"
         echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
         cp "$default" "$OUTPUT_DIR/chrome_history.db.tmp"
     fi
 
-    sqlite3 "$OUTPUT_DIR/chrome_history.db.tmp" "SELECT \"[\" || group_concat(json_object('timestamp', last_visit_time, 'description', title, 'href', url)) || \"]\" FROM urls;" > "$OUTPUT_DIR/chrome_history.json"
-    jq < "$(dirname "${2:-$default}")"/Bookmarks '.roots.other.children[] | {href: .url, description: .name, timestamp: .date_added}' > "$OUTPUT_DIR/chrome_bookmarks.json"
-    
+    sqlite3 "$OUTPUT_DIR/chrome_history.db.tmp" "
+    SELECT '[' || group_concat(
+        json_object('timestamp', last_visit_time, 'description', title, 'href', url)
+    ) || ']'
+    FROM urls;" > "$OUTPUT_DIR/chrome_history.json"
+
+    jq '.roots.other.children[] | {href: .url, description: .name, timestamp: .date_added}' \
+       < "$(dirname "${2:-$default}")"/Bookmarks \
+       > "$OUTPUT_DIR/chrome_bookmarks.json"
+
     rm "$OUTPUT_DIR"/chrome_history.db.*
     echo "Chrome history exported to:"
     echo "    $OUTPUT_DIR/chrome_history.json"
-fi
+    echo "    $OUTPUT_DIR/chrome_bookmarks.json"
+}
 
-if [[ "$1" == "--firefox" ]]; then
-    # Firefox
+export_firefox() {
     if [[ -e "$2" ]]; then
         cp "$2" "$OUTPUT_DIR/firefox_history.db.tmp"
     else
-        default=$(ls ~/Library/Application\ Support/Firefox/Profiles/*.default/places.sqlite)
+        default="$(find_firefox_places_db)"
         echo "Defaulting to history db: $default"
         echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
         cp "$default" "$OUTPUT_DIR/firefox_history.db.tmp"
     fi
-    
-    sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "SELECT \"[\" || group_concat(json_object('timestamp', last_visit_date, 'description', title, 'href', url)) || \"]\" FROM moz_places;" > "$OUTPUT_DIR/firefox_history.json"
+
+    sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "
+    SELECT
+        '[' || group_concat(
+            json_object(
+                'timestamp', last_visit_date,
+                'description', title,
+                'href', url
+            )
+        ) || ']'
+    FROM moz_places;" > "$OUTPUT_DIR/firefox_history.json"
 
     sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "
     with recursive tags AS (
@@ -62,27 +127,37 @@ if [[ "$1" == "--firefox" ]]; then
         JOIN moz_places AS f ON f.id = b.fk
         JOIN tags ON tags.id = b.parent
         WHERE f.url LIKE '%://%';" > "$OUTPUT_DIR/firefox_bookmarks.json"
-    
+
     rm "$OUTPUT_DIR"/firefox_history.db.*
     echo "Firefox history exported to:"
     echo "    $OUTPUT_DIR/firefox_history.json"
     echo "    $OUTPUT_DIR/firefox_bookmarks.json"
-fi
+}
 
-if [[ "$1" == "--safari" ]]; then
-    # Safari
+export_safari() {
     if [[ -e "$2" ]]; then
         cp "$2" "$OUTPUT_DIR/safari_history.db.tmp"
     else
-        default="~/Library/Safari/History.db"
+        default=~"/Library/Safari/History.db"
         echo "Defaulting to history db: $default"
         echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
         cp "$default" "$OUTPUT_DIR/safari_history.db.tmp"
     fi
-    
+
     sqlite3 "$OUTPUT_DIR/safari_history.db.tmp" "select url from history_items" > "$OUTPUT_DIR/safari_history.json"
-    
+
     rm "$OUTPUT_DIR"/safari_history.db.*
     echo "Safari history exported to:"
     echo "    $OUTPUT_DIR/safari_history.json"
+}
+
+if [[ "$BROWSER_TO_EXPORT" == "--chrome" ]]; then
+    export_chrome "$@"
+elif [[ "$BROWSER_TO_EXPORT" == "--firefox" ]]; then
+    export_firefox "$@"
+elif [[ "$BROWSER_TO_EXPORT" == "--safari" ]]; then
+    export_safari "$@"
+else
+    echo "Unrecognized argument: $1" >&2
+    exit 1
 fi
