@@ -1631,7 +1631,8 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 <a href="https://github.com/sponsors/pirate"><img src="https://img.shields.io/badge/Github_Sponsors-%23B7CDFE.svg"/></a> &nbsp;
 <a href="https://www.patreon.com/theSquashSH"><img src="https://img.shields.io/badge/Patreon-%23DD5D76.svg"/></a> &nbsp;
 <a href="https://paypal.me/NicholasSweeting"><img src="https://img.shields.io/badge/Paypal-%23FFD141.svg"/></a> &nbsp;
-<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"><img src="https://img.shields.io/badge/BTC%5CETH-%231a1a1a.svg"/></a>
+<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"><img src="https://img.shields.io/badge/BTC%5CETH-%231a1a1a.svg"/></a> &nbsp;
+<a href="https://archivebox-shop.fourthwall.com/"><img src="https://img.shields.io/badge/Merch-%23903851.svg"/></a>
 <br/>
 <sup><i>ArchiveBox operates as a US 501(c)(3) nonprofit <a href="https://en.wikipedia.org/wiki/Fiscal_sponsorship">FSP</a> (sponsored by <a href="https://hackclub.com/hcb?ref=donation">HCB</a>), <a href="https://hcb.hackclub.com/donations/start/archivebox">direct donations</a> are tax-deductible.</i></sup>
 <br/><br/>
