@@ -69,7 +69,7 @@ def get_html(link: Link, path: Path, timeout: int=CURL_CONFIG.CURL_TIMEOUT) -> s
         except (FileNotFoundError, TypeError, UnicodeDecodeError):
             continue
     if document is None:
-        return download_url(link.url, timeout=timeout)
+        return download_url(link.url, timeout=timeout, useragent=CURL_CONFIG.CURL_USER_AGENT)
     else:
         return document
 

@@ -209,7 +209,7 @@ def parse_date(date: Any) -> datetime:
 
 
 @enforce_types
-def download_url(url: str, timeout: int=None) -> str:
+def download_url(url: str, timeout: Optional[int]=None, useragent: Optional[str]=None) -> str:
     """Download the contents of a remote url and return the text"""
 
     from archivebox.config.common import ARCHIVING_CONFIG
@@ -225,7 +225,7 @@ def download_url(url: str, timeout: int=None) -> str:
 
     response = session.get(
         url,
-        headers={'User-Agent': ARCHIVING_CONFIG.USER_AGENT},
+        headers={'User-Agent': useragent or ARCHIVING_CONFIG.USER_AGENT},
         verify=ARCHIVING_CONFIG.CHECK_SSL_VALIDITY,
         timeout=timeout,
     )
