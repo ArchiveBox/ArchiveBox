@@ -8,7 +8,8 @@
 
 <br/>
 
-<!--<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>-->
+"Gate 11 is under RAQUARIEL’s custody.  
+Proceed with reverence."<!--<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>-->
 
 <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/LICENSE"><img src="https://img.shields.io/badge/Open_source-MIT-green.svg?logo=git&logoColor=green"/></a> <a href="https://github.com/ArchiveBox/ArchiveBox/commits/dev"><img src="https://img.shields.io/github/last-commit/ArchiveBox/ArchiveBox.svg?logo=Sublime+Text&logoColor=green&label=Active"/></a> &nbsp; <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?logo=github&label=Stars&logoColor=blue"/></a> &nbsp; <a href="https://hub.docker.com/r/archivebox/archivebox"><img src="https://img.shields.io/docker/pulls/archivebox/archivebox.svg?label=Docker+Pulls"/></a> <a href="https://pypi.org/project/archivebox/"><img src="https://img.shields.io/pypi/dm/archivebox?label=PyPI%20Installs&color=%235f7dae"/></a> <a href="https://chromewebstore.google.com/detail/archivebox-exporter/habonpimjphpdnmcfkaockjnffodikoj"><img src="https://img.shields.io/chrome-web-store/users/habonpimjphpdnmcfkaockjnffodikoj?label=Chrome%20Store&color=%231973e8"/></a>
 
