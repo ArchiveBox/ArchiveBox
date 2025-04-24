@@ -97,6 +97,8 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
 
     from ..search import write_search_index
 
+    from archivebox.config import MAX_URL_ATTEMPTS
+
     # TODO: Remove when the input is changed to be a snapshot. Suboptimal approach.
     from core.models import Snapshot, ArchiveResult
     try:
@@ -113,89 +115,102 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
         ]
 
     out_dir = out_dir or Path(link.link_dir)
-    try:
-        is_new = not Path(out_dir).exists()
-        if is_new:
-            os.makedirs(out_dir)
+    
+    retry_count = snapshot.retry_count
+    if retry_count >= MAX_URL_ATTEMPTS:
+       print(f"Maximum URL attempts reached, skipping {snapshot.url}")
 
-        link = load_link_details(link, out_dir=out_dir)
-        write_link_details(link, out_dir=out_dir, skip_sql_index=False)
-        log_link_archiving_started(link, str(out_dir), is_new)
-        link = link.overwrite(downloaded_at=datetime.now(timezone.utc))
-        stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
-        start_ts = datetime.now(timezone.utc)
-
-        for method_name, should_run, method_function in active_methods:
-            try:
-                if method_name not in link.history:
-                    link.history[method_name] = []
-
-                if should_run(link, out_dir, overwrite):
-                    log_archive_method_started(method_name)
-
-                    result = method_function(link=link, out_dir=out_dir)
-
-                    link.history[method_name].append(result)
-
-                    stats[result.status] += 1
-                    log_archive_method_finished(result)
-                    write_search_index(link=link, texts=result.index_texts)
-                    ArchiveResult.objects.create(snapshot=snapshot, extractor=method_name, cmd=result.cmd, cmd_version=result.cmd_version,
-                                                 output=result.output, pwd=result.pwd, start_ts=result.start_ts, end_ts=result.end_ts, status=result.status, created_by_id=snapshot.created_by_id)
-
-
-                    # bump the downloaded_at time on the main Snapshot here, this is critical
-                    # to be able to cache summaries of the ArchiveResults for a given
-                    # snapshot without having to load all the results from the DB each time.
-                    # (we use {Snapshot.pk}-{Snapshot.downloaded_at} as the cache key and assume
-                    # ArchiveResults are unchanged as long as the downloaded_at timestamp is unchanged)
-                    snapshot.save()
-                else:
-                    # print('{black}      X {}{reset}'.format(method_name, **ANSI))
-                    stats['skipped'] += 1
-            except Exception as e:
-                # https://github.com/ArchiveBox/ArchiveBox/issues/984#issuecomment-1150541627
-                with open(settings.ERROR_LOG, "a", encoding='utf-8') as f:
-                    command = ' '.join(sys.argv)
-                    ts = datetime.now(timezone.utc).strftime('%Y-%m-%d__%H:%M:%S')
-                    f.write(("\n" + 'Exception in archive_methods.save_{}(Link(url={})) command={}; ts={}'.format(
+    # Retry loop
+    while snapshot.retry_count < MAX_URL_ATTEMPTS:
+    
+        try:
+            is_new = not Path(out_dir).exists()
+            if is_new:
+                os.makedirs(out_dir)
+    
+            link = load_link_details(link, out_dir=out_dir)
+            write_link_details(link, out_dir=out_dir, skip_sql_index=False)
+            log_link_archiving_started(link, str(out_dir), is_new)
+            link = link.overwrite(downloaded_at=datetime.now(timezone.utc))
+            stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
+            start_ts = datetime.now(timezone.utc)
+    
+            for method_name, should_run, method_function in active_methods:
+                try:
+                    if method_name not in link.history:
+                        link.history[method_name] = []
+    
+                    if should_run(link, out_dir, overwrite):
+                        log_archive_method_started(method_name)
+    
+                        result = method_function(link=link, out_dir=out_dir)
+    
+                        link.history[method_name].append(result)
+    
+                        stats[result.status] += 1
+                        log_archive_method_finished(result)
+                        write_search_index(link=link, texts=result.index_texts)
+                        ArchiveResult.objects.create(snapshot=snapshot, extractor=method_name, cmd=result.cmd, cmd_version=result.cmd_version,
+                                                     output=result.output, pwd=result.pwd, start_ts=result.start_ts, end_ts=result.end_ts, status=result.status, created_by_id=snapshot.created_by_id)
+    
+    
+                        # bump the downloaded_at time on the main Snapshot here, this is critical
+                        # to be able to cache summaries of the ArchiveResults for a given
+                        # snapshot without having to load all the results from the DB each time.
+                        # (we use {Snapshot.pk}-{Snapshot.downloaded_at} as the cache key and assume
+                        # ArchiveResults are unchanged as long as the downloaded_at timestamp is unchanged)
+                        snapshot.save()
+                    else:
+                        # print('{black}      X {}{reset}'.format(method_name, **ANSI))
+                        stats['skipped'] += 1
+                except Exception as e:
+                    # https://github.com/ArchiveBox/ArchiveBox/issues/984#issuecomment-1150541627
+                    with open(settings.ERROR_LOG, "a", encoding='utf-8') as f:
+                        command = ' '.join(sys.argv)
+                        ts = datetime.now(timezone.utc).strftime('%Y-%m-%d__%H:%M:%S')
+                        f.write(("\n" + 'Exception in archive_methods.save_{}(Link(url={})) command={}; ts={}'.format(
+                            method_name,
+                            link.url,
+                            command,
+                            ts
+                        ) + "\n" + str(e) + "\n"))
+                        #f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
+    
+                    # print(f'        ERROR: {method_name} {e.__class__.__name__}: {e} {getattr(e, "hints", "")}', ts, link.url, command)
+                    raise e from Exception('Exception in archive_methods.save_{}(Link(url={}))'.format(
                         method_name,
                         link.url,
-                        command,
-                        ts
-                    ) + "\n" + str(e) + "\n"))
-                    #f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
+                    ))
+    
+    
+            # print('    ', stats)
+    
+            try:
+                latest_title = link.history['title'][-1].output.strip()
+                if latest_title and len(latest_title) >= len(link.title or ''):
+                    link = link.overwrite(title=latest_title)
+            except Exception:
+                pass
+    
+            write_link_details(link, out_dir=out_dir, skip_sql_index=False)
+    
+            log_link_archiving_finished(link, out_dir, is_new, stats, start_ts)
 
-                # print(f'        ERROR: {method_name} {e.__class__.__name__}: {e} {getattr(e, "hints", "")}', ts, link.url, command)
-                raise e from Exception('Exception in archive_methods.save_{}(Link(url={}))'.format(
-                    method_name,
-                    link.url,
-                ))
-
-
-        # print('    ', stats)
-
-        try:
-            latest_title = link.history['title'][-1].output.strip()
-            if latest_title and len(latest_title) >= len(link.title or ''):
-                link = link.overwrite(title=latest_title)
-        except Exception:
-            pass
-
-        write_link_details(link, out_dir=out_dir, skip_sql_index=False)
-
-        log_link_archiving_finished(link, out_dir, is_new, stats, start_ts)
-
-    except KeyboardInterrupt:
-        try:
-            write_link_details(link, out_dir=link.link_dir)
-        except:
-            pass
-        raise
-
-    except Exception as err:
-        print('    ! Failed to archive link: {}: {}'.format(err.__class__.__name__, err))
-        raise
+            snapshot.retry_count += 1
+            snapshot.save(update_fields=['retry_count'])
+    
+        except KeyboardInterrupt:
+            try:
+                write_link_details(link, out_dir=link.link_dir)
+            except:
+                pass
+            raise
+    
+        except Exception as err:
+            print('    ! Failed to archive link: {}: {}'.format(err.__class__.__name__, err))
+            snapshot.retry_count += 1
+            snapshot.save(update_fields=['retry_count'])
+            raise
 
     return link
 
