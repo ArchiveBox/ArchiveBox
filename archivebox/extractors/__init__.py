@@ -117,11 +117,11 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
     out_dir = out_dir or Path(link.link_dir)
     
     retry_count = snapshot.retry_count
-    if retry_count >= MAX_URL_ATTEMPTS:
+    if MAX_URL_ATTEMPTS > 0 and retry_count >= MAX_URL_ATTEMPTS:
        print(f"Maximum URL attempts reached, skipping {snapshot.url}")
 
     # Retry loop
-    while snapshot.retry_count < MAX_URL_ATTEMPTS:
+    while MAX_URL_ATTEMPTS == 0 or snapshot.retry_count < MAX_URL_ATTEMPTS:
     
         try:
             is_new = not Path(out_dir).exists()
