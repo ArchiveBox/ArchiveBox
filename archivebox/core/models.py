@@ -194,6 +194,7 @@ class Snapshot(
     title = models.CharField(max_length=512, null=True, blank=True, db_index=True)
     downloaded_at = models.DateTimeField(default=None, null=True, editable=False, db_index=True, blank=True)
     modified_at = models.DateTimeField(auto_now=True)
+    retry_count = models.IntegerField(default=0, help_text="Number of fetch retry attempts so far")
     
     ### ModelWithStateMachine
     retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
