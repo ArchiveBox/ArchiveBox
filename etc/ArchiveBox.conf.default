@@ -12,6 +12,7 @@
 # ONLY_NEW = False
 # TIMEOUT = 60
 # MEDIA_TIMEOUT = 3600
+# MAX_URL_ATTEMPTS = 10
 # URL_BLACKLIST = (://(.*\.)?facebook\.com)|(://(.*\.)?ebay\.com)|(.*\.exe$)
 # CHECK_SSL_VALIDITY = True
 # RESOLUTION = 1440,900
