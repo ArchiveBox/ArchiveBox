@@ -105,6 +105,8 @@ SERVER_CONFIG = ServerConfig()
 class ArchivingConfig(BaseConfigSet):
     ONLY_NEW: bool                        = Field(default=True)
     OVERWRITE: bool                       = Field(default=False)
+
+    MAX_URL_ATTEMPTS: int                 = Field(default=10)
     
     TIMEOUT: int                          = Field(default=60)
     MEDIA_TIMEOUT: int                    = Field(default=3600)
