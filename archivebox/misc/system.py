@@ -79,9 +79,35 @@ def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, 
 
 
 @enforce_types
-def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], overwrite: bool=True) -> None:
+def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], overwrite: bool=True, use_ipfs: bool=False) -> None:
     """Safe atomic write to filesystem by writing to temp file + atomic rename"""
 
+    # If IPFS is requested, use the hybrid storage backend
+    if use_ipfs:
+        try:
+            from archivebox.storage import write_file_with_ipfs
+            result = write_file_with_ipfs(path, contents, overwrite)
+            
+            # Log IPFS results if available
+            if result.get('ipfs_hash'):
+                from archivebox.storage import storage_backend
+                ipfs_url = storage_backend.get_ipfs_url(result['ipfs_hash'])
+                print(f"[+] File saved to IPFS: {result['ipfs_hash']}")
+                print(f"    Gateway URL: {ipfs_url}")
+            elif result.get('ipfs_error'):
+                print(f"[!] IPFS upload failed: {result['ipfs_error']}")
+                
+            # If local write failed and we don't have fallback, raise the error
+            if not result.get('success'):
+                raise Exception(result.get('error', 'Unknown error'))
+                
+            return
+        except ImportError:
+            print("[!] IPFS storage module not available, falling back to local storage")
+        except Exception as e:
+            print(f"[!] IPFS storage failed: {e}, falling back to local storage")
+
+    # Standard local storage (original atomic_write logic)
     mode = 'wb+' if isinstance(contents, bytes) else 'w'
     encoding = None if isinstance(contents, bytes) else 'utf-8'  # enforce utf-8 on all text writes
 

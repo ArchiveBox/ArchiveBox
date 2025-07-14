@@ -897,6 +897,79 @@ Each snapshot subfolder <code>data/archive/TIMESTAMP/</code> includes a static <
 </details>
 <br/>
 
+## IPFS Storage Support
+
+ArchiveBox includes optional IPFS (InterPlanetary File System) storage support. When enabled, archived files are automatically uploaded to IPFS in addition to being saved locally, providing decentralized storage and permanent content-addressed URLs.
+
+<br/>
+<details>
+<summary><i>Expand to learn about IPFS storage configuration...</i></summary><br/>
+
+### Enable IPFS Storage
+
+```bash
+# Enable IPFS storage backend
+archivebox config --set USE_IPFS=True
+
+# Configure IPFS settings
+archivebox config --set IPFS_API_URL=http://localhost:5001
+archivebox config --set IPFS_GATEWAY_URL=https://ipfs.io/ipfs/
+archivebox config --set IPFS_TIMEOUT=30
+archivebox config --set IPFS_PIN_FILES=True
+archivebox config --set IPFS_FALLBACK_TO_LOCAL=True
+```
+
+### IPFS Management Commands
+
+```bash
+# Test IPFS connectivity
+archivebox ipfs test
+
+# Show IPFS status
+archivebox ipfs status
+
+# Enable/disable IPFS storage
+archivebox ipfs enable
+archivebox ipfs disable
+
+# Add a file to IPFS manually
+archivebox ipfs add /path/to/file
+```
+
+### Benefits
+
+- **Decentralized Storage**: Files are distributed across the IPFS network
+- **Permanent URLs**: IPFS hashes provide permanent, content-addressed URLs
+- **Redundancy**: Files are stored both locally and on IPFS
+- **Accessibility**: Files can be accessed via any IPFS gateway
+- **No Vendor Lock-in**: IPFS is an open protocol
+
+### Setup Requirements
+
+1. **Install IPFS**: Download and install IPFS daemon
+2. **Start IPFS**: Run `ipfs daemon` to start the IPFS node
+3. **Configure ArchiveBox**: Enable IPFS storage with the commands above
+4. **Test**: Run `archivebox ipfs test` to verify connectivity
+
+### How It Works
+
+When IPFS is enabled, ArchiveBox saves files both locally and to IPFS:
+
+- Files are written locally first (for compatibility and fallback)
+- Files are then uploaded to IPFS
+- IPFS hashes and gateway URLs are stored in the database
+- Files can be accessed via local path or IPFS gateway URL
+
+<h4>Learn More</h4>
+<ul>
+<li><a href="archivebox/storage/README.md">IPFS Storage Documentation</a></li>
+<li><a href="https://ipfs.io/docs/">IPFS Documentation</a></li>
+<li><a href="https://github.com/ipfs/go-ipfs">IPFS GitHub Repository</a></li>$$
+</ul>
+
+</details>
+<br/>
+
 
 ## Static Archive Exporting
 

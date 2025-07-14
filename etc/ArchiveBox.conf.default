@@ -18,6 +18,14 @@
 # GIT_DOMAINS = github.com,bitbucket.org,gitlab.com
 # COOKIES_FILE="path/to/cookies.txt"
 
+# IPFS Configuration
+# USE_IPFS = False
+# IPFS_API_URL = http://localhost:5001
+# IPFS_GATEWAY_URL = https://ipfs.io/ipfs/
+# IPFS_TIMEOUT = 30
+# IPFS_PIN_FILES = True
+# IPFS_FALLBACK_TO_LOCAL = True
+
 [SERVER_CONFIG]
 # SECRET_KEY = ---------------- not a valid secret key ! ----------------
 # DEBUG = False

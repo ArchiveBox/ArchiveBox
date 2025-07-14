@@ -64,6 +64,14 @@ class StorageConfig(BaseConfigSet):
     RESTRICT_FILE_NAMES: str            = Field(default='windows')
     ENFORCE_ATOMIC_WRITES: bool         = Field(default=True)
     
+    # IPFS Configuration
+    USE_IPFS: bool                      = Field(default=False, description="Enable IPFS storage backend for archive files")
+    IPFS_API_URL: str                   = Field(default='http://localhost:5001', description="IPFS API endpoint URL")
+    IPFS_GATEWAY_URL: str               = Field(default='https://ipfs.io/ipfs/', description="IPFS gateway URL for accessing files")
+    IPFS_TIMEOUT: int                   = Field(default=30, description="Timeout for IPFS API calls in seconds")
+    IPFS_PIN_FILES: bool                = Field(default=True, description="Pin files in IPFS to prevent garbage collection")
+    IPFS_FALLBACK_TO_LOCAL: bool        = Field(default=True, description="Fallback to local storage if IPFS is unavailable")
+    
     # not supposed to be user settable:
     DIR_OUTPUT_PERMISSIONS: str         = Field(default=lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5'))
 

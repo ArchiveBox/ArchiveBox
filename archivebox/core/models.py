@@ -690,6 +690,14 @@ class ArchiveResult(
     start_ts = models.DateTimeField(default=None, null=True, blank=True)
     end_ts = models.DateTimeField(default=None, null=True, blank=True)
     
+    # IPFS storage fields
+    ipfs_hash = models.CharField(max_length=64, default=None, null=True, blank=True, help_text='IPFS hash of the archived file')
+    storage_type = models.CharField(max_length=16, default='local', choices=[
+        ('local', 'Local Storage'),
+        ('ipfs', 'IPFS Storage'),
+        ('hybrid', 'Hybrid Storage (Local + IPFS)'),
+    ], help_text='Type of storage used for this archive result')
+    
     ### ModelWithStateMachine
     status = ModelWithStateMachine.StatusField(choices=StatusChoices.choices, default=StatusChoices.QUEUED)
     retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
@@ -944,6 +952,14 @@ class ArchiveResult(
         """Pass any indexable text to the search backend indexer (e.g. sonic, SQLiteFTS5, etc.)"""
         print(f'{self}.save_search_index()')
         pass
+
+    @property
+    def ipfs_url(self) -> Optional[str]:
+        """Get the IPFS gateway URL for this archive result's IPFS hash"""
+        if self.ipfs_hash:
+            from archivebox.storage import storage_backend
+            return storage_backend.get_ipfs_url(self.ipfs_hash)
+        return None
 
 
     # def get_storage_dir(self, create=True, symlink=True):

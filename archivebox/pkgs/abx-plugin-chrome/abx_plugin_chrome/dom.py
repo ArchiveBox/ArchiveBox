@@ -47,9 +47,24 @@ def save_dom(link: Link, out_dir: Optional[Path]=None, timeout: int=60) -> Archi
     ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
+    
+    # Check if IPFS is enabled
+    use_ipfs = False
+    try:
+        from archivebox.config.common import STORAGE_CONFIG
+        use_ipfs = STORAGE_CONFIG.USE_IPFS
+    except ImportError:
+        pass
+    
     try:
         result = run(cmd, cwd=str(out_dir), timeout=timeout, text=True)
-        atomic_write(output_path, result.stdout)
+        
+        # Use IPFS-aware atomic_write if enabled
+        if use_ipfs:
+            from archivebox.misc.system import atomic_write
+            atomic_write(output_path, result.stdout, use_ipfs=True)
+        else:
+            atomic_write(output_path, result.stdout)
 
         if result.returncode:
             hints = result.stderr
