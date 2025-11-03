@@ -1,85 +1,129 @@
-#!/bin/bash
-#
-# Headers Extractor
-# Extracts HTTP headers from a given URL
-#
-# Usage: headers <url>
-# Output: headers.json in current directory
-# Config: All configuration via environment variables
-#   HEADERS_TIMEOUT - Timeout in seconds (default: 10)
-#   HEADERS_USER_AGENT - User agent string
-#
+#!/usr/bin/env node
+//
+// Headers Extractor
+// Extracts HTTP headers from a given URL using Puppeteer
+//
+// Usage: headers <url>
+// Output: headers.json in current directory
+// Config: All configuration via environment variables
+//   CHROME_CDP_URL - Chrome DevTools Protocol URL (e.g., ws://localhost:9222/devtools/browser/...)
+//                    If not set, will launch a local browser instance
+//   HEADERS_TIMEOUT - Timeout in milliseconds (default: 10000)
+//
 
-set -e
+const { spawn } = require('child_process');
+const fs = require('fs');
 
-URL="$1"
+// Check if puppeteer is available
+function checkPuppeteer() {
+  try {
+    require.resolve('puppeteer-core');
+    return true;
+  } catch (e) {
+    console.error('Error: puppeteer-core is not installed.');
+    console.error('Please install it with: npm install puppeteer-core');
+    console.error('Or install chromium: npm install puppeteer');
+    return false;
+  }
+}
 
-if [ -z "$URL" ]; then
-  echo "Error: URL argument required" >&2
-  exit 1
-fi
+async function main() {
+  const url = process.argv[2];
 
-# Auto-install dependencies
-if ! command -v curl &> /dev/null; then
-  echo "Installing curl..." >&2
-  if command -v apt-get &> /dev/null; then
-    sudo apt-get update && sudo apt-get install -y curl
-  elif command -v yum &> /dev/null; then
-    sudo yum install -y curl
-  elif command -v brew &> /dev/null; then
-    brew install curl
-  else
-    echo "Error: Cannot install curl. Please install manually." >&2
-    exit 1
-  fi
-fi
+  if (!url) {
+    console.error('Error: URL argument required');
+    process.exit(1);
+  }
 
-# Configuration from environment
-TIMEOUT="${HEADERS_TIMEOUT:-10}"
-USER_AGENT="${HEADERS_USER_AGENT:-Mozilla/5.0 (compatible; ArchiveBox-TS/0.1)}"
+  // Configuration from environment
+  const cdpUrl = process.env.CHROME_CDP_URL;
+  const timeout = parseInt(process.env.HEADERS_TIMEOUT || '10000', 10);
 
-echo "Extracting headers from: $URL" >&2
+  console.error(`Extracting headers from: ${url}`);
+  if (cdpUrl) {
+    console.error(`Connecting to browser via CDP: ${cdpUrl}`);
+  }
 
-# Get headers using curl
-HEADERS=$(curl -I -L -s --max-time "$TIMEOUT" --user-agent "$USER_AGENT" "$URL" 2>&1 || echo "")
+  // Check puppeteer is installed
+  if (!checkPuppeteer()) {
+    process.exit(1);
+  }
 
-if [ -z "$HEADERS" ]; then
-  echo "Error: Failed to fetch headers" >&2
-  exit 1
-fi
+  const puppeteer = require('puppeteer-core');
 
-# Convert headers to JSON format (simple key-value pairs)
-echo "{" > headers.json
+  let browser = null;
+  let shouldCloseBrowser = false;
 
-# Parse headers line by line
-FIRST=1
-while IFS=: read -r key value; do
-  # Skip empty lines and HTTP status line
-  if [ -z "$key" ] || [[ "$key" =~ ^HTTP ]]; then
-    continue
-  fi
+  try {
+    // Connect to CDP browser or launch local one
+    if (cdpUrl) {
+      browser = await puppeteer.connect({
+        browserWSEndpoint: cdpUrl
+      });
+    } else {
+      console.error('Error: CHROME_CDP_URL environment variable not set.');
+      console.error('Please set CHROME_CDP_URL to connect to a Chrome browser via CDP.');
+      console.error('Example: export CHROME_CDP_URL="ws://localhost:9222/devtools/browser/..."');
+      console.error('');
+      console.error('To start Chrome with remote debugging:');
+      console.error('  chrome --remote-debugging-port=9222 --headless');
+      console.error('  chromium --remote-debugging-port=9222 --headless');
+      process.exit(1);
+    }
 
-  # Clean up key and value
-  key=$(echo "$key" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-  value=$(echo "$value" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    const page = await browser.newPage();
 
-  if [ -n "$key" ] && [ -n "$value" ]; then
-    # Escape quotes in value
-    value=$(echo "$value" | sed 's/"/\\"/g')
+    let capturedHeaders = null;
 
-    # Add comma if not first entry
-    if [ "$FIRST" -eq 0 ]; then
-      echo "," >> headers.json
-    fi
+    // Listen for response to capture headers
+    page.on('response', async (response) => {
+      if (response.url() === url) {
+        capturedHeaders = response.headers();
+      }
+    });
 
-    echo -n "  \"$key\": \"$value\"" >> headers.json
-    FIRST=0
-  fi
-done <<< "$HEADERS"
+    // Navigate to URL
+    await page.goto(url, {
+      timeout,
+      waitUntil: 'domcontentloaded'
+    });
 
-echo "" >> headers.json
-echo "}" >> headers.json
+    await page.close();
 
-echo "✓ Extracted headers to headers.json" >&2
-echo "headers.json"
-exit 0
+    if (capturedHeaders) {
+      // Write to file
+      fs.writeFileSync('headers.json', JSON.stringify(capturedHeaders, null, 2), 'utf8');
+      console.error('✓ Extracted headers to headers.json');
+      console.log('headers.json');
+
+      if (shouldCloseBrowser) {
+        await browser.close();
+      }
+
+      process.exit(0);
+    } else {
+      console.error('Warning: Could not capture headers');
+
+      if (shouldCloseBrowser) {
+        await browser.close();
+      }
+
+      process.exit(1);
+    }
+
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+
+    if (browser && shouldCloseBrowser) {
+      try {
+        await browser.close();
+      } catch (closeErr) {
+        // Ignore close errors
+      }
+    }
+
+    process.exit(1);
+  }
+}
+
+main();

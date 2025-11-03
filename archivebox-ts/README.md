@@ -40,9 +40,10 @@ archivebox-ts/
 ### Prerequisites
 
 - Node.js 18+ and npm
+- Chrome or Chromium browser (for screenshot, title, and headers extractors)
 - For specific extractors:
   - `wget` extractor: wget
-  - `screenshot` extractor: Python 3 + Playwright
+  - `screenshot`, `title`, `headers` extractors: puppeteer-core + Chrome with remote debugging
 
 ### Setup
 
@@ -57,6 +58,15 @@ npm run build
 
 # Initialize ArchiveBox
 node dist/cli.js init
+
+# Start Chrome with remote debugging (required for screenshot, title, headers extractors)
+# In a separate terminal:
+chrome --remote-debugging-port=9222 --headless
+# Or on Linux:
+chromium --remote-debugging-port=9222 --headless
+
+# Set the CDP URL environment variable
+export CHROME_CDP_URL="http://localhost:9222"
 ```
 
 ## Usage
@@ -71,16 +81,35 @@ node dist/cli.js init
 
 ### Add a URL
 
+First, make sure Chrome is running with remote debugging and CHROME_CDP_URL is set:
+
+```bash
+# Terminal 1: Start Chrome
+chrome --remote-debugging-port=9222 --headless
+
+# Terminal 2: Get the WebSocket URL
+curl http://localhost:9222/json/version | jq -r .webSocketDebuggerUrl
+
+# Set the environment variable (use the URL from above)
+export CHROME_CDP_URL="ws://localhost:9222/devtools/browser/..."
+```
+
 Archive a URL with all available extractors:
 
 ```bash
 node dist/cli.js add https://example.com
 ```
 
-Archive with specific extractors:
+Archive with specific extractors (favicon and wget don't need Chrome):
 
 ```bash
-node dist/cli.js add https://example.com --extractors favicon,title,headers
+node dist/cli.js add https://example.com --extractors favicon,wget
+```
+
+Archive with Chrome-based extractors:
+
+```bash
+node dist/cli.js add https://example.com --extractors title,headers,screenshot
 ```
 
 Add with custom title:
@@ -285,43 +314,115 @@ print("output.txt")
 - **Language**: Bash
 - **Dependencies**: curl (auto-installed)
 - **Output**: `favicon.ico` or `favicon.png`
+- **Requires Chrome**: No
 - **Config**:
   - `FAVICON_TIMEOUT` - Timeout in seconds (default: 10)
 
 ### title
-- **Language**: Node.js
-- **Dependencies**: Built-in Node.js modules
+- **Language**: Node.js + Puppeteer
+- **Dependencies**: puppeteer-core, Chrome browser via CDP
 - **Output**: `title.txt`
+- **Requires Chrome**: Yes (via CHROME_CDP_URL)
 - **Config**:
+  - `CHROME_CDP_URL` - Chrome DevTools Protocol WebSocket URL (required)
   - `TITLE_TIMEOUT` - Timeout in milliseconds (default: 10000)
-  - `TITLE_USER_AGENT` - User agent string
 
 ### headers
-- **Language**: Bash
-- **Dependencies**: curl (auto-installed)
+- **Language**: Node.js + Puppeteer
+- **Dependencies**: puppeteer-core, Chrome browser via CDP
 - **Output**: `headers.json`
+- **Requires Chrome**: Yes (via CHROME_CDP_URL)
 - **Config**:
-  - `HEADERS_TIMEOUT` - Timeout in seconds (default: 10)
-  - `HEADERS_USER_AGENT` - User agent string
+  - `CHROME_CDP_URL` - Chrome DevTools Protocol WebSocket URL (required)
+  - `HEADERS_TIMEOUT` - Timeout in milliseconds (default: 10000)
 
 ### wget
 - **Language**: Bash
 - **Dependencies**: wget (auto-installed)
 - **Output**: `warc/archive.warc.gz` and downloaded files
+- **Requires Chrome**: No
 - **Config**:
   - `WGET_TIMEOUT` - Timeout in seconds (default: 60)
   - `WGET_USER_AGENT` - User agent string
   - `WGET_ARGS` - Additional wget arguments
 
 ### screenshot
-- **Language**: Python
-- **Dependencies**: playwright (auto-installed)
+- **Language**: Node.js + Puppeteer
+- **Dependencies**: puppeteer-core, Chrome browser via CDP
 - **Output**: `screenshot.png`
+- **Requires Chrome**: Yes (via CHROME_CDP_URL)
 - **Config**:
+  - `CHROME_CDP_URL` - Chrome DevTools Protocol WebSocket URL (required)
   - `SCREENSHOT_TIMEOUT` - Timeout in milliseconds (default: 30000)
   - `SCREENSHOT_WIDTH` - Viewport width (default: 1920)
   - `SCREENSHOT_HEIGHT` - Viewport height (default: 1080)
   - `SCREENSHOT_WAIT` - Wait time before screenshot in ms (default: 1000)
+
+## Setting up Chrome for Remote Debugging
+
+The `screenshot`, `title`, and `headers` extractors require a Chrome browser accessible via the Chrome DevTools Protocol (CDP). This allows multiple extractors to share a single browser instance.
+
+### Start Chrome with Remote Debugging
+
+```bash
+# Linux/Mac
+chromium --remote-debugging-port=9222 --headless --disable-gpu
+
+# Or with Chrome
+chrome --remote-debugging-port=9222 --headless --disable-gpu
+
+# Windows
+chrome.exe --remote-debugging-port=9222 --headless --disable-gpu
+```
+
+### Get the WebSocket URL
+
+```bash
+# Query the Chrome instance for the WebSocket URL
+curl http://localhost:9222/json/version
+
+# Example output:
+# {
+#   "Browser": "Chrome/120.0.0.0",
+#   "Protocol-Version": "1.3",
+#   "User-Agent": "Mozilla/5.0...",
+#   "V8-Version": "12.0.267.8",
+#   "WebKit-Version": "537.36",
+#   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/browser/..."
+# }
+```
+
+### Set the Environment Variable
+
+```bash
+# Extract just the WebSocket URL
+export CHROME_CDP_URL=$(curl -s http://localhost:9222/json/version | jq -r .webSocketDebuggerUrl)
+
+# Or set it manually
+export CHROME_CDP_URL="ws://localhost:9222/devtools/browser/12345678-1234-1234-1234-123456789abc"
+
+# Verify it's set
+echo $CHROME_CDP_URL
+```
+
+### Docker Setup
+
+For running in Docker, you can use a separate Chrome container:
+
+```bash
+# Start Chrome in a container
+docker run -d --name chrome \
+  -p 9222:9222 \
+  browserless/chrome:latest \
+  --remote-debugging-port=9222 \
+  --remote-debugging-address=0.0.0.0
+
+# Get the CDP URL
+export CHROME_CDP_URL="ws://localhost:9222/devtools/browser/$(curl -s http://localhost:9222/json/version | jq -r .webSocketDebuggerUrl | cut -d'/' -f5-)"
+
+# Run archivebox-ts
+node dist/cli.js add https://example.com
+```
 
 ## Development
 

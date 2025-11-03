@@ -1,77 +1,125 @@
-#!/usr/bin/env python3
-#
-# Screenshot Extractor
-# Captures a screenshot of a given URL using Playwright
-#
-# Usage: screenshot <url>
-# Output: screenshot.png in current directory
-# Config: All configuration via environment variables
-#   SCREENSHOT_TIMEOUT - Timeout in milliseconds (default: 30000)
-#   SCREENSHOT_WIDTH - Viewport width (default: 1920)
-#   SCREENSHOT_HEIGHT - Viewport height (default: 1080)
-#   SCREENSHOT_WAIT - Time to wait before screenshot in ms (default: 1000)
-#
+#!/usr/bin/env node
+//
+// Screenshot Extractor
+// Captures a screenshot of a given URL using Puppeteer
+//
+// Usage: screenshot <url>
+// Output: screenshot.png in current directory
+// Config: All configuration via environment variables
+//   CHROME_CDP_URL - Chrome DevTools Protocol URL (e.g., ws://localhost:9222/devtools/browser/...)
+//                    If not set, will launch a local browser instance
+//   SCREENSHOT_TIMEOUT - Timeout in milliseconds (default: 30000)
+//   SCREENSHOT_WIDTH - Viewport width (default: 1920)
+//   SCREENSHOT_HEIGHT - Viewport height (default: 1080)
+//   SCREENSHOT_WAIT - Time to wait before screenshot in ms (default: 1000)
+//
 
-import sys
-import os
-import subprocess
+const { spawn } = require('child_process');
+const fs = require('fs');
 
-def ensure_playwright():
-    """Auto-install playwright if not available"""
-    try:
-        from playwright.sync_api import sync_playwright
-        return True
-    except ImportError:
-        print("Installing playwright...", file=sys.stderr)
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"])
-            subprocess.check_call([sys.executable, "-m", "playwright", "install", "chromium"])
-            from playwright.sync_api import sync_playwright
-            return True
-        except Exception as e:
-            print(f"Error installing playwright: {e}", file=sys.stderr)
-            return False
+// Check if puppeteer is available
+function checkPuppeteer() {
+  try {
+    require.resolve('puppeteer-core');
+    return true;
+  } catch (e) {
+    console.error('Error: puppeteer-core is not installed.');
+    console.error('Please install it with: npm install puppeteer-core');
+    console.error('Or install chromium: npm install puppeteer');
+    return false;
+  }
+}
 
-def main():
-    if len(sys.argv) < 2:
-        print("Error: URL argument required", file=sys.stderr)
-        sys.exit(1)
+async function main() {
+  const url = process.argv[2];
 
-    url = sys.argv[1]
+  if (!url) {
+    console.error('Error: URL argument required');
+    process.exit(1);
+  }
 
-    # Configuration from environment
-    timeout = int(os.environ.get('SCREENSHOT_TIMEOUT', '30000'))
-    width = int(os.environ.get('SCREENSHOT_WIDTH', '1920'))
-    height = int(os.environ.get('SCREENSHOT_HEIGHT', '1080'))
-    wait = int(os.environ.get('SCREENSHOT_WAIT', '1000'))
+  // Configuration from environment
+  const cdpUrl = process.env.CHROME_CDP_URL;
+  const timeout = parseInt(process.env.SCREENSHOT_TIMEOUT || '30000', 10);
+  const width = parseInt(process.env.SCREENSHOT_WIDTH || '1920', 10);
+  const height = parseInt(process.env.SCREENSHOT_HEIGHT || '1080', 10);
+  const wait = parseInt(process.env.SCREENSHOT_WAIT || '1000', 10);
 
-    print(f"Capturing screenshot of: {url}", file=sys.stderr)
+  console.error(`Capturing screenshot of: ${url}`);
+  if (cdpUrl) {
+    console.error(`Connecting to browser via CDP: ${cdpUrl}`);
+  }
 
-    # Ensure playwright is installed
-    if not ensure_playwright():
-        sys.exit(1)
+  // Check puppeteer is installed
+  if (!checkPuppeteer()) {
+    process.exit(1);
+  }
 
-    from playwright.sync_api import sync_playwright
+  const puppeteer = require('puppeteer-core');
 
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch()
-            page = browser.new_page(viewport={'width': width, 'height': height})
-            page.goto(url, timeout=timeout, wait_until='networkidle')
+  let browser = null;
+  let shouldCloseBrowser = false;
 
-            # Wait a bit for any dynamic content
-            page.wait_for_timeout(wait)
+  try {
+    // Connect to CDP browser or launch local one
+    if (cdpUrl) {
+      browser = await puppeteer.connect({
+        browserWSEndpoint: cdpUrl,
+        defaultViewport: { width, height }
+      });
+    } else {
+      console.error('Error: CHROME_CDP_URL environment variable not set.');
+      console.error('Please set CHROME_CDP_URL to connect to a Chrome browser via CDP.');
+      console.error('Example: export CHROME_CDP_URL="ws://localhost:9222/devtools/browser/..."');
+      console.error('');
+      console.error('To start Chrome with remote debugging:');
+      console.error('  chrome --remote-debugging-port=9222 --headless');
+      console.error('  chromium --remote-debugging-port=9222 --headless');
+      process.exit(1);
+    }
 
-            page.screenshot(path='screenshot.png', full_page=True)
-            browser.close()
+    const page = await browser.newPage();
+    await page.setViewport({ width, height });
 
-            print("✓ Captured screenshot: screenshot.png", file=sys.stderr)
-            print("screenshot.png")
-            sys.exit(0)
+    // Navigate to URL
+    await page.goto(url, {
+      timeout,
+      waitUntil: 'networkidle2'
+    });
 
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    // Wait a bit for any dynamic content
+    await page.waitForTimeout(wait);
 
-if __name__ == '__main__':
-    main()
+    // Take screenshot
+    await page.screenshot({
+      path: 'screenshot.png',
+      fullPage: true
+    });
+
+    await page.close();
+
+    console.error('✓ Captured screenshot: screenshot.png');
+    console.log('screenshot.png');
+
+    if (shouldCloseBrowser) {
+      await browser.close();
+    }
+
+    process.exit(0);
+
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+
+    if (browser && shouldCloseBrowser) {
+      try {
+        await browser.close();
+      } catch (closeErr) {
+        // Ignore close errors
+      }
+    }
+
+    process.exit(1);
+  }
+}
+
+main();
