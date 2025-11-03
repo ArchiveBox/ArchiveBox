@@ -6,6 +6,7 @@ export type SnapshotStatus = 'queued' | 'started' | 'sealed';
 export type ArchiveResultStatus = 'queued' | 'started' | 'backoff' | 'succeeded' | 'failed' | 'skipped';
 
 export type ExtractorName =
+  | '2captcha'
   | 'puppeteer'
   | 'downloads'
   | 'images'

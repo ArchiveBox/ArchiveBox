@@ -1,0 +1,155 @@
+#!/usr/bin/env node
+
+/**
+ * 2Captcha Extension Extractor
+ *
+ * Downloads, unpacks, and configures Chrome extensions needed for archiving.
+ * Must run BEFORE the puppeteer extractor so extensions are available at Chrome launch.
+ *
+ * Input:
+ *   $1 - URL to archive (not used, but required by extractor contract)
+ *
+ * Output:
+ *   - ./extensions/<extension_id>__<name>/ - Unpacked extension directories
+ *   - Writes CHROME_EXTENSIONS_PATHS to .env for puppeteer to load
+ *
+ * Environment variables:
+ *   API_KEY_2CAPTCHA - 2Captcha API key for CAPTCHA solving (optional)
+ *   EXTENSIONS_ENABLED - Comma-separated list of extensions to enable (default: all)
+ */
+
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const { Readable } = require('stream');
+const { finished } = require('stream/promises');
+
+// Extension definitions (webstore_id + name)
+const CHROME_EXTENSIONS = [
+    // CAPTCHA solving
+    {webstore_id: 'ifibfemgeogfhoebkmokieepdoobkbpo', name: '2captcha'},
+
+    // Archiving tools
+    {webstore_id: 'mpiodijhokgodhhofbcjdecpffjipkle', name: 'singlefile'},
+
+    // Content access / unblocking
+    {webstore_id: 'edibdbjcniadpccecjdfdjjppcpchdlm', name: 'istilldontcareaboutcookies'},
+    {webstore_id: 'cjpalhdlnbpafiamejdnhcphjbkeiagm', name: 'ublock'},
+];
+
+async function main() {
+    const url = process.argv[2];
+    if (!url) {
+        console.error('Usage: 2captcha <url>');
+        process.exit(1);
+    }
+
+    const API_KEY_2CAPTCHA = process.env.API_KEY_2CAPTCHA || null;
+    const EXTENSIONS_ENABLED = (process.env.EXTENSIONS_ENABLED || 'all').split(',');
+
+    // Create extensions directory in snapshot output
+    const extensionsDir = path.join(process.cwd(), 'extensions');
+    fs.mkdirSync(extensionsDir, {recursive: true});
+
+    console.log(`[🧩] Downloading and configuring ${CHROME_EXTENSIONS.length} Chrome extensions...`);
+
+    const loadedExtensions = [];
+
+    for (const ext of CHROME_EXTENSIONS) {
+        // Skip if not in enabled list (unless 'all' is specified)
+        if (!EXTENSIONS_ENABLED.includes('all') && !EXTENSIONS_ENABLED.includes(ext.name)) {
+            console.log(`[⊗] Skipping ${ext.name} (not enabled)`);
+            continue;
+        }
+
+        const crxUrl = `https://clients2.google.com/service/update2/crx?response=redirect&prodversion=1230&acceptformat=crx3&x=id%3D${ext.webstore_id}%26uc`;
+        const crxPath = path.join(extensionsDir, `${ext.webstore_id}__${ext.name}.crx`);
+        const unpackedPath = path.join(extensionsDir, `${ext.webstore_id}__${ext.name}`);
+
+        try {
+            // Download CRX if not already present
+            if (!fs.existsSync(crxPath)) {
+                console.log(`[⬇️] Downloading ${ext.name} extension...`);
+                const response = await fetch(crxUrl);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const crxFile = fs.createWriteStream(crxPath);
+                await finished(Readable.fromWeb(response.body).pipe(crxFile));
+            }
+
+            // Unpack CRX if not already unpacked
+            if (!fs.existsSync(path.join(unpackedPath, 'manifest.json'))) {
+                console.log(`[📦] Unpacking ${ext.name} extension...`);
+                fs.mkdirSync(unpackedPath, {recursive: true});
+
+                // Try using unzip command
+                const {execSync} = require('child_process');
+                try {
+                    execSync(`unzip -q -o "${crxPath}" -d "${unpackedPath}"`, {stdio: 'ignore'});
+                } catch(err) {
+                    // Fallback to unzip-crx-3 if unzip command fails
+                    try {
+                        const unzip = require('unzip-crx-3');
+                        await unzip(crxPath, unpackedPath);
+                    } catch(err2) {
+                        console.error(`[❌] Failed to unpack ${ext.name}:`, err2.message);
+                        continue;
+                    }
+                }
+            }
+
+            // Verify manifest exists
+            const manifestPath = path.join(unpackedPath, 'manifest.json');
+            if (!fs.existsSync(manifestPath)) {
+                console.error(`[❌] No manifest.json found for ${ext.name}`);
+                continue;
+            }
+
+            const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+            console.log(`[✓] Loaded ${ext.name} v${manifest.version}`);
+
+            loadedExtensions.push({
+                name: ext.name,
+                webstore_id: ext.webstore_id,
+                path: unpackedPath,
+                version: manifest.version,
+            });
+
+        } catch(err) {
+            console.error(`[❌] Failed to load ${ext.name}:`, err.message);
+        }
+    }
+
+    if (!loadedExtensions.length) {
+        console.error('[❌] No extensions were successfully loaded');
+        process.exit(1);
+    }
+
+    // Write extension paths to .env for puppeteer to load
+    const extensionPaths = loadedExtensions.map(e => e.path).join(',');
+    const extensionIds = loadedExtensions.map(e => e.webstore_id).join(',');
+
+    const envPath = path.join(process.cwd(), '.env');
+    const envContent = `
+# Chrome extensions (written by 2captcha extractor)
+CHROME_EXTENSIONS_PATHS="${extensionPaths}"
+CHROME_EXTENSIONS_IDS="${extensionIds}"
+${API_KEY_2CAPTCHA ? `API_KEY_2CAPTCHA="${API_KEY_2CAPTCHA}"` : '# API_KEY_2CAPTCHA not set'}
+`;
+
+    fs.appendFileSync(envPath, envContent);
+    console.log(`[✓] Configured ${loadedExtensions.length} extensions for Chrome`);
+
+    // Write extensions metadata to JSON for debugging
+    fs.writeFileSync(
+        path.join(extensionsDir, 'extensions.json'),
+        JSON.stringify(loadedExtensions, null, 2)
+    );
+
+    process.exit(0);
+}
+
+main().catch(err => {
+    console.error('[❌] Extension setup failed:', err);
+    process.exit(1);
+});

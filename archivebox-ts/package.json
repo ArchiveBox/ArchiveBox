@@ -26,7 +26,8 @@
     "jsdom": "^27.1.0",
     "nanoid": "^3.3.7",
     "puppeteer": "^24.28.0",
-    "puppeteer-core": "^24.28.0"
+    "puppeteer-core": "^24.28.0",
+    "unzip-crx-3": "^0.2.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.9",

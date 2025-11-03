@@ -45,9 +45,14 @@ async function main() {
   const timeout = parseInt(process.env.PUPPETEER_TIMEOUT || '30000', 10);
   const userDataDir = process.env.CHROME_USER_DATA_DIR ||
                       path.join(os.homedir(), '.chrome-archivebox');
+  const extensionPaths = process.env.CHROME_EXTENSIONS_PATHS || '';
+  const extensionIds = process.env.CHROME_EXTENSIONS_IDS || '';
 
   console.error(`Launching Chrome for: ${url}`);
   console.error(`User data dir: ${userDataDir}`);
+  if (extensionPaths) {
+    console.error(`Loading extensions: ${extensionIds}`);
+  }
 
   // Check puppeteer is installed
   if (!checkPuppeteer()) {
@@ -59,15 +64,24 @@ async function main() {
   let browser = null;
 
   try {
+    // Build Chrome launch args
+    const chromeArgs = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+    ];
+
+    // Add extensions if available
+    if (extensionPaths) {
+      chromeArgs.push(`--load-extension=${extensionPaths}`);
+      chromeArgs.push(`--allowlisted-extension-id=${extensionIds}`);
+    }
+
     // Launch Chrome with a user data directory
     browser = await puppeteer.launch({
-      headless: 'new',
+      headless: extensionPaths ? false : 'new',  // extensions require headed mode
       userDataDir: userDataDir,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-      ]
+      args: chromeArgs,
     });
 
     // Get the WebSocket endpoint

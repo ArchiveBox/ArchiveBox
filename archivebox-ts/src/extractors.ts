@@ -9,10 +9,12 @@ import { spawn } from 'child_process';
 import type { ExtractorName } from './models';
 
 // Predefined order for running extractors
-// puppeteer must be first as it launches the browser
+// 2captcha must run FIRST to download/configure extensions before Chrome launches
+// puppeteer runs second to launch Chrome with the extensions
 // downloads, images, and infiniscroll run early to capture dynamic content
 export const EXTRACTOR_ORDER: string[] = [
-  'puppeteer',   // Launches Chrome and writes CDP URL to .env
+  '2captcha',    // Downloads and configures Chrome extensions (2captcha, singlefile, etc.)
+  'puppeteer',   // Launches Chrome with extensions and writes CDP URL to .env
   'downloads',   // Catches file downloads (reloads page with listeners)
   'images',      // Catches all images (reloads page with listeners)
   'infiniscroll', // Scrolls page to load lazy content
@@ -24,7 +26,7 @@ export const EXTRACTOR_ORDER: string[] = [
   'dom',         // Extracts DOM HTML using existing Chrome tab
   'htmltotext',  // Extracts plain text using existing Chrome tab
   'readability', // Extracts article content using existing Chrome tab
-  'singlefile',  // Creates single-file archive (may use existing Chrome)
+  'singlefile',  // Creates single-file archive using browser extension
   'wget',        // Downloads with wget (independent)
   'git',         // Clones git repository (independent)
   'media',       // Downloads media with yt-dlp (independent)

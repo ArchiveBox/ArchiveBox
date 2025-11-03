@@ -1,62 +1,210 @@
-#!/bin/bash
-#
-# SingleFile Extractor
-# Creates a single HTML file archive using single-file-cli
-#
-# Usage: singlefile <url>
-# Output: singlefile.html in current directory
-# Config: All configuration via environment variables
-#   SINGLEFILE_TIMEOUT - Timeout in seconds (default: 60)
-#   CHROME_CDP_URL - Optional: Chrome CDP URL to use existing browser
-#
+#!/usr/bin/env node
 
-set -e
+/**
+ * SingleFile Extractor
+ * Creates a single HTML file archive using the SingleFile browser extension
+ *
+ * Usage: singlefile <url>
+ * Output: singlefile.html in current directory
+ * Config: All configuration via environment variables
+ *   SINGLEFILE_TIMEOUT - Timeout in seconds (default: 60)
+ *   CHROME_CDP_URL - Chrome CDP URL to use existing browser (required)
+ *   CHROME_PAGE_TARGET_ID - Target ID of the page to archive (required)
+ *   CHROME_USER_DATA_DIR - Chrome user data directory for downloads
+ */
 
-URL="$1"
+const fs = require('fs');
+const path = require('path');
 
-if [ -z "$URL" ]; then
-  echo "Error: URL argument required" >&2
-  exit 1
-fi
+async function waitForFile(filePath, timeout = 30000) {
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeout) {
+        if (fs.existsSync(filePath) && fs.statSync(filePath).size > 0) {
+            return true;
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    return false;
+}
 
-# Auto-install single-file-cli if not available
-if ! command -v single-file &> /dev/null; then
-  echo "Installing single-file-cli..." >&2
-  npm install -g single-file-cli 2>&1 | grep -v "^npm WARN" || true
-fi
+async function main() {
+    const url = process.argv[2];
+    if (!url) {
+        console.error('Error: URL argument required');
+        process.exit(1);
+    }
 
-# Configuration from environment
-TIMEOUT="${SINGLEFILE_TIMEOUT:-60}"
+    const cdpUrl = process.env.CHROME_CDP_URL;
+    const targetId = process.env.CHROME_PAGE_TARGET_ID;
+    const userDataDir = process.env.CHROME_USER_DATA_DIR;
 
-echo "Creating single-file archive of: $URL" >&2
+    if (!cdpUrl) {
+        console.error('Error: CHROME_CDP_URL environment variable is required');
+        console.error('SingleFile extractor must run after puppeteer extractor');
+        process.exit(1);
+    }
 
-# Check if we have a Chrome CDP URL to use
-if [ -n "$CHROME_CDP_URL" ]; then
-  echo "Using existing Chrome instance via CDP" >&2
-  # Extract the debugging port from CDP URL
-  # ws://127.0.0.1:12345/devtools/browser/... -> 12345
-  PORT=$(echo "$CHROME_CDP_URL" | sed -E 's|.*:([0-9]+)/.*|\1|')
+    if (!targetId) {
+        console.error('Error: CHROME_PAGE_TARGET_ID environment variable is required');
+        process.exit(1);
+    }
 
-  single-file \
-    --browser-args="--remote-debugging-port=$PORT" \
-    --browser-server="ws://localhost:$PORT" \
-    --dump-content \
-    "$URL" \
-    singlefile.html 2>&1 | grep -v "^$" || true
-else
-  echo "Launching new browser instance" >&2
-  single-file \
-    --dump-content \
-    "$URL" \
-    singlefile.html 2>&1 | grep -v "^$" || true
-fi
+    const timeout = parseInt(process.env.SINGLEFILE_TIMEOUT || '60', 10) * 1000;
+    const downloadsDir = userDataDir
+        ? path.join(userDataDir, '../chrome_downloads')
+        : path.join(process.env.HOME || process.env.USERPROFILE, 'Downloads');
 
-if [ -f "singlefile.html" ] && [ -s "singlefile.html" ]; then
-  SIZE=$(stat -f%z "singlefile.html" 2>/dev/null || stat -c%s "singlefile.html" 2>/dev/null || echo "unknown")
-  echo "✓ Created single-file archive ($SIZE bytes)" >&2
-  echo "singlefile.html"
-  exit 0
-else
-  echo "Error: Failed to create single-file archive" >&2
-  exit 1
-fi
+    console.error(`Creating single-file archive of: ${url}`);
+    console.error(`Connecting to Chrome at ${cdpUrl}...`);
+
+    // Check if puppeteer-core is available
+    let puppeteer;
+    try {
+        puppeteer = require('puppeteer-core');
+    } catch (e) {
+        console.error('Error: puppeteer-core is not installed');
+        console.error('Please install it with: npm install puppeteer-core');
+        process.exit(1);
+    }
+
+    let browser;
+    try {
+        // Connect to existing browser
+        browser = await puppeteer.connect({
+            browserWSEndpoint: cdpUrl,
+            defaultViewport: null
+        });
+
+        // Get the page we're archiving
+        const targets = await browser.targets();
+        const target = targets.find(t => t._targetId === targetId);
+
+        if (!target) {
+            console.error(`Error: Could not find target with ID ${targetId}`);
+            process.exit(1);
+        }
+
+        const page = await target.page();
+        console.error('Connected to existing page');
+
+        // Get list of existing HTML files in downloads before triggering save
+        const filesBeforeSave = new Set(
+            fs.existsSync(downloadsDir)
+                ? fs.readdirSync(downloadsDir).filter(f => f.endsWith('.html'))
+                : []
+        );
+
+        // Trigger the SingleFile extension by sending the keyboard shortcut
+        // SingleFile responds to Ctrl+Shift+Y by default
+        console.error('Triggering SingleFile extension...');
+
+        // Bring page to front (extension actions work on active tab)
+        await page.bringToFront();
+
+        // Wait a moment for page to be ready
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Try clicking via CDP if we can find the extension
+        let triggered = false;
+        try {
+            // Look for SingleFile extension background page
+            const extensionTargets = await browser.targets();
+            const singlefileTarget = extensionTargets.find(t =>
+                t.url().includes('chrome-extension://') &&
+                t.url().includes('mpiodijhokgodhhofbcjdecpffjipkle')
+            );
+
+            if (singlefileTarget) {
+                const extensionPage = await singlefileTarget.page();
+                if (extensionPage) {
+                    // Trigger save via extension's internal API
+                    await page.evaluate(() => {
+                        // Dispatch message to extension to trigger save
+                        window.postMessage({ type: 'singlefile-save' }, '*');
+                    });
+                    triggered = true;
+                    console.error('Triggered via extension message');
+                }
+            }
+        } catch (err) {
+            console.error('Could not trigger via extension API, trying keyboard shortcut');
+        }
+
+        // Fallback: trigger via keyboard shortcut
+        if (!triggered) {
+            await page.keyboard.down('Control');
+            await page.keyboard.down('Shift');
+            await page.keyboard.press('Y');
+            await page.keyboard.up('Shift');
+            await page.keyboard.up('Control');
+            console.error('Triggered via Ctrl+Shift+Y keyboard shortcut');
+        }
+
+        // Wait for new HTML file to appear in downloads
+        console.error(`Waiting for file in ${downloadsDir}...`);
+
+        let savedFile = null;
+        const checkDelay = 500;
+        const maxTries = timeout / checkDelay;
+
+        for (let i = 0; i < maxTries; i++) {
+            await new Promise(resolve => setTimeout(resolve, checkDelay));
+
+            if (!fs.existsSync(downloadsDir)) continue;
+
+            const filesAfter = fs.readdirSync(downloadsDir)
+                .filter(f => f.endsWith('.html'));
+            const newFiles = filesAfter.filter(f => !filesBeforeSave.has(f));
+
+            if (newFiles.length > 0) {
+                // Find the file that matches our URL
+                for (const file of newFiles) {
+                    const filePath = path.join(downloadsDir, file);
+                    const stats = fs.statSync(filePath);
+
+                    // Check if file is large enough and contains the URL
+                    if (stats.size > 1000) {
+                        const content = fs.readFileSync(filePath, 'utf-8').substring(0, 5000);
+                        if (content.includes(url) || content.includes('Saved by SingleFile')) {
+                            savedFile = filePath;
+                            break;
+                        }
+                    }
+                }
+
+                if (savedFile) break;
+            }
+        }
+
+        if (!savedFile) {
+            console.error('Error: SingleFile did not create a download file');
+            console.error(`Expected file in: ${downloadsDir}`);
+            console.error('Make sure the SingleFile extension is installed and enabled');
+            process.exit(1);
+        }
+
+        // Move the file to output location
+        const outputPath = path.join(process.cwd(), 'singlefile.html');
+        fs.renameSync(savedFile, outputPath);
+
+        const size = fs.statSync(outputPath).size;
+        console.error(`✓ Created single-file archive (${size} bytes)`);
+        console.log('singlefile.html');
+
+        await browser.disconnect();
+        process.exit(0);
+
+    } catch (err) {
+        console.error(`Error: ${err.message}`);
+        if (browser) {
+            try {
+                await browser.disconnect();
+            } catch (e) {
+                // Ignore disconnect errors
+            }
+        }
+        process.exit(1);
+    }
+}
+
+main();

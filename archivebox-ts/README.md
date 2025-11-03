@@ -139,23 +139,24 @@ node dist/cli.js extractors
 
 Extractors run serially in this predefined order (defined in `src/extractors.ts`):
 
-1. **puppeteer** - Launches Chrome, writes CDP URL to `.env`
-2. **downloads** - Catches file downloads (reloads page with listeners)
-3. **images** - Catches all images (reloads page with listeners)
-4. **infiniscroll** - Scrolls page to load lazy content
-5. **favicon** - Downloads favicon (can work independently)
-6. **title** - Extracts title using existing Chrome tab
-7. **headers** - Extracts headers using existing Chrome tab
-8. **screenshot** - Takes screenshot using existing Chrome tab
-9. **pdf** - Generates PDF using existing Chrome tab
-10. **dom** - Extracts DOM HTML using existing Chrome tab
-11. **htmltotext** - Extracts plain text using existing Chrome tab
-12. **readability** - Extracts article content using existing Chrome tab
-13. **singlefile** - Creates single-file archive (may use existing Chrome)
-14. **wget** - Downloads with wget (independent)
-15. **git** - Clones git repository (independent)
-16. **media** - Downloads media with yt-dlp (independent)
-17. **archive_org** - Submits to Internet Archive (independent)
+1. **2captcha** - Downloads and configures Chrome extensions (2captcha, singlefile, uBlock, etc.)
+2. **puppeteer** - Launches Chrome with extensions, writes CDP URL to `.env`
+3. **downloads** - Catches file downloads (reloads page with listeners)
+4. **images** - Catches all images (reloads page with listeners)
+5. **infiniscroll** - Scrolls page to load lazy content
+6. **favicon** - Downloads favicon (can work independently)
+7. **title** - Extracts title using existing Chrome tab
+8. **headers** - Extracts headers using existing Chrome tab
+9. **screenshot** - Takes screenshot using existing Chrome tab
+10. **pdf** - Generates PDF using existing Chrome tab
+11. **dom** - Extracts DOM HTML using existing Chrome tab
+12. **htmltotext** - Extracts plain text using existing Chrome tab
+13. **readability** - Extracts article content using existing Chrome tab
+14. **singlefile** - Creates single-file archive using browser extension
+15. **wget** - Downloads with wget (independent)
+16. **git** - Clones git repository (independent)
+17. **media** - Downloads media with yt-dlp (independent)
+18. **archive_org** - Submits to Internet Archive (independent)
 
 Only extractors that are both:
 - Requested (via `--extractors` or default: all)
@@ -234,6 +235,21 @@ Represents the result of running one extractor on one snapshot.
 
 ## Available Extractors
 
+### 2captcha
+- **Language**: Node.js
+- **Dependencies**: unzip-crx-3
+- **Output**: `./extensions/` directory with unpacked Chrome extensions
+- **Config**:
+  - `API_KEY_2CAPTCHA` - 2Captcha API key for CAPTCHA solving (optional)
+  - `EXTENSIONS_ENABLED` - Comma-separated list of extensions to enable (default: all)
+- **Purpose**: Downloads and configures Chrome extensions before browser launch
+- **Extensions included**:
+  - `2captcha` - Automatic CAPTCHA solving
+  - `singlefile` - Single-file HTML archiving
+  - `ublock` - Ad blocking
+  - `istilldontcareaboutcookies` - Cookie consent blocker
+- **Note**: Must run BEFORE puppeteer extractor
+
 ### puppeteer
 - **Language**: Node.js + Puppeteer
 - **Dependencies**: puppeteer (includes Chrome)
@@ -241,7 +257,10 @@ Represents the result of running one extractor on one snapshot.
 - **Config**:
   - `PUPPETEER_TIMEOUT` - Timeout in milliseconds (default: 30000)
   - `CHROME_USER_DATA_DIR` - Chrome user data directory (default: ~/.chrome-archivebox)
-- **Purpose**: Launches Chrome and makes CDP URL available to other extractors
+  - `CHROME_EXTENSIONS_PATHS` - From .env (set by 2captcha extractor)
+  - `CHROME_EXTENSIONS_IDS` - From .env (set by 2captcha extractor)
+- **Purpose**: Launches Chrome with extensions and makes CDP URL available to other extractors
+- **Note**: Runs in headed mode if extensions are loaded (extensions require visible browser)
 
 ### downloads
 - **Language**: Node.js + Puppeteer
@@ -360,12 +379,17 @@ Represents the result of running one extractor on one snapshot.
   - `READABILITY_TIMEOUT` - Timeout in milliseconds (default: 10000)
 
 ### singlefile
-- **Language**: Bash
-- **Dependencies**: single-file-cli (auto-installed via npm)
+- **Language**: Node.js + Puppeteer
+- **Dependencies**: puppeteer-core, SingleFile browser extension (from 2captcha extractor)
 - **Output**: `singlefile.html`
+- **Requires**: 2captcha and puppeteer extractors must run first
 - **Config**:
+  - `CHROME_CDP_URL` - From .env (set by puppeteer extractor)
+  - `CHROME_PAGE_TARGET_ID` - From .env (set by puppeteer extractor)
+  - `CHROME_USER_DATA_DIR` - For finding downloads directory
   - `SINGLEFILE_TIMEOUT` - Timeout in seconds (default: 60)
-  - `CHROME_CDP_URL` - Optional: uses existing Chrome if available
+- **Purpose**: Creates single-file HTML archive using the SingleFile browser extension
+- **Note**: Triggers extension via Ctrl+Shift+Y keyboard shortcut
 
 ### wget
 - **Language**: Bash
