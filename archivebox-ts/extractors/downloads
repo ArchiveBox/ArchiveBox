@@ -1,0 +1,138 @@
+#!/usr/bin/env node
+
+/**
+ * Downloads Extractor
+ *
+ * Catches any file downloads triggered by the page and saves them to the output directory.
+ * Uses Puppeteer to intercept download events via CDP.
+ *
+ * Input:
+ *   $1 - URL to archive
+ *
+ * Output:
+ *   - Downloads any files triggered by page load to current directory
+ *
+ * Environment variables:
+ *   CHROME_CDP_URL - Chrome DevTools Protocol WebSocket URL (required)
+ *   CHROME_PAGE_TARGET_ID - Target ID of the page to reuse (required)
+ *   DOWNLOADS_TIMEOUT - Maximum time to wait for downloads in ms (default: 30000)
+ */
+
+const puppeteer = require('puppeteer-core');
+const fs = require('fs');
+const path = require('path');
+
+async function main() {
+  const url = process.argv[2];
+  if (!url) {
+    console.error('Usage: downloads <url>');
+    process.exit(1);
+  }
+
+  const cdpUrl = process.env.CHROME_CDP_URL;
+  const targetId = process.env.CHROME_PAGE_TARGET_ID;
+
+  if (!cdpUrl) {
+    console.error('Error: CHROME_CDP_URL environment variable is required');
+    process.exit(1);
+  }
+
+  if (!targetId) {
+    console.error('Error: CHROME_PAGE_TARGET_ID environment variable is required');
+    process.exit(1);
+  }
+
+  const timeout = parseInt(process.env.DOWNLOADS_TIMEOUT || '30000', 10);
+  const outputDir = process.cwd();
+
+  console.log(`Connecting to Chrome at ${cdpUrl}...`);
+  const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
+
+  try {
+    // Get the existing page
+    const targets = await browser.targets();
+    const target = targets.find(t => t._targetId === targetId);
+
+    if (!target) {
+      console.error(`Error: Could not find target with ID ${targetId}`);
+      process.exit(1);
+    }
+
+    const page = await target.page();
+    console.log('Connected to existing page');
+
+    // Set up download tracking
+    const downloads = new Map();
+    let downloadCount = 0;
+
+    // Get CDP session
+    const client = await page.target().createCDPSession();
+
+    // Enable download behavior
+    await client.send('Browser.setDownloadBehavior', {
+      behavior: 'allow',
+      downloadPath: outputDir,
+    });
+
+    // Listen for download events
+    client.on('Browser.downloadWillBegin', (event) => {
+      downloadCount++;
+      const filename = event.suggestedFilename || `download_${downloadCount}`;
+      console.log(`Download started: ${filename}`);
+      downloads.set(event.guid, { filename, completed: false });
+    });
+
+    client.on('Browser.downloadProgress', (event) => {
+      const download = downloads.get(event.guid);
+      if (download) {
+        if (event.state === 'completed') {
+          download.completed = true;
+          console.log(`Download completed: ${download.filename}`);
+        } else if (event.state === 'canceled') {
+          console.log(`Download canceled: ${download.filename}`);
+          downloads.delete(event.guid);
+        }
+      }
+    });
+
+    // Reload the page to trigger downloads
+    console.log(`Reloading page to capture downloads: ${url}`);
+    await page.goto(url, {
+      waitUntil: 'networkidle2',
+      timeout: timeout
+    });
+
+    // Wait a bit for any downloads to start
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Wait for all downloads to complete
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeout) {
+      const pending = Array.from(downloads.values()).filter(d => !d.completed);
+      if (pending.length === 0) {
+        break;
+      }
+      console.log(`Waiting for ${pending.length} download(s) to complete...`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    const completedDownloads = Array.from(downloads.values()).filter(d => d.completed);
+    console.log(`Captured ${completedDownloads.length} download(s)`);
+
+    if (completedDownloads.length > 0) {
+      console.log('Downloaded files:');
+      completedDownloads.forEach(d => console.log(`  - ${d.filename}`));
+    }
+
+    // Don't close the browser - leave it for other extractors
+    await browser.disconnect();
+    process.exit(0);
+
+  } catch (error) {
+    console.error('Error capturing downloads:', error.message);
+    await browser.disconnect();
+    process.exit(1);
+  }
+}
+
+main();

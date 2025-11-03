@@ -28,11 +28,14 @@ archivebox-ts/
 │   └── extractors.ts    # Extractor orchestration (serial execution)
 ├── extractors/          # Standalone extractor executables (predefined order)
 │   ├── puppeteer        # Launches Chrome, writes CDP URL to .env
+│   ├── downloads        # Catches file downloads
+│   ├── images           # Catches all images
+│   ├── infiniscroll     # Scrolls to load lazy content
 │   ├── favicon          # Downloads favicon
 │   ├── title            # Extracts title (reuses Chrome tab)
 │   ├── headers          # Extracts headers (reuses Chrome tab)
 │   ├── screenshot       # Takes screenshot (reuses Chrome tab)
-│   └── wget             # Full page download
+│   └── ...              # And more extractors
 ├── data/                # Created on init
 │   ├── index.sqlite3    # SQLite database
 │   └── archive/         # Archived snapshots
@@ -137,19 +140,22 @@ node dist/cli.js extractors
 Extractors run serially in this predefined order (defined in `src/extractors.ts`):
 
 1. **puppeteer** - Launches Chrome, writes CDP URL to `.env`
-2. **favicon** - Downloads favicon (can work independently)
-3. **title** - Extracts title using existing Chrome tab
-4. **headers** - Extracts headers using existing Chrome tab
-5. **screenshot** - Takes screenshot using existing Chrome tab
-6. **pdf** - Generates PDF using existing Chrome tab
-7. **dom** - Extracts DOM HTML using existing Chrome tab
-8. **htmltotext** - Extracts plain text using existing Chrome tab
-9. **readability** - Extracts article content using existing Chrome tab
-10. **singlefile** - Creates single-file archive (may use existing Chrome)
-11. **wget** - Downloads with wget (independent)
-12. **git** - Clones git repository (independent)
-13. **media** - Downloads media with yt-dlp (independent)
-14. **archive_org** - Submits to Internet Archive (independent)
+2. **downloads** - Catches file downloads (reloads page with listeners)
+3. **images** - Catches all images (reloads page with listeners)
+4. **infiniscroll** - Scrolls page to load lazy content
+5. **favicon** - Downloads favicon (can work independently)
+6. **title** - Extracts title using existing Chrome tab
+7. **headers** - Extracts headers using existing Chrome tab
+8. **screenshot** - Takes screenshot using existing Chrome tab
+9. **pdf** - Generates PDF using existing Chrome tab
+10. **dom** - Extracts DOM HTML using existing Chrome tab
+11. **htmltotext** - Extracts plain text using existing Chrome tab
+12. **readability** - Extracts article content using existing Chrome tab
+13. **singlefile** - Creates single-file archive (may use existing Chrome)
+14. **wget** - Downloads with wget (independent)
+15. **git** - Clones git repository (independent)
+16. **media** - Downloads media with yt-dlp (independent)
+17. **archive_org** - Submits to Internet Archive (independent)
 
 Only extractors that are both:
 - Requested (via `--extractors` or default: all)
@@ -236,6 +242,41 @@ Represents the result of running one extractor on one snapshot.
   - `PUPPETEER_TIMEOUT` - Timeout in milliseconds (default: 30000)
   - `CHROME_USER_DATA_DIR` - Chrome user data directory (default: ~/.chrome-archivebox)
 - **Purpose**: Launches Chrome and makes CDP URL available to other extractors
+
+### downloads
+- **Language**: Node.js + Puppeteer
+- **Dependencies**: puppeteer-core, Chrome (from puppeteer extractor)
+- **Output**: Files downloaded by the page to current directory
+- **Requires**: puppeteer extractor must run first
+- **Config**:
+  - `CHROME_CDP_URL` - From .env (set by puppeteer extractor)
+  - `CHROME_PAGE_TARGET_ID` - From .env (set by puppeteer extractor)
+  - `DOWNLOADS_TIMEOUT` - Maximum time to wait for downloads in ms (default: 30000)
+- **Purpose**: Captures file downloads triggered by page load using CDP download handlers
+
+### images
+- **Language**: Node.js + Puppeteer
+- **Dependencies**: puppeteer-core, Chrome (from puppeteer extractor)
+- **Output**: `images/` directory with all images from the page
+- **Requires**: puppeteer extractor must run first
+- **Config**:
+  - `CHROME_CDP_URL` - From .env (set by puppeteer extractor)
+  - `CHROME_PAGE_TARGET_ID` - From .env (set by puppeteer extractor)
+  - `IMAGES_TIMEOUT` - Maximum time to wait for page load in ms (default: 30000)
+- **Purpose**: Captures all image HTTP responses based on MIME type
+
+### infiniscroll
+- **Language**: Node.js + Puppeteer
+- **Dependencies**: puppeteer-core, Chrome (from puppeteer extractor)
+- **Output**: No direct output (modifies page state for other extractors)
+- **Requires**: puppeteer extractor must run first
+- **Config**:
+  - `CHROME_CDP_URL` - From .env (set by puppeteer extractor)
+  - `CHROME_PAGE_TARGET_ID` - From .env (set by puppeteer extractor)
+  - `INFINISCROLL_SCROLLS` - Number of times to scroll down (default: 10)
+  - `INFINISCROLL_WAIT` - Time to wait between scrolls in ms (default: 1000)
+  - `INFINISCROLL_DISTANCE` - Scroll distance in pixels (default: viewport height)
+- **Purpose**: Scrolls page to trigger lazy-loaded content, then scrolls back to top
 
 ### favicon
 - **Language**: Bash

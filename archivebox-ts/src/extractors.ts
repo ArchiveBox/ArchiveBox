@@ -10,8 +10,12 @@ import type { ExtractorName } from './models';
 
 // Predefined order for running extractors
 // puppeteer must be first as it launches the browser
+// downloads, images, and infiniscroll run early to capture dynamic content
 export const EXTRACTOR_ORDER: string[] = [
   'puppeteer',   // Launches Chrome and writes CDP URL to .env
+  'downloads',   // Catches file downloads (reloads page with listeners)
+  'images',      // Catches all images (reloads page with listeners)
+  'infiniscroll', // Scrolls page to load lazy content
   'favicon',     // Downloads favicon (can work independently)
   'title',       // Extracts title using existing Chrome tab
   'headers',     // Extracts headers using existing Chrome tab

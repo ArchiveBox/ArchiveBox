@@ -7,6 +7,9 @@ export type ArchiveResultStatus = 'queued' | 'started' | 'backoff' | 'succeeded'
 
 export type ExtractorName =
   | 'puppeteer'
+  | 'downloads'
+  | 'images'
+  | 'infiniscroll'
   | 'favicon'
   | 'title'
   | 'headers'

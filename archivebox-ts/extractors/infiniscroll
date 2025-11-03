@@ -1,0 +1,115 @@
+#!/usr/bin/env node
+
+/**
+ * Infinite Scroll Extractor
+ *
+ * Scrolls the page down multiple times to load lazy-loaded content, then scrolls back to the top.
+ * This ensures that subsequent extractors (screenshot, DOM, etc.) capture all dynamically loaded content.
+ *
+ * Input:
+ *   $1 - URL to archive
+ *
+ * Output:
+ *   - No direct output files (modifies page state for other extractors)
+ *
+ * Environment variables:
+ *   CHROME_CDP_URL - Chrome DevTools Protocol WebSocket URL (required)
+ *   CHROME_PAGE_TARGET_ID - Target ID of the page to reuse (required)
+ *   INFINISCROLL_SCROLLS - Number of times to scroll down (default: 10)
+ *   INFINISCROLL_WAIT - Time to wait between scrolls in ms (default: 1000)
+ *   INFINISCROLL_DISTANCE - Scroll distance in pixels (default: viewport height)
+ */
+
+const puppeteer = require('puppeteer-core');
+
+async function main() {
+  const url = process.argv[2];
+  if (!url) {
+    console.error('Usage: infiniscroll <url>');
+    process.exit(1);
+  }
+
+  const cdpUrl = process.env.CHROME_CDP_URL;
+  const targetId = process.env.CHROME_PAGE_TARGET_ID;
+
+  if (!cdpUrl) {
+    console.error('Error: CHROME_CDP_URL environment variable is required');
+    process.exit(1);
+  }
+
+  if (!targetId) {
+    console.error('Error: CHROME_PAGE_TARGET_ID environment variable is required');
+    process.exit(1);
+  }
+
+  const scrollCount = parseInt(process.env.INFINISCROLL_SCROLLS || '10', 10);
+  const waitTime = parseInt(process.env.INFINISCROLL_WAIT || '1000', 10);
+
+  console.log(`Connecting to Chrome at ${cdpUrl}...`);
+  const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
+
+  try {
+    // Get the existing page
+    const targets = await browser.targets();
+    const target = targets.find(t => t._targetId === targetId);
+
+    if (!target) {
+      console.error(`Error: Could not find target with ID ${targetId}`);
+      process.exit(1);
+    }
+
+    const page = await target.page();
+    console.log('Connected to existing page');
+
+    // Get viewport height for scrolling
+    const viewportHeight = await page.evaluate(() => window.innerHeight);
+    const scrollDistance = parseInt(process.env.INFINISCROLL_DISTANCE || viewportHeight.toString(), 10);
+
+    console.log(`Scrolling down ${scrollCount} times (${scrollDistance}px per scroll)...`);
+
+    // Scroll down multiple times
+    for (let i = 1; i <= scrollCount; i++) {
+      console.log(`Scroll ${i}/${scrollCount}...`);
+
+      // Scroll down by the specified distance
+      await page.evaluate((distance) => {
+        window.scrollBy(0, distance);
+      }, scrollDistance);
+
+      // Wait for content to load
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+
+      // Check if we've reached the bottom
+      const reachedBottom = await page.evaluate(() => {
+        return (window.innerHeight + window.scrollY) >= document.body.scrollHeight;
+      });
+
+      if (reachedBottom) {
+        console.log(`Reached bottom of page at scroll ${i}`);
+        break;
+      }
+    }
+
+    // Scroll back to the top
+    console.log('Scrolling back to top...');
+    await page.evaluate(() => {
+      window.scrollTo(0, 0);
+    });
+
+    // Wait a moment for any top-of-page content to load
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+
+    console.log('Infinite scroll complete - page is back at the top');
+
+    // Don't close the browser - leave it for other extractors
+    await browser.disconnect();
+    process.exit(0);
+
+  } catch (error) {
+    console.error('Error during infinite scroll:', error.message);
+    await browser.disconnect();
+    process.exit(1);
+  }
+}
+
+main();

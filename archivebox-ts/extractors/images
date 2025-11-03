@@ -1,0 +1,195 @@
+#!/usr/bin/env node
+
+/**
+ * Images Extractor
+ *
+ * Catches all image HTTP responses based on MIME type and saves them to an images directory.
+ * Uses Puppeteer to intercept network responses.
+ *
+ * Input:
+ *   $1 - URL to archive
+ *
+ * Output:
+ *   - images/*.{jpg,png,gif,webp,svg} - All images loaded by the page
+ *
+ * Environment variables:
+ *   CHROME_CDP_URL - Chrome DevTools Protocol WebSocket URL (required)
+ *   CHROME_PAGE_TARGET_ID - Target ID of the page to reuse (required)
+ *   IMAGES_TIMEOUT - Maximum time to wait for page load in ms (default: 30000)
+ */
+
+const puppeteer = require('puppeteer-core');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+
+async function main() {
+  const url = process.argv[2];
+  if (!url) {
+    console.error('Usage: images <url>');
+    process.exit(1);
+  }
+
+  const cdpUrl = process.env.CHROME_CDP_URL;
+  const targetId = process.env.CHROME_PAGE_TARGET_ID;
+
+  if (!cdpUrl) {
+    console.error('Error: CHROME_CDP_URL environment variable is required');
+    process.exit(1);
+  }
+
+  if (!targetId) {
+    console.error('Error: CHROME_PAGE_TARGET_ID environment variable is required');
+    process.exit(1);
+  }
+
+  const timeout = parseInt(process.env.IMAGES_TIMEOUT || '30000', 10);
+  const outputDir = path.join(process.cwd(), 'images');
+
+  // Create images directory
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  console.log(`Connecting to Chrome at ${cdpUrl}...`);
+  const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
+
+  try {
+    // Get the existing page
+    const targets = await browser.targets();
+    const target = targets.find(t => t._targetId === targetId);
+
+    if (!target) {
+      console.error(`Error: Could not find target with ID ${targetId}`);
+      process.exit(1);
+    }
+
+    const page = await target.page();
+    console.log('Connected to existing page');
+
+    // Track captured images
+    const capturedImages = new Set();
+    let imageCount = 0;
+
+    // Image MIME types to capture
+    const imageMimeTypes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/svg+xml',
+      'image/bmp',
+      'image/tiff',
+      'image/x-icon',
+      'image/vnd.microsoft.icon',
+    ];
+
+    // Get file extension from MIME type
+    const getExtension = (mimeType) => {
+      const map = {
+        'image/jpeg': 'jpg',
+        'image/jpg': 'jpg',
+        'image/png': 'png',
+        'image/gif': 'gif',
+        'image/webp': 'webp',
+        'image/svg+xml': 'svg',
+        'image/bmp': 'bmp',
+        'image/tiff': 'tiff',
+        'image/x-icon': 'ico',
+        'image/vnd.microsoft.icon': 'ico',
+      };
+      return map[mimeType] || 'bin';
+    };
+
+    // Listen for responses
+    page.on('response', async (response) => {
+      try {
+        const contentType = response.headers()['content-type'] || '';
+        const mimeType = contentType.split(';')[0].trim();
+
+        if (imageMimeTypes.includes(mimeType)) {
+          const imageUrl = response.url();
+
+          // Skip if we've already captured this URL
+          if (capturedImages.has(imageUrl)) {
+            return;
+          }
+          capturedImages.add(imageUrl);
+
+          // Get the image buffer
+          const buffer = await response.buffer();
+
+          if (buffer && buffer.length > 0) {
+            imageCount++;
+
+            // Generate filename from URL or use hash
+            let filename;
+            try {
+              const urlPath = new URL(imageUrl).pathname;
+              const urlFilename = path.basename(urlPath);
+
+              if (urlFilename && urlFilename.length > 0 && urlFilename !== '/') {
+                // Use URL filename if available
+                filename = urlFilename;
+                // Add extension if missing
+                if (!path.extname(filename)) {
+                  filename += '.' + getExtension(mimeType);
+                }
+              } else {
+                // Generate hash-based filename
+                const hash = crypto.createHash('md5').update(imageUrl).digest('hex').substring(0, 8);
+                filename = `image_${hash}.${getExtension(mimeType)}`;
+              }
+            } catch (e) {
+              // Fallback to hash-based filename
+              const hash = crypto.createHash('md5').update(imageUrl).digest('hex').substring(0, 8);
+              filename = `image_${hash}.${getExtension(mimeType)}`;
+            }
+
+            // Ensure unique filename
+            let outputPath = path.join(outputDir, filename);
+            let counter = 1;
+            while (fs.existsSync(outputPath)) {
+              const ext = path.extname(filename);
+              const base = path.basename(filename, ext);
+              filename = `${base}_${counter}${ext}`;
+              outputPath = path.join(outputDir, filename);
+              counter++;
+            }
+
+            // Save the image
+            fs.writeFileSync(outputPath, buffer);
+            console.log(`Saved image: ${filename} (${buffer.length} bytes)`);
+          }
+        }
+      } catch (error) {
+        // Ignore errors for individual images
+        // (some responses may fail to buffer, that's okay)
+      }
+    });
+
+    // Reload the page to capture all images
+    console.log(`Loading page to capture images: ${url}`);
+    await page.goto(url, {
+      waitUntil: 'networkidle2',
+      timeout: timeout
+    });
+
+    // Wait a bit more for any lazy-loaded images
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    console.log(`Captured ${imageCount} image(s) to ${outputDir}`);
+
+    // Don't close the browser - leave it for other extractors
+    await browser.disconnect();
+    process.exit(0);
+
+  } catch (error) {
+    console.error('Error capturing images:', error.message);
+    await browser.disconnect();
+    process.exit(1);
+  }
+}
+
+main();
