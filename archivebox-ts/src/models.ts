@@ -6,17 +6,17 @@ export type SnapshotStatus = 'queued' | 'started' | 'sealed';
 export type ArchiveResultStatus = 'queued' | 'started' | 'backoff' | 'succeeded' | 'failed' | 'skipped';
 
 export type ExtractorName =
+  | 'puppeteer'
   | 'favicon'
   | 'title'
   | 'headers'
   | 'screenshot'
   | 'pdf'
   | 'dom'
+  | 'htmltotext'
+  | 'readability'
   | 'singlefile'
   | 'wget'
-  | 'readability'
-  | 'mercury'
-  | 'htmltotext'
   | 'git'
   | 'media'
   | 'archive_org';

@@ -1,0 +1,91 @@
+#!/bin/bash
+#
+# Media Extractor
+# Downloads media (video/audio) using yt-dlp
+#
+# Usage: media <url>
+# Output: media/ directory in current directory
+# Config: All configuration via environment variables
+#   MEDIA_TIMEOUT - Timeout in seconds (default: 3600)
+#   MEDIA_MAX_SIZE - Max file size (default: 750m)
+#   MEDIA_FORMAT - Format selection (default: best)
+#
+
+set -e
+
+URL="$1"
+
+if [ -z "$URL" ]; then
+  echo "Error: URL argument required" >&2
+  exit 1
+fi
+
+# Auto-install yt-dlp if not available
+if ! command -v yt-dlp &> /dev/null; then
+  echo "Installing yt-dlp..." >&2
+  if command -v apt-get &> /dev/null; then
+    sudo apt-get update && sudo apt-get install -y yt-dlp || {
+      echo "Installing yt-dlp via pip..." >&2
+      pip3 install -U yt-dlp || pip install -U yt-dlp
+    }
+  elif command -v brew &> /dev/null; then
+    brew install yt-dlp
+  else
+    echo "Installing yt-dlp via pip..." >&2
+    pip3 install -U yt-dlp 2>/dev/null || pip install -U yt-dlp 2>/dev/null || {
+      echo "Error: Cannot install yt-dlp. Please install manually." >&2
+      exit 1
+    }
+  fi
+fi
+
+# Configuration from environment
+TIMEOUT="${MEDIA_TIMEOUT:-3600}"
+MAX_SIZE="${MEDIA_MAX_SIZE:-750m}"
+FORMAT="${MEDIA_FORMAT:-best}"
+
+echo "Downloading media from: $URL" >&2
+
+# Create output directory
+mkdir -p media
+
+# Run yt-dlp with timeout
+timeout "$TIMEOUT" yt-dlp \
+  --output "media/%(title)s.%(ext)s" \
+  --format "$FORMAT" \
+  --max-filesize "$MAX_SIZE" \
+  --write-info-json \
+  --write-description \
+  --write-thumbnail \
+  --write-annotations \
+  --all-subs \
+  --embed-subs \
+  --embed-thumbnail \
+  --embed-metadata \
+  --add-metadata \
+  --no-overwrites \
+  --continue \
+  --ignore-errors \
+  --no-warnings \
+  "$URL" 2>&1 | grep -v "^$" | head -50 || {
+  EXIT_CODE=$?
+  if [ $EXIT_CODE -eq 124 ]; then
+    echo "Warning: Download timed out after ${TIMEOUT}s" >&2
+  fi
+}
+
+# Check if any files were downloaded
+if [ -n "$(ls -A media 2>/dev/null)" ]; then
+  FILE_COUNT=$(ls -1 media | wc -l)
+  TOTAL_SIZE=$(du -sh media 2>/dev/null | cut -f1 || echo "unknown")
+
+  echo "✓ Downloaded media" >&2
+  echo "  Files: $FILE_COUNT" >&2
+  echo "  Total size: $TOTAL_SIZE" >&2
+  echo "media"
+  exit 0
+else
+  echo "Warning: No media files downloaded (URL may not contain video/audio)" >&2
+  # Don't fail - URL might just not have downloadable media
+  exit 0
+fi

@@ -1,0 +1,113 @@
+#!/usr/bin/env node
+//
+// DOM Extractor
+// Extracts the full DOM HTML from a given URL using Puppeteer
+//
+// This extractor reuses an existing Chrome tab if CHROME_CDP_URL and
+// CHROME_PAGE_TARGET_ID are set in the environment (from puppeteer extractor).
+//
+// Usage: dom <url>
+// Output: output.html in current directory
+// Config: All configuration via environment variables
+//   CHROME_CDP_URL - Chrome DevTools Protocol WebSocket URL (from puppeteer extractor)
+//   CHROME_PAGE_TARGET_ID - Target ID of the page to reuse (from puppeteer extractor)
+//   DOM_TIMEOUT - Timeout in milliseconds (default: 10000)
+//
+
+const fs = require('fs');
+
+// Check if puppeteer is available
+function checkPuppeteer() {
+  try {
+    require.resolve('puppeteer-core');
+    return true;
+  } catch (e) {
+    console.error('Error: puppeteer-core is not installed.');
+    console.error('Please install it with: npm install puppeteer-core');
+    return false;
+  }
+}
+
+async function main() {
+  const url = process.argv[2];
+
+  if (!url) {
+    console.error('Error: URL argument required');
+    process.exit(1);
+  }
+
+  // Configuration from environment
+  const cdpUrl = process.env.CHROME_CDP_URL;
+  const pageTargetId = process.env.CHROME_PAGE_TARGET_ID;
+  const timeout = parseInt(process.env.DOM_TIMEOUT || '10000', 10);
+
+  console.error(`Extracting DOM from: ${url}`);
+
+  // Check puppeteer is installed
+  if (!checkPuppeteer()) {
+    process.exit(1);
+  }
+
+  const puppeteer = require('puppeteer-core');
+
+  let browser = null;
+  let page = null;
+
+  try {
+    if (!cdpUrl) {
+      console.error('Error: CHROME_CDP_URL environment variable not set.');
+      console.error('The puppeteer extractor should have set this in .env');
+      console.error('Make sure puppeteer extractor runs before this one.');
+      process.exit(1);
+    }
+
+    // Connect to existing browser
+    console.error(`Connecting to browser via CDP: ${cdpUrl}`);
+    browser = await puppeteer.connect({
+      browserWSEndpoint: cdpUrl
+    });
+
+    // Try to reuse existing page if target ID is available
+    if (pageTargetId) {
+      console.error(`Attempting to reuse existing page: ${pageTargetId}`);
+      const pages = await browser.pages();
+      page = pages.find(p => p.target()._targetId === pageTargetId);
+
+      if (page) {
+        console.error(`✓ Reusing existing page`);
+      } else {
+        console.error(`⚠ Could not find existing page, creating new one`);
+        page = await browser.newPage();
+        await page.goto(url, { timeout, waitUntil: 'domcontentloaded' });
+      }
+    } else {
+      console.error(`⚠ No page target ID, creating new page`);
+      page = await browser.newPage();
+      await page.goto(url, { timeout, waitUntil: 'domcontentloaded' });
+    }
+
+    // Get the full HTML
+    const html = await page.content();
+
+    if (html && html.trim()) {
+      // Write to file
+      fs.writeFileSync('output.html', html, 'utf8');
+      console.error(`✓ Extracted DOM (${html.length} bytes)`);
+      console.log('output.html');
+
+      // Leave page open for next extractor
+      console.error(`⚠ Leaving page open for other extractors`);
+
+      process.exit(0);
+    } else {
+      console.error('Warning: Could not extract DOM');
+      process.exit(1);
+    }
+
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+main();

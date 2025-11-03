@@ -137,17 +137,19 @@ node dist/cli.js extractors
 Extractors run serially in this predefined order (defined in `src/extractors.ts`):
 
 1. **puppeteer** - Launches Chrome, writes CDP URL to `.env`
-2. **favicon** - Downloads favicon
+2. **favicon** - Downloads favicon (can work independently)
 3. **title** - Extracts title using existing Chrome tab
 4. **headers** - Extracts headers using existing Chrome tab
 5. **screenshot** - Takes screenshot using existing Chrome tab
-6. **dom** - Extracts DOM using existing Chrome tab
-7. **wget** - Downloads with wget
-8. **singlefile** - Single file archive
-9. **readability** - Readable content extraction
-10. **media** - Media downloads
-11. **git** - Git clone
-12. **archive_org** - Submit to archive.org
+6. **pdf** - Generates PDF using existing Chrome tab
+7. **dom** - Extracts DOM HTML using existing Chrome tab
+8. **htmltotext** - Extracts plain text using existing Chrome tab
+9. **readability** - Extracts article content using existing Chrome tab
+10. **singlefile** - Creates single-file archive (may use existing Chrome)
+11. **wget** - Downloads with wget (independent)
+12. **git** - Clones git repository (independent)
+13. **media** - Downloads media with yt-dlp (independent)
+14. **archive_org** - Submits to Internet Archive (independent)
 
 Only extractors that are both:
 - Requested (via `--extractors` or default: all)
@@ -275,6 +277,55 @@ Represents the result of running one extractor on one snapshot.
   - `SCREENSHOT_HEIGHT` - Viewport height (default: 1080)
   - `SCREENSHOT_WAIT` - Wait time before screenshot in ms (default: 1000)
 
+### pdf
+- **Language**: Node.js + Puppeteer
+- **Dependencies**: puppeteer-core, Chrome (from puppeteer extractor)
+- **Output**: `output.pdf`
+- **Requires**: puppeteer extractor must run first
+- **Config**:
+  - `CHROME_CDP_URL` - From .env (set by puppeteer extractor)
+  - `CHROME_PAGE_TARGET_ID` - From .env (set by puppeteer extractor)
+  - `PDF_TIMEOUT` - Timeout in milliseconds (default: 30000)
+  - `PDF_FORMAT` - Page format: Letter, A4, etc. (default: A4)
+
+### dom
+- **Language**: Node.js + Puppeteer
+- **Dependencies**: puppeteer-core, Chrome (from puppeteer extractor)
+- **Output**: `output.html`
+- **Requires**: puppeteer extractor must run first
+- **Config**:
+  - `CHROME_CDP_URL` - From .env (set by puppeteer extractor)
+  - `CHROME_PAGE_TARGET_ID` - From .env (set by puppeteer extractor)
+  - `DOM_TIMEOUT` - Timeout in milliseconds (default: 10000)
+
+### htmltotext
+- **Language**: Node.js + Puppeteer
+- **Dependencies**: puppeteer-core, Chrome (from puppeteer extractor)
+- **Output**: `output.txt`
+- **Requires**: puppeteer extractor must run first
+- **Config**:
+  - `CHROME_CDP_URL` - From .env (set by puppeteer extractor)
+  - `CHROME_PAGE_TARGET_ID` - From .env (set by puppeteer extractor)
+  - `HTMLTOTEXT_TIMEOUT` - Timeout in milliseconds (default: 10000)
+
+### readability
+- **Language**: Node.js with Mozilla Readability
+- **Dependencies**: puppeteer-core, jsdom, @mozilla/readability, Chrome (from puppeteer extractor)
+- **Output**: `readability.html` and `readability.json`
+- **Requires**: puppeteer extractor must run first
+- **Config**:
+  - `CHROME_CDP_URL` - From .env (set by puppeteer extractor)
+  - `CHROME_PAGE_TARGET_ID` - From .env (set by puppeteer extractor)
+  - `READABILITY_TIMEOUT` - Timeout in milliseconds (default: 10000)
+
+### singlefile
+- **Language**: Bash
+- **Dependencies**: single-file-cli (auto-installed via npm)
+- **Output**: `singlefile.html`
+- **Config**:
+  - `SINGLEFILE_TIMEOUT` - Timeout in seconds (default: 60)
+  - `CHROME_CDP_URL` - Optional: uses existing Chrome if available
+
 ### wget
 - **Language**: Bash
 - **Dependencies**: wget (auto-installed)
@@ -283,6 +334,31 @@ Represents the result of running one extractor on one snapshot.
   - `WGET_TIMEOUT` - Timeout in seconds (default: 60)
   - `WGET_USER_AGENT` - User agent string
   - `WGET_ARGS` - Additional wget arguments
+
+### git
+- **Language**: Bash
+- **Dependencies**: git (auto-installed)
+- **Output**: `git/` directory with cloned repository
+- **Config**:
+  - `GIT_TIMEOUT` - Timeout in seconds (default: 300)
+  - `GIT_DEPTH` - Clone depth (default: full clone)
+- **Note**: Only runs if URL appears to be a git repository
+
+### media
+- **Language**: Bash
+- **Dependencies**: yt-dlp (auto-installed)
+- **Output**: `media/` directory with downloaded media files
+- **Config**:
+  - `MEDIA_TIMEOUT` - Timeout in seconds (default: 3600)
+  - `MEDIA_MAX_SIZE` - Max file size (default: 750m)
+  - `MEDIA_FORMAT` - Format selection (default: best)
+
+### archive_org
+- **Language**: Bash
+- **Dependencies**: curl (auto-installed)
+- **Output**: `archive_org.txt` with archived URL
+- **Config**:
+  - `ARCHIVE_ORG_TIMEOUT` - Timeout in seconds (default: 60)
 
 ## Creating Custom Extractors
 

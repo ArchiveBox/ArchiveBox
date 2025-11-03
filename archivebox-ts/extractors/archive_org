@@ -1,0 +1,90 @@
+#!/bin/bash
+#
+# Archive.org Extractor
+# Submits URL to Internet Archive Wayback Machine
+#
+# Usage: archive_org <url>
+# Output: archive_org.txt with the archived URL
+# Config: All configuration via environment variables
+#   ARCHIVE_ORG_TIMEOUT - Timeout in seconds (default: 60)
+#
+
+set -e
+
+URL="$1"
+
+if [ -z "$URL" ]; then
+  echo "Error: URL argument required" >&2
+  exit 1
+fi
+
+# Auto-install curl if not available
+if ! command -v curl &> /dev/null; then
+  echo "Installing curl..." >&2
+  if command -v apt-get &> /dev/null; then
+    sudo apt-get update && sudo apt-get install -y curl
+  elif command -v yum &> /dev/null; then
+    sudo yum install -y curl
+  elif command -v brew &> /dev/null; then
+    brew install curl
+  else
+    echo "Error: Cannot install curl. Please install manually." >&2
+    exit 1
+  fi
+fi
+
+# Configuration from environment
+TIMEOUT="${ARCHIVE_ORG_TIMEOUT:-60}"
+
+echo "Submitting to Internet Archive: $URL" >&2
+
+# Submit to Wayback Machine Save API
+RESPONSE=$(curl -s -m "$TIMEOUT" -X POST \
+  "https://web.archive.org/save/$URL" \
+  -H "Accept: application/json" \
+  -w "\n%{http_code}" \
+  2>&1 || echo "000")
+
+# Extract HTTP status code (last line)
+HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+
+# Extract response body (all but last line)
+BODY=$(echo "$RESPONSE" | head -n -1)
+
+echo "HTTP Status: $HTTP_CODE" >&2
+
+if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ]; then
+  # Try to extract the archived URL from response
+  ARCHIVED_URL=$(echo "$BODY" | grep -o "https://web.archive.org/web/[^\"]*" | head -1 || echo "")
+
+  if [ -z "$ARCHIVED_URL" ]; then
+    # Fallback: construct URL from current timestamp
+    TIMESTAMP=$(date +%Y%m%d%H%M%S)
+    ARCHIVED_URL="https://web.archive.org/web/${TIMESTAMP}/${URL}"
+  fi
+
+  echo "$ARCHIVED_URL" > archive_org.txt
+  echo "✓ Submitted to Archive.org" >&2
+  echo "  Archived URL: $ARCHIVED_URL" >&2
+  echo "archive_org.txt"
+  exit 0
+else
+  # Check if already archived
+  echo "Checking if already archived..." >&2
+  EXISTING=$(curl -s -m 10 "https://archive.org/wayback/available?url=$URL" 2>&1 || echo "")
+
+  if echo "$EXISTING" | grep -q "\"available\":true"; then
+    ARCHIVED_URL=$(echo "$EXISTING" | grep -o "https://web.archive.org/web/[^\"]*" | head -1)
+
+    if [ -n "$ARCHIVED_URL" ]; then
+      echo "$ARCHIVED_URL" > archive_org.txt
+      echo "✓ Already archived at Archive.org" >&2
+      echo "  Archived URL: $ARCHIVED_URL" >&2
+      echo "archive_org.txt"
+      exit 0
+    fi
+  fi
+
+  echo "Warning: Failed to submit to Archive.org (HTTP $HTTP_CODE)" >&2
+  exit 1
+fi

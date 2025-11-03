@@ -20,8 +20,10 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "better-sqlite3": "^11.0.0",
     "commander": "^12.0.0",
+    "jsdom": "^27.1.0",
     "nanoid": "^3.3.7",
     "puppeteer": "^24.28.0",
     "puppeteer-core": "^24.28.0"

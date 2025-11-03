@@ -1,0 +1,62 @@
+#!/bin/bash
+#
+# SingleFile Extractor
+# Creates a single HTML file archive using single-file-cli
+#
+# Usage: singlefile <url>
+# Output: singlefile.html in current directory
+# Config: All configuration via environment variables
+#   SINGLEFILE_TIMEOUT - Timeout in seconds (default: 60)
+#   CHROME_CDP_URL - Optional: Chrome CDP URL to use existing browser
+#
+
+set -e
+
+URL="$1"
+
+if [ -z "$URL" ]; then
+  echo "Error: URL argument required" >&2
+  exit 1
+fi
+
+# Auto-install single-file-cli if not available
+if ! command -v single-file &> /dev/null; then
+  echo "Installing single-file-cli..." >&2
+  npm install -g single-file-cli 2>&1 | grep -v "^npm WARN" || true
+fi
+
+# Configuration from environment
+TIMEOUT="${SINGLEFILE_TIMEOUT:-60}"
+
+echo "Creating single-file archive of: $URL" >&2
+
+# Check if we have a Chrome CDP URL to use
+if [ -n "$CHROME_CDP_URL" ]; then
+  echo "Using existing Chrome instance via CDP" >&2
+  # Extract the debugging port from CDP URL
+  # ws://127.0.0.1:12345/devtools/browser/... -> 12345
+  PORT=$(echo "$CHROME_CDP_URL" | sed -E 's|.*:([0-9]+)/.*|\1|')
+
+  single-file \
+    --browser-args="--remote-debugging-port=$PORT" \
+    --browser-server="ws://localhost:$PORT" \
+    --dump-content \
+    "$URL" \
+    singlefile.html 2>&1 | grep -v "^$" || true
+else
+  echo "Launching new browser instance" >&2
+  single-file \
+    --dump-content \
+    "$URL" \
+    singlefile.html 2>&1 | grep -v "^$" || true
+fi
+
+if [ -f "singlefile.html" ] && [ -s "singlefile.html" ]; then
+  SIZE=$(stat -f%z "singlefile.html" 2>/dev/null || stat -c%s "singlefile.html" 2>/dev/null || echo "unknown")
+  echo "✓ Created single-file archive ($SIZE bytes)" >&2
+  echo "singlefile.html"
+  exit 0
+else
+  echo "Error: Failed to create single-file archive" >&2
+  exit 1
+fi

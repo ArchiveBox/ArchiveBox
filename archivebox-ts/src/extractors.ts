@@ -12,17 +12,19 @@ import type { ExtractorName } from './models';
 // puppeteer must be first as it launches the browser
 export const EXTRACTOR_ORDER: string[] = [
   'puppeteer',   // Launches Chrome and writes CDP URL to .env
-  'favicon',     // Downloads favicon
+  'favicon',     // Downloads favicon (can work independently)
   'title',       // Extracts title using existing Chrome tab
   'headers',     // Extracts headers using existing Chrome tab
   'screenshot',  // Takes screenshot using existing Chrome tab
-  'dom',         // Extracts DOM using existing Chrome tab
-  'wget',        // Downloads with wget
-  'singlefile',  // Single file archive
-  'readability', // Readable content extraction
-  'media',       // Media downloads
-  'git',         // Git clone
-  'archive_org', // Submit to archive.org
+  'pdf',         // Generates PDF using existing Chrome tab
+  'dom',         // Extracts DOM HTML using existing Chrome tab
+  'htmltotext',  // Extracts plain text using existing Chrome tab
+  'readability', // Extracts article content using existing Chrome tab
+  'singlefile',  // Creates single-file archive (may use existing Chrome)
+  'wget',        // Downloads with wget (independent)
+  'git',         // Clones git repository (independent)
+  'media',       // Downloads media with yt-dlp (independent)
+  'archive_org', // Submits to Internet Archive (independent)
 ];
 
 export interface ExtractorInfo {

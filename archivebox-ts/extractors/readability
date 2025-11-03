@@ -1,0 +1,153 @@
+#!/usr/bin/env node
+//
+// Readability Extractor
+// Extracts article content using Mozilla's Readability algorithm
+//
+// This extractor reuses an existing Chrome tab to get the DOM, then
+// applies Readability to extract the main content.
+//
+// Usage: readability <url>
+// Output: readability.html and readability.json in current directory
+// Config: All configuration via environment variables
+//   CHROME_CDP_URL - Chrome DevTools Protocol WebSocket URL (from puppeteer extractor)
+//   CHROME_PAGE_TARGET_ID - Target ID of the page to reuse (from puppeteer extractor)
+//   READABILITY_TIMEOUT - Timeout in milliseconds (default: 10000)
+//
+
+const fs = require('fs');
+const { JSDOM } = require('jsdom');
+const { Readability } = require('@mozilla/readability');
+
+// Check if dependencies are available
+function checkDependencies() {
+  try {
+    require.resolve('puppeteer-core');
+    require.resolve('jsdom');
+    require.resolve('@mozilla/readability');
+    return true;
+  } catch (e) {
+    console.error('Error: Missing dependencies.');
+    console.error('Please install: npm install puppeteer-core jsdom @mozilla/readability');
+    return false;
+  }
+}
+
+async function main() {
+  const url = process.argv[2];
+
+  if (!url) {
+    console.error('Error: URL argument required');
+    process.exit(1);
+  }
+
+  // Check dependencies
+  if (!checkDependencies()) {
+    process.exit(1);
+  }
+
+  const puppeteer = require('puppeteer-core');
+
+  // Configuration from environment
+  const cdpUrl = process.env.CHROME_CDP_URL;
+  const pageTargetId = process.env.CHROME_PAGE_TARGET_ID;
+  const timeout = parseInt(process.env.READABILITY_TIMEOUT || '10000', 10);
+
+  console.error(`Extracting readable content from: ${url}`);
+
+  let browser = null;
+  let page = null;
+
+  try {
+    if (!cdpUrl) {
+      console.error('Error: CHROME_CDP_URL environment variable not set.');
+      console.error('The puppeteer extractor should have set this in .env');
+      console.error('Make sure puppeteer extractor runs before this one.');
+      process.exit(1);
+    }
+
+    // Connect to existing browser
+    console.error(`Connecting to browser via CDP: ${cdpUrl}`);
+    browser = await puppeteer.connect({
+      browserWSEndpoint: cdpUrl
+    });
+
+    // Try to reuse existing page if target ID is available
+    if (pageTargetId) {
+      console.error(`Attempting to reuse existing page: ${pageTargetId}`);
+      const pages = await browser.pages();
+      page = pages.find(p => p.target()._targetId === pageTargetId);
+
+      if (page) {
+        console.error(`✓ Reusing existing page`);
+      } else {
+        console.error(`⚠ Could not find existing page, creating new one`);
+        page = await browser.newPage();
+        await page.goto(url, { timeout, waitUntil: 'domcontentloaded' });
+      }
+    } else {
+      console.error(`⚠ No page target ID, creating new page`);
+      page = await browser.newPage();
+      await page.goto(url, { timeout, waitUntil: 'domcontentloaded' });
+    }
+
+    // Get the HTML
+    const html = await page.content();
+
+    // Parse with JSDOM
+    const dom = new JSDOM(html, { url });
+    const reader = new Readability(dom.window.document);
+    const article = reader.parse();
+
+    if (article) {
+      // Write HTML content
+      const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${article.title || 'Article'}</title>
+</head>
+<body>
+  <article>
+    <h1>${article.title || ''}</h1>
+    ${article.byline ? `<p class="byline">${article.byline}</p>` : ''}
+    <div class="content">
+      ${article.content}
+    </div>
+  </article>
+</body>
+</html>`;
+
+      fs.writeFileSync('readability.html', htmlContent, 'utf8');
+
+      // Write JSON metadata
+      const metadata = {
+        title: article.title,
+        byline: article.byline,
+        excerpt: article.excerpt,
+        siteName: article.siteName,
+        length: article.length,
+        textContent: article.textContent.substring(0, 1000) + '...' // First 1000 chars
+      };
+
+      fs.writeFileSync('readability.json', JSON.stringify(metadata, null, 2), 'utf8');
+
+      console.error(`✓ Extracted article: ${article.title || '(untitled)'}`);
+      console.error(`  Length: ${article.length} characters`);
+      console.log('readability.html');
+
+      // Leave page open for next extractor
+      console.error(`⚠ Leaving page open for other extractors`);
+
+      process.exit(0);
+    } else {
+      console.error('Warning: Could not extract readable content');
+      process.exit(1);
+    }
+
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+main();

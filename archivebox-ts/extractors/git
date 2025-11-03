@@ -1,0 +1,83 @@
+#!/bin/bash
+#
+# Git Extractor
+# Clones a git repository
+#
+# Usage: git <url>
+# Output: git/ directory in current directory
+# Config: All configuration via environment variables
+#   GIT_TIMEOUT - Timeout in seconds (default: 300)
+#   GIT_DEPTH - Clone depth (default: full clone)
+#
+
+set -e
+
+URL="$1"
+
+if [ -z "$URL" ]; then
+  echo "Error: URL argument required" >&2
+  exit 1
+fi
+
+# Check if URL is a git repository
+if [[ ! "$URL" =~ \.git$ ]] && [[ ! "$URL" =~ ^git@ ]] && [[ ! "$URL" =~ ^https?://.*github\.com ]] && [[ ! "$URL" =~ ^https?://.*gitlab\.com ]]; then
+  echo "Skipping: URL does not appear to be a git repository" >&2
+  exit 0
+fi
+
+# Auto-install git if not available
+if ! command -v git &> /dev/null; then
+  echo "Installing git..." >&2
+  if command -v apt-get &> /dev/null; then
+    sudo apt-get update && sudo apt-get install -y git
+  elif command -v yum &> /dev/null; then
+    sudo yum install -y git
+  elif command -v brew &> /dev/null; then
+    brew install git
+  else
+    echo "Error: Cannot install git. Please install manually." >&2
+    exit 1
+  fi
+fi
+
+# Configuration from environment
+TIMEOUT="${GIT_TIMEOUT:-300}"
+DEPTH="${GIT_DEPTH:-}"
+
+echo "Cloning git repository: $URL" >&2
+
+# Create output directory
+mkdir -p git
+
+# Build git clone command
+GIT_CMD="git clone"
+
+if [ -n "$DEPTH" ]; then
+  GIT_CMD="$GIT_CMD --depth=$DEPTH"
+fi
+
+# Set timeout and clone
+timeout "$TIMEOUT" $GIT_CMD "$URL" git/ 2>&1 | head -20 || {
+  EXIT_CODE=$?
+  if [ $EXIT_CODE -eq 124 ]; then
+    echo "Error: Git clone timed out after ${TIMEOUT}s" >&2
+  else
+    echo "Error: Git clone failed with exit code $EXIT_CODE" >&2
+  fi
+  exit 1
+}
+
+if [ -d "git/.git" ]; then
+  # Get some stats
+  COMMIT_COUNT=$(cd git && git rev-list --count HEAD 2>/dev/null || echo "unknown")
+  REPO_SIZE=$(du -sh git 2>/dev/null | cut -f1 || echo "unknown")
+
+  echo "✓ Cloned repository" >&2
+  echo "  Commits: $COMMIT_COUNT" >&2
+  echo "  Size: $REPO_SIZE" >&2
+  echo "git"
+  exit 0
+else
+  echo "Error: Failed to clone repository" >&2
+  exit 1
+fi
