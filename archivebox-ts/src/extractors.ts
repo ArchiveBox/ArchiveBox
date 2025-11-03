@@ -1,12 +1,29 @@
 /**
  * Extractor orchestration system
- * Discovers and runs standalone extractor executables
+ * Discovers and runs standalone extractor executables in serial order
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import type { ExtractorName } from './models';
+
+// Predefined order for running extractors
+// puppeteer must be first as it launches the browser
+export const EXTRACTOR_ORDER: string[] = [
+  'puppeteer',   // Launches Chrome and writes CDP URL to .env
+  'favicon',     // Downloads favicon
+  'title',       // Extracts title using existing Chrome tab
+  'headers',     // Extracts headers using existing Chrome tab
+  'screenshot',  // Takes screenshot using existing Chrome tab
+  'dom',         // Extracts DOM using existing Chrome tab
+  'wget',        // Downloads with wget
+  'singlefile',  // Single file archive
+  'readability', // Readable content extraction
+  'media',       // Media downloads
+  'git',         // Git clone
+  'archive_org', // Submit to archive.org
+];
 
 export interface ExtractorInfo {
   name: ExtractorName;
@@ -27,7 +44,7 @@ export interface ExtractorResult {
 
 export class ExtractorManager {
   private extractorsDir: string;
-  private availableExtractors: Map<ExtractorName, ExtractorInfo>;
+  private availableExtractors: Map<string, ExtractorInfo>;
 
   constructor(extractorsDir: string) {
     this.extractorsDir = extractorsDir;
@@ -56,10 +73,10 @@ export class ExtractorManager {
       // Check if file is executable
       try {
         fs.accessSync(filePath, fs.constants.X_OK);
-        const name = file as ExtractorName;
+        const name = file;
 
         this.availableExtractors.set(name, {
-          name,
+          name: name as ExtractorName,
           path: filePath,
           executable: true,
         });
@@ -73,17 +90,82 @@ export class ExtractorManager {
   }
 
   /**
-   * Get list of available extractors
+   * Get list of available extractors in the predefined order
    */
-  getAvailableExtractors(): ExtractorName[] {
-    return Array.from(this.availableExtractors.keys());
+  getAvailableExtractors(): string[] {
+    const available = Array.from(this.availableExtractors.keys());
+    // Return in predefined order, only including available extractors
+    return EXTRACTOR_ORDER.filter(name => available.includes(name));
   }
 
   /**
    * Check if an extractor is available
    */
-  hasExtractor(name: ExtractorName): boolean {
+  hasExtractor(name: string): boolean {
     return this.availableExtractors.has(name);
+  }
+
+  /**
+   * Load environment variables from .env file in the output directory
+   */
+  private loadEnvFile(outputDir: string): Record<string, string> {
+    const envPath = path.join(outputDir, '.env');
+    const envVars: Record<string, string> = {};
+
+    if (!fs.existsSync(envPath)) {
+      return envVars;
+    }
+
+    try {
+      const content = fs.readFileSync(envPath, 'utf8');
+      const lines = content.split('\n');
+
+      for (const line of lines) {
+        // Skip empty lines and comments
+        if (!line.trim() || line.trim().startsWith('#')) {
+          continue;
+        }
+
+        // Parse KEY=VALUE format
+        const match = line.match(/^([^=]+)=(.*)$/);
+        if (match) {
+          const key = match[1].trim();
+          let value = match[2].trim();
+
+          // Remove quotes if present
+          if ((value.startsWith('"') && value.endsWith('"')) ||
+              (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+          }
+
+          envVars[key] = value;
+        }
+      }
+    } catch (err) {
+      console.warn(`Warning: Could not read .env file: ${err}`);
+    }
+
+    return envVars;
+  }
+
+  /**
+   * Create initial .env file in the output directory
+   */
+  private createEnvFile(outputDir: string, url: string): void {
+    const envPath = path.join(outputDir, '.env');
+    const timestamp = new Date().toISOString();
+
+    const content = `# ArchiveBox Snapshot Environment
+# Created: ${timestamp}
+# URL: ${url}
+#
+# Extractors can append to this file to pass environment variables
+# to subsequent extractors.
+#
+
+`;
+
+    fs.writeFileSync(envPath, content);
   }
 
   /**
@@ -91,14 +173,14 @@ export class ExtractorManager {
    * @param extractorName Name of the extractor to run
    * @param url URL to extract
    * @param outputDir Directory where extractor should output files
-   * @param env Environment variables to pass to the extractor
+   * @param baseEnv Base environment variables to pass to the extractor
    * @returns Promise with the extraction result
    */
   async runExtractor(
-    extractorName: ExtractorName,
+    extractorName: string,
     url: string,
     outputDir: string,
-    env: Record<string, string> = {}
+    baseEnv: Record<string, string> = {}
   ): Promise<ExtractorResult> {
     const extractor = this.availableExtractors.get(extractorName);
 
@@ -111,15 +193,22 @@ export class ExtractorManager {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
+    // Load environment variables from .env file
+    const envFromFile = this.loadEnvFile(outputDir);
+
     const start_ts = new Date().toISOString();
     const cmd = [extractor.path, url];
 
-    // Merge environment variables
+    // Merge environment variables (priority: baseEnv > envFromFile > process.env)
     const processEnv = {
       ...process.env,
-      ...env,
+      ...envFromFile,
+      ...baseEnv,
       ARCHIVEBOX_OUTPUT_DIR: outputDir,
     };
+
+    console.error(`Running extractor: ${extractorName}`);
+    console.error(`  Environment vars from .env: ${Object.keys(envFromFile).length}`);
 
     return new Promise((resolve) => {
       let stdout = '';
@@ -173,7 +262,65 @@ export class ExtractorManager {
   }
 
   /**
-   * Run multiple extractors in parallel
+   * Run extractors serially in the predefined order
+   * Each extractor can read/write to the .env file to pass state to the next
+   */
+  async runExtractorsSerial(
+    extractorNames: string[],
+    url: string,
+    outputDir: string,
+    baseEnv: Record<string, string> = {}
+  ): Promise<Map<string, ExtractorResult>> {
+    const results = new Map<string, ExtractorResult>();
+
+    // Ensure output directory exists
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // Create initial .env file
+    this.createEnvFile(outputDir, url);
+
+    // Filter to only requested extractors that are available, in the predefined order
+    const extractorsToRun = EXTRACTOR_ORDER.filter(
+      name => extractorNames.includes(name) && this.hasExtractor(name)
+    );
+
+    console.error(`\nRunning ${extractorsToRun.length} extractors in serial order:`);
+    console.error(`  ${extractorsToRun.join(' → ')}\n`);
+
+    // Run each extractor serially
+    for (const name of extractorsToRun) {
+      try {
+        console.error(`[${name}] Starting...`);
+        const result = await this.runExtractor(name, url, outputDir, baseEnv);
+        results.set(name, result);
+
+        if (result.success) {
+          console.error(`[${name}] ✓ Success`);
+        } else {
+          console.error(`[${name}] ✗ Failed: ${result.error}`);
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.error(`[${name}] ✗ Error: ${errorMsg}`);
+
+        results.set(name, {
+          success: false,
+          error: errorMsg,
+          cmd: [name, url],
+          start_ts: new Date().toISOString(),
+          end_ts: new Date().toISOString(),
+          pwd: outputDir,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Legacy method for parallel execution (deprecated, use runExtractorsSerial)
    */
   async runExtractors(
     extractorNames: ExtractorName[],
@@ -181,25 +328,7 @@ export class ExtractorManager {
     outputDir: string,
     env: Record<string, string> = {}
   ): Promise<Map<ExtractorName, ExtractorResult>> {
-    const results = new Map<ExtractorName, ExtractorResult>();
-
-    const promises = extractorNames.map(async (name) => {
-      try {
-        const result = await this.runExtractor(name, url, outputDir, env);
-        results.set(name, result);
-      } catch (err) {
-        results.set(name, {
-          success: false,
-          error: err instanceof Error ? err.message : String(err),
-          cmd: [name, url],
-          start_ts: new Date().toISOString(),
-          end_ts: new Date().toISOString(),
-          pwd: outputDir,
-        });
-      }
-    });
-
-    await Promise.all(promises);
-    return results;
+    console.warn('Warning: runExtractors (parallel) is deprecated, use runExtractorsSerial instead');
+    return this.runExtractorsSerial(extractorNames, url, outputDir, env) as Promise<Map<ExtractorName, ExtractorResult>>;
   }
 }

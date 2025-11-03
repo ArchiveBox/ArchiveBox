@@ -3,15 +3,17 @@
 // Headers Extractor
 // Extracts HTTP headers from a given URL using Puppeteer
 //
+// This extractor reuses an existing Chrome tab if CHROME_CDP_URL and
+// CHROME_PAGE_TARGET_ID are set in the environment (from puppeteer extractor).
+//
 // Usage: headers <url>
 // Output: headers.json in current directory
 // Config: All configuration via environment variables
-//   CHROME_CDP_URL - Chrome DevTools Protocol URL (e.g., ws://localhost:9222/devtools/browser/...)
-//                    If not set, will launch a local browser instance
+//   CHROME_CDP_URL - Chrome DevTools Protocol WebSocket URL (from puppeteer extractor)
+//   CHROME_PAGE_TARGET_ID - Target ID of the page to reuse (from puppeteer extractor)
 //   HEADERS_TIMEOUT - Timeout in milliseconds (default: 10000)
 //
 
-const { spawn } = require('child_process');
 const fs = require('fs');
 
 // Check if puppeteer is available
@@ -22,7 +24,6 @@ function checkPuppeteer() {
   } catch (e) {
     console.error('Error: puppeteer-core is not installed.');
     console.error('Please install it with: npm install puppeteer-core');
-    console.error('Or install chromium: npm install puppeteer');
     return false;
   }
 }
@@ -37,12 +38,10 @@ async function main() {
 
   // Configuration from environment
   const cdpUrl = process.env.CHROME_CDP_URL;
+  const pageTargetId = process.env.CHROME_PAGE_TARGET_ID;
   const timeout = parseInt(process.env.HEADERS_TIMEOUT || '10000', 10);
 
   console.error(`Extracting headers from: ${url}`);
-  if (cdpUrl) {
-    console.error(`Connecting to browser via CDP: ${cdpUrl}`);
-  }
 
   // Check puppeteer is installed
   if (!checkPuppeteer()) {
@@ -52,43 +51,62 @@ async function main() {
   const puppeteer = require('puppeteer-core');
 
   let browser = null;
-  let shouldCloseBrowser = false;
+  let page = null;
 
   try {
-    // Connect to CDP browser or launch local one
-    if (cdpUrl) {
-      browser = await puppeteer.connect({
-        browserWSEndpoint: cdpUrl
-      });
-    } else {
+    if (!cdpUrl) {
       console.error('Error: CHROME_CDP_URL environment variable not set.');
-      console.error('Please set CHROME_CDP_URL to connect to a Chrome browser via CDP.');
-      console.error('Example: export CHROME_CDP_URL="ws://localhost:9222/devtools/browser/..."');
-      console.error('');
-      console.error('To start Chrome with remote debugging:');
-      console.error('  chrome --remote-debugging-port=9222 --headless');
-      console.error('  chromium --remote-debugging-port=9222 --headless');
+      console.error('The puppeteer extractor should have set this in .env');
+      console.error('Make sure puppeteer extractor runs before this one.');
       process.exit(1);
     }
 
-    const page = await browser.newPage();
+    // Connect to existing browser
+    console.error(`Connecting to browser via CDP: ${cdpUrl}`);
+    browser = await puppeteer.connect({
+      browserWSEndpoint: cdpUrl
+    });
 
+    // Try to reuse existing page if target ID is available
+    if (pageTargetId) {
+      console.error(`Attempting to reuse existing page: ${pageTargetId}`);
+      const pages = await browser.pages();
+      page = pages.find(p => p.target()._targetId === pageTargetId);
+
+      if (page) {
+        console.error(`✓ Reusing existing page`);
+      } else {
+        console.error(`⚠ Could not find existing page, creating new one`);
+        page = await browser.newPage();
+        await page.goto(url, { timeout, waitUntil: 'domcontentloaded' });
+      }
+    } else {
+      console.error(`⚠ No page target ID, creating new page`);
+      page = await browser.newPage();
+      await page.goto(url, { timeout, waitUntil: 'domcontentloaded' });
+    }
+
+    // Get headers from the current response
+    // For an already loaded page, we need to get the response from the main frame
+    const cdpSession = await page.target().createCDPSession();
+    const { frameTree } = await cdpSession.send('Page.getFrameTree');
+
+    // Navigate again to capture headers (if page was already loaded)
     let capturedHeaders = null;
 
-    // Listen for response to capture headers
     page.on('response', async (response) => {
       if (response.url() === url) {
         capturedHeaders = response.headers();
       }
     });
 
-    // Navigate to URL
-    await page.goto(url, {
-      timeout,
-      waitUntil: 'domcontentloaded'
-    });
+    // Reload to capture headers
+    await page.reload({ waitUntil: 'domcontentloaded' });
 
-    await page.close();
+    // Wait a bit for the response event
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    await cdpSession.detach();
 
     if (capturedHeaders) {
       // Write to file
@@ -96,32 +114,17 @@ async function main() {
       console.error('✓ Extracted headers to headers.json');
       console.log('headers.json');
 
-      if (shouldCloseBrowser) {
-        await browser.close();
-      }
+      // Leave page open for next extractor
+      console.error(`⚠ Leaving page open for other extractors`);
 
       process.exit(0);
     } else {
       console.error('Warning: Could not capture headers');
-
-      if (shouldCloseBrowser) {
-        await browser.close();
-      }
-
       process.exit(1);
     }
 
   } catch (err) {
     console.error(`Error: ${err.message}`);
-
-    if (browser && shouldCloseBrowser) {
-      try {
-        await browser.close();
-      } catch (closeErr) {
-        // Ignore close errors
-      }
-    }
-
     process.exit(1);
   }
 }

@@ -105,10 +105,10 @@ program
 
       // Determine which extractors to run
       const availableExtractors = extractorManager.getAvailableExtractors();
-      let extractorsToRun: ExtractorName[];
+      let extractorsToRun: string[];
 
       if (options.extractors) {
-        extractorsToRun = options.extractors.split(',').map((e: string) => e.trim() as ExtractorName);
+        extractorsToRun = options.extractors.split(',').map((e: string) => e.trim());
         // Validate extractors
         for (const extractor of extractorsToRun) {
           if (!extractorManager.hasExtractor(extractor)) {
@@ -125,7 +125,7 @@ program
         return;
       }
 
-      console.log(`Running extractors: ${extractorsToRun.join(', ')}`);
+      console.log(`Will run ${extractorsToRun.length} extractors in serial order`);
 
       // Update snapshot status
       db.updateSnapshotStatus(snapshot.id, 'started');
@@ -135,27 +135,29 @@ program
       fs.mkdirSync(outputDir, { recursive: true });
       db.setSnapshotOutputDir(snapshot.id, outputDir);
 
-      console.log(`Output directory: ${outputDir}`);
+      console.log(`Output directory: ${outputDir}\n`);
 
       // Create archive results for each extractor
-      const archiveResults = new Map<ExtractorName, string>();
+      const archiveResults = new Map<string, string>();
       for (const extractor of extractorsToRun) {
         if (extractorManager.hasExtractor(extractor)) {
           const result = db.createArchiveResult({
             snapshot_id: snapshot.id,
-            extractor,
+            extractor: extractor as ExtractorName,
           });
           archiveResults.set(extractor, result.id);
         }
       }
 
-      // Run extractors
-      const results = await extractorManager.runExtractors(
+      // Run extractors serially
+      const results = await extractorManager.runExtractorsSerial(
         extractorsToRun,
         url,
         outputDir,
         {} // Environment variables can be passed here
       );
+
+      console.log('\n--- Extractor Results ---\n');
 
       // Update archive results
       for (const [extractorName, result] of results.entries()) {
@@ -173,8 +175,10 @@ program
 
           const status = result.success ? '✓' : '✗';
           console.log(`  ${status} ${extractorName}: ${result.success ? 'succeeded' : 'failed'}`);
-          if (result.error) {
-            console.log(`    Error: ${result.error}`);
+          if (result.error && !result.success) {
+            // Only show errors for failed extractors (not stderr from successful ones)
+            const errorLines = result.error.split('\n').slice(0, 3); // First 3 lines
+            console.log(`    ${errorLines.join('\n    ')}`);
           }
         }
       }

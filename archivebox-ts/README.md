@@ -7,10 +7,15 @@ A TypeScript-based version of ArchiveBox with a simplified, modular architecture
 This is a reimplementation of ArchiveBox using TypeScript with a focus on simplicity and modularity. The key architectural changes are:
 
 1. **Standalone Extractors**: Each extractor is a standalone executable (bash, Node.js, or Python with shebang) that can run independently
-2. **Auto-Installing Dependencies**: Extractors automatically install their own dependencies when first run
-3. **Simple Interface**: Extractors receive URL as `$1` CLI argument and output files to current working directory
-4. **Environment-Based Config**: All configuration passed via environment variables, no CLI flags
-5. **SQLite Database**: Uses SQLite with schema matching the original ArchiveBox
+2. **Serial Execution with Shared State**: Extractors run in a predefined order and can pass environment variables via a `.env` file
+3. **Auto-Installing Dependencies**: Extractors automatically install their own dependencies when first run
+4. **Simple Interface**: Extractors receive URL as `$1` CLI argument and output files to current working directory
+5. **Environment-Based Config**: All configuration passed via environment variables, no CLI flags
+6. **SQLite Database**: Uses SQLite with schema matching the original ArchiveBox
+
+## Key Innovation: Shared Browser Instance
+
+The `puppeteer` extractor launches Chrome once and writes the CDP URL to `.env`. All subsequent browser-based extractors (title, headers, screenshot, dom) reuse the same browser tab, making extraction much faster and more efficient.
 
 ## Directory Structure
 
@@ -20,16 +25,23 @@ archivebox-ts/
 │   ├── cli.ts           # Main CLI entry point
 │   ├── db.ts            # SQLite database operations
 │   ├── models.ts        # TypeScript interfaces
-│   └── extractors.ts    # Extractor orchestration
-├── extractors/          # Standalone extractor executables
-│   ├── favicon          # Bash script to download favicon
-│   ├── title            # Node.js script to extract title
-│   ├── headers          # Bash script to extract HTTP headers
-│   ├── wget             # Bash script for full page download
-│   └── screenshot       # Python script for screenshots
+│   └── extractors.ts    # Extractor orchestration (serial execution)
+├── extractors/          # Standalone extractor executables (predefined order)
+│   ├── puppeteer        # Launches Chrome, writes CDP URL to .env
+│   ├── favicon          # Downloads favicon
+│   ├── title            # Extracts title (reuses Chrome tab)
+│   ├── headers          # Extracts headers (reuses Chrome tab)
+│   ├── screenshot       # Takes screenshot (reuses Chrome tab)
+│   └── wget             # Full page download
 ├── data/                # Created on init
 │   ├── index.sqlite3    # SQLite database
 │   └── archive/         # Archived snapshots
+│       └── <timestamp>_<domain>/
+│           ├── .env     # Extractor environment variables
+│           ├── favicon.ico
+│           ├── title.txt
+│           ├── screenshot.png
+│           └── ...
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -40,10 +52,10 @@ archivebox-ts/
 ### Prerequisites
 
 - Node.js 18+ and npm
-- Chrome or Chromium browser (for screenshot, title, and headers extractors)
+- Chrome or Chromium browser (installed locally)
 - For specific extractors:
   - `wget` extractor: wget
-  - `screenshot`, `title`, `headers` extractors: puppeteer-core + Chrome with remote debugging
+  - `puppeteer`, `screenshot`, `title`, `headers` extractors: Chrome/Chromium
 
 ### Setup
 
@@ -58,15 +70,6 @@ npm run build
 
 # Initialize ArchiveBox
 node dist/cli.js init
-
-# Start Chrome with remote debugging (required for screenshot, title, headers extractors)
-# In a separate terminal:
-chrome --remote-debugging-port=9222 --headless
-# Or on Linux:
-chromium --remote-debugging-port=9222 --headless
-
-# Set the CDP URL environment variable
-export CHROME_CDP_URL="http://localhost:9222"
 ```
 
 ## Usage
@@ -81,35 +84,16 @@ node dist/cli.js init
 
 ### Add a URL
 
-First, make sure Chrome is running with remote debugging and CHROME_CDP_URL is set:
-
-```bash
-# Terminal 1: Start Chrome
-chrome --remote-debugging-port=9222 --headless
-
-# Terminal 2: Get the WebSocket URL
-curl http://localhost:9222/json/version | jq -r .webSocketDebuggerUrl
-
-# Set the environment variable (use the URL from above)
-export CHROME_CDP_URL="ws://localhost:9222/devtools/browser/..."
-```
-
-Archive a URL with all available extractors:
+Archive a URL with all available extractors (runs in predefined order):
 
 ```bash
 node dist/cli.js add https://example.com
 ```
 
-Archive with specific extractors (favicon and wget don't need Chrome):
+Archive with specific extractors:
 
 ```bash
-node dist/cli.js add https://example.com --extractors favicon,wget
-```
-
-Archive with Chrome-based extractors:
-
-```bash
-node dist/cli.js add https://example.com --extractors title,headers,screenshot
+node dist/cli.js add https://example.com --extractors puppeteer,title,screenshot
 ```
 
 Add with custom title:
@@ -142,11 +126,55 @@ node dist/cli.js status <snapshot-id>
 
 ### List Extractors
 
-See all available extractors:
+See all available extractors in execution order:
 
 ```bash
 node dist/cli.js extractors
 ```
+
+## Extractor Execution Order
+
+Extractors run serially in this predefined order (defined in `src/extractors.ts`):
+
+1. **puppeteer** - Launches Chrome, writes CDP URL to `.env`
+2. **favicon** - Downloads favicon
+3. **title** - Extracts title using existing Chrome tab
+4. **headers** - Extracts headers using existing Chrome tab
+5. **screenshot** - Takes screenshot using existing Chrome tab
+6. **dom** - Extracts DOM using existing Chrome tab
+7. **wget** - Downloads with wget
+8. **singlefile** - Single file archive
+9. **readability** - Readable content extraction
+10. **media** - Media downloads
+11. **git** - Git clone
+12. **archive_org** - Submit to archive.org
+
+Only extractors that are both:
+- Requested (via `--extractors` or default: all)
+- Available (executable file exists in `extractors/`)
+
+will actually run.
+
+## Environment Variable Sharing via .env
+
+Each snapshot directory contains a `.env` file that extractors can:
+- **Read**: Load environment variables set by previous extractors
+- **Write**: Append new environment variables for subsequent extractors
+
+Example `.env` file after puppeteer extractor:
+
+```bash
+# ArchiveBox Snapshot Environment
+# Created: 2025-11-03T20:00:00.000Z
+# URL: https://example.com
+
+# Chrome browser connection info (written by puppeteer extractor)
+CHROME_CDP_URL="ws://127.0.0.1:12345/devtools/browser/..."
+CHROME_PAGE_TARGET_ID="ABC123..."
+CHROME_USER_DATA_DIR="/home/user/.chrome-archivebox"
+```
+
+Subsequent extractors automatically receive these variables.
 
 ## Database Schema
 
@@ -196,6 +224,66 @@ Represents the result of running one extractor on one snapshot.
 | config | TEXT (JSON) | Configuration |
 | notes | TEXT | Extra notes |
 
+## Available Extractors
+
+### puppeteer
+- **Language**: Node.js + Puppeteer
+- **Dependencies**: puppeteer (includes Chrome)
+- **Output**: Writes to `.env` file
+- **Config**:
+  - `PUPPETEER_TIMEOUT` - Timeout in milliseconds (default: 30000)
+  - `CHROME_USER_DATA_DIR` - Chrome user data directory (default: ~/.chrome-archivebox)
+- **Purpose**: Launches Chrome and makes CDP URL available to other extractors
+
+### favicon
+- **Language**: Bash
+- **Dependencies**: curl (auto-installed)
+- **Output**: `favicon.ico` or `favicon.png`
+- **Config**:
+  - `FAVICON_TIMEOUT` - Timeout in seconds (default: 10)
+
+### title
+- **Language**: Node.js + Puppeteer
+- **Dependencies**: puppeteer-core, Chrome (from puppeteer extractor)
+- **Output**: `title.txt`
+- **Requires**: puppeteer extractor must run first
+- **Config**:
+  - `CHROME_CDP_URL` - From .env (set by puppeteer extractor)
+  - `CHROME_PAGE_TARGET_ID` - From .env (set by puppeteer extractor)
+  - `TITLE_TIMEOUT` - Timeout in milliseconds (default: 10000)
+
+### headers
+- **Language**: Node.js + Puppeteer
+- **Dependencies**: puppeteer-core, Chrome (from puppeteer extractor)
+- **Output**: `headers.json`
+- **Requires**: puppeteer extractor must run first
+- **Config**:
+  - `CHROME_CDP_URL` - From .env (set by puppeteer extractor)
+  - `CHROME_PAGE_TARGET_ID` - From .env (set by puppeteer extractor)
+  - `HEADERS_TIMEOUT` - Timeout in milliseconds (default: 10000)
+
+### screenshot
+- **Language**: Node.js + Puppeteer
+- **Dependencies**: puppeteer-core, Chrome (from puppeteer extractor)
+- **Output**: `screenshot.png`
+- **Requires**: puppeteer extractor must run first
+- **Config**:
+  - `CHROME_CDP_URL` - From .env (set by puppeteer extractor)
+  - `CHROME_PAGE_TARGET_ID` - From .env (set by puppeteer extractor)
+  - `SCREENSHOT_TIMEOUT` - Timeout in milliseconds (default: 30000)
+  - `SCREENSHOT_WIDTH` - Viewport width (default: 1920)
+  - `SCREENSHOT_HEIGHT` - Viewport height (default: 1080)
+  - `SCREENSHOT_WAIT` - Wait time before screenshot in ms (default: 1000)
+
+### wget
+- **Language**: Bash
+- **Dependencies**: wget (auto-installed)
+- **Output**: `warc/archive.warc.gz` and downloaded files
+- **Config**:
+  - `WGET_TIMEOUT` - Timeout in seconds (default: 60)
+  - `WGET_USER_AGENT` - User agent string
+  - `WGET_ARGS` - Additional wget arguments
+
 ## Creating Custom Extractors
 
 Extractors are standalone executable files in the `extractors/` directory.
@@ -206,222 +294,48 @@ Extractors are standalone executable files in the `extractors/` directory.
 2. **Shebang**: Must start with shebang (e.g., `#!/bin/bash`, `#!/usr/bin/env node`)
 3. **First Argument**: Receives URL as `$1` (bash) or `process.argv[2]` (Node.js) or `sys.argv[1]` (Python)
 4. **Working Directory**: Run in the output directory, write files there
-5. **Environment Config**: Read all config from environment variables
+5. **Environment Config**: Read all config from environment variables (including from `.env`)
 6. **Exit Code**: Return 0 for success, non-zero for failure
 7. **Output**: Print the main output file path to stdout
 8. **Logging**: Print progress/errors to stderr
-9. **Auto-Install**: Optionally auto-install dependencies on first run
+9. **State Sharing**: Can append to `.env` file to pass variables to later extractors
 
-### Example Bash Extractor
+### Adding to Execution Order
+
+To add your extractor to the predefined order, edit `src/extractors.ts`:
+
+```typescript
+export const EXTRACTOR_ORDER: string[] = [
+  'puppeteer',
+  'favicon',
+  'title',
+  // ... other extractors ...
+  'your-new-extractor',  // Add here
+];
+```
+
+### Example: Extractor that Uses .env
 
 ```bash
 #!/bin/bash
-#
-# My Custom Extractor
-# Description of what it does
-#
-# Config via environment variables:
-#   MY_TIMEOUT - Timeout in seconds (default: 30)
-#
-
 set -e
 
 URL="$1"
 
-if [ -z "$URL" ]; then
-  echo "Error: URL argument required" >&2
-  exit 1
-fi
+# Read from .env (automatically loaded by ExtractorManager)
+echo "Chrome CDP URL: $CHROME_CDP_URL" >&2
 
-# Auto-install dependencies (optional)
-if ! command -v some-tool &> /dev/null; then
-  echo "Installing some-tool..." >&2
-  sudo apt-get install -y some-tool
-fi
-
-# Get config from environment
-TIMEOUT="${MY_TIMEOUT:-30}"
-
+# Do your extraction work
 echo "Processing $URL..." >&2
 
-# Do the extraction work
-some-tool --timeout "$TIMEOUT" "$URL" > output.txt
+# Write output
+echo "result" > output.txt
 
-echo "✓ Done" >&2
+# Append to .env for next extractor
+echo "MY_EXTRACTOR_RESULT=\"success\"" >> .env
+
 echo "output.txt"
 exit 0
-```
-
-### Example Node.js Extractor
-
-```javascript
-#!/usr/bin/env node
-//
-// My Custom Extractor
-// Config via environment variables:
-//   MY_TIMEOUT - Timeout in ms
-//
-
-const url = process.argv[2];
-if (!url) {
-  console.error('Error: URL argument required');
-  process.exit(1);
-}
-
-const timeout = parseInt(process.env.MY_TIMEOUT || '10000', 10);
-
-console.error(`Processing ${url}...`);
-
-// Do extraction work
-// Write files to current directory
-
-console.error('✓ Done');
-console.log('output.txt');
-```
-
-### Example Python Extractor
-
-```python
-#!/usr/bin/env python3
-#
-# My Custom Extractor
-# Config via environment variables:
-#   MY_TIMEOUT - Timeout in seconds
-#
-
-import sys
-import os
-
-url = sys.argv[1] if len(sys.argv) > 1 else None
-if not url:
-    print("Error: URL argument required", file=sys.stderr)
-    sys.exit(1)
-
-timeout = int(os.environ.get('MY_TIMEOUT', '30'))
-
-print(f"Processing {url}...", file=sys.stderr)
-
-# Do extraction work
-# Write files to current directory
-
-print("✓ Done", file=sys.stderr)
-print("output.txt")
-```
-
-## Available Extractors
-
-### favicon
-- **Language**: Bash
-- **Dependencies**: curl (auto-installed)
-- **Output**: `favicon.ico` or `favicon.png`
-- **Requires Chrome**: No
-- **Config**:
-  - `FAVICON_TIMEOUT` - Timeout in seconds (default: 10)
-
-### title
-- **Language**: Node.js + Puppeteer
-- **Dependencies**: puppeteer-core, Chrome browser via CDP
-- **Output**: `title.txt`
-- **Requires Chrome**: Yes (via CHROME_CDP_URL)
-- **Config**:
-  - `CHROME_CDP_URL` - Chrome DevTools Protocol WebSocket URL (required)
-  - `TITLE_TIMEOUT` - Timeout in milliseconds (default: 10000)
-
-### headers
-- **Language**: Node.js + Puppeteer
-- **Dependencies**: puppeteer-core, Chrome browser via CDP
-- **Output**: `headers.json`
-- **Requires Chrome**: Yes (via CHROME_CDP_URL)
-- **Config**:
-  - `CHROME_CDP_URL` - Chrome DevTools Protocol WebSocket URL (required)
-  - `HEADERS_TIMEOUT` - Timeout in milliseconds (default: 10000)
-
-### wget
-- **Language**: Bash
-- **Dependencies**: wget (auto-installed)
-- **Output**: `warc/archive.warc.gz` and downloaded files
-- **Requires Chrome**: No
-- **Config**:
-  - `WGET_TIMEOUT` - Timeout in seconds (default: 60)
-  - `WGET_USER_AGENT` - User agent string
-  - `WGET_ARGS` - Additional wget arguments
-
-### screenshot
-- **Language**: Node.js + Puppeteer
-- **Dependencies**: puppeteer-core, Chrome browser via CDP
-- **Output**: `screenshot.png`
-- **Requires Chrome**: Yes (via CHROME_CDP_URL)
-- **Config**:
-  - `CHROME_CDP_URL` - Chrome DevTools Protocol WebSocket URL (required)
-  - `SCREENSHOT_TIMEOUT` - Timeout in milliseconds (default: 30000)
-  - `SCREENSHOT_WIDTH` - Viewport width (default: 1920)
-  - `SCREENSHOT_HEIGHT` - Viewport height (default: 1080)
-  - `SCREENSHOT_WAIT` - Wait time before screenshot in ms (default: 1000)
-
-## Setting up Chrome for Remote Debugging
-
-The `screenshot`, `title`, and `headers` extractors require a Chrome browser accessible via the Chrome DevTools Protocol (CDP). This allows multiple extractors to share a single browser instance.
-
-### Start Chrome with Remote Debugging
-
-```bash
-# Linux/Mac
-chromium --remote-debugging-port=9222 --headless --disable-gpu
-
-# Or with Chrome
-chrome --remote-debugging-port=9222 --headless --disable-gpu
-
-# Windows
-chrome.exe --remote-debugging-port=9222 --headless --disable-gpu
-```
-
-### Get the WebSocket URL
-
-```bash
-# Query the Chrome instance for the WebSocket URL
-curl http://localhost:9222/json/version
-
-# Example output:
-# {
-#   "Browser": "Chrome/120.0.0.0",
-#   "Protocol-Version": "1.3",
-#   "User-Agent": "Mozilla/5.0...",
-#   "V8-Version": "12.0.267.8",
-#   "WebKit-Version": "537.36",
-#   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/browser/..."
-# }
-```
-
-### Set the Environment Variable
-
-```bash
-# Extract just the WebSocket URL
-export CHROME_CDP_URL=$(curl -s http://localhost:9222/json/version | jq -r .webSocketDebuggerUrl)
-
-# Or set it manually
-export CHROME_CDP_URL="ws://localhost:9222/devtools/browser/12345678-1234-1234-1234-123456789abc"
-
-# Verify it's set
-echo $CHROME_CDP_URL
-```
-
-### Docker Setup
-
-For running in Docker, you can use a separate Chrome container:
-
-```bash
-# Start Chrome in a container
-docker run -d --name chrome \
-  -p 9222:9222 \
-  browserless/chrome:latest \
-  --remote-debugging-port=9222 \
-  --remote-debugging-address=0.0.0.0
-
-# Get the CDP URL
-export CHROME_CDP_URL="ws://localhost:9222/devtools/browser/$(curl -s http://localhost:9222/json/version | jq -r .webSocketDebuggerUrl | cut -d'/' -f5-)"
-
-# Run archivebox-ts
-node dist/cli.js add https://example.com
 ```
 
 ## Development
@@ -442,32 +356,33 @@ npm run dev
 
 - `src/models.ts` - TypeScript interfaces matching the database schema
 - `src/db.ts` - Database layer with SQLite operations
-- `src/extractors.ts` - Extractor discovery and orchestration
+- `src/extractors.ts` - Extractor discovery and serial orchestration
 - `src/cli.ts` - CLI commands and application logic
 
 ## Differences from Original ArchiveBox
 
 ### Simplified
 
-1. **No Plugin System**: Instead of a complex ABX plugin framework, extractors are simple executable files
-2. **Simpler Config**: Only environment variables, no configuration file parsing
-3. **No Web UI**: Command-line only (for now)
-4. **No Background Workers**: Direct execution (could be added)
-5. **No User System**: Single-user mode
+1. **No Plugin System** → Executable files
+2. **Simpler Config** → Environment variables + `.env` file
+3. **No Web UI** → CLI only (for now)
+4. **No Background Workers** → Direct execution
+5. **No Multi-user** → Single-user mode
 
 ### Architecture Improvements
 
-1. **Extractors are Standalone**: Each extractor can be tested independently
-2. **Language Agnostic**: Write extractors in any language (bash, Python, Node.js, Go, etc.)
-3. **Easy to Extend**: Just drop an executable file in `extractors/` directory
-4. **Minimal Dependencies**: Core system only needs Node.js and SQLite
+1. **Serial Execution** - Predictable order, state sharing via `.env`
+2. **Shared Browser** - One Chrome instance for all browser-based extractors
+3. **Language Agnostic** - Write extractors in any language
+4. **Easy to Test** - Each extractor can be tested standalone
+5. **Simpler Dependencies** - Each extractor manages its own
 
 ## Future Enhancements
 
 - [ ] Background job queue for processing
 - [ ] Web UI for browsing archives
 - [ ] Search functionality
-- [ ] More extractors (pdf, dom, singlefile, readability, etc.)
+- [ ] More extractors (dom, singlefile, readability, etc.)
 - [ ] Import/export functionality
 - [ ] Schedule automatic archiving
 - [ ] Browser extension integration

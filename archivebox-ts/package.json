@@ -23,6 +23,7 @@
     "better-sqlite3": "^11.0.0",
     "commander": "^12.0.0",
     "nanoid": "^3.3.7",
+    "puppeteer": "^24.28.0",
     "puppeteer-core": "^24.28.0"
   },
   "devDependencies": {

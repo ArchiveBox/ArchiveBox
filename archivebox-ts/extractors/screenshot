@@ -3,18 +3,20 @@
 // Screenshot Extractor
 // Captures a screenshot of a given URL using Puppeteer
 //
+// This extractor reuses an existing Chrome tab if CHROME_CDP_URL and
+// CHROME_PAGE_TARGET_ID are set in the environment (from puppeteer extractor).
+//
 // Usage: screenshot <url>
 // Output: screenshot.png in current directory
 // Config: All configuration via environment variables
-//   CHROME_CDP_URL - Chrome DevTools Protocol URL (e.g., ws://localhost:9222/devtools/browser/...)
-//                    If not set, will launch a local browser instance
+//   CHROME_CDP_URL - Chrome DevTools Protocol WebSocket URL (from puppeteer extractor)
+//   CHROME_PAGE_TARGET_ID - Target ID of the page to reuse (from puppeteer extractor)
 //   SCREENSHOT_TIMEOUT - Timeout in milliseconds (default: 30000)
 //   SCREENSHOT_WIDTH - Viewport width (default: 1920)
 //   SCREENSHOT_HEIGHT - Viewport height (default: 1080)
 //   SCREENSHOT_WAIT - Time to wait before screenshot in ms (default: 1000)
 //
 
-const { spawn } = require('child_process');
 const fs = require('fs');
 
 // Check if puppeteer is available
@@ -25,7 +27,6 @@ function checkPuppeteer() {
   } catch (e) {
     console.error('Error: puppeteer-core is not installed.');
     console.error('Please install it with: npm install puppeteer-core');
-    console.error('Or install chromium: npm install puppeteer');
     return false;
   }
 }
@@ -40,15 +41,13 @@ async function main() {
 
   // Configuration from environment
   const cdpUrl = process.env.CHROME_CDP_URL;
+  const pageTargetId = process.env.CHROME_PAGE_TARGET_ID;
   const timeout = parseInt(process.env.SCREENSHOT_TIMEOUT || '30000', 10);
   const width = parseInt(process.env.SCREENSHOT_WIDTH || '1920', 10);
   const height = parseInt(process.env.SCREENSHOT_HEIGHT || '1080', 10);
   const wait = parseInt(process.env.SCREENSHOT_WAIT || '1000', 10);
 
   console.error(`Capturing screenshot of: ${url}`);
-  if (cdpUrl) {
-    console.error(`Connecting to browser via CDP: ${cdpUrl}`);
-  }
 
   // Check puppeteer is installed
   if (!checkPuppeteer()) {
@@ -58,34 +57,45 @@ async function main() {
   const puppeteer = require('puppeteer-core');
 
   let browser = null;
-  let shouldCloseBrowser = false;
+  let page = null;
 
   try {
-    // Connect to CDP browser or launch local one
-    if (cdpUrl) {
-      browser = await puppeteer.connect({
-        browserWSEndpoint: cdpUrl,
-        defaultViewport: { width, height }
-      });
-    } else {
+    if (!cdpUrl) {
       console.error('Error: CHROME_CDP_URL environment variable not set.');
-      console.error('Please set CHROME_CDP_URL to connect to a Chrome browser via CDP.');
-      console.error('Example: export CHROME_CDP_URL="ws://localhost:9222/devtools/browser/..."');
-      console.error('');
-      console.error('To start Chrome with remote debugging:');
-      console.error('  chrome --remote-debugging-port=9222 --headless');
-      console.error('  chromium --remote-debugging-port=9222 --headless');
+      console.error('The puppeteer extractor should have set this in .env');
+      console.error('Make sure puppeteer extractor runs before this one.');
       process.exit(1);
     }
 
-    const page = await browser.newPage();
-    await page.setViewport({ width, height });
-
-    // Navigate to URL
-    await page.goto(url, {
-      timeout,
-      waitUntil: 'networkidle2'
+    // Connect to existing browser
+    console.error(`Connecting to browser via CDP: ${cdpUrl}`);
+    browser = await puppeteer.connect({
+      browserWSEndpoint: cdpUrl,
+      defaultViewport: { width, height }
     });
+
+    // Try to reuse existing page if target ID is available
+    if (pageTargetId) {
+      console.error(`Attempting to reuse existing page: ${pageTargetId}`);
+      const pages = await browser.pages();
+      page = pages.find(p => p.target()._targetId === pageTargetId);
+
+      if (page) {
+        console.error(`✓ Reusing existing page`);
+        // Set viewport on existing page
+        await page.setViewport({ width, height });
+      } else {
+        console.error(`⚠ Could not find existing page, creating new one`);
+        page = await browser.newPage();
+        await page.setViewport({ width, height });
+        await page.goto(url, { timeout, waitUntil: 'networkidle2' });
+      }
+    } else {
+      console.error(`⚠ No page target ID, creating new page`);
+      page = await browser.newPage();
+      await page.setViewport({ width, height });
+      await page.goto(url, { timeout, waitUntil: 'networkidle2' });
+    }
 
     // Wait a bit for any dynamic content
     await page.waitForTimeout(wait);
@@ -96,28 +106,16 @@ async function main() {
       fullPage: true
     });
 
-    await page.close();
-
     console.error('✓ Captured screenshot: screenshot.png');
     console.log('screenshot.png');
 
-    if (shouldCloseBrowser) {
-      await browser.close();
-    }
+    // Leave page open for next extractor
+    console.error(`⚠ Leaving page open for other extractors`);
 
     process.exit(0);
 
   } catch (err) {
     console.error(`Error: ${err.message}`);
-
-    if (browser && shouldCloseBrowser) {
-      try {
-        await browser.close();
-      } catch (closeErr) {
-        // Ignore close errors
-      }
-    }
-
     process.exit(1);
   }
 }

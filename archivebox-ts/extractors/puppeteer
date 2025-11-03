@@ -1,0 +1,129 @@
+#!/usr/bin/env node
+//
+// Puppeteer Launcher Extractor
+// Launches a headless Chrome browser and writes the CDP URL to .env
+//
+// This should be the FIRST extractor to run. It:
+// 1. Launches a new headless Chrome instance
+// 2. Navigates to the URL
+// 3. Writes the CDP WebSocket URL to .env for other extractors
+// 4. Leaves the browser running for other extractors to use
+//
+// Usage: puppeteer <url>
+// Output: Appends CHROME_CDP_URL and CHROME_PAGE_URL to .env
+// Config: All configuration via environment variables
+//   PUPPETEER_TIMEOUT - Timeout in milliseconds (default: 30000)
+//   CHROME_USER_DATA_DIR - Chrome user data directory (default: ~/.chrome-archivebox)
+//
+
+const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+// Check if puppeteer is available
+function checkPuppeteer() {
+  try {
+    require.resolve('puppeteer');
+    return true;
+  } catch (e) {
+    console.error('Error: puppeteer is not installed.');
+    console.error('Please install it with: npm install puppeteer');
+    return false;
+  }
+}
+
+async function main() {
+  const url = process.argv[2];
+
+  if (!url) {
+    console.error('Error: URL argument required');
+    process.exit(1);
+  }
+
+  // Configuration from environment
+  const timeout = parseInt(process.env.PUPPETEER_TIMEOUT || '30000', 10);
+  const userDataDir = process.env.CHROME_USER_DATA_DIR ||
+                      path.join(os.homedir(), '.chrome-archivebox');
+
+  console.error(`Launching Chrome for: ${url}`);
+  console.error(`User data dir: ${userDataDir}`);
+
+  // Check puppeteer is installed
+  if (!checkPuppeteer()) {
+    process.exit(1);
+  }
+
+  const puppeteer = require('puppeteer');
+
+  let browser = null;
+
+  try {
+    // Launch Chrome with a user data directory
+    browser = await puppeteer.launch({
+      headless: 'new',
+      userDataDir: userDataDir,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+      ]
+    });
+
+    // Get the WebSocket endpoint
+    const wsEndpoint = browser.wsEndpoint();
+    console.error(`Browser WebSocket: ${wsEndpoint}`);
+
+    // Create a new page
+    const page = await browser.newPage();
+
+    // Navigate to URL
+    await page.goto(url, {
+      timeout,
+      waitUntil: 'networkidle2'
+    });
+
+    // Get the page target for later use
+    const target = page.target();
+    const pageUrl = `${wsEndpoint}/page/${target._targetId}`;
+
+    console.error(`Page loaded successfully`);
+    console.error(`Page target: ${pageUrl}`);
+
+    // Write to .env file
+    const envPath = path.join(process.cwd(), '.env');
+    const envContent = `
+# Chrome browser connection info (written by puppeteer extractor)
+CHROME_CDP_URL="${wsEndpoint}"
+CHROME_PAGE_TARGET_ID="${target._targetId}"
+CHROME_USER_DATA_DIR="${userDataDir}"
+`;
+
+    fs.appendFileSync(envPath, envContent);
+    console.error(`✓ Wrote CDP info to .env`);
+
+    // Output the .env file path
+    console.log('.env');
+
+    // IMPORTANT: Don't close the browser - other extractors will use it
+    // The browser process will stay running until other extractors finish
+    console.error('⚠ Browser left running for other extractors');
+
+    process.exit(0);
+
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (closeErr) {
+        // Ignore close errors
+      }
+    }
+
+    process.exit(1);
+  }
+}
+
+main();
