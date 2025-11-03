@@ -1,0 +1,89 @@
+#!/usr/bin/env node
+//
+// Title Extractor
+// Extracts the page title from a given URL
+//
+// Usage: title <url>
+// Output: title.txt in current directory
+// Config: All configuration via environment variables
+//   TITLE_TIMEOUT - Timeout in milliseconds (default: 10000)
+//   TITLE_USER_AGENT - User agent string
+//
+
+const https = require('https');
+const http = require('http');
+const fs = require('fs');
+const { URL } = require('url');
+
+const url = process.argv[2];
+
+if (!url) {
+  console.error('Error: URL argument required');
+  process.exit(1);
+}
+
+// Configuration from environment
+const TIMEOUT = parseInt(process.env.TITLE_TIMEOUT || '10000', 10);
+const USER_AGENT = process.env.TITLE_USER_AGENT || 'Mozilla/5.0 (compatible; ArchiveBox-TS/0.1)';
+
+console.error(`Extracting title from: ${url}`);
+
+// Parse URL
+let parsedUrl;
+try {
+  parsedUrl = new URL(url);
+} catch (err) {
+  console.error(`Error: Invalid URL: ${err.message}`);
+  process.exit(1);
+}
+
+// Choose http or https module
+const client = parsedUrl.protocol === 'https:' ? https : http;
+
+// Make request
+const options = {
+  headers: {
+    'User-Agent': USER_AGENT,
+  },
+  timeout: TIMEOUT,
+};
+
+client.get(url, options, (res) => {
+  let html = '';
+
+  res.on('data', (chunk) => {
+    html += chunk;
+
+    // Early exit if we found the title (optimization)
+    if (html.includes('</title>')) {
+      res.destroy();
+    }
+  });
+
+  res.on('end', () => {
+    // Extract title using regex
+    const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/is);
+
+    if (titleMatch && titleMatch[1]) {
+      const title = titleMatch[1]
+        .replace(/<[^>]*>/g, '') // Remove any HTML tags
+        .replace(/\s+/g, ' ')     // Normalize whitespace
+        .trim();
+
+      // Write to file
+      fs.writeFileSync('title.txt', title, 'utf8');
+      console.error(`✓ Extracted title: ${title}`);
+      console.log('title.txt');
+      process.exit(0);
+    } else {
+      console.error('Warning: Could not find title tag');
+      process.exit(1);
+    }
+  });
+}).on('error', (err) => {
+  console.error(`Error: ${err.message}`);
+  process.exit(1);
+}).on('timeout', () => {
+  console.error('Error: Request timeout');
+  process.exit(1);
+});

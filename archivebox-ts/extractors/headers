@@ -1,0 +1,85 @@
+#!/bin/bash
+#
+# Headers Extractor
+# Extracts HTTP headers from a given URL
+#
+# Usage: headers <url>
+# Output: headers.json in current directory
+# Config: All configuration via environment variables
+#   HEADERS_TIMEOUT - Timeout in seconds (default: 10)
+#   HEADERS_USER_AGENT - User agent string
+#
+
+set -e
+
+URL="$1"
+
+if [ -z "$URL" ]; then
+  echo "Error: URL argument required" >&2
+  exit 1
+fi
+
+# Auto-install dependencies
+if ! command -v curl &> /dev/null; then
+  echo "Installing curl..." >&2
+  if command -v apt-get &> /dev/null; then
+    sudo apt-get update && sudo apt-get install -y curl
+  elif command -v yum &> /dev/null; then
+    sudo yum install -y curl
+  elif command -v brew &> /dev/null; then
+    brew install curl
+  else
+    echo "Error: Cannot install curl. Please install manually." >&2
+    exit 1
+  fi
+fi
+
+# Configuration from environment
+TIMEOUT="${HEADERS_TIMEOUT:-10}"
+USER_AGENT="${HEADERS_USER_AGENT:-Mozilla/5.0 (compatible; ArchiveBox-TS/0.1)}"
+
+echo "Extracting headers from: $URL" >&2
+
+# Get headers using curl
+HEADERS=$(curl -I -L -s --max-time "$TIMEOUT" --user-agent "$USER_AGENT" "$URL" 2>&1 || echo "")
+
+if [ -z "$HEADERS" ]; then
+  echo "Error: Failed to fetch headers" >&2
+  exit 1
+fi
+
+# Convert headers to JSON format (simple key-value pairs)
+echo "{" > headers.json
+
+# Parse headers line by line
+FIRST=1
+while IFS=: read -r key value; do
+  # Skip empty lines and HTTP status line
+  if [ -z "$key" ] || [[ "$key" =~ ^HTTP ]]; then
+    continue
+  fi
+
+  # Clean up key and value
+  key=$(echo "$key" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  value=$(echo "$value" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+  if [ -n "$key" ] && [ -n "$value" ]; then
+    # Escape quotes in value
+    value=$(echo "$value" | sed 's/"/\\"/g')
+
+    # Add comma if not first entry
+    if [ "$FIRST" -eq 0 ]; then
+      echo "," >> headers.json
+    fi
+
+    echo -n "  \"$key\": \"$value\"" >> headers.json
+    FIRST=0
+  fi
+done <<< "$HEADERS"
+
+echo "" >> headers.json
+echo "}" >> headers.json
+
+echo "✓ Extracted headers to headers.json" >&2
+echo "headers.json"
+exit 0

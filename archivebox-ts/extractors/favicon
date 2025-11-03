@@ -1,0 +1,79 @@
+#!/bin/bash
+#
+# Favicon Extractor
+# Downloads the favicon for a given URL
+#
+# Usage: favicon <url>
+# Output: favicon.ico or favicon.png in current directory
+# Config: All configuration via environment variables
+#   FAVICON_TIMEOUT - Timeout in seconds (default: 10)
+#
+
+set -e
+
+URL="$1"
+
+if [ -z "$URL" ]; then
+  echo "Error: URL argument required" >&2
+  exit 1
+fi
+
+# Auto-install dependencies
+if ! command -v curl &> /dev/null; then
+  echo "Installing curl..." >&2
+  if command -v apt-get &> /dev/null; then
+    sudo apt-get update && sudo apt-get install -y curl
+  elif command -v yum &> /dev/null; then
+    sudo yum install -y curl
+  elif command -v brew &> /dev/null; then
+    brew install curl
+  else
+    echo "Error: Cannot install curl. Please install manually." >&2
+    exit 1
+  fi
+fi
+
+# Configuration from environment
+TIMEOUT="${FAVICON_TIMEOUT:-10}"
+
+# Extract domain from URL
+DOMAIN=$(echo "$URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||')
+
+echo "Extracting favicon for $DOMAIN..." >&2
+
+# Try common favicon locations
+FAVICON_URLS=(
+  "https://${DOMAIN}/favicon.ico"
+  "http://${DOMAIN}/favicon.ico"
+  "https://${DOMAIN}/favicon.png"
+  "http://${DOMAIN}/favicon.png"
+)
+
+SUCCESS=0
+
+for FAVICON_URL in "${FAVICON_URLS[@]}"; do
+  echo "Trying: $FAVICON_URL" >&2
+
+  # Determine output filename
+  EXT="${FAVICON_URL##*.}"
+  OUTPUT="favicon.${EXT}"
+
+  if curl -L -f -s --max-time "$TIMEOUT" -o "$OUTPUT" "$FAVICON_URL" 2>/dev/null; then
+    # Check if file is not empty
+    if [ -s "$OUTPUT" ]; then
+      echo "✓ Downloaded favicon: $OUTPUT" >&2
+      echo "$OUTPUT"
+      SUCCESS=1
+      break
+    else
+      rm -f "$OUTPUT"
+    fi
+  fi
+done
+
+if [ "$SUCCESS" -eq 0 ]; then
+  echo "Warning: Could not download favicon" >&2
+  exit 1
+fi
+
+exit 0

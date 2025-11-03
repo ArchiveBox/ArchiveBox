@@ -1,0 +1,75 @@
+#!/bin/bash
+#
+# Wget Extractor
+# Downloads a complete copy of the page using wget
+#
+# Usage: wget <url>
+# Output: Files in current directory
+# Config: All configuration via environment variables
+#   WGET_TIMEOUT - Timeout in seconds (default: 60)
+#   WGET_USER_AGENT - User agent string
+#   WGET_ARGS - Additional wget arguments
+#
+
+set -e
+
+URL="$1"
+
+if [ -z "$URL" ]; then
+  echo "Error: URL argument required" >&2
+  exit 1
+fi
+
+# Auto-install dependencies
+if ! command -v wget &> /dev/null; then
+  echo "Installing wget..." >&2
+  if command -v apt-get &> /dev/null; then
+    sudo apt-get update && sudo apt-get install -y wget
+  elif command -v yum &> /dev/null; then
+    sudo yum install -y wget
+  elif command -v brew &> /dev/null; then
+    brew install wget
+  else
+    echo "Error: Cannot install wget. Please install manually." >&2
+    exit 1
+  fi
+fi
+
+# Configuration from environment
+TIMEOUT="${WGET_TIMEOUT:-60}"
+USER_AGENT="${WGET_USER_AGENT:-Mozilla/5.0 (compatible; ArchiveBox-TS/0.1)}"
+EXTRA_ARGS="${WGET_ARGS:-}"
+
+echo "Downloading with wget: $URL" >&2
+
+# Create warc directory
+mkdir -p warc
+
+# Run wget with WARC output
+wget \
+  --timeout="$TIMEOUT" \
+  --user-agent="$USER_AGENT" \
+  --adjust-extension \
+  --convert-links \
+  --page-requisites \
+  --span-hosts \
+  --no-parent \
+  --warc-file="warc/archive" \
+  --warc-cdx \
+  $EXTRA_ARGS \
+  "$URL" 2>&1 || true
+
+if [ -f "warc/archive.warc.gz" ]; then
+  echo "✓ Created WARC archive" >&2
+  echo "warc/archive.warc.gz"
+  exit 0
+else
+  echo "Warning: WARC file not created" >&2
+  # Still succeed if we downloaded something
+  if [ -n "$(ls -A 2>/dev/null)" ]; then
+    echo "✓ Downloaded files" >&2
+    echo "."
+    exit 0
+  fi
+  exit 1
+fi

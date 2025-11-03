@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+#
+# Screenshot Extractor
+# Captures a screenshot of a given URL using Playwright
+#
+# Usage: screenshot <url>
+# Output: screenshot.png in current directory
+# Config: All configuration via environment variables
+#   SCREENSHOT_TIMEOUT - Timeout in milliseconds (default: 30000)
+#   SCREENSHOT_WIDTH - Viewport width (default: 1920)
+#   SCREENSHOT_HEIGHT - Viewport height (default: 1080)
+#   SCREENSHOT_WAIT - Time to wait before screenshot in ms (default: 1000)
+#
+
+import sys
+import os
+import subprocess
+
+def ensure_playwright():
+    """Auto-install playwright if not available"""
+    try:
+        from playwright.sync_api import sync_playwright
+        return True
+    except ImportError:
+        print("Installing playwright...", file=sys.stderr)
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "playwright"])
+            subprocess.check_call([sys.executable, "-m", "playwright", "install", "chromium"])
+            from playwright.sync_api import sync_playwright
+            return True
+        except Exception as e:
+            print(f"Error installing playwright: {e}", file=sys.stderr)
+            return False
+
+def main():
+    if len(sys.argv) < 2:
+        print("Error: URL argument required", file=sys.stderr)
+        sys.exit(1)
+
+    url = sys.argv[1]
+
+    # Configuration from environment
+    timeout = int(os.environ.get('SCREENSHOT_TIMEOUT', '30000'))
+    width = int(os.environ.get('SCREENSHOT_WIDTH', '1920'))
+    height = int(os.environ.get('SCREENSHOT_HEIGHT', '1080'))
+    wait = int(os.environ.get('SCREENSHOT_WAIT', '1000'))
+
+    print(f"Capturing screenshot of: {url}", file=sys.stderr)
+
+    # Ensure playwright is installed
+    if not ensure_playwright():
+        sys.exit(1)
+
+    from playwright.sync_api import sync_playwright
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page(viewport={'width': width, 'height': height})
+            page.goto(url, timeout=timeout, wait_until='networkidle')
+
+            # Wait a bit for any dynamic content
+            page.wait_for_timeout(wait)
+
+            page.screenshot(path='screenshot.png', full_page=True)
+            browser.close()
+
+            print("✓ Captured screenshot: screenshot.png", file=sys.stderr)
+            print("screenshot.png")
+            sys.exit(0)
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()
