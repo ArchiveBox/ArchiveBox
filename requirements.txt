@@ -44,4 +44,4 @@ tzlocal==5.2
 urllib3==2.2.3
 w3lib==2.2.1
 wcwidth==0.2.13
-yt-dlp==2024.12.13
+yt-dlp[default]==2025.11.12
