@@ -12,6 +12,7 @@ import type { ExtractorName } from './models';
 // 2captcha must run FIRST to download/configure extensions before Chrome launches
 // puppeteer runs second to launch Chrome with the extensions
 // downloads, images, and infiniscroll run early to capture dynamic content
+// outlinks runs LAST to extract URLs from all output files
 export const EXTRACTOR_ORDER: string[] = [
   '2captcha',    // Downloads and configures Chrome extensions (2captcha, singlefile, etc.)
   'puppeteer',   // Launches Chrome with extensions and writes CDP URL to .env
@@ -31,6 +32,7 @@ export const EXTRACTOR_ORDER: string[] = [
   'git',         // Clones git repository (independent)
   'media',       // Downloads media with yt-dlp (independent)
   'archive_org', // Submits to Internet Archive (independent)
+  'outlinks',    // Extracts URLs from all output files (runs last)
 ];
 
 export interface ExtractorInfo {

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Extractor: outlinks
+# Description: Extracts all URLs from output files in the snapshot directory
+# Dependencies: grep, sort, uniq
+# Outputs: outlinks.txt (one URL per line, sorted and deduplicated)
+
+set -e
+
+# CWD is the snapshot directory
+SNAPSHOT_DIR="$(pwd)"
+OUTPUT_FILE="outlinks.txt"
+
+# URL regex pattern that matches http(s):// URLs
+# This pattern is fairly permissive to catch various URL formats
+URL_PATTERN='https?://[a-zA-Z0-9@:%._+~#?&/=-]+'
+
+# Find all files in the snapshot directory (excluding outlinks.txt itself)
+# Pass them through grep to find URLs
+# Truncate each URL at 2000 chars
+# Sort and deduplicate
+# Output to outlinks.txt
+
+# Find all files and extract URLs
+find . -type f ! -name "outlinks.txt" ! -name ".env" -exec cat {} + 2>/dev/null | \
+  grep -oE "$URL_PATTERN" 2>/dev/null | \
+  cut -c 1-2000 | \
+  sort -u > "$OUTPUT_FILE" || true
+
+# Count how many URLs were found
+URL_COUNT=$(wc -l < "$OUTPUT_FILE" | tr -d ' ')
+
+echo "[outlinks] Found $URL_COUNT unique URLs"
+
+# Output success
+echo "$OUTPUT_FILE"

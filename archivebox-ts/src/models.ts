@@ -23,7 +23,8 @@ export type ExtractorName =
   | 'wget'
   | 'git'
   | 'media'
-  | 'archive_org';
+  | 'archive_org'
+  | 'outlinks';
 
 /**
  * Snapshot represents a single URL being archived
