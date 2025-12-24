@@ -21,7 +21,6 @@ class SeedSchema(Schema):
     TYPE: str = 'crawls.models.Seed'
 
     id: UUID
-    abid: str
     
     modified_at: datetime
     created_at: datetime
@@ -52,7 +51,7 @@ def get_seed(request, seed_id: str):
     request.with_archiveresults = False
     
     try:
-        seed = Seed.objects.get(Q(abid__icontains=seed_id) | Q(id__icontains=seed_id))
+        seed = Seed.objects.get(Q(id__icontains=seed_id))
     except Exception:
         pass
     return seed
@@ -62,7 +61,6 @@ class CrawlSchema(Schema):
     TYPE: str = 'crawls.models.Crawl'
 
     id: UUID
-    abid: str
 
     modified_at: datetime
     created_at: datetime
@@ -99,21 +97,10 @@ def get_crawls(request):
 
 @router.get("/crawl/{crawl_id}", response=CrawlSchema | str, url_name="get_crawl")
 def get_crawl(request, crawl_id: str, as_rss: bool=False, with_snapshots: bool=False, with_archiveresults: bool=False):
-    """Get a specific Crawl by id or abid."""
-    
-    crawl = None
+    """Get a specific Crawl by id."""
     request.with_snapshots = with_snapshots
     request.with_archiveresults = with_archiveresults
-    
-    try:
-        crawl = Crawl.objects.get(abid__icontains=crawl_id)
-    except Exception:
-        pass
-
-    try:
-        crawl = crawl or Crawl.objects.get(id__icontains=crawl_id)
-    except Exception:
-        pass
+    crawl = Crawl.objects.get(id__icontains=crawl_id)
     
     if crawl and as_rss:
         # return snapshots as XML rss feed

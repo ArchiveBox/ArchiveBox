@@ -21,7 +21,7 @@ class CustomUserAdmin(UserAdmin):
             format_html(
                 '<code><a href="/admin/core/snapshot/{}/change"><b>[{}]</b></a></code> <b>📅 {}</b> {}',
                 snap.pk,
-                snap.abid,
+                str(snap.id)[:8],
                 snap.downloaded_at.strftime('%Y-%m-%d %H:%M') if snap.downloaded_at else 'pending...',
                 snap.url[:64],
             )
@@ -35,7 +35,7 @@ class CustomUserAdmin(UserAdmin):
             format_html(
                 '<code><a href="/admin/core/archiveresult/{}/change"><b>[{}]</b></a></code> <b>📅 {}</b> <b>📄 {}</b> {}',
                 result.pk,
-                result.abid,
+                str(result.id)[:8],
                 result.snapshot.downloaded_at.strftime('%Y-%m-%d %H:%M') if result.snapshot.downloaded_at else 'pending...',
                 result.extractor,
                 result.snapshot.url[:64],
@@ -62,7 +62,7 @@ class CustomUserAdmin(UserAdmin):
             format_html(
                 '<code><a href="/admin/api/apitoken/{}/change"><b>[{}]</b></a></code> {} (expires {})',
                 apitoken.pk,
-                apitoken.abid,
+                str(apitoken.id)[:8],
                 apitoken.token_redacted[:64],
                 apitoken.expires,
             )
@@ -76,7 +76,7 @@ class CustomUserAdmin(UserAdmin):
             format_html(
                 '<code><a href="/admin/api/outboundwebhook/{}/change"><b>[{}]</b></a></code> {} -> {}',
                 outboundwebhook.pk,
-                outboundwebhook.abid,
+                str(outboundwebhook.id)[:8],
                 outboundwebhook.referenced_model,
                 outboundwebhook.endpoint,
             )

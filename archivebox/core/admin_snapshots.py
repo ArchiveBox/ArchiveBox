@@ -22,7 +22,7 @@ from archivebox.search.admin import SearchResultsAdminMixin
 from archivebox.index.html import snapshot_icons
 from archivebox.extractors import archive_links
 
-from archivebox.base_models.admin import ABIDModelAdmin
+from archivebox.base_models.admin import BaseModelAdmin
 from archivebox.workers.tasks import bg_archive_links, bg_add
 
 from core.models import Tag
@@ -53,11 +53,11 @@ class SnapshotActionForm(ActionForm):
     # )
 
 
-class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
+class SnapshotAdmin(SearchResultsAdminMixin, BaseModelAdmin):
     list_display = ('created_at', 'title_str', 'status', 'files', 'size', 'url_str')
     sort_fields = ('title_str', 'url_str', 'created_at', 'status', 'crawl')
-    readonly_fields = ('admin_actions', 'status_info', 'tags_str', 'imported_timestamp', 'created_at', 'modified_at', 'downloaded_at', 'abid_info', 'link_dir')
-    search_fields = ('id', 'url', 'abid', 'timestamp', 'title', 'tags__name')
+    readonly_fields = ('admin_actions', 'status_info', 'tags_str', 'imported_timestamp', 'created_at', 'modified_at', 'downloaded_at', 'link_dir')
+    search_fields = ('id', 'url', 'timestamp', 'title', 'tags__name')
     list_filter = ('created_at', 'downloaded_at', 'archiveresult__status', 'created_by', 'tags__name')
     fields = ('url', 'title', 'created_by', 'bookmarked_at', 'status', 'retry_at', 'crawl', *readonly_fields)
     ordering = ['-created_at']

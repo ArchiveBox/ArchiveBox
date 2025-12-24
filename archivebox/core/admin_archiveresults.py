@@ -16,7 +16,7 @@ import abx
 from archivebox.config import DATA_DIR
 from archivebox.config.common import SERVER_CONFIG
 from archivebox.misc.paginators import AccelleratedPaginator
-from archivebox.base_models.admin import ABIDModelAdmin
+from archivebox.base_models.admin import BaseModelAdmin
 
 
 from core.models import ArchiveResult, Snapshot
@@ -50,7 +50,7 @@ class ArchiveResultInline(admin.TabularInline):
         try:
             return self.parent_model.objects.get(pk=resolved.kwargs['object_id'])
         except (self.parent_model.DoesNotExist, ValidationError):
-            return self.parent_model.objects.get(pk=self.parent_model.id_from_abid(resolved.kwargs['object_id']))
+            return None
 
     @admin.display(
         description='Completed',
@@ -60,7 +60,7 @@ class ArchiveResultInline(admin.TabularInline):
         return format_html('<p style="white-space: nowrap">{}</p>', obj.end_ts.strftime('%Y-%m-%d %H:%M:%S'))
 
     def result_id(self, obj):
-        return format_html('<a href="{}"><code style="font-size: 10px">[{}]</code></a>', reverse('admin:core_archiveresult_change', args=(obj.id,)), obj.abid)
+        return format_html('<a href="{}"><code style="font-size: 10px">[{}]</code></a>', reverse('admin:core_archiveresult_change', args=(obj.id,)), str(obj.id)[:8])
     
     def command(self, obj):
         return format_html('<small><code>{}</code></small>', " ".join(obj.cmd or []))
@@ -103,11 +103,11 @@ class ArchiveResultInline(admin.TabularInline):
 
 
 
-class ArchiveResultAdmin(ABIDModelAdmin):
-    list_display = ('abid', 'created_by', 'created_at', 'snapshot_info', 'tags_str', 'status', 'extractor', 'cmd_str', 'output_str')
-    sort_fields = ('abid', 'created_by', 'created_at', 'extractor', 'status')
-    readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'abid_info', 'output_summary')
-    search_fields = ('id', 'abid', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
+class ArchiveResultAdmin(BaseModelAdmin):
+    list_display = ('id', 'created_by', 'created_at', 'snapshot_info', 'tags_str', 'status', 'extractor', 'cmd_str', 'output_str')
+    sort_fields = ('id', 'created_by', 'created_at', 'extractor', 'status')
+    readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary')
+    search_fields = ('id', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
     fields = ('snapshot', 'extractor', 'status', 'retry_at', 'start_ts', 'end_ts', 'created_by', 'pwd', 'cmd_version', 'cmd', 'output', *readonly_fields)
     autocomplete_fields = ['snapshot']
 
@@ -135,7 +135,7 @@ class ArchiveResultAdmin(ABIDModelAdmin):
         return format_html(
             '<a href="/archive/{}/index.html"><b><code>[{}]</code></b> &nbsp; {} &nbsp; {}</a><br/>',
             result.snapshot.timestamp,
-            result.snapshot.abid,
+            str(result.snapshot.id)[:8],
             result.snapshot.bookmarked_at.strftime('%Y-%m-%d %H:%M'),
             result.snapshot.url[:128],
         )

@@ -22,7 +22,7 @@ ORCHESTRATOR = None
 
 @enforce_types
 def extract(archiveresult_id: str) -> Generator['ArchiveResult', None, None]:
-    archiveresult = ArchiveResult.objects.get(Q(id=archiveresult_id) | Q(abid=archiveresult_id))
+    archiveresult = ArchiveResult.objects.get(id=archiveresult_id)
     if not archiveresult:
         raise Exception(f'ArchiveResult {archiveresult_id} not found')
     

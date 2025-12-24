@@ -43,7 +43,7 @@ class SnapshotMachine(StateMachine, strict_states=True):
         super().__init__(snapshot, *args, **kwargs)
         
     def __repr__(self) -> str:
-        return f'[grey53]Snapshot\\[{self.snapshot.ABID}] 🏃‍♂️ Worker\\[pid={os.getpid()}].tick()[/grey53] [blue]{self.snapshot.status.upper()}[/blue] ⚙️ [grey37]Machine[/grey37]'
+        return f'[grey53]Snapshot\\[{self.snapshot.id}] 🏃‍♂️ Worker\\[pid={os.getpid()}].tick()[/grey53] [blue]{self.snapshot.status.upper()}[/blue] ⚙️ [grey37]Machine[/grey37]'
     
     def __str__(self) -> str:
         return self.__repr__()
@@ -92,11 +92,6 @@ class SnapshotMachine(StateMachine, strict_states=True):
             retry_at=timezone.now() + timedelta(seconds=5),  # wait 5s before checking it again
             status=Snapshot.StatusChoices.STARTED,
         )
-        
-        # run_subcommand([
-        #     'archivebox', 'snapshot', self.snapshot.ABID,
-        #     '--start',
-        # ])
         
     @sealed.enter
     def enter_sealed(self):
@@ -160,7 +155,7 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
         super().__init__(archiveresult, *args, **kwargs)
     
     def __repr__(self) -> str:
-        return f'[grey53]ArchiveResult\\[{self.archiveresult.ABID}] 🏃‍♂️ Worker\\[pid={os.getpid()}].tick()[/grey53] [blue]{self.archiveresult.status.upper()}[/blue] ⚙️ [grey37]Machine[/grey37]'
+        return f'[grey53]ArchiveResult\\[{self.archiveresult.id}] 🏃‍♂️ Worker\\[pid={os.getpid()}].tick()[/grey53] [blue]{self.archiveresult.status.upper()}[/blue] ⚙️ [grey37]Machine[/grey37]'
     
     def __str__(self) -> str:
         return self.__repr__()
@@ -207,11 +202,7 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
             status=ArchiveResult.StatusChoices.QUEUED,
             start_ts=timezone.now(),
         )   # lock the obj for the next ~30s to limit racing with other workers
-        
-        # run_subcommand([
-        #     'archivebox', 'extract', self.archiveresult.ABID,
-        # ])
-        
+
         # create the output directory and fork the new extractor job subprocess
         self.archiveresult.create_output_dir()
         # self.archiveresult.extract(background=True)

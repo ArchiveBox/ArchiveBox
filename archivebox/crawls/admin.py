@@ -5,18 +5,18 @@ from django.contrib import admin
 
 from archivebox import DATA_DIR
 
-from archivebox.base_models.admin import ABIDModelAdmin
+from archivebox.base_models.admin import BaseModelAdmin
 
 from core.models import Snapshot
 from crawls.models import Seed, Crawl, CrawlSchedule
 
 
-class SeedAdmin(ABIDModelAdmin):
-    list_display = ('abid', 'created_at', 'created_by', 'label', 'notes', 'uri', 'extractor', 'tags_str', 'crawls', 'num_crawls', 'num_snapshots')
-    sort_fields = ('abid', 'created_at', 'created_by', 'label', 'notes', 'uri', 'extractor', 'tags_str')
-    search_fields = ('abid', 'created_by__username', 'label', 'notes', 'uri', 'extractor', 'tags_str')
-    
-    readonly_fields = ('created_at', 'modified_at', 'abid_info', 'scheduled_crawls', 'crawls', 'snapshots', 'contents')
+class SeedAdmin(BaseModelAdmin):
+    list_display = ('id', 'created_at', 'created_by', 'label', 'notes', 'uri', 'extractor', 'tags_str', 'crawls', 'num_crawls', 'num_snapshots')
+    sort_fields = ('id', 'created_at', 'created_by', 'label', 'notes', 'uri', 'extractor', 'tags_str')
+    search_fields = ('id', 'created_by__username', 'label', 'notes', 'uri', 'extractor', 'tags_str')
+
+    readonly_fields = ('created_at', 'modified_at', 'scheduled_crawls', 'crawls', 'snapshots', 'contents')
     fields = ('label', 'notes', 'uri', 'extractor', 'tags_str', 'config', 'created_by', *readonly_fields)
 
     list_filter = ('extractor', 'created_by')
@@ -64,12 +64,12 @@ class SeedAdmin(ABIDModelAdmin):
 
 
 
-class CrawlAdmin(ABIDModelAdmin):
-    list_display = ('abid', 'created_at', 'created_by', 'max_depth', 'label', 'notes', 'seed_str', 'schedule_str', 'status', 'retry_at', 'num_snapshots')
-    sort_fields = ('abid', 'created_at', 'created_by', 'max_depth', 'label', 'notes', 'seed_str', 'schedule_str', 'status', 'retry_at')
-    search_fields = ('abid', 'created_by__username', 'max_depth', 'label', 'notes', 'seed_id', 'seed__abid', 'schedule_id', 'schedule__abid', 'status', 'seed__uri')
-    
-    readonly_fields = ('created_at', 'modified_at', 'abid_info', 'snapshots', 'seed_contents')
+class CrawlAdmin(BaseModelAdmin):
+    list_display = ('id', 'created_at', 'created_by', 'max_depth', 'label', 'notes', 'seed_str', 'schedule_str', 'status', 'retry_at', 'num_snapshots')
+    sort_fields = ('id', 'created_at', 'created_by', 'max_depth', 'label', 'notes', 'seed_str', 'schedule_str', 'status', 'retry_at')
+    search_fields = ('id', 'created_by__username', 'max_depth', 'label', 'notes', 'seed_id', 'schedule_id', 'status', 'seed__uri')
+
+    readonly_fields = ('created_at', 'modified_at', 'snapshots', 'seed_contents')
     fields = ('label', 'notes', 'urls', 'status', 'retry_at', 'max_depth', 'seed', 'schedule', 'created_by', *readonly_fields)
 
     list_filter = ('max_depth', 'seed', 'schedule', 'created_by', 'status', 'retry_at')
@@ -116,12 +116,12 @@ class CrawlAdmin(ABIDModelAdmin):
 
 
 
-class CrawlScheduleAdmin(ABIDModelAdmin):
-    list_display = ('abid', 'created_at', 'created_by', 'label', 'notes', 'template_str', 'crawls', 'num_crawls', 'num_snapshots')
-    sort_fields = ('abid', 'created_at', 'created_by', 'label', 'notes', 'template_str')
-    search_fields = ('abid', 'created_by__username', 'label', 'notes', 'schedule_id', 'schedule__abid', 'template_id', 'template__abid', 'template__seed__uri')
-    
-    readonly_fields = ('created_at', 'modified_at', 'abid_info', 'crawls', 'snapshots')
+class CrawlScheduleAdmin(BaseModelAdmin):
+    list_display = ('id', 'created_at', 'created_by', 'label', 'notes', 'template_str', 'crawls', 'num_crawls', 'num_snapshots')
+    sort_fields = ('id', 'created_at', 'created_by', 'label', 'notes', 'template_str')
+    search_fields = ('id', 'created_by__username', 'label', 'notes', 'schedule_id', 'template_id', 'template__seed__uri')
+
+    readonly_fields = ('created_at', 'modified_at', 'crawls', 'snapshots')
     fields = ('label', 'notes', 'schedule', 'template', 'created_by', *readonly_fields)
 
     list_filter = ('created_by',)

@@ -205,7 +205,7 @@ class SnapshotView(View):
                     format_html(
                         (
                             '<center><br/><br/><br/>'
-                            'No Snapshot directories match the given timestamp/ID/ABID: <code>{}</code><br/><br/>'
+                            'No Snapshot directories match the given timestamp/ID: <code>{}</code><br/><br/>'
                             'You can <a href="/add/" target="_top">add a new Snapshot</a>, or return to the <a href="/" target="_top">Main Index</a>'
                             '</center>'
                         ),
@@ -230,7 +230,7 @@ class SnapshotView(View):
                 return HttpResponse(
                     format_html(
                         (
-                            'Multiple Snapshots match the given timestamp/ID/ABID <code>{}</code><br/><pre>'
+                            'Multiple Snapshots match the given timestamp/ID <code>{}</code><br/><pre>'
                         ),
                         slug,
                     ) + snapshot_hrefs + format_html(
@@ -282,34 +282,12 @@ class SnapshotView(View):
                     status=404,
                 )
             
-        # # slud is an ID
-        # ulid = slug.split('_', 1)[-1]
-        # try:
-        #     try:
-        #         snapshot = snapshot or Snapshot.objects.get(Q(abid=ulid) | Q(id=ulid))
-        #     except Snapshot.DoesNotExist:
-        #         pass
-
-        #     try:
-        #         snapshot = Snapshot.objects.get(Q(abid__startswith=slug) | Q(abid__startswith=Snapshot.abid_prefix + slug) | Q(id__startswith=slug))
-        #     except (Snapshot.DoesNotExist, Snapshot.MultipleObjectsReturned):
-        #         pass
-
-        #     try:
-        #         snapshot = snapshot or Snapshot.objects.get(Q(abid__icontains=snapshot_id) | Q(id__icontains=snapshot_id))
-        #     except Snapshot.DoesNotExist:
-        #         pass
-        #     return redirect(f'/archive/{snapshot.timestamp}/index.html')
-        # except Snapshot.DoesNotExist:
-        #     pass
-
         # slug is a URL
         try:
             try:
-                # try exact match on full url / ABID first
+                # try exact match on full url / ID first
                 snapshot = Snapshot.objects.get(
-                    Q(url='http://' + path) | Q(url='https://' + path) | Q(id__startswith=path)
-                    | Q(abid__icontains=path) | Q(id__icontains=path)
+                    Q(url='http://' + path) | Q(url='https://' + path) | Q(id__icontains=path)
                 )
             except Snapshot.DoesNotExist:
                 # fall back to match on exact base_url
@@ -345,7 +323,7 @@ class SnapshotView(View):
                 format_html(
                     '{} <code style="font-size: 0.8em">{}</code> <a href="/archive/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
                     snap.bookmarked_at.strftime('%Y-%m-%d %H:%M:%S'),
-                    snap.abid,
+                    str(snap.id)[:8],
                     snap.timestamp,
                     snap.timestamp,
                     snap.url,
@@ -353,7 +331,7 @@ class SnapshotView(View):
                 )
                 for snap in Snapshot.objects.filter(
                     Q(url__startswith='http://' + base_url(path)) | Q(url__startswith='https://' + base_url(path))
-                    | Q(abid__icontains=path) | Q(id__icontains=path)
+                    | Q(id__icontains=path)
                 ).only('url', 'timestamp', 'title', 'bookmarked_at').order_by('-bookmarked_at')
             )
             return HttpResponse(

@@ -1,7 +1,7 @@
 [project]
 name = "archivebox"
 version = "0.8.6rc3"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
 license = {text = "MIT"}
@@ -22,9 +22,7 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
     "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
@@ -41,7 +39,7 @@ classifiers = [
 dependencies = [
     ### Django libraries
     "setuptools>=74.1.0",   # for: django 5 on python >=3.12, distutils is no longer in stdlib but django 5.1 expects distutils (TODO: check if this can be removed eventually)
-    "django>=5.1.4,<6.0",
+    "django>=6.0",
     "channels[daphne]>=4.1.0",
     "django-ninja>=1.3.0",
     "django-extensions>=3.2.3",
@@ -50,7 +48,6 @@ dependencies = [
     "django-signal-webhooks>=0.3.0",
     "django-admin-data-views>=0.4.1",
     "django-object-actions>=4.3.0",
-    "django-charid-field>=0.4",  # TODO: remove this and dedicated ABID field in favor of using KVTag for charids
     "django-taggit==6.1.0",     # TODO: remove this in favor of KVTags only
 
     ### State Management
@@ -77,9 +74,6 @@ dependencies = [
     "pydantic>=2.8.0",       # for: archivebox.api (django-ninja), Binary & BinProvider (abx-pkg), archivebox.config (pydantic-settings), and archivebox.index.schema (pydantic)
     "pydantic-settings>=2.5.2", # for: archivebox.config
     "python-benedict[io,parse]>=0.33.2", # for: dict replacement all over the codebase to allow .attr-style access
-    "ulid-py>=1.1.0",        # TODO: remove this in favor of pure ABID / UUID4
-    "typeid-python>=0.3.1",  # TODO: remove this in favor of pure ABID / UUID4
-    "base32-crockford==0.3.0",  # TODO: remove this in favor of pure ABID / UUID4
     "blake3>=1.0.0",         # TODO: remove this in favor of sha256 everywhere?
     
     ### Static Typing

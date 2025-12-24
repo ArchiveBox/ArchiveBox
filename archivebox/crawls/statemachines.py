@@ -36,7 +36,7 @@ class CrawlMachine(StateMachine, strict_states=True):
         super().__init__(crawl, *args, **kwargs)
     
     def __repr__(self) -> str:
-        return f'[grey53]Crawl\\[{self.crawl.ABID}] 🏃‍♂️ Worker\\[pid={os.getpid()}].tick()[/grey53] [blue]{self.crawl.status.upper()}[/blue] ⚙️ [grey37]Machine[/grey37]'
+        return f'[grey53]Crawl\\[{self.crawl.id}] 🏃‍♂️ Worker\\[pid={os.getpid()}].tick()[/grey53] [blue]{self.crawl.status.upper()}[/blue] ⚙️ [grey37]Machine[/grey37]'
     
     def __str__(self) -> str:
         return self.__repr__()

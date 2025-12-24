@@ -6,7 +6,7 @@ from django.utils.html import format_html, mark_safe
 import abx
 
 from archivebox.misc.paginators import AccelleratedPaginator
-from archivebox.base_models.admin import ABIDModelAdmin
+from archivebox.base_models.admin import BaseModelAdmin
 
 from core.models import Tag
 
@@ -47,12 +47,12 @@ class TagInline(admin.TabularInline):
 #         return format_html('<a href="/admin/{}/{}/{}/change"><b>[{}]</b></a>', obj._meta.app_label, obj._meta.model_name, obj.pk, str(obj))
 
     
-class TagAdmin(ABIDModelAdmin):
-    list_display = ('created_at', 'created_by', 'abid', 'name', 'num_snapshots', 'snapshots')
+class TagAdmin(BaseModelAdmin):
+    list_display = ('created_at', 'created_by', 'id', 'name', 'num_snapshots', 'snapshots')
     list_filter = ('created_at', 'created_by')
-    sort_fields = ('name', 'slug', 'abid', 'created_by', 'created_at')
-    readonly_fields = ('slug', 'abid', 'created_at', 'modified_at', 'abid_info', 'snapshots')
-    search_fields = ('abid', 'name', 'slug')
+    sort_fields = ('name', 'slug', 'id', 'created_by', 'created_at')
+    readonly_fields = ('slug', 'id', 'created_at', 'modified_at', 'snapshots')
+    search_fields = ('id', 'name', 'slug')
     fields = ('name', 'created_by', *readonly_fields)
     actions = ['delete_selected', 'merge_tags']
     ordering = ['-created_at']

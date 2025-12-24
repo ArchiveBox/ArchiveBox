@@ -13,9 +13,8 @@ router = Router(tags=['Workers and Tasks'])
 
 class TaskSchema(Schema):
     TYPE: str
-    
+
     id: UUID
-    abid: str
     description: str
 
     status: str

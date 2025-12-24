@@ -13,7 +13,6 @@ from django.core import checks
 from django.utils import timezone
 from django.utils.functional import classproperty
 
-from base_models.models import ABIDModel, ABIDField
 from machine.models import Process
 
 from statemachine import registry, StateMachine, State
@@ -340,23 +339,8 @@ class EventQuerySet(models.QuerySet):
         return self.filter(claimed_at__lt=timezone.now() - timedelta(seconds=older_than))
 
 
-class Event(ABIDModel):
-    abid_prefix = 'evn_'
-    abid_ts_src = 'self.deliver_at'                  # e.g. 'self.created_at'
-    abid_uri_src = 'self.name'                       # e.g. 'self.uri'                (MUST BE SET)
-    abid_subtype_src = 'self.emitted_by'             # e.g. 'self.extractor'
-    abid_rand_src = 'self.id'                        # e.g. 'self.uuid' or 'self.id'
-    abid_drift_allowed: bool = False                 # set to True to allow abid_field values to change after a fixed ABID has been issued (NOT RECOMMENDED: means values can drift out of sync from original ABID)
-
-    read_only_fields = ('id', 'deliver_at', 'name', 'kwargs', 'timeout', 'parent', 'emitted_by', 'on_success', 'on_failure')
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, null=False, editable=False, unique=True, verbose_name='ID')
-    
-    # disable these fields from inherited models, they're not needed / take up too much room
-    abid = None
-    created_at = None
-    created_by = None
-    created_by_id = None
+class Event(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, null=False, editable=False, unique=True)
     
     # immutable fields
     deliver_at = models.DateTimeField(default=timezone.now, null=False, editable=False, unique=True, db_index=True)
