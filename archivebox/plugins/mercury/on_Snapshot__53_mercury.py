@@ -27,7 +27,7 @@ import rich_click as click
 EXTRACTOR_NAME = 'mercury'
 BIN_NAME = 'postlight-parser'
 BIN_PROVIDERS = 'npm,env'
-OUTPUT_DIR = 'mercury'
+OUTPUT_DIR = '.'
 
 
 def get_env(name: str, default: str = '') -> str:
@@ -72,9 +72,8 @@ def extract_mercury(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     timeout = get_env_int('TIMEOUT', 60)
 
-    # Create output directory
+    # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
-    output_dir.mkdir(exist_ok=True)
 
     try:
         # Get text version

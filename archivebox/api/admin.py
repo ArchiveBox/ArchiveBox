@@ -13,7 +13,21 @@ class APITokenAdmin(BaseModelAdmin):
     sort_fields = ('id', 'created_at', 'created_by', 'expires')
     readonly_fields = ('created_at', 'modified_at')
     search_fields = ('id', 'created_by__username', 'token')
-    fields = ('created_by', 'token', 'expires', *readonly_fields)
+
+    fieldsets = (
+        ('Token', {
+            'fields': ('token', 'expires'),
+            'classes': ('card',),
+        }),
+        ('Owner', {
+            'fields': ('created_by',),
+            'classes': ('card',),
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'modified_at'),
+            'classes': ('card',),
+        }),
+    )
 
     list_filter = ('created_by',)
     ordering = ['-created_at']
@@ -24,6 +38,29 @@ class CustomWebhookAdmin(WebhookAdmin, BaseModelAdmin):
     list_display = ('created_at', 'created_by', 'id', *WebhookAdmin.list_display)
     sort_fields = ('created_at', 'created_by', 'id', 'referenced_model', 'endpoint', 'last_success', 'last_error')
     readonly_fields = ('created_at', 'modified_at', *WebhookAdmin.readonly_fields)
+
+    fieldsets = (
+        ('Webhook', {
+            'fields': ('name', 'signal', 'referenced_model', 'endpoint'),
+            'classes': ('card', 'wide'),
+        }),
+        ('Authentication', {
+            'fields': ('auth_token',),
+            'classes': ('card',),
+        }),
+        ('Status', {
+            'fields': ('enabled', 'last_success', 'last_error'),
+            'classes': ('card',),
+        }),
+        ('Owner', {
+            'fields': ('created_by',),
+            'classes': ('card',),
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'modified_at'),
+            'classes': ('card',),
+        }),
+    )
 
 
 def register_admin(admin_site):

@@ -57,12 +57,23 @@
         box-shadow: 0 0 8px #3fb950;
         animation: pulse 2s infinite;
     }
+    #progress-monitor .status-dot.idle {
+        background: #d29922;
+        box-shadow: 0 0 4px #d29922;
+    }
     #progress-monitor .status-dot.stopped {
-        background: #f85149;
+        background: #6e7681;
+    }
+    #progress-monitor .status-dot.flash {
+        animation: flash 0.3s ease-out;
     }
     @keyframes pulse {
         0%, 100% { opacity: 1; box-shadow: 0 0 8px #3fb950; }
         50% { opacity: 0.6; box-shadow: 0 0 4px #3fb950; }
+    }
+    @keyframes flash {
+        0% { transform: scale(1.5); }
+        100% { transform: scale(1); }
     }
 
     /* Stats */
@@ -89,6 +100,19 @@
     #progress-monitor .stat-value.error { color: #f85149; }
     #progress-monitor .stat-value.warning { color: #d29922; }
     #progress-monitor .stat-value.info { color: #58a6ff; }
+    #progress-monitor .stat.clickable {
+        cursor: pointer;
+        padding: 2px 6px;
+        margin: -2px -6px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+    #progress-monitor .stat.clickable:hover {
+        background: rgba(255,255,255,0.1);
+    }
+    #progress-monitor .stat.clickable:active {
+        background: rgba(255,255,255,0.2);
+    }
 
     /* Toggle Button */
     #progress-monitor .toggle-btn {
@@ -259,47 +283,85 @@
         padding: 0 12px 8px;
     }
 
-    /* Extractor List */
+    /* Extractor List - Compact Badge Layout */
     #progress-monitor .extractor-list {
         padding: 8px 12px;
         background: rgba(0,0,0,0.2);
         border-top: 1px solid #21262d;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
     }
-    #progress-monitor .extractor-item {
+    #progress-monitor .extractor-badge {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 10px;
+        background: #21262d;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+    #progress-monitor .extractor-badge .progress-fill {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 0;
+        transition: width 0.3s ease-out;
+    }
+    #progress-monitor .extractor-badge .badge-content {
+        position: relative;
+        z-index: 1;
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 4px 0;
+        gap: 4px;
     }
-    #progress-monitor .extractor-icon {
-        font-size: 12px;
-        width: 16px;
-        text-align: center;
+    #progress-monitor .extractor-badge.queued {
+        color: #8b949e;
     }
-    #progress-monitor .extractor-icon.running {
+    #progress-monitor .extractor-badge.queued .progress-fill {
+        background: rgba(110, 118, 129, 0.2);
+        width: 0%;
+    }
+    #progress-monitor .extractor-badge.started {
         color: #d29922;
-        animation: spin 1s linear infinite;
     }
-    #progress-monitor .extractor-icon.success {
+    #progress-monitor .extractor-badge.started .progress-fill {
+        background: rgba(210, 153, 34, 0.3);
+        width: 50%;
+        animation: progress-pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes progress-pulse {
+        0%, 100% { opacity: 0.5; }
+        50% { opacity: 1; }
+    }
+    #progress-monitor .extractor-badge.succeeded {
         color: #3fb950;
     }
-    #progress-monitor .extractor-icon.failed {
+    #progress-monitor .extractor-badge.succeeded .progress-fill {
+        background: rgba(63, 185, 80, 0.25);
+        width: 100%;
+    }
+    #progress-monitor .extractor-badge.failed {
         color: #f85149;
     }
-    #progress-monitor .extractor-icon.pending {
-        color: #8b949e;
+    #progress-monitor .extractor-badge.failed .progress-fill {
+        background: rgba(248, 81, 73, 0.25);
+        width: 100%;
+    }
+    #progress-monitor .extractor-badge .badge-icon {
+        font-size: 10px;
+    }
+    #progress-monitor .extractor-badge.started .badge-icon {
+        animation: spin 1s linear infinite;
     }
     @keyframes spin {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
-    }
-    #progress-monitor .extractor-name {
-        flex: 1;
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-        font-size: 11px;
-    }
-    #progress-monitor .extractor-progress {
-        width: 60px;
     }
 
     /* Status Badge */
@@ -356,11 +418,11 @@
                     <span class="stat-label">Queued</span>
                     <span class="stat-value warning" id="total-queued">0</span>
                 </div>
-                <div class="stat">
+                <div class="stat clickable" id="stat-succeeded" title="Click to reset counter">
                     <span class="stat-label">Done</span>
                     <span class="stat-value success" id="total-succeeded">0</span>
                 </div>
-                <div class="stat">
+                <div class="stat clickable" id="stat-failed" title="Click to reset counter">
                     <span class="stat-label">Failed</span>
                     <span class="stat-value error" id="total-failed">0</span>
                 </div>
@@ -390,6 +452,24 @@
     let expandedCrawls = new Set(JSON.parse(localStorage.getItem('progress-monitor-expanded-crawls') || '[]'));
     let expandedSnapshots = new Set(JSON.parse(localStorage.getItem('progress-monitor-expanded-snapshots') || '[]'));
 
+    // Baselines for resettable counters
+    let succeededBaseline = parseInt(localStorage.getItem('progress-succeeded-baseline') || '0');
+    let failedBaseline = parseInt(localStorage.getItem('progress-failed-baseline') || '0');
+    let lastSucceeded = 0;
+    let lastFailed = 0;
+
+    // Click handlers for resetting counters
+    document.getElementById('stat-succeeded').addEventListener('click', function() {
+        succeededBaseline = lastSucceeded;
+        localStorage.setItem('progress-succeeded-baseline', succeededBaseline);
+        document.getElementById('total-succeeded').textContent = '0';
+    });
+    document.getElementById('stat-failed').addEventListener('click', function() {
+        failedBaseline = lastFailed;
+        localStorage.setItem('progress-failed-baseline', failedBaseline);
+        document.getElementById('total-failed').textContent = '0';
+    });
+
     function formatUrl(url) {
         try {
             const u = new URL(url);
@@ -400,24 +480,18 @@
     }
 
     function renderExtractor(extractor) {
-        const iconClass = extractor.status === 'started' ? 'running' :
-                         extractor.status === 'succeeded' ? 'success' :
-                         extractor.status === 'failed' ? 'failed' : 'pending';
         const icon = extractor.status === 'started' ? '&#8635;' :
                     extractor.status === 'succeeded' ? '&#10003;' :
                     extractor.status === 'failed' ? '&#10007;' : '&#9675;';
 
         return `
-            <div class="extractor-item">
-                <span class="extractor-icon ${iconClass}">${icon}</span>
-                <span class="extractor-name">${extractor.extractor}</span>
-                <div class="extractor-progress">
-                    <div class="progress-bar-container">
-                        <div class="progress-bar extractor ${extractor.status === 'started' ? 'indeterminate' : ''}"
-                             style="width: ${extractor.status === 'succeeded' ? '100' : extractor.status === 'failed' ? '100' : extractor.progress}%"></div>
-                    </div>
-                </div>
-            </div>
+            <span class="extractor-badge ${extractor.status}">
+                <span class="progress-fill"></span>
+                <span class="badge-content">
+                    <span class="badge-icon">${icon}</span>
+                    <span>${extractor.extractor}</span>
+                </span>
+            </span>
         `;
     }
 
@@ -427,10 +501,14 @@
         const statusIcon = snapshot.status === 'started' ? '&#8635;' : '&#128196;';
 
         let extractorHtml = '';
-        if (snapshot.active_extractors && snapshot.active_extractors.length > 0) {
+        if (snapshot.all_extractors && snapshot.all_extractors.length > 0) {
+            // Sort extractors alphabetically by name to prevent reordering on updates
+            const sortedExtractors = [...snapshot.all_extractors].sort((a, b) =>
+                a.extractor.localeCompare(b.extractor)
+            );
             extractorHtml = `
                 <div class="extractor-list" style="${isExpanded ? '' : 'display:none'}">
-                    ${snapshot.active_extractors.map(e => renderExtractor(e)).join('')}
+                    ${sortedExtractors.map(e => renderExtractor(e)).join('')}
                 </div>
             `;
         }
@@ -438,7 +516,7 @@
         return `
             <div class="snapshot-item" data-snapshot-key="${snapshotKey}">
                 <div class="snapshot-header" onclick="window.toggleSnapshot('${snapshotKey}')">
-                    <span class="expand-icon ${isExpanded ? 'expanded' : ''}">${snapshot.active_extractors?.length ? '&#9654;' : ''}</span>
+                    <span class="expand-icon ${isExpanded ? 'expanded' : ''}">${snapshot.all_extractors?.length ? '&#9654;' : ''}</span>
                     <span class="snapshot-icon">${statusIcon}</span>
                     <div class="snapshot-info">
                         <div class="snapshot-url">${formatUrl(snapshot.url)}</div>
@@ -469,6 +547,40 @@
             snapshotsHtml = crawl.active_snapshots.map(s => renderSnapshot(s, crawl.id)).join('');
         }
 
+        // Show warning if crawl is stuck (queued but can't start)
+        let warningHtml = '';
+        if (crawl.status === 'queued' && !crawl.can_start) {
+            warningHtml = `
+                <div style="padding: 8px 14px; background: rgba(248, 81, 73, 0.1); border-top: 1px solid #f85149; color: #f85149; font-size: 11px;">
+                    ⚠️ Crawl cannot start: ${crawl.seed_uri ? 'unknown error' : 'no seed URI'}
+                </div>
+            `;
+        } else if (crawl.status === 'queued' && crawl.retry_at_future) {
+            // Queued but retry_at is in future (was claimed by worker, will retry)
+            warningHtml = `
+                <div style="padding: 8px 14px; background: rgba(88, 166, 255, 0.1); border-top: 1px solid #58a6ff; color: #58a6ff; font-size: 11px;">
+                    🔄 Retrying in ${crawl.seconds_until_retry}s...${crawl.seed_uri ? ` (${crawl.seed_uri})` : ''}
+                </div>
+            `;
+        } else if (crawl.status === 'queued' && crawl.total_snapshots === 0) {
+            // Queued and waiting to be picked up by worker
+            warningHtml = `
+                <div style="padding: 8px 14px; background: rgba(210, 153, 34, 0.1); border-top: 1px solid #d29922; color: #d29922; font-size: 11px;">
+                    ⏳ Waiting for worker to pick up...${crawl.seed_uri ? ` (${crawl.seed_uri})` : ''}
+                </div>
+            `;
+        }
+
+        // Show snapshot info or URL count if no snapshots yet
+        let metaText = `depth: ${crawl.max_depth}`;
+        if (crawl.total_snapshots > 0) {
+            metaText += ` | ${crawl.total_snapshots} snapshots`;
+        } else if (crawl.urls_count > 0) {
+            metaText += ` | ${crawl.urls_count} URLs`;
+        } else if (crawl.seed_uri) {
+            metaText += ` | ${crawl.seed_uri.substring(0, 40)}${crawl.seed_uri.length > 40 ? '...' : ''}`;
+        }
+
         return `
             <div class="crawl-item" data-crawl-id="${crawl.id}">
                 <div class="crawl-header" onclick="window.toggleCrawl('${crawl.id}')">
@@ -476,10 +588,11 @@
                     <span class="crawl-icon">${statusIcon}</span>
                     <div class="crawl-info">
                         <div class="crawl-label">${crawl.label}</div>
-                        <div class="crawl-meta">depth: ${crawl.max_depth} | ${crawl.total_snapshots} snapshots</div>
+                        <div class="crawl-meta">${metaText}</div>
                     </div>
                     <div class="crawl-stats">
                         <span style="color:#3fb950">${crawl.completed_snapshots} done</span>
+                        <span style="color:#d29922">${crawl.started_snapshots || 0} active</span>
                         <span style="color:#8b949e">${crawl.pending_snapshots} pending</span>
                     </div>
                     <span class="status-badge ${crawl.status}">${crawl.status}</span>
@@ -490,6 +603,7 @@
                              style="width: ${crawl.progress}%"></div>
                     </div>
                 </div>
+                ${warningHtml}
                 <div class="crawl-body" style="${isExpanded ? '' : 'display:none'}">
                     <div class="snapshot-list">
                         ${snapshotsHtml}
@@ -542,25 +656,48 @@
                            data.snapshots_pending > 0 || data.snapshots_started > 0 ||
                            data.archiveresults_pending > 0 || data.archiveresults_started > 0;
 
-        // Update orchestrator status
+        // Update orchestrator status - show "Running" only when there's actual activity
+        // Don't distinguish between "Stopped" and "Idle" since orchestrator starts/stops frequently
         const dot = document.getElementById('orchestrator-dot');
         const text = document.getElementById('orchestrator-text');
-        if (data.orchestrator_running) {
-            dot.classList.remove('stopped');
+        const hasWorkers = data.total_workers > 0;
+
+        if (hasWorkers || hasActivity) {
+            dot.classList.remove('stopped', 'idle');
             dot.classList.add('running');
             text.textContent = 'Running';
         } else {
-            dot.classList.remove('running');
-            dot.classList.add('stopped');
-            text.textContent = 'Stopped';
+            // No activity - show as idle (whether orchestrator process exists or not)
+            dot.classList.remove('stopped', 'running');
+            dot.classList.add('idle');
+            text.textContent = 'Idle';
         }
+
+        // Pulse the dot to show we got fresh data
+        dot.classList.add('flash');
+        setTimeout(() => dot.classList.remove('flash'), 300);
 
         // Update stats
         document.getElementById('worker-count').textContent = data.total_workers;
         document.getElementById('total-queued').textContent =
             data.crawls_pending + data.snapshots_pending + data.archiveresults_pending;
-        document.getElementById('total-succeeded').textContent = data.archiveresults_succeeded;
-        document.getElementById('total-failed').textContent = data.archiveresults_failed;
+
+        // Store raw values and display relative to baseline
+        lastSucceeded = data.archiveresults_succeeded;
+        lastFailed = data.archiveresults_failed;
+
+        // If baseline is higher than current (e.g. after DB reset), reset baseline
+        if (succeededBaseline > lastSucceeded) {
+            succeededBaseline = 0;
+            localStorage.setItem('progress-succeeded-baseline', '0');
+        }
+        if (failedBaseline > lastFailed) {
+            failedBaseline = 0;
+            localStorage.setItem('progress-failed-baseline', '0');
+        }
+
+        document.getElementById('total-succeeded').textContent = lastSucceeded - succeededBaseline;
+        document.getElementById('total-failed').textContent = lastFailed - failedBaseline;
 
         // Render crawl tree
         if (data.active_crawls.length > 0) {

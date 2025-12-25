@@ -43,7 +43,7 @@ import rich_click as click
 EXTRACTOR_NAME = 'wget'
 BIN_NAME = 'wget'
 BIN_PROVIDERS = 'apt,brew,env'
-OUTPUT_DIR = 'wget'
+OUTPUT_DIR = '.'
 
 
 def get_env(name: str, default: str = '') -> str:
@@ -66,7 +66,7 @@ def get_env_int(name: str, default: int = 0) -> int:
         return default
 
 
-STATICFILE_DIR = 'staticfile'
+STATICFILE_DIR = '../staticfile'
 
 def has_staticfile_output() -> bool:
     """Check if staticfile extractor already downloaded this URL."""

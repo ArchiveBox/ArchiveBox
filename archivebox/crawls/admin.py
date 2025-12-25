@@ -8,6 +8,7 @@ from django.contrib import admin, messages
 from django.urls import path
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
+from django.db.models import Count, Q
 
 from archivebox import DATA_DIR
 
@@ -19,13 +20,155 @@ from core.models import Snapshot
 from crawls.models import Seed, Crawl, CrawlSchedule
 
 
+def render_snapshots_list(snapshots_qs, limit=20):
+    """Render a nice inline list view of snapshots with status, title, URL, and progress."""
+
+    snapshots = snapshots_qs.order_by('-created_at')[:limit].annotate(
+        total_results=Count('archiveresult'),
+        succeeded_results=Count('archiveresult', filter=Q(archiveresult__status='succeeded')),
+        failed_results=Count('archiveresult', filter=Q(archiveresult__status='failed')),
+    )
+
+    if not snapshots:
+        return mark_safe('<div style="color: #666; font-style: italic; padding: 8px 0;">No Snapshots yet...</div>')
+
+    # Status colors matching Django admin and progress monitor
+    status_colors = {
+        'queued': ('#6c757d', '#f8f9fa'),      # gray
+        'started': ('#856404', '#fff3cd'),     # amber
+        'sealed': ('#155724', '#d4edda'),      # green
+        'failed': ('#721c24', '#f8d7da'),      # red
+    }
+
+    rows = []
+    for snapshot in snapshots:
+        status = snapshot.status or 'queued'
+        color, bg = status_colors.get(status, ('#6c757d', '#f8f9fa'))
+
+        # Calculate progress
+        total = snapshot.total_results
+        done = snapshot.succeeded_results + snapshot.failed_results
+        progress_pct = int((done / total) * 100) if total > 0 else 0
+        progress_text = f'{done}/{total}' if total > 0 else '-'
+
+        # Truncate title and URL
+        title = (snapshot.title or 'Untitled')[:60]
+        if len(snapshot.title or '') > 60:
+            title += '...'
+        url_display = snapshot.url[:50]
+        if len(snapshot.url) > 50:
+            url_display += '...'
+
+        # Format date
+        date_str = snapshot.created_at.strftime('%Y-%m-%d %H:%M') if snapshot.created_at else '-'
+
+        rows.append(f'''
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 6px 8px; white-space: nowrap;">
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 10px;
+                                 font-size: 11px; font-weight: 500; text-transform: uppercase;
+                                 color: {color}; background: {bg};">{status}</span>
+                </td>
+                <td style="padding: 6px 8px; white-space: nowrap;">
+                    <a href="/archive/{snapshot.timestamp}/" style="text-decoration: none;">
+                        <img src="/archive/{snapshot.timestamp}/favicon.ico"
+                             style="width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;"
+                             onerror="this.style.display='none'"/>
+                    </a>
+                </td>
+                <td style="padding: 6px 8px; max-width: 300px;">
+                    <a href="{snapshot.admin_change_url}" style="color: #417690; text-decoration: none; font-weight: 500;"
+                       title="{snapshot.title or 'Untitled'}">{title}</a>
+                </td>
+                <td style="padding: 6px 8px; max-width: 250px;">
+                    <a href="{snapshot.url}" target="_blank"
+                       style="color: #666; text-decoration: none; font-family: monospace; font-size: 11px;"
+                       title="{snapshot.url}">{url_display}</a>
+                </td>
+                <td style="padding: 6px 8px; white-space: nowrap; text-align: center;">
+                    <div style="display: inline-flex; align-items: center; gap: 6px;">
+                        <div style="width: 60px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden;">
+                            <div style="width: {progress_pct}%; height: 100%;
+                                        background: {'#28a745' if snapshot.failed_results == 0 else '#ffc107' if snapshot.succeeded_results > 0 else '#dc3545'};
+                                        transition: width 0.3s;"></div>
+                        </div>
+                        <a href="/admin/core/archiveresult/?snapshot__id__exact={snapshot.id}"
+                           style="font-size: 11px; color: #417690; min-width: 35px; text-decoration: none;"
+                           title="View archive results">{progress_text}</a>
+                    </div>
+                </td>
+                <td style="padding: 6px 8px; white-space: nowrap; color: #888; font-size: 11px;">
+                    {date_str}
+                </td>
+            </tr>
+        ''')
+
+    total_count = snapshots_qs.count()
+    footer = ''
+    if total_count > limit:
+        footer = f'''
+            <tr>
+                <td colspan="6" style="padding: 8px; text-align: center; color: #666; font-size: 12px; background: #f8f9fa;">
+                    Showing {limit} of {total_count} snapshots
+                </td>
+            </tr>
+        '''
+
+    return mark_safe(f'''
+        <div style="border: 1px solid #ddd; border-radius: 6px; overflow: hidden; max-width: 100%;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                    <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
+                        <th style="padding: 8px; text-align: left; font-weight: 600; color: #333;">Status</th>
+                        <th style="padding: 8px; text-align: left; font-weight: 600; color: #333; width: 24px;"></th>
+                        <th style="padding: 8px; text-align: left; font-weight: 600; color: #333;">Title</th>
+                        <th style="padding: 8px; text-align: left; font-weight: 600; color: #333;">URL</th>
+                        <th style="padding: 8px; text-align: center; font-weight: 600; color: #333;">Progress</th>
+                        <th style="padding: 8px; text-align: left; font-weight: 600; color: #333;">Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {''.join(rows)}
+                    {footer}
+                </tbody>
+            </table>
+        </div>
+    ''')
+
+
 class SeedAdmin(ConfigEditorMixin, BaseModelAdmin):
     list_display = ('id', 'created_at', 'created_by', 'label', 'notes', 'uri', 'extractor', 'tags_str', 'crawls', 'num_crawls', 'num_snapshots')
     sort_fields = ('id', 'created_at', 'created_by', 'label', 'notes', 'uri', 'extractor', 'tags_str')
     search_fields = ('id', 'created_by__username', 'label', 'notes', 'uri', 'extractor', 'tags_str')
 
     readonly_fields = ('created_at', 'modified_at', 'scheduled_crawls', 'crawls', 'snapshots', 'contents')
-    fields = ('label', 'notes', 'uri', 'extractor', 'tags_str', 'config', 'created_by', *readonly_fields)
+
+    fieldsets = (
+        ('Source', {
+            'fields': ('uri', 'contents'),
+            'classes': ('card', 'wide'),
+        }),
+        ('Info', {
+            'fields': ('label', 'notes', 'tags_str'),
+            'classes': ('card',),
+        }),
+        ('Settings', {
+            'fields': ('extractor', 'config'),
+            'classes': ('card',),
+        }),
+        ('Metadata', {
+            'fields': ('created_by', 'created_at', 'modified_at'),
+            'classes': ('card',),
+        }),
+        ('Crawls', {
+            'fields': ('scheduled_crawls', 'crawls'),
+            'classes': ('card',),
+        }),
+        ('Snapshots', {
+            'fields': ('snapshots',),
+            'classes': ('card',),
+        }),
+    )
 
     list_filter = ('extractor', 'created_by')
     ordering = ['-created_at']
@@ -51,22 +194,19 @@ class SeedAdmin(ConfigEditorMixin, BaseModelAdmin):
         )) or mark_safe('<i>No Crawls yet...</i>')
 
     def snapshots(self, obj):
-        return format_html_join('<br/>', ' - <a href="{}">{}</a>', (
-            (snapshot.admin_change_url, snapshot)
-            for snapshot in obj.snapshot_set.all().order_by('-created_at')[:20]
-        )) or mark_safe('<i>No Snapshots yet...</i>')
+        return render_snapshots_list(obj.snapshot_set.all())
 
     def contents(self, obj):
-        if obj.uri.startswith('file:///data/'):
-            source_file = DATA_DIR / obj.uri.replace('file:///data/', '', 1)
+        source_file = obj.get_file_path()
+        if source_file:
             contents = ""
             try:
                 contents = source_file.read_text().strip()[:14_000]
             except Exception as e:
                 contents = f'Error reading {source_file}: {e}'
-                
+
             return format_html('<b><code>{}</code>:</b><br/><pre>{}</pre>', source_file, contents)
-        
+
         return format_html('See URLs here: <a href="{}">{}</a>', obj.uri, obj.uri)
 
 
@@ -78,7 +218,37 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     search_fields = ('id', 'created_by__username', 'max_depth', 'label', 'notes', 'seed_id', 'schedule_id', 'status', 'seed__uri')
 
     readonly_fields = ('created_at', 'modified_at', 'snapshots', 'seed_urls_editor')
-    fields = ('label', 'notes', 'seed_urls_editor', 'config', 'status', 'retry_at', 'max_depth', 'seed', 'schedule', 'created_by', 'created_at', 'modified_at', 'snapshots')
+
+    fieldsets = (
+        ('URLs', {
+            'fields': ('seed_urls_editor',),
+            'classes': ('card', 'wide'),
+        }),
+        ('Info', {
+            'fields': ('label', 'notes'),
+            'classes': ('card',),
+        }),
+        ('Settings', {
+            'fields': ('max_depth', 'config'),
+            'classes': ('card',),
+        }),
+        ('Status', {
+            'fields': ('status', 'retry_at'),
+            'classes': ('card',),
+        }),
+        ('Relations', {
+            'fields': ('seed', 'schedule', 'created_by'),
+            'classes': ('card',),
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'modified_at'),
+            'classes': ('card',),
+        }),
+        ('Snapshots', {
+            'fields': ('snapshots',),
+            'classes': ('card', 'wide'),
+        }),
+    )
 
     list_filter = ('max_depth', 'seed', 'schedule', 'created_by', 'status', 'retry_at')
     ordering = ['-created_at', '-retry_at']
@@ -90,6 +260,16 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     def recrawl(self, request, obj):
         """Duplicate this crawl as a new crawl with the same seed and settings."""
         from django.utils import timezone
+        from django.shortcuts import redirect
+
+        # Validate seed has a URI (required for crawl to start)
+        if not obj.seed:
+            messages.error(request, 'Cannot recrawl: original crawl has no seed.')
+            return redirect('admin:crawls_crawl_change', obj.id)
+
+        if not obj.seed.uri:
+            messages.error(request, 'Cannot recrawl: seed has no URI.')
+            return redirect('admin:crawls_crawl_change', obj.id)
 
         new_crawl = Crawl.objects.create(
             seed=obj.seed,
@@ -110,8 +290,6 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
             f'It will start processing shortly.'
         )
 
-        # Redirect to the new crawl's change page
-        from django.shortcuts import redirect
         return redirect('admin:crawls_crawl_change', new_crawl.id)
 
     def get_urls(self):
@@ -133,7 +311,8 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         except Crawl.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Crawl not found'}, status=404)
 
-        if not (crawl.seed and crawl.seed.uri and crawl.seed.uri.startswith('file:///data/')):
+        source_file = crawl.seed.get_file_path() if crawl.seed else None
+        if not source_file:
             return JsonResponse({'success': False, 'error': 'Seed is not a local file'}, status=400)
 
         try:
@@ -141,8 +320,6 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
             contents = data.get('contents', '')
         except json.JSONDecodeError:
             return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
-
-        source_file = DATA_DIR / crawl.seed.uri.replace('file:///data/', '', 1)
 
         try:
             # Ensure parent directory exists
@@ -156,10 +333,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         return obj.snapshot_set.count()
 
     def snapshots(self, obj):
-        return format_html_join('<br/>', '<a href="{}">{}</a>', (
-            (snapshot.admin_change_url, snapshot)
-            for snapshot in obj.snapshot_set.all().order_by('-created_at')[:20]
-        )) or mark_safe('<i>No Snapshots yet...</i>')
+        return render_snapshots_list(obj.snapshot_set.all())
 
     @admin.display(description='Schedule', ordering='schedule')
     def schedule_str(self, obj):
@@ -186,13 +360,12 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
             seed_uri = obj.urls
 
         # Check if it's a local file we can edit
-        is_file = seed_uri.startswith('file:///data/')
+        source_file = obj.seed.get_file_path() if obj.seed else None
+        is_file = source_file is not None
         contents = ""
         error = None
-        source_file = None
 
-        if is_file:
-            source_file = DATA_DIR / seed_uri.replace('file:///data/', '', 1)
+        if is_file and source_file:
             try:
                 contents = source_file.read_text().strip()
             except Exception as e:
@@ -337,7 +510,29 @@ class CrawlScheduleAdmin(BaseModelAdmin):
     search_fields = ('id', 'created_by__username', 'label', 'notes', 'schedule_id', 'template_id', 'template__seed__uri')
 
     readonly_fields = ('created_at', 'modified_at', 'crawls', 'snapshots')
-    fields = ('label', 'notes', 'schedule', 'template', 'created_by', *readonly_fields)
+
+    fieldsets = (
+        ('Schedule Info', {
+            'fields': ('label', 'notes'),
+            'classes': ('card',),
+        }),
+        ('Configuration', {
+            'fields': ('schedule', 'template'),
+            'classes': ('card',),
+        }),
+        ('Metadata', {
+            'fields': ('created_by', 'created_at', 'modified_at'),
+            'classes': ('card',),
+        }),
+        ('Crawls', {
+            'fields': ('crawls',),
+            'classes': ('card', 'wide'),
+        }),
+        ('Snapshots', {
+            'fields': ('snapshots',),
+            'classes': ('card', 'wide'),
+        }),
+    )
 
     list_filter = ('created_by',)
     ordering = ['-created_at']
@@ -362,10 +557,7 @@ class CrawlScheduleAdmin(BaseModelAdmin):
     
     def snapshots(self, obj):
         crawl_ids = obj.crawl_set.values_list('pk', flat=True)
-        return format_html_join('<br/>', ' - <a href="{}">{}</a>', (
-            (snapshot.admin_change_url, snapshot)
-            for snapshot in Snapshot.objects.filter(crawl_id__in=crawl_ids).order_by('-created_at')[:20]
-        )) or mark_safe('<i>No Snapshots yet...</i>')
+        return render_snapshots_list(Snapshot.objects.filter(crawl_id__in=crawl_ids))
 
 
 def register_admin(admin_site):

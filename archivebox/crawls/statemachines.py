@@ -36,13 +36,19 @@ class CrawlMachine(StateMachine, strict_states=True):
         super().__init__(crawl, *args, **kwargs)
     
     def __repr__(self) -> str:
-        return f'[grey53]Crawl\\[{self.crawl.id}] 🏃‍♂️ Worker\\[pid={os.getpid()}].tick()[/grey53] [blue]{self.crawl.status.upper()}[/blue] ⚙️ [grey37]Machine[/grey37]'
-    
+        return f'Crawl[{self.crawl.id}]'
+
     def __str__(self) -> str:
         return self.__repr__()
         
     def can_start(self) -> bool:
-        return bool(self.crawl.seed and self.crawl.seed.uri)
+        if not self.crawl.seed:
+            print(f'[red]⚠️ Crawl {self.crawl.id} cannot start: no seed[/red]')
+            return False
+        if not self.crawl.seed.uri:
+            print(f'[red]⚠️ Crawl {self.crawl.id} cannot start: seed has no URI[/red]')
+            return False
+        return True
         
     def is_finished(self) -> bool:
         from core.models import Snapshot, ArchiveResult
@@ -73,25 +79,121 @@ class CrawlMachine(StateMachine, strict_states=True):
 
     @started.enter
     def enter_started(self):
-        print(f'{self}.on_started(): [blue]↳ STARTED[/blue] crawl.run()')
+        # Suppressed: state transition logs
         # lock the crawl object while we create snapshots
         self.crawl.update_for_workers(
             retry_at=timezone.now() + timedelta(seconds=5),
             status=Crawl.StatusChoices.QUEUED,
         )
 
-        # Run the crawl - creates root snapshot and processes queued URLs
-        self.crawl.run()
+        try:
+            # Run on_Crawl hooks to validate/install dependencies
+            self._run_crawl_hooks()
 
-        # only update status to STARTED once snapshots are created
-        self.crawl.update_for_workers(
-            retry_at=timezone.now() + timedelta(seconds=5),
-            status=Crawl.StatusChoices.STARTED,
+            # Run the crawl - creates root snapshot and processes queued URLs
+            self.crawl.run()
+
+            # only update status to STARTED once snapshots are created
+            self.crawl.update_for_workers(
+                retry_at=timezone.now() + timedelta(seconds=5),
+                status=Crawl.StatusChoices.STARTED,
+            )
+        except Exception as e:
+            print(f'[red]⚠️ Crawl {self.crawl.id} failed to start: {e}[/red]')
+            import traceback
+            traceback.print_exc()
+            # Re-raise so the worker knows it failed
+            raise
+
+    def _run_crawl_hooks(self):
+        """Run on_Crawl hooks to validate/install dependencies."""
+        from pathlib import Path
+        from archivebox.hooks import run_hooks, discover_hooks
+        from archivebox.config import CONSTANTS
+
+        # Discover and run all on_Crawl hooks
+        hooks = discover_hooks('Crawl')
+        if not hooks:
+            return
+
+        # Create a temporary output directory for hook results
+        output_dir = Path(CONSTANTS.DATA_DIR) / 'tmp' / f'crawl_{self.crawl.id}'
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Run all on_Crawl hooks
+        results = run_hooks(
+            event_name='Crawl',
+            output_dir=output_dir,
+            timeout=60,
+            config_objects=[self.crawl, self.crawl.seed] if self.crawl.seed else [self.crawl],
+            crawl_id=str(self.crawl.id),
+            seed_uri=self.crawl.seed.uri if self.crawl.seed else '',
         )
 
-    @sealed.enter        
+        # Process hook results - parse JSONL output and create DB objects
+        self._process_hook_results(results)
+
+    def _process_hook_results(self, results: list):
+        """Process JSONL output from hooks to create InstalledBinary and update Machine config."""
+        import json
+        from machine.models import Machine, InstalledBinary
+
+        machine = Machine.current()
+
+        for result in results:
+            if result['returncode'] != 0:
+                # Hook failed - might indicate missing dependency
+                continue
+
+            # Parse JSONL output
+            for line in result['stdout'].strip().split('\n'):
+                if not line.strip():
+                    continue
+
+                try:
+                    obj = json.loads(line)
+                    obj_type = obj.get('type')
+
+                    if obj_type == 'InstalledBinary':
+                        # Create or update InstalledBinary record
+                        # Skip if essential fields are missing
+                        if not obj.get('name') or not obj.get('abspath') or not obj.get('version'):
+                            continue
+
+                        InstalledBinary.objects.update_or_create(
+                            machine=machine,
+                            name=obj['name'],
+                            defaults={
+                                'abspath': obj['abspath'],
+                                'version': obj['version'],
+                                'sha256': obj.get('sha256') or '',
+                                'binprovider': obj.get('binprovider') or 'env',
+                            }
+                        )
+
+                    elif obj_type == 'Machine':
+                        # Update Machine config
+                        method = obj.get('_method', 'update')
+                        if method == 'update':
+                            key = obj.get('key', '')
+                            value = obj.get('value')
+                            if key.startswith('config/'):
+                                config_key = key[7:]  # Remove 'config/' prefix
+                                machine.config[config_key] = value
+                                machine.save(update_fields=['config'])
+
+                    elif obj_type == 'Dependency':
+                        # Dependency request - could trigger installation
+                        # For now just log it (installation hooks would be separate)
+                        print(f'[yellow]Dependency requested: {obj.get("bin_name")}[/yellow]')
+
+                except json.JSONDecodeError:
+                    # Not JSON, skip
+                    continue
+
+    @sealed.enter
     def enter_sealed(self):
-        print(f'{self}.on_sealed(): [blue]↳ SEALED[/blue] crawl.retry_at=None')
+        # Suppressed: state transition logs
         self.crawl.update_for_workers(
             retry_at=None,
             status=Crawl.StatusChoices.SEALED,

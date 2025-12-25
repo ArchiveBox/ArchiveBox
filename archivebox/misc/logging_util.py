@@ -544,16 +544,21 @@ def log_worker_event(
 
     # Build worker identifier
     worker_parts = [worker_type]
-    if pid:
+    # Don't add pid/worker_id for DB operations (they happen in whatever process is running)
+    if pid and worker_type != 'DB':
         worker_parts.append(f'pid={pid}')
-    if worker_id and worker_type in ('CrawlWorker', 'Orchestrator'):
+    if worker_id and worker_type in ('CrawlWorker', 'Orchestrator') and worker_type != 'DB':
         worker_parts.append(f'id={worker_id}')
-    if url and worker_type == 'SnapshotWorker':
+    if url and worker_type in ('SnapshotWorker', 'DB'):
         worker_parts.append(f'url={truncate_url(url)}')
-    if extractor and worker_type == 'ArchiveResultWorker':
+    if extractor and worker_type in ('ArchiveResultWorker', 'DB'):
         worker_parts.append(f'extractor={extractor}')
 
-    worker_label = f'{worker_parts[0]}[{", ".join(worker_parts[1:])}]'
+    # Format worker label - only add brackets if there are additional identifiers
+    if len(worker_parts) > 1:
+        worker_label = f'{worker_parts[0]}[{", ".join(worker_parts[1:])}]'
+    else:
+        worker_label = worker_parts[0]
 
     # Build metadata string
     metadata_str = ''
@@ -579,12 +584,14 @@ def log_worker_event(
                 meta_parts.append(f'{k}: {len(v)}')
             else:
                 meta_parts.append(f'{k}: {v}')
-        metadata_str = ' {' + ', '.join(meta_parts) + '}'
+        metadata_str = ' | '.join(meta_parts)
 
     # Determine color based on event
     color = 'white'
     if event in ('Starting...', 'Started', 'STARTED', 'Started in background'):
         color = 'green'
+    elif event.startswith('Created'):
+        color = 'cyan'  # DB creation events
     elif event in ('Processing...', 'PROCESSING'):
         color = 'blue'
     elif event in ('Completed', 'COMPLETED', 'All work complete'):
@@ -606,8 +613,9 @@ def log_worker_event(
     text.append(indent)  # Indentation
     # Append worker label and event with color
     text.append(f'{worker_label} {event}{error_str}', style=color)
-    # Append metadata without color
-    text.append(metadata_str)
+    # Append metadata without color (add separator if metadata exists)
+    if metadata_str:
+        text.append(f' | {metadata_str}')
 
     CONSOLE.print(text)
 

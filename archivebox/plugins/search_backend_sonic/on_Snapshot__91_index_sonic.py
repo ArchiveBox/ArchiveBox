@@ -29,7 +29,7 @@ import rich_click as click
 
 # Extractor metadata
 EXTRACTOR_NAME = 'index_sonic'
-OUTPUT_DIR = 'search_index'
+OUTPUT_DIR = '.'
 
 # Text file patterns to index
 INDEXABLE_FILES = [

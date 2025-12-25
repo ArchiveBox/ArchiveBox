@@ -49,20 +49,45 @@ def install(dry_run: bool=False) -> None:
     # Using a minimal crawl that will trigger on_Crawl hooks
     created_by_id = get_or_create_system_user_pk()
 
-    seed = Seed.objects.create(
+    seed, _created = Seed.objects.get_or_create(
         uri='archivebox://install',
         label='Dependency detection',
         created_by_id=created_by_id,
+        defaults={
+            'extractor': 'auto',
+        }
     )
 
-    crawl = Crawl.objects.create(
+    crawl, created = Crawl.objects.get_or_create(
         seed=seed,
         max_depth=0,
         created_by_id=created_by_id,
-        status='queued',
+        defaults={
+            'status': 'queued',
+        }
     )
 
+    # If crawl already existed, reset it to queued state so it can be processed again
+    if not created:
+        crawl.status = 'queued'
+        crawl.retry_at = timezone.now()
+        crawl.save()
+
     print(f'[+] Created dependency detection crawl: {crawl.id}')
+    print(f'[+] Crawl status: {crawl.status}, retry_at: {crawl.retry_at}')
+
+    # Verify the crawl is in the queue
+    from crawls.models import Crawl as CrawlModel
+    queued_crawls = CrawlModel.objects.filter(
+        retry_at__lte=timezone.now()
+    ).exclude(
+        status__in=CrawlModel.FINAL_STATES
+    )
+    print(f'[+] Crawls in queue: {queued_crawls.count()}')
+    if queued_crawls.exists():
+        for c in queued_crawls:
+            print(f'    - Crawl {c.id}: status={c.status}, retry_at={c.retry_at}')
+
     print('[+] Running crawl to detect binaries via on_Crawl hooks...')
     print()
 

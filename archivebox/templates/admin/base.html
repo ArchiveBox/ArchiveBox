@@ -30,6 +30,1031 @@
                 color: white;
                 cursor: pointer;
             }
+
+            /* ============================================
+               Modern card-based admin UI (shadcn-inspired)
+               ============================================ */
+
+            /* Base font improvements */
+            body, html {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+                font-size: 15px;
+                line-height: 1.6;
+                color: #0f172a;
+                background: #f8fafc;
+            }
+
+            #container {
+                background: #f8fafc;
+            }
+
+            #content {
+                padding: 24px;
+            }
+
+            /* Main form container - flexbox grid */
+            #content-main form > div,
+            #content form > div {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 20px;
+                align-items: stretch;
+            }
+
+            /* Each fieldset becomes a card */
+            #content-main form fieldset,
+            #content form fieldset,
+            #content-main form .module:not(.inline-group),
+            #content form .module:not(.inline-group) {
+                background: #fff !important;
+                border: 1px solid #e2e8f0 !important;
+                border-top: 1px solid #e2e8f0 !important;
+                border-left: 1px solid #e2e8f0 !important;
+                border-right: 1px solid #e2e8f0 !important;
+                border-bottom: 1px solid #e2e8f0 !important;
+                border-radius: 12px !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+                flex: 1 1 340px;
+                min-width: 320px;
+                max-width: calc(33.33% - 14px);
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                transition: box-shadow 0.2s ease, border-color 0.2s ease;
+                overflow: hidden;
+            }
+
+            /* Wide fieldsets MUST override card max-width - placed after card rules for specificity */
+            #content-main form fieldset.wide,
+            #content form fieldset.wide,
+            #content-main form fieldset:has(.field-archiveresults_list),
+            #content form fieldset:has(.field-archiveresults_list),
+            #content-main form fieldset:has(.field-snapshots),
+            #content form fieldset:has(.field-snapshots) {
+                flex: 1 1 100% !important;
+                max-width: 100% !important;
+                min-width: 100% !important;
+                width: 100% !important;
+                flex-basis: 100% !important;
+            }
+
+            /* Inline groups should NOT have card constraints */
+            #content-main form .inline-group,
+            #content form .inline-group,
+            .inline-group fieldset,
+            .inline-group .module {
+                flex: 1 1 100% !important;
+                max-width: 100% !important;
+                min-width: 100% !important;
+                width: 100% !important;
+            }
+
+            #content-main form fieldset:hover,
+            #content form fieldset:hover {
+                box-shadow: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.06);
+                border-color: #cbd5e1;
+            }
+
+            /* Archive results list content should take full width */
+            .field-archiveresults_list,
+            .field-archiveresults_list .readonly,
+            .field-snapshots,
+            .field-snapshots .readonly {
+                width: 100% !important;
+                max-width: 100% !important;
+                background: transparent !important;
+                border: none !important;
+                padding: 0 !important;
+            }
+
+            /* Card headers - no borders, just background */
+            #content-main form fieldset h2,
+            #content form fieldset h2,
+            #content-main form .module h2,
+            #content form .module h2 {
+                margin: 0 !important;
+                padding: 8px 16px !important;
+                background: #f1f5f9 !important;
+                color: #334155 !important;
+                font-size: 12px !important;
+                font-weight: 600 !important;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+                border: none !important;
+                border-top: none !important;
+                border-left: none !important;
+                border-right: none !important;
+                border-bottom: none !important;
+                border-radius: 0 !important;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                flex-shrink: 0;
+                -webkit-font-smoothing: antialiased;
+                box-shadow: none !important;
+                outline: none !important;
+            }
+
+            /* Collapse toggle styling */
+            #content-main form fieldset h2 a.collapse-toggle,
+            #content form fieldset h2 a.collapse-toggle {
+                color: #64748b;
+            }
+
+            /* Card content area */
+            #content-main form fieldset > div,
+            #content form fieldset > div {
+                padding: 20px;
+                flex: 1;
+                overflow-x: hidden;
+                overflow-y: visible;
+                min-width: 0;
+            }
+
+            /* Form rows inside cards */
+            #content-main form fieldset .form-row,
+            #content form fieldset .form-row {
+                padding: 8px 0;
+                border-bottom: 1px solid #f1f5f9;
+                min-width: 0;
+                min-height: auto;
+            }
+
+            #content-main form fieldset .form-row:first-child,
+            #content form fieldset .form-row:first-child {
+                padding-top: 0;
+            }
+
+            #content-main form fieldset .form-row:last-child,
+            #content form fieldset .form-row:last-child {
+                border-bottom: none;
+                padding-bottom: 0;
+            }
+
+            /* Remove borders from nested fieldsets and flex-containers inside cards */
+            #content-main form fieldset fieldset,
+            #content form fieldset fieldset,
+            #content-main form fieldset .flex-container,
+            #content form fieldset .flex-container,
+            #content-main form .module fieldset,
+            #content form .module fieldset {
+                background: transparent !important;
+                border: none !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                min-width: 0 !important;
+                max-width: 94% !important;
+                flex: none !important;
+                display: block !important;
+            }
+
+            /* Nested fieldset headers should be invisible */
+            #content-main form fieldset fieldset h2,
+            #content form fieldset fieldset h2,
+            #content-main form fieldset .flex-container legend,
+            #content form fieldset .flex-container legend {
+                background: transparent !important;
+                padding: 0 0 4px 0 !important;
+                font-size: 13px !important;
+                color: #374151 !important;
+                text-transform: none !important;
+                letter-spacing: normal !important;
+            }
+
+            /* Ensure form elements inside cards don't overflow */
+            #content-main form fieldset input,
+            #content-main form fieldset select,
+            #content-main form fieldset textarea,
+            #content form fieldset input,
+            #content form fieldset select,
+            #content form fieldset textarea {
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+
+            /* Related widget wrapper should fit within card */
+            #content-main form fieldset .related-widget-wrapper,
+            #content form fieldset .related-widget-wrapper {
+                max-width: 100%;
+            }
+
+            #content-main form fieldset .related-widget-wrapper select,
+            #content form fieldset .related-widget-wrapper select {
+                min-width: 0;
+                flex: 1;
+            }
+
+            /* Labels inside cards */
+            #content-main form fieldset .form-row > label,
+            #content form fieldset .form-row > label,
+            #content-main form fieldset .form-row > .flex-container > label,
+            #content form fieldset .form-row > .flex-container > label,
+            #content-main form label,
+            #content form label,
+            .aligned label,
+            legend {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                font-weight: 500;
+                color: #374151;
+                display: block;
+                margin-bottom: 8px;
+                float: none !important;
+                width: auto !important;
+                padding: 0 !important;
+                font-size: 13px;
+                letter-spacing: -0.01em;
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+            }
+
+            /* Readonly fields styling */
+            #content-main form fieldset .readonly,
+            #content form fieldset .readonly {
+                background: #f8fafc;
+                padding: 12px 14px;
+                border-radius: 8px;
+                font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+                font-size: 13px;
+                word-break: break-word;
+                line-height: 1.6;
+                border: 1px solid #e2e8f0;
+                color: #475569;
+            }
+
+            /* Long content in readonly */
+            #content-main form fieldset .readonly pre,
+            #content form fieldset .readonly pre {
+                margin: 0;
+                white-space: pre-wrap;
+                word-break: break-word;
+                font-family: inherit;
+            }
+
+            /* Input styling */
+            #content-main form input[type="text"],
+            #content-main form input[type="number"],
+            #content-main form input[type="url"],
+            #content-main form input[type="email"],
+            #content-main form input[type="password"],
+            #content form input[type="text"],
+            #content form input[type="number"],
+            #content form input[type="url"],
+            #content form input[type="email"],
+            #content form input[type="password"] {
+                width: 100%;
+                padding: 10px 14px;
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                font-size: 14px;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                box-sizing: border-box;
+                background: #fff;
+                color: #1e293b;
+                transition: border-color 0.15s ease, box-shadow 0.15s ease;
+                -webkit-font-smoothing: antialiased;
+            }
+
+            #content-main form select,
+            #content form select {
+                width: 100%;
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                font-size: 14px;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                box-sizing: border-box;
+                background: #fff;
+                color: #1e293b;
+                transition: border-color 0.15s ease, box-shadow 0.15s ease;
+                -webkit-font-smoothing: antialiased;
+            }
+
+            #content-main form input::placeholder,
+            #content form input::placeholder {
+                color: #94a3b8;
+            }
+
+            /* Focus states */
+            #content-main form input:focus,
+            #content-main form select:focus,
+            #content-main form textarea:focus,
+            #content form input:focus,
+            #content form select:focus,
+            #content form textarea:focus {
+                border-color: #3b82f6;
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+            }
+
+            /* Textarea styling */
+            #content-main form textarea,
+            #content form textarea {
+                width: 100%;
+                box-sizing: border-box;
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                padding: 12px 14px;
+                font-size: 14px;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                line-height: 1.6;
+                resize: vertical;
+                min-height: 80px;
+                color: #1e293b;
+                transition: border-color 0.15s ease, box-shadow 0.15s ease;
+                -webkit-font-smoothing: antialiased;
+            }
+
+            /* Fix vTextField width */
+            .vTextField {
+                width: 100% !important;
+            }
+
+            /* ============================================
+               Button styling (shadcn-inspired)
+               ============================================ */
+
+            /* Base button styles */
+            input[type="submit"],
+            button,
+            .button,
+            .btn,
+            a.button,
+            .submit-row input,
+            .submit-row a.button {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                padding: 10px 18px;
+                font-size: 14px;
+                font-weight: 500;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                line-height: 1.4;
+                border-radius: 8px;
+                border: 1px solid transparent;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                text-decoration: none;
+                white-space: nowrap;
+                -webkit-font-smoothing: antialiased;
+            }
+
+            /* Primary button (default) */
+            input[type="submit"],
+            button[type="submit"],
+            .button.default,
+            .submit-row input[type="submit"] {
+                background: #0f172a;
+                color: #fff;
+                border-color: #0f172a;
+            }
+
+            input[type="submit"]:hover,
+            button[type="submit"]:hover,
+            .button.default:hover,
+            .submit-row input[type="submit"]:hover {
+                background: #1e293b;
+                border-color: #1e293b;
+            }
+
+            input[type="submit"]:active,
+            button[type="submit"]:active {
+                background: #334155;
+                transform: translateY(1px);
+            }
+
+            /* Secondary/outline buttons */
+            button:not([type="submit"]),
+            .button:not(.default),
+            a.button {
+                background: #fff;
+                color: #374151;
+                border-color: #d1d5db;
+            }
+
+            button:not([type="submit"]):hover,
+            .button:not(.default):hover,
+            a.button:hover {
+                background: #f9fafb;
+                border-color: #9ca3af;
+                color: #1f2937;
+            }
+
+            /* Danger button */
+            .deletelink,
+            a.deletelink,
+            button.deletelink,
+            input[name="delete"],
+            .button.delete {
+                background: #fff;
+                color: #dc2626;
+                border-color: #fecaca;
+            }
+
+            .deletelink:hover,
+            a.deletelink:hover,
+            button.deletelink:hover,
+            input[name="delete"]:hover,
+            .button.delete:hover {
+                background: #fef2f2;
+                border-color: #f87171;
+                color: #b91c1c;
+            }
+
+            /* Small buttons */
+            .btn-sm,
+            .object-tools a,
+            .datetimeshortcuts a {
+                padding: 6px 12px;
+                font-size: 13px;
+                border-radius: 6px;
+            }
+
+            /* Object tools (top action buttons) */
+            .object-tools {
+                margin-bottom: 20px;
+            }
+
+            .object-tools li {
+                margin-left: 10px;
+            }
+
+            .object-tools a {
+                background: #fff;
+                color: #374151;
+                border: 1px solid #d1d5db;
+                text-decoration: none;
+                display: inline-flex;
+                align-items: center;
+            }
+
+            .object-tools a:hover {
+                background: #f9fafb;
+                border-color: #9ca3af;
+            }
+
+            /* Submit row styling */
+            .submit-row {
+                margin-top: 24px;
+                padding: 20px;
+                background: #fff;
+                border-radius: 12px;
+                border: 1px solid #e2e8f0;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+                clear: both;
+                flex: 1 1 100%;
+                display: flex;
+                gap: 12px;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+
+            .submit-row p {
+                margin: 0;
+            }
+
+            .submit-row .deletelink-box {
+                margin-left: auto;
+            }
+
+            /* Responsive: 2 columns on medium screens */
+            @media (max-width: 1400px) {
+                #content-main form fieldset,
+                #content form fieldset {
+                    max-width: calc(50% - 10px);
+                    flex: 1 1 320px;
+                }
+            }
+
+            /* Responsive: stack on smaller screens */
+            @media (max-width: 900px) {
+                #content-main form fieldset,
+                #content form fieldset {
+                    flex: 1 1 100%;
+                    max-width: 100%;
+                    min-width: auto;
+                }
+
+                #content {
+                    padding: 16px;
+                }
+            }
+
+            /* Module content padding */
+            #content-main form .module > div,
+            #content form .module > div {
+                padding: 12px;
+            }
+
+            /* Fix for JSON/config editor */
+            .field-config .readonly,
+            .field-config textarea {
+                width: 100%;
+                min-height: 120px;
+                max-height: none;
+            }
+
+            /* Related widget styling */
+            .related-widget-wrapper {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+
+            .related-widget-wrapper select {
+                flex: 1;
+                min-width: 150px;
+            }
+
+            .related-widget-wrapper a {
+                flex-shrink: 0;
+                padding: 8px;
+                border-radius: 6px;
+                color: #64748b;
+                transition: color 0.15s ease, background 0.15s ease;
+            }
+
+            .related-widget-wrapper a:hover {
+                color: #1e293b;
+                background: #f1f5f9;
+            }
+
+            /* Help text styling */
+            .help {
+                font-size: 13px;
+                color: #64748b;
+                margin-top: 6px;
+                line-height: 1.5;
+            }
+
+            /* Error styling */
+            .errorlist {
+                color: #dc2626;
+                font-size: 13px;
+                margin: 6px 0;
+                padding: 0;
+                list-style: none;
+            }
+
+            .errorlist li {
+                background: #fef2f2;
+                padding: 8px 12px;
+                border-radius: 6px;
+                border: 1px solid #fecaca;
+            }
+
+            /* Inline related objects - force full width */
+            .inline-group,
+            #archiveresult_set-group,
+            #content-main form .inline-group,
+            #content-main form > div > .inline-group,
+            #content form > div > .inline-group,
+            .change-form .inline-group,
+            div.inline-group {
+                flex: 1 1 100% !important;
+                max-width: 100% !important;
+                min-width: 100% !important;
+                width: 100% !important;
+                margin-top: 20px;
+                flex-basis: 100% !important;
+            }
+
+            /* Ensure inline-group breaks out of card grid */
+            #content-main form > div,
+            #content form > div {
+                flex-wrap: wrap;
+            }
+
+            /* TabularInline table full width */
+            .inline-group .tabular,
+            .inline-group table {
+                width: 100% !important;
+            }
+
+            .inline-related {
+                margin: 12px 0;
+                padding: 16px;
+                background: #fff;
+                border-radius: 10px;
+                border: 1px solid #e2e8f0;
+            }
+
+            .inline-related h3 {
+                margin: -16px -16px 16px -16px;
+                padding: 12px 16px;
+                background: #f8fafc;
+                border-radius: 9px 9px 0 0;
+                border-bottom: 1px solid #e2e8f0;
+                font-size: 13px;
+                font-weight: 600;
+                color: #374151;
+            }
+
+            /* Tabular inline styling */
+            .tabular {
+                border-radius: 8px;
+                overflow: hidden;
+                border: 1px solid #e2e8f0;
+            }
+
+            .tabular td, .tabular th {
+                padding: 12px 14px;
+                font-size: 13px;
+                border-bottom: 1px solid #f1f5f9;
+            }
+
+            .tabular th {
+                background: #f8fafc;
+                font-weight: 600;
+                color: #374151;
+                text-align: left;
+            }
+
+            .tabular tr:last-child td {
+                border-bottom: none;
+            }
+
+            /* Delete checkbox */
+            .inline-deletelink {
+                color: #dc2626;
+                font-size: 13px;
+            }
+
+            /* Datetime widgets */
+            .datetimeshortcuts {
+                margin-left: 10px;
+            }
+
+            .datetimeshortcuts a {
+                background: #f1f5f9;
+                color: #475569;
+                border: none;
+                padding: 4px 10px;
+            }
+
+            .datetimeshortcuts a:hover {
+                background: #e2e8f0;
+                color: #1e293b;
+            }
+
+            /* Aligned forms - fix label positioning */
+            .aligned .form-row > div {
+                margin-left: 0 !important;
+            }
+
+            /* Checkbox styling */
+            input[type="checkbox"] {
+                width: 18px;
+                height: 18px;
+                border-radius: 4px;
+                border: 1px solid #d1d5db;
+                cursor: pointer;
+                accent-color: #3b82f6;
+            }
+
+            /* Links styling */
+            a {
+                color: #2563eb;
+                text-decoration: none;
+                transition: color 0.15s ease;
+            }
+
+            a:hover {
+                color: #1d4ed8;
+            }
+
+            /* Messages/alerts */
+            .messagelist {
+                padding: 0;
+                margin: 0 0 20px 0;
+            }
+
+            .messagelist li {
+                padding: 14px 18px;
+                border-radius: 10px;
+                font-size: 14px;
+                margin-bottom: 10px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            ul.messagelist li.success {
+                background: #f0fdf4 !important;
+                background-image: none !important;
+                border: 1px solid #bbf7d0;
+                color: #166534;
+            }
+
+            .messagelist li.warning {
+                background: #fffbeb;
+                border: 1px solid #fde68a;
+                color: #92400e;
+            }
+
+            .messagelist li.error {
+                background: #fef2f2;
+                border: 1px solid #fecaca;
+                color: #991b1b;
+            }
+
+            /* Breadcrumbs */
+            .breadcrumbs {
+                background: transparent;
+                padding: 12px 24px;
+                font-size: 13px;
+                color: #64748b;
+            }
+
+            .breadcrumbs a {
+                color: #64748b;
+            }
+
+            .breadcrumbs a:hover {
+                color: #1e293b;
+            }
+
+            /* Action buttons in cards */
+            .card .btn,
+            .card button {
+                margin-top: 10px;
+            }
+
+            /* Select2 overrides */
+            .select2-container--default .select2-selection--single,
+            .select2-container--default .select2-selection--multiple {
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                min-height: 42px;
+            }
+
+            .select2-container--default .select2-selection--single:focus,
+            .select2-container--default .select2-selection--multiple:focus {
+                border-color: #3b82f6;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+            }
+
+            /* ============================================
+               Admin List/Changelist Page Styling
+               ============================================ */
+
+            /* Results table container */
+            #changelist {
+                background: #fff;
+                border-radius: 12px;
+                border: 1px solid #e2e8f0;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+                overflow: hidden;
+            }
+
+            /* Table styling */
+            #result_list {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 14px;
+            }
+
+            #result_list thead th {
+                background: #f8fafc;
+                border-bottom: 2px solid #e2e8f0;
+                padding: 12px 16px;
+                font-weight: 600;
+                font-size: 13px;
+                color: #475569;
+                text-align: left;
+                text-transform: uppercase;
+                letter-spacing: 0.025em;
+                white-space: nowrap;
+            }
+
+            #result_list thead th a {
+                color: #475569;
+                text-decoration: none;
+            }
+
+            #result_list thead th a:hover {
+                color: #1e293b;
+            }
+
+            #result_list thead th.sorted {
+                background: #f1f5f9;
+            }
+
+            #result_list thead th .text span {
+                padding-right: 5px;
+            }
+
+            #result_list tbody tr {
+                border-bottom: 1px solid #f1f5f9;
+                transition: background-color 0.15s ease;
+            }
+
+            #result_list tbody tr:hover {
+                background-color: #f8fafc;
+            }
+
+            #result_list tbody tr.selected {
+                background-color: #eff6ff;
+            }
+
+            #result_list tbody td {
+                padding: 12px 16px;
+                color: #334155;
+                vertical-align: middle;
+            }
+
+            #result_list tbody td a {
+                color: #2563eb;
+                font-weight: 500;
+            }
+
+            #result_list tbody td a:hover {
+                color: #1d4ed8;
+                text-decoration: underline;
+            }
+
+            /* Checkbox column */
+            #result_list .action-checkbox,
+            #result_list th.action-checkbox-column {
+                width: 40px;
+                text-align: center;
+                padding: 12px 8px;
+            }
+
+            /* Pagination */
+            .paginator {
+                background: #f8fafc;
+                padding: 12px 16px;
+                border-top: 1px solid #e2e8f0;
+                font-size: 14px;
+                color: #64748b;
+            }
+
+            .paginator a {
+                color: #2563eb;
+                padding: 6px 12px;
+                border-radius: 6px;
+                margin: 0 2px;
+                text-decoration: none;
+            }
+
+            .paginator a:hover {
+                background: #e2e8f0;
+            }
+
+            /* Toolbar / search bar */
+            #toolbar {
+                padding: 16px;
+                background: #fff;
+                border-bottom: 1px solid #e2e8f0;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            #toolbar form {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex: 1;
+            }
+
+            #searchbar {
+                flex: 1;
+                max-width: 400px;
+                padding: 10px 14px;
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                font-size: 14px;
+            }
+
+            #searchbar:focus {
+                border-color: #3b82f6;
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+            }
+
+            /* Filter sidebar */
+            #changelist-filter {
+                background: #fff;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+                overflow: hidden;
+            }
+
+            #changelist-filter h2 {
+                background: #f8fafc;
+                padding: 12px 16px;
+                font-size: 13px;
+                font-weight: 600;
+                color: #475569;
+                text-transform: uppercase;
+                letter-spacing: 0.025em;
+                margin: 0;
+                border-bottom: 1px solid #e2e8f0;
+            }
+
+            #changelist-filter h3 {
+                padding: 12px 16px 8px;
+                font-size: 12px;
+                font-weight: 600;
+                color: #64748b;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin: 0;
+            }
+
+            #changelist-filter ul {
+                padding: 0 8px 12px;
+                margin: 0;
+                list-style: none;
+            }
+
+            #changelist-filter li {
+                margin: 0;
+            }
+
+            #changelist-filter li a {
+                display: block;
+                padding: 8px 12px;
+                color: #475569;
+                text-decoration: none;
+                border-radius: 6px;
+                font-size: 14px;
+                transition: background-color 0.15s ease;
+            }
+
+            #changelist-filter li a:hover {
+                background: #f1f5f9;
+                color: #1e293b;
+            }
+
+            #changelist-filter li.selected a {
+                background: #eff6ff;
+                color: #2563eb;
+                font-weight: 500;
+            }
+
+            /* Actions bar */
+            .actions {
+                padding: 12px 16px;
+                background: #f8fafc;
+                border-bottom: 1px solid #e2e8f0;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+
+            .actions label {
+                font-size: 14px;
+                color: #475569;
+            }
+
+            .actions select {
+                padding: 8px 12px;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                font-size: 14px;
+                background: #fff;
+            }
+
+            .actions .button {
+                padding: 8px 16px;
+                font-size: 14px;
+            }
+
+            /* Object count */
+            .actions .action-counter {
+                color: #64748b;
+                font-size: 14px;
+            }
+
+            /* Empty results */
+            #changelist-form .results + p,
+            .paginator + p {
+                padding: 40px;
+                text-align: center;
+                color: #64748b;
+                font-size: 15px;
+            }
+
+            /* Date hierarchy */
+            .xfull {
+                padding: 12px 16px;
+                background: #f8fafc;
+                border-bottom: 1px solid #e2e8f0;
+            }
+
+            .xfull a {
+                color: #2563eb;
+                margin-right: 8px;
+            }
         </style>
         {% endblock %}
         

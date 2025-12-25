@@ -19,6 +19,150 @@ from archivebox.hooks import get_extractor_icon
 from core.models import ArchiveResult, Snapshot
 
 
+def render_archiveresults_list(archiveresults_qs, limit=50):
+    """Render a nice inline list view of archive results with status, extractor, output, and actions."""
+
+    results = list(archiveresults_qs.order_by('-end_ts').select_related('snapshot')[:limit])
+
+    if not results:
+        return mark_safe('<div style="color: #64748b; font-style: italic; padding: 16px 0;">No Archive Results yet...</div>')
+
+    # Status colors
+    status_colors = {
+        'succeeded': ('#166534', '#dcfce7'),   # green
+        'failed': ('#991b1b', '#fee2e2'),       # red
+        'queued': ('#6b7280', '#f3f4f6'),       # gray
+        'started': ('#92400e', '#fef3c7'),      # amber
+    }
+
+    rows = []
+    for idx, result in enumerate(results):
+        status = result.status or 'queued'
+        color, bg = status_colors.get(status, ('#6b7280', '#f3f4f6'))
+
+        # Get extractor icon
+        icon = get_extractor_icon(result.extractor)
+
+        # Format timestamp
+        end_time = result.end_ts.strftime('%Y-%m-%d %H:%M:%S') if result.end_ts else '-'
+
+        # Truncate output for display
+        full_output = result.output or '-'
+        output_display = full_output[:60]
+        if len(full_output) > 60:
+            output_display += '...'
+
+        # Get full command as tooltip
+        cmd_str = ' '.join(result.cmd) if isinstance(result.cmd, list) else str(result.cmd or '-')
+
+        # Build output link
+        output_link = f'/archive/{result.snapshot.timestamp}/{result.output}' if result.output and result.status == 'succeeded' else f'/archive/{result.snapshot.timestamp}/'
+
+        # Get version - try cmd_version field
+        version = result.cmd_version if result.cmd_version else '-'
+
+        # Unique ID for this row's expandable output
+        row_id = f'output_{idx}_{str(result.id)[:8]}'
+
+        rows.append(f'''
+            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                <td style="padding: 10px 12px; white-space: nowrap;">
+                    <span style="display: inline-block; padding: 3px 10px; border-radius: 12px;
+                                 font-size: 11px; font-weight: 600; text-transform: uppercase;
+                                 color: {color}; background: {bg};">{status}</span>
+                </td>
+                <td style="padding: 10px 12px; white-space: nowrap; font-size: 20px;" title="{result.extractor}">
+                    {icon}
+                </td>
+                <td style="padding: 10px 12px; font-weight: 500; color: #334155;">
+                    {result.extractor}
+                </td>
+                <td style="padding: 10px 12px; max-width: 280px;">
+                    <span onclick="document.getElementById('{row_id}').open = !document.getElementById('{row_id}').open"
+                          style="color: #2563eb; text-decoration: none; font-family: ui-monospace, monospace; font-size: 12px; cursor: pointer;"
+                          title="Click to expand full output">
+                        {output_display}
+                    </span>
+                </td>
+                <td style="padding: 10px 12px; white-space: nowrap; color: #64748b; font-size: 12px;">
+                    {end_time}
+                </td>
+                <td style="padding: 10px 12px; white-space: nowrap; font-family: ui-monospace, monospace; font-size: 11px; color: #64748b;">
+                    {version}
+                </td>
+                <td style="padding: 10px 8px; white-space: nowrap;">
+                    <div style="display: flex; gap: 4px;">
+                        <a href="{output_link}" target="_blank"
+                           style="padding: 4px 8px; background: #f1f5f9; border-radius: 4px; color: #475569; text-decoration: none; font-size: 11px;"
+                           title="View output">📄</a>
+                        <a href="{reverse('admin:core_archiveresult_change', args=[result.id])}"
+                           style="padding: 4px 8px; background: #f1f5f9; border-radius: 4px; color: #475569; text-decoration: none; font-size: 11px;"
+                           title="Edit">✏️</a>
+                    </div>
+                </td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td colspan="7" style="padding: 0 12px 10px 12px;">
+                    <details id="{row_id}" style="margin: 0;">
+                        <summary style="cursor: pointer; font-size: 11px; color: #94a3b8; user-select: none;">
+                            Details &amp; Output
+                        </summary>
+                        <div style="margin-top: 8px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; max-height: 200px; overflow: auto;">
+                            <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
+                                <span style="margin-right: 16px;"><b>ID:</b> <code>{str(result.id)[:8]}...</code></span>
+                                <span style="margin-right: 16px;"><b>Version:</b> <code>{version}</code></span>
+                                <span style="margin-right: 16px;"><b>PWD:</b> <code>{result.pwd or '-'}</code></span>
+                            </div>
+                            <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
+                                <b>Output:</b>
+                            </div>
+                            <pre style="margin: 0; padding: 8px; background: #1e293b; border-radius: 4px; color: #e2e8f0; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 120px; overflow: auto;">{full_output}</pre>
+                            <div style="font-size: 11px; color: #64748b; margin-top: 8px;">
+                                <b>Command:</b>
+                            </div>
+                            <pre style="margin: 0; padding: 8px; background: #1e293b; border-radius: 4px; color: #e2e8f0; font-size: 11px; white-space: pre-wrap; word-break: break-all;">{cmd_str}</pre>
+                        </div>
+                    </details>
+                </td>
+            </tr>
+        ''')
+
+    total_count = archiveresults_qs.count()
+    footer = ''
+    if total_count > limit:
+        footer = f'''
+            <tr>
+                <td colspan="7" style="padding: 12px; text-align: center; color: #64748b; font-size: 13px; background: #f8fafc;">
+                    Showing {limit} of {total_count} results &nbsp;
+                    <a href="/admin/core/archiveresult/?snapshot__id__exact={results[0].snapshot_id if results else ''}"
+                       style="color: #2563eb;">View all →</a>
+                </td>
+            </tr>
+        '''
+
+    return mark_safe(f'''
+        <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #fff; width: 100%;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <thead>
+                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
+                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; width: 32px;"></th>
+                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Extractor</th>
+                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Output</th>
+                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Completed</th>
+                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Version</th>
+                        <th style="padding: 10px 8px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {''.join(rows)}
+                    {footer}
+                </tbody>
+            </table>
+        </div>
+    ''')
+
+
 
 class ArchiveResultInline(admin.TabularInline):
     name = 'Archive Results Log'
@@ -97,18 +241,44 @@ class ArchiveResultAdmin(BaseModelAdmin):
     sort_fields = ('id', 'created_by', 'created_at', 'extractor', 'status')
     readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary', 'extractor_with_icon')
     search_fields = ('id', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
-    fields = ('snapshot', 'extractor', 'status', 'retry_at', 'start_ts', 'end_ts', 'created_by', 'pwd', 'cmd_version', 'cmd', 'output', *readonly_fields)
     autocomplete_fields = ['snapshot']
+
+    fieldsets = (
+        ('Snapshot', {
+            'fields': ('snapshot', 'snapshot_info', 'tags_str'),
+            'classes': ('card', 'wide'),
+        }),
+        ('Extractor', {
+            'fields': ('extractor', 'extractor_with_icon', 'status', 'retry_at'),
+            'classes': ('card',),
+        }),
+        ('Timing', {
+            'fields': ('start_ts', 'end_ts', 'created_at', 'modified_at'),
+            'classes': ('card',),
+        }),
+        ('Command', {
+            'fields': ('cmd', 'cmd_str', 'cmd_version', 'pwd'),
+            'classes': ('card',),
+        }),
+        ('Output', {
+            'fields': ('output', 'output_summary'),
+            'classes': ('card', 'wide'),
+        }),
+        ('Metadata', {
+            'fields': ('created_by',),
+            'classes': ('card',),
+        }),
+    )
 
     list_filter = ('status', 'extractor', 'start_ts', 'cmd_version')
     ordering = ['-start_ts']
     list_per_page = SERVER_CONFIG.SNAPSHOTS_PER_PAGE
-    
+
     paginator = AccelleratedPaginator
     save_on_top = True
-    
+
     actions = ['delete_selected']
-    
+
     class Meta:
         verbose_name = 'Archive Result'
         verbose_name_plural = 'Archive Results'

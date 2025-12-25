@@ -115,12 +115,10 @@ def add(urls: str | list[str],
     #    - Repeat until max_depth reached
 
     if bg:
-        # Background mode: start orchestrator and return immediately
-        print('[yellow]\\[*] Running in background mode - starting orchestrator...[/yellow]')
-        orchestrator = Orchestrator(exit_on_idle=True)
-        orchestrator.start()  # Fork to background
+        # Background mode: just queue work and return (orchestrator via server will pick it up)
+        print('[yellow]\\[*] URLs queued. Orchestrator will process them (run `archivebox server` if not already running).[/yellow]')
     else:
-        # Foreground mode: run orchestrator until all work is done
+        # Foreground mode: run orchestrator inline until all work is done
         print(f'[green]\\[*] Starting orchestrator to process crawl...[/green]')
         orchestrator = Orchestrator(exit_on_idle=True)
         orchestrator.runloop()  # Block until complete

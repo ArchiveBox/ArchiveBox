@@ -245,6 +245,14 @@ def run_hook(
     env.setdefault('USER_AGENT', str(getattr(config, 'USER_AGENT', '')))
     env.setdefault('RESOLUTION', str(getattr(config, 'RESOLUTION', '')))
 
+    # Pass SEARCH_BACKEND_ENGINE from new-style config
+    try:
+        from archivebox.config.configset import get_config
+        search_config = get_config()
+        env.setdefault('SEARCH_BACKEND_ENGINE', str(search_config.get('SEARCH_BACKEND_ENGINE', 'ripgrep')))
+    except Exception:
+        env.setdefault('SEARCH_BACKEND_ENGINE', 'ripgrep')
+
     # Create output directory if needed
     output_dir.mkdir(parents=True, exist_ok=True)
 

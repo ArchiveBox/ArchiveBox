@@ -28,7 +28,7 @@ WORKERS_DIR_NAME = "workers"
 
 ORCHESTRATOR_WORKER = {
     "name": "worker_orchestrator",
-    "command": "archivebox manage orchestrator",
+    "command": "archivebox manage orchestrator",  # runs forever by default
     "autostart": "true",
     "autorestart": "true",
     "stdout_logfile": "logs/worker_orchestrator.log",
@@ -332,14 +332,14 @@ def stop_worker(supervisor, daemon_name):
 
 def tail_worker_logs(log_path: str):
     get_or_create_supervisord_process(daemonize=False)
-    
+
     from rich.live import Live
     from rich.table import Table
-    
+
     table = Table()
     table.add_column("TS")
     table.add_column("URL")
-    
+
     try:
         with Live(table, refresh_per_second=1) as live:  # update 4 times a second to feel fluid
             with open(log_path, 'r') as f:
@@ -351,6 +351,83 @@ def tail_worker_logs(log_path: str):
         STDERR.print("\n[🛑] Got Ctrl+C, stopping gracefully...")
     except SystemExit:
         pass
+
+
+def tail_multiple_worker_logs(log_files: list[str], follow=True):
+    """Tail multiple log files simultaneously, interleaving their output."""
+    import select
+    from pathlib import Path
+
+    # Convert relative paths to absolute paths
+    log_paths = []
+    for log_file in log_files:
+        log_path = Path(log_file)
+        if not log_path.is_absolute():
+            log_path = CONSTANTS.DATA_DIR / log_path
+
+        # Create log file if it doesn't exist
+        if not log_path.exists():
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.touch()
+
+        log_paths.append(log_path)
+
+    # Open all log files
+    file_handles = []
+    for log_path in log_paths:
+        try:
+            f = open(log_path, 'r')
+            # Seek to end of file if following
+            if follow:
+                f.seek(0, 2)  # Seek to end
+            file_handles.append((log_path.name, f))
+        except Exception as e:
+            print(f"[yellow]Warning: Could not open {log_path}: {e}[/yellow]")
+
+    if not file_handles:
+        print("[red]No log files could be opened[/red]")
+        return
+
+    # Print which logs we're tailing
+    log_names = [name for name, _ in file_handles]
+    print(f"[dim]Tailing: {', '.join(log_names)}[/dim]")
+    print()
+
+    try:
+        while follow:
+            # Read available lines from all files
+            for log_name, f in file_handles:
+                line = f.readline()
+                if line:
+                    # Colorize based on log source
+                    if 'orchestrator' in log_name.lower():
+                        color = 'cyan'
+                    elif 'daphne' in log_name.lower():
+                        color = 'green'
+                    else:
+                        color = 'white'
+
+                    # Strip ANSI codes if present (supervisord does this but just in case)
+                    import re
+                    line_clean = re.sub(r'\x1b\[[0-9;]*m', '', line.rstrip())
+
+                    if line_clean:
+                        print(f'[{color}][{log_name}][/{color}] {line_clean}')
+
+            # Small sleep to avoid busy-waiting
+            time.sleep(0.1)
+
+    except (KeyboardInterrupt, BrokenPipeError, IOError):
+        print("\n[yellow][i] Stopped tailing logs[/i][/yellow]")
+    except SystemExit:
+        pass
+    finally:
+        # Close all file handles
+        for _, f in file_handles:
+            try:
+                f.close()
+            except Exception:
+                pass
 
 def watch_worker(supervisor, daemon_name, interval=5):
     """loop continuously and monitor worker's health"""

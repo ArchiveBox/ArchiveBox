@@ -12,7 +12,33 @@ class MachineAdmin(ConfigEditorMixin, BaseModelAdmin):
     sort_fields = ('id', 'created_at', 'hostname', 'ips', 'os_platform', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'os_arch', 'os_family', 'os_release', 'hw_uuid')
 
     readonly_fields = ('guid', 'created_at', 'modified_at', 'ips')
-    fields = (*readonly_fields, 'hostname', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'hw_uuid', 'os_arch', 'os_family', 'os_platform', 'os_kernel', 'os_release', 'stats', 'config', 'num_uses_succeeded', 'num_uses_failed')
+
+    fieldsets = (
+        ('Identity', {
+            'fields': ('hostname', 'guid', 'ips'),
+            'classes': ('card',),
+        }),
+        ('Hardware', {
+            'fields': ('hw_manufacturer', 'hw_product', 'hw_uuid', 'hw_in_docker', 'hw_in_vm'),
+            'classes': ('card',),
+        }),
+        ('Operating System', {
+            'fields': ('os_platform', 'os_family', 'os_arch', 'os_kernel', 'os_release'),
+            'classes': ('card',),
+        }),
+        ('Statistics', {
+            'fields': ('stats', 'num_uses_succeeded', 'num_uses_failed'),
+            'classes': ('card',),
+        }),
+        ('Configuration', {
+            'fields': ('config',),
+            'classes': ('card', 'wide'),
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'modified_at'),
+            'classes': ('card',),
+        }),
+    )
 
     list_filter = ('hw_in_docker', 'hw_in_vm', 'os_arch', 'os_family', 'os_platform')
     ordering = ['-created_at']
@@ -33,7 +59,29 @@ class NetworkInterfaceAdmin(BaseModelAdmin):
     search_fields = ('id', 'machine__id', 'iface', 'ip_public', 'ip_local', 'mac_address', 'dns_server', 'hostname', 'isp', 'city', 'region', 'country')
 
     readonly_fields = ('machine', 'created_at', 'modified_at', 'mac_address', 'ip_public', 'ip_local', 'dns_server')
-    fields = (*readonly_fields, 'iface', 'hostname', 'isp', 'city', 'region', 'country', 'num_uses_succeeded', 'num_uses_failed')
+
+    fieldsets = (
+        ('Machine', {
+            'fields': ('machine',),
+            'classes': ('card',),
+        }),
+        ('Network', {
+            'fields': ('iface', 'ip_public', 'ip_local', 'mac_address', 'dns_server'),
+            'classes': ('card',),
+        }),
+        ('Location', {
+            'fields': ('hostname', 'isp', 'city', 'region', 'country'),
+            'classes': ('card',),
+        }),
+        ('Usage', {
+            'fields': ('num_uses_succeeded', 'num_uses_failed'),
+            'classes': ('card',),
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'modified_at'),
+            'classes': ('card',),
+        }),
+    )
 
     list_filter = ('isp', 'country', 'region')
     ordering = ['-created_at']
@@ -54,7 +102,25 @@ class DependencyAdmin(ConfigEditorMixin, BaseModelAdmin):
     search_fields = ('id', 'bin_name', 'bin_providers')
 
     readonly_fields = ('id', 'created_at', 'modified_at', 'is_installed', 'installed_count')
-    fields = ('bin_name', 'bin_providers', 'custom_cmds', 'config', *readonly_fields)
+
+    fieldsets = (
+        ('Binary', {
+            'fields': ('bin_name', 'bin_providers', 'is_installed', 'installed_count'),
+            'classes': ('card',),
+        }),
+        ('Commands', {
+            'fields': ('custom_cmds',),
+            'classes': ('card',),
+        }),
+        ('Configuration', {
+            'fields': ('config',),
+            'classes': ('card', 'wide'),
+        }),
+        ('Timestamps', {
+            'fields': ('id', 'created_at', 'modified_at'),
+            'classes': ('card',),
+        }),
+    )
 
     list_filter = ('bin_providers', 'created_at')
     ordering = ['-created_at']
@@ -82,7 +148,29 @@ class InstalledBinaryAdmin(BaseModelAdmin):
     search_fields = ('id', 'machine__id', 'name', 'binprovider', 'version', 'abspath', 'sha256', 'dependency__bin_name')
 
     readonly_fields = ('created_at', 'modified_at')
-    fields = ('machine', 'dependency', 'name', 'binprovider', 'abspath', 'version', 'sha256', *readonly_fields, 'num_uses_succeeded', 'num_uses_failed')
+
+    fieldsets = (
+        ('Binary Info', {
+            'fields': ('name', 'dependency', 'binprovider'),
+            'classes': ('card',),
+        }),
+        ('Location', {
+            'fields': ('machine', 'abspath'),
+            'classes': ('card',),
+        }),
+        ('Version', {
+            'fields': ('version', 'sha256'),
+            'classes': ('card',),
+        }),
+        ('Usage', {
+            'fields': ('num_uses_succeeded', 'num_uses_failed'),
+            'classes': ('card',),
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'modified_at'),
+            'classes': ('card',),
+        }),
+    )
 
     list_filter = ('name', 'binprovider', 'machine_id', 'dependency')
     ordering = ['-created_at']

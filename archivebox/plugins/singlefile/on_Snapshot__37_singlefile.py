@@ -41,7 +41,7 @@ import rich_click as click
 EXTRACTOR_NAME = 'singlefile'
 BIN_NAME = 'single-file'
 BIN_PROVIDERS = 'npm,env'
-OUTPUT_DIR = 'singlefile'
+OUTPUT_DIR = '.'
 OUTPUT_FILE = 'singlefile.html'
 
 
@@ -65,7 +65,7 @@ def get_env_int(name: str, default: int = 0) -> int:
         return default
 
 
-STATICFILE_DIR = 'staticfile'
+STATICFILE_DIR = '../staticfile'
 
 def has_staticfile_output() -> bool:
     """Check if staticfile extractor already downloaded this URL."""
@@ -135,7 +135,7 @@ def get_version(binary: str) -> str:
         return ''
 
 
-CHROME_SESSION_DIR = 'chrome_session'
+CHROME_SESSION_DIR = '../chrome_session'
 
 
 def get_cdp_url() -> str | None:
@@ -203,9 +203,8 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     if extra_args:
         cmd.extend(extra_args.split())
 
-    # Create output directory
+    # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
-    output_dir.mkdir(exist_ok=True)
     output_path = output_dir / OUTPUT_FILE
 
     cmd.extend([url, str(output_path)])
@@ -274,7 +273,7 @@ def main(url: str, snapshot_id: str):
             sys.exit(1)
 
         version = get_version(binary)
-        cmd_str = f'{binary} {url} {OUTPUT_DIR}/{OUTPUT_FILE}'
+        cmd_str = f'{binary} {url} {OUTPUT_FILE}'
 
         # Run extraction
         success, output, error = save_singlefile(url, binary)

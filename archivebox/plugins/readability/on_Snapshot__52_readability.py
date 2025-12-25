@@ -29,7 +29,7 @@ import rich_click as click
 EXTRACTOR_NAME = 'readability'
 BIN_NAME = 'readability-extractor'
 BIN_PROVIDERS = 'npm,env'
-OUTPUT_DIR = 'readability'
+OUTPUT_DIR = '.'
 
 
 def get_env(name: str, default: str = '') -> str:
@@ -101,9 +101,8 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
     if not html_source:
         return False, None, 'No HTML source found (run singlefile, dom, or wget first)'
 
-    # Create output directory
+    # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
-    output_dir.mkdir(exist_ok=True)
 
     try:
         # Run readability-extractor (outputs JSON by default)

@@ -3,21 +3,14 @@ Background task functions for queuing work to the orchestrator.
 
 These functions queue Snapshots/Crawls for processing by setting their status
 to QUEUED, which the orchestrator workers will pick up and process.
+
+NOTE: These functions do NOT start the orchestrator - they assume it's already
+running via `archivebox server` (supervisord) or will be run inline by the CLI.
 """
 
 __package__ = 'archivebox.workers'
 
 from django.utils import timezone
-
-
-def ensure_orchestrator_running():
-    """Ensure the orchestrator is running to process queued items."""
-    from .orchestrator import Orchestrator
-
-    if not Orchestrator.is_running():
-        # Start orchestrator in background
-        orchestrator = Orchestrator(exit_on_idle=True)
-        orchestrator.start()
 
 
 def bg_add(add_kwargs: dict) -> int:
@@ -35,9 +28,6 @@ def bg_add(add_kwargs: dict) -> int:
     add_kwargs['bg'] = True
 
     result = add(**add_kwargs)
-
-    # Ensure orchestrator is running to process the new snapshots
-    ensure_orchestrator_running()
 
     return len(result) if result else 0
 
@@ -66,10 +56,6 @@ def bg_archive_snapshots(snapshots, kwargs: dict | None = None) -> int:
             )
             queued_count += 1
 
-    # Ensure orchestrator is running to process the queued snapshots
-    if queued_count > 0:
-        ensure_orchestrator_running()
-
     return queued_count
 
 
@@ -90,9 +76,6 @@ def bg_archive_snapshot(snapshot, overwrite: bool = False, methods: list | None 
             status=Snapshot.StatusChoices.QUEUED,
             retry_at=timezone.now(),
         )
-
-        # Ensure orchestrator is running to process the queued snapshot
-        ensure_orchestrator_running()
         return 1
 
     return 0

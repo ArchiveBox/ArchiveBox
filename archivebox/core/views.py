@@ -503,15 +503,7 @@ class AddView(UserPassesTestMixin, FormView):
             mark_safe(f"Adding {rough_url_count} URLs in the background. (refresh in a minute start seeing results) {crawl.admin_change_url}"),
         )
 
-        # Start orchestrator in background to process the queued crawl
-        try:
-            from archivebox.workers.tasks import ensure_orchestrator_running
-            ensure_orchestrator_running()
-        except Exception as e:
-            # Orchestrator may already be running via supervisord, or fail to start
-            # This is not fatal - the crawl will be processed when orchestrator runs
-            print(f'[!] Failed to start orchestrator: {e}')
-
+        # Orchestrator (managed by supervisord) will pick up the queued crawl
         return redirect(crawl.admin_change_url)
 
 
@@ -539,6 +531,7 @@ def live_progress_view(request):
         from workers.orchestrator import Orchestrator
         from crawls.models import Crawl
         from core.models import Snapshot, ArchiveResult
+        from django.db.models import Case, When, Value, IntegerField
 
         # Get orchestrator status
         orchestrator_running = Orchestrator.is_running()
@@ -570,7 +563,25 @@ def live_progress_view(request):
             crawl_snapshots = Snapshot.objects.filter(crawl=crawl)
             total_snapshots = crawl_snapshots.count()
             completed_snapshots = crawl_snapshots.filter(status=Snapshot.StatusChoices.SEALED).count()
+            started_snapshots = crawl_snapshots.filter(status=Snapshot.StatusChoices.STARTED).count()
             pending_snapshots = crawl_snapshots.filter(status=Snapshot.StatusChoices.QUEUED).count()
+
+            # Count URLs in the crawl (for when snapshots haven't been created yet)
+            urls_count = 0
+            if crawl.urls:
+                urls_count = len([u for u in crawl.urls.split('\n') if u.strip()])
+            elif crawl.seed and crawl.seed.uri:
+                # Try to get URL count from seed
+                if crawl.seed.uri.startswith('file:///'):
+                    try:
+                        from pathlib import Path
+                        seed_file = Path(crawl.seed.uri.replace('file://', ''))
+                        if seed_file.exists():
+                            urls_count = len([l for l in seed_file.read_text().split('\n') if l.strip() and not l.startswith('#')])
+                    except:
+                        pass
+                else:
+                    urls_count = 1  # Single URL seed
 
             # Calculate crawl progress
             crawl_progress = int((completed_snapshots / total_snapshots) * 100) if total_snapshots > 0 else 0
@@ -590,16 +601,24 @@ def live_progress_view(request):
                 # Calculate snapshot progress
                 snapshot_progress = int(((completed_extractors + failed_extractors) / total_extractors) * 100) if total_extractors > 0 else 0
 
-                # Get active extractors for this snapshot
-                active_extractors = [
+                # Get all extractors for this snapshot
+                # Order: started first, then queued, then completed
+                all_extractors = [
                     {
                         'id': str(ar.id),
                         'extractor': ar.extractor,
                         'status': ar.status,
-                        'started': ar.start_ts.isoformat() if ar.start_ts else None,
-                        'progress': 50,
                     }
-                    for ar in snapshot_results.filter(status=ArchiveResult.StatusChoices.STARTED).order_by('-start_ts')[:5]
+                    for ar in snapshot_results.annotate(
+                        status_order=Case(
+                            When(status=ArchiveResult.StatusChoices.STARTED, then=Value(0)),
+                            When(status=ArchiveResult.StatusChoices.QUEUED, then=Value(1)),
+                            When(status=ArchiveResult.StatusChoices.SUCCEEDED, then=Value(2)),
+                            When(status=ArchiveResult.StatusChoices.FAILED, then=Value(3)),
+                            default=Value(4),
+                            output_field=IntegerField(),
+                        )
+                    ).order_by('status_order', 'extractor')
                 ]
 
                 active_snapshots_for_crawl.append({
@@ -612,8 +631,16 @@ def live_progress_view(request):
                     'completed_extractors': completed_extractors,
                     'failed_extractors': failed_extractors,
                     'pending_extractors': pending_extractors,
-                    'active_extractors': active_extractors,
+                    'all_extractors': all_extractors,
                 })
+
+            # Check if crawl can start (for debugging stuck crawls)
+            can_start = bool(crawl.seed and crawl.seed.uri)
+            seed_uri = crawl.seed.uri[:60] if crawl.seed and crawl.seed.uri else None
+
+            # Check if retry_at is in the future (would prevent worker from claiming)
+            retry_at_future = crawl.retry_at > timezone.now() if crawl.retry_at else False
+            seconds_until_retry = int((crawl.retry_at - timezone.now()).total_seconds()) if crawl.retry_at and retry_at_future else 0
 
             active_crawls.append({
                 'id': str(crawl.id),
@@ -622,11 +649,17 @@ def live_progress_view(request):
                 'started': crawl.modified_at.isoformat() if crawl.modified_at else None,
                 'progress': crawl_progress,
                 'max_depth': crawl.max_depth,
+                'urls_count': urls_count,
                 'total_snapshots': total_snapshots,
                 'completed_snapshots': completed_snapshots,
+                'started_snapshots': started_snapshots,
                 'failed_snapshots': 0,
                 'pending_snapshots': pending_snapshots,
                 'active_snapshots': active_snapshots_for_crawl,
+                'can_start': can_start,
+                'seed_uri': seed_uri,
+                'retry_at_future': retry_at_future,
+                'seconds_until_retry': seconds_until_retry,
             })
 
         return JsonResponse({

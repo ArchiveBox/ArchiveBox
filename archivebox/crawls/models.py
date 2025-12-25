@@ -44,9 +44,27 @@ class Seed(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthS
     def __str__(self):
         return f'[{self.id}] {self.uri[:64]}'
 
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+        if is_new:
+            from archivebox.misc.logging_util import log_worker_event
+            log_worker_event(
+                worker_type='DB',
+                event='Created Seed',
+                indent_level=0,
+                metadata={
+                    'id': str(self.id),
+                    'uri': str(self.uri)[:64],
+                    'extractor': self.extractor,
+                    'label': self.label or None,
+                },
+            )
+
     @classmethod
     def from_file(cls, source_file: Path, label: str = '', parser: str = 'auto', tag: str = '', created_by=None, config=None):
-        source_path = str(source_file.resolve()).replace(str(CONSTANTS.DATA_DIR), '/data')
+        # Use absolute path for file:// URLs so extractors can find the files
+        source_path = str(source_file.resolve())
         seed, _ = cls.objects.get_or_create(
             label=label or source_file.name, uri=f'file://{source_path}',
             created_by_id=getattr(created_by, 'pk', created_by) or get_or_create_system_user_pk(),
@@ -61,6 +79,25 @@ class Seed(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthS
     @property
     def api_url(self) -> str:
         return reverse_lazy('api-1:get_seed', args=[self.id])
+
+    def get_file_path(self) -> Path | None:
+        """
+        Get the filesystem path for file:// URIs.
+        Handles both old format (file:///data/...) and new format (file:///absolute/path).
+        Returns None if URI is not a file:// URI.
+        """
+        if not self.uri.startswith('file://'):
+            return None
+
+        # Remove file:// prefix
+        path_str = self.uri.replace('file://', '', 1)
+
+        # Handle old format: file:///data/... -> DATA_DIR/...
+        if path_str.startswith('/data/'):
+            return CONSTANTS.DATA_DIR / path_str.replace('/data/', '', 1)
+
+        # Handle new format: file:///absolute/path
+        return Path(path_str)
 
     @property
     def snapshot_set(self) -> QuerySet['Snapshot']:
@@ -135,6 +172,23 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
     def __str__(self):
         return f'[{self.id}] {self.seed.uri[:64] if self.seed else ""}'
+
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+        if is_new:
+            from archivebox.misc.logging_util import log_worker_event
+            log_worker_event(
+                worker_type='DB',
+                event='Created Crawl',
+                indent_level=1,
+                metadata={
+                    'id': str(self.id),
+                    'seed_uri': str(self.seed.uri)[:64] if self.seed else None,
+                    'max_depth': self.max_depth,
+                    'status': self.status,
+                },
+            )
 
     @classmethod
     def from_seed(cls, seed: Seed, max_depth: int = 0, persona: str = 'Default', tags_str: str = '', config=None, created_by=None):

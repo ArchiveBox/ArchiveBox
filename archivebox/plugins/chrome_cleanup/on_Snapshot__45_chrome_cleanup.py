@@ -26,7 +26,7 @@ import rich_click as click
 
 # Extractor metadata
 EXTRACTOR_NAME = 'chrome_cleanup'
-CHROME_SESSION_DIR = 'chrome_session'
+CHROME_SESSION_DIR = '../chrome_session'
 
 
 def get_env(name: str, default: str = '') -> str:

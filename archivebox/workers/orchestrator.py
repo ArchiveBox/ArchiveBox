@@ -12,16 +12,17 @@ Architecture:
         └── Each worker spawns task subprocesses via CLI
 
 Usage:
-    # Embedded in other commands (exits when done)
+    # Default: runs forever (for use as subprocess of server)
+    orchestrator = Orchestrator(exit_on_idle=False)
+    orchestrator.runloop()
+
+    # Exit when done (for embedded use in other commands)
     orchestrator = Orchestrator(exit_on_idle=True)
     orchestrator.runloop()
-    
-    # Daemon mode (runs forever)
-    orchestrator = Orchestrator(exit_on_idle=False)
-    orchestrator.start()  # fork and return
-    
+
     # Or run via CLI
-    archivebox orchestrator [--daemon]
+    archivebox manage orchestrator              # runs forever
+    archivebox manage orchestrator --exit-on-idle  # exits when done
 """
 
 __package__ = 'archivebox.workers'
@@ -43,6 +44,14 @@ from .pid_utils import (
     get_all_worker_pids,
     cleanup_stale_pid_files,
 )
+
+
+def _run_orchestrator_process(exit_on_idle: bool) -> None:
+    """Top-level function for multiprocessing (must be picklable)."""
+    from archivebox.config.django import setup_django
+    setup_django()
+    orchestrator = Orchestrator(exit_on_idle=exit_on_idle)
+    orchestrator.runloop()
 
 
 class Orchestrator:
@@ -277,12 +286,12 @@ class Orchestrator:
         Fork orchestrator as a background process.
         Returns the PID of the new process.
         """
-        def run_orchestrator():
-            from archivebox.config.django import setup_django
-            setup_django()
-            self.runloop()
-        
-        proc = Process(target=run_orchestrator, name='orchestrator')
+        # Use module-level function to avoid pickle errors with local functions
+        proc = Process(
+            target=_run_orchestrator_process,
+            args=(self.exit_on_idle,),
+            name='orchestrator'
+        )
         proc.start()
 
         assert proc.pid is not None

@@ -67,8 +67,8 @@ class Worker:
     # Configuration (can be overridden by subclasses)
     MAX_TICK_TIME: ClassVar[int] = 60
     MAX_CONCURRENT_TASKS: ClassVar[int] = 1
-    POLL_INTERVAL: ClassVar[float] = 0.5
-    IDLE_TIMEOUT: ClassVar[int] = 3  # Exit after N idle iterations (set to 0 to never exit)
+    POLL_INTERVAL: ClassVar[float] = 1.0
+    IDLE_TIMEOUT: ClassVar[int] = 10  # Exit after N idle iterations (10 sec at 1.0 poll interval)
 
     def __init__(self, worker_id: int = 0, daemon: bool = False, **kwargs: Any):
         self.worker_id = worker_id

@@ -39,7 +39,7 @@ import rich_click as click
 EXTRACTOR_NAME = 'media'
 BIN_NAME = 'yt-dlp'
 BIN_PROVIDERS = 'pip,apt,brew,env'
-OUTPUT_DIR = 'media'
+OUTPUT_DIR = '.'
 
 
 def get_env(name: str, default: str = '') -> str:
@@ -62,7 +62,7 @@ def get_env_int(name: str, default: int = 0) -> int:
         return default
 
 
-STATICFILE_DIR = 'staticfile'
+STATICFILE_DIR = '../staticfile'
 
 def has_staticfile_output() -> bool:
     """Check if staticfile extractor already downloaded this URL."""
@@ -129,9 +129,8 @@ def save_media(url: str, binary: str) -> tuple[bool, str | None, str]:
     extra_args = get_env('YTDLP_EXTRA_ARGS') or get_env('YOUTUBEDL_EXTRA_ARGS', '')
     media_max_size = get_env('MEDIA_MAX_SIZE', '750m')
 
-    # Create output directory
+    # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
-    output_dir.mkdir(exist_ok=True)
 
     # Build command (later options take precedence)
     cmd = [

@@ -26,7 +26,7 @@ import rich_click as click
 EXTRACTOR_NAME = 'git'
 BIN_NAME = 'git'
 BIN_PROVIDERS = 'apt,brew,env'
-OUTPUT_DIR = 'repo'
+OUTPUT_DIR = '.'
 
 
 def get_env(name: str, default: str = '') -> str:

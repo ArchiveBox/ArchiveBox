@@ -24,10 +24,10 @@ const puppeteer = require('puppeteer-core');
 
 // Extractor metadata
 const EXTRACTOR_NAME = 'parse_dom_outlinks';
-const OUTPUT_DIR = 'parse_dom_outlinks';
+const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'outlinks.json';
 const URLS_FILE = 'urls.jsonl';  // For crawl system
-const CHROME_SESSION_DIR = 'chrome_session';
+const CHROME_SESSION_DIR = '../chrome_session';
 
 // Parse command line arguments
 function parseArgs() {
@@ -64,10 +64,7 @@ function getCdpUrl() {
 
 // Extract outlinks
 async function extractOutlinks(url) {
-    // Create output directory
-    if (!fs.existsSync(OUTPUT_DIR)) {
-        fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-    }
+    // Output directory is current directory (hook already runs in output dir)
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
     let browser = null;

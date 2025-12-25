@@ -31,7 +31,7 @@ const puppeteer = require('puppeteer-core');
 
 // Extractor metadata
 const EXTRACTOR_NAME = 'chrome_navigate';
-const CHROME_SESSION_DIR = 'chrome_session';
+const CHROME_SESSION_DIR = '../chrome_session';
 
 // Parse command line arguments
 function parseArgs() {

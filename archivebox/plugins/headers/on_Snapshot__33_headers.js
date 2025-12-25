@@ -22,9 +22,9 @@ const http = require('http');
 
 // Extractor metadata
 const EXTRACTOR_NAME = 'headers';
-const OUTPUT_DIR = 'headers';
+const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'headers.json';
-const CHROME_SESSION_DIR = 'chrome_session';
+const CHROME_SESSION_DIR = '../chrome_session';
 const CHROME_HEADERS_FILE = 'response_headers.json';
 
 // Parse command line arguments
@@ -110,10 +110,7 @@ function fetchHeaders(url) {
 }
 
 async function extractHeaders(url) {
-    // Create output directory
-    if (!fs.existsSync(OUTPUT_DIR)) {
-        fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-    }
+    // Output directory is current directory (hook already runs in output dir)
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
     // Try Chrome session first

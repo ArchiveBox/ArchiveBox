@@ -21,9 +21,9 @@ const puppeteer = require('puppeteer-core');
 
 // Extractor metadata
 const EXTRACTOR_NAME = 'consolelog';
-const OUTPUT_DIR = 'consolelog';
+const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'console.jsonl';
-const CHROME_SESSION_DIR = 'chrome_session';
+const CHROME_SESSION_DIR = '../chrome_session';
 
 // Parse command line arguments
 function parseArgs() {
@@ -86,10 +86,7 @@ async function serializeArgs(args) {
 async function captureConsoleLogs(url) {
     const captureTimeout = (getEnvInt('CONSOLELOG_TIMEOUT') || 5) * 1000;
 
-    // Create output directory
-    if (!fs.existsSync(OUTPUT_DIR)) {
-        fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-    }
+    // Output directory is current directory (hook already runs in output dir)
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
     // Clear existing file

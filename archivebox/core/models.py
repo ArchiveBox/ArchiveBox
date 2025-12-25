@@ -60,7 +60,8 @@ class Tag(ModelWithSerializers):
         return self.name
 
     def save(self, *args, **kwargs):
-        if self._state.adding:
+        is_new = self._state.adding
+        if is_new:
             self.slug = slugify(self.name)
             existing = set(Tag.objects.filter(slug__startswith=self.slug).values_list("slug", flat=True))
             i = None
@@ -71,6 +72,19 @@ class Tag(ModelWithSerializers):
                     break
                 i = (i or 0) + 1
         super().save(*args, **kwargs)
+
+        if is_new:
+            from archivebox.misc.logging_util import log_worker_event
+            log_worker_event(
+                worker_type='DB',
+                event='Created Tag',
+                indent_level=0,
+                metadata={
+                    'id': self.id,
+                    'name': self.name,
+                    'slug': self.slug,
+                },
+            )
 
     @property
     def api_url(self) -> str:
@@ -241,12 +255,13 @@ class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):
                 if tag.strip()
             ))
 
-        try:
-            snapshot = self.get(url=url)
+        # Get most recent snapshot with this URL (URLs can exist in multiple crawls)
+        snapshot = self.filter(url=url).order_by('-created_at').first()
+        if snapshot:
             if title and (not snapshot.title or len(title) > len(snapshot.title or '')):
                 snapshot.title = title
                 snapshot.save(update_fields=['title', 'modified_at'])
-        except self.model.DoesNotExist:
+        else:
             if timestamp:
                 while self.filter(timestamp=timestamp).exists():
                     timestamp = str(float(timestamp) + 1.0)
@@ -284,7 +299,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    url = models.URLField(unique=True, db_index=True)
+    url = models.URLField(unique=False, db_index=True)  # URLs can appear in multiple crawls
     timestamp = models.CharField(max_length=32, unique=True, db_index=True, editable=False)
     bookmarked_at = models.DateTimeField(default=timezone.now, db_index=True)
     crawl: Crawl = models.ForeignKey(Crawl, on_delete=models.CASCADE, default=None, null=True, blank=True, related_name='snapshot_set', db_index=True)  # type: ignore
@@ -313,11 +328,16 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     class Meta(TypedModelMeta):
         verbose_name = "Snapshot"
         verbose_name_plural = "Snapshots"
+        constraints = [
+            # Allow same URL in different crawls, but not duplicates within same crawl
+            models.UniqueConstraint(fields=['url', 'crawl'], name='unique_url_per_crawl'),
+        ]
 
     def __str__(self):
         return f'[{self.id}] {self.url[:64]}'
 
     def save(self, *args, **kwargs):
+        is_new = self._state.adding
         if not self.bookmarked_at:
             self.bookmarked_at = self.created_at or timezone.now()
         if not self.timestamp:
@@ -326,6 +346,21 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         if self.crawl and self.url not in self.crawl.urls:
             self.crawl.urls += f'\n{self.url}'
             self.crawl.save()
+
+        if is_new:
+            from archivebox.misc.logging_util import log_worker_event
+            log_worker_event(
+                worker_type='DB',
+                event='Created Snapshot',
+                indent_level=2,
+                url=self.url,
+                metadata={
+                    'id': str(self.id),
+                    'crawl_id': str(self.crawl_id) if self.crawl_id else None,
+                    'depth': self.depth,
+                    'status': self.status,
+                },
+            )
 
     def output_dir_parent(self) -> str:
         return 'archive'
@@ -807,6 +842,24 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     def __str__(self):
         return f'[{self.id}] {self.snapshot.url[:64]} -> {self.extractor}'
 
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+        if is_new:
+            from archivebox.misc.logging_util import log_worker_event
+            log_worker_event(
+                worker_type='DB',
+                event='Created ArchiveResult',
+                indent_level=3,
+                extractor=self.extractor,
+                metadata={
+                    'id': str(self.id),
+                    'snapshot_id': str(self.snapshot_id),
+                    'snapshot_url': str(self.snapshot.url)[:64],
+                    'status': self.status,
+                },
+            )
+
     @cached_property
     def snapshot_dir(self):
         return Path(self.snapshot.output_dir)
@@ -879,7 +932,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         from django.utils import timezone
         from archivebox.hooks import BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR, run_hook
 
-        extractor_dir = Path(self.snapshot.output_dir) / self.extractor
         config_objects = [self.snapshot.crawl, self.snapshot] if self.snapshot.crawl else [self.snapshot]
 
         # Find hook for this extractor
@@ -898,6 +950,10 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             self.retry_at = None
             self.save()
             return
+
+        # Use plugin directory name instead of extractor name (removes numeric prefix)
+        plugin_name = hook.parent.name
+        extractor_dir = Path(self.snapshot.output_dir) / plugin_name
 
         # Run the hook
         start_ts = timezone.now()

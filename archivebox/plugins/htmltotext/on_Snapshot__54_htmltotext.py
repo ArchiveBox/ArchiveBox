@@ -28,7 +28,7 @@ import rich_click as click
 
 # Extractor metadata
 EXTRACTOR_NAME = 'htmltotext'
-OUTPUT_DIR = 'htmltotext'
+OUTPUT_DIR = '.'
 OUTPUT_FILE = 'htmltotext.txt'
 
 
@@ -114,9 +114,8 @@ def extract_htmltotext(url: str) -> tuple[bool, str | None, str]:
     if not text or len(text) < 10:
         return False, None, 'No meaningful text extracted from HTML'
 
-    # Create output directory and write output
+    # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
-    output_dir.mkdir(exist_ok=True)
     output_path = output_dir / OUTPUT_FILE
     output_path.write_text(text, encoding='utf-8')
 

@@ -40,7 +40,7 @@ const EXTENSIONS_DIR = process.env.CHROME_EXTENSIONS_DIR ||
 const CHROME_DOWNLOADS_DIR = process.env.CHROME_DOWNLOADS_DIR ||
     path.join(process.env.DATA_DIR || './data', 'personas', process.env.ACTIVE_PERSONA || 'Default', 'chrome_downloads');
 
-const OUTPUT_DIR = 'singlefile';
+const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'singlefile.html';
 
 /**
@@ -102,8 +102,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
             .filter(fn => fn.endsWith('.html'))
     );
 
-    // Ensure output directory exists
-    await fs.promises.mkdir(OUTPUT_DIR, { recursive: true });
+    // Output directory is current directory (hook already runs in output dir)
     const out_path = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
     console.log(`[🛠️] Saving SingleFile HTML using extension (${extension.id})...`);
@@ -170,8 +169,7 @@ async function saveSinglefileWithCLI(url, options = {}) {
         return null;
     }
 
-    // Ensure output directory exists
-    await fs.promises.mkdir(OUTPUT_DIR, { recursive: true });
+    // Output directory is current directory (hook already runs in output dir)
     const out_path = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
     // Build command

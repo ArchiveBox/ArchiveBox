@@ -31,8 +31,8 @@ import rich_click as click
 
 # Extractor metadata
 EXTRACTOR_NAME = 'staticfile'
-OUTPUT_DIR = 'staticfile'
-CHROME_SESSION_DIR = 'chrome_session'
+OUTPUT_DIR = '.'
+CHROME_SESSION_DIR = '../chrome_session'
 
 # Content-Types that indicate static files
 # These can't be meaningfully processed by Chrome-based extractors
@@ -214,9 +214,8 @@ def download_file(url: str) -> tuple[bool, str | None, str]:
         if content_length and int(content_length) > max_size:
             return False, None, f'File too large: {int(content_length)} bytes > {max_size} max'
 
-        # Create output directory
+        # Output directory is current directory (hook already runs in output dir)
         output_dir = Path(OUTPUT_DIR)
-        output_dir.mkdir(exist_ok=True)
 
         # Determine filename
         filename = get_filename_from_url(url)

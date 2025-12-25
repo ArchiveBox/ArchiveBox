@@ -27,7 +27,7 @@ import rich_click as click
 
 # Extractor metadata
 EXTRACTOR_NAME = 'index_sqlite'
-OUTPUT_DIR = 'search_index'
+OUTPUT_DIR = '.'
 
 # Text file patterns to index, in priority order
 INDEXABLE_FILES = [

@@ -24,9 +24,9 @@ const puppeteer = require('puppeteer-core');
 
 // Extractor metadata
 const EXTRACTOR_NAME = 'dom';
-const OUTPUT_DIR = 'dom';
+const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'output.html';
-const CHROME_SESSION_DIR = 'chrome_session';
+const CHROME_SESSION_DIR = '../chrome_session';
 
 // Parse command line arguments
 function parseArgs() {
@@ -58,7 +58,7 @@ function getEnvInt(name, defaultValue = 0) {
 }
 
 // Check if staticfile extractor already downloaded this URL
-const STATICFILE_DIR = 'staticfile';
+const STATICFILE_DIR = '../staticfile';
 function hasStaticFileOutput() {
     return fs.existsSync(STATICFILE_DIR) && fs.readdirSync(STATICFILE_DIR).length > 0;
 }
@@ -114,10 +114,7 @@ async function dumpDom(url) {
 
     const { width, height } = parseResolution(resolution);
 
-    // Create output directory
-    if (!fs.existsSync(OUTPUT_DIR)) {
-        fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-    }
+    // Output directory is current directory (hook already runs in output dir)
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
     let browser = null;

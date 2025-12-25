@@ -119,12 +119,13 @@ def version(quiet: bool=False,
     else:
         for key in sorted(set(binary_config_keys)):
             # Get the actual binary name/path from config value
-            bin_value = config.get(key, '').strip()
+            # Prioritize Machine.config overrides over base config
+            bin_value = machine.config.get(key) or config.get(key, '').strip()
             if not bin_value:
                 continue
 
             # Check if it's a path (has slashes) or just a name
-            is_path = '/' in bin_value
+            is_path = '/' in str(bin_value)
 
             if is_path:
                 # It's a full path - match against abspath

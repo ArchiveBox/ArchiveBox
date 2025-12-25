@@ -117,11 +117,11 @@ def run_plugins(
             if snapshot_id:
                 snapshot_ids.add(snapshot_id)
             elif record.get('url'):
-                # Look up by URL
-                try:
-                    snap = Snapshot.objects.get(url=record['url'])
+                # Look up by URL (get most recent if multiple exist)
+                snap = Snapshot.objects.filter(url=record['url']).order_by('-created_at').first()
+                if snap:
                     snapshot_ids.add(str(snap.id))
-                except Snapshot.DoesNotExist:
+                else:
                     rprint(f'[yellow]Snapshot not found for URL: {record["url"]}[/yellow]', file=sys.stderr)
 
         elif record_type == TYPE_ARCHIVERESULT:

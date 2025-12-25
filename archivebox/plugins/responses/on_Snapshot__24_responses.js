@@ -26,8 +26,8 @@ const puppeteer = require('puppeteer-core');
 
 // Extractor metadata
 const EXTRACTOR_NAME = 'responses';
-const OUTPUT_DIR = 'responses';
-const CHROME_SESSION_DIR = 'chrome_session';
+const OUTPUT_DIR = '.';
+const CHROME_SESSION_DIR = '../chrome_session';
 
 // Resource types to capture (by default, capture everything)
 const DEFAULT_TYPES = ['script', 'stylesheet', 'font', 'image', 'media', 'xhr', 'websocket'];
@@ -149,10 +149,8 @@ async function archiveResponses(originalUrl) {
     const typesStr = getEnv('RESPONSES_TYPES', DEFAULT_TYPES.join(','));
     const typesToSave = typesStr.split(',').map(t => t.trim().toLowerCase());
 
-    // Create output directories
-    if (!fs.existsSync(OUTPUT_DIR)) {
-        fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-    }
+    // Output directory is current directory (hook already runs in output dir)
+    // Create subdirectories for organizing responses
     const allDir = path.join(OUTPUT_DIR, 'all');
     if (!fs.existsSync(allDir)) {
         fs.mkdirSync(allDir, { recursive: true });

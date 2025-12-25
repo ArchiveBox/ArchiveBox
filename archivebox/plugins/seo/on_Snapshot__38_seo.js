@@ -21,9 +21,9 @@ const puppeteer = require('puppeteer-core');
 
 // Extractor metadata
 const EXTRACTOR_NAME = 'seo';
-const OUTPUT_DIR = 'seo';
+const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'seo.json';
-const CHROME_SESSION_DIR = 'chrome_session';
+const CHROME_SESSION_DIR = '../chrome_session';
 
 // Parse command line arguments
 function parseArgs() {
@@ -60,10 +60,7 @@ function getCdpUrl() {
 
 // Extract SEO metadata
 async function extractSeo(url) {
-    // Create output directory
-    if (!fs.existsSync(OUTPUT_DIR)) {
-        fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-    }
+    // Output directory is current directory (hook already runs in output dir)
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
     let browser = null;

@@ -51,10 +51,24 @@ class TagAdmin(BaseModelAdmin):
     sort_fields = ('name', 'slug', 'id', 'created_by', 'created_at')
     readonly_fields = ('slug', 'id', 'created_at', 'modified_at', 'snapshots')
     search_fields = ('id', 'name', 'slug')
-    fields = ('name', 'created_by', *readonly_fields)
     actions = ['delete_selected', 'merge_tags']
     ordering = ['-created_at']
     # inlines = [TaggedItemInline]
+
+    fieldsets = (
+        ('Tag Info', {
+            'fields': ('name', 'slug'),
+            'classes': ('card',),
+        }),
+        ('Metadata', {
+            'fields': ('id', 'created_by', 'created_at', 'modified_at'),
+            'classes': ('card',),
+        }),
+        ('Snapshots', {
+            'fields': ('snapshots',),
+            'classes': ('card', 'wide'),
+        }),
+    )
 
     paginator = AccelleratedPaginator
 

@@ -25,7 +25,7 @@ from archivebox.workers.tasks import bg_archive_snapshots, bg_add
 
 from core.models import Tag
 from core.admin_tags import TagInline
-from core.admin_archiveresults import ArchiveResultInline
+from core.admin_archiveresults import ArchiveResultInline, render_archiveresults_list
 
 
 # GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': [], 'CAN_UPGRADE': False}
@@ -54,13 +54,48 @@ class SnapshotActionForm(ActionForm):
 class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     list_display = ('created_at', 'title_str', 'status', 'files', 'size', 'url_str')
     sort_fields = ('title_str', 'url_str', 'created_at', 'status', 'crawl')
-    readonly_fields = ('admin_actions', 'status_info', 'tags_str', 'imported_timestamp', 'created_at', 'modified_at', 'downloaded_at', 'output_dir')
+    readonly_fields = ('admin_actions', 'status_info', 'tags_str', 'imported_timestamp', 'created_at', 'modified_at', 'downloaded_at', 'output_dir', 'archiveresults_list')
     search_fields = ('id', 'url', 'timestamp', 'title', 'tags__name')
     list_filter = ('created_at', 'downloaded_at', 'archiveresult__status', 'created_by', 'tags__name')
-    fields = ('url', 'title', 'created_by', 'bookmarked_at', 'status', 'retry_at', 'crawl', 'config', *readonly_fields)
+
+    fieldsets = (
+        ('URL', {
+            'fields': ('url', 'title'),
+            'classes': ('card', 'wide'),
+        }),
+        ('Status', {
+            'fields': ('status', 'retry_at', 'status_info'),
+            'classes': ('card',),
+        }),
+        ('Timestamps', {
+            'fields': ('bookmarked_at', 'created_at', 'modified_at', 'downloaded_at'),
+            'classes': ('card',),
+        }),
+        ('Relations', {
+            'fields': ('crawl', 'created_by', 'tags_str'),
+            'classes': ('card',),
+        }),
+        ('Config', {
+            'fields': ('config',),
+            'classes': ('card',),
+        }),
+        ('Files', {
+            'fields': ('output_dir',),
+            'classes': ('card',),
+        }),
+        ('Actions', {
+            'fields': ('admin_actions',),
+            'classes': ('card', 'wide'),
+        }),
+        ('Archive Results', {
+            'fields': ('archiveresults_list',),
+            'classes': ('card', 'wide'),
+        }),
+    )
+
     ordering = ['-created_at']
     actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
-    inlines = [TagInline, ArchiveResultInline]
+    inlines = [TagInline]  # Removed ArchiveResultInline, using custom renderer instead
     list_per_page = min(max(5, SERVER_CONFIG.SNAPSHOTS_PER_PAGE), 5000)
 
     action_form = SnapshotActionForm
@@ -154,6 +189,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             f'/archive/{obj.timestamp}/favicon.ico',
             obj.extension or '-',
         )
+
+    @admin.display(description='Archive Results')
+    def archiveresults_list(self, obj):
+        return render_archiveresults_list(obj.archiveresult_set.all())
 
     @admin.display(
         description='Title',
