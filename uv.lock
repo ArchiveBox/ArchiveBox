@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.14"
 resolution-markers = [
     "sys_platform == 'darwin'",
@@ -8,6 +8,22 @@ resolution-markers = [
 supported-markers = [
     "sys_platform == 'darwin'",
     "sys_platform == 'linux'",
+]
+
+[[package]]
+name = "abx-pkg"
+version = "0.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pip", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "platformdirs", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "pydantic", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "pydantic-core", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "typing-extensions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/61/13/d14cbe8cb0713cc6d7e10039d615585b5fad5ce5ed67af51f306a3143ffe/abx_pkg-0.6.0.tar.gz", hash = "sha256:a4ceae2ffd619e6b0d6556fc1e7f361a9ef5d33e158a1d85ae39b97677dc98ea", size = 99389, upload-time = "2024-11-12T10:17:44.193Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bb/a3/57728ed5e1fcaba39af65716c37eb3cee5183605f69890b13576faadb00d/abx_pkg-0.6.0-py3-none-any.whl", hash = "sha256:22bad7d8dd1da3498770f16abdf9d54f3ff8476748d048a88ba10915d9a81037", size = 44167, upload-time = "2024-11-12T10:17:41.946Z" },
 ]
 
 [[package]]
@@ -42,9 +58,10 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.8.6rc3"
+version = "0.9.0rc1"
 source = { editable = "." }
 dependencies = [
+    { name = "abx-pkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "atomicwrites", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "base32-crockford", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "channels", extra = ["daphne"], marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -54,8 +71,6 @@ dependencies = [
     { name = "django", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "django-admin-data-views", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "django-extensions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "django-huey", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "django-huey-monitor", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "django-ninja", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "django-object-actions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "django-signal-webhooks", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -136,6 +151,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "abx-pkg", specifier = ">=0.1.0" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
     { name = "atomicwrites", specifier = "==1.4.1" },
     { name = "base32-crockford", specifier = ">=0.3.0" },
@@ -149,8 +165,6 @@ requires-dist = [
     { name = "django-autotyping", marker = "extra == 'debug'", specifier = ">=0.5.1" },
     { name = "django-debug-toolbar", marker = "extra == 'debug'", specifier = ">=4.4.6" },
     { name = "django-extensions", specifier = ">=3.2.3" },
-    { name = "django-huey", specifier = ">=1.2.1" },
-    { name = "django-huey-monitor", specifier = ">=0.9.0" },
     { name = "django-ninja", specifier = ">=1.5.1" },
     { name = "django-object-actions", specifier = ">=4.3.0" },
     { name = "django-signal-webhooks", specifier = ">=0.3.0" },
@@ -337,29 +351,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/8f/8a/cc13e816e9f0849dce423b904b06fd91b5444cba6df3200d512a702f2e95/bumpver-2025.1131.tar.gz", hash = "sha256:a35fd2d43a5f65f014035c094866bd3bd6c739606f29fd41246d6ec6e839d3f9", size = 115372, upload-time = "2025-07-02T20:36:11.982Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1d/5b/2d5ea6802495ee4506721977be522804314aa66ad629d9356e3c7e5af4a6/bumpver-2025.1131-py2.py3-none-any.whl", hash = "sha256:c02527f6ed7887afbc06c07630047b24a9f9d02d544a65639e99bf8b92aaa674", size = 65361, upload-time = "2025-07-02T20:36:10.103Z" },
-]
-
-[[package]]
-name = "bx-django-utils"
-version = "91"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "bx-py-utils", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "django", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "python-stdnum", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f3/fd/8d22d436734f85ac908129c5f5b5440c27abcbfaf62c2c0b2dfdd9fab142/bx_django_utils-91.tar.gz", hash = "sha256:289b478aaa864f1a396a1e0c287654868aa2f4ebe5b8fd9deddd813f7f5b054d", size = 215586, upload-time = "2025-09-16T06:45:54.31Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/89/1e/324f4fb8466dded45256306765786a2ac8a9465976b2b954d45212e540a2/bx_django_utils-91-py3-none-any.whl", hash = "sha256:9b4ff1aefe99e84800996ccfbaf85d7fe66dcd1bc929900bd1f81968683c17a1", size = 118196, upload-time = "2025-09-16T06:45:52.485Z" },
-]
-
-[[package]]
-name = "bx-py-utils"
-version = "114"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/39/d2/8b2bcaa1efa89f78afdd200f102b76753a7472190914e010420349502eab/bx_py_utils-114.tar.gz", hash = "sha256:193c19781c5e9c3decaf26b80b0fa67e8419cb0640848b12b791c3e4a1a4c9a2", size = 235491, upload-time = "2025-11-28T09:54:07.919Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d6/d2/00464fcd8ab77f2426bc7b16f2742164d404f78727b596dc822be1ca7873/bx_py_utils-114-py3-none-any.whl", hash = "sha256:0b77849a106ff72d47f793fdb436f2c569a8946ef3e32ce57f02e24625e0b059", size = 59605, upload-time = "2025-11-28T09:54:06.56Z" },
 ]
 
 [[package]]
@@ -665,34 +656,6 @@ wheels = [
 ]
 
 [[package]]
-name = "django-huey"
-version = "1.3.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "django", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "huey", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f2/a3/ca67a0c6b469f72a73e8e9e41dce6b918e35404c72994b78df5a5cea0a89/django_huey-1.3.0.tar.gz", hash = "sha256:011102430e949fe5807df2c44ccbfd812671a77e5dda552907c07ded554ab92f", size = 11059, upload-time = "2025-06-02T00:22:52.834Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ab/2b/7203e18a1b8c6086ca5ab5899105dc877484d974532da9346ca2c87bd964/django_huey-1.3.0-py3-none-any.whl", hash = "sha256:b2db87248638e8b242cfd3a80a708c8940a23c4b23738e1bc00d26b1760be996", size = 12611, upload-time = "2025-06-02T00:22:48.97Z" },
-]
-
-[[package]]
-name = "django-huey-monitor"
-version = "0.10.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "bx-django-utils", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "bx-py-utils", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "django", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "huey", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/cb/65/b9f61b9047c5ccdf65b96dc1eff64129ea551b0c9b06869decf4a688d123/django_huey_monitor-0.10.1.tar.gz", hash = "sha256:8a2870400252cc0cb7c28f57436dd4559e946450940dd313e762e2e57e3a31a1", size = 139269, upload-time = "2025-06-02T10:12:43.721Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/fd/1a5e0cd136d94e9df9eb870e9f6a04d512e00d0347f0d2aa9d546e8ae7f5/django_huey_monitor-0.10.1-py3-none-any.whl", hash = "sha256:e73614393c5cc1254adc1d45848530fff0980f46b3d738b313b15a05963360a3", size = 68990, upload-time = "2025-06-02T10:12:42.196Z" },
-]
-
-[[package]]
 name = "django-ninja"
 version = "1.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -903,15 +866,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc", size = 141406, upload-time = "2024-12-06T15:37:23.222Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad", size = 73517, upload-time = "2024-12-06T15:37:21.509Z" },
-]
-
-[[package]]
-name = "huey"
-version = "2.5.5"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e6/87/07796060836baf60727df5edae1579adcc8140f42fb7dea3c34ca7ce7fd3/huey-2.5.5.tar.gz", hash = "sha256:a39010628a9a1a9e91462f9bf33dc243b006a9f21193026ea47ae18949a12581", size = 895915, upload-time = "2025-12-05T02:26:54.226Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/c2/0543039071259cfdab525757022de8dad6d22c15a0e7352f1a50a1444a13/huey-2.5.5-py3-none-any.whl", hash = "sha256:82ac73343248c5d7acec04814f952c61f7793e11fd99d26ed9030137d32f912c", size = 76889, upload-time = "2025-12-05T02:26:52.668Z" },
 ]
 
 [[package]]
@@ -1900,15 +1854,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/45/91/4f05f3931d1e9b1df71b17dc08c43feddf2bed7dbf13f95323df2cc8e340/python_statemachine-2.5.0.tar.gz", hash = "sha256:ae88cd22e47930b92b983a2176e61d811e571b69897be2568ec812c2885fb93a", size = 403718, upload-time = "2024-12-03T17:58:49.833Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bf/2d/1c95ebe84df60d630f8e855d1df2c66368805444ac167e9b50f29eabe917/python_statemachine-2.5.0-py3-none-any.whl", hash = "sha256:0ed53846802c17037fcb2a92323f4bc0c833290fa9d17a3587c50886c1541e62", size = 50415, upload-time = "2024-12-03T17:58:47.375Z" },
-]
-
-[[package]]
-name = "python-stdnum"
-version = "2.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/83/60/fd8299c7d8990a7d802286ac604862387bcac3df08be7cb1c932c33ef7da/python_stdnum-2.1.tar.gz", hash = "sha256:6b01645969eb3dfd55061a0114d593753cd9e653cea9083198b7eea12644397a", size = 1238596, upload-time = "2025-05-17T13:18:43.506Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/67/04/730f619b5b8470adf0e029ee2f0a060689145ea64dec001c8bac3c3959e2/python_stdnum-2.1-py3-none-any.whl", hash = "sha256:25eabcf5f307dd4150fd8f1c03f4512a6caeb84c9f09be1448711f5803373c58", size = 1120175, upload-time = "2025-05-17T13:18:41.193Z" },
 ]
 
 [[package]]
