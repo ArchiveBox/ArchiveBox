@@ -3,8 +3,6 @@ __package__ = 'archivebox.core'
 from django.contrib import admin
 from django.utils.html import format_html, mark_safe
 
-import abx
-
 from archivebox.misc.paginators import AccelleratedPaginator
 from archivebox.base_models.admin import BaseModelAdmin
 
@@ -150,7 +148,7 @@ class TagAdmin(BaseModelAdmin):
 
 
 # @admin.register(SnapshotTag, site=archivebox_admin)
-# class SnapshotTagAdmin(ABIDModelAdmin):
+# class SnapshotTagAdmin(BaseModelAdmin):
 #     list_display = ('id', 'snapshot', 'tag')
 #     sort_fields = ('id', 'snapshot', 'tag')
 #     search_fields = ('id', 'snapshot_id', 'tag_id')
@@ -159,7 +157,6 @@ class TagAdmin(BaseModelAdmin):
 #     ordering = ['-id']
 
 
-@abx.hookimpl
 def register_admin(admin_site):
     admin_site.register(Tag, TagAdmin)
 

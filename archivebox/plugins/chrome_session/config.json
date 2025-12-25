@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "CHROME_BINARY": {
+      "type": "string",
+      "default": "chromium",
+      "x-aliases": ["CHROMIUM_BINARY", "GOOGLE_CHROME_BINARY"],
+      "description": "Path to Chrome/Chromium binary"
+    },
+    "NODE_BINARY": {
+      "type": "string",
+      "default": "node",
+      "x-aliases": ["NODEJS_BINARY"],
+      "description": "Path to Node.js binary (for Puppeteer)"
+    },
+    "CHROME_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for Chrome operations in seconds"
+    },
+    "CHROME_HEADLESS": {
+      "type": "boolean",
+      "default": true,
+      "description": "Run Chrome in headless mode"
+    },
+    "CHROME_SANDBOX": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable Chrome sandbox (disable in Docker with --no-sandbox)"
+    },
+    "CHROME_RESOLUTION": {
+      "type": "string",
+      "default": "1440,2000",
+      "pattern": "^\\d+,\\d+$",
+      "x-fallback": "RESOLUTION",
+      "description": "Browser viewport resolution (width,height)"
+    },
+    "CHROME_USER_DATA_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "Path to Chrome user data directory for persistent sessions"
+    },
+    "CHROME_USER_AGENT": {
+      "type": "string",
+      "default": "",
+      "x-fallback": "USER_AGENT",
+      "description": "User agent string for Chrome"
+    },
+    "CHROME_EXTRA_ARGS": {
+      "type": "string",
+      "default": "",
+      "description": "Extra command-line arguments for Chrome (space-separated)"
+    },
+    "CHROME_CHECK_SSL_VALIDITY": {
+      "type": "boolean",
+      "default": true,
+      "x-fallback": "CHECK_SSL_VALIDITY",
+      "description": "Whether to verify SSL certificates"
+    },
+    "SAVE_SCREENSHOT": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable screenshot capture"
+    },
+    "SAVE_PDF": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable PDF generation"
+    },
+    "SAVE_DOM": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable DOM capture"
+    }
+  }
+}

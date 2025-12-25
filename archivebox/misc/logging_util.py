@@ -1,9 +1,11 @@
 __package__ = 'archivebox'
 
+# High-level logging functions for CLI output and progress tracking
+# Low-level primitives (Rich console, ANSI colors) are in logging.py
+
 import re
 import os
 import sys
-import stat
 import time
 
 from math import log
@@ -15,7 +17,7 @@ from dataclasses import dataclass
 from typing import Any, Optional, List, Dict, Union, Iterable, IO, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..index.schema import Link, ArchiveResult
+    from core.models import Snapshot
 
 from rich import print
 from rich.panel import Panel
@@ -46,77 +48,6 @@ class RuntimeStats:
 
 # globals are bad, mmkay
 _LAST_RUN_STATS = RuntimeStats()
-
-
-def debug_dict_summary(obj: Dict[Any, Any]) -> None:
-    stderr(' '.join(f'{key}={str(val).ljust(6)}' for key, val in obj.items()))
-
-
-def get_fd_info(fd) -> Dict[str, Any]:
-    NAME = fd.name[1:-1]
-    FILENO = fd.fileno()
-    MODE = os.fstat(FILENO).st_mode
-    IS_TTY = hasattr(fd, 'isatty') and fd.isatty()
-    IS_PIPE = stat.S_ISFIFO(MODE)
-    IS_FILE = stat.S_ISREG(MODE)
-    IS_TERMINAL =  not (IS_PIPE or IS_FILE)
-    IS_LINE_BUFFERED = fd.line_buffering
-    IS_READABLE = fd.readable()
-    return {
-        'NAME': NAME, 'FILENO': FILENO, 'MODE': MODE,
-        'IS_TTY': IS_TTY, 'IS_PIPE': IS_PIPE, 'IS_FILE': IS_FILE,
-        'IS_TERMINAL': IS_TERMINAL, 'IS_LINE_BUFFERED': IS_LINE_BUFFERED,
-        'IS_READABLE': IS_READABLE,
-    }
-    
-
-# # Log debug information about stdin, stdout, and stderr
-# sys.stdout.write('[>&1] this is python stdout\n')
-# sys.stderr.write('[>&2] this is python stderr\n')
-
-# debug_dict_summary(get_fd_info(sys.stdin))
-# debug_dict_summary(get_fd_info(sys.stdout))
-# debug_dict_summary(get_fd_info(sys.stderr))
-
-
-def reject_stdin(caller: str, stdin: Optional[IO]=sys.stdin) -> None:
-    """Tell the user they passed stdin to a command that doesn't accept it"""
-
-    if not stdin:
-        return None
-
-    if os.environ.get('IN_DOCKER') in ('1', 'true', 'True', 'TRUE', 'yes'):
-        # when TTY is disabled in docker we cant tell if stdin is being piped in or not
-        # if we try to read stdin when its not piped we will hang indefinitely waiting for it
-        return None
-
-    if not stdin.isatty():
-        # stderr('READING STDIN TO REJECT...')
-        stdin_raw_text = stdin.read()
-        if stdin_raw_text.strip():
-            # stderr('GOT STDIN!', len(stdin_str))
-            stderr(f'[!] The "{caller}" command does not accept stdin (ignoring).', color='red')
-            stderr(f'    Run archivebox "{caller} --help" to see usage and examples.')
-            stderr()
-            # raise SystemExit(1)
-    return None
-
-
-def accept_stdin(stdin: Optional[IO]=sys.stdin) -> Optional[str]:
-    """accept any standard input and return it as a string or None"""
-    
-    if not stdin:
-        return None
-
-    if not stdin.isatty():
-        # stderr('READING STDIN TO ACCEPT...')
-        stdin_str = stdin.read()
-
-        if stdin_str:
-            # stderr('GOT STDIN...', len(stdin_str))
-            return stdin_str
-
-    return None
 
 
 class TimedProgress:
@@ -353,7 +284,7 @@ def log_archiving_finished(num_links: int):
         print('        archivebox server 0.0.0.0:8000')
 
 
-def log_link_archiving_started(link: "Link", link_dir: str, is_new: bool):
+def log_snapshot_archiving_started(snapshot: "Snapshot", out_dir: str, is_new: bool):
 
     # [*] [2019-03-22 13:46:45] "Log Structured Merge Trees - ben stopford"
     #     http://www.benstopford.com/2015/02/14/log-structured-merge-trees/
@@ -363,15 +294,15 @@ def log_link_archiving_started(link: "Link", link_dir: str, is_new: bool):
         symbol_color='green' if is_new else 'bright_black',
         symbol='+' if is_new else '√',
         now=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-        title=link.title or link.base_url,
+        title=snapshot.title or snapshot.base_url,
     ))
-    print(f'    [sky_blue1]{link.url}[/]')
+    print(f'    [sky_blue1]{snapshot.url}[/]')
     print('    {} {}'.format(
         '>' if is_new else '√',
-        pretty_path(link_dir),
+        pretty_path(out_dir),
     ))
 
-def log_link_archiving_finished(link: "Link", link_dir: str, is_new: bool, stats: dict, start_ts: datetime):
+def log_snapshot_archiving_finished(snapshot: "Snapshot", out_dir: str, is_new: bool, stats: dict, start_ts: datetime):
     total = sum(stats.values())
 
     if stats['failed'] > 0 :
@@ -382,7 +313,7 @@ def log_link_archiving_finished(link: "Link", link_dir: str, is_new: bool, stats
         _LAST_RUN_STATS.succeeded += 1
 
     try:
-        size = get_dir_size(link_dir)
+        size = get_dir_size(out_dir)
     except FileNotFoundError:
         size = (0, None, '0')
 
@@ -391,38 +322,38 @@ def log_link_archiving_finished(link: "Link", link_dir: str, is_new: bool, stats
     print('        [bright_black]{} files ({}) in {}s [/]'.format(size[2], printable_filesize(size[0]), duration))
 
 
+
 def log_archive_method_started(method: str):
     print('      > {}'.format(method))
 
 
-def log_archive_method_finished(result: "ArchiveResult"):
+def log_archive_method_finished(result: dict):
     """
-    quote the argument with whitespace in a command so the user can 
+    quote the argument with whitespace in a command so the user can
     copy-paste the outputted string directly to run the cmd
     """
     # Prettify CMD string and make it safe to copy-paste by quoting arguments
     quoted_cmd = ' '.join(
         '"{}"'.format(arg) if (' ' in arg) or (':' in arg) else arg
-        for arg in result.cmd
+        for arg in result['cmd']
     )
 
-    if result.status == 'failed':
-        if result.output.__class__.__name__ == 'TimeoutExpired':
-            duration = (result.end_ts - result.start_ts).seconds
+    if result['status'] == 'failed':
+        output = result.get('output')
+        if output and output.__class__.__name__ == 'TimeoutExpired':
+            duration = (result['end_ts'] - result['start_ts']).seconds
             hint_header = [
                 f'[yellow3]Extractor timed out after {duration}s.[/]',
             ]
         else:
-            error_name = result.output.__class__.__name__.replace('ArchiveError', '')
+            error_name = output.__class__.__name__.replace('ArchiveError', '') if output else 'Error'
             hint_header = [
                 '[yellow3]Extractor failed:[/]',
-                f'    {error_name} [red1]{result.output}[/]',
+                f'    {error_name} [red1]{output}[/]',
             ]
-        
-        # import pudb; pudb.set_trace()
 
         # Prettify error output hints string and limit to five lines
-        hints = getattr(result.output, 'hints', None) or ()
+        hints = getattr(output, 'hints', None) or () if output else ()
         if hints:
             if isinstance(hints, (list, tuple, type(_ for _ in ()))):
                 hints = [hint.decode() if isinstance(hint, bytes) else str(hint) for hint in hints]
@@ -448,7 +379,7 @@ def log_archive_method_finished(result: "ArchiveResult"):
             *hints,
             '[violet]Run to see full output:[/]',
             *docker_hints,
-            *(['    cd {};'.format(result.pwd)] if result.pwd else []),
+            *(['    cd {};'.format(result.get('pwd'))] if result.get('pwd') else []),
             '    {}'.format(quoted_cmd),
         ]
         print('\n'.join(
@@ -463,21 +394,22 @@ def log_list_started(filter_patterns: Optional[List[str]], filter_type: str):
     print(f'[green][*] Finding links in the archive index matching these {filter_type} patterns:[/]')
     print('    {}'.format(' '.join(filter_patterns or ())))
 
-def log_list_finished(links):
-    from archivebox.index.csv import links_to_csv
+def log_list_finished(snapshots):
+    from core.models import Snapshot
     print()
     print('---------------------------------------------------------------------------------------------------')
-    print(links_to_csv(links, cols=['timestamp', 'is_archived', 'num_outputs', 'url'], header=True, ljust=16, separator=' | '))
+    print(Snapshot.objects.filter(pk__in=[s.pk for s in snapshots]).to_csv(cols=['timestamp', 'is_archived', 'num_outputs', 'url'], header=True, ljust=16, separator=' | '))
     print('---------------------------------------------------------------------------------------------------')
     print()
 
 
-def log_removal_started(links: List["Link"], yes: bool, delete: bool):
-    print(f'[yellow3][i] Found {len(links)} matching URLs to remove.[/]')
+def log_removal_started(snapshots, yes: bool, delete: bool):
+    count = snapshots.count() if hasattr(snapshots, 'count') else len(snapshots)
+    print(f'[yellow3][i] Found {count} matching URLs to remove.[/]')
     if delete:
-        file_counts = [link.num_outputs for link in links if os.access(link.link_dir, os.R_OK)]
+        file_counts = [s.num_outputs for s in snapshots if os.access(s.output_dir, os.R_OK)]
         print(
-            f'    {len(links)} Links will be de-listed from the main index, and their archived content folders will be deleted from disk.\n'
+            f'    {count} Links will be de-listed from the main index, and their archived content folders will be deleted from disk.\n'
             f'    ({len(file_counts)} data folders with {sum(file_counts)} archived files will be deleted!)'
         )
     else:
@@ -488,7 +420,7 @@ def log_removal_started(links: List["Link"], yes: bool, delete: bool):
 
     if not yes:
         print()
-        print(f'[yellow3][?] Do you want to proceed with removing these {len(links)} links?[/]')
+        print(f'[yellow3][?] Do you want to proceed with removing these {count} links?[/]')
         try:
             assert input('    y/[n]: ').lower() == 'y'
         except (KeyboardInterrupt, EOFError, AssertionError):
@@ -502,6 +434,13 @@ def log_removal_finished(all_links: int, to_remove: int):
         print()
         print(f'[red1][√] Removed {to_remove} out of {all_links} links from the archive index.[/]')
         print(f'    Index now contains {all_links - to_remove} links.')
+
+
+### Search Indexing Stage
+
+def log_index_started(url: str):
+    print('[green][*] Indexing url: {} in the search index[/]'.format(url))
+    print()
 
 
 ### Helpers
@@ -542,10 +481,10 @@ def printable_filesize(num_bytes: Union[int, float]) -> str:
 
 
 @enforce_types
-def printable_folders(folders: Dict[str, Optional["Link"]], with_headers: bool=False) -> str:
+def printable_folders(folders: Dict[str, Optional["Snapshot"]], with_headers: bool=False) -> str:
     return '\n'.join(
-        f'{folder} {link and link.url} "{link and link.title}"'
-        for folder, link in folders.items()
+        f'{folder} {snapshot and snapshot.url} "{snapshot and snapshot.title}"'
+        for folder, snapshot in folders.items()
     )
 
 

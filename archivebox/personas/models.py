@@ -1,21 +1,12 @@
 # from django.db import models
 
-# from archivebox.base_models.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats
-
 # from django.conf import settings
 
 
-# class Persona(ABIDModel, ModelWithHealthStats):
+# class Persona(models.Model):
 #     """Aka a "SessionType", its a template for a crawler browsing session containing some config."""
-    
-#     abid_prefix = 'prs_'
-#     abid_ts_src = 'self.created_at'
-#     abid_uri_src = 'self.name'
-#     abid_subtype_src = 'self.created_by'
-#     abid_rand_src = 'self.id'
-    
+
 #     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
-#     abid = ABIDField(prefix=abid_prefix)
     
 #     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False)
 #     created_at = AutoDateTimeField(default=None, null=False, db_index=True)

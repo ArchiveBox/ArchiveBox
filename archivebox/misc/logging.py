@@ -1,7 +1,7 @@
 __package__ = 'archivebox.misc'
 
-# TODO: merge/dedupe this file with archivebox/logging_util.py
-
+# Low-level logging primitives (Rich console, ANSI colors, stdout/stderr helpers)
+# Higher-level logging functions are in logging_util.py
 
 import sys
 from typing import Optional, Union, Tuple, List

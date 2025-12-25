@@ -54,7 +54,7 @@ def check_data_folder() -> None:
     
 def check_migrations():
     from archivebox import DATA_DIR
-    from ..index.sql import list_migrations
+    from archivebox.misc.db import list_migrations
 
     pending_migrations = [name for status, name in list_migrations() if not status]
     is_migrating = any(arg in sys.argv for arg in ['makemigrations', 'migrate', 'init'])
@@ -210,7 +210,7 @@ def check_lib_dir(lib_dir: Path | None = None, throw=False, quiet=False, must_ex
     
     lib_dir = lib_dir or STORAGE_CONFIG.LIB_DIR
     
-    assert lib_dir == archivebox.pm.hook.get_LIB_DIR(), "lib_dir is not the same as the one in the flat config"
+    # assert lib_dir == STORAGE_CONFIG.LIB_DIR, "lib_dir is not the same as the one in the flat config"
     
     if not must_exist and not os.path.isdir(lib_dir):
         return True

@@ -73,15 +73,17 @@ class CrawlMachine(StateMachine, strict_states=True):
 
     @started.enter
     def enter_started(self):
-        print(f'{self}.on_started(): [blue]↳ STARTED[/blue] crawl.create_root_snapshot() + crawl.bump_retry_at(+10s)')
-        # lock the crawl object for 2s while we create the root snapshot
+        print(f'{self}.on_started(): [blue]↳ STARTED[/blue] crawl.run()')
+        # lock the crawl object while we create snapshots
         self.crawl.update_for_workers(
             retry_at=timezone.now() + timedelta(seconds=5),
             status=Crawl.StatusChoices.QUEUED,
         )
-        assert self.crawl.create_root_snapshot()
-        
-        # only update status to STARTED once root snapshot is created
+
+        # Run the crawl - creates root snapshot and processes queued URLs
+        self.crawl.run()
+
+        # only update status to STARTED once snapshots are created
         self.crawl.update_for_workers(
             retry_at=timezone.now() + timedelta(seconds=5),
             status=Crawl.StatusChoices.STARTED,
@@ -94,19 +96,3 @@ class CrawlMachine(StateMachine, strict_states=True):
             retry_at=None,
             status=Crawl.StatusChoices.SEALED,
         )
-
-
-# class CrawlWorker(ActorType[Crawl]):
-#     """The Actor that manages the lifecycle of all Crawl objects"""
-    
-#     Model = Crawl
-#     StateMachineClass = CrawlMachine
-    
-#     ACTIVE_STATE: ClassVar[State] = CrawlMachine.started
-#     FINAL_STATES: ClassVar[list[State]] = CrawlMachine.final_states
-#     STATE_FIELD_NAME: ClassVar[str] = Crawl.state_field_name
-    
-#     MAX_CONCURRENT_ACTORS: ClassVar[int] = 3
-#     MAX_TICK_TIME: ClassVar[int] = 10
-#     CLAIM_FROM_TOP_N: ClassVar[int] = MAX_CONCURRENT_ACTORS * 10
-

@@ -10,9 +10,8 @@ from rich import print
 from archivebox.misc.util import enforce_types, docstring
 from archivebox.config import DATA_DIR, CONSTANTS, ARCHIVE_DIR
 from archivebox.config.common import SHELL_CONFIG
-from archivebox.index.json import parse_json_links_details
-from archivebox.index import (
-    load_main_index,
+from archivebox.misc.legacy import parse_json_links_details
+from archivebox.misc.folders import (
     get_indexed_folders,
     get_archived_folders,
     get_invalid_folders,
@@ -33,7 +32,7 @@ def status(out_dir: Path=DATA_DIR) -> None:
     """Print out some info and statistics about the archive collection"""
 
     from django.contrib.auth import get_user_model
-    from archivebox.index.sql import get_admins
+    from archivebox.misc.db import get_admins
     from core.models import Snapshot
     User = get_user_model()
 
@@ -44,7 +43,7 @@ def status(out_dir: Path=DATA_DIR) -> None:
     print(f'    Index size: {size} across {num_files} files')
     print()
 
-    links = load_main_index(out_dir=out_dir)
+    links = Snapshot.objects.all()
     num_sql_links = links.count()
     num_link_details = sum(1 for link in parse_json_links_details(out_dir=out_dir))
     print(f'    > SQL Main Index: {num_sql_links} links'.ljust(36), f'(found in {CONSTANTS.SQL_INDEX_FILENAME})')

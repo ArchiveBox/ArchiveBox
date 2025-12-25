@@ -18,13 +18,8 @@ from archivebox.misc.logging import stderr
 
 def get_real_name(key: str) -> str:
     """get the up-to-date canonical name for a given old alias or current key"""
-    CONFIGS = archivebox.pm.hook.get_CONFIGS()
-    
-    for section in CONFIGS.values():
-        try:
-            return section.aliases[key]
-        except (KeyError, AttributeError):
-            pass
+    # Config aliases are no longer used with the simplified config system
+    # Just return the key as-is since we no longer have a complex alias mapping
     return key
 
 
@@ -117,9 +112,20 @@ def load_config_file() -> Optional[benedict]:
 
 
 def section_for_key(key: str) -> Any:
-    for config_section in archivebox.pm.hook.get_CONFIGS().values():
-        if hasattr(config_section, key):
-            return config_section
+    """Find the config section containing a given key."""
+    from archivebox.config.common import (
+        SHELL_CONFIG,
+        STORAGE_CONFIG,
+        GENERAL_CONFIG,
+        SERVER_CONFIG,
+        ARCHIVING_CONFIG,
+        SEARCH_BACKEND_CONFIG,
+    )
+    
+    for section in [SHELL_CONFIG, STORAGE_CONFIG, GENERAL_CONFIG, 
+                    SERVER_CONFIG, ARCHIVING_CONFIG, SEARCH_BACKEND_CONFIG]:
+        if hasattr(section, key):
+            return section
     raise ValueError(f'No config section found for key: {key}')
 
 
@@ -178,7 +184,8 @@ def write_config_file(config: Dict[str, str]) -> benedict:
     updated_config = {}
     try:
         # validate the updated_config by attempting to re-parse it
-        updated_config = {**load_all_config(), **archivebox.pm.hook.get_FLAT_CONFIG()}
+        from archivebox.config.configset import get_flat_config
+        updated_config = {**load_all_config(), **get_flat_config()}
     except BaseException:                                                       # lgtm [py/catch-base-exception]
         # something went horribly wrong, revert to the previous version
         with open(f'{config_path}.bak', 'r', encoding='utf-8') as old:
@@ -236,12 +243,20 @@ def load_config(defaults: Dict[str, Any],
     return benedict(extended_config)
 
 def load_all_config():
-    import abx
+    """Load all config sections and return as a flat dict."""
+    from archivebox.config.common import (
+        SHELL_CONFIG,
+        STORAGE_CONFIG,
+        GENERAL_CONFIG,
+        SERVER_CONFIG,
+        ARCHIVING_CONFIG,
+        SEARCH_BACKEND_CONFIG,
+    )
     
     flat_config = benedict()
     
-    for config_section in abx.pm.hook.get_CONFIGS().values():
-        config_section.__init__()
+    for config_section in [SHELL_CONFIG, STORAGE_CONFIG, GENERAL_CONFIG, 
+                           SERVER_CONFIG, ARCHIVING_CONFIG, SEARCH_BACKEND_CONFIG]:
         flat_config.update(dict(config_section))
         
     return flat_config

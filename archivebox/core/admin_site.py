@@ -36,7 +36,7 @@ def register_admin_site():
     admin.site = archivebox_admin
     sites.site = archivebox_admin
     
-    # register all plugins admin classes
-    archivebox.pm.hook.register_admin(admin_site=archivebox_admin)
+    # Plugin admin registration is now handled by individual app admins
+    # No longer using archivebox.pm.hook.register_admin()
     
     return archivebox_admin

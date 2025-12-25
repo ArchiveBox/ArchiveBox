@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "SAVE_SINGLEFILE": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable SingleFile archiving"
+    },
+    "SINGLEFILE_BINARY": {
+      "type": "string",
+      "default": "single-file",
+      "x-aliases": ["SINGLE_FILE_BINARY"],
+      "description": "Path to single-file binary"
+    },
+    "NODE_BINARY": {
+      "type": "string",
+      "default": "node",
+      "description": "Path to Node.js binary"
+    },
+    "SINGLEFILE_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 10,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for SingleFile in seconds"
+    },
+    "SINGLEFILE_USER_AGENT": {
+      "type": "string",
+      "default": "",
+      "x-fallback": "USER_AGENT",
+      "description": "User agent string"
+    },
+    "SINGLEFILE_COOKIES_FILE": {
+      "type": "string",
+      "default": "",
+      "x-fallback": "COOKIES_FILE",
+      "description": "Path to cookies file"
+    },
+    "SINGLEFILE_ARGS": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "description": "Default single-file arguments"
+    },
+    "SINGLEFILE_EXTRA_ARGS": {
+      "type": "string",
+      "default": "",
+      "description": "Extra arguments for single-file"
+    }
+  }
+}

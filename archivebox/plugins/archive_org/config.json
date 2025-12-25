@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "SAVE_ARCHIVE_DOT_ORG": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["SUBMIT_ARCHIVE_DOT_ORG"],
+      "description": "Submit URLs to archive.org Wayback Machine"
+    },
+    "ARCHIVE_ORG_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 10,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for archive.org submission in seconds"
+    },
+    "ARCHIVE_ORG_USER_AGENT": {
+      "type": "string",
+      "default": "",
+      "x-fallback": "USER_AGENT",
+      "description": "User agent string"
+    }
+  }
+}

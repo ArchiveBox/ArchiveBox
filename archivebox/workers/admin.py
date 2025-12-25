@@ -1,7 +1,5 @@
 __package__ = 'archivebox.workers'
 
-import abx
-
 from django.contrib.auth import get_permission_codename
 
 from huey_monitor.apps import HueyMonitorConfig
@@ -20,7 +18,6 @@ class CustomTaskModelAdmin(TaskModelAdmin):
 
 
 
-@abx.hookimpl
 def register_admin(admin_site):
     admin_site.register(TaskModel, CustomTaskModelAdmin)
     admin_site.register(SignalInfoModel, SignalInfoModelAdmin)

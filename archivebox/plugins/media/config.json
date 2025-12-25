@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "SAVE_MEDIA": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["USE_YTDLP", "FETCH_MEDIA"],
+      "description": "Enable media downloading with yt-dlp"
+    },
+    "YOUTUBEDL_BINARY": {
+      "type": "string",
+      "default": "yt-dlp",
+      "x-aliases": ["YTDLP_BINARY", "YOUTUBE_DL_BINARY"],
+      "description": "Path to yt-dlp binary"
+    },
+    "MEDIA_TIMEOUT": {
+      "type": "integer",
+      "default": 3600,
+      "minimum": 30,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for media downloads in seconds"
+    },
+    "MEDIA_MAX_SIZE": {
+      "type": "string",
+      "default": "750m",
+      "pattern": "^\\d+[kmgKMG]?$",
+      "description": "Maximum file size for media downloads"
+    },
+    "YTDLP_CHECK_SSL_VALIDITY": {
+      "type": "boolean",
+      "default": true,
+      "x-fallback": "CHECK_SSL_VALIDITY",
+      "description": "Whether to verify SSL certificates"
+    },
+    "YTDLP_ARGS": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [
+        "--write-info-json",
+        "--write-thumbnail",
+        "--write-sub",
+        "--embed-subs",
+        "--write-auto-sub"
+      ],
+      "description": "Default yt-dlp arguments"
+    },
+    "YTDLP_EXTRA_ARGS": {
+      "type": "string",
+      "default": "",
+      "description": "Extra arguments for yt-dlp (space-separated)"
+    }
+  }
+}

@@ -38,7 +38,7 @@ class APIToken(models.Model):
         return not self.expires or self.expires >= (for_date or timezone.now())
 
 
-class OutboundWebhook(models.Model, WebhookBase):
+class OutboundWebhook(WebhookBase):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)

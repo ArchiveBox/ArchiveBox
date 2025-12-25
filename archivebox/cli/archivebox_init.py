@@ -21,10 +21,9 @@ def init(force: bool=False, quick: bool=False, install: bool=False, setup: bool=
     from archivebox.config import CONSTANTS, VERSION, DATA_DIR
     from archivebox.config.common import SERVER_CONFIG
     from archivebox.config.collection import write_config_file
-    from archivebox.index import load_main_index, write_main_index, fix_invalid_folder_locations, get_invalid_folders
-    from archivebox.index.schema import Link
-    from archivebox.index.json import parse_json_main_index, parse_json_links_details
-    from archivebox.index.sql import apply_migrations
+    from archivebox.misc.folders import fix_invalid_folder_locations, get_invalid_folders
+    from archivebox.misc.legacy import parse_json_main_index, parse_json_links_details, SnapshotDict
+    from archivebox.misc.db import apply_migrations
     
     # if os.access(out_dir / CONSTANTS.JSON_INDEX_FILENAME, os.F_OK):
     #     print("[red]:warning: This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.[/red]", file=sys.stderr)
@@ -100,10 +99,10 @@ def init(force: bool=False, quick: bool=False, install: bool=False, setup: bool=
     from core.models import Snapshot
 
     all_links = Snapshot.objects.none()
-    pending_links: dict[str, Link] = {}
+    pending_links: dict[str, SnapshotDict] = {}
 
     if existing_index:
-        all_links = load_main_index(DATA_DIR, warn=False)
+        all_links = Snapshot.objects.all()
         print(f'    √ Loaded {all_links.count()} links from existing main index.')
 
     if quick:
@@ -119,9 +118,9 @@ def init(force: bool=False, quick: bool=False, install: bool=False, setup: bool=
 
             # Links in JSON index but not in main index
             orphaned_json_links = {
-                link.url: link
-                for link in parse_json_main_index(DATA_DIR)
-                if not all_links.filter(url=link.url).exists()
+                link_dict['url']: link_dict
+                for link_dict in parse_json_main_index(DATA_DIR)
+                if not all_links.filter(url=link_dict['url']).exists()
             }
             if orphaned_json_links:
                 pending_links.update(orphaned_json_links)
@@ -129,9 +128,9 @@ def init(force: bool=False, quick: bool=False, install: bool=False, setup: bool=
 
             # Links in data dir indexes but not in main index
             orphaned_data_dir_links = {
-                link.url: link
-                for link in parse_json_links_details(DATA_DIR)
-                if not all_links.filter(url=link.url).exists()
+                link_dict['url']: link_dict
+                for link_dict in parse_json_links_details(DATA_DIR)
+                if not all_links.filter(url=link_dict['url']).exists()
             }
             if orphaned_data_dir_links:
                 pending_links.update(orphaned_data_dir_links)
@@ -159,7 +158,8 @@ def init(force: bool=False, quick: bool=False, install: bool=False, setup: bool=
             print('        archivebox init --quick', file=sys.stderr)
             raise SystemExit(1)
         
-        write_main_index(list(pending_links.values()), DATA_DIR)
+        if pending_links:
+            Snapshot.objects.create_from_dicts(list(pending_links.values()))
 
     print('\n[green]----------------------------------------------------------------------[/green]')
 

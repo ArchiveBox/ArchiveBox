@@ -1,22 +1,13 @@
 __package__ = 'archivebox.machine'
 
-import sys
-import os
-import signal
 import socket
-import subprocess
-import multiprocessing
 from uuid import uuid7
 from datetime import timedelta
-from pathlib import Path
 
 from django.db import models
 from django.utils import timezone
 from django.utils.functional import cached_property
 
-import abx
-import archivebox
-from abx_pkg import Binary, BinProvider
 from archivebox.base_models.models import ModelWithHealthStats
 from .detect import get_host_guid, get_os_info, get_vm_info, get_host_network, get_host_stats
 
@@ -34,7 +25,7 @@ class MachineManager(models.Manager):
         return Machine.current()
 
 
-class Machine(models.Model, ModelWithHealthStats):
+class Machine(ModelWithHealthStats):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -51,6 +42,8 @@ class Machine(models.Model, ModelWithHealthStats):
     os_release = models.CharField(max_length=63, default=None, null=False)
     os_kernel = models.CharField(max_length=255, default=None, null=False)
     stats = models.JSONField(default=dict, null=False)
+    config = models.JSONField(default=dict, null=False, blank=True,
+        help_text="Machine-specific config overrides (e.g., resolved binary paths like WGET_BINARY)")
     num_uses_failed = models.PositiveIntegerField(default=0)
     num_uses_succeeded = models.PositiveIntegerField(default=0)
 
@@ -76,7 +69,7 @@ class NetworkInterfaceManager(models.Manager):
         return NetworkInterface.current()
 
 
-class NetworkInterface(models.Model, ModelWithHealthStats):
+class NetworkInterface(ModelWithHealthStats):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -115,27 +108,133 @@ class NetworkInterface(models.Model, ModelWithHealthStats):
         return _CURRENT_INTERFACE
 
 
+class DependencyManager(models.Manager):
+    def get_or_create_for_extractor(self, bin_name: str, bin_providers: str = '*', custom_cmds: dict = None, config: dict = None) -> 'Dependency':
+        """Get or create a Dependency for an extractor's binary."""
+        dependency, created = self.get_or_create(
+            bin_name=bin_name,
+            defaults={
+                'bin_providers': bin_providers,
+                'custom_cmds': custom_cmds or {},
+                'config': config or {},
+            }
+        )
+        return dependency
+
+
+class Dependency(models.Model):
+    """
+    Defines a binary dependency needed by an extractor.
+
+    This model tracks what binaries need to be installed and how to install them.
+    Provider hooks listen for Dependency creation events and attempt installation.
+
+    Example:
+        Dependency.objects.get_or_create(
+            bin_name='wget',
+            bin_providers='apt,brew,nix,custom',
+            custom_cmds={
+                'apt': 'apt install -y --no-install-recommends wget',
+                'brew': 'brew install wget',
+                'custom': 'curl https://example.com/get-wget.sh | bash',
+            }
+        )
+    """
+
+    BIN_PROVIDER_CHOICES = (
+        ('*', 'Any'),
+        ('apt', 'apt'),
+        ('brew', 'brew'),
+        ('pip', 'pip'),
+        ('npm', 'npm'),
+        ('gem', 'gem'),
+        ('nix', 'nix'),
+        ('env', 'env (already in PATH)'),
+        ('custom', 'custom'),
+    )
+
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    bin_name = models.CharField(max_length=63, unique=True, db_index=True,
+        help_text="Binary executable name (e.g., wget, yt-dlp, chromium)")
+    bin_providers = models.CharField(max_length=127, default='*',
+        help_text="Comma-separated list of allowed providers: apt,brew,pip,npm,gem,nix,custom or * for any")
+    custom_cmds = models.JSONField(default=dict, blank=True,
+        help_text="JSON map of provider -> custom install command (e.g., {'apt': 'apt install -y wget'})")
+    config = models.JSONField(default=dict, blank=True,
+        help_text="JSON map of env var config to use during install")
+
+    objects: DependencyManager = DependencyManager()
+
+    class Meta:
+        verbose_name = 'Dependency'
+        verbose_name_plural = 'Dependencies'
+
+    def __str__(self) -> str:
+        return f'{self.bin_name} (providers: {self.bin_providers})'
+
+    def allows_provider(self, provider: str) -> bool:
+        """Check if this dependency allows the given provider."""
+        if self.bin_providers == '*':
+            return True
+        return provider in self.bin_providers.split(',')
+
+    def get_install_cmd(self, provider: str) -> str | None:
+        """Get the install command for a provider, or None for default."""
+        return self.custom_cmds.get(provider)
+
+    @property
+    def installed_binaries(self):
+        """Get all InstalledBinary records for this dependency."""
+        return InstalledBinary.objects.filter(dependency=self)
+
+    @property
+    def is_installed(self) -> bool:
+        """Check if at least one valid InstalledBinary exists for this dependency."""
+        return self.installed_binaries.filter(abspath__isnull=False).exclude(abspath='').exists()
+
+
 class InstalledBinaryManager(models.Manager):
-    def get_from_db_or_cache(self, binary: Binary) -> 'InstalledBinary':
+    def get_from_db_or_cache(self, name: str, abspath: str = '', version: str = '', sha256: str = '', binprovider: str = 'env') -> 'InstalledBinary':
+        """Get or create an InstalledBinary record from the database or cache."""
         global _CURRENT_BINARIES
-        cached = _CURRENT_BINARIES.get(binary.name)
+        cached = _CURRENT_BINARIES.get(name)
         if cached and timezone.now() < cached.modified_at + timedelta(seconds=INSTALLED_BINARY_RECHECK_INTERVAL):
             return cached
-        if not binary.abspath or not binary.version or not binary.sha256:
-            binary = archivebox.pm.hook.binary_load(binary=binary, fresh=True)
-        _CURRENT_BINARIES[binary.name], _ = self.update_or_create(
-            machine=Machine.objects.current(), name=binary.name, binprovider=binary.loaded_binprovider.name,
-            version=str(binary.loaded_version), abspath=str(binary.loaded_abspath), sha256=str(binary.loaded_sha256),
+        _CURRENT_BINARIES[name], _ = self.update_or_create(
+            machine=Machine.objects.current(), name=name, binprovider=binprovider,
+            version=version, abspath=abspath, sha256=sha256,
         )
-        return _CURRENT_BINARIES[binary.name]
+        return _CURRENT_BINARIES[name]
+
+    def get_valid_binary(self, name: str, machine: 'Machine | None' = None) -> 'InstalledBinary | None':
+        """Get a valid InstalledBinary for the given name on the current machine, or None if not found."""
+        machine = machine or Machine.current()
+        return self.filter(
+            machine=machine,
+            name__iexact=name,
+        ).exclude(abspath='').exclude(abspath__isnull=True).order_by('-modified_at').first()
 
 
-class InstalledBinary(models.Model, ModelWithHealthStats):
+class InstalledBinary(ModelWithHealthStats):
+    """
+    Tracks an installed binary on a specific machine.
+
+    Each InstalledBinary is optionally linked to a Dependency that defines
+    how the binary should be installed. The `is_valid` property indicates
+    whether the binary is usable (has both abspath and version).
+    """
+
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
     machine = models.ForeignKey(Machine, on_delete=models.CASCADE, default=None, null=False, blank=True)
-    name = models.CharField(max_length=63, default=None, null=False, blank=True)
+    dependency = models.ForeignKey(Dependency, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='installedbinary_set',
+        help_text="The Dependency this binary satisfies")
+    name = models.CharField(max_length=63, default=None, null=False, blank=True, db_index=True)
     binprovider = models.CharField(max_length=31, default=None, null=False, blank=True)
     abspath = models.CharField(max_length=255, default=None, null=False, blank=True)
     version = models.CharField(max_length=32, default=None, null=False, blank=True)
@@ -153,113 +252,20 @@ class InstalledBinary(models.Model, ModelWithHealthStats):
     def __str__(self) -> str:
         return f'{self.name}@{self.binprovider}+{self.abspath}@{self.version}'
 
-    @cached_property
-    def BINARY(self) -> Binary:
-        for binary in abx.as_dict(archivebox.pm.hook.get_BINARIES()).values():
-            if binary.name == self.name:
-                return binary
-        raise Exception(f'Binary {self.name} not found')
-
-    @cached_property
-    def BINPROVIDER(self) -> BinProvider:
-        for bp in abx.as_dict(archivebox.pm.hook.get_BINPROVIDERS()).values():
-            if bp.name == self.binprovider:
-                return bp
-        raise Exception(f'BinProvider {self.binprovider} not found')
-
-
-def spawn_process(proc_id: str):
-    Process.objects.get(id=proc_id).spawn()
-
-
-class ProcessManager(models.Manager):
-    pass
-
-
-class ProcessQuerySet(models.QuerySet):
-    def queued(self):
-        return self.filter(pid__isnull=True, returncode__isnull=True)
-
-    def running(self):
-        return self.filter(pid__isnull=False, returncode__isnull=True)
-
-    def exited(self):
-        return self.filter(returncode__isnull=False)
-
-    def kill(self):
-        count = 0
-        for proc in self.running():
-            proc.kill()
-            count += 1
-        return count
-
-    def pids(self):
-        return self.values_list('pid', flat=True)
-
-
-class Process(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
-    cmd = models.JSONField(default=list)
-    cwd = models.CharField(max_length=255)
-    actor_type = models.CharField(max_length=255, null=True)
-    timeout = models.PositiveIntegerField(null=True, default=None)
-    created_at = models.DateTimeField(null=False, default=timezone.now, editable=False)
-    modified_at = models.DateTimeField(null=False, default=timezone.now, editable=False)
-    machine = models.ForeignKey(Machine, on_delete=models.CASCADE)
-    pid = models.IntegerField(null=True)
-    launched_at = models.DateTimeField(null=True)
-    finished_at = models.DateTimeField(null=True)
-    returncode = models.IntegerField(null=True)
-    stdout = models.TextField(default='', null=False)
-    stderr = models.TextField(default='', null=False)
-
-    objects: ProcessManager = ProcessManager.from_queryset(ProcessQuerySet)()
-
-    @classmethod
-    def current(cls) -> 'Process':
-        proc_id = os.environ.get('PROCESS_ID', '').strip()
-        if not proc_id:
-            proc = cls.objects.create(
-                cmd=sys.argv, cwd=os.getcwd(), machine=Machine.objects.current(),
-                pid=os.getpid(), launched_at=timezone.now(),
-            )
-            os.environ['PROCESS_ID'] = str(proc.id)
-            return proc
-        proc = cls.objects.get(id=proc_id)
-        proc.pid = proc.pid or os.getpid()
-        proc.machine = Machine.current()
-        proc.cwd = os.getcwd()
-        proc.cmd = sys.argv
-        proc.launched_at = proc.launched_at or timezone.now()
-        proc.save()
-        return proc
-
-    def fork(self):
-        if self.pid:
-            raise Exception(f'Process already running: {self}')
-        multiprocessing.Process(target=spawn_process, args=(self.id,)).start()
-
-    def spawn(self):
-        if self.pid:
-            raise Exception(f'Process already running: {self}')
-        proc = subprocess.Popen(self.cmd, cwd=self.cwd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        self.pid = proc.pid
-        self.launched_at = timezone.now()
-        self.save()
-        proc.wait()
-        self.finished_at = timezone.now()
-        self.returncode = proc.returncode
-        self.stdout = proc.stdout.read()
-        self.stderr = proc.stderr.read()
-        self.pid = None
-        self.save()
-
-    def kill(self):
-        if self.pid and self.returncode is None:
-            os.kill(self.pid, signal.SIGKILL)
-            self.pid = None
-            self.save()
-
     @property
-    def is_running(self):
-        return self.pid is not None and self.returncode is None
+    def is_valid(self) -> bool:
+        """A binary is valid if it has both abspath and version set."""
+        return bool(self.abspath) and bool(self.version)
+
+    @cached_property
+    def binary_info(self) -> dict:
+        """Return info about the binary."""
+        return {
+            'name': self.name,
+            'abspath': self.abspath,
+            'version': self.version,
+            'binprovider': self.binprovider,
+            'is_valid': self.is_valid,
+        }
+
+

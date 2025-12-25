@@ -20,15 +20,15 @@ def config(*keys,
           **kwargs) -> None:
     """Get and set your ArchiveBox project configuration values"""
 
-    import archivebox
     from archivebox.misc.checks import check_data_folder
     from archivebox.misc.logging_util import printable_config
     from archivebox.config.collection import load_all_config, write_config_file, get_real_name
+    from archivebox.config.configset import get_flat_config, get_all_configs
 
     check_data_folder()
 
-    FLAT_CONFIG = archivebox.pm.hook.get_FLAT_CONFIG()
-    CONFIGS = archivebox.pm.hook.get_CONFIGS()
+    FLAT_CONFIG = get_flat_config()
+    CONFIGS = get_all_configs()
     
     config_options: list[str] = list(kwargs.pop('key=value', []) or keys or [f'{key}={val}' for key, val in kwargs.items()])
     no_args = not (get or set or reset or config_options)
@@ -105,7 +105,7 @@ def config(*keys,
         if new_config:
             before = FLAT_CONFIG
             matching_config = write_config_file(new_config)
-            after = {**load_all_config(), **archivebox.pm.hook.get_FLAT_CONFIG()}
+            after = {**load_all_config(), **get_flat_config()}
             print(printable_config(matching_config))
 
             side_effect_changes = {}

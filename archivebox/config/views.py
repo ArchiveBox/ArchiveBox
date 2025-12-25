@@ -1,6 +1,7 @@
-__package__ = 'abx.archivebox'
+__package__ = 'archivebox.config'
 
 import os
+import shutil
 import inspect
 from pathlib import Path
 from typing import Any, List, Dict, cast
@@ -13,12 +14,20 @@ from django.utils.html import format_html, mark_safe
 from admin_data_views.typing import TableContext, ItemContext
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
-import abx
-import archivebox
 from archivebox.config import CONSTANTS
 from archivebox.misc.util import parse_date
 
 from machine.models import InstalledBinary
+
+
+# Common binaries to check for
+KNOWN_BINARIES = [
+    'wget', 'curl', 'chromium', 'chrome', 'google-chrome', 'google-chrome-stable',
+    'node', 'npm', 'npx', 'yt-dlp', 'ytdlp', 'youtube-dl',
+    'git', 'singlefile', 'readability-extractor', 'mercury-parser',
+    'python3', 'python', 'bash', 'zsh',
+    'ffmpeg', 'ripgrep', 'rg', 'sonic', 'archivebox',
+]
 
 
 def obj_to_yaml(obj: Any, indent: int=0) -> str:
@@ -62,65 +71,92 @@ def obj_to_yaml(obj: Any, indent: int=0) -> str:
     else:
         return f" {str(obj)}"
 
+
+def get_detected_binaries() -> Dict[str, Dict[str, Any]]:
+    """Detect available binaries using shutil.which."""
+    binaries = {}
+    
+    for name in KNOWN_BINARIES:
+        path = shutil.which(name)
+        if path:
+            binaries[name] = {
+                'name': name,
+                'abspath': path,
+                'version': None,  # Could add version detection later
+                'is_available': True,
+            }
+    
+    return binaries
+
+
+def get_filesystem_plugins() -> Dict[str, Dict[str, Any]]:
+    """Discover plugins from filesystem directories."""
+    from archivebox.hooks import BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR
+    
+    plugins = {}
+    
+    for base_dir, source in [(BUILTIN_PLUGINS_DIR, 'builtin'), (USER_PLUGINS_DIR, 'user')]:
+        if not base_dir.exists():
+            continue
+        
+        for plugin_dir in base_dir.iterdir():
+            if plugin_dir.is_dir() and not plugin_dir.name.startswith('_'):
+                plugin_id = f'{source}.{plugin_dir.name}'
+                
+                # Find hook scripts
+                hooks = []
+                for ext in ('sh', 'py', 'js'):
+                    hooks.extend(plugin_dir.glob(f'on_*__*.{ext}'))
+                
+                plugins[plugin_id] = {
+                    'id': plugin_id,
+                    'name': plugin_dir.name,
+                    'path': str(plugin_dir),
+                    'source': source,
+                    'hooks': [str(h.name) for h in hooks],
+                }
+    
+    return plugins
+
+
 @render_with_table_view
 def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
-    FLAT_CONFIG = archivebox.pm.hook.get_FLAT_CONFIG()
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
     rows = {
         "Binary Name": [],
         "Found Version": [],
-        "From Plugin": [],
         "Provided By": [],
         "Found Abspath": [],
-        "Related Configuration": [],
-        # "Overrides": [],
-        # "Description": [],
     }
 
-    relevant_configs = {
-        key: val
-        for key, val in FLAT_CONFIG.items()
-        if '_BINARY' in key or '_VERSION' in key
-    }
-
-    for plugin_id, plugin in abx.get_all_plugins().items():
-        plugin = benedict(plugin)
-        if not hasattr(plugin.plugin, 'get_BINARIES'):
-            continue
+    # Get binaries from database (previously detected/installed)
+    db_binaries = {b.name: b for b in InstalledBinary.objects.all()}
+    
+    # Get currently detectable binaries  
+    detected = get_detected_binaries()
+    
+    # Merge and display
+    all_binary_names = sorted(set(list(db_binaries.keys()) + list(detected.keys())))
+    
+    for name in all_binary_names:
+        db_binary = db_binaries.get(name)
+        detected_binary = detected.get(name)
         
-        for binary in plugin.plugin.get_BINARIES().values():
-            try:
-                installed_binary = InstalledBinary.objects.get_from_db_or_cache(binary)
-                binary = installed_binary.load_from_db()
-            except Exception as e:
-                print(e)
-
-            rows['Binary Name'].append(ItemLink(binary.name, key=binary.name))
-            rows['Found Version'].append(f'✅ {binary.loaded_version}' if binary.loaded_version else '❌ missing')
-            rows['From Plugin'].append(plugin.package)
-            rows['Provided By'].append(
-                ', '.join(
-                    f'[{binprovider.name}]' if binprovider.name == getattr(binary.loaded_binprovider, 'name', None) else binprovider.name
-                    for binprovider in binary.binproviders_supported
-                    if binprovider
-                )
-                # binary.loaded_binprovider.name
-                # if binary.loaded_binprovider else
-                # ', '.join(getattr(provider, 'name', str(provider)) for provider in binary.binproviders_supported)
-            )
-            rows['Found Abspath'].append(str(binary.loaded_abspath or '❌ missing'))
-            rows['Related Configuration'].append(mark_safe(', '.join(
-                f'<a href="/admin/environment/config/{config_key}/">{config_key}</a>'
-                for config_key, config_value in relevant_configs.items()
-                    if str(binary.name).lower().replace('-', '').replace('_', '').replace('ytdlp', 'youtubedl') in config_key.lower()
-                    or config_value.lower().endswith(binary.name.lower())
-                    # or binary.name.lower().replace('-', '').replace('_', '') in str(config_value).lower()
-            )))
-            # if not binary.overrides:
-                # import ipdb; ipdb.set_trace()
-            # rows['Overrides'].append(str(obj_to_yaml(binary.overrides) or str(binary.overrides))[:200])
-            # rows['Description'].append(binary.description)
+        rows['Binary Name'].append(ItemLink(name, key=name))
+        
+        if db_binary:
+            rows['Found Version'].append(f'✅ {db_binary.version}' if db_binary.version else '✅ found')
+            rows['Provided By'].append(db_binary.binprovider or 'PATH')
+            rows['Found Abspath'].append(str(db_binary.abspath or ''))
+        elif detected_binary:
+            rows['Found Version'].append('✅ found')
+            rows['Provided By'].append('PATH')
+            rows['Found Abspath'].append(detected_binary['abspath'])
+        else:
+            rows['Found Version'].append('❌ missing')
+            rows['Provided By'].append('-')
+            rows['Found Abspath'].append('-')
 
     return TableContext(
         title="Binaries",
@@ -132,43 +168,65 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
 
     assert request.user and request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
-    binary = None
-    plugin = None
-    for plugin_id, plugin in abx.get_all_plugins().items():
-        try:
-            for loaded_binary in plugin['hooks'].get_BINARIES().values():
-                if loaded_binary.name == key:
-                    binary = loaded_binary
-                    plugin = plugin
-                    # break  # last write wins
-        except Exception as e:
-            print(e)
-
-    assert plugin and binary, f'Could not find a binary matching the specified name: {key}'
-
+    # Try database first
     try:
-        binary = binary.load()
-    except Exception as e:
-        print(e)
-
+        binary = InstalledBinary.objects.get(name=key)
+        return ItemContext(
+            slug=key,
+            title=key,
+            data=[
+                {
+                    "name": binary.name,
+                    "description": str(binary.abspath or ''),
+                    "fields": {
+                        'name': binary.name,
+                        'binprovider': binary.binprovider,
+                        'abspath': str(binary.abspath),
+                        'version': binary.version,
+                        'sha256': binary.sha256,
+                    },
+                    "help_texts": {},
+                },
+            ],
+        )
+    except InstalledBinary.DoesNotExist:
+        pass
+    
+    # Try to detect from PATH
+    path = shutil.which(key)
+    if path:
+        return ItemContext(
+            slug=key,
+            title=key,
+            data=[
+                {
+                    "name": key,
+                    "description": path,
+                    "fields": {
+                        'name': key,
+                        'binprovider': 'PATH',
+                        'abspath': path,
+                        'version': 'unknown',
+                    },
+                    "help_texts": {},
+                },
+            ],
+        )
+    
     return ItemContext(
         slug=key,
         title=key,
         data=[
             {
-                "name": binary.name,
-                "description": binary.abspath,
+                "name": key,
+                "description": "Binary not found",
                 "fields": {
-                    'plugin': plugin['package'],
-                    'binprovider': binary.loaded_binprovider,
-                    'abspath': binary.loaded_abspath,
-                    'version': binary.loaded_version,
-                    'overrides': obj_to_yaml(binary.overrides),
-                    'providers': obj_to_yaml(binary.binproviders_supported),
+                    'name': key,
+                    'binprovider': 'not installed',
+                    'abspath': 'not found',
+                    'version': 'N/A',
                 },
-                "help_texts": {
-                    # TODO
-                },
+                "help_texts": {},
             },
         ],
     )
@@ -180,66 +238,26 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
     rows = {
-        "Label": [],
-        "Version": [],
-        "Author": [],
-        "Package": [],
-        "Source Code": [],
-        "Config": [],
-        "Binaries": [],
-        "Package Managers": [],
-        # "Search Backends": [],
+        "Name": [],
+        "Source": [],
+        "Path": [],
+        "Hooks": [],
     }
 
-    config_colors = {
-        '_BINARY': '#339',
-        'USE_': 'green',
-        'SAVE_': 'green',
-        '_ARGS': '#33e',
-        'KEY': 'red',
-        'COOKIES': 'red',
-        'AUTH': 'red',
-        'SECRET': 'red',
-        'TOKEN': 'red',
-        'PASSWORD': 'red',
-        'TIMEOUT': '#533',
-        'RETRIES': '#533',
-        'MAX': '#533',
-        'MIN': '#533',
-    }
-    def get_color(key):
-        for pattern, color in config_colors.items():
-            if pattern in key:
-                return color
-        return 'black'
+    plugins = get_filesystem_plugins()
 
-    for plugin_id, plugin in abx.get_all_plugins().items():
-        plugin.hooks.get_BINPROVIDERS = getattr(plugin.plugin, 'get_BINPROVIDERS', lambda: {})
-        plugin.hooks.get_BINARIES = getattr(plugin.plugin, 'get_BINARIES', lambda: {})
-        plugin.hooks.get_CONFIG = getattr(plugin.plugin, 'get_CONFIG', lambda: {})
-        
-        rows['Label'].append(ItemLink(plugin.label, key=plugin.package))
-        rows['Version'].append(str(plugin.version))
-        rows['Author'].append(mark_safe(f'<a href="{plugin.homepage}" target="_blank">{plugin.author}</a>'))
-        rows['Package'].append(ItemLink(plugin.package, key=plugin.package))
-        rows['Source Code'].append(format_html('<code>{}</code>', str(plugin.source_code).replace(str(Path('~').expanduser()), '~')))
-        rows['Config'].append(mark_safe(''.join(
-            f'<a href="/admin/environment/config/{key}/"><b><code style="color: {get_color(key)};">{key}</code></b>=<code>{value}</code></a><br/>'
-            for configdict in plugin.hooks.get_CONFIG().values()
-                for key, value in benedict(configdict).items()
-        )))
-        rows['Binaries'].append(mark_safe(', '.join(
-            f'<a href="/admin/environment/binaries/{binary.name}/"><code>{binary.name}</code></a>'
-            for binary in plugin.hooks.get_BINARIES().values()
-        )))
-        rows['Package Managers'].append(mark_safe(', '.join(
-            f'<a href="/admin/environment/binproviders/{binprovider.name}/"><code>{binprovider.name}</code></a>'
-            for binprovider in plugin.hooks.get_BINPROVIDERS().values()
-        )))
-        # rows['Search Backends'].append(mark_safe(', '.join(
-        #     f'<a href="/admin/environment/searchbackends/{searchbackend.name}/"><code>{searchbackend.name}</code></a>'
-        #     for searchbackend in plugin.SEARCHBACKENDS.values()
-        # )))
+    for plugin_id, plugin in plugins.items():
+        rows['Name'].append(ItemLink(plugin['name'], key=plugin_id))
+        rows['Source'].append(plugin['source'])
+        rows['Path'].append(format_html('<code>{}</code>', plugin['path']))
+        rows['Hooks'].append(', '.join(plugin['hooks']) or '(none)')
+
+    if not plugins:
+        # Show a helpful message when no plugins found
+        rows['Name'].append('(no plugins found)')
+        rows['Source'].append('-')
+        rows['Path'].append(format_html('<code>archivebox/plugins/</code> or <code>data/plugins/</code>'))
+        rows['Hooks'].append('-')
 
     return TableContext(
         title="Installed plugins",
@@ -251,39 +269,31 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
 
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
-    plugins = abx.get_all_plugins()
-
-    plugin_id = None
-    for check_plugin_id, loaded_plugin in plugins.items():
-        if check_plugin_id.split('.')[-1] == key.split('.')[-1]:
-            plugin_id = check_plugin_id
-            break
-
-    assert plugin_id, f'Could not find a plugin matching the specified name: {key}'
-
-    plugin = abx.get_plugin(plugin_id)
+    plugins = get_filesystem_plugins()
+    
+    plugin = plugins.get(key)
+    if not plugin:
+        return ItemContext(
+            slug=key,
+            title=f'Plugin not found: {key}',
+            data=[],
+        )
 
     return ItemContext(
         slug=key,
-        title=key,
+        title=plugin['name'],
         data=[
             {
-                "name": plugin.package,
-                "description": plugin.label,
+                "name": plugin['name'],
+                "description": plugin['path'],
                 "fields": {
-                    "id": plugin.id,
-                    "package": plugin.package,
-                    "label": plugin.label,
-                    "version": plugin.version,
-                    "author": plugin.author,
-                    "homepage": plugin.homepage,
-                    "dependencies": getattr(plugin, 'DEPENDENCIES', []),
-                    "source_code": plugin.source_code,
-                    "hooks": plugin.hooks,
+                    "id": plugin['id'],
+                    "name": plugin['name'],
+                    "source": plugin['source'],
+                    "path": plugin['path'],
+                    "hooks": plugin['hooks'],
                 },
-                "help_texts": {
-                    # TODO
-                },
+                "help_texts": {},
             },
         ],
     )
@@ -333,22 +343,6 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
     # Add a row for each worker process managed by supervisord
     for proc in cast(List[Dict[str, Any]], supervisor.getAllProcessInfo()):
         proc = benedict(proc)
-        # {
-        #     "name": "daphne",
-        #     "group": "daphne",
-        #     "start": 1725933056,
-        #     "stop": 0,
-        #     "now": 1725933438,
-        #     "state": 20,
-        #     "statename": "RUNNING",
-        #     "spawnerr": "",
-        #     "exitstatus": 0,
-        #     "logfile": "logs/server.log",
-        #     "stdout_logfile": "logs/server.log",
-        #     "stderr_logfile": "",
-        #     "pid": 33283,
-        #     "description": "pid 33283, uptime 0:06:22",
-        # }
         rows["Name"].append(ItemLink(proc.name, key=proc.name))
         rows["State"].append(proc.statename)
         rows['PID'].append(proc.description.replace('pid ', ''))

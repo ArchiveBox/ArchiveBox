@@ -1,0 +1,112 @@
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/.venv/lib/python3.14/site-packages/pytest/__main__.py archivebox/cli/test_version.py -v --tb=short; TS=2025-12-25__02:17:49 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/.venv/lib/python3.14/site-packages/pytest/__main__.py archivebox/cli/tests_piping.py::TestPipingWorkflowIntegration::test_snapshot_creates_and_outputs_jsonl -v --tb=short; TS=2025-12-25__02:18:12 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/.venv/lib/python3.14/site-packages/pytest/__main__.py archivebox/cli/test_version.py archivebox/cli/test_install.py -v --tb=short; TS=2025-12-25__02:19:15 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> -c; TS=2025-12-25__02:19:30 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> -c; TS=2025-12-25__02:19:39 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/.venv/lib/python3.14/site-packages/pytest/__main__.py archivebox/cli/tests_migrations.py -v --tb=short; TS=2025-12-25__02:23:46 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:28:59 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:29:01 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:29:03 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:29:04 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:29:06 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:29:08 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:29:09 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate --run-syncdb; TS=2025-12-25__02:29:11 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py list; TS=2025-12-25__02:29:12 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate --run-syncdb; TS=2025-12-25__02:29:14 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py init; TS=2025-12-25__02:29:15 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py add https://example.com; TS=2025-12-25__02:29:16 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:31:22 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:31:52 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:32:17 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:33:38 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:33:40 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py add https://wikipedia.org; TS=2025-12-25__02:33:41 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:35:41 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:35:43 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:35:44 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py list --json; TS=2025-12-25__02:35:46 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:35:47 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py status; TS=2025-12-25__02:35:49 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:35:50 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate --run-syncdb; TS=2025-12-25__02:35:51 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py list; TS=2025-12-25__02:35:53 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate --run-syncdb; TS=2025-12-25__02:35:54 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py init; TS=2025-12-25__02:35:56 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py add https://example.com; TS=2025-12-25__02:35:57 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py list --json; TS=2025-12-25__02:35:58 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py list --help; TS=2025-12-25__02:36:10 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:36:46 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:36:48 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:36:49 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:36:51 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:36:52 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py status; TS=2025-12-25__02:36:54 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate; TS=2025-12-25__02:36:55 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate --run-syncdb; TS=2025-12-25__02:36:56 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py list; TS=2025-12-25__02:36:58 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage migrate --run-syncdb; TS=2025-12-25__02:36:59 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py init; TS=2025-12-25__02:37:00 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py init; TS=2025-12-25__02:37:09 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> -c; TS=2025-12-25__02:38:28 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py crawl --help; TS=2025-12-25__02:53:27 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/archivebox/__main__.py manage makemigrations --dry-run; TS=2025-12-25__03:37:07 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/.venv/bin/archivebox manage check; TS=2025-12-25__04:04:43 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/.venv/bin/archivebox manage makemigrations --dry-run; TS=2025-12-25__04:04:56 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False
+
+> /Users/squash/Local/Code/archiveboxes/archivebox-nue/.venv/bin/archivebox manage makemigrations --dry-run; TS=2025-12-25__04:08:01 VERSION=0.8.6rc3 IN_DOCKER=False IS_TTY=False

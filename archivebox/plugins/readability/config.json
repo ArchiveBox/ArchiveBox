@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "SAVE_READABILITY": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable Readability text extraction"
+    },
+    "READABILITY_BINARY": {
+      "type": "string",
+      "default": "readability-extractor",
+      "description": "Path to readability-extractor binary"
+    },
+    "NODE_BINARY": {
+      "type": "string",
+      "default": "node",
+      "description": "Path to Node.js binary"
+    },
+    "READABILITY_TIMEOUT": {
+      "type": "integer",
+      "default": 30,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for Readability in seconds"
+    }
+  }
+}

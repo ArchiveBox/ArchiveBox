@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from core.models import Snapshot, ArchiveResult
 
 
-class Seed(ModelWithSerializers, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats):
+class Seed(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
@@ -101,7 +101,7 @@ class CrawlSchedule(ModelWithSerializers, ModelWithNotes, ModelWithHealthStats):
             self.template.save()
 
 
-class Crawl(ModelWithSerializers, ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWithStateMachine):
+class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWithStateMachine):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
@@ -157,17 +157,131 @@ class Crawl(ModelWithSerializers, ModelWithOutputDir, ModelWithConfig, ModelWith
             pass
         root_snapshot, _ = Snapshot.objects.update_or_create(
             crawl=self, url=self.seed.uri,
-            defaults={'status': Snapshot.INITIAL_STATE, 'retry_at': timezone.now(), 'timestamp': str(timezone.now().timestamp())},
+            defaults={
+                'status': Snapshot.INITIAL_STATE,
+                'retry_at': timezone.now(),
+                'timestamp': str(timezone.now().timestamp()),
+                'created_by_id': self.created_by_id,
+                'depth': 0,
+            },
         )
         return root_snapshot
 
+    def add_url(self, entry: dict) -> bool:
+        """
+        Add a URL to the crawl queue if not already present.
 
-class Outlink(ModelWithSerializers):
-    id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
-    src = models.URLField()
-    dst = models.URLField()
-    crawl = models.ForeignKey(Crawl, on_delete=models.CASCADE, null=False, blank=False, related_name='outlink_set')
-    via = models.ForeignKey('core.ArchiveResult', on_delete=models.SET_NULL, null=True, blank=True, related_name='outlink_set')
+        Args:
+            entry: dict with 'url', optional 'depth', 'title', 'timestamp', 'tags', 'via_snapshot', 'via_extractor'
 
-    class Meta:
-        unique_together = (('src', 'dst', 'via'),)
+        Returns:
+            True if URL was added, False if skipped (duplicate or depth exceeded)
+        """
+        import json
+
+        url = entry.get('url', '')
+        if not url:
+            return False
+
+        depth = entry.get('depth', 1)
+
+        # Skip if depth exceeds max_depth
+        if depth > self.max_depth:
+            return False
+
+        # Skip if already a Snapshot for this crawl
+        if self.snapshot_set.filter(url=url).exists():
+            return False
+
+        # Check if already in urls (parse existing JSONL entries)
+        existing_urls = set()
+        for line in self.urls.splitlines():
+            if not line.strip():
+                continue
+            try:
+                existing_entry = json.loads(line)
+                existing_urls.add(existing_entry.get('url', ''))
+            except json.JSONDecodeError:
+                existing_urls.add(line.strip())
+
+        if url in existing_urls:
+            return False
+
+        # Append as JSONL
+        jsonl_entry = json.dumps(entry)
+        self.urls = (self.urls.rstrip() + '\n' + jsonl_entry).lstrip('\n')
+        self.save(update_fields=['urls', 'modified_at'])
+        return True
+
+    def create_snapshots_from_urls(self) -> list['Snapshot']:
+        """
+        Create Snapshot objects for each URL in self.urls that doesn't already exist.
+
+        Returns:
+            List of newly created Snapshot objects
+        """
+        import json
+        from core.models import Snapshot
+
+        created_snapshots = []
+
+        for line in self.urls.splitlines():
+            if not line.strip():
+                continue
+
+            # Parse JSONL or plain URL
+            try:
+                entry = json.loads(line)
+                url = entry.get('url', '')
+                depth = entry.get('depth', 1)
+                title = entry.get('title')
+                timestamp = entry.get('timestamp')
+                tags = entry.get('tags', '')
+            except json.JSONDecodeError:
+                url = line.strip()
+                depth = 1
+                title = None
+                timestamp = None
+                tags = ''
+
+            if not url:
+                continue
+
+            # Skip if depth exceeds max_depth
+            if depth > self.max_depth:
+                continue
+
+            # Create snapshot if doesn't exist
+            snapshot, created = Snapshot.objects.get_or_create(
+                url=url,
+                crawl=self,
+                defaults={
+                    'depth': depth,
+                    'title': title,
+                    'timestamp': timestamp or str(timezone.now().timestamp()),
+                    'status': Snapshot.INITIAL_STATE,
+                    'retry_at': timezone.now(),
+                    'created_by_id': self.created_by_id,
+                }
+            )
+
+            if created:
+                created_snapshots.append(snapshot)
+                # Save tags if present
+                if tags:
+                    snapshot.save_tags(tags.split(','))
+
+        return created_snapshots
+
+    def run(self) -> 'Snapshot':
+        """
+        Execute this Crawl by creating the root snapshot and processing queued URLs.
+
+        Called by the state machine when entering the 'started' state.
+
+        Returns:
+            The root Snapshot for this crawl
+        """
+        root_snapshot = self.create_root_snapshot()
+        self.create_snapshots_from_urls()
+        return root_snapshot

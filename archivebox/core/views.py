@@ -23,8 +23,9 @@ from admin_data_views.typing import TableContext, ItemContext
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
 import archivebox
-from archivebox.config import CONSTANTS, CONSTANTS_CONFIG, DATA_DIR, VERSION
-from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG
+from archivebox.config import CONSTANTS, CONSTANTS_CONFIG, DATA_DIR, VERSION, SAVE_ARCHIVE_DOT_ORG
+from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG, ARCHIVING_CONFIG
+from archivebox.config.configset import get_flat_config, get_config, get_all_configs
 from archivebox.misc.util import base_url, htmlencode, ts_to_date_str
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.misc.logging_util import printable_filesize
@@ -101,7 +102,7 @@ class SnapshotView(View):
 
 
         # iterate through all the files in the snapshot dir and add the biggest ones to1 the result list
-        snap_dir = Path(snapshot.link_dir)
+        snap_dir = Path(snapshot.output_dir)
         if not os.path.isdir(snap_dir) and os.access(snap_dir, os.R_OK):
             return {}
         
@@ -131,9 +132,7 @@ class SnapshotView(View):
                 best_result = archiveresults[result_type]
                 break
 
-        link = snapshot.as_link()
-
-        link_info = link._asdict(extended=True)
+        snapshot_info = snapshot.to_dict(extended=True)
 
         try:
             warc_path = 'warc/' + list(Path(snap_dir).glob('warc/*.warc.*'))[0].name
@@ -141,24 +140,23 @@ class SnapshotView(View):
             warc_path = 'warc/'
 
         context = {
-            **link_info,
-            **link_info['canonical'],
+            **snapshot_info,
+            **snapshot_info.get('canonical', {}),
             'title': htmlencode(
-                link.title
-                or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
+                snapshot.title
+                or (snapshot.base_url if snapshot.is_archived else TITLE_LOADING_MSG)
             ),
-            'extension': link.extension or 'html',
-            'tags': link.tags or 'untagged',
-            'size': printable_filesize(link.archive_size) if link.archive_size else 'pending',
-            'status': 'archived' if link.is_archived else 'not yet archived',
-            'status_color': 'success' if link.is_archived else 'danger',
-            'oldest_archive_date': ts_to_date_str(link.oldest_archive_date),
+            'extension': snapshot.extension or 'html',
+            'tags': snapshot.tags_str() or 'untagged',
+            'size': printable_filesize(snapshot.archive_size) if snapshot.archive_size else 'pending',
+            'status': 'archived' if snapshot.is_archived else 'not yet archived',
+            'status_color': 'success' if snapshot.is_archived else 'danger',
+            'oldest_archive_date': ts_to_date_str(snapshot.oldest_archive_date),
             'warc_path': warc_path,
-            'SAVE_ARCHIVE_DOT_ORG': archivebox.pm.hook.get_FLAT_CONFIG().SAVE_ARCHIVE_DOT_ORG,
+            'SAVE_ARCHIVE_DOT_ORG': SAVE_ARCHIVE_DOT_ORG,
             'PREVIEW_ORIGINALS': SERVER_CONFIG.PREVIEW_ORIGINALS,
             'archiveresults': sorted(archiveresults.values(), key=lambda r: all_types.index(r['name']) if r['name'] in all_types else -r['size']),
             'best_result': best_result,
-            # 'tags_str': 'somealskejrewlkrjwer,werlmwrwlekrjewlkrjwer324m532l,4m32,23m324234',
         }
         return render(template_name='core/snapshot_live.html', request=request, context=context)
 
@@ -190,7 +188,7 @@ class SnapshotView(View):
                         response = self.render_live_index(request, snapshot)
                     else:
                         response = serve_static_with_byterange_support(
-                            request, archivefile, document_root=snapshot.link_dir, show_indexes=True,
+                            request, archivefile, document_root=snapshot.output_dir, show_indexes=True,
                         )
                     response["Link"] = f'<{snapshot.url}>; rel="canonical"'
                     return response
@@ -516,7 +514,7 @@ class HealthCheckView(View):
 
 
 def find_config_section(key: str) -> str:
-    CONFIGS = archivebox.pm.hook.get_CONFIGS()
+    CONFIGS = get_all_configs()
     
     if key in CONSTANTS_CONFIG:
         return 'CONSTANT'
@@ -527,7 +525,7 @@ def find_config_section(key: str) -> str:
     return section
 
 def find_config_default(key: str) -> str:
-    CONFIGS = archivebox.pm.hook.get_CONFIGS()
+    CONFIGS = get_all_configs()
     
     if key in CONSTANTS_CONFIG:
         return str(CONSTANTS_CONFIG[key])
@@ -550,7 +548,7 @@ def find_config_default(key: str) -> str:
     return default_val
 
 def find_config_type(key: str) -> str:
-    CONFIGS = archivebox.pm.hook.get_CONFIGS()
+    CONFIGS = get_all_configs()
     
     for config in CONFIGS.values():
         if hasattr(config, key):
@@ -569,7 +567,7 @@ def key_is_safe(key: str) -> bool:
 
 @render_with_table_view
 def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
-    CONFIGS = archivebox.pm.hook.get_CONFIGS()
+    CONFIGS = get_all_configs()
     
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
@@ -611,8 +609,8 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
 @render_with_item_view
 def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
-    CONFIGS = archivebox.pm.hook.get_CONFIGS()
-    FLAT_CONFIG = archivebox.pm.hook.get_FLAT_CONFIG()
+    CONFIGS = get_all_configs()
+    FLAT_CONFIG = get_flat_config()
     
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 

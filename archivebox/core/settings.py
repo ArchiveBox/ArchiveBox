@@ -1,4 +1,4 @@
-__package__ = 'archivebox.core'
+__package__ = "archivebox.core"
 
 import os
 import sys
@@ -8,17 +8,16 @@ from pathlib import Path
 
 from django.utils.crypto import get_random_string
 
-import abx
 import archivebox
 
 from archivebox.config import DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS  # noqa
-from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG      # noqa
+from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG  # noqa
 
 
-IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
-IS_TESTING = 'test' in sys.argv[:3] or 'PYTEST_CURRENT_TEST' in os.environ
-IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
-IS_GETTING_VERSION_OR_HELP = 'version' in sys.argv or 'help' in sys.argv or '--version' in sys.argv or '--help' in sys.argv
+IS_MIGRATING = "makemigrations" in sys.argv[:3] or "migrate" in sys.argv[:3]
+IS_TESTING = "test" in sys.argv[:3] or "PYTEST_CURRENT_TEST" in os.environ
+IS_SHELL = "shell" in sys.argv[:3] or "shell_plus" in sys.argv[:3]
+IS_GETTING_VERSION_OR_HELP = "version" in sys.argv or "help" in sys.argv or "--version" in sys.argv or "--help" in sys.argv
 
 ################################################################################
 ### ArchiveBox Plugin Settings
@@ -31,71 +30,61 @@ LOADED_PLUGINS = archivebox.LOADED_PLUGINS
 ### Django Core Settings
 ################################################################################
 
-WSGI_APPLICATION = 'core.wsgi.application'
+WSGI_APPLICATION = "core.wsgi.application"
 ASGI_APPLICATION = "core.asgi.application"
-ROOT_URLCONF = 'core.urls'
+ROOT_URLCONF = "core.urls"
 
-LOGIN_URL = '/accounts/login/'
-LOGOUT_REDIRECT_URL = os.environ.get('LOGOUT_REDIRECT_URL', '/')
+LOGIN_URL = "/accounts/login/"
+LOGOUT_REDIRECT_URL = os.environ.get("LOGOUT_REDIRECT_URL", "/")
 
-PASSWORD_RESET_URL = '/accounts/password_reset/'
+PASSWORD_RESET_URL = "/accounts/password_reset/"
 APPEND_SLASH = True
 
-DEBUG = SHELL_CONFIG.DEBUG or ('--debug' in sys.argv)
+DEBUG = SHELL_CONFIG.DEBUG or ("--debug" in sys.argv)
 
 
 INSTALLED_APPS = [
-    'daphne',
-
+    "daphne",
     # Django default apps
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'django.contrib.admin',
-
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "django.contrib.admin",
     # 3rd-party apps from PyPI
-    'signal_webhooks',           # handles REST API outbound webhooks                              https://github.com/MrThearMan/django-signal-webhooks
-    'django_object_actions',     # provides easy Django Admin action buttons on change views       https://github.com/crccheck/django-object-actions
-
+    "signal_webhooks",  # handles REST API outbound webhooks                              https://github.com/MrThearMan/django-signal-webhooks
+    "django_object_actions",  # provides easy Django Admin action buttons on change views       https://github.com/crccheck/django-object-actions
     # Our ArchiveBox-provided apps
-    'config',                    # ArchiveBox config settings (loaded as a plugin, don't need to add it here) 
-    'machine',                   # handles collecting and storing information about the host machine, network interfaces, installed binaries, etc.
-    'workers',                   # handles starting and managing background workers and processes (orchestrators and actors)
-    'crawls',                    # handles Seed, Crawl, and CrawlSchedule models and management
-    'personas',                  # handles Persona and session management
-    'core',                      # core django model with Snapshot, ArchiveResult, etc.
-    'api',                       # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
-
-    # ArchiveBox plugins
-    *abx.as_list(abx.pm.hook.get_INSTALLED_APPS()),  # all plugin django-apps found in archivebox/plugins_* and data/user_plugins,
-
+    "config",  # ArchiveBox config settings (loaded as a plugin, don't need to add it here)
+    "machine",  # handles collecting and storing information about the host machine, network interfaces, installed binaries, etc.
+    "workers",  # handles starting and managing background workers and processes (orchestrators and actors)
+    "crawls",  # handles Seed, Crawl, and CrawlSchedule models and management
+    "personas",  # handles Persona and session management
+    "core",  # core django model with Snapshot, ArchiveResult, etc.
+    "api",  # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
+    # ArchiveBox plugins (hook-based plugins no longer add Django apps)
+    # Use hooks.py discover_hooks() for plugin functionality
     # 3rd-party apps from PyPI that need to be loaded last
-    'admin_data_views',          # handles rendering some convenient automatic read-only views of data in Django admin
-    'django_extensions',         # provides Django Debug Toolbar (and other non-debug helpers)
-    'django_huey',               # provides multi-queue support for django huey https://github.com/gaiacoop/django-huey
-    'bx_django_utils',           # needed for huey_monitor https://github.com/boxine/bx_django_utils
-    'huey_monitor',              # adds an admin UI for monitoring background huey tasks https://github.com/boxine/django-huey-monitor
-
-    # load plugins last so all other apps are already .ready() when we call plugins.ready()
-    'abx',
+    "admin_data_views",  # handles rendering some convenient automatic read-only views of data in Django admin
+    "django_extensions",  # provides Django Debug Toolbar (and other non-debug helpers)
+    "django_huey",  # provides multi-queue support for django huey https://github.com/gaiacoop/django-huey
+    "bx_django_utils",  # needed for huey_monitor https://github.com/boxine/bx_django_utils
+    "huey_monitor",  # adds an admin UI for monitoring background huey tasks https://github.com/boxine/django-huey-monitor
 ]
 
 
-
-
 MIDDLEWARE = [
-    'core.middleware.TimezoneMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'core.middleware.ReverseProxyAuthMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'core.middleware.CacheControlMiddleware',
-    *abx.as_list(abx.pm.hook.get_MIDDLEWARES()),
+    "core.middleware.TimezoneMiddleware",
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "core.middleware.ReverseProxyAuthMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "core.middleware.CacheControlMiddleware",
+    # Additional middlewares from plugins (if any)
 ]
 
 
@@ -106,9 +95,9 @@ MIDDLEWARE = [
 # AUTH_USER_MODEL = 'auth.User'   # cannot be easily changed unfortunately
 
 AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.RemoteUserBackend',
-    'django.contrib.auth.backends.ModelBackend',
-    *abx.as_list(abx.pm.hook.get_AUTHENTICATION_BACKENDS()),
+    "django.contrib.auth.backends.RemoteUserBackend",
+    "django.contrib.auth.backends.ModelBackend",
+    # Additional auth backends (e.g., LDAP) configured via settings
 ]
 
 
@@ -120,25 +109,25 @@ AUTHENTICATION_BACKENDS = [
 #     AUTH_LDAP_BIND_PASSWORD = LDAP_CONFIG.LDAP_BIND_PASSWORD
 #     AUTH_LDAP_USER_ATTR_MAP = LDAP_CONFIG.LDAP_USER_ATTR_MAP
 #     AUTH_LDAP_USER_SEARCH = LDAP_CONFIG.AUTH_LDAP_USER_SEARCH
-    
+
 #     AUTHENTICATION_BACKENDS = LDAP_CONFIG.AUTHENTICATION_BACKENDS
 
 ################################################################################
 ### Staticfile and Template Settings
 ################################################################################
 
-STATIC_URL = '/static/'
-TEMPLATES_DIR_NAME = 'templates'
+STATIC_URL = "/static/"
+TEMPLATES_DIR_NAME = "templates"
 CUSTOM_TEMPLATES_ENABLED = os.path.isdir(CONSTANTS.CUSTOM_TEMPLATES_DIR) and os.access(CONSTANTS.CUSTOM_TEMPLATES_DIR, os.R_OK)
 STATICFILES_DIRS = [
-    *([str(CONSTANTS.CUSTOM_TEMPLATES_DIR / 'static')] if CUSTOM_TEMPLATES_ENABLED else []),
+    *([str(CONSTANTS.CUSTOM_TEMPLATES_DIR / "static")] if CUSTOM_TEMPLATES_ENABLED else []),
     # *[
     #     str(plugin_dir / 'static')
     #     for plugin_dir in PLUGIN_DIRS.values()
     #     if (plugin_dir / 'static').is_dir()
     # ],
-    *abx.as_list(abx.pm.hook.get_STATICFILES_DIRS()),
-    str(PACKAGE_DIR / TEMPLATES_DIR_NAME / 'static'),
+    # Additional static file dirs from plugins
+    str(PACKAGE_DIR / TEMPLATES_DIR_NAME / "static"),
 ]
 
 TEMPLATE_DIRS = [
@@ -148,23 +137,23 @@ TEMPLATE_DIRS = [
     #     for plugin_dir in PLUGIN_DIRS.values()
     #     if (plugin_dir / 'templates').is_dir()
     # ],
-    *abx.as_list(abx.pm.hook.get_TEMPLATE_DIRS()),
-    str(PACKAGE_DIR / TEMPLATES_DIR_NAME / 'core'),
-    str(PACKAGE_DIR / TEMPLATES_DIR_NAME / 'admin'),
+    # Additional template dirs from plugins
+    str(PACKAGE_DIR / TEMPLATES_DIR_NAME / "core"),
+    str(PACKAGE_DIR / TEMPLATES_DIR_NAME / "admin"),
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME),
 ]
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': TEMPLATE_DIRS,
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": TEMPLATE_DIRS,
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
@@ -221,10 +210,10 @@ DATABASES = {
     #     **SQLITE_CONNECTION_OPTIONS,
     # },
 }
-MIGRATION_MODULES = {'signal_webhooks': None}
+MIGRATION_MODULES = {"signal_webhooks": None}
 
 # as much as I'd love this to be a UUID or ULID field, it's not supported yet as of Django 5.0
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 HUEY = {
     "huey_class": "huey.SqliteHuey",
@@ -254,7 +243,7 @@ DJANGO_HUEY = {
     "queues": {
         HUEY["name"]: HUEY.copy(),
         # more registered here at plugin import-time by BaseQueue.register()
-        **abx.as_dict(abx.pm.hook.get_DJANGO_HUEY_QUEUES(QUEUE_DATABASE_NAME=CONSTANTS.QUEUE_DATABASE_FILENAME)),
+        # Additional huey queues configured via settings
     },
 }
 
@@ -274,12 +263,12 @@ class HueyDBRouter:
     def db_for_read(self, model, **hints):
         if model._meta.app_label in self.route_app_labels:
             return self.db_name
-        return 'default'
+        return "default"
 
     def db_for_write(self, model, **hints):
         if model._meta.app_label in self.route_app_labels:
             return self.db_name
-        return 'default'
+        return "default"
 
     def allow_relation(self, obj1, obj2, **hints):
         if obj1._meta.app_label in self.route_app_labels or obj2._meta.app_label in self.route_app_labels:
@@ -290,6 +279,7 @@ class HueyDBRouter:
         if app_label in self.route_app_labels:
             return db == self.db_name
         return db == "default"
+
 
 # class FilestoreDBRouter:
 #     """
@@ -321,16 +311,16 @@ class HueyDBRouter:
 #             return db == self.db_name
 #         return db == "default"
 
-DATABASE_ROUTERS = ['core.settings.HueyDBRouter']
+DATABASE_ROUTERS = ["core.settings.HueyDBRouter"]
 
 CACHES = {
-    'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'},
+    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
     # 'sqlite': {'BACKEND': 'django.core.cache.backends.db.DatabaseCache', 'LOCATION': 'cache'},
     # 'dummy': {'BACKEND': 'django.core.cache.backends.dummy.DummyCache'},
     # 'filebased': {"BACKEND": "django.core.cache.backends.filebased.FileBasedCache", "LOCATION": CACHE_DIR / 'cache_filebased'},
 }
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 
 STORAGES = {
@@ -363,32 +353,28 @@ STORAGES = {
     # },
 }
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
-    }
-}
+CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
 ################################################################################
 ### Security Settings
 ################################################################################
 
-SECRET_KEY = SERVER_CONFIG.SECRET_KEY or get_random_string(50, 'abcdefghijklmnopqrstuvwxyz0123456789_')
+SECRET_KEY = SERVER_CONFIG.SECRET_KEY or get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789_")
 
-ALLOWED_HOSTS = SERVER_CONFIG.ALLOWED_HOSTS.split(',')
-CSRF_TRUSTED_ORIGINS = list(set(SERVER_CONFIG.CSRF_TRUSTED_ORIGINS.split(',')))
+ALLOWED_HOSTS = SERVER_CONFIG.ALLOWED_HOSTS.split(",")
+CSRF_TRUSTED_ORIGINS = list(set(SERVER_CONFIG.CSRF_TRUSTED_ORIGINS.split(",")))
 
 # automatically fix case when user sets ALLOWED_HOSTS (e.g. to archivebox.example.com)
 # but forgets to add https://archivebox.example.com to CSRF_TRUSTED_ORIGINS
 for hostname in ALLOWED_HOSTS:
-    https_endpoint = f'https://{hostname}'
-    if hostname != '*' and https_endpoint not in CSRF_TRUSTED_ORIGINS:
-        print(f'[!] WARNING: {https_endpoint} from ALLOWED_HOSTS should be added to CSRF_TRUSTED_ORIGINS')
+    https_endpoint = f"https://{hostname}"
+    if hostname != "*" and https_endpoint not in CSRF_TRUSTED_ORIGINS:
+        print(f"[!] WARNING: {https_endpoint} from ALLOWED_HOSTS should be added to CSRF_TRUSTED_ORIGINS")
         CSRF_TRUSTED_ORIGINS.append(https_endpoint)
 
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
@@ -401,10 +387,10 @@ SESSION_SAVE_EVERY_REQUEST = False
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
 
 AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
 DATA_UPLOAD_MAX_NUMBER_FIELDS = None
@@ -414,29 +400,29 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 26_214_400  # 25MB
 ### Shell Settings
 ################################################################################
 
-SHELL_PLUS = 'ipython'
+SHELL_PLUS = "ipython"
 SHELL_PLUS_PRINT_SQL = False
-IPYTHON_ARGUMENTS = ['--no-confirm-exit', '--no-banner']
-IPYTHON_KERNEL_DISPLAY_NAME = 'ArchiveBox Django Shell'
+IPYTHON_ARGUMENTS = ["--no-confirm-exit", "--no-banner"]
+IPYTHON_KERNEL_DISPLAY_NAME = "ArchiveBox Django Shell"
 if IS_SHELL:
-    os.environ['PYTHONSTARTUP'] = str(PACKAGE_DIR / 'misc' / 'shell_welcome_message.py')
+    os.environ["PYTHONSTARTUP"] = str(PACKAGE_DIR / "misc" / "shell_welcome_message.py")
 
 
 ################################################################################
 ### Internationalization & Localization Settings
 ################################################################################
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 USE_I18N = True
 USE_TZ = True
-DATETIME_FORMAT = 'Y-m-d h:i:s A'
-SHORT_DATETIME_FORMAT = 'Y-m-d h:i:s A'
-TIME_ZONE = CONSTANTS.TIMEZONE        # django convention is TIME_ZONE, archivebox config uses TIMEZONE, they are equivalent
+DATETIME_FORMAT = "Y-m-d h:i:s A"
+SHORT_DATETIME_FORMAT = "Y-m-d h:i:s A"
+TIME_ZONE = CONSTANTS.TIMEZONE  # django convention is TIME_ZONE, archivebox config uses TIMEZONE, they are equivalent
 
 
-from django.conf.locale.en import formats as en_formats    # type: ignore
+from django.conf.locale.en import formats as en_formats  # type: ignore
 
-en_formats.DATETIME_FORMAT = DATETIME_FORMAT                # monkey patch en_format default with our preferred format
+en_formats.DATETIME_FORMAT = DATETIME_FORMAT  # monkey patch en_format default with our preferred format
 en_formats.SHORT_DATETIME_FORMAT = SHORT_DATETIME_FORMAT
 
 
@@ -455,7 +441,7 @@ LOGGING = SETTINGS_LOGGING
 ################################################################################
 
 # Add default webhook configuration to the User model
-SIGNAL_WEBHOOKS_CUSTOM_MODEL = 'api.models.OutboundWebhook'
+SIGNAL_WEBHOOKS_CUSTOM_MODEL = "api.models.OutboundWebhook"
 SIGNAL_WEBHOOKS = {
     "HOOKS": {
         # ... is a special sigil value that means "use the default autogenerated hooks"
@@ -524,7 +510,7 @@ ADMIN_DATA_VIEWS = {
                 "name": "log",
             },
         },
-        *abx.as_list(abx.pm.hook.get_ADMIN_DATA_VIEWS_URLS()),
+        # Additional admin data views from plugins
     ],
 }
 
@@ -535,44 +521,45 @@ ADMIN_DATA_VIEWS = {
 
 # only enable debug toolbar when in DEBUG mode with --nothreading (it doesnt work in multithreaded mode)
 DEBUG_TOOLBAR = False
-DEBUG_TOOLBAR = DEBUG_TOOLBAR and DEBUG and ('--nothreading' in sys.argv) and ('--reload' not in sys.argv)
+DEBUG_TOOLBAR = DEBUG_TOOLBAR and DEBUG and ("--nothreading" in sys.argv) and ("--reload" not in sys.argv)
 if DEBUG_TOOLBAR:
     try:
-        import debug_toolbar   # noqa
+        import debug_toolbar  # noqa
+
         DEBUG_TOOLBAR = True
     except ImportError:
         DEBUG_TOOLBAR = False
 
 if DEBUG_TOOLBAR:
-    INSTALLED_APPS = [*INSTALLED_APPS, 'debug_toolbar']
-    INTERNAL_IPS = ['0.0.0.0', '127.0.0.1', '*']
+    INSTALLED_APPS = [*INSTALLED_APPS, "debug_toolbar"]
+    INTERNAL_IPS = ["0.0.0.0", "127.0.0.1", "*"]
     DEBUG_TOOLBAR_CONFIG = {
         "SHOW_TOOLBAR_CALLBACK": lambda request: True,
         "RENDER_PANELS": True,
     }
     DEBUG_TOOLBAR_PANELS = [
-        'debug_toolbar.panels.history.HistoryPanel',
-        'debug_toolbar.panels.versions.VersionsPanel',
-        'debug_toolbar.panels.timer.TimerPanel',
-        'debug_toolbar.panels.settings.SettingsPanel',
-        'debug_toolbar.panels.headers.HeadersPanel',
-        'debug_toolbar.panels.request.RequestPanel',
-        'debug_toolbar.panels.sql.SQLPanel',
-        'debug_toolbar.panels.staticfiles.StaticFilesPanel',
+        "debug_toolbar.panels.history.HistoryPanel",
+        "debug_toolbar.panels.versions.VersionsPanel",
+        "debug_toolbar.panels.timer.TimerPanel",
+        "debug_toolbar.panels.settings.SettingsPanel",
+        "debug_toolbar.panels.headers.HeadersPanel",
+        "debug_toolbar.panels.request.RequestPanel",
+        "debug_toolbar.panels.sql.SQLPanel",
+        "debug_toolbar.panels.staticfiles.StaticFilesPanel",
         # 'debug_toolbar.panels.templates.TemplatesPanel',
-        'debug_toolbar.panels.cache.CachePanel',
-        'debug_toolbar.panels.signals.SignalsPanel',
-        'debug_toolbar.panels.logging.LoggingPanel',
-        'debug_toolbar.panels.redirects.RedirectsPanel',
-        'debug_toolbar.panels.profiling.ProfilingPanel',
-        'djdt_flamegraph.FlamegraphPanel',
+        "debug_toolbar.panels.cache.CachePanel",
+        "debug_toolbar.panels.signals.SignalsPanel",
+        "debug_toolbar.panels.logging.LoggingPanel",
+        "debug_toolbar.panels.redirects.RedirectsPanel",
+        "debug_toolbar.panels.profiling.ProfilingPanel",
+        "djdt_flamegraph.FlamegraphPanel",
     ]
-    MIDDLEWARE = [*MIDDLEWARE, 'debug_toolbar.middleware.DebugToolbarMiddleware']
+    MIDDLEWARE = [*MIDDLEWARE, "debug_toolbar.middleware.DebugToolbarMiddleware"]
 
 if DEBUG:
     from django_autotyping.typing import AutotypingSettingsDict
 
-    INSTALLED_APPS += ['django_autotyping']
+    INSTALLED_APPS += ["django_autotyping"]
     AUTOTYPING: AutotypingSettingsDict = {
         "STUBS_GENERATION": {
             "LOCAL_STUBS_DIR": PACKAGE_DIR / "typings",

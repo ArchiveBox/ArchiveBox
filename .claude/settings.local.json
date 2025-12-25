@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m archivebox:*)",
+      "Bash(ls:*)",
+      "Bash(xargs:*)"
+    ]
+  }
+}

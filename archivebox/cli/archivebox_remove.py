@@ -12,10 +12,7 @@ import rich_click as click
 from django.db.models import QuerySet
 
 from archivebox.config import DATA_DIR
-from archivebox.index.schema import Link
 from archivebox.config.django import setup_django
-from archivebox.index import load_main_index
-from archivebox.index.sql import remove_from_sql_main_index
 from archivebox.misc.util import enforce_types, docstring
 from archivebox.misc.checks import check_data_folder
 from archivebox.misc.logging_util import (
@@ -35,7 +32,7 @@ def remove(filter_patterns: Iterable[str]=(),
           before: float | None=None,
           yes: bool=False,
           delete: bool=False,
-          out_dir: Path=DATA_DIR) -> Iterable[Link]:
+          out_dir: Path=DATA_DIR) -> QuerySet:
     """Remove the specified URLs from the archive"""
     
     setup_django()
@@ -63,27 +60,27 @@ def remove(filter_patterns: Iterable[str]=(),
         log_removal_finished(0, 0)
         raise SystemExit(1)
 
-    log_links = [link.as_link() for link in snapshots]
-    log_list_finished(log_links)
-    log_removal_started(log_links, yes=yes, delete=delete)
+    log_list_finished(snapshots)
+    log_removal_started(snapshots, yes=yes, delete=delete)
 
     timer = TimedProgress(360, prefix='      ')
     try:
         for snapshot in snapshots:
             if delete:
-                shutil.rmtree(snapshot.as_link().link_dir, ignore_errors=True)
+                shutil.rmtree(snapshot.output_dir, ignore_errors=True)
     finally:
         timer.end()
 
     to_remove = snapshots.count()
 
     from archivebox.search import flush_search_index
+    from core.models import Snapshot
 
     flush_search_index(snapshots=snapshots)
-    remove_from_sql_main_index(snapshots=snapshots, out_dir=out_dir)
-    all_snapshots = load_main_index(out_dir=out_dir)
+    snapshots.delete()
+    all_snapshots = Snapshot.objects.all()
     log_removal_finished(all_snapshots.count(), to_remove)
-    
+
     return all_snapshots
 
 

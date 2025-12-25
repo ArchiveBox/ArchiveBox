@@ -1,143 +1,120 @@
+"""
+Search module for ArchiveBox.
+
+Search indexing is handled by search backend hooks in plugins:
+    archivebox/plugins/search_backend_*/on_Snapshot__*_index_*.py
+
+This module provides the query interface that dynamically discovers
+search backend plugins using the hooks system.
+
+Search backends must provide a search.py module with:
+    - search(query: str) -> List[str]  (returns snapshot IDs)
+    - flush(snapshot_ids: Iterable[str]) -> None
+"""
+
 __package__ = 'archivebox.search'
 
-from pathlib import Path
-from typing import List, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 from django.db.models import QuerySet
-from django.conf import settings
 
-import abx
-import archivebox
-from archivebox.index.schema import Link
 from archivebox.misc.util import enforce_types
 from archivebox.misc.logging import stderr
 from archivebox.config.common import SEARCH_BACKEND_CONFIG
 
-
-def log_index_started(url):
-    print('[green][*] Indexing url: {} in the search index[/]'.format(url))
-    print( )
-
-def get_file_result_content(res, extra_path, use_pwd=False):
-    if use_pwd: 
-        fpath = f'{res.pwd}/{res.output}'
-    else:
-        fpath = f'{res.output}'
-    
-    if extra_path:
-        fpath = f'{fpath}/{extra_path}'
-
-    with open(fpath, 'r', encoding='utf-8') as file:
-        data = file.read()
-    if data:
-        return [data]
-    return []
-
-
-# TODO: This should be abstracted by a plugin interface for extractors
-@enforce_types
-def get_indexable_content(results: QuerySet):
-    if not results:
-        return []
-    # Only use the first method available
-    res, method = results.first(), results.first().extractor
-    if method not in ('readability', 'singlefile', 'dom', 'wget'):
-        return []
-    # This should come from a plugin interface
-
-    # TODO: banish this duplication and get these from the extractor file
-    if method == 'readability':
-        return get_file_result_content(res, 'content.txt', use_pwd=True)
-    elif method == 'singlefile':
-        return get_file_result_content(res, '', use_pwd=True)
-    elif method == 'dom':
-        return get_file_result_content(res, '', use_pwd=True)
-    elif method == 'wget':
-        return get_file_result_content(res, '', use_pwd=True)
-
-
-def import_backend():
-    for backend in abx.as_dict(archivebox.pm.hook.get_SEARCHBACKENDS()).values():
-        if backend.name == SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE:
-            return backend
-    raise Exception(f'Could not load {SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE} as search backend')
-
-@enforce_types
-def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: Path=settings.DATA_DIR, skip_text_index: bool=False) -> None:
-    if not SEARCH_BACKEND_CONFIG.USE_INDEXING_BACKEND:
-        return
-
-    if not skip_text_index and texts:
-        from core.models import Snapshot
-
-        snap = Snapshot.objects.filter(url=link.url).first()
-        backend = import_backend()
-        if snap:
-            try:
-                backend.index(snapshot_id=str(snap.pk), texts=texts)
-            except Exception as err:
-                stderr()
-                stderr(
-                    f'[X] The search backend threw an exception={err}:',
-                color='red',
-                )
-
-@enforce_types
-def query_search_index(query: str, out_dir: Path=settings.DATA_DIR) -> QuerySet:
+if TYPE_CHECKING:
     from core.models import Snapshot
 
-    if SEARCH_BACKEND_CONFIG.USE_SEARCHING_BACKEND:
-        backend = import_backend()
-        try:
-            snapshot_pks = backend.search(query)
-        except Exception as err:
-            stderr()
-            stderr(
-                    f'[X] The search backend threw an exception={err}:',
-                color='red',
-                )
-            raise
-        else:
-            # TODO preserve ordering from backend
-            qsearch = Snapshot.objects.filter(pk__in=snapshot_pks)
-            return qsearch
-    
-    return Snapshot.objects.none()
+
+# Cache discovered backends to avoid repeated filesystem scans
+_search_backends_cache: Optional[dict] = None
+
+
+def get_available_backends() -> dict:
+    """
+    Discover all available search backend plugins.
+
+    Uses the hooks system to find plugins with search.py modules.
+    Results are cached after first call.
+    """
+    global _search_backends_cache
+
+    if _search_backends_cache is None:
+        from archivebox.hooks import get_search_backends
+        _search_backends_cache = get_search_backends()
+
+    return _search_backends_cache
+
+
+def get_backend() -> Any:
+    """
+    Get the configured search backend module.
+
+    Discovers available backends via the hooks system and returns
+    the one matching SEARCH_BACKEND_ENGINE configuration.
+
+    Falls back to 'ripgrep' if configured backend is not found.
+    """
+    backend_name = SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE
+    backends = get_available_backends()
+
+    if backend_name in backends:
+        return backends[backend_name]
+
+    # Fallback to ripgrep if available (no index needed)
+    if 'ripgrep' in backends:
+        return backends['ripgrep']
+
+    # No backends found
+    available = list(backends.keys())
+    raise RuntimeError(
+        f'Search backend "{backend_name}" not found. '
+        f'Available backends: {available or "none"}'
+    )
+
 
 @enforce_types
-def flush_search_index(snapshots: QuerySet):
+def query_search_index(query: str) -> QuerySet:
+    """
+    Search for snapshots matching the query.
+
+    Returns a QuerySet of Snapshot objects matching the search.
+    """
+    from core.models import Snapshot
+
+    if not SEARCH_BACKEND_CONFIG.USE_SEARCHING_BACKEND:
+        return Snapshot.objects.none()
+
+    backend = get_backend()
+    try:
+        snapshot_pks = backend.search(query)
+    except Exception as err:
+        stderr()
+        stderr(
+            f'[X] The search backend threw an exception={err}:',
+            color='red',
+        )
+        raise
+    else:
+        return Snapshot.objects.filter(pk__in=snapshot_pks)
+
+
+@enforce_types
+def flush_search_index(snapshots: QuerySet) -> None:
+    """
+    Remove snapshots from the search index.
+    """
     if not SEARCH_BACKEND_CONFIG.USE_INDEXING_BACKEND or not snapshots:
         return
-    backend = import_backend()
-    snapshot_pks = (str(pk) for pk in snapshots.values_list('pk', flat=True))
+
+    backend = get_backend()
+    snapshot_pks = [str(pk) for pk in snapshots.values_list('pk', flat=True)]
+
     try:
         backend.flush(snapshot_pks)
     except Exception as err:
         stderr()
         stderr(
             f'[X] The search backend threw an exception={err}:',
-        color='red',
+            color='red',
         )
-
-@enforce_types
-def index_links(links: Union[List[Link],None], out_dir: Path=settings.DATA_DIR):
-    if not links:
-        return
-
-    from core.models import Snapshot, ArchiveResult
-
-    for link in links:
-        snap = Snapshot.objects.filter(url=link.url).first()
-        if snap: 
-            results = ArchiveResult.objects.indexable().filter(snapshot=snap)
-            log_index_started(link.url)
-            try:
-                texts = get_indexable_content(results)
-            except Exception as err:
-                stderr()
-                stderr(
-                    f'[X] An Exception ocurred reading the indexable content={err}:',
-                    color='red',
-                    ) 
-            else:
-                write_search_index(link, texts, out_dir=out_dir)

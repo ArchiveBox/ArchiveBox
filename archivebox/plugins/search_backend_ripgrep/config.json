@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "RIPGREP_BINARY": {
+      "type": "string",
+      "default": "rg",
+      "description": "Path to ripgrep binary"
+    },
+    "RIPGREP_IGNORE_EXTENSIONS": {
+      "type": "string",
+      "default": "css,js,orig,svg",
+      "description": "Comma-separated file extensions to ignore"
+    },
+    "SEARCH_BACKEND_TIMEOUT": {
+      "type": "integer",
+      "default": 90,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Search timeout in seconds"
+    }
+  }
+}

@@ -4,7 +4,7 @@ __package__ = 'archivebox.cli'
 __command__ = 'archivebox search'
 
 from pathlib import Path
-from typing import Optional, List, Iterable
+from typing import Optional, List, Any
 
 import rich_click as click
 from rich import print
@@ -12,10 +12,18 @@ from rich import print
 from django.db.models import QuerySet
 
 from archivebox.config import DATA_DIR
-from archivebox.index import LINK_FILTERS
-from archivebox.index.schema import Link
 from archivebox.misc.logging import stderr
 from archivebox.misc.util import enforce_types, docstring
+
+# Filter types for URL matching
+LINK_FILTERS = {
+    'exact': lambda pattern: {'url': pattern},
+    'substring': lambda pattern: {'url__icontains': pattern},
+    'regex': lambda pattern: {'url__iregex': pattern},
+    'domain': lambda pattern: {'url__istartswith': f'http://{pattern}'},
+    'tag': lambda pattern: {'tags__name': pattern},
+    'timestamp': lambda pattern: {'timestamp': pattern},
+}
 
 STATUS_CHOICES = [
     'indexed', 'archived', 'unarchived', 'present', 'valid', 'invalid',
@@ -24,38 +32,37 @@ STATUS_CHOICES = [
 
 
 
-def list_links(snapshots: Optional[QuerySet]=None,
-               filter_patterns: Optional[List[str]]=None,
-               filter_type: str='substring',
-               after: Optional[float]=None,
-               before: Optional[float]=None,
-               out_dir: Path=DATA_DIR) -> Iterable[Link]:
-    
-    from archivebox.index import load_main_index
-    from archivebox.index import snapshot_filter
+def get_snapshots(snapshots: Optional[QuerySet]=None,
+                  filter_patterns: Optional[List[str]]=None,
+                  filter_type: str='substring',
+                  after: Optional[float]=None,
+                  before: Optional[float]=None,
+                  out_dir: Path=DATA_DIR) -> QuerySet:
+    """Filter and return Snapshots matching the given criteria."""
+    from core.models import Snapshot
 
     if snapshots:
-        all_snapshots = snapshots
+        result = snapshots
     else:
-        all_snapshots = load_main_index(out_dir=out_dir)
+        result = Snapshot.objects.all()
 
     if after is not None:
-        all_snapshots = all_snapshots.filter(timestamp__gte=after)
+        result = result.filter(timestamp__gte=after)
     if before is not None:
-        all_snapshots = all_snapshots.filter(timestamp__lt=before)
+        result = result.filter(timestamp__lt=before)
     if filter_patterns:
-        all_snapshots = snapshot_filter(all_snapshots, filter_patterns, filter_type)
+        result = Snapshot.objects.filter_by_patterns(filter_patterns, filter_type)
 
-    if not all_snapshots:
+    if not result:
         stderr('[!] No Snapshots matched your filters:', filter_patterns, f'({filter_type})', color='lightyellow')
 
-    return all_snapshots
+    return result
 
 
-def list_folders(links: list[Link], status: str, out_dir: Path=DATA_DIR) -> dict[str, Link | None]:
-    
+def list_folders(snapshots: QuerySet, status: str, out_dir: Path=DATA_DIR) -> dict[str, Any]:
+
     from archivebox.misc.checks import check_data_folder
-    from archivebox.index import (
+    from archivebox.misc.folders import (
         get_indexed_folders,
         get_archived_folders,
         get_unarchived_folders,
@@ -67,7 +74,7 @@ def list_folders(links: list[Link], status: str, out_dir: Path=DATA_DIR) -> dict
         get_corrupted_folders,
         get_unrecognized_folders,
     )
-    
+
     check_data_folder()
 
     STATUS_FUNCTIONS = {
@@ -84,7 +91,7 @@ def list_folders(links: list[Link], status: str, out_dir: Path=DATA_DIR) -> dict
     }
 
     try:
-        return STATUS_FUNCTIONS[status](links, out_dir=out_dir)
+        return STATUS_FUNCTIONS[status](snapshots, out_dir=out_dir)
     except KeyError:
         raise ValueError('Status not recognized.')
 
@@ -109,7 +116,7 @@ def search(filter_patterns: list[str] | None=None,
         stderr('[X] --with-headers requires --json, --html or --csv\n', color='red')
         raise SystemExit(2)
 
-    snapshots = list_links(
+    snapshots = get_snapshots(
         filter_patterns=list(filter_patterns) if filter_patterns else None,
         filter_type=filter_type,
         before=before,
@@ -120,20 +127,24 @@ def search(filter_patterns: list[str] | None=None,
         snapshots = snapshots.order_by(sort)
 
     folders = list_folders(
-        links=snapshots,
+        snapshots=snapshots,
         status=status,
         out_dir=DATA_DIR,
     )
 
     if json:
-        from archivebox.index.json import generate_json_index_from_links
-        output = generate_json_index_from_links(folders.values(), with_headers)
+        from core.models import Snapshot
+        # Filter for non-None snapshots
+        valid_snapshots = [s for s in folders.values() if s is not None]
+        output = Snapshot.objects.filter(pk__in=[s.pk for s in valid_snapshots]).to_json(with_headers=with_headers)
     elif html:
-        from archivebox.index.html import generate_index_from_links
-        output = generate_index_from_links(folders.values(), with_headers) 
+        from core.models import Snapshot
+        valid_snapshots = [s for s in folders.values() if s is not None]
+        output = Snapshot.objects.filter(pk__in=[s.pk for s in valid_snapshots]).to_html(with_headers=with_headers)
     elif csv:
-        from archivebox.index.csv import links_to_csv
-        output = links_to_csv(folders.values(), csv.split(','), with_headers)
+        from core.models import Snapshot
+        valid_snapshots = [s for s in folders.values() if s is not None]
+        output = Snapshot.objects.filter(pk__in=[s.pk for s in valid_snapshots]).to_csv(cols=csv.split(','), header=with_headers)
     else:
         from archivebox.misc.logging_util import printable_folders
         output = printable_folders(folders, with_headers)

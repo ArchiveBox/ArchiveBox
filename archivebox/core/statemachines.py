@@ -79,15 +79,16 @@ class SnapshotMachine(StateMachine, strict_states=True):
         
     @started.enter
     def enter_started(self):
-        print(f'{self}.on_started() ↳ snapshot.create_pending_archiveresults() + snapshot.bump_retry_at(+60s)')
+        print(f'{self}.on_started() ↳ snapshot.run()')
         # lock the snapshot while we create the pending archiveresults
         self.snapshot.update_for_workers(
             retry_at=timezone.now() + timedelta(seconds=30),  # if failed, wait 30s before retrying
         )
-        # create the pending archiveresults
-        self.snapshot.create_pending_archiveresults()
-        
-        # unlock the snapshot after we're done creating the pending archiveresults + set status = started
+
+        # Run the snapshot - creates pending archiveresults for all enabled extractors
+        self.snapshot.run()
+
+        # unlock the snapshot after we're done + set status = started
         self.snapshot.update_for_workers(
             retry_at=timezone.now() + timedelta(seconds=5),  # wait 5s before checking it again
             status=Snapshot.StatusChoices.STARTED,
@@ -135,19 +136,22 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
     backoff = State(value=ArchiveResult.StatusChoices.BACKOFF)
     succeeded = State(value=ArchiveResult.StatusChoices.SUCCEEDED, final=True)
     failed = State(value=ArchiveResult.StatusChoices.FAILED, final=True)
+    skipped = State(value=ArchiveResult.StatusChoices.SKIPPED, final=True)
     
-    # Tick Event
+    # Tick Event - transitions based on conditions
     tick = (
         queued.to.itself(unless='can_start') |
         queued.to(started, cond='can_start') |
         started.to.itself(unless='is_finished') |
         started.to(succeeded, cond='is_succeeded') |
         started.to(failed, cond='is_failed') |
+        started.to(skipped, cond='is_skipped') |
         started.to(backoff, cond='is_backoff') |
         backoff.to.itself(unless='can_start') |
         backoff.to(started, cond='can_start') |
         backoff.to(succeeded, cond='is_succeeded') |
-        backoff.to(failed, cond='is_failed')
+        backoff.to(failed, cond='is_failed') |
+        backoff.to(skipped, cond='is_skipped')
     )
 
     def __init__(self, archiveresult, *args, **kwargs):
@@ -167,22 +171,32 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
         return can_start
     
     def is_succeeded(self) -> bool:
-        if self.archiveresult.output and 'err' not in self.archiveresult.output.lower():
-            return True
-        return False
+        """Check if extraction succeeded (status was set by run_extractor())."""
+        return self.archiveresult.status == ArchiveResult.StatusChoices.SUCCEEDED
     
     def is_failed(self) -> bool:
-        if self.archiveresult.output and 'err' in self.archiveresult.output.lower():
-            return True
-        return False
+        """Check if extraction failed (status was set by run_extractor())."""
+        return self.archiveresult.status == ArchiveResult.StatusChoices.FAILED
+    
+    def is_skipped(self) -> bool:
+        """Check if extraction was skipped (status was set by run_extractor())."""
+        return self.archiveresult.status == ArchiveResult.StatusChoices.SKIPPED
     
     def is_backoff(self) -> bool:
-        if self.archiveresult.output is None:
-            return True
-        return False
+        """Check if we should backoff and retry later."""
+        # Backoff if status is still started (extractor didn't complete) and output is None
+        return (
+            self.archiveresult.status == ArchiveResult.StatusChoices.STARTED and 
+            self.archiveresult.output is None
+        )
     
     def is_finished(self) -> bool:
-        return self.is_failed() or self.is_succeeded()
+        """Check if extraction has completed (success, failure, or skipped)."""
+        return self.archiveresult.status in (
+            ArchiveResult.StatusChoices.SUCCEEDED,
+            ArchiveResult.StatusChoices.FAILED,
+            ArchiveResult.StatusChoices.SKIPPED,
+        )
 
     @queued.enter
     def enter_queued(self):
@@ -195,27 +209,28 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
         
     @started.enter
     def enter_started(self):
-        print(f'{self}.on_started() ↳ archiveresult.start_ts + create_output_dir() + bump_retry_at(+60s)')
-        # lock the object for the next 30sec
-        self.archiveresult.update_for_workers(
-            retry_at=timezone.now() + timedelta(seconds=30),
-            status=ArchiveResult.StatusChoices.QUEUED,
-            start_ts=timezone.now(),
-        )   # lock the obj for the next ~30s to limit racing with other workers
-
-        # create the output directory and fork the new extractor job subprocess
-        self.archiveresult.create_output_dir()
-        # self.archiveresult.extract(background=True)
+        print(f'{self}.on_started() ↳ archiveresult.start_ts + run_extractor()')
         
-        # mark the object as started
+        # Lock the object and mark start time
         self.archiveresult.update_for_workers(
-            retry_at=timezone.now() + timedelta(seconds=30),       # retry it again in 30s if it fails
+            retry_at=timezone.now() + timedelta(seconds=120),  # 2 min timeout for extractor
             status=ArchiveResult.StatusChoices.STARTED,
+            start_ts=timezone.now(),
         )
         
-        # simulate slow running extractor that completes after 2 seconds
-        time.sleep(2)
-        self.archiveresult.update_for_workers(output='completed')
+        # Run the extractor - this updates status, output, timestamps, etc.
+        self.archiveresult.run()
+        
+        # Save the updated result
+        self.archiveresult.save()
+        
+        # Log the result
+        if self.archiveresult.status == ArchiveResult.StatusChoices.SUCCEEDED:
+            print(f'{self} ✅ extractor succeeded: {self.archiveresult.output[:50] if self.archiveresult.output else ""}...')
+        elif self.archiveresult.status == ArchiveResult.StatusChoices.FAILED:
+            print(f'{self} ❌ extractor failed: {self.archiveresult.output[:100] if self.archiveresult.output else ""}...')
+        elif self.archiveresult.status == ArchiveResult.StatusChoices.SKIPPED:
+            print(f'{self} ⏭️ extractor skipped: {self.archiveresult.output[:50] if self.archiveresult.output else ""}')
 
     @backoff.enter
     def enter_backoff(self):
@@ -246,7 +261,15 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
             retry_at=None,
             status=ArchiveResult.StatusChoices.FAILED,
             end_ts=timezone.now(),
-            # **self.archiveresult.get_output_dict(),     # {output, output_json, stderr, stdout, returncode, errors, cmd_version, pwd, cmd, machine}
+        )
+
+    @skipped.enter
+    def enter_skipped(self):
+        print(f'{self}.on_skipped() ↳ archiveresult.retry_at = None, archiveresult.end_ts = now()')
+        self.archiveresult.update_for_workers(
+            retry_at=None,
+            status=ArchiveResult.StatusChoices.SKIPPED,
+            end_ts=timezone.now(),
         )
         
     def after_transition(self, event: str, source: State, target: State):

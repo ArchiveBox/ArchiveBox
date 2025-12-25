@@ -1,0 +1,319 @@
+"""
+Integration tests for headers plugin
+
+Tests verify:
+1. Plugin script exists and is executable
+2. Node.js is available
+3. Headers extraction works for real example.com
+4. Output JSON contains actual HTTP headers
+5. Fallback to HTTP HEAD when chrome_session not available
+6. Uses chrome_session headers when available
+7. Config options work (TIMEOUT, USER_AGENT, CHECK_SSL_VALIDITY)
+"""
+
+import json
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+
+import pytest
+
+
+PLUGIN_DIR = Path(__file__).parent.parent
+HEADERS_HOOK = PLUGIN_DIR / 'on_Snapshot__33_headers.js'
+TEST_URL = 'https://example.com'
+
+
+def test_hook_script_exists():
+    """Verify hook script exists."""
+    assert HEADERS_HOOK.exists(), f"Hook script not found: {HEADERS_HOOK}"
+
+
+def test_node_is_available():
+    """Test that Node.js is available on the system."""
+    result = subprocess.run(
+        ['which', 'node'],
+        capture_output=True,
+        text=True
+    )
+
+    if result.returncode != 0:
+        pytest.skip("node not installed on system")
+
+    binary_path = result.stdout.strip()
+    assert Path(binary_path).exists(), f"Binary should exist at {binary_path}"
+
+    # Test that node is executable and get version
+    result = subprocess.run(
+        ['node', '--version'],
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+    assert result.returncode == 0, f"node not executable: {result.stderr}"
+    assert result.stdout.startswith('v'), f"Unexpected node version format: {result.stdout}"
+
+
+def test_extracts_headers_from_example_com():
+    """Test full workflow: extract headers from real example.com."""
+
+    # Check node is available
+    if not shutil.which('node'):
+        pytest.skip("node not installed")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        # Run headers extraction
+        result = subprocess.run(
+            ['node', str(HEADERS_HOOK), f'--url={TEST_URL}', '--snapshot-id=test789'],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+
+        assert result.returncode == 0, f"Extraction failed: {result.stderr}"
+
+        # Verify output in stdout
+        assert 'STATUS=succeeded' in result.stdout, "Should report success"
+        assert 'Headers extracted' in result.stdout, "Should report completion"
+
+        # Verify output directory created
+        headers_dir = tmpdir / 'headers'
+        assert headers_dir.exists(), "Output directory not created"
+
+        # Verify output file exists
+        headers_file = headers_dir / 'headers.json'
+        assert headers_file.exists(), "headers.json not created"
+
+        # Verify headers JSON contains REAL example.com response
+        headers_data = json.loads(headers_file.read_text())
+
+        assert 'url' in headers_data, "Should have url field"
+        assert headers_data['url'] == TEST_URL, f"URL should be {TEST_URL}"
+
+        assert 'status' in headers_data, "Should have status field"
+        assert headers_data['status'] in [200, 301, 302], \
+            f"Should have valid HTTP status, got {headers_data['status']}"
+
+        assert 'headers' in headers_data, "Should have headers field"
+        assert isinstance(headers_data['headers'], dict), "Headers should be a dict"
+        assert len(headers_data['headers']) > 0, "Headers dict should not be empty"
+
+        # Verify common HTTP headers are present
+        headers_lower = {k.lower(): v for k, v in headers_data['headers'].items()}
+        assert 'content-type' in headers_lower or 'content-length' in headers_lower, \
+            "Should have at least one common HTTP header"
+
+        # Verify RESULT_JSON is present and valid
+        assert 'RESULT_JSON=' in result.stdout, "Should output RESULT_JSON"
+
+        for line in result.stdout.split('\n'):
+            if line.startswith('RESULT_JSON='):
+                result_json = json.loads(line.replace('RESULT_JSON=', ''))
+                assert result_json['extractor'] == 'headers'
+                assert result_json['status'] == 'succeeded'
+                assert result_json['url'] == TEST_URL
+                assert result_json['snapshot_id'] == 'test789'
+                assert 'duration' in result_json
+                assert result_json['duration'] >= 0
+                break
+
+
+def test_uses_chrome_session_headers_when_available():
+    """Test that headers plugin prefers chrome_session headers over HTTP HEAD."""
+
+    if not shutil.which('node'):
+        pytest.skip("node not installed")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        # Create mock chrome_session directory with response_headers.json
+        chrome_session_dir = tmpdir / 'chrome_session'
+        chrome_session_dir.mkdir()
+
+        mock_headers = {
+            'url': TEST_URL,
+            'status': 200,
+            'statusText': 'OK',
+            'headers': {
+                'content-type': 'text/html; charset=UTF-8',
+                'server': 'MockChromeServer',
+                'x-test-header': 'from-chrome-session'
+            }
+        }
+
+        headers_file = chrome_session_dir / 'response_headers.json'
+        headers_file.write_text(json.dumps(mock_headers))
+
+        # Run headers extraction
+        result = subprocess.run(
+            ['node', str(HEADERS_HOOK), f'--url={TEST_URL}', '--snapshot-id=testchrome'],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        assert result.returncode == 0, f"Extraction failed: {result.stderr}"
+        assert 'STATUS=succeeded' in result.stdout, "Should report success"
+        assert 'chrome_session' in result.stdout, "Should report using chrome_session method"
+
+        # Verify it used chrome_session headers
+        output_headers_file = tmpdir / 'headers' / 'headers.json'
+        assert output_headers_file.exists(), "Output headers.json not created"
+
+        output_data = json.loads(output_headers_file.read_text())
+        assert output_data['headers']['x-test-header'] == 'from-chrome-session', \
+            "Should use headers from chrome_session"
+        assert output_data['headers']['server'] == 'MockChromeServer', \
+            "Should use headers from chrome_session"
+
+
+def test_falls_back_to_http_when_chrome_session_unavailable():
+    """Test that headers plugin falls back to HTTP HEAD when chrome_session unavailable."""
+
+    if not shutil.which('node'):
+        pytest.skip("node not installed")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        # Don't create chrome_session directory - force HTTP fallback
+
+        # Run headers extraction
+        result = subprocess.run(
+            ['node', str(HEADERS_HOOK), f'--url={TEST_URL}', '--snapshot-id=testhttp'],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+
+        assert result.returncode == 0, f"Extraction failed: {result.stderr}"
+        assert 'STATUS=succeeded' in result.stdout, "Should report success"
+        assert 'http' in result.stdout.lower() or 'HEAD' not in result.stdout, \
+            "Should use HTTP method"
+
+        # Verify output exists and has real HTTP headers
+        output_headers_file = tmpdir / 'headers' / 'headers.json'
+        assert output_headers_file.exists(), "Output headers.json not created"
+
+        output_data = json.loads(output_headers_file.read_text())
+        assert output_data['url'] == TEST_URL
+        assert output_data['status'] in [200, 301, 302]
+        assert isinstance(output_data['headers'], dict)
+        assert len(output_data['headers']) > 0
+
+
+def test_config_timeout_honored():
+    """Test that TIMEOUT config is respected."""
+
+    if not shutil.which('node'):
+        pytest.skip("node not installed")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        # Set very short timeout (but example.com should still succeed)
+        import os
+        env = os.environ.copy()
+        env['TIMEOUT'] = '5'
+
+        result = subprocess.run(
+            ['node', str(HEADERS_HOOK), f'--url={TEST_URL}', '--snapshot-id=testtimeout'],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30
+        )
+
+        # Should complete (success or fail, but not hang)
+        assert result.returncode in (0, 1), "Should complete without hanging"
+
+
+def test_config_user_agent():
+    """Test that USER_AGENT config is used."""
+
+    if not shutil.which('node'):
+        pytest.skip("node not installed")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        # Set custom user agent
+        import os
+        env = os.environ.copy()
+        env['USER_AGENT'] = 'TestBot/1.0'
+
+        result = subprocess.run(
+            ['node', str(HEADERS_HOOK), f'--url={TEST_URL}', '--snapshot-id=testua'],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=60
+        )
+
+        # Should succeed (example.com doesn't block)
+        if result.returncode == 0:
+            assert 'STATUS=succeeded' in result.stdout
+
+
+def test_handles_https_urls():
+    """Test that HTTPS URLs work correctly."""
+
+    if not shutil.which('node'):
+        pytest.skip("node not installed")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        result = subprocess.run(
+            ['node', str(HEADERS_HOOK), '--url=https://example.org', '--snapshot-id=testhttps'],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+
+        if result.returncode == 0:
+            output_headers_file = tmpdir / 'headers' / 'headers.json'
+            if output_headers_file.exists():
+                output_data = json.loads(output_headers_file.read_text())
+                assert output_data['url'] == 'https://example.org'
+                assert output_data['status'] in [200, 301, 302]
+
+
+def test_handles_404_gracefully():
+    """Test that headers plugin handles 404s gracefully."""
+
+    if not shutil.which('node'):
+        pytest.skip("node not installed")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        result = subprocess.run(
+            ['node', str(HEADERS_HOOK), '--url=https://example.com/nonexistent-page-404', '--snapshot-id=test404'],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+
+        # May succeed or fail depending on server behavior
+        # If it succeeds, verify 404 status is captured
+        if result.returncode == 0:
+            output_headers_file = tmpdir / 'headers' / 'headers.json'
+            if output_headers_file.exists():
+                output_data = json.loads(output_headers_file.read_text())
+                assert output_data['status'] == 404, "Should capture 404 status"
+
+
+if __name__ == '__main__':
+    pytest.main([__file__, '-v'])

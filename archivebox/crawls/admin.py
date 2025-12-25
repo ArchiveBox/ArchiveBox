@@ -5,19 +5,19 @@ from django.contrib import admin
 
 from archivebox import DATA_DIR
 
-from archivebox.base_models.admin import BaseModelAdmin
+from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 
 from core.models import Snapshot
 from crawls.models import Seed, Crawl, CrawlSchedule
 
 
-class SeedAdmin(BaseModelAdmin):
+class SeedAdmin(ConfigEditorMixin, BaseModelAdmin):
     list_display = ('id', 'created_at', 'created_by', 'label', 'notes', 'uri', 'extractor', 'tags_str', 'crawls', 'num_crawls', 'num_snapshots')
     sort_fields = ('id', 'created_at', 'created_by', 'label', 'notes', 'uri', 'extractor', 'tags_str')
     search_fields = ('id', 'created_by__username', 'label', 'notes', 'uri', 'extractor', 'tags_str')
 
-    readonly_fields = ('created_at', 'modified_at', 'scheduled_crawls', 'crawls', 'snapshots', 'contents')
-    fields = ('label', 'notes', 'uri', 'extractor', 'tags_str', 'config', 'created_by', *readonly_fields)
+    readonly_fields = ('created_at', 'modified_at', 'scheduled_crawls', 'crawls', 'snapshots', 'contents', 'available_config_options')
+    fields = ('label', 'notes', 'uri', 'extractor', 'tags_str', 'config', 'available_config_options', 'created_by', *readonly_fields[:-1])
 
     list_filter = ('extractor', 'created_by')
     ordering = ['-created_at']
@@ -64,13 +64,13 @@ class SeedAdmin(BaseModelAdmin):
 
 
 
-class CrawlAdmin(BaseModelAdmin):
+class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     list_display = ('id', 'created_at', 'created_by', 'max_depth', 'label', 'notes', 'seed_str', 'schedule_str', 'status', 'retry_at', 'num_snapshots')
     sort_fields = ('id', 'created_at', 'created_by', 'max_depth', 'label', 'notes', 'seed_str', 'schedule_str', 'status', 'retry_at')
     search_fields = ('id', 'created_by__username', 'max_depth', 'label', 'notes', 'seed_id', 'schedule_id', 'status', 'seed__uri')
 
-    readonly_fields = ('created_at', 'modified_at', 'snapshots', 'seed_contents')
-    fields = ('label', 'notes', 'urls', 'status', 'retry_at', 'max_depth', 'seed', 'schedule', 'created_by', *readonly_fields)
+    readonly_fields = ('created_at', 'modified_at', 'snapshots', 'seed_contents', 'available_config_options')
+    fields = ('label', 'notes', 'urls', 'config', 'available_config_options', 'status', 'retry_at', 'max_depth', 'seed', 'schedule', 'created_by', *readonly_fields[:-1])
 
     list_filter = ('max_depth', 'seed', 'schedule', 'created_by', 'status', 'retry_at')
     ordering = ['-created_at', '-retry_at']

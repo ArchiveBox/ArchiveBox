@@ -11,8 +11,6 @@ from django.utils import timezone
 
 from huey_monitor.admin import TaskModel
 
-import abx
-
 from archivebox.config import DATA_DIR
 from archivebox.config.common import SERVER_CONFIG
 from archivebox.misc.paginators import AccelleratedPaginator
@@ -43,7 +41,6 @@ class ArchiveResultInline(admin.TabularInline):
     ordering = ('end_ts',)
     show_change_link = True
     # # classes = ['collapse']
-    # # list_display_links = ['abid']
 
     def get_parent_object_from_request(self, request):
         resolved = resolve(request.path_info)
@@ -80,7 +77,7 @@ class ArchiveResultInline(admin.TabularInline):
         formset.form.base_fields['start_ts'].initial = timezone.now()
         formset.form.base_fields['end_ts'].initial = timezone.now()
         formset.form.base_fields['cmd_version'].initial = '-'
-        formset.form.base_fields['pwd'].initial = str(snapshot.link_dir)
+        formset.form.base_fields['pwd'].initial = str(snapshot.output_dir)
         formset.form.base_fields['created_by'].initial = request.user
         formset.form.base_fields['cmd'].initial = '["-"]'
         formset.form.base_fields['output'].initial = 'Manually recorded cmd output...'
@@ -193,6 +190,5 @@ class ArchiveResultAdmin(BaseModelAdmin):
 
 
 
-@abx.hookimpl
 def register_admin(admin_site):
     admin_site.register(ArchiveResult, ArchiveResultAdmin)

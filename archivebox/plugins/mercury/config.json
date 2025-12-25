@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "SAVE_MERCURY": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable Mercury text extraction"
+    },
+    "MERCURY_BINARY": {
+      "type": "string",
+      "default": "postlight-parser",
+      "x-aliases": ["POSTLIGHT_PARSER_BINARY"],
+      "description": "Path to Mercury/Postlight parser binary"
+    },
+    "NODE_BINARY": {
+      "type": "string",
+      "default": "node",
+      "description": "Path to Node.js binary"
+    },
+    "MERCURY_TIMEOUT": {
+      "type": "integer",
+      "default": 30,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for Mercury in seconds"
+    }
+  }
+}

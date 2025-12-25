@@ -1,49 +1,262 @@
 #!/usr/bin/env python3
 
+"""
+archivebox extract [snapshot_ids...] [--plugin=NAME]
+
+Run plugins on Snapshots. Accepts snapshot IDs as arguments, from stdin, or via JSONL.
+
+Input formats:
+    - Snapshot UUIDs (one per line)
+    - JSONL: {"type": "Snapshot", "id": "...", "url": "..."}
+    - JSONL: {"type": "ArchiveResult", "snapshot_id": "...", "plugin": "..."}
+
+Output (JSONL):
+    {"type": "ArchiveResult", "id": "...", "snapshot_id": "...", "plugin": "...", "status": "..."}
+
+Examples:
+    # Extract specific snapshot
+    archivebox extract 01234567-89ab-cdef-0123-456789abcdef
+
+    # Pipe from snapshot command
+    archivebox snapshot https://example.com | archivebox extract
+
+    # Run specific plugin only
+    archivebox extract --plugin=screenshot 01234567-89ab-cdef-0123-456789abcdef
+
+    # Chain commands
+    archivebox crawl https://example.com | archivebox snapshot | archivebox extract
+"""
+
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox extract'
 
-
 import sys
-from typing import TYPE_CHECKING, Generator
+from typing import Optional, List
 
 import rich_click as click
 
-from django.db.models import Q
 
-from archivebox.misc.util import enforce_types, docstring
+def process_archiveresult_by_id(archiveresult_id: str) -> int:
+    """
+    Run extraction for a single ArchiveResult by ID (used by workers).
 
-
-if TYPE_CHECKING:
+    Triggers the ArchiveResult's state machine tick() to run the extractor.
+    """
+    from rich import print as rprint
     from core.models import ArchiveResult
 
+    try:
+        archiveresult = ArchiveResult.objects.get(id=archiveresult_id)
+    except ArchiveResult.DoesNotExist:
+        rprint(f'[red]ArchiveResult {archiveresult_id} not found[/red]', file=sys.stderr)
+        return 1
 
-ORCHESTRATOR = None
+    rprint(f'[blue]Extracting {archiveresult.extractor} for {archiveresult.snapshot.url}[/blue]', file=sys.stderr)
 
-@enforce_types
-def extract(archiveresult_id: str) -> Generator['ArchiveResult', None, None]:
-    archiveresult = ArchiveResult.objects.get(id=archiveresult_id)
-    if not archiveresult:
-        raise Exception(f'ArchiveResult {archiveresult_id} not found')
-    
-    return archiveresult.EXTRACTOR.extract()
+    try:
+        # Trigger state machine tick - this runs the actual extraction
+        archiveresult.sm.tick()
+        archiveresult.refresh_from_db()
 
-# <user>@<machine_id>#<datetime>/absolute/path/to/binary
-# 2014.24.01
+        if archiveresult.status == ArchiveResult.StatusChoices.SUCCEEDED:
+            print(f'[green]Extraction succeeded: {archiveresult.output}[/green]')
+            return 0
+        elif archiveresult.status == ArchiveResult.StatusChoices.FAILED:
+            print(f'[red]Extraction failed: {archiveresult.output}[/red]', file=sys.stderr)
+            return 1
+        else:
+            # Still in progress or backoff - not a failure
+            print(f'[yellow]Extraction status: {archiveresult.status}[/yellow]')
+            return 0
+
+    except Exception as e:
+        print(f'[red]Extraction error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
+        return 1
+
+
+def run_plugins(
+    args: tuple,
+    plugin: str = '',
+    wait: bool = True,
+) -> int:
+    """
+    Run plugins on Snapshots from input.
+
+    Reads Snapshot IDs or JSONL from args/stdin, runs plugins, outputs JSONL.
+
+    Exit codes:
+        0: Success
+        1: Failure
+    """
+    from rich import print as rprint
+    from django.utils import timezone
+
+    from archivebox.misc.jsonl import (
+        read_args_or_stdin, write_record, archiveresult_to_jsonl,
+        TYPE_SNAPSHOT, TYPE_ARCHIVERESULT
+    )
+    from core.models import Snapshot, ArchiveResult
+    from workers.orchestrator import Orchestrator
+
+    is_tty = sys.stdout.isatty()
+
+    # Collect all input records
+    records = list(read_args_or_stdin(args))
+
+    if not records:
+        rprint('[yellow]No snapshots provided. Pass snapshot IDs as arguments or via stdin.[/yellow]', file=sys.stderr)
+        return 1
+
+    # Gather snapshot IDs to process
+    snapshot_ids = set()
+    for record in records:
+        record_type = record.get('type')
+
+        if record_type == TYPE_SNAPSHOT:
+            snapshot_id = record.get('id')
+            if snapshot_id:
+                snapshot_ids.add(snapshot_id)
+            elif record.get('url'):
+                # Look up by URL
+                try:
+                    snap = Snapshot.objects.get(url=record['url'])
+                    snapshot_ids.add(str(snap.id))
+                except Snapshot.DoesNotExist:
+                    rprint(f'[yellow]Snapshot not found for URL: {record["url"]}[/yellow]', file=sys.stderr)
+
+        elif record_type == TYPE_ARCHIVERESULT:
+            snapshot_id = record.get('snapshot_id')
+            if snapshot_id:
+                snapshot_ids.add(snapshot_id)
+
+        elif 'id' in record:
+            # Assume it's a snapshot ID
+            snapshot_ids.add(record['id'])
+
+    if not snapshot_ids:
+        rprint('[red]No valid snapshot IDs found in input[/red]', file=sys.stderr)
+        return 1
+
+    # Get snapshots and ensure they have pending ArchiveResults
+    processed_count = 0
+    for snapshot_id in snapshot_ids:
+        try:
+            snapshot = Snapshot.objects.get(id=snapshot_id)
+        except Snapshot.DoesNotExist:
+            rprint(f'[yellow]Snapshot {snapshot_id} not found[/yellow]', file=sys.stderr)
+            continue
+
+        # Create pending ArchiveResults if needed
+        if plugin:
+            # Only create for specific plugin
+            result, created = ArchiveResult.objects.get_or_create(
+                snapshot=snapshot,
+                extractor=plugin,
+                defaults={
+                    'status': ArchiveResult.StatusChoices.QUEUED,
+                    'retry_at': timezone.now(),
+                    'created_by_id': snapshot.created_by_id,
+                }
+            )
+            if not created and result.status in [ArchiveResult.StatusChoices.FAILED, ArchiveResult.StatusChoices.SKIPPED]:
+                # Reset for retry
+                result.status = ArchiveResult.StatusChoices.QUEUED
+                result.retry_at = timezone.now()
+                result.save()
+        else:
+            # Create all pending plugins
+            snapshot.create_pending_archiveresults()
+
+        # Reset snapshot status to allow processing
+        if snapshot.status == Snapshot.StatusChoices.SEALED:
+            snapshot.status = Snapshot.StatusChoices.STARTED
+            snapshot.retry_at = timezone.now()
+            snapshot.save()
+
+        processed_count += 1
+
+    if processed_count == 0:
+        rprint('[red]No snapshots to process[/red]', file=sys.stderr)
+        return 1
+
+    rprint(f'[blue]Queued {processed_count} snapshots for extraction[/blue]', file=sys.stderr)
+
+    # Run orchestrator if --wait (default)
+    if wait:
+        rprint('[blue]Running plugins...[/blue]', file=sys.stderr)
+        orchestrator = Orchestrator(exit_on_idle=True)
+        orchestrator.runloop()
+
+    # Output results as JSONL (when piped) or human-readable (when TTY)
+    for snapshot_id in snapshot_ids:
+        try:
+            snapshot = Snapshot.objects.get(id=snapshot_id)
+            results = snapshot.archiveresult_set.all()
+            if plugin:
+                results = results.filter(extractor=plugin)
+
+            for result in results:
+                if is_tty:
+                    status_color = {
+                        'succeeded': 'green',
+                        'failed': 'red',
+                        'skipped': 'yellow',
+                    }.get(result.status, 'dim')
+                    rprint(f'  [{status_color}]{result.status}[/{status_color}] {result.extractor} → {result.output or ""}', file=sys.stderr)
+                else:
+                    write_record(archiveresult_to_jsonl(result))
+        except Snapshot.DoesNotExist:
+            continue
+
+    return 0
+
+
+def is_archiveresult_id(value: str) -> bool:
+    """Check if value looks like an ArchiveResult UUID."""
+    import re
+    uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.I)
+    if not uuid_pattern.match(value):
+        return False
+    # Verify it's actually an ArchiveResult (not a Snapshot or other object)
+    from core.models import ArchiveResult
+    return ArchiveResult.objects.filter(id=value).exists()
+
 
 @click.command()
+@click.option('--plugin', '-p', default='', help='Run only this plugin (e.g., screenshot, singlefile)')
+@click.option('--wait/--no-wait', default=True, help='Wait for plugins to complete (default: wait)')
+@click.argument('args', nargs=-1)
+def main(plugin: str, wait: bool, args: tuple):
+    """Run plugins on Snapshots, or process existing ArchiveResults by ID"""
+    from archivebox.misc.jsonl import read_args_or_stdin
 
-@click.argument('archiveresult_ids', nargs=-1, type=str)
-@docstring(extract.__doc__)
-def main(archiveresult_ids: list[str]):
-    """Add a new URL or list of URLs to your archive"""
-    
-    for archiveresult_id in (archiveresult_ids or sys.stdin):
-        print(f'Extracting {archiveresult_id}...')
-        archiveresult = extract(str(archiveresult_id))
-        print(archiveresult.as_json())
+    # Read all input
+    records = list(read_args_or_stdin(args))
+
+    if not records:
+        from rich import print as rprint
+        rprint('[yellow]No Snapshot IDs or ArchiveResult IDs provided. Pass as arguments or via stdin.[/yellow]', file=sys.stderr)
+        sys.exit(1)
+
+    # Check if input looks like existing ArchiveResult IDs to process
+    all_are_archiveresult_ids = all(
+        is_archiveresult_id(r.get('id') or r.get('url', ''))
+        for r in records
+    )
+
+    if all_are_archiveresult_ids:
+        # Process existing ArchiveResults by ID
+        exit_code = 0
+        for record in records:
+            archiveresult_id = record.get('id') or record.get('url')
+            result = process_archiveresult_by_id(archiveresult_id)
+            if result != 0:
+                exit_code = result
+        sys.exit(exit_code)
+    else:
+        # Default behavior: run plugins on Snapshots from input
+        sys.exit(run_plugins(args, plugin=plugin, wait=wait))
 
 
 if __name__ == '__main__':
     main()
-

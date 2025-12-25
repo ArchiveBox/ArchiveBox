@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "SAVE_WGET": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable wget archiving"
+    },
+    "SAVE_WARC": {
+      "type": "boolean",
+      "default": true,
+      "description": "Save WARC archive file"
+    },
+    "SAVE_WGET_REQUISITES": {
+      "type": "boolean",
+      "default": true,
+      "description": "Download page requisites (CSS, JS, images)"
+    },
+    "WGET_BINARY": {
+      "type": "string",
+      "default": "wget",
+      "description": "Path to wget binary"
+    },
+    "WGET_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for wget in seconds"
+    },
+    "WGET_USER_AGENT": {
+      "type": "string",
+      "default": "",
+      "x-fallback": "USER_AGENT",
+      "description": "User agent string for wget"
+    },
+    "WGET_CHECK_SSL_VALIDITY": {
+      "type": "boolean",
+      "default": true,
+      "x-fallback": "CHECK_SSL_VALIDITY",
+      "x-aliases": ["CHECK_SSL_VALIDITY"],
+      "description": "Whether to verify SSL certificates"
+    },
+    "WGET_COOKIES_FILE": {
+      "type": "string",
+      "default": "",
+      "x-fallback": "COOKIES_FILE",
+      "description": "Path to cookies file"
+    },
+    "WGET_RESTRICT_FILE_NAMES": {
+      "type": "string",
+      "default": "windows",
+      "enum": ["windows", "unix", "ascii", "nocontrol", "lowercase", "uppercase"],
+      "x-fallback": "RESTRICT_FILE_NAMES",
+      "description": "Filename restriction mode"
+    },
+    "WGET_ARGS": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [
+        "--no-verbose",
+        "--adjust-extension",
+        "--convert-links",
+        "--force-directories",
+        "--backup-converted",
+        "--span-hosts",
+        "--no-parent",
+        "-e", "robots=off"
+      ],
+      "description": "Default wget arguments"
+    },
+    "WGET_EXTRA_ARGS": {
+      "type": "string",
+      "default": "",
+      "description": "Extra arguments for wget (space-separated)"
+    }
+  }
+}

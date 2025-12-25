@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "SAVE_GIT": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable git repository cloning"
+    },
+    "GIT_BINARY": {
+      "type": "string",
+      "default": "git",
+      "description": "Path to git binary"
+    },
+    "GIT_TIMEOUT": {
+      "type": "integer",
+      "default": 120,
+      "minimum": 10,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for git operations in seconds"
+    },
+    "GIT_DOMAINS": {
+      "type": "string",
+      "default": "github.com,gitlab.com,bitbucket.org,gist.github.com,codeberg.org,gitea.com,git.sr.ht",
+      "description": "Comma-separated list of domains to treat as git repositories"
+    },
+    "GIT_CLONE_DEPTH": {
+      "type": "integer",
+      "default": 1,
+      "minimum": 0,
+      "description": "Depth of git clone (0 for full history, 1 for shallow)"
+    },
+    "GIT_EXTRA_ARGS": {
+      "type": "string",
+      "default": "",
+      "description": "Extra arguments for git clone"
+    }
+  }
+}

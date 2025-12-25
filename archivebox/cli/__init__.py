@@ -37,7 +37,13 @@ class ArchiveBoxGroup(click.Group):
         'server': 'archivebox.cli.archivebox_server.main',
         'shell': 'archivebox.cli.archivebox_shell.main',
         'manage': 'archivebox.cli.archivebox_manage.main',
+        # Worker/orchestrator commands
+        'orchestrator': 'archivebox.cli.archivebox_orchestrator.main',
         'worker': 'archivebox.cli.archivebox_worker.main',
+        # Task commands (called by workers as subprocesses)
+        'crawl': 'archivebox.cli.archivebox_crawl.main',
+        'snapshot': 'archivebox.cli.archivebox_snapshot.main',
+        'extract': 'archivebox.cli.archivebox_extract.main',
     }
     all_subcommands = {
         **meta_commands,
@@ -118,11 +124,14 @@ def cli(ctx, help=False):
                 raise
             
 
-def main(args=None, prog_name=None):
+def main(args=None, prog_name=None, stdin=None):
     # show `docker run archivebox xyz` in help messages if running in docker
     IN_DOCKER = os.environ.get('IN_DOCKER', False) in ('1', 'true', 'True', 'TRUE', 'yes')
     IS_TTY = sys.stdin.isatty()
     prog_name = prog_name or (f'docker compose run{"" if IS_TTY else " -T"} archivebox' if IN_DOCKER else 'archivebox')
+    
+    # stdin param allows passing input data from caller (used by __main__.py)
+    # currently not used by click-based CLI, but kept for backwards compatibility
 
     try:
         cli(args=args, prog_name=prog_name)

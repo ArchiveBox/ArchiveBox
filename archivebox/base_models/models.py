@@ -19,7 +19,7 @@ from django.conf import settings
 from django_stubs_ext.db.models import TypedModelMeta
 
 from archivebox import DATA_DIR
-from archivebox.index.json import to_json
+from archivebox.misc.util import to_json
 from archivebox.misc.hashing import get_dir_info
 
 
@@ -29,6 +29,16 @@ def get_or_create_system_user_pk(username='system'):
         return User.objects.filter(is_superuser=True).values_list('pk', flat=True)[0]
     user, _ = User.objects.get_or_create(username=username, is_staff=True, is_superuser=True, defaults={'email': '', 'password': ''})
     return user.pk
+
+
+class AutoDateTimeField(models.DateTimeField):
+    """DateTimeField that automatically updates on save (legacy compatibility)."""
+    def pre_save(self, model_instance, add):
+        if add or not getattr(model_instance, self.attname):
+            value = timezone.now()
+            setattr(model_instance, self.attname, value)
+            return value
+        return super().pre_save(model_instance, add)
 
 
 class ModelWithUUID(models.Model):
@@ -74,6 +84,7 @@ class ModelWithSerializers(ModelWithUUID):
 
 
 class ModelWithNotes(models.Model):
+    """Mixin for models with a notes field."""
     notes = models.TextField(blank=True, null=False, default='')
 
     class Meta:
@@ -81,6 +92,7 @@ class ModelWithNotes(models.Model):
 
 
 class ModelWithHealthStats(models.Model):
+    """Mixin for models with health tracking fields."""
     num_uses_failed = models.PositiveIntegerField(default=0)
     num_uses_succeeded = models.PositiveIntegerField(default=0)
 
@@ -94,6 +106,7 @@ class ModelWithHealthStats(models.Model):
 
 
 class ModelWithConfig(models.Model):
+    """Mixin for models with a JSON config field."""
     config = models.JSONField(default=dict, null=False, blank=False, editable=True)
 
     class Meta:
@@ -113,7 +126,7 @@ class ModelWithOutputDir(ModelWithSerializers):
 
     @property
     def output_dir_parent(self) -> str:
-        return getattr(self, 'output_dir_parent', f'{self._meta.model_name}s')
+        return f'{self._meta.model_name}s'
 
     @property
     def output_dir_name(self) -> str:

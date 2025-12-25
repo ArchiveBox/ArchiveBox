@@ -35,9 +35,12 @@ def schedule(add: bool=False,
  
     depth = int(depth)
     
+    import shutil
     from crontab import CronTab, CronSlices
     from archivebox.misc.system import dedupe_cron_jobs
-    from abx_plugin_pip.binaries import ARCHIVEBOX_BINARY
+    
+    # Find the archivebox binary path
+    ARCHIVEBOX_ABSPATH = shutil.which('archivebox') or sys.executable.replace('python', 'archivebox')
 
     Path(CONSTANTS.LOGS_DIR).mkdir(exist_ok=True)
 
@@ -58,7 +61,7 @@ def schedule(add: bool=False,
             'cd',
             quoted(out_dir),
             '&&',
-            quoted(ARCHIVEBOX_BINARY.load().abspath),
+            quoted(ARCHIVEBOX_ABSPATH),
             *([
                 'add',
                 *(['--overwrite'] if overwrite else []),

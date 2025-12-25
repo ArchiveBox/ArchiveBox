@@ -115,7 +115,7 @@
             const jobElement = document.createElement('div');
             jobElement.className = 'job-item';
             jobElement.innerHTML = `
-                <p><a href="/api/v1/core/any/${job.abid}?api_key={{api_token|default:'NONE PROVIDED BY VIEW'}}"><code>${job.abid}</code></a></p>
+                <p><a href="/api/v1/core/any/${job.id}?api_key={{api_token|default:'NONE PROVIDED BY VIEW'}}"><code>${job.id}</code></a></p>
                 <p>
                     <span class="badge badge-${job.status}">${job.status}</span>
                     <span class="date">♻️ ${formatDate(job.retry_at)}</span>

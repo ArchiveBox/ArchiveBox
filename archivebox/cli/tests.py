@@ -31,7 +31,6 @@ DATA_DIR = 'data.tests'
 os.environ.update(TEST_CONFIG)
 
 from ..main import init
-from ..index import load_main_index
 from archivebox.config.constants import (
     SQL_INDEX_FILENAME,
     JSON_INDEX_FILENAME,

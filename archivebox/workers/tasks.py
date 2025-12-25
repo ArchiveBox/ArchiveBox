@@ -63,61 +63,68 @@ def bg_add(add_kwargs, task=None, parent_task_id=None):
 
 
 @task(queue="commands", context=True)
-def bg_archive_links(args, kwargs=None, task=None, parent_task_id=None):
+def bg_archive_snapshots(snapshots, kwargs=None, task=None, parent_task_id=None):
+    """
+    Queue multiple snapshots for archiving via the state machine system.
+
+    This sets snapshots to 'queued' status so the orchestrator workers pick them up.
+    The actual archiving happens through ArchiveResult.run().
+    """
     get_or_create_supervisord_process(daemonize=False)
-    
-    from ..extractors import archive_links
-    
+
+    from django.utils import timezone
+    from core.models import Snapshot
+
     if task and parent_task_id:
         TaskModel.objects.set_parent_task(main_task_id=parent_task_id, sub_task_id=task.id)
 
-    assert args and args[0]
+    assert snapshots
     kwargs = kwargs or {}
-    
-    rough_count = len(args[0])
-    
-    process_info = ProcessInfo(task, desc="archive_links", parent_task_id=parent_task_id, total=rough_count)
-    
-    result = archive_links(*args, **kwargs)
-    process_info.update(n=rough_count)
-    return result
 
+    rough_count = len(snapshots) if hasattr(snapshots, '__len__') else snapshots.count()
+    process_info = ProcessInfo(task, desc="archive_snapshots", parent_task_id=parent_task_id, total=rough_count)
 
-@task(queue="commands", context=True)
-def bg_archive_link(args, kwargs=None,task=None, parent_task_id=None):
-    get_or_create_supervisord_process(daemonize=False)
-    
-    from ..extractors import archive_link
-    
-    if task and parent_task_id:
-        TaskModel.objects.set_parent_task(main_task_id=parent_task_id, sub_task_id=task.id)
+    # Queue snapshots by setting status to queued with immediate retry_at
+    queued_count = 0
+    for snapshot in snapshots:
+        if hasattr(snapshot, 'id'):
+            # Update snapshot to queued state so workers pick it up
+            Snapshot.objects.filter(id=snapshot.id).update(
+                status=Snapshot.StatusChoices.QUEUED,
+                retry_at=timezone.now(),
+            )
+            queued_count += 1
 
-    assert args and args[0]
-    kwargs = kwargs or {}
-    
-    rough_count = len(args[0])
-    
-    process_info = ProcessInfo(task, desc="archive_link", parent_task_id=parent_task_id, total=rough_count)
-    
-    result = archive_link(*args, **kwargs)
-    process_info.update(n=rough_count)
-    return result
+    process_info.update(n=queued_count)
+    return queued_count
 
 
 @task(queue="commands", context=True)
 def bg_archive_snapshot(snapshot, overwrite=False, methods=None, task=None, parent_task_id=None):
-    # get_or_create_supervisord_process(daemonize=False)
+    """
+    Queue a single snapshot for archiving via the state machine system.
 
-    from ..extractors import archive_link
-    
+    This sets the snapshot to 'queued' status so the orchestrator workers pick it up.
+    The actual archiving happens through ArchiveResult.run().
+    """
+    get_or_create_supervisord_process(daemonize=False)
+
+    from django.utils import timezone
+    from core.models import Snapshot
+
     if task and parent_task_id:
         TaskModel.objects.set_parent_task(main_task_id=parent_task_id, sub_task_id=task.id)
 
-    process_info = ProcessInfo(task, desc="archive_link", parent_task_id=parent_task_id, total=1)
-    
-    link = snapshot.as_link_with_details()
-        
-    result = archive_link(link, overwrite=overwrite, methods=methods)
-    process_info.update(n=1)
-    return result
+    process_info = ProcessInfo(task, desc="archive_snapshot", parent_task_id=parent_task_id, total=1)
+
+    # Queue the snapshot by setting status to queued
+    if hasattr(snapshot, 'id'):
+        Snapshot.objects.filter(id=snapshot.id).update(
+            status=Snapshot.StatusChoices.QUEUED,
+            retry_at=timezone.now(),
+        )
+        process_info.update(n=1)
+        return 1
+
+    return 0
 
