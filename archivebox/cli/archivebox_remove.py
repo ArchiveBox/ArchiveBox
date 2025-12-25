@@ -38,21 +38,18 @@ def remove(filter_patterns: Iterable[str]=(),
     setup_django()
     check_data_folder()
     
-    from archivebox.cli.archivebox_search import list_links
-
-    list_kwargs = {
-        "filter_patterns": filter_patterns,
-        "filter_type": filter_type,
-        "after": after,
-        "before": before,
-    }
-    if snapshots:
-        list_kwargs["snapshots"] = snapshots
+    from archivebox.cli.archivebox_search import get_snapshots
 
     log_list_started(filter_patterns, filter_type)
     timer = TimedProgress(360, prefix='      ')
     try:
-        snapshots = list_links(**list_kwargs)
+        snapshots = get_snapshots(
+            snapshots=snapshots,
+            filter_patterns=list(filter_patterns) if filter_patterns else None,
+            filter_type=filter_type,
+            after=after,
+            before=before,
+        )
     finally:
         timer.end()
 

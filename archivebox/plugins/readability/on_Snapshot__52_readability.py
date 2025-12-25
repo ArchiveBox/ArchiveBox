@@ -6,10 +6,10 @@ Usage: on_Snapshot__readability.py --url=<url> --snapshot-id=<uuid>
 Output: Creates readability/ directory with content.html, content.txt, article.json
 
 Environment variables:
-    READABILITY_BINARY: Path to readability-cli binary
+    READABILITY_BINARY: Path to readability-extractor binary
     TIMEOUT: Timeout in seconds (default: 60)
 
-Note: Requires readability-cli: npm install -g readability-cli
+Note: Requires readability-extractor from https://github.com/ArchiveBox/readability-extractor
       This extractor looks for HTML source from other extractors (wget, singlefile, dom)
 """
 
@@ -27,7 +27,7 @@ import rich_click as click
 
 # Extractor metadata
 EXTRACTOR_NAME = 'readability'
-BIN_NAME = 'readability-cli'
+BIN_NAME = 'readability-extractor'
 BIN_PROVIDERS = 'npm,env'
 OUTPUT_DIR = 'readability'
 
@@ -44,12 +44,12 @@ def get_env_int(name: str, default: int = 0) -> int:
 
 
 def find_readability() -> str | None:
-    """Find readability-cli binary."""
+    """Find readability-extractor binary."""
     readability = get_env('READABILITY_BINARY')
     if readability and os.path.isfile(readability):
         return readability
 
-    for name in ['readability-cli', 'readable']:
+    for name in ['readability-extractor']:
         binary = shutil.which(name)
         if binary:
             return binary
@@ -58,7 +58,7 @@ def find_readability() -> str | None:
 
 
 def get_version(binary: str) -> str:
-    """Get readability-cli version."""
+    """Get readability-extractor version."""
     try:
         result = subprocess.run([binary, '--version'], capture_output=True, text=True, timeout=10)
         return result.stdout.strip()[:64]
@@ -106,24 +106,24 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
     output_dir.mkdir(exist_ok=True)
 
     try:
-        # Run readability-cli
-        cmd = [binary, '--json', html_source]
+        # Run readability-extractor (outputs JSON by default)
+        cmd = [binary, html_source]
         result = subprocess.run(cmd, capture_output=True, timeout=timeout)
 
         if result.returncode != 0:
             stderr = result.stderr.decode('utf-8', errors='replace')
-            return False, None, f'readability-cli failed: {stderr[:200]}'
+            return False, None, f'readability-extractor failed: {stderr[:200]}'
 
         # Parse JSON output
         try:
             result_json = json.loads(result.stdout)
         except json.JSONDecodeError:
-            return False, None, 'readability-cli returned invalid JSON'
+            return False, None, 'readability-extractor returned invalid JSON'
 
         # Extract and save content
-        # readability-cli v2.x uses hyphenated field names
-        text_content = result_json.pop('text-content', result_json.pop('textContent', ''))
-        html_content = result_json.pop('html-content', result_json.pop('content', ''))
+        # readability-extractor uses camelCase field names (textContent, content)
+        text_content = result_json.pop('textContent', result_json.pop('text-content', ''))
+        html_content = result_json.pop('content', result_json.pop('html-content', ''))
 
         if not text_content and not html_content:
             return False, None, 'No content extracted'
@@ -157,7 +157,7 @@ def main(url: str, snapshot_id: str):
         # Find binary
         binary = find_readability()
         if not binary:
-            print(f'ERROR: readability-cli binary not found', file=sys.stderr)
+            print(f'ERROR: readability-extractor binary not found', file=sys.stderr)
             print(f'DEPENDENCY_NEEDED={BIN_NAME}', file=sys.stderr)
             print(f'BIN_PROVIDERS={BIN_PROVIDERS}', file=sys.stderr)
             sys.exit(1)
@@ -187,7 +187,7 @@ def main(url: str, snapshot_id: str):
     print(f'END_TS={end_ts.isoformat()}')
     print(f'DURATION={duration:.2f}')
     if binary:
-        print(f'CMD={binary} --json <html>')
+        print(f'CMD={binary} <html>')
     if version:
         print(f'VERSION={version}')
     if output:

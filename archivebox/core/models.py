@@ -37,9 +37,11 @@ from machine.models import NetworkInterface
 
 
 class Tag(ModelWithSerializers):
-    id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
+    # Keep AutoField for compatibility with main branch migrations
+    # Don't use UUIDField here - requires complex FK transformation
+    id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False, related_name='tag_set')
-    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True, null=True)
     modified_at = models.DateTimeField(auto_now=True)
     name = models.CharField(unique=True, blank=False, max_length=100)
     slug = models.SlugField(unique=True, blank=False, max_length=100, editable=False)
@@ -81,16 +83,8 @@ class SnapshotTag(models.Model):
         unique_together = [('snapshot', 'tag')]
 
 
-class SnapshotManager(models.Manager):
-    def filter(self, *args, **kwargs):
-        domain = kwargs.pop('domain', None)
-        qs = super().filter(*args, **kwargs)
-        if domain:
-            qs = qs.filter(url__icontains=f'://{domain}')
-        return qs
-
-    def get_queryset(self):
-        return super().get_queryset().prefetch_related('tags', 'archiveresult_set')
+class SnapshotQuerySet(models.QuerySet):
+    """Custom QuerySet for Snapshot model with export methods that persist through .filter() etc."""
 
     # =========================================================================
     # Filtering Methods
@@ -105,7 +99,7 @@ class SnapshotManager(models.Manager):
         'timestamp': lambda pattern: models.Q(timestamp=pattern),
     }
 
-    def filter_by_patterns(self, patterns: List[str], filter_type: str = 'exact') -> QuerySet:
+    def filter_by_patterns(self, patterns: List[str], filter_type: str = 'exact') -> 'SnapshotQuerySet':
         """Filter snapshots by URL patterns using specified filter type"""
         from archivebox.misc.logging import stderr
 
@@ -120,7 +114,7 @@ class SnapshotManager(models.Manager):
                 raise SystemExit(2)
         return self.filter(q_filter)
 
-    def search(self, patterns: List[str]) -> QuerySet:
+    def search(self, patterns: List[str]) -> 'SnapshotQuerySet':
         """Search snapshots using the configured search backend"""
         from archivebox.config.common import SEARCH_BACKEND_CONFIG
         from archivebox.search import query_search_index
@@ -207,6 +201,20 @@ class SnapshotManager(models.Manager):
             'links': snapshot_list,
             'FOOTER_INFO': SERVER_CONFIG.FOOTER_INFO,
         })
+
+
+class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):
+    """Manager for Snapshot model - uses SnapshotQuerySet for chainable methods"""
+
+    def filter(self, *args, **kwargs):
+        domain = kwargs.pop('domain', None)
+        qs = super().filter(*args, **kwargs)
+        if domain:
+            qs = qs.filter(url__icontains=f'://{domain}')
+        return qs
+
+    def get_queryset(self):
+        return super().get_queryset().prefetch_related('tags', 'archiveresult_set')
 
     # =========================================================================
     # Import Methods
@@ -766,7 +774,10 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         ('dom', 'dom'), ('title', 'title'), ('wget', 'wget'),
     )
 
-    id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
+    # Keep AutoField for backward compatibility with 0.7.x databases
+    # UUID field is added separately by migration for new records
+    id = models.AutoField(primary_key=True, editable=False)
+    uuid = models.UUIDField(default=uuid7, null=True, blank=True, db_index=True, unique=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, related_name='archiveresult_set', db_index=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -851,14 +862,22 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         updates status/output fields, queues discovered URLs, and triggers indexing.
         """
         from django.utils import timezone
-        from archivebox.hooks import discover_hooks, run_hook
+        from archivebox.hooks import BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR, run_hook
 
         extractor_dir = Path(self.snapshot.output_dir) / self.extractor
         config_objects = [self.snapshot.crawl, self.snapshot] if self.snapshot.crawl else [self.snapshot]
 
-        # Discover hook for this extractor
-        hooks = discover_hooks(f'Snapshot__{self.extractor}')
-        if not hooks:
+        # Find hook for this extractor
+        hook = None
+        for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
+            if not base_dir.exists():
+                continue
+            matches = list(base_dir.glob(f'*/on_Snapshot__{self.extractor}.*'))
+            if matches:
+                hook = matches[0]
+                break
+
+        if not hook:
             self.status = self.StatusChoices.FAILED
             self.output = f'No hook found for: {self.extractor}'
             self.retry_at = None
@@ -868,7 +887,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         # Run the hook
         start_ts = timezone.now()
         result = run_hook(
-            hooks[0],
+            hook,
             output_dir=extractor_dir,
             config_objects=config_objects,
             url=self.snapshot.url,

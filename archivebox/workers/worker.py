@@ -65,6 +65,7 @@ class Worker:
 
     # Configuration (can be overridden by subclasses)
     MAX_TICK_TIME: ClassVar[int] = 60
+    MAX_CONCURRENT_TASKS: ClassVar[int] = 1
     POLL_INTERVAL: ClassVar[float] = 0.5
     IDLE_TIMEOUT: ClassVar[int] = 3  # Exit after N idle iterations (set to 0 to never exit)
 

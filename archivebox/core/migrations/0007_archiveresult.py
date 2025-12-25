@@ -6,8 +6,24 @@ from pathlib import Path
 from django.db import migrations, models
 import django.db.models.deletion
 
-from config import CONFIG
-from index.json import to_json
+# Handle old vs new import paths
+try:
+    from archivebox.config import CONSTANTS
+    ARCHIVE_DIR = CONSTANTS.ARCHIVE_DIR
+except ImportError:
+    try:
+        from config import CONFIG
+        ARCHIVE_DIR = Path(CONFIG.get('ARCHIVE_DIR', './archive'))
+    except ImportError:
+        ARCHIVE_DIR = Path('./archive')
+
+try:
+    from archivebox.misc.util import to_json
+except ImportError:
+    try:
+        from index.json import to_json
+    except ImportError:
+        to_json = lambda x: json.dumps(x, indent=4, default=str)
 
 try:
     JSONField = models.JSONField
@@ -17,14 +33,12 @@ except AttributeError:
 
 
 def forwards_func(apps, schema_editor):
-    from core.models import EXTRACTORS
-
     Snapshot = apps.get_model("core", "Snapshot")
     ArchiveResult = apps.get_model("core", "ArchiveResult")
 
     snapshots = Snapshot.objects.all()
     for snapshot in snapshots:
-        out_dir = Path(CONFIG['ARCHIVE_DIR']) / snapshot.timestamp
+        out_dir = Path(ARCHIVE_DIR) / snapshot.timestamp
 
         try:
             with open(out_dir / "index.json", "r") as f:
@@ -59,7 +73,7 @@ def forwards_func(apps, schema_editor):
 
 def verify_json_index_integrity(snapshot):
     results = snapshot.archiveresult_set.all()
-    out_dir = Path(CONFIG['ARCHIVE_DIR']) / snapshot.timestamp
+    out_dir = Path(ARCHIVE_DIR) / snapshot.timestamp
     with open(out_dir / "index.json", "r") as f:
         index = json.load(f)
 

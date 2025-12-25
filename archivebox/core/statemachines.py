@@ -5,6 +5,7 @@ import os
 from datetime import timedelta
 from typing import ClassVar
 
+from django.db.models import F
 from django.utils import timezone
 
 from rich import print
@@ -14,6 +15,7 @@ from statemachine import State, StateMachine
 # from workers.actor import ActorType
 
 from core.models import Snapshot, ArchiveResult
+from crawls.models import Crawl, Seed
 
 
 class SnapshotMachine(StateMachine, strict_states=True):
@@ -254,6 +256,18 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
         )
         self.archiveresult.save(write_indexes=True)
 
+        # Increment health stats on ArchiveResult, Snapshot, and optionally Crawl/Seed
+        ArchiveResult.objects.filter(pk=self.archiveresult.pk).update(num_uses_succeeded=F('num_uses_succeeded') + 1)
+        Snapshot.objects.filter(pk=self.archiveresult.snapshot_id).update(num_uses_succeeded=F('num_uses_succeeded') + 1)
+
+        # Also update Crawl and Seed health stats if snapshot has a crawl
+        snapshot = self.archiveresult.snapshot
+        if snapshot.crawl_id:
+            Crawl.objects.filter(pk=snapshot.crawl_id).update(num_uses_succeeded=F('num_uses_succeeded') + 1)
+            crawl = Crawl.objects.filter(pk=snapshot.crawl_id).values_list('seed_id', flat=True).first()
+            if crawl:
+                Seed.objects.filter(pk=crawl).update(num_uses_succeeded=F('num_uses_succeeded') + 1)
+
     @failed.enter
     def enter_failed(self):
         print(f'{self}.on_failed() ↳ archiveresult.retry_at = None, archiveresult.end_ts = now()')
@@ -262,6 +276,18 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
             status=ArchiveResult.StatusChoices.FAILED,
             end_ts=timezone.now(),
         )
+
+        # Increment health stats on ArchiveResult, Snapshot, and optionally Crawl/Seed
+        ArchiveResult.objects.filter(pk=self.archiveresult.pk).update(num_uses_failed=F('num_uses_failed') + 1)
+        Snapshot.objects.filter(pk=self.archiveresult.snapshot_id).update(num_uses_failed=F('num_uses_failed') + 1)
+
+        # Also update Crawl and Seed health stats if snapshot has a crawl
+        snapshot = self.archiveresult.snapshot
+        if snapshot.crawl_id:
+            Crawl.objects.filter(pk=snapshot.crawl_id).update(num_uses_failed=F('num_uses_failed') + 1)
+            crawl = Crawl.objects.filter(pk=snapshot.crawl_id).values_list('seed_id', flat=True).first()
+            if crawl:
+                Seed.objects.filter(pk=crawl).update(num_uses_failed=F('num_uses_failed') + 1)
 
     @skipped.enter
     def enter_skipped(self):

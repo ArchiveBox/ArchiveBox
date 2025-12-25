@@ -95,17 +95,17 @@ def check_io_encoding():
 
 def check_not_root():
     from archivebox.config.permissions import IS_ROOT, IN_DOCKER
-    
+
     attempted_command = ' '.join(sys.argv[1:]) if len(sys.argv) > 1 else ''
     is_getting_help = '-h' in sys.argv or '--help' in sys.argv or 'help' in sys.argv
     is_getting_version = '--version' in sys.argv or 'version' in sys.argv
     is_installing = 'setup' in sys.argv or 'install' in sys.argv
-    
+
     if IS_ROOT and not (is_getting_help or is_getting_version or is_installing):
         print('[red][!] ArchiveBox should never be run as root![/red]', file=sys.stderr)
         print('    For more information, see the security overview documentation:', file=sys.stderr)
         print('        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root', file=sys.stderr)
-        
+
         if IN_DOCKER:
             print('[red][!] When using Docker, you must run commands with [green]docker run[/green] instead of [yellow3]docker exec[/yellow3], e.g.:', file=sys.stderr)
             print('        docker compose run archivebox {attempted_command}', file=sys.stderr)
@@ -114,6 +114,17 @@ def check_not_root():
             print(f'        docker compose exec --user=archivebox archivebox /bin/bash -c "archivebox {attempted_command}"', file=sys.stderr)
             print(f'        docker exec -it --user=archivebox <container id> /bin/bash -c "archivebox {attempted_command}"', file=sys.stderr)
         raise SystemExit(2)
+
+
+def check_not_inside_source_dir():
+    """Prevent running ArchiveBox from inside its source directory (would pollute repo with data files)."""
+    cwd = Path(os.getcwd()).resolve()
+    is_source_dir = (cwd / 'archivebox' / '__init__.py').exists() and (cwd / 'pyproject.toml').exists()
+    data_dir_set_elsewhere = os.environ.get('DATA_DIR', '').strip() and Path(os.environ['DATA_DIR']).resolve() != cwd
+    is_testing = 'pytest' in sys.modules or 'unittest' in sys.modules
+
+    if is_source_dir and not data_dir_set_elsewhere and not is_testing:
+        raise SystemExit('[!] Cannot run from source dir, set DATA_DIR or cd to a data folder first')
 
 
 def check_data_dir_permissions():

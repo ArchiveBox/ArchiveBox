@@ -25,9 +25,14 @@ from archivebox.misc.hashing import get_dir_info
 
 def get_or_create_system_user_pk(username='system'):
     User = get_user_model()
+    # If there's exactly one superuser, use that for all system operations
     if User.objects.filter(is_superuser=True).count() == 1:
         return User.objects.filter(is_superuser=True).values_list('pk', flat=True)[0]
-    user, _ = User.objects.get_or_create(username=username, is_staff=True, is_superuser=True, defaults={'email': '', 'password': ''})
+    # Otherwise get or create the system user
+    user, _ = User.objects.get_or_create(
+        username=username,
+        defaults={'is_staff': True, 'is_superuser': True, 'email': '', 'password': '!'}
+    )
     return user.pk
 
 

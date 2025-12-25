@@ -16,7 +16,7 @@ from .permissions import SudoPermission, IS_ROOT, ARCHIVEBOX_USER
 #############################################################################################
 
 PACKAGE_DIR: Path = Path(__file__).resolve().parent.parent    # archivebox source code dir
-DATA_DIR: Path = Path(os.getcwd()).resolve()                  # archivebox user data dir
+DATA_DIR: Path = Path(os.environ.get('DATA_DIR', os.getcwd())).resolve()  # archivebox user data dir
 ARCHIVE_DIR: Path = DATA_DIR / 'archive'                      # archivebox snapshot data dir
 
 IN_DOCKER = os.environ.get('IN_DOCKER', False) in ('1', 'true', 'True', 'TRUE', 'yes')

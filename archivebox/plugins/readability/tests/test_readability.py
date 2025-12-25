@@ -2,9 +2,10 @@
 Integration tests for readability plugin
 
 Tests verify:
-1. Plugin reports missing dependency correctly
-2. readability-cli can be installed via npm (note: package name != binary name)
-3. Extraction works against real example.com content
+1. Install hook installs readability-extractor via abx-pkg
+2. Verify deps with abx-pkg
+3. Plugin reports missing dependency correctly
+4. Extraction works against real example.com content
 """
 
 import json
@@ -20,6 +21,7 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 READABILITY_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_readability.py'))
+READABILITY_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_readability.py'
 TEST_URL = 'https://example.com'
 
 
@@ -74,7 +76,7 @@ def test_hook_script_exists():
 
 
 def test_reports_missing_dependency_when_not_installed():
-    """Test that script reports DEPENDENCY_NEEDED when readability-cli is not found."""
+    """Test that script reports DEPENDENCY_NEEDED when readability-extractor is not found."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
@@ -96,68 +98,57 @@ def test_reports_missing_dependency_when_not_installed():
         assert result.returncode != 0, "Should exit non-zero when dependency missing"
         combined = result.stdout + result.stderr
         assert 'DEPENDENCY_NEEDED' in combined, "Should output DEPENDENCY_NEEDED"
-        assert 'readability-cli' in combined or 'BIN_NAME' in combined, "Should mention readability-cli"
+        assert 'readability-extractor' in combined or 'BIN_NAME' in combined, "Should mention readability-extractor"
 
 
-def test_can_install_readability_via_npm():
-    """Test that readability-cli can be installed via npm and binary becomes available.
-
-    Note: The npm package 'readability-cli' installs a binary named 'readable',
-    so we test the full installation flow using npm install directly.
-    """
-
-    # Check npm is available
-    if not shutil.which('npm'):
-        pytest.skip("npm not available on this system")
-
-    # Install readability-cli package via npm
-    # The orchestrator/dependency hooks would call this via npm provider
+def test_readability_install_hook():
+    """Test readability install hook to install readability-extractor if needed."""
     result = subprocess.run(
-        ['npm', 'install', '-g', 'readability-cli'],
+        [sys.executable, str(READABILITY_INSTALL_HOOK)],
         capture_output=True,
         text=True,
-        timeout=300
+        timeout=600
     )
 
-    assert result.returncode == 0, f"npm install failed: {result.stderr}"
+    assert result.returncode == 0, f"Install hook failed: {result.stderr}"
 
-    # Verify the 'readable' binary is now available
-    # (readability-cli package installs as 'readable' not 'readability-cli')
-    result = subprocess.run(['which', 'readable'], capture_output=True, text=True)
-    assert result.returncode == 0, "readable binary not found after npm install"
+    # Verify InstalledBinary JSONL output
+    found_binary = False
+    for line in result.stdout.strip().split('\n'):
+        if line.strip():
+            try:
+                record = json.loads(line)
+                if record.get('type') == 'InstalledBinary':
+                    assert record['name'] == 'readability-extractor'
+                    assert record['abspath']
+                    found_binary = True
+                    break
+            except json.JSONDecodeError:
+                pass
 
-    binary_path = result.stdout.strip()
-    assert Path(binary_path).exists(), f"Binary should exist at {binary_path}"
+    assert found_binary, "Should output InstalledBinary record"
 
-    # Test that it's executable and responds to --version
-    result = subprocess.run(
-        [binary_path, '--version'],
-        capture_output=True,
-        text=True,
-        timeout=10
+
+def test_verify_deps_with_abx_pkg():
+    """Verify readability-extractor is available via abx-pkg after hook installation."""
+    from abx_pkg import Binary, NpmProvider, EnvProvider, BinProviderOverrides
+
+    NpmProvider.model_rebuild()
+    EnvProvider.model_rebuild()
+
+    readability_binary = Binary(
+        name='readability-extractor',
+        binproviders=[NpmProvider(), EnvProvider()],
+        overrides={'npm': {'packages': ['github:ArchiveBox/readability-extractor']}}
     )
-    assert result.returncode == 0, f"Binary not executable: {result.stderr}"
+    readability_loaded = readability_binary.load()
+    assert readability_loaded and readability_loaded.abspath, "readability-extractor should be available after install hook"
 
 
 def test_extracts_article_after_installation():
-    """Test full workflow: ensure readability-cli installed then extract from example.com HTML."""
+    """Test full workflow: extract article using readability-extractor from real HTML."""
+    # Prerequisites checked by earlier test (install hook should have run)
 
-    # Check npm is available
-    if not shutil.which('npm'):
-        pytest.skip("npm not available on this system")
-
-    # Ensure readability-cli is installed (orchestrator would handle this)
-    install_result = subprocess.run(
-        ['npm', 'install', '-g', 'readability-cli'],
-        capture_output=True,
-        text=True,
-        timeout=300
-    )
-
-    if install_result.returncode != 0:
-        pytest.skip(f"Could not install readability-cli: {install_result.stderr}")
-
-    # Now test extraction
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
@@ -213,21 +204,7 @@ def test_extracts_article_after_installation():
 
 def test_fails_gracefully_without_html_source():
     """Test that extraction fails gracefully when no HTML source is available."""
-
-    # Check npm is available
-    if not shutil.which('npm'):
-        pytest.skip("npm not available on this system")
-
-    # Ensure readability-cli is installed
-    install_result = subprocess.run(
-        ['npm', 'install', '-g', 'readability-cli'],
-        capture_output=True,
-        text=True,
-        timeout=300
-    )
-
-    if install_result.returncode != 0:
-        pytest.skip("Could not install readability-cli")
+    # Prerequisites checked by earlier test (install hook should have run)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)

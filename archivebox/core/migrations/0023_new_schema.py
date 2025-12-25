@@ -169,6 +169,18 @@ class Migration(migrations.Migration):
     operations = [
         # === SNAPSHOT CHANGES ===
 
+        # Add health stats fields to Snapshot
+        migrations.AddField(
+            model_name='snapshot',
+            name='num_uses_failed',
+            field=models.PositiveIntegerField(default=0),
+        ),
+        migrations.AddField(
+            model_name='snapshot',
+            name='num_uses_succeeded',
+            field=models.PositiveIntegerField(default=0),
+        ),
+
         # Add new fields to Snapshot
         migrations.AddField(
             model_name='snapshot',
@@ -266,17 +278,28 @@ class Migration(migrations.Migration):
         migrations.RemoveField(model_name='snapshot', name='added'),
         migrations.RemoveField(model_name='snapshot', name='updated'),
 
-        # Remove old 'tags' CharField (now M2M via Tag model)
-        migrations.RemoveField(model_name='snapshot', name='tags'),
+        # Register SnapshotTag through model (table already exists from 0006's ManyToManyField)
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.CreateModel(
+                    name='SnapshotTag',
+                    fields=[
+                        ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                        ('snapshot', models.ForeignKey(db_column='snapshot_id', on_delete=django.db.models.deletion.CASCADE, to='core.snapshot')),
+                        ('tag', models.ForeignKey(db_column='tag_id', on_delete=django.db.models.deletion.CASCADE, to='core.tag')),
+                    ],
+                    options={
+                        'db_table': 'core_snapshot_tags',
+                    },
+                ),
+            ],
+            database_operations=[],  # Table already exists from 0006
+        ),
 
         # === TAG CHANGES ===
+        # Tag keeps AutoField (integer) id for migration compatibility
 
-        # Add uuid field to Tag temporarily for ID migration
-        migrations.AddField(
-            model_name='tag',
-            name='uuid',
-            field=models.UUIDField(default=uuid4, null=True, blank=True),
-        ),
+        # Add tracking fields to Tag
         migrations.AddField(
             model_name='tag',
             name='created_by',
@@ -298,20 +321,8 @@ class Migration(migrations.Migration):
             field=models.DateTimeField(auto_now=True),
         ),
 
-        # Populate UUIDs for tags
-        migrations.RunPython(generate_uuid_for_tags, migrations.RunPython.noop),
+        # Populate created_by for tags
         migrations.RunPython(populate_created_by_tag, migrations.RunPython.noop),
-
-        # Make created_by non-nullable
-        migrations.AlterField(
-            model_name='tag',
-            name='created_by',
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name='tag_set',
-                to=settings.AUTH_USER_MODEL,
-            ),
-        ),
 
         # Update slug field
         migrations.AlterField(
@@ -321,6 +332,18 @@ class Migration(migrations.Migration):
         ),
 
         # === ARCHIVERESULT CHANGES ===
+
+        # Add health stats fields to ArchiveResult
+        migrations.AddField(
+            model_name='archiveresult',
+            name='num_uses_failed',
+            field=models.PositiveIntegerField(default=0),
+        ),
+        migrations.AddField(
+            model_name='archiveresult',
+            name='num_uses_succeeded',
+            field=models.PositiveIntegerField(default=0),
+        ),
 
         # Add uuid field for new ID
         migrations.AddField(
@@ -362,6 +385,11 @@ class Migration(migrations.Migration):
             model_name='archiveresult',
             name='output_dir',
             field=models.CharField(max_length=256, default=None, null=True, blank=True),
+        ),
+        migrations.AddField(
+            model_name='archiveresult',
+            name='config',
+            field=models.JSONField(default=dict, blank=False),
         ),
 
         # Populate UUIDs and data for archive results

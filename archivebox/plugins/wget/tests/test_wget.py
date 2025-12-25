@@ -26,6 +26,7 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 WGET_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_wget.py'))
+WGET_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_wget.py'
 BREW_HOOK = PLUGINS_ROOT / 'brew' / 'on_Dependency__install_using_brew_provider.py'
 APT_HOOK = PLUGINS_ROOT / 'apt' / 'on_Dependency__install_using_apt_provider.py'
 TEST_URL = 'https://example.com'
@@ -34,6 +35,47 @@ TEST_URL = 'https://example.com'
 def test_hook_script_exists():
     """Verify hook script exists."""
     assert WGET_HOOK.exists(), f"Hook script not found: {WGET_HOOK}"
+
+
+def test_wget_install_hook():
+    """Test wget install hook to install wget if needed."""
+    result = subprocess.run(
+        [sys.executable, str(WGET_INSTALL_HOOK)],
+        capture_output=True,
+        text=True,
+        timeout=600
+    )
+
+    assert result.returncode == 0, f"Install hook failed: {result.stderr}"
+
+    # Verify InstalledBinary JSONL output
+    found_binary = False
+    for line in result.stdout.strip().split('\n'):
+        if line.strip():
+            try:
+                record = json.loads(line)
+                if record.get('type') == 'InstalledBinary':
+                    assert record['name'] == 'wget'
+                    assert record['abspath']
+                    found_binary = True
+                    break
+            except json.JSONDecodeError:
+                pass
+
+    assert found_binary, "Should output InstalledBinary record"
+
+
+def test_verify_deps_with_abx_pkg():
+    """Verify wget is available via abx-pkg after hook installation."""
+    from abx_pkg import Binary, AptProvider, BrewProvider, EnvProvider
+
+    AptProvider.model_rebuild()
+    BrewProvider.model_rebuild()
+    EnvProvider.model_rebuild()
+
+    wget_binary = Binary(name='wget', binproviders=[AptProvider(), BrewProvider(), EnvProvider()])
+    wget_loaded = wget_binary.load()
+    assert wget_loaded and wget_loaded.abspath, "wget should be available after install hook"
 
 
 def test_reports_missing_dependency_when_not_installed():
