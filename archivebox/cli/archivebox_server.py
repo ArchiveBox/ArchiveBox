@@ -72,30 +72,42 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
             get_worker,
             start_server_workers,
             tail_multiple_worker_logs,
+            is_port_in_use,
         )
+        from workers.orchestrator import Orchestrator
+        import sys
+
+        # Check if port is already in use
+        if is_port_in_use(host, int(port)):
+            print(f'[red][X] Error: Port {port} is already in use[/red]')
+            print(f'    Another process (possibly daphne) is already listening on {host}:{port}')
+            print(f'    Stop the conflicting process or choose a different port')
+            sys.exit(1)
+
+        # Check if orchestrator is already running for this data directory
+        if Orchestrator.is_running():
+            print(f'[red][X] Error: ArchiveBox orchestrator is already running for this data directory[/red]')
+            print(f'    Stop the existing orchestrator before starting a new server')
+            print(f'    To stop: pkill -f "archivebox manage orchestrator"')
+            sys.exit(1)
 
         # Check if supervisord is already running
         supervisor = get_existing_supervisord_process()
         if supervisor:
             daphne_proc = get_worker(supervisor, 'worker_daphne')
 
-            # If daphne is already running, just tail logs
+            # If daphne is already running, error out
             if daphne_proc and daphne_proc.get('statename') == 'RUNNING':
                 orchestrator_proc = get_worker(supervisor, 'worker_orchestrator')
-                print('[yellow][!] ArchiveBox server is already running[/yellow]')
+                print('[red][X] Error: ArchiveBox server is already running[/red]')
                 print(f'    [green]√[/green] Web server (worker_daphne) is RUNNING on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link][/deep_sky_blue4]')
                 if orchestrator_proc and orchestrator_proc.get('statename') == 'RUNNING':
                     print(f'    [green]√[/green] Background worker (worker_orchestrator) is RUNNING')
                 print()
-                print('[blue][i] Tailing worker logs (Ctrl+C to stop watching)...[/i][/blue]')
-                print()
-
-                # Tail logs for both workers
-                tail_multiple_worker_logs(
-                    log_files=['logs/worker_daphne.log', 'logs/worker_orchestrator.log'],
-                    follow=True,
-                )
-                return
+                print('[yellow]To stop the existing server, run:[/yellow]')
+                print('    pkill -f "archivebox server"')
+                print('    pkill -f supervisord')
+                sys.exit(1)
             # Otherwise, daphne is not running - fall through to start it
 
         # No existing workers found - start new ones

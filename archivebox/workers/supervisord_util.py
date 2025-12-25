@@ -3,6 +3,7 @@ __package__ = 'archivebox.workers'
 import sys
 import time
 import signal
+import socket
 import psutil
 import shutil
 import subprocess
@@ -46,6 +47,16 @@ SERVER_WORKER = lambda host, port: {
     "stdout_logfile": "logs/worker_daphne.log",
     "redirect_stderr": "true",
 }
+
+def is_port_in_use(host: str, port: int) -> bool:
+    """Check if a port is already in use."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind((host, port))
+            return False
+    except OSError:
+        return True
 
 @cache
 def get_sock_file():
@@ -161,9 +172,10 @@ def stop_existing_supervisord_process():
                 except subprocess.TimeoutExpired:
                     _supervisord_proc.kill()
                     _supervisord_proc.wait(timeout=2)
-            except (BaseException, BrokenPipeError, IOError, KeyboardInterrupt):
+            except (BrokenPipeError, IOError):
                 pass
-            _supervisord_proc = None
+            finally:
+                _supervisord_proc = None
             return
 
         # Fallback: if pid file exists, load PID int and kill that process
@@ -194,7 +206,7 @@ def stop_existing_supervisord_process():
                     pass
         except psutil.NoSuchProcess:
             pass
-        except (BaseException, BrokenPipeError, IOError, KeyboardInterrupt):
+        except (BrokenPipeError, IOError):
             pass
     finally:
         try:
@@ -423,15 +435,8 @@ def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None):
     for log_path in log_paths:
         try:
             f = open(log_path, 'r')
-            # Don't seek to end - show recent content so user sees something
-            # Go to end minus 4KB to show some recent logs
-            f.seek(0, 2)  # Go to end first
-            file_size = f.tell()
-            if file_size > 4096:
-                f.seek(file_size - 4096)
-                f.readline()  # Skip partial line
-            else:
-                f.seek(0)  # Small file, read from start
+            # Seek to end - only show NEW logs from now on, not old logs
+            f.seek(0, 2)  # Go to end
 
             file_handles.append((log_path, f))
             print(f"    [tailing {log_path.name}]")
@@ -536,7 +541,7 @@ def start_server_workers(host='0.0.0.0', port='8000', daemonize=False):
         finally:
             # Ensure supervisord and all children are stopped
             stop_existing_supervisord_process()
-            time.sleep(0.5)
+            time.sleep(1.0)  # Give processes time to fully terminate
 
 
 def start_cli_workers(watch=False):
@@ -563,7 +568,7 @@ def start_cli_workers(watch=False):
         finally:
             # Ensure supervisord and all children are stopped
             stop_existing_supervisord_process()
-            time.sleep(0.5)
+            time.sleep(1.0)  # Give processes time to fully terminate
     return [ORCHESTRATOR_WORKER]
 
 

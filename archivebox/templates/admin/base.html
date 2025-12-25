@@ -751,13 +751,15 @@
             }
 
             .messagelist li.warning {
-                background: #fffbeb;
+                background: #fffbeb !important;
+                background-image: none !important;
                 border: 1px solid #fde68a;
                 color: #92400e;
             }
 
             .messagelist li.error {
-                background: #fef2f2;
+                background: #fef2f2 !important;
+                background-image: none !important;
                 border: 1px solid #fecaca;
                 color: #991b1b;
             }
@@ -916,11 +918,13 @@
                 gap: 12px;
             }
 
-            #toolbar form {
+            #toolbar form,
+            #changelist-search {
                 display: flex;
                 align-items: center;
                 gap: 8px;
-                flex: 1;
+                flex: 0 1 auto;
+                max-width: 500px;
             }
 
             #searchbar {

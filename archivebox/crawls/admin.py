@@ -3,6 +3,7 @@ __package__ = 'archivebox.crawls'
 import json
 from pathlib import Path
 
+from django import forms
 from django.utils.html import format_html, format_html_join, mark_safe
 from django.contrib import admin, messages
 from django.urls import path
@@ -136,16 +137,32 @@ def render_snapshots_list(snapshots_qs, limit=20):
     ''')
 
 
+class CrawlAdminForm(forms.ModelForm):
+    """Custom form for Crawl admin to render urls field as textarea."""
+
+    class Meta:
+        model = Crawl
+        fields = '__all__'
+        widgets = {
+            'urls': forms.Textarea(attrs={
+                'rows': 8,
+                'style': 'width: 100%; font-family: monospace; font-size: 13px;',
+                'placeholder': 'https://example.com\nhttps://example2.com\n# Comments start with #',
+            }),
+        }
+
+
 class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
+    form = CrawlAdminForm
     list_display = ('id', 'created_at', 'created_by', 'max_depth', 'label', 'notes', 'urls_preview', 'schedule_str', 'status', 'retry_at', 'num_snapshots')
     sort_fields = ('id', 'created_at', 'created_by', 'max_depth', 'label', 'notes', 'schedule_str', 'status', 'retry_at')
     search_fields = ('id', 'created_by__username', 'max_depth', 'label', 'notes', 'schedule_id', 'status', 'urls')
 
-    readonly_fields = ('created_at', 'modified_at', 'snapshots', 'urls_editor')
+    readonly_fields = ('created_at', 'modified_at', 'snapshots')
 
     fieldsets = (
         ('URLs', {
-            'fields': ('urls_editor',),
+            'fields': ('urls',),
             'classes': ('card', 'wide'),
         }),
         ('Info', {
@@ -177,8 +194,31 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     list_filter = ('max_depth', 'extractor', 'schedule', 'created_by', 'status', 'retry_at')
     ordering = ['-created_at', '-retry_at']
     list_per_page = 100
-    actions = ["delete_selected"]
+    actions = ["delete_selected_batched"]
     change_actions = ['recrawl']
+
+    def get_queryset(self, request):
+        """Optimize queries with select_related and annotations."""
+        qs = super().get_queryset(request)
+        return qs.select_related('schedule', 'created_by').annotate(
+            num_snapshots_cached=Count('snapshot_set')
+        )
+
+    @admin.action(description='Delete selected crawls')
+    def delete_selected_batched(self, request, queryset):
+        """Delete crawls in a single transaction to avoid SQLite concurrency issues."""
+        from django.db import transaction
+
+        total = queryset.count()
+
+        # Get list of IDs to delete first (outside transaction)
+        ids_to_delete = list(queryset.values_list('pk', flat=True))
+
+        # Delete everything in a single atomic transaction
+        with transaction.atomic():
+            deleted_count, _ = Crawl.objects.filter(pk__in=ids_to_delete).delete()
+
+        messages.success(request, f'Successfully deleted {total} crawls ({deleted_count} total objects including related records).')
 
     @action(label='Recrawl', description='Create a new crawl with the same settings')
     def recrawl(self, request, obj):
@@ -214,7 +254,8 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         return redirect('admin:crawls_crawl_change', new_crawl.id)
 
     def num_snapshots(self, obj):
-        return obj.snapshot_set.count()
+        # Use cached annotation from get_queryset to avoid N+1
+        return getattr(obj, 'num_snapshots_cached', obj.snapshot_set.count())
 
     def snapshots(self, obj):
         return render_snapshots_list(obj.snapshot_set.all())
@@ -269,7 +310,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
                           placeholder="https://example.com&#10;https://example2.com&#10;# Comments start with #"
                           readonly>{escaped_urls}</textarea>
                 <p style="color: #666; font-size: 12px; margin: 4px 0 0 0;">
-                    {line_count} URL{'s' if line_count != 1 else ''} · URLs are read-only in admin, edit via API or CLI
+                    {line_count} URL{'s' if line_count != 1 else ''} · Note: URLs displayed here for reference only
                 </p>
             </div>
 

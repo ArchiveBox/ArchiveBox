@@ -1,21 +1,20 @@
 #!/usr/bin/env node
 /**
- * uBlock Origin Extension Plugin
+ * I Still Don't Care About Cookies Extension Plugin
  *
- * Installs and configures the uBlock Origin Chrome extension for ad blocking
- * and privacy protection during page archiving.
+ * Installs and configures the "I still don't care about cookies" Chrome extension
+ * for automatic cookie consent banner dismissal during page archiving.
  *
- * Extension: https://chromewebstore.google.com/detail/cjpalhdlnbpafiamejdnhcphjbkeiagm
+ * Extension: https://chromewebstore.google.com/detail/edibdbjcniadpccecjdfdjjppcpchdlm
  *
- * Priority: 03 (early) - Must install before Chrome session starts
- * Hook: on_Snapshot
+ * Priority: 02 (early) - Must install before Chrome session starts at Crawl level
+ * Hook: on_Crawl (runs once per crawl, not per snapshot)
  *
  * This extension automatically:
- * - Blocks ads, trackers, and malware domains
- * - Reduces page load time and bandwidth usage
- * - Improves privacy during archiving
- * - Removes clutter from archived pages
- * - Uses efficient blocking with filter lists
+ * - Dismisses cookie consent popups
+ * - Removes cookie banners
+ * - Accepts necessary cookies to proceed with browsing
+ * - Works on thousands of websites out of the box
  */
 
 const path = require('path');
@@ -26,8 +25,8 @@ const extensionUtils = require('../chrome_extensions/chrome_extension_utils.js')
 
 // Extension metadata
 const EXTENSION = {
-    webstore_id: 'cjpalhdlnbpafiamejdnhcphjbkeiagm',
-    name: 'ublock',
+    webstore_id: 'edibdbjcniadpccecjdfdjjppcpchdlm',
+    name: 'istilldontcareaboutcookies',
 };
 
 // Get extensions directory from environment or use default
@@ -35,28 +34,28 @@ const EXTENSIONS_DIR = process.env.CHROME_EXTENSIONS_DIR ||
     path.join(process.env.DATA_DIR || './data', 'personas', process.env.ACTIVE_PERSONA || 'Default', 'chrome_extensions');
 
 /**
- * Install the uBlock Origin extension
+ * Install the I Still Don't Care About Cookies extension
  */
-async function installUblockExtension() {
-    console.log('[*] Installing uBlock Origin extension...');
+async function installCookiesExtension() {
+    console.log('[*] Installing I Still Don\'t Care About Cookies extension...');
 
     // Install the extension
     const extension = await extensionUtils.loadOrInstallExtension(EXTENSION, EXTENSIONS_DIR);
 
     if (!extension) {
-        console.error('[❌] Failed to install uBlock Origin extension');
+        console.error('[❌] Failed to install I Still Don\'t Care About Cookies extension');
         return null;
     }
 
-    console.log('[+] uBlock Origin extension installed');
-    console.log('[+] Ads and trackers will be blocked during archiving');
+    console.log('[+] I Still Don\'t Care About Cookies extension installed');
+    console.log('[+] Cookie banners will be automatically dismissed during archiving');
 
     return extension;
 }
 
 /**
- * Note: uBlock Origin works automatically with default filter lists.
- * No configuration needed - blocks ads, trackers, and malware domains out of the box.
+ * Note: This extension works out of the box with no configuration needed.
+ * It automatically detects and dismisses cookie banners on page load.
  */
 
 /**
@@ -64,7 +63,7 @@ async function installUblockExtension() {
  */
 async function main() {
     // Check if extension is already cached
-    const cacheFile = path.join(EXTENSIONS_DIR, 'ublock.extension.json');
+    const cacheFile = path.join(EXTENSIONS_DIR, 'istilldontcareaboutcookies.extension.json');
 
     if (fs.existsSync(cacheFile)) {
         try {
@@ -72,7 +71,7 @@ async function main() {
             const manifestPath = path.join(cached.unpacked_path, 'manifest.json');
 
             if (fs.existsSync(manifestPath)) {
-                console.log('[*] uBlock Origin extension already installed (using cache)');
+                console.log('[*] I Still Don\'t Care About Cookies extension already installed (using cache)');
                 return cached;
             }
         } catch (e) {
@@ -82,7 +81,7 @@ async function main() {
     }
 
     // Install extension
-    const extension = await installUblockExtension();
+    const extension = await installCookiesExtension();
 
     // Export extension metadata for chrome_session to load
     if (extension) {
@@ -101,16 +100,16 @@ async function main() {
 // Export functions for use by other plugins
 module.exports = {
     EXTENSION,
-    installUblockExtension,
+    installCookiesExtension,
 };
 
 // Run if executed directly
 if (require.main === module) {
     main().then(() => {
-        console.log('[✓] uBlock Origin extension setup complete');
+        console.log('[✓] I Still Don\'t Care About Cookies extension setup complete');
         process.exit(0);
     }).catch(err => {
-        console.error('[❌] uBlock Origin extension setup failed:', err);
+        console.error('[❌] I Still Don\'t Care About Cookies extension setup failed:', err);
         process.exit(1);
     });
 }

@@ -1,18 +1,12 @@
 #!/usr/bin/env node
 /**
- * Extract SSL/TLS certificate details from a URL.
+ * Extract SSL/TLS certificate details from a URL (DAEMON MODE).
  *
- * Connects to Chrome session and retrieves security details including:
- * - Protocol (TLS 1.2, TLS 1.3, etc.)
- * - Cipher suite
- * - Certificate issuer, validity period
- * - Security state
+ * This hook daemonizes and stays alive to capture SSL details throughout
+ * the snapshot lifecycle. It's killed by chrome_cleanup at the end.
  *
- * Usage: on_Snapshot__16_ssl.js --url=<url> --snapshot-id=<uuid>
- * Output: Writes ssl/ssl.json
- *
- * Environment variables:
- *     SAVE_SSL: Enable SSL extraction (default: true)
+ * Usage: on_Snapshot__23_ssl.js --url=<url> --snapshot-id=<uuid>
+ * Output: Writes ssl.json + listener.pid
  */
 
 const fs = require('fs');
@@ -23,6 +17,7 @@ const puppeteer = require('puppeteer-core');
 const EXTRACTOR_NAME = 'ssl';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'ssl.json';
+const PID_FILE = 'listener.pid';
 const CHROME_SESSION_DIR = '../chrome_session';
 
 // Parse command line arguments
@@ -58,103 +53,103 @@ function getCdpUrl() {
     return null;
 }
 
-// Extract SSL details
-async function extractSsl(url) {
-    // Output directory is current directory (hook already runs in output dir)
+function getPageId() {
+    const pageIdFile = path.join(CHROME_SESSION_DIR, 'page_id.txt');
+    if (fs.existsSync(pageIdFile)) {
+        return fs.readFileSync(pageIdFile, 'utf8').trim();
+    }
+    return null;
+}
+
+// Set up SSL listener
+async function setupListener(url) {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
     // Only extract SSL for HTTPS URLs
     if (!url.startsWith('https://')) {
-        return { success: false, error: 'URL is not HTTPS' };
+        throw new Error('URL is not HTTPS');
     }
 
-    let browser = null;
-    let sslInfo = {};
+    const cdpUrl = getCdpUrl();
+    if (!cdpUrl) {
+        throw new Error('No Chrome session found');
+    }
 
-    try {
-        // Connect to existing Chrome session
-        const cdpUrl = getCdpUrl();
-        if (!cdpUrl) {
-            return { success: false, error: 'No Chrome session found (chrome_session extractor must run first)' };
-        }
+    const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
 
-        browser = await puppeteer.connect({
-            browserWSEndpoint: cdpUrl,
+    // Find our page
+    const pages = await browser.pages();
+    const pageId = getPageId();
+    let page = null;
+
+    if (pageId) {
+        page = pages.find(p => {
+            const target = p.target();
+            return target && target._targetId === pageId;
         });
+    }
+    if (!page) {
+        page = pages[pages.length - 1];
+    }
 
-        // Get the page
-        const pages = await browser.pages();
-        const page = pages.find(p => p.url().startsWith('http')) || pages[0];
+    if (!page) {
+        throw new Error('No page found');
+    }
 
-        if (!page) {
-            return { success: false, error: 'No page found in Chrome session' };
-        }
+    // Set up listener to capture SSL details when chrome_navigate loads the page
+    page.on('response', async (response) => {
+        try {
+            const request = response.request();
 
-        // Get CDP client for low-level access
-        const client = await page.target().createCDPSession();
-
-        // Enable Security domain
-        await client.send('Security.enable');
-
-        // Get security details from the loaded page
-        const securityState = await client.send('Security.getSecurityState');
-
-        sslInfo = {
-            url,
-            securityState: securityState.securityState,
-            schemeIsCryptographic: securityState.schemeIsCryptographic,
-            summary: securityState.summary || '',
-        };
-
-        // Try to get detailed certificate info if available
-        if (securityState.securityStateIssueIds && securityState.securityStateIssueIds.length > 0) {
-            sslInfo.issues = securityState.securityStateIssueIds;
-        }
-
-        // Get response security details from navigation
-        let mainResponse = null;
-        page.on('response', async (response) => {
-            if (response.url() === url || response.request().isNavigationRequest()) {
-                mainResponse = response;
+            // Only capture the main navigation request
+            if (!request.isNavigationRequest() || request.frame() !== page.mainFrame()) {
+                return;
             }
-        });
 
-        // If we have security details from response
-        if (mainResponse) {
-            try {
-                const securityDetails = await mainResponse.securityDetails();
-                if (securityDetails) {
-                    sslInfo.protocol = securityDetails.protocol();
-                    sslInfo.subjectName = securityDetails.subjectName();
-                    sslInfo.issuer = securityDetails.issuer();
-                    sslInfo.validFrom = securityDetails.validFrom();
-                    sslInfo.validTo = securityDetails.validTo();
-                    sslInfo.certificateId = securityDetails.subjectName();
+            // Only capture if it's for our target URL
+            if (!response.url().startsWith(url.split('?')[0])) {
+                return;
+            }
 
-                    const sanList = securityDetails.sanList();
-                    if (sanList && sanList.length > 0) {
-                        sslInfo.subjectAlternativeNames = sanList;
-                    }
+            // Get security details from the response
+            const securityDetails = response.securityDetails();
+            let sslInfo = {};
+
+            if (securityDetails) {
+                sslInfo.protocol = securityDetails.protocol();
+                sslInfo.subjectName = securityDetails.subjectName();
+                sslInfo.issuer = securityDetails.issuer();
+                sslInfo.validFrom = securityDetails.validFrom();
+                sslInfo.validTo = securityDetails.validTo();
+                sslInfo.certificateId = securityDetails.subjectName();
+                sslInfo.securityState = 'secure';
+                sslInfo.schemeIsCryptographic = true;
+
+                const sanList = securityDetails.sanList();
+                if (sanList && sanList.length > 0) {
+                    sslInfo.subjectAlternativeNames = sanList;
                 }
-            } catch (e) {
-                // Security details not available
+            } else if (response.url().startsWith('https://')) {
+                // HTTPS URL but no security details means something went wrong
+                sslInfo.securityState = 'unknown';
+                sslInfo.schemeIsCryptographic = true;
+                sslInfo.error = 'No security details available';
+            } else {
+                // Non-HTTPS URL
+                sslInfo.securityState = 'insecure';
+                sslInfo.schemeIsCryptographic = false;
             }
+
+            // Write output directly to file
+            fs.writeFileSync(outputPath, JSON.stringify(sslInfo, null, 2));
+
+        } catch (e) {
+            // Ignore errors
         }
+    });
 
-        await client.detach();
-
-        // Write output
-        fs.writeFileSync(outputPath, JSON.stringify(sslInfo, null, 2));
-
-        return { success: true, output: outputPath, sslInfo };
-
-    } catch (e) {
-        return { success: false, error: `${e.name}: ${e.message}` };
-    } finally {
-        if (browser) {
-            browser.disconnect();
-        }
-    }
+    // Don't disconnect - keep browser connection alive
+    return { browser, page };
 }
 
 async function main() {
@@ -163,75 +158,83 @@ async function main() {
     const snapshotId = args.snapshot_id;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__16_ssl.js --url=<url> --snapshot-id=<uuid>');
+        console.error('Usage: on_Snapshot__23_ssl.js --url=<url> --snapshot-id=<uuid>');
         process.exit(1);
     }
 
+    if (!getEnvBool('SAVE_SSL', true)) {
+        console.log('Skipping (SAVE_SSL=False)');
+        const result = {
+            extractor: EXTRACTOR_NAME,
+            status: 'skipped',
+            url,
+            snapshot_id: snapshotId,
+        };
+        console.log(`RESULT_JSON=${JSON.stringify(result)}`);
+        process.exit(0);
+    }
+
     const startTs = new Date();
-    let status = 'failed';
-    let output = null;
-    let error = '';
 
     try {
-        // Check if enabled
-        if (!getEnvBool('SAVE_SSL', true)) {
-            console.log('Skipping SSL (SAVE_SSL=False)');
-            status = 'skipped';
-            const endTs = new Date();
-            console.log(`START_TS=${startTs.toISOString()}`);
-            console.log(`END_TS=${endTs.toISOString()}`);
-            console.log(`STATUS=${status}`);
-            console.log(`RESULT_JSON=${JSON.stringify({extractor: EXTRACTOR_NAME, status, url, snapshot_id: snapshotId})}`);
-            process.exit(0);
-        }
+        // Set up listener
+        await setupListener(url);
 
-        const result = await extractSsl(url);
+        // Write PID file so chrome_cleanup can kill us
+        fs.writeFileSync(path.join(OUTPUT_DIR, PID_FILE), String(process.pid));
 
-        if (result.success) {
-            status = 'succeeded';
-            output = result.output;
-            const protocol = result.sslInfo?.protocol || 'unknown';
-            console.log(`SSL details extracted: ${protocol}`);
-        } else {
-            status = 'failed';
-            error = result.error;
+        // Report success immediately (we're staying alive in background)
+        const endTs = new Date();
+        const duration = (endTs - startTs) / 1000;
+
+        console.log(`START_TS=${startTs.toISOString()}`);
+        console.log(`END_TS=${endTs.toISOString()}`);
+        console.log(`DURATION=${duration.toFixed(2)}`);
+        console.log(`OUTPUT=${OUTPUT_FILE}`);
+        console.log(`STATUS=succeeded`);
+
+        const result = {
+            extractor: EXTRACTOR_NAME,
+            url,
+            snapshot_id: snapshotId,
+            status: 'succeeded',
+            start_ts: startTs.toISOString(),
+            end_ts: endTs.toISOString(),
+            duration: Math.round(duration * 100) / 100,
+            output: OUTPUT_FILE,
+        };
+        console.log(`RESULT_JSON=${JSON.stringify(result)}`);
+
+        // Daemonize: detach from parent and keep running
+        // This process will be killed by chrome_cleanup
+        if (process.stdin.isTTY) {
+            process.stdin.pause();
         }
+        process.stdin.unref();
+        process.stdout.end();
+        process.stderr.end();
+
+        // Keep the process alive indefinitely
+        // Will be killed by chrome_cleanup via the PID file
+        setInterval(() => {}, 1000);
+
     } catch (e) {
-        error = `${e.name}: ${e.message}`;
-        status = 'failed';
-    }
-
-    const endTs = new Date();
-    const duration = (endTs - startTs) / 1000;
-
-    // Print results
-    console.log(`START_TS=${startTs.toISOString()}`);
-    console.log(`END_TS=${endTs.toISOString()}`);
-    console.log(`DURATION=${duration.toFixed(2)}`);
-    if (output) {
-        console.log(`OUTPUT=${output}`);
-    }
-    console.log(`STATUS=${status}`);
-
-    if (error) {
+        const error = `${e.name}: ${e.message}`;
         console.error(`ERROR=${error}`);
+
+        const endTs = new Date();
+        const result = {
+            extractor: EXTRACTOR_NAME,
+            url,
+            snapshot_id: snapshotId,
+            status: 'failed',
+            start_ts: startTs.toISOString(),
+            end_ts: endTs.toISOString(),
+            error,
+        };
+        console.log(`RESULT_JSON=${JSON.stringify(result)}`);
+        process.exit(1);
     }
-
-    // Print JSON result
-    const resultJson = {
-        extractor: EXTRACTOR_NAME,
-        url,
-        snapshot_id: snapshotId,
-        status,
-        start_ts: startTs.toISOString(),
-        end_ts: endTs.toISOString(),
-        duration: Math.round(duration * 100) / 100,
-        output,
-        error: error || null,
-    };
-    console.log(`RESULT_JSON=${JSON.stringify(resultJson)}`);
-
-    process.exit(status === 'succeeded' ? 0 : 1);
 }
 
 main().catch(e => {

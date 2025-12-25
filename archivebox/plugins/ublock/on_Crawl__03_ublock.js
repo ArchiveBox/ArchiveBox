@@ -1,19 +1,21 @@
 #!/usr/bin/env node
 /**
- * 2Captcha Extension Plugin
+ * uBlock Origin Extension Plugin
  *
- * Installs and configures the 2captcha Chrome extension for automatic
- * CAPTCHA solving during page archiving.
+ * Installs and configures the uBlock Origin Chrome extension for ad blocking
+ * and privacy protection during page archiving.
  *
- * Extension: https://chromewebstore.google.com/detail/ifibfemgeogfhoebkmokieepdoobkbpo
- * Documentation: https://2captcha.com/blog/how-to-use-2captcha-solver-extension-in-puppeteer
+ * Extension: https://chromewebstore.google.com/detail/cjpalhdlnbpafiamejdnhcphjbkeiagm
  *
- * Priority: 01 (early) - Must install before Chrome session starts
- * Hook: on_Snapshot
+ * Priority: 03 (early) - Must install before Chrome session starts at Crawl level
+ * Hook: on_Crawl (runs once per crawl, not per snapshot)
  *
- * Requirements:
- * - API_KEY_2CAPTCHA environment variable must be set
- * - Extension will automatically solve reCAPTCHA, hCaptcha, Cloudflare Turnstile, etc.
+ * This extension automatically:
+ * - Blocks ads, trackers, and malware domains
+ * - Reduces page load time and bandwidth usage
+ * - Improves privacy during archiving
+ * - Removes clutter from archived pages
+ * - Uses efficient blocking with filter lists
  */
 
 const path = require('path');
@@ -24,8 +26,8 @@ const extensionUtils = require('../chrome_extensions/chrome_extension_utils.js')
 
 // Extension metadata
 const EXTENSION = {
-    webstore_id: 'ifibfemgeogfhoebkmokieepdoobkbpo',
-    name: 'captcha2',
+    webstore_id: 'cjpalhdlnbpafiamejdnhcphjbkeiagm',
+    name: 'ublock',
 };
 
 // Get extensions directory from environment or use default
@@ -33,35 +35,28 @@ const EXTENSIONS_DIR = process.env.CHROME_EXTENSIONS_DIR ||
     path.join(process.env.DATA_DIR || './data', 'personas', process.env.ACTIVE_PERSONA || 'Default', 'chrome_extensions');
 
 /**
- * Install and configure the 2captcha extension
+ * Install the uBlock Origin extension
  */
-async function installCaptchaExtension() {
-    console.log('[*] Installing 2captcha extension...');
+async function installUblockExtension() {
+    console.log('[*] Installing uBlock Origin extension...');
 
     // Install the extension
     const extension = await extensionUtils.loadOrInstallExtension(EXTENSION, EXTENSIONS_DIR);
 
     if (!extension) {
-        console.error('[❌] Failed to install 2captcha extension');
+        console.error('[❌] Failed to install uBlock Origin extension');
         return null;
     }
 
-    // Check if API key is configured
-    const apiKey = process.env.API_KEY_2CAPTCHA;
-    if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
-        console.warn('[⚠️] 2captcha extension installed but API_KEY_2CAPTCHA not configured');
-        console.warn('[⚠️] Set API_KEY_2CAPTCHA environment variable to enable automatic CAPTCHA solving');
-    } else {
-        console.log('[+] 2captcha extension installed and API key configured');
-    }
+    console.log('[+] uBlock Origin extension installed');
+    console.log('[+] Ads and trackers will be blocked during archiving');
 
     return extension;
 }
 
 /**
- * Note: 2captcha configuration is now handled by chrome_session plugin
- * during first-time browser setup to avoid repeated configuration on every snapshot.
- * The API key is injected via chrome.storage API once per browser session.
+ * Note: uBlock Origin works automatically with default filter lists.
+ * No configuration needed - blocks ads, trackers, and malware domains out of the box.
  */
 
 /**
@@ -69,7 +64,7 @@ async function installCaptchaExtension() {
  */
 async function main() {
     // Check if extension is already cached
-    const cacheFile = path.join(EXTENSIONS_DIR, 'captcha2.extension.json');
+    const cacheFile = path.join(EXTENSIONS_DIR, 'ublock.extension.json');
 
     if (fs.existsSync(cacheFile)) {
         try {
@@ -77,7 +72,7 @@ async function main() {
             const manifestPath = path.join(cached.unpacked_path, 'manifest.json');
 
             if (fs.existsSync(manifestPath)) {
-                console.log('[*] 2captcha extension already installed (using cache)');
+                console.log('[*] uBlock Origin extension already installed (using cache)');
                 return cached;
             }
         } catch (e) {
@@ -87,7 +82,7 @@ async function main() {
     }
 
     // Install extension
-    const extension = await installCaptchaExtension();
+    const extension = await installUblockExtension();
 
     // Export extension metadata for chrome_session to load
     if (extension) {
@@ -106,16 +101,16 @@ async function main() {
 // Export functions for use by other plugins
 module.exports = {
     EXTENSION,
-    installCaptchaExtension,
+    installUblockExtension,
 };
 
 // Run if executed directly
 if (require.main === module) {
     main().then(() => {
-        console.log('[✓] 2captcha extension setup complete');
+        console.log('[✓] uBlock Origin extension setup complete');
         process.exit(0);
     }).catch(err => {
-        console.error('[❌] 2captcha extension setup failed:', err);
+        console.error('[❌] uBlock Origin extension setup failed:', err);
         process.exit(1);
     });
 }

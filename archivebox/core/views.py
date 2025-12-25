@@ -560,16 +560,28 @@ def live_progress_view(request):
         archiveresults_failed = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.FAILED).count()
 
         # Build hierarchical active crawls with nested snapshots and archive results
-        active_crawls = []
-        for crawl in Crawl.objects.filter(
+        from django.db.models import Prefetch
+
+        active_crawls_qs = Crawl.objects.filter(
             status__in=[Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED]
-        ).order_by('-modified_at')[:10]:
-            # Get snapshots for this crawl
-            crawl_snapshots = Snapshot.objects.filter(crawl=crawl)
-            total_snapshots = crawl_snapshots.count()
-            completed_snapshots = crawl_snapshots.filter(status=Snapshot.StatusChoices.SEALED).count()
-            started_snapshots = crawl_snapshots.filter(status=Snapshot.StatusChoices.STARTED).count()
-            pending_snapshots = crawl_snapshots.filter(status=Snapshot.StatusChoices.QUEUED).count()
+        ).prefetch_related(
+            'snapshot_set',
+            'snapshot_set__archiveresult_set',
+        ).distinct().order_by('-modified_at')[:10]
+
+        active_crawls = []
+        for crawl in active_crawls_qs:
+            # Get active snapshots for this crawl - filter in Python since we prefetched all
+            crawl_snapshots = [
+                s for s in crawl.snapshot_set.all()
+                if s.status in [Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED]
+            ][:5]  # Limit to 5 most recent
+
+            # Count snapshots by status (in memory, not DB)
+            total_snapshots = Snapshot.objects.filter(crawl=crawl).count()  # Full count needs DB
+            completed_snapshots = sum(1 for s in crawl_snapshots if s.status == Snapshot.StatusChoices.SEALED)
+            started_snapshots = sum(1 for s in crawl_snapshots if s.status == Snapshot.StatusChoices.STARTED)
+            pending_snapshots = sum(1 for s in crawl_snapshots if s.status == Snapshot.StatusChoices.QUEUED)
 
             # Count URLs in the crawl (for when snapshots haven't been created yet)
             urls_count = 0
@@ -579,39 +591,39 @@ def live_progress_view(request):
             # Calculate crawl progress
             crawl_progress = int((completed_snapshots / total_snapshots) * 100) if total_snapshots > 0 else 0
 
-            # Get active snapshots for this crawl
+            # Get active snapshots for this crawl (already prefetched)
             active_snapshots_for_crawl = []
-            for snapshot in crawl_snapshots.filter(
-                status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED]
-            ).order_by('-modified_at')[:5]:
-                # Get archive results for this snapshot
-                snapshot_results = ArchiveResult.objects.filter(snapshot=snapshot)
-                total_extractors = snapshot_results.count()
-                completed_extractors = snapshot_results.filter(status=ArchiveResult.StatusChoices.SUCCEEDED).count()
-                failed_extractors = snapshot_results.filter(status=ArchiveResult.StatusChoices.FAILED).count()
-                pending_extractors = snapshot_results.filter(status=ArchiveResult.StatusChoices.QUEUED).count()
+            for snapshot in crawl_snapshots:
+                # Get archive results for this snapshot (already prefetched)
+                snapshot_results = snapshot.archiveresult_set.all()
+
+                # Count in memory instead of DB queries
+                total_extractors = len(snapshot_results)
+                completed_extractors = sum(1 for ar in snapshot_results if ar.status == ArchiveResult.StatusChoices.SUCCEEDED)
+                failed_extractors = sum(1 for ar in snapshot_results if ar.status == ArchiveResult.StatusChoices.FAILED)
+                pending_extractors = sum(1 for ar in snapshot_results if ar.status == ArchiveResult.StatusChoices.QUEUED)
 
                 # Calculate snapshot progress
                 snapshot_progress = int(((completed_extractors + failed_extractors) / total_extractors) * 100) if total_extractors > 0 else 0
 
-                # Get all extractors for this snapshot
+                # Get all extractors for this snapshot (already prefetched, sort in Python)
                 # Order: started first, then queued, then completed
+                def extractor_sort_key(ar):
+                    status_order = {
+                        ArchiveResult.StatusChoices.STARTED: 0,
+                        ArchiveResult.StatusChoices.QUEUED: 1,
+                        ArchiveResult.StatusChoices.SUCCEEDED: 2,
+                        ArchiveResult.StatusChoices.FAILED: 3,
+                    }
+                    return (status_order.get(ar.status, 4), ar.extractor)
+
                 all_extractors = [
                     {
                         'id': str(ar.id),
                         'extractor': ar.extractor,
                         'status': ar.status,
                     }
-                    for ar in snapshot_results.annotate(
-                        status_order=Case(
-                            When(status=ArchiveResult.StatusChoices.STARTED, then=Value(0)),
-                            When(status=ArchiveResult.StatusChoices.QUEUED, then=Value(1)),
-                            When(status=ArchiveResult.StatusChoices.SUCCEEDED, then=Value(2)),
-                            When(status=ArchiveResult.StatusChoices.FAILED, then=Value(3)),
-                            default=Value(4),
-                            output_field=IntegerField(),
-                        )
-                    ).order_by('status_order', 'extractor')
+                    for ar in sorted(snapshot_results, key=extractor_sort_key)
                 ]
 
                 active_snapshots_for_crawl.append({
@@ -726,15 +738,39 @@ def find_config_default(key: str) -> str:
     return default_val
 
 def find_config_type(key: str) -> str:
+    from typing import get_type_hints, ClassVar
     CONFIGS = get_all_configs()
-    
+
     for config in CONFIGS.values():
         if hasattr(config, key):
-            type_hints = get_type_hints(config)
+            # Try to get from pydantic model_fields first (more reliable)
+            if hasattr(config, 'model_fields') and key in config.model_fields:
+                field = config.model_fields[key]
+                if hasattr(field, 'annotation'):
+                    try:
+                        return str(field.annotation.__name__)
+                    except AttributeError:
+                        return str(field.annotation)
+
+            # Fallback to get_type_hints with proper namespace
             try:
-                return str(type_hints[key].__name__)
-            except AttributeError:
-                return str(type_hints[key])
+                import typing
+                namespace = {
+                    'ClassVar': ClassVar,
+                    'Optional': typing.Optional,
+                    'Union': typing.Union,
+                    'List': typing.List,
+                    'Dict': typing.Dict,
+                    'Path': Path,
+                }
+                type_hints = get_type_hints(config, globalns=namespace, localns=namespace)
+                try:
+                    return str(type_hints[key].__name__)
+                except AttributeError:
+                    return str(type_hints[key])
+            except Exception:
+                # If all else fails, return str
+                pass
     return 'str'
 
 def key_is_safe(key: str) -> bool:
@@ -743,17 +779,55 @@ def key_is_safe(key: str) -> bool:
             return False
     return True
 
+def find_config_source(key: str, merged_config: dict) -> str:
+    """Determine where a config value comes from."""
+    import os
+    from machine.models import Machine
+
+    # Check if it's from machine config
+    try:
+        machine = Machine.current()
+        if machine.config and key in machine.config:
+            return 'Machine'
+    except Exception:
+        pass
+
+    # Check if it's from environment variable
+    if key in os.environ:
+        return 'Environment'
+
+    # Check if it's from config file
+    from archivebox.config.configset import BaseConfigSet
+    file_config = BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
+    if key in file_config:
+        return 'Config File'
+
+    # Otherwise it's using the default
+    return 'Default'
+
+
 @render_with_table_view
 def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
     CONFIGS = get_all_configs()
-    
+
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
+
+    # Get merged config that includes Machine.config overrides
+    try:
+        from machine.models import Machine
+        machine = Machine.current()
+        merged_config = get_config()
+    except Exception as e:
+        # Fallback if Machine model not available
+        merged_config = get_config()
+        machine = None
 
     rows = {
         "Section": [],
         "Key": [],
         "Type": [],
         "Value": [],
+        "Source": [],
         "Default": [],
         # "Documentation": [],
         # "Aliases": [],
@@ -764,7 +838,21 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
             rows['Section'].append(section_id)   # section.replace('_', ' ').title().replace(' Config', '')
             rows['Key'].append(ItemLink(key, key=key))
             rows['Type'].append(format_html('<code>{}</code>', find_config_type(key)))
-            rows['Value'].append(mark_safe(f'<code>{getattr(section, key)}</code>') if key_is_safe(key) else '******** (redacted)')
+
+            # Use merged config value (includes machine overrides)
+            actual_value = merged_config.get(key, getattr(section, key, None))
+            rows['Value'].append(mark_safe(f'<code>{actual_value}</code>') if key_is_safe(key) else '******** (redacted)')
+
+            # Show where the value comes from
+            source = find_config_source(key, merged_config)
+            source_colors = {
+                'Machine': 'purple',
+                'Environment': 'blue',
+                'Config File': 'green',
+                'Default': 'gray'
+            }
+            rows['Source'].append(format_html('<code style="color: {}">{}</code>', source_colors.get(source, 'gray'), source))
+
             rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig+{key}&type=code"><code style="text-decoration: underline">{find_config_default(key) or "See here..."}</code></a>'))
             # rows['Documentation'].append(mark_safe(f'Wiki: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">{key}</a>'))
             # rows['Aliases'].append(', '.join(find_config_aliases(key)))
@@ -775,6 +863,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
         rows['Key'].append(ItemLink(key, key=key))
         rows['Type'].append(format_html('<code>{}</code>', getattr(type(CONSTANTS_CONFIG[key]), '__name__', str(CONSTANTS_CONFIG[key]))))
         rows['Value'].append(format_html('<code>{}</code>', CONSTANTS_CONFIG[key]) if key_is_safe(key) else '******** (redacted)')
+        rows['Source'].append(mark_safe('<code style="color: gray">Constant</code>'))
         rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig+{key}&type=code"><code style="text-decoration: underline">{find_config_default(key) or "See here..."}</code></a>'))
         # rows['Documentation'].append(mark_safe(f'Wiki: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">{key}</a>'))
         # rows['Aliases'].append('')
@@ -787,10 +876,57 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
 @render_with_item_view
 def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
+    import os
+    from machine.models import Machine
+    from archivebox.config.configset import BaseConfigSet
+
     CONFIGS = get_all_configs()
     FLAT_CONFIG = get_flat_config()
-    
+
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
+
+    # Get merged config
+    merged_config = get_config()
+
+    # Determine all sources for this config value
+    sources_info = []
+
+    # Default value
+    default_val = find_config_default(key)
+    if default_val:
+        sources_info.append(('Default', default_val, 'gray'))
+
+    # Config file value
+    if CONSTANTS.CONFIG_FILE.exists():
+        file_config = BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
+        if key in file_config:
+            sources_info.append(('Config File', file_config[key], 'green'))
+
+    # Environment variable
+    if key in os.environ:
+        sources_info.append(('Environment', os.environ[key] if key_is_safe(key) else '********', 'blue'))
+
+    # Machine config
+    machine = None
+    machine_admin_url = None
+    try:
+        machine = Machine.current()
+        machine_admin_url = f'/admin/machine/machine/{machine.id}/change/'
+        if machine.config and key in machine.config:
+            sources_info.append(('Machine', machine.config[key] if key_is_safe(key) else '********', 'purple'))
+    except Exception:
+        pass
+
+    # Final computed value
+    final_value = merged_config.get(key, FLAT_CONFIG.get(key, CONFIGS.get(key, None)))
+    if not key_is_safe(key):
+        final_value = '********'
+
+    # Build sources display
+    sources_html = '<br/>'.join([
+        f'<b style="color: {color}">{source}:</b> <code>{value}</code>'
+        for source, value, color in sources_info
+    ])
 
     # aliases = USER_CONFIG.get(key, {}).get("aliases", [])
     aliases = []
@@ -813,7 +949,8 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                 "fields": {
                     'Key': key,
                     'Type': find_config_type(key),
-                    'Value': FLAT_CONFIG.get(key, CONFIGS.get(key, None)) if key_is_safe(key) else '********',
+                    'Value': final_value,
+                    'Source': find_config_source(key, merged_config),
                 },
                 "help_texts": {
                     'Key': mark_safe(f'''
@@ -830,10 +967,8 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                     'Value': mark_safe(f'''
                         {'<b style="color: red">Value is redacted for your security. (Passwords, secrets, API tokens, etc. cannot be viewed in the Web UI)</b><br/><br/>' if not key_is_safe(key) else ''}
                         <br/><hr/><br/>
-                        Default: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
-                        <a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig+{key}&type=code">
-                            <code>{find_config_default(key) or '↗️ See in ArchiveBox source code...'}</code>
-                        </a>
+                        <b>Configuration Sources (in priority order):</b><br/><br/>
+                        {sources_html}
                         <br/><br/>
                         <p style="display: {"block" if key in FLAT_CONFIG and key not in CONSTANTS_CONFIG else "none"}">
                             <i>To change this value, edit <code>data/ArchiveBox.conf</code> or run:</i>
@@ -844,6 +979,20 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                                 (str(FLAT_CONFIG[key] if key_is_safe(key) else '********')).strip("'")
                             }"</code>
                         </p>
+                    '''),
+                    'Source': mark_safe(f'''
+                        The value shown in the "Value" field comes from the <b>{find_config_source(key, merged_config)}</b> source.
+                        <br/><br/>
+                        Priority order (highest to lowest):
+                        <ol>
+                            <li><b style="color: purple">Machine</b> - Machine-specific overrides (e.g., resolved binary paths)
+                                {f'<br/><a href="{machine_admin_url}">→ Edit <code>{key}</code> in Machine.config for this server</a>' if machine_admin_url else ''}
+                            </li>
+                            <li><b style="color: blue">Environment</b> - Environment variables</li>
+                            <li><b style="color: green">Config File</b> - data/ArchiveBox.conf</li>
+                            <li><b style="color: gray">Default</b> - Default value from code</li>
+                        </ol>
+                        {f'<br/><b>💡 Tip:</b> To override <code>{key}</code> on this machine, <a href="{machine_admin_url}">edit the Machine.config field</a> and add:<br/><code>{{"\\"{key}\\": "your_value_here"}}</code>' if machine_admin_url and key not in CONSTANTS_CONFIG else ''}
                     '''),
                 },
             },

@@ -91,7 +91,7 @@ class SnapshotMachine(StateMachine, strict_states=True):
 
         # unlock the snapshot after we're done + set status = started
         self.snapshot.update_for_workers(
-            retry_at=timezone.now() + timedelta(seconds=5),  # wait 5s before checking it again
+            retry_at=timezone.now() + timedelta(seconds=5),  # check again in 5s
             status=Snapshot.StatusChoices.STARTED,
         )
 
@@ -209,12 +209,15 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
 
     @started.enter
     def enter_started(self):
+        from machine.models import NetworkInterface
+
         # Suppressed: state transition logs
         # Lock the object and mark start time
         self.archiveresult.update_for_workers(
             retry_at=timezone.now() + timedelta(seconds=120),  # 2 min timeout for extractor
             status=ArchiveResult.StatusChoices.STARTED,
             start_ts=timezone.now(),
+            iface=NetworkInterface.current(),
         )
 
         # Run the extractor - this updates status, output, timestamps, etc.
@@ -234,7 +237,7 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
             end_ts=None,
             # retries=F('retries') + 1,               # F() equivalent to getattr(self.archiveresult, 'retries', 0) + 1,
         )
-        self.archiveresult.save(write_indexes=True)
+        self.archiveresult.save()
 
     @succeeded.enter
     def enter_succeeded(self):
@@ -245,7 +248,7 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
             end_ts=timezone.now(),
             # **self.archiveresult.get_output_dict(),     # {output, output_json, stderr, stdout, returncode, errors, cmd_version, pwd, cmd, machine}
         )
-        self.archiveresult.save(write_indexes=True)
+        self.archiveresult.save()
 
         # Increment health stats on ArchiveResult, Snapshot, and optionally Crawl
         ArchiveResult.objects.filter(pk=self.archiveresult.pk).update(num_uses_succeeded=F('num_uses_succeeded') + 1)

@@ -83,7 +83,7 @@ class CrawlMachine(StateMachine, strict_states=True):
         # Suppressed: state transition logs
         # lock the crawl object while we create snapshots
         self.crawl.update_for_workers(
-            retry_at=timezone.now() + timedelta(seconds=5),
+            retry_at=timezone.now(),  # Process immediately
             status=Crawl.StatusChoices.QUEUED,
         )
 
@@ -96,7 +96,7 @@ class CrawlMachine(StateMachine, strict_states=True):
 
             # only update status to STARTED once snapshots are created
             self.crawl.update_for_workers(
-                retry_at=timezone.now() + timedelta(seconds=5),
+                retry_at=timezone.now(),  # Process immediately
                 status=Crawl.StatusChoices.STARTED,
             )
         except Exception as e:
@@ -129,7 +129,7 @@ class CrawlMachine(StateMachine, strict_states=True):
             timeout=60,
             config_objects=[self.crawl],
             crawl_id=str(self.crawl.id),
-            seed_uri=first_url,
+            source_url=first_url,
         )
 
         # Process hook results - parse JSONL output and create DB objects
@@ -195,8 +195,43 @@ class CrawlMachine(StateMachine, strict_states=True):
 
     @sealed.enter
     def enter_sealed(self):
+        # Run on_CrawlEnd hooks to clean up resources (e.g., kill shared Chrome)
+        self._run_crawl_end_hooks()
+
         # Suppressed: state transition logs
         self.crawl.update_for_workers(
             retry_at=None,
             status=Crawl.StatusChoices.SEALED,
         )
+
+    def _run_crawl_end_hooks(self):
+        """Run on_CrawlEnd hooks to clean up resources at crawl completion."""
+        from pathlib import Path
+        from archivebox.hooks import run_hooks, discover_hooks
+        from archivebox.config import CONSTANTS
+
+        # Discover and run all on_CrawlEnd hooks
+        hooks = discover_hooks('CrawlEnd')
+        if not hooks:
+            return
+
+        # Use the same temporary output directory from crawl start
+        output_dir = Path(CONSTANTS.DATA_DIR) / 'tmp' / f'crawl_{self.crawl.id}'
+
+        # Run all on_CrawlEnd hooks
+        first_url = self.crawl.get_urls_list()[0] if self.crawl.get_urls_list() else ''
+        results = run_hooks(
+            event_name='CrawlEnd',
+            output_dir=output_dir,
+            timeout=30,  # Cleanup hooks should be quick
+            config_objects=[self.crawl],
+            crawl_id=str(self.crawl.id),
+            source_url=first_url,
+        )
+
+        # Log any failures but don't block sealing
+        for result in results:
+            if result['returncode'] != 0:
+                print(f'[yellow]⚠️ CrawlEnd hook failed: {result.get("hook", "unknown")}[/yellow]')
+                if result.get('stderr'):
+                    print(f'[dim]{result["stderr"][:200]}[/dim]')

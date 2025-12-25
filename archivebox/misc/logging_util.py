@@ -542,23 +542,31 @@ def log_worker_event(
     """
     indent = '    ' * indent_level
 
-    # Build worker identifier
+    from rich.markup import escape
+
+    # Build worker identifier (without URL/extractor)
     worker_parts = [worker_type]
     # Don't add pid/worker_id for DB operations (they happen in whatever process is running)
     if pid and worker_type != 'DB':
         worker_parts.append(f'pid={pid}')
     if worker_id and worker_type in ('CrawlWorker', 'Orchestrator') and worker_type != 'DB':
         worker_parts.append(f'id={worker_id}')
-    if url and worker_type in ('SnapshotWorker', 'DB'):
-        worker_parts.append(f'url={truncate_url(url)}')
-    if extractor and worker_type in ('ArchiveResultWorker', 'DB'):
-        worker_parts.append(f'extractor={extractor}')
 
     # Format worker label - only add brackets if there are additional identifiers
+    # Use double brackets [[...]] to escape Rich markup
     if len(worker_parts) > 1:
-        worker_label = f'{worker_parts[0]}[{", ".join(worker_parts[1:])}]'
+        worker_label = f'{worker_parts[0]}[[{", ".join(worker_parts[1:])}]]'
     else:
         worker_label = worker_parts[0]
+
+    # Build URL/extractor display (shown AFTER the label, outside brackets)
+    url_extractor_parts = []
+    if url:
+        url_extractor_parts.append(f'url: {escape(url)}')
+    if extractor:
+        url_extractor_parts.append(f'extractor: {escape(extractor)}')
+
+    url_extractor_str = ' | '.join(url_extractor_parts) if url_extractor_parts else ''
 
     # Build metadata string
     metadata_str = ''
@@ -592,8 +600,6 @@ def log_worker_event(
         color = 'green'
     elif event.startswith('Created'):
         color = 'cyan'  # DB creation events
-    elif event in ('Processing...', 'PROCESSING'):
-        color = 'blue'
     elif event in ('Completed', 'COMPLETED', 'All work complete'):
         color = 'blue'
     elif event in ('Failed', 'ERROR', 'Failed to spawn worker'):
@@ -610,6 +616,12 @@ def log_worker_event(
     text = Text()
     text.append(indent)
     text.append(f'{worker_label} {event}{error_str}', style=color)
+
+    # Add URL/extractor info first (more important)
+    if url_extractor_str:
+        text.append(f' | {url_extractor_str}')
+
+    # Then add other metadata
     if metadata_str:
         text.append(f' | {metadata_str}')
 

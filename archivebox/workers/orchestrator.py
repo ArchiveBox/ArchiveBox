@@ -66,9 +66,9 @@ class Orchestrator:
     """
     
     WORKER_TYPES: list[Type[Worker]] = [CrawlWorker, SnapshotWorker, ArchiveResultWorker]
-    
+
     # Configuration
-    POLL_INTERVAL: float = 1.0
+    POLL_INTERVAL: float = 2.0  # How often to check for new work (seconds)
     IDLE_TIMEOUT: int = 3  # Exit after N idle ticks (0 = never exit)
     MAX_WORKERS_PER_TYPE: int = 4  # Max workers per model type
     MAX_TOTAL_WORKERS: int = 12  # Max workers across all types

@@ -122,12 +122,10 @@ class ModelWithOutputDir(ModelWithSerializers):
     class Meta:
         abstract = True
 
-    def save(self, *args, write_indexes=False, **kwargs):
+    def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         self.save_json_index()
-        if write_indexes:
-            self.write_indexes()
 
     @property
     def output_dir_parent(self) -> str:
@@ -144,18 +142,6 @@ class ModelWithOutputDir(ModelWithSerializers):
     @property
     def OUTPUT_DIR(self) -> Path:
         return DATA_DIR / self.output_dir_str
-
-    def write_indexes(self):
-        self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        self.save_merkle_index()
-        self.save_html_index()
-
-    def save_merkle_index(self):
-        with open(self.OUTPUT_DIR / '.hashes.json', 'w') as f:
-            json.dump(get_dir_info(self.OUTPUT_DIR, max_depth=6), f)
-
-    def save_html_index(self):
-        (self.OUTPUT_DIR / 'index.html').write_text(str(self))
 
     def save_json_index(self):
         (self.OUTPUT_DIR / 'index.json').write_text(to_json(self.as_json()))

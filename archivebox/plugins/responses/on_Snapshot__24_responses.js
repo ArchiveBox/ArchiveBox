@@ -1,22 +1,12 @@
 #!/usr/bin/env node
 /**
- * Archive all network responses during page load.
+ * Archive all network responses during page load (DAEMON MODE).
  *
- * Connects to Chrome session and captures ALL network responses (XHR, images, scripts, etc.)
- * Saves them in an organized directory structure with both timestamped unique files
- * and URL-organized symlinks.
+ * This hook daemonizes and stays alive to capture network responses throughout
+ * the snapshot lifecycle. It's killed by chrome_cleanup at the end.
  *
- * Usage: on_Snapshot__23_responses.js --url=<url> --snapshot-id=<uuid>
- * Output: Creates responses/ directory with:
- *   - all/<timestamp>__<METHOD>__<URL>.<ext>: Timestamped unique files
- *   - <type>/<domain>/<path>/: URL-organized symlinks by resource type
- *   - index.jsonl: Searchable index of all responses
- *
- * Environment variables:
- *     SAVE_RESPONSES: Enable response archiving (default: true)
- *     RESPONSES_TIMEOUT: Timeout in seconds (default: 120)
- *     RESPONSES_TYPES: Comma-separated resource types to save (default: all)
- *                      Options: script,stylesheet,font,image,media,xhr,websocket,document
+ * Usage: on_Snapshot__24_responses.js --url=<url> --snapshot-id=<uuid>
+ * Output: Creates responses/ directory with index.jsonl + listener.pid
  */
 
 const fs = require('fs');
@@ -27,6 +17,7 @@ const puppeteer = require('puppeteer-core');
 // Extractor metadata
 const EXTRACTOR_NAME = 'responses';
 const OUTPUT_DIR = '.';
+const PID_FILE = 'listener.pid';
 const CHROME_SESSION_DIR = '../chrome_session';
 
 // Resource types to capture (by default, capture everything)
@@ -66,6 +57,14 @@ function getCdpUrl() {
     const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
     if (fs.existsSync(cdpFile)) {
         return fs.readFileSync(cdpFile, 'utf8').trim();
+    }
+    return null;
+}
+
+function getPageId() {
+    const pageIdFile = path.join(CHROME_SESSION_DIR, 'page_id.txt');
+    if (fs.existsSync(pageIdFile)) {
+        return fs.readFileSync(pageIdFile, 'utf8').trim();
     }
     return null;
 }
@@ -139,17 +138,14 @@ async function createSymlink(target, linkPath) {
         fs.symlinkSync(relativePath, linkPath);
     } catch (e) {
         // Ignore symlink errors (file conflicts, permissions, etc.)
-        console.error(`Failed to create symlink: ${e.message}`);
     }
 }
 
-// Archive responses by intercepting network traffic
-async function archiveResponses(originalUrl) {
-    const timeout = (getEnvInt('RESPONSES_TIMEOUT') || getEnvInt('TIMEOUT', 120)) * 1000;
+// Set up response listener
+async function setupListener() {
     const typesStr = getEnv('RESPONSES_TYPES', DEFAULT_TYPES.join(','));
     const typesToSave = typesStr.split(',').map(t => t.trim().toLowerCase());
 
-    // Output directory is current directory (hook already runs in output dir)
     // Create subdirectories for organizing responses
     const allDir = path.join(OUTPUT_DIR, 'all');
     if (!fs.existsSync(allDir)) {
@@ -160,138 +156,119 @@ async function archiveResponses(originalUrl) {
     const indexPath = path.join(OUTPUT_DIR, 'index.jsonl');
     fs.writeFileSync(indexPath, '');  // Clear existing
 
-    let browser = null;
-    let savedCount = 0;
-    const savedResponses = [];
-
-    try {
-        // Connect to existing Chrome session
-        const cdpUrl = getCdpUrl();
-        if (!cdpUrl) {
-            return { success: false, error: 'No Chrome session found (chrome_session extractor must run first)' };
-        }
-
-        browser = await puppeteer.connect({
-            browserWSEndpoint: cdpUrl,
-        });
-
-        // Get the page
-        const pages = await browser.pages();
-        const page = pages.find(p => p.url().startsWith('http')) || pages[0];
-
-        if (!page) {
-            return { success: false, error: 'No page found in Chrome session' };
-        }
-
-        // Enable request interception
-        await page.setRequestInterception(false);  // Don't block requests
-
-        // Listen for responses
-        page.on('response', async (response) => {
-            try {
-                const request = response.request();
-                const url = response.url();
-                const resourceType = request.resourceType().toLowerCase();
-                const method = request.method();
-                const status = response.status();
-
-                // Skip redirects and errors
-                if (status >= 300 && status < 400) return;
-                if (status >= 400 && status < 600) return;
-
-                // Check if we should save this resource type
-                if (typesToSave.length && !typesToSave.includes(resourceType)) {
-                    return;
-                }
-
-                // Get response body
-                let bodyBuffer = null;
-                try {
-                    bodyBuffer = await response.buffer();
-                } catch (e) {
-                    // Some responses can't be captured (already consumed, etc.)
-                    return;
-                }
-
-                if (!bodyBuffer || bodyBuffer.length === 0) {
-                    return;
-                }
-
-                // Determine file extension
-                const mimeType = response.headers()['content-type'] || '';
-                let extension = getExtensionFromMimeType(mimeType) || getExtensionFromUrl(url);
-
-                // Create timestamp-based unique filename
-                const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '');
-                const urlHash = sanitizeFilename(encodeURIComponent(url).slice(0, 64));
-                const uniqueFilename = `${timestamp}__${method}__${urlHash}${extension ? '.' + extension : ''}`;
-                const uniquePath = path.join(allDir, uniqueFilename);
-
-                // Save to unique file
-                fs.writeFileSync(uniquePath, bodyBuffer);
-
-                // Create URL-organized symlink
-                try {
-                    const urlObj = new URL(url);
-                    const hostname = urlObj.hostname;
-                    const pathname = urlObj.pathname || '/';
-                    const filename = path.basename(pathname) || 'index' + (extension ? '.' + extension : '');
-                    const dirPath = path.dirname(pathname);
-
-                    // Create symlink: responses/<type>/<hostname>/<path>/<filename>
-                    const symlinkDir = path.join(OUTPUT_DIR, resourceType, hostname, dirPath);
-                    const symlinkPath = path.join(symlinkDir, filename);
-                    await createSymlink(uniquePath, symlinkPath);
-                } catch (e) {
-                    // URL parsing or symlink creation failed, skip
-                }
-
-                // Calculate SHA256
-                const sha256 = crypto.createHash('sha256').update(bodyBuffer).digest('hex');
-                const urlSha256 = crypto.createHash('sha256').update(url).digest('hex');
-
-                // Write to index
-                const indexEntry = {
-                    ts: timestamp,
-                    method,
-                    url: method === 'DATA' ? url.slice(0, 128) : url,  // Truncate data: URLs
-                    urlSha256,
-                    status,
-                    resourceType,
-                    mimeType: mimeType.split(';')[0],
-                    responseSha256: sha256,
-                    path: './' + path.relative(OUTPUT_DIR, uniquePath),
-                    extension,
-                };
-
-                fs.appendFileSync(indexPath, JSON.stringify(indexEntry) + '\n');
-                savedResponses.push(indexEntry);
-                savedCount++;
-
-            } catch (e) {
-                // Log but don't fail the whole extraction
-                console.error(`Error capturing response: ${e.message}`);
-            }
-        });
-
-        // Wait a bit to ensure we capture responses
-        // (chrome_session already loaded the page, just capture any remaining traffic)
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        return {
-            success: true,
-            output: OUTPUT_DIR,
-            savedCount,
-            indexPath,
-        };
-
-    } catch (e) {
-        return { success: false, error: `${e.name}: ${e.message}` };
-    } finally {
-        if (browser) {
-            browser.disconnect();
-        }
+    const cdpUrl = getCdpUrl();
+    if (!cdpUrl) {
+        throw new Error('No Chrome session found');
     }
+
+    const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
+
+    // Find our page
+    const pages = await browser.pages();
+    const pageId = getPageId();
+    let page = null;
+
+    if (pageId) {
+        page = pages.find(p => {
+            const target = p.target();
+            return target && target._targetId === pageId;
+        });
+    }
+    if (!page) {
+        page = pages[pages.length - 1];
+    }
+
+    if (!page) {
+        throw new Error('No page found');
+    }
+
+    // Set up response listener to capture network traffic
+    page.on('response', async (response) => {
+        try {
+            const request = response.request();
+            const url = response.url();
+            const resourceType = request.resourceType().toLowerCase();
+            const method = request.method();
+            const status = response.status();
+
+            // Skip redirects and errors
+            if (status >= 300 && status < 400) return;
+            if (status >= 400 && status < 600) return;
+
+            // Check if we should save this resource type
+            if (typesToSave.length && !typesToSave.includes(resourceType)) {
+                return;
+            }
+
+            // Get response body
+            let bodyBuffer = null;
+            try {
+                bodyBuffer = await response.buffer();
+            } catch (e) {
+                // Some responses can't be captured (already consumed, etc.)
+                return;
+            }
+
+            if (!bodyBuffer || bodyBuffer.length === 0) {
+                return;
+            }
+
+            // Determine file extension
+            const mimeType = response.headers()['content-type'] || '';
+            let extension = getExtensionFromMimeType(mimeType) || getExtensionFromUrl(url);
+
+            // Create timestamp-based unique filename
+            const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '');
+            const urlHash = sanitizeFilename(encodeURIComponent(url).slice(0, 64));
+            const uniqueFilename = `${timestamp}__${method}__${urlHash}${extension ? '.' + extension : ''}`;
+            const uniquePath = path.join(allDir, uniqueFilename);
+
+            // Save to unique file
+            fs.writeFileSync(uniquePath, bodyBuffer);
+
+            // Create URL-organized symlink
+            try {
+                const urlObj = new URL(url);
+                const hostname = urlObj.hostname;
+                const pathname = urlObj.pathname || '/';
+                const filename = path.basename(pathname) || 'index' + (extension ? '.' + extension : '');
+                const dirPath = path.dirname(pathname);
+
+                // Create symlink: responses/<type>/<hostname>/<path>/<filename>
+                const symlinkDir = path.join(OUTPUT_DIR, resourceType, hostname, dirPath);
+                const symlinkPath = path.join(symlinkDir, filename);
+                await createSymlink(uniquePath, symlinkPath);
+            } catch (e) {
+                // URL parsing or symlink creation failed, skip
+            }
+
+            // Calculate SHA256
+            const sha256 = crypto.createHash('sha256').update(bodyBuffer).digest('hex');
+            const urlSha256 = crypto.createHash('sha256').update(url).digest('hex');
+
+            // Write to index
+            const indexEntry = {
+                ts: timestamp,
+                method,
+                url: method === 'DATA' ? url.slice(0, 128) : url,  // Truncate data: URLs
+                urlSha256,
+                status,
+                resourceType,
+                mimeType: mimeType.split(';')[0],
+                responseSha256: sha256,
+                path: './' + path.relative(OUTPUT_DIR, uniquePath),
+                extension,
+            };
+
+            fs.appendFileSync(indexPath, JSON.stringify(indexEntry) + '\n');
+
+        } catch (e) {
+            // Ignore errors
+        }
+    });
+
+    // Don't disconnect - keep browser connection alive
+    return { browser, page };
 }
 
 async function main() {
@@ -300,77 +277,83 @@ async function main() {
     const snapshotId = args.snapshot_id;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__23_responses.js --url=<url> --snapshot-id=<uuid>');
+        console.error('Usage: on_Snapshot__24_responses.js --url=<url> --snapshot-id=<uuid>');
         process.exit(1);
     }
 
+    if (!getEnvBool('SAVE_RESPONSES', true)) {
+        console.log('Skipping (SAVE_RESPONSES=False)');
+        const result = {
+            extractor: EXTRACTOR_NAME,
+            status: 'skipped',
+            url,
+            snapshot_id: snapshotId,
+        };
+        console.log(`RESULT_JSON=${JSON.stringify(result)}`);
+        process.exit(0);
+    }
+
     const startTs = new Date();
-    let status = 'failed';
-    let output = null;
-    let error = '';
-    let savedCount = 0;
 
     try {
-        // Check if enabled
-        if (!getEnvBool('SAVE_RESPONSES', true)) {
-            console.log('Skipping responses (SAVE_RESPONSES=False)');
-            status = 'skipped';
-            const endTs = new Date();
-            console.log(`START_TS=${startTs.toISOString()}`);
-            console.log(`END_TS=${endTs.toISOString()}`);
-            console.log(`STATUS=${status}`);
-            console.log(`RESULT_JSON=${JSON.stringify({extractor: EXTRACTOR_NAME, status, url, snapshot_id: snapshotId})}`);
-            process.exit(0);
-        }
+        // Set up listener
+        await setupListener();
 
-        const result = await archiveResponses(url);
+        // Write PID file so chrome_cleanup can kill us
+        fs.writeFileSync(path.join(OUTPUT_DIR, PID_FILE), String(process.pid));
 
-        if (result.success) {
-            status = 'succeeded';
-            output = result.output;
-            savedCount = result.savedCount || 0;
-            console.log(`Saved ${savedCount} network responses to ${output}/`);
-        } else {
-            status = 'failed';
-            error = result.error;
+        // Report success immediately (we're staying alive in background)
+        const endTs = new Date();
+        const duration = (endTs - startTs) / 1000;
+
+        console.log(`START_TS=${startTs.toISOString()}`);
+        console.log(`END_TS=${endTs.toISOString()}`);
+        console.log(`DURATION=${duration.toFixed(2)}`);
+        console.log(`OUTPUT=responses/`);
+        console.log(`STATUS=succeeded`);
+
+        const result = {
+            extractor: EXTRACTOR_NAME,
+            url,
+            snapshot_id: snapshotId,
+            status: 'succeeded',
+            start_ts: startTs.toISOString(),
+            end_ts: endTs.toISOString(),
+            duration: Math.round(duration * 100) / 100,
+            output: 'responses/',
+        };
+        console.log(`RESULT_JSON=${JSON.stringify(result)}`);
+
+        // Daemonize: detach from parent and keep running
+        // This process will be killed by chrome_cleanup
+        if (process.stdin.isTTY) {
+            process.stdin.pause();
         }
+        process.stdin.unref();
+        process.stdout.end();
+        process.stderr.end();
+
+        // Keep the process alive indefinitely
+        // Will be killed by chrome_cleanup via the PID file
+        setInterval(() => {}, 1000);
+
     } catch (e) {
-        error = `${e.name}: ${e.message}`;
-        status = 'failed';
-    }
-
-    const endTs = new Date();
-    const duration = (endTs - startTs) / 1000;
-
-    // Print results
-    console.log(`START_TS=${startTs.toISOString()}`);
-    console.log(`END_TS=${endTs.toISOString()}`);
-    console.log(`DURATION=${duration.toFixed(2)}`);
-    if (output) {
-        console.log(`OUTPUT=${output}`);
-    }
-    console.log(`STATUS=${status}`);
-
-    if (error) {
+        const error = `${e.name}: ${e.message}`;
         console.error(`ERROR=${error}`);
+
+        const endTs = new Date();
+        const result = {
+            extractor: EXTRACTOR_NAME,
+            url,
+            snapshot_id: snapshotId,
+            status: 'failed',
+            start_ts: startTs.toISOString(),
+            end_ts: endTs.toISOString(),
+            error,
+        };
+        console.log(`RESULT_JSON=${JSON.stringify(result)}`);
+        process.exit(1);
     }
-
-    // Print JSON result
-    const resultJson = {
-        extractor: EXTRACTOR_NAME,
-        url,
-        snapshot_id: snapshotId,
-        status,
-        start_ts: startTs.toISOString(),
-        end_ts: endTs.toISOString(),
-        duration: Math.round(duration * 100) / 100,
-        output,
-        saved_count: savedCount,
-        error: error || null,
-    };
-    console.log(`RESULT_JSON=${JSON.stringify(resultJson)}`);
-
-    process.exit(status === 'succeeded' ? 0 : 1);
 }
 
 main().catch(e => {

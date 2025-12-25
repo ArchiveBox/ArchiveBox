@@ -199,16 +199,24 @@ def run_hook(
 
     # Build CLI arguments from kwargs
     for key, value in kwargs.items():
+        # Skip keys that start with underscore (internal parameters)
+        if key.startswith('_'):
+            continue
+
         arg_key = f'--{key.replace("_", "-")}'
         if isinstance(value, bool):
             if value:
                 cmd.append(arg_key)
-        elif value is not None:
+        elif value is not None and value != '':
             # JSON-encode complex values, use str for simple ones
+            # Skip empty strings to avoid --key= which breaks argument parsers
             if isinstance(value, (dict, list)):
                 cmd.append(f'{arg_key}={json.dumps(value)}')
             else:
-                cmd.append(f'{arg_key}={value}')
+                # Ensure value is converted to string and strip whitespace
+                str_value = str(value).strip()
+                if str_value:  # Only add if non-empty after stripping
+                    cmd.append(f'{arg_key}={str_value}')
 
     # Set up environment with base paths
     env = os.environ.copy()

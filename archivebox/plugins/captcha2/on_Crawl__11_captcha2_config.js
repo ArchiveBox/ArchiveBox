@@ -2,11 +2,11 @@
 /**
  * 2Captcha Extension Configuration
  *
- * Configures the 2captcha extension with API key after Chrome session starts.
- * Runs once per browser session to inject API key into extension storage.
+ * Configures the 2captcha extension with API key after Crawl-level Chrome session starts.
+ * Runs once per crawl to inject API key into extension storage.
  *
- * Priority: 21 (after chrome_session at 20, before navigation at 30)
- * Hook: on_Snapshot
+ * Priority: 11 (after chrome_session at 10)
+ * Hook: on_Crawl (runs once per crawl, not per snapshot)
  *
  * Requirements:
  * - API_KEY_2CAPTCHA environment variable must be set
@@ -17,8 +17,19 @@ const path = require('path');
 const fs = require('fs');
 const puppeteer = require('puppeteer-core');
 
-const OUTPUT_DIR = 'chrome_session';
-const CONFIG_MARKER = path.join(OUTPUT_DIR, '.captcha2_configured');
+// Get crawl ID from args to find the crawl-level chrome session
+function getCrawlChromeSessionDir() {
+    const args = parseArgs();
+    const crawlId = args.crawl_id;
+    if (!crawlId) {
+        return null;
+    }
+    const dataDir = process.env.DATA_DIR || '.';
+    return path.join(dataDir, 'tmp', `crawl_${crawlId}`, 'chrome_session');
+}
+
+const CHROME_SESSION_DIR = getCrawlChromeSessionDir() || '../chrome_session';
+const CONFIG_MARKER = path.join(CHROME_SESSION_DIR, '.captcha2_configured');
 
 // Get environment variable with default
 function getEnv(name, defaultValue = '') {
@@ -53,7 +64,7 @@ async function configure2Captcha() {
     }
 
     // Load extensions metadata
-    const extensionsFile = path.join(OUTPUT_DIR, 'extensions.json');
+    const extensionsFile = path.join(CHROME_SESSION_DIR, 'extensions.json');
     if (!fs.existsSync(extensionsFile)) {
         return { success: false, error: 'extensions.json not found - chrome_session must run first' };
     }
@@ -70,7 +81,7 @@ async function configure2Captcha() {
 
     try {
         // Connect to the existing Chrome session via CDP
-        const cdpFile = path.join(OUTPUT_DIR, 'cdp_url.txt');
+        const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
         if (!fs.existsSync(cdpFile)) {
             return { success: false, error: 'CDP URL not found - chrome_session must run first' };
         }

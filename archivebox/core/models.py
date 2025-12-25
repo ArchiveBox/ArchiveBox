@@ -295,7 +295,7 @@ class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):
 
 class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, ModelWithStateMachine):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, related_name='snapshot_set', db_index=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False, related_name='snapshot_set', db_index=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -362,9 +362,11 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 },
             )
 
+    @property
     def output_dir_parent(self) -> str:
         return 'archive'
 
+    @property
     def output_dir_name(self) -> str:
         return str(self.timestamp)
 
@@ -808,7 +810,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     # UUID field is added separately by migration for new records
     id = models.AutoField(primary_key=True, editable=False)
     uuid = models.UUIDField(default=uuid7, null=True, blank=True, db_index=True, unique=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, related_name='archiveresult_set', db_index=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False, related_name='archiveresult_set', db_index=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -844,7 +846,10 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
-        super().save(*args, **kwargs)
+        # Skip ModelWithOutputDir.save() to avoid creating index.json in plugin directories
+        # Call the Django Model.save() directly instead
+        models.Model.save(self, *args, **kwargs)
+
         if is_new:
             from archivebox.misc.logging_util import log_worker_event
             log_worker_event(
@@ -916,9 +921,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     def output_dir_parent(self) -> str:
         return str(self.snapshot.OUTPUT_DIR.relative_to(CONSTANTS.DATA_DIR))
 
-    def write_indexes(self):
-        super().write_indexes()
-
     def save_search_index(self):
         pass
 
@@ -966,6 +968,16 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         )
         end_ts = timezone.now()
 
+        # Clean up empty output directory if no files were created
+        output_files = result.get('output_files', [])
+        if not output_files and extractor_dir.exists():
+            try:
+                # Only remove if directory is completely empty
+                if not any(extractor_dir.iterdir()):
+                    extractor_dir.rmdir()
+            except (OSError, RuntimeError):
+                pass  # Directory not empty or can't be removed, that's fine
+
         # Determine status from return code and JSON output
         output_json = result.get('output_json') or {}
         json_status = output_json.get('status')
@@ -990,14 +1002,45 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         self.start_ts = start_ts
         self.end_ts = end_ts
         self.retry_at = None
+        self.pwd = str(extractor_dir)
+
+        # Save cmd and cmd_version from extractor output
+        if output_json.get('cmd_version'):
+            self.cmd_version = output_json['cmd_version'][:128]  # Max length from model
+        if output_json.get('cmd'):
+            self.cmd = output_json['cmd']
+
         self.save()
 
         # Queue any discovered URLs for crawling (parser extractors write urls.jsonl)
         self._queue_urls_for_crawl(extractor_dir)
 
+        # Update snapshot title if this is the title extractor
+        # Check both old numeric name and new plugin name for compatibility
+        extractor_name = get_extractor_name(self.extractor)
+        if self.status == self.StatusChoices.SUCCEEDED and extractor_name == 'title':
+            self._update_snapshot_title(extractor_dir)
+
         # Trigger search indexing if succeeded
         if self.status == self.StatusChoices.SUCCEEDED:
             self.trigger_search_indexing()
+
+    def _update_snapshot_title(self, extractor_dir: Path):
+        """
+        Update snapshot title from title extractor output.
+
+        The title extractor writes title.txt with the extracted page title.
+        This updates the Snapshot.title field if the file exists and has content.
+        """
+        title_file = extractor_dir / 'title.txt'
+        if title_file.exists():
+            try:
+                title = title_file.read_text(encoding='utf-8').strip()
+                if title and (not self.snapshot.title or len(title) > len(self.snapshot.title)):
+                    self.snapshot.title = title[:512]  # Max length from model
+                    self.snapshot.save(update_fields=['title', 'modified_at'])
+            except Exception:
+                pass  # Failed to read title, that's okay
 
     def _queue_urls_for_crawl(self, extractor_dir: Path):
         """

@@ -7,8 +7,8 @@
  *
  * Extension: https://chromewebstore.google.com/detail/mpiodijhokgodhhofbcjdecpffjipkle
  *
- * Priority: 04 (early) - Must install before Chrome session starts
- * Hook: on_Snapshot
+ * Priority: 04 (early) - Must install before Chrome session starts at Crawl level
+ * Hook: on_Crawl (runs once per crawl, not per snapshot)
  *
  * This extension automatically:
  * - Saves complete web pages as single HTML files

@@ -12,7 +12,7 @@ class ArchiveBoxAdmin(admin.AdminSite):
 
 
 archivebox_admin = ArchiveBoxAdmin()
-archivebox_admin.disable_action('delete_selected')
+# Note: delete_selected is enabled per-model via actions = ['delete_selected'] in each ModelAdmin
 # TODO: https://stackoverflow.com/questions/40760880/add-custom-button-to-django-admin-panel
 
 

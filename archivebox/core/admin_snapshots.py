@@ -23,7 +23,7 @@ from archivebox.search.admin import SearchResultsAdminMixin
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 from archivebox.workers.tasks import bg_archive_snapshots, bg_add
 
-from core.models import Tag
+from core.models import Tag, Snapshot
 from core.admin_tags import TagInline
 from core.admin_archiveresults import ArchiveResultInline, render_archiveresults_list
 
@@ -262,6 +262,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             for tag in obj.tags.all()
             if str(tag.name).strip()
         )
+        # Show title if available, otherwise show URL
+        display_text = obj.title or obj.url
+        css_class = 'fetched' if obj.title else 'pending'
+
         return format_html(
             '<a href="/{}">'
                 '<img src="/{}/favicon.ico" class="favicon" onerror="this.remove()">'
@@ -272,8 +276,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             obj.archive_path,
             obj.archive_path,
             obj.archive_path,
-            'fetched' if obj.title else 'pending',
-            urldecode(htmldecode(obj.title or ''))[:128] or 'Pending...'
+            css_class,
+            urldecode(htmldecode(display_text))[:128]
         ) + mark_safe(f' <span class="tags">{tags}</span>')
 
     @admin.display(
@@ -402,12 +406,21 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         description="☠️ Delete"
     )
     def delete_snapshots(self, request, queryset):
-        from archivebox.cli.archivebox_remove import remove
-        remove(snapshots=queryset, yes=True, delete=True, out_dir=DATA_DIR)
-        
+        """Delete snapshots in a single transaction to avoid SQLite concurrency issues."""
+        from django.db import transaction
+
+        total = queryset.count()
+
+        # Get list of IDs to delete first (outside transaction)
+        ids_to_delete = list(queryset.values_list('pk', flat=True))
+
+        # Delete everything in a single atomic transaction
+        with transaction.atomic():
+            deleted_count, _ = Snapshot.objects.filter(pk__in=ids_to_delete).delete()
+
         messages.success(
             request,
-            mark_safe(f"Succesfully deleted {queryset.count()} Snapshots. Don't forget to scrub URLs from import logs (data/sources) and error logs (data/logs) if needed."),
+            mark_safe(f"Successfully deleted {total} Snapshots ({deleted_count} total objects including related records). Don't forget to scrub URLs from import logs (data/sources) and error logs (data/logs) if needed."),
         )
 
 

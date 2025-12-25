@@ -67,8 +67,8 @@ class Worker:
     # Configuration (can be overridden by subclasses)
     MAX_TICK_TIME: ClassVar[int] = 60
     MAX_CONCURRENT_TASKS: ClassVar[int] = 1
-    POLL_INTERVAL: ClassVar[float] = 1.0
-    IDLE_TIMEOUT: ClassVar[int] = 10  # Exit after N idle iterations (10 sec at 1.0 poll interval)
+    POLL_INTERVAL: ClassVar[float] = 0.2  # How often to check for new work (seconds)
+    IDLE_TIMEOUT: ClassVar[int] = 50  # Exit after N idle iterations (10 sec at 0.2 poll interval)
 
     def __init__(self, worker_id: int = 0, daemon: bool = False, **kwargs: Any):
         self.worker_id = worker_id
@@ -214,28 +214,33 @@ class Worker:
                     self.idle_count = 0
 
                     # Build metadata for task start
-                    start_metadata = {'task_id': str(obj.pk)}
+                    start_metadata = {}
+                    url = None
                     if hasattr(obj, 'url'):
                         # SnapshotWorker
                         url = str(obj.url) if obj.url else None
-                    else:
-                        url = None
+                    elif hasattr(obj, 'snapshot') and hasattr(obj.snapshot, 'url'):
+                        # ArchiveResultWorker
+                        url = str(obj.snapshot.url) if obj.snapshot.url else None
+                    elif hasattr(obj, 'get_urls_list'):
+                        # CrawlWorker
+                        urls = obj.get_urls_list()
+                        url = urls[0] if urls else None
 
                     extractor = None
                     if hasattr(obj, 'extractor'):
-                        # ArchiveResultWorker
+                        # ArchiveResultWorker, Crawl
                         extractor = obj.extractor
-                        start_metadata['extractor'] = extractor
 
                     log_worker_event(
                         worker_type=worker_type_name,
-                        event='Processing...',
+                        event='Starting...',
                         indent_level=indent_level,
                         pid=self.pid,
                         worker_id=str(self.worker_id),
                         url=url,
                         extractor=extractor,
-                        metadata=start_metadata,
+                        metadata=start_metadata if start_metadata else None,
                     )
 
                     start_time = time.time()
@@ -244,7 +249,6 @@ class Worker:
 
                     # Build metadata for task completion
                     complete_metadata = {
-                        'task_id': str(obj.pk),
                         'duration': elapsed,
                         'status': 'success' if success else 'failed',
                     }

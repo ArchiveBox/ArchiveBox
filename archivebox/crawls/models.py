@@ -88,7 +88,9 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
     def __str__(self):
         first_url = self.get_urls_list()[0] if self.get_urls_list() else ''
-        return f'[{self.id}] {first_url[:64]}'
+        # Show last 8 digits of UUID and more of the URL
+        short_id = str(self.id)[-8:]
+        return f'[...{short_id}] {first_url[:120]}'
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding

@@ -125,24 +125,64 @@ def execute_click_command(cmd_name: str, click_command: click.Command, arguments
     Returns MCP-formatted result with captured output and error status.
     """
 
+    # Setup Django for archive commands (commands that need database access)
+    from archivebox.cli import ArchiveBoxGroup
+    if cmd_name in ArchiveBoxGroup.archive_commands:
+        try:
+            from archivebox.config.django import setup_django
+            from archivebox.misc.checks import check_data_folder
+            setup_django()
+            check_data_folder()
+        except Exception as e:
+            # If Django setup fails, return error (unless it's manage/shell which handle this themselves)
+            if cmd_name not in ('manage', 'shell'):
+                return {
+                    "content": [{
+                        "type": "text",
+                        "text": f"Error setting up Django: {str(e)}\n\nMake sure you're running the MCP server from inside an ArchiveBox data directory."
+                    }],
+                    "isError": True
+                }
+
     # Use Click's test runner to invoke command programmatically
     runner = CliRunner()
 
+    # Build a map of parameter names to their Click types (Argument vs Option)
+    param_map = {param.name: param for param in click_command.params}
+
     # Convert arguments dict to CLI args list
     args = []
+    positional_args = []
+
     for key, value in arguments.items():
         param_name = key.replace('_', '-')  # Click uses dashes
+        param = param_map.get(key)
 
-        if isinstance(value, bool):
-            if value:
+        # Check if this is a positional Argument (not an Option)
+        is_argument = isinstance(param, click.Argument)
+
+        if is_argument:
+            # Positional arguments - add them without dashes
+            if isinstance(value, list):
+                positional_args.extend([str(v) for v in value])
+            elif value is not None:
+                positional_args.append(str(value))
+        else:
+            # Options - add with dashes
+            if isinstance(value, bool):
+                if value:
+                    args.append(f'--{param_name}')
+            elif isinstance(value, list):
+                # Multiple values for an option (rare)
+                for item in value:
+                    args.append(f'--{param_name}')
+                    args.append(str(item))
+            elif value is not None:
                 args.append(f'--{param_name}')
-        elif isinstance(value, list):
-            # Multiple values (e.g., multiple URLs)
-            for item in value:
-                args.append(str(item))
-        elif value is not None:
-            args.append(f'--{param_name}')
-            args.append(str(value))
+                args.append(str(value))
+
+    # Add positional arguments at the end
+    args.extend(positional_args)
 
     # Execute the command
     try:

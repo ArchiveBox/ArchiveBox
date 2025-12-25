@@ -91,31 +91,43 @@ def get_detected_binaries() -> Dict[str, Dict[str, Any]]:
 
 def get_filesystem_plugins() -> Dict[str, Dict[str, Any]]:
     """Discover plugins from filesystem directories."""
+    import json
     from archivebox.hooks import BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR
-    
+
     plugins = {}
-    
+
     for base_dir, source in [(BUILTIN_PLUGINS_DIR, 'builtin'), (USER_PLUGINS_DIR, 'user')]:
         if not base_dir.exists():
             continue
-        
+
         for plugin_dir in base_dir.iterdir():
             if plugin_dir.is_dir() and not plugin_dir.name.startswith('_'):
                 plugin_id = f'{source}.{plugin_dir.name}'
-                
+
                 # Find hook scripts
                 hooks = []
                 for ext in ('sh', 'py', 'js'):
                     hooks.extend(plugin_dir.glob(f'on_*__*.{ext}'))
-                
+
+                # Load config.json if it exists
+                config_file = plugin_dir / 'config.json'
+                config_data = None
+                if config_file.exists():
+                    try:
+                        with open(config_file, 'r') as f:
+                            config_data = json.load(f)
+                    except (json.JSONDecodeError, IOError):
+                        config_data = None
+
                 plugins[plugin_id] = {
                     'id': plugin_id,
                     'name': plugin_dir.name,
                     'path': str(plugin_dir),
                     'source': source,
                     'hooks': [str(h.name) for h in hooks],
+                    'config': config_data,
                 }
-    
+
     return plugins
 
 
@@ -242,6 +254,7 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
         "Source": [],
         "Path": [],
         "Hooks": [],
+        "Config": [],
     }
 
     plugins = get_filesystem_plugins()
@@ -252,12 +265,21 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
         rows['Path'].append(format_html('<code>{}</code>', plugin['path']))
         rows['Hooks'].append(', '.join(plugin['hooks']) or '(none)')
 
+        # Show config status
+        if plugin.get('config'):
+            config_properties = plugin['config'].get('properties', {})
+            config_count = len(config_properties)
+            rows['Config'].append(f'✅ {config_count} properties' if config_count > 0 else '✅ present')
+        else:
+            rows['Config'].append('❌ none')
+
     if not plugins:
         # Show a helpful message when no plugins found
         rows['Name'].append('(no plugins found)')
         rows['Source'].append('-')
         rows['Path'].append(mark_safe('<code>archivebox/plugins/</code> or <code>data/plugins/</code>'))
         rows['Hooks'].append('-')
+        rows['Config'].append('-')
 
     return TableContext(
         title="Installed plugins",
@@ -266,11 +288,12 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
 @render_with_item_view
 def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
+    import json
 
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
     plugins = get_filesystem_plugins()
-    
+
     plugin = plugins.get(key)
     if not plugin:
         return ItemContext(
@@ -279,6 +302,33 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
             data=[],
         )
 
+    # Base fields that all plugins have
+    fields = {
+        "id": plugin['id'],
+        "name": plugin['name'],
+        "source": plugin['source'],
+        "path": plugin['path'],
+        "hooks": plugin['hooks'],
+    }
+
+    # Add config.json data if available
+    if plugin.get('config'):
+        config_json = json.dumps(plugin['config'], indent=2)
+        fields["config.json"] = mark_safe(f'<pre style="max-height: 600px; overflow-y: auto; background: #f5f5f5; padding: 10px; border-radius: 4px;"><code>{config_json}</code></pre>')
+
+        # Also extract and display individual config properties for easier viewing
+        if 'properties' in plugin['config']:
+            config_properties = plugin['config']['properties']
+            properties_summary = []
+            for prop_name, prop_info in config_properties.items():
+                prop_type = prop_info.get('type', 'unknown')
+                prop_default = prop_info.get('default', 'N/A')
+                prop_desc = prop_info.get('description', '')
+                properties_summary.append(f"• {prop_name} ({prop_type}): {prop_desc}")
+
+            if properties_summary:
+                fields["Config Properties"] = mark_safe('<br/>'.join(properties_summary))
+
     return ItemContext(
         slug=key,
         title=plugin['name'],
@@ -286,13 +336,7 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
             {
                 "name": plugin['name'],
                 "description": plugin['path'],
-                "fields": {
-                    "id": plugin['id'],
-                    "name": plugin['name'],
-                    "source": plugin['source'],
-                    "path": plugin['path'],
-                    "hooks": plugin['hooks'],
-                },
+                "fields": fields,
                 "help_texts": {},
             },
         ],

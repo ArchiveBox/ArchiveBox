@@ -1,36 +1,30 @@
 #!/usr/bin/env node
 /**
- * Create a Chrome tab for this snapshot in the shared crawl Chrome session.
+ * Launch a shared Chrome browser session for the entire crawl.
  *
- * If a crawl-level Chrome session exists (from on_Crawl__10_chrome_session.js),
- * this connects to it and creates a new tab. Otherwise, falls back to launching
- * its own Chrome instance.
+ * This runs once per crawl and keeps Chrome alive for all snapshots to share.
+ * Each snapshot creates its own tab via on_Snapshot__20_chrome_session.js.
  *
- * Usage: on_Snapshot__20_chrome_session.js --url=<url> --snapshot-id=<uuid> --crawl-id=<uuid>
+ * Usage: on_Crawl__10_chrome_session.js --crawl-id=<uuid> --source-url=<url>
  * Output: Creates chrome_session/ with:
- *   - cdp_url.txt: WebSocket URL for CDP connection (copied or new)
- *   - pid.txt: Chrome process ID (from crawl or new)
- *   - page_id.txt: Target ID of this snapshot's tab
- *   - url.txt: The URL to be navigated to
+ *   - cdp_url.txt: WebSocket URL for CDP connection
+ *   - pid.txt: Chrome process ID (for cleanup)
  *
  * Environment variables:
- *     DATA_DIR: Data directory (to find crawl's Chrome session)
- *     CHROME_BINARY: Path to Chrome/Chromium binary (for fallback)
+ *     CHROME_BINARY: Path to Chrome/Chromium binary
  *     CHROME_RESOLUTION: Page resolution (default: 1440,2000)
- *     CHROME_USER_AGENT: User agent string (optional)
- *     CHROME_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: true)
  *     CHROME_HEADLESS: Run in headless mode (default: true)
+ *     CHROME_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: true)
  */
 
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
-const puppeteer = require('puppeteer-core');
 
 // Extractor metadata
 const EXTRACTOR_NAME = 'chrome_session';
-const OUTPUT_DIR = '.';  // Hook already runs in the output directory
+const OUTPUT_DIR = 'chrome_session';
 
 // Parse command line arguments
 function parseArgs() {
@@ -56,7 +50,7 @@ function getEnvBool(name, defaultValue = false) {
     return defaultValue;
 }
 
-// Find Chrome binary (for fallback)
+// Find Chrome binary
 function findChrome() {
     const chromeBinary = getEnv('CHROME_BINARY');
     if (chromeBinary && fs.existsSync(chromeBinary)) {
@@ -64,10 +58,12 @@ function findChrome() {
     }
 
     const candidates = [
+        // Linux
         '/usr/bin/google-chrome',
         '/usr/bin/google-chrome-stable',
         '/usr/bin/chromium',
         '/usr/bin/chromium-browser',
+        // macOS
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
         '/Applications/Chromium.app/Contents/MacOS/Chromium',
     ];
@@ -138,91 +134,57 @@ function waitForDebugPort(port, timeout = 30000) {
     });
 }
 
-// Try to find the crawl's Chrome session
-function findCrawlChromeSession(crawlId) {
-    if (!crawlId) return null;
-
-    const dataDir = getEnv('DATA_DIR', '.');
-    const crawlChromeDir = path.join(dataDir, 'tmp', `crawl_${crawlId}`, 'chrome_session');
-
-    const cdpFile = path.join(crawlChromeDir, 'cdp_url.txt');
-    const pidFile = path.join(crawlChromeDir, 'pid.txt');
-
-    if (fs.existsSync(cdpFile) && fs.existsSync(pidFile)) {
-        try {
-            const cdpUrl = fs.readFileSync(cdpFile, 'utf-8').trim();
-            const pid = parseInt(fs.readFileSync(pidFile, 'utf-8').trim(), 10);
-
-            // Verify the process is still running
-            try {
-                process.kill(pid, 0);  // Signal 0 = check if process exists
-                return { cdpUrl, pid };
-            } catch (e) {
-                // Process not running
-                return null;
-            }
-        } catch (e) {
-            return null;
-        }
-    }
-
-    return null;
-}
-
-// Create a new tab in an existing Chrome session
-async function createTabInExistingChrome(cdpUrl, url, pid) {
+async function launchChrome(binary) {
     const resolution = getEnv('CHROME_RESOLUTION') || getEnv('RESOLUTION', '1440,2000');
-    const userAgent = getEnv('CHROME_USER_AGENT') || getEnv('USER_AGENT', '');
-    const { width, height } = parseResolution(resolution);
-
-    console.log(`[*] Connecting to existing Chrome session: ${cdpUrl}`);
-
-    // Connect Puppeteer to the running Chrome
-    const browser = await puppeteer.connect({
-        browserWSEndpoint: cdpUrl,
-        defaultViewport: { width, height },
-    });
-
-    // Create a new tab for this snapshot
-    const page = await browser.newPage();
-
-    // Set viewport
-    await page.setViewport({ width, height });
-
-    // Set user agent if specified
-    if (userAgent) {
-        await page.setUserAgent(userAgent);
-    }
-
-    // Get the page target ID
-    const target = page.target();
-    const targetId = target._targetId;
-
-    // Write session info
-    fs.writeFileSync(path.join(OUTPUT_DIR, 'cdp_url.txt'), cdpUrl);
-    fs.writeFileSync(path.join(OUTPUT_DIR, 'pid.txt'), String(pid));
-    fs.writeFileSync(path.join(OUTPUT_DIR, 'page_id.txt'), targetId);
-    fs.writeFileSync(path.join(OUTPUT_DIR, 'url.txt'), url);
-    fs.writeFileSync(path.join(OUTPUT_DIR, 'shared_session.txt'), 'true');
-
-    // Disconnect Puppeteer (Chrome and tab stay alive)
-    browser.disconnect();
-
-    return { success: true, output: OUTPUT_DIR, cdpUrl, targetId, pid, shared: true };
-}
-
-// Fallback: Launch a new Chrome instance for this snapshot
-async function launchNewChrome(url, binary) {
-    const resolution = getEnv('CHROME_RESOLUTION') || getEnv('RESOLUTION', '1440,2000');
-    const userAgent = getEnv('CHROME_USER_AGENT') || getEnv('USER_AGENT', '');
     const checkSsl = getEnvBool('CHROME_CHECK_SSL_VALIDITY', getEnvBool('CHECK_SSL_VALIDITY', true));
     const headless = getEnvBool('CHROME_HEADLESS', true);
 
     const { width, height } = parseResolution(resolution);
 
+    // Create output directory
+    if (!fs.existsSync(OUTPUT_DIR)) {
+        fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+    }
+
     // Find a free port for Chrome DevTools
     const debugPort = await findFreePort();
-    console.log(`[*] Launching new Chrome on port: ${debugPort}`);
+    console.log(`[*] Using debug port: ${debugPort}`);
+
+    // Load any installed extensions
+    const extensionUtils = require('../chrome_extensions/chrome_extension_utils.js');
+    const extensionsDir = getEnv('CHROME_EXTENSIONS_DIR') ||
+        path.join(getEnv('DATA_DIR', '.'), 'personas', getEnv('ACTIVE_PERSONA', 'Default'), 'chrome_extensions');
+
+    const installedExtensions = [];
+    if (fs.existsSync(extensionsDir)) {
+        const files = fs.readdirSync(extensionsDir);
+        for (const file of files) {
+            if (file.endsWith('.extension.json')) {
+                try {
+                    const extPath = path.join(extensionsDir, file);
+                    const extData = JSON.parse(fs.readFileSync(extPath, 'utf-8'));
+                    if (extData.unpacked_path && fs.existsSync(extData.unpacked_path)) {
+                        installedExtensions.push(extData);
+                        console.log(`[*] Loading extension: ${extData.name || file}`);
+                    }
+                } catch (e) {
+                    // Skip invalid cache files
+                    console.warn(`[!] Skipping invalid extension cache: ${file}`);
+                }
+            }
+        }
+    }
+
+    // Get extension launch arguments
+    const extensionArgs = extensionUtils.getExtensionLaunchArgs(installedExtensions);
+    if (extensionArgs.length > 0) {
+        console.log(`[+] Loaded ${installedExtensions.length} extension(s)`);
+        // Write extensions metadata for config hooks to use
+        fs.writeFileSync(
+            path.join(OUTPUT_DIR, 'extensions.json'),
+            JSON.stringify(installedExtensions, null, 2)
+        );
+    }
 
     // Build Chrome arguments
     const chromeArgs = [
@@ -251,63 +213,38 @@ async function launchNewChrome(url, binary) {
         '--font-render-hinting=none',
         '--force-color-profile=srgb',
         `--window-size=${width},${height}`,
+        ...extensionArgs,  // Load extensions
         ...(headless ? ['--headless=new'] : []),
         ...(checkSsl ? [] : ['--ignore-certificate-errors']),
-        'about:blank',
+        'about:blank',  // Start with blank page
     ];
 
-    // Launch Chrome as a detached process (since no crawl-level Chrome exists)
+    // Launch Chrome as a child process (NOT detached - stays with crawl process)
+    // Using stdio: 'ignore' so we don't block on output but Chrome stays as our child
     const chromeProcess = spawn(binary, chromeArgs, {
-        detached: true,
         stdio: ['ignore', 'ignore', 'ignore'],
     });
-    chromeProcess.unref();
 
     const chromePid = chromeProcess.pid;
     console.log(`[*] Launched Chrome (PID: ${chromePid}), waiting for debug port...`);
 
     // Write PID immediately for cleanup
     fs.writeFileSync(path.join(OUTPUT_DIR, 'pid.txt'), String(chromePid));
+    fs.writeFileSync(path.join(OUTPUT_DIR, 'port.txt'), String(debugPort));
 
     try {
         // Wait for Chrome to be ready
         const versionInfo = await waitForDebugPort(debugPort, 30000);
         console.log(`[+] Chrome ready: ${versionInfo.Browser}`);
 
+        // Build WebSocket URL
         const wsUrl = versionInfo.webSocketDebuggerUrl;
         fs.writeFileSync(path.join(OUTPUT_DIR, 'cdp_url.txt'), wsUrl);
 
-        // Connect Puppeteer to get page info
-        const browser = await puppeteer.connect({
-            browserWSEndpoint: wsUrl,
-            defaultViewport: { width, height },
-        });
-
-        let pages = await browser.pages();
-        let page = pages[0];
-
-        if (!page) {
-            page = await browser.newPage();
-        }
-
-        await page.setViewport({ width, height });
-
-        if (userAgent) {
-            await page.setUserAgent(userAgent);
-        }
-
-        const target = page.target();
-        const targetId = target._targetId;
-
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'page_id.txt'), targetId);
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'url.txt'), url);
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'shared_session.txt'), 'false');
-
-        browser.disconnect();
-
-        return { success: true, output: OUTPUT_DIR, cdpUrl: wsUrl, targetId, pid: chromePid, shared: false };
+        return { success: true, cdpUrl: wsUrl, pid: chromePid, port: debugPort };
 
     } catch (e) {
+        // Kill Chrome if setup failed
         try {
             process.kill(chromePid, 'SIGTERM');
         } catch (killErr) {
@@ -319,14 +256,7 @@ async function launchNewChrome(url, binary) {
 
 async function main() {
     const args = parseArgs();
-    const url = args.url;
-    const snapshotId = args.snapshot_id;
     const crawlId = args.crawl_id;
-
-    if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__20_chrome_session.js --url=<url> --snapshot-id=<uuid> [--crawl-id=<uuid>]');
-        process.exit(1);
-    }
 
     const startTs = new Date();
     let status = 'failed';
@@ -352,24 +282,14 @@ async function main() {
             version = '';
         }
 
-        // Try to use existing crawl Chrome session
-        const crawlSession = findCrawlChromeSession(crawlId);
-        let result;
-
-        if (crawlSession) {
-            console.log(`[*] Found existing Chrome session from crawl ${crawlId}`);
-            result = await createTabInExistingChrome(crawlSession.cdpUrl, url, crawlSession.pid);
-        } else {
-            console.log(`[*] No crawl Chrome session found, launching new Chrome`);
-            result = await launchNewChrome(url, binary);
-        }
+        const result = await launchChrome(binary);
 
         if (result.success) {
             status = 'succeeded';
-            output = result.output;
-            console.log(`[+] Chrome session ready (shared: ${result.shared})`);
+            output = OUTPUT_DIR;
+            console.log(`[+] Chrome session started for crawl ${crawlId}`);
             console.log(`[+] CDP URL: ${result.cdpUrl}`);
-            console.log(`[+] Page target ID: ${result.targetId}`);
+            console.log(`[+] PID: ${result.pid}`);
         } else {
             status = 'failed';
             error = result.error;
@@ -401,9 +321,7 @@ async function main() {
     // Print JSON result
     const resultJson = {
         extractor: EXTRACTOR_NAME,
-        url,
-        snapshot_id: snapshotId,
-        crawl_id: crawlId || null,
+        crawl_id: crawlId,
         status,
         start_ts: startTs.toISOString(),
         end_ts: endTs.toISOString(),
@@ -414,6 +332,8 @@ async function main() {
     };
     console.log(`RESULT_JSON=${JSON.stringify(resultJson)}`);
 
+    // Exit with success - Chrome stays running as our child process
+    // It will be cleaned up when the crawl process terminates
     process.exit(status === 'succeeded' ? 0 : 1);
 }
 

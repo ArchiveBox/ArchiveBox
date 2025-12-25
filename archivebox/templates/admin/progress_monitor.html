@@ -162,9 +162,14 @@
         padding: 10px 14px;
         background: rgba(0,0,0,0.2);
         cursor: pointer;
+        text-decoration: none;
+        color: inherit;
     }
     #progress-monitor .crawl-header:hover {
         background: rgba(88, 166, 255, 0.1);
+    }
+    #progress-monitor a.crawl-header:visited {
+        color: inherit;
     }
     #progress-monitor .crawl-icon {
         font-size: 16px;
@@ -252,9 +257,14 @@
         gap: 10px;
         padding: 8px 12px;
         cursor: pointer;
+        text-decoration: none;
+        color: inherit;
     }
     #progress-monitor .snapshot-header:hover {
         background: rgba(88, 166, 255, 0.05);
+    }
+    #progress-monitor a.snapshot-header:visited {
+        color: inherit;
     }
     #progress-monitor .snapshot-icon {
         font-size: 14px;
@@ -391,15 +401,6 @@
         color: #f85149;
     }
 
-    /* Expand/Collapse Icons */
-    #progress-monitor .expand-icon {
-        color: #8b949e;
-        font-size: 10px;
-        transition: transform 0.2s;
-    }
-    #progress-monitor .expand-icon.expanded {
-        transform: rotate(90deg);
-    }
 </style>
 
 <div id="progress-monitor">
@@ -449,8 +450,6 @@
 
     let pollInterval = null;
     let isCollapsed = localStorage.getItem('progress-monitor-collapsed') === 'true';
-    let expandedCrawls = new Set(JSON.parse(localStorage.getItem('progress-monitor-expanded-crawls') || '[]'));
-    let expandedSnapshots = new Set(JSON.parse(localStorage.getItem('progress-monitor-expanded-snapshots') || '[]'));
 
     // Baselines for resettable counters
     let succeededBaseline = parseInt(localStorage.getItem('progress-succeeded-baseline') || '0');
@@ -496,9 +495,8 @@
     }
 
     function renderSnapshot(snapshot, crawlId) {
-        const snapshotKey = `${crawlId}-${snapshot.id}`;
-        const isExpanded = expandedSnapshots.has(snapshotKey);
         const statusIcon = snapshot.status === 'started' ? '&#8635;' : '&#128196;';
+        const adminUrl = `/admin/core/snapshot/${snapshot.id}/change/`;
 
         let extractorHtml = '';
         if (snapshot.all_extractors && snapshot.all_extractors.length > 0) {
@@ -507,16 +505,15 @@
                 a.extractor.localeCompare(b.extractor)
             );
             extractorHtml = `
-                <div class="extractor-list" style="${isExpanded ? '' : 'display:none'}">
+                <div class="extractor-list">
                     ${sortedExtractors.map(e => renderExtractor(e)).join('')}
                 </div>
             `;
         }
 
         return `
-            <div class="snapshot-item" data-snapshot-key="${snapshotKey}">
-                <div class="snapshot-header" onclick="window.toggleSnapshot('${snapshotKey}')">
-                    <span class="expand-icon ${isExpanded ? 'expanded' : ''}">${snapshot.all_extractors?.length ? '&#9654;' : ''}</span>
+            <div class="snapshot-item">
+                <a class="snapshot-header" href="${adminUrl}">
                     <span class="snapshot-icon">${statusIcon}</span>
                     <div class="snapshot-info">
                         <div class="snapshot-url">${formatUrl(snapshot.url)}</div>
@@ -526,7 +523,7 @@
                         </div>
                     </div>
                     <span class="status-badge ${snapshot.status}">${snapshot.status}</span>
-                </div>
+                </a>
                 <div class="snapshot-progress">
                     <div class="progress-bar-container">
                         <div class="progress-bar snapshot ${snapshot.status === 'started' && snapshot.progress === 0 ? 'indeterminate' : ''}"
@@ -539,8 +536,8 @@
     }
 
     function renderCrawl(crawl) {
-        const isExpanded = expandedCrawls.has(crawl.id);
         const statusIcon = crawl.status === 'started' ? '&#8635;' : '&#128269;';
+        const adminUrl = `/admin/crawls/crawl/${crawl.id}/change/`;
 
         let snapshotsHtml = '';
         if (crawl.active_snapshots && crawl.active_snapshots.length > 0) {
@@ -583,8 +580,7 @@
 
         return `
             <div class="crawl-item" data-crawl-id="${crawl.id}">
-                <div class="crawl-header" onclick="window.toggleCrawl('${crawl.id}')">
-                    <span class="expand-icon ${isExpanded ? 'expanded' : ''}">${crawl.active_snapshots?.length ? '&#9654;' : ''}</span>
+                <a class="crawl-header" href="${adminUrl}">
                     <span class="crawl-icon">${statusIcon}</span>
                     <div class="crawl-info">
                         <div class="crawl-label">${crawl.label}</div>
@@ -596,7 +592,7 @@
                         <span style="color:#8b949e">${crawl.pending_snapshots} pending</span>
                     </div>
                     <span class="status-badge ${crawl.status}">${crawl.status}</span>
-                </div>
+                </a>
                 <div class="crawl-progress">
                     <div class="progress-bar-container">
                         <div class="progress-bar crawl ${crawl.status === 'started' && crawl.progress === 0 ? 'indeterminate' : ''}"
@@ -604,7 +600,7 @@
                     </div>
                 </div>
                 ${warningHtml}
-                <div class="crawl-body" style="${isExpanded ? '' : 'display:none'}">
+                <div class="crawl-body">
                     <div class="snapshot-list">
                         ${snapshotsHtml}
                     </div>
@@ -613,41 +609,6 @@
         `;
     }
 
-    window.toggleCrawl = function(crawlId) {
-        const item = document.querySelector(`[data-crawl-id="${crawlId}"]`);
-        const body = item.querySelector('.crawl-body');
-        const icon = item.querySelector('.expand-icon');
-
-        if (expandedCrawls.has(crawlId)) {
-            expandedCrawls.delete(crawlId);
-            body.style.display = 'none';
-            icon.classList.remove('expanded');
-        } else {
-            expandedCrawls.add(crawlId);
-            body.style.display = '';
-            icon.classList.add('expanded');
-        }
-        localStorage.setItem('progress-monitor-expanded-crawls', JSON.stringify([...expandedCrawls]));
-    };
-
-    window.toggleSnapshot = function(snapshotKey) {
-        const item = document.querySelector(`[data-snapshot-key="${snapshotKey}"]`);
-        const extractorList = item.querySelector('.extractor-list');
-        const icon = item.querySelector('.expand-icon');
-
-        if (!extractorList) return;
-
-        if (expandedSnapshots.has(snapshotKey)) {
-            expandedSnapshots.delete(snapshotKey);
-            extractorList.style.display = 'none';
-            icon.classList.remove('expanded');
-        } else {
-            expandedSnapshots.add(snapshotKey);
-            extractorList.style.display = '';
-            icon.classList.add('expanded');
-        }
-        localStorage.setItem('progress-monitor-expanded-snapshots', JSON.stringify([...expandedSnapshots]));
-    };
 
     function updateProgress(data) {
         // Calculate if there's activity

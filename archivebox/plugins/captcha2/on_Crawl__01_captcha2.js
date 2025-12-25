@@ -1,20 +1,19 @@
 #!/usr/bin/env node
 /**
- * I Still Don't Care About Cookies Extension Plugin
+ * 2Captcha Extension Plugin
  *
- * Installs and configures the "I still don't care about cookies" Chrome extension
- * for automatic cookie consent banner dismissal during page archiving.
+ * Installs and configures the 2captcha Chrome extension for automatic
+ * CAPTCHA solving during page archiving.
  *
- * Extension: https://chromewebstore.google.com/detail/edibdbjcniadpccecjdfdjjppcpchdlm
+ * Extension: https://chromewebstore.google.com/detail/ifibfemgeogfhoebkmokieepdoobkbpo
+ * Documentation: https://2captcha.com/blog/how-to-use-2captcha-solver-extension-in-puppeteer
  *
- * Priority: 02 (early) - Must install before Chrome session starts
- * Hook: on_Snapshot
+ * Priority: 01 (early) - Must install before Chrome session starts at Crawl level
+ * Hook: on_Crawl (runs once per crawl, not per snapshot)
  *
- * This extension automatically:
- * - Dismisses cookie consent popups
- * - Removes cookie banners
- * - Accepts necessary cookies to proceed with browsing
- * - Works on thousands of websites out of the box
+ * Requirements:
+ * - API_KEY_2CAPTCHA environment variable must be set
+ * - Extension will automatically solve reCAPTCHA, hCaptcha, Cloudflare Turnstile, etc.
  */
 
 const path = require('path');
@@ -25,8 +24,8 @@ const extensionUtils = require('../chrome_extensions/chrome_extension_utils.js')
 
 // Extension metadata
 const EXTENSION = {
-    webstore_id: 'edibdbjcniadpccecjdfdjjppcpchdlm',
-    name: 'istilldontcareaboutcookies',
+    webstore_id: 'ifibfemgeogfhoebkmokieepdoobkbpo',
+    name: 'captcha2',
 };
 
 // Get extensions directory from environment or use default
@@ -34,28 +33,35 @@ const EXTENSIONS_DIR = process.env.CHROME_EXTENSIONS_DIR ||
     path.join(process.env.DATA_DIR || './data', 'personas', process.env.ACTIVE_PERSONA || 'Default', 'chrome_extensions');
 
 /**
- * Install the I Still Don't Care About Cookies extension
+ * Install and configure the 2captcha extension
  */
-async function installCookiesExtension() {
-    console.log('[*] Installing I Still Don\'t Care About Cookies extension...');
+async function installCaptchaExtension() {
+    console.log('[*] Installing 2captcha extension...');
 
     // Install the extension
     const extension = await extensionUtils.loadOrInstallExtension(EXTENSION, EXTENSIONS_DIR);
 
     if (!extension) {
-        console.error('[❌] Failed to install I Still Don\'t Care About Cookies extension');
+        console.error('[❌] Failed to install 2captcha extension');
         return null;
     }
 
-    console.log('[+] I Still Don\'t Care About Cookies extension installed');
-    console.log('[+] Cookie banners will be automatically dismissed during archiving');
+    // Check if API key is configured
+    const apiKey = process.env.API_KEY_2CAPTCHA;
+    if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
+        console.warn('[⚠️] 2captcha extension installed but API_KEY_2CAPTCHA not configured');
+        console.warn('[⚠️] Set API_KEY_2CAPTCHA environment variable to enable automatic CAPTCHA solving');
+    } else {
+        console.log('[+] 2captcha extension installed and API key configured');
+    }
 
     return extension;
 }
 
 /**
- * Note: This extension works out of the box with no configuration needed.
- * It automatically detects and dismisses cookie banners on page load.
+ * Note: 2captcha configuration is now handled by chrome_session plugin
+ * during first-time browser setup to avoid repeated configuration on every snapshot.
+ * The API key is injected via chrome.storage API once per browser session.
  */
 
 /**
@@ -63,7 +69,7 @@ async function installCookiesExtension() {
  */
 async function main() {
     // Check if extension is already cached
-    const cacheFile = path.join(EXTENSIONS_DIR, 'istilldontcareaboutcookies.extension.json');
+    const cacheFile = path.join(EXTENSIONS_DIR, 'captcha2.extension.json');
 
     if (fs.existsSync(cacheFile)) {
         try {
@@ -71,7 +77,7 @@ async function main() {
             const manifestPath = path.join(cached.unpacked_path, 'manifest.json');
 
             if (fs.existsSync(manifestPath)) {
-                console.log('[*] I Still Don\'t Care About Cookies extension already installed (using cache)');
+                console.log('[*] 2captcha extension already installed (using cache)');
                 return cached;
             }
         } catch (e) {
@@ -81,7 +87,7 @@ async function main() {
     }
 
     // Install extension
-    const extension = await installCookiesExtension();
+    const extension = await installCaptchaExtension();
 
     // Export extension metadata for chrome_session to load
     if (extension) {
@@ -100,16 +106,16 @@ async function main() {
 // Export functions for use by other plugins
 module.exports = {
     EXTENSION,
-    installCookiesExtension,
+    installCaptchaExtension,
 };
 
 // Run if executed directly
 if (require.main === module) {
     main().then(() => {
-        console.log('[✓] I Still Don\'t Care About Cookies extension setup complete');
+        console.log('[✓] 2captcha extension setup complete');
         process.exit(0);
     }).catch(err => {
-        console.error('[❌] I Still Don\'t Care About Cookies extension setup failed:', err);
+        console.error('[❌] 2captcha extension setup failed:', err);
         process.exit(1);
     });
 }
