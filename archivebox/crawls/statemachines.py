@@ -42,11 +42,12 @@ class CrawlMachine(StateMachine, strict_states=True):
         return self.__repr__()
         
     def can_start(self) -> bool:
-        if not self.crawl.seed:
-            print(f'[red]⚠️ Crawl {self.crawl.id} cannot start: no seed[/red]')
+        if not self.crawl.urls:
+            print(f'[red]⚠️ Crawl {self.crawl.id} cannot start: no URLs[/red]')
             return False
-        if not self.crawl.seed.uri:
-            print(f'[red]⚠️ Crawl {self.crawl.id} cannot start: seed has no URI[/red]')
+        urls_list = self.crawl.get_urls_list()
+        if not urls_list:
+            print(f'[red]⚠️ Crawl {self.crawl.id} cannot start: no valid URLs in urls field[/red]')
             return False
         return True
         
@@ -121,13 +122,14 @@ class CrawlMachine(StateMachine, strict_states=True):
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Run all on_Crawl hooks
+        first_url = self.crawl.get_urls_list()[0] if self.crawl.get_urls_list() else ''
         results = run_hooks(
             event_name='Crawl',
             output_dir=output_dir,
             timeout=60,
-            config_objects=[self.crawl, self.crawl.seed] if self.crawl.seed else [self.crawl],
+            config_objects=[self.crawl],
             crawl_id=str(self.crawl.id),
-            seed_uri=self.crawl.seed.uri if self.crawl.seed else '',
+            seed_uri=first_url,
         )
 
         # Process hook results - parse JSONL output and create DB objects

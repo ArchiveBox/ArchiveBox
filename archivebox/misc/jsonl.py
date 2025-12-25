@@ -27,10 +27,9 @@ TYPE_SNAPSHOT = 'Snapshot'
 TYPE_ARCHIVERESULT = 'ArchiveResult'
 TYPE_TAG = 'Tag'
 TYPE_CRAWL = 'Crawl'
-TYPE_SEED = 'Seed'
 TYPE_INSTALLEDBINARY = 'InstalledBinary'
 
-VALID_TYPES = {TYPE_SNAPSHOT, TYPE_ARCHIVERESULT, TYPE_TAG, TYPE_CRAWL, TYPE_SEED, TYPE_INSTALLEDBINARY}
+VALID_TYPES = {TYPE_SNAPSHOT, TYPE_ARCHIVERESULT, TYPE_TAG, TYPE_CRAWL, TYPE_INSTALLEDBINARY}
 
 
 def parse_line(line: str) -> Optional[Dict[str, Any]]:
@@ -206,7 +205,8 @@ def crawl_to_jsonl(crawl) -> Dict[str, Any]:
     return {
         'type': TYPE_CRAWL,
         'id': str(crawl.id),
-        'seed_id': str(crawl.seed_id),
+        'urls': crawl.urls,
+        'extractor': crawl.extractor,
         'status': crawl.status,
         'max_depth': crawl.max_depth,
         'created_at': crawl.created_at.isoformat() if crawl.created_at else None,

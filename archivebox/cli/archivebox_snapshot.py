@@ -92,7 +92,7 @@ def create_snapshots(
     )
     from archivebox.base_models.models import get_or_create_system_user_pk
     from core.models import Snapshot
-    from crawls.models import Seed, Crawl
+    from crawls.models import Crawl
     from archivebox.config import CONSTANTS
 
     created_by_id = created_by_id or get_or_create_system_user_pk()
@@ -108,17 +108,17 @@ def create_snapshots(
     # If depth > 0, we need a Crawl to manage recursive discovery
     crawl = None
     if depth > 0:
-        # Create a seed for this batch
+        # Create a crawl for this batch
         sources_file = CONSTANTS.SOURCES_DIR / f'{timezone.now().strftime("%Y-%m-%d__%H-%M-%S")}__snapshot.txt'
         sources_file.parent.mkdir(parents=True, exist_ok=True)
         sources_file.write_text('\n'.join(r.get('url', '') for r in records if r.get('url')))
 
-        seed = Seed.from_file(
+        crawl = Crawl.from_file(
             sources_file,
+            max_depth=depth,
             label=f'snapshot --depth={depth}',
             created_by=created_by_id,
         )
-        crawl = Crawl.from_seed(seed, max_depth=depth)
 
     # Process each record
     created_snapshots = []

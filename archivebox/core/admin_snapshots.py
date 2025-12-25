@@ -33,15 +33,18 @@ GLOBAL_CONTEXT = {}
 
 
 class SnapshotActionForm(ActionForm):
-    tags = forms.ModelMultipleChoiceField(
-        label='Edit tags',
-        queryset=Tag.objects.all(),
-        required=False,
-        widget=FilteredSelectMultiple(
-            'core_tag__name',
-            False,
-        ),
-    )
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Define tags field in __init__ to avoid database access during app initialization
+        self.fields['tags'] = forms.ModelMultipleChoiceField(
+            label='Edit tags',
+            queryset=Tag.objects.all(),
+            required=False,
+            widget=FilteredSelectMultiple(
+                'core_tag__name',
+                False,
+            ),
+        )
 
     # TODO: allow selecting actions for specific extractors? is this useful?
     # extractor = forms.ChoiceField(
@@ -165,14 +168,69 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     def admin_actions(self, obj):
         return format_html(
-            # URL Hash: <code style="font-size: 10px; user-select: all">{}</code><br/>
             '''
-            <a class="btn" style="font-size: 18px; display: inline-block; border-radius: 10px; border: 3px solid #eee; padding: 4px 8px" href="/archive/{}">Summary page ➡️</a> &nbsp; &nbsp;
-            <a class="btn" style="font-size: 18px; display: inline-block; border-radius: 10px; border: 3px solid #eee; padding: 4px 8px" href="/archive/{}/index.html#all">Result files 📑</a> &nbsp; &nbsp;
-            <a class="btn" style="font-size: 18px; display: inline-block; border-radius: 10px; border: 3px solid #eee; padding: 4px 8px" href="/admin/core/snapshot/?id__exact={}">Admin actions ⚙️</a>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+                <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
+                   href="/archive/{}"
+                   onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';"
+                   onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
+                    📄 Summary Page
+                </a>
+                <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
+                   href="/archive/{}/index.html#all"
+                   onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';"
+                   onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
+                    📁 Result Files
+                </a>
+                <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
+                   href="{}"
+                   target="_blank"
+                   onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';"
+                   onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
+                    🔗 Original URL
+                </a>
+
+                <span style="border-left: 1px solid #e2e8f0; height: 24px; margin: 0 4px;"></span>
+
+                <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; color: #065f46; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
+                   href="/admin/core/snapshot/?id__exact={}"
+                   title="Get missing extractors"
+                   onmouseover="this.style.background='#d1fae5';"
+                   onmouseout="this.style.background='#ecfdf5';">
+                    ⬇️ Get Missing
+                </a>
+                <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1e40af; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
+                   href="/admin/core/snapshot/?id__exact={}"
+                   title="Create a fresh new snapshot of this URL"
+                   onmouseover="this.style.background='#dbeafe';"
+                   onmouseout="this.style.background='#eff6ff';">
+                    🆕 Archive Again
+                </a>
+                <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; color: #92400e; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
+                   href="/admin/core/snapshot/?id__exact={}"
+                   title="Re-run all extractors (overwrite existing)"
+                   onmouseover="this.style.background='#fef3c7';"
+                   onmouseout="this.style.background='#fffbeb';">
+                    🔄 Redo All
+                </a>
+                <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #991b1b; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
+                   href="/admin/core/snapshot/?id__exact={}"
+                   title="Permanently delete this snapshot"
+                   onmouseover="this.style.background='#fee2e2';"
+                   onmouseout="this.style.background='#fef2f2';">
+                    ☠️ Delete
+                </a>
+            </div>
+            <p style="margin-top: 12px; font-size: 12px; color: #64748b;">
+                <b>Tip:</b> Action buttons link to the list view with this snapshot pre-selected. Select it and use the action dropdown to execute.
+            </p>
             ''',
             obj.timestamp,
             obj.timestamp,
+            obj.url,
+            obj.pk,
+            obj.pk,
+            obj.pk,
             obj.pk,
         )
 

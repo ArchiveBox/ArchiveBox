@@ -21,6 +21,7 @@ class ArchiveBoxGroup(click.Group):
     meta_commands = {
         'help': 'archivebox.cli.archivebox_help.main',
         'version': 'archivebox.cli.archivebox_version.main',
+        'mcp': 'archivebox.cli.archivebox_mcp.main',
     }
     setup_commands = {
         'init': 'archivebox.cli.archivebox_init.main',

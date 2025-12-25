@@ -224,12 +224,6 @@ def get_data_locations():
             "is_valid": os.path.isfile(DATABASE_FILE) and os.access(DATABASE_FILE, os.R_OK) and os.access(DATABASE_FILE, os.W_OK),
             "is_mount": os.path.ismount(DATABASE_FILE.resolve()),
         },
-        "QUEUE_DATABASE": {
-            "path": CONSTANTS.QUEUE_DATABASE_FILE,
-            "enabled": True,
-            "is_valid": os.path.isfile(CONSTANTS.QUEUE_DATABASE_FILE) and os.access(CONSTANTS.QUEUE_DATABASE_FILE, os.R_OK) and os.access(CONSTANTS.QUEUE_DATABASE_FILE, os.W_OK),
-            "is_mount": os.path.ismount(CONSTANTS.QUEUE_DATABASE_FILE),
-        },
         "ARCHIVE_DIR": {
             "path": ARCHIVE_DIR.resolve(),
             "enabled": True,

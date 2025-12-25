@@ -56,6 +56,14 @@ def setup_django(check_db=False, in_memory_db=False) -> None:
             os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}" 2>/dev/null')
             os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}"/* 2>/dev/null')
 
+    # Suppress the "database access during app initialization" warning
+    # This warning can be triggered during django.setup() but is safe to ignore
+    # since we're doing intentional setup operations
+    import warnings
+    warnings.filterwarnings('ignore',
+        message='.*Accessing the database during app initialization.*',
+        category=RuntimeWarning)
+
     try:
         from django.core.management import call_command
 
@@ -87,7 +95,8 @@ def setup_django(check_db=False, in_memory_db=False) -> None:
                         style='bold red',
                     ))
                     STDERR.print()
-                    STDERR.print_exception(show_locals=False)
+                    import traceback
+                    traceback.print_exc()
                 return
 
         from django.conf import settings

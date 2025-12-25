@@ -552,21 +552,21 @@
         if (crawl.status === 'queued' && !crawl.can_start) {
             warningHtml = `
                 <div style="padding: 8px 14px; background: rgba(248, 81, 73, 0.1); border-top: 1px solid #f85149; color: #f85149; font-size: 11px;">
-                    ⚠️ Crawl cannot start: ${crawl.seed_uri ? 'unknown error' : 'no seed URI'}
+                    ⚠️ Crawl cannot start: ${crawl.urls_preview ? 'unknown error' : 'no URLs'}
                 </div>
             `;
         } else if (crawl.status === 'queued' && crawl.retry_at_future) {
             // Queued but retry_at is in future (was claimed by worker, will retry)
             warningHtml = `
                 <div style="padding: 8px 14px; background: rgba(88, 166, 255, 0.1); border-top: 1px solid #58a6ff; color: #58a6ff; font-size: 11px;">
-                    🔄 Retrying in ${crawl.seconds_until_retry}s...${crawl.seed_uri ? ` (${crawl.seed_uri})` : ''}
+                    🔄 Retrying in ${crawl.seconds_until_retry}s...${crawl.urls_preview ? ` (${crawl.urls_preview})` : ''}
                 </div>
             `;
         } else if (crawl.status === 'queued' && crawl.total_snapshots === 0) {
             // Queued and waiting to be picked up by worker
             warningHtml = `
                 <div style="padding: 8px 14px; background: rgba(210, 153, 34, 0.1); border-top: 1px solid #d29922; color: #d29922; font-size: 11px;">
-                    ⏳ Waiting for worker to pick up...${crawl.seed_uri ? ` (${crawl.seed_uri})` : ''}
+                    ⏳ Waiting for worker to pick up...${crawl.urls_preview ? ` (${crawl.urls_preview})` : ''}
                 </div>
             `;
         }
@@ -577,8 +577,8 @@
             metaText += ` | ${crawl.total_snapshots} snapshots`;
         } else if (crawl.urls_count > 0) {
             metaText += ` | ${crawl.urls_count} URLs`;
-        } else if (crawl.seed_uri) {
-            metaText += ` | ${crawl.seed_uri.substring(0, 40)}${crawl.seed_uri.length > 40 ? '...' : ''}`;
+        } else if (crawl.urls_preview) {
+            metaText += ` | ${crawl.urls_preview.substring(0, 40)}${crawl.urls_preview.length > 40 ? '...' : ''}`;
         }
 
         return `

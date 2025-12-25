@@ -76,7 +76,7 @@ def discover_outlinks(
     )
     from archivebox.base_models.models import get_or_create_system_user_pk
     from core.models import Snapshot, ArchiveResult
-    from crawls.models import Seed, Crawl
+    from crawls.models import Crawl
     from archivebox.config import CONSTANTS
     from workers.orchestrator import Orchestrator
 
@@ -117,12 +117,12 @@ def discover_outlinks(
         sources_file.parent.mkdir(parents=True, exist_ok=True)
         sources_file.write_text('\n'.join(r.get('url', '') for r in new_url_records if r.get('url')))
 
-        seed = Seed.from_file(
+        crawl = Crawl.from_file(
             sources_file,
+            max_depth=depth,
             label=f'crawl --depth={depth}',
             created_by=created_by_id,
         )
-        crawl = Crawl.from_seed(seed, max_depth=depth)
 
         # Create snapshots for new URLs
         for record in new_url_records:

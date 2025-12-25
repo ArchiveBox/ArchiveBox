@@ -603,21 +603,17 @@ def log_worker_event(
 
     # Build final message
     error_str = f' {type(error).__name__}: {error}' if error else ''
-    # Build colored message - worker_label needs to be inside color tags
-    # But first we need to format the color tags separately from the worker label
     from archivebox.misc.logging import CONSOLE
     from rich.text import Text
 
     # Create a Rich Text object for proper formatting
     text = Text()
-    text.append(indent)  # Indentation
-    # Append worker label and event with color
+    text.append(indent)
     text.append(f'{worker_label} {event}{error_str}', style=color)
-    # Append metadata without color (add separator if metadata exists)
     if metadata_str:
         text.append(f' | {metadata_str}')
 
-    CONSOLE.print(text)
+    CONSOLE.print(text, soft_wrap=True)
 
 
 @enforce_types

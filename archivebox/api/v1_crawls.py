@@ -10,51 +10,11 @@ from django.contrib.auth import get_user_model
 from ninja import Router, Schema
 
 from core.models import Snapshot
-from crawls.models import Seed, Crawl
+from crawls.models import Crawl
 
 from .auth import API_AUTH_METHODS
 
 router = Router(tags=['Crawl Models'], auth=API_AUTH_METHODS)
-
-
-class SeedSchema(Schema):
-    TYPE: str = 'crawls.models.Seed'
-
-    id: UUID
-    
-    modified_at: datetime
-    created_at: datetime
-    created_by_id: str
-    created_by_username: str
-    
-    uri: str
-    tags_str: str
-    config: dict
-    
-    @staticmethod
-    def resolve_created_by_id(obj):
-        return str(obj.created_by_id)
-    
-    @staticmethod
-    def resolve_created_by_username(obj):
-        User = get_user_model()
-        return User.objects.get(id=obj.created_by_id).username
-    
-@router.get("/seeds", response=List[SeedSchema], url_name="get_seeds")
-def get_seeds(request):
-    return Seed.objects.all().distinct()
-
-@router.get("/seed/{seed_id}", response=SeedSchema, url_name="get_seed")
-def get_seed(request, seed_id: str):
-    seed = None
-    request.with_snapshots = False
-    request.with_archiveresults = False
-    
-    try:
-        seed = Seed.objects.get(Q(id__icontains=seed_id))
-    except Exception:
-        pass
-    return seed
 
 
 class CrawlSchema(Schema):
@@ -66,24 +26,27 @@ class CrawlSchema(Schema):
     created_at: datetime
     created_by_id: str
     created_by_username: str
-    
+
     status: str
     retry_at: datetime | None
 
-    seed: SeedSchema
+    urls: str
+    extractor: str
     max_depth: int
-    
+    tags_str: str
+    config: dict
+
     # snapshots: List[SnapshotSchema]
 
     @staticmethod
     def resolve_created_by_id(obj):
         return str(obj.created_by_id)
-    
+
     @staticmethod
     def resolve_created_by_username(obj):
         User = get_user_model()
         return User.objects.get(id=obj.created_by_id).username
-    
+
     @staticmethod
     def resolve_snapshots(obj, context):
         if context['request'].with_snapshots:

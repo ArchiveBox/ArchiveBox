@@ -59,7 +59,7 @@ INSTALLED_APPS = [
     "config",  # ArchiveBox config settings (loaded as a plugin, don't need to add it here)
     "machine",  # handles collecting and storing information about the host machine, network interfaces, installed binaries, etc.
     "workers",  # handles starting and managing background workers and processes (orchestrators and actors)
-    "crawls",  # handles Seed, Crawl, and CrawlSchedule models and management
+    "crawls",  # handles Crawl and CrawlSchedule models and management
     "personas",  # handles Persona and session management
     "core",  # core django model with Snapshot, ArchiveResult, etc.
     "api",  # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
@@ -192,10 +192,6 @@ SQLITE_CONNECTION_OPTIONS = {
 DATABASES = {
     "default": {
         "NAME": DATABASE_NAME,
-        **SQLITE_CONNECTION_OPTIONS,
-    },
-    "queue": {
-        "NAME": CONSTANTS.QUEUE_DATABASE_FILE,
         **SQLITE_CONNECTION_OPTIONS,
     },
     # "filestore": {

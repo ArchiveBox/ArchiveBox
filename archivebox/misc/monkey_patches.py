@@ -1,7 +1,5 @@
 __package__ = 'archivebox'
 
-import sys
-import shutil
 import django
 import pydantic
 
@@ -20,14 +18,10 @@ timezone.utc = datetime.timezone.utc
 # DjangoSignalWebhooksConfig.verbose_name = 'API'
 
 
-# Install rich for pretty tracebacks in console logs
-# https://rich.readthedocs.io/en/stable/traceback.html#traceback-handler
-
-from rich.traceback import install      # noqa
-
-TERM_WIDTH = (shutil.get_terminal_size((200, 10)).columns - 1) if sys.stdout.isatty() else 200
-# os.environ.setdefault('COLUMNS', str(TERM_WIDTH))
-install(show_locals=True, word_wrap=False, locals_max_length=10, locals_hide_dunder=True, suppress=[django, pydantic], extra_lines=2, width=TERM_WIDTH)
+# Rich traceback handler disabled - it adds frames/boxes that wrap weirdly in log files
+# Standard Python tracebacks are used instead (full width, no frames)
+# from rich.traceback import install
+# install(show_locals=True, word_wrap=False, ...)
 
 
 # Hide site-packages/sonic/client.py:115: SyntaxWarning

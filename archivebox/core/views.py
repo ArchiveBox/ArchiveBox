@@ -33,7 +33,7 @@ from archivebox.search import query_search_index
 
 from core.models import Snapshot
 from core.forms import AddLinkForm
-from crawls.models import Seed, Crawl
+from crawls.models import Crawl
 from archivebox.hooks import get_extractors, get_extractor_name
 
 
@@ -119,7 +119,11 @@ class SnapshotView(View):
             if result_file.name in existing_files or result_file.name == 'index.html':
                 continue
 
-            file_size = result_file.stat().st_size or 0
+            # Skip circular symlinks and other stat() failures
+            try:
+                file_size = result_file.stat().st_size or 0
+            except OSError:
+                continue
 
             if file_size > min_size_threshold:
                 archiveresults[result_file.name] = {
@@ -471,14 +475,16 @@ class AddView(UserPassesTestMixin, FormView):
         sources_file = CONSTANTS.SOURCES_DIR / f'{timezone.now().strftime("%Y-%m-%d__%H-%M-%S")}__web_ui_add_by_user_{self.request.user.pk}.txt'
         sources_file.write_text(urls if isinstance(urls, str) else '\n'.join(urls))
 
-        # 2. create a new Seed pointing to the sources/2024-11-05__23-59-59__web_ui_add_by_user_<user_pk>.txt
+        # 2. create a new Crawl with the URLs from the file
         timestamp = timezone.now().strftime("%Y-%m-%d__%H-%M-%S")
-        seed = Seed.from_file(
-            sources_file,
+        urls_content = sources_file.read_text()
+        crawl = Crawl.objects.create(
+            urls=urls_content,
+            extractor=parser,
+            max_depth=depth,
+            tags_str=tag,
             label=f'{self.request.user.username}@{HOSTNAME}{self.request.path} {timestamp}',
-            parser=parser,
-            tag=tag,
-            created_by=self.request.user.pk,
+            created_by_id=self.request.user.pk,
             config={
                 # 'ONLY_NEW': not update,
                 # 'INDEX_ONLY': index_only,
@@ -486,9 +492,8 @@ class AddView(UserPassesTestMixin, FormView):
                 'DEPTH': depth,
                 'EXTRACTORS': extractors or '',
                 # 'DEFAULT_PERSONA': persona or 'Default',
-            })
-        # 3. create a new Crawl pointing to the Seed
-        crawl = Crawl.from_seed(seed, max_depth=depth)
+            }
+        )
         
         # 4. start the Orchestrator & wait until it completes
         #    ... orchestrator will create the root Snapshot, which creates pending ArchiveResults, which gets run by the ArchiveResultActors ...
@@ -569,19 +574,7 @@ def live_progress_view(request):
             # Count URLs in the crawl (for when snapshots haven't been created yet)
             urls_count = 0
             if crawl.urls:
-                urls_count = len([u for u in crawl.urls.split('\n') if u.strip()])
-            elif crawl.seed and crawl.seed.uri:
-                # Try to get URL count from seed
-                if crawl.seed.uri.startswith('file:///'):
-                    try:
-                        from pathlib import Path
-                        seed_file = Path(crawl.seed.uri.replace('file://', ''))
-                        if seed_file.exists():
-                            urls_count = len([l for l in seed_file.read_text().split('\n') if l.strip() and not l.startswith('#')])
-                    except:
-                        pass
-                else:
-                    urls_count = 1  # Single URL seed
+                urls_count = len([u for u in crawl.urls.split('\n') if u.strip() and not u.startswith('#')])
 
             # Calculate crawl progress
             crawl_progress = int((completed_snapshots / total_snapshots) * 100) if total_snapshots > 0 else 0
@@ -635,8 +628,8 @@ def live_progress_view(request):
                 })
 
             # Check if crawl can start (for debugging stuck crawls)
-            can_start = bool(crawl.seed and crawl.seed.uri)
-            seed_uri = crawl.seed.uri[:60] if crawl.seed and crawl.seed.uri else None
+            can_start = bool(crawl.urls)
+            urls_preview = crawl.urls[:60] if crawl.urls else None
 
             # Check if retry_at is in the future (would prevent worker from claiming)
             retry_at_future = crawl.retry_at > timezone.now() if crawl.retry_at else False
@@ -657,7 +650,7 @@ def live_progress_view(request):
                 'pending_snapshots': pending_snapshots,
                 'active_snapshots': active_snapshots_for_crawl,
                 'can_start': can_start,
-                'seed_uri': seed_uri,
+                'urls_preview': urls_preview,
                 'retry_at_future': retry_at_future,
                 'seconds_until_retry': seconds_until_retry,
             })

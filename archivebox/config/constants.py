@@ -96,10 +96,8 @@ class ConstantsDict(Mapping):
     # Data dir files
     CONFIG_FILENAME: str                = 'ArchiveBox.conf'
     SQL_INDEX_FILENAME: str             = 'index.sqlite3'
-    QUEUE_DATABASE_FILENAME: str        = 'queue.sqlite3'
     CONFIG_FILE: Path                   = DATA_DIR / CONFIG_FILENAME
     DATABASE_FILE: Path                 = DATA_DIR / SQL_INDEX_FILENAME
-    QUEUE_DATABASE_FILE: Path           = DATA_DIR / QUEUE_DATABASE_FILENAME
     
     JSON_INDEX_FILENAME: str            = 'index.json'
     HTML_INDEX_FILENAME: str            = 'index.html'
@@ -184,10 +182,10 @@ class ConstantsDict(Mapping):
         SQL_INDEX_FILENAME,
         f"{SQL_INDEX_FILENAME}-wal",
         f"{SQL_INDEX_FILENAME}-shm",
-        QUEUE_DATABASE_FILENAME,
-        f"{QUEUE_DATABASE_FILENAME}-wal",
-        f"{QUEUE_DATABASE_FILENAME}-shm",
         "search.sqlite3",
+        "queue.sqlite3",
+        "queue.sqlite3-wal",
+        "queue.sqlite3-shm",
         JSON_INDEX_FILENAME,
         HTML_INDEX_FILENAME,
         ROBOTS_TXT_FILENAME,

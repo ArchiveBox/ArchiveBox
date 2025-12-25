@@ -36,15 +36,14 @@ def add(urls: str | list[str],
         created_by_id: int | None=None) -> QuerySet['Snapshot']:
     """Add a new URL or list of URLs to your archive.
 
-    The new flow is:
+    The flow is:
     1. Save URLs to sources file
-    2. Create Seed pointing to the file
-    3. Create Crawl with max_depth
-    4. Create root Snapshot pointing to file:// URL (depth=0)
-    5. Orchestrator runs parser extractors on root snapshot
-    6. Parser extractors output to urls.jsonl
-    7. URLs are added to Crawl.urls and child Snapshots are created
-    8. Repeat until max_depth is reached
+    2. Create Crawl with URLs and max_depth
+    3. Orchestrator creates Snapshots from Crawl URLs (depth=0)
+    4. Orchestrator runs parser extractors on root snapshots
+    5. Parser extractors output to urls.jsonl
+    6. URLs are added to Crawl.urls and child Snapshots are created
+    7. Repeat until max_depth is reached
     """
 
     from rich import print
@@ -55,7 +54,7 @@ def add(urls: str | list[str],
 
     # import models once django is set up
     from core.models import Snapshot
-    from crawls.models import Seed, Crawl
+    from crawls.models import Crawl
     from archivebox.base_models.models import get_or_create_system_user_pk
     from workers.orchestrator import Orchestrator
 
@@ -66,19 +65,24 @@ def add(urls: str | list[str],
     sources_file.parent.mkdir(parents=True, exist_ok=True)
     sources_file.write_text(urls if isinstance(urls, str) else '\n'.join(urls))
 
-    # 2. Create a new Seed pointing to the sources file
+    # 2. Create a new Crawl with inline URLs
     cli_args = [*sys.argv]
     if cli_args[0].lower().endswith('archivebox'):
         cli_args[0] = 'archivebox'
     cmd_str = ' '.join(cli_args)
 
     timestamp = timezone.now().strftime("%Y-%m-%d__%H-%M-%S")
-    seed = Seed.from_file(
-        sources_file,
+
+    # Read URLs directly into crawl
+    urls_content = sources_file.read_text()
+
+    crawl = Crawl.objects.create(
+        urls=urls_content,
+        extractor=parser,
+        max_depth=depth,
+        tags_str=tag,
         label=f'{USER}@{HOSTNAME} $ {cmd_str} [{timestamp}]',
-        parser=parser,
-        tag=tag,
-        created_by=created_by_id,
+        created_by_id=created_by_id,
         config={
             'ONLY_NEW': not update,
             'INDEX_ONLY': index_only,
@@ -88,15 +92,13 @@ def add(urls: str | list[str],
         }
     )
 
-    # 3. Create a new Crawl pointing to the Seed (status=queued)
-    crawl = Crawl.from_seed(seed, max_depth=depth)
-
     print(f'[green]\\[+] Created Crawl {crawl.id} with max_depth={depth}[/green]')
-    print(f'    [dim]Seed: {seed.uri}[/dim]')
+    first_url = crawl.get_urls_list()[0] if crawl.get_urls_list() else ''
+    print(f'    [dim]First URL: {first_url}[/dim]')
 
-    # 4. The CrawlMachine will create the root Snapshot when started
-    #    Root snapshot URL = file:///path/to/sources/...txt
-    #    Parser extractors will run on it and discover URLs
+    # 3. The CrawlMachine will create the root Snapshot when started
+    #    If URLs are from a file: first URL = file:///path/to/sources/...txt
+    #    Parser extractors will run on it and discover more URLs
     #    Those URLs become child Snapshots (depth=1)
 
     if index_only:

@@ -2,8 +2,6 @@ __package__ = 'archivebox.core'
 
 import re
 import os
-
-import shutil
 import tempfile
 import logging
 
@@ -11,7 +9,6 @@ import pydantic
 import django.template
 
 from archivebox.config import CONSTANTS
-from archivebox.misc.logging import IS_TTY
 
 
 IGNORABLE_URL_PATTERNS = [
@@ -79,7 +76,6 @@ SETTINGS_LOGGING = {
     "formatters": {
         "rich": {
             "datefmt": "[%Y-%m-%d %H:%M:%S]",
-            # "format": "{asctime} {levelname} {module} {name} {message} {username}",
             "format": "%(name)s %(message)s",
         },
         "outbound_webhooks": {
@@ -99,26 +95,13 @@ SETTINGS_LOGGING = {
         },
     },
     "handlers": {
-        # "console": {
-        #     "level": "DEBUG",
-        #     'formatter': 'simple',
-        #     "class": "logging.StreamHandler",
-        #     'filters': ['noisyrequestsfilter', 'add_extra_logging_attrs'],
-        # },
         "default": {
             "class": "rich.logging.RichHandler",
             "formatter": "rich",
             "level": "DEBUG",
             "markup": False,
-            "rich_tracebacks": IS_TTY,
+            "rich_tracebacks": False,  # Use standard Python tracebacks (no frame/box)
             "filters": ["noisyrequestsfilter"],
-            "tracebacks_suppress": [
-                django,
-                pydantic,
-            ],
-            "tracebacks_width": shutil.get_terminal_size((100, 10)).columns - 1,
-            "tracebacks_word_wrap": False,
-            "tracebacks_show_locals": False,
         },
         "logfile": {
             "level": "INFO",
@@ -132,7 +115,7 @@ SETTINGS_LOGGING = {
         "outbound_webhooks": {
             "class": "rich.logging.RichHandler",
             "markup": False,
-            "rich_tracebacks": True,
+            "rich_tracebacks": False,  # Use standard Python tracebacks (no frame/box)
             "formatter": "outbound_webhooks",
         },
         # "mail_admins": {

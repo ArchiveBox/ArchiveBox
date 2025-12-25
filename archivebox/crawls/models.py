@@ -20,91 +20,6 @@ if TYPE_CHECKING:
     from core.models import Snapshot, ArchiveResult
 
 
-class Seed(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats):
-    id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
-    created_at = models.DateTimeField(default=timezone.now, db_index=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
-    modified_at = models.DateTimeField(auto_now=True)
-
-    uri = models.URLField(max_length=2048)
-    extractor = models.CharField(default='auto', max_length=32)
-    tags_str = models.CharField(max_length=255, null=False, blank=True, default='')
-    label = models.CharField(max_length=255, null=False, blank=True, default='')
-    config = models.JSONField(default=dict)
-    output_dir = models.FilePathField(path=settings.ARCHIVE_DIR, null=False, blank=True, default='')
-    notes = models.TextField(blank=True, null=False, default='')
-
-    crawl_set: models.Manager['Crawl']
-
-    class Meta:
-        verbose_name = 'Seed'
-        verbose_name_plural = 'Seeds'
-        unique_together = (('created_by', 'uri', 'extractor'), ('created_by', 'label'))
-
-    def __str__(self):
-        return f'[{self.id}] {self.uri[:64]}'
-
-    def save(self, *args, **kwargs):
-        is_new = self._state.adding
-        super().save(*args, **kwargs)
-        if is_new:
-            from archivebox.misc.logging_util import log_worker_event
-            log_worker_event(
-                worker_type='DB',
-                event='Created Seed',
-                indent_level=0,
-                metadata={
-                    'id': str(self.id),
-                    'uri': str(self.uri)[:64],
-                    'extractor': self.extractor,
-                    'label': self.label or None,
-                },
-            )
-
-    @classmethod
-    def from_file(cls, source_file: Path, label: str = '', parser: str = 'auto', tag: str = '', created_by=None, config=None):
-        # Use absolute path for file:// URLs so extractors can find the files
-        source_path = str(source_file.resolve())
-        seed, _ = cls.objects.get_or_create(
-            label=label or source_file.name, uri=f'file://{source_path}',
-            created_by_id=getattr(created_by, 'pk', created_by) or get_or_create_system_user_pk(),
-            extractor=parser, tags_str=tag, config=config or {},
-        )
-        return seed
-
-    @property
-    def source_type(self):
-        return self.uri.split('://', 1)[0].lower()
-
-    @property
-    def api_url(self) -> str:
-        return reverse_lazy('api-1:get_seed', args=[self.id])
-
-    def get_file_path(self) -> Path | None:
-        """
-        Get the filesystem path for file:// URIs.
-        Handles both old format (file:///data/...) and new format (file:///absolute/path).
-        Returns None if URI is not a file:// URI.
-        """
-        if not self.uri.startswith('file://'):
-            return None
-
-        # Remove file:// prefix
-        path_str = self.uri.replace('file://', '', 1)
-
-        # Handle old format: file:///data/... -> DATA_DIR/...
-        if path_str.startswith('/data/'):
-            return CONSTANTS.DATA_DIR / path_str.replace('/data/', '', 1)
-
-        # Handle new format: file:///absolute/path
-        return Path(path_str)
-
-    @property
-    def snapshot_set(self) -> QuerySet['Snapshot']:
-        from core.models import Snapshot
-        return Snapshot.objects.filter(crawl_id__in=self.crawl_set.values_list('pk', flat=True))
-
-
 class CrawlSchedule(ModelWithSerializers, ModelWithNotes, ModelWithHealthStats):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
@@ -124,14 +39,15 @@ class CrawlSchedule(ModelWithSerializers, ModelWithNotes, ModelWithHealthStats):
         verbose_name_plural = 'Scheduled Crawls'
 
     def __str__(self) -> str:
-        return f'[{self.id}] {self.template.seed.uri[:64] if self.template and self.template.seed else ""} @ {self.schedule}'
+        urls_preview = self.template.urls[:64] if self.template and self.template.urls else ""
+        return f'[{self.id}] {urls_preview} @ {self.schedule}'
 
     @property
     def api_url(self) -> str:
         return reverse_lazy('api-1:get_any', args=[self.id])
 
     def save(self, *args, **kwargs):
-        self.label = self.label or (self.template.seed.label if self.template and self.template.seed else '')
+        self.label = self.label or (self.template.label if self.template else '')
         super().save(*args, **kwargs)
         if self.template:
             self.template.schedule = self
@@ -144,8 +60,8 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
     modified_at = models.DateTimeField(auto_now=True)
 
-    seed = models.ForeignKey(Seed, on_delete=models.PROTECT, related_name='crawl_set', null=False, blank=False)
-    urls = models.TextField(blank=True, null=False, default='')
+    urls = models.TextField(blank=False, null=False, help_text='Newline-separated list of URLs to crawl')
+    extractor = models.CharField(default='auto', max_length=32, help_text='Parser for reading URLs (auto, html, json, rss, etc)')
     config = models.JSONField(default=dict)
     max_depth = models.PositiveSmallIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(4)])
     tags_str = models.CharField(max_length=1024, blank=True, null=False, default='')
@@ -171,31 +87,40 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         verbose_name_plural = 'Crawls'
 
     def __str__(self):
-        return f'[{self.id}] {self.seed.uri[:64] if self.seed else ""}'
+        first_url = self.get_urls_list()[0] if self.get_urls_list() else ''
+        return f'[{self.id}] {first_url[:64]}'
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
         super().save(*args, **kwargs)
         if is_new:
             from archivebox.misc.logging_util import log_worker_event
+            first_url = self.get_urls_list()[0] if self.get_urls_list() else ''
             log_worker_event(
                 worker_type='DB',
                 event='Created Crawl',
                 indent_level=1,
                 metadata={
                     'id': str(self.id),
-                    'seed_uri': str(self.seed.uri)[:64] if self.seed else None,
+                    'first_url': first_url[:64],
                     'max_depth': self.max_depth,
                     'status': self.status,
                 },
             )
 
     @classmethod
-    def from_seed(cls, seed: Seed, max_depth: int = 0, persona: str = 'Default', tags_str: str = '', config=None, created_by=None):
-        crawl, _ = cls.objects.get_or_create(
-            seed=seed, max_depth=max_depth, tags_str=tags_str or seed.tags_str,
-            config=seed.config or config or {},
-            created_by_id=getattr(created_by, 'pk', created_by) or seed.created_by_id,
+    def from_file(cls, source_file: Path, max_depth: int = 0, label: str = '', extractor: str = 'auto',
+                  tags_str: str = '', config=None, created_by=None):
+        """Create a crawl from a file containing URLs."""
+        urls_content = source_file.read_text()
+        crawl = cls.objects.create(
+            urls=urls_content,
+            extractor=extractor,
+            max_depth=max_depth,
+            tags_str=tags_str,
+            label=label or source_file.name,
+            config=config or {},
+            created_by_id=getattr(created_by, 'pk', created_by) or get_or_create_system_user_pk(),
         )
         return crawl
 
@@ -203,14 +128,47 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     def api_url(self) -> str:
         return reverse_lazy('api-1:get_crawl', args=[self.id])
 
+    def get_urls_list(self) -> list[str]:
+        """Get list of URLs from urls field, filtering out comments and empty lines."""
+        if not self.urls:
+            return []
+        return [
+            url.strip()
+            for url in self.urls.split('\n')
+            if url.strip() and not url.strip().startswith('#')
+        ]
+
+    def get_file_path(self) -> Path | None:
+        """
+        Get filesystem path if this crawl references a local file.
+        Checks if the first URL is a file:// URI.
+        """
+        urls = self.get_urls_list()
+        if not urls:
+            return None
+
+        first_url = urls[0]
+        if not first_url.startswith('file://'):
+            return None
+
+        # Remove file:// prefix
+        path_str = first_url.replace('file://', '', 1)
+        return Path(path_str)
+
     def create_root_snapshot(self) -> 'Snapshot':
         from core.models import Snapshot
+
+        first_url = self.get_urls_list()[0] if self.get_urls_list() else None
+        if not first_url:
+            raise ValueError(f'Crawl {self.id} has no URLs to create root snapshot from')
+
         try:
-            return Snapshot.objects.get(crawl=self, url=self.seed.uri)
+            return Snapshot.objects.get(crawl=self, url=first_url)
         except Snapshot.DoesNotExist:
             pass
+
         root_snapshot, _ = Snapshot.objects.update_or_create(
-            crawl=self, url=self.seed.uri,
+            crawl=self, url=first_url,
             defaults={
                 'status': Snapshot.INITIAL_STATE,
                 'retry_at': timezone.now(),

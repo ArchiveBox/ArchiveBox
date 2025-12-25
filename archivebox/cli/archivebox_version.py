@@ -111,53 +111,27 @@ def version(quiet: bool=False,
 
     machine = Machine.current()
 
-    # Get all *_BINARY config values
-    binary_config_keys = [key for key in config.keys() if key.endswith('_BINARY')]
+    # Get all installed binaries from the database
+    all_installed = InstalledBinary.objects.filter(
+        machine=machine
+    ).exclude(abspath='').exclude(abspath__isnull=True).order_by('name')
 
-    if not binary_config_keys:
-        prnt('', '[grey53]No binary dependencies defined in config.[/grey53]')
+    if not all_installed.exists():
+        prnt('', '[grey53]No binaries detected. Run [green]archivebox install[/green] to detect dependencies.[/grey53]')
     else:
-        for key in sorted(set(binary_config_keys)):
-            # Get the actual binary name/path from config value
-            # Prioritize Machine.config overrides over base config
-            bin_value = machine.config.get(key) or config.get(key, '').strip()
-            if not bin_value:
+        for installed in all_installed:
+            # Skip if user specified specific binaries and this isn't one
+            if binaries and installed.name not in binaries:
                 continue
 
-            # Check if it's a path (has slashes) or just a name
-            is_path = '/' in str(bin_value)
-
-            if is_path:
-                # It's a full path - match against abspath
-                bin_name = Path(bin_value).name
-                # Skip if user specified specific binaries and this isn't one
-                if binaries and bin_name not in binaries:
-                    continue
-                # Find InstalledBinary where abspath ends with this path
-                installed = InstalledBinary.objects.filter(
-                    machine=machine,
-                    abspath__endswith=bin_value,
-                ).exclude(abspath='').exclude(abspath__isnull=True).order_by('-modified_at').first()
-            else:
-                # It's just a binary name - match against name
-                bin_name = bin_value
-                # Skip if user specified specific binaries and this isn't one
-                if binaries and bin_name not in binaries:
-                    continue
-                # Find InstalledBinary by name
-                installed = InstalledBinary.objects.filter(
-                    machine=machine,
-                    name__iexact=bin_name,
-                ).exclude(abspath='').exclude(abspath__isnull=True).order_by('-modified_at').first()
-
-            if installed and installed.is_valid:
+            if installed.is_valid:
                 display_path = installed.abspath.replace(str(DATA_DIR), '.').replace(str(Path('~').expanduser()), '~')
                 version_str = (installed.version or 'unknown')[:15]
                 provider = (installed.binprovider or 'env')[:8]
-                prnt('', '[green]√[/green]', '', bin_name.ljust(18), version_str.ljust(16), provider.ljust(8), display_path, overflow='ignore', crop=False)
+                prnt('', '[green]√[/green]', '', installed.name.ljust(18), version_str.ljust(16), provider.ljust(8), display_path, overflow='ignore', crop=False)
             else:
-                prnt('', '[red]X[/red]', '', bin_name.ljust(18), '[grey53]not installed[/grey53]', overflow='ignore', crop=False)
-                failures.append(bin_name)
+                prnt('', '[red]X[/red]', '', installed.name.ljust(18), '[grey53]not installed[/grey53]', overflow='ignore', crop=False)
+                failures.append(installed.name)
 
     # Show hint if no binaries are installed yet
     has_any_installed = InstalledBinary.objects.filter(machine=machine).exclude(abspath='').exists()

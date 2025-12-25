@@ -15,7 +15,7 @@ from ninja.pagination import paginate, PaginationBase
 from ninja.errors import HttpError
 
 from core.models import Snapshot, ArchiveResult, Tag
-from api.v1_crawls import CrawlSchema, SeedSchema
+from api.v1_crawls import CrawlSchema
 
 
 router = Router(tags=['Core Models'])
@@ -271,9 +271,9 @@ def get_tag(request, tag_id: str, with_snapshots: bool = True):
         return Tag.objects.get(slug__icontains=tag_id)
 
 
-@router.get("/any/{id}", response=Union[SnapshotSchema, ArchiveResultSchema, TagSchema, SeedSchema, CrawlSchema], url_name="get_any", summary="Get any object by its ID")
+@router.get("/any/{id}", response=Union[SnapshotSchema, ArchiveResultSchema, TagSchema, CrawlSchema], url_name="get_any", summary="Get any object by its ID")
 def get_any(request, id: str):
-    """Get any object by its ID (e.g. snapshot, archiveresult, tag, seed, crawl, etc.)."""
+    """Get any object by its ID (e.g. snapshot, archiveresult, tag, crawl, etc.)."""
     request.with_snapshots = False
     request.with_archiveresults = False
 
@@ -284,14 +284,6 @@ def get_any(request, id: str):
                 return redirect(f"/api/v1/{response._meta.app_label}/{response._meta.model_name}/{response.id}?{request.META['QUERY_STRING']}")
         except Exception:
             pass
-
-    try:
-        from api.v1_crawls import get_seed
-        response = get_seed(request, id)
-        if response:
-            return redirect(f"/api/v1/{response._meta.app_label}/{response._meta.model_name}/{response.id}?{request.META['QUERY_STRING']}")
-    except Exception:
-        pass
 
     try:
         from api.v1_crawls import get_crawl

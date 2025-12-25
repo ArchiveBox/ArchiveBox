@@ -42,27 +42,20 @@ def install(dry_run: bool=False) -> None:
     setup_django()
 
     from django.utils import timezone
-    from crawls.models import Seed, Crawl
+    from crawls.models import Crawl
     from archivebox.base_models.models import get_or_create_system_user_pk
 
-    # Create a seed and crawl for dependency detection
+    # Create a crawl for dependency detection
     # Using a minimal crawl that will trigger on_Crawl hooks
     created_by_id = get_or_create_system_user_pk()
 
-    seed, _created = Seed.objects.get_or_create(
-        uri='archivebox://install',
+    crawl, created = Crawl.objects.get_or_create(
+        urls='archivebox://install',
         label='Dependency detection',
         created_by_id=created_by_id,
         defaults={
             'extractor': 'auto',
-        }
-    )
-
-    crawl, created = Crawl.objects.get_or_create(
-        seed=seed,
-        max_depth=0,
-        created_by_id=created_by_id,
-        defaults={
+            'max_depth': 0,
             'status': 'queued',
         }
     )
