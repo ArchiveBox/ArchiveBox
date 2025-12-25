@@ -26,22 +26,6 @@ CONFIG_FILE_NAME = "supervisord.conf"
 PID_FILE_NAME = "supervisord.pid"
 WORKERS_DIR_NAME = "workers"
 
-SCHEDULER_WORKER = {
-    "name": "worker_scheduler",
-    "command": "archivebox manage djangohuey --queue system_tasks -w 4 -k thread --disable-health-check --flush-locks",
-    "autostart": "true",
-    "autorestart": "true",
-    "stdout_logfile": "logs/worker_scheduler.log",
-    "redirect_stderr": "true",
-}
-COMMAND_WORKER = {
-    "name": "worker_commands",
-    "command": "archivebox manage djangohuey --queue commands -w 4 -k thread --no-periodic --disable-health-check",
-    "autostart": "true",
-    "autorestart": "true",
-    "stdout_logfile": "logs/worker_commands.log",
-    "redirect_stderr": "true",
-}
 ORCHESTRATOR_WORKER = {
     "name": "worker_orchestrator",
     "command": "archivebox manage orchestrator",
@@ -391,10 +375,8 @@ def watch_worker(supervisor, daemon_name, interval=5):
 
 def start_server_workers(host='0.0.0.0', port='8000', daemonize=False):
     supervisor = get_or_create_supervisord_process(daemonize=daemonize)
-    
+
     bg_workers = [
-        SCHEDULER_WORKER,
-        COMMAND_WORKER,
         ORCHESTRATOR_WORKER,
     ]
 
@@ -422,8 +404,7 @@ def start_server_workers(host='0.0.0.0', port='8000', daemonize=False):
 
 def start_cli_workers(watch=False):
     supervisor = get_or_create_supervisord_process(daemonize=False)
-    
-    start_worker(supervisor, COMMAND_WORKER)
+
     start_worker(supervisor, ORCHESTRATOR_WORKER)
 
     if watch:
@@ -434,13 +415,12 @@ def start_cli_workers(watch=False):
         except SystemExit:
             pass
         except BaseException as e:
-            STDERR.print(f"\n[🛑] Got {e.__class__.__name__} exception, stopping web server gracefully...")
+            STDERR.print(f"\n[🛑] Got {e.__class__.__name__} exception, stopping orchestrator gracefully...")
             raise
         finally:
-            stop_worker(supervisor, COMMAND_WORKER['name'])
             stop_worker(supervisor, ORCHESTRATOR_WORKER['name'])
             time.sleep(0.5)
-    return [COMMAND_WORKER, ORCHESTRATOR_WORKER]
+    return [ORCHESTRATOR_WORKER]
 
 
 # def main(daemons):

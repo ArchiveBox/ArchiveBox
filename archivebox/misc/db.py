@@ -37,15 +37,13 @@ def apply_migrations(out_dir: Path = DATA_DIR) -> List[str]:
     """Apply pending Django migrations"""
     from django.core.management import call_command
 
-    out1, out2 = StringIO(), StringIO()
+    out1 = StringIO()
 
     call_command("migrate", interactive=False, database='default', stdout=out1)
     out1.seek(0)
-    call_command("migrate", "huey_monitor", interactive=False, database='queue', stdout=out2)
-    out2.seek(0)
 
     return [
-        line.strip() for line in out1.readlines() + out2.readlines() if line.strip()
+        line.strip() for line in out1.readlines() if line.strip()
     ]
 
 

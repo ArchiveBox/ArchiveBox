@@ -110,6 +110,10 @@
                     {% block nav-global %}{% endblock %}
                 </div>
 
+                {% if has_permission %}
+                    {% include 'admin/progress_monitor.html' %}
+                {% endif %}
+
                 {% block breadcrumbs %}
                     <div class="breadcrumbs">
                         <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>

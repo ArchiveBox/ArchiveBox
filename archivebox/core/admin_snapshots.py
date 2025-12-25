@@ -25,7 +25,7 @@ from archivebox.workers.tasks import bg_archive_snapshots, bg_add
 
 from core.models import Tag
 from core.admin_tags import TagInline
-from core.admin_archiveresults import ArchiveResultInline, result_url
+from core.admin_archiveresults import ArchiveResultInline
 
 
 # GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': [], 'CAN_UPGRADE': False}
@@ -54,10 +54,10 @@ class SnapshotActionForm(ActionForm):
 class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     list_display = ('created_at', 'title_str', 'status', 'files', 'size', 'url_str')
     sort_fields = ('title_str', 'url_str', 'created_at', 'status', 'crawl')
-    readonly_fields = ('admin_actions', 'status_info', 'tags_str', 'imported_timestamp', 'created_at', 'modified_at', 'downloaded_at', 'link_dir', 'available_config_options')
+    readonly_fields = ('admin_actions', 'status_info', 'tags_str', 'imported_timestamp', 'created_at', 'modified_at', 'downloaded_at', 'output_dir')
     search_fields = ('id', 'url', 'timestamp', 'title', 'tags__name')
     list_filter = ('created_at', 'downloaded_at', 'archiveresult__status', 'created_by', 'tags__name')
-    fields = ('url', 'title', 'created_by', 'bookmarked_at', 'status', 'retry_at', 'crawl', 'config', 'available_config_options', *readonly_fields[:-1])
+    fields = ('url', 'title', 'created_by', 'bookmarked_at', 'status', 'retry_at', 'crawl', 'config', *readonly_fields)
     ordering = ['-created_at']
     actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
     inlines = [TagInline, ArchiveResultInline]
@@ -93,12 +93,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     #     self.request = request
     #     return super().get_queryset(request).prefetch_related('archiveresult_set').distinct()  # .annotate(archiveresult_count=Count('archiveresult'))
 
-    @admin.action(
-        description="Imported Timestamp"
-    )
+    @admin.display(description="Imported Timestamp")
     def imported_timestamp(self, obj):
         context = RequestContext(self.request, {
-            'bookmarked_date': obj.bookmarked,
+            'bookmarked_date': obj.bookmarked_at,
             'timestamp': obj.timestamp,
         })
 
@@ -145,22 +143,15 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     def status_info(self, obj):
         return format_html(
-            # URL Hash: <code style="font-size: 10px; user-select: all">{}</code><br/>
             '''
             Archived: {} ({} files {}) &nbsp; &nbsp;
             Favicon: <img src="{}" style="height: 20px"/> &nbsp; &nbsp;
-            Status code: {} &nbsp; &nbsp;<br/>
-            Server: {} &nbsp; &nbsp;
-            Content type: {} &nbsp; &nbsp;
             Extension: {} &nbsp; &nbsp;
             ''',
             '✅' if obj.is_archived else '❌',
             obj.num_outputs,
             self.size(obj) or '0kb',
             f'/archive/{obj.timestamp}/favicon.ico',
-            obj.status_code or '-',
-            obj.headers and obj.headers.get('Server') or '-',
-            obj.headers and obj.headers.get('Content-Type') or '-',
             obj.extension or '-',
         )
 
@@ -184,8 +175,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             obj.archive_path,
             obj.archive_path,
             obj.archive_path,
-            'fetched' if obj.latest_title or obj.title else 'pending',
-            urldecode(htmldecode(obj.latest_title or obj.title or ''))[:128] or 'Pending...'
+            'fetched' if obj.title else 'pending',
+            urldecode(htmldecode(obj.title or ''))[:128] or 'Pending...'
         ) + mark_safe(f' <span class="tags">{tags}</span>')
 
     @admin.display(
@@ -259,14 +250,13 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         description="ℹ️ Get Title"
     )
     def update_titles(self, request, queryset):
-        from core.models import Snapshot
         count = queryset.count()
 
         # Queue snapshots for archiving via the state machine system
-        result = bg_archive_snapshots(queryset, kwargs={"overwrite": True, "methods": ["title", "favicon"], "out_dir": DATA_DIR})
+        queued = bg_archive_snapshots(queryset, kwargs={"overwrite": True, "methods": ["title", "favicon"], "out_dir": DATA_DIR})
         messages.success(
             request,
-            mark_safe(f"Title and favicon are updating in the background for {count} URLs. {result_url(result)}"),
+            f"Queued {queued} snapshots for title/favicon update. The orchestrator will process them in the background.",
         )
 
     @admin.action(
@@ -275,11 +265,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def update_snapshots(self, request, queryset):
         count = queryset.count()
 
-        result = bg_archive_snapshots(queryset, kwargs={"overwrite": False, "out_dir": DATA_DIR})
+        queued = bg_archive_snapshots(queryset, kwargs={"overwrite": False, "out_dir": DATA_DIR})
 
         messages.success(
             request,
-            mark_safe(f"Re-trying any previously failed methods for {count} URLs in the background. {result_url(result)}"),
+            f"Queued {queued} snapshots for re-archiving. The orchestrator will process them in the background.",
         )
 
 
@@ -291,11 +281,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             timestamp = timezone.now().isoformat('T', 'seconds')
             new_url = snapshot.url.split('#')[0] + f'#{timestamp}'
 
-            result = bg_add({'urls': new_url, 'tag': snapshot.tags_str()})
+            bg_add({'urls': new_url, 'tag': snapshot.tags_str()})
 
         messages.success(
             request,
-            mark_safe(f"Creating new fresh snapshots for {queryset.count()} URLs in the background. {result_url(result)}"),
+            f"Creating {queryset.count()} new fresh snapshots. The orchestrator will process them in the background.",
         )
 
     @admin.action(
@@ -304,11 +294,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def overwrite_snapshots(self, request, queryset):
         count = queryset.count()
 
-        result = bg_archive_snapshots(queryset, kwargs={"overwrite": True, "out_dir": DATA_DIR})
+        queued = bg_archive_snapshots(queryset, kwargs={"overwrite": True, "out_dir": DATA_DIR})
 
         messages.success(
             request,
-            mark_safe(f"Clearing all previous results and re-downloading {count} URLs in the background. {result_url(result)}"),
+            f"Queued {queued} snapshots for full re-archive (overwriting existing). The orchestrator will process them in the background.",
         )
 
     @admin.action(

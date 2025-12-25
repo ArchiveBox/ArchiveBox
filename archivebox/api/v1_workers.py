@@ -4,125 +4,157 @@ from uuid import UUID
 from typing import List, Any
 from datetime import datetime
 
-
 from ninja import Router, Schema
 
 
 router = Router(tags=['Workers and Tasks'])
 
 
-class TaskSchema(Schema):
+class QueueItemSchema(Schema):
+    """Schema for a single item in a worker's queue."""
     TYPE: str
-
     id: UUID
-    description: str
-
     status: str
     retry_at: datetime | None
-    
     created_at: datetime
     modified_at: datetime
-    created_by_id: int
-    
+    description: str
+
+    @staticmethod
+    def resolve_TYPE(obj) -> str:
+        return f'{obj._meta.app_label}.{obj._meta.model_name}'
+
     @staticmethod
     def resolve_description(obj) -> str:
         return str(obj)
 
 
-class ActorSchema(Schema):
-    # TYPE: str = 'workers.actor.ActorType'
-
-    # name: str
-    #pid: int | None
-    idle_count: int
-    launch_kwargs: dict[str, Any]
-    mode: str
-    
+class WorkerSchema(Schema):
+    """Schema for a Worker type."""
+    name: str
     model: str
-    statemachine: str
-    ACTIVE_STATE: str
-    EVENT_NAME: str
-    CLAIM_ORDER: list[str]
-    CLAIM_FROM_TOP_N: int
-    CLAIM_ATOMIC: bool
-    MAX_TICK_TIME: int
-    MAX_CONCURRENT_ACTORS: int
-    
-    future: list[TaskSchema]
-    pending: list[TaskSchema]
-    stalled: list[TaskSchema]
-    active: list[TaskSchema]
-    past: list[TaskSchema]
-    
+    max_tick_time: int
+    max_concurrent_tasks: int
+    poll_interval: float
+    idle_timeout: int
+    running_count: int
+    running_workers: List[dict[str, Any]]
+    queue_count: int
+    queue: List[QueueItemSchema]
+
     @staticmethod
     def resolve_model(obj) -> str:
-        return obj.Model.__name__
-    
-    @staticmethod
-    def resolve_statemachine(obj) -> str:
-        return obj.StateMachineClass.__name__
-    
-    @staticmethod
-    def resolve_name(obj) -> str:
-        return str(obj)
+        Model = obj.get_model()
+        return f'{Model._meta.app_label}.{Model._meta.model_name}'
 
     @staticmethod
-    def resolve_ACTIVE_STATE(obj) -> str:
-        return str(obj.ACTIVE_STATE)
-    
-    @staticmethod
-    def resolve_FINAL_STATES(obj) -> list[str]:
-        return [str(state) for state in obj.FINAL_STATES]
-    
-    @staticmethod
-    def resolve_future(obj) -> list[TaskSchema]:
-        return [obj for obj in obj.qs.filter(obj.future_q).order_by('-retry_at')]
-    
-    @staticmethod
-    def resolve_pending(obj) -> list[TaskSchema]:
-        return [obj for obj in obj.qs.filter(obj.pending_q).order_by('-retry_at')]
-    
-    @staticmethod
-    def resolve_stalled(obj) -> list[TaskSchema]:
-        return [obj for obj in obj.qs.filter(obj.stalled_q).order_by('-retry_at')]
-    
-    @staticmethod
-    def resolve_active(obj) -> list[TaskSchema]:
-        return [obj for obj in obj.qs.filter(obj.active_q).order_by('-retry_at')]
+    def resolve_max_tick_time(obj) -> int:
+        return obj.MAX_TICK_TIME
 
     @staticmethod
-    def resolve_past(obj) -> list[TaskSchema]:
-        return [obj for obj in obj.qs.filter(obj.final_q).order_by('-modified_at')]
+    def resolve_max_concurrent_tasks(obj) -> int:
+        return obj.MAX_CONCURRENT_TASKS
+
+    @staticmethod
+    def resolve_poll_interval(obj) -> float:
+        return obj.POLL_INTERVAL
+
+    @staticmethod
+    def resolve_idle_timeout(obj) -> int:
+        return obj.IDLE_TIMEOUT
+
+    @staticmethod
+    def resolve_running_count(obj) -> int:
+        return len(obj.get_running_workers())
+
+    @staticmethod
+    def resolve_running_workers(obj) -> List[dict[str, Any]]:
+        return obj.get_running_workers()
+
+    @staticmethod
+    def resolve_queue_count(obj) -> int:
+        return obj.get_queue().count()
+
+    @staticmethod
+    def resolve_queue(obj) -> List[QueueItemSchema]:
+        return list(obj.get_queue()[:50])  # Limit to 50 items
 
 
 class OrchestratorSchema(Schema):
-    # TYPE: str = 'workers.orchestrator.Orchestrator'
-
-    #pid: int | None
-    exit_on_idle: bool
-    mode: str
-
-    actors: list[ActorSchema]
-    
-    @staticmethod
-    def resolve_actors(obj) -> list[ActorSchema]:
-        return [actor() for actor in obj.actor_types.values()]
+    """Schema for the Orchestrator."""
+    is_running: bool
+    poll_interval: float
+    idle_timeout: int
+    max_workers_per_type: int
+    max_total_workers: int
+    total_worker_count: int
+    workers: List[WorkerSchema]
 
 
-@router.get("/orchestrators", response=List[OrchestratorSchema], url_name="get_orchestrators")
-def get_orchestrators(request):
-    """List all the task orchestrators (aka Orchestrators) that are currently running"""
-
+@router.get("/orchestrator", response=OrchestratorSchema, url_name="get_orchestrator")
+def get_orchestrator(request):
+    """Get the orchestrator status and all worker queues."""
     from workers.orchestrator import Orchestrator
+    from workers.worker import CrawlWorker, SnapshotWorker, ArchiveResultWorker
+
     orchestrator = Orchestrator()
 
-    return [orchestrator]
+    # Create temporary worker instances to query their queues
+    workers = [
+        CrawlWorker(worker_id=-1),
+        SnapshotWorker(worker_id=-1),
+        ArchiveResultWorker(worker_id=-1),
+    ]
+
+    return {
+        'is_running': orchestrator.is_running(),
+        'poll_interval': orchestrator.POLL_INTERVAL,
+        'idle_timeout': orchestrator.IDLE_TIMEOUT,
+        'max_workers_per_type': orchestrator.MAX_WORKERS_PER_TYPE,
+        'max_total_workers': orchestrator.MAX_TOTAL_WORKERS,
+        'total_worker_count': orchestrator.get_total_worker_count(),
+        'workers': workers,
+    }
 
 
-@router.get("/actors", response=List[ActorSchema], url_name="get_actors")
-def get_actors(request):
-    """List all the task consumer workers (aka Actors) that are currently running"""
+@router.get("/workers", response=List[WorkerSchema], url_name="get_workers")
+def get_workers(request):
+    """List all worker types and their current status."""
+    from workers.worker import CrawlWorker, SnapshotWorker, ArchiveResultWorker
 
-    from workers.orchestrator import Orchestrator
-    orchestrator = Orchestrator()
-    return orchestrator.actor_types.values()
+    # Create temporary instances to query their queues
+    return [
+        CrawlWorker(worker_id=-1),
+        SnapshotWorker(worker_id=-1),
+        ArchiveResultWorker(worker_id=-1),
+    ]
+
+
+@router.get("/worker/{worker_name}", response=WorkerSchema, url_name="get_worker")
+def get_worker(request, worker_name: str):
+    """Get status and queue for a specific worker type."""
+    from workers.worker import WORKER_TYPES
+
+    if worker_name not in WORKER_TYPES:
+        from ninja.errors import HttpError
+        raise HttpError(404, f"Unknown worker type: {worker_name}. Valid types: {list(WORKER_TYPES.keys())}")
+
+    WorkerClass = WORKER_TYPES[worker_name]
+    return WorkerClass(worker_id=-1)
+
+
+@router.get("/worker/{worker_name}/queue", response=List[QueueItemSchema], url_name="get_worker_queue")
+def get_worker_queue(request, worker_name: str, limit: int = 100):
+    """Get the current queue for a specific worker type."""
+    from workers.worker import WORKER_TYPES
+
+    if worker_name not in WORKER_TYPES:
+        from ninja.errors import HttpError
+        raise HttpError(404, f"Unknown worker type: {worker_name}. Valid types: {list(WORKER_TYPES.keys())}")
+
+    WorkerClass = WORKER_TYPES[worker_name]
+    worker = WorkerClass(worker_id=-1)
+    return list(worker.get_queue()[:limit])
+
+
+# Progress endpoint moved to core.views.live_progress_view for simplicity

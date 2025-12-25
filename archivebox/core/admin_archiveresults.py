@@ -9,22 +9,14 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse, resolve
 from django.utils import timezone
 
-from huey_monitor.admin import TaskModel
-
 from archivebox.config import DATA_DIR
 from archivebox.config.common import SERVER_CONFIG
 from archivebox.misc.paginators import AccelleratedPaginator
 from archivebox.base_models.admin import BaseModelAdmin
+from archivebox.hooks import get_extractor_icon
 
 
 from core.models import ArchiveResult, Snapshot
-
-
-
-
-def result_url(result: TaskModel) -> str:
-    url = reverse("admin:huey_monitor_taskmodel_change", args=[str(result.id)])
-    return format_html('<a href="{url}" class="fade-in-progress-url">See progress...</a>'.format(url=url))
 
 
 
@@ -101,9 +93,9 @@ class ArchiveResultInline(admin.TabularInline):
 
 
 class ArchiveResultAdmin(BaseModelAdmin):
-    list_display = ('id', 'created_by', 'created_at', 'snapshot_info', 'tags_str', 'status', 'extractor', 'cmd_str', 'output_str')
+    list_display = ('id', 'created_by', 'created_at', 'snapshot_info', 'tags_str', 'status', 'extractor_with_icon', 'cmd_str', 'output_str')
     sort_fields = ('id', 'created_by', 'created_at', 'extractor', 'status')
-    readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary')
+    readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary', 'extractor_with_icon')
     search_fields = ('id', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
     fields = ('snapshot', 'extractor', 'status', 'retry_at', 'start_ts', 'end_ts', 'created_by', 'pwd', 'cmd_version', 'cmd', 'output', *readonly_fields)
     autocomplete_fields = ['snapshot']
@@ -144,17 +136,29 @@ class ArchiveResultAdmin(BaseModelAdmin):
     def tags_str(self, result):
         return result.snapshot.tags_str()
 
+    @admin.display(description='Extractor', ordering='extractor')
+    def extractor_with_icon(self, result):
+        icon = get_extractor_icon(result.extractor)
+        return format_html(
+            '<span title="{}">{}</span> {}',
+            result.extractor,
+            icon,
+            result.extractor,
+        )
+
     def cmd_str(self, result):
         return format_html(
             '<pre>{}</pre>',
             ' '.join(result.cmd) if isinstance(result.cmd, list) else str(result.cmd),
         )
-    
+
     def output_str(self, result):
+        # Determine output link path - use output if file exists, otherwise link to index
+        output_path = result.output if (result.status == 'succeeded' and result.output) else 'index.html'
         return format_html(
             '<a href="/archive/{}/{}" class="output-link">↗️</a><pre>{}</pre>',
             result.snapshot.timestamp,
-            result.output if (result.status == 'succeeded') and result.extractor not in ('title', 'archive_org') else 'index.html',
+            output_path,
             result.output,
         )
 
@@ -185,7 +189,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
                 is_hidden = filename.startswith('.')
                 output_str += format_html('<span style="opacity: {}.2">{}{}</span><br/>', int(not is_hidden), indentation_str, filename.strip())
 
-        return output_str + format_html('</code></pre>')
+        return output_str + mark_safe('</code></pre>')
 
 
 

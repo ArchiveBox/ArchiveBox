@@ -1,0 +1,648 @@
+<style>
+    /* Progress Monitor Container */
+    #progress-monitor {
+        background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+        color: #c9d1d9;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+        font-size: 12px;
+        border-bottom: 1px solid #30363d;
+        position: relative;
+        z-index: 100;
+    }
+    #progress-monitor.hidden {
+        display: none;
+    }
+    #progress-monitor .tree-container {
+        max-height: 350px;
+        overflow-y: auto;
+    }
+
+    /* Header Bar */
+    #progress-monitor .header-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 16px;
+        background: rgba(0,0,0,0.2);
+        border-bottom: 1px solid #30363d;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    #progress-monitor .header-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    #progress-monitor .header-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    /* Orchestrator Status */
+    #progress-monitor .orchestrator-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    #progress-monitor .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    #progress-monitor .status-dot.running {
+        background: #3fb950;
+        box-shadow: 0 0 8px #3fb950;
+        animation: pulse 2s infinite;
+    }
+    #progress-monitor .status-dot.stopped {
+        background: #f85149;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; box-shadow: 0 0 8px #3fb950; }
+        50% { opacity: 0.6; box-shadow: 0 0 4px #3fb950; }
+    }
+
+    /* Stats */
+    #progress-monitor .stats {
+        display: flex;
+        gap: 16px;
+    }
+    #progress-monitor .stat {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    #progress-monitor .stat-label {
+        color: #8b949e;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    #progress-monitor .stat-value {
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+    }
+    #progress-monitor .stat-value.success { color: #3fb950; }
+    #progress-monitor .stat-value.error { color: #f85149; }
+    #progress-monitor .stat-value.warning { color: #d29922; }
+    #progress-monitor .stat-value.info { color: #58a6ff; }
+
+    /* Toggle Button */
+    #progress-monitor .toggle-btn {
+        background: transparent;
+        border: 1px solid #30363d;
+        color: #8b949e;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        transition: all 0.2s;
+    }
+    #progress-monitor .toggle-btn:hover {
+        background: #21262d;
+        color: #c9d1d9;
+        border-color: #8b949e;
+    }
+
+    /* Tree Container */
+    #progress-monitor .tree-container {
+        padding: 12px 16px;
+    }
+    #progress-monitor.collapsed .tree-container {
+        display: none;
+    }
+
+    /* Idle Message */
+    #progress-monitor .idle-message {
+        color: #8b949e;
+        font-style: italic;
+        padding: 8px 0;
+        text-align: center;
+    }
+
+    /* Crawl Item */
+    #progress-monitor .crawl-item {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        overflow: hidden;
+    }
+    #progress-monitor .crawl-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        background: rgba(0,0,0,0.2);
+        cursor: pointer;
+    }
+    #progress-monitor .crawl-header:hover {
+        background: rgba(88, 166, 255, 0.1);
+    }
+    #progress-monitor .crawl-icon {
+        font-size: 16px;
+        width: 20px;
+        text-align: center;
+    }
+    #progress-monitor .crawl-info {
+        flex: 1;
+        min-width: 0;
+    }
+    #progress-monitor .crawl-label {
+        font-weight: 600;
+        color: #58a6ff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    #progress-monitor .crawl-meta {
+        font-size: 11px;
+        color: #8b949e;
+        margin-top: 2px;
+    }
+    #progress-monitor .crawl-stats {
+        display: flex;
+        gap: 12px;
+        font-size: 11px;
+    }
+
+    /* Progress Bar */
+    #progress-monitor .progress-bar-container {
+        height: 4px;
+        background: #21262d;
+        border-radius: 2px;
+        overflow: hidden;
+        position: relative;
+    }
+    #progress-monitor .progress-bar {
+        height: 100%;
+        border-radius: 2px;
+        transition: width 0.5s ease-out;
+        position: relative;
+    }
+    #progress-monitor .progress-bar.crawl {
+        background: linear-gradient(90deg, #238636 0%, #3fb950 100%);
+    }
+    #progress-monitor .progress-bar.snapshot {
+        background: linear-gradient(90deg, #1f6feb 0%, #58a6ff 100%);
+    }
+    #progress-monitor .progress-bar.extractor {
+        background: linear-gradient(90deg, #8957e5 0%, #a371f7 100%);
+    }
+    #progress-monitor .progress-bar.indeterminate {
+        background: linear-gradient(90deg, transparent 0%, #58a6ff 50%, transparent 100%);
+        animation: indeterminate 1.5s infinite linear;
+        width: 30% !important;
+    }
+    @keyframes indeterminate {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(400%); }
+    }
+
+    /* Crawl Body */
+    #progress-monitor .crawl-body {
+        padding: 0 14px 14px;
+    }
+    #progress-monitor .crawl-progress {
+        padding: 10px 14px;
+        border-bottom: 1px solid #21262d;
+    }
+
+    /* Snapshot List */
+    #progress-monitor .snapshot-list {
+        margin-top: 8px;
+    }
+    #progress-monitor .snapshot-item {
+        background: #0d1117;
+        border: 1px solid #21262d;
+        border-radius: 6px;
+        margin-bottom: 8px;
+        overflow: hidden;
+    }
+    #progress-monitor .snapshot-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        cursor: pointer;
+    }
+    #progress-monitor .snapshot-header:hover {
+        background: rgba(88, 166, 255, 0.05);
+    }
+    #progress-monitor .snapshot-icon {
+        font-size: 14px;
+        width: 18px;
+        text-align: center;
+        color: #58a6ff;
+    }
+    #progress-monitor .snapshot-info {
+        flex: 1;
+        min-width: 0;
+    }
+    #progress-monitor .snapshot-url {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 11px;
+        color: #c9d1d9;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    #progress-monitor .snapshot-meta {
+        font-size: 10px;
+        color: #8b949e;
+        margin-top: 2px;
+    }
+    #progress-monitor .snapshot-progress {
+        padding: 0 12px 8px;
+    }
+
+    /* Extractor List */
+    #progress-monitor .extractor-list {
+        padding: 8px 12px;
+        background: rgba(0,0,0,0.2);
+        border-top: 1px solid #21262d;
+    }
+    #progress-monitor .extractor-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 0;
+    }
+    #progress-monitor .extractor-icon {
+        font-size: 12px;
+        width: 16px;
+        text-align: center;
+    }
+    #progress-monitor .extractor-icon.running {
+        color: #d29922;
+        animation: spin 1s linear infinite;
+    }
+    #progress-monitor .extractor-icon.success {
+        color: #3fb950;
+    }
+    #progress-monitor .extractor-icon.failed {
+        color: #f85149;
+    }
+    #progress-monitor .extractor-icon.pending {
+        color: #8b949e;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    #progress-monitor .extractor-name {
+        flex: 1;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 11px;
+    }
+    #progress-monitor .extractor-progress {
+        width: 60px;
+    }
+
+    /* Status Badge */
+    #progress-monitor .status-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    #progress-monitor .status-badge.queued {
+        background: #21262d;
+        color: #8b949e;
+    }
+    #progress-monitor .status-badge.started {
+        background: rgba(210, 153, 34, 0.2);
+        color: #d29922;
+    }
+    #progress-monitor .status-badge.sealed,
+    #progress-monitor .status-badge.succeeded {
+        background: rgba(63, 185, 80, 0.2);
+        color: #3fb950;
+    }
+    #progress-monitor .status-badge.failed {
+        background: rgba(248, 81, 73, 0.2);
+        color: #f85149;
+    }
+
+    /* Expand/Collapse Icons */
+    #progress-monitor .expand-icon {
+        color: #8b949e;
+        font-size: 10px;
+        transition: transform 0.2s;
+    }
+    #progress-monitor .expand-icon.expanded {
+        transform: rotate(90deg);
+    }
+</style>
+
+<div id="progress-monitor">
+    <div class="header-bar">
+        <div class="header-left">
+            <div class="orchestrator-status">
+                <span class="status-dot stopped" id="orchestrator-dot"></span>
+                <span id="orchestrator-text">Stopped</span>
+            </div>
+            <div class="stats">
+                <div class="stat">
+                    <span class="stat-label">Workers</span>
+                    <span class="stat-value info" id="worker-count">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Queued</span>
+                    <span class="stat-value warning" id="total-queued">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Done</span>
+                    <span class="stat-value success" id="total-succeeded">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Failed</span>
+                    <span class="stat-value error" id="total-failed">0</span>
+                </div>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="toggle-btn" id="progress-collapse" title="Toggle details">Details</button>
+        </div>
+    </div>
+
+    <div class="tree-container" id="tree-container">
+        <div class="idle-message" id="idle-message">No active crawls</div>
+        <div id="crawl-tree"></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const monitor = document.getElementById('progress-monitor');
+    const collapseBtn = document.getElementById('progress-collapse');
+    const treeContainer = document.getElementById('tree-container');
+    const crawlTree = document.getElementById('crawl-tree');
+    const idleMessage = document.getElementById('idle-message');
+
+    let pollInterval = null;
+    let isCollapsed = localStorage.getItem('progress-monitor-collapsed') === 'true';
+    let expandedCrawls = new Set(JSON.parse(localStorage.getItem('progress-monitor-expanded-crawls') || '[]'));
+    let expandedSnapshots = new Set(JSON.parse(localStorage.getItem('progress-monitor-expanded-snapshots') || '[]'));
+
+    function formatUrl(url) {
+        try {
+            const u = new URL(url);
+            return u.hostname + u.pathname.substring(0, 30) + (u.pathname.length > 30 ? '...' : '');
+        } catch {
+            return url.substring(0, 50) + (url.length > 50 ? '...' : '');
+        }
+    }
+
+    function renderExtractor(extractor) {
+        const iconClass = extractor.status === 'started' ? 'running' :
+                         extractor.status === 'succeeded' ? 'success' :
+                         extractor.status === 'failed' ? 'failed' : 'pending';
+        const icon = extractor.status === 'started' ? '&#8635;' :
+                    extractor.status === 'succeeded' ? '&#10003;' :
+                    extractor.status === 'failed' ? '&#10007;' : '&#9675;';
+
+        return `
+            <div class="extractor-item">
+                <span class="extractor-icon ${iconClass}">${icon}</span>
+                <span class="extractor-name">${extractor.extractor}</span>
+                <div class="extractor-progress">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar extractor ${extractor.status === 'started' ? 'indeterminate' : ''}"
+                             style="width: ${extractor.status === 'succeeded' ? '100' : extractor.status === 'failed' ? '100' : extractor.progress}%"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderSnapshot(snapshot, crawlId) {
+        const snapshotKey = `${crawlId}-${snapshot.id}`;
+        const isExpanded = expandedSnapshots.has(snapshotKey);
+        const statusIcon = snapshot.status === 'started' ? '&#8635;' : '&#128196;';
+
+        let extractorHtml = '';
+        if (snapshot.active_extractors && snapshot.active_extractors.length > 0) {
+            extractorHtml = `
+                <div class="extractor-list" style="${isExpanded ? '' : 'display:none'}">
+                    ${snapshot.active_extractors.map(e => renderExtractor(e)).join('')}
+                </div>
+            `;
+        }
+
+        return `
+            <div class="snapshot-item" data-snapshot-key="${snapshotKey}">
+                <div class="snapshot-header" onclick="window.toggleSnapshot('${snapshotKey}')">
+                    <span class="expand-icon ${isExpanded ? 'expanded' : ''}">${snapshot.active_extractors?.length ? '&#9654;' : ''}</span>
+                    <span class="snapshot-icon">${statusIcon}</span>
+                    <div class="snapshot-info">
+                        <div class="snapshot-url">${formatUrl(snapshot.url)}</div>
+                        <div class="snapshot-meta">
+                            ${snapshot.completed_extractors}/${snapshot.total_extractors} extractors
+                            ${snapshot.failed_extractors > 0 ? `<span style="color:#f85149">(${snapshot.failed_extractors} failed)</span>` : ''}
+                        </div>
+                    </div>
+                    <span class="status-badge ${snapshot.status}">${snapshot.status}</span>
+                </div>
+                <div class="snapshot-progress">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar snapshot ${snapshot.status === 'started' && snapshot.progress === 0 ? 'indeterminate' : ''}"
+                             style="width: ${snapshot.progress}%"></div>
+                    </div>
+                </div>
+                ${extractorHtml}
+            </div>
+        `;
+    }
+
+    function renderCrawl(crawl) {
+        const isExpanded = expandedCrawls.has(crawl.id);
+        const statusIcon = crawl.status === 'started' ? '&#8635;' : '&#128269;';
+
+        let snapshotsHtml = '';
+        if (crawl.active_snapshots && crawl.active_snapshots.length > 0) {
+            snapshotsHtml = crawl.active_snapshots.map(s => renderSnapshot(s, crawl.id)).join('');
+        }
+
+        return `
+            <div class="crawl-item" data-crawl-id="${crawl.id}">
+                <div class="crawl-header" onclick="window.toggleCrawl('${crawl.id}')">
+                    <span class="expand-icon ${isExpanded ? 'expanded' : ''}">${crawl.active_snapshots?.length ? '&#9654;' : ''}</span>
+                    <span class="crawl-icon">${statusIcon}</span>
+                    <div class="crawl-info">
+                        <div class="crawl-label">${crawl.label}</div>
+                        <div class="crawl-meta">depth: ${crawl.max_depth} | ${crawl.total_snapshots} snapshots</div>
+                    </div>
+                    <div class="crawl-stats">
+                        <span style="color:#3fb950">${crawl.completed_snapshots} done</span>
+                        <span style="color:#8b949e">${crawl.pending_snapshots} pending</span>
+                    </div>
+                    <span class="status-badge ${crawl.status}">${crawl.status}</span>
+                </div>
+                <div class="crawl-progress">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar crawl ${crawl.status === 'started' && crawl.progress === 0 ? 'indeterminate' : ''}"
+                             style="width: ${crawl.progress}%"></div>
+                    </div>
+                </div>
+                <div class="crawl-body" style="${isExpanded ? '' : 'display:none'}">
+                    <div class="snapshot-list">
+                        ${snapshotsHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    window.toggleCrawl = function(crawlId) {
+        const item = document.querySelector(`[data-crawl-id="${crawlId}"]`);
+        const body = item.querySelector('.crawl-body');
+        const icon = item.querySelector('.expand-icon');
+
+        if (expandedCrawls.has(crawlId)) {
+            expandedCrawls.delete(crawlId);
+            body.style.display = 'none';
+            icon.classList.remove('expanded');
+        } else {
+            expandedCrawls.add(crawlId);
+            body.style.display = '';
+            icon.classList.add('expanded');
+        }
+        localStorage.setItem('progress-monitor-expanded-crawls', JSON.stringify([...expandedCrawls]));
+    };
+
+    window.toggleSnapshot = function(snapshotKey) {
+        const item = document.querySelector(`[data-snapshot-key="${snapshotKey}"]`);
+        const extractorList = item.querySelector('.extractor-list');
+        const icon = item.querySelector('.expand-icon');
+
+        if (!extractorList) return;
+
+        if (expandedSnapshots.has(snapshotKey)) {
+            expandedSnapshots.delete(snapshotKey);
+            extractorList.style.display = 'none';
+            icon.classList.remove('expanded');
+        } else {
+            expandedSnapshots.add(snapshotKey);
+            extractorList.style.display = '';
+            icon.classList.add('expanded');
+        }
+        localStorage.setItem('progress-monitor-expanded-snapshots', JSON.stringify([...expandedSnapshots]));
+    };
+
+    function updateProgress(data) {
+        // Calculate if there's activity
+        const hasActivity = data.active_crawls.length > 0 ||
+                           data.crawls_pending > 0 || data.crawls_started > 0 ||
+                           data.snapshots_pending > 0 || data.snapshots_started > 0 ||
+                           data.archiveresults_pending > 0 || data.archiveresults_started > 0;
+
+        // Update orchestrator status
+        const dot = document.getElementById('orchestrator-dot');
+        const text = document.getElementById('orchestrator-text');
+        if (data.orchestrator_running) {
+            dot.classList.remove('stopped');
+            dot.classList.add('running');
+            text.textContent = 'Running';
+        } else {
+            dot.classList.remove('running');
+            dot.classList.add('stopped');
+            text.textContent = 'Stopped';
+        }
+
+        // Update stats
+        document.getElementById('worker-count').textContent = data.total_workers;
+        document.getElementById('total-queued').textContent =
+            data.crawls_pending + data.snapshots_pending + data.archiveresults_pending;
+        document.getElementById('total-succeeded').textContent = data.archiveresults_succeeded;
+        document.getElementById('total-failed').textContent = data.archiveresults_failed;
+
+        // Render crawl tree
+        if (data.active_crawls.length > 0) {
+            idleMessage.style.display = 'none';
+            crawlTree.innerHTML = data.active_crawls.map(c => renderCrawl(c)).join('');
+        } else if (hasActivity) {
+            idleMessage.style.display = 'none';
+            crawlTree.innerHTML = `
+                <div class="idle-message">
+                    ${data.snapshots_started} snapshots processing, ${data.archiveresults_started} extractors running
+                </div>
+            `;
+        } else {
+            idleMessage.style.display = '';
+            // Build the URL for recent crawls (last 24 hours)
+            var yesterday = new Date(Date.now() - 24*60*60*1000).toISOString().split('T')[0];
+            var recentUrl = '/admin/crawls/crawl/?created_at__gte=' + yesterday + '&o=-1';
+            idleMessage.innerHTML = `No active crawls (${data.crawls_pending} pending, ${data.crawls_started} started, <a href="${recentUrl}" style="color: #58a6ff;">${data.crawls_recent} recent</a>)`;
+            crawlTree.innerHTML = '';
+        }
+    }
+
+    function fetchProgress() {
+        fetch('/admin/live-progress/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('Progress API error:', data.error, data.traceback);
+                    idleMessage.textContent = 'API Error: ' + data.error;
+                    idleMessage.style.color = '#f85149';
+                }
+                updateProgress(data);
+            })
+            .catch(error => {
+                console.error('Progress fetch error:', error);
+                idleMessage.textContent = 'Fetch Error: ' + error.message;
+                idleMessage.style.color = '#f85149';
+            });
+    }
+
+    function startPolling() {
+        if (pollInterval) return;
+        fetchProgress();
+        pollInterval = setInterval(fetchProgress, 1000);  // Poll every 1 second
+    }
+
+    function stopPolling() {
+        if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+        }
+    }
+
+    // Collapse toggle
+    collapseBtn.addEventListener('click', function() {
+        isCollapsed = !isCollapsed;
+        localStorage.setItem('progress-monitor-collapsed', isCollapsed);
+        if (isCollapsed) {
+            monitor.classList.add('collapsed');
+            collapseBtn.textContent = 'Expand';
+        } else {
+            monitor.classList.remove('collapsed');
+            collapseBtn.textContent = 'Details';
+        }
+    });
+
+    // Apply initial state
+    if (isCollapsed) {
+        monitor.classList.add('collapsed');
+        collapseBtn.textContent = 'Expand';
+    }
+
+    // Start polling when page loads
+    startPolling();
+
+    // Pause polling when tab is hidden
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            stopPolling();
+        } else {
+            startPolling();
+        }
+    });
+})();
+</script>

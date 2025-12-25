@@ -23,7 +23,11 @@ from archivebox.config import CONSTANTS
 from archivebox.misc.system import get_dir_size, atomic_write
 from archivebox.misc.util import parse_date, base_url, domain as url_domain, to_json, ts_to_date_str, urlencode, htmlencode, urldecode
 from archivebox.misc.hashing import get_dir_info
-from archivebox.hooks import ARCHIVE_METHODS_INDEXING_PRECEDENCE
+from archivebox.hooks import (
+    ARCHIVE_METHODS_INDEXING_PRECEDENCE,
+    get_extractors, get_extractor_name, get_extractor_icon,
+    DEFAULT_EXTRACTOR_ICONS,
+)
 from archivebox.base_models.models import (
     ModelWithUUID, ModelWithSerializers, ModelWithOutputDir,
     ModelWithConfig, ModelWithNotes, ModelWithHealthStats,
@@ -343,45 +347,37 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     def icons(self) -> str:
         """Generate HTML icons showing which extractors have succeeded for this snapshot"""
         from django.utils.html import format_html, mark_safe
-        from collections import defaultdict
 
         cache_key = f'result_icons:{self.pk}:{(self.downloaded_at or self.modified_at or self.created_at or self.bookmarked_at).timestamp()}'
 
         def calc_icons():
             if hasattr(self, '_prefetched_objects_cache') and 'archiveresult_set' in self._prefetched_objects_cache:
-                archive_results = [r for r in self.archiveresult_set.all() if r.status == "succeeded" and r.output]
+                archive_results = {r.extractor: r for r in self.archiveresult_set.all() if r.status == "succeeded" and r.output}
             else:
-                archive_results = self.archiveresult_set.filter(status="succeeded", output__isnull=False)
+                archive_results = {r.extractor: r for r in self.archiveresult_set.filter(status="succeeded", output__isnull=False)}
 
             path = self.archive_path
             canon = self.canonical_outputs()
             output = ""
             output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{}</a> &nbsp;'
-            icons = {
-                "singlefile": "❶", "wget": "🆆", "dom": "🅷", "pdf": "📄",
-                "screenshot": "💻", "media": "📼", "git": "🅶", "archive_org": "🏛",
-                "readability": "🆁", "mercury": "🅼", "warc": "📦"
-            }
-            exclude = ["favicon", "title", "headers", "htmltotext", "archive_org"]
 
-            extractor_outputs = defaultdict(lambda: None)
-            for extractor, _ in ArchiveResult.EXTRACTOR_CHOICES:
-                for result in archive_results:
-                    if result.extractor == extractor:
-                        extractor_outputs[extractor] = result
+            # Get all extractors from hooks system (sorted by numeric prefix)
+            all_extractors = [get_extractor_name(e) for e in get_extractors()]
 
-            for extractor, _ in ArchiveResult.EXTRACTOR_CHOICES:
-                if extractor not in exclude:
-                    existing = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
-                    output += format_html(output_template, path, canon.get(extractor, ''), str(bool(existing)), extractor, icons.get(extractor, "?"))
-                if extractor == "wget":
-                    exists = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
-                    output += format_html(output_template, path, canon.get("warc", "warc/"), str(bool(exists)), "warc", icons.get("warc", "?"))
-                if extractor == "archive_org":
-                    exists = extractor in extractor_outputs and extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
-                    output += '<a href="{}" class="exists-{}" title="{}">{}</a> '.format(canon.get("archive_org", ""), str(exists), "archive_org", icons.get("archive_org", "?"))
+            for extractor in all_extractors:
+                result = archive_results.get(extractor)
+                existing = result and result.status == 'succeeded' and result.output
+                icon = get_extractor_icon(extractor)
+                output += format_html(
+                    output_template,
+                    path,
+                    canon.get(extractor, extractor + '/'),
+                    str(bool(existing)),
+                    extractor,
+                    icon
+                )
 
-            return format_html('<span class="files-icons" style="font-size: 1.1em; opacity: 0.8; min-width: 240px; display: inline-block">{}<span>', mark_safe(output))
+            return format_html('<span class="files-icons" style="font-size: 1.1em; opacity: 0.8; min-width: 240px; display: inline-block">{}</span>', mark_safe(output))
 
         cache_result = cache.get(cache_key)
         if cache_result:
@@ -767,12 +763,11 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         FAILED = 'failed', 'Failed'
         SKIPPED = 'skipped', 'Skipped'
 
-    EXTRACTOR_CHOICES = (
-        ('htmltotext', 'htmltotext'), ('git', 'git'), ('singlefile', 'singlefile'), ('media', 'media'),
-        ('archive_org', 'archive_org'), ('readability', 'readability'), ('mercury', 'mercury'),
-        ('favicon', 'favicon'), ('pdf', 'pdf'), ('headers', 'headers'), ('screenshot', 'screenshot'),
-        ('dom', 'dom'), ('title', 'title'), ('wget', 'wget'),
-    )
+    @classmethod
+    def get_extractor_choices(cls):
+        """Get extractor choices from discovered hooks (for forms/admin)."""
+        extractors = [get_extractor_name(e) for e in get_extractors()]
+        return tuple((e, e) for e in extractors)
 
     # Keep AutoField for backward compatibility with 0.7.x databases
     # UUID field is added separately by migration for new records
@@ -783,7 +778,8 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     modified_at = models.DateTimeField(auto_now=True)
 
     snapshot: Snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)  # type: ignore
-    extractor = models.CharField(choices=EXTRACTOR_CHOICES, max_length=32, blank=False, null=False, db_index=True)
+    # No choices= constraint - extractor names come from plugin system and can be any string
+    extractor = models.CharField(max_length=32, blank=False, null=False, db_index=True)
     pwd = models.CharField(max_length=256, default=None, null=True, blank=True)
     cmd = models.JSONField(default=None, null=True, blank=True)
     cmd_version = models.CharField(max_length=128, default=None, null=True, blank=True)
@@ -834,6 +830,25 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
     def output_exists(self) -> bool:
         return os.path.exists(Path(self.snapshot_dir) / self.extractor)
+
+    def embed_path(self) -> Optional[str]:
+        """
+        Get the relative path to the embeddable output file for this result.
+
+        Returns the output field if set and file exists, otherwise tries to
+        find a reasonable default based on the extractor type.
+        """
+        if self.output:
+            return self.output
+
+        # Try to find output file based on extractor's canonical output path
+        canonical = self.snapshot.canonical_outputs()
+        extractor_key = f'{self.extractor}_path'
+        if extractor_key in canonical:
+            return canonical[extractor_key]
+
+        # Fallback to extractor directory
+        return f'{self.extractor}/'
 
     def create_output_dir(self):
         output_dir = Path(self.snapshot_dir) / self.extractor
@@ -891,6 +906,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             output_dir=extractor_dir,
             config_objects=config_objects,
             url=self.snapshot.url,
+            snapshot_id=str(self.snapshot.id),
         )
         end_ts = timezone.now()
 
@@ -1000,6 +1016,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
                 hook,
                 output_dir=self.output_dir,
                 config_objects=config_objects,
+                url=self.snapshot.url,
                 snapshot_id=str(self.snapshot.id),
                 extractor=self.extractor,
             )

@@ -865,3 +865,189 @@ def export_plugin_config_to_env(
     return env
 
 
+# =============================================================================
+# Plugin Template Discovery
+# =============================================================================
+#
+# Plugins can provide custom templates for rendering their output in the UI.
+# Templates are discovered by filename convention inside each plugin's templates/ dir:
+#
+#     archivebox/plugins/<plugin_name>/
+#         templates/
+#             icon.html          # Icon for admin table view (small inline HTML)
+#             thumbnail.html     # Preview thumbnail for snapshot cards
+#             embed.html         # Iframe embed content for main preview
+#             fullscreen.html    # Fullscreen view template
+#
+# Template context variables available:
+#     {{ result }}         - ArchiveResult object
+#     {{ snapshot }}       - Parent Snapshot object
+#     {{ output_path }}    - Path to output file/dir relative to snapshot dir
+#     {{ extractor }}      - Extractor name (e.g., 'screenshot', 'singlefile')
+#
+
+# Default templates used when plugin doesn't provide one
+DEFAULT_TEMPLATES = {
+    'icon': '''<span title="{{ extractor }}">{{ icon }}</span>''',
+    'thumbnail': '''
+        <img src="{{ output_path }}"
+             alt="{{ extractor }} output"
+             style="max-width: 100%; max-height: 100px; object-fit: cover;"
+             onerror="this.style.display='none'">
+    ''',
+    'embed': '''
+        <iframe src="{{ output_path }}"
+                style="width: 100%; height: 100%; border: none;"
+                sandbox="allow-same-origin allow-scripts">
+        </iframe>
+    ''',
+    'fullscreen': '''
+        <iframe src="{{ output_path }}"
+                style="width: 100%; height: 100vh; border: none;"
+                sandbox="allow-same-origin allow-scripts allow-forms">
+        </iframe>
+    ''',
+}
+
+# Default icons for known extractors (emoji or short HTML)
+DEFAULT_EXTRACTOR_ICONS = {
+    'screenshot': '📷',
+    'pdf': '📄',
+    'singlefile': '📦',
+    'dom': '🌐',
+    'wget': '📥',
+    'media': '🎬',
+    'git': '📂',
+    'readability': '📖',
+    'mercury': '☿️',
+    'favicon': '⭐',
+    'title': '📝',
+    'headers': '📋',
+    'archive_org': '🏛️',
+    'htmltotext': '📃',
+    'warc': '🗄️',
+}
+
+
+def get_plugin_template(extractor: str, template_name: str) -> Optional[str]:
+    """
+    Get a plugin template by extractor name and template type.
+
+    Args:
+        extractor: Extractor name (e.g., 'screenshot', '15_singlefile')
+        template_name: One of 'icon', 'thumbnail', 'embed', 'fullscreen'
+
+    Returns:
+        Template content as string, or None if not found.
+    """
+    base_name = get_extractor_name(extractor)
+
+    for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
+        if not base_dir.exists():
+            continue
+
+        # Look for plugin directory matching extractor name
+        for plugin_dir in base_dir.iterdir():
+            if not plugin_dir.is_dir():
+                continue
+
+            # Match by directory name (exact or partial)
+            if plugin_dir.name == base_name or plugin_dir.name.endswith(f'_{base_name}'):
+                template_path = plugin_dir / 'templates' / f'{template_name}.html'
+                if template_path.exists():
+                    return template_path.read_text()
+
+    return None
+
+
+def get_extractor_template(extractor: str, template_name: str) -> str:
+    """
+    Get template for an extractor, falling back to defaults.
+
+    Args:
+        extractor: Extractor name (e.g., 'screenshot', '15_singlefile')
+        template_name: One of 'icon', 'thumbnail', 'embed', 'fullscreen'
+
+    Returns:
+        Template content as string (plugin template or default).
+    """
+    # Try plugin-provided template first
+    template = get_plugin_template(extractor, template_name)
+    if template:
+        return template
+
+    # Fall back to default template
+    return DEFAULT_TEMPLATES.get(template_name, '')
+
+
+def get_extractor_icon(extractor: str) -> str:
+    """
+    Get the icon for an extractor.
+
+    First checks for plugin-provided icon.html template,
+    then falls back to DEFAULT_EXTRACTOR_ICONS.
+
+    Args:
+        extractor: Extractor name (e.g., 'screenshot', '15_singlefile')
+
+    Returns:
+        Icon HTML/emoji string.
+    """
+    base_name = get_extractor_name(extractor)
+
+    # Try plugin-provided icon template
+    icon_template = get_plugin_template(extractor, 'icon')
+    if icon_template:
+        return icon_template.strip()
+
+    # Fall back to default icon
+    return DEFAULT_EXTRACTOR_ICONS.get(base_name, '📁')
+
+
+def get_all_extractor_icons() -> Dict[str, str]:
+    """
+    Get icons for all discovered extractors.
+
+    Returns:
+        Dict mapping extractor base names to their icons.
+    """
+    icons = {}
+    for extractor in get_extractors():
+        base_name = get_extractor_name(extractor)
+        icons[base_name] = get_extractor_icon(extractor)
+    return icons
+
+
+def discover_plugin_templates() -> Dict[str, Dict[str, str]]:
+    """
+    Discover all plugin templates organized by extractor.
+
+    Returns:
+        Dict mapping extractor names to dicts of template_name -> template_path.
+        e.g., {'screenshot': {'icon': '/path/to/icon.html', 'thumbnail': '/path/to/thumbnail.html'}}
+    """
+    templates: Dict[str, Dict[str, str]] = {}
+
+    for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
+        if not base_dir.exists():
+            continue
+
+        for plugin_dir in base_dir.iterdir():
+            if not plugin_dir.is_dir():
+                continue
+
+            templates_dir = plugin_dir / 'templates'
+            if not templates_dir.exists():
+                continue
+
+            plugin_templates = {}
+            for template_file in templates_dir.glob('*.html'):
+                template_name = template_file.stem  # icon, thumbnail, embed, fullscreen
+                plugin_templates[template_name] = str(template_file)
+
+            if plugin_templates:
+                templates[plugin_dir.name] = plugin_templates
+
+    return templates
+
+

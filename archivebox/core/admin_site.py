@@ -35,8 +35,19 @@ def register_admin_site():
 
     admin.site = archivebox_admin
     sites.site = archivebox_admin
-    
-    # Plugin admin registration is now handled by individual app admins
-    # No longer using archivebox.pm.hook.register_admin()
-    
+
+    # Register admin views for each app
+    # (Previously handled by ABX plugin system, now called directly)
+    from core.admin import register_admin as register_core_admin
+    from crawls.admin import register_admin as register_crawls_admin
+    from api.admin import register_admin as register_api_admin
+    from machine.admin import register_admin as register_machine_admin
+    from workers.admin import register_admin as register_workers_admin
+
+    register_core_admin(archivebox_admin)
+    register_crawls_admin(archivebox_admin)
+    register_api_admin(archivebox_admin)
+    register_machine_admin(archivebox_admin)
+    register_workers_admin(archivebox_admin)
+
     return archivebox_admin

@@ -6,10 +6,10 @@ Usage: on_Snapshot__mercury.py --url=<url> --snapshot-id=<uuid>
 Output: Creates mercury/ directory with content.html, content.txt, article.json
 
 Environment variables:
-    MERCURY_BINARY: Path to mercury-parser binary
+    MERCURY_BINARY: Path to postlight-parser binary
     TIMEOUT: Timeout in seconds (default: 60)
 
-Note: Requires mercury-parser: npm install -g @postlight/mercury-parser
+Note: Requires postlight-parser: npm install -g @postlight/parser
 """
 
 import json
@@ -25,7 +25,7 @@ import rich_click as click
 
 # Extractor metadata
 EXTRACTOR_NAME = 'mercury'
-BIN_NAME = 'mercury-parser'
+BIN_NAME = 'postlight-parser'
 BIN_PROVIDERS = 'npm,env'
 OUTPUT_DIR = 'mercury'
 
@@ -42,12 +42,12 @@ def get_env_int(name: str, default: int = 0) -> int:
 
 
 def find_mercury() -> str | None:
-    """Find mercury-parser binary."""
+    """Find postlight-parser binary."""
     mercury = get_env('MERCURY_BINARY')
     if mercury and os.path.isfile(mercury):
         return mercury
 
-    for name in ['mercury-parser', 'mercury']:
+    for name in ['postlight-parser']:
         binary = shutil.which(name)
         if binary:
             return binary
@@ -56,7 +56,7 @@ def find_mercury() -> str | None:
 
 
 def get_version(binary: str) -> str:
-    """Get mercury-parser version."""
+    """Get postlight-parser version."""
     try:
         result = subprocess.run([binary, '--version'], capture_output=True, text=True, timeout=10)
         return result.stdout.strip()[:64]
@@ -83,12 +83,12 @@ def extract_mercury(url: str, binary: str) -> tuple[bool, str | None, str]:
 
         if result_text.returncode != 0:
             stderr = result_text.stderr.decode('utf-8', errors='replace')
-            return False, None, f'mercury-parser failed: {stderr[:200]}'
+            return False, None, f'postlight-parser failed: {stderr[:200]}'
 
         try:
             text_json = json.loads(result_text.stdout)
         except json.JSONDecodeError:
-            return False, None, 'mercury-parser returned invalid JSON'
+            return False, None, 'postlight-parser returned invalid JSON'
 
         if text_json.get('failed'):
             return False, None, 'Mercury was not able to extract article'
@@ -139,7 +139,7 @@ def main(url: str, snapshot_id: str):
         # Find binary
         binary = find_mercury()
         if not binary:
-            print(f'ERROR: mercury-parser binary not found', file=sys.stderr)
+            print(f'ERROR: postlight-parser binary not found', file=sys.stderr)
             print(f'DEPENDENCY_NEEDED={BIN_NAME}', file=sys.stderr)
             print(f'BIN_PROVIDERS={BIN_PROVIDERS}', file=sys.stderr)
             sys.exit(1)

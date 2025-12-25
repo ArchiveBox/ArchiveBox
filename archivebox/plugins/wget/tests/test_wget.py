@@ -2,8 +2,8 @@
 Integration tests for wget plugin
 
 Tests verify:
-1. Plugin reports missing dependency correctly
-2. wget can be installed via brew/apt provider hooks
+1. Validate hook checks for wget binary
+2. Verify deps with abx-pkg
 3. Config options work (SAVE_WGET, SAVE_WARC, etc.)
 4. Extraction works against real example.com
 5. Output files contain actual page content
@@ -26,7 +26,7 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 WGET_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_wget.py'))
-WGET_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_wget.py'
+WGET_VALIDATE_HOOK = PLUGIN_DIR / 'on_Crawl__00_validate_wget.py'
 BREW_HOOK = PLUGINS_ROOT / 'brew' / 'on_Dependency__install_using_brew_provider.py'
 APT_HOOK = PLUGINS_ROOT / 'apt' / 'on_Dependency__install_using_apt_provider.py'
 TEST_URL = 'https://example.com'
@@ -37,45 +37,59 @@ def test_hook_script_exists():
     assert WGET_HOOK.exists(), f"Hook script not found: {WGET_HOOK}"
 
 
-def test_wget_install_hook():
-    """Test wget install hook to install wget if needed."""
+def test_wget_validate_hook():
+    """Test wget validate hook checks for wget binary."""
     result = subprocess.run(
-        [sys.executable, str(WGET_INSTALL_HOOK)],
+        [sys.executable, str(WGET_VALIDATE_HOOK)],
         capture_output=True,
         text=True,
-        timeout=600
+        timeout=30
     )
 
-    assert result.returncode == 0, f"Install hook failed: {result.stderr}"
-
-    # Verify InstalledBinary JSONL output
-    found_binary = False
-    for line in result.stdout.strip().split('\n'):
-        if line.strip():
-            try:
-                record = json.loads(line)
-                if record.get('type') == 'InstalledBinary':
-                    assert record['name'] == 'wget'
-                    assert record['abspath']
-                    found_binary = True
-                    break
-            except json.JSONDecodeError:
-                pass
-
-    assert found_binary, "Should output InstalledBinary record"
+    # Hook exits 0 if binary found, 1 if not found (with Dependency record)
+    if result.returncode == 0:
+        # Binary found - verify InstalledBinary JSONL output
+        found_binary = False
+        for line in result.stdout.strip().split('\n'):
+            if line.strip():
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'InstalledBinary':
+                        assert record['name'] == 'wget'
+                        assert record['abspath']
+                        found_binary = True
+                        break
+                except json.JSONDecodeError:
+                    pass
+        assert found_binary, "Should output InstalledBinary record when binary found"
+    else:
+        # Binary not found - verify Dependency JSONL output
+        found_dependency = False
+        for line in result.stdout.strip().split('\n'):
+            if line.strip():
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'Dependency':
+                        assert record['bin_name'] == 'wget'
+                        assert 'env' in record['bin_providers']
+                        found_dependency = True
+                        break
+                except json.JSONDecodeError:
+                    pass
+        assert found_dependency, "Should output Dependency record when binary not found"
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify wget is available via abx-pkg after hook installation."""
-    from abx_pkg import Binary, AptProvider, BrewProvider, EnvProvider
-
-    AptProvider.model_rebuild()
-    BrewProvider.model_rebuild()
-    EnvProvider.model_rebuild()
+    """Verify wget is available via abx-pkg."""
+    from abx_pkg import Binary, AptProvider, BrewProvider, EnvProvider, BinProviderOverrides
 
     wget_binary = Binary(name='wget', binproviders=[AptProvider(), BrewProvider(), EnvProvider()])
     wget_loaded = wget_binary.load()
-    assert wget_loaded and wget_loaded.abspath, "wget should be available after install hook"
+
+    if wget_loaded and wget_loaded.abspath:
+        assert True, "wget is available"
+    else:
+        pytest.skip("wget not available - Dependency record should have been emitted")
 
 
 def test_reports_missing_dependency_when_not_installed():

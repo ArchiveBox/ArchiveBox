@@ -8,7 +8,7 @@ from django.views.generic.base import RedirectView
 from archivebox.misc.serve_static import serve_static
 
 from core.admin_site import archivebox_admin
-from core.views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthCheckView
+from core.views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthCheckView, live_progress_view
 
 from workers.views import JobsDashboardView
 
@@ -43,8 +43,10 @@ urlpatterns = [
 
 
     path('accounts/', include('django.contrib.auth.urls')),
+
+    path('admin/live-progress/', live_progress_view, name='live_progress'),
     path('admin/', archivebox_admin.urls),
-    
+
     path("api/",      include('api.urls'), name='api'),
 
     path('health/', HealthCheckView.as_view(), name='healthcheck'),

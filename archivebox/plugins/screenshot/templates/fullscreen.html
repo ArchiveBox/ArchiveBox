@@ -1,0 +1,8 @@
+<!-- Screenshot fullscreen - zoomable image -->
+<div style="width: 100%; height: 100vh; overflow: auto; background: #222; display: flex; align-items: start; justify-content: center;">
+    <img src="{{ output_path }}"
+         alt="Screenshot of page"
+         class="extractor-fullscreen screenshot-fullscreen"
+         style="max-width: 100%; cursor: zoom-in;"
+         onclick="this.style.maxWidth = this.style.maxWidth === 'none' ? '100%' : 'none'; this.style.cursor = this.style.maxWidth === 'none' ? 'zoom-out' : 'zoom-in';">
+</div>

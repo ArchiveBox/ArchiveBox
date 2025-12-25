@@ -35,6 +35,7 @@ from django.utils import timezone
 
 from rich import print
 
+from archivebox.misc.logging_util import log_worker_event
 from .worker import Worker, CrawlWorker, SnapshotWorker, ArchiveResultWorker
 from .pid_utils import (
     write_pid_file,
@@ -82,22 +83,39 @@ class Orchestrator:
         """Called when orchestrator starts."""
         self.pid = os.getpid()
         self.pid_file = write_pid_file('orchestrator', worker_id=0)
-        print(f'[green]👨‍✈️ {self} STARTED[/green]')
-        
+
         # Clean up any stale PID files from previous runs
         stale_count = cleanup_stale_pid_files()
+
+        # Collect startup metadata
+        metadata = {
+            'max_workers_per_type': self.MAX_WORKERS_PER_TYPE,
+            'max_total_workers': self.MAX_TOTAL_WORKERS,
+            'poll_interval': self.POLL_INTERVAL,
+        }
         if stale_count:
-            print(f'[yellow]👨‍✈️ {self} cleaned up {stale_count} stale PID files[/yellow]')
+            metadata['cleaned_stale_pids'] = stale_count
+
+        log_worker_event(
+            worker_type='Orchestrator',
+            event='Starting...',
+            indent_level=0,
+            pid=self.pid,
+            metadata=metadata,
+        )
     
     def on_shutdown(self, error: BaseException | None = None) -> None:
         """Called when orchestrator shuts down."""
         if self.pid_file:
             remove_pid_file(self.pid_file)
-        
-        if error and not isinstance(error, KeyboardInterrupt):
-            print(f'[red]👨‍✈️ {self} SHUTDOWN with error:[/red] {type(error).__name__}: {error}')
-        else:
-            print(f'[grey53]👨‍✈️ {self} SHUTDOWN[/grey53]')
+
+        log_worker_event(
+            worker_type='Orchestrator',
+            event='Shutting down',
+            indent_level=0,
+            pid=self.pid,
+            error=error if error and not isinstance(error, KeyboardInterrupt) else None,
+        )
     
     def get_total_worker_count(self) -> int:
         """Get total count of running workers across all types."""
@@ -129,10 +147,17 @@ class Orchestrator:
         """Spawn a new worker process. Returns PID or None if spawn failed."""
         try:
             pid = WorkerClass.start(daemon=False)
-            print(f'[blue]👨‍✈️ {self} spawned {WorkerClass.name} worker[/blue] pid={pid}')
+            # Worker spawning is logged by the worker itself in on_startup()
             return pid
         except Exception as e:
-            print(f'[red]👨‍✈️ {self} failed to spawn {WorkerClass.name} worker:[/red] {e}')
+            log_worker_event(
+                worker_type='Orchestrator',
+                event='Failed to spawn worker',
+                indent_level=0,
+                pid=self.pid,
+                metadata={'worker_type': WorkerClass.name},
+                error=e,
+            )
             return None
     
     def check_queues_and_spawn_workers(self) -> dict[str, int]:
@@ -181,26 +206,13 @@ class Orchestrator:
     
     def on_tick(self, queue_sizes: dict[str, int]) -> None:
         """Called each orchestrator tick. Override for custom behavior."""
-        total_queued = sum(queue_sizes.values())
-        total_workers = self.get_total_worker_count()
-        
-        if total_queued > 0 or total_workers > 0:
-            # Build status line
-            status_parts = []
-            for WorkerClass in self.WORKER_TYPES:
-                name = WorkerClass.name
-                queued = queue_sizes.get(name, 0)
-                workers = len(WorkerClass.get_running_workers())
-                if queued > 0 or workers > 0:
-                    status_parts.append(f'{name}={queued}q/{workers}w')
-            
-            if status_parts:
-                print(f'[grey53]👨‍✈️ {self} tick:[/grey53] {" ".join(status_parts)}')
+        # Tick logging suppressed to reduce noise
+        pass
     
     def on_idle(self) -> None:
         """Called when orchestrator is idle (no work, no workers)."""
-        if self.idle_count == 1:
-            print(f'[grey53]👨‍✈️ {self} idle, waiting for work...[/grey53]')
+        # Idle logging suppressed to reduce noise
+        pass
     
     def should_exit(self, queue_sizes: dict[str, int]) -> bool:
         """Determine if orchestrator should exit."""
@@ -242,7 +254,12 @@ class Orchestrator:
                 
                 # Check if we should exit
                 if self.should_exit(queue_sizes):
-                    print(f'[green]👨‍✈️ {self} all work complete, exiting[/green]')
+                    log_worker_event(
+                        worker_type='Orchestrator',
+                        event='All work complete',
+                        indent_level=0,
+                        pid=self.pid,
+                    )
                     break
                 
                 time.sleep(self.POLL_INTERVAL)
@@ -267,9 +284,14 @@ class Orchestrator:
         
         proc = Process(target=run_orchestrator, name='orchestrator')
         proc.start()
-        
+
         assert proc.pid is not None
-        print(f'[green]👨‍✈️ Orchestrator started in background[/green] pid={proc.pid}')
+        log_worker_event(
+            worker_type='Orchestrator',
+            event='Started in background',
+            indent_level=0,
+            pid=proc.pid,
+        )
         return proc.pid
     
     @classmethod

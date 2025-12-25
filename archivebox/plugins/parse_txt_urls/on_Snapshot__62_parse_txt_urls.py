@@ -100,7 +100,8 @@ def fetch_content(url: str) -> str:
 
 @click.command()
 @click.option('--url', required=True, help='URL to parse (file:// or https://)')
-def main(url: str):
+@click.option('--snapshot-id', required=False, help='Snapshot UUID (unused but required by hook runner)')
+def main(url: str, snapshot_id: str = None):
     """Parse plain text and extract URLs."""
 
     try:

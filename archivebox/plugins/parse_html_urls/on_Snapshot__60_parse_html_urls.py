@@ -133,7 +133,8 @@ def fetch_content(url: str) -> str:
 
 @click.command()
 @click.option('--url', required=True, help='HTML URL to parse')
-def main(url: str):
+@click.option('--snapshot-id', required=False, help='Snapshot UUID (unused but required by hook runner)')
+def main(url: str, snapshot_id: str = None):
     """Parse HTML and extract href URLs."""
 
     # Skip only if parse_dom_outlinks already ran AND found URLs (it uses Chrome for better coverage)

@@ -1,23 +1,13 @@
+"""
+Workers admin module.
+
+The orchestrator/worker system doesn't need Django admin registration
+as workers are managed via CLI commands and the orchestrator.
+"""
+
 __package__ = 'archivebox.workers'
-
-from django.contrib.auth import get_permission_codename
-
-from huey_monitor.apps import HueyMonitorConfig
-from huey_monitor.admin import TaskModel, TaskModelAdmin, SignalInfoModel, SignalInfoModelAdmin
-
-
-HueyMonitorConfig.verbose_name = 'Background Workers'
-
-
-class CustomTaskModelAdmin(TaskModelAdmin):
-    actions = ["delete_selected"]
-
-    def has_delete_permission(self, request, obj=None):
-        codename = get_permission_codename("delete", self.opts)
-        return request.user.has_perm("%s.%s" % (self.opts.app_label, codename))
-
 
 
 def register_admin(admin_site):
-    admin_site.register(TaskModel, CustomTaskModelAdmin)
-    admin_site.register(SignalInfoModel, SignalInfoModelAdmin)
+    """No models to register - workers are process-based, not Django models."""
+    pass

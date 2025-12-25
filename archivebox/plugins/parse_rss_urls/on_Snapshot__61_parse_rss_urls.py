@@ -51,7 +51,8 @@ def fetch_content(url: str) -> str:
 
 @click.command()
 @click.option('--url', required=True, help='RSS/Atom feed URL to parse')
-def main(url: str):
+@click.option('--snapshot-id', required=False, help='Snapshot UUID (unused but required by hook runner)')
+def main(url: str, snapshot_id: str = None):
     """Parse RSS/Atom feed and extract article URLs."""
 
     if feedparser is None:

@@ -2,7 +2,7 @@
 Integration tests for readability plugin
 
 Tests verify:
-1. Install hook installs readability-extractor via abx-pkg
+1. Validate hook checks for readability-extractor binary
 2. Verify deps with abx-pkg
 3. Plugin reports missing dependency correctly
 4. Extraction works against real example.com content
@@ -21,7 +21,7 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 READABILITY_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_readability.py'))
-READABILITY_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_readability.py'
+READABILITY_VALIDATE_HOOK = PLUGIN_DIR / 'on_Crawl__00_validate_readability.py'
 TEST_URL = 'https://example.com'
 
 
@@ -101,40 +101,51 @@ def test_reports_missing_dependency_when_not_installed():
         assert 'readability-extractor' in combined or 'BIN_NAME' in combined, "Should mention readability-extractor"
 
 
-def test_readability_install_hook():
-    """Test readability install hook to install readability-extractor if needed."""
+def test_readability_validate_hook():
+    """Test readability validate hook checks for readability-extractor binary."""
     result = subprocess.run(
-        [sys.executable, str(READABILITY_INSTALL_HOOK)],
+        [sys.executable, str(READABILITY_VALIDATE_HOOK)],
         capture_output=True,
         text=True,
-        timeout=600
+        timeout=30
     )
 
-    assert result.returncode == 0, f"Install hook failed: {result.stderr}"
-
-    # Verify InstalledBinary JSONL output
-    found_binary = False
-    for line in result.stdout.strip().split('\n'):
-        if line.strip():
-            try:
-                record = json.loads(line)
-                if record.get('type') == 'InstalledBinary':
-                    assert record['name'] == 'readability-extractor'
-                    assert record['abspath']
-                    found_binary = True
-                    break
-            except json.JSONDecodeError:
-                pass
-
-    assert found_binary, "Should output InstalledBinary record"
+    # Hook exits 0 if binary found, 1 if not found (with Dependency record)
+    if result.returncode == 0:
+        # Binary found - verify InstalledBinary JSONL output
+        found_binary = False
+        for line in result.stdout.strip().split('\n'):
+            if line.strip():
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'InstalledBinary':
+                        assert record['name'] == 'readability-extractor'
+                        assert record['abspath']
+                        found_binary = True
+                        break
+                except json.JSONDecodeError:
+                    pass
+        assert found_binary, "Should output InstalledBinary record when binary found"
+    else:
+        # Binary not found - verify Dependency JSONL output
+        found_dependency = False
+        for line in result.stdout.strip().split('\n'):
+            if line.strip():
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'Dependency':
+                        assert record['bin_name'] == 'readability-extractor'
+                        assert 'npm' in record['bin_providers']
+                        found_dependency = True
+                        break
+                except json.JSONDecodeError:
+                    pass
+        assert found_dependency, "Should output Dependency record when binary not found"
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify readability-extractor is available via abx-pkg after hook installation."""
+    """Verify readability-extractor is available via abx-pkg."""
     from abx_pkg import Binary, NpmProvider, EnvProvider, BinProviderOverrides
-
-    NpmProvider.model_rebuild()
-    EnvProvider.model_rebuild()
 
     readability_binary = Binary(
         name='readability-extractor',
@@ -142,7 +153,11 @@ def test_verify_deps_with_abx_pkg():
         overrides={'npm': {'packages': ['github:ArchiveBox/readability-extractor']}}
     )
     readability_loaded = readability_binary.load()
-    assert readability_loaded and readability_loaded.abspath, "readability-extractor should be available after install hook"
+
+    if readability_loaded and readability_loaded.abspath:
+        assert True, "readability-extractor is available"
+    else:
+        pytest.skip("readability-extractor not available - Dependency record should have been emitted")
 
 
 def test_extracts_article_after_installation():

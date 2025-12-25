@@ -256,7 +256,7 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
         # Show a helpful message when no plugins found
         rows['Name'].append('(no plugins found)')
         rows['Source'].append('-')
-        rows['Path'].append(format_html('<code>archivebox/plugins/</code> or <code>data/plugins/</code>'))
+        rows['Path'].append(mark_safe('<code>archivebox/plugins/</code> or <code>data/plugins/</code>'))
         rows['Hooks'].append('-')
 
     return TableContext(

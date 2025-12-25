@@ -3,16 +3,16 @@ __package__ = 'archivebox.machine'
 from django.contrib import admin
 from django.utils.html import format_html
 
-from archivebox.base_models.admin import BaseModelAdmin
-from machine.models import Machine, NetworkInterface, InstalledBinary
+from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
+from machine.models import Machine, NetworkInterface, InstalledBinary, Dependency
 
 
-class MachineAdmin(BaseModelAdmin):
+class MachineAdmin(ConfigEditorMixin, BaseModelAdmin):
     list_display = ('id', 'created_at', 'hostname', 'ips', 'os_platform', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'os_arch', 'os_family', 'os_release', 'hw_uuid', 'health')
     sort_fields = ('id', 'created_at', 'hostname', 'ips', 'os_platform', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'os_arch', 'os_family', 'os_release', 'hw_uuid')
 
     readonly_fields = ('guid', 'created_at', 'modified_at', 'ips')
-    fields = (*readonly_fields, 'hostname', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'hw_uuid', 'os_arch', 'os_family', 'os_platform', 'os_kernel', 'os_release', 'stats', 'num_uses_succeeded', 'num_uses_failed')
+    fields = (*readonly_fields, 'hostname', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'hw_uuid', 'os_arch', 'os_family', 'os_platform', 'os_kernel', 'os_release', 'stats', 'config', 'num_uses_succeeded', 'num_uses_failed')
 
     list_filter = ('hw_in_docker', 'hw_in_vm', 'os_arch', 'os_family', 'os_platform')
     ordering = ['-created_at']
@@ -48,15 +48,43 @@ class NetworkInterfaceAdmin(BaseModelAdmin):
         )
 
 
+class DependencyAdmin(ConfigEditorMixin, BaseModelAdmin):
+    list_display = ('id', 'created_at', 'bin_name', 'bin_providers', 'is_installed', 'installed_count')
+    sort_fields = ('id', 'created_at', 'bin_name', 'bin_providers')
+    search_fields = ('id', 'bin_name', 'bin_providers')
+
+    readonly_fields = ('id', 'created_at', 'modified_at', 'is_installed', 'installed_count')
+    fields = ('bin_name', 'bin_providers', 'custom_cmds', 'config', *readonly_fields)
+
+    list_filter = ('bin_providers', 'created_at')
+    ordering = ['-created_at']
+    list_per_page = 100
+    actions = ["delete_selected"]
+
+    @admin.display(description='Installed', boolean=True)
+    def is_installed(self, dependency):
+        return dependency.is_installed
+
+    @admin.display(description='# Binaries')
+    def installed_count(self, dependency):
+        count = dependency.installed_binaries.count()
+        if count:
+            return format_html(
+                '<a href="/admin/machine/installedbinary/?dependency__id__exact={}">{}</a>',
+                dependency.id, count,
+            )
+        return '0'
+
+
 class InstalledBinaryAdmin(BaseModelAdmin):
-    list_display = ('id', 'created_at', 'machine_info', 'name', 'binprovider', 'version', 'abspath', 'sha256', 'health')
+    list_display = ('id', 'created_at', 'machine_info', 'name', 'dependency_link', 'binprovider', 'version', 'abspath', 'sha256', 'health')
     sort_fields = ('id', 'created_at', 'machine_info', 'name', 'binprovider', 'version', 'abspath', 'sha256')
-    search_fields = ('id', 'machine__id', 'name', 'binprovider', 'version', 'abspath', 'sha256')
+    search_fields = ('id', 'machine__id', 'name', 'binprovider', 'version', 'abspath', 'sha256', 'dependency__bin_name')
 
     readonly_fields = ('created_at', 'modified_at')
-    fields = ('machine', 'name', 'binprovider', 'abspath', 'version', 'sha256', *readonly_fields, 'num_uses_succeeded', 'num_uses_failed')
+    fields = ('machine', 'dependency', 'name', 'binprovider', 'abspath', 'version', 'sha256', *readonly_fields, 'num_uses_succeeded', 'num_uses_failed')
 
-    list_filter = ('name', 'binprovider', 'machine_id')
+    list_filter = ('name', 'binprovider', 'machine_id', 'dependency')
     ordering = ['-created_at']
     list_per_page = 100
     actions = ["delete_selected"]
@@ -68,8 +96,18 @@ class InstalledBinaryAdmin(BaseModelAdmin):
             installed_binary.machine.id, str(installed_binary.machine.id)[:8], installed_binary.machine.hostname,
         )
 
+    @admin.display(description='Dependency', ordering='dependency__bin_name')
+    def dependency_link(self, installed_binary):
+        if installed_binary.dependency:
+            return format_html(
+                '<a href="/admin/machine/dependency/{}/change">{}</a>',
+                installed_binary.dependency.id, installed_binary.dependency.bin_name,
+            )
+        return '-'
+
 
 def register_admin(admin_site):
     admin_site.register(Machine, MachineAdmin)
     admin_site.register(NetworkInterface, NetworkInterfaceAdmin)
+    admin_site.register(Dependency, DependencyAdmin)
     admin_site.register(InstalledBinary, InstalledBinaryAdmin)

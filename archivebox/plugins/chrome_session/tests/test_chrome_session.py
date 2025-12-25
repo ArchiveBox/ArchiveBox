@@ -2,7 +2,7 @@
 Integration tests for chrome_session plugin
 
 Tests verify:
-1. Install hook finds system Chrome or installs chromium
+1. Validate hook checks for Chrome/Chromium binary
 2. Verify deps with abx-pkg
 3. Chrome session script exists
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
-CHROME_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_chrome.py'
+CHROME_VALIDATE_HOOK = PLUGIN_DIR / 'on_Crawl__00_validate_chrome.py'
 CHROME_SESSION_HOOK = PLUGIN_DIR / 'on_Snapshot__20_chrome_session.js'
 
 
@@ -23,37 +23,50 @@ def test_hook_script_exists():
     assert CHROME_SESSION_HOOK.exists(), f"Hook not found: {CHROME_SESSION_HOOK}"
 
 
-def test_chrome_install_hook():
-    """Test chrome install hook to find or install Chrome/Chromium."""
+def test_chrome_validate_hook():
+    """Test chrome validate hook checks for Chrome/Chromium binary."""
     result = subprocess.run(
-        [sys.executable, str(CHROME_INSTALL_HOOK)],
+        [sys.executable, str(CHROME_VALIDATE_HOOK)],
         capture_output=True,
         text=True,
-        timeout=600
+        timeout=30
     )
 
-    assert result.returncode == 0, f"Install hook failed: {result.stderr}"
-
-    # Verify InstalledBinary JSONL output
-    found_binary = False
-    for line in result.stdout.strip().split('\n'):
-        if line.strip():
-            try:
-                record = json.loads(line)
-                if record.get('type') == 'InstalledBinary':
-                    assert record['name'] == 'chrome'
-                    assert record['abspath']
-                    assert Path(record['abspath']).exists(), f"Chrome binary should exist at {record['abspath']}"
-                    found_binary = True
-                    break
-            except json.JSONDecodeError:
-                pass
-
-    assert found_binary, "Should output InstalledBinary record"
+    # Hook exits 0 if binary found, 1 if not found (with Dependency record)
+    if result.returncode == 0:
+        # Binary found - verify InstalledBinary JSONL output
+        found_binary = False
+        for line in result.stdout.strip().split('\n'):
+            if line.strip():
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'InstalledBinary':
+                        assert record['name'] == 'chrome'
+                        assert record['abspath']
+                        assert Path(record['abspath']).exists(), f"Chrome binary should exist at {record['abspath']}"
+                        found_binary = True
+                        break
+                except json.JSONDecodeError:
+                    pass
+        assert found_binary, "Should output InstalledBinary record when binary found"
+    else:
+        # Binary not found - verify Dependency JSONL output
+        found_dependency = False
+        for line in result.stdout.strip().split('\n'):
+            if line.strip():
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'Dependency':
+                        assert record['bin_name'] == 'chrome'
+                        found_dependency = True
+                        break
+                except json.JSONDecodeError:
+                    pass
+        assert found_dependency, "Should output Dependency record when binary not found"
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify chrome is available via abx-pkg after hook installation."""
+    """Verify chrome is available via abx-pkg."""
     from abx_pkg import Binary, AptProvider, BrewProvider, EnvProvider, BinProviderOverrides
 
     AptProvider.model_rebuild()
@@ -75,10 +88,10 @@ def test_verify_deps_with_abx_pkg():
         except Exception:
             continue
 
-    # If we get here, chrome should still be available from system
+    # If we get here, chrome not available
     import shutil
-    assert shutil.which('chromium') or shutil.which('chrome') or shutil.which('google-chrome'), \
-        "Chrome should be available after install hook"
+    if not (shutil.which('chromium') or shutil.which('chrome') or shutil.which('google-chrome')):
+        pytest.skip("Chrome/Chromium not available - Dependency record should have been emitted")
 
 
 if __name__ == '__main__':

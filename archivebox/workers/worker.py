@@ -25,6 +25,7 @@ from django.conf import settings
 
 from rich import print
 
+from archivebox.misc.logging_util import log_worker_event
 from .pid_utils import (
     write_pid_file,
     remove_pid_file,
@@ -126,7 +127,7 @@ class Worker:
             obj.sm.tick()
             return True
         except Exception as e:
-            print(f'[red]{self} error processing {obj.pk}:[/red] {e}')
+            # Error will be logged in runloop's completion event
             traceback.print_exc()
             return False
 
@@ -134,7 +135,28 @@ class Worker:
         """Called when worker starts."""
         self.pid = os.getpid()
         self.pid_file = write_pid_file(self.name, self.worker_id)
-        print(f'[green]{self} STARTED[/green] pid_file={self.pid_file}')
+
+        # Determine worker type for logging
+        worker_type_name = self.__class__.__name__
+        indent_level = 1  # Default for most workers
+
+        # Adjust indent level based on worker type
+        if 'Snapshot' in worker_type_name:
+            indent_level = 2
+        elif 'ArchiveResult' in worker_type_name:
+            indent_level = 3
+
+        log_worker_event(
+            worker_type=worker_type_name,
+            event='Starting...',
+            indent_level=indent_level,
+            pid=self.pid,
+            worker_id=str(self.worker_id),
+            metadata={
+                'max_concurrent': self.MAX_CONCURRENT_TASKS,
+                'poll_interval': self.POLL_INTERVAL,
+            },
+        )
 
     def on_shutdown(self, error: BaseException | None = None) -> None:
         """Called when worker shuts down."""
@@ -142,10 +164,23 @@ class Worker:
         if self.pid_file:
             remove_pid_file(self.pid_file)
 
-        if error and not isinstance(error, KeyboardInterrupt):
-            print(f'[red]{self} SHUTDOWN with error:[/red] {type(error).__name__}: {error}')
-        else:
-            print(f'[grey53]{self} SHUTDOWN[/grey53]')
+        # Determine worker type for logging
+        worker_type_name = self.__class__.__name__
+        indent_level = 1
+
+        if 'Snapshot' in worker_type_name:
+            indent_level = 2
+        elif 'ArchiveResult' in worker_type_name:
+            indent_level = 3
+
+        log_worker_event(
+            worker_type=worker_type_name,
+            event='Shutting down',
+            indent_level=indent_level,
+            pid=self.pid,
+            worker_id=str(self.worker_id),
+            error=error if error and not isinstance(error, KeyboardInterrupt) else None,
+        )
 
     def should_exit(self) -> bool:
         """Check if worker should exit due to idle timeout."""
@@ -161,6 +196,15 @@ class Worker:
         """Main worker loop - polls queue, processes items."""
         self.on_startup()
 
+        # Determine worker type for logging
+        worker_type_name = self.__class__.__name__
+        indent_level = 1
+
+        if 'Snapshot' in worker_type_name:
+            indent_level = 2
+        elif 'ArchiveResult' in worker_type_name:
+            indent_level = 3
+
         try:
             while True:
                 # Try to claim and process an item
@@ -168,25 +212,62 @@ class Worker:
 
                 if obj is not None:
                     self.idle_count = 0
-                    print(f'[blue]{self} processing:[/blue] {obj.pk}')
+
+                    # Build metadata for task start
+                    start_metadata = {'task_id': str(obj.pk)}
+                    if hasattr(obj, 'url'):
+                        # SnapshotWorker
+                        url = str(obj.url) if obj.url else None
+                    else:
+                        url = None
+
+                    extractor = None
+                    if hasattr(obj, 'extractor'):
+                        # ArchiveResultWorker
+                        extractor = obj.extractor
+                        start_metadata['extractor'] = extractor
+
+                    log_worker_event(
+                        worker_type=worker_type_name,
+                        event='Processing...',
+                        indent_level=indent_level,
+                        pid=self.pid,
+                        worker_id=str(self.worker_id),
+                        url=url,
+                        extractor=extractor,
+                        metadata=start_metadata,
+                    )
 
                     start_time = time.time()
                     success = self.process_item(obj)
                     elapsed = time.time() - start_time
 
-                    if success:
-                        print(f'[green]{self} completed ({elapsed:.1f}s):[/green] {obj.pk}')
-                    else:
-                        print(f'[red]{self} failed ({elapsed:.1f}s):[/red] {obj.pk}')
+                    # Build metadata for task completion
+                    complete_metadata = {
+                        'task_id': str(obj.pk),
+                        'duration': elapsed,
+                        'status': 'success' if success else 'failed',
+                    }
+                    if hasattr(obj, 'status'):
+                        complete_metadata['final_status'] = str(obj.status)
+
+                    log_worker_event(
+                        worker_type=worker_type_name,
+                        event='Completed' if success else 'Failed',
+                        indent_level=indent_level,
+                        pid=self.pid,
+                        worker_id=str(self.worker_id),
+                        url=url,
+                        extractor=extractor,
+                        metadata=complete_metadata,
+                    )
                 else:
-                    # No work available
+                    # No work available - idle logging suppressed
                     self.idle_count += 1
-                    if self.idle_count == 1:
-                        print(f'[grey53]{self} idle, waiting for work...[/grey53]')
 
                 # Check if we should exit
                 if self.should_exit():
-                    print(f'[grey53]{self} idle timeout reached, exiting[/grey53]')
+                    # Exit logging suppressed - shutdown will be logged by on_shutdown()
                     break
 
                 time.sleep(self.POLL_INTERVAL)
@@ -293,7 +374,7 @@ class ArchiveResultWorker(Worker):
             obj.sm.tick()
             return True
         except Exception as e:
-            print(f'[red]{self} error processing {obj.pk}:[/red] {e}')
+            # Error will be logged in runloop's completion event
             traceback.print_exc()
             return False
 

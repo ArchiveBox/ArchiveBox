@@ -21,7 +21,7 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 MEDIA_HOOK = PLUGIN_DIR / 'on_Snapshot__51_media.py'
-MEDIA_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_ytdlp.py'
+MEDIA_VALIDATE_HOOK = PLUGIN_DIR / 'on_Crawl__00_validate_ytdlp.py'
 TEST_URL = 'https://example.com/video.mp4'
 
 def test_hook_script_exists():
@@ -29,46 +29,72 @@ def test_hook_script_exists():
     assert MEDIA_HOOK.exists(), f"Hook not found: {MEDIA_HOOK}"
 
 
-def test_ytdlp_install_hook():
-    """Test yt-dlp install hook to install yt-dlp if needed."""
-    # Run yt-dlp install hook
+def test_ytdlp_validate_hook():
+    """Test yt-dlp validate hook checks for yt-dlp and dependencies (node, ffmpeg)."""
+    # Run yt-dlp validate hook
     result = subprocess.run(
-        [sys.executable, str(MEDIA_INSTALL_HOOK)],
+        [sys.executable, str(MEDIA_VALIDATE_HOOK)],
         capture_output=True,
         text=True,
-        timeout=600
+        timeout=30
     )
 
-    assert result.returncode == 0, f"Install hook failed: {result.stderr}"
+    # Hook exits 0 if all binaries found, 1 if any not found
+    # Parse output for InstalledBinary and Dependency records
+    found_binaries = {'node': False, 'ffmpeg': False, 'yt-dlp': False}
+    found_dependencies = {'node': False, 'ffmpeg': False, 'yt-dlp': False}
 
-    # Verify InstalledBinary JSONL output
-    found_binary = False
     for line in result.stdout.strip().split('\n'):
         if line.strip():
             try:
                 record = json.loads(line)
                 if record.get('type') == 'InstalledBinary':
-                    assert record['name'] == 'yt-dlp'
-                    assert record['abspath']
-                    found_binary = True
-                    break
+                    name = record['name']
+                    if name in found_binaries:
+                        assert record['abspath'], f"{name} should have abspath"
+                        found_binaries[name] = True
+                elif record.get('type') == 'Dependency':
+                    name = record['bin_name']
+                    if name in found_dependencies:
+                        found_dependencies[name] = True
             except json.JSONDecodeError:
                 pass
 
-    assert found_binary, "Should output InstalledBinary record"
+    # Each binary should either be found (InstalledBinary) or missing (Dependency)
+    for binary_name in ['yt-dlp', 'node', 'ffmpeg']:
+        assert found_binaries[binary_name] or found_dependencies[binary_name], \
+            f"{binary_name} should have either InstalledBinary or Dependency record"
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify yt-dlp is available via abx-pkg after hook installation."""
-    from abx_pkg import Binary, PipProvider, EnvProvider, BinProviderOverrides
+    """Verify yt-dlp, node, and ffmpeg are available via abx-pkg."""
+    from abx_pkg import Binary, PipProvider, AptProvider, BrewProvider, EnvProvider, BinProviderOverrides
 
-    PipProvider.model_rebuild()
-    EnvProvider.model_rebuild()
+    missing_binaries = []
 
     # Verify yt-dlp is available
     ytdlp_binary = Binary(name='yt-dlp', binproviders=[PipProvider(), EnvProvider()])
     ytdlp_loaded = ytdlp_binary.load()
-    assert ytdlp_loaded and ytdlp_loaded.abspath, "yt-dlp should be available after install hook"
+    if not (ytdlp_loaded and ytdlp_loaded.abspath):
+        missing_binaries.append('yt-dlp')
+
+    # Verify node is available (yt-dlp needs it for JS extraction)
+    node_binary = Binary(
+        name='node',
+        binproviders=[AptProvider(), BrewProvider(), EnvProvider()]
+    )
+    node_loaded = node_binary.load()
+    if not (node_loaded and node_loaded.abspath):
+        missing_binaries.append('node')
+
+    # Verify ffmpeg is available (yt-dlp needs it for video conversion)
+    ffmpeg_binary = Binary(name='ffmpeg', binproviders=[AptProvider(), BrewProvider(), EnvProvider()])
+    ffmpeg_loaded = ffmpeg_binary.load()
+    if not (ffmpeg_loaded and ffmpeg_loaded.abspath):
+        missing_binaries.append('ffmpeg')
+
+    if missing_binaries:
+        pytest.skip(f"Binaries not available: {', '.join(missing_binaries)} - Dependency records should have been emitted")
 
 def test_handles_non_media_url():
     """Test that media extractor handles non-media URLs gracefully via hook."""

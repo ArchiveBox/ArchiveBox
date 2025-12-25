@@ -481,6 +481,138 @@ def printable_filesize(num_bytes: Union[int, float]) -> str:
 
 
 @enforce_types
+def format_duration(seconds: float) -> str:
+    """Format duration in human-readable form."""
+    if seconds < 1:
+        return f'{seconds*1000:.0f}ms'
+    elif seconds < 60:
+        return f'{seconds:.1f}s'
+    elif seconds < 3600:
+        minutes = int(seconds // 60)
+        secs = int(seconds % 60)
+        return f'{minutes}min {secs}s' if secs else f'{minutes}min'
+    else:
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        return f'{hours}hr {minutes}min' if minutes else f'{hours}hr'
+
+
+@enforce_types
+def truncate_url(url: str, max_length: int = 60) -> str:
+    """Truncate URL to max_length, keeping domain and adding ellipsis."""
+    if len(url) <= max_length:
+        return url
+    # Try to keep the domain and beginning of path
+    if '://' in url:
+        protocol, rest = url.split('://', 1)
+        if '/' in rest:
+            domain, path = rest.split('/', 1)
+            available = max_length - len(protocol) - len(domain) - 6  # for "://", "/", "..."
+            if available > 10:
+                return f'{protocol}://{domain}/{path[:available]}...'
+    # Fallback: just truncate
+    return url[:max_length-3] + '...'
+
+
+@enforce_types
+def log_worker_event(
+    worker_type: str,
+    event: str,
+    indent_level: int = 0,
+    pid: Optional[int] = None,
+    worker_id: Optional[str] = None,
+    url: Optional[str] = None,
+    extractor: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    error: Optional[Exception] = None,
+) -> None:
+    """
+    Log a worker event with structured metadata and indentation.
+
+    Args:
+        worker_type: Type of worker (Orchestrator, CrawlWorker, SnapshotWorker, etc.)
+        event: Event name (Starting, Completed, Failed, etc.)
+        indent_level: Indentation level (0=Orchestrator, 1=CrawlWorker, 2=SnapshotWorker, 3=ArchiveResultWorker)
+        pid: Process ID
+        worker_id: Worker ID (UUID for CrawlWorker, url for SnapshotWorker, extractor for ArchiveResultWorker)
+        url: URL being processed (for SnapshotWorker/ArchiveResultWorker)
+        extractor: Extractor name (for ArchiveResultWorker)
+        metadata: Dict of metadata to show in curly braces
+        error: Exception if event is an error
+    """
+    indent = '    ' * indent_level
+
+    # Build worker identifier
+    worker_parts = [worker_type]
+    if pid:
+        worker_parts.append(f'pid={pid}')
+    if worker_id and worker_type in ('CrawlWorker', 'Orchestrator'):
+        worker_parts.append(f'id={worker_id}')
+    if url and worker_type == 'SnapshotWorker':
+        worker_parts.append(f'url={truncate_url(url)}')
+    if extractor and worker_type == 'ArchiveResultWorker':
+        worker_parts.append(f'extractor={extractor}')
+
+    worker_label = f'{worker_parts[0]}[{", ".join(worker_parts[1:])}]'
+
+    # Build metadata string
+    metadata_str = ''
+    if metadata:
+        # Format metadata nicely
+        meta_parts = []
+        for k, v in metadata.items():
+            if isinstance(v, float):
+                # Format floats nicely (durations, sizes)
+                if 'duration' in k.lower():
+                    meta_parts.append(f'{k}: {format_duration(v)}')
+                elif 'size' in k.lower():
+                    meta_parts.append(f'{k}: {printable_filesize(int(v))}')
+                else:
+                    meta_parts.append(f'{k}: {v:.2f}')
+            elif isinstance(v, int):
+                # Format integers - check if it's a size
+                if 'size' in k.lower() or 'bytes' in k.lower():
+                    meta_parts.append(f'{k}: {printable_filesize(v)}')
+                else:
+                    meta_parts.append(f'{k}: {v}')
+            elif isinstance(v, (list, tuple)):
+                meta_parts.append(f'{k}: {len(v)}')
+            else:
+                meta_parts.append(f'{k}: {v}')
+        metadata_str = ' {' + ', '.join(meta_parts) + '}'
+
+    # Determine color based on event
+    color = 'white'
+    if event in ('Starting...', 'Started', 'STARTED', 'Started in background'):
+        color = 'green'
+    elif event in ('Processing...', 'PROCESSING'):
+        color = 'blue'
+    elif event in ('Completed', 'COMPLETED', 'All work complete'):
+        color = 'blue'
+    elif event in ('Failed', 'ERROR', 'Failed to spawn worker'):
+        color = 'red'
+    elif event in ('Shutting down', 'SHUTDOWN'):
+        color = 'grey53'
+
+    # Build final message
+    error_str = f' {type(error).__name__}: {error}' if error else ''
+    # Build colored message - worker_label needs to be inside color tags
+    # But first we need to format the color tags separately from the worker label
+    from archivebox.misc.logging import CONSOLE
+    from rich.text import Text
+
+    # Create a Rich Text object for proper formatting
+    text = Text()
+    text.append(indent)  # Indentation
+    # Append worker label and event with color
+    text.append(f'{worker_label} {event}{error_str}', style=color)
+    # Append metadata without color
+    text.append(metadata_str)
+
+    CONSOLE.print(text)
+
+
+@enforce_types
 def printable_folders(folders: Dict[str, Optional["Snapshot"]], with_headers: bool=False) -> str:
     return '\n'.join(
         f'{folder} {snapshot and snapshot.url} "{snapshot and snapshot.title}"'

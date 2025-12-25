@@ -21,7 +21,7 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 MERCURY_HOOK = PLUGIN_DIR / 'on_Snapshot__53_mercury.py'
-MERCURY_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_mercury.py'
+MERCURY_VALIDATE_HOOK = PLUGIN_DIR / 'on_Crawl__00_validate_mercury.py'
 TEST_URL = 'https://example.com'
 
 def test_hook_script_exists():
@@ -29,53 +29,70 @@ def test_hook_script_exists():
     assert MERCURY_HOOK.exists(), f"Hook not found: {MERCURY_HOOK}"
 
 
-def test_mercury_install_hook():
-    """Test mercury install hook to install mercury-parser if needed."""
-    # Run mercury install hook
+def test_mercury_validate_hook():
+    """Test mercury validate hook checks for postlight-parser."""
+    # Run mercury validate hook
     result = subprocess.run(
-        [sys.executable, str(MERCURY_INSTALL_HOOK)],
+        [sys.executable, str(MERCURY_VALIDATE_HOOK)],
         capture_output=True,
         text=True,
-        timeout=600
+        timeout=30
     )
 
-    assert result.returncode == 0, f"Install hook failed: {result.stderr}"
-
-    # Verify InstalledBinary JSONL output
-    found_binary = False
-    for line in result.stdout.strip().split('\n'):
-        if line.strip():
-            try:
-                record = json.loads(line)
-                if record.get('type') == 'InstalledBinary':
-                    assert record['name'] == 'mercury-parser'
-                    assert record['abspath']
-                    found_binary = True
-                    break
-            except json.JSONDecodeError:
-                pass
-
-    assert found_binary, "Should output InstalledBinary record"
+    # Hook exits 0 if binary found, 1 if not found (with Dependency record)
+    if result.returncode == 0:
+        # Binary found - verify InstalledBinary JSONL output
+        found_binary = False
+        for line in result.stdout.strip().split('\n'):
+            if line.strip():
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'InstalledBinary':
+                        assert record['name'] == 'postlight-parser'
+                        assert record['abspath']
+                        found_binary = True
+                        break
+                except json.JSONDecodeError:
+                    pass
+        assert found_binary, "Should output InstalledBinary record when binary found"
+    else:
+        # Binary not found - verify Dependency JSONL output
+        found_dependency = False
+        for line in result.stdout.strip().split('\n'):
+            if line.strip():
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'Dependency':
+                        assert record['bin_name'] == 'postlight-parser'
+                        assert 'npm' in record['bin_providers']
+                        found_dependency = True
+                        break
+                except json.JSONDecodeError:
+                    pass
+        assert found_dependency, "Should output Dependency record when binary not found"
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify mercury-parser is available via abx-pkg after hook installation."""
+    """Verify postlight-parser is available via abx-pkg."""
     from abx_pkg import Binary, NpmProvider, EnvProvider, BinProviderOverrides
 
-    NpmProvider.model_rebuild()
-    EnvProvider.model_rebuild()
-
-    # Verify mercury-parser is available
+    # Verify postlight-parser is available
     mercury_binary = Binary(
-        name='mercury-parser',
+        name='postlight-parser',
         binproviders=[NpmProvider(), EnvProvider()],
-        overrides={'npm': {'packages': ['@postlight/mercury-parser']}}
+        overrides={'npm': {'packages': ['@postlight/parser']}}
     )
     mercury_loaded = mercury_binary.load()
-    assert mercury_loaded and mercury_loaded.abspath, "mercury-parser should be available after install hook"
+
+    # If validate hook found it (exit 0), this should succeed
+    # If validate hook didn't find it (exit 1), this may fail unless binprovider installed it
+    if mercury_loaded and mercury_loaded.abspath:
+        assert True, "postlight-parser is available"
+    else:
+        pytest.skip("postlight-parser not available - Dependency record should have been emitted")
 
 def test_extracts_with_mercury_parser():
-    """Test full workflow: extract with mercury-parser from real HTML via hook."""
+    """Test full workflow: extract with postlight-parser from real HTML via hook."""
     # Prerequisites checked by earlier test
 
     with tempfile.TemporaryDirectory() as tmpdir:

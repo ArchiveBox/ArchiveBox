@@ -1,88 +1,59 @@
+"""
+Background task functions for queuing work to the orchestrator.
+
+These functions queue Snapshots/Crawls for processing by setting their status
+to QUEUED, which the orchestrator workers will pick up and process.
+"""
+
 __package__ = 'archivebox.workers'
 
-from functools import wraps
-# from django.utils import timezone
+from django.utils import timezone
 
-from django_huey import db_task, task
 
-from huey_monitor.models import TaskModel
-from huey_monitor.tqdm import ProcessInfo
+def ensure_orchestrator_running():
+    """Ensure the orchestrator is running to process queued items."""
+    from .orchestrator import Orchestrator
 
-from .supervisord_util import get_or_create_supervisord_process
+    if not Orchestrator.is_running():
+        # Start orchestrator in background
+        orchestrator = Orchestrator(exit_on_idle=True)
+        orchestrator.start()
 
-# @db_task(queue="commands", context=True, schedule=1)
-# def scheduler_tick():
-#     print('SCHEDULER TICK', timezone.now().isoformat())
-#     # abx.archivebox.events.on_scheduler_runloop_start(timezone.now(), machine=Machine.objects.get_current_machine())
 
-#     # abx.archivebox.events.on_scheduler_tick_start(timezone.now(), machine=Machine.objects.get_current_machine())
-    
-#     scheduled_crawls = CrawlSchedule.objects.filter(is_enabled=True)
-#     scheduled_crawls_due = scheduled_crawls.filter(next_run_at__lte=timezone.now())
-    
-#     for scheduled_crawl in scheduled_crawls_due:
-#         try:
-#             abx.archivebox.events.on_crawl_schedule_tick(scheduled_crawl)
-#         except Exception as e:
-#             abx.archivebox.events.on_crawl_schedule_failure(timezone.now(), machine=Machine.objects.get_current_machine(), error=e, schedule=scheduled_crawl)
-    
-#     # abx.archivebox.events.on_scheduler_tick_end(timezone.now(), machine=Machine.objects.get_current_machine(), tasks=scheduled_tasks_due)
+def bg_add(add_kwargs: dict) -> int:
+    """
+    Add URLs and queue them for archiving.
 
-def db_task_with_parent(func):
-    """Decorator for db_task that sets the parent task for the db_task"""
-    
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        task = kwargs.get('task')
-        parent_task_id = kwargs.get('parent_task_id')
-        
-        if task and parent_task_id:
-            TaskModel.objects.set_parent_task(main_task_id=parent_task_id, sub_task_id=task.id)
-
-        return func(*args, **kwargs)
-    
-    return wrapper
-
-@db_task(queue="commands", context=True)
-def bg_add(add_kwargs, task=None, parent_task_id=None):
-    get_or_create_supervisord_process(daemonize=False)
-    
-    from ..main import add
-    
-    if task and parent_task_id:
-        TaskModel.objects.set_parent_task(main_task_id=parent_task_id, sub_task_id=task.id)
+    Returns the number of snapshots created.
+    """
+    from archivebox.cli.archivebox_add import add
 
     assert add_kwargs and add_kwargs.get("urls")
-    rough_url_count = add_kwargs["urls"].count("://")
 
-    process_info = ProcessInfo(task, desc="add", parent_task_id=parent_task_id, total=rough_url_count)
+    # When called as background task, always run in background mode
+    add_kwargs = add_kwargs.copy()
+    add_kwargs['bg'] = True
 
     result = add(**add_kwargs)
-    process_info.update(n=rough_url_count)
-    return result
+
+    # Ensure orchestrator is running to process the new snapshots
+    ensure_orchestrator_running()
+
+    return len(result) if result else 0
 
 
-@task(queue="commands", context=True)
-def bg_archive_snapshots(snapshots, kwargs=None, task=None, parent_task_id=None):
+def bg_archive_snapshots(snapshots, kwargs: dict | None = None) -> int:
     """
     Queue multiple snapshots for archiving via the state machine system.
 
     This sets snapshots to 'queued' status so the orchestrator workers pick them up.
-    The actual archiving happens through ArchiveResult.run().
-    """
-    get_or_create_supervisord_process(daemonize=False)
+    The actual archiving happens through the worker's process_item() method.
 
-    from django.utils import timezone
+    Returns the number of snapshots queued.
+    """
     from core.models import Snapshot
 
-    if task and parent_task_id:
-        TaskModel.objects.set_parent_task(main_task_id=parent_task_id, sub_task_id=task.id)
-
-    assert snapshots
     kwargs = kwargs or {}
-
-    rough_count = len(snapshots) if hasattr(snapshots, '__len__') else snapshots.count()
-    process_info = ProcessInfo(task, desc="archive_snapshots", parent_task_id=parent_task_id, total=rough_count)
 
     # Queue snapshots by setting status to queued with immediate retry_at
     queued_count = 0
@@ -95,27 +66,23 @@ def bg_archive_snapshots(snapshots, kwargs=None, task=None, parent_task_id=None)
             )
             queued_count += 1
 
-    process_info.update(n=queued_count)
+    # Ensure orchestrator is running to process the queued snapshots
+    if queued_count > 0:
+        ensure_orchestrator_running()
+
     return queued_count
 
 
-@task(queue="commands", context=True)
-def bg_archive_snapshot(snapshot, overwrite=False, methods=None, task=None, parent_task_id=None):
+def bg_archive_snapshot(snapshot, overwrite: bool = False, methods: list | None = None) -> int:
     """
     Queue a single snapshot for archiving via the state machine system.
 
     This sets the snapshot to 'queued' status so the orchestrator workers pick it up.
-    The actual archiving happens through ArchiveResult.run().
+    The actual archiving happens through the worker's process_item() method.
+
+    Returns 1 if queued, 0 otherwise.
     """
-    get_or_create_supervisord_process(daemonize=False)
-
-    from django.utils import timezone
     from core.models import Snapshot
-
-    if task and parent_task_id:
-        TaskModel.objects.set_parent_task(main_task_id=parent_task_id, sub_task_id=task.id)
-
-    process_info = ProcessInfo(task, desc="archive_snapshot", parent_task_id=parent_task_id, total=1)
 
     # Queue the snapshot by setting status to queued
     if hasattr(snapshot, 'id'):
@@ -123,8 +90,9 @@ def bg_archive_snapshot(snapshot, overwrite=False, methods=None, task=None, pare
             status=Snapshot.StatusChoices.QUEUED,
             retry_at=timezone.now(),
         )
-        process_info.update(n=1)
+
+        # Ensure orchestrator is running to process the queued snapshot
+        ensure_orchestrator_running()
         return 1
 
     return 0
-

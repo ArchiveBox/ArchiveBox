@@ -72,9 +72,10 @@ def add(urls: str | list[str],
         cli_args[0] = 'archivebox'
     cmd_str = ' '.join(cli_args)
 
+    timestamp = timezone.now().strftime("%Y-%m-%d__%H-%M-%S")
     seed = Seed.from_file(
         sources_file,
-        label=f'{USER}@{HOSTNAME} $ {cmd_str}',
+        label=f'{USER}@{HOSTNAME} $ {cmd_str} [{timestamp}]',
         parser=parser,
         tag=tag,
         created_by=created_by_id,

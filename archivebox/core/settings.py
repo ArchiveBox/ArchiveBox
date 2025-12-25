@@ -68,9 +68,6 @@ INSTALLED_APPS = [
     # 3rd-party apps from PyPI that need to be loaded last
     "admin_data_views",  # handles rendering some convenient automatic read-only views of data in Django admin
     "django_extensions",  # provides Django Debug Toolbar (and other non-debug helpers)
-    "django_huey",  # provides multi-queue support for django huey https://github.com/gaiacoop/django-huey
-    "bx_django_utils",  # needed for huey_monitor https://github.com/boxine/bx_django_utils
-    "huey_monitor",  # adds an admin UI for monitoring background huey tasks https://github.com/boxine/django-huey-monitor
 ]
 
 
@@ -215,70 +212,6 @@ MIGRATION_MODULES = {"signal_webhooks": None}
 # as much as I'd love this to be a UUID or ULID field, it's not supported yet as of Django 5.0
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-HUEY = {
-    "huey_class": "huey.SqliteHuey",
-    "filename": CONSTANTS.QUEUE_DATABASE_FILENAME,
-    "name": "commands",
-    "results": True,
-    "store_none": True,
-    "immediate": False,
-    "utc": True,
-    "consumer": {
-        "workers": 1,
-        "worker_type": "thread",
-        "initial_delay": 0.1,  # Smallest polling interval, same as -d.
-        "backoff": 1.15,  # Exponential backoff using this rate, -b.
-        "max_delay": 10.0,  # Max possible polling interval, -m.
-        "scheduler_interval": 1,  # Check schedule every second, -s.
-        "periodic": True,  # Enable crontab feature.
-        "check_worker_health": True,  # Enable worker health checks.
-        "health_check_interval": 1,  # Check worker health every second.
-    },
-}
-
-# https://huey.readthedocs.io/en/latest/contrib.html#setting-things-up
-# https://github.com/gaiacoop/django-huey
-DJANGO_HUEY = {
-    "default": "commands",
-    "queues": {
-        HUEY["name"]: HUEY.copy(),
-        # more registered here at plugin import-time by BaseQueue.register()
-        # Additional huey queues configured via settings
-    },
-}
-
-
-class HueyDBRouter:
-    """
-    A router to store all the Huey result k:v / Huey Monitor models in the queue.sqlite3 database.
-    We keep the databases separate because the queue database receives many more reads/writes per second
-    and we want to avoid single-write lock contention with the main database. Also all the in-progress task
-    data is ephemeral/not-important-long-term. This makes it easier to for the user to clear non-critical
-    temp data by just deleting queue.sqlite3 and leaving index.sqlite3.
-    """
-
-    route_app_labels = {"huey_monitor", "django_huey", "djhuey"}
-    db_name = "queue"
-
-    def db_for_read(self, model, **hints):
-        if model._meta.app_label in self.route_app_labels:
-            return self.db_name
-        return "default"
-
-    def db_for_write(self, model, **hints):
-        if model._meta.app_label in self.route_app_labels:
-            return self.db_name
-        return "default"
-
-    def allow_relation(self, obj1, obj2, **hints):
-        if obj1._meta.app_label in self.route_app_labels or obj2._meta.app_label in self.route_app_labels:
-            return obj1._meta.app_label == obj2._meta.app_label
-        return None
-
-    def allow_migrate(self, db, app_label, model_name=None, **hints):
-        if app_label in self.route_app_labels:
-            return db == self.db_name
-        return db == "default"
 
 
 # class FilestoreDBRouter:
@@ -311,7 +244,7 @@ class HueyDBRouter:
 #             return db == self.db_name
 #         return db == "default"
 
-DATABASE_ROUTERS = ["core.settings.HueyDBRouter"]
+DATABASE_ROUTERS = []
 
 CACHES = {
     "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},

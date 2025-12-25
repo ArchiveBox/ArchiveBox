@@ -107,7 +107,7 @@ class RemoveCommandSchema(Schema):
 @router.post("/add", response=CLICommandResponseSchema, summary='archivebox add [args] [urls]')
 def cli_add(request, args: AddCommandSchema):
     from archivebox.cli.archivebox_add import add
-    
+
     result = add(
         urls=args.urls,
         tag=args.tag,
@@ -115,8 +115,9 @@ def cli_add(request, args: AddCommandSchema):
         update=args.update,
         index_only=args.index_only,
         overwrite=args.overwrite,
-        extract=args.extract,
+        plugins=args.extract,  # extract in API maps to plugins param
         parser=args.parser,
+        bg=True,  # Always run in background for API calls
     )
 
     return {

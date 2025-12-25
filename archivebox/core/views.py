@@ -34,6 +34,7 @@ from archivebox.search import query_search_index
 from core.models import Snapshot
 from core.forms import AddLinkForm
 from crawls.models import Seed, Crawl
+from archivebox.hooks import get_extractors, get_extractor_name
 
 
 
@@ -54,8 +55,10 @@ class SnapshotView(View):
     @staticmethod
     def render_live_index(request, snapshot):
         TITLE_LOADING_MSG = 'Not yet archived...'
-        HIDDEN_RESULTS = ('favicon', 'headers', 'title', 'htmltotext', 'warc', 'archive_org')
 
+        # Dict of extractor -> ArchiveResult object
+        archiveresult_objects = {}
+        # Dict of extractor -> result info dict (for template compatibility)
         archiveresults = {}
 
         results = snapshot.archiveresult_set.all()
@@ -65,18 +68,21 @@ class SnapshotView(View):
             abs_path = result.snapshot_dir / (embed_path or 'None')
 
             if (result.status == 'succeeded'
-                and (result.extractor not in HIDDEN_RESULTS)
                 and embed_path
                 and os.access(abs_path, os.R_OK)
                 and abs_path.exists()):
                 if os.path.isdir(abs_path) and not any(abs_path.glob('*.*')):
                     continue
 
+                # Store the full ArchiveResult object for template tags
+                archiveresult_objects[result.extractor] = result
+
                 result_info = {
                     'name': result.extractor,
                     'path': embed_path,
                     'ts': ts_to_date_str(result.end_ts),
                     'size': abs_path.stat().st_size or '?',
+                    'result': result,  # Include the full object for template tags
                 }
                 archiveresults[result.extractor] = result_info
 
@@ -101,11 +107,11 @@ class SnapshotView(View):
         }
 
 
-        # iterate through all the files in the snapshot dir and add the biggest ones to1 the result list
+        # iterate through all the files in the snapshot dir and add the biggest ones to the result list
         snap_dir = Path(snapshot.output_dir)
         if not os.path.isdir(snap_dir) and os.access(snap_dir, os.R_OK):
             return {}
-        
+
         for result_file in (*snap_dir.glob('*'), *snap_dir.glob('*/*')):
             extension = result_file.suffix.lstrip('.').lower()
             if result_file.is_dir() or result_file.name.startswith('.') or extension not in allowed_extensions:
@@ -121,12 +127,16 @@ class SnapshotView(View):
                     'path': result_file.relative_to(snap_dir),
                     'ts': ts_to_date_str(result_file.stat().st_mtime or 0),
                     'size': file_size,
+                    'result': None,  # No ArchiveResult object for filesystem-discovered files
                 }
 
-        preferred_types = ('singlefile', 'screenshot', 'wget', 'dom', 'media', 'pdf', 'readability', 'mercury')
+        # Get available extractors from hooks (sorted by numeric prefix for ordering)
+        # Convert to base names for display ordering
+        all_extractors = [get_extractor_name(e) for e in get_extractors()]
+        preferred_types = tuple(all_extractors)
         all_types = preferred_types + tuple(result_type for result_type in archiveresults.keys() if result_type not in preferred_types)
 
-        best_result = {'path': 'None'}
+        best_result = {'path': 'None', 'result': None}
         for result_type in preferred_types:
             if result_type in archiveresults:
                 best_result = archiveresults[result_type]
@@ -157,6 +167,7 @@ class SnapshotView(View):
             'PREVIEW_ORIGINALS': SERVER_CONFIG.PREVIEW_ORIGINALS,
             'archiveresults': sorted(archiveresults.values(), key=lambda r: all_types.index(r['name']) if r['name'] in all_types else -r['size']),
             'best_result': best_result,
+            'snapshot': snapshot,  # Pass the snapshot object for template tags
         }
         return render(template_name='core/snapshot_live.html', request=request, context=context)
 
@@ -436,7 +447,7 @@ class AddView(UserPassesTestMixin, FormView):
     def form_valid(self, form):
         urls = form.cleaned_data["url"]
         print(f'[+] Adding URL: {urls}')
-        parser = form.cleaned_data["parser"]
+        parser = form.cleaned_data.get("parser", "auto")  # default to auto-detect parser
         tag = form.cleaned_data["tag"]
         depth = 0 if form.cleaned_data["depth"] == "0" else 1
         extractors = ','.join(form.cleaned_data["archive_methods"])
@@ -452,18 +463,19 @@ class AddView(UserPassesTestMixin, FormView):
         if extractors:
             input_kwargs.update({"extractors": extractors})
 
-        
+
         from archivebox.config.permissions import HOSTNAME
-    
-    
+
+
         # 1. save the provided urls to sources/2024-11-05__23-59-59__web_ui_add_by_user_<user_pk>.txt
         sources_file = CONSTANTS.SOURCES_DIR / f'{timezone.now().strftime("%Y-%m-%d__%H-%M-%S")}__web_ui_add_by_user_{self.request.user.pk}.txt'
         sources_file.write_text(urls if isinstance(urls, str) else '\n'.join(urls))
-        
+
         # 2. create a new Seed pointing to the sources/2024-11-05__23-59-59__web_ui_add_by_user_<user_pk>.txt
+        timestamp = timezone.now().strftime("%Y-%m-%d__%H-%M-%S")
         seed = Seed.from_file(
             sources_file,
-            label=f'{self.request.user.username}@{HOSTNAME}{self.request.path}',
+            label=f'{self.request.user.username}@{HOSTNAME}{self.request.path} {timestamp}',
             parser=parser,
             tag=tag,
             created_by=self.request.user.pk,
@@ -472,7 +484,7 @@ class AddView(UserPassesTestMixin, FormView):
                 # 'INDEX_ONLY': index_only,
                 # 'OVERWRITE': False,
                 'DEPTH': depth,
-                'EXTRACTORS': parser,
+                'EXTRACTORS': extractors or '',
                 # 'DEFAULT_PERSONA': persona or 'Default',
             })
         # 3. create a new Crawl pointing to the Seed
@@ -490,10 +502,15 @@ class AddView(UserPassesTestMixin, FormView):
             self.request,
             mark_safe(f"Adding {rough_url_count} URLs in the background. (refresh in a minute start seeing results) {crawl.admin_change_url}"),
         )
-        # if not bg:
-        #     from workers.orchestrator import Orchestrator
-        #     orchestrator = Orchestrator(exit_on_idle=True, max_concurrent_actors=4)
-        #     orchestrator.start()
+
+        # Start orchestrator in background to process the queued crawl
+        try:
+            from archivebox.workers.tasks import ensure_orchestrator_running
+            ensure_orchestrator_running()
+        except Exception as e:
+            # Orchestrator may already be running via supervisord, or fail to start
+            # This is not fatal - the crawl will be processed when orchestrator runs
+            print(f'[!] Failed to start orchestrator: {e}')
 
         return redirect(crawl.admin_change_url)
 
@@ -511,6 +528,141 @@ class HealthCheckView(View):
             content_type='text/plain',
             status=200
         )
+
+
+import json
+from django.http import JsonResponse
+
+def live_progress_view(request):
+    """Simple JSON endpoint for live progress status - used by admin progress monitor."""
+    try:
+        from workers.orchestrator import Orchestrator
+        from crawls.models import Crawl
+        from core.models import Snapshot, ArchiveResult
+
+        # Get orchestrator status
+        orchestrator_running = Orchestrator.is_running()
+        total_workers = Orchestrator().get_total_worker_count() if orchestrator_running else 0
+
+        # Get model counts by status
+        crawls_pending = Crawl.objects.filter(status=Crawl.StatusChoices.QUEUED).count()
+        crawls_started = Crawl.objects.filter(status=Crawl.StatusChoices.STARTED).count()
+
+        # Get recent crawls (last 24 hours)
+        from datetime import timedelta
+        one_day_ago = timezone.now() - timedelta(days=1)
+        crawls_recent = Crawl.objects.filter(created_at__gte=one_day_ago).count()
+
+        snapshots_pending = Snapshot.objects.filter(status=Snapshot.StatusChoices.QUEUED).count()
+        snapshots_started = Snapshot.objects.filter(status=Snapshot.StatusChoices.STARTED).count()
+
+        archiveresults_pending = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.QUEUED).count()
+        archiveresults_started = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.STARTED).count()
+        archiveresults_succeeded = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.SUCCEEDED).count()
+        archiveresults_failed = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.FAILED).count()
+
+        # Build hierarchical active crawls with nested snapshots and archive results
+        active_crawls = []
+        for crawl in Crawl.objects.filter(
+            status__in=[Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED]
+        ).order_by('-modified_at')[:10]:
+            # Get snapshots for this crawl
+            crawl_snapshots = Snapshot.objects.filter(crawl=crawl)
+            total_snapshots = crawl_snapshots.count()
+            completed_snapshots = crawl_snapshots.filter(status=Snapshot.StatusChoices.SEALED).count()
+            pending_snapshots = crawl_snapshots.filter(status=Snapshot.StatusChoices.QUEUED).count()
+
+            # Calculate crawl progress
+            crawl_progress = int((completed_snapshots / total_snapshots) * 100) if total_snapshots > 0 else 0
+
+            # Get active snapshots for this crawl
+            active_snapshots_for_crawl = []
+            for snapshot in crawl_snapshots.filter(
+                status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED]
+            ).order_by('-modified_at')[:5]:
+                # Get archive results for this snapshot
+                snapshot_results = ArchiveResult.objects.filter(snapshot=snapshot)
+                total_extractors = snapshot_results.count()
+                completed_extractors = snapshot_results.filter(status=ArchiveResult.StatusChoices.SUCCEEDED).count()
+                failed_extractors = snapshot_results.filter(status=ArchiveResult.StatusChoices.FAILED).count()
+                pending_extractors = snapshot_results.filter(status=ArchiveResult.StatusChoices.QUEUED).count()
+
+                # Calculate snapshot progress
+                snapshot_progress = int(((completed_extractors + failed_extractors) / total_extractors) * 100) if total_extractors > 0 else 0
+
+                # Get active extractors for this snapshot
+                active_extractors = [
+                    {
+                        'id': str(ar.id),
+                        'extractor': ar.extractor,
+                        'status': ar.status,
+                        'started': ar.start_ts.isoformat() if ar.start_ts else None,
+                        'progress': 50,
+                    }
+                    for ar in snapshot_results.filter(status=ArchiveResult.StatusChoices.STARTED).order_by('-start_ts')[:5]
+                ]
+
+                active_snapshots_for_crawl.append({
+                    'id': str(snapshot.id),
+                    'url': snapshot.url[:80],
+                    'status': snapshot.status,
+                    'started': snapshot.modified_at.isoformat() if snapshot.modified_at else None,
+                    'progress': snapshot_progress,
+                    'total_extractors': total_extractors,
+                    'completed_extractors': completed_extractors,
+                    'failed_extractors': failed_extractors,
+                    'pending_extractors': pending_extractors,
+                    'active_extractors': active_extractors,
+                })
+
+            active_crawls.append({
+                'id': str(crawl.id),
+                'label': str(crawl)[:60],
+                'status': crawl.status,
+                'started': crawl.modified_at.isoformat() if crawl.modified_at else None,
+                'progress': crawl_progress,
+                'max_depth': crawl.max_depth,
+                'total_snapshots': total_snapshots,
+                'completed_snapshots': completed_snapshots,
+                'failed_snapshots': 0,
+                'pending_snapshots': pending_snapshots,
+                'active_snapshots': active_snapshots_for_crawl,
+            })
+
+        return JsonResponse({
+            'orchestrator_running': orchestrator_running,
+            'total_workers': total_workers,
+            'crawls_pending': crawls_pending,
+            'crawls_started': crawls_started,
+            'crawls_recent': crawls_recent,
+            'snapshots_pending': snapshots_pending,
+            'snapshots_started': snapshots_started,
+            'archiveresults_pending': archiveresults_pending,
+            'archiveresults_started': archiveresults_started,
+            'archiveresults_succeeded': archiveresults_succeeded,
+            'archiveresults_failed': archiveresults_failed,
+            'active_crawls': active_crawls,
+            'server_time': timezone.now().isoformat(),
+        })
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'error': str(e),
+            'traceback': traceback.format_exc(),
+            'orchestrator_running': False,
+            'total_workers': 0,
+            'crawls_pending': 0,
+            'crawls_started': 0,
+            'crawls_recent': 0,
+            'snapshots_pending': 0,
+            'snapshots_started': 0,
+            'archiveresults_pending': 0,
+            'archiveresults_started': 0,
+            'archiveresults_succeeded': 0,
+            'archiveresults_failed': 0,
+            'active_crawls': [],
+            'server_time': timezone.now().isoformat(),
+        }, status=500)
 
 
 def find_config_section(key: str) -> str:

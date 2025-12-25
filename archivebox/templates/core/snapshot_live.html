@@ -192,6 +192,42 @@
                 border: 0px;
                 border-top: 3px solid #aa1e55;
             }
+            #main-frame-wrapper {
+                width: 100%;
+                height: calc(100vh - 210px);
+                border-top: 3px solid #aa1e55;
+                overflow: hidden;
+            }
+            #main-frame-wrapper iframe {
+                width: 100%;
+                height: 100%;
+                border: none;
+            }
+            .full-page-wrapper {
+                width: 100%;
+                height: calc(100vh - 210px);
+            }
+            .thumbnail-wrapper {
+                height: 100px;
+                overflow: hidden;
+                background-color: #333;
+                pointer-events: none;
+            }
+            .thumbnail-wrapper iframe {
+                width: 405%;
+                height: 430px;
+                margin-bottom: -330px;
+                margin-left: -1%;
+                transform: scale(0.25);
+                transform-origin: 0 0;
+                border: none;
+            }
+            .thumbnail-wrapper img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                object-position: top center;
+            }
             .card.selected-card {
                 border: 2px solid orange;
                 box-shadow: 0px -6px 13px 1px rgba(0,0,0,0.05);
@@ -403,12 +439,18 @@
                             <div class="card {% if forloop.first %}selected-card{% endif %}">
                                 <div class="card-body">
                                     <a href="{{result.path|urlencode}}" target="preview" title="./{{result.path}} (downloaded {{result.ts}})">
-                                        <h4>{{result.name|truncatechars:24}} <small>({{result.size|filesizeformat}})</small></h4>
-                                        <!-- <p class="card-text" ><code>./{{result.path|truncatechars:30}}</code></p> -->
+                                        <h4>{% extractor_icon result.name %} {{result.name|extractor_name|truncatechars:20}} <small>({{result.size|filesizeformat}})</small></h4>
                                     </a>
-                                    <!--<a href="{{result.path}}" target="preview"><h4 class="card-title">{{result.name}}</h4></a>-->
                                 </div>
-                                <iframe class="card-img-top" src="{{result.path|urlencode}}?autoplay=0" allow="autoplay 'none'; fullscreen 'none'; navigation-override 'none'; " sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
+                                {% if result.result %}
+                                    {# Use plugin-specific thumbnail template when ArchiveResult is available #}
+                                    <div class="card-img-top thumbnail-wrapper">
+                                        {% extractor_thumbnail result.result %}
+                                    </div>
+                                {% else %}
+                                    {# Fall back to generic iframe for filesystem-discovered files #}
+                                    <iframe class="card-img-top" src="{{result.path|urlencode}}?autoplay=0" allow="autoplay 'none'; fullscreen 'none'; navigation-override 'none'; " sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
+                                {% endif %}
                             </div>
                         </div>
                     {% endfor %}
@@ -431,7 +473,15 @@
 
 
 
-        <iframe id="main-frame" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe" src="{{best_result.path|urlencode}}" name="preview"></iframe>
+        {% if best_result.result %}
+            {# Use plugin-specific fullscreen template when ArchiveResult is available #}
+            <div id="main-frame-wrapper" class="full-page-wrapper">
+                {% extractor_fullscreen best_result.result %}
+            </div>
+        {% else %}
+            {# Fall back to generic iframe #}
+            <iframe id="main-frame" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe" src="{{best_result.path|urlencode}}" name="preview"></iframe>
+        {% endif %}
     
 
 

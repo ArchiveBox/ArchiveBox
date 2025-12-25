@@ -7,7 +7,7 @@ new plugin-based output structure to the legacy canonical output paths that
 ArchiveBox has historically used. This maintains backward compatibility with
 existing tools and scripts that expect outputs at specific locations.
 
-Canonical output paths (from Snapshot.canonical_outputs()):
+Canonical output paths:
     - favicon.ico → favicon/favicon.ico
     - singlefile.html → singlefile/singlefile.html
     - readability/content.html → readability/content.html
@@ -27,27 +27,20 @@ New plugin outputs:
     - redirects.json → redirects/redirects.json
     - console.jsonl → consolelog/console.jsonl
 
-Usage: on_Snapshot__91_canonical_outputs.py --url=<url> --snapshot-id=<uuid>
+Usage: on_Snapshot__92_canonical_outputs.py --url=<url> --snapshot-id=<uuid>
 
 Environment variables:
     SAVE_CANONICAL_SYMLINKS: Enable canonical symlinks (default: true)
+    DATA_DIR: ArchiveBox data directory
+    ARCHIVE_DIR: Archive output directory
 """
-
-__package__ = 'archivebox.plugins.canonical_outputs'
 
 import os
 import sys
+import json
 from pathlib import Path
-from typing import Dict, Optional
-
-# Configure Django if running standalone
-if __name__ == '__main__':
-    parent_dir = str(Path(__file__).resolve().parent.parent.parent)
-    if parent_dir not in sys.path:
-        sys.path.insert(0, parent_dir)
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
-    import django
-    django.setup()
+from datetime import datetime, timezone
+from typing import Dict
 
 import rich_click as click
 
@@ -150,10 +143,7 @@ def create_canonical_symlinks(snapshot_dir: Path) -> Dict[str, bool]:
 @click.option('--snapshot-id', required=True, help='Snapshot UUID')
 def main(url: str, snapshot_id: str):
     """Create symlinks from plugin outputs to canonical legacy locations."""
-    from datetime import datetime
-    from archivebox.core.models import Snapshot
-
-    start_ts = datetime.now()
+    start_ts = datetime.now(timezone.utc)
     status = 'failed'
     output = None
     error = ''
@@ -161,31 +151,20 @@ def main(url: str, snapshot_id: str):
 
     try:
         # Check if enabled
-        from archivebox.config import CONSTANTS
         save_canonical = os.getenv('SAVE_CANONICAL_SYMLINKS', 'true').lower() in ('true', '1', 'yes', 'on')
 
         if not save_canonical:
-            click.echo('Skipping canonical symlinks (SAVE_CANONICAL_SYMLINKS=False)')
             status = 'skipped'
-            end_ts = datetime.now()
-            click.echo(f'START_TS={start_ts.isoformat()}')
-            click.echo(f'END_TS={end_ts.isoformat()}')
-            click.echo(f'STATUS={status}')
-            click.echo(f'RESULT_JSON={{"extractor": "canonical_outputs", "status": "{status}", "url": "{url}", "snapshot_id": "{snapshot_id}"}}')
+            click.echo(json.dumps({'status': status, 'output': 'SAVE_CANONICAL_SYMLINKS=false'}))
             sys.exit(0)
 
-        # Get snapshot
-        try:
-            snapshot = Snapshot.objects.get(id=snapshot_id)
-        except Snapshot.DoesNotExist:
-            error = f'Snapshot {snapshot_id} not found'
-            raise ValueError(error)
+        # Working directory is the extractor output dir (e.g., <snapshot>/canonical_outputs/)
+        # Parent is the snapshot directory
+        output_dir = Path.cwd()
+        snapshot_dir = output_dir.parent
 
-        # Get snapshot directory
-        snapshot_dir = Path(snapshot.output_dir)
         if not snapshot_dir.exists():
-            error = f'Snapshot directory not found: {snapshot_dir}'
-            raise FileNotFoundError(error)
+            raise FileNotFoundError(f'Snapshot directory not found: {snapshot_dir}')
 
         # Create canonical symlinks
         results = create_canonical_symlinks(snapshot_dir)
@@ -203,37 +182,18 @@ def main(url: str, snapshot_id: str):
         status = 'failed'
         click.echo(f'Error: {error}', err=True)
 
-    end_ts = datetime.now()
-    duration = (end_ts - start_ts).total_seconds()
+    end_ts = datetime.now(timezone.utc)
 
-    # Print results
-    click.echo(f'START_TS={start_ts.isoformat()}')
-    click.echo(f'END_TS={end_ts.isoformat()}')
-    click.echo(f'DURATION={duration:.2f}')
-    if output:
-        click.echo(f'OUTPUT={output}')
-    click.echo(f'STATUS={status}')
-
-    if error:
-        click.echo(f'ERROR={error}', err=True)
-
-    # Print JSON result
-    import json
-    result_json = {
-        'extractor': 'canonical_outputs',
-        'url': url,
-        'snapshot_id': snapshot_id,
+    # Print JSON result for hook runner
+    result = {
         'status': status,
-        'start_ts': start_ts.isoformat(),
-        'end_ts': end_ts.isoformat(),
-        'duration': round(duration, 2),
         'output': output,
-        'symlinks_created': symlinks_created,
         'error': error or None,
+        'symlinks_created': symlinks_created,
     }
-    click.echo(f'RESULT_JSON={json.dumps(result_json)}')
+    click.echo(json.dumps(result))
 
-    sys.exit(0 if status == 'succeeded' else 1)
+    sys.exit(0 if status in ('succeeded', 'skipped') else 1)
 
 
 if __name__ == '__main__':
