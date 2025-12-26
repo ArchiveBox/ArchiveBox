@@ -198,6 +198,187 @@ INSERT INTO django_content_type (app_label, model) VALUES
 ('core', 'tag');
 """
 
+SCHEMA_0_8 = """
+-- Django system tables (complete for 0.8.x)
+CREATE TABLE IF NOT EXISTS django_migrations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    applied DATETIME NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS django_content_type (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_label VARCHAR(100) NOT NULL,
+    model VARCHAR(100) NOT NULL,
+    UNIQUE(app_label, model)
+);
+
+CREATE TABLE IF NOT EXISTS auth_permission (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(255) NOT NULL,
+    content_type_id INTEGER NOT NULL REFERENCES django_content_type(id),
+    codename VARCHAR(100) NOT NULL,
+    UNIQUE(content_type_id, codename)
+);
+
+CREATE TABLE IF NOT EXISTS auth_group (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(150) NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS auth_group_permissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL REFERENCES auth_group(id),
+    permission_id INTEGER NOT NULL REFERENCES auth_permission(id),
+    UNIQUE(group_id, permission_id)
+);
+
+CREATE TABLE IF NOT EXISTS auth_user (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    password VARCHAR(128) NOT NULL,
+    last_login DATETIME,
+    is_superuser BOOL NOT NULL,
+    username VARCHAR(150) NOT NULL UNIQUE,
+    first_name VARCHAR(150) NOT NULL,
+    last_name VARCHAR(150) NOT NULL,
+    email VARCHAR(254) NOT NULL,
+    is_staff BOOL NOT NULL,
+    is_active BOOL NOT NULL,
+    date_joined DATETIME NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_user_groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES auth_user(id),
+    group_id INTEGER NOT NULL REFERENCES auth_group(id),
+    UNIQUE(user_id, group_id)
+);
+
+CREATE TABLE IF NOT EXISTS auth_user_user_permissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES auth_user(id),
+    permission_id INTEGER NOT NULL REFERENCES auth_permission(id),
+    UNIQUE(user_id, permission_id)
+);
+
+CREATE TABLE IF NOT EXISTS django_admin_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action_time DATETIME NOT NULL,
+    object_id TEXT,
+    object_repr VARCHAR(200) NOT NULL,
+    action_flag SMALLINT UNSIGNED NOT NULL,
+    change_message TEXT NOT NULL,
+    content_type_id INTEGER REFERENCES django_content_type(id),
+    user_id INTEGER NOT NULL REFERENCES auth_user(id)
+);
+
+CREATE TABLE IF NOT EXISTS django_session (
+    session_key VARCHAR(40) NOT NULL PRIMARY KEY,
+    session_data TEXT NOT NULL,
+    expire_date DATETIME NOT NULL
+);
+
+-- Core Tag table (AutoField PK in 0.8.x)
+CREATE TABLE IF NOT EXISTS core_tag (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    slug VARCHAR(100) NOT NULL UNIQUE,
+    created_at DATETIME,
+    modified_at DATETIME,
+    created_by_id INTEGER REFERENCES auth_user(id)
+);
+
+-- Crawls tables (new in 0.8.x)
+CREATE TABLE IF NOT EXISTS crawls_crawl (
+    id CHAR(36) PRIMARY KEY,
+    created_at DATETIME NOT NULL,
+    created_by_id INTEGER NOT NULL REFERENCES auth_user(id),
+    modified_at DATETIME,
+    urls TEXT NOT NULL,
+    extractor VARCHAR(32) NOT NULL DEFAULT 'auto',
+    config TEXT DEFAULT '{}',
+    max_depth SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    tags_str VARCHAR(1024) NOT NULL DEFAULT '',
+    persona_id CHAR(36),
+    label VARCHAR(64) NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    schedule_id CHAR(36),
+    output_dir VARCHAR(256) NOT NULL DEFAULT '',
+    status VARCHAR(16) NOT NULL DEFAULT 'queued',
+    retry_at DATETIME
+);
+
+-- Core Snapshot table (0.8.x with UUID PK, status, crawl FK)
+CREATE TABLE IF NOT EXISTS core_snapshot (
+    id CHAR(36) PRIMARY KEY,
+    created_by_id INTEGER NOT NULL REFERENCES auth_user(id),
+    created_at DATETIME NOT NULL,
+    modified_at DATETIME,
+    url VARCHAR(2000) NOT NULL,
+    timestamp VARCHAR(32) NOT NULL UNIQUE,
+    bookmarked_at DATETIME NOT NULL,
+    crawl_id CHAR(36) REFERENCES crawls_crawl(id),
+    title VARCHAR(512),
+    downloaded_at DATETIME,
+    depth SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    retry_at DATETIME,
+    status VARCHAR(16) NOT NULL DEFAULT 'queued',
+    config TEXT DEFAULT '{}',
+    notes TEXT NOT NULL DEFAULT '',
+    output_dir VARCHAR(256)
+);
+CREATE INDEX IF NOT EXISTS core_snapshot_url ON core_snapshot(url);
+CREATE INDEX IF NOT EXISTS core_snapshot_timestamp ON core_snapshot(timestamp);
+CREATE INDEX IF NOT EXISTS core_snapshot_created_at ON core_snapshot(created_at);
+
+-- Many-to-many for snapshot tags
+CREATE TABLE IF NOT EXISTS core_snapshot_tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_id CHAR(36) NOT NULL REFERENCES core_snapshot(id),
+    tag_id INTEGER NOT NULL REFERENCES core_tag(id),
+    UNIQUE(snapshot_id, tag_id)
+);
+
+-- Core ArchiveResult table (0.8.x with AutoField PK + UUID, status)
+CREATE TABLE IF NOT EXISTS core_archiveresult (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uuid CHAR(36) UNIQUE,
+    created_by_id INTEGER NOT NULL REFERENCES auth_user(id),
+    created_at DATETIME NOT NULL,
+    modified_at DATETIME,
+    snapshot_id CHAR(36) NOT NULL REFERENCES core_snapshot(id),
+    extractor VARCHAR(32) NOT NULL,
+    pwd VARCHAR(256),
+    cmd TEXT,
+    cmd_version VARCHAR(128),
+    output VARCHAR(1024),
+    start_ts DATETIME,
+    end_ts DATETIME,
+    status VARCHAR(16) NOT NULL DEFAULT 'queued',
+    retry_at DATETIME,
+    notes TEXT NOT NULL DEFAULT '',
+    output_dir VARCHAR(256),
+    iface_id INTEGER
+);
+CREATE INDEX IF NOT EXISTS core_archiveresult_snapshot ON core_archiveresult(snapshot_id);
+CREATE INDEX IF NOT EXISTS core_archiveresult_extractor ON core_archiveresult(extractor);
+
+-- Insert required content types
+INSERT INTO django_content_type (app_label, model) VALUES
+('contenttypes', 'contenttype'),
+('auth', 'permission'),
+('auth', 'group'),
+('auth', 'user'),
+('admin', 'logentry'),
+('sessions', 'session'),
+('core', 'snapshot'),
+('core', 'archiveresult'),
+('core', 'tag'),
+('crawls', 'crawl'),
+('crawls', 'crawlschedule');
+"""
+
 
 # =============================================================================
 # Test Data Generators
@@ -399,6 +580,189 @@ def seed_0_7_data(db_path: Path) -> Dict[str, List[Dict]]:
         ('core', '0020_auto_20210410_1031'),
         ('core', '0021_auto_20220914_0934'),
         ('core', '0022_auto_20231023_2008'),
+    ]
+
+    for app, name in migrations:
+        cursor.execute("""
+            INSERT INTO django_migrations (app, name, applied)
+            VALUES (?, ?, datetime('now'))
+        """, (app, name))
+
+    conn.commit()
+    conn.close()
+
+    return created_data
+
+
+def seed_0_8_data(db_path: Path) -> Dict[str, List[Dict]]:
+    """Seed a 0.8.x database with realistic test data including Crawls."""
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+
+    created_data = {
+        'users': [],
+        'crawls': [],
+        'snapshots': [],
+        'tags': [],
+        'archiveresults': [],
+    }
+
+    # Create a user
+    cursor.execute("""
+        INSERT INTO auth_user (password, is_superuser, username, first_name, last_name,
+                               email, is_staff, is_active, date_joined)
+        VALUES ('pbkdf2_sha256$test', 1, 'admin', 'Admin', 'User',
+                'admin@example.com', 1, 1, datetime('now'))
+    """)
+    user_id = cursor.lastrowid
+    created_data['users'].append({'id': user_id, 'username': 'admin'})
+
+    # Create 5 tags
+    tag_names = ['news', 'tech', 'blog', 'reference', 'code']
+    for name in tag_names:
+        cursor.execute("""
+            INSERT INTO core_tag (name, slug, created_at, modified_at, created_by_id)
+            VALUES (?, ?, datetime('now'), datetime('now'), ?)
+        """, (name, name.lower(), user_id))
+        tag_id = cursor.lastrowid
+        created_data['tags'].append({'id': tag_id, 'name': name, 'slug': name.lower()})
+
+    # Create 2 Crawls
+    test_crawls = [
+        ('https://example.com\nhttps://example.org', 0, 'Example Crawl'),
+        ('https://github.com/ArchiveBox', 1, 'GitHub Crawl'),
+    ]
+
+    for i, (urls, max_depth, label) in enumerate(test_crawls):
+        crawl_id = generate_uuid()
+        cursor.execute("""
+            INSERT INTO crawls_crawl (id, created_at, created_by_id, modified_at, urls,
+                                      extractor, config, max_depth, tags_str, label, status, retry_at)
+            VALUES (?, datetime('now'), ?, datetime('now'), ?, 'auto', '{}', ?, '', ?, 'queued', datetime('now'))
+        """, (crawl_id, user_id, urls, max_depth, label))
+
+        created_data['crawls'].append({
+            'id': crawl_id,
+            'urls': urls,
+            'max_depth': max_depth,
+            'label': label,
+        })
+
+    # Create 5 snapshots linked to crawls
+    test_urls = [
+        ('https://example.com/page1', 'Example Page 1', created_data['crawls'][0]['id']),
+        ('https://example.org/article', 'Article Title', created_data['crawls'][0]['id']),
+        ('https://github.com/user/repo', 'GitHub Repository', created_data['crawls'][1]['id']),
+        ('https://news.ycombinator.com/item?id=12345', 'HN Discussion', None),  # No crawl
+        ('https://en.wikipedia.org/wiki/Test', 'Wikipedia Test', None),  # No crawl
+    ]
+
+    for i, (url, title, crawl_id) in enumerate(test_urls):
+        snapshot_id = generate_uuid()
+        timestamp = f'2024010{i+1}120000.000000'
+        created_at = f'2024-01-0{i+1} 12:00:00'
+
+        cursor.execute("""
+            INSERT INTO core_snapshot (id, created_by_id, created_at, modified_at, url, timestamp,
+                                       bookmarked_at, crawl_id, title, depth, status, config, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'queued', '{}', '')
+        """, (snapshot_id, user_id, created_at, created_at, url, timestamp, created_at, crawl_id, title))
+
+        created_data['snapshots'].append({
+            'id': snapshot_id,
+            'url': url,
+            'timestamp': timestamp,
+            'title': title,
+            'crawl_id': crawl_id,
+        })
+
+        # Assign 2 random tags to each snapshot
+        tag_ids = [created_data['tags'][i % 5]['id'], created_data['tags'][(i + 1) % 5]['id']]
+        for tag_id in tag_ids:
+            cursor.execute("""
+                INSERT INTO core_snapshot_tags (snapshot_id, tag_id) VALUES (?, ?)
+            """, (snapshot_id, tag_id))
+
+        # Create 5 archive results for each snapshot
+        extractors = ['title', 'favicon', 'screenshot', 'singlefile', 'wget']
+        statuses = ['succeeded', 'succeeded', 'failed', 'succeeded', 'skipped']
+
+        for j, (extractor, status) in enumerate(zip(extractors, statuses)):
+            result_uuid = generate_uuid()
+            cursor.execute("""
+                INSERT INTO core_archiveresult
+                (uuid, created_by_id, created_at, modified_at, snapshot_id, extractor, pwd,
+                 cmd, cmd_version, output, start_ts, end_ts, status, retry_at, notes, output_dir)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), '', ?)
+            """, (
+                result_uuid, user_id, f'2024-01-0{i+1} 12:00:0{j}', f'2024-01-0{i+1} 12:00:1{j}',
+                snapshot_id, extractor,
+                f'/data/archive/{timestamp}',
+                json.dumps([extractor, '--version']),
+                '1.0.0',
+                f'{extractor}/index.html' if status == 'succeeded' else '',
+                f'2024-01-0{i+1} 12:00:0{j}',
+                f'2024-01-0{i+1} 12:00:1{j}',
+                status,
+                f'{extractor}',
+            ))
+
+            created_data['archiveresults'].append({
+                'uuid': result_uuid,
+                'snapshot_id': snapshot_id,
+                'extractor': extractor,
+                'status': status,
+            })
+
+    # Record migrations as applied (0.8.x migrations)
+    migrations = [
+        # Django system migrations
+        ('contenttypes', '0001_initial'),
+        ('contenttypes', '0002_remove_content_type_name'),
+        ('auth', '0001_initial'),
+        ('auth', '0002_alter_permission_name_max_length'),
+        ('auth', '0003_alter_user_email_max_length'),
+        ('auth', '0004_alter_user_username_opts'),
+        ('auth', '0005_alter_user_last_login_null'),
+        ('auth', '0006_require_contenttypes_0002'),
+        ('auth', '0007_alter_validators_add_error_messages'),
+        ('auth', '0008_alter_user_username_max_length'),
+        ('auth', '0009_alter_user_last_name_max_length'),
+        ('auth', '0010_alter_group_name_max_length'),
+        ('auth', '0011_update_proxy_permissions'),
+        ('auth', '0012_alter_user_first_name_max_length'),
+        ('admin', '0001_initial'),
+        ('admin', '0002_logentry_remove_auto_add'),
+        ('admin', '0003_logentry_add_action_flag_choices'),
+        ('sessions', '0001_initial'),
+        # Core migrations (up to 0.8.x)
+        ('core', '0001_initial'),
+        ('core', '0002_auto_20200625_1521'),
+        ('core', '0003_auto_20200630_1034'),
+        ('core', '0004_auto_20200713_1552'),
+        ('core', '0005_auto_20200728_0326'),
+        ('core', '0006_auto_20201012_1520'),
+        ('core', '0007_archiveresult'),
+        ('core', '0008_auto_20210105_1421'),
+        ('core', '0009_auto_20210216_1038'),
+        ('core', '0010_auto_20210216_1055'),
+        ('core', '0011_auto_20210216_1331'),
+        ('core', '0012_auto_20210216_1425'),
+        ('core', '0013_auto_20210218_0729'),
+        ('core', '0014_auto_20210218_0729'),
+        ('core', '0015_auto_20210218_0730'),
+        ('core', '0016_auto_20210218_1204'),
+        ('core', '0017_auto_20210219_0211'),
+        ('core', '0018_auto_20210327_0952'),
+        ('core', '0019_auto_20210401_0654'),
+        ('core', '0020_auto_20210410_1031'),
+        ('core', '0021_auto_20220914_0934'),
+        ('core', '0022_auto_20231023_2008'),
+        ('core', '0023_new_schema'),
+        ('core', '0024_snapshot_crawl'),
+        ('core', '0025_allow_duplicate_urls_per_crawl'),
+        # Crawls migrations
+        ('crawls', '0001_initial'),
     ]
 
     for app, name in migrations:
@@ -994,6 +1358,148 @@ class TestMigrationFrom04x(unittest.TestCase):
         # Tags should have been created
         ok, msg = verify_tag_count(self.db_path, len(original_tags))
         self.assertTrue(ok, msg)
+
+
+class TestMigrationFrom08x(unittest.TestCase):
+    """Test migration from 0.8.x schema to latest.
+
+    0.8.x introduced:
+    - Crawl model for grouping URLs
+    - UUID primary keys for Snapshot
+    - Status fields for state machine
+    - New fields like depth, retry_at, etc.
+    """
+
+    def setUp(self):
+        """Create a temporary directory with 0.8.x schema and data."""
+        self.work_dir = Path(tempfile.mkdtemp())
+        self.db_path = self.work_dir / 'index.sqlite3'
+
+        # Create directory structure
+        create_data_dir_structure(self.work_dir)
+
+        # Create database with 0.8.x schema
+        conn = sqlite3.connect(str(self.db_path))
+        conn.executescript(SCHEMA_0_8)
+        conn.close()
+
+        # Seed with test data
+        self.original_data = seed_0_8_data(self.db_path)
+
+    def tearDown(self):
+        """Clean up temporary directory."""
+        shutil.rmtree(self.work_dir, ignore_errors=True)
+
+    def test_migration_preserves_snapshot_count(self):
+        """Migration should preserve all snapshots from 0.8.x."""
+        expected_count = len(self.original_data['snapshots'])
+
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
+
+        ok, msg = verify_snapshot_count(self.db_path, expected_count)
+        self.assertTrue(ok, msg)
+
+    def test_migration_preserves_snapshot_urls(self):
+        """Migration should preserve all snapshot URLs from 0.8.x."""
+        expected_urls = [s['url'] for s in self.original_data['snapshots']]
+
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
+
+        ok, msg = verify_snapshot_urls(self.db_path, expected_urls)
+        self.assertTrue(ok, msg)
+
+    def test_migration_preserves_crawls(self):
+        """Migration should preserve all Crawl records."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM crawls_crawl")
+        count = cursor.fetchone()[0]
+        conn.close()
+
+        expected_count = len(self.original_data['crawls'])
+        self.assertEqual(count, expected_count, f"Crawl count mismatch: expected {expected_count}, got {count}")
+
+    def test_migration_preserves_snapshot_crawl_links(self):
+        """Migration should preserve snapshot-to-crawl relationships."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+
+        # Check each snapshot still has its crawl_id
+        for snapshot in self.original_data['snapshots']:
+            if snapshot['crawl_id']:
+                cursor.execute("SELECT crawl_id FROM core_snapshot WHERE url = ?", (snapshot['url'],))
+                row = cursor.fetchone()
+                self.assertIsNotNone(row, f"Snapshot {snapshot['url']} not found after migration")
+                self.assertEqual(row[0], snapshot['crawl_id'],
+                    f"Crawl ID mismatch for {snapshot['url']}: expected {snapshot['crawl_id']}, got {row[0]}")
+
+        conn.close()
+
+    def test_migration_preserves_tags(self):
+        """Migration should preserve all tags."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
+
+        ok, msg = verify_tag_count(self.db_path, len(self.original_data['tags']))
+        self.assertTrue(ok, msg)
+
+    def test_migration_preserves_archiveresults(self):
+        """Migration should preserve all archive results."""
+        expected_count = len(self.original_data['archiveresults'])
+
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
+
+        ok, msg = verify_archiveresult_count(self.db_path, expected_count)
+        self.assertTrue(ok, msg)
+
+    def test_migration_preserves_archiveresult_status(self):
+        """Migration should preserve archive result status values."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+
+        # Get status counts
+        cursor.execute("SELECT status, COUNT(*) FROM core_archiveresult GROUP BY status")
+        status_counts = dict(cursor.fetchall())
+        conn.close()
+
+        # Original data has known status distribution: succeeded, failed, skipped
+        self.assertIn('succeeded', status_counts, "Should have succeeded results")
+        self.assertIn('failed', status_counts, "Should have failed results")
+        self.assertIn('skipped', status_counts, "Should have skipped results")
+
+    def test_status_works_after_migration(self):
+        """Status command should work after migration."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1])
+
+        result = run_archivebox(self.work_dir, ['status'])
+        self.assertEqual(result.returncode, 0, f"Status failed after migration: {result.stderr}")
+
+    def test_list_works_after_migration(self):
+        """List command should work and show migrated data."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1])
+
+        result = run_archivebox(self.work_dir, ['list'])
+        self.assertEqual(result.returncode, 0, f"List failed after migration: {result.stderr}")
+
+        # Should find at least some of the migrated URLs
+        output = result.stdout + result.stderr
+        found_any = any(s['url'][:30] in output or (s['title'] and s['title'] in output)
+                       for s in self.original_data['snapshots'])
+        self.assertTrue(found_any, f"No migrated snapshots found in list: {output[:500]}")
 
 
 class TestMigrationDataIntegrity(unittest.TestCase):
