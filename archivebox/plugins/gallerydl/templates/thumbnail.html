@@ -1,0 +1,11 @@
+<!-- Gallery thumbnail - shows first image or placeholder -->
+<div class="extractor-thumbnail gallerydl-thumbnail" style="width: 100%; height: 100px; overflow: hidden; background: #1a1a1a; display: flex; align-items: center; justify-content: center;">
+    <img src="{{ output_path }}"
+         style="width: 100%; height: 100px; object-fit: contain;"
+         alt="Gallery thumbnail"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+    <div style="display: none; flex-direction: column; align-items: center; color: #888; font-size: 12px;">
+        <span style="font-size: 32px;">🖼️</span>
+        <span>Gallery</span>
+    </div>
+</div>

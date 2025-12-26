@@ -1,0 +1,11 @@
+<!-- Embedded gallery view - shows first image with link to full gallery -->
+<div class="extractor-embed gallerydl-embed" style="width: 100%; max-width: 800px; margin: 0 auto; background: #1a1a1a; padding: 20px;">
+    <img src="{{ output_path }}"
+         style="width: 100%; max-height: 600px; object-fit: contain;"
+         alt="Gallery image"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+    <div style="display: none; flex-direction: column; align-items: center; color: #888; padding: 40px;">
+        <span style="font-size: 64px;">🖼️</span>
+        <span style="margin-top: 10px;">Gallery downloaded</span>
+    </div>
+</div>
