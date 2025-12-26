@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Capture console output from a page (DAEMON MODE).
+ * Capture console output from a page.
  *
- * This hook daemonizes and stays alive to capture console logs throughout
- * the snapshot lifecycle. It's killed by chrome_cleanup at the end.
+ * This hook sets up CDP listeners BEFORE chrome_navigate loads the page,
+ * then waits for navigation to complete. The listeners stay active through
+ * navigation and capture all console output.
  *
  * Usage: on_Snapshot__21_consolelog.js --url=<url> --snapshot-id=<uuid>
  * Output: Writes console.jsonl + listener.pid
@@ -150,8 +151,28 @@ async function setupListeners() {
         }
     });
 
-    // Don't disconnect - keep browser connection alive
     return { browser, page };
+}
+
+async function waitForNavigation() {
+    // Wait for chrome_navigate to complete (it writes page_loaded.txt)
+    const navDir = path.join(CHROME_SESSION_DIR, '../chrome_navigate');
+    const pageLoadedMarker = path.join(navDir, 'page_loaded.txt');
+    const maxWait = 120000; // 2 minutes
+    const pollInterval = 100;
+    let waitTime = 0;
+
+    while (!fs.existsSync(pageLoadedMarker) && waitTime < maxWait) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        waitTime += pollInterval;
+    }
+
+    if (!fs.existsSync(pageLoadedMarker)) {
+        throw new Error('Timeout waiting for navigation (chrome_navigate did not complete)');
+    }
+
+    // Wait a bit longer for any post-load console output
+    await new Promise(resolve => setTimeout(resolve, 500));
 }
 
 async function main() {
@@ -179,13 +200,16 @@ async function main() {
     const startTs = new Date();
 
     try {
-        // Set up listeners
+        // Set up listeners BEFORE navigation
         await setupListeners();
 
-        // Write PID file so chrome_cleanup can kill us
+        // Write PID file so chrome_cleanup can kill any remaining processes
         fs.writeFileSync(path.join(OUTPUT_DIR, PID_FILE), String(process.pid));
 
-        // Report success immediately (we're staying alive in background)
+        // Wait for chrome_navigate to complete (BLOCKING)
+        await waitForNavigation();
+
+        // Report success
         const endTs = new Date();
         const duration = (endTs - startTs) / 1000;
 
@@ -207,18 +231,7 @@ async function main() {
         };
         console.log(`RESULT_JSON=${JSON.stringify(result)}`);
 
-        // Daemonize: detach from parent and keep running
-        // This process will be killed by chrome_cleanup
-        if (process.stdin.isTTY) {
-            process.stdin.pause();
-        }
-        process.stdin.unref();
-        process.stdout.end();
-        process.stderr.end();
-
-        // Keep the process alive indefinitely
-        // Will be killed by chrome_cleanup via the PID file
-        setInterval(() => {}, 1000);
+        process.exit(0);
 
     } catch (e) {
         const error = `${e.name}: ${e.message}`;

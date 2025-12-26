@@ -67,6 +67,13 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
         rows.append(f'''
             <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
                 <td style="padding: 10px 12px; white-space: nowrap;">
+                    <a href="{reverse('admin:core_archiveresult_change', args=[result.id])}"
+                       style="color: #2563eb; text-decoration: none; font-family: ui-monospace, monospace; font-size: 11px;"
+                       title="View/edit archive result">
+                        <code>{str(result.id)[:8]}</code>
+                    </a>
+                </td>
+                <td style="padding: 10px 12px; white-space: nowrap;">
                     <span style="display: inline-block; padding: 3px 10px; border-radius: 12px;
                                  font-size: 11px; font-weight: 600; text-transform: uppercase;
                                  color: {color}; background: {bg};">{status}</span>
@@ -75,7 +82,13 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
                     {icon}
                 </td>
                 <td style="padding: 10px 12px; font-weight: 500; color: #334155;">
-                    {result.extractor}
+                    <a href="{output_link}" target="_blank"
+                       style="color: #334155; text-decoration: none;"
+                       title="View output fullscreen"
+                       onmouseover="this.style.color='#2563eb'; this.style.textDecoration='underline';"
+                       onmouseout="this.style.color='#334155'; this.style.textDecoration='none';">
+                        {result.extractor}
+                    </a>
                 </td>
                 <td style="padding: 10px 12px; max-width: 280px;">
                     <span onclick="document.getElementById('{row_id}').open = !document.getElementById('{row_id}').open"
@@ -102,14 +115,14 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
                 </td>
             </tr>
             <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td colspan="7" style="padding: 0 12px 10px 12px;">
+                <td colspan="8" style="padding: 0 12px 10px 12px;">
                     <details id="{row_id}" style="margin: 0;">
                         <summary style="cursor: pointer; font-size: 11px; color: #94a3b8; user-select: none;">
                             Details &amp; Output
                         </summary>
                         <div style="margin-top: 8px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; max-height: 200px; overflow: auto;">
                             <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
-                                <span style="margin-right: 16px;"><b>ID:</b> <code>{str(result.id)[:8]}...</code></span>
+                                <span style="margin-right: 16px;"><b>ID:</b> <code>{str(result.id)}</code></span>
                                 <span style="margin-right: 16px;"><b>Version:</b> <code>{version}</code></span>
                                 <span style="margin-right: 16px;"><b>PWD:</b> <code>{result.pwd or '-'}</code></span>
                             </div>
@@ -132,7 +145,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
     if total_count > limit:
         footer = f'''
             <tr>
-                <td colspan="7" style="padding: 12px; text-align: center; color: #64748b; font-size: 13px; background: #f8fafc;">
+                <td colspan="8" style="padding: 12px; text-align: center; color: #64748b; font-size: 13px; background: #f8fafc;">
                     Showing {limit} of {total_count} results &nbsp;
                     <a href="/admin/core/archiveresult/?snapshot__id__exact={results[0].snapshot_id if results else ''}"
                        style="color: #2563eb;">View all →</a>
@@ -145,6 +158,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
             <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                 <thead>
                     <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">ID</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; width: 32px;"></th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Extractor</th>

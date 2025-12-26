@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Archive all network responses during page load (DAEMON MODE).
+ * Archive all network responses during page load.
  *
- * This hook daemonizes and stays alive to capture network responses throughout
- * the snapshot lifecycle. It's killed by chrome_cleanup at the end.
+ * This hook sets up CDP listeners BEFORE chrome_navigate loads the page,
+ * then waits for navigation to complete. The listeners capture all network
+ * responses during the navigation.
  *
  * Usage: on_Snapshot__24_responses.js --url=<url> --snapshot-id=<uuid>
  * Output: Creates responses/ directory with index.jsonl + listener.pid
@@ -14,7 +15,6 @@ const path = require('path');
 const crypto = require('crypto');
 const puppeteer = require('puppeteer-core');
 
-// Extractor metadata
 const EXTRACTOR_NAME = 'responses';
 const OUTPUT_DIR = '.';
 const PID_FILE = 'listener.pid';
@@ -23,7 +23,6 @@ const CHROME_SESSION_DIR = '../chrome_session';
 // Resource types to capture (by default, capture everything)
 const DEFAULT_TYPES = ['script', 'stylesheet', 'font', 'image', 'media', 'xhr', 'websocket'];
 
-// Parse command line arguments
 function parseArgs() {
     const args = {};
     process.argv.slice(2).forEach(arg => {
@@ -35,7 +34,6 @@ function parseArgs() {
     return args;
 }
 
-// Get environment variable with default
 function getEnv(name, defaultValue = '') {
     return (process.env[name] || defaultValue).trim();
 }
@@ -52,7 +50,6 @@ function getEnvInt(name, defaultValue = 0) {
     return isNaN(val) ? defaultValue : val;
 }
 
-// Get CDP URL from chrome_session
 function getCdpUrl() {
     const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
     if (fs.existsSync(cdpFile)) {
@@ -69,7 +66,6 @@ function getPageId() {
     return null;
 }
 
-// Get file extension from MIME type
 function getExtensionFromMimeType(mimeType) {
     const mimeMap = {
         'text/html': 'html',
@@ -101,7 +97,6 @@ function getExtensionFromMimeType(mimeType) {
     return mimeMap[mimeBase] || '';
 }
 
-// Get extension from URL path
 function getExtensionFromUrl(url) {
     try {
         const pathname = new URL(url).pathname;
@@ -112,49 +107,42 @@ function getExtensionFromUrl(url) {
     }
 }
 
-// Sanitize filename
 function sanitizeFilename(str, maxLen = 200) {
     return str
         .replace(/[^a-zA-Z0-9._-]/g, '_')
         .slice(0, maxLen);
 }
 
-// Create symlink (handle errors gracefully)
 async function createSymlink(target, linkPath) {
     try {
-        // Create parent directory
         const dir = path.dirname(linkPath);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
 
-        // Remove existing symlink/file if present
         if (fs.existsSync(linkPath)) {
             fs.unlinkSync(linkPath);
         }
 
-        // Create relative symlink
         const relativePath = path.relative(dir, target);
         fs.symlinkSync(relativePath, linkPath);
     } catch (e) {
-        // Ignore symlink errors (file conflicts, permissions, etc.)
+        // Ignore symlink errors
     }
 }
 
-// Set up response listener
 async function setupListener() {
     const typesStr = getEnv('RESPONSES_TYPES', DEFAULT_TYPES.join(','));
     const typesToSave = typesStr.split(',').map(t => t.trim().toLowerCase());
 
-    // Create subdirectories for organizing responses
+    // Create subdirectories
     const allDir = path.join(OUTPUT_DIR, 'all');
     if (!fs.existsSync(allDir)) {
         fs.mkdirSync(allDir, { recursive: true });
     }
 
-    // Create index file
     const indexPath = path.join(OUTPUT_DIR, 'index.jsonl');
-    fs.writeFileSync(indexPath, '');  // Clear existing
+    fs.writeFileSync(indexPath, '');
 
     const cdpUrl = getCdpUrl();
     if (!cdpUrl) {
@@ -182,7 +170,7 @@ async function setupListener() {
         throw new Error('No page found');
     }
 
-    // Set up response listener to capture network traffic
+    // Set up response listener
     page.on('response', async (response) => {
         try {
             const request = response.request();
@@ -205,7 +193,6 @@ async function setupListener() {
             try {
                 bodyBuffer = await response.buffer();
             } catch (e) {
-                // Some responses can't be captured (already consumed, etc.)
                 return;
             }
 
@@ -234,7 +221,6 @@ async function setupListener() {
                 const filename = path.basename(pathname) || 'index' + (extension ? '.' + extension : '');
                 const dirPath = path.dirname(pathname);
 
-                // Create symlink: responses/<type>/<hostname>/<path>/<filename>
                 const symlinkDir = path.join(OUTPUT_DIR, resourceType, hostname, dirPath);
                 const symlinkPath = path.join(symlinkDir, filename);
                 await createSymlink(uniquePath, symlinkPath);
@@ -250,7 +236,7 @@ async function setupListener() {
             const indexEntry = {
                 ts: timestamp,
                 method,
-                url: method === 'DATA' ? url.slice(0, 128) : url,  // Truncate data: URLs
+                url: method === 'DATA' ? url.slice(0, 128) : url,
                 urlSha256,
                 status,
                 resourceType,
@@ -267,8 +253,28 @@ async function setupListener() {
         }
     });
 
-    // Don't disconnect - keep browser connection alive
     return { browser, page };
+}
+
+async function waitForNavigation() {
+    // Wait for chrome_navigate to complete
+    const navDir = path.join(CHROME_SESSION_DIR, '../chrome_navigate');
+    const pageLoadedMarker = path.join(navDir, 'page_loaded.txt');
+    const maxWait = 120000; // 2 minutes
+    const pollInterval = 100;
+    let waitTime = 0;
+
+    while (!fs.existsSync(pageLoadedMarker) && waitTime < maxWait) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        waitTime += pollInterval;
+    }
+
+    if (!fs.existsSync(pageLoadedMarker)) {
+        throw new Error('Timeout waiting for navigation (chrome_navigate did not complete)');
+    }
+
+    // Wait a bit longer for any post-load responses
+    await new Promise(resolve => setTimeout(resolve, 1000));
 }
 
 async function main() {
@@ -296,13 +302,16 @@ async function main() {
     const startTs = new Date();
 
     try {
-        // Set up listener
+        // Set up listener BEFORE navigation
         await setupListener();
 
-        // Write PID file so chrome_cleanup can kill us
+        // Write PID file
         fs.writeFileSync(path.join(OUTPUT_DIR, PID_FILE), String(process.pid));
 
-        // Report success immediately (we're staying alive in background)
+        // Wait for chrome_navigate to complete (BLOCKING)
+        await waitForNavigation();
+
+        // Report success
         const endTs = new Date();
         const duration = (endTs - startTs) / 1000;
 
@@ -324,18 +333,7 @@ async function main() {
         };
         console.log(`RESULT_JSON=${JSON.stringify(result)}`);
 
-        // Daemonize: detach from parent and keep running
-        // This process will be killed by chrome_cleanup
-        if (process.stdin.isTTY) {
-            process.stdin.pause();
-        }
-        process.stdin.unref();
-        process.stdout.end();
-        process.stderr.end();
-
-        // Keep the process alive indefinitely
-        // Will be killed by chrome_cleanup via the PID file
-        setInterval(() => {}, 1000);
+        process.exit(0);
 
     } catch (e) {
         const error = `${e.name}: ${e.message}`;

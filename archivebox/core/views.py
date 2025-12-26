@@ -86,53 +86,36 @@ class SnapshotView(View):
                 }
                 archiveresults[result.extractor] = result_info
 
-        existing_files = {result['path'] for result in archiveresults.values()}
-        min_size_threshold = 10_000  # bytes
-        allowed_extensions = {
-            'txt',
-            'html',
-            'htm',
-            'png',
-            'jpg',
-            'jpeg',
-            'gif',
-            'webp'
-            'svg',
-            'webm',
-            'mp4',
-            'mp3',
-            'opus',
-            'pdf',
-            'md',
-        }
+        # Use canonical_outputs for intelligent discovery
+        # This method now scans ArchiveResults and uses smart heuristics
+        canonical = snapshot.canonical_outputs()
 
-
-        # iterate through all the files in the snapshot dir and add the biggest ones to the result list
+        # Add any newly discovered outputs from canonical_outputs to archiveresults
         snap_dir = Path(snapshot.output_dir)
-        if not os.path.isdir(snap_dir) and os.access(snap_dir, os.R_OK):
-            return {}
-
-        for result_file in (*snap_dir.glob('*'), *snap_dir.glob('*/*')):
-            extension = result_file.suffix.lstrip('.').lower()
-            if result_file.is_dir() or result_file.name.startswith('.') or extension not in allowed_extensions:
-                continue
-            if result_file.name in existing_files or result_file.name == 'index.html':
+        for key, path in canonical.items():
+            if not key.endswith('_path') or not path or path.startswith('http'):
                 continue
 
-            # Skip circular symlinks and other stat() failures
+            extractor_name = key.replace('_path', '')
+            if extractor_name in archiveresults:
+                continue  # Already have this from ArchiveResult
+
+            file_path = snap_dir / path
+            if not file_path.exists() or not file_path.is_file():
+                continue
+
             try:
-                file_size = result_file.stat().st_size or 0
+                file_size = file_path.stat().st_size
+                if file_size >= 15_000:  # Only show files > 15KB
+                    archiveresults[extractor_name] = {
+                        'name': extractor_name,
+                        'path': path,
+                        'ts': ts_to_date_str(file_path.stat().st_mtime or 0),
+                        'size': file_size,
+                        'result': None,
+                    }
             except OSError:
                 continue
-
-            if file_size > min_size_threshold:
-                archiveresults[result_file.name] = {
-                    'name': result_file.stem,
-                    'path': result_file.relative_to(snap_dir),
-                    'ts': ts_to_date_str(result_file.stat().st_mtime or 0),
-                    'size': file_size,
-                    'result': None,  # No ArchiveResult object for filesystem-discovered files
-                }
 
         # Get available extractors from hooks (sorted by numeric prefix for ordering)
         # Convert to base names for display ordering

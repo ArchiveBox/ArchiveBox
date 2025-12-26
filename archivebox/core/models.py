@@ -635,40 +635,143 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     # =========================================================================
 
     def canonical_outputs(self) -> Dict[str, Optional[str]]:
-        """Predict the expected output paths that should be present after archiving"""
+        """
+        Intelligently discover the best output file for each extractor.
+        Uses actual ArchiveResult data and filesystem scanning with smart heuristics.
+        """
         FAVICON_PROVIDER = 'https://www.google.com/s2/favicons?domain={}'
+
+        # Mimetypes that can be embedded/previewed in an iframe
+        IFRAME_EMBEDDABLE_EXTENSIONS = {
+            'html', 'htm', 'pdf', 'txt', 'md', 'json', 'jsonl',
+            'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico',
+            'mp4', 'webm', 'mp3', 'opus', 'ogg', 'wav',
+        }
+
+        MIN_DISPLAY_SIZE = 15_000  # 15KB - filter out tiny files
+        MAX_SCAN_FILES = 50  # Don't scan massive directories
+
+        def find_best_output_in_dir(dir_path: Path, extractor_name: str) -> Optional[str]:
+            """Find the best representative file in an extractor's output directory"""
+            if not dir_path.exists() or not dir_path.is_dir():
+                return None
+
+            candidates = []
+            file_count = 0
+
+            # Special handling for media extractor - look for thumbnails
+            is_media_dir = extractor_name == 'media'
+
+            # Scan for suitable files
+            for file_path in dir_path.rglob('*'):
+                file_count += 1
+                if file_count > MAX_SCAN_FILES:
+                    break
+
+                if file_path.is_dir() or file_path.name.startswith('.'):
+                    continue
+
+                ext = file_path.suffix.lstrip('.').lower()
+                if ext not in IFRAME_EMBEDDABLE_EXTENSIONS:
+                    continue
+
+                try:
+                    size = file_path.stat().st_size
+                except OSError:
+                    continue
+
+                # For media dir, allow smaller image files (thumbnails are often < 15KB)
+                min_size = 5_000 if (is_media_dir and ext in ('png', 'jpg', 'jpeg', 'webp', 'gif')) else MIN_DISPLAY_SIZE
+                if size < min_size:
+                    continue
+
+                # Prefer main files: index.html, output.*, content.*, etc.
+                priority = 0
+                name_lower = file_path.name.lower()
+
+                if is_media_dir:
+                    # Special prioritization for media directories
+                    if any(keyword in name_lower for keyword in ('thumb', 'thumbnail', 'cover', 'poster')):
+                        priority = 200  # Highest priority for thumbnails
+                    elif ext in ('png', 'jpg', 'jpeg', 'webp', 'gif'):
+                        priority = 150  # High priority for any image
+                    elif ext in ('mp4', 'webm', 'mp3', 'opus', 'ogg'):
+                        priority = 100  # Lower priority for actual media files
+                    else:
+                        priority = 50
+                elif 'index' in name_lower:
+                    priority = 100
+                elif name_lower.startswith(('output', 'content', extractor_name)):
+                    priority = 50
+                elif ext in ('html', 'htm', 'pdf'):
+                    priority = 30
+                elif ext in ('png', 'jpg', 'jpeg', 'webp'):
+                    priority = 20
+                else:
+                    priority = 10
+
+                candidates.append((priority, size, file_path))
+
+            if not candidates:
+                return None
+
+            # Sort by priority (desc), then size (desc)
+            candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
+            best_file = candidates[0][2]
+            return str(best_file.relative_to(Path(self.output_dir)))
+
         canonical = {
             'index_path': 'index.html',
-            'favicon_path': 'favicon.ico',
             'google_favicon_path': FAVICON_PROVIDER.format(self.domain),
-            'wget_path': f'warc/{self.timestamp}',
-            'warc_path': 'warc/',
-            'singlefile_path': 'singlefile.html',
-            'readability_path': 'readability/content.html',
-            'mercury_path': 'mercury/content.html',
-            'htmltotext_path': 'htmltotext.txt',
-            'pdf_path': 'output.pdf',
-            'screenshot_path': 'screenshot.png',
-            'dom_path': 'output.html',
             'archive_org_path': f'https://web.archive.org/web/{self.base_url}',
-            'git_path': 'git/',
-            'media_path': 'media/',
-            'headers_path': 'headers.json',
         }
+
+        # Scan each ArchiveResult's output directory for the best file
+        snap_dir = Path(self.output_dir)
+        for result in self.archiveresult_set.filter(status='succeeded'):
+            if not result.output:
+                continue
+
+            # Try to find the best output file for this extractor
+            extractor_dir = snap_dir / result.extractor
+            best_output = None
+
+            if result.output and (snap_dir / result.output).exists():
+                # Use the explicit output path if it exists
+                best_output = result.output
+            elif extractor_dir.exists():
+                # Intelligently find the best file in the extractor's directory
+                best_output = find_best_output_in_dir(extractor_dir, result.extractor)
+
+            if best_output:
+                canonical[f'{result.extractor}_path'] = best_output
+
+        # Also scan top-level for legacy outputs (backwards compatibility)
+        for file_path in snap_dir.glob('*'):
+            if file_path.is_dir() or file_path.name in ('index.html', 'index.json'):
+                continue
+
+            ext = file_path.suffix.lstrip('.').lower()
+            if ext not in IFRAME_EMBEDDABLE_EXTENSIONS:
+                continue
+
+            try:
+                size = file_path.stat().st_size
+                if size >= MIN_DISPLAY_SIZE:
+                    # Add as generic output with stem as key
+                    key = f'{file_path.stem}_path'
+                    if key not in canonical:
+                        canonical[key] = file_path.name
+            except OSError:
+                continue
 
         if self.is_static:
             static_path = f'warc/{self.timestamp}'
             canonical.update({
                 'title': self.basename,
                 'wget_path': static_path,
-                'pdf_path': static_path,
-                'screenshot_path': static_path,
-                'dom_path': static_path,
-                'singlefile_path': static_path,
-                'readability_path': static_path,
-                'mercury_path': static_path,
-                'htmltotext_path': static_path,
             })
+
         return canonical
 
     def latest_outputs(self, status: Optional[str] = None) -> Dict[str, Any]:

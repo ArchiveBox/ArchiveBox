@@ -267,52 +267,89 @@ def run_hook(
     # Capture files before execution to detect new output
     files_before = set(output_dir.rglob('*')) if output_dir.exists() else set()
 
+    # Detect if this is a background hook (long-running daemon)
+    is_background = '__background' in script.stem
+
+    # Set up output files for ALL hooks (useful for debugging)
+    stdout_file = output_dir / 'stdout.log'
+    stderr_file = output_dir / 'stderr.log'
+    pid_file = output_dir / 'hook.pid'
+
     try:
-        result = subprocess.run(
-            cmd,
-            cwd=str(output_dir),
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=env,
-        )
+        # Open log files for writing
+        with open(stdout_file, 'w') as out, open(stderr_file, 'w') as err:
+            process = subprocess.Popen(
+                cmd,
+                cwd=str(output_dir),
+                stdout=out,
+                stderr=err,
+                env=env,
+            )
+
+            # Write PID for all hooks (useful for debugging/cleanup)
+            pid_file.write_text(str(process.pid))
+
+            if is_background:
+                # Background hook - return None immediately, don't wait
+                # Process continues running, writing to stdout.log
+                # ArchiveResult will poll for completion later
+                return None
+
+            # Normal hook - wait for completion with timeout
+            try:
+                returncode = process.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()  # Clean up zombie
+                duration_ms = int((time.time() - start_time) * 1000)
+                return HookResult(
+                    returncode=-1,
+                    stdout='',
+                    stderr=f'Hook timed out after {timeout} seconds',
+                    output_json=None,
+                    output_files=[],
+                    duration_ms=duration_ms,
+                    hook=str(script),
+                )
+
+        # Read output from files
+        stdout = stdout_file.read_text() if stdout_file.exists() else ''
+        stderr = stderr_file.read_text() if stderr_file.exists() else ''
 
         # Detect new files created by the hook
         files_after = set(output_dir.rglob('*')) if output_dir.exists() else set()
         new_files = [str(f.relative_to(output_dir)) for f in (files_after - files_before) if f.is_file()]
+        # Exclude the log files themselves from new_files
+        new_files = [f for f in new_files if f not in ('stdout.log', 'stderr.log', 'hook.pid')]
 
-        # Try to parse stdout as JSON
+        # Parse RESULT_JSON from stdout
         output_json = None
-        stdout = result.stdout.strip()
-        if stdout:
-            try:
-                output_json = json.loads(stdout)
-            except json.JSONDecodeError:
-                pass  # Not JSON output, that's fine
+        for line in stdout.splitlines():
+            if line.startswith('RESULT_JSON='):
+                try:
+                    output_json = json.loads(line[len('RESULT_JSON='):])
+                    break
+                except json.JSONDecodeError:
+                    pass
 
         duration_ms = int((time.time() - start_time) * 1000)
 
+        # Clean up log files on success (keep on failure for debugging)
+        if returncode == 0:
+            stdout_file.unlink(missing_ok=True)
+            stderr_file.unlink(missing_ok=True)
+            pid_file.unlink(missing_ok=True)
+
         return HookResult(
-            returncode=result.returncode,
-            stdout=result.stdout,
-            stderr=result.stderr,
+            returncode=returncode,
+            stdout=stdout,
+            stderr=stderr,
             output_json=output_json,
             output_files=new_files,
             duration_ms=duration_ms,
             hook=str(script),
         )
 
-    except subprocess.TimeoutExpired:
-        duration_ms = int((time.time() - start_time) * 1000)
-        return HookResult(
-            returncode=-1,
-            stdout='',
-            stderr=f'Hook timed out after {timeout} seconds',
-            output_json=None,
-            output_files=[],
-            duration_ms=duration_ms,
-            hook=str(script),
-        )
     except Exception as e:
         duration_ms = int((time.time() - start_time) * 1000)
         return HookResult(

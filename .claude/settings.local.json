@@ -6,7 +6,10 @@
       "Bash(xargs:*)",
       "Bash(python -c:*)",
       "Bash(printf:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(python3:*)",
+      "Bash(sqlite3:*)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Extract SSL/TLS certificate details from a URL (DAEMON MODE).
+ * Extract SSL/TLS certificate details from a URL.
  *
- * This hook daemonizes and stays alive to capture SSL details throughout
- * the snapshot lifecycle. It's killed by chrome_cleanup at the end.
+ * This hook sets up CDP listeners BEFORE chrome_navigate loads the page,
+ * then waits for navigation to complete. The listener captures SSL details
+ * during the navigation request.
  *
  * Usage: on_Snapshot__23_ssl.js --url=<url> --snapshot-id=<uuid>
  * Output: Writes ssl.json + listener.pid
@@ -13,14 +14,12 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer-core');
 
-// Extractor metadata
 const EXTRACTOR_NAME = 'ssl';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'ssl.json';
 const PID_FILE = 'listener.pid';
 const CHROME_SESSION_DIR = '../chrome_session';
 
-// Parse command line arguments
 function parseArgs() {
     const args = {};
     process.argv.slice(2).forEach(arg => {
@@ -32,7 +31,6 @@ function parseArgs() {
     return args;
 }
 
-// Get environment variable with default
 function getEnv(name, defaultValue = '') {
     return (process.env[name] || defaultValue).trim();
 }
@@ -44,7 +42,6 @@ function getEnvBool(name, defaultValue = false) {
     return defaultValue;
 }
 
-// Get CDP URL from chrome_session
 function getCdpUrl() {
     const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
     if (fs.existsSync(cdpFile)) {
@@ -61,7 +58,6 @@ function getPageId() {
     return null;
 }
 
-// Set up SSL listener
 async function setupListener(url) {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
@@ -96,7 +92,7 @@ async function setupListener(url) {
         throw new Error('No page found');
     }
 
-    // Set up listener to capture SSL details when chrome_navigate loads the page
+    // Set up listener to capture SSL details during navigation
     page.on('response', async (response) => {
         try {
             const request = response.request();
@@ -148,8 +144,25 @@ async function setupListener(url) {
         }
     });
 
-    // Don't disconnect - keep browser connection alive
     return { browser, page };
+}
+
+async function waitForNavigation() {
+    // Wait for chrome_navigate to complete (it writes page_loaded.txt)
+    const navDir = path.join(CHROME_SESSION_DIR, '../chrome_navigate');
+    const pageLoadedMarker = path.join(navDir, 'page_loaded.txt');
+    const maxWait = 120000; // 2 minutes
+    const pollInterval = 100;
+    let waitTime = 0;
+
+    while (!fs.existsSync(pageLoadedMarker) && waitTime < maxWait) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        waitTime += pollInterval;
+    }
+
+    if (!fs.existsSync(pageLoadedMarker)) {
+        throw new Error('Timeout waiting for navigation (chrome_navigate did not complete)');
+    }
 }
 
 async function main() {
@@ -177,13 +190,16 @@ async function main() {
     const startTs = new Date();
 
     try {
-        // Set up listener
+        // Set up listener BEFORE navigation
         await setupListener(url);
 
-        // Write PID file so chrome_cleanup can kill us
+        // Write PID file so chrome_cleanup can kill any remaining processes
         fs.writeFileSync(path.join(OUTPUT_DIR, PID_FILE), String(process.pid));
 
-        // Report success immediately (we're staying alive in background)
+        // Wait for chrome_navigate to complete (BLOCKING)
+        await waitForNavigation();
+
+        // Report success
         const endTs = new Date();
         const duration = (endTs - startTs) / 1000;
 
@@ -205,18 +221,7 @@ async function main() {
         };
         console.log(`RESULT_JSON=${JSON.stringify(result)}`);
 
-        // Daemonize: detach from parent and keep running
-        // This process will be killed by chrome_cleanup
-        if (process.stdin.isTTY) {
-            process.stdin.pause();
-        }
-        process.stdin.unref();
-        process.stdout.end();
-        process.stderr.end();
-
-        // Keep the process alive indefinitely
-        // Will be killed by chrome_cleanup via the PID file
-        setInterval(() => {}, 1000);
+        process.exit(0);
 
     } catch (e) {
         const error = `${e.name}: ${e.message}`;

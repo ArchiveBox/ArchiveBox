@@ -552,12 +552,9 @@ def log_worker_event(
     if worker_id and worker_type in ('CrawlWorker', 'Orchestrator') and worker_type != 'DB':
         worker_parts.append(f'id={worker_id}')
 
-    # Format worker label - only add brackets if there are additional identifiers
-    # Use double brackets [[...]] to escape Rich markup
-    if len(worker_parts) > 1:
-        worker_label = f'{worker_parts[0]}[[{", ".join(worker_parts[1:])}]]'
-    else:
-        worker_label = worker_parts[0]
+    # Build worker label parts for brackets (shown inside brackets)
+    worker_label_base = worker_parts[0]
+    worker_bracket_content = ", ".join(worker_parts[1:]) if len(worker_parts) > 1 else None
 
     # Build URL/extractor display (shown AFTER the label, outside brackets)
     url_extractor_parts = []
@@ -613,9 +610,18 @@ def log_worker_event(
     from rich.text import Text
 
     # Create a Rich Text object for proper formatting
+    # Text.append() treats content as literal (no markup parsing)
     text = Text()
     text.append(indent)
-    text.append(f'{worker_label} {event}{error_str}', style=color)
+    text.append(worker_label_base, style=color)
+
+    # Add bracketed content if present (using Text.append to avoid markup issues)
+    if worker_bracket_content:
+        text.append('[', style=color)
+        text.append(worker_bracket_content, style=color)
+        text.append(']', style=color)
+
+    text.append(f' {event}{error_str}', style=color)
 
     # Add URL/extractor info first (more important)
     if url_extractor_str:

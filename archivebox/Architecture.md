@@ -45,7 +45,7 @@
 ### Crawls App
 
 - Archive an entire website -> [Crawl page]
-    - What are the seed URLs?
+    - What are the starting URLs?
     - How many hops to follow?
     - Follow links to external domains?
     - Follow links to parent URLs?
