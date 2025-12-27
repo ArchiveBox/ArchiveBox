@@ -15,7 +15,9 @@ Schema Evolution:
          changed primary keys from AutoField to UUID for Tag/ArchiveResult
 """
 
-__package__ = 'archivebox.cli'
+# Note: This test file intentionally does NOT set __package__ to avoid
+# importing archivebox directly (which would trigger root checks).
+# All tests run archivebox via subprocess, which handles its own env.
 
 import os
 import sys
@@ -346,6 +348,36 @@ CREATE TABLE IF NOT EXISTS machine_installedbinary (
     num_uses_succeeded INTEGER NOT NULL DEFAULT 0
 );
 
+-- API app tables (added in 0.8.x)
+CREATE TABLE IF NOT EXISTS api_apitoken (
+    id CHAR(36) PRIMARY KEY,
+    created_by_id INTEGER NOT NULL REFERENCES auth_user(id),
+    created_at DATETIME NOT NULL,
+    modified_at DATETIME,
+    token VARCHAR(32) NOT NULL UNIQUE,
+    expires DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS api_outboundwebhook (
+    id CHAR(36) PRIMARY KEY,
+    created_by_id INTEGER NOT NULL REFERENCES auth_user(id),
+    created_at DATETIME NOT NULL,
+    modified_at DATETIME,
+    name VARCHAR(255) NOT NULL DEFAULT '',
+    signal VARCHAR(255) NOT NULL,
+    ref VARCHAR(255) NOT NULL,
+    endpoint VARCHAR(2083) NOT NULL,
+    headers TEXT DEFAULT '{}',
+    auth_token VARCHAR(4000) NOT NULL DEFAULT '',
+    enabled BOOLEAN NOT NULL DEFAULT 1,
+    keep_last_response BOOLEAN NOT NULL DEFAULT 0,
+    last_response TEXT NOT NULL DEFAULT '',
+    last_success DATETIME,
+    last_failure DATETIME,
+    num_uses_failed INTEGER NOT NULL DEFAULT 0,
+    num_uses_succeeded INTEGER NOT NULL DEFAULT 0
+);
+
 -- Core Tag table (AutoField PK in 0.8.x)
 CREATE TABLE IF NOT EXISTS core_tag (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -370,6 +402,20 @@ CREATE TABLE IF NOT EXISTS crawls_seed (
     config TEXT DEFAULT '{}',
     output_dir VARCHAR(512) NOT NULL DEFAULT '',
     notes TEXT NOT NULL DEFAULT '',
+    num_uses_failed INTEGER NOT NULL DEFAULT 0,
+    num_uses_succeeded INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS crawls_crawlschedule (
+    id CHAR(36) PRIMARY KEY,
+    created_at DATETIME NOT NULL,
+    created_by_id INTEGER NOT NULL REFERENCES auth_user(id),
+    modified_at DATETIME,
+    schedule VARCHAR(64) NOT NULL,
+    is_enabled BOOLEAN NOT NULL DEFAULT 1,
+    label VARCHAR(64) NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    template_id CHAR(36) REFERENCES crawls_crawl(id),
     num_uses_failed INTEGER NOT NULL DEFAULT 0,
     num_uses_succeeded INTEGER NOT NULL DEFAULT 0
 );
@@ -472,7 +518,9 @@ INSERT INTO django_content_type (app_label, model) VALUES
 ('machine', 'installedbinary'),
 ('crawls', 'crawl'),
 ('crawls', 'crawlschedule'),
-('crawls', 'seed');
+('crawls', 'seed'),
+('api', 'apitoken'),
+('api', 'outboundwebhook');
 """
 
 
@@ -873,11 +921,83 @@ def seed_0_8_data(db_path: Path) -> Dict[str, List[Dict]]:
         ('core', '0020_auto_20210410_1031'),
         ('core', '0021_auto_20220914_0934'),
         ('core', '0022_auto_20231023_2008'),
+        # For 0.8.x (dev branch), record the migrations that 0023_new_schema replaces
+        # This is required because 0023_new_schema is a squashed migration
+        ('core', '0023_alter_archiveresult_options_archiveresult_abid_and_more'),
+        ('core', '0024_auto_20240513_1143'),
+        ('core', '0025_alter_archiveresult_uuid'),
+        ('core', '0026_archiveresult_created_archiveresult_created_by_and_more'),
+        ('core', '0027_update_snapshot_ids'),
+        ('core', '0028_alter_archiveresult_uuid'),
+        ('core', '0029_alter_archiveresult_id'),
+        ('core', '0030_alter_archiveresult_uuid'),
+        ('core', '0031_alter_archiveresult_id_alter_archiveresult_uuid_and_more'),
+        ('core', '0032_alter_archiveresult_id'),
+        ('core', '0033_rename_id_archiveresult_old_id'),
+        ('core', '0034_alter_archiveresult_old_id_alter_archiveresult_uuid'),
+        ('core', '0035_remove_archiveresult_uuid_archiveresult_id'),
+        ('core', '0036_alter_archiveresult_id_alter_archiveresult_old_id'),
+        ('core', '0037_rename_id_snapshot_old_id'),
+        ('core', '0038_rename_uuid_snapshot_id'),
+        ('core', '0039_rename_snapshot_archiveresult_snapshot_old'),
+        ('core', '0040_archiveresult_snapshot'),
+        ('core', '0041_alter_archiveresult_snapshot_and_more'),
+        ('core', '0042_remove_archiveresult_snapshot_old'),
+        ('core', '0043_alter_archiveresult_snapshot_alter_snapshot_id_and_more'),
+        ('core', '0044_alter_archiveresult_snapshot_alter_tag_uuid_and_more'),
+        ('core', '0045_alter_snapshot_old_id'),
+        ('core', '0046_alter_archiveresult_snapshot_alter_snapshot_id_and_more'),
+        ('core', '0047_alter_snapshottag_unique_together_and_more'),
+        ('core', '0048_alter_archiveresult_snapshot_and_more'),
+        ('core', '0049_rename_snapshot_snapshottag_snapshot_old_and_more'),
+        ('core', '0050_alter_snapshottag_snapshot_old'),
+        ('core', '0051_snapshottag_snapshot_alter_snapshottag_snapshot_old'),
+        ('core', '0052_alter_snapshottag_unique_together_and_more'),
+        ('core', '0053_remove_snapshottag_snapshot_old'),
+        ('core', '0054_alter_snapshot_timestamp'),
+        ('core', '0055_alter_tag_slug'),
+        ('core', '0056_remove_tag_uuid'),
+        ('core', '0057_rename_id_tag_old_id'),
+        ('core', '0058_alter_tag_old_id'),
+        ('core', '0059_tag_id'),
+        ('core', '0060_alter_tag_id'),
+        ('core', '0061_rename_tag_snapshottag_old_tag_and_more'),
+        ('core', '0062_alter_snapshottag_old_tag'),
+        ('core', '0063_snapshottag_tag_alter_snapshottag_old_tag'),
+        ('core', '0064_alter_snapshottag_unique_together_and_more'),
+        ('core', '0065_remove_snapshottag_old_tag'),
+        ('core', '0066_alter_snapshottag_tag_alter_tag_id_alter_tag_old_id'),
+        ('core', '0067_alter_snapshottag_tag'),
+        ('core', '0068_alter_archiveresult_options'),
+        ('core', '0069_alter_archiveresult_created_alter_snapshot_added_and_more'),
+        ('core', '0070_alter_archiveresult_created_by_alter_snapshot_added_and_more'),
+        ('core', '0071_remove_archiveresult_old_id_remove_snapshot_old_id_and_more'),
+        ('core', '0072_rename_added_snapshot_bookmarked_at_and_more'),
+        ('core', '0073_rename_created_archiveresult_created_at_and_more'),
+        ('core', '0074_alter_snapshot_downloaded_at'),
+        # Also record the squashed migration itself
         ('core', '0023_new_schema'),
-        # Machine app migrations (required by core.0024)
+        # Machine app - record both squashed and individual migrations (like fresh install does)
+        ('machine', '0001_initial'),
         ('machine', '0001_squashed'),
+        ('machine', '0002_alter_machine_stats_installedbinary'),
+        ('machine', '0003_alter_installedbinary_options_and_more'),
+        ('machine', '0004_alter_installedbinary_abspath_and_more'),
         ('core', '0024_snapshot_crawl'),
         ('core', '0025_allow_duplicate_urls_per_crawl'),
+        # Note: core.0026 removes output_dir which the 0.8.x schema still has
+        # Let Django apply it during migration
+        # API app - record both squashed and individual migrations (like fresh install does)
+        ('api', '0001_initial'),
+        ('api', '0001_squashed'),
+        ('api', '0002_alter_apitoken_options'),
+        ('api', '0003_rename_user_apitoken_created_by_apitoken_abid_and_more'),
+        ('api', '0004_alter_apitoken_id_alter_apitoken_uuid'),
+        ('api', '0005_remove_apitoken_uuid_remove_outboundwebhook_uuid_and_more'),
+        ('api', '0006_remove_outboundwebhook_uuid_apitoken_id_and_more'),
+        ('api', '0007_alter_apitoken_created_by'),
+        ('api', '0008_alter_apitoken_created_alter_apitoken_created_by_and_more'),
+        ('api', '0009_rename_created_apitoken_created_at_and_more'),
         # Crawls migrations
         ('crawls', '0001_initial'),
     ]
@@ -1039,6 +1159,7 @@ class TestFreshInstall(unittest.TestCase):
     def test_init_creates_database(self):
         """Fresh init should create database and directories."""
         work_dir = Path(tempfile.mkdtemp())
+        
 
         try:
             result = run_archivebox(work_dir, ['init'])
@@ -1055,6 +1176,7 @@ class TestFreshInstall(unittest.TestCase):
     def test_status_after_init(self):
         """Status command should work after init."""
         work_dir = Path(tempfile.mkdtemp())
+        
 
         try:
             result = run_archivebox(work_dir, ['init'])
@@ -1069,6 +1191,7 @@ class TestFreshInstall(unittest.TestCase):
     def test_add_url_after_init(self):
         """Should be able to add URLs after init with --index-only (fast)."""
         work_dir = Path(tempfile.mkdtemp())
+        
 
         try:
             result = run_archivebox(work_dir, ['init'])
@@ -1100,6 +1223,7 @@ class TestFreshInstall(unittest.TestCase):
     def test_list_after_add(self):
         """List command should show added snapshots."""
         work_dir = Path(tempfile.mkdtemp())
+        
 
         try:
             result = run_archivebox(work_dir, ['init'])
@@ -1117,6 +1241,7 @@ class TestFreshInstall(unittest.TestCase):
     def test_migrations_table_populated(self):
         """Django migrations table should be populated after init."""
         work_dir = Path(tempfile.mkdtemp())
+        
 
         try:
             result = run_archivebox(work_dir, ['init'])
@@ -1137,6 +1262,7 @@ class TestFreshInstall(unittest.TestCase):
     def test_core_migrations_applied(self):
         """Core app migrations should be applied."""
         work_dir = Path(tempfile.mkdtemp())
+        
 
         try:
             result = run_archivebox(work_dir, ['init'])
@@ -1160,6 +1286,7 @@ class TestSchemaIntegrity(unittest.TestCase):
     def test_snapshot_table_has_required_columns(self):
         """Snapshot table should have all required columns."""
         work_dir = Path(tempfile.mkdtemp())
+        
 
         try:
             result = run_archivebox(work_dir, ['init'])
@@ -1181,6 +1308,7 @@ class TestSchemaIntegrity(unittest.TestCase):
     def test_archiveresult_table_has_required_columns(self):
         """ArchiveResult table should have all required columns."""
         work_dir = Path(tempfile.mkdtemp())
+        
 
         try:
             result = run_archivebox(work_dir, ['init'])
@@ -1202,6 +1330,7 @@ class TestSchemaIntegrity(unittest.TestCase):
     def test_tag_table_has_required_columns(self):
         """Tag table should have all required columns."""
         work_dir = Path(tempfile.mkdtemp())
+        
 
         try:
             result = run_archivebox(work_dir, ['init'])
@@ -1227,6 +1356,7 @@ class TestMultipleSnapshots(unittest.TestCase):
     def test_add_multiple_urls(self):
         """Should be able to add multiple URLs with --index-only."""
         work_dir = Path(tempfile.mkdtemp())
+        
 
         try:
             result = run_archivebox(work_dir, ['init'])
@@ -1268,6 +1398,9 @@ class TestMigrationFrom07x(unittest.TestCase):
 
         # Seed with test data
         self.original_data = seed_0_7_data(self.db_path)
+
+        # Change ownership to testuser so archivebox can write to it
+        
 
     def tearDown(self):
         """Clean up temporary directory."""
@@ -1501,6 +1634,9 @@ class TestMigrationFrom04x(unittest.TestCase):
         # Seed with test data
         self.original_data = seed_0_4_data(self.db_path)
 
+        # Change ownership to testuser so archivebox can write to it
+        
+
     def tearDown(self):
         """Clean up temporary directory."""
         shutil.rmtree(self.work_dir, ignore_errors=True)
@@ -1542,7 +1678,6 @@ class TestMigrationFrom04x(unittest.TestCase):
         self.assertTrue(ok, msg)
 
 
-@unittest.skip("0.8.x migration tests skipped: complex machine app state issues with Django migration loader")
 class TestMigrationFrom08x(unittest.TestCase):
     """Test migration from 0.8.x schema to latest.
 
@@ -1551,11 +1686,6 @@ class TestMigrationFrom08x(unittest.TestCase):
     - UUID primary keys for Snapshot
     - Status fields for state machine
     - New fields like depth, retry_at, etc.
-
-    NOTE: These tests are currently skipped because the 0.8.x schema has complex
-    migration state dependencies with the machine app that Django's migration loader
-    has trouble resolving. The 0.7.x tests are the critical path since most users
-    will be upgrading from the stable 0.7.x branch, not the dev 0.8.x branch.
     """
 
     def setUp(self):
@@ -1573,6 +1703,9 @@ class TestMigrationFrom08x(unittest.TestCase):
 
         # Seed with test data
         self.original_data = seed_0_8_data(self.db_path)
+
+        # Change ownership to testuser so archivebox can write to it
+        
 
     def tearDown(self):
         """Clean up temporary directory."""
@@ -1724,11 +1857,20 @@ class TestMigrationFrom08x(unittest.TestCase):
     def test_add_works_after_migration(self):
         """Adding new URLs should work after migration from 0.8.x."""
         result = run_archivebox(self.work_dir, ['init'], timeout=45)
+        # Check that init actually ran and applied migrations
+        self.assertIn('Applying', result.stdout + result.stderr,
+            f"Init did not apply migrations. stdout: {result.stdout[:500]}, stderr: {result.stderr[:500]}")
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
-        # Count existing crawls
+        # Check that seed_id column was removed by migration
         conn = sqlite3.connect(str(self.db_path))
         cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(crawls_crawl)")
+        columns = [row[1] for row in cursor.fetchall()]
+        self.assertNotIn('seed_id', columns,
+            f"seed_id column should have been removed by migration. Columns: {columns}")
+
+        # Count existing crawls
         cursor.execute("SELECT COUNT(*) FROM crawls_crawl")
         initial_crawl_count = cursor.fetchone()[0]
         conn.close()
@@ -1776,6 +1918,7 @@ class TestMigrationDataIntegrity(unittest.TestCase):
             conn.executescript(SCHEMA_0_7)
             conn.close()
             seed_0_7_data(db_path)
+            
 
             result = run_archivebox(work_dir, ['init'], timeout=45)
             self.assertIn(result.returncode, [0, 1])
@@ -1806,6 +1949,7 @@ class TestMigrationDataIntegrity(unittest.TestCase):
             conn.executescript(SCHEMA_0_7)
             conn.close()
             seed_0_7_data(db_path)
+            
 
             result = run_archivebox(work_dir, ['init'], timeout=45)
             self.assertIn(result.returncode, [0, 1])
@@ -1827,6 +1971,7 @@ class TestMigrationDataIntegrity(unittest.TestCase):
             conn.executescript(SCHEMA_0_7)
             conn.close()
             original_data = seed_0_7_data(db_path)
+            
 
             original_timestamps = {s['url']: s['timestamp'] for s in original_data['snapshots']}
 

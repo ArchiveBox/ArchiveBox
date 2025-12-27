@@ -170,7 +170,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
             'classes': ('card',),
         }),
         ('Settings', {
-            'fields': ('max_depth', 'extractor', 'config'),
+            'fields': ('max_depth', 'config'),
             'classes': ('card',),
         }),
         ('Status', {
@@ -191,7 +191,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         }),
     )
 
-    list_filter = ('max_depth', 'extractor', 'schedule', 'created_by', 'status', 'retry_at')
+    list_filter = ('max_depth', 'schedule', 'created_by', 'status', 'retry_at')
     ordering = ['-created_at', '-retry_at']
     list_per_page = 100
     actions = ["delete_selected_batched"]
