@@ -24,9 +24,6 @@ class Migration(migrations.Migration):
             name='created_by',
             field=models.ForeignKey(default=archivebox.base_models.models.get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, related_name='snapshot_set', to=settings.AUTH_USER_MODEL),
         ),
-        migrations.AlterField(
-            model_name='snapshot',
-            name='tags',
-            field=models.ManyToManyField(blank=True, related_name='snapshot_set', through='core.SnapshotTag', through_fields=('snapshot', 'tag'), to='core.tag'),
-        ),
+        # Note: Cannot alter M2M tags field via migration (Django limitation)
+        # The related_name change is handled by the model definition itself
     ]
