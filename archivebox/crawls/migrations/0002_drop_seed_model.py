@@ -20,11 +20,6 @@ class Migration(migrations.Migration):
             model_name='crawl',
             name='seed',
         ),
-        migrations.AddField(
-            model_name='crawl',
-            name='extractor',
-            field=models.CharField(default='auto', help_text='Parser for reading URLs (auto, html, json, rss, etc)', max_length=32),
-        ),
         migrations.AlterField(
             model_name='crawl',
             name='created_by',

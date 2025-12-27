@@ -78,7 +78,6 @@ def add(urls: str | list[str],
 
     crawl = Crawl.objects.create(
         urls=urls_content,
-        extractor=parser,
         max_depth=depth,
         tags_str=tag,
         label=f'{USER}@{HOSTNAME} $ {cmd_str} [{timestamp}]',
@@ -89,6 +88,7 @@ def add(urls: str | list[str],
             'OVERWRITE': overwrite,
             'EXTRACTORS': plugins,
             'DEFAULT_PERSONA': persona or 'Default',
+            'PARSER': parser,
         }
     )
 

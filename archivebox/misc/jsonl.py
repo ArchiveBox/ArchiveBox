@@ -206,7 +206,6 @@ def crawl_to_jsonl(crawl) -> Dict[str, Any]:
         'type': TYPE_CRAWL,
         'id': str(crawl.id),
         'urls': crawl.urls,
-        'extractor': crawl.extractor,
         'status': crawl.status,
         'max_depth': crawl.max_depth,
         'created_at': crawl.created_at.isoformat() if crawl.created_at else None,

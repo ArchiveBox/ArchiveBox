@@ -233,7 +233,6 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
 
         new_crawl = Crawl.objects.create(
             urls=obj.urls,
-            extractor=obj.extractor,
             max_depth=obj.max_depth,
             tags_str=obj.tags_str,
             config=obj.config,

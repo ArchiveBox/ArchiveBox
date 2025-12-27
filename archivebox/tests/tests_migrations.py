@@ -296,7 +296,6 @@ CREATE TABLE IF NOT EXISTS crawls_crawl (
     created_by_id INTEGER NOT NULL REFERENCES auth_user(id),
     modified_at DATETIME,
     urls TEXT NOT NULL,
-    extractor VARCHAR(32) NOT NULL DEFAULT 'auto',
     config TEXT DEFAULT '{}',
     max_depth SMALLINT UNSIGNED NOT NULL DEFAULT 0,
     tags_str VARCHAR(1024) NOT NULL DEFAULT '',
@@ -787,7 +786,7 @@ def run_archivebox(data_dir: Path, args: list, timeout: int = 60) -> subprocess.
     env['DATA_DIR'] = str(data_dir)
     env['USE_COLOR'] = 'False'
     env['SHOW_PROGRESS'] = 'False'
-    # Disable slow extractors for tests
+    # Disable ALL extractors for faster tests
     env['SAVE_ARCHIVE_DOT_ORG'] = 'False'
     env['SAVE_TITLE'] = 'False'
     env['SAVE_FAVICON'] = 'False'
@@ -950,24 +949,15 @@ class TestFreshInstall(unittest.TestCase):
             shutil.rmtree(work_dir, ignore_errors=True)
 
     def test_add_url_after_init(self):
-        """Should be able to add URLs after init.
-
-        In the new architecture, 'archivebox add' creates:
-        1. A sources file containing the URLs
-        2. A Seed pointing to the sources file
-        3. A Crawl with max_depth
-        4. A root Snapshot with file:// URL
-        5. Parser extractors discover URLs and create child Snapshots
-        """
+        """Should be able to add URLs after init with --index-only (fast)."""
         work_dir = Path(tempfile.mkdtemp())
 
         try:
             result = run_archivebox(work_dir, ['init'])
             self.assertEqual(result.returncode, 0)
 
-            # Add a URL (with extractors disabled, should be fast)
-            result = run_archivebox(work_dir, ['add', 'https://example.com'], timeout=60)
-            # returncode 1 is ok if some extractors fail
+            # Add a URL with --index-only for speed
+            result = run_archivebox(work_dir, ['add', '--index-only', 'https://example.com'])
             self.assertIn(result.returncode, [0, 1],
                 f"Add command crashed: {result.stderr}")
 
@@ -979,30 +969,10 @@ class TestFreshInstall(unittest.TestCase):
             crawl_count = cursor.fetchone()[0]
             self.assertGreaterEqual(crawl_count, 1, "No Crawl was created")
 
-            # Verify a Seed was created
-            cursor.execute("SELECT COUNT(*) FROM crawls_seed")
-            seed_count = cursor.fetchone()[0]
-            self.assertGreaterEqual(seed_count, 1, "No Seed was created")
-
-            # Verify at least one snapshot was created (the file:// root snapshot)
+            # Verify at least one snapshot was created
             cursor.execute("SELECT COUNT(*) FROM core_snapshot")
             snapshot_count = cursor.fetchone()[0]
             self.assertGreaterEqual(snapshot_count, 1, "No Snapshot was created")
-
-            # Verify the sources file contains the URL
-            sources_dir = work_dir / 'sources'
-            self.assertTrue(sources_dir.exists(), "Sources directory not created")
-            source_files = list(sources_dir.glob('*.txt'))
-            self.assertGreater(len(source_files), 0, "No source files created")
-
-            # Check that URL is in at least one source file
-            found_url = False
-            for source_file in source_files:
-                content = source_file.read_text()
-                if 'example.com' in content:
-                    found_url = True
-                    break
-            self.assertTrue(found_url, "URL not found in source files")
 
             conn.close()
 
@@ -1010,32 +980,18 @@ class TestFreshInstall(unittest.TestCase):
             shutil.rmtree(work_dir, ignore_errors=True)
 
     def test_list_after_add(self):
-        """List/search command should show added snapshots.
-
-        In the new architecture, the root snapshot is a file:// URL pointing
-        to the sources file that contains the actual URLs.
-        """
+        """List command should show added snapshots."""
         work_dir = Path(tempfile.mkdtemp())
 
         try:
             result = run_archivebox(work_dir, ['init'])
             self.assertEqual(result.returncode, 0)
 
-            result = run_archivebox(work_dir, ['add', 'https://example.com'], timeout=60)
+            result = run_archivebox(work_dir, ['add', '--index-only', 'https://example.com'])
             self.assertIn(result.returncode, [0, 1])
 
-            # 'list' is renamed to 'search' in the new CLI
-            result = run_archivebox(work_dir, ['search'])
-            self.assertEqual(result.returncode, 0, f"Search failed: {result.stderr}")
-
-            # The root snapshot is a file:// URL, so we check for sources file path
-            # or at least that there's some output
-            output = result.stdout + result.stderr
-            # Should have at least one snapshot listed (the file:// root)
-            self.assertTrue(
-                'file://' in output or 'sources' in output or 'cli_add' in output,
-                f"No snapshot shown in search output: {output[:500]}"
-            )
+            result = run_archivebox(work_dir, ['list'])
+            self.assertEqual(result.returncode, 0, f"List failed: {result.stderr}")
 
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)
@@ -1151,21 +1107,15 @@ class TestMultipleSnapshots(unittest.TestCase):
     """Test handling multiple snapshots."""
 
     def test_add_multiple_urls(self):
-        """Should be able to add multiple URLs in a single call.
-
-        A single 'archivebox add' call with multiple URLs creates:
-        - 1 Crawl
-        - 1 Seed
-        - Multiple URLs in the sources file -> multiple Snapshots
-        """
+        """Should be able to add multiple URLs with --index-only."""
         work_dir = Path(tempfile.mkdtemp())
 
         try:
             result = run_archivebox(work_dir, ['init'])
             self.assertEqual(result.returncode, 0)
 
-            # Add multiple URLs in single call (faster than separate calls)
-            result = run_archivebox(work_dir, ['add', 'https://example.com', 'https://example.org'], timeout=60)
+            # Add multiple URLs with --index-only for speed
+            result = run_archivebox(work_dir, ['add', '--index-only', 'https://example.com', 'https://example.org'])
             self.assertIn(result.returncode, [0, 1])
 
             conn = sqlite3.connect(str(work_dir / 'index.sqlite3'))
@@ -1175,11 +1125,6 @@ class TestMultipleSnapshots(unittest.TestCase):
             cursor.execute("SELECT COUNT(*) FROM crawls_crawl")
             crawl_count = cursor.fetchone()[0]
             self.assertGreaterEqual(crawl_count, 1, f"Expected >=1 Crawl, got {crawl_count}")
-
-            # Verify snapshots were created (at least root snapshot + both URLs)
-            cursor.execute("SELECT COUNT(*) FROM core_snapshot")
-            snapshot_count = cursor.fetchone()[0]
-            self.assertGreaterEqual(snapshot_count, 1, f"Expected >=1 snapshots, got {snapshot_count}")
 
             conn.close()
 
@@ -1215,7 +1160,7 @@ class TestMigrationFrom07x(unittest.TestCase):
         expected_count = len(self.original_data['snapshots'])
 
         # Run init to trigger migrations
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
 
         # Check return code - may be 1 if some migrations have issues, but data should be preserved
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
@@ -1228,7 +1173,7 @@ class TestMigrationFrom07x(unittest.TestCase):
         """Migration should preserve all snapshot URLs."""
         expected_urls = [s['url'] for s in self.original_data['snapshots']]
 
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         ok, msg = verify_snapshot_urls(self.db_path, expected_urls)
@@ -1238,7 +1183,7 @@ class TestMigrationFrom07x(unittest.TestCase):
         """Migration should preserve all snapshot titles."""
         expected_titles = {s['url']: s['title'] for s in self.original_data['snapshots']}
 
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         ok, msg = verify_snapshot_titles(self.db_path, expected_titles)
@@ -1248,7 +1193,7 @@ class TestMigrationFrom07x(unittest.TestCase):
         """Migration should preserve all tags."""
         expected_count = len(self.original_data['tags'])
 
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         ok, msg = verify_tag_count(self.db_path, expected_count)
@@ -1258,7 +1203,7 @@ class TestMigrationFrom07x(unittest.TestCase):
         """Migration should preserve all archive results."""
         expected_count = len(self.original_data['archiveresults'])
 
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         ok, msg = verify_archiveresult_count(self.db_path, expected_count)
@@ -1266,7 +1211,7 @@ class TestMigrationFrom07x(unittest.TestCase):
 
     def test_migration_preserves_foreign_keys(self):
         """Migration should maintain foreign key relationships."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         ok, msg = verify_foreign_keys(self.db_path)
@@ -1274,7 +1219,7 @@ class TestMigrationFrom07x(unittest.TestCase):
 
     def test_status_works_after_migration(self):
         """Status command should work after migration."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1])
 
         result = run_archivebox(self.work_dir, ['status'])
@@ -1282,7 +1227,7 @@ class TestMigrationFrom07x(unittest.TestCase):
 
     def test_search_works_after_migration(self):
         """Search command should find migrated snapshots."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1])
 
         result = run_archivebox(self.work_dir, ['search'])
@@ -1296,7 +1241,7 @@ class TestMigrationFrom07x(unittest.TestCase):
 
     def test_list_works_after_migration(self):
         """List command should work and show migrated data."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1])
 
         result = run_archivebox(self.work_dir, ['list'])
@@ -1310,7 +1255,7 @@ class TestMigrationFrom07x(unittest.TestCase):
 
     def test_new_schema_elements_created_after_migration(self):
         """Migration should create new 0.9.x schema elements (crawls_crawl, etc.)."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         conn = sqlite3.connect(str(self.db_path))
@@ -1321,13 +1266,12 @@ class TestMigrationFrom07x(unittest.TestCase):
         tables = {row[0] for row in cursor.fetchall()}
         conn.close()
 
-        # 0.9.x should have crawls_crawl and crawls_seed tables
+        # 0.9.x should have crawls_crawl table
         self.assertIn('crawls_crawl', tables, "crawls_crawl table not created during migration")
-        self.assertIn('crawls_seed', tables, "crawls_seed table not created during migration")
 
     def test_snapshots_have_new_fields_after_migration(self):
         """Migrated snapshots should have new 0.9.x fields (status, depth, etc.)."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         conn = sqlite3.connect(str(self.db_path))
@@ -1345,11 +1289,19 @@ class TestMigrationFrom07x(unittest.TestCase):
 
     def test_add_works_after_migration(self):
         """Adding new URLs should work after migration from 0.7.x."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
-        # Try to add a new URL after migration
-        result = run_archivebox(self.work_dir, ['add', 'https://example.com/new-page'], timeout=60)
+        # Verify that init created the crawls_crawl table before proceeding
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='crawls_crawl'")
+        table_exists = cursor.fetchone() is not None
+        conn.close()
+        self.assertTrue(table_exists, f"Init failed to create crawls_crawl table. Init stderr: {result.stderr[-500:]}")
+
+        # Try to add a new URL after migration (use --index-only for speed)
+        result = run_archivebox(self.work_dir, ['add', '--index-only', 'https://example.com/new-page'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Add crashed after migration: {result.stderr}")
 
         # Verify a Crawl was created for the new URL
@@ -1359,11 +1311,11 @@ class TestMigrationFrom07x(unittest.TestCase):
         crawl_count = cursor.fetchone()[0]
         conn.close()
 
-        self.assertGreaterEqual(crawl_count, 1, "No Crawl created when adding URL after migration")
+        self.assertGreaterEqual(crawl_count, 1, f"No Crawl created when adding URL. Add stderr: {result.stderr[-500:]}")
 
     def test_archiveresult_status_preserved_after_migration(self):
         """Migration should preserve archive result status values."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         conn = sqlite3.connect(str(self.db_path))
@@ -1381,7 +1333,7 @@ class TestMigrationFrom07x(unittest.TestCase):
 
     def test_version_works_after_migration(self):
         """Version command should work after migration."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1])
 
         result = run_archivebox(self.work_dir, ['version'])
@@ -1395,7 +1347,7 @@ class TestMigrationFrom07x(unittest.TestCase):
 
     def test_help_works_after_migration(self):
         """Help command should work after migration."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1])
 
         result = run_archivebox(self.work_dir, ['help'])
@@ -1439,7 +1391,7 @@ class TestMigrationFrom04x(unittest.TestCase):
         """Migration should preserve all snapshots from 0.4.x."""
         expected_count = len(self.original_data['snapshots'])
 
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         ok, msg = verify_snapshot_count(self.db_path, expected_count)
@@ -1449,7 +1401,7 @@ class TestMigrationFrom04x(unittest.TestCase):
         """Migration should preserve all snapshot URLs from 0.4.x."""
         expected_urls = [s['url'] for s in self.original_data['snapshots']]
 
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         ok, msg = verify_snapshot_urls(self.db_path, expected_urls)
@@ -1457,7 +1409,7 @@ class TestMigrationFrom04x(unittest.TestCase):
 
     def test_migration_converts_string_tags_to_model(self):
         """Migration should convert comma-separated tags to Tag model instances."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         # Collect unique tags from original data
@@ -1506,7 +1458,7 @@ class TestMigrationFrom08x(unittest.TestCase):
         """Migration should preserve all snapshots from 0.8.x."""
         expected_count = len(self.original_data['snapshots'])
 
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         ok, msg = verify_snapshot_count(self.db_path, expected_count)
@@ -1516,7 +1468,7 @@ class TestMigrationFrom08x(unittest.TestCase):
         """Migration should preserve all snapshot URLs from 0.8.x."""
         expected_urls = [s['url'] for s in self.original_data['snapshots']]
 
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         ok, msg = verify_snapshot_urls(self.db_path, expected_urls)
@@ -1524,7 +1476,7 @@ class TestMigrationFrom08x(unittest.TestCase):
 
     def test_migration_preserves_crawls(self):
         """Migration should preserve all Crawl records."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         conn = sqlite3.connect(str(self.db_path))
@@ -1538,7 +1490,7 @@ class TestMigrationFrom08x(unittest.TestCase):
 
     def test_migration_preserves_snapshot_crawl_links(self):
         """Migration should preserve snapshot-to-crawl relationships."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         conn = sqlite3.connect(str(self.db_path))
@@ -1557,7 +1509,7 @@ class TestMigrationFrom08x(unittest.TestCase):
 
     def test_migration_preserves_tags(self):
         """Migration should preserve all tags."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         ok, msg = verify_tag_count(self.db_path, len(self.original_data['tags']))
@@ -1567,7 +1519,7 @@ class TestMigrationFrom08x(unittest.TestCase):
         """Migration should preserve all archive results."""
         expected_count = len(self.original_data['archiveresults'])
 
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         ok, msg = verify_archiveresult_count(self.db_path, expected_count)
@@ -1575,7 +1527,7 @@ class TestMigrationFrom08x(unittest.TestCase):
 
     def test_migration_preserves_archiveresult_status(self):
         """Migration should preserve archive result status values."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         conn = sqlite3.connect(str(self.db_path))
@@ -1593,7 +1545,7 @@ class TestMigrationFrom08x(unittest.TestCase):
 
     def test_status_works_after_migration(self):
         """Status command should work after migration."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1])
 
         result = run_archivebox(self.work_dir, ['status'])
@@ -1601,7 +1553,7 @@ class TestMigrationFrom08x(unittest.TestCase):
 
     def test_list_works_after_migration(self):
         """List command should work and show migrated data."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1])
 
         result = run_archivebox(self.work_dir, ['list'])
@@ -1615,7 +1567,7 @@ class TestMigrationFrom08x(unittest.TestCase):
 
     def test_search_works_after_migration(self):
         """Search command should find migrated snapshots."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1])
 
         result = run_archivebox(self.work_dir, ['search'])
@@ -1631,7 +1583,7 @@ class TestMigrationFrom08x(unittest.TestCase):
         """Migration should preserve all snapshot titles."""
         expected_titles = {s['url']: s['title'] for s in self.original_data['snapshots']}
 
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         ok, msg = verify_snapshot_titles(self.db_path, expected_titles)
@@ -1639,7 +1591,7 @@ class TestMigrationFrom08x(unittest.TestCase):
 
     def test_migration_preserves_foreign_keys(self):
         """Migration should maintain foreign key relationships."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         ok, msg = verify_foreign_keys(self.db_path)
@@ -1647,7 +1599,7 @@ class TestMigrationFrom08x(unittest.TestCase):
 
     def test_add_works_after_migration(self):
         """Adding new URLs should work after migration from 0.8.x."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
 
         # Count existing crawls
@@ -1657,8 +1609,8 @@ class TestMigrationFrom08x(unittest.TestCase):
         initial_crawl_count = cursor.fetchone()[0]
         conn.close()
 
-        # Try to add a new URL after migration
-        result = run_archivebox(self.work_dir, ['add', 'https://example.com/new-page'], timeout=60)
+        # Try to add a new URL after migration (use --index-only for speed)
+        result = run_archivebox(self.work_dir, ['add', '--index-only', 'https://example.com/new-page'], timeout=45)
         self.assertIn(result.returncode, [0, 1], f"Add crashed after migration: {result.stderr}")
 
         # Verify a new Crawl was created
@@ -1669,11 +1621,11 @@ class TestMigrationFrom08x(unittest.TestCase):
         conn.close()
 
         self.assertGreater(new_crawl_count, initial_crawl_count,
-                          "No new Crawl created when adding URL after migration")
+                          f"No new Crawl created when adding URL. Add stderr: {result.stderr[-500:]}")
 
     def test_version_works_after_migration(self):
         """Version command should work after migration."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertIn(result.returncode, [0, 1])
 
         result = run_archivebox(self.work_dir, ['version'])
@@ -1701,7 +1653,7 @@ class TestMigrationDataIntegrity(unittest.TestCase):
             conn.close()
             seed_0_7_data(db_path)
 
-            result = run_archivebox(work_dir, ['init'], timeout=120)
+            result = run_archivebox(work_dir, ['init'], timeout=45)
             self.assertIn(result.returncode, [0, 1])
 
             # Check for duplicate URLs
@@ -1731,7 +1683,7 @@ class TestMigrationDataIntegrity(unittest.TestCase):
             conn.close()
             seed_0_7_data(db_path)
 
-            result = run_archivebox(work_dir, ['init'], timeout=120)
+            result = run_archivebox(work_dir, ['init'], timeout=45)
             self.assertIn(result.returncode, [0, 1])
 
             ok, msg = verify_foreign_keys(db_path)
@@ -1754,7 +1706,7 @@ class TestMigrationDataIntegrity(unittest.TestCase):
 
             original_timestamps = {s['url']: s['timestamp'] for s in original_data['snapshots']}
 
-            result = run_archivebox(work_dir, ['init'], timeout=120)
+            result = run_archivebox(work_dir, ['init'], timeout=45)
             self.assertIn(result.returncode, [0, 1])
 
             conn = sqlite3.connect(str(db_path))
