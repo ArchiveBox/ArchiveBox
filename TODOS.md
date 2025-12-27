@@ -1,3 +1,353 @@
+# ArchiveBox Hook Architecture
+
+## Core Design Pattern
+
+**CRITICAL**: All hooks must follow this unified architecture. This pattern applies to ALL models: Crawl, Dependency, Snapshot, ArchiveResult, etc.
+
+### The Flow
+
+```
+1. Model.run() discovers and executes hooks
+2. Hooks emit JSONL to stdout
+3. Model.run() parses JSONL and creates DB records
+4. New DB records trigger their own Model.run()
+5. Cycle repeats
+```
+
+**Example Flow:**
+```
+Crawl.run()
+  → runs on_Crawl__* hooks
+  → hooks emit JSONL: {type: 'Dependency', bin_name: 'wget', ...}
+  → Crawl.run() creates Dependency record in DB
+  → Dependency.run() is called automatically
+    → runs on_Dependency__* hooks
+    → hooks emit JSONL: {type: 'InstalledBinary', name: 'wget', ...}
+    → Dependency.run() creates InstalledBinary record in DB
+```
+
+### Golden Rules
+
+1. **Model.run() executes hooks directly** - No helper methods in statemachines. Statemachine just calls Model.run().
+
+2. **Hooks emit JSONL** - Any line starting with `{` that has a `type` field creates/updates that model.
+   ```python
+   print(json.dumps({'type': 'Dependency', 'bin_name': 'wget', ...}))
+   print(json.dumps({'type': 'InstalledBinary', 'name': 'wget', ...}))
+   ```
+
+3. **JSONL fields = Model fields** - JSONL keys must match Django model field names exactly. No transformation.
+   ```python
+   # ✅ CORRECT - matches Dependency model
+   {'type': 'Dependency', 'bin_name': 'wget', 'bin_providers': 'apt,brew', 'overrides': {...}}
+
+   # ❌ WRONG - uses different field names
+   {'type': 'Dependency', 'name': 'wget', 'providers': 'apt,brew', 'custom_cmds': {...}}
+   ```
+
+4. **No hardcoding** - Never hardcode binary names, provider names, or anything else. Use discovery.
+   ```python
+   # ✅ CORRECT - discovers all on_Dependency hooks dynamically
+   run_hooks(event_name='Dependency', ...)
+
+   # ❌ WRONG - hardcodes provider list
+   for provider in ['pip', 'npm', 'apt', 'brew']:
+       run_hooks(event_name=f'Dependency__install_using_{provider}_provider', ...)
+   ```
+
+5. **Trust abx-pkg** - Never use `shutil.which()`, `subprocess.run([bin, '--version'])`, or manual hash calculation.
+   ```python
+   # ✅ CORRECT - abx-pkg handles everything
+   from abx_pkg import Binary, PipProvider, EnvProvider
+   binary = Binary(name='wget', binproviders=[PipProvider(), EnvProvider()]).load()
+   # binary.abspath, binary.version, binary.sha256 are all populated automatically
+
+   # ❌ WRONG - manual detection
+   abspath = shutil.which('wget')
+   version = subprocess.run(['wget', '--version'], ...).stdout
+   ```
+
+6. **Hooks check if they can handle requests** - Each hook decides internally if it can handle the dependency.
+   ```python
+   # In on_Dependency__install_using_pip_provider.py
+   if bin_providers != '*' and 'pip' not in bin_providers.split(','):
+       sys.exit(0)  # Can't handle this, exit cleanly
+   ```
+
+7. **Minimal transformation** - Statemachine/Model.run() should do minimal JSONL parsing, just create records.
+   ```python
+   # ✅ CORRECT - simple JSONL parsing
+   obj = json.loads(line)
+   if obj.get('type') == 'Dependency':
+       Dependency.objects.create(**obj)
+
+   # ❌ WRONG - complex transformation logic
+   if obj.get('type') == 'Dependency':
+       dep = Dependency.objects.create(name=obj['bin_name'])  # renaming fields
+       dep.custom_commands = transform_overrides(obj['overrides'])  # transforming data
+   ```
+
+### Pattern Consistency
+
+Follow the same pattern as `ArchiveResult.run()` (archivebox/core/models.py:1030):
+
+```python
+def run(self):
+    """Execute this Model by running hooks and processing JSONL output."""
+
+    # 1. Discover hooks
+    hook = discover_hook_for_model(self)
+
+    # 2. Run hook
+    results = run_hook(hook, output_dir=..., ...)
+
+    # 3. Parse JSONL and update self
+    for line in results['stdout'].splitlines():
+        obj = json.loads(line)
+        if obj.get('type') == self.__class__.__name__:
+            self.status = obj.get('status')
+            self.output = obj.get('output')
+            # ... apply other fields
+
+    # 4. Create side-effect records
+    for line in results['stdout'].splitlines():
+        obj = json.loads(line)
+        if obj.get('type') != self.__class__.__name__:
+            create_record_from_jsonl(obj)  # Creates InstalledBinary, etc.
+
+    self.save()
+```
+
+### Validation Hook Pattern (on_Crawl__00_validate_*.py)
+
+**Purpose**: Check if binary exists, emit Dependency if not found.
+
+```python
+#!/usr/bin/env python3
+import sys
+import json
+
+def find_wget() -> dict | None:
+    """Find wget binary using abx-pkg."""
+    try:
+        from abx_pkg import Binary, AptProvider, BrewProvider, EnvProvider
+
+        binary = Binary(name='wget', binproviders=[AptProvider(), BrewProvider(), EnvProvider()])
+        loaded = binary.load()
+        if loaded and loaded.abspath:
+            return {
+                'name': 'wget',
+                'abspath': str(loaded.abspath),
+                'version': str(loaded.version) if loaded.version else None,
+                'sha256': loaded.sha256 if hasattr(loaded, 'sha256') else None,
+                'binprovider': loaded.binprovider.name if loaded.binprovider else 'env',
+            }
+    except Exception:
+        pass
+
+    return None
+
+def main():
+    result = find_wget()
+
+    if result and result.get('abspath'):
+        # Binary found - emit InstalledBinary and Machine config
+        print(json.dumps({
+            'type': 'InstalledBinary',
+            'name': result['name'],
+            'abspath': result['abspath'],
+            'version': result['version'],
+            'sha256': result['sha256'],
+            'binprovider': result['binprovider'],
+        }))
+
+        print(json.dumps({
+            'type': 'Machine',
+            '_method': 'update',
+            'key': 'config/WGET_BINARY',
+            'value': result['abspath'],
+        }))
+
+        sys.exit(0)
+    else:
+        # Binary not found - emit Dependency
+        print(json.dumps({
+            'type': 'Dependency',
+            'bin_name': 'wget',
+            'bin_providers': 'apt,brew,env',
+            'overrides': {},  # Empty if no special install requirements
+        }))
+        print(f"wget binary not found", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()
+```
+
+**Rules:**
+- ✅ Use `Binary(...).load()` from abx-pkg - handles finding binary, version, hash automatically
+- ✅ Emit `InstalledBinary` JSONL if found
+- ✅ Emit `Dependency` JSONL if not found
+- ✅ Use `overrides` field matching abx-pkg format: `{'pip': {'packages': ['pkg']}, 'apt': {'packages': ['pkg']}}`
+- ❌ NEVER use `shutil.which()`, `subprocess.run()`, manual version detection, or hash calculation
+- ❌ NEVER call package managers (apt, brew, pip, npm) directly
+
+### Dependency Installation Pattern (on_Dependency__install_*.py)
+
+**Purpose**: Install binary if not already installed.
+
+```python
+#!/usr/bin/env python3
+import json
+import sys
+import rich_click as click
+from abx_pkg import Binary, PipProvider
+
+@click.command()
+@click.option('--dependency-id', required=True)
+@click.option('--bin-name', required=True)
+@click.option('--bin-providers', default='*')
+@click.option('--overrides', default=None, help="JSON-encoded overrides dict")
+def main(dependency_id: str, bin_name: str, bin_providers: str, overrides: str | None):
+    """Install binary using pip."""
+
+    # Check if this hook can handle this dependency
+    if bin_providers != '*' and 'pip' not in bin_providers.split(','):
+        click.echo(f"pip provider not allowed for {bin_name}", err=True)
+        sys.exit(0)  # Exit cleanly - not an error, just can't handle
+
+    # Parse overrides
+    overrides_dict = None
+    if overrides:
+        try:
+            full_overrides = json.loads(overrides)
+            overrides_dict = full_overrides.get('pip', {})  # Extract pip section
+        except json.JSONDecodeError:
+            pass
+
+    # Install using abx-pkg
+    provider = PipProvider()
+    try:
+        binary = Binary(name=bin_name, binproviders=[provider], overrides=overrides_dict or {}).install()
+    except Exception as e:
+        click.echo(f"pip install failed: {e}", err=True)
+        sys.exit(1)
+
+    if not binary.abspath:
+        sys.exit(1)
+
+    # Emit InstalledBinary JSONL
+    print(json.dumps({
+        'type': 'InstalledBinary',
+        'name': bin_name,
+        'abspath': str(binary.abspath),
+        'version': str(binary.version) if binary.version else '',
+        'sha256': binary.sha256 or '',
+        'binprovider': 'pip',
+        'dependency_id': dependency_id,
+    }))
+
+    sys.exit(0)
+
+if __name__ == '__main__':
+    main()
+```
+
+**Rules:**
+- ✅ Check `bin_providers` parameter - exit cleanly (code 0) if can't handle
+- ✅ Parse `overrides` parameter as full dict, extract your provider's section
+- ✅ Use `Binary(...).install()` from abx-pkg - handles actual installation
+- ✅ Emit `InstalledBinary` JSONL on success
+- ❌ NEVER hardcode provider names in Model.run() or anywhere else
+- ❌ NEVER skip the bin_providers check
+
+### Model.run() Pattern
+
+```python
+class Dependency(models.Model):
+    def run(self):
+        """Execute dependency installation by running all on_Dependency hooks."""
+        import json
+        from pathlib import Path
+        from django.conf import settings
+
+        # Check if already installed
+        if self.is_installed:
+            return self.installed_binaries.first()
+
+        from archivebox.hooks import run_hooks
+
+        # Create output directory
+        DATA_DIR = getattr(settings, 'DATA_DIR', Path.cwd())
+        output_dir = Path(DATA_DIR) / 'tmp' / f'dependency_{self.id}'
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Build kwargs for hooks
+        hook_kwargs = {
+            'dependency_id': str(self.id),
+            'bin_name': self.bin_name,
+            'bin_providers': self.bin_providers,
+            'overrides': json.dumps(self.overrides) if self.overrides else None,
+        }
+
+        # Run ALL on_Dependency hooks - each decides if it can handle this
+        results = run_hooks(
+            event_name='Dependency',
+            output_dir=output_dir,
+            timeout=600,
+            **hook_kwargs
+        )
+
+        # Process results - parse JSONL and create InstalledBinary records
+        for result in results:
+            if result['returncode'] != 0:
+                continue
+
+            for line in result['stdout'].strip().split('\n'):
+                if not line.strip():
+                    continue
+
+                try:
+                    obj = json.loads(line)
+                    if obj.get('type') == 'InstalledBinary':
+                        # Create InstalledBinary record - fields match JSONL exactly
+                        if not obj.get('name') or not obj.get('abspath') or not obj.get('version'):
+                            continue
+
+                        machine = Machine.current()
+                        installed_binary, _ = InstalledBinary.objects.update_or_create(
+                            machine=machine,
+                            name=obj['name'],
+                            defaults={
+                                'abspath': obj['abspath'],
+                                'version': obj['version'],
+                                'sha256': obj.get('sha256') or '',
+                                'binprovider': obj.get('binprovider') or 'env',
+                                'dependency': self,
+                            }
+                        )
+
+                        if self.is_installed:
+                            return installed_binary
+
+                except json.JSONDecodeError:
+                    continue
+
+        return None
+```
+
+**Rules:**
+- ✅ Use `run_hooks(event_name='ModelName', ...)` with model name
+- ✅ Pass all relevant data as kwargs (will become --cli-args for hooks)
+- ✅ Parse JSONL output directly - each line is a potential record
+- ✅ Create records using JSONL fields directly - no transformation
+- ✅ Let hooks decide if they can handle the request
+- ❌ NEVER hardcode hook names or provider lists
+- ❌ NEVER create helper methods for hook execution - just call run_hooks()
+- ❌ NEVER transform JSONL data - use it as-is
+
+---
+
 # Background Hooks Implementation Plan
 
 ## Overview

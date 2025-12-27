@@ -6,13 +6,8 @@ Runs at crawl start to verify yt-dlp and required binaries are available.
 Outputs JSONL for InstalledBinary and Machine config updates.
 """
 
-import os
 import sys
 import json
-import shutil
-import hashlib
-import subprocess
-from pathlib import Path
 
 
 def find_ytdlp() -> dict | None:
@@ -30,21 +25,8 @@ def find_ytdlp() -> dict | None:
                 'sha256': loaded.sha256 if hasattr(loaded, 'sha256') else None,
                 'binprovider': loaded.binprovider.name if loaded.binprovider else 'env',
             }
-    except ImportError:
-        pass
     except Exception:
         pass
-
-    # Fallback to shutil.which
-    abspath = shutil.which('yt-dlp') or os.environ.get('YTDLP_BINARY', '')
-    if abspath and Path(abspath).is_file():
-        return {
-            'name': 'yt-dlp',
-            'abspath': abspath,
-            'version': None,
-            'sha256': None,
-            'binprovider': 'env',
-        }
 
     return None
 
@@ -64,21 +46,8 @@ def find_node() -> dict | None:
                 'sha256': loaded.sha256 if hasattr(loaded, 'sha256') else None,
                 'binprovider': loaded.binprovider.name if loaded.binprovider else 'env',
             }
-    except ImportError:
-        pass
     except Exception:
         pass
-
-    # Fallback to shutil.which
-    abspath = shutil.which('node') or os.environ.get('NODE_BINARY', '')
-    if abspath and Path(abspath).is_file():
-        return {
-            'name': 'node',
-            'abspath': abspath,
-            'version': None,
-            'sha256': None,
-            'binprovider': 'env',
-        }
 
     return None
 
@@ -98,21 +67,8 @@ def find_ffmpeg() -> dict | None:
                 'sha256': loaded.sha256 if hasattr(loaded, 'sha256') else None,
                 'binprovider': loaded.binprovider.name if loaded.binprovider else 'env',
             }
-    except ImportError:
-        pass
     except Exception:
         pass
-
-    # Fallback to shutil.which
-    abspath = shutil.which('ffmpeg') or os.environ.get('FFMPEG_BINARY', '')
-    if abspath and Path(abspath).is_file():
-        return {
-            'name': 'ffmpeg',
-            'abspath': abspath,
-            'version': None,
-            'sha256': None,
-            'binprovider': 'env',
-        }
 
     return None
 

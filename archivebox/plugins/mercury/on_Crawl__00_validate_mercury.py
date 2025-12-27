@@ -6,13 +6,8 @@ Runs at crawl start to verify postlight-parser is available.
 Outputs JSONL for InstalledBinary and Machine config updates.
 """
 
-import os
 import sys
 import json
-import shutil
-import hashlib
-import subprocess
-from pathlib import Path
 
 
 def find_mercury() -> dict | None:
@@ -30,21 +25,8 @@ def find_mercury() -> dict | None:
                 'sha256': loaded.sha256 if hasattr(loaded, 'sha256') else None,
                 'binprovider': loaded.binprovider.name if loaded.binprovider else 'env',
             }
-    except ImportError:
-        pass
     except Exception:
         pass
-
-    # Fallback to shutil.which
-    abspath = shutil.which('postlight-parser') or os.environ.get('MERCURY_BINARY', '')
-    if abspath and Path(abspath).is_file():
-        return {
-            'name': 'postlight-parser',
-            'abspath': abspath,
-            'version': None,
-            'sha256': None,
-            'binprovider': 'env',
-        }
 
     return None
 

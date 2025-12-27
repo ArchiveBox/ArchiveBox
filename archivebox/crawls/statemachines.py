@@ -185,9 +185,26 @@ class CrawlMachine(StateMachine, strict_states=True):
                                 machine.save(update_fields=['config'])
 
                     elif obj_type == 'Dependency':
-                        # Dependency request - could trigger installation
-                        # For now just log it (installation hooks would be separate)
-                        print(f'[yellow]Dependency requested: {obj.get("bin_name")}[/yellow]')
+                        # Create Dependency record from JSONL
+                        from machine.models import Dependency
+
+                        bin_name = obj.get('bin_name')
+                        if not bin_name:
+                            continue
+
+                        # Create or get existing dependency
+                        dependency, created = Dependency.objects.get_or_create(
+                            bin_name=bin_name,
+                            defaults={
+                                'bin_providers': obj.get('bin_providers', '*'),
+                                'overrides': obj.get('overrides', {}),
+                                'config': obj.get('config', {}),
+                            }
+                        )
+
+                        # Run dependency installation if not already installed
+                        if not dependency.is_installed:
+                            dependency.run()
 
                 except json.JSONDecodeError:
                     # Not JSON, skip
