@@ -307,6 +307,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     title = models.CharField(max_length=512, null=True, blank=True, db_index=True)
     downloaded_at = models.DateTimeField(default=None, null=True, editable=False, db_index=True, blank=True)
     depth = models.PositiveSmallIntegerField(default=0, db_index=True)  # 0 for root snapshot, 1+ for discovered URLs
+    fs_version = models.CharField(max_length=10, default='0.9.0', help_text='Filesystem version of this snapshot (e.g., "0.7.0", "0.8.0", "0.9.0"). Used to trigger lazy migration on save().')
 
     retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
     status = ModelWithStateMachine.StatusField(choices=ModelWithStateMachine.StatusChoices, default=ModelWithStateMachine.StatusChoices.QUEUED)
@@ -342,6 +343,28 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             self.bookmarked_at = self.created_at or timezone.now()
         if not self.timestamp:
             self.timestamp = str(self.bookmarked_at.timestamp())
+
+        # Migrate filesystem if needed (happens automatically on save)
+        if self.pk and self.fs_migration_needed:
+            from django.db import transaction
+            with transaction.atomic():
+                # Walk through migration chain automatically
+                current = self.fs_version
+                target = self._fs_current_version()
+
+                while current != target:
+                    next_ver = self._fs_next_version(current)
+                    method = f'_fs_migrate_from_{current.replace(".", "_")}_to_{next_ver.replace(".", "_")}'
+
+                    # Only run if method exists (most are no-ops)
+                    if hasattr(self, method):
+                        getattr(self, method)()
+
+                    current = next_ver
+
+                # Update version (still in transaction)
+                self.fs_version = target
+
         super().save(*args, **kwargs)
         if self.crawl and self.url not in self.crawl.urls:
             self.crawl.urls += f'\n{self.url}'
@@ -361,6 +384,79 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                     'status': self.status,
                 },
             )
+
+    # =========================================================================
+    # Filesystem Migration Methods
+    # =========================================================================
+
+    @staticmethod
+    def _fs_current_version() -> str:
+        """Get current ArchiveBox filesystem version (normalized to x.x.0 format)"""
+        from archivebox.config import VERSION
+        # Normalize version to x.x.0 format (e.g., "0.9.0rc1" -> "0.9.0")
+        parts = VERSION.split('.')
+        if len(parts) >= 2:
+            major, minor = parts[0], parts[1]
+            # Strip any non-numeric suffix from minor version
+            minor = ''.join(c for c in minor if c.isdigit())
+            return f'{major}.{minor}.0'
+        return '0.9.0'  # Fallback if version parsing fails
+
+    @property
+    def fs_migration_needed(self) -> bool:
+        """Check if snapshot needs filesystem migration"""
+        return self.fs_version != self._fs_current_version()
+
+    def _fs_next_version(self, version: str) -> str:
+        """Get next version in migration chain"""
+        chain = ['0.7.0', '0.8.0', '0.9.0']
+        try:
+            idx = chain.index(version)
+            return chain[idx + 1] if idx + 1 < len(chain) else self._fs_current_version()
+        except ValueError:
+            # Unknown version - skip to current
+            return self._fs_current_version()
+
+    def _fs_migrate_from_0_7_0_to_0_8_0(self):
+        """Migration from 0.7.0 to 0.8.0 layout (no-op)"""
+        # 0.7 and 0.8 both used archive/<timestamp>
+        # Nothing to do!
+        pass
+
+    def _fs_migrate_from_0_8_0_to_0_9_0(self):
+        """
+        Migrate from flat file structure to organized extractor subdirectories.
+
+        0.8.x layout (flat):
+            archive/1234567890/
+                index.json
+                index.html
+                screenshot.png
+                warc/archive.warc.gz
+                media/video.mp4
+
+        0.9.x layout (organized):
+            archive/{timestamp}/
+                index.json
+                screenshot/
+                    screenshot.png
+                singlefile/
+                    index.html
+                warc/
+                    archive.warc.gz
+                media/
+                    video.mp4
+
+        Note: For now this is a no-op. The actual file reorganization will be
+        implemented when we're ready to do the migration. This placeholder ensures
+        the migration chain is set up correctly.
+        """
+        # TODO: Implement actual file reorganization when ready
+        pass
+
+    # =========================================================================
+    # Output Directory Properties
+    # =========================================================================
 
     @property
     def output_dir_parent(self) -> str:

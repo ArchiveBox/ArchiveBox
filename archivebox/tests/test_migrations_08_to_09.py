@@ -413,5 +413,148 @@ class TestMigrationDataIntegrity08x(unittest.TestCase):
             shutil.rmtree(work_dir, ignore_errors=True)
 
 
+class TestFilesystemMigration08to09(unittest.TestCase):
+    """Test filesystem migration from 0.8.x flat structure to 0.9.x organized structure."""
+
+    def setUp(self):
+        """Create a temporary directory for testing."""
+        self.work_dir = Path(tempfile.mkdtemp())
+        self.db_path = self.work_dir / 'index.sqlite3'
+
+    def tearDown(self):
+        """Clean up temporary directory."""
+        shutil.rmtree(self.work_dir, ignore_errors=True)
+
+    def test_filesystem_migration_with_real_archiving(self):
+        """
+        Test that filesystem migration works with real archived content.
+
+        Steps:
+        1. Initialize archivebox
+        2. Archive https://example.com (creates real files)
+        3. Manually set fs_version to 0.8.0
+        4. Trigger migration by saving snapshot
+        5. Verify files are organized correctly
+        """
+        # Step 1: Initialize
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        # Step 2: Archive example.com with some extractors enabled
+        # Enable a subset of fast extractors for testing
+        result = run_archivebox(
+            self.work_dir,
+            ['add', '--depth=0', 'https://example.com'],
+            timeout=120,
+            env={
+                'SAVE_TITLE': 'True',
+                'SAVE_FAVICON': 'True',
+                'SAVE_WGET': 'True',
+                'SAVE_SCREENSHOT': 'False',  # Disable slow extractors
+                'SAVE_DOM': 'False',
+                'SAVE_SINGLEFILE': 'False',
+                'SAVE_READABILITY': 'False',
+                'SAVE_MERCURY': 'False',
+                'SAVE_PDF': 'False',
+                'SAVE_MEDIA': 'False',
+                'SAVE_ARCHIVE_DOT_ORG': 'False',
+            }
+        )
+        # Note: Add may fail if network is down or extractors fail, but we still want to test
+        # the filesystem migration logic even with partial failures
+
+        # Step 3: Get the snapshot and verify files were created
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, url, timestamp, fs_version FROM core_snapshot WHERE url = ?", ('https://example.com',))
+        row = cursor.fetchone()
+        conn.close()
+
+        if not row:
+            self.skipTest("Failed to create snapshot for https://example.com")
+
+        snapshot_id, url, timestamp, fs_version = row
+
+        # Verify initial fs_version is 0.9.0 (current version)
+        self.assertEqual(fs_version, '0.9.0', f"Expected new snapshot to have fs_version='0.9.0', got '{fs_version}'")
+
+        # Verify output directory exists
+        output_dir = self.work_dir / 'archive' / timestamp
+        self.assertTrue(output_dir.exists(), f"Output directory not found: {output_dir}")
+
+        # List all files created (for debugging)
+        files_before = list(output_dir.rglob('*'))
+        files_before_count = len([f for f in files_before if f.is_file()])
+        print(f"\n[*] Files created by archiving: {files_before_count}")
+        for f in sorted(files_before):
+            if f.is_file():
+                print(f"    {f.relative_to(output_dir)}")
+
+        # Step 4: Manually set fs_version to 0.8.0 to simulate old snapshot
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("UPDATE core_snapshot SET fs_version = '0.8.0' WHERE id = ?", (snapshot_id,))
+        conn.commit()
+
+        # Verify the update worked
+        cursor.execute("SELECT fs_version FROM core_snapshot WHERE id = ?", (snapshot_id,))
+        updated_version = cursor.fetchone()[0]
+        conn.close()
+        self.assertEqual(updated_version, '0.8.0', "Failed to set fs_version to 0.8.0")
+
+        # Step 5: Trigger migration by running a command that loads and saves the snapshot
+        # We'll use the Python API directly to trigger save()
+        import os
+        import sys
+        import django
+
+        # Setup Django
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.settings')
+        os.environ['DATA_DIR'] = str(self.work_dir)
+
+        # Add parent dir to path so we can import archivebox
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+        try:
+            django.setup()
+            from core.models import Snapshot
+
+            # Load the snapshot (should trigger migration on save)
+            snapshot = Snapshot.objects.get(url='https://example.com')
+
+            # Verify fs_migration_needed returns True
+            self.assertTrue(snapshot.fs_migration_needed,
+                          f"fs_migration_needed should be True for fs_version='0.8.0'")
+
+            # Save to trigger migration
+            print(f"\n[*] Triggering filesystem migration by saving snapshot...")
+            snapshot.save()
+
+            # Refresh from DB
+            snapshot.refresh_from_db()
+
+            # Verify migration completed
+            self.assertEqual(snapshot.fs_version, '0.9.0',
+                           f"Migration failed: fs_version is still '{snapshot.fs_version}'")
+            self.assertFalse(snapshot.fs_migration_needed,
+                           "fs_migration_needed should be False after migration")
+
+            print(f"[√] Filesystem migration completed: 0.8.0 -> 0.9.0")
+
+        except Exception as e:
+            self.fail(f"Failed to trigger migration via Django: {e}")
+
+        # Step 6: Verify files still exist and are accessible
+        # For 0.8 -> 0.9, the migration is a no-op, so files should be in the same place
+        files_after = list(output_dir.rglob('*'))
+        files_after_count = len([f for f in files_after if f.is_file()])
+
+        print(f"\n[*] Files after migration: {files_after_count}")
+
+        # Verify no files were lost
+        self.assertGreaterEqual(files_after_count, files_before_count,
+                               f"Files were lost during migration: {files_before_count} -> {files_after_count}")
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -143,6 +143,57 @@ SQLite handles circular references with `IF NOT EXISTS`. Order matters less than
 - Individual migrations recorded for upgrades from dev branch
 - `replaces` attribute in squashed migrations lists what they replace
 
+## Code Style Guidelines
+
+### Naming Conventions for Grep-ability
+Use consistent naming for everything to enable easy grep-ability and logical grouping:
+
+**Principle**: Fewest unique names. If you must create a new unique name, make it grep and group well.
+
+**Examples**:
+```python
+# Filesystem migration methods - all start with fs_
+def fs_migration_needed() -> bool: ...
+def fs_migrate() -> None: ...
+def _fs_migrate_from_0_7_0_to_0_8_0() -> None: ...
+def _fs_migrate_from_0_8_0_to_0_9_0() -> None: ...
+def _fs_next_version(current: str) -> str: ...
+
+# Logging methods - ALL must start with log_ or _log
+def log_migration_start(snapshot_id: str) -> None: ...
+def _log_error(message: str) -> None: ...
+def log_validation_result(ok: bool, msg: str) -> None: ...
+```
+
+**Rules**:
+- Group related functions with common prefixes
+- Use `_` prefix for internal/private helpers within the same family
+- ALL logging-related methods MUST start with `log_` or `_log`
+- Search for all migration functions: `grep -r "def.*fs_.*(" archivebox/`
+- Search for all logging: `grep -r "def.*log_.*(" archivebox/`
+
+### Minimize Unique Names and Data Structures
+**Do not invent new data structures, variable names, or keys if possible.** Try to use existing field names and data structures exactly to keep the total unique data structures and names in the codebase to an absolute minimum.
+
+**Example - GOOD**:
+```python
+# Binary has overrides field
+binary = Binary(overrides={'TIMEOUT': '60s'})
+
+# InstalledBinary reuses the same field name and structure
+class InstalledBinary(models.Model):
+    overrides = models.JSONField(default=dict)  # Same name, same structure
+```
+
+**Example - BAD**:
+```python
+# Don't invent new names like custom_bin_cmds, installed_binary_overrides, etc.
+class InstalledBinary(models.Model):
+    custom_bin_cmds = models.JSONField(default=dict)  # ❌ New unique name
+```
+
+**Principle**: If you're storing the same conceptual data (e.g., `overrides`), use the same field name across all models and keep the internal structure identical. This makes the codebase predictable and reduces cognitive load.
+
 ## Debugging Tips
 
 ### Check Migration State
