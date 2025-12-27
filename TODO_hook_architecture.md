@@ -839,13 +839,13 @@ const cmd = ['wget', '-p', '-k', url];  // Ignores WGET_BINARY
 
 #### Snapshot Hook Checklist
 
-- [ ] Reads correct `XYZ_BINARY` env var and uses it in cmd
-- [ ] Outputs EXACTLY ONE JSONL line (NO `RESULT_JSON=` prefix)
-- [ ] NO extra output lines (VERSION=, START_TS=, END_TS=, STATUS=, OUTPUT=)
-- [ ] Does NOT run `--version` commands
-- [ ] Only provides allowed fields (type, status, output_str, output_json, cmd)
-- [ ] Does NOT include computed fields (see Phase 2 for forbidden fields list)
-- [ ] Includes `cmd` array with configured binary path
+- [x] Reads correct `XYZ_BINARY` env var and uses it in cmd
+- [x] Outputs EXACTLY ONE JSONL line (NO `RESULT_JSON=` prefix)
+- [x] NO extra output lines (VERSION=, START_TS=, END_TS=, STATUS=, OUTPUT=)
+- [~] Does NOT run `--version` commands (some hooks still do for compatibility checks)
+- [x] Only provides allowed fields (type, status, output_str, output_json, cmd)
+- [x] Does NOT include computed fields (see Phase 2 for forbidden fields list)
+- [x] Includes `cmd` array with configured binary path (Python hooks)
 
 ### 4.4 Implementation Process
 
