@@ -221,34 +221,18 @@ async function main() {
     }
 
     const endTs = new Date();
-    const duration = (endTs - startTs) / 1000;
-
-    // Print results
-    console.log(`START_TS=${startTs.toISOString()}`);
-    console.log(`END_TS=${endTs.toISOString()}`);
-    console.log(`DURATION=${duration.toFixed(2)}`);
-    if (output) {
-        console.log(`OUTPUT=${output}`);
-    }
-    console.log(`STATUS=${status}`);
 
     if (error) {
-        console.error(`ERROR=${error}`);
+        console.error(`ERROR: ${error}`);
     }
 
-    // Print JSON result
-    const resultJson = {
-        extractor: EXTRACTOR_NAME,
-        url,
-        snapshot_id: snapshotId,
+    // Output clean JSONL (no RESULT_JSON= prefix)
+    const result = {
+        type: 'ArchiveResult',
         status,
-        start_ts: startTs.toISOString(),
-        end_ts: endTs.toISOString(),
-        duration: Math.round(duration * 100) / 100,
-        output,
-        error: error || null,
+        output_str: output || error || '',
     };
-    console.log(`RESULT_JSON=${JSON.stringify(resultJson)}`);
+    console.log(JSON.stringify(result));
 
     process.exit(status === 'succeeded' ? 0 : 1);
 }

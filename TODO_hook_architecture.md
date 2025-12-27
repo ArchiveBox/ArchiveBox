@@ -1780,3 +1780,178 @@ output_files = {
 }
 ```
 Can query with custom SQL for complex per-file queries (e.g., "find all results with any file > 50KB"). Summary fields (output_size, output_mimetypes) remain as denormalized cache for performance.
+
+---
+
+# Hook Architecture Implementation Report
+
+## Date: 2025-12-27
+
+## Summary
+
+This report documents the Phase 4 plugin audit and Phase 1-7 implementation work.
+
+---
+
+## Implementation Status
+
+### ✅ Phase 1: Database Migration (COMPLETE)
+
+Created migrations:
+- `archivebox/core/migrations/0029_archiveresult_hook_fields.py` - Adds new fields
+- `archivebox/core/migrations/0030_migrate_output_field.py` - Migrates old `output` field
+
+New ArchiveResult fields:
+- [x] `output_str` (TextField) - human-readable summary
+- [x] `output_json` (JSONField) - structured metadata
+- [x] `output_files` (JSONField) - dict of {relative_path: {}}
+- [x] `output_size` (BigIntegerField) - total bytes
+- [x] `output_mimetypes` (CharField) - CSV of mimetypes sorted by size
+- [x] `binary` (ForeignKey to InstalledBinary) - optional
+
+### ✅ Phase 3: Generic run_hook() (COMPLETE)
+
+Updated `archivebox/hooks.py`:
+- [x] Parse JSONL output (any line with `{type: 'ModelName', ...}`)
+- [x] Backwards compatible with `RESULT_JSON=` format
+- [x] Add plugin metadata to each record
+- [x] Detect background hooks with `.bg.` suffix
+- [x] Added `find_binary_for_cmd()` helper
+- [x] Added `create_model_record()` for InstalledBinary/Machine
+
+### ✅ Phase 6: Update ArchiveResult.run() (COMPLETE)
+
+Updated `archivebox/core/models.py`:
+- [x] Handle background hooks (return immediately when result is None)
+- [x] Process `records` from HookResult
+- [x] Use new output fields
+- [x] Added `_populate_output_fields()` method
+- [x] Added `_set_binary_from_cmd()` method
+- [x] Call `create_model_record()` for side-effect records
+
+### ✅ Phase 7: Background Hook Support (COMPLETE)
+
+Added to `archivebox/core/models.py`:
+- [x] `is_background_hook()` method
+- [x] `check_background_completed()` method
+- [x] `finalize_background_hook()` method
+
+Updated `archivebox/core/statemachines.py`:
+- [x] `SnapshotMachine.is_finished()` checks/finalizes background hooks
+
+---
+
+## Phase 4: Plugin Audit
+
+### Dependency Hooks (on_Dependency__*) - ALL COMPLIANT ✅
+
+| Plugin | Hook | Status | Notes |
+|--------|------|--------|-------|
+| apt | `on_Dependency__install_using_apt_provider.py` | ✅ OK | Emits `{type: 'InstalledBinary'}` JSONL |
+| brew | `on_Dependency__install_using_brew_provider.py` | ✅ OK | Emits `{type: 'InstalledBinary'}` JSONL |
+| custom | `on_Dependency__install_using_custom_bash.py` | ✅ OK | Emits `{type: 'InstalledBinary'}` JSONL |
+| env | `on_Dependency__install_using_env_provider.py` | ✅ OK | Emits `{type: 'InstalledBinary'}` JSONL |
+| npm | `on_Dependency__install_using_npm_provider.py` | ✅ OK | Emits `{type: 'InstalledBinary'}` JSONL |
+| pip | `on_Dependency__install_using_pip_provider.py` | ✅ OK | Emits `{type: 'InstalledBinary'}` JSONL |
+
+### Crawl Validate Hooks (on_Crawl__00_validate_*) - ALL COMPLIANT ✅
+
+| Plugin | Hook | Status | Notes |
+|--------|------|--------|-------|
+| chrome_session | `on_Crawl__00_validate_chrome.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
+| wget | `on_Crawl__00_validate_wget.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
+| singlefile | `on_Crawl__00_validate_singlefile.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
+| readability | `on_Crawl__00_validate_readability.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
+| media | `on_Crawl__00_validate_ytdlp.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
+| git | `on_Crawl__00_validate_git.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
+| forumdl | `on_Crawl__00_validate_forumdl.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
+| gallerydl | `on_Crawl__00_validate_gallerydl.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
+| mercury | `on_Crawl__00_validate_mercury.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
+| papersdl | `on_Crawl__00_validate_papersdl.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
+| search_backend_ripgrep | `on_Crawl__00_validate_ripgrep.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
+
+### Snapshot Hooks (on_Snapshot__*) - Python Hooks UPDATED ✅
+
+| Plugin | Hook | Status | Notes |
+|--------|------|--------|-------|
+| favicon | `on_Snapshot__11_favicon.py` | ✅ UPDATED | Now outputs clean JSONL |
+| git | `on_Snapshot__12_git.py` | ✅ UPDATED | Now outputs clean JSONL with cmd |
+| archive_org | `on_Snapshot__13_archive_org.py` | ✅ UPDATED | Now outputs clean JSONL |
+| title | `on_Snapshot__32_title.js` | ✅ UPDATED | Now outputs clean JSONL |
+| singlefile | `on_Snapshot__37_singlefile.py` | ✅ UPDATED | Now outputs clean JSONL with cmd |
+| wget | `on_Snapshot__50_wget.py` | ✅ UPDATED | Now outputs clean JSONL with cmd |
+| media | `on_Snapshot__51_media.py` | ✅ UPDATED | Now outputs clean JSONL with cmd |
+| readability | `on_Snapshot__52_readability.py` | ✅ UPDATED | Now outputs clean JSONL with cmd |
+
+### Snapshot Hooks - JavaScript Hooks (REMAINING WORK)
+
+The following JS hooks still use the old `RESULT_JSON=` format and need to be updated:
+
+| Plugin | Hook | Current Issue |
+|--------|------|---------------|
+| chrome_session | `on_Snapshot__20_chrome_session.js` | Uses `RESULT_JSON=` prefix |
+| consolelog | `on_Snapshot__21_consolelog.js` | Uses `RESULT_JSON=` prefix |
+| ssl | `on_Snapshot__23_ssl.js` | Uses `RESULT_JSON=` prefix |
+| responses | `on_Snapshot__24_responses.js` | Uses `RESULT_JSON=` prefix |
+| chrome_navigate | `on_Snapshot__30_chrome_navigate.js` | Uses `RESULT_JSON=` prefix |
+| redirects | `on_Snapshot__31_redirects.js` | Uses `RESULT_JSON=` prefix |
+| headers | `on_Snapshot__33_headers.js` | Uses `RESULT_JSON=` prefix |
+| screenshot | `on_Snapshot__34_screenshot.js` | Uses `RESULT_JSON=` prefix |
+| pdf | `on_Snapshot__35_pdf.js` | Uses `RESULT_JSON=` prefix |
+| dom | `on_Snapshot__36_dom.js` | Uses `RESULT_JSON=` prefix |
+| seo | `on_Snapshot__38_seo.js` | Uses `RESULT_JSON=` prefix |
+| accessibility | `on_Snapshot__39_accessibility.js` | Uses `RESULT_JSON=` prefix |
+| parse_dom_outlinks | `on_Snapshot__40_parse_dom_outlinks.js` | Uses `RESULT_JSON=` prefix |
+
+**Fix Required for Each JS Hook:**
+
+Replace:
+```javascript
+console.log(`START_TS=${startTs.toISOString()}`);
+console.log(`END_TS=${endTs.toISOString()}`);
+console.log(`STATUS=${status}`);
+console.log(`RESULT_JSON=${JSON.stringify(resultJson)}`);
+```
+
+With:
+```javascript
+console.log(JSON.stringify({
+    type: 'ArchiveResult',
+    status,
+    output_str: output || error || '',
+}));
+```
+
+---
+
+## Files Modified
+
+### Core Infrastructure
+- `archivebox/hooks.py` - Updated run_hook() and added helpers
+- `archivebox/core/models.py` - Updated ArchiveResult model and run() method
+- `archivebox/core/statemachines.py` - Updated SnapshotMachine.is_finished()
+- `archivebox/core/admin_archiveresults.py` - Updated to use output_str
+- `archivebox/core/templatetags/core_tags.py` - Updated to use output_str
+
+### Migrations
+- `archivebox/core/migrations/0029_archiveresult_hook_fields.py` (new)
+- `archivebox/core/migrations/0030_migrate_output_field.py` (new)
+
+### Plugins Updated
+- `archivebox/plugins/archive_org/on_Snapshot__13_archive_org.py`
+- `archivebox/plugins/favicon/on_Snapshot__11_favicon.py`
+- `archivebox/plugins/git/on_Snapshot__12_git.py`
+- `archivebox/plugins/media/on_Snapshot__51_media.py`
+- `archivebox/plugins/readability/on_Snapshot__52_readability.py`
+- `archivebox/plugins/singlefile/on_Snapshot__37_singlefile.py`
+- `archivebox/plugins/title/on_Snapshot__32_title.js`
+- `archivebox/plugins/wget/on_Snapshot__50_wget.py`
+
+---
+
+## Remaining Work
+
+1. **Update remaining JS hooks** (13 files) to output clean JSONL
+2. **Rename background hooks** with `.bg.` suffix
+3. **Write tests** for the hook architecture
+4. **Run migrations** and test on real data
