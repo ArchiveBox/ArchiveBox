@@ -47,7 +47,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
         end_time = result.end_ts.strftime('%Y-%m-%d %H:%M:%S') if result.end_ts else '-'
 
         # Truncate output for display
-        full_output = result.output or '-'
+        full_output = result.output_str or '-'
         output_display = full_output[:60]
         if len(full_output) > 60:
             output_display += '...'
@@ -55,8 +55,9 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
         # Get full command as tooltip
         cmd_str = ' '.join(result.cmd) if isinstance(result.cmd, list) else str(result.cmd or '-')
 
-        # Build output link
-        output_link = f'/archive/{result.snapshot.timestamp}/{result.output}' if result.output and result.status == 'succeeded' else f'/archive/{result.snapshot.timestamp}/'
+        # Build output link - use embed_path() which checks output_files first
+        embed_path = result.embed_path() if hasattr(result, 'embed_path') else None
+        output_link = f'/archive/{result.snapshot.timestamp}/{embed_path}' if embed_path and result.status == 'succeeded' else f'/archive/{result.snapshot.timestamp}/'
 
         # Get version - try cmd_version field
         version = result.cmd_version if result.cmd_version else '-'
@@ -336,27 +337,29 @@ class ArchiveResultAdmin(BaseModelAdmin):
             ' '.join(result.cmd) if isinstance(result.cmd, list) else str(result.cmd),
         )
 
-    def output_str(self, result):
-        # Determine output link path - use output if file exists, otherwise link to index
-        output_path = result.output if (result.status == 'succeeded' and result.output) else 'index.html'
+    def output_display(self, result):
+        # Determine output link path - use embed_path() which checks output_files
+        embed_path = result.embed_path() if hasattr(result, 'embed_path') else None
+        output_path = embed_path if (result.status == 'succeeded' and embed_path) else 'index.html'
         return format_html(
             '<a href="/archive/{}/{}" class="output-link">↗️</a><pre>{}</pre>',
             result.snapshot.timestamp,
             output_path,
-            result.output,
+            result.output_str,
         )
 
     def output_summary(self, result):
         snapshot_dir = Path(DATA_DIR) / str(result.pwd).split('data/', 1)[-1]
-        output_str = format_html(
+        output_html = format_html(
             '<pre style="display: inline-block">{}</pre><br/>',
-            result.output,
+            result.output_str,
         )
-        output_str += format_html('<a href="/archive/{}/index.html#all">See result files ...</a><br/><pre><code>', str(result.snapshot.timestamp))
-        path_from_output_str = (snapshot_dir / (result.output or ''))
-        output_str += format_html('<i style="padding: 1px">{}</i><b style="padding-right: 20px">/</b><i>{}</i><br/><hr/>', str(snapshot_dir), str(result.output))
-        if os.access(path_from_output_str, os.R_OK):
-            root_dir = str(path_from_output_str)
+        output_html += format_html('<a href="/archive/{}/index.html#all">See result files ...</a><br/><pre><code>', str(result.snapshot.timestamp))
+        embed_path = result.embed_path() if hasattr(result, 'embed_path') else ''
+        path_from_embed = (snapshot_dir / (embed_path or ''))
+        output_html += format_html('<i style="padding: 1px">{}</i><b style="padding-right: 20px">/</b><i>{}</i><br/><hr/>', str(snapshot_dir), str(embed_path))
+        if os.access(path_from_embed, os.R_OK):
+            root_dir = str(path_from_embed)
         else:
             root_dir = str(snapshot_dir)
 
