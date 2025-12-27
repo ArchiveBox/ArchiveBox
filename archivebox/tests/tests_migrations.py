@@ -1294,6 +1294,118 @@ class TestMigrationFrom07x(unittest.TestCase):
                        for s in self.original_data['snapshots'])
         self.assertTrue(found_any, f"No migrated snapshots found in search: {output[:500]}")
 
+    def test_list_works_after_migration(self):
+        """List command should work and show migrated data."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1])
+
+        result = run_archivebox(self.work_dir, ['list'])
+        self.assertEqual(result.returncode, 0, f"List failed after migration: {result.stderr}")
+
+        # Should find at least some of the migrated URLs
+        output = result.stdout + result.stderr
+        found_any = any(s['url'][:30] in output or (s['title'] and s['title'] in output)
+                       for s in self.original_data['snapshots'])
+        self.assertTrue(found_any, f"No migrated snapshots found in list: {output[:500]}")
+
+    def test_new_schema_elements_created_after_migration(self):
+        """Migration should create new 0.9.x schema elements (crawls_crawl, etc.)."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+
+        # Check that new tables exist
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        tables = {row[0] for row in cursor.fetchall()}
+        conn.close()
+
+        # 0.9.x should have crawls_crawl and crawls_seed tables
+        self.assertIn('crawls_crawl', tables, "crawls_crawl table not created during migration")
+        self.assertIn('crawls_seed', tables, "crawls_seed table not created during migration")
+
+    def test_snapshots_have_new_fields_after_migration(self):
+        """Migrated snapshots should have new 0.9.x fields (status, depth, etc.)."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+
+        # Check snapshot table has new columns
+        cursor.execute('PRAGMA table_info(core_snapshot)')
+        columns = {row[1] for row in cursor.fetchall()}
+        conn.close()
+
+        # 0.9.x snapshots should have status, depth, created_at, modified_at
+        required_new_columns = {'status', 'depth', 'created_at', 'modified_at'}
+        for col in required_new_columns:
+            self.assertIn(col, columns, f"Snapshot missing new column: {col}")
+
+    def test_add_works_after_migration(self):
+        """Adding new URLs should work after migration from 0.7.x."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
+
+        # Try to add a new URL after migration
+        result = run_archivebox(self.work_dir, ['add', 'https://example.com/new-page'], timeout=60)
+        self.assertIn(result.returncode, [0, 1], f"Add crashed after migration: {result.stderr}")
+
+        # Verify a Crawl was created for the new URL
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM crawls_crawl")
+        crawl_count = cursor.fetchone()[0]
+        conn.close()
+
+        self.assertGreaterEqual(crawl_count, 1, "No Crawl created when adding URL after migration")
+
+    def test_archiveresult_status_preserved_after_migration(self):
+        """Migration should preserve archive result status values."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+
+        # Get status counts
+        cursor.execute("SELECT status, COUNT(*) FROM core_archiveresult GROUP BY status")
+        status_counts = dict(cursor.fetchall())
+        conn.close()
+
+        # Original data has known status distribution: succeeded, failed, skipped
+        self.assertIn('succeeded', status_counts, "Should have succeeded results")
+        self.assertIn('failed', status_counts, "Should have failed results")
+        self.assertIn('skipped', status_counts, "Should have skipped results")
+
+    def test_version_works_after_migration(self):
+        """Version command should work after migration."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1])
+
+        result = run_archivebox(self.work_dir, ['version'])
+        # Exit code might be 1 if some binaries are missing, but should not crash
+        self.assertIn(result.returncode, [0, 1], f"Version crashed after migration: {result.stderr}")
+
+        # Should show version info
+        output = result.stdout + result.stderr
+        self.assertTrue('ArchiveBox' in output or 'version' in output.lower(),
+                       f"Version output missing expected content: {output[:500]}")
+
+    def test_help_works_after_migration(self):
+        """Help command should work after migration."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1])
+
+        result = run_archivebox(self.work_dir, ['help'])
+        self.assertEqual(result.returncode, 0, f"Help crashed after migration: {result.stderr}")
+
+        # Should show available commands
+        output = result.stdout + result.stderr
+        self.assertTrue('add' in output.lower() or 'status' in output.lower(),
+                       f"Help output missing expected commands: {output[:500]}")
+
 
 class TestMigrationFrom04x(unittest.TestCase):
     """Test migration from 0.4.x schema to latest.
@@ -1500,6 +1612,78 @@ class TestMigrationFrom08x(unittest.TestCase):
         found_any = any(s['url'][:30] in output or (s['title'] and s['title'] in output)
                        for s in self.original_data['snapshots'])
         self.assertTrue(found_any, f"No migrated snapshots found in list: {output[:500]}")
+
+    def test_search_works_after_migration(self):
+        """Search command should find migrated snapshots."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1])
+
+        result = run_archivebox(self.work_dir, ['search'])
+        self.assertEqual(result.returncode, 0, f"Search failed after migration: {result.stderr}")
+
+        # Should find at least some of the migrated URLs
+        output = result.stdout + result.stderr
+        found_any = any(s['url'][:30] in output or (s['title'] and s['title'] in output)
+                       for s in self.original_data['snapshots'])
+        self.assertTrue(found_any, f"No migrated snapshots found in search: {output[:500]}")
+
+    def test_migration_preserves_snapshot_titles(self):
+        """Migration should preserve all snapshot titles."""
+        expected_titles = {s['url']: s['title'] for s in self.original_data['snapshots']}
+
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
+
+        ok, msg = verify_snapshot_titles(self.db_path, expected_titles)
+        self.assertTrue(ok, msg)
+
+    def test_migration_preserves_foreign_keys(self):
+        """Migration should maintain foreign key relationships."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
+
+        ok, msg = verify_foreign_keys(self.db_path)
+        self.assertTrue(ok, msg)
+
+    def test_add_works_after_migration(self):
+        """Adding new URLs should work after migration from 0.8.x."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1], f"Init crashed: {result.stderr}")
+
+        # Count existing crawls
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM crawls_crawl")
+        initial_crawl_count = cursor.fetchone()[0]
+        conn.close()
+
+        # Try to add a new URL after migration
+        result = run_archivebox(self.work_dir, ['add', 'https://example.com/new-page'], timeout=60)
+        self.assertIn(result.returncode, [0, 1], f"Add crashed after migration: {result.stderr}")
+
+        # Verify a new Crawl was created
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM crawls_crawl")
+        new_crawl_count = cursor.fetchone()[0]
+        conn.close()
+
+        self.assertGreater(new_crawl_count, initial_crawl_count,
+                          "No new Crawl created when adding URL after migration")
+
+    def test_version_works_after_migration(self):
+        """Version command should work after migration."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=120)
+        self.assertIn(result.returncode, [0, 1])
+
+        result = run_archivebox(self.work_dir, ['version'])
+        # Exit code might be 1 if some binaries are missing, but should not crash
+        self.assertIn(result.returncode, [0, 1], f"Version crashed after migration: {result.stderr}")
+
+        # Should show version info
+        output = result.stdout + result.stderr
+        self.assertTrue('ArchiveBox' in output or 'version' in output.lower(),
+                       f"Version output missing expected content: {output[:500]}")
 
 
 class TestMigrationDataIntegrity(unittest.TestCase):
