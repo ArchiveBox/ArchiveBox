@@ -1854,21 +1854,23 @@ Updated `archivebox/core/statemachines.py`:
 | npm | `on_Dependency__install_using_npm_provider.py` | ✅ OK | Emits `{type: 'InstalledBinary'}` JSONL |
 | pip | `on_Dependency__install_using_pip_provider.py` | ✅ OK | Emits `{type: 'InstalledBinary'}` JSONL |
 
-### Crawl Validate Hooks (on_Crawl__00_validate_*) - ALL COMPLIANT ✅
+### Crawl Install Hooks (on_Crawl__00_install_*) - ALL RENAMED ✅
 
 | Plugin | Hook | Status | Notes |
 |--------|------|--------|-------|
-| chrome_session | `on_Crawl__00_validate_chrome.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
-| wget | `on_Crawl__00_validate_wget.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
-| singlefile | `on_Crawl__00_validate_singlefile.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
-| readability | `on_Crawl__00_validate_readability.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
-| media | `on_Crawl__00_validate_ytdlp.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
-| git | `on_Crawl__00_validate_git.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
-| forumdl | `on_Crawl__00_validate_forumdl.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
-| gallerydl | `on_Crawl__00_validate_gallerydl.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
-| mercury | `on_Crawl__00_validate_mercury.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
-| papersdl | `on_Crawl__00_validate_papersdl.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
-| search_backend_ripgrep | `on_Crawl__00_validate_ripgrep.py` | ✅ OK | Emits InstalledBinary/Dependency JSONL |
+| chrome_session | `on_Crawl__00_install_chrome.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
+| chrome_session | `on_Crawl__00_install_chrome_config.py` | ✅ RENAMED | Emits config JSONL |
+| wget | `on_Crawl__00_install_wget.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
+| wget | `on_Crawl__00_install_wget_config.py` | ✅ RENAMED | Emits config JSONL |
+| singlefile | `on_Crawl__00_install_singlefile.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
+| readability | `on_Crawl__00_install_readability.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
+| media | `on_Crawl__00_install_ytdlp.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
+| git | `on_Crawl__00_install_git.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
+| forumdl | `on_Crawl__00_install_forumdl.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
+| gallerydl | `on_Crawl__00_install_gallerydl.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
+| mercury | `on_Crawl__00_install_mercury.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
+| papersdl | `on_Crawl__00_install_papersdl.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
+| search_backend_ripgrep | `on_Crawl__00_install_ripgrep.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
 
 ### Snapshot Hooks (on_Snapshot__*) - Python Hooks UPDATED ✅
 
