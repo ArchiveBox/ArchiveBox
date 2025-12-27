@@ -241,23 +241,15 @@ def main(url: str, snapshot_id: str):
     try:
         # Check if wget is enabled
         if not get_env_bool('SAVE_WGET', True):
-            print('Skipping wget (SAVE_WGET=False)')
-            status = 'skipped'
-            end_ts = datetime.now(timezone.utc)
-            print(f'START_TS={start_ts.isoformat()}')
-            print(f'END_TS={end_ts.isoformat()}')
-            print(f'STATUS={status}')
-            print(f'RESULT_JSON={json.dumps({"extractor": EXTRACTOR_NAME, "status": status, "url": url, "snapshot_id": snapshot_id})}')
+            print('Skipping wget (SAVE_WGET=False)', file=sys.stderr)
+            print(json.dumps({'type': 'ArchiveResult', 'status': 'skipped', 'output_str': 'SAVE_WGET=False'}))
             sys.exit(0)
 
         # Check if staticfile extractor already handled this (permanent skip)
         if has_staticfile_output():
-            print(f'Skipping wget - staticfile extractor already downloaded this')
-            print(f'START_TS={start_ts.isoformat()}')
-            print(f'END_TS={datetime.now(timezone.utc).isoformat()}')
-            print(f'STATUS=skipped')
-            print(f'RESULT_JSON={json.dumps({"extractor": EXTRACTOR_NAME, "status": "skipped", "url": url, "snapshot_id": snapshot_id})}')
-            sys.exit(0)  # Permanent skip - staticfile already handled
+            print('Skipping wget - staticfile extractor already downloaded this', file=sys.stderr)
+            print(json.dumps({'type': 'ArchiveResult', 'status': 'skipped', 'output_str': 'staticfile already exists'}))
+            sys.exit(0)
 
         # Find binary
         binary = find_wget()
@@ -285,38 +277,23 @@ def main(url: str, snapshot_id: str):
         error = f'{type(e).__name__}: {e}'
         status = 'failed'
 
-    # Print results
+    # Calculate duration
     end_ts = datetime.now(timezone.utc)
-    duration = (end_ts - start_ts).total_seconds()
-
-    print(f'START_TS={start_ts.isoformat()}')
-    print(f'END_TS={end_ts.isoformat()}')
-    print(f'DURATION={duration:.2f}')
-    if cmd_str:
-        print(f'CMD={cmd_str}')
-    if version:
-        print(f'VERSION={version}')
-    if output:
-        print(f'OUTPUT={output}')
-    print(f'STATUS={status}')
 
     if error:
-        print(f'ERROR={error}', file=sys.stderr)
+        print(f'ERROR: {error}', file=sys.stderr)
 
-    # Print JSON result
-    result_json = {
-        'extractor': EXTRACTOR_NAME,
-        'url': url,
-        'snapshot_id': snapshot_id,
+    # Output clean JSONL (no RESULT_JSON= prefix)
+    result = {
+        'type': 'ArchiveResult',
         'status': status,
-        'start_ts': start_ts.isoformat(),
-        'end_ts': end_ts.isoformat(),
-        'duration': round(duration, 2),
-        'cmd_version': version,
-        'output': output,
-        'error': error or None,
+        'output_str': output or error or '',
     }
-    print(f'RESULT_JSON={json.dumps(result_json)}')
+    if binary:
+        result['cmd'] = [binary, '--no-verbose', url]
+    if version:
+        result['cmd_version'] = version
+    print(json.dumps(result))
 
     sys.exit(0 if status == 'succeeded' else 1)
 

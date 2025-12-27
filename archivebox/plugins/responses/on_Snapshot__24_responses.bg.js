@@ -288,14 +288,8 @@ async function main() {
     }
 
     if (!getEnvBool('SAVE_RESPONSES', true)) {
-        console.log('Skipping (SAVE_RESPONSES=False)');
-        const result = {
-            extractor: EXTRACTOR_NAME,
-            status: 'skipped',
-            url,
-            snapshot_id: snapshotId,
-        };
-        console.log(`RESULT_JSON=${JSON.stringify(result)}`);
+        console.error('Skipping (SAVE_RESPONSES=False)');
+        console.log(JSON.stringify({type: 'ArchiveResult', status: 'skipped', output_str: 'SAVE_RESPONSES=False'}));
         process.exit(0);
     }
 
@@ -313,43 +307,26 @@ async function main() {
 
         // Report success
         const endTs = new Date();
-        const duration = (endTs - startTs) / 1000;
 
-        console.log(`START_TS=${startTs.toISOString()}`);
-        console.log(`END_TS=${endTs.toISOString()}`);
-        console.log(`DURATION=${duration.toFixed(2)}`);
-        console.log(`OUTPUT=responses/`);
-        console.log(`STATUS=succeeded`);
-
-        const result = {
-            extractor: EXTRACTOR_NAME,
-            url,
-            snapshot_id: snapshotId,
+        // Output clean JSONL (no RESULT_JSON= prefix)
+        console.log(JSON.stringify({
+            type: 'ArchiveResult',
             status: 'succeeded',
-            start_ts: startTs.toISOString(),
-            end_ts: endTs.toISOString(),
-            duration: Math.round(duration * 100) / 100,
-            output: 'responses/',
-        };
-        console.log(`RESULT_JSON=${JSON.stringify(result)}`);
+            output_str: 'responses/',
+        }));
 
         process.exit(0);
 
     } catch (e) {
         const error = `${e.name}: ${e.message}`;
-        console.error(`ERROR=${error}`);
+        console.error(`ERROR: ${error}`);
 
-        const endTs = new Date();
-        const result = {
-            extractor: EXTRACTOR_NAME,
-            url,
-            snapshot_id: snapshotId,
+        // Output clean JSONL (no RESULT_JSON= prefix)
+        console.log(JSON.stringify({
+            type: 'ArchiveResult',
             status: 'failed',
-            start_ts: startTs.toISOString(),
-            end_ts: endTs.toISOString(),
-            error,
-        };
-        console.log(`RESULT_JSON=${JSON.stringify(result)}`);
+            output_str: error,
+        }));
         process.exit(1);
     }
 }

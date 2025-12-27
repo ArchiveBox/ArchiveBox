@@ -157,26 +157,15 @@ async function main() {
     }
 
     const endTs = new Date();
-    const duration = (endTs - startTs) / 1000;
 
-    console.log(`START_TS=${startTs.toISOString()}`);
-    console.log(`END_TS=${endTs.toISOString()}`);
-    console.log(`DURATION=${duration.toFixed(2)}`);
-    if (output) console.log(`OUTPUT=${output}`);
-    console.log(`STATUS=${status}`);
-    if (error) console.error(`ERROR=${error}`);
+    if (error) console.error(`ERROR: ${error}`);
 
-    console.log(`RESULT_JSON=${JSON.stringify({
-        extractor: EXTRACTOR_NAME,
-        url,
-        snapshot_id: snapshotId,
+    // Output clean JSONL (no RESULT_JSON= prefix)
+    console.log(JSON.stringify({
+        type: 'ArchiveResult',
         status,
-        start_ts: startTs.toISOString(),
-        end_ts: endTs.toISOString(),
-        duration: Math.round(duration * 100) / 100,
-        output,
-        error: error || null,
-    })}`);
+        output_str: output || error || '',
+    }));
 
     process.exit(status === 'succeeded' ? 0 : 1);
 }

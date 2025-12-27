@@ -380,39 +380,21 @@ async function main() {
     }
 
     const endTs = new Date();
-    const duration = (endTs - startTs) / 1000;
-
-    // Print results
-    console.log(`START_TS=${startTs.toISOString()}`);
-    console.log(`END_TS=${endTs.toISOString()}`);
-    console.log(`DURATION=${duration.toFixed(2)}`);
-    if (version) {
-        console.log(`VERSION=${version}`);
-    }
-    if (output) {
-        console.log(`OUTPUT=${output}`);
-    }
-    console.log(`STATUS=${status}`);
 
     if (error) {
-        console.error(`ERROR=${error}`);
+        console.error(`ERROR: ${error}`);
     }
 
-    // Print JSON result
-    const resultJson = {
-        extractor: EXTRACTOR_NAME,
-        url,
-        snapshot_id: snapshotId,
-        crawl_id: crawlId || null,
+    // Output clean JSONL (no RESULT_JSON= prefix)
+    const result = {
+        type: 'ArchiveResult',
         status,
-        start_ts: startTs.toISOString(),
-        end_ts: endTs.toISOString(),
-        duration: Math.round(duration * 100) / 100,
-        cmd_version: version,
-        output,
-        error: error || null,
+        output_str: output || error || '',
     };
-    console.log(`RESULT_JSON=${JSON.stringify(resultJson)}`);
+    if (version) {
+        result.cmd_version = version;
+    }
+    console.log(JSON.stringify(result));
 
     process.exit(status === 'succeeded' ? 0 : 1);
 }

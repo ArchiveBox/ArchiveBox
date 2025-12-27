@@ -59,11 +59,22 @@ class SnapshotMachine(StateMachine, strict_states=True):
         # if no archiveresults exist yet, it's not finished
         if not self.snapshot.archiveresult_set.exists():
             return False
-        
+
         # if archiveresults exist but are still pending, it's not finished
         if self.snapshot.pending_archiveresults().exists():
             return False
-        
+
+        # Check for background hooks that are still running
+        started_results = self.snapshot.archiveresult_set.filter(
+            status=ArchiveResult.StatusChoices.STARTED
+        )
+        for result in started_results:
+            if not result.check_background_completed():
+                return False  # Still running
+
+            # Completed - finalize it
+            result.finalize_background_hook()
+
         # otherwise archiveresults exist and are all finished, so it's finished
         return True
         
@@ -184,10 +195,10 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
     
     def is_backoff(self) -> bool:
         """Check if we should backoff and retry later."""
-        # Backoff if status is still started (extractor didn't complete) and output is None
+        # Backoff if status is still started (extractor didn't complete) and output_str is empty
         return (
-            self.archiveresult.status == ArchiveResult.StatusChoices.STARTED and 
-            self.archiveresult.output is None
+            self.archiveresult.status == ArchiveResult.StatusChoices.STARTED and
+            not self.archiveresult.output_str
         )
     
     def is_finished(self) -> bool:

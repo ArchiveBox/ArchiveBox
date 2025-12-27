@@ -80,7 +80,7 @@ def extractor_thumbnail(context, result) -> str:
         return ''
 
     # Use embed_path() for the display path (includes canonical paths)
-    output_path = result.embed_path() if hasattr(result, 'embed_path') else (result.output or '')
+    output_path = result.embed_path() if hasattr(result, 'embed_path') else (result.output_str or '')
 
     # Create a mini template and render it with context
     try:
@@ -109,7 +109,7 @@ def extractor_embed(context, result) -> str:
     if not template_str:
         return ''
 
-    output_path = result.embed_path() if hasattr(result, 'embed_path') else (result.output or '')
+    output_path = result.embed_path() if hasattr(result, 'embed_path') else (result.output_str or '')
 
     try:
         tpl = template.Template(template_str)
@@ -137,7 +137,7 @@ def extractor_fullscreen(context, result) -> str:
     if not template_str:
         return ''
 
-    output_path = result.embed_path() if hasattr(result, 'embed_path') else (result.output or '')
+    output_path = result.embed_path() if hasattr(result, 'embed_path') else (result.output_str or '')
 
     try:
         tpl = template.Template(template_str)

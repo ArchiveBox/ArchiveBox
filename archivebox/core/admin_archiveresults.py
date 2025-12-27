@@ -47,7 +47,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
         end_time = result.end_ts.strftime('%Y-%m-%d %H:%M:%S') if result.end_ts else '-'
 
         # Truncate output for display
-        full_output = result.output or '-'
+        full_output = result.output_str or '-'
         output_display = full_output[:60]
         if len(full_output) > 60:
             output_display += '...'
@@ -55,8 +55,9 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
         # Get full command as tooltip
         cmd_str = ' '.join(result.cmd) if isinstance(result.cmd, list) else str(result.cmd or '-')
 
-        # Build output link
-        output_link = f'/archive/{result.snapshot.timestamp}/{result.output}' if result.output and result.status == 'succeeded' else f'/archive/{result.snapshot.timestamp}/'
+        # Build output link - use embed_path() which checks output_files first
+        embed_path = result.embed_path() if hasattr(result, 'embed_path') else None
+        output_link = f'/archive/{result.snapshot.timestamp}/{embed_path}' if embed_path and result.status == 'succeeded' else f'/archive/{result.snapshot.timestamp}/'
 
         # Get version - try cmd_version field
         version = result.cmd_version if result.cmd_version else '-'
@@ -184,9 +185,9 @@ class ArchiveResultInline(admin.TabularInline):
     parent_model = Snapshot
     # fk_name = 'snapshot'
     extra = 0
-    sort_fields = ('end_ts', 'extractor', 'output', 'status', 'cmd_version')
+    sort_fields = ('end_ts', 'extractor', 'output_str', 'status', 'cmd_version')
     readonly_fields = ('id', 'result_id', 'completed', 'command', 'version')
-    fields = ('start_ts', 'end_ts', *readonly_fields, 'extractor', 'cmd', 'cmd_version', 'pwd', 'created_by', 'status', 'retry_at', 'output')
+    fields = ('start_ts', 'end_ts', *readonly_fields, 'extractor', 'cmd', 'cmd_version', 'pwd', 'created_by', 'status', 'retry_at', 'output_str')
     # exclude = ('id',)
     ordering = ('end_ts',)
     show_change_link = True
@@ -230,7 +231,7 @@ class ArchiveResultInline(admin.TabularInline):
         formset.form.base_fields['pwd'].initial = str(snapshot.output_dir)
         formset.form.base_fields['created_by'].initial = request.user
         formset.form.base_fields['cmd'].initial = '["-"]'
-        formset.form.base_fields['output'].initial = 'Manually recorded cmd output...'
+        formset.form.base_fields['output_str'].initial = 'Manually recorded cmd output...'
         
         if obj is not None:
             # hidden values for existing entries and new entries
@@ -254,7 +255,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
     list_display = ('id', 'created_by', 'created_at', 'snapshot_info', 'tags_str', 'status', 'extractor_with_icon', 'cmd_str', 'output_str')
     sort_fields = ('id', 'created_by', 'created_at', 'extractor', 'status')
     readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary', 'extractor_with_icon', 'iface')
-    search_fields = ('id', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
+    search_fields = ('id', 'snapshot__url', 'extractor', 'output_str', 'cmd_version', 'cmd', 'snapshot__timestamp')
     autocomplete_fields = ['snapshot']
 
     fieldsets = (
@@ -275,7 +276,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
             'classes': ('card',),
         }),
         ('Output', {
-            'fields': ('output', 'output_summary'),
+            'fields': ('output_str', 'output_json', 'output_files', 'output_size', 'output_mimetypes', 'output_summary'),
             'classes': ('card', 'wide'),
         }),
         ('Metadata', {
@@ -336,27 +337,29 @@ class ArchiveResultAdmin(BaseModelAdmin):
             ' '.join(result.cmd) if isinstance(result.cmd, list) else str(result.cmd),
         )
 
-    def output_str(self, result):
-        # Determine output link path - use output if file exists, otherwise link to index
-        output_path = result.output if (result.status == 'succeeded' and result.output) else 'index.html'
+    def output_display(self, result):
+        # Determine output link path - use embed_path() which checks output_files
+        embed_path = result.embed_path() if hasattr(result, 'embed_path') else None
+        output_path = embed_path if (result.status == 'succeeded' and embed_path) else 'index.html'
         return format_html(
             '<a href="/archive/{}/{}" class="output-link">↗️</a><pre>{}</pre>',
             result.snapshot.timestamp,
             output_path,
-            result.output,
+            result.output_str,
         )
 
     def output_summary(self, result):
         snapshot_dir = Path(DATA_DIR) / str(result.pwd).split('data/', 1)[-1]
-        output_str = format_html(
+        output_html = format_html(
             '<pre style="display: inline-block">{}</pre><br/>',
-            result.output,
+            result.output_str,
         )
-        output_str += format_html('<a href="/archive/{}/index.html#all">See result files ...</a><br/><pre><code>', str(result.snapshot.timestamp))
-        path_from_output_str = (snapshot_dir / (result.output or ''))
-        output_str += format_html('<i style="padding: 1px">{}</i><b style="padding-right: 20px">/</b><i>{}</i><br/><hr/>', str(snapshot_dir), str(result.output))
-        if os.access(path_from_output_str, os.R_OK):
-            root_dir = str(path_from_output_str)
+        output_html += format_html('<a href="/archive/{}/index.html#all">See result files ...</a><br/><pre><code>', str(result.snapshot.timestamp))
+        embed_path = result.embed_path() if hasattr(result, 'embed_path') else ''
+        path_from_embed = (snapshot_dir / (embed_path or ''))
+        output_html += format_html('<i style="padding: 1px">{}</i><b style="padding-right: 20px">/</b><i>{}</i><br/><hr/>', str(snapshot_dir), str(embed_path))
+        if os.access(path_from_embed, os.R_OK):
+            root_dir = str(path_from_embed)
         else:
             root_dir = str(snapshot_dir)
 
@@ -367,13 +370,13 @@ class ArchiveResultAdmin(BaseModelAdmin):
             if depth > 2:
                 continue
             indent = ' ' * 4 * (depth)
-            output_str += format_html('<b style="padding: 1px">{}{}/</b><br/>', indent, os.path.basename(root))
+            output_html += format_html('<b style="padding: 1px">{}{}/</b><br/>', indent, os.path.basename(root))
             indentation_str = ' ' * 4 * (depth + 1)
             for filename in sorted(files):
                 is_hidden = filename.startswith('.')
-                output_str += format_html('<span style="opacity: {}.2">{}{}</span><br/>', int(not is_hidden), indentation_str, filename.strip())
+                output_html += format_html('<span style="opacity: {}.2">{}{}</span><br/>', int(not is_hidden), indentation_str, filename.strip())
 
-        return output_str + mark_safe('</code></pre>')
+        return output_html + mark_safe('</code></pre>')
 
 
 

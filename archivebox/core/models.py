@@ -36,7 +36,7 @@ from archivebox.base_models.models import (
 from workers.models import ModelWithStateMachine
 from workers.tasks import bg_archive_snapshot
 from crawls.models import Crawl
-from machine.models import NetworkInterface
+from machine.models import NetworkInterface, InstalledBinary
 
 
 
@@ -485,9 +485,13 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         def calc_icons():
             if hasattr(self, '_prefetched_objects_cache') and 'archiveresult_set' in self._prefetched_objects_cache:
-                archive_results = {r.extractor: r for r in self.archiveresult_set.all() if r.status == "succeeded" and r.output}
+                archive_results = {r.extractor: r for r in self.archiveresult_set.all() if r.status == "succeeded" and (r.output_files or r.output_str)}
             else:
-                archive_results = {r.extractor: r for r in self.archiveresult_set.filter(status="succeeded", output__isnull=False)}
+                # Filter for results that have either output_files or output_str
+                from django.db.models import Q
+                archive_results = {r.extractor: r for r in self.archiveresult_set.filter(
+                    Q(status="succeeded") & (Q(output_files__isnull=False) | ~Q(output_str=''))
+                )}
 
             path = self.archive_path
             canon = self.canonical_outputs()
@@ -499,7 +503,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
             for extractor in all_extractors:
                 result = archive_results.get(extractor)
-                existing = result and result.status == 'succeeded' and result.output
+                existing = result and result.status == 'succeeded' and (result.output_files or result.output_str)
                 icon = get_extractor_icon(extractor)
                 output += format_html(
                     output_template,
@@ -825,17 +829,24 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         # Scan each ArchiveResult's output directory for the best file
         snap_dir = Path(self.output_dir)
         for result in self.archiveresult_set.filter(status='succeeded'):
-            if not result.output:
+            if not result.output_files and not result.output_str:
                 continue
 
             # Try to find the best output file for this extractor
             extractor_dir = snap_dir / result.extractor
             best_output = None
 
-            if result.output and (snap_dir / result.output).exists():
-                # Use the explicit output path if it exists
-                best_output = result.output
-            elif extractor_dir.exists():
+            # Check output_files first (new field)
+            if result.output_files:
+                first_file = next(iter(result.output_files.keys()), None)
+                if first_file and (extractor_dir / first_file).exists():
+                    best_output = f'{result.extractor}/{first_file}'
+
+            # Fallback to output_str if it looks like a path
+            if not best_output and result.output_str and (snap_dir / result.output_str).exists():
+                best_output = result.output_str
+
+            if not best_output and extractor_dir.exists():
                 # Intelligently find the best file in the extractor's directory
                 best_output = find_best_output_in_dir(extractor_dir, result.extractor)
 
@@ -873,14 +884,18 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     def latest_outputs(self, status: Optional[str] = None) -> Dict[str, Any]:
         """Get the latest output that each archive method produced"""
         from archivebox.hooks import get_extractors
+        from django.db.models import Q
 
         latest: Dict[str, Any] = {}
         for archive_method in get_extractors():
             results = self.archiveresult_set.filter(extractor=archive_method)
             if status is not None:
                 results = results.filter(status=status)
-            results = results.filter(output__isnull=False).order_by('-start_ts')
-            latest[archive_method] = results.first().output if results.exists() else None
+            # Filter for results with output_files or output_str
+            results = results.filter(Q(output_files__isnull=False) | ~Q(output_str='')).order_by('-start_ts')
+            result = results.first()
+            # Return embed_path() for backwards compatibility
+            latest[archive_method] = result.embed_path() if result else None
         return latest
 
     # =========================================================================
@@ -1021,7 +1036,23 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     pwd = models.CharField(max_length=256, default=None, null=True, blank=True)
     cmd = models.JSONField(default=None, null=True, blank=True)
     cmd_version = models.CharField(max_length=128, default=None, null=True, blank=True)
-    output = models.CharField(max_length=1024, default=None, null=True, blank=True)
+
+    # New output fields (replacing old 'output' field)
+    output_str = models.TextField(blank=True, default='', help_text='Human-readable output summary')
+    output_json = models.JSONField(null=True, blank=True, default=None, help_text='Structured metadata (headers, redirects, etc.)')
+    output_files = models.JSONField(default=dict, help_text='Dict of {relative_path: {metadata}}')
+    output_size = models.BigIntegerField(default=0, help_text='Total bytes of all output files')
+    output_mimetypes = models.CharField(max_length=512, blank=True, default='', help_text='CSV of mimetypes sorted by size')
+
+    # Binary FK (optional - set when hook reports cmd)
+    binary = models.ForeignKey(
+        'machine.InstalledBinary',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='archiveresults',
+        help_text='Primary binary used by this hook'
+    )
+
     start_ts = models.DateTimeField(default=None, null=True, blank=True)
     end_ts = models.DateTimeField(default=None, null=True, blank=True)
 
@@ -1094,11 +1125,19 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         """
         Get the relative path to the embeddable output file for this result.
 
-        Returns the output field if set and file exists, otherwise tries to
+        Returns the first file from output_files if set, otherwise tries to
         find a reasonable default based on the extractor type.
         """
-        if self.output:
-            return self.output
+        # Check output_files dict for primary output
+        if self.output_files:
+            # Return first file from output_files (dict preserves insertion order)
+            first_file = next(iter(self.output_files.keys()), None)
+            if first_file:
+                return f'{self.extractor}/{first_file}'
+
+        # Fallback: check output_str if it looks like a file path
+        if self.output_str and ('/' in self.output_str or '.' in self.output_str):
+            return self.output_str
 
         # Try to find output file based on extractor's canonical output path
         canonical = self.snapshot.canonical_outputs()
@@ -1149,7 +1188,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
         if not hook:
             self.status = self.StatusChoices.FAILED
-            self.output = f'No hook found for: {self.extractor}'
+            self.output_str = f'No hook found for: {self.extractor}'
             self.retry_at = None
             self.save()
             return
@@ -1167,7 +1206,19 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             url=self.snapshot.url,
             snapshot_id=str(self.snapshot.id),
         )
+
+        # BACKGROUND HOOK - still running, return immediately
+        if result is None:
+            self.status = self.StatusChoices.STARTED
+            self.start_ts = start_ts
+            self.pwd = str(extractor_dir)
+            self.save()
+            return
+
         end_ts = timezone.now()
+
+        # Get records from hook output (new JSONL format)
+        records = result.get('records', [])
 
         # Clean up empty output directory if no files were created
         output_files = result.get('output_files', [])
@@ -1179,14 +1230,17 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             except (OSError, RuntimeError):
                 pass  # Directory not empty or can't be removed, that's fine
 
-        # Determine status from return code and JSON output
+        # Find the ArchiveResult record from hook output (if any)
+        ar_records = [r for r in records if r.get('type') == 'ArchiveResult']
         output_json = result.get('output_json') or {}
-        json_status = output_json.get('status')
 
-        if json_status == 'skipped':
-            status = 'skipped'
-        elif json_status == 'failed':
-            status = 'failed'
+        # Determine status from records, output_json, or return code
+        if ar_records:
+            # Use status from first ArchiveResult record
+            hook_data = ar_records[0]
+            status = hook_data.get('status', 'failed')
+        elif output_json.get('status'):
+            status = output_json['status']
         elif result['returncode'] == 0:
             status = 'succeeded'
         else:
@@ -1199,19 +1253,44 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             'skipped': self.StatusChoices.SKIPPED,
         }
         self.status = status_map.get(status, self.StatusChoices.FAILED)
-        self.output = output_json.get('output') or result['stdout'][:1024] or result['stderr'][:1024] or None
+
+        # Set output fields from records or output_json
+        if ar_records:
+            hook_data = ar_records[0]
+            self.output_str = hook_data.get('output_str') or hook_data.get('output') or ''
+            self.output_json = hook_data.get('output_json')
+            # Set cmd from JSONL record
+            if hook_data.get('cmd'):
+                self.cmd = hook_data['cmd']
+                self._set_binary_from_cmd(hook_data['cmd'])
+            if hook_data.get('cmd_version'):
+                self.cmd_version = hook_data['cmd_version'][:128]
+        else:
+            # Fallback to legacy output_json format
+            self.output_str = output_json.get('output_str') or output_json.get('output') or result['stdout'][:1024] or result['stderr'][:1024] or ''
+            self.output_json = output_json.get('output_json') if output_json.get('output_json') else None
+            if output_json.get('cmd_version'):
+                self.cmd_version = output_json['cmd_version'][:128]
+            if output_json.get('cmd'):
+                self.cmd = output_json['cmd']
+                self._set_binary_from_cmd(output_json['cmd'])
+
         self.start_ts = start_ts
         self.end_ts = end_ts
         self.retry_at = None
         self.pwd = str(extractor_dir)
 
-        # Save cmd and cmd_version from extractor output
-        if output_json.get('cmd_version'):
-            self.cmd_version = output_json['cmd_version'][:128]  # Max length from model
-        if output_json.get('cmd'):
-            self.cmd = output_json['cmd']
+        # Populate output_files, output_size, output_mimetypes from filesystem
+        if extractor_dir.exists():
+            self._populate_output_fields(extractor_dir)
 
         self.save()
+
+        # Process side-effect records (InstalledBinary, Machine config, etc.)
+        from archivebox.hooks import create_model_record
+        for record in records:
+            if record.get('type') != 'ArchiveResult':
+                create_model_record(record.copy())  # Copy to avoid mutating original
 
         # Queue any discovered URLs for crawling (parser extractors write urls.jsonl)
         self._queue_urls_for_crawl(extractor_dir)
@@ -1225,6 +1304,84 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         # Trigger search indexing if succeeded
         if self.status == self.StatusChoices.SUCCEEDED:
             self.trigger_search_indexing()
+
+    def _populate_output_fields(self, output_dir: Path) -> None:
+        """
+        Walk output directory and populate output_files, output_size, output_mimetypes.
+        """
+        import mimetypes
+        from collections import defaultdict
+
+        exclude_names = {'stdout.log', 'stderr.log', 'hook.pid', 'listener.pid'}
+
+        # Track mimetypes and sizes for aggregation
+        mime_sizes = defaultdict(int)
+        total_size = 0
+        output_files = {}  # Dict keyed by relative path
+
+        for file_path in output_dir.rglob('*'):
+            # Skip non-files and infrastructure files
+            if not file_path.is_file():
+                continue
+            if file_path.name in exclude_names:
+                continue
+
+            # Get file stats
+            try:
+                stat = file_path.stat()
+                mime_type, _ = mimetypes.guess_type(str(file_path))
+                mime_type = mime_type or 'application/octet-stream'
+
+                # Track for ArchiveResult fields
+                relative_path = str(file_path.relative_to(output_dir))
+                output_files[relative_path] = {}  # Empty dict, extensible for future metadata
+                mime_sizes[mime_type] += stat.st_size
+                total_size += stat.st_size
+            except (OSError, IOError):
+                continue
+
+        # Populate ArchiveResult fields
+        self.output_files = output_files
+        self.output_size = total_size
+
+        # Build output_mimetypes CSV (sorted by size descending)
+        sorted_mimes = sorted(mime_sizes.items(), key=lambda x: x[1], reverse=True)
+        self.output_mimetypes = ','.join(mime for mime, _ in sorted_mimes)
+
+    def _set_binary_from_cmd(self, cmd: list) -> None:
+        """
+        Find InstalledBinary for command and set binary FK.
+
+        Tries matching by absolute path first, then by binary name.
+        Only matches binaries on the current machine.
+        """
+        if not cmd:
+            return
+
+        from machine.models import Machine
+
+        bin_path_or_name = cmd[0] if isinstance(cmd, list) else cmd
+        machine = Machine.current()
+
+        # Try matching by absolute path first
+        binary = InstalledBinary.objects.filter(
+            abspath=bin_path_or_name,
+            machine=machine
+        ).first()
+
+        if binary:
+            self.binary = binary
+            return
+
+        # Fallback: match by binary name
+        bin_name = Path(bin_path_or_name).name
+        binary = InstalledBinary.objects.filter(
+            name=bin_name,
+            machine=machine
+        ).first()
+
+        if binary:
+            self.binary = binary
 
     def _update_snapshot_title(self, extractor_dir: Path):
         """
@@ -1325,3 +1482,120 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     def output_dir(self) -> Path:
         """Get the output directory for this extractor's results."""
         return Path(self.snapshot.output_dir) / self.extractor
+
+    def is_background_hook(self) -> bool:
+        """Check if this ArchiveResult is for a background hook."""
+        extractor_dir = Path(self.pwd) if self.pwd else None
+        if not extractor_dir:
+            return False
+        pid_file = extractor_dir / 'hook.pid'
+        return pid_file.exists()
+
+    def check_background_completed(self) -> bool:
+        """
+        Check if background hook process has exited.
+
+        Returns:
+            True if completed (process exited), False if still running
+        """
+        extractor_dir = Path(self.pwd) if self.pwd else None
+        if not extractor_dir:
+            return True  # No pwd = completed or failed to start
+
+        pid_file = extractor_dir / 'hook.pid'
+        if not pid_file.exists():
+            return True  # No PID file = completed or failed to start
+
+        try:
+            pid = int(pid_file.read_text().strip())
+            os.kill(pid, 0)  # Signal 0 = check if process exists
+            return False  # Still running
+        except (OSError, ValueError):
+            return True  # Process exited or invalid PID
+
+    def finalize_background_hook(self) -> None:
+        """
+        Collect final results from completed background hook.
+
+        Same logic as run() but for background hooks that already started.
+        """
+        from archivebox.hooks import create_model_record
+
+        extractor_dir = Path(self.pwd) if self.pwd else None
+        if not extractor_dir or not extractor_dir.exists():
+            self.status = self.StatusChoices.FAILED
+            self.output_str = 'Background hook output directory not found'
+            self.end_ts = timezone.now()
+            self.retry_at = None
+            self.save()
+            return
+
+        stdout_file = extractor_dir / 'stdout.log'
+        stderr_file = extractor_dir / 'stderr.log'
+
+        # Read logs
+        stdout = stdout_file.read_text() if stdout_file.exists() else ''
+
+        # Parse JSONL output
+        records = []
+        for line in stdout.splitlines():
+            line = line.strip()
+            if not line or not line.startswith('{'):
+                continue
+            try:
+                data = json.loads(line)
+                if 'type' in data:
+                    records.append(data)
+            except json.JSONDecodeError:
+                continue
+
+        # Find the ArchiveResult record
+        ar_records = [r for r in records if r.get('type') == 'ArchiveResult']
+
+        if ar_records:
+            hook_data = ar_records[0]
+
+            # Apply hook's data
+            status_str = hook_data.get('status', 'failed')
+            status_map = {
+                'succeeded': self.StatusChoices.SUCCEEDED,
+                'failed': self.StatusChoices.FAILED,
+                'skipped': self.StatusChoices.SKIPPED,
+            }
+            self.status = status_map.get(status_str, self.StatusChoices.FAILED)
+
+            self.output_str = hook_data.get('output_str') or hook_data.get('output') or ''
+            self.output_json = hook_data.get('output_json')
+
+            # Determine binary FK from cmd
+            if hook_data.get('cmd'):
+                self.cmd = hook_data['cmd']
+                self._set_binary_from_cmd(hook_data['cmd'])
+            if hook_data.get('cmd_version'):
+                self.cmd_version = hook_data['cmd_version'][:128]
+        else:
+            # No output = failed
+            self.status = self.StatusChoices.FAILED
+            self.output_str = 'Background hook did not output ArchiveResult'
+
+        self.end_ts = timezone.now()
+        self.retry_at = None
+
+        # Populate output fields from filesystem
+        if extractor_dir.exists():
+            self._populate_output_fields(extractor_dir)
+
+        self.save()
+
+        # Create any side-effect records
+        for record in records:
+            if record.get('type') != 'ArchiveResult':
+                create_model_record(record.copy())
+
+        # Cleanup PID files and empty logs
+        pid_file = extractor_dir / 'hook.pid'
+        pid_file.unlink(missing_ok=True)
+        if stdout_file.exists() and stdout_file.stat().st_size == 0:
+            stdout_file.unlink()
+        if stderr_file.exists() and stderr_file.stat().st_size == 0:
+            stderr_file.unlink()

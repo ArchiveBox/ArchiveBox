@@ -1,25 +1,39 @@
 #!/usr/bin/env python3
 """
-Validation hook for gallery-dl.
+Install hook for gallery-dl.
 
 Runs at crawl start to verify gallery-dl binary is available.
 Outputs JSONL for InstalledBinary and Machine config updates.
+Respects GALLERYDL_BINARY env var for custom binary paths.
 """
 
+import os
 import sys
 import json
+from pathlib import Path
 
 
 def find_gallerydl() -> dict | None:
-    """Find gallery-dl binary."""
+    """Find gallery-dl binary, respecting GALLERYDL_BINARY env var."""
     try:
         from abx_pkg import Binary, PipProvider, EnvProvider
 
-        binary = Binary(name='gallery-dl', binproviders=[PipProvider(), EnvProvider()])
+        # Check if user has configured a custom binary
+        configured_binary = os.environ.get('GALLERYDL_BINARY', '').strip()
+
+        if configured_binary:
+            if '/' in configured_binary:
+                bin_name = Path(configured_binary).name
+            else:
+                bin_name = configured_binary
+        else:
+            bin_name = 'gallery-dl'
+
+        binary = Binary(name=bin_name, binproviders=[PipProvider(), EnvProvider()])
         loaded = binary.load()
         if loaded and loaded.abspath:
             return {
-                'name': 'gallery-dl',
+                'name': bin_name,
                 'abspath': str(loaded.abspath),
                 'version': str(loaded.version) if loaded.version else None,
                 'sha256': loaded.sha256 if hasattr(loaded, 'sha256') else None,
@@ -32,6 +46,15 @@ def find_gallerydl() -> dict | None:
 
 
 def main():
+    # Determine binary name from config
+    configured_binary = os.environ.get('GALLERYDL_BINARY', '').strip()
+    if configured_binary and '/' in configured_binary:
+        bin_name = Path(configured_binary).name
+    elif configured_binary:
+        bin_name = configured_binary
+    else:
+        bin_name = 'gallery-dl'
+
     # Check for gallery-dl (required)
     gallerydl_result = find_gallerydl()
 
@@ -65,10 +88,10 @@ def main():
     else:
         print(json.dumps({
             'type': 'Dependency',
-            'bin_name': 'gallery-dl',
+            'bin_name': bin_name,
             'bin_providers': 'pip,env',
         }))
-        missing_deps.append('gallery-dl')
+        missing_deps.append(bin_name)
 
     if missing_deps:
         print(f"Missing dependencies: {', '.join(missing_deps)}", file=sys.stderr)

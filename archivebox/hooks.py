@@ -68,6 +68,8 @@ class HookResult(TypedDict, total=False):
     output_files: List[str]
     duration_ms: int
     hook: str
+    # New fields for JSONL parsing
+    records: List[Dict[str, Any]]  # Parsed JSONL records with 'type' field
 
 
 def discover_hooks(event_name: str) -> List[Path]:
@@ -268,7 +270,9 @@ def run_hook(
     files_before = set(output_dir.rglob('*')) if output_dir.exists() else set()
 
     # Detect if this is a background hook (long-running daemon)
-    is_background = '__background' in script.stem
+    # New convention: .bg. suffix (e.g., on_Snapshot__21_consolelog.bg.js)
+    # Old convention: __background in stem (for backwards compatibility)
+    is_background = '.bg.' in script.name or '__background' in script.stem
 
     # Set up output files for ALL hooks (useful for debugging)
     stdout_file = output_dir / 'stdout.log'
@@ -322,13 +326,44 @@ def run_hook(
         # Exclude the log files themselves from new_files
         new_files = [f for f in new_files if f not in ('stdout.log', 'stderr.log', 'hook.pid')]
 
-        # Parse RESULT_JSON from stdout
+        # Parse JSONL output from stdout
+        # Supports both new JSONL format (any line starting with { that has 'type')
+        # and legacy RESULT_JSON= format for backwards compatibility
         output_json = None
+        records = []
+        plugin_name = script.parent.name  # Plugin directory name (e.g., 'wget')
+
         for line in stdout.splitlines():
-            if line.startswith('RESULT_JSON='):
+            line = line.strip()
+            if not line:
+                continue
+
+            # New JSONL format: any line starting with { that has 'type' field
+            if line.startswith('{'):
                 try:
-                    output_json = json.loads(line[len('RESULT_JSON='):])
-                    break
+                    data = json.loads(line)
+                    if 'type' in data:
+                        # Add plugin metadata to every record
+                        data['plugin'] = plugin_name
+                        data['plugin_hook'] = str(script)
+                        records.append(data)
+                        # For backwards compatibility, also set output_json for first ArchiveResult
+                        if data.get('type') == 'ArchiveResult' and output_json is None:
+                            output_json = data
+                except json.JSONDecodeError:
+                    pass
+
+            # Legacy format: RESULT_JSON=...
+            elif line.startswith('RESULT_JSON='):
+                try:
+                    data = json.loads(line[len('RESULT_JSON='):])
+                    if output_json is None:
+                        output_json = data
+                    # Convert legacy format to new format
+                    data['type'] = 'ArchiveResult'
+                    data['plugin'] = plugin_name
+                    data['plugin_hook'] = str(script)
+                    records.append(data)
                 except json.JSONDecodeError:
                     pass
 
@@ -348,6 +383,7 @@ def run_hook(
             output_files=new_files,
             duration_ms=duration_ms,
             hook=str(script),
+            records=records,
         )
 
     except Exception as e:
@@ -360,6 +396,7 @@ def run_hook(
             output_files=[],
             duration_ms=duration_ms,
             hook=str(script),
+            records=[],
         )
 
 
@@ -1102,5 +1139,114 @@ def discover_plugin_templates() -> Dict[str, Dict[str, str]]:
                 templates[plugin_dir.name] = plugin_templates
 
     return templates
+
+
+# =============================================================================
+# Hook Result Processing Helpers
+# =============================================================================
+
+
+def find_binary_for_cmd(cmd: List[str], machine_id: str) -> Optional[str]:
+    """
+    Find InstalledBinary for a command, trying abspath first then name.
+    Only matches binaries on the current machine.
+
+    Args:
+        cmd: Command list (e.g., ['/usr/bin/wget', '-p', 'url'])
+        machine_id: Current machine ID
+
+    Returns:
+        Binary ID as string if found, None otherwise
+    """
+    if not cmd:
+        return None
+
+    from machine.models import InstalledBinary
+
+    bin_path_or_name = cmd[0] if isinstance(cmd, list) else cmd
+
+    # Try matching by absolute path first
+    binary = InstalledBinary.objects.filter(
+        abspath=bin_path_or_name,
+        machine_id=machine_id
+    ).first()
+
+    if binary:
+        return str(binary.id)
+
+    # Fallback: match by binary name
+    bin_name = Path(bin_path_or_name).name
+    binary = InstalledBinary.objects.filter(
+        name=bin_name,
+        machine_id=machine_id
+    ).first()
+
+    return str(binary.id) if binary else None
+
+
+def create_model_record(record: Dict[str, Any]) -> Any:
+    """
+    Generic helper to create/update model instances from hook JSONL output.
+
+    Args:
+        record: Dict with 'type' field and model data
+
+    Returns:
+        Created/updated model instance, or None if type unknown
+    """
+    from machine.models import InstalledBinary, Machine
+
+    record_type = record.pop('type', None)
+    if not record_type:
+        return None
+
+    # Remove plugin metadata (not model fields)
+    record.pop('plugin', None)
+    record.pop('plugin_hook', None)
+
+    if record_type == 'InstalledBinary':
+        # InstalledBinary requires machine FK
+        machine = Machine.current()
+        record.setdefault('machine', machine)
+
+        # Required fields check
+        name = record.get('name')
+        abspath = record.get('abspath')
+        if not name or not abspath:
+            return None
+
+        obj, created = InstalledBinary.objects.update_or_create(
+            machine=machine,
+            name=name,
+            defaults={
+                'abspath': abspath,
+                'version': record.get('version', ''),
+                'sha256': record.get('sha256', ''),
+                'binprovider': record.get('binprovider', 'env'),
+            }
+        )
+        return obj
+
+    elif record_type == 'Machine':
+        # Machine config update (special _method handling)
+        method = record.pop('_method', None)
+        if method == 'update':
+            key = record.get('key')
+            value = record.get('value')
+            if key and value:
+                machine = Machine.current()
+                if not machine.config:
+                    machine.config = {}
+                machine.config[key] = value
+                machine.save(update_fields=['config'])
+                return machine
+        return None
+
+    # Add more types as needed (Dependency, Snapshot, etc.)
+    else:
+        # Unknown type - log warning but don't fail
+        import sys
+        print(f"Warning: Unknown record type '{record_type}' from hook output", file=sys.stderr)
+        return None
 
 

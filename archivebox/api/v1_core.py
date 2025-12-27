@@ -69,7 +69,11 @@ class MinimalArchiveResultSchema(Schema):
     cmd_version: str | None
     cmd: list[str] | None
     pwd: str | None
-    output: str | None
+    output_str: str
+    output_json: dict | None
+    output_files: dict | None
+    output_size: int
+    output_mimetypes: str
     start_ts: datetime | None
     end_ts: datetime | None
 
@@ -109,12 +113,12 @@ class ArchiveResultSchema(MinimalArchiveResultSchema):
 
 class ArchiveResultFilterSchema(FilterSchema):
     id: Optional[str] = Field(None, q=['id__startswith', 'snapshot__id__startswith', 'snapshot__timestamp__startswith'])
-    search: Optional[str] = Field(None, q=['snapshot__url__icontains', 'snapshot__title__icontains', 'snapshot__tags__name__icontains', 'extractor', 'output__icontains', 'id__startswith', 'snapshot__id__startswith', 'snapshot__timestamp__startswith'])
+    search: Optional[str] = Field(None, q=['snapshot__url__icontains', 'snapshot__title__icontains', 'snapshot__tags__name__icontains', 'extractor', 'output_str__icontains', 'id__startswith', 'snapshot__id__startswith', 'snapshot__timestamp__startswith'])
     snapshot_id: Optional[str] = Field(None, q=['snapshot__id__startswith', 'snapshot__timestamp__startswith'])
     snapshot_url: Optional[str] = Field(None, q='snapshot__url__icontains')
     snapshot_tag: Optional[str] = Field(None, q='snapshot__tags__name__icontains')
     status: Optional[str] = Field(None, q='status')
-    output: Optional[str] = Field(None, q='output__icontains')
+    output_str: Optional[str] = Field(None, q='output_str__icontains')
     extractor: Optional[str] = Field(None, q='extractor__icontains')
     cmd: Optional[str] = Field(None, q='cmd__0__icontains')
     pwd: Optional[str] = Field(None, q='pwd__icontains')
