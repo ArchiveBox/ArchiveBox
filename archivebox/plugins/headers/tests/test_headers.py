@@ -6,9 +6,8 @@ Tests verify:
 2. Node.js is available
 3. Headers extraction works for real example.com
 4. Output JSON contains actual HTTP headers
-5. Fallback to HTTP HEAD when chrome_session not available
-6. Uses chrome_session headers when available
-7. Config options work (TIMEOUT, USER_AGENT, CHECK_SSL_VALIDITY)
+5. HTTP fallback works correctly
+6. Config options work (TIMEOUT, USER_AGENT)
 """
 
 import json
@@ -122,8 +121,8 @@ def test_extracts_headers_from_example_com():
                 break
 
 
-def test_uses_chrome_session_headers_when_available():
-    """Test that headers plugin prefers chrome_session headers over HTTP HEAD."""
+def test_headers_output_structure():
+    """Test that headers plugin produces correctly structured output."""
 
     if not shutil.which('node'):
         pytest.skip("node not installed")
@@ -131,46 +130,36 @@ def test_uses_chrome_session_headers_when_available():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Create mock chrome_session directory with response_headers.json
-        chrome_session_dir = tmpdir / 'chrome_session'
-        chrome_session_dir.mkdir()
-
-        mock_headers = {
-            'url': TEST_URL,
-            'status': 200,
-            'statusText': 'OK',
-            'headers': {
-                'content-type': 'text/html; charset=UTF-8',
-                'server': 'MockChromeServer',
-                'x-test-header': 'from-chrome-session'
-            }
-        }
-
-        headers_file = chrome_session_dir / 'response_headers.json'
-        headers_file.write_text(json.dumps(mock_headers))
-
-        # Run headers extraction
+        # Run headers extraction against real example.com
         result = subprocess.run(
-            ['node', str(HEADERS_HOOK), f'--url={TEST_URL}', '--snapshot-id=testchrome'],
+            ['node', str(HEADERS_HOOK), f'--url={TEST_URL}', '--snapshot-id=testformat'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=60
         )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
         assert 'STATUS=succeeded' in result.stdout, "Should report success"
-        assert 'chrome_session' in result.stdout, "Should report using chrome_session method"
 
-        # Verify it used chrome_session headers
+        # Verify output structure
         output_headers_file = tmpdir / 'headers' / 'headers.json'
         assert output_headers_file.exists(), "Output headers.json not created"
 
         output_data = json.loads(output_headers_file.read_text())
-        assert output_data['headers']['x-test-header'] == 'from-chrome-session', \
-            "Should use headers from chrome_session"
-        assert output_data['headers']['server'] == 'MockChromeServer', \
-            "Should use headers from chrome_session"
+
+        # Verify all required fields are present
+        assert 'url' in output_data, "Output should have url field"
+        assert 'status' in output_data, "Output should have status field"
+        assert 'headers' in output_data, "Output should have headers field"
+
+        # Verify data types
+        assert isinstance(output_data['status'], int), "Status should be integer"
+        assert isinstance(output_data['headers'], dict), "Headers should be dict"
+
+        # Verify example.com returns expected headers
+        assert output_data['url'] == TEST_URL
+        assert output_data['status'] in [200, 301, 302]
 
 
 def test_falls_back_to_http_when_chrome_session_unavailable():

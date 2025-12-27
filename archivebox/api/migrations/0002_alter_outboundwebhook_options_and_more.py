@@ -3,7 +3,7 @@
 import django.utils.timezone
 import signal_webhooks.fields
 import signal_webhooks.utils
-import uuid
+from archivebox import uuid_compat
 from django.conf import settings
 from django.db import migrations, models
 
@@ -39,7 +39,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='apitoken',
             name='id',
-            field=models.UUIDField(default=uuid.uuid7, editable=False, primary_key=True, serialize=False, unique=True),
+            field=models.UUIDField(default=uuid_compat.uuid7, editable=False, primary_key=True, serialize=False, unique=True),
         ),
         migrations.AlterField(
             model_name='outboundwebhook',
@@ -69,7 +69,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='outboundwebhook',
             name='id',
-            field=models.UUIDField(default=uuid.uuid7, editable=False, primary_key=True, serialize=False, unique=True),
+            field=models.UUIDField(default=uuid_compat.uuid7, editable=False, primary_key=True, serialize=False, unique=True),
         ),
         migrations.AlterField(
             model_name='outboundwebhook',

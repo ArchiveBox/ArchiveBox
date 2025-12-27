@@ -3,9 +3,22 @@
 import archivebox.base_models.models
 import django.db.models.deletion
 import django.utils.timezone
-import uuid
+from archivebox import uuid_compat
 from django.conf import settings
 from django.db import migrations, models
+
+
+def populate_archiveresult_uuids(apps, schema_editor):
+    """Generate unique UUIDs for ArchiveResults that don't have one."""
+    ArchiveResult = apps.get_model('core', 'ArchiveResult')
+    for result in ArchiveResult.objects.filter(uuid__isnull=True):
+        result.uuid = uuid_compat.uuid7()
+        result.save(update_fields=['uuid'])
+
+
+def reverse_populate_uuids(apps, schema_editor):
+    """Reverse migration - do nothing, UUIDs can stay."""
+    pass
 
 
 class Migration(migrations.Migration):
@@ -16,6 +29,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # FIRST: Populate UUIDs for existing NULL rows BEFORE any schema changes
+        migrations.RunPython(populate_archiveresult_uuids, reverse_populate_uuids),
+
+        # Remove output_dir fields (not needed, computed from snapshot)
         migrations.RemoveField(
             model_name='archiveresult',
             name='output_dir',
@@ -24,6 +41,8 @@ class Migration(migrations.Migration):
             model_name='snapshot',
             name='output_dir',
         ),
+
+        # Archiveresult field alterations
         migrations.AlterField(
             model_name='archiveresult',
             name='created_at',
@@ -49,11 +68,8 @@ class Migration(migrations.Migration):
             name='status',
             field=models.CharField(choices=[('queued', 'Queued'), ('started', 'Started'), ('backoff', 'Waiting to retry'), ('succeeded', 'Succeeded'), ('failed', 'Failed'), ('skipped', 'Skipped')], db_index=True, default='queued', max_length=15),
         ),
-        migrations.AlterField(
-            model_name='archiveresult',
-            name='uuid',
-            field=models.UUIDField(blank=True, db_index=True, default=uuid.uuid7, null=True, unique=True),
-        ),
+
+        # Snapshot field alterations
         migrations.AlterField(
             model_name='snapshot',
             name='bookmarked_at',
@@ -77,13 +93,10 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='snapshot',
             name='id',
-            field=models.UUIDField(default=uuid.uuid7, editable=False, primary_key=True, serialize=False, unique=True),
+            field=models.UUIDField(default=uuid_compat.uuid7, editable=False, primary_key=True, serialize=False, unique=True),
         ),
-        # migrations.AlterField(
-        #     model_name='snapshot',
-        #     name='tags',
-        #     field=models.ManyToManyField(blank=True, related_name='snapshot_set', through='core.SnapshotTag', through_fields=('snapshot', 'tag'), to='core.tag'),
-        # ),
+
+        # SnapshotTag and Tag alterations
         migrations.AlterField(
             model_name='snapshottag',
             name='id',

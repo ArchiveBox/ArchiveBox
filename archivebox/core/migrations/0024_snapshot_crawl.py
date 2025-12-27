@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ('core', '0023_new_schema'),
         ('crawls', '0001_initial'),
-        ('machine', '0001_initial'),
+        ('machine', '0001_squashed'),
     ]
 
     operations = [

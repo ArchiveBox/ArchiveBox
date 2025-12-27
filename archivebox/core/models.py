@@ -1,7 +1,7 @@
 __package__ = 'archivebox.core'
 
 from typing import Optional, Dict, Iterable, Any, List, TYPE_CHECKING
-from uuid import uuid7
+from archivebox.uuid_compat import uuid7
 from datetime import datetime, timedelta
 from django_stubs_ext.db.models import TypedModelMeta
 
@@ -912,7 +912,9 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     # Keep AutoField for backward compatibility with 0.7.x databases
     # UUID field is added separately by migration for new records
     id = models.AutoField(primary_key=True, editable=False)
-    uuid = models.UUIDField(default=uuid7, null=True, blank=True, db_index=True, unique=True)
+    # Note: unique constraint is added by migration 0027 - don't set unique=True here
+    # or SQLite table recreation in earlier migrations will fail
+    uuid = models.UUIDField(default=uuid7, null=True, blank=True, db_index=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False, related_name='archiveresult_set', db_index=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)

@@ -1,7 +1,7 @@
 [project]
 name = "archivebox"
 version = "0.9.0rc1"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
 license = {text = "MIT"}
@@ -22,6 +22,7 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
@@ -84,6 +85,9 @@ dependencies = [
     ### Binary/Package Management
     "abx-pkg>=0.1.0",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
     "gallery-dl>=1.31.1",
+
+    ### UUID7 backport for Python <3.14
+    "uuid7>=0.1.0; python_version < '3.14'",  # for: uuid7 support on Python 3.13 (provides uuid_extensions module)
 ]
 
 [project.optional-dependencies]
@@ -153,7 +157,7 @@ dev-dependencies = [
 ]
 
 [tool.uv.pip]
-python-version = "3.14"
+python-version = "3.13"
 # compile-bytecode = true
 
 [build-system]
@@ -167,7 +171,7 @@ package-dir = {"archivebox" = "archivebox"}
 
 [tool.ruff]
 line-length = 140
-target-version = "py314"
+target-version = "py313"
 src = ["archivebox"]
 exclude = ["*.pyi", "typings/", "migrations/"]
 
@@ -212,7 +216,7 @@ venv = ".venv"
 # defineConstant = { DEBUG = true }
 reportMissingImports = true
 reportMissingTypeStubs = false
-pythonVersion = "3.14"
+pythonVersion = "3.13"
 pythonPlatform = "Linux"
 
 

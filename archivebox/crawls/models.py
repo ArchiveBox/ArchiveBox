@@ -1,7 +1,7 @@
 __package__ = 'archivebox.crawls'
 
 from typing import TYPE_CHECKING, Iterable
-from uuid import uuid7
+from archivebox.uuid_compat import uuid7
 from pathlib import Path
 
 from django.db import models
@@ -61,7 +61,6 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     modified_at = models.DateTimeField(auto_now=True)
 
     urls = models.TextField(blank=False, null=False, help_text='Newline-separated list of URLs to crawl')
-    extractor = models.CharField(default='auto', max_length=32, help_text='Parser for reading URLs (auto, html, json, rss, etc)')
     config = models.JSONField(default=dict)
     max_depth = models.PositiveSmallIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(4)])
     tags_str = models.CharField(max_length=1024, blank=True, null=False, default='')

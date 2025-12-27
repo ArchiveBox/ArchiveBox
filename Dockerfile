@@ -1,5 +1,5 @@
 # This is the Dockerfile for ArchiveBox, it bundles the following main dependencies:
-#     python3.11, pip, pipx, uv, python3-ldap
+#     python3.14, pip, pipx, uv, python3-ldap
 #     curl, wget, git, dig, ping, tree, nano
 #     node, npm, single-file, readability-extractor, postlight-parser
 #     ArchiveBox, yt-dlp, playwright, chromium
@@ -20,7 +20,7 @@
 
 ### Example: Using ArchiveBox in your own project's Dockerfile ########
 
-# FROM python:3.12-slim
+# FROM python:3.14-slim
 # WORKDIR /data
 # RUN pip install archivebox>=0.8.5rc51   # use latest release here
 # RUN archivebox install

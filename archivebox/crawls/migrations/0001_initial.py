@@ -1,5 +1,6 @@
 # Initial migration for crawls app
-# This is a new app, no previous migrations to replace
+# This creates the original 0.8.x schema with Seed model
+# 0002 will remove Seed for the 0.9.x schema
 
 from uuid import uuid4
 from django.conf import settings
