@@ -75,9 +75,9 @@ body:
         DEBUG=False IS_TTY=True SUDO=False ID=dfa11485:aa78ad45 SEARCH_BACKEND=ripgrep LDAP=False
         
         Binary Dependencies:
-        √  python     3.11.9     venv_pip   ~/.venv/bin/python
-        √  django     5.1.2      venv_pip   ~/.venv/lib/python3.11/site-packages/django/__init__.py
-        √  sqlite     2.6.0      venv_pip   ~/.venv/lib/python3.11/site-packages/django/db/backends/sqlite3/base.py
+        √  python     3.14.0     venv_pip   ~/.venv/bin/python
+        √  django     6.0        venv_pip   ~/.venv/lib/python3.14/site-packages/django/__init__.py
+        √  sqlite     2.6.0      venv_pip   ~/.venv/lib/python3.14/site-packages/django/db/backends/sqlite3/base.py
         √  pip        24.3.1     venv_pip   ~/.venv/bin/pip
         ...
     validations:
