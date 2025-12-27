@@ -3,31 +3,30 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "SAVE_GALLERY_DL": {
+    "SAVE_GALLERYDL": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["USE_GALLERY_DL", "FETCH_GALLERY"],
       "description": "Enable gallery downloading with gallery-dl"
     },
-    "GALLERY_DL_BINARY": {
+    "GALLERYDL_BINARY": {
       "type": "string",
       "default": "gallery-dl",
       "description": "Path to gallery-dl binary"
     },
-    "GALLERY_DL_TIMEOUT": {
+    "GALLERYDL_TIMEOUT": {
       "type": "integer",
       "default": 3600,
       "minimum": 30,
       "x-fallback": "TIMEOUT",
       "description": "Timeout for gallery downloads in seconds"
     },
-    "GALLERY_DL_CHECK_SSL_VALIDITY": {
+    "GALLERYDL_CHECK_SSL_VALIDITY": {
       "type": "boolean",
       "default": true,
       "x-fallback": "CHECK_SSL_VALIDITY",
       "description": "Whether to verify SSL certificates"
     },
-    "GALLERY_DL_ARGS": {
+    "GALLERYDL_ARGS": {
       "type": "array",
       "items": {"type": "string"},
       "default": [
@@ -36,7 +35,7 @@
       ],
       "description": "Default gallery-dl arguments"
     },
-    "GALLERY_DL_EXTRA_ARGS": {
+    "GALLERYDL_EXTRA_ARGS": {
       "type": "string",
       "default": "",
       "description": "Extra arguments for gallery-dl (space-separated)"

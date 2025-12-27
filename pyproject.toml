@@ -48,16 +48,13 @@ dependencies = [
     "django-admin-data-views>=0.4.1",
     "django-object-actions>=4.3.0",
     "django-taggit==6.1.0",     # TODO: remove this in favor of KVTags only
-
     ### State Management
     "python-statemachine>=2.3.6",
-
     ### CLI / Logging
     "click>=8.1.7",          # for: nicer CLI command + argument definintions
     "rich>=13.8.0",          # for: pretty CLI output
     "rich-click>=1.8.4",     # for: pretty CLI command help text & output
     "ipython>=8.27.0",       # for: archivebox shell (TODO: replace with bpython?)
-    
     ### Host OS / System
     "supervisor>=4.2.5",     # for: archivebox server starting daphne and workers
     "psutil>=6.0.0",         # for: monitoring orchestractor,actors,workers,etc. and machine.models.Process
@@ -66,33 +63,28 @@ dependencies = [
     "atomicwrites==1.4.1",   # for: config file writes, index.json file writes, etc. (TODO: remove this deprecated lib in favor of archivebox.filestore.util/os.rename/os.replace)
     "python-crontab>=3.2.0", # for: archivebox schedule (TODO: remove this in favor of our own custom archivebox scheduler)
     "croniter>=3.0.3",       # for: archivebox schedule (TODO: remove this in favor of our own custom archivebox scheduler)
-    
     ### Base Types
     "pydantic>=2.8.0",       # for: archivebox.api (django-ninja), archivebox.config (pydantic-settings), and archivebox.index.schema (pydantic)
     "pydantic-settings>=2.5.2", # for: archivebox.config
     "python-benedict[io,parse]>=0.33.2", # for: dict replacement all over the codebase to allow .attr-style access
     "base32-crockford>=0.3.0", # for: encoding UUIDs in base32
-    
     ### Static Typing
     "mypy-extensions>=1.0.0", # for: django-stubs type hints (TODO: remove in favor of pylance/pyright?)
     "django-stubs>=5.0.4",    # for: vscode type hints on models and common django APIs
-
     ### API clients
     "requests>=2.32.3",      # for: fetching title, static files, headers (TODO: replace with httpx?)
     "sonic-client>=1.0.0",
     "pocket>=0.3.6",         # for: importing URLs from Pocket API
-
     ### Parsers
     "feedparser>=6.0.11",    # for: parsing pocket/pinboard/etc. RSS/bookmarks imports
     "dateparser>=1.2.0",     # for: parsing pocket/pinboard/etc. RSS/bookmark import dates
     "tzdata>=2024.2",        # needed for dateparser {TZ: UTC} on some systems: https://github.com/ArchiveBox/ArchiveBox/issues/1553
     "w3lib>=2.2.1",          # used for parsing content-type encoding from http response headers & html tags
-
     ### Extractor dependencies (optional binaries detected at runtime via shutil.which)
     "yt-dlp>=2024.1.0",      # for: media extractor
-
     ### Binary/Package Management
     "abx-pkg>=0.1.0",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
+    "gallery-dl>=1.31.1",
 
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # for: uuid7 support on Python 3.13 (provides uuid_extensions module)

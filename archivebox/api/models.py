@@ -10,6 +10,8 @@ from django.utils import timezone
 from django_stubs_ext.db.models import TypedModelMeta
 from signal_webhooks.models import WebhookBase
 
+from base_models.models import get_or_create_system_user_pk
+
 
 def generate_secret_token() -> str:
     return secrets.token_hex(16)
@@ -17,7 +19,7 @@ def generate_secret_token() -> str:
 
 class APIToken(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
     token = models.CharField(max_length=32, default=generate_secret_token, unique=True)
@@ -40,7 +42,7 @@ class APIToken(models.Model):
 
 class OutboundWebhook(WebhookBase):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
 

@@ -1,0 +1,40 @@
+<!-- Embedded forum view - renders JSONL forum posts -->
+<div class="extractor-embed forumdl-embed" style="width: 100%; max-width: 900px; margin: 0 auto; background: #1a1a1a; padding: 20px; border-radius: 8px;">
+    <div style="text-align: center; padding: 15px 0; border-bottom: 1px solid #333; margin-bottom: 20px;">
+        <span style="font-size: 32px;">💬</span>
+        <h3 style="margin: 10px 0; color: #fff; font-size: 18px;">Forum Thread</h3>
+    </div>
+    <div id="forum-posts" style="max-height: 500px; overflow-y: auto; color: #ddd;"></div>
+    <script>
+        (async function() {
+            try {
+                const response = await fetch('{{ output_path }}');
+                const text = await response.text();
+                const posts = text.trim().split('\n').map(line => JSON.parse(line));
+                const container = document.getElementById('forum-posts');
+
+                posts.forEach(post => {
+                    const postDiv = document.createElement('div');
+                    postDiv.style.cssText = 'background: #2a2a2a; padding: 15px; margin-bottom: 15px; border-radius: 5px; border-left: 3px solid #4a9eff;';
+
+                    const author = post.author || 'Anonymous';
+                    const date = post.date ? new Date(post.date).toLocaleString() : '';
+                    const title = post.title || '';
+                    const content = post.content || post.body || '';
+
+                    postDiv.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #444;">
+                            <strong style="color: #4a9eff;">${author}</strong>
+                            <span style="color: #888; font-size: 12px;">${date}</span>
+                        </div>
+                        ${title ? `<h4 style="margin: 0 0 10px 0; color: #fff;">${title}</h4>` : ''}
+                        <div style="color: #ccc; line-height: 1.5;">${content}</div>
+                    `;
+                    container.appendChild(postDiv);
+                });
+            } catch(e) {
+                document.getElementById('forum-posts').innerHTML = '<p style="color: #888;">Error loading forum posts</p>';
+            }
+        })();
+    </script>
+</div>

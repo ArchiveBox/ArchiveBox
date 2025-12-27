@@ -9,7 +9,12 @@
       "Bash(pkill:*)",
       "Bash(python3:*)",
       "Bash(sqlite3:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(uv add:*)",
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)",
+      "Bash(python -m forum_dl:*)",
+      "Bash(archivebox manage migrate:*)"
     ]
   }
 }

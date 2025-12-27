@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Validation hook for gallery-dl.
+Validation hook for papers-dl.
 
-Runs at crawl start to verify gallery-dl binary is available.
+Runs at crawl start to verify papers-dl binary is available.
 Outputs JSONL for InstalledBinary and Machine config updates.
 """
 
@@ -41,20 +41,20 @@ def get_binary_hash(abspath: str) -> str | None:
         return None
 
 
-def find_gallerydl() -> dict | None:
-    """Find gallery-dl binary."""
+def find_papersdl() -> dict | None:
+    """Find papers-dl binary."""
     try:
         from abx_pkg import Binary, PipProvider, EnvProvider
 
-        class GalleryDlBinary(Binary):
-            name: str = 'gallery-dl'
+        class PapersdlBinary(Binary):
+            name: str = 'papers-dl'
             binproviders_supported = [PipProvider(), EnvProvider()]
 
-        binary = GalleryDlBinary()
+        binary = PapersdlBinary()
         loaded = binary.load()
         if loaded and loaded.abspath:
             return {
-                'name': 'gallery-dl',
+                'name': 'papers-dl',
                 'abspath': str(loaded.abspath),
                 'version': str(loaded.version) if loaded.version else None,
                 'sha256': loaded.sha256 if hasattr(loaded, 'sha256') else None,
@@ -66,10 +66,10 @@ def find_gallerydl() -> dict | None:
         pass
 
     # Fallback to shutil.which
-    abspath = shutil.which('gallery-dl') or os.environ.get('GALLERYDL_BINARY', '')
+    abspath = shutil.which('papers-dl') or os.environ.get('PAPERSDL_BINARY', '')
     if abspath and Path(abspath).is_file():
         return {
-            'name': 'gallery-dl',
+            'name': 'papers-dl',
             'abspath': abspath,
             'version': get_binary_version(abspath),
             'sha256': get_binary_hash(abspath),
@@ -80,43 +80,43 @@ def find_gallerydl() -> dict | None:
 
 
 def main():
-    # Check for gallery-dl (required)
-    gallerydl_result = find_gallerydl()
+    # Check for papers-dl (required)
+    papersdl_result = find_papersdl()
 
     missing_deps = []
 
-    # Emit results for gallery-dl
-    if gallerydl_result and gallerydl_result.get('abspath'):
+    # Emit results for papers-dl
+    if papersdl_result and papersdl_result.get('abspath'):
         print(json.dumps({
             'type': 'InstalledBinary',
-            'name': gallerydl_result['name'],
-            'abspath': gallerydl_result['abspath'],
-            'version': gallerydl_result['version'],
-            'sha256': gallerydl_result['sha256'],
-            'binprovider': gallerydl_result['binprovider'],
+            'name': papersdl_result['name'],
+            'abspath': papersdl_result['abspath'],
+            'version': papersdl_result['version'],
+            'sha256': papersdl_result['sha256'],
+            'binprovider': papersdl_result['binprovider'],
         }))
 
         print(json.dumps({
             'type': 'Machine',
             '_method': 'update',
-            'key': 'config/GALLERYDL_BINARY',
-            'value': gallerydl_result['abspath'],
+            'key': 'config/PAPERSDL_BINARY',
+            'value': papersdl_result['abspath'],
         }))
 
-        if gallerydl_result['version']:
+        if papersdl_result['version']:
             print(json.dumps({
                 'type': 'Machine',
                 '_method': 'update',
-                'key': 'config/GALLERYDL_VERSION',
-                'value': gallerydl_result['version'],
+                'key': 'config/PAPERSDL_VERSION',
+                'value': papersdl_result['version'],
             }))
     else:
         print(json.dumps({
             'type': 'Dependency',
-            'bin_name': 'gallery-dl',
+            'bin_name': 'papers-dl',
             'bin_providers': 'pip,env',
         }))
-        missing_deps.append('gallery-dl')
+        missing_deps.append('papers-dl')
 
     if missing_deps:
         print(f"Missing dependencies: {', '.join(missing_deps)}", file=sys.stderr)

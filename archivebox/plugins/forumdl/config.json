@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "SAVE_FORUMDL": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable forum downloading with forum-dl"
+    },
+    "FORUMDL_BINARY": {
+      "type": "string",
+      "default": "forum-dl",
+      "description": "Path to forum-dl binary"
+    },
+    "FORUMDL_TIMEOUT": {
+      "type": "integer",
+      "default": 3600,
+      "minimum": 30,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for forum downloads in seconds"
+    },
+    "FORUMDL_OUTPUT_FORMAT": {
+      "type": "string",
+      "default": "jsonl",
+      "enum": ["jsonl", "warc", "mbox", "maildir", "mh", "mmdf", "babyl"],
+      "description": "Output format for forum downloads"
+    },
+    "FORUMDL_TEXTIFY": {
+      "type": "boolean",
+      "default": false,
+      "description": "Convert HTML content to plaintext (keep false to preserve HTML)"
+    },
+    "FORUMDL_CHECK_SSL_VALIDITY": {
+      "type": "boolean",
+      "default": true,
+      "x-fallback": "CHECK_SSL_VALIDITY",
+      "description": "Whether to verify SSL certificates"
+    },
+    "FORUMDL_EXTRA_ARGS": {
+      "type": "string",
+      "default": "",
+      "description": "Extra arguments for forum-dl (space-separated)"
+    }
+  }
+}
