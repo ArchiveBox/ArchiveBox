@@ -9,67 +9,25 @@ Outputs JSONL for InstalledBinary and Machine config updates.
 import os
 import sys
 import json
-import shutil
-import hashlib
-import subprocess
-from pathlib import Path
-
-
-def get_binary_version(abspath: str) -> str | None:
-    """Get version string from ripgrep binary."""
-    try:
-        result = subprocess.run(
-            [abspath, '--version'],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode == 0 and result.stdout:
-            # ripgrep version string: "ripgrep 14.1.0"
-            first_line = result.stdout.strip().split('\n')[0]
-            parts = first_line.split()
-            for i, part in enumerate(parts):
-                if part.lower() == 'ripgrep' and i + 1 < len(parts):
-                    return parts[i + 1]
-            # Try to find version number pattern
-            for part in parts:
-                if part[0].isdigit() and '.' in part:
-                    return part
-            return first_line[:32]
-    except Exception:
-        pass
-    return None
-
-
-def get_binary_hash(abspath: str) -> str | None:
-    """Get SHA256 hash of binary."""
-    try:
-        with open(abspath, 'rb') as f:
-            return hashlib.sha256(f.read()).hexdigest()
-    except Exception:
-        return None
 
 
 def find_ripgrep() -> dict | None:
-    """Find ripgrep binary using shutil.which or env var."""
-    # Check env var first - if it's an absolute path and exists, use it
-    ripgrep_env = os.environ.get('RIPGREP_BINARY', '')
-    if ripgrep_env and '/' in ripgrep_env and Path(ripgrep_env).is_file():
-        abspath = ripgrep_env
-    else:
-        # Otherwise try shutil.which with the env var as the binary name
-        abspath = shutil.which(ripgrep_env) if ripgrep_env else None
-        if not abspath:
-            abspath = shutil.which('rg')
+    """Find ripgrep binary."""
+    try:
+        from abx_pkg import Binary, AptProvider, BrewProvider, EnvProvider
 
-    if abspath and Path(abspath).is_file():
-        return {
-            'name': 'rg',
-            'abspath': abspath,
-            'version': get_binary_version(abspath),
-            'sha256': get_binary_hash(abspath),
-            'binprovider': 'env',
-        }
+        binary = Binary(name='rg', binproviders=[AptProvider(), BrewProvider(), EnvProvider()])
+        loaded = binary.load()
+        if loaded and loaded.abspath:
+            return {
+                'name': 'rg',
+                'abspath': str(loaded.abspath),
+                'version': str(loaded.version) if loaded.version else None,
+                'sha256': loaded.sha256 if hasattr(loaded, 'sha256') else None,
+                'binprovider': loaded.binprovider.name if loaded.binprovider else 'env',
+            }
+    except Exception:
+        pass
 
     return None
 

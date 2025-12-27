@@ -137,6 +137,8 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
                 return True, None, ''  # Not a forum site - success, no output
             if 'no content' in stderr_lower:
                 return True, None, ''  # No forum found - success, no output
+            if 'extractornotfounderror' in stderr_lower:
+                return True, None, ''  # No forum extractor for this URL - success, no output
             if result.returncode == 0:
                 return True, None, ''  # forum-dl exited cleanly, just no forum - success
 

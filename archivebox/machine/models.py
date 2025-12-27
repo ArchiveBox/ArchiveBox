@@ -109,13 +109,13 @@ class NetworkInterface(ModelWithHealthStats):
 
 
 class DependencyManager(models.Manager):
-    def get_or_create_for_extractor(self, bin_name: str, bin_providers: str = '*', custom_cmds: dict = None, config: dict = None) -> 'Dependency':
+    def get_or_create_for_extractor(self, bin_name: str, bin_providers: str = '*', overrides: dict = None, config: dict = None) -> 'Dependency':
         """Get or create a Dependency for an extractor's binary."""
         dependency, created = self.get_or_create(
             bin_name=bin_name,
             defaults={
                 'bin_providers': bin_providers,
-                'custom_cmds': custom_cmds or {},
+                'overrides': overrides or {},
                 'config': config or {},
             }
         )
@@ -132,11 +132,11 @@ class Dependency(models.Model):
     Example:
         Dependency.objects.get_or_create(
             bin_name='wget',
-            bin_providers='apt,brew,nix,custom',
-            custom_cmds={
-                'apt': 'apt install -y --no-install-recommends wget',
-                'brew': 'brew install wget',
-                'custom': 'curl https://example.com/get-wget.sh | bash',
+            bin_providers='apt,brew,pip,env',
+            overrides={
+                'apt': {'packages': ['wget']},
+                'brew': {'packages': ['wget']},
+                'pip': {'packages': ['wget']},
             }
         )
     """
@@ -161,8 +161,8 @@ class Dependency(models.Model):
         help_text="Binary executable name (e.g., wget, yt-dlp, chromium)")
     bin_providers = models.CharField(max_length=127, default='*',
         help_text="Comma-separated list of allowed providers: apt,brew,pip,npm,gem,nix,custom or * for any")
-    custom_cmds = models.JSONField(default=dict, blank=True,
-        help_text="JSON map of provider -> custom install command (e.g., {'apt': 'apt install -y wget'})")
+    overrides = models.JSONField(default=dict, blank=True,
+        help_text="JSON map matching abx-pkg Binary.overrides format: {'pip': {'packages': ['pkg']}, 'apt': {'packages': ['pkg']}}")
     config = models.JSONField(default=dict, blank=True,
         help_text="JSON map of env var config to use during install")
 
@@ -181,9 +181,9 @@ class Dependency(models.Model):
             return True
         return provider in self.bin_providers.split(',')
 
-    def get_install_cmd(self, provider: str) -> str | None:
-        """Get the install command for a provider, or None for default."""
-        return self.custom_cmds.get(provider)
+    def get_overrides_for_provider(self, provider: str) -> dict | None:
+        """Get the overrides for a provider, or None if not specified."""
+        return self.overrides.get(provider)
 
     @property
     def installed_binaries(self):
@@ -194,6 +194,85 @@ class Dependency(models.Model):
     def is_installed(self) -> bool:
         """Check if at least one valid InstalledBinary exists for this dependency."""
         return self.installed_binaries.filter(abspath__isnull=False).exclude(abspath='').exists()
+
+    def run(self):
+        """
+        Execute dependency installation by running all on_Dependency hooks.
+
+        Each hook checks if it can handle this dependency and installs if possible.
+        Returns the InstalledBinary record on success, None on failure.
+        """
+        import json
+        from pathlib import Path
+        from django.conf import settings
+
+        # Check if already installed
+        if self.is_installed:
+            return self.installed_binaries.first()
+
+        # Import here to avoid circular dependency
+        from archivebox.hooks import run_hooks
+
+        # Create output directory
+        DATA_DIR = getattr(settings, 'DATA_DIR', Path.cwd())
+        output_dir = Path(DATA_DIR) / 'tmp' / f'dependency_{self.id}'
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Build kwargs for hooks - pass overrides as JSON string
+        hook_kwargs = {
+            'dependency_id': str(self.id),
+            'bin_name': self.bin_name,
+            'bin_providers': self.bin_providers,
+            'overrides': json.dumps(self.overrides) if self.overrides else None,
+        }
+
+        # Run all on_Dependency hooks - each decides if it can handle this
+        results = run_hooks(
+            event_name='Dependency',
+            output_dir=output_dir,
+            timeout=600,
+            **hook_kwargs
+        )
+
+        # Process results - parse JSONL and create InstalledBinary records
+        for result in results:
+            if result['returncode'] != 0:
+                continue
+
+            # Parse JSONL output
+            for line in result['stdout'].strip().split('\n'):
+                if not line.strip():
+                    continue
+
+                try:
+                    obj = json.loads(line)
+                    if obj.get('type') == 'InstalledBinary':
+                        # Create InstalledBinary record
+                        if not obj.get('name') or not obj.get('abspath') or not obj.get('version'):
+                            continue
+
+                        machine = Machine.current()
+                        installed_binary, _ = InstalledBinary.objects.update_or_create(
+                            machine=machine,
+                            name=obj['name'],
+                            defaults={
+                                'abspath': obj['abspath'],
+                                'version': obj['version'],
+                                'sha256': obj.get('sha256') or '',
+                                'binprovider': obj.get('binprovider') or 'env',
+                                'dependency': self,
+                            }
+                        )
+
+                        # Success! Return the installed binary
+                        if self.is_installed:
+                            return installed_binary
+
+                except json.JSONDecodeError:
+                    continue
+
+        # Failed to install with any hook
+        return None
 
 
 class InstalledBinaryManager(models.Manager):

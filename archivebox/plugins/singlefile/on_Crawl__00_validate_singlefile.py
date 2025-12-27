@@ -6,82 +6,27 @@ Runs at crawl start to verify single-file (npm package) is available.
 Outputs JSONL for InstalledBinary and Machine config updates.
 """
 
-import os
 import sys
 import json
-import shutil
-import hashlib
-import subprocess
-from pathlib import Path
-
-
-def get_binary_version(abspath: str) -> str | None:
-    """Get version string from single-file binary."""
-    try:
-        result = subprocess.run(
-            [abspath, '--version'],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.returncode == 0 and result.stdout:
-            return result.stdout.strip().split('\n')[0][:32]
-    except Exception:
-        pass
-    return None
-
-
-def get_binary_hash(abspath: str) -> str | None:
-    """Get SHA256 hash of binary."""
-    try:
-        # For scripts, hash the script content
-        with open(abspath, 'rb') as f:
-            return hashlib.sha256(f.read()).hexdigest()
-    except Exception:
-        return None
 
 
 def find_singlefile() -> dict | None:
     """Find single-file binary."""
-    # Check env var first
-    env_path = os.environ.get('SINGLEFILE_BINARY', '')
-    if env_path and Path(env_path).is_file():
-        return {
-            'name': 'single-file',
-            'abspath': env_path,
-            'version': get_binary_version(env_path),
-            'sha256': get_binary_hash(env_path),
-            'binprovider': 'env',
-        }
+    try:
+        from abx_pkg import Binary, NpmProvider, EnvProvider
 
-    # Try shutil.which
-    for name in ['single-file', 'singlefile']:
-        abspath = shutil.which(name)
-        if abspath:
+        binary = Binary(name='single-file', binproviders=[NpmProvider(), EnvProvider()])
+        loaded = binary.load()
+        if loaded and loaded.abspath:
             return {
                 'name': 'single-file',
-                'abspath': abspath,
-                'version': get_binary_version(abspath),
-                'sha256': get_binary_hash(abspath),
-                'binprovider': 'npm',
+                'abspath': str(loaded.abspath),
+                'version': str(loaded.version) if loaded.version else None,
+                'sha256': loaded.sha256 if hasattr(loaded, 'sha256') else None,
+                'binprovider': loaded.binprovider.name if loaded.binprovider else 'env',
             }
-
-    # Check common npm paths
-    npm_paths = [
-        Path.home() / '.npm-global/bin/single-file',
-        Path.home() / 'node_modules/.bin/single-file',
-        Path('/usr/local/bin/single-file'),
-        Path('/usr/local/lib/node_modules/.bin/single-file'),
-    ]
-    for path in npm_paths:
-        if path.is_file():
-            return {
-                'name': 'single-file',
-                'abspath': str(path),
-                'version': get_binary_version(str(path)),
-                'sha256': get_binary_hash(str(path)),
-                'binprovider': 'npm',
-            }
+    except Exception:
+        pass
 
     return None
 
