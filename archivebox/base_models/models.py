@@ -5,7 +5,8 @@ __package__ = 'archivebox.base_models'
 import io
 import csv
 import json
-from uuid import uuid7, UUID
+from uuid import UUID
+from archivebox.uuid_compat import uuid7
 from typing import Any, Iterable, ClassVar
 from pathlib import Path
 

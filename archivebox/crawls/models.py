@@ -1,7 +1,7 @@
 __package__ = 'archivebox.crawls'
 
 from typing import TYPE_CHECKING, Iterable
-from uuid import uuid7
+from archivebox.uuid_compat import uuid7
 from pathlib import Path
 
 from django.db import models

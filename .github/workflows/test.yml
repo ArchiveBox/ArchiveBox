@@ -15,7 +15,7 @@ jobs:
       matrix:
         os: [ubuntu-22.04]
         # os: [ubuntu-22.04, macos-latest, windows-latest]
-        python: [3.14]
+        python: ["3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -38,7 +38,7 @@ jobs:
       - name: Setup PDM
         uses: pdm-project/setup-pdm@v3
         with:
-          python-version: '3.14'
+          python-version: '3.13'
           cache: true
 
       ### Install Python & JS Dependencies

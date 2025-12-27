@@ -1,7 +1,7 @@
 __package__ = 'archivebox.machine'
 
 import socket
-from uuid import uuid7
+from archivebox.uuid_compat import uuid7
 from datetime import timedelta
 
 from django.db import models

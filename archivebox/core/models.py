@@ -1,7 +1,7 @@
 __package__ = 'archivebox.core'
 
 from typing import Optional, Dict, Iterable, Any, List, TYPE_CHECKING
-from uuid import uuid7
+from archivebox.uuid_compat import uuid7
 from datetime import datetime, timedelta
 from django_stubs_ext.db.models import TypedModelMeta
 

@@ -3,7 +3,7 @@
 import archivebox.base_models.models
 import django.db.models.deletion
 import pathlib
-import uuid
+from archivebox import uuid_compat
 from django.conf import settings
 from django.db import migrations, models
 
@@ -33,7 +33,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='crawl',
             name='id',
-            field=models.UUIDField(default=uuid.uuid7, editable=False, primary_key=True, serialize=False, unique=True),
+            field=models.UUIDField(default=uuid_compat.uuid7, editable=False, primary_key=True, serialize=False, unique=True),
         ),
         migrations.AlterField(
             model_name='crawl',
@@ -53,7 +53,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='crawlschedule',
             name='id',
-            field=models.UUIDField(default=uuid.uuid7, editable=False, primary_key=True, serialize=False, unique=True),
+            field=models.UUIDField(default=uuid_compat.uuid7, editable=False, primary_key=True, serialize=False, unique=True),
         ),
         migrations.DeleteModel(
             name='Seed',
