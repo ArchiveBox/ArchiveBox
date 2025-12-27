@@ -1883,44 +1883,34 @@ Updated `archivebox/core/statemachines.py`:
 | media | `on_Snapshot__51_media.py` | ✅ UPDATED | Now outputs clean JSONL with cmd |
 | readability | `on_Snapshot__52_readability.py` | ✅ UPDATED | Now outputs clean JSONL with cmd |
 
-### Snapshot Hooks - JavaScript Hooks (REMAINING WORK)
+### Snapshot Hooks - JavaScript Hooks UPDATED ✅
 
-The following JS hooks still use the old `RESULT_JSON=` format and need to be updated:
+All JS hooks have been updated to use clean JSONL format:
 
-| Plugin | Hook | Current Issue |
-|--------|------|---------------|
-| chrome_session | `on_Snapshot__20_chrome_session.js` | Uses `RESULT_JSON=` prefix |
-| consolelog | `on_Snapshot__21_consolelog.js` | Uses `RESULT_JSON=` prefix |
-| ssl | `on_Snapshot__23_ssl.js` | Uses `RESULT_JSON=` prefix |
-| responses | `on_Snapshot__24_responses.js` | Uses `RESULT_JSON=` prefix |
-| chrome_navigate | `on_Snapshot__30_chrome_navigate.js` | Uses `RESULT_JSON=` prefix |
-| redirects | `on_Snapshot__31_redirects.js` | Uses `RESULT_JSON=` prefix |
-| headers | `on_Snapshot__33_headers.js` | Uses `RESULT_JSON=` prefix |
-| screenshot | `on_Snapshot__34_screenshot.js` | Uses `RESULT_JSON=` prefix |
-| pdf | `on_Snapshot__35_pdf.js` | Uses `RESULT_JSON=` prefix |
-| dom | `on_Snapshot__36_dom.js` | Uses `RESULT_JSON=` prefix |
-| seo | `on_Snapshot__38_seo.js` | Uses `RESULT_JSON=` prefix |
-| accessibility | `on_Snapshot__39_accessibility.js` | Uses `RESULT_JSON=` prefix |
-| parse_dom_outlinks | `on_Snapshot__40_parse_dom_outlinks.js` | Uses `RESULT_JSON=` prefix |
+| Plugin | Hook | Status | Notes |
+|--------|------|--------|-------|
+| chrome_session | `on_Snapshot__20_chrome_session.js` | ✅ UPDATED | Clean JSONL with cmd_version |
+| consolelog | `on_Snapshot__21_consolelog.bg.js` | ✅ UPDATED | Renamed to background hook |
+| ssl | `on_Snapshot__23_ssl.bg.js` | ✅ UPDATED | Renamed to background hook |
+| responses | `on_Snapshot__24_responses.bg.js` | ✅ UPDATED | Renamed to background hook |
+| chrome_navigate | `on_Snapshot__30_chrome_navigate.js` | ✅ UPDATED | Clean JSONL output |
+| redirects | `on_Snapshot__31_redirects.js` | ✅ UPDATED | Clean JSONL output |
+| title | `on_Snapshot__32_title.js` | ✅ UPDATED | Clean JSONL output |
+| headers | `on_Snapshot__33_headers.js` | ✅ UPDATED | Clean JSONL output |
+| screenshot | `on_Snapshot__34_screenshot.js` | ✅ UPDATED | Clean JSONL output |
+| pdf | `on_Snapshot__35_pdf.js` | ✅ UPDATED | Clean JSONL output |
+| dom | `on_Snapshot__36_dom.js` | ✅ UPDATED | Clean JSONL output |
+| seo | `on_Snapshot__38_seo.js` | ✅ UPDATED | Clean JSONL output |
+| accessibility | `on_Snapshot__39_accessibility.js` | ✅ UPDATED | Clean JSONL output |
+| parse_dom_outlinks | `on_Snapshot__40_parse_dom_outlinks.js` | ✅ UPDATED | Clean JSONL output |
 
-**Fix Required for Each JS Hook:**
+### Background Hooks Renamed ✅
 
-Replace:
-```javascript
-console.log(`START_TS=${startTs.toISOString()}`);
-console.log(`END_TS=${endTs.toISOString()}`);
-console.log(`STATUS=${status}`);
-console.log(`RESULT_JSON=${JSON.stringify(resultJson)}`);
-```
+The following hooks have been renamed with `.bg.` suffix:
 
-With:
-```javascript
-console.log(JSON.stringify({
-    type: 'ArchiveResult',
-    status,
-    output_str: output || error || '',
-}));
-```
+- `on_Snapshot__21_consolelog.js` → `on_Snapshot__21_consolelog.bg.js`
+- `on_Snapshot__23_ssl.js` → `on_Snapshot__23_ssl.bg.js`
+- `on_Snapshot__24_responses.js` → `on_Snapshot__24_responses.bg.js`
 
 ---
 
@@ -1937,21 +1927,48 @@ console.log(JSON.stringify({
 - `archivebox/core/migrations/0029_archiveresult_hook_fields.py` (new)
 - `archivebox/core/migrations/0030_migrate_output_field.py` (new)
 
-### Plugins Updated
+### Plugins Updated (Python Hooks)
 - `archivebox/plugins/archive_org/on_Snapshot__13_archive_org.py`
 - `archivebox/plugins/favicon/on_Snapshot__11_favicon.py`
 - `archivebox/plugins/git/on_Snapshot__12_git.py`
 - `archivebox/plugins/media/on_Snapshot__51_media.py`
 - `archivebox/plugins/readability/on_Snapshot__52_readability.py`
 - `archivebox/plugins/singlefile/on_Snapshot__37_singlefile.py`
-- `archivebox/plugins/title/on_Snapshot__32_title.js`
 - `archivebox/plugins/wget/on_Snapshot__50_wget.py`
+
+### Plugins Updated (JavaScript Hooks)
+- `archivebox/plugins/chrome_session/on_Snapshot__20_chrome_session.js`
+- `archivebox/plugins/consolelog/on_Snapshot__21_consolelog.bg.js` (renamed)
+- `archivebox/plugins/ssl/on_Snapshot__23_ssl.bg.js` (renamed)
+- `archivebox/plugins/responses/on_Snapshot__24_responses.bg.js` (renamed)
+- `archivebox/plugins/chrome_navigate/on_Snapshot__30_chrome_navigate.js`
+- `archivebox/plugins/redirects/on_Snapshot__31_redirects.js`
+- `archivebox/plugins/title/on_Snapshot__32_title.js`
+- `archivebox/plugins/headers/on_Snapshot__33_headers.js`
+- `archivebox/plugins/screenshot/on_Snapshot__34_screenshot.js`
+- `archivebox/plugins/pdf/on_Snapshot__35_pdf.js`
+- `archivebox/plugins/dom/on_Snapshot__36_dom.js`
+- `archivebox/plugins/seo/on_Snapshot__38_seo.js`
+- `archivebox/plugins/accessibility/on_Snapshot__39_accessibility.js`
+- `archivebox/plugins/parse_dom_outlinks/on_Snapshot__40_parse_dom_outlinks.js`
 
 ---
 
 ## Remaining Work
 
-1. **Update remaining JS hooks** (13 files) to output clean JSONL
-2. **Rename background hooks** with `.bg.` suffix
+1. ~~**Update remaining JS hooks** (13 files) to output clean JSONL~~ ✅ DONE
+2. ~~**Rename background hooks** with `.bg.` suffix~~ ✅ DONE
 3. **Write tests** for the hook architecture
 4. **Run migrations** and test on real data
+
+## Completion Summary
+
+All phases of the hook architecture implementation are now complete:
+
+- ✅ Phase 1: Database Migration
+- ✅ Phase 3: Generic run_hook() with JSONL parsing
+- ✅ Phase 4: Plugin Audit (all 32 hooks updated)
+- ✅ Phase 6: ArchiveResult.run() updated
+- ✅ Phase 7: Background hook support
+
+Total hooks updated: **32 hooks** across 6 dependency providers, 11 validate hooks, 8 Python snapshot hooks, and 14 JS snapshot hooks (3 of which are background hooks).

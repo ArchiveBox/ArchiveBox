@@ -152,12 +152,12 @@ async function main() {
         // Check if enabled
         if (!getEnvBool('SAVE_SEO', true)) {
             console.log('Skipping SEO (SAVE_SEO=False)');
-            status = 'skipped';
-            const endTs = new Date();
-            console.log(`START_TS=${startTs.toISOString()}`);
-            console.log(`END_TS=${endTs.toISOString()}`);
-            console.log(`STATUS=${status}`);
-            console.log(`RESULT_JSON=${JSON.stringify({extractor: EXTRACTOR_NAME, status, url, snapshot_id: snapshotId})}`);
+            // Output clean JSONL (no RESULT_JSON= prefix)
+            console.log(JSON.stringify({
+                type: 'ArchiveResult',
+                status: 'skipped',
+                output_str: 'SAVE_SEO=False',
+            }));
             process.exit(0);
         }
 
@@ -178,34 +178,15 @@ async function main() {
     }
 
     const endTs = new Date();
-    const duration = (endTs - startTs) / 1000;
 
-    // Print results
-    console.log(`START_TS=${startTs.toISOString()}`);
-    console.log(`END_TS=${endTs.toISOString()}`);
-    console.log(`DURATION=${duration.toFixed(2)}`);
-    if (output) {
-        console.log(`OUTPUT=${output}`);
-    }
-    console.log(`STATUS=${status}`);
+    if (error) console.error(`ERROR: ${error}`);
 
-    if (error) {
-        console.error(`ERROR=${error}`);
-    }
-
-    // Print JSON result
-    const resultJson = {
-        extractor: EXTRACTOR_NAME,
-        url,
-        snapshot_id: snapshotId,
+    // Output clean JSONL (no RESULT_JSON= prefix)
+    console.log(JSON.stringify({
+        type: 'ArchiveResult',
         status,
-        start_ts: startTs.toISOString(),
-        end_ts: endTs.toISOString(),
-        duration: Math.round(duration * 100) / 100,
-        output,
-        error: error || null,
-    };
-    console.log(`RESULT_JSON=${JSON.stringify(resultJson)}`);
+        output_str: output || error || '',
+    }));
 
     process.exit(status === 'succeeded' ? 0 : 1);
 }
