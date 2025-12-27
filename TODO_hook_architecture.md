@@ -1960,8 +1960,8 @@ The following hooks have been renamed with `.bg.` suffix:
 
 1. ~~**Update remaining JS hooks** (13 files) to output clean JSONL~~ ✅ DONE
 2. ~~**Rename background hooks** with `.bg.` suffix~~ ✅ DONE
-3. **Write tests** for the hook architecture
-4. **Run migrations** and test on real data
+3. ~~**Write tests** for the hook architecture~~ ✅ DONE (31 tests in archivebox/tests/test_hooks.py)
+4. ~~**Run migrations** and test on real data~~ ✅ DONE (migrations 0029 and 0030 applied successfully)
 
 ## Completion Summary
 
