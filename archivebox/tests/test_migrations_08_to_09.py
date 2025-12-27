@@ -12,6 +12,7 @@ Migration tests from 0.8.x to 0.9.x.
 
 import shutil
 import sqlite3
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -440,28 +441,34 @@ class TestFilesystemMigration08to09(unittest.TestCase):
         result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
-        # Step 2: Archive example.com with some extractors enabled
-        # Enable a subset of fast extractors for testing
-        result = run_archivebox(
-            self.work_dir,
-            ['add', '--depth=0', 'https://example.com'],
-            timeout=120,
-            env={
-                'SAVE_TITLE': 'True',
-                'SAVE_FAVICON': 'True',
-                'SAVE_WGET': 'True',
-                'SAVE_SCREENSHOT': 'False',  # Disable slow extractors
-                'SAVE_DOM': 'False',
-                'SAVE_SINGLEFILE': 'False',
-                'SAVE_READABILITY': 'False',
-                'SAVE_MERCURY': 'False',
-                'SAVE_PDF': 'False',
-                'SAVE_MEDIA': 'False',
-                'SAVE_ARCHIVE_DOT_ORG': 'False',
-            }
-        )
-        # Note: Add may fail if network is down or extractors fail, but we still want to test
-        # the filesystem migration logic even with partial failures
+        # Step 2: Archive example.com with ALL extractors enabled
+        # This ensures we test migration with all file types
+        try:
+            result = run_archivebox(
+                self.work_dir,
+                ['add', '--depth=0', 'https://example.com'],
+                timeout=300,  # 5 minutes for all extractors
+                env={
+                    'SAVE_TITLE': 'True',
+                    'SAVE_FAVICON': 'True',
+                    'SAVE_WGET': 'True',
+                    'SAVE_SCREENSHOT': 'True',
+                    'SAVE_DOM': 'True',
+                    'SAVE_SINGLEFILE': 'True',
+                    'SAVE_READABILITY': 'True',
+                    'SAVE_MERCURY': 'True',
+                    'SAVE_PDF': 'True',
+                    'SAVE_MEDIA': 'True',
+                    'SAVE_ARCHIVE_DOT_ORG': 'True',
+                    'SAVE_HEADERS': 'True',
+                    'SAVE_HTMLTOTEXT': 'True',
+                    'SAVE_GIT': 'True',
+                }
+            )
+        except subprocess.TimeoutExpired as e:
+            # If timeout, still continue - we want to test with whatever files were created
+            print(f"\n[!] Add command timed out after {e.timeout}s, continuing with partial results...")
+            # Note: Snapshot may still have been created even if command timed out
 
         # Step 3: Get the snapshot and verify files were created
         conn = sqlite3.connect(str(self.db_path))

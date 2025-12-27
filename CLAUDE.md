@@ -3,10 +3,10 @@
 ## Quick Start
 
 ```bash
-# Set up dev environment
-uv sync --dev
+# Set up dev environment (always use uv, never pip directly)
+uv sync --dev --all-extras
 
-# Run tests as non-root user (required - ArchiveBox refuses to run as root)
+# Run tests as non-root user (required - ArchiveBox always refuses to run as root)
 sudo -u testuser bash -c 'source .venv/bin/activate && python -m pytest archivebox/tests/ -v'
 ```
 
@@ -19,7 +19,7 @@ sudo -u testuser bash -c 'source .venv/bin/activate && python -m pytest archiveb
 
 ### Install Dependencies
 ```bash
-uv sync --dev
+uv sync --dev --all-extras  # Always use uv, never pip directly
 ```
 
 ### Activate Virtual Environment
@@ -30,7 +30,7 @@ source .venv/bin/activate
 ## Running Tests
 
 ### CRITICAL: Never Run as Root
-ArchiveBox has a root check that prevents running as root user. Always run tests as a non-root user:
+ArchiveBox has a root check that prevents running as root user. All ArchiveBox commands (including tests) must run as non-root user inside a data directory:
 
 ```bash
 # Run all migration tests
@@ -62,8 +62,10 @@ Tests must exercise real code paths:
 - Run actual `python -m archivebox` commands via subprocess
 - Query SQLite directly to verify results
 
+**If something is hard to test**: Modify the implementation to make it easier to test, or fix the underlying issue. Never mock, skip, simulate, or exit early from a test because you can't get something working inside the test.
+
 ### NO SKIPS
-Never use `@skip`, `skipTest`, or `pytest.mark.skip`. Every test must run.
+Never use `@skip`, `skipTest`, or `pytest.mark.skip`. Every test must run. If a test is difficult, fix the code or test environment - don't disable the test.
 
 ### Strict Assertions
 - `init` command must return exit code 0 (not `[0, 1]`)
@@ -115,7 +117,7 @@ chmod 644 archivebox/tests/test_*.py
 ```
 
 ### 2. DATA_DIR Environment Variable
-Tests use temp directories. The `run_archivebox()` helper sets `DATA_DIR` automatically.
+ArchiveBox commands must run inside a data directory. Tests use temp directories - the `run_archivebox()` helper sets `DATA_DIR` automatically.
 
 ### 3. Extractors Disabled for Speed
 Tests disable all extractors via environment variables for faster execution:

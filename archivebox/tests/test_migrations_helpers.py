@@ -986,27 +986,31 @@ def seed_0_8_data(db_path: Path) -> Dict[str, List[Dict]]:
 # Helper Functions
 # =============================================================================
 
-def run_archivebox(data_dir: Path, args: list, timeout: int = 60) -> subprocess.CompletedProcess:
+def run_archivebox(data_dir: Path, args: list, timeout: int = 60, env: dict = None) -> subprocess.CompletedProcess:
     """Run archivebox command in subprocess with given data directory."""
-    env = os.environ.copy()
-    env['DATA_DIR'] = str(data_dir)
-    env['USE_COLOR'] = 'False'
-    env['SHOW_PROGRESS'] = 'False'
-    # Disable ALL extractors for faster tests
-    env['SAVE_ARCHIVE_DOT_ORG'] = 'False'
-    env['SAVE_TITLE'] = 'False'
-    env['SAVE_FAVICON'] = 'False'
-    env['SAVE_WGET'] = 'False'
-    env['SAVE_SINGLEFILE'] = 'False'
-    env['SAVE_SCREENSHOT'] = 'False'
-    env['SAVE_PDF'] = 'False'
-    env['SAVE_DOM'] = 'False'
-    env['SAVE_READABILITY'] = 'False'
-    env['SAVE_MERCURY'] = 'False'
-    env['SAVE_GIT'] = 'False'
-    env['SAVE_MEDIA'] = 'False'
-    env['SAVE_HEADERS'] = 'False'
-    env['SAVE_HTMLTOTEXT'] = 'False'
+    base_env = os.environ.copy()
+    base_env['DATA_DIR'] = str(data_dir)
+    base_env['USE_COLOR'] = 'False'
+    base_env['SHOW_PROGRESS'] = 'False'
+    # Disable ALL extractors for faster tests (can be overridden by env parameter)
+    base_env['SAVE_ARCHIVE_DOT_ORG'] = 'False'
+    base_env['SAVE_TITLE'] = 'False'
+    base_env['SAVE_FAVICON'] = 'False'
+    base_env['SAVE_WGET'] = 'False'
+    base_env['SAVE_SINGLEFILE'] = 'False'
+    base_env['SAVE_SCREENSHOT'] = 'False'
+    base_env['SAVE_PDF'] = 'False'
+    base_env['SAVE_DOM'] = 'False'
+    base_env['SAVE_READABILITY'] = 'False'
+    base_env['SAVE_MERCURY'] = 'False'
+    base_env['SAVE_GIT'] = 'False'
+    base_env['SAVE_MEDIA'] = 'False'
+    base_env['SAVE_HEADERS'] = 'False'
+    base_env['SAVE_HTMLTOTEXT'] = 'False'
+
+    # Override with any custom env vars
+    if env:
+        base_env.update(env)
 
     cmd = [sys.executable, '-m', 'archivebox'] + args
 
@@ -1014,7 +1018,7 @@ def run_archivebox(data_dir: Path, args: list, timeout: int = 60) -> subprocess.
         cmd,
         capture_output=True,
         text=True,
-        env=env,
+        env=base_env,
         cwd=str(data_dir),
         timeout=timeout,
     )
