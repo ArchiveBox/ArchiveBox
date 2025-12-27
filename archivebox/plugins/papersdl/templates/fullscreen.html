@@ -1,0 +1,71 @@
+<!-- Fullscreen paper view - shows PDF in full screen -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scientific Paper</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1a1a1a;
+            color: #ddd;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .header {
+            text-align: center;
+            padding: 15px;
+            background: #0d1117;
+            border-bottom: 1px solid #30363d;
+        }
+        .icon {
+            font-size: 32px;
+            margin-bottom: 5px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 20px;
+            color: #f0f6fc;
+        }
+        .pdf-container {
+            flex: 1;
+            width: 100%;
+            overflow: hidden;
+        }
+        embed {
+            width: 100%;
+            height: 100%;
+        }
+        .download-link {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #58a6ff;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: background 0.2s;
+        }
+        .download-link:hover {
+            background: #1f6feb;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="icon">📄</div>
+        <h1>Scientific Paper</h1>
+    </div>
+    <div class="pdf-container">
+        <embed src="{{ output_path }}" type="application/pdf" />
+    </div>
+    <a href="{{ output_path }}" download class="download-link">Download PDF</a>
+</body>
+</html>
