@@ -14,7 +14,12 @@
       "Bash(mkdir:*)",
       "Bash(chmod:*)",
       "Bash(python -m forum_dl:*)",
-      "Bash(archivebox manage migrate:*)"
+      "Bash(archivebox manage migrate:*)",
+      "Bash(cat:*)",
+      "Bash(python archivebox/plugins/pip/on_Dependency__install_using_pip_provider.py:*)",
+      "Bash(forum-dl:*)",
+      "Bash(pip uninstall:*)",
+      "Bash(python:*)"
     ]
   }
 }

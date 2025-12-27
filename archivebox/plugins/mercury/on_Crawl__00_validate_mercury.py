@@ -15,43 +15,12 @@ import subprocess
 from pathlib import Path
 
 
-def get_binary_version(abspath: str) -> str | None:
-    """Get version string from binary."""
-    try:
-        result = subprocess.run(
-            [abspath, '--version'],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode == 0 and result.stdout:
-            first_line = result.stdout.strip().split('\n')[0]
-            return first_line[:64]
-    except Exception:
-        pass
-    return None
-
-
-def get_binary_hash(abspath: str) -> str | None:
-    """Get SHA256 hash of binary."""
-    try:
-        with open(abspath, 'rb') as f:
-            return hashlib.sha256(f.read()).hexdigest()
-    except Exception:
-        return None
-
-
 def find_mercury() -> dict | None:
     """Find postlight-parser binary."""
     try:
         from abx_pkg import Binary, NpmProvider, EnvProvider
 
-        class MercuryBinary(Binary):
-            name: str = 'postlight-parser'
-            binproviders_supported = [NpmProvider(), EnvProvider()]
-            overrides: dict = {'npm': {'packages': ['@postlight/parser']}}
-
-        binary = MercuryBinary()
+        binary = Binary(name='postlight-parser', binproviders=[NpmProvider(), EnvProvider()])
         loaded = binary.load()
         if loaded and loaded.abspath:
             return {
@@ -72,8 +41,8 @@ def find_mercury() -> dict | None:
         return {
             'name': 'postlight-parser',
             'abspath': abspath,
-            'version': get_binary_version(abspath),
-            'sha256': get_binary_hash(abspath),
+            'version': None,
+            'sha256': None,
             'binprovider': 'env',
         }
 
@@ -110,10 +79,14 @@ def main():
 
         sys.exit(0)
     else:
+        # postlight-parser is installed as @postlight/parser in npm
         print(json.dumps({
             'type': 'Dependency',
             'bin_name': 'postlight-parser',
             'bin_providers': 'npm,env',
+            'overrides': {
+                'npm': {'packages': ['@postlight/parser']}
+            }
         }))
         print(f"postlight-parser binary not found", file=sys.stderr)
         sys.exit(1)

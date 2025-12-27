@@ -25,7 +25,8 @@ BrewProvider.model_rebuild()
 @click.option('--bin-name', required=True, help="Binary name to install")
 @click.option('--bin-providers', default='*', help="Allowed providers (comma-separated)")
 @click.option('--custom-cmd', default=None, help="Custom install command")
-def main(dependency_id: str, bin_name: str, bin_providers: str, custom_cmd: str | None):
+@click.option('--overrides', default=None, help="JSON-encoded overrides dict")
+def main(dependency_id: str, bin_name: str, bin_providers: str, custom_cmd: str | None, overrides: str | None):
     """Install binary using Homebrew."""
 
     if bin_providers != '*' and 'brew' not in bin_providers.split(','):
@@ -41,7 +42,16 @@ def main(dependency_id: str, bin_name: str, bin_providers: str, custom_cmd: str 
     click.echo(f"Installing {bin_name} via brew...", err=True)
 
     try:
-        binary = Binary(name=bin_name, binproviders=[provider]).install()
+        # Parse overrides if provided
+        overrides_dict = None
+        if overrides:
+            try:
+                overrides_dict = json.loads(overrides)
+                click.echo(f"Using custom install overrides: {overrides_dict}", err=True)
+            except json.JSONDecodeError:
+                click.echo(f"Warning: Failed to parse overrides JSON: {overrides}", err=True)
+
+        binary = Binary(name=bin_name, binproviders=[provider], overrides=overrides_dict or {}).install()
     except Exception as e:
         click.echo(f"brew install failed: {e}", err=True)
         sys.exit(1)

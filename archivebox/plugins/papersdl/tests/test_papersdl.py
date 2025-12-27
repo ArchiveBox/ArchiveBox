@@ -15,6 +15,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 import pytest
 
@@ -23,6 +24,67 @@ PLUGINS_ROOT = PLUGIN_DIR.parent
 PAPERSDL_HOOK = PLUGIN_DIR / 'on_Snapshot__54_papersdl.py'
 PAPERSDL_VALIDATE_HOOK = PLUGIN_DIR / 'on_Crawl__00_validate_papersdl.py'
 TEST_URL = 'https://example.com'
+
+# Module-level cache for installed binary path
+_papersdl_binary_path = None
+
+def get_papersdl_binary_path():
+    """Get the installed papers-dl binary path from cache or by running validation/installation."""
+    global _papersdl_binary_path
+    if _papersdl_binary_path:
+        return _papersdl_binary_path
+
+    # Run validation hook to find or install binary
+    result = subprocess.run(
+        [sys.executable, str(PAPERSDL_VALIDATE_HOOK)],
+        capture_output=True,
+        text=True,
+        timeout=300
+    )
+
+    # Check if binary was found
+    for line in result.stdout.strip().split('\n'):
+        if line.strip():
+            try:
+                record = json.loads(line)
+                if record.get('type') == 'InstalledBinary' and record.get('name') == 'papers-dl':
+                    _papersdl_binary_path = record.get('abspath')
+                    return _papersdl_binary_path
+                elif record.get('type') == 'Dependency' and record.get('bin_name') == 'papers-dl':
+                    # Need to install via pip hook
+                    pip_hook = PLUGINS_ROOT / 'pip' / 'on_Dependency__install_using_pip_provider.py'
+                    dependency_id = str(uuid.uuid4())
+
+                    # Build command with overrides if present
+                    cmd = [
+                        sys.executable, str(pip_hook),
+                        '--dependency-id', dependency_id,
+                        '--bin-name', record['bin_name']
+                    ]
+                    if 'overrides' in record:
+                        cmd.extend(['--overrides', json.dumps(record['overrides'])])
+
+                    install_result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=300
+                    )
+
+                    # Parse InstalledBinary from pip installation
+                    for install_line in install_result.stdout.strip().split('\n'):
+                        if install_line.strip():
+                            try:
+                                install_record = json.loads(install_line)
+                                if install_record.get('type') == 'InstalledBinary' and install_record.get('name') == 'papers-dl':
+                                    _papersdl_binary_path = install_record.get('abspath')
+                                    return _papersdl_binary_path
+                            except json.JSONDecodeError:
+                                pass
+            except json.JSONDecodeError:
+                pass
+
+    return None
 
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
@@ -64,27 +126,24 @@ def test_papersdl_validate_hook():
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify papers-dl is available via abx-pkg."""
-    from abx_pkg import Binary, PipProvider, EnvProvider, BinProviderOverrides
-
-    missing_binaries = []
-
-    # Verify papers-dl is available
-    papersdl_binary = Binary(name='papers-dl', binproviders=[PipProvider(), EnvProvider()])
-    papersdl_loaded = papersdl_binary.load()
-    if not (papersdl_loaded and papersdl_loaded.abspath):
-        missing_binaries.append('papers-dl')
-
-    if missing_binaries:
-        pytest.skip(f"Binaries not available: {', '.join(missing_binaries)} - Dependency records should have been emitted")
+    """Verify papers-dl is installed by calling the REAL validation and installation hooks."""
+    binary_path = get_papersdl_binary_path()
+    assert binary_path, "papers-dl must be installed successfully via validation hook and pip provider"
+    assert Path(binary_path).is_file(), f"Binary path must be a valid file: {binary_path}"
 
 
 def test_handles_non_paper_url():
     """Test that papers-dl extractor handles non-paper URLs gracefully via hook."""
-    # Prerequisites checked by earlier test
+    import os
+
+    binary_path = get_papersdl_binary_path()
+    assert binary_path, "Binary must be installed for this test"
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+
+        env = os.environ.copy()
+        env['PAPERSDL_BINARY'] = binary_path
 
         # Run papers-dl extraction hook on non-paper URL
         result = subprocess.run(
@@ -92,6 +151,7 @@ def test_handles_non_paper_url():
             cwd=tmpdir,
             capture_output=True,
             text=True,
+            env=env,
             timeout=60
         )
 
@@ -138,8 +198,12 @@ def test_config_timeout():
     """Test that PAPERSDL_TIMEOUT config is respected."""
     import os
 
+    binary_path = get_papersdl_binary_path()
+    assert binary_path, "Binary must be installed for this test"
+
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
+        env['PAPERSDL_BINARY'] = binary_path
         env['PAPERSDL_TIMEOUT'] = '5'
 
         result = subprocess.run(

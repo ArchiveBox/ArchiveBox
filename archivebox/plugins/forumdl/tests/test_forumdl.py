@@ -15,6 +15,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 import pytest
 
@@ -23,6 +24,75 @@ PLUGINS_ROOT = PLUGIN_DIR.parent
 FORUMDL_HOOK = PLUGIN_DIR / 'on_Snapshot__53_forumdl.py'
 FORUMDL_VALIDATE_HOOK = PLUGIN_DIR / 'on_Crawl__00_validate_forumdl.py'
 TEST_URL = 'https://example.com'
+
+# Module-level cache for installed binary path
+_forumdl_binary_path = None
+
+def get_forumdl_binary_path():
+    """Get the installed forum-dl binary path from cache or by running validation/installation."""
+    global _forumdl_binary_path
+    if _forumdl_binary_path:
+        return _forumdl_binary_path
+
+    # Run validation hook to find or install binary
+    result = subprocess.run(
+        [sys.executable, str(FORUMDL_VALIDATE_HOOK)],
+        capture_output=True,
+        text=True,
+        timeout=300
+    )
+
+    # Check if binary was found
+    for line in result.stdout.strip().split('\n'):
+        if line.strip():
+            try:
+                record = json.loads(line)
+                if record.get('type') == 'InstalledBinary' and record.get('name') == 'forum-dl':
+                    _forumdl_binary_path = record.get('abspath')
+                    return _forumdl_binary_path
+                elif record.get('type') == 'Dependency' and record.get('bin_name') == 'forum-dl':
+                    # Need to install via pip hook
+                    pip_hook = PLUGINS_ROOT / 'pip' / 'on_Dependency__install_using_pip_provider.py'
+                    dependency_id = str(uuid.uuid4())
+
+                    # Build command with overrides if present
+                    cmd = [
+                        sys.executable, str(pip_hook),
+                        '--dependency-id', dependency_id,
+                        '--bin-name', record['bin_name']
+                    ]
+                    if 'overrides' in record:
+                        cmd.extend(['--overrides', json.dumps(record['overrides'])])
+
+                    install_result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=300
+                    )
+
+                    # Parse InstalledBinary from pip installation
+                    for install_line in install_result.stdout.strip().split('\n'):
+                        if install_line.strip():
+                            try:
+                                install_record = json.loads(install_line)
+                                if install_record.get('type') == 'InstalledBinary' and install_record.get('name') == 'forum-dl':
+                                    _forumdl_binary_path = install_record.get('abspath')
+                                    return _forumdl_binary_path
+                            except json.JSONDecodeError:
+                                pass
+
+                    # Installation failed - print debug info
+                    if not _forumdl_binary_path:
+                        print(f"\n=== forum-dl installation failed ===", file=sys.stderr)
+                        print(f"stdout: {install_result.stdout}", file=sys.stderr)
+                        print(f"stderr: {install_result.stderr}", file=sys.stderr)
+                        print(f"returncode: {install_result.returncode}", file=sys.stderr)
+                        return None
+            except json.JSONDecodeError:
+                pass
+
+    return None
 
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
@@ -64,27 +134,28 @@ def test_forumdl_validate_hook():
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify forum-dl is available via abx-pkg."""
-    from abx_pkg import Binary, PipProvider, EnvProvider, BinProviderOverrides
-
-    missing_binaries = []
-
-    # Verify forum-dl is available
-    forumdl_binary = Binary(name='forum-dl', binproviders=[PipProvider(), EnvProvider()])
-    forumdl_loaded = forumdl_binary.load()
-    if not (forumdl_loaded and forumdl_loaded.abspath):
-        missing_binaries.append('forum-dl')
-
-    if missing_binaries:
-        pytest.skip(f"Binaries not available: {', '.join(missing_binaries)} - Dependency records should have been emitted")
+    """Verify forum-dl is installed by calling the REAL validation and installation hooks."""
+    binary_path = get_forumdl_binary_path()
+    assert binary_path, (
+        "forum-dl must be installed successfully via validation hook and pip provider. "
+        "NOTE: forum-dl has a dependency on cchardet which does not compile on Python 3.14+ "
+        "due to removed longintrepr.h header. This is a known compatibility issue with forum-dl."
+    )
+    assert Path(binary_path).is_file(), f"Binary path must be a valid file: {binary_path}"
 
 
 def test_handles_non_forum_url():
     """Test that forum-dl extractor handles non-forum URLs gracefully via hook."""
-    # Prerequisites checked by earlier test
+    import os
+
+    binary_path = get_forumdl_binary_path()
+    assert binary_path, "Binary must be installed for this test"
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+
+        env = os.environ.copy()
+        env['FORUMDL_BINARY'] = binary_path
 
         # Run forum-dl extraction hook on non-forum URL
         result = subprocess.run(
@@ -92,10 +163,11 @@ def test_handles_non_forum_url():
             cwd=tmpdir,
             capture_output=True,
             text=True,
+            env=env,
             timeout=60
         )
 
-        # Should exit 0 even for non-forum URL
+        # Should exit 0 even for non-forum URL (graceful handling)
         assert result.returncode == 0, f"Should handle non-forum URL gracefully: {result.stderr}"
 
         # Verify JSONL output
@@ -138,8 +210,12 @@ def test_config_timeout():
     """Test that FORUMDL_TIMEOUT config is respected."""
     import os
 
+    binary_path = get_forumdl_binary_path()
+    assert binary_path, "Binary must be installed for this test"
+
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
+        env['FORUMDL_BINARY'] = binary_path
         env['FORUMDL_TIMEOUT'] = '5'
 
         result = subprocess.run(

@@ -186,11 +186,12 @@ class Migration(migrations.Migration):
 
 ---
 
-## Phase 2: Hook Output Format
+## Phase 2: Hook Output Format Specification
 
 ### Hooks emit single JSON object to stdout
 
 **Contract:**
+- Hook scripts must be executable (chmod +x) and specify their interpreter at the top with a /usr/bin/env shebang line
 - Hook emits ONE JSON object with `type: 'ArchiveResult'`
 - Hook can provide: `status`, `output_str`, `output_json`, `cmd` (optional)
 - Hook should NOT set: `output_files`, `output_size`, `output_mimetypes` (runner calculates these)
@@ -203,37 +204,23 @@ class Migration(migrations.Migration):
 // Simple string output
 console.log(JSON.stringify({
     type: 'ArchiveResult',
-    status: 'succeeded',
-    output_str: 'Downloaded index.html (4.2 KB)'
+    output_str: 'This is the page title',
 }));
 
-// With structured metadata (headers, redirects, etc.)
+// With structured metadata and optional fields (headers, redirects, etc.)
 console.log(JSON.stringify({
     type: 'ArchiveResult',
     status: 'succeeded',
-    output_str: 'Archived https://example.com',
-    output_json: {
-        headers: {'content-type': 'text/html', 'server': 'nginx'},
-        redirects: [{from: 'http://example.com', to: 'https://example.com'}]
-    }
+    output_str: 'Got https://example.com headers',
+    output_json: {'content-type': 'text/html', 'server': 'nginx', 'status-code': 200, 'content-length': 234235},
 }));
 
-// With explicit cmd (for binary FK)
+// With explicit cmd (cmd first arg should match InstalledBinary.bin_abspath or XYZ_BINARY env var so ArchiveResult.run() can FK to the InstalledBinary)
 console.log(JSON.stringify({
     type: 'ArchiveResult',
     status: 'succeeded',
     output_str: 'Archived with wget',
-    cmd: ['wget', '-p', '-k', 'https://example.com']
-}));
-
-// Just structured data (no human-readable string)
-console.log(JSON.stringify({
-    type: 'ArchiveResult',
-    status: 'succeeded',
-    output_json: {
-        title: 'My Page Title',
-        charset: 'UTF-8'
-    }
+    cmd: ['/some/abspath/to/wget', '-p', '-k', 'https://example.com']
 }));
 
 // BAD: Don't duplicate ArchiveResult fields in output_json
@@ -241,16 +228,17 @@ console.log(JSON.stringify({
     type: 'ArchiveResult',
     status: 'succeeded',
     output_json: {
-        status: 'succeeded',  // ❌ BAD - duplicates ArchiveResult.status
-        output_files: ['index.html'],  // ❌ BAD - runner calculates this
-        custom_data: 'ok'  // ✅ GOOD - custom fields only
-    }
+        status: 'succeeded',     // ❌ BAD - this should be up a level on ArchiveResult.status, not inside output_json
+        title: 'the page title', // ❌ BAD - if the extractor's main output is just a string then it belongs in output_str
+        custom_data: 1234,       // ✅ GOOD - custom fields only
+    },
+    output_files: {'index.html': {}},  // ❌ BAD - runner calculates this for us, no need to return it manually
 }));
 ```
 
 ---
 
-## Phase 3: run_hook() is Generic (No HookResult TypedDict)
+## Phase 3: Architecture - Generic run_hook()
 
 `run_hook()` is a generic JSONL parser - it doesn't know about ArchiveResult, InstalledBinary, or any specific model. It just:
 1. Executes the hook script
@@ -276,8 +264,8 @@ def run_hook(
 
     Each Model.run() method handles its own record types differently:
     - ArchiveResult.run() extends ArchiveResult records with computed fields
-    - Machine.run() creates InstalledBinary records from hook output
-    - etc.
+    - Dependency.run() creates InstalledBinary records from hook output
+    - Crawl.run() can create Dependency records, Snapshots, or InstalledBinary records from hook output
 
     Returns:
         List of dicts with 'type' field, each extended with metadata:
@@ -285,9 +273,9 @@ def run_hook(
             {
                 'type': 'ArchiveResult',
                 'status': 'succeeded',
-                'output_str': '...',
                 'plugin': 'wget',
                 'plugin_hook': 'archivebox/plugins/wget/on_Snapshot__21_wget.py',
+                'output_str': '...',
                 # ... other hook-reported fields
             },
             {
@@ -325,19 +313,241 @@ def create_model_record(record: dict) -> Any:
     model_type = record.pop('type')
 
     if model_type == 'InstalledBinary':
-        obj, created = InstalledBinary.objects.get_or_create(**record)
+        obj, created = InstalledBinary.objects.get_or_create(**record)  # if model requires custom logic implement InstalledBinary.from_jsonl(**record)
         return obj
     elif model_type == 'Dependency':
         obj, created = Dependency.objects.get_or_create(**record)
         return obj
-    # Add more types as needed
+    # ... Snapshot, ArchiveResult, etc. add more types as needed
     else:
         raise ValueError(f"Unknown record type: {model_type}")
 ```
 
 ---
 
-## Phase 4: Update run_hook() Implementation
+## Phase 4: Plugin Audit & Standardization
+
+**CRITICAL:** This phase MUST be done FIRST, before updating core code. Do this manually, one plugin at a time. Do NOT batch-update multiple plugins at once. Do NOT skip any plugins or checks.
+
+**Why First?** Updating plugins to output clean JSONL before changing core code means the transition is safe and incremental. The current run_hook() can continue to work during the plugin updates.
+
+### 4.1 Install Hook Standardization
+
+All plugins should follow a consistent pattern for checking and declaring dependencies.
+
+#### Hook Naming Convention
+
+**RENAME ALL HOOKS:**
+- ❌ OLD: `on_Crawl__*_validate_*.{sh,py,js}`
+- ✅ NEW: `on_Crawl__*_install_*.{sh,py,js}`
+
+Rationale: "install" is clearer than "validate" for what these hooks actually do.
+
+#### Standard Install Hook Pattern
+
+**ALL install hooks MUST follow this pattern:**
+
+1. ✅ Check if InstalledBinary already exists for the configured binary
+2. ✅ If NOT found, emit a Dependency JSONL record, with overrides if you need to customize install process
+3. ❌ NEVER directly call npm, apt, brew, pip, or any package manager
+4. ✅ Let bin provider plugins handle actual installation
+
+**Example Standard Pattern:**
+
+```python
+#!/usr/bin/env python3
+"""
+Check for wget binary and emit Dependency if not found.
+"""
+import os
+import sys
+import json
+from pathlib import Path
+
+def main():
+    # 1. Get configured binary name/path from env
+    binary_path = os.environ.get('WGET_BINARY', 'wget')
+
+    # 2. Check if InstalledBinary exists for this binary
+    # (In practice, this check happens via database query in the actual implementation)
+    # For install hooks, we emit a Dependency that the system will process
+
+    # 3. Emit Dependency JSONL if needed
+    # The bin provider will check InstalledBinary and install if missing
+    dependency = {
+        'type': 'Dependency',
+        'name': 'wget',
+        'bin_name': Path(binary_path).name if '/' in binary_path else binary_path,
+        'providers': ['apt', 'brew', 'pkg'],  # Priority order
+        'abspath': binary_path if binary_path.startswith('/') else None,
+    }
+
+    print(json.dumps(dependency))
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main())
+```
+
+#### Config Variable Handling
+
+**ALL hooks MUST respect user-configured binary paths:**
+
+- ✅ Read `XYZ_BINARY` env var (e.g., `WGET_BINARY`, `YTDLP_BINARY`, `CHROME_BINARY`)
+- ✅ Support absolute paths: `WGET_BINARY=/usr/local/bin/wget2`
+- ✅ Support bin names: `WGET_BINARY=wget2`
+- ✅ Check for the CORRECT binary name in InstalledBinary
+- ✅ If user provides `WGET_BINARY=wget2`, check for `wget2` not `wget`
+
+**Example Config Handling:**
+
+```python
+# Get configured binary (could be path or name)
+binary_path = os.environ.get('WGET_BINARY', 'wget')
+
+# Extract just the binary name for InstalledBinary lookup
+if '/' in binary_path:
+    # Absolute path: /usr/local/bin/wget2 -> wget2
+    bin_name = Path(binary_path).name
+else:
+    # Just a name: wget2 -> wget2
+    bin_name = binary_path
+
+# Now check InstalledBinary for bin_name (not hardcoded 'wget')
+```
+
+### 4.2 Snapshot Hook Standardization
+
+All `on_Snapshot__*.*` hooks must follow the output format specified in **Phase 2**. Key points for implementation:
+
+#### Output Format Requirements
+
+**CRITICAL Legacy Issues to Fix:**
+
+1. ❌ **Remove `RESULT_JSON=` prefix** - old hooks use `console.log('RESULT_JSON=' + ...)`
+2. ❌ **Remove extra output lines** - old hooks print VERSION=, START_TS=, END_TS=, STATUS=, OUTPUT=
+3. ❌ **Remove `--version` calls** - hooks should NOT run binary version checks
+4. ✅ **Output clean JSONL only** - exactly ONE line: `console.log(JSON.stringify(result))`
+
+**Before (WRONG):**
+```javascript
+console.log(`VERSION=${version}`);
+console.log(`START_TS=${startTime.toISOString()}`);
+console.log(`RESULT_JSON=${JSON.stringify(result)}`);
+```
+
+**After (CORRECT):**
+```javascript
+console.log(JSON.stringify({type: 'ArchiveResult', status: 'succeeded', output_str: 'Done'}));
+```
+
+> **See Phase 2 for complete JSONL format specification and examples.**
+
+#### Using Configured Binaries
+
+**ALL on_Snapshot hooks MUST:**
+
+1. ✅ Read the correct `XYZ_BINARY` env var
+2. ✅ Use that binary path/name in their commands
+3. ✅ Pass cmd in JSONL output for binary FK lookup
+
+**Example:**
+
+```javascript
+// ✅ CORRECT - uses env var
+const wgetBinary = process.env.WGET_BINARY || 'wget';
+const cmd = [wgetBinary, '-p', '-k', url];
+
+// Execute command...
+const result = execSync(cmd.join(' '));
+
+// Report cmd in output for binary FK
+console.log(JSON.stringify({
+    type: 'ArchiveResult',
+    status: 'succeeded',
+    output_str: 'Downloaded page',
+    cmd: cmd,  // ✅ Includes configured binary
+}));
+```
+
+```javascript
+// ❌ WRONG - hardcoded binary name
+const cmd = ['wget', '-p', '-k', url];  // Ignores WGET_BINARY
+```
+
+### 4.3 Per-Plugin Checklist
+
+**For EACH plugin, verify ALL of these:**
+
+#### Install Hook Checklist
+
+- [ ] Renamed from `on_Crawl__*_validate_*` to `on_Crawl__*_install_*`
+- [ ] Reads `XYZ_BINARY` env var and handles both absolute paths + bin names
+- [ ] Emits `{"type": "Dependency", ...}` JSONL (NOT hardcoded to always check for 'wget')
+- [ ] Does NOT call npm/apt/brew/pip directly
+- [ ] Follows standard pattern from section 4.1
+
+#### Snapshot Hook Checklist
+
+- [ ] Reads correct `XYZ_BINARY` env var and uses it in cmd
+- [ ] Outputs EXACTLY ONE JSONL line (NO `RESULT_JSON=` prefix)
+- [ ] NO extra output lines (VERSION=, START_TS=, END_TS=, STATUS=, OUTPUT=)
+- [ ] Does NOT run `--version` commands
+- [ ] Only provides allowed fields (type, status, output_str, output_json, cmd)
+- [ ] Does NOT include computed fields (see Phase 2 for forbidden fields list)
+- [ ] Includes `cmd` array with configured binary path
+
+### 4.4 Implementation Process
+
+**MANDATORY PROCESS:**
+
+1. ✅ List ALL plugins in archivebox/plugins/
+2. ✅ For EACH plugin (DO NOT BATCH):
+   a. Read ALL hook files in the plugin directory
+   b. Check install hooks against checklist 4.3
+   c. Check snapshot hooks against checklist 4.3
+   d. Fix issues one by one
+   e. Test the plugin hooks
+   f. Move to next plugin
+3. ❌ DO NOT skip any plugins
+4. ❌ DO NOT batch-update multiple plugins
+5. ❌ DO NOT assume plugins are similar enough to update together
+
+**Why one-by-one?**
+- Each plugin may have unique patterns
+- Each plugin may use different languages (sh/py/js)
+- Each plugin may have different edge cases
+- Batch updates lead to copy-paste errors
+
+### 4.5 Testing Each Plugin
+
+After updating each plugin, verify:
+
+1. ✅ Install hook can be executed: `python3 on_Crawl__01_install_wget.py`
+2. ✅ Install hook outputs valid JSONL: `python3 ... | jq .`
+3. ✅ Install hook respects `XYZ_BINARY` env var
+4. ✅ Snapshot hook can be executed with test URL
+5. ✅ Snapshot hook outputs EXACTLY ONE JSONL line
+6. ✅ Snapshot hook JSONL parses correctly: `... | jq .type`
+7. ✅ Snapshot hook uses configured binary from env
+
+### 4.6 Common Pitfalls
+
+When auditing plugins, watch for these common mistakes:
+
+1. **Hardcoded binary names** - Check `InstalledBinary.filter(name='wget')` → should use configured name
+2. **Old output format** - Look for `RESULT_JSON=`, `VERSION=`, `START_TS=` lines
+3. **Computed fields in output** - Watch for `output_files`, `start_ts`, `duration` in JSONL
+4. **Missing config variables** - Ensure hooks read `XYZ_BINARY` env vars
+5. **Version checks** - Remove any `--version` command executions
+
+> See sections 4.1 and 4.2 for detailed before/after examples.
+
+---
+
+## Phase 5: Update run_hook() Implementation
+
+**Note:** Only do this AFTER Phase 4 (plugin standardization) is complete. By then, all plugins will output clean JSONL and this implementation will work smoothly.
 
 ### Location: `archivebox/hooks.py`
 
@@ -546,7 +756,9 @@ def run_hook(
 
 ---
 
-## Phase 5: Update ArchiveResult.run()
+## Phase 6: Update ArchiveResult.run()
+
+**Note:** Only do this AFTER Phase 5 (run_hook() implementation) is complete.
 
 ### Location: `archivebox/core/models.py`
 
@@ -562,7 +774,7 @@ def run(self):
     computed fields (output_files, output_size, binary FK, etc.).
     """
     from django.utils import timezone
-    from archivebox.hooks import BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR, run_hook
+    from archivebox.hooks import BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR, run_hook, find_binary_for_cmd, create_model_record
     from machine.models import Machine
 
     config_objects = [self.snapshot.crawl, self.snapshot] if self.snapshot.crawl else [self.snapshot]
@@ -802,9 +1014,47 @@ All existing queries continue to work unchanged - the dict structure is backward
 
 ---
 
-## Phase 6: Background Hook Finalization
+## Phase 7: Background Hook Support
 
-### Helper Functions
+This phase adds support for long-running background hooks that don't block other extractors.
+
+### 7.1 Background Hook Detection
+
+Background hooks are identified by `.bg.` suffix in filename:
+- `on_Snapshot__21_consolelog.bg.js` ← background
+- `on_Snapshot__11_favicon.js` ← foreground
+
+### 7.2 Rename Background Hooks
+
+**Files to rename:**
+
+```bash
+# Use .bg. suffix (not __background)
+mv archivebox/plugins/consolelog/on_Snapshot__21_consolelog.js \
+   archivebox/plugins/consolelog/on_Snapshot__21_consolelog.bg.js
+
+mv archivebox/plugins/ssl/on_Snapshot__23_ssl.js \
+   archivebox/plugins/ssl/on_Snapshot__23_ssl.bg.js
+
+mv archivebox/plugins/responses/on_Snapshot__24_responses.js \
+   archivebox/plugins/responses/on_Snapshot__24_responses.bg.js
+```
+
+**Update hook content to emit proper JSON:**
+
+Each hook should emit:
+```javascript
+console.log(JSON.stringify({
+    type: 'ArchiveResult',
+    status: 'succeeded',  // or 'failed' or 'skipped'
+    output_str: 'Captured 15 console messages',  // human-readable summary
+    output_json: {  // optional structured metadata
+        // ... specific to each hook
+    }
+}));
+```
+
+### 7.3 Finalization Helper Functions
 
 Location: `archivebox/core/models.py` or new `archivebox/core/background_hooks.py`
 
@@ -934,7 +1184,7 @@ def finalize_background_hook(archiveresult: 'ArchiveResult') -> None:
         stderr_file.unlink()
 ```
 
-### Update SnapshotMachine
+### 7.4 Update SnapshotMachine
 
 Location: `archivebox/core/statemachines.py`
 
@@ -967,79 +1217,9 @@ class SnapshotMachine(StateMachine, strict_states=True):
         return True
 ```
 
----
-
-## Phase 6b: Deduplication
+### 7.5 Deduplication
 
 Deduplication is handled by external filesystem tools like `fdupes` (hardlinks), ZFS dedup, Btrfs duperemove, or rdfind. Users can run these tools periodically on the archive directory to identify and link duplicate files. ArchiveBox doesn't need to track hashes or manage deduplication itself - the filesystem layer handles it transparently.
-
----
-
-## Phase 7: Rename Background Hooks
-
-### Files to rename:
-
-```bash
-# Use .bg. suffix (not __background)
-mv archivebox/plugins/consolelog/on_Snapshot__21_consolelog.js \
-   archivebox/plugins/consolelog/on_Snapshot__21_consolelog.bg.js
-
-mv archivebox/plugins/ssl/on_Snapshot__23_ssl.js \
-   archivebox/plugins/ssl/on_Snapshot__23_ssl.bg.js
-
-mv archivebox/plugins/responses/on_Snapshot__24_responses.js \
-   archivebox/plugins/responses/on_Snapshot__24_responses.bg.js
-```
-
-### Update hook content to emit proper JSON:
-
-Each hook should emit:
-```javascript
-console.log(JSON.stringify({
-    type: 'ArchiveResult',
-    status: 'succeeded',  // or 'failed' or 'skipped'
-    output_str: 'Captured 15 console messages',  // human-readable summary
-    output_json: {  // optional structured metadata
-        // ... specific to each hook
-    }
-}));
-```
-
----
-
-## Phase 8: Update Existing Hooks
-
-### Update all hooks to emit proper JSON format
-
-**Example: favicon hook**
-
-```python
-# Before
-print(f'Favicon saved ({size} bytes)')
-print(f'OUTPUT={OUTPUT_FILE}')
-print(f'STATUS=succeeded')
-
-# After
-result = {
-    'type': 'ArchiveResult',
-    'status': 'succeeded',
-    'output_str': f'Favicon saved ({size} bytes)',
-    'output_json': {
-        'size': size,
-        'format': 'ico'
-    }
-}
-print(json.dumps(result))
-```
-
-**Example: wget hook with explicit cmd**
-
-```bash
-# After wget completes
-cat <<EOF
-{"type": "ArchiveResult", "status": "succeeded", "output_str": "Downloaded index.html", "cmd": ["wget", "-p", "-k", "$URL"]}
-EOF
-```
 
 ---
 
@@ -1166,13 +1346,18 @@ cd archivebox
 python manage.py makemigrations core --name archiveresult_background_hooks
 ```
 
-### Step 2: Update run_hook()
+### Step 2: **Plugin standardization (Phase 4)**
+- Update ALL plugins to new JSONL format FIRST
+- Test each plugin as you update it
+- This ensures old run_hook() can still work during transition
+
+### Step 3: Update run_hook() (Phase 5)
 - Add background hook detection
 - Add log file capture
 - Parse JSONL output (any line with {type: 'ModelName', ...})
 - Add plugin and plugin_hook metadata to each record
 
-### Step 3: Update ArchiveResult.run()
+### Step 4: Update ArchiveResult.run() (Phase 6)
 - Handle None result for background hooks (return immediately)
 - Parse records list from run_hook()
 - Assert only one ArchiveResult record per hook
@@ -1180,21 +1365,17 @@ python manage.py makemigrations core --name archiveresult_background_hooks
 - Call `_populate_output_fields()` to walk directory and populate summary fields
 - Call `create_model_record()` for any side-effect records (InstalledBinary, etc.)
 
-### Step 4: Add finalization helpers
+### Step 5: Add finalization helpers (Phase 7)
 - `find_background_hooks()`
 - `check_background_hook_completed()`
 - `finalize_background_hook()`
 
-### Step 5: Update SnapshotMachine.is_finished()
+### Step 6: Update SnapshotMachine.is_finished() (Phase 7)
 - Check for background hooks
 - Finalize completed ones
 
-### Step 6: Rename hooks
+### Step 7: Rename background hooks (Phase 7)
 - Rename 3 background hooks with .bg. suffix
-
-### Step 7: Update hook outputs
-- Update all hooks to emit JSON format
-- Remove manual timestamp/status calculation
 
 ### Step 8: Test
 - Unit tests
@@ -1214,6 +1395,8 @@ python manage.py makemigrations core --name archiveresult_background_hooks
 - ✅ Log files cleaned up on success, kept on failure
 - ✅ PID files cleaned up after completion
 - ✅ No plugin-specific code in core (generic polling mechanism)
+- ✅ All plugins updated to clean JSONL format
+- ✅ Safe incremental rollout (plugins first, then core code)
 
 ---
 
