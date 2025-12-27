@@ -105,7 +105,7 @@ class ExtractorResult:
 
         # ... do extraction ...
 
-        result.output = 'example.com/index.html'
+        result.output_str = 'example.com/index.html'
         result.status = 'succeeded'
         result.finish()
 
@@ -121,7 +121,7 @@ class ExtractorResult:
 
         self.cmd: list[str] = []
         self.version: str = ''
-        self.output: str | Path | None = None
+        self.output_str: str = ''  # Human-readable output summary
         self.status: str = 'failed'  # 'succeeded', 'failed', 'skipped'
 
         self.stdout: str = ''
@@ -174,8 +174,8 @@ class ExtractorResult:
             print(f"VERSION={self.version}")
 
         # Print output path
-        if self.output:
-            print(f"OUTPUT={self.output}")
+        if self.output_str:
+            print(f"OUTPUT={self.output_str}")
 
         # Print status
         print(f"STATUS={self.status}")
@@ -192,22 +192,17 @@ class ExtractorResult:
         for hint in self.hints:
             print(f"HINT={hint}", file=sys.stderr)
 
-        # Print JSON result for structured parsing
+        # Print clean JSONL result for hooks.py to parse
         result_json = {
-            'extractor': self.name,
-            'url': self.url,
-            'snapshot_id': self.snapshot_id,
+            'type': 'ArchiveResult',
             'status': self.status,
-            'start_ts': self.start_ts.isoformat(),
-            'end_ts': self.end_ts.isoformat() if self.end_ts else None,
-            'duration': round(self.duration, 2),
-            'cmd': self.cmd,
-            'cmd_version': self.version,
-            'output': str(self.output) if self.output else None,
-            'returncode': self.returncode,
-            'error': self.error or None,
+            'output_str': self.output_str or self.error or '',
         }
-        print(f"RESULT_JSON={json.dumps(result_json)}")
+        if self.cmd:
+            result_json['cmd'] = self.cmd
+        if self.version:
+            result_json['cmd_version'] = self.version
+        print(json.dumps(result_json))
 
 
 def run_shell_command(

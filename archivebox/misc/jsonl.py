@@ -174,16 +174,30 @@ def archiveresult_to_jsonl(result) -> Dict[str, Any]:
     """
     Convert an ArchiveResult model instance to a JSONL record.
     """
-    return {
+    record = {
         'type': TYPE_ARCHIVERESULT,
         'id': str(result.id),
         'snapshot_id': str(result.snapshot_id),
         'extractor': result.extractor,
         'status': result.status,
-        'output': result.output,
+        'output_str': result.output_str,
         'start_ts': result.start_ts.isoformat() if result.start_ts else None,
         'end_ts': result.end_ts.isoformat() if result.end_ts else None,
     }
+    # Include optional fields if set
+    if result.output_json:
+        record['output_json'] = result.output_json
+    if result.output_files:
+        record['output_files'] = result.output_files
+    if result.output_size:
+        record['output_size'] = result.output_size
+    if result.output_mimetypes:
+        record['output_mimetypes'] = result.output_mimetypes
+    if result.cmd:
+        record['cmd'] = result.cmd
+    if result.cmd_version:
+        record['cmd_version'] = result.cmd_version
+    return record
 
 
 def tag_to_jsonl(tag) -> Dict[str, Any]:

@@ -59,10 +59,10 @@ def process_archiveresult_by_id(archiveresult_id: str) -> int:
         archiveresult.refresh_from_db()
 
         if archiveresult.status == ArchiveResult.StatusChoices.SUCCEEDED:
-            print(f'[green]Extraction succeeded: {archiveresult.output}[/green]')
+            print(f'[green]Extraction succeeded: {archiveresult.output_str}[/green]')
             return 0
         elif archiveresult.status == ArchiveResult.StatusChoices.FAILED:
-            print(f'[red]Extraction failed: {archiveresult.output}[/red]', file=sys.stderr)
+            print(f'[red]Extraction failed: {archiveresult.output_str}[/red]', file=sys.stderr)
             return 1
         else:
             # Still in progress or backoff - not a failure
@@ -202,7 +202,7 @@ def run_plugins(
                         'failed': 'red',
                         'skipped': 'yellow',
                     }.get(result.status, 'dim')
-                    rprint(f'  [{status_color}]{result.status}[/{status_color}] {result.extractor} → {result.output or ""}', file=sys.stderr)
+                    rprint(f'  [{status_color}]{result.status}[/{status_color}] {result.extractor} → {result.output_str or ""}', file=sys.stderr)
                 else:
                     write_record(archiveresult_to_jsonl(result))
         except Snapshot.DoesNotExist:

@@ -185,9 +185,9 @@ class ArchiveResultInline(admin.TabularInline):
     parent_model = Snapshot
     # fk_name = 'snapshot'
     extra = 0
-    sort_fields = ('end_ts', 'extractor', 'output', 'status', 'cmd_version')
+    sort_fields = ('end_ts', 'extractor', 'output_str', 'status', 'cmd_version')
     readonly_fields = ('id', 'result_id', 'completed', 'command', 'version')
-    fields = ('start_ts', 'end_ts', *readonly_fields, 'extractor', 'cmd', 'cmd_version', 'pwd', 'created_by', 'status', 'retry_at', 'output')
+    fields = ('start_ts', 'end_ts', *readonly_fields, 'extractor', 'cmd', 'cmd_version', 'pwd', 'created_by', 'status', 'retry_at', 'output_str')
     # exclude = ('id',)
     ordering = ('end_ts',)
     show_change_link = True
@@ -231,7 +231,7 @@ class ArchiveResultInline(admin.TabularInline):
         formset.form.base_fields['pwd'].initial = str(snapshot.output_dir)
         formset.form.base_fields['created_by'].initial = request.user
         formset.form.base_fields['cmd'].initial = '["-"]'
-        formset.form.base_fields['output'].initial = 'Manually recorded cmd output...'
+        formset.form.base_fields['output_str'].initial = 'Manually recorded cmd output...'
         
         if obj is not None:
             # hidden values for existing entries and new entries
@@ -255,7 +255,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
     list_display = ('id', 'created_by', 'created_at', 'snapshot_info', 'tags_str', 'status', 'extractor_with_icon', 'cmd_str', 'output_str')
     sort_fields = ('id', 'created_by', 'created_at', 'extractor', 'status')
     readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary', 'extractor_with_icon', 'iface')
-    search_fields = ('id', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
+    search_fields = ('id', 'snapshot__url', 'extractor', 'output_str', 'cmd_version', 'cmd', 'snapshot__timestamp')
     autocomplete_fields = ['snapshot']
 
     fieldsets = (
@@ -276,7 +276,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
             'classes': ('card',),
         }),
         ('Output', {
-            'fields': ('output', 'output_summary'),
+            'fields': ('output_str', 'output_json', 'output_files', 'output_size', 'output_mimetypes', 'output_summary'),
             'classes': ('card', 'wide'),
         }),
         ('Metadata', {
@@ -370,13 +370,13 @@ class ArchiveResultAdmin(BaseModelAdmin):
             if depth > 2:
                 continue
             indent = ' ' * 4 * (depth)
-            output_str += format_html('<b style="padding: 1px">{}{}/</b><br/>', indent, os.path.basename(root))
+            output_html += format_html('<b style="padding: 1px">{}{}/</b><br/>', indent, os.path.basename(root))
             indentation_str = ' ' * 4 * (depth + 1)
             for filename in sorted(files):
                 is_hidden = filename.startswith('.')
-                output_str += format_html('<span style="opacity: {}.2">{}{}</span><br/>', int(not is_hidden), indentation_str, filename.strip())
+                output_html += format_html('<span style="opacity: {}.2">{}{}</span><br/>', int(not is_hidden), indentation_str, filename.strip())
 
-        return output_str + mark_safe('</code></pre>')
+        return output_html + mark_safe('</code></pre>')
 
 
 
