@@ -1,23 +1,34 @@
 #!/usr/bin/env python3
 """
-Validation hook for Chrome/Chromium binary.
+Install hook for Chrome/Chromium binary.
 
 Runs at crawl start to verify Chrome is available.
 Outputs JSONL for InstalledBinary and Machine config updates.
+Respects CHROME_BINARY env var for custom binary paths.
 """
 
+import os
 import sys
 import json
+from pathlib import Path
 
 
 def find_chrome() -> dict | None:
-    """Find Chrome/Chromium binary."""
+    """Find Chrome/Chromium binary, respecting CHROME_BINARY env var."""
     try:
         from abx_pkg import Binary, AptProvider, BrewProvider, EnvProvider
 
-        # Try common Chrome/Chromium binary names
-        for name in ['google-chrome', 'chromium', 'chromium-browser', 'google-chrome-stable', 'chrome']:
-            binary = Binary(name=name, binproviders=[AptProvider(), BrewProvider(), EnvProvider()])
+        # Check if user has configured a custom binary
+        configured_binary = os.environ.get('CHROME_BINARY', '').strip()
+
+        if configured_binary:
+            # User specified a custom binary path or name
+            if '/' in configured_binary:
+                bin_name = Path(configured_binary).name
+            else:
+                bin_name = configured_binary
+
+            binary = Binary(name=bin_name, binproviders=[EnvProvider()])
             loaded = binary.load()
             if loaded and loaded.abspath:
                 return {
@@ -27,6 +38,19 @@ def find_chrome() -> dict | None:
                     'sha256': loaded.sha256 if hasattr(loaded, 'sha256') else None,
                     'binprovider': loaded.binprovider.name if loaded.binprovider else 'env',
                 }
+        else:
+            # Try common Chrome/Chromium binary names
+            for name in ['google-chrome', 'chromium', 'chromium-browser', 'google-chrome-stable', 'chrome']:
+                binary = Binary(name=name, binproviders=[AptProvider(), BrewProvider(), EnvProvider()])
+                loaded = binary.load()
+                if loaded and loaded.abspath:
+                    return {
+                        'name': 'chrome',
+                        'abspath': str(loaded.abspath),
+                        'version': str(loaded.version) if loaded.version else None,
+                        'sha256': loaded.sha256 if hasattr(loaded, 'sha256') else None,
+                        'binprovider': loaded.binprovider.name if loaded.binprovider else 'env',
+                    }
     except Exception:
         pass
 

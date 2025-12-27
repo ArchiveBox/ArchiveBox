@@ -1,25 +1,39 @@
 #!/usr/bin/env python3
 """
-Validation hook for readability-extractor binary.
+Install hook for readability-extractor binary.
 
 Runs at crawl start to verify readability-extractor is available.
 Outputs JSONL for InstalledBinary and Machine config updates.
+Respects READABILITY_BINARY env var for custom binary paths.
 """
 
+import os
 import sys
 import json
+from pathlib import Path
 
 
 def find_readability() -> dict | None:
-    """Find readability-extractor binary."""
+    """Find readability-extractor binary, respecting READABILITY_BINARY env var."""
     try:
         from abx_pkg import Binary, NpmProvider, EnvProvider
 
-        binary = Binary(name='readability-extractor', binproviders=[NpmProvider(), EnvProvider()])
+        # Check if user has configured a custom binary
+        configured_binary = os.environ.get('READABILITY_BINARY', '').strip()
+
+        if configured_binary:
+            if '/' in configured_binary:
+                bin_name = Path(configured_binary).name
+            else:
+                bin_name = configured_binary
+        else:
+            bin_name = 'readability-extractor'
+
+        binary = Binary(name=bin_name, binproviders=[NpmProvider(), EnvProvider()])
         loaded = binary.load()
         if loaded and loaded.abspath:
             return {
-                'name': 'readability-extractor',
+                'name': bin_name,
                 'abspath': str(loaded.abspath),
                 'version': str(loaded.version) if loaded.version else None,
                 'sha256': loaded.sha256 if hasattr(loaded, 'sha256') else None,
@@ -32,6 +46,15 @@ def find_readability() -> dict | None:
 
 
 def main():
+    # Determine binary name from config
+    configured_binary = os.environ.get('READABILITY_BINARY', '').strip()
+    if configured_binary and '/' in configured_binary:
+        bin_name = Path(configured_binary).name
+    elif configured_binary:
+        bin_name = configured_binary
+    else:
+        bin_name = 'readability-extractor'
+
     result = find_readability()
 
     if result and result.get('abspath'):
@@ -64,13 +87,13 @@ def main():
         # readability-extractor is installed from GitHub
         print(json.dumps({
             'type': 'Dependency',
-            'bin_name': 'readability-extractor',
+            'bin_name': bin_name,
             'bin_providers': 'npm,env',
             'overrides': {
                 'npm': {'packages': ['github:ArchiveBox/readability-extractor']}
             }
         }))
-        print(f"readability-extractor binary not found", file=sys.stderr)
+        print(f"{bin_name} binary not found", file=sys.stderr)
         sys.exit(1)
 
 

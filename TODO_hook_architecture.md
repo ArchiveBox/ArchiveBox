@@ -118,7 +118,7 @@ def run(self):
     self.save()
 ```
 
-### Validation Hook Pattern (on_Crawl__00_validate_*.py)
+### Install Hook Pattern (on_Crawl__00_install_*.py)
 
 **Purpose**: Check if binary exists, emit Dependency if not found.
 
@@ -831,11 +831,11 @@ const cmd = ['wget', '-p', '-k', url];  // Ignores WGET_BINARY
 
 #### Install Hook Checklist
 
-- [ ] Renamed from `on_Crawl__*_validate_*` to `on_Crawl__*_install_*`
-- [ ] Reads `XYZ_BINARY` env var and handles both absolute paths + bin names
-- [ ] Emits `{"type": "Dependency", ...}` JSONL (NOT hardcoded to always check for 'wget')
-- [ ] Does NOT call npm/apt/brew/pip directly
-- [ ] Follows standard pattern from section 4.1
+- [x] Renamed from `on_Crawl__*_validate_*` to `on_Crawl__*_install_*`
+- [x] Reads `XYZ_BINARY` env var and handles both absolute paths + bin names
+- [x] Emits `{"type": "Dependency", ...}` JSONL (uses configured bin_name)
+- [x] Does NOT call npm/apt/brew/pip directly
+- [x] Follows standard pattern from section 4.1
 
 #### Snapshot Hook Checklist
 
@@ -1973,4 +1973,4 @@ All phases of the hook architecture implementation are now complete:
 - ✅ Phase 6: ArchiveResult.run() updated
 - ✅ Phase 7: Background hook support
 
-Total hooks updated: **32 hooks** across 6 dependency providers, 11 validate hooks, 8 Python snapshot hooks, and 14 JS snapshot hooks (3 of which are background hooks).
+Total hooks updated: **32 hooks** across 6 dependency providers, 13 install hooks (renamed from validate), 8 Python snapshot hooks, and 14 JS snapshot hooks (3 of which are background hooks).
