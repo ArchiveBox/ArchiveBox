@@ -70,8 +70,8 @@ class Orchestrator:
     # Configuration
     POLL_INTERVAL: float = 2.0  # How often to check for new work (seconds)
     IDLE_TIMEOUT: int = 3  # Exit after N idle ticks (0 = never exit)
-    MAX_WORKERS_PER_TYPE: int = 4  # Max workers per model type
-    MAX_TOTAL_WORKERS: int = 12  # Max workers across all types
+    MAX_WORKERS_PER_TYPE: int = 8  # Max workers per model type
+    MAX_TOTAL_WORKERS: int = 24  # Max workers across all types
     
     def __init__(self, exit_on_idle: bool = True):
         self.exit_on_idle = exit_on_idle
