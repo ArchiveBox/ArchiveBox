@@ -1,0 +1,147 @@
+<!-- Fullscreen forum view - renders JSONL forum posts -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forum Thread</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #0d1117;
+            color: #c9d1d9;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+        }
+        .header {
+            max-width: 1000px;
+            margin: 0 auto 30px;
+            text-align: center;
+            padding: 20px;
+            border-bottom: 1px solid #30363d;
+        }
+        .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 28px;
+            color: #f0f6fc;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .post {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            padding: 16px;
+            transition: border-color 0.2s;
+        }
+        .post:hover {
+            border-color: #58a6ff;
+        }
+        .post-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #21262d;
+        }
+        .post-author {
+            font-weight: 600;
+            color: #58a6ff;
+            font-size: 14px;
+        }
+        .post-date {
+            color: #8b949e;
+            font-size: 12px;
+        }
+        .post-title {
+            margin: 0 0 12px 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #f0f6fc;
+        }
+        .post-content {
+            color: #c9d1d9;
+            word-wrap: break-word;
+        }
+        .post-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+        .post-content a {
+            color: #58a6ff;
+            text-decoration: none;
+        }
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #8b949e;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="icon">💬</div>
+        <h1>Forum Thread</h1>
+    </div>
+    <div class="container">
+        <div id="forum-posts" class="loading">Loading posts...</div>
+    </div>
+    <script>
+        (async function() {
+            try {
+                const response = await fetch('{{ output_path }}');
+                const text = await response.text();
+                const posts = text.trim().split('\n').filter(line => line).map(line => JSON.parse(line));
+                const container = document.getElementById('forum-posts');
+                container.innerHTML = '';
+                container.className = '';
+
+                posts.forEach(post => {
+                    const postDiv = document.createElement('div');
+                    postDiv.className = 'post';
+
+                    const author = post.author || 'Anonymous';
+                    const date = post.date ? new Date(post.date).toLocaleString() : '';
+                    const title = post.title || '';
+                    const content = post.content || post.body || '';
+
+                    postDiv.innerHTML = `
+                        <div class="post-header">
+                            <span class="post-author">${escapeHtml(author)}</span>
+                            <span class="post-date">${escapeHtml(date)}</span>
+                        </div>
+                        ${title ? `<h2 class="post-title">${escapeHtml(title)}</h2>` : ''}
+                        <div class="post-content">${content}</div>
+                    `;
+                    container.appendChild(postDiv);
+                });
+
+                if (posts.length === 0) {
+                    container.innerHTML = '<div class="loading">No posts found</div>';
+                }
+            } catch(e) {
+                document.getElementById('forum-posts').innerHTML = '<div class="loading">Error loading posts: ' + e.message + '</div>';
+            }
+        })();
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

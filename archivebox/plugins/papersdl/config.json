@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "SAVE_PAPERSDL": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable paper downloading with papers-dl"
+    },
+    "PAPERSDL_BINARY": {
+      "type": "string",
+      "default": "papers-dl",
+      "description": "Path to papers-dl binary"
+    },
+    "PAPERSDL_TIMEOUT": {
+      "type": "integer",
+      "default": 300,
+      "minimum": 30,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for paper downloads in seconds"
+    },
+    "PAPERSDL_EXTRA_ARGS": {
+      "type": "string",
+      "default": "",
+      "description": "Extra arguments for papers-dl (space-separated)"
+    }
+  }
+}

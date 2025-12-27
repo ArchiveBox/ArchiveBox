@@ -6,13 +6,33 @@ This plan implements support for long-running background hooks that run concurre
 
 **Key Changes:**
 - Background hooks use `.bg.js`/`.bg.py`/`.bg.sh` suffix
-- Runner hashes files and creates ArchiveFile records for tracking
-- Filesystem-level deduplication (fdupes, ZFS, Btrfs) handles space savings
-- Hooks emit single JSON output with optional structured data
+- Hooks output **JSONL** (any line with `{type: 'ModelName', ...}`)
+- `run_hook()` is **generic** - just parses JSONL, doesn't know about specific models
+- Each `Model.run()` extends records of its own type with computed fields
+- ArchiveResult.run() extends ArchiveResult records with `output_files`, `output_size`, etc.
+- **No HookResult TypedDict** - just list of dicts with 'type' field
 - Binary FK is optional and only set when hook reports cmd
-- Split `output` field into `output_str` (human-readable) and `output_data` (structured)
-- Use ArchiveFile model (FK to ArchiveResult) instead of JSON fields for file tracking
-- Output stats (size, mimetypes) derived via properties from ArchiveFile queries
+- Split `output` field into `output_str` (human-readable) and `output_json` (structured)
+- Add fields: `output_files` (dict), `output_size` (bytes), `output_mimetypes` (CSV)
+- External tools (fdupes, ZFS, Btrfs) handle deduplication via filesystem
+
+**New ArchiveResult Fields:**
+```python
+# Output fields (replace old 'output' field)
+output_str = TextField()           # Human-readable summary: "Downloaded 5 files"
+output_json = JSONField()          # Structured metadata (headers, redirects, etc.)
+output_files = JSONField()         # Dict: {'index.html': {}, 'style.css': {}}
+output_size = BigIntegerField()    # Total bytes across all files
+output_mimetypes = CharField()     # CSV sorted by size: "text/html,text/css,image/png"
+```
+
+**output_files Structure:**
+- **Dict keyed by relative path** (not a list!)
+- Values are empty dicts `{}` for now, extensible for future metadata
+- Preserves insertion order (Python 3.7+)
+- Easy to query: `ArchiveResult.objects.filter(output_files__has_key='index.html')`
+- Easy to extend: Add `size`, `hash`, `mime_type` to values later without migration
+- **Why not derive size/mimetypes from output_files?** Performance. Total size and mimetype summary are accessed frequently (admin views, sorting, filtering). Aggregating on every access would be slow. We keep summary fields (output_size, output_mimetypes) as denormalized cache for fast reads.
 
 ---
 
@@ -32,21 +52,51 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Rename output → output_str for clarity
-        migrations.RenameField(
-            model_name='archiveresult',
-            old_name='output',
-            new_name='output_str',
-        ),
-
-        # Add structured metadata field
+        # Add new fields (keep old 'output' temporarily for migration)
         migrations.AddField(
             model_name='archiveresult',
-            name='output_data',
+            name='output_str',
+            field=models.TextField(
+                blank=True,
+                help_text='Human-readable output summary (e.g., "Downloaded 5 files")'
+            ),
+        ),
+
+        migrations.AddField(
+            model_name='archiveresult',
+            name='output_json',
             field=models.JSONField(
                 null=True,
                 blank=True,
-                help_text='Structured metadata from hook (headers, redirects, etc.)'
+                help_text='Structured metadata (headers, redirects, etc.) - should NOT duplicate ArchiveResult fields'
+            ),
+        ),
+
+        migrations.AddField(
+            model_name='archiveresult',
+            name='output_files',
+            field=models.JSONField(
+                default=dict,
+                help_text='Dict of {relative_path: {metadata}} - values are empty dicts for now, extensible for future metadata'
+            ),
+        ),
+
+        migrations.AddField(
+            model_name='archiveresult',
+            name='output_size',
+            field=models.BigIntegerField(
+                default=0,
+                help_text='Total recursive size in bytes of all output files'
+            ),
+        ),
+
+        migrations.AddField(
+            model_name='archiveresult',
+            name='output_mimetypes',
+            field=models.CharField(
+                max_length=512,
+                blank=True,
+                help_text='CSV of mimetypes sorted by size descending'
             ),
         ),
 
@@ -65,69 +115,74 @@ class Migration(migrations.Migration):
     ]
 ```
 
-### ArchiveFile Model
-
-Instead of storing file lists and stats as JSON fields on ArchiveResult, we use a normalized model that tracks files with hashes. Deduplication is handled at the filesystem level (fdupes, ZFS, Btrfs, etc.):
+### Data Migration for Existing `.output` Field
 
 ```python
-# archivebox/core/models.py
+# archivebox/core/migrations/00XX_migrate_output_field.py
 
-class ArchiveFile(models.Model):
+from django.db import migrations
+import json
+
+def migrate_output_field(apps, schema_editor):
     """
-    Track files produced by an ArchiveResult with hash for integrity checking.
+    Migrate existing 'output' field to new split fields.
 
-    Files remain in their natural filesystem hierarchy. Deduplication is handled
-    by the filesystem layer (hardlinks via fdupes, ZFS dedup, Btrfs dedup, etc.).
+    Logic:
+    - If output contains JSON {...}, move to output_json
+    - If output is a file path and exists in output_files, ensure it's first
+    - Otherwise, move to output_str
     """
-    archiveresult = models.ForeignKey(
-        'ArchiveResult',
-        on_delete=models.CASCADE,
-        related_name='files'
-    )
+    ArchiveResult = apps.get_model('core', 'ArchiveResult')
 
-    # Path relative to ArchiveResult output directory
-    relative_path = models.CharField(
-        max_length=512,
-        help_text='Path relative to extractor output dir (e.g., "index.html", "responses/all/file.js")'
-    )
+    for ar in ArchiveResult.objects.all():
+        old_output = ar.output or ''
 
-    # Hash for integrity checking and duplicate detection
-    hash_algorithm = models.CharField(max_length=16, default='sha256')
-    hash = models.CharField(
-        max_length=128,
-        db_index=True,
-        help_text='SHA-256 hash for integrity and finding duplicates'
-    )
+        # Case 1: JSON output
+        if old_output.strip().startswith('{'):
+            try:
+                parsed = json.loads(old_output)
+                ar.output_json = parsed
+                ar.output_str = ''
+            except json.JSONDecodeError:
+                # Not valid JSON, treat as string
+                ar.output_str = old_output
 
-    # Cached filesystem stats
-    size = models.BigIntegerField(help_text='File size in bytes')
-    mime_type = models.CharField(max_length=128, blank=True)
+        # Case 2: File path (check if it looks like a relative path)
+        elif '/' in old_output or '.' in old_output:
+            # Might be a file path - if it's in output_files, it's already there
+            # output_files is now a dict, so no reordering needed
+            ar.output_str = old_output  # Keep as string for display
 
-    created_at = models.DateTimeField(auto_now_add=True)
+        # Case 3: Plain string summary
+        else:
+            ar.output_str = old_output
 
-    class Meta:
-        indexes = [
-            models.Index(fields=['archiveresult']),
-            models.Index(fields=['hash']),  # Find duplicates across archive
-        ]
-        unique_together = [['archiveresult', 'relative_path']]
+        ar.save(update_fields=['output_str', 'output_json', 'output_files'])
 
-    def __str__(self):
-        return f"{self.archiveresult.extractor}/{self.relative_path}"
+def reverse_migrate(apps, schema_editor):
+    """Reverse migration - copy output_str back to output."""
+    ArchiveResult = apps.get_model('core', 'ArchiveResult')
 
-    @property
-    def absolute_path(self) -> Path:
-        """Get absolute filesystem path."""
-        return Path(self.archiveresult.pwd) / self.relative_path
+    for ar in ArchiveResult.objects.all():
+        ar.output = ar.output_str or ''
+        ar.save(update_fields=['output'])
+
+class Migration(migrations.Migration):
+    dependencies = [
+        ('core', '00XX_archiveresult_background_hooks'),
+    ]
+
+    operations = [
+        migrations.RunPython(migrate_output_field, reverse_migrate),
+
+        # Now safe to remove old 'output' field
+        migrations.RemoveField(
+            model_name='archiveresult',
+            name='output',
+        ),
+    ]
 ```
 
-**Benefits:**
-- **Simple**: Single model, no CAS abstraction needed
-- **Natural hierarchy**: Files stay in `snapshot_dir/extractor/file.html`
-- **Flexible deduplication**: User chooses filesystem-level strategy
-- **Easy browsing**: Directory structure matches logical organization
-- **Integrity checking**: Hashes verify file integrity over time
-- **Duplicate detection**: Query by hash to find duplicates for manual review
 
 ---
 
@@ -137,8 +192,10 @@ class ArchiveFile(models.Model):
 
 **Contract:**
 - Hook emits ONE JSON object with `type: 'ArchiveResult'`
-- Hook only provides: `status`, `output` (human-readable), optional `output_data`, optional `cmd`
-- Runner calculates: `output_size`, `output_mimetypes`, `start_ts`, `end_ts`, `binary` FK
+- Hook can provide: `status`, `output_str`, `output_json`, `cmd` (optional)
+- Hook should NOT set: `output_files`, `output_size`, `output_mimetypes` (runner calculates these)
+- `output_json` should NOT duplicate ArchiveResult fields (no `status`, `start_ts`, etc. in output_json)
+- Runner calculates: `output_files`, `output_size`, `output_mimetypes`, `start_ts`, `end_ts`, `binary` FK
 
 **Example outputs:**
 
@@ -147,16 +204,15 @@ class ArchiveFile(models.Model):
 console.log(JSON.stringify({
     type: 'ArchiveResult',
     status: 'succeeded',
-    output: 'Downloaded index.html (4.2 KB)'
+    output_str: 'Downloaded index.html (4.2 KB)'
 }));
 
-// With structured metadata
+// With structured metadata (headers, redirects, etc.)
 console.log(JSON.stringify({
     type: 'ArchiveResult',
     status: 'succeeded',
-    output: 'Archived https://example.com',
-    output_data: {
-        files: ['index.html', 'style.css', 'script.js'],
+    output_str: 'Archived https://example.com',
+    output_json: {
         headers: {'content-type': 'text/html', 'server': 'nginx'},
         redirects: [{from: 'http://example.com', to: 'https://example.com'}]
     }
@@ -166,7 +222,7 @@ console.log(JSON.stringify({
 console.log(JSON.stringify({
     type: 'ArchiveResult',
     status: 'succeeded',
-    output: 'Archived with wget',
+    output_str: 'Archived with wget',
     cmd: ['wget', '-p', '-k', 'https://example.com']
 }));
 
@@ -174,34 +230,110 @@ console.log(JSON.stringify({
 console.log(JSON.stringify({
     type: 'ArchiveResult',
     status: 'succeeded',
-    output_data: {
+    output_json: {
         title: 'My Page Title',
         charset: 'UTF-8'
+    }
+}));
+
+// BAD: Don't duplicate ArchiveResult fields in output_json
+console.log(JSON.stringify({
+    type: 'ArchiveResult',
+    status: 'succeeded',
+    output_json: {
+        status: 'succeeded',  // ❌ BAD - duplicates ArchiveResult.status
+        output_files: ['index.html'],  // ❌ BAD - runner calculates this
+        custom_data: 'ok'  // ✅ GOOD - custom fields only
     }
 }));
 ```
 
 ---
 
-## Phase 3: Update HookResult TypedDict
+## Phase 3: run_hook() is Generic (No HookResult TypedDict)
+
+`run_hook()` is a generic JSONL parser - it doesn't know about ArchiveResult, InstalledBinary, or any specific model. It just:
+1. Executes the hook script
+2. Parses JSONL output (any line starting with `{` that has a `type` field)
+3. Adds metadata about plugin and hook path
+4. Returns list of dicts
 
 ```python
 # archivebox/hooks.py
 
-class HookResult(TypedDict):
-    """Result from executing a hook script."""
-    returncode: int                   # Process exit code
-    stdout: str                       # Full stdout from hook
-    stderr: str                       # Full stderr from hook
-    output_json: Optional[dict]       # Parsed JSON output from hook
-    start_ts: str                     # ISO timestamp (calculated by runner)
-    end_ts: str                       # ISO timestamp (calculated by runner)
-    cmd: List[str]                    # Command that ran (from hook or fallback)
-    binary_id: Optional[str]          # FK to InstalledBinary (optional)
-    hook: str                         # Path to hook script
+def run_hook(
+    script: Path,
+    output_dir: Path,
+    timeout: int = 300,
+    config_objects: Optional[List[Any]] = None,
+    **kwargs: Any
+) -> Optional[List[dict]]:
+    """
+    Execute a hook script and parse JSONL output.
+
+    This function is generic and doesn't know about specific model types.
+    It just executes the script and parses any JSONL lines with 'type' field.
+
+    Each Model.run() method handles its own record types differently:
+    - ArchiveResult.run() extends ArchiveResult records with computed fields
+    - Machine.run() creates InstalledBinary records from hook output
+    - etc.
+
+    Returns:
+        List of dicts with 'type' field, each extended with metadata:
+        [
+            {
+                'type': 'ArchiveResult',
+                'status': 'succeeded',
+                'output_str': '...',
+                'plugin': 'wget',
+                'plugin_hook': 'archivebox/plugins/wget/on_Snapshot__21_wget.py',
+                # ... other hook-reported fields
+            },
+            {
+                'type': 'InstalledBinary',
+                'name': 'wget',
+                'plugin': 'wget',
+                'plugin_hook': 'archivebox/plugins/wget/on_Snapshot__21_wget.py',
+                # ... other hook-reported fields
+            }
+        ]
+
+        None if background hook (still running)
+    """
 ```
 
-**Note:** `output_files`, `output_size`, and `output_mimetypes` are no longer in HookResult. Instead, the runner hashes files and creates ArchiveFile records. Stats are derived via properties on ArchiveResult.
+**Key Insight:** Hooks output JSONL. Any line with `{type: 'ModelName', ...}` creates/updates that model. The `type` field determines what gets created. Each Model.run() method decides how to handle records of its own type.
+
+### Helper: create_model_record()
+
+```python
+# archivebox/hooks.py
+
+def create_model_record(record: dict) -> Any:
+    """
+    Generic helper to create/update model instances from hook output.
+
+    Args:
+        record: Dict with 'type' field and model data
+
+    Returns:
+        Created/updated model instance
+    """
+    from machine.models import InstalledBinary, Dependency
+
+    model_type = record.pop('type')
+
+    if model_type == 'InstalledBinary':
+        obj, created = InstalledBinary.objects.get_or_create(**record)
+        return obj
+    elif model_type == 'Dependency':
+        obj, created = Dependency.objects.get_or_create(**record)
+        return obj
+    # Add more types as needed
+    else:
+        raise ValueError(f"Unknown record type: {model_type}")
+```
 
 ---
 
@@ -248,44 +380,28 @@ def find_binary_for_cmd(cmd: List[str], machine_id: str) -> Optional[str]:
     return str(binary.id) if binary else None
 
 
-def parse_hook_output_json(stdout: str) -> Optional[dict]:
-    """
-    Parse single JSON output from hook stdout.
-
-    Looks for first line with {type: 'ArchiveResult', ...}
-    """
-    for line in stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            data = json.loads(line)
-            if data.get('type') == 'ArchiveResult':
-                return data  # Return first match
-        except json.JSONDecodeError:
-            continue
-    return None
-
-
 def run_hook(
     script: Path,
     output_dir: Path,
     timeout: int = 300,
     config_objects: Optional[List[Any]] = None,
     **kwargs: Any
-) -> Optional[HookResult]:
+) -> Optional[List[dict]]:
     """
-    Execute a hook script and capture results.
+    Execute a hook script and parse JSONL output.
+
+    This is a GENERIC function that doesn't know about specific model types.
+    It just executes and parses JSONL (any line with {type: 'ModelName', ...}).
 
     Runner responsibilities:
     - Detect background hooks (.bg. in filename)
     - Capture stdout/stderr to log files
-    - Return result (caller will hash files and create ArchiveFile records)
-    - Determine binary FK from cmd (optional)
+    - Parse JSONL output and add plugin metadata
     - Clean up log files and PID files
 
     Hook responsibilities:
-    - Emit {type: 'ArchiveResult', status, output_str, output_data (optional), cmd (optional)}
+    - Emit JSONL: {type: 'ArchiveResult', status, output_str, output_json, cmd}
+    - Can emit multiple types: {type: 'InstalledBinary', ...}
     - Write actual output files
 
     Args:
@@ -296,7 +412,7 @@ def run_hook(
         **kwargs: CLI arguments passed to script
 
     Returns:
-        HookResult for foreground hooks
+        List of dicts with 'type' field for foreground hooks
         None for background hooks (still running)
     """
     import time
@@ -390,30 +506,24 @@ def run_hook(
         stdout = stdout_file.read_text() if stdout_file.exists() else ''
         stderr = stderr_file.read_text() if stderr_file.exists() else ''
 
-        # Parse single JSON output
-        output_json = parse_hook_output_json(stdout)
+        # Parse ALL JSONL output (any line with {type: 'ModelName', ...})
+        records = []
+        for line in stdout.splitlines():
+            line = line.strip()
+            if not line or not line.startswith('{'):
+                continue
+            try:
+                data = json.loads(line)
+                if 'type' in data:
+                    # Add plugin metadata to every record
+                    plugin_name = script.parent.name  # Directory name (e.g., 'wget')
+                    data['plugin'] = plugin_name
+                    data['plugin_hook'] = str(script.relative_to(Path.cwd()))
+                    records.append(data)
+            except json.JSONDecodeError:
+                continue
 
-        # Get cmd - prefer hook's reported cmd, fallback to interpreter cmd
-        if output_json and output_json.get('cmd'):
-            result_cmd = output_json['cmd']
-        else:
-            result_cmd = full_cmd
-
-        # 7. DETERMINE BINARY FK (OPTIONAL)
-        # Only set if hook reports cmd AND we can find the binary
-        machine = Machine.current()
-        binary_id = None
-        if output_json and output_json.get('cmd'):
-            binary_id = find_binary_for_cmd(output_json['cmd'], machine.id)
-        # If not found or not reported, leave binary_id=None
-
-        # 8. INGEST OUTPUT FILES VIA BLOBMANAGER
-        # BlobManager handles hashing, deduplication, and creating SnapshotFile records
-        # Note: This assumes snapshot and extractor name are available in kwargs
-        # In practice, ArchiveResult.run() will handle this after run_hook() returns
-        # For now, we just return the result and let the caller handle ingestion
-
-        # 9. CLEANUP
+        # 7. CLEANUP
         # Delete empty logs (keep non-empty for debugging)
         if stdout_file.exists() and stdout_file.stat().st_size == 0:
             stdout_file.unlink()
@@ -425,32 +535,13 @@ def run_hook(
             for pf in output_dir.glob('*.pid'):
                 pf.unlink(missing_ok=True)
 
-        # 10. RETURN RESULT
-        return HookResult(
-            returncode=returncode,
-            stdout=stdout,
-            stderr=stderr,
-            output_json=output_json,
-            start_ts=start_ts.isoformat(),
-            end_ts=end_ts.isoformat(),
-            cmd=result_cmd,
-            binary_id=binary_id,
-            hook=str(script),
-        )
+        # 8. RETURN RECORDS
+        # Returns list of dicts, each with 'type' field and plugin metadata
+        return records
 
     except Exception as e:
-        duration_ms = int((time.time() - start_time) * 1000)
-        return HookResult(
-            returncode=-1,
-            stdout='',
-            stderr=f'Failed to run hook: {type(e).__name__}: {e}',
-            output_json=None,
-            start_ts=start_ts.isoformat(),
-            end_ts=datetime.now(timezone.utc).isoformat(),
-            cmd=full_cmd,
-            binary_id=None,
-            hook=str(script),
-        )
+        # On error, return empty list (hook failed, no records created)
+        return []
 ```
 
 ---
@@ -466,10 +557,13 @@ def run(self):
 
     For foreground hooks: Waits for completion and updates immediately
     For background hooks: Returns immediately, leaves status='started'
+
+    This method extends any ArchiveResult records from hook output with
+    computed fields (output_files, output_size, binary FK, etc.).
     """
     from django.utils import timezone
     from archivebox.hooks import BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR, run_hook
-    import dateutil.parser
+    from machine.models import Machine
 
     config_objects = [self.snapshot.crawl, self.snapshot] if self.snapshot.crawl else [self.snapshot]
 
@@ -494,8 +588,10 @@ def run(self):
     plugin_name = hook.parent.name
     extractor_dir = Path(self.snapshot.output_dir) / plugin_name
 
-    # Run the hook
-    result = run_hook(
+    start_ts = timezone.now()
+
+    # Run the hook (returns list of JSONL records)
+    records = run_hook(
         hook,
         output_dir=extractor_dir,
         config_objects=config_objects,
@@ -504,64 +600,66 @@ def run(self):
     )
 
     # BACKGROUND HOOK - still running
-    if result is None:
+    if records is None:
         self.status = self.StatusChoices.STARTED
-        self.start_ts = timezone.now()
+        self.start_ts = start_ts
         self.pwd = str(extractor_dir)
         self.save()
         return
 
-    # FOREGROUND HOOK - process result
-    if result['output_json']:
-        # Hook emitted JSON output
-        output_json = result['output_json']
+    # FOREGROUND HOOK - process records
+    end_ts = timezone.now()
 
-        # Determine status
-        status = output_json.get('status', 'failed')
+    # Find the ArchiveResult record (enforce single output)
+    ar_records = [r for r in records if r.get('type') == 'ArchiveResult']
+    assert len(ar_records) <= 1, f"Hook {hook} output {len(ar_records)} ArchiveResults, expected 0-1"
+
+    if ar_records:
+        hook_data = ar_records[0]
+
+        # Apply hook's data
+        status_str = hook_data.get('status', 'failed')
         status_map = {
             'succeeded': self.StatusChoices.SUCCEEDED,
             'failed': self.StatusChoices.FAILED,
             'skipped': self.StatusChoices.SKIPPED,
         }
-        self.status = status_map.get(status, self.StatusChoices.FAILED)
+        self.status = status_map.get(status_str, self.StatusChoices.FAILED)
 
-        # Set output fields
-        self.output_str = output_json.get('output', '')
-        if 'output_data' in output_json:
-            self.output_data = output_json['output_data']
+        self.output_str = hook_data.get('output_str', '')
+        self.output_json = hook_data.get('output_json')
+
+        # Set extractor from plugin metadata
+        self.extractor = hook_data['plugin']
+
+        # Determine binary FK from cmd (ArchiveResult-specific logic)
+        if 'cmd' in hook_data:
+            self.cmd = json.dumps(hook_data['cmd'])
+            machine = Machine.current()
+            binary_id = find_binary_for_cmd(hook_data['cmd'], machine.id)
+            if binary_id:
+                self.binary_id = binary_id
     else:
-        # No JSON output - determine status from exit code
-        self.status = (self.StatusChoices.SUCCEEDED if result['returncode'] == 0
-                      else self.StatusChoices.FAILED)
-        self.output_str = result['stdout'][:1024] or result['stderr'][:1024]
+        # No ArchiveResult output - hook didn't report, treat as failed
+        self.status = self.StatusChoices.FAILED
+        self.output_str = 'Hook did not output ArchiveResult'
 
-    # Set timestamps (from runner)
-    self.start_ts = dateutil.parser.parse(result['start_ts'])
-    self.end_ts = dateutil.parser.parse(result['end_ts'])
-
-    # Set command and binary (from runner)
-    self.cmd = json.dumps(result['cmd'])
-    if result['binary_id']:
-        self.binary_id = result['binary_id']
-
-    # Metadata
+    # Set timestamps and metadata
+    self.start_ts = start_ts
+    self.end_ts = end_ts
     self.pwd = str(extractor_dir)
     self.retry_at = None
 
+    # POPULATE OUTPUT FIELDS FROM FILESYSTEM (ArchiveResult-specific)
+    if extractor_dir.exists():
+        self._populate_output_fields(extractor_dir)
+
     self.save()
 
-    # INGEST OUTPUT FILES VIA BLOBMANAGER
-    # This creates SnapshotFile records with deduplication
-    if extractor_dir.exists():
-        from archivebox.storage import BlobManager
-
-        snapshot_files = BlobManager.ingest_directory(
-            dir_path=extractor_dir,
-            snapshot=self.snapshot,
-            extractor=plugin_name,
-            # Exclude infrastructure files
-            exclude_patterns=['stdout.log', 'stderr.log', '*.pid']
-        )
+    # Create any side-effect records (InstalledBinary, Dependency, etc.)
+    for record in records:
+        if record['type'] != 'ArchiveResult':
+            create_model_record(record)  # Generic helper that dispatches by type
 
     # Clean up empty output directory (no real files after excluding logs/pids)
     if extractor_dir.exists():
@@ -594,7 +692,113 @@ def run(self):
 
         # Trigger search indexing
         self.trigger_search_indexing()
+
+
+def _populate_output_fields(self, output_dir: Path) -> None:
+    """
+    Walk output directory and populate output_files, output_size, output_mimetypes fields.
+
+    Args:
+        output_dir: Directory containing output files
+    """
+    import mimetypes
+    from collections import defaultdict
+
+    exclude_names = {'stdout.log', 'stderr.log', 'hook.pid', 'listener.pid'}
+
+    # Track mimetypes and sizes for aggregation
+    mime_sizes = defaultdict(int)
+    total_size = 0
+    output_files = {}  # Dict keyed by relative path
+
+    for file_path in output_dir.rglob('*'):
+        # Skip non-files and infrastructure files
+        if not file_path.is_file():
+            continue
+        if file_path.name in exclude_names:
+            continue
+
+        # Get file stats
+        stat = file_path.stat()
+        mime_type, _ = mimetypes.guess_type(str(file_path))
+        mime_type = mime_type or 'application/octet-stream'
+
+        # Track for ArchiveResult fields
+        relative_path = str(file_path.relative_to(output_dir))
+        output_files[relative_path] = {}  # Empty dict, extensible for future metadata
+        mime_sizes[mime_type] += stat.st_size
+        total_size += stat.st_size
+
+    # Populate ArchiveResult fields
+    self.output_files = output_files  # Dict preserves insertion order (Python 3.7+)
+    self.output_size = total_size
+
+    # Build output_mimetypes CSV (sorted by size descending)
+    sorted_mimes = sorted(mime_sizes.items(), key=lambda x: x[1], reverse=True)
+    self.output_mimetypes = ','.join(mime for mime, _ in sorted_mimes)
 ```
+
+### Querying output_files with Django
+
+Since `output_files` is a dict keyed by relative path, you can use Django's JSON field lookups:
+
+```python
+# Check if a specific file exists
+ArchiveResult.objects.filter(output_files__has_key='index.html')
+
+# Check if any of multiple files exist (OR)
+from django.db.models import Q
+ArchiveResult.objects.filter(
+    Q(output_files__has_key='index.html') |
+    Q(output_files__has_key='index.htm')
+)
+
+# Get all results that have favicon
+ArchiveResult.objects.filter(output_files__has_key='favicon.ico')
+
+# Check in Python (after fetching)
+if 'index.html' in archiveresult.output_files:
+    print("Found index.html")
+
+# Get list of all paths
+paths = list(archiveresult.output_files.keys())
+
+# Count files
+file_count = len(archiveresult.output_files)
+
+# Future: When we add metadata, query still works
+# output_files = {'index.html': {'size': 4096, 'hash': 'abc...'}}
+ArchiveResult.objects.filter(output_files__index_html__size__gt=1000)  # size > 1KB
+```
+
+**Structure for Future Extension:**
+
+Current (empty metadata):
+```python
+{
+    'index.html': {},
+    'style.css': {},
+    'images/logo.png': {}
+}
+```
+
+Future (with optional metadata):
+```python
+{
+    'index.html': {
+        'size': 4096,
+        'hash': 'abc123...',
+        'mime_type': 'text/html'
+    },
+    'style.css': {
+        'size': 2048,
+        'hash': 'def456...',
+        'mime_type': 'text/css'
+    }
+}
+```
+
+All existing queries continue to work unchanged - the dict structure is backward compatible.
 
 ---
 
@@ -648,14 +852,13 @@ def finalize_background_hook(archiveresult: 'ArchiveResult') -> None:
     """
     Collect final results from completed background hook.
 
-    Runner calculates all stats - hook just emits status/output/output_data.
+    Same logic as ArchiveResult.run() but for background hooks that already started.
 
     Args:
         archiveresult: ArchiveResult instance to finalize
     """
     from django.utils import timezone
     from machine.models import Machine
-    import dateutil.parser
 
     extractor_dir = Path(archiveresult.pwd)
     stdout_file = extractor_dir / 'stdout.log'
@@ -663,65 +866,64 @@ def finalize_background_hook(archiveresult: 'ArchiveResult') -> None:
 
     # Read logs
     stdout = stdout_file.read_text() if stdout_file.exists() else ''
-    stderr = stderr_file.read_text() if stderr_file.exists() else ''
 
-    # Parse JSON output
-    output_json = parse_hook_output_json(stdout)
+    # Parse JSONL output (same as run_hook)
+    records = []
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line or not line.startswith('{'):
+            continue
+        try:
+            data = json.loads(line)
+            if 'type' in data:
+                records.append(data)
+        except json.JSONDecodeError:
+            continue
 
-    # Determine status
-    if output_json:
-        status_str = output_json.get('status', 'failed')
+    # Find the ArchiveResult record
+    ar_records = [r for r in records if r.get('type') == 'ArchiveResult']
+    assert len(ar_records) <= 1, f"Background hook output {len(ar_records)} ArchiveResults, expected 0-1"
+
+    if ar_records:
+        hook_data = ar_records[0]
+
+        # Apply hook's data
+        status_str = hook_data.get('status', 'failed')
         status_map = {
             'succeeded': ArchiveResult.StatusChoices.SUCCEEDED,
             'failed': ArchiveResult.StatusChoices.FAILED,
             'skipped': ArchiveResult.StatusChoices.SKIPPED,
         }
-        status = status_map.get(status_str, ArchiveResult.StatusChoices.FAILED)
-        output_str = output_json.get('output', '')
-        output_data = output_json.get('output_data')
+        archiveresult.status = status_map.get(status_str, ArchiveResult.StatusChoices.FAILED)
 
-        # Get cmd from hook (for binary FK)
-        cmd = output_json.get('cmd')
+        archiveresult.output_str = hook_data.get('output_str', '')
+        archiveresult.output_json = hook_data.get('output_json')
+
+        # Determine binary FK from cmd
+        if 'cmd' in hook_data:
+            archiveresult.cmd = json.dumps(hook_data['cmd'])
+            machine = Machine.current()
+            binary_id = find_binary_for_cmd(hook_data['cmd'], machine.id)
+            if binary_id:
+                archiveresult.binary_id = binary_id
     else:
-        # No JSON output = failed
-        status = ArchiveResult.StatusChoices.FAILED
-        output_str = stderr[:1024] if stderr else 'No output'
-        output_data = None
-        cmd = None
+        # No output = failed
+        archiveresult.status = ArchiveResult.StatusChoices.FAILED
+        archiveresult.output_str = 'Background hook did not output ArchiveResult'
 
-    # Get binary FK from hook's reported cmd (if any)
-    binary_id = None
-    if cmd:
-        machine = Machine.current()
-        binary_id = find_binary_for_cmd(cmd, machine.id)
-
-    # Update ArchiveResult
-    archiveresult.status = status
     archiveresult.end_ts = timezone.now()
-    archiveresult.output_str = output_str
-    if output_data:
-        archiveresult.output_data = output_data
     archiveresult.retry_at = None
 
-    if binary_id:
-        archiveresult.binary_id = binary_id
+    # POPULATE OUTPUT FIELDS FROM FILESYSTEM
+    if extractor_dir.exists():
+        archiveresult._populate_output_fields(extractor_dir)
 
     archiveresult.save()
 
-    # INGEST OUTPUT FILES VIA BLOBMANAGER
-    # This creates SnapshotFile records with deduplication
-    if extractor_dir.exists():
-        from archivebox.storage import BlobManager
-
-        # Determine extractor name from path (plugin directory name)
-        plugin_name = extractor_dir.name
-
-        snapshot_files = BlobManager.ingest_directory(
-            dir_path=extractor_dir,
-            snapshot=archiveresult.snapshot,
-            extractor=plugin_name,
-            exclude_patterns=['stdout.log', 'stderr.log', '*.pid']
-        )
+    # Create any side-effect records
+    for record in records:
+        if record['type'] != 'ArchiveResult':
+            create_model_record(record)
 
     # Cleanup
     for pf in extractor_dir.glob('*.pid'):
@@ -767,132 +969,9 @@ class SnapshotMachine(StateMachine, strict_states=True):
 
 ---
 
-## Phase 6b: ArchiveResult Properties for Output Stats
+## Phase 6b: Deduplication
 
-Since output stats are no longer stored as fields, we expose them via properties that query SnapshotFile records:
-
-```python
-# archivebox/core/models.py
-
-class ArchiveResult(models.Model):
-    # ... existing fields ...
-
-    @property
-    def output_files(self):
-        """
-        Get all SnapshotFile records created by this extractor.
-
-        Returns:
-            QuerySet of SnapshotFile objects
-        """
-        plugin_name = self._get_plugin_name()
-        return self.snapshot.files.filter(extractor=plugin_name)
-
-    @property
-    def output_file_count(self) -> int:
-        """Count of output files."""
-        return self.output_files.count()
-
-    @property
-    def total_output_size(self) -> int:
-        """
-        Total size in bytes of all output files.
-
-        Returns:
-            Sum of blob sizes for this extractor's files
-        """
-        from django.db.models import Sum
-
-        result = self.output_files.aggregate(total=Sum('blob__size'))
-        return result['total'] or 0
-
-    @property
-    def output_mimetypes(self) -> str:
-        """
-        CSV of mimetypes ordered by size descending.
-
-        Returns:
-            String like "text/html,image/png,application/json"
-        """
-        from django.db.models import Sum
-        from collections import OrderedDict
-
-        # Group by mimetype and sum sizes
-        files = self.output_files.values('blob__mime_type').annotate(
-            total_size=Sum('blob__size')
-        ).order_by('-total_size')
-
-        # Build CSV
-        mimes = [f['blob__mime_type'] for f in files]
-        return ','.join(mimes)
-
-    @property
-    def output_summary(self) -> dict:
-        """
-        Summary statistics for output files.
-
-        Returns:
-            Dict with file count, total size, and mimetype breakdown
-        """
-        from django.db.models import Sum, Count
-
-        files = self.output_files.values('blob__mime_type').annotate(
-            count=Count('id'),
-            total_size=Sum('blob__size')
-        ).order_by('-total_size')
-
-        return {
-            'file_count': self.output_file_count,
-            'total_size': self.total_output_size,
-            'by_mimetype': list(files),
-        }
-
-    def _get_plugin_name(self) -> str:
-        """
-        Get plugin directory name from extractor.
-
-        Returns:
-            Plugin name (e.g., 'wget', 'singlefile')
-        """
-        # This assumes pwd is set to extractor_dir during run()
-        if self.pwd:
-            return Path(self.pwd).name
-        # Fallback: use extractor number to find plugin
-        # (implementation depends on how extractor names map to plugins)
-        return self.extractor
-```
-
-**Query Examples:**
-
-```python
-# Get all files for this extractor
-files = archiveresult.output_files.all()
-
-# Get total size
-size = archiveresult.total_output_size
-
-# Get mimetype breakdown
-summary = archiveresult.output_summary
-# {
-#   'file_count': 42,
-#   'total_size': 1048576,
-#   'by_mimetype': [
-#     {'blob__mime_type': 'text/html', 'count': 5, 'total_size': 524288},
-#     {'blob__mime_type': 'image/png', 'count': 30, 'total_size': 409600},
-#     ...
-#   ]
-# }
-
-# Admin display
-print(f"{archiveresult.output_mimetypes}")  # "text/html,image/png,text/css"
-```
-
-**Performance Considerations:**
-
-- Properties execute queries on access - cache results if needed
-- Indexes on `(snapshot, extractor)` make queries fast
-- For admin list views, use `select_related()` and `prefetch_related()`
-- Consider adding `cached_property` for expensive calculations
+Deduplication is handled by external filesystem tools like `fdupes` (hardlinks), ZFS dedup, Btrfs duperemove, or rdfind. Users can run these tools periodically on the archive directory to identify and link duplicate files. ArchiveBox doesn't need to track hashes or manage deduplication itself - the filesystem layer handles it transparently.
 
 ---
 
@@ -919,8 +998,8 @@ Each hook should emit:
 console.log(JSON.stringify({
     type: 'ArchiveResult',
     status: 'succeeded',  // or 'failed' or 'skipped'
-    output: 'Captured 15 console messages',  // human-readable summary
-    output_data: {  // optional structured metadata
+    output_str: 'Captured 15 console messages',  // human-readable summary
+    output_json: {  // optional structured metadata
         // ... specific to each hook
     }
 }));
@@ -944,8 +1023,8 @@ print(f'STATUS=succeeded')
 result = {
     'type': 'ArchiveResult',
     'status': 'succeeded',
-    'output': f'Favicon saved ({size} bytes)',
-    'output_data': {
+    'output_str': f'Favicon saved ({size} bytes)',
+    'output_json': {
         'size': size,
         'format': 'ico'
     }
@@ -958,7 +1037,7 @@ print(json.dumps(result))
 ```bash
 # After wget completes
 cat <<EOF
-{"type": "ArchiveResult", "status": "succeeded", "output": "Downloaded index.html", "cmd": ["wget", "-p", "-k", "$URL"]}
+{"type": "ArchiveResult", "status": "succeeded", "output_str": "Downloaded index.html", "cmd": ["wget", "-p", "-k", "$URL"]}
 EOF
 ```
 
@@ -1004,12 +1083,12 @@ def test_parse_hook_json():
     """Test JSON parsing from stdout"""
     stdout = '''
     Some log output
-    {"type": "ArchiveResult", "status": "succeeded", "output": "test"}
+    {"type": "ArchiveResult", "status": "succeeded", "output_str": "test"}
     More output
     '''
     result = parse_hook_output_json(stdout)
     assert result['status'] == 'succeeded'
-    assert result['output'] == 'test'
+    assert result['output_str'] == 'test'
 ```
 
 ### 2. Integration Tests
@@ -1090,13 +1169,16 @@ python manage.py makemigrations core --name archiveresult_background_hooks
 ### Step 2: Update run_hook()
 - Add background hook detection
 - Add log file capture
-- Add output stat calculation
-- Add binary FK lookup
+- Parse JSONL output (any line with {type: 'ModelName', ...})
+- Add plugin and plugin_hook metadata to each record
 
 ### Step 3: Update ArchiveResult.run()
-- Handle None result for background hooks
-- Update field names (output → output_str, add output_data)
-- Set binary FK
+- Handle None result for background hooks (return immediately)
+- Parse records list from run_hook()
+- Assert only one ArchiveResult record per hook
+- Extend ArchiveResult record with computed fields (output_files, output_size, binary FK)
+- Call `_populate_output_fields()` to walk directory and populate summary fields
+- Call `create_model_record()` for any side-effect records (InstalledBinary, etc.)
 
 ### Step 4: Add finalization helpers
 - `find_background_hooks()`
@@ -1127,7 +1209,8 @@ python manage.py makemigrations core --name archiveresult_background_hooks
 - ✅ Background hooks are finalized after completion with full results
 - ✅ All output stats calculated by runner, not hooks
 - ✅ Binary FK optional and only set when determinable
-- ✅ Clean separation between output_str (human) and output_data (machine)
+- ✅ Clean separation between output_str (human) and output_json (structured)
+- ✅ output_files stored as dict for easy querying and future extensibility
 - ✅ Log files cleaned up on success, kept on failure
 - ✅ PID files cleaned up after completion
 - ✅ No plugin-specific code in core (generic polling mechanism)
@@ -1150,3 +1233,17 @@ If needed in future, extend to support multiple JSON outputs by collecting all `
 
 ### 4. Dependency tracking
 Store all binaries used by a hook (not just primary), useful for hooks that chain multiple tools.
+
+### 5. Per-file metadata in output_files
+If needed, extend output_files values to include per-file metadata:
+```python
+output_files = {
+    'index.html': {
+        'size': 4096,
+        'hash': 'abc123...',
+        'mime_type': 'text/html',
+        'modified_at': '2025-01-15T10:30:00Z'
+    }
+}
+```
+Can query with custom SQL for complex per-file queries (e.g., "find all results with any file > 50KB"). Summary fields (output_size, output_mimetypes) remain as denormalized cache for performance.

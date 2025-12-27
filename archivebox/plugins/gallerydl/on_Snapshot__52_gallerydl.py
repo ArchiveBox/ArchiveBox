@@ -6,17 +6,18 @@ Usage: on_Snapshot__gallerydl.py --url=<url> --snapshot-id=<uuid>
 Output: Downloads gallery images to $PWD/gallerydl/
 
 Environment variables:
-    GALLERY_DL_BINARY: Path to gallery-dl binary
-    GALLERY_DL_TIMEOUT: Timeout in seconds (default: 3600 for large galleries)
-    GALLERY_DL_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: True)
-    GALLERY_DL_EXTRA_ARGS: Extra arguments for gallery-dl (space-separated)
+    GALLERYDL_BINARY: Path to gallery-dl binary
+    GALLERYDL_TIMEOUT: Timeout in seconds (default: 3600 for large galleries)
+    GALLERYDL_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: True)
+    GALLERYDL_EXTRA_ARGS: Extra arguments for gallery-dl (space-separated)
+    COOKIES_FILE: Path to cookies file for authentication
 
     # Gallery-dl feature toggles
-    USE_GALLERY_DL: Enable gallery-dl gallery extraction (default: True)
-    SAVE_GALLERY_DL: Alias for USE_GALLERY_DL
+    USE_GALLERYDL: Enable gallery-dl gallery extraction (default: True)
+    SAVE_GALLERYDL: Alias for USE_GALLERYDL
 
-    # Fallback to ARCHIVING_CONFIG values if GALLERY_DL_* not set:
-    GALLERY_DL_TIMEOUT: Fallback timeout for gallery downloads
+    # Fallback to ARCHIVING_CONFIG values if GALLERYDL_* not set:
+    GALLERYDL_TIMEOUT: Fallback timeout for gallery downloads
     TIMEOUT: Fallback timeout
     CHECK_SSL_VALIDITY: Fallback SSL check
 """
@@ -26,7 +27,6 @@ import os
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 import rich_click as click
@@ -76,7 +76,7 @@ def has_media_output() -> bool:
 
 def find_gallerydl() -> str | None:
     """Find gallery-dl binary."""
-    gallerydl = get_env('GALLERY_DL_BINARY')
+    gallerydl = get_env('GALLERYDL_BINARY')
     if gallerydl and os.path.isfile(gallerydl):
         return gallerydl
 
@@ -111,23 +111,28 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env (with GALLERY_DL_ prefix or fallback to ARCHIVING_CONFIG style)
-    timeout = get_env_int('GALLERY_DL_TIMEOUT') or get_env_int('TIMEOUT', 3600)
-    check_ssl = get_env_bool('GALLERY_DL_CHECK_SSL_VALIDITY', get_env_bool('CHECK_SSL_VALIDITY', True))
-    extra_args = get_env('GALLERY_DL_EXTRA_ARGS', '')
+    # Get config from env (with GALLERYDL_ prefix or fallback to ARCHIVING_CONFIG style)
+    timeout = get_env_int('GALLERYDL_TIMEOUT') or get_env_int('TIMEOUT', 3600)
+    check_ssl = get_env_bool('GALLERYDL_CHECK_SSL_VALIDITY', get_env_bool('CHECK_SSL_VALIDITY', True))
+    extra_args = get_env('GALLERYDL_EXTRA_ARGS', '')
+    cookies_file = get_env('COOKIES_FILE', '')
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
 
     # Build command (later options take precedence)
+    # Use -D for exact directory (flat structure) instead of -d (nested structure)
     cmd = [
         binary,
         *get_gallerydl_default_args(),
-        '-d', str(output_dir),
+        '-D', str(output_dir),
     ]
 
     if not check_ssl:
         cmd.append('--no-check-certificate')
+
+    if cookies_file and Path(cookies_file).exists():
+        cmd.extend(['-C', cookies_file])
 
     if extra_args:
         cmd.extend(extra_args.split())
@@ -137,7 +142,7 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
     try:
         result = subprocess.run(cmd, capture_output=True, timeout=timeout, text=True)
 
-        # Check if any gallery files were downloaded
+        # Check if any gallery files were downloaded (search recursively)
         gallery_extensions = (
             '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg',
             '.mp4', '.webm', '.mkv', '.avi', '.mov', '.flv',
@@ -145,7 +150,7 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
         )
 
         downloaded_files = [
-            f for f in output_dir.glob('*')
+            f for f in output_dir.rglob('*')
             if f.is_file() and f.suffix.lower() in gallery_extensions
         ]
 
@@ -162,9 +167,10 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
 
             # These are NOT errors - page simply has no downloadable gallery
             # Return success with no output (legitimate "nothing to download")
-            if 'unsupported URL' in stderr.lower():
+            stderr_lower = stderr.lower()
+            if 'unsupported url' in stderr_lower:
                 return True, None, ''  # Not a gallery site - success, no output
-            if 'no results' in stderr.lower():
+            if 'no results' in stderr_lower:
                 return True, None, ''  # No gallery found - success, no output
             if result.returncode == 0:
                 return True, None, ''  # gallery-dl exited cleanly, just no gallery - success
@@ -174,7 +180,7 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
                 return False, None, '404 Not Found'
             if '403' in stderr:
                 return False, None, '403 Forbidden'
-            if 'Unable to extract' in stderr:
+            if 'unable to extract' in stderr_lower:
                 return False, None, 'Unable to extract gallery info'
 
             return False, None, f'gallery-dl error: {stderr[:200]}'
@@ -191,7 +197,6 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Download image gallery from a URL using gallery-dl."""
 
-    start_ts = datetime.now(timezone.utc)
     version = ''
     output = None
     status = 'failed'
@@ -201,12 +206,9 @@ def main(url: str, snapshot_id: str):
 
     try:
         # Check if gallery-dl is enabled
-        if not (get_env_bool('USE_GALLERY_DL', True) and get_env_bool('SAVE_GALLERY_DL', True)):
-            print('Skipping gallery-dl (USE_GALLERY_DL=False or SAVE_GALLERY_DL=False)')
+        if not (get_env_bool('USE_GALLERYDL', True) and get_env_bool('SAVE_GALLERYDL', True)):
+            print('Skipping gallery-dl (USE_GALLERYDL=False or SAVE_GALLERYDL=False)')
             status = 'skipped'
-            end_ts = datetime.now(timezone.utc)
-            print(f'START_TS={start_ts.isoformat()}')
-            print(f'END_TS={end_ts.isoformat()}')
             print(f'STATUS={status}')
             print(f'RESULT_JSON={json.dumps({"extractor": EXTRACTOR_NAME, "status": status, "url": url, "snapshot_id": snapshot_id})}')
             sys.exit(0)
@@ -215,8 +217,6 @@ def main(url: str, snapshot_id: str):
         if has_staticfile_output():
             print(f'Skipping gallery-dl - staticfile extractor already downloaded this')
             status = 'skipped'
-            print(f'START_TS={start_ts.isoformat()}')
-            print(f'END_TS={datetime.now(timezone.utc).isoformat()}')
             print(f'STATUS={status}')
             print(f'RESULT_JSON={json.dumps({"extractor": EXTRACTOR_NAME, "status": status, "url": url, "snapshot_id": snapshot_id})}')
             sys.exit(0)
@@ -224,8 +224,6 @@ def main(url: str, snapshot_id: str):
         if has_media_output():
             print(f'Skipping gallery-dl - media extractor already downloaded this')
             status = 'skipped'
-            print(f'START_TS={start_ts.isoformat()}')
-            print(f'END_TS={datetime.now(timezone.utc).isoformat()}')
             print(f'STATUS={status}')
             print(f'RESULT_JSON={json.dumps({"extractor": EXTRACTOR_NAME, "status": status, "url": url, "snapshot_id": snapshot_id})}')
             sys.exit(0)
@@ -260,12 +258,6 @@ def main(url: str, snapshot_id: str):
         status = 'failed'
 
     # Print results
-    end_ts = datetime.now(timezone.utc)
-    duration = (end_ts - start_ts).total_seconds()
-
-    print(f'START_TS={start_ts.isoformat()}')
-    print(f'END_TS={end_ts.isoformat()}')
-    print(f'DURATION={duration:.2f}')
     if cmd_str:
         print(f'CMD={cmd_str}')
     if version:
@@ -283,9 +275,6 @@ def main(url: str, snapshot_id: str):
         'url': url,
         'snapshot_id': snapshot_id,
         'status': status,
-        'start_ts': start_ts.isoformat(),
-        'end_ts': end_ts.isoformat(),
-        'duration': round(duration, 2),
         'cmd_version': version,
         'output': output,
         'error': error or None,
