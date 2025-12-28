@@ -60,6 +60,11 @@ class SnapshotMachine(StateMachine, strict_states=True):
         if not self.snapshot.archiveresult_set.exists():
             return False
 
+        # Try to advance step if ready (handles step-based hook execution)
+        # This will increment current_step when all foreground hooks in current step are done
+        while self.snapshot.advance_step_if_ready():
+            pass  # Keep advancing until we can't anymore
+
         # if archiveresults exist but are still pending, it's not finished
         if self.snapshot.pending_archiveresults().exists():
             return False
