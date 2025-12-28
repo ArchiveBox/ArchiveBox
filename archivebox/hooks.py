@@ -1348,7 +1348,7 @@ def kill_process(pid_file: Path, sig: int = signal.SIGTERM, validate: bool = Tru
     if validate:
         # Use safe kill with validation
         cmd_file = pid_file.parent / 'cmd.sh'
-        safe_kill_process(pid_file, cmd_file, signal_num=sig, validate=True)
+        safe_kill_process(pid_file, cmd_file, signal_num=sig)
     else:
         # Legacy behavior - kill without validation
         if not pid_file.exists():

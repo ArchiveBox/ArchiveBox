@@ -69,7 +69,7 @@ class CrawlMachine(StateMachine, strict_states=True):
             return False
         
         # check if all archiveresults are finished
-        if results.filter(status__in=[Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED]).exists():
+        if results.filter(status__in=[ArchiveResult.StatusChoices.QUEUED, ArchiveResult.StatusChoices.STARTED]).exists():
             return False
         
         return True
