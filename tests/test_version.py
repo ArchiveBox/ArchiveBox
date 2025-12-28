@@ -97,7 +97,7 @@ class TestVersionFull:
         assert 'Data' in output or 'location' in output.lower() or 'DIR' in output or 'Code' in output
 
 
-class TestVersionWithInstalledBinaries:
+class TestVersionWithBinaries:
     """Test version output after running install."""
 
     def test_version_shows_binary_status(self, tmp_path, process, disable_extractors_dict):

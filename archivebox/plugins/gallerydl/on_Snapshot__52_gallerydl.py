@@ -24,7 +24,6 @@ Environment variables:
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -72,28 +71,6 @@ def has_media_output() -> bool:
     """Check if media extractor already downloaded this URL."""
     media_dir = Path(MEDIA_DIR)
     return media_dir.exists() and any(media_dir.iterdir())
-
-
-def find_gallerydl() -> str | None:
-    """Find gallery-dl binary."""
-    gallerydl = get_env('GALLERYDL_BINARY')
-    if gallerydl and os.path.isfile(gallerydl):
-        return gallerydl
-
-    binary = shutil.which('gallery-dl')
-    if binary:
-        return binary
-
-    return None
-
-
-def get_version(binary: str) -> str:
-    """Get gallery-dl version."""
-    try:
-        result = subprocess.run([binary, '--version'], capture_output=True, text=True, timeout=10)
-        return result.stdout.strip()[:64]
-    except Exception:
-        return ''
 
 
 # Default gallery-dl args
@@ -197,89 +174,57 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Download image gallery from a URL using gallery-dl."""
 
-    version = ''
     output = None
     status = 'failed'
     error = ''
-    binary = None
-    cmd_str = ''
 
     try:
         # Check if gallery-dl is enabled
         if not (get_env_bool('USE_GALLERYDL', True) and get_env_bool('SAVE_GALLERYDL', True)):
-            print('Skipping gallery-dl (USE_GALLERYDL=False or SAVE_GALLERYDL=False)')
-            status = 'skipped'
-            print(f'STATUS={status}')
-            print(f'RESULT_JSON={json.dumps({"extractor": EXTRACTOR_NAME, "status": status, "url": url, "snapshot_id": snapshot_id})}')
+            print('Skipping gallery-dl (USE_GALLERYDL=False or SAVE_GALLERYDL=False)', file=sys.stderr)
+            # Feature disabled - no ArchiveResult, just exit
             sys.exit(0)
 
-        # Check if staticfile or media extractors already handled this (skip)
+        # Check if staticfile or media extractors already handled this (permanent skip)
         if has_staticfile_output():
-            print(f'Skipping gallery-dl - staticfile extractor already downloaded this')
-            status = 'skipped'
-            print(f'STATUS={status}')
-            print(f'RESULT_JSON={json.dumps({"extractor": EXTRACTOR_NAME, "status": status, "url": url, "snapshot_id": snapshot_id})}')
+            print(f'Skipping gallery-dl - staticfile extractor already downloaded this', file=sys.stderr)
+            print(json.dumps({
+                'type': 'ArchiveResult',
+                'status': 'skipped',
+                'output_str': 'staticfile already handled',
+            }))
             sys.exit(0)
 
         if has_media_output():
-            print(f'Skipping gallery-dl - media extractor already downloaded this')
-            status = 'skipped'
-            print(f'STATUS={status}')
-            print(f'RESULT_JSON={json.dumps({"extractor": EXTRACTOR_NAME, "status": status, "url": url, "snapshot_id": snapshot_id})}')
+            print(f'Skipping gallery-dl - media extractor already downloaded this', file=sys.stderr)
+            print(json.dumps({
+                'type': 'ArchiveResult',
+                'status': 'skipped',
+                'output_str': 'media already handled',
+            }))
             sys.exit(0)
 
-        # Find binary
-        binary = find_gallerydl()
-        if not binary:
-            print(f'ERROR: {BIN_NAME} binary not found', file=sys.stderr)
-            print(f'DEPENDENCY_NEEDED={BIN_NAME}', file=sys.stderr)
-            print(f'BIN_PROVIDERS={BIN_PROVIDERS}', file=sys.stderr)
-            print(f'INSTALL_HINT=pip install gallery-dl', file=sys.stderr)
-            sys.exit(1)
-
-        version = get_version(binary)
-        cmd_str = f'{binary} {url}'
+        # Get binary from environment
+        binary = get_env('GALLERYDL_BINARY', 'gallery-dl')
 
         # Run extraction
         success, output, error = save_gallery(url, binary)
         status = 'succeeded' if success else 'failed'
 
-        if success:
-            output_dir = Path(OUTPUT_DIR)
-            files = list(output_dir.glob('*'))
-            file_count = len([f for f in files if f.is_file()])
-            if file_count > 0:
-                print(f'gallery-dl completed: {file_count} files downloaded')
-            else:
-                print(f'gallery-dl completed: no gallery found on page (this is normal)')
-
     except Exception as e:
         error = f'{type(e).__name__}: {e}'
         status = 'failed'
 
-    # Print results
-    if cmd_str:
-        print(f'CMD={cmd_str}')
-    if version:
-        print(f'VERSION={version}')
-    if output:
-        print(f'OUTPUT={output}')
-    print(f'STATUS={status}')
-
     if error:
-        print(f'ERROR={error}', file=sys.stderr)
+        print(f'ERROR: {error}', file=sys.stderr)
 
-    # Print JSON result
-    result_json = {
-        'extractor': EXTRACTOR_NAME,
-        'url': url,
-        'snapshot_id': snapshot_id,
+    # Output clean JSONL (no RESULT_JSON= prefix)
+    result = {
+        'type': 'ArchiveResult',
         'status': status,
-        'cmd_version': version,
-        'output': output,
-        'error': error or None,
+        'output_str': output or error or '',
     }
-    print(f'RESULT_JSON={json.dumps(result_json)}')
+    print(json.dumps(result))
 
     sys.exit(0 if status == 'succeeded' else 1)
 

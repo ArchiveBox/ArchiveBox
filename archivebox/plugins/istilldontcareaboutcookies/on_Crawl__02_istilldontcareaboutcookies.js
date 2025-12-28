@@ -83,9 +83,9 @@ async function main() {
     // Install extension
     const extension = await installCookiesExtension();
 
-    // Export extension metadata for chrome_session to load
+    // Export extension metadata for chrome plugin to load
     if (extension) {
-        // Write extension info to a cache file that chrome_session can read
+        // Write extension info to a cache file that chrome plugin can read
         await fs.promises.mkdir(EXTENSIONS_DIR, { recursive: true });
         await fs.promises.writeFile(
             cacheFile,

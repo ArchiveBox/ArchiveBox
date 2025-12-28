@@ -355,7 +355,6 @@ class ArchiveResultWorker(Worker):
 
     def get_queue(self) -> QuerySet:
         """Get queue of ArchiveResults ready for processing."""
-        from django.db.models import Exists, OuterRef
         from core.models import ArchiveResult
 
         qs = super().get_queue()
@@ -363,12 +362,8 @@ class ArchiveResultWorker(Worker):
         if self.extractor:
             qs = qs.filter(extractor=self.extractor)
 
-        # Exclude ArchiveResults whose Snapshot already has one in progress
-        in_progress = ArchiveResult.objects.filter(
-            snapshot_id=OuterRef('snapshot_id'),
-            status=ArchiveResult.StatusChoices.STARTED,
-        )
-        qs = qs.exclude(Exists(in_progress))
+        # Note: Removed blocking logic since plugins have separate output directories
+        # and don't interfere with each other. Each plugin (extractor) runs independently.
 
         return qs
 

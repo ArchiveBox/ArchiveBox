@@ -6,8 +6,11 @@ Usage: on_Snapshot__archive_org.py --url=<url> --snapshot-id=<uuid>
 Output: Writes archive.org.txt to $PWD with the archived URL
 
 Environment variables:
-    TIMEOUT: Timeout in seconds (default: 60)
+    ARCHIVE_ORG_TIMEOUT: Timeout in seconds (default: 60)
     USER_AGENT: User agent string
+
+    # Fallback to ARCHIVING_CONFIG values if ARCHIVE_ORG_* not set:
+    TIMEOUT: Fallback timeout
 
 Note: This extractor uses the 'requests' library which is bundled with ArchiveBox.
       It can run standalone if requests is installed: pip install requests
@@ -16,7 +19,6 @@ Note: This extractor uses the 'requests' library which is bundled with ArchiveBo
 import json
 import os
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 import rich_click as click
@@ -50,7 +52,7 @@ def submit_to_archive_org(url: str) -> tuple[bool, str | None, str]:
     except ImportError:
         return False, None, 'requests library not installed'
 
-    timeout = get_env_int('TIMEOUT', 60)
+    timeout = get_env_int('ARCHIVE_ORG_TIMEOUT') or get_env_int('TIMEOUT', 60)
     user_agent = get_env('USER_AGENT', 'Mozilla/5.0 (compatible; ArchiveBox/1.0)')
 
     submit_url = f'https://web.archive.org/save/{url}'
@@ -103,7 +105,6 @@ def submit_to_archive_org(url: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Submit a URL to archive.org for archiving."""
 
-    start_ts = datetime.now(timezone.utc)
     output = None
     status = 'failed'
     error = ''
@@ -113,16 +114,9 @@ def main(url: str, snapshot_id: str):
         success, output, error = submit_to_archive_org(url)
         status = 'succeeded' if success else 'failed'
 
-        if success:
-            archive_url = Path(output).read_text().strip()
-            print(f'Archived at: {archive_url}')
-
     except Exception as e:
         error = f'{type(e).__name__}: {e}'
         status = 'failed'
-
-    # Calculate duration
-    end_ts = datetime.now(timezone.utc)
 
     if error:
         print(f'ERROR: {error}', file=sys.stderr)

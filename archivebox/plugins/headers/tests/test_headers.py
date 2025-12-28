@@ -75,16 +75,24 @@ def test_extracts_headers_from_example_com():
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
-        # Verify output in stdout
-        assert 'STATUS=succeeded' in result.stdout, "Should report success"
-        assert 'Headers extracted' in result.stdout, "Should report completion"
+        # Parse clean JSONL output
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
 
-        # Verify output directory created
-        headers_dir = tmpdir / 'headers'
-        assert headers_dir.exists(), "Output directory not created"
+        assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
-        # Verify output file exists
-        headers_file = headers_dir / 'headers.json'
+        # Verify output file exists (hook writes to current directory)
+        headers_file = tmpdir / 'headers.json'
         assert headers_file.exists(), "headers.json not created"
 
         # Verify headers JSON contains REAL example.com response
@@ -106,20 +114,6 @@ def test_extracts_headers_from_example_com():
         assert 'content-type' in headers_lower or 'content-length' in headers_lower, \
             "Should have at least one common HTTP header"
 
-        # Verify RESULT_JSON is present and valid
-        assert 'RESULT_JSON=' in result.stdout, "Should output RESULT_JSON"
-
-        for line in result.stdout.split('\n'):
-            if line.startswith('RESULT_JSON='):
-                result_json = json.loads(line.replace('RESULT_JSON=', ''))
-                assert result_json['extractor'] == 'headers'
-                assert result_json['status'] == 'succeeded'
-                assert result_json['url'] == TEST_URL
-                assert result_json['snapshot_id'] == 'test789'
-                assert 'duration' in result_json
-                assert result_json['duration'] >= 0
-                break
-
 
 def test_headers_output_structure():
     """Test that headers plugin produces correctly structured output."""
@@ -140,10 +134,25 @@ def test_headers_output_structure():
         )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
-        assert 'STATUS=succeeded' in result.stdout, "Should report success"
+
+        # Parse clean JSONL output
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
         # Verify output structure
-        output_headers_file = tmpdir / 'headers' / 'headers.json'
+        output_headers_file = tmpdir / 'headers.json'
         assert output_headers_file.exists(), "Output headers.json not created"
 
         output_data = json.loads(output_headers_file.read_text())
@@ -162,8 +171,8 @@ def test_headers_output_structure():
         assert output_data['status'] in [200, 301, 302]
 
 
-def test_falls_back_to_http_when_chrome_session_unavailable():
-    """Test that headers plugin falls back to HTTP HEAD when chrome_session unavailable."""
+def test_falls_back_to_http_when_chrome_unavailable():
+    """Test that headers plugin falls back to HTTP HEAD when chrome unavailable."""
 
     if not shutil.which('node'):
         pytest.skip("node not installed")
@@ -171,7 +180,7 @@ def test_falls_back_to_http_when_chrome_session_unavailable():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Don't create chrome_session directory - force HTTP fallback
+        # Don't create chrome directory - force HTTP fallback
 
         # Run headers extraction
         result = subprocess.run(
@@ -183,12 +192,25 @@ def test_falls_back_to_http_when_chrome_session_unavailable():
         )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
-        assert 'STATUS=succeeded' in result.stdout, "Should report success"
-        assert 'http' in result.stdout.lower() or 'HEAD' not in result.stdout, \
-            "Should use HTTP method"
+
+        # Parse clean JSONL output
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
         # Verify output exists and has real HTTP headers
-        output_headers_file = tmpdir / 'headers' / 'headers.json'
+        output_headers_file = tmpdir / 'headers.json'
         assert output_headers_file.exists(), "Output headers.json not created"
 
         output_data = json.loads(output_headers_file.read_text())
@@ -250,7 +272,21 @@ def test_config_user_agent():
 
         # Should succeed (example.com doesn't block)
         if result.returncode == 0:
-            assert 'STATUS=succeeded' in result.stdout
+            # Parse clean JSONL output
+            result_json = None
+            for line in result.stdout.strip().split('\n'):
+                line = line.strip()
+                if line.startswith('{'):
+                    try:
+                        record = json.loads(line)
+                        if record.get('type') == 'ArchiveResult':
+                            result_json = record
+                            break
+                    except json.JSONDecodeError:
+                        pass
+
+            assert result_json, "Should have ArchiveResult JSONL output"
+            assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
 
 def test_handles_https_urls():
@@ -271,7 +307,7 @@ def test_handles_https_urls():
         )
 
         if result.returncode == 0:
-            output_headers_file = tmpdir / 'headers' / 'headers.json'
+            output_headers_file = tmpdir / 'headers.json'
             if output_headers_file.exists():
                 output_data = json.loads(output_headers_file.read_text())
                 assert output_data['url'] == 'https://example.org'
@@ -298,7 +334,7 @@ def test_handles_404_gracefully():
         # May succeed or fail depending on server behavior
         # If it succeeds, verify 404 status is captured
         if result.returncode == 0:
-            output_headers_file = tmpdir / 'headers' / 'headers.json'
+            output_headers_file = tmpdir / 'headers.json'
             if output_headers_file.exists():
                 output_data = json.loads(output_headers_file.read_text())
                 assert output_data['status'] == 404, "Should capture 404 status"

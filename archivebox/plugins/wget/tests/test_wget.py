@@ -26,9 +26,9 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 WGET_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_wget.py'))
-WGET_VALIDATE_HOOK = PLUGIN_DIR / 'on_Crawl__00_validate_wget.py'
-BREW_HOOK = PLUGINS_ROOT / 'brew' / 'on_Dependency__install_using_brew_provider.py'
-APT_HOOK = PLUGINS_ROOT / 'apt' / 'on_Dependency__install_using_apt_provider.py'
+WGET_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_wget.py'
+BREW_HOOK = PLUGINS_ROOT / 'brew' / 'on_Binary__install_using_brew_provider.py'
+APT_HOOK = PLUGINS_ROOT / 'apt' / 'on_Binary__install_using_apt_provider.py'
 TEST_URL = 'https://example.com'
 
 
@@ -37,10 +37,10 @@ def test_hook_script_exists():
     assert WGET_HOOK.exists(), f"Hook script not found: {WGET_HOOK}"
 
 
-def test_wget_validate_hook():
-    """Test wget validate hook checks for wget binary."""
+def test_wget_install_hook():
+    """Test wget install hook checks for wget binary."""
     result = subprocess.run(
-        [sys.executable, str(WGET_VALIDATE_HOOK)],
+        [sys.executable, str(WGET_INSTALL_HOOK)],
         capture_output=True,
         text=True,
         timeout=30
@@ -48,20 +48,20 @@ def test_wget_validate_hook():
 
     # Hook exits 0 if binary found, 1 if not found (with Dependency record)
     if result.returncode == 0:
-        # Binary found - verify InstalledBinary JSONL output
+        # Binary found - verify Binary JSONL output
         found_binary = False
         for line in result.stdout.strip().split('\n'):
             if line.strip():
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'InstalledBinary':
+                    if record.get('type') == 'Binary':
                         assert record['name'] == 'wget'
                         assert record['abspath']
                         found_binary = True
                         break
                 except json.JSONDecodeError:
                     pass
-        assert found_binary, "Should output InstalledBinary record when binary found"
+        assert found_binary, "Should output Binary record when binary found"
     else:
         # Binary not found - verify Dependency JSONL output
         found_dependency = False
@@ -150,8 +150,8 @@ def test_can_install_wget_via_provider():
     # Should succeed (wget installs successfully or is already installed)
     assert result.returncode == 0, f"{provider_name} install failed: {result.stderr}"
 
-    # Should output InstalledBinary JSONL record
-    assert 'InstalledBinary' in result.stdout or 'wget' in result.stderr, \
+    # Should output Binary JSONL record
+    assert 'Binary' in result.stdout or 'wget' in result.stderr, \
         f"Should output installation info: stdout={result.stdout}, stderr={result.stderr}"
 
     # Parse JSONL if present
@@ -159,7 +159,7 @@ def test_can_install_wget_via_provider():
         for line in result.stdout.strip().split('\n'):
             try:
                 record = json.loads(line)
-                if record.get('type') == 'InstalledBinary':
+                if record.get('type') == 'Binary':
                     assert record['name'] == 'wget'
                     assert record['binprovider'] in ['brew', 'apt']
                     assert record['abspath'], "Should have binary path"
@@ -216,9 +216,21 @@ def test_archives_example_com():
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
-        # Verify output in stdout
-        assert 'STATUS=succeeded' in result.stdout, "Should report success"
-        assert 'wget completed' in result.stdout, "Should report completion"
+        # Parse clean JSONL output
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
         # Verify files were downloaded
         downloaded_files = list(tmpdir.rglob('*.html')) + list(tmpdir.rglob('*.htm'))
@@ -245,23 +257,9 @@ def test_archives_example_com():
                 'more information' in html_content.lower()), \
             "Missing IANA reference"
 
-        # Verify RESULT_JSON is present and valid
-        assert 'RESULT_JSON=' in result.stdout, "Should output RESULT_JSON"
-
-        for line in result.stdout.split('\n'):
-            if line.startswith('RESULT_JSON='):
-                result_json = json.loads(line.replace('RESULT_JSON=', ''))
-                assert result_json['extractor'] == 'wget'
-                assert result_json['status'] == 'succeeded'
-                assert result_json['url'] == TEST_URL
-                assert result_json['snapshot_id'] == 'test789'
-                assert 'duration' in result_json
-                assert result_json['duration'] >= 0
-                break
-
 
 def test_config_save_wget_false_skips():
-    """Test that SAVE_WGET=False causes skip."""
+    """Test that SAVE_WGET=False exits without emitting JSONL."""
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -279,10 +277,15 @@ def test_config_save_wget_false_skips():
             timeout=30
         )
 
-        # Should succeed but skip
-        assert result.returncode == 0, f"Should exit 0 when skipping: {result.stderr}"
-        assert 'STATUS=skipped' in result.stdout, "Should report skipped status"
-        assert 'SAVE_WGET=False' in result.stdout, "Should mention SAVE_WGET=False"
+        # Should exit 0 when feature disabled
+        assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
+
+        # Feature disabled - no JSONL emission, just logs to stderr
+        assert 'Skipping' in result.stderr or 'False' in result.stderr, "Should log skip reason to stderr"
+
+        # Should NOT emit any JSONL
+        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
+        assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
 
 
 def test_config_save_warc():
@@ -323,23 +326,44 @@ def test_staticfile_present_skips():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Create staticfile directory with content to simulate staticfile extractor ran
+        # Create directory structure like real ArchiveBox:
+        # tmpdir/
+        #   staticfile/  <- staticfile extractor output
+        #   wget/         <- wget extractor runs here, looks for ../staticfile
         staticfile_dir = tmpdir / 'staticfile'
         staticfile_dir.mkdir()
         (staticfile_dir / 'index.html').write_text('<html>test</html>')
 
+        wget_dir = tmpdir / 'wget'
+        wget_dir.mkdir()
+
         result = subprocess.run(
             [sys.executable, str(WGET_HOOK), '--url', TEST_URL, '--snapshot-id', 'teststatic'],
-            cwd=tmpdir,
+            cwd=wget_dir,  # Run from wget subdirectory
             capture_output=True,
             text=True,
             timeout=30
         )
 
-        # Should skip
-        assert result.returncode == 0, "Should exit 0 when skipping"
-        assert 'STATUS=skipped' in result.stdout, "Should report skipped status"
-        assert 'staticfile' in result.stdout.lower(), "Should mention staticfile"
+        # Should skip with permanent skip JSONL
+        assert result.returncode == 0, "Should exit 0 when permanently skipping"
+
+        # Parse clean JSONL output
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert result_json, "Should emit ArchiveResult JSONL for permanent skip"
+        assert result_json['status'] == 'skipped', f"Should have status='skipped': {result_json}"
+        assert 'staticfile' in result_json.get('output_str', '').lower(), "Should mention staticfile in output_str"
 
 
 def test_handles_404_gracefully():
@@ -418,7 +442,21 @@ def test_config_user_agent():
 
         # Should succeed (example.com doesn't block)
         if result.returncode == 0:
-            assert 'STATUS=succeeded' in result.stdout
+            # Parse clean JSONL output
+            result_json = None
+            for line in result.stdout.strip().split('\n'):
+                line = line.strip()
+                if line.startswith('{'):
+                    try:
+                        record = json.loads(line)
+                        if record.get('type') == 'ArchiveResult':
+                            result_json = record
+                            break
+                    except json.JSONDecodeError:
+                        pass
+
+            assert result_json, "Should have ArchiveResult JSONL output"
+            assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
 
 if __name__ == '__main__':

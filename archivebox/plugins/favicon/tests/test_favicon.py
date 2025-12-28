@@ -12,6 +12,7 @@ Tests verify:
 8. Handles failures gracefully
 """
 
+import json
 import subprocess
 import sys
 import tempfile
@@ -74,14 +75,23 @@ def test_extracts_favicon_from_example_com():
         # May succeed (if Google service works) or fail (if no favicon)
         assert result.returncode in (0, 1), "Should complete extraction attempt"
 
-        # Verify RESULT_JSON is present
-        assert 'RESULT_JSON=' in result.stdout, "Should output RESULT_JSON"
+        # Parse clean JSONL output
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert result_json, "Should have ArchiveResult JSONL output"
 
         # If it succeeded, verify the favicon file
-        if result.returncode == 0:
-            assert 'STATUS=succeeded' in result.stdout, "Should report success"
-            assert 'Favicon saved' in result.stdout, "Should report completion"
-
+        if result_json['status'] == 'succeeded':
             favicon_file = tmpdir / 'favicon.ico'
             assert favicon_file.exists(), "favicon.ico not created"
 
@@ -103,8 +113,7 @@ def test_extracts_favicon_from_example_com():
             assert is_image, "Favicon file should be a valid image format"
         else:
             # Failed as expected
-            assert 'STATUS=failed' in result.stdout
-            assert 'No favicon found' in result.stdout or 'No favicon found' in result.stderr
+            assert result_json['status'] == 'failed', f"Should report failure: {result_json}"
 
 
 def test_config_timeout_honored():
@@ -167,7 +176,21 @@ def test_config_user_agent():
 
         # Should succeed (example.com doesn't block)
         if result.returncode == 0:
-            assert 'STATUS=succeeded' in result.stdout
+            # Parse clean JSONL output
+            result_json = None
+            for line in result.stdout.strip().split('\n'):
+                line = line.strip()
+                if line.startswith('{'):
+                    try:
+                        record = json.loads(line)
+                        if record.get('type') == 'ArchiveResult':
+                            result_json = record
+                            break
+                    except json.JSONDecodeError:
+                        pass
+
+            if result_json:
+                assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
 
 def test_handles_https_urls():

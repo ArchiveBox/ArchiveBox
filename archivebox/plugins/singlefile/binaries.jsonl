@@ -1,0 +1,1 @@
+{"type": "Binary", "name": "single-file", "binproviders": "npm,env", "overrides": {"npm": {"packages": ["single-file-cli"]}}}

@@ -1,0 +1,1 @@
+{"type": "Binary", "name": "chrome", "binproviders": "npm,env,brew,apt", "overrides": {"npm": {"packages": ["@puppeteer/browsers"]}}}

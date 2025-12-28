@@ -51,8 +51,10 @@ def fetch_content(url: str) -> str:
 
 @click.command()
 @click.option('--url', required=True, help='RSS/Atom feed URL to parse')
-@click.option('--snapshot-id', required=False, help='Snapshot UUID (unused but required by hook runner)')
-def main(url: str, snapshot_id: str = None):
+@click.option('--snapshot-id', required=False, help='Parent Snapshot UUID')
+@click.option('--crawl-id', required=False, help='Crawl UUID')
+@click.option('--depth', type=int, default=0, help='Current depth level')
+def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0):
     """Parse RSS/Atom feed and extract article URLs."""
 
     if feedparser is None:
@@ -73,6 +75,8 @@ def main(url: str, snapshot_id: str = None):
         sys.exit(1)
 
     urls_found = []
+    all_tags = set()
+
     for item in feed.entries:
         item_url = getattr(item, 'link', None)
         if not item_url:
@@ -92,6 +96,11 @@ def main(url: str, snapshot_id: str = None):
         if hasattr(item, 'tags') and item.tags:
             try:
                 tags = ','.join(tag.term for tag in item.tags if hasattr(tag, 'term'))
+                # Collect unique tags
+                for tag in tags.split(','):
+                    tag = tag.strip()
+                    if tag:
+                        all_tags.add(tag)
             except (AttributeError, TypeError):
                 pass
 
@@ -99,7 +108,12 @@ def main(url: str, snapshot_id: str = None):
             'type': 'Snapshot',
             'url': unescape(item_url),
             'via_extractor': EXTRACTOR_NAME,
+            'depth': depth + 1,
         }
+        if snapshot_id:
+            entry['parent_snapshot_id'] = snapshot_id
+        if crawl_id:
+            entry['crawl_id'] = crawl_id
         if title:
             entry['title'] = unescape(title)
         if bookmarked_at:
@@ -112,28 +126,18 @@ def main(url: str, snapshot_id: str = None):
         click.echo('No valid URLs found in feed entries', err=True)
         sys.exit(1)
 
-    # Collect unique tags
-    all_tags = set()
+    # Emit Tag records first (to stdout as JSONL)
+    for tag_name in sorted(all_tags):
+        print(json.dumps({
+            'type': 'Tag',
+            'name': tag_name,
+        }))
+
+    # Emit Snapshot records (to stdout as JSONL)
     for entry in urls_found:
-        if entry.get('tags'):
-            for tag in entry['tags'].split(','):
-                tag = tag.strip()
-                if tag:
-                    all_tags.add(tag)
+        print(json.dumps(entry))
 
-    # Write urls.jsonl
-    with open('urls.jsonl', 'w') as f:
-        # Write Tag records first
-        for tag_name in sorted(all_tags):
-            f.write(json.dumps({
-                'type': 'Tag',
-                'name': tag_name,
-            }) + '\n')
-        # Write Snapshot records
-        for entry in urls_found:
-            f.write(json.dumps(entry) + '\n')
-
-    click.echo(f'Found {len(urls_found)} URLs, {len(all_tags)} tags')
+    click.echo(f'Found {len(urls_found)} URLs, {len(all_tags)} tags', err=True)
     sys.exit(0)
 
 

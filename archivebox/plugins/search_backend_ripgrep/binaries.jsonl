@@ -1,0 +1,1 @@
+{"type": "Binary", "name": "rg", "binproviders": "apt,brew,env", "overrides": {"apt": {"packages": ["ripgrep"]}}}

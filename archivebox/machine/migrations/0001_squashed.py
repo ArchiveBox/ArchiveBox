@@ -14,9 +14,9 @@ class Migration(migrations.Migration):
 
     replaces = [
         ('machine', '0001_initial'),
-        ('machine', '0002_alter_machine_stats_installedbinary'),
-        ('machine', '0003_alter_installedbinary_options_and_more'),
-        ('machine', '0004_alter_installedbinary_abspath_and_more'),
+        ('machine', '0002_alter_machine_stats_binary'),
+        ('machine', '0003_alter_binary_options_and_more'),
+        ('machine', '0004_alter_binary_abspath_and_more'),
     ]
 
     dependencies = []
@@ -87,7 +87,7 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='InstalledBinary',
+            name='Binary',
             fields=[
                 ('num_uses_failed', models.PositiveIntegerField(default=0)),
                 ('num_uses_succeeded', models.PositiveIntegerField(default=0)),
@@ -100,11 +100,11 @@ class Migration(migrations.Migration):
                 ('version', models.CharField(blank=True, default=None, max_length=32)),
                 ('sha256', models.CharField(blank=True, default=None, max_length=64)),
                 ('machine', models.ForeignKey(blank=True, default=None, on_delete=django.db.models.deletion.CASCADE, to='machine.machine')),
-                ('dependency', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='installedbinary_set', to='machine.dependency')),
+                ('dependency', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='binary_set', to='machine.dependency')),
             ],
             options={
-                'verbose_name': 'Installed Binary',
-                'verbose_name_plural': 'Installed Binaries',
+                'verbose_name': 'Binary',
+                'verbose_name_plural': 'Binaries',
                 'unique_together': {('machine', 'name', 'abspath', 'version', 'sha256')},
             },
         ),

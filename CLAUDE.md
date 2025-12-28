@@ -182,15 +182,15 @@ def log_validation_result(ok: bool, msg: str) -> None: ...
 # Binary has overrides field
 binary = Binary(overrides={'TIMEOUT': '60s'})
 
-# InstalledBinary reuses the same field name and structure
-class InstalledBinary(models.Model):
+# Binary reuses the same field name and structure
+class Binary(models.Model):
     overrides = models.JSONField(default=dict)  # Same name, same structure
 ```
 
 **Example - BAD**:
 ```python
-# Don't invent new names like custom_bin_cmds, installed_binary_overrides, etc.
-class InstalledBinary(models.Model):
+# Don't invent new names like custom_bin_cmds, binary_overrides, etc.
+class Binary(models.Model):
     custom_bin_cmds = models.JSONField(default=dict)  # ❌ New unique name
 ```
 

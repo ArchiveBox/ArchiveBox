@@ -124,7 +124,6 @@ def create_merkle_tree(snapshot_dir: Path) -> Dict[str, Any]:
 @click.option('--snapshot-id', required=True, help='Snapshot UUID')
 def main(url: str, snapshot_id: str):
     """Generate Merkle tree of all archived outputs."""
-    start_ts = datetime.now(timezone.utc)
     status = 'failed'
     output = None
     error = ''
@@ -163,16 +162,11 @@ def main(url: str, snapshot_id: str):
         output = 'merkletree.json'
         root_hash = merkle_data['root_hash']
         file_count = merkle_data['metadata']['file_count']
-        total_size = merkle_data['metadata']['total_size']
-
-        click.echo(f'Merkle tree: {file_count} files, root={root_hash[:16]}..., size={total_size:,} bytes')
 
     except Exception as e:
         error = f'{type(e).__name__}: {e}'
         status = 'failed'
         click.echo(f'Error: {error}', err=True)
-
-    end_ts = datetime.now(timezone.utc)
 
     # Print JSON result for hook runner
     result = {

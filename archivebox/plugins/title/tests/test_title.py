@@ -8,9 +8,10 @@ Tests verify:
 4. Output file contains actual page title
 5. Handles various title sources (<title>, og:title, twitter:title)
 6. Config options work (TIMEOUT, USER_AGENT)
-7. Fallback to HTTP when chrome_session not available
+7. Fallback to HTTP when chrome not available
 """
 
+import json
 import shutil
 import subprocess
 import tempfile
@@ -50,16 +51,24 @@ def test_extracts_title_from_example_com():
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
-        # Verify output in stdout
-        assert 'STATUS=succeeded' in result.stdout, "Should report success"
-        assert 'Title extracted' in result.stdout, "Should report completion"
+        # Parse clean JSONL output
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
 
-        # Verify output directory created
-        title_dir = tmpdir / 'title'
-        assert title_dir.exists(), "Output directory not created"
+        assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
-        # Verify output file exists
-        title_file = title_dir / 'title.txt'
+        # Verify output file exists (hook writes to current directory)
+        title_file = tmpdir / 'title.txt'
         assert title_file.exists(), "title.txt not created"
 
         # Verify title contains REAL example.com title
@@ -70,12 +79,9 @@ def test_extracts_title_from_example_com():
         # example.com has title "Example Domain"
         assert 'example domain' in title_text.lower(), f"Expected 'Example Domain', got: {title_text}"
 
-        # Verify RESULT_JSON is present
-        assert 'RESULT_JSON=' in result.stdout, "Should output RESULT_JSON"
 
-
-def test_falls_back_to_http_when_chrome_session_unavailable():
-    """Test that title plugin falls back to HTTP when chrome_session unavailable."""
+def test_falls_back_to_http_when_chrome_unavailable():
+    """Test that title plugin falls back to HTTP when chrome unavailable."""
 
     if not shutil.which('node'):
         pytest.skip("node not installed")
@@ -83,7 +89,7 @@ def test_falls_back_to_http_when_chrome_session_unavailable():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Don't create chrome_session directory - force HTTP fallback
+        # Don't create chrome directory - force HTTP fallback
 
         # Run title extraction
         result = subprocess.run(
@@ -95,10 +101,25 @@ def test_falls_back_to_http_when_chrome_session_unavailable():
         )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
-        assert 'STATUS=succeeded' in result.stdout, "Should report success"
 
-        # Verify output exists and has real title
-        output_title_file = tmpdir / 'title' / 'title.txt'
+        # Parse clean JSONL output
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+
+        # Verify output exists and has real title (hook writes to current directory)
+        output_title_file = tmpdir / 'title.txt'
         assert output_title_file.exists(), "Output title.txt not created"
 
         title_text = output_title_file.read_text().strip()
@@ -157,7 +178,21 @@ def test_config_user_agent():
 
         # Should succeed (example.com doesn't block)
         if result.returncode == 0:
-            assert 'STATUS=succeeded' in result.stdout
+            # Parse clean JSONL output
+            result_json = None
+            for line in result.stdout.strip().split('\n'):
+                line = line.strip()
+                if line.startswith('{'):
+                    try:
+                        record = json.loads(line)
+                        if record.get('type') == 'ArchiveResult':
+                            result_json = record
+                            break
+                    except json.JSONDecodeError:
+                        pass
+
+            assert result_json, "Should have ArchiveResult JSONL output"
+            assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
 
 def test_handles_https_urls():
@@ -178,7 +213,8 @@ def test_handles_https_urls():
         )
 
         if result.returncode == 0:
-            output_title_file = tmpdir / 'title' / 'title.txt'
+            # Hook writes to current directory
+            output_title_file = tmpdir / 'title.txt'
             if output_title_file.exists():
                 title_text = output_title_file.read_text().strip()
                 assert len(title_text) > 0, "Title should not be empty"
@@ -231,7 +267,8 @@ def test_handles_redirects():
 
         # Should succeed and follow redirect
         if result.returncode == 0:
-            output_title_file = tmpdir / 'title' / 'title.txt'
+            # Hook writes to current directory
+            output_title_file = tmpdir / 'title.txt'
             if output_title_file.exists():
                 title_text = output_title_file.read_text().strip()
                 assert 'example' in title_text.lower()

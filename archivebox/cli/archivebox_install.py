@@ -22,7 +22,7 @@ def install(dry_run: bool=False) -> None:
     from archivebox.cli.archivebox_init import init
 
     if not (os.access(ARCHIVE_DIR, os.R_OK) and ARCHIVE_DIR.is_dir()):
-        init()  # must init full index because we need a db to store InstalledBinary entries in
+        init()  # must init full index because we need a db to store Binary entries in
 
     print('\n[green][+] Detecting ArchiveBox dependencies...[/green]')
 

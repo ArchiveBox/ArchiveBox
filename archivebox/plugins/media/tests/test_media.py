@@ -21,7 +21,7 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 MEDIA_HOOK = PLUGIN_DIR / 'on_Snapshot__51_media.py'
-MEDIA_VALIDATE_HOOK = PLUGIN_DIR / 'on_Crawl__00_validate_ytdlp.py'
+MEDIA_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_ytdlp.py'
 TEST_URL = 'https://example.com/video.mp4'
 
 def test_hook_script_exists():
@@ -29,18 +29,18 @@ def test_hook_script_exists():
     assert MEDIA_HOOK.exists(), f"Hook not found: {MEDIA_HOOK}"
 
 
-def test_ytdlp_validate_hook():
-    """Test yt-dlp validate hook checks for yt-dlp and dependencies (node, ffmpeg)."""
-    # Run yt-dlp validate hook
+def test_ytdlp_install_hook():
+    """Test yt-dlp install hook checks for yt-dlp and dependencies (node, ffmpeg)."""
+    # Run yt-dlp install hook
     result = subprocess.run(
-        [sys.executable, str(MEDIA_VALIDATE_HOOK)],
+        [sys.executable, str(MEDIA_INSTALL_HOOK)],
         capture_output=True,
         text=True,
         timeout=30
     )
 
     # Hook exits 0 if all binaries found, 1 if any not found
-    # Parse output for InstalledBinary and Dependency records
+    # Parse output for Binary and Dependency records
     found_binaries = {'node': False, 'ffmpeg': False, 'yt-dlp': False}
     found_dependencies = {'node': False, 'ffmpeg': False, 'yt-dlp': False}
 
@@ -48,7 +48,7 @@ def test_ytdlp_validate_hook():
         if line.strip():
             try:
                 record = json.loads(line)
-                if record.get('type') == 'InstalledBinary':
+                if record.get('type') == 'Binary':
                     name = record['name']
                     if name in found_binaries:
                         assert record['abspath'], f"{name} should have abspath"
@@ -60,10 +60,10 @@ def test_ytdlp_validate_hook():
             except json.JSONDecodeError:
                 pass
 
-    # Each binary should either be found (InstalledBinary) or missing (Dependency)
+    # Each binary should either be found (Binary) or missing (Dependency)
     for binary_name in ['yt-dlp', 'node', 'ffmpeg']:
         assert found_binaries[binary_name] or found_dependencies[binary_name], \
-            f"{binary_name} should have either InstalledBinary or Dependency record"
+            f"{binary_name} should have either Binary or Dependency record"
 
 
 def test_verify_deps_with_abx_pkg():
@@ -115,23 +115,25 @@ def test_handles_non_media_url():
         # Should exit 0 even for non-media URL
         assert result.returncode == 0, f"Should handle non-media URL gracefully: {result.stderr}"
 
-        # Verify JSONL output
-        assert 'STATUS=' in result.stdout, "Should report status"
-        assert 'RESULT_JSON=' in result.stdout, "Should output RESULT_JSON"
-
-        # Parse JSONL result
+        # Parse clean JSONL output
         result_json = None
-        for line in result.stdout.split('\n'):
-            if line.startswith('RESULT_JSON='):
-                result_json = json.loads(line.split('=', 1)[1])
-                break
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
 
-        assert result_json, "Should have RESULT_JSON"
-        assert result_json['extractor'] == 'media'
+        assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
 
 def test_config_save_media_false_skips():
-    """Test that SAVE_MEDIA=False causes skip."""
+    """Test that SAVE_MEDIA=False exits without emitting JSONL."""
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -147,8 +149,14 @@ def test_config_save_media_false_skips():
             timeout=30
         )
 
-        assert result.returncode == 0, f"Should exit 0 when skipping: {result.stderr}"
-        assert 'STATUS=' in result.stdout
+        assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
+
+        # Feature disabled - no JSONL emission, just logs to stderr
+        assert 'Skipping' in result.stderr or 'False' in result.stderr, "Should log skip reason to stderr"
+
+        # Should NOT emit any JSONL
+        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
+        assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
 
 
 def test_config_timeout():

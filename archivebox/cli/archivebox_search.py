@@ -25,10 +25,7 @@ LINK_FILTERS = {
     'timestamp': lambda pattern: {'timestamp': pattern},
 }
 
-STATUS_CHOICES = [
-    'indexed', 'archived', 'unarchived', 'present', 'valid', 'invalid',
-    'duplicate', 'orphaned', 'corrupted', 'unrecognized'
-]
+STATUS_CHOICES = ['indexed', 'archived', 'unarchived']
 
 
 
@@ -59,45 +56,6 @@ def get_snapshots(snapshots: Optional[QuerySet]=None,
     return result
 
 
-def list_folders(snapshots: QuerySet, status: str, out_dir: Path=DATA_DIR) -> dict[str, Any]:
-
-    from archivebox.misc.checks import check_data_folder
-    from archivebox.misc.folders import (
-        get_indexed_folders,
-        get_archived_folders,
-        get_unarchived_folders,
-        get_present_folders,
-        get_valid_folders,
-        get_invalid_folders,
-        get_duplicate_folders,
-        get_orphaned_folders,
-        get_corrupted_folders,
-        get_unrecognized_folders,
-    )
-
-    check_data_folder()
-
-    STATUS_FUNCTIONS = {
-        "indexed": get_indexed_folders,
-        "archived": get_archived_folders,
-        "unarchived": get_unarchived_folders,
-        "present": get_present_folders,
-        "valid": get_valid_folders,
-        "invalid": get_invalid_folders,
-        "duplicate": get_duplicate_folders,
-        "orphaned": get_orphaned_folders,
-        "corrupted": get_corrupted_folders,
-        "unrecognized": get_unrecognized_folders,
-    }
-
-    try:
-        return STATUS_FUNCTIONS[status](snapshots, out_dir=out_dir)
-    except KeyError:
-        raise ValueError('Status not recognized.')
-
-
-
-
 @enforce_types
 def search(filter_patterns: list[str] | None=None,
            filter_type: str='substring',
@@ -110,12 +68,13 @@ def search(filter_patterns: list[str] | None=None,
            csv: str | None=None,
            with_headers: bool=False):
     """List, filter, and export information about archive entries"""
-    
+    from core.models import Snapshot
 
     if with_headers and not (json or html or csv):
         stderr('[X] --with-headers requires --json, --html or --csv\n', color='red')
         raise SystemExit(2)
 
+    # Query DB directly - no filesystem scanning
     snapshots = get_snapshots(
         filter_patterns=list(filter_patterns) if filter_patterns else None,
         filter_type=filter_type,
@@ -123,30 +82,27 @@ def search(filter_patterns: list[str] | None=None,
         after=after,
     )
 
+    # Apply status filter
+    if status == 'archived':
+        snapshots = snapshots.filter(downloaded_at__isnull=False)
+    elif status == 'unarchived':
+        snapshots = snapshots.filter(downloaded_at__isnull=True)
+    # 'indexed' = all snapshots (no filter)
+
     if sort:
         snapshots = snapshots.order_by(sort)
 
-    folders = list_folders(
-        snapshots=snapshots,
-        status=status,
-        out_dir=DATA_DIR,
-    )
-
+    # Export to requested format
     if json:
-        from core.models import Snapshot
-        # Filter for non-None snapshots
-        valid_snapshots = [s for s in folders.values() if s is not None]
-        output = Snapshot.objects.filter(pk__in=[s.pk for s in valid_snapshots]).to_json(with_headers=with_headers)
+        output = snapshots.to_json(with_headers=with_headers)
     elif html:
-        from core.models import Snapshot
-        valid_snapshots = [s for s in folders.values() if s is not None]
-        output = Snapshot.objects.filter(pk__in=[s.pk for s in valid_snapshots]).to_html(with_headers=with_headers)
+        output = snapshots.to_html(with_headers=with_headers)
     elif csv:
-        from core.models import Snapshot
-        valid_snapshots = [s for s in folders.values() if s is not None]
-        output = Snapshot.objects.filter(pk__in=[s.pk for s in valid_snapshots]).to_csv(cols=csv.split(','), header=with_headers)
+        output = snapshots.to_csv(cols=csv.split(','), header=with_headers)
     else:
         from archivebox.misc.logging_util import printable_folders
+        # Convert to dict for printable_folders
+        folders = {s.output_dir: s for s in snapshots}
         output = printable_folders(folders, with_headers)
 
     print(output)

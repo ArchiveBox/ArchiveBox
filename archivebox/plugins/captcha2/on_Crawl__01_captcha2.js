@@ -59,7 +59,7 @@ async function installCaptchaExtension() {
 }
 
 /**
- * Note: 2captcha configuration is now handled by chrome_session plugin
+ * Note: 2captcha configuration is now handled by chrome plugin
  * during first-time browser setup to avoid repeated configuration on every snapshot.
  * The API key is injected via chrome.storage API once per browser session.
  */
@@ -89,9 +89,9 @@ async function main() {
     // Install extension
     const extension = await installCaptchaExtension();
 
-    // Export extension metadata for chrome_session to load
+    // Export extension metadata for chrome plugin to load
     if (extension) {
-        // Write extension info to a cache file that chrome_session can read
+        // Write extension info to a cache file that chrome plugin can read
         await fs.promises.mkdir(EXTENSIONS_DIR, { recursive: true });
         await fs.promises.writeFile(
             cacheFile,

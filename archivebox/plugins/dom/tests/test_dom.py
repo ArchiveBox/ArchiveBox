@@ -3,7 +3,7 @@ Integration tests for dom plugin
 
 Tests verify:
 1. Hook script exists
-2. Dependencies installed via chrome_session validation hooks
+2. Dependencies installed via chrome validation hooks
 3. Verify deps with abx-pkg
 4. DOM extraction works on https://example.com
 5. JSONL output is correct
@@ -23,8 +23,8 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 DOM_HOOK = PLUGIN_DIR / 'on_Snapshot__36_dom.js'
-CHROME_VALIDATE_HOOK = PLUGINS_ROOT / 'chrome_session' / 'on_Crawl__00_validate_chrome.py'
-NPM_PROVIDER_HOOK = PLUGINS_ROOT / 'npm' / 'on_Dependency__install_using_npm_provider.py'
+CHROME_INSTALL_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__00_chrome_install.py'
+NPM_PROVIDER_HOOK = PLUGINS_ROOT / 'npm' / 'on_Binary__install_using_npm_provider.py'
 TEST_URL = 'https://example.com'
 
 
@@ -34,10 +34,10 @@ def test_hook_script_exists():
 
 
 def test_chrome_validation_and_install():
-    """Test chrome validation hook to install puppeteer-core if needed."""
-    # Run chrome validation hook (from chrome_session plugin)
+    """Test chrome install hook to install puppeteer-core if needed."""
+    # Run chrome install hook (from chrome plugin)
     result = subprocess.run(
-        [sys.executable, str(CHROME_VALIDATE_HOOK)],
+        [sys.executable, str(CHROME_INSTALL_HOOK)],
         capture_output=True,
         text=True,
         timeout=30
@@ -82,7 +82,7 @@ def test_chrome_validation_and_install():
                 if line.strip():
                     try:
                         record = json.loads(line)
-                        if record.get('type') == 'InstalledBinary':
+                        if record.get('type') == 'Binary':
                             assert record['name'] == bin_name
                             assert record['abspath']
                             break
@@ -123,28 +123,25 @@ def test_extracts_dom_from_example_com():
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
-        # Verify JSONL output
-        assert 'STATUS=succeeded' in result.stdout, "Should report success"
-        assert 'RESULT_JSON=' in result.stdout, "Should output RESULT_JSON"
-
-        # Parse JSONL result
+        # Parse clean JSONL output
         result_json = None
-        for line in result.stdout.split('\n'):
-            if line.startswith('RESULT_JSON='):
-                result_json = json.loads(line.split('=', 1)[1])
-                break
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
 
-        assert result_json, "Should have RESULT_JSON"
-        assert result_json['extractor'] == 'dom'
-        assert result_json['status'] == 'succeeded'
-        assert result_json['url'] == TEST_URL
+        assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
-        # Verify filesystem output
-        dom_dir = tmpdir / 'dom'
-        assert dom_dir.exists(), "Output directory not created"
-
-        dom_file = dom_dir / 'output.html'
-        assert dom_file.exists(), "output.html not created"
+        # Verify filesystem output (hook writes directly to working dir)
+        dom_file = tmpdir / 'output.html'
+        assert dom_file.exists(), f"output.html not created. Files: {list(tmpdir.iterdir())}"
 
         # Verify HTML content contains REAL example.com text
         html_content = dom_file.read_text(errors='ignore')
@@ -157,7 +154,7 @@ def test_extracts_dom_from_example_com():
 
 
 def test_config_save_dom_false_skips():
-    """Test that SAVE_DOM=False causes skip."""
+    """Test that SAVE_DOM=False exits without emitting JSONL."""
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -174,8 +171,14 @@ def test_config_save_dom_false_skips():
             timeout=30
         )
 
-        assert result.returncode == 0, f"Should exit 0 when skipping: {result.stderr}"
-        assert 'STATUS=skipped' in result.stdout, "Should report skipped status"
+        assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
+
+        # Feature disabled - no JSONL emission, just logs to stderr
+        assert 'Skipping DOM' in result.stderr, "Should log skip reason to stderr"
+
+        # Should NOT emit any JSONL
+        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
+        assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
 
 
 def test_staticfile_present_skips():
@@ -183,22 +186,43 @@ def test_staticfile_present_skips():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Create staticfile directory to simulate staticfile extractor ran
+        # Create directory structure like real ArchiveBox:
+        # tmpdir/
+        #   staticfile/  <- staticfile extractor output
+        #   dom/         <- dom extractor runs here, looks for ../staticfile
         staticfile_dir = tmpdir / 'staticfile'
         staticfile_dir.mkdir()
         (staticfile_dir / 'index.html').write_text('<html>test</html>')
 
+        dom_dir = tmpdir / 'dom'
+        dom_dir.mkdir()
+
         result = subprocess.run(
             ['node', str(DOM_HOOK), f'--url={TEST_URL}', '--snapshot-id=teststatic'],
-            cwd=tmpdir,
+            cwd=dom_dir,  # Run from dom subdirectory
             capture_output=True,
             text=True,
             timeout=30
         )
 
-        assert result.returncode == 0, "Should exit 0 when skipping"
-        assert 'STATUS=skipped' in result.stdout, "Should report skipped status"
-        assert 'staticfile' in result.stdout.lower(), "Should mention staticfile"
+        assert result.returncode == 0, "Should exit 0 when permanently skipping"
+
+        # Permanent skip - should emit ArchiveResult with status='skipped'
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert result_json, "Should emit ArchiveResult JSONL for permanent skip"
+        assert result_json['status'] == 'skipped', f"Should have status='skipped': {result_json}"
+        assert 'staticfile' in result_json.get('output_str', '').lower(), "Should mention staticfile in output_str"
 
 
 if __name__ == '__main__':

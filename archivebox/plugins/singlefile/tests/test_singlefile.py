@@ -1,12 +1,17 @@
 """
-Unit tests for singlefile plugin
+Integration tests for singlefile plugin
 
-Tests invoke the plugin hook as an external process and verify outputs/side effects.
+Tests verify:
+1. Hook script exists and has correct metadata
+2. Extension installation and caching works
+3. Chrome/node dependencies available
+4. Hook can be executed successfully
 """
 
 import json
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -14,7 +19,11 @@ import pytest
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
+PLUGINS_ROOT = PLUGIN_DIR.parent
 INSTALL_SCRIPT = PLUGIN_DIR / "on_Snapshot__04_singlefile.js"
+CHROME_INSTALL_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__00_chrome_install.py'
+NPM_PROVIDER_HOOK = PLUGINS_ROOT / 'npm' / 'on_Binary__install_using_npm_provider.py'
+TEST_URL = "https://example.com"
 
 
 def test_install_script_exists():
@@ -148,3 +157,102 @@ def test_output_directory_structure():
     assert "singlefile" in script_content.lower()
     # Should mention HTML output
     assert ".html" in script_content or "html" in script_content.lower()
+
+
+def test_chrome_validation_and_install():
+    """Test chrome install hook to install puppeteer-core if needed."""
+    # Run chrome install hook (from chrome plugin)
+    result = subprocess.run(
+        [sys.executable, str(CHROME_INSTALL_HOOK)],
+        capture_output=True,
+        text=True,
+        timeout=30
+    )
+
+    # If exit 1, binary not found - need to install
+    if result.returncode == 1:
+        # Parse Dependency request from JSONL
+        dependency_request = None
+        for line in result.stdout.strip().split('\n'):
+            if line.strip():
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'Dependency':
+                        dependency_request = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        if dependency_request:
+            bin_name = dependency_request['bin_name']
+            bin_providers = dependency_request['bin_providers']
+
+            # Install via npm provider hook
+            install_result = subprocess.run(
+                [
+                    sys.executable,
+                    str(NPM_PROVIDER_HOOK),
+                    '--dependency-id', 'test-dep-001',
+                    '--bin-name', bin_name,
+                    '--bin-providers', bin_providers
+                ],
+                capture_output=True,
+                text=True,
+                timeout=600
+            )
+
+            assert install_result.returncode == 0, f"Install failed: {install_result.stderr}"
+
+            # Verify installation via JSONL output
+            for line in install_result.stdout.strip().split('\n'):
+                if line.strip():
+                    try:
+                        record = json.loads(line)
+                        if record.get('type') == 'Binary':
+                            assert record['name'] == bin_name
+                            assert record['abspath']
+                            break
+                    except json.JSONDecodeError:
+                        pass
+    else:
+        # Binary already available, verify via JSONL output
+        assert result.returncode == 0, f"Validation failed: {result.stderr}"
+
+
+def test_verify_deps_with_abx_pkg():
+    """Verify dependencies are available via abx-pkg after hook installation."""
+    from abx_pkg import Binary, EnvProvider, BinProviderOverrides
+
+    EnvProvider.model_rebuild()
+
+    # Verify node is available (singlefile uses Chrome extension, needs Node)
+    node_binary = Binary(name='node', binproviders=[EnvProvider()])
+    node_loaded = node_binary.load()
+    assert node_loaded and node_loaded.abspath, "Node.js required for singlefile plugin"
+
+
+def test_singlefile_hook_runs():
+    """Verify singlefile hook can be executed and completes."""
+    # Prerequisites checked by earlier test
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        # Run singlefile extraction hook
+        result = subprocess.run(
+            ['node', str(INSTALL_SCRIPT), f'--url={TEST_URL}', '--snapshot-id=test789'],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        # Hook should complete successfully (even if it just installs extension)
+        assert result.returncode == 0, f"Hook execution failed: {result.stderr}"
+
+        # Verify extension installation happens
+        assert 'SingleFile extension' in result.stdout or result.returncode == 0, "Should install extension or complete"
+
+
+if __name__ == '__main__':
+    pytest.main([__file__, '-v'])

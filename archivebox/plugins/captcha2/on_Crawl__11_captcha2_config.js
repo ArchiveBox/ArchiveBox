@@ -5,30 +5,28 @@
  * Configures the 2captcha extension with API key after Crawl-level Chrome session starts.
  * Runs once per crawl to inject API key into extension storage.
  *
- * Priority: 11 (after chrome_session at 10)
+ * Priority: 11 (after chrome_launch at 20)
  * Hook: on_Crawl (runs once per crawl, not per snapshot)
  *
  * Requirements:
  * - API_KEY_2CAPTCHA environment variable must be set
- * - chrome_session must have loaded extensions (extensions.json must exist)
+ * - chrome plugin must have loaded extensions (extensions.json must exist)
  */
 
 const path = require('path');
 const fs = require('fs');
 const puppeteer = require('puppeteer-core');
 
-// Get crawl ID from args to find the crawl-level chrome session
+// Get crawl's chrome directory from environment variable set by hooks.py
 function getCrawlChromeSessionDir() {
-    const args = parseArgs();
-    const crawlId = args.crawl_id;
-    if (!crawlId) {
+    const crawlOutputDir = process.env.CRAWL_OUTPUT_DIR || '';
+    if (!crawlOutputDir) {
         return null;
     }
-    const dataDir = process.env.DATA_DIR || '.';
-    return path.join(dataDir, 'tmp', `crawl_${crawlId}`, 'chrome_session');
+    return path.join(crawlOutputDir, 'chrome');
 }
 
-const CHROME_SESSION_DIR = getCrawlChromeSessionDir() || '../chrome_session';
+const CHROME_SESSION_DIR = getCrawlChromeSessionDir() || '../chrome';
 const CONFIG_MARKER = path.join(CHROME_SESSION_DIR, '.captcha2_configured');
 
 // Get environment variable with default
@@ -51,7 +49,7 @@ function parseArgs() {
 async function configure2Captcha() {
     // Check if already configured in this session
     if (fs.existsSync(CONFIG_MARKER)) {
-        console.log('[*] 2captcha already configured in this browser session');
+        console.error('[*] 2captcha already configured in this browser session');
         return { success: true, skipped: true };
     }
 
@@ -66,24 +64,24 @@ async function configure2Captcha() {
     // Load extensions metadata
     const extensionsFile = path.join(CHROME_SESSION_DIR, 'extensions.json');
     if (!fs.existsSync(extensionsFile)) {
-        return { success: false, error: 'extensions.json not found - chrome_session must run first' };
+        return { success: false, error: 'extensions.json not found - chrome plugin must run first' };
     }
 
     const extensions = JSON.parse(fs.readFileSync(extensionsFile, 'utf-8'));
     const captchaExt = extensions.find(ext => ext.name === 'captcha2');
 
     if (!captchaExt) {
-        console.log('[*] 2captcha extension not installed, skipping configuration');
+        console.error('[*] 2captcha extension not installed, skipping configuration');
         return { success: true, skipped: true };
     }
 
-    console.log('[*] Configuring 2captcha extension with API key...');
+    console.error('[*] Configuring 2captcha extension with API key...');
 
     try {
         // Connect to the existing Chrome session via CDP
         const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
         if (!fs.existsSync(cdpFile)) {
-            return { success: false, error: 'CDP URL not found - chrome_session must run first' };
+            return { success: false, error: 'CDP URL not found - chrome plugin must run first' };
         }
 
         const cdpUrl = fs.readFileSync(cdpFile, 'utf-8').trim();
@@ -92,7 +90,7 @@ async function configure2Captcha() {
         try {
             // Method 1: Try to inject via extension background page
             if (captchaExt.target && captchaExt.target_ctx) {
-                console.log('[*] Attempting to configure via extension background page...');
+                console.error('[*] Attempting to configure via extension background page...');
 
                 // Reconnect to the browser to get fresh target context
                 const targets = await browser.targets();
@@ -131,7 +129,7 @@ async function configure2Captcha() {
                             }
                         }, apiKey);
 
-                        console.log('[+] 2captcha API key configured successfully via background page');
+                        console.error('[+] 2captcha API key configured successfully via background page');
 
                         // Mark as configured
                         fs.writeFileSync(CONFIG_MARKER, new Date().toISOString());
@@ -142,7 +140,7 @@ async function configure2Captcha() {
             }
 
             // Method 2: Try to configure via options page
-            console.log('[*] Attempting to configure via options page...');
+            console.error('[*] Attempting to configure via options page...');
             const optionsUrl = `chrome-extension://${captchaExt.id}/options.html`;
             const configPage = await browser.newPage();
 
@@ -207,7 +205,7 @@ async function configure2Captcha() {
                 await configPage.close();
 
                 if (configured) {
-                    console.log('[+] 2captcha API key configured successfully via options page');
+                    console.error('[+] 2captcha API key configured successfully via options page');
 
                     // Mark as configured
                     fs.writeFileSync(CONFIG_MARKER, new Date().toISOString());
@@ -263,28 +261,12 @@ async function main() {
     const endTs = new Date();
     const duration = (endTs - startTs) / 1000;
 
-    // Print results
-    console.log(`START_TS=${startTs.toISOString()}`);
-    console.log(`END_TS=${endTs.toISOString()}`);
-    console.log(`DURATION=${duration.toFixed(2)}`);
-    console.log(`STATUS=${status}`);
-
     if (error) {
-        console.error(`ERROR=${error}`);
+        console.error(`ERROR: ${error}`);
     }
 
-    // Print JSON result
-    const resultJson = {
-        extractor: 'captcha2_config',
-        url,
-        snapshot_id: snapshotId,
-        status,
-        start_ts: startTs.toISOString(),
-        end_ts: endTs.toISOString(),
-        duration: Math.round(duration * 100) / 100,
-        error: error || null,
-    };
-    console.log(`RESULT_JSON=${JSON.stringify(resultJson)}`);
+    // Config hooks don't emit JSONL - they're utility hooks for setup
+    // Exit code indicates success/failure
 
     process.exit(status === 'succeeded' || status === 'skipped' ? 0 : 1);
 }

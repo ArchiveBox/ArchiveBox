@@ -17,16 +17,16 @@ import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
 GIT_HOOK = PLUGIN_DIR / 'on_Snapshot__12_git.py'
-GIT_VALIDATE_HOOK = PLUGIN_DIR / 'on_Crawl__00_validate_git.py'
+GIT_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_git.py'
 TEST_URL = 'https://github.com/example/repo.git'
 
 def test_hook_script_exists():
     assert GIT_HOOK.exists()
 
-def test_git_validate_hook():
-    """Test git validate hook checks for git binary."""
+def test_git_install_hook():
+    """Test git install hook checks for git binary."""
     result = subprocess.run(
-        [sys.executable, str(GIT_VALIDATE_HOOK)],
+        [sys.executable, str(GIT_INSTALL_HOOK)],
         capture_output=True,
         text=True,
         timeout=30
@@ -34,20 +34,20 @@ def test_git_validate_hook():
 
     # Hook exits 0 if binary found, 1 if not found (with Dependency record)
     if result.returncode == 0:
-        # Binary found - verify InstalledBinary JSONL output
+        # Binary found - verify Binary JSONL output
         found_binary = False
         for line in result.stdout.strip().split('\n'):
             if line.strip():
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'InstalledBinary':
+                    if record.get('type') == 'Binary':
                         assert record['name'] == 'git'
                         assert record['abspath']
                         found_binary = True
                         break
                 except json.JSONDecodeError:
                     pass
-        assert found_binary, "Should output InstalledBinary record when binary found"
+        assert found_binary, "Should output Binary record when binary found"
     else:
         # Binary not found - verify Dependency JSONL output
         found_dependency = False
@@ -90,7 +90,7 @@ def test_reports_missing_git():
 def test_handles_non_git_url():
     if not shutil.which('git'):
         pytest.skip("git not installed")
-    
+
     with tempfile.TemporaryDirectory() as tmpdir:
         result = subprocess.run(
             [sys.executable, str(GIT_HOOK), '--url', 'https://example.com', '--snapshot-id', 'test789'],
@@ -98,7 +98,23 @@ def test_handles_non_git_url():
         )
         # Should fail or skip for non-git URL
         assert result.returncode in (0, 1)
-        assert 'STATUS=' in result.stdout
+
+        # Parse clean JSONL output
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        if result_json:
+            # Should report failure or skip for non-git URL
+            assert result_json['status'] in ['failed', 'skipped'], f"Should fail or skip: {result_json}"
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

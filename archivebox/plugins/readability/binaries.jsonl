@@ -1,0 +1,1 @@
+{"type": "Binary", "name": "readability-extractor", "binproviders": "npm,env", "overrides": {"npm": {"packages": ["https://github.com/ArchiveBox/readability-extractor"]}}}

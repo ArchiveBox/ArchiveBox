@@ -30,7 +30,6 @@ Environment variables:
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -74,36 +73,6 @@ def has_staticfile_output() -> bool:
     return staticfile_dir.exists() and any(staticfile_dir.iterdir())
 
 
-def find_wget() -> str | None:
-    """Find wget binary."""
-    wget = get_env('WGET_BINARY')
-    if wget and os.path.isfile(wget):
-        return wget
-    return shutil.which('wget')
-
-
-def get_version(binary: str) -> str:
-    """Get wget version."""
-    try:
-        result = subprocess.run([binary, '--version'], capture_output=True, text=True, timeout=10)
-        return result.stdout.split('\n')[0].strip()[:64]
-    except Exception:
-        return ''
-
-
-def check_wget_compression(binary: str) -> bool:
-    """Check if wget supports --compression=auto."""
-    try:
-        result = subprocess.run(
-            [binary, '--compression=auto', '--help'],
-            capture_output=True,
-            timeout=5
-        )
-        return result.returncode == 0
-    except Exception:
-        return False
-
-
 # Default wget args (from old WGET_CONFIG)
 WGET_DEFAULT_ARGS = [
     '--no-verbose',
@@ -135,9 +104,6 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
     save_warc = get_env_bool('SAVE_WARC', True)
     save_requisites = get_env_bool('SAVE_WGET_REQUISITES', True)
 
-    # Check for compression support
-    supports_compression = check_wget_compression(binary)
-
     # Build wget command (later options take precedence)
     cmd = [
         binary,
@@ -165,9 +131,6 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     if cookies_file and Path(cookies_file).is_file():
         cmd.extend(['--load-cookies', cookies_file])
-
-    if supports_compression:
-        cmd.append('--compression=auto')
 
     if not check_ssl:
         cmd.extend(['--no-check-certificate', '--no-hsts'])
@@ -230,13 +193,9 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Archive a URL using wget."""
 
-    start_ts = datetime.now(timezone.utc)
-    version = ''
     output = None
     status = 'failed'
     error = ''
-    binary = None
-    cmd_str = ''
 
     try:
         # Check if wget is enabled
@@ -251,34 +210,16 @@ def main(url: str, snapshot_id: str):
             print(json.dumps({'type': 'ArchiveResult', 'status': 'skipped', 'output_str': 'staticfile already exists'}))
             sys.exit(0)
 
-        # Find binary
-        binary = find_wget()
-        if not binary:
-            print(f'ERROR: {BIN_NAME} binary not found', file=sys.stderr)
-            print(f'DEPENDENCY_NEEDED={BIN_NAME}', file=sys.stderr)
-            print(f'BIN_PROVIDERS={BIN_PROVIDERS}', file=sys.stderr)
-            print(f'INSTALL_HINT=apt install wget OR brew install wget', file=sys.stderr)
-            sys.exit(1)
-
-        version = get_version(binary)
-        cmd_str = f'{binary} ... {url}'
+        # Get binary from environment
+        binary = get_env('WGET_BINARY', 'wget')
 
         # Run extraction
         success, output, error = save_wget(url, binary)
         status = 'succeeded' if success else 'failed'
 
-        if success:
-            # Count downloaded files
-            files = list(Path('.').rglob('*'))
-            file_count = len([f for f in files if f.is_file()])
-            print(f'wget completed: {file_count} files downloaded')
-
     except Exception as e:
         error = f'{type(e).__name__}: {e}'
         status = 'failed'
-
-    # Calculate duration
-    end_ts = datetime.now(timezone.utc)
 
     if error:
         print(f'ERROR: {error}', file=sys.stderr)
@@ -289,10 +230,6 @@ def main(url: str, snapshot_id: str):
         'status': status,
         'output_str': output or error or '',
     }
-    if binary:
-        result['cmd'] = [binary, '--no-verbose', url]
-    if version:
-        result['cmd_version'] = version
     print(json.dumps(result))
 
     sys.exit(0 if status == 'succeeded' else 1)

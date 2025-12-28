@@ -129,6 +129,17 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     def api_url(self) -> str:
         return reverse_lazy('api-1:get_crawl', args=[self.id])
 
+    @property
+    def output_dir_parent(self) -> str:
+        """Construct parent directory: users/{user_id}/crawls/{YYYYMMDD}"""
+        date_str = self.created_at.strftime('%Y%m%d')
+        return f'users/{self.created_by_id}/crawls/{date_str}'
+
+    @property
+    def output_dir_name(self) -> str:
+        """Use crawl ID as directory name"""
+        return str(self.id)
+
     def get_urls_list(self) -> list[str]:
         """Get list of URLs from urls field, filtering out comments and empty lines."""
         if not self.urls:
@@ -288,13 +299,96 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
     def run(self) -> 'Snapshot':
         """
-        Execute this Crawl by creating the root snapshot and processing queued URLs.
+        Execute this Crawl: run hooks, process JSONL, create snapshots.
 
         Called by the state machine when entering the 'started' state.
 
         Returns:
             The root Snapshot for this crawl
         """
+        import time
+        from pathlib import Path
+        from archivebox.hooks import run_hook, discover_hooks, process_hook_records
+
+        # Discover and run on_Crawl hooks
+        hooks = discover_hooks('Crawl')
+        first_url = self.get_urls_list()[0] if self.get_urls_list() else ''
+
+        for hook in hooks:
+            hook_start = time.time()
+            plugin_name = hook.parent.name
+            output_dir = self.OUTPUT_DIR / plugin_name
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            result = run_hook(
+                hook,
+                output_dir=output_dir,
+                timeout=60,
+                config_objects=[self],
+                crawl_id=str(self.id),
+                source_url=first_url,
+            )
+
+            hook_elapsed = time.time() - hook_start
+            if hook_elapsed > 0.5:  # Log slow hooks
+                print(f'[yellow]⏱️  Hook {hook.name} took {hook_elapsed:.2f}s[/yellow]')
+
+            # Background hook - returns None, continues running
+            if result is None:
+                continue
+
+            # Foreground hook - process JSONL records
+            records = result.get('records', [])
+            overrides = {'crawl': self}
+            process_hook_records(records, overrides=overrides)
+
+        # Create snapshots from URLs
         root_snapshot = self.create_root_snapshot()
         self.create_snapshots_from_urls()
         return root_snapshot
+
+    def cleanup(self):
+        """Clean up background hooks and run on_CrawlEnd hooks."""
+        import os
+        import signal
+        from pathlib import Path
+        from archivebox.hooks import run_hook, discover_hooks
+
+        # Kill any background processes by scanning for all .pid files
+        if self.OUTPUT_DIR.exists():
+            for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
+                try:
+                    pid = int(pid_file.read_text().strip())
+                    try:
+                        # Try to kill process group first (handles detached processes like Chrome)
+                        try:
+                            os.killpg(pid, signal.SIGTERM)
+                        except (OSError, ProcessLookupError):
+                            # Fall back to killing just the process
+                            os.kill(pid, signal.SIGTERM)
+                    except ProcessLookupError:
+                        pass  # Already dead
+                except (ValueError, OSError):
+                    pass
+
+        # Run on_CrawlEnd hooks
+        hooks = discover_hooks('CrawlEnd')
+        first_url = self.get_urls_list()[0] if self.get_urls_list() else ''
+
+        for hook in hooks:
+            plugin_name = hook.parent.name
+            output_dir = self.OUTPUT_DIR / plugin_name
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            result = run_hook(
+                hook,
+                output_dir=output_dir,
+                timeout=30,
+                config_objects=[self],
+                crawl_id=str(self.id),
+                source_url=first_url,
+            )
+
+            # Log failures but don't block
+            if result and result['returncode'] != 0:
+                print(f'[yellow]⚠️ CrawlEnd hook failed: {hook.name}[/yellow]')

@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
-from machine.models import Machine, NetworkInterface, InstalledBinary, Dependency
+from machine.models import Machine, NetworkInterface, Binary
 
 
 class MachineAdmin(ConfigEditorMixin, BaseModelAdmin):
@@ -96,62 +96,16 @@ class NetworkInterfaceAdmin(BaseModelAdmin):
         )
 
 
-class DependencyAdmin(ConfigEditorMixin, BaseModelAdmin):
-    list_display = ('id', 'created_at', 'bin_name', 'bin_providers', 'is_installed', 'installed_count')
-    sort_fields = ('id', 'created_at', 'bin_name', 'bin_providers')
-    search_fields = ('id', 'bin_name', 'bin_providers')
-
-    readonly_fields = ('id', 'created_at', 'modified_at', 'is_installed', 'installed_count')
-
-    fieldsets = (
-        ('Binary', {
-            'fields': ('bin_name', 'bin_providers', 'is_installed', 'installed_count'),
-            'classes': ('card',),
-        }),
-        ('Commands', {
-            'fields': ('custom_cmds',),
-            'classes': ('card',),
-        }),
-        ('Configuration', {
-            'fields': ('config',),
-            'classes': ('card', 'wide'),
-        }),
-        ('Timestamps', {
-            'fields': ('id', 'created_at', 'modified_at'),
-            'classes': ('card',),
-        }),
-    )
-
-    list_filter = ('bin_providers', 'created_at')
-    ordering = ['-created_at']
-    list_per_page = 100
-    actions = ["delete_selected"]
-
-    @admin.display(description='Installed', boolean=True)
-    def is_installed(self, dependency):
-        return dependency.is_installed
-
-    @admin.display(description='# Binaries')
-    def installed_count(self, dependency):
-        count = dependency.installed_binaries.count()
-        if count:
-            return format_html(
-                '<a href="/admin/machine/installedbinary/?dependency__id__exact={}">{}</a>',
-                dependency.id, count,
-            )
-        return '0'
-
-
-class InstalledBinaryAdmin(BaseModelAdmin):
-    list_display = ('id', 'created_at', 'machine_info', 'name', 'dependency_link', 'binprovider', 'version', 'abspath', 'sha256', 'health')
-    sort_fields = ('id', 'created_at', 'machine_info', 'name', 'binprovider', 'version', 'abspath', 'sha256')
-    search_fields = ('id', 'machine__id', 'name', 'binprovider', 'version', 'abspath', 'sha256', 'dependency__bin_name')
+class BinaryAdmin(BaseModelAdmin):
+    list_display = ('id', 'created_at', 'machine_info', 'name', 'binprovider', 'version', 'abspath', 'sha256', 'status', 'health')
+    sort_fields = ('id', 'created_at', 'machine_info', 'name', 'binprovider', 'version', 'abspath', 'sha256', 'status')
+    search_fields = ('id', 'machine__id', 'name', 'binprovider', 'version', 'abspath', 'sha256')
 
     readonly_fields = ('created_at', 'modified_at')
 
     fieldsets = (
         ('Binary Info', {
-            'fields': ('name', 'dependency', 'binprovider'),
+            'fields': ('name', 'binproviders', 'binprovider', 'overrides'),
             'classes': ('card',),
         }),
         ('Location', {
@@ -160,6 +114,10 @@ class InstalledBinaryAdmin(BaseModelAdmin):
         }),
         ('Version', {
             'fields': ('version', 'sha256'),
+            'classes': ('card',),
+        }),
+        ('State', {
+            'fields': ('status', 'retry_at', 'output_dir'),
             'classes': ('card',),
         }),
         ('Usage', {
@@ -172,30 +130,20 @@ class InstalledBinaryAdmin(BaseModelAdmin):
         }),
     )
 
-    list_filter = ('name', 'binprovider', 'machine_id', 'dependency')
+    list_filter = ('name', 'binprovider', 'status', 'machine_id')
     ordering = ['-created_at']
     list_per_page = 100
     actions = ["delete_selected"]
 
     @admin.display(description='Machine', ordering='machine__id')
-    def machine_info(self, installed_binary):
+    def machine_info(self, binary):
         return format_html(
             '<a href="/admin/machine/machine/{}/change"><b><code>[{}]</code></b> &nbsp; {}</a>',
-            installed_binary.machine.id, str(installed_binary.machine.id)[:8], installed_binary.machine.hostname,
+            binary.machine.id, str(binary.machine.id)[:8], binary.machine.hostname,
         )
-
-    @admin.display(description='Dependency', ordering='dependency__bin_name')
-    def dependency_link(self, installed_binary):
-        if installed_binary.dependency:
-            return format_html(
-                '<a href="/admin/machine/dependency/{}/change">{}</a>',
-                installed_binary.dependency.id, installed_binary.dependency.bin_name,
-            )
-        return '-'
 
 
 def register_admin(admin_site):
     admin_site.register(Machine, MachineAdmin)
     admin_site.register(NetworkInterface, NetworkInterfaceAdmin)
-    admin_site.register(Dependency, DependencyAdmin)
-    admin_site.register(InstalledBinary, InstalledBinaryAdmin)
+    admin_site.register(Binary, BinaryAdmin)

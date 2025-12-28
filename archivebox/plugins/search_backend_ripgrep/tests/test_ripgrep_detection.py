@@ -45,14 +45,14 @@ def test_ripgrep_hook_detects_binary_from_path():
 
     # Parse JSONL output
     lines = [line for line in result.stdout.strip().split('\n') if line.strip()]
-    assert len(lines) >= 2, "Expected at least 2 JSONL lines (InstalledBinary + Machine config)"
+    assert len(lines) >= 2, "Expected at least 2 JSONL lines (Binary + Machine config)"
 
-    installed_binary = json.loads(lines[0])
-    assert installed_binary['type'] == 'InstalledBinary'
-    assert installed_binary['name'] == 'rg'
-    assert '/' in installed_binary['abspath'], "Expected full path, not just binary name"
-    assert Path(installed_binary['abspath']).is_file(), "Binary path should exist"
-    assert installed_binary['version'], "Version should be detected"
+    binary = json.loads(lines[0])
+    assert binary['type'] == 'Binary'
+    assert binary['name'] == 'rg'
+    assert '/' in binary['abspath'], "Expected full path, not just binary name"
+    assert Path(binary['abspath']).is_file(), "Binary path should exist"
+    assert binary['version'], "Version should be detected"
 
     machine_config = json.loads(lines[1])
     assert machine_config['type'] == 'Machine'
@@ -102,8 +102,8 @@ def test_ripgrep_hook_handles_absolute_path():
     assert result.returncode == 0, f"Hook failed: {result.stderr}"
     assert result.stdout.strip(), "Hook should produce output"
 
-    installed_binary = json.loads(result.stdout.strip().split('\n')[0])
-    assert installed_binary['abspath'] == rg_path
+    binary = json.loads(result.stdout.strip().split('\n')[0])
+    assert binary['abspath'] == rg_path
 
 
 @pytest.mark.django_db
@@ -114,7 +114,7 @@ def test_machine_config_overrides_base_config():
     Guards against regression where archivebox version was showing binaries
     as "not installed" even though they were detected and stored in Machine.config.
     """
-    from machine.models import Machine, InstalledBinary
+    from machine.models import Machine, Binary
 
     machine = Machine.current()
 
@@ -124,8 +124,8 @@ def test_machine_config_overrides_base_config():
     machine.config['CHROME_VERSION'] = '143.0.7499.170'
     machine.save()
 
-    # Create InstalledBinary record
-    InstalledBinary.objects.create(
+    # Create Binary record
+    Binary.objects.create(
         machine=machine,
         name='chrome',
         abspath=detected_chrome_path,
@@ -170,19 +170,19 @@ def test_search_backend_engine_passed_to_hooks():
 
 
 @pytest.mark.django_db
-def test_install_creates_installedbinary_records():
+def test_install_creates_binary_records():
     """
-    Test that archivebox install creates InstalledBinary records for detected binaries.
+    Test that archivebox install creates Binary records for detected binaries.
 
     This is an integration test that verifies the full install flow.
     """
-    from machine.models import Machine, InstalledBinary
+    from machine.models import Machine, Binary
     from crawls.models import Seed, Crawl
     from crawls.statemachines import CrawlMachine
     from archivebox.base_models.models import get_or_create_system_user_pk
 
     machine = Machine.current()
-    initial_binary_count = InstalledBinary.objects.filter(machine=machine).count()
+    initial_binary_count = Binary.objects.filter(machine=machine).count()
 
     # Create an install crawl (like archivebox install does)
     created_by_id = get_or_create_system_user_pk()
@@ -204,22 +204,22 @@ def test_install_creates_installedbinary_records():
     sm = CrawlMachine(crawl)
     sm.send('tick')  # queued -> started (runs hooks)
 
-    # Verify InstalledBinary records were created
-    final_binary_count = InstalledBinary.objects.filter(machine=machine).count()
+    # Verify Binary records were created
+    final_binary_count = Binary.objects.filter(machine=machine).count()
     assert final_binary_count > initial_binary_count, \
-        "archivebox install should create InstalledBinary records"
+        "archivebox install should create Binary records"
 
     # Verify at least some common binaries were detected
     common_binaries = ['git', 'wget', 'node']
     detected = []
     for bin_name in common_binaries:
-        if InstalledBinary.objects.filter(machine=machine, name=bin_name).exists():
+        if Binary.objects.filter(machine=machine, name=bin_name).exists():
             detected.append(bin_name)
 
     assert detected, f"At least one of {common_binaries} should be detected"
 
     # Verify detected binaries have valid paths and versions
-    for binary in InstalledBinary.objects.filter(machine=machine):
+    for binary in Binary.objects.filter(machine=machine):
         if binary.abspath:  # Only check non-empty paths
             assert '/' in binary.abspath, \
                 f"{binary.name} should have full path, not just name: {binary.abspath}"
@@ -233,7 +233,7 @@ def test_ripgrep_only_detected_when_backend_enabled():
 
     Guards against ripgrep being installed/detected when not needed.
     """
-    from machine.models import Machine, InstalledBinary
+    from machine.models import Machine, Binary
     from crawls.models import Seed, Crawl
     from crawls.statemachines import CrawlMachine
     from archivebox.base_models.models import get_or_create_system_user_pk
@@ -245,7 +245,7 @@ def test_ripgrep_only_detected_when_backend_enabled():
     machine = Machine.current()
 
     # Clear any existing ripgrep records
-    InstalledBinary.objects.filter(machine=machine, name='rg').delete()
+    Binary.objects.filter(machine=machine, name='rg').delete()
 
     # Test 1: With ripgrep backend - should be detected
     with patch('archivebox.config.configset.get_config') as mock_config:
@@ -270,11 +270,11 @@ def test_ripgrep_only_detected_when_backend_enabled():
         sm.send('tick')
 
         # Ripgrep should be detected
-        rg_detected = InstalledBinary.objects.filter(machine=machine, name='rg').exists()
+        rg_detected = Binary.objects.filter(machine=machine, name='rg').exists()
         assert rg_detected, "Ripgrep should be detected when SEARCH_BACKEND_ENGINE='ripgrep'"
 
     # Clear records again
-    InstalledBinary.objects.filter(machine=machine, name='rg').delete()
+    Binary.objects.filter(machine=machine, name='rg').delete()
 
     # Test 2: With different backend - should NOT be detected
     with patch('archivebox.config.configset.get_config') as mock_config:
@@ -298,7 +298,7 @@ def test_ripgrep_only_detected_when_backend_enabled():
         sm2.send('tick')
 
         # Ripgrep should NOT be detected
-        rg_detected = InstalledBinary.objects.filter(machine=machine, name='rg').exists()
+        rg_detected = Binary.objects.filter(machine=machine, name='rg').exists()
         assert not rg_detected, "Ripgrep should NOT be detected when SEARCH_BACKEND_ENGINE!='ripgrep'"
 
 

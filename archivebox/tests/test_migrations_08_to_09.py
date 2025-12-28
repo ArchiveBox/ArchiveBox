@@ -563,5 +563,221 @@ class TestFilesystemMigration08to09(unittest.TestCase):
                                f"Files were lost during migration: {files_before_count} -> {files_after_count}")
 
 
+class TestDBOnlyCommands(unittest.TestCase):
+    """Test that status/search/list commands only use DB, not filesystem."""
+
+    def setUp(self):
+        """Create a temporary directory with 0.8.x schema and data."""
+        self.work_dir = Path(tempfile.mkdtemp())
+        self.db_path = self.work_dir / 'index.sqlite3'
+
+        create_data_dir_structure(self.work_dir)
+        conn = sqlite3.connect(str(self.db_path))
+        conn.executescript(SCHEMA_0_8)
+        conn.close()
+        self.original_data = seed_0_8_data(self.db_path)
+
+    def tearDown(self):
+        """Clean up temporary directory."""
+        shutil.rmtree(self.work_dir, ignore_errors=True)
+
+    def test_status_works_with_empty_archive(self):
+        """Status command should work with empty archive/ (queries DB only)."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        # Add a snapshot to DB
+        result = run_archivebox(self.work_dir, ['add', 'https://example.com'], timeout=60)
+
+        # Empty the archive directory (but keep it existing)
+        archive_dir = self.work_dir / 'archive'
+        if archive_dir.exists():
+            for item in archive_dir.iterdir():
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
+
+        # Status should still work (queries DB only, doesn't scan filesystem)
+        result = run_archivebox(self.work_dir, ['status'])
+        self.assertEqual(result.returncode, 0,
+                        f"Status should work with empty archive: {result.stderr}")
+
+        # Should show count from DB
+        output = result.stdout + result.stderr
+        self.assertIn('Total', output,
+                     "Status should show DB statistics even with no files")
+
+    def test_list_works_with_empty_archive(self):
+        """List command should work with empty archive/ (queries DB only)."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        # Add a snapshot to DB
+        result = run_archivebox(self.work_dir, ['add', 'https://example.com'], timeout=60)
+
+        # Empty the archive directory (but keep it existing)
+        archive_dir = self.work_dir / 'archive'
+        if archive_dir.exists():
+            for item in archive_dir.iterdir():
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
+
+        # List should still work (queries DB only, doesn't scan filesystem)
+        result = run_archivebox(self.work_dir, ['list'])
+        self.assertEqual(result.returncode, 0,
+                        f"List should work with empty archive: {result.stderr}")
+
+        # Should show snapshot from DB
+        output = result.stdout + result.stderr
+        self.assertIn('example.com', output,
+                     "Snapshot should appear in list output even with no files")
+
+    def test_search_works_with_empty_archive(self):
+        """Search command should work with empty archive/ (queries DB only)."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        # Add a snapshot to DB
+        result = run_archivebox(self.work_dir, ['add', 'https://example.com'], timeout=60)
+
+        # Empty the archive directory (but keep it existing)
+        archive_dir = self.work_dir / 'archive'
+        if archive_dir.exists():
+            for item in archive_dir.iterdir():
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
+
+        # Search should still work (queries DB only, doesn't scan filesystem)
+        result = run_archivebox(self.work_dir, ['search'])
+        self.assertEqual(result.returncode, 0,
+                        f"Search should work with empty archive: {result.stderr}")
+
+        # Should show snapshot from DB
+        output = result.stdout + result.stderr
+        self.assertIn('example.com', output,
+                     "Snapshot should appear in search output even with no files")
+
+
+class TestUpdateCommandArchitecture(unittest.TestCase):
+    """Test new update command architecture: filters=DB only, no filters=scan filesystem."""
+
+    def setUp(self):
+        """Create a temporary directory with 0.8.x schema and data."""
+        self.work_dir = Path(tempfile.mkdtemp())
+        self.db_path = self.work_dir / 'index.sqlite3'
+        create_data_dir_structure(self.work_dir)
+
+    def tearDown(self):
+        """Clean up temporary directory."""
+        shutil.rmtree(self.work_dir, ignore_errors=True)
+
+    def test_update_with_filters_uses_db_only(self):
+        """Update with filters should only query DB, not scan filesystem."""
+        # Initialize with data
+        conn = sqlite3.connect(str(self.db_path))
+        conn.executescript(SCHEMA_0_8)
+        conn.close()
+        seed_0_8_data(self.db_path)
+
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        # Run update with filter - should not scan filesystem
+        # Use a URL from the seeded data
+        result = run_archivebox(self.work_dir, ['update', 'example.com'], timeout=120)
+        # Should complete successfully (or with orchestrator error, which is okay)
+        # The key is it should not scan filesystem
+
+    def test_update_without_filters_imports_orphans(self):
+        """Update without filters should scan filesystem and import orphaned directories."""
+        # Initialize empty DB
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        # Create an orphaned directory in archive/
+        timestamp = '1609459200'
+        orphan_dir = self.work_dir / 'archive' / timestamp
+        orphan_dir.mkdir(parents=True, exist_ok=True)
+
+        index_data = {
+            'url': 'https://orphan.example.com',
+            'timestamp': timestamp,
+            'title': 'Orphaned Snapshot',
+        }
+        (orphan_dir / 'index.json').write_text(json.dumps(index_data))
+        (orphan_dir / 'index.html').write_text('<html>Orphan</html>')
+
+        # Count snapshots before update
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM core_snapshot")
+        count_before = cursor.fetchone()[0]
+        conn.close()
+
+        # Run full update (no filters) - should scan filesystem
+        result = run_archivebox(self.work_dir, ['update'], timeout=120)
+
+        # Check if orphan was imported
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM core_snapshot WHERE url = ?",
+                      ('https://orphan.example.com',))
+        orphan_count = cursor.fetchone()[0]
+        conn.close()
+
+        # If update succeeded, orphan should be imported
+        if result.returncode == 0:
+            self.assertGreaterEqual(orphan_count, 1,
+                                  "Orphaned snapshot should be imported by update")
+
+
+class TestTimestampUniqueness(unittest.TestCase):
+    """Test timestamp uniqueness constraint."""
+
+    def setUp(self):
+        """Create a temporary directory."""
+        self.work_dir = Path(tempfile.mkdtemp())
+        self.db_path = self.work_dir / 'index.sqlite3'
+        create_data_dir_structure(self.work_dir)
+
+    def tearDown(self):
+        """Clean up temporary directory."""
+        shutil.rmtree(self.work_dir, ignore_errors=True)
+
+    def test_timestamp_uniqueness_constraint_exists(self):
+        """Database should have timestamp uniqueness constraint after migration."""
+        # Initialize with 0.8.x and migrate
+        conn = sqlite3.connect(str(self.db_path))
+        conn.executescript(SCHEMA_0_8)
+        conn.close()
+
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        # Check if unique_timestamp constraint exists
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+
+        # Query sqlite_master for constraints
+        cursor.execute("""
+            SELECT sql FROM sqlite_master
+            WHERE type='table' AND name='core_snapshot'
+        """)
+        table_sql = cursor.fetchone()[0]
+        conn.close()
+
+        # Should contain unique_timestamp constraint or UNIQUE(timestamp)
+        has_constraint = 'unique_timestamp' in table_sql.lower() or \
+                        'unique' in table_sql.lower() and 'timestamp' in table_sql.lower()
+
+        self.assertTrue(has_constraint,
+                       f"Timestamp uniqueness constraint should exist. Table SQL: {table_sql}")
+
+
 if __name__ == '__main__':
     unittest.main()

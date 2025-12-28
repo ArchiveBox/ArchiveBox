@@ -127,8 +127,10 @@ def fetch_content(url: str) -> str:
 
 @click.command()
 @click.option('--url', required=True, help='JSONL file URL to parse')
-@click.option('--snapshot-id', required=False, help='Snapshot UUID (unused but required by hook runner)')
-def main(url: str, snapshot_id: str = None):
+@click.option('--snapshot-id', required=False, help='Parent Snapshot UUID')
+@click.option('--crawl-id', required=False, help='Crawl UUID')
+@click.option('--depth', type=int, default=0, help='Current depth level')
+def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0):
     """Parse JSONL bookmark file and extract URLs."""
 
     try:
@@ -138,6 +140,8 @@ def main(url: str, snapshot_id: str = None):
         sys.exit(1)
 
     urls_found = []
+    all_tags = set()
+
     for line in content.splitlines():
         line = line.strip()
         if not line:
@@ -147,6 +151,20 @@ def main(url: str, snapshot_id: str = None):
             link = json.loads(line)
             entry = json_object_to_entry(link)
             if entry:
+                # Add crawl tracking metadata
+                entry['depth'] = depth + 1
+                if snapshot_id:
+                    entry['parent_snapshot_id'] = snapshot_id
+                if crawl_id:
+                    entry['crawl_id'] = crawl_id
+
+                # Collect tags
+                if entry.get('tags'):
+                    for tag in entry['tags'].split(','):
+                        tag = tag.strip()
+                        if tag:
+                            all_tags.add(tag)
+
                 urls_found.append(entry)
         except json.JSONDecodeError:
             # Skip malformed lines
@@ -156,28 +174,18 @@ def main(url: str, snapshot_id: str = None):
         click.echo('No URLs found', err=True)
         sys.exit(1)
 
-    # Collect unique tags
-    all_tags = set()
+    # Emit Tag records first (to stdout as JSONL)
+    for tag_name in sorted(all_tags):
+        print(json.dumps({
+            'type': 'Tag',
+            'name': tag_name,
+        }))
+
+    # Emit Snapshot records (to stdout as JSONL)
     for entry in urls_found:
-        if entry.get('tags'):
-            for tag in entry['tags'].split(','):
-                tag = tag.strip()
-                if tag:
-                    all_tags.add(tag)
+        print(json.dumps(entry))
 
-    # Write urls.jsonl
-    with open('urls.jsonl', 'w') as f:
-        # Write Tag records first
-        for tag_name in sorted(all_tags):
-            f.write(json.dumps({
-                'type': 'Tag',
-                'name': tag_name,
-            }) + '\n')
-        # Write Snapshot records
-        for entry in urls_found:
-            f.write(json.dumps(entry) + '\n')
-
-    click.echo(f'Found {len(urls_found)} URLs, {len(all_tags)} tags')
+    click.echo(f'Found {len(urls_found)} URLs, {len(all_tags)} tags', err=True)
     sys.exit(0)
 
 

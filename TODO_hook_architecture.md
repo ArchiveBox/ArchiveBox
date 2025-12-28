@@ -22,8 +22,8 @@ Crawl.run()
   → Crawl.run() creates Dependency record in DB
   → Dependency.run() is called automatically
     → runs on_Dependency__* hooks
-    → hooks emit JSONL: {type: 'InstalledBinary', name: 'wget', ...}
-    → Dependency.run() creates InstalledBinary record in DB
+    → hooks emit JSONL: {type: 'Binary', name: 'wget', ...}
+    → Dependency.run() creates Binary record in DB
 ```
 
 ### Golden Rules
@@ -33,7 +33,7 @@ Crawl.run()
 2. **Hooks emit JSONL** - Any line starting with `{` that has a `type` field creates/updates that model.
    ```python
    print(json.dumps({'type': 'Dependency', 'bin_name': 'wget', ...}))
-   print(json.dumps({'type': 'InstalledBinary', 'name': 'wget', ...}))
+   print(json.dumps({'type': 'Binary', 'name': 'wget', ...}))
    ```
 
 3. **JSONL fields = Model fields** - JSONL keys must match Django model field names exactly. No transformation.
@@ -113,7 +113,7 @@ def run(self):
     for line in results['stdout'].splitlines():
         obj = json.loads(line)
         if obj.get('type') != self.__class__.__name__:
-            create_record_from_jsonl(obj)  # Creates InstalledBinary, etc.
+            create_record_from_jsonl(obj)  # Creates Binary, etc.
 
     self.save()
 ```
@@ -151,9 +151,9 @@ def main():
     result = find_wget()
 
     if result and result.get('abspath'):
-        # Binary found - emit InstalledBinary and Machine config
+        # Binary found - emit Binary and Machine config
         print(json.dumps({
-            'type': 'InstalledBinary',
+            'type': 'Binary',
             'name': result['name'],
             'abspath': result['abspath'],
             'version': result['version'],
@@ -186,7 +186,7 @@ if __name__ == '__main__':
 
 **Rules:**
 - ✅ Use `Binary(...).load()` from abx-pkg - handles finding binary, version, hash automatically
-- ✅ Emit `InstalledBinary` JSONL if found
+- ✅ Emit `Binary` JSONL if found
 - ✅ Emit `Dependency` JSONL if not found
 - ✅ Use `overrides` field matching abx-pkg format: `{'pip': {'packages': ['pkg']}, 'apt': {'packages': ['pkg']}}`
 - ❌ NEVER use `shutil.which()`, `subprocess.run()`, manual version detection, or hash calculation
@@ -236,9 +236,9 @@ def main(dependency_id: str, bin_name: str, bin_providers: str, overrides: str |
     if not binary.abspath:
         sys.exit(1)
 
-    # Emit InstalledBinary JSONL
+    # Emit Binary JSONL
     print(json.dumps({
-        'type': 'InstalledBinary',
+        'type': 'Binary',
         'name': bin_name,
         'abspath': str(binary.abspath),
         'version': str(binary.version) if binary.version else '',
@@ -257,7 +257,7 @@ if __name__ == '__main__':
 - ✅ Check `bin_providers` parameter - exit cleanly (code 0) if can't handle
 - ✅ Parse `overrides` parameter as full dict, extract your provider's section
 - ✅ Use `Binary(...).install()` from abx-pkg - handles actual installation
-- ✅ Emit `InstalledBinary` JSONL on success
+- ✅ Emit `Binary` JSONL on success
 - ❌ NEVER hardcode provider names in Model.run() or anywhere else
 - ❌ NEVER skip the bin_providers check
 
@@ -273,7 +273,7 @@ class Dependency(models.Model):
 
         # Check if already installed
         if self.is_installed:
-            return self.installed_binaries.first()
+            return self.binaries.first()
 
         from archivebox.hooks import run_hooks
 
@@ -298,7 +298,7 @@ class Dependency(models.Model):
             **hook_kwargs
         )
 
-        # Process results - parse JSONL and create InstalledBinary records
+        # Process results - parse JSONL and create Binary records
         for result in results:
             if result['returncode'] != 0:
                 continue
@@ -309,13 +309,13 @@ class Dependency(models.Model):
 
                 try:
                     obj = json.loads(line)
-                    if obj.get('type') == 'InstalledBinary':
-                        # Create InstalledBinary record - fields match JSONL exactly
+                    if obj.get('type') == 'Binary':
+                        # Create Binary record - fields match JSONL exactly
                         if not obj.get('name') or not obj.get('abspath') or not obj.get('version'):
                             continue
 
                         machine = Machine.current()
-                        installed_binary, _ = InstalledBinary.objects.update_or_create(
+                        binary, _ = Binary.objects.update_or_create(
                             machine=machine,
                             name=obj['name'],
                             defaults={
@@ -328,7 +328,7 @@ class Dependency(models.Model):
                         )
 
                         if self.is_installed:
-                            return installed_binary
+                            return binary
 
                 except json.JSONDecodeError:
                     continue
@@ -455,7 +455,7 @@ class Migration(migrations.Migration):
             model_name='archiveresult',
             name='binary',
             field=models.ForeignKey(
-                'machine.InstalledBinary',
+                'machine.Binary',
                 on_delete=models.SET_NULL,
                 null=True,
                 blank=True,
@@ -565,7 +565,7 @@ console.log(JSON.stringify({
     output_json: {'content-type': 'text/html', 'server': 'nginx', 'status-code': 200, 'content-length': 234235},
 }));
 
-// With explicit cmd (cmd first arg should match InstalledBinary.bin_abspath or XYZ_BINARY env var so ArchiveResult.run() can FK to the InstalledBinary)
+// With explicit cmd (cmd first arg should match Binary.bin_abspath or XYZ_BINARY env var so ArchiveResult.run() can FK to the Binary)
 console.log(JSON.stringify({
     type: 'ArchiveResult',
     status: 'succeeded',
@@ -590,7 +590,7 @@ console.log(JSON.stringify({
 
 ## Phase 3: Architecture - Generic run_hook()
 
-`run_hook()` is a generic JSONL parser - it doesn't know about ArchiveResult, InstalledBinary, or any specific model. It just:
+`run_hook()` is a generic JSONL parser - it doesn't know about ArchiveResult, Binary, or any specific model. It just:
 1. Executes the hook script
 2. Parses JSONL output (any line starting with `{` that has a `type` field)
 3. Adds metadata about plugin and hook path
@@ -614,8 +614,8 @@ def run_hook(
 
     Each Model.run() method handles its own record types differently:
     - ArchiveResult.run() extends ArchiveResult records with computed fields
-    - Dependency.run() creates InstalledBinary records from hook output
-    - Crawl.run() can create Dependency records, Snapshots, or InstalledBinary records from hook output
+    - Dependency.run() creates Binary records from hook output
+    - Crawl.run() can create Dependency records, Snapshots, or Binary records from hook output
 
     Returns:
         List of dicts with 'type' field, each extended with metadata:
@@ -629,7 +629,7 @@ def run_hook(
                 # ... other hook-reported fields
             },
             {
-                'type': 'InstalledBinary',
+                'type': 'Binary',
                 'name': 'wget',
                 'plugin': 'wget',
                 'plugin_hook': 'archivebox/plugins/wget/on_Snapshot__21_wget.py',
@@ -658,12 +658,12 @@ def create_model_record(record: dict) -> Any:
     Returns:
         Created/updated model instance
     """
-    from machine.models import InstalledBinary, Dependency
+    from machine.models import Binary, Dependency
 
     model_type = record.pop('type')
 
-    if model_type == 'InstalledBinary':
-        obj, created = InstalledBinary.objects.get_or_create(**record)  # if model requires custom logic implement InstalledBinary.from_jsonl(**record)
+    if model_type == 'Binary':
+        obj, created = Binary.objects.get_or_create(**record)  # if model requires custom logic implement Binary.from_jsonl(**record)
         return obj
     elif model_type == 'Dependency':
         obj, created = Dependency.objects.get_or_create(**record)
@@ -697,7 +697,7 @@ Rationale: "install" is clearer than "validate" for what these hooks actually do
 
 **ALL install hooks MUST follow this pattern:**
 
-1. ✅ Check if InstalledBinary already exists for the configured binary
+1. ✅ Check if Binary already exists for the configured binary
 2. ✅ If NOT found, emit a Dependency JSONL record, with overrides if you need to customize install process
 3. ❌ NEVER directly call npm, apt, brew, pip, or any package manager
 4. ✅ Let bin provider plugins handle actual installation
@@ -718,12 +718,12 @@ def main():
     # 1. Get configured binary name/path from env
     binary_path = os.environ.get('WGET_BINARY', 'wget')
 
-    # 2. Check if InstalledBinary exists for this binary
+    # 2. Check if Binary exists for this binary
     # (In practice, this check happens via database query in the actual implementation)
     # For install hooks, we emit a Dependency that the system will process
 
     # 3. Emit Dependency JSONL if needed
-    # The bin provider will check InstalledBinary and install if missing
+    # The bin provider will check Binary and install if missing
     dependency = {
         'type': 'Dependency',
         'name': 'wget',
@@ -746,7 +746,7 @@ if __name__ == '__main__':
 - ✅ Read `XYZ_BINARY` env var (e.g., `WGET_BINARY`, `YTDLP_BINARY`, `CHROME_BINARY`)
 - ✅ Support absolute paths: `WGET_BINARY=/usr/local/bin/wget2`
 - ✅ Support bin names: `WGET_BINARY=wget2`
-- ✅ Check for the CORRECT binary name in InstalledBinary
+- ✅ Check for the CORRECT binary name in Binary
 - ✅ If user provides `WGET_BINARY=wget2`, check for `wget2` not `wget`
 
 **Example Config Handling:**
@@ -755,7 +755,7 @@ if __name__ == '__main__':
 # Get configured binary (could be path or name)
 binary_path = os.environ.get('WGET_BINARY', 'wget')
 
-# Extract just the binary name for InstalledBinary lookup
+# Extract just the binary name for Binary lookup
 if '/' in binary_path:
     # Absolute path: /usr/local/bin/wget2 -> wget2
     bin_name = Path(binary_path).name
@@ -763,7 +763,7 @@ else:
     # Just a name: wget2 -> wget2
     bin_name = binary_path
 
-# Now check InstalledBinary for bin_name (not hardcoded 'wget')
+# Now check Binary for bin_name (not hardcoded 'wget')
 ```
 
 ### 4.2 Snapshot Hook Standardization
@@ -885,7 +885,7 @@ After updating each plugin, verify:
 
 When auditing plugins, watch for these common mistakes:
 
-1. **Hardcoded binary names** - Check `InstalledBinary.filter(name='wget')` → should use configured name
+1. **Hardcoded binary names** - Check `Binary.filter(name='wget')` → should use configured name
 2. **Old output format** - Look for `RESULT_JSON=`, `VERSION=`, `START_TS=` lines
 3. **Computed fields in output** - Watch for `output_files`, `start_ts`, `duration` in JSONL
 4. **Missing config variables** - Ensure hooks read `XYZ_BINARY` env vars
@@ -904,7 +904,7 @@ When auditing plugins, watch for these common mistakes:
 ```python
 def find_binary_for_cmd(cmd: List[str], machine_id: str) -> Optional[str]:
     """
-    Find InstalledBinary for a command, trying abspath first then name.
+    Find Binary for a command, trying abspath first then name.
     Only matches binaries on the current machine.
 
     Args:
@@ -917,12 +917,12 @@ def find_binary_for_cmd(cmd: List[str], machine_id: str) -> Optional[str]:
     if not cmd:
         return None
 
-    from machine.models import InstalledBinary
+    from machine.models import Binary
 
     bin_path_or_name = cmd[0]
 
     # Try matching by absolute path first
-    binary = InstalledBinary.objects.filter(
+    binary = Binary.objects.filter(
         abspath=bin_path_or_name,
         machine_id=machine_id
     ).first()
@@ -932,7 +932,7 @@ def find_binary_for_cmd(cmd: List[str], machine_id: str) -> Optional[str]:
 
     # Fallback: match by binary name
     bin_name = Path(bin_path_or_name).name
-    binary = InstalledBinary.objects.filter(
+    binary = Binary.objects.filter(
         name=bin_name,
         machine_id=machine_id
     ).first()
@@ -961,7 +961,7 @@ def run_hook(
 
     Hook responsibilities:
     - Emit JSONL: {type: 'ArchiveResult', status, output_str, output_json, cmd}
-    - Can emit multiple types: {type: 'InstalledBinary', ...}
+    - Can emit multiple types: {type: 'Binary', ...}
     - Write actual output files
 
     Args:
@@ -1218,7 +1218,7 @@ def run(self):
 
     self.save()
 
-    # Create any side-effect records (InstalledBinary, Dependency, etc.)
+    # Create any side-effect records (Binary, Dependency, etc.)
     for record in records:
         if record['type'] != 'ArchiveResult':
             create_model_record(record)  # Generic helper that dispatches by type
@@ -1588,7 +1588,7 @@ def test_background_hook_detection():
 def test_find_binary_by_abspath():
     """Test binary matching by absolute path"""
     machine = Machine.current()
-    binary = InstalledBinary.objects.create(
+    binary = Binary.objects.create(
         name='wget',
         abspath='/usr/bin/wget',
         machine=machine
@@ -1600,7 +1600,7 @@ def test_find_binary_by_abspath():
 def test_find_binary_by_name():
     """Test binary matching by name fallback"""
     machine = Machine.current()
-    binary = InstalledBinary.objects.create(
+    binary = Binary.objects.create(
         name='wget',
         abspath='/usr/local/bin/wget',
         machine=machine
@@ -1713,7 +1713,7 @@ python manage.py makemigrations core --name archiveresult_background_hooks
 - Assert only one ArchiveResult record per hook
 - Extend ArchiveResult record with computed fields (output_files, output_size, binary FK)
 - Call `_populate_output_fields()` to walk directory and populate summary fields
-- Call `create_model_record()` for any side-effect records (InstalledBinary, etc.)
+- Call `create_model_record()` for any side-effect records (Binary, etc.)
 
 ### Step 5: Add finalization helpers (Phase 7)
 - `find_background_hooks()`
@@ -1807,7 +1807,7 @@ New ArchiveResult fields:
 - [x] `output_files` (JSONField) - dict of {relative_path: {}}
 - [x] `output_size` (BigIntegerField) - total bytes
 - [x] `output_mimetypes` (CharField) - CSV of mimetypes sorted by size
-- [x] `binary` (ForeignKey to InstalledBinary) - optional
+- [x] `binary` (ForeignKey to Binary) - optional
 
 ### ✅ Phase 3: Generic run_hook() (COMPLETE)
 
@@ -1817,7 +1817,7 @@ Updated `archivebox/hooks.py`:
 - [x] Add plugin metadata to each record
 - [x] Detect background hooks with `.bg.` suffix
 - [x] Added `find_binary_for_cmd()` helper
-- [x] Added `create_model_record()` for InstalledBinary/Machine
+- [x] Added `create_model_record()` for Binary/Machine
 
 ### ✅ Phase 6: Update ArchiveResult.run() (COMPLETE)
 
@@ -1847,30 +1847,30 @@ Updated `archivebox/core/statemachines.py`:
 
 | Plugin | Hook | Status | Notes |
 |--------|------|--------|-------|
-| apt | `on_Dependency__install_using_apt_provider.py` | ✅ OK | Emits `{type: 'InstalledBinary'}` JSONL |
-| brew | `on_Dependency__install_using_brew_provider.py` | ✅ OK | Emits `{type: 'InstalledBinary'}` JSONL |
-| custom | `on_Dependency__install_using_custom_bash.py` | ✅ OK | Emits `{type: 'InstalledBinary'}` JSONL |
-| env | `on_Dependency__install_using_env_provider.py` | ✅ OK | Emits `{type: 'InstalledBinary'}` JSONL |
-| npm | `on_Dependency__install_using_npm_provider.py` | ✅ OK | Emits `{type: 'InstalledBinary'}` JSONL |
-| pip | `on_Dependency__install_using_pip_provider.py` | ✅ OK | Emits `{type: 'InstalledBinary'}` JSONL |
+| apt | `on_Dependency__install_using_apt_provider.py` | ✅ OK | Emits `{type: 'Binary'}` JSONL |
+| brew | `on_Dependency__install_using_brew_provider.py` | ✅ OK | Emits `{type: 'Binary'}` JSONL |
+| custom | `on_Dependency__install_using_custom_bash.py` | ✅ OK | Emits `{type: 'Binary'}` JSONL |
+| env | `on_Dependency__install_using_env_provider.py` | ✅ OK | Emits `{type: 'Binary'}` JSONL |
+| npm | `on_Dependency__install_using_npm_provider.py` | ✅ OK | Emits `{type: 'Binary'}` JSONL |
+| pip | `on_Dependency__install_using_pip_provider.py` | ✅ OK | Emits `{type: 'Binary'}` JSONL |
 
 ### Crawl Install Hooks (on_Crawl__00_install_*) - ALL RENAMED ✅
 
 | Plugin | Hook | Status | Notes |
 |--------|------|--------|-------|
-| chrome_session | `on_Crawl__00_install_chrome.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
+| chrome_session | `on_Crawl__00_install_chrome.py` | ✅ RENAMED | Emits Binary/Dependency JSONL |
 | chrome_session | `on_Crawl__00_install_chrome_config.py` | ✅ RENAMED | Emits config JSONL |
-| wget | `on_Crawl__00_install_wget.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
+| wget | `on_Crawl__00_install_wget.py` | ✅ RENAMED | Emits Binary/Dependency JSONL |
 | wget | `on_Crawl__00_install_wget_config.py` | ✅ RENAMED | Emits config JSONL |
-| singlefile | `on_Crawl__00_install_singlefile.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
-| readability | `on_Crawl__00_install_readability.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
-| media | `on_Crawl__00_install_ytdlp.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
-| git | `on_Crawl__00_install_git.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
-| forumdl | `on_Crawl__00_install_forumdl.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
-| gallerydl | `on_Crawl__00_install_gallerydl.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
-| mercury | `on_Crawl__00_install_mercury.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
-| papersdl | `on_Crawl__00_install_papersdl.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
-| search_backend_ripgrep | `on_Crawl__00_install_ripgrep.py` | ✅ RENAMED | Emits InstalledBinary/Dependency JSONL |
+| singlefile | `on_Crawl__00_install_singlefile.py` | ✅ RENAMED | Emits Binary/Dependency JSONL |
+| readability | `on_Crawl__00_install_readability.py` | ✅ RENAMED | Emits Binary/Dependency JSONL |
+| media | `on_Crawl__00_install_ytdlp.py` | ✅ RENAMED | Emits Binary/Dependency JSONL |
+| git | `on_Crawl__00_install_git.py` | ✅ RENAMED | Emits Binary/Dependency JSONL |
+| forumdl | `on_Crawl__00_install_forumdl.py` | ✅ RENAMED | Emits Binary/Dependency JSONL |
+| gallerydl | `on_Crawl__00_install_gallerydl.py` | ✅ RENAMED | Emits Binary/Dependency JSONL |
+| mercury | `on_Crawl__00_install_mercury.py` | ✅ RENAMED | Emits Binary/Dependency JSONL |
+| papersdl | `on_Crawl__00_install_papersdl.py` | ✅ RENAMED | Emits Binary/Dependency JSONL |
+| search_backend_ripgrep | `on_Crawl__00_install_ripgrep.py` | ✅ RENAMED | Emits Binary/Dependency JSONL |
 
 ### Snapshot Hooks (on_Snapshot__*) - Python Hooks UPDATED ✅
 

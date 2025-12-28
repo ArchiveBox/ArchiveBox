@@ -27,7 +27,7 @@ const EXTRACTOR_NAME = 'parse_dom_outlinks';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'outlinks.json';
 const URLS_FILE = 'urls.jsonl';  // For crawl system
-const CHROME_SESSION_DIR = '../chrome_session';
+const CHROME_SESSION_DIR = '../chrome';
 
 // Parse command line arguments
 function parseArgs() {
@@ -53,7 +53,23 @@ function getEnvBool(name, defaultValue = false) {
     return defaultValue;
 }
 
-// Get CDP URL from chrome_session
+// Wait for chrome tab to be fully loaded
+async function waitForChromeTabLoaded(timeoutMs = 60000) {
+    const navigationFile = path.join(CHROME_SESSION_DIR, 'navigation.json');
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeoutMs) {
+        if (fs.existsSync(navigationFile)) {
+            return true;
+        }
+        // Wait 100ms before checking again
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    return false;
+}
+
+// Get CDP URL from chrome plugin
 function getCdpUrl() {
     const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
     if (fs.existsSync(cdpFile)) {
@@ -73,7 +89,7 @@ async function extractOutlinks(url) {
         // Connect to existing Chrome session
         const cdpUrl = getCdpUrl();
         if (!cdpUrl) {
-            return { success: false, error: 'No Chrome session found (chrome_session extractor must run first)' };
+            return { success: false, error: 'No Chrome session found (chrome plugin must run first)' };
         }
 
         browser = await puppeteer.connect({
@@ -218,6 +234,12 @@ async function main() {
                 output_str: 'SAVE_DOM_OUTLINKS=False',
             }));
             process.exit(0);
+        }
+
+        // Wait for page to be fully loaded
+        const pageLoaded = await waitForChromeTabLoaded(60000);
+        if (!pageLoaded) {
+            throw new Error('Page not loaded after 60s (chrome_navigate must complete first)');
         }
 
         const result = await extractOutlinks(url);

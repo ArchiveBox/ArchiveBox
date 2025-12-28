@@ -50,56 +50,28 @@ class MachineFilterSchema(FilterSchema):
 
 
 # ============================================================================
-# Dependency Schemas
-# ============================================================================
-
-class DependencySchema(Schema):
-    """Schema for Dependency model."""
-    TYPE: str = 'machine.Dependency'
-    id: UUID
-    created_at: datetime
-    modified_at: datetime
-    bin_name: str
-    bin_providers: str
-    custom_cmds: dict
-    config: dict
-    is_installed: bool
-    installed_count: int
-
-    @staticmethod
-    def resolve_is_installed(obj) -> bool:
-        return obj.is_installed
-
-    @staticmethod
-    def resolve_installed_count(obj) -> int:
-        return obj.installed_binaries.count()
-
-
-class DependencyFilterSchema(FilterSchema):
-    id: Optional[str] = Field(None, q='id__startswith')
-    bin_name: Optional[str] = Field(None, q='bin_name__icontains')
     bin_providers: Optional[str] = Field(None, q='bin_providers__icontains')
 
 
 # ============================================================================
-# InstalledBinary Schemas
+# Binary Schemas
 # ============================================================================
 
-class InstalledBinarySchema(Schema):
-    """Schema for InstalledBinary model."""
-    TYPE: str = 'machine.InstalledBinary'
+class BinarySchema(Schema):
+    """Schema for Binary model."""
+    TYPE: str = 'machine.Binary'
     id: UUID
     created_at: datetime
     modified_at: datetime
     machine_id: UUID
     machine_hostname: str
-    dependency_id: Optional[UUID]
-    dependency_bin_name: Optional[str]
     name: str
+    binproviders: str
     binprovider: str
     abspath: str
     version: str
     sha256: str
+    status: str
     is_valid: bool
     num_uses_succeeded: int
     num_uses_failed: int
@@ -109,24 +81,16 @@ class InstalledBinarySchema(Schema):
         return obj.machine.hostname
 
     @staticmethod
-    def resolve_dependency_id(obj) -> Optional[UUID]:
-        return obj.dependency_id
-
-    @staticmethod
-    def resolve_dependency_bin_name(obj) -> Optional[str]:
-        return obj.dependency.bin_name if obj.dependency else None
-
-    @staticmethod
     def resolve_is_valid(obj) -> bool:
         return obj.is_valid
 
 
-class InstalledBinaryFilterSchema(FilterSchema):
+class BinaryFilterSchema(FilterSchema):
     id: Optional[str] = Field(None, q='id__startswith')
     name: Optional[str] = Field(None, q='name__icontains')
     binprovider: Optional[str] = Field(None, q='binprovider')
+    status: Optional[str] = Field(None, q='status')
     machine_id: Optional[str] = Field(None, q='machine_id__startswith')
-    dependency_id: Optional[str] = Field(None, q='dependency_id__startswith')
     version: Optional[str] = Field(None, q='version__icontains')
 
 
@@ -158,49 +122,29 @@ def get_current_machine(request):
 
 
 # ============================================================================
-# Dependency Endpoints
+
+
+# ============================================================================
+# Binary Endpoints
 # ============================================================================
 
-@router.get("/dependencies", response=List[DependencySchema], url_name="get_dependencies")
+@router.get("/binaries", response=List[BinarySchema], url_name="get_binaries")
 @paginate(CustomPagination)
-def get_dependencies(request, filters: DependencyFilterSchema = Query(...)):
-    """List all dependencies."""
-    from machine.models import Dependency
-    return filters.filter(Dependency.objects.all()).distinct()
+def get_binaries(request, filters: BinaryFilterSchema = Query(...)):
+    """List all binaries."""
+    from machine.models import Binary
+    return filters.filter(Binary.objects.all().select_related('machine', 'dependency')).distinct()
 
 
-@router.get("/dependency/{dependency_id}", response=DependencySchema, url_name="get_dependency")
-def get_dependency(request, dependency_id: str):
-    """Get a specific dependency by ID or bin_name."""
-    from machine.models import Dependency
-    from django.db.models import Q
-    try:
-        return Dependency.objects.get(Q(id__startswith=dependency_id))
-    except Dependency.DoesNotExist:
-        return Dependency.objects.get(bin_name__iexact=dependency_id)
-
-
-# ============================================================================
-# InstalledBinary Endpoints
-# ============================================================================
-
-@router.get("/binaries", response=List[InstalledBinarySchema], url_name="get_binaries")
-@paginate(CustomPagination)
-def get_binaries(request, filters: InstalledBinaryFilterSchema = Query(...)):
-    """List all installed binaries."""
-    from machine.models import InstalledBinary
-    return filters.filter(InstalledBinary.objects.all().select_related('machine', 'dependency')).distinct()
-
-
-@router.get("/binary/{binary_id}", response=InstalledBinarySchema, url_name="get_binary")
+@router.get("/binary/{binary_id}", response=BinarySchema, url_name="get_binary")
 def get_binary(request, binary_id: str):
-    """Get a specific installed binary by ID."""
-    from machine.models import InstalledBinary
-    return InstalledBinary.objects.select_related('machine', 'dependency').get(id__startswith=binary_id)
+    """Get a specific binary by ID."""
+    from machine.models import Binary
+    return Binary.objects.select_related('machine', 'dependency').get(id__startswith=binary_id)
 
 
-@router.get("/binary/by-name/{name}", response=List[InstalledBinarySchema], url_name="get_binaries_by_name")
+@router.get("/binary/by-name/{name}", response=List[BinarySchema], url_name="get_binaries_by_name")
 def get_binaries_by_name(request, name: str):
-    """Get all installed binaries with the given name."""
-    from machine.models import InstalledBinary
-    return list(InstalledBinary.objects.filter(name__iexact=name).select_related('machine', 'dependency'))
+    """Get all binaries with the given name."""
+    from machine.models import Binary
+    return list(Binary.objects.filter(name__iexact=name).select_related('machine', 'dependency'))

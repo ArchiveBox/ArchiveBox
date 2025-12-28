@@ -21,7 +21,6 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 import rich_click as click
@@ -149,7 +148,6 @@ def index_in_sonic(snapshot_id: str, texts: list[str]) -> None:
 def main(url: str, snapshot_id: str):
     """Index snapshot content in Sonic."""
 
-    start_ts = datetime.now(timezone.utc)
     output = None
     status = 'failed'
     error = ''
@@ -159,18 +157,10 @@ def main(url: str, snapshot_id: str):
         # Check if this backend is enabled (permanent skips - don't retry)
         backend = get_env('SEARCH_BACKEND_ENGINE', 'sqlite')
         if backend != 'sonic':
-            print(f'Skipping Sonic indexing (SEARCH_BACKEND_ENGINE={backend})')
-            print(f'START_TS={start_ts.isoformat()}')
-            print(f'END_TS={datetime.now(timezone.utc).isoformat()}')
-            print(f'STATUS=skipped')
-            print(f'RESULT_JSON={json.dumps({"extractor": EXTRACTOR_NAME, "status": "skipped", "url": url, "snapshot_id": snapshot_id})}')
+            print(f'Skipping Sonic indexing (SEARCH_BACKEND_ENGINE={backend})', file=sys.stderr)
             sys.exit(0)  # Permanent skip - different backend selected
         if not get_env_bool('USE_INDEXING_BACKEND', True):
-            print('Skipping indexing (USE_INDEXING_BACKEND=False)')
-            print(f'START_TS={start_ts.isoformat()}')
-            print(f'END_TS={datetime.now(timezone.utc).isoformat()}')
-            print(f'STATUS=skipped')
-            print(f'RESULT_JSON={json.dumps({"extractor": EXTRACTOR_NAME, "status": "skipped", "url": url, "snapshot_id": snapshot_id})}')
+            print('Skipping indexing (USE_INDEXING_BACKEND=False)', file=sys.stderr)
             sys.exit(0)  # Permanent skip - indexing disabled
         else:
             contents = find_indexable_content()
@@ -178,46 +168,22 @@ def main(url: str, snapshot_id: str):
 
             if not contents:
                 status = 'skipped'
-                print('No indexable content found')
+                print('No indexable content found', file=sys.stderr)
             else:
                 texts = [content for _, content in contents]
                 index_in_sonic(snapshot_id, texts)
                 status = 'succeeded'
                 output = OUTPUT_DIR
-                print(f'Sonic indexed {len(texts)} documents')
-                print(f'Sources: {", ".join(indexed_sources)}')
 
     except Exception as e:
         error = f'{type(e).__name__}: {e}'
         status = 'failed'
 
-    end_ts = datetime.now(timezone.utc)
-    duration = (end_ts - start_ts).total_seconds()
-
-    print(f'START_TS={start_ts.isoformat()}')
-    print(f'END_TS={end_ts.isoformat()}')
-    print(f'DURATION={duration:.2f}')
-    if output:
-        print(f'OUTPUT={output}')
-    print(f'STATUS={status}')
-
     if error:
-        print(f'ERROR={error}', file=sys.stderr)
+        print(f'ERROR: {error}', file=sys.stderr)
 
-    result_json = {
-        'extractor': EXTRACTOR_NAME,
-        'url': url,
-        'snapshot_id': snapshot_id,
-        'status': status,
-        'start_ts': start_ts.isoformat(),
-        'end_ts': end_ts.isoformat(),
-        'duration': round(duration, 2),
-        'output': output,
-        'indexed_sources': indexed_sources,
-        'error': error or None,
-    }
-    print(f'RESULT_JSON={json.dumps(result_json)}')
-
+    # Search indexing hooks don't emit ArchiveResult - they're utility hooks
+    # Exit code indicates success/failure
     sys.exit(0 if status == 'succeeded' else 1)
 
 

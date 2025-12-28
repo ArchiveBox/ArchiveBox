@@ -21,7 +21,7 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 GALLERYDL_HOOK = PLUGIN_DIR / 'on_Snapshot__52_gallerydl.py'
-GALLERYDL_VALIDATE_HOOK = PLUGIN_DIR / 'on_Crawl__00_validate_gallerydl.py'
+GALLERYDL_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_gallerydl.py'
 TEST_URL = 'https://example.com'
 
 def test_hook_script_exists():
@@ -29,18 +29,18 @@ def test_hook_script_exists():
     assert GALLERYDL_HOOK.exists(), f"Hook not found: {GALLERYDL_HOOK}"
 
 
-def test_gallerydl_validate_hook():
-    """Test gallery-dl validate hook checks for gallery-dl."""
-    # Run gallery-dl validate hook
+def test_gallerydl_install_hook():
+    """Test gallery-dl install hook checks for gallery-dl."""
+    # Run gallery-dl install hook
     result = subprocess.run(
-        [sys.executable, str(GALLERYDL_VALIDATE_HOOK)],
+        [sys.executable, str(GALLERYDL_INSTALL_HOOK)],
         capture_output=True,
         text=True,
         timeout=30
     )
 
     # Hook exits 0 if all binaries found, 1 if any not found
-    # Parse output for InstalledBinary and Dependency records
+    # Parse output for Binary and Dependency records
     found_binary = False
     found_dependency = False
 
@@ -48,7 +48,7 @@ def test_gallerydl_validate_hook():
         if line.strip():
             try:
                 record = json.loads(line)
-                if record.get('type') == 'InstalledBinary':
+                if record.get('type') == 'Binary':
                     if record['name'] == 'gallery-dl':
                         assert record['abspath'], "gallery-dl should have abspath"
                         found_binary = True
@@ -58,9 +58,9 @@ def test_gallerydl_validate_hook():
             except json.JSONDecodeError:
                 pass
 
-    # gallery-dl should either be found (InstalledBinary) or missing (Dependency)
+    # gallery-dl should either be found (Binary) or missing (Dependency)
     assert found_binary or found_dependency, \
-        "gallery-dl should have either InstalledBinary or Dependency record"
+        "gallery-dl should have either Binary or Dependency record"
 
 
 def test_verify_deps_with_abx_pkg():
@@ -98,23 +98,25 @@ def test_handles_non_gallery_url():
         # Should exit 0 even for non-gallery URL
         assert result.returncode == 0, f"Should handle non-gallery URL gracefully: {result.stderr}"
 
-        # Verify JSONL output
-        assert 'STATUS=' in result.stdout, "Should report status"
-        assert 'RESULT_JSON=' in result.stdout, "Should output RESULT_JSON"
-
-        # Parse JSONL result
+        # Parse clean JSONL output
         result_json = None
-        for line in result.stdout.split('\n'):
-            if line.startswith('RESULT_JSON='):
-                result_json = json.loads(line.split('=', 1)[1])
-                break
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
 
-        assert result_json, "Should have RESULT_JSON"
-        assert result_json['extractor'] == 'gallerydl'
+        assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
 
 def test_config_save_gallery_dl_false_skips():
-    """Test that SAVE_GALLERYDL=False causes skip."""
+    """Test that SAVE_GALLERYDL=False exits without emitting JSONL."""
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -130,8 +132,14 @@ def test_config_save_gallery_dl_false_skips():
             timeout=30
         )
 
-        assert result.returncode == 0, f"Should exit 0 when skipping: {result.stderr}"
-        assert 'STATUS=' in result.stdout
+        assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
+
+        # Feature disabled - no JSONL emission, just logs to stderr
+        assert 'Skipping' in result.stderr or 'False' in result.stderr, "Should log skip reason to stderr"
+
+        # Should NOT emit any JSONL
+        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
+        assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
 
 
 def test_config_timeout():

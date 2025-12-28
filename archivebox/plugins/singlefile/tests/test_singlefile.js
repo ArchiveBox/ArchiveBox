@@ -212,7 +212,7 @@ describe('singlefile plugin', () => {
             assert.strictEqual(priority, 4);
         });
 
-        it('should run before chrome_session (priority 20)', () => {
+        it('should run before chrome (priority 20)', () => {
             const extensionPriority = 4;
             const chromeSessionPriority = 20;
 

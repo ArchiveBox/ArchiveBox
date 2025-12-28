@@ -17,7 +17,7 @@ _CURRENT_BINARIES = {}
 
 MACHINE_RECHECK_INTERVAL = 7 * 24 * 60 * 60
 NETWORK_INTERFACE_RECHECK_INTERVAL = 1 * 60 * 60
-INSTALLED_BINARY_RECHECK_INTERVAL = 1 * 30 * 60
+BINARY_RECHECK_INTERVAL = 1 * 30 * 60
 
 
 class MachineManager(models.Manager):
@@ -62,6 +62,31 @@ class Machine(ModelWithHealthStats):
             defaults={'hostname': socket.gethostname(), **get_os_info(), **get_vm_info(), 'stats': get_host_stats()},
         )
         return _CURRENT_MACHINE
+
+    @staticmethod
+    def from_jsonl(record: dict, overrides: dict = None):
+        """
+        Update Machine config from JSONL record.
+
+        Args:
+            record: JSONL record with '_method': 'update', 'key': '...', 'value': '...'
+            overrides: Not used
+
+        Returns:
+            Machine instance or None
+        """
+        method = record.get('_method')
+        if method == 'update':
+            key = record.get('key')
+            value = record.get('value')
+            if key and value:
+                machine = Machine.current()
+                if not machine.config:
+                    machine.config = {}
+                machine.config[key] = value
+                machine.save(update_fields=['config'])
+                return machine
+        return None
 
 
 class NetworkInterfaceManager(models.Manager):
@@ -108,179 +133,13 @@ class NetworkInterface(ModelWithHealthStats):
         return _CURRENT_INTERFACE
 
 
-class DependencyManager(models.Manager):
-    def get_or_create_for_extractor(self, bin_name: str, bin_providers: str = '*', overrides: dict = None, config: dict = None) -> 'Dependency':
-        """Get or create a Dependency for an extractor's binary."""
-        dependency, created = self.get_or_create(
-            bin_name=bin_name,
-            defaults={
-                'bin_providers': bin_providers,
-                'overrides': overrides or {},
-                'config': config or {},
-            }
-        )
-        return dependency
 
-
-class Dependency(models.Model):
-    """
-    Defines a binary dependency needed by an extractor.
-
-    This model tracks what binaries need to be installed and how to install them.
-    Provider hooks listen for Dependency creation events and attempt installation.
-
-    Example:
-        Dependency.objects.get_or_create(
-            bin_name='wget',
-            bin_providers='apt,brew,pip,env',
-            overrides={
-                'apt': {'packages': ['wget']},
-                'brew': {'packages': ['wget']},
-                'pip': {'packages': ['wget']},
-            }
-        )
-    """
-
-    BIN_PROVIDER_CHOICES = (
-        ('*', 'Any'),
-        ('apt', 'apt'),
-        ('brew', 'brew'),
-        ('pip', 'pip'),
-        ('npm', 'npm'),
-        ('gem', 'gem'),
-        ('nix', 'nix'),
-        ('env', 'env (already in PATH)'),
-        ('custom', 'custom'),
-    )
-
-    id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
-    created_at = models.DateTimeField(default=timezone.now, db_index=True)
-    modified_at = models.DateTimeField(auto_now=True)
-
-    bin_name = models.CharField(max_length=63, unique=True, db_index=True,
-        help_text="Binary executable name (e.g., wget, yt-dlp, chromium)")
-    bin_providers = models.CharField(max_length=127, default='*',
-        help_text="Comma-separated list of allowed providers: apt,brew,pip,npm,gem,nix,custom or * for any")
-    overrides = models.JSONField(default=dict, blank=True,
-        help_text="JSON map matching abx-pkg Binary.overrides format: {'pip': {'packages': ['pkg']}, 'apt': {'packages': ['pkg']}}")
-    config = models.JSONField(default=dict, blank=True,
-        help_text="JSON map of env var config to use during install")
-
-    objects: DependencyManager = DependencyManager()
-
-    class Meta:
-        verbose_name = 'Dependency'
-        verbose_name_plural = 'Dependencies'
-
-    def __str__(self) -> str:
-        return f'{self.bin_name} (providers: {self.bin_providers})'
-
-    def allows_provider(self, provider: str) -> bool:
-        """Check if this dependency allows the given provider."""
-        if self.bin_providers == '*':
-            return True
-        return provider in self.bin_providers.split(',')
-
-    def get_overrides_for_provider(self, provider: str) -> dict | None:
-        """Get the overrides for a provider, or None if not specified."""
-        return self.overrides.get(provider)
-
-    @property
-    def installed_binaries(self):
-        """Get all InstalledBinary records for this dependency."""
-        return InstalledBinary.objects.filter(dependency=self)
-
-    @property
-    def is_installed(self) -> bool:
-        """Check if at least one valid InstalledBinary exists for this dependency."""
-        return self.installed_binaries.filter(abspath__isnull=False).exclude(abspath='').exists()
-
-    def run(self):
-        """
-        Execute dependency installation by running all on_Dependency hooks.
-
-        Each hook checks if it can handle this dependency and installs if possible.
-        Returns the InstalledBinary record on success, None on failure.
-        """
-        import json
-        from pathlib import Path
-        from django.conf import settings
-
-        # Check if already installed
-        if self.is_installed:
-            return self.installed_binaries.first()
-
-        # Import here to avoid circular dependency
-        from archivebox.hooks import run_hooks
-
-        # Create output directory
-        DATA_DIR = getattr(settings, 'DATA_DIR', Path.cwd())
-        output_dir = Path(DATA_DIR) / 'tmp' / f'dependency_{self.id}'
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        # Build kwargs for hooks - pass overrides as JSON string
-        hook_kwargs = {
-            'dependency_id': str(self.id),
-            'bin_name': self.bin_name,
-            'bin_providers': self.bin_providers,
-            'overrides': json.dumps(self.overrides) if self.overrides else None,
-        }
-
-        # Run all on_Dependency hooks - each decides if it can handle this
-        results = run_hooks(
-            event_name='Dependency',
-            output_dir=output_dir,
-            timeout=600,
-            **hook_kwargs
-        )
-
-        # Process results - parse JSONL and create InstalledBinary records
-        for result in results:
-            if result['returncode'] != 0:
-                continue
-
-            # Parse JSONL output
-            for line in result['stdout'].strip().split('\n'):
-                if not line.strip():
-                    continue
-
-                try:
-                    obj = json.loads(line)
-                    if obj.get('type') == 'InstalledBinary':
-                        # Create InstalledBinary record
-                        if not obj.get('name') or not obj.get('abspath') or not obj.get('version'):
-                            continue
-
-                        machine = Machine.current()
-                        installed_binary, _ = InstalledBinary.objects.update_or_create(
-                            machine=machine,
-                            name=obj['name'],
-                            defaults={
-                                'abspath': obj['abspath'],
-                                'version': obj['version'],
-                                'sha256': obj.get('sha256') or '',
-                                'binprovider': obj.get('binprovider') or 'env',
-                                'dependency': self,
-                            }
-                        )
-
-                        # Success! Return the installed binary
-                        if self.is_installed:
-                            return installed_binary
-
-                except json.JSONDecodeError:
-                    continue
-
-        # Failed to install with any hook
-        return None
-
-
-class InstalledBinaryManager(models.Manager):
-    def get_from_db_or_cache(self, name: str, abspath: str = '', version: str = '', sha256: str = '', binprovider: str = 'env') -> 'InstalledBinary':
-        """Get or create an InstalledBinary record from the database or cache."""
+class BinaryManager(models.Manager):
+    def get_from_db_or_cache(self, name: str, abspath: str = '', version: str = '', sha256: str = '', binprovider: str = 'env') -> 'Binary':
+        """Get or create an Binary record from the database or cache."""
         global _CURRENT_BINARIES
         cached = _CURRENT_BINARIES.get(name)
-        if cached and timezone.now() < cached.modified_at + timedelta(seconds=INSTALLED_BINARY_RECHECK_INTERVAL):
+        if cached and timezone.now() < cached.modified_at + timedelta(seconds=BINARY_RECHECK_INTERVAL):
             return cached
         _CURRENT_BINARIES[name], _ = self.update_or_create(
             machine=Machine.objects.current(), name=name, binprovider=binprovider,
@@ -288,8 +147,8 @@ class InstalledBinaryManager(models.Manager):
         )
         return _CURRENT_BINARIES[name]
 
-    def get_valid_binary(self, name: str, machine: 'Machine | None' = None) -> 'InstalledBinary | None':
-        """Get a valid InstalledBinary for the given name on the current machine, or None if not found."""
+    def get_valid_binary(self, name: str, machine: 'Machine | None' = None) -> 'Binary | None':
+        """Get a valid Binary for the given name on the current machine, or None if not found."""
         machine = machine or Machine.current()
         return self.filter(
             machine=machine,
@@ -297,35 +156,63 @@ class InstalledBinaryManager(models.Manager):
         ).exclude(abspath='').exclude(abspath__isnull=True).order_by('-modified_at').first()
 
 
-class InstalledBinary(ModelWithHealthStats):
+class Binary(ModelWithHealthStats):
     """
-    Tracks an installed binary on a specific machine.
+    Tracks an binary on a specific machine.
 
-    Each InstalledBinary is optionally linked to a Dependency that defines
-    how the binary should be installed. The `is_valid` property indicates
-    whether the binary is usable (has both abspath and version).
+    Follows the unified state machine pattern:
+    - queued: Binary needs to be installed
+    - started: Installation in progress
+    - succeeded: Binary installed successfully (abspath, version, sha256 populated)
+    - failed: Installation failed
+
+    State machine calls run() which executes on_Binary__install_* hooks
+    to install the binary using the specified providers.
     """
+
+    class StatusChoices(models.TextChoices):
+        QUEUED = 'queued', 'Queued'
+        STARTED = 'started', 'Started'
+        SUCCEEDED = 'succeeded', 'Succeeded'
+        FAILED = 'failed', 'Failed'
 
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
-    machine = models.ForeignKey(Machine, on_delete=models.CASCADE, default=None, null=False, blank=True)
-    dependency = models.ForeignKey(Dependency, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='installedbinary_set',
-        help_text="The Dependency this binary satisfies")
-    name = models.CharField(max_length=63, default=None, null=False, blank=True, db_index=True)
-    binprovider = models.CharField(max_length=31, default=None, null=False, blank=True)
-    abspath = models.CharField(max_length=255, default=None, null=False, blank=True)
-    version = models.CharField(max_length=32, default=None, null=False, blank=True)
-    sha256 = models.CharField(max_length=64, default=None, null=False, blank=True)
+    machine = models.ForeignKey(Machine, on_delete=models.CASCADE, null=False)
+
+    # Binary metadata
+    name = models.CharField(max_length=63, default='', null=False, blank=True, db_index=True)
+    binproviders = models.CharField(max_length=127, default='env', null=False, blank=True,
+        help_text="Comma-separated list of allowed providers: apt,brew,pip,npm,env")
+    overrides = models.JSONField(default=dict, blank=True,
+        help_text="Provider-specific overrides: {'apt': {'packages': ['pkg']}, ...}")
+
+    # Installation results (populated after installation)
+    binprovider = models.CharField(max_length=31, default='', null=False, blank=True,
+        help_text="Provider that successfully installed this binary")
+    abspath = models.CharField(max_length=255, default='', null=False, blank=True)
+    version = models.CharField(max_length=32, default='', null=False, blank=True)
+    sha256 = models.CharField(max_length=64, default='', null=False, blank=True)
+
+    # State machine fields
+    status = models.CharField(max_length=16, choices=StatusChoices.choices, default=StatusChoices.QUEUED, db_index=True)
+    retry_at = models.DateTimeField(default=timezone.now, null=True, blank=True, db_index=True,
+        help_text="When to retry this binary installation")
+    output_dir = models.CharField(max_length=255, default='', null=False, blank=True,
+        help_text="Directory where installation hook logs are stored")
+
+    # Health stats
     num_uses_failed = models.PositiveIntegerField(default=0)
     num_uses_succeeded = models.PositiveIntegerField(default=0)
 
-    objects: InstalledBinaryManager = InstalledBinaryManager()
+    state_machine_name: str = 'machine.statemachines.BinaryMachine'
+
+    objects: BinaryManager = BinaryManager()
 
     class Meta:
-        verbose_name = 'Installed Binary'
-        verbose_name_plural = 'Installed Binaries'
+        verbose_name = 'Binary'
+        verbose_name_plural = 'Binaries'
         unique_together = (('machine', 'name', 'abspath', 'version', 'sha256'),)
 
     def __str__(self) -> str:
@@ -346,5 +233,190 @@ class InstalledBinary(ModelWithHealthStats):
             'binprovider': self.binprovider,
             'is_valid': self.is_valid,
         }
+
+    @staticmethod
+    def from_jsonl(record: dict, overrides: dict = None):
+        """
+        Create/update Binary from JSONL record.
+
+        Handles two cases:
+        1. From binaries.jsonl: creates queued binary with name, binproviders, overrides
+        2. From hook output: updates binary with abspath, version, sha256, binprovider
+
+        Args:
+            record: JSONL record with 'name' and either:
+                    - 'binproviders', 'overrides' (from binaries.jsonl)
+                    - 'abspath', 'version', 'sha256', 'binprovider' (from hook output)
+            overrides: Not used
+
+        Returns:
+            Binary instance or None
+        """
+        name = record.get('name')
+        if not name:
+            return None
+
+        machine = Machine.current()
+        overrides = overrides or {}
+
+        # Case 1: From binaries.jsonl - create queued binary
+        if 'binproviders' in record or ('overrides' in record and not record.get('abspath')):
+            binary, created = Binary.objects.get_or_create(
+                machine=machine,
+                name=name,
+                defaults={
+                    'binproviders': record.get('binproviders', 'env'),
+                    'overrides': record.get('overrides', {}),
+                    'status': Binary.StatusChoices.QUEUED,
+                    'retry_at': timezone.now(),
+                }
+            )
+            return binary
+
+        # Case 2: From hook output - update with installation results
+        abspath = record.get('abspath')
+        version = record.get('version')
+        if not abspath or not version:
+            return None
+
+        binary, _ = Binary.objects.update_or_create(
+            machine=machine,
+            name=name,
+            defaults={
+                'abspath': abspath,
+                'version': version,
+                'sha256': record.get('sha256', ''),
+                'binprovider': record.get('binprovider', 'env'),
+                'status': Binary.StatusChoices.SUCCEEDED,
+                'retry_at': None,
+            }
+        )
+        return binary
+
+    @property
+    def OUTPUT_DIR(self):
+        """Return the output directory for this binary installation."""
+        from pathlib import Path
+        from django.conf import settings
+
+        DATA_DIR = getattr(settings, 'DATA_DIR', Path.cwd())
+        return Path(DATA_DIR) / 'machines' / str(self.machine_id) / 'binaries' / self.name / str(self.id)
+
+    def update_for_workers(self, **kwargs):
+        """
+        Update binary fields for worker state machine.
+
+        Sets modified_at to ensure workers pick up changes.
+        Always saves the model after updating.
+        """
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+        self.modified_at = timezone.now()
+        self.save()
+
+    def run(self):
+        """
+        Execute binary installation by running on_Binary__install_* hooks.
+
+        Called by BinaryMachine when entering 'started' state.
+        Runs ALL on_Binary__install_* hooks - each hook checks binproviders
+        and decides if it can handle this binary. First hook to succeed wins.
+        Updates status to SUCCEEDED or FAILED based on hook output.
+        """
+        import json
+        from archivebox.hooks import discover_hooks, run_hook
+
+        # Create output directory
+        output_dir = self.OUTPUT_DIR
+        output_dir.mkdir(parents=True, exist_ok=True)
+        self.output_dir = str(output_dir)
+        self.save()
+
+        # Discover ALL on_Binary__install_* hooks
+        hooks = discover_hooks('Binary')
+        if not hooks:
+            self.status = self.StatusChoices.FAILED
+            self.save()
+            return
+
+        # Run each hook - they decide if they can handle this binary
+        for hook in hooks:
+            plugin_name = hook.parent.name
+            plugin_output_dir = output_dir / plugin_name
+            plugin_output_dir.mkdir(parents=True, exist_ok=True)
+
+            # Build kwargs for hook
+            hook_kwargs = {
+                'binary_id': str(self.id),
+                'machine_id': str(self.machine_id),
+                'name': self.name,
+                'binproviders': self.binproviders,
+            }
+
+            # Add overrides as JSON string if present
+            if self.overrides:
+                hook_kwargs['overrides'] = json.dumps(self.overrides)
+
+            # Run the hook
+            result = run_hook(
+                hook,
+                output_dir=plugin_output_dir,
+                timeout=600,  # 10 min timeout
+                **hook_kwargs
+            )
+
+            # Background hook (unlikely for binary installation, but handle it)
+            if result is None:
+                continue
+
+            # Failed or skipped hook - try next one
+            if result['returncode'] != 0:
+                continue
+
+            # Parse JSONL output to check for successful installation
+            stdout_file = plugin_output_dir / 'stdout.log'
+            if stdout_file.exists():
+                stdout = stdout_file.read_text()
+                for line in stdout.splitlines():
+                    if line.strip() and line.strip().startswith('{'):
+                        try:
+                            record = json.loads(line)
+                            if record.get('type') == 'Binary' and record.get('abspath'):
+                                # Update self from successful installation
+                                self.abspath = record['abspath']
+                                self.version = record.get('version', '')
+                                self.sha256 = record.get('sha256', '')
+                                self.binprovider = record.get('binprovider', 'env')
+                                self.status = self.StatusChoices.SUCCEEDED
+                                self.save()
+                                return
+                        except json.JSONDecodeError:
+                            continue
+
+        # No hook succeeded
+        self.status = self.StatusChoices.FAILED
+        self.save()
+
+    def cleanup(self):
+        """
+        Clean up background binary installation hooks.
+
+        Called by state machine if needed (not typically used for binaries
+        since installations are foreground, but included for consistency).
+        """
+        from pathlib import Path
+        from archivebox.hooks import kill_process
+
+        output_dir = self.OUTPUT_DIR
+        if not output_dir.exists():
+            return
+
+        # Kill any background hooks
+        for plugin_dir in output_dir.iterdir():
+            if not plugin_dir.is_dir():
+                continue
+            pid_file = plugin_dir / 'hook.pid'
+            if pid_file.exists():
+                kill_process(pid_file)
 
 

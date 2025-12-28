@@ -2,7 +2,7 @@
 /**
  * Take a screenshot of a URL using Chrome/Puppeteer.
  *
- * If a Chrome session exists (from chrome_session extractor), connects to it via CDP.
+ * If a Chrome session exists (from chrome plugin), connects to it via CDP.
  * Otherwise launches a new Chrome instance.
  *
  * Usage: on_Snapshot__21_screenshot.js --url=<url> --snapshot-id=<uuid>
@@ -25,7 +25,7 @@ const puppeteer = require('puppeteer-core');
 const EXTRACTOR_NAME = 'screenshot';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'screenshot.png';
-const CHROME_SESSION_DIR = '../chrome_session';
+const CHROME_SESSION_DIR = '../chrome';
 
 // Parse command line arguments
 function parseArgs() {
@@ -62,7 +62,23 @@ function hasStaticFileOutput() {
     return fs.existsSync(STATICFILE_DIR) && fs.readdirSync(STATICFILE_DIR).length > 0;
 }
 
-// Get CDP URL from chrome_session if available
+// Wait for chrome tab to be fully loaded
+async function waitForChromeTabLoaded(timeoutMs = 60000) {
+    const navigationFile = path.join(CHROME_SESSION_DIR, 'navigation.json');
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeoutMs) {
+        if (fs.existsSync(navigationFile)) {
+            return true;
+        }
+        // Wait 100ms before checking again
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    return false;
+}
+
+// Get CDP URL from chrome plugin if available
 function getCdpUrl() {
     const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
     if (fs.existsSync(cdpFile)) {
@@ -234,6 +250,12 @@ async function main() {
             }));
             process.exit(0);  // Permanent skip - staticfile already handled
         } else {
+            // Wait for page to be fully loaded
+            const pageLoaded = await waitForChromeTabLoaded(60000);
+            if (!pageLoaded) {
+                throw new Error('Page not loaded after 60s (chrome_navigate must complete first)');
+            }
+
             const result = await takeScreenshot(url);
 
             if (result.success) {

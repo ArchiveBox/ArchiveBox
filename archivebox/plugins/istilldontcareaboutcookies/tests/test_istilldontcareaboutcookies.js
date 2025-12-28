@@ -186,7 +186,7 @@ describe('istilldontcareaboutcookies plugin', () => {
             assert.strictEqual(priority, 2);
         });
 
-        it('should run before chrome_session (priority 20)', () => {
+        it('should run before chrome (priority 20)', () => {
             const extensionPriority = 2;
             const chromeSessionPriority = 20;
 

@@ -19,7 +19,6 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -128,7 +127,6 @@ def extract_htmltotext(url: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Convert HTML to plain text for search indexing."""
 
-    start_ts = datetime.now(timezone.utc)
     output = None
     status = 'failed'
     error = ''
@@ -138,41 +136,20 @@ def main(url: str, snapshot_id: str):
         success, output, error = extract_htmltotext(url)
         status = 'succeeded' if success else 'failed'
 
-        if success:
-            text_len = Path(output).stat().st_size
-            print(f'Extracted {text_len} characters of text')
-
     except Exception as e:
         error = f'{type(e).__name__}: {e}'
         status = 'failed'
 
-    # Print results
-    end_ts = datetime.now(timezone.utc)
-    duration = (end_ts - start_ts).total_seconds()
-
-    print(f'START_TS={start_ts.isoformat()}')
-    print(f'END_TS={end_ts.isoformat()}')
-    print(f'DURATION={duration:.2f}')
-    if output:
-        print(f'OUTPUT={output}')
-    print(f'STATUS={status}')
-
     if error:
-        print(f'ERROR={error}', file=sys.stderr)
+        print(f'ERROR: {error}', file=sys.stderr)
 
-    # Print JSON result
-    result_json = {
-        'extractor': EXTRACTOR_NAME,
-        'url': url,
-        'snapshot_id': snapshot_id,
+    # Output clean JSONL (no RESULT_JSON= prefix)
+    result = {
+        'type': 'ArchiveResult',
         'status': status,
-        'start_ts': start_ts.isoformat(),
-        'end_ts': end_ts.isoformat(),
-        'duration': round(duration, 2),
-        'output': output,
-        'error': error or None,
+        'output_str': output or error or '',
     }
-    print(f'RESULT_JSON={json.dumps(result_json)}')
+    print(json.dumps(result))
 
     sys.exit(0 if status == 'succeeded' else 1)
 

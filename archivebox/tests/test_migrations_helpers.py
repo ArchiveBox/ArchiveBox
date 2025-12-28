@@ -316,7 +316,7 @@ CREATE TABLE IF NOT EXISTS machine_dependency (
     config TEXT DEFAULT '{}'
 );
 
-CREATE TABLE IF NOT EXISTS machine_installedbinary (
+CREATE TABLE IF NOT EXISTS machine_binary (
     id CHAR(36) PRIMARY KEY,
     created_at DATETIME NOT NULL,
     modified_at DATETIME,
@@ -498,7 +498,7 @@ INSERT INTO django_content_type (app_label, model) VALUES
 ('machine', 'machine'),
 ('machine', 'networkinterface'),
 ('machine', 'dependency'),
-('machine', 'installedbinary'),
+('machine', 'binary'),
 ('crawls', 'crawl'),
 ('crawls', 'crawlschedule'),
 ('crawls', 'seed'),
@@ -952,9 +952,9 @@ def seed_0_8_data(db_path: Path) -> Dict[str, List[Dict]]:
         ('core', '0023_new_schema'),
         ('machine', '0001_initial'),
         ('machine', '0001_squashed'),
-        ('machine', '0002_alter_machine_stats_installedbinary'),
-        ('machine', '0003_alter_installedbinary_options_and_more'),
-        ('machine', '0004_alter_installedbinary_abspath_and_more'),
+        ('machine', '0002_alter_machine_stats_binary'),
+        ('machine', '0003_alter_binary_options_and_more'),
+        ('machine', '0004_alter_binary_abspath_and_more'),
         ('core', '0024_snapshot_crawl'),
         ('core', '0025_allow_duplicate_urls_per_crawl'),
         ('api', '0001_initial'),

@@ -22,21 +22,21 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 PAPERSDL_HOOK = PLUGIN_DIR / 'on_Snapshot__54_papersdl.py'
-PAPERSDL_VALIDATE_HOOK = PLUGIN_DIR / 'on_Crawl__00_validate_papersdl.py'
+PAPERSDL_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_papersdl.py'
 TEST_URL = 'https://example.com'
 
-# Module-level cache for installed binary path
+# Module-level cache for binary path
 _papersdl_binary_path = None
 
 def get_papersdl_binary_path():
-    """Get the installed papers-dl binary path from cache or by running validation/installation."""
+    """Get the installed papers-dl binary path from cache or by running installation."""
     global _papersdl_binary_path
     if _papersdl_binary_path:
         return _papersdl_binary_path
 
-    # Run validation hook to find or install binary
+    # Run install hook to find or install binary
     result = subprocess.run(
-        [sys.executable, str(PAPERSDL_VALIDATE_HOOK)],
+        [sys.executable, str(PAPERSDL_INSTALL_HOOK)],
         capture_output=True,
         text=True,
         timeout=300
@@ -47,12 +47,12 @@ def get_papersdl_binary_path():
         if line.strip():
             try:
                 record = json.loads(line)
-                if record.get('type') == 'InstalledBinary' and record.get('name') == 'papers-dl':
+                if record.get('type') == 'Binary' and record.get('name') == 'papers-dl':
                     _papersdl_binary_path = record.get('abspath')
                     return _papersdl_binary_path
                 elif record.get('type') == 'Dependency' and record.get('bin_name') == 'papers-dl':
                     # Need to install via pip hook
-                    pip_hook = PLUGINS_ROOT / 'pip' / 'on_Dependency__install_using_pip_provider.py'
+                    pip_hook = PLUGINS_ROOT / 'pip' / 'on_Binary__install_using_pip_provider.py'
                     dependency_id = str(uuid.uuid4())
 
                     # Build command with overrides if present
@@ -71,12 +71,12 @@ def get_papersdl_binary_path():
                         timeout=300
                     )
 
-                    # Parse InstalledBinary from pip installation
+                    # Parse Binary from pip installation
                     for install_line in install_result.stdout.strip().split('\n'):
                         if install_line.strip():
                             try:
                                 install_record = json.loads(install_line)
-                                if install_record.get('type') == 'InstalledBinary' and install_record.get('name') == 'papers-dl':
+                                if install_record.get('type') == 'Binary' and install_record.get('name') == 'papers-dl':
                                     _papersdl_binary_path = install_record.get('abspath')
                                     return _papersdl_binary_path
                             except json.JSONDecodeError:
@@ -91,18 +91,18 @@ def test_hook_script_exists():
     assert PAPERSDL_HOOK.exists(), f"Hook not found: {PAPERSDL_HOOK}"
 
 
-def test_papersdl_validate_hook():
-    """Test papers-dl validate hook checks for papers-dl."""
-    # Run papers-dl validate hook
+def test_papersdl_install_hook():
+    """Test papers-dl install hook checks for papers-dl."""
+    # Run papers-dl install hook
     result = subprocess.run(
-        [sys.executable, str(PAPERSDL_VALIDATE_HOOK)],
+        [sys.executable, str(PAPERSDL_INSTALL_HOOK)],
         capture_output=True,
         text=True,
         timeout=30
     )
 
     # Hook exits 0 if all binaries found, 1 if any not found
-    # Parse output for InstalledBinary and Dependency records
+    # Parse output for Binary and Dependency records
     found_binary = False
     found_dependency = False
 
@@ -110,7 +110,7 @@ def test_papersdl_validate_hook():
         if line.strip():
             try:
                 record = json.loads(line)
-                if record.get('type') == 'InstalledBinary':
+                if record.get('type') == 'Binary':
                     if record['name'] == 'papers-dl':
                         assert record['abspath'], "papers-dl should have abspath"
                         found_binary = True
@@ -120,15 +120,15 @@ def test_papersdl_validate_hook():
             except json.JSONDecodeError:
                 pass
 
-    # papers-dl should either be found (InstalledBinary) or missing (Dependency)
+    # papers-dl should either be found (Binary) or missing (Dependency)
     assert found_binary or found_dependency, \
-        "papers-dl should have either InstalledBinary or Dependency record"
+        "papers-dl should have either Binary or Dependency record"
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify papers-dl is installed by calling the REAL validation and installation hooks."""
+    """Verify papers-dl is installed by calling the REAL installation hooks."""
     binary_path = get_papersdl_binary_path()
-    assert binary_path, "papers-dl must be installed successfully via validation hook and pip provider"
+    assert binary_path, "papers-dl must be installed successfully via install hook and pip provider"
     assert Path(binary_path).is_file(), f"Binary path must be a valid file: {binary_path}"
 
 
@@ -158,23 +158,25 @@ def test_handles_non_paper_url():
         # Should exit 0 even for non-paper URL
         assert result.returncode == 0, f"Should handle non-paper URL gracefully: {result.stderr}"
 
-        # Verify JSONL output
-        assert 'STATUS=' in result.stdout, "Should report status"
-        assert 'RESULT_JSON=' in result.stdout, "Should output RESULT_JSON"
-
-        # Parse JSONL result
+        # Parse clean JSONL output
         result_json = None
-        for line in result.stdout.split('\n'):
-            if line.startswith('RESULT_JSON='):
-                result_json = json.loads(line.split('=', 1)[1])
-                break
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
 
-        assert result_json, "Should have RESULT_JSON"
-        assert result_json['extractor'] == 'papersdl'
+        assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
 
 def test_config_save_papersdl_false_skips():
-    """Test that SAVE_PAPERSDL=False causes skip."""
+    """Test that SAVE_PAPERSDL=False exits without emitting JSONL."""
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -190,8 +192,14 @@ def test_config_save_papersdl_false_skips():
             timeout=30
         )
 
-        assert result.returncode == 0, f"Should exit 0 when skipping: {result.stderr}"
-        assert 'STATUS=' in result.stdout
+        assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
+
+        # Feature disabled - no JSONL emission, just logs to stderr
+        assert 'Skipping' in result.stderr or 'False' in result.stderr, "Should log skip reason to stderr"
+
+        # Should NOT emit any JSONL
+        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
+        assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
 
 
 def test_config_timeout():

@@ -107,12 +107,12 @@ def version(quiet: bool=False,
     from archivebox.config.django import setup_django
     setup_django()
 
-    from machine.models import Machine, InstalledBinary
+    from machine.models import Machine, Binary
 
     machine = Machine.current()
 
-    # Get all installed binaries from the database
-    all_installed = InstalledBinary.objects.filter(
+    # Get all binaries from the database
+    all_installed = Binary.objects.filter(
         machine=machine
     ).exclude(abspath='').exclude(abspath__isnull=True).order_by('name')
 
@@ -134,7 +134,7 @@ def version(quiet: bool=False,
                 failures.append(installed.name)
 
     # Show hint if no binaries are installed yet
-    has_any_installed = InstalledBinary.objects.filter(machine=machine).exclude(abspath='').exists()
+    has_any_installed = Binary.objects.filter(machine=machine).exclude(abspath='').exists()
     if not has_any_installed:
         prnt()
         prnt('', '[grey53]Run [green]archivebox install[/green] to detect and install dependencies.[/grey53]')

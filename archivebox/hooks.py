@@ -20,10 +20,10 @@ Execution order:
     - Failed extractors don't block subsequent extractors
 
 Dependency handling:
-    Extractors that depend on other extractors' output should check at runtime:
+    Extractor plugins that depend on other plugins' output should check at runtime:
 
     ```python
-    # Example: screenshot extractor depends on chrome_session
+    # Example: screenshot plugin depends on chrome plugin
     chrome_session_dir = Path(os.environ.get('SNAPSHOT_DIR', '.')) / 'chrome_session'
     if not (chrome_session_dir / 'session.json').exists():
         print('{"status": "skipped", "output": "chrome_session not available"}')
@@ -31,7 +31,7 @@ Dependency handling:
     ```
 
     On retry (Snapshot.retry_failed_archiveresults()):
-    - Only FAILED/SKIPPED extractors reset to queued (SUCCEEDED stays)
+    - Only FAILED/SKIPPED plugins reset to queued (SUCCEEDED stays)
     - Run in order again
     - If dependencies now succeed, dependents can run
 
@@ -45,6 +45,7 @@ __package__ = 'archivebox'
 
 import os
 import json
+import signal
 import time
 import subprocess
 from pathlib import Path
@@ -68,6 +69,8 @@ class HookResult(TypedDict, total=False):
     output_files: List[str]
     duration_ms: int
     hook: str
+    plugin: str  # Plugin name (directory name, e.g., 'wget', 'screenshot')
+    hook_name: str  # Full hook filename (e.g., 'on_Snapshot__50_wget.py')
     # New fields for JSONL parsing
     records: List[Dict[str, Any]]  # Parsed JSONL records with 'type' field
 
@@ -185,6 +188,8 @@ def run_hook(
             output_files=[],
             duration_ms=0,
             hook=str(script),
+            plugin=script.parent.name,
+            hook_name=script.name,
         )
 
     # Determine the interpreter based on file extension
@@ -226,12 +231,21 @@ def run_hook(
     env['ARCHIVE_DIR'] = str(getattr(settings, 'ARCHIVE_DIR', Path.cwd() / 'archive'))
     env.setdefault('MACHINE_ID', getattr(settings, 'MACHINE_ID', '') or os.environ.get('MACHINE_ID', ''))
 
+    # If a Crawl is in config_objects, pass its OUTPUT_DIR for hooks that need to find crawl-level resources
+    for obj in all_config_objects:
+        if hasattr(obj, 'OUTPUT_DIR') and hasattr(obj, 'get_urls_list'):  # Duck-type check for Crawl
+            env['CRAWL_OUTPUT_DIR'] = str(obj.OUTPUT_DIR)
+            break
+
     # Build overrides from any objects with .config fields (in order, later overrides earlier)
     # all_config_objects includes Machine at the start, then any passed config_objects
     overrides = {}
     for obj in all_config_objects:
         if obj and hasattr(obj, 'config') and obj.config:
-            overrides.update(obj.config)
+            # Strip 'config/' prefix from Machine.config keys (e.g., 'config/CHROME_BINARY' -> 'CHROME_BINARY')
+            for key, value in obj.config.items():
+                clean_key = key.removeprefix('config/')
+                overrides[clean_key] = value
 
     # Get plugin config from JSON schemas with hierarchy resolution
     # This merges: schema defaults -> config file -> env vars -> object config overrides
@@ -327,45 +341,26 @@ def run_hook(
         new_files = [f for f in new_files if f not in ('stdout.log', 'stderr.log', 'hook.pid')]
 
         # Parse JSONL output from stdout
-        # Supports both new JSONL format (any line starting with { that has 'type')
-        # and legacy RESULT_JSON= format for backwards compatibility
-        output_json = None
+        # Each line starting with { that has 'type' field is a record
         records = []
         plugin_name = script.parent.name  # Plugin directory name (e.g., 'wget')
+        hook_name = script.name  # Full hook filename (e.g., 'on_Snapshot__50_wget.py')
 
         for line in stdout.splitlines():
             line = line.strip()
-            if not line:
+            if not line or not line.startswith('{'):
                 continue
 
-            # New JSONL format: any line starting with { that has 'type' field
-            if line.startswith('{'):
-                try:
-                    data = json.loads(line)
-                    if 'type' in data:
-                        # Add plugin metadata to every record
-                        data['plugin'] = plugin_name
-                        data['plugin_hook'] = str(script)
-                        records.append(data)
-                        # For backwards compatibility, also set output_json for first ArchiveResult
-                        if data.get('type') == 'ArchiveResult' and output_json is None:
-                            output_json = data
-                except json.JSONDecodeError:
-                    pass
-
-            # Legacy format: RESULT_JSON=...
-            elif line.startswith('RESULT_JSON='):
-                try:
-                    data = json.loads(line[len('RESULT_JSON='):])
-                    if output_json is None:
-                        output_json = data
-                    # Convert legacy format to new format
-                    data['type'] = 'ArchiveResult'
+            try:
+                data = json.loads(line)
+                if 'type' in data:
+                    # Add plugin metadata to every record
                     data['plugin'] = plugin_name
+                    data['hook_name'] = hook_name
                     data['plugin_hook'] = str(script)
                     records.append(data)
-                except json.JSONDecodeError:
-                    pass
+            except json.JSONDecodeError:
+                pass
 
         duration_ms = int((time.time() - start_time) * 1000)
 
@@ -383,6 +378,8 @@ def run_hook(
             output_files=new_files,
             duration_ms=duration_ms,
             hook=str(script),
+            plugin=plugin_name,
+            hook_name=hook_name,
             records=records,
         )
 
@@ -396,15 +393,17 @@ def run_hook(
             output_files=[],
             duration_ms=duration_ms,
             hook=str(script),
+            plugin=script.parent.name,
+            hook_name=script.name,
             records=[],
         )
 
 
-def collect_urls_from_extractors(snapshot_dir: Path) -> List[Dict[str, Any]]:
+def collect_urls_from_plugins(snapshot_dir: Path) -> List[Dict[str, Any]]:
     """
-    Collect all urls.jsonl entries from extractor output subdirectories.
+    Collect all urls.jsonl entries from parser plugin output subdirectories.
 
-    Each parser extractor outputs urls.jsonl to its own subdir:
+    Each parser plugin outputs urls.jsonl to its own subdir:
         snapshot_dir/parse_rss_urls/urls.jsonl
         snapshot_dir/parse_html_urls/urls.jsonl
         etc.
@@ -434,8 +433,8 @@ def collect_urls_from_extractors(snapshot_dir: Path) -> List[Dict[str, Any]]:
                         try:
                             entry = json.loads(line)
                             if entry.get('url'):
-                                # Track which extractor found this URL
-                                entry['via_extractor'] = subdir.name
+                                # Track which parser plugin found this URL
+                                entry['plugin'] = subdir.name
                                 urls.append(entry)
                         except json.JSONDecodeError:
                             continue
@@ -473,6 +472,11 @@ def run_hooks(
 
     for hook in hooks:
         result = run_hook(hook, output_dir, timeout=timeout, config_objects=config_objects, **kwargs)
+
+        # Background hooks return None - skip adding to results
+        if result is None:
+            continue
+
         result['hook'] = str(hook)
         results.append(result)
 
@@ -482,17 +486,20 @@ def run_hooks(
     return results
 
 
-def get_extractors() -> List[str]:
+def get_plugins() -> List[str]:
     """
-    Get list of available extractors by discovering Snapshot hooks.
+    Get list of available plugins by discovering Snapshot hooks.
 
-    Returns extractor names (including numeric prefix) from hook filenames:
-    on_Snapshot__10_title.py -> '10_title'
-    on_Snapshot__26_readability.py -> '26_readability'
+    Returns plugin names (directory names) that contain on_Snapshot hooks.
+    The plugin name is the plugin directory name, not the hook script name.
 
-    Sorted alphabetically so numeric prefixes control execution order.
+    Example:
+    archivebox/plugins/chrome_session/on_Snapshot__20_chrome_tab.bg.js
+    -> plugin = 'chrome_session'
+
+    Sorted alphabetically (plugins control their hook order via numeric prefixes in hook names).
     """
-    extractors = []
+    plugins = []
 
     for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
         if not base_dir.exists():
@@ -500,28 +507,26 @@ def get_extractors() -> List[str]:
 
         for ext in ('sh', 'py', 'js'):
             for hook_path in base_dir.glob(f'*/on_Snapshot__*.{ext}'):
-                # Extract extractor name: on_Snapshot__26_readability.py -> 26_readability
-                filename = hook_path.stem  # on_Snapshot__26_readability
-                if '__' in filename:
-                    extractor = filename.split('__', 1)[1]
-                    extractors.append(extractor)
+                # Use plugin directory name as plugin name
+                plugin_name = hook_path.parent.name
+                plugins.append(plugin_name)
 
-    return sorted(set(extractors))
+    return sorted(set(plugins))
 
 
-def get_parser_extractors() -> List[str]:
+def get_parser_plugins() -> List[str]:
     """
-    Get list of parser extractors by discovering parse_*_urls hooks.
+    Get list of parser plugins by discovering parse_*_urls hooks.
 
-    Parser extractors discover URLs from source files and output urls.jsonl.
-    Returns extractor names like: ['50_parse_html_urls', '51_parse_rss_urls', ...]
+    Parser plugins discover URLs from source files and output urls.jsonl.
+    Returns plugin names like: ['50_parse_html_urls', '51_parse_rss_urls', ...]
     """
-    return [e for e in get_extractors() if 'parse_' in e and '_urls' in e]
+    return [e for e in get_plugins() if 'parse_' in e and '_urls' in e]
 
 
-def get_extractor_name(extractor: str) -> str:
+def get_plugin_name(plugin: str) -> str:
     """
-    Get the base extractor name without numeric prefix.
+    Get the base plugin name without numeric prefix.
 
     Examples:
         '10_title' -> 'title'
@@ -529,23 +534,23 @@ def get_extractor_name(extractor: str) -> str:
         '50_parse_html_urls' -> 'parse_html_urls'
     """
     # Split on first underscore after any leading digits
-    parts = extractor.split('_', 1)
+    parts = plugin.split('_', 1)
     if len(parts) == 2 and parts[0].isdigit():
         return parts[1]
-    return extractor
+    return plugin
 
 
-def is_parser_extractor(extractor: str) -> bool:
-    """Check if an extractor is a parser extractor (discovers URLs)."""
-    name = get_extractor_name(extractor)
+def is_parser_plugin(plugin: str) -> bool:
+    """Check if a plugin is a parser plugin (discovers URLs)."""
+    name = get_plugin_name(plugin)
     return name.startswith('parse_') and name.endswith('_urls')
 
 
 # Precedence order for search indexing (lower number = higher priority)
-# Used to select which extractor's output to use for full-text search
-# Extractor names here should match the part after the numeric prefix
+# Used to select which plugin's output to use for full-text search
+# Plugin names here should match the part after the numeric prefix
 # e.g., '31_readability' -> 'readability'
-ARCHIVE_METHODS_INDEXING_PRECEDENCE = [
+EXTRACTOR_INDEXING_PRECEDENCE = [
     ('readability', 1),
     ('mercury', 2),
     ('htmltotext', 3),
@@ -555,20 +560,24 @@ ARCHIVE_METHODS_INDEXING_PRECEDENCE = [
 ]
 
 
-def get_enabled_extractors(config: Optional[Dict] = None) -> List[str]:
+def get_enabled_plugins(config: Optional[Dict] = None) -> List[str]:
     """
-    Get the list of enabled extractors based on config and available hooks.
+    Get the list of enabled plugins based on config and available hooks.
 
-    Checks for ENABLED_EXTRACTORS in config, falls back to discovering
-    available hooks from the plugins directory.
+    Checks for ENABLED_PLUGINS (or legacy ENABLED_EXTRACTORS) in config,
+    falls back to discovering available hooks from the plugins directory.
 
-    Returns extractor names sorted alphabetically (numeric prefix controls order).
+    Returns plugin names sorted alphabetically (numeric prefix controls order).
     """
-    if config and 'ENABLED_EXTRACTORS' in config:
-        return config['ENABLED_EXTRACTORS']
+    if config:
+        # Support both new and legacy config keys
+        if 'ENABLED_PLUGINS' in config:
+            return config['ENABLED_PLUGINS']
+        if 'ENABLED_EXTRACTORS' in config:
+            return config['ENABLED_EXTRACTORS']
 
     # Discover from hooks - this is the source of truth
-    return get_extractors()
+    return get_plugins()
 
 
 def discover_plugins_that_provide_interface(
@@ -973,15 +982,15 @@ def export_plugin_config_to_env(
 #     {{ result }}         - ArchiveResult object
 #     {{ snapshot }}       - Parent Snapshot object
 #     {{ output_path }}    - Path to output file/dir relative to snapshot dir
-#     {{ extractor }}      - Extractor name (e.g., 'screenshot', 'singlefile')
+#     {{ plugin }}         - Plugin name (e.g., 'screenshot', 'singlefile')
 #
 
 # Default templates used when plugin doesn't provide one
 DEFAULT_TEMPLATES = {
-    'icon': '''<span title="{{ extractor }}">{{ icon }}</span>''',
+    'icon': '''<span title="{{ plugin }}">{{ icon }}</span>''',
     'thumbnail': '''
         <img src="{{ output_path }}"
-             alt="{{ extractor }} output"
+             alt="{{ plugin }} output"
              style="max-width: 100%; max-height: 100px; object-fit: cover;"
              onerror="this.style.display='none'">
     ''',
@@ -999,8 +1008,8 @@ DEFAULT_TEMPLATES = {
     ''',
 }
 
-# Default icons for known extractors (emoji or short HTML)
-DEFAULT_EXTRACTOR_ICONS = {
+# Default icons for known extractor plugins (emoji or short HTML)
+DEFAULT_PLUGIN_ICONS = {
     'screenshot': '📷',
     'pdf': '📄',
     'singlefile': '📦',
@@ -1019,24 +1028,25 @@ DEFAULT_EXTRACTOR_ICONS = {
 }
 
 
-def get_plugin_template(extractor: str, template_name: str) -> Optional[str]:
+def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) -> Optional[str]:
     """
-    Get a plugin template by extractor name and template type.
+    Get a plugin template by plugin name and template type.
 
     Args:
-        extractor: Extractor name (e.g., 'screenshot', '15_singlefile')
+        plugin: Plugin name (e.g., 'screenshot', '15_singlefile')
         template_name: One of 'icon', 'thumbnail', 'embed', 'fullscreen'
+        fallback: If True, return default template if plugin template not found
 
     Returns:
-        Template content as string, or None if not found.
+        Template content as string, or None if not found and fallback=False.
     """
-    base_name = get_extractor_name(extractor)
+    base_name = get_plugin_name(plugin)
 
     for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
         if not base_dir.exists():
             continue
 
-        # Look for plugin directory matching extractor name
+        # Look for plugin directory matching plugin name
         for plugin_dir in base_dir.iterdir():
             if not plugin_dir.is_dir():
                 continue
@@ -1047,73 +1057,57 @@ def get_plugin_template(extractor: str, template_name: str) -> Optional[str]:
                 if template_path.exists():
                     return template_path.read_text()
 
+    # Fall back to default template if requested
+    if fallback:
+        return DEFAULT_TEMPLATES.get(template_name, '')
+
     return None
 
 
-def get_extractor_template(extractor: str, template_name: str) -> str:
+def get_plugin_icon(plugin: str) -> str:
     """
-    Get template for an extractor, falling back to defaults.
-
-    Args:
-        extractor: Extractor name (e.g., 'screenshot', '15_singlefile')
-        template_name: One of 'icon', 'thumbnail', 'embed', 'fullscreen'
-
-    Returns:
-        Template content as string (plugin template or default).
-    """
-    # Try plugin-provided template first
-    template = get_plugin_template(extractor, template_name)
-    if template:
-        return template
-
-    # Fall back to default template
-    return DEFAULT_TEMPLATES.get(template_name, '')
-
-
-def get_extractor_icon(extractor: str) -> str:
-    """
-    Get the icon for an extractor.
+    Get the icon for a plugin.
 
     First checks for plugin-provided icon.html template,
-    then falls back to DEFAULT_EXTRACTOR_ICONS.
+    then falls back to DEFAULT_PLUGIN_ICONS.
 
     Args:
-        extractor: Extractor name (e.g., 'screenshot', '15_singlefile')
+        plugin: Plugin name (e.g., 'screenshot', '15_singlefile')
 
     Returns:
         Icon HTML/emoji string.
     """
-    base_name = get_extractor_name(extractor)
+    base_name = get_plugin_name(plugin)
 
     # Try plugin-provided icon template
-    icon_template = get_plugin_template(extractor, 'icon')
+    icon_template = get_plugin_template(plugin, 'icon', fallback=False)
     if icon_template:
         return icon_template.strip()
 
     # Fall back to default icon
-    return DEFAULT_EXTRACTOR_ICONS.get(base_name, '📁')
+    return DEFAULT_PLUGIN_ICONS.get(base_name, '📁')
 
 
-def get_all_extractor_icons() -> Dict[str, str]:
+def get_all_plugin_icons() -> Dict[str, str]:
     """
-    Get icons for all discovered extractors.
+    Get icons for all discovered plugins.
 
     Returns:
-        Dict mapping extractor base names to their icons.
+        Dict mapping plugin base names to their icons.
     """
     icons = {}
-    for extractor in get_extractors():
-        base_name = get_extractor_name(extractor)
-        icons[base_name] = get_extractor_icon(extractor)
+    for plugin in get_plugins():
+        base_name = get_plugin_name(plugin)
+        icons[base_name] = get_plugin_icon(plugin)
     return icons
 
 
 def discover_plugin_templates() -> Dict[str, Dict[str, str]]:
     """
-    Discover all plugin templates organized by extractor.
+    Discover all plugin templates organized by plugin.
 
     Returns:
-        Dict mapping extractor names to dicts of template_name -> template_path.
+        Dict mapping plugin names to dicts of template_name -> template_path.
         e.g., {'screenshot': {'icon': '/path/to/icon.html', 'thumbnail': '/path/to/thumbnail.html'}}
     """
     templates: Dict[str, Dict[str, str]] = {}
@@ -1148,7 +1142,7 @@ def discover_plugin_templates() -> Dict[str, Dict[str, str]]:
 
 def find_binary_for_cmd(cmd: List[str], machine_id: str) -> Optional[str]:
     """
-    Find InstalledBinary for a command, trying abspath first then name.
+    Find Binary for a command, trying abspath first then name.
     Only matches binaries on the current machine.
 
     Args:
@@ -1161,12 +1155,12 @@ def find_binary_for_cmd(cmd: List[str], machine_id: str) -> Optional[str]:
     if not cmd:
         return None
 
-    from machine.models import InstalledBinary
+    from machine.models import Binary
 
     bin_path_or_name = cmd[0] if isinstance(cmd, list) else cmd
 
     # Try matching by absolute path first
-    binary = InstalledBinary.objects.filter(
+    binary = Binary.objects.filter(
         abspath=bin_path_or_name,
         machine_id=machine_id
     ).first()
@@ -1176,7 +1170,7 @@ def find_binary_for_cmd(cmd: List[str], machine_id: str) -> Optional[str]:
 
     # Fallback: match by binary name
     bin_name = Path(bin_path_or_name).name
-    binary = InstalledBinary.objects.filter(
+    binary = Binary.objects.filter(
         name=bin_name,
         machine_id=machine_id
     ).first()
@@ -1194,7 +1188,7 @@ def create_model_record(record: Dict[str, Any]) -> Any:
     Returns:
         Created/updated model instance, or None if type unknown
     """
-    from machine.models import InstalledBinary, Machine
+    from machine.models import Binary, Machine
 
     record_type = record.pop('type', None)
     if not record_type:
@@ -1204,8 +1198,8 @@ def create_model_record(record: Dict[str, Any]) -> Any:
     record.pop('plugin', None)
     record.pop('plugin_hook', None)
 
-    if record_type == 'InstalledBinary':
-        # InstalledBinary requires machine FK
+    if record_type == 'Binary':
+        # Binary requires machine FK
         machine = Machine.current()
         record.setdefault('machine', machine)
 
@@ -1215,7 +1209,7 @@ def create_model_record(record: Dict[str, Any]) -> Any:
         if not name or not abspath:
             return None
 
-        obj, created = InstalledBinary.objects.update_or_create(
+        obj, created = Binary.objects.update_or_create(
             machine=machine,
             name=name,
             defaults={
@@ -1248,5 +1242,106 @@ def create_model_record(record: Dict[str, Any]) -> Any:
         import sys
         print(f"Warning: Unknown record type '{record_type}' from hook output", file=sys.stderr)
         return None
+
+
+def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any] = None) -> Dict[str, int]:
+    """
+    Process JSONL records from hook output.
+    Dispatches to Model.from_jsonl() for each record type.
+
+    Args:
+        records: List of JSONL record dicts from result['records']
+        overrides: Dict with 'snapshot', 'crawl', 'dependency', 'created_by_id', etc.
+
+    Returns:
+        Dict with counts by record type
+    """
+    stats = {}
+    overrides = overrides or {}
+
+    for record in records:
+        record_type = record.get('type')
+        if not record_type:
+            continue
+
+        # Skip ArchiveResult records (they update the calling ArchiveResult, not create new ones)
+        if record_type == 'ArchiveResult':
+            continue
+
+        try:
+            # Dispatch to appropriate model's from_jsonl() method
+            if record_type == 'Snapshot':
+                from core.models import Snapshot
+                obj = Snapshot.from_jsonl(record.copy(), overrides)
+                if obj:
+                    stats['Snapshot'] = stats.get('Snapshot', 0) + 1
+
+            elif record_type == 'Tag':
+                from core.models import Tag
+                obj = Tag.from_jsonl(record.copy(), overrides)
+                if obj:
+                    stats['Tag'] = stats.get('Tag', 0) + 1
+
+            elif record_type == 'Binary':
+                from machine.models import Binary
+                obj = Binary.from_jsonl(record.copy(), overrides)
+                if obj:
+                    stats['Binary'] = stats.get('Binary', 0) + 1
+
+            elif record_type == 'Machine':
+                from machine.models import Machine
+                obj = Machine.from_jsonl(record.copy(), overrides)
+                if obj:
+                    stats['Machine'] = stats.get('Machine', 0) + 1
+
+            else:
+                import sys
+                print(f"Warning: Unknown record type '{record_type}' from hook output", file=sys.stderr)
+
+        except Exception as e:
+            import sys
+            print(f"Warning: Failed to create {record_type}: {e}", file=sys.stderr)
+            continue
+
+    return stats
+
+
+def process_is_alive(pid_file: Path) -> bool:
+    """
+    Check if process in PID file is still running.
+
+    Args:
+        pid_file: Path to hook.pid file
+
+    Returns:
+        True if process is alive, False otherwise
+    """
+    if not pid_file.exists():
+        return False
+
+    try:
+        pid = int(pid_file.read_text().strip())
+        os.kill(pid, 0)  # Signal 0 = check if process exists without killing it
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def kill_process(pid_file: Path, sig: int = signal.SIGTERM):
+    """
+    Kill process in PID file.
+
+    Args:
+        pid_file: Path to hook.pid file
+        sig: Signal to send (default SIGTERM)
+    """
+    if not pid_file.exists():
+        return
+
+    try:
+        pid = int(pid_file.read_text().strip())
+        os.kill(pid, sig)
+    except (OSError, ValueError):
+        pass
 
 

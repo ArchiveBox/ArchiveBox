@@ -1,0 +1,1 @@
+{"type": "Binary", "name": "git", "binproviders": "apt,brew,env"}

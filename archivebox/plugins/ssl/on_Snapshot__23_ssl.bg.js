@@ -16,9 +16,9 @@ const puppeteer = require('puppeteer-core');
 
 const EXTRACTOR_NAME = 'ssl';
 const OUTPUT_DIR = '.';
-const OUTPUT_FILE = 'ssl.json';
-const PID_FILE = 'listener.pid';
-const CHROME_SESSION_DIR = '../chrome_session';
+const OUTPUT_FILE = 'ssl.jsonl';
+const PID_FILE = 'hook.pid';
+const CHROME_SESSION_DIR = '../chrome';
 
 function parseArgs() {
     const args = {};
@@ -42,6 +42,22 @@ function getEnvBool(name, defaultValue = false) {
     return defaultValue;
 }
 
+async function waitForChromeTabOpen(timeoutMs = 60000) {
+    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
+    const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeoutMs) {
+        if (fs.existsSync(cdpFile) && fs.existsSync(targetIdFile)) {
+            return true;
+        }
+        // Wait 100ms before checking again
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    return false;
+}
+
 function getCdpUrl() {
     const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
     if (fs.existsSync(cdpFile)) {
@@ -51,9 +67,9 @@ function getCdpUrl() {
 }
 
 function getPageId() {
-    const pageIdFile = path.join(CHROME_SESSION_DIR, 'page_id.txt');
-    if (fs.existsSync(pageIdFile)) {
-        return fs.readFileSync(pageIdFile, 'utf8').trim();
+    const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
+    if (fs.existsSync(targetIdFile)) {
+        return fs.readFileSync(targetIdFile, 'utf8').trim();
     }
     return null;
 }
@@ -66,6 +82,12 @@ async function setupListener(url) {
         throw new Error('URL is not HTTPS');
     }
 
+    // Wait for chrome tab to be open (up to 60s)
+    const tabOpen = await waitForChromeTabOpen(60000);
+    if (!tabOpen) {
+        throw new Error('Chrome tab not open after 60s (chrome plugin must run first)');
+    }
+
     const cdpUrl = getCdpUrl();
     if (!cdpUrl) {
         throw new Error('No Chrome session found');
@@ -75,13 +97,13 @@ async function setupListener(url) {
 
     // Find our page
     const pages = await browser.pages();
-    const pageId = getPageId();
+    const targetId = getPageId();
     let page = null;
 
-    if (pageId) {
+    if (targetId) {
         page = pages.find(p => {
             const target = p.target();
-            return target && target._targetId === pageId;
+            return target && target._targetId === targetId;
         });
     }
     if (!page) {
@@ -149,7 +171,7 @@ async function setupListener(url) {
 
 async function waitForNavigation() {
     // Wait for chrome_navigate to complete (it writes page_loaded.txt)
-    const navDir = path.join(CHROME_SESSION_DIR, '../chrome_navigate');
+    const navDir = '../chrome';
     const pageLoadedMarker = path.join(navDir, 'page_loaded.txt');
     const maxWait = 120000; // 2 minutes
     const pollInterval = 100;

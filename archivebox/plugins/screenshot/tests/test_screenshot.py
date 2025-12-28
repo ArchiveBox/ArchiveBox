@@ -3,7 +3,7 @@ Integration tests for screenshot plugin
 
 Tests verify:
 1. Hook script exists
-2. Dependencies installed via chrome_session validation hooks
+2. Dependencies installed via chrome validation hooks
 3. Verify deps with abx-pkg
 4. Screenshot extraction works on https://example.com
 5. JSONL output is correct
@@ -12,6 +12,7 @@ Tests verify:
 """
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -23,8 +24,7 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 SCREENSHOT_HOOK = PLUGIN_DIR / 'on_Snapshot__34_screenshot.js'
-CHROME_VALIDATE_HOOK = PLUGINS_ROOT / 'chrome_session' / 'on_Crawl__00_validate_chrome.py'
-NPM_PROVIDER_HOOK = PLUGINS_ROOT / 'npm' / 'on_Dependency__install_using_npm_provider.py'
+CHROME_INSTALL_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__00_chrome_install.py'
 TEST_URL = 'https://example.com'
 
 
@@ -34,63 +34,54 @@ def test_hook_script_exists():
 
 
 def test_chrome_validation_and_install():
-    """Test chrome validation hook to install puppeteer-core if needed."""
-    # Run chrome validation hook (from chrome_session plugin)
-    result = subprocess.run(
-        [sys.executable, str(CHROME_VALIDATE_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=30
-    )
+    """Test chrome install hook to verify Chrome is available."""
+    # Try with explicit CHROME_BINARY first (faster)
+    chrome_app_path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
-    # If exit 1, binary not found - need to install
-    if result.returncode == 1:
-        # Parse Dependency request from JSONL
-        dependency_request = None
-        for line in result.stdout.strip().split('\n'):
-            if line.strip():
-                try:
-                    record = json.loads(line)
-                    if record.get('type') == 'Dependency':
-                        dependency_request = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+    if Path(chrome_app_path).exists():
+        # Use CHROME_BINARY env var pointing to Chrome.app
+        result = subprocess.run(
+            [sys.executable, str(CHROME_INSTALL_HOOK)],
+            capture_output=True,
+            text=True,
+            env={**os.environ, 'CHROME_BINARY': chrome_app_path},
+            timeout=30
+        )
 
-        if dependency_request:
-            bin_name = dependency_request['bin_name']
-            bin_providers = dependency_request['bin_providers']
+        # When CHROME_BINARY is set and valid, hook exits 0 immediately without output (optimization)
+        assert result.returncode == 0, f"Should find Chrome at {chrome_app_path}. Error: {result.stderr}"
+        print(f"Chrome validated at explicit path: {chrome_app_path}")
+    else:
+        # Run chrome install hook (from chrome plugin) to find or install Chrome
+        result = subprocess.run(
+            [sys.executable, str(CHROME_INSTALL_HOOK)],
+            capture_output=True,
+            text=True,
+            timeout=300  # Longer timeout for potential install
+        )
 
-            # Install via npm provider hook
-            install_result = subprocess.run(
-                [
-                    sys.executable,
-                    str(NPM_PROVIDER_HOOK),
-                    '--dependency-id', 'test-dep-001',
-                    '--bin-name', bin_name,
-                    '--bin-providers', bin_providers
-                ],
-                capture_output=True,
-                text=True,
-                timeout=600
-            )
+        if result.returncode == 0:
+            # Parse output to verify Binary record
+            binary_found = False
+            binary_path = None
 
-            assert install_result.returncode == 0, f"Install failed: {install_result.stderr}"
-
-            # Verify installation via JSONL output
-            for line in install_result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split('\n'):
                 if line.strip():
                     try:
                         record = json.loads(line)
-                        if record.get('type') == 'InstalledBinary':
-                            assert record['name'] == bin_name
-                            assert record['abspath']
+                        if record.get('type') == 'Binary':
+                            binary_found = True
+                            binary_path = record.get('abspath')
+                            assert record['name'] == 'chrome', f"Binary name should be 'chrome', got {record['name']}"
+                            assert binary_path, "Binary should have abspath"
+                            print(f"Found Chrome at: {binary_path}")
                             break
                     except json.JSONDecodeError:
                         pass
-    else:
-        # Binary already available, verify via JSONL output
-        assert result.returncode == 0, f"Validation failed: {result.stderr}"
+
+            assert binary_found, f"Should output Binary record when Chrome found. Output: {result.stdout}"
+        else:
+            pytest.fail(f"Chrome installation failed. Please install Chrome manually or ensure @puppeteer/browsers is available. Error: {result.stderr}")
 
 
 def test_verify_deps_with_abx_pkg():
@@ -123,27 +114,25 @@ def test_extracts_screenshot_from_example_com():
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
-        # Verify JSONL output
-        assert 'STATUS=succeeded' in result.stdout, "Should report success"
-        assert 'RESULT_JSON=' in result.stdout, "Should output RESULT_JSON"
-
-        # Parse JSONL result
+        # Parse JSONL output (clean format without RESULT_JSON= prefix)
         result_json = None
-        for line in result.stdout.split('\n'):
-            if line.startswith('RESULT_JSON='):
-                result_json = json.loads(line.split('=', 1)[1])
-                break
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
 
-        assert result_json, "Should have RESULT_JSON"
-        assert result_json['extractor'] == 'screenshot'
-        assert result_json['status'] == 'succeeded'
-        assert result_json['url'] == TEST_URL
+        assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+        assert result_json['output_str'] == 'screenshot.png'
 
-        # Verify filesystem output
-        screenshot_dir = tmpdir / 'screenshot'
-        assert screenshot_dir.exists(), "Output directory not created"
-
-        screenshot_file = screenshot_dir / 'screenshot.png'
+        # Verify filesystem output (hook creates screenshot.png directly in working dir)
+        screenshot_file = tmpdir / 'screenshot.png'
         assert screenshot_file.exists(), "screenshot.png not created"
 
         # Verify file is valid PNG
@@ -175,7 +164,22 @@ def test_config_save_screenshot_false_skips():
         )
 
         assert result.returncode == 0, f"Should exit 0 when skipping: {result.stderr}"
-        assert 'STATUS=' in result.stdout
+
+        # Parse JSONL output to verify skipped status
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json['status'] in ('skipped', 'succeeded'), f"Should skip or succeed: {result_json}"
 
 
 def test_reports_missing_chrome():

@@ -7,7 +7,10 @@ Output: Creates readability/ directory with content.html, content.txt, article.j
 
 Environment variables:
     READABILITY_BINARY: Path to readability-extractor binary
-    TIMEOUT: Timeout in seconds (default: 60)
+    READABILITY_TIMEOUT: Timeout in seconds (default: 60)
+
+    # Fallback to ARCHIVING_CONFIG values if READABILITY_* not set:
+    TIMEOUT: Fallback timeout
 
 Note: Requires readability-extractor from https://github.com/ArchiveBox/readability-extractor
       This extractor looks for HTML source from other extractors (wget, singlefile, dom)
@@ -15,11 +18,9 @@ Note: Requires readability-extractor from https://github.com/ArchiveBox/readabil
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
-from datetime import datetime, timezone
 from pathlib import Path
 
 import rich_click as click
@@ -41,29 +42,6 @@ def get_env_int(name: str, default: int = 0) -> int:
         return int(get_env(name, str(default)))
     except ValueError:
         return default
-
-
-def find_readability() -> str | None:
-    """Find readability-extractor binary."""
-    readability = get_env('READABILITY_BINARY')
-    if readability and os.path.isfile(readability):
-        return readability
-
-    for name in ['readability-extractor']:
-        binary = shutil.which(name)
-        if binary:
-            return binary
-
-    return None
-
-
-def get_version(binary: str) -> str:
-    """Get readability-extractor version."""
-    try:
-        result = subprocess.run([binary, '--version'], capture_output=True, text=True, timeout=10)
-        return result.stdout.strip()[:64]
-    except Exception:
-        return ''
 
 
 def find_html_source() -> str | None:
@@ -94,7 +72,7 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    timeout = get_env_int('TIMEOUT', 60)
+    timeout = get_env_int('READABILITY_TIMEOUT') or get_env_int('TIMEOUT', 60)
 
     # Find HTML source
     html_source = find_html_source()
@@ -145,41 +123,21 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Extract article content using Mozilla's Readability."""
 
-    start_ts = datetime.now(timezone.utc)
-    version = ''
     output = None
     status = 'failed'
     error = ''
-    binary = None
 
     try:
-        # Find binary
-        binary = find_readability()
-        if not binary:
-            print(f'ERROR: readability-extractor binary not found', file=sys.stderr)
-            print(f'DEPENDENCY_NEEDED={BIN_NAME}', file=sys.stderr)
-            print(f'BIN_PROVIDERS={BIN_PROVIDERS}', file=sys.stderr)
-            sys.exit(1)
-
-        version = get_version(binary)
+        # Get binary from environment
+        binary = get_env('READABILITY_BINARY', 'readability-extractor')
 
         # Run extraction
         success, output, error = extract_readability(url, binary)
         status = 'succeeded' if success else 'failed'
 
-        if success:
-            text_file = Path(output) / 'content.txt'
-            html_file = Path(output) / 'content.html'
-            text_len = text_file.stat().st_size if text_file.exists() else 0
-            html_len = html_file.stat().st_size if html_file.exists() else 0
-            print(f'Readability extracted: {text_len} chars text, {html_len} chars HTML')
-
     except Exception as e:
         error = f'{type(e).__name__}: {e}'
         status = 'failed'
-
-    # Calculate duration
-    end_ts = datetime.now(timezone.utc)
 
     if error:
         print(f'ERROR: {error}', file=sys.stderr)
@@ -190,10 +148,6 @@ def main(url: str, snapshot_id: str):
         'status': status,
         'output_str': output or error or '',
     }
-    if binary:
-        result['cmd'] = [binary, '<html>']
-    if version:
-        result['cmd_version'] = version
     print(json.dumps(result))
 
     sys.exit(0 if status == 'succeeded' else 1)

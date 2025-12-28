@@ -28,10 +28,8 @@ Environment variables:
 
 import json
 import os
-import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 import rich_click as click
@@ -94,52 +92,11 @@ ALL_CHROME_BINARIES = (
 )
 
 
-def find_singlefile() -> str | None:
-    """Find SingleFile binary."""
-    singlefile = get_env('SINGLEFILE_BINARY')
-    if singlefile and os.path.isfile(singlefile):
-        return singlefile
-
-    for name in ['single-file', 'singlefile']:
-        binary = shutil.which(name)
-        if binary:
-            return binary
-
-    return None
-
-
-def find_chrome() -> str | None:
-    """Find Chrome/Chromium binary."""
-    chrome = get_env('CHROME_BINARY')
-    if chrome and os.path.isfile(chrome):
-        return chrome
-
-    for name in ALL_CHROME_BINARIES:
-        if '/' in name:
-            if os.path.isfile(name):
-                return name
-        else:
-            binary = shutil.which(name)
-            if binary:
-                return binary
-
-    return None
-
-
-def get_version(binary: str) -> str:
-    """Get SingleFile version."""
-    try:
-        result = subprocess.run([binary, '--version'], capture_output=True, text=True, timeout=10)
-        return result.stdout.strip()[:64]
-    except Exception:
-        return ''
-
-
-CHROME_SESSION_DIR = '../chrome_session'
+CHROME_SESSION_DIR = '../chrome'
 
 
 def get_cdp_url() -> str | None:
-    """Get CDP URL from chrome_session if available."""
+    """Get CDP URL from chrome plugin if available."""
     cdp_file = Path(CHROME_SESSION_DIR) / 'cdp_url.txt'
     if cdp_file.exists():
         return cdp_file.read_text().strip()
@@ -159,7 +116,7 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     Archive URL using SingleFile.
 
-    If a Chrome session exists (from chrome_session extractor), connects to it via CDP.
+    If a Chrome session exists (from chrome plugin), connects to it via CDP.
     Otherwise launches a new Chrome instance.
 
     Returns: (success, output_path, error_message)
@@ -170,7 +127,7 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     check_ssl = get_env_bool('SINGLEFILE_CHECK_SSL_VALIDITY', get_env_bool('CHECK_SSL_VALIDITY', True))
     cookies_file = get_env('SINGLEFILE_COOKIES_FILE') or get_env('COOKIES_FILE', '')
     extra_args = get_env('SINGLEFILE_EXTRA_ARGS', '')
-    chrome = find_chrome()
+    chrome = get_env('CHROME_BINARY', '')
 
     cmd = [binary]
 
@@ -234,13 +191,9 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Archive a URL using SingleFile."""
 
-    start_ts = datetime.now(timezone.utc)
-    version = ''
     output = None
     status = 'failed'
     error = ''
-    binary = None
-    cmd_str = ''
 
     try:
         # Check if SingleFile is enabled
@@ -255,32 +208,16 @@ def main(url: str, snapshot_id: str):
             print(json.dumps({'type': 'ArchiveResult', 'status': 'skipped', 'output_str': 'staticfile already exists'}))
             sys.exit(0)
 
-        # Find binary
-        binary = find_singlefile()
-        if not binary:
-            print(f'ERROR: SingleFile binary not found', file=sys.stderr)
-            print(f'DEPENDENCY_NEEDED={BIN_NAME}', file=sys.stderr)
-            print(f'BIN_PROVIDERS={BIN_PROVIDERS}', file=sys.stderr)
-            print(f'INSTALL_HINT=npm install -g single-file-cli', file=sys.stderr)
-            sys.exit(1)
-
-        version = get_version(binary)
-        cmd_str = f'{binary} {url} {OUTPUT_FILE}'
+        # Get binary from environment
+        binary = get_env('SINGLEFILE_BINARY', 'single-file')
 
         # Run extraction
         success, output, error = save_singlefile(url, binary)
         status = 'succeeded' if success else 'failed'
 
-        if success and output:
-            size = Path(output).stat().st_size
-            print(f'SingleFile saved ({size} bytes)')
-
     except Exception as e:
         error = f'{type(e).__name__}: {e}'
         status = 'failed'
-
-    # Calculate duration
-    end_ts = datetime.now(timezone.utc)
 
     if error:
         print(f'ERROR: {error}', file=sys.stderr)
@@ -291,10 +228,6 @@ def main(url: str, snapshot_id: str):
         'status': status,
         'output_str': output or error or '',
     }
-    if binary:
-        result['cmd'] = [binary, '--browser-headless', url, OUTPUT_FILE]
-    if version:
-        result['cmd_version'] = version
     print(json.dumps(result))
 
     sys.exit(0 if status == 'succeeded' else 1)

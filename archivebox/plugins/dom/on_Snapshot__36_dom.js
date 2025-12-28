@@ -2,7 +2,7 @@
 /**
  * Dump the DOM of a URL using Chrome/Puppeteer.
  *
- * If a Chrome session exists (from chrome_session extractor), connects to it via CDP.
+ * If a Chrome session exists (from chrome plugin), connects to it via CDP.
  * Otherwise launches a new Chrome instance.
  *
  * Usage: on_Snapshot__23_dom.js --url=<url> --snapshot-id=<uuid>
@@ -26,7 +26,7 @@ const puppeteer = require('puppeteer-core');
 const EXTRACTOR_NAME = 'dom';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'output.html';
-const CHROME_SESSION_DIR = '../chrome_session';
+const CHROME_SESSION_DIR = '../chrome';
 
 // Parse command line arguments
 function parseArgs() {
@@ -63,7 +63,23 @@ function hasStaticFileOutput() {
     return fs.existsSync(STATICFILE_DIR) && fs.readdirSync(STATICFILE_DIR).length > 0;
 }
 
-// Get CDP URL from chrome_session if available
+// Wait for chrome tab to be fully loaded
+async function waitForChromeTabLoaded(timeoutMs = 60000) {
+    const navigationFile = path.join(CHROME_SESSION_DIR, 'navigation.json');
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeoutMs) {
+        if (fs.existsSync(navigationFile)) {
+            return true;
+        }
+        // Wait 100ms before checking again
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    return false;
+}
+
+// Get CDP URL from chrome plugin if available
 function getCdpUrl() {
     const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
     if (fs.existsSync(cdpFile)) {
@@ -219,35 +235,36 @@ async function main() {
     let error = '';
 
     try {
-        // Check if DOM is enabled (permanent skip - don't retry)
+        // Check if DOM is enabled
         if (!getEnvBool('SAVE_DOM', true)) {
-            console.log('Skipping DOM (SAVE_DOM=False)');
-            // Output clean JSONL (no RESULT_JSON= prefix)
-            console.log(JSON.stringify({
-                type: 'ArchiveResult',
-                status: 'skipped',
-                output_str: 'SAVE_DOM=False',
-            }));
-            process.exit(0);  // Permanent skip - feature disabled
+            console.error('Skipping DOM (SAVE_DOM=False)');
+            // Feature disabled - no ArchiveResult, just exit
+            process.exit(0);
         }
         // Check if staticfile extractor already handled this (permanent skip)
         if (hasStaticFileOutput()) {
-            console.log(`Skipping DOM - staticfile extractor already downloaded this`);
-            // Output clean JSONL (no RESULT_JSON= prefix)
+            console.error(`Skipping DOM - staticfile extractor already downloaded this`);
+            // Permanent skip - emit ArchiveResult with status='skipped'
             console.log(JSON.stringify({
                 type: 'ArchiveResult',
                 status: 'skipped',
                 output_str: 'staticfile already handled',
             }));
-            process.exit(0);  // Permanent skip - staticfile already handled
+            process.exit(0);
         } else {
+            // Wait for page to be fully loaded
+            const pageLoaded = await waitForChromeTabLoaded(60000);
+            if (!pageLoaded) {
+                throw new Error('Page not loaded after 60s (chrome_navigate must complete first)');
+            }
+
             const result = await dumpDom(url);
 
             if (result.success) {
                 status = 'succeeded';
                 output = result.output;
                 const size = fs.statSync(output).size;
-                console.log(`DOM saved (${size} bytes)`);
+                console.error(`DOM saved (${size} bytes)`);
             } else {
                 status = 'failed';
                 error = result.error;

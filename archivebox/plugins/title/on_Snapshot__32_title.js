@@ -2,7 +2,7 @@
 /**
  * Extract the title of a URL.
  *
- * If a Chrome session exists (from chrome_session extractor), connects to it via CDP
+ * If a Chrome session exists (from chrome plugin), connects to it via CDP
  * to get the page title (which includes JS-rendered content).
  * Otherwise falls back to fetching the URL and parsing HTML.
  *
@@ -23,7 +23,7 @@ const http = require('http');
 const EXTRACTOR_NAME = 'title';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'title.txt';
-const CHROME_SESSION_DIR = '../chrome_session';
+const CHROME_SESSION_DIR = '../chrome';
 
 // Parse command line arguments
 function parseArgs() {
@@ -47,7 +47,23 @@ function getEnvInt(name, defaultValue = 0) {
     return isNaN(val) ? defaultValue : val;
 }
 
-// Get CDP URL from chrome_session if available
+// Wait for chrome tab to be fully loaded
+async function waitForChromeTabLoaded(timeoutMs = 60000) {
+    const navigationFile = path.join(CHROME_SESSION_DIR, 'navigation.json');
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeoutMs) {
+        if (fs.existsSync(navigationFile)) {
+            return true;
+        }
+        // Wait 100ms before checking again
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    return false;
+}
+
+// Get CDP URL from chrome plugin if available
 function getCdpUrl() {
     const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
     if (fs.existsSync(cdpFile)) {
@@ -125,6 +141,12 @@ function fetchTitle(url) {
 
 // Get title using Puppeteer CDP connection
 async function getTitleFromCdp(cdpUrl) {
+    // Wait for page to be fully loaded
+    const pageLoaded = await waitForChromeTabLoaded(60000);
+    if (!pageLoaded) {
+        throw new Error('Page not loaded after 60s (chrome_navigate must complete first)');
+    }
+
     const puppeteer = require('puppeteer-core');
 
     const browser = await puppeteer.connect({

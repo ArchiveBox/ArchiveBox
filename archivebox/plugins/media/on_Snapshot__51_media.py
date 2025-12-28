@@ -26,10 +26,8 @@ Environment variables:
 
 import json
 import os
-import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 import rich_click as click
@@ -68,29 +66,6 @@ def has_staticfile_output() -> bool:
     """Check if staticfile extractor already downloaded this URL."""
     staticfile_dir = Path(STATICFILE_DIR)
     return staticfile_dir.exists() and any(staticfile_dir.iterdir())
-
-
-def find_ytdlp() -> str | None:
-    """Find yt-dlp binary."""
-    ytdlp = get_env('YTDLP_BINARY') or get_env('YOUTUBEDL_BINARY')
-    if ytdlp and os.path.isfile(ytdlp):
-        return ytdlp
-
-    for name in ['yt-dlp', 'youtube-dl']:
-        binary = shutil.which(name)
-        if binary:
-            return binary
-
-    return None
-
-
-def get_version(binary: str) -> str:
-    """Get yt-dlp version."""
-    try:
-        result = subprocess.run([binary, '--version'], capture_output=True, text=True, timeout=10)
-        return result.stdout.strip()[:64]
-    except Exception:
-        return ''
 
 
 # Default yt-dlp args (from old YTDLP_CONFIG)
@@ -207,13 +182,9 @@ def save_media(url: str, binary: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Download media from a URL using yt-dlp."""
 
-    start_ts = datetime.now(timezone.utc)
-    version = ''
     output = None
     status = 'failed'
     error = ''
-    binary = None
-    cmd_str = ''
 
     try:
         # Check if yt-dlp is enabled
@@ -228,37 +199,16 @@ def main(url: str, snapshot_id: str):
             print(json.dumps({'type': 'ArchiveResult', 'status': 'skipped', 'output_str': 'staticfile already exists'}))
             sys.exit(0)
 
-        # Find binary
-        binary = find_ytdlp()
-        if not binary:
-            print(f'ERROR: {BIN_NAME} binary not found', file=sys.stderr)
-            print(f'DEPENDENCY_NEEDED={BIN_NAME}', file=sys.stderr)
-            print(f'BIN_PROVIDERS={BIN_PROVIDERS}', file=sys.stderr)
-            print(f'INSTALL_HINT=pip install yt-dlp OR brew install yt-dlp', file=sys.stderr)
-            sys.exit(1)
-
-        version = get_version(binary)
-        cmd_str = f'{binary} {url}'
+        # Get binary from environment
+        binary = get_env('YTDLP_BINARY') or get_env('YOUTUBEDL_BINARY', 'yt-dlp')
 
         # Run extraction
         success, output, error = save_media(url, binary)
         status = 'succeeded' if success else 'failed'
 
-        if success:
-            output_dir = Path(OUTPUT_DIR)
-            files = list(output_dir.glob('*'))
-            file_count = len([f for f in files if f.is_file()])
-            if file_count > 0:
-                print(f'yt-dlp completed: {file_count} files downloaded')
-            else:
-                print(f'yt-dlp completed: no media found on page (this is normal)')
-
     except Exception as e:
         error = f'{type(e).__name__}: {e}'
         status = 'failed'
-
-    # Calculate duration
-    end_ts = datetime.now(timezone.utc)
 
     if error:
         print(f'ERROR: {error}', file=sys.stderr)
@@ -269,10 +219,6 @@ def main(url: str, snapshot_id: str):
         'status': status,
         'output_str': output or error or '',
     }
-    if binary:
-        result['cmd'] = [binary, url]
-    if version:
-        result['cmd_version'] = version
     print(json.dumps(result))
 
     sys.exit(0 if status == 'succeeded' else 1)

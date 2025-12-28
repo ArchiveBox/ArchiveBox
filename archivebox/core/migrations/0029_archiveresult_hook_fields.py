@@ -69,7 +69,7 @@ class Migration(migrations.Migration):
             model_name='archiveresult',
             name='binary',
             field=models.ForeignKey(
-                'machine.InstalledBinary',
+                'machine.Binary',
                 on_delete=models.SET_NULL,
                 null=True,
                 blank=True,

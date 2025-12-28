@@ -197,7 +197,7 @@ describe('ublock plugin', () => {
             assert.strictEqual(priority, 3);
         });
 
-        it('should run before chrome_session (priority 20)', () => {
+        it('should run before chrome (priority 20)', () => {
             const extensionPriority = 3;
             const chromeSessionPriority = 20;
 

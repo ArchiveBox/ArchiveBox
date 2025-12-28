@@ -20,7 +20,6 @@ Environment variables:
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -53,28 +52,6 @@ def get_env_int(name: str, default: int = 0) -> int:
         return int(get_env(name, str(default)))
     except ValueError:
         return default
-
-
-def find_papersdl() -> str | None:
-    """Find papers-dl binary."""
-    papersdl = get_env('PAPERSDL_BINARY')
-    if papersdl and os.path.isfile(papersdl):
-        return papersdl
-
-    binary = shutil.which('papers-dl')
-    if binary:
-        return binary
-
-    return None
-
-
-def get_version(binary: str) -> str:
-    """Get papers-dl version."""
-    try:
-        result = subprocess.run([binary, '--version'], capture_output=True, text=True, timeout=10)
-        return result.stdout.strip()[:64]
-    except Exception:
-        return ''
 
 
 def extract_doi_from_url(url: str) -> str | None:
@@ -157,73 +134,38 @@ def save_paper(url: str, binary: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Download scientific paper from a URL using papers-dl."""
 
-    version = ''
     output = None
     status = 'failed'
     error = ''
-    binary = None
-    cmd_str = ''
 
     try:
         # Check if papers-dl is enabled
         if not get_env_bool('SAVE_PAPERSDL', True):
-            print('Skipping papers-dl (SAVE_PAPERSDL=False)')
-            status = 'skipped'
-            print(f'STATUS={status}')
-            print(f'RESULT_JSON={json.dumps({"extractor": EXTRACTOR_NAME, "status": status, "url": url, "snapshot_id": snapshot_id})}')
+            print('Skipping papers-dl (SAVE_PAPERSDL=False)', file=sys.stderr)
+            # Feature disabled - no ArchiveResult, just exit
             sys.exit(0)
 
-        # Find binary
-        binary = find_papersdl()
-        if not binary:
-            print(f'ERROR: {BIN_NAME} binary not found', file=sys.stderr)
-            print(f'DEPENDENCY_NEEDED={BIN_NAME}', file=sys.stderr)
-            print(f'BIN_PROVIDERS={BIN_PROVIDERS}', file=sys.stderr)
-            print(f'INSTALL_HINT=pip install papers-dl', file=sys.stderr)
-            sys.exit(1)
-
-        version = get_version(binary)
-        cmd_str = f'{binary} fetch {url}'
+        # Get binary from environment
+        binary = get_env('PAPERSDL_BINARY', 'papers-dl')
 
         # Run extraction
         success, output, error = save_paper(url, binary)
         status = 'succeeded' if success else 'failed'
 
-        if success:
-            if output:
-                output_path = Path(output)
-                file_size = output_path.stat().st_size
-                print(f'papers-dl completed: {output_path.name} ({file_size} bytes)')
-            else:
-                print(f'papers-dl completed: no paper found for this URL (this is normal)')
-
     except Exception as e:
         error = f'{type(e).__name__}: {e}'
         status = 'failed'
 
-    # Print results
-    if cmd_str:
-        print(f'CMD={cmd_str}')
-    if version:
-        print(f'VERSION={version}')
-    if output:
-        print(f'OUTPUT={output}')
-    print(f'STATUS={status}')
-
     if error:
-        print(f'ERROR={error}', file=sys.stderr)
+        print(f'ERROR: {error}', file=sys.stderr)
 
-    # Print JSON result
-    result_json = {
-        'extractor': EXTRACTOR_NAME,
-        'url': url,
-        'snapshot_id': snapshot_id,
+    # Output clean JSONL (no RESULT_JSON= prefix)
+    result = {
+        'type': 'ArchiveResult',
         'status': status,
-        'cmd_version': version,
-        'output': output,
-        'error': error or None,
+        'output_str': output or error or '',
     }
-    print(f'RESULT_JSON={json.dumps(result_json)}')
+    print(json.dumps(result))
 
     sys.exit(0 if status == 'succeeded' else 1)
 

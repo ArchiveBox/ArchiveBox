@@ -17,7 +17,7 @@ from admin_data_views.utils import render_with_table_view, render_with_item_view
 from archivebox.config import CONSTANTS
 from archivebox.misc.util import parse_date
 
-from machine.models import InstalledBinary
+from machine.models import Binary
 
 
 # Common binaries to check for
@@ -143,7 +143,7 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
     }
 
     # Get binaries from database (previously detected/installed)
-    db_binaries = {b.name: b for b in InstalledBinary.objects.all()}
+    db_binaries = {b.name: b for b in Binary.objects.all()}
     
     # Get currently detectable binaries  
     detected = get_detected_binaries()
@@ -182,7 +182,7 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
 
     # Try database first
     try:
-        binary = InstalledBinary.objects.get(name=key)
+        binary = Binary.objects.get(name=key)
         return ItemContext(
             slug=key,
             title=key,
@@ -201,7 +201,7 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
                 },
             ],
         )
-    except InstalledBinary.DoesNotExist:
+    except Binary.DoesNotExist:
         pass
     
     # Try to detect from PATH

@@ -41,7 +41,7 @@ dependencies = [
     ### Django libraries
     "setuptools>=74.1.0",   # for: django 5 on python >=3.12, distutils is no longer in stdlib but django 5.1 expects distutils (TODO: check if this can be removed eventually)
     "django>=6.0",
-    "channels[daphne]>=4.1.0",
+    "daphne>=4.2.0",  # ASGI server for Django (no channels needed - websockets not used)
     "django-ninja>=1.5.1",
     "django-extensions>=3.2.3",
     "django-signal-webhooks>=0.3.0",
@@ -118,11 +118,8 @@ all = [
     "archivebox[sonic,ldap,debug]"
 ]
 
-[tool.uv]
-environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
-package = true
-# compile-bytecode = true
-dev-dependencies = [
+[dependency-groups]
+dev = [
     ### BUILD
     "uv>=0.4.26",
     "pip>=24.2",
@@ -155,6 +152,11 @@ dev-dependencies = [
     "flake8>=7.1.1",
     "mypy>=1.11.2",
 ]
+
+[tool.uv]
+environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
+package = true
+# compile-bytecode = true
 
 [tool.uv.pip]
 python-version = "3.13"

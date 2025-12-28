@@ -21,7 +21,6 @@ def init(force: bool=False, quick: bool=False, install: bool=False, setup: bool=
     from archivebox.config import CONSTANTS, VERSION, DATA_DIR
     from archivebox.config.common import SERVER_CONFIG
     from archivebox.config.collection import write_config_file
-    from archivebox.misc.folders import fix_invalid_folder_locations, get_invalid_folders
     from archivebox.misc.legacy import parse_json_main_index, parse_json_links_details, SnapshotDict
     from archivebox.misc.db import apply_migrations
     
@@ -106,17 +105,10 @@ def init(force: bool=False, quick: bool=False, install: bool=False, setup: bool=
         print(f'    √ Loaded {all_links.count()} links from existing main index.')
 
     if quick:
-        print('    > Skipping full snapshot directory check (quick mode)')
+        print('    > Skipping orphan snapshot import (quick mode)')
     else:
         try:
-            # Links in data folders that dont match their timestamp
-            fixed, cant_fix = fix_invalid_folder_locations(DATA_DIR)
-            if fixed:
-                print(f'    [yellow]√ Fixed {len(fixed)} data directory locations that didn\'t match their link timestamps.[/yellow]')
-            if cant_fix:
-                print(f'    [red]! Could not fix {len(cant_fix)} data directory locations due to conflicts with existing folders.[/red]')
-
-            # Links in JSON index but not in main index
+            # Import orphaned links from legacy JSON indexes
             orphaned_json_links = {
                 link_dict['url']: link_dict
                 for link_dict in parse_json_main_index(DATA_DIR)
@@ -126,7 +118,6 @@ def init(force: bool=False, quick: bool=False, install: bool=False, setup: bool=
                 pending_links.update(orphaned_json_links)
                 print(f'    [yellow]√ Added {len(orphaned_json_links)} orphaned links from existing JSON index...[/yellow]')
 
-            # Links in data dir indexes but not in main index
             orphaned_data_dir_links = {
                 link_dict['url']: link_dict
                 for link_dict in parse_json_links_details(DATA_DIR)
@@ -136,18 +127,13 @@ def init(force: bool=False, quick: bool=False, install: bool=False, setup: bool=
                 pending_links.update(orphaned_data_dir_links)
                 print(f'    [yellow]√ Added {len(orphaned_data_dir_links)} orphaned links from existing archive directories.[/yellow]')
 
-            # Links in invalid/duplicate data dirs
-            invalid_folders = {
-                folder: link
-                for folder, link in get_invalid_folders(all_links, DATA_DIR).items()
-            }
-            if invalid_folders:
-                print(f'    [red]! Skipped adding {len(invalid_folders)} invalid link data directories.[/red]')
-                print('        X ' + '\n        X '.join(f'./{Path(folder).relative_to(DATA_DIR)} {link}' for folder, link in invalid_folders.items()))
-                print()
-                print('    [violet]Hint:[/violet] For more information about the link data directories that were skipped, run:')
-                print('        archivebox status')
-                print('        archivebox list --status=invalid')
+            if pending_links:
+                Snapshot.objects.create_from_dicts(list(pending_links.values()))
+
+            # Hint for orphaned snapshot directories
+            print()
+            print('    [violet]Hint:[/violet] To import orphaned snapshot directories and reconcile filesystem state, run:')
+            print('        archivebox update')
 
         except (KeyboardInterrupt, SystemExit):
             print(file=sys.stderr)
@@ -157,9 +143,6 @@ def init(force: bool=False, quick: bool=False, install: bool=False, setup: bool=
             print('    [violet]Hint:[/violet] In the future you can run a quick init without checking dirs like so:', file=sys.stderr)
             print('        archivebox init --quick', file=sys.stderr)
             raise SystemExit(1)
-        
-        if pending_links:
-            Snapshot.objects.create_from_dicts(list(pending_links.values()))
 
     print('\n[green]----------------------------------------------------------------------[/green]')
 

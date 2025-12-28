@@ -2,8 +2,8 @@
 /**
  * Extract HTTP response headers for a URL.
  *
- * If a Chrome session exists (from chrome_session extractor), reads the captured
- * response headers from chrome_session/response_headers.json.
+ * If a Chrome session exists (from chrome plugin), reads the captured
+ * response headers from chrome plugin/response_headers.json.
  * Otherwise falls back to making an HTTP HEAD request.
  *
  * Usage: on_Snapshot__12_headers.js --url=<url> --snapshot-id=<uuid>
@@ -24,7 +24,7 @@ const http = require('http');
 const EXTRACTOR_NAME = 'headers';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'headers.json';
-const CHROME_SESSION_DIR = '../chrome_session';
+const CHROME_SESSION_DIR = '../chrome';
 const CHROME_HEADERS_FILE = 'response_headers.json';
 
 // Parse command line arguments
@@ -56,7 +56,7 @@ function getEnvInt(name, defaultValue = 0) {
     return isNaN(val) ? defaultValue : val;
 }
 
-// Get headers from chrome_session if available
+// Get headers from chrome plugin if available
 function getHeadersFromChromeSession() {
     const headersFile = path.join(CHROME_SESSION_DIR, CHROME_HEADERS_FILE);
     if (fs.existsSync(headersFile)) {
@@ -117,7 +117,7 @@ async function extractHeaders(url) {
     const chromeHeaders = getHeadersFromChromeSession();
     if (chromeHeaders && chromeHeaders.headers) {
         fs.writeFileSync(outputPath, JSON.stringify(chromeHeaders, null, 2), 'utf8');
-        return { success: true, output: outputPath, method: 'chrome_session', status: chromeHeaders.status };
+        return { success: true, output: outputPath, method: 'chrome', status: chromeHeaders.status };
     }
 
     // Fallback to HTTP HEAD request

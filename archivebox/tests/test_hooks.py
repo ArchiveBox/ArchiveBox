@@ -88,7 +88,7 @@ class TestJSONLParsing(unittest.TestCase):
     def test_parse_multiple_jsonl_records(self):
         """Multiple JSONL records should all be parsed."""
         stdout = '''{"type": "ArchiveResult", "status": "succeeded", "output_str": "Done"}
-{"type": "InstalledBinary", "name": "wget", "abspath": "/usr/bin/wget"}'''
+{"type": "Binary", "name": "wget", "abspath": "/usr/bin/wget"}'''
         records = []
         for line in stdout.splitlines():
             line = line.strip()
@@ -103,7 +103,7 @@ class TestJSONLParsing(unittest.TestCase):
 
         self.assertEqual(len(records), 2)
         self.assertEqual(records[0]['type'], 'ArchiveResult')
-        self.assertEqual(records[1]['type'], 'InstalledBinary')
+        self.assertEqual(records[1]['type'], 'Binary')
 
     def test_parse_jsonl_with_log_output(self):
         """JSONL should be extracted from mixed stdout with log lines."""
@@ -152,7 +152,7 @@ Hook completed successfully'''
         stdout = '''{"type": "ArchiveResult", "status": "succeeded"}
 {invalid json here}
 not json at all
-{"type": "InstalledBinary", "name": "wget"}'''
+{"type": "Binary", "name": "wget"}'''
         records = []
         for line in stdout.splitlines():
             line = line.strip()
@@ -252,7 +252,7 @@ class TestHookDiscovery(unittest.TestCase):
 
         chrome_dir = self.plugins_dir / 'chrome_session'
         chrome_dir.mkdir()
-        (chrome_dir / 'on_Snapshot__20_chrome_session.js').write_text('// test hook')
+        (chrome_dir / 'on_Snapshot__20_chrome_session.bg.js').write_text('// background hook')
 
         consolelog_dir = self.plugins_dir / 'consolelog'
         consolelog_dir.mkdir()
@@ -274,7 +274,7 @@ class TestHookDiscovery(unittest.TestCase):
 
         self.assertEqual(len(hooks), 3)
         hook_names = [h.name for h in hooks]
-        self.assertIn('on_Snapshot__20_chrome_session.js', hook_names)
+        self.assertIn('on_Snapshot__20_chrome_session.bg.js', hook_names)
         self.assertIn('on_Snapshot__21_consolelog.bg.js', hook_names)
         self.assertIn('on_Snapshot__50_wget.py', hook_names)
 
@@ -413,10 +413,10 @@ class TestInstallHookOutput(unittest.TestCase):
         """Clean up test environment."""
         shutil.rmtree(self.work_dir, ignore_errors=True)
 
-    def test_install_hook_outputs_installed_binary(self):
-        """Install hook should output InstalledBinary JSONL when binary found."""
+    def test_install_hook_outputs_binary(self):
+        """Install hook should output Binary JSONL when binary found."""
         hook_output = json.dumps({
-            'type': 'InstalledBinary',
+            'type': 'Binary',
             'name': 'wget',
             'abspath': '/usr/bin/wget',
             'version': '1.21.3',
@@ -425,7 +425,7 @@ class TestInstallHookOutput(unittest.TestCase):
         })
 
         data = json.loads(hook_output)
-        self.assertEqual(data['type'], 'InstalledBinary')
+        self.assertEqual(data['type'], 'Binary')
         self.assertEqual(data['name'], 'wget')
         self.assertTrue(data['abspath'].startswith('/'))
 

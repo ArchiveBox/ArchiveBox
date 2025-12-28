@@ -472,25 +472,25 @@ class TestURLCollection(unittest.TestCase):
         """Clean up test directory."""
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
-    def test_collect_urls_from_extractors(self):
-        """Should collect urls.jsonl from all extractor subdirectories."""
-        from archivebox.hooks import collect_urls_from_extractors
+    def test_collect_urls_from_plugins(self):
+        """Should collect urls.jsonl from all parser plugin subdirectories."""
+        from archivebox.hooks import collect_urls_from_plugins
 
-        urls = collect_urls_from_extractors(self.test_dir)
+        urls = collect_urls_from_plugins(self.test_dir)
 
         self.assertEqual(len(urls), 4)
 
-        # Check that via_extractor is set
-        extractors = {u['via_extractor'] for u in urls}
-        self.assertIn('wget', extractors)
-        self.assertIn('parse_html_urls', extractors)
-        self.assertNotIn('screenshot', extractors)  # No urls.jsonl
+        # Check that plugin is set
+        plugins = {u['plugin'] for u in urls}
+        self.assertIn('wget', plugins)
+        self.assertIn('parse_html_urls', plugins)
+        self.assertNotIn('screenshot', plugins)  # No urls.jsonl
 
     def test_collect_urls_preserves_metadata(self):
         """Should preserve metadata from urls.jsonl entries."""
-        from archivebox.hooks import collect_urls_from_extractors
+        from archivebox.hooks import collect_urls_from_plugins
 
-        urls = collect_urls_from_extractors(self.test_dir)
+        urls = collect_urls_from_plugins(self.test_dir)
 
         # Find the entry with title
         titled = [u for u in urls if u.get('title') == 'HTML Link 2']
@@ -499,10 +499,10 @@ class TestURLCollection(unittest.TestCase):
 
     def test_collect_urls_empty_dir(self):
         """Should handle empty or non-existent directories."""
-        from archivebox.hooks import collect_urls_from_extractors
+        from archivebox.hooks import collect_urls_from_plugins
 
         empty_dir = self.test_dir / 'nonexistent'
-        urls = collect_urls_from_extractors(empty_dir)
+        urls = collect_urls_from_plugins(empty_dir)
 
         self.assertEqual(len(urls), 0)
 
@@ -612,7 +612,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         Test: archivebox crawl URL
         Should create snapshot, run plugins, output discovered URLs.
         """
-        from archivebox.hooks import collect_urls_from_extractors
+        from archivebox.hooks import collect_urls_from_plugins
         from archivebox.misc.jsonl import TYPE_SNAPSHOT
 
         # Create a mock snapshot directory with urls.jsonl
@@ -627,7 +627,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         )
 
         # Collect URLs (as crawl does)
-        discovered = collect_urls_from_extractors(test_snapshot_dir)
+        discovered = collect_urls_from_plugins(test_snapshot_dir)
 
         self.assertEqual(len(discovered), 2)
 
@@ -688,7 +688,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
             TYPE_SNAPSHOT
         )
         from archivebox.base_models.models import get_or_create_system_user_pk
-        from archivebox.hooks import collect_urls_from_extractors
+        from archivebox.hooks import collect_urls_from_plugins
 
         created_by_id = get_or_create_system_user_pk()
 
@@ -707,7 +707,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         )
 
         # Step 3: Collect discovered URLs (crawl output)
-        discovered = collect_urls_from_extractors(snapshot_dir)
+        discovered = collect_urls_from_plugins(snapshot_dir)
         crawl_output = []
         for entry in discovered:
             entry['type'] = TYPE_SNAPSHOT
@@ -835,7 +835,7 @@ class TestParserPluginWorkflows(unittest.TestCase):
         """
         Test: archivebox crawl --plugin=parse_html_urls URL | archivebox snapshot | archivebox extract
         """
-        from archivebox.hooks import collect_urls_from_extractors
+        from archivebox.hooks import collect_urls_from_plugins
         from archivebox.misc.jsonl import TYPE_SNAPSHOT
 
         # Create mock output directory
@@ -847,17 +847,17 @@ class TestParserPluginWorkflows(unittest.TestCase):
         )
 
         # Collect URLs
-        discovered = collect_urls_from_extractors(snapshot_dir)
+        discovered = collect_urls_from_plugins(snapshot_dir)
 
         self.assertEqual(len(discovered), 1)
         self.assertEqual(discovered[0]['url'], 'https://html-discovered.com')
-        self.assertEqual(discovered[0]['via_extractor'], 'parse_html_urls')
+        self.assertEqual(discovered[0]['plugin'], 'parse_html_urls')
 
     def test_rss_parser_workflow(self):
         """
         Test: archivebox crawl --plugin=parse_rss_urls URL | archivebox snapshot | archivebox extract
         """
-        from archivebox.hooks import collect_urls_from_extractors
+        from archivebox.hooks import collect_urls_from_plugins
 
         # Create mock output directory
         snapshot_dir = Path(self.test_dir) / 'archive' / 'rss-parser-test'
@@ -869,16 +869,16 @@ class TestParserPluginWorkflows(unittest.TestCase):
         )
 
         # Collect URLs
-        discovered = collect_urls_from_extractors(snapshot_dir)
+        discovered = collect_urls_from_plugins(snapshot_dir)
 
         self.assertEqual(len(discovered), 2)
-        self.assertTrue(all(d['via_extractor'] == 'parse_rss_urls' for d in discovered))
+        self.assertTrue(all(d['plugin'] == 'parse_rss_urls' for d in discovered))
 
     def test_multiple_parsers_dedupe(self):
         """
         Multiple parsers may discover the same URL - should be deduplicated.
         """
-        from archivebox.hooks import collect_urls_from_extractors
+        from archivebox.hooks import collect_urls_from_plugins
 
         # Create mock output with duplicate URLs from different parsers
         snapshot_dir = Path(self.test_dir) / 'archive' / 'dedupe-test'
@@ -895,7 +895,7 @@ class TestParserPluginWorkflows(unittest.TestCase):
         )
 
         # Collect URLs
-        all_discovered = collect_urls_from_extractors(snapshot_dir)
+        all_discovered = collect_urls_from_plugins(snapshot_dir)
 
         # Both entries are returned (deduplication happens at the crawl command level)
         self.assertEqual(len(all_discovered), 2)

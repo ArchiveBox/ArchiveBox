@@ -133,8 +133,10 @@ def fetch_content(url: str) -> str:
 
 @click.command()
 @click.option('--url', required=True, help='HTML URL to parse')
-@click.option('--snapshot-id', required=False, help='Snapshot UUID (unused but required by hook runner)')
-def main(url: str, snapshot_id: str = None):
+@click.option('--snapshot-id', required=False, help='Parent Snapshot UUID')
+@click.option('--crawl-id', required=False, help='Crawl UUID')
+@click.option('--depth', type=int, default=0, help='Current depth level')
+def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0):
     """Parse HTML and extract href URLs."""
 
     # Skip only if parse_dom_outlinks already ran AND found URLs (it uses Chrome for better coverage)
@@ -172,16 +174,22 @@ def main(url: str, snapshot_id: str = None):
         click.echo('No URLs found', err=True)
         sys.exit(1)
 
-    # Write urls.jsonl
-    with open('urls.jsonl', 'w') as f:
-        for found_url in sorted(urls_found):
-            f.write(json.dumps({
-                'type': 'Snapshot',
-                'url': found_url,
-                'via_extractor': EXTRACTOR_NAME,
-            }) + '\n')
+    # Emit Snapshot records to stdout (JSONL)
+    for found_url in sorted(urls_found):
+        record = {
+            'type': 'Snapshot',
+            'url': found_url,
+            'via_extractor': EXTRACTOR_NAME,
+            'depth': depth + 1,
+        }
+        if snapshot_id:
+            record['parent_snapshot_id'] = snapshot_id
+        if crawl_id:
+            record['crawl_id'] = crawl_id
 
-    click.echo(f'Found {len(urls_found)} URLs')
+        print(json.dumps(record))
+
+    click.echo(f'Found {len(urls_found)} URLs', err=True)
     sys.exit(0)
 
 

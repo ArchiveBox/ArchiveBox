@@ -27,9 +27,9 @@ TYPE_SNAPSHOT = 'Snapshot'
 TYPE_ARCHIVERESULT = 'ArchiveResult'
 TYPE_TAG = 'Tag'
 TYPE_CRAWL = 'Crawl'
-TYPE_INSTALLEDBINARY = 'InstalledBinary'
+TYPE_BINARY = 'Binary'
 
-VALID_TYPES = {TYPE_SNAPSHOT, TYPE_ARCHIVERESULT, TYPE_TAG, TYPE_CRAWL, TYPE_INSTALLEDBINARY}
+VALID_TYPES = {TYPE_SNAPSHOT, TYPE_ARCHIVERESULT, TYPE_TAG, TYPE_CRAWL, TYPE_BINARY}
 
 
 def parse_line(line: str) -> Optional[Dict[str, Any]]:
@@ -271,6 +271,7 @@ def get_or_create_snapshot(record: Dict[str, Any], created_by_id: Optional[int] 
     bookmarked_at = record.get('bookmarked_at')
     depth = record.get('depth', 0)
     crawl_id = record.get('crawl_id')
+    parent_snapshot_id = record.get('parent_snapshot_id')
 
     # Parse bookmarked_at if string
     if bookmarked_at and isinstance(bookmarked_at, str):
@@ -284,9 +285,12 @@ def get_or_create_snapshot(record: Dict[str, Any], created_by_id: Optional[int] 
 
     # Update additional fields if provided
     update_fields = []
-    if depth and snapshot.depth != depth:
+    if depth is not None and snapshot.depth != depth:
         snapshot.depth = depth
         update_fields.append('depth')
+    if parent_snapshot_id and str(snapshot.parent_snapshot_id) != str(parent_snapshot_id):
+        snapshot.parent_snapshot_id = parent_snapshot_id
+        update_fields.append('parent_snapshot_id')
     if bookmarked_at and snapshot.bookmarked_at != bookmarked_at:
         snapshot.bookmarked_at = bookmarked_at
         update_fields.append('bookmarked_at')

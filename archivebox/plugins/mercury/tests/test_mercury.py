@@ -21,7 +21,7 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 MERCURY_HOOK = PLUGIN_DIR / 'on_Snapshot__53_mercury.py'
-MERCURY_VALIDATE_HOOK = PLUGIN_DIR / 'on_Crawl__00_validate_mercury.py'
+MERCURY_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_mercury.py'
 TEST_URL = 'https://example.com'
 
 def test_hook_script_exists():
@@ -29,11 +29,11 @@ def test_hook_script_exists():
     assert MERCURY_HOOK.exists(), f"Hook not found: {MERCURY_HOOK}"
 
 
-def test_mercury_validate_hook():
-    """Test mercury validate hook checks for postlight-parser."""
-    # Run mercury validate hook
+def test_mercury_install_hook():
+    """Test mercury install hook checks for postlight-parser."""
+    # Run mercury install hook
     result = subprocess.run(
-        [sys.executable, str(MERCURY_VALIDATE_HOOK)],
+        [sys.executable, str(MERCURY_INSTALL_HOOK)],
         capture_output=True,
         text=True,
         timeout=30
@@ -41,20 +41,20 @@ def test_mercury_validate_hook():
 
     # Hook exits 0 if binary found, 1 if not found (with Dependency record)
     if result.returncode == 0:
-        # Binary found - verify InstalledBinary JSONL output
+        # Binary found - verify Binary JSONL output
         found_binary = False
         for line in result.stdout.strip().split('\n'):
             if line.strip():
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'InstalledBinary':
+                    if record.get('type') == 'Binary':
                         assert record['name'] == 'postlight-parser'
                         assert record['abspath']
                         found_binary = True
                         break
                 except json.JSONDecodeError:
                     pass
-        assert found_binary, "Should output InstalledBinary record when binary found"
+        assert found_binary, "Should output Binary record when binary found"
     else:
         # Binary not found - verify Dependency JSONL output
         found_dependency = False
@@ -117,33 +117,31 @@ def test_extracts_with_mercury_parser():
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
-        # Verify JSONL output
-        assert 'STATUS=' in result.stdout, "Should report status"
-        assert 'RESULT_JSON=' in result.stdout, "Should output RESULT_JSON"
-
-        # Parse JSONL result
+        # Parse clean JSONL output
         result_json = None
-        for line in result.stdout.split('\n'):
-            if line.startswith('RESULT_JSON='):
-                result_json = json.loads(line.split('=', 1)[1])
-                break
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
 
-        assert result_json, "Should have RESULT_JSON"
-        assert result_json['extractor'] == 'mercury'
+        assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
-        # Verify filesystem output if extraction succeeded
-        if result_json['status'] == 'succeeded':
-            mercury_dir = tmpdir / 'mercury'
-            assert mercury_dir.exists(), "Output directory not created"
+        # Verify filesystem output (hook writes to current directory)
+        output_file = tmpdir / 'content.html'
+        assert output_file.exists(), "content.html not created"
 
-            output_file = mercury_dir / 'content.html'
-            assert output_file.exists(), "content.html not created"
-
-            content = output_file.read_text()
-            assert len(content) > 0, "Output should not be empty"
+        content = output_file.read_text()
+        assert len(content) > 0, "Output should not be empty"
 
 def test_config_save_mercury_false_skips():
-    """Test that SAVE_MERCURY=False causes skip."""
+    """Test that SAVE_MERCURY=False exits without emitting JSONL."""
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -159,8 +157,14 @@ def test_config_save_mercury_false_skips():
             timeout=30
         )
 
-        assert result.returncode == 0, f"Should exit 0 when skipping: {result.stderr}"
-        assert 'STATUS=' in result.stdout
+        assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
+
+        # Feature disabled - no JSONL emission, just logs to stderr
+        assert 'Skipping' in result.stderr or 'False' in result.stderr, "Should log skip reason to stderr"
+
+        # Should NOT emit any JSONL
+        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
+        assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
 
 
 def test_fails_gracefully_without_html():
@@ -174,8 +178,23 @@ def test_fails_gracefully_without_html():
             timeout=30
         )
 
-        assert result.returncode == 0, "Should exit 0 even when no HTML source"
-        assert 'STATUS=' in result.stdout
+        # Should exit with non-zero or emit failure JSONL
+        # Parse clean JSONL output
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        if result_json:
+            # Should report failure or skip since no HTML source
+            assert result_json['status'] in ['failed', 'skipped'], f"Should fail or skip without HTML: {result_json}"
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

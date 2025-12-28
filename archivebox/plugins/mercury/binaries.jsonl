@@ -1,0 +1,1 @@
+{"type": "Binary", "name": "postlight-parser", "binproviders": "npm,env", "overrides": {"npm": {"packages": ["@postlight/parser"]}}}

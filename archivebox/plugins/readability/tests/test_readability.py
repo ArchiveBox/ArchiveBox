@@ -21,7 +21,7 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 READABILITY_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_readability.py'))
-READABILITY_VALIDATE_HOOK = PLUGIN_DIR / 'on_Crawl__00_validate_readability.py'
+READABILITY_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_readability.py'
 TEST_URL = 'https://example.com'
 
 
@@ -101,10 +101,10 @@ def test_reports_missing_dependency_when_not_installed():
         assert 'readability-extractor' in combined or 'BIN_NAME' in combined, "Should mention readability-extractor"
 
 
-def test_readability_validate_hook():
-    """Test readability validate hook checks for readability-extractor binary."""
+def test_readability_install_hook():
+    """Test readability install hook checks for readability-extractor binary."""
     result = subprocess.run(
-        [sys.executable, str(READABILITY_VALIDATE_HOOK)],
+        [sys.executable, str(READABILITY_INSTALL_HOOK)],
         capture_output=True,
         text=True,
         timeout=30
@@ -112,20 +112,20 @@ def test_readability_validate_hook():
 
     # Hook exits 0 if binary found, 1 if not found (with Dependency record)
     if result.returncode == 0:
-        # Binary found - verify InstalledBinary JSONL output
+        # Binary found - verify Binary JSONL output
         found_binary = False
         for line in result.stdout.strip().split('\n'):
             if line.strip():
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'InstalledBinary':
+                    if record.get('type') == 'Binary':
                         assert record['name'] == 'readability-extractor'
                         assert record['abspath']
                         found_binary = True
                         break
                 except json.JSONDecodeError:
                     pass
-        assert found_binary, "Should output InstalledBinary record when binary found"
+        assert found_binary, "Should output Binary record when binary found"
     else:
         # Binary not found - verify Dependency JSONL output
         found_dependency = False
@@ -170,7 +170,7 @@ def test_extracts_article_after_installation():
         # Create example.com HTML for readability to process
         create_example_html(tmpdir)
 
-        # Run readability extraction (should find the installed binary)
+        # Run readability extraction (should find the binary)
         result = subprocess.run(
             [sys.executable, str(READABILITY_HOOK), '--url', TEST_URL, '--snapshot-id', 'test789'],
             cwd=tmpdir,
@@ -181,14 +181,26 @@ def test_extracts_article_after_installation():
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
-        # Verify output directory created
-        readability_dir = tmpdir / 'readability'
-        assert readability_dir.exists(), "Output directory not created"
+        # Parse clean JSONL output
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
 
-        # Verify output files exist
-        html_file = readability_dir / 'content.html'
-        txt_file = readability_dir / 'content.txt'
-        json_file = readability_dir / 'article.json'
+        assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+
+        # Verify output files exist (hook writes to current directory)
+        html_file = tmpdir / 'content.html'
+        txt_file = tmpdir / 'content.txt'
+        json_file = tmpdir / 'article.json'
 
         assert html_file.exists(), "content.html not created"
         assert txt_file.exists(), "content.txt not created"
@@ -211,10 +223,6 @@ def test_extracts_article_after_installation():
         # Verify JSON metadata
         json_data = json.loads(json_file.read_text())
         assert isinstance(json_data, dict), "article.json should be a dict"
-
-        # Verify stdout contains expected output
-        assert 'STATUS=succeeded' in result.stdout, "Should report success"
-        assert 'OUTPUT=readability' in result.stdout, "Should report output directory"
 
 
 def test_fails_gracefully_without_html_source():

@@ -66,9 +66,9 @@ dependencies = [
     { name = "abx-pkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "atomicwrites", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "base32-crockford", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "channels", extra = ["daphne"], marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "croniter", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "daphne", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "dateparser", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "django", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "django-admin-data-views", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -159,9 +159,9 @@ requires-dist = [
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
     { name = "atomicwrites", specifier = "==1.4.1" },
     { name = "base32-crockford", specifier = ">=0.3.0" },
-    { name = "channels", extras = ["daphne"], specifier = ">=4.1.0" },
     { name = "click", specifier = ">=8.1.7" },
     { name = "croniter", specifier = ">=3.0.3" },
+    { name = "daphne", specifier = ">=4.2.0" },
     { name = "dateparser", specifier = ">=1.2.0" },
     { name = "django", specifier = ">=6.0" },
     { name = "django-admin-data-views", specifier = ">=0.4.1" },
@@ -426,24 +426,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/d0/44/681604464ed9541673e486521497406fadcc15b5217c3e326b061696899a/cffi-2.0.0-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:28a3a209b96630bca57cce802da70c266eb08c6e97e5afd61a75611ee6c64592", size = 221584, upload-time = "2025-09-08T23:23:36.096Z" },
     { url = "https://files.pythonhosted.org/packages/25/8e/342a504ff018a2825d395d44d63a767dd8ebc927ebda557fecdaca3ac33a/cffi-2.0.0-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:7553fb2090d71822f02c629afe6042c299edf91ba1bf94951165613553984512", size = 224443, upload-time = "2025-09-08T23:23:37.328Z" },
     { url = "https://files.pythonhosted.org/packages/e1/5e/b666bacbbc60fbf415ba9988324a132c9a7a0448a9a8f125074671c0f2c3/cffi-2.0.0-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:6c6c373cfc5c83a975506110d17457138c8c63016b563cc9ed6e056a82f13ce4", size = 223437, upload-time = "2025-09-08T23:23:38.945Z" },
-]
-
-[[package]]
-name = "channels"
-version = "4.3.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "asgiref", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "django", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/74/92/b18d4bb54d14986a8b35215a1c9e6a7f9f4d57ca63ac9aee8290ebb4957d/channels-4.3.2.tar.gz", hash = "sha256:f2bb6bfb73ad7fb4705041d07613c7b4e69528f01ef8cb9fb6c21d9295f15667", size = 27023, upload-time = "2025-11-20T15:13:05.102Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/16/34/c32915288b7ef482377b6adc401192f98c6a99b3a145423d3b8aed807898/channels-4.3.2-py3-none-any.whl", hash = "sha256:fef47e9055a603900cf16cef85f050d522d9ac4b3daccf24835bd9580705c176", size = 31313, upload-time = "2025-11-20T15:13:02.357Z" },
-]
-
-[package.optional-dependencies]
-daphne = [
-    { name = "daphne", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
 
 [[package]]

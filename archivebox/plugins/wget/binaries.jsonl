@@ -1,0 +1,1 @@
+{"type": "Binary", "name": "wget", "binproviders": "apt,brew,pip,env"}

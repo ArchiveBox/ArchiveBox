@@ -64,16 +64,10 @@ class SnapshotMachine(StateMachine, strict_states=True):
         if self.snapshot.pending_archiveresults().exists():
             return False
 
-        # Check for background hooks that are still running
-        started_results = self.snapshot.archiveresult_set.filter(
-            status=ArchiveResult.StatusChoices.STARTED
-        )
-        for result in started_results:
-            if not result.check_background_completed():
-                return False  # Still running
-
-            # Completed - finalize it
-            result.finalize_background_hook()
+        # Don't wait for background hooks - they'll be cleaned up on entering sealed state
+        # Background hooks in STARTED state are excluded by pending_archiveresults()
+        # (STARTED is in FINAL_OR_ACTIVE_STATES) so once all results are FINAL or ACTIVE,
+        # we can transition to sealed and cleanup() will kill the background hooks
 
         # otherwise archiveresults exist and are all finished, so it's finished
         return True
@@ -108,6 +102,9 @@ class SnapshotMachine(StateMachine, strict_states=True):
 
     @sealed.enter
     def enter_sealed(self):
+        # Clean up background hooks
+        self.snapshot.cleanup()
+
         # Suppressed: state transition logs
         self.snapshot.update_for_workers(
             retry_at=None,

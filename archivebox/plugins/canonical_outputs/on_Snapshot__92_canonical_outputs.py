@@ -39,7 +39,6 @@ import os
 import sys
 import json
 from pathlib import Path
-from datetime import datetime, timezone
 from typing import Dict
 
 import rich_click as click
@@ -143,7 +142,6 @@ def create_canonical_symlinks(snapshot_dir: Path) -> Dict[str, bool]:
 @click.option('--snapshot-id', required=True, help='Snapshot UUID')
 def main(url: str, snapshot_id: str):
     """Create symlinks from plugin outputs to canonical legacy locations."""
-    start_ts = datetime.now(timezone.utc)
     status = 'failed'
     output = None
     error = ''
@@ -171,18 +169,14 @@ def main(url: str, snapshot_id: str):
 
         # Count successful symlinks
         symlinks_created = sum(1 for success in results.values() if success)
-        total_mappings = len(results)
 
         status = 'succeeded'
         output = str(snapshot_dir)
-        click.echo(f'Created {symlinks_created}/{total_mappings} canonical symlinks')
 
     except Exception as e:
         error = f'{type(e).__name__}: {e}'
         status = 'failed'
         click.echo(f'Error: {error}', err=True)
-
-    end_ts = datetime.now(timezone.utc)
 
     # Print JSON result for hook runner
     result = {

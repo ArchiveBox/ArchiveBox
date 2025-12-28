@@ -186,7 +186,7 @@ def discover_outlinks(
 
     # Collect discovered URLs from urls.jsonl files
     # Uses dynamic discovery - any plugin that outputs urls.jsonl is considered a parser
-    from archivebox.hooks import collect_urls_from_extractors
+    from archivebox.hooks import collect_urls_from_plugins
 
     discovered_urls = {}
     for snapshot_id in snapshot_ids:
@@ -195,7 +195,7 @@ def discover_outlinks(
             snapshot_dir = Path(snapshot.output_dir)
 
             # Dynamically collect urls.jsonl from ANY plugin subdirectory
-            for entry in collect_urls_from_extractors(snapshot_dir):
+            for entry in collect_urls_from_plugins(snapshot_dir):
                 url = entry.get('url')
                 if url and url not in discovered_urls:
                     # Add metadata for crawl tracking

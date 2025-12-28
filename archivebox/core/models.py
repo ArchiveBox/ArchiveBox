@@ -24,9 +24,9 @@ from archivebox.misc.system import get_dir_size, atomic_write
 from archivebox.misc.util import parse_date, base_url, domain as url_domain, to_json, ts_to_date_str, urlencode, htmlencode, urldecode
 from archivebox.misc.hashing import get_dir_info
 from archivebox.hooks import (
-    ARCHIVE_METHODS_INDEXING_PRECEDENCE,
-    get_extractors, get_extractor_name, get_extractor_icon,
-    DEFAULT_EXTRACTOR_ICONS,
+    EXTRACTOR_INDEXING_PRECEDENCE,
+    get_plugins, get_plugin_name, get_plugin_icon,
+    DEFAULT_PLUGIN_ICONS,
 )
 from archivebox.base_models.models import (
     ModelWithUUID, ModelWithSerializers, ModelWithOutputDir,
@@ -36,7 +36,7 @@ from archivebox.base_models.models import (
 from workers.models import ModelWithStateMachine
 from workers.tasks import bg_archive_snapshot
 from crawls.models import Crawl
-from machine.models import NetworkInterface, InstalledBinary
+from machine.models import NetworkInterface, Binary
 
 
 
@@ -89,6 +89,31 @@ class Tag(ModelWithSerializers):
     @property
     def api_url(self) -> str:
         return reverse_lazy('api-1:get_tag', args=[self.id])
+
+    @staticmethod
+    def from_jsonl(record: Dict[str, Any], overrides: Dict[str, Any] = None):
+        """
+        Create/update Tag from JSONL record.
+
+        Args:
+            record: JSONL record with 'name' field
+            overrides: Optional dict with 'snapshot' to auto-attach tag
+
+        Returns:
+            Tag instance or None
+        """
+        from archivebox.misc.jsonl import get_or_create_tag
+
+        try:
+            tag = get_or_create_tag(record)
+
+            # Auto-attach to snapshot if in overrides
+            if overrides and 'snapshot' in overrides and tag:
+                overrides['snapshot'].tags.add(tag)
+
+            return tag
+        except ValueError:
+            return None
 
 
 class SnapshotTag(models.Model):
@@ -303,6 +328,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     timestamp = models.CharField(max_length=32, unique=True, db_index=True, editable=False)
     bookmarked_at = models.DateTimeField(default=timezone.now, db_index=True)
     crawl: Crawl = models.ForeignKey(Crawl, on_delete=models.CASCADE, default=None, null=True, blank=True, related_name='snapshot_set', db_index=True)  # type: ignore
+    parent_snapshot = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='child_snapshots', db_index=True, help_text='Parent snapshot that discovered this URL (for recursive crawling)')
 
     title = models.CharField(max_length=512, null=True, blank=True, db_index=True)
     downloaded_at = models.DateTimeField(default=None, null=True, editable=False, db_index=True, blank=True)
@@ -332,6 +358,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         constraints = [
             # Allow same URL in different crawls, but not duplicates within same crawl
             models.UniqueConstraint(fields=['url', 'crawl'], name='unique_url_per_crawl'),
+            # Global timestamp uniqueness for 1:1 symlink mapping
+            models.UniqueConstraint(fields=['timestamp'], name='unique_timestamp'),
         ]
 
     def __str__(self):
@@ -425,34 +453,568 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
     def _fs_migrate_from_0_8_0_to_0_9_0(self):
         """
-        Migrate from flat file structure to organized extractor subdirectories.
+        Migrate from flat to nested structure.
 
-        0.8.x layout (flat):
-            archive/1234567890/
-                index.json
-                index.html
-                screenshot.png
-                warc/archive.warc.gz
-                media/video.mp4
+        0.8.x: archive/{timestamp}/
+        0.9.x: users/{user}/snapshots/YYYYMMDD/{domain}/{uuid}/
 
-        0.9.x layout (organized):
-            archive/{timestamp}/
-                index.json
-                screenshot/
-                    screenshot.png
-                singlefile/
-                    index.html
-                warc/
-                    archive.warc.gz
-                media/
-                    video.mp4
-
-        Note: For now this is a no-op. The actual file reorganization will be
-        implemented when we're ready to do the migration. This placeholder ensures
-        the migration chain is set up correctly.
+        Transaction handling:
+        1. Copy files INSIDE transaction
+        2. Create symlink INSIDE transaction
+        3. Update fs_version INSIDE transaction (done by save())
+        4. Exit transaction (DB commit)
+        5. Delete old files OUTSIDE transaction (after commit)
         """
-        # TODO: Implement actual file reorganization when ready
-        pass
+        import shutil
+        from django.db import transaction
+
+        old_dir = self.get_storage_path_for_version('0.8.0')
+        new_dir = self.get_storage_path_for_version('0.9.0')
+
+        if not old_dir.exists() or old_dir == new_dir or new_dir.exists():
+            return
+
+        new_dir.mkdir(parents=True, exist_ok=True)
+
+        # Copy all files (idempotent)
+        for old_file in old_dir.rglob('*'):
+            if not old_file.is_file():
+                continue
+
+            rel_path = old_file.relative_to(old_dir)
+            new_file = new_dir / rel_path
+
+            # Skip if already copied
+            if new_file.exists() and new_file.stat().st_size == old_file.stat().st_size:
+                continue
+
+            new_file.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(old_file, new_file)
+
+        # Verify all copied
+        old_files = {f.relative_to(old_dir): f.stat().st_size
+                     for f in old_dir.rglob('*') if f.is_file()}
+        new_files = {f.relative_to(new_dir): f.stat().st_size
+                     for f in new_dir.rglob('*') if f.is_file()}
+
+        if old_files.keys() != new_files.keys():
+            missing = old_files.keys() - new_files.keys()
+            raise Exception(f"Migration incomplete: missing {missing}")
+
+        # Create backwards-compat symlink (INSIDE transaction)
+        symlink_path = CONSTANTS.ARCHIVE_DIR / self.timestamp
+        if symlink_path.is_symlink():
+            symlink_path.unlink()
+
+        if not symlink_path.exists() or symlink_path == old_dir:
+            symlink_path.symlink_to(new_dir, target_is_directory=True)
+
+        # Schedule old directory deletion AFTER transaction commits
+        transaction.on_commit(lambda: self._cleanup_old_migration_dir(old_dir))
+
+    def _cleanup_old_migration_dir(self, old_dir: Path):
+        """
+        Delete old directory after successful migration.
+        Called via transaction.on_commit() after DB commit succeeds.
+        """
+        import shutil
+        import logging
+
+        if old_dir.exists() and not old_dir.is_symlink():
+            try:
+                shutil.rmtree(old_dir)
+            except Exception as e:
+                # Log but don't raise - migration succeeded, this is just cleanup
+                logging.getLogger('archivebox.migration').warning(
+                    f"Could not remove old migration directory {old_dir}: {e}"
+                )
+
+    # =========================================================================
+    # Path Calculation and Migration Helpers
+    # =========================================================================
+
+    @staticmethod
+    def extract_domain_from_url(url: str) -> str:
+        """
+        Extract domain from URL for 0.9.x path structure.
+        Uses full hostname with sanitized special chars.
+
+        Examples:
+            https://example.com:8080 → example.com_8080
+            https://sub.example.com → sub.example.com
+            file:///path → localhost
+            data:text/html → data
+        """
+        from urllib.parse import urlparse
+
+        try:
+            parsed = urlparse(url)
+
+            if parsed.scheme in ('http', 'https'):
+                if parsed.port:
+                    return f"{parsed.hostname}_{parsed.port}".replace(':', '_')
+                return parsed.hostname or 'unknown'
+            elif parsed.scheme == 'file':
+                return 'localhost'
+            elif parsed.scheme:
+                return parsed.scheme
+            else:
+                return 'unknown'
+        except Exception:
+            return 'unknown'
+
+    def get_storage_path_for_version(self, version: str) -> Path:
+        """
+        Calculate storage path for specific filesystem version.
+        Centralizes path logic so it's reusable.
+
+        0.7.x/0.8.x: archive/{timestamp}
+        0.9.x: users/{username}/snapshots/YYYYMMDD/{domain}/{uuid}/
+        """
+        from datetime import datetime
+
+        if version in ('0.7.0', '0.8.0'):
+            return CONSTANTS.ARCHIVE_DIR / self.timestamp
+
+        elif version in ('0.9.0', '1.0.0'):
+            username = self.created_by.username if self.created_by else 'unknown'
+
+            # Use created_at for date grouping (fallback to timestamp)
+            if self.created_at:
+                date_str = self.created_at.strftime('%Y%m%d')
+            else:
+                date_str = datetime.fromtimestamp(float(self.timestamp)).strftime('%Y%m%d')
+
+            domain = self.extract_domain_from_url(self.url)
+
+            return (
+                CONSTANTS.DATA_DIR / 'users' / username / 'snapshots' /
+                date_str / domain / str(self.id)
+            )
+        else:
+            # Unknown version - use current
+            return self.get_storage_path_for_version(self._fs_current_version())
+
+    # =========================================================================
+    # Loading and Creation from Filesystem (Used by archivebox update ONLY)
+    # =========================================================================
+
+    @classmethod
+    def load_from_directory(cls, snapshot_dir: Path) -> Optional['Snapshot']:
+        """
+        Load existing Snapshot from DB by reading index.json.
+
+        Reads index.json, extracts url+timestamp, queries DB.
+        Returns existing Snapshot or None if not found/invalid.
+        Does NOT create new snapshots.
+
+        ONLY used by: archivebox update (for orphan detection)
+        """
+        import json
+
+        index_path = snapshot_dir / 'index.json'
+        if not index_path.exists():
+            return None
+
+        try:
+            with open(index_path) as f:
+                data = json.load(f)
+        except:
+            return None
+
+        url = data.get('url')
+        if not url:
+            return None
+
+        # Get timestamp - prefer index.json, fallback to folder name
+        timestamp = cls._select_best_timestamp(
+            index_timestamp=data.get('timestamp'),
+            folder_name=snapshot_dir.name
+        )
+
+        if not timestamp:
+            return None
+
+        # Look up existing
+        try:
+            return cls.objects.get(url=url, timestamp=timestamp)
+        except cls.DoesNotExist:
+            return None
+        except cls.MultipleObjectsReturned:
+            # Should not happen with unique constraint
+            return cls.objects.filter(url=url, timestamp=timestamp).first()
+
+    @classmethod
+    def create_from_directory(cls, snapshot_dir: Path) -> Optional['Snapshot']:
+        """
+        Create new Snapshot from orphaned directory.
+
+        Validates timestamp, ensures uniqueness.
+        Returns new UNSAVED Snapshot or None if invalid.
+
+        ONLY used by: archivebox update (for orphan import)
+        """
+        import json
+
+        index_path = snapshot_dir / 'index.json'
+        if not index_path.exists():
+            return None
+
+        try:
+            with open(index_path) as f:
+                data = json.load(f)
+        except:
+            return None
+
+        url = data.get('url')
+        if not url:
+            return None
+
+        # Get and validate timestamp
+        timestamp = cls._select_best_timestamp(
+            index_timestamp=data.get('timestamp'),
+            folder_name=snapshot_dir.name
+        )
+
+        if not timestamp:
+            return None
+
+        # Ensure uniqueness (reuses existing logic from create_or_update_from_dict)
+        timestamp = cls._ensure_unique_timestamp(url, timestamp)
+
+        # Detect version
+        fs_version = cls._detect_fs_version_from_index(data)
+
+        return cls(
+            url=url,
+            timestamp=timestamp,
+            title=data.get('title', ''),
+            fs_version=fs_version,
+            created_by_id=get_or_create_system_user_pk(),
+        )
+
+    @staticmethod
+    def _select_best_timestamp(index_timestamp: str, folder_name: str) -> Optional[str]:
+        """
+        Select best timestamp from index.json vs folder name.
+
+        Validates range (1995-2035).
+        Prefers index.json if valid.
+        """
+        def is_valid_timestamp(ts):
+            try:
+                ts_int = int(float(ts))
+                # 1995-01-01 to 2035-12-31
+                return 788918400 <= ts_int <= 2082758400
+            except:
+                return False
+
+        index_valid = is_valid_timestamp(index_timestamp) if index_timestamp else False
+        folder_valid = is_valid_timestamp(folder_name)
+
+        if index_valid:
+            return str(int(float(index_timestamp)))
+        elif folder_valid:
+            return str(int(float(folder_name)))
+        else:
+            return None
+
+    @classmethod
+    def _ensure_unique_timestamp(cls, url: str, timestamp: str) -> str:
+        """
+        Ensure timestamp is globally unique.
+        If collision with different URL, increment by 1 until unique.
+
+        NOTE: Logic already exists in create_or_update_from_dict (line 266-267)
+        This is just an extracted, reusable version.
+        """
+        while cls.objects.filter(timestamp=timestamp).exclude(url=url).exists():
+            timestamp = str(int(float(timestamp)) + 1)
+        return timestamp
+
+    @staticmethod
+    def _detect_fs_version_from_index(data: dict) -> str:
+        """
+        Detect fs_version from index.json structure.
+
+        - Has fs_version field: use it
+        - Has history dict: 0.7.0
+        - Has archive_results list: 0.8.0
+        - Default: 0.7.0
+        """
+        if 'fs_version' in data:
+            return data['fs_version']
+        if 'history' in data and 'archive_results' not in data:
+            return '0.7.0'
+        if 'archive_results' in data:
+            return '0.8.0'
+        return '0.7.0'
+
+    # =========================================================================
+    # Index.json Reconciliation
+    # =========================================================================
+
+    def reconcile_with_index_json(self):
+        """
+        Merge index.json with DB. DB is source of truth.
+
+        - Title: longest non-URL
+        - Tags: union
+        - ArchiveResults: keep both (by plugin+start_ts)
+
+        Writes back in 0.9.x format.
+
+        Used by: archivebox update (to sync index.json with DB)
+        """
+        import json
+
+        index_path = Path(self.output_dir) / 'index.json'
+
+        index_data = {}
+        if index_path.exists():
+            try:
+                with open(index_path) as f:
+                    index_data = json.load(f)
+            except:
+                pass
+
+        # Merge title
+        self._merge_title_from_index(index_data)
+
+        # Merge tags
+        self._merge_tags_from_index(index_data)
+
+        # Merge ArchiveResults
+        self._merge_archive_results_from_index(index_data)
+
+        # Write back
+        self.write_index_json()
+
+    def _merge_title_from_index(self, index_data: dict):
+        """Merge title - prefer longest non-URL title."""
+        index_title = index_data.get('title', '').strip()
+        db_title = self.title or ''
+
+        candidates = [t for t in [index_title, db_title] if t and t != self.url]
+        if candidates:
+            best_title = max(candidates, key=len)
+            if self.title != best_title:
+                self.title = best_title
+
+    def _merge_tags_from_index(self, index_data: dict):
+        """Merge tags - union of both sources."""
+        from django.db import transaction
+
+        index_tags = set(index_data.get('tags', '').split(',')) if index_data.get('tags') else set()
+        index_tags = {t.strip() for t in index_tags if t.strip()}
+
+        db_tags = set(self.tags.values_list('name', flat=True))
+
+        new_tags = index_tags - db_tags
+        if new_tags:
+            with transaction.atomic():
+                for tag_name in new_tags:
+                    tag, _ = Tag.objects.get_or_create(name=tag_name)
+                    self.tags.add(tag)
+
+    def _merge_archive_results_from_index(self, index_data: dict):
+        """Merge ArchiveResults - keep both (by plugin+start_ts)."""
+        existing = {
+            (ar.plugin, ar.start_ts): ar
+            for ar in ArchiveResult.objects.filter(snapshot=self)
+        }
+
+        # Handle 0.8.x format (archive_results list)
+        for result_data in index_data.get('archive_results', []):
+            self._create_archive_result_if_missing(result_data, existing)
+
+        # Handle 0.7.x format (history dict)
+        if 'history' in index_data and isinstance(index_data['history'], dict):
+            for plugin, result_list in index_data['history'].items():
+                if isinstance(result_list, list):
+                    for result_data in result_list:
+                        # Support both old 'extractor' and new 'plugin' keys for backwards compat
+                        result_data['plugin'] = result_data.get('plugin') or result_data.get('extractor') or plugin
+                        self._create_archive_result_if_missing(result_data, existing)
+
+    def _create_archive_result_if_missing(self, result_data: dict, existing: dict):
+        """Create ArchiveResult if not already in DB."""
+        from dateutil import parser
+
+        # Support both old 'extractor' and new 'plugin' keys for backwards compat
+        plugin = result_data.get('plugin') or result_data.get('extractor', '')
+        if not plugin:
+            return
+
+        start_ts = None
+        if result_data.get('start_ts'):
+            try:
+                start_ts = parser.parse(result_data['start_ts'])
+            except:
+                pass
+
+        if (plugin, start_ts) in existing:
+            return
+
+        try:
+            end_ts = None
+            if result_data.get('end_ts'):
+                try:
+                    end_ts = parser.parse(result_data['end_ts'])
+                except:
+                    pass
+
+            ArchiveResult.objects.create(
+                snapshot=self,
+                plugin=plugin,
+                status=result_data.get('status', 'failed'),
+                output_str=result_data.get('output', ''),
+                cmd=result_data.get('cmd', []),
+                pwd=result_data.get('pwd', str(self.output_dir)),
+                start_ts=start_ts,
+                end_ts=end_ts,
+                created_by=self.created_by,
+            )
+        except:
+            pass
+
+    def write_index_json(self):
+        """Write index.json in 0.9.x format."""
+        import json
+
+        index_path = Path(self.output_dir) / 'index.json'
+
+        data = {
+            'url': self.url,
+            'timestamp': self.timestamp,
+            'title': self.title or '',
+            'tags': ','.join(sorted(self.tags.values_list('name', flat=True))),
+            'fs_version': self.fs_version,
+            'bookmarked_at': self.bookmarked_at.isoformat() if self.bookmarked_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'archive_results': [
+                {
+                    'plugin': ar.plugin,
+                    'status': ar.status,
+                    'start_ts': ar.start_ts.isoformat() if ar.start_ts else None,
+                    'end_ts': ar.end_ts.isoformat() if ar.end_ts else None,
+                    'output': ar.output_str or '',
+                    'cmd': ar.cmd if isinstance(ar.cmd, list) else [],
+                    'pwd': ar.pwd,
+                }
+                for ar in ArchiveResult.objects.filter(snapshot=self).order_by('start_ts')
+            ],
+        }
+
+        index_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(index_path, 'w') as f:
+            json.dump(data, f, indent=2, sort_keys=True)
+
+    # =========================================================================
+    # Snapshot Utilities
+    # =========================================================================
+
+    @staticmethod
+    def move_directory_to_invalid(snapshot_dir: Path):
+        """
+        Move invalid directory to data/invalid/YYYYMMDD/.
+
+        Used by: archivebox update (when encountering invalid directories)
+        """
+        from datetime import datetime
+        import shutil
+
+        invalid_dir = CONSTANTS.DATA_DIR / 'invalid' / datetime.now().strftime('%Y%m%d')
+        invalid_dir.mkdir(parents=True, exist_ok=True)
+
+        dest = invalid_dir / snapshot_dir.name
+        counter = 1
+        while dest.exists():
+            dest = invalid_dir / f"{snapshot_dir.name}_{counter}"
+            counter += 1
+
+        try:
+            shutil.move(str(snapshot_dir), str(dest))
+        except:
+            pass
+
+    @classmethod
+    def find_and_merge_duplicates(cls) -> int:
+        """
+        Find and merge snapshots with same url:timestamp.
+        Returns count of duplicate sets merged.
+
+        Used by: archivebox update (Phase 3: deduplication)
+        """
+        from django.db.models import Count
+
+        duplicates = (
+            cls.objects
+            .values('url', 'timestamp')
+            .annotate(count=Count('id'))
+            .filter(count__gt=1)
+        )
+
+        merged = 0
+        for dup in duplicates.iterator():
+            snapshots = list(
+                cls.objects
+                .filter(url=dup['url'], timestamp=dup['timestamp'])
+                .order_by('created_at')  # Keep oldest
+            )
+
+            if len(snapshots) > 1:
+                try:
+                    cls._merge_snapshots(snapshots)
+                    merged += 1
+                except:
+                    pass
+
+        return merged
+
+    @classmethod
+    def _merge_snapshots(cls, snapshots: list['Snapshot']):
+        """
+        Merge exact duplicates.
+        Keep oldest, union files + ArchiveResults.
+        """
+        import shutil
+
+        keeper = snapshots[0]
+        duplicates = snapshots[1:]
+
+        keeper_dir = Path(keeper.output_dir)
+
+        for dup in duplicates:
+            dup_dir = Path(dup.output_dir)
+
+            # Merge files
+            if dup_dir.exists() and dup_dir != keeper_dir:
+                for dup_file in dup_dir.rglob('*'):
+                    if not dup_file.is_file():
+                        continue
+
+                    rel = dup_file.relative_to(dup_dir)
+                    keeper_file = keeper_dir / rel
+
+                    if not keeper_file.exists():
+                        keeper_file.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(dup_file, keeper_file)
+
+                try:
+                    shutil.rmtree(dup_dir)
+                except:
+                    pass
+
+            # Merge tags
+            for tag in dup.tags.all():
+                keeper.tags.add(tag)
+
+            # Move ArchiveResults
+            ArchiveResult.objects.filter(snapshot=dup).update(snapshot=keeper)
+
+            # Delete
+            dup.delete()
 
     # =========================================================================
     # Output Directory Properties
@@ -485,11 +1047,11 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         def calc_icons():
             if hasattr(self, '_prefetched_objects_cache') and 'archiveresult_set' in self._prefetched_objects_cache:
-                archive_results = {r.extractor: r for r in self.archiveresult_set.all() if r.status == "succeeded" and (r.output_files or r.output_str)}
+                archive_results = {r.plugin: r for r in self.archiveresult_set.all() if r.status == "succeeded" and (r.output_files or r.output_str)}
             else:
                 # Filter for results that have either output_files or output_str
                 from django.db.models import Q
-                archive_results = {r.extractor: r for r in self.archiveresult_set.filter(
+                archive_results = {r.plugin: r for r in self.archiveresult_set.filter(
                     Q(status="succeeded") & (Q(output_files__isnull=False) | ~Q(output_str=''))
                 )}
 
@@ -498,19 +1060,19 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             output = ""
             output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{}</a> &nbsp;'
 
-            # Get all extractors from hooks system (sorted by numeric prefix)
-            all_extractors = [get_extractor_name(e) for e in get_extractors()]
+            # Get all plugins from hooks system (sorted by numeric prefix)
+            all_plugins = [get_plugin_name(e) for e in get_plugins()]
 
-            for extractor in all_extractors:
-                result = archive_results.get(extractor)
+            for plugin in all_plugins:
+                result = archive_results.get(plugin)
                 existing = result and result.status == 'succeeded' and (result.output_files or result.output_str)
-                icon = get_extractor_icon(extractor)
+                icon = get_plugin_icon(plugin)
                 output += format_html(
                     output_template,
                     path,
-                    canon.get(extractor, extractor + '/'),
+                    canon.get(plugin, plugin + '/'),
                     str(bool(existing)),
-                    extractor,
+                    plugin,
                     icon
                 )
 
@@ -538,7 +1100,21 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     @cached_property
     def output_dir(self):
         """The filesystem path to the snapshot's output directory."""
-        return str(CONSTANTS.ARCHIVE_DIR / self.timestamp)
+        import os
+
+        current_path = self.get_storage_path_for_version(self.fs_version)
+
+        if current_path.exists():
+            return str(current_path)
+
+        # Check for backwards-compat symlink
+        old_path = CONSTANTS.ARCHIVE_DIR / self.timestamp
+        if old_path.is_symlink():
+            return str(Path(os.readlink(old_path)).resolve())
+        elif old_path.exists():
+            return str(old_path)
+
+        return str(current_path)
 
     @cached_property
     def archive_path(self):
@@ -567,24 +1143,121 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         """
         return self.create_pending_archiveresults()
 
+    def cleanup(self):
+        """
+        Clean up background ArchiveResult hooks.
+
+        Called by the state machine when entering the 'sealed' state.
+        Kills any background hooks and finalizes their ArchiveResults.
+        """
+        from pathlib import Path
+        from archivebox.hooks import kill_process
+
+        # Kill any background ArchiveResult hooks
+        if not self.OUTPUT_DIR.exists():
+            return
+
+        for plugin_dir in self.OUTPUT_DIR.iterdir():
+            if not plugin_dir.is_dir():
+                continue
+            pid_file = plugin_dir / 'hook.pid'
+            if pid_file.exists():
+                kill_process(pid_file)
+
+                # Update the ArchiveResult from filesystem
+                plugin_name = plugin_dir.name
+                results = self.archiveresult_set.filter(
+                    status=ArchiveResult.StatusChoices.STARTED,
+                    pwd__contains=plugin_name
+                )
+                for ar in results:
+                    ar.update_from_output()
+
+    def has_running_background_hooks(self) -> bool:
+        """
+        Check if any ArchiveResult background hooks are still running.
+
+        Used by state machine to determine if snapshot is finished.
+        """
+        from archivebox.hooks import process_is_alive
+
+        if not self.OUTPUT_DIR.exists():
+            return False
+
+        for plugin_dir in self.OUTPUT_DIR.iterdir():
+            if not plugin_dir.is_dir():
+                continue
+            pid_file = plugin_dir / 'hook.pid'
+            if process_is_alive(pid_file):
+                return True
+
+        return False
+
+    @staticmethod
+    def from_jsonl(record: Dict[str, Any], overrides: Dict[str, Any] = None):
+        """
+        Create/update Snapshot from JSONL record.
+
+        Args:
+            record: JSONL record with 'url' field and optional metadata
+            overrides: Dict with 'crawl', 'snapshot' (parent), 'created_by_id'
+
+        Returns:
+            Snapshot instance or None
+
+        Note:
+            Filtering (depth, URL allowlist/denylist) should be done by caller
+            BEFORE calling this method. This method just creates the snapshot.
+        """
+        from archivebox.misc.jsonl import get_or_create_snapshot
+        from django.utils import timezone
+
+        overrides = overrides or {}
+        url = record.get('url')
+        if not url:
+            return None
+
+        # Apply crawl context metadata
+        crawl = overrides.get('crawl')
+        snapshot = overrides.get('snapshot')  # Parent snapshot
+
+        if crawl:
+            record.setdefault('crawl_id', str(crawl.id))
+            record.setdefault('depth', (snapshot.depth + 1 if snapshot else 1))
+            if snapshot:
+                record.setdefault('parent_snapshot_id', str(snapshot.id))
+
+        try:
+            created_by_id = overrides.get('created_by_id') or (snapshot.created_by_id if snapshot else None)
+            new_snapshot = get_or_create_snapshot(record, created_by_id=created_by_id)
+
+            # Queue for extraction
+            new_snapshot.status = Snapshot.StatusChoices.QUEUED
+            new_snapshot.retry_at = timezone.now()
+            new_snapshot.save()
+
+            return new_snapshot
+        except ValueError:
+            return None
+
     def create_pending_archiveresults(self) -> list['ArchiveResult']:
         """
-        Create ArchiveResult records for all enabled extractors.
-        
-        Uses the hooks system to discover available extractors from:
+        Create ArchiveResult records for all enabled plugins.
+
+        Uses the hooks system to discover available plugins from:
         - archivebox/plugins/*/on_Snapshot__*.{py,sh,js}
         - data/plugins/*/on_Snapshot__*.{py,sh,js}
         """
-        from archivebox.hooks import get_enabled_extractors
-        
-        extractors = get_enabled_extractors()
+        from archivebox.hooks import get_enabled_plugins
+
+        plugins = get_enabled_plugins()
         archiveresults = []
-        
-        for extractor in extractors:
-            if ArchiveResult.objects.filter(snapshot=self, extractor=extractor).exists():
+
+        for plugin in plugins:
+            if ArchiveResult.objects.filter(snapshot=self, plugin=plugin).exists():
                 continue
             archiveresult, _ = ArchiveResult.objects.get_or_create(
-                snapshot=self, extractor=extractor,
+                snapshot=self, plugin=plugin,
                 defaults={
                     'status': ArchiveResult.INITIAL_STATE,
                     'retry_at': timezone.now(),
@@ -602,12 +1275,12 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         This enables seamless retry of the entire extraction pipeline:
         - Resets FAILED and SKIPPED results to QUEUED
         - Sets retry_at so workers pick them up
-        - Extractors run in order (numeric prefix)
-        - Each extractor checks its dependencies at runtime
+        - Plugins run in order (numeric prefix)
+        - Each plugin checks its dependencies at runtime
 
         Dependency handling (e.g., chrome_session → screenshot):
-        - Extractors check if required outputs exist before running
-        - If dependency output missing → extractor returns 'skipped'
+        - Plugins check if required outputs exist before running
+        - If dependency output missing → plugin returns 'skipped'
         - On retry, if dependency now succeeds → dependent can run
 
         Returns count of ArchiveResults reset.
@@ -736,7 +1409,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
     def canonical_outputs(self) -> Dict[str, Optional[str]]:
         """
-        Intelligently discover the best output file for each extractor.
+        Intelligently discover the best output file for each plugin.
         Uses actual ArchiveResult data and filesystem scanning with smart heuristics.
         """
         FAVICON_PROVIDER = 'https://www.google.com/s2/favicons?domain={}'
@@ -751,16 +1424,16 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         MIN_DISPLAY_SIZE = 15_000  # 15KB - filter out tiny files
         MAX_SCAN_FILES = 50  # Don't scan massive directories
 
-        def find_best_output_in_dir(dir_path: Path, extractor_name: str) -> Optional[str]:
-            """Find the best representative file in an extractor's output directory"""
+        def find_best_output_in_dir(dir_path: Path, plugin_name: str) -> Optional[str]:
+            """Find the best representative file in a plugin's output directory"""
             if not dir_path.exists() or not dir_path.is_dir():
                 return None
 
             candidates = []
             file_count = 0
 
-            # Special handling for media extractor - look for thumbnails
-            is_media_dir = extractor_name == 'media'
+            # Special handling for media plugin - look for thumbnails
+            is_media_dir = plugin_name == 'media'
 
             # Scan for suitable files
             for file_path in dir_path.rglob('*'):
@@ -832,26 +1505,26 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             if not result.output_files and not result.output_str:
                 continue
 
-            # Try to find the best output file for this extractor
-            extractor_dir = snap_dir / result.extractor
+            # Try to find the best output file for this plugin
+            plugin_dir = snap_dir / result.plugin
             best_output = None
 
             # Check output_files first (new field)
             if result.output_files:
                 first_file = next(iter(result.output_files.keys()), None)
-                if first_file and (extractor_dir / first_file).exists():
-                    best_output = f'{result.extractor}/{first_file}'
+                if first_file and (plugin_dir / first_file).exists():
+                    best_output = f'{result.plugin}/{first_file}'
 
             # Fallback to output_str if it looks like a path
             if not best_output and result.output_str and (snap_dir / result.output_str).exists():
                 best_output = result.output_str
 
-            if not best_output and extractor_dir.exists():
-                # Intelligently find the best file in the extractor's directory
-                best_output = find_best_output_in_dir(extractor_dir, result.extractor)
+            if not best_output and plugin_dir.exists():
+                # Intelligently find the best file in the plugin's directory
+                best_output = find_best_output_in_dir(plugin_dir, result.plugin)
 
             if best_output:
-                canonical[f'{result.extractor}_path'] = best_output
+                canonical[f'{result.plugin}_path'] = best_output
 
         # Also scan top-level for legacy outputs (backwards compatibility)
         for file_path in snap_dir.glob('*'):
@@ -882,20 +1555,20 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         return canonical
 
     def latest_outputs(self, status: Optional[str] = None) -> Dict[str, Any]:
-        """Get the latest output that each archive method produced"""
-        from archivebox.hooks import get_extractors
+        """Get the latest output that each plugin produced"""
+        from archivebox.hooks import get_plugins
         from django.db.models import Q
 
         latest: Dict[str, Any] = {}
-        for archive_method in get_extractors():
-            results = self.archiveresult_set.filter(extractor=archive_method)
+        for plugin in get_plugins():
+            results = self.archiveresult_set.filter(plugin=plugin)
             if status is not None:
                 results = results.filter(status=status)
             # Filter for results with output_files or output_str
             results = results.filter(Q(output_files__isnull=False) | ~Q(output_str='')).order_by('-start_ts')
             result = results.first()
             # Return embed_path() for backwards compatibility
-            latest[archive_method] = result.embed_path() if result else None
+            latest[plugin] = result.embed_path() if result else None
         return latest
 
     # =========================================================================
@@ -997,10 +1670,10 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
 class ArchiveResultManager(models.Manager):
     def indexable(self, sorted: bool = True):
-        INDEXABLE_METHODS = [r[0] for r in ARCHIVE_METHODS_INDEXING_PRECEDENCE]
-        qs = self.get_queryset().filter(extractor__in=INDEXABLE_METHODS, status='succeeded')
+        INDEXABLE_METHODS = [r[0] for r in EXTRACTOR_INDEXING_PRECEDENCE]
+        qs = self.get_queryset().filter(plugin__in=INDEXABLE_METHODS, status='succeeded')
         if sorted:
-            precedence = [When(extractor=method, then=Value(p)) for method, p in ARCHIVE_METHODS_INDEXING_PRECEDENCE]
+            precedence = [When(plugin=method, then=Value(p)) for method, p in EXTRACTOR_INDEXING_PRECEDENCE]
             qs = qs.annotate(indexing_precedence=Case(*precedence, default=Value(1000), output_field=IntegerField())).order_by('indexing_precedence')
         return qs
 
@@ -1015,10 +1688,10 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         SKIPPED = 'skipped', 'Skipped'
 
     @classmethod
-    def get_extractor_choices(cls):
-        """Get extractor choices from discovered hooks (for forms/admin)."""
-        extractors = [get_extractor_name(e) for e in get_extractors()]
-        return tuple((e, e) for e in extractors)
+    def get_plugin_choices(cls):
+        """Get plugin choices from discovered hooks (for forms/admin)."""
+        plugins = [get_plugin_name(e) for e in get_plugins()]
+        return tuple((e, e) for e in plugins)
 
     # Keep AutoField for backward compatibility with 0.7.x databases
     # UUID field is added separately by migration for new records
@@ -1031,8 +1704,9 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     modified_at = models.DateTimeField(auto_now=True)
 
     snapshot: Snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)  # type: ignore
-    # No choices= constraint - extractor names come from plugin system and can be any string
-    extractor = models.CharField(max_length=32, blank=False, null=False, db_index=True)
+    # No choices= constraint - plugin names come from plugin system and can be any string
+    plugin = models.CharField(max_length=32, blank=False, null=False, db_index=True)
+    hook_name = models.CharField(max_length=255, blank=True, default='', db_index=True, help_text='Full filename of the hook that executed (e.g., on_Snapshot__50_wget.py)')
     pwd = models.CharField(max_length=256, default=None, null=True, blank=True)
     cmd = models.JSONField(default=None, null=True, blank=True)
     cmd_version = models.CharField(max_length=128, default=None, null=True, blank=True)
@@ -1046,7 +1720,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
     # Binary FK (optional - set when hook reports cmd)
     binary = models.ForeignKey(
-        'machine.InstalledBinary',
+        'machine.Binary',
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name='archiveresults',
@@ -1074,7 +1748,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         verbose_name_plural = 'Archive Results Log'
 
     def __str__(self):
-        return f'[{self.id}] {self.snapshot.url[:64]} -> {self.extractor}'
+        return f'[{self.id}] {self.snapshot.url[:64]} -> {self.plugin}'
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
@@ -1088,7 +1762,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
                 worker_type='DB',
                 event='Created ArchiveResult',
                 indent_level=3,
-                extractor=self.extractor,
+                plugin=self.plugin,
                 metadata={
                     'id': str(self.id),
                     'snapshot_id': str(self.snapshot_id),
@@ -1110,52 +1784,52 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         return reverse_lazy('api-1:get_archiveresult', args=[self.id])
 
     def get_absolute_url(self):
-        return f'/{self.snapshot.archive_path}/{self.extractor}'
+        return f'/{self.snapshot.archive_path}/{self.plugin}'
 
     @property
-    def extractor_module(self) -> Any | None:
-        # Hook scripts are now used instead of Python extractor modules
-        # The extractor name maps to hooks in archivebox/plugins/{extractor}/
+    def plugin_module(self) -> Any | None:
+        # Hook scripts are now used instead of Python plugin modules
+        # The plugin name maps to hooks in archivebox/plugins/{plugin}/
         return None
 
     def output_exists(self) -> bool:
-        return os.path.exists(Path(self.snapshot_dir) / self.extractor)
+        return os.path.exists(Path(self.snapshot_dir) / self.plugin)
 
     def embed_path(self) -> Optional[str]:
         """
         Get the relative path to the embeddable output file for this result.
 
         Returns the first file from output_files if set, otherwise tries to
-        find a reasonable default based on the extractor type.
+        find a reasonable default based on the plugin type.
         """
         # Check output_files dict for primary output
         if self.output_files:
             # Return first file from output_files (dict preserves insertion order)
             first_file = next(iter(self.output_files.keys()), None)
             if first_file:
-                return f'{self.extractor}/{first_file}'
+                return f'{self.plugin}/{first_file}'
 
         # Fallback: check output_str if it looks like a file path
         if self.output_str and ('/' in self.output_str or '.' in self.output_str):
             return self.output_str
 
-        # Try to find output file based on extractor's canonical output path
+        # Try to find output file based on plugin's canonical output path
         canonical = self.snapshot.canonical_outputs()
-        extractor_key = f'{self.extractor}_path'
-        if extractor_key in canonical:
-            return canonical[extractor_key]
+        plugin_key = f'{self.plugin}_path'
+        if plugin_key in canonical:
+            return canonical[plugin_key]
 
-        # Fallback to extractor directory
-        return f'{self.extractor}/'
+        # Fallback to plugin directory
+        return f'{self.plugin}/'
 
     def create_output_dir(self):
-        output_dir = Path(self.snapshot_dir) / self.extractor
+        output_dir = Path(self.snapshot_dir) / self.plugin
         output_dir.mkdir(parents=True, exist_ok=True)
         return output_dir
 
     @property
     def output_dir_name(self) -> str:
-        return self.extractor
+        return self.plugin
 
     @property
     def output_dir_parent(self) -> str:
@@ -1166,9 +1840,9 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
     def run(self):
         """
-        Execute this ArchiveResult's extractor and update status.
+        Execute this ArchiveResult's plugin and update status.
 
-        Discovers and runs the hook script for self.extractor,
+        Discovers and runs the hook script for self.plugin,
         updates status/output fields, queues discovered URLs, and triggers indexing.
         """
         from django.utils import timezone
@@ -1176,181 +1850,233 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
         config_objects = [self.snapshot.crawl, self.snapshot] if self.snapshot.crawl else [self.snapshot]
 
-        # Find hook for this extractor
-        hook = None
+        # Find ALL hooks for this plugin
+        # plugin = plugin name (e.g., 'chrome')
+        # Each plugin can have multiple hooks that run in sequence
+        hooks = []
         for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
             if not base_dir.exists():
                 continue
-            matches = list(base_dir.glob(f'*/on_Snapshot__{self.extractor}.*'))
-            if matches:
-                hook = matches[0]
-                break
+            plugin_dir = base_dir / self.plugin
+            if plugin_dir.exists():
+                matches = list(plugin_dir.glob('on_Snapshot__*.*'))
+                if matches:
+                    # Sort by name for deterministic order (numeric prefix controls execution order)
+                    hooks.extend(sorted(matches))
 
-        if not hook:
+        if not hooks:
             self.status = self.StatusChoices.FAILED
-            self.output_str = f'No hook found for: {self.extractor}'
+            self.output_str = f'No hooks found for plugin: {self.plugin}'
             self.retry_at = None
             self.save()
             return
 
-        # Use plugin directory name instead of extractor name (removes numeric prefix)
-        plugin_name = hook.parent.name
-        extractor_dir = Path(self.snapshot.output_dir) / plugin_name
+        # plugin field contains plugin name
+        plugin_dir = Path(self.snapshot.output_dir) / self.plugin
 
-        # Run the hook
+        # Run ALL hooks in the plugin sequentially
         start_ts = timezone.now()
-        result = run_hook(
-            hook,
-            output_dir=extractor_dir,
-            config_objects=config_objects,
-            url=self.snapshot.url,
-            snapshot_id=str(self.snapshot.id),
-        )
+        has_background_hook = False
 
-        # BACKGROUND HOOK - still running, return immediately
-        if result is None:
+        for hook in hooks:
+            result = run_hook(
+                hook,
+                output_dir=plugin_dir,
+                config_objects=config_objects,
+                url=self.snapshot.url,
+                snapshot_id=str(self.snapshot.id),
+                crawl_id=str(self.snapshot.crawl.id) if self.snapshot.crawl else None,
+                depth=self.snapshot.depth,
+            )
+
+            # If any hook is background, mark this ArchiveResult as started
+            if result is None:
+                has_background_hook = True
+
+        # Update status based on hook execution
+        if has_background_hook:
+            # BACKGROUND HOOK(S) - still running, return immediately
             self.status = self.StatusChoices.STARTED
             self.start_ts = start_ts
-            self.pwd = str(extractor_dir)
+            self.pwd = str(plugin_dir)
             self.save()
             return
 
-        end_ts = timezone.now()
-
-        # Get records from hook output (new JSONL format)
-        records = result.get('records', [])
+        # ALL FOREGROUND HOOKS - completed, update from filesystem
+        self.start_ts = start_ts
+        self.pwd = str(plugin_dir)
+        self.update_from_output()
 
         # Clean up empty output directory if no files were created
-        output_files = result.get('output_files', [])
-        if not output_files and extractor_dir.exists():
+        if plugin_dir.exists() and not self.output_files:
             try:
                 # Only remove if directory is completely empty
-                if not any(extractor_dir.iterdir()):
-                    extractor_dir.rmdir()
+                if not any(plugin_dir.iterdir()):
+                    plugin_dir.rmdir()
             except (OSError, RuntimeError):
                 pass  # Directory not empty or can't be removed, that's fine
 
-        # Find the ArchiveResult record from hook output (if any)
+    def update_from_output(self):
+        """
+        Update this ArchiveResult from filesystem logs and output files.
+
+        Used for:
+        - Foreground hooks that completed (called from ArchiveResult.run())
+        - Background hooks that completed (called from Snapshot.cleanup())
+
+        Updates:
+        - status, output_str, output_json from ArchiveResult JSONL record
+        - output_files, output_size, output_mimetypes by walking filesystem
+        - end_ts, retry_at, cmd, cmd_version, binary FK
+        - Processes side-effect records (Snapshot, Tag, etc.) via process_hook_records()
+        """
+        import json
+        import mimetypes
+        from collections import defaultdict
+        from pathlib import Path
+        from django.utils import timezone
+        from archivebox.hooks import process_hook_records
+
+        plugin_dir = Path(self.pwd) if self.pwd else None
+        if not plugin_dir or not plugin_dir.exists():
+            self.status = self.StatusChoices.FAILED
+            self.output_str = 'Output directory not found'
+            self.end_ts = timezone.now()
+            self.retry_at = None
+            self.save()
+            return
+
+        # Read and parse JSONL output from stdout.log
+        stdout_file = plugin_dir / 'stdout.log'
+        stdout = stdout_file.read_text() if stdout_file.exists() else ''
+
+        records = []
+        for line in stdout.splitlines():
+            if line.strip() and line.strip().startswith('{'):
+                try:
+                    records.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+
+        # Find ArchiveResult record and update status/output from it
         ar_records = [r for r in records if r.get('type') == 'ArchiveResult']
-        output_json = result.get('output_json') or {}
-
-        # Determine status from records, output_json, or return code
-        if ar_records:
-            # Use status from first ArchiveResult record
-            hook_data = ar_records[0]
-            status = hook_data.get('status', 'failed')
-        elif output_json.get('status'):
-            status = output_json['status']
-        elif result['returncode'] == 0:
-            status = 'succeeded'
-        else:
-            status = 'failed'
-
-        # Update self from result
-        status_map = {
-            'succeeded': self.StatusChoices.SUCCEEDED,
-            'failed': self.StatusChoices.FAILED,
-            'skipped': self.StatusChoices.SKIPPED,
-        }
-        self.status = status_map.get(status, self.StatusChoices.FAILED)
-
-        # Set output fields from records or output_json
         if ar_records:
             hook_data = ar_records[0]
+
+            # Update status
+            status_map = {
+                'succeeded': self.StatusChoices.SUCCEEDED,
+                'failed': self.StatusChoices.FAILED,
+                'skipped': self.StatusChoices.SKIPPED,
+            }
+            self.status = status_map.get(hook_data.get('status', 'failed'), self.StatusChoices.FAILED)
+
+            # Update output fields
             self.output_str = hook_data.get('output_str') or hook_data.get('output') or ''
             self.output_json = hook_data.get('output_json')
-            # Set cmd from JSONL record
+
+            # Update cmd fields
             if hook_data.get('cmd'):
                 self.cmd = hook_data['cmd']
                 self._set_binary_from_cmd(hook_data['cmd'])
             if hook_data.get('cmd_version'):
                 self.cmd_version = hook_data['cmd_version'][:128]
         else:
-            # Fallback to legacy output_json format
-            self.output_str = output_json.get('output_str') or output_json.get('output') or result['stdout'][:1024] or result['stderr'][:1024] or ''
-            self.output_json = output_json.get('output_json') if output_json.get('output_json') else None
-            if output_json.get('cmd_version'):
-                self.cmd_version = output_json['cmd_version'][:128]
-            if output_json.get('cmd'):
-                self.cmd = output_json['cmd']
-                self._set_binary_from_cmd(output_json['cmd'])
+            # No ArchiveResult record = failed
+            self.status = self.StatusChoices.FAILED
+            self.output_str = 'Hook did not output ArchiveResult record'
 
-        self.start_ts = start_ts
-        self.end_ts = end_ts
-        self.retry_at = None
-        self.pwd = str(extractor_dir)
-
-        # Populate output_files, output_size, output_mimetypes from filesystem
-        if extractor_dir.exists():
-            self._populate_output_fields(extractor_dir)
-
-        self.save()
-
-        # Process side-effect records (InstalledBinary, Machine config, etc.)
-        from archivebox.hooks import create_model_record
-        for record in records:
-            if record.get('type') != 'ArchiveResult':
-                create_model_record(record.copy())  # Copy to avoid mutating original
-
-        # Queue any discovered URLs for crawling (parser extractors write urls.jsonl)
-        self._queue_urls_for_crawl(extractor_dir)
-
-        # Update snapshot title if this is the title extractor
-        # Check both old numeric name and new plugin name for compatibility
-        extractor_name = get_extractor_name(self.extractor)
-        if self.status == self.StatusChoices.SUCCEEDED and extractor_name == 'title':
-            self._update_snapshot_title(extractor_dir)
-
-        # Trigger search indexing if succeeded
-        if self.status == self.StatusChoices.SUCCEEDED:
-            self.trigger_search_indexing()
-
-    def _populate_output_fields(self, output_dir: Path) -> None:
-        """
-        Walk output directory and populate output_files, output_size, output_mimetypes.
-        """
-        import mimetypes
-        from collections import defaultdict
-
+        # Walk filesystem and populate output_files, output_size, output_mimetypes
         exclude_names = {'stdout.log', 'stderr.log', 'hook.pid', 'listener.pid'}
-
-        # Track mimetypes and sizes for aggregation
         mime_sizes = defaultdict(int)
         total_size = 0
-        output_files = {}  # Dict keyed by relative path
+        output_files = {}
 
-        for file_path in output_dir.rglob('*'):
-            # Skip non-files and infrastructure files
+        for file_path in plugin_dir.rglob('*'):
             if not file_path.is_file():
                 continue
             if file_path.name in exclude_names:
                 continue
 
-            # Get file stats
             try:
                 stat = file_path.stat()
                 mime_type, _ = mimetypes.guess_type(str(file_path))
                 mime_type = mime_type or 'application/octet-stream'
 
-                # Track for ArchiveResult fields
-                relative_path = str(file_path.relative_to(output_dir))
-                output_files[relative_path] = {}  # Empty dict, extensible for future metadata
+                relative_path = str(file_path.relative_to(plugin_dir))
+                output_files[relative_path] = {}
                 mime_sizes[mime_type] += stat.st_size
                 total_size += stat.st_size
             except (OSError, IOError):
                 continue
 
-        # Populate ArchiveResult fields
         self.output_files = output_files
         self.output_size = total_size
-
-        # Build output_mimetypes CSV (sorted by size descending)
         sorted_mimes = sorted(mime_sizes.items(), key=lambda x: x[1], reverse=True)
         self.output_mimetypes = ','.join(mime for mime, _ in sorted_mimes)
 
+        # Update timestamps
+        self.end_ts = timezone.now()
+        self.retry_at = None
+
+        self.save()
+
+        # Process side-effect records (filter Snapshots for depth/URL)
+        filtered_records = []
+        for record in records:
+            record_type = record.get('type')
+
+            # Skip ArchiveResult records (already processed above)
+            if record_type == 'ArchiveResult':
+                continue
+
+            # Filter Snapshot records for depth/URL constraints
+            if record_type == 'Snapshot':
+                if not self.snapshot.crawl:
+                    continue
+
+                url = record.get('url')
+                if not url:
+                    continue
+
+                depth = record.get('depth', self.snapshot.depth + 1)
+                if depth > self.snapshot.crawl.max_depth:
+                    continue
+
+                if not self._url_passes_filters(url):
+                    continue
+
+            filtered_records.append(record)
+
+        # Process filtered records with unified dispatcher
+        overrides = {
+            'snapshot': self.snapshot,
+            'crawl': self.snapshot.crawl,
+            'created_by_id': self.snapshot.created_by_id,
+        }
+        process_hook_records(filtered_records, overrides=overrides)
+
+        # Update snapshot title if this is the title plugin
+        plugin_name = get_plugin_name(self.plugin)
+        if self.status == self.StatusChoices.SUCCEEDED and plugin_name == 'title':
+            self._update_snapshot_title(plugin_dir)
+
+        # Trigger search indexing if succeeded
+        if self.status == self.StatusChoices.SUCCEEDED:
+            self.trigger_search_indexing()
+
+        # Cleanup PID files and empty logs
+        pid_file = plugin_dir / 'hook.pid'
+        pid_file.unlink(missing_ok=True)
+        stderr_file = plugin_dir / 'stderr.log'
+        if stdout_file.exists() and stdout_file.stat().st_size == 0:
+            stdout_file.unlink()
+        if stderr_file.exists() and stderr_file.stat().st_size == 0:
+            stderr_file.unlink()
+
     def _set_binary_from_cmd(self, cmd: list) -> None:
         """
-        Find InstalledBinary for command and set binary FK.
+        Find Binary for command and set binary FK.
 
         Tries matching by absolute path first, then by binary name.
         Only matches binaries on the current machine.
@@ -1364,7 +2090,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         machine = Machine.current()
 
         # Try matching by absolute path first
-        binary = InstalledBinary.objects.filter(
+        binary = Binary.objects.filter(
             abspath=bin_path_or_name,
             machine=machine
         ).first()
@@ -1375,7 +2101,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
         # Fallback: match by binary name
         bin_name = Path(bin_path_or_name).name
-        binary = InstalledBinary.objects.filter(
+        binary = Binary.objects.filter(
             name=bin_name,
             machine=machine
         ).first()
@@ -1383,14 +2109,14 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         if binary:
             self.binary = binary
 
-    def _update_snapshot_title(self, extractor_dir: Path):
+    def _update_snapshot_title(self, plugin_dir: Path):
         """
-        Update snapshot title from title extractor output.
+        Update snapshot title from title plugin output.
 
-        The title extractor writes title.txt with the extracted page title.
+        The title plugin writes title.txt with the extracted page title.
         This updates the Snapshot.title field if the file exists and has content.
         """
-        title_file = extractor_dir / 'title.txt'
+        title_file = plugin_dir / 'title.txt'
         if title_file.exists():
             try:
                 title = title_file.read_text(encoding='utf-8').strip()
@@ -1400,66 +2126,56 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             except Exception:
                 pass  # Failed to read title, that's okay
 
-    def _queue_urls_for_crawl(self, extractor_dir: Path):
+    def _url_passes_filters(self, url: str) -> bool:
+        """Check if URL passes URL_ALLOWLIST and URL_DENYLIST config filters.
+
+        Uses proper config hierarchy: defaults -> file -> env -> machine -> user -> crawl -> snapshot
         """
-        Read urls.jsonl and queue discovered URLs for crawling.
+        import re
+        from archivebox.config.configset import get_config
 
-        Parser extractors output urls.jsonl with discovered URLs and Tags.
-        - Tag records: {"type": "Tag", "name": "..."}
-        - Snapshot records: {"type": "Snapshot", "url": "...", ...}
+        # Get merged config with proper hierarchy
+        config = get_config(
+            user=self.snapshot.created_by if self.snapshot else None,
+            crawl=self.snapshot.crawl if self.snapshot else None,
+            snapshot=self.snapshot,
+        )
 
-        Tags are created in the database.
-        URLs get added to the parent Crawl's queue with metadata
-        (depth, via_snapshot, via_extractor) for recursive crawling.
+        # Get allowlist/denylist (can be string or list)
+        allowlist_raw = config.get('URL_ALLOWLIST', '')
+        denylist_raw = config.get('URL_DENYLIST', '')
 
-        Used at all depths:
-        - depth=0: Initial source file (e.g., bookmarks.html) parsed for URLs
-        - depth>0: Crawled pages parsed for outbound links
-        """
-        import json
+        # Normalize to list of patterns
+        def to_pattern_list(value):
+            if isinstance(value, list):
+                return value
+            if isinstance(value, str):
+                return [p.strip() for p in value.split(',') if p.strip()]
+            return []
 
-        if not self.snapshot.crawl:
-            return
+        allowlist = to_pattern_list(allowlist_raw)
+        denylist = to_pattern_list(denylist_raw)
 
-        urls_file = extractor_dir / 'urls.jsonl'
-        if not urls_file.exists():
-            return
-
-        urls_added = 0
-        tags_created = 0
-        with open(urls_file, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
+        # Denylist takes precedence
+        if denylist:
+            for pattern in denylist:
                 try:
-                    entry = json.loads(line)
-                    record_type = entry.get('type', 'Snapshot')
+                    if re.search(pattern, url):
+                        return False
+                except re.error:
+                    continue  # Skip invalid regex patterns
 
-                    # Handle Tag records
-                    if record_type == 'Tag':
-                        tag_name = entry.get('name')
-                        if tag_name:
-                            Tag.objects.get_or_create(name=tag_name)
-                            tags_created += 1
-                        continue
+        # If allowlist exists, URL must match at least one pattern
+        if allowlist:
+            for pattern in allowlist:
+                try:
+                    if re.search(pattern, url):
+                        return True
+                except re.error:
+                    continue  # Skip invalid regex patterns
+            return False  # No allowlist patterns matched
 
-                    # Handle Snapshot records (or records without type)
-                    if not entry.get('url'):
-                        continue
-
-                    # Add crawl metadata
-                    entry['depth'] = self.snapshot.depth + 1
-                    entry['via_snapshot'] = str(self.snapshot.id)
-                    entry['via_extractor'] = self.extractor
-
-                    if self.snapshot.crawl.add_url(entry):
-                        urls_added += 1
-                except json.JSONDecodeError:
-                    continue
-
-        if urls_added > 0:
-            self.snapshot.crawl.create_snapshots_from_urls()
+        return True  # No filters or passed filters
     
     def trigger_search_indexing(self):
         """Run any ArchiveResult__index hooks to update search indexes."""
@@ -1475,127 +2191,18 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
                 config_objects=config_objects,
                 url=self.snapshot.url,
                 snapshot_id=str(self.snapshot.id),
-                extractor=self.extractor,
+                plugin=self.plugin,
             )
-    
+
     @property
     def output_dir(self) -> Path:
-        """Get the output directory for this extractor's results."""
-        return Path(self.snapshot.output_dir) / self.extractor
+        """Get the output directory for this plugin's results."""
+        return Path(self.snapshot.output_dir) / self.plugin
 
     def is_background_hook(self) -> bool:
         """Check if this ArchiveResult is for a background hook."""
-        extractor_dir = Path(self.pwd) if self.pwd else None
-        if not extractor_dir:
+        plugin_dir = Path(self.pwd) if self.pwd else None
+        if not plugin_dir:
             return False
-        pid_file = extractor_dir / 'hook.pid'
+        pid_file = plugin_dir / 'hook.pid'
         return pid_file.exists()
-
-    def check_background_completed(self) -> bool:
-        """
-        Check if background hook process has exited.
-
-        Returns:
-            True if completed (process exited), False if still running
-        """
-        extractor_dir = Path(self.pwd) if self.pwd else None
-        if not extractor_dir:
-            return True  # No pwd = completed or failed to start
-
-        pid_file = extractor_dir / 'hook.pid'
-        if not pid_file.exists():
-            return True  # No PID file = completed or failed to start
-
-        try:
-            pid = int(pid_file.read_text().strip())
-            os.kill(pid, 0)  # Signal 0 = check if process exists
-            return False  # Still running
-        except (OSError, ValueError):
-            return True  # Process exited or invalid PID
-
-    def finalize_background_hook(self) -> None:
-        """
-        Collect final results from completed background hook.
-
-        Same logic as run() but for background hooks that already started.
-        """
-        from archivebox.hooks import create_model_record
-
-        extractor_dir = Path(self.pwd) if self.pwd else None
-        if not extractor_dir or not extractor_dir.exists():
-            self.status = self.StatusChoices.FAILED
-            self.output_str = 'Background hook output directory not found'
-            self.end_ts = timezone.now()
-            self.retry_at = None
-            self.save()
-            return
-
-        stdout_file = extractor_dir / 'stdout.log'
-        stderr_file = extractor_dir / 'stderr.log'
-
-        # Read logs
-        stdout = stdout_file.read_text() if stdout_file.exists() else ''
-
-        # Parse JSONL output
-        records = []
-        for line in stdout.splitlines():
-            line = line.strip()
-            if not line or not line.startswith('{'):
-                continue
-            try:
-                data = json.loads(line)
-                if 'type' in data:
-                    records.append(data)
-            except json.JSONDecodeError:
-                continue
-
-        # Find the ArchiveResult record
-        ar_records = [r for r in records if r.get('type') == 'ArchiveResult']
-
-        if ar_records:
-            hook_data = ar_records[0]
-
-            # Apply hook's data
-            status_str = hook_data.get('status', 'failed')
-            status_map = {
-                'succeeded': self.StatusChoices.SUCCEEDED,
-                'failed': self.StatusChoices.FAILED,
-                'skipped': self.StatusChoices.SKIPPED,
-            }
-            self.status = status_map.get(status_str, self.StatusChoices.FAILED)
-
-            self.output_str = hook_data.get('output_str') or hook_data.get('output') or ''
-            self.output_json = hook_data.get('output_json')
-
-            # Determine binary FK from cmd
-            if hook_data.get('cmd'):
-                self.cmd = hook_data['cmd']
-                self._set_binary_from_cmd(hook_data['cmd'])
-            if hook_data.get('cmd_version'):
-                self.cmd_version = hook_data['cmd_version'][:128]
-        else:
-            # No output = failed
-            self.status = self.StatusChoices.FAILED
-            self.output_str = 'Background hook did not output ArchiveResult'
-
-        self.end_ts = timezone.now()
-        self.retry_at = None
-
-        # Populate output fields from filesystem
-        if extractor_dir.exists():
-            self._populate_output_fields(extractor_dir)
-
-        self.save()
-
-        # Create any side-effect records
-        for record in records:
-            if record.get('type') != 'ArchiveResult':
-                create_model_record(record.copy())
-
-        # Cleanup PID files and empty logs
-        pid_file = extractor_dir / 'hook.pid'
-        pid_file.unlink(missing_ok=True)
-        if stdout_file.exists() and stdout_file.stat().st_size == 0:
-            stdout_file.unlink()
-        if stderr_file.exists() and stderr_file.stat().st_size == 0:
-            stderr_file.unlink()

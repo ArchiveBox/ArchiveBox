@@ -6,8 +6,11 @@ Usage: on_Snapshot__favicon.py --url=<url> --snapshot-id=<uuid>
 Output: Writes favicon.ico to $PWD
 
 Environment variables:
-    TIMEOUT: Timeout in seconds (default: 30)
+    FAVICON_TIMEOUT: Timeout in seconds (default: 30)
     USER_AGENT: User agent string
+
+    # Fallback to ARCHIVING_CONFIG values if FAVICON_* not set:
+    TIMEOUT: Fallback timeout
 
 Note: This extractor uses the 'requests' library which is bundled with ArchiveBox.
       It can run standalone if requests is installed: pip install requests
@@ -17,7 +20,6 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -52,7 +54,7 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
     except ImportError:
         return False, None, 'requests library not installed'
 
-    timeout = get_env_int('TIMEOUT', 30)
+    timeout = get_env_int('FAVICON_TIMEOUT') or get_env_int('TIMEOUT', 30)
     user_agent = get_env('USER_AGENT', 'Mozilla/5.0 (compatible; ArchiveBox/1.0)')
     headers = {'User-Agent': user_agent}
 
@@ -117,7 +119,6 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Extract favicon from a URL."""
 
-    start_ts = datetime.now(timezone.utc)
     output = None
     status = 'failed'
     error = ''
@@ -127,15 +128,9 @@ def main(url: str, snapshot_id: str):
         success, output, error = get_favicon(url)
         status = 'succeeded' if success else 'failed'
 
-        if success:
-            print(f'Favicon saved ({Path(output).stat().st_size} bytes)')
-
     except Exception as e:
         error = f'{type(e).__name__}: {e}'
         status = 'failed'
-
-    # Calculate duration
-    end_ts = datetime.now(timezone.utc)
 
     if error:
         print(f'ERROR: {error}', file=sys.stderr)
