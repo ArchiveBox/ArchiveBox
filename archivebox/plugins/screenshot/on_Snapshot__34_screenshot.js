@@ -22,7 +22,7 @@ const path = require('path');
 const puppeteer = require('puppeteer-core');
 
 // Extractor metadata
-const EXTRACTOR_NAME = 'screenshot';
+const PLUGIN_NAME = 'screenshot';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'screenshot.png';
 const CHROME_SESSION_DIR = '../chrome';
@@ -250,10 +250,14 @@ async function main() {
             }));
             process.exit(0);  // Permanent skip - staticfile already handled
         } else {
-            // Wait for page to be fully loaded
-            const pageLoaded = await waitForChromeTabLoaded(60000);
-            if (!pageLoaded) {
-                throw new Error('Page not loaded after 60s (chrome_navigate must complete first)');
+            // Only wait for page load if using shared Chrome session
+            const cdpUrl = getCdpUrl();
+            if (cdpUrl) {
+                // Wait for page to be fully loaded
+                const pageLoaded = await waitForChromeTabLoaded(60000);
+                if (!pageLoaded) {
+                    throw new Error('Page not loaded after 60s (chrome_navigate must complete first)');
+                }
             }
 
             const result = await takeScreenshot(url);

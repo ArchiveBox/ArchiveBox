@@ -20,7 +20,7 @@ const https = require('https');
 const http = require('http');
 
 // Extractor metadata
-const EXTRACTOR_NAME = 'title';
+const PLUGIN_NAME = 'title';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'title.txt';
 const CHROME_SESSION_DIR = '../chrome';

@@ -31,7 +31,7 @@ import rich_click as click
 
 
 # Extractor metadata
-EXTRACTOR_NAME = 'forumdl'
+PLUGIN_NAME = 'forumdl'
 BIN_NAME = 'forum-dl'
 BIN_PROVIDERS = 'pip,env'
 OUTPUT_DIR = '.'

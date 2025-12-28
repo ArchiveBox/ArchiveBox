@@ -265,7 +265,7 @@ class TestParseJsonlUrls:
         entry = json.loads(output_file.read_text().strip())
         assert entry['url'] == 'https://example.com'
         assert 'type' in entry
-        assert 'via_extractor' in entry
+        assert 'plugin' in entry
 
 
 if __name__ == '__main__':

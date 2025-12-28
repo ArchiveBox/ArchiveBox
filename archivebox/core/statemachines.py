@@ -91,7 +91,7 @@ class SnapshotMachine(StateMachine, strict_states=True):
             retry_at=timezone.now() + timedelta(seconds=30),  # if failed, wait 30s before retrying
         )
 
-        # Run the snapshot - creates pending archiveresults for all enabled extractors
+        # Run the snapshot - creates pending archiveresults for all enabled plugins
         self.snapshot.run()
 
         # unlock the snapshot after we're done + set status = started
@@ -179,15 +179,15 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
         return can_start
     
     def is_succeeded(self) -> bool:
-        """Check if extraction succeeded (status was set by run_extractor())."""
+        """Check if extractor plugin succeeded (status was set by run())."""
         return self.archiveresult.status == ArchiveResult.StatusChoices.SUCCEEDED
-    
+
     def is_failed(self) -> bool:
-        """Check if extraction failed (status was set by run_extractor())."""
+        """Check if extractor plugin failed (status was set by run())."""
         return self.archiveresult.status == ArchiveResult.StatusChoices.FAILED
-    
+
     def is_skipped(self) -> bool:
-        """Check if extraction was skipped (status was set by run_extractor())."""
+        """Check if extractor plugin was skipped (status was set by run())."""
         return self.archiveresult.status == ArchiveResult.StatusChoices.SKIPPED
     
     def is_backoff(self) -> bool:

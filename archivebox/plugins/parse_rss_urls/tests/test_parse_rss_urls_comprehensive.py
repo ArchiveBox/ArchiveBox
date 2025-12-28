@@ -47,7 +47,7 @@ class TestRssVariants:
 
         assert entry['url'] == 'https://example.com/article1'
         assert entry['title'] == 'RSS 0.91 Article'
-        assert entry['via_extractor'] == 'parse_rss_urls'
+        assert entry['plugin'] == 'parse_rss_urls'
 
     def test_rss_10_rdf(self, tmp_path):
         """Test RSS 1.0 (RDF) format."""

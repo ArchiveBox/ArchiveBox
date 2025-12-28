@@ -29,7 +29,7 @@ const http = require('http');
 const puppeteer = require('puppeteer-core');
 
 // Extractor metadata
-const EXTRACTOR_NAME = 'chrome_tab';
+const PLUGIN_NAME = 'chrome_tab';
 const OUTPUT_DIR = '.';  // Hook already runs in chrome/ output directory
 const CHROME_SESSION_DIR = '.';
 

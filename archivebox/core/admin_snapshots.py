@@ -46,9 +46,9 @@ class SnapshotActionForm(ActionForm):
             ),
         )
 
-    # TODO: allow selecting actions for specific extractors? is this useful?
-    # extractor = forms.ChoiceField(
-    #     choices=ArchiveResult.EXTRACTOR_CHOICES,
+    # TODO: allow selecting actions for specific extractor plugins? is this useful?
+    # plugin = forms.ChoiceField(
+    #     choices=ArchiveResult.PLUGIN_CHOICES,
     #     required=False,
     #     widget=forms.MultileChoiceField(attrs={'class': "form-control"})
     # )

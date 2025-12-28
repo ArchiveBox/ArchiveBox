@@ -1041,7 +1041,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         return cache.get_or_set(cache_key, calc_tags_str) if not nocache else calc_tags_str()
 
     def icons(self) -> str:
-        """Generate HTML icons showing which extractors have succeeded for this snapshot"""
+        """Generate HTML icons showing which extractor plugins have succeeded for this snapshot"""
         from django.utils.html import format_html, mark_safe
 
         cache_key = f'result_icons:{self.pk}:{(self.downloaded_at or self.modified_at or self.created_at or self.bookmarked_at).timestamp()}'
@@ -1475,7 +1475,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                         priority = 50
                 elif 'index' in name_lower:
                     priority = 100
-                elif name_lower.startswith(('output', 'content', extractor_name)):
+                elif name_lower.startswith(('output', 'content', plugin_name)):
                     priority = 50
                 elif ext in ('html', 'htm', 'pdf'):
                     priority = 30

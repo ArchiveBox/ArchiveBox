@@ -27,7 +27,7 @@ import rich_click as click
 
 
 # Extractor metadata
-EXTRACTOR_NAME = 'favicon'
+PLUGIN_NAME = 'favicon'
 OUTPUT_DIR = '.'
 OUTPUT_FILE = 'favicon.ico'
 

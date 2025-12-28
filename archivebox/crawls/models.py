@@ -196,7 +196,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         Add a URL to the crawl queue if not already present.
 
         Args:
-            entry: dict with 'url', optional 'depth', 'title', 'timestamp', 'tags', 'via_snapshot', 'via_extractor'
+            entry: dict with 'url', optional 'depth', 'title', 'timestamp', 'tags', 'via_snapshot', 'plugin'
 
         Returns:
             True if URL was added, False if skipped (duplicate or depth exceeded)

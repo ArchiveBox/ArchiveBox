@@ -15,7 +15,7 @@ const path = require('path');
 const crypto = require('crypto');
 const puppeteer = require('puppeteer-core');
 
-const EXTRACTOR_NAME = 'responses';
+const PLUGIN_NAME = 'responses';
 const OUTPUT_DIR = '.';
 const PID_FILE = 'hook.pid';
 const CHROME_SESSION_DIR = '../chrome';

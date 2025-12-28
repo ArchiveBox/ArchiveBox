@@ -32,7 +32,7 @@ import rich_click as click
 
 
 # Extractor metadata
-EXTRACTOR_NAME = 'gallerydl'
+PLUGIN_NAME = 'gallerydl'
 BIN_NAME = 'gallery-dl'
 BIN_PROVIDERS = 'pip,env'
 OUTPUT_DIR = '.'

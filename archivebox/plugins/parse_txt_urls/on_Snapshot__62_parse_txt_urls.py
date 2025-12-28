@@ -25,7 +25,7 @@ from urllib.request import urlopen
 
 import rich_click as click
 
-EXTRACTOR_NAME = 'parse_txt_urls'
+PLUGIN_NAME = 'parse_txt_urls'
 
 # URL regex from archivebox/misc/util.py
 # https://mathiasbynens.be/demo/url-regex
@@ -127,7 +127,7 @@ def main(url: str, snapshot_id: str = None):
             f.write(json.dumps({
                 'type': 'Snapshot',
                 'url': found_url,
-                'via_extractor': EXTRACTOR_NAME,
+                'plugin': PLUGIN_NAME,
             }) + '\n')
 
     click.echo(f'Found {len(urls_found)} URLs')

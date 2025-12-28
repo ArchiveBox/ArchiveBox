@@ -28,7 +28,7 @@ import rich_click as click
 
 
 # Extractor metadata
-EXTRACTOR_NAME = 'papersdl'
+PLUGIN_NAME = 'papersdl'
 BIN_NAME = 'papers-dl'
 BIN_PROVIDERS = 'pip,env'
 OUTPUT_DIR = '.'

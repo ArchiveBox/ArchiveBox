@@ -26,99 +26,21 @@ const { spawn } = require('child_process');
 const http = require('http');
 
 // Extractor metadata
-const EXTRACTOR_NAME = 'chrome_launch';
+const PLUGIN_NAME = 'chrome_launch';
 const OUTPUT_DIR = 'chrome';
 
-// Helper: Write PID file with mtime set to process start time
+// Helpers for PID file creation
 function writePidWithMtime(filePath, pid, startTimeSeconds) {
     fs.writeFileSync(filePath, String(pid));
-    // Set both atime and mtime to process start time for validation
     const startTimeMs = startTimeSeconds * 1000;
     fs.utimesSync(filePath, new Date(startTimeMs), new Date(startTimeMs));
 }
 
-// Helper: Write command script for validation
 function writeCmdScript(filePath, binary, args) {
-    // Shell escape arguments containing spaces or special characters
-    const escapedArgs = args.map(arg => {
-        if (arg.includes(' ') || arg.includes('"') || arg.includes('$')) {
-            return `"${arg.replace(/"/g, '\\"')}"`;
-        }
-        return arg;
-    });
-    const script = `#!/bin/bash\n${binary} ${escapedArgs.join(' ')}\n`;
-    fs.writeFileSync(filePath, script);
+    const escape = arg => (arg.includes(' ') || arg.includes('"') || arg.includes('$'))
+        ? `"${arg.replace(/"/g, '\\"')}"` : arg;
+    fs.writeFileSync(filePath, `#!/bin/bash\n${binary} ${args.map(escape).join(' ')}\n`);
     fs.chmodSync(filePath, 0o755);
-}
-
-// Helper: Get process start time (cross-platform)
-function getProcessStartTime(pid) {
-    try {
-        const { execSync } = require('child_process');
-        if (process.platform === 'darwin') {
-            // macOS: ps -p PID -o lstart= gives start time
-            const output = execSync(`ps -p ${pid} -o lstart=`, { encoding: 'utf8', timeout: 1000 });
-            return Date.parse(output.trim()) / 1000;  // Convert to epoch seconds
-        } else {
-            // Linux: read /proc/PID/stat field 22 (starttime in clock ticks)
-            const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
-            const match = stat.match(/\) \w+ (\d+)/);
-            if (match) {
-                const startTicks = parseInt(match[1], 10);
-                // Convert clock ticks to seconds (assuming 100 ticks/sec)
-                const uptimeSeconds = parseFloat(fs.readFileSync('/proc/uptime', 'utf8').split(' ')[0]);
-                const bootTime = Date.now() / 1000 - uptimeSeconds;
-                return bootTime + (startTicks / 100);
-            }
-        }
-    } catch (e) {
-        // Can't get start time
-        return null;
-    }
-    return null;
-}
-
-// Helper: Validate PID using mtime and command
-function validatePid(pid, pidFile, cmdFile) {
-    try {
-        // Check process exists
-        try {
-            process.kill(pid, 0);  // Signal 0 = check existence
-        } catch (e) {
-            return false;  // Process doesn't exist
-        }
-
-        // Check mtime matches process start time (within 5 sec tolerance)
-        const fileStat = fs.statSync(pidFile);
-        const fileMtime = fileStat.mtimeMs / 1000;  // Convert to seconds
-        const procStartTime = getProcessStartTime(pid);
-
-        if (procStartTime === null) {
-            // Can't validate - fall back to basic existence check
-            return true;
-        }
-
-        if (Math.abs(fileMtime - procStartTime) > 5) {
-            // PID was reused by different process
-            return false;
-        }
-
-        // Validate command if available
-        if (fs.existsSync(cmdFile)) {
-            const cmd = fs.readFileSync(cmdFile, 'utf8');
-            // Check for Chrome/Chromium and debug port
-            if (!cmd.includes('chrome') && !cmd.includes('chromium')) {
-                return false;
-            }
-            if (!cmd.includes('--remote-debugging-port')) {
-                return false;
-            }
-        }
-
-        return true;
-    } catch (e) {
-        return false;
-    }
 }
 
 // Global state for cleanup
@@ -332,20 +254,20 @@ function killZombieChrome() {
                         const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
                         if (isNaN(pid) || pid <= 0) continue;
 
-                        // Validate PID before killing
-                        const cmdFile = path.join(chromeDir, 'cmd.sh');
-                        if (!validatePid(pid, pidFile, cmdFile)) {
-                            // PID reused or validation failed
-                            console.error(`[!] PID ${pid} failed validation (reused or wrong process) - cleaning up`);
+                        // Check if process exists (simple check, Python will validate properly)
+                        try {
+                            process.kill(pid, 0);
+                        } catch (e) {
+                            // Process dead, remove stale PID file
                             try { fs.unlinkSync(pidFile); } catch (e) {}
                             continue;
                         }
 
-                        // Process alive, validated, and crawl is stale - zombie!
-                        console.error(`[!] Found validated zombie (PID ${pid}) from stale crawl ${crawl.name}`);
+                        // Process alive and crawl is stale - zombie!
+                        console.error(`[!] Found zombie (PID ${pid}) from stale crawl ${crawl.name}`);
 
                         try {
-                            // Kill process group first
+                            // Kill process group
                             try {
                                 process.kill(-pid, 'SIGKILL');
                             } catch (e) {
@@ -354,14 +276,10 @@ function killZombieChrome() {
 
                             killed++;
                             console.error(`[+] Killed zombie (PID ${pid})`);
-
-                            // Remove PID file
                             try { fs.unlinkSync(pidFile); } catch (e) {}
-
                         } catch (e) {
                             console.error(`[!] Failed to kill PID ${pid}: ${e.message}`);
                         }
-
                     } catch (e) {
                         // Skip invalid PID files
                     }

@@ -96,8 +96,8 @@ class SnapshotView(View):
             if not key.endswith('_path') or not path or path.startswith('http'):
                 continue
 
-            extractor_name = key.replace('_path', '')
-            if extractor_name in archiveresults:
+            plugin_name = key.replace('_path', '')
+            if plugin_name in archiveresults:
                 continue  # Already have this from ArchiveResult
 
             file_path = snap_dir / path
@@ -107,8 +107,8 @@ class SnapshotView(View):
             try:
                 file_size = file_path.stat().st_size
                 if file_size >= 15_000:  # Only show files > 15KB
-                    archiveresults[extractor_name] = {
-                        'name': extractor_name,
+                    archiveresults[plugin_name] = {
+                        'name': plugin_name,
                         'path': path,
                         'ts': ts_to_date_str(file_path.stat().st_mtime or 0),
                         'size': file_size,
@@ -117,7 +117,7 @@ class SnapshotView(View):
             except OSError:
                 continue
 
-        # Get available extractors from hooks (sorted by numeric prefix for ordering)
+        # Get available extractor plugins from hooks (sorted by numeric prefix for ordering)
         # Convert to base names for display ordering
         all_plugins = [get_extractor_name(e) for e in get_extractors()]
         preferred_types = tuple(all_plugins)
@@ -437,7 +437,7 @@ class AddView(UserPassesTestMixin, FormView):
         parser = form.cleaned_data.get("parser", "auto")  # default to auto-detect parser
         tag = form.cleaned_data["tag"]
         depth = 0 if form.cleaned_data["depth"] == "0" else 1
-        extractors = ','.join(form.cleaned_data["archive_methods"])
+        plugins = ','.join(form.cleaned_data["archive_methods"])
         input_kwargs = {
             "urls": urls,
             "tag": tag,
@@ -447,8 +447,8 @@ class AddView(UserPassesTestMixin, FormView):
             "out_dir": DATA_DIR,
             "created_by_id": self.request.user.pk,
         }
-        if extractors:
-            input_kwargs.update({"extractors": extractors})
+        if plugins:
+            input_kwargs.update({"plugins": plugins})
 
 
         from archivebox.config.permissions import HOSTNAME
@@ -472,7 +472,7 @@ class AddView(UserPassesTestMixin, FormView):
                 # 'INDEX_ONLY': index_only,
                 # 'OVERWRITE': False,
                 'DEPTH': depth,
-                'EXTRACTORS': extractors or '',
+                'PLUGINS': plugins or '',
                 # 'DEFAULT_PERSONA': persona or 'Default',
             }
         )
@@ -580,17 +580,17 @@ def live_progress_view(request):
                 snapshot_results = snapshot.archiveresult_set.all()
 
                 # Count in memory instead of DB queries
-                total_extractors = len(snapshot_results)
-                completed_extractors = sum(1 for ar in snapshot_results if ar.status == ArchiveResult.StatusChoices.SUCCEEDED)
-                failed_extractors = sum(1 for ar in snapshot_results if ar.status == ArchiveResult.StatusChoices.FAILED)
-                pending_extractors = sum(1 for ar in snapshot_results if ar.status == ArchiveResult.StatusChoices.QUEUED)
+                total_plugins = len(snapshot_results)
+                completed_plugins = sum(1 for ar in snapshot_results if ar.status == ArchiveResult.StatusChoices.SUCCEEDED)
+                failed_plugins = sum(1 for ar in snapshot_results if ar.status == ArchiveResult.StatusChoices.FAILED)
+                pending_plugins = sum(1 for ar in snapshot_results if ar.status == ArchiveResult.StatusChoices.QUEUED)
 
                 # Calculate snapshot progress
-                snapshot_progress = int(((completed_extractors + failed_extractors) / total_extractors) * 100) if total_extractors > 0 else 0
+                snapshot_progress = int(((completed_plugins + failed_plugins) / total_plugins) * 100) if total_plugins > 0 else 0
 
-                # Get all extractors for this snapshot (already prefetched, sort in Python)
+                # Get all extractor plugins for this snapshot (already prefetched, sort in Python)
                 # Order: started first, then queued, then completed
-                def extractor_sort_key(ar):
+                def plugin_sort_key(ar):
                     status_order = {
                         ArchiveResult.StatusChoices.STARTED: 0,
                         ArchiveResult.StatusChoices.QUEUED: 1,
@@ -605,7 +605,7 @@ def live_progress_view(request):
                         'plugin': ar.plugin,
                         'status': ar.status,
                     }
-                    for ar in sorted(snapshot_results, key=extractor_sort_key)
+                    for ar in sorted(snapshot_results, key=plugin_sort_key)
                 ]
 
                 active_snapshots_for_crawl.append({
@@ -614,10 +614,10 @@ def live_progress_view(request):
                     'status': snapshot.status,
                     'started': snapshot.modified_at.isoformat() if snapshot.modified_at else None,
                     'progress': snapshot_progress,
-                    'total_extractors': total_extractors,
-                    'completed_extractors': completed_extractors,
-                    'failed_extractors': failed_extractors,
-                    'pending_extractors': pending_extractors,
+                    'total_plugins': total_plugins,
+                    'completed_plugins': completed_plugins,
+                    'failed_plugins': failed_plugins,
+                    'pending_plugins': pending_plugins,
                     'all_plugins': all_plugins,
                 })
 

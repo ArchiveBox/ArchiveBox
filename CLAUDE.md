@@ -212,3 +212,8 @@ sqlite3 /path/to/index.sqlite3 "PRAGMA table_info(core_snapshot);"
 ```bash
 sudo -u testuser bash -c 'source .venv/bin/activate && python -m pytest archivebox/tests/test_migrations_08_to_09.py -xvs 2>&1 | head -200'
 ```
+
+### Kill Zombie Chrome Processes
+```bash
+./bin/kill_chrome.sh
+```

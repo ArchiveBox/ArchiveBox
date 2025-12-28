@@ -26,7 +26,7 @@ import rich_click as click
 
 
 # Extractor metadata
-EXTRACTOR_NAME = 'htmltotext'
+PLUGIN_NAME = 'htmltotext'
 OUTPUT_DIR = '.'
 OUTPUT_FILE = 'htmltotext.txt'
 

@@ -522,7 +522,7 @@ def log_worker_event(
     pid: Optional[int] = None,
     worker_id: Optional[str] = None,
     url: Optional[str] = None,
-    extractor: Optional[str] = None,
+    plugin: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
     error: Optional[Exception] = None,
 ) -> None:
@@ -534,9 +534,9 @@ def log_worker_event(
         event: Event name (Starting, Completed, Failed, etc.)
         indent_level: Indentation level (0=Orchestrator, 1=CrawlWorker, 2=SnapshotWorker, 3=ArchiveResultWorker)
         pid: Process ID
-        worker_id: Worker ID (UUID for CrawlWorker, url for SnapshotWorker, extractor for ArchiveResultWorker)
+        worker_id: Worker ID (UUID for CrawlWorker, url for SnapshotWorker, plugin for ArchiveResultWorker)
         url: URL being processed (for SnapshotWorker/ArchiveResultWorker)
-        extractor: Extractor name (for ArchiveResultWorker)
+        plugin: Plugin name (for ArchiveResultWorker)
         metadata: Dict of metadata to show in curly braces
         error: Exception if event is an error
     """
@@ -544,7 +544,7 @@ def log_worker_event(
 
     from rich.markup import escape
 
-    # Build worker identifier (without URL/extractor)
+    # Build worker identifier (without URL/plugin)
     worker_parts = [worker_type]
     # Don't add pid/worker_id for DB operations (they happen in whatever process is running)
     if pid and worker_type != 'DB':
@@ -556,12 +556,12 @@ def log_worker_event(
     worker_label_base = worker_parts[0]
     worker_bracket_content = ", ".join(worker_parts[1:]) if len(worker_parts) > 1 else None
 
-    # Build URL/extractor display (shown AFTER the label, outside brackets)
+    # Build URL/plugin display (shown AFTER the label, outside brackets)
     url_extractor_parts = []
     if url:
         url_extractor_parts.append(f'url: {escape(url)}')
-    if extractor:
-        url_extractor_parts.append(f'extractor: {escape(extractor)}')
+    if plugin:
+        url_extractor_parts.append(f'extractor: {escape(plugin)}')
 
     url_extractor_str = ' | '.join(url_extractor_parts) if url_extractor_parts else ''
 
@@ -623,7 +623,7 @@ def log_worker_event(
 
     text.append(f' {event}{error_str}', style=color)
 
-    # Add URL/extractor info first (more important)
+    # Add URL/plugin info first (more important)
     if url_extractor_str:
         text.append(f' | {url_extractor_str}')
 

@@ -24,7 +24,7 @@ import rich_click as click
 
 
 # Extractor metadata
-EXTRACTOR_NAME = 'git'
+PLUGIN_NAME = 'git'
 BIN_NAME = 'git'
 BIN_PROVIDERS = 'apt,brew,env'
 OUTPUT_DIR = '.'

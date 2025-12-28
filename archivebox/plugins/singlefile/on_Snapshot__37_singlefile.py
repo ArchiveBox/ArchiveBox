@@ -36,7 +36,7 @@ import rich_click as click
 
 
 # Extractor metadata
-EXTRACTOR_NAME = 'singlefile'
+PLUGIN_NAME = 'singlefile'
 BIN_NAME = 'single-file'
 BIN_PROVIDERS = 'npm,env'
 OUTPUT_DIR = '.'

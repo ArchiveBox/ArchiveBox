@@ -25,7 +25,7 @@ import rich_click as click
 
 
 # Extractor metadata
-EXTRACTOR_NAME = 'archive_org'
+PLUGIN_NAME = 'archive_org'
 OUTPUT_DIR = '.'
 OUTPUT_FILE = 'archive.org.txt'
 

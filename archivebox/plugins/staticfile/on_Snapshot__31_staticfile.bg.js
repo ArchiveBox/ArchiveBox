@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer-core');
 
-const EXTRACTOR_NAME = 'staticfile';
+const PLUGIN_NAME = 'staticfile';
 const OUTPUT_DIR = '.';
 const PID_FILE = 'hook.pid';
 const CHROME_SESSION_DIR = '../chrome';
@@ -326,7 +326,7 @@ function handleShutdown(signal) {
             type: 'ArchiveResult',
             status: 'skipped',
             output_str: 'No Content-Type detected',
-            extractor: EXTRACTOR_NAME,
+            plugin: PLUGIN_NAME,
         };
     } else if (!isStaticFile) {
         // Not a static file (normal case for HTML pages)
@@ -334,7 +334,7 @@ function handleShutdown(signal) {
             type: 'ArchiveResult',
             status: 'skipped',
             output_str: `Not a static file (Content-Type: ${detectedContentType})`,
-            extractor: EXTRACTOR_NAME,
+            plugin: PLUGIN_NAME,
             content_type: detectedContentType,
         };
     } else if (downloadError) {
@@ -343,7 +343,7 @@ function handleShutdown(signal) {
             type: 'ArchiveResult',
             status: 'failed',
             output_str: downloadError,
-            extractor: EXTRACTOR_NAME,
+            plugin: PLUGIN_NAME,
             content_type: detectedContentType,
         };
     } else if (downloadedFilePath) {
@@ -352,7 +352,7 @@ function handleShutdown(signal) {
             type: 'ArchiveResult',
             status: 'succeeded',
             output_str: downloadedFilePath,
-            extractor: EXTRACTOR_NAME,
+            plugin: PLUGIN_NAME,
             content_type: detectedContentType,
         };
     } else {
@@ -361,7 +361,7 @@ function handleShutdown(signal) {
             type: 'ArchiveResult',
             status: 'failed',
             output_str: 'Static file detected but download did not complete',
-            extractor: EXTRACTOR_NAME,
+            plugin: PLUGIN_NAME,
             content_type: detectedContentType,
         };
     }

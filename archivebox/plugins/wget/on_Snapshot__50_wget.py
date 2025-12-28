@@ -39,7 +39,7 @@ import rich_click as click
 
 
 # Extractor metadata
-EXTRACTOR_NAME = 'wget'
+PLUGIN_NAME = 'wget'
 BIN_NAME = 'wget'
 BIN_PROVIDERS = 'apt,brew,env'
 OUTPUT_DIR = '.'

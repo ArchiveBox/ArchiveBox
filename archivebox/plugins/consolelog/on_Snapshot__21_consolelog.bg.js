@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer-core');
 
-const EXTRACTOR_NAME = 'consolelog';
+const PLUGIN_NAME = 'consolelog';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'console.jsonl';
 const PID_FILE = 'hook.pid';

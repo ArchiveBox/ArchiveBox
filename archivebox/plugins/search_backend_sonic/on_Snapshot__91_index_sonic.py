@@ -27,7 +27,7 @@ import rich_click as click
 
 
 # Extractor metadata
-EXTRACTOR_NAME = 'index_sonic'
+PLUGIN_NAME = 'index_sonic'
 OUTPUT_DIR = '.'
 
 # Text file patterns to index
@@ -83,14 +83,14 @@ def find_indexable_content() -> list[tuple[str, str]]:
     cwd = Path.cwd()
 
     for extractor, file_pattern in INDEXABLE_FILES:
-        extractor_dir = cwd / extractor
-        if not extractor_dir.exists():
+        plugin_dir = cwd / extractor
+        if not plugin_dir.exists():
             continue
 
         if '*' in file_pattern:
-            matches = list(extractor_dir.glob(file_pattern))
+            matches = list(plugin_dir.glob(file_pattern))
         else:
-            match = extractor_dir / file_pattern
+            match = plugin_dir / file_pattern
             matches = [match] if match.exists() else []
 
         for match in matches:

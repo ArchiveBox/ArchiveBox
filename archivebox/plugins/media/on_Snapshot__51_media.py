@@ -34,7 +34,7 @@ import rich_click as click
 
 
 # Extractor metadata
-EXTRACTOR_NAME = 'media'
+PLUGIN_NAME = 'media'
 BIN_NAME = 'yt-dlp'
 BIN_PROVIDERS = 'pip,apt,brew,env'
 OUTPUT_DIR = '.'

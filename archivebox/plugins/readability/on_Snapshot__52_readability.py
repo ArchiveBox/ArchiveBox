@@ -27,7 +27,7 @@ import rich_click as click
 
 
 # Extractor metadata
-EXTRACTOR_NAME = 'readability'
+PLUGIN_NAME = 'readability'
 BIN_NAME = 'readability-extractor'
 BIN_PROVIDERS = 'npm,env'
 OUTPUT_DIR = '.'

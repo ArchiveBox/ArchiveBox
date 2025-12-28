@@ -28,7 +28,7 @@ from urllib.parse import urljoin, urlparse
 
 import rich_click as click
 
-EXTRACTOR_NAME = 'parse_html_urls'
+PLUGIN_NAME = 'parse_html_urls'
 
 # Check if parse_dom_outlinks extractor already ran
 DOM_OUTLINKS_URLS_FILE = Path('parse_dom_outlinks/urls.jsonl')
@@ -179,7 +179,7 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
         record = {
             'type': 'Snapshot',
             'url': found_url,
-            'via_extractor': EXTRACTOR_NAME,
+            'plugin': PLUGIN_NAME,
             'depth': depth + 1,
         }
         if snapshot_id:

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Shared utilities for extractor hooks.
+Shared utilities for extractor plugin hooks.
 
-This module provides common functionality for all extractors to ensure
+This module provides common functionality for all extractor plugins to ensure
 consistent behavior, output format, error handling, and timing.
 
-All extractors should:
+All extractor plugins should:
 1. Import and use these utilities
 2. Output consistent metadata (CMD, VERSION, OUTPUT, timing)
 3. Write all files to $PWD
@@ -35,7 +35,7 @@ STATIC_EXTENSIONS = (
 
 
 def is_static_file(url: str) -> bool:
-    """Check if URL points to a static file that may not need browser extraction."""
+    """Check if URL points to a static file that may not need browser-based extractor plugins."""
     return url.lower().split('?')[0].split('#')[0].endswith(STATIC_EXTENSIONS)
 
 
@@ -96,7 +96,7 @@ def get_version(binary: str, version_args: list[str] | None = None) -> str:
 
 class ExtractorResult:
     """
-    Tracks extractor execution and produces consistent output.
+    Tracks extractor plugin execution and produces consistent output.
 
     Usage:
         result = ExtractorResult(name='wget', url=url)
@@ -152,7 +152,7 @@ class ExtractorResult:
         return 1
 
     def finish(self, status: str | None = None):
-        """Mark extraction as finished and print results."""
+        """Mark extractor plugin execution as finished and print results."""
         self.end_ts = datetime.now(timezone.utc)
         if status:
             self.status = status

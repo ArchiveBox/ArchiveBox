@@ -24,7 +24,7 @@ from urllib.parse import urlparse
 
 import rich_click as click
 
-EXTRACTOR_NAME = 'parse_jsonl_urls'
+PLUGIN_NAME = 'parse_jsonl_urls'
 
 
 def parse_bookmarked_at(link: dict) -> str | None:
@@ -75,7 +75,7 @@ def json_object_to_entry(link: dict) -> dict | None:
     entry = {
         'type': 'Snapshot',
         'url': unescape(url),
-        'via_extractor': EXTRACTOR_NAME,
+        'plugin': PLUGIN_NAME,
     }
 
     # Parse title

@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer-core');
 
-const EXTRACTOR_NAME = 'ssl';
+const PLUGIN_NAME = 'ssl';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'ssl.jsonl';
 const PID_FILE = 'hook.pid';

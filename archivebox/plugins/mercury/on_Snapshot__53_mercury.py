@@ -25,7 +25,7 @@ import rich_click as click
 
 
 # Extractor metadata
-EXTRACTOR_NAME = 'mercury'
+PLUGIN_NAME = 'mercury'
 BIN_NAME = 'postlight-parser'
 BIN_PROVIDERS = 'npm,env'
 OUTPUT_DIR = '.'

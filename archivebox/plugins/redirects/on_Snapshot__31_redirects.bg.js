@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer-core');
 
-const EXTRACTOR_NAME = 'redirects';
+const PLUGIN_NAME = 'redirects';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'redirects.jsonl';
 const PID_FILE = 'hook.pid';
@@ -235,7 +235,7 @@ function handleShutdown(signal) {
         type: 'ArchiveResult',
         status: 'succeeded',
         output_str: OUTPUT_FILE,
-        extractor: EXTRACTOR_NAME,
+        plugin: PLUGIN_NAME,
         original_url: originalUrl,
         final_url: finalUrl || originalUrl,
         redirect_count: redirectChain.length,

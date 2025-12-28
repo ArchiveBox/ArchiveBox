@@ -252,9 +252,9 @@ class ArchiveResultInline(admin.TabularInline):
 
 
 class ArchiveResultAdmin(BaseModelAdmin):
-    list_display = ('id', 'created_by', 'created_at', 'snapshot_info', 'tags_str', 'status', 'extractor_with_icon', 'cmd_str', 'output_str')
+    list_display = ('id', 'created_by', 'created_at', 'snapshot_info', 'tags_str', 'status', 'plugin_with_icon', 'cmd_str', 'output_str')
     sort_fields = ('id', 'created_by', 'created_at', 'plugin', 'status')
-    readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary', 'extractor_with_icon', 'iface')
+    readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary', 'plugin_with_icon', 'iface')
     search_fields = ('id', 'snapshot__url', 'plugin', 'output_str', 'cmd_version', 'cmd', 'snapshot__timestamp')
     autocomplete_fields = ['snapshot']
 

@@ -21,7 +21,7 @@ const https = require('https');
 const http = require('http');
 
 // Extractor metadata
-const EXTRACTOR_NAME = 'headers';
+const PLUGIN_NAME = 'headers';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'headers.json';
 const CHROME_SESSION_DIR = '../chrome';

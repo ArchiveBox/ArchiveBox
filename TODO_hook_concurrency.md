@@ -6,6 +6,48 @@ Snapshot.run() should enforce that snapshot hooks are run in **10 discrete, sequ
 
 For every discovered hook script, ArchiveBox should create an ArchiveResult in `queued` state, then manage running them using `retry_at` and inline logic to enforce this ordering.
 
+## Design Decisions
+
+### ArchiveResult Schema
+- Add `ArchiveResult.hook_name` (CharField, nullable) - just filename, e.g., `'on_Snapshot__20_chrome_tab.bg.js'`
+- Keep `ArchiveResult.plugin` - still important (plugin directory name)
+- Step number derived on-the-fly from `hook_name` via `extract_step(hook_name)` - not stored
+
+### Snapshot Schema
+- Add `Snapshot.current_step` (IntegerField 0-9, default=0)
+- Integrate with `SnapshotMachine` state transitions for step advancement
+
+### Hook Discovery & Execution
+- `Snapshot.run()` discovers all hooks upfront, creates one AR per hook with `hook_name` set
+- All ARs for a given step can be claimed and executed in parallel by workers
+- Workers claim ARs where `extract_step(ar.hook_name) <= snapshot.current_step`
+- `Snapshot.advance_step_if_ready()` increments `current_step` when:
+  - All **foreground** hooks in current step are finished (SUCCEEDED/FAILED/SKIPPED)
+  - Background hooks don't block advancement (they continue running)
+  - Called from `SnapshotMachine` state transitions
+
+### ArchiveResult.run() Behavior
+- If `self.hook_name` is set: run that single hook
+- If `self.hook_name` is None: discover all hooks for `self.plugin` and run sequentially
+- Background hooks detected by `.bg.` in filename (e.g., `on_Snapshot__20_chrome_tab.bg.js`)
+- Background hooks return immediately (ArchiveResult stays in STARTED state)
+- Foreground hooks wait for completion, update status from JSONL output
+
+### Hook Execution Flow
+1. **Within a step**: Workers claim all ARs for current step in parallel
+2. **Foreground hooks** (no .bg): ArchiveResult waits for completion, transitions to SUCCEEDED/FAILED/SKIPPED
+3. **Background hooks** (.bg): ArchiveResult transitions to STARTED, hook continues running
+4. **Step advancement**: `Snapshot.advance_step_if_ready()` checks:
+   - Are all foreground ARs in current step finished? (SUCCEEDED/FAILED/SKIPPED)
+   - Ignore ARs still in STARTED (background hooks)
+   - If yes, increment `current_step`
+5. **Snapshot sealing**: When `current_step=9` and all foreground hooks done, kill background hooks via `Snapshot.cleanup()`
+
+### Unnumbered Hooks
+- Extract step via `re.search(r'__(\d{2})_', hook_name)`, default to 9 if no match
+- Log warning for unnumbered hooks
+- Purely runtime derivation - no stored field
+
 ## Hook Numbering Convention
 
 Hooks scripts are numbered `00` to `99` to control:
@@ -31,20 +73,19 @@ on_Snapshot__53_media.bg.py
 ## Background (.bg) vs Foreground Scripts
 
 ### Foreground Scripts (no .bg suffix)
-- Run sequentially within their step
-- Block step progression until they exit
-- Should exit naturally when work is complete
+- Launch in parallel with other hooks in their step
+- Step waits for all foreground hooks to complete or timeout
 - Get killed with SIGTERM if they exceed their `PLUGINNAME_TIMEOUT`
+- Step advances when all foreground hooks finish
 
 ### Background Scripts (.bg suffix)
-- Spawned and allowed to continue running
-- Do NOT block step progression
-- Run until **their own `PLUGINNAME_TIMEOUT` is reached** (not until step 99)
-- Get polite SIGTERM when timeout expires, then SIGKILL 60s later if not exited
-- Must implement their own concurrency control using filesystem (semaphore files, locks, etc.)
+- Launch in parallel with other hooks in their step
+- Do NOT block step progression - step can advance while they run
+- Continue running across step boundaries until complete or timeout
+- Get killed with SIGTERM when Snapshot transitions to SEALED (via `Snapshot.cleanup()`)
 - Should exit naturally when work is complete (best case)
 
-**Important:** If a .bg script starts at step 05 with `MEDIA_TIMEOUT=3600s`, it gets the full 3600s regardless of when step 99 completes. It runs on its own timeline.
+**Important:** A .bg script started in step 2 can keep running through steps 3, 4, 5... until the Snapshot seals or the hook exits naturally.
 
 ## Execution Step Guidelines
 
@@ -268,54 +309,47 @@ archivebox/plugins/{plugin_name}/
 
 ## Implementation Checklist
 
-### Phase 1: Renumber Existing Hooks ✅
-- [ ] Renumber DOM extractors to 50-59 range
-- [ ] Ensure pdf/screenshot are NOT .bg (need sequential access)
-- [ ] Ensure media (ytdlp) IS .bg (can run for hours)
-- [ ] Add step comments to each plugin for clarity
+### Phase 1: Schema Migration ✅
+- [ ] Add `Snapshot.current_step` (IntegerField 0-9, default=0)
+- [ ] Add `ArchiveResult.hook_name` (CharField, nullable) - just filename
+- [ ] Create migration: `0033_snapshot_current_step_archiveresult_hook_name.py`
 
-### Phase 2: Timeout Consistency ✅
-- [x] All plugins support `PLUGINNAME_TIMEOUT` env var
-- [x] All plugins fall back to generic `TIMEOUT` env var
-- [x] Background scripts handle SIGTERM gracefully (or exit naturally)
+### Phase 2: Core Logic Updates
+- [ ] Add `extract_step(hook_name)` utility in `archivebox/hooks.py`
+  - Extract first digit from `__XX_` pattern
+  - Default to 9 for unnumbered hooks
+- [ ] Update `Snapshot.create_pending_archiveresults()` in `archivebox/core/models.py`:
+  - Discover all hooks (not plugins)
+  - Create one AR per hook with `hook_name` set
+- [ ] Update `ArchiveResult.run()` in `archivebox/core/models.py`:
+  - If `hook_name` set: run single hook
+  - If `hook_name` None: discover all plugin hooks (existing behavior)
+- [ ] Add `Snapshot.advance_step_if_ready()` method:
+  - Check if all foreground ARs in current step finished
+  - Increment `current_step` if ready
+  - Ignore background hooks (.bg) in completion check
+- [ ] Integrate with `SnapshotMachine.is_finished()` in `archivebox/core/statemachines.py`:
+  - Call `advance_step_if_ready()` before checking if done
 
-### Phase 3: Refactor Snapshot.run()
-- [ ] Parse hook filenames to extract step number (first digit)
-- [ ] Group hooks by step (0-9)
-- [ ] Run each step sequentially
-- [ ] Within each step:
-  - [ ] Launch foreground hooks sequentially
-  - [ ] Launch .bg hooks and track PIDs
-  - [ ] Wait for foreground hooks to complete before next step
-- [ ] Track .bg script timeouts independently
-- [ ] Send SIGTERM to .bg scripts when their timeout expires
-- [ ] Send SIGKILL 60s after SIGTERM if not exited
+### Phase 3: Worker Coordination
+- [ ] Update worker AR claiming query in `archivebox/workers/worker.py`:
+  - Filter: `extract_step(ar.hook_name) <= snapshot.current_step`
+  - Note: May need to denormalize or use clever query since step is derived
+  - Alternative: Claim any AR in QUEUED state, check step in Python before processing
 
-### Phase 4: ArchiveResult Management
-- [ ] Create one ArchiveResult per hook (not per plugin)
-- [ ] Set initial state to `queued`
-- [ ] Update state based on JSONL output and exit code
-- [ ] Set `retry_at` for hooks that exit non-zero with no JSONL
-- [ ] Don't retry hooks that emit `{"status": "failed"}`
-
-### Phase 5: JSONL Streaming
-- [ ] Parse stdout JSONL line-by-line during hook execution
-- [ ] Create/update DB rows as JSONL is emitted (streaming mode)
-- [ ] Handle partial JSONL on hook crash
-
-### Phase 6: Zombie Process Management
-- [ ] Read `.pid` files from hook output directories
-- [ ] Sweep zombies on cleanup
-- [ ] Handle double-forked processes correctly
+### Phase 4: Hook Renumbering
+- [ ] Renumber hooks per renumbering map below
+- [ ] Add `.bg` suffix to long-running hooks
+- [ ] Test all hooks still work after renumbering
 
 ## Migration Path
 
-### Backward Compatibility
-During migration, support both old and new numbering:
-1. Run hooks numbered 00-99 in step order
-2. Run unnumbered hooks last (step 9) for compatibility
-3. Log warnings for unnumbered hooks
-4. Eventually require all hooks to be numbered
+### Natural Compatibility
+No special migration needed:
+1. Existing ARs with `hook_name=None` continue to work (discover all plugin hooks at runtime)
+2. New ARs get `hook_name` set (single hook per AR)
+3. `ArchiveResult.run()` handles both cases naturally
+4. Unnumbered hooks default to step 9 (log warning)
 
 ### Renumbering Map
 

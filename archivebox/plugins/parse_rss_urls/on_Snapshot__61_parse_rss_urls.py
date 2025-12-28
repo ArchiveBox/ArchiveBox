@@ -23,7 +23,7 @@ from urllib.parse import urlparse
 
 import rich_click as click
 
-EXTRACTOR_NAME = 'parse_rss_urls'
+PLUGIN_NAME = 'parse_rss_urls'
 
 try:
     import feedparser
@@ -107,7 +107,7 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
         entry = {
             'type': 'Snapshot',
             'url': unescape(item_url),
-            'via_extractor': EXTRACTOR_NAME,
+            'plugin': PLUGIN_NAME,
             'depth': depth + 1,
         }
         if snapshot_id:

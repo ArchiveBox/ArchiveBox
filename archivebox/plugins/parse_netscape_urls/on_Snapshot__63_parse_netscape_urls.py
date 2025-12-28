@@ -22,7 +22,7 @@ from urllib.parse import urlparse
 
 import rich_click as click
 
-EXTRACTOR_NAME = 'parse_netscape_urls'
+PLUGIN_NAME = 'parse_netscape_urls'
 
 # Constants for timestamp epoch detection
 UNIX_EPOCH = 0  # 1970-01-01 00:00:00 UTC
@@ -187,7 +187,7 @@ def main(url: str, snapshot_id: str = None):
             entry = {
                 'type': 'Snapshot',
                 'url': unescape(bookmark_url),
-                'via_extractor': EXTRACTOR_NAME,
+                'plugin': PLUGIN_NAME,
             }
             if title:
                 entry['title'] = unescape(title)

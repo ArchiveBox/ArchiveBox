@@ -19,7 +19,7 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer-core');
 
-const EXTRACTOR_NAME = 'chrome_navigate';
+const PLUGIN_NAME = 'chrome_navigate';
 const CHROME_SESSION_DIR = '.';
 const OUTPUT_DIR = '.';
 

@@ -219,7 +219,13 @@ def test_recursive_crawl_creates_child_snapshots(tmp_path, process):
 
     # Kill the process
     proc.kill()
-    proc.wait()
+    stdout, stderr = proc.communicate()
+
+    # Debug: print stderr to see what's happening
+    if stderr:
+        print(f"\n=== STDERR ===\n{stderr}\n=== END STDERR ===\n")
+    if stdout:
+        print(f"\n=== STDOUT (last 2000 chars) ===\n{stdout[-2000:]}\n=== END STDOUT ===\n")
 
     conn = sqlite3.connect('index.sqlite3')
     c = conn.cursor()
