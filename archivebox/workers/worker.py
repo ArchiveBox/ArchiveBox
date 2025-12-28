@@ -252,8 +252,6 @@ class Worker:
                         'duration': elapsed,
                         'status': 'success' if success else 'failed',
                     }
-                    if hasattr(obj, 'status'):
-                        complete_metadata['final_status'] = str(obj.status)
 
                     log_worker_event(
                         worker_type=worker_type_name,
