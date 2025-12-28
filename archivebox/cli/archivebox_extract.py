@@ -40,7 +40,7 @@ def process_archiveresult_by_id(archiveresult_id: str) -> int:
     """
     Run extraction for a single ArchiveResult by ID (used by workers).
 
-    Triggers the ArchiveResult's state machine tick() to run the extractor.
+    Triggers the ArchiveResult's state machine tick() to run the extractor plugin.
     """
     from rich import print as rprint
     from core.models import ArchiveResult
@@ -51,7 +51,7 @@ def process_archiveresult_by_id(archiveresult_id: str) -> int:
         rprint(f'[red]ArchiveResult {archiveresult_id} not found[/red]', file=sys.stderr)
         return 1
 
-    rprint(f'[blue]Extracting {archiveresult.extractor} for {archiveresult.snapshot.url}[/blue]', file=sys.stderr)
+    rprint(f'[blue]Extracting {archiveresult.plugin} for {archiveresult.snapshot.url}[/blue]', file=sys.stderr)
 
     try:
         # Trigger state machine tick - this runs the actual extraction
@@ -151,7 +151,7 @@ def run_plugins(
             # Only create for specific plugin
             result, created = ArchiveResult.objects.get_or_create(
                 snapshot=snapshot,
-                extractor=plugin,
+                plugin=plugin,
                 defaults={
                     'status': ArchiveResult.StatusChoices.QUEUED,
                     'retry_at': timezone.now(),
@@ -193,7 +193,7 @@ def run_plugins(
             snapshot = Snapshot.objects.get(id=snapshot_id)
             results = snapshot.archiveresult_set.all()
             if plugin:
-                results = results.filter(extractor=plugin)
+                results = results.filter(plugin=plugin)
 
             for result in results:
                 if is_tty:
@@ -202,7 +202,7 @@ def run_plugins(
                         'failed': 'red',
                         'skipped': 'yellow',
                     }.get(result.status, 'dim')
-                    rprint(f'  [{status_color}]{result.status}[/{status_color}] {result.extractor} → {result.output_str or ""}', file=sys.stderr)
+                    rprint(f'  [{status_color}]{result.status}[/{status_color}] {result.plugin} → {result.output_str or ""}', file=sys.stderr)
                 else:
                     write_record(archiveresult_to_jsonl(result))
         except Snapshot.DoesNotExist:

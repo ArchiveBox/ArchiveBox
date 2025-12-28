@@ -86,7 +86,7 @@ def add(urls: str | list[str],
             'ONLY_NEW': not update,
             'INDEX_ONLY': index_only,
             'OVERWRITE': overwrite,
-            'EXTRACTORS': plugins,
+            'PLUGINS': plugins,
             'DEFAULT_PERSONA': persona or 'Default',
             'PARSER': parser,
         }

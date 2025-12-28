@@ -74,17 +74,17 @@ def test_background_hooks_dont_block_parser_extractors(tmp_path, process):
     # Check that background hooks are running
     # Background hooks: consolelog, ssl, responses, redirects, staticfile
     bg_hooks = c.execute(
-        "SELECT extractor, status FROM core_archiveresult WHERE extractor IN ('consolelog', 'ssl', 'responses', 'redirects', 'staticfile') ORDER BY extractor"
+        "SELECT plugin, status FROM core_archiveresult WHERE plugin IN ('consolelog', 'ssl', 'responses', 'redirects', 'staticfile') ORDER BY plugin"
     ).fetchall()
 
     # Check that parser extractors have run (not stuck in queued)
     parser_extractors = c.execute(
-        "SELECT extractor, status FROM core_archiveresult WHERE extractor LIKE 'parse_%_urls' ORDER BY extractor"
+        "SELECT plugin, status FROM core_archiveresult WHERE plugin LIKE 'parse_%_urls' ORDER BY plugin"
     ).fetchall()
 
     # Check all extractors to see what's happening
     all_extractors = c.execute(
-        "SELECT extractor, status FROM core_archiveresult ORDER BY extractor"
+        "SELECT plugin, status FROM core_archiveresult ORDER BY plugin"
     ).fetchall()
 
     conn.close()
@@ -160,7 +160,7 @@ def test_parser_extractors_emit_snapshot_jsonl(tmp_path, process):
 
     # Check that parse_html_urls ran
     parse_html = c.execute(
-        "SELECT id, status, output_str FROM core_archiveresult WHERE extractor = '60_parse_html_urls'"
+        "SELECT id, status, output_str FROM core_archiveresult WHERE plugin = '60_parse_html_urls'"
     ).fetchone()
 
     conn.close()
@@ -171,7 +171,7 @@ def test_parser_extractors_emit_snapshot_jsonl(tmp_path, process):
 
         # Parser should have run
         assert status in ['started', 'succeeded', 'failed'], \
-            f"parse_html_urls should have run, got status: {status}"
+            f"60_parse_html_urls should have run, got status: {status}"
 
         # If it succeeded and found links, output should contain JSON
         if status == 'succeeded' and output:
@@ -185,39 +185,37 @@ def test_recursive_crawl_creates_child_snapshots(tmp_path, process):
     """Test that recursive crawling creates child snapshots with proper depth and parent_snapshot_id."""
     os.chdir(tmp_path)
 
-    # Disable most extractors to speed up test, but keep wget for HTML content
+    # Create a test HTML file with links
+    test_html = tmp_path / 'test.html'
+    test_html.write_text('''
+    <html>
+    <body>
+        <h1>Test Page</h1>
+        <a href="https://monadical.com/about">About</a>
+        <a href="https://monadical.com/blog">Blog</a>
+        <a href="https://monadical.com/contact">Contact</a>
+    </body>
+    </html>
+    ''')
+
+    # Minimal env for fast testing
     env = os.environ.copy()
     env.update({
-        "USE_WGET": "true",  # Need wget to fetch HTML for parsers
-        "USE_SINGLEFILE": "false",
-        "USE_READABILITY": "false",
-        "USE_MERCURY": "false",
-        "SAVE_HTMLTOTEXT": "false",
-        "SAVE_PDF": "false",
-        "SAVE_SCREENSHOT": "false",
-        "SAVE_DOM": "false",
-        "SAVE_HEADERS": "false",
-        "USE_GIT": "false",
-        "SAVE_MEDIA": "false",
-        "SAVE_ARCHIVE_DOT_ORG": "false",
-        "SAVE_TITLE": "false",
-        "SAVE_FAVICON": "false",
-        "USE_CHROME": "false",
         "URL_ALLOWLIST": r"monadical\.com/.*",  # Only crawl same domain
     })
 
     # Start a crawl with depth=1 (just one hop to test recursive crawling)
+    # Use file:// URL so it's instant, no network fetch needed
     proc = subprocess.Popen(
-        ['archivebox', 'add', '--depth=1', 'https://monadical.com'],
+        ['archivebox', 'add', '--depth=1', f'file://{test_html}'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
         env=env,
     )
 
-    # Give orchestrator time to process - parser extractors should emit child snapshots within 60s
-    # Even if root snapshot is still processing, child snapshots can start in parallel
-    time.sleep(60)
+    # Give orchestrator time to process - file:// is fast, should complete in 20s
+    time.sleep(20)
 
     # Kill the process
     proc.kill()
@@ -231,8 +229,7 @@ def test_recursive_crawl_creates_child_snapshots(tmp_path, process):
 
     # Check root snapshot (depth=0)
     root_snapshot = c.execute(
-        "SELECT id, url, depth, parent_snapshot_id FROM core_snapshot WHERE url = ? AND depth = 0",
-        ('https://monadical.com',)
+        "SELECT id, url, depth, parent_snapshot_id FROM core_snapshot WHERE depth = 0 ORDER BY created_at LIMIT 1"
     ).fetchone()
 
     # Check if any child snapshots were created (depth=1)
@@ -247,13 +244,13 @@ def test_recursive_crawl_creates_child_snapshots(tmp_path, process):
 
     # Check parser extractor status
     parser_status = c.execute(
-        "SELECT extractor, status FROM core_archiveresult WHERE snapshot_id = ? AND extractor LIKE 'parse_%_urls'",
+        "SELECT plugin, status FROM core_archiveresult WHERE snapshot_id = ? AND plugin LIKE 'parse_%_urls'",
         (root_snapshot[0] if root_snapshot else '',)
     ).fetchall()
 
     # Check for started extractors that might be blocking
     started_extractors = c.execute(
-        "SELECT extractor, status FROM core_archiveresult WHERE snapshot_id = ? AND status = 'started'",
+        "SELECT plugin, status FROM core_archiveresult WHERE snapshot_id = ? AND status = 'started'",
         (root_snapshot[0] if root_snapshot else '',)
     ).fetchall()
 
@@ -417,12 +414,12 @@ def test_archiveresult_worker_queue_filters_by_foreground_extractors(tmp_path, p
 
     # Get background hooks that are started
     bg_started = c.execute(
-        "SELECT extractor FROM core_archiveresult WHERE extractor IN ('consolelog', 'ssl', 'responses', 'redirects', 'staticfile') AND status = 'started'"
+        "SELECT plugin FROM core_archiveresult WHERE plugin IN ('consolelog', 'ssl', 'responses', 'redirects', 'staticfile') AND status = 'started'"
     ).fetchall()
 
     # Get parser extractors that should be queued or better
     parser_status = c.execute(
-        "SELECT extractor, status FROM core_archiveresult WHERE extractor LIKE 'parse_%_urls'"
+        "SELECT plugin, status FROM core_archiveresult WHERE plugin LIKE 'parse_%_urls'"
     ).fetchall()
 
     conn.close()

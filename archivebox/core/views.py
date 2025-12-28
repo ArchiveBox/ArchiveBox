@@ -56,9 +56,9 @@ class SnapshotView(View):
     def render_live_index(request, snapshot):
         TITLE_LOADING_MSG = 'Not yet archived...'
 
-        # Dict of extractor -> ArchiveResult object
+        # Dict of plugin -> ArchiveResult object
         archiveresult_objects = {}
-        # Dict of extractor -> result info dict (for template compatibility)
+        # Dict of plugin -> result info dict (for template compatibility)
         archiveresults = {}
 
         results = snapshot.archiveresult_set.all()
@@ -75,16 +75,16 @@ class SnapshotView(View):
                     continue
 
                 # Store the full ArchiveResult object for template tags
-                archiveresult_objects[result.extractor] = result
+                archiveresult_objects[result.plugin] = result
 
                 result_info = {
-                    'name': result.extractor,
+                    'name': result.plugin,
                     'path': embed_path,
                     'ts': ts_to_date_str(result.end_ts),
                     'size': abs_path.stat().st_size or '?',
                     'result': result,  # Include the full object for template tags
                 }
-                archiveresults[result.extractor] = result_info
+                archiveresults[result.plugin] = result_info
 
         # Use canonical_outputs for intelligent discovery
         # This method now scans ArchiveResults and uses smart heuristics
@@ -119,8 +119,8 @@ class SnapshotView(View):
 
         # Get available extractors from hooks (sorted by numeric prefix for ordering)
         # Convert to base names for display ordering
-        all_extractors = [get_extractor_name(e) for e in get_extractors()]
-        preferred_types = tuple(all_extractors)
+        all_plugins = [get_extractor_name(e) for e in get_extractors()]
+        preferred_types = tuple(all_plugins)
         all_types = preferred_types + tuple(result_type for result_type in archiveresults.keys() if result_type not in preferred_types)
 
         best_result = {'path': 'None', 'result': None}
@@ -463,7 +463,6 @@ class AddView(UserPassesTestMixin, FormView):
         urls_content = sources_file.read_text()
         crawl = Crawl.objects.create(
             urls=urls_content,
-            extractor=parser,
             max_depth=depth,
             tags_str=tag,
             label=f'{self.request.user.username}@{HOSTNAME}{self.request.path} {timestamp}',
@@ -598,12 +597,12 @@ def live_progress_view(request):
                         ArchiveResult.StatusChoices.SUCCEEDED: 2,
                         ArchiveResult.StatusChoices.FAILED: 3,
                     }
-                    return (status_order.get(ar.status, 4), ar.extractor)
+                    return (status_order.get(ar.status, 4), ar.plugin)
 
-                all_extractors = [
+                all_plugins = [
                     {
                         'id': str(ar.id),
-                        'extractor': ar.extractor,
+                        'plugin': ar.plugin,
                         'status': ar.status,
                     }
                     for ar in sorted(snapshot_results, key=extractor_sort_key)
@@ -619,7 +618,7 @@ def live_progress_view(request):
                     'completed_extractors': completed_extractors,
                     'failed_extractors': failed_extractors,
                     'pending_extractors': pending_extractors,
-                    'all_extractors': all_extractors,
+                    'all_plugins': all_plugins,
                 })
 
             # Check if crawl can start (for debugging stuck crawls)

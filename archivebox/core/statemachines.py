@@ -192,7 +192,7 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
     
     def is_backoff(self) -> bool:
         """Check if we should backoff and retry later."""
-        # Backoff if status is still started (extractor didn't complete) and output_str is empty
+        # Backoff if status is still started (plugin didn't complete) and output_str is empty
         return (
             self.archiveresult.status == ArchiveResult.StatusChoices.STARTED and
             not self.archiveresult.output_str
@@ -222,19 +222,19 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
         # Suppressed: state transition logs
         # Lock the object and mark start time
         self.archiveresult.update_for_workers(
-            retry_at=timezone.now() + timedelta(seconds=120),  # 2 min timeout for extractor
+            retry_at=timezone.now() + timedelta(seconds=120),  # 2 min timeout for plugin
             status=ArchiveResult.StatusChoices.STARTED,
             start_ts=timezone.now(),
             iface=NetworkInterface.current(),
         )
 
-        # Run the extractor - this updates status, output, timestamps, etc.
+        # Run the plugin - this updates status, output, timestamps, etc.
         self.archiveresult.run()
 
         # Save the updated result
         self.archiveresult.save()
 
-        # Suppressed: extractor result logs (already logged by worker)
+        # Suppressed: plugin result logs (already logged by worker)
 
     @backoff.enter
     def enter_backoff(self):

@@ -292,8 +292,13 @@ def run_hook(
     stdout_file = output_dir / 'stdout.log'
     stderr_file = output_dir / 'stderr.log'
     pid_file = output_dir / 'hook.pid'
+    cmd_file = output_dir / 'cmd.sh'
 
     try:
+        # Write command script for validation
+        from archivebox.misc.process_utils import write_cmd_file
+        write_cmd_file(cmd_file, cmd)
+
         # Open log files for writing
         with open(stdout_file, 'w') as out, open(stderr_file, 'w') as err:
             process = subprocess.Popen(
@@ -304,8 +309,10 @@ def run_hook(
                 env=env,
             )
 
-            # Write PID for all hooks (useful for debugging/cleanup)
-            pid_file.write_text(str(process.pid))
+            # Write PID with mtime set to process start time for validation
+            from archivebox.misc.process_utils import write_pid_file_with_mtime
+            process_start_time = time.time()
+            write_pid_file_with_mtime(pid_file, process.pid, process_start_time)
 
             if is_background:
                 # Background hook - return None immediately, don't wait
@@ -1327,21 +1334,29 @@ def process_is_alive(pid_file: Path) -> bool:
         return False
 
 
-def kill_process(pid_file: Path, sig: int = signal.SIGTERM):
+def kill_process(pid_file: Path, sig: int = signal.SIGTERM, validate: bool = True):
     """
-    Kill process in PID file.
+    Kill process in PID file with optional validation.
 
     Args:
         pid_file: Path to hook.pid file
         sig: Signal to send (default SIGTERM)
+        validate: If True, validate process identity before killing (default: True)
     """
-    if not pid_file.exists():
-        return
-
-    try:
-        pid = int(pid_file.read_text().strip())
-        os.kill(pid, sig)
-    except (OSError, ValueError):
-        pass
+    from archivebox.misc.process_utils import safe_kill_process
+    
+    if validate:
+        # Use safe kill with validation
+        cmd_file = pid_file.parent / 'cmd.sh'
+        safe_kill_process(pid_file, cmd_file, signal_num=sig, validate=True)
+    else:
+        # Legacy behavior - kill without validation
+        if not pid_file.exists():
+            return
+        try:
+            pid = int(pid_file.read_text().strip())
+            os.kill(pid, sig)
+        except (OSError, ValueError):
+            pass
 
 

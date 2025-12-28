@@ -13,16 +13,16 @@ from archivebox.config import DATA_DIR
 from archivebox.config.common import SERVER_CONFIG
 from archivebox.misc.paginators import AccelleratedPaginator
 from archivebox.base_models.admin import BaseModelAdmin
-from archivebox.hooks import get_extractor_icon
+from archivebox.hooks import get_plugin_icon
 
 
 from core.models import ArchiveResult, Snapshot
 
 
 def render_archiveresults_list(archiveresults_qs, limit=50):
-    """Render a nice inline list view of archive results with status, extractor, output, and actions."""
+    """Render a nice inline list view of archive results with status, plugin, output, and actions."""
 
-    results = list(archiveresults_qs.order_by('extractor').select_related('snapshot')[:limit])
+    results = list(archiveresults_qs.order_by('plugin').select_related('snapshot')[:limit])
 
     if not results:
         return mark_safe('<div style="color: #64748b; font-style: italic; padding: 16px 0;">No Archive Results yet...</div>')
@@ -40,8 +40,8 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
         status = result.status or 'queued'
         color, bg = status_colors.get(status, ('#6b7280', '#f3f4f6'))
 
-        # Get extractor icon
-        icon = get_extractor_icon(result.extractor)
+        # Get plugin icon
+        icon = get_plugin_icon(result.plugin)
 
         # Format timestamp
         end_time = result.end_ts.strftime('%Y-%m-%d %H:%M:%S') if result.end_ts else '-'
@@ -79,7 +79,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
                                  font-size: 11px; font-weight: 600; text-transform: uppercase;
                                  color: {color}; background: {bg};">{status}</span>
                 </td>
-                <td style="padding: 10px 12px; white-space: nowrap; font-size: 20px;" title="{result.extractor}">
+                <td style="padding: 10px 12px; white-space: nowrap; font-size: 20px;" title="{result.plugin}">
                     {icon}
                 </td>
                 <td style="padding: 10px 12px; font-weight: 500; color: #334155;">
@@ -88,7 +88,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
                        title="View output fullscreen"
                        onmouseover="this.style.color='#2563eb'; this.style.textDecoration='underline';"
                        onmouseout="this.style.color='#334155'; this.style.textDecoration='none';">
-                        {result.extractor}
+                        {result.plugin}
                     </a>
                 </td>
                 <td style="padding: 10px 12px; max-width: 280px;">
@@ -162,7 +162,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">ID</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; width: 32px;"></th>
-                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Extractor</th>
+                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Plugin</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Output</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Completed</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Version</th>
@@ -185,9 +185,9 @@ class ArchiveResultInline(admin.TabularInline):
     parent_model = Snapshot
     # fk_name = 'snapshot'
     extra = 0
-    sort_fields = ('end_ts', 'extractor', 'output_str', 'status', 'cmd_version')
+    sort_fields = ('end_ts', 'plugin', 'output_str', 'status', 'cmd_version')
     readonly_fields = ('id', 'result_id', 'completed', 'command', 'version')
-    fields = ('start_ts', 'end_ts', *readonly_fields, 'extractor', 'cmd', 'cmd_version', 'pwd', 'created_by', 'status', 'retry_at', 'output_str')
+    fields = ('start_ts', 'end_ts', *readonly_fields, 'plugin', 'cmd', 'cmd_version', 'pwd', 'created_by', 'status', 'retry_at', 'output_str')
     # exclude = ('id',)
     ordering = ('end_ts',)
     show_change_link = True
@@ -253,9 +253,9 @@ class ArchiveResultInline(admin.TabularInline):
 
 class ArchiveResultAdmin(BaseModelAdmin):
     list_display = ('id', 'created_by', 'created_at', 'snapshot_info', 'tags_str', 'status', 'extractor_with_icon', 'cmd_str', 'output_str')
-    sort_fields = ('id', 'created_by', 'created_at', 'extractor', 'status')
+    sort_fields = ('id', 'created_by', 'created_at', 'plugin', 'status')
     readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary', 'extractor_with_icon', 'iface')
-    search_fields = ('id', 'snapshot__url', 'extractor', 'output_str', 'cmd_version', 'cmd', 'snapshot__timestamp')
+    search_fields = ('id', 'snapshot__url', 'plugin', 'output_str', 'cmd_version', 'cmd', 'snapshot__timestamp')
     autocomplete_fields = ['snapshot']
 
     fieldsets = (
@@ -263,8 +263,8 @@ class ArchiveResultAdmin(BaseModelAdmin):
             'fields': ('snapshot', 'snapshot_info', 'tags_str'),
             'classes': ('card', 'wide'),
         }),
-        ('Extractor', {
-            'fields': ('extractor', 'extractor_with_icon', 'status', 'retry_at', 'iface'),
+        ('Plugin', {
+            'fields': ('plugin', 'plugin_with_icon', 'status', 'retry_at', 'iface'),
             'classes': ('card',),
         }),
         ('Timing', {
@@ -285,7 +285,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
         }),
     )
 
-    list_filter = ('status', 'extractor', 'start_ts', 'cmd_version')
+    list_filter = ('status', 'plugin', 'start_ts', 'cmd_version')
     ordering = ['-start_ts']
     list_per_page = SERVER_CONFIG.SNAPSHOTS_PER_PAGE
 
@@ -321,14 +321,14 @@ class ArchiveResultAdmin(BaseModelAdmin):
     def tags_str(self, result):
         return result.snapshot.tags_str()
 
-    @admin.display(description='Extractor', ordering='extractor')
-    def extractor_with_icon(self, result):
-        icon = get_extractor_icon(result.extractor)
+    @admin.display(description='Plugin', ordering='plugin')
+    def plugin_with_icon(self, result):
+        icon = get_plugin_icon(result.plugin)
         return format_html(
             '<span title="{}">{}</span> {}',
-            result.extractor,
+            result.plugin,
             icon,
-            result.extractor,
+            result.plugin,
         )
 
     def cmd_str(self, result):

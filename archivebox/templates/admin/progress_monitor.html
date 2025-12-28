@@ -488,7 +488,7 @@
                 <span class="progress-fill"></span>
                 <span class="badge-content">
                     <span class="badge-icon">${icon}</span>
-                    <span>${extractor.extractor}</span>
+                    <span>${extractor.plugin}</span>
                 </span>
             </span>
         `;
@@ -499,10 +499,10 @@
         const adminUrl = `/admin/core/snapshot/${snapshot.id}/change/`;
 
         let extractorHtml = '';
-        if (snapshot.all_extractors && snapshot.all_extractors.length > 0) {
-            // Sort extractors alphabetically by name to prevent reordering on updates
-            const sortedExtractors = [...snapshot.all_extractors].sort((a, b) =>
-                a.extractor.localeCompare(b.extractor)
+        if (snapshot.all_plugins && snapshot.all_plugins.length > 0) {
+            // Sort plugins alphabetically by name to prevent reordering on updates
+            const sortedExtractors = [...snapshot.all_plugins].sort((a, b) =>
+                a.plugin.localeCompare(b.plugin)
             );
             extractorHtml = `
                 <div class="extractor-list">

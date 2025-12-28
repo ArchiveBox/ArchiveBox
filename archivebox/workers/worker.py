@@ -227,10 +227,10 @@ class Worker:
                         urls = obj.get_urls_list()
                         url = urls[0] if urls else None
 
-                    extractor = None
-                    if hasattr(obj, 'extractor'):
+                    plugin = None
+                    if hasattr(obj, 'plugin'):
                         # ArchiveResultWorker, Crawl
-                        extractor = obj.extractor
+                        plugin = obj.plugin
 
                     log_worker_event(
                         worker_type=worker_type_name,
@@ -239,7 +239,7 @@ class Worker:
                         pid=self.pid,
                         worker_id=str(self.worker_id),
                         url=url,
-                        extractor=extractor,
+                        plugin=plugin,
                         metadata=start_metadata if start_metadata else None,
                     )
 
@@ -262,7 +262,7 @@ class Worker:
                         pid=self.pid,
                         worker_id=str(self.worker_id),
                         url=url,
-                        extractor=extractor,
+                        plugin=plugin,
                         metadata=complete_metadata,
                     )
                 else:
@@ -345,9 +345,9 @@ class ArchiveResultWorker(Worker):
     name: ClassVar[str] = 'archiveresult'
     MAX_TICK_TIME: ClassVar[int] = 120
 
-    def __init__(self, extractor: str | None = None, **kwargs: Any):
+    def __init__(self, plugin: str | None = None, **kwargs: Any):
         super().__init__(**kwargs)
-        self.extractor = extractor
+        self.plugin = plugin
 
     def get_model(self):
         from core.models import ArchiveResult
@@ -359,16 +359,16 @@ class ArchiveResultWorker(Worker):
 
         qs = super().get_queue()
 
-        if self.extractor:
-            qs = qs.filter(extractor=self.extractor)
+        if self.plugin:
+            qs = qs.filter(plugin=self.plugin)
 
         # Note: Removed blocking logic since plugins have separate output directories
-        # and don't interfere with each other. Each plugin (extractor) runs independently.
+        # and don't interfere with each other. Each plugin runs independently.
 
         return qs
 
     def process_item(self, obj) -> bool:
-        """Process an ArchiveResult by running its extractor."""
+        """Process an ArchiveResult by running its plugin."""
         try:
             obj.sm.tick()
             return True
@@ -378,8 +378,8 @@ class ArchiveResultWorker(Worker):
             return False
 
     @classmethod
-    def start(cls, worker_id: int | None = None, daemon: bool = False, extractor: str | None = None, **kwargs: Any) -> int:
-        """Fork a new worker as subprocess with optional extractor filter."""
+    def start(cls, worker_id: int | None = None, daemon: bool = False, plugin: str | None = None, **kwargs: Any) -> int:
+        """Fork a new worker as subprocess with optional plugin filter."""
         if worker_id is None:
             worker_id = get_next_worker_id(cls.name)
 
@@ -387,7 +387,7 @@ class ArchiveResultWorker(Worker):
         proc = Process(
             target=_run_worker,
             args=(cls.name, worker_id, daemon),
-            kwargs={'extractor': extractor, **kwargs},
+            kwargs={'plugin': plugin, **kwargs},
             name=f'{cls.name}_worker_{worker_id}',
         )
         proc.start()

@@ -867,6 +867,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             ArchiveResult.objects.create(
                 snapshot=self,
                 plugin=plugin,
+                hook_name=result_data.get('hook_name', ''),
                 status=result_data.get('status', 'failed'),
                 output_str=result_data.get('output', ''),
                 cmd=result_data.get('cmd', []),
@@ -1162,7 +1163,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 continue
             pid_file = plugin_dir / 'hook.pid'
             if pid_file.exists():
-                kill_process(pid_file)
+                kill_process(pid_file, validate=True)  # Use validation
 
                 # Update the ArchiveResult from filesystem
                 plugin_name = plugin_dir.name

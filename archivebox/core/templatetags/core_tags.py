@@ -5,7 +5,7 @@ from django.utils.safestring import mark_safe
 from typing import Union
 
 from archivebox.hooks import (
-    get_extractor_icon, get_extractor_template, get_extractor_name,
+    get_plugin_icon, get_plugin_template, get_plugin_name,
 )
 
 
@@ -51,30 +51,30 @@ def url_replace(context, **kwargs):
 
 
 @register.simple_tag
-def extractor_icon(extractor: str) -> str:
+def plugin_icon(plugin: str) -> str:
     """
-    Render the icon for an extractor.
+    Render the icon for a plugin.
 
-    Usage: {% extractor_icon "screenshot" %}
+    Usage: {% plugin_icon "screenshot" %}
     """
-    return mark_safe(get_extractor_icon(extractor))
+    return mark_safe(get_plugin_icon(plugin))
 
 
 @register.simple_tag(takes_context=True)
-def extractor_thumbnail(context, result) -> str:
+def plugin_thumbnail(context, result) -> str:
     """
     Render the thumbnail template for an archive result.
 
-    Usage: {% extractor_thumbnail result %}
+    Usage: {% plugin_thumbnail result %}
 
     Context variables passed to template:
         - result: ArchiveResult object
         - snapshot: Parent Snapshot object
         - output_path: Path to output relative to snapshot dir (from embed_path())
-        - extractor: Extractor base name
+        - plugin: Plugin base name
     """
-    extractor = get_extractor_name(result.extractor)
-    template_str = get_extractor_template(extractor, 'thumbnail')
+    plugin = get_plugin_name(result.plugin)
+    template_str = get_plugin_template(plugin, 'thumbnail')
 
     if not template_str:
         return ''
@@ -89,7 +89,7 @@ def extractor_thumbnail(context, result) -> str:
             'result': result,
             'snapshot': result.snapshot,
             'output_path': output_path,
-            'extractor': extractor,
+            'plugin': plugin,
         })
         return mark_safe(tpl.render(ctx))
     except Exception:
@@ -97,14 +97,14 @@ def extractor_thumbnail(context, result) -> str:
 
 
 @register.simple_tag(takes_context=True)
-def extractor_embed(context, result) -> str:
+def plugin_embed(context, result) -> str:
     """
     Render the embed iframe template for an archive result.
 
-    Usage: {% extractor_embed result %}
+    Usage: {% plugin_embed result %}
     """
-    extractor = get_extractor_name(result.extractor)
-    template_str = get_extractor_template(extractor, 'embed')
+    plugin = get_plugin_name(result.plugin)
+    template_str = get_plugin_template(plugin, 'embed')
 
     if not template_str:
         return ''
@@ -117,7 +117,7 @@ def extractor_embed(context, result) -> str:
             'result': result,
             'snapshot': result.snapshot,
             'output_path': output_path,
-            'extractor': extractor,
+            'plugin': plugin,
         })
         return mark_safe(tpl.render(ctx))
     except Exception:
@@ -125,14 +125,14 @@ def extractor_embed(context, result) -> str:
 
 
 @register.simple_tag(takes_context=True)
-def extractor_fullscreen(context, result) -> str:
+def plugin_fullscreen(context, result) -> str:
     """
     Render the fullscreen template for an archive result.
 
-    Usage: {% extractor_fullscreen result %}
+    Usage: {% plugin_fullscreen result %}
     """
-    extractor = get_extractor_name(result.extractor)
-    template_str = get_extractor_template(extractor, 'fullscreen')
+    plugin = get_plugin_name(result.plugin)
+    template_str = get_plugin_template(plugin, 'fullscreen')
 
     if not template_str:
         return ''
@@ -145,7 +145,7 @@ def extractor_fullscreen(context, result) -> str:
             'result': result,
             'snapshot': result.snapshot,
             'output_path': output_path,
-            'extractor': extractor,
+            'plugin': plugin,
         })
         return mark_safe(tpl.render(ctx))
     except Exception:
@@ -153,10 +153,10 @@ def extractor_fullscreen(context, result) -> str:
 
 
 @register.filter
-def extractor_name(value: str) -> str:
+def plugin_name(value: str) -> str:
     """
-    Get the base name of an extractor (strips numeric prefix).
+    Get the base name of a plugin (strips numeric prefix).
 
-    Usage: {{ result.extractor|extractor_name }}
+    Usage: {{ result.plugin|plugin_name }}
     """
-    return get_extractor_name(value)
+    return get_plugin_name(value)

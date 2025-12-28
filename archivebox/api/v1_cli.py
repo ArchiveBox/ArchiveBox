@@ -54,7 +54,7 @@ class AddCommandSchema(Schema):
     tag: str = ""
     depth: int = 0
     parser: str = "auto"
-    extract: str = ""
+    plugins: str = ""
     update: bool = not ARCHIVING_CONFIG.ONLY_NEW  # Default to the opposite of ARCHIVING_CONFIG.ONLY_NEW
     overwrite: bool = False
     index_only: bool = False
@@ -69,7 +69,7 @@ class UpdateCommandSchema(Schema):
     status: Optional[StatusChoices] = StatusChoices.unarchived
     filter_type: Optional[str] = FilterTypeChoices.substring
     filter_patterns: Optional[List[str]] = ['https://example.com']
-    extractors: Optional[str] = ""
+    plugins: Optional[str] = ""
 
 class ScheduleCommandSchema(Schema):
     import_path: Optional[str] = None
@@ -115,7 +115,7 @@ def cli_add(request, args: AddCommandSchema):
         update=args.update,
         index_only=args.index_only,
         overwrite=args.overwrite,
-        plugins=args.extract,  # extract in API maps to plugins param
+        plugins=args.plugins,
         parser=args.parser,
         bg=True,  # Always run in background for API calls
     )
@@ -143,7 +143,7 @@ def cli_update(request, args: UpdateCommandSchema):
         status=args.status,
         filter_type=args.filter_type,
         filter_patterns=args.filter_patterns,
-        extractors=args.extractors,
+        plugins=args.plugins,
     )
     return {
         "success": True,

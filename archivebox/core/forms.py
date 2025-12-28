@@ -10,19 +10,19 @@ DEPTH_CHOICES = (
     ('1', 'depth = 1 (archive these URLs and all URLs one hop away)'),
 )
 
-from archivebox.hooks import get_extractors
+from archivebox.hooks import get_plugins
 
-def get_archive_methods():
-    """Get available archive methods from discovered hooks."""
-    return [(name, name) for name in get_extractors()]
+def get_plugin_choices():
+    """Get available extractor plugins from discovered hooks."""
+    return [(name, name) for name in get_plugins()]
 
 
 class AddLinkForm(forms.Form):
     url = forms.RegexField(label="URLs (one per line)", regex=URL_REGEX, min_length='6', strip=True, widget=forms.Textarea, required=True)
     tag = forms.CharField(label="Tags (comma separated tag1,tag2,tag3)", strip=True, required=False)
     depth = forms.ChoiceField(label="Archive depth", choices=DEPTH_CHOICES, initial='0', widget=forms.RadioSelect(attrs={"class": "depth-selection"}))
-    archive_methods = forms.MultipleChoiceField(
-        label="Archive methods (select at least 1, otherwise all will be used by default)",
+    plugins = forms.MultipleChoiceField(
+        label="Plugins (select at least 1, otherwise all will be used by default)",
         required=False,
         widget=forms.SelectMultiple,
         choices=[],  # populated dynamically in __init__
@@ -30,7 +30,7 @@ class AddLinkForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['archive_methods'].choices = get_archive_methods()
+        self.fields['plugins'].choices = get_plugin_choices()
     # TODO: hook these up to the view and put them 
     # in a collapsible UI section labeled "Advanced"
     #

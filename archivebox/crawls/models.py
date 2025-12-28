@@ -353,10 +353,18 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         import signal
         from pathlib import Path
         from archivebox.hooks import run_hook, discover_hooks
+        from archivebox.misc.process_utils import validate_pid_file
 
         # Kill any background processes by scanning for all .pid files
         if self.OUTPUT_DIR.exists():
             for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
+                # Validate PID before killing to avoid killing unrelated processes
+                cmd_file = pid_file.parent / 'cmd.sh'
+                if not validate_pid_file(pid_file, cmd_file):
+                    # PID reused by different process or process dead
+                    pid_file.unlink(missing_ok=True)
+                    continue
+                
                 try:
                     pid = int(pid_file.read_text().strip())
                     try:
