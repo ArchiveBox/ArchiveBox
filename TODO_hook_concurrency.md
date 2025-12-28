@@ -343,7 +343,7 @@ archivebox/plugins/{plugin_name}/
 - [x] Renumber hooks per renumbering map below
 - [x] Add `.bg` suffix to long-running hooks (media, gallerydl, forumdl, papersdl)
 - [x] Move parse_* hooks to step 7 (70-79)
-- [ ] Test all hooks still work after renumbering
+- [x] Test all hooks still work after renumbering
 
 ## Migration Path
 
