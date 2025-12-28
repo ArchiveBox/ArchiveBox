@@ -354,18 +354,42 @@ class ArchiveResultWorker(Worker):
         return ArchiveResult
 
     def get_queue(self) -> QuerySet:
-        """Get queue of ArchiveResults ready for processing."""
+        """
+        Get queue of ArchiveResults ready for processing.
+
+        Uses step-based filtering: only claims ARs where hook step <= snapshot.current_step.
+        This ensures hooks execute in order (step 0 → 1 → 2 ... → 9).
+        """
         from core.models import ArchiveResult
+        from archivebox.hooks import extract_step
 
         qs = super().get_queue()
 
         if self.plugin:
             qs = qs.filter(plugin=self.plugin)
 
-        # Note: Removed blocking logic since plugins have separate output directories
-        # and don't interfere with each other. Each plugin runs independently.
+        # Step-based filtering: only process ARs whose step <= snapshot.current_step
+        # Since step is derived from hook_name, we filter in Python after initial query
+        # This is efficient because the base query already filters by retry_at and status
 
-        return qs
+        # Get candidate ARs
+        candidates = list(qs[:50])  # Limit to avoid loading too many
+        ready_pks = []
+
+        for ar in candidates:
+            if not ar.hook_name:
+                # Legacy ARs without hook_name - process them
+                ready_pks.append(ar.pk)
+                continue
+
+            ar_step = extract_step(ar.hook_name)
+            snapshot_step = ar.snapshot.current_step
+
+            if ar_step <= snapshot_step:
+                ready_pks.append(ar.pk)
+
+        # Return filtered queryset ordered by hook_name (so earlier hooks run first within a step)
+        return ArchiveResult.objects.filter(pk__in=ready_pks).order_by('hook_name', 'retry_at')
 
     def process_item(self, obj) -> bool:
         """Process an ArchiveResult by running its plugin."""

@@ -310,36 +310,39 @@ archivebox/plugins/{plugin_name}/
 ## Implementation Checklist
 
 ### Phase 1: Schema Migration ✅
-- [ ] Add `Snapshot.current_step` (IntegerField 0-9, default=0)
-- [ ] Add `ArchiveResult.hook_name` (CharField, nullable) - just filename
-- [ ] Create migration: `0033_snapshot_current_step_archiveresult_hook_name.py`
+- [x] Add `Snapshot.current_step` (IntegerField 0-9, default=0)
+- [x] Add `ArchiveResult.hook_name` (CharField, nullable) - just filename
+- [x] Create migration: `0034_snapshot_current_step.py`
 
-### Phase 2: Core Logic Updates
-- [ ] Add `extract_step(hook_name)` utility in `archivebox/hooks.py`
+### Phase 2: Core Logic Updates ✅
+- [x] Add `extract_step(hook_name)` utility in `archivebox/hooks.py`
   - Extract first digit from `__XX_` pattern
   - Default to 9 for unnumbered hooks
-- [ ] Update `Snapshot.create_pending_archiveresults()` in `archivebox/core/models.py`:
+- [x] Add `is_background_hook(hook_name)` utility in `archivebox/hooks.py`
+  - Check for `.bg.` in filename
+- [x] Update `Snapshot.create_pending_archiveresults()` in `archivebox/core/models.py`:
   - Discover all hooks (not plugins)
   - Create one AR per hook with `hook_name` set
-- [ ] Update `ArchiveResult.run()` in `archivebox/core/models.py`:
+- [x] Update `ArchiveResult.run()` in `archivebox/core/models.py`:
   - If `hook_name` set: run single hook
   - If `hook_name` None: discover all plugin hooks (existing behavior)
-- [ ] Add `Snapshot.advance_step_if_ready()` method:
+- [x] Add `Snapshot.advance_step_if_ready()` method:
   - Check if all foreground ARs in current step finished
   - Increment `current_step` if ready
   - Ignore background hooks (.bg) in completion check
-- [ ] Integrate with `SnapshotMachine.is_finished()` in `archivebox/core/statemachines.py`:
+- [x] Integrate with `SnapshotMachine.is_finished()` in `archivebox/core/statemachines.py`:
   - Call `advance_step_if_ready()` before checking if done
 
-### Phase 3: Worker Coordination
-- [ ] Update worker AR claiming query in `archivebox/workers/worker.py`:
+### Phase 3: Worker Coordination ✅
+- [x] Update worker AR claiming query in `archivebox/workers/worker.py`:
   - Filter: `extract_step(ar.hook_name) <= snapshot.current_step`
-  - Note: May need to denormalize or use clever query since step is derived
-  - Alternative: Claim any AR in QUEUED state, check step in Python before processing
+  - Claims ARs in QUEUED state, checks step in Python before processing
+  - Orders by hook_name for deterministic execution within step
 
-### Phase 4: Hook Renumbering
-- [ ] Renumber hooks per renumbering map below
-- [ ] Add `.bg` suffix to long-running hooks
+### Phase 4: Hook Renumbering ✅
+- [x] Renumber hooks per renumbering map below
+- [x] Add `.bg` suffix to long-running hooks (media, gallerydl, forumdl, papersdl)
+- [x] Move parse_* hooks to step 7 (70-79)
 - [ ] Test all hooks still work after renumbering
 
 ## Migration Path
@@ -353,25 +356,34 @@ No special migration needed:
 
 ### Renumbering Map
 
-**Current → New:**
+**Completed Renames:**
 ```
-git/on_Snapshot__12_git.py                    → git/on_Snapshot__62_git.py
-media/on_Snapshot__51_media.py                → media/on_Snapshot__63_media.bg.py
-gallerydl/on_Snapshot__52_gallerydl.py        → gallerydl/on_Snapshot__64_gallerydl.bg.py
-forumdl/on_Snapshot__53_forumdl.py            → forumdl/on_Snapshot__65_forumdl.bg.py
-papersdl/on_Snapshot__54_papersdl.py          → papersdl/on_Snapshot__66_papersdl.bg.py
+# Step 5: DOM Extraction (sequential, non-background)
+singlefile/on_Snapshot__37_singlefile.py      → singlefile/on_Snapshot__50_singlefile.py ✅
+screenshot/on_Snapshot__34_screenshot.js      → screenshot/on_Snapshot__51_screenshot.js ✅
+pdf/on_Snapshot__35_pdf.js                    → pdf/on_Snapshot__52_pdf.js ✅
+dom/on_Snapshot__36_dom.js                    → dom/on_Snapshot__53_dom.js ✅
+title/on_Snapshot__32_title.js                → title/on_Snapshot__54_title.js ✅
+readability/on_Snapshot__52_readability.py    → readability/on_Snapshot__55_readability.py ✅
+headers/on_Snapshot__33_headers.js            → headers/on_Snapshot__55_headers.js ✅
+mercury/on_Snapshot__53_mercury.py            → mercury/on_Snapshot__56_mercury.py ✅
+htmltotext/on_Snapshot__54_htmltotext.py      → htmltotext/on_Snapshot__57_htmltotext.py ✅
 
-readability/on_Snapshot__52_readability.py    → readability/on_Snapshot__55_readability.py
-mercury/on_Snapshot__53_mercury.py            → mercury/on_Snapshot__56_mercury.py
+# Step 6: Post-DOM Extraction (background for long-running)
+wget/on_Snapshot__50_wget.py                  → wget/on_Snapshot__61_wget.py ✅
+git/on_Snapshot__12_git.py                    → git/on_Snapshot__62_git.py ✅
+media/on_Snapshot__51_media.py                → media/on_Snapshot__63_media.bg.py ✅
+gallerydl/on_Snapshot__52_gallerydl.py        → gallerydl/on_Snapshot__64_gallerydl.bg.py ✅
+forumdl/on_Snapshot__53_forumdl.py            → forumdl/on_Snapshot__65_forumdl.bg.py ✅
+papersdl/on_Snapshot__54_papersdl.py          → papersdl/on_Snapshot__66_papersdl.bg.py ✅
 
-singlefile/on_Snapshot__37_singlefile.py      → singlefile/on_Snapshot__50_singlefile.py
-screenshot/on_Snapshot__34_screenshot.js      → screenshot/on_Snapshot__51_screenshot.js
-pdf/on_Snapshot__35_pdf.js                    → pdf/on_Snapshot__52_pdf.js
-dom/on_Snapshot__36_dom.js                    → dom/on_Snapshot__53_dom.js
-title/on_Snapshot__32_title.js                → title/on_Snapshot__54_title.js
-headers/on_Snapshot__33_headers.js            → headers/on_Snapshot__55_headers.js
-
-wget/on_Snapshot__50_wget.py                  → wget/on_Snapshot__61_wget.py
+# Step 7: URL Extraction (parse_* hooks moved from step 6)
+parse_html_urls/on_Snapshot__60_parse_html_urls.py      → parse_html_urls/on_Snapshot__70_parse_html_urls.py ✅
+parse_txt_urls/on_Snapshot__62_parse_txt_urls.py        → parse_txt_urls/on_Snapshot__71_parse_txt_urls.py ✅
+parse_rss_urls/on_Snapshot__61_parse_rss_urls.py        → parse_rss_urls/on_Snapshot__72_parse_rss_urls.py ✅
+parse_netscape_urls/on_Snapshot__63_parse_netscape_urls.py → parse_netscape_urls/on_Snapshot__73_parse_netscape_urls.py ✅
+parse_jsonl_urls/on_Snapshot__64_parse_jsonl_urls.py    → parse_jsonl_urls/on_Snapshot__74_parse_jsonl_urls.py ✅
+parse_dom_outlinks/on_Snapshot__40_parse_dom_outlinks.js → parse_dom_outlinks/on_Snapshot__75_parse_dom_outlinks.js ✅
 ```
 
 ## Testing Strategy

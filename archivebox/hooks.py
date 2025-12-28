@@ -15,9 +15,20 @@ Hook contract:
     Exit:   0 = success, non-zero = failure
 
 Execution order:
-    - Extractors run sequentially within each Snapshot (ordered by numeric prefix)
-    - Multiple Snapshots can process in parallel
+    - Hooks are numbered 00-99 with first digit determining step (0-9)
+    - All hooks in a step can run in parallel
+    - Steps execute sequentially (step 0 → step 1 → ... → step 9)
+    - Background hooks (.bg suffix) don't block step advancement
     - Failed extractors don't block subsequent extractors
+
+Hook Naming Convention:
+    on_{ModelName}__{run_order}_{description}[.bg].{ext}
+
+    Examples:
+        on_Snapshot__00_setup.py         # Step 0, runs first
+        on_Snapshot__20_chrome_tab.bg.js # Step 2, background (doesn't block)
+        on_Snapshot__50_screenshot.js    # Step 5, foreground (blocks step)
+        on_Snapshot__63_media.bg.py      # Step 6, background (long-running)
 
 Dependency handling:
     Extractor plugins that depend on other plugins' output should check at runtime:
@@ -39,11 +50,14 @@ API (all hook logic lives here):
     discover_hooks(event)     -> List[Path]     Find hook scripts
     run_hook(script, ...)     -> HookResult     Execute a hook script
     run_hooks(event, ...)     -> List[HookResult]  Run all hooks for an event
+    extract_step(hook_name)   -> int            Get step number (0-9) from hook name
+    is_background_hook(name)  -> bool           Check if hook is background (.bg suffix)
 """
 
 __package__ = 'archivebox'
 
 import os
+import re
 import json
 import signal
 import time
@@ -58,6 +72,63 @@ from django.utils import timezone
 # Plugin directories
 BUILTIN_PLUGINS_DIR = Path(__file__).parent / 'plugins'
 USER_PLUGINS_DIR = Path(getattr(settings, 'DATA_DIR', Path.cwd())) / 'plugins'
+
+
+# =============================================================================
+# Hook Step Extraction
+# =============================================================================
+
+def extract_step(hook_name: str) -> int:
+    """
+    Extract step number (0-9) from hook name.
+
+    Hooks are numbered 00-99 with the first digit determining the step.
+    Pattern: on_{Model}__{XX}_{description}[.bg].{ext}
+
+    Args:
+        hook_name: Hook filename (e.g., 'on_Snapshot__50_wget.py')
+
+    Returns:
+        Step number 0-9, or 9 (default) for unnumbered hooks.
+
+    Examples:
+        extract_step('on_Snapshot__05_chrome.py') -> 0
+        extract_step('on_Snapshot__50_wget.py') -> 5
+        extract_step('on_Snapshot__63_media.bg.py') -> 6
+        extract_step('on_Snapshot__99_cleanup.sh') -> 9
+        extract_step('on_Snapshot__unnumbered.py') -> 9 (default)
+    """
+    # Pattern matches __XX_ where XX is two digits
+    match = re.search(r'__(\d{2})_', hook_name)
+    if match:
+        two_digit = int(match.group(1))
+        step = two_digit // 10  # First digit is the step (0-9)
+        return step
+
+    # Log warning for unnumbered hooks and default to step 9
+    import sys
+    print(f"Warning: Hook '{hook_name}' has no step number (expected __XX_), defaulting to step 9", file=sys.stderr)
+    return 9
+
+
+def is_background_hook(hook_name: str) -> bool:
+    """
+    Check if a hook is a background hook (doesn't block step advancement).
+
+    Background hooks have '.bg.' in their filename before the extension.
+
+    Args:
+        hook_name: Hook filename (e.g., 'on_Snapshot__20_chrome_tab.bg.js')
+
+    Returns:
+        True if background hook, False if foreground.
+
+    Examples:
+        is_background_hook('on_Snapshot__20_chrome_tab.bg.js') -> True
+        is_background_hook('on_Snapshot__50_wget.py') -> False
+        is_background_hook('on_Snapshot__63_media.bg.py') -> True
+    """
+    return '.bg.' in hook_name or '__background' in hook_name
 
 
 class HookResult(TypedDict, total=False):
