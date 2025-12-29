@@ -94,7 +94,7 @@ class OrchestratorSchema(Schema):
 @router.get("/orchestrator", response=OrchestratorSchema, url_name="get_orchestrator")
 def get_orchestrator(request):
     """Get the orchestrator status and all worker queues."""
-    from workers.orchestrator import Orchestrator
+    from archivebox.workers.orchestrator import Orchestrator
     from workers.worker import CrawlWorker, SnapshotWorker, ArchiveResultWorker
 
     orchestrator = Orchestrator()

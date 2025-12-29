@@ -26,10 +26,10 @@ ASCII_LOGO = """
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 
-# Add PACKAGE_DIR to sys.path - required for Django migrations to import models
-# Migrations reference models like 'machine.Binary' which need to be importable
-if str(PACKAGE_DIR) not in sys.path:
-    sys.path.append(str(PACKAGE_DIR))
+# # Add PACKAGE_DIR to sys.path - required for Django migrations to import models
+# # Migrations reference models like 'machine.Binary' which need to be importable
+# if str(PACKAGE_DIR) not in sys.path:
+#     sys.path.append(str(PACKAGE_DIR))
 
 os.environ['DJANGO_SETTINGS_MODULE'] = 'archivebox.core.settings'
 os.environ['TZ'] = 'UTC'

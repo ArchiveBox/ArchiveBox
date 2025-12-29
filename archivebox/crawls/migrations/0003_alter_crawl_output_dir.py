@@ -8,12 +8,21 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('crawls', '0002_drop_seed_model'),
+        ('core', '0024_d_fix_crawls_config'),  # Depends on config fix
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='crawl',
-            name='output_dir',
-            field=models.FilePathField(blank=True, default='', path=pathlib.PurePosixPath('/private/tmp/test_archivebox_migrations/archive')),
+        # Update Django's state only to avoid table rebuild that would re-apply old constraints
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AlterField(
+                    model_name='crawl',
+                    name='output_dir',
+                    field=models.FilePathField(blank=True, default='', path=pathlib.PurePosixPath('/private/tmp/test_archivebox_migrations/archive')),
+                ),
+            ],
+            database_operations=[
+                # No database changes - output_dir type change is cosmetic for Django admin
+            ],
         ),
     ]

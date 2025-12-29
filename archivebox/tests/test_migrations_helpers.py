@@ -949,19 +949,30 @@ def seed_0_8_data(db_path: Path) -> Dict[str, List[Dict]]:
         ('core', '0072_rename_added_snapshot_bookmarked_at_and_more'),
         ('core', '0073_rename_created_archiveresult_created_at_and_more'),
         ('core', '0074_alter_snapshot_downloaded_at'),
-        ('core', '0023_new_schema'),
+        # For 0.8.x: DO NOT record 0023_new_schema - it replaces 0023-0074 for fresh installs
+        # We already recorded 0023-0074 above, so Django will know the state
+        # For 0.8.x: Record original machine migrations (before squashing)
+        # DO NOT record 0001_squashed here - it replaces 0001-0004 for fresh installs
         ('machine', '0001_initial'),
         ('machine', '0002_alter_machine_stats_installedbinary'),
         ('machine', '0003_alter_installedbinary_options_and_more'),
         ('machine', '0004_alter_installedbinary_abspath_and_more'),
-        ('machine', '0001_squashed'),
+        # Then the new migrations after squashing
         ('machine', '0002_rename_custom_cmds_to_overrides'),
         ('machine', '0003_alter_dependency_id_alter_installedbinary_dependency_and_more'),
         ('machine', '0004_drop_dependency_table'),
+        # Crawls must come before core.0024 because 0024_b depends on it
+        ('crawls', '0001_initial'),
+        # Core 0024 migrations chain (in dependency order)
+        ('core', '0024_b_clear_config_fields'),
+        ('core', '0024_c_disable_fk_checks'),
+        ('core', '0024_d_fix_crawls_config'),
         ('core', '0024_snapshot_crawl'),
+        ('core', '0024_f_add_snapshot_config'),
         ('core', '0025_allow_duplicate_urls_per_crawl'),
+        # For 0.8.x: Record original api migration (before squashing)
+        # DO NOT record 0001_squashed here - it replaces 0001 for fresh installs
         ('api', '0001_initial'),
-        ('api', '0001_squashed'),
         ('api', '0002_alter_apitoken_options'),
         ('api', '0003_rename_user_apitoken_created_by_apitoken_abid_and_more'),
         ('api', '0004_alter_apitoken_id_alter_apitoken_uuid'),
@@ -970,11 +981,9 @@ def seed_0_8_data(db_path: Path) -> Dict[str, List[Dict]]:
         ('api', '0007_alter_apitoken_created_by'),
         ('api', '0008_alter_apitoken_created_alter_apitoken_created_by_and_more'),
         ('api', '0009_rename_created_apitoken_created_at_and_more'),
-        ('crawls', '0001_initial'),
-        ('crawls', '0002_drop_seed_model'),
-        ('crawls', '0003_alter_crawl_output_dir'),
-        ('crawls', '0004_alter_crawl_output_dir'),
-        ('core', '0035_snapshot_crawl_non_nullable_remove_created_by'),
+        # Note: crawls.0001_initial moved earlier (before core.0024) due to dependencies
+        # Stop here - 0.8.x ends at core.0025, crawls.0001, and we want to TEST the later migrations
+        # Do NOT record 0026+ as they need to be tested during migration
     ]
 
     for app, name in migrations:
@@ -1000,7 +1009,7 @@ def run_archivebox(data_dir: Path, args: list, timeout: int = 60, env: dict = No
     base_env['USE_COLOR'] = 'False'
     base_env['SHOW_PROGRESS'] = 'False'
     # Disable ALL extractors for faster tests (can be overridden by env parameter)
-    base_env['SAVE_ARCHIVE_DOT_ORG'] = 'False'
+    base_env['SAVE_ARCHIVEDOTORG'] = 'False'
     base_env['SAVE_TITLE'] = 'False'
     base_env['SAVE_FAVICON'] = 'False'
     base_env['SAVE_WGET'] = 'False'

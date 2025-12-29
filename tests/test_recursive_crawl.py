@@ -33,7 +33,7 @@ def test_background_hooks_dont_block_parser_extractors(tmp_path, process):
         "SAVE_HEADERS": "false",
         "USE_GIT": "false",
         "SAVE_MEDIA": "false",
-        "SAVE_ARCHIVE_DOT_ORG": "false",
+        "SAVE_ARCHIVEDOTORG": "false",
         "SAVE_TITLE": "false",
         "SAVE_FAVICON": "false",
         # Enable chrome session (required for background hooks to start)
@@ -133,7 +133,7 @@ def test_parser_extractors_emit_snapshot_jsonl(tmp_path, process):
         "SAVE_HEADERS": "false",
         "USE_GIT": "false",
         "SAVE_MEDIA": "false",
-        "SAVE_ARCHIVE_DOT_ORG": "false",
+        "SAVE_ARCHIVEDOTORG": "false",
         "SAVE_TITLE": "false",
         "SAVE_FAVICON": "false",
         "USE_CHROME": "false",

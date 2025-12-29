@@ -13,68 +13,79 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Add new output fields (keep old 'output' temporarily for migration)
-        migrations.AddField(
-            model_name='archiveresult',
-            name='output_str',
-            field=models.TextField(
-                blank=True,
-                default='',
-                help_text='Human-readable output summary (e.g., "Downloaded 5 files")'
-            ),
-        ),
-
-        migrations.AddField(
-            model_name='archiveresult',
-            name='output_json',
-            field=models.JSONField(
-                null=True,
-                blank=True,
-                default=None,
-                help_text='Structured metadata (headers, redirects, etc.) - should NOT duplicate ArchiveResult fields'
-            ),
-        ),
-
-        migrations.AddField(
-            model_name='archiveresult',
-            name='output_files',
-            field=models.JSONField(
-                default=dict,
-                help_text='Dict of {relative_path: {metadata}} - values are empty dicts for now, extensible for future metadata'
-            ),
-        ),
-
-        migrations.AddField(
-            model_name='archiveresult',
-            name='output_size',
-            field=models.BigIntegerField(
-                default=0,
-                help_text='Total recursive size in bytes of all output files'
-            ),
-        ),
-
-        migrations.AddField(
-            model_name='archiveresult',
-            name='output_mimetypes',
-            field=models.CharField(
-                max_length=512,
-                blank=True,
-                default='',
-                help_text='CSV of mimetypes sorted by size descending'
-            ),
-        ),
-
-        # Add binary FK (optional)
-        migrations.AddField(
-            model_name='archiveresult',
-            name='binary',
-            field=models.ForeignKey(
-                'machine.Binary',
-                on_delete=models.SET_NULL,
-                null=True,
-                blank=True,
-                related_name='archiveresults',
-                help_text='Primary binary used by this hook (optional)'
-            ),
+        # Add new output fields using SeparateDatabaseAndState to avoid table rebuilds
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(
+                    model_name='archiveresult',
+                    name='output_str',
+                    field=models.TextField(
+                        blank=True,
+                        default='',
+                        help_text='Human-readable output summary (e.g., "Downloaded 5 files")'
+                    ),
+                ),
+                migrations.AddField(
+                    model_name='archiveresult',
+                    name='output_json',
+                    field=models.JSONField(
+                        null=True,
+                        blank=True,
+                        default=None,
+                        help_text='Structured metadata (headers, redirects, etc.) - should NOT duplicate ArchiveResult fields'
+                    ),
+                ),
+                migrations.AddField(
+                    model_name='archiveresult',
+                    name='output_files',
+                    field=models.JSONField(
+                        default=dict,
+                        help_text='Dict of {relative_path: {metadata}} - values are empty dicts for now, extensible for future metadata'
+                    ),
+                ),
+                migrations.AddField(
+                    model_name='archiveresult',
+                    name='output_size',
+                    field=models.BigIntegerField(
+                        default=0,
+                        help_text='Total recursive size in bytes of all output files'
+                    ),
+                ),
+                migrations.AddField(
+                    model_name='archiveresult',
+                    name='output_mimetypes',
+                    field=models.CharField(
+                        max_length=512,
+                        blank=True,
+                        default='',
+                        help_text='CSV of mimetypes sorted by size descending'
+                    ),
+                ),
+                migrations.AddField(
+                    model_name='archiveresult',
+                    name='binary',
+                    field=models.ForeignKey(
+                        'machine.Binary',
+                        on_delete=models.SET_NULL,
+                        null=True,
+                        blank=True,
+                        related_name='archiveresults',
+                        help_text='Primary binary used by this hook (optional)'
+                    ),
+                ),
+            ],
+            database_operations=[
+                migrations.RunSQL(
+                    sql="""
+                        ALTER TABLE core_archiveresult ADD COLUMN output_str TEXT DEFAULT '';
+                        ALTER TABLE core_archiveresult ADD COLUMN output_json TEXT;
+                        ALTER TABLE core_archiveresult ADD COLUMN output_files TEXT DEFAULT '{}';
+                        ALTER TABLE core_archiveresult ADD COLUMN output_size BIGINT DEFAULT 0;
+                        ALTER TABLE core_archiveresult ADD COLUMN output_mimetypes VARCHAR(512) DEFAULT '';
+                        ALTER TABLE core_archiveresult ADD COLUMN binary_id CHAR(32) REFERENCES machine_binary(id);
+                    """,
+                    reverse_sql=migrations.RunSQL.noop,
+                ),
+            ],
         ),
     ]

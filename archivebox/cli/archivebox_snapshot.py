@@ -163,7 +163,7 @@ def create_snapshots(
 
     # If --plugins is passed, run the orchestrator for those plugins
     if plugins:
-        from workers.orchestrator import Orchestrator
+        from archivebox.workers.orchestrator import Orchestrator
         rprint(f'[blue]Running plugins: {plugins or "all"}...[/blue]', file=sys.stderr)
         orchestrator = Orchestrator(exit_on_idle=True)
         orchestrator.runloop()

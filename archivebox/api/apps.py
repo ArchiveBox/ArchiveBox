@@ -5,6 +5,7 @@ from django.apps import AppConfig
 
 class APIConfig(AppConfig):
     name = 'archivebox.api'
+    label = 'api'
 
 
 def register_admin(admin_site):

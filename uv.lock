@@ -88,6 +88,7 @@ dependencies = [
     { name = "py-machineid", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "pydantic", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "pydantic-settings", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "pytest-django", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "python-benedict", extra = ["io", "parse"], marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "python-crontab", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "python-statemachine", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -186,6 +187,7 @@ requires-dist = [
     { name = "py-machineid", specifier = ">=0.6.0" },
     { name = "pydantic", specifier = ">=2.8.0" },
     { name = "pydantic-settings", specifier = ">=2.5.2" },
+    { name = "pytest-django", specifier = ">=4.11.1" },
     { name = "python-benedict", extras = ["io", "parse"], specifier = ">=0.33.2" },
     { name = "python-crontab", specifier = ">=3.2.0" },
     { name = "python-ldap", marker = "extra == 'ldap'", specifier = ">=3.4.3" },
@@ -1846,6 +1848,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/d1/db/7ef3487e0fb0049ddb5ce41d3a49c235bf9ad299b6a25d5780a89f19230f/pytest-9.0.2.tar.gz", hash = "sha256:75186651a92bd89611d1d9fc20f0b4345fd827c41ccd5c299a868a05d70edf11", size = 1568901, upload-time = "2025-12-06T21:30:51.014Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3b/ab/b3226f0bd7cdcf710fbede2b3548584366da3b19b5021e74f5bde2a8fa3f/pytest-9.0.2-py3-none-any.whl", hash = "sha256:711ffd45bf766d5264d487b917733b453d917afd2b0ad65223959f59089f875b", size = 374801, upload-time = "2025-12-06T21:30:49.154Z" },
+]
+
+[[package]]
+name = "pytest-django"
+version = "4.11.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b1/fb/55d580352db26eb3d59ad50c64321ddfe228d3d8ac107db05387a2fadf3a/pytest_django-4.11.1.tar.gz", hash = "sha256:a949141a1ee103cb0e7a20f1451d355f83f5e4a5d07bdd4dcfdd1fd0ff227991", size = 86202, upload-time = "2025-04-03T18:56:09.338Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/be/ac/bd0608d229ec808e51a21044f3f2f27b9a37e7a0ebaca7247882e67876af/pytest_django-4.11.1-py3-none-any.whl", hash = "sha256:1b63773f648aa3d8541000c26929c1ea63934be1cfa674c76436966d73fe6a10", size = 25281, upload-time = "2025-04-03T18:56:07.678Z" },
 ]
 
 [[package]]

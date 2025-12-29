@@ -8,9 +8,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0023_new_schema'),
-        ('crawls', '0001_initial'),
-        ('machine', '0001_squashed'),
+        ('core', '0024_d_fix_crawls_config'),
     ]
 
     operations = [

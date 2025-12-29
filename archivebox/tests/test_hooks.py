@@ -429,19 +429,6 @@ class TestInstallHookOutput(unittest.TestCase):
         self.assertEqual(data['name'], 'wget')
         self.assertTrue(data['abspath'].startswith('/'))
 
-    def test_install_hook_outputs_dependency(self):
-        """Install hook should output Dependency JSONL when binary not found."""
-        hook_output = json.dumps({
-            'type': 'Dependency',
-            'bin_name': 'wget',
-            'bin_providers': 'apt,brew,env',
-        })
-
-        data = json.loads(hook_output)
-        self.assertEqual(data['type'], 'Dependency')
-        self.assertEqual(data['bin_name'], 'wget')
-        self.assertIn('apt', data['bin_providers'])
-
     def test_install_hook_outputs_machine_config(self):
         """Install hook should output Machine config update JSONL."""
         hook_output = json.dumps({

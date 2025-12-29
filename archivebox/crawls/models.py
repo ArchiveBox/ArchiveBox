@@ -65,7 +65,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     modified_at = models.DateTimeField(auto_now=True)
 
     urls = models.TextField(blank=False, null=False, help_text='Newline-separated list of URLs to crawl')
-    config = models.JSONField(default=dict)
+    config = models.JSONField(default=dict, null=True, blank=True)
     max_depth = models.PositiveSmallIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(4)])
     tags_str = models.CharField(max_length=1024, blank=True, null=False, default='')
     persona_id = models.UUIDField(null=True, blank=True)
@@ -77,7 +77,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     status = ModelWithStateMachine.StatusField(choices=ModelWithStateMachine.StatusChoices, default=ModelWithStateMachine.StatusChoices.QUEUED)
     retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
 
-    state_machine_name = 'crawls.models.CrawlMachine'
+    state_machine_name = 'archivebox.crawls.models.CrawlMachine'
     retry_at_field_name = 'retry_at'
     state_field_name = 'status'
     StatusChoices = ModelWithStateMachine.StatusChoices
@@ -190,7 +190,6 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 'status': Snapshot.INITIAL_STATE,
                 'retry_at': timezone.now(),
                 'timestamp': str(timezone.now().timestamp()),
-                'created_by_id': self.created_by_id,
                 'depth': 0,
             },
         )
@@ -290,7 +289,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                     'timestamp': timestamp or str(timezone.now().timestamp()),
                     'status': Snapshot.INITIAL_STATE,
                     'retry_at': timezone.now(),
-                    'created_by_id': self.created_by_id,
+                    # Note: created_by removed in 0.9.0 - Snapshot inherits from Crawl
                 }
             )
 

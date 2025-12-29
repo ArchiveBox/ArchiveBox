@@ -160,7 +160,7 @@ def process_all_db_snapshots(batch_size: int = 100) -> dict:
     total = Snapshot.objects.count()
     print(f'[*] Processing {total} snapshots from database...')
 
-    for snapshot in Snapshot.objects.iterator():
+    for snapshot in Snapshot.objects.iterator(chunk_size=batch_size):
         # Reconcile index.json with DB
         snapshot.reconcile_with_index_json()
 
@@ -209,7 +209,7 @@ def process_filtered_snapshots(
     total = snapshots.count()
     print(f'[*] Found {total} matching snapshots')
 
-    for snapshot in snapshots.iterator():
+    for snapshot in snapshots.iterator(chunk_size=batch_size):
         # Reconcile index.json with DB
         snapshot.reconcile_with_index_json()
 

@@ -21,7 +21,7 @@
 #     #    COOKIES_TXT_FILE: '/path/to/cookies.txt',
 #     #    CHROME_USER_DATA_DIR: '/path/to/chrome/user/data/dir',
 #     #    CHECK_SSL_VALIDITY: False,
-#     #    SAVE_ARCHIVE_DOT_ORG: True,
+#     #    SAVE_ARCHIVEDOTORG: True,
 #     #    CHROME_BINARY: 'chromium'
 #     #    ...
 #     # }

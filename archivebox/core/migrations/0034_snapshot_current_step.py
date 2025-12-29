@@ -11,13 +11,27 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='snapshot',
-            name='current_step',
-            field=models.PositiveSmallIntegerField(
-                default=0,
-                db_index=True,
-                help_text='Current hook step being executed (0-9). Used for sequential hook execution.'
-            ),
+        # Use SeparateDatabaseAndState to avoid table rebuild that would fail on config NOT NULL constraint
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(
+                    model_name='snapshot',
+                    name='current_step',
+                    field=models.PositiveSmallIntegerField(
+                        default=0,
+                        db_index=True,
+                        help_text='Current hook step being executed (0-9). Used for sequential hook execution.'
+                    ),
+                ),
+            ],
+            database_operations=[
+                migrations.RunSQL(
+                    sql="""
+                        ALTER TABLE core_snapshot ADD COLUMN current_step SMALLINT UNSIGNED DEFAULT 0 NOT NULL;
+                        CREATE INDEX IF NOT EXISTS core_snapshot_current_step_idx ON core_snapshot (current_step);
+                    """,
+                    reverse_sql=migrations.RunSQL.noop,
+                ),
+            ],
         ),
     ]

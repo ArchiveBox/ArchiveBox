@@ -74,7 +74,7 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
             tail_multiple_worker_logs,
             is_port_in_use,
         )
-        from workers.orchestrator import Orchestrator
+        from archivebox.workers.orchestrator import Orchestrator
         import sys
 
         # Check if port is already in use

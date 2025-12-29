@@ -539,7 +539,7 @@ from django.http import JsonResponse
 def live_progress_view(request):
     """Simple JSON endpoint for live progress status - used by admin progress monitor."""
     try:
-        from workers.orchestrator import Orchestrator
+        from archivebox.workers.orchestrator import Orchestrator
         from archivebox.crawls.models import Crawl
         from archivebox.core.models import Snapshot, ArchiveResult
         from django.db.models import Case, When, Value, IntegerField

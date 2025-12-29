@@ -56,7 +56,7 @@ def add(urls: str | list[str],
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
     from archivebox.base_models.models import get_or_create_system_user_pk
-    from workers.orchestrator import Orchestrator
+    from archivebox.workers.orchestrator import Orchestrator
 
     created_by_id = created_by_id or get_or_create_system_user_pk()
 

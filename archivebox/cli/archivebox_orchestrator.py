@@ -37,7 +37,7 @@ def orchestrator(daemon: bool = False, watch: bool = False) -> int:
         0: All work completed successfully
         1: Error occurred
     """
-    from workers.orchestrator import Orchestrator
+    from archivebox.workers.orchestrator import Orchestrator
     
     if Orchestrator.is_running():
         print('[yellow]Orchestrator is already running[/yellow]')

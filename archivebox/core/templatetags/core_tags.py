@@ -91,7 +91,11 @@ def plugin_thumbnail(context, result) -> str:
             'output_path': output_path,
             'plugin': plugin,
         })
-        return mark_safe(tpl.render(ctx))
+        rendered = tpl.render(ctx)
+        # Only return non-empty content (strip whitespace to check)
+        if rendered.strip():
+            return mark_safe(rendered)
+        return ''
     except Exception:
         return ''
 
@@ -119,7 +123,11 @@ def plugin_embed(context, result) -> str:
             'output_path': output_path,
             'plugin': plugin,
         })
-        return mark_safe(tpl.render(ctx))
+        rendered = tpl.render(ctx)
+        # Only return non-empty content (strip whitespace to check)
+        if rendered.strip():
+            return mark_safe(rendered)
+        return ''
     except Exception:
         return ''
 
@@ -147,7 +155,11 @@ def plugin_fullscreen(context, result) -> str:
             'output_path': output_path,
             'plugin': plugin,
         })
-        return mark_safe(tpl.render(ctx))
+        rendered = tpl.render(ctx)
+        # Only return non-empty content (strip whitespace to check)
+        if rendered.strip():
+            return mark_safe(rendered)
+        return ''
     except Exception:
         return ''
 

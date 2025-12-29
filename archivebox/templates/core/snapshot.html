@@ -360,9 +360,11 @@
                 <div class="row header-bottom-frames">
                     {% for result_info in archiveresults %}
                         {% if result_info.result %}
+                            {% plugin_thumbnail result_info.result as thumbnail_html %}
+                            {% if thumbnail_html %}
                             <div class="col-lg-2">
                                 <div class="card{% if forloop.first %} selected-card{% endif %}">
-                                    {% plugin_thumbnail result_info.result %}
+                                    {{ thumbnail_html }}
                                     <div class="card-body">
                                         <a href="{{ result_info.path }}" title="Open in new tab..." target="_blank" rel="noopener">
                                             <p class="card-text"><code>{{ result_info.path }}</code></p>
@@ -373,6 +375,7 @@
                                     </div>
                                 </div>
                             </div>
+                            {% endif %}
                         {% endif %}
                     {% endfor %}
 
@@ -395,7 +398,7 @@
                 </div>
             </div>
         </header>
-        <iframe sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe" src="{{singlefile_path}}" name="preview"></iframe>
+        <iframe sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe" src="{{best_preview_path}}" name="preview"></iframe>
     
         <script>
             /*! jQuery v3.2.1 -ajax,-ajax/jsonp,-ajax/load,-ajax/parseXML,-ajax/script,-ajax/var/location,-ajax/var/nonce,-ajax/var/rquery,-ajax/xhr,-manipulation/_evalUrl,-event/ajax,-effects,-effects/Tween,-effects/animatedSelector | (c) JS Foundation and other contributors | jquery.org/license */

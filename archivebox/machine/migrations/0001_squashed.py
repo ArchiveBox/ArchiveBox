@@ -85,6 +85,12 @@ class Migration(migrations.Migration):
                 ('version', models.CharField(blank=True, default=None, max_length=32)),
                 ('sha256', models.CharField(blank=True, default=None, max_length=64)),
                 ('machine', models.ForeignKey(blank=True, default=None, on_delete=django.db.models.deletion.CASCADE, to='machine.machine')),
+                # Fields added in migration 0005 (included here for fresh installs)
+                ('binproviders', models.CharField(blank=True, default='env', max_length=127)),
+                ('output_dir', models.CharField(blank=True, default='', max_length=255)),
+                ('overrides', models.JSONField(blank=True, default=dict)),
+                ('retry_at', models.DateTimeField(blank=True, db_index=True, default=django.utils.timezone.now, null=True)),
+                ('status', models.CharField(choices=[('queued', 'Queued'), ('started', 'Started'), ('succeeded', 'Succeeded'), ('failed', 'Failed')], db_index=True, default='queued', max_length=16)),
                 # dependency FK removed - Dependency model deleted
             ],
             options={

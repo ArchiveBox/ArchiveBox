@@ -16,43 +16,62 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='archiveresult',
-            name='binary',
-            field=models.ForeignKey(blank=True, help_text='Primary binary used by this hook', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='archiveresults', to='machine.binary'),
+        # Update Django's state only - database already has correct schema from 0029
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AlterField(
+                    model_name='archiveresult',
+                    name='binary',
+                    field=models.ForeignKey(blank=True, help_text='Primary binary used by this hook', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='archiveresults', to='machine.binary'),
+                ),
+                migrations.AlterField(
+                    model_name='archiveresult',
+                    name='output_files',
+                    field=models.JSONField(default=dict, help_text='Dict of {relative_path: {metadata}}'),
+                ),
+                migrations.AlterField(
+                    model_name='archiveresult',
+                    name='output_json',
+                    field=models.JSONField(blank=True, default=None, help_text='Structured metadata (headers, redirects, etc.)', null=True),
+                ),
+                migrations.AlterField(
+                    model_name='archiveresult',
+                    name='output_mimetypes',
+                    field=models.CharField(blank=True, default='', help_text='CSV of mimetypes sorted by size', max_length=512),
+                ),
+                migrations.AlterField(
+                    model_name='archiveresult',
+                    name='output_size',
+                    field=models.BigIntegerField(default=0, help_text='Total bytes of all output files'),
+                ),
+                migrations.AlterField(
+                    model_name='archiveresult',
+                    name='output_str',
+                    field=models.TextField(blank=True, default='', help_text='Human-readable output summary'),
+                ),
+                migrations.AlterField(
+                    model_name='archiveresult',
+                    name='uuid',
+                    field=models.UUIDField(blank=True, db_index=True, default=uuid_compat.uuid7, null=True),
+                ),
+            ],
+            database_operations=[
+                # No database changes needed - columns already exist with correct types
+            ],
         ),
-        migrations.AlterField(
-            model_name='archiveresult',
-            name='output_files',
-            field=models.JSONField(default=dict, help_text='Dict of {relative_path: {metadata}}'),
-        ),
-        migrations.AlterField(
-            model_name='archiveresult',
-            name='output_json',
-            field=models.JSONField(blank=True, default=None, help_text='Structured metadata (headers, redirects, etc.)', null=True),
-        ),
-        migrations.AlterField(
-            model_name='archiveresult',
-            name='output_mimetypes',
-            field=models.CharField(blank=True, default='', help_text='CSV of mimetypes sorted by size', max_length=512),
-        ),
-        migrations.AlterField(
-            model_name='archiveresult',
-            name='output_size',
-            field=models.BigIntegerField(default=0, help_text='Total bytes of all output files'),
-        ),
-        migrations.AlterField(
-            model_name='archiveresult',
-            name='output_str',
-            field=models.TextField(blank=True, default='', help_text='Human-readable output summary'),
-        ),
-        migrations.AlterField(
-            model_name='archiveresult',
-            name='uuid',
-            field=models.UUIDField(blank=True, db_index=True, default=uuid_compat.uuid7, null=True),
-        ),
-        migrations.AddConstraint(
-            model_name='snapshot',
-            constraint=models.UniqueConstraint(fields=('timestamp',), name='unique_timestamp'),
+        # Add unique constraint without table rebuild
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddConstraint(
+                    model_name='snapshot',
+                    constraint=models.UniqueConstraint(fields=('timestamp',), name='unique_timestamp'),
+                ),
+            ],
+            database_operations=[
+                migrations.RunSQL(
+                    sql="CREATE UNIQUE INDEX IF NOT EXISTS unique_timestamp ON core_snapshot (timestamp);",
+                    reverse_sql="DROP INDEX IF EXISTS unique_timestamp;",
+                ),
+            ],
         ),
     ]

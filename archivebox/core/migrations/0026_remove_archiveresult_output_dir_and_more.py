@@ -10,6 +10,13 @@ from django.db import migrations, models
 
 def populate_archiveresult_uuids(apps, schema_editor):
     """Generate unique UUIDs for ArchiveResults that don't have one."""
+    # Check if uuid column exists before trying to populate it
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute("PRAGMA table_info(core_archiveresult)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if 'uuid' not in columns:
+            return  # uuid column doesn't exist, skip this data migration
+
     ArchiveResult = apps.get_model('core', 'ArchiveResult')
     for result in ArchiveResult.objects.filter(uuid__isnull=True):
         result.uuid = uuid_compat.uuid7()
@@ -19,6 +26,22 @@ def populate_archiveresult_uuids(apps, schema_editor):
 def reverse_populate_uuids(apps, schema_editor):
     """Reverse migration - do nothing, UUIDs can stay."""
     pass
+
+
+def remove_output_dir_if_exists(apps, schema_editor):
+    """Remove output_dir columns if they exist."""
+    with schema_editor.connection.cursor() as cursor:
+        # Check and remove from core_archiveresult
+        cursor.execute("PRAGMA table_info(core_archiveresult)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if 'output_dir' in columns:
+            cursor.execute("ALTER TABLE core_archiveresult DROP COLUMN output_dir")
+
+        # Check and remove from core_snapshot
+        cursor.execute("PRAGMA table_info(core_snapshot)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if 'output_dir' in columns:
+            cursor.execute("ALTER TABLE core_snapshot DROP COLUMN output_dir")
 
 
 class Migration(migrations.Migration):
@@ -33,82 +56,90 @@ class Migration(migrations.Migration):
         migrations.RunPython(populate_archiveresult_uuids, reverse_populate_uuids),
 
         # Remove output_dir fields (not needed, computed from snapshot)
-        migrations.RemoveField(
-            model_name='archiveresult',
-            name='output_dir',
-        ),
-        migrations.RemoveField(
-            model_name='snapshot',
-            name='output_dir',
+        migrations.RunPython(remove_output_dir_if_exists, reverse_code=migrations.RunPython.noop),
+
+        # Update Django's migration state to match 0.9.x schema
+        # Database already has correct types from 0.8.x, just update state
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                # Archiveresult field alterations
+                migrations.AlterField(
+                    model_name='archiveresult',
+                    name='created_at',
+                    field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
+                ),
+                migrations.AlterField(
+                    model_name='archiveresult',
+                    name='created_by',
+                    field=models.ForeignKey(default=archivebox.base_models.models.get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, related_name='archiveresult_set', to=settings.AUTH_USER_MODEL),
+                ),
+                migrations.AlterField(
+                    model_name='archiveresult',
+                    name='extractor',
+                    field=models.CharField(db_index=True, max_length=32),
+                ),
+                # Convert id from AutoField to UUIDField (database already has UUID CHAR(32))
+                migrations.AlterField(
+                    model_name='archiveresult',
+                    name='id',
+                    field=models.UUIDField(default=uuid_compat.uuid7, editable=False, primary_key=True, serialize=False, unique=True),
+                ),
+                migrations.AlterField(
+                    model_name='archiveresult',
+                    name='status',
+                    field=models.CharField(choices=[('queued', 'Queued'), ('started', 'Started'), ('backoff', 'Waiting to retry'), ('succeeded', 'Succeeded'), ('failed', 'Failed'), ('skipped', 'Skipped')], db_index=True, default='queued', max_length=15),
+                ),
+
+                # Snapshot field alterations
+                migrations.AlterField(
+                    model_name='snapshot',
+                    name='bookmarked_at',
+                    field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
+                ),
+                migrations.AlterField(
+                    model_name='snapshot',
+                    name='created_at',
+                    field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
+                ),
+                migrations.AlterField(
+                    model_name='snapshot',
+                    name='created_by',
+                    field=models.ForeignKey(default=archivebox.base_models.models.get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, related_name='snapshot_set', to=settings.AUTH_USER_MODEL),
+                ),
+                migrations.AlterField(
+                    model_name='snapshot',
+                    name='downloaded_at',
+                    field=models.DateTimeField(blank=True, db_index=True, default=None, editable=False, null=True),
+                ),
+                migrations.AlterField(
+                    model_name='snapshot',
+                    name='id',
+                    field=models.UUIDField(default=uuid_compat.uuid7, editable=False, primary_key=True, serialize=False, unique=True),
+                ),
+            ],
+            database_operations=[
+                # No actual database changes needed - schema is already correct from 0.8.x
+            ],
         ),
 
-        # Archiveresult field alterations
-        migrations.AlterField(
-            model_name='archiveresult',
-            name='created_at',
-            field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
-        ),
-        migrations.AlterField(
-            model_name='archiveresult',
-            name='created_by',
-            field=models.ForeignKey(default=None, on_delete=django.db.models.deletion.CASCADE, related_name='archiveresult_set', to=settings.AUTH_USER_MODEL),
-        ),
-        migrations.AlterField(
-            model_name='archiveresult',
-            name='extractor',
-            field=models.CharField(db_index=True, max_length=32),
-        ),
-        migrations.AlterField(
-            model_name='archiveresult',
-            name='id',
-            field=models.AutoField(editable=False, primary_key=True, serialize=False),
-        ),
-        migrations.AlterField(
-            model_name='archiveresult',
-            name='status',
-            field=models.CharField(choices=[('queued', 'Queued'), ('started', 'Started'), ('backoff', 'Waiting to retry'), ('succeeded', 'Succeeded'), ('failed', 'Failed'), ('skipped', 'Skipped')], db_index=True, default='queued', max_length=15),
-        ),
-
-        # Snapshot field alterations
-        migrations.AlterField(
-            model_name='snapshot',
-            name='bookmarked_at',
-            field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
-        ),
-        migrations.AlterField(
-            model_name='snapshot',
-            name='created_at',
-            field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
-        ),
-        migrations.AlterField(
-            model_name='snapshot',
-            name='created_by',
-            field=models.ForeignKey(default=None, on_delete=django.db.models.deletion.CASCADE, related_name='snapshot_set', to=settings.AUTH_USER_MODEL),
-        ),
-        migrations.AlterField(
-            model_name='snapshot',
-            name='downloaded_at',
-            field=models.DateTimeField(blank=True, db_index=True, default=None, editable=False, null=True),
-        ),
-        migrations.AlterField(
-            model_name='snapshot',
-            name='id',
-            field=models.UUIDField(default=uuid_compat.uuid7, editable=False, primary_key=True, serialize=False, unique=True),
-        ),
-
-        # SnapshotTag and Tag alterations
-        migrations.AlterField(
-            model_name='snapshottag',
-            name='id',
-            field=models.AutoField(primary_key=True, serialize=False),
-        ),
-        migrations.AlterField(
-            model_name='tag',
-            name='created_by',
-            field=models.ForeignKey(default=archivebox.base_models.models.get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, related_name='tag_set', to=settings.AUTH_USER_MODEL),
-        ),
-        migrations.AlterUniqueTogether(
-            name='snapshottag',
-            unique_together={('snapshot', 'tag')},
+        # SnapshotTag and Tag alterations - state only, DB already correct
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AlterField(
+                    model_name='snapshottag',
+                    name='id',
+                    field=models.AutoField(primary_key=True, serialize=False),
+                ),
+                migrations.AlterField(
+                    model_name='tag',
+                    name='created_by',
+                    field=models.ForeignKey(default=archivebox.base_models.models.get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, related_name='tag_set', to=settings.AUTH_USER_MODEL),
+                ),
+                migrations.AlterUniqueTogether(
+                    name='snapshottag',
+                    unique_together={('snapshot', 'tag')},
+                ),
+            ],
+            database_operations=[],
         ),
     ]

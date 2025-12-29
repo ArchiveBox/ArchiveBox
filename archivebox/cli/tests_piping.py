@@ -32,7 +32,7 @@ from unittest.mock import patch, MagicMock
 TEST_CONFIG = {
     'USE_COLOR': 'False',
     'SHOW_PROGRESS': 'False',
-    'SAVE_ARCHIVE_DOT_ORG': 'False',
+    'SAVE_ARCHIVEDOTORG': 'False',
     'SAVE_TITLE': 'True',  # Fast extractor
     'SAVE_FAVICON': 'False',
     'SAVE_WGET': 'False',

@@ -73,7 +73,7 @@ class ModelWithUUID(models.Model):
         return f'/api/v1/docs#/{self._meta.app_label.title()}%20Models/api_v1_{self._meta.app_label}_get_{self._meta.db_table}'
 
     def as_json(self, keys: Iterable[str] = ()) -> dict:
-        default_keys = ('id', 'created_at', 'modified_at', 'created_by_id')
+        default_keys = ('id', 'created_at', 'modified_at')
         return {key: getattr(self, key) for key in (keys or default_keys) if hasattr(self, key)}
 
 
@@ -119,7 +119,7 @@ class ModelWithHealthStats(models.Model):
 
 class ModelWithConfig(models.Model):
     """Mixin for models with a JSON config field."""
-    config = models.JSONField(default=dict, null=False, blank=False, editable=True)
+    config = models.JSONField(default=dict, null=True, blank=True, editable=True)
 
     class Meta:
         abstract = True

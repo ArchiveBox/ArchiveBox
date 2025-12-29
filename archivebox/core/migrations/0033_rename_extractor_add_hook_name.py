@@ -10,20 +10,35 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RenameField(
-            model_name='archiveresult',
-            old_name='extractor',
-            new_name='plugin',
-        ),
-        migrations.AddField(
-            model_name='archiveresult',
-            name='hook_name',
-            field=models.CharField(
-                blank=True,
-                default='',
-                max_length=255,
-                db_index=True,
-                help_text='Full filename of the hook that executed (e.g., on_Snapshot__50_wget.py)'
-            ),
+        # Use SeparateDatabaseAndState to avoid table rebuilds that would re-add CHECK constraints
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.RenameField(
+                    model_name='archiveresult',
+                    old_name='extractor',
+                    new_name='plugin',
+                ),
+                migrations.AddField(
+                    model_name='archiveresult',
+                    name='hook_name',
+                    field=models.CharField(
+                        blank=True,
+                        default='',
+                        max_length=255,
+                        db_index=True,
+                        help_text='Full filename of the hook that executed (e.g., on_Snapshot__50_wget.py)'
+                    ),
+                ),
+            ],
+            database_operations=[
+                migrations.RunSQL(
+                    sql="""
+                        ALTER TABLE core_archiveresult RENAME COLUMN extractor TO plugin;
+                        ALTER TABLE core_archiveresult ADD COLUMN hook_name VARCHAR(255) DEFAULT '' NOT NULL;
+                        CREATE INDEX IF NOT EXISTS core_archiveresult_hook_name_idx ON core_archiveresult (hook_name);
+                    """,
+                    reverse_sql=migrations.RunSQL.noop,
+                ),
+            ],
         ),
     ]

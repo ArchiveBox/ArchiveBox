@@ -459,7 +459,7 @@ class TestFilesystemMigration08to09(unittest.TestCase):
                     'SAVE_MERCURY': 'True',
                     'SAVE_PDF': 'True',
                     'SAVE_MEDIA': 'True',
-                    'SAVE_ARCHIVE_DOT_ORG': 'True',
+                    'SAVE_ARCHIVEDOTORG': 'True',
                     'SAVE_HEADERS': 'True',
                     'SAVE_HTMLTOTEXT': 'True',
                     'SAVE_GIT': 'True',

@@ -763,7 +763,7 @@ The configuration is documented here: **[Configuration Wiki](https://github.com/
 <br/>
 TIMEOUT=240                # default: 60    add more seconds on slower networks
 CHECK_SSL_VALIDITY=False   # default: True  False = allow saving URLs w/ bad SSL
-SAVE_ARCHIVE_DOT_ORG=False # default: True  False = disable Archive.org saving
+SAVE_ARCHIVEDOTORG=False # default: True  False = disable Archive.org saving
 MAX_MEDIA_SIZE=1500m       # default: 750m  raise/lower youtubedl output size
 <br/>
 PUBLIC_INDEX=True          # default: True  whether anon users can view index
@@ -959,7 +959,7 @@ archivebox add 'https://docs.google.com/document/d/12345somePrivateDocument'
 archivebox add 'https://vimeo.com/somePrivateVideo'
 
 # without first disabling saving to Archive.org:
-archivebox config --set SAVE_ARCHIVE_DOT_ORG=False  # disable saving all URLs in Archive.org
+archivebox config --set SAVE_ARCHIVEDOTORG=False  # disable saving all URLs in Archive.org
 
 # restrict the main index, Snapshot content, and Add Page to authenticated users as-needed:
 archivebox config --set PUBLIC_INDEX=False

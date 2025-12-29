@@ -85,7 +85,7 @@ def install(dry_run: bool=False) -> None:
     print()
 
     # Run the crawl synchronously (this triggers on_Crawl hooks)
-    from workers.orchestrator import Orchestrator
+    from archivebox.workers.orchestrator import Orchestrator
     orchestrator = Orchestrator(exit_on_idle=True)
     orchestrator.runloop()
 

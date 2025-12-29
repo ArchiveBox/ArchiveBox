@@ -17,7 +17,7 @@ TEST_CONFIG = {
 
     'DATA_DIR': 'data.tests',
     
-    'SAVE_ARCHIVE_DOT_ORG': 'False',
+    'SAVE_ARCHIVEDOTORG': 'False',
     'SAVE_TITLE': 'False',
     
     'USE_CURL': 'False',

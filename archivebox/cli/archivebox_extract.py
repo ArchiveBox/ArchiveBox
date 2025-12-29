@@ -96,7 +96,7 @@ def run_plugins(
         TYPE_SNAPSHOT, TYPE_ARCHIVERESULT
     )
     from archivebox.core.models import Snapshot, ArchiveResult
-    from workers.orchestrator import Orchestrator
+    from archivebox.workers.orchestrator import Orchestrator
 
     is_tty = sys.stdout.isatty()
 

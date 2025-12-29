@@ -11,9 +11,17 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='crawl',
-            name='output_dir',
-            field=models.FilePathField(blank=True, default='', path=pathlib.PurePosixPath('/private/tmp/archivebox-makemigrations/archive')),
+        # Update Django's state only to avoid table rebuild that would re-apply old constraints
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AlterField(
+                    model_name='crawl',
+                    name='output_dir',
+                    field=models.FilePathField(blank=True, default='', path=pathlib.PurePosixPath('/private/tmp/archivebox-makemigrations/archive')),
+                ),
+            ],
+            database_operations=[
+                # No database changes - output_dir type change is cosmetic for Django admin
+            ],
         ),
     ]

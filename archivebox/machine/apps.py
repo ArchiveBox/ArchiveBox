@@ -7,7 +7,12 @@ class MachineConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
 
     name = 'archivebox.machine'
+    label = 'machine'  # Explicit label for migrations
     verbose_name = 'Machine Info'
+
+    def ready(self):
+        """Import models to register state machines with the registry"""
+        from archivebox.machine import models  # noqa: F401
 
 
 def register_admin(admin_site):

@@ -78,7 +78,7 @@ def discover_outlinks(
     from archivebox.core.models import Snapshot, ArchiveResult
     from archivebox.crawls.models import Crawl
     from archivebox.config import CONSTANTS
-    from workers.orchestrator import Orchestrator
+    from archivebox.workers.orchestrator import Orchestrator
 
     created_by_id = get_or_create_system_user_pk()
     is_tty = sys.stdout.isatty()

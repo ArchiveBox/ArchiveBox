@@ -44,8 +44,8 @@ class Machine(ModelWithHealthStats):
     os_platform = models.CharField(max_length=63, default=None, null=False)
     os_release = models.CharField(max_length=63, default=None, null=False)
     os_kernel = models.CharField(max_length=255, default=None, null=False)
-    stats = models.JSONField(default=dict, null=False)
-    config = models.JSONField(default=dict, null=False, blank=True,
+    stats = models.JSONField(default=dict, null=True, blank=True)
+    config = models.JSONField(default=dict, null=True, blank=True,
         help_text="Machine-specific config overrides (e.g., resolved binary paths like WGET_BINARY)")
     num_uses_failed = models.PositiveIntegerField(default=0)
     num_uses_succeeded = models.PositiveIntegerField(default=0)
@@ -213,7 +213,7 @@ class Binary(ModelWithHealthStats):
     num_uses_failed = models.PositiveIntegerField(default=0)
     num_uses_succeeded = models.PositiveIntegerField(default=0)
 
-    state_machine_name: str = 'machine.models.BinaryMachine'
+    state_machine_name: str = 'archivebox.machine.models.BinaryMachine'
 
     objects: BinaryManager = BinaryManager()
 

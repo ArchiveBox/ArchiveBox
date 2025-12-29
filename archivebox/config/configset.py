@@ -216,6 +216,29 @@ def get_config(
     if snapshot and hasattr(snapshot, "config") and snapshot.config:
         config.update(snapshot.config)
 
+    # Normalize all aliases to canonical names (after all sources merged)
+    # This handles aliases that came from user/crawl/snapshot configs, not just env
+    try:
+        from archivebox.hooks import discover_plugin_configs
+        plugin_configs = discover_plugin_configs()
+        aliases_to_normalize = {}  # {alias_key: canonical_key}
+
+        # Build alias mapping from all plugin schemas
+        for plugin_name, schema in plugin_configs.items():
+            for canonical_key, prop_schema in schema.get('properties', {}).items():
+                for alias in prop_schema.get('x-aliases', []):
+                    aliases_to_normalize[alias] = canonical_key
+
+        # Normalize: copy alias values to canonical keys (aliases take precedence)
+        for alias_key, canonical_key in aliases_to_normalize.items():
+            if alias_key in config:
+                # Alias exists - copy to canonical key (overwriting any default)
+                config[canonical_key] = config[alias_key]
+                # Remove alias from config to keep it clean
+                del config[alias_key]
+    except ImportError:
+        pass
+
     return config
 
 

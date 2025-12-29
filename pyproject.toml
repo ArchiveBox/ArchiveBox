@@ -85,9 +85,9 @@ dependencies = [
     ### Binary/Package Management
     "abx-pkg>=0.1.0",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
     "gallery-dl>=1.31.1",
-
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # for: uuid7 support on Python 3.13 (provides uuid_extensions module)
+    "pytest-django>=4.11.1",
 ]
 
 [project.optional-dependencies]
@@ -183,6 +183,7 @@ ignore = ["E731", "E303", "E266", "E241", "E222"]
 
 [tool.pytest.ini_options]
 testpaths = [ "tests" ]
+DJANGO_SETTINGS_MODULE = "archivebox.core.settings"
 
 [tool.mypy]
 mypy_path = "archivebox,archivebox/typings"

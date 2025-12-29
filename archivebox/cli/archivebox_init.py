@@ -13,10 +13,8 @@ from archivebox.misc.util import docstring, enforce_types
 
 
 @enforce_types
-def init(force: bool=False, quick: bool=False, install: bool=False, setup: bool=False) -> None:
+def init(force: bool=False, quick: bool=False, install: bool=False) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
-    
-    install = install or setup
     
     from archivebox.config import CONSTANTS, VERSION, DATA_DIR
     from archivebox.config.common import SERVER_CONFIG
@@ -128,7 +126,8 @@ def init(force: bool=False, quick: bool=False, install: bool=False, setup: bool=
                 print(f'    [yellow]√ Added {len(orphaned_data_dir_links)} orphaned links from existing archive directories.[/yellow]')
 
             if pending_links:
-                Snapshot.objects.create_from_dicts(list(pending_links.values()))
+                for link_dict in pending_links.values():
+                    Snapshot.from_jsonl(link_dict)
 
             # Hint for orphaned snapshot directories
             print()
@@ -187,7 +186,6 @@ def init(force: bool=False, quick: bool=False, install: bool=False, setup: bool=
 @click.option('--force', '-f', is_flag=True, help='Ignore unrecognized files in current directory and initialize anyway')
 @click.option('--quick', '-q', is_flag=True, help='Run any updates or migrations without rechecking all snapshot dirs')
 @click.option('--install', '-s', is_flag=True, help='Automatically install dependencies and extras used for archiving')
-@click.option('--setup', '-s', is_flag=True, help='DEPRECATED: equivalent to --install')
 @docstring(init.__doc__)
 def main(**kwargs) -> None:
     init(**kwargs)

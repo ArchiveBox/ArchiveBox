@@ -24,7 +24,7 @@ def disable_extractors_dict():
         "SAVE_HEADERS": "false",
         "USE_GIT": "false",
         "SAVE_MEDIA": "false",
-        "SAVE_ARCHIVE_DOT_ORG": "false",
+        "SAVE_ARCHIVEDOTORG": "false",
         "SAVE_TITLE": "false",
         "SAVE_FAVICON": "false",
     })

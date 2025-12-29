@@ -911,7 +911,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         )
 
         merged = 0
-        for dup in duplicates.iterator():
+        for dup in duplicates.iterator(chunk_size=500):
             snapshots = list(
                 cls.objects
                 .filter(url=dup['url'], timestamp=dup['timestamp'])

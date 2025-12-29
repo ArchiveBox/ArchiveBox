@@ -63,7 +63,7 @@ def test_ripgrep_hook_detects_binary_from_path():
 
 def test_ripgrep_hook_skips_when_backend_not_ripgrep():
     """Test that ripgrep hook exits silently when search backend is not ripgrep."""
-    hook_path = Path(__file__).parent.parent / 'on_Crawl__00_validate_ripgrep.py'
+    hook_path = Path(__file__).parent.parent / 'on_Crawl__00_install_ripgrep.py'
 
     env = os.environ.copy()
     env['SEARCH_BACKEND_ENGINE'] = 'sqlite'  # Different backend
@@ -82,7 +82,7 @@ def test_ripgrep_hook_skips_when_backend_not_ripgrep():
 
 def test_ripgrep_hook_handles_absolute_path():
     """Test that ripgrep hook works when RIPGREP_BINARY is an absolute path."""
-    hook_path = Path(__file__).parent.parent / 'on_Crawl__00_validate_ripgrep.py'
+    hook_path = Path(__file__).parent.parent / 'on_Crawl__00_install_ripgrep.py'
 
     rg_path = shutil.which('rg')
     if not rg_path:
@@ -222,7 +222,7 @@ def test_ripgrep_only_detected_when_backend_enabled():
     if not shutil.which('rg'):
         pytest.skip("ripgrep not installed")
 
-    hook_path = Path(__file__).parent.parent / 'on_Crawl__00_validate_ripgrep.py'
+    hook_path = Path(__file__).parent.parent / 'on_Crawl__00_install_ripgrep.py'
 
     # Test 1: With ripgrep backend - should output Binary record
     env1 = os.environ.copy()

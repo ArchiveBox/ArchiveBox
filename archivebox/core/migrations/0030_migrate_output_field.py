@@ -12,27 +12,46 @@ def migrate_output_field(apps, schema_editor):
     Logic:
     - If output contains JSON {...}, move to output_json
     - Otherwise, move to output_str
+
+    Use raw SQL to avoid CHECK constraint issues during migration.
     """
-    ArchiveResult = apps.get_model('core', 'ArchiveResult')
+    # Use raw SQL to migrate data without triggering CHECK constraints
+    with schema_editor.connection.cursor() as cursor:
+        # Get all archive results
+        cursor.execute("""
+            SELECT id, output FROM core_archiveresult
+        """)
 
-    for ar in ArchiveResult.objects.all().iterator():
-        old_output = ar.output or ''
+        for row in cursor.fetchall():
+            ar_id, old_output = row
+            old_output = old_output or ''
 
-        # Case 1: JSON output
-        if old_output.strip().startswith('{'):
-            try:
-                parsed = json.loads(old_output)
-                ar.output_json = parsed
-                ar.output_str = ''
-            except json.JSONDecodeError:
-                # Not valid JSON, treat as string
-                ar.output_str = old_output
-
-        # Case 2: File path or plain string
-        else:
-            ar.output_str = old_output
-
-        ar.save(update_fields=['output_str', 'output_json'])
+            # Case 1: JSON output
+            if old_output.strip().startswith('{'):
+                try:
+                    # Validate it's actual JSON
+                    parsed = json.loads(old_output)
+                    # Update with JSON - cast to JSON to satisfy CHECK constraint
+                    json_str = json.dumps(parsed)
+                    cursor.execute("""
+                        UPDATE core_archiveresult
+                        SET output_str = '', output_json = json(?)
+                        WHERE id = ?
+                    """, (json_str, ar_id))
+                except json.JSONDecodeError:
+                    # Not valid JSON, treat as string
+                    cursor.execute("""
+                        UPDATE core_archiveresult
+                        SET output_str = ?, output_json = NULL
+                        WHERE id = ?
+                    """, (old_output, ar_id))
+            # Case 2: File path or plain string
+            else:
+                cursor.execute("""
+                    UPDATE core_archiveresult
+                    SET output_str = ?, output_json = NULL
+                    WHERE id = ?
+                """, (old_output, ar_id))
 
 
 def reverse_migrate(apps, schema_editor):

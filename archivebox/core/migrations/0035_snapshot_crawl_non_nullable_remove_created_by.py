@@ -54,7 +54,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('core', '0034_snapshot_current_step'),
-        ('crawls', '0004_alter_crawl_output_dir'),
+        ('crawls', '0005_drop_seed_id_column'),
     ]
 
     operations = [
@@ -64,16 +64,24 @@ class Migration(migrations.Migration):
             reverse_code=migrations.RunPython.noop,
         ),
 
-        # Step 2: Make crawl non-nullable
-        migrations.AlterField(
-            model_name='snapshot',
-            name='crawl',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='snapshot_set', to='crawls.crawl'),
-        ),
-
-        # Step 3: Remove created_by field
-        migrations.RemoveField(
-            model_name='snapshot',
-            name='created_by',
+        # Step 2 & 3: Update Django's state only - leave created_by_id column in database (unused but harmless)
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                # Make crawl non-nullable
+                migrations.AlterField(
+                    model_name='snapshot',
+                    name='crawl',
+                    field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='snapshot_set', to='crawls.crawl'),
+                ),
+                # Remove created_by field from Django's state
+                migrations.RemoveField(
+                    model_name='snapshot',
+                    name='created_by',
+                ),
+            ],
+            database_operations=[
+                # No database changes - crawl_id already exists and NOT NULL constraint will be enforced by model
+                # created_by_id column remains in database but is unused
+            ],
         ),
     ]
