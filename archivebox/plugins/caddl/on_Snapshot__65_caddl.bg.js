@@ -207,13 +207,19 @@ async function downloadFile(page, url, outputDir, maxSize) {
         try {
             // Set a response handler to check file size
             let responseReceived = false;
+            let sizeExceeded = false;
+            let sizeExceededError = null;
+
             downloadPage.on('response', response => {
                 if (response.url() === url) {
                     responseReceived = true;
                     const headers = response.headers();
                     const contentLength = headers['content-length'];
                     if (contentLength && parseInt(contentLength, 10) > maxSize) {
-                        throw new Error(`File exceeds max size limit (${contentLength} > ${maxSize})`);
+                        sizeExceeded = true;
+                        sizeExceededError = `File exceeds max size limit (${contentLength} > ${maxSize})`;
+                        // Close the page to abort the download
+                        downloadPage.close().catch(() => {});
                     }
                 }
             });
@@ -223,6 +229,11 @@ async function downloadFile(page, url, outputDir, maxSize) {
                 waitUntil: 'networkidle0',
                 timeout: 60000
             });
+
+            // Check if size was exceeded
+            if (sizeExceeded) {
+                return { success: false, outputPath: null, error: sizeExceededError };
+            }
 
             // Wait a bit for download to start
             await sleep(2000);
