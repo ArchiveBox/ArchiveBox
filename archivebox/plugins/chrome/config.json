@@ -60,21 +60,6 @@
       "default": true,
       "x-fallback": "CHECK_SSL_VALIDITY",
       "description": "Whether to verify SSL certificates"
-    },
-    "SAVE_SCREENSHOT": {
-      "type": "boolean",
-      "default": true,
-      "description": "Enable screenshot capture"
-    },
-    "SAVE_PDF": {
-      "type": "boolean",
-      "default": true,
-      "description": "Enable PDF generation"
-    },
-    "SAVE_DOM": {
-      "type": "boolean",
-      "default": true,
-      "description": "Enable DOM capture"
     }
   }
 }

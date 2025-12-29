@@ -72,11 +72,11 @@ def discover_outlinks(
 
     from archivebox.misc.jsonl import (
         read_args_or_stdin, write_record,
-        TYPE_SNAPSHOT, get_or_create_snapshot
+        TYPE_SNAPSHOT
     )
     from archivebox.base_models.models import get_or_create_system_user_pk
-    from core.models import Snapshot, ArchiveResult
-    from crawls.models import Crawl
+    from archivebox.core.models import Snapshot, ArchiveResult
+    from archivebox.crawls.models import Crawl
     from archivebox.config import CONSTANTS
     from workers.orchestrator import Orchestrator
 
@@ -130,8 +130,10 @@ def discover_outlinks(
                 record['crawl_id'] = str(crawl.id)
                 record['depth'] = record.get('depth', 0)
 
-                snapshot = get_or_create_snapshot(record, created_by_id=created_by_id)
-                snapshot_ids.append(str(snapshot.id))
+                overrides = {'created_by_id': created_by_id}
+                snapshot = Snapshot.from_jsonl(record, overrides=overrides)
+                if snapshot:
+                    snapshot_ids.append(str(snapshot.id))
 
             except Exception as e:
                 rprint(f'[red]Error creating snapshot: {e}[/red]', file=sys.stderr)
@@ -162,7 +164,6 @@ def discover_outlinks(
                     defaults={
                         'status': ArchiveResult.StatusChoices.QUEUED,
                         'retry_at': timezone.now(),
-                        'created_by_id': snapshot.created_by_id,
                     }
                 )
             else:
@@ -229,7 +230,7 @@ def process_crawl_by_id(crawl_id: str) -> int:
     - Transition from started -> sealed (when all snapshots done)
     """
     from rich import print as rprint
-    from crawls.models import Crawl
+    from archivebox.crawls.models import Crawl
 
     try:
         crawl = Crawl.objects.get(id=crawl_id)
@@ -256,7 +257,7 @@ def is_crawl_id(value: str) -> bool:
     if not uuid_pattern.match(value):
         return False
     # Verify it's actually a Crawl (not a Snapshot or other object)
-    from crawls.models import Crawl
+    from archivebox.crawls.models import Crawl
     return Crawl.objects.filter(id=value).exists()
 
 

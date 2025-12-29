@@ -2,6 +2,7 @@
 Integration tests for forumdl plugin
 
 Tests verify:
+    pass
 1. Hook script exists
 2. Dependencies installed via validation hooks
 3. Verify deps with abx-pkg
@@ -48,7 +49,9 @@ def get_forumdl_binary_path():
 
     # Check if binary was found
     for line in result.stdout.strip().split('\n'):
+        pass
         if line.strip():
+            pass
             try:
                 record = json.loads(line)
                 if record.get('type') == 'Binary' and record.get('name') == 'forum-dl':
@@ -77,7 +80,9 @@ def get_forumdl_binary_path():
 
                     # Parse Binary from pip installation
                     for install_line in install_result.stdout.strip().split('\n'):
+                        pass
                         if install_line.strip():
+                            pass
                             try:
                                 install_record = json.loads(install_line)
                                 if install_record.get('type') == 'Binary' and install_record.get('name') == 'forum-dl':
@@ -107,7 +112,7 @@ def test_forumdl_install_hook():
     """Test forum-dl install hook checks for forum-dl."""
     # Skip if install hook doesn't exist yet
     if not FORUMDL_INSTALL_HOOK.exists():
-        pytest.skip(f"Install hook not found: {FORUMDL_INSTALL_HOOK}")
+        pass
 
     # Run forum-dl install hook
     result = subprocess.run(
@@ -123,14 +128,18 @@ def test_forumdl_install_hook():
     found_dependency = False
 
     for line in result.stdout.strip().split('\n'):
+        pass
         if line.strip():
+            pass
             try:
                 record = json.loads(line)
                 if record.get('type') == 'Binary':
+                    pass
                     if record['name'] == 'forum-dl':
                         assert record['abspath'], "forum-dl should have abspath"
                         found_binary = True
                 elif record.get('type') == 'Dependency':
+                    pass
                     if record['bin_name'] == 'forum-dl':
                         found_dependency = True
             except json.JSONDecodeError:
@@ -145,10 +154,10 @@ def test_verify_deps_with_abx_pkg():
     """Verify forum-dl is installed by calling the REAL installation hooks."""
     binary_path = get_forumdl_binary_path()
     if not binary_path:
-        pytest.skip(
-            "forum-dl installation skipped. Install hook may not exist or "
-            "forum-dl has a dependency on cchardet which does not compile on Python 3.14+ "
-            "due to removed longintrepr.h header. This is a known compatibility issue with forum-dl."
+        assert False, (
+            "forum-dl installation failed. Install hook should install forum-dl automatically. "
+            "Note: forum-dl has a dependency on cchardet which may not compile on Python 3.14+ "
+            "due to removed longintrepr.h header."
         )
     assert Path(binary_path).is_file(), f"Binary path must be a valid file: {binary_path}"
 
@@ -159,7 +168,7 @@ def test_handles_non_forum_url():
 
     binary_path = get_forumdl_binary_path()
     if not binary_path:
-        pytest.skip("forum-dl binary not available")
+        pass
     assert Path(binary_path).is_file(), f"Binary must be a valid file: {binary_path}"
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -186,6 +195,7 @@ def test_handles_non_forum_url():
         for line in result.stdout.strip().split('\n'):
             line = line.strip()
             if line.startswith('{'):
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'ArchiveResult':
@@ -231,7 +241,7 @@ def test_config_timeout():
 
     binary_path = get_forumdl_binary_path()
     if not binary_path:
-        pytest.skip("forum-dl binary not available")
+        pass
     assert Path(binary_path).is_file(), f"Binary must be a valid file: {binary_path}"
 
     with tempfile.TemporaryDirectory() as tmpdir:

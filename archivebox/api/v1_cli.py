@@ -118,6 +118,7 @@ def cli_add(request, args: AddCommandSchema):
         plugins=args.plugins,
         parser=args.parser,
         bg=True,  # Always run in background for API calls
+        created_by_id=request.user.pk,
     )
 
     return {

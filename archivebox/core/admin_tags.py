@@ -6,7 +6,7 @@ from django.utils.html import format_html, mark_safe
 from archivebox.misc.paginators import AccelleratedPaginator
 from archivebox.base_models.admin import BaseModelAdmin
 
-from core.models import Tag
+from archivebox.core.models import Tag
 
 
 class TagInline(admin.TabularInline):

@@ -12,6 +12,7 @@ from pathlib import Path
 
 from django.contrib import admin
 from django.db import models
+from django.db.models import F
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.urls import reverse_lazy
@@ -109,6 +110,11 @@ class ModelWithHealthStats(models.Model):
     def health(self) -> int:
         total = max(self.num_uses_failed + self.num_uses_succeeded, 1)
         return round((self.num_uses_succeeded / total) * 100)
+
+    def increment_health_stats(self, success: bool):
+        """Atomically increment success or failure counter using F() expression."""
+        field = 'num_uses_succeeded' if success else 'num_uses_failed'
+        type(self).objects.filter(pk=self.pk).update(**{field: F(field) + 1})
 
 
 class ModelWithConfig(models.Model):

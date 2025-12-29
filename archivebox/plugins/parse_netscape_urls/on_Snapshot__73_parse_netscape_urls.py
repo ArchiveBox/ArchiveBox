@@ -207,23 +207,28 @@ def main(url: str, snapshot_id: str = None):
 
             urls_found.append(entry)
 
-    if not urls_found:
-        click.echo('No bookmarks found', err=True)
-        sys.exit(1)
+    # Emit Tag records first (to stdout as JSONL)
+    for tag_name in sorted(all_tags):
+        print(json.dumps({
+            'type': 'Tag',
+            'name': tag_name,
+        }))
 
-    # Write urls.jsonl
-    with open('urls.jsonl', 'w') as f:
-        # Write Tag records first
-        for tag_name in sorted(all_tags):
-            f.write(json.dumps({
-                'type': 'Tag',
-                'name': tag_name,
-            }) + '\n')
-        # Write Snapshot records
-        for entry in urls_found:
-            f.write(json.dumps(entry) + '\n')
+    # Emit Snapshot records (to stdout as JSONL)
+    for entry in urls_found:
+        print(json.dumps(entry))
 
-    click.echo(f'Found {len(urls_found)} URLs, {len(all_tags)} tags')
+    # Emit ArchiveResult record to mark completion
+    status = 'succeeded' if urls_found else 'skipped'
+    output_str = f'Found {len(urls_found)} URLs, {len(all_tags)} tags' if urls_found else 'No bookmarks found'
+    ar_record = {
+        'type': 'ArchiveResult',
+        'status': status,
+        'output_str': output_str,
+    }
+    print(json.dumps(ar_record))
+
+    click.echo(output_str, err=True)
     sys.exit(0)
 
 

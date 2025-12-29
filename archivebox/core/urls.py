@@ -7,10 +7,10 @@ from django.views.generic.base import RedirectView
 
 from archivebox.misc.serve_static import serve_static
 
-from core.admin_site import archivebox_admin
-from core.views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthCheckView, live_progress_view
+from archivebox.core.admin_site import archivebox_admin
+from archivebox.core.views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthCheckView, live_progress_view
 
-from workers.views import JobsDashboardView
+from archivebox.workers.views import JobsDashboardView
 
 # GLOBAL_CONTEXT doesn't work as-is, disabled for now: https://github.com/ArchiveBox/ArchiveBox/discussions/1306
 # from archivebox.config import VERSION, VERSIONS_AVAILABLE, CAN_UPGRADE

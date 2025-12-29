@@ -29,7 +29,8 @@
             </center>
         {% else %}
             <div id="in-progress" style="display: none;">
-                <center><h3>Adding URLs to index and running archive methods...</h3>
+                <center><h3>Creating crawl and queueing snapshots...</h3>
+                    <p>Your crawl is being created. The orchestrator will process URLs and create snapshots in the background.</p>
                     <br/>
                     <div class="loader"></div>
                     <br/>
@@ -37,16 +38,230 @@
                 </center>
             </div>
             <form id="add-form" method="POST" class="p-form">{% csrf_token %}
-                <h1>Add new URLs to your archive</h1>
+                <h1>Create a new Crawl</h1>
+                <div class="crawl-explanation">
+                    <p>
+                        A <strong>Crawl</strong> is a job that processes URLs and creates <strong>Snapshots</strong> (archived copies) for each URL discovered.
+                        The settings below apply to the entire crawl and all snapshots it creates.
+                    </p>
+                </div>
                 <br/>
-                {{ form.as_p }}
+
+                <!-- Basic fields -->
+                <div class="form-section">
+                    <h3>Crawl Settings</h3>
+
+                    <div class="form-field">
+                        {{ form.url.label_tag }}
+                        {{ form.url }}
+                        <div id="url-counter" class="url-counter">0 URLs detected</div>
+                        {% if form.url.errors %}
+                            <div class="error">{{ form.url.errors }}</div>
+                        {% endif %}
+                        <div class="help-text">
+                            Enter URLs to archive, one per line. Examples:<br/>
+                            <code>https://example.com</code><br/>
+                            <code>https://news.ycombinator.com</code><br/>
+                            <code>https://github.com/ArchiveBox/ArchiveBox</code>
+                        </div>
+                    </div>
+
+                    <div class="form-field">
+                        {{ form.tag.label_tag }}
+                        {{ form.tag }}
+                        <!-- Tag autocomplete datalist -->
+                        <datalist id="tag-datalist">
+                            {% for tag_name in available_tags %}
+                                <option value="{{ tag_name }}">
+                            {% endfor %}
+                        </datalist>
+                        {% if form.tag.errors %}
+                            <div class="error">{{ form.tag.errors }}</div>
+                        {% endif %}
+                        <div class="help-text">Tags will be applied to all snapshots created by this crawl. Start typing to see existing tags.</div>
+                    </div>
+
+                    <div class="form-field">
+                        {{ form.depth.label_tag }}
+                        {{ form.depth }}
+                        {% if form.depth.errors %}
+                            <div class="error">{{ form.depth.errors }}</div>
+                        {% endif %}
+                        <div class="help-text">Controls how many links deep the crawl will follow from the starting URLs.</div>
+                    </div>
+
+                    <div class="form-field">
+                        {{ form.notes.label_tag }}
+                        {{ form.notes }}
+                        {% if form.notes.errors %}
+                            <div class="error">{{ form.notes.errors }}</div>
+                        {% endif %}
+                        <div class="help-text">Optional description for this crawl (visible in the admin interface).</div>
+                    </div>
+                </div>
+
+                <!-- Plugins section -->
+                <div class="form-section">
+                    <h3>Crawl Plugins</h3>
+                    <p class="section-description">
+                        Select which archiving methods to run for all snapshots in this crawl. If none selected, all available plugins will be used.
+                        <a href="/admin/environment/plugins/" target="_blank">View plugin details →</a>
+                    </p>
+
+                    <!-- Plugin Presets -->
+                    <div class="plugin-presets">
+                        <span class="preset-label">Quick Select:</span>
+                        <button type="button" class="preset-btn" data-preset="quick-archive">📦 Quick Archive</button>
+                        <button type="button" class="preset-btn" data-preset="full-chrome">🌐 Full Chrome</button>
+                        <button type="button" class="preset-btn" data-preset="text-only">📄 Text Only</button>
+                        <button type="button" class="preset-btn" data-preset="select-all">✓ Select All</button>
+                        <button type="button" class="preset-btn" data-preset="clear-all">✗ Clear All</button>
+                    </div>
+
+                    <!-- Chrome-dependent plugins with "Select All" -->
+                    <div class="plugin-group">
+                        <div class="plugin-group-header">
+                            <label>Chrome-dependent plugins</label>
+                            <button type="button" class="select-all-btn" data-group="chrome">
+                                Select All Chrome
+                            </button>
+                        </div>
+                        <div class="plugin-checkboxes" id="chrome-plugins">
+                            {{ form.chrome_plugins }}
+                        </div>
+                    </div>
+
+                    <!-- Archiving plugins -->
+                    <div class="plugin-group">
+                        <div class="plugin-group-header">
+                            <label>Archiving</label>
+                        </div>
+                        <div class="plugin-checkboxes">
+                            {{ form.archiving_plugins }}
+                        </div>
+                    </div>
+
+                    <!-- Parsing plugins -->
+                    <div class="plugin-group">
+                        <div class="plugin-group-header">
+                            <label>Parsing</label>
+                        </div>
+                        <div class="plugin-checkboxes">
+                            {{ form.parsing_plugins }}
+                        </div>
+                    </div>
+
+                    <!-- Search plugins -->
+                    <div class="plugin-group">
+                        <div class="plugin-group-header">
+                            <label>Search</label>
+                        </div>
+                        <div class="plugin-checkboxes">
+                            {{ form.search_plugins }}
+                        </div>
+                    </div>
+
+                    <!-- Binary provider plugins -->
+                    <div class="plugin-group">
+                        <div class="plugin-group-header">
+                            <label>Binary Providers</label>
+                        </div>
+                        <div class="plugin-checkboxes">
+                            {{ form.binary_plugins }}
+                        </div>
+                    </div>
+
+                    <!-- Extension plugins -->
+                    <div class="plugin-group">
+                        <div class="plugin-group-header">
+                            <label>Browser Extensions</label>
+                        </div>
+                        <div class="plugin-checkboxes">
+                            {{ form.extension_plugins }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced options (collapsible) -->
+                <div class="form-section">
+                    <details class="advanced-section">
+                        <summary><h3>Advanced Crawl Options</h3></summary>
+                        <p class="section-description">Additional settings that control how this crawl processes URLs and creates snapshots.</p>
+
+                        <div class="form-field">
+                            {{ form.schedule.label_tag }}
+                            {{ form.schedule }}
+                            {% if form.schedule.errors %}
+                                <div class="error">{{ form.schedule.errors }}</div>
+                            {% endif %}
+                            <div class="help-text">
+                                Optional: Schedule this crawl to repeat automatically. Examples:<br/>
+                                <code>daily</code> - Run once per day<br/>
+                                <code>weekly</code> - Run once per week<br/>
+                                <code>0 */6 * * *</code> - Every 6 hours (cron format)<br/>
+                                <code>0 0 * * 0</code> - Every Sunday at midnight (cron format)
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            {{ form.persona.label_tag }}
+                            {{ form.persona }}
+                            {% if form.persona.errors %}
+                                <div class="error">{{ form.persona.errors }}</div>
+                            {% endif %}
+                            <div class="help-text">
+                                Authentication profile to use for all snapshots in this crawl.
+                                <a href="/admin/personas/persona/add/" target="_blank">Create new persona →</a>
+                            </div>
+                        </div>
+
+                        <div class="form-field checkbox-field">
+                            {{ form.overwrite }}
+                            {{ form.overwrite.label_tag }}
+                            {% if form.overwrite.errors %}
+                                <div class="error">{{ form.overwrite.errors }}</div>
+                            {% endif %}
+                            <div class="help-text">Re-archive URLs even if they already exist</div>
+                        </div>
+
+                        <div class="form-field checkbox-field">
+                            {{ form.update }}
+                            {{ form.update.label_tag }}
+                            {% if form.update.errors %}
+                                <div class="error">{{ form.update.errors }}</div>
+                            {% endif %}
+                            <div class="help-text">Retry archiving URLs that previously failed</div>
+                        </div>
+
+                        <div class="form-field checkbox-field">
+                            {{ form.index_only }}
+                            {{ form.index_only.label_tag }}
+                            {% if form.index_only.errors %}
+                                <div class="error">{{ form.index_only.errors }}</div>
+                            {% endif %}
+                            <div class="help-text">Create snapshots but don't run archiving plugins yet (queue for later)</div>
+                        </div>
+
+                        <div class="form-field">
+                            {{ form.config.label_tag }}
+                            {{ form.config }}
+                            {% if form.config.errors %}
+                                <div class="error">{{ form.config.errors }}</div>
+                            {% endif %}
+                            <div class="help-text">
+                                Override any config option for this crawl (e.g., TIMEOUT, USER_AGENT, CHROME_BINARY, etc.)
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
                 <center>
-                    <button role="submit" id="submit">&nbsp; Add URLs and archive ➕</button>
+                    <button role="submit" id="submit">&nbsp; Create Crawl and Start Archiving ➕</button>
                 </center>
             </form>
             <br/><br/><br/>
             <center id="delay-warning" style="display: none">
-                <small>(you will be redirected to your <a href="/">Snapshot list</a> momentarily, its safe to close this page at any time)</small>
+                <small>(you will be redirected to your new Crawl page momentarily, it's safe to close this page at any time)</small>
             </center>
             {% if absolute_add_path %}
             <!-- <center id="bookmarklet">
@@ -55,6 +270,109 @@
             </center> -->
             {% endif %}
             <script>
+                // URL Counter - detect URLs in textarea using regex
+                const urlTextarea = document.querySelector('textarea[name="url"]');
+                const urlCounter = document.getElementById('url-counter');
+
+                function updateURLCount() {
+                    const text = urlTextarea.value;
+                    // Match http(s):// URLs
+                    const urlRegex = /https?:\/\/[^\s]+/gi;
+                    const matches = text.match(urlRegex) || [];
+                    const count = matches.length;
+                    urlCounter.textContent = `${count} URL${count !== 1 ? 's' : ''} detected`;
+                    urlCounter.className = count > 0 ? 'url-counter url-counter-positive' : 'url-counter';
+                }
+
+                urlTextarea.addEventListener('input', updateURLCount);
+                updateURLCount(); // Initial count
+
+                // Plugin Presets
+                const presetConfigs = {
+                    'quick-archive': ['screenshot', 'dom', 'favicon', 'wget', 'title'],
+                    'full-chrome': ['chrome', 'screenshot', 'pdf', 'dom', 'singlefile', 'consolelog', 'redirects', 'responses', 'ssl', 'headers', 'title', 'accessibility', 'seo'],
+                    'text-only': ['wget', 'readability', 'mercury', 'htmltotext', 'title', 'favicon']
+                };
+
+                document.querySelectorAll('.preset-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const preset = this.dataset.preset;
+                        const allCheckboxes = document.querySelectorAll('.plugin-checkboxes input[type="checkbox"]');
+
+                        if (preset === 'select-all') {
+                            allCheckboxes.forEach(cb => cb.checked = true);
+                        } else if (preset === 'clear-all') {
+                            allCheckboxes.forEach(cb => cb.checked = false);
+                        } else if (presetConfigs[preset]) {
+                            const pluginsToSelect = presetConfigs[preset];
+                            allCheckboxes.forEach(cb => {
+                                cb.checked = pluginsToSelect.includes(cb.value);
+                            });
+                        }
+
+                        // Save to localStorage after preset selection
+                        saveFormState();
+                    });
+                });
+
+                // Select All Chrome button handler
+                document.querySelectorAll('.select-all-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const group = this.dataset.group;
+                        const container = document.getElementById(group + '-plugins');
+                        const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+                        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+
+                        checkboxes.forEach(cb => {
+                            cb.checked = !allChecked;
+                        });
+
+                        this.textContent = allChecked ? 'Select All Chrome' : 'Deselect All Chrome';
+                        saveFormState();
+                    });
+                });
+
+                // LocalStorage: Save/Load form state (all fields including URLs for repeat crawls)
+                const STORAGE_KEY = 'archivebox_add_form_state';
+
+                function saveFormState() {
+                    const state = {};
+                    document.querySelectorAll('#add-form input, #add-form textarea, #add-form select').forEach(el => {
+                        if (el.name === 'csrfmiddlewaretoken') return;
+                        if (el.type === 'checkbox' || el.type === 'radio') {
+                            state[el.name + ':' + el.value] = el.checked;
+                        } else {
+                            state[el.name] = el.value;
+                        }
+                    });
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                }
+
+                function loadFormState() {
+                    try {
+                        const state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+                        for (const [key, value] of Object.entries(state)) {
+                            if (key.includes(':')) {
+                                const [name, val] = key.split(':');
+                                const el = document.querySelector(`[name="${name}"][value="${val}"]`);
+                                if (el) el.checked = value;
+                            } else {
+                                const el = document.querySelector(`[name="${key}"]`);
+                                if (el && el.type !== 'checkbox' && el.type !== 'radio') el.value = value;
+                            }
+                        }
+                        updateURLCount(); // Update counter after loading URLs
+                    } catch (e) {}
+                }
+
+                // Auto-save on changes
+                document.querySelectorAll('#add-form input, #add-form textarea, #add-form select').forEach(el => {
+                    el.addEventListener('change', saveFormState);
+                });
+
+                loadFormState();
+
+                // Form submission handler
                 document.getElementById('add-form').addEventListener('submit', function(event) {
                     document.getElementById('in-progress').style.display = 'block'
                     document.getElementById('add-form').style.display = 'none'

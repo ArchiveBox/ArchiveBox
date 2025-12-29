@@ -19,7 +19,7 @@ from archivebox.config.permissions import USER, HOSTNAME
 
 
 if TYPE_CHECKING:
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
 
 
 @enforce_types
@@ -53,8 +53,8 @@ def add(urls: str | list[str],
     assert depth in (0, 1, 2, 3, 4), 'Depth must be 0-4'
 
     # import models once django is set up
-    from core.models import Snapshot
-    from crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
     from archivebox.base_models.models import get_or_create_system_user_pk
     from workers.orchestrator import Orchestrator
 

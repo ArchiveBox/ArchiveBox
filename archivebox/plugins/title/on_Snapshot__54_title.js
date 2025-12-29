@@ -225,6 +225,7 @@ async function main() {
     let status = 'failed';
     let output = null;
     let error = '';
+    let extractedTitle = null;
 
     try {
         const result = await extractTitle(url);
@@ -232,7 +233,8 @@ async function main() {
         if (result.success) {
             status = 'succeeded';
             output = result.output;
-            console.log(`Title extracted (${result.method}): ${result.title}`);
+            extractedTitle = result.title;
+            console.error(`Title extracted (${result.method}): ${result.title}`);
         } else {
             status = 'failed';
             error = result.error;
@@ -248,13 +250,22 @@ async function main() {
         console.error(`ERROR: ${error}`);
     }
 
-    // Output clean JSONL (no RESULT_JSON= prefix)
-    const result = {
+    // Update snapshot title via JSONL
+    if (status === 'succeeded' && extractedTitle) {
+        console.log(JSON.stringify({
+            type: 'Snapshot',
+            id: snapshotId,
+            title: extractedTitle
+        }));
+    }
+
+    // Output ArchiveResult JSONL
+    const archiveResult = {
         type: 'ArchiveResult',
         status,
-        output_str: output || error || '',
+        output_str: extractedTitle || error || '',
     };
-    console.log(JSON.stringify(result));
+    console.log(JSON.stringify(archiveResult));
 
     process.exit(status === 'succeeded' ? 0 : 1);
 }

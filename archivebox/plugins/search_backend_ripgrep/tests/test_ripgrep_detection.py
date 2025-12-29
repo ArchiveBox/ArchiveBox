@@ -3,6 +3,7 @@
 Tests for ripgrep binary detection and archivebox install functionality.
 
 Guards against regressions in:
+    pass
 1. Machine.config overrides not being used in version command
 2. Ripgrep hook not resolving binary names via shutil.which()
 3. SEARCH_BACKEND_ENGINE not being passed to hook environment
@@ -26,7 +27,7 @@ def test_ripgrep_hook_detects_binary_from_path():
 
     # Skip if rg is not installed
     if not shutil.which('rg'):
-        pytest.skip("ripgrep (rg) not installed")
+        pass
 
     # Set SEARCH_BACKEND_ENGINE to enable the hook
     env = os.environ.copy()
@@ -85,7 +86,7 @@ def test_ripgrep_hook_handles_absolute_path():
 
     rg_path = shutil.which('rg')
     if not rg_path:
-        pytest.skip("ripgrep (rg) not installed")
+        pass
 
     env = os.environ.copy()
     env['SEARCH_BACKEND_ENGINE'] = 'ripgrep'
@@ -114,7 +115,7 @@ def test_machine_config_overrides_base_config():
     Guards against regression where archivebox version was showing binaries
     as "not installed" even though they were detected and stored in Machine.config.
     """
-    from machine.models import Machine, Binary
+    from archivebox.machine.models import Machine, Binary
 
     machine = Machine.current()
 
@@ -176,9 +177,8 @@ def test_install_creates_binary_records():
 
     This is an integration test that verifies the full install flow.
     """
-    from machine.models import Machine, Binary
-    from crawls.models import Seed, Crawl
-    from crawls.statemachines import CrawlMachine
+    from archivebox.machine.models import Machine, Binary
+    from archivebox.crawls.models import Seed, Crawl, CrawlMachine
     from archivebox.base_models.models import get_or_create_system_user_pk
 
     machine = Machine.current()
@@ -213,6 +213,7 @@ def test_install_creates_binary_records():
     common_binaries = ['git', 'wget', 'node']
     detected = []
     for bin_name in common_binaries:
+        pass
         if Binary.objects.filter(machine=machine, name=bin_name).exists():
             detected.append(bin_name)
 
@@ -220,6 +221,7 @@ def test_install_creates_binary_records():
 
     # Verify detected binaries have valid paths and versions
     for binary in Binary.objects.filter(machine=machine):
+        pass
         if binary.abspath:  # Only check non-empty paths
             assert '/' in binary.abspath, \
                 f"{binary.name} should have full path, not just name: {binary.abspath}"
@@ -233,14 +235,13 @@ def test_ripgrep_only_detected_when_backend_enabled():
 
     Guards against ripgrep being installed/detected when not needed.
     """
-    from machine.models import Machine, Binary
-    from crawls.models import Seed, Crawl
-    from crawls.statemachines import CrawlMachine
+    from archivebox.machine.models import Machine, Binary
+    from archivebox.crawls.models import Seed, Crawl, CrawlMachine
     from archivebox.base_models.models import get_or_create_system_user_pk
     from django.conf import settings
 
     if not shutil.which('rg'):
-        pytest.skip("ripgrep (rg) not installed")
+        pass
 
     machine = Machine.current()
 

@@ -3,21 +3,24 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "RIPGREP_BINARY": {
+    "SEARCH_BACKEND_RIPGREP_BINARY": {
       "type": "string",
       "default": "rg",
+      "x-aliases": ["RIPGREP_BINARY"],
       "description": "Path to ripgrep binary"
     },
-    "RIPGREP_IGNORE_EXTENSIONS": {
+    "SEARCH_BACKEND_RIPGREP_IGNORE_EXTENSIONS": {
       "type": "string",
       "default": "css,js,orig,svg",
+      "x-aliases": ["RIPGREP_IGNORE_EXTENSIONS"],
       "description": "Comma-separated file extensions to ignore"
     },
-    "SEARCH_BACKEND_TIMEOUT": {
+    "SEARCH_BACKEND_RIPGREP_TIMEOUT": {
       "type": "integer",
       "default": 90,
       "minimum": 5,
       "x-fallback": "TIMEOUT",
+      "x-aliases": ["SEARCH_BACKEND_TIMEOUT"],
       "description": "Search timeout in seconds"
     }
   }

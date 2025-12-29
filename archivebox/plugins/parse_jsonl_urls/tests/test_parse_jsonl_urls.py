@@ -34,10 +34,8 @@ class TestParseJsonlUrls:
         assert result.returncode == 0
         assert 'Found 3 URLs' in result.stdout
 
-        output_file = tmp_path / 'urls.jsonl'
-        assert output_file.exists()
-
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         assert len(lines) == 3
 
         entries = [json.loads(line) for line in lines]
@@ -64,8 +62,9 @@ class TestParseJsonlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert entry['url'] == 'https://example.com'
 
     def test_supports_description_as_title(self, tmp_path):
@@ -81,8 +80,9 @@ class TestParseJsonlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert entry['title'] == 'A description'
 
     def test_parses_various_timestamp_formats(self, tmp_path):
@@ -98,8 +98,9 @@ class TestParseJsonlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         # Parser converts timestamp to bookmarked_at
         assert 'bookmarked_at' in entry
 
@@ -116,9 +117,9 @@ class TestParseJsonlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
+        # Output goes to stdout (JSONL)
         # Parser converts tags to separate Tag objects in the output
-        content = output_file.read_text()
+        content = result.stdout
         assert 'tech' in content or 'news' in content or 'Tag' in content
 
     def test_parses_tags_as_list(self, tmp_path):
@@ -134,9 +135,9 @@ class TestParseJsonlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
+        # Output goes to stdout (JSONL)
         # Parser converts tags to separate Tag objects in the output
-        content = output_file.read_text()
+        content = result.stdout
         assert 'tech' in content or 'news' in content or 'Tag' in content
 
     def test_skips_malformed_lines(self, tmp_path):
@@ -156,8 +157,8 @@ class TestParseJsonlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         assert len(lines) == 2
 
     def test_skips_entries_without_url(self, tmp_path):
@@ -177,12 +178,12 @@ class TestParseJsonlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         assert len(lines) == 2
 
-    def test_exits_1_when_no_urls_found(self, tmp_path):
-        """Test that script exits with code 1 when no URLs found."""
+    def test_skips_when_no_urls_found(self, tmp_path):
+        """Test that script returns skipped status when no URLs found."""
         input_file = tmp_path / 'empty.jsonl'
         input_file.write_text('{"title": "No URL"}\n')
 
@@ -193,8 +194,9 @@ class TestParseJsonlUrls:
             text=True,
         )
 
-        assert result.returncode == 1
+        assert result.returncode == 0
         assert 'No URLs found' in result.stderr
+        assert '"status": "skipped"' in result.stdout
 
     def test_exits_1_when_file_not_found(self, tmp_path):
         """Test that script exits with code 1 when file doesn't exist."""
@@ -221,8 +223,9 @@ class TestParseJsonlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert entry['url'] == 'https://example.com/page?a=1&b=2'
         assert entry['title'] == 'Test & Title'
 
@@ -244,8 +247,8 @@ class TestParseJsonlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         assert len(lines) == 2
 
     def test_output_includes_required_fields(self, tmp_path):
@@ -261,8 +264,9 @@ class TestParseJsonlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert entry['url'] == 'https://example.com'
         assert 'type' in entry
         assert 'plugin' in entry

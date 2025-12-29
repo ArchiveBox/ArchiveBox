@@ -4,11 +4,14 @@ import socket
 from archivebox.uuid_compat import uuid7
 from datetime import timedelta
 
+from statemachine import State, registry
+
 from django.db import models
 from django.utils import timezone
 from django.utils.functional import cached_property
 
 from archivebox.base_models.models import ModelWithHealthStats
+from archivebox.workers.models import BaseStateMachine
 from .detect import get_host_guid, get_os_info, get_vm_info, get_host_network, get_host_stats
 
 _CURRENT_MACHINE = None
@@ -49,6 +52,9 @@ class Machine(ModelWithHealthStats):
 
     objects: MachineManager = MachineManager()
     networkinterface_set: models.Manager['NetworkInterface']
+
+    class Meta:
+        app_label = 'machine'
 
     @classmethod
     def current(cls) -> 'Machine':
@@ -115,6 +121,7 @@ class NetworkInterface(ModelWithHealthStats):
     objects: NetworkInterfaceManager = NetworkInterfaceManager()
 
     class Meta:
+        app_label = 'machine'
         unique_together = (('machine', 'ip_public', 'ip_local', 'mac_address', 'dns_server'),)
 
     @classmethod
@@ -206,11 +213,12 @@ class Binary(ModelWithHealthStats):
     num_uses_failed = models.PositiveIntegerField(default=0)
     num_uses_succeeded = models.PositiveIntegerField(default=0)
 
-    state_machine_name: str = 'machine.statemachines.BinaryMachine'
+    state_machine_name: str = 'machine.models.BinaryMachine'
 
     objects: BinaryManager = BinaryManager()
 
     class Meta:
+        app_label = 'machine'
         verbose_name = 'Binary'
         verbose_name_plural = 'Binaries'
         unique_together = (('machine', 'name', 'abspath', 'version', 'sha256'),)
@@ -302,9 +310,9 @@ class Binary(ModelWithHealthStats):
         DATA_DIR = getattr(settings, 'DATA_DIR', Path.cwd())
         return Path(DATA_DIR) / 'machines' / str(self.machine_id) / 'binaries' / self.name / str(self.id)
 
-    def update_for_workers(self, **kwargs):
+    def update_and_requeue(self, **kwargs):
         """
-        Update binary fields for worker state machine.
+        Update binary fields and requeue for worker state machine.
 
         Sets modified_at to ensure workers pick up changes.
         Always saves the model after updating.
@@ -325,6 +333,10 @@ class Binary(ModelWithHealthStats):
         """
         import json
         from archivebox.hooks import discover_hooks, run_hook
+        from archivebox.config.configset import get_config
+
+        # Get merged config (Binary doesn't have crawl/snapshot context)
+        config = get_config(scope='global')
 
         # Create output directory
         output_dir = self.OUTPUT_DIR
@@ -333,7 +345,7 @@ class Binary(ModelWithHealthStats):
         self.save()
 
         # Discover ALL on_Binary__install_* hooks
-        hooks = discover_hooks('Binary')
+        hooks = discover_hooks('Binary', config=config)
         if not hooks:
             self.status = self.StatusChoices.FAILED
             self.save()
@@ -361,7 +373,8 @@ class Binary(ModelWithHealthStats):
             result = run_hook(
                 hook,
                 output_dir=plugin_output_dir,
-                timeout=600,  # 10 min timeout
+                config=config,
+                timeout=600,  # 10 min timeout for binary installation
                 **hook_kwargs
             )
 
@@ -418,5 +431,130 @@ class Binary(ModelWithHealthStats):
             pid_file = plugin_dir / 'hook.pid'
             if pid_file.exists():
                 kill_process(pid_file)
+
+
+# =============================================================================
+# Binary State Machine
+# =============================================================================
+
+class BinaryMachine(BaseStateMachine, strict_states=True):
+    """
+    State machine for managing Binary installation lifecycle.
+
+    Hook Lifecycle:
+    ┌─────────────────────────────────────────────────────────────┐
+    │ QUEUED State                                                │
+    │  • Binary needs to be installed                             │
+    └─────────────────────────────────────────────────────────────┘
+                            ↓ tick() when can_start()
+    ┌─────────────────────────────────────────────────────────────┐
+    │ STARTED State → enter_started()                             │
+    │  1. binary.run()                                            │
+    │     • discover_hooks('Binary') → all on_Binary__install_*   │
+    │     • Try each provider hook in sequence:                   │
+    │       - run_hook(script, output_dir, ...)                   │
+    │       - If returncode == 0:                                 │
+    │         * Read stdout.log                                   │
+    │         * Parse JSONL for 'Binary' record with abspath      │
+    │         * Update self: abspath, version, sha256, provider   │
+    │         * Set status=SUCCEEDED, RETURN                      │
+    │     • If no hook succeeds: set status=FAILED                │
+    └─────────────────────────────────────────────────────────────┘
+                            ↓ tick() checks status
+    ┌─────────────────────────────────────────────────────────────┐
+    │ SUCCEEDED / FAILED                                          │
+    │  • Set by binary.run() based on hook results                │
+    │  • Health stats incremented (num_uses_succeeded/failed)     │
+    └─────────────────────────────────────────────────────────────┘
+    """
+
+    model_attr_name = 'binary'
+
+    # States
+    queued = State(value=Binary.StatusChoices.QUEUED, initial=True)
+    started = State(value=Binary.StatusChoices.STARTED)
+    succeeded = State(value=Binary.StatusChoices.SUCCEEDED, final=True)
+    failed = State(value=Binary.StatusChoices.FAILED, final=True)
+
+    # Tick Event - transitions based on conditions
+    tick = (
+        queued.to.itself(unless='can_start') |
+        queued.to(started, cond='can_start') |
+        started.to.itself(unless='is_finished') |
+        started.to(succeeded, cond='is_succeeded') |
+        started.to(failed, cond='is_failed')
+    )
+
+    def can_start(self) -> bool:
+        """Check if binary installation can start."""
+        return bool(self.binary.name and self.binary.binproviders)
+
+    def is_succeeded(self) -> bool:
+        """Check if installation succeeded (status was set by run())."""
+        return self.binary.status == Binary.StatusChoices.SUCCEEDED
+
+    def is_failed(self) -> bool:
+        """Check if installation failed (status was set by run())."""
+        return self.binary.status == Binary.StatusChoices.FAILED
+
+    def is_finished(self) -> bool:
+        """Check if installation has completed (success or failure)."""
+        return self.binary.status in (
+            Binary.StatusChoices.SUCCEEDED,
+            Binary.StatusChoices.FAILED,
+        )
+
+    @queued.enter
+    def enter_queued(self):
+        """Binary is queued for installation."""
+        self.binary.update_and_requeue(
+            retry_at=timezone.now(),
+            status=Binary.StatusChoices.QUEUED,
+        )
+
+    @started.enter
+    def enter_started(self):
+        """Start binary installation."""
+        # Lock the binary while installation runs
+        self.binary.update_and_requeue(
+            retry_at=timezone.now() + timedelta(seconds=300),  # 5 min timeout for installation
+            status=Binary.StatusChoices.STARTED,
+        )
+
+        # Run installation hooks
+        self.binary.run()
+
+        # Save updated status (run() updates status to succeeded/failed)
+        self.binary.save()
+
+    @succeeded.enter
+    def enter_succeeded(self):
+        """Binary installed successfully."""
+        self.binary.update_and_requeue(
+            retry_at=None,
+            status=Binary.StatusChoices.SUCCEEDED,
+        )
+
+        # Increment health stats
+        self.binary.increment_health_stats(success=True)
+
+    @failed.enter
+    def enter_failed(self):
+        """Binary installation failed."""
+        self.binary.update_and_requeue(
+            retry_at=None,
+            status=Binary.StatusChoices.FAILED,
+        )
+
+        # Increment health stats
+        self.binary.increment_health_stats(success=False)
+
+
+# =============================================================================
+# State Machine Registration
+# =============================================================================
+
+# Manually register state machines with python-statemachine registry
+registry.register(BinaryMachine)
 
 

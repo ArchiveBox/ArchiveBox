@@ -170,10 +170,6 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
             # Skip malformed lines
             continue
 
-    if not urls_found:
-        click.echo('No URLs found', err=True)
-        sys.exit(1)
-
     # Emit Tag records first (to stdout as JSONL)
     for tag_name in sorted(all_tags):
         print(json.dumps({
@@ -185,7 +181,17 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
     for entry in urls_found:
         print(json.dumps(entry))
 
-    click.echo(f'Found {len(urls_found)} URLs, {len(all_tags)} tags', err=True)
+    # Emit ArchiveResult record to mark completion
+    status = 'succeeded' if urls_found else 'skipped'
+    output_str = f'Found {len(urls_found)} URLs, {len(all_tags)} tags' if urls_found else 'No URLs found'
+    ar_record = {
+        'type': 'ArchiveResult',
+        'status': status,
+        'output_str': output_str,
+    }
+    print(json.dumps(ar_record))
+
+    click.echo(output_str, err=True)
     sys.exit(0)
 
 

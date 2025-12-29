@@ -28,10 +28,8 @@ class TestParseRssUrls:
 
         # HN RSS feed should parse successfully
         if result.returncode == 0:
-            output_file = tmp_path / 'urls.jsonl'
-            assert output_file.exists(), "Output file not created"
-
-            content = output_file.read_text()
+            # Output goes to stdout (JSONL)
+            content = result.stdout
             assert len(content) > 0, "No URLs extracted from real RSS feed"
 
             # Verify at least one URL was extracted
@@ -70,10 +68,8 @@ class TestParseRssUrls:
         assert result.returncode == 0
         assert 'Found 2 URLs' in result.stdout
 
-        output_file = tmp_path / 'urls.jsonl'
-        assert output_file.exists()
-
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         assert len(lines) == 2
 
         entries = [json.loads(line) for line in lines]
@@ -112,15 +108,15 @@ class TestParseRssUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         urls = {json.loads(line)['url'] for line in lines}
 
         assert 'https://atom.example.com/entry/1' in urls
         assert 'https://atom.example.com/entry/2' in urls
 
-    def test_exits_1_when_no_entries(self, tmp_path):
-        """Test that script exits with code 1 when feed has no entries."""
+    def test_skips_when_no_entries(self, tmp_path):
+        """Test that script returns skipped status when feed has no entries."""
         input_file = tmp_path / 'empty.rss'
         input_file.write_text('''<?xml version="1.0"?>
 <rss version="2.0">
@@ -137,8 +133,9 @@ class TestParseRssUrls:
             text=True,
         )
 
-        assert result.returncode == 1
-        assert 'No entries found' in result.stderr
+        assert result.returncode == 0
+        assert 'No URLs found' in result.stderr
+        assert '"status": "skipped"' in result.stdout
 
     def test_exits_1_when_file_not_found(self, tmp_path):
         """Test that script exits with code 1 when file doesn't exist."""
@@ -174,8 +171,9 @@ class TestParseRssUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert entry['url'] == 'https://example.com/page?a=1&b=2'
 
     def test_includes_optional_metadata(self, tmp_path):
@@ -201,8 +199,9 @@ class TestParseRssUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert entry['url'] == 'https://example.com/test'
         assert entry['title'] == 'Test Title'
         # Parser converts timestamp to bookmarked_at

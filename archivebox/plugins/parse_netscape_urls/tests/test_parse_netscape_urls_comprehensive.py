@@ -40,8 +40,8 @@ class TestFirefoxFormat:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         entries = [json.loads(line) for line in lines]
 
         assert len(entries) == 2
@@ -70,12 +70,13 @@ class TestFirefoxFormat:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL) - get all JSONL records
+        all_lines = [line for line in result.stdout.strip().split('\n') if line.strip() and line.startswith('{')]
+        records = [json.loads(line) for line in all_lines]
 
         # Should have Tag records + Snapshot records
-        tags = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Tag']
-        snapshots = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Snapshot']
+        tags = [r for r in records if r.get('type') == 'Tag']
+        snapshots = [r for r in records if r.get('type') == 'Snapshot']
 
         tag_names = {t['name'] for t in tags}
         assert 'coding' in tag_names
@@ -112,8 +113,8 @@ class TestFirefoxFormat:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         entries = [json.loads(line) for line in lines]
         urls = {e['url'] for e in entries}
 
@@ -141,8 +142,8 @@ class TestFirefoxFormat:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         entries = [json.loads(line) for line in lines]
 
         assert entries[0]['url'] == 'https://example.com'
@@ -175,8 +176,8 @@ class TestChromeFormat:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         entries = [json.loads(line) for line in lines]
 
         # Should correctly parse microsecond timestamps
@@ -212,8 +213,8 @@ class TestChromeFormat:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         entries = [json.loads(line) for line in lines]
         urls = {e['url'] for e in entries}
 
@@ -248,8 +249,8 @@ class TestSafariFormat:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         entries = [json.loads(line) for line in lines]
         urls = {e['url'] for e in entries}
 
@@ -279,8 +280,8 @@ class TestSafariFormat:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         entries = [json.loads(line) for line in lines]
         urls = {e['url'] for e in entries}
 
@@ -312,8 +313,8 @@ class TestEdgeFormat:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         entries = [json.loads(line) for line in lines]
         urls = {e['url'] for e in entries}
 
@@ -340,8 +341,9 @@ class TestTimestampFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         dt = datetime.fromisoformat(entry['bookmarked_at'])
         assert dt.year == 2021
@@ -366,8 +368,9 @@ class TestTimestampFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         dt = datetime.fromisoformat(entry['bookmarked_at'])
         # Should detect Mac epoch and convert correctly to 2021
@@ -389,8 +392,9 @@ class TestTimestampFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         dt = datetime.fromisoformat(entry['bookmarked_at'])
         # Should detect Mac epoch and convert to 2024
@@ -412,8 +416,9 @@ class TestTimestampFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         dt = datetime.fromisoformat(entry['bookmarked_at'])
         assert dt.year == 2021
@@ -437,8 +442,9 @@ class TestTimestampFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         dt = datetime.fromisoformat(entry['bookmarked_at'])
         assert dt.year == 2021
@@ -461,8 +467,9 @@ class TestTimestampFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         dt = datetime.fromisoformat(entry['bookmarked_at'])
         # Should detect Mac epoch with milliseconds and convert to 2021
@@ -487,8 +494,8 @@ class TestTimestampFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         entries = [json.loads(line) for line in lines]
 
         # All should be parsed to reasonable dates (2020-2025)
@@ -512,8 +519,9 @@ class TestTimestampFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         dt = datetime.fromisoformat(entry['bookmarked_at'])
         assert dt.year == 1996
@@ -534,8 +542,9 @@ class TestTimestampFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         dt = datetime.fromisoformat(entry['bookmarked_at'])
         assert dt.year == 2024
@@ -555,8 +564,9 @@ class TestTimestampFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         # Should still extract URL but skip timestamp
         assert entry['url'] == 'https://example.com'
@@ -577,8 +587,9 @@ class TestTimestampFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         # Timestamp 0 = 1970, which is before MIN_REASONABLE_YEAR (1995)
         # Parser should skip it as unreasonable
@@ -603,8 +614,9 @@ class TestTimestampFormats:
 
         # Should handle gracefully (extracts URL, may or may not include timestamp)
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert entry['url'] == 'https://example.com'
         # If timestamp is included, should be reasonable (1969)
         if 'bookmarked_at' in entry:
@@ -632,8 +644,8 @@ class TestBookmarkAttributes:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         entries = [json.loads(line) for line in lines]
 
         # Both should be extracted
@@ -654,8 +666,9 @@ class TestBookmarkAttributes:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         assert 'google.com' in entry['url']
 
@@ -674,8 +687,9 @@ class TestBookmarkAttributes:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         assert entry['url'] == 'https://example.com/login'
 
@@ -704,9 +718,9 @@ class TestEdgeCases:
         # Current regex works line-by-line, so this might not match
         # Document current behavior
         if result.returncode == 0:
-            output_file = tmp_path / 'urls.jsonl'
+            # Output goes to stdout (JSONL)
             if output_file.exists():
-                content = output_file.read_text().strip()
+                content = result.stdout.strip()
                 if content:
                     entry = json.loads(content)
                     assert 'example.com' in entry['url']
@@ -727,8 +741,9 @@ class TestEdgeCases:
 
         # Should succeed and extract URL without timestamp
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert entry['url'] == 'https://example.com'
         assert entry['title'] == 'No Date'
         assert 'bookmarked_at' not in entry
@@ -768,8 +783,8 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         entries = [json.loads(line) for line in lines]
 
         assert len(entries) == 3
@@ -792,8 +807,8 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         entries = [json.loads(line) for line in lines]
 
         # Both should be extracted
@@ -815,8 +830,9 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         assert entry['url'].startswith('data:')
 
@@ -835,8 +851,9 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         assert entry['url'].startswith('file://')
 
@@ -856,8 +873,9 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         assert len(entry['url']) > 1000
         assert entry['url'].startswith('https://example.com')
@@ -881,7 +899,7 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
+        # Output goes to stdout (JSONL)
         lines = output_file.read_text(encoding='utf-8').strip().split('\n')
         entries = [json.loads(line) for line in lines]
 
@@ -915,8 +933,8 @@ class TestEdgeCases:
         assert result.returncode == 0
         assert 'Found 1000 URLs' in result.stdout
 
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
 
         # Should have 10 unique tags + 1000 snapshots
         tags = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Tag']

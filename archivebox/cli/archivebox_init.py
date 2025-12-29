@@ -95,7 +95,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, setup: bool=
     print()
     print('[dodger_blue3][*] Checking links from indexes and archive folders (safe to Ctrl+C)...[/dodger_blue3]')
 
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
 
     all_links = Snapshot.objects.none()
     pending_links: dict[str, SnapshotDict] = {}

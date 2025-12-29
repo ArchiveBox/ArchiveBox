@@ -42,6 +42,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
     retry_at_field_name: ClassVar[str]
 
     class Meta:
+        app_label = 'workers'
         abstract = True
 
     @classmethod
@@ -163,9 +164,9 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
     def bump_retry_at(self, seconds: int = 10):
         self.RETRY_AT = timezone.now() + timedelta(seconds=seconds)
 
-    def update_for_workers(self, **kwargs) -> bool:
+    def update_and_requeue(self, **kwargs) -> bool:
         """
-        Atomically update the object's fields for worker processing.
+        Atomically update fields and schedule retry_at for next worker tick.
         Returns True if the update was successful, False if the object was modified by another worker.
         """
         # Get the current retry_at to use as optimistic lock
@@ -307,7 +308,7 @@ class ModelWithStateMachine(BaseModelWithStateMachine):
     status: models.CharField = BaseModelWithStateMachine.StatusField()
     retry_at: models.DateTimeField = BaseModelWithStateMachine.RetryAtField()
 
-    state_machine_name: ClassVar[str]      # e.g. 'core.statemachines.ArchiveResultMachine'
+    state_machine_name: ClassVar[str]      # e.g. 'core.models.ArchiveResultMachine'
     state_field_name: ClassVar[str]        = 'status'
     state_machine_attr: ClassVar[str]      = 'sm'
     bind_events_as_methods: ClassVar[bool] = True
@@ -316,4 +317,41 @@ class ModelWithStateMachine(BaseModelWithStateMachine):
     retry_at_field_name: ClassVar[str]     = 'retry_at'
 
     class Meta:
+        app_label = 'workers'
         abstract = True
+
+
+class BaseStateMachine(StateMachine):
+    """
+    Base class for all ArchiveBox state machines.
+
+    Eliminates boilerplate __init__, __repr__, __str__ methods that were
+    duplicated across all 4 state machines (Snapshot, ArchiveResult, Crawl, Binary).
+
+    Subclasses must set model_attr_name to specify the attribute name
+    (e.g., 'snapshot', 'archiveresult', 'crawl', 'binary').
+
+    Example usage:
+        class SnapshotMachine(BaseStateMachine, strict_states=True):
+            model_attr_name = 'snapshot'
+
+            # States and transitions...
+            queued = State(value=Snapshot.StatusChoices.QUEUED, initial=True)
+            # ...
+
+    The model instance is accessible via self.{model_attr_name}
+    (e.g., self.snapshot, self.archiveresult, etc.)
+    """
+
+    model_attr_name: str = 'obj'  # Override in subclasses
+
+    def __init__(self, obj, *args, **kwargs):
+        setattr(self, self.model_attr_name, obj)
+        super().__init__(obj, *args, **kwargs)
+
+    def __repr__(self) -> str:
+        obj = getattr(self, self.model_attr_name)
+        return f'{self.__class__.__name__}[{obj.id}]'
+
+    def __str__(self) -> str:
+        return self.__repr__()

@@ -46,7 +46,7 @@ def process_snapshot_by_id(snapshot_id: str) -> int:
     - Transition from started -> sealed (when all ArchiveResults done)
     """
     from rich import print as rprint
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
 
     try:
         snapshot = Snapshot.objects.get(id=snapshot_id)
@@ -88,11 +88,11 @@ def create_snapshots(
 
     from archivebox.misc.jsonl import (
         read_args_or_stdin, write_record, snapshot_to_jsonl,
-        TYPE_SNAPSHOT, TYPE_TAG, get_or_create_snapshot
+        TYPE_SNAPSHOT, TYPE_TAG
     )
     from archivebox.base_models.models import get_or_create_system_user_pk
-    from core.models import Snapshot
-    from crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
     from archivebox.config import CONSTANTS
 
     created_by_id = created_by_id or get_or_create_system_user_pk()
@@ -137,8 +137,10 @@ def create_snapshots(
                 record['tags'] = tag
 
             # Get or create the snapshot
-            snapshot = get_or_create_snapshot(record, created_by_id=created_by_id)
-            created_snapshots.append(snapshot)
+            overrides = {'created_by_id': created_by_id}
+            snapshot = Snapshot.from_jsonl(record, overrides=overrides)
+            if snapshot:
+                created_snapshots.append(snapshot)
 
             # Output JSONL record (only when piped)
             if not is_tty:

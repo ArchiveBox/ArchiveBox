@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": ["chrome"],
+  "properties": {
+    "PDF_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["SAVE_PDF", "USE_PDF"],
+      "description": "Enable PDF generation"
+    },
+    "PDF_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for PDF generation in seconds"
+    },
+    "PDF_RESOLUTION": {
+      "type": "string",
+      "default": "1440,2000",
+      "pattern": "^\\d+,\\d+$",
+      "x-fallback": "RESOLUTION",
+      "description": "PDF page resolution (width,height)"
+    }
+  }
+}

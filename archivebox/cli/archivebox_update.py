@@ -36,7 +36,7 @@ def update(filter_patterns: Iterable[str] = (),
     from archivebox.config.django import setup_django
     setup_django()
 
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
     from django.utils import timezone
 
     while True:
@@ -83,7 +83,7 @@ def import_orphans_from_archive(resume_from: str = None, batch_size: int = 100) 
     Skip symlinks (already migrated).
     Create DB records and trigger migration on save().
     """
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
     from archivebox.config import CONSTANTS
     from django.db import transaction
 
@@ -151,7 +151,7 @@ def process_all_db_snapshots(batch_size: int = 100) -> dict:
     Process all snapshots in DB.
     Reconcile index.json and queue for archiving.
     """
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
     from django.db import transaction
     from django.utils import timezone
 
@@ -189,7 +189,7 @@ def process_filtered_snapshots(
     batch_size: int
 ) -> dict:
     """Process snapshots matching filters (DB query only)."""
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
     from django.db import transaction
     from django.utils import timezone
     from datetime import datetime

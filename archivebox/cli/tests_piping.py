@@ -542,10 +542,10 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         Test: archivebox snapshot URL
         Should create a Snapshot and output JSONL when piped.
         """
-        from core.models import Snapshot
+        from archivebox.core.models import Snapshot
         from archivebox.misc.jsonl import (
             read_args_or_stdin, write_record, snapshot_to_jsonl,
-            TYPE_SNAPSHOT, get_or_create_snapshot
+            TYPE_SNAPSHOT
         )
         from archivebox.base_models.models import get_or_create_system_user_pk
 
@@ -559,7 +559,8 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         self.assertEqual(records[0]['url'], url)
 
         # Create snapshot
-        snapshot = get_or_create_snapshot(records[0], created_by_id=created_by_id)
+        overrides = {'created_by_id': created_by_id}
+        snapshot = Snapshot.from_jsonl(records[0], overrides=overrides)
 
         self.assertIsNotNone(snapshot.id)
         self.assertEqual(snapshot.url, url)
@@ -575,9 +576,9 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         Test: archivebox snapshot URL | archivebox extract
         Extract should accept JSONL output from snapshot command.
         """
-        from core.models import Snapshot, ArchiveResult
+        from archivebox.core.models import Snapshot, ArchiveResult
         from archivebox.misc.jsonl import (
-            snapshot_to_jsonl, read_args_or_stdin, get_or_create_snapshot,
+            snapshot_to_jsonl, read_args_or_stdin,
             TYPE_SNAPSHOT
         )
         from archivebox.base_models.models import get_or_create_system_user_pk
@@ -586,7 +587,8 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
 
         # Step 1: Create snapshot (simulating 'archivebox snapshot')
         url = 'https://test-extract-1.example.com'
-        snapshot = get_or_create_snapshot({'url': url}, created_by_id=created_by_id)
+        overrides = {'created_by_id': created_by_id}
+        snapshot = Snapshot.from_jsonl({'url': url}, overrides=overrides)
         snapshot_output = snapshot_to_jsonl(snapshot)
 
         # Step 2: Parse snapshot output as extract input
@@ -648,7 +650,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
 
         This is equivalent to: archivebox add URL
         """
-        from core.models import Snapshot
+        from archivebox.core.models import Snapshot
         from archivebox.misc.jsonl import (
             get_or_create_snapshot, snapshot_to_jsonl, read_args_or_stdin,
             TYPE_SNAPSHOT
@@ -682,7 +684,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
 
         This is equivalent to: archivebox add --depth=1 URL
         """
-        from core.models import Snapshot
+        from archivebox.core.models import Snapshot
         from archivebox.misc.jsonl import (
             get_or_create_snapshot, snapshot_to_jsonl, read_args_or_stdin,
             TYPE_SNAPSHOT
@@ -772,7 +774,7 @@ class TestDepthWorkflows(unittest.TestCase):
 
         Depth 0: Only archive the specified URL, no crawling.
         """
-        from core.models import Snapshot
+        from archivebox.core.models import Snapshot
         from archivebox.misc.jsonl import get_or_create_snapshot
         from archivebox.base_models.models import get_or_create_system_user_pk
 

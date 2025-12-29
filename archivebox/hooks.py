@@ -146,11 +146,16 @@ class HookResult(TypedDict, total=False):
     records: List[Dict[str, Any]]  # Parsed JSONL records with 'type' field
 
 
-def discover_hooks(event_name: str) -> List[Path]:
+def discover_hooks(
+    event_name: str,
+    filter_disabled: bool = True,
+    config: Optional[Dict[str, Any]] = None
+) -> List[Path]:
     """
     Find all hook scripts matching on_{event_name}__*.{sh,py,js} pattern.
 
     Searches both built-in and user plugin directories.
+    Filters out hooks from disabled plugins by default (respects USE_/SAVE_ flags).
     Returns scripts sorted alphabetically by filename for deterministic execution order.
 
     Hook naming convention uses numeric prefixes to control order:
@@ -158,9 +163,29 @@ def discover_hooks(event_name: str) -> List[Path]:
         on_Snapshot__15_singlefile.py   # runs second
         on_Snapshot__26_readability.py  # runs later (depends on singlefile)
 
-    Example:
+    Args:
+        event_name: Event name (e.g., 'Snapshot', 'Binary', 'Crawl')
+        filter_disabled: If True, skip hooks from disabled plugins (default: True)
+        config: Optional config dict from get_config() (merges file, env, machine, crawl, snapshot)
+                If None, will call get_config() with global scope
+
+    Returns:
+        Sorted list of hook script paths from enabled plugins only.
+
+    Examples:
+        # With proper config context (recommended):
+        from archivebox.config.configset import get_config
+        config = get_config(crawl=my_crawl, snapshot=my_snapshot)
+        discover_hooks('Snapshot', config=config)
+        # Returns: [Path('.../on_Snapshot__10_title.py'), ...] (wget excluded if SAVE_WGET=False)
+
+        # Without config (uses global defaults):
         discover_hooks('Snapshot')
-        # Returns: [Path('.../on_Snapshot__10_title.py'), Path('.../on_Snapshot__15_singlefile.py'), ...]
+        # Returns: [Path('.../on_Snapshot__10_title.py'), ...]
+
+        # Show all plugins regardless of enabled status:
+        discover_hooks('Snapshot', filter_disabled=False)
+        # Returns: [Path('.../on_Snapshot__10_title.py'), ..., Path('.../on_Snapshot__50_wget.py')]
     """
     hooks = []
 
@@ -177,45 +202,44 @@ def discover_hooks(event_name: str) -> List[Path]:
             pattern_direct = f'on_{event_name}__*.{ext}'
             hooks.extend(base_dir.glob(pattern_direct))
 
+    # Filter by enabled plugins
+    if filter_disabled:
+        # Get merged config if not provided (lazy import to avoid circular dependency)
+        if config is None:
+            from archivebox.config.configset import get_config
+            config = get_config(scope='global')
+
+        enabled_hooks = []
+
+        for hook in hooks:
+            # Get plugin name from parent directory
+            # e.g., archivebox/plugins/wget/on_Snapshot__50_wget.py -> 'wget'
+            plugin_name = hook.parent.name
+
+            # Check if this is a plugin directory (not the root plugins dir)
+            if plugin_name in ('plugins', '.'):
+                # Hook is in root plugins directory, not a plugin subdir
+                # Include it by default (no filtering for non-plugin hooks)
+                enabled_hooks.append(hook)
+                continue
+
+            # Check if plugin is enabled
+            plugin_config = get_plugin_special_config(plugin_name, config)
+            if plugin_config['enabled']:
+                enabled_hooks.append(hook)
+
+        hooks = enabled_hooks
+
     # Sort by filename (not full path) to ensure numeric prefix ordering works
     # e.g., on_Snapshot__10_title.py sorts before on_Snapshot__26_readability.py
     return sorted(set(hooks), key=lambda p: p.name)
 
 
-def discover_all_hooks() -> Dict[str, List[Path]]:
-    """
-    Discover all hooks organized by event name.
-
-    Returns a dict mapping event names to lists of hook script paths.
-    """
-    hooks_by_event: Dict[str, List[Path]] = {}
-
-    for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
-        if not base_dir.exists():
-            continue
-
-        for ext in ('sh', 'py', 'js'):
-            for hook_path in base_dir.glob(f'*/on_*__*.{ext}'):
-                # Extract event name from filename: on_EventName__hook_name.ext
-                filename = hook_path.stem  # on_EventName__hook_name
-                if filename.startswith('on_') and '__' in filename:
-                    event_name = filename[3:].split('__')[0]  # EventName
-                    if event_name not in hooks_by_event:
-                        hooks_by_event[event_name] = []
-                    hooks_by_event[event_name].append(hook_path)
-
-    # Sort hooks within each event
-    for event_name in hooks_by_event:
-        hooks_by_event[event_name] = sorted(set(hooks_by_event[event_name]), key=lambda p: p.name)
-
-    return hooks_by_event
-
-
 def run_hook(
     script: Path,
     output_dir: Path,
-    timeout: int = 300,
-    config_objects: Optional[List[Any]] = None,
+    config: Dict[str, Any],
+    timeout: Optional[int] = None,
     **kwargs: Any
 ) -> HookResult:
     """
@@ -224,31 +248,33 @@ def run_hook(
     This is the low-level hook executor. For running extractors with proper
     metadata handling, use call_extractor() instead.
 
-    Config is passed to hooks via environment variables with this priority:
-    1. Plugin schema defaults (config.json)
-    2. Config file (ArchiveBox.conf)
-    3. Environment variables
-    4. Machine.config (auto-included, lowest override priority)
-    5. config_objects (in order - later objects override earlier ones)
+    Config is passed to hooks via environment variables. Caller MUST use
+    get_config() to merge all sources (file, env, machine, crawl, snapshot).
 
     Args:
         script: Path to the hook script (.sh, .py, or .js)
         output_dir: Working directory for the script (where output files go)
+        config: Merged config dict from get_config(crawl=..., snapshot=...) - REQUIRED
         timeout: Maximum execution time in seconds
-        config_objects: Optional list of objects with .config JSON fields
-                       (e.g., [crawl, snapshot] - later items have higher priority)
+                 If None, auto-detects from PLUGINNAME_TIMEOUT config (fallback to TIMEOUT, default 300)
         **kwargs: Arguments passed to the script as --key=value
 
     Returns:
         HookResult with 'returncode', 'stdout', 'stderr', 'output_json', 'output_files', 'duration_ms'
+
+    Example:
+        from archivebox.config.configset import get_config
+        config = get_config(crawl=my_crawl, snapshot=my_snapshot)
+        result = run_hook(hook_path, output_dir, config=config, url=url, snapshot_id=id)
     """
     import time
     start_time = time.time()
 
-    # Auto-include Machine.config at the start (lowest priority among config_objects)
-    from machine.models import Machine
-    machine = Machine.current()
-    all_config_objects = [machine] + list(config_objects or [])
+    # Auto-detect timeout from plugin config if not explicitly provided
+    if timeout is None:
+        plugin_name = script.parent.name
+        plugin_config = get_plugin_special_config(plugin_name, config)
+        timeout = plugin_config['timeout']
 
     if not script.exists():
         return HookResult(
@@ -302,51 +328,16 @@ def run_hook(
     env['ARCHIVE_DIR'] = str(getattr(settings, 'ARCHIVE_DIR', Path.cwd() / 'archive'))
     env.setdefault('MACHINE_ID', getattr(settings, 'MACHINE_ID', '') or os.environ.get('MACHINE_ID', ''))
 
-    # If a Crawl is in config_objects, pass its OUTPUT_DIR for hooks that need to find crawl-level resources
-    for obj in all_config_objects:
-        if hasattr(obj, 'OUTPUT_DIR') and hasattr(obj, 'get_urls_list'):  # Duck-type check for Crawl
-            env['CRAWL_OUTPUT_DIR'] = str(obj.OUTPUT_DIR)
-            break
-
-    # Build overrides from any objects with .config fields (in order, later overrides earlier)
-    # all_config_objects includes Machine at the start, then any passed config_objects
-    overrides = {}
-    for obj in all_config_objects:
-        if obj and hasattr(obj, 'config') and obj.config:
-            # Strip 'config/' prefix from Machine.config keys (e.g., 'config/CHROME_BINARY' -> 'CHROME_BINARY')
-            for key, value in obj.config.items():
-                clean_key = key.removeprefix('config/')
-                overrides[clean_key] = value
-
-    # Get plugin config from JSON schemas with hierarchy resolution
-    # This merges: schema defaults -> config file -> env vars -> object config overrides
-    plugin_config = get_flat_plugin_config(overrides=overrides if overrides else None)
-    export_plugin_config_to_env(plugin_config, env)
-
-    # Also pass core config values that aren't in plugin schemas yet
-    # These are legacy values that may still be needed
-    from archivebox import config
-    env.setdefault('CHROME_BINARY', str(getattr(config, 'CHROME_BINARY', '')))
-    env.setdefault('WGET_BINARY', str(getattr(config, 'WGET_BINARY', '')))
-    env.setdefault('CURL_BINARY', str(getattr(config, 'CURL_BINARY', '')))
-    env.setdefault('GIT_BINARY', str(getattr(config, 'GIT_BINARY', '')))
-    env.setdefault('YOUTUBEDL_BINARY', str(getattr(config, 'YOUTUBEDL_BINARY', '')))
-    env.setdefault('SINGLEFILE_BINARY', str(getattr(config, 'SINGLEFILE_BINARY', '')))
-    env.setdefault('READABILITY_BINARY', str(getattr(config, 'READABILITY_BINARY', '')))
-    env.setdefault('MERCURY_BINARY', str(getattr(config, 'MERCURY_BINARY', '')))
-    env.setdefault('NODE_BINARY', str(getattr(config, 'NODE_BINARY', '')))
-    env.setdefault('TIMEOUT', str(getattr(config, 'TIMEOUT', 60)))
-    env.setdefault('CHECK_SSL_VALIDITY', str(getattr(config, 'CHECK_SSL_VALIDITY', True)))
-    env.setdefault('USER_AGENT', str(getattr(config, 'USER_AGENT', '')))
-    env.setdefault('RESOLUTION', str(getattr(config, 'RESOLUTION', '')))
-
-    # Pass SEARCH_BACKEND_ENGINE from new-style config
-    try:
-        from archivebox.config.configset import get_config
-        search_config = get_config()
-        env.setdefault('SEARCH_BACKEND_ENGINE', str(search_config.get('SEARCH_BACKEND_ENGINE', 'ripgrep')))
-    except Exception:
-        env.setdefault('SEARCH_BACKEND_ENGINE', 'ripgrep')
+    # Export all config values to environment (already merged by get_config())
+    for key, value in config.items():
+        if value is None:
+            continue
+        elif isinstance(value, bool):
+            env[key] = 'true' if value else 'false'
+        elif isinstance(value, (list, dict)):
+            env[key] = json.dumps(value)
+        else:
+            env[key] = str(value)
 
     # Create output directory if needed
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -525,31 +516,35 @@ def collect_urls_from_plugins(snapshot_dir: Path) -> List[Dict[str, Any]]:
 def run_hooks(
     event_name: str,
     output_dir: Path,
-    timeout: int = 300,
+    config: Dict[str, Any],
+    timeout: Optional[int] = None,
     stop_on_failure: bool = False,
-    config_objects: Optional[List[Any]] = None,
     **kwargs: Any
 ) -> List[HookResult]:
     """
     Run all hooks for a given event.
 
     Args:
-        event_name: The event name to trigger (e.g., 'Snapshot__wget')
+        event_name: The event name to trigger (e.g., 'Snapshot', 'Crawl', 'Binary')
         output_dir: Working directory for hook scripts
-        timeout: Maximum execution time per hook
+        config: Merged config dict from get_config(crawl=..., snapshot=...) - REQUIRED
+        timeout: Maximum execution time per hook (None = auto-detect from plugin config)
         stop_on_failure: If True, stop executing hooks after first failure
-        config_objects: Optional list of objects with .config JSON fields
-                       (e.g., [crawl, snapshot] - later items have higher priority)
         **kwargs: Arguments passed to each hook script
 
     Returns:
         List of results from each hook execution
+
+    Example:
+        from archivebox.config.configset import get_config
+        config = get_config(crawl=my_crawl, snapshot=my_snapshot)
+        results = run_hooks('Snapshot', output_dir, config=config, url=url, snapshot_id=id)
     """
-    hooks = discover_hooks(event_name)
+    hooks = discover_hooks(event_name, config=config)
     results = []
 
     for hook in hooks:
-        result = run_hook(hook, output_dir, timeout=timeout, config_objects=config_objects, **kwargs)
+        result = run_hook(hook, output_dir, config=config, timeout=timeout, **kwargs)
 
         # Background hooks return None - skip adding to results
         if result is None:
@@ -638,24 +633,44 @@ EXTRACTOR_INDEXING_PRECEDENCE = [
 ]
 
 
-def get_enabled_plugins(config: Optional[Dict] = None) -> List[str]:
+def get_enabled_plugins(config: Optional[Dict[str, Any]] = None) -> List[str]:
     """
     Get the list of enabled plugins based on config and available hooks.
 
-    Checks for ENABLED_PLUGINS (or legacy ENABLED_EXTRACTORS) in config,
-    falls back to discovering available hooks from the plugins directory.
+    Filters plugins by USE_/SAVE_ flags. Only returns plugins that are enabled.
 
-    Returns plugin names sorted alphabetically (numeric prefix controls order).
+    Args:
+        config: Merged config dict from get_config() - if None, uses global config
+
+    Returns:
+        Plugin names sorted alphabetically (numeric prefix controls order).
+
+    Example:
+        from archivebox.config.configset import get_config
+        config = get_config(crawl=my_crawl, snapshot=my_snapshot)
+        enabled = get_enabled_plugins(config)  # ['wget', 'media', 'chrome', ...]
     """
-    if config:
-        # Support both new and legacy config keys
-        if 'ENABLED_PLUGINS' in config:
-            return config['ENABLED_PLUGINS']
-        if 'ENABLED_EXTRACTORS' in config:
-            return config['ENABLED_EXTRACTORS']
+    # Get merged config if not provided
+    if config is None:
+        from archivebox.config.configset import get_config
+        config = get_config(scope='global')
 
-    # Discover from hooks - this is the source of truth
-    return get_plugins()
+    # Support explicit ENABLED_PLUGINS override (legacy)
+    if 'ENABLED_PLUGINS' in config:
+        return config['ENABLED_PLUGINS']
+    if 'ENABLED_EXTRACTORS' in config:
+        return config['ENABLED_EXTRACTORS']
+
+    # Filter all plugins by enabled status
+    all_plugins = get_plugins()
+    enabled = []
+
+    for plugin in all_plugins:
+        plugin_config = get_plugin_special_config(plugin, config)
+        if plugin_config['enabled']:
+            enabled.append(plugin)
+
+    return enabled
 
 
 def discover_plugins_that_provide_interface(
@@ -822,37 +837,6 @@ def discover_plugin_configs() -> Dict[str, Dict[str, Any]]:
     return configs
 
 
-def get_merged_config_schema() -> Dict[str, Any]:
-    """
-    Get a merged JSONSchema combining all plugin config schemas.
-
-    This creates a single schema that can validate all plugin config keys.
-    Useful for validating the complete configuration at startup.
-
-    Returns:
-        Combined JSONSchema with all plugin properties merged.
-    """
-    plugin_configs = discover_plugin_configs()
-
-    merged_properties = {}
-    for plugin_name, schema in plugin_configs.items():
-        properties = schema.get('properties', {})
-        for key, prop_schema in properties.items():
-            if key in merged_properties:
-                # Key already exists from another plugin - log warning but keep first
-                import sys
-                print(f"Warning: Config key '{key}' defined in multiple plugins, using first definition", file=sys.stderr)
-                continue
-            merged_properties[key] = prop_schema
-
-    return {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "type": "object",
-        "additionalProperties": True,  # Allow unknown keys (core config, etc.)
-        "properties": merged_properties,
-    }
-
-
 def get_config_defaults_from_plugins() -> Dict[str, Any]:
     """
     Get default values for all plugin config options.
@@ -873,173 +857,63 @@ def get_config_defaults_from_plugins() -> Dict[str, Any]:
     return defaults
 
 
-def resolve_config_value(
-    key: str,
-    prop_schema: Dict[str, Any],
-    env_vars: Dict[str, str],
-    config_file: Dict[str, str],
-    overrides: Optional[Dict[str, Any]] = None,
-) -> Any:
+def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Resolve a single config value following the hierarchy and schema rules.
+    Extract special config keys for a plugin following naming conventions.
 
-    Resolution order (later overrides earlier):
-        1. Schema default
-        2. x-fallback (global config key)
-        3. Config file (ArchiveBox.conf)
-        4. Environment variables (including x-aliases)
-        5. Explicit overrides (User/Crawl/Snapshot config)
+    ArchiveBox recognizes 3 special config key patterns per plugin:
+        - {PLUGIN}_ENABLED: Enable/disable toggle (default True)
+        - {PLUGIN}_TIMEOUT: Plugin-specific timeout (fallback to TIMEOUT, default 300)
+        - {PLUGIN}_BINARY: Primary binary path (default to plugin_name)
+
+    These allow ArchiveBox to:
+        - Skip disabled plugins (optimization)
+        - Enforce plugin-specific timeouts automatically
+        - Discover plugin binaries for validation
 
     Args:
-        key: Config key name (e.g., 'WGET_TIMEOUT')
-        prop_schema: JSONSchema property definition for this key
-        env_vars: Environment variables dict
-        config_file: Config file values dict
-        overrides: Optional override values (from User/Crawl/Snapshot)
+        plugin_name: Plugin name (e.g., 'wget', 'media', 'chrome')
+        config: Merged config dict from get_config() (properly merges file, env, machine, crawl, snapshot)
 
     Returns:
-        Resolved value with appropriate type coercion.
+        Dict with standardized keys:
+            {
+                'enabled': True,         # bool
+                'timeout': 60,           # int, seconds
+                'binary': 'wget',        # str, path or name
+            }
+
+    Examples:
+        >>> from archivebox.config.configset import get_config
+        >>> config = get_config(crawl=my_crawl, snapshot=my_snapshot)
+        >>> get_plugin_special_config('wget', config)
+        {'enabled': True, 'timeout': 120, 'binary': '/usr/bin/wget'}
     """
-    value = None
-    prop_type = prop_schema.get('type', 'string')
+    plugin_upper = plugin_name.upper()
 
-    # 1. Start with schema default
-    if 'default' in prop_schema:
-        value = prop_schema['default']
+    # 1. Enabled: PLUGINNAME_ENABLED (default True)
+    # Old names (USE_*, SAVE_*) are aliased in config.json via x-aliases
+    enabled_key = f'{plugin_upper}_ENABLED'
+    enabled = config.get(enabled_key)
+    if enabled is None:
+        enabled = True
+    elif isinstance(enabled, str):
+        # Handle string values from config file ("true"/"false")
+        enabled = enabled.lower() not in ('false', '0', 'no', '')
 
-    # 2. Check x-fallback (global config key)
-    fallback_key = prop_schema.get('x-fallback')
-    if fallback_key:
-        if fallback_key in env_vars:
-            value = env_vars[fallback_key]
-        elif fallback_key in config_file:
-            value = config_file[fallback_key]
+    # 2. Timeout: PLUGINNAME_TIMEOUT (fallback to TIMEOUT, default 300)
+    timeout_key = f'{plugin_upper}_TIMEOUT'
+    timeout = config.get(timeout_key) or config.get('TIMEOUT', 300)
 
-    # 3. Check config file for main key
-    if key in config_file:
-        value = config_file[key]
+    # 3. Binary: PLUGINNAME_BINARY (default to plugin_name)
+    binary_key = f'{plugin_upper}_BINARY'
+    binary = config.get(binary_key, plugin_name)
 
-    # 4. Check environment variables (main key and aliases)
-    keys_to_check = [key] + prop_schema.get('x-aliases', [])
-    for check_key in keys_to_check:
-        if check_key in env_vars:
-            value = env_vars[check_key]
-            break
-
-    # 5. Apply explicit overrides
-    if overrides and key in overrides:
-        value = overrides[key]
-
-    # Type coercion for env var strings
-    if value is not None and isinstance(value, str):
-        value = coerce_config_value(value, prop_type, prop_schema)
-
-    return value
-
-
-def coerce_config_value(value: str, prop_type: str, prop_schema: Dict[str, Any]) -> Any:
-    """
-    Coerce a string value to the appropriate type based on schema.
-
-    Args:
-        value: String value to coerce
-        prop_type: JSONSchema type ('boolean', 'integer', 'number', 'array', 'string')
-        prop_schema: Full property schema (for array item types, etc.)
-
-    Returns:
-        Coerced value of appropriate type.
-    """
-    if prop_type == 'boolean':
-        return value.lower() in ('true', '1', 'yes', 'on')
-    elif prop_type == 'integer':
-        try:
-            return int(value)
-        except ValueError:
-            return prop_schema.get('default', 0)
-    elif prop_type == 'number':
-        try:
-            return float(value)
-        except ValueError:
-            return prop_schema.get('default', 0.0)
-    elif prop_type == 'array':
-        # Try JSON parse first, fall back to comma-separated
-        try:
-            return json.loads(value)
-        except json.JSONDecodeError:
-            return [v.strip() for v in value.split(',') if v.strip()]
-    else:
-        return value
-
-
-def get_flat_plugin_config(
-    env_vars: Optional[Dict[str, str]] = None,
-    config_file: Optional[Dict[str, str]] = None,
-    overrides: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
-    """
-    Get all plugin config values resolved according to hierarchy.
-
-    This is the main function for getting plugin configuration.
-    It discovers all plugin schemas and resolves each config key.
-
-    Args:
-        env_vars: Environment variables (defaults to os.environ)
-        config_file: Config file values (from ArchiveBox.conf)
-        overrides: Override values (from User/Crawl/Snapshot config fields)
-
-    Returns:
-        Flat dict of all resolved config values.
-        e.g., {'SAVE_WGET': True, 'WGET_TIMEOUT': 60, ...}
-    """
-    if env_vars is None:
-        env_vars = dict(os.environ)
-    if config_file is None:
-        config_file = {}
-
-    plugin_configs = discover_plugin_configs()
-    flat_config = {}
-
-    for plugin_name, schema in plugin_configs.items():
-        properties = schema.get('properties', {})
-        for key, prop_schema in properties.items():
-            flat_config[key] = resolve_config_value(
-                key, prop_schema, env_vars, config_file, overrides
-            )
-
-    return flat_config
-
-
-def export_plugin_config_to_env(
-    config: Dict[str, Any],
-    env: Optional[Dict[str, str]] = None,
-) -> Dict[str, str]:
-    """
-    Export plugin config values to environment variable format.
-
-    Converts all values to strings suitable for subprocess environment.
-    Arrays are JSON-encoded.
-
-    Args:
-        config: Flat config dict from get_flat_plugin_config()
-        env: Optional existing env dict to update (creates new if None)
-
-    Returns:
-        Environment dict with config values as strings.
-    """
-    if env is None:
-        env = {}
-
-    for key, value in config.items():
-        if value is None:
-            continue
-        elif isinstance(value, bool):
-            env[key] = 'true' if value else 'false'
-        elif isinstance(value, (list, dict)):
-            env[key] = json.dumps(value)
-        else:
-            env[key] = str(value)
-
-    return env
+    return {
+        'enabled': bool(enabled),
+        'timeout': int(timeout),
+        'binary': str(binary),
+    }
 
 
 # =============================================================================
@@ -1233,7 +1107,7 @@ def find_binary_for_cmd(cmd: List[str], machine_id: str) -> Optional[str]:
     if not cmd:
         return None
 
-    from machine.models import Binary
+    from archivebox.machine.models import Binary
 
     bin_path_or_name = cmd[0] if isinstance(cmd, list) else cmd
 
@@ -1266,7 +1140,7 @@ def create_model_record(record: Dict[str, Any]) -> Any:
     Returns:
         Created/updated model instance, or None if type unknown
     """
-    from machine.models import Binary, Machine
+    from archivebox.machine.models import Binary, Machine
 
     record_type = record.pop('type', None)
     if not record_type:
@@ -1349,25 +1223,25 @@ def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any
         try:
             # Dispatch to appropriate model's from_jsonl() method
             if record_type == 'Snapshot':
-                from core.models import Snapshot
+                from archivebox.core.models import Snapshot
                 obj = Snapshot.from_jsonl(record.copy(), overrides)
                 if obj:
                     stats['Snapshot'] = stats.get('Snapshot', 0) + 1
 
             elif record_type == 'Tag':
-                from core.models import Tag
+                from archivebox.core.models import Tag
                 obj = Tag.from_jsonl(record.copy(), overrides)
                 if obj:
                     stats['Tag'] = stats.get('Tag', 0) + 1
 
             elif record_type == 'Binary':
-                from machine.models import Binary
+                from archivebox.machine.models import Binary
                 obj = Binary.from_jsonl(record.copy(), overrides)
                 if obj:
                     stats['Binary'] = stats.get('Binary', 0) + 1
 
             elif record_type == 'Machine':
-                from machine.models import Machine
+                from archivebox.machine.models import Machine
                 obj = Machine.from_jsonl(record.copy(), overrides)
                 if obj:
                     stats['Machine'] = stats.get('Machine', 0) + 1

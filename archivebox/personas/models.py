@@ -29,6 +29,7 @@
 #     # domain_denylist = models.CharField(max_length=1024, blank=True, null=False, default='')
     
 #     class Meta:
+#         app_label = 'personas'
 #         verbose_name = 'Session Type'
 #         verbose_name_plural = 'Session Types'
 #         unique_together = (('created_by', 'name'),)

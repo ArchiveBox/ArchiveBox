@@ -3,16 +3,16 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "SAVE_MEDIA": {
+    "MEDIA_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["USE_YTDLP", "FETCH_MEDIA"],
+      "x-aliases": ["SAVE_MEDIA", "USE_MEDIA", "USE_YTDLP", "FETCH_MEDIA"],
       "description": "Enable media downloading with yt-dlp"
     },
-    "YOUTUBEDL_BINARY": {
+    "MEDIA_BINARY": {
       "type": "string",
       "default": "yt-dlp",
-      "x-aliases": ["YTDLP_BINARY", "YOUTUBE_DL_BINARY"],
+      "x-aliases": ["YOUTUBEDL_BINARY", "YTDLP_BINARY", "YOUTUBE_DL_BINARY"],
       "description": "Path to yt-dlp binary"
     },
     "MEDIA_TIMEOUT": {
@@ -28,13 +28,14 @@
       "pattern": "^\\d+[kmgKMG]?$",
       "description": "Maximum file size for media downloads"
     },
-    "YTDLP_CHECK_SSL_VALIDITY": {
+    "MEDIA_CHECK_SSL_VALIDITY": {
       "type": "boolean",
       "default": true,
       "x-fallback": "CHECK_SSL_VALIDITY",
+      "x-aliases": ["YTDLP_CHECK_SSL_VALIDITY"],
       "description": "Whether to verify SSL certificates"
     },
-    "YTDLP_ARGS": {
+    "MEDIA_ARGS": {
       "type": "array",
       "items": {"type": "string"},
       "default": [
@@ -44,11 +45,13 @@
         "--embed-subs",
         "--write-auto-sub"
       ],
+      "x-aliases": ["YTDLP_ARGS"],
       "description": "Default yt-dlp arguments"
     },
-    "YTDLP_EXTRA_ARGS": {
+    "MEDIA_EXTRA_ARGS": {
       "type": "string",
       "default": "",
+      "x-aliases": ["YTDLP_EXTRA_ARGS"],
       "description": "Extra arguments for yt-dlp (space-separated)"
     }
   }

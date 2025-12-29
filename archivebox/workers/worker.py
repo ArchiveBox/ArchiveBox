@@ -322,7 +322,7 @@ class CrawlWorker(Worker):
     MAX_TICK_TIME: ClassVar[int] = 60
 
     def get_model(self):
-        from crawls.models import Crawl
+        from archivebox.crawls.models import Crawl
         return Crawl
 
 
@@ -333,7 +333,7 @@ class SnapshotWorker(Worker):
     MAX_TICK_TIME: ClassVar[int] = 60
 
     def get_model(self):
-        from core.models import Snapshot
+        from archivebox.core.models import Snapshot
         return Snapshot
 
 
@@ -348,7 +348,7 @@ class ArchiveResultWorker(Worker):
         self.plugin = plugin
 
     def get_model(self):
-        from core.models import ArchiveResult
+        from archivebox.core.models import ArchiveResult
         return ArchiveResult
 
     def get_queue(self) -> QuerySet:
@@ -358,7 +358,7 @@ class ArchiveResultWorker(Worker):
         Uses step-based filtering: only claims ARs where hook step <= snapshot.current_step.
         This ensures hooks execute in order (step 0 → 1 → 2 ... → 9).
         """
-        from core.models import ArchiveResult
+        from archivebox.core.models import ArchiveResult
         from archivebox.hooks import extract_step
 
         qs = super().get_queue()

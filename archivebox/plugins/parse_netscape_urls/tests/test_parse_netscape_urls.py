@@ -39,10 +39,8 @@ class TestParseNetscapeUrls:
         assert result.returncode == 0
         assert 'Found 3 URLs' in result.stdout
 
-        output_file = tmp_path / 'urls.jsonl'
-        assert output_file.exists()
-
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         assert len(lines) == 3
 
         entries = [json.loads(line) for line in lines]
@@ -71,8 +69,9 @@ class TestParseNetscapeUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         # Parser converts timestamp to bookmarked_at
         assert 'bookmarked_at' in entry
 
@@ -91,8 +90,9 @@ class TestParseNetscapeUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert 'q=test+query' in entry['url']
         assert 'page=1' in entry['url']
 
@@ -111,13 +111,14 @@ class TestParseNetscapeUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert entry['url'] == 'https://example.com/page?a=1&b=2'
         assert entry['title'] == 'Test & Title'
 
-    def test_exits_1_when_no_bookmarks_found(self, tmp_path):
-        """Test that script exits with code 1 when no bookmarks found."""
+    def test_skips_when_no_bookmarks_found(self, tmp_path):
+        """Test that script returns skipped status when no bookmarks found."""
         input_file = tmp_path / 'empty.html'
         input_file.write_text('''<!DOCTYPE NETSCAPE-Bookmark-file-1>
 <TITLE>Bookmarks</TITLE>
@@ -133,8 +134,9 @@ class TestParseNetscapeUrls:
             text=True,
         )
 
-        assert result.returncode == 1
+        assert result.returncode == 0
         assert 'No bookmarks found' in result.stderr
+        assert '"status": "skipped"' in result.stdout
 
     def test_exits_1_when_file_not_found(self, tmp_path):
         """Test that script exits with code 1 when file doesn't exist."""
@@ -173,8 +175,8 @@ class TestParseNetscapeUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         urls = {json.loads(line)['url'] for line in lines}
 
         assert 'https://example.com/nested1' in urls
@@ -196,8 +198,9 @@ class TestParseNetscapeUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert entry['url'] == 'https://example.com'
 
 

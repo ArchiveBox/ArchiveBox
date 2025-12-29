@@ -3,9 +3,10 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "SAVE_MERCURY": {
+    "MERCURY_ENABLED": {
       "type": "boolean",
       "default": true,
+      "x-aliases": ["SAVE_MERCURY", "USE_MERCURY"],
       "description": "Enable Mercury text extraction"
     },
     "MERCURY_BINARY": {

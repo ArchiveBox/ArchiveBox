@@ -70,61 +70,57 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
     # Parse the feed
     feed = feedparser.parse(content)
 
-    if not feed.entries:
-        click.echo('No entries found in feed', err=True)
-        sys.exit(1)
-
     urls_found = []
     all_tags = set()
 
-    for item in feed.entries:
-        item_url = getattr(item, 'link', None)
-        if not item_url:
-            continue
+    if not feed.entries:
+        # No entries - will emit skipped status at end
+        pass
+    else:
+        for item in feed.entries:
+            item_url = getattr(item, 'link', None)
+            if not item_url:
+                continue
 
-        title = getattr(item, 'title', None)
+            title = getattr(item, 'title', None)
 
-        # Get bookmarked_at (published/updated date as ISO 8601)
-        bookmarked_at = None
-        if hasattr(item, 'published_parsed') and item.published_parsed:
-            bookmarked_at = datetime.fromtimestamp(mktime(item.published_parsed), tz=timezone.utc).isoformat()
-        elif hasattr(item, 'updated_parsed') and item.updated_parsed:
-            bookmarked_at = datetime.fromtimestamp(mktime(item.updated_parsed), tz=timezone.utc).isoformat()
+            # Get bookmarked_at (published/updated date as ISO 8601)
+            bookmarked_at = None
+            if hasattr(item, 'published_parsed') and item.published_parsed:
+                bookmarked_at = datetime.fromtimestamp(mktime(item.published_parsed), tz=timezone.utc).isoformat()
+            elif hasattr(item, 'updated_parsed') and item.updated_parsed:
+                bookmarked_at = datetime.fromtimestamp(mktime(item.updated_parsed), tz=timezone.utc).isoformat()
 
-        # Get tags
-        tags = ''
-        if hasattr(item, 'tags') and item.tags:
-            try:
-                tags = ','.join(tag.term for tag in item.tags if hasattr(tag, 'term'))
-                # Collect unique tags
-                for tag in tags.split(','):
-                    tag = tag.strip()
-                    if tag:
-                        all_tags.add(tag)
-            except (AttributeError, TypeError):
-                pass
+            # Get tags
+            tags = ''
+            if hasattr(item, 'tags') and item.tags:
+                try:
+                    tags = ','.join(tag.term for tag in item.tags if hasattr(tag, 'term'))
+                    # Collect unique tags
+                    for tag in tags.split(','):
+                        tag = tag.strip()
+                        if tag:
+                            all_tags.add(tag)
+                except (AttributeError, TypeError):
+                    pass
 
-        entry = {
-            'type': 'Snapshot',
-            'url': unescape(item_url),
-            'plugin': PLUGIN_NAME,
-            'depth': depth + 1,
-        }
-        if snapshot_id:
-            entry['parent_snapshot_id'] = snapshot_id
-        if crawl_id:
-            entry['crawl_id'] = crawl_id
-        if title:
-            entry['title'] = unescape(title)
-        if bookmarked_at:
-            entry['bookmarked_at'] = bookmarked_at
-        if tags:
-            entry['tags'] = tags
-        urls_found.append(entry)
-
-    if not urls_found:
-        click.echo('No valid URLs found in feed entries', err=True)
-        sys.exit(1)
+            entry = {
+                'type': 'Snapshot',
+                'url': unescape(item_url),
+                'plugin': PLUGIN_NAME,
+                'depth': depth + 1,
+            }
+            if snapshot_id:
+                entry['parent_snapshot_id'] = snapshot_id
+            if crawl_id:
+                entry['crawl_id'] = crawl_id
+            if title:
+                entry['title'] = unescape(title)
+            if bookmarked_at:
+                entry['bookmarked_at'] = bookmarked_at
+            if tags:
+                entry['tags'] = tags
+            urls_found.append(entry)
 
     # Emit Tag records first (to stdout as JSONL)
     for tag_name in sorted(all_tags):
@@ -137,7 +133,17 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
     for entry in urls_found:
         print(json.dumps(entry))
 
-    click.echo(f'Found {len(urls_found)} URLs, {len(all_tags)} tags', err=True)
+    # Emit ArchiveResult record to mark completion
+    status = 'succeeded' if urls_found else 'skipped'
+    output_str = f'Found {len(urls_found)} URLs, {len(all_tags)} tags' if urls_found else 'No URLs found'
+    ar_record = {
+        'type': 'ArchiveResult',
+        'status': status,
+        'output_str': output_str,
+    }
+    print(json.dumps(ar_record))
+
+    click.echo(output_str, err=True)
     sys.exit(0)
 
 

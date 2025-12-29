@@ -2,6 +2,7 @@
 Integration tests for title plugin
 
 Tests verify:
+    pass
 1. Plugin script exists
 2. Node.js is available
 3. Title extraction works for real example.com
@@ -35,7 +36,7 @@ def test_extracts_title_from_example_com():
 
     # Check node is available
     if not shutil.which('node'):
-        pytest.skip("node not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -56,6 +57,7 @@ def test_extracts_title_from_example_com():
         for line in result.stdout.strip().split('\n'):
             line = line.strip()
             if line.startswith('{'):
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'ArchiveResult':
@@ -84,7 +86,7 @@ def test_falls_back_to_http_when_chrome_unavailable():
     """Test that title plugin falls back to HTTP when chrome unavailable."""
 
     if not shutil.which('node'):
-        pytest.skip("node not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -107,6 +109,7 @@ def test_falls_back_to_http_when_chrome_unavailable():
         for line in result.stdout.strip().split('\n'):
             line = line.strip()
             if line.startswith('{'):
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'ArchiveResult':
@@ -130,7 +133,7 @@ def test_config_timeout_honored():
     """Test that TIMEOUT config is respected."""
 
     if not shutil.which('node'):
-        pytest.skip("node not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -157,7 +160,7 @@ def test_config_user_agent():
     """Test that USER_AGENT config is used."""
 
     if not shutil.which('node'):
-        pytest.skip("node not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -183,6 +186,7 @@ def test_config_user_agent():
             for line in result.stdout.strip().split('\n'):
                 line = line.strip()
                 if line.startswith('{'):
+                    pass
                     try:
                         record = json.loads(line)
                         if record.get('type') == 'ArchiveResult':
@@ -199,7 +203,7 @@ def test_handles_https_urls():
     """Test that HTTPS URLs work correctly."""
 
     if not shutil.which('node'):
-        pytest.skip("node not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -229,7 +233,7 @@ def test_handles_404_gracefully():
     """
 
     if not shutil.which('node'):
-        pytest.skip("node not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -251,7 +255,7 @@ def test_handles_redirects():
     """Test that title plugin handles redirects correctly."""
 
     if not shutil.which('node'):
-        pytest.skip("node not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)

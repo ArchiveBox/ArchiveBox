@@ -42,7 +42,7 @@ def install(dry_run: bool=False) -> None:
     setup_django()
 
     from django.utils import timezone
-    from crawls.models import Crawl
+    from archivebox.crawls.models import Crawl
     from archivebox.base_models.models import get_or_create_system_user_pk
 
     # Create a crawl for dependency detection
@@ -70,7 +70,7 @@ def install(dry_run: bool=False) -> None:
     print(f'[+] Crawl status: {crawl.status}, retry_at: {crawl.retry_at}')
 
     # Verify the crawl is in the queue
-    from crawls.models import Crawl as CrawlModel
+    from archivebox.crawls.models import Crawl as CrawlModel
     queued_crawls = CrawlModel.objects.filter(
         retry_at__lte=timezone.now()
     ).exclude(

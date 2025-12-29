@@ -3,10 +3,10 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "SAVE_ARCHIVE_DOT_ORG": {
+    "ARCHIVE_ORG_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SUBMIT_ARCHIVE_DOT_ORG"],
+      "x-aliases": ["SAVE_ARCHIVE_DOT_ORG", "USE_ARCHIVE_ORG", "SUBMIT_ARCHIVE_DOT_ORG"],
       "description": "Submit URLs to archive.org Wayback Machine"
     },
     "ARCHIVE_ORG_TIMEOUT": {

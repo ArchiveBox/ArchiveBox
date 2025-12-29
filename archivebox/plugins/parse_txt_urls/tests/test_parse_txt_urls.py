@@ -32,17 +32,16 @@ https://www.iana.org/domains/reserved
         )
 
         assert result.returncode == 0, f"Failed: {result.stderr}"
-        assert 'Found 3 URLs' in result.stdout
+        assert 'Found 3 URLs' in result.stderr
 
-        output_file = tmp_path / 'urls.jsonl'
-        assert output_file.exists()
-
-        lines = output_file.read_text().strip().split('\n')
+        # Parse Snapshot records from stdout
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '"type": "Snapshot"' in line]
         assert len(lines) == 3
 
         urls = set()
         for line in lines:
             entry = json.loads(line)
+            assert entry['type'] == 'Snapshot'
             assert 'url' in entry
             urls.add(entry['url'])
 
@@ -50,6 +49,10 @@ https://www.iana.org/domains/reserved
         assert 'https://example.com' in urls
         assert 'https://example.com/page' in urls
         assert 'https://www.iana.org/domains/reserved' in urls
+
+        # Verify ArchiveResult record
+        assert '"type": "ArchiveResult"' in result.stdout
+        assert '"status": "succeeded"' in result.stdout
 
     def test_extracts_urls_from_mixed_content(self, tmp_path):
         """Test extracting URLs embedded in prose text."""
@@ -68,8 +71,7 @@ Also see https://github.com/user/repo for the code.
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        lines = [line for line in result.stdout.strip().split('\n') if '"type": "Snapshot"' in line]
         urls = {json.loads(line)['url'] for line in lines}
 
         assert 'https://blog.example.com/post' in urls
@@ -92,15 +94,14 @@ Also see https://github.com/user/repo for the code.
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        lines = [line for line in result.stdout.strip().split('\n') if '"type": "Snapshot"' in line]
         urls = {json.loads(line)['url'] for line in lines}
 
         assert 'https://example.com/page' in urls
         assert any('wikipedia.org' in u for u in urls)
 
-    def test_exits_1_when_no_urls_found(self, tmp_path):
-        """Test that script exits with code 1 when no URLs found."""
+    def test_skips_when_no_urls_found(self, tmp_path):
+        """Test that script returns skipped status when no URLs found."""
         input_file = tmp_path / 'empty.txt'
         input_file.write_text('no urls here, just plain text')
 
@@ -111,8 +112,9 @@ Also see https://github.com/user/repo for the code.
             text=True,
         )
 
-        assert result.returncode == 1
+        assert result.returncode == 0
         assert 'No URLs found' in result.stderr
+        assert '"status": "skipped"' in result.stdout
 
     def test_exits_1_when_file_not_found(self, tmp_path):
         """Test that script exits with code 1 when file doesn't exist."""
@@ -144,12 +146,11 @@ https://other.com
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        lines = [line for line in result.stdout.strip().split('\n') if '"type": "Snapshot"' in line]
         assert len(lines) == 2
 
-    def test_appends_to_existing_file(self, tmp_path):
-        """Test that output creates urls.jsonl with extracted URLs."""
+    def test_outputs_to_stdout(self, tmp_path):
+        """Test that output goes to stdout in JSONL format."""
         input_file = tmp_path / 'urls.txt'
         input_file.write_text('https://new.com\nhttps://other.com')
 
@@ -161,8 +162,7 @@ https://other.com
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        lines = [line for line in result.stdout.strip().split('\n') if '"type": "Snapshot"' in line]
         assert len(lines) == 2
 
         urls = {json.loads(line)['url'] for line in lines}
@@ -182,11 +182,11 @@ https://other.com
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        lines = [line for line in result.stdout.strip().split('\n') if '"type": "Snapshot"' in line]
+        entry = json.loads(lines[0])
         assert entry['url'] == 'https://example.com'
-        assert 'type' in entry
-        assert 'plugin' in entry
+        assert entry['type'] == 'Snapshot'
+        assert entry['plugin'] == 'parse_txt_urls'
 
 
 if __name__ == '__main__':

@@ -3,19 +3,22 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "SAVE_WGET": {
+    "WGET_ENABLED": {
       "type": "boolean",
       "default": true,
+      "x-aliases": ["SAVE_WGET", "USE_WGET"],
       "description": "Enable wget archiving"
     },
-    "SAVE_WARC": {
+    "WGET_SAVE_WARC": {
       "type": "boolean",
       "default": true,
+      "x-aliases": ["SAVE_WARC"],
       "description": "Save WARC archive file"
     },
-    "SAVE_WGET_REQUISITES": {
+    "WGET_SAVE_REQUISITES": {
       "type": "boolean",
       "default": true,
+      "x-aliases": ["SAVE_WGET_REQUISITES"],
       "description": "Download page requisites (CSS, JS, images)"
     },
     "WGET_BINARY": {

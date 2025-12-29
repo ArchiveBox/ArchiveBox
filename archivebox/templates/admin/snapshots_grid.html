@@ -150,8 +150,10 @@
             <a href="{% url 'admin:core_snapshot_change' obj.pk %}">
               <span class="timestamp">{{obj.bookmarked_at}}</span>
             </a>
+            <div style="padding: 4px 0;">
+              {{ obj.icons|safe }}
+            </div>
             <label>
-              <span class="num_outputs">📄 &nbsp; {{obj.num_outputs}}</span> &nbsp; &nbsp;
               <span>🗄&nbsp; {{ obj.archive_size | file_size }}</span>
               <input type="checkbox" name="_selected_action" value="{{obj.pk}}"/>
             </label>

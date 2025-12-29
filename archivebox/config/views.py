@@ -17,7 +17,7 @@ from admin_data_views.utils import render_with_table_view, render_with_item_view
 from archivebox.config import CONSTANTS
 from archivebox.misc.util import parse_date
 
-from machine.models import Binary
+from archivebox.machine.models import Binary
 
 
 # Common binaries to check for

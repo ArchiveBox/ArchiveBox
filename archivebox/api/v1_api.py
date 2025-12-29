@@ -15,7 +15,7 @@ from ninja import NinjaAPI, Swagger
 from archivebox.config import VERSION
 from archivebox.config.version import get_COMMIT_HASH
 
-from api.auth import API_AUTH_METHODS
+from archivebox.api.auth import API_AUTH_METHODS
 
 
 COMMIT_HASH = get_COMMIT_HASH() or 'unknown'

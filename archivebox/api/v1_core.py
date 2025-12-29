@@ -14,8 +14,8 @@ from ninja import Router, Schema, FilterSchema, Field, Query
 from ninja.pagination import paginate, PaginationBase
 from ninja.errors import HttpError
 
-from core.models import Snapshot, ArchiveResult, Tag
-from api.v1_crawls import CrawlSchema
+from archivebox.core.models import Snapshot, ArchiveResult, Tag
+from archivebox.api.v1_crawls import CrawlSchema
 
 
 router = Router(tags=['Core Models'])
@@ -80,12 +80,11 @@ class MinimalArchiveResultSchema(Schema):
 
     @staticmethod
     def resolve_created_by_id(obj):
-        return str(obj.created_by_id)
+        return str(obj.created_by.pk)
 
     @staticmethod
     def resolve_created_by_username(obj) -> str:
-        User = get_user_model()
-        return User.objects.filter(pk=obj.created_by_id).values_list('username', flat=True)[0]
+        return obj.created_by.username
 
 
 class ArchiveResultSchema(MinimalArchiveResultSchema):
@@ -166,12 +165,11 @@ class SnapshotSchema(Schema):
 
     @staticmethod
     def resolve_created_by_id(obj):
-        return str(obj.created_by_id)
+        return str(obj.created_by.pk)
 
     @staticmethod
     def resolve_created_by_username(obj):
-        User = get_user_model()
-        return User.objects.get(id=obj.created_by_id).username
+        return obj.created_by.username
 
     @staticmethod
     def resolve_tags(obj):
@@ -190,8 +188,8 @@ class SnapshotSchema(Schema):
 
 class SnapshotFilterSchema(FilterSchema):
     id: Optional[str] = Field(None, q=['id__icontains', 'timestamp__startswith'])
-    created_by_id: str = Field(None, q='created_by_id')
-    created_by_username: str = Field(None, q='created_by__username__icontains')
+    created_by_id: str = Field(None, q='crawl__created_by_id')
+    created_by_username: str = Field(None, q='crawl__created_by__username__icontains')
     created_at__gte: datetime = Field(None, q='created_at__gte')
     created_at__lt: datetime = Field(None, q='created_at__lt')
     created_at: datetime = Field(None, q='created_at')

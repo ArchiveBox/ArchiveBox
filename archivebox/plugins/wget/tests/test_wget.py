@@ -2,6 +2,7 @@
 Integration tests for wget plugin
 
 Tests verify:
+    pass
 1. Validate hook checks for wget binary
 2. Verify deps with abx-pkg
 3. Config options work (SAVE_WGET, SAVE_WARC, etc.)
@@ -51,7 +52,9 @@ def test_wget_install_hook():
         # Binary found - verify Binary JSONL output
         found_binary = False
         for line in result.stdout.strip().split('\n'):
+            pass
             if line.strip():
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'Binary':
@@ -66,7 +69,9 @@ def test_wget_install_hook():
         # Binary not found - verify Dependency JSONL output
         found_dependency = False
         for line in result.stdout.strip().split('\n'):
+            pass
             if line.strip():
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'Dependency':
@@ -89,7 +94,7 @@ def test_verify_deps_with_abx_pkg():
     if wget_loaded and wget_loaded.abspath:
         assert True, "wget is available"
     else:
-        pytest.skip("wget not available - Dependency record should have been emitted")
+        pass
 
 
 def test_reports_missing_dependency_when_not_installed():
@@ -127,7 +132,7 @@ def test_can_install_wget_via_provider():
         provider_hook = APT_HOOK
         provider_name = 'apt'
     else:
-        pytest.skip("Neither brew nor apt available on this system")
+        pass
 
     assert provider_hook.exists(), f"Provider hook not found: {provider_hook}"
 
@@ -156,7 +161,9 @@ def test_can_install_wget_via_provider():
 
     # Parse JSONL if present
     if result.stdout.strip():
+        pass
         for line in result.stdout.strip().split('\n'):
+            pass
             try:
                 record = json.loads(line)
                 if record.get('type') == 'Binary':
@@ -182,7 +189,7 @@ def test_archives_example_com():
     elif shutil.which('apt-get'):
         provider_hook = APT_HOOK
     else:
-        pytest.skip("Neither brew nor apt available")
+        pass
 
     # Run installation (idempotent - will succeed if already installed)
     install_result = subprocess.run(
@@ -199,7 +206,7 @@ def test_archives_example_com():
     )
 
     if install_result.returncode != 0:
-        pytest.skip(f"Could not install wget: {install_result.stderr}")
+        pass
 
     # Now test archiving
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -221,6 +228,7 @@ def test_archives_example_com():
         for line in result.stdout.strip().split('\n'):
             line = line.strip()
             if line.startswith('{'):
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'ArchiveResult':
@@ -293,7 +301,7 @@ def test_config_save_warc():
 
     # Ensure wget is available
     if not shutil.which('wget'):
-        pytest.skip("wget not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -353,6 +361,7 @@ def test_staticfile_present_skips():
         for line in result.stdout.strip().split('\n'):
             line = line.strip()
             if line.startswith('{'):
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'ArchiveResult':
@@ -370,7 +379,7 @@ def test_handles_404_gracefully():
     """Test that wget fails gracefully on 404."""
 
     if not shutil.which('wget'):
-        pytest.skip("wget not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -395,7 +404,7 @@ def test_config_timeout_honored():
     """Test that WGET_TIMEOUT config is respected."""
 
     if not shutil.which('wget'):
-        pytest.skip("wget not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -422,7 +431,7 @@ def test_config_user_agent():
     """Test that WGET_USER_AGENT config is used."""
 
     if not shutil.which('wget'):
-        pytest.skip("wget not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -447,6 +456,7 @@ def test_config_user_agent():
             for line in result.stdout.strip().split('\n'):
                 line = line.strip()
                 if line.startswith('{'):
+                    pass
                     try:
                         record = json.loads(line)
                         if record.get('type') == 'ArchiveResult':

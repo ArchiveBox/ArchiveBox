@@ -5,11 +5,11 @@ from django.apps import AppConfig
 
 class MachineConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    
-    name = 'machine'
+
+    name = 'archivebox.machine'
     verbose_name = 'Machine Info'
 
 
 def register_admin(admin_site):
-    from machine.admin import register_admin
+    from archivebox.machine.admin import register_admin
     register_admin(admin_site)

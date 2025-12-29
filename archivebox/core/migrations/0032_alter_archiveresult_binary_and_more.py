@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ('core', '0031_snapshot_parent_snapshot'),
         ('crawls', '0004_alter_crawl_output_dir'),
-        ('machine', '0003_alter_dependency_id_alter_installedbinary_dependency_and_more'),
+        ('machine', '0004_drop_dependency_table'),  # Changed from 0003 - wait until Dependency is dropped
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

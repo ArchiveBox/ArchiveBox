@@ -17,8 +17,8 @@ from django_object_actions import action
 
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 
-from core.models import Snapshot
-from crawls.models import Crawl, CrawlSchedule
+from archivebox.core.models import Snapshot
+from archivebox.crawls.models import Crawl, CrawlSchedule
 
 
 def render_snapshots_list(snapshots_qs, limit=20):

@@ -14,9 +14,9 @@ class Migration(migrations.Migration):
 
     replaces = [
         ('machine', '0001_initial'),
-        ('machine', '0002_alter_machine_stats_binary'),
-        ('machine', '0003_alter_binary_options_and_more'),
-        ('machine', '0004_alter_binary_abspath_and_more'),
+        ('machine', '0002_alter_machine_stats_installedbinary'),
+        ('machine', '0003_alter_installedbinary_options_and_more'),
+        ('machine', '0004_alter_installedbinary_abspath_and_more'),
     ]
 
     dependencies = []
@@ -70,22 +70,7 @@ class Migration(migrations.Migration):
                 'unique_together': {('machine', 'ip_public', 'ip_local', 'mac_address', 'dns_server')},
             },
         ),
-        migrations.CreateModel(
-            name='Dependency',
-            fields=[
-                ('id', models.UUIDField(default=uuid4, editable=False, primary_key=True, serialize=False, unique=True)),
-                ('created_at', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
-                ('modified_at', models.DateTimeField(auto_now=True)),
-                ('bin_name', models.CharField(db_index=True, max_length=63, unique=True)),
-                ('bin_providers', models.CharField(default='*', max_length=127)),
-                ('custom_cmds', models.JSONField(blank=True, default=dict)),
-                ('config', models.JSONField(blank=True, default=dict)),
-            ],
-            options={
-                'verbose_name': 'Dependency',
-                'verbose_name_plural': 'Dependencies',
-            },
-        ),
+        # Dependency model removed - not needed anymore
         migrations.CreateModel(
             name='Binary',
             fields=[
@@ -100,7 +85,7 @@ class Migration(migrations.Migration):
                 ('version', models.CharField(blank=True, default=None, max_length=32)),
                 ('sha256', models.CharField(blank=True, default=None, max_length=64)),
                 ('machine', models.ForeignKey(blank=True, default=None, on_delete=django.db.models.deletion.CASCADE, to='machine.machine')),
-                ('dependency', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='binary_set', to='machine.dependency')),
+                # dependency FK removed - Dependency model deleted
             ],
             options={
                 'verbose_name': 'Binary',

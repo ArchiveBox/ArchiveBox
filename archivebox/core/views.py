@@ -23,7 +23,7 @@ from admin_data_views.typing import TableContext, ItemContext
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
 import archivebox
-from archivebox.config import CONSTANTS, CONSTANTS_CONFIG, DATA_DIR, VERSION, SAVE_ARCHIVE_DOT_ORG
+from archivebox.config import CONSTANTS, CONSTANTS_CONFIG, DATA_DIR, VERSION
 from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG, ARCHIVING_CONFIG
 from archivebox.config.configset import get_flat_config, get_config, get_all_configs
 from archivebox.misc.util import base_url, htmlencode, ts_to_date_str
@@ -31,9 +31,9 @@ from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.search import query_search_index
 
-from core.models import Snapshot
-from core.forms import AddLinkForm
-from crawls.models import Crawl
+from archivebox.core.models import Snapshot
+from archivebox.core.forms import AddLinkForm
+from archivebox.crawls.models import Crawl
 from archivebox.hooks import get_extractors, get_extractor_name
 
 
@@ -150,7 +150,6 @@ class SnapshotView(View):
             'status_color': 'success' if snapshot.is_archived else 'danger',
             'oldest_archive_date': ts_to_date_str(snapshot.oldest_archive_date),
             'warc_path': warc_path,
-            'SAVE_ARCHIVE_DOT_ORG': SAVE_ARCHIVE_DOT_ORG,
             'PREVIEW_ORIGINALS': SERVER_CONFIG.PREVIEW_ORIGINALS,
             'archiveresults': sorted(archiveresults.values(), key=lambda r: all_types.index(r['name']) if r['name'] in all_types else -r['size']),
             'best_result': best_result,
@@ -421,35 +420,34 @@ class AddView(UserPassesTestMixin, FormView):
         return SERVER_CONFIG.PUBLIC_ADD_VIEW or self.request.user.is_authenticated
 
     def get_context_data(self, **kwargs):
+        from archivebox.core.models import Tag
+
         return {
             **super().get_context_data(**kwargs),
-            'title': "Add URLs",
+            'title': "Create Crawl",
             # We can't just call request.build_absolute_uri in the template, because it would include query parameters
             'absolute_add_path': self.request.build_absolute_uri(self.request.path),
             'VERSION': VERSION,
             'FOOTER_INFO': SERVER_CONFIG.FOOTER_INFO,
             'stdout': '',
+            'available_tags': list(Tag.objects.all().order_by('name').values_list('name', flat=True)),
         }
 
     def form_valid(self, form):
         urls = form.cleaned_data["url"]
         print(f'[+] Adding URL: {urls}')
-        parser = form.cleaned_data.get("parser", "auto")  # default to auto-detect parser
-        tag = form.cleaned_data["tag"]
-        depth = 0 if form.cleaned_data["depth"] == "0" else 1
-        plugins = ','.join(form.cleaned_data["archive_methods"])
-        input_kwargs = {
-            "urls": urls,
-            "tag": tag,
-            "depth": depth,
-            "parser": parser,
-            "update_all": False,
-            "out_dir": DATA_DIR,
-            "created_by_id": self.request.user.pk,
-        }
-        if plugins:
-            input_kwargs.update({"plugins": plugins})
 
+        # Extract all form fields
+        tag = form.cleaned_data["tag"]
+        depth = int(form.cleaned_data["depth"])
+        plugins = ','.join(form.cleaned_data.get("plugins", []))
+        schedule = form.cleaned_data.get("schedule", "").strip()
+        persona = form.cleaned_data.get("persona", "Default")
+        overwrite = form.cleaned_data.get("overwrite", False)
+        update = form.cleaned_data.get("update", False)
+        index_only = form.cleaned_data.get("index_only", False)
+        notes = form.cleaned_data.get("notes", "")
+        custom_config = form.cleaned_data.get("config", {})
 
         from archivebox.config.permissions import HOSTNAME
 
@@ -461,33 +459,59 @@ class AddView(UserPassesTestMixin, FormView):
         # 2. create a new Crawl with the URLs from the file
         timestamp = timezone.now().strftime("%Y-%m-%d__%H-%M-%S")
         urls_content = sources_file.read_text()
+        # Build complete config
+        config = {
+            'ONLY_NEW': not update,
+            'INDEX_ONLY': index_only,
+            'OVERWRITE': overwrite,
+            'DEPTH': depth,
+            'PLUGINS': plugins or '',
+            'DEFAULT_PERSONA': persona or 'Default',
+        }
+
+        # Merge custom config overrides
+        config.update(custom_config)
+
         crawl = Crawl.objects.create(
             urls=urls_content,
             max_depth=depth,
             tags_str=tag,
+            notes=notes,
             label=f'{self.request.user.username}@{HOSTNAME}{self.request.path} {timestamp}',
             created_by_id=self.request.user.pk,
-            config={
-                # 'ONLY_NEW': not update,
-                # 'INDEX_ONLY': index_only,
-                # 'OVERWRITE': False,
-                'DEPTH': depth,
-                'PLUGINS': plugins or '',
-                # 'DEFAULT_PERSONA': persona or 'Default',
-            }
+            config=config
         )
-        
+
+        # 3. create a CrawlSchedule if schedule is provided
+        if schedule:
+            from crawls.models import CrawlSchedule
+            crawl_schedule = CrawlSchedule.objects.create(
+                template=crawl,
+                schedule=schedule,
+                is_enabled=True,
+                label=crawl.label,
+                notes=f"Auto-created from add page. {notes}".strip(),
+                created_by_id=self.request.user.pk,
+            )
+            crawl.schedule = crawl_schedule
+            crawl.save(update_fields=['schedule'])
+
         # 4. start the Orchestrator & wait until it completes
         #    ... orchestrator will create the root Snapshot, which creates pending ArchiveResults, which gets run by the ArchiveResultActors ...
-        # from crawls.actors import CrawlActor
-        # from core.actors import SnapshotActor, ArchiveResultActor
-    
+        # from archivebox.crawls.actors import CrawlActor
+        # from archivebox.core.actors import SnapshotActor, ArchiveResultActor
+
 
         rough_url_count = urls.count('://')
 
+        # Build success message with schedule link if created
+        schedule_msg = ""
+        if schedule:
+            schedule_msg = f" and <a href='{crawl.schedule.admin_change_url}'>scheduled to repeat {schedule}</a>"
+
         messages.success(
             self.request,
-            mark_safe(f"Adding {rough_url_count} URLs in the background. (refresh in a minute start seeing results) {crawl.admin_change_url}"),
+            mark_safe(f"Created crawl with {rough_url_count} starting URL(s){schedule_msg}. Snapshots will be created and archived in the background. <a href='{crawl.admin_change_url}'>View Crawl →</a>"),
         )
 
         # Orchestrator (managed by supervisord) will pick up the queued crawl
@@ -516,8 +540,8 @@ def live_progress_view(request):
     """Simple JSON endpoint for live progress status - used by admin progress monitor."""
     try:
         from workers.orchestrator import Orchestrator
-        from crawls.models import Crawl
-        from core.models import Snapshot, ArchiveResult
+        from archivebox.crawls.models import Crawl
+        from archivebox.core.models import Snapshot, ArchiveResult
         from django.db.models import Case, When, Value, IntegerField
 
         # Get orchestrator status
@@ -764,9 +788,9 @@ def key_is_safe(key: str) -> bool:
 def find_config_source(key: str, merged_config: dict) -> str:
     """Determine where a config value comes from."""
     import os
-    from machine.models import Machine
+    from archivebox.machine.models import Machine
 
-    # Check if it's from machine config
+    # Check if it's from archivebox.machine.config
     try:
         machine = Machine.current()
         if machine.config and key in machine.config:
@@ -778,7 +802,7 @@ def find_config_source(key: str, merged_config: dict) -> str:
     if key in os.environ:
         return 'Environment'
 
-    # Check if it's from config file
+    # Check if it's from archivebox.config.file
     from archivebox.config.configset import BaseConfigSet
     file_config = BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
     if key in file_config:
@@ -796,7 +820,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
     # Get merged config that includes Machine.config overrides
     try:
-        from machine.models import Machine
+        from archivebox.machine.models import Machine
         machine = Machine.current()
         merged_config = get_config()
     except Exception as e:
@@ -859,7 +883,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
 @render_with_item_view
 def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     import os
-    from machine.models import Machine
+    from archivebox.machine.models import Machine
     from archivebox.config.configset import BaseConfigSet
 
     CONFIGS = get_all_configs()

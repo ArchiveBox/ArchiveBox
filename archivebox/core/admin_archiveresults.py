@@ -16,7 +16,7 @@ from archivebox.base_models.admin import BaseModelAdmin
 from archivebox.hooks import get_plugin_icon
 
 
-from core.models import ArchiveResult, Snapshot
+from archivebox.core.models import ArchiveResult, Snapshot
 
 
 def render_archiveresults_list(archiveresults_qs, limit=50):
@@ -187,7 +187,7 @@ class ArchiveResultInline(admin.TabularInline):
     extra = 0
     sort_fields = ('end_ts', 'plugin', 'output_str', 'status', 'cmd_version')
     readonly_fields = ('id', 'result_id', 'completed', 'command', 'version')
-    fields = ('start_ts', 'end_ts', *readonly_fields, 'plugin', 'cmd', 'cmd_version', 'pwd', 'created_by', 'status', 'retry_at', 'output_str')
+    fields = ('start_ts', 'end_ts', *readonly_fields, 'plugin', 'cmd', 'cmd_version', 'pwd', 'status', 'retry_at', 'output_str')
     # exclude = ('id',)
     ordering = ('end_ts',)
     show_change_link = True
@@ -229,17 +229,15 @@ class ArchiveResultInline(admin.TabularInline):
         formset.form.base_fields['end_ts'].initial = timezone.now()
         formset.form.base_fields['cmd_version'].initial = '-'
         formset.form.base_fields['pwd'].initial = str(snapshot.output_dir)
-        formset.form.base_fields['created_by'].initial = request.user
         formset.form.base_fields['cmd'].initial = '["-"]'
         formset.form.base_fields['output_str'].initial = 'Manually recorded cmd output...'
-        
+
         if obj is not None:
             # hidden values for existing entries and new entries
             formset.form.base_fields['start_ts'].widget = formset.form.base_fields['start_ts'].hidden_widget()
             formset.form.base_fields['end_ts'].widget = formset.form.base_fields['end_ts'].hidden_widget()
             formset.form.base_fields['cmd'].widget = formset.form.base_fields['cmd'].hidden_widget()
             formset.form.base_fields['pwd'].widget = formset.form.base_fields['pwd'].hidden_widget()
-            formset.form.base_fields['created_by'].widget = formset.form.base_fields['created_by'].hidden_widget()
             formset.form.base_fields['cmd_version'].widget = formset.form.base_fields['cmd_version'].hidden_widget()
         return formset
     
@@ -252,8 +250,8 @@ class ArchiveResultInline(admin.TabularInline):
 
 
 class ArchiveResultAdmin(BaseModelAdmin):
-    list_display = ('id', 'created_by', 'created_at', 'snapshot_info', 'tags_str', 'status', 'plugin_with_icon', 'cmd_str', 'output_str')
-    sort_fields = ('id', 'created_by', 'created_at', 'plugin', 'status')
+    list_display = ('id', 'created_at', 'snapshot_info', 'tags_str', 'status', 'plugin_with_icon', 'cmd_str', 'output_str')
+    sort_fields = ('id', 'created_at', 'plugin', 'status')
     readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary', 'plugin_with_icon', 'iface')
     search_fields = ('id', 'snapshot__url', 'plugin', 'output_str', 'cmd_version', 'cmd', 'snapshot__timestamp')
     autocomplete_fields = ['snapshot']
@@ -278,10 +276,6 @@ class ArchiveResultAdmin(BaseModelAdmin):
         ('Output', {
             'fields': ('output_str', 'output_json', 'output_files', 'output_size', 'output_mimetypes', 'output_summary'),
             'classes': ('card', 'wide'),
-        }),
-        ('Metadata', {
-            'fields': ('created_by',),
-            'classes': ('card',),
         }),
     )
 

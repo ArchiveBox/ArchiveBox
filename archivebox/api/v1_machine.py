@@ -7,7 +7,7 @@ from datetime import datetime
 from ninja import Router, Schema, FilterSchema, Field, Query
 from ninja.pagination import paginate
 
-from api.v1_core import CustomPagination
+from archivebox.api.v1_core import CustomPagination
 
 
 router = Router(tags=['Machine and Dependencies'])
@@ -102,14 +102,14 @@ class BinaryFilterSchema(FilterSchema):
 @paginate(CustomPagination)
 def get_machines(request, filters: MachineFilterSchema = Query(...)):
     """List all machines."""
-    from machine.models import Machine
+    from archivebox.machine.models import Machine
     return filters.filter(Machine.objects.all()).distinct()
 
 
 @router.get("/machine/{machine_id}", response=MachineSchema, url_name="get_machine")
 def get_machine(request, machine_id: str):
     """Get a specific machine by ID."""
-    from machine.models import Machine
+    from archivebox.machine.models import Machine
     from django.db.models import Q
     return Machine.objects.get(Q(id__startswith=machine_id) | Q(hostname__iexact=machine_id))
 
@@ -117,7 +117,7 @@ def get_machine(request, machine_id: str):
 @router.get("/machine/current", response=MachineSchema, url_name="get_current_machine")
 def get_current_machine(request):
     """Get the current machine."""
-    from machine.models import Machine
+    from archivebox.machine.models import Machine
     return Machine.current()
 
 
@@ -132,19 +132,19 @@ def get_current_machine(request):
 @paginate(CustomPagination)
 def get_binaries(request, filters: BinaryFilterSchema = Query(...)):
     """List all binaries."""
-    from machine.models import Binary
+    from archivebox.machine.models import Binary
     return filters.filter(Binary.objects.all().select_related('machine', 'dependency')).distinct()
 
 
 @router.get("/binary/{binary_id}", response=BinarySchema, url_name="get_binary")
 def get_binary(request, binary_id: str):
     """Get a specific binary by ID."""
-    from machine.models import Binary
+    from archivebox.machine.models import Binary
     return Binary.objects.select_related('machine', 'dependency').get(id__startswith=binary_id)
 
 
 @router.get("/binary/by-name/{name}", response=List[BinarySchema], url_name="get_binaries_by_name")
 def get_binaries_by_name(request, name: str):
     """Get all binaries with the given name."""
-    from machine.models import Binary
+    from archivebox.machine.models import Binary
     return list(Binary.objects.filter(name__iexact=name).select_related('machine', 'dependency'))

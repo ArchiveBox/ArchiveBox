@@ -111,6 +111,24 @@ def load_config_file() -> Optional[benedict]:
     return None
 
 
+class PluginConfigSection:
+    """Pseudo-section for all plugin config keys written to [PLUGINS] section in ArchiveBox.conf"""
+    toml_section_header = "PLUGINS"
+
+    def __init__(self, key: str):
+        self._key = key
+
+    def __getattr__(self, name: str) -> Any:
+        # Allow hasattr checks to pass for the key
+        if name == self._key:
+            return None
+        raise AttributeError(f"PluginConfigSection has no attribute '{name}'")
+
+    def update_in_place(self, warn: bool = True, persist: bool = False, **kwargs):
+        """No-op update since plugins read config dynamically via get_config()."""
+        pass
+
+
 def section_for_key(key: str) -> Any:
     """Find the config section containing a given key."""
     from archivebox.config.common import (
@@ -121,11 +139,22 @@ def section_for_key(key: str) -> Any:
         ARCHIVING_CONFIG,
         SEARCH_BACKEND_CONFIG,
     )
-    
-    for section in [SHELL_CONFIG, STORAGE_CONFIG, GENERAL_CONFIG, 
+
+    # First check core config sections
+    for section in [SHELL_CONFIG, STORAGE_CONFIG, GENERAL_CONFIG,
                     SERVER_CONFIG, ARCHIVING_CONFIG, SEARCH_BACKEND_CONFIG]:
         if hasattr(section, key):
             return section
+
+    # Check if this is a plugin config key
+    from archivebox.hooks import discover_plugin_configs
+
+    plugin_configs = discover_plugin_configs()
+    for plugin_name, schema in plugin_configs.items():
+        if 'properties' in schema and key in schema['properties']:
+            # All plugin config goes to [PLUGINS] section
+            return PluginConfigSection(key)
+
     raise ValueError(f'No config section found for key: {key}')
 
 

@@ -71,7 +71,7 @@ def remove(filter_patterns: Iterable[str]=(),
     to_remove = snapshots.count()
 
     from archivebox.search import flush_search_index
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
 
     flush_search_index(snapshots=snapshots)
     snapshots.delete()

@@ -174,7 +174,7 @@ def get_config(
     config.update(dict(ARCHIVING_CONFIG))
     config.update(dict(SEARCH_BACKEND_CONFIG))
 
-    # Load from config file
+    # Load from archivebox.config.file
     config_file = CONSTANTS.CONFIG_FILE
     if config_file.exists():
         file_config = BaseConfigSet.load_from_file(config_file)

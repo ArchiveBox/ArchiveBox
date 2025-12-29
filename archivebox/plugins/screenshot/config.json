@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": ["chrome"],
+  "properties": {
+    "SCREENSHOT_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["SAVE_SCREENSHOT", "USE_SCREENSHOT"],
+      "description": "Enable screenshot capture"
+    },
+    "SCREENSHOT_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for screenshot capture in seconds"
+    },
+    "SCREENSHOT_RESOLUTION": {
+      "type": "string",
+      "default": "1440,2000",
+      "pattern": "^\\d+,\\d+$",
+      "x-fallback": "RESOLUTION",
+      "description": "Screenshot resolution (width,height)"
+    }
+  }
+}

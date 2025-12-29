@@ -21,7 +21,7 @@ def status(out_dir: Path=DATA_DIR) -> None:
 
     from django.contrib.auth import get_user_model
     from archivebox.misc.db import get_admins
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
     User = get_user_model()
 
     print('[green]\\[*] Scanning archive main index...[/green]')

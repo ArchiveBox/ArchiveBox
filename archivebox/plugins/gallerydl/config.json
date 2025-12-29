@@ -3,9 +3,10 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "SAVE_GALLERYDL": {
+    "GALLERYDL_ENABLED": {
       "type": "boolean",
       "default": true,
+      "x-aliases": ["SAVE_GALLERYDL", "USE_GALLERYDL"],
       "description": "Enable gallery downloading with gallery-dl"
     },
     "GALLERYDL_BINARY": {

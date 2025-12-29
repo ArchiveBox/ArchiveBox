@@ -27,12 +27,13 @@ class TestParseHtmlUrls:
 
         assert result.returncode == 0, f"Failed to parse example.com: {result.stderr}"
 
-        output_file = tmp_path / 'urls.jsonl'
-        assert output_file.exists(), "Output file not created"
+        # Verify stdout contains JSONL records for discovered URLs
+        # example.com links to iana.org
+        assert 'iana.org' in result.stdout or 'example' in result.stdout, "Expected links from example.com not found"
 
-        # Verify output contains IANA link (example.com links to iana.org)
-        content = output_file.read_text()
-        assert 'iana.org' in content or 'example' in content, "Expected links from example.com not found"
+        # Verify ArchiveResult record is present
+        assert '"type": "ArchiveResult"' in result.stdout, "Missing ArchiveResult record"
+        assert '"status": "succeeded"' in result.stdout, "Missing success status"
 
     def test_extracts_href_urls(self, tmp_path):
         """Test extracting URLs from anchor tags."""
@@ -56,23 +57,26 @@ class TestParseHtmlUrls:
         )
 
         assert result.returncode == 0
-        assert 'Found 3 URLs' in result.stdout
+        assert 'Found 3 URLs' in result.stderr
 
-        output_file = tmp_path / 'urls.jsonl'
-        assert output_file.exists()
-
-        lines = output_file.read_text().strip().split('\n')
-        assert len(lines) == 3
+        # Parse Snapshot records from stdout
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '"type": "Snapshot"' in line]
+        assert len(lines) == 3, f"Expected 3 Snapshot records, got {len(lines)}"
 
         urls = set()
         for line in lines:
             entry = json.loads(line)
+            assert entry['type'] == 'Snapshot'
             assert 'url' in entry
             urls.add(entry['url'])
 
         assert 'https://example.com' in urls
         assert 'https://foo.bar/page' in urls
         assert 'http://test.org' in urls
+
+        # Verify ArchiveResult record
+        assert '"type": "ArchiveResult"' in result.stdout
+        assert '"status": "succeeded"' in result.stdout
 
     def test_ignores_non_http_schemes(self, tmp_path):
         """Test that non-http schemes are ignored."""
@@ -96,9 +100,10 @@ class TestParseHtmlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
-        assert len(lines) == 1
+
+        # Parse Snapshot records from stdout
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '"type": "Snapshot"' in line]
+        assert len(lines) == 1, f"Expected 1 Snapshot record, got {len(lines)}"
 
         entry = json.loads(lines[0])
         assert entry['url'] == 'https://valid.com'
@@ -122,8 +127,8 @@ class TestParseHtmlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        lines = [line for line in result.stdout.strip().split('\n') if '"type": "Snapshot"' in line]
+        entry = json.loads(lines[0])
         assert entry['url'] == 'https://example.com/page?a=1&b=2'
 
     def test_deduplicates_urls(self, tmp_path):
@@ -147,8 +152,7 @@ class TestParseHtmlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        lines = [line for line in result.stdout.strip().split('\n') if '"type": "Snapshot"' in line]
         assert len(lines) == 1
 
     def test_excludes_source_url(self, tmp_path):
@@ -172,14 +176,13 @@ class TestParseHtmlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        lines = [line for line in result.stdout.strip().split('\n') if '"type": "Snapshot"' in line]
         assert len(lines) == 1
         entry = json.loads(lines[0])
         assert entry['url'] == 'https://other.com'
 
-    def test_exits_1_when_no_urls_found(self, tmp_path):
-        """Test that script exits with code 1 when no URLs found."""
+    def test_skips_when_no_urls_found(self, tmp_path):
+        """Test that script returns skipped status when no URLs found."""
         input_file = tmp_path / 'page.html'
         input_file.write_text('<html><body>No links here</body></html>')
 
@@ -190,8 +193,9 @@ class TestParseHtmlUrls:
             text=True,
         )
 
-        assert result.returncode == 1
+        assert result.returncode == 0
         assert 'No URLs found' in result.stderr
+        assert '"status": "skipped"' in result.stdout
 
     def test_handles_malformed_html(self, tmp_path):
         """Test handling of malformed HTML."""
@@ -212,8 +216,7 @@ class TestParseHtmlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        lines = [line for line in result.stdout.strip().split('\n') if '"type": "Snapshot"' in line]
         assert len(lines) == 2
 
     def test_output_is_valid_json(self, tmp_path):
@@ -229,11 +232,11 @@ class TestParseHtmlUrls:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        lines = [line for line in result.stdout.strip().split('\n') if '"type": "Snapshot"' in line]
+        entry = json.loads(lines[0])
         assert entry['url'] == 'https://example.com'
-        assert 'type' in entry
-        assert 'plugin' in entry
+        assert entry['type'] == 'Snapshot'
+        assert entry['plugin'] == 'parse_html_urls'
 
 
 if __name__ == '__main__':

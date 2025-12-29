@@ -192,7 +192,7 @@ class TestMigrationFrom08x(unittest.TestCase):
         self.assertTrue(ok, msg)
 
     def test_migration_removes_seed_id_column(self):
-        """Migration should remove seed_id column from crawls_crawl."""
+        """Migration should remove seed_id column from archivebox.crawls.crawl."""
         result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
@@ -524,7 +524,7 @@ class TestFilesystemMigration08to09(unittest.TestCase):
 
         try:
             django.setup()
-            from core.models import Snapshot
+            from archivebox.core.models import Snapshot
 
             # Load the snapshot (should trigger migration on save)
             snapshot = Snapshot.objects.get(url='https://example.com')

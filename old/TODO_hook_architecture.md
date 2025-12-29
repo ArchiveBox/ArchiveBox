@@ -658,7 +658,7 @@ def create_model_record(record: dict) -> Any:
     Returns:
         Created/updated model instance
     """
-    from machine.models import Binary, Dependency
+    from archivebox.machine.models import Binary, Dependency
 
     model_type = record.pop('type')
 
@@ -917,7 +917,7 @@ def find_binary_for_cmd(cmd: List[str], machine_id: str) -> Optional[str]:
     if not cmd:
         return None
 
-    from machine.models import Binary
+    from archivebox.machine.models import Binary
 
     bin_path_or_name = cmd[0]
 
@@ -977,7 +977,7 @@ def run_hook(
     """
     import time
     from datetime import datetime, timezone
-    from machine.models import Machine
+    from archivebox.machine.models import Machine
 
     start_time = time.time()
 
@@ -1125,7 +1125,7 @@ def run(self):
     """
     from django.utils import timezone
     from archivebox.hooks import BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR, run_hook, find_binary_for_cmd, create_model_record
-    from machine.models import Machine
+    from archivebox.machine.models import Machine
 
     config_objects = [self.snapshot.crawl, self.snapshot] if self.snapshot.crawl else [self.snapshot]
 
@@ -1458,7 +1458,7 @@ def finalize_background_hook(archiveresult: 'ArchiveResult') -> None:
         archiveresult: ArchiveResult instance to finalize
     """
     from django.utils import timezone
-    from machine.models import Machine
+    from archivebox.machine.models import Machine
 
     extractor_dir = Path(archiveresult.pwd)
     stdout_file = extractor_dir / 'stdout.log'

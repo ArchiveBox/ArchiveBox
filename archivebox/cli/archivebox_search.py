@@ -36,7 +36,7 @@ def get_snapshots(snapshots: Optional[QuerySet]=None,
                   before: Optional[float]=None,
                   out_dir: Path=DATA_DIR) -> QuerySet:
     """Filter and return Snapshots matching the given criteria."""
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
 
     if snapshots:
         result = snapshots
@@ -68,7 +68,7 @@ def search(filter_patterns: list[str] | None=None,
            csv: str | None=None,
            with_headers: bool=False):
     """List, filter, and export information about archive entries"""
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
 
     if with_headers and not (json or html or csv):
         stderr('[X] --with-headers requires --json, --html or --csv\n', color='red')

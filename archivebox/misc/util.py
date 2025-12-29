@@ -478,62 +478,6 @@ for url_str, num_urls in _test_url_strs.items():
 
 ### Chrome Helpers
 
-def chrome_args(**options) -> List[str]:
-    """Helper to build up a chrome shell command with arguments."""
-    import shutil
-    from archivebox.config import CHECK_SSL_VALIDITY, RESOLUTION, USER_AGENT, CHROME_BINARY
-    
-    chrome_binary = options.get('CHROME_BINARY', CHROME_BINARY)
-    chrome_headless = options.get('CHROME_HEADLESS', True)
-    chrome_sandbox = options.get('CHROME_SANDBOX', True)
-    check_ssl = options.get('CHECK_SSL_VALIDITY', CHECK_SSL_VALIDITY)
-    user_agent = options.get('CHROME_USER_AGENT', USER_AGENT)
-    resolution = options.get('RESOLUTION', RESOLUTION)
-    timeout = options.get('CHROME_TIMEOUT', 0)
-    user_data_dir = options.get('CHROME_USER_DATA_DIR', None)
-    
-    if not chrome_binary:
-        raise Exception('Could not find any CHROME_BINARY installed on your system')
-    
-    cmd_args = [chrome_binary]
-    
-    if chrome_headless:
-        cmd_args += ("--headless=new",)
-    
-    if not chrome_sandbox:
-        # running in docker or other sandboxed environment
-        cmd_args += (
-            "--no-sandbox",
-            "--no-zygote",
-            "--disable-dev-shm-usage",
-            "--disable-software-rasterizer",
-            "--run-all-compositor-stages-before-draw",
-            "--hide-scrollbars",
-            "--autoplay-policy=no-user-gesture-required",
-            "--no-first-run",
-            "--use-fake-ui-for-media-stream",
-            "--use-fake-device-for-media-stream",
-            "--disable-sync",
-        )
-    
-    if not check_ssl:
-        cmd_args += ('--disable-web-security', '--ignore-certificate-errors')
-    
-    if user_agent:
-        cmd_args += (f'--user-agent={user_agent}',)
-    
-    if resolution:
-        cmd_args += (f'--window-size={resolution}',)
-    
-    if timeout:
-        cmd_args += (f'--timeout={timeout * 1000}',)
-    
-    if user_data_dir:
-        cmd_args += (f'--user-data-dir={user_data_dir}',)
-    
-    return cmd_args
-
-
 def chrome_cleanup():
     """
     Cleans up any state or runtime files that chrome leaves behind when killed by

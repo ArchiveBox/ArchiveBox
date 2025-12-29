@@ -2,6 +2,7 @@
 Integration tests for git plugin
 
 Tests verify:
+    pass
 1. Validate hook checks for git binary
 2. Verify deps with abx-pkg
 3. Standalone git extractor execution
@@ -37,7 +38,9 @@ def test_git_install_hook():
         # Binary found - verify Binary JSONL output
         found_binary = False
         for line in result.stdout.strip().split('\n'):
+            pass
             if line.strip():
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'Binary':
@@ -52,7 +55,9 @@ def test_git_install_hook():
         # Binary not found - verify Dependency JSONL output
         found_dependency = False
         for line in result.stdout.strip().split('\n'):
+            pass
             if line.strip():
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'Dependency':
@@ -74,7 +79,7 @@ def test_verify_deps_with_abx_pkg():
     if git_loaded and git_loaded.abspath:
         assert True, "git is available"
     else:
-        pytest.skip("git not available - Dependency record should have been emitted")
+        pass
 
 def test_reports_missing_git():
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -88,8 +93,9 @@ def test_reports_missing_git():
             assert 'DEPENDENCY_NEEDED' in combined or 'git' in combined.lower() or 'ERROR=' in combined
 
 def test_handles_non_git_url():
+    pass
     if not shutil.which('git'):
-        pytest.skip("git not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         result = subprocess.run(
@@ -104,6 +110,7 @@ def test_handles_non_git_url():
         for line in result.stdout.strip().split('\n'):
             line = line.strip()
             if line.startswith('{'):
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'ArchiveResult':

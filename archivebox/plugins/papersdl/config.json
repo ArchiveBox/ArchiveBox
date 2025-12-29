@@ -3,9 +3,10 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "SAVE_PAPERSDL": {
+    "PAPERSDL_ENABLED": {
       "type": "boolean",
       "default": true,
+      "x-aliases": ["SAVE_PAPERSDL", "USE_PAPERSDL"],
       "description": "Enable paper downloading with papers-dl"
     },
     "PAPERSDL_BINARY": {

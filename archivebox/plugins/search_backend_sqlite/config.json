@@ -3,21 +3,22 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "SQLITEFTS_DB": {
+    "SEARCH_BACKEND_SQLITE_DB": {
       "type": "string",
       "default": "search.sqlite3",
+      "x-aliases": ["SQLITEFTS_DB"],
       "description": "SQLite FTS database filename"
     },
-    "FTS_SEPARATE_DATABASE": {
+    "SEARCH_BACKEND_SQLITE_SEPARATE_DATABASE": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SQLITEFTS_SEPARATE_DATABASE"],
+      "x-aliases": ["FTS_SEPARATE_DATABASE", "SQLITEFTS_SEPARATE_DATABASE"],
       "description": "Use separate database file for FTS index"
     },
-    "FTS_TOKENIZERS": {
+    "SEARCH_BACKEND_SQLITE_TOKENIZERS": {
       "type": "string",
       "default": "porter unicode61 remove_diacritics 2",
-      "x-aliases": ["SQLITEFTS_TOKENIZERS"],
+      "x-aliases": ["FTS_TOKENIZERS", "SQLITEFTS_TOKENIZERS"],
       "description": "FTS5 tokenizer configuration"
     }
   }

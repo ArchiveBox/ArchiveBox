@@ -3,9 +3,10 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "SAVE_SINGLEFILE": {
+    "SINGLEFILE_ENABLED": {
       "type": "boolean",
       "default": true,
+      "x-aliases": ["SAVE_SINGLEFILE", "USE_SINGLEFILE"],
       "description": "Enable SingleFile archiving"
     },
     "SINGLEFILE_BINARY": {

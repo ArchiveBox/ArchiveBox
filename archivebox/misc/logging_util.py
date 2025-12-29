@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Any, Optional, List, Dict, Union, Iterable, IO, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
 
 from rich import print
 from rich.panel import Panel
@@ -257,7 +257,7 @@ def log_archiving_paused(num_links: int, idx: int, timestamp: str):
 
 def log_archiving_finished(num_links: int):
 
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
 
     end_ts = datetime.now(timezone.utc)
     _LAST_RUN_STATS.archiving_end_ts = end_ts
@@ -395,7 +395,7 @@ def log_list_started(filter_patterns: Optional[List[str]], filter_type: str):
     print('    {}'.format(' '.join(filter_patterns or ())))
 
 def log_list_finished(snapshots):
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
     print()
     print('---------------------------------------------------------------------------------------------------')
     print(Snapshot.objects.filter(pk__in=[s.pk for s in snapshots]).to_csv(cols=['timestamp', 'is_archived', 'num_outputs', 'url'], header=True, ljust=16, separator=' | '))

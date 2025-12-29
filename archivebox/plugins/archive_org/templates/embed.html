@@ -1,0 +1,10 @@
+{% load config_tags %}
+{% get_config "ARCHIVEDOTORG_ENABLED" as enabled %}
+{% if enabled %}
+<!-- Archive.org embed - full iframe view -->
+<iframe src="{{ output_path }}"
+        class="extractor-embed archivedotorg-embed"
+        style="width: 100%; height: 600px; border: 1px solid #ddd;"
+        sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms">
+</iframe>
+{% endif %}

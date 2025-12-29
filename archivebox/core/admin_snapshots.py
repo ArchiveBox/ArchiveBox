@@ -23,9 +23,9 @@ from archivebox.search.admin import SearchResultsAdminMixin
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 from archivebox.workers.tasks import bg_archive_snapshots, bg_add
 
-from core.models import Tag, Snapshot
-from core.admin_tags import TagInline
-from core.admin_archiveresults import ArchiveResultInline, render_archiveresults_list
+from archivebox.core.models import Tag, Snapshot
+from archivebox.core.admin_tags import TagInline
+from archivebox.core.admin_archiveresults import ArchiveResultInline, render_archiveresults_list
 
 
 # GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': [], 'CAN_UPGRADE': False}
@@ -59,7 +59,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     sort_fields = ('title_str', 'url_str', 'created_at', 'status', 'crawl')
     readonly_fields = ('admin_actions', 'status_info', 'tags_str', 'imported_timestamp', 'created_at', 'modified_at', 'downloaded_at', 'output_dir', 'archiveresults_list')
     search_fields = ('id', 'url', 'timestamp', 'title', 'tags__name')
-    list_filter = ('created_at', 'downloaded_at', 'archiveresult__status', 'created_by', 'tags__name')
+    list_filter = ('created_at', 'downloaded_at', 'archiveresult__status', 'crawl__created_by', 'tags__name')
 
     fieldsets = (
         ('URL', {
@@ -75,7 +75,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             'classes': ('card',),
         }),
         ('Relations', {
-            'fields': ('crawl', 'created_by', 'tags_str'),
+            'fields': ('crawl', 'tags_str'),
             'classes': ('card',),
         }),
         ('Config', {

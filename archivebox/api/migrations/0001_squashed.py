@@ -7,7 +7,7 @@ from django.conf import settings
 from django.db import migrations, models
 import django.db.models.deletion
 
-import api.models
+import archivebox.api.models
 
 
 class Migration(migrations.Migration):
@@ -38,7 +38,7 @@ class Migration(migrations.Migration):
                 ('created_by', models.ForeignKey(default=None, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
                 ('created_at', models.DateTimeField(auto_now_add=True, db_index=True)),
                 ('modified_at', models.DateTimeField(auto_now=True)),
-                ('token', models.CharField(default=api.models.generate_secret_token, max_length=32, unique=True)),
+                ('token', models.CharField(default=archivebox.api.models.generate_secret_token, max_length=32, unique=True)),
                 ('expires', models.DateTimeField(blank=True, null=True)),
             ],
             options={

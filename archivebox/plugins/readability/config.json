@@ -3,9 +3,10 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "SAVE_READABILITY": {
+    "READABILITY_ENABLED": {
       "type": "boolean",
       "default": true,
+      "x-aliases": ["SAVE_READABILITY", "USE_READABILITY"],
       "description": "Enable Readability text extraction"
     },
     "READABILITY_BINARY": {

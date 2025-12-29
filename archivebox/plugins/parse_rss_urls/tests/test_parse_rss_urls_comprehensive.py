@@ -41,8 +41,8 @@ class TestRssVariants:
         )
 
         assert result.returncode == 0, f"Failed: {result.stderr}"
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         entry = json.loads(lines[0])
 
         assert entry['url'] == 'https://example.com/article1'
@@ -82,8 +82,8 @@ class TestRssVariants:
         )
 
         assert result.returncode == 0, f"Failed: {result.stderr}"
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         entries = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Snapshot']
 
         urls = {e['url'] for e in entries}
@@ -122,8 +122,8 @@ class TestRssVariants:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        content = output_file.read_text().strip()
+        # Output goes to stdout (JSONL)
+        content = result.stdout.strip()
         lines = content.split('\n')
 
         # Check for Tag records
@@ -171,8 +171,8 @@ class TestAtomVariants:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
 
         tags = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Tag']
         tag_names = {t['name'] for t in tags}
@@ -207,8 +207,9 @@ class TestAtomVariants:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         # feedparser should pick the alternate link
         assert 'atom.example.com/article' in entry['url']
 
@@ -239,8 +240,9 @@ class TestDateFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert 'bookmarked_at' in entry
         assert '2020-01-15' in entry['bookmarked_at']
 
@@ -265,8 +267,9 @@ class TestDateFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert 'bookmarked_at' in entry
         assert '2024-01-15' in entry['bookmarked_at']
 
@@ -292,8 +295,9 @@ class TestDateFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         # Should use published date (Jan 10) not updated date (Jan 15)
         assert '2024-01-10' in entry['bookmarked_at']
 
@@ -318,8 +322,9 @@ class TestDateFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert '2024-01-20' in entry['bookmarked_at']
 
     def test_no_date(self, tmp_path):
@@ -344,8 +349,9 @@ class TestDateFormats:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert 'bookmarked_at' not in entry
 
 
@@ -377,8 +383,8 @@ class TestTagsAndCategories:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
 
         tags = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Tag']
         tag_names = {t['name'] for t in tags}
@@ -414,8 +420,8 @@ class TestTagsAndCategories:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
 
         tags = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Tag']
         tag_names = {t['name'] for t in tags}
@@ -445,8 +451,9 @@ class TestTagsAndCategories:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
         assert 'tags' not in entry or entry['tags'] == ''
 
     def test_duplicate_tags(self, tmp_path):
@@ -474,8 +481,8 @@ class TestTagsAndCategories:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         tags = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Tag']
         # Tag records should be unique
         tag_names = [t['name'] for t in tags]
@@ -514,8 +521,8 @@ class TestCustomNamespaces:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         snapshots = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Snapshot']
         entry = snapshots[0]
 
@@ -550,8 +557,9 @@ class TestCustomNamespaces:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         assert entry['url'] == 'https://example.com/podcast/1'
         assert entry['title'] == 'Podcast Episode 1'
@@ -583,8 +591,8 @@ class TestCustomNamespaces:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         snapshots = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Snapshot']
         entry = snapshots[0]
 
@@ -617,8 +625,9 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         assert entry['url'] == 'https://example.com/notitle'
         assert 'title' not in entry
@@ -649,8 +658,9 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         # Should only have the entry with a link
         assert entry['url'] == 'https://example.com/haslink'
@@ -678,8 +688,9 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         assert entry['title'] == 'Using <div> & <span> tags'
 
@@ -708,8 +719,8 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
 
         tags = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Tag']
         tag_names = {t['name'] for t in tags}
@@ -740,8 +751,9 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         # feedparser should strip HTML tags
         assert 'HTML' in entry['title']
@@ -770,8 +782,9 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         # feedparser may convert relative to absolute, or leave as-is
         assert 'article/relative' in entry['url']
@@ -800,7 +813,7 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
+        # Output goes to stdout (JSONL)
         lines = output_file.read_text(encoding='utf-8').strip().split('\n')
 
         snapshots = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Snapshot']
@@ -831,8 +844,9 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         assert len(entry['title']) == 1000
         assert entry['title'] == long_title
@@ -870,8 +884,8 @@ class TestEdgeCases:
         assert result.returncode == 0
         assert 'Found 100 URLs' in result.stdout
 
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
 
         # Should have 10 unique tags (Tag0-Tag9) + 100 snapshots
         tags = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Tag']
@@ -912,8 +926,8 @@ class TestRealWorldFeeds:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
 
         snapshots = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Snapshot']
         entry = snapshots[0]
@@ -944,8 +958,8 @@ class TestRealWorldFeeds:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        lines = output_file.read_text().strip().split('\n')
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
 
         snapshots = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Snapshot']
         entry = snapshots[0]
@@ -976,8 +990,9 @@ class TestRealWorldFeeds:
         )
 
         assert result.returncode == 0
-        output_file = tmp_path / 'urls.jsonl'
-        entry = json.loads(output_file.read_text().strip())
+        # Output goes to stdout (JSONL)
+        lines = [line for line in result.stdout.strip().split('\n') if '\"type\": \"Snapshot\"' in line]
+        entry = json.loads(lines[0])
 
         assert 'youtube.com' in entry['url']
         assert 'dQw4w9WgXcQ' in entry['url']

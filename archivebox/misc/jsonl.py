@@ -250,68 +250,13 @@ def process_records(
                 yield result
 
 
-def get_or_create_snapshot(record: Dict[str, Any], created_by_id: Optional[int] = None):
-    """
-    Get or create a Snapshot from a JSONL record.
-
-    Returns the Snapshot instance.
-    """
-    from core.models import Snapshot
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.misc.util import parse_date
-
-    created_by_id = created_by_id or get_or_create_system_user_pk()
-
-    # Extract fields from record
-    url = record.get('url')
-    if not url:
-        raise ValueError("Record missing required 'url' field")
-
-    title = record.get('title')
-    tags_str = record.get('tags', '')
-    bookmarked_at = record.get('bookmarked_at')
-    depth = record.get('depth', 0)
-    crawl_id = record.get('crawl_id')
-    parent_snapshot_id = record.get('parent_snapshot_id')
-
-    # Parse bookmarked_at if string
-    if bookmarked_at and isinstance(bookmarked_at, str):
-        bookmarked_at = parse_date(bookmarked_at)
-
-    # Use the manager's create_or_update_from_dict method
-    snapshot = Snapshot.objects.create_or_update_from_dict(
-        {'url': url, 'title': title, 'tags': tags_str},
-        created_by_id=created_by_id
-    )
-
-    # Update additional fields if provided
-    update_fields = []
-    if depth is not None and snapshot.depth != depth:
-        snapshot.depth = depth
-        update_fields.append('depth')
-    if parent_snapshot_id and str(snapshot.parent_snapshot_id) != str(parent_snapshot_id):
-        snapshot.parent_snapshot_id = parent_snapshot_id
-        update_fields.append('parent_snapshot_id')
-    if bookmarked_at and snapshot.bookmarked_at != bookmarked_at:
-        snapshot.bookmarked_at = bookmarked_at
-        update_fields.append('bookmarked_at')
-    if crawl_id and str(snapshot.crawl_id) != str(crawl_id):
-        snapshot.crawl_id = crawl_id
-        update_fields.append('crawl_id')
-
-    if update_fields:
-        snapshot.save(update_fields=update_fields + ['modified_at'])
-
-    return snapshot
-
-
 def get_or_create_tag(record: Dict[str, Any]):
     """
     Get or create a Tag from a JSONL record.
 
     Returns the Tag instance.
     """
-    from core.models import Tag
+    from archivebox.core.models import Tag
 
     name = record.get('name')
     if not name:
@@ -353,8 +298,11 @@ def process_jsonl_records(records: Iterator[Dict[str, Any]], created_by_id: Opti
 
         elif record_type == TYPE_SNAPSHOT or 'url' in record:
             try:
-                snapshot = get_or_create_snapshot(record, created_by_id=created_by_id)
-                results['snapshots'].append(snapshot)
+                from archivebox.core.models import Snapshot
+                overrides = {'created_by_id': created_by_id} if created_by_id else {}
+                snapshot = Snapshot.from_jsonl(record, overrides=overrides)
+                if snapshot:
+                    results['snapshots'].append(snapshot)
             except ValueError:
                 continue
 

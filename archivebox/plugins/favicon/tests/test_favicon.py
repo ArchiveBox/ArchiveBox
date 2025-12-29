@@ -2,6 +2,7 @@
 Integration tests for favicon plugin
 
 Tests verify:
+    pass
 1. Plugin script exists
 2. requests library is available
 3. Favicon extraction works for real example.com
@@ -40,7 +41,7 @@ def test_requests_library_available():
     )
 
     if result.returncode != 0:
-        pytest.skip("requests library not installed")
+        pass
 
     assert len(result.stdout.strip()) > 0, "Should report requests version"
 
@@ -58,7 +59,7 @@ def test_extracts_favicon_from_example_com():
         capture_output=True
     )
     if check_result.returncode != 0:
-        pytest.skip("requests not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -80,6 +81,7 @@ def test_extracts_favicon_from_example_com():
         for line in result.stdout.strip().split('\n'):
             line = line.strip()
             if line.startswith('{'):
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'ArchiveResult':
@@ -124,7 +126,7 @@ def test_config_timeout_honored():
         capture_output=True
     )
     if check_result.returncode != 0:
-        pytest.skip("requests not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -155,7 +157,7 @@ def test_config_user_agent():
         capture_output=True
     )
     if check_result.returncode != 0:
-        pytest.skip("requests not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -181,6 +183,7 @@ def test_config_user_agent():
             for line in result.stdout.strip().split('\n'):
                 line = line.strip()
                 if line.startswith('{'):
+                    pass
                     try:
                         record = json.loads(line)
                         if record.get('type') == 'ArchiveResult':
@@ -201,7 +204,7 @@ def test_handles_https_urls():
         capture_output=True
     )
     if check_result.returncode != 0:
-        pytest.skip("requests not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -232,7 +235,7 @@ def test_handles_missing_favicon_gracefully():
         capture_output=True
     )
     if check_result.returncode != 0:
-        pytest.skip("requests not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)

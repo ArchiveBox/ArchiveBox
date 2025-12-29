@@ -10,7 +10,7 @@ from django.utils import timezone
 from django_stubs_ext.db.models import TypedModelMeta
 from signal_webhooks.models import WebhookBase
 
-from base_models.models import get_or_create_system_user_pk
+from archivebox.base_models.models import get_or_create_system_user_pk
 
 
 def generate_secret_token() -> str:
@@ -26,6 +26,7 @@ class APIToken(models.Model):
     expires = models.DateTimeField(null=True, blank=True)
 
     class Meta(TypedModelMeta):
+        app_label = 'api'
         verbose_name = "API Key"
         verbose_name_plural = "API Keys"
 
@@ -47,6 +48,7 @@ class OutboundWebhook(WebhookBase):
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta(WebhookBase.Meta):
+        app_label = 'api'
         verbose_name = 'API Outbound Webhook'
 
     def __str__(self) -> str:

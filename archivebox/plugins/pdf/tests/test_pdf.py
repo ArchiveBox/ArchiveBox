@@ -2,6 +2,7 @@
 Integration tests for pdf plugin
 
 Tests verify:
+    pass
 1. Hook script exists
 2. Dependencies installed via chrome validation hooks
 3. Verify deps with abx-pkg
@@ -48,7 +49,9 @@ def test_chrome_validation_and_install():
         # Parse Dependency request from JSONL
         dependency_request = None
         for line in result.stdout.strip().split('\n'):
+            pass
             if line.strip():
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'Dependency':
@@ -79,7 +82,9 @@ def test_chrome_validation_and_install():
 
             # Verify installation via JSONL output
             for line in install_result.stdout.strip().split('\n'):
+                pass
                 if line.strip():
+                    pass
                     try:
                         record = json.loads(line)
                         if record.get('type') == 'Binary':
@@ -126,6 +131,7 @@ def test_extracts_pdf_from_example_com():
         for line in result.stdout.strip().split('\n'):
             line = line.strip()
             if line.startswith('{'):
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'ArchiveResult':
@@ -138,8 +144,9 @@ def test_extracts_pdf_from_example_com():
 
         # Skip verification if network failed
         if result_json['status'] != 'succeeded':
+            pass
             if 'TIMED_OUT' in result_json.get('output_str', '') or 'timeout' in result_json.get('output_str', '').lower():
-                pytest.skip(f"Network timeout occurred: {result_json['output_str']}")
+                pass
             pytest.fail(f"Extraction failed: {result_json}")
 
         assert result.returncode == 0, f"Should exit 0 on success: {result.stderr}"

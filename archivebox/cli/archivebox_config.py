@@ -66,18 +66,38 @@ def config(*keys,
                 raise SystemExit(1)
         else:
             matching_config = FLAT_CONFIG
-        
+
+        # Display core config sections
         for config_section in CONFIGS.values():
             if hasattr(config_section, 'toml_section_header'):
                 print(f'[grey53]\\[{config_section.toml_section_header}][/grey53]')
             else:
                 print('[grey53]\\[CONSTANTS]                                        # (read-only)[/grey53]')
-            
+
             kv_in_section = {key: val for key, val in dict(config_section).items() if key in matching_config}
             print(benedict(kv_in_section).to_toml(encoder=CustomTOMLEncoder()).strip().replace('\n\n', '\n'))
             print('[grey53]################################################################[/grey53]')
-            
-        
+
+        # Display plugin config section
+        from archivebox.hooks import discover_plugin_configs
+
+        plugin_configs = discover_plugin_configs()
+        plugin_keys = {}
+
+        # Collect all plugin config keys
+        for plugin_name, schema in plugin_configs.items():
+            if 'properties' not in schema:
+                continue
+            for key in schema['properties'].keys():
+                if key in matching_config:
+                    plugin_keys[key] = matching_config[key]
+
+        # Display all plugin config in single [PLUGINS] section
+        if plugin_keys:
+            print(f'[grey53]\\[PLUGINS][/grey53]')
+            print(benedict(plugin_keys).to_toml(encoder=CustomTOMLEncoder()).strip().replace('\n\n', '\n'))
+            print('[grey53]################################################################[/grey53]')
+
         raise SystemExit(not matching_config)
 
     elif set:

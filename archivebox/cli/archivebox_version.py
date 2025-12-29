@@ -107,7 +107,7 @@ def version(quiet: bool=False,
     from archivebox.config.django import setup_django
     setup_django()
 
-    from machine.models import Machine, Binary
+    from archivebox.machine.models import Machine, Binary
 
     machine = Machine.current()
 

@@ -1,6 +1,7 @@
 __package__ = 'archivebox.crawls'
 
 from typing import TYPE_CHECKING, Iterable
+from datetime import timedelta
 from archivebox.uuid_compat import uuid7
 from pathlib import Path
 
@@ -11,13 +12,15 @@ from django.conf import settings
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django_stubs_ext.db.models import TypedModelMeta
+from statemachine import State, registry
+from rich import print
 
 from archivebox.config import CONSTANTS
 from archivebox.base_models.models import ModelWithSerializers, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, get_or_create_system_user_pk
-from workers.models import ModelWithStateMachine
+from archivebox.workers.models import ModelWithStateMachine, BaseStateMachine
 
 if TYPE_CHECKING:
-    from core.models import Snapshot, ArchiveResult
+    from archivebox.core.models import Snapshot, ArchiveResult
 
 
 class CrawlSchedule(ModelWithSerializers, ModelWithNotes, ModelWithHealthStats):
@@ -35,6 +38,7 @@ class CrawlSchedule(ModelWithSerializers, ModelWithNotes, ModelWithHealthStats):
     crawl_set: models.Manager['Crawl']
 
     class Meta(TypedModelMeta):
+        app_label = 'crawls'
         verbose_name = 'Scheduled Crawl'
         verbose_name_plural = 'Scheduled Crawls'
 
@@ -73,7 +77,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     status = ModelWithStateMachine.StatusField(choices=ModelWithStateMachine.StatusChoices, default=ModelWithStateMachine.StatusChoices.QUEUED)
     retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
 
-    state_machine_name = 'crawls.statemachines.CrawlMachine'
+    state_machine_name = 'crawls.models.CrawlMachine'
     retry_at_field_name = 'retry_at'
     state_field_name = 'status'
     StatusChoices = ModelWithStateMachine.StatusChoices
@@ -82,6 +86,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     snapshot_set: models.Manager['Snapshot']
 
     class Meta(TypedModelMeta):
+        app_label = 'crawls'
         verbose_name = 'Crawl'
         verbose_name_plural = 'Crawls'
 
@@ -168,7 +173,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         return Path(path_str)
 
     def create_root_snapshot(self) -> 'Snapshot':
-        from core.models import Snapshot
+        from archivebox.core.models import Snapshot
 
         first_url = self.get_urls_list()[0] if self.get_urls_list() else None
         if not first_url:
@@ -245,7 +250,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             List of newly created Snapshot objects
         """
         import json
-        from core.models import Snapshot
+        from archivebox.core.models import Snapshot
 
         created_snapshots = []
 
@@ -309,9 +314,13 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         import time
         from pathlib import Path
         from archivebox.hooks import run_hook, discover_hooks, process_hook_records
+        from archivebox.config.configset import get_config
+
+        # Get merged config with crawl context
+        config = get_config(crawl=self)
 
         # Discover and run on_Crawl hooks
-        hooks = discover_hooks('Crawl')
+        hooks = discover_hooks('Crawl', config=config)
         first_url = self.get_urls_list()[0] if self.get_urls_list() else ''
 
         for hook in hooks:
@@ -323,8 +332,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             result = run_hook(
                 hook,
                 output_dir=output_dir,
-                timeout=60,
-                config_objects=[self],
+                config=config,
                 crawl_id=str(self.id),
                 source_url=first_url,
             )
@@ -380,7 +388,10 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                     pass
 
         # Run on_CrawlEnd hooks
-        hooks = discover_hooks('CrawlEnd')
+        from archivebox.config.configset import get_config
+        config = get_config(crawl=self)
+
+        hooks = discover_hooks('CrawlEnd', config=config)
         first_url = self.get_urls_list()[0] if self.get_urls_list() else ''
 
         for hook in hooks:
@@ -391,8 +402,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             result = run_hook(
                 hook,
                 output_dir=output_dir,
-                timeout=30,
-                config_objects=[self],
+                config=config,
                 crawl_id=str(self.id),
                 source_url=first_url,
             )
@@ -400,3 +410,131 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             # Log failures but don't block
             if result and result['returncode'] != 0:
                 print(f'[yellow]⚠️ CrawlEnd hook failed: {hook.name}[/yellow]')
+
+
+# =============================================================================
+# State Machines
+# =============================================================================
+
+class CrawlMachine(BaseStateMachine, strict_states=True):
+    """
+    State machine for managing Crawl lifecycle.
+
+    Hook Lifecycle:
+    ┌─────────────────────────────────────────────────────────────┐
+    │ QUEUED State                                                │
+    │  • Waiting for crawl to be ready (has URLs)                 │
+    └─────────────────────────────────────────────────────────────┘
+                            ↓ tick() when can_start()
+    ┌─────────────────────────────────────────────────────────────┐
+    │ STARTED State → enter_started()                             │
+    │  1. crawl.run()                                             │
+    │     • discover_hooks('Crawl') → finds all crawl hooks       │
+    │     • For each hook:                                        │
+    │       - run_hook(script, output_dir, ...)                   │
+    │       - Parse JSONL from hook output                        │
+    │       - process_hook_records() → creates Snapshots          │
+    │     • create_root_snapshot() → root snapshot for crawl      │
+    │     • create_snapshots_from_urls() → from self.urls field   │
+    │                                                              │
+    │  2. Snapshots process independently with their own          │
+    │     state machines (see SnapshotMachine)                    │
+    └─────────────────────────────────────────────────────────────┘
+                            ↓ tick() when is_finished()
+    ┌─────────────────────────────────────────────────────────────┐
+    │ SEALED State → enter_sealed()                               │
+    │  • cleanup() → runs on_CrawlEnd hooks, kills background     │
+    │  • Set retry_at=None (no more processing)                   │
+    └─────────────────────────────────────────────────────────────┘
+    """
+
+    model_attr_name = 'crawl'
+
+    # States
+    queued = State(value=Crawl.StatusChoices.QUEUED, initial=True)
+    started = State(value=Crawl.StatusChoices.STARTED)
+    sealed = State(value=Crawl.StatusChoices.SEALED, final=True)
+
+    # Tick Event
+    tick = (
+        queued.to.itself(unless='can_start') |
+        queued.to(started, cond='can_start') |
+        started.to.itself(unless='is_finished') |
+        started.to(sealed, cond='is_finished')
+    )
+
+    def can_start(self) -> bool:
+        if not self.crawl.urls:
+            print(f'[red]⚠️ Crawl {self.crawl.id} cannot start: no URLs[/red]')
+            return False
+        urls_list = self.crawl.get_urls_list()
+        if not urls_list:
+            print(f'[red]⚠️ Crawl {self.crawl.id} cannot start: no valid URLs in urls field[/red]')
+            return False
+        return True
+
+    def is_finished(self) -> bool:
+        from archivebox.core.models import Snapshot
+
+        # check that at least one snapshot exists for this crawl
+        snapshots = Snapshot.objects.filter(crawl=self.crawl)
+        if not snapshots.exists():
+            return False
+
+        # check if all snapshots are sealed
+        # Snapshots handle their own background hooks via the step system,
+        # so we just need to wait for all snapshots to reach sealed state
+        if snapshots.filter(status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED]).exists():
+            return False
+
+        return True
+
+    @started.enter
+    def enter_started(self):
+        # Lock the crawl by bumping retry_at so other workers don't pick it up while we create snapshots
+        self.crawl.update_and_requeue(
+            retry_at=timezone.now() + timedelta(seconds=30),  # Lock for 30 seconds
+        )
+
+        try:
+            # Run the crawl - runs hooks, processes JSONL, creates snapshots
+            self.crawl.run()
+
+            # Update status to STARTED once snapshots are created
+            # Set retry_at to future so we don't busy-loop - wait for snapshots to process
+            self.crawl.update_and_requeue(
+                retry_at=timezone.now() + timedelta(seconds=5),  # Check again in 5s
+                status=Crawl.StatusChoices.STARTED,
+            )
+        except Exception as e:
+            print(f'[red]⚠️ Crawl {self.crawl.id} failed to start: {e}[/red]')
+            import traceback
+            traceback.print_exc()
+            # Re-raise so the worker knows it failed
+            raise
+
+    def on_started_to_started(self):
+        """Called when Crawl stays in started state (snapshots not sealed yet)."""
+        # Bump retry_at so we check again in a few seconds
+        self.crawl.update_and_requeue(
+            retry_at=timezone.now() + timedelta(seconds=5),
+        )
+
+    @sealed.enter
+    def enter_sealed(self):
+        # Clean up background hooks and run on_CrawlEnd hooks
+        self.crawl.cleanup()
+
+        self.crawl.update_and_requeue(
+            retry_at=None,
+            status=Crawl.StatusChoices.SEALED,
+        )
+
+
+# =============================================================================
+# Register State Machines
+# =============================================================================
+
+# Manually register state machines with python-statemachine registry
+# (normally auto-discovered from statemachines.py, but we define them here for clarity)
+registry.register(CrawlMachine)

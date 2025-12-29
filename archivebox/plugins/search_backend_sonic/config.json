@@ -3,34 +3,36 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "SEARCH_BACKEND_HOST_NAME": {
+    "SEARCH_BACKEND_SONIC_HOST_NAME": {
       "type": "string",
       "default": "127.0.0.1",
-      "x-aliases": ["SONIC_HOST"],
+      "x-aliases": ["SEARCH_BACKEND_HOST_NAME", "SONIC_HOST"],
       "description": "Sonic server hostname"
     },
-    "SEARCH_BACKEND_PORT": {
+    "SEARCH_BACKEND_SONIC_PORT": {
       "type": "integer",
       "default": 1491,
       "minimum": 1,
       "maximum": 65535,
-      "x-aliases": ["SONIC_PORT"],
+      "x-aliases": ["SEARCH_BACKEND_PORT", "SONIC_PORT"],
       "description": "Sonic server port"
     },
-    "SEARCH_BACKEND_PASSWORD": {
+    "SEARCH_BACKEND_SONIC_PASSWORD": {
       "type": "string",
       "default": "SecretPassword",
-      "x-aliases": ["SONIC_PASSWORD"],
+      "x-aliases": ["SEARCH_BACKEND_PASSWORD", "SONIC_PASSWORD"],
       "description": "Sonic server password"
     },
-    "SONIC_COLLECTION": {
+    "SEARCH_BACKEND_SONIC_COLLECTION": {
       "type": "string",
       "default": "archivebox",
+      "x-aliases": ["SONIC_COLLECTION"],
       "description": "Sonic collection name"
     },
-    "SONIC_BUCKET": {
+    "SEARCH_BACKEND_SONIC_BUCKET": {
       "type": "string",
       "default": "snapshots",
+      "x-aliases": ["SONIC_BUCKET"],
       "description": "Sonic bucket name"
     }
   }

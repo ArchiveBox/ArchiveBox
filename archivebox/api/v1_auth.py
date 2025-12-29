@@ -6,8 +6,8 @@ from ninja import Router, Schema
 from django.utils import timezone
 from datetime import timedelta
 
-from api.models import APIToken
-from api.auth import auth_using_token, auth_using_password, get_or_create_api_token
+from archivebox.api.models import APIToken
+from archivebox.api.auth import auth_using_token, auth_using_password, get_or_create_api_token
 
 
 router = Router(tags=['Authentication'], auth=None)

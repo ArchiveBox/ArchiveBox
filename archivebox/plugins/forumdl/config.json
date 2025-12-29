@@ -3,9 +3,10 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "SAVE_FORUMDL": {
+    "FORUMDL_ENABLED": {
       "type": "boolean",
       "default": true,
+      "x-aliases": ["SAVE_FORUMDL", "USE_FORUMDL"],
       "description": "Enable forum downloading with forum-dl"
     },
     "FORUMDL_BINARY": {

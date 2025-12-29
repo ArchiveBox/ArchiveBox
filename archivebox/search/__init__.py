@@ -23,7 +23,7 @@ from archivebox.misc.logging import stderr
 from archivebox.config.common import SEARCH_BACKEND_CONFIG
 
 if TYPE_CHECKING:
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
 
 
 # Cache discovered backends to avoid repeated filesystem scans
@@ -80,7 +80,7 @@ def query_search_index(query: str) -> QuerySet:
 
     Returns a QuerySet of Snapshot objects matching the search.
     """
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
 
     if not SEARCH_BACKEND_CONFIG.USE_SEARCHING_BACKEND:
         return Snapshot.objects.none()

@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from workers.orchestrator import Orchestrator
+from archivebox.workers.orchestrator import Orchestrator
 
 
 class Command(BaseCommand):

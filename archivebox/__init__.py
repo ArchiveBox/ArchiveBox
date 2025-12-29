@@ -24,12 +24,14 @@ ASCII_LOGO = """
 ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝
 """
 
-# make sure PACKAGE_DIR is in sys.path so we can import all subfolders
-# without necessarily waiting for django to load them thorugh INSTALLED_APPS
 PACKAGE_DIR = Path(__file__).resolve().parent
+
+# Add PACKAGE_DIR to sys.path - required for Django migrations to import models
+# Migrations reference models like 'machine.Binary' which need to be importable
 if str(PACKAGE_DIR) not in sys.path:
     sys.path.append(str(PACKAGE_DIR))
-os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
+
+os.environ['DJANGO_SETTINGS_MODULE'] = 'archivebox.core.settings'
 os.environ['TZ'] = 'UTC'
 
 # detect ArchiveBox user's UID/GID based on data dir ownership

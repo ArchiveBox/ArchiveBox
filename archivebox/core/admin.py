@@ -3,11 +3,11 @@ __package__ = 'archivebox.core'
 from django.contrib.auth import get_user_model
 
 
-from core.models import Snapshot, ArchiveResult, Tag
-from core.admin_tags import TagAdmin
-from core.admin_snapshots import SnapshotAdmin
-from core.admin_archiveresults import ArchiveResultAdmin
-from core.admin_users import UserAdmin
+from archivebox.core.models import Snapshot, ArchiveResult, Tag
+from archivebox.core.admin_tags import TagAdmin
+from archivebox.core.admin_snapshots import SnapshotAdmin
+from archivebox.core.admin_archiveresults import ArchiveResultAdmin
+from archivebox.core.admin_users import UserAdmin
 
 
 def register_admin(admin_site):

@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": ["chrome"],
+  "properties": {
+    "DOM_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["SAVE_DOM", "USE_DOM"],
+      "description": "Enable DOM capture"
+    },
+    "DOM_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for DOM capture in seconds"
+    }
+  }
+}

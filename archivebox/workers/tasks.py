@@ -41,7 +41,7 @@ def bg_archive_snapshots(snapshots, kwargs: dict | None = None) -> int:
 
     Returns the number of snapshots queued.
     """
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
 
     kwargs = kwargs or {}
 
@@ -68,7 +68,7 @@ def bg_archive_snapshot(snapshot, overwrite: bool = False, methods: list | None 
 
     Returns 1 if queued, 0 otherwise.
     """
-    from core.models import Snapshot
+    from archivebox.core.models import Snapshot
 
     # Queue the snapshot by setting status to queued
     if hasattr(snapshot, 'id'):

@@ -170,10 +170,6 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
             if normalized != url:
                 urls_found.add(unescape(normalized))
 
-    if not urls_found:
-        click.echo('No URLs found', err=True)
-        sys.exit(1)
-
     # Emit Snapshot records to stdout (JSONL)
     for found_url in sorted(urls_found):
         record = {
@@ -189,7 +185,17 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
 
         print(json.dumps(record))
 
-    click.echo(f'Found {len(urls_found)} URLs', err=True)
+    # Emit ArchiveResult record to mark completion
+    status = 'succeeded' if urls_found else 'skipped'
+    output_str = f'Found {len(urls_found)} URLs' if urls_found else 'No URLs found'
+    ar_record = {
+        'type': 'ArchiveResult',
+        'status': status,
+        'output_str': output_str,
+    }
+    print(json.dumps(ar_record))
+
+    click.echo(output_str, err=True)
     sys.exit(0)
 
 

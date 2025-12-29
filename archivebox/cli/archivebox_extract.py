@@ -43,7 +43,7 @@ def process_archiveresult_by_id(archiveresult_id: str) -> int:
     Triggers the ArchiveResult's state machine tick() to run the extractor plugin.
     """
     from rich import print as rprint
-    from core.models import ArchiveResult
+    from archivebox.core.models import ArchiveResult
 
     try:
         archiveresult = ArchiveResult.objects.get(id=archiveresult_id)
@@ -95,7 +95,7 @@ def run_plugins(
         read_args_or_stdin, write_record, archiveresult_to_jsonl,
         TYPE_SNAPSHOT, TYPE_ARCHIVERESULT
     )
-    from core.models import Snapshot, ArchiveResult
+    from archivebox.core.models import Snapshot, ArchiveResult
     from workers.orchestrator import Orchestrator
 
     is_tty = sys.stdout.isatty()
@@ -155,7 +155,6 @@ def run_plugins(
                 defaults={
                     'status': ArchiveResult.StatusChoices.QUEUED,
                     'retry_at': timezone.now(),
-                    'created_by_id': snapshot.created_by_id,
                 }
             )
             if not created and result.status in [ArchiveResult.StatusChoices.FAILED, ArchiveResult.StatusChoices.SKIPPED]:
@@ -218,7 +217,7 @@ def is_archiveresult_id(value: str) -> bool:
     if not uuid_pattern.match(value):
         return False
     # Verify it's actually an ArchiveResult (not a Snapshot or other object)
-    from core.models import ArchiveResult
+    from archivebox.core.models import ArchiveResult
     return ArchiveResult.objects.filter(id=value).exists()
 
 

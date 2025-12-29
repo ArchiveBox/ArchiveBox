@@ -13,7 +13,7 @@ def test_title_is_extracted(tmp_path, process, disable_extractors_dict):
     conn = sqlite3.connect("index.sqlite3")
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    c.execute("SELECT title from core_snapshot")
+    c.execute("SELECT title from archivebox.core.snapshot")
     snapshot = c.fetchone()
     conn.close()
 

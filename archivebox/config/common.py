@@ -123,9 +123,7 @@ class ArchivingConfig(BaseConfigSet):
     OVERWRITE: bool = Field(default=False)
 
     TIMEOUT: int = Field(default=60)
-    MEDIA_TIMEOUT: int = Field(default=3600)
 
-    MEDIA_MAX_SIZE: str = Field(default="750m")
     RESOLUTION: str = Field(default="1440,2000")
     CHECK_SSL_VALIDITY: bool = Field(default=True)
     USER_AGENT: str = Field(
@@ -140,15 +138,6 @@ class ArchivingConfig(BaseConfigSet):
     SAVE_DENYLIST: Dict[str, List[str]] = Field(default={})
 
     DEFAULT_PERSONA: str = Field(default="Default")
-
-    # GIT_DOMAINS: str                    = Field(default='github.com,bitbucket.org,gitlab.com,gist.github.com,codeberg.org,gitea.com,git.sr.ht')
-    # WGET_USER_AGENT: str                = Field(default=lambda c: c['USER_AGENT'] + ' wget/{WGET_VERSION}')
-    # CURL_USER_AGENT: str                = Field(default=lambda c: c['USER_AGENT'] + ' curl/{CURL_VERSION}')
-    # CHROME_USER_AGENT: str              = Field(default=lambda c: c['USER_AGENT'])
-    # CHROME_USER_DATA_DIR: str | None    = Field(default=None)
-    # CHROME_TIMEOUT: int                 = Field(default=0)
-    # CHROME_HEADLESS: bool               = Field(default=True)
-    # CHROME_SANDBOX: bool                = Field(default=lambda: not SHELL_CONFIG.IN_DOCKER)
 
     def validate(self):
         if int(self.TIMEOUT) < 5:
@@ -215,7 +204,6 @@ class SearchBackendConfig(BaseConfigSet):
 
     SEARCH_BACKEND_ENGINE: str = Field(default="ripgrep")
     SEARCH_PROCESS_HTML: bool = Field(default=True)
-    SEARCH_BACKEND_TIMEOUT: int = Field(default=10)
 
 
 SEARCH_BACKEND_CONFIG = SearchBackendConfig()

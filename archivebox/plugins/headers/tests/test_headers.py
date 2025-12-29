@@ -2,6 +2,7 @@
 Integration tests for headers plugin
 
 Tests verify:
+    pass
 1. Plugin script exists and is executable
 2. Node.js is available
 3. Headers extraction works for real example.com
@@ -38,7 +39,7 @@ def test_node_is_available():
     )
 
     if result.returncode != 0:
-        pytest.skip("node not installed on system")
+        pass
 
     binary_path = result.stdout.strip()
     assert Path(binary_path).exists(), f"Binary should exist at {binary_path}"
@@ -59,7 +60,7 @@ def test_extracts_headers_from_example_com():
 
     # Check node is available
     if not shutil.which('node'):
-        pytest.skip("node not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -80,6 +81,7 @@ def test_extracts_headers_from_example_com():
         for line in result.stdout.strip().split('\n'):
             line = line.strip()
             if line.startswith('{'):
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'ArchiveResult':
@@ -119,7 +121,7 @@ def test_headers_output_structure():
     """Test that headers plugin produces correctly structured output."""
 
     if not shutil.which('node'):
-        pytest.skip("node not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -140,6 +142,7 @@ def test_headers_output_structure():
         for line in result.stdout.strip().split('\n'):
             line = line.strip()
             if line.startswith('{'):
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'ArchiveResult':
@@ -175,7 +178,7 @@ def test_falls_back_to_http_when_chrome_unavailable():
     """Test that headers plugin falls back to HTTP HEAD when chrome unavailable."""
 
     if not shutil.which('node'):
-        pytest.skip("node not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -198,6 +201,7 @@ def test_falls_back_to_http_when_chrome_unavailable():
         for line in result.stdout.strip().split('\n'):
             line = line.strip()
             if line.startswith('{'):
+                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'ArchiveResult':
@@ -224,7 +228,7 @@ def test_config_timeout_honored():
     """Test that TIMEOUT config is respected."""
 
     if not shutil.which('node'):
-        pytest.skip("node not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -251,7 +255,7 @@ def test_config_user_agent():
     """Test that USER_AGENT config is used."""
 
     if not shutil.which('node'):
-        pytest.skip("node not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -277,6 +281,7 @@ def test_config_user_agent():
             for line in result.stdout.strip().split('\n'):
                 line = line.strip()
                 if line.startswith('{'):
+                    pass
                     try:
                         record = json.loads(line)
                         if record.get('type') == 'ArchiveResult':
@@ -293,7 +298,7 @@ def test_handles_https_urls():
     """Test that HTTPS URLs work correctly."""
 
     if not shutil.which('node'):
-        pytest.skip("node not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -318,7 +323,7 @@ def test_handles_404_gracefully():
     """Test that headers plugin handles 404s gracefully."""
 
     if not shutil.which('node'):
-        pytest.skip("node not installed")
+        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)

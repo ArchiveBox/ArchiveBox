@@ -2,7 +2,7 @@
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.utils import timezone
-from api.auth import get_or_create_api_token
+from archivebox.api.auth import get_or_create_api_token
 
 
 class JobsDashboardView(UserPassesTestMixin, TemplateView):

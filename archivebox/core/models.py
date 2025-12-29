@@ -9,6 +9,8 @@ import os
 import json
 from pathlib import Path
 
+from statemachine import State, registry
+
 from django.db import models
 from django.db.models import QuerySet, Value, Case, When, IntegerField
 from django.utils.functional import cached_property
@@ -33,10 +35,10 @@ from archivebox.base_models.models import (
     ModelWithConfig, ModelWithNotes, ModelWithHealthStats,
     get_or_create_system_user_pk,
 )
-from workers.models import ModelWithStateMachine
-from workers.tasks import bg_archive_snapshot
-from crawls.models import Crawl
-from machine.models import NetworkInterface, Binary
+from archivebox.workers.models import ModelWithStateMachine, BaseStateMachine
+from archivebox.workers.tasks import bg_archive_snapshot
+from archivebox.crawls.models import Crawl
+from archivebox.machine.models import NetworkInterface, Binary
 
 
 
@@ -53,6 +55,7 @@ class Tag(ModelWithSerializers):
     snapshot_set: models.Manager['Snapshot']
 
     class Meta(TypedModelMeta):
+        app_label = 'core'
         verbose_name = "Tag"
         verbose_name_plural = "Tags"
 
@@ -122,6 +125,7 @@ class SnapshotTag(models.Model):
     tag = models.ForeignKey(Tag, db_column='tag_id', on_delete=models.CASCADE, to_field='id')
 
     class Meta:
+        app_label = 'core'
         db_table = 'core_snapshot_tags'
         unique_together = [('snapshot', 'tag')]
 
@@ -263,52 +267,6 @@ class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):
     # Import Methods
     # =========================================================================
 
-    def create_or_update_from_dict(self, link_dict: Dict[str, Any], created_by_id: Optional[int] = None) -> 'Snapshot':
-        """Create or update a Snapshot from a SnapshotDict (parser output)"""
-        import re
-        from archivebox.config.common import GENERAL_CONFIG
-
-        url = link_dict['url']
-        timestamp = link_dict.get('timestamp')
-        title = link_dict.get('title')
-        tags_str = link_dict.get('tags')
-
-        tag_list = []
-        if tags_str:
-            tag_list = list(dict.fromkeys(
-                tag.strip() for tag in re.split(GENERAL_CONFIG.TAG_SEPARATOR_PATTERN, tags_str)
-                if tag.strip()
-            ))
-
-        # Get most recent snapshot with this URL (URLs can exist in multiple crawls)
-        snapshot = self.filter(url=url).order_by('-created_at').first()
-        if snapshot:
-            if title and (not snapshot.title or len(title) > len(snapshot.title or '')):
-                snapshot.title = title
-                snapshot.save(update_fields=['title', 'modified_at'])
-        else:
-            if timestamp:
-                while self.filter(timestamp=timestamp).exists():
-                    timestamp = str(float(timestamp) + 1.0)
-
-            snapshot = self.create(
-                url=url,
-                timestamp=timestamp,
-                title=title,
-                created_by_id=created_by_id or get_or_create_system_user_pk(),
-            )
-
-        if tag_list:
-            existing_tags = set(snapshot.tags.values_list('name', flat=True))
-            new_tags = set(tag_list) | existing_tags
-            snapshot.save_tags(new_tags)
-
-        return snapshot
-
-    def create_from_dicts(self, link_dicts: List[Dict[str, Any]], created_by_id: Optional[int] = None) -> List['Snapshot']:
-        """Create or update multiple Snapshots from a list of SnapshotDicts"""
-        return [self.create_or_update_from_dict(d, created_by_id=created_by_id) for d in link_dicts]
-
     def remove(self, atomic: bool = False) -> tuple:
         """Remove snapshots from the database"""
         from django.db import transaction
@@ -320,14 +278,13 @@ class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):
 
 class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, ModelWithStateMachine):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False, related_name='snapshot_set', db_index=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
 
     url = models.URLField(unique=False, db_index=True)  # URLs can appear in multiple crawls
     timestamp = models.CharField(max_length=32, unique=True, db_index=True, editable=False)
     bookmarked_at = models.DateTimeField(default=timezone.now, db_index=True)
-    crawl: Crawl = models.ForeignKey(Crawl, on_delete=models.CASCADE, default=None, null=True, blank=True, related_name='snapshot_set', db_index=True)  # type: ignore
+    crawl: Crawl = models.ForeignKey(Crawl, on_delete=models.CASCADE, null=False, related_name='snapshot_set', db_index=True)  # type: ignore[assignment]
     parent_snapshot = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='child_snapshots', db_index=True, help_text='Parent snapshot that discovered this URL (for recursive crawling)')
 
     title = models.CharField(max_length=512, null=True, blank=True, db_index=True)
@@ -344,7 +301,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
     tags = models.ManyToManyField(Tag, blank=True, through=SnapshotTag, related_name='snapshot_set', through_fields=('snapshot', 'tag'))
 
-    state_machine_name = 'core.statemachines.SnapshotMachine'
+    state_machine_name = 'core.models.SnapshotMachine'
     state_field_name = 'status'
     retry_at_field_name = 'retry_at'
     StatusChoices = ModelWithStateMachine.StatusChoices
@@ -354,6 +311,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     archiveresult_set: models.Manager['ArchiveResult']
 
     class Meta(TypedModelMeta):
+        app_label = 'core'
         verbose_name = "Snapshot"
         verbose_name_plural = "Snapshots"
         constraints = [
@@ -365,6 +323,11 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
     def __str__(self):
         return f'[{self.id}] {self.url[:64]}'
+
+    @property
+    def created_by(self):
+        """Convenience property to access the user who created this snapshot via its crawl."""
+        return self.crawl.created_by
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
@@ -395,7 +358,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 self.fs_version = target
 
         super().save(*args, **kwargs)
-        if self.crawl and self.url not in self.crawl.urls:
+        if self.url not in self.crawl.urls:
             self.crawl.urls += f'\n{self.url}'
             self.crawl.save()
 
@@ -408,7 +371,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 url=self.url,
                 metadata={
                     'id': str(self.id),
-                    'crawl_id': str(self.crawl_id) if self.crawl_id else None,
+                    'crawl_id': str(self.crawl_id),
                     'depth': self.depth,
                     'status': self.status,
                 },
@@ -437,20 +400,11 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         return self.fs_version != self._fs_current_version()
 
     def _fs_next_version(self, version: str) -> str:
-        """Get next version in migration chain"""
-        chain = ['0.7.0', '0.8.0', '0.9.0']
-        try:
-            idx = chain.index(version)
-            return chain[idx + 1] if idx + 1 < len(chain) else self._fs_current_version()
-        except ValueError:
-            # Unknown version - skip to current
-            return self._fs_current_version()
-
-    def _fs_migrate_from_0_7_0_to_0_8_0(self):
-        """Migration from 0.7.0 to 0.8.0 layout (no-op)"""
-        # 0.7 and 0.8 both used archive/<timestamp>
-        # Nothing to do!
-        pass
+        """Get next version in migration chain (0.7/0.8 had same layout, only 0.8→0.9 migration needed)"""
+        # Treat 0.7.0 and 0.8.0 as equivalent (both used archive/{timestamp})
+        if version in ('0.7.0', '0.8.0'):
+            return '0.9.0'
+        return self._fs_current_version()
 
     def _fs_migrate_from_0_8_0_to_0_9_0(self):
         """
@@ -578,7 +532,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             return CONSTANTS.ARCHIVE_DIR / self.timestamp
 
         elif version in ('0.9.0', '1.0.0'):
-            username = self.created_by.username if self.created_by else 'unknown'
+            username = self.created_by.username
 
             # Use created_at for date grouping (fallback to timestamp)
             if self.created_at:
@@ -875,7 +829,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 pwd=result_data.get('pwd', str(self.output_dir)),
                 start_ts=start_ts,
                 end_ts=end_ts,
-                created_by=self.created_by,
             )
         except:
             pass
@@ -1069,6 +1022,12 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 result = archive_results.get(plugin)
                 existing = result and result.status == 'succeeded' and (result.output_files or result.output_str)
                 icon = get_plugin_icon(plugin)
+
+                # Skip plugins with empty icons that have no output
+                # (e.g., staticfile only shows when there's actual output)
+                if not icon.strip() and not existing:
+                    continue
+
                 output += format_html(
                     output_template,
                     path,
@@ -1139,9 +1098,20 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
     def run(self) -> list['ArchiveResult']:
         """
-        Execute this Snapshot by creating ArchiveResults for all enabled extractors.
+        Execute snapshot by creating pending ArchiveResults for all enabled hooks.
 
-        Called by the state machine when entering the 'started' state.
+        Called by: SnapshotMachine.enter_started()
+
+        Hook Lifecycle:
+            1. discover_hooks('Snapshot') → finds all plugin hooks
+            2. For each hook:
+               - Create ArchiveResult with status=QUEUED
+               - Store hook_name (e.g., 'on_Snapshot__50_wget.py')
+            3. ArchiveResults execute independently via ArchiveResultMachine
+            4. Hook execution happens in ArchiveResult.run(), NOT here
+
+        Returns:
+            list[ArchiveResult]: Newly created pending results
         """
         return self.create_pending_archiveresults()
 
@@ -1152,28 +1122,20 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         Called by the state machine when entering the 'sealed' state.
         Kills any background hooks and finalizes their ArchiveResults.
         """
-        from pathlib import Path
         from archivebox.hooks import kill_process
 
         # Kill any background ArchiveResult hooks
         if not self.OUTPUT_DIR.exists():
             return
 
-        for plugin_dir in self.OUTPUT_DIR.iterdir():
-            if not plugin_dir.is_dir():
-                continue
-            pid_file = plugin_dir / 'hook.pid'
-            if pid_file.exists():
-                kill_process(pid_file, validate=True)  # Use validation
+        # Find all .pid files in this snapshot's output directory
+        for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
+            kill_process(pid_file, validate=True)
 
-                # Update the ArchiveResult from filesystem
-                plugin_name = plugin_dir.name
-                results = self.archiveresult_set.filter(
-                    status=ArchiveResult.StatusChoices.STARTED,
-                    pwd__contains=plugin_name
-                )
-                for ar in results:
-                    ar.update_from_output()
+        # Update all STARTED ArchiveResults from filesystem
+        results = self.archiveresult_set.filter(status=ArchiveResult.StatusChoices.STARTED)
+        for ar in results:
+            ar.update_from_output()
 
     def has_running_background_hooks(self) -> bool:
         """
@@ -1196,51 +1158,156 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         return False
 
     @staticmethod
-    def from_jsonl(record: Dict[str, Any], overrides: Dict[str, Any] = None):
+    def from_jsonl(record: Dict[str, Any], overrides: Dict[str, Any] = None, queue_for_extraction: bool = True):
         """
-        Create/update Snapshot from JSONL record.
+        Create/update Snapshot from JSONL record or dict.
+
+        Unified method that handles:
+        - ID-based patching: {"id": "...", "title": "new title"}
+        - URL-based create/update: {"url": "...", "title": "...", "tags": "..."}
+        - Auto-creates Crawl if not provided
+        - Optionally queues for extraction
 
         Args:
-            record: JSONL record with 'url' field and optional metadata
+            record: Dict with 'url' (for create) or 'id' (for patch), plus other fields
             overrides: Dict with 'crawl', 'snapshot' (parent), 'created_by_id'
+            queue_for_extraction: If True, sets status=QUEUED and retry_at (default: True)
 
         Returns:
             Snapshot instance or None
-
-        Note:
-            Filtering (depth, URL allowlist/denylist) should be done by caller
-            BEFORE calling this method. This method just creates the snapshot.
         """
-        from archivebox.misc.jsonl import get_or_create_snapshot
+        import re
         from django.utils import timezone
+        from archivebox.misc.util import parse_date
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.config.common import GENERAL_CONFIG
 
         overrides = overrides or {}
+
+        # If 'id' is provided, lookup and patch that specific snapshot
+        snapshot_id = record.get('id')
+        if snapshot_id:
+            try:
+                snapshot = Snapshot.objects.get(id=snapshot_id)
+
+                # Generically update all fields present in record
+                update_fields = []
+                for field_name, value in record.items():
+                    # Skip internal fields
+                    if field_name in ('id', 'type'):
+                        continue
+
+                    # Skip if field doesn't exist on model
+                    if not hasattr(snapshot, field_name):
+                        continue
+
+                    # Special parsing for date fields
+                    if field_name in ('bookmarked_at', 'retry_at', 'created_at', 'modified_at'):
+                        if value and isinstance(value, str):
+                            value = parse_date(value)
+
+                    # Update field if value is provided and different
+                    if value is not None and getattr(snapshot, field_name) != value:
+                        setattr(snapshot, field_name, value)
+                        update_fields.append(field_name)
+
+                if update_fields:
+                    snapshot.save(update_fields=update_fields + ['modified_at'])
+
+                return snapshot
+            except Snapshot.DoesNotExist:
+                # ID not found, fall through to create-by-URL logic
+                pass
+
         url = record.get('url')
         if not url:
             return None
 
-        # Apply crawl context metadata
+        # Determine or create crawl (every snapshot must have a crawl)
         crawl = overrides.get('crawl')
-        snapshot = overrides.get('snapshot')  # Parent snapshot
+        parent_snapshot = overrides.get('snapshot')  # Parent snapshot
+        created_by_id = overrides.get('created_by_id') or (parent_snapshot.created_by.pk if parent_snapshot else get_or_create_system_user_pk())
 
-        if crawl:
-            record.setdefault('crawl_id', str(crawl.id))
-            record.setdefault('depth', (snapshot.depth + 1 if snapshot else 1))
-            if snapshot:
-                record.setdefault('parent_snapshot_id', str(snapshot.id))
+        # If no crawl provided, inherit from parent or auto-create one
+        if not crawl:
+            if parent_snapshot:
+                # Inherit crawl from parent snapshot
+                crawl = parent_snapshot.crawl
+            else:
+                # Auto-create a single-URL crawl
+                from archivebox.crawls.models import Crawl
+                from archivebox.config import CONSTANTS
 
-        try:
-            created_by_id = overrides.get('created_by_id') or (snapshot.created_by_id if snapshot else None)
-            new_snapshot = get_or_create_snapshot(record, created_by_id=created_by_id)
+                timestamp_str = timezone.now().strftime("%Y-%m-%d__%H-%M-%S")
+                sources_file = CONSTANTS.SOURCES_DIR / f'{timestamp_str}__auto_crawl.txt'
+                sources_file.parent.mkdir(parents=True, exist_ok=True)
+                sources_file.write_text(url)
 
-            # Queue for extraction
-            new_snapshot.status = Snapshot.StatusChoices.QUEUED
-            new_snapshot.retry_at = timezone.now()
-            new_snapshot.save()
+                crawl = Crawl.objects.create(
+                    urls=url,
+                    max_depth=0,
+                    label=f'auto-created for {url[:50]}',
+                    created_by_id=created_by_id,
+                )
 
-            return new_snapshot
-        except ValueError:
-            return None
+        # Parse tags
+        tags_str = record.get('tags', '')
+        tag_list = []
+        if tags_str:
+            tag_list = list(dict.fromkeys(
+                tag.strip() for tag in re.split(GENERAL_CONFIG.TAG_SEPARATOR_PATTERN, tags_str)
+                if tag.strip()
+            ))
+
+        # Get most recent snapshot with this URL (URLs can exist in multiple crawls)
+        snapshot = Snapshot.objects.filter(url=url).order_by('-created_at').first()
+
+        title = record.get('title')
+        timestamp = record.get('timestamp')
+
+        if snapshot:
+            # Update existing snapshot
+            if title and (not snapshot.title or len(title) > len(snapshot.title or '')):
+                snapshot.title = title
+                snapshot.save(update_fields=['title', 'modified_at'])
+        else:
+            # Create new snapshot
+            if timestamp:
+                while Snapshot.objects.filter(timestamp=timestamp).exists():
+                    timestamp = str(float(timestamp) + 1.0)
+
+            snapshot = Snapshot.objects.create(
+                url=url,
+                timestamp=timestamp,
+                title=title,
+                crawl=crawl,
+            )
+
+        # Update tags
+        if tag_list:
+            existing_tags = set(snapshot.tags.values_list('name', flat=True))
+            new_tags = set(tag_list) | existing_tags
+            snapshot.save_tags(new_tags)
+
+        # Queue for extraction and update additional fields
+        update_fields = []
+
+        if queue_for_extraction:
+            snapshot.status = Snapshot.StatusChoices.QUEUED
+            snapshot.retry_at = timezone.now()
+            update_fields.extend(['status', 'retry_at'])
+
+        # Update additional fields if provided
+        for field_name in ('depth', 'parent_snapshot_id', 'crawl_id', 'bookmarked_at'):
+            value = record.get(field_name)
+            if value is not None and getattr(snapshot, field_name) != value:
+                setattr(snapshot, field_name, value)
+                update_fields.append(field_name)
+
+        if update_fields:
+            snapshot.save(update_fields=update_fields + ['modified_at'])
+
+        return snapshot
 
     def create_pending_archiveresults(self) -> list['ArchiveResult']:
         """
@@ -1273,7 +1340,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                     'plugin': plugin,
                     'status': ArchiveResult.INITIAL_STATE,
                     'retry_at': timezone.now(),
-                    'created_by_id': self.created_by_id,
                 },
             )
             if archiveresult.status == ArchiveResult.INITIAL_STATE:
@@ -1327,6 +1393,36 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         # All foreground hooks in current step are finished - advance!
         self.current_step += 1
         self.save(update_fields=['current_step', 'modified_at'])
+        return True
+
+    def is_finished_processing(self) -> bool:
+        """
+        Check if this snapshot has finished processing.
+
+        Used by SnapshotMachine.is_finished() to determine if snapshot is complete.
+
+        Returns:
+            True if all archiveresults are finished (or no work to do), False otherwise.
+        """
+        # if no archiveresults exist yet, it's not finished
+        if not self.archiveresult_set.exists():
+            return False
+
+        # Try to advance step if ready (handles step-based hook execution)
+        # This will increment current_step when all foreground hooks in current step are done
+        while self.advance_step_if_ready():
+            pass  # Keep advancing until we can't anymore
+
+        # if archiveresults exist but are still pending, it's not finished
+        if self.pending_archiveresults().exists():
+            return False
+
+        # Don't wait for background hooks - they'll be cleaned up on entering sealed state
+        # Background hooks in STARTED state are excluded by pending_archiveresults()
+        # (STARTED is in FINAL_OR_ACTIVE_STATES) so once all results are FINAL or ACTIVE,
+        # we can transition to sealed and cleanup() will kill the background hooks
+
+        # otherwise archiveresults exist and are all finished, so it's finished
         return True
 
     def retry_failed_archiveresults(self, retry_at: Optional['timezone.datetime'] = None) -> int:
@@ -1730,6 +1826,97 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         return dt.strftime('%Y-%m-%d %H:%M:%S') if dt else None
 
 
+# =============================================================================
+# Snapshot State Machine
+# =============================================================================
+
+class SnapshotMachine(BaseStateMachine, strict_states=True):
+    """
+    State machine for managing Snapshot lifecycle.
+
+    Hook Lifecycle:
+    ┌─────────────────────────────────────────────────────────────┐
+    │ QUEUED State                                                │
+    │  • Waiting for snapshot to be ready                         │
+    └─────────────────────────────────────────────────────────────┘
+                            ↓ tick() when can_start()
+    ┌─────────────────────────────────────────────────────────────┐
+    │ STARTED State → enter_started()                             │
+    │  1. snapshot.run()                                          │
+    │     • discover_hooks('Snapshot') → finds all plugin hooks   │
+    │     • create_pending_archiveresults() → creates ONE         │
+    │       ArchiveResult per hook (NO execution yet)             │
+    │  2. ArchiveResults process independently with their own     │
+    │     state machines (see ArchiveResultMachine)               │
+    │  3. Advance through steps 0-9 as foreground hooks complete  │
+    └─────────────────────────────────────────────────────────────┘
+                            ↓ tick() when is_finished()
+    ┌─────────────────────────────────────────────────────────────┐
+    │ SEALED State → enter_sealed()                               │
+    │  • cleanup() → kills any background hooks still running     │
+    │  • Set retry_at=None (no more processing)                   │
+    └─────────────────────────────────────────────────────────────┘
+
+    https://github.com/ArchiveBox/ArchiveBox/wiki/ArchiveBox-Architecture-Diagrams
+    """
+
+    model_attr_name = 'snapshot'
+
+    # States
+    queued = State(value=Snapshot.StatusChoices.QUEUED, initial=True)
+    started = State(value=Snapshot.StatusChoices.STARTED)
+    sealed = State(value=Snapshot.StatusChoices.SEALED, final=True)
+
+    # Tick Event
+    tick = (
+        queued.to.itself(unless='can_start') |
+        queued.to(started, cond='can_start') |
+        started.to.itself(unless='is_finished') |
+        started.to(sealed, cond='is_finished')
+    )
+
+    def can_start(self) -> bool:
+        can_start = bool(self.snapshot.url)
+        return can_start
+
+    def is_finished(self) -> bool:
+        """Check if snapshot processing is complete - delegates to model method."""
+        return self.snapshot.is_finished_processing()
+
+    @queued.enter
+    def enter_queued(self):
+        self.snapshot.update_and_requeue(
+            retry_at=timezone.now(),
+            status=Snapshot.StatusChoices.QUEUED,
+        )
+
+    @started.enter
+    def enter_started(self):
+        # lock the snapshot while we create the pending archiveresults
+        self.snapshot.update_and_requeue(
+            retry_at=timezone.now() + timedelta(seconds=30),  # if failed, wait 30s before retrying
+        )
+
+        # Run the snapshot - creates pending archiveresults for all enabled plugins
+        self.snapshot.run()
+
+        # unlock the snapshot after we're done + set status = started
+        self.snapshot.update_and_requeue(
+            retry_at=timezone.now() + timedelta(seconds=5),  # check again in 5s
+            status=Snapshot.StatusChoices.STARTED,
+        )
+
+    @sealed.enter
+    def enter_sealed(self):
+        # Clean up background hooks
+        self.snapshot.cleanup()
+
+        self.snapshot.update_and_requeue(
+            retry_at=None,
+            status=Snapshot.StatusChoices.SEALED,
+        )
+
+
 class ArchiveResultManager(models.Manager):
     def indexable(self, sorted: bool = True):
         INDEXABLE_METHODS = [r[0] for r in EXTRACTOR_INDEXING_PRECEDENCE]
@@ -1761,7 +1948,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     # Note: unique constraint is added by migration 0027 - don't set unique=True here
     # or SQLite table recreation in earlier migrations will fail
     uuid = models.UUIDField(default=uuid7, null=True, blank=True, db_index=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False, related_name='archiveresult_set', db_index=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -1782,7 +1968,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
     # Binary FK (optional - set when hook reports cmd)
     binary = models.ForeignKey(
-        'machine.Binary',
+        Binary,
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name='archiveresults',
@@ -1798,7 +1984,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     output_dir = models.CharField(max_length=256, default=None, null=True, blank=True)
     iface = models.ForeignKey(NetworkInterface, on_delete=models.SET_NULL, null=True, blank=True)
 
-    state_machine_name = 'core.statemachines.ArchiveResultMachine'
+    state_machine_name = 'core.models.ArchiveResultMachine'
     retry_at_field_name = 'retry_at'
     state_field_name = 'status'
     active_state = StatusChoices.STARTED
@@ -1806,11 +1992,17 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     objects = ArchiveResultManager()
 
     class Meta(TypedModelMeta):
+        app_label = 'core'
         verbose_name = 'Archive Result'
         verbose_name_plural = 'Archive Results Log'
 
     def __str__(self):
         return f'[{self.id}] {self.snapshot.url[:64]} -> {self.plugin}'
+
+    @property
+    def created_by(self):
+        """Convenience property to access the user who created this archive result via its snapshot's crawl."""
+        return self.snapshot.crawl.created_by
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
@@ -1900,6 +2092,12 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     def save_search_index(self):
         pass
 
+    def cascade_health_update(self, success: bool):
+        """Update health stats for self, parent Snapshot, and grandparent Crawl."""
+        self.increment_health_stats(success)
+        self.snapshot.increment_health_stats(success)
+        self.snapshot.crawl.increment_health_stats(success)
+
     def run(self):
         """
         Execute this ArchiveResult's hook and update status.
@@ -1911,8 +2109,13 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         """
         from django.utils import timezone
         from archivebox.hooks import BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR, run_hook, is_background_hook
+        from archivebox.config.configset import get_config
 
-        config_objects = [self.snapshot.crawl, self.snapshot] if self.snapshot.crawl else [self.snapshot]
+        # Get merged config with proper context
+        config = get_config(
+            crawl=self.snapshot.crawl,
+            snapshot=self.snapshot,
+        )
 
         # Determine which hook(s) to run
         hooks = []
@@ -1962,10 +2165,10 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             result = run_hook(
                 hook,
                 output_dir=plugin_dir,
-                config_objects=config_objects,
+                config=config,
                 url=self.snapshot.url,
                 snapshot_id=str(self.snapshot.id),
-                crawl_id=str(self.snapshot.crawl.id) if self.snapshot.crawl else None,
+                crawl_id=str(self.snapshot.crawl.id),
                 depth=self.snapshot.depth,
             )
 
@@ -2112,9 +2315,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
             # Filter Snapshot records for depth/URL constraints
             if record_type == 'Snapshot':
-                if not self.snapshot.crawl:
-                    continue
-
                 url = record.get('url')
                 if not url:
                     continue
@@ -2132,18 +2332,9 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         overrides = {
             'snapshot': self.snapshot,
             'crawl': self.snapshot.crawl,
-            'created_by_id': self.snapshot.created_by_id,
+            'created_by_id': self.created_by.pk,
         }
         process_hook_records(filtered_records, overrides=overrides)
-
-        # Update snapshot title if this is the title plugin
-        plugin_name = get_plugin_name(self.plugin)
-        if self.status == self.StatusChoices.SUCCEEDED and plugin_name == 'title':
-            self._update_snapshot_title(plugin_dir)
-
-        # Trigger search indexing if succeeded
-        if self.status == self.StatusChoices.SUCCEEDED:
-            self.trigger_search_indexing()
 
         # Cleanup PID files and empty logs
         pid_file = plugin_dir / 'hook.pid'
@@ -2164,7 +2355,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         if not cmd:
             return
 
-        from machine.models import Machine
+        from archivebox.machine.models import Machine
 
         bin_path_or_name = cmd[0] if isinstance(cmd, list) else cmd
         machine = Machine.current()
@@ -2189,23 +2380,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         if binary:
             self.binary = binary
 
-    def _update_snapshot_title(self, plugin_dir: Path):
-        """
-        Update snapshot title from title plugin output.
-
-        The title plugin writes title.txt with the extracted page title.
-        This updates the Snapshot.title field if the file exists and has content.
-        """
-        title_file = plugin_dir / 'title.txt'
-        if title_file.exists():
-            try:
-                title = title_file.read_text(encoding='utf-8').strip()
-                if title and (not self.snapshot.title or len(title) > len(self.snapshot.title)):
-                    self.snapshot.title = title[:512]  # Max length from model
-                    self.snapshot.save(update_fields=['title', 'modified_at'])
-            except Exception:
-                pass  # Failed to read title, that's okay
-
     def _url_passes_filters(self, url: str) -> bool:
         """Check if URL passes URL_ALLOWLIST and URL_DENYLIST config filters.
 
@@ -2216,8 +2390,8 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
         # Get merged config with proper hierarchy
         config = get_config(
-            user=self.snapshot.created_by if self.snapshot else None,
-            crawl=self.snapshot.crawl if self.snapshot else None,
+            user=self.created_by,
+            crawl=self.snapshot.crawl,
             snapshot=self.snapshot,
         )
 
@@ -2256,23 +2430,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             return False  # No allowlist patterns matched
 
         return True  # No filters or passed filters
-    
-    def trigger_search_indexing(self):
-        """Run any ArchiveResult__index hooks to update search indexes."""
-        from archivebox.hooks import discover_hooks, run_hook
-
-        # Pass config objects in priority order (later overrides earlier)
-        config_objects = [self.snapshot.crawl, self.snapshot] if self.snapshot.crawl else [self.snapshot]
-
-        for hook in discover_hooks('ArchiveResult__index'):
-            run_hook(
-                hook,
-                output_dir=self.output_dir,
-                config_objects=config_objects,
-                url=self.snapshot.url,
-                snapshot_id=str(self.snapshot.id),
-                plugin=self.plugin,
-            )
 
     @property
     def output_dir(self) -> Path:
@@ -2286,3 +2443,184 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             return False
         pid_file = plugin_dir / 'hook.pid'
         return pid_file.exists()
+
+
+# =============================================================================
+# ArchiveResult State Machine
+# =============================================================================
+
+class ArchiveResultMachine(BaseStateMachine, strict_states=True):
+    """
+    State machine for managing ArchiveResult (single plugin execution) lifecycle.
+
+    Hook Lifecycle:
+    ┌─────────────────────────────────────────────────────────────┐
+    │ QUEUED State                                                │
+    │  • Waiting for its turn to run                              │
+    └─────────────────────────────────────────────────────────────┘
+                            ↓ tick() when can_start()
+    ┌─────────────────────────────────────────────────────────────┐
+    │ STARTED State → enter_started()                             │
+    │  1. archiveresult.run()                                     │
+    │     • Find specific hook by hook_name                       │
+    │     • run_hook(script, output_dir, ...) → subprocess        │
+    │                                                              │
+    │  2a. FOREGROUND hook (returns HookResult):                  │
+    │      • update_from_output() immediately                     │
+    │        - Read stdout.log                                    │
+    │        - Parse JSONL records                                │
+    │        - Extract 'ArchiveResult' record → update status     │
+    │        - Walk output_dir → populate output_files            │
+    │        - Call process_hook_records() for side effects       │
+    │                                                              │
+    │  2b. BACKGROUND hook (returns None):                        │
+    │      • Status stays STARTED                                 │
+    │      • Continues running in background                      │
+    │      • Killed by Snapshot.cleanup() when sealed             │
+    └─────────────────────────────────────────────────────────────┘
+                            ↓ tick() checks status
+    ┌─────────────────────────────────────────────────────────────┐
+    │ SUCCEEDED / FAILED / SKIPPED / BACKOFF                      │
+    │  • Set by hook's JSONL output during update_from_output()   │
+    │  • Health stats incremented (num_uses_succeeded/failed)     │
+    │  • Parent Snapshot health stats also updated                │
+    └─────────────────────────────────────────────────────────────┘
+
+    https://github.com/ArchiveBox/ArchiveBox/wiki/ArchiveBox-Architecture-Diagrams
+    """
+
+    model_attr_name = 'archiveresult'
+
+    # States
+    queued = State(value=ArchiveResult.StatusChoices.QUEUED, initial=True)
+    started = State(value=ArchiveResult.StatusChoices.STARTED)
+    backoff = State(value=ArchiveResult.StatusChoices.BACKOFF)
+    succeeded = State(value=ArchiveResult.StatusChoices.SUCCEEDED, final=True)
+    failed = State(value=ArchiveResult.StatusChoices.FAILED, final=True)
+    skipped = State(value=ArchiveResult.StatusChoices.SKIPPED, final=True)
+
+    # Tick Event - transitions based on conditions
+    tick = (
+        queued.to.itself(unless='can_start') |
+        queued.to(started, cond='can_start') |
+        started.to.itself(unless='is_finished') |
+        started.to(succeeded, cond='is_succeeded') |
+        started.to(failed, cond='is_failed') |
+        started.to(skipped, cond='is_skipped') |
+        started.to(backoff, cond='is_backoff') |
+        backoff.to.itself(unless='can_start') |
+        backoff.to(started, cond='can_start') |
+        backoff.to(succeeded, cond='is_succeeded') |
+        backoff.to(failed, cond='is_failed') |
+        backoff.to(skipped, cond='is_skipped')
+    )
+
+    def can_start(self) -> bool:
+        can_start = bool(self.archiveresult.snapshot.url)
+        return can_start
+
+    def is_succeeded(self) -> bool:
+        """Check if extractor plugin succeeded (status was set by run())."""
+        return self.archiveresult.status == ArchiveResult.StatusChoices.SUCCEEDED
+
+    def is_failed(self) -> bool:
+        """Check if extractor plugin failed (status was set by run())."""
+        return self.archiveresult.status == ArchiveResult.StatusChoices.FAILED
+
+    def is_skipped(self) -> bool:
+        """Check if extractor plugin was skipped (status was set by run())."""
+        return self.archiveresult.status == ArchiveResult.StatusChoices.SKIPPED
+
+    def is_backoff(self) -> bool:
+        """Check if we should backoff and retry later."""
+        # Backoff if status is still started (plugin didn't complete) and output_str is empty
+        return (
+            self.archiveresult.status == ArchiveResult.StatusChoices.STARTED and
+            not self.archiveresult.output_str
+        )
+
+    def is_finished(self) -> bool:
+        """Check if extraction has completed (success, failure, or skipped)."""
+        return self.archiveresult.status in (
+            ArchiveResult.StatusChoices.SUCCEEDED,
+            ArchiveResult.StatusChoices.FAILED,
+            ArchiveResult.StatusChoices.SKIPPED,
+        )
+
+    @queued.enter
+    def enter_queued(self):
+        self.archiveresult.update_and_requeue(
+            retry_at=timezone.now(),
+            status=ArchiveResult.StatusChoices.QUEUED,
+            start_ts=None,
+        )  # bump the snapshot's retry_at so they pickup any new changes
+
+    @started.enter
+    def enter_started(self):
+        from archivebox.machine.models import NetworkInterface
+
+        # Lock the object and mark start time
+        self.archiveresult.update_and_requeue(
+            retry_at=timezone.now() + timedelta(seconds=120),  # 2 min timeout for plugin
+            status=ArchiveResult.StatusChoices.STARTED,
+            start_ts=timezone.now(),
+            iface=NetworkInterface.current(),
+        )
+
+        # Run the plugin - this updates status, output, timestamps, etc.
+        self.archiveresult.run()
+
+        # Save the updated result
+        self.archiveresult.save()
+
+
+    @backoff.enter
+    def enter_backoff(self):
+        self.archiveresult.update_and_requeue(
+            retry_at=timezone.now() + timedelta(seconds=60),
+            status=ArchiveResult.StatusChoices.BACKOFF,
+            end_ts=None,
+        )
+
+    @succeeded.enter
+    def enter_succeeded(self):
+        self.archiveresult.update_and_requeue(
+            retry_at=None,
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            end_ts=timezone.now(),
+        )
+
+        # Update health stats for ArchiveResult, Snapshot, and Crawl cascade
+        self.archiveresult.cascade_health_update(success=True)
+
+    @failed.enter
+    def enter_failed(self):
+        self.archiveresult.update_and_requeue(
+            retry_at=None,
+            status=ArchiveResult.StatusChoices.FAILED,
+            end_ts=timezone.now(),
+        )
+
+        # Update health stats for ArchiveResult, Snapshot, and Crawl cascade
+        self.archiveresult.cascade_health_update(success=False)
+
+    @skipped.enter
+    def enter_skipped(self):
+        self.archiveresult.update_and_requeue(
+            retry_at=None,
+            status=ArchiveResult.StatusChoices.SKIPPED,
+            end_ts=timezone.now(),
+        )
+
+    def after_transition(self, event: str, source: State, target: State):
+        self.archiveresult.snapshot.update_and_requeue()  # bump snapshot retry time so it picks up all the new changes
+
+
+# =============================================================================
+# State Machine Registration
+# =============================================================================
+
+# Manually register state machines with python-statemachine registry
+# (normally auto-discovered from statemachines.py, but we define them here for clarity)
+registry.register(SnapshotMachine)
+registry.register(ArchiveResultMachine)

@@ -117,20 +117,28 @@ def main(url: str, snapshot_id: str = None):
         if cleaned_url != url:
             urls_found.add(cleaned_url)
 
-    if not urls_found:
-        click.echo('No URLs found', err=True)
-        sys.exit(1)
+    # Emit Snapshot records to stdout (JSONL)
+    for found_url in sorted(urls_found):
+        record = {
+            'type': 'Snapshot',
+            'url': found_url,
+            'plugin': PLUGIN_NAME,
+        }
+        if snapshot_id:
+            record['parent_snapshot_id'] = snapshot_id
+        print(json.dumps(record))
 
-    # Write urls.jsonl
-    with open('urls.jsonl', 'w') as f:
-        for found_url in sorted(urls_found):
-            f.write(json.dumps({
-                'type': 'Snapshot',
-                'url': found_url,
-                'plugin': PLUGIN_NAME,
-            }) + '\n')
+    # Emit ArchiveResult record to mark completion
+    status = 'succeeded' if urls_found else 'skipped'
+    output_str = f'Found {len(urls_found)} URLs' if urls_found else 'No URLs found'
+    ar_record = {
+        'type': 'ArchiveResult',
+        'status': status,
+        'output_str': output_str,
+    }
+    print(json.dumps(ar_record))
 
-    click.echo(f'Found {len(urls_found)} URLs')
+    click.echo(output_str, err=True)
     sys.exit(0)
 
 

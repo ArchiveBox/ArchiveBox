@@ -12,7 +12,7 @@ try:
     ARCHIVE_DIR = CONSTANTS.ARCHIVE_DIR
 except ImportError:
     try:
-        from config import CONFIG
+        from archivebox.config import CONFIG
         ARCHIVE_DIR = Path(CONFIG.get('ARCHIVE_DIR', './archive'))
     except ImportError:
         ARCHIVE_DIR = Path('./archive')

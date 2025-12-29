@@ -1,0 +1,12 @@
+{% load config_tags %}
+{% get_config "ARCHIVEDOTORG_ENABLED" as enabled %}
+{% if enabled %}
+<!-- Archive.org thumbnail - iframe preview of archived page -->
+<div class="extractor-thumbnail archivedotorg-thumbnail" style="width: 100%; height: 100px; overflow: hidden;">
+    <iframe src="{{ output_path }}"
+            style="width: 100%; height: 100px; border: none; pointer-events: none;"
+            loading="lazy"
+            sandbox="allow-same-origin">
+    </iframe>
+</div>
+{% endif %}

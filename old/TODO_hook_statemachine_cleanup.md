@@ -173,15 +173,15 @@ def process_hook_records(records: List[Dict], overrides: Dict = None) -> Dict[st
 
         # Dispatch to appropriate model
         if record_type == 'Snapshot':
-            from core.models import Snapshot
+            from archivebox.core.models import Snapshot
             Snapshot.from_jsonl(record, overrides)
             stats['Snapshot'] = stats.get('Snapshot', 0) + 1
         elif record_type == 'Tag':
-            from core.models import Tag
+            from archivebox.core.models import Tag
             Tag.from_jsonl(record, overrides)
             stats['Tag'] = stats.get('Tag', 0) + 1
         elif record_type == 'Binary':
-            from machine.models import Binary
+            from archivebox.machine.models import Binary
             Binary.from_jsonl(record, overrides)
             stats['Binary'] = stats.get('Binary', 0) + 1
         # ... etc
@@ -526,7 +526,7 @@ class Model:
             # Update children from filesystem
             child.update_from_output()
 
-    def update_for_workers(self, **fields):
+    def update_and_requeue(self, **fields):
         """Update fields and bump modified_at."""
         for field, value in fields.items():
             setattr(self, field, value)
@@ -575,7 +575,7 @@ All core models (Crawl, Snapshot, ArchiveResult) now follow the unified pattern:
 - State machines orchestrate transitions
 - `.run()` methods execute hooks and process JSONL
 - `.cleanup()` methods kill background hooks
-- `.update_for_workers()` methods update state for worker coordination
+- `.update_and_requeue()` methods update state for worker coordination
 - Consistent use of `process_hook_records()` for JSONL dispatching
 
 ### ✅ Phases 7-8: Binary State Machine (Dependency Model Eliminated)
