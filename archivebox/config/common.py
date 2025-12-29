@@ -66,6 +66,10 @@ class StorageConfig(BaseConfigSet):
     # should not be a remote/network/FUSE mount for speed reasons, otherwise extractors will be slow
     LIB_DIR: Path = Field(default=CONSTANTS.DEFAULT_LIB_DIR)
 
+    # CUSTOM_TEMPLATES_DIR allows users to override default templates
+    # defaults to DATA_DIR / 'user_templates' but can be configured
+    CUSTOM_TEMPLATES_DIR: Path = Field(default=CONSTANTS.CUSTOM_TEMPLATES_DIR)
+
     OUTPUT_PERMISSIONS: str = Field(default="644")
     RESTRICT_FILE_NAMES: str = Field(default="windows")
     ENFORCE_ATOMIC_WRITES: bool = Field(default=True)
