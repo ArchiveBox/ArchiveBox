@@ -80,8 +80,8 @@ def write_html_link_details(link: Link, out_dir: Optional[str]=None) -> None:
 
 @enforce_types
 def link_details_template(link: Link) -> str:
-    
-    from abx_plugin_wget_extractor.wget import wget_output_path
+
+    from abx_plugin_wget.wget import wget_output_path
     
     SAVE_ARCHIVE_DOT_ORG = abx.pm.hook.get_FLAT_CONFIG().SAVE_ARCHIVE_DOT_ORG
 

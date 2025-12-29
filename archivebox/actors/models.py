@@ -164,7 +164,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
         
     @classproperty
     def ACTIVE_STATE(cls) -> str:
-        return cls._state_to_str(cls.StateMachineClass.active_state)
+        return cls._state_to_str(cls.active_state)
         
     @classproperty
     def INITIAL_STATE(cls) -> str:

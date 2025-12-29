@@ -427,8 +427,7 @@ class Link:
         """predict the expected output paths that should be present after archiving"""
 
         from abx_plugin_wget.wget import wget_output_path
-        
-        FAVICON_CONFIG = abx.pm.hook.get_CONFIGS().favicon
+        from abx_plugin_favicon.config import FAVICON_CONFIG
         
         # TODO: banish this awful duplication from the codebase and import these
         # from their respective extractor files
