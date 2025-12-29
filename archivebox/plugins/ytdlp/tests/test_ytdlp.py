@@ -3,12 +3,11 @@ Integration tests for ytdlp plugin
 
 Tests verify:
 1. Hook script exists
-2. Dependencies installed via validation hooks
-3. Verify deps with abx-pkg
-4. YT-DLP extraction works on video URLs
-5. JSONL output is correct
-6. Config options work (YTDLP_* and backwards-compatible MEDIA_* aliases)
-7. Handles non-video URLs gracefully
+2. Verify deps with abx-pkg
+3. YT-DLP extraction works on video URLs
+4. JSONL output is correct
+5. Config options work (YTDLP_ENABLED, YTDLP_TIMEOUT)
+6. Handles non-video URLs gracefully
 """
 
 import json
@@ -121,30 +120,6 @@ def test_config_ytdlp_enabled_false_skips():
         # Should NOT emit any JSONL
         jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
         assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
-
-
-def test_config_media_enabled_backwards_compat():
-    """Test that MEDIA_ENABLED=False (backwards-compatible alias) also works."""
-    import os
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        env = os.environ.copy()
-        env['MEDIA_ENABLED'] = 'False'
-
-        result = subprocess.run(
-            [sys.executable, str(YTDLP_HOOK), '--url', TEST_URL, '--snapshot-id', 'test_compat'],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=30
-        )
-
-        assert result.returncode == 0, f"Should exit 0 when feature disabled via MEDIA_ENABLED: {result.stderr}"
-
-        # Should NOT emit any JSONL when disabled via backwards-compatible alias
-        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
-        assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled via MEDIA_ENABLED, but got: {jsonl_lines}"
 
 
 def test_config_timeout():
