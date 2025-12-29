@@ -41,6 +41,11 @@
       "default": 16000,
       "minimum": 1000,
       "description": "Minimum page height to scroll to in pixels"
+    },
+    "INFINISCROLL_EXPAND_DETAILS": {
+      "type": "boolean",
+      "default": true,
+      "description": "Expand <details> elements and click 'load more' buttons for comments"
     }
   }
 }
