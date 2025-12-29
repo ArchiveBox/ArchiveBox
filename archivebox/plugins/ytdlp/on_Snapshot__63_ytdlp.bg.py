@@ -26,11 +26,6 @@ from pathlib import Path
 import rich_click as click
 
 
-# Extractor metadata
-PLUGIN_NAME = 'ytdlp'
-BIN_NAME = 'yt-dlp'
-BIN_PROVIDERS = 'pip,apt,brew,env'
-OUTPUT_DIR = '.'
 
 
 def get_env(name: str, default: str = '') -> str:
@@ -91,7 +86,7 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
     ytdlp_args_extra = get_env_array('YTDLP_ARGS_EXTRA', [])
 
     # Output directory is current directory (hook already runs in output dir)
-    output_dir = Path(OUTPUT_DIR)
+    output_dir = Path('.')
 
     # Build command (later options take precedence)
     cmd = [

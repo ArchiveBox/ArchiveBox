@@ -6,13 +6,20 @@
     "YTDLP_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["MEDIA_ENABLED", "SAVE_MEDIA", "USE_MEDIA", "USE_YTDLP", "FETCH_MEDIA", "SAVE_YTDLP"],
+      "x-aliases": [
+        "MEDIA_ENABLED",
+        "SAVE_MEDIA",
+        "USE_MEDIA",
+        "USE_YTDLP",
+        "FETCH_MEDIA",
+        "SAVE_YTDLP"
+      ],
       "description": "Enable video/audio downloading with yt-dlp"
     },
     "YTDLP_BINARY": {
       "type": "string",
       "default": "yt-dlp",
-      "x-aliases": ["MEDIA_BINARY", "YOUTUBEDL_BINARY", "YOUTUBE_DL_BINARY"],
+      "x-aliases": ["YOUTUBEDL_BINARY", "YOUTUBE_DL_BINARY"],
       "description": "Path to yt-dlp binary"
     },
     "YTDLP_NODE_BINARY": {
@@ -46,15 +53,14 @@
       "type": "boolean",
       "default": true,
       "x-fallback": "CHECK_SSL_VALIDITY",
-      "x-aliases": ["MEDIA_CHECK_SSL_VALIDITY"],
       "description": "Whether to verify SSL certificates"
     },
     "YTDLP_ARGS": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": { "type": "string" },
       "default": [
         "--restrict-filenames",
-        "--trim-filenames", "128",
+        "--trim-filenames=128",
         "--write-description",
         "--write-info-json",
         "--write-thumbnail",
@@ -68,16 +74,18 @@
         "--geo-bypass",
         "--add-metadata",
         "--no-progress",
-        "-o", "%(title)s.%(ext)s"
+        "--remote-components ejs:github",
+        "-o",
+        "%(title)s.%(ext)s"
       ],
-      "x-aliases": ["YTDLP_DEFAULT_ARGS", "MEDIA_ARGS"],
+      "x-aliases": ["YTDLP_DEFAULT_ARGS"],
       "description": "Default yt-dlp arguments"
     },
     "YTDLP_ARGS_EXTRA": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": { "type": "string" },
       "default": [],
-      "x-aliases": ["YTDLP_EXTRA_ARGS", "MEDIA_ARGS_EXTRA", "MEDIA_EXTRA_ARGS"],
+      "x-aliases": ["YTDLP_EXTRA_ARGS"],
       "description": "Extra arguments to append to yt-dlp command"
     }
   }
