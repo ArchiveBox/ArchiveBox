@@ -2594,8 +2594,32 @@ class ArchiveResultMachine(BaseStateMachine, strict_states=True):
     )
 
     def can_start(self) -> bool:
-        can_start = bool(self.archiveresult.snapshot.url)
-        return can_start
+        if not self.archiveresult.snapshot.url:
+            return False
+
+        # Check if snapshot has exceeded MAX_URL_ATTEMPTS failed results
+        from archivebox.config.configset import get_config
+
+        config = get_config(
+            crawl=self.archiveresult.snapshot.crawl,
+            snapshot=self.archiveresult.snapshot,
+        )
+        max_attempts = config.get('MAX_URL_ATTEMPTS', 50)
+
+        # Count failed ArchiveResults for this snapshot (any plugin type)
+        failed_count = self.archiveresult.snapshot.archiveresult_set.filter(
+            status=ArchiveResult.StatusChoices.FAILED
+        ).count()
+
+        if failed_count >= max_attempts:
+            # Mark this result as skipped since we've hit the limit
+            self.archiveresult.status = ArchiveResult.StatusChoices.SKIPPED
+            self.archiveresult.output_str = f'Skipped: snapshot exceeded MAX_URL_ATTEMPTS ({max_attempts} failures)'
+            self.archiveresult.retry_at = None
+            self.archiveresult.save()
+            return False
+
+        return True
 
     def is_succeeded(self) -> bool:
         """Check if extractor plugin succeeded (status was set by run())."""
