@@ -9,7 +9,8 @@ Environment variables:
     YTDLP_BINARY: Path to yt-dlp binary
     YTDLP_TIMEOUT: Timeout in seconds (default: 3600 for large downloads)
     YTDLP_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: True)
-    YTDLP_EXTRA_ARGS: Extra arguments for yt-dlp (space-separated)
+    YTDLP_ARGS: JSON array of yt-dlp arguments (overrides defaults)
+    YTDLP_EXTRA_ARGS: Extra arguments for yt-dlp (space-separated, appended)
     YTDLP_MAX_SIZE: Maximum file size (default: 750m)
 
     # Feature toggles (with backwards-compatible aliases)
@@ -66,26 +67,39 @@ def has_staticfile_output() -> bool:
     return staticfile_dir.exists() and any(staticfile_dir.iterdir())
 
 
-# Default yt-dlp args (from old YTDLP_CONFIG)
-def get_ytdlp_default_args(max_size: str = '750m') -> list[str]:
-    """Build default yt-dlp arguments."""
-    return [
-        '--restrict-filenames',
-        '--trim-filenames', '128',
-        '--write-description',
-        '--write-info-json',
-        '--write-thumbnail',
-        '--write-sub',
-        '--write-auto-subs',
-        '--convert-subs=srt',
-        '--yes-playlist',
-        '--continue',
-        '--no-abort-on-error',
-        '--ignore-errors',
-        '--geo-bypass',
-        '--add-metadata',
-        f'--format=(bv*+ba/b)[filesize<={max_size}][filesize_approx<=?{max_size}]/(bv*+ba/b)',
-    ]
+# Default yt-dlp args (can be overridden via YTDLP_ARGS env var)
+YTDLP_DEFAULT_ARGS = [
+    '--restrict-filenames',
+    '--trim-filenames', '128',
+    '--write-description',
+    '--write-info-json',
+    '--write-thumbnail',
+    '--write-sub',
+    '--write-auto-subs',
+    '--convert-subs=srt',
+    '--yes-playlist',
+    '--continue',
+    '--no-abort-on-error',
+    '--ignore-errors',
+    '--geo-bypass',
+    '--add-metadata',
+    '--no-progress',
+    '-o', '%(title)s.%(ext)s',
+]
+
+
+def get_ytdlp_args() -> list[str]:
+    """Get yt-dlp arguments from YTDLP_ARGS env var or use defaults."""
+    ytdlp_args_str = get_env('YTDLP_ARGS', '')
+    if ytdlp_args_str:
+        try:
+            # Try to parse as JSON array
+            args = json.loads(ytdlp_args_str)
+            if isinstance(args, list):
+                return [str(arg) for arg in args]
+        except json.JSONDecodeError:
+            pass
+    return YTDLP_DEFAULT_ARGS
 
 
 def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
@@ -103,12 +117,12 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
 
-    # Build command (later options take precedence)
+    # Build command using configurable YTDLP_ARGS (later options take precedence)
     cmd = [
         binary,
-        *get_ytdlp_default_args(max_size),
-        '--no-progress',
-        '-o', '%(title)s.%(ext)s',
+        *get_ytdlp_args(),
+        # Format with max_size limit (appended after YTDLP_ARGS so it can be overridden by YTDLP_EXTRA_ARGS)
+        f'--format=(bv*+ba/b)[filesize<={max_size}][filesize_approx<=?{max_size}]/(bv*+ba/b)',
     ]
 
     if not check_ssl:
