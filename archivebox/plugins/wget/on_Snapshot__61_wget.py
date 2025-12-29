@@ -6,25 +6,15 @@ Usage: on_Snapshot__wget.py --url=<url> --snapshot-id=<uuid>
 Output: Downloads files to $PWD
 
 Environment variables:
-    WGET_BINARY: Path to wget binary (optional, falls back to PATH)
-    WGET_TIMEOUT: Timeout in seconds (default: 60)
-    WGET_USER_AGENT: User agent string
-    WGET_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: True)
-    WGET_COOKIES_FILE: Path to cookies file (optional)
-    WGET_RESTRICT_FILE_NAMES: Filename restriction mode (default: windows)
-    WGET_EXTRA_ARGS: Extra arguments for wget (space-separated)
-
-    # Wget feature toggles
-    SAVE_WGET: Enable wget archiving (default: True)
-    SAVE_WARC: Save WARC file (default: True)
-    SAVE_WGET_REQUISITES: Download page requisites (default: True)
-
-    # Fallback to ARCHIVING_CONFIG values if WGET_* not set:
-    TIMEOUT: Fallback timeout
-    USER_AGENT: Fallback user agent
-    CHECK_SSL_VALIDITY: Fallback SSL check
-    COOKIES_FILE: Fallback cookies file
-    RESTRICT_FILE_NAMES: Fallback filename restriction
+    WGET_ENABLED: Enable wget archiving (default: True)
+    WGET_WARC_ENABLED: Save WARC file (default: True)
+    WGET_BINARY: Path to wget binary (default: wget)
+    WGET_TIMEOUT: Timeout in seconds (x-fallback: TIMEOUT)
+    WGET_USER_AGENT: User agent string (x-fallback: USER_AGENT)
+    WGET_COOKIES_FILE: Path to cookies file (x-fallback: COOKIES_FILE)
+    WGET_CHECK_SSL_VALIDITY: Whether to check SSL certificates (x-fallback: CHECK_SSL_VALIDITY)
+    WGET_ARGS: Default wget arguments (JSON array)
+    WGET_ARGS_EXTRA: Extra arguments to append (JSON array)
 """
 
 import json
@@ -65,6 +55,20 @@ def get_env_int(name: str, default: int = 0) -> int:
         return default
 
 
+def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
+    """Parse a JSON array from environment variable."""
+    val = get_env(name, '')
+    if not val:
+        return default if default is not None else []
+    try:
+        result = json.loads(val)
+        if isinstance(result, list):
+            return [str(item) for item in result]
+        return default if default is not None else []
+    except json.JSONDecodeError:
+        return default if default is not None else []
+
+
 STATICFILE_DIR = '../staticfile'
 
 def has_staticfile_output() -> bool:
@@ -73,17 +77,6 @@ def has_staticfile_output() -> bool:
     return staticfile_dir.exists() and any(staticfile_dir.iterdir())
 
 
-# Default wget args (from old WGET_CONFIG)
-WGET_DEFAULT_ARGS = [
-    '--no-verbose',
-    '--adjust-extension',
-    '--convert-links',
-    '--force-directories',
-    '--backup-converted',
-    '--span-hosts',
-    '--no-parent',
-    '-e', 'robots=off',
-]
 
 
 def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
@@ -92,36 +85,28 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env (with WGET_ prefix or fallback to ARCHIVING_CONFIG style)
+    # Get config from env (with WGET_ prefix, x-fallback handled by config loader)
     timeout = get_env_int('WGET_TIMEOUT') or get_env_int('TIMEOUT', 60)
     user_agent = get_env('WGET_USER_AGENT') or get_env('USER_AGENT', 'Mozilla/5.0 (compatible; ArchiveBox/1.0)')
-    check_ssl = get_env_bool('WGET_CHECK_SSL_VALIDITY', get_env_bool('CHECK_SSL_VALIDITY', True))
+    check_ssl = get_env_bool('WGET_CHECK_SSL_VALIDITY', True) if get_env('WGET_CHECK_SSL_VALIDITY') else get_env_bool('CHECK_SSL_VALIDITY', True)
     cookies_file = get_env('WGET_COOKIES_FILE') or get_env('COOKIES_FILE', '')
-    restrict_names = get_env('WGET_RESTRICT_FILE_NAMES') or get_env('RESTRICT_FILE_NAMES', 'windows')
-    extra_args = get_env('WGET_EXTRA_ARGS', '')
+    wget_args = get_env_array('WGET_ARGS', [])
+    wget_args_extra = get_env_array('WGET_ARGS_EXTRA', [])
 
     # Feature toggles
-    save_warc = get_env_bool('WGET_SAVE_WARC', True)
-    save_requisites = get_env_bool('WGET_SAVE_REQUISITES', True)
+    warc_enabled = get_env_bool('WGET_WARC_ENABLED', True)
 
     # Build wget command (later options take precedence)
     cmd = [
         binary,
-        *WGET_DEFAULT_ARGS,
+        *wget_args,
         f'--timeout={timeout}',
-        '--tries=2',
     ]
 
     if user_agent:
         cmd.append(f'--user-agent={user_agent}')
 
-    if restrict_names:
-        cmd.append(f'--restrict-file-names={restrict_names}')
-
-    if save_requisites:
-        cmd.append('--page-requisites')
-
-    if save_warc:
+    if warc_enabled:
         warc_dir = Path('warc')
         warc_dir.mkdir(exist_ok=True)
         warc_path = warc_dir / str(int(datetime.now(timezone.utc).timestamp()))
@@ -135,8 +120,8 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
     if not check_ssl:
         cmd.extend(['--no-check-certificate', '--no-hsts'])
 
-    if extra_args:
-        cmd.extend(extra_args.split())
+    if wget_args_extra:
+        cmd.extend(wget_args_extra)
 
     cmd.append(url)
 

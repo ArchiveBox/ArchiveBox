@@ -8,7 +8,8 @@ Output: Clones repository to $PWD/repo
 Environment variables:
     GIT_BINARY: Path to git binary
     GIT_TIMEOUT: Timeout in seconds (default: 120)
-    GIT_ARGS: Extra arguments for git clone (space-separated)
+    GIT_ARGS: Default git arguments (JSON array, default: ["clone", "--depth=1", "--recursive"])
+    GIT_ARGS_EXTRA: Extra arguments to append (JSON array, default: [])
 
     # Fallback to ARCHIVING_CONFIG values if GIT_* not set:
     TIMEOUT: Fallback timeout
@@ -41,6 +42,20 @@ def get_env_int(name: str, default: int = 0) -> int:
         return default
 
 
+def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
+    """Parse a JSON array from environment variable."""
+    val = get_env(name, '')
+    if not val:
+        return default if default is not None else []
+    try:
+        result = json.loads(val)
+        if isinstance(result, list):
+            return [str(item) for item in result]
+        return default if default is not None else []
+    except json.JSONDecodeError:
+        return default if default is not None else []
+
+
 def is_git_url(url: str) -> bool:
     """Check if URL looks like a git repository."""
     git_patterns = [
@@ -61,19 +76,10 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
     Returns: (success, output_path, error_message)
     """
     timeout = get_env_int('GIT_TIMEOUT') or get_env_int('TIMEOUT', 120)
-    extra_args = get_env('GIT_ARGS')
+    git_args = get_env_array('GIT_ARGS', [])
+    git_args_extra = get_env_array('GIT_ARGS_EXTRA', [])
 
-    cmd = [
-        binary,
-        'clone',
-        '--depth=1',
-        '--recursive',
-    ]
-
-    if extra_args:
-        cmd.extend(extra_args.split())
-
-    cmd.extend([url, OUTPUT_DIR])
+    cmd = [binary, *git_args, *git_args_extra, url, OUTPUT_DIR]
 
     try:
         result = subprocess.run(cmd, capture_output=True, timeout=timeout)

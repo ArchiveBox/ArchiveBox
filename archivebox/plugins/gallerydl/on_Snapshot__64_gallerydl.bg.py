@@ -6,20 +6,13 @@ Usage: on_Snapshot__gallerydl.py --url=<url> --snapshot-id=<uuid>
 Output: Downloads gallery images to $PWD/gallerydl/
 
 Environment variables:
-    GALLERYDL_BINARY: Path to gallery-dl binary
-    GALLERYDL_TIMEOUT: Timeout in seconds (default: 3600 for large galleries)
-    GALLERYDL_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: True)
-    GALLERYDL_EXTRA_ARGS: Extra arguments for gallery-dl (space-separated)
-    COOKIES_FILE: Path to cookies file for authentication
-
-    # Gallery-dl feature toggles
-    USE_GALLERYDL: Enable gallery-dl gallery extraction (default: True)
-    SAVE_GALLERYDL: Alias for USE_GALLERYDL
-
-    # Fallback to ARCHIVING_CONFIG values if GALLERYDL_* not set:
-    GALLERYDL_TIMEOUT: Fallback timeout for gallery downloads
-    TIMEOUT: Fallback timeout
-    CHECK_SSL_VALIDITY: Fallback SSL check
+    GALLERYDL_ENABLED: Enable gallery-dl gallery extraction (default: True)
+    GALLERYDL_BINARY: Path to gallery-dl binary (default: gallery-dl)
+    GALLERYDL_TIMEOUT: Timeout in seconds (x-fallback: TIMEOUT)
+    GALLERYDL_COOKIES_FILE: Path to cookies file (x-fallback: COOKIES_FILE)
+    GALLERYDL_CHECK_SSL_VALIDITY: Whether to verify SSL certs (x-fallback: CHECK_SSL_VALIDITY)
+    GALLERYDL_ARGS: Default gallery-dl arguments (JSON array)
+    GALLERYDL_ARGS_EXTRA: Extra arguments to append (JSON array)
 """
 
 import json
@@ -58,6 +51,20 @@ def get_env_int(name: str, default: int = 0) -> int:
         return default
 
 
+def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
+    """Parse a JSON array from environment variable."""
+    val = get_env(name, '')
+    if not val:
+        return default if default is not None else []
+    try:
+        result = json.loads(val)
+        if isinstance(result, list):
+            return [str(item) for item in result]
+        return default if default is not None else []
+    except json.JSONDecodeError:
+        return default if default is not None else []
+
+
 STATICFILE_DIR = '../staticfile'
 
 def has_staticfile_output() -> bool:
@@ -66,35 +73,27 @@ def has_staticfile_output() -> bool:
     return staticfile_dir.exists() and any(staticfile_dir.iterdir())
 
 
-# Default gallery-dl args
-def get_gallerydl_default_args() -> list[str]:
-    """Build default gallery-dl arguments."""
-    return [
-        '--write-metadata',
-        '--write-info-json',
-    ]
-
-
 def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     Download gallery using gallery-dl.
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env
-    timeout = get_env_int('TIMEOUT', 3600)
-    check_ssl = get_env_bool('CHECK_SSL_VALIDITY', True)
-    extra_args = get_env('GALLERYDL_EXTRA_ARGS', '')
-    cookies_file = get_env('COOKIES_FILE', '')
+    # Get config from env (with GALLERYDL_ prefix, x-fallback handled by config loader)
+    timeout = get_env_int('GALLERYDL_TIMEOUT') or get_env_int('TIMEOUT', 3600)
+    check_ssl = get_env_bool('GALLERYDL_CHECK_SSL_VALIDITY', True) if get_env('GALLERYDL_CHECK_SSL_VALIDITY') else get_env_bool('CHECK_SSL_VALIDITY', True)
+    gallerydl_args = get_env_array('GALLERYDL_ARGS', [])
+    gallerydl_args_extra = get_env_array('GALLERYDL_ARGS_EXTRA', [])
+    cookies_file = get_env('GALLERYDL_COOKIES_FILE') or get_env('COOKIES_FILE', '')
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
 
-    # Build command (later options take precedence)
+    # Build command
     # Use -D for exact directory (flat structure) instead of -d (nested structure)
     cmd = [
         binary,
-        *get_gallerydl_default_args(),
+        *gallerydl_args,
         '-D', str(output_dir),
     ]
 
@@ -104,8 +103,8 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
     if cookies_file and Path(cookies_file).exists():
         cmd.extend(['-C', cookies_file])
 
-    if extra_args:
-        cmd.extend(extra_args.split())
+    if gallerydl_args_extra:
+        cmd.extend(gallerydl_args_extra)
 
     cmd.append(url)
 

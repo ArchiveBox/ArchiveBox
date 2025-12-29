@@ -8,8 +8,8 @@ Output: Creates mercury/ directory with content.html, content.txt, article.json
 Environment variables:
     MERCURY_BINARY: Path to postlight-parser binary
     MERCURY_TIMEOUT: Timeout in seconds (default: 60)
-
-    # Fallback to ARCHIVING_CONFIG values if MERCURY_* not set:
+    MERCURY_ARGS: Default Mercury arguments (JSON array)
+    MERCURY_ARGS_EXTRA: Extra arguments to append (JSON array)
     TIMEOUT: Fallback timeout
 
 Note: Requires postlight-parser: npm install -g @postlight/parser
@@ -51,6 +51,20 @@ def get_env_int(name: str, default: int = 0) -> int:
         return default
 
 
+def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
+    """Parse a JSON array from environment variable."""
+    val = get_env(name, '')
+    if not val:
+        return default if default is not None else []
+    try:
+        result = json.loads(val)
+        if isinstance(result, list):
+            return [str(item) for item in result]
+        return default if default is not None else []
+    except json.JSONDecodeError:
+        return default if default is not None else []
+
+
 def extract_mercury(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     Extract article using Mercury Parser.
@@ -58,13 +72,15 @@ def extract_mercury(url: str, binary: str) -> tuple[bool, str | None, str]:
     Returns: (success, output_path, error_message)
     """
     timeout = get_env_int('MERCURY_TIMEOUT') or get_env_int('TIMEOUT', 60)
+    mercury_args = get_env_array('MERCURY_ARGS', [])
+    mercury_args_extra = get_env_array('MERCURY_ARGS_EXTRA', [])
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
 
     try:
         # Get text version
-        cmd_text = [binary, url, '--format=text']
+        cmd_text = [binary, *mercury_args, *mercury_args_extra, url, '--format=text']
         result_text = subprocess.run(cmd_text, capture_output=True, timeout=timeout)
 
         if result_text.returncode != 0:
@@ -84,7 +100,7 @@ def extract_mercury(url: str, binary: str) -> tuple[bool, str | None, str]:
         (output_dir / 'content.txt').write_text(text_content, encoding='utf-8')
 
         # Get HTML version
-        cmd_html = [binary, url, '--format=html']
+        cmd_html = [binary, *mercury_args, *mercury_args_extra, url, '--format=html']
         result_html = subprocess.run(cmd_html, capture_output=True, timeout=timeout)
 
         try:

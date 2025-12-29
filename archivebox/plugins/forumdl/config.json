@@ -27,21 +27,25 @@
       "enum": ["jsonl", "warc", "mbox", "maildir", "mh", "mmdf", "babyl"],
       "description": "Output format for forum downloads"
     },
-    "FORUMDL_TEXTIFY": {
-      "type": "boolean",
-      "default": false,
-      "description": "Convert HTML content to plaintext (keep false to preserve HTML)"
-    },
     "FORUMDL_CHECK_SSL_VALIDITY": {
       "type": "boolean",
       "default": true,
       "x-fallback": "CHECK_SSL_VALIDITY",
       "description": "Whether to verify SSL certificates"
     },
-    "FORUMDL_EXTRA_ARGS": {
-      "type": "string",
-      "default": "",
-      "description": "Extra arguments for forum-dl (space-separated)"
+    "FORUMDL_ARGS": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["FORUMDL_DEFAULT_ARGS"],
+      "description": "Default forum-dl arguments"
+    },
+    "FORUMDL_ARGS_EXTRA": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["FORUMDL_EXTRA_ARGS"],
+      "description": "Extra arguments to append to forum-dl command"
     }
   }
 }

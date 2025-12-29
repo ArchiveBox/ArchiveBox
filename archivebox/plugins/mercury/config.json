@@ -15,17 +15,26 @@
       "x-aliases": ["POSTLIGHT_PARSER_BINARY"],
       "description": "Path to Mercury/Postlight parser binary"
     },
-    "NODE_BINARY": {
-      "type": "string",
-      "default": "node",
-      "description": "Path to Node.js binary"
-    },
     "MERCURY_TIMEOUT": {
       "type": "integer",
       "default": 30,
       "minimum": 5,
       "x-fallback": "TIMEOUT",
       "description": "Timeout for Mercury in seconds"
+    },
+    "MERCURY_ARGS": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["MERCURY_DEFAULT_ARGS"],
+      "description": "Default Mercury parser arguments"
+    },
+    "MERCURY_ARGS_EXTRA": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["MERCURY_EXTRA_ARGS"],
+      "description": "Extra arguments to append to Mercury parser command"
     }
   }
 }

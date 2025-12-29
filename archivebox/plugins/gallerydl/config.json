@@ -21,6 +21,12 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for gallery downloads in seconds"
     },
+    "GALLERYDL_COOKIES_FILE": {
+      "type": "string",
+      "default": "",
+      "x-fallback": "COOKIES_FILE",
+      "description": "Path to cookies file"
+    },
     "GALLERYDL_CHECK_SSL_VALIDITY": {
       "type": "boolean",
       "default": true,
@@ -34,12 +40,15 @@
         "--write-metadata",
         "--write-info-json"
       ],
+      "x-aliases": ["GALLERYDL_DEFAULT_ARGS"],
       "description": "Default gallery-dl arguments"
     },
-    "GALLERYDL_EXTRA_ARGS": {
-      "type": "string",
-      "default": "",
-      "description": "Extra arguments for gallery-dl (space-separated)"
+    "GALLERYDL_ARGS_EXTRA": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["GALLERYDL_EXTRA_ARGS"],
+      "description": "Extra arguments to append to gallery-dl command"
     }
   }
 }

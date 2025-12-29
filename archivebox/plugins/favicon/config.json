@@ -21,12 +21,6 @@
       "default": "",
       "x-fallback": "USER_AGENT",
       "description": "User agent string"
-    },
-    "FAVICON_CHECK_SSL_VALIDITY": {
-      "type": "boolean",
-      "default": true,
-      "x-fallback": "CHECK_SSL_VALIDITY",
-      "description": "Whether to verify SSL certificates"
     }
   }
 }

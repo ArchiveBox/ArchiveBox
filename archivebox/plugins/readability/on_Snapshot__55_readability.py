@@ -8,8 +8,8 @@ Output: Creates readability/ directory with content.html, content.txt, article.j
 Environment variables:
     READABILITY_BINARY: Path to readability-extractor binary
     READABILITY_TIMEOUT: Timeout in seconds (default: 60)
-
-    # Fallback to ARCHIVING_CONFIG values if READABILITY_* not set:
+    READABILITY_ARGS: Default Readability arguments (JSON array)
+    READABILITY_ARGS_EXTRA: Extra arguments to append (JSON array)
     TIMEOUT: Fallback timeout
 
 Note: Requires readability-extractor from https://github.com/ArchiveBox/readability-extractor
@@ -44,6 +44,20 @@ def get_env_int(name: str, default: int = 0) -> int:
         return default
 
 
+def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
+    """Parse a JSON array from environment variable."""
+    val = get_env(name, '')
+    if not val:
+        return default if default is not None else []
+    try:
+        result = json.loads(val)
+        if isinstance(result, list):
+            return [str(item) for item in result]
+        return default if default is not None else []
+    except json.JSONDecodeError:
+        return default if default is not None else []
+
+
 def find_html_source() -> str | None:
     """Find HTML content from other extractors in the snapshot directory."""
     # Hooks run in snapshot_dir, sibling extractor outputs are in subdirectories
@@ -73,6 +87,8 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
     Returns: (success, output_path, error_message)
     """
     timeout = get_env_int('READABILITY_TIMEOUT') or get_env_int('TIMEOUT', 60)
+    readability_args = get_env_array('READABILITY_ARGS', [])
+    readability_args_extra = get_env_array('READABILITY_ARGS_EXTRA', [])
 
     # Find HTML source
     html_source = find_html_source()
@@ -84,7 +100,7 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     try:
         # Run readability-extractor (outputs JSON by default)
-        cmd = [binary, html_source]
+        cmd = [binary, *readability_args, *readability_args_extra, html_source]
         result = subprocess.run(cmd, capture_output=True, timeout=timeout)
 
         if result.returncode != 0:

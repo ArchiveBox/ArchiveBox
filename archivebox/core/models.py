@@ -26,9 +26,7 @@ from archivebox.misc.system import get_dir_size, atomic_write
 from archivebox.misc.util import parse_date, base_url, domain as url_domain, to_json, ts_to_date_str, urlencode, htmlencode, urldecode
 from archivebox.misc.hashing import get_dir_info
 from archivebox.hooks import (
-    EXTRACTOR_INDEXING_PRECEDENCE,
     get_plugins, get_plugin_name, get_plugin_icon,
-    DEFAULT_PLUGIN_ICONS,
 )
 from archivebox.base_models.models import (
     ModelWithUUID, ModelWithSerializers, ModelWithOutputDir,
@@ -1931,16 +1929,6 @@ class SnapshotMachine(BaseStateMachine, strict_states=True):
         )
 
 
-class ArchiveResultManager(models.Manager):
-    def indexable(self, sorted: bool = True):
-        INDEXABLE_METHODS = [r[0] for r in EXTRACTOR_INDEXING_PRECEDENCE]
-        qs = self.get_queryset().filter(plugin__in=INDEXABLE_METHODS, status='succeeded')
-        if sorted:
-            precedence = [When(plugin=method, then=Value(p)) for method, p in EXTRACTOR_INDEXING_PRECEDENCE]
-            qs = qs.annotate(indexing_precedence=Case(*precedence, default=Value(1000), output_field=IntegerField())).order_by('indexing_precedence')
-        return qs
-
-
 class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, ModelWithStateMachine):
     class StatusChoices(models.TextChoices):
         QUEUED = 'queued', 'Queued'
@@ -1999,8 +1987,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     retry_at_field_name = 'retry_at'
     state_field_name = 'status'
     active_state = StatusChoices.STARTED
-
-    objects = ArchiveResultManager()
 
     class Meta(TypedModelMeta):
         app_label = 'core'

@@ -14,17 +14,26 @@
       "default": "readability-extractor",
       "description": "Path to readability-extractor binary"
     },
-    "NODE_BINARY": {
-      "type": "string",
-      "default": "node",
-      "description": "Path to Node.js binary"
-    },
     "READABILITY_TIMEOUT": {
       "type": "integer",
       "default": 30,
       "minimum": 5,
       "x-fallback": "TIMEOUT",
       "description": "Timeout for Readability in seconds"
+    },
+    "READABILITY_ARGS": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["READABILITY_DEFAULT_ARGS"],
+      "description": "Default Readability arguments"
+    },
+    "READABILITY_ARGS_EXTRA": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["READABILITY_EXTRA_ARGS"],
+      "description": "Extra arguments to append to Readability command"
     }
   }
 }

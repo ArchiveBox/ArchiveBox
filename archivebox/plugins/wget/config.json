@@ -9,17 +9,11 @@
       "x-aliases": ["SAVE_WGET", "USE_WGET"],
       "description": "Enable wget archiving"
     },
-    "WGET_SAVE_WARC": {
+    "WGET_WARC_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_WARC"],
+      "x-aliases": ["SAVE_WARC", "WGET_SAVE_WARC"],
       "description": "Save WARC archive file"
-    },
-    "WGET_SAVE_REQUISITES": {
-      "type": "boolean",
-      "default": true,
-      "x-aliases": ["SAVE_WGET_REQUISITES"],
-      "description": "Download page requisites (CSS, JS, images)"
     },
     "WGET_BINARY": {
       "type": "string",
@@ -39,25 +33,17 @@
       "x-fallback": "USER_AGENT",
       "description": "User agent string for wget"
     },
-    "WGET_CHECK_SSL_VALIDITY": {
-      "type": "boolean",
-      "default": true,
-      "x-fallback": "CHECK_SSL_VALIDITY",
-      "x-aliases": ["CHECK_SSL_VALIDITY"],
-      "description": "Whether to verify SSL certificates"
-    },
     "WGET_COOKIES_FILE": {
       "type": "string",
       "default": "",
       "x-fallback": "COOKIES_FILE",
       "description": "Path to cookies file"
     },
-    "WGET_RESTRICT_FILE_NAMES": {
-      "type": "string",
-      "default": "windows",
-      "enum": ["windows", "unix", "ascii", "nocontrol", "lowercase", "uppercase"],
-      "x-fallback": "RESTRICT_FILE_NAMES",
-      "description": "Filename restriction mode"
+    "WGET_CHECK_SSL_VALIDITY": {
+      "type": "boolean",
+      "default": true,
+      "x-fallback": "CHECK_SSL_VALIDITY",
+      "description": "Whether to verify SSL certificates"
     },
     "WGET_ARGS": {
       "type": "array",
@@ -70,14 +56,20 @@
         "--backup-converted",
         "--span-hosts",
         "--no-parent",
+        "--page-requisites",
+        "--restrict-file-names=windows",
+        "--tries=2",
         "-e", "robots=off"
       ],
+      "x-aliases": ["WGET_DEFAULT_ARGS"],
       "description": "Default wget arguments"
     },
-    "WGET_EXTRA_ARGS": {
-      "type": "string",
-      "default": "",
-      "description": "Extra arguments for wget (space-separated)"
+    "WGET_ARGS_EXTRA": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["WGET_EXTRA_ARGS"],
+      "description": "Extra arguments to append to wget command"
     }
   }
 }

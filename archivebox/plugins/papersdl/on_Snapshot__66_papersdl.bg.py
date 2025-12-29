@@ -8,7 +8,8 @@ Output: Downloads paper PDFs to $PWD/
 Environment variables:
     PAPERSDL_BINARY: Path to papers-dl binary
     PAPERSDL_TIMEOUT: Timeout in seconds (default: 300 for paper downloads)
-    PAPERSDL_EXTRA_ARGS: Extra arguments for papers-dl (space-separated)
+    PAPERSDL_ARGS: Default papers-dl arguments (JSON array, default: ["fetch"])
+    PAPERSDL_ARGS_EXTRA: Extra arguments to append (JSON array)
 
     # papers-dl feature toggles
     SAVE_PAPERSDL: Enable papers-dl paper extraction (default: True)
@@ -54,6 +55,20 @@ def get_env_int(name: str, default: int = 0) -> int:
         return default
 
 
+def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
+    """Parse a JSON array from environment variable."""
+    val = get_env(name, '')
+    if not val:
+        return default if default is not None else []
+    try:
+        result = json.loads(val)
+        if isinstance(result, list):
+            return [str(item) for item in result]
+        return default if default is not None else []
+    except json.JSONDecodeError:
+        return default if default is not None else []
+
+
 def extract_doi_from_url(url: str) -> str | None:
     """Extract DOI from common paper URLs."""
     # Match DOI pattern in URL
@@ -72,7 +87,8 @@ def save_paper(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     # Get config from env
     timeout = get_env_int('TIMEOUT', 300)
-    extra_args = get_env('PAPERSDL_EXTRA_ARGS', '')
+    papersdl_args = get_env_array('PAPERSDL_ARGS', [])
+    papersdl_args_extra = get_env_array('PAPERSDL_ARGS_EXTRA', [])
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
@@ -85,11 +101,11 @@ def save_paper(url: str, binary: str) -> tuple[bool, str | None, str]:
     else:
         identifier = doi
 
-    # Build command - papers-dl fetch <identifier> -o <output_dir>
-    cmd = [binary, 'fetch', identifier, '-o', str(output_dir)]
+    # Build command - papers-dl <args> <identifier> -o <output_dir>
+    cmd = [binary, *papersdl_args, identifier, '-o', str(output_dir)]
 
-    if extra_args:
-        cmd.extend(extra_args.split())
+    if papersdl_args_extra:
+        cmd.extend(papersdl_args_extra)
 
     try:
         result = subprocess.run(cmd, capture_output=True, timeout=timeout, text=True)
