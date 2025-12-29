@@ -1,0 +1,74 @@
+<!-- CAD/3D asset fullscreen view -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D/CAD Asset</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            text-align: center;
+        }
+        .icon {
+            font-size: 120px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            margin: 20px 0;
+        }
+        .file-info {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .file-info code {
+            background: #3a3a3a;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        .download-btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 16px;
+            margin-top: 20px;
+            transition: background 0.2s;
+        }
+        .download-btn:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🧊</div>
+        <h1>3D/CAD Asset</h1>
+        <div class="file-info">
+            <p>Downloaded File:</p>
+            <code>{{ output_path }}</code>
+        </div>
+        <a href="{{ output_path }}" download class="download-btn">Download File</a>
+        <p style="margin-top: 40px; color: #666; font-size: 14px;">
+            View this file with compatible 3D software like Blender, FreeCAD, or online viewers.
+        </p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "CADDL_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["SAVE_CADDL", "USE_CADDL", "SAVE_3D", "SAVE_CAD"],
+      "description": "Enable 3D/CAD asset downloading"
+    },
+    "CADDL_TIMEOUT": {
+      "type": "integer",
+      "default": 300,
+      "minimum": 30,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for CAD file downloads in seconds"
+    },
+    "CADDL_MAX_SIZE": {
+      "type": "string",
+      "default": "750m",
+      "pattern": "^\\d+[kmgKMG]?$",
+      "x-aliases": ["CAD_MAX_SIZE"],
+      "description": "Maximum file size for CAD downloads"
+    },
+    "CADDL_CHECK_SSL_VALIDITY": {
+      "type": "boolean",
+      "default": true,
+      "x-fallback": "CHECK_SSL_VALIDITY",
+      "description": "Whether to verify SSL certificates"
+    },
+    "CADDL_USER_AGENT": {
+      "type": "string",
+      "default": "",
+      "x-fallback": "USER_AGENT",
+      "description": "User agent string for CAD downloads"
+    },
+    "CADDL_COOKIES_FILE": {
+      "type": "string",
+      "default": "",
+      "x-fallback": "COOKIES_FILE",
+      "description": "Path to cookies file"
+    },
+    "CADDL_EXTENSIONS": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [
+        ".blend", ".stl", ".obj", ".step", ".stp",
+        ".gltf", ".glb", ".fbx", ".vrm", ".usdz",
+        ".dae", ".3ds", ".ply", ".off", ".x3d"
+      ],
+      "description": "File extensions to download as 3D/CAD assets"
+    }
+  }
+}
