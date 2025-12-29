@@ -1,0 +1,142 @@
+name: Parallel Tests
+
+on:
+  pull_request:
+    branches: [dev, main, master]
+  push:
+    branches: [dev]
+
+env:
+  PYTHONIOENCODING: utf-8
+  PYTHONLEGACYWINDOWSSTDIO: utf-8
+  USE_COLOR: False
+
+jobs:
+  discover-tests:
+    name: Discover test files
+    runs-on: ubuntu-22.04
+    outputs:
+      test-files: ${{ steps.set-matrix.outputs.test-files }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 1
+
+      - name: Discover test files
+        id: set-matrix
+        run: |
+          # Find all main test files
+          main_tests=$(find tests -maxdepth 1 -name "test_*.py" -type f | sort)
+
+          # Find all plugin test files
+          plugin_tests=$(find archivebox/plugins -path "*/tests/test_*.py" -type f | sort)
+
+          # Combine and format as JSON array
+          all_tests=$(echo "$main_tests $plugin_tests" | tr ' ' '\n' | grep -v '^$')
+
+          # Create JSON array with test file info
+          json_array="["
+          first=true
+          for test_file in $all_tests; do
+            if [ "$first" = true ]; then
+              first=false
+            else
+              json_array+=","
+            fi
+
+            # Extract a display name for the test
+            if [[ $test_file == tests/* ]]; then
+              name="main/$(basename $test_file .py | sed 's/^test_//')"
+            else
+              plugin=$(echo $test_file | sed 's|archivebox/plugins/\([^/]*\)/.*|\1|')
+              test_name=$(basename $test_file .py | sed 's/^test_//')
+              name="plugin/$plugin/$test_name"
+            fi
+
+            json_array+="{\"path\":\"$test_file\",\"name\":\"$name\"}"
+          done
+          json_array+="]"
+
+          echo "test-files=$json_array" >> $GITHUB_OUTPUT
+          echo "Found $(echo $all_tests | wc -w) test files"
+          echo "$json_array" | jq '.'
+
+  run-tests:
+    name: ${{ matrix.test.name }}
+    runs-on: ubuntu-22.04
+    needs: discover-tests
+
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJson(needs.discover-tests.outputs.test-files) }}
+        python: ["3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 1
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python }}
+          architecture: x64
+
+      - name: Set up Node JS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.10.0
+
+      - name: Get pip cache dir
+        id: pip-cache
+        run: |
+          echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache pip
+        uses: actions/cache@v3
+        id: cache-pip
+        with:
+          path: ${{ steps.pip-cache.outputs.dir }}
+          key: ${{ runner.os }}-${{ matrix.python }}-venv-${{ hashFiles('setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.python }}-venv-
+
+      - uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: ripgrep build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 python3-minimal gnupg2 curl wget python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
+          version: 1.0
+
+      - name: Install pip dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel pytest bottle build
+          python -m pip install -r requirements.txt
+          python -m pip install -e .[sonic,ldap]
+
+      - name: Get npm cache dir
+        id: npm-cache
+        run: |
+          echo "dir=$GITHUB_WORKSPACE/node_modules" >> $GITHUB_OUTPUT
+
+      - name: Cache npm
+        uses: actions/cache@v3
+        id: cache-npm
+        with:
+          path: ${{ steps.npm-cache.outputs.dir }}
+          key: ${{ runner.os }}-node_modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node_modules
+
+      - name: Install npm requirements
+        run: |
+          npm install
+          echo "SINGLEFILE_BINARY=$GITHUB_WORKSPACE/node_modules/.bin/single-file" >> $GITHUB_ENV
+          echo "READABILITY_BINARY=$GITHUB_WORKSPACE/node_modules/.bin/readability-extractor" >> $GITHUB_ENV
+          echo "MERCURY_BINARY=$GITHUB_WORKSPACE/node_modules/.bin/mercury-parser" >> $GITHUB_ENV
+
+      - name: Run test - ${{ matrix.test.name }}
+        run: |
+          python -m pytest -xvs "${{ matrix.test.path }}" --basetemp=tests/out --ignore=archivebox/pkgs
