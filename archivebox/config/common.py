@@ -123,6 +123,7 @@ class ArchivingConfig(BaseConfigSet):
     OVERWRITE: bool = Field(default=False)
 
     TIMEOUT: int = Field(default=60)
+    MAX_URL_ATTEMPTS: int = Field(default=50)
 
     RESOLUTION: str = Field(default="1440,2000")
     CHECK_SSL_VALIDITY: bool = Field(default=True)
