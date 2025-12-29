@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "additionalProperties": false,
+  "required_plugins": ["chrome"],
   "properties": {
     "CADDL_ENABLED": {
       "type": "boolean",
@@ -22,24 +23,6 @@
       "pattern": "^\\d+[kmgKMG]?$",
       "x-aliases": ["CAD_MAX_SIZE"],
       "description": "Maximum file size for CAD downloads"
-    },
-    "CADDL_CHECK_SSL_VALIDITY": {
-      "type": "boolean",
-      "default": true,
-      "x-fallback": "CHECK_SSL_VALIDITY",
-      "description": "Whether to verify SSL certificates"
-    },
-    "CADDL_USER_AGENT": {
-      "type": "string",
-      "default": "",
-      "x-fallback": "USER_AGENT",
-      "description": "User agent string for CAD downloads"
-    },
-    "CADDL_COOKIES_FILE": {
-      "type": "string",
-      "default": "",
-      "x-fallback": "COOKIES_FILE",
-      "description": "Path to cookies file"
     },
     "CADDL_EXTENSIONS": {
       "type": "array",
