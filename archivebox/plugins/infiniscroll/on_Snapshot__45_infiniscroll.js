@@ -101,10 +101,23 @@ async function scrollDown(page, options = {}) {
     } = options;
 
     const startTime = Date.now();
-    const startingHeight = await page.evaluate(() => document.body.scrollHeight);
+
+    // Get page height using multiple methods (some pages use different scroll containers)
+    const getPageHeight = () => page.evaluate(() => {
+        return Math.max(
+            document.body.scrollHeight || 0,
+            document.body.offsetHeight || 0,
+            document.documentElement.scrollHeight || 0,
+            document.documentElement.offsetHeight || 0
+        );
+    });
+
+    const startingHeight = await getPageHeight();
     let lastHeight = startingHeight;
     let scrollCount = 0;
     let scrollPosition = 0;
+
+    console.error(`Initial page height: ${startingHeight}px`);
 
     // Scroll to top first
     await page.evaluate(() => {
@@ -131,7 +144,7 @@ async function scrollDown(page, options = {}) {
         await sleep(scrollDelay);
 
         // Check if new content was added (infinite scroll detection)
-        const newHeight = await page.evaluate(() => document.body.scrollHeight);
+        const newHeight = await getPageHeight();
         const addedPx = newHeight - lastHeight;
 
         if (addedPx > 0) {
@@ -156,7 +169,7 @@ async function scrollDown(page, options = {}) {
     // Scroll to absolute bottom
     if (scrollPosition < lastHeight) {
         await page.evaluate(() => {
-            window.scrollTo({ top: document.body.scrollHeight, left: 0, behavior: 'smooth' });
+            window.scrollTo({ top: document.documentElement.scrollHeight, left: 0, behavior: 'smooth' });
         });
         await sleep(scrollDelay);
     }
@@ -228,6 +241,10 @@ async function main() {
         if (!page) {
             page = pages[pages.length - 1];
         }
+
+        // Set viewport to ensure proper page rendering
+        const resolution = getEnv('CHROME_RESOLUTION', '1440,2000').split(',').map(x => parseInt(x.trim(), 10));
+        await page.setViewport({ width: resolution[0] || 1440, height: resolution[1] || 2000 });
 
         console.error(`Starting infinite scroll on ${url}`);
         const result = await scrollDown(page, {
