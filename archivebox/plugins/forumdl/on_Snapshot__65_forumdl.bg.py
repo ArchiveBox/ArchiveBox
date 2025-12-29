@@ -6,19 +6,13 @@ Usage: on_Snapshot__forumdl.py --url=<url> --snapshot-id=<uuid>
 Output: Downloads forum content to $PWD/
 
 Environment variables:
-    FORUMDL_BINARY: Path to forum-dl binary
-    FORUMDL_TIMEOUT: Timeout in seconds (default: 3600 for large forums)
+    FORUMDL_ENABLED: Enable forum downloading (default: True)
+    FORUMDL_BINARY: Path to forum-dl binary (default: forum-dl)
+    FORUMDL_TIMEOUT: Timeout in seconds (x-fallback: TIMEOUT)
     FORUMDL_OUTPUT_FORMAT: Output format (default: jsonl)
-    FORUMDL_TEXTIFY: Convert HTML to plaintext (default: False - keeps HTML)
-    FORUMDL_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: True)
-    FORUMDL_EXTRA_ARGS: Extra arguments for forum-dl (space-separated)
-
-    # Forum-dl feature toggles
-    SAVE_FORUMDL: Enable forum-dl forum extraction (default: True)
-
-    # Fallback to ARCHIVING_CONFIG values if FORUMDL_* not set:
-    TIMEOUT: Fallback timeout
-    CHECK_SSL_VALIDITY: Fallback SSL check
+    FORUMDL_CHECK_SSL_VALIDITY: Whether to verify SSL certs (x-fallback: CHECK_SSL_VALIDITY)
+    FORUMDL_ARGS: Default forum-dl arguments (JSON array)
+    FORUMDL_ARGS_EXTRA: Extra arguments to append (JSON array)
 """
 
 import json
@@ -78,6 +72,20 @@ def get_env_int(name: str, default: int = 0) -> int:
         return default
 
 
+def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
+    """Parse a JSON array from environment variable."""
+    val = get_env(name, '')
+    if not val:
+        return default if default is not None else []
+    try:
+        result = json.loads(val)
+        if isinstance(result, list):
+            return [str(item) for item in result]
+        return default if default is not None else []
+    except json.JSONDecodeError:
+        return default if default is not None else []
+
+
 
 def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
@@ -85,11 +93,11 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env
-    timeout = get_env_int('TIMEOUT', 3600)
-    check_ssl = get_env_bool('CHECK_SSL_VALIDITY', True)
-    textify = get_env_bool('FORUMDL_TEXTIFY', False)
-    extra_args = get_env('FORUMDL_EXTRA_ARGS', '')
+    # Get config from env (with FORUMDL_ prefix, x-fallback handled by config loader)
+    timeout = get_env_int('FORUMDL_TIMEOUT') or get_env_int('TIMEOUT', 3600)
+    check_ssl = get_env_bool('FORUMDL_CHECK_SSL_VALIDITY', True) if get_env('FORUMDL_CHECK_SSL_VALIDITY') else get_env_bool('CHECK_SSL_VALIDITY', True)
+    forumdl_args = get_env_array('FORUMDL_ARGS', [])
+    forumdl_args_extra = get_env_array('FORUMDL_ARGS_EXTRA', [])
     output_format = get_env('FORUMDL_OUTPUT_FORMAT', 'jsonl')
 
     # Output directory is current directory (hook already runs in output dir)
@@ -108,16 +116,13 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
         output_file = output_dir / f'forum.{output_format}'
 
     # Build command
-    cmd = [binary, '-f', output_format, '-o', str(output_file)]
-
-    if textify:
-        cmd.append('--textify')
+    cmd = [binary, *forumdl_args, '-f', output_format, '-o', str(output_file)]
 
     if not check_ssl:
         cmd.append('--no-check-certificate')
 
-    if extra_args:
-        cmd.extend(extra_args.split())
+    if forumdl_args_extra:
+        cmd.extend(forumdl_args_extra)
 
     cmd.append(url)
 

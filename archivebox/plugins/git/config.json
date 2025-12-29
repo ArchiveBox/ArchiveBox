@@ -26,16 +26,19 @@
       "default": "github.com,gitlab.com,bitbucket.org,gist.github.com,codeberg.org,gitea.com,git.sr.ht",
       "description": "Comma-separated list of domains to treat as git repositories"
     },
-    "GIT_CLONE_DEPTH": {
-      "type": "integer",
-      "default": 1,
-      "minimum": 0,
-      "description": "Depth of git clone (0 for full history, 1 for shallow)"
+    "GIT_ARGS": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": ["clone", "--depth=1", "--recursive"],
+      "x-aliases": ["GIT_DEFAULT_ARGS"],
+      "description": "Default git arguments"
     },
-    "GIT_EXTRA_ARGS": {
-      "type": "string",
-      "default": "",
-      "description": "Extra arguments for git clone"
+    "GIT_ARGS_EXTRA": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["GIT_EXTRA_ARGS"],
+      "description": "Extra arguments to append to git command"
     }
   }
 }

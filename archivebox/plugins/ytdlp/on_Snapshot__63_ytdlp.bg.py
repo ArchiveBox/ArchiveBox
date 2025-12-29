@@ -3,24 +3,18 @@
 Download video/audio from a URL using yt-dlp.
 
 Usage: on_Snapshot__ytdlp.py --url=<url> --snapshot-id=<uuid>
-Output: Downloads video/audio files to $PWD/ytdlp/
+Output: Downloads video/audio files to $PWD
 
 Environment variables:
-    YTDLP_BINARY: Path to yt-dlp binary
-    YTDLP_TIMEOUT: Timeout in seconds (default: 3600 for large downloads)
-    YTDLP_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: True)
-    YTDLP_ARGS: JSON array of yt-dlp arguments (overrides defaults)
-    YTDLP_EXTRA_ARGS: Extra arguments for yt-dlp (space-separated, appended)
-    YTDLP_MAX_SIZE: Maximum file size (default: 750m)
-
-    # Feature toggles (with backwards-compatible aliases)
     YTDLP_ENABLED: Enable yt-dlp extraction (default: True)
-    SAVE_YTDLP: Alias for YTDLP_ENABLED
-    MEDIA_ENABLED: Backwards-compatible alias for YTDLP_ENABLED
-
-    # Fallback to ARCHIVING_CONFIG values if YTDLP_* not set:
-    TIMEOUT: Fallback timeout
-    CHECK_SSL_VALIDITY: Fallback SSL check
+    YTDLP_BINARY: Path to yt-dlp binary (default: yt-dlp)
+    YTDLP_NODE_BINARY: Path to Node.js binary (x-fallback: NODE_BINARY)
+    YTDLP_TIMEOUT: Timeout in seconds (x-fallback: TIMEOUT)
+    YTDLP_COOKIES_FILE: Path to cookies file (x-fallback: COOKIES_FILE)
+    YTDLP_MAX_SIZE: Maximum file size (default: 750m)
+    YTDLP_CHECK_SSL_VALIDITY: Whether to verify SSL certs (x-fallback: CHECK_SSL_VALIDITY)
+    YTDLP_ARGS: Default yt-dlp arguments (JSON array)
+    YTDLP_ARGS_EXTRA: Extra arguments to append (JSON array)
 """
 
 import json
@@ -59,6 +53,20 @@ def get_env_int(name: str, default: int = 0) -> int:
         return default
 
 
+def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
+    """Parse a JSON array from environment variable."""
+    val = get_env(name, '')
+    if not val:
+        return default if default is not None else []
+    try:
+        result = json.loads(val)
+        if isinstance(result, list):
+            return [str(item) for item in result]
+        return default if default is not None else []
+    except json.JSONDecodeError:
+        return default if default is not None else []
+
+
 STATICFILE_DIR = '../staticfile'
 
 def has_staticfile_output() -> bool:
@@ -67,69 +75,41 @@ def has_staticfile_output() -> bool:
     return staticfile_dir.exists() and any(staticfile_dir.iterdir())
 
 
-# Default yt-dlp args (can be overridden via YTDLP_ARGS env var)
-YTDLP_DEFAULT_ARGS = [
-    '--restrict-filenames',
-    '--trim-filenames', '128',
-    '--write-description',
-    '--write-info-json',
-    '--write-thumbnail',
-    '--write-sub',
-    '--write-auto-subs',
-    '--convert-subs=srt',
-    '--yes-playlist',
-    '--continue',
-    '--no-abort-on-error',
-    '--ignore-errors',
-    '--geo-bypass',
-    '--add-metadata',
-    '--no-progress',
-    '-o', '%(title)s.%(ext)s',
-]
-
-
-def get_ytdlp_args() -> list[str]:
-    """Get yt-dlp arguments from YTDLP_ARGS env var or use defaults."""
-    ytdlp_args_str = get_env('YTDLP_ARGS', '')
-    if ytdlp_args_str:
-        try:
-            # Try to parse as JSON array
-            args = json.loads(ytdlp_args_str)
-            if isinstance(args, list):
-                return [str(arg) for arg in args]
-        except json.JSONDecodeError:
-            pass
-    return YTDLP_DEFAULT_ARGS
-
-
 def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     Download video/audio using yt-dlp.
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env (YTDLP_* primary, MEDIA_* as fallback via aliases)
-    timeout = get_env_int('TIMEOUT', 3600)
-    check_ssl = get_env_bool('CHECK_SSL_VALIDITY', True)
-    extra_args = get_env('YTDLP_EXTRA_ARGS', '')
-    max_size = get_env('YTDLP_MAX_SIZE', '') or get_env('MEDIA_MAX_SIZE', '750m')
+    # Get config from env (with YTDLP_ prefix, x-fallback handled by config loader)
+    timeout = get_env_int('YTDLP_TIMEOUT') or get_env_int('TIMEOUT', 3600)
+    check_ssl = get_env_bool('YTDLP_CHECK_SSL_VALIDITY', True) if get_env('YTDLP_CHECK_SSL_VALIDITY') else get_env_bool('CHECK_SSL_VALIDITY', True)
+    cookies_file = get_env('YTDLP_COOKIES_FILE') or get_env('COOKIES_FILE', '')
+    max_size = get_env('YTDLP_MAX_SIZE', '750m')
+    node_binary = get_env('YTDLP_NODE_BINARY') or get_env('NODE_BINARY', 'node')
+    ytdlp_args = get_env_array('YTDLP_ARGS', [])
+    ytdlp_args_extra = get_env_array('YTDLP_ARGS_EXTRA', [])
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
 
-    # Build command using configurable YTDLP_ARGS (later options take precedence)
+    # Build command (later options take precedence)
     cmd = [
         binary,
-        *get_ytdlp_args(),
-        # Format with max_size limit (appended after YTDLP_ARGS so it can be overridden by YTDLP_EXTRA_ARGS)
+        *ytdlp_args,
+        # Format with max_size limit (appended after YTDLP_ARGS so it can be overridden by YTDLP_ARGS_EXTRA)
         f'--format=(bv*+ba/b)[filesize<={max_size}][filesize_approx<=?{max_size}]/(bv*+ba/b)',
+        f'--js-runtimes=node:{node_binary}',
     ]
 
     if not check_ssl:
         cmd.append('--no-check-certificate')
 
-    if extra_args:
-        cmd.extend(extra_args.split())
+    if cookies_file and Path(cookies_file).is_file():
+        cmd.extend(['--cookies', cookies_file])
+
+    if ytdlp_args_extra:
+        cmd.extend(ytdlp_args_extra)
 
     cmd.append(url)
 
@@ -193,9 +173,8 @@ def main(url: str, snapshot_id: str):
     """Download video/audio from a URL using yt-dlp."""
 
     try:
-        # Check if yt-dlp downloading is enabled (YTDLP_ENABLED primary, MEDIA_ENABLED fallback)
-        ytdlp_enabled = get_env_bool('YTDLP_ENABLED', True) and get_env_bool('MEDIA_ENABLED', True)
-        if not ytdlp_enabled:
+        # Check if yt-dlp downloading is enabled
+        if not get_env_bool('YTDLP_ENABLED', True):
             print('Skipping ytdlp (YTDLP_ENABLED=False)', file=sys.stderr)
             # Temporary failure (config disabled) - NO JSONL emission
             sys.exit(0)

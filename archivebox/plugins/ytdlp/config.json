@@ -15,6 +15,12 @@
       "x-aliases": ["MEDIA_BINARY", "YOUTUBEDL_BINARY", "YOUTUBE_DL_BINARY"],
       "description": "Path to yt-dlp binary"
     },
+    "YTDLP_NODE_BINARY": {
+      "type": "string",
+      "default": "node",
+      "x-fallback": "NODE_BINARY",
+      "description": "Path to Node.js binary for yt-dlp JS runtime"
+    },
     "YTDLP_TIMEOUT": {
       "type": "integer",
       "default": 3600,
@@ -22,6 +28,12 @@
       "x-fallback": "TIMEOUT",
       "x-aliases": ["MEDIA_TIMEOUT"],
       "description": "Timeout for yt-dlp downloads in seconds"
+    },
+    "YTDLP_COOKIES_FILE": {
+      "type": "string",
+      "default": "",
+      "x-fallback": "COOKIES_FILE",
+      "description": "Path to cookies file"
     },
     "YTDLP_MAX_SIZE": {
       "type": "string",
@@ -58,14 +70,15 @@
         "--no-progress",
         "-o", "%(title)s.%(ext)s"
       ],
-      "x-aliases": ["MEDIA_ARGS"],
-      "description": "Default yt-dlp arguments (override to customize behavior)"
+      "x-aliases": ["YTDLP_DEFAULT_ARGS", "MEDIA_ARGS"],
+      "description": "Default yt-dlp arguments"
     },
-    "YTDLP_EXTRA_ARGS": {
-      "type": "string",
-      "default": "",
-      "x-aliases": ["MEDIA_EXTRA_ARGS"],
-      "description": "Extra arguments for yt-dlp (space-separated, appended after YTDLP_ARGS)"
+    "YTDLP_ARGS_EXTRA": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["YTDLP_EXTRA_ARGS", "MEDIA_ARGS_EXTRA", "MEDIA_EXTRA_ARGS"],
+      "description": "Extra arguments to append to yt-dlp command"
     }
   }
 }

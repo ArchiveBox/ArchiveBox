@@ -6,24 +6,16 @@ Usage: on_Snapshot__singlefile.py --url=<url> --snapshot-id=<uuid>
 Output: Writes singlefile.html to $PWD
 
 Environment variables:
-    SINGLEFILE_BINARY: Path to SingleFile binary
-    SINGLEFILE_TIMEOUT: Timeout in seconds (default: 120)
-    SINGLEFILE_USER_AGENT: User agent string (optional)
-    SINGLEFILE_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: True)
-    SINGLEFILE_COOKIES_FILE: Path to cookies file (optional)
-    SINGLEFILE_EXTRA_ARGS: Extra arguments for SingleFile (space-separated)
-
-    # Feature toggle
-    SAVE_SINGLEFILE: Enable SingleFile archiving (default: True)
-
-    # Chrome binary (SingleFile needs Chrome)
-    CHROME_BINARY: Path to Chrome/Chromium binary
-
-    # Fallback to ARCHIVING_CONFIG values if SINGLEFILE_* not set:
-    TIMEOUT: Fallback timeout
-    USER_AGENT: Fallback user agent
-    CHECK_SSL_VALIDITY: Fallback SSL check
-    COOKIES_FILE: Fallback cookies file
+    SINGLEFILE_ENABLED: Enable SingleFile archiving (default: True)
+    SINGLEFILE_BINARY: Path to SingleFile binary (default: single-file)
+    SINGLEFILE_NODE_BINARY: Path to Node.js binary (x-fallback: NODE_BINARY)
+    SINGLEFILE_CHROME_BINARY: Path to Chrome binary (x-fallback: CHROME_BINARY)
+    SINGLEFILE_TIMEOUT: Timeout in seconds (x-fallback: TIMEOUT)
+    SINGLEFILE_USER_AGENT: User agent string (x-fallback: USER_AGENT)
+    SINGLEFILE_COOKIES_FILE: Path to cookies file (x-fallback: COOKIES_FILE)
+    SINGLEFILE_CHECK_SSL_VALIDITY: Whether to verify SSL certs (x-fallback: CHECK_SSL_VALIDITY)
+    SINGLEFILE_ARGS: Default SingleFile arguments (JSON array)
+    SINGLEFILE_ARGS_EXTRA: Extra arguments to append (JSON array)
 """
 
 import json
@@ -61,6 +53,20 @@ def get_env_int(name: str, default: int = 0) -> int:
         return int(get_env(name, str(default)))
     except ValueError:
         return default
+
+
+def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
+    """Parse a JSON array from environment variable."""
+    val = get_env(name, '')
+    if not val:
+        return default if default is not None else []
+    try:
+        result = json.loads(val)
+        if isinstance(result, list):
+            return [str(item) for item in result]
+        return default if default is not None else []
+    except json.JSONDecodeError:
+        return default if default is not None else []
 
 
 STATICFILE_DIR = '../staticfile'
@@ -121,15 +127,16 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env (with SINGLEFILE_ prefix or fallback to ARCHIVING_CONFIG style)
+    # Get config from env (with SINGLEFILE_ prefix, x-fallback handled by config loader)
     timeout = get_env_int('SINGLEFILE_TIMEOUT') or get_env_int('TIMEOUT', 120)
     user_agent = get_env('SINGLEFILE_USER_AGENT') or get_env('USER_AGENT', '')
-    check_ssl = get_env_bool('SINGLEFILE_CHECK_SSL_VALIDITY', get_env_bool('CHECK_SSL_VALIDITY', True))
+    check_ssl = get_env_bool('SINGLEFILE_CHECK_SSL_VALIDITY', True) if get_env('SINGLEFILE_CHECK_SSL_VALIDITY') else get_env_bool('CHECK_SSL_VALIDITY', True)
     cookies_file = get_env('SINGLEFILE_COOKIES_FILE') or get_env('COOKIES_FILE', '')
-    extra_args = get_env('SINGLEFILE_EXTRA_ARGS', '')
-    chrome = get_env('CHROME_BINARY', '')
+    singlefile_args = get_env_array('SINGLEFILE_ARGS', [])
+    singlefile_args_extra = get_env_array('SINGLEFILE_ARGS_EXTRA', [])
+    chrome = get_env('SINGLEFILE_CHROME_BINARY') or get_env('CHROME_BINARY', '')
 
-    cmd = [binary]
+    cmd = [binary, *singlefile_args]
 
     # Try to use existing Chrome session via CDP
     cdp_url = get_cdp_url()
@@ -142,11 +149,6 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     elif chrome:
         cmd.extend(['--browser-executable-path', chrome])
 
-    # Common options
-    cmd.extend([
-        '--browser-headless',
-    ])
-
     # SSL handling
     if not check_ssl:
         cmd.append('--browser-ignore-insecure-certs')
@@ -157,8 +159,9 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     if cookies_file and Path(cookies_file).is_file():
         cmd.extend(['--browser-cookies-file', cookies_file])
 
-    if extra_args:
-        cmd.extend(extra_args.split())
+    # Add extra args from config
+    if singlefile_args_extra:
+        cmd.extend(singlefile_args_extra)
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)

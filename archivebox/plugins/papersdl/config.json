@@ -21,10 +21,19 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for paper downloads in seconds"
     },
-    "PAPERSDL_EXTRA_ARGS": {
-      "type": "string",
-      "default": "",
-      "description": "Extra arguments for papers-dl (space-separated)"
+    "PAPERSDL_ARGS": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": ["fetch"],
+      "x-aliases": ["PAPERSDL_DEFAULT_ARGS"],
+      "description": "Default papers-dl arguments"
+    },
+    "PAPERSDL_ARGS_EXTRA": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["PAPERSDL_EXTRA_ARGS"],
+      "description": "Extra arguments to append to papers-dl command"
     }
   }
 }

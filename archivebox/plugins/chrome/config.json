@@ -9,10 +9,10 @@
       "x-aliases": ["CHROMIUM_BINARY", "GOOGLE_CHROME_BINARY"],
       "description": "Path to Chrome/Chromium binary"
     },
-    "NODE_BINARY": {
+    "CHROME_NODE_BINARY": {
       "type": "string",
       "default": "node",
-      "x-aliases": ["NODEJS_BINARY"],
+      "x-fallback": "NODE_BINARY",
       "description": "Path to Node.js binary (for Puppeteer)"
     },
     "CHROME_TIMEOUT": {
@@ -50,16 +50,19 @@
       "x-fallback": "USER_AGENT",
       "description": "User agent string for Chrome"
     },
-    "CHROME_EXTRA_ARGS": {
-      "type": "string",
-      "default": "",
-      "description": "Extra command-line arguments for Chrome (space-separated)"
+    "CHROME_ARGS": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["CHROME_DEFAULT_ARGS"],
+      "description": "Default Chrome command-line arguments"
     },
-    "CHROME_CHECK_SSL_VALIDITY": {
-      "type": "boolean",
-      "default": true,
-      "x-fallback": "CHECK_SSL_VALIDITY",
-      "description": "Whether to verify SSL certificates"
+    "CHROME_ARGS_EXTRA": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["CHROME_EXTRA_ARGS"],
+      "description": "Extra arguments to append to Chrome command"
     }
   }
 }
