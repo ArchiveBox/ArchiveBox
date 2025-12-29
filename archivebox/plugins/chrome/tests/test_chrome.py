@@ -22,11 +22,67 @@ from pathlib import Path
 import pytest
 import tempfile
 import shutil
+import platform
 
 PLUGIN_DIR = Path(__file__).parent.parent
 CHROME_LAUNCH_HOOK = PLUGIN_DIR / 'on_Crawl__20_chrome_launch.bg.js'
 CHROME_TAB_HOOK = PLUGIN_DIR / 'on_Snapshot__20_chrome_tab.bg.js'
 CHROME_NAVIGATE_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_chrome_navigate.*'), None)
+
+# Get LIB_DIR and MACHINE_TYPE from environment or compute them
+def get_lib_dir_and_machine_type():
+    """Get or compute LIB_DIR and MACHINE_TYPE for tests."""
+    from archivebox.config.paths import get_machine_type
+    from archivebox.config.common import STORAGE_CONFIG
+
+    lib_dir = os.environ.get('LIB_DIR') or str(STORAGE_CONFIG.LIB_DIR)
+    machine_type = os.environ.get('MACHINE_TYPE') or get_machine_type()
+
+    return Path(lib_dir), machine_type
+
+# Setup NODE_PATH to find npm packages
+LIB_DIR, MACHINE_TYPE = get_lib_dir_and_machine_type()
+# Note: LIB_DIR already includes machine_type (e.g., data/lib/arm64-darwin)
+NODE_MODULES_DIR = LIB_DIR / 'npm' / 'node_modules'
+NPM_PREFIX = LIB_DIR / 'npm'
+
+def get_test_env():
+    """Get environment with NODE_PATH set correctly."""
+    env = os.environ.copy()
+    env['NODE_PATH'] = str(NODE_MODULES_DIR)
+    env['LIB_DIR'] = str(LIB_DIR)
+    env['MACHINE_TYPE'] = MACHINE_TYPE
+    return env
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_puppeteer_installed():
+    """Ensure puppeteer is installed in LIB_DIR before running tests."""
+    from abx_pkg import Binary, NpmProvider, BinProviderOverrides
+
+    # Rebuild pydantic models
+    NpmProvider.model_rebuild()
+
+    # Check if puppeteer-core is already available
+    puppeteer_core_path = NODE_MODULES_DIR / 'puppeteer-core'
+    if puppeteer_core_path.exists():
+        return  # Already installed
+
+    print(f"\n[*] Installing puppeteer to {NPM_PREFIX}...")
+    NPM_PREFIX.mkdir(parents=True, exist_ok=True)
+
+    # Install puppeteer using NpmProvider with custom prefix
+    provider = NpmProvider(npm_prefix=NPM_PREFIX)
+    try:
+        binary = Binary(
+            name='puppeteer',
+            binproviders=[provider],
+            overrides={'npm': {'packages': ['puppeteer@^23.5.0']}}
+        )
+        binary.install()
+        print(f"[*] Puppeteer installed successfully to {NPM_PREFIX}")
+    except Exception as e:
+        pytest.skip(f"Failed to install puppeteer: {e}")
 
 
 def test_hook_scripts_exist():
@@ -65,6 +121,10 @@ def test_chrome_launch_and_tab_creation():
         crawl_dir.mkdir()
         chrome_dir = crawl_dir / 'chrome'
 
+        # Get test environment with NODE_PATH set
+        env = get_test_env()
+        env['CHROME_HEADLESS'] = 'true'
+
         # Launch Chrome at crawl level (background process)
         chrome_launch_process = subprocess.Popen(
             ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-crawl-123'],
@@ -72,7 +132,7 @@ def test_chrome_launch_and_tab_creation():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={**os.environ, 'CHROME_HEADLESS': 'true'}
+            env=env
         )
 
         # Wait for Chrome to launch (check process isn't dead and files exist)
@@ -133,13 +193,14 @@ def test_chrome_launch_and_tab_creation():
         snapshot_chrome_dir.mkdir()
 
         # Launch tab at snapshot level
+        env['CRAWL_OUTPUT_DIR'] = str(crawl_dir)
         result = subprocess.run(
             ['node', str(CHROME_TAB_HOOK), '--url=https://example.com', '--snapshot-id=snap-123', '--crawl-id=test-crawl-123'],
             cwd=str(snapshot_chrome_dir),
             capture_output=True,
             text=True,
             timeout=60,
-            env={**os.environ, 'CRAWL_OUTPUT_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
+            env=env
         )
 
         assert result.returncode == 0, f"Tab creation failed: {result.stderr}\nStdout: {result.stdout}"
@@ -179,7 +240,7 @@ def test_chrome_navigation():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={**os.environ, 'CHROME_HEADLESS': 'true'}
+            env=get_test_env() | {'CHROME_HEADLESS': 'true'}
         )
 
         # Wait for Chrome to launch
@@ -199,7 +260,7 @@ def test_chrome_navigation():
             capture_output=True,
             text=True,
             timeout=60,
-            env={**os.environ, 'CRAWL_OUTPUT_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
+            env=get_test_env() | {'CRAWL_OUTPUT_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
         )
         assert result.returncode == 0, f"Tab creation failed: {result.stderr}"
 
@@ -210,7 +271,7 @@ def test_chrome_navigation():
             capture_output=True,
             text=True,
             timeout=120,
-            env={**os.environ, 'CHROME_PAGELOAD_TIMEOUT': '30', 'CHROME_WAIT_FOR': 'load'}
+            env=get_test_env() | {'CHROME_PAGELOAD_TIMEOUT': '30', 'CHROME_WAIT_FOR': 'load'}
         )
 
         assert result.returncode == 0, f"Navigation failed: {result.stderr}\nStdout: {result.stdout}"
@@ -250,7 +311,7 @@ def test_tab_cleanup_on_sigterm():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={**os.environ, 'CHROME_HEADLESS': 'true'}
+            env=get_test_env() | {'CHROME_HEADLESS': 'true'}
         )
 
         # Wait for Chrome to launch
@@ -270,7 +331,7 @@ def test_tab_cleanup_on_sigterm():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={**os.environ, 'CRAWL_OUTPUT_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
+            env=get_test_env() | {'CRAWL_OUTPUT_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
         )
 
         # Wait for tab to be created
@@ -314,7 +375,7 @@ def test_multiple_snapshots_share_chrome():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={**os.environ, 'CHROME_HEADLESS': 'true'}
+            env=get_test_env() | {'CHROME_HEADLESS': 'true'}
         )
 
         # Wait for Chrome to launch
@@ -344,7 +405,7 @@ def test_multiple_snapshots_share_chrome():
                 capture_output=True,
                 text=True,
                 timeout=60,
-                env={**os.environ, 'CRAWL_OUTPUT_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
+                env=get_test_env() | {'CRAWL_OUTPUT_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
             )
 
             assert result.returncode == 0, f"Tab {snap_num} creation failed: {result.stderr}"
@@ -400,7 +461,7 @@ def test_chrome_cleanup_on_crawl_end():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={**os.environ, 'CHROME_HEADLESS': 'true'}
+            env=get_test_env() | {'CHROME_HEADLESS': 'true'}
         )
 
         # Wait for Chrome to launch
@@ -445,7 +506,7 @@ def test_zombie_prevention_hook_killed():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={**os.environ, 'CHROME_HEADLESS': 'true'}
+            env=get_test_env() | {'CHROME_HEADLESS': 'true'}
         )
 
         # Wait for Chrome to launch

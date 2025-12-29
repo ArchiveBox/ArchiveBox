@@ -95,7 +95,7 @@ class OrchestratorSchema(Schema):
 def get_orchestrator(request):
     """Get the orchestrator status and all worker queues."""
     from archivebox.workers.orchestrator import Orchestrator
-    from workers.worker import CrawlWorker, SnapshotWorker, ArchiveResultWorker
+    from archivebox.workers.worker import CrawlWorker, SnapshotWorker, ArchiveResultWorker
 
     orchestrator = Orchestrator()
 
@@ -120,7 +120,7 @@ def get_orchestrator(request):
 @router.get("/workers", response=List[WorkerSchema], url_name="get_workers")
 def get_workers(request):
     """List all worker types and their current status."""
-    from workers.worker import CrawlWorker, SnapshotWorker, ArchiveResultWorker
+    from archivebox.workers.worker import CrawlWorker, SnapshotWorker, ArchiveResultWorker
 
     # Create temporary instances to query their queues
     return [
@@ -133,7 +133,7 @@ def get_workers(request):
 @router.get("/worker/{worker_name}", response=WorkerSchema, url_name="get_worker")
 def get_worker(request, worker_name: str):
     """Get status and queue for a specific worker type."""
-    from workers.worker import WORKER_TYPES
+    from archivebox.workers.worker import WORKER_TYPES
 
     if worker_name not in WORKER_TYPES:
         from ninja.errors import HttpError
@@ -146,7 +146,7 @@ def get_worker(request, worker_name: str):
 @router.get("/worker/{worker_name}/queue", response=List[QueueItemSchema], url_name="get_worker_queue")
 def get_worker_queue(request, worker_name: str, limit: int = 100):
     """Get the current queue for a specific worker type."""
-    from workers.worker import WORKER_TYPES
+    from archivebox.workers.worker import WORKER_TYPES
 
     if worker_name not in WORKER_TYPES:
         from ninja.errors import HttpError

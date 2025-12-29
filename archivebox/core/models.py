@@ -46,7 +46,7 @@ class Tag(ModelWithSerializers):
     # Keep AutoField for compatibility with main branch migrations
     # Don't use UUIDField here - requires complex FK transformation
     id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False, related_name='tag_set')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=True, related_name='tag_set')
     created_at = models.DateTimeField(default=timezone.now, db_index=True, null=True)
     modified_at = models.DateTimeField(auto_now=True)
     name = models.CharField(unique=True, blank=False, max_length=100)
@@ -261,7 +261,9 @@ class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):
         return qs
 
     def get_queryset(self):
-        return super().get_queryset().prefetch_related('tags', 'archiveresult_set')
+        # Don't prefetch by default - it causes "too many open files" during bulk operations
+        # Views/templates can add .prefetch_related('tags', 'archiveresult_set') where needed
+        return super().get_queryset()
 
     # =========================================================================
     # Import Methods
@@ -301,7 +303,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
     tags = models.ManyToManyField(Tag, blank=True, through=SnapshotTag, related_name='snapshot_set', through_fields=('snapshot', 'tag'))
 
-    state_machine_name = 'core.models.SnapshotMachine'
+    state_machine_name = 'archivebox.core.models.SnapshotMachine'
     state_field_name = 'status'
     retry_at_field_name = 'retry_at'
     StatusChoices = ModelWithStateMachine.StatusChoices
@@ -640,12 +642,24 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         # Detect version
         fs_version = cls._detect_fs_version_from_index(data)
 
+        # Get or create catchall crawl for orphaned snapshots
+        from archivebox.crawls.models import Crawl
+        system_user_id = get_or_create_system_user_pk()
+        catchall_crawl, _ = Crawl.objects.get_or_create(
+            label='[migration] orphaned snapshots',
+            defaults={
+                'urls': f'# Orphaned snapshot: {url}',
+                'max_depth': 0,
+                'created_by_id': system_user_id,
+            }
+        )
+
         return cls(
             url=url,
             timestamp=timestamp,
             title=data.get('title', ''),
             fs_version=fs_version,
-            created_by_id=get_or_create_system_user_pk(),
+            crawl=catchall_crawl,
         )
 
     @staticmethod
@@ -1953,11 +1967,18 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
     snapshot: Snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)  # type: ignore
     # No choices= constraint - plugin names come from plugin system and can be any string
-    plugin = models.CharField(max_length=32, blank=False, null=False, db_index=True)
+    plugin = models.CharField(max_length=32, blank=False, null=False, db_index=True, default='')
     hook_name = models.CharField(max_length=255, blank=True, default='', db_index=True, help_text='Full filename of the hook that executed (e.g., on_Snapshot__50_wget.py)')
-    pwd = models.CharField(max_length=256, default=None, null=True, blank=True)
-    cmd = models.JSONField(default=None, null=True, blank=True)
-    cmd_version = models.CharField(max_length=128, default=None, null=True, blank=True)
+
+    # Process FK - tracks execution details (cmd, pwd, stdout, stderr, etc.)
+    # Required - every ArchiveResult must have a Process
+    process = models.OneToOneField(
+        'machine.Process',
+        on_delete=models.PROTECT,
+        null=False,  # Required after migration 4
+        related_name='archiveresult',
+        help_text='Process execution details for this archive result'
+    )
 
     # New output fields (replacing old 'output' field)
     output_str = models.TextField(blank=True, default='', help_text='Human-readable output summary')
@@ -1966,15 +1987,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     output_size = models.BigIntegerField(default=0, help_text='Total bytes of all output files')
     output_mimetypes = models.CharField(max_length=512, blank=True, default='', help_text='CSV of mimetypes sorted by size')
 
-    # Binary FK (optional - set when hook reports cmd)
-    binary = models.ForeignKey(
-        Binary,
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='archiveresults',
-        help_text='Primary binary used by this hook'
-    )
-
     start_ts = models.DateTimeField(default=None, null=True, blank=True)
     end_ts = models.DateTimeField(default=None, null=True, blank=True)
 
@@ -1982,9 +1994,8 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
     notes = models.TextField(blank=True, null=False, default='')
     output_dir = models.CharField(max_length=256, default=None, null=True, blank=True)
-    iface = models.ForeignKey(NetworkInterface, on_delete=models.SET_NULL, null=True, blank=True)
 
-    state_machine_name = 'core.models.ArchiveResultMachine'
+    state_machine_name = 'archivebox.core.models.ArchiveResultMachine'
     retry_at_field_name = 'retry_at'
     state_field_name = 'status'
     active_state = StatusChoices.STARTED
@@ -2006,6 +2017,21 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
+
+        # Create Process record if this is a new ArchiveResult and no process exists yet
+        if is_new and not self.process_id:
+            from archivebox.machine.models import Process, Machine
+
+            process = Process.objects.create(
+                machine=Machine.current(),
+                pwd=str(Path(self.snapshot.output_dir) / self.plugin),
+                cmd=[],  # Will be set by run()
+                status='queued',
+                timeout=120,
+                env={},
+            )
+            self.process = process
+
         # Skip ModelWithOutputDir.save() to avoid creating index.json in plugin directories
         # Call the Django Model.save() directly instead
         models.Model.save(self, *args, **kwargs)
@@ -2088,6 +2114,49 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     @property
     def output_dir_parent(self) -> str:
         return str(self.snapshot.OUTPUT_DIR.relative_to(CONSTANTS.DATA_DIR))
+
+    # Properties that delegate to Process model (for backwards compatibility)
+    # These properties will replace the direct fields after migration is complete
+    # They allow existing code to continue using archiveresult.pwd, .cmd, etc.
+
+    # Note: After migration 3 creates Process records and migration 5 removes the old fields,
+    # these properties provide seamless access to Process data through ArchiveResult
+
+    # Uncommented after migration 3 completed - properties now active
+    @property
+    def pwd(self) -> str:
+        """Working directory (from Process)."""
+        return self.process.pwd if self.process_id else ''
+
+    @property
+    def cmd(self) -> list:
+        """Command array (from Process)."""
+        return self.process.cmd if self.process_id else []
+
+    @property
+    def cmd_version(self) -> str:
+        """Command version (from Process.binary)."""
+        return self.process.cmd_version if self.process_id else ''
+
+    @property
+    def binary(self):
+        """Binary FK (from Process)."""
+        return self.process.binary if self.process_id else None
+
+    @property
+    def iface(self):
+        """Network interface FK (from Process)."""
+        return self.process.iface if self.process_id else None
+
+    @property
+    def machine(self):
+        """Machine FK (from Process)."""
+        return self.process.machine if self.process_id else None
+
+    @property
+    def timeout(self) -> int:
+        """Timeout in seconds (from Process)."""
+        return self.process.timeout if self.process_id else 120
 
     def save_search_index(self):
         pass
@@ -2182,13 +2251,17 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             # Status stays STARTED, will be finalized by Snapshot.cleanup()
             self.status = self.StatusChoices.STARTED
             self.start_ts = start_ts
-            self.pwd = str(plugin_dir)
+            if self.process_id:
+                self.process.pwd = str(plugin_dir)
+                self.process.save()
             self.save()
             return
 
         # FOREGROUND HOOK - completed, update from filesystem
         self.start_ts = start_ts
-        self.pwd = str(plugin_dir)
+        if self.process_id:
+            self.process.pwd = str(plugin_dir)
+            self.process.save()
         self.update_from_output()
 
         # Clean up empty output directory if no files were created
@@ -2260,10 +2333,11 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
             # Update cmd fields
             if hook_data.get('cmd'):
-                self.cmd = hook_data['cmd']
+                if self.process_id:
+                    self.process.cmd = hook_data['cmd']
+                    self.process.save()
                 self._set_binary_from_cmd(hook_data['cmd'])
-            if hook_data.get('cmd_version'):
-                self.cmd_version = hook_data['cmd_version'][:128]
+            # Note: cmd_version is derived from binary.version, not stored on Process
         else:
             # No ArchiveResult record = failed
             self.status = self.StatusChoices.FAILED
@@ -2367,7 +2441,9 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         ).first()
 
         if binary:
-            self.binary = binary
+            if self.process_id:
+                self.process.binary = binary
+                self.process.save()
             return
 
         # Fallback: match by binary name
@@ -2378,7 +2454,9 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         ).first()
 
         if binary:
-            self.binary = binary
+            if self.process_id:
+                self.process.binary = binary
+                self.process.save()
 
     def _url_passes_filters(self, url: str) -> bool:
         """Check if URL passes URL_ALLOWLIST and URL_DENYLIST config filters.
@@ -2559,12 +2637,16 @@ class ArchiveResultMachine(BaseStateMachine, strict_states=True):
     def enter_started(self):
         from archivebox.machine.models import NetworkInterface
 
+        # Update Process with network interface
+        if self.archiveresult.process_id:
+            self.archiveresult.process.iface = NetworkInterface.current()
+            self.archiveresult.process.save()
+
         # Lock the object and mark start time
         self.archiveresult.update_and_requeue(
             retry_at=timezone.now() + timedelta(seconds=120),  # 2 min timeout for plugin
             status=ArchiveResult.StatusChoices.STARTED,
             start_ts=timezone.now(),
-            iface=NetworkInterface.current(),
         )
 
         # Run the plugin - this updates status, output, timestamps, etc.

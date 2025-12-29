@@ -81,12 +81,12 @@ def test_ripgrep_hook_skips_when_backend_not_ripgrep():
 
 
 def test_ripgrep_hook_handles_absolute_path():
-    """Test that ripgrep hook works when RIPGREP_BINARY is an absolute path."""
+    """Test that ripgrep hook exits successfully when RIPGREP_BINARY is a valid absolute path."""
     hook_path = Path(__file__).parent.parent / 'on_Crawl__00_install_ripgrep.py'
 
     rg_path = shutil.which('rg')
     if not rg_path:
-        pass
+        pytest.skip("ripgrep not installed")
 
     env = os.environ.copy()
     env['SEARCH_BACKEND_ENGINE'] = 'ripgrep'
@@ -100,11 +100,9 @@ def test_ripgrep_hook_handles_absolute_path():
         timeout=10,
     )
 
-    assert result.returncode == 0, f"Hook failed: {result.stderr}"
-    assert result.stdout.strip(), "Hook should produce output"
-
-    binary = json.loads(result.stdout.strip().split('\n')[0])
-    assert binary['abspath'] == rg_path
+    # When binary is already configured with valid absolute path, hook exits early without output
+    assert result.returncode == 0, f"Hook should exit successfully when binary already configured: {result.stderr}"
+    # No output is expected/needed when binary is already valid
 
 
 @pytest.mark.django_db

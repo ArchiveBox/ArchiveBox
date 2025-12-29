@@ -16,6 +16,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 import pytest
 
@@ -117,16 +118,73 @@ def test_config_timeout():
         env = os.environ.copy()
         env['GALLERY_DL_TIMEOUT'] = '5'
 
+        start_time = time.time()
         result = subprocess.run(
             [sys.executable, str(GALLERYDL_HOOK), '--url', 'https://example.com', '--snapshot-id', 'testtimeout'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            timeout=30
+            timeout=10  # Should complete in 5s, use 10s as safety margin
         )
+        elapsed_time = time.time() - start_time
 
-        assert result.returncode == 0, "Should complete without hanging"
+        assert result.returncode == 0, f"Should complete without hanging: {result.stderr}"
+        # Allow 1 second overhead for subprocess startup and Python interpreter
+        assert elapsed_time <= 6.0, f"Should complete within 6 seconds (5s timeout + 1s overhead), took {elapsed_time:.2f}s"
+
+
+def test_real_gallery_url():
+    """Test that gallery-dl can extract images from a real Flickr gallery URL."""
+    import os
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        # Use a real Flickr photo page
+        gallery_url = 'https://www.flickr.com/photos/gregorydolivet/55002388567/in/explore-2025-12-25/'
+
+        env = os.environ.copy()
+        env['GALLERY_DL_TIMEOUT'] = '60'  # Give it time to download
+
+        start_time = time.time()
+        result = subprocess.run(
+            [sys.executable, str(GALLERYDL_HOOK), '--url', gallery_url, '--snapshot-id', 'testflickr'],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=90
+        )
+        elapsed_time = time.time() - start_time
+
+        # Should succeed
+        assert result.returncode == 0, f"Should extract gallery successfully: {result.stderr}"
+
+        # Parse JSONL output
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert result_json, f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+
+        # Check that some files were downloaded
+        output_files = list(tmpdir.glob('**/*'))
+        image_files = [f for f in output_files if f.is_file() and f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp')]
+
+        assert len(image_files) > 0, f"Should have downloaded at least one image. Files: {output_files}"
+
+        print(f"Successfully extracted {len(image_files)} image(s) in {elapsed_time:.2f}s")
+
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

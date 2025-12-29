@@ -13,7 +13,7 @@ from ninja.errors import HttpError
 
 
 def get_or_create_api_token(user):
-    from api.models import APIToken
+    from archivebox.api.models import APIToken
     
     if user and user.is_superuser:
         api_tokens = APIToken.objects.filter(created_by_id=user.pk, expires__gt=timezone.now())
@@ -32,7 +32,7 @@ def get_or_create_api_token(user):
 
 def auth_using_token(token, request: Optional[HttpRequest]=None) -> Optional[AbstractBaseUser]:
     """Given an API token string, check if a corresponding non-expired APIToken exists, and return its user"""
-    from api.models import APIToken        # lazy import model to avoid loading it at urls.py import time
+    from archivebox.api.models import APIToken        # lazy import model to avoid loading it at urls.py import time
     
     user = None
 

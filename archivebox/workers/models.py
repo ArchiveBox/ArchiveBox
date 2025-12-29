@@ -47,6 +47,12 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
 
     @classmethod
     def check(cls, sender=None, **kwargs):
+        import sys
+
+        # Skip state machine checks during makemigrations to avoid premature registry access
+        if 'makemigrations' in sys.argv:
+            return super().check(**kwargs)
+
         errors = super().check(**kwargs)
 
         found_id_field = False

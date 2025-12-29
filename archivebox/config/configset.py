@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, List, Type, Tuple, TYPE_CHECKING, cast
 from configparser import ConfigParser
 
-from pydantic import Field
+from pydantic import Field, ConfigDict
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
 
 
@@ -66,10 +66,11 @@ class BaseConfigSet(BaseSettings):
             USE_COLOR: bool = Field(default=True)
     """
 
-    class Config:
-        env_prefix = ""
-        extra = "ignore"
-        validate_default = True
+    model_config = ConfigDict(
+        env_prefix="",
+        extra="ignore",
+        validate_default=True,
+    )
 
     @classmethod
     def settings_customise_sources(

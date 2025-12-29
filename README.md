@@ -132,7 +132,7 @@ curl -fsSL 'https://get.archivebox.io' | bash
 - [**Extracts a wide variety of content out-of-the-box**](https://github.com/ArchiveBox/ArchiveBox/issues/51): [media (yt-dlp), articles (readability), code (git), etc.](#output-formats)
 - [**Supports scheduled/realtime importing**](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) from [many types of sources](#input-formats)
 - [**Uses standard, durable, long-term formats**](#output-formats) like HTML, JSON, PDF, PNG, MP4, TXT, and WARC
-- [**Usable as a oneshot CLI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage), [**self-hosted web UI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#UI-Usage), [Python API](https://docs.archivebox.io/en/dev/apidocs/archivebox/archivebox.html) (BETA), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (ALPHA), or [desktop app](https://github.com/ArchiveBox/electron-archivebox)
+- [**Powerful CLI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage), [**self-hosted web UI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#UI-Usage), [Python API](https://docs.archivebox.io/en/dev/apidocs/archivebox/archivebox.html) (BETA), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (ALPHA), or [desktop app](https://github.com/ArchiveBox/electron-archivebox)
 - [**Saves all pages to archive.org as well**](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#save_archive_dot_org) by default for redundancy (can be [disabled](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) for local-only mode)
 - Advanced users: support for archiving [content requiring login/paywall/cookies](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (see wiki security caveats!)
 - Planned: support for running [JS during archiving](https://github.com/ArchiveBox/ArchiveBox/issues/51) to adblock, [autoscroll](https://github.com/ArchiveBox/ArchiveBox/issues/80), [modal-hide](https://github.com/ArchiveBox/ArchiveBox/issues/175), [thread-expand](https://github.com/ArchiveBox/ArchiveBox/issues/345)
@@ -501,7 +501,7 @@ docker run -it -v $PWD:/data archivebox/archivebox help
 
 - `archivebox` `help`/`version` to see the list of available subcommands / currently installed version info
 - `archivebox` `setup`/`init`/`config`/`status`/`shell`/`manage` to administer your collection
-- `archivebox` `add`/`oneshot`/`schedule` to pull in fresh URLs from [bookmarks/history/RSS/etc.](#input-formats)
+- `archivebox` `add`/`schedule` to pull in fresh URLs from [bookmarks/history/RSS/etc.](#input-formats)
 - `archivebox` `list`/`update`/`remove` to manage existing Snapshots in your collection
 
 <br/>
@@ -900,7 +900,7 @@ Each snapshot subfolder <code>data/archive/TIMESTAMP/</code> includes a static <
 
 ## Static Archive Exporting
 
-You can create one-off archives of individual URLs with `archivebox oneshot`, or export your index as static HTML using `archivebox list` (so you can view it without an ArchiveBox server).
+You can export your index as static HTML using `archivebox list` (so you can view it without an ArchiveBox server).
 
 <br/>
 <details>
@@ -910,10 +910,7 @@ You can create one-off archives of individual URLs with `archivebox oneshot`, or
 <p><em>NOTE: These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the <code>archivebox list</code> command to export specific Snapshots or ranges.</em></p>
 </blockquote>
 
-<pre lang="bash"><code style="white-space: pre-line"># do a one-off single URL archive wihout needing a data dir initialized
-archivebox oneshot 'https://example.com'
-
-# archivebox list --help
+<pre lang="bash"><code style="white-space: pre-line"># archivebox list --help
 archivebox list --html --with-headers > index.html     # export to static html table
 archivebox list --json --with-headers > index.json     # export to json blob
 archivebox list --csv=timestamp,url,title > index.csv  # export to csv spreadsheet

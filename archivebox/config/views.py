@@ -356,9 +356,9 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
         "Logfile": [],
         "Exit Status": [],
     }
-    
-    from workers.supervisord_util import get_existing_supervisord_process
-    
+
+    from archivebox.workers.supervisord_util import get_existing_supervisord_process
+
     supervisor = get_existing_supervisord_process()
     if supervisor is None:
         return TableContext(
@@ -411,7 +411,7 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
 def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     assert request.user.is_superuser, "Must be a superuser to view configuration settings."
 
-    from workers.supervisord_util import get_existing_supervisord_process, get_worker, get_sock_file, CONFIG_FILE_NAME
+    from archivebox.workers.supervisord_util import get_existing_supervisord_process, get_worker, get_sock_file, CONFIG_FILE_NAME
 
     SOCK_FILE = get_sock_file()
     CONFIG_FILE = SOCK_FILE.parent / CONFIG_FILE_NAME

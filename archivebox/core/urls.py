@@ -47,7 +47,7 @@ urlpatterns = [
     path('admin/live-progress/', live_progress_view, name='live_progress'),
     path('admin/', archivebox_admin.urls),
 
-    path("api/",      include('api.urls'), name='api'),
+    path("api/",      include('archivebox.api.urls'), name='api'),
 
     path('health/', HealthCheckView.as_view(), name='healthcheck'),
     path('error/', lambda *_: 1/0),                                             # type: ignore

@@ -76,9 +76,7 @@ def get_ytdlp_default_args(media_max_size: str = '750m') -> list[str]:
         '--trim-filenames', '128',
         '--write-description',
         '--write-info-json',
-        '--write-annotations',
         '--write-thumbnail',
-        '--no-call-home',
         '--write-sub',
         '--write-auto-subs',
         '--convert-subs=srt',
@@ -112,7 +110,7 @@ def save_media(url: str, binary: str) -> tuple[bool, str | None, str]:
         binary,
         *get_ytdlp_default_args(media_max_size),
         '--no-progress',
-        '-o', f'{OUTPUT_DIR}/%(title)s.%(ext)s',
+        '-o', '%(title)s.%(ext)s',
     ]
 
     if not check_ssl:

@@ -34,7 +34,7 @@ from archivebox.search import query_search_index
 from archivebox.core.models import Snapshot
 from archivebox.core.forms import AddLinkForm
 from archivebox.crawls.models import Crawl
-from archivebox.hooks import get_extractors, get_extractor_name
+from archivebox.hooks import get_enabled_plugins, get_plugin_name
 
 
 
@@ -119,7 +119,7 @@ class SnapshotView(View):
 
         # Get available extractor plugins from hooks (sorted by numeric prefix for ordering)
         # Convert to base names for display ordering
-        all_plugins = [get_extractor_name(e) for e in get_extractors()]
+        all_plugins = [get_plugin_name(e) for e in get_enabled_plugins()]
         preferred_types = tuple(all_plugins)
         all_types = preferred_types + tuple(result_type for result_type in archiveresults.keys() if result_type not in preferred_types)
 
@@ -484,7 +484,7 @@ class AddView(UserPassesTestMixin, FormView):
 
         # 3. create a CrawlSchedule if schedule is provided
         if schedule:
-            from crawls.models import CrawlSchedule
+            from archivebox.crawls.models import CrawlSchedule
             crawl_schedule = CrawlSchedule.objects.create(
                 template=crawl,
                 schedule=schedule,

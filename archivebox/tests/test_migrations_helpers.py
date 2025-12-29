@@ -372,23 +372,6 @@ CREATE TABLE IF NOT EXISTS core_tag (
 );
 
 -- Crawls tables (new in 0.8.x)
--- Seed table (removed in 0.9.x, but exists in 0.8.x)
-CREATE TABLE IF NOT EXISTS crawls_seed (
-    id CHAR(36) PRIMARY KEY,
-    created_at DATETIME NOT NULL,
-    created_by_id INTEGER NOT NULL REFERENCES auth_user(id),
-    modified_at DATETIME,
-    uri VARCHAR(2048) NOT NULL,
-    extractor VARCHAR(32) NOT NULL DEFAULT 'auto',
-    tags_str VARCHAR(255) NOT NULL DEFAULT '',
-    label VARCHAR(255) NOT NULL DEFAULT '',
-    config TEXT DEFAULT '{}',
-    output_dir VARCHAR(512) NOT NULL DEFAULT '',
-    notes TEXT NOT NULL DEFAULT '',
-    num_uses_failed INTEGER NOT NULL DEFAULT 0,
-    num_uses_succeeded INTEGER NOT NULL DEFAULT 0
-);
-
 CREATE TABLE IF NOT EXISTS crawls_crawlschedule (
     id CHAR(36) PRIMARY KEY,
     created_at DATETIME NOT NULL,
@@ -408,7 +391,6 @@ CREATE TABLE IF NOT EXISTS crawls_crawl (
     created_at DATETIME NOT NULL,
     created_by_id INTEGER NOT NULL REFERENCES auth_user(id),
     modified_at DATETIME,
-    seed_id CHAR(36) NOT NULL REFERENCES crawls_seed(id),
     urls TEXT NOT NULL,
     config TEXT DEFAULT '{}',
     max_depth SMALLINT UNSIGNED NOT NULL DEFAULT 0,

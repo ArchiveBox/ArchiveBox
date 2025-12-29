@@ -252,8 +252,8 @@ class ArchiveResultInline(admin.TabularInline):
 class ArchiveResultAdmin(BaseModelAdmin):
     list_display = ('id', 'created_at', 'snapshot_info', 'tags_str', 'status', 'plugin_with_icon', 'cmd_str', 'output_str')
     sort_fields = ('id', 'created_at', 'plugin', 'status')
-    readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary', 'plugin_with_icon', 'iface')
-    search_fields = ('id', 'snapshot__url', 'plugin', 'output_str', 'cmd_version', 'cmd', 'snapshot__timestamp')
+    readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary', 'plugin_with_icon', 'process')
+    search_fields = ('id', 'snapshot__url', 'plugin', 'output_str', 'cmd_version', 'cmd', 'snapshot__timestamp', 'process__cmd')
     autocomplete_fields = ['snapshot']
 
     fieldsets = (
@@ -262,7 +262,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
             'classes': ('card', 'wide'),
         }),
         ('Plugin', {
-            'fields': ('plugin', 'plugin_with_icon', 'status', 'retry_at', 'iface'),
+            'fields': ('plugin', 'plugin_with_icon', 'status', 'retry_at'),
             'classes': ('card',),
         }),
         ('Timing', {
@@ -270,7 +270,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
             'classes': ('card',),
         }),
         ('Command', {
-            'fields': ('cmd', 'cmd_str', 'cmd_version', 'pwd'),
+            'fields': ('process', 'cmd', 'cmd_str', 'cmd_version', 'pwd'),
             'classes': ('card',),
         }),
         ('Output', {
@@ -279,7 +279,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
         }),
     )
 
-    list_filter = ('status', 'plugin', 'start_ts', 'cmd_version')
+    list_filter = ('status', 'plugin', 'start_ts')
     ordering = ['-start_ts']
     list_per_page = SERVER_CONFIG.SNAPSHOTS_PER_PAGE
 

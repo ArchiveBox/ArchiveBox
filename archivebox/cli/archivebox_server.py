@@ -67,7 +67,7 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
             runserver_args.append('--nothreading')
         call_command("runserver", *runserver_args)
     else:
-        from workers.supervisord_util import (
+        from archivebox.workers.supervisord_util import (
             get_existing_supervisord_process,
             get_worker,
             start_server_workers,

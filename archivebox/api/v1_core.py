@@ -67,6 +67,7 @@ class MinimalArchiveResultSchema(Schema):
     retry_at: datetime | None
     plugin: str
     hook_name: str
+    process_id: UUID | None
     cmd_version: str | None
     cmd: list[str] | None
     pwd: str | None
@@ -121,6 +122,7 @@ class ArchiveResultFilterSchema(FilterSchema):
     output_str: Optional[str] = Field(None, q='output_str__icontains')
     plugin: Optional[str] = Field(None, q='plugin__icontains')
     hook_name: Optional[str] = Field(None, q='hook_name__icontains')
+    process_id: Optional[str] = Field(None, q='process__id__startswith')
     cmd: Optional[str] = Field(None, q='cmd__0__icontains')
     pwd: Optional[str] = Field(None, q='pwd__icontains')
     cmd_version: Optional[str] = Field(None, q='cmd_version')
@@ -290,7 +292,7 @@ def get_any(request, id: str):
             pass
 
     try:
-        from api.v1_crawls import get_crawl
+        from archivebox.api.v1_crawls import get_crawl
         response = get_crawl(request, id)
         if response:
             return redirect(f"/api/v1/{response._meta.app_label}/{response._meta.model_name}/{response.id}?{request.META['QUERY_STRING']}")

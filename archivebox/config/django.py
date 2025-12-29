@@ -70,7 +70,7 @@ def setup_django(check_db=False, in_memory_db=False) -> None:
         if in_memory_db:
             raise Exception('dont use this anymore')
 
-            # some commands (e.g. oneshot) dont store a long-lived sqlite3 db file on disk.
+            # some commands dont store a long-lived sqlite3 db file on disk.
             # in those cases we create a temporary in-memory db and run the migrations
             # immediately to get a usable in-memory-database at startup
             os.environ.setdefault("ARCHIVEBOX_DATABASE_NAME", ":memory:")

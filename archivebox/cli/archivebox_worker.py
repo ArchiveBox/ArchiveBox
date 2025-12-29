@@ -22,7 +22,7 @@ def worker(worker_type: str, daemon: bool = False, plugin: str | None = None):
     Workers poll the database for queued items, claim them atomically,
     and spawn subprocess tasks to handle each item.
     """
-    from workers.worker import get_worker_class
+    from archivebox.workers.worker import get_worker_class
 
     WorkerClass = get_worker_class(worker_type)
 

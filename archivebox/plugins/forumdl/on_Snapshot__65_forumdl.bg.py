@@ -30,6 +30,27 @@ from pathlib import Path
 import rich_click as click
 
 
+# Monkey patch forum-dl for Pydantic v2 compatibility
+# forum-dl 0.3.0 uses deprecated json(models_as_dict=False) which doesn't work in Pydantic v2
+try:
+    from forum_dl.writers.jsonl import JsonlWriter
+    from pydantic import BaseModel
+
+    # Check if we're using Pydantic v2 (has model_dump_json)
+    if hasattr(BaseModel, 'model_dump_json'):
+        # Patch JsonlWriter to use Pydantic v2 API
+        original_serialize = JsonlWriter._serialize_entry
+
+        def _patched_serialize_entry(self, entry):
+            # Use Pydantic v2's model_dump_json() instead of deprecated json(models_as_dict=False)
+            return entry.model_dump_json()
+
+        JsonlWriter._serialize_entry = _patched_serialize_entry
+except (ImportError, AttributeError):
+    # forum-dl not installed or already compatible
+    pass
+
+
 # Extractor metadata
 PLUGIN_NAME = 'forumdl'
 BIN_NAME = 'forum-dl'

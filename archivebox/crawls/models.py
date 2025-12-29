@@ -72,7 +72,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     label = models.CharField(max_length=64, blank=True, null=False, default='')
     notes = models.TextField(blank=True, null=False, default='')
     schedule = models.ForeignKey(CrawlSchedule, on_delete=models.SET_NULL, null=True, blank=True, editable=True)
-    output_dir = models.FilePathField(path=settings.ARCHIVE_DIR, null=False, blank=True, default='')
+    output_dir = models.CharField(max_length=512, null=False, blank=True, default='')
 
     status = ModelWithStateMachine.StatusField(choices=ModelWithStateMachine.StatusChoices, default=ModelWithStateMachine.StatusChoices.QUEUED)
     retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)

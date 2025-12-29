@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 import pytest
 
@@ -76,6 +77,60 @@ def test_handles_non_git_url():
         if result_json:
             # Should report failure or skip for non-git URL
             assert result_json['status'] in ['failed', 'skipped'], f"Should fail or skip: {result_json}"
+
+
+def test_real_git_repo():
+    """Test that git can clone a real GitHub repository."""
+    import os
+
+    if not shutil.which('git'):
+        pytest.skip("git binary not available")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        # Use a real but small GitHub repository
+        git_url = 'https://github.com/ArchiveBox/abx-pkg'
+
+        env = os.environ.copy()
+        env['GIT_TIMEOUT'] = '120'  # Give it time to clone
+
+        start_time = time.time()
+        result = subprocess.run(
+            [sys.executable, str(GIT_HOOK), '--url', git_url, '--snapshot-id', 'testgit'],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=180
+        )
+        elapsed_time = time.time() - start_time
+
+        # Should succeed
+        assert result.returncode == 0, f"Should clone repository successfully: {result.stderr}"
+
+        # Parse JSONL output
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert result_json, f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+
+        # Check that the git repo was cloned
+        git_dirs = list(tmpdir.glob('**/.git'))
+        assert len(git_dirs) > 0, f"Should have cloned a git repository. Contents: {list(tmpdir.rglob('*'))}"
+
+        print(f"Successfully cloned repository in {elapsed_time:.2f}s")
+
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

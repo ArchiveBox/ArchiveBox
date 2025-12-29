@@ -4,10 +4,15 @@ Install a binary using pip package manager.
 
 Usage: on_Binary__install_using_pip_provider.py --binary-id=<uuid> --machine-id=<uuid> --name=<name>
 Output: Binary JSONL record to stdout after installation
+
+Environment variables:
+    LIB_DIR: Library directory including machine type (e.g., data/lib/arm64-darwin) (required)
 """
 
 import json
+import os
 import sys
+from pathlib import Path
 
 import rich_click as click
 from abx_pkg import Binary, PipProvider
@@ -30,13 +35,25 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, override
         click.echo(f"pip provider not allowed for {name}", err=True)
         sys.exit(0)
 
-    # Use abx-pkg PipProvider to install binary
-    provider = PipProvider()
+    # Get LIB_DIR from environment (required)
+    # Note: LIB_DIR already includes machine type (e.g., data/lib/arm64-darwin)
+    lib_dir = os.environ.get('LIB_DIR')
+
+    if not lib_dir:
+        click.echo("ERROR: LIB_DIR environment variable not set", err=True)
+        sys.exit(1)
+
+    # Structure: lib/arm64-darwin/pip/venv (PipProvider will create venv automatically)
+    pip_venv_path = Path(lib_dir) / 'pip' / 'venv'
+    pip_venv_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Use abx-pkg PipProvider to install binary with custom venv
+    provider = PipProvider(pip_venv=pip_venv_path)
     if not provider.INSTALLER_BIN:
         click.echo("pip not available on this system", err=True)
         sys.exit(1)
 
-    click.echo(f"Installing {name} via pip...", err=True)
+    click.echo(f"Installing {name} via pip to venv at {pip_venv_path}...", err=True)
 
     try:
         # Parse overrides if provided

@@ -16,6 +16,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 import pytest
 
@@ -131,16 +132,73 @@ def test_config_timeout():
         env = os.environ.copy()
         env['MEDIA_TIMEOUT'] = '5'
 
+        start_time = time.time()
         result = subprocess.run(
             [sys.executable, str(MEDIA_HOOK), '--url', 'https://example.com', '--snapshot-id', 'testtimeout'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            timeout=30
+            timeout=10  # Should complete in 5s, use 10s as safety margin
         )
+        elapsed_time = time.time() - start_time
 
-        assert result.returncode == 0, "Should complete without hanging"
+        assert result.returncode == 0, f"Should complete without hanging: {result.stderr}"
+        # Allow 1 second overhead for subprocess startup and Python interpreter
+        assert elapsed_time <= 6.0, f"Should complete within 6 seconds (5s timeout + 1s overhead), took {elapsed_time:.2f}s"
+
+
+def test_real_youtube_url():
+    """Test that yt-dlp can extract media from a real YouTube URL."""
+    import os
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        # Use a short, stable YouTube video (YouTube's own about video)
+        youtube_url = 'https://www.youtube.com/watch?v=jNQXAC9IVRw'  # "Me at the zoo" - first YouTube video
+
+        env = os.environ.copy()
+        env['MEDIA_TIMEOUT'] = '120'  # Give it time to download
+
+        start_time = time.time()
+        result = subprocess.run(
+            [sys.executable, str(MEDIA_HOOK), '--url', youtube_url, '--snapshot-id', 'testyoutube'],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=180
+        )
+        elapsed_time = time.time() - start_time
+
+        # Should succeed
+        assert result.returncode == 0, f"Should extract media successfully: {result.stderr}"
+
+        # Parse JSONL output
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert result_json, f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+
+        # Check that some media files were downloaded
+        output_files = list(tmpdir.glob('**/*'))
+        media_files = [f for f in output_files if f.is_file() and f.suffix.lower() in ('.mp4', '.webm', '.mkv', '.m4a', '.mp3', '.json', '.jpg', '.webp')]
+
+        assert len(media_files) > 0, f"Should have downloaded at least one media file. Files: {output_files}"
+
+        print(f"Successfully extracted {len(media_files)} file(s) in {elapsed_time:.2f}s")
+
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

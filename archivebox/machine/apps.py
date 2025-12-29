@@ -12,7 +12,11 @@ class MachineConfig(AppConfig):
 
     def ready(self):
         """Import models to register state machines with the registry"""
-        from archivebox.machine import models  # noqa: F401
+        import sys
+
+        # Skip during makemigrations to avoid premature state machine access
+        if 'makemigrations' not in sys.argv:
+            from archivebox.machine import models  # noqa: F401
 
 
 def register_admin(admin_site):

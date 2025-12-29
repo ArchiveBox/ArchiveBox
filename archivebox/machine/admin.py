@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
-from archivebox.machine.models import Machine, NetworkInterface, Binary
+from archivebox.machine.models import Machine, NetworkInterface, Binary, Process
 
 
 class MachineAdmin(ConfigEditorMixin, BaseModelAdmin):
@@ -143,7 +143,87 @@ class BinaryAdmin(BaseModelAdmin):
         )
 
 
+class ProcessAdmin(BaseModelAdmin):
+    list_display = ('id', 'created_at', 'machine_info', 'archiveresult_link', 'cmd_str', 'status', 'exit_code', 'pid', 'binary_info', 'health')
+    sort_fields = ('id', 'created_at', 'status', 'exit_code', 'pid')
+    search_fields = ('id', 'machine__id', 'binary__name', 'cmd', 'pwd', 'stdout', 'stderr')
+
+    readonly_fields = ('created_at', 'modified_at', 'machine', 'binary', 'iface', 'archiveresult_link')
+
+    fieldsets = (
+        ('Process Info', {
+            'fields': ('machine', 'archiveresult_link', 'status', 'retry_at'),
+            'classes': ('card',),
+        }),
+        ('Command', {
+            'fields': ('cmd', 'pwd', 'env', 'timeout'),
+            'classes': ('card', 'wide'),
+        }),
+        ('Execution', {
+            'fields': ('binary', 'iface', 'pid', 'exit_code', 'url'),
+            'classes': ('card',),
+        }),
+        ('Timing', {
+            'fields': ('started_at', 'ended_at'),
+            'classes': ('card',),
+        }),
+        ('Output', {
+            'fields': ('stdout', 'stderr'),
+            'classes': ('card', 'wide', 'collapse'),
+        }),
+        ('Usage', {
+            'fields': ('num_uses_succeeded', 'num_uses_failed'),
+            'classes': ('card',),
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'modified_at'),
+            'classes': ('card',),
+        }),
+    )
+
+    list_filter = ('status', 'exit_code', 'machine_id')
+    ordering = ['-created_at']
+    list_per_page = 100
+    actions = ["delete_selected"]
+
+    @admin.display(description='Machine', ordering='machine__id')
+    def machine_info(self, process):
+        return format_html(
+            '<a href="/admin/machine/machine/{}/change"><b><code>[{}]</code></b> &nbsp; {}</a>',
+            process.machine.id, str(process.machine.id)[:8], process.machine.hostname,
+        )
+
+    @admin.display(description='Binary', ordering='binary__name')
+    def binary_info(self, process):
+        if not process.binary:
+            return '-'
+        return format_html(
+            '<a href="/admin/machine/binary/{}/change"><code>{}</code> v{}</a>',
+            process.binary.id, process.binary.name, process.binary.version,
+        )
+
+    @admin.display(description='ArchiveResult')
+    def archiveresult_link(self, process):
+        if not hasattr(process, 'archiveresult'):
+            return '-'
+        ar = process.archiveresult
+        return format_html(
+            '<a href="/admin/core/archiveresult/{}/change"><code>{}</code> → {}</a>',
+            ar.id, ar.plugin, ar.snapshot.url[:50],
+        )
+
+    @admin.display(description='Command')
+    def cmd_str(self, process):
+        if not process.cmd:
+            return '-'
+        cmd = ' '.join(process.cmd[:3]) if isinstance(process.cmd, list) else str(process.cmd)
+        if len(process.cmd) > 3:
+            cmd += ' ...'
+        return format_html('<code style="font-size: 0.9em;">{}</code>', cmd[:80])
+
+
 def register_admin(admin_site):
     admin_site.register(Machine, MachineAdmin)
     admin_site.register(NetworkInterface, NetworkInterfaceAdmin)
     admin_site.register(Binary, BinaryAdmin)
+    admin_site.register(Process, ProcessAdmin)
