@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": ["chrome"],
+  "properties": {
+    "MODALCLOSER_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["CLOSE_MODALS", "AUTO_CLOSE_MODALS"],
+      "description": "Enable automatic modal and dialog closing"
+    },
+    "MODALCLOSER_TIMEOUT": {
+      "type": "integer",
+      "default": 1250,
+      "minimum": 100,
+      "description": "Delay before auto-closing dialogs (ms)"
+    },
+    "MODALCLOSER_POLL_INTERVAL": {
+      "type": "integer",
+      "default": 500,
+      "minimum": 100,
+      "description": "How often to check for CSS modals (ms)"
+    }
+  }
+}
