@@ -32,7 +32,7 @@ services:
             # - PUID=911                        # set to your host user's UID & GID if you encounter permissions issues
             # - PGID=911                        # UID/GIDs lower than 500 may clash with system uids and are not recommended
             # For options below, it's better to set in data/ArchiveBox.conf or use `docker compose run archivebox config --set SOME_KEY=someval` instead of setting here:
-            # - MEDIA_MAX_SIZE=750m             # increase this filesize limit to allow archiving larger audio/video files
+            # - YTDLP_MAX_SIZE=750m             # increase this filesize limit to allow archiving larger video/audio files
             # - TIMEOUT=60                      # increase this number to 120+ seconds if you see many slow downloads timing out
             # - CHECK_SSL_VALIDITY=True         # set to False to disable strict SSL checking (allows saving URLs w/ broken certs)
             # - SAVE_ARCHIVEDOTORG=True       # set to False to disable submitting all URLs to Archive.org when archiving

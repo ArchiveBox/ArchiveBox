@@ -59,18 +59,11 @@ def get_env_int(name: str, default: int = 0) -> int:
 
 
 STATICFILE_DIR = '../staticfile'
-MEDIA_DIR = '../media'
 
 def has_staticfile_output() -> bool:
     """Check if staticfile extractor already downloaded this URL."""
     staticfile_dir = Path(STATICFILE_DIR)
     return staticfile_dir.exists() and any(staticfile_dir.iterdir())
-
-
-def has_media_output() -> bool:
-    """Check if media extractor already downloaded this URL."""
-    media_dir = Path(MEDIA_DIR)
-    return media_dir.exists() and any(media_dir.iterdir())
 
 
 # Default gallery-dl args
@@ -185,22 +178,13 @@ def main(url: str, snapshot_id: str):
             # Temporary failure (config disabled) - NO JSONL emission
             sys.exit(0)
 
-        # Check if staticfile or media extractors already handled this (permanent skip)
+        # Check if staticfile extractor already handled this (permanent skip)
         if has_staticfile_output():
             print(f'Skipping gallery-dl - staticfile extractor already downloaded this', file=sys.stderr)
             print(json.dumps({
                 'type': 'ArchiveResult',
                 'status': 'skipped',
                 'output_str': 'staticfile already handled',
-            }))
-            sys.exit(0)
-
-        if has_media_output():
-            print(f'Skipping gallery-dl - media extractor already downloaded this', file=sys.stderr)
-            print(json.dumps({
-                'type': 'ArchiveResult',
-                'status': 'skipped',
-                'output_str': 'media already handled',
             }))
             sys.exit(0)
 

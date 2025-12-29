@@ -1,25 +1,24 @@
 #!/usr/bin/env python3
 """
-Download media from a URL using yt-dlp.
+Download video/audio from a URL using yt-dlp.
 
-Usage: on_Snapshot__media.py --url=<url> --snapshot-id=<uuid>
-Output: Downloads media files to $PWD/media/
+Usage: on_Snapshot__ytdlp.py --url=<url> --snapshot-id=<uuid>
+Output: Downloads video/audio files to $PWD/ytdlp/
 
 Environment variables:
     YTDLP_BINARY: Path to yt-dlp binary
-    YTDLP_TIMEOUT: Timeout in seconds (default: 3600 for large media)
+    YTDLP_TIMEOUT: Timeout in seconds (default: 3600 for large downloads)
     YTDLP_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: True)
-    YTDLP_EXTRA_ARGS: Extra arguments for yt-dlp (space-separated)
+    YTDLP_ARGS: JSON array of yt-dlp arguments (overrides defaults)
+    YTDLP_EXTRA_ARGS: Extra arguments for yt-dlp (space-separated, appended)
+    YTDLP_MAX_SIZE: Maximum file size (default: 750m)
 
-    # Media feature toggles
-    USE_YTDLP: Enable yt-dlp media extraction (default: True)
-    SAVE_MEDIA: Alias for USE_YTDLP
-
-    # Media size limits
-    MEDIA_MAX_SIZE: Maximum media file size (default: 750m)
+    # Feature toggles (with backwards-compatible aliases)
+    YTDLP_ENABLED: Enable yt-dlp extraction (default: True)
+    SAVE_YTDLP: Alias for YTDLP_ENABLED
+    MEDIA_ENABLED: Backwards-compatible alias for YTDLP_ENABLED
 
     # Fallback to ARCHIVING_CONFIG values if YTDLP_* not set:
-    MEDIA_TIMEOUT: Fallback timeout for media
     TIMEOUT: Fallback timeout
     CHECK_SSL_VALIDITY: Fallback SSL check
 """
@@ -34,7 +33,7 @@ import rich_click as click
 
 
 # Extractor metadata
-PLUGIN_NAME = 'media'
+PLUGIN_NAME = 'ytdlp'
 BIN_NAME = 'yt-dlp'
 BIN_PROVIDERS = 'pip,apt,brew,env'
 OUTPUT_DIR = '.'
@@ -68,49 +67,62 @@ def has_staticfile_output() -> bool:
     return staticfile_dir.exists() and any(staticfile_dir.iterdir())
 
 
-# Default yt-dlp args (from old YTDLP_CONFIG)
-def get_ytdlp_default_args(media_max_size: str = '750m') -> list[str]:
-    """Build default yt-dlp arguments."""
-    return [
-        '--restrict-filenames',
-        '--trim-filenames', '128',
-        '--write-description',
-        '--write-info-json',
-        '--write-thumbnail',
-        '--write-sub',
-        '--write-auto-subs',
-        '--convert-subs=srt',
-        '--yes-playlist',
-        '--continue',
-        '--no-abort-on-error',
-        '--ignore-errors',
-        '--geo-bypass',
-        '--add-metadata',
-        f'--format=(bv*+ba/b)[filesize<={media_max_size}][filesize_approx<=?{media_max_size}]/(bv*+ba/b)',
-    ]
+# Default yt-dlp args (can be overridden via YTDLP_ARGS env var)
+YTDLP_DEFAULT_ARGS = [
+    '--restrict-filenames',
+    '--trim-filenames', '128',
+    '--write-description',
+    '--write-info-json',
+    '--write-thumbnail',
+    '--write-sub',
+    '--write-auto-subs',
+    '--convert-subs=srt',
+    '--yes-playlist',
+    '--continue',
+    '--no-abort-on-error',
+    '--ignore-errors',
+    '--geo-bypass',
+    '--add-metadata',
+    '--no-progress',
+    '-o', '%(title)s.%(ext)s',
+]
 
 
-def save_media(url: str, binary: str) -> tuple[bool, str | None, str]:
+def get_ytdlp_args() -> list[str]:
+    """Get yt-dlp arguments from YTDLP_ARGS env var or use defaults."""
+    ytdlp_args_str = get_env('YTDLP_ARGS', '')
+    if ytdlp_args_str:
+        try:
+            # Try to parse as JSON array
+            args = json.loads(ytdlp_args_str)
+            if isinstance(args, list):
+                return [str(arg) for arg in args]
+        except json.JSONDecodeError:
+            pass
+    return YTDLP_DEFAULT_ARGS
+
+
+def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
-    Download media using yt-dlp.
+    Download video/audio using yt-dlp.
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env
+    # Get config from env (YTDLP_* primary, MEDIA_* as fallback via aliases)
     timeout = get_env_int('TIMEOUT', 3600)
     check_ssl = get_env_bool('CHECK_SSL_VALIDITY', True)
     extra_args = get_env('YTDLP_EXTRA_ARGS', '')
-    media_max_size = get_env('MEDIA_MAX_SIZE', '750m')
+    max_size = get_env('YTDLP_MAX_SIZE', '') or get_env('MEDIA_MAX_SIZE', '750m')
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
 
-    # Build command (later options take precedence)
+    # Build command using configurable YTDLP_ARGS (later options take precedence)
     cmd = [
         binary,
-        *get_ytdlp_default_args(media_max_size),
-        '--no-progress',
-        '-o', '%(title)s.%(ext)s',
+        *get_ytdlp_args(),
+        # Format with max_size limit (appended after YTDLP_ARGS so it can be overridden by YTDLP_EXTRA_ARGS)
+        f'--format=(bv*+ba/b)[filesize<={max_size}][filesize_approx<=?{max_size}]/(bv*+ba/b)',
     ]
 
     if not check_ssl:
@@ -175,21 +187,22 @@ def save_media(url: str, binary: str) -> tuple[bool, str | None, str]:
 
 
 @click.command()
-@click.option('--url', required=True, help='URL to download media from')
+@click.option('--url', required=True, help='URL to download video/audio from')
 @click.option('--snapshot-id', required=True, help='Snapshot UUID')
 def main(url: str, snapshot_id: str):
-    """Download media from a URL using yt-dlp."""
+    """Download video/audio from a URL using yt-dlp."""
 
     try:
-        # Check if media downloading is enabled
-        if not get_env_bool('MEDIA_ENABLED', True):
-            print('Skipping media (MEDIA_ENABLED=False)', file=sys.stderr)
+        # Check if yt-dlp downloading is enabled (YTDLP_ENABLED primary, MEDIA_ENABLED fallback)
+        ytdlp_enabled = get_env_bool('YTDLP_ENABLED', True) and get_env_bool('MEDIA_ENABLED', True)
+        if not ytdlp_enabled:
+            print('Skipping ytdlp (YTDLP_ENABLED=False)', file=sys.stderr)
             # Temporary failure (config disabled) - NO JSONL emission
             sys.exit(0)
 
         # Check if staticfile extractor already handled this (permanent skip)
         if has_staticfile_output():
-            print('Skipping media - staticfile extractor already downloaded this', file=sys.stderr)
+            print('Skipping ytdlp - staticfile extractor already downloaded this', file=sys.stderr)
             print(json.dumps({'type': 'ArchiveResult', 'status': 'skipped', 'output_str': 'staticfile already exists'}))
             sys.exit(0)
 
@@ -197,7 +210,7 @@ def main(url: str, snapshot_id: str):
         binary = get_env('YTDLP_BINARY', 'yt-dlp')
 
         # Run extraction
-        success, output, error = save_media(url, binary)
+        success, output, error = save_ytdlp(url, binary)
 
         if success:
             # Success - emit ArchiveResult

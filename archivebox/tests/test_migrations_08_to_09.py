@@ -458,7 +458,7 @@ class TestFilesystemMigration08to09(unittest.TestCase):
                     'SAVE_READABILITY': 'True',
                     'SAVE_MERCURY': 'True',
                     'SAVE_PDF': 'True',
-                    'SAVE_MEDIA': 'True',
+                    'SAVE_YTDLP': 'True',
                     'SAVE_ARCHIVEDOTORG': 'True',
                     'SAVE_HEADERS': 'True',
                     'SAVE_HTMLTOTEXT': 'True',

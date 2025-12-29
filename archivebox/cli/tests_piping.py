@@ -44,7 +44,7 @@ TEST_CONFIG = {
     'SAVE_READABILITY': 'False',
     'SAVE_MERCURY': 'False',
     'SAVE_GIT': 'False',
-    'SAVE_MEDIA': 'False',
+    'SAVE_YTDLP': 'False',
     'SAVE_HEADERS': 'False',
     'USE_CURL': 'False',
     'USE_WGET': 'False',

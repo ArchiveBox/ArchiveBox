@@ -23,7 +23,7 @@ def disable_extractors_dict():
         "SAVE_DOM": "false",
         "SAVE_HEADERS": "false",
         "USE_GIT": "false",
-        "SAVE_MEDIA": "false",
+        "SAVE_YTDLP": "false",
         "SAVE_ARCHIVEDOTORG": "false",
         "SAVE_TITLE": "false",
         "SAVE_FAVICON": "false",
