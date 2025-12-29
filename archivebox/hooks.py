@@ -619,20 +619,6 @@ def is_parser_plugin(plugin: str) -> bool:
     return name.startswith('parse_') and name.endswith('_urls')
 
 
-# Precedence order for search indexing (lower number = higher priority)
-# Used to select which plugin's output to use for full-text search
-# Plugin names here should match the part after the numeric prefix
-# e.g., '31_readability' -> 'readability'
-EXTRACTOR_INDEXING_PRECEDENCE = [
-    ('readability', 1),
-    ('mercury', 2),
-    ('htmltotext', 3),
-    ('singlefile', 4),
-    ('dom', 5),
-    ('wget', 6),
-]
-
-
 def get_enabled_plugins(config: Optional[Dict[str, Any]] = None) -> List[str]:
     """
     Get the list of enabled plugins based on config and available hooks.
@@ -960,25 +946,6 @@ DEFAULT_TEMPLATES = {
     ''',
 }
 
-# Default icons for known extractor plugins (emoji or short HTML)
-DEFAULT_PLUGIN_ICONS = {
-    'screenshot': '📷',
-    'pdf': '📄',
-    'singlefile': '📦',
-    'dom': '🌐',
-    'wget': '📥',
-    'media': '🎬',
-    'git': '📂',
-    'readability': '📖',
-    'mercury': '☿️',
-    'favicon': '⭐',
-    'title': '📝',
-    'headers': '📋',
-    'archive_org': '🏛️',
-    'htmltotext': '📃',
-    'warc': '🗄️',
-}
-
 
 def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) -> Optional[str]:
     """
@@ -1018,10 +985,7 @@ def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) 
 
 def get_plugin_icon(plugin: str) -> str:
     """
-    Get the icon for a plugin.
-
-    First checks for plugin-provided icon.html template,
-    then falls back to DEFAULT_PLUGIN_ICONS.
+    Get the icon for a plugin from its icon.html template.
 
     Args:
         plugin: Plugin name (e.g., 'screenshot', '15_singlefile')
@@ -1029,15 +993,13 @@ def get_plugin_icon(plugin: str) -> str:
     Returns:
         Icon HTML/emoji string.
     """
-    base_name = get_plugin_name(plugin)
-
     # Try plugin-provided icon template
     icon_template = get_plugin_template(plugin, 'icon', fallback=False)
     if icon_template:
         return icon_template.strip()
 
-    # Fall back to default icon
-    return DEFAULT_PLUGIN_ICONS.get(base_name, '📁')
+    # Fall back to generic folder icon
+    return '📁'
 
 
 def get_all_plugin_icons() -> Dict[str, str]:
