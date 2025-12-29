@@ -261,7 +261,7 @@ def get_data_locations():
 def get_code_locations():
     from archivebox.config import CONSTANTS
     from archivebox.config.common import STORAGE_CONFIG
-    
+
     return benedict({
         'PACKAGE_DIR': {
             'path': (PACKAGE_DIR).resolve(),
@@ -274,9 +274,9 @@ def get_code_locations():
             'is_valid': os.access(CONSTANTS.STATIC_DIR, os.R_OK) and os.access(CONSTANTS.STATIC_DIR, os.X_OK),                                                # read + list
         },
         'CUSTOM_TEMPLATES_DIR': {
-            'path': CONSTANTS.CUSTOM_TEMPLATES_DIR.resolve(),
-            'enabled': os.path.isdir(CONSTANTS.CUSTOM_TEMPLATES_DIR),
-            'is_valid': os.path.isdir(CONSTANTS.CUSTOM_TEMPLATES_DIR) and os.access(CONSTANTS.CUSTOM_TEMPLATES_DIR, os.R_OK),                                      # read
+            'path': STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR.resolve(),
+            'enabled': os.path.isdir(STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR),
+            'is_valid': os.path.isdir(STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR) and os.access(STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR, os.R_OK),                                      # read
         },
         'USER_PLUGINS_DIR': {
             'path': CONSTANTS.USER_PLUGINS_DIR.resolve(),

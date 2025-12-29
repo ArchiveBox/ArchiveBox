@@ -11,7 +11,7 @@ from django.utils.crypto import get_random_string
 import archivebox
 
 from archivebox.config import DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS  # noqa
-from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG  # noqa
+from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG, STORAGE_CONFIG  # noqa
 
 
 IS_MIGRATING = "makemigrations" in sys.argv[:3] or "migrate" in sys.argv[:3]
@@ -116,9 +116,9 @@ AUTHENTICATION_BACKENDS = [
 
 STATIC_URL = "/static/"
 TEMPLATES_DIR_NAME = "templates"
-CUSTOM_TEMPLATES_ENABLED = os.path.isdir(CONSTANTS.CUSTOM_TEMPLATES_DIR) and os.access(CONSTANTS.CUSTOM_TEMPLATES_DIR, os.R_OK)
+CUSTOM_TEMPLATES_ENABLED = os.path.isdir(STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR) and os.access(STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR, os.R_OK)
 STATICFILES_DIRS = [
-    *([str(CONSTANTS.CUSTOM_TEMPLATES_DIR / "static")] if CUSTOM_TEMPLATES_ENABLED else []),
+    *([str(STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR / "static")] if CUSTOM_TEMPLATES_ENABLED else []),
     # *[
     #     str(plugin_dir / 'static')
     #     for plugin_dir in PLUGIN_DIRS.values()
@@ -129,7 +129,7 @@ STATICFILES_DIRS = [
 ]
 
 TEMPLATE_DIRS = [
-    *([str(CONSTANTS.CUSTOM_TEMPLATES_DIR)] if CUSTOM_TEMPLATES_ENABLED else []),
+    *([str(STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR)] if CUSTOM_TEMPLATES_ENABLED else []),
     # *[
     #     str(plugin_dir / 'templates')
     #     for plugin_dir in PLUGIN_DIRS.values()
