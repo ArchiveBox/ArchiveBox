@@ -10,6 +10,12 @@ class CustomUserAdmin(UserAdmin):
     sort_fields = ['id', 'email', 'username', 'is_superuser', 'last_login', 'date_joined']
     list_display = ['username', 'id', 'email', 'is_superuser', 'last_login', 'date_joined']
     readonly_fields = ('snapshot_set', 'archiveresult_set', 'tag_set', 'apitoken_set', 'outboundwebhook_set')
+
+    # Preserve Django's default user creation form and fieldsets
+    # This ensures passwords are properly hashed and permissions are set correctly
+    add_fieldsets = UserAdmin.add_fieldsets
+
+    # Extend fieldsets for change form only (not user creation)
     fieldsets = [*UserAdmin.fieldsets, ('Data', {'fields': readonly_fields})]
 
     @admin.display(description='Snapshots')
