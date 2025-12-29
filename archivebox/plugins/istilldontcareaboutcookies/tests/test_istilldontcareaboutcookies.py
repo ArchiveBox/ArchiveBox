@@ -14,7 +14,7 @@ import pytest
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_SCRIPT = PLUGIN_DIR / "on_Snapshot__02_istilldontcareaboutcookies.js"
+INSTALL_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_istilldontcareaboutcookies.*'), None)
 
 
 def test_install_script_exists():

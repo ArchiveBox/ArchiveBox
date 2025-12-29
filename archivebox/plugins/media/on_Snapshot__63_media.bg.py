@@ -98,10 +98,10 @@ def save_media(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env (with YTDLP_ prefix or fallback to ARCHIVING_CONFIG style)
-    timeout = get_env_int('YTDLP_TIMEOUT') or get_env_int('MEDIA_TIMEOUT') or get_env_int('TIMEOUT', 3600)
-    check_ssl = get_env_bool('YTDLP_CHECK_SSL_VALIDITY', get_env_bool('CHECK_SSL_VALIDITY', True))
-    extra_args = get_env('YTDLP_EXTRA_ARGS') or get_env('YOUTUBEDL_EXTRA_ARGS', '')
+    # Get config from env
+    timeout = get_env_int('TIMEOUT', 3600)
+    check_ssl = get_env_bool('CHECK_SSL_VALIDITY', True)
+    extra_args = get_env('YTDLP_EXTRA_ARGS', '')
     media_max_size = get_env('MEDIA_MAX_SIZE', '750m')
 
     # Output directory is current directory (hook already runs in output dir)
@@ -182,15 +182,11 @@ def save_media(url: str, binary: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Download media from a URL using yt-dlp."""
 
-    output = None
-    status = 'failed'
-    error = ''
-
     try:
-        # Check if yt-dlp is enabled
-        if not (get_env_bool('USE_YTDLP', True) and get_env_bool('SAVE_MEDIA', True)):
-            print('Skipping media (USE_YTDLP=False or SAVE_MEDIA=False)', file=sys.stderr)
-            print(json.dumps({'type': 'ArchiveResult', 'status': 'skipped', 'output_str': 'USE_YTDLP=False'}))
+        # Check if media downloading is enabled
+        if not get_env_bool('MEDIA_ENABLED', True):
+            print('Skipping media (MEDIA_ENABLED=False)', file=sys.stderr)
+            # Temporary failure (config disabled) - NO JSONL emission
             sys.exit(0)
 
         # Check if staticfile extractor already handled this (permanent skip)
@@ -200,28 +196,29 @@ def main(url: str, snapshot_id: str):
             sys.exit(0)
 
         # Get binary from environment
-        binary = get_env('YTDLP_BINARY') or get_env('YOUTUBEDL_BINARY', 'yt-dlp')
+        binary = get_env('YTDLP_BINARY', 'yt-dlp')
 
         # Run extraction
         success, output, error = save_media(url, binary)
-        status = 'succeeded' if success else 'failed'
+
+        if success:
+            # Success - emit ArchiveResult
+            result = {
+                'type': 'ArchiveResult',
+                'status': 'succeeded',
+                'output_str': output or ''
+            }
+            print(json.dumps(result))
+            sys.exit(0)
+        else:
+            # Transient error - emit NO JSONL
+            print(f'ERROR: {error}', file=sys.stderr)
+            sys.exit(1)
 
     except Exception as e:
-        error = f'{type(e).__name__}: {e}'
-        status = 'failed'
-
-    if error:
-        print(f'ERROR: {error}', file=sys.stderr)
-
-    # Output clean JSONL (no RESULT_JSON= prefix)
-    result = {
-        'type': 'ArchiveResult',
-        'status': status,
-        'output_str': output or error or '',
-    }
-    print(json.dumps(result))
-
-    sys.exit(0 if status == 'succeeded' else 1)
+        # Transient error - emit NO JSONL
+        print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

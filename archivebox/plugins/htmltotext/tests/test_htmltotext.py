@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
-HTMLTOTEXT_HOOK = PLUGIN_DIR / 'on_Snapshot__54_htmltotext.py'
+HTMLTOTEXT_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_htmltotext.*'), None)
 TEST_URL = 'https://example.com'
 
 def test_hook_script_exists():
@@ -49,10 +49,11 @@ def test_extracts_text_from_html():
         assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
         # Verify output file (hook writes to current directory)
-        output_file = tmpdir / 'content.txt'
-        assert output_file.exists(), "content.txt not created"
+        output_file = tmpdir / 'htmltotext.txt'
+        assert output_file.exists(), f"htmltotext.txt not created. Files: {list(tmpdir.iterdir())}"
         content = output_file.read_text()
         assert len(content) > 0, "Content should not be empty"
+        assert 'Example Domain' in content, "Should contain text from HTML"
 
 def test_fails_gracefully_without_html():
     with tempfile.TemporaryDirectory() as tmpdir:

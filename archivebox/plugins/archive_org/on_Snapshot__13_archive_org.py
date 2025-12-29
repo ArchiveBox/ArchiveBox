@@ -6,10 +6,10 @@ Usage: on_Snapshot__archive_org.py --url=<url> --snapshot-id=<uuid>
 Output: Writes archive.org.txt to $PWD with the archived URL
 
 Environment variables:
-    ARCHIVE_ORG_TIMEOUT: Timeout in seconds (default: 60)
+    ARCHIVEDOTORG_TIMEOUT: Timeout in seconds (default: 60)
     USER_AGENT: User agent string
 
-    # Fallback to ARCHIVING_CONFIG values if ARCHIVE_ORG_* not set:
+    # Fallback to ARCHIVING_CONFIG values if ARCHIVEDOTORG_* not set:
     TIMEOUT: Fallback timeout
 
 Note: This extractor uses the 'requests' library which is bundled with ArchiveBox.
@@ -52,7 +52,7 @@ def submit_to_archive_org(url: str) -> tuple[bool, str | None, str]:
     except ImportError:
         return False, None, 'requests library not installed'
 
-    timeout = get_env_int('ARCHIVE_ORG_TIMEOUT') or get_env_int('TIMEOUT', 60)
+    timeout = get_env_int('ARCHIVEDOTORG_TIMEOUT') or get_env_int('TIMEOUT', 60)
     user_agent = get_env('USER_AGENT', 'Mozilla/5.0 (compatible; ArchiveBox/1.0)')
 
     submit_url = f'https://web.archive.org/save/{url}'
@@ -105,31 +105,35 @@ def submit_to_archive_org(url: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Submit a URL to archive.org for archiving."""
 
-    output = None
-    status = 'failed'
-    error = ''
+    # Check if feature is enabled
+    if get_env('ARCHIVEDOTORG_ENABLED', 'True').lower() in ('false', '0', 'no', 'off'):
+        print('Skipping archive.org submission (ARCHIVEDOTORG_ENABLED=False)', file=sys.stderr)
+        # Temporary failure (config disabled) - NO JSONL emission
+        sys.exit(0)
 
     try:
         # Run extraction
         success, output, error = submit_to_archive_org(url)
-        status = 'succeeded' if success else 'failed'
+
+        if success:
+            # Success - emit ArchiveResult with output file
+            result = {
+                'type': 'ArchiveResult',
+                'status': 'succeeded',
+                'output_str': output or '',
+            }
+            print(json.dumps(result))
+            sys.exit(0)
+        else:
+            # Transient error (network, timeout, HTTP error) - emit NO JSONL
+            # System will retry later
+            print(f'ERROR: {error}', file=sys.stderr)
+            sys.exit(1)
 
     except Exception as e:
-        error = f'{type(e).__name__}: {e}'
-        status = 'failed'
-
-    if error:
-        print(f'ERROR: {error}', file=sys.stderr)
-
-    # Output clean JSONL (no RESULT_JSON= prefix)
-    result = {
-        'type': 'ArchiveResult',
-        'status': status,
-        'output_str': output or error or '',
-    }
-    print(json.dumps(result))
-
-    sys.exit(0 if status == 'succeeded' else 1)
+        # Unexpected error - also transient, emit NO JSONL
+        print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

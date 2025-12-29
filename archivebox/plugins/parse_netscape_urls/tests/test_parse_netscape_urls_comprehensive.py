@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
-SCRIPT_PATH = next(PLUGIN_DIR.glob('on_Snapshot__*_parse_netscape_urls.py'), None)
+SCRIPT_PATH = next(PLUGIN_DIR.glob('on_Snapshot__*_parse_netscape_urls.*'), None)
 
 
 class TestFirefoxFormat:
@@ -719,10 +719,11 @@ class TestEdgeCases:
         # Document current behavior
         if result.returncode == 0:
             # Output goes to stdout (JSONL)
-            if output_file.exists():
-                content = result.stdout.strip()
-                if content:
-                    entry = json.loads(content)
+            content = result.stdout.strip()
+            if content:
+                lines = [line for line in content.split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
+                if lines:
+                    entry = json.loads(lines[0])
                     assert 'example.com' in entry['url']
 
     def test_missing_add_date(self, tmp_path):
@@ -763,8 +764,11 @@ class TestEdgeCases:
         )
 
         # Current regex requires non-empty title [^<]+
-        # Document current behavior
-        assert result.returncode == 1
+        # Parser emits skipped ArchiveResult when no valid bookmarks found
+        assert result.returncode == 0
+        result_json = json.loads(result.stdout.strip())
+        assert result_json['type'] == 'ArchiveResult'
+        assert result_json['status'] == 'skipped'
 
     def test_special_chars_in_url(self, tmp_path):
         """Test URLs with special characters."""
@@ -900,7 +904,7 @@ class TestEdgeCases:
 
         assert result.returncode == 0
         # Output goes to stdout (JSONL)
-        lines = output_file.read_text(encoding='utf-8').strip().split('\n')
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
         entries = [json.loads(line) for line in lines]
 
         assert len(entries) == 5
@@ -933,12 +937,13 @@ class TestEdgeCases:
         assert result.returncode == 0
         assert 'Found 1000 URLs' in result.stdout
 
-        # Output goes to stdout (JSONL)
-        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
+        # Output goes to stdout (JSONL) - get all JSONL records
+        all_lines = [line for line in result.stdout.strip().split('\n') if line.strip() and line.startswith('{')]
+        records = [json.loads(line) for line in all_lines]
 
         # Should have 10 unique tags + 1000 snapshots
-        tags = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Tag']
-        snapshots = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Snapshot']
+        tags = [r for r in records if r.get('type') == 'Tag']
+        snapshots = [r for r in records if r.get('type') == 'Snapshot']
 
         assert len(tags) == 10
         assert len(snapshots) == 1000

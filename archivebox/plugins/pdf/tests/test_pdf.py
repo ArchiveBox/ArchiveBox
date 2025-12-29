@@ -23,8 +23,7 @@ import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
-PDF_HOOK = PLUGIN_DIR / 'on_Snapshot__35_pdf.js'
-CHROME_INSTALL_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__00_chrome_install.py'
+PDF_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_pdf.*'), None)
 NPM_PROVIDER_HOOK = PLUGINS_ROOT / 'npm' / 'on_Binary__install_using_npm_provider.py'
 TEST_URL = 'https://example.com'
 
@@ -32,70 +31,6 @@ TEST_URL = 'https://example.com'
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
     assert PDF_HOOK.exists(), f"Hook not found: {PDF_HOOK}"
-
-
-def test_chrome_validation_and_install():
-    """Test chrome install hook to install puppeteer-core if needed."""
-    # Run chrome install hook (from chrome plugin)
-    result = subprocess.run(
-        [sys.executable, str(CHROME_INSTALL_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=30
-    )
-
-    # If exit 1, binary not found - need to install
-    if result.returncode == 1:
-        # Parse Dependency request from JSONL
-        dependency_request = None
-        for line in result.stdout.strip().split('\n'):
-            pass
-            if line.strip():
-                pass
-                try:
-                    record = json.loads(line)
-                    if record.get('type') == 'Dependency':
-                        dependency_request = record
-                        break
-                except json.JSONDecodeError:
-                    pass
-
-        if dependency_request:
-            bin_name = dependency_request['bin_name']
-            bin_providers = dependency_request['bin_providers']
-
-            # Install via npm provider hook
-            install_result = subprocess.run(
-                [
-                    sys.executable,
-                    str(NPM_PROVIDER_HOOK),
-                    '--dependency-id', 'test-dep-001',
-                    '--bin-name', bin_name,
-                    '--bin-providers', bin_providers
-                ],
-                capture_output=True,
-                text=True,
-                timeout=600
-            )
-
-            assert install_result.returncode == 0, f"Install failed: {install_result.stderr}"
-
-            # Verify installation via JSONL output
-            for line in install_result.stdout.strip().split('\n'):
-                pass
-                if line.strip():
-                    pass
-                    try:
-                        record = json.loads(line)
-                        if record.get('type') == 'Binary':
-                            assert record['name'] == bin_name
-                            assert record['abspath']
-                            break
-                    except json.JSONDecodeError:
-                        pass
-    else:
-        # Binary already available, verify via JSONL output
-        assert result.returncode == 0, f"Validation failed: {result.stderr}"
 
 
 def test_verify_deps_with_abx_pkg():
@@ -166,17 +101,13 @@ def test_extracts_pdf_from_example_com():
 
 
 def test_config_save_pdf_false_skips():
-    """Test that SAVE_PDF config is honored (Note: currently not implemented in hook)."""
+    """Test that PDF_ENABLED=False exits without emitting JSONL."""
     import os
-
-    # NOTE: The pdf hook doesn't currently check SAVE_PDF env var,
-    # so this test just verifies it runs without errors.
-    # TODO: Implement SAVE_PDF check in hook
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         env = os.environ.copy()
-        env['SAVE_PDF'] = 'False'
+        env['PDF_ENABLED'] = 'False'
 
         result = subprocess.run(
             ['node', str(PDF_HOOK), f'--url={TEST_URL}', '--snapshot-id=test999'],
@@ -184,11 +115,17 @@ def test_config_save_pdf_false_skips():
             capture_output=True,
             text=True,
             env=env,
-            timeout=120
+            timeout=30
         )
 
-        # Hook currently ignores SAVE_PDF, so it will run normally
-        assert result.returncode in (0, 1), "Should complete without hanging"
+        assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
+
+        # Feature disabled - temporary failure, should NOT emit JSONL
+        assert 'Skipping' in result.stderr or 'False' in result.stderr, "Should log skip reason to stderr"
+
+        # Should NOT emit any JSONL
+        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
+        assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
 
 
 def test_reports_missing_chrome():

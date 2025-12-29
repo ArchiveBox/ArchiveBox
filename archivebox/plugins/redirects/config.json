@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": ["chrome"],
+  "properties": {
+    "REDIRECTS_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["SAVE_REDIRECTS", "USE_REDIRECTS"],
+      "description": "Enable redirect chain capture"
+    },
+    "REDIRECTS_TIMEOUT": {
+      "type": "integer",
+      "default": 30,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for redirect capture in seconds"
+    }
+  }
+}

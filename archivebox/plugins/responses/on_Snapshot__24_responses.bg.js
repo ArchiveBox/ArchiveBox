@@ -309,9 +309,9 @@ async function main() {
         process.exit(1);
     }
 
-    if (!getEnvBool('SAVE_RESPONSES', true)) {
-        console.error('Skipping (SAVE_RESPONSES=False)');
-        console.log(JSON.stringify({type: 'ArchiveResult', status: 'skipped', output_str: 'SAVE_RESPONSES=False'}));
+    if (!getEnvBool('RESPONSES_ENABLED', true)) {
+        console.error('Skipping (RESPONSES_ENABLED=False)');
+        console.log(JSON.stringify({type: 'ArchiveResult', status: 'skipped', output_str: 'RESPONSES_ENABLED=False'}));
         process.exit(0);
     }
 

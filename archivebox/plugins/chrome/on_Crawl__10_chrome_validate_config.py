@@ -97,12 +97,12 @@ def main():
     # Get config values
     chrome_binary = get_env('CHROME_BINARY', 'chromium')
     chrome_sandbox = get_env_bool('CHROME_SANDBOX', True)
-    save_screenshot = get_env_bool('SAVE_SCREENSHOT', True)
-    save_pdf = get_env_bool('SAVE_PDF', True)
-    save_dom = get_env_bool('SAVE_DOM', True)
+    screenshot_enabled = get_env_bool('SCREENSHOT_ENABLED', True)
+    pdf_enabled = get_env_bool('PDF_ENABLED', True)
+    dom_enabled = get_env_bool('DOM_ENABLED', True)
 
-    # Compute USE_CHROME (derived from SAVE_* flags)
-    use_chrome = save_screenshot or save_pdf or save_dom
+    # Compute USE_CHROME (derived from extractor enabled flags)
+    use_chrome = screenshot_enabled or pdf_enabled or dom_enabled
     computed['USE_CHROME'] = str(use_chrome).lower()
 
     # Detect Docker and adjust sandbox

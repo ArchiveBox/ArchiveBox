@@ -197,9 +197,9 @@ async function main() {
         process.exit(1);
     }
 
-    if (!getEnvBool('SAVE_SSL', true)) {
-        console.error('Skipping (SAVE_SSL=False)');
-        console.log(JSON.stringify({type: 'ArchiveResult', status: 'skipped', output_str: 'SAVE_SSL=False'}));
+    if (!getEnvBool('SSL_ENABLED', true)) {
+        console.error('Skipping (SSL_ENABLED=False)');
+        console.log(JSON.stringify({type: 'ArchiveResult', status: 'skipped', output_str: 'SSL_ENABLED=False'}));
         process.exit(0);
     }
 

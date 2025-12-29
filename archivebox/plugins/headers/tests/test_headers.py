@@ -21,7 +21,7 @@ import pytest
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-HEADERS_HOOK = PLUGIN_DIR / 'on_Snapshot__33_headers.js'
+HEADERS_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_headers.*'), None)
 TEST_URL = 'https://example.com'
 
 

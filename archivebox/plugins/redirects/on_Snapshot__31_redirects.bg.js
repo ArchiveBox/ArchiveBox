@@ -258,9 +258,9 @@ async function main() {
 
     originalUrl = url;
 
-    if (!getEnvBool('SAVE_REDIRECTS', true)) {
-        console.error('Skipping (SAVE_REDIRECTS=False)');
-        console.log(JSON.stringify({type: 'ArchiveResult', status: 'skipped', output_str: 'SAVE_REDIRECTS=False'}));
+    if (!getEnvBool('REDIRECTS_ENABLED', true)) {
+        console.error('Skipping (REDIRECTS_ENABLED=False)');
+        console.log(JSON.stringify({type: 'ArchiveResult', status: 'skipped', output_str: 'REDIRECTS_ENABLED=False'}));
         process.exit(0);
     }
 

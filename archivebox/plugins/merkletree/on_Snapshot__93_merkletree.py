@@ -132,11 +132,11 @@ def main(url: str, snapshot_id: str):
 
     try:
         # Check if enabled
-        save_merkletree = os.getenv('SAVE_MERKLETREE', 'true').lower() in ('true', '1', 'yes', 'on')
+        save_merkletree = os.getenv('MERKLETREE_ENABLED', 'true').lower() in ('true', '1', 'yes', 'on')
 
         if not save_merkletree:
             status = 'skipped'
-            click.echo(json.dumps({'status': status, 'output': 'SAVE_MERKLETREE=false'}))
+            click.echo(json.dumps({'status': status, 'output': 'MERKLETREE_ENABLED=false'}))
             sys.exit(0)
 
         # Working directory is the extractor output dir (e.g., <snapshot>/merkletree/)

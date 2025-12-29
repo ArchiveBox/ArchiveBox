@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "PARSE_NETSCAPE_URLS_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["USE_PARSE_NETSCAPE_URLS"],
+      "description": "Enable Netscape bookmarks HTML URL parsing"
+    }
+  }
+}

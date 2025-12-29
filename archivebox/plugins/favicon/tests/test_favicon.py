@@ -23,7 +23,7 @@ import pytest
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-FAVICON_HOOK = PLUGIN_DIR / 'on_Snapshot__11_favicon.py'
+FAVICON_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_favicon.*'), None)
 TEST_URL = 'https://example.com'
 
 

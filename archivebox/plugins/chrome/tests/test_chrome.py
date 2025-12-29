@@ -24,67 +24,16 @@ import tempfile
 import shutil
 
 PLUGIN_DIR = Path(__file__).parent.parent
-CHROME_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_chrome_install.py'
 CHROME_LAUNCH_HOOK = PLUGIN_DIR / 'on_Crawl__20_chrome_launch.bg.js'
 CHROME_TAB_HOOK = PLUGIN_DIR / 'on_Snapshot__20_chrome_tab.bg.js'
-CHROME_NAVIGATE_HOOK = PLUGIN_DIR / 'on_Snapshot__30_chrome_navigate.js'
+CHROME_NAVIGATE_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_chrome_navigate.*'), None)
 
 
 def test_hook_scripts_exist():
     """Verify chrome hooks exist."""
-    assert CHROME_INSTALL_HOOK.exists(), f"Hook not found: {CHROME_INSTALL_HOOK}"
     assert CHROME_LAUNCH_HOOK.exists(), f"Hook not found: {CHROME_LAUNCH_HOOK}"
     assert CHROME_TAB_HOOK.exists(), f"Hook not found: {CHROME_TAB_HOOK}"
     assert CHROME_NAVIGATE_HOOK.exists(), f"Hook not found: {CHROME_NAVIGATE_HOOK}"
-
-
-def test_chrome_install_hook():
-    """Test chrome install hook checks for Chrome/Chromium binary."""
-    import os
-
-    # Try with explicit CHROME_BINARY first (faster and more reliable)
-    chrome_app_path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-
-    if Path(chrome_app_path).exists():
-        # Use explicit CHROME_BINARY env var
-        result = subprocess.run(
-            [sys.executable, str(CHROME_INSTALL_HOOK)],
-            capture_output=True,
-            text=True,
-            env={**os.environ, 'CHROME_BINARY': chrome_app_path},
-            timeout=30
-        )
-
-        # When CHROME_BINARY is set and valid, hook exits 0 immediately (silent success)
-        assert result.returncode == 0, f"Should find Chrome at {chrome_app_path}. Error: {result.stderr}"
-    else:
-        # Run install hook to find or install Chrome
-        result = subprocess.run(
-            [sys.executable, str(CHROME_INSTALL_HOOK)],
-            capture_output=True,
-            text=True,
-            timeout=300  # Longer timeout for potential @puppeteer/browsers install
-        )
-
-        if result.returncode == 0:
-            # Binary found or installed - verify Binary JSONL output
-            found_binary = False
-            for line in result.stdout.strip().split('\n'):
-                if line.strip():
-                    try:
-                        record = json.loads(line)
-                        if record.get('type') == 'Binary':
-                            assert record['name'] == 'chrome'
-                            assert record['abspath']
-                            assert Path(record['abspath']).exists(), f"Chrome binary should exist at {record['abspath']}"
-                            found_binary = True
-                            break
-                    except json.JSONDecodeError:
-                        pass
-            assert found_binary, "Should output Binary record when binary found"
-        else:
-            # Failed to find or install Chrome
-            pytest.fail(f"Chrome installation failed. Please install Chrome manually or ensure @puppeteer/browsers is available. Error: {result.stderr}")
 
 
 def test_verify_deps_with_abx_pkg():

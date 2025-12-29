@@ -207,9 +207,9 @@ async function main() {
         process.exit(1);
     }
 
-    if (!getEnvBool('SAVE_CONSOLELOG', true)) {
-        console.error('Skipping (SAVE_CONSOLELOG=False)');
-        console.log(JSON.stringify({type: 'ArchiveResult', status: 'skipped', output_str: 'SAVE_CONSOLELOG=False'}));
+    if (!getEnvBool('CONSOLELOG_ENABLED', true)) {
+        console.error('Skipping (CONSOLELOG_ENABLED=False)');
+        console.log(JSON.stringify({type: 'ArchiveResult', status: 'skipped', output_str: 'CONSOLELOG_ENABLED=False'}));
         process.exit(0);
     }
 

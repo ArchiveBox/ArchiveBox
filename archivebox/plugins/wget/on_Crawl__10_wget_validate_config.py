@@ -4,7 +4,7 @@ Validate and compute derived wget config values.
 
 This hook runs early in the Crawl lifecycle to:
 1. Validate config values with warnings (not hard errors)
-2. Compute derived values (USE_WGET from SAVE_WGET/SAVE_WARC)
+2. Compute derived values (USE_WGET from WGET_ENABLED)
 3. Check binary availability and version
 
 Output:
@@ -62,13 +62,13 @@ def main():
     computed = {}
 
     # Get config values
-    save_wget = get_env_bool('SAVE_WGET', True)
-    save_warc = get_env_bool('SAVE_WARC', True)
+    wget_enabled = get_env_bool('WGET_ENABLED', True)
+    wget_save_warc = get_env_bool('WGET_SAVE_WARC', True)
     wget_timeout = get_env_int('WGET_TIMEOUT') or get_env_int('TIMEOUT', 60)
     wget_binary = get_env('WGET_BINARY', 'wget')
 
-    # Compute derived values
-    use_wget = save_wget or save_warc
+    # Compute derived values (USE_WGET for backward compatibility)
+    use_wget = wget_enabled
     computed['USE_WGET'] = str(use_wget).lower()
 
     # Validate timeout with warning (not error)
@@ -90,7 +90,7 @@ def main():
 
     if not binary_path:
         if use_wget:
-            errors.append(f"WGET_BINARY={wget_binary} not found. Install wget or set SAVE_WGET=false.")
+            errors.append(f"WGET_BINARY={wget_binary} not found. Install wget or set WGET_ENABLED=false.")
         computed['WGET_BINARY'] = ''
     else:
         computed['WGET_BINARY'] = binary_path

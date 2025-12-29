@@ -123,34 +123,31 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Extract article content using Mozilla's Readability."""
 
-    output = None
-    status = 'failed'
-    error = ''
-
     try:
         # Get binary from environment
         binary = get_env('READABILITY_BINARY', 'readability-extractor')
 
         # Run extraction
         success, output, error = extract_readability(url, binary)
-        status = 'succeeded' if success else 'failed'
+
+        if success:
+            # Success - emit ArchiveResult
+            result = {
+                'type': 'ArchiveResult',
+                'status': 'succeeded',
+                'output_str': output or ''
+            }
+            print(json.dumps(result))
+            sys.exit(0)
+        else:
+            # Transient error - emit NO JSONL
+            print(f'ERROR: {error}', file=sys.stderr)
+            sys.exit(1)
 
     except Exception as e:
-        error = f'{type(e).__name__}: {e}'
-        status = 'failed'
-
-    if error:
-        print(f'ERROR: {error}', file=sys.stderr)
-
-    # Output clean JSONL (no RESULT_JSON= prefix)
-    result = {
-        'type': 'ArchiveResult',
-        'status': status,
-        'output_str': output or error or '',
-    }
-    print(json.dumps(result))
-
-    sys.exit(0 if status == 'succeeded' else 1)
+        # Transient error - emit NO JSONL
+        print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

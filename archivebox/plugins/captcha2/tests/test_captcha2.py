@@ -14,8 +14,8 @@ import pytest
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_SCRIPT = PLUGIN_DIR / "on_Snapshot__01_captcha2.js"
-CONFIG_SCRIPT = PLUGIN_DIR / "on_Snapshot__21_captcha2_config.js"
+INSTALL_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_captcha2.*'), None)
+CONFIG_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_captcha2_config.*'), None)
 
 
 def test_install_script_exists():

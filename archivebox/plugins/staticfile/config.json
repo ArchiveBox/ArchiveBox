@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": ["chrome"],
+  "properties": {
+    "STATICFILE_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["SAVE_STATICFILE", "USE_STATICFILE"],
+      "description": "Enable static file detection"
+    },
+    "STATICFILE_TIMEOUT": {
+      "type": "integer",
+      "default": 30,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for static file detection in seconds"
+    }
+  }
+}

@@ -21,60 +21,12 @@ import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
-MERCURY_HOOK = PLUGIN_DIR / 'on_Snapshot__53_mercury.py'
-MERCURY_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_mercury.py'
+MERCURY_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_mercury.*'), None)
 TEST_URL = 'https://example.com'
 
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
     assert MERCURY_HOOK.exists(), f"Hook not found: {MERCURY_HOOK}"
-
-
-def test_mercury_install_hook():
-    """Test mercury install hook checks for postlight-parser."""
-    # Run mercury install hook
-    result = subprocess.run(
-        [sys.executable, str(MERCURY_INSTALL_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=30
-    )
-
-    # Hook exits 0 if binary found, 1 if not found (with Dependency record)
-    if result.returncode == 0:
-        # Binary found - verify Binary JSONL output
-        found_binary = False
-        for line in result.stdout.strip().split('\n'):
-            pass
-            if line.strip():
-                pass
-                try:
-                    record = json.loads(line)
-                    if record.get('type') == 'Binary':
-                        assert record['name'] == 'postlight-parser'
-                        assert record['abspath']
-                        found_binary = True
-                        break
-                except json.JSONDecodeError:
-                    pass
-        assert found_binary, "Should output Binary record when binary found"
-    else:
-        # Binary not found - verify Dependency JSONL output
-        found_dependency = False
-        for line in result.stdout.strip().split('\n'):
-            pass
-            if line.strip():
-                pass
-                try:
-                    record = json.loads(line)
-                    if record.get('type') == 'Dependency':
-                        assert record['bin_name'] == 'postlight-parser'
-                        assert 'npm' in record['bin_providers']
-                        found_dependency = True
-                        break
-                except json.JSONDecodeError:
-                    pass
-        assert found_dependency, "Should output Dependency record when binary not found"
 
 
 def test_verify_deps_with_abx_pkg():
@@ -147,12 +99,12 @@ def test_extracts_with_mercury_parser():
         assert len(content) > 0, "Output should not be empty"
 
 def test_config_save_mercury_false_skips():
-    """Test that SAVE_MERCURY=False exits without emitting JSONL."""
+    """Test that MERCURY_ENABLED=False exits without emitting JSONL."""
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
-        env['SAVE_MERCURY'] = 'False'
+        env['MERCURY_ENABLED'] = 'False'
 
         result = subprocess.run(
             [sys.executable, str(MERCURY_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],
@@ -165,7 +117,7 @@ def test_config_save_mercury_false_skips():
 
         assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
 
-        # Feature disabled - no JSONL emission, just logs to stderr
+        # Feature disabled - temporary failure, should NOT emit JSONL
         assert 'Skipping' in result.stderr or 'False' in result.stderr, "Should log skip reason to stderr"
 
         # Should NOT emit any JSONL
@@ -174,7 +126,7 @@ def test_config_save_mercury_false_skips():
 
 
 def test_fails_gracefully_without_html():
-    """Test that mercury fails gracefully when no HTML source exists."""
+    """Test that mercury works even without HTML source (fetches URL directly)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         result = subprocess.run(
             [sys.executable, str(MERCURY_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],
@@ -184,13 +136,12 @@ def test_fails_gracefully_without_html():
             timeout=30
         )
 
-        # Should exit with non-zero or emit failure JSONL
+        # Mercury fetches URL directly with postlight-parser, doesn't need HTML source
         # Parse clean JSONL output
         result_json = None
         for line in result.stdout.strip().split('\n'):
             line = line.strip()
             if line.startswith('{'):
-                pass
                 try:
                     record = json.loads(line)
                     if record.get('type') == 'ArchiveResult':
@@ -199,9 +150,9 @@ def test_fails_gracefully_without_html():
                 except json.JSONDecodeError:
                     pass
 
-        if result_json:
-            # Should report failure or skip since no HTML source
-            assert result_json['status'] in ['failed', 'skipped'], f"Should fail or skip without HTML: {result_json}"
+        # Mercury should succeed or fail based on network, not based on HTML source
+        assert result_json, "Should emit ArchiveResult"
+        assert result_json['status'] in ['succeeded', 'failed'], f"Should succeed or fail: {result_json}"
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

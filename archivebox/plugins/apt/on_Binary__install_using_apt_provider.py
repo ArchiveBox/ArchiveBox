@@ -67,6 +67,8 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, override
         'version': str(binary.version) if binary.version else '',
         'sha256': binary.sha256 or '',
         'binprovider': 'apt',
+        'machine_id': machine_id,
+        'binary_id': binary_id,
     }
     print(json.dumps(record))
 

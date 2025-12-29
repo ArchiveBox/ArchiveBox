@@ -1,0 +1,24 @@
+<!-- Staticfile thumbnail - preview of the static file -->
+<div class="extractor-thumbnail staticfile-thumbnail" style="width: 100%; height: 100px; overflow: hidden; background: #f5f5f5;">
+    {% if output_path %}
+        {% if output_path|lower|slice:"-4:" == ".pdf" or "application/pdf" in output_path %}
+            <embed src="{{ output_path }}#toolbar=0&navpanes=0&scrollbar=0&page=1&view=FitH"
+                   type="application/pdf"
+                   style="width: 100%; height: 200px; margin-top: -20px; pointer-events: none;">
+        {% elif output_path|lower|slice:"-4:" in ".jpg.png.gif.svg.bmp.webp.avif.heic" or output_path|lower|slice:"-5:" == ".jpeg" %}
+            <img src="{{ output_path }}"
+                 style="width: 100%; height: 100%; object-fit: cover;"
+                 loading="lazy">
+        {% elif output_path|lower|slice:"-4:" in ".mp4.webm.mov.avi.mkv" or output_path|lower|slice:"-5:" == ".mpeg" %}
+            <video src="{{ output_path }}"
+                   style="width: 100%; height: 100%; object-fit: cover;"
+                   preload="metadata"
+                   muted></video>
+        {% else %}
+            <iframe src="{{ output_path }}"
+                    style="width: 100%; height: 100%; border: none; pointer-events: none;"
+                    loading="lazy"
+                    sandbox="allow-same-origin"></iframe>
+        {% endif %}
+    {% endif %}
+</div>

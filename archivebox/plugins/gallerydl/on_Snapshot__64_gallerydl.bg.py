@@ -88,9 +88,9 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env (with GALLERYDL_ prefix or fallback to ARCHIVING_CONFIG style)
-    timeout = get_env_int('GALLERYDL_TIMEOUT') or get_env_int('TIMEOUT', 3600)
-    check_ssl = get_env_bool('GALLERYDL_CHECK_SSL_VALIDITY', get_env_bool('CHECK_SSL_VALIDITY', True))
+    # Get config from env
+    timeout = get_env_int('TIMEOUT', 3600)
+    check_ssl = get_env_bool('CHECK_SSL_VALIDITY', True)
     extra_args = get_env('GALLERYDL_EXTRA_ARGS', '')
     cookies_file = get_env('COOKIES_FILE', '')
 
@@ -180,9 +180,9 @@ def main(url: str, snapshot_id: str):
 
     try:
         # Check if gallery-dl is enabled
-        if not (get_env_bool('USE_GALLERYDL', True) and get_env_bool('SAVE_GALLERYDL', True)):
-            print('Skipping gallery-dl (USE_GALLERYDL=False or SAVE_GALLERYDL=False)', file=sys.stderr)
-            # Feature disabled - no ArchiveResult, just exit
+        if not get_env_bool('GALLERYDL_ENABLED', True):
+            print('Skipping gallery-dl (GALLERYDL_ENABLED=False)', file=sys.stderr)
+            # Temporary failure (config disabled) - NO JSONL emission
             sys.exit(0)
 
         # Check if staticfile or media extractors already handled this (permanent skip)
@@ -209,24 +209,25 @@ def main(url: str, snapshot_id: str):
 
         # Run extraction
         success, output, error = save_gallery(url, binary)
-        status = 'succeeded' if success else 'failed'
+
+        if success:
+            # Success - emit ArchiveResult
+            result = {
+                'type': 'ArchiveResult',
+                'status': 'succeeded',
+                'output_str': output or ''
+            }
+            print(json.dumps(result))
+            sys.exit(0)
+        else:
+            # Transient error - emit NO JSONL
+            print(f'ERROR: {error}', file=sys.stderr)
+            sys.exit(1)
 
     except Exception as e:
-        error = f'{type(e).__name__}: {e}'
-        status = 'failed'
-
-    if error:
-        print(f'ERROR: {error}', file=sys.stderr)
-
-    # Output clean JSONL (no RESULT_JSON= prefix)
-    result = {
-        'type': 'ArchiveResult',
-        'status': status,
-        'output_str': output or error or '',
-    }
-    print(json.dumps(result))
-
-    sys.exit(0 if status == 'succeeded' else 1)
+        # Transient error - emit NO JSONL
+        print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

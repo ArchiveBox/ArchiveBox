@@ -5,10 +5,10 @@ Tests verify:
     pass
 1. Validate hook checks for wget binary
 2. Verify deps with abx-pkg
-3. Config options work (SAVE_WGET, SAVE_WARC, etc.)
+3. Config options work (WGET_ENABLED, WGET_SAVE_WARC, etc.)
 4. Extraction works against real example.com
 5. Output files contain actual page content
-6. Skip cases work (SAVE_WGET=False, staticfile present)
+6. Skip cases work (WGET_ENABLED=False, staticfile present)
 7. Failure cases handled (404, network errors)
 """
 
@@ -26,8 +26,7 @@ import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
-WGET_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_wget.py'))
-WGET_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_wget.py'
+WGET_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_wget.*'))
 BREW_HOOK = PLUGINS_ROOT / 'brew' / 'on_Binary__install_using_brew_provider.py'
 APT_HOOK = PLUGINS_ROOT / 'apt' / 'on_Binary__install_using_apt_provider.py'
 TEST_URL = 'https://example.com'
@@ -36,52 +35,6 @@ TEST_URL = 'https://example.com'
 def test_hook_script_exists():
     """Verify hook script exists."""
     assert WGET_HOOK.exists(), f"Hook script not found: {WGET_HOOK}"
-
-
-def test_wget_install_hook():
-    """Test wget install hook checks for wget binary."""
-    result = subprocess.run(
-        [sys.executable, str(WGET_INSTALL_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=30
-    )
-
-    # Hook exits 0 if binary found, 1 if not found (with Dependency record)
-    if result.returncode == 0:
-        # Binary found - verify Binary JSONL output
-        found_binary = False
-        for line in result.stdout.strip().split('\n'):
-            pass
-            if line.strip():
-                pass
-                try:
-                    record = json.loads(line)
-                    if record.get('type') == 'Binary':
-                        assert record['name'] == 'wget'
-                        assert record['abspath']
-                        found_binary = True
-                        break
-                except json.JSONDecodeError:
-                    pass
-        assert found_binary, "Should output Binary record when binary found"
-    else:
-        # Binary not found - verify Dependency JSONL output
-        found_dependency = False
-        for line in result.stdout.strip().split('\n'):
-            pass
-            if line.strip():
-                pass
-                try:
-                    record = json.loads(line)
-                    if record.get('type') == 'Dependency':
-                        assert record['bin_name'] == 'wget'
-                        assert 'env' in record['bin_providers']
-                        found_dependency = True
-                        break
-                except json.JSONDecodeError:
-                    pass
-        assert found_dependency, "Should output Dependency record when binary not found"
 
 
 def test_verify_deps_with_abx_pkg():
@@ -113,12 +66,17 @@ def test_reports_missing_dependency_when_not_installed():
             env=env
         )
 
-        # Should fail and report missing dependency
-        assert result.returncode != 0, "Should exit non-zero when dependency missing"
-        combined = result.stdout + result.stderr
-        assert 'DEPENDENCY_NEEDED' in combined, "Should output DEPENDENCY_NEEDED"
-        assert 'wget' in combined.lower(), "Should mention wget"
-        assert 'BIN_PROVIDERS' in combined, "Should report available providers (apt,brew,env)"
+        # Missing binary is a transient error - should exit 1 with no JSONL
+        assert result.returncode == 1, "Should exit 1 when dependency missing"
+
+        # Should NOT emit JSONL (transient error - will be retried)
+        jsonl_lines = [line for line in result.stdout.strip().split('\n')
+                      if line.strip().startswith('{')]
+        assert len(jsonl_lines) == 0, "Should not emit JSONL for transient error (missing binary)"
+
+        # Should log error to stderr
+        assert 'wget' in result.stderr.lower() or 'error' in result.stderr.lower(), \
+            "Should report error in stderr"
 
 
 def test_can_install_wget_via_provider():
@@ -137,15 +95,17 @@ def test_can_install_wget_via_provider():
     assert provider_hook.exists(), f"Provider hook not found: {provider_hook}"
 
     # Test installation via provider hook
-    dependency_id = str(uuid.uuid4())
+    binary_id = str(uuid.uuid4())
+    machine_id = str(uuid.uuid4())
 
     result = subprocess.run(
         [
             sys.executable,
             str(provider_hook),
-            '--dependency-id', dependency_id,
-            '--bin-name', 'wget',
-            '--bin-providers', 'apt,brew,env'
+            '--binary-id', binary_id,
+            '--machine-id', machine_id,
+            '--name', 'wget',
+            '--binproviders', 'apt,brew,env'
         ],
         capture_output=True,
         text=True,
@@ -267,14 +227,14 @@ def test_archives_example_com():
 
 
 def test_config_save_wget_false_skips():
-    """Test that SAVE_WGET=False exits without emitting JSONL."""
+    """Test that WGET_ENABLED=False exits without emitting JSONL."""
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Set SAVE_WGET=False
+        # Set WGET_ENABLED=False
         env = os.environ.copy()
-        env['SAVE_WGET'] = 'False'
+        env['WGET_ENABLED'] = 'False'
 
         result = subprocess.run(
             [sys.executable, str(WGET_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],
@@ -297,7 +257,7 @@ def test_config_save_wget_false_skips():
 
 
 def test_config_save_warc():
-    """Test that SAVE_WARC=True creates WARC files."""
+    """Test that WGET_SAVE_WARC=True creates WARC files."""
 
     # Ensure wget is available
     if not shutil.which('wget'):
@@ -306,9 +266,9 @@ def test_config_save_warc():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Set SAVE_WARC=True explicitly
+        # Set WGET_SAVE_WARC=True explicitly
         env = os.environ.copy()
-        env['SAVE_WARC'] = 'True'
+        env['WGET_SAVE_WARC'] = 'True'
 
         result = subprocess.run(
             [sys.executable, str(WGET_HOOK), '--url', TEST_URL, '--snapshot-id', 'testwarc'],
@@ -325,7 +285,7 @@ def test_config_save_warc():
             if warc_dir.exists():
                 warc_files = list(warc_dir.rglob('*'))
                 warc_files = [f for f in warc_files if f.is_file()]
-                assert len(warc_files) > 0, "WARC file not created when SAVE_WARC=True"
+                assert len(warc_files) > 0, "WARC file not created when WGET_SAVE_WARC=True"
 
 
 def test_staticfile_present_skips():

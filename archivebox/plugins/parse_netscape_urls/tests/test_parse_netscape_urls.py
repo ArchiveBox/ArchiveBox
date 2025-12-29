@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
-SCRIPT_PATH = next(PLUGIN_DIR.glob('on_Snapshot__*_parse_netscape_urls.py'), None)
+SCRIPT_PATH = next(PLUGIN_DIR.glob('on_Snapshot__*_parse_netscape_urls.*'), None)
 
 
 class TestParseNetscapeUrls:

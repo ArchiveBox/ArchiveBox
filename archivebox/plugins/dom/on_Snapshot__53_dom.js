@@ -15,9 +15,29 @@
  *     CHROME_USER_AGENT: User agent string (optional)
  *     CHROME_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: true)
  *     CHROME_HEADLESS: Run in headless mode (default: true)
- *     SAVE_DOM: Enable DOM extraction (default: true)
+ *     DOM_ENABLED: Enable DOM extraction (default: true)
  */
 
+// Get environment variable with default
+function getEnv(name, defaultValue = '') {
+    return (process.env[name] || defaultValue).trim();
+}
+
+function getEnvBool(name, defaultValue = false) {
+    const val = getEnv(name, '').toLowerCase();
+    if (['true', '1', 'yes', 'on'].includes(val)) return true;
+    if (['false', '0', 'no', 'off'].includes(val)) return false;
+    return defaultValue;
+}
+
+// Check if DOM is enabled BEFORE requiring puppeteer
+if (!getEnvBool('DOM_ENABLED', true)) {
+    console.error('Skipping DOM (DOM_ENABLED=False)');
+    // Temporary failure (config disabled) - NO JSONL emission
+    process.exit(0);
+}
+
+// Now safe to require puppeteer
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer-core');
@@ -38,18 +58,6 @@ function parseArgs() {
         }
     });
     return args;
-}
-
-// Get environment variable with default
-function getEnv(name, defaultValue = '') {
-    return (process.env[name] || defaultValue).trim();
-}
-
-function getEnvBool(name, defaultValue = false) {
-    const val = getEnv(name, '').toLowerCase();
-    if (['true', '1', 'yes', 'on'].includes(val)) return true;
-    if (['false', '0', 'no', 'off'].includes(val)) return false;
-    return defaultValue;
 }
 
 function getEnvInt(name, defaultValue = 0) {
@@ -229,18 +237,7 @@ async function main() {
         process.exit(1);
     }
 
-    const startTs = new Date();
-    let status = 'failed';
-    let output = null;
-    let error = '';
-
     try {
-        // Check if DOM is enabled
-        if (!getEnvBool('SAVE_DOM', true)) {
-            console.error('Skipping DOM (SAVE_DOM=False)');
-            // Feature disabled - no ArchiveResult, just exit
-            process.exit(0);
-        }
         // Check if staticfile extractor already handled this (permanent skip)
         if (hasStaticFileOutput()) {
             console.error(`Skipping DOM - staticfile extractor already downloaded this`);
@@ -251,46 +248,40 @@ async function main() {
                 output_str: 'staticfile already handled',
             }));
             process.exit(0);
-        } else {
-            // Only wait for page load if using shared Chrome session
-            const cdpUrl = getCdpUrl();
-            if (cdpUrl) {
-                // Wait for page to be fully loaded
-                const pageLoaded = await waitForChromeTabLoaded(60000);
-                if (!pageLoaded) {
-                    throw new Error('Page not loaded after 60s (chrome_navigate must complete first)');
-                }
-            }
+        }
 
-            const result = await dumpDom(url);
-
-            if (result.success) {
-                status = 'succeeded';
-                output = result.output;
-                const size = fs.statSync(output).size;
-                console.error(`DOM saved (${size} bytes)`);
-            } else {
-                status = 'failed';
-                error = result.error;
+        // Only wait for page load if using shared Chrome session
+        const cdpUrl = getCdpUrl();
+        if (cdpUrl) {
+            // Wait for page to be fully loaded
+            const pageLoaded = await waitForChromeTabLoaded(60000);
+            if (!pageLoaded) {
+                throw new Error('Page not loaded after 60s (chrome_navigate must complete first)');
             }
         }
+
+        const result = await dumpDom(url);
+
+        if (result.success) {
+            // Success - emit ArchiveResult
+            const size = fs.statSync(result.output).size;
+            console.error(`DOM saved (${size} bytes)`);
+            console.log(JSON.stringify({
+                type: 'ArchiveResult',
+                status: 'succeeded',
+                output_str: result.output,
+            }));
+            process.exit(0);
+        } else {
+            // Transient error - emit NO JSONL
+            console.error(`ERROR: ${result.error}`);
+            process.exit(1);
+        }
     } catch (e) {
-        error = `${e.name}: ${e.message}`;
-        status = 'failed';
+        // Transient error - emit NO JSONL
+        console.error(`ERROR: ${e.name}: ${e.message}`);
+        process.exit(1);
     }
-
-    const endTs = new Date();
-
-    if (error) console.error(`ERROR: ${error}`);
-
-    // Output clean JSONL (no RESULT_JSON= prefix)
-    console.log(JSON.stringify({
-        type: 'ArchiveResult',
-        status,
-        output_str: output || error || '',
-    }));
-
-    process.exit(status === 'succeeded' ? 0 : 1);
 }
 
 main().catch(e => {

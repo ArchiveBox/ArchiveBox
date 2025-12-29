@@ -22,8 +22,7 @@ import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
-FORUMDL_HOOK = PLUGIN_DIR / 'on_Snapshot__53_forumdl.py'
-FORUMDL_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_forumdl.py'
+FORUMDL_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_forumdl.*'), None)
 TEST_URL = 'https://example.com'
 
 # Module-level cache for binary path
@@ -35,119 +34,58 @@ def get_forumdl_binary_path():
     if _forumdl_binary_path:
         return _forumdl_binary_path
 
-    # Skip if install hook doesn't exist
-    if not FORUMDL_INSTALL_HOOK.exists():
-        return None
+    # Try to find forum-dl binary using abx-pkg
+    from abx_pkg import Binary, PipProvider, EnvProvider, BinProviderOverrides
 
-    # Run install hook to find or install binary
-    result = subprocess.run(
-        [sys.executable, str(FORUMDL_INSTALL_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=300
-    )
+    try:
+        binary = Binary(
+            name='forum-dl',
+            binproviders=[PipProvider(), EnvProvider()]
+        ).load()
 
-    # Check if binary was found
-    for line in result.stdout.strip().split('\n'):
+        if binary and binary.abspath:
+            _forumdl_binary_path = str(binary.abspath)
+            return _forumdl_binary_path
+    except Exception:
         pass
-        if line.strip():
-            pass
-            try:
-                record = json.loads(line)
-                if record.get('type') == 'Binary' and record.get('name') == 'forum-dl':
-                    _forumdl_binary_path = record.get('abspath')
-                    return _forumdl_binary_path
-                elif record.get('type') == 'Dependency' and record.get('bin_name') == 'forum-dl':
-                    # Need to install via pip hook
-                    pip_hook = PLUGINS_ROOT / 'pip' / 'on_Binary__install_using_pip_provider.py'
-                    dependency_id = str(uuid.uuid4())
 
-                    # Build command with overrides if present
-                    cmd = [
-                        sys.executable, str(pip_hook),
-                        '--dependency-id', dependency_id,
-                        '--bin-name', record['bin_name']
-                    ]
-                    if 'overrides' in record:
-                        cmd.extend(['--overrides', json.dumps(record['overrides'])])
+    # If not found, try to install via pip
+    pip_hook = PLUGINS_ROOT / 'pip' / 'on_Binary__install_using_pip_provider.py'
+    if pip_hook.exists():
+        binary_id = str(uuid.uuid4())
+        machine_id = str(uuid.uuid4())
 
-                    install_result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        timeout=300
-                    )
+        cmd = [
+            sys.executable, str(pip_hook),
+            '--binary-id', binary_id,
+            '--machine-id', machine_id,
+            '--name', 'forum-dl'
+        ]
 
-                    # Parse Binary from pip installation
-                    for install_line in install_result.stdout.strip().split('\n'):
-                        pass
-                        if install_line.strip():
-                            pass
-                            try:
-                                install_record = json.loads(install_line)
-                                if install_record.get('type') == 'Binary' and install_record.get('name') == 'forum-dl':
-                                    _forumdl_binary_path = install_record.get('abspath')
-                                    return _forumdl_binary_path
-                            except json.JSONDecodeError:
-                                pass
+        install_result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
 
-                    # Installation failed - print debug info
-                    if not _forumdl_binary_path:
-                        print(f"\n=== forum-dl installation failed ===", file=sys.stderr)
-                        print(f"stdout: {install_result.stdout}", file=sys.stderr)
-                        print(f"stderr: {install_result.stderr}", file=sys.stderr)
-                        print(f"returncode: {install_result.returncode}", file=sys.stderr)
-                        return None
-            except json.JSONDecodeError:
-                pass
+        # Parse Binary from pip installation
+        for install_line in install_result.stdout.strip().split('\n'):
+            if install_line.strip():
+                try:
+                    install_record = json.loads(install_line)
+                    if install_record.get('type') == 'Binary' and install_record.get('name') == 'forum-dl':
+                        _forumdl_binary_path = install_record.get('abspath')
+                        return _forumdl_binary_path
+                except json.JSONDecodeError:
+                    pass
 
     return None
+
 
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
     assert FORUMDL_HOOK.exists(), f"Hook not found: {FORUMDL_HOOK}"
-
-
-def test_forumdl_install_hook():
-    """Test forum-dl install hook checks for forum-dl."""
-    # Skip if install hook doesn't exist yet
-    if not FORUMDL_INSTALL_HOOK.exists():
-        pass
-
-    # Run forum-dl install hook
-    result = subprocess.run(
-        [sys.executable, str(FORUMDL_INSTALL_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=30
-    )
-
-    # Hook exits 0 if all binaries found, 1 if any not found
-    # Parse output for Binary and Dependency records
-    found_binary = False
-    found_dependency = False
-
-    for line in result.stdout.strip().split('\n'):
-        pass
-        if line.strip():
-            pass
-            try:
-                record = json.loads(line)
-                if record.get('type') == 'Binary':
-                    pass
-                    if record['name'] == 'forum-dl':
-                        assert record['abspath'], "forum-dl should have abspath"
-                        found_binary = True
-                elif record.get('type') == 'Dependency':
-                    pass
-                    if record['bin_name'] == 'forum-dl':
-                        found_dependency = True
-            except json.JSONDecodeError:
-                pass
-
-    # forum-dl should either be found (Binary) or missing (Dependency)
-    assert found_binary or found_dependency, \
-        "forum-dl should have either Binary or Dependency record"
 
 
 def test_verify_deps_with_abx_pkg():
@@ -209,12 +147,12 @@ def test_handles_non_forum_url():
 
 
 def test_config_save_forumdl_false_skips():
-    """Test that SAVE_FORUMDL=False exits without emitting JSONL."""
+    """Test that FORUMDL_ENABLED=False exits without emitting JSONL."""
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
-        env['SAVE_FORUMDL'] = 'False'
+        env['FORUMDL_ENABLED'] = 'False'
 
         result = subprocess.run(
             [sys.executable, str(FORUMDL_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],
@@ -227,7 +165,7 @@ def test_config_save_forumdl_false_skips():
 
         assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
 
-        # Feature disabled - no JSONL emission, just logs to stderr
+        # Feature disabled - temporary failure, should NOT emit JSONL
         assert 'Skipping' in result.stderr or 'False' in result.stderr, "Should log skip reason to stderr"
 
         # Should NOT emit any JSONL

@@ -5,7 +5,7 @@ Check if a binary is already available in the system PATH.
 This is the simplest "provider" - it doesn't install anything,
 it just discovers binaries that are already installed.
 
-Usage: on_Dependency__install_using_env_provider.py --binary-id=<uuid> --name=<name>
+Usage: on_Binary__install_using_env_provider.py --binary-id=<uuid> --machine-id=<uuid> --name=<name>
 Output: Binary JSONL record to stdout if binary found in PATH
 
 Environment variables:
@@ -56,7 +56,7 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str):
         'sha256': binary.sha256 or '',
         'binprovider': 'env',
         'machine_id': machine_id,
-        'dependency_id': dependency_id,
+        'binary_id': binary_id,
     }
     print(json.dumps(record))
 

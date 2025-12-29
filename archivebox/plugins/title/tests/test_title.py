@@ -22,7 +22,7 @@ import pytest
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-TITLE_HOOK = PLUGIN_DIR / 'on_Snapshot__32_title.js'
+TITLE_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_title.*'), None)
 TEST_URL = 'https://example.com'
 
 

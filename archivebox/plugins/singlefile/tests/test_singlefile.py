@@ -20,8 +20,7 @@ import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
-INSTALL_SCRIPT = PLUGIN_DIR / "on_Snapshot__04_singlefile.js"
-CHROME_INSTALL_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__00_chrome_install.py'
+INSTALL_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_singlefile.*'), None)
 NPM_PROVIDER_HOOK = PLUGINS_ROOT / 'npm' / 'on_Binary__install_using_npm_provider.py'
 TEST_URL = "https://example.com"
 
@@ -145,7 +144,7 @@ def test_priority_order():
     # Extract priority from filename
     filename = INSTALL_SCRIPT.name
     assert "04" in filename, "SingleFile should have priority 04"
-    assert filename.startswith("on_Snapshot__04_"), "Should follow priority naming convention"
+    assert filename.startswith("on_Crawl__04_"), "Should follow priority naming convention for Crawl hooks"
 
 
 def test_output_directory_structure():
@@ -157,66 +156,6 @@ def test_output_directory_structure():
     assert "singlefile" in script_content.lower()
     # Should mention HTML output
     assert ".html" in script_content or "html" in script_content.lower()
-
-
-def test_chrome_validation_and_install():
-    """Test chrome install hook to install puppeteer-core if needed."""
-    # Run chrome install hook (from chrome plugin)
-    result = subprocess.run(
-        [sys.executable, str(CHROME_INSTALL_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=30
-    )
-
-    # If exit 1, binary not found - need to install
-    if result.returncode == 1:
-        # Parse Dependency request from JSONL
-        dependency_request = None
-        for line in result.stdout.strip().split('\n'):
-            if line.strip():
-                try:
-                    record = json.loads(line)
-                    if record.get('type') == 'Dependency':
-                        dependency_request = record
-                        break
-                except json.JSONDecodeError:
-                    pass
-
-        if dependency_request:
-            bin_name = dependency_request['bin_name']
-            bin_providers = dependency_request['bin_providers']
-
-            # Install via npm provider hook
-            install_result = subprocess.run(
-                [
-                    sys.executable,
-                    str(NPM_PROVIDER_HOOK),
-                    '--dependency-id', 'test-dep-001',
-                    '--bin-name', bin_name,
-                    '--bin-providers', bin_providers
-                ],
-                capture_output=True,
-                text=True,
-                timeout=600
-            )
-
-            assert install_result.returncode == 0, f"Install failed: {install_result.stderr}"
-
-            # Verify installation via JSONL output
-            for line in install_result.stdout.strip().split('\n'):
-                if line.strip():
-                    try:
-                        record = json.loads(line)
-                        if record.get('type') == 'Binary':
-                            assert record['name'] == bin_name
-                            assert record['abspath']
-                            break
-                    except json.JSONDecodeError:
-                        pass
-    else:
-        # Binary already available, verify via JSONL output
-        assert result.returncode == 0, f"Validation failed: {result.stderr}"
 
 
 def test_verify_deps_with_abx_pkg():

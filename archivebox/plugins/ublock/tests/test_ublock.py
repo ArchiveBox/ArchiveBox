@@ -14,7 +14,7 @@ import pytest
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_SCRIPT = PLUGIN_DIR / "on_Snapshot__03_ublock.js"
+INSTALL_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_ublock.*'), None)
 
 
 def test_install_script_exists():

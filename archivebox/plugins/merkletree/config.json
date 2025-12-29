@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "MERKLETREE_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["SAVE_MERKLETREE", "USE_MERKLETREE"],
+      "description": "Enable merkle tree hash generation"
+    },
+    "MERKLETREE_TIMEOUT": {
+      "type": "integer",
+      "default": 30,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for merkle tree generation in seconds"
+    }
+  }
+}

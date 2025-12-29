@@ -21,8 +21,7 @@ import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
-READABILITY_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_readability.py'))
-READABILITY_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_readability.py'
+READABILITY_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_readability.*'))
 TEST_URL = 'https://example.com'
 
 
@@ -95,57 +94,17 @@ def test_reports_missing_dependency_when_not_installed():
             env=env
         )
 
-        # Should fail and report missing dependency
-        assert result.returncode != 0, "Should exit non-zero when dependency missing"
-        combined = result.stdout + result.stderr
-        assert 'DEPENDENCY_NEEDED' in combined, "Should output DEPENDENCY_NEEDED"
-        assert 'readability-extractor' in combined or 'BIN_NAME' in combined, "Should mention readability-extractor"
+        # Missing binary is a transient error - should exit 1 with no JSONL
+        assert result.returncode == 1, "Should exit 1 when dependency missing"
 
+        # Should NOT emit JSONL (transient error - will be retried)
+        jsonl_lines = [line for line in result.stdout.strip().split('\n')
+                      if line.strip().startswith('{')]
+        assert len(jsonl_lines) == 0, "Should not emit JSONL for transient error (missing binary)"
 
-def test_readability_install_hook():
-    """Test readability install hook checks for readability-extractor binary."""
-    result = subprocess.run(
-        [sys.executable, str(READABILITY_INSTALL_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=30
-    )
-
-    # Hook exits 0 if binary found, 1 if not found (with Dependency record)
-    if result.returncode == 0:
-        # Binary found - verify Binary JSONL output
-        found_binary = False
-        for line in result.stdout.strip().split('\n'):
-            pass
-            if line.strip():
-                pass
-                try:
-                    record = json.loads(line)
-                    if record.get('type') == 'Binary':
-                        assert record['name'] == 'readability-extractor'
-                        assert record['abspath']
-                        found_binary = True
-                        break
-                except json.JSONDecodeError:
-                    pass
-        assert found_binary, "Should output Binary record when binary found"
-    else:
-        # Binary not found - verify Dependency JSONL output
-        found_dependency = False
-        for line in result.stdout.strip().split('\n'):
-            pass
-            if line.strip():
-                pass
-                try:
-                    record = json.loads(line)
-                    if record.get('type') == 'Dependency':
-                        assert record['bin_name'] == 'readability-extractor'
-                        assert 'npm' in record['bin_providers']
-                        found_dependency = True
-                        break
-                except json.JSONDecodeError:
-                    pass
-        assert found_dependency, "Should output Dependency record when binary not found"
+        # Should log error to stderr
+        assert 'readability-extractor' in result.stderr.lower() or 'error' in result.stderr.lower(), \
+            "Should report error in stderr"
 
 
 def test_verify_deps_with_abx_pkg():

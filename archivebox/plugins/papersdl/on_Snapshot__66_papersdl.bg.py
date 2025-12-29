@@ -71,7 +71,7 @@ def save_paper(url: str, binary: str) -> tuple[bool, str | None, str]:
     Returns: (success, output_path, error_message)
     """
     # Get config from env
-    timeout = get_env_int('PAPERSDL_TIMEOUT') or get_env_int('TIMEOUT', 300)
+    timeout = get_env_int('TIMEOUT', 300)
     extra_args = get_env('PAPERSDL_EXTRA_ARGS', '')
 
     # Output directory is current directory (hook already runs in output dir)
@@ -140,9 +140,9 @@ def main(url: str, snapshot_id: str):
 
     try:
         # Check if papers-dl is enabled
-        if not get_env_bool('SAVE_PAPERSDL', True):
-            print('Skipping papers-dl (SAVE_PAPERSDL=False)', file=sys.stderr)
-            # Feature disabled - no ArchiveResult, just exit
+        if not get_env_bool('PAPERSDL_ENABLED', True):
+            print('Skipping papers-dl (PAPERSDL_ENABLED=False)', file=sys.stderr)
+            # Temporary failure (config disabled) - NO JSONL emission
             sys.exit(0)
 
         # Get binary from environment
@@ -150,24 +150,25 @@ def main(url: str, snapshot_id: str):
 
         # Run extraction
         success, output, error = save_paper(url, binary)
-        status = 'succeeded' if success else 'failed'
+
+        if success:
+            # Success - emit ArchiveResult
+            result = {
+                'type': 'ArchiveResult',
+                'status': 'succeeded',
+                'output_str': output or ''
+            }
+            print(json.dumps(result))
+            sys.exit(0)
+        else:
+            # Transient error - emit NO JSONL
+            print(f'ERROR: {error}', file=sys.stderr)
+            sys.exit(1)
 
     except Exception as e:
-        error = f'{type(e).__name__}: {e}'
-        status = 'failed'
-
-    if error:
-        print(f'ERROR: {error}', file=sys.stderr)
-
-    # Output clean JSONL (no RESULT_JSON= prefix)
-    result = {
-        'type': 'ArchiveResult',
-        'status': status,
-        'output_str': output or error or '',
-    }
-    print(json.dumps(result))
-
-    sys.exit(0 if status == 'succeeded' else 1)
+        # Transient error - emit NO JSONL
+        print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

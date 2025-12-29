@@ -15,7 +15,7 @@
  * Output: Writes parse_dom_outlinks/outlinks.json and parse_dom_outlinks/urls.jsonl
  *
  * Environment variables:
- *     SAVE_DOM_OUTLINKS: Enable DOM outlinks extraction (default: true)
+ *     PARSE_DOM_OUTLINKS_ENABLED: Enable DOM outlinks extraction (default: true)
  */
 
 const fs = require('fs');
@@ -225,13 +225,13 @@ async function main() {
 
     try {
         // Check if enabled
-        if (!getEnvBool('SAVE_DOM_OUTLINKS', true)) {
-            console.log('Skipping DOM outlinks (SAVE_DOM_OUTLINKS=False)');
+        if (!getEnvBool('PARSE_DOM_OUTLINKS_ENABLED', true)) {
+            console.log('Skipping DOM outlinks (PARSE_DOM_OUTLINKS_ENABLED=False)');
             // Output clean JSONL (no RESULT_JSON= prefix)
             console.log(JSON.stringify({
                 type: 'ArchiveResult',
                 status: 'skipped',
-                output_str: 'SAVE_DOM_OUTLINKS=False',
+                output_str: 'PARSE_DOM_OUTLINKS_ENABLED=False',
             }));
             process.exit(0);
         }

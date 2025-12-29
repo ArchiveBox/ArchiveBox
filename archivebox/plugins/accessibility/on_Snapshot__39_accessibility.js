@@ -212,13 +212,13 @@ async function main() {
 
     try {
         // Check if enabled
-        if (!getEnvBool('SAVE_ACCESSIBILITY', true)) {
-            console.log('Skipping accessibility (SAVE_ACCESSIBILITY=False)');
+        if (!getEnvBool('ACCESSIBILITY_ENABLED', true)) {
+            console.log('Skipping accessibility (ACCESSIBILITY_ENABLED=False)');
             // Output clean JSONL (no RESULT_JSON= prefix)
             console.log(JSON.stringify({
                 type: 'ArchiveResult',
                 status: 'skipped',
-                output_str: 'SAVE_ACCESSIBILITY=False',
+                output_str: 'ACCESSIBILITY_ENABLED=False',
             }));
             process.exit(0);
         }

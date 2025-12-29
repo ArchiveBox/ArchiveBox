@@ -101,8 +101,8 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
     extra_args = get_env('WGET_EXTRA_ARGS', '')
 
     # Feature toggles
-    save_warc = get_env_bool('SAVE_WARC', True)
-    save_requisites = get_env_bool('SAVE_WGET_REQUISITES', True)
+    save_warc = get_env_bool('WGET_SAVE_WARC', True)
+    save_requisites = get_env_bool('WGET_SAVE_REQUISITES', True)
 
     # Build wget command (later options take precedence)
     cmd = [
@@ -199,9 +199,9 @@ def main(url: str, snapshot_id: str):
 
     try:
         # Check if wget is enabled
-        if not get_env_bool('SAVE_WGET', True):
-            print('Skipping wget (SAVE_WGET=False)', file=sys.stderr)
-            print(json.dumps({'type': 'ArchiveResult', 'status': 'skipped', 'output_str': 'SAVE_WGET=False'}))
+        if not get_env_bool('WGET_ENABLED', True):
+            print('Skipping wget (WGET_ENABLED=False)', file=sys.stderr)
+            # Temporary failure (config disabled) - NO JSONL emission
             sys.exit(0)
 
         # Check if staticfile extractor already handled this (permanent skip)
@@ -215,24 +215,25 @@ def main(url: str, snapshot_id: str):
 
         # Run extraction
         success, output, error = save_wget(url, binary)
-        status = 'succeeded' if success else 'failed'
+
+        if success:
+            # Success - emit ArchiveResult
+            result = {
+                'type': 'ArchiveResult',
+                'status': 'succeeded',
+                'output_str': output or ''
+            }
+            print(json.dumps(result))
+            sys.exit(0)
+        else:
+            # Transient error - emit NO JSONL
+            print(f'ERROR: {error}', file=sys.stderr)
+            sys.exit(1)
 
     except Exception as e:
-        error = f'{type(e).__name__}: {e}'
-        status = 'failed'
-
-    if error:
-        print(f'ERROR: {error}', file=sys.stderr)
-
-    # Output clean JSONL (no RESULT_JSON= prefix)
-    result = {
-        'type': 'ArchiveResult',
-        'status': status,
-        'output_str': output or error or '',
-    }
-    print(json.dumps(result))
-
-    sys.exit(0 if status == 'succeeded' else 1)
+        # Transient error - emit NO JSONL
+        print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

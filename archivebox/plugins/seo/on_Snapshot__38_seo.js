@@ -166,13 +166,13 @@ async function main() {
 
     try {
         // Check if enabled
-        if (!getEnvBool('SAVE_SEO', true)) {
-            console.log('Skipping SEO (SAVE_SEO=False)');
+        if (!getEnvBool('SEO_ENABLED', true)) {
+            console.log('Skipping SEO (SEO_ENABLED=False)');
             // Output clean JSONL (no RESULT_JSON= prefix)
             console.log(JSON.stringify({
                 type: 'ArchiveResult',
                 status: 'skipped',
-                output_str: 'SAVE_SEO=False',
+                output_str: 'SEO_ENABLED=False',
             }));
             process.exit(0);
         }

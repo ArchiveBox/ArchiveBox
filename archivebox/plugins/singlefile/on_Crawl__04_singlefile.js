@@ -25,7 +25,7 @@ const { exec } = require('child_process');
 const execAsync = promisify(exec);
 
 // Import extension utilities
-const extensionUtils = require('../chrome_extensions/chrome_extension_utils.js');
+const extensionUtils = require('../chrome/chrome_extension_utils.js');
 
 // Extension metadata
 const EXTENSION = {

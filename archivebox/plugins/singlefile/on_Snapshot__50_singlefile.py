@@ -197,9 +197,9 @@ def main(url: str, snapshot_id: str):
 
     try:
         # Check if SingleFile is enabled
-        if not get_env_bool('SAVE_SINGLEFILE', True):
-            print('Skipping SingleFile (SAVE_SINGLEFILE=False)', file=sys.stderr)
-            print(json.dumps({'type': 'ArchiveResult', 'status': 'skipped', 'output_str': 'SAVE_SINGLEFILE=False'}))
+        if not get_env_bool('SINGLEFILE_ENABLED', True):
+            print('Skipping SingleFile (SINGLEFILE_ENABLED=False)', file=sys.stderr)
+            # Feature disabled - no ArchiveResult, just exit
             sys.exit(0)
 
         # Check if staticfile extractor already handled this (permanent skip)

@@ -23,65 +23,13 @@ import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
-SCREENSHOT_HOOK = PLUGIN_DIR / 'on_Snapshot__34_screenshot.js'
-CHROME_INSTALL_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__00_chrome_install.py'
+SCREENSHOT_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_screenshot.*'), None)
 TEST_URL = 'https://example.com'
 
 
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
     assert SCREENSHOT_HOOK.exists(), f"Hook not found: {SCREENSHOT_HOOK}"
-
-
-def test_chrome_validation_and_install():
-    """Test chrome install hook to verify Chrome is available."""
-    # Try with explicit CHROME_BINARY first (faster)
-    chrome_app_path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-
-    if Path(chrome_app_path).exists():
-        # Use CHROME_BINARY env var pointing to Chrome.app
-        result = subprocess.run(
-            [sys.executable, str(CHROME_INSTALL_HOOK)],
-            capture_output=True,
-            text=True,
-            env={**os.environ, 'CHROME_BINARY': chrome_app_path},
-            timeout=30
-        )
-
-        # When CHROME_BINARY is set and valid, hook exits 0 immediately without output (optimization)
-        assert result.returncode == 0, f"Should find Chrome at {chrome_app_path}. Error: {result.stderr}"
-        print(f"Chrome validated at explicit path: {chrome_app_path}")
-    else:
-        # Run chrome install hook (from chrome plugin) to find or install Chrome
-        result = subprocess.run(
-            [sys.executable, str(CHROME_INSTALL_HOOK)],
-            capture_output=True,
-            text=True,
-            timeout=300  # Longer timeout for potential install
-        )
-
-        if result.returncode == 0:
-            # Parse output to verify Binary record
-            binary_found = False
-            binary_path = None
-
-            for line in result.stdout.strip().split('\n'):
-                if line.strip():
-                    try:
-                        record = json.loads(line)
-                        if record.get('type') == 'Binary':
-                            binary_found = True
-                            binary_path = record.get('abspath')
-                            assert record['name'] == 'chrome', f"Binary name should be 'chrome', got {record['name']}"
-                            assert binary_path, "Binary should have abspath"
-                            print(f"Found Chrome at: {binary_path}")
-                            break
-                    except json.JSONDecodeError:
-                        pass
-
-            assert binary_found, f"Should output Binary record when Chrome found. Output: {result.stdout}"
-        else:
-            pytest.fail(f"Chrome installation failed. Please install Chrome manually or ensure @puppeteer/browsers is available. Error: {result.stderr}")
 
 
 def test_verify_deps_with_abx_pkg():
@@ -146,13 +94,13 @@ def test_extracts_screenshot_from_example_com():
 
 
 def test_config_save_screenshot_false_skips():
-    """Test that SAVE_SCREENSHOT=False causes skip."""
+    """Test that SCREENSHOT_ENABLED=False exits without emitting JSONL."""
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         env = os.environ.copy()
-        env['SAVE_SCREENSHOT'] = 'False'
+        env['SCREENSHOT_ENABLED'] = 'False'
 
         result = subprocess.run(
             ['node', str(SCREENSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=test999'],
@@ -163,23 +111,14 @@ def test_config_save_screenshot_false_skips():
             timeout=30
         )
 
-        assert result.returncode == 0, f"Should exit 0 when skipping: {result.stderr}"
+        assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
 
-        # Parse JSONL output to verify skipped status
-        result_json = None
-        for line in result.stdout.strip().split('\n'):
-            line = line.strip()
-            if line.startswith('{'):
-                try:
-                    record = json.loads(line)
-                    if record.get('type') == 'ArchiveResult':
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        # Feature disabled - temporary failure, should NOT emit JSONL
+        assert 'Skipping' in result.stderr or 'False' in result.stderr, "Should log skip reason to stderr"
 
-        assert result_json, "Should have ArchiveResult JSONL output"
-        assert result_json['status'] in ('skipped', 'succeeded'), f"Should skip or succeed: {result_json}"
+        # Should NOT emit any JSONL
+        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
+        assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
 
 
 def test_reports_missing_chrome():

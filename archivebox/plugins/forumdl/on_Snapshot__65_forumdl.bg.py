@@ -65,8 +65,8 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
     Returns: (success, output_path, error_message)
     """
     # Get config from env
-    timeout = get_env_int('FORUMDL_TIMEOUT') or get_env_int('TIMEOUT', 3600)
-    check_ssl = get_env_bool('FORUMDL_CHECK_SSL_VALIDITY', get_env_bool('CHECK_SSL_VALIDITY', True))
+    timeout = get_env_int('TIMEOUT', 3600)
+    check_ssl = get_env_bool('CHECK_SSL_VALIDITY', True)
     textify = get_env_bool('FORUMDL_TEXTIFY', False)
     extra_args = get_env('FORUMDL_EXTRA_ARGS', '')
     output_format = get_env('FORUMDL_OUTPUT_FORMAT', 'jsonl')
@@ -148,9 +148,9 @@ def main(url: str, snapshot_id: str):
 
     try:
         # Check if forum-dl is enabled
-        if not get_env_bool('SAVE_FORUMDL', True):
-            print('Skipping forum-dl (SAVE_FORUMDL=False)', file=sys.stderr)
-            # Feature disabled - no ArchiveResult, just exit
+        if not get_env_bool('FORUMDL_ENABLED', True):
+            print('Skipping forum-dl (FORUMDL_ENABLED=False)', file=sys.stderr)
+            # Temporary failure (config disabled) - NO JSONL emission
             sys.exit(0)
 
         # Get binary from environment
@@ -158,24 +158,25 @@ def main(url: str, snapshot_id: str):
 
         # Run extraction
         success, output, error = save_forum(url, binary)
-        status = 'succeeded' if success else 'failed'
+
+        if success:
+            # Success - emit ArchiveResult
+            result = {
+                'type': 'ArchiveResult',
+                'status': 'succeeded',
+                'output_str': output or ''
+            }
+            print(json.dumps(result))
+            sys.exit(0)
+        else:
+            # Transient error - emit NO JSONL
+            print(f'ERROR: {error}', file=sys.stderr)
+            sys.exit(1)
 
     except Exception as e:
-        error = f'{type(e).__name__}: {e}'
-        status = 'failed'
-
-    if error:
-        print(f'ERROR: {error}', file=sys.stderr)
-
-    # Output clean JSONL (no RESULT_JSON= prefix)
-    result = {
-        'type': 'ArchiveResult',
-        'status': status,
-        'output_str': output or error or '',
-    }
-    print(json.dumps(result))
-
-    sys.exit(0 if status == 'succeeded' else 1)
+        # Transient error - emit NO JSONL
+        print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

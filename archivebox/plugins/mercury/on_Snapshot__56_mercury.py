@@ -35,6 +35,15 @@ def get_env(name: str, default: str = '') -> str:
     return os.environ.get(name, default).strip()
 
 
+def get_env_bool(name: str, default: bool = False) -> bool:
+    val = get_env(name, '').lower()
+    if val in ('true', '1', 'yes', 'on'):
+        return True
+    if val in ('false', '0', 'no', 'off'):
+        return False
+    return default
+
+
 def get_env_int(name: str, default: int = 0) -> int:
     try:
         return int(get_env(name, str(default)))
@@ -105,34 +114,37 @@ def extract_mercury(url: str, binary: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Extract article content using Postlight's Mercury Parser."""
 
-    output = None
-    status = 'failed'
-    error = ''
-
     try:
+        # Check if mercury extraction is enabled
+        if not get_env_bool('MERCURY_ENABLED', True):
+            print('Skipping mercury (MERCURY_ENABLED=False)', file=sys.stderr)
+            # Temporary failure (config disabled) - NO JSONL emission
+            sys.exit(0)
+
         # Get binary from environment
         binary = get_env('MERCURY_BINARY', 'postlight-parser')
 
         # Run extraction
         success, output, error = extract_mercury(url, binary)
-        status = 'succeeded' if success else 'failed'
+
+        if success:
+            # Success - emit ArchiveResult
+            result = {
+                'type': 'ArchiveResult',
+                'status': 'succeeded',
+                'output_str': output or ''
+            }
+            print(json.dumps(result))
+            sys.exit(0)
+        else:
+            # Transient error - emit NO JSONL
+            print(f'ERROR: {error}', file=sys.stderr)
+            sys.exit(1)
 
     except Exception as e:
-        error = f'{type(e).__name__}: {e}'
-        status = 'failed'
-
-    if error:
-        print(f'ERROR: {error}', file=sys.stderr)
-
-    # Output clean JSONL (no RESULT_JSON= prefix)
-    result = {
-        'type': 'ArchiveResult',
-        'status': status,
-        'output_str': output or error or '',
-    }
-    print(json.dumps(result))
-
-    sys.exit(0 if status == 'succeeded' else 1)
+        # Transient error - emit NO JSONL
+        print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

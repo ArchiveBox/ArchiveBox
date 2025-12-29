@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
-SCRIPT_PATH = next(PLUGIN_DIR.glob('on_Snapshot__*_parse_rss_urls.py'), None)
+SCRIPT_PATH = next(PLUGIN_DIR.glob('on_Snapshot__*_parse_rss_urls.*'), None)
 
 
 class TestRssVariants:
@@ -172,14 +172,14 @@ class TestAtomVariants:
 
         assert result.returncode == 0
         # Output goes to stdout (JSONL)
-        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip()]
 
-        tags = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Tag']
+        tags = [json.loads(line) for line in lines if json.loads(line).get('type') == 'Tag']
         tag_names = {t['name'] for t in tags}
         assert 'science' in tag_names
         assert 'research' in tag_names
 
-        snapshots = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Snapshot']
+        snapshots = [json.loads(line) for line in lines if json.loads(line).get('type') == 'Snapshot']
         entry = snapshots[0]
         assert entry['url'] == 'https://atom.example.com/1'
         assert 'bookmarked_at' in entry
@@ -384,15 +384,15 @@ class TestTagsAndCategories:
 
         assert result.returncode == 0
         # Output goes to stdout (JSONL)
-        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip()]
 
-        tags = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Tag']
+        tags = [json.loads(line) for line in lines if json.loads(line).get('type') == 'Tag']
         tag_names = {t['name'] for t in tags}
         assert 'Tech' in tag_names
         assert 'Web' in tag_names
         assert 'Programming' in tag_names
 
-        snapshots = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Snapshot']
+        snapshots = [json.loads(line) for line in lines if json.loads(line).get('type') == 'Snapshot']
         entry = snapshots[0]
         tags_list = entry['tags'].split(',')
         assert len(tags_list) == 3
@@ -421,9 +421,9 @@ class TestTagsAndCategories:
 
         assert result.returncode == 0
         # Output goes to stdout (JSONL)
-        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip()]
 
-        tags = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Tag']
+        tags = [json.loads(line) for line in lines if json.loads(line).get('type') == 'Tag']
         tag_names = {t['name'] for t in tags}
         # feedparser extracts the 'term' attribute
         assert 'python' in tag_names
@@ -482,8 +482,8 @@ class TestTagsAndCategories:
 
         assert result.returncode == 0
         # Output goes to stdout (JSONL)
-        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
-        tags = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Tag']
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip()]
+        tags = [json.loads(line) for line in lines if json.loads(line).get('type') == 'Tag']
         # Tag records should be unique
         tag_names = [t['name'] for t in tags]
         assert tag_names.count('Python') == 1
@@ -720,9 +720,9 @@ class TestEdgeCases:
 
         assert result.returncode == 0
         # Output goes to stdout (JSONL)
-        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip()]
 
-        tags = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Tag']
+        tags = [json.loads(line) for line in lines if json.loads(line).get('type') == 'Tag']
         tag_names = {t['name'] for t in tags}
         assert 'C++' in tag_names
         assert 'Node.js' in tag_names
@@ -814,7 +814,7 @@ class TestEdgeCases:
 
         assert result.returncode == 0
         # Output goes to stdout (JSONL)
-        lines = output_file.read_text(encoding='utf-8').strip().split('\n')
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip()]
 
         snapshots = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Snapshot']
         entry = snapshots[0]
@@ -885,11 +885,11 @@ class TestEdgeCases:
         assert 'Found 100 URLs' in result.stdout
 
         # Output goes to stdout (JSONL)
-        lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '\"type\": \"Snapshot\"' in line]
+        lines = [line for line in result.stdout.strip().split('\n') if line.strip()]
 
         # Should have 10 unique tags (Tag0-Tag9) + 100 snapshots
-        tags = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Tag']
-        snapshots = [json.loads(line) for line in lines if json.loads(line)['type'] == 'Snapshot']
+        tags = [json.loads(line) for line in lines if json.loads(line).get('type') == 'Tag']
+        snapshots = [json.loads(line) for line in lines if json.loads(line).get('type') == 'Snapshot']
 
         assert len(tags) == 10
         assert len(snapshots) == 100

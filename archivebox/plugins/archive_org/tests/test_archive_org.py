@@ -12,16 +12,16 @@ from pathlib import Path
 import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
-ARCHIVE_ORG_HOOK = PLUGIN_DIR / 'on_Snapshot__13_archive_org.py'
+ARCHIVEDOTORG_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_archive_org.*'), None)
 TEST_URL = 'https://example.com'
 
 def test_hook_script_exists():
-    assert ARCHIVE_ORG_HOOK.exists()
+    assert ARCHIVEDOTORG_HOOK.exists()
 
 def test_submits_to_archive_org():
     with tempfile.TemporaryDirectory() as tmpdir:
         result = subprocess.run(
-            [sys.executable, str(ARCHIVE_ORG_HOOK), '--url', TEST_URL, '--snapshot-id', 'test789'],
+            [sys.executable, str(ARCHIVEDOTORG_HOOK), '--url', TEST_URL, '--snapshot-id', 'test789'],
             cwd=tmpdir, capture_output=True, text=True, timeout=60
         )
 
@@ -40,23 +40,29 @@ def test_submits_to_archive_org():
                 except json.JSONDecodeError:
                     pass
 
-        assert result_json, "Should have ArchiveResult JSONL output"
-        assert result_json['status'] in ['succeeded', 'failed'], f"Should succeed or fail: {result_json}"
+        if result.returncode == 0:
+            # Success - should have ArchiveResult
+            assert result_json, "Should have ArchiveResult JSONL output on success"
+            assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+        else:
+            # Transient error - no JSONL output, just stderr
+            assert not result_json, "Should NOT emit JSONL on transient error"
+            assert result.stderr, "Should have error message in stderr"
 
 def test_config_save_archive_org_false_skips():
     with tempfile.TemporaryDirectory() as tmpdir:
         import os
         env = os.environ.copy()
-        env['SAVE_ARCHIVE_DOT_ORG'] = 'False'
+        env['ARCHIVEDOTORG_ENABLED'] = 'False'
 
         result = subprocess.run(
-            [sys.executable, str(ARCHIVE_ORG_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],
+            [sys.executable, str(ARCHIVEDOTORG_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],
             cwd=tmpdir, capture_output=True, text=True, env=env, timeout=30
         )
 
         assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
 
-        # Feature disabled - no JSONL emission, just logs to stderr
+        # Feature disabled - temporary failure, should NOT emit JSONL
         assert 'Skipping' in result.stderr or 'False' in result.stderr, "Should log skip reason to stderr"
 
         # Should NOT emit any JSONL
@@ -68,13 +74,20 @@ def test_handles_timeout():
         import os
         env = os.environ.copy()
         env['TIMEOUT'] = '1'
-        
+
         result = subprocess.run(
-            [sys.executable, str(ARCHIVE_ORG_HOOK), '--url', TEST_URL, '--snapshot-id', 'testtimeout'],
+            [sys.executable, str(ARCHIVEDOTORG_HOOK), '--url', TEST_URL, '--snapshot-id', 'testtimeout'],
             cwd=tmpdir, capture_output=True, text=True, env=env, timeout=30
         )
-        
-        assert result.returncode in (0, 1)
+
+        # Timeout is a transient error - should exit 1 with no JSONL
+        assert result.returncode in (0, 1), "Should complete without hanging"
+
+        # If it timed out (exit 1), should have no JSONL output
+        if result.returncode == 1:
+            jsonl_lines = [line for line in result.stdout.strip().split('\n')
+                          if line.strip().startswith('{')]
+            assert len(jsonl_lines) == 0, "Should not emit JSONL on timeout (transient error)"
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

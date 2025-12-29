@@ -2,7 +2,7 @@
 """
 Install a binary using npm package manager.
 
-Usage: on_Dependency__install_using_npm_provider.py --binary-id=<uuid> --name=<name> [--custom-cmd=<cmd>]
+Usage: on_Binary__install_using_npm_provider.py --binary-id=<uuid> --machine-id=<uuid> --name=<name> [--custom-cmd=<cmd>]
 Output: Binary JSONL record to stdout after installation
 
 Environment variables:
@@ -72,7 +72,7 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
         'sha256': binary.sha256 or '',
         'binprovider': 'npm',
         'machine_id': machine_id,
-        'dependency_id': dependency_id,
+        'binary_id': binary_id,
     }
     print(json.dumps(record))
 

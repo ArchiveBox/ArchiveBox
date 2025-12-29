@@ -21,52 +21,12 @@ import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
-MEDIA_HOOK = PLUGIN_DIR / 'on_Snapshot__51_media.py'
-MEDIA_INSTALL_HOOK = PLUGIN_DIR / 'on_Crawl__00_install_ytdlp.py'
+MEDIA_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_media.*'), None)
 TEST_URL = 'https://example.com/video.mp4'
 
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
     assert MEDIA_HOOK.exists(), f"Hook not found: {MEDIA_HOOK}"
-
-
-def test_ytdlp_install_hook():
-    """Test yt-dlp install hook checks for yt-dlp and dependencies (node, ffmpeg)."""
-    # Run yt-dlp install hook
-    result = subprocess.run(
-        [sys.executable, str(MEDIA_INSTALL_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=30
-    )
-
-    # Hook exits 0 if all binaries found, 1 if any not found
-    # Parse output for Binary and Dependency records
-    found_binaries = {'node': False, 'ffmpeg': False, 'yt-dlp': False}
-    found_dependencies = {'node': False, 'ffmpeg': False, 'yt-dlp': False}
-
-    for line in result.stdout.strip().split('\n'):
-        pass
-        if line.strip():
-            pass
-            try:
-                record = json.loads(line)
-                if record.get('type') == 'Binary':
-                    name = record['name']
-                    if name in found_binaries:
-                        assert record['abspath'], f"{name} should have abspath"
-                        found_binaries[name] = True
-                elif record.get('type') == 'Dependency':
-                    name = record['bin_name']
-                    if name in found_dependencies:
-                        found_dependencies[name] = True
-            except json.JSONDecodeError:
-                pass
-
-    # Each binary should either be found (Binary) or missing (Dependency)
-    for binary_name in ['yt-dlp', 'node', 'ffmpeg']:
-        assert found_binaries[binary_name] or found_dependencies[binary_name], \
-            f"{binary_name} should have either Binary or Dependency record"
 
 
 def test_verify_deps_with_abx_pkg():
@@ -137,12 +97,12 @@ def test_handles_non_media_url():
 
 
 def test_config_save_media_false_skips():
-    """Test that SAVE_MEDIA=False exits without emitting JSONL."""
+    """Test that MEDIA_ENABLED=False exits without emitting JSONL."""
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
-        env['SAVE_MEDIA'] = 'False'
+        env['MEDIA_ENABLED'] = 'False'
 
         result = subprocess.run(
             [sys.executable, str(MEDIA_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],
@@ -155,7 +115,7 @@ def test_config_save_media_false_skips():
 
         assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
 
-        # Feature disabled - no JSONL emission, just logs to stderr
+        # Feature disabled - temporary failure, should NOT emit JSONL
         assert 'Skipping' in result.stderr or 'False' in result.stderr, "Should log skip reason to stderr"
 
         # Should NOT emit any JSONL

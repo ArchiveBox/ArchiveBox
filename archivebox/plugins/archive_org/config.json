@@ -3,20 +3,20 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "ARCHIVE_ORG_ENABLED": {
+    "ARCHIVEDOTORG_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_ARCHIVE_DOT_ORG", "USE_ARCHIVE_ORG", "SUBMIT_ARCHIVE_DOT_ORG"],
+      "x-aliases": ["SAVE_ARCHIVEDOTORG", "USE_ARCHIVEDOTORG", "SUBMIT_ARCHIVEDOTORG"],
       "description": "Submit URLs to archive.org Wayback Machine"
     },
-    "ARCHIVE_ORG_TIMEOUT": {
+    "ARCHIVEDOTORG_TIMEOUT": {
       "type": "integer",
       "default": 60,
       "minimum": 10,
       "x-fallback": "TIMEOUT",
       "description": "Timeout for archive.org submission in seconds"
     },
-    "ARCHIVE_ORG_USER_AGENT": {
+    "ARCHIVEDOTORG_USER_AGENT": {
       "type": "string",
       "default": "",
       "x-fallback": "USER_AGENT",
