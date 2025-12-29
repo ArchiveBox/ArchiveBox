@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "LDAP_ENABLED": {
+      "type": "boolean",
+      "default": false,
+      "description": "Enable LDAP authentication"
+    },
+    "LDAP_SERVER_URI": {
+      "type": "string",
+      "default": "",
+      "description": "LDAP server URI (e.g., ldap://ldap.example.com)"
+    },
+    "LDAP_BIND_DN": {
+      "type": "string",
+      "default": "",
+      "description": "DN to use when binding to LDAP server"
+    },
+    "LDAP_BIND_PASSWORD": {
+      "type": "string",
+      "default": "",
+      "description": "Password for LDAP bind DN"
+    },
+    "LDAP_USER_BASE": {
+      "type": "string",
+      "default": "",
+      "description": "Base DN for user searches (e.g., ou=users,dc=example,dc=com)"
+    },
+    "LDAP_USER_FILTER": {
+      "type": "string",
+      "default": "(uid=%(user)s)",
+      "description": "LDAP filter for user searches"
+    },
+    "LDAP_USERNAME_ATTR": {
+      "type": "string",
+      "default": "uid",
+      "description": "LDAP attribute to use as Django username"
+    },
+    "LDAP_FIRSTNAME_ATTR": {
+      "type": "string",
+      "default": "givenName",
+      "description": "LDAP attribute for user's first name"
+    },
+    "LDAP_LASTNAME_ATTR": {
+      "type": "string",
+      "default": "sn",
+      "description": "LDAP attribute for user's last name"
+    },
+    "LDAP_EMAIL_ATTR": {
+      "type": "string",
+      "default": "mail",
+      "description": "LDAP attribute for user's email address"
+    },
+    "LDAP_CREATE_SUPERUSER": {
+      "type": "boolean",
+      "default": false,
+      "description": "Automatically create superuser account for LDAP users"
+    }
+  }
+}

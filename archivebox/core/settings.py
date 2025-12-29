@@ -99,16 +99,77 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 
-# from ..plugins_auth.ldap.settings import LDAP_CONFIG
+# Configure LDAP authentication if enabled
+try:
+    from archivebox.config.configset import get_config
+    _config = get_config()
+    _ldap_enabled = _config.get('LDAP_ENABLED', False)
+    if isinstance(_ldap_enabled, str):
+        _ldap_enabled = _ldap_enabled.lower() in ('true', 'yes', '1')
 
-# if LDAP_CONFIG.LDAP_ENABLED:
-#     AUTH_LDAP_BIND_DN = LDAP_CONFIG.LDAP_BIND_DN
-#     AUTH_LDAP_SERVER_URI = LDAP_CONFIG.LDAP_SERVER_URI
-#     AUTH_LDAP_BIND_PASSWORD = LDAP_CONFIG.LDAP_BIND_PASSWORD
-#     AUTH_LDAP_USER_ATTR_MAP = LDAP_CONFIG.LDAP_USER_ATTR_MAP
-#     AUTH_LDAP_USER_SEARCH = LDAP_CONFIG.AUTH_LDAP_USER_SEARCH
+    if _ldap_enabled:
+        try:
+            from django_auth_ldap.config import LDAPSearch
+            import ldap
 
-#     AUTHENTICATION_BACKENDS = LDAP_CONFIG.AUTHENTICATION_BACKENDS
+            # Configure LDAP server
+            AUTH_LDAP_SERVER_URI = _config.get('LDAP_SERVER_URI')
+            AUTH_LDAP_BIND_DN = _config.get('LDAP_BIND_DN')
+            AUTH_LDAP_BIND_PASSWORD = _config.get('LDAP_BIND_PASSWORD')
+
+            # Configure user search
+            _user_base = _config.get('LDAP_USER_BASE')
+            _user_filter = _config.get('LDAP_USER_FILTER', '(uid=%(user)s)')
+            AUTH_LDAP_USER_SEARCH = LDAPSearch(
+                _user_base,
+                ldap.SCOPE_SUBTREE,
+                _user_filter
+            )
+
+            # Map LDAP attributes to Django user model
+            AUTH_LDAP_USER_ATTR_MAP = {
+                'username': _config.get('LDAP_USERNAME_ATTR', 'uid'),
+                'first_name': _config.get('LDAP_FIRSTNAME_ATTR', 'givenName'),
+                'last_name': _config.get('LDAP_LASTNAME_ATTR', 'sn'),
+                'email': _config.get('LDAP_EMAIL_ATTR', 'mail'),
+            }
+
+            # Always update user on login
+            AUTH_LDAP_ALWAYS_UPDATE_USER = True
+
+            # Handle superuser creation
+            _create_superuser = _config.get('LDAP_CREATE_SUPERUSER', False)
+            if isinstance(_create_superuser, str):
+                _create_superuser = _create_superuser.lower() in ('true', 'yes', '1')
+
+            # Populate user model when creating new user
+            from django_auth_ldap.backend import populate_user
+            if _create_superuser:
+                # Make all LDAP users superusers
+                @populate_user.connect
+                def set_ldap_user_as_superuser(sender, user=None, ldap_user=None, **kwargs):
+                    if user and not user.is_superuser:
+                        user.is_staff = True
+                        user.is_superuser = True
+                        user.save()
+
+            # Add LDAP backend to authentication backends
+            _ldap_backend = 'django_auth_ldap.backend.LDAPBackend'
+            if _ldap_backend not in AUTHENTICATION_BACKENDS:
+                # Insert after RemoteUserBackend
+                if 'django.contrib.auth.backends.RemoteUserBackend' in AUTHENTICATION_BACKENDS:
+                    _idx = AUTHENTICATION_BACKENDS.index('django.contrib.auth.backends.RemoteUserBackend') + 1
+                    AUTHENTICATION_BACKENDS.insert(_idx, _ldap_backend)
+                else:
+                    AUTHENTICATION_BACKENDS.insert(0, _ldap_backend)
+
+        except ImportError:
+            if not IS_GETTING_VERSION_OR_HELP:
+                print('[!] Warning: LDAP is enabled but django-auth-ldap is not installed.')
+                print('    Install it with: pip install archivebox[ldap]')
+except Exception:
+    # Don't fail if config is not yet available (e.g., during migrations)
+    pass
 
 ################################################################################
 ### Staticfile and Template Settings
