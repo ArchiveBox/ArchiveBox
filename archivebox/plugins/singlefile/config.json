@@ -52,6 +52,13 @@
       "x-fallback": "CHECK_SSL_VALIDITY",
       "description": "Whether to verify SSL certificates"
     },
+    "SINGLEFILE_CHROME_ARGS": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-fallback": "CHROME_ARGS",
+      "description": "Chrome command-line arguments for SingleFile"
+    },
     "SINGLEFILE_ARGS": {
       "type": "array",
       "items": {"type": "string"},
