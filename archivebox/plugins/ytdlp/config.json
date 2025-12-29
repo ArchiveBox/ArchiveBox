@@ -3,36 +3,38 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "MEDIA_ENABLED": {
+    "YTDLP_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_MEDIA", "USE_MEDIA", "USE_YTDLP", "FETCH_MEDIA"],
-      "description": "Enable media downloading with yt-dlp"
+      "x-aliases": ["MEDIA_ENABLED", "SAVE_MEDIA", "USE_MEDIA", "USE_YTDLP", "FETCH_MEDIA", "SAVE_YTDLP"],
+      "description": "Enable video/audio downloading with yt-dlp"
     },
     "YTDLP_BINARY": {
       "type": "string",
       "default": "yt-dlp",
-      "x-aliases": ["YOUTUBEDL_BINARY", "YOUTUBE_DL_BINARY", "MEDIA_BINARY"],
+      "x-aliases": ["MEDIA_BINARY", "YOUTUBEDL_BINARY", "YOUTUBE_DL_BINARY"],
       "description": "Path to yt-dlp binary"
     },
-    "MEDIA_TIMEOUT": {
+    "YTDLP_TIMEOUT": {
       "type": "integer",
       "default": 3600,
       "minimum": 30,
       "x-fallback": "TIMEOUT",
-      "description": "Timeout for media downloads in seconds"
+      "x-aliases": ["MEDIA_TIMEOUT"],
+      "description": "Timeout for yt-dlp downloads in seconds"
     },
-    "MEDIA_MAX_SIZE": {
+    "YTDLP_MAX_SIZE": {
       "type": "string",
       "default": "750m",
       "pattern": "^\\d+[kmgKMG]?$",
-      "description": "Maximum file size for media downloads"
+      "x-aliases": ["MEDIA_MAX_SIZE"],
+      "description": "Maximum file size for yt-dlp downloads"
     },
-    "MEDIA_CHECK_SSL_VALIDITY": {
+    "YTDLP_CHECK_SSL_VALIDITY": {
       "type": "boolean",
       "default": true,
       "x-fallback": "CHECK_SSL_VALIDITY",
-      "x-aliases": ["YTDLP_CHECK_SSL_VALIDITY"],
+      "x-aliases": ["MEDIA_CHECK_SSL_VALIDITY"],
       "description": "Whether to verify SSL certificates"
     },
     "YTDLP_ARGS": {

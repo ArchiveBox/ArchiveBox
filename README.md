@@ -764,7 +764,7 @@ The configuration is documented here: **[Configuration Wiki](https://github.com/
 TIMEOUT=240                # default: 60    add more seconds on slower networks
 CHECK_SSL_VALIDITY=False   # default: True  False = allow saving URLs w/ bad SSL
 SAVE_ARCHIVEDOTORG=False # default: True  False = disable Archive.org saving
-MAX_MEDIA_SIZE=1500m       # default: 750m  raise/lower youtubedl output size
+YTDLP_MAX_SIZE=1500m       # default: 750m  raise/lower yt-dlp output size
 <br/>
 PUBLIC_INDEX=True          # default: True  whether anon users can view index
 PUBLIC_SNAPSHOTS=True      # default: True  whether anon users can view pages
@@ -1089,7 +1089,7 @@ Because ArchiveBox is designed to ingest a large volume of URLs with multiple co
 <br/>
 
 <ul>
-<li><strong>ArchiveBox can use anywhere from ~1gb per 1000 Snapshots, to ~50gb per 1000 Snapshots</strong>, mostly dependent on whether you're saving audio & video using <code>SAVE_MEDIA=True</code> and whether you lower <code>MEDIA_MAX_SIZE=750mb</code>.</li>
+<li><strong>ArchiveBox can use anywhere from ~1gb per 1000 Snapshots, to ~50gb per 1000 Snapshots</strong>, mostly dependent on whether you're saving video/audio using <code>YTDLP_ENABLED=True</code> and whether you lower <code>YTDLP_MAX_SIZE=750m</code>.</li>
 <li>Disk usage can be reduced by using a compressed/<a href="https://www.ixsystems.com/blog/ixsystems-and-klara-systems-celebrate-valentines-day-with-a-heartfelt-donation-of-fast-dedupe-to-openzfs-and-truenas/">deduplicated</a> filesystem like <a href="https://www.reddit.com/r/zfs/comments/t9cexx/a_simple_real_world_zfs_compression_speed_an/">ZFS</a>/BTRFS, or by turning off extractors methods you don't need. You can also deduplicate content with a tool like <a href="https://github.com/adrianlopezroche/fdupes"><code>fdupes</code></a> or <a href="https://github.com/pauldreik/rdfind"><code>rdfind</code></a>.  
 </li>
 <li><strong>Don't store large collections on older filesystems like EXT3/FAT</strong> as they may not be able to handle more than 50k directory entries in the <code>data/archive/</code> folder.

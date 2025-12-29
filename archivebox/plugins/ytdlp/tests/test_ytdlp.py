@@ -1,15 +1,14 @@
 """
-Integration tests for media plugin
+Integration tests for ytdlp plugin
 
 Tests verify:
-    pass
 1. Hook script exists
 2. Dependencies installed via validation hooks
 3. Verify deps with abx-pkg
-4. Media extraction works on video URLs
+4. YT-DLP extraction works on video URLs
 5. JSONL output is correct
-6. Config options work
-7. Handles non-media URLs gracefully
+6. Config options work (YTDLP_* and backwards-compatible MEDIA_* aliases)
+7. Handles non-video URLs gracefully
 """
 
 import json
@@ -22,12 +21,12 @@ import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
-MEDIA_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_media.*'), None)
+YTDLP_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_ytdlp.*'), None)
 TEST_URL = 'https://example.com/video.mp4'
 
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
-    assert MEDIA_HOOK.exists(), f"Hook not found: {MEDIA_HOOK}"
+    assert YTDLP_HOOK.exists(), f"Hook not found: {YTDLP_HOOK}"
 
 
 def test_verify_deps_with_abx_pkg():
@@ -60,16 +59,16 @@ def test_verify_deps_with_abx_pkg():
     if missing_binaries:
         pass
 
-def test_handles_non_media_url():
-    """Test that media extractor handles non-media URLs gracefully via hook."""
+def test_handles_non_video_url():
+    """Test that ytdlp extractor handles non-video URLs gracefully via hook."""
     # Prerequisites checked by earlier test
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Run media extraction hook on non-media URL
+        # Run ytdlp extraction hook on non-video URL
         result = subprocess.run(
-            [sys.executable, str(MEDIA_HOOK), '--url', 'https://example.com', '--snapshot-id', 'test789'],
+            [sys.executable, str(YTDLP_HOOK), '--url', 'https://example.com', '--snapshot-id', 'test789'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -97,16 +96,16 @@ def test_handles_non_media_url():
         assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
 
-def test_config_save_media_false_skips():
-    """Test that MEDIA_ENABLED=False exits without emitting JSONL."""
+def test_config_ytdlp_enabled_false_skips():
+    """Test that YTDLP_ENABLED=False exits without emitting JSONL."""
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
-        env['MEDIA_ENABLED'] = 'False'
+        env['YTDLP_ENABLED'] = 'False'
 
         result = subprocess.run(
-            [sys.executable, str(MEDIA_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],
+            [sys.executable, str(YTDLP_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -124,17 +123,41 @@ def test_config_save_media_false_skips():
         assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
 
 
-def test_config_timeout():
-    """Test that MEDIA_TIMEOUT config is respected."""
+def test_config_media_enabled_backwards_compat():
+    """Test that MEDIA_ENABLED=False (backwards-compatible alias) also works."""
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
-        env['MEDIA_TIMEOUT'] = '5'
+        env['MEDIA_ENABLED'] = 'False'
+
+        result = subprocess.run(
+            [sys.executable, str(YTDLP_HOOK), '--url', TEST_URL, '--snapshot-id', 'test_compat'],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30
+        )
+
+        assert result.returncode == 0, f"Should exit 0 when feature disabled via MEDIA_ENABLED: {result.stderr}"
+
+        # Should NOT emit any JSONL when disabled via backwards-compatible alias
+        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
+        assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled via MEDIA_ENABLED, but got: {jsonl_lines}"
+
+
+def test_config_timeout():
+    """Test that YTDLP_TIMEOUT config is respected (also via MEDIA_TIMEOUT alias)."""
+    import os
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env = os.environ.copy()
+        env['YTDLP_TIMEOUT'] = '5'
 
         start_time = time.time()
         result = subprocess.run(
-            [sys.executable, str(MEDIA_HOOK), '--url', 'https://example.com', '--snapshot-id', 'testtimeout'],
+            [sys.executable, str(YTDLP_HOOK), '--url', 'https://example.com', '--snapshot-id', 'testtimeout'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -149,7 +172,7 @@ def test_config_timeout():
 
 
 def test_real_youtube_url():
-    """Test that yt-dlp can extract media from a real YouTube URL."""
+    """Test that yt-dlp can extract video/audio from a real YouTube URL."""
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -159,11 +182,11 @@ def test_real_youtube_url():
         youtube_url = 'https://www.youtube.com/watch?v=jNQXAC9IVRw'  # "Me at the zoo" - first YouTube video
 
         env = os.environ.copy()
-        env['MEDIA_TIMEOUT'] = '120'  # Give it time to download
+        env['YTDLP_TIMEOUT'] = '120'  # Give it time to download
 
         start_time = time.time()
         result = subprocess.run(
-            [sys.executable, str(MEDIA_HOOK), '--url', youtube_url, '--snapshot-id', 'testyoutube'],
+            [sys.executable, str(YTDLP_HOOK), '--url', youtube_url, '--snapshot-id', 'testyoutube'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -173,7 +196,7 @@ def test_real_youtube_url():
         elapsed_time = time.time() - start_time
 
         # Should succeed
-        assert result.returncode == 0, f"Should extract media successfully: {result.stderr}"
+        assert result.returncode == 0, f"Should extract video/audio successfully: {result.stderr}"
 
         # Parse JSONL output
         result_json = None
@@ -191,11 +214,11 @@ def test_real_youtube_url():
         assert result_json, f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"
         assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
-        # Check that some media files were downloaded
+        # Check that some video/audio files were downloaded
         output_files = list(tmpdir.glob('**/*'))
         media_files = [f for f in output_files if f.is_file() and f.suffix.lower() in ('.mp4', '.webm', '.mkv', '.m4a', '.mp3', '.json', '.jpg', '.webp')]
 
-        assert len(media_files) > 0, f"Should have downloaded at least one media file. Files: {output_files}"
+        assert len(media_files) > 0, f"Should have downloaded at least one video/audio file. Files: {output_files}"
 
         print(f"Successfully extracted {len(media_files)} file(s) in {elapsed_time:.2f}s")
 

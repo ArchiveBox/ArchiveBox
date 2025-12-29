@@ -83,7 +83,7 @@ def test_config_set_multiple_values(tmp_path, process):
     os.chdir(tmp_path)
 
     result = subprocess.run(
-        ['archivebox', 'config', '--set', 'TIMEOUT=111', 'MEDIA_TIMEOUT=222'],
+        ['archivebox', 'config', '--set', 'TIMEOUT=111', 'YTDLP_TIMEOUT=222'],
         capture_output=True,
         text=True,
     )
@@ -149,7 +149,7 @@ def test_config_preserves_existing_values(tmp_path, process):
 
     # Set second value
     subprocess.run(
-        ['archivebox', 'config', '--set', 'MEDIA_TIMEOUT=200'],
+        ['archivebox', 'config', '--set', 'YTDLP_TIMEOUT=200'],
         capture_output=True,
     )
 
@@ -157,7 +157,7 @@ def test_config_preserves_existing_values(tmp_path, process):
     config_file = tmp_path / 'ArchiveBox.conf'
     content = config_file.read_text()
     assert 'TIMEOUT' in content
-    assert 'MEDIA_TIMEOUT' in content
+    assert 'YTDLP_TIMEOUT' in content
 
 
 def test_config_file_is_valid_toml(tmp_path, process):

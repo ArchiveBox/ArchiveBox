@@ -1002,7 +1002,7 @@ def run_archivebox(data_dir: Path, args: list, timeout: int = 60, env: dict = No
     base_env['SAVE_READABILITY'] = 'False'
     base_env['SAVE_MERCURY'] = 'False'
     base_env['SAVE_GIT'] = 'False'
-    base_env['SAVE_MEDIA'] = 'False'
+    base_env['SAVE_YTDLP'] = 'False'
     base_env['SAVE_HEADERS'] = 'False'
     base_env['SAVE_HTMLTOTEXT'] = 'False'
 

@@ -451,12 +451,12 @@ except subprocess.TimeoutExpired:
 ### Background Hook (Long-Running Download)
 ```python
 #!/usr/bin/env python3
-# archivebox/plugins/media/on_Snapshot__63_media.bg.py
+# archivebox/plugins/ytdlp/on_Snapshot__63_ytdlp.bg.py
 
 # Runs at step 6, doesn't block step progression
-# Gets full MEDIA_TIMEOUT (e.g., 3600s) regardless of when step 99 completes
+# Gets full YTDLP_TIMEOUT (e.g., 3600s) regardless of when step 99 completes
 
-timeout = get_env_int('YTDLP_TIMEOUT') or get_env_int('MEDIA_TIMEOUT') or get_env_int('TIMEOUT', 3600)
+timeout = get_env_int('YTDLP_TIMEOUT') or get_env_int('TIMEOUT', 3600)
 
 try:
     result = subprocess.run(['yt-dlp', url], capture_output=True, timeout=timeout)
