@@ -577,17 +577,20 @@ def live_progress_view(request):
 
         active_crawls = []
         for crawl in active_crawls_qs:
-            # Get active snapshots for this crawl - filter in Python since we prefetched all
-            crawl_snapshots = [
-                s for s in crawl.snapshot_set.all()
-                if s.status in [Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED]
-            ][:5]  # Limit to 5 most recent
+            # Get ALL snapshots for this crawl to count status (already prefetched)
+            all_crawl_snapshots = list(crawl.snapshot_set.all())
 
-            # Count snapshots by status (in memory, not DB)
-            total_snapshots = Snapshot.objects.filter(crawl=crawl).count()  # Full count needs DB
-            completed_snapshots = sum(1 for s in crawl_snapshots if s.status == Snapshot.StatusChoices.SEALED)
-            started_snapshots = sum(1 for s in crawl_snapshots if s.status == Snapshot.StatusChoices.STARTED)
-            pending_snapshots = sum(1 for s in crawl_snapshots if s.status == Snapshot.StatusChoices.QUEUED)
+            # Count snapshots by status from ALL snapshots
+            total_snapshots = len(all_crawl_snapshots)
+            completed_snapshots = sum(1 for s in all_crawl_snapshots if s.status == Snapshot.StatusChoices.SEALED)
+            started_snapshots = sum(1 for s in all_crawl_snapshots if s.status == Snapshot.StatusChoices.STARTED)
+            pending_snapshots = sum(1 for s in all_crawl_snapshots if s.status == Snapshot.StatusChoices.QUEUED)
+
+            # Get only ACTIVE snapshots to display (limit to 5 most recent)
+            active_crawl_snapshots = [
+                s for s in all_crawl_snapshots
+                if s.status in [Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED]
+            ][:5]
 
             # Count URLs in the crawl (for when snapshots haven't been created yet)
             urls_count = 0
@@ -599,7 +602,7 @@ def live_progress_view(request):
 
             # Get active snapshots for this crawl (already prefetched)
             active_snapshots_for_crawl = []
-            for snapshot in crawl_snapshots:
+            for snapshot in active_crawl_snapshots:
                 # Get archive results for this snapshot (already prefetched)
                 snapshot_results = snapshot.archiveresult_set.all()
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Comprehensive tests for archivebox update command.
-Verify update re-archives snapshots and updates DB status.
+Verify update drains old dirs, reconciles DB, and queues snapshots.
 """
 
 import os
@@ -15,7 +15,7 @@ def test_update_runs_successfully_on_empty_archive(tmp_path, process):
     """Test that update runs without error on empty archive."""
     os.chdir(tmp_path)
     result = subprocess.run(
-        ['archivebox', 'update', '--index-only'],
+        ['archivebox', 'update'],
         capture_output=True,
         text=True,
         timeout=30,
@@ -25,41 +25,21 @@ def test_update_runs_successfully_on_empty_archive(tmp_path, process):
     assert result.returncode == 0
 
 
-def test_update_re_archives_existing_snapshots(tmp_path, process, disable_extractors_dict):
-    """Test that update command re-archives existing snapshots."""
+def test_update_reconciles_existing_snapshots(tmp_path, process, disable_extractors_dict):
+    """Test that update command reconciles existing snapshots."""
     os.chdir(tmp_path)
 
     # Add a snapshot
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
-        capture_output=True,
-        env=disable_extractors_dict,
-    )
-
-    # Run update
-    result = subprocess.run(
-        ['archivebox', 'update', '--index-only'],
+        ['archivebox', 'add', '--depth=0', 'https://example.com'],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=30,
     )
 
-    assert result.returncode == 0
-
-
-def test_update_index_only_flag(tmp_path, process, disable_extractors_dict):
-    """Test that --index-only flag skips extraction."""
-    os.chdir(tmp_path)
-
-    subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
-        capture_output=True,
-        env=disable_extractors_dict,
-    )
-
-    # Update with index-only should be fast
+    # Run update - should reconcile and queue
     result = subprocess.run(
-        ['archivebox', 'update', '--index-only'],
+        ['archivebox', 'update'],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=30,
@@ -74,26 +54,28 @@ def test_update_specific_snapshot_by_filter(tmp_path, process, disable_extractor
 
     # Add multiple snapshots
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ['archivebox', 'add', '--depth=0', 'https://example.com'],
         capture_output=True,
         env=disable_extractors_dict,
+        timeout=30,
     )
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.org'],
-        capture_output=True,
-        env=disable_extractors_dict,
-    )
-
-    # Update with filter
-    result = subprocess.run(
-        ['archivebox', 'update', '--index-only', '--filter-type=search', '--filter=example.com'],
+        ['archivebox', 'add', '--depth=0', 'https://example.org'],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=30,
     )
 
-    # Should complete (may succeed or show usage)
-    assert result.returncode in [0, 1, 2]
+    # Update with filter pattern (uses filter_patterns argument)
+    result = subprocess.run(
+        ['archivebox', 'update', '--filter-type=substring', 'example.com'],
+        capture_output=True,
+        env=disable_extractors_dict,
+        timeout=30,
+    )
+
+    # Should complete successfully
+    assert result.returncode == 0
 
 
 def test_update_preserves_snapshot_count(tmp_path, process, disable_extractors_dict):
@@ -102,9 +84,10 @@ def test_update_preserves_snapshot_count(tmp_path, process, disable_extractors_d
 
     # Add snapshots
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ['archivebox', 'add', '--depth=0', 'https://example.com'],
         capture_output=True,
         env=disable_extractors_dict,
+        timeout=30,
     )
 
     # Count before update
@@ -115,9 +98,9 @@ def test_update_preserves_snapshot_count(tmp_path, process, disable_extractors_d
 
     assert count_before == 1
 
-    # Run update
+    # Run update (should reconcile + queue, not create new snapshots)
     subprocess.run(
-        ['archivebox', 'update', '--index-only'],
+        ['archivebox', 'update'],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=30,
@@ -133,21 +116,31 @@ def test_update_preserves_snapshot_count(tmp_path, process, disable_extractors_d
     assert count_after == count_before
 
 
-def test_update_with_overwrite_flag(tmp_path, process, disable_extractors_dict):
-    """Test update with --overwrite flag forces re-archiving."""
+def test_update_queues_snapshots_for_archiving(tmp_path, process, disable_extractors_dict):
+    """Test that update queues snapshots for archiving."""
     os.chdir(tmp_path)
 
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ['archivebox', 'add', '--depth=0', 'https://example.com'],
         capture_output=True,
         env=disable_extractors_dict,
+        timeout=30,
     )
 
+    # Run update
     result = subprocess.run(
-        ['archivebox', 'update', '--index-only', '--overwrite'],
+        ['archivebox', 'update'],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=30,
     )
 
     assert result.returncode == 0
+
+    # Check that snapshot is queued
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    status = c.execute("SELECT status FROM core_snapshot").fetchone()[0]
+    conn.close()
+
+    assert status == 'queued'

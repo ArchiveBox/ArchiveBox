@@ -363,6 +363,20 @@
         background: rgba(248, 81, 73, 0.25);
         width: 100%;
     }
+    #progress-monitor .extractor-badge.backoff {
+        color: #b8860b;
+    }
+    #progress-monitor .extractor-badge.backoff .progress-fill {
+        background: rgba(210, 153, 34, 0.2);
+        width: 30%;
+    }
+    #progress-monitor .extractor-badge.skipped {
+        color: #6e7681;
+    }
+    #progress-monitor .extractor-badge.skipped .progress-fill {
+        background: rgba(110, 118, 129, 0.15);
+        width: 100%;
+    }
     #progress-monitor .extractor-badge .badge-icon {
         font-size: 10px;
     }
@@ -399,6 +413,14 @@
     #progress-monitor .status-badge.failed {
         background: rgba(248, 81, 73, 0.2);
         color: #f85149;
+    }
+    #progress-monitor .status-badge.backoff {
+        background: rgba(210, 153, 34, 0.15);
+        color: #b8860b;
+    }
+    #progress-monitor .status-badge.unknown {
+        background: #21262d;
+        color: #6e7681;
     }
 
 </style>
@@ -470,25 +492,28 @@
     });
 
     function formatUrl(url) {
+        if (!url) return '(no URL)';
         try {
             const u = new URL(url);
             return u.hostname + u.pathname.substring(0, 30) + (u.pathname.length > 30 ? '...' : '');
         } catch {
-            return url.substring(0, 50) + (url.length > 50 ? '...' : '');
+            return String(url).substring(0, 50) + (String(url).length > 50 ? '...' : '');
         }
     }
 
     function renderExtractor(extractor) {
         const icon = extractor.status === 'started' ? '&#8635;' :
                     extractor.status === 'succeeded' ? '&#10003;' :
-                    extractor.status === 'failed' ? '&#10007;' : '&#9675;';
+                    extractor.status === 'failed' ? '&#10007;' :
+                    extractor.status === 'backoff' ? '&#8987;' :
+                    extractor.status === 'skipped' ? '&#8674;' : '&#9675;';
 
         return `
-            <span class="extractor-badge ${extractor.status}">
+            <span class="extractor-badge ${extractor.status || 'queued'}">
                 <span class="progress-fill"></span>
                 <span class="badge-content">
                     <span class="badge-icon">${icon}</span>
-                    <span>${extractor.plugin}</span>
+                    <span>${extractor.plugin || 'unknown'}</span>
                 </span>
             </span>
         `;
@@ -496,13 +521,13 @@
 
     function renderSnapshot(snapshot, crawlId) {
         const statusIcon = snapshot.status === 'started' ? '&#8635;' : '&#128196;';
-        const adminUrl = `/admin/core/snapshot/${snapshot.id}/change/`;
+        const adminUrl = `/admin/core/snapshot/${snapshot.id || 'unknown'}/change/`;
 
         let extractorHtml = '';
         if (snapshot.all_plugins && snapshot.all_plugins.length > 0) {
             // Sort plugins alphabetically by name to prevent reordering on updates
             const sortedExtractors = [...snapshot.all_plugins].sort((a, b) =>
-                a.plugin.localeCompare(b.plugin)
+                (a.plugin || '').localeCompare(b.plugin || '')
             );
             extractorHtml = `
                 <div class="extractor-list">
@@ -518,16 +543,17 @@
                     <div class="snapshot-info">
                         <div class="snapshot-url">${formatUrl(snapshot.url)}</div>
                         <div class="snapshot-meta">
-                            ${snapshot.completed_plugins}/${snapshot.total_plugins} extractors
-                            ${snapshot.failed_plugins > 0 ? `<span style="color:#f85149">(${snapshot.failed_plugins} failed)</span>` : ''}
+                            ${(snapshot.total_plugins || 0) > 0
+                                ? `${snapshot.completed_plugins || 0}/${snapshot.total_plugins || 0} extractors${(snapshot.failed_plugins || 0) > 0 ? ` <span style="color:#f85149">(${snapshot.failed_plugins} failed)</span>` : ''}`
+                                : 'Waiting for extractors...'}
                         </div>
                     </div>
-                    <span class="status-badge ${snapshot.status}">${snapshot.status}</span>
+                    <span class="status-badge ${snapshot.status || 'unknown'}">${snapshot.status || 'unknown'}</span>
                 </a>
                 <div class="snapshot-progress">
                     <div class="progress-bar-container">
-                        <div class="progress-bar snapshot ${snapshot.status === 'started' && snapshot.progress === 0 ? 'indeterminate' : ''}"
-                             style="width: ${snapshot.progress}%"></div>
+                        <div class="progress-bar snapshot ${snapshot.status === 'started' && (snapshot.progress || 0) === 0 ? 'indeterminate' : ''}"
+                             style="width: ${snapshot.progress || 0}%"></div>
                     </div>
                 </div>
                 ${extractorHtml}
@@ -537,7 +563,7 @@
 
     function renderCrawl(crawl) {
         const statusIcon = crawl.status === 'started' ? '&#8635;' : '&#128269;';
-        const adminUrl = `/admin/crawls/crawl/${crawl.id}/change/`;
+        const adminUrl = `/admin/crawls/crawl/${crawl.id || 'unknown'}/change/`;
 
         let snapshotsHtml = '';
         if (crawl.active_snapshots && crawl.active_snapshots.length > 0) {
@@ -556,7 +582,7 @@
             // Queued but retry_at is in future (was claimed by worker, will retry)
             warningHtml = `
                 <div style="padding: 8px 14px; background: rgba(88, 166, 255, 0.1); border-top: 1px solid #58a6ff; color: #58a6ff; font-size: 11px;">
-                    🔄 Retrying in ${crawl.seconds_until_retry}s...${crawl.urls_preview ? ` (${crawl.urls_preview})` : ''}
+                    🔄 Retrying in ${crawl.seconds_until_retry || 0}s...${crawl.urls_preview ? ` (${crawl.urls_preview})` : ''}
                 </div>
             `;
         } else if (crawl.status === 'queued' && crawl.total_snapshots === 0) {
@@ -569,34 +595,34 @@
         }
 
         // Show snapshot info or URL count if no snapshots yet
-        let metaText = `depth: ${crawl.max_depth}`;
-        if (crawl.total_snapshots > 0) {
+        let metaText = `depth: ${crawl.max_depth || 0}`;
+        if ((crawl.total_snapshots || 0) > 0) {
             metaText += ` | ${crawl.total_snapshots} snapshots`;
-        } else if (crawl.urls_count > 0) {
+        } else if ((crawl.urls_count || 0) > 0) {
             metaText += ` | ${crawl.urls_count} URLs`;
         } else if (crawl.urls_preview) {
             metaText += ` | ${crawl.urls_preview.substring(0, 40)}${crawl.urls_preview.length > 40 ? '...' : ''}`;
         }
 
         return `
-            <div class="crawl-item" data-crawl-id="${crawl.id}">
+            <div class="crawl-item" data-crawl-id="${crawl.id || 'unknown'}">
                 <a class="crawl-header" href="${adminUrl}">
                     <span class="crawl-icon">${statusIcon}</span>
                     <div class="crawl-info">
-                        <div class="crawl-label">${crawl.label}</div>
+                        <div class="crawl-label">${crawl.label || '(no label)'}</div>
                         <div class="crawl-meta">${metaText}</div>
                     </div>
                     <div class="crawl-stats">
-                        <span style="color:#3fb950">${crawl.completed_snapshots} done</span>
+                        <span style="color:#3fb950">${crawl.completed_snapshots || 0} done</span>
                         <span style="color:#d29922">${crawl.started_snapshots || 0} active</span>
-                        <span style="color:#8b949e">${crawl.pending_snapshots} pending</span>
+                        <span style="color:#8b949e">${crawl.pending_snapshots || 0} pending</span>
                     </div>
-                    <span class="status-badge ${crawl.status}">${crawl.status}</span>
+                    <span class="status-badge ${crawl.status || 'unknown'}">${crawl.status || 'unknown'}</span>
                 </a>
                 <div class="crawl-progress">
                     <div class="progress-bar-container">
-                        <div class="progress-bar crawl ${crawl.status === 'started' && crawl.progress === 0 ? 'indeterminate' : ''}"
-                             style="width: ${crawl.progress}%"></div>
+                        <div class="progress-bar crawl ${crawl.status === 'started' && (crawl.progress || 0) === 0 ? 'indeterminate' : ''}"
+                             style="width: ${crawl.progress || 0}%"></div>
                     </div>
                 </div>
                 ${warningHtml}
@@ -668,7 +694,7 @@
             idleMessage.style.display = 'none';
             crawlTree.innerHTML = `
                 <div class="idle-message">
-                    ${data.snapshots_started} snapshots processing, ${data.archiveresults_started} extractors running
+                    ${data.snapshots_started || 0} snapshots processing, ${data.archiveresults_started || 0} extractors running
                 </div>
             `;
         } else {
@@ -676,7 +702,7 @@
             // Build the URL for recent crawls (last 24 hours)
             var yesterday = new Date(Date.now() - 24*60*60*1000).toISOString().split('T')[0];
             var recentUrl = '/admin/crawls/crawl/?created_at__gte=' + yesterday + '&o=-1';
-            idleMessage.innerHTML = `No active crawls (${data.crawls_pending} pending, ${data.crawls_started} started, <a href="${recentUrl}" style="color: #58a6ff;">${data.crawls_recent} recent</a>)`;
+            idleMessage.innerHTML = `No active crawls (${data.crawls_pending || 0} pending, ${data.crawls_started || 0} started, <a href="${recentUrl}" style="color: #58a6ff;">${data.crawls_recent || 0} recent</a>)`;
             crawlTree.innerHTML = '';
         }
     }

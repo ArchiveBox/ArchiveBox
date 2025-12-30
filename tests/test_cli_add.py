@@ -91,7 +91,11 @@ def test_add_multiple_urls_single_command(tmp_path, process, disable_extractors_
 
 
 def test_add_from_file(tmp_path, process, disable_extractors_dict):
-    """Test adding URLs from a file."""
+    """Test adding URLs from a file.
+
+    With --index-only, this creates a snapshot for the file itself, not the URLs inside.
+    To get snapshots for the URLs inside, you need to run without --index-only so parsers run.
+    """
     os.chdir(tmp_path)
 
     # Create a file with URLs
@@ -108,10 +112,13 @@ def test_add_from_file(tmp_path, process, disable_extractors_dict):
 
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
+    crawl_count = c.execute("SELECT COUNT(*) FROM crawls_crawl").fetchone()[0]
     snapshot_count = c.execute("SELECT COUNT(*) FROM core_snapshot").fetchone()[0]
     conn.close()
 
-    assert snapshot_count == 2
+    # With --index-only, creates 1 snapshot for the file itself
+    assert crawl_count == 1
+    assert snapshot_count == 1
 
 
 def test_add_with_depth_0_flag(tmp_path, process, disable_extractors_dict):
@@ -141,7 +148,11 @@ def test_add_with_depth_1_flag(tmp_path, process, disable_extractors_dict):
 
 
 def test_add_with_tags(tmp_path, process, disable_extractors_dict):
-    """Test adding URL with tags creates tag records."""
+    """Test adding URL with tags stores tags_str in crawl.
+
+    With --index-only, Tag objects are not created until archiving happens.
+    Tags are stored as a string in the Crawl.tags_str field.
+    """
     os.chdir(tmp_path)
     subprocess.run(
         ['archivebox', 'add', '--index-only', '--depth=0', '--tag=test,example', 'https://example.com'],
@@ -151,15 +162,19 @@ def test_add_with_tags(tmp_path, process, disable_extractors_dict):
 
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
-    tags = c.execute("SELECT name FROM core_tag").fetchall()
+    tags_str = c.execute("SELECT tags_str FROM crawls_crawl").fetchone()[0]
     conn.close()
 
-    tag_names = [t[0] for t in tags]
-    assert 'test' in tag_names or 'example' in tag_names
+    # Tags are stored as a comma-separated string in crawl
+    assert 'test' in tags_str or 'example' in tags_str
 
 
-def test_add_duplicate_url_updates_existing(tmp_path, process, disable_extractors_dict):
-    """Test that adding the same URL twice updates rather than duplicates."""
+def test_add_duplicate_url_creates_separate_crawls(tmp_path, process, disable_extractors_dict):
+    """Test that adding the same URL twice creates separate crawls and snapshots.
+
+    Each 'add' command creates a new Crawl. Multiple crawls can archive the same URL.
+    This allows re-archiving URLs at different times.
+    """
     os.chdir(tmp_path)
 
     # Add URL first time
@@ -179,10 +194,12 @@ def test_add_duplicate_url_updates_existing(tmp_path, process, disable_extractor
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
     snapshot_count = c.execute("SELECT COUNT(*) FROM core_snapshot WHERE url='https://example.com'").fetchone()[0]
+    crawl_count = c.execute("SELECT COUNT(*) FROM crawls_crawl").fetchone()[0]
     conn.close()
 
-    # Should still only have one snapshot for this URL
-    assert snapshot_count == 1
+    # Each add creates a new crawl with its own snapshot
+    assert crawl_count == 2
+    assert snapshot_count == 2
 
 
 def test_add_with_overwrite_flag(tmp_path, process, disable_extractors_dict):
@@ -208,7 +225,10 @@ def test_add_with_overwrite_flag(tmp_path, process, disable_extractors_dict):
 
 
 def test_add_creates_archive_subdirectory(tmp_path, process, disable_extractors_dict):
-    """Test that add creates archive subdirectory for the snapshot."""
+    """Test that add creates archive subdirectory for the snapshot.
+
+    Archive subdirectories are named by timestamp, not by snapshot ID.
+    """
     os.chdir(tmp_path)
     subprocess.run(
         ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
@@ -216,14 +236,14 @@ def test_add_creates_archive_subdirectory(tmp_path, process, disable_extractors_
         env=disable_extractors_dict,
     )
 
-    # Get the snapshot ID from the database
+    # Get the snapshot timestamp from the database
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
-    snapshot_id = c.execute("SELECT id FROM core_snapshot").fetchone()[0]
+    timestamp = c.execute("SELECT timestamp FROM core_snapshot").fetchone()[0]
     conn.close()
 
-    # Check that archive subdirectory was created
-    archive_dir = tmp_path / "archive" / snapshot_id
+    # Check that archive subdirectory was created using timestamp
+    archive_dir = tmp_path / "archive" / str(timestamp)
     assert archive_dir.exists()
     assert archive_dir.is_dir()
 

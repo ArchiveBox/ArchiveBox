@@ -104,8 +104,17 @@ def add(urls: str | list[str],
     if index_only:
         # Just create the crawl but don't start processing
         print('[yellow]\\[*] Index-only mode - crawl created but not started[/yellow]')
-        # Create root snapshot manually
-        crawl.create_root_snapshot()
+        # Create snapshots for all URLs in the crawl
+        for url in crawl.get_urls_list():
+            Snapshot.objects.update_or_create(
+                crawl=crawl, url=url,
+                defaults={
+                    'status': Snapshot.INITIAL_STATE,
+                    'retry_at': timezone.now(),
+                    'timestamp': str(timezone.now().timestamp()),
+                    'depth': 0,
+                },
+            )
         return crawl.snapshot_set.all()
 
     # 5. Start the orchestrator to process the queue
