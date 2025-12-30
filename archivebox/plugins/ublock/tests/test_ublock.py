@@ -284,9 +284,10 @@ def test_extension_loads_in_chromium():
         cache_file = ext_dir / 'ublock.extension.json'
         assert cache_file.exists(), "Extension cache not created"
         ext_data = json.loads(cache_file.read_text())
-        print(f"Extension installed: {ext_data.get('name')} v{ext_data.get('version')}")
+        print(f"[test] Extension installed: {ext_data.get('name')} v{ext_data.get('version')}", flush=True)
 
         # Step 2: Launch Chromium using the chrome hook (loads extensions automatically)
+        print("[test] Launching Chromium...", flush=True)
         data_dir = Path(env['DATA_DIR'])
         crawl_dir = data_dir / 'crawl'
         crawl_dir.mkdir()
@@ -300,6 +301,7 @@ def test_extension_loads_in_chromium():
             text=True,
             env=env
         )
+        print("[test] Chrome hook started, waiting for CDP...", flush=True)
 
         # Wait for Chromium to launch and CDP URL to be available
         cdp_url = None
