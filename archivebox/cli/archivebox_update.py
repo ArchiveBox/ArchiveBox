@@ -21,14 +21,14 @@ def update(filter_patterns: Iterable[str] = (),
           batch_size: int = 100,
           continuous: bool = False) -> None:
     """
-    Update snapshots: import orphans, reconcile, and re-run failed extractors.
+    Update snapshots: migrate old dirs, reconcile DB, and re-queue for archiving.
 
-    Two-phase operation:
-    - Phase 1: Scan archive/ for orphaned snapshots (skip symlinks)
-    - Phase 2: Process all DB snapshots (reconcile + re-queue for archiving)
-    - Phase 3: Deduplicate exact duplicates
+    Three-phase operation (without filters):
+    - Phase 1: Drain old archive/ dirs by moving to new fs location (0.8.x → 0.9.x)
+    - Phase 2: O(n) scan over entire DB from most recent to least recent
+    - No orphan scans needed (trust 1:1 mapping between DB and filesystem after phase 1)
 
-    With filters: Only phase 2 (DB query), no filesystem scan.
+    With filters: Only phase 2 (DB query), no filesystem operations.
     Without filters: All phases (full update).
     """
 
