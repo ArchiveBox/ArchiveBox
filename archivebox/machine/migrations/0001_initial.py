@@ -106,31 +106,35 @@ class Migration(migrations.Migration):
 
                     machine_id TEXT NOT NULL,
                     binary_id TEXT,
-                    network_interface_id TEXT,
+                    iface_id TEXT,
 
-                    cmd TEXT NOT NULL,
-                    pwd VARCHAR(256),
-                    env TEXT,
-                    stdin TEXT,
-                    timeout INTEGER NOT NULL DEFAULT 60,
+                    pwd VARCHAR(512) NOT NULL DEFAULT '',
+                    cmd TEXT NOT NULL DEFAULT '[]',
+                    env TEXT NOT NULL DEFAULT '{}',
+                    timeout INTEGER NOT NULL DEFAULT 120,
 
                     pid INTEGER,
-                    started_at DATETIME,
-                    ended_at DATETIME,
                     exit_code INTEGER,
                     stdout TEXT NOT NULL DEFAULT '',
                     stderr TEXT NOT NULL DEFAULT '',
 
-                    status VARCHAR(15) NOT NULL DEFAULT 'queued',
+                    started_at DATETIME,
+                    ended_at DATETIME,
+
+                    url VARCHAR(2048),
+
+                    status VARCHAR(16) NOT NULL DEFAULT 'queued',
                     retry_at DATETIME,
 
                     FOREIGN KEY (machine_id) REFERENCES machine_machine(id) ON DELETE CASCADE,
                     FOREIGN KEY (binary_id) REFERENCES machine_binary(id) ON DELETE SET NULL,
-                    FOREIGN KEY (network_interface_id) REFERENCES machine_networkinterface(id) ON DELETE SET NULL
+                    FOREIGN KEY (iface_id) REFERENCES machine_networkinterface(id) ON DELETE SET NULL
                 );
                 CREATE INDEX IF NOT EXISTS machine_process_status_idx ON machine_process(status);
                 CREATE INDEX IF NOT EXISTS machine_process_retry_at_idx ON machine_process(retry_at);
                 CREATE INDEX IF NOT EXISTS machine_process_machine_id_idx ON machine_process(machine_id);
+                CREATE INDEX IF NOT EXISTS machine_process_binary_id_idx ON machine_process(binary_id);
+                CREATE INDEX IF NOT EXISTS machine_process_machine_status_retry_idx ON machine_process(machine_id, status, retry_at);
             """,
             # Reverse SQL
             reverse_sql="""
