@@ -242,6 +242,24 @@ class Binary(ModelWithHealthStats):
             'is_valid': self.is_valid,
         }
 
+    def to_jsonl(self) -> dict:
+        """
+        Convert Binary model instance to a JSONL record.
+        """
+        from archivebox.config import VERSION
+        return {
+            'type': 'Binary',
+            'schema_version': VERSION,
+            'id': str(self.id),
+            'machine_id': str(self.machine_id),
+            'name': self.name,
+            'binprovider': self.binprovider,
+            'abspath': self.abspath,
+            'version': self.version,
+            'sha256': self.sha256,
+            'status': self.status,
+        }
+
     @staticmethod
     def from_jsonl(record: dict, overrides: dict = None):
         """
@@ -605,6 +623,32 @@ class Process(ModelWithHealthStats):
         if hasattr(self, 'archiveresult'):
             return self.archiveresult.hook_name
         return ''
+
+    def to_jsonl(self) -> dict:
+        """
+        Convert Process model instance to a JSONL record.
+        """
+        from archivebox.config import VERSION
+        record = {
+            'type': 'Process',
+            'schema_version': VERSION,
+            'id': str(self.id),
+            'machine_id': str(self.machine_id),
+            'cmd': self.cmd,
+            'pwd': self.pwd,
+            'status': self.status,
+            'exit_code': self.exit_code,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'ended_at': self.ended_at.isoformat() if self.ended_at else None,
+        }
+        # Include optional fields if set
+        if self.binary_id:
+            record['binary_id'] = str(self.binary_id)
+        if self.pid:
+            record['pid'] = self.pid
+        if self.timeout:
+            record['timeout'] = self.timeout
+        return record
 
     def update_and_requeue(self, **kwargs):
         """

@@ -100,6 +100,7 @@ class ConstantsDict(Mapping):
     DATABASE_FILE: Path                 = DATA_DIR / SQL_INDEX_FILENAME
     
     JSON_INDEX_FILENAME: str            = 'index.json'
+    JSONL_INDEX_FILENAME: str           = 'index.jsonl'
     HTML_INDEX_FILENAME: str            = 'index.html'
     ROBOTS_TXT_FILENAME: str            = 'robots.txt'
     FAVICON_FILENAME: str               = 'favicon.ico'
@@ -187,6 +188,7 @@ class ConstantsDict(Mapping):
         "queue.sqlite3-wal",
         "queue.sqlite3-shm",
         JSON_INDEX_FILENAME,
+        JSONL_INDEX_FILENAME,
         HTML_INDEX_FILENAME,
         ROBOTS_TXT_FILENAME,
         FAVICON_FILENAME,

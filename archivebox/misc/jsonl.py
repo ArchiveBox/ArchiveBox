@@ -4,9 +4,15 @@ JSONL (JSON Lines) utilities for ArchiveBox.
 Provides functions for reading, writing, and processing typed JSONL records.
 All CLI commands that accept stdin can read both plain URLs and typed JSONL.
 
+CLI Pipeline:
+    archivebox crawl URL    -> {"type": "Crawl", "id": "...", "urls": "...", ...}
+    archivebox snapshot     -> {"type": "Snapshot", "id": "...", "url": "...", ...}
+    archivebox extract      -> {"type": "ArchiveResult", "id": "...", "snapshot_id": "...", ...}
+
 Typed JSONL Format:
-    {"type": "Snapshot", "url": "https://example.com", "title": "...", "tags": "..."}
-    {"type": "ArchiveResult", "snapshot_id": "...", "extractor": "wget", ...}
+    {"type": "Crawl", "id": "...", "urls": "...", "max_depth": 0, ...}
+    {"type": "Snapshot", "id": "...", "url": "https://example.com", "title": "...", ...}
+    {"type": "ArchiveResult", "id": "...", "snapshot_id": "...", "plugin": "...", ...}
     {"type": "Tag", "name": "..."}
 
 Plain URLs (also supported):
@@ -18,7 +24,7 @@ __package__ = 'archivebox.misc'
 
 import sys
 import json
-from typing import Iterator, Dict, Any, Optional, TextIO, Callable, Union, List
+from typing import Iterator, Dict, Any, Optional, TextIO, Callable
 from pathlib import Path
 
 
@@ -28,8 +34,10 @@ TYPE_ARCHIVERESULT = 'ArchiveResult'
 TYPE_TAG = 'Tag'
 TYPE_CRAWL = 'Crawl'
 TYPE_BINARY = 'Binary'
+TYPE_PROCESS = 'Process'
+TYPE_MACHINE = 'Machine'
 
-VALID_TYPES = {TYPE_SNAPSHOT, TYPE_ARCHIVERESULT, TYPE_TAG, TYPE_CRAWL, TYPE_BINARY}
+VALID_TYPES = {TYPE_SNAPSHOT, TYPE_ARCHIVERESULT, TYPE_TAG, TYPE_CRAWL, TYPE_BINARY, TYPE_PROCESS, TYPE_MACHINE}
 
 
 def parse_line(line: str) -> Optional[Dict[str, Any]]:
@@ -152,81 +160,6 @@ def filter_by_type(records: Iterator[Dict[str, Any]], record_type: str) -> Itera
             yield record
 
 
-def snapshot_to_jsonl(snapshot) -> Dict[str, Any]:
-    """
-    Convert a Snapshot model instance to a JSONL record.
-    """
-    return {
-        'type': TYPE_SNAPSHOT,
-        'id': str(snapshot.id),
-        'url': snapshot.url,
-        'title': snapshot.title,
-        'tags': snapshot.tags_str() if hasattr(snapshot, 'tags_str') else '',
-        'bookmarked_at': snapshot.bookmarked_at.isoformat() if snapshot.bookmarked_at else None,
-        'created_at': snapshot.created_at.isoformat() if snapshot.created_at else None,
-        'timestamp': snapshot.timestamp,
-        'depth': getattr(snapshot, 'depth', 0),
-        'status': snapshot.status if hasattr(snapshot, 'status') else None,
-    }
-
-
-def archiveresult_to_jsonl(result) -> Dict[str, Any]:
-    """
-    Convert an ArchiveResult model instance to a JSONL record.
-    """
-    record = {
-        'type': TYPE_ARCHIVERESULT,
-        'id': str(result.id),
-        'snapshot_id': str(result.snapshot_id),
-        'plugin': result.plugin,
-        'hook_name': result.hook_name,
-        'status': result.status,
-        'output_str': result.output_str,
-        'start_ts': result.start_ts.isoformat() if result.start_ts else None,
-        'end_ts': result.end_ts.isoformat() if result.end_ts else None,
-    }
-    # Include optional fields if set
-    if result.output_json:
-        record['output_json'] = result.output_json
-    if result.output_files:
-        record['output_files'] = result.output_files
-    if result.output_size:
-        record['output_size'] = result.output_size
-    if result.output_mimetypes:
-        record['output_mimetypes'] = result.output_mimetypes
-    if result.cmd:
-        record['cmd'] = result.cmd
-    if result.cmd_version:
-        record['cmd_version'] = result.cmd_version
-    return record
-
-
-def tag_to_jsonl(tag) -> Dict[str, Any]:
-    """
-    Convert a Tag model instance to a JSONL record.
-    """
-    return {
-        'type': TYPE_TAG,
-        'id': str(tag.id),
-        'name': tag.name,
-        'slug': tag.slug,
-    }
-
-
-def crawl_to_jsonl(crawl) -> Dict[str, Any]:
-    """
-    Convert a Crawl model instance to a JSONL record.
-    """
-    return {
-        'type': TYPE_CRAWL,
-        'id': str(crawl.id),
-        'urls': crawl.urls,
-        'status': crawl.status,
-        'max_depth': crawl.max_depth,
-        'created_at': crawl.created_at.isoformat() if crawl.created_at else None,
-    }
-
-
 def process_records(
     records: Iterator[Dict[str, Any]],
     handlers: Dict[str, Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]]
@@ -250,60 +183,3 @@ def process_records(
                 yield result
 
 
-def get_or_create_tag(record: Dict[str, Any]):
-    """
-    Get or create a Tag from a JSONL record.
-
-    Returns the Tag instance.
-    """
-    from archivebox.core.models import Tag
-
-    name = record.get('name')
-    if not name:
-        raise ValueError("Record missing required 'name' field")
-
-    tag, _ = Tag.objects.get_or_create(name=name)
-    return tag
-
-
-def process_jsonl_records(records: Iterator[Dict[str, Any]], created_by_id: Optional[int] = None) -> Dict[str, List]:
-    """
-    Process JSONL records, creating Tags and Snapshots as needed.
-
-    Args:
-        records: Iterator of JSONL record dicts
-        created_by_id: User ID for created objects
-
-    Returns:
-        Dict with 'tags' and 'snapshots' lists of created objects
-    """
-    from archivebox.base_models.models import get_or_create_system_user_pk
-
-    created_by_id = created_by_id or get_or_create_system_user_pk()
-
-    results = {
-        'tags': [],
-        'snapshots': [],
-    }
-
-    for record in records:
-        record_type = record.get('type', TYPE_SNAPSHOT)
-
-        if record_type == TYPE_TAG:
-            try:
-                tag = get_or_create_tag(record)
-                results['tags'].append(tag)
-            except ValueError:
-                continue
-
-        elif record_type == TYPE_SNAPSHOT or 'url' in record:
-            try:
-                from archivebox.core.models import Snapshot
-                overrides = {'created_by_id': created_by_id} if created_by_id else {}
-                snapshot = Snapshot.from_jsonl(record, overrides=overrides)
-                if snapshot:
-                    results['snapshots'].append(snapshot)
-            except ValueError:
-                continue
-
-    return results
