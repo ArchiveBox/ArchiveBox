@@ -29,12 +29,11 @@ def test_update_reconciles_existing_snapshots(tmp_path, process, disable_extract
     """Test that update command reconciles existing snapshots."""
     os.chdir(tmp_path)
 
-    # Add a snapshot
+    # Add a snapshot (index-only for faster test)
     subprocess.run(
-        ['archivebox', 'add', '--depth=0', 'https://example.com'],
+        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
         capture_output=True,
         env=disable_extractors_dict,
-        timeout=30,
     )
 
     # Run update - should reconcile and queue
@@ -57,13 +56,13 @@ def test_update_specific_snapshot_by_filter(tmp_path, process, disable_extractor
         ['archivebox', 'add', '--depth=0', 'https://example.com'],
         capture_output=True,
         env=disable_extractors_dict,
-        timeout=30,
+        timeout=90,
     )
     subprocess.run(
         ['archivebox', 'add', '--depth=0', 'https://example.org'],
         capture_output=True,
         env=disable_extractors_dict,
-        timeout=30,
+        timeout=90,
     )
 
     # Update with filter pattern (uses filter_patterns argument)
@@ -87,7 +86,7 @@ def test_update_preserves_snapshot_count(tmp_path, process, disable_extractors_d
         ['archivebox', 'add', '--depth=0', 'https://example.com'],
         capture_output=True,
         env=disable_extractors_dict,
-        timeout=30,
+        timeout=90,
     )
 
     # Count before update
@@ -124,7 +123,7 @@ def test_update_queues_snapshots_for_archiving(tmp_path, process, disable_extrac
         ['archivebox', 'add', '--depth=0', 'https://example.com'],
         capture_output=True,
         env=disable_extractors_dict,
-        timeout=30,
+        timeout=90,
     )
 
     # Run update

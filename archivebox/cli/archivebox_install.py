@@ -51,10 +51,9 @@ def install(dry_run: bool=False) -> None:
 
     crawl, created = Crawl.objects.get_or_create(
         urls='archivebox://install',
-        label='Dependency detection',
-        created_by_id=created_by_id,
         defaults={
-            'extractor': 'auto',
+            'label': 'Dependency detection',
+            'created_by_id': created_by_id,
             'max_depth': 0,
             'status': 'queued',
         }

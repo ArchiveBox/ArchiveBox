@@ -47,7 +47,10 @@ def test_remove_deletes_snapshot_from_db(tmp_path, process, disable_extractors_d
 
 
 def test_remove_deletes_archive_directory(tmp_path, process, disable_extractors_dict):
-    """Test that remove deletes the archive directory."""
+    """Test that remove deletes the archive directory when using --delete flag.
+
+    Archive directories are named by timestamp, not by snapshot ID.
+    """
     os.chdir(tmp_path)
 
     # Add a snapshot
@@ -57,18 +60,18 @@ def test_remove_deletes_archive_directory(tmp_path, process, disable_extractors_
         env=disable_extractors_dict,
     )
 
-    # Get snapshot ID
+    # Get snapshot timestamp
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
-    snapshot_id = c.execute("SELECT id FROM core_snapshot").fetchone()[0]
+    timestamp = c.execute("SELECT timestamp FROM core_snapshot").fetchone()[0]
     conn.close()
 
-    archive_dir = tmp_path / "archive" / snapshot_id
+    archive_dir = tmp_path / "archive" / str(timestamp)
     assert archive_dir.exists()
 
-    # Remove snapshot
+    # Remove snapshot with --delete to remove both DB record and directory
     subprocess.run(
-        ['archivebox', 'remove', 'https://example.com', '--yes'],
+        ['archivebox', 'remove', 'https://example.com', '--yes', '--delete'],
         capture_output=True,
         env=disable_extractors_dict,
     )

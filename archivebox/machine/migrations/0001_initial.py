@@ -261,11 +261,11 @@ class Migration(migrations.Migration):
                 ),
                 migrations.AddIndex(
                     model_name='process',
-                    index=models.Index(fields=['machine', 'status', 'retry_at'], name='machine_pro_machine_c69cf0_idx'),
+                    index=models.Index(fields=['machine', 'status', 'retry_at'], name='machine_pro_machine_5e3a87_idx'),
                 ),
                 migrations.AddIndex(
                     model_name='process',
-                    index=models.Index(fields=['binary', 'exit_code'], name='machine_pro_binary__f79cc6_idx'),
+                    index=models.Index(fields=['binary', 'exit_code'], name='machine_pro_binary__7bd19c_idx'),
                 ),
             ],
         ),
