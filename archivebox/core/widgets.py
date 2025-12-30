@@ -75,7 +75,7 @@ class TagEditorWidget(forms.Widget):
             pills_html += f'''
                 <span class="tag-pill" data-tag="{self._escape(tag)}">
                     {self._escape(tag)}
-                    <button type="button" class="tag-remove-btn" onclick="removeTag_{widget_id}(this, '{self._escape(tag)}')">&times;</button>
+                    <button type="button" class="tag-remove-btn" data-tag-name="{self._escape(tag)}">&times;</button>
                 </span>
             '''
 
@@ -151,7 +151,7 @@ class TagEditorWidget(forms.Widget):
                 }});
             }};
 
-            window.removeTag_{widget_id} = function(btn, tagName) {{
+            window.removeTag_{widget_id} = function(tagName) {{
                 currentTags_{widget_id} = currentTags_{widget_id}.filter(function(t) {{
                     return t.toLowerCase() !== tagName.toLowerCase();
                 }});
@@ -166,12 +166,30 @@ class TagEditorWidget(forms.Widget):
                     var pill = document.createElement('span');
                     pill.className = 'tag-pill';
                     pill.setAttribute('data-tag', tag);
-                    pill.innerHTML = escapeHtml(tag) +
-                        '<button type="button" class="tag-remove-btn" onclick="removeTag_{widget_id}(this, \\'' +
-                        escapeHtml(tag).replace(/'/g, "\\\\'") + '\\')">&times;</button>';
+
+                    var tagText = document.createTextNode(tag);
+                    pill.appendChild(tagText);
+
+                    var removeBtn = document.createElement('button');
+                    removeBtn.type = 'button';
+                    removeBtn.className = 'tag-remove-btn';
+                    removeBtn.setAttribute('data-tag-name', tag);
+                    removeBtn.innerHTML = '&times;';
+                    pill.appendChild(removeBtn);
+
                     container.appendChild(pill);
                 }});
             }};
+
+            // Add event delegation for remove buttons
+            document.getElementById('{widget_id}_pills').addEventListener('click', function(event) {{
+                if (event.target.classList.contains('tag-remove-btn')) {{
+                    var tagName = event.target.getAttribute('data-tag-name');
+                    if (tagName) {{
+                        removeTag_{widget_id}(tagName);
+                    }}
+                }}
+            }});
 
             window.handleTagKeydown_{widget_id} = function(event) {{
                 var input = event.target;
@@ -285,7 +303,7 @@ class InlineTagEditorWidget(TagEditorWidget):
             pills_html += f'''
                 <span class="tag-pill" data-tag="{self._escape(td['name'])}" data-tag-id="{td['id']}">
                     <a href="/admin/core/snapshot/?tags__id__exact={td['id']}" class="tag-link">{self._escape(td['name'])}</a>
-                    <button type="button" class="tag-remove-btn" onclick="removeInlineTag_{widget_id}(event, {td['id']}, '{self._escape(td['name'])}')">&times;</button>
+                    <button type="button" class="tag-remove-btn" data-tag-id="{td['id']}" data-tag-name="{self._escape(td['name'])}">&times;</button>
                 </span>
             '''
 
@@ -362,10 +380,7 @@ class InlineTagEditorWidget(TagEditorWidget):
                 document.getElementById('{widget_id}_input').value = '';
             }};
 
-            window.removeInlineTag_{widget_id} = function(event, tagId, tagName) {{
-                event.stopPropagation();
-                event.preventDefault();
-
+            window.removeInlineTag_{widget_id} = function(tagId) {{
                 fetch('/api/v1/core/tags/remove-from-snapshot/', {{
                     method: 'POST',
                     headers: {{
@@ -399,13 +414,36 @@ class InlineTagEditorWidget(TagEditorWidget):
                     pill.className = 'tag-pill';
                     pill.setAttribute('data-tag', td.name);
                     pill.setAttribute('data-tag-id', td.id);
-                    pill.innerHTML = '<a href="/admin/core/snapshot/?tags__id__exact=' + td.id + '" class="tag-link">' +
-                        escapeHtml(td.name) + '</a>' +
-                        '<button type="button" class="tag-remove-btn" onclick="removeInlineTag_{widget_id}(event, ' +
-                        td.id + ', \\'' + escapeHtml(td.name).replace(/'/g, "\\\\'") + '\\')">&times;</button>';
+
+                    var link = document.createElement('a');
+                    link.href = '/admin/core/snapshot/?tags__id__exact=' + td.id;
+                    link.className = 'tag-link';
+                    link.textContent = td.name;
+                    pill.appendChild(link);
+
+                    var removeBtn = document.createElement('button');
+                    removeBtn.type = 'button';
+                    removeBtn.className = 'tag-remove-btn';
+                    removeBtn.setAttribute('data-tag-id', td.id);
+                    removeBtn.setAttribute('data-tag-name', td.name);
+                    removeBtn.innerHTML = '&times;';
+                    pill.appendChild(removeBtn);
+
                     container.appendChild(pill);
                 }});
             }};
+
+            // Add event delegation for remove buttons
+            document.getElementById('{widget_id}_pills').addEventListener('click', function(event) {{
+                if (event.target.classList.contains('tag-remove-btn')) {{
+                    event.stopPropagation();
+                    event.preventDefault();
+                    var tagId = parseInt(event.target.getAttribute('data-tag-id'), 10);
+                    if (tagId) {{
+                        removeInlineTag_{widget_id}(tagId);
+                    }}
+                }}
+            }});
 
             window.handleInlineTagKeydown_{widget_id} = function(event) {{
                 event.stopPropagation();

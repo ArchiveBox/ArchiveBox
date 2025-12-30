@@ -534,9 +534,13 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             messages.warning(request, "No tags specified.")
             return
 
-        # Parse comma-separated tag names and find matching Tag objects
+        # Parse comma-separated tag names and find matching Tag objects (case-insensitive)
         tag_names = [name.strip() for name in tags_str.split(',') if name.strip()]
-        tags = list(Tag.objects.filter(name__in=tag_names))
+        tags = []
+        for name in tag_names:
+            tag = Tag.objects.filter(name__iexact=name).first()
+            if tag:
+                tags.append(tag)
 
         print('[-] Removing tags', [t.name for t in tags], 'from Snapshots', queryset)
         for obj in queryset:
