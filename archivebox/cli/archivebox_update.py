@@ -38,6 +38,14 @@ def update(filter_patterns: Iterable[str] = (),
 
     from archivebox.core.models import Snapshot
     from django.utils import timezone
+    from django.core.management import call_command
+
+    # Run migrations first to ensure DB schema is up-to-date
+    print('[*] Checking for pending migrations...')
+    try:
+        call_command('migrate', '--no-input', verbosity=0)
+    except Exception as e:
+        print(f'[!] Warning: Migration check failed: {e}')
 
     while True:
         if filter_patterns or before or after:
@@ -136,9 +144,17 @@ def drain_old_archive_dirs(resume_from: str = None, batch_size: int = 100) -> di
 
         # Check if needs migration (0.8.x → 0.9.x)
         if snapshot.fs_migration_needed:
-            snapshot.save()  # Triggers migration + creates symlink
-            stats['migrated'] += 1
-            print(f"    [{stats['processed']}] Migrated: {entry_path.name}")
+            try:
+                snapshot.save()  # Triggers migration + creates symlink
+                stats['migrated'] += 1
+                print(f"    [{stats['processed']}] Migrated: {entry_path.name}")
+            except Exception as e:
+                # Snapshot already exists in DB with different crawl - skip it
+                if 'UNIQUE constraint failed' in str(e):
+                    stats['skipped'] += 1
+                    print(f"    [{stats['processed']}] Skipped (already in DB): {entry_path.name}")
+                else:
+                    raise
         else:
             stats['skipped'] += 1
 
@@ -170,18 +186,32 @@ def process_all_db_snapshots(batch_size: int = 100) -> dict:
     print(f'[*] Processing {total} snapshots from database (most recent first)...')
 
     # Process from most recent to least recent
-    for snapshot in Snapshot.objects.order_by('-bookmarked_at').iterator(chunk_size=batch_size):
-        # Reconcile index.json with DB
-        snapshot.reconcile_with_index_json()
-
-        # Queue for archiving (state machine will handle it)
-        snapshot.status = Snapshot.StatusChoices.QUEUED
-        snapshot.retry_at = timezone.now()
-        snapshot.save()
-
-        stats['reconciled'] += 1
-        stats['queued'] += 1
+    for snapshot in Snapshot.objects.select_related('crawl').order_by('-bookmarked_at').iterator(chunk_size=batch_size):
         stats['processed'] += 1
+
+        # Skip snapshots with missing crawl references (orphaned by migration errors)
+        if not snapshot.crawl_id:
+            continue
+
+        try:
+            # Reconcile index.json with DB
+            snapshot.reconcile_with_index_json()
+
+            # Clean up invalid field values from old migrations
+            if not isinstance(snapshot.current_step, int):
+                snapshot.current_step = 0
+
+            # Queue for archiving (state machine will handle it)
+            snapshot.status = Snapshot.StatusChoices.QUEUED
+            snapshot.retry_at = timezone.now()
+            snapshot.save()
+
+            stats['reconciled'] += 1
+            stats['queued'] += 1
+        except Exception as e:
+            # Skip snapshots that can't be processed (e.g., missing crawl)
+            print(f"    [!] Skipping snapshot {snapshot.id}: {e}")
+            continue
 
         if stats['processed'] % batch_size == 0:
             transaction.commit()
@@ -219,18 +249,32 @@ def process_filtered_snapshots(
     total = snapshots.count()
     print(f'[*] Found {total} matching snapshots')
 
-    for snapshot in snapshots.iterator(chunk_size=batch_size):
-        # Reconcile index.json with DB
-        snapshot.reconcile_with_index_json()
-
-        # Queue for archiving
-        snapshot.status = Snapshot.StatusChoices.QUEUED
-        snapshot.retry_at = timezone.now()
-        snapshot.save()
-
-        stats['reconciled'] += 1
-        stats['queued'] += 1
+    for snapshot in snapshots.select_related('crawl').iterator(chunk_size=batch_size):
         stats['processed'] += 1
+
+        # Skip snapshots with missing crawl references
+        if not snapshot.crawl_id:
+            continue
+
+        try:
+            # Reconcile index.json with DB
+            snapshot.reconcile_with_index_json()
+
+            # Clean up invalid field values from old migrations
+            if not isinstance(snapshot.current_step, int):
+                snapshot.current_step = 0
+
+            # Queue for archiving
+            snapshot.status = Snapshot.StatusChoices.QUEUED
+            snapshot.retry_at = timezone.now()
+            snapshot.save()
+
+            stats['reconciled'] += 1
+            stats['queued'] += 1
+        except Exception as e:
+            # Skip snapshots that can't be processed
+            print(f"    [!] Skipping snapshot {snapshot.id}: {e}")
+            continue
 
         if stats['processed'] % batch_size == 0:
             transaction.commit()

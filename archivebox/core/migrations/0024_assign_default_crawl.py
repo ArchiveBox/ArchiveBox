@@ -56,7 +56,8 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('core', '0023_upgrade_to_0_9_0'),
-        ('crawls', '0001_initial'),
+        ('crawls', '0002_upgrade_to_0_9_0'),
+        ('machine', '0001_initial'),
         ('auth', '0012_alter_user_first_name_max_length'),
     ]
 
@@ -99,7 +100,18 @@ class Migration(migrations.Migration):
                     FOREIGN KEY (parent_snapshot_id) REFERENCES core_snapshot(id) ON DELETE SET NULL
                 );
 
-                INSERT INTO core_snapshot_final SELECT * FROM core_snapshot;
+                INSERT INTO core_snapshot_final (
+                    id, created_at, modified_at, url, timestamp, bookmarked_at,
+                    crawl_id, parent_snapshot_id, title, downloaded_at, depth, fs_version,
+                    config, notes, num_uses_succeeded, num_uses_failed,
+                    status, retry_at, current_step
+                )
+                SELECT
+                    id, created_at, modified_at, url, timestamp, bookmarked_at,
+                    crawl_id, parent_snapshot_id, title, downloaded_at, depth, fs_version,
+                    COALESCE(config, '{}'), COALESCE(notes, ''), num_uses_succeeded, num_uses_failed,
+                    status, retry_at, current_step
+                FROM core_snapshot;
 
                 DROP TABLE core_snapshot;
                 ALTER TABLE core_snapshot_final RENAME TO core_snapshot;
