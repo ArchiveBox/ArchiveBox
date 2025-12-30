@@ -58,9 +58,10 @@ def parse_json_main_index(out_dir: Path) -> Iterator[SnapshotDict]:
 
 def parse_json_links_details(out_dir: Path) -> Iterator[SnapshotDict]:
     """
-    Parse links from individual snapshot index.json files in archive directories.
+    Parse links from individual snapshot index.jsonl/index.json files in archive directories.
 
-    Walks through archive/*/index.json files to discover orphaned snapshots.
+    Walks through archive/*/index.jsonl and archive/*/index.json files to discover orphaned snapshots.
+    Prefers index.jsonl (new format) over index.json (legacy format).
     """
     from archivebox.config import CONSTANTS
 
@@ -72,19 +73,36 @@ def parse_json_links_details(out_dir: Path) -> Iterator[SnapshotDict]:
         if not entry.is_dir():
             continue
 
-        index_file = Path(entry.path) / 'index.json'
-        if not index_file.exists():
-            continue
+        # Try index.jsonl first (new format)
+        jsonl_file = Path(entry.path) / CONSTANTS.JSONL_INDEX_FILENAME
+        json_file = Path(entry.path) / CONSTANTS.JSON_INDEX_FILENAME
 
-        try:
-            with open(index_file, 'r', encoding='utf-8') as f:
-                link = json.load(f)
+        link = None
 
+        if jsonl_file.exists():
+            try:
+                with open(jsonl_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith('{'):
+                            record = json.loads(line)
+                            if record.get('type') == 'Snapshot':
+                                link = record
+                                break
+            except (json.JSONDecodeError, KeyError, TypeError):
+                pass
+
+        elif json_file.exists():
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    link = json.load(f)
+            except (json.JSONDecodeError, KeyError, TypeError):
+                pass
+
+        if link:
             yield {
                 'url': link.get('url', ''),
                 'timestamp': link.get('timestamp', entry.name),
                 'title': link.get('title'),
                 'tags': link.get('tags', ''),
             }
-        except (json.JSONDecodeError, KeyError, TypeError):
-            continue

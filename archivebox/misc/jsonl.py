@@ -28,8 +28,10 @@ TYPE_ARCHIVERESULT = 'ArchiveResult'
 TYPE_TAG = 'Tag'
 TYPE_CRAWL = 'Crawl'
 TYPE_BINARY = 'Binary'
+TYPE_PROCESS = 'Process'
+TYPE_MACHINE = 'Machine'
 
-VALID_TYPES = {TYPE_SNAPSHOT, TYPE_ARCHIVERESULT, TYPE_TAG, TYPE_CRAWL, TYPE_BINARY}
+VALID_TYPES = {TYPE_SNAPSHOT, TYPE_ARCHIVERESULT, TYPE_TAG, TYPE_CRAWL, TYPE_BINARY, TYPE_PROCESS, TYPE_MACHINE}
 
 
 def parse_line(line: str) -> Optional[Dict[str, Any]]:
@@ -224,6 +226,64 @@ def crawl_to_jsonl(crawl) -> Dict[str, Any]:
         'status': crawl.status,
         'max_depth': crawl.max_depth,
         'created_at': crawl.created_at.isoformat() if crawl.created_at else None,
+    }
+
+
+def binary_to_jsonl(binary) -> Dict[str, Any]:
+    """
+    Convert a Binary model instance to a JSONL record.
+    """
+    return {
+        'type': TYPE_BINARY,
+        'id': str(binary.id),
+        'machine_id': str(binary.machine_id),
+        'name': binary.name,
+        'binprovider': binary.binprovider,
+        'abspath': binary.abspath,
+        'version': binary.version,
+        'sha256': binary.sha256,
+        'status': binary.status,
+    }
+
+
+def process_to_jsonl(process) -> Dict[str, Any]:
+    """
+    Convert a Process model instance to a JSONL record.
+    """
+    record = {
+        'type': TYPE_PROCESS,
+        'id': str(process.id),
+        'machine_id': str(process.machine_id),
+        'cmd': process.cmd,
+        'pwd': process.pwd,
+        'status': process.status,
+        'exit_code': process.exit_code,
+        'started_at': process.started_at.isoformat() if process.started_at else None,
+        'ended_at': process.ended_at.isoformat() if process.ended_at else None,
+    }
+    # Include optional fields if set
+    if process.binary_id:
+        record['binary_id'] = str(process.binary_id)
+    if process.pid:
+        record['pid'] = process.pid
+    if process.timeout:
+        record['timeout'] = process.timeout
+    return record
+
+
+def machine_to_jsonl(machine) -> Dict[str, Any]:
+    """
+    Convert a Machine model instance to a JSONL record.
+    """
+    return {
+        'type': TYPE_MACHINE,
+        'id': str(machine.id),
+        'guid': machine.guid,
+        'hostname': machine.hostname,
+        'os_arch': machine.os_arch,
+        'os_family': machine.os_family,
+        'os_platform': machine.os_platform,
+        'os_release': machine.os_release,
     }
 
 

@@ -100,6 +100,7 @@ class ConstantsDict(Mapping):
     DATABASE_FILE: Path                 = DATA_DIR / SQL_INDEX_FILENAME
     
     JSON_INDEX_FILENAME: str            = 'index.json'
+    JSONL_INDEX_FILENAME: str           = 'index.jsonl'
     HTML_INDEX_FILENAME: str            = 'index.html'
     ROBOTS_TXT_FILENAME: str            = 'robots.txt'
     FAVICON_FILENAME: str               = 'favicon.ico'
