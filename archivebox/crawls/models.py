@@ -134,6 +134,21 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     def api_url(self) -> str:
         return reverse_lazy('api-1:get_crawl', args=[self.id])
 
+    def to_jsonl(self) -> dict:
+        """
+        Convert Crawl model instance to a JSONL record.
+        """
+        from archivebox.config import VERSION
+        return {
+            'type': 'Crawl',
+            'schema_version': VERSION,
+            'id': str(self.id),
+            'urls': self.urls,
+            'status': self.status,
+            'max_depth': self.max_depth,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
     @property
     def output_dir_parent(self) -> str:
         """Construct parent directory: users/{user_id}/crawls/{YYYYMMDD}"""

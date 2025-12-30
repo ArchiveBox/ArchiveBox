@@ -664,7 +664,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         """
         from archivebox.core.models import Snapshot
         from archivebox.misc.jsonl import (
-            get_or_create_snapshot, read_args_or_stdin,
+            read_args_or_stdin,
             TYPE_SNAPSHOT
         )
         from archivebox.base_models.models import get_or_create_system_user_pk
@@ -673,7 +673,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
 
         # === archivebox snapshot https://example.com ===
         url = 'https://test-pipeline-1.example.com'
-        snapshot = get_or_create_snapshot({'url': url}, created_by_id=created_by_id)
+        snapshot = Snapshot.from_jsonl({'url': url}, overrides={'created_by_id': created_by_id})
         snapshot_jsonl = json.dumps(snapshot.to_jsonl())
 
         # === | archivebox extract ===
@@ -698,7 +698,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         """
         from archivebox.core.models import Snapshot
         from archivebox.misc.jsonl import (
-            get_or_create_snapshot, read_args_or_stdin,
+            read_args_or_stdin,
             TYPE_SNAPSHOT
         )
         from archivebox.base_models.models import get_or_create_system_user_pk
@@ -709,7 +709,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         # === archivebox crawl https://example.com ===
         # Step 1: Create snapshot for starting URL
         start_url = 'https://test-crawl-pipeline.example.com'
-        start_snapshot = get_or_create_snapshot({'url': start_url}, created_by_id=created_by_id)
+        start_snapshot = Snapshot.from_jsonl({'url': start_url}, overrides={'created_by_id': created_by_id})
 
         # Step 2: Simulate extractor output with discovered URLs
         snapshot_dir = Path(self.test_dir) / 'archive' / str(start_snapshot.timestamp)
@@ -738,7 +738,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         # Create snapshots for discovered URLs
         created_snapshots = []
         for record in records:
-            snap = get_or_create_snapshot(record, created_by_id=created_by_id)
+            snap = Snapshot.from_jsonl(record, overrides={'created_by_id': created_by_id})
             created_snapshots.append(snap)
 
         self.assertEqual(len(created_snapshots), 2)
@@ -787,14 +787,13 @@ class TestDepthWorkflows(unittest.TestCase):
         Depth 0: Only archive the specified URL, no crawling.
         """
         from archivebox.core.models import Snapshot
-        from archivebox.misc.jsonl import get_or_create_snapshot
         from archivebox.base_models.models import get_or_create_system_user_pk
 
         created_by_id = get_or_create_system_user_pk()
 
         # Create snapshot
         url = 'https://depth0-test.example.com'
-        snapshot = get_or_create_snapshot({'url': url}, created_by_id=created_by_id)
+        snapshot = Snapshot.from_jsonl({'url': url}, overrides={'created_by_id': created_by_id})
 
         # Verify only one snapshot created
         self.assertEqual(Snapshot.objects.filter(url=url).count(), 1)

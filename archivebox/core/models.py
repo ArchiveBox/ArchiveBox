@@ -91,6 +91,19 @@ class Tag(ModelWithSerializers):
     def api_url(self) -> str:
         return reverse_lazy('api-1:get_tag', args=[self.id])
 
+    def to_jsonl(self) -> dict:
+        """
+        Convert Tag model instance to a JSONL record.
+        """
+        from archivebox.config import VERSION
+        return {
+            'type': 'Tag',
+            'schema_version': VERSION,
+            'id': str(self.id),
+            'name': self.name,
+            'slug': self.slug,
+        }
+
     @staticmethod
     def from_jsonl(record: Dict[str, Any], overrides: Dict[str, Any] = None):
         """
@@ -103,18 +116,17 @@ class Tag(ModelWithSerializers):
         Returns:
             Tag instance or None
         """
-        from archivebox.misc.jsonl import get_or_create_tag
-
-        try:
-            tag = get_or_create_tag(record)
-
-            # Auto-attach to snapshot if in overrides
-            if overrides and 'snapshot' in overrides and tag:
-                overrides['snapshot'].tags.add(tag)
-
-            return tag
-        except ValueError:
+        name = record.get('name')
+        if not name:
             return None
+
+        tag, _ = Tag.objects.get_or_create(name=name)
+
+        # Auto-attach to snapshot if in overrides
+        if overrides and 'snapshot' in overrides and tag:
+            overrides['snapshot'].tags.add(tag)
+
+        return tag
 
 
 class SnapshotTag(models.Model):

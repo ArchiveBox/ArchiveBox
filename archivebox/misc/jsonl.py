@@ -18,7 +18,7 @@ __package__ = 'archivebox.misc'
 
 import sys
 import json
-from typing import Iterator, Dict, Any, Optional, TextIO, Callable, Union, List
+from typing import Iterator, Dict, Any, Optional, TextIO, Callable
 from pathlib import Path
 
 
@@ -154,32 +154,6 @@ def filter_by_type(records: Iterator[Dict[str, Any]], record_type: str) -> Itera
             yield record
 
 
-def tag_to_jsonl(tag) -> Dict[str, Any]:
-    """
-    Convert a Tag model instance to a JSONL record.
-    """
-    return {
-        'type': TYPE_TAG,
-        'id': str(tag.id),
-        'name': tag.name,
-        'slug': tag.slug,
-    }
-
-
-def crawl_to_jsonl(crawl) -> Dict[str, Any]:
-    """
-    Convert a Crawl model instance to a JSONL record.
-    """
-    return {
-        'type': TYPE_CRAWL,
-        'id': str(crawl.id),
-        'urls': crawl.urls,
-        'status': crawl.status,
-        'max_depth': crawl.max_depth,
-        'created_at': crawl.created_at.isoformat() if crawl.created_at else None,
-    }
-
-
 def process_records(
     records: Iterator[Dict[str, Any]],
     handlers: Dict[str, Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]]
@@ -203,60 +177,3 @@ def process_records(
                 yield result
 
 
-def get_or_create_tag(record: Dict[str, Any]):
-    """
-    Get or create a Tag from a JSONL record.
-
-    Returns the Tag instance.
-    """
-    from archivebox.core.models import Tag
-
-    name = record.get('name')
-    if not name:
-        raise ValueError("Record missing required 'name' field")
-
-    tag, _ = Tag.objects.get_or_create(name=name)
-    return tag
-
-
-def process_jsonl_records(records: Iterator[Dict[str, Any]], created_by_id: Optional[int] = None) -> Dict[str, List]:
-    """
-    Process JSONL records, creating Tags and Snapshots as needed.
-
-    Args:
-        records: Iterator of JSONL record dicts
-        created_by_id: User ID for created objects
-
-    Returns:
-        Dict with 'tags' and 'snapshots' lists of created objects
-    """
-    from archivebox.base_models.models import get_or_create_system_user_pk
-
-    created_by_id = created_by_id or get_or_create_system_user_pk()
-
-    results = {
-        'tags': [],
-        'snapshots': [],
-    }
-
-    for record in records:
-        record_type = record.get('type', TYPE_SNAPSHOT)
-
-        if record_type == TYPE_TAG:
-            try:
-                tag = get_or_create_tag(record)
-                results['tags'].append(tag)
-            except ValueError:
-                continue
-
-        elif record_type == TYPE_SNAPSHOT or 'url' in record:
-            try:
-                from archivebox.core.models import Snapshot
-                overrides = {'created_by_id': created_by_id} if created_by_id else {}
-                snapshot = Snapshot.from_jsonl(record, overrides=overrides)
-                if snapshot:
-                    results['snapshots'].append(snapshot)
-            except ValueError:
-                continue
-
-    return results
