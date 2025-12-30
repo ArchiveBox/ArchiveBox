@@ -2,14 +2,18 @@
 Integration tests for chrome plugin
 
 Tests verify:
-1. Chrome install hook checks for Chrome/Chromium binary
+1. Chromium install via @puppeteer/browsers
 2. Verify deps with abx-pkg
 3. Chrome hooks exist
-4. Chrome launches at crawl level
+4. Chromium launches at crawl level
 5. Tab creation at snapshot level
 6. Tab navigation works
 7. Tab cleanup on SIGTERM
-8. Chrome cleanup on crawl end
+8. Chromium cleanup on crawl end
+
+NOTE: We use Chromium instead of Chrome because Chrome 137+ removed support for
+--load-extension and --disable-extensions-except flags, which are needed for
+loading unpacked extensions in headless mode.
 """
 
 import json
@@ -40,49 +44,104 @@ def get_lib_dir_and_machine_type():
 
     return Path(lib_dir), machine_type
 
-# Setup NODE_PATH to find npm packages
+# Setup NODE_MODULES_DIR to find npm packages
 LIB_DIR, MACHINE_TYPE = get_lib_dir_and_machine_type()
 # Note: LIB_DIR already includes machine_type (e.g., data/lib/arm64-darwin)
 NODE_MODULES_DIR = LIB_DIR / 'npm' / 'node_modules'
 NPM_PREFIX = LIB_DIR / 'npm'
 
+# Chromium install location (relative to DATA_DIR)
+CHROMIUM_INSTALL_DIR = Path(os.environ.get('DATA_DIR', '.')).resolve() / 'chromium'
+
 def get_test_env():
-    """Get environment with NODE_PATH set correctly."""
+    """Get environment with NODE_MODULES_DIR and CHROME_BINARY set correctly."""
     env = os.environ.copy()
-    env['NODE_PATH'] = str(NODE_MODULES_DIR)
+    env['NODE_MODULES_DIR'] = str(NODE_MODULES_DIR)
     env['LIB_DIR'] = str(LIB_DIR)
     env['MACHINE_TYPE'] = MACHINE_TYPE
+    # Ensure CHROME_BINARY is set to Chromium
+    if 'CHROME_BINARY' not in env:
+        chromium = find_chromium_binary()
+        if chromium:
+            env['CHROME_BINARY'] = chromium
     return env
 
 
+def find_chromium_binary():
+    """Find the Chromium binary installed by @puppeteer/browsers."""
+    if not CHROMIUM_INSTALL_DIR.exists():
+        return None
+
+    # Look for versioned directories
+    for version_dir in sorted(CHROMIUM_INSTALL_DIR.iterdir(), reverse=True):
+        if not version_dir.is_dir():
+            continue
+        # macOS ARM
+        mac_arm = version_dir / 'chrome-mac' / 'Chromium.app' / 'Contents' / 'MacOS' / 'Chromium'
+        if mac_arm.exists():
+            return str(mac_arm)
+        # macOS x64
+        mac_x64 = version_dir / 'chrome-mac-x64' / 'Chromium.app' / 'Contents' / 'MacOS' / 'Chromium'
+        if mac_x64.exists():
+            return str(mac_x64)
+        # Linux
+        linux = version_dir / 'chrome-linux' / 'chrome'
+        if linux.exists():
+            return str(linux)
+
+    return None
+
+
 @pytest.fixture(scope="session", autouse=True)
-def ensure_puppeteer_installed():
-    """Ensure puppeteer is installed in LIB_DIR before running tests."""
-    from abx_pkg import Binary, NpmProvider, BinProviderOverrides
+def ensure_chromium_and_puppeteer_installed():
+    """Ensure Chromium and puppeteer are installed before running tests."""
+    from abx_pkg import Binary, NpmProvider
 
     # Rebuild pydantic models
     NpmProvider.model_rebuild()
 
-    # Check if puppeteer-core is already available
+    # Install puppeteer-core if not available
     puppeteer_core_path = NODE_MODULES_DIR / 'puppeteer-core'
-    if puppeteer_core_path.exists():
-        return  # Already installed
+    if not puppeteer_core_path.exists():
+        print(f"\n[*] Installing puppeteer to {NPM_PREFIX}...")
+        NPM_PREFIX.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n[*] Installing puppeteer to {NPM_PREFIX}...")
-    NPM_PREFIX.mkdir(parents=True, exist_ok=True)
+        provider = NpmProvider(npm_prefix=NPM_PREFIX)
+        try:
+            binary = Binary(
+                name='puppeteer',
+                binproviders=[provider],
+                overrides={'npm': {'packages': ['puppeteer@^23.5.0']}}
+            )
+            binary.install()
+            print(f"[*] Puppeteer installed successfully to {NPM_PREFIX}")
+        except Exception as e:
+            pytest.skip(f"Failed to install puppeteer: {e}")
 
-    # Install puppeteer using NpmProvider with custom prefix
-    provider = NpmProvider(npm_prefix=NPM_PREFIX)
-    try:
-        binary = Binary(
-            name='puppeteer',
-            binproviders=[provider],
-            overrides={'npm': {'packages': ['puppeteer@^23.5.0']}}
+    # Install Chromium via @puppeteer/browsers if not available
+    chromium_binary = find_chromium_binary()
+    if not chromium_binary:
+        print(f"\n[*] Installing Chromium to {CHROMIUM_INSTALL_DIR}...")
+        CHROMIUM_INSTALL_DIR.mkdir(parents=True, exist_ok=True)
+
+        result = subprocess.run(
+            ['npx', '@puppeteer/browsers', 'install', 'chromium@latest'],
+            cwd=str(CHROMIUM_INSTALL_DIR.parent),
+            capture_output=True,
+            text=True,
+            timeout=300
         )
-        binary.install()
-        print(f"[*] Puppeteer installed successfully to {NPM_PREFIX}")
-    except Exception as e:
-        pytest.skip(f"Failed to install puppeteer: {e}")
+        if result.returncode != 0:
+            pytest.skip(f"Failed to install Chromium: {result.stderr}")
+
+        chromium_binary = find_chromium_binary()
+        if not chromium_binary:
+            pytest.skip("Chromium installed but binary not found")
+
+        print(f"[*] Chromium installed: {chromium_binary}")
+
+    # Set CHROME_BINARY env var for tests
+    os.environ['CHROME_BINARY'] = chromium_binary
 
 
 def test_hook_scripts_exist():
@@ -92,26 +151,22 @@ def test_hook_scripts_exist():
     assert CHROME_NAVIGATE_HOOK.exists(), f"Hook not found: {CHROME_NAVIGATE_HOOK}"
 
 
-def test_verify_deps_with_abx_pkg():
-    """Verify chrome is available via abx-pkg."""
-    from abx_pkg import Binary, NpmProvider, AptProvider, BrewProvider, EnvProvider, BinProviderOverrides
+def test_verify_chromium_available():
+    """Verify Chromium is available via CHROME_BINARY env var."""
+    chromium_binary = os.environ.get('CHROME_BINARY') or find_chromium_binary()
 
-    NpmProvider.model_rebuild()
-    AptProvider.model_rebuild()
-    BrewProvider.model_rebuild()
-    EnvProvider.model_rebuild()
+    assert chromium_binary, "Chromium binary should be available (set by fixture or found)"
+    assert Path(chromium_binary).exists(), f"Chromium binary should exist at {chromium_binary}"
 
-    # Try to find chrome using same config as install hook
-    chrome_binary = Binary(
-        name='chrome',
-        binproviders=[NpmProvider(), EnvProvider(), BrewProvider(), AptProvider()],
-        overrides={'npm': {'packages': ['@puppeteer/browsers']}}
+    # Verify it's actually Chromium by checking version
+    result = subprocess.run(
+        [chromium_binary, '--version'],
+        capture_output=True,
+        text=True,
+        timeout=10
     )
-    chrome_loaded = chrome_binary.load()
-
-    # Chrome should be available (either found by install hook or at explicit path)
-    assert chrome_loaded and chrome_loaded.abspath, "Chrome should be available via abx-pkg after install hook runs"
-    assert Path(chrome_loaded.abspath).exists(), f"Chrome binary should exist at {chrome_loaded.abspath}"
+    assert result.returncode == 0, f"Failed to get Chromium version: {result.stderr}"
+    assert 'Chromium' in result.stdout or 'Chrome' in result.stdout, f"Unexpected version output: {result.stdout}"
 
 
 def test_chrome_launch_and_tab_creation():
@@ -121,7 +176,7 @@ def test_chrome_launch_and_tab_creation():
         crawl_dir.mkdir()
         chrome_dir = crawl_dir / 'chrome'
 
-        # Get test environment with NODE_PATH set
+        # Get test environment with NODE_MODULES_DIR set
         env = get_test_env()
         env['CHROME_HEADLESS'] = 'true'
 

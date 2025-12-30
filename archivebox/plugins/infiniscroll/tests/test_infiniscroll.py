@@ -34,9 +34,9 @@ TEST_URL = 'https://www.singsing.movie/'
 
 def get_node_modules_dir():
     """Get NODE_MODULES_DIR for tests, checking env first."""
-    # Check if NODE_PATH is already set in environment
-    if os.environ.get('NODE_PATH'):
-        return Path(os.environ['NODE_PATH'])
+    # Check if NODE_MODULES_DIR is already set in environment
+    if os.environ.get('NODE_MODULES_DIR'):
+        return Path(os.environ['NODE_MODULES_DIR'])
     # Otherwise compute from LIB_DIR
     from archivebox.config.common import STORAGE_CONFIG
     lib_dir = Path(os.environ.get('LIB_DIR') or str(STORAGE_CONFIG.LIB_DIR))
@@ -47,9 +47,9 @@ NODE_MODULES_DIR = get_node_modules_dir()
 
 
 def get_test_env():
-    """Get environment with NODE_PATH set correctly."""
+    """Get environment with NODE_MODULES_DIR set correctly."""
     env = os.environ.copy()
-    env['NODE_PATH'] = str(NODE_MODULES_DIR)
+    env['NODE_MODULES_DIR'] = str(NODE_MODULES_DIR)
     return env
 
 

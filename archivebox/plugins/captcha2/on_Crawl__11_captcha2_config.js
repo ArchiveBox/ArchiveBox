@@ -15,6 +15,8 @@
 
 const path = require('path');
 const fs = require('fs');
+// Add NODE_MODULES_DIR to module resolution paths if set
+if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer-core');
 
 // Get crawl's chrome directory from environment variable set by hooks.py

@@ -40,7 +40,10 @@ if (!getEnvBool('PDF_ENABLED', true)) {
 // Now safe to require puppeteer
 const fs = require('fs');
 const path = require('path');
+// Add NODE_MODULES_DIR to module resolution paths if set
+if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer-core');
+const { findChromium } = require('../chrome/chrome_utils.js');
 
 // Extractor metadata
 const PLUGIN_NAME = 'pdf';
@@ -96,33 +99,6 @@ function getCdpUrl() {
     return null;
 }
 
-// Find Chrome binary
-function findChrome() {
-    const chromeBinary = getEnv('CHROME_BINARY');
-    if (chromeBinary && fs.existsSync(chromeBinary)) {
-        return chromeBinary;
-    }
-
-    const candidates = [
-        // Linux
-        '/usr/bin/google-chrome',
-        '/usr/bin/google-chrome-stable',
-        '/usr/bin/chromium',
-        '/usr/bin/chromium-browser',
-        // macOS
-        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        '/Applications/Chromium.app/Contents/MacOS/Chromium',
-    ];
-
-    for (const candidate of candidates) {
-        if (candidate.startsWith('/') && fs.existsSync(candidate)) {
-            return candidate;
-        }
-    }
-
-    return null;
-}
-
 // Parse resolution string
 function parseResolution(resolution) {
     const [width, height] = resolution.split(',').map(x => parseInt(x.trim(), 10));
@@ -175,7 +151,7 @@ async function printToPdf(url) {
 
         // Fall back to launching new browser
         if (!browser) {
-            const executablePath = findChrome();
+            const executablePath = findChromium();
             if (!executablePath) {
                 return { success: false, error: 'Chrome binary not found' };
             }

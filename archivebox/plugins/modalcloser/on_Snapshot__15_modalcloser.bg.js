@@ -44,6 +44,8 @@ if (!getEnvBool('MODALCLOSER_ENABLED', true)) {
 
 const fs = require('fs');
 const path = require('path');
+// Add NODE_MODULES_DIR to module resolution paths if set
+if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer-core');
 
 const PLUGIN_NAME = 'modalcloser';
@@ -156,22 +158,59 @@ async function closeModals(page) {
 
         // Generic fallback - hide unrecognized modals with CSS
         const genericSelectors = [
-            // CookieYes (cky) - popular cookie consent library
-            '.cky-consent-container',
-            '.cky-popup-center',
-            '.cky-overlay',
-            '.cky-modal',
-            '#ckyPreferenceCenter',
+            // CookieYes (cky)
+            '.cky-consent-container', '.cky-popup-center', '.cky-overlay', '.cky-modal', '#ckyPreferenceCenter',
+            // OneTrust
+            '#onetrust-consent-sdk', '#onetrust-banner-sdk', '.onetrust-pc-dark-filter', '#onetrust-pc-sdk',
+            // CookieBot
+            '#CybotCookiebotDialog', '#CybotCookiebotDialogBodyUnderlay', '#CookiebotWidget',
+            // Quantcast / CMP
+            '.qc-cmp-ui-container', '#qc-cmp2-container', '.qc-cmp2-summary-buttons',
+            // TrustArc / TrustE
+            '#truste-consent-track', '.truste-banner', '#truste-consent-content',
+            // Osano
+            '.osano-cm-window', '.osano-cm-dialog',
+            // Klaro
+            '.klaro .cookie-modal', '.klaro .cookie-notice',
+            // Tarteaucitron
+            '#tarteaucitronRoot', '#tarteaucitronAlertBig',
+            // Complianz (WordPress)
+            '.cmplz-cookiebanner', '#cmplz-cookiebanner-container',
+            // GDPR Cookie Consent (WordPress)
+            '#gdpr-cookie-consent-bar', '.gdpr-cookie-consent-popup',
+            // Cookie Notice (WordPress)
+            '#cookie-notice', '.cookie-notice-container',
+            // EU Cookie Law
+            '.eupopup', '#eu-cookie-law',
+            // Didomi
+            '#didomi-popup', '#didomi-host', '.didomi-popup-container',
+            // Usercentrics
+            '#usercentrics-root', '.uc-banner',
+            // Axeptio
+            '#axeptio_overlay', '#axeptio_btn',
+            // iubenda
+            '#iubenda-cs-banner', '.iubenda-cs-container',
+            // Termly
+            '.termly-consent-banner', '#termly-code-snippet-support',
+            // Borlabs Cookie (WordPress)
+            '#BorlabsCookieBox', '.BorlabsCookie',
+            // CookieFirst
+            '.cookiefirst-root', '#cookiefirst-root',
+            // CookieScript
+            '#cookiescript_injected', '.cookiescript_injected_wrapper',
+            // Civic Cookie Control
+            '#ccc', '#ccc-overlay',
+            // Generic patterns
+            '#cookie-consent', '.cookie-banner', '.cookie-notice',
+            '#cookieConsent', '.cookie-consent', '.cookies-banner',
+            '[class*="cookie"][class*="banner"]', '[class*="cookie"][class*="notice"]',
+            '[class*="cookie"][class*="popup"]', '[class*="cookie"][class*="modal"]',
+            '[class*="consent"][class*="banner"]', '[class*="consent"][class*="popup"]',
+            '[class*="gdpr"]', '[class*="privacy"][class*="banner"]',
             // Modal overlays and backdrops
             '.modal-overlay:not([style*="display: none"])',
             '.modal-backdrop:not([style*="display: none"])',
             '.overlay-visible',
-            // Cookie consent banners
-            '#cookie-consent', '.cookie-banner', '.cookie-notice',
-            '#cookieConsent', '.cookie-consent', '.cookies-banner',
-            '[class*="cookie"][class*="banner"]',
-            '[class*="cookie"][class*="notice"]',
-            '[class*="gdpr"]',
             // Popup overlays
             '.popup-overlay', '.newsletter-popup', '.age-gate',
             '.subscribe-popup', '.subscription-modal',

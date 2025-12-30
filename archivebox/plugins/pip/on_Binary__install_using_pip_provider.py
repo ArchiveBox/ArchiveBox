@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 import rich_click as click
-from abx_pkg import Binary, PipProvider
+from abx_pkg import Binary, PipProvider, BinProviderOverrides
 
 # Fix pydantic forward reference issue
 PipProvider.model_rebuild()
@@ -86,6 +86,23 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, override
         'binprovider': 'pip',
     }
     print(json.dumps(record))
+
+    # Emit PATH update if pip bin dir not already in PATH
+    pip_bin_dir = str(pip_venv_path / 'bin')
+    current_path = os.environ.get('PATH', '')
+
+    # Check if pip_bin_dir is already in PATH
+    path_dirs = current_path.split(':')
+    if pip_bin_dir not in path_dirs:
+        # Prepend pip_bin_dir to PATH
+        new_path = f"{pip_bin_dir}:{current_path}" if current_path else pip_bin_dir
+        print(json.dumps({
+            'type': 'Machine',
+            '_method': 'update',
+            'key': 'config/PATH',
+            'value': new_path,
+        }))
+        click.echo(f"  Added {pip_bin_dir} to PATH", err=True)
 
     # Log human-readable info to stderr
     click.echo(f"Installed {name} at {binary.abspath}", err=True)

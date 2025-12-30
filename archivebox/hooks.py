@@ -328,6 +328,21 @@ def run_hook(
     env['ARCHIVE_DIR'] = str(getattr(settings, 'ARCHIVE_DIR', Path.cwd() / 'archive'))
     env.setdefault('MACHINE_ID', getattr(settings, 'MACHINE_ID', '') or os.environ.get('MACHINE_ID', ''))
 
+    # Use Machine.config.PATH if set (includes pip/npm bin dirs from providers)
+    try:
+        from archivebox.machine.models import Machine
+        machine = Machine.current()
+        if machine and machine.config:
+            machine_path = machine.config.get('config/PATH')
+            if machine_path:
+                env['PATH'] = machine_path
+            # Also set NODE_MODULES_DIR if configured
+            node_modules_dir = machine.config.get('config/NODE_MODULES_DIR')
+            if node_modules_dir:
+                env['NODE_MODULES_DIR'] = node_modules_dir
+    except Exception:
+        pass  # Fall back to system PATH if Machine not available
+
     # Export all config values to environment (already merged by get_config())
     for key, value in config.items():
         if value is None:

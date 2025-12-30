@@ -90,6 +90,32 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
     }
     print(json.dumps(record))
 
+    # Emit PATH update if npm bin dir not already in PATH
+    npm_bin_dir = str(npm_prefix / 'bin')
+    current_path = os.environ.get('PATH', '')
+
+    # Check if npm_bin_dir is already in PATH
+    path_dirs = current_path.split(':')
+    if npm_bin_dir not in path_dirs:
+        # Prepend npm_bin_dir to PATH
+        new_path = f"{npm_bin_dir}:{current_path}" if current_path else npm_bin_dir
+        print(json.dumps({
+            'type': 'Machine',
+            '_method': 'update',
+            'key': 'config/PATH',
+            'value': new_path,
+        }))
+        click.echo(f"  Added {npm_bin_dir} to PATH", err=True)
+
+    # Also emit NODE_MODULES_DIR for JS module resolution
+    node_modules_dir = str(npm_prefix / 'node_modules')
+    print(json.dumps({
+        'type': 'Machine',
+        '_method': 'update',
+        'key': 'config/NODE_MODULES_DIR',
+        'value': node_modules_dir,
+    }))
+
     # Log human-readable info to stderr
     click.echo(f"Installed {name} at {binary.abspath}", err=True)
     click.echo(f"  version: {binary.version}", err=True)

@@ -26,7 +26,11 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
+// Add NODE_MODULES_DIR to module resolution paths if set
+if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
+
 const puppeteer = require('puppeteer-core');
+const { findChromium } = require('./chrome_utils.js');
 
 // Extractor metadata
 const PLUGIN_NAME = 'chrome_tab';
@@ -86,31 +90,6 @@ async function cleanup() {
 // Register signal handlers
 process.on('SIGTERM', cleanup);
 process.on('SIGINT', cleanup);
-
-// Find Chrome binary (for fallback)
-function findChrome() {
-    const chromeBinary = getEnv('CHROME_BINARY');
-    if (chromeBinary && fs.existsSync(chromeBinary)) {
-        return chromeBinary;
-    }
-
-    const candidates = [
-        '/usr/bin/google-chrome',
-        '/usr/bin/google-chrome-stable',
-        '/usr/bin/chromium',
-        '/usr/bin/chromium-browser',
-        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        '/Applications/Chromium.app/Contents/MacOS/Chromium',
-    ];
-
-    for (const candidate of candidates) {
-        if (fs.existsSync(candidate)) {
-            return candidate;
-        }
-    }
-
-    return null;
-}
 
 // Parse resolution string
 function parseResolution(resolution) {
@@ -367,7 +346,7 @@ async function main() {
     let version = '';
 
     try {
-        const binary = findChrome();
+        const binary = findChromium();
         if (!binary) {
             console.error('ERROR: Chrome/Chromium binary not found');
             console.error('DEPENDENCY_NEEDED=chrome');

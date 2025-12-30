@@ -27,7 +27,7 @@ DOM_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_dom.*'), None)
 NPM_PROVIDER_HOOK = next((PLUGINS_ROOT / 'npm').glob('on_Binary__install_using_npm_provider.py'), None)
 TEST_URL = 'https://example.com'
 
-# Get LIB_DIR for NODE_PATH
+# Get LIB_DIR for NODE_MODULES_DIR
 def get_lib_dir():
     """Get LIB_DIR for tests."""
     from archivebox.config.common import STORAGE_CONFIG
@@ -37,9 +37,9 @@ LIB_DIR = get_lib_dir()
 NODE_MODULES_DIR = LIB_DIR / 'npm' / 'node_modules'
 
 def get_test_env():
-    """Get environment with NODE_PATH set correctly."""
+    """Get environment with NODE_MODULES_DIR set correctly."""
     env = os.environ.copy()
-    env['NODE_PATH'] = str(NODE_MODULES_DIR)
+    env['NODE_MODULES_DIR'] = str(NODE_MODULES_DIR)
     env['LIB_DIR'] = str(LIB_DIR)
     return env
 

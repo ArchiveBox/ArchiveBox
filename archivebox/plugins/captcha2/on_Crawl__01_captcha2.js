@@ -20,7 +20,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Import extension utilities
-const extensionUtils = require('../chrome/chrome_extension_utils.js');
+const extensionUtils = require('../chrome/chrome_utils.js');
 
 // Extension metadata
 const EXTENSION = {
