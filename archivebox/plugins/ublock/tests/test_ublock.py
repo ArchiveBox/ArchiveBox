@@ -340,7 +340,8 @@ def test_extension_loads_in_chromium():
 
         # Get the unpacked extension ID - Chrome computes this from the path
         unpacked_path = ext_data.get('unpacked_path', '')
-        print(f"Extension unpacked path: {unpacked_path}")
+        print(f"[test] Extension unpacked path: {unpacked_path}", flush=True)
+        print("[test] Running puppeteer test script...", flush=True)
 
         try:
             # Step 3: Connect to Chromium and verify extension loads
