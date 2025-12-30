@@ -115,8 +115,12 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
     else:
         output_file = output_dir / f'forum.{output_format}'
 
-    # Build command
-    cmd = [binary, *forumdl_args, '-f', output_format, '-o', str(output_file)]
+    # Use our Pydantic v2 compatible wrapper if available, otherwise fall back to binary
+    wrapper_path = Path(__file__).parent / 'forum-dl-wrapper.py'
+    if wrapper_path.exists():
+        cmd = [sys.executable, str(wrapper_path), *forumdl_args, '-f', output_format, '-o', str(output_file)]
+    else:
+        cmd = [binary, *forumdl_args, '-f', output_format, '-o', str(output_file)]
 
     if not check_ssl:
         cmd.append('--no-check-certificate')

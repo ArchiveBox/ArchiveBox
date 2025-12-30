@@ -21,12 +21,8 @@ class Migration(migrations.Migration):
                     id TEXT PRIMARY KEY NOT NULL,
                     created_at DATETIME NOT NULL,
                     modified_at DATETIME NOT NULL,
-                    num_uses_succeeded INTEGER NOT NULL DEFAULT 0,
-                    num_uses_failed INTEGER NOT NULL DEFAULT 0,
 
                     token VARCHAR(32) NOT NULL UNIQUE,
-                    label VARCHAR(64) NOT NULL DEFAULT '',
-                    notes TEXT NOT NULL DEFAULT '',
                     expires DATETIME,
 
                     created_by_id INTEGER NOT NULL,
@@ -41,19 +37,20 @@ class Migration(migrations.Migration):
                     id TEXT PRIMARY KEY NOT NULL,
                     created_at DATETIME NOT NULL,
                     modified_at DATETIME NOT NULL,
-                    num_uses_succeeded INTEGER NOT NULL DEFAULT 0,
-                    num_uses_failed INTEGER NOT NULL DEFAULT 0,
 
                     name VARCHAR(255) NOT NULL UNIQUE,
                     signal VARCHAR(255) NOT NULL,
                     ref VARCHAR(1024) NOT NULL,
                     endpoint VARCHAR(2048) NOT NULL,
                     headers TEXT NOT NULL DEFAULT '{}',
+                    auth_token TEXT NOT NULL DEFAULT '',
                     enabled BOOLEAN NOT NULL DEFAULT 1,
                     keep_last_response BOOLEAN NOT NULL DEFAULT 0,
-                    last_response TEXT,
+                    created DATETIME NOT NULL,
+                    updated DATETIME NOT NULL,
+                    last_response TEXT NOT NULL DEFAULT '',
                     last_success DATETIME,
-                    last_error DATETIME,
+                    last_failure DATETIME,
 
                     created_by_id INTEGER NOT NULL,
 

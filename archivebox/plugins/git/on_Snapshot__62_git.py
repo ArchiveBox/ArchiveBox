@@ -76,7 +76,7 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
     Returns: (success, output_path, error_message)
     """
     timeout = get_env_int('GIT_TIMEOUT') or get_env_int('TIMEOUT', 120)
-    git_args = get_env_array('GIT_ARGS', [])
+    git_args = get_env_array('GIT_ARGS', ["clone", "--depth=1", "--recursive"])
     git_args_extra = get_env_array('GIT_ARGS_EXTRA', [])
 
     cmd = [binary, *git_args, *git_args_extra, url, OUTPUT_DIR]

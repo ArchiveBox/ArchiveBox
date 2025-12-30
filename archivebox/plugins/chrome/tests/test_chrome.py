@@ -594,35 +594,56 @@ def test_zombie_prevention_hook_killed():
         except OSError:
             pytest.fail("Chrome should still be running after hook SIGKILL")
 
-        # Simulate Crawl.cleanup() - kill all .pid files
+        # Simulate Crawl.cleanup() using the actual cleanup logic
+        def is_process_alive(pid):
+            """Check if a process exists."""
+            try:
+                os.kill(pid, 0)
+                return True
+            except (OSError, ProcessLookupError):
+                return False
+
         for pid_file in chrome_dir.glob('**/*.pid'):
             try:
                 pid = int(pid_file.read_text().strip())
+
+                # Step 1: SIGTERM for graceful shutdown
                 try:
-                    # Try to kill process group first (for detached processes like Chrome)
                     try:
                         os.killpg(pid, signal.SIGTERM)
                     except (OSError, ProcessLookupError):
-                        # Fall back to killing just the process
                         os.kill(pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pid_file.unlink(missing_ok=True)
+                    continue
 
-                    time.sleep(0.5)
+                # Step 2: Wait for graceful shutdown
+                time.sleep(2)
 
-                    # Force kill if still alive
+                # Step 3: Check if still alive
+                if not is_process_alive(pid):
+                    pid_file.unlink(missing_ok=True)
+                    continue
+
+                # Step 4: Force kill ENTIRE process group with SIGKILL
+                try:
                     try:
+                        # Always kill entire process group with SIGKILL
                         os.killpg(pid, signal.SIGKILL)
                     except (OSError, ProcessLookupError):
-                        try:
-                            os.kill(pid, signal.SIGKILL)
-                        except OSError:
-                            pass
+                        os.kill(pid, signal.SIGKILL)
                 except ProcessLookupError:
-                    pass
+                    pid_file.unlink(missing_ok=True)
+                    continue
+
+                # Step 5: Wait and verify death
+                time.sleep(1)
+
+                if not is_process_alive(pid):
+                    pid_file.unlink(missing_ok=True)
+
             except (ValueError, OSError):
                 pass
-
-        # Wait a moment for cleanup
-        time.sleep(1)
 
         # Chrome should now be dead
         try:

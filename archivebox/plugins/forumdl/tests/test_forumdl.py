@@ -205,14 +205,9 @@ def test_config_timeout():
 
 
 def test_real_forum_url():
-    """Test that forum-dl processes real forum URLs with jsonl output format.
+    """Test that forum-dl extracts content from a real HackerNews thread with jsonl output.
 
-    NOTE: forum-dl currently has known issues:
-    - Pydantic v2 incompatibility causing errors with most extractors
-    - Many forums return 403/404 or have changed their structure
-    - This test verifies the hook runs and handles these issues gracefully
-
-    If forum-dl is fixed in the future, this test should start succeeding with actual downloads.
+    Uses our Pydantic v2 compatible wrapper to fix forum-dl 0.3.0's incompatibility.
     """
     import os
 
@@ -224,15 +219,14 @@ def test_real_forum_url():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Try HackerNews - supported by forum-dl but currently has Pydantic v2 compat issues
-        # When forum-dl is updated, this URL should work
+        # Use HackerNews - one of the most reliable forum-dl extractors
         forum_url = 'https://news.ycombinator.com/item?id=1'
 
         env = os.environ.copy()
         env['FORUMDL_BINARY'] = binary_path
         env['FORUMDL_TIMEOUT'] = '60'
-        env['FORUMDL_OUTPUT_FORMAT'] = 'jsonl'  # Use jsonl format as requested
-        # HTML output would be via: env['FORUMDL_EXTRA_ARGS'] = '--files-output ./files'
+        env['FORUMDL_OUTPUT_FORMAT'] = 'jsonl'  # Use jsonl format
+        # HTML output could be added via: env['FORUMDL_ARGS_EXTRA'] = json.dumps(['--files-output', './files'])
 
         start_time = time.time()
         result = subprocess.run(
@@ -245,40 +239,37 @@ def test_real_forum_url():
         )
         elapsed_time = time.time() - start_time
 
-        # Test passes if the hook handles the URL gracefully (success OR handled error)
-        # This is appropriate given forum-dl's current state
-        assert result.returncode in (0, 1), f"Hook should handle forum URL gracefully. stderr: {result.stderr}"
+        # Should succeed with our Pydantic v2 wrapper
+        assert result.returncode == 0, f"Should extract forum successfully: {result.stderr}"
 
-        # Check for successful extraction (will pass when forum-dl is fixed)
-        if result.returncode == 0:
-            result_json = None
-            for line in result.stdout.strip().split('\n'):
-                line = line.strip()
-                if line.startswith('{'):
-                    try:
-                        record = json.loads(line)
-                        if record.get('type') == 'ArchiveResult':
-                            result_json = record
-                            break
-                    except json.JSONDecodeError:
-                        pass
+        # Parse JSONL output
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
 
-            if result_json and result_json['status'] == 'succeeded':
-                output_files = list(tmpdir.glob('**/*'))
-                forum_files = [f for f in output_files if f.is_file()]
-                if forum_files:
-                    print(f"✓ Successfully extracted {len(forum_files)} file(s) in {elapsed_time:.2f}s")
-                else:
-                    print(f"✓ Completed in {elapsed_time:.2f}s (no content - URL may not be a forum thread)")
-            else:
-                print(f"✓ Completed in {elapsed_time:.2f}s (no content extracted)")
-        else:
-            # Handled error gracefully - test still passes
-            error_msg = result.stderr.strip()[:200]
-            print(f"✓ Handled error gracefully in {elapsed_time:.2f}s")
-            # Known issues: Pydantic v2 compat, 403 errors, etc.
-            assert '403' in error_msg or 'pydantic' in error_msg.lower() or 'error' in error_msg.lower(), \
-                f"Expected known error type, got: {error_msg}"
+        assert result_json, f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"
+        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+
+        # Check that forum files were downloaded
+        output_files = list(tmpdir.glob('**/*'))
+        forum_files = [f for f in output_files if f.is_file()]
+
+        assert len(forum_files) > 0, f"Should have downloaded at least one forum file. Files: {output_files}"
+
+        # Verify the JSONL file has content
+        jsonl_file = tmpdir / 'forum.jsonl'
+        assert jsonl_file.exists(), "Should have created forum.jsonl"
+        assert jsonl_file.stat().st_size > 0, "forum.jsonl should not be empty"
+
+        print(f"Successfully extracted {len(forum_files)} file(s) in {elapsed_time:.2f}s")
 
 
 if __name__ == '__main__':

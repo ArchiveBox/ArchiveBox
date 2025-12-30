@@ -398,7 +398,52 @@ async function launchChromium(options = {}) {
 }
 
 /**
+ * Check if a process is still running.
+ * @param {number} pid - Process ID to check
+ * @returns {boolean} - True if process exists
+ */
+function isProcessAlive(pid) {
+    try {
+        process.kill(pid, 0);  // Signal 0 checks existence without killing
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
+ * Find all Chrome child processes for a given debug port.
+ * @param {number} port - Debug port number
+ * @returns {Array<number>} - Array of PIDs
+ */
+function findChromeProcessesByPort(port) {
+    const { execSync } = require('child_process');
+    const pids = [];
+
+    try {
+        // Find all Chrome processes using this debug port
+        const output = execSync(
+            `ps aux | grep -i "chrome.*--remote-debugging-port=${port}" | grep -v grep | awk '{print $2}'`,
+            { encoding: 'utf8', timeout: 5000 }
+        );
+
+        for (const line of output.split('\n')) {
+            const pid = parseInt(line.trim(), 10);
+            if (!isNaN(pid) && pid > 0) {
+                pids.push(pid);
+            }
+        }
+    } catch (e) {
+        // Command failed or no processes found
+    }
+
+    return pids;
+}
+
+/**
  * Kill a Chrome process by PID.
+ * Always sends SIGTERM before SIGKILL, then verifies death.
+ *
  * @param {number} pid - Process ID to kill
  * @param {string} [outputDir] - Directory containing PID files to clean up
  */
@@ -407,30 +452,93 @@ async function killChrome(pid, outputDir = null) {
 
     console.error(`[*] Killing Chrome process tree (PID ${pid})...`);
 
-    // Try to kill process group first
+    // Get debug port for finding child processes
+    let debugPort = null;
+    if (outputDir) {
+        try {
+            const portFile = path.join(outputDir, 'port.txt');
+            if (fs.existsSync(portFile)) {
+                debugPort = parseInt(fs.readFileSync(portFile, 'utf8').trim(), 10);
+            }
+        } catch (e) {}
+    }
+
+    // Step 1: SIGTERM to process group (graceful shutdown)
+    console.error(`[*] Sending SIGTERM to process group -${pid}...`);
     try {
         process.kill(-pid, 'SIGTERM');
     } catch (e) {
-        try { process.kill(pid, 'SIGTERM'); } catch (e2) {}
+        try {
+            console.error(`[*] Process group kill failed, trying single process...`);
+            process.kill(pid, 'SIGTERM');
+        } catch (e2) {
+            console.error(`[!] SIGTERM failed: ${e2.message}`);
+        }
     }
 
-    // Wait for graceful shutdown
+    // Step 2: Wait for graceful shutdown
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Force kill
-    try {
-        process.kill(-pid, 'SIGKILL');
-    } catch (e) {
-        try { process.kill(pid, 'SIGKILL'); } catch (e2) {}
+    // Step 3: Check if still alive
+    if (!isProcessAlive(pid)) {
+        console.error('[+] Chrome process terminated gracefully');
+    } else {
+        // Step 4: Force kill ENTIRE process group with SIGKILL
+        console.error(`[*] Process still alive, sending SIGKILL to process group -${pid}...`);
+        try {
+            process.kill(-pid, 'SIGKILL');  // Kill entire process group
+        } catch (e) {
+            console.error(`[!] Process group SIGKILL failed, trying single process: ${e.message}`);
+            try {
+                process.kill(pid, 'SIGKILL');
+            } catch (e2) {
+                console.error(`[!] SIGKILL failed: ${e2.message}`);
+            }
+        }
+
+        // Step 5: Wait briefly and verify death
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        if (isProcessAlive(pid)) {
+            console.error(`[!] WARNING: Process ${pid} is unkillable (likely in UNE state)`);
+            console.error(`[!] This typically happens when Chrome crashes in kernel syscall`);
+            console.error(`[!] Process will remain as zombie until system reboot`);
+            console.error(`[!] macOS IOSurface crash creates unkillable processes in UNE state`);
+
+            // Try one more time to kill the entire process group
+            if (debugPort) {
+                const relatedPids = findChromeProcessesByPort(debugPort);
+                if (relatedPids.length > 1) {
+                    console.error(`[*] Found ${relatedPids.length} Chrome processes still running on port ${debugPort}`);
+                    console.error(`[*] Attempting final process group SIGKILL...`);
+
+                    // Try to kill each unique process group we find
+                    const processGroups = new Set();
+                    for (const relatedPid of relatedPids) {
+                        if (relatedPid !== pid) {
+                            processGroups.add(relatedPid);
+                        }
+                    }
+
+                    for (const groupPid of processGroups) {
+                        try {
+                            process.kill(-groupPid, 'SIGKILL');
+                        } catch (e) {}
+                    }
+                }
+            }
+        } else {
+            console.error('[+] Chrome process group killed successfully');
+        }
     }
 
-    // Clean up PID files
+    // Step 8: Clean up PID files
     if (outputDir) {
         try { fs.unlinkSync(path.join(outputDir, 'chrome.pid')); } catch (e) {}
         try { fs.unlinkSync(path.join(outputDir, 'hook.pid')); } catch (e) {}
     }
 
-    console.error('[*] Chrome process killed');
+    console.error('[*] Chrome cleanup completed');
 }
 
 /**

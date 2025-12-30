@@ -518,8 +518,8 @@
                     <div class="snapshot-info">
                         <div class="snapshot-url">${formatUrl(snapshot.url)}</div>
                         <div class="snapshot-meta">
-                            ${snapshot.completed_extractors}/${snapshot.total_extractors} extractors
-                            ${snapshot.failed_extractors > 0 ? `<span style="color:#f85149">(${snapshot.failed_extractors} failed)</span>` : ''}
+                            ${snapshot.completed_plugins}/${snapshot.total_plugins} extractors
+                            ${snapshot.failed_plugins > 0 ? `<span style="color:#f85149">(${snapshot.failed_plugins} failed)</span>` : ''}
                         </div>
                     </div>
                     <span class="status-badge ${snapshot.status}">${snapshot.status}</span>

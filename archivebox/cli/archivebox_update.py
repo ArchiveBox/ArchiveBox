@@ -52,20 +52,21 @@ def update(filter_patterns: Iterable[str] = (),
             )
             print_stats(stats)
         else:
-            # Full mode: import orphans + process DB + deduplicate
-            stats_combined = {'phase1': {}, 'phase2': {}, 'deduplicated': 0}
+            # Full mode: drain old dirs + process DB
+            stats_combined = {'phase1': {}, 'phase2': {}}
 
-            print('[*] Phase 1: Scanning archive/ for orphaned snapshots...')
-            stats_combined['phase1'] = import_orphans_from_archive(
+            print('[*] Phase 1: Draining old archive/ directories (0.8.x → 0.9.x migration)...')
+            stats_combined['phase1'] = drain_old_archive_dirs(
                 resume_from=resume,
                 batch_size=batch_size
             )
 
-            print('[*] Phase 2: Processing all database snapshots...')
+            print('[*] Phase 2: Processing all database snapshots (most recent first)...')
             stats_combined['phase2'] = process_all_db_snapshots(batch_size=batch_size)
 
-            print('[*] Phase 3: Deduplicating...')
-            stats_combined['deduplicated'] = Snapshot.find_and_merge_duplicates()
+            # Phase 3: Deduplication (disabled for now)
+            # print('[*] Phase 3: Deduplicating...')
+            # stats_combined['deduplicated'] = Snapshot.find_and_merge_duplicates()
 
             print_combined_stats(stats_combined)
 
@@ -77,33 +78,39 @@ def update(filter_patterns: Iterable[str] = (),
         resume = None
 
 
-def import_orphans_from_archive(resume_from: str = None, batch_size: int = 100) -> dict:
+def drain_old_archive_dirs(resume_from: str = None, batch_size: int = 100) -> dict:
     """
-    Scan archive/ for orphaned snapshots.
-    Skip symlinks (already migrated).
-    Create DB records and trigger migration on save().
+    Drain old archive/ directories (0.8.x → 0.9.x migration).
+
+    Only processes real directories (skips symlinks - those are already migrated).
+    For each old dir found in archive/:
+      1. Load or create DB snapshot
+      2. Trigger fs migration on save() to move to data/users/{user}/...
+      3. Leave symlink in archive/ pointing to new location
+
+    After this drains, archive/ should only contain symlinks and we can trust
+    1:1 mapping between DB and filesystem.
     """
     from archivebox.core.models import Snapshot
     from archivebox.config import CONSTANTS
     from django.db import transaction
 
-    stats = {'processed': 0, 'imported': 0, 'migrated': 0, 'invalid': 0}
+    stats = {'processed': 0, 'migrated': 0, 'skipped': 0, 'invalid': 0}
 
     archive_dir = CONSTANTS.ARCHIVE_DIR
     if not archive_dir.exists():
         return stats
 
-    print('[*] Scanning and sorting by modification time...')
+    print('[*] Scanning for old directories in archive/...')
 
-    # Scan and sort by mtime (newest first)
-    # Loading (mtime, path) tuples is fine even for millions (~100MB for 1M entries)
+    # Scan for real directories only (skip symlinks - they're already migrated)
     entries = [
         (e.stat().st_mtime, e.path)
         for e in os.scandir(archive_dir)
         if e.is_dir(follow_symlinks=False)  # Skip symlinks
     ]
     entries.sort(reverse=True)  # Newest first
-    print(f'[*] Found {len(entries)} directories to check')
+    print(f'[*] Found {len(entries)} old directories to drain')
 
     for mtime, entry_path in entries:
         entry_path = Path(entry_path)
@@ -114,30 +121,26 @@ def import_orphans_from_archive(resume_from: str = None, batch_size: int = 100) 
 
         stats['processed'] += 1
 
-        # Check if already in DB
+        # Try to load existing snapshot from DB
         snapshot = Snapshot.load_from_directory(entry_path)
-        if snapshot:
-            continue  # Already in DB, skip
 
-        # Not in DB - create orphaned snapshot
-        snapshot = Snapshot.create_from_directory(entry_path)
         if not snapshot:
-            # Invalid directory
-            Snapshot.move_directory_to_invalid(entry_path)
-            stats['invalid'] += 1
-            print(f"    [{stats['processed']}] Invalid: {entry_path.name}")
-            continue
+            # Not in DB - create new snapshot record
+            snapshot = Snapshot.create_from_directory(entry_path)
+            if not snapshot:
+                # Invalid directory - move to invalid/
+                Snapshot.move_directory_to_invalid(entry_path)
+                stats['invalid'] += 1
+                print(f"    [{stats['processed']}] Invalid: {entry_path.name}")
+                continue
 
-        needs_migration = snapshot.fs_migration_needed
-
-        snapshot.save()  # Creates DB record + triggers migration
-
-        stats['imported'] += 1
-        if needs_migration:
+        # Check if needs migration (0.8.x → 0.9.x)
+        if snapshot.fs_migration_needed:
+            snapshot.save()  # Triggers migration + creates symlink
             stats['migrated'] += 1
-            print(f"    [{stats['processed']}] Imported + migrated: {entry_path.name}")
+            print(f"    [{stats['processed']}] Migrated: {entry_path.name}")
         else:
-            print(f"    [{stats['processed']}] Imported: {entry_path.name}")
+            stats['skipped'] += 1
 
         if stats['processed'] % batch_size == 0:
             transaction.commit()
@@ -148,8 +151,14 @@ def import_orphans_from_archive(resume_from: str = None, batch_size: int = 100) 
 
 def process_all_db_snapshots(batch_size: int = 100) -> dict:
     """
-    Process all snapshots in DB.
-    Reconcile index.json and queue for archiving.
+    O(n) scan over entire DB from most recent to least recent.
+
+    For each snapshot:
+      1. Reconcile index.json with DB (merge titles, tags, archive results)
+      2. Queue for archiving (state machine will handle it)
+
+    No orphan detection needed - we trust 1:1 mapping between DB and filesystem
+    after Phase 1 has drained all old archive/ directories.
     """
     from archivebox.core.models import Snapshot
     from django.db import transaction
@@ -158,9 +167,10 @@ def process_all_db_snapshots(batch_size: int = 100) -> dict:
     stats = {'processed': 0, 'reconciled': 0, 'queued': 0}
 
     total = Snapshot.objects.count()
-    print(f'[*] Processing {total} snapshots from database...')
+    print(f'[*] Processing {total} snapshots from database (most recent first)...')
 
-    for snapshot in Snapshot.objects.iterator(chunk_size=batch_size):
+    # Process from most recent to least recent
+    for snapshot in Snapshot.objects.order_by('-bookmarked_at').iterator(chunk_size=batch_size):
         # Reconcile index.json with DB
         snapshot.reconcile_with_index_json()
 
@@ -252,19 +262,16 @@ def print_combined_stats(stats_combined: dict):
     print(f"""
 [green]Archive Update Complete[/green]
 
-Phase 1 (Import Orphans):
+Phase 1 (Drain Old Dirs):
   Checked:     {s1.get('processed', 0)}
-  Imported:    {s1.get('imported', 0)}
   Migrated:    {s1.get('migrated', 0)}
+  Skipped:     {s1.get('skipped', 0)}
   Invalid:     {s1.get('invalid', 0)}
 
 Phase 2 (Process DB):
   Processed:   {s2.get('processed', 0)}
   Reconciled:  {s2.get('reconciled', 0)}
   Queued:      {s2.get('queued', 0)}
-
-Phase 3 (Deduplicate):
-  Merged:      {stats_combined['deduplicated']}
 """)
 
 

@@ -297,7 +297,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     status = ModelWithStateMachine.StatusField(choices=ModelWithStateMachine.StatusChoices, default=ModelWithStateMachine.StatusChoices.QUEUED)
     config = models.JSONField(default=dict, null=False, blank=False, editable=True)
     notes = models.TextField(blank=True, null=False, default='')
-    output_dir = models.FilePathField(path=CONSTANTS.ARCHIVE_DIR, recursive=True, match='.*', default=None, null=True, blank=True, editable=True)
+    # output_dir is computed via @cached_property from fs_version and get_storage_path_for_version()
 
     tags = models.ManyToManyField(Tag, blank=True, through=SnapshotTag, related_name='snapshot_set', through_fields=('snapshot', 'tag'))
 
@@ -1981,7 +1981,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     status = ModelWithStateMachine.StatusField(choices=StatusChoices.choices, default=StatusChoices.QUEUED)
     retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
     notes = models.TextField(blank=True, null=False, default='')
-    output_dir = models.CharField(max_length=256, default=None, null=True, blank=True)
+    # output_dir is computed via @property from snapshot.output_dir / plugin
 
     state_machine_name = 'archivebox.core.models.ArchiveResultMachine'
     retry_at_field_name = 'retry_at'
