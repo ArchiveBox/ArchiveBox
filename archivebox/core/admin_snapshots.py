@@ -11,7 +11,6 @@ from django.utils import timezone
 from django import forms
 from django.template import Template, RequestContext
 from django.contrib.admin.helpers import ActionForm
-from django.contrib.admin.widgets import FilteredSelectMultiple
 
 from archivebox.config import DATA_DIR
 from archivebox.config.common import SERVER_CONFIG
@@ -24,8 +23,8 @@ from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 from archivebox.workers.tasks import bg_archive_snapshots, bg_add
 
 from archivebox.core.models import Tag, Snapshot
-from archivebox.core.admin_tags import TagInline
 from archivebox.core.admin_archiveresults import ArchiveResultInline, render_archiveresults_list
+from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
 
 
 # GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': [], 'CAN_UPGRADE': False}
@@ -36,15 +35,29 @@ class SnapshotActionForm(ActionForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Define tags field in __init__ to avoid database access during app initialization
-        self.fields['tags'] = forms.ModelMultipleChoiceField(
+        self.fields['tags'] = forms.CharField(
             label='Edit tags',
-            queryset=Tag.objects.all(),
             required=False,
-            widget=FilteredSelectMultiple(
-                'core_tag__name',
-                False,
-            ),
+            widget=TagEditorWidget(),
         )
+
+    def clean_tags(self):
+        """Parse comma-separated tag names into Tag objects."""
+        tags_str = self.cleaned_data.get('tags', '')
+        if not tags_str:
+            return []
+
+        tag_names = [name.strip() for name in tags_str.split(',') if name.strip()]
+        tags = []
+        for name in tag_names:
+            tag, _ = Tag.objects.get_or_create(
+                name__iexact=name,
+                defaults={'name': name}
+            )
+            # Use the existing tag if found by case-insensitive match
+            tag = Tag.objects.filter(name__iexact=name).first() or tag
+            tags.append(tag)
+        return tags
 
     # TODO: allow selecting actions for specific extractor plugins? is this useful?
     # plugin = forms.ChoiceField(
@@ -54,10 +67,59 @@ class SnapshotActionForm(ActionForm):
     # )
 
 
+class SnapshotAdminForm(forms.ModelForm):
+    """Custom form for Snapshot admin with tag editor widget."""
+    tags_editor = forms.CharField(
+        label='Tags',
+        required=False,
+        widget=TagEditorWidget(),
+        help_text='Type tag names and press Enter or Space to add. Click × to remove.',
+    )
+
+    class Meta:
+        model = Snapshot
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Initialize tags_editor with current tags
+        if self.instance and self.instance.pk:
+            self.initial['tags_editor'] = ','.join(
+                sorted(tag.name for tag in self.instance.tags.all())
+            )
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        # Handle tags_editor field
+        if commit:
+            instance.save()
+            self._save_m2m()
+
+            # Parse and save tags from tags_editor
+            tags_str = self.cleaned_data.get('tags_editor', '')
+            if tags_str:
+                tag_names = [name.strip() for name in tags_str.split(',') if name.strip()]
+                tags = []
+                for name in tag_names:
+                    tag, _ = Tag.objects.get_or_create(
+                        name__iexact=name,
+                        defaults={'name': name}
+                    )
+                    tag = Tag.objects.filter(name__iexact=name).first() or tag
+                    tags.append(tag)
+                instance.tags.set(tags)
+            else:
+                instance.tags.clear()
+
+        return instance
+
+
 class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
+    form = SnapshotAdminForm
     list_display = ('created_at', 'title_str', 'status', 'files', 'size', 'url_str')
     sort_fields = ('title_str', 'url_str', 'created_at', 'status', 'crawl')
-    readonly_fields = ('admin_actions', 'status_info', 'tags_str', 'imported_timestamp', 'created_at', 'modified_at', 'downloaded_at', 'output_dir', 'archiveresults_list')
+    readonly_fields = ('admin_actions', 'status_info', 'imported_timestamp', 'created_at', 'modified_at', 'downloaded_at', 'output_dir', 'archiveresults_list')
     search_fields = ('id', 'url', 'timestamp', 'title', 'tags__name')
     list_filter = ('created_at', 'downloaded_at', 'archiveresult__status', 'crawl__created_by', 'tags__name')
 
@@ -65,6 +127,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         ('URL', {
             'fields': ('url', 'title'),
             'classes': ('card', 'wide'),
+        }),
+        ('Tags', {
+            'fields': ('tags_editor',),
+            'classes': ('card',),
         }),
         ('Status', {
             'fields': ('status', 'retry_at', 'status_info'),
@@ -75,7 +141,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             'classes': ('card',),
         }),
         ('Relations', {
-            'fields': ('crawl', 'tags_str'),
+            'fields': ('crawl',),
             'classes': ('card',),
         }),
         ('Config', {
@@ -98,7 +164,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     ordering = ['-created_at']
     actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
-    inlines = [TagInline]  # Removed ArchiveResultInline, using custom renderer instead
+    inlines = []  # Removed TagInline, using TagEditorWidget instead
     list_per_page = min(max(5, SERVER_CONFIG.SNAPSHOTS_PER_PAGE), 5000)
 
     action_form = SnapshotActionForm
@@ -257,11 +323,15 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         ordering='title',
     )
     def title_str(self, obj):
-        tags = ''.join(
-            format_html('<a href="/admin/core/snapshot/?tags__id__exact={}"><span class="tag">{}</span></a> ', tag.pk, tag.name)
-            for tag in obj.tags.all()
-            if str(tag.name).strip()
+        # Render inline tag editor widget
+        widget = InlineTagEditorWidget(snapshot_id=str(obj.pk))
+        tags_html = widget.render(
+            name=f'tags_{obj.pk}',
+            value=obj.tags.all(),
+            attrs={'id': f'tags_{obj.pk}'},
+            snapshot_id=str(obj.pk),
         )
+
         # Show title if available, otherwise show URL
         display_text = obj.title or obj.url
         css_class = 'fetched' if obj.title else 'pending'
@@ -278,7 +348,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             obj.archive_path,
             css_class,
             urldecode(htmldecode(display_text))[:128]
-        ) + mark_safe(f' <span class="tags">{tags}</span>')
+        ) + mark_safe(f' <span class="tags-inline-editor">{tags_html}</span>')
 
     @admin.display(
         description='Files Saved',
@@ -428,13 +498,41 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         description="+"
     )
     def add_tags(self, request, queryset):
-        tags = request.POST.getlist('tags')
-        print('[+] Adding tags', tags, 'to Snapshots', queryset)
-        for obj in queryset:
-            obj.tags.add(*tags)
+        from archivebox.core.models import SnapshotTag
+
+        # Get tags from the form - now comma-separated string
+        tags_str = request.POST.get('tags', '')
+        if not tags_str:
+            messages.warning(request, "No tags specified.")
+            return
+
+        # Parse comma-separated tag names and get/create Tag objects
+        tag_names = [name.strip() for name in tags_str.split(',') if name.strip()]
+        tags = []
+        for name in tag_names:
+            tag, _ = Tag.objects.get_or_create(
+                name__iexact=name,
+                defaults={'name': name}
+            )
+            tag = Tag.objects.filter(name__iexact=name).first() or tag
+            tags.append(tag)
+
+        # Get snapshot IDs efficiently (works with select_across for all pages)
+        snapshot_ids = list(queryset.values_list('id', flat=True))
+        num_snapshots = len(snapshot_ids)
+
+        print('[+] Adding tags', [t.name for t in tags], 'to', num_snapshots, 'Snapshots')
+
+        # Bulk create M2M relationships (1 query per tag, not per snapshot)
+        for tag in tags:
+            SnapshotTag.objects.bulk_create(
+                [SnapshotTag(snapshot_id=sid, tag=tag) for sid in snapshot_ids],
+                ignore_conflicts=True  # Skip if relationship already exists
+            )
+
         messages.success(
             request,
-            f"Added {len(tags)} tags to {queryset.count()} Snapshots.",
+            f"Added {len(tags)} tag(s) to {num_snapshots} Snapshot(s).",
         )
 
 
@@ -442,11 +540,40 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         description="–"
     )
     def remove_tags(self, request, queryset):
-        tags = request.POST.getlist('tags')
-        print('[-] Removing tags', tags, 'to Snapshots', queryset)
-        for obj in queryset:
-            obj.tags.remove(*tags)
+        from archivebox.core.models import SnapshotTag
+
+        # Get tags from the form - now comma-separated string
+        tags_str = request.POST.get('tags', '')
+        if not tags_str:
+            messages.warning(request, "No tags specified.")
+            return
+
+        # Parse comma-separated tag names and find matching Tag objects (case-insensitive)
+        tag_names = [name.strip() for name in tags_str.split(',') if name.strip()]
+        tags = []
+        for name in tag_names:
+            tag = Tag.objects.filter(name__iexact=name).first()
+            if tag:
+                tags.append(tag)
+
+        if not tags:
+            messages.warning(request, "No matching tags found.")
+            return
+
+        # Get snapshot IDs efficiently (works with select_across for all pages)
+        snapshot_ids = list(queryset.values_list('id', flat=True))
+        num_snapshots = len(snapshot_ids)
+        tag_ids = [t.pk for t in tags]
+
+        print('[-] Removing tags', [t.name for t in tags], 'from', num_snapshots, 'Snapshots')
+
+        # Bulk delete M2M relationships (1 query total, not per snapshot)
+        deleted_count, _ = SnapshotTag.objects.filter(
+            snapshot_id__in=snapshot_ids,
+            tag_id__in=tag_ids
+        ).delete()
+
         messages.success(
             request,
-            f"Removed {len(tags)} tags from {queryset.count()} Snapshots.",
+            f"Removed {len(tags)} tag(s) from {num_snapshots} Snapshot(s) ({deleted_count} associations deleted).",
         )
