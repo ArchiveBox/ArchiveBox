@@ -157,54 +157,94 @@ def test_large_extension_size():
             assert size_bytes > 1_000_000, f"uBlock Origin should be > 1MB, got {size_bytes} bytes"
 
 
-def setup_test_lib_dirs(tmpdir: Path) -> dict:
-    """Get lib directories for tests, using project's existing node_modules.
-
-    Uses the project's node_modules to avoid slow npm install during tests.
-    """
-    # Use project's existing node_modules (puppeteer-core already installed)
-    project_root = Path(__file__).parent.parent.parent.parent.parent
-    node_modules_dir = project_root / 'node_modules'
-
-    if not (node_modules_dir / 'puppeteer-core').exists():
-        pytest.skip("puppeteer-core not installed in project node_modules")
-
-    return {
-        'NODE_MODULES_DIR': str(node_modules_dir),
-    }
-
-
-def find_chromium_binary():
-    """Find the Chromium binary installed by @puppeteer/browsers."""
-    chromium_dir = Path(os.environ.get('DATA_DIR', '.')).resolve() / 'chromium'
-    if not chromium_dir.exists():
-        return None
-
-    for version_dir in sorted(chromium_dir.iterdir(), reverse=True):
-        if not version_dir.is_dir():
-            continue
-        # macOS ARM
-        mac_arm = version_dir / 'chrome-mac' / 'Chromium.app' / 'Contents' / 'MacOS' / 'Chromium'
-        if mac_arm.exists():
-            return str(mac_arm)
-        # macOS x64
-        mac_x64 = version_dir / 'chrome-mac-x64' / 'Chromium.app' / 'Contents' / 'MacOS' / 'Chromium'
-        if mac_x64.exists():
-            return str(mac_x64)
-        # Linux
-        linux = version_dir / 'chrome-linux' / 'chrome'
-        if linux.exists():
-            return str(linux)
-    return None
-
-
 PLUGINS_ROOT = PLUGIN_DIR.parent
+CHROME_INSTALL_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__00_chrome_install.py'
 CHROME_LAUNCH_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__20_chrome_launch.bg.js'
+
+
+def setup_test_env(tmpdir: Path) -> dict:
+    """Set up isolated data/lib directory structure for tests.
+
+    Creates structure like:
+        <tmpdir>/data/
+            lib/
+                arm64-darwin/   (or x86_64-linux, etc.)
+                    npm/
+                        bin/
+                        node_modules/
+            chrome_extensions/
+
+    Calls chrome install hook which handles puppeteer-core and chromium installation.
+    Returns env dict with DATA_DIR, LIB_DIR, NPM_BIN_DIR, NODE_MODULES_DIR, CHROME_BINARY, etc.
+    """
+    import platform
+
+    # Determine machine type (matches archivebox.config.paths.get_machine_type())
+    machine = platform.machine().lower()
+    system = platform.system().lower()
+    if machine in ('arm64', 'aarch64'):
+        machine = 'arm64'
+    elif machine in ('x86_64', 'amd64'):
+        machine = 'x86_64'
+    machine_type = f"{machine}-{system}"
+
+    # Create proper directory structure
+    data_dir = tmpdir / 'data'
+    lib_dir = data_dir / 'lib' / machine_type
+    npm_dir = lib_dir / 'npm'
+    npm_bin_dir = npm_dir / 'bin'
+    node_modules_dir = npm_dir / 'node_modules'
+    chrome_extensions_dir = data_dir / 'chrome_extensions'
+
+    # Create all directories
+    node_modules_dir.mkdir(parents=True, exist_ok=True)
+    npm_bin_dir.mkdir(parents=True, exist_ok=True)
+    chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
+
+    # Build complete env dict
+    env = os.environ.copy()
+    env.update({
+        'DATA_DIR': str(data_dir),
+        'LIB_DIR': str(lib_dir),
+        'MACHINE_TYPE': machine_type,
+        'NPM_BIN_DIR': str(npm_bin_dir),
+        'NODE_MODULES_DIR': str(node_modules_dir),
+        'CHROME_EXTENSIONS_DIR': str(chrome_extensions_dir),
+    })
+
+    # Call chrome install hook (installs puppeteer-core and chromium, outputs JSONL)
+    result = subprocess.run(
+        ['python', str(CHROME_INSTALL_HOOK)],
+        capture_output=True, text=True, timeout=10, env=env
+    )
+    if result.returncode != 0:
+        pytest.skip(f"Chrome install hook failed: {result.stderr}")
+
+    # Parse JSONL output to get CHROME_BINARY
+    chrome_binary = None
+    for line in result.stdout.strip().split('\n'):
+        if not line.strip():
+            continue
+        try:
+            data = json.loads(line)
+            if data.get('type') == 'Binary' and data.get('abspath'):
+                chrome_binary = data['abspath']
+                break
+        except json.JSONDecodeError:
+            continue
+
+    if not chrome_binary or not Path(chrome_binary).exists():
+        pytest.skip(f"Chromium binary not found: {chrome_binary}")
+
+    env['CHROME_BINARY'] = chrome_binary
+    return env
+
 
 # Test URL: ad blocker test page that shows if ads are blocked
 TEST_URL = 'https://d3ward.github.io/toolz/adblock.html'
 
 
+@pytest.mark.timeout(15)
 def test_extension_loads_in_chromium():
     """Verify uBlock extension loads in Chromium by visiting its dashboard page.
 
@@ -214,35 +254,30 @@ def test_extension_loads_in_chromium():
     """
     import signal
     import time
+    print("[test] Starting test_extension_loads_in_chromium", flush=True)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        print(f"[test] tmpdir={tmpdir}", flush=True)
 
-        # Set up isolated lib directories for this test
-        lib_env = setup_test_lib_dirs(tmpdir)
+        # Set up isolated env with proper directory structure
+        env = setup_test_env(tmpdir)
+        env.setdefault('CHROME_HEADLESS', 'true')
+        print(f"[test] DATA_DIR={env.get('DATA_DIR')}", flush=True)
+        print(f"[test] CHROME_BINARY={env.get('CHROME_BINARY')}", flush=True)
 
-        # Set up extensions directory
-        ext_dir = tmpdir / 'chrome_extensions'
-        ext_dir.mkdir(parents=True)
-
-        env = os.environ.copy()
-        env.update(lib_env)
-        env['CHROME_EXTENSIONS_DIR'] = str(ext_dir)
-        env['CHROME_HEADLESS'] = 'true'
-
-        # Ensure CHROME_BINARY points to Chromium
-        chromium = find_chromium_binary()
-        if chromium:
-            env['CHROME_BINARY'] = chromium
+        ext_dir = Path(env['CHROME_EXTENSIONS_DIR'])
 
         # Step 1: Install the uBlock extension
+        print("[test] Installing uBlock extension...", flush=True)
         result = subprocess.run(
             ['node', str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
             env=env,
-            timeout=15
+            timeout=5
         )
+        print(f"[test] Extension install rc={result.returncode}", flush=True)
         assert result.returncode == 0, f"Extension install failed: {result.stderr}"
 
         # Verify extension cache was created
@@ -252,7 +287,8 @@ def test_extension_loads_in_chromium():
         print(f"Extension installed: {ext_data.get('name')} v{ext_data.get('version')}")
 
         # Step 2: Launch Chromium using the chrome hook (loads extensions automatically)
-        crawl_dir = tmpdir / 'crawl'
+        data_dir = Path(env['DATA_DIR'])
+        crawl_dir = data_dir / 'crawl'
         crawl_dir.mkdir()
         chrome_dir = crawl_dir / 'chrome'
 
@@ -422,22 +458,11 @@ def test_blocks_ads_on_test_page():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Set up isolated lib directories for this test
-        lib_env = setup_test_lib_dirs(tmpdir)
-
-        # Set up extensions directory
-        ext_dir = tmpdir / 'chrome_extensions'
-        ext_dir.mkdir(parents=True)
-
-        env = os.environ.copy()
-        env.update(lib_env)
-        env['CHROME_EXTENSIONS_DIR'] = str(ext_dir)
+        # Set up isolated env with proper directory structure
+        env = setup_test_env(tmpdir)
         env['CHROME_HEADLESS'] = 'true'
 
-        # Ensure CHROME_BINARY points to Chromium
-        chromium = find_chromium_binary()
-        if chromium:
-            env['CHROME_BINARY'] = chromium
+        ext_dir = Path(env['CHROME_EXTENSIONS_DIR'])
 
         # Step 1: Install the uBlock extension
         result = subprocess.run(
@@ -455,8 +480,9 @@ def test_blocks_ads_on_test_page():
         ext_data = json.loads(cache_file.read_text())
         print(f"Extension installed: {ext_data.get('name')} v{ext_data.get('version')}")
 
-        # Step 2: Launch Chrome using the chrome hook (loads extensions automatically)
-        crawl_dir = tmpdir / 'crawl'
+        # Step 2: Launch Chromium using the chrome hook (loads extensions automatically)
+        data_dir = Path(env['DATA_DIR'])
+        crawl_dir = data_dir / 'crawl'
         crawl_dir.mkdir()
         chrome_dir = crawl_dir / 'chrome'
 

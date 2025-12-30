@@ -67,28 +67,29 @@ def get_test_env():
     return env
 
 
-def find_chromium_binary():
-    """Find the Chromium binary installed by @puppeteer/browsers."""
-    if not CHROMIUM_INSTALL_DIR.exists():
-        return None
+def find_chromium_binary(data_dir=None):
+    """Find the Chromium binary using chrome_utils.js findChromium().
 
-    # Look for versioned directories
-    for version_dir in sorted(CHROMIUM_INSTALL_DIR.iterdir(), reverse=True):
-        if not version_dir.is_dir():
-            continue
-        # macOS ARM
-        mac_arm = version_dir / 'chrome-mac' / 'Chromium.app' / 'Contents' / 'MacOS' / 'Chromium'
-        if mac_arm.exists():
-            return str(mac_arm)
-        # macOS x64
-        mac_x64 = version_dir / 'chrome-mac-x64' / 'Chromium.app' / 'Contents' / 'MacOS' / 'Chromium'
-        if mac_x64.exists():
-            return str(mac_x64)
-        # Linux
-        linux = version_dir / 'chrome-linux' / 'chrome'
-        if linux.exists():
-            return str(linux)
+    This uses the centralized findChromium() function which checks:
+    - CHROME_BINARY env var
+    - @puppeteer/browsers install locations (in data_dir/chromium)
+    - System Chromium locations
+    - Falls back to Chrome (with warning)
 
+    Args:
+        data_dir: Directory where chromium was installed (contains chromium/ subdir)
+    """
+    chrome_utils = PLUGIN_DIR / 'chrome_utils.js'
+    # Use provided data_dir, or fall back to env var, or current dir
+    search_dir = data_dir or os.environ.get('DATA_DIR', '.')
+    result = subprocess.run(
+        ['node', str(chrome_utils), 'findChromium', str(search_dir)],
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+    if result.returncode == 0 and result.stdout.strip():
+        return result.stdout.strip()
     return None
 
 
