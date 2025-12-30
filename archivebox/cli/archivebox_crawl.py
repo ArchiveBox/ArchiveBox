@@ -43,9 +43,9 @@ def create_crawls(
     created_by_id: Optional[int] = None,
 ) -> int:
     """
-    Create Crawl jobs from URLs or JSONL records.
+    Create a single Crawl job from all input URLs.
 
-    Reads from args or stdin, creates Crawl objects, outputs JSONL.
+    Reads from args or stdin, creates one Crawl with all URLs, outputs JSONL.
     Does NOT start the crawl - just creates the job in QUEUED state.
 
     Exit codes:
@@ -68,48 +68,50 @@ def create_crawls(
         rprint('[yellow]No URLs provided. Pass URLs as arguments or via stdin.[/yellow]', file=sys.stderr)
         return 1
 
-    # Group URLs by crawl - each URL becomes its own Crawl for now
-    # (Could be enhanced to batch multiple URLs into one Crawl)
-    created_crawls = []
+    # Collect all URLs into a single newline-separated string
+    urls = []
     for record in records:
         url = record.get('url')
-        if not url:
-            continue
+        if url:
+            urls.append(url)
 
-        try:
-            # Build crawl record
-            crawl_record = {
-                'url': url,
-                'max_depth': record.get('depth', depth),
-                'tags_str': record.get('tags', tag),
-                'label': record.get('label', ''),
-            }
-
-            crawl = Crawl.from_jsonl(crawl_record, overrides={'created_by_id': created_by_id})
-            if crawl:
-                created_crawls.append(crawl)
-
-                # Output JSONL record (only when piped)
-                if not is_tty:
-                    write_record(crawl.to_jsonl())
-
-        except Exception as e:
-            rprint(f'[red]Error creating crawl: {e}[/red]', file=sys.stderr)
-            continue
-
-    if not created_crawls:
-        rprint('[red]No crawls created[/red]', file=sys.stderr)
+    if not urls:
+        rprint('[red]No valid URLs found[/red]', file=sys.stderr)
         return 1
 
-    rprint(f'[green]Created {len(created_crawls)} crawls[/green]', file=sys.stderr)
+    try:
+        # Build crawl record with all URLs as newline-separated string
+        crawl_record = {
+            'urls': '\n'.join(urls),
+            'max_depth': depth,
+            'tags_str': tag,
+            'label': '',
+        }
 
-    # If TTY, show human-readable output
-    if is_tty:
-        for crawl in created_crawls:
-            first_url = crawl.get_urls_list()[0] if crawl.get_urls_list() else ''
-            rprint(f'  [dim]{crawl.id}[/dim] {first_url[:60]}', file=sys.stderr)
+        crawl = Crawl.from_jsonl(crawl_record, overrides={'created_by_id': created_by_id})
+        if not crawl:
+            rprint('[red]Failed to create crawl[/red]', file=sys.stderr)
+            return 1
 
-    return 0
+        # Output JSONL record (only when piped)
+        if not is_tty:
+            write_record(crawl.to_jsonl())
+
+        rprint(f'[green]Created crawl with {len(urls)} URLs[/green]', file=sys.stderr)
+
+        # If TTY, show human-readable output
+        if is_tty:
+            rprint(f'  [dim]{crawl.id}[/dim]', file=sys.stderr)
+            for url in urls[:5]:  # Show first 5 URLs
+                rprint(f'    {url[:70]}', file=sys.stderr)
+            if len(urls) > 5:
+                rprint(f'    ... and {len(urls) - 5} more', file=sys.stderr)
+
+        return 0
+
+    except Exception as e:
+        rprint(f'[red]Error creating crawl: {e}[/red]', file=sys.stderr)
+        return 1
 
 
 def process_crawl_by_id(crawl_id: str) -> int:
