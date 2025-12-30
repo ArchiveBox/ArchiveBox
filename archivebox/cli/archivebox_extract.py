@@ -92,7 +92,7 @@ def run_plugins(
     from django.utils import timezone
 
     from archivebox.misc.jsonl import (
-        read_args_or_stdin, write_record, archiveresult_to_jsonl,
+        read_args_or_stdin, write_record,
         TYPE_SNAPSHOT, TYPE_ARCHIVERESULT
     )
     from archivebox.core.models import Snapshot, ArchiveResult
@@ -203,7 +203,7 @@ def run_plugins(
                     }.get(result.status, 'dim')
                     rprint(f'  [{status_color}]{result.status}[/{status_color}] {result.plugin} → {result.output_str or ""}', file=sys.stderr)
                 else:
-                    write_record(archiveresult_to_jsonl(result))
+                    write_record(result.to_jsonl())
         except Snapshot.DoesNotExist:
             continue
 

@@ -246,8 +246,10 @@ class Binary(ModelWithHealthStats):
         """
         Convert Binary model instance to a JSONL record.
         """
+        from archivebox.config import VERSION
         return {
             'type': 'Binary',
+            'schema_version': VERSION,
             'id': str(self.id),
             'machine_id': str(self.machine_id),
             'name': self.name,
@@ -626,8 +628,10 @@ class Process(ModelWithHealthStats):
         """
         Convert Process model instance to a JSONL record.
         """
+        from archivebox.config import VERSION
         record = {
             'type': 'Process',
+            'schema_version': VERSION,
             'id': str(self.id),
             'machine_id': str(self.machine_id),
             'cmd': self.cmd,

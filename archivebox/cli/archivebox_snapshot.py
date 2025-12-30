@@ -87,7 +87,7 @@ def create_snapshots(
     from django.utils import timezone
 
     from archivebox.misc.jsonl import (
-        read_args_or_stdin, write_record, snapshot_to_jsonl,
+        read_args_or_stdin, write_record,
         TYPE_SNAPSHOT, TYPE_TAG
     )
     from archivebox.base_models.models import get_or_create_system_user_pk
@@ -144,7 +144,7 @@ def create_snapshots(
 
             # Output JSONL record (only when piped)
             if not is_tty:
-                write_record(snapshot_to_jsonl(snapshot))
+                write_record(snapshot.to_jsonl())
 
         except Exception as e:
             rprint(f'[red]Error creating snapshot: {e}[/red]', file=sys.stderr)

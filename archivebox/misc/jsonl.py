@@ -154,22 +154,6 @@ def filter_by_type(records: Iterator[Dict[str, Any]], record_type: str) -> Itera
             yield record
 
 
-def snapshot_to_jsonl(snapshot) -> Dict[str, Any]:
-    """
-    Convert a Snapshot model instance to a JSONL record.
-    Wrapper that calls snapshot.to_jsonl() method.
-    """
-    return snapshot.to_jsonl()
-
-
-def archiveresult_to_jsonl(result) -> Dict[str, Any]:
-    """
-    Convert an ArchiveResult model instance to a JSONL record.
-    Wrapper that calls result.to_jsonl() method.
-    """
-    return result.to_jsonl()
-
-
 def tag_to_jsonl(tag) -> Dict[str, Any]:
     """
     Convert a Tag model instance to a JSONL record.
@@ -193,39 +177,6 @@ def crawl_to_jsonl(crawl) -> Dict[str, Any]:
         'status': crawl.status,
         'max_depth': crawl.max_depth,
         'created_at': crawl.created_at.isoformat() if crawl.created_at else None,
-    }
-
-
-def binary_to_jsonl(binary) -> Dict[str, Any]:
-    """
-    Convert a Binary model instance to a JSONL record.
-    Wrapper that calls binary.to_jsonl() method.
-    """
-    return binary.to_jsonl()
-
-
-def process_to_jsonl(process) -> Dict[str, Any]:
-    """
-    Convert a Process model instance to a JSONL record.
-    Wrapper that calls process.to_jsonl() method.
-    """
-    return process.to_jsonl()
-
-
-def machine_to_jsonl(machine) -> Dict[str, Any]:
-    """
-    Convert a Machine model instance to a JSONL record.
-    """
-    # Machine.to_jsonl() not implemented yet, use inline conversion
-    return {
-        'type': TYPE_MACHINE,
-        'id': str(machine.id),
-        'guid': machine.guid,
-        'hostname': machine.hostname,
-        'os_arch': machine.os_arch,
-        'os_family': machine.os_family,
-        'os_platform': machine.os_platform,
-        'os_release': machine.os_release,
     }
 
 

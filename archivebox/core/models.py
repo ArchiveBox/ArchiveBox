@@ -1402,8 +1402,10 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         """
         Convert Snapshot model instance to a JSONL record.
         """
+        from archivebox.config import VERSION
         return {
             'type': 'Snapshot',
+            'schema_version': VERSION,
             'id': str(self.id),
             'url': self.url,
             'title': self.title,
@@ -2251,8 +2253,10 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         """
         Convert ArchiveResult model instance to a JSONL record.
         """
+        from archivebox.config import VERSION
         record = {
             'type': 'ArchiveResult',
+            'schema_version': VERSION,
             'id': str(self.id),
             'snapshot_id': str(self.snapshot_id),
             'plugin': self.plugin,

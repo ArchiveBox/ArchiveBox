@@ -141,21 +141,25 @@ class TestJSONLOutput(unittest.TestCase):
 
     def test_snapshot_to_jsonl(self):
         """Snapshot model should serialize to JSONL correctly."""
-        from archivebox.misc.jsonl import snapshot_to_jsonl, TYPE_SNAPSHOT
+        from archivebox.misc.jsonl import TYPE_SNAPSHOT
 
-        # Create a mock snapshot
+        # Create a mock snapshot with to_jsonl method configured
         mock_snapshot = MagicMock()
-        mock_snapshot.id = 'test-uuid-1234'
-        mock_snapshot.url = 'https://example.com'
-        mock_snapshot.title = 'Example Title'
-        mock_snapshot.tags_str.return_value = 'tag1,tag2'
-        mock_snapshot.bookmarked_at = None
-        mock_snapshot.created_at = None
-        mock_snapshot.timestamp = '1234567890'
-        mock_snapshot.depth = 0
-        mock_snapshot.status = 'queued'
+        mock_snapshot.to_jsonl.return_value = {
+            'type': TYPE_SNAPSHOT,
+            'schema_version': '0.9.0',
+            'id': 'test-uuid-1234',
+            'url': 'https://example.com',
+            'title': 'Example Title',
+            'tags': 'tag1,tag2',
+            'bookmarked_at': None,
+            'created_at': None,
+            'timestamp': '1234567890',
+            'depth': 0,
+            'status': 'queued',
+        }
 
-        result = snapshot_to_jsonl(mock_snapshot)
+        result = mock_snapshot.to_jsonl()
         self.assertEqual(result['type'], TYPE_SNAPSHOT)
         self.assertEqual(result['id'], 'test-uuid-1234')
         self.assertEqual(result['url'], 'https://example.com')
@@ -163,22 +167,28 @@ class TestJSONLOutput(unittest.TestCase):
 
     def test_archiveresult_to_jsonl(self):
         """ArchiveResult model should serialize to JSONL correctly."""
-        from archivebox.misc.jsonl import archiveresult_to_jsonl, TYPE_ARCHIVERESULT
+        from archivebox.misc.jsonl import TYPE_ARCHIVERESULT
 
+        # Create a mock result with to_jsonl method configured
         mock_result = MagicMock()
-        mock_result.id = 'result-uuid-5678'
-        mock_result.snapshot_id = 'snapshot-uuid-1234'
-        mock_result.extractor = 'title'
-        mock_result.status = 'succeeded'
-        mock_result.output = 'Example Title'
-        mock_result.start_ts = None
-        mock_result.end_ts = None
+        mock_result.to_jsonl.return_value = {
+            'type': TYPE_ARCHIVERESULT,
+            'schema_version': '0.9.0',
+            'id': 'result-uuid-5678',
+            'snapshot_id': 'snapshot-uuid-1234',
+            'plugin': 'title',
+            'hook_name': '',
+            'status': 'succeeded',
+            'output_str': 'Example Title',
+            'start_ts': None,
+            'end_ts': None,
+        }
 
-        result = archiveresult_to_jsonl(mock_result)
+        result = mock_result.to_jsonl()
         self.assertEqual(result['type'], TYPE_ARCHIVERESULT)
         self.assertEqual(result['id'], 'result-uuid-5678')
         self.assertEqual(result['snapshot_id'], 'snapshot-uuid-1234')
-        self.assertEqual(result['extractor'], 'title')
+        self.assertEqual(result['plugin'], 'title')
         self.assertEqual(result['status'], 'succeeded')
 
 
@@ -352,20 +362,22 @@ class TestSnapshotCommand(unittest.TestCase):
 
     def test_snapshot_output_format(self):
         """snapshot output should include id and url."""
-        from archivebox.misc.jsonl import snapshot_to_jsonl
-
         mock_snapshot = MagicMock()
-        mock_snapshot.id = 'test-id'
-        mock_snapshot.url = 'https://example.com'
-        mock_snapshot.title = 'Test'
-        mock_snapshot.tags_str.return_value = ''
-        mock_snapshot.bookmarked_at = None
-        mock_snapshot.created_at = None
-        mock_snapshot.timestamp = '123'
-        mock_snapshot.depth = 0
-        mock_snapshot.status = 'queued'
+        mock_snapshot.to_jsonl.return_value = {
+            'type': 'Snapshot',
+            'schema_version': '0.9.0',
+            'id': 'test-id',
+            'url': 'https://example.com',
+            'title': 'Test',
+            'tags': '',
+            'bookmarked_at': None,
+            'created_at': None,
+            'timestamp': '123',
+            'depth': 0,
+            'status': 'queued',
+        }
 
-        output = snapshot_to_jsonl(mock_snapshot)
+        output = mock_snapshot.to_jsonl()
 
         self.assertIn('id', output)
         self.assertIn('url', output)
@@ -544,7 +556,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         """
         from archivebox.core.models import Snapshot
         from archivebox.misc.jsonl import (
-            read_args_or_stdin, write_record, snapshot_to_jsonl,
+            read_args_or_stdin, write_record,
             TYPE_SNAPSHOT
         )
         from archivebox.base_models.models import get_or_create_system_user_pk
@@ -566,7 +578,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         self.assertEqual(snapshot.url, url)
 
         # Verify output format
-        output = snapshot_to_jsonl(snapshot)
+        output = snapshot.to_jsonl()
         self.assertEqual(output['type'], TYPE_SNAPSHOT)
         self.assertIn('id', output)
         self.assertEqual(output['url'], url)
@@ -578,7 +590,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         """
         from archivebox.core.models import Snapshot, ArchiveResult
         from archivebox.misc.jsonl import (
-            snapshot_to_jsonl, read_args_or_stdin,
+            read_args_or_stdin,
             TYPE_SNAPSHOT
         )
         from archivebox.base_models.models import get_or_create_system_user_pk
@@ -589,7 +601,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         url = 'https://test-extract-1.example.com'
         overrides = {'created_by_id': created_by_id}
         snapshot = Snapshot.from_jsonl({'url': url}, overrides=overrides)
-        snapshot_output = snapshot_to_jsonl(snapshot)
+        snapshot_output = snapshot.to_jsonl()
 
         # Step 2: Parse snapshot output as extract input
         stdin = StringIO(json.dumps(snapshot_output) + '\n')
@@ -652,7 +664,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         """
         from archivebox.core.models import Snapshot
         from archivebox.misc.jsonl import (
-            get_or_create_snapshot, snapshot_to_jsonl, read_args_or_stdin,
+            get_or_create_snapshot, read_args_or_stdin,
             TYPE_SNAPSHOT
         )
         from archivebox.base_models.models import get_or_create_system_user_pk
@@ -662,7 +674,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         # === archivebox snapshot https://example.com ===
         url = 'https://test-pipeline-1.example.com'
         snapshot = get_or_create_snapshot({'url': url}, created_by_id=created_by_id)
-        snapshot_jsonl = json.dumps(snapshot_to_jsonl(snapshot))
+        snapshot_jsonl = json.dumps(snapshot.to_jsonl())
 
         # === | archivebox extract ===
         stdin = StringIO(snapshot_jsonl + '\n')
@@ -686,7 +698,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         """
         from archivebox.core.models import Snapshot
         from archivebox.misc.jsonl import (
-            get_or_create_snapshot, snapshot_to_jsonl, read_args_or_stdin,
+            get_or_create_snapshot, read_args_or_stdin,
             TYPE_SNAPSHOT
         )
         from archivebox.base_models.models import get_or_create_system_user_pk
@@ -732,7 +744,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         self.assertEqual(len(created_snapshots), 2)
 
         # === | archivebox extract ===
-        snapshot_jsonl_lines = [json.dumps(snapshot_to_jsonl(s)) for s in created_snapshots]
+        snapshot_jsonl_lines = [json.dumps(s.to_jsonl()) for s in created_snapshots]
         stdin = StringIO('\n'.join(snapshot_jsonl_lines) + '\n')
         stdin.isatty = lambda: False
 
