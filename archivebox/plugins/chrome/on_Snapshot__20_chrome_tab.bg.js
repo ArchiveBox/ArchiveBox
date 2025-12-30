@@ -25,12 +25,18 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
-const http = require('http');
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 
 const puppeteer = require('puppeteer-core');
-const { findChromium } = require('./chrome_utils.js');
+const {
+    findChromium,
+    getEnv,
+    getEnvBool,
+    parseResolution,
+    findFreePort,
+    waitForDebugPort,
+} = require('./chrome_utils.js');
 
 // Extractor metadata
 const PLUGIN_NAME = 'chrome_tab';
@@ -48,18 +54,6 @@ function parseArgs() {
         }
     });
     return args;
-}
-
-// Get environment variable with default
-function getEnv(name, defaultValue = '') {
-    return (process.env[name] || defaultValue).trim();
-}
-
-function getEnvBool(name, defaultValue = false) {
-    const val = getEnv(name, '').toLowerCase();
-    if (['true', '1', 'yes', 'on'].includes(val)) return true;
-    if (['false', '0', 'no', 'off'].includes(val)) return false;
-    return defaultValue;
 }
 
 // Cleanup handler for SIGTERM - close this snapshot's tab
@@ -90,63 +84,6 @@ async function cleanup() {
 // Register signal handlers
 process.on('SIGTERM', cleanup);
 process.on('SIGINT', cleanup);
-
-// Parse resolution string
-function parseResolution(resolution) {
-    const [width, height] = resolution.split(',').map(x => parseInt(x.trim(), 10));
-    return { width: width || 1440, height: height || 2000 };
-}
-
-// Find a free port
-function findFreePort() {
-    return new Promise((resolve, reject) => {
-        const server = require('net').createServer();
-        server.unref();
-        server.on('error', reject);
-        server.listen(0, () => {
-            const port = server.address().port;
-            server.close(() => resolve(port));
-        });
-    });
-}
-
-// Wait for Chrome's DevTools port to be ready
-function waitForDebugPort(port, timeout = 30000) {
-    const startTime = Date.now();
-
-    return new Promise((resolve, reject) => {
-        const tryConnect = () => {
-            if (Date.now() - startTime > timeout) {
-                reject(new Error(`Timeout waiting for Chrome debug port ${port}`));
-                return;
-            }
-
-            const req = http.get(`http://127.0.0.1:${port}/json/version`, (res) => {
-                let data = '';
-                res.on('data', chunk => data += chunk);
-                res.on('end', () => {
-                    try {
-                        const info = JSON.parse(data);
-                        resolve(info);
-                    } catch (e) {
-                        setTimeout(tryConnect, 100);
-                    }
-                });
-            });
-
-            req.on('error', () => {
-                setTimeout(tryConnect, 100);
-            });
-
-            req.setTimeout(1000, () => {
-                req.destroy();
-                setTimeout(tryConnect, 100);
-            });
-        };
-
-        tryConnect();
-    });
-}
 
 // Try to find the crawl's Chrome session
 function findCrawlChromeSession(crawlId) {

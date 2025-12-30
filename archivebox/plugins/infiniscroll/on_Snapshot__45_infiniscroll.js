@@ -21,21 +21,16 @@
  *     INFINISCROLL_EXPAND_DETAILS: Expand <details> and comments (default: true)
  */
 
-function getEnv(name, defaultValue = '') {
-    return (process.env[name] || defaultValue).trim();
-}
+const fs = require('fs');
+const path = require('path');
+// Add NODE_MODULES_DIR to module resolution paths if set
+if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 
-function getEnvBool(name, defaultValue = false) {
-    const val = getEnv(name, '').toLowerCase();
-    if (['true', '1', 'yes', 'on'].includes(val)) return true;
-    if (['false', '0', 'no', 'off'].includes(val)) return false;
-    return defaultValue;
-}
-
-function getEnvInt(name, defaultValue = 0) {
-    const val = parseInt(getEnv(name, String(defaultValue)), 10);
-    return isNaN(val) ? defaultValue : val;
-}
+const {
+    getEnv,
+    getEnvBool,
+    getEnvInt,
+} = require('../chrome/chrome_utils.js');
 
 // Check if infiniscroll is enabled BEFORE requiring puppeteer
 if (!getEnvBool('INFINISCROLL_ENABLED', true)) {
@@ -43,10 +38,6 @@ if (!getEnvBool('INFINISCROLL_ENABLED', true)) {
     process.exit(0);
 }
 
-const fs = require('fs');
-const path = require('path');
-// Add NODE_MODULES_DIR to module resolution paths if set
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer-core');
 
 const PLUGIN_NAME = 'infiniscroll';

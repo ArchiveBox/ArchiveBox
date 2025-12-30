@@ -158,49 +158,19 @@ def test_large_extension_size():
 
 
 def setup_test_lib_dirs(tmpdir: Path) -> dict:
-    """Create isolated lib directories for tests and return env dict.
+    """Get lib directories for tests, using project's existing node_modules.
 
-    Sets up:
-        LIB_DIR: tmpdir/lib/<arch>
-        NODE_MODULES_DIR: tmpdir/lib/<arch>/npm/node_modules
-        NPM_BIN_DIR: tmpdir/lib/<arch>/npm/bin
-        PIP_VENV_DIR: tmpdir/lib/<arch>/pip/venv
-        PIP_BIN_DIR: tmpdir/lib/<arch>/pip/venv/bin
+    Uses the project's node_modules to avoid slow npm install during tests.
     """
-    import platform
-    arch = platform.machine()
-    system = platform.system().lower()
-    arch_dir = f"{arch}-{system}"
+    # Use project's existing node_modules (puppeteer-core already installed)
+    project_root = Path(__file__).parent.parent.parent.parent.parent
+    node_modules_dir = project_root / 'node_modules'
 
-    lib_dir = tmpdir / 'lib' / arch_dir
-    npm_dir = lib_dir / 'npm'
-    node_modules_dir = npm_dir / 'node_modules'
-    npm_bin_dir = npm_dir / 'bin'
-    pip_venv_dir = lib_dir / 'pip' / 'venv'
-    pip_bin_dir = pip_venv_dir / 'bin'
-
-    # Create directories
-    node_modules_dir.mkdir(parents=True, exist_ok=True)
-    npm_bin_dir.mkdir(parents=True, exist_ok=True)
-    pip_bin_dir.mkdir(parents=True, exist_ok=True)
-
-    # Install puppeteer-core to the test node_modules if not present
     if not (node_modules_dir / 'puppeteer-core').exists():
-        result = subprocess.run(
-            ['npm', 'install', '--prefix', str(npm_dir), 'puppeteer-core'],
-            capture_output=True,
-            text=True,
-            timeout=120
-        )
-        if result.returncode != 0:
-            pytest.skip(f"Failed to install puppeteer-core: {result.stderr}")
+        pytest.skip("puppeteer-core not installed in project node_modules")
 
     return {
-        'LIB_DIR': str(lib_dir),
         'NODE_MODULES_DIR': str(node_modules_dir),
-        'NPM_BIN_DIR': str(npm_bin_dir),
-        'PIP_VENV_DIR': str(pip_venv_dir),
-        'PIP_BIN_DIR': str(pip_bin_dir),
     }
 
 
@@ -268,11 +238,10 @@ def test_extension_loads_in_chromium():
         # Step 1: Install the uBlock extension
         result = subprocess.run(
             ['node', str(INSTALL_SCRIPT)],
-            cwd=str(tmpdir),
             capture_output=True,
             text=True,
             env=env,
-            timeout=120
+            timeout=15
         )
         assert result.returncode == 0, f"Extension install failed: {result.stderr}"
 
@@ -298,7 +267,7 @@ def test_extension_loads_in_chromium():
 
         # Wait for Chromium to launch and CDP URL to be available
         cdp_url = None
-        for i in range(20):
+        for i in range(10):
             if chrome_launch_process.poll() is not None:
                 stdout, stderr = chrome_launch_process.communicate()
                 raise RuntimeError(f"Chromium launch failed:\nStdout: {stdout}\nStderr: {stderr}")
@@ -306,7 +275,7 @@ def test_extension_loads_in_chromium():
             if cdp_file.exists():
                 cdp_url = cdp_file.read_text().strip()
                 break
-            time.sleep(1)
+            time.sleep(0.5)
 
         assert cdp_url, "Chromium CDP URL not found after 20s"
         print(f"Chromium launched with CDP URL: {cdp_url}")
@@ -409,7 +378,7 @@ const puppeteer = require('puppeteer-core');
                 capture_output=True,
                 text=True,
                 env=env,
-                timeout=90
+                timeout=10
             )
 
             print(f"stderr: {result.stderr}")
@@ -473,11 +442,10 @@ def test_blocks_ads_on_test_page():
         # Step 1: Install the uBlock extension
         result = subprocess.run(
             ['node', str(INSTALL_SCRIPT)],
-            cwd=str(tmpdir),
             capture_output=True,
             text=True,
             env=env,
-            timeout=120
+            timeout=15
         )
         assert result.returncode == 0, f"Extension install failed: {result.stderr}"
 
@@ -582,7 +550,7 @@ const puppeteer = require('puppeteer-core');
                 capture_output=True,
                 text=True,
                 env=env,
-                timeout=90
+                timeout=10
             )
 
             print(f"stderr: {result.stderr}")

@@ -18,17 +18,18 @@
  *     DOM_ENABLED: Enable DOM extraction (default: true)
  */
 
-// Get environment variable with default
-function getEnv(name, defaultValue = '') {
-    return (process.env[name] || defaultValue).trim();
-}
+const fs = require('fs');
+const path = require('path');
+// Add NODE_MODULES_DIR to module resolution paths if set
+if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 
-function getEnvBool(name, defaultValue = false) {
-    const val = getEnv(name, '').toLowerCase();
-    if (['true', '1', 'yes', 'on'].includes(val)) return true;
-    if (['false', '0', 'no', 'off'].includes(val)) return false;
-    return defaultValue;
-}
+const {
+    findChromium,
+    getEnv,
+    getEnvBool,
+    getEnvInt,
+    parseResolution,
+} = require('../chrome/chrome_utils.js');
 
 // Check if DOM is enabled BEFORE requiring puppeteer
 if (!getEnvBool('DOM_ENABLED', true)) {
@@ -38,13 +39,7 @@ if (!getEnvBool('DOM_ENABLED', true)) {
 }
 
 // Now safe to require puppeteer
-const fs = require('fs');
-const path = require('path');
-// Add NODE_MODULES_DIR to module resolution paths if set
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
-
 const puppeteer = require('puppeteer-core');
-const { findChromium } = require('../chrome/chrome_utils.js');
 
 // Extractor metadata
 const PLUGIN_NAME = 'dom';
@@ -62,11 +57,6 @@ function parseArgs() {
         }
     });
     return args;
-}
-
-function getEnvInt(name, defaultValue = 0) {
-    const val = parseInt(getEnv(name, String(defaultValue)), 10);
-    return isNaN(val) ? defaultValue : val;
 }
 
 // Check if staticfile extractor already downloaded this URL
@@ -98,12 +88,6 @@ function getCdpUrl() {
         return fs.readFileSync(cdpFile, 'utf8').trim();
     }
     return null;
-}
-
-// Parse resolution string
-function parseResolution(resolution) {
-    const [width, height] = resolution.split(',').map(x => parseInt(x.trim(), 10));
-    return { width: width || 1440, height: height || 2000 };
 }
 
 async function dumpDom(url) {

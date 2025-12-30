@@ -46,6 +46,17 @@ function getEnvBool(name, defaultValue = false) {
 }
 
 /**
+ * Get integer environment variable.
+ * @param {string} name - Environment variable name
+ * @param {number} [defaultValue=0] - Default value if not set
+ * @returns {number} - Integer value
+ */
+function getEnvInt(name, defaultValue = 0) {
+    const val = parseInt(getEnv(name, String(defaultValue)), 10);
+    return isNaN(val) ? defaultValue : val;
+}
+
+/**
  * Parse resolution string into width/height.
  * @param {string} resolution - Resolution string like "1440,2000"
  * @returns {{width: number, height: number}} - Parsed dimensions
@@ -1004,6 +1015,7 @@ module.exports = {
     // Environment helpers
     getEnv,
     getEnvBool,
+    getEnvInt,
     parseResolution,
     // PID file management
     writePidWithMtime,

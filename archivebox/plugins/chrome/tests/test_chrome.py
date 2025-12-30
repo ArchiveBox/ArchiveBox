@@ -95,7 +95,7 @@ def find_chromium_binary():
 @pytest.fixture(scope="session", autouse=True)
 def ensure_chromium_and_puppeteer_installed():
     """Ensure Chromium and puppeteer are installed before running tests."""
-    from abx_pkg import Binary, NpmProvider
+    from abx_pkg import Binary, NpmProvider, BinProviderOverrides
 
     # Rebuild pydantic models
     NpmProvider.model_rebuild()
