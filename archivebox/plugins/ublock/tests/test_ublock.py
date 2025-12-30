@@ -307,33 +307,28 @@ def test_extension_loads_in_chromium():
 
         # Wait for Chromium to launch and CDP URL to be available
         cdp_url = None
-        for i in range(10):
+        import select
+        for i in range(20):
             poll_result = chrome_launch_process.poll()
-            print(f"[test] Waiting for CDP... (attempt {i+1}/10, poll={poll_result})", flush=True)
             if poll_result is not None:
                 stdout, stderr = chrome_launch_process.communicate()
                 raise RuntimeError(f"Chromium launch failed (exit={poll_result}):\nStdout: {stdout}\nStderr: {stderr}")
             cdp_file = chrome_dir / 'cdp_url.txt'
             if cdp_file.exists():
                 cdp_url = cdp_file.read_text().strip()
+                print(f"[test] CDP URL found after {i+1} attempts", flush=True)
                 break
-            # Try to read any available stderr
-            import select
-            if select.select([chrome_launch_process.stderr], [], [], 0.1)[0]:
+            # Read any available stderr
+            while select.select([chrome_launch_process.stderr], [], [], 0)[0]:
                 line = chrome_launch_process.stderr.readline()
-                if line:
-                    print(f"[hook stderr] {line.strip()}", flush=True)
-            time.sleep(0.4)
+                if not line:
+                    break
+                print(f"[hook] {line.strip()}", flush=True)
+            time.sleep(0.3)
 
         assert cdp_url, "Chromium CDP URL not found after 20s"
-        print(f"Chromium launched with CDP URL: {cdp_url}")
-
-        # Print chrome hook stderr for debugging
-        # Read what's available without blocking
-        import select
-        if select.select([chrome_launch_process.stderr], [], [], 0.1)[0]:
-            chrome_stderr = chrome_launch_process.stderr.read()
-            print(f"Chrome hook stderr:\n{chrome_stderr}")
+        print(f"[test] Chromium launched with CDP URL: {cdp_url}", flush=True)
+        print("[test] Reading hook stderr...", flush=True)
 
         # Check what extensions were loaded by chrome hook
         extensions_file = chrome_dir / 'extensions.json'
@@ -358,7 +353,7 @@ const puppeteer = require('puppeteer-core');
     const browser = await puppeteer.connect({{ browserWSEndpoint: '{cdp_url}' }});
 
     // Wait for extension to initialize
-    await new Promise(r => setTimeout(r, 3000));
+    await new Promise(r => setTimeout(r, 500));
 
     // Use CDP to get all targets including service workers
     const pages = await browser.pages();
@@ -538,7 +533,7 @@ const puppeteer = require('puppeteer-core');
     const browser = await puppeteer.connect({{ browserWSEndpoint: '{cdp_url}' }});
 
     // Wait for extension to initialize
-    await new Promise(r => setTimeout(r, 3000));
+    await new Promise(r => setTimeout(r, 500));
 
     // Check extension loaded by looking at targets
     const targets = browser.targets();
