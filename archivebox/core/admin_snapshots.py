@@ -498,6 +498,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         description="+"
     )
     def add_tags(self, request, queryset):
+        from archivebox.core.models import SnapshotTag
+
         # Get tags from the form - now comma-separated string
         tags_str = request.POST.get('tags', '')
         if not tags_str:
@@ -515,12 +517,22 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             tag = Tag.objects.filter(name__iexact=name).first() or tag
             tags.append(tag)
 
-        print('[+] Adding tags', [t.name for t in tags], 'to Snapshots', queryset)
-        for obj in queryset:
-            obj.tags.add(*tags)
+        # Get snapshot IDs efficiently (works with select_across for all pages)
+        snapshot_ids = list(queryset.values_list('id', flat=True))
+        num_snapshots = len(snapshot_ids)
+
+        print('[+] Adding tags', [t.name for t in tags], 'to', num_snapshots, 'Snapshots')
+
+        # Bulk create M2M relationships (1 query per tag, not per snapshot)
+        for tag in tags:
+            SnapshotTag.objects.bulk_create(
+                [SnapshotTag(snapshot_id=sid, tag=tag) for sid in snapshot_ids],
+                ignore_conflicts=True  # Skip if relationship already exists
+            )
+
         messages.success(
             request,
-            f"Added {len(tags)} tag(s) to {queryset.count()} Snapshot(s).",
+            f"Added {len(tags)} tag(s) to {num_snapshots} Snapshot(s).",
         )
 
 
@@ -528,6 +540,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         description="–"
     )
     def remove_tags(self, request, queryset):
+        from archivebox.core.models import SnapshotTag
+
         # Get tags from the form - now comma-separated string
         tags_str = request.POST.get('tags', '')
         if not tags_str:
@@ -542,10 +556,24 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             if tag:
                 tags.append(tag)
 
-        print('[-] Removing tags', [t.name for t in tags], 'from Snapshots', queryset)
-        for obj in queryset:
-            obj.tags.remove(*tags)
+        if not tags:
+            messages.warning(request, "No matching tags found.")
+            return
+
+        # Get snapshot IDs efficiently (works with select_across for all pages)
+        snapshot_ids = list(queryset.values_list('id', flat=True))
+        num_snapshots = len(snapshot_ids)
+        tag_ids = [t.pk for t in tags]
+
+        print('[-] Removing tags', [t.name for t in tags], 'from', num_snapshots, 'Snapshots')
+
+        # Bulk delete M2M relationships (1 query total, not per snapshot)
+        deleted_count, _ = SnapshotTag.objects.filter(
+            snapshot_id__in=snapshot_ids,
+            tag_id__in=tag_ids
+        ).delete()
+
         messages.success(
             request,
-            f"Removed {len(tags)} tag(s) from {queryset.count()} Snapshot(s).",
+            f"Removed {len(tags)} tag(s) from {num_snapshots} Snapshot(s) ({deleted_count} associations deleted).",
         )
