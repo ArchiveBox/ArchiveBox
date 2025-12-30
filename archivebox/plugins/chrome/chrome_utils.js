@@ -433,6 +433,103 @@ async function killChrome(pid, outputDir = null) {
     console.error('[*] Chrome process killed');
 }
 
+/**
+ * Install Chromium using @puppeteer/browsers programmatic API.
+ * Uses puppeteer's default cache location, returns the binary path.
+ *
+ * @param {Object} options - Install options
+ * @returns {Promise<Object>} - {success, binary, version, error}
+ */
+async function installChromium(options = {}) {
+    // Check if CHROME_BINARY is already set and valid
+    const configuredBinary = getEnv('CHROME_BINARY');
+    if (configuredBinary && fs.existsSync(configuredBinary)) {
+        console.error(`[+] Using configured CHROME_BINARY: ${configuredBinary}`);
+        return { success: true, binary: configuredBinary, version: null };
+    }
+
+    // Try to load @puppeteer/browsers from NODE_MODULES_DIR or system
+    let puppeteerBrowsers;
+    try {
+        if (process.env.NODE_MODULES_DIR) {
+            module.paths.unshift(process.env.NODE_MODULES_DIR);
+        }
+        puppeteerBrowsers = require('@puppeteer/browsers');
+    } catch (e) {
+        console.error(`[!] @puppeteer/browsers not found. Install it first with installPuppeteerCore.`);
+        return { success: false, error: '@puppeteer/browsers not installed' };
+    }
+
+    console.error(`[*] Installing Chromium via @puppeteer/browsers...`);
+
+    try {
+        const result = await puppeteerBrowsers.install({
+            browser: 'chromium',
+            buildId: 'latest',
+        });
+
+        const binary = result.executablePath;
+        const version = result.buildId;
+
+        if (!binary || !fs.existsSync(binary)) {
+            console.error(`[!] Chromium binary not found at: ${binary}`);
+            return { success: false, error: `Chromium binary not found at: ${binary}` };
+        }
+
+        console.error(`[+] Chromium installed: ${binary}`);
+        return { success: true, binary, version };
+    } catch (e) {
+        console.error(`[!] Failed to install Chromium: ${e.message}`);
+        return { success: false, error: e.message };
+    }
+}
+
+/**
+ * Install puppeteer-core npm package.
+ *
+ * @param {Object} options - Install options
+ * @param {string} [options.npmPrefix] - npm prefix directory (default: DATA_DIR/lib/<arch>/npm or ./node_modules parent)
+ * @param {number} [options.timeout=60000] - Timeout in milliseconds
+ * @returns {Promise<Object>} - {success, path, error}
+ */
+async function installPuppeteerCore(options = {}) {
+    const arch = `${process.arch}-${process.platform}`;
+    const defaultPrefix = path.join(getEnv('LIB_DIR', getEnv('DATA_DIR', '.')), 'npm');
+    const {
+        npmPrefix = defaultPrefix,
+        timeout = 60000,
+    } = options;
+
+    const nodeModulesDir = path.join(npmPrefix, 'node_modules');
+    const puppeteerPath = path.join(nodeModulesDir, 'puppeteer-core');
+
+    // Check if already installed
+    if (fs.existsSync(puppeteerPath)) {
+        console.error(`[+] puppeteer-core already installed: ${puppeteerPath}`);
+        return { success: true, path: puppeteerPath };
+    }
+
+    console.error(`[*] Installing puppeteer-core to ${npmPrefix}...`);
+
+    // Create directory
+    if (!fs.existsSync(npmPrefix)) {
+        fs.mkdirSync(npmPrefix, { recursive: true });
+    }
+
+    try {
+        const { execSync } = require('child_process');
+        execSync(
+            `npm install --prefix "${npmPrefix}" puppeteer-core`,
+            { encoding: 'utf8', timeout, stdio: ['pipe', 'pipe', 'pipe'] }
+        );
+        console.error(`[+] puppeteer-core installed successfully`);
+        return { success: true, path: puppeteerPath };
+    } catch (e) {
+        console.error(`[!] Failed to install puppeteer-core: ${e.message}`);
+        return { success: false, error: e.message };
+    }
+}
+
 // Try to import unzipper, fallback to system unzip if not available
 let unzip = null;
 try {
@@ -932,78 +1029,88 @@ function getExtensionTargets(browser) {
 
 /**
  * Find Chromium/Chrome binary path.
- * Prefers Chromium over Chrome because Chrome 137+ removed --load-extension support.
+ * Checks CHROME_BINARY env var first, then falls back to system locations.
  *
- * @param {string} [dataDir] - Data directory to check for puppeteer installs
  * @returns {string|null} - Absolute path to browser binary or null if not found
  */
-function findChromium(dataDir = null) {
-    // Check CHROME_BINARY env var first
-    const chromeBinary = (process.env.CHROME_BINARY || '').trim();
-    if (chromeBinary && fs.existsSync(chromeBinary)) {
-        // Ensure absolute path
-        return path.resolve(chromeBinary);
+function findChromium() {
+    const { execSync } = require('child_process');
+
+    // Helper to validate a binary by running --version
+    const validateBinary = (binaryPath) => {
+        if (!binaryPath || !fs.existsSync(binaryPath)) return false;
+        try {
+            execSync(`"${binaryPath}" --version`, { encoding: 'utf8', timeout: 5000, stdio: 'pipe' });
+            return true;
+        } catch (e) {
+            return false;
+        }
+    };
+
+    // 1. Check CHROME_BINARY env var first
+    const chromeBinary = getEnv('CHROME_BINARY');
+    if (chromeBinary) {
+        const absPath = path.resolve(chromeBinary);
+        if (validateBinary(absPath)) {
+            return absPath;
+        }
+        console.error(`[!] Warning: CHROME_BINARY="${chromeBinary}" is not valid`);
+    }
+
+    // 2. Warn that no CHROME_BINARY is configured, searching fallbacks
+    if (!chromeBinary) {
+        console.error('[!] Warning: CHROME_BINARY not set, searching system locations...');
     }
 
     // Helper to find Chromium in @puppeteer/browsers directory structure
-    // Always returns absolute paths
     const findInPuppeteerDir = (baseDir) => {
-        const absBaseDir = path.resolve(baseDir);
-        if (!fs.existsSync(absBaseDir)) return null;
+        if (!fs.existsSync(baseDir)) return null;
         try {
-            const versions = fs.readdirSync(absBaseDir);
+            const versions = fs.readdirSync(baseDir);
             for (const version of versions.sort().reverse()) {
-                const versionDir = path.join(absBaseDir, version);
-                // Check for macOS ARM structure
-                const macArmBinary = path.join(versionDir, 'chrome-mac/Chromium.app/Contents/MacOS/Chromium');
-                if (fs.existsSync(macArmBinary)) return macArmBinary;
-                // Check for macOS x64 structure
-                const macX64Binary = path.join(versionDir, 'chrome-mac-x64/Chromium.app/Contents/MacOS/Chromium');
-                if (fs.existsSync(macX64Binary)) return macX64Binary;
-                // Check for Linux structure
-                const linuxBinary = path.join(versionDir, 'chrome-linux/chrome');
-                if (fs.existsSync(linuxBinary)) return linuxBinary;
+                const versionDir = path.join(baseDir, version);
+                const candidates = [
+                    path.join(versionDir, 'chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium'),
+                    path.join(versionDir, 'chrome-mac/Chromium.app/Contents/MacOS/Chromium'),
+                    path.join(versionDir, 'chrome-mac-x64/Chromium.app/Contents/MacOS/Chromium'),
+                    path.join(versionDir, 'chrome-linux64/chrome'),
+                    path.join(versionDir, 'chrome-linux/chrome'),
+                ];
+                for (const c of candidates) {
+                    if (fs.existsSync(c)) return c;
+                }
             }
-        } catch (e) {
-            // Continue
-        }
+        } catch (e) {}
         return null;
     };
 
-    // Check @puppeteer/browsers install locations
-    const puppeteerDirs = [
-        // Local project install (from npx @puppeteer/browsers install)
-        path.join(dataDir || process.env.DATA_DIR || '.', 'chromium'),
-        path.join(process.cwd(), 'chromium'),
-        // User cache locations
-        path.join(process.env.HOME || '', '.cache/puppeteer/chromium'),
-    ];
-
-    for (const puppeteerDir of puppeteerDirs) {
-        const binary = findInPuppeteerDir(puppeteerDir);
-        if (binary) return binary;
-    }
-
-    // Check standard system locations
-    const candidates = [
-        // Linux Chromium
+    // 3. Search fallback locations (Chromium first, then Chrome)
+    const fallbackLocations = [
+        // System Chromium
+        '/Applications/Chromium.app/Contents/MacOS/Chromium',
         '/usr/bin/chromium',
         '/usr/bin/chromium-browser',
-        // macOS Chromium (Homebrew or manual install)
-        '/Applications/Chromium.app/Contents/MacOS/Chromium',
-        // Fallback to Chrome (extension loading may not work in Chrome 137+)
+        // Puppeteer cache
+        path.join(process.env.HOME || '', '.cache/puppeteer/chromium'),
+        path.join(process.env.HOME || '', '.cache/puppeteer'),
+        // Chrome (fallback - extensions may not work in 137+)
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
         '/usr/bin/google-chrome',
         '/usr/bin/google-chrome-stable',
-        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     ];
 
-    for (const candidate of candidates) {
-        if (fs.existsSync(candidate)) {
-            // Warn if falling back to Chrome
-            if (candidate.includes('google-chrome') || candidate.includes('Google Chrome')) {
+    for (const loc of fallbackLocations) {
+        // Check if it's a puppeteer cache dir
+        if (loc.includes('.cache/puppeteer')) {
+            const binary = findInPuppeteerDir(loc);
+            if (binary && validateBinary(binary)) {
+                return binary;
+            }
+        } else if (validateBinary(loc)) {
+            if (loc.includes('Google Chrome') || loc.includes('google-chrome')) {
                 console.error('[!] Warning: Using Chrome instead of Chromium. Extension loading may not work in Chrome 137+');
             }
-            return candidate;
+            return loc;
         }
     }
 
@@ -1028,6 +1135,9 @@ module.exports = {
     // Chrome launching
     launchChromium,
     killChrome,
+    // Chrome/Chromium install
+    installChromium,
+    installPuppeteerCore,
     // Chrome/Chromium binary finding
     findChromium,
     // Extension utilities
@@ -1055,7 +1165,9 @@ if (require.main === module) {
         console.log('Usage: chrome_utils.js <command> [args...]');
         console.log('');
         console.log('Commands:');
-        console.log('  findChromium [data_dir]');
+        console.log('  findChromium');
+        console.log('  installChromium');
+        console.log('  installPuppeteerCore [npm_prefix]');
         console.log('  launchChromium [output_dir] [extension_paths_json]');
         console.log('  killChrome <pid> [output_dir]');
         console.log('  killZombieChrome [data_dir]');
@@ -1072,12 +1184,37 @@ if (require.main === module) {
         try {
             switch (command) {
                 case 'findChromium': {
-                    const [dataDir] = commandArgs;
-                    const binary = findChromium(dataDir);
+                    const binary = findChromium();
                     if (binary) {
                         console.log(binary);
                     } else {
                         console.error('Chromium binary not found');
+                        process.exit(1);
+                    }
+                    break;
+                }
+
+                case 'installChromium': {
+                    const result = await installChromium();
+                    if (result.success) {
+                        console.log(JSON.stringify({
+                            binary: result.binary,
+                            version: result.version,
+                        }));
+                    } else {
+                        console.error(result.error);
+                        process.exit(1);
+                    }
+                    break;
+                }
+
+                case 'installPuppeteerCore': {
+                    const [npmPrefix] = commandArgs;
+                    const result = await installPuppeteerCore({ npmPrefix: npmPrefix || undefined });
+                    if (result.success) {
+                        console.log(JSON.stringify({ path: result.path }));
+                    } else {
+                        console.error(result.error);
                         process.exit(1);
                     }
                     break;
