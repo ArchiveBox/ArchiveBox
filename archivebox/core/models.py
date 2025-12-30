@@ -949,10 +949,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         - Process: process execution details (cmd, exit_code, timing, etc.)
         """
         import json
-        from archivebox.misc.jsonl import (
-            snapshot_to_jsonl, archiveresult_to_jsonl,
-            binary_to_jsonl, process_to_jsonl,
-        )
 
         index_path = Path(self.output_dir) / CONSTANTS.JSONL_INDEX_FILENAME
         index_path.parent.mkdir(parents=True, exist_ok=True)
@@ -963,7 +959,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         with open(index_path, 'w') as f:
             # Write Snapshot record first
-            snapshot_record = snapshot_to_jsonl(self)
+            snapshot_record = self.to_jsonl()
             snapshot_record['crawl_id'] = str(self.crawl_id) if self.crawl_id else None
             snapshot_record['fs_version'] = self.fs_version
             f.write(json.dumps(snapshot_record) + '\n')
@@ -973,18 +969,15 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 # Write Binary record if not already written
                 if ar.process and ar.process.binary and ar.process.binary_id not in binaries_seen:
                     binaries_seen.add(ar.process.binary_id)
-                    f.write(json.dumps(binary_to_jsonl(ar.process.binary)) + '\n')
+                    f.write(json.dumps(ar.process.binary.to_jsonl()) + '\n')
 
                 # Write Process record if not already written
                 if ar.process and ar.process_id not in processes_seen:
                     processes_seen.add(ar.process_id)
-                    f.write(json.dumps(process_to_jsonl(ar.process)) + '\n')
+                    f.write(json.dumps(ar.process.to_jsonl()) + '\n')
 
                 # Write ArchiveResult record
-                ar_record = archiveresult_to_jsonl(ar)
-                if ar.process_id:
-                    ar_record['process_id'] = str(ar.process_id)
-                f.write(json.dumps(ar_record) + '\n')
+                f.write(json.dumps(ar.to_jsonl()) + '\n')
 
     def read_index_jsonl(self) -> dict:
         """
@@ -1404,6 +1397,23 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 return True
 
         return False
+
+    def to_jsonl(self) -> dict:
+        """
+        Convert Snapshot model instance to a JSONL record.
+        """
+        return {
+            'type': 'Snapshot',
+            'id': str(self.id),
+            'url': self.url,
+            'title': self.title,
+            'tags': self.tags_str() if hasattr(self, 'tags_str') else '',
+            'bookmarked_at': self.bookmarked_at.isoformat() if self.bookmarked_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'timestamp': self.timestamp,
+            'depth': getattr(self, 'depth', 0),
+            'status': self.status if hasattr(self, 'status') else None,
+        }
 
     @staticmethod
     def from_jsonl(record: Dict[str, Any], overrides: Dict[str, Any] = None, queue_for_extraction: bool = True):
@@ -2236,6 +2246,38 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     def created_by(self):
         """Convenience property to access the user who created this archive result via its snapshot's crawl."""
         return self.snapshot.crawl.created_by
+
+    def to_jsonl(self) -> dict:
+        """
+        Convert ArchiveResult model instance to a JSONL record.
+        """
+        record = {
+            'type': 'ArchiveResult',
+            'id': str(self.id),
+            'snapshot_id': str(self.snapshot_id),
+            'plugin': self.plugin,
+            'hook_name': self.hook_name,
+            'status': self.status,
+            'output_str': self.output_str,
+            'start_ts': self.start_ts.isoformat() if self.start_ts else None,
+            'end_ts': self.end_ts.isoformat() if self.end_ts else None,
+        }
+        # Include optional fields if set
+        if self.output_json:
+            record['output_json'] = self.output_json
+        if self.output_files:
+            record['output_files'] = self.output_files
+        if self.output_size:
+            record['output_size'] = self.output_size
+        if self.output_mimetypes:
+            record['output_mimetypes'] = self.output_mimetypes
+        if self.cmd:
+            record['cmd'] = self.cmd
+        if self.cmd_version:
+            record['cmd_version'] = self.cmd_version
+        if self.process_id:
+            record['process_id'] = str(self.process_id)
+        return record
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding

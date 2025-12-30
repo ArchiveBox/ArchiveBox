@@ -157,50 +157,17 @@ def filter_by_type(records: Iterator[Dict[str, Any]], record_type: str) -> Itera
 def snapshot_to_jsonl(snapshot) -> Dict[str, Any]:
     """
     Convert a Snapshot model instance to a JSONL record.
+    Wrapper that calls snapshot.to_jsonl() method.
     """
-    return {
-        'type': TYPE_SNAPSHOT,
-        'id': str(snapshot.id),
-        'url': snapshot.url,
-        'title': snapshot.title,
-        'tags': snapshot.tags_str() if hasattr(snapshot, 'tags_str') else '',
-        'bookmarked_at': snapshot.bookmarked_at.isoformat() if snapshot.bookmarked_at else None,
-        'created_at': snapshot.created_at.isoformat() if snapshot.created_at else None,
-        'timestamp': snapshot.timestamp,
-        'depth': getattr(snapshot, 'depth', 0),
-        'status': snapshot.status if hasattr(snapshot, 'status') else None,
-    }
+    return snapshot.to_jsonl()
 
 
 def archiveresult_to_jsonl(result) -> Dict[str, Any]:
     """
     Convert an ArchiveResult model instance to a JSONL record.
+    Wrapper that calls result.to_jsonl() method.
     """
-    record = {
-        'type': TYPE_ARCHIVERESULT,
-        'id': str(result.id),
-        'snapshot_id': str(result.snapshot_id),
-        'plugin': result.plugin,
-        'hook_name': result.hook_name,
-        'status': result.status,
-        'output_str': result.output_str,
-        'start_ts': result.start_ts.isoformat() if result.start_ts else None,
-        'end_ts': result.end_ts.isoformat() if result.end_ts else None,
-    }
-    # Include optional fields if set
-    if result.output_json:
-        record['output_json'] = result.output_json
-    if result.output_files:
-        record['output_files'] = result.output_files
-    if result.output_size:
-        record['output_size'] = result.output_size
-    if result.output_mimetypes:
-        record['output_mimetypes'] = result.output_mimetypes
-    if result.cmd:
-        record['cmd'] = result.cmd
-    if result.cmd_version:
-        record['cmd_version'] = result.cmd_version
-    return record
+    return result.to_jsonl()
 
 
 def tag_to_jsonl(tag) -> Dict[str, Any]:
@@ -232,49 +199,24 @@ def crawl_to_jsonl(crawl) -> Dict[str, Any]:
 def binary_to_jsonl(binary) -> Dict[str, Any]:
     """
     Convert a Binary model instance to a JSONL record.
+    Wrapper that calls binary.to_jsonl() method.
     """
-    return {
-        'type': TYPE_BINARY,
-        'id': str(binary.id),
-        'machine_id': str(binary.machine_id),
-        'name': binary.name,
-        'binprovider': binary.binprovider,
-        'abspath': binary.abspath,
-        'version': binary.version,
-        'sha256': binary.sha256,
-        'status': binary.status,
-    }
+    return binary.to_jsonl()
 
 
 def process_to_jsonl(process) -> Dict[str, Any]:
     """
     Convert a Process model instance to a JSONL record.
+    Wrapper that calls process.to_jsonl() method.
     """
-    record = {
-        'type': TYPE_PROCESS,
-        'id': str(process.id),
-        'machine_id': str(process.machine_id),
-        'cmd': process.cmd,
-        'pwd': process.pwd,
-        'status': process.status,
-        'exit_code': process.exit_code,
-        'started_at': process.started_at.isoformat() if process.started_at else None,
-        'ended_at': process.ended_at.isoformat() if process.ended_at else None,
-    }
-    # Include optional fields if set
-    if process.binary_id:
-        record['binary_id'] = str(process.binary_id)
-    if process.pid:
-        record['pid'] = process.pid
-    if process.timeout:
-        record['timeout'] = process.timeout
-    return record
+    return process.to_jsonl()
 
 
 def machine_to_jsonl(machine) -> Dict[str, Any]:
     """
     Convert a Machine model instance to a JSONL record.
     """
+    # Machine.to_jsonl() not implemented yet, use inline conversion
     return {
         'type': TYPE_MACHINE,
         'id': str(machine.id),
