@@ -24,7 +24,7 @@ def test_extract_runs_on_existing_snapshots(tmp_path, process, disable_extractor
 
     # Run extract
     result = subprocess.run(
-        ['archivebox', 'extract', '--overwrite'],
+        ['archivebox', 'extract'],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=30,
