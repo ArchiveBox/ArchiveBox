@@ -341,6 +341,18 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         """Convenience property to access the user who created this snapshot via its crawl."""
         return self.crawl.created_by
 
+    @property
+    def process_set(self):
+        """Get all Process objects related to this snapshot's ArchiveResults."""
+        from archivebox.machine.models import Process
+        return Process.objects.filter(archiveresult__snapshot_id=self.id)
+
+    @property
+    def binary_set(self):
+        """Get all Binary objects used by processes related to this snapshot."""
+        from archivebox.machine.models import Binary
+        return Binary.objects.filter(process__archiveresult__snapshot_id=self.id).distinct()
+
     def save(self, *args, **kwargs):
         is_new = self._state.adding
         if not self.bookmarked_at:
@@ -965,19 +977,17 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         index_path = Path(self.output_dir) / CONSTANTS.JSONL_INDEX_FILENAME
         index_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Collect unique binaries and processes from archive results
+        # Track unique binaries and processes to avoid duplicates
         binaries_seen = set()
         processes_seen = set()
 
         with open(index_path, 'w') as f:
-            # Write Snapshot record first
-            snapshot_record = self.to_jsonl()
-            snapshot_record['crawl_id'] = str(self.crawl_id) if self.crawl_id else None
-            snapshot_record['fs_version'] = self.fs_version
-            f.write(json.dumps(snapshot_record) + '\n')
+            # Write Snapshot record first (to_jsonl includes crawl_id, fs_version)
+            f.write(json.dumps(self.to_jsonl()) + '\n')
 
             # Write ArchiveResult records with their associated Binary and Process
-            for ar in ArchiveResult.objects.filter(snapshot=self).order_by('start_ts'):
+            # Use select_related to optimize queries
+            for ar in self.archiveresult_set.select_related('process__binary').order_by('start_ts'):
                 # Write Binary record if not already written
                 if ar.process and ar.process.binary and ar.process.binary_id not in binaries_seen:
                     binaries_seen.add(ar.process.binary_id)
@@ -1413,20 +1423,23 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     def to_jsonl(self) -> dict:
         """
         Convert Snapshot model instance to a JSONL record.
+        Includes all fields needed to fully reconstruct/identify this snapshot.
         """
         from archivebox.config import VERSION
         return {
             'type': 'Snapshot',
             'schema_version': VERSION,
             'id': str(self.id),
+            'crawl_id': str(self.crawl_id),
             'url': self.url,
             'title': self.title,
-            'tags': self.tags_str() if hasattr(self, 'tags_str') else '',
+            'tags': self.tags_str(),
             'bookmarked_at': self.bookmarked_at.isoformat() if self.bookmarked_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'timestamp': self.timestamp,
-            'depth': getattr(self, 'depth', 0),
-            'status': self.status if hasattr(self, 'status') else None,
+            'depth': self.depth,
+            'status': self.status,
+            'fs_version': self.fs_version,
         }
 
     @staticmethod
