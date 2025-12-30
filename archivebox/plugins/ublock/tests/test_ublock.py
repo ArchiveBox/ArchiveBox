@@ -287,6 +287,8 @@ def test_extension_loads_in_chromium():
         print(f"[test] Extension installed: {ext_data.get('name')} v{ext_data.get('version')}", flush=True)
 
         # Step 2: Launch Chromium using the chrome hook (loads extensions automatically)
+        print(f"[test] NODE_MODULES_DIR={env.get('NODE_MODULES_DIR')}", flush=True)
+        print(f"[test] puppeteer-core exists: {(Path(env['NODE_MODULES_DIR']) / 'puppeteer-core').exists()}", flush=True)
         print("[test] Launching Chromium...", flush=True)
         data_dir = Path(env['DATA_DIR'])
         crawl_dir = data_dir / 'crawl'
@@ -306,14 +308,22 @@ def test_extension_loads_in_chromium():
         # Wait for Chromium to launch and CDP URL to be available
         cdp_url = None
         for i in range(10):
-            if chrome_launch_process.poll() is not None:
+            poll_result = chrome_launch_process.poll()
+            print(f"[test] Waiting for CDP... (attempt {i+1}/10, poll={poll_result})", flush=True)
+            if poll_result is not None:
                 stdout, stderr = chrome_launch_process.communicate()
-                raise RuntimeError(f"Chromium launch failed:\nStdout: {stdout}\nStderr: {stderr}")
+                raise RuntimeError(f"Chromium launch failed (exit={poll_result}):\nStdout: {stdout}\nStderr: {stderr}")
             cdp_file = chrome_dir / 'cdp_url.txt'
             if cdp_file.exists():
                 cdp_url = cdp_file.read_text().strip()
                 break
-            time.sleep(0.5)
+            # Try to read any available stderr
+            import select
+            if select.select([chrome_launch_process.stderr], [], [], 0.1)[0]:
+                line = chrome_launch_process.stderr.readline()
+                if line:
+                    print(f"[hook stderr] {line.strip()}", flush=True)
+            time.sleep(0.4)
 
         assert cdp_url, "Chromium CDP URL not found after 20s"
         print(f"Chromium launched with CDP URL: {cdp_url}")
