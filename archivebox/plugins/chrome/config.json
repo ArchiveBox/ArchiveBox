@@ -63,6 +63,31 @@
       "default": [],
       "x-aliases": ["CHROME_EXTRA_ARGS"],
       "description": "Extra arguments to append to Chrome command"
+    },
+    "CHROME_PAGELOAD_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "x-fallback": "CHROME_TIMEOUT",
+      "description": "Timeout for page navigation/load in seconds"
+    },
+    "CHROME_WAIT_FOR": {
+      "type": "string",
+      "default": "networkidle2",
+      "enum": ["domcontentloaded", "load", "networkidle0", "networkidle2"],
+      "description": "Page load completion condition (domcontentloaded, load, networkidle0, networkidle2)"
+    },
+    "CHROME_DELAY_AFTER_LOAD": {
+      "type": "number",
+      "default": 0,
+      "minimum": 0,
+      "description": "Extra delay in seconds after page load completes before archiving (useful for JS-heavy SPAs)"
+    },
+    "CHROME_CHECK_SSL_VALIDITY": {
+      "type": "boolean",
+      "default": true,
+      "x-fallback": "CHECK_SSL_VALIDITY",
+      "description": "Whether to verify SSL certificates (disable for self-signed certs)"
     }
   }
 }

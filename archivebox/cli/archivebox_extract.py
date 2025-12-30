@@ -100,6 +100,9 @@ def run_plugins(
 
     is_tty = sys.stdout.isatty()
 
+    # Parse comma-separated plugins list once (reused in creation and filtering)
+    plugins_list = [p.strip() for p in plugins.split(',') if p.strip()] if plugins else []
+
     # Collect all input records
     records = list(read_args_or_stdin(args))
 
@@ -147,10 +150,7 @@ def run_plugins(
             continue
 
         # Create pending ArchiveResults if needed
-        if plugins:
-            # Parse comma-separated plugins list
-            plugins_list = [p.strip() for p in plugins.split(',') if p.strip()]
-
+        if plugins_list:
             # Only create for specific plugins
             for plugin_name in plugins_list:
                 result, created = ArchiveResult.objects.get_or_create(
@@ -195,9 +195,7 @@ def run_plugins(
         try:
             snapshot = Snapshot.objects.get(id=snapshot_id)
             results = snapshot.archiveresult_set.all()
-            if plugins:
-                # Parse comma-separated plugins list
-                plugins_list = [p.strip() for p in plugins.split(',') if p.strip()]
+            if plugins_list:
                 results = results.filter(plugin__in=plugins_list)
 
             for result in results:
