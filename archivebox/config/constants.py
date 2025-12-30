@@ -188,6 +188,7 @@ class ConstantsDict(Mapping):
         "queue.sqlite3-wal",
         "queue.sqlite3-shm",
         JSON_INDEX_FILENAME,
+        JSONL_INDEX_FILENAME,
         HTML_INDEX_FILENAME,
         ROBOTS_TXT_FILENAME,
         FAVICON_FILENAME,

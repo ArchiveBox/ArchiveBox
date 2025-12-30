@@ -130,9 +130,16 @@ def create_snapshots(
 
                 # Create snapshots for each URL in the crawl
                 for url in crawl.get_urls_list():
+                    # Merge CLI tags with crawl tags
+                    merged_tags = crawl.tags_str
+                    if tag:
+                        if merged_tags:
+                            merged_tags = f"{merged_tags},{tag}"
+                        else:
+                            merged_tags = tag
                     snapshot_record = {
                         'url': url,
-                        'tags': crawl.tags_str,
+                        'tags': merged_tags,
                         'crawl_id': str(crawl.id),
                         'depth': 0,
                     }

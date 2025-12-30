@@ -178,57 +178,8 @@ class TestJSONLOutput(unittest.TestCase):
         self.assertEqual(result['urls'], 'https://example.com')
         self.assertEqual(result['status'], 'queued')
 
-    def test_snapshot_to_jsonl(self):
-        """Snapshot model should serialize to JSONL correctly."""
-        from archivebox.misc.jsonl import TYPE_SNAPSHOT
-
-        # Create a mock snapshot with to_jsonl method configured
-        mock_snapshot = MagicMock()
-        mock_snapshot.to_jsonl.return_value = {
-            'type': TYPE_SNAPSHOT,
-            'schema_version': '0.9.0',
-            'id': 'test-uuid-1234',
-            'url': 'https://example.com',
-            'title': 'Example Title',
-            'tags': 'tag1,tag2',
-            'bookmarked_at': None,
-            'created_at': None,
-            'timestamp': '1234567890',
-            'depth': 0,
-            'status': 'queued',
-        }
-
-        result = mock_snapshot.to_jsonl()
-        self.assertEqual(result['type'], TYPE_SNAPSHOT)
-        self.assertEqual(result['id'], 'test-uuid-1234')
-        self.assertEqual(result['url'], 'https://example.com')
-        self.assertEqual(result['title'], 'Example Title')
-
-    def test_archiveresult_to_jsonl(self):
-        """ArchiveResult model should serialize to JSONL correctly."""
-        from archivebox.misc.jsonl import TYPE_ARCHIVERESULT
-
-        # Create a mock result with to_jsonl method configured
-        mock_result = MagicMock()
-        mock_result.to_jsonl.return_value = {
-            'type': TYPE_ARCHIVERESULT,
-            'schema_version': '0.9.0',
-            'id': 'result-uuid-5678',
-            'snapshot_id': 'snapshot-uuid-1234',
-            'plugin': 'title',
-            'hook_name': '',
-            'status': 'succeeded',
-            'output_str': 'Example Title',
-            'start_ts': None,
-            'end_ts': None,
-        }
-
-        result = mock_result.to_jsonl()
-        self.assertEqual(result['type'], TYPE_ARCHIVERESULT)
-        self.assertEqual(result['id'], 'result-uuid-5678')
-        self.assertEqual(result['snapshot_id'], 'snapshot-uuid-1234')
-        self.assertEqual(result['plugin'], 'title')
-        self.assertEqual(result['status'], 'succeeded')
+    # Note: Snapshot and ArchiveResult serialization is tested in integration tests
+    # (TestPipingWorkflowIntegration) using real model instances, not mocks.
 
 
 class TestReadArgsOrStdin(unittest.TestCase):
@@ -395,28 +346,9 @@ class TestSnapshotCommand(unittest.TestCase):
         self.assertEqual(records[0]['tags'], 'tag1,tag2')
         self.assertEqual(records[0]['title'], 'Test')
 
-    def test_snapshot_output_format(self):
-        """snapshot output should include id and url."""
-        mock_snapshot = MagicMock()
-        mock_snapshot.to_jsonl.return_value = {
-            'type': 'Snapshot',
-            'schema_version': '0.9.0',
-            'id': 'test-id',
-            'url': 'https://example.com',
-            'title': 'Test',
-            'tags': '',
-            'bookmarked_at': None,
-            'created_at': None,
-            'timestamp': '123',
-            'depth': 0,
-            'status': 'queued',
-        }
-
-        output = mock_snapshot.to_jsonl()
-
-        self.assertIn('id', output)
-        self.assertIn('url', output)
-        self.assertEqual(output['type'], 'Snapshot')
+    # Note: Snapshot output format is tested in integration tests
+    # (TestPipingWorkflowIntegration.test_snapshot_creates_and_outputs_jsonl)
+    # using real Snapshot instances.
 
 
 class TestExtractCommand(unittest.TestCase):

@@ -37,7 +37,7 @@ import rich_click as click
 
 
 def create_crawls(
-    args: tuple,
+    records: list,
     depth: int = 0,
     tag: str = '',
     created_by_id: Optional[int] = None,
@@ -45,7 +45,7 @@ def create_crawls(
     """
     Create a single Crawl job from all input URLs.
 
-    Reads from args or stdin, creates one Crawl with all URLs, outputs JSONL.
+    Takes pre-read records, creates one Crawl with all URLs, outputs JSONL.
     Does NOT start the crawl - just creates the job in QUEUED state.
 
     Exit codes:
@@ -54,15 +54,12 @@ def create_crawls(
     """
     from rich import print as rprint
 
-    from archivebox.misc.jsonl import read_args_or_stdin, write_record
+    from archivebox.misc.jsonl import write_record
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
 
     created_by_id = created_by_id or get_or_create_system_user_pk()
     is_tty = sys.stdout.isatty()
-
-    # Collect all input records
-    records = list(read_args_or_stdin(args))
 
     if not records:
         rprint('[yellow]No URLs provided. Pass URLs as arguments or via stdin.[/yellow]', file=sys.stderr)
@@ -188,7 +185,7 @@ def main(depth: int, tag: str, args: tuple):
         sys.exit(exit_code)
     else:
         # Default behavior: create Crawl jobs from URLs
-        sys.exit(create_crawls(args, depth=depth, tag=tag))
+        sys.exit(create_crawls(records, depth=depth, tag=tag))
 
 
 if __name__ == '__main__':

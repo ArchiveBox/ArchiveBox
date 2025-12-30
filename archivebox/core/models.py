@@ -600,13 +600,13 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                             if record.get('type') == 'Snapshot':
                                 data = record
                                 break
-            except:
+            except (json.JSONDecodeError, OSError):
                 pass
         elif json_path.exists():
             try:
                 with open(json_path) as f:
                     data = json.load(f)
-            except:
+            except (json.JSONDecodeError, OSError):
                 pass
 
         if not data:
@@ -661,13 +661,13 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                             if record.get('type') == 'Snapshot':
                                 data = record
                                 break
-            except:
+            except (json.JSONDecodeError, OSError):
                 pass
         elif json_path.exists():
             try:
                 with open(json_path) as f:
                     data = json.load(f)
-            except:
+            except (json.JSONDecodeError, OSError):
                 pass
 
         if not data:

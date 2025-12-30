@@ -92,7 +92,7 @@ def parse_json_links_details(out_dir: Path) -> Iterator[SnapshotDict]:
             except (json.JSONDecodeError, KeyError, TypeError):
                 pass
 
-        elif json_file.exists():
+        if link is None and json_file.exists():
             try:
                 with open(json_file, 'r', encoding='utf-8') as f:
                     link = json.load(f)
