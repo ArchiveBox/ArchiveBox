@@ -249,9 +249,9 @@ class Migration(migrations.Migration):
                         ('url', models.URLField(blank=True, default=None, help_text='Connection URL (CDP endpoint, sonic server, etc.)', max_length=2048, null=True)),
                         ('status', models.CharField(choices=[('queued', 'Queued'), ('running', 'Running'), ('exited', 'Exited')], db_index=True, default='queued', max_length=16)),
                         ('retry_at', models.DateTimeField(blank=True, db_index=True, default=django.utils.timezone.now, help_text='When to retry this process', null=True)),
-                        ('machine', models.ForeignKey(help_text='Machine where this process executed', on_delete=django.db.models.deletion.CASCADE, related_name='processes', to='machine.machine')),
-                        ('binary', models.ForeignKey(blank=True, help_text='Binary used by this process', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='processes', to='machine.binary')),
-                        ('iface', models.ForeignKey(blank=True, help_text='Network interface used by this process', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='processes', to='machine.networkinterface')),
+                        ('machine', models.ForeignKey(help_text='Machine where this process executed', on_delete=django.db.models.deletion.CASCADE, related_name='process_set', to='machine.machine')),
+                        ('binary', models.ForeignKey(blank=True, help_text='Binary used by this process', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='process_set', to='machine.binary')),
+                        ('iface', models.ForeignKey(blank=True, help_text='Network interface used by this process', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='process_set', to='machine.networkinterface')),
                     ],
                     options={
                         'verbose_name': 'Process',

@@ -510,7 +510,7 @@ class Process(ModelWithHealthStats):
         Machine,
         on_delete=models.CASCADE,
         null=False,
-        related_name='processes',
+        related_name='process_set',
         help_text='Machine where this process executed'
     )
 
@@ -545,14 +545,14 @@ class Process(ModelWithHealthStats):
         Binary,
         on_delete=models.SET_NULL,
         null=True, blank=True,
-        related_name='processes',
+        related_name='process_set',
         help_text='Binary used by this process'
     )
     iface = models.ForeignKey(
         NetworkInterface,
         on_delete=models.SET_NULL,
         null=True, blank=True,
-        related_name='processes',
+        related_name='process_set',
         help_text='Network interface used by this process'
     )
 

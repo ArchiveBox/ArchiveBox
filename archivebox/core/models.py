@@ -351,7 +351,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     def binary_set(self):
         """Get all Binary objects used by processes related to this snapshot."""
         from archivebox.machine.models import Binary
-        return Binary.objects.filter(process__archiveresult__snapshot_id=self.id).distinct()
+        return Binary.objects.filter(process_set__archiveresult__snapshot_id=self.id).distinct()
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
