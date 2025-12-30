@@ -4,9 +4,15 @@ JSONL (JSON Lines) utilities for ArchiveBox.
 Provides functions for reading, writing, and processing typed JSONL records.
 All CLI commands that accept stdin can read both plain URLs and typed JSONL.
 
+CLI Pipeline:
+    archivebox crawl URL    -> {"type": "Crawl", "id": "...", "urls": "...", ...}
+    archivebox snapshot     -> {"type": "Snapshot", "id": "...", "url": "...", ...}
+    archivebox extract      -> {"type": "ArchiveResult", "id": "...", "snapshot_id": "...", ...}
+
 Typed JSONL Format:
-    {"type": "Snapshot", "url": "https://example.com", "title": "...", "tags": "..."}
-    {"type": "ArchiveResult", "snapshot_id": "...", "extractor": "wget", ...}
+    {"type": "Crawl", "id": "...", "urls": "...", "max_depth": 0, ...}
+    {"type": "Snapshot", "id": "...", "url": "https://example.com", "title": "...", ...}
+    {"type": "ArchiveResult", "id": "...", "snapshot_id": "...", "plugin": "...", ...}
     {"type": "Tag", "name": "..."}
 
 Plain URLs (also supported):

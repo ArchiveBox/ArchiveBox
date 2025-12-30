@@ -146,8 +146,54 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             'urls': self.urls,
             'status': self.status,
             'max_depth': self.max_depth,
+            'tags_str': self.tags_str,
+            'label': self.label,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
+
+    @staticmethod
+    def from_jsonl(record: dict, overrides: dict = None):
+        """
+        Create or get a Crawl from a JSONL record.
+
+        Args:
+            record: Dict with 'urls' (required), optional 'max_depth', 'tags_str', 'label'
+            overrides: Dict of field overrides (e.g., created_by_id)
+
+        Returns:
+            Crawl instance or None if invalid
+        """
+        from django.utils import timezone
+
+        overrides = overrides or {}
+
+        # Check if crawl already exists by ID
+        crawl_id = record.get('id')
+        if crawl_id:
+            try:
+                return Crawl.objects.get(id=crawl_id)
+            except Crawl.DoesNotExist:
+                pass
+
+        # Get URLs - can be string (newline-separated) or from 'url' field
+        urls = record.get('urls', '')
+        if not urls and record.get('url'):
+            urls = record['url']
+
+        if not urls:
+            return None
+
+        # Create new crawl (status stays QUEUED, not started)
+        crawl = Crawl.objects.create(
+            urls=urls,
+            max_depth=record.get('max_depth', record.get('depth', 0)),
+            tags_str=record.get('tags_str', record.get('tags', '')),
+            label=record.get('label', ''),
+            status=Crawl.StatusChoices.QUEUED,
+            retry_at=timezone.now(),
+            **overrides,
+        )
+        return crawl
 
     @property
     def output_dir_parent(self) -> str:
