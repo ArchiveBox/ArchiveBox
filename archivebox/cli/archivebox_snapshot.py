@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-archivebox snapshot [urls_or_crawl_ids...] [--tag=TAG] [--plugin=NAME]
+archivebox snapshot [urls_or_crawl_ids...] [--tag=TAG] [--plugins=NAMES]
 
 Create Snapshots from URLs or Crawl jobs. Accepts URLs, Crawl JSONL, or Crawl IDs.
 
@@ -24,8 +24,8 @@ Examples:
     # Chain with extract
     archivebox crawl https://example.com | archivebox snapshot | archivebox extract
 
-    # Run specific plugin after creating snapshots
-    archivebox snapshot --plugin=screenshot https://example.com
+    # Run specific plugins after creating snapshots
+    archivebox snapshot --plugins=screenshot,singlefile https://example.com
 
     # Process existing Snapshot by ID
     archivebox snapshot 01234567-89ab-cdef-0123-456789abcdef
@@ -74,14 +74,14 @@ def process_snapshot_by_id(snapshot_id: str) -> int:
 def create_snapshots(
     args: tuple,
     tag: str = '',
-    plugin: str = '',
+    plugins: str = '',
     created_by_id: Optional[int] = None,
 ) -> int:
     """
     Create Snapshots from URLs, Crawl JSONL, or Crawl IDs.
 
     Reads from args or stdin, creates Snapshot objects, outputs JSONL.
-    If --plugin is passed, also runs specified plugin (blocking).
+    If --plugins is passed, also runs specified plugins (blocking).
 
     Exit codes:
         0: Success
@@ -179,28 +179,32 @@ def create_snapshots(
         for snapshot in created_snapshots:
             rprint(f'  [dim]{snapshot.id}[/dim] {snapshot.url[:60]}', file=sys.stderr)
 
-    # If --plugin is passed, create ArchiveResults and run the orchestrator
-    if plugin:
+    # If --plugins is passed, create ArchiveResults and run the orchestrator
+    if plugins:
         from archivebox.core.models import ArchiveResult
         from archivebox.workers.orchestrator import Orchestrator
 
-        # Create ArchiveResults for the specific plugin on each snapshot
-        for snapshot in created_snapshots:
-            result, created = ArchiveResult.objects.get_or_create(
-                snapshot=snapshot,
-                plugin=plugin,
-                defaults={
-                    'status': ArchiveResult.StatusChoices.QUEUED,
-                    'retry_at': timezone.now(),
-                }
-            )
-            if not created and result.status in [ArchiveResult.StatusChoices.FAILED, ArchiveResult.StatusChoices.SKIPPED]:
-                # Reset for retry
-                result.status = ArchiveResult.StatusChoices.QUEUED
-                result.retry_at = timezone.now()
-                result.save()
+        # Parse comma-separated plugins list
+        plugins_list = [p.strip() for p in plugins.split(',') if p.strip()]
 
-        rprint(f'[blue]Running plugin: {plugin}...[/blue]', file=sys.stderr)
+        # Create ArchiveResults for the specific plugins on each snapshot
+        for snapshot in created_snapshots:
+            for plugin_name in plugins_list:
+                result, created = ArchiveResult.objects.get_or_create(
+                    snapshot=snapshot,
+                    plugin=plugin_name,
+                    defaults={
+                        'status': ArchiveResult.StatusChoices.QUEUED,
+                        'retry_at': timezone.now(),
+                    }
+                )
+                if not created and result.status in [ArchiveResult.StatusChoices.FAILED, ArchiveResult.StatusChoices.SKIPPED]:
+                    # Reset for retry
+                    result.status = ArchiveResult.StatusChoices.QUEUED
+                    result.retry_at = timezone.now()
+                    result.save()
+
+        rprint(f'[blue]Running plugins: {plugins}...[/blue]', file=sys.stderr)
         orchestrator = Orchestrator(exit_on_idle=True)
         orchestrator.runloop()
 
@@ -220,9 +224,9 @@ def is_snapshot_id(value: str) -> bool:
 
 @click.command()
 @click.option('--tag', '-t', default='', help='Comma-separated tags to add to each snapshot')
-@click.option('--plugin', '-p', default='', help='Run only this plugin after creating snapshots (e.g., screenshot, singlefile)')
+@click.option('--plugins', '-p', default='', help='Comma-separated list of plugins to run after creating snapshots (e.g., screenshot,singlefile)')
 @click.argument('args', nargs=-1)
-def main(tag: str, plugin: str, args: tuple):
+def main(tag: str, plugins: str, args: tuple):
     """Create Snapshots from URLs/Crawls, or process existing Snapshots by ID"""
     from archivebox.misc.jsonl import read_args_or_stdin
 
@@ -256,7 +260,7 @@ def main(tag: str, plugin: str, args: tuple):
         sys.exit(exit_code)
     else:
         # Create new Snapshots from URLs or Crawls
-        sys.exit(create_snapshots(args, tag=tag, plugin=plugin))
+        sys.exit(create_snapshots(args, tag=tag, plugins=plugins))
 
 
 if __name__ == '__main__':
