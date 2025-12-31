@@ -30,7 +30,6 @@ import tempfile
 import unittest
 from io import StringIO
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 # Test configuration - disable slow extractors
 TEST_CONFIG = {
@@ -152,35 +151,8 @@ class TestJSONLParsing(unittest.TestCase):
         self.assertEqual(result['url'], 'file:///path/to/file.txt')
 
 
-class TestJSONLOutput(unittest.TestCase):
-    """Test JSONL output formatting."""
-
-    def test_crawl_to_json(self):
-        """Crawl model should serialize to JSON correctly."""
-        from archivebox.misc.jsonl import TYPE_CRAWL
-
-        # Create a mock crawl with to_json method configured
-        mock_crawl = MagicMock()
-        mock_crawl.to_json.return_value = {
-            'type': TYPE_CRAWL,
-            'schema_version': '0.9.0',
-            'id': 'test-crawl-uuid',
-            'urls': 'https://example.com',
-            'status': 'queued',
-            'max_depth': 0,
-            'tags_str': 'tag1,tag2',
-            'label': '',
-            'created_at': None,
-        }
-
-        result = mock_crawl.to_json()
-        self.assertEqual(result['type'], TYPE_CRAWL)
-        self.assertEqual(result['id'], 'test-crawl-uuid')
-        self.assertEqual(result['urls'], 'https://example.com')
-        self.assertEqual(result['status'], 'queued')
-
-    # Note: Snapshot and ArchiveResult serialization is tested in integration tests
-    # (TestPipingWorkflowIntegration) using real model instances, not mocks.
+# Note: JSONL output serialization is tested in TestPipingWorkflowIntegration
+# using real model instances, not mocks.
 
 
 class TestReadArgsOrStdin(unittest.TestCase):

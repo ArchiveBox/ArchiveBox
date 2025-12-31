@@ -11,28 +11,82 @@ import pytest
 
 
 # =============================================================================
+# CLI Helpers (defined before fixtures that use them)
+# =============================================================================
+
+def run_archivebox_cmd(
+    args: List[str],
+    data_dir: Path,
+    stdin: Optional[str] = None,
+    timeout: int = 60,
+    env: Optional[Dict[str, str]] = None,
+) -> Tuple[str, str, int]:
+    """
+    Run archivebox command via subprocess, return (stdout, stderr, returncode).
+
+    Args:
+        args: Command arguments (e.g., ['crawl', 'create', 'https://example.com'])
+        data_dir: The DATA_DIR to use
+        stdin: Optional string to pipe to stdin
+        timeout: Command timeout in seconds
+        env: Additional environment variables
+
+    Returns:
+        Tuple of (stdout, stderr, returncode)
+    """
+    cmd = [sys.executable, '-m', 'archivebox'] + args
+
+    base_env = os.environ.copy()
+    base_env['DATA_DIR'] = str(data_dir)
+    base_env['USE_COLOR'] = 'False'
+    base_env['SHOW_PROGRESS'] = 'False'
+    # Disable slow extractors for faster tests
+    base_env['SAVE_ARCHIVEDOTORG'] = 'False'
+    base_env['SAVE_TITLE'] = 'False'
+    base_env['SAVE_FAVICON'] = 'False'
+    base_env['SAVE_WGET'] = 'False'
+    base_env['SAVE_WARC'] = 'False'
+    base_env['SAVE_PDF'] = 'False'
+    base_env['SAVE_SCREENSHOT'] = 'False'
+    base_env['SAVE_DOM'] = 'False'
+    base_env['SAVE_SINGLEFILE'] = 'False'
+    base_env['SAVE_READABILITY'] = 'False'
+    base_env['SAVE_MERCURY'] = 'False'
+    base_env['SAVE_GIT'] = 'False'
+    base_env['SAVE_YTDLP'] = 'False'
+    base_env['SAVE_HEADERS'] = 'False'
+    base_env['SAVE_HTMLTOTEXT'] = 'False'
+
+    if env:
+        base_env.update(env)
+
+    result = subprocess.run(
+        cmd,
+        input=stdin,
+        capture_output=True,
+        text=True,
+        cwd=data_dir,
+        env=base_env,
+        timeout=timeout,
+    )
+
+    return result.stdout, result.stderr, result.returncode
+
+
+# =============================================================================
 # Fixtures
 # =============================================================================
 
 @pytest.fixture
-def isolated_data_dir(tmp_path, settings):
+def isolated_data_dir(tmp_path):
     """
     Create isolated DATA_DIR for each test.
 
-    Uses tmp_path for isolation, configures Django settings.
+    Uses tmp_path for complete isolation.
     """
     data_dir = tmp_path / 'archivebox_data'
     data_dir.mkdir()
-
-    # Set environment for subprocess calls
-    os.environ['DATA_DIR'] = str(data_dir)
-
-    # Update Django settings
-    settings.DATA_DIR = data_dir
-
-    yield data_dir
-
-    # Cleanup handled by tmp_path fixture
+    return data_dir
 
 
 @pytest.fixture
@@ -40,81 +94,15 @@ def initialized_archive(isolated_data_dir):
     """
     Initialize ArchiveBox archive in isolated directory.
 
-    Runs `archivebox init` to set up database and directories.
+    Runs `archivebox init` via subprocess to set up database and directories.
     """
-    from archivebox.cli.archivebox_init import init
-    init(setup=True, quick=True)
-    return isolated_data_dir
-
-
-@pytest.fixture
-def cli_env(initialized_archive):
-    """
-    Environment dict for CLI subprocess calls.
-
-    Includes DATA_DIR and disables slow extractors.
-    """
-    return {
-        **os.environ,
-        'DATA_DIR': str(initialized_archive),
-        'USE_COLOR': 'False',
-        'SHOW_PROGRESS': 'False',
-        'SAVE_TITLE': 'True',
-        'SAVE_FAVICON': 'False',
-        'SAVE_WGET': 'False',
-        'SAVE_WARC': 'False',
-        'SAVE_PDF': 'False',
-        'SAVE_SCREENSHOT': 'False',
-        'SAVE_DOM': 'False',
-        'SAVE_SINGLEFILE': 'False',
-        'SAVE_READABILITY': 'False',
-        'SAVE_MERCURY': 'False',
-        'SAVE_GIT': 'False',
-        'SAVE_YTDLP': 'False',
-        'SAVE_HEADERS': 'False',
-    }
-
-
-# =============================================================================
-# CLI Helpers
-# =============================================================================
-
-def run_archivebox_cmd(
-    args: List[str],
-    stdin: Optional[str] = None,
-    cwd: Optional[Path] = None,
-    env: Optional[Dict[str, str]] = None,
-    timeout: int = 60,
-) -> Tuple[str, str, int]:
-    """
-    Run archivebox command, return (stdout, stderr, returncode).
-
-    Args:
-        args: Command arguments (e.g., ['crawl', 'create', 'https://example.com'])
-        stdin: Optional string to pipe to stdin
-        cwd: Working directory (defaults to DATA_DIR from env)
-        env: Environment variables (defaults to os.environ with DATA_DIR)
-        timeout: Command timeout in seconds
-
-    Returns:
-        Tuple of (stdout, stderr, returncode)
-    """
-    cmd = [sys.executable, '-m', 'archivebox'] + args
-
-    env = env or {**os.environ}
-    cwd = cwd or Path(env.get('DATA_DIR', '.'))
-
-    result = subprocess.run(
-        cmd,
-        input=stdin,
-        capture_output=True,
-        text=True,
-        cwd=cwd,
-        env=env,
-        timeout=timeout,
+    stdout, stderr, returncode = run_archivebox_cmd(
+        ['init', '--quick'],
+        data_dir=isolated_data_dir,
+        timeout=60,
     )
-
-    return result.stdout, result.stderr, result.returncode
+    assert returncode == 0, f"archivebox init failed: {stderr}"
+    return isolated_data_dir
 
 
 # =============================================================================
@@ -163,23 +151,6 @@ def assert_record_has_fields(record: Dict[str, Any], required_fields: List[str])
 
 
 # =============================================================================
-# Database Assertions
-# =============================================================================
-
-def assert_db_count(model_class, filters: Dict[str, Any], expected: int):
-    """Assert database count matches expected."""
-    actual = model_class.objects.filter(**filters).count()
-    assert actual == expected, \
-        f"Expected {expected} {model_class.__name__}, got {actual}"
-
-
-def assert_db_exists(model_class, **filters):
-    """Assert at least one record exists matching filters."""
-    assert model_class.objects.filter(**filters).exists(), \
-        f"No {model_class.__name__} found matching {filters}"
-
-
-# =============================================================================
 # Test Data Factories
 # =============================================================================
 
@@ -192,11 +163,9 @@ def create_test_url(domain: str = 'example.com', path: str = None) -> str:
 
 def create_test_crawl_json(urls: List[str] = None, **kwargs) -> Dict[str, Any]:
     """Create Crawl JSONL record for testing."""
-    from archivebox.misc.jsonl import TYPE_CRAWL
-
     urls = urls or [create_test_url()]
     return {
-        'type': TYPE_CRAWL,
+        'type': 'Crawl',
         'urls': '\n'.join(urls),
         'max_depth': kwargs.get('max_depth', 0),
         'tags_str': kwargs.get('tags_str', ''),
@@ -207,10 +176,8 @@ def create_test_crawl_json(urls: List[str] = None, **kwargs) -> Dict[str, Any]:
 
 def create_test_snapshot_json(url: str = None, **kwargs) -> Dict[str, Any]:
     """Create Snapshot JSONL record for testing."""
-    from archivebox.misc.jsonl import TYPE_SNAPSHOT
-
     return {
-        'type': TYPE_SNAPSHOT,
+        'type': 'Snapshot',
         'url': url or create_test_url(),
         'tags_str': kwargs.get('tags_str', ''),
         'status': kwargs.get('status', 'queued'),
