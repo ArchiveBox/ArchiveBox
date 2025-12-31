@@ -19,6 +19,15 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const http = require('http');
+// Add NODE_MODULES_DIR to module resolution paths if set
+if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
+
+const {
+    getEnv,
+    getEnvBool,
+    getEnvInt,
+    parseArgs,
+} = require('../chrome/chrome_utils.js');
 
 // Extractor metadata
 const PLUGIN_NAME = 'headers';
@@ -26,35 +35,6 @@ const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'headers.json';
 const CHROME_SESSION_DIR = '../chrome';
 const CHROME_HEADERS_FILE = 'response_headers.json';
-
-// Parse command line arguments
-function parseArgs() {
-    const args = {};
-    process.argv.slice(2).forEach(arg => {
-        if (arg.startsWith('--')) {
-            const [key, ...valueParts] = arg.slice(2).split('=');
-            args[key.replace(/-/g, '_')] = valueParts.join('=') || true;
-        }
-    });
-    return args;
-}
-
-// Get environment variable with default
-function getEnv(name, defaultValue = '') {
-    return (process.env[name] || defaultValue).trim();
-}
-
-function getEnvBool(name, defaultValue = false) {
-    const val = getEnv(name, '').toLowerCase();
-    if (['true', '1', 'yes', 'on'].includes(val)) return true;
-    if (['false', '0', 'no', 'off'].includes(val)) return false;
-    return defaultValue;
-}
-
-function getEnvInt(name, defaultValue = 0) {
-    const val = parseInt(getEnv(name, String(defaultValue)), 10);
-    return isNaN(val) ? defaultValue : val;
-}
 
 // Get headers from chrome plugin if available
 function getHeadersFromChromeSession() {

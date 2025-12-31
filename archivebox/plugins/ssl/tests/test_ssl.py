@@ -117,17 +117,20 @@ class TestSSLWithChrome(TestCase):
                             except json.JSONDecodeError:
                                 continue
 
-                # Verify we got SSL data from HTTPS URL
-                if ssl_data:
-                    # example.com uses HTTPS, should get certificate info
-                    self.assertIn('protocol', ssl_data, f"SSL data missing protocol: {ssl_data}")
-                    self.assertTrue(
-                        ssl_data['protocol'].startswith('TLS') or ssl_data['protocol'].startswith('SSL'),
-                        f"Unexpected protocol: {ssl_data['protocol']}"
-                    )
-                else:
-                    # If no SSL data, at least verify hook ran without crashing
-                    self.assertEqual(result.returncode, 0, f"Hook failed: {result.stderr}")
+                # Verify hook ran successfully
+                self.assertEqual(result.returncode, 0, f"Hook failed: {result.stderr}")
+                self.assertNotIn('Traceback', result.stderr)
+                self.assertNotIn('Error:', result.stderr)
+
+                # example.com uses HTTPS, so we MUST get SSL certificate data
+                self.assertIsNotNone(ssl_data, "No SSL data extracted from HTTPS URL")
+
+                # Verify we got certificate info
+                self.assertIn('protocol', ssl_data, f"SSL data missing protocol: {ssl_data}")
+                self.assertTrue(
+                    ssl_data['protocol'].startswith('TLS') or ssl_data['protocol'].startswith('SSL'),
+                    f"Unexpected protocol: {ssl_data['protocol']}"
+                )
 
         except RuntimeError as e:
             if 'Chrome' in str(e) or 'CDP' in str(e):

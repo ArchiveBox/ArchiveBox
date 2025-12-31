@@ -20,21 +20,20 @@
  *     MODALCLOSER_POLL_INTERVAL: How often to check for CSS modals in ms (default: 500)
  */
 
-function getEnv(name, defaultValue = '') {
-    return (process.env[name] || defaultValue).trim();
-}
+const fs = require('fs');
+const path = require('path');
 
-function getEnvBool(name, defaultValue = false) {
-    const val = getEnv(name, '').toLowerCase();
-    if (['true', '1', 'yes', 'on'].includes(val)) return true;
-    if (['false', '0', 'no', 'off'].includes(val)) return false;
-    return defaultValue;
-}
+// Add NODE_MODULES_DIR to module resolution paths if set
+if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 
-function getEnvInt(name, defaultValue = 0) {
-    const val = parseInt(getEnv(name, String(defaultValue)), 10);
-    return isNaN(val) ? defaultValue : val;
-}
+// Import shared utilities from chrome_utils.js
+const {
+    getEnvBool,
+    getEnvInt,
+    parseArgs,
+    readCdpUrl,
+    readTargetId,
+} = require('../chrome/chrome_utils.js');
 
 // Check if modalcloser is enabled BEFORE requiring puppeteer
 if (!getEnvBool('MODALCLOSER_ENABLED', true)) {
@@ -42,41 +41,10 @@ if (!getEnvBool('MODALCLOSER_ENABLED', true)) {
     process.exit(0);
 }
 
-const fs = require('fs');
-const path = require('path');
-// Add NODE_MODULES_DIR to module resolution paths if set
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer-core');
 
 const PLUGIN_NAME = 'modalcloser';
 const CHROME_SESSION_DIR = '../chrome';
-
-function parseArgs() {
-    const args = {};
-    process.argv.slice(2).forEach(arg => {
-        if (arg.startsWith('--')) {
-            const [key, ...valueParts] = arg.slice(2).split('=');
-            args[key.replace(/-/g, '_')] = valueParts.join('=') || true;
-        }
-    });
-    return args;
-}
-
-function getCdpUrl() {
-    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-    if (fs.existsSync(cdpFile)) {
-        return fs.readFileSync(cdpFile, 'utf8').trim();
-    }
-    return null;
-}
-
-function getPageId() {
-    const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
-    if (fs.existsSync(targetIdFile)) {
-        return fs.readFileSync(targetIdFile, 'utf8').trim();
-    }
-    return null;
-}
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -267,7 +235,7 @@ async function main() {
     const dialogTimeout = getEnvInt('MODALCLOSER_TIMEOUT', 1250);
     const pollInterval = getEnvInt('MODALCLOSER_POLL_INTERVAL', 500);
 
-    const cdpUrl = getCdpUrl();
+    const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
     if (!cdpUrl) {
         console.error('ERROR: Chrome CDP URL not found (chrome plugin must run first)');
         process.exit(1);
@@ -307,7 +275,7 @@ async function main() {
         }
 
         // Find the right page by target ID
-        const targetId = getPageId();
+        const targetId = readTargetId(CHROME_SESSION_DIR);
         let page = null;
         if (targetId) {
             page = pages.find(p => {

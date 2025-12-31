@@ -89,8 +89,11 @@ class TestPipProviderHook(TestCase):
                 except json.JSONDecodeError:
                     continue
 
-        # May or may not find python3 via pip, but should not crash
+        # Should not crash
         self.assertNotIn('Traceback', result.stderr)
+
+        # Should find python3 via pip or env provider
+        self.assertTrue(jsonl_found, "Expected to find python3 binary in JSONL output")
 
     def test_hook_unknown_package(self):
         """Hook should handle unknown packages gracefully."""

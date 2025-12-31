@@ -1512,6 +1512,173 @@ async function installExtensionWithCache(extension, options = {}) {
     return installedExt;
 }
 
+// ============================================================================
+// Snapshot Hook Utilities (for CDP-based plugins like ssl, responses, dns)
+// ============================================================================
+
+/**
+ * Parse command line arguments into an object.
+ * Handles --key=value and --flag formats.
+ *
+ * @returns {Object} - Parsed arguments object
+ */
+function parseArgs() {
+    const args = {};
+    process.argv.slice(2).forEach(arg => {
+        if (arg.startsWith('--')) {
+            const [key, ...valueParts] = arg.slice(2).split('=');
+            args[key.replace(/-/g, '_')] = valueParts.join('=') || true;
+        }
+    });
+    return args;
+}
+
+/**
+ * Wait for Chrome session files to be ready.
+ * Polls for cdp_url.txt and target_id.txt in the chrome session directory.
+ *
+ * @param {string} chromeSessionDir - Path to chrome session directory (e.g., '../chrome')
+ * @param {number} [timeoutMs=60000] - Timeout in milliseconds
+ * @returns {Promise<boolean>} - True if files are ready, false if timeout
+ */
+async function waitForChromeSession(chromeSessionDir, timeoutMs = 60000) {
+    const cdpFile = path.join(chromeSessionDir, 'cdp_url.txt');
+    const targetIdFile = path.join(chromeSessionDir, 'target_id.txt');
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeoutMs) {
+        if (fs.existsSync(cdpFile) && fs.existsSync(targetIdFile)) {
+            return true;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    return false;
+}
+
+/**
+ * Read CDP WebSocket URL from chrome session directory.
+ *
+ * @param {string} chromeSessionDir - Path to chrome session directory
+ * @returns {string|null} - CDP URL or null if not found
+ */
+function readCdpUrl(chromeSessionDir) {
+    const cdpFile = path.join(chromeSessionDir, 'cdp_url.txt');
+    if (fs.existsSync(cdpFile)) {
+        return fs.readFileSync(cdpFile, 'utf8').trim();
+    }
+    return null;
+}
+
+/**
+ * Read target ID from chrome session directory.
+ *
+ * @param {string} chromeSessionDir - Path to chrome session directory
+ * @returns {string|null} - Target ID or null if not found
+ */
+function readTargetId(chromeSessionDir) {
+    const targetIdFile = path.join(chromeSessionDir, 'target_id.txt');
+    if (fs.existsSync(targetIdFile)) {
+        return fs.readFileSync(targetIdFile, 'utf8').trim();
+    }
+    return null;
+}
+
+/**
+ * Connect to Chrome browser and find the target page.
+ * This is a high-level utility that handles all the connection logic:
+ * 1. Wait for chrome session files
+ * 2. Connect to browser via CDP
+ * 3. Find the target page by ID
+ *
+ * @param {Object} options - Connection options
+ * @param {string} [options.chromeSessionDir='../chrome'] - Path to chrome session directory
+ * @param {number} [options.timeoutMs=60000] - Timeout for waiting
+ * @param {Object} [options.puppeteer] - Puppeteer module (must be passed in)
+ * @returns {Promise<Object>} - { browser, page, targetId, cdpUrl }
+ * @throws {Error} - If connection fails or page not found
+ */
+async function connectToPage(options = {}) {
+    const {
+        chromeSessionDir = '../chrome',
+        timeoutMs = 60000,
+        puppeteer,
+    } = options;
+
+    if (!puppeteer) {
+        throw new Error('puppeteer module must be passed to connectToPage()');
+    }
+
+    // Wait for chrome session to be ready
+    const sessionReady = await waitForChromeSession(chromeSessionDir, timeoutMs);
+    if (!sessionReady) {
+        throw new Error(`Chrome session not ready after ${timeoutMs/1000}s (chrome plugin must run first)`);
+    }
+
+    // Read session files
+    const cdpUrl = readCdpUrl(chromeSessionDir);
+    if (!cdpUrl) {
+        throw new Error('No Chrome session found (cdp_url.txt missing)');
+    }
+
+    const targetId = readTargetId(chromeSessionDir);
+
+    // Connect to browser
+    const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
+
+    // Find the target page
+    const pages = await browser.pages();
+    let page = null;
+
+    if (targetId) {
+        page = pages.find(p => {
+            const target = p.target();
+            return target && target._targetId === targetId;
+        });
+    }
+
+    // Fallback to last page if target not found
+    if (!page) {
+        page = pages[pages.length - 1];
+    }
+
+    if (!page) {
+        throw new Error('No page found in browser');
+    }
+
+    return { browser, page, targetId, cdpUrl };
+}
+
+/**
+ * Wait for page navigation to complete.
+ * Polls for page_loaded.txt marker file written by chrome_navigate.
+ *
+ * @param {string} chromeSessionDir - Path to chrome session directory
+ * @param {number} [timeoutMs=120000] - Timeout in milliseconds
+ * @param {number} [postLoadDelayMs=0] - Additional delay after page load marker
+ * @returns {Promise<void>}
+ * @throws {Error} - If timeout waiting for navigation
+ */
+async function waitForPageLoaded(chromeSessionDir, timeoutMs = 120000, postLoadDelayMs = 0) {
+    const pageLoadedMarker = path.join(chromeSessionDir, 'page_loaded.txt');
+    const pollInterval = 100;
+    let waitTime = 0;
+
+    while (!fs.existsSync(pageLoadedMarker) && waitTime < timeoutMs) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        waitTime += pollInterval;
+    }
+
+    if (!fs.existsSync(pageLoadedMarker)) {
+        throw new Error('Timeout waiting for navigation (chrome_navigate did not complete)');
+    }
+
+    // Optional post-load delay for late responses
+    if (postLoadDelayMs > 0) {
+        await new Promise(resolve => setTimeout(resolve, postLoadDelayMs));
+    }
+}
+
 // Export all functions
 module.exports = {
     // Environment helpers
@@ -1559,6 +1726,13 @@ module.exports = {
     installExtensionWithCache,
     // Deprecated - use enableExtensions option instead
     getExtensionLaunchArgs,
+    // Snapshot hook utilities (for CDP-based plugins)
+    parseArgs,
+    waitForChromeSession,
+    readCdpUrl,
+    readTargetId,
+    connectToPage,
+    waitForPageLoaded,
 };
 
 // CLI usage

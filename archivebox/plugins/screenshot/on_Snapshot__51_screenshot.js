@@ -29,6 +29,8 @@ const {
     getEnvBool,
     getEnvInt,
     parseResolution,
+    parseArgs,
+    readCdpUrl,
 } = require('../chrome/chrome_utils.js');
 
 // Check if screenshot is enabled BEFORE requiring puppeteer
@@ -46,18 +48,6 @@ const PLUGIN_NAME = 'screenshot';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'screenshot.png';
 const CHROME_SESSION_DIR = '../chrome';
-
-// Parse command line arguments
-function parseArgs() {
-    const args = {};
-    process.argv.slice(2).forEach(arg => {
-        if (arg.startsWith('--')) {
-            const [key, ...valueParts] = arg.slice(2).split('=');
-            args[key.replace(/-/g, '_')] = valueParts.join('=') || true;
-        }
-    });
-    return args;
-}
 
 // Check if staticfile extractor already downloaded this URL
 const STATICFILE_DIR = '../staticfile';
@@ -81,15 +71,6 @@ async function waitForChromeTabLoaded(timeoutMs = 60000) {
     return false;
 }
 
-// Get CDP URL from chrome plugin if available
-function getCdpUrl() {
-    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-    if (fs.existsSync(cdpFile)) {
-        return fs.readFileSync(cdpFile, 'utf8').trim();
-    }
-    return null;
-}
-
 async function takeScreenshot(url) {
     const timeout = (getEnvInt('CHROME_TIMEOUT') || getEnvInt('TIMEOUT', 60)) * 1000;
     const resolution = getEnv('CHROME_RESOLUTION') || getEnv('RESOLUTION', '1440,2000');
@@ -108,7 +89,7 @@ async function takeScreenshot(url) {
 
     try {
         // Try to connect to existing Chrome session
-        const cdpUrl = getCdpUrl();
+        const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
         if (cdpUrl) {
             try {
                 browser = await puppeteer.connect({
@@ -214,7 +195,7 @@ async function main() {
         }
 
         // Only wait for page load if using shared Chrome session
-        const cdpUrl = getCdpUrl();
+        const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
         if (cdpUrl) {
             // Wait for page to be fully loaded
             const pageLoaded = await waitForChromeTabLoaded(60000);
