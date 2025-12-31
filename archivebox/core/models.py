@@ -469,7 +469,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
     def _fs_next_version(self, version: str) -> str:
         """Get next version in migration chain (0.7/0.8 had same layout, only 0.8→0.9 migration needed)"""
-        # Treat 0.7.0 and 0.8.0 as equivalent (both used archive/{timestamp})
+        # Treat 0.7.0 and 0.8.0 as equivalent (both used data/archive/{timestamp})
         if version in ('0.7.0', '0.8.0'):
             return '0.9.0'
         return self._fs_current_version()
@@ -478,8 +478,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         """
         Migrate from flat to nested structure.
 
-        0.8.x: archive/{timestamp}/
-        0.9.x: users/{user}/snapshots/YYYYMMDD/{domain}/{uuid}/
+        0.8.x: data/archive/{timestamp}/{extractor}/
+        0.9.x: data/users/{username}/snapshots/YYYYMMDD/{domain}/{uuid}/{plugin}/
 
         Transaction handling:
         1. Copy files INSIDE transaction
