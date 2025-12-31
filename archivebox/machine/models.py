@@ -914,7 +914,7 @@ class Process(ModelWithHealthStats):
             # Check if too old (PID definitely reused)
             if proc.started_at and proc.started_at < timezone.now() - PID_REUSE_WINDOW:
                 is_stale = True
-            elif PSUTIL_AVAILABLE:
+            elif PSUTIL_AVAILABLE and proc.pid is not None:
                 # Check if OS process still exists with matching start time
                 try:
                     os_proc = psutil.Process(proc.pid)
@@ -1147,9 +1147,12 @@ class Process(ModelWithHealthStats):
         import subprocess
         import time
 
+        # Validate pwd is set (required for output files)
+        if not self.pwd:
+            raise ValueError("Process.pwd must be set before calling launch()")
+
         # Ensure output directory exists
-        if self.pwd:
-            Path(self.pwd).mkdir(parents=True, exist_ok=True)
+        Path(self.pwd).mkdir(parents=True, exist_ok=True)
 
         # Write cmd.sh for debugging
         self._write_cmd_file()
@@ -1232,7 +1235,8 @@ class Process(ModelWithHealthStats):
             proc.send_signal(signal_num)
 
             # Update our record
-            self.exit_code = -signal_num
+            # Use standard Unix convention: 128 + signal number
+            self.exit_code = 128 + signal_num
             self.ended_at = timezone.now()
             self.status = self.StatusChoices.EXITED
             self.save()
@@ -1336,9 +1340,10 @@ class Process(ModelWithHealthStats):
 
             # Step 2: Wait for graceful exit
             try:
-                proc.wait(timeout=graceful_timeout)
+                exit_status = proc.wait(timeout=graceful_timeout)
                 # Process exited gracefully
-                self.exit_code = proc.returncode if hasattr(proc, 'returncode') else 0
+                # psutil.Process.wait() returns the exit status
+                self.exit_code = exit_status if exit_status is not None else 0
                 self.status = self.StatusChoices.EXITED
                 self.ended_at = timezone.now()
                 self.save()
@@ -1350,7 +1355,8 @@ class Process(ModelWithHealthStats):
             proc.kill()
             proc.wait(timeout=2)
 
-            self.exit_code = -signal.SIGKILL
+            # Use standard Unix convention: 128 + signal number
+            self.exit_code = 128 + signal.SIGKILL
             self.status = self.StatusChoices.EXITED
             self.ended_at = timezone.now()
             self.save()
@@ -1398,6 +1404,7 @@ class Process(ModelWithHealthStats):
                 try:
                     child.terminate()
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    # Child already dead or we don't have permission - continue
                     pass
 
             # Wait briefly for children to exit
@@ -1410,6 +1417,7 @@ class Process(ModelWithHealthStats):
                     child.kill()
                     killed_count += 1
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    # Child exited or we don't have permission - continue
                     pass
 
             # Now kill self

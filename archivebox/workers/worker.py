@@ -290,7 +290,7 @@ class Worker:
         from archivebox.machine.models import Process
 
         if worker_id is None:
-            worker_id = Process.get_next_worker_id(process_type=cls.name)
+            worker_id = Process.get_next_worker_id(process_type=Process.TypeChoices.WORKER)
 
         # Use module-level function for pickling compatibility
         proc = MPProcess(
@@ -310,14 +310,24 @@ class Worker:
         from archivebox.machine.models import Process
 
         Process.cleanup_stale_running()
-        return list(Process.get_running(process_type=cls.name))
+        # Convert Process objects to dicts to match the expected API contract
+        processes = Process.get_running(process_type=Process.TypeChoices.WORKER)
+        return [
+            {
+                'pid': p.pid,
+                'worker_id': p.id,
+                'started_at': p.started_at.isoformat() if p.started_at else None,
+                'status': p.status,
+            }
+            for p in processes
+        ]
 
     @classmethod
     def get_worker_count(cls) -> int:
         """Get count of running workers of this type."""
         from archivebox.machine.models import Process
 
-        return Process.get_running_count(process_type=cls.name)
+        return Process.get_running_count(process_type=Process.TypeChoices.WORKER)
 
 
 class CrawlWorker(Worker):

@@ -72,6 +72,7 @@ class Orchestrator:
         self.pid: int = os.getpid()
         self.pid_file = None
         self.idle_count: int = 0
+        self._last_cleanup_time: float = 0.0  # For throttling cleanup_stale_running()
     
     def __repr__(self) -> str:
         return f'[underline]Orchestrator[/underline]\\[pid={self.pid}]'
@@ -81,15 +82,21 @@ class Orchestrator:
         """Check if an orchestrator is already running."""
         from archivebox.machine.models import Process
 
-        return Process.get_running_count(process_type='orchestrator') > 0
+        # Clean up stale processes before counting
+        Process.cleanup_stale_running()
+        return Process.get_running_count(process_type=Process.TypeChoices.ORCHESTRATOR) > 0
 
     def on_startup(self) -> None:
         """Called when orchestrator starts."""
         from archivebox.machine.models import Process
 
         self.pid = os.getpid()
-        # Register orchestrator process in database
+        # Register orchestrator process in database with explicit type
         self.db_process = Process.current()
+        # Ensure the process type is correctly set to ORCHESTRATOR
+        if self.db_process.process_type != Process.TypeChoices.ORCHESTRATOR:
+            self.db_process.process_type = Process.TypeChoices.ORCHESTRATOR
+            self.db_process.save(update_fields=['process_type'])
 
         # Clean up any stale Process records from previous runs
         stale_count = Process.cleanup_stale_running()
@@ -115,7 +122,8 @@ class Orchestrator:
         """Called when orchestrator shuts down."""
         # Update Process record status
         if hasattr(self, 'db_process') and self.db_process:
-            self.db_process.exit_code = 1 if error else 0
+            # KeyboardInterrupt is a graceful shutdown, not an error
+            self.db_process.exit_code = 1 if error and not isinstance(error, KeyboardInterrupt) else 0
             self.db_process.status = self.db_process.StatusChoices.EXITED
             self.db_process.ended_at = timezone.now()
             self.db_process.save()
@@ -131,8 +139,15 @@ class Orchestrator:
     def get_total_worker_count(self) -> int:
         """Get total count of running workers across all types."""
         from archivebox.machine.models import Process
+        import time
 
-        Process.cleanup_stale_running()
+        # Throttle cleanup to once every 30 seconds to avoid performance issues
+        CLEANUP_THROTTLE_SECONDS = 30
+        now = time.time()
+        if now - self._last_cleanup_time > CLEANUP_THROTTLE_SECONDS:
+            Process.cleanup_stale_running()
+            self._last_cleanup_time = now
+
         return sum(len(W.get_running_workers()) for W in self.WORKER_TYPES)
     
     def should_spawn_worker(self, WorkerClass: Type[Worker], queue_count: int) -> bool:

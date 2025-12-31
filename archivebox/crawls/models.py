@@ -424,8 +424,10 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         if self.OUTPUT_DIR.exists():
             for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
                 cmd_file = pid_file.parent / 'cmd.sh'
-                safe_kill_process(pid_file, cmd_file)
-                pid_file.unlink(missing_ok=True)
+                # Only delete PID file if kill succeeded or process is already dead
+                killed = safe_kill_process(pid_file, cmd_file)
+                if killed or not pid_file.exists():
+                    pid_file.unlink(missing_ok=True)
 
         # Run on_CrawlEnd hooks
         from archivebox.config.configset import get_config

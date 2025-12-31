@@ -1726,14 +1726,14 @@ The goal is to consolidate all subprocess management into `Process` model method
 |------------------|-------------|
 | `write_pid_file(worker_type, worker_id)` | `Process.current()` auto-creates |
 | `read_pid_file(path)` | `Process.objects.get_by_pid(pid)` |
-| `remove_pid_file(path)` | Automatic on `Process.status = EXITED` |
+| `remove_pid_file(path)` | Manual cleanup in `Process.kill()` and legacy hook cleanup code |
 | `is_process_alive(pid)` | `Process.is_running` / `Process.proc is not None` |
 | `get_all_pid_files()` | `Process.objects.filter(status='running')` |
 | `get_all_worker_pids(type)` | `Process.objects.filter(process_type=type, status='running')` |
 | `cleanup_stale_pid_files()` | `Process.cleanup_stale_running()` |
 | `get_running_worker_count(type)` | `Process.objects.filter(...).count()` |
-| `get_next_worker_id(type)` | Derive from `Process.objects.filter(...).count()` |
-| `stop_worker(pid, graceful)` | `Process.kill(signal_num=SIGTERM)` then `Process.kill(SIGKILL)` |
+| `get_next_worker_id(type)` | Use `Max(worker_id)+1` under transaction or DB sequence to avoid race conditions |
+| `stop_worker(pid, graceful)` | `Process.terminate(graceful_timeout)` or `Process.kill_tree()` |
 
 #### `hooks.py` Changes
 
@@ -1752,10 +1752,13 @@ with open(stdout_file, 'w') as out, open(stderr_file, 'w') as err:
 
 **New `run_hook()` using Process:**
 ```python
+# Only store env delta or allowlist to avoid leaking secrets
+env_delta = {k: v for k, v in env.items() if k in ALLOWED_ENV_VARS}
+
 hook_process = Process.objects.create(
     parent=parent_process,
     process_type=Process.TypeChoices.HOOK,
-    cmd=cmd, pwd=str(output_dir), env=env, timeout=timeout,
+    cmd=cmd, pwd=str(output_dir), env=env_delta, timeout=timeout,
 )
 hook_process.launch(background=is_background)
 # stdout/stderr/pid_file all handled internally by Process.launch()

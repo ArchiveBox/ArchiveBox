@@ -70,7 +70,6 @@ class Migration(migrations.Migration):
                             ('hook', 'Hook Script'),
                             ('binary', 'Binary Execution'),
                         ],
-                        db_index=True,
                         default='binary',
                         help_text='Type of process in the execution hierarchy',
                         max_length=16,
@@ -81,14 +80,14 @@ class Migration(migrations.Migration):
                     model_name='process',
                     index=models.Index(
                         fields=['parent', 'status'],
-                        name='machine_pro_parent__status_idx',
+                        name='machine_process_parent_status_idx',
                     ),
                 ),
                 migrations.AddIndex(
                     model_name='process',
                     index=models.Index(
                         fields=['machine', 'pid', 'started_at'],
-                        name='machine_pro_machine_pid_idx',
+                        name='machine_process_machine_pid_started_idx',
                     ),
                 ),
             ],
