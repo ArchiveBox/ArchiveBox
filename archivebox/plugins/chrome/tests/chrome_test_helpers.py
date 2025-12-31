@@ -2,17 +2,37 @@
 Shared Chrome test helpers for plugin integration tests.
 
 This module provides common utilities for Chrome-based plugin tests, reducing
-duplication across test files. It uses the JavaScript utilities from chrome_utils.js
-where appropriate.
+duplication across test files. Functions delegate to chrome_utils.js (the single
+source of truth) with Python fallbacks.
+
+Function names match the JS equivalents in snake_case:
+    JS: getMachineType()  -> Python: get_machine_type()
+    JS: getLibDir()       -> Python: get_lib_dir()
+    JS: getNodeModulesDir() -> Python: get_node_modules_dir()
+    JS: getExtensionsDir() -> Python: get_extensions_dir()
+    JS: findChromium()    -> Python: find_chromium()
+    JS: killChrome()      -> Python: kill_chrome()
+    JS: getTestEnv()      -> Python: get_test_env()
 
 Usage:
-    # Simplest - just import what you need:
+    # Path helpers (delegate to chrome_utils.js):
     from archivebox.plugins.chrome.tests.chrome_test_helpers import (
         get_test_env,           # env dict with LIB_DIR, NODE_MODULES_DIR, MACHINE_TYPE
+        get_machine_type,       # e.g., 'x86_64-linux', 'arm64-darwin'
+        get_lib_dir,            # Path to lib dir
+        get_node_modules_dir,   # Path to node_modules
+        get_extensions_dir,     # Path to chrome extensions
+        find_chromium,          # Find Chrome/Chromium binary
+        kill_chrome,            # Kill Chrome process by PID
+    )
+
+    # Test file helpers:
+    from archivebox.plugins.chrome.tests.chrome_test_helpers import (
         get_plugin_dir,         # get_plugin_dir(__file__) -> plugin dir Path
+        get_hook_script,        # Find hook script by glob pattern
+        PLUGINS_ROOT,           # Path to plugins root
         LIB_DIR,                # Path to lib dir (lazy-loaded)
         NODE_MODULES_DIR,       # Path to node_modules (lazy-loaded)
-        PLUGINS_ROOT,           # Path to plugins root
     )
 
     # For Chrome session tests:
@@ -61,8 +81,35 @@ CHROME_UTILS = CHROME_PLUGIN_DIR / 'chrome_utils.js'
 
 
 # =============================================================================
-# Path Helpers - use these to avoid boilerplate in test files
+# Path Helpers - delegates to chrome_utils.js with Python fallback
+# Function names match JS: getMachineType -> get_machine_type, etc.
 # =============================================================================
+
+
+def _call_chrome_utils(command: str, *args: str, env: Optional[dict] = None) -> Tuple[int, str, str]:
+    """Call chrome_utils.js CLI command (internal helper).
+
+    This is the central dispatch for calling the JS utilities from Python.
+    All path calculations and Chrome operations are centralized in chrome_utils.js
+    to ensure consistency between Python and JavaScript code.
+
+    Args:
+        command: The CLI command (e.g., 'findChromium', 'getTestEnv')
+        *args: Additional command arguments
+        env: Environment dict (default: current env)
+
+    Returns:
+        Tuple of (returncode, stdout, stderr)
+    """
+    cmd = ['node', str(CHROME_UTILS), command] + list(args)
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env or os.environ.copy()
+    )
+    return result.returncode, result.stdout, result.stderr
 
 
 def get_plugin_dir(test_file: str) -> Path:
@@ -97,39 +144,19 @@ def get_hook_script(plugin_dir: Path, pattern: str) -> Optional[Path]:
     return matches[0] if matches else None
 
 
-def get_lib_dir() -> Path:
-    """Get LIB_DIR for tests, checking env first then ArchiveBox config.
-
-    Returns the path to the lib directory, checking:
-    1. LIB_DIR environment variable
-    2. ArchiveBox config STORAGE_CONFIG.LIB_DIR
-    """
-    if os.environ.get('LIB_DIR'):
-        return Path(os.environ['LIB_DIR'])
-    from archivebox.config.common import STORAGE_CONFIG
-    return Path(str(STORAGE_CONFIG.LIB_DIR))
-
-
-def get_node_modules_dir() -> Path:
-    """Get NODE_MODULES_DIR for tests, checking env first.
-
-    Returns the path to the node_modules directory, checking:
-    1. NODE_MODULES_DIR environment variable
-    2. Computed from LIB_DIR
-    """
-    if os.environ.get('NODE_MODULES_DIR'):
-        return Path(os.environ['NODE_MODULES_DIR'])
-    lib_dir = get_lib_dir()
-    return lib_dir / 'npm' / 'node_modules'
-
-
 def get_machine_type() -> str:
     """Get machine type string (e.g., 'x86_64-linux', 'arm64-darwin').
 
-    Returns the machine type, checking:
-    1. MACHINE_TYPE environment variable
-    2. Computed from platform.machine() and platform.system()
+    Matches JS: getMachineType()
+
+    Tries chrome_utils.js first, falls back to Python computation.
     """
+    # Try JS first (single source of truth)
+    returncode, stdout, stderr = _call_chrome_utils('getMachineType')
+    if returncode == 0 and stdout.strip():
+        return stdout.strip()
+
+    # Fallback to Python computation
     if os.environ.get('MACHINE_TYPE'):
         return os.environ['MACHINE_TYPE']
 
@@ -142,18 +169,144 @@ def get_machine_type() -> str:
     return f"{machine}-{system}"
 
 
-def get_test_env() -> dict:
-    """Get environment dict with NODE_MODULES_DIR, LIB_DIR, and MACHINE_TYPE set correctly for tests.
+def get_lib_dir() -> Path:
+    """Get LIB_DIR path for platform-specific binaries.
 
-    Returns a copy of os.environ with NODE_MODULES_DIR, LIB_DIR, and MACHINE_TYPE added/updated.
-    Use this for all subprocess calls in simple plugin tests (screenshot, dom, pdf).
+    Matches JS: getLibDir()
+
+    Tries chrome_utils.js first, falls back to Python computation.
+    """
+    # Try JS first
+    returncode, stdout, stderr = _call_chrome_utils('getLibDir')
+    if returncode == 0 and stdout.strip():
+        return Path(stdout.strip())
+
+    # Fallback to Python
+    if os.environ.get('LIB_DIR'):
+        return Path(os.environ['LIB_DIR'])
+    from archivebox.config.common import STORAGE_CONFIG
+    return Path(str(STORAGE_CONFIG.LIB_DIR))
+
+
+def get_node_modules_dir() -> Path:
+    """Get NODE_MODULES_DIR path for npm packages.
+
+    Matches JS: getNodeModulesDir()
+
+    Tries chrome_utils.js first, falls back to Python computation.
+    """
+    # Try JS first
+    returncode, stdout, stderr = _call_chrome_utils('getNodeModulesDir')
+    if returncode == 0 and stdout.strip():
+        return Path(stdout.strip())
+
+    # Fallback to Python
+    if os.environ.get('NODE_MODULES_DIR'):
+        return Path(os.environ['NODE_MODULES_DIR'])
+    lib_dir = get_lib_dir()
+    return lib_dir / 'npm' / 'node_modules'
+
+
+def get_extensions_dir() -> str:
+    """Get the Chrome extensions directory path.
+
+    Matches JS: getExtensionsDir()
+
+    Tries chrome_utils.js first, falls back to Python computation.
+    """
+    returncode, stdout, stderr = _call_chrome_utils('getExtensionsDir')
+    if returncode == 0 and stdout.strip():
+        return stdout.strip()
+
+    # Fallback to default computation if JS call fails
+    data_dir = os.environ.get('DATA_DIR', './data')
+    persona = os.environ.get('ACTIVE_PERSONA', 'Default')
+    return str(Path(data_dir) / 'personas' / persona / 'chrome_extensions')
+
+
+def find_chromium(data_dir: Optional[str] = None) -> Optional[str]:
+    """Find the Chromium binary path.
+
+    Matches JS: findChromium()
+
+    Uses chrome_utils.js which checks:
+    - CHROME_BINARY env var
+    - @puppeteer/browsers install locations
+    - System Chromium locations
+    - Falls back to Chrome (with warning)
+
+    Args:
+        data_dir: Optional DATA_DIR override
+
+    Returns:
+        Path to Chromium binary or None if not found
     """
     env = os.environ.copy()
+    if data_dir:
+        env['DATA_DIR'] = str(data_dir)
+    returncode, stdout, stderr = _call_chrome_utils('findChromium', env=env)
+    if returncode == 0 and stdout.strip():
+        return stdout.strip()
+    return None
+
+
+def kill_chrome(pid: int, output_dir: Optional[str] = None) -> bool:
+    """Kill a Chrome process by PID.
+
+    Matches JS: killChrome()
+
+    Uses chrome_utils.js which handles:
+    - SIGTERM then SIGKILL
+    - Process group killing
+    - Zombie process cleanup
+
+    Args:
+        pid: Process ID to kill
+        output_dir: Optional chrome output directory for PID file cleanup
+
+    Returns:
+        True if the kill command succeeded
+    """
+    args = [str(pid)]
+    if output_dir:
+        args.append(str(output_dir))
+    returncode, stdout, stderr = _call_chrome_utils('killChrome', *args)
+    return returncode == 0
+
+
+def get_test_env() -> dict:
+    """Get environment dict with all paths set correctly for tests.
+
+    Matches JS: getTestEnv()
+
+    Tries chrome_utils.js first for path values, builds env dict.
+    Use this for all subprocess calls in plugin tests.
+    """
+    env = os.environ.copy()
+
+    # Try to get all paths from JS (single source of truth)
+    returncode, stdout, stderr = _call_chrome_utils('getTestEnv')
+    if returncode == 0 and stdout.strip():
+        try:
+            js_env = json.loads(stdout)
+            env.update(js_env)
+            return env
+        except json.JSONDecodeError:
+            pass
+
+    # Fallback to Python computation
     lib_dir = get_lib_dir()
     env['LIB_DIR'] = str(lib_dir)
     env['NODE_MODULES_DIR'] = str(get_node_modules_dir())
     env['MACHINE_TYPE'] = get_machine_type()
     return env
+
+
+# Backward compatibility aliases (deprecated, use new names)
+find_chromium_binary = find_chromium
+kill_chrome_via_js = kill_chrome
+get_machine_type_from_js = get_machine_type
+get_test_env_from_js = get_test_env
 
 
 # =============================================================================
@@ -319,131 +472,6 @@ def run_hook_and_parse(
     )
     result = parse_jsonl_output(stdout)
     return returncode, result, stderr
-
-
-def call_chrome_utils(command: str, *args: str, env: Optional[dict] = None) -> Tuple[int, str, str]:
-    """Call chrome_utils.js CLI command.
-
-    This is the central dispatch for calling the JS utilities from Python.
-    All path calculations and Chrome operations are centralized in chrome_utils.js
-    to ensure consistency between Python and JavaScript code.
-
-    Args:
-        command: The CLI command (e.g., 'findChromium', 'getTestEnv')
-        *args: Additional command arguments
-        env: Environment dict (default: current env)
-
-    Returns:
-        Tuple of (returncode, stdout, stderr)
-    """
-    cmd = ['node', str(CHROME_UTILS), command] + list(args)
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=30,
-        env=env or os.environ.copy()
-    )
-    return result.returncode, result.stdout, result.stderr
-
-
-def get_test_env_from_js() -> Optional[Dict[str, str]]:
-    """Get test environment paths from chrome_utils.js getTestEnv().
-
-    This is the single source of truth for path calculations.
-    Python calls JS to get all paths to avoid duplicating logic.
-
-    Returns:
-        Dict with DATA_DIR, MACHINE_TYPE, LIB_DIR, NODE_MODULES_DIR, etc.
-        or None if the JS call fails
-    """
-    returncode, stdout, stderr = call_chrome_utils('getTestEnv')
-    if returncode == 0 and stdout.strip():
-        try:
-            return json.loads(stdout)
-        except json.JSONDecodeError:
-            pass
-    return None
-
-
-def find_chromium_binary(data_dir: Optional[str] = None) -> Optional[str]:
-    """Find the Chromium binary using chrome_utils.js findChromium().
-
-    This uses the centralized findChromium() function which checks:
-    - CHROME_BINARY env var
-    - @puppeteer/browsers install locations
-    - System Chromium locations
-    - Falls back to Chrome (with warning)
-
-    Args:
-        data_dir: Directory where chromium was installed (contains chromium/ subdir)
-
-    Returns:
-        Path to Chromium binary or None if not found
-    """
-    env = os.environ.copy()
-    if data_dir:
-        env['DATA_DIR'] = str(data_dir)
-    returncode, stdout, stderr = call_chrome_utils('findChromium', env=env)
-    if returncode == 0 and stdout.strip():
-        return stdout.strip()
-    return None
-
-
-def get_extensions_dir() -> str:
-    """Get the Chrome extensions directory using chrome_utils.js getExtensionsDir().
-
-    This uses the centralized path calculation from chrome_utils.js which checks:
-    - CHROME_EXTENSIONS_DIR env var
-    - DATA_DIR/personas/ACTIVE_PERSONA/chrome_extensions
-
-    Returns:
-        Path to extensions directory
-    """
-    returncode, stdout, stderr = call_chrome_utils('getExtensionsDir')
-    if returncode == 0 and stdout.strip():
-        return stdout.strip()
-    # Fallback to default computation if JS call fails
-    data_dir = os.environ.get('DATA_DIR', './data')
-    persona = os.environ.get('ACTIVE_PERSONA', 'Default')
-    return str(Path(data_dir) / 'personas' / persona / 'chrome_extensions')
-
-
-def get_machine_type_from_js() -> Optional[str]:
-    """Get machine type from chrome_utils.js getMachineType().
-
-    This is the single source of truth for machine type calculation.
-    Returns values like 'x86_64-linux', 'arm64-darwin'.
-
-    Returns:
-        Machine type string or None if the JS call fails
-    """
-    returncode, stdout, stderr = call_chrome_utils('getMachineType')
-    if returncode == 0 and stdout.strip():
-        return stdout.strip()
-    return None
-
-
-def kill_chrome_via_js(pid: int, output_dir: Optional[str] = None) -> bool:
-    """Kill a Chrome process using chrome_utils.js killChrome().
-
-    This uses the centralized kill logic which handles:
-    - SIGTERM then SIGKILL
-    - Process group killing
-    - Zombie process cleanup
-
-    Args:
-        pid: Process ID to kill
-        output_dir: Optional chrome output directory for PID file cleanup
-
-    Returns:
-        True if the kill command succeeded
-    """
-    args = [str(pid)]
-    if output_dir:
-        args.append(str(output_dir))
-    returncode, stdout, stderr = call_chrome_utils('killChrome', *args)
-    return returncode == 0
 
 
 # =============================================================================
@@ -626,7 +654,7 @@ def kill_chromium_session(chrome_launch_process: subprocess.Popen, chrome_dir: P
     if chrome_pid_file.exists():
         try:
             chrome_pid = int(chrome_pid_file.read_text().strip())
-            kill_chrome_via_js(chrome_pid, str(chrome_dir))
+            kill_chrome(chrome_pid, str(chrome_dir))
         except (ValueError, FileNotFoundError):
             pass
 
@@ -782,7 +810,7 @@ def cleanup_chrome(chrome_launch_process: subprocess.Popen, chrome_pid: int, chr
         pass
 
     # Use JS to kill Chrome with proper process group handling
-    kill_chrome_via_js(chrome_pid, str(chrome_dir) if chrome_dir else None)
+    kill_chrome(chrome_pid, str(chrome_dir) if chrome_dir else None)
 
 
 @contextmanager
