@@ -6,20 +6,30 @@
  * redirect chain from the initial request. It stays alive through navigation
  * and emits JSONL on SIGTERM.
  *
- * Usage: on_Snapshot__25_chrome_redirects.bg.js --url=<url> --snapshot-id=<uuid>
- * Output: Writes redirects.jsonl + hook.pid
+ * Usage: on_Snapshot__31_redirects.bg.js --url=<url> --snapshot-id=<uuid>
+ * Output: Writes redirects.jsonl
  */
 
 const fs = require('fs');
 const path = require('path');
+
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
+
 const puppeteer = require('puppeteer-core');
+
+// Import shared utilities from chrome_utils.js
+const {
+    getEnvBool,
+    getEnvInt,
+    parseArgs,
+    connectToPage,
+    waitForPageLoaded,
+} = require('../chrome/chrome_utils.js');
 
 const PLUGIN_NAME = 'redirects';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'redirects.jsonl';
-// PID file is now written by run_hook() with hook-specific name
 const CHROME_SESSION_DIR = '../chrome';
 
 // Global state
@@ -29,94 +39,20 @@ let finalUrl = '';
 let page = null;
 let browser = null;
 
-function parseArgs() {
-    const args = {};
-    process.argv.slice(2).forEach(arg => {
-        if (arg.startsWith('--')) {
-            const [key, ...valueParts] = arg.slice(2).split('=');
-            args[key.replace(/-/g, '_')] = valueParts.join('=') || true;
-        }
-    });
-    return args;
-}
-
-function getEnv(name, defaultValue = '') {
-    return (process.env[name] || defaultValue).trim();
-}
-
-function getEnvBool(name, defaultValue = false) {
-    const val = getEnv(name, '').toLowerCase();
-    if (['true', '1', 'yes', 'on'].includes(val)) return true;
-    if (['false', '0', 'no', 'off'].includes(val)) return false;
-    return defaultValue;
-}
-
-async function waitForChromeTabOpen(timeoutMs = 60000) {
-    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-    const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeoutMs) {
-        if (fs.existsSync(cdpFile) && fs.existsSync(targetIdFile)) {
-            return true;
-        }
-        // Wait 100ms before checking again
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    return false;
-}
-
-function getCdpUrl() {
-    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-    if (fs.existsSync(cdpFile)) {
-        return fs.readFileSync(cdpFile, 'utf8').trim();
-    }
-    return null;
-}
-
-function getPageId() {
-    const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
-    if (fs.existsSync(targetIdFile)) {
-        return fs.readFileSync(targetIdFile, 'utf8').trim();
-    }
-    return null;
-}
-
 async function setupRedirectListener() {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
+    const timeout = getEnvInt('REDIRECTS_TIMEOUT', 30) * 1000;
+
     fs.writeFileSync(outputPath, ''); // Clear existing
 
-    // Wait for chrome tab to be open (up to 60s)
-    const tabOpen = await waitForChromeTabOpen(60000);
-    if (!tabOpen) {
-        throw new Error('Chrome tab not open after 60s (chrome plugin must run first)');
-    }
-
-    const cdpUrl = getCdpUrl();
-    if (!cdpUrl) {
-        throw new Error('No Chrome session found');
-    }
-
-    browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
-
-    // Find our page
-    const pages = await browser.pages();
-    const targetId = getPageId();
-
-    if (targetId) {
-        page = pages.find(p => {
-            const target = p.target();
-            return target && target._targetId === targetId;
-        });
-    }
-    if (!page) {
-        page = pages[pages.length - 1];
-    }
-
-    if (!page) {
-        throw new Error('No page found');
-    }
+    // Connect to Chrome page using shared utility
+    const connection = await connectToPage({
+        chromeSessionDir: CHROME_SESSION_DIR,
+        timeoutMs: timeout,
+        puppeteer,
+    });
+    browser = connection.browser;
+    page = connection.page;
 
     // Enable CDP Network domain to capture redirects
     const client = await page.target().createCDPSession();
@@ -208,27 +144,6 @@ async function setupRedirectListener() {
     return { browser, page };
 }
 
-async function waitForNavigation() {
-    // Wait for chrome_navigate to complete
-    const navDir = '../chrome';
-    const pageLoadedMarker = path.join(navDir, 'page_loaded.txt');
-    const maxWait = 120000; // 2 minutes
-    const pollInterval = 100;
-    let waitTime = 0;
-
-    while (!fs.existsSync(pageLoadedMarker) && waitTime < maxWait) {
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-        waitTime += pollInterval;
-    }
-
-    if (!fs.existsSync(pageLoadedMarker)) {
-        throw new Error('Timeout waiting for navigation (chrome_navigate did not complete)');
-    }
-
-    // Wait a bit longer for any post-load analysis
-    await new Promise(resolve => setTimeout(resolve, 1000));
-}
-
 function handleShutdown(signal) {
     console.error(`\nReceived ${signal}, emitting final results...`);
 
@@ -254,7 +169,7 @@ async function main() {
     const snapshotId = args.snapshot_id;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__25_chrome_redirects.bg.js --url=<url> --snapshot-id=<uuid>');
+        console.error('Usage: on_Snapshot__31_redirects.bg.js --url=<url> --snapshot-id=<uuid>');
         process.exit(1);
     }
 
@@ -266,6 +181,8 @@ async function main() {
         process.exit(0);
     }
 
+    const timeout = getEnvInt('REDIRECTS_TIMEOUT', 30) * 1000;
+
     // Register signal handlers for graceful shutdown
     process.on('SIGTERM', () => handleShutdown('SIGTERM'));
     process.on('SIGINT', () => handleShutdown('SIGINT'));
@@ -274,11 +191,8 @@ async function main() {
         // Set up redirect listener BEFORE navigation
         await setupRedirectListener();
 
-        // Note: PID file is written by run_hook() with hook-specific name
-        // Snapshot.cleanup() kills all *.pid processes when done
-
         // Wait for chrome_navigate to complete (BLOCKING)
-        await waitForNavigation();
+        await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 1000);
 
         // Keep process alive until killed by cleanup
         console.error('Redirect tracking complete, waiting for cleanup signal...');
@@ -290,7 +204,6 @@ async function main() {
         const error = `${e.name}: ${e.message}`;
         console.error(`ERROR: ${error}`);
 
-        // Output clean JSONL (no RESULT_JSON= prefix)
         console.log(JSON.stringify({
             type: 'ArchiveResult',
             status: 'failed',
