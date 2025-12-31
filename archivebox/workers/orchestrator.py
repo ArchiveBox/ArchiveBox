@@ -267,8 +267,8 @@ class Orchestrator:
         """Main orchestrator loop."""
         from rich.live import Live
         from rich.table import Table
-        from rich.console import Group
-        from archivebox.misc.logging import IS_TTY, CONSOLE
+        from archivebox.misc.logging import IS_TTY
+        import archivebox.misc.logging as logging_module
 
         self.on_startup()
 
@@ -305,11 +305,18 @@ class Orchestrator:
 
             return table
 
-        live = Live(make_progress_table(), console=CONSOLE, refresh_per_second=4, transient=False) if show_progress else None
+        live = Live(make_progress_table(), refresh_per_second=4, transient=False) if show_progress else None
+
+        # Redirect all output through Live's console when active
+        original_console = logging_module.CONSOLE
+        original_stderr = logging_module.STDERR
 
         try:
             if live:
                 live.start()
+                # Replace global consoles with Live's console
+                logging_module.CONSOLE = live.console
+                logging_module.STDERR = live.console
 
             while True:
                 # Check queues and spawn workers
@@ -347,7 +354,10 @@ class Orchestrator:
         else:
             self.on_shutdown()
         finally:
+            # Restore original consoles
             if live:
+                logging_module.CONSOLE = original_console
+                logging_module.STDERR = original_stderr
                 live.stop()
     
     def start(self) -> int:

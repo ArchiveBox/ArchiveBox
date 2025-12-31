@@ -648,8 +648,35 @@ def test_blocks_ads_on_test_page():
                 loaded_exts = json.loads(extensions_file.read_text())
                 print(f"Extensions loaded: {[e.get('name') for e in loaded_exts]}")
 
-            # Wait for extension to initialize
-            time.sleep(3)
+                # Verify extension has ID and is initialized
+                if loaded_exts and loaded_exts[0].get('id'):
+                    ext_id = loaded_exts[0]['id']
+                    print(f"Extension ID: {ext_id}")
+
+                    # Visit the extension dashboard to ensure it's fully loaded
+                    print("Visiting extension dashboard to verify initialization...")
+                    dashboard_script = f'''
+const puppeteer = require('{env_base['NODE_MODULES_DIR']}/puppeteer-core');
+(async () => {{
+    const browser = await puppeteer.connect({{
+        browserWSEndpoint: '{ext_cdp_url}',
+        defaultViewport: null
+    }});
+    const page = await browser.newPage();
+    await page.goto('chrome-extension://{ext_id}/dashboard.html', {{ waitUntil: 'domcontentloaded', timeout: 10000 }});
+    const title = await page.title();
+    console.log('Dashboard title:', title);
+    await page.close();
+    browser.disconnect();
+}})();
+'''
+                    dash_script_path = tmpdir / 'check_dashboard.js'
+                    dash_script_path.write_text(dashboard_script)
+                    subprocess.run(['node', str(dash_script_path)], capture_output=True, timeout=15, env=env_base)
+
+            # Wait longer for extension to fully initialize filters
+            print("Waiting for uBlock filter lists to initialize...")
+            time.sleep(8)
 
             ext_result = check_ad_blocking(
                 ext_cdp_url, TEST_URL, env_base, tmpdir

@@ -48,12 +48,17 @@ def cleanup_extra_columns(apps, schema_editor):
                 guid = f"{socket.gethostname()}-{platform.machine()}"
                 hostname = socket.gethostname()
 
-                # Check if config column exists (v0.9.0+ only)
+                # Check schema version
                 cursor.execute("SELECT COUNT(*) FROM pragma_table_info('machine_machine') WHERE name='config'")
                 has_config = cursor.fetchone()[0] > 0
+                cursor.execute("SELECT COUNT(*) FROM pragma_table_info('machine_machine') WHERE name='abid'")
+                has_abid = cursor.fetchone()[0] > 0
+                cursor.execute("SELECT COUNT(*) FROM pragma_table_info('machine_machine') WHERE name='num_uses_succeeded'")
+                has_num_uses = cursor.fetchone()[0] > 0
 
                 # Insert directly with SQL (use INSERT OR IGNORE in case it already exists)
                 if has_config:
+                    # v0.9.0+ schema
                     cursor.execute("""
                         INSERT OR IGNORE INTO machine_machine (
                             id, created_at, modified_at,
@@ -65,8 +70,21 @@ def cleanup_extra_columns(apps, schema_editor):
                         machine_id, guid, hostname,
                         platform.machine(), platform.system(), platform.platform(), platform.release()
                     ))
+                elif has_abid and has_num_uses:
+                    # v0.8.6rc0 schema (has abid and num_uses columns)
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO machine_machine (
+                            id, abid, created_at, modified_at,
+                            guid, hostname, hw_in_docker, hw_in_vm, hw_manufacturer, hw_product, hw_uuid,
+                            os_arch, os_family, os_platform, os_release, os_kernel,
+                            stats, num_uses_failed, num_uses_succeeded
+                        ) VALUES (?, '', datetime('now'), datetime('now'), ?, ?, 0, 0, '', '', '', ?, ?, ?, ?, '', '{}', 0, 0)
+                    """, (
+                        machine_id, guid, hostname,
+                        platform.machine(), platform.system(), platform.platform(), platform.release()
+                    ))
                 else:
-                    # v0.8.6rc0 schema (no config column)
+                    # v0.7.2 or other schema
                     cursor.execute("""
                         INSERT OR IGNORE INTO machine_machine (
                             id, created_at, modified_at,
@@ -79,8 +97,13 @@ def cleanup_extra_columns(apps, schema_editor):
                         platform.machine(), platform.system(), platform.platform(), platform.release()
                     ))
                 # Re-query to get the actual id (in case INSERT OR IGNORE skipped it)
-                machine_id = cursor.execute("SELECT id FROM machine_machine LIMIT 1").fetchone()[0]
-                print(f"  ✓ Using/Created Machine: {machine_id}")
+                result = cursor.execute("SELECT id FROM machine_machine LIMIT 1").fetchone()
+                if result:
+                    machine_id = result[0]
+                    print(f"  ✓ Using/Created Machine: {machine_id}")
+                else:
+                    # INSERT OR IGNORE failed - try again without IGNORE to see the error
+                    raise Exception("Failed to create Machine record - machine_machine table is empty after INSERT")
 
             for ar_id, cmd, pwd, binary_id, iface_id, start_ts, end_ts, status in archive_results:
                 # Create Process record
