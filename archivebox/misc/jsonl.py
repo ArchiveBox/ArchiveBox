@@ -24,7 +24,7 @@ __package__ = 'archivebox.misc'
 
 import sys
 import json
-from typing import Iterator, Dict, Any, Optional, TextIO, Callable
+from typing import Iterator, Dict, Any, Optional, TextIO
 from pathlib import Path
 
 
@@ -149,37 +149,4 @@ def write_records(records: Iterator[Dict[str, Any]], stream: Optional[TextIO] = 
         write_record(record, stream)
         count += 1
     return count
-
-
-def filter_by_type(records: Iterator[Dict[str, Any]], record_type: str) -> Iterator[Dict[str, Any]]:
-    """
-    Filter records by type.
-    """
-    for record in records:
-        if record.get('type') == record_type:
-            yield record
-
-
-def process_records(
-    records: Iterator[Dict[str, Any]],
-    handlers: Dict[str, Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]]
-) -> Iterator[Dict[str, Any]]:
-    """
-    Process records through type-specific handlers.
-
-    Args:
-        records: Input record iterator
-        handlers: Dict mapping type names to handler functions
-                 Handlers return output records or None to skip
-
-    Yields output records from handlers.
-    """
-    for record in records:
-        record_type = record.get('type')
-        handler = handlers.get(record_type)
-        if handler:
-            result = handler(record)
-            if result:
-                yield result
-
 

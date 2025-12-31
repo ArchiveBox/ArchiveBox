@@ -1176,7 +1176,9 @@ def create_model_record(record: Dict[str, Any]) -> Any:
 def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any] = None) -> Dict[str, int]:
     """
     Process JSONL records from hook output.
-    Dispatches to Model.from_jsonl() for each record type.
+
+    Uses Model.from_jsonl() which automatically filters by JSONL_TYPE.
+    Each model only processes records matching its type.
 
     Args:
         records: List of JSONL record dicts from result['records']
@@ -1185,54 +1187,26 @@ def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any
     Returns:
         Dict with counts by record type
     """
-    stats = {}
+    from archivebox.core.models import Snapshot, Tag
+    from archivebox.machine.models import Binary, Machine
+
     overrides = overrides or {}
 
-    for record in records:
-        record_type = record.get('type')
-        if not record_type:
-            continue
+    # Filter out ArchiveResult records (they update the calling AR, not create new ones)
+    filtered_records = [r for r in records if r.get('type') != 'ArchiveResult']
 
-        # Skip ArchiveResult records (they update the calling ArchiveResult, not create new ones)
-        if record_type == 'ArchiveResult':
-            continue
+    # Each model's from_jsonl() filters to only its own type
+    snapshots = Snapshot.from_jsonl(filtered_records, overrides)
+    tags = Tag.from_jsonl(filtered_records, overrides)
+    binaries = Binary.from_jsonl(filtered_records, overrides)
+    machines = Machine.from_jsonl(filtered_records, overrides)
 
-        try:
-            # Dispatch to appropriate model's from_jsonl() method
-            if record_type == 'Snapshot':
-                from archivebox.core.models import Snapshot
-                obj = Snapshot.from_jsonl(record.copy(), overrides)
-                if obj:
-                    stats['Snapshot'] = stats.get('Snapshot', 0) + 1
-
-            elif record_type == 'Tag':
-                from archivebox.core.models import Tag
-                obj = Tag.from_jsonl(record.copy(), overrides)
-                if obj:
-                    stats['Tag'] = stats.get('Tag', 0) + 1
-
-            elif record_type == 'Binary':
-                from archivebox.machine.models import Binary
-                obj = Binary.from_jsonl(record.copy(), overrides)
-                if obj:
-                    stats['Binary'] = stats.get('Binary', 0) + 1
-
-            elif record_type == 'Machine':
-                from archivebox.machine.models import Machine
-                obj = Machine.from_jsonl(record.copy(), overrides)
-                if obj:
-                    stats['Machine'] = stats.get('Machine', 0) + 1
-
-            else:
-                import sys
-                print(f"Warning: Unknown record type '{record_type}' from hook output", file=sys.stderr)
-
-        except Exception as e:
-            import sys
-            print(f"Warning: Failed to create {record_type}: {e}", file=sys.stderr)
-            continue
-
-    return stats
+    return {
+        'Snapshot': len(snapshots),
+        'Tag': len(tags),
+        'Binary': len(binaries),
+        'Machine': len(machines),
+    }
 
 
 def process_is_alive(pid_file: Path) -> bool:

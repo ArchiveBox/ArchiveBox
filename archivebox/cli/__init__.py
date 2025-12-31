@@ -27,36 +27,43 @@ class ArchiveBoxGroup(click.Group):
         'init': 'archivebox.cli.archivebox_init.main',
         'install': 'archivebox.cli.archivebox_install.main',
     }
+    # Model commands (CRUD operations via subcommands)
+    model_commands = {
+        'crawl': 'archivebox.cli.archivebox_crawl.main',
+        'snapshot': 'archivebox.cli.archivebox_snapshot.main',
+        'archiveresult': 'archivebox.cli.archivebox_archiveresult.main',
+        'tag': 'archivebox.cli.archivebox_tag.main',
+        'binary': 'archivebox.cli.archivebox_binary.main',
+        'process': 'archivebox.cli.archivebox_process.main',
+        'machine': 'archivebox.cli.archivebox_machine.main',
+    }
     archive_commands = {
+        # High-level commands
         'add': 'archivebox.cli.archivebox_add.main',
-        'remove': 'archivebox.cli.archivebox_remove.main',
+        'run': 'archivebox.cli.archivebox_run.main',
         'update': 'archivebox.cli.archivebox_update.main',
-        'search': 'archivebox.cli.archivebox_search.main',
         'status': 'archivebox.cli.archivebox_status.main',
         'config': 'archivebox.cli.archivebox_config.main',
         'schedule': 'archivebox.cli.archivebox_schedule.main',
         'server': 'archivebox.cli.archivebox_server.main',
         'shell': 'archivebox.cli.archivebox_shell.main',
         'manage': 'archivebox.cli.archivebox_manage.main',
-        # Worker/orchestrator commands
-        'orchestrator': 'archivebox.cli.archivebox_orchestrator.main',
+        # Worker command
         'worker': 'archivebox.cli.archivebox_worker.main',
-        # Task commands (called by workers as subprocesses)
-        'crawl': 'archivebox.cli.archivebox_crawl.main',
-        'snapshot': 'archivebox.cli.archivebox_snapshot.main',
-        'extract': 'archivebox.cli.archivebox_extract.main',
     }
     all_subcommands = {
         **meta_commands,
         **setup_commands,
+        **model_commands,
         **archive_commands,
     }
     renamed_commands = {
         'setup': 'install',
-        'list': 'search',
         'import': 'add',
         'archive': 'add',
-        'export': 'search',
+        # Old commands replaced by new model commands
+        'orchestrator': 'run',
+        'extract': 'archiveresult',
     }
     
     @classmethod
@@ -110,9 +117,9 @@ def cli(ctx, help=False):
     if help or ctx.invoked_subcommand is None:
         ctx.invoke(ctx.command.get_command(ctx, 'help'))
     
-    # if the subcommand is in the archive_commands dict and is not 'manage',
+    # if the subcommand is in archive_commands or model_commands,
     # then we need to set up the django environment and check that we're in a valid data folder
-    if subcommand in ArchiveBoxGroup.archive_commands:
+    if subcommand in ArchiveBoxGroup.archive_commands or subcommand in ArchiveBoxGroup.model_commands:
         # print('SETUP DJANGO AND CHECK DATA FOLDER')
         try:
             from archivebox.config.django import setup_django

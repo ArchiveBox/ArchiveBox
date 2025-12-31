@@ -127,7 +127,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False) -> None:
 
             if pending_links:
                 for link_dict in pending_links.values():
-                    Snapshot.from_jsonl(link_dict)
+                    Snapshot.from_json(link_dict)
 
             # Hint for orphaned snapshot directories
             print()

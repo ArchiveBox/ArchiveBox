@@ -25,7 +25,7 @@ const extensionUtils = require('../chrome/chrome_utils.js');
 // Extension metadata
 const EXTENSION = {
     webstore_id: 'ifibfemgeogfhoebkmokieepdoobkbpo',
-    name: 'captcha2',
+    name: 'twocaptcha',
 };
 
 // Get extensions directory from environment or use default
@@ -69,7 +69,7 @@ async function installCaptchaExtension() {
  */
 async function main() {
     // Check if extension is already cached
-    const cacheFile = path.join(EXTENSIONS_DIR, 'captcha2.extension.json');
+    const cacheFile = path.join(EXTENSIONS_DIR, 'twocaptcha.extension.json');
 
     if (fs.existsSync(cacheFile)) {
         try {

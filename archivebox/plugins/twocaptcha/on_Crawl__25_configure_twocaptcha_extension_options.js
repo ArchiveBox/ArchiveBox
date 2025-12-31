@@ -29,7 +29,7 @@ function getCrawlChromeSessionDir() {
 }
 
 const CHROME_SESSION_DIR = getCrawlChromeSessionDir() || '../chrome';
-const CONFIG_MARKER = path.join(CHROME_SESSION_DIR, '.captcha2_configured');
+const CONFIG_MARKER = path.join(CHROME_SESSION_DIR, '.twocaptcha_configured');
 
 // Get environment variable with default
 function getEnv(name, defaultValue = '') {
@@ -70,7 +70,7 @@ async function configure2Captcha() {
     }
 
     const extensions = JSON.parse(fs.readFileSync(extensionsFile, 'utf-8'));
-    const captchaExt = extensions.find(ext => ext.name === 'captcha2');
+    const captchaExt = extensions.find(ext => ext.name === 'twocaptcha');
 
     if (!captchaExt) {
         console.error('[*] 2captcha extension not installed, skipping configuration');
@@ -236,7 +236,7 @@ async function main() {
     const snapshotId = args.snapshot_id;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__21_captcha2_config.js --url=<url> --snapshot-id=<uuid>');
+        console.error('Usage: on_Snapshot__21_twocaptcha_config.js --url=<url> --snapshot-id=<uuid>');
         process.exit(1);
     }
 

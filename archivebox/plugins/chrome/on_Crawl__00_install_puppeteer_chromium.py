@@ -3,7 +3,12 @@
 Install hook for Chrome/Chromium and puppeteer-core.
 
 Runs at crawl start to install/find Chromium and puppeteer-core.
-Outputs JSONL for Binary and Machine config updates.
+Also validates config and computes derived values.
+
+Outputs:
+    - JSONL for Binary and Machine config updates
+    - COMPUTED:KEY=VALUE lines that hooks.py parses and adds to env
+
 Respects CHROME_BINARY env var for custom binary paths.
 Uses `npx @puppeteer/browsers install chromium@latest` and parses output.
 
@@ -17,6 +22,28 @@ import sys
 import json
 import subprocess
 from pathlib import Path
+
+
+def get_env(name: str, default: str = '') -> str:
+    return os.environ.get(name, default).strip()
+
+
+def get_env_bool(name: str, default: bool = False) -> bool:
+    val = get_env(name, '').lower()
+    if val in ('true', '1', 'yes', 'on'):
+        return True
+    if val in ('false', '0', 'no', 'off'):
+        return False
+    return default
+
+
+def detect_docker() -> bool:
+    """Detect if running inside Docker container."""
+    return (
+        os.path.exists('/.dockerenv') or
+        os.environ.get('IN_DOCKER', '').lower() in ('true', '1', 'yes') or
+        os.path.exists('/run/.containerenv')
+    )
 
 
 def get_chrome_version(binary_path: str) -> str | None:
@@ -131,13 +158,41 @@ def install_chromium() -> dict | None:
 
 
 def main():
+    warnings = []
+    errors = []
+    computed = {}
+
     # Install puppeteer-core if NODE_MODULES_DIR is set
     install_puppeteer_core()
 
+    # Check if Chrome is enabled
+    chrome_enabled = get_env_bool('CHROME_ENABLED', True)
+
+    # Detect Docker and adjust sandbox
+    in_docker = detect_docker()
+    computed['IN_DOCKER'] = str(in_docker).lower()
+
+    chrome_sandbox = get_env_bool('CHROME_SANDBOX', True)
+    if in_docker and chrome_sandbox:
+        warnings.append(
+            "Running in Docker with CHROME_SANDBOX=true. "
+            "Chrome may fail to start. Consider setting CHROME_SANDBOX=false."
+        )
+        # Auto-disable sandbox in Docker unless explicitly set
+        if not get_env('CHROME_SANDBOX'):
+            computed['CHROME_SANDBOX'] = 'false'
+
+    # Check Node.js availability
+    node_binary = get_env('NODE_BINARY', 'node')
+    computed['NODE_BINARY'] = node_binary
+
     # Check if CHROME_BINARY is already set and valid
-    configured_binary = os.environ.get('CHROME_BINARY', '').strip()
+    configured_binary = get_env('CHROME_BINARY', '')
     if configured_binary and os.path.isfile(configured_binary) and os.access(configured_binary, os.X_OK):
         version = get_chrome_version(configured_binary)
+        computed['CHROME_BINARY'] = configured_binary
+        computed['CHROME_VERSION'] = version or 'unknown'
+
         print(json.dumps({
             'type': 'Binary',
             'name': 'chromium',
@@ -145,12 +200,22 @@ def main():
             'version': version,
             'binprovider': 'env',
         }))
+
+        # Output computed values
+        for key, value in computed.items():
+            print(f"COMPUTED:{key}={value}")
+        for warning in warnings:
+            print(f"WARNING:{warning}", file=sys.stderr)
+
         sys.exit(0)
 
     # Install/find Chromium via puppeteer
     result = install_chromium()
 
     if result and result.get('abspath'):
+        computed['CHROME_BINARY'] = result['abspath']
+        computed['CHROME_VERSION'] = result['version'] or 'unknown'
+
         print(json.dumps({
             'type': 'Binary',
             'name': result['name'],
@@ -174,9 +239,25 @@ def main():
                 'value': result['version'],
             }))
 
+        # Output computed values
+        for key, value in computed.items():
+            print(f"COMPUTED:{key}={value}")
+        for warning in warnings:
+            print(f"WARNING:{warning}", file=sys.stderr)
+
         sys.exit(0)
     else:
-        print("Chromium binary not found", file=sys.stderr)
+        errors.append("Chromium binary not found")
+        computed['CHROME_BINARY'] = ''
+
+        # Output computed values and errors
+        for key, value in computed.items():
+            print(f"COMPUTED:{key}={value}")
+        for warning in warnings:
+            print(f"WARNING:{warning}", file=sys.stderr)
+        for error in errors:
+            print(f"ERROR:{error}", file=sys.stderr)
+
         sys.exit(1)
 
 

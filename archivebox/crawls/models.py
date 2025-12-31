@@ -1,6 +1,6 @@
 __package__ = 'archivebox.crawls'
 
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, Iterator, Set
 from datetime import timedelta
 from archivebox.uuid_compat import uuid7
 from pathlib import Path
@@ -59,6 +59,8 @@ class CrawlSchedule(ModelWithSerializers, ModelWithNotes, ModelWithHealthStats):
 
 
 class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWithStateMachine):
+    JSONL_TYPE = 'Crawl'
+
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
@@ -134,13 +136,13 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     def api_url(self) -> str:
         return reverse_lazy('api-1:get_crawl', args=[self.id])
 
-    def to_jsonl(self) -> dict:
+    def to_json(self) -> dict:
         """
-        Convert Crawl model instance to a JSONL record.
+        Convert Crawl model instance to a JSON-serializable dict.
         """
         from archivebox.config import VERSION
         return {
-            'type': 'Crawl',
+            'type': self.JSONL_TYPE,
             'schema_version': VERSION,
             'id': str(self.id),
             'urls': self.urls,
@@ -151,10 +153,63 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
 
-    @staticmethod
-    def from_jsonl(record: dict, overrides: dict = None):
+    def to_jsonl(self, seen: Set[tuple] = None, snapshot: bool = True, archiveresult: bool = True, process: bool = True, binary: bool = True, machine: bool = False, iface: bool = False, **kwargs) -> Iterator[dict]:
         """
-        Create or get a Crawl from a JSONL record.
+        Yield this Crawl and optionally related objects as JSON records.
+
+        Args:
+            seen: Set of (type, id) tuples already emitted (for deduplication)
+            snapshot: Include related Snapshots (default: True)
+            archiveresult: Include ArchiveResults for each Snapshot (default: True)
+            process: Include Process for each ArchiveResult (default: True)
+            binary: Include Binary for each Process (default: True)
+            machine: Include Machine for each Process (default: False)
+            iface: Include NetworkInterface for each Process (default: False)
+            **kwargs: Additional options passed to children
+
+        Yields:
+            dict: JSON-serializable records
+        """
+        if seen is None:
+            seen = set()
+
+        key = (self.JSONL_TYPE, str(self.id))
+        if key in seen:
+            return
+        seen.add(key)
+
+        yield self.to_json()
+
+        if snapshot:
+            for snap in self.snapshot_set.all():
+                yield from snap.to_jsonl(seen=seen, archiveresult=archiveresult, process=process, binary=binary, machine=machine, iface=iface, **kwargs)
+
+    @classmethod
+    def from_jsonl(cls, records, overrides: dict = None) -> list['Crawl']:
+        """
+        Create/update Crawls from an iterable of JSONL records.
+        Filters to only records with type='Crawl' (or no type).
+
+        Args:
+            records: Iterable of dicts (JSONL records)
+            overrides: Dict of field overrides (e.g., created_by_id)
+
+        Returns:
+            List of Crawl instances (skips None results)
+        """
+        results = []
+        for record in records:
+            record_type = record.get('type', cls.JSONL_TYPE)
+            if record_type == cls.JSONL_TYPE:
+                instance = cls.from_json(record, overrides=overrides)
+                if instance:
+                    results.append(instance)
+        return results
+
+    @staticmethod
+    def from_json(record: dict, overrides: dict = None) -> 'Crawl | None':
+        """
+        Create or get a single Crawl from a JSON record dict.
 
         Args:
             record: Dict with 'urls' (required), optional 'max_depth', 'tags_str', 'label'

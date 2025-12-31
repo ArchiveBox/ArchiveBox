@@ -9,7 +9,7 @@
  * --load-extension and --disable-extensions-except flags.
  *
  * Usage: on_Crawl__20_chrome_launch.bg.js --crawl-id=<uuid> --source-url=<url>
- * Output: Creates chrome/ directory under crawl output dir with:
+ * Output: Writes to current directory (executor creates chrome/ dir):
  *   - cdp_url.txt: WebSocket URL for CDP connection
  *   - chrome.pid: Chromium process ID (for cleanup)
  *   - port.txt: Debug port number
@@ -42,7 +42,7 @@ const {
 
 // Extractor metadata
 const PLUGIN_NAME = 'chrome_launch';
-const OUTPUT_DIR = 'chrome';
+const OUTPUT_DIR = '.';
 
 // Global state for cleanup
 let chromePid = null;

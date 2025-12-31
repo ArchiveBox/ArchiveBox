@@ -1,6 +1,7 @@
 __package__ = 'archivebox.machine'
 
 import socket
+from typing import Iterator, Set
 from archivebox.uuid_compat import uuid7
 from datetime import timedelta
 
@@ -29,6 +30,8 @@ class MachineManager(models.Manager):
 
 
 class Machine(ModelWithHealthStats):
+    JSONL_TYPE = 'Machine'
+
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -69,13 +72,35 @@ class Machine(ModelWithHealthStats):
         )
         return _CURRENT_MACHINE
 
-    @staticmethod
-    def from_jsonl(record: dict, overrides: dict = None):
+    @classmethod
+    def from_jsonl(cls, records, overrides: dict = None) -> list['Machine']:
         """
-        Update Machine config from JSONL record.
+        Update Machine configs from an iterable of JSONL records.
+        Filters to only records with type='Machine'.
 
         Args:
-            record: JSONL record with '_method': 'update', 'key': '...', 'value': '...'
+            records: Iterable of dicts (JSONL records)
+            overrides: Not used
+
+        Returns:
+            List of Machine instances (skips None results)
+        """
+        results = []
+        for record in records:
+            record_type = record.get('type', cls.JSONL_TYPE)
+            if record_type == cls.JSONL_TYPE:
+                instance = cls.from_json(record, overrides=overrides)
+                if instance:
+                    results.append(instance)
+        return results
+
+    @staticmethod
+    def from_json(record: dict, overrides: dict = None) -> 'Machine | None':
+        """
+        Update a single Machine config from a JSON record dict.
+
+        Args:
+            record: Dict with '_method': 'update', 'key': '...', 'value': '...'
             overrides: Not used
 
         Returns:
@@ -94,6 +119,44 @@ class Machine(ModelWithHealthStats):
                 return machine
         return None
 
+    def to_json(self) -> dict:
+        """
+        Convert Machine model instance to a JSON-serializable dict.
+        """
+        from archivebox.config import VERSION
+        return {
+            'type': self.JSONL_TYPE,
+            'schema_version': VERSION,
+            'id': str(self.id),
+            'guid': self.guid,
+            'hostname': self.hostname,
+            'hw_in_docker': self.hw_in_docker,
+            'hw_in_vm': self.hw_in_vm,
+            'os_arch': self.os_arch,
+            'os_family': self.os_family,
+            'os_platform': self.os_platform,
+            'os_release': self.os_release,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def to_jsonl(self, seen: Set[tuple] = None, **kwargs) -> Iterator[dict]:
+        """
+        Yield this Machine as a JSON record.
+
+        Args:
+            seen: Set of (type, id) tuples already emitted (for deduplication)
+            **kwargs: Passed to children (none for Machine, leaf node)
+
+        Yields:
+            dict: JSON-serializable record for this machine
+        """
+        if seen is not None:
+            key = (self.JSONL_TYPE, str(self.id))
+            if key in seen:
+                return
+            seen.add(key)
+        yield self.to_json()
+
 
 class NetworkInterfaceManager(models.Manager):
     def current(self) -> 'NetworkInterface':
@@ -101,6 +164,8 @@ class NetworkInterfaceManager(models.Manager):
 
 
 class NetworkInterface(ModelWithHealthStats):
+    JSONL_TYPE = 'NetworkInterface'
+
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -139,6 +204,46 @@ class NetworkInterface(ModelWithHealthStats):
         )
         return _CURRENT_INTERFACE
 
+    def to_json(self) -> dict:
+        """
+        Convert NetworkInterface model instance to a JSON-serializable dict.
+        """
+        from archivebox.config import VERSION
+        return {
+            'type': self.JSONL_TYPE,
+            'schema_version': VERSION,
+            'id': str(self.id),
+            'machine_id': str(self.machine_id),
+            'hostname': self.hostname,
+            'iface': self.iface,
+            'ip_public': self.ip_public,
+            'ip_local': self.ip_local,
+            'mac_address': self.mac_address,
+            'dns_server': self.dns_server,
+            'isp': self.isp,
+            'city': self.city,
+            'region': self.region,
+            'country': self.country,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def to_jsonl(self, seen: Set[tuple] = None, **kwargs) -> Iterator[dict]:
+        """
+        Yield this NetworkInterface as a JSON record.
+
+        Args:
+            seen: Set of (type, id) tuples already emitted (for deduplication)
+            **kwargs: Passed to children (none for NetworkInterface, leaf node)
+
+        Yields:
+            dict: JSON-serializable record for this network interface
+        """
+        if seen is not None:
+            key = (self.JSONL_TYPE, str(self.id))
+            if key in seen:
+                return
+            seen.add(key)
+        yield self.to_json()
 
 
 class BinaryManager(models.Manager):
@@ -165,7 +270,7 @@ class BinaryManager(models.Manager):
 
 class Binary(ModelWithHealthStats):
     """
-    Tracks an binary on a specific machine.
+    Tracks a binary on a specific machine.
 
     Follows the unified state machine pattern:
     - queued: Binary needs to be installed
@@ -176,6 +281,7 @@ class Binary(ModelWithHealthStats):
     State machine calls run() which executes on_Binary__install_* hooks
     to install the binary using the specified providers.
     """
+    JSONL_TYPE = 'Binary'
 
     class StatusChoices(models.TextChoices):
         QUEUED = 'queued', 'Queued'
@@ -242,13 +348,13 @@ class Binary(ModelWithHealthStats):
             'is_valid': self.is_valid,
         }
 
-    def to_jsonl(self) -> dict:
+    def to_json(self) -> dict:
         """
-        Convert Binary model instance to a JSONL record.
+        Convert Binary model instance to a JSON-serializable dict.
         """
         from archivebox.config import VERSION
         return {
-            'type': 'Binary',
+            'type': self.JSONL_TYPE,
             'schema_version': VERSION,
             'id': str(self.id),
             'machine_id': str(self.machine_id),
@@ -260,17 +366,57 @@ class Binary(ModelWithHealthStats):
             'status': self.status,
         }
 
-    @staticmethod
-    def from_jsonl(record: dict, overrides: dict = None):
+    def to_jsonl(self, seen: Set[tuple] = None, **kwargs) -> Iterator[dict]:
         """
-        Create/update Binary from JSONL record.
+        Yield this Binary as a JSON record.
+
+        Args:
+            seen: Set of (type, id) tuples already emitted (for deduplication)
+            **kwargs: Passed to children (none for Binary, leaf node)
+
+        Yields:
+            dict: JSON-serializable record for this binary
+        """
+        if seen is not None:
+            key = (self.JSONL_TYPE, str(self.id))
+            if key in seen:
+                return
+            seen.add(key)
+        yield self.to_json()
+
+    @classmethod
+    def from_jsonl(cls, records, overrides: dict = None) -> list['Binary']:
+        """
+        Create/update Binaries from an iterable of JSONL records.
+        Filters to only records with type='Binary'.
+
+        Args:
+            records: Iterable of dicts (JSONL records)
+            overrides: Not used
+
+        Returns:
+            List of Binary instances (skips None results)
+        """
+        results = []
+        for record in records:
+            record_type = record.get('type', cls.JSONL_TYPE)
+            if record_type == cls.JSONL_TYPE:
+                instance = cls.from_json(record, overrides=overrides)
+                if instance:
+                    results.append(instance)
+        return results
+
+    @staticmethod
+    def from_json(record: dict, overrides: dict = None) -> 'Binary | None':
+        """
+        Create/update a single Binary from a JSON record dict.
 
         Handles two cases:
         1. From binaries.jsonl: creates queued binary with name, binproviders, overrides
         2. From hook output: updates binary with abspath, version, sha256, binprovider
 
         Args:
-            record: JSONL record with 'name' and either:
+            record: Dict with 'name' and either:
                     - 'binproviders', 'overrides' (from binaries.jsonl)
                     - 'abspath', 'version', 'sha256', 'binprovider' (from hook output)
             overrides: Not used
@@ -494,6 +640,7 @@ class Process(ModelWithHealthStats):
 
     State machine calls launch() to spawn the process and monitors its lifecycle.
     """
+    JSONL_TYPE = 'Process'
 
     class StatusChoices(models.TextChoices):
         QUEUED = 'queued', 'Queued'
@@ -624,13 +771,13 @@ class Process(ModelWithHealthStats):
             return self.archiveresult.hook_name
         return ''
 
-    def to_jsonl(self) -> dict:
+    def to_json(self) -> dict:
         """
-        Convert Process model instance to a JSONL record.
+        Convert Process model instance to a JSON-serializable dict.
         """
         from archivebox.config import VERSION
         record = {
-            'type': 'Process',
+            'type': self.JSONL_TYPE,
             'schema_version': VERSION,
             'id': str(self.id),
             'machine_id': str(self.machine_id),
@@ -649,6 +796,37 @@ class Process(ModelWithHealthStats):
         if self.timeout:
             record['timeout'] = self.timeout
         return record
+
+    def to_jsonl(self, seen: Set[tuple] = None, binary: bool = True, machine: bool = False, iface: bool = False, **kwargs) -> Iterator[dict]:
+        """
+        Yield this Process and optionally related objects as JSON records.
+
+        Args:
+            seen: Set of (type, id) tuples already emitted (for deduplication)
+            binary: Include related Binary (default: True)
+            machine: Include related Machine (default: False)
+            iface: Include related NetworkInterface (default: False)
+            **kwargs: Passed to children
+
+        Yields:
+            dict: JSON-serializable records
+        """
+        if seen is None:
+            seen = set()
+
+        key = (self.JSONL_TYPE, str(self.id))
+        if key in seen:
+            return
+        seen.add(key)
+
+        yield self.to_json()
+
+        if binary and self.binary:
+            yield from self.binary.to_jsonl(seen=seen, **kwargs)
+        if machine and self.machine:
+            yield from self.machine.to_jsonl(seen=seen, **kwargs)
+        if iface and self.iface:
+            yield from self.iface.to_jsonl(seen=seen, **kwargs)
 
     def update_and_requeue(self, **kwargs):
         """

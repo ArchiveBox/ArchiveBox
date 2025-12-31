@@ -158,7 +158,7 @@ class AddLinkForm(forms.Form):
             'search_backend_ripgrep', 'search_backend_sonic', 'search_backend_sqlite'
         }
         binary = {'apt', 'brew', 'custom', 'env', 'npm', 'pip'}
-        extensions = {'captcha2', 'istilldontcareaboutcookies', 'ublock'}
+        extensions = {'twocaptcha', 'istilldontcareaboutcookies', 'ublock'}
 
         # Populate plugin field choices
         self.fields['chrome_plugins'].choices = [

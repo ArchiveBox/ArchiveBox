@@ -1,5 +1,5 @@
 """
-Unit tests for captcha2 plugin
+Unit tests for twocaptcha plugin
 
 Tests invoke the plugin hooks as external processes and verify outputs/side effects.
 """
@@ -14,8 +14,8 @@ import pytest
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_captcha2.*'), None)
-CONFIG_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_captcha2_config.*'), None)
+INSTALL_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_install_twocaptcha_extension.*'), None)
+CONFIG_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_configure_twocaptcha_extension_options.*'), None)
 
 
 def test_install_script_exists():
@@ -29,7 +29,7 @@ def test_config_script_exists():
 
 
 def test_extension_metadata():
-    """Test that captcha2 extension has correct metadata"""
+    """Test that twocaptcha extension has correct metadata"""
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
         env["CHROME_EXTENSIONS_DIR"] = str(Path(tmpdir) / "chrome_extensions")
@@ -46,7 +46,7 @@ def test_extension_metadata():
 
         metadata = json.loads(result.stdout)
         assert metadata["webstore_id"] == "ifibfemgeogfhoebkmokieepdoobkbpo"
-        assert metadata["name"] == "captcha2"
+        assert metadata["name"] == "twocaptcha"
 
 
 def test_install_creates_cache():
@@ -72,13 +72,13 @@ def test_install_creates_cache():
         assert "[*] Installing 2captcha extension" in result.stdout or "[*] 2captcha extension already installed" in result.stdout
 
         # Check cache file was created
-        cache_file = ext_dir / "captcha2.extension.json"
+        cache_file = ext_dir / "twocaptcha.extension.json"
         assert cache_file.exists(), "Cache file should be created"
 
         # Verify cache content
         cache_data = json.loads(cache_file.read_text())
         assert cache_data["webstore_id"] == "ifibfemgeogfhoebkmokieepdoobkbpo"
-        assert cache_data["name"] == "captcha2"
+        assert cache_data["name"] == "twocaptcha"
         assert "unpacked_path" in cache_data
         assert "version" in cache_data
 
@@ -104,7 +104,7 @@ def test_install_twice_uses_cache():
         assert result1.returncode == 0, f"First install failed: {result1.stderr}"
 
         # Verify cache was created
-        cache_file = ext_dir / "captcha2.extension.json"
+        cache_file = ext_dir / "twocaptcha.extension.json"
         assert cache_file.exists(), "Cache file should exist after first install"
 
         # Second install - should use cache
@@ -175,7 +175,7 @@ def test_config_script_structure():
     script_content = CONFIG_SCRIPT.read_text()
 
     # Should mention configuration marker file
-    assert "CONFIG_MARKER" in script_content or "captcha2_configured" in script_content
+    assert "CONFIG_MARKER" in script_content or "twocaptcha_configured" in script_content
 
     # Should mention API key
     assert "API_KEY_2CAPTCHA" in script_content
