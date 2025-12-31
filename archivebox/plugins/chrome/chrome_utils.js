@@ -257,6 +257,31 @@ function killZombieChrome(dataDir = null) {
         console.error('[+] No zombies found');
     }
 
+    // Clean up stale SingletonLock files from persona chrome_user_data directories
+    const personasDir = path.join(dataDir, 'personas');
+    if (fs.existsSync(personasDir)) {
+        try {
+            const personas = fs.readdirSync(personasDir, { withFileTypes: true });
+            for (const persona of personas) {
+                if (!persona.isDirectory()) continue;
+
+                const userDataDir = path.join(personasDir, persona.name, 'chrome_user_data');
+                const singletonLock = path.join(userDataDir, 'SingletonLock');
+
+                if (fs.existsSync(singletonLock)) {
+                    try {
+                        fs.unlinkSync(singletonLock);
+                        console.error(`[+] Removed stale SingletonLock: ${singletonLock}`);
+                    } catch (e) {
+                        // Ignore - may be in use by active Chrome
+                    }
+                }
+            }
+        } catch (e) {
+            // Ignore errors scanning personas directory
+        }
+    }
+
     return killed;
 }
 
@@ -270,6 +295,7 @@ function killZombieChrome(dataDir = null) {
  * @param {Object} options - Launch options
  * @param {string} [options.binary] - Chrome binary path (auto-detected if not provided)
  * @param {string} [options.outputDir='chrome'] - Directory for output files
+ * @param {string} [options.userDataDir] - Chrome user data directory for persistent sessions
  * @param {string} [options.resolution='1440,2000'] - Window resolution
  * @param {boolean} [options.headless=true] - Run in headless mode
  * @param {boolean} [options.checkSsl=true] - Check SSL certificates
@@ -281,6 +307,7 @@ async function launchChromium(options = {}) {
     const {
         binary = findChromium(),
         outputDir = 'chrome',
+        userDataDir = getEnv('CHROME_USER_DATA_DIR'),
         resolution = getEnv('CHROME_RESOLUTION') || getEnv('RESOLUTION', '1440,2000'),
         headless = getEnvBool('CHROME_HEADLESS', true),
         checkSsl = getEnvBool('CHROME_CHECK_SSL_VALIDITY', getEnvBool('CHECK_SSL_VALIDITY', true)),
@@ -302,6 +329,24 @@ async function launchChromium(options = {}) {
     // Create output directory
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // Create user data directory if specified and doesn't exist
+    if (userDataDir) {
+        if (!fs.existsSync(userDataDir)) {
+            fs.mkdirSync(userDataDir, { recursive: true });
+            console.error(`[*] Created user data directory: ${userDataDir}`);
+        }
+        // Clean up any stale SingletonLock file from previous crashed sessions
+        const singletonLock = path.join(userDataDir, 'SingletonLock');
+        if (fs.existsSync(singletonLock)) {
+            try {
+                fs.unlinkSync(singletonLock);
+                console.error(`[*] Removed stale SingletonLock: ${singletonLock}`);
+            } catch (e) {
+                console.error(`[!] Failed to remove SingletonLock: ${e.message}`);
+            }
+        }
     }
 
     // Find a free port
@@ -335,6 +380,7 @@ async function launchChromium(options = {}) {
         '--font-render-hinting=none',
         '--force-color-profile=srgb',
         `--window-size=${width},${height}`,
+        ...(userDataDir ? [`--user-data-dir=${userDataDir}`] : []),
         ...(headless ? ['--headless=new'] : []),
         ...(checkSsl ? [] : ['--ignore-certificate-errors']),
     ];

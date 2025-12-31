@@ -480,12 +480,50 @@ for url_str, num_urls in _test_url_strs.items():
 
 def chrome_cleanup():
     """
-    Cleans up any state or runtime files that chrome leaves behind when killed by
-    a timeout or other error
+    Cleans up any state or runtime files that Chrome leaves behind when killed by
+    a timeout or other error. Handles:
+    - Persona-based chrome_user_data directories (from ACTIVE_PERSONA)
+    - Explicit CHROME_USER_DATA_DIR
+    - Legacy Docker chromium path
     """
     import os
+    from pathlib import Path
     from archivebox.config.permissions import IN_DOCKER
-    
+
+    # Clean up persona-based user data directories
+    try:
+        from archivebox.config.configset import get_config
+        from archivebox.config.constants import CONSTANTS
+
+        config = get_config()
+
+        # Clean up the active persona's chrome_user_data SingletonLock
+        chrome_user_data_dir = config.get('CHROME_USER_DATA_DIR')
+        if chrome_user_data_dir:
+            singleton_lock = Path(chrome_user_data_dir) / 'SingletonLock'
+            if singleton_lock.exists():
+                try:
+                    singleton_lock.unlink()
+                except OSError:
+                    pass
+
+        # Clean up all persona directories
+        personas_dir = CONSTANTS.PERSONAS_DIR
+        if personas_dir.exists():
+            for persona_dir in personas_dir.iterdir():
+                if not persona_dir.is_dir():
+                    continue
+                user_data_dir = persona_dir / 'chrome_user_data'
+                singleton_lock = user_data_dir / 'SingletonLock'
+                if singleton_lock.exists():
+                    try:
+                        singleton_lock.unlink()
+                    except OSError:
+                        pass
+    except Exception:
+        pass  # Config not available during early startup
+
+    # Legacy Docker cleanup
     if IN_DOCKER:
         singleton_lock = "/home/archivebox/.config/chromium/SingletonLock"
         if os.path.lexists(singleton_lock):

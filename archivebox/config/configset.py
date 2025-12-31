@@ -240,6 +240,52 @@ def get_config(
     except ImportError:
         pass
 
+    # Derive persona-based paths if not explicitly set
+    # This allows plugins to just use CHROME_USER_DATA_DIR without knowing about personas
+    config = _derive_persona_paths(config, CONSTANTS)
+
+    return config
+
+
+def _derive_persona_paths(config: Dict[str, Any], CONSTANTS: Any) -> Dict[str, Any]:
+    """
+    Derive persona-specific paths from ACTIVE_PERSONA if not explicitly set.
+
+    This runs after all config sources are merged, so plugins receive
+    the final resolved paths without needing to know about the persona system.
+
+    Derived paths:
+        CHROME_USER_DATA_DIR  <- PERSONAS_DIR / ACTIVE_PERSONA / chrome_user_data
+        CHROME_EXTENSIONS_DIR <- PERSONAS_DIR / ACTIVE_PERSONA / chrome_extensions
+        COOKIES_FILE          <- PERSONAS_DIR / ACTIVE_PERSONA / cookies.txt (if exists)
+    """
+    # Get active persona (defaults to "Default")
+    active_persona = config.get('ACTIVE_PERSONA') or config.get('DEFAULT_PERSONA') or 'Default'
+
+    # Ensure ACTIVE_PERSONA is always set in config for downstream use
+    config['ACTIVE_PERSONA'] = active_persona
+
+    # Get personas directory
+    personas_dir = CONSTANTS.PERSONAS_DIR
+    persona_dir = personas_dir / active_persona
+
+    # Derive CHROME_USER_DATA_DIR if not explicitly set
+    chrome_user_data_dir = config.get('CHROME_USER_DATA_DIR')
+    if not chrome_user_data_dir:
+        config['CHROME_USER_DATA_DIR'] = str(persona_dir / 'chrome_user_data')
+
+    # Derive CHROME_EXTENSIONS_DIR if not explicitly set
+    chrome_extensions_dir = config.get('CHROME_EXTENSIONS_DIR')
+    if not chrome_extensions_dir:
+        config['CHROME_EXTENSIONS_DIR'] = str(persona_dir / 'chrome_extensions')
+
+    # Derive COOKIES_FILE if not explicitly set and file exists
+    cookies_file = config.get('COOKIES_FILE')
+    if not cookies_file:
+        persona_cookies = persona_dir / 'cookies.txt'
+        if persona_cookies.exists():
+            config['COOKIES_FILE'] = str(persona_cookies)
+
     return config
 
 

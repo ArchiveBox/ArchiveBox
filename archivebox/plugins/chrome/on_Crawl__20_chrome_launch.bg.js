@@ -115,12 +115,17 @@ async function main() {
         if (version) console.error(`[*] Version: ${version}`);
 
         // Load installed extensions
-        const extensionsDir = getEnv('CHROME_EXTENSIONS_DIR') ||
-            path.join(getEnv('DATA_DIR', '.'), 'personas', getEnv('ACTIVE_PERSONA', 'Default'), 'chrome_extensions');
+        // CHROME_EXTENSIONS_DIR is derived from ACTIVE_PERSONA by get_config() in configset.py
+        const extensionsDir = getEnv('CHROME_EXTENSIONS_DIR');
+        const userDataDir = getEnv('CHROME_USER_DATA_DIR');
+
+        if (userDataDir) {
+            console.error(`[*] Using user data dir: ${userDataDir}`);
+        }
 
         const installedExtensions = [];
         const extensionPaths = [];
-        if (fs.existsSync(extensionsDir)) {
+        if (extensionsDir && fs.existsSync(extensionsDir)) {
             const files = fs.readdirSync(extensionsDir);
             for (const file of files) {
                 if (file.endsWith('.extension.json')) {
@@ -151,9 +156,11 @@ async function main() {
         writePidWithMtime(path.join(OUTPUT_DIR, 'hook.pid'), process.pid, hookStartTime);
 
         // Launch Chromium using consolidated function
+        // userDataDir is derived from ACTIVE_PERSONA by get_config() if not explicitly set
         const result = await launchChromium({
             binary,
             outputDir: OUTPUT_DIR,
+            userDataDir,
             extensionPaths,
         });
 
