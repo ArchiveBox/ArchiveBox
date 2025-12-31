@@ -46,17 +46,46 @@ div.breadcrumbs {
     height: 25px;
 }
 
+/* View Mode Switcher - Prominent Toggle */
 #snapshot-view-mode {
     float: right;
     margin-bottom: -40px;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     margin-top: 3px;
     margin-right: 10px;
-    font-size: 14px;
-    opacity: 0.8;
+    font-size: 13px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
 }
 #snapshot-view-mode a {
-    color: #ccc;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 12px;
+    color: #64748b;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+#snapshot-view-mode a:hover {
+    color: #334155;
+    background: #e2e8f0;
+}
+#snapshot-view-mode a.active {
+    background: #fff;
+    color: #1e293b;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+#snapshot-view-mode .view-icon {
+    font-size: 14px;
+    line-height: 1;
 }
 
 body.model-snapshot.change-list div.breadcrumbs,
@@ -191,8 +220,79 @@ body.model-snapshot.change-list #content .object-tools {
     margin-top: 3px;
 }
 
+/* Filter Sidebar - Improved Layout */
+#content #changelist-filter {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    overflow: hidden;
+}
 #content #changelist-filter h2 {
-    border-radius: 4px 4px 0px 0px;
+    border-radius: 0;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 10px 12px;
+    margin: 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+#content #changelist-filter h3 {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 10px 12px 4px;
+    margin: 0;
+    background: transparent;
+}
+#content #changelist-filter ul {
+    padding: 0 6px 8px;
+    margin: 0;
+    list-style: none;
+}
+#content #changelist-filter li {
+    margin: 0;
+}
+#content #changelist-filter li a {
+    display: block;
+    padding: 6px 10px;
+    color: #475569;
+    text-decoration: none;
+    font-size: 12px;
+    border-radius: 5px;
+    transition: background 0.15s ease, color 0.15s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#content #changelist-filter li a:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+#content #changelist-filter li.selected a {
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 500;
+}
+#content #changelist-filter-clear {
+    padding: 8px 12px;
+    margin: 0;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fef2f2;
+}
+#content #changelist-filter-clear a {
+    color: #dc2626;
+    font-size: 12px;
+    font-weight: 500;
+    text-decoration: none;
+}
+#content #changelist-filter-clear a:hover {
+    text-decoration: underline;
 }
 
 #changelist .paginator {
@@ -203,15 +303,15 @@ body.model-snapshot.change-list #content .object-tools {
 @media (min-width: 767px) {
     #content #changelist-filter {
         top: 35px;
-        width: 110px;
+        width: 160px;
         margin-bottom: 35px;
     }
 
     .change-list .filtered .results,
-    .change-list .filtered .paginator, 
-    .filtered #toolbar, 
+    .change-list .filtered .paginator,
+    .filtered #toolbar,
     .filtered div.xfull {
-        margin-right: 115px;
+        margin-right: 168px;
     }
 }
 
@@ -355,4 +455,48 @@ tbody .output-link:hover {opacity: 1;}
 
 .fade-in-progress-url {
     animation: fadeIn 14s;
+}
+
+/* Snapshot Progress Spinner */
+.snapshot-progress-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #e2e8f0;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: snapshot-spin 0.8s linear infinite;
+}
+
+@keyframes snapshot-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Status Badges */
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+}
+.status-badge.queued { background: #fef3c7; color: #f59e0b; }
+.status-badge.started { background: #dbeafe; color: #3b82f6; }
+.status-badge.sealed { background: #d1fae5; color: #10b981; }
+.status-badge.succeeded { background: #d1fae5; color: #10b981; }
+.status-badge.failed { background: #fee2e2; color: #ef4444; }
+.status-badge.backoff { background: #fef3c7; color: #f59e0b; }
+.status-badge.skipped { background: #f3f4f6; color: #6b7280; }
+
+/* Progress Bar */
+.snapshot-progress-bar {
+    background: #e2e8f0;
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+}
+.snapshot-progress-bar-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    border-radius: 4px;
 }

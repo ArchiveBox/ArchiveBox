@@ -117,7 +117,7 @@ class SnapshotAdminForm(forms.ModelForm):
 
 class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     form = SnapshotAdminForm
-    list_display = ('created_at', 'title_str', 'status', 'files', 'size', 'url_str')
+    list_display = ('created_at', 'title_str', 'status_with_progress', 'files', 'size_with_stats', 'url_str')
     sort_fields = ('title_str', 'url_str', 'created_at', 'status', 'crawl')
     readonly_fields = ('admin_actions', 'status_info', 'imported_timestamp', 'created_at', 'modified_at', 'downloaded_at', 'output_dir', 'archiveresults_list')
     search_fields = ('id', 'url', 'timestamp', 'title', 'tags__name')
@@ -376,6 +376,106 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             size_txt,
         )
 
+    @admin.display(
+        description='Status',
+        ordering='status',
+    )
+    def status_with_progress(self, obj):
+        """Show status with progress bar for in-progress snapshots."""
+        stats = obj.get_progress_stats()
+
+        # Status badge colors
+        status_colors = {
+            'queued': ('#f59e0b', '#fef3c7'),      # amber
+            'started': ('#3b82f6', '#dbeafe'),     # blue
+            'sealed': ('#10b981', '#d1fae5'),      # green
+            'succeeded': ('#10b981', '#d1fae5'),   # green
+            'failed': ('#ef4444', '#fee2e2'),      # red
+            'backoff': ('#f59e0b', '#fef3c7'),     # amber
+            'skipped': ('#6b7280', '#f3f4f6'),     # gray
+        }
+        fg_color, bg_color = status_colors.get(obj.status, ('#6b7280', '#f3f4f6'))
+
+        # For started snapshots, show progress bar
+        if obj.status == 'started' and stats['total'] > 0:
+            percent = stats['percent']
+            running = stats['running']
+            succeeded = stats['succeeded']
+            failed = stats['failed']
+
+            return format_html(
+                '''<div style="min-width: 120px;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                        <span class="snapshot-progress-spinner"></span>
+                        <span style="font-size: 11px; color: #64748b;">{}/{} hooks</span>
+                    </div>
+                    <div style="background: #e2e8f0; border-radius: 4px; height: 6px; overflow: hidden;">
+                        <div style="background: linear-gradient(90deg, #10b981 0%, #10b981 {}%, #ef4444 {}%, #ef4444 {}%, #3b82f6 {}%, #3b82f6 100%);
+                                    width: {}%; height: 100%; transition: width 0.3s;"></div>
+                    </div>
+                    <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">
+                        ✓{} ✗{} ⏳{}
+                    </div>
+                </div>''',
+                succeeded + failed + stats['skipped'],
+                stats['total'],
+                int(succeeded / stats['total'] * 100) if stats['total'] else 0,
+                int(succeeded / stats['total'] * 100) if stats['total'] else 0,
+                int((succeeded + failed) / stats['total'] * 100) if stats['total'] else 0,
+                int((succeeded + failed) / stats['total'] * 100) if stats['total'] else 0,
+                percent,
+                succeeded,
+                failed,
+                running,
+            )
+
+        # For other statuses, show simple badge
+        return format_html(
+            '<span style="display: inline-block; padding: 2px 8px; border-radius: 12px; '
+            'font-size: 11px; font-weight: 500; background: {}; color: {};">{}</span>',
+            bg_color,
+            fg_color,
+            obj.status.upper(),
+        )
+
+    @admin.display(
+        description='Size',
+    )
+    def size_with_stats(self, obj):
+        """Show archive size with output size from archive results."""
+        stats = obj.get_progress_stats()
+
+        # Use output_size from archive results if available, fallback to disk size
+        output_size = stats['output_size']
+        archive_size = os.access(Path(obj.output_dir) / 'index.html', os.F_OK) and obj.archive_size
+
+        size_bytes = output_size or archive_size or 0
+
+        if size_bytes:
+            size_txt = printable_filesize(size_bytes)
+            if size_bytes > 52428800:  # 50MB
+                size_txt = mark_safe(f'<b>{size_txt}</b>')
+        else:
+            size_txt = mark_safe('<span style="opacity: 0.3">...</span>')
+
+        # Show hook statistics
+        if stats['total'] > 0:
+            return format_html(
+                '<a href="/{}" title="View all files" style="white-space: nowrap;">'
+                '{}</a>'
+                '<div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">'
+                '{}/{} hooks</div>',
+                obj.archive_path,
+                size_txt,
+                stats['succeeded'],
+                stats['total'],
+            )
+
+        return format_html(
+            '<a href="/{}" title="View all files">{}</a>',
+            obj.archive_path,
+            size_txt,
+        )
 
     @admin.display(
         description='Original URL',
