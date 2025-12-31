@@ -12,7 +12,7 @@
  * Hook: on_Crawl (runs once per crawl, not per snapshot)
  *
  * Requirements:
- * - API_KEY_2CAPTCHA environment variable must be set
+ * - TWOCAPTCHA_API_KEY environment variable must be set
  * - Extension will automatically solve reCAPTCHA, hCaptcha, Cloudflare Turnstile, etc.
  */
 
@@ -25,7 +25,7 @@ const extensionUtils = require('../chrome/chrome_utils.js');
 // Extension metadata
 const EXTENSION = {
     webstore_id: 'ifibfemgeogfhoebkmokieepdoobkbpo',
-    name: 'captcha2',
+    name: 'twocaptcha',
 };
 
 // Get extensions directory from environment or use default
@@ -47,10 +47,10 @@ async function installCaptchaExtension() {
     }
 
     // Check if API key is configured
-    const apiKey = process.env.API_KEY_2CAPTCHA;
+    const apiKey = process.env.TWOCAPTCHA_API_KEY || process.env.API_KEY_2CAPTCHA;
     if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
-        console.warn('[⚠️] 2captcha extension installed but API_KEY_2CAPTCHA not configured');
-        console.warn('[⚠️] Set API_KEY_2CAPTCHA environment variable to enable automatic CAPTCHA solving');
+        console.warn('[⚠️] 2captcha extension installed but TWOCAPTCHA_API_KEY not configured');
+        console.warn('[⚠️] Set TWOCAPTCHA_API_KEY environment variable to enable automatic CAPTCHA solving');
     } else {
         console.log('[+] 2captcha extension installed and API key configured');
     }
@@ -69,7 +69,7 @@ async function installCaptchaExtension() {
  */
 async function main() {
     // Check if extension is already cached
-    const cacheFile = path.join(EXTENSIONS_DIR, 'captcha2.extension.json');
+    const cacheFile = path.join(EXTENSIONS_DIR, 'twocaptcha.extension.json');
 
     if (fs.existsSync(cacheFile)) {
         try {

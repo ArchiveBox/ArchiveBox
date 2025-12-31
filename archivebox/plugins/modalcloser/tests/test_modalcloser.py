@@ -26,7 +26,7 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 MODALCLOSER_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_modalcloser.*'), None)
-CHROME_LAUNCH_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__20_chrome_launch.bg.js'
+CHROME_LAUNCH_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__30_chrome_launch.bg.js'
 CHROME_TAB_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Snapshot__20_chrome_tab.bg.js'
 CHROME_NAVIGATE_HOOK = next((PLUGINS_ROOT / 'chrome').glob('on_Snapshot__*_chrome_navigate.*'), None)
 TEST_URL = 'https://www.singsing.movie/'
@@ -123,6 +123,7 @@ def setup_chrome_session(tmpdir):
     crawl_dir = Path(tmpdir) / 'crawl'
     crawl_dir.mkdir()
     chrome_dir = crawl_dir / 'chrome'
+    chrome_dir.mkdir()
 
     env = get_test_env()
     env['CHROME_HEADLESS'] = 'true'
@@ -130,7 +131,7 @@ def setup_chrome_session(tmpdir):
     # Launch Chrome at crawl level
     chrome_launch_process = subprocess.Popen(
         ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-modalcloser'],
-        cwd=str(crawl_dir),
+        cwd=str(chrome_dir),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

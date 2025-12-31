@@ -133,7 +133,7 @@ This plugin provides shared Chrome infrastructure for other plugins. It manages 
 chrome/
 ├── on_Crawl__00_chrome_install_config.py  # Configure Chrome settings
 ├── on_Crawl__00_chrome_install.py         # Install Chrome binary
-├── on_Crawl__20_chrome_launch.bg.js       # Launch Chrome (Crawl-level, bg)
+├── on_Crawl__30_chrome_launch.bg.js       # Launch Chrome (Crawl-level, bg)
 ├── on_Snapshot__20_chrome_tab.bg.js       # Open tab (Snapshot-level, bg)
 ├── on_Snapshot__30_chrome_navigate.js     # Navigate to URL (foreground)
 ├── on_Snapshot__45_chrome_tab_cleanup.py  # Close tab, kill bg hooks
