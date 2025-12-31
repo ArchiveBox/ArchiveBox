@@ -203,86 +203,115 @@ function waitForDebugPort(port, timeout = 30000) {
 
 /**
  * Kill zombie Chrome processes from stale crawls.
- * Scans DATA_DIR/crawls/<crawl_id>/chrome/<name>.pid for stale processes.
+ * Recursively scans DATA_DIR for any */chrome/*.pid files from stale crawls.
+ * Does not assume specific directory structure - works with nested paths.
  * @param {string} [dataDir] - Data directory (defaults to DATA_DIR env or '.')
  * @returns {number} - Number of zombies killed
  */
 function killZombieChrome(dataDir = null) {
     dataDir = dataDir || getEnv('DATA_DIR', '.');
-    const crawlsDir = path.join(dataDir, 'crawls');
     const now = Date.now();
     const fiveMinutesAgo = now - 300000;
     let killed = 0;
 
     console.error('[*] Checking for zombie Chrome processes...');
 
-    if (!fs.existsSync(crawlsDir)) {
-        console.error('[+] No crawls directory found');
+    if (!fs.existsSync(dataDir)) {
+        console.error('[+] No data directory found');
         return 0;
     }
 
+    /**
+     * Recursively find all chrome/.pid files in directory tree
+     * @param {string} dir - Directory to search
+     * @param {number} depth - Current recursion depth (limit to 10)
+     * @returns {Array<{pidFile: string, crawlDir: string}>} - Array of PID file info
+     */
+    function findChromePidFiles(dir, depth = 0) {
+        if (depth > 10) return [];  // Prevent infinite recursion
+
+        const results = [];
+        try {
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+            for (const entry of entries) {
+                if (!entry.isDirectory()) continue;
+
+                const fullPath = path.join(dir, entry.name);
+
+                // Found a chrome directory - check for .pid files
+                if (entry.name === 'chrome') {
+                    try {
+                        const pidFiles = fs.readdirSync(fullPath).filter(f => f.endsWith('.pid'));
+                        const crawlDir = dir;  // Parent of chrome/ is the crawl dir
+
+                        for (const pidFileName of pidFiles) {
+                            results.push({
+                                pidFile: path.join(fullPath, pidFileName),
+                                crawlDir: crawlDir,
+                            });
+                        }
+                    } catch (e) {
+                        // Skip if can't read chrome dir
+                    }
+                } else {
+                    // Recurse into subdirectory (skip hidden dirs and node_modules)
+                    if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
+                        results.push(...findChromePidFiles(fullPath, depth + 1));
+                    }
+                }
+            }
+        } catch (e) {
+            // Skip if can't read directory
+        }
+        return results;
+    }
+
     try {
-        const crawls = fs.readdirSync(crawlsDir, { withFileTypes: true });
+        const chromePids = findChromePidFiles(dataDir);
 
-        for (const crawl of crawls) {
-            if (!crawl.isDirectory()) continue;
-
-            const crawlDir = path.join(crawlsDir, crawl.name);
-            const chromeDir = path.join(crawlDir, 'chrome');
-
-            if (!fs.existsSync(chromeDir)) continue;
-
+        for (const {pidFile, crawlDir} of chromePids) {
             // Check if crawl was modified recently (still active)
             try {
                 const crawlStats = fs.statSync(crawlDir);
                 if (crawlStats.mtimeMs > fiveMinutesAgo) {
-                    continue;
+                    continue;  // Crawl is active, skip
                 }
             } catch (e) {
                 continue;
             }
 
-            // Crawl is stale, check for PIDs
+            // Crawl is stale, check PID
             try {
-                const pidFiles = fs.readdirSync(chromeDir).filter(f => f.endsWith('.pid'));
+                const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+                if (isNaN(pid) || pid <= 0) continue;
 
-                for (const pidFileName of pidFiles) {
-                    const pidFile = path.join(chromeDir, pidFileName);
+                // Check if process exists
+                try {
+                    process.kill(pid, 0);
+                } catch (e) {
+                    // Process dead, remove stale PID file
+                    try { fs.unlinkSync(pidFile); } catch (e) {}
+                    continue;
+                }
 
-                    try {
-                        const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
-                        if (isNaN(pid) || pid <= 0) continue;
+                // Process alive and crawl is stale - zombie!
+                console.error(`[!] Found zombie (PID ${pid}) from stale crawl ${path.basename(crawlDir)}`);
 
-                        // Check if process exists
-                        try {
-                            process.kill(pid, 0);
-                        } catch (e) {
-                            // Process dead, remove stale PID file
-                            try { fs.unlinkSync(pidFile); } catch (e) {}
-                            continue;
-                        }
-
-                        // Process alive and crawl is stale - zombie!
-                        console.error(`[!] Found zombie (PID ${pid}) from stale crawl ${crawl.name}`);
-
-                        try {
-                            try { process.kill(-pid, 'SIGKILL'); } catch (e) { process.kill(pid, 'SIGKILL'); }
-                            killed++;
-                            console.error(`[+] Killed zombie (PID ${pid})`);
-                            try { fs.unlinkSync(pidFile); } catch (e) {}
-                        } catch (e) {
-                            console.error(`[!] Failed to kill PID ${pid}: ${e.message}`);
-                        }
-                    } catch (e) {
-                        // Skip invalid PID files
-                    }
+                try {
+                    try { process.kill(-pid, 'SIGKILL'); } catch (e) { process.kill(pid, 'SIGKILL'); }
+                    killed++;
+                    console.error(`[+] Killed zombie (PID ${pid})`);
+                    try { fs.unlinkSync(pidFile); } catch (e) {}
+                } catch (e) {
+                    console.error(`[!] Failed to kill PID ${pid}: ${e.message}`);
                 }
             } catch (e) {
-                // Skip if can't read chrome dir
+                // Skip invalid PID files
             }
         }
     } catch (e) {
-        console.error(`[!] Error scanning crawls: ${e.message}`);
+        console.error(`[!] Error scanning for Chrome processes: ${e.message}`);
     }
 
     if (killed > 0) {
@@ -1327,7 +1356,7 @@ function findChromium() {
  * @returns {string} - Absolute path to extensions directory
  */
 function getExtensionsDir() {
-    const dataDir = getEnv('DATA_DIR', './data');
+    const dataDir = getEnv('DATA_DIR', '.');
     const persona = getEnv('ACTIVE_PERSONA', 'Default');
     return getEnv('CHROME_EXTENSIONS_DIR') ||
         path.join(dataDir, 'personas', persona, 'chrome_extensions');
@@ -1459,7 +1488,7 @@ async function installExtensionWithCache(extension, options = {}) {
 
     const installedExt = await loadOrInstallExtension(extension, extensionsDir);
 
-    if (!installedExt) {
+    if (!installedExt?.version) {
         console.error(`[❌] Failed to install ${extension.name} extension`);
         return null;
     }

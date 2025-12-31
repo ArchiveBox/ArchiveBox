@@ -2321,7 +2321,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     process = models.OneToOneField(
         'machine.Process',
         on_delete=models.PROTECT,
-        null=False,  # Required after migration 4
+        null=False,
         related_name='archiveresult',
         help_text='Process execution details for this archive result'
     )

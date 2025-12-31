@@ -625,7 +625,7 @@ class ProcessManager(models.Manager):
         return process
 
 
-class Process(ModelWithHealthStats):
+class Process(models.Model):
     """
     Tracks a single OS process execution.
 

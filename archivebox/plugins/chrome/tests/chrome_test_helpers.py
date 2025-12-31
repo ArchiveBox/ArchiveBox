@@ -214,12 +214,15 @@ def get_extensions_dir() -> str:
 
     Tries chrome_utils.js first, falls back to Python computation.
     """
-    returncode, stdout, stderr = _call_chrome_utils('getExtensionsDir')
-    if returncode == 0 and stdout.strip():
-        return stdout.strip()
+    try:
+        returncode, stdout, stderr = _call_chrome_utils('getExtensionsDir')
+        if returncode == 0 and stdout.strip():
+            return stdout.strip()
+    except subprocess.TimeoutExpired:
+        pass  # Fall through to default computation
 
     # Fallback to default computation if JS call fails
-    data_dir = os.environ.get('DATA_DIR', './data')
+    data_dir = os.environ.get('DATA_DIR', '.')
     persona = os.environ.get('ACTIVE_PERSONA', 'Default')
     return str(Path(data_dir) / 'personas' / persona / 'chrome_extensions')
 
@@ -760,31 +763,39 @@ def setup_chrome_session(
     # Create tab
     tab_env = env.copy()
     tab_env['CRAWL_OUTPUT_DIR'] = str(crawl_dir)
-    result = subprocess.run(
-        ['node', str(CHROME_TAB_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}', f'--crawl-id={crawl_id}'],
-        cwd=str(snapshot_chrome_dir),
-        capture_output=True,
-        text=True,
-        timeout=60,
-        env=tab_env
-    )
-    if result.returncode != 0:
-        cleanup_chrome(chrome_launch_process, chrome_pid)
-        raise RuntimeError(f"Tab creation failed: {result.stderr}")
-
-    # Navigate to URL if requested
-    if navigate and CHROME_NAVIGATE_HOOK and test_url != 'about:blank':
+    try:
         result = subprocess.run(
-            ['node', str(CHROME_NAVIGATE_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
+            ['node', str(CHROME_TAB_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}', f'--crawl-id={crawl_id}'],
             cwd=str(snapshot_chrome_dir),
             capture_output=True,
             text=True,
-            timeout=120,
-            env=env
+            timeout=60,
+            env=tab_env
         )
         if result.returncode != 0:
             cleanup_chrome(chrome_launch_process, chrome_pid)
-            raise RuntimeError(f"Navigation failed: {result.stderr}")
+            raise RuntimeError(f"Tab creation failed: {result.stderr}")
+    except subprocess.TimeoutExpired:
+        cleanup_chrome(chrome_launch_process, chrome_pid)
+        raise RuntimeError("Tab creation timed out after 60s")
+
+    # Navigate to URL if requested
+    if navigate and CHROME_NAVIGATE_HOOK and test_url != 'about:blank':
+        try:
+            result = subprocess.run(
+                ['node', str(CHROME_NAVIGATE_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
+                cwd=str(snapshot_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=120,
+                env=env
+            )
+            if result.returncode != 0:
+                cleanup_chrome(chrome_launch_process, chrome_pid)
+                raise RuntimeError(f"Navigation failed: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            cleanup_chrome(chrome_launch_process, chrome_pid)
+            raise RuntimeError("Navigation timed out after 120s")
 
     return chrome_launch_process, chrome_pid, snapshot_chrome_dir
 
