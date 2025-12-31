@@ -19,56 +19,18 @@ if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_
 const puppeteer = require('puppeteer-core');
 
 // Import shared utilities from chrome_utils.js
-const chromeUtils = require('../chrome/chrome_utils.js');
-const { getEnv, getEnvBool, getEnvInt } = chromeUtils;
+const {
+    getEnvBool,
+    getEnvInt,
+    parseArgs,
+    connectToPage,
+    waitForPageLoaded,
+} = require('../chrome/chrome_utils.js');
 
 const PLUGIN_NAME = 'dns';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'dns.jsonl';
 const CHROME_SESSION_DIR = '../chrome';
-
-function parseArgs() {
-    const args = {};
-    process.argv.slice(2).forEach(arg => {
-        if (arg.startsWith('--')) {
-            const [key, ...valueParts] = arg.slice(2).split('=');
-            args[key.replace(/-/g, '_')] = valueParts.join('=') || true;
-        }
-    });
-    return args;
-}
-
-// Chrome session file helpers (these are local to each plugin's working directory)
-async function waitForChromeTabOpen(timeoutMs = 60000) {
-    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-    const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeoutMs) {
-        if (fs.existsSync(cdpFile) && fs.existsSync(targetIdFile)) {
-            return true;
-        }
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    return false;
-}
-
-function getCdpUrl() {
-    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-    if (fs.existsSync(cdpFile)) {
-        return fs.readFileSync(cdpFile, 'utf8').trim();
-    }
-    return null;
-}
-
-function getPageId() {
-    const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
-    if (fs.existsSync(targetIdFile)) {
-        return fs.readFileSync(targetIdFile, 'utf8').trim();
-    }
-    return null;
-}
 
 function extractHostname(url) {
     try {
@@ -91,37 +53,12 @@ async function setupListener(targetUrl) {
     // Track request IDs to their URLs for correlation
     const requestUrls = new Map();
 
-    // Wait for chrome tab to be open
-    const tabOpen = await waitForChromeTabOpen(timeout);
-    if (!tabOpen) {
-        throw new Error(`Chrome tab not open after ${timeout/1000}s (chrome plugin must run first)`);
-    }
-
-    const cdpUrl = getCdpUrl();
-    if (!cdpUrl) {
-        throw new Error('No Chrome session found');
-    }
-
-    const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
-
-    // Find our page
-    const pages = await browser.pages();
-    const targetId = getPageId();
-    let page = null;
-
-    if (targetId) {
-        page = pages.find(p => {
-            const target = p.target();
-            return target && target._targetId === targetId;
-        });
-    }
-    if (!page) {
-        page = pages[pages.length - 1];
-    }
-
-    if (!page) {
-        throw new Error('No page found');
-    }
+    // Connect to Chrome page using shared utility
+    const { browser, page } = await connectToPage({
+        chromeSessionDir: CHROME_SESSION_DIR,
+        timeoutMs: timeout,
+        puppeteer,
+    });
 
     // Get CDP session for low-level network events
     const client = await page.target().createCDPSession();
@@ -233,26 +170,6 @@ async function setupListener(targetUrl) {
     return { browser, page, client };
 }
 
-async function waitForNavigation() {
-    // Wait for chrome_navigate to complete (it writes page_loaded.txt)
-    const pageLoadedMarker = path.join(CHROME_SESSION_DIR, 'page_loaded.txt');
-    const maxWait = getEnvInt('DNS_TIMEOUT', 30) * 1000 * 4; // 4x timeout for navigation
-    const pollInterval = 100;
-    let waitTime = 0;
-
-    while (!fs.existsSync(pageLoadedMarker) && waitTime < maxWait) {
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-        waitTime += pollInterval;
-    }
-
-    if (!fs.existsSync(pageLoadedMarker)) {
-        throw new Error('Timeout waiting for navigation (chrome_navigate did not complete)');
-    }
-
-    // Wait a bit longer for any post-load DNS resolutions
-    await new Promise(resolve => setTimeout(resolve, 500));
-}
-
 async function main() {
     const args = parseArgs();
     const url = args.url;
@@ -269,17 +186,14 @@ async function main() {
         process.exit(0);
     }
 
-    const startTs = new Date();
+    const timeout = getEnvInt('DNS_TIMEOUT', 30) * 1000;
 
     try {
         // Set up listener BEFORE navigation
         await setupListener(url);
 
-        // Note: PID file is written by run_hook() with hook-specific name
-        // Snapshot.cleanup() kills all *.pid processes when done
-
         // Wait for chrome_navigate to complete (BLOCKING)
-        await waitForNavigation();
+        await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 500);
 
         // Count DNS records
         const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
@@ -289,10 +203,7 @@ async function main() {
             recordCount = content.split('\n').filter(line => line.trim()).length;
         }
 
-        // Report success
-        const endTs = new Date();
-
-        // Output clean JSONL (no RESULT_JSON= prefix)
+        // Output clean JSONL
         console.log(JSON.stringify({
             type: 'ArchiveResult',
             status: 'succeeded',
@@ -305,7 +216,6 @@ async function main() {
         const error = `${e.name}: ${e.message}`;
         console.error(`ERROR: ${error}`);
 
-        // Output clean JSONL (no RESULT_JSON= prefix)
         console.log(JSON.stringify({
             type: 'ArchiveResult',
             status: 'failed',
