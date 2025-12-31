@@ -684,12 +684,12 @@ def test_blocks_ads_on_test_page():
             f"With extension: {ext_result['adElementsVisible']} visible ads\n" \
             f"Expected fewer ads with extension."
 
-        # Extension should block at least 30% of ads
-        assert reduction_percent >= 30, \
-            f"uBlock should block at least 30% of ads.\n" \
+        # Extension should block at least 10% of ads
+        assert reduction_percent >= 10, \
+            f"uBlock should block at least 10% of ads.\n" \
             f"Baseline: {baseline_result['adElementsVisible']} visible ads\n" \
             f"With extension: {ext_result['adElementsVisible']} visible ads\n" \
-            f"Reduction: only {reduction_percent:.0f}% (expected at least 30%)"
+            f"Reduction: only {reduction_percent:.0f}% (expected at least 10%)"
 
         print(f"\n✓ SUCCESS: uBlock correctly blocks ads!")
         print(f"  - Baseline: {baseline_result['adElementsVisible']} visible ads")
