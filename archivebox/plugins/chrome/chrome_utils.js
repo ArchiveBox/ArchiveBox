@@ -58,6 +58,16 @@ function getEnvInt(name, defaultValue = 0) {
 
 /**
  * Get array environment variable (JSON array or comma-separated string).
+ *
+ * Parsing priority:
+ * 1. JSON array format (recommended): '["--arg1=value", "--arg2=value,with,commas"]'
+ * 2. Comma-before-flag format: '--arg1=value,--arg2=value' (splits on ,-- pattern)
+ * 3. Single Chrome flag: '--flag=value,with,commas' (no split, returns as single item)
+ * 4. Simple comma-separated: 'a,b,c' (splits on commas)
+ *
+ * For Chrome arguments that may contain internal commas, use JSON format:
+ *   CHROME_ARGS='["--user-data-dir=/path/with,comma", "--window-size=1440,900"]'
+ *
  * @param {string} name - Environment variable name
  * @param {string[]} [defaultValue=[]] - Default value if not set
  * @returns {string[]} - Array of strings
@@ -66,7 +76,7 @@ function getEnvArray(name, defaultValue = []) {
     const val = getEnv(name, '');
     if (!val) return defaultValue;
 
-    // Try parsing as JSON array first
+    // Try parsing as JSON array first (recommended format for args with commas)
     if (val.startsWith('[')) {
         try {
             const parsed = JSON.parse(val);
@@ -82,7 +92,14 @@ function getEnvArray(name, defaultValue = []) {
         return val.split(/,(?=--)/).map(s => s.trim()).filter(Boolean);
     }
 
-    // Simple comma-separated
+    // If the value looks like a single Chrome flag (starts with -- and contains no ,--),
+    // treat the entire value as a single argument to avoid splitting internal commas
+    // e.g., '--user-data-dir=/path/with,comma/in/it' should not be split
+    if (val.startsWith('--') && !val.includes(',--')) {
+        return [val.trim()];
+    }
+
+    // Simple comma-separated (for non-Chrome-flag values like 'a,b,c')
     return val.split(',').map(s => s.trim()).filter(Boolean);
 }
 
@@ -1314,6 +1331,7 @@ module.exports = {
     getEnv,
     getEnvBool,
     getEnvInt,
+    getEnvArray,
     parseResolution,
     // PID file management
     writePidWithMtime,
