@@ -882,7 +882,8 @@ async function loadOrInstallExtension(ext, extensions_dir = null) {
     }
 
     // Determine extensions directory
-    const EXTENSIONS_DIR = extensions_dir || process.env.CHROME_EXTENSIONS_DIR || './data/chrome_extensions';
+    // Use provided dir, or fall back to getExtensionsDir() which handles env vars and defaults
+    const EXTENSIONS_DIR = extensions_dir || getExtensionsDir();
 
     // Set statically computable extension metadata
     ext.webstore_id = ext.webstore_id || ext.id;
