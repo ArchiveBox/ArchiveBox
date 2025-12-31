@@ -533,9 +533,9 @@ async function killChrome(pid, outputDir = null) {
     }
 
     // Step 8: Clean up PID files
+    // Note: hook-specific .pid files are cleaned up by run_hook() and Snapshot.cleanup()
     if (outputDir) {
         try { fs.unlinkSync(path.join(outputDir, 'chrome.pid')); } catch (e) {}
-        try { fs.unlinkSync(path.join(outputDir, 'hook.pid')); } catch (e) {}
     }
 
     console.error('[*] Chrome cleanup completed');

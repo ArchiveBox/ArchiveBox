@@ -143,12 +143,11 @@ async function main() {
             console.error(`[+] Found ${installedExtensions.length} extension(s) to load`);
         }
 
-        // Write hook's own PID
-        const hookStartTime = Date.now() / 1000;
+        // Note: PID file is written by run_hook() with hook-specific name
+        // Snapshot.cleanup() kills all *.pid processes when done
         if (!fs.existsSync(OUTPUT_DIR)) {
             fs.mkdirSync(OUTPUT_DIR, { recursive: true });
         }
-        writePidWithMtime(path.join(OUTPUT_DIR, 'hook.pid'), process.pid, hookStartTime);
 
         // Launch Chromium using consolidated function
         const result = await launchChromium({
