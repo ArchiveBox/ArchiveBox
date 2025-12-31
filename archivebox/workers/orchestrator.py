@@ -57,14 +57,19 @@ def _run_orchestrator_process(exit_on_idle: bool) -> None:
 class Orchestrator:
     """
     Manages worker processes by polling queues and spawning workers as needed.
-    
+
     The orchestrator:
     1. Polls each model queue (Crawl, Snapshot, ArchiveResult)
     2. If items exist and fewer than MAX_CONCURRENT workers are running, spawns workers
     3. Monitors worker health and cleans up stale PIDs
     4. Exits when all queues are empty (unless daemon mode)
+
+    Inline mode (inline=True):
+    - Processes items directly in the same process (no subprocess spawn)
+    - Much faster for small batches (avoids 2-3 sec subprocess overhead per worker)
+    - Useful for CLI piping and tests
     """
-    
+
     WORKER_TYPES: list[Type[Worker]] = [CrawlWorker, SnapshotWorker, ArchiveResultWorker]
 
     # Configuration
@@ -72,12 +77,18 @@ class Orchestrator:
     IDLE_TIMEOUT: int = 3  # Exit after N idle ticks (0 = never exit)
     MAX_WORKERS_PER_TYPE: int = 8  # Max workers per model type
     MAX_TOTAL_WORKERS: int = 24  # Max workers across all types
-    
-    def __init__(self, exit_on_idle: bool = True):
+
+    def __init__(self, exit_on_idle: bool = True, inline: bool = False):
         self.exit_on_idle = exit_on_idle
+        self.inline = inline  # Process items directly instead of spawning workers
         self.pid: int = os.getpid()
         self.pid_file = None
         self.idle_count: int = 0
+
+        # Faster polling in inline mode
+        if self.inline:
+            self.POLL_INTERVAL = 0.1
+            self.IDLE_TIMEOUT = 2
     
     def __repr__(self) -> str:
         return f'[underline]Orchestrator[/underline]\\[pid={self.pid}]'
@@ -169,13 +180,31 @@ class Orchestrator:
             )
             return None
     
+    def process_inline(self, WorkerClass: Type[Worker]) -> int:
+        """
+        Process items inline (same process) instead of spawning workers.
+        Returns number of items processed.
+        """
+        worker = WorkerClass(worker_id=0)
+        processed = 0
+
+        while True:
+            obj = worker.claim_next()
+            if obj is None:
+                break
+
+            worker.process_item(obj)
+            processed += 1
+
+        return processed
+
     def check_queues_and_spawn_workers(self) -> dict[str, int]:
         """
         Check all queues and spawn workers as needed.
         Returns dict of queue sizes by worker type.
         """
         queue_sizes = {}
-        
+
         for WorkerClass in self.WORKER_TYPES:
             # Get queue for this worker type
             # Need to instantiate worker to get queue (for model access)
@@ -183,11 +212,17 @@ class Orchestrator:
             queue = worker.get_queue()
             queue_count = queue.count()
             queue_sizes[WorkerClass.name] = queue_count
-            
-            # Spawn worker if needed
-            if self.should_spawn_worker(WorkerClass, queue_count):
+
+            if queue_count == 0:
+                continue
+
+            if self.inline:
+                # Process items directly (fast, no subprocess overhead)
+                self.process_inline(WorkerClass)
+            elif self.should_spawn_worker(WorkerClass, queue_count):
+                # Spawn worker subprocess (slow, but parallel)
                 self.spawn_worker(WorkerClass)
-        
+
         return queue_sizes
     
     def has_pending_work(self, queue_sizes: dict[str, int]) -> bool:

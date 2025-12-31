@@ -47,6 +47,8 @@ def process_stdin_records() -> int:
     Handles any record type: Crawl, Snapshot, ArchiveResult.
     Auto-cascades: Crawl → Snapshots → ArchiveResults.
 
+    Uses inline mode for fast processing (no subprocess overhead).
+
     Returns exit code (0 = success, 1 = error).
     """
     from django.utils import timezone
@@ -148,8 +150,8 @@ def process_stdin_records() -> int:
 
     rprint(f'[blue]Processing {queued_count} records...[/blue]', file=sys.stderr)
 
-    # Run orchestrator until all queued work is done
-    orchestrator = Orchestrator(exit_on_idle=True)
+    # Run orchestrator with inline=True for fast processing (no subprocess overhead)
+    orchestrator = Orchestrator(exit_on_idle=True, inline=True)
     orchestrator.runloop()
 
     return 0
@@ -193,7 +195,7 @@ def main(daemon: bool):
     """
     Process queued work.
 
-    When stdin is piped: Process those specific records and exit.
+    When stdin is piped: Process those specific records and exit (uses inline mode).
     When run standalone: Run orchestrator in foreground.
     """
     # Check if stdin has data (non-TTY means piped input)

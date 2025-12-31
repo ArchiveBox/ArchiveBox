@@ -10,55 +10,30 @@ from typing import List, Dict, Any, Optional, Tuple
 import pytest
 
 
-# =============================================================================
-# CLI Helpers (defined before fixtures that use them)
-# =============================================================================
-
 def run_archivebox_cmd(
     args: List[str],
     data_dir: Path,
     stdin: Optional[str] = None,
     timeout: int = 60,
-    env: Optional[Dict[str, str]] = None,
 ) -> Tuple[str, str, int]:
     """
     Run archivebox command via subprocess, return (stdout, stderr, returncode).
-
-    Args:
-        args: Command arguments (e.g., ['crawl', 'create', 'https://example.com'])
-        data_dir: The DATA_DIR to use
-        stdin: Optional string to pipe to stdin
-        timeout: Command timeout in seconds
-        env: Additional environment variables
-
-    Returns:
-        Tuple of (stdout, stderr, returncode)
     """
     cmd = [sys.executable, '-m', 'archivebox'] + args
 
-    base_env = os.environ.copy()
-    base_env['DATA_DIR'] = str(data_dir)
-    base_env['USE_COLOR'] = 'False'
-    base_env['SHOW_PROGRESS'] = 'False'
-    # Disable slow extractors for faster tests
-    base_env['SAVE_ARCHIVEDOTORG'] = 'False'
-    base_env['SAVE_TITLE'] = 'False'
-    base_env['SAVE_FAVICON'] = 'False'
-    base_env['SAVE_WGET'] = 'False'
-    base_env['SAVE_WARC'] = 'False'
-    base_env['SAVE_PDF'] = 'False'
-    base_env['SAVE_SCREENSHOT'] = 'False'
-    base_env['SAVE_DOM'] = 'False'
-    base_env['SAVE_SINGLEFILE'] = 'False'
-    base_env['SAVE_READABILITY'] = 'False'
-    base_env['SAVE_MERCURY'] = 'False'
-    base_env['SAVE_GIT'] = 'False'
-    base_env['SAVE_YTDLP'] = 'False'
-    base_env['SAVE_HEADERS'] = 'False'
-    base_env['SAVE_HTMLTOTEXT'] = 'False'
-
-    if env:
-        base_env.update(env)
+    env = os.environ.copy()
+    env['DATA_DIR'] = str(data_dir)
+    env['USE_COLOR'] = 'False'
+    env['SHOW_PROGRESS'] = 'False'
+    # Enable only HEADERS extractor (pure Python, no Chrome) - disable all others
+    env['SAVE_HEADERS'] = 'True'
+    for extractor in ['TITLE', 'FAVICON', 'WGET', 'WARC', 'PDF', 'SCREENSHOT',
+                      'DOM', 'SINGLEFILE', 'READABILITY', 'MERCURY', 'GIT',
+                      'YTDLP', 'HTMLTOTEXT', 'ARCHIVEDOTORG']:
+        env[f'SAVE_{extractor}'] = 'False'
+    # Speed up network operations
+    env['TIMEOUT'] = '5'
+    env['CHECK_SSL_VALIDITY'] = 'False'
 
     result = subprocess.run(
         cmd,
@@ -66,50 +41,29 @@ def run_archivebox_cmd(
         capture_output=True,
         text=True,
         cwd=data_dir,
-        env=base_env,
+        env=env,
         timeout=timeout,
     )
-
     return result.stdout, result.stderr, result.returncode
 
 
-# =============================================================================
-# Fixtures
-# =============================================================================
-
-@pytest.fixture
-def isolated_data_dir(tmp_path):
+@pytest.fixture(scope="module")
+def shared_archive(tmp_path_factory):
     """
-    Create isolated DATA_DIR for each test.
-
-    Uses tmp_path for complete isolation.
+    Module-scoped archive - init runs ONCE per test file.
+    Much faster than per-test initialization.
     """
-    data_dir = tmp_path / 'archivebox_data'
-    data_dir.mkdir()
-    return data_dir
-
-
-@pytest.fixture
-def initialized_archive(isolated_data_dir):
-    """
-    Initialize ArchiveBox archive in isolated directory.
-
-    Runs `archivebox init` via subprocess to set up database and directories.
-    """
+    data_dir = tmp_path_factory.mktemp("archivebox_data")
     stdout, stderr, returncode = run_archivebox_cmd(
         ['init', '--quick'],
-        data_dir=isolated_data_dir,
+        data_dir=data_dir,
         timeout=60,
     )
     assert returncode == 0, f"archivebox init failed: {stderr}"
-    return isolated_data_dir
+    return data_dir
 
 
-# =============================================================================
-# Output Assertions
-# =============================================================================
-
-def parse_jsonl_output(stdout: str) -> List[Dict[str, Any]]:
+def parse_jsonl(stdout: str) -> List[Dict[str, Any]]:
     """Parse JSONL output into list of dicts."""
     records = []
     for line in stdout.strip().split('\n'):
@@ -122,64 +76,7 @@ def parse_jsonl_output(stdout: str) -> List[Dict[str, Any]]:
     return records
 
 
-def assert_jsonl_contains_type(stdout: str, record_type: str, min_count: int = 1):
-    """Assert output contains at least min_count records of type."""
-    records = parse_jsonl_output(stdout)
-    matching = [r for r in records if r.get('type') == record_type]
-    assert len(matching) >= min_count, \
-        f"Expected >= {min_count} {record_type}, got {len(matching)}"
-    return matching
-
-
-def assert_jsonl_pass_through(stdout: str, input_records: List[Dict[str, Any]]):
-    """Assert that input records appear in output (pass-through behavior)."""
-    output_records = parse_jsonl_output(stdout)
-    output_ids = {r.get('id') for r in output_records if r.get('id')}
-
-    for input_rec in input_records:
-        input_id = input_rec.get('id')
-        if input_id:
-            assert input_id in output_ids, \
-                f"Input record {input_id} not found in output (pass-through failed)"
-
-
-def assert_record_has_fields(record: Dict[str, Any], required_fields: List[str]):
-    """Assert record has all required fields with non-None values."""
-    for field in required_fields:
-        assert field in record, f"Record missing field: {field}"
-        assert record[field] is not None, f"Record field is None: {field}"
-
-
-# =============================================================================
-# Test Data Factories
-# =============================================================================
-
-def create_test_url(domain: str = 'example.com', path: str = None) -> str:
-    """Generate unique test URL."""
+def create_url(suffix: str = "") -> str:
+    """Generate test URL."""
     import uuid
-    path = path or uuid.uuid4().hex[:8]
-    return f'https://{domain}/{path}'
-
-
-def create_test_crawl_json(urls: List[str] = None, **kwargs) -> Dict[str, Any]:
-    """Create Crawl JSONL record for testing."""
-    urls = urls or [create_test_url()]
-    return {
-        'type': 'Crawl',
-        'urls': '\n'.join(urls),
-        'max_depth': kwargs.get('max_depth', 0),
-        'tags_str': kwargs.get('tags_str', ''),
-        'status': kwargs.get('status', 'queued'),
-        **{k: v for k, v in kwargs.items() if k not in ('max_depth', 'tags_str', 'status')},
-    }
-
-
-def create_test_snapshot_json(url: str = None, **kwargs) -> Dict[str, Any]:
-    """Create Snapshot JSONL record for testing."""
-    return {
-        'type': 'Snapshot',
-        'url': url or create_test_url(),
-        'tags_str': kwargs.get('tags_str', ''),
-        'status': kwargs.get('status', 'queued'),
-        **{k: v for k, v in kwargs.items() if k not in ('tags_str', 'status')},
-    }
+    return f'https://example.com/{suffix or uuid.uuid4().hex[:8]}'
