@@ -38,6 +38,7 @@ const {
     killChrome,
     getEnv,
     writePidWithMtime,
+    getExtensionsDir,
 } = require('./chrome_utils.js');
 
 // Extractor metadata
@@ -115,8 +116,7 @@ async function main() {
         if (version) console.error(`[*] Version: ${version}`);
 
         // Load installed extensions
-        const extensionsDir = getEnv('CHROME_EXTENSIONS_DIR') ||
-            path.join(getEnv('DATA_DIR', '.'), 'personas', getEnv('ACTIVE_PERSONA', 'Default'), 'chrome_extensions');
+        const extensionsDir = getExtensionsDir();
         const userDataDir = getEnv('CHROME_USER_DATA_DIR');
 
         if (userDataDir) {

@@ -16,11 +16,8 @@
  * - Extension will automatically solve reCAPTCHA, hCaptcha, Cloudflare Turnstile, etc.
  */
 
-const path = require('path');
-const fs = require('fs');
-
 // Import extension utilities
-const extensionUtils = require('../chrome/chrome_utils.js');
+const { installExtensionWithCache } = require('../chrome/chrome_utils.js');
 
 // Extension metadata
 const EXTENSION = {
@@ -28,76 +25,25 @@ const EXTENSION = {
     name: 'twocaptcha',
 };
 
-// Get extensions directory from environment or use default
-const EXTENSIONS_DIR = process.env.CHROME_EXTENSIONS_DIR ||
-    path.join(process.env.DATA_DIR || './data', 'personas', process.env.ACTIVE_PERSONA || 'Default', 'chrome_extensions');
-
 /**
- * Install and configure the 2captcha extension
- */
-async function installCaptchaExtension() {
-    console.log('[*] Installing 2captcha extension...');
-
-    // Install the extension
-    const extension = await extensionUtils.loadOrInstallExtension(EXTENSION, EXTENSIONS_DIR);
-
-    if (!extension) {
-        console.error('[❌] Failed to install 2captcha extension');
-        return null;
-    }
-
-    // Check if API key is configured
-    const apiKey = process.env.TWOCAPTCHA_API_KEY || process.env.API_KEY_2CAPTCHA;
-    if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
-        console.warn('[⚠️] 2captcha extension installed but TWOCAPTCHA_API_KEY not configured');
-        console.warn('[⚠️] Set TWOCAPTCHA_API_KEY environment variable to enable automatic CAPTCHA solving');
-    } else {
-        console.log('[+] 2captcha extension installed and API key configured');
-    }
-
-    return extension;
-}
-
-/**
- * Note: 2captcha configuration is now handled by chrome plugin
+ * Main entry point - install extension before archiving
+ *
+ * Note: 2captcha configuration is handled by on_Crawl__25_configure_twocaptcha_extension_options.js
  * during first-time browser setup to avoid repeated configuration on every snapshot.
  * The API key is injected via chrome.storage API once per browser session.
  */
-
-/**
- * Main entry point - install extension before archiving
- */
 async function main() {
-    // Check if extension is already cached
-    const cacheFile = path.join(EXTENSIONS_DIR, 'twocaptcha.extension.json');
+    const extension = await installExtensionWithCache(EXTENSION);
 
-    if (fs.existsSync(cacheFile)) {
-        try {
-            const cached = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
-            const manifestPath = path.join(cached.unpacked_path, 'manifest.json');
-
-            if (fs.existsSync(manifestPath)) {
-                console.log('[*] 2captcha extension already installed (using cache)');
-                return cached;
-            }
-        } catch (e) {
-            // Cache file corrupted, re-install
-            console.warn('[⚠️] Extension cache corrupted, re-installing...');
-        }
-    }
-
-    // Install extension
-    const extension = await installCaptchaExtension();
-
-    // Export extension metadata for chrome plugin to load
     if (extension) {
-        // Write extension info to a cache file that chrome plugin can read
-        await fs.promises.mkdir(EXTENSIONS_DIR, { recursive: true });
-        await fs.promises.writeFile(
-            cacheFile,
-            JSON.stringify(extension, null, 2)
-        );
-        console.log(`[+] Extension metadata written to ${cacheFile}`);
+        // Check if API key is configured
+        const apiKey = process.env.TWOCAPTCHA_API_KEY || process.env.API_KEY_2CAPTCHA;
+        if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
+            console.warn('[⚠️] 2captcha extension installed but TWOCAPTCHA_API_KEY not configured');
+            console.warn('[⚠️] Set TWOCAPTCHA_API_KEY environment variable to enable automatic CAPTCHA solving');
+        } else {
+            console.log('[+] 2captcha extension installed and API key configured');
+        }
     }
 
     return extension;
@@ -106,7 +52,6 @@ async function main() {
 // Export functions for use by other plugins
 module.exports = {
     EXTENSION,
-    installCaptchaExtension,
 };
 
 // Run if executed directly

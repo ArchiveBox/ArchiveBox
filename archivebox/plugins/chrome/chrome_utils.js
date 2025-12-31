@@ -1312,6 +1312,99 @@ function findChromium() {
     return null;
 }
 
+// ============================================================================
+// Shared Extension Installer Utilities
+// ============================================================================
+
+/**
+ * Get the extensions directory path.
+ * Centralized path calculation used by extension installers and chrome launch.
+ *
+ * Path is derived from environment variables in this priority:
+ * 1. CHROME_EXTENSIONS_DIR (explicit override)
+ * 2. DATA_DIR/personas/ACTIVE_PERSONA/chrome_extensions (default)
+ *
+ * @returns {string} - Absolute path to extensions directory
+ */
+function getExtensionsDir() {
+    const dataDir = getEnv('DATA_DIR', './data');
+    const persona = getEnv('ACTIVE_PERSONA', 'Default');
+    return getEnv('CHROME_EXTENSIONS_DIR') ||
+        path.join(dataDir, 'personas', persona, 'chrome_extensions');
+}
+
+/**
+ * Install a Chrome extension with caching support.
+ *
+ * This is the main entry point for extension installer hooks. It handles:
+ * - Checking for cached extension metadata
+ * - Installing the extension if not cached
+ * - Writing cache file for future runs
+ *
+ * @param {Object} extension - Extension metadata object
+ * @param {string} extension.webstore_id - Chrome Web Store extension ID
+ * @param {string} extension.name - Human-readable extension name (used for cache file)
+ * @param {Object} [options] - Options
+ * @param {string} [options.extensionsDir] - Override extensions directory
+ * @param {boolean} [options.quiet=false] - Suppress info logging
+ * @returns {Promise<Object|null>} - Installed extension metadata or null on failure
+ */
+async function installExtensionWithCache(extension, options = {}) {
+    const {
+        extensionsDir = getExtensionsDir(),
+        quiet = false,
+    } = options;
+
+    const cacheFile = path.join(extensionsDir, `${extension.name}.extension.json`);
+
+    // Check if extension is already cached and valid
+    if (fs.existsSync(cacheFile)) {
+        try {
+            const cached = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
+            const manifestPath = path.join(cached.unpacked_path, 'manifest.json');
+
+            if (fs.existsSync(manifestPath)) {
+                if (!quiet) {
+                    console.log(`[*] ${extension.name} extension already installed (using cache)`);
+                }
+                return cached;
+            }
+        } catch (e) {
+            // Cache file corrupted, re-install
+            console.warn(`[⚠️] Extension cache corrupted for ${extension.name}, re-installing...`);
+        }
+    }
+
+    // Install extension
+    if (!quiet) {
+        console.log(`[*] Installing ${extension.name} extension...`);
+    }
+
+    const installedExt = await loadOrInstallExtension(extension, extensionsDir);
+
+    if (!installedExt) {
+        console.error(`[❌] Failed to install ${extension.name} extension`);
+        return null;
+    }
+
+    // Write cache file
+    try {
+        await fs.promises.mkdir(extensionsDir, { recursive: true });
+        await fs.promises.writeFile(cacheFile, JSON.stringify(installedExt, null, 2));
+        if (!quiet) {
+            console.log(`[+] Extension metadata written to ${cacheFile}`);
+        }
+    } catch (e) {
+        console.warn(`[⚠️] Failed to write cache file: ${e.message}`);
+    }
+
+    if (!quiet) {
+        console.log(`[+] ${extension.name} extension installed`);
+    }
+
+    return installedExt;
+}
+
 // Export all functions
 module.exports = {
     // Environment helpers
@@ -1349,6 +1442,9 @@ module.exports = {
     getExtensionPaths,
     waitForExtensionTarget,
     getExtensionTargets,
+    // Shared extension installer utilities
+    getExtensionsDir,
+    installExtensionWithCache,
     // Deprecated - use enableExtensions option instead
     getExtensionLaunchArgs,
 };
@@ -1371,6 +1467,8 @@ if (require.main === module) {
         console.log('  loadExtensionManifest <path>');
         console.log('  getExtensionLaunchArgs <extensions_json>');
         console.log('  loadOrInstallExtension <webstore_id> <name> [extensions_dir]');
+        console.log('  getExtensionsDir');
+        console.log('  installExtensionWithCache <webstore_id> <name>');
         process.exit(1);
     }
 
@@ -1480,6 +1578,26 @@ if (require.main === module) {
                     const [webstore_id, name, extensions_dir] = commandArgs;
                     const ext = await loadOrInstallExtension({ webstore_id, name }, extensions_dir);
                     console.log(JSON.stringify(ext, null, 2));
+                    break;
+                }
+
+                case 'getExtensionsDir': {
+                    console.log(getExtensionsDir());
+                    break;
+                }
+
+                case 'installExtensionWithCache': {
+                    const [webstore_id, name] = commandArgs;
+                    if (!webstore_id || !name) {
+                        console.error('Usage: installExtensionWithCache <webstore_id> <name>');
+                        process.exit(1);
+                    }
+                    const ext = await installExtensionWithCache({ webstore_id, name });
+                    if (ext) {
+                        console.log(JSON.stringify(ext, null, 2));
+                    } else {
+                        process.exit(1);
+                    }
                     break;
                 }
 
