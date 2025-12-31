@@ -28,7 +28,7 @@ Process(cmd=['archivebox', 'add', 'https://example.com'])           # CLI entry
 **File:** `archivebox/machine/models.py`
 
 ```python
-class Process(ModelWithHealthStats):
+class Process(ModelWithStateMachine):
     # ... existing fields ...
 
     # NEW: Parent process FK for hierarchy tracking
