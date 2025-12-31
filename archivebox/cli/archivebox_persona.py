@@ -199,6 +199,63 @@ def extract_cookies_via_cdp(user_data_dir: Path, output_file: Path) -> bool:
 
 
 # =============================================================================
+# Validation Helpers
+# =============================================================================
+
+def validate_persona_name(name: str) -> tuple[bool, str]:
+    """
+    Validate persona name to prevent path traversal attacks.
+
+    Returns:
+        (is_valid, error_message): tuple indicating if name is valid
+    """
+    if not name or not name.strip():
+        return False, "Persona name cannot be empty"
+
+    # Check for path separators
+    if '/' in name or '\\' in name:
+        return False, "Persona name cannot contain path separators (/ or \\)"
+
+    # Check for parent directory references
+    if '..' in name:
+        return False, "Persona name cannot contain parent directory references (..)"
+
+    # Check for hidden files/directories
+    if name.startswith('.'):
+        return False, "Persona name cannot start with a dot (.)"
+
+    # Ensure name doesn't contain null bytes or other dangerous chars
+    if '\x00' in name or '\n' in name or '\r' in name:
+        return False, "Persona name contains invalid characters"
+
+    return True, ""
+
+
+def ensure_path_within_personas_dir(persona_path: Path) -> bool:
+    """
+    Verify that a persona path is within PERSONAS_DIR.
+
+    This is a safety check to prevent path traversal attacks where
+    a malicious persona name could cause operations on paths outside
+    the expected PERSONAS_DIR.
+
+    Returns:
+        True if path is safe, False otherwise
+    """
+    from archivebox.config.constants import CONSTANTS
+
+    try:
+        # Resolve both paths to absolute paths
+        personas_dir = CONSTANTS.PERSONAS_DIR.resolve()
+        resolved_path = persona_path.resolve()
+
+        # Check if resolved_path is a child of personas_dir
+        return resolved_path.is_relative_to(personas_dir)
+    except (ValueError, RuntimeError):
+        return False
+
+
+# =============================================================================
 # CREATE
 # =============================================================================
 
@@ -247,6 +304,12 @@ def create_personas(
     for name in name_list:
         name = name.strip()
         if not name:
+            continue
+
+        # Validate persona name to prevent path traversal
+        is_valid, error_msg = validate_persona_name(name)
+        if not is_valid:
+            rprint(f'[red]Invalid persona name "{name}": {error_msg}[/red]', file=sys.stderr)
             continue
 
         persona, created = Persona.objects.get_or_create(name=name)
@@ -403,6 +466,12 @@ def update_personas(name: Optional[str] = None) -> int:
 
             # Apply updates from CLI flags
             if name:
+                # Validate new name to prevent path traversal
+                is_valid, error_msg = validate_persona_name(name)
+                if not is_valid:
+                    rprint(f'[red]Invalid new persona name "{name}": {error_msg}[/red]', file=sys.stderr)
+                    continue
+
                 # Rename the persona directory too
                 old_path = persona.path
                 persona.name = name
@@ -493,6 +562,12 @@ def delete_personas(yes: bool = False, dry_run: bool = False) -> int:
     deleted_count = 0
     for persona in personas:
         persona_path = persona.path
+
+        # Safety check: ensure path is within PERSONAS_DIR before deletion
+        if not ensure_path_within_personas_dir(persona_path):
+            rprint(f'[red]Security error: persona path "{persona_path}" is outside PERSONAS_DIR. Skipping deletion.[/red]', file=sys.stderr)
+            continue
+
         if persona_path.exists():
             shutil.rmtree(persona_path)
         persona.delete()
