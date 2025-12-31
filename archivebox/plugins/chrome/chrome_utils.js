@@ -57,6 +57,36 @@ function getEnvInt(name, defaultValue = 0) {
 }
 
 /**
+ * Get array environment variable (JSON array or comma-separated string).
+ * @param {string} name - Environment variable name
+ * @param {string[]} [defaultValue=[]] - Default value if not set
+ * @returns {string[]} - Array of strings
+ */
+function getEnvArray(name, defaultValue = []) {
+    const val = getEnv(name, '');
+    if (!val) return defaultValue;
+
+    // Try parsing as JSON array first
+    if (val.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(val);
+            if (Array.isArray(parsed)) return parsed;
+        } catch (e) {
+            // Fall through to comma-separated parsing
+        }
+    }
+
+    // Parse as comma-separated (but be careful with args that contain commas)
+    // For Chrome args, we split on comma followed by '--' to be safe
+    if (val.includes(',--')) {
+        return val.split(/,(?=--)/).map(s => s.trim()).filter(Boolean);
+    }
+
+    // Simple comma-separated
+    return val.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+/**
  * Parse resolution string into width/height.
  * @param {string} resolution - Resolution string like "1440,2000"
  * @returns {{width: number, height: number}} - Parsed dimensions
@@ -298,6 +328,7 @@ function killZombieChrome(dataDir = null) {
  * @param {string} [options.userDataDir] - Chrome user data directory for persistent sessions
  * @param {string} [options.resolution='1440,2000'] - Window resolution
  * @param {boolean} [options.headless=true] - Run in headless mode
+ * @param {boolean} [options.sandbox=true] - Enable Chrome sandbox
  * @param {boolean} [options.checkSsl=true] - Check SSL certificates
  * @param {string[]} [options.extensionPaths=[]] - Paths to unpacked extensions
  * @param {boolean} [options.killZombies=true] - Kill zombie processes first
@@ -310,6 +341,7 @@ async function launchChromium(options = {}) {
         userDataDir = getEnv('CHROME_USER_DATA_DIR'),
         resolution = getEnv('CHROME_RESOLUTION') || getEnv('RESOLUTION', '1440,2000'),
         headless = getEnvBool('CHROME_HEADLESS', true),
+        sandbox = getEnvBool('CHROME_SANDBOX', true),
         checkSsl = getEnvBool('CHROME_CHECK_SSL_VALIDITY', getEnvBool('CHECK_SSL_VALIDITY', true)),
         extensionPaths = [],
         killZombies = true,
@@ -353,37 +385,42 @@ async function launchChromium(options = {}) {
     const debugPort = await findFreePort();
     console.error(`[*] Using debug port: ${debugPort}`);
 
-    // Build Chrome arguments
-    const chromiumArgs = [
+    // Get base Chrome args from config (static flags from CHROME_ARGS env var)
+    // These come from config.json defaults, merged by get_config() in Python
+    const baseArgs = getEnvArray('CHROME_ARGS', []);
+
+    // Get extra user-provided args
+    const extraArgs = getEnvArray('CHROME_ARGS_EXTRA', []);
+
+    // Build dynamic Chrome arguments (these must be computed at runtime)
+    const dynamicArgs = [
+        // Remote debugging setup
         `--remote-debugging-port=${debugPort}`,
         '--remote-debugging-address=127.0.0.1',
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
+
+        // Sandbox settings (disable in Docker)
+        ...(sandbox ? [] : ['--no-sandbox', '--disable-setuid-sandbox']),
+
+        // Docker-specific workarounds
         '--disable-dev-shm-usage',
         '--disable-gpu',
-        '--disable-sync',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--disable-default-apps',
-        '--disable-infobars',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-component-update',
-        '--disable-domain-reliability',
-        '--disable-breakpad',
-        '--disable-background-networking',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--disable-ipc-flooding-protection',
-        '--password-store=basic',
-        '--use-mock-keychain',
-        '--font-render-hinting=none',
-        '--force-color-profile=srgb',
+
+        // Window size
         `--window-size=${width},${height}`,
+
+        // User data directory (for persistent sessions with persona)
         ...(userDataDir ? [`--user-data-dir=${userDataDir}`] : []),
+
+        // Headless mode
         ...(headless ? ['--headless=new'] : []),
+
+        // SSL certificate checking
         ...(checkSsl ? [] : ['--ignore-certificate-errors']),
     ];
+
+    // Combine all args: base (from config) + dynamic (runtime) + extra (user overrides)
+    // Dynamic args come after base so they can override if needed
+    const chromiumArgs = [...baseArgs, ...dynamicArgs, ...extraArgs];
 
     // Add extension loading flags
     if (extensionPaths.length > 0) {
