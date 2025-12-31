@@ -39,21 +39,7 @@ from typing import Optional, Iterable
 import rich_click as click
 from rich import print as rprint
 
-
-def apply_filters(queryset, filter_kwargs: dict, limit: Optional[int] = None):
-    """Apply Django-style filters from CLI kwargs to a QuerySet."""
-    filters = {}
-    for key, value in filter_kwargs.items():
-        if value is not None and key not in ('limit', 'offset'):
-            filters[key] = value
-
-    if filters:
-        queryset = queryset.filter(**filters)
-
-    if limit:
-        queryset = queryset[:limit]
-
-    return queryset
+from archivebox.cli.cli_utils import apply_filters
 
 
 # =============================================================================
@@ -71,12 +57,13 @@ def create_crawl(
     Create a Crawl job from URLs.
 
     Takes URLs as args or stdin, creates one Crawl with all URLs, outputs JSONL.
+    Pass-through: Records that are not URLs are output unchanged (for piping).
 
     Exit codes:
         0: Success
         1: Failure
     """
-    from archivebox.misc.jsonl import read_args_or_stdin, write_record
+    from archivebox.misc.jsonl import read_args_or_stdin, write_record, TYPE_CRAWL
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
 
@@ -90,14 +77,46 @@ def create_crawl(
         rprint('[yellow]No URLs provided. Pass URLs as arguments or via stdin.[/yellow]', file=sys.stderr)
         return 1
 
-    # Collect all URLs into a single newline-separated string
+    # Separate pass-through records from URL records
     url_list = []
+    pass_through_records = []
+
     for record in records:
+        record_type = record.get('type', '')
+
+        # Pass-through: output records that aren't URL/Crawl types
+        if record_type and record_type != TYPE_CRAWL and not record.get('url') and not record.get('urls'):
+            pass_through_records.append(record)
+            continue
+
+        # Handle existing Crawl records (just pass through with id)
+        if record_type == TYPE_CRAWL and record.get('id'):
+            pass_through_records.append(record)
+            continue
+
+        # Collect URLs
         url = record.get('url')
         if url:
             url_list.append(url)
 
+        # Handle 'urls' field (newline-separated)
+        urls_field = record.get('urls')
+        if urls_field:
+            for line in urls_field.split('\n'):
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    url_list.append(line)
+
+    # Output pass-through records first
+    if not is_tty:
+        for record in pass_through_records:
+            write_record(record)
+
     if not url_list:
+        if pass_through_records:
+            # If we had pass-through records but no URLs, that's OK
+            rprint(f'[dim]Passed through {len(pass_through_records)} records, no new URLs[/dim]', file=sys.stderr)
+            return 0
         rprint('[red]No valid URLs found[/red]', file=sys.stderr)
         return 1
 

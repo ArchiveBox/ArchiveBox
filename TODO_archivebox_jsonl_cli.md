@@ -687,23 +687,23 @@ def create_test_snapshot_json(url: str = None, **kwargs) -> Dict[str, Any]:
 ## Task Checklist
 
 ### Phase 1: Model Prerequisites
-- [ ] Implement `ArchiveResult.from_json()` in `archivebox/core/models.py`
-- [ ] Implement `ArchiveResult.from_jsonl()` in `archivebox/core/models.py`
-- [ ] Fix `Snapshot.to_json()` to use `tags_str` instead of `tags`
+- [x] Implement `ArchiveResult.from_json()` in `archivebox/core/models.py`
+- [x] Implement `ArchiveResult.from_jsonl()` in `archivebox/core/models.py`
+- [x] Fix `Snapshot.to_json()` to use `tags_str` instead of `tags`
 
 ### Phase 2: Shared Utilities
-- [ ] Create `archivebox/cli/cli_utils.py` with shared `apply_filters()`
-- [ ] Update 7 CLI files to import from `cli_utils.py`
+- [x] Create `archivebox/cli/cli_utils.py` with shared `apply_filters()`
+- [x] Update 7 CLI files to import from `cli_utils.py`
 
 ### Phase 3: Pass-Through Behavior
-- [ ] Add pass-through to `archivebox_crawl.py` create
-- [ ] Add pass-through to `archivebox_snapshot.py` create
-- [ ] Add pass-through to `archivebox_archiveresult.py` create
-- [ ] Add create-or-update to `archivebox_run.py`
-- [ ] Add pass-through output to `archivebox_run.py`
+- [x] Add pass-through to `archivebox_crawl.py` create
+- [x] Add pass-through to `archivebox_snapshot.py` create
+- [x] Add pass-through to `archivebox_archiveresult.py` create
+- [x] Add create-or-update to `archivebox_run.py`
+- [x] Add pass-through output to `archivebox_run.py`
 
 ### Phase 4: Test Infrastructure
-- [ ] Create `archivebox/tests/conftest.py` with pytest-django fixtures
+- [x] Create `archivebox/tests/conftest.py` with pytest-django fixtures
 
 ### Phase 5: Unit Tests
 - [ ] Create `archivebox/tests/test_cli_crawl.py`
@@ -713,4 +713,4 @@ def create_test_snapshot_json(url: str = None, **kwargs) -> Dict[str, Any]:
 
 ### Phase 6: Integration & Config
 - [ ] Extend `archivebox/cli/tests_piping.py` with pass-through tests
-- [ ] Update `archivebox/workers/supervisord_util.py`: orchestrator→run
+- [x] Update `archivebox/workers/supervisord_util.py`: orchestrator→run

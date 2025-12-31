@@ -39,21 +39,7 @@ from typing import Optional
 import rich_click as click
 from rich import print as rprint
 
-
-def apply_filters(queryset, filter_kwargs: dict, limit: Optional[int] = None):
-    """Apply Django-style filters from CLI kwargs to a QuerySet."""
-    filters = {}
-    for key, value in filter_kwargs.items():
-        if value is not None and key not in ('limit', 'offset'):
-            filters[key] = value
-
-    if filters:
-        queryset = queryset.filter(**filters)
-
-    if limit:
-        queryset = queryset[:limit]
-
-    return queryset
+from archivebox.cli.cli_utils import apply_filters
 
 
 # =============================================================================
@@ -69,6 +55,7 @@ def create_archiveresults(
     Create ArchiveResults for Snapshots.
 
     Reads Snapshot records from stdin and creates ArchiveResult entries.
+    Pass-through: Non-Snapshot/ArchiveResult records are output unchanged.
     If --plugin is specified, only creates results for that plugin.
     Otherwise, creates results for all pending plugins.
 
@@ -78,7 +65,7 @@ def create_archiveresults(
     """
     from django.utils import timezone
 
-    from archivebox.misc.jsonl import read_stdin, write_record, TYPE_SNAPSHOT
+    from archivebox.misc.jsonl import read_stdin, write_record, TYPE_SNAPSHOT, TYPE_ARCHIVERESULT
     from archivebox.core.models import Snapshot, ArchiveResult
 
     is_tty = sys.stdout.isatty()
@@ -87,6 +74,7 @@ def create_archiveresults(
     if snapshot_id:
         try:
             snapshots = [Snapshot.objects.get(id=snapshot_id)]
+            pass_through_records = []
         except Snapshot.DoesNotExist:
             rprint(f'[red]Snapshot not found: {snapshot_id}[/red]', file=sys.stderr)
             return 1
@@ -97,17 +85,44 @@ def create_archiveresults(
             rprint('[yellow]No Snapshot records provided via stdin[/yellow]', file=sys.stderr)
             return 1
 
-        # Filter to only Snapshot records
+        # Separate snapshot records from pass-through records
         snapshot_ids = []
+        pass_through_records = []
+
         for record in records:
-            if record.get('type') == TYPE_SNAPSHOT:
+            record_type = record.get('type', '')
+
+            if record_type == TYPE_SNAPSHOT:
+                # Pass through the Snapshot record itself
+                pass_through_records.append(record)
                 if record.get('id'):
                     snapshot_ids.append(record['id'])
+
+            elif record_type == TYPE_ARCHIVERESULT:
+                # ArchiveResult records: pass through if they have an id
+                if record.get('id'):
+                    pass_through_records.append(record)
+                # If no id, we could create it, but for now just pass through
+                else:
+                    pass_through_records.append(record)
+
+            elif record_type:
+                # Other typed records (Crawl, Tag, etc): pass through
+                pass_through_records.append(record)
+
             elif record.get('id'):
-                # Assume it's a snapshot ID if no type specified
+                # Untyped record with id - assume it's a snapshot ID
                 snapshot_ids.append(record['id'])
 
+        # Output pass-through records first
+        if not is_tty:
+            for record in pass_through_records:
+                write_record(record)
+
         if not snapshot_ids:
+            if pass_through_records:
+                rprint(f'[dim]Passed through {len(pass_through_records)} records, no new snapshots to process[/dim]', file=sys.stderr)
+                return 0
             rprint('[yellow]No valid Snapshot IDs in input[/yellow]', file=sys.stderr)
             return 1
 
@@ -115,7 +130,7 @@ def create_archiveresults(
 
     if not snapshots:
         rprint('[yellow]No matching snapshots found[/yellow]', file=sys.stderr)
-        return 1
+        return 0 if pass_through_records else 1
 
     created_count = 0
     for snapshot in snapshots:

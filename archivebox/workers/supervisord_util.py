@@ -32,7 +32,7 @@ _supervisord_proc = None
 
 ORCHESTRATOR_WORKER = {
     "name": "worker_orchestrator",
-    "command": "archivebox manage orchestrator",  # runs forever by default
+    "command": "archivebox run",  # runs forever by default
     "autostart": "true",
     "autorestart": "true",
     "stdout_logfile": "logs/worker_orchestrator.log",
