@@ -675,8 +675,9 @@ const puppeteer = require('{env_base['NODE_MODULES_DIR']}/puppeteer-core');
                     subprocess.run(['node', str(dash_script_path)], capture_output=True, timeout=15, env=env_base)
 
             # Wait longer for extension to fully initialize filters
-            print("Waiting for uBlock filter lists to initialize...")
-            time.sleep(8)
+            # On first run, uBlock needs to download filter lists which can take 10-15 seconds
+            print("Waiting for uBlock filter lists to download and initialize...")
+            time.sleep(15)
 
             ext_result = check_ad_blocking(
                 ext_cdp_url, TEST_URL, env_base, tmpdir

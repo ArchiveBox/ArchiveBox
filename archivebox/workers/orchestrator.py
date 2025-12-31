@@ -265,66 +265,57 @@ class Orchestrator:
     
     def runloop(self) -> None:
         """Main orchestrator loop."""
-        from rich.live import Live
-        from rich.table import Table
-        from archivebox.misc.logging import IS_TTY
-        import archivebox.misc.logging as logging_module
+        from archivebox.misc.logging import IS_TTY, CONSOLE
+        import sys
 
         self.on_startup()
 
         # Enable progress bars only in TTY + foreground mode
         show_progress = IS_TTY and self.exit_on_idle
-
-        def make_progress_table():
-            """Generate progress table for active snapshots."""
-            from archivebox.core.models import Snapshot
-
-            table = Table(show_header=False, show_edge=False, pad_edge=False, box=None)
-            table.add_column("URL", style="cyan", no_wrap=False)
-            table.add_column("Progress", width=42)
-            table.add_column("Percent", justify="right", width=6)
-
-            active_snapshots = Snapshot.objects.filter(status='started').iterator(chunk_size=100)
-
-            for snapshot in active_snapshots:
-                total = snapshot.archiveresult_set.count()
-                if total == 0:
-                    continue
-
-                completed = snapshot.archiveresult_set.filter(
-                    status__in=['succeeded', 'skipped', 'failed']
-                ).count()
-
-                percentage = (completed / total) * 100
-                bar_width = 40
-                filled = int(bar_width * completed / total)
-                bar = '█' * filled + '░' * (bar_width - filled)
-
-                url = snapshot.url[:60] + '...' if len(snapshot.url) > 60 else snapshot.url
-                table.add_row(url, bar, f"{percentage:>3.0f}%")
-
-            return table
-
-        live = Live(make_progress_table(), refresh_per_second=4, transient=False) if show_progress else None
-
-        # Redirect all output through Live's console when active
-        original_console = logging_module.CONSOLE
-        original_stderr = logging_module.STDERR
+        last_progress_output = ""
 
         try:
-            if live:
-                live.start()
-                # Replace global consoles with Live's console
-                logging_module.CONSOLE = live.console
-                logging_module.STDERR = live.console
-
             while True:
                 # Check queues and spawn workers
                 queue_sizes = self.check_queues_and_spawn_workers()
 
-                # Update progress display
-                if live:
-                    live.update(make_progress_table())
+                # Update progress bars (simple inline update)
+                if show_progress:
+                    from archivebox.core.models import Snapshot
+
+                    active_snapshots = list(Snapshot.objects.filter(status='started').iterator(chunk_size=100))
+
+                    if active_snapshots:
+                        # Build progress string
+                        progress_lines = []
+                        for snapshot in active_snapshots[:5]:  # Limit to 5 snapshots
+                            total = snapshot.archiveresult_set.count()
+                            if total == 0:
+                                continue
+
+                            completed = snapshot.archiveresult_set.filter(
+                                status__in=['succeeded', 'skipped', 'failed']
+                            ).count()
+
+                            percentage = (completed / total) * 100
+                            bar_width = 30
+                            filled = int(bar_width * completed / total)
+                            bar = '█' * filled + '░' * (bar_width - filled)
+
+                            url = snapshot.url[:50] + '...' if len(snapshot.url) > 50 else snapshot.url
+                            progress_lines.append(f"{url} {bar} {percentage:>3.0f}%")
+
+                        progress_output = "\n".join(progress_lines)
+
+                        # Only update if changed
+                        if progress_output != last_progress_output:
+                            # Clear previous lines and print new ones
+                            if last_progress_output:
+                                num_lines = last_progress_output.count('\n') + 1
+                                sys.stderr.write(f"\r\033[{num_lines}A\033[J")
+                            sys.stderr.write(progress_output + "\n")
+                            sys.stderr.flush()
+                            last_progress_output = progress_output
 
                 # Track idle state
                 if self.has_pending_work(queue_sizes) or self.has_running_workers():
@@ -336,6 +327,12 @@ class Orchestrator:
 
                 # Check if we should exit
                 if self.should_exit(queue_sizes):
+                    # Clear progress lines
+                    if show_progress and last_progress_output:
+                        num_lines = last_progress_output.count('\n') + 1
+                        sys.stderr.write(f"\r\033[{num_lines}A\033[J")
+                        sys.stderr.flush()
+
                     log_worker_event(
                         worker_type='Orchestrator',
                         event='All work complete',
@@ -353,12 +350,6 @@ class Orchestrator:
             raise
         else:
             self.on_shutdown()
-        finally:
-            # Restore original consoles
-            if live:
-                logging_module.CONSOLE = original_console
-                logging_module.STDERR = original_stderr
-                live.stop()
     
     def start(self) -> int:
         """
