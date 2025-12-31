@@ -28,69 +28,24 @@ import tempfile
 import shutil
 import platform
 
-PLUGIN_DIR = Path(__file__).parent.parent
-CHROME_LAUNCH_HOOK = PLUGIN_DIR / 'on_Crawl__30_chrome_launch.bg.js'
-CHROME_TAB_HOOK = PLUGIN_DIR / 'on_Snapshot__20_chrome_tab.bg.js'
-CHROME_NAVIGATE_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_chrome_navigate.*'), None)
+from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+    get_test_env,
+    get_lib_dir,
+    get_node_modules_dir,
+    find_chromium_binary,
+    CHROME_PLUGIN_DIR as PLUGIN_DIR,
+    CHROME_LAUNCH_HOOK,
+    CHROME_TAB_HOOK,
+    CHROME_NAVIGATE_HOOK,
+)
 
-# Get LIB_DIR and MACHINE_TYPE from environment or compute them
-def get_lib_dir_and_machine_type():
-    """Get or compute LIB_DIR and MACHINE_TYPE for tests."""
-    from archivebox.config.paths import get_machine_type
-    from archivebox.config.common import STORAGE_CONFIG
-
-    lib_dir = os.environ.get('LIB_DIR') or str(STORAGE_CONFIG.LIB_DIR)
-    machine_type = os.environ.get('MACHINE_TYPE') or get_machine_type()
-
-    return Path(lib_dir), machine_type
-
-# Setup NODE_MODULES_DIR to find npm packages
-LIB_DIR, MACHINE_TYPE = get_lib_dir_and_machine_type()
-# Note: LIB_DIR already includes machine_type (e.g., data/lib/arm64-darwin)
-NODE_MODULES_DIR = LIB_DIR / 'npm' / 'node_modules'
+# Get LIB_DIR and NODE_MODULES_DIR from shared helpers
+LIB_DIR = get_lib_dir()
+NODE_MODULES_DIR = get_node_modules_dir()
 NPM_PREFIX = LIB_DIR / 'npm'
 
 # Chromium install location (relative to DATA_DIR)
 CHROMIUM_INSTALL_DIR = Path(os.environ.get('DATA_DIR', '.')).resolve() / 'chromium'
-
-def get_test_env():
-    """Get environment with NODE_MODULES_DIR and CHROME_BINARY set correctly."""
-    env = os.environ.copy()
-    env['NODE_MODULES_DIR'] = str(NODE_MODULES_DIR)
-    env['LIB_DIR'] = str(LIB_DIR)
-    env['MACHINE_TYPE'] = MACHINE_TYPE
-    # Ensure CHROME_BINARY is set to Chromium
-    if 'CHROME_BINARY' not in env:
-        chromium = find_chromium_binary()
-        if chromium:
-            env['CHROME_BINARY'] = chromium
-    return env
-
-
-def find_chromium_binary(data_dir=None):
-    """Find the Chromium binary using chrome_utils.js findChromium().
-
-    This uses the centralized findChromium() function which checks:
-    - CHROME_BINARY env var
-    - @puppeteer/browsers install locations (in data_dir/chromium)
-    - System Chromium locations
-    - Falls back to Chrome (with warning)
-
-    Args:
-        data_dir: Directory where chromium was installed (contains chromium/ subdir)
-    """
-    chrome_utils = PLUGIN_DIR / 'chrome_utils.js'
-    # Use provided data_dir, or fall back to env var, or current dir
-    search_dir = data_dir or os.environ.get('DATA_DIR', '.')
-    result = subprocess.run(
-        ['node', str(chrome_utils), 'findChromium', str(search_dir)],
-        capture_output=True,
-        text=True,
-        timeout=10
-    )
-    if result.returncode == 0 and result.stdout.strip():
-        return result.stdout.strip()
-    return None
 
 
 @pytest.fixture(scope="session", autouse=True)

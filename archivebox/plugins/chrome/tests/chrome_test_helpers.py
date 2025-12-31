@@ -78,16 +78,36 @@ def get_node_modules_dir() -> Path:
     return lib_dir / 'npm' / 'node_modules'
 
 
-def get_test_env() -> dict:
-    """Get environment dict with NODE_MODULES_DIR and LIB_DIR set correctly for tests.
+def get_machine_type() -> str:
+    """Get machine type string (e.g., 'x86_64-linux', 'arm64-darwin').
 
-    Returns a copy of os.environ with NODE_MODULES_DIR and LIB_DIR added/updated.
+    Returns the machine type, checking:
+    1. MACHINE_TYPE environment variable
+    2. Computed from platform.machine() and platform.system()
+    """
+    if os.environ.get('MACHINE_TYPE'):
+        return os.environ['MACHINE_TYPE']
+
+    machine = platform.machine().lower()
+    system = platform.system().lower()
+    if machine in ('arm64', 'aarch64'):
+        machine = 'arm64'
+    elif machine in ('x86_64', 'amd64'):
+        machine = 'x86_64'
+    return f"{machine}-{system}"
+
+
+def get_test_env() -> dict:
+    """Get environment dict with NODE_MODULES_DIR, LIB_DIR, and MACHINE_TYPE set correctly for tests.
+
+    Returns a copy of os.environ with NODE_MODULES_DIR, LIB_DIR, and MACHINE_TYPE added/updated.
     Use this for all subprocess calls in simple plugin tests (screenshot, dom, pdf).
     """
     env = os.environ.copy()
     lib_dir = get_lib_dir()
     env['LIB_DIR'] = str(lib_dir)
     env['NODE_MODULES_DIR'] = str(get_node_modules_dir())
+    env['MACHINE_TYPE'] = get_machine_type()
     return env
 
 
