@@ -12,9 +12,15 @@
 
 const fs = require('fs');
 const path = require('path');
+
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
+
 const puppeteer = require('puppeteer-core');
+
+// Import shared utilities from chrome_utils.js
+const chromeUtils = require('../chrome/chrome_utils.js');
+const { getEnv, getEnvBool, getEnvInt } = chromeUtils;
 
 const PLUGIN_NAME = 'dns';
 const OUTPUT_DIR = '.';
@@ -32,17 +38,7 @@ function parseArgs() {
     return args;
 }
 
-function getEnv(name, defaultValue = '') {
-    return (process.env[name] || defaultValue).trim();
-}
-
-function getEnvBool(name, defaultValue = false) {
-    const val = getEnv(name, '').toLowerCase();
-    if (['true', '1', 'yes', 'on'].includes(val)) return true;
-    if (['false', '0', 'no', 'off'].includes(val)) return false;
-    return defaultValue;
-}
-
+// Chrome session file helpers (these are local to each plugin's working directory)
 async function waitForChromeTabOpen(timeoutMs = 60000) {
     const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
     const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
@@ -52,7 +48,6 @@ async function waitForChromeTabOpen(timeoutMs = 60000) {
         if (fs.existsSync(cdpFile) && fs.existsSync(targetIdFile)) {
             return true;
         }
-        // Wait 100ms before checking again
         await new Promise(resolve => setTimeout(resolve, 100));
     }
 
@@ -86,6 +81,7 @@ function extractHostname(url) {
 
 async function setupListener(targetUrl) {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
+    const timeout = getEnvInt('DNS_TIMEOUT', 30) * 1000;
 
     // Initialize output file
     fs.writeFileSync(outputPath, '');
@@ -95,10 +91,10 @@ async function setupListener(targetUrl) {
     // Track request IDs to their URLs for correlation
     const requestUrls = new Map();
 
-    // Wait for chrome tab to be open (up to 60s)
-    const tabOpen = await waitForChromeTabOpen(60000);
+    // Wait for chrome tab to be open
+    const tabOpen = await waitForChromeTabOpen(timeout);
     if (!tabOpen) {
-        throw new Error('Chrome tab not open after 60s (chrome plugin must run first)');
+        throw new Error(`Chrome tab not open after ${timeout/1000}s (chrome plugin must run first)`);
     }
 
     const cdpUrl = getCdpUrl();
@@ -194,12 +190,6 @@ async function setupListener(targetUrl) {
         }
     });
 
-    // Also listen for responseReceivedExtraInfo which may have additional details
-    client.on('Network.responseReceivedExtraInfo', (params) => {
-        // This event can provide additional headers but doesn't have IP info
-        // Keeping listener for future extensibility
-    });
-
     // Listen for failed requests too - they still involve DNS
     client.on('Network.loadingFailed', (params) => {
         try {
@@ -245,9 +235,8 @@ async function setupListener(targetUrl) {
 
 async function waitForNavigation() {
     // Wait for chrome_navigate to complete (it writes page_loaded.txt)
-    const navDir = '../chrome';
-    const pageLoadedMarker = path.join(navDir, 'page_loaded.txt');
-    const maxWait = 120000; // 2 minutes
+    const pageLoadedMarker = path.join(CHROME_SESSION_DIR, 'page_loaded.txt');
+    const maxWait = getEnvInt('DNS_TIMEOUT', 30) * 1000 * 4; // 4x timeout for navigation
     const pollInterval = 100;
     let waitTime = 0;
 
