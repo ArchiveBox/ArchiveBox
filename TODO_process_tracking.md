@@ -72,12 +72,64 @@ class Process(ModelWithHealthStats):
 Following the pattern established by `Machine.current()`, add a method to get-or-create the Process record for the current OS process:
 
 ```python
+import os
+import sys
+import psutil
+from datetime import timedelta
+from django.utils import timezone
+
 _CURRENT_PROCESS = None
 PROCESS_RECHECK_INTERVAL = 60  # Re-validate every 60 seconds
+PID_REUSE_WINDOW = timedelta(hours=24)  # Max age for considering a PID match valid
+START_TIME_TOLERANCE = 5.0  # Seconds tolerance for start time matching
+
 
 class ProcessManager(models.Manager):
     def current(self) -> 'Process':
         return Process.current()
+
+    def get_by_pid(self, pid: int, machine: 'Machine' = None) -> 'Process | None':
+        """
+        Find a Process by PID with proper validation against PID reuse.
+
+        IMPORTANT: PIDs are reused by the OS! This method:
+        1. Filters by machine (required - PIDs are only unique per machine)
+        2. Filters by time window (processes older than 24h are stale)
+        3. Validates via psutil that start times match
+
+        Args:
+            pid: OS process ID
+            machine: Machine instance (defaults to current machine)
+
+        Returns:
+            Process if found and validated, None otherwise
+        """
+        machine = machine or Machine.current()
+
+        # Get the actual process start time from OS
+        try:
+            os_proc = psutil.Process(pid)
+            os_start_time = os_proc.create_time()
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            # Process doesn't exist - any DB record with this PID is stale
+            return None
+
+        # Query candidates: same machine, same PID, recent, still RUNNING
+        candidates = self.filter(
+            machine=machine,
+            pid=pid,
+            status=Process.StatusChoices.RUNNING,
+            started_at__gte=timezone.now() - PID_REUSE_WINDOW,  # Only recent processes
+        ).order_by('-started_at')  # Most recent first
+
+        for candidate in candidates:
+            # Validate start time matches (within tolerance)
+            if candidate.started_at:
+                db_start_time = candidate.started_at.timestamp()
+                if abs(db_start_time - os_start_time) < START_TIME_TOLERANCE:
+                    return candidate
+
+        return None
 
 
 class Process(ModelWithHealthStats):
@@ -95,44 +147,56 @@ class Process(ModelWithHealthStats):
         2. Validates the cached Process is still valid (PID not reused)
         3. Creates new Process if needed
 
-        Uses os.getpid() to identify current process and os.getppid() to
-        find parent Process record.
+        IMPORTANT: Uses psutil to validate PID hasn't been reused.
+        PIDs are recycled by OS, so we compare start times.
         """
         global _CURRENT_PROCESS
 
         current_pid = os.getpid()
+        machine = Machine.current()
 
         # Check cache validity
         if _CURRENT_PROCESS:
-            # Verify cached process matches current PID and hasn't expired
+            # Verify: same PID, same machine, cache not expired
             if (_CURRENT_PROCESS.pid == current_pid and
+                _CURRENT_PROCESS.machine_id == machine.id and
                 timezone.now() < _CURRENT_PROCESS.modified_at + timedelta(seconds=PROCESS_RECHECK_INTERVAL)):
                 return _CURRENT_PROCESS
             _CURRENT_PROCESS = None
 
-        machine = Machine.current()
+        # Get actual process start time from OS for validation
+        try:
+            os_proc = psutil.Process(current_pid)
+            os_start_time = os_proc.create_time()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            os_start_time = None
 
         # Try to find existing Process for this PID on this machine
-        existing = cls.objects.filter(
-            machine=machine,
-            pid=current_pid,
-            status=cls.StatusChoices.RUNNING,
-        ).first()
+        # Filter by: machine + PID + RUNNING + recent + start time matches
+        if os_start_time:
+            existing = cls.objects.filter(
+                machine=machine,
+                pid=current_pid,
+                status=cls.StatusChoices.RUNNING,
+                started_at__gte=timezone.now() - PID_REUSE_WINDOW,
+            ).order_by('-started_at').first()
 
-        if existing:
-            # Validate it's actually our process (check start time matches)
-            try:
-                import psutil
-                proc = psutil.Process(current_pid)
-                if abs(existing.started_at.timestamp() - proc.create_time()) < 5.0:
+            if existing and existing.started_at:
+                db_start_time = existing.started_at.timestamp()
+                if abs(db_start_time - os_start_time) < START_TIME_TOLERANCE:
                     _CURRENT_PROCESS = existing
                     return existing
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
 
-        # Create new Process record
-        parent = cls._find_parent_process()
+        # No valid existing record - create new one
+        parent = cls._find_parent_process(machine)
         process_type = cls._detect_process_type()
+
+        # Use psutil start time if available (more accurate than timezone.now())
+        if os_start_time:
+            from datetime import datetime
+            started_at = datetime.fromtimestamp(os_start_time, tz=timezone.get_current_timezone())
+        else:
+            started_at = timezone.now()
 
         _CURRENT_PROCESS = cls.objects.create(
             machine=machine,
@@ -141,26 +205,48 @@ class Process(ModelWithHealthStats):
             cmd=sys.argv,
             pwd=os.getcwd(),
             pid=current_pid,
-            started_at=timezone.now(),
+            started_at=started_at,
             status=cls.StatusChoices.RUNNING,
         )
         return _CURRENT_PROCESS
 
     @classmethod
-    def _find_parent_process(cls) -> 'Process | None':
+    def _find_parent_process(cls, machine: 'Machine' = None) -> 'Process | None':
         """
         Find the parent Process record by looking up PPID.
+
+        IMPORTANT: Validates against PID reuse by checking:
+        1. Same machine (PIDs are only unique per machine)
+        2. Start time matches OS process start time
+        3. Process is still RUNNING and recent
 
         Returns None if parent is not an ArchiveBox process.
         """
         ppid = os.getppid()
-        machine = Machine.current()
+        machine = machine or Machine.current()
 
-        return cls.objects.filter(
+        # Get parent process start time from OS
+        try:
+            os_parent = psutil.Process(ppid)
+            os_parent_start = os_parent.create_time()
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            return None  # Parent process doesn't exist
+
+        # Find matching Process record
+        candidates = cls.objects.filter(
             machine=machine,
             pid=ppid,
             status=cls.StatusChoices.RUNNING,
-        ).first()
+            started_at__gte=timezone.now() - PID_REUSE_WINDOW,
+        ).order_by('-started_at')
+
+        for candidate in candidates:
+            if candidate.started_at:
+                db_start_time = candidate.started_at.timestamp()
+                if abs(db_start_time - os_parent_start) < START_TIME_TOLERANCE:
+                    return candidate
+
+        return None  # No matching ArchiveBox parent process
 
     @classmethod
     def _detect_process_type(cls) -> str:
@@ -179,13 +265,61 @@ class Process(ModelWithHealthStats):
             return cls.TypeChoices.CLI
         else:
             return cls.TypeChoices.BINARY
+
+    @classmethod
+    def cleanup_stale_running(cls, machine: 'Machine' = None) -> int:
+        """
+        Mark stale RUNNING processes as EXITED.
+
+        Processes are stale if:
+        - Status is RUNNING but OS process no longer exists
+        - Status is RUNNING but started_at is older than PID_REUSE_WINDOW
+
+        Returns count of processes cleaned up.
+        """
+        machine = machine or Machine.current()
+        cleaned = 0
+
+        stale = cls.objects.filter(
+            machine=machine,
+            status=cls.StatusChoices.RUNNING,
+        )
+
+        for proc in stale:
+            is_stale = False
+
+            # Check if too old (PID definitely reused)
+            if proc.started_at and proc.started_at < timezone.now() - PID_REUSE_WINDOW:
+                is_stale = True
+            else:
+                # Check if OS process still exists with matching start time
+                try:
+                    os_proc = psutil.Process(proc.pid)
+                    if proc.started_at:
+                        db_start = proc.started_at.timestamp()
+                        os_start = os_proc.create_time()
+                        if abs(db_start - os_start) > START_TIME_TOLERANCE:
+                            is_stale = True  # PID reused by different process
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    is_stale = True  # Process no longer exists
+
+            if is_stale:
+                proc.status = cls.StatusChoices.EXITED
+                proc.ended_at = proc.ended_at or timezone.now()
+                proc.exit_code = proc.exit_code if proc.exit_code is not None else -1
+                proc.save(update_fields=['status', 'ended_at', 'exit_code'])
+                cleaned += 1
+
+        return cleaned
 ```
 
 **Key Benefits:**
 - **Automatic hierarchy**: Calling `Process.current()` from anywhere auto-links to parent
 - **Cached**: Like `Machine.current()`, avoids repeated DB queries
-- **Validated**: Checks PID hasn't been reused via psutil
-- **Self-healing**: Creates missing records on-demand
+- **PID reuse protection**: Validates via psutil start time comparison (PIDs recycle!)
+- **Machine-scoped**: All queries filter by `machine=Machine.current()`
+- **Time-windowed**: Ignores processes older than 24h (stale PID matches)
+- **Self-healing**: `cleanup_stale_running()` marks orphaned processes as EXITED
 
 **Usage pattern:**
 ```python
