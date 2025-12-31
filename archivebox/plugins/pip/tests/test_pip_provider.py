@@ -171,28 +171,5 @@ class TestPipProviderIntegration(TestCase):
         self.assertNotIn('Traceback', result.stderr)
 
 
-class TestPipProviderOutput(TestCase):
-    """Test JSONL output format from pip provider."""
-
-    def test_binary_record_format(self):
-        """Binary JSONL records should have required fields."""
-        # Example of expected format
-        record = {
-            'type': 'Binary',
-            'name': 'wget',
-            'abspath': '/usr/bin/wget',
-            'version': '1.21',
-            'binprovider': 'pip',
-            'sha256': 'abc123...',
-        }
-
-        # Validate structure
-        self.assertEqual(record['type'], 'Binary')
-        self.assertIn('name', record)
-        self.assertIn('abspath', record)
-        self.assertIn('version', record)
-        self.assertIn('binprovider', record)
-
-
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

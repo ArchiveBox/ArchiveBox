@@ -15,7 +15,6 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 from django.test import TestCase
@@ -139,84 +138,6 @@ class TestNpmProviderHook(TestCase):
 
         # May fail to install, but should not crash parsing overrides
         self.assertNotIn('Failed to parse overrides JSON', result.stderr)
-
-
-class TestNpmProviderOutput(TestCase):
-    """Test JSONL output format from npm provider."""
-
-    def test_binary_record_format(self):
-        """Binary JSONL records should have required fields."""
-        record = {
-            'type': 'Binary',
-            'name': 'prettier',
-            'abspath': '/path/to/node_modules/.bin/prettier',
-            'version': '3.0.0',
-            'binprovider': 'npm',
-            'sha256': '',
-            'machine_id': 'machine-uuid',
-            'binary_id': 'binary-uuid',
-        }
-
-        self.assertEqual(record['type'], 'Binary')
-        self.assertEqual(record['binprovider'], 'npm')
-        self.assertIn('abspath', record)
-
-    def test_machine_update_record_format(self):
-        """Machine update records should have correct format."""
-        record = {
-            'type': 'Machine',
-            '_method': 'update',
-            'key': 'config/PATH',
-            'value': '/path/to/npm/bin:/existing/path',
-        }
-
-        self.assertEqual(record['type'], 'Machine')
-        self.assertEqual(record['_method'], 'update')
-        self.assertIn('key', record)
-        self.assertIn('value', record)
-
-    def test_node_modules_dir_record_format(self):
-        """NODE_MODULES_DIR update record should have correct format."""
-        record = {
-            'type': 'Machine',
-            '_method': 'update',
-            'key': 'config/NODE_MODULES_DIR',
-            'value': '/path/to/npm/node_modules',
-        }
-
-        self.assertEqual(record['key'], 'config/NODE_MODULES_DIR')
-
-
-@pytest.mark.skipif(not npm_available(), reason="npm not installed")
-class TestNpmProviderIntegration(TestCase):
-    """Integration tests with real npm installations."""
-
-    def setUp(self):
-        """Set up isolated npm environment."""
-        self.temp_dir = tempfile.mkdtemp()
-        self.lib_dir = Path(self.temp_dir) / 'lib' / 'x86_64-linux'
-        self.lib_dir.mkdir(parents=True)
-
-    def tearDown(self):
-        """Clean up."""
-        shutil.rmtree(self.temp_dir, ignore_errors=True)
-
-    def test_npm_prefix_structure(self):
-        """Verify npm creates expected directory structure."""
-        npm_prefix = self.lib_dir / 'npm'
-        npm_prefix.mkdir(parents=True)
-
-        # Expected structure after npm install:
-        # npm/
-        #   bin/  (symlinks to binaries)
-        #   node_modules/  (packages)
-
-        expected_dirs = ['bin', 'node_modules']
-        for dir_name in expected_dirs:
-            (npm_prefix / dir_name).mkdir(exist_ok=True)
-
-        for dir_name in expected_dirs:
-            self.assertTrue((npm_prefix / dir_name).exists())
 
 
 if __name__ == '__main__':

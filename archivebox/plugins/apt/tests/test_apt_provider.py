@@ -111,29 +111,6 @@ class TestAptProviderHook(TestCase):
         self.assertNotIn('Traceback', result.stderr)
 
 
-class TestAptProviderOutput(TestCase):
-    """Test JSONL output format from apt provider."""
-
-    def test_binary_record_format(self):
-        """Binary JSONL records should have required fields."""
-        record = {
-            'type': 'Binary',
-            'name': 'wget',
-            'abspath': '/usr/bin/wget',
-            'version': '1.21',
-            'binprovider': 'apt',
-            'sha256': '',
-            'machine_id': 'machine-uuid',
-            'binary_id': 'binary-uuid',
-        }
-
-        self.assertEqual(record['type'], 'Binary')
-        self.assertEqual(record['binprovider'], 'apt')
-        self.assertIn('name', record)
-        self.assertIn('abspath', record)
-        self.assertIn('version', record)
-
-
 @pytest.mark.skipif(not is_linux(), reason="apt only available on Linux")
 @pytest.mark.skipif(not apt_available(), reason="apt not installed")
 class TestAptProviderSystemBinaries(TestCase):

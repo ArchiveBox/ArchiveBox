@@ -33,7 +33,7 @@ class TestSqliteSearchBackend(TestCase):
     def setUp(self):
         """Create a temporary data directory with search index."""
         self.temp_dir = tempfile.mkdtemp()
-        self.db_path = Path(self.temp_dir) / 'search.sqlite3'
+        self.db_path = Path(self.temp_dir) / SQLITEFTS_DB
 
         # Patch DATA_DIR
         self.settings_patch = patch(
@@ -252,7 +252,7 @@ class TestSqliteSearchWithRealData(TestCase):
     def setUp(self):
         """Create index with realistic test data."""
         self.temp_dir = tempfile.mkdtemp()
-        self.db_path = Path(self.temp_dir) / 'search.sqlite3'
+        self.db_path = Path(self.temp_dir) / SQLITEFTS_DB
 
         self.settings_patch = patch(
             'archivebox.plugins.search_backend_sqlite.search.settings'
