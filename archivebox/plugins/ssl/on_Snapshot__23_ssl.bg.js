@@ -19,7 +19,7 @@ const puppeteer = require('puppeteer-core');
 const PLUGIN_NAME = 'ssl';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'ssl.jsonl';
-const PID_FILE = 'hook.pid';
+// PID file is now written by run_hook() with hook-specific name
 const CHROME_SESSION_DIR = '../chrome';
 
 function parseArgs() {
@@ -211,8 +211,8 @@ async function main() {
         // Set up listener BEFORE navigation
         await setupListener(url);
 
-        // Write PID file so chrome_cleanup can kill any remaining processes
-        fs.writeFileSync(path.join(OUTPUT_DIR, PID_FILE), String(process.pid));
+        // Note: PID file is written by run_hook() with hook-specific name
+        // Snapshot.cleanup() kills all *.pid processes when done
 
         // Wait for chrome_navigate to complete (BLOCKING)
         await waitForNavigation();

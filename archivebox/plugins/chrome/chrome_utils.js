@@ -57,6 +57,40 @@ function getEnvInt(name, defaultValue = 0) {
 }
 
 /**
+ * Get array environment variable (JSON array or comma-separated string).
+ *
+ * Parsing strategy:
+ * - If value starts with '[', parse as JSON array
+ * - Otherwise, parse as comma-separated values
+ *
+ * This prevents incorrect splitting of arguments that contain internal commas.
+ * For arguments with commas, use JSON format:
+ *   CHROME_ARGS='["--user-data-dir=/path/with,comma", "--window-size=1440,900"]'
+ *
+ * @param {string} name - Environment variable name
+ * @param {string[]} [defaultValue=[]] - Default value if not set
+ * @returns {string[]} - Array of strings
+ */
+function getEnvArray(name, defaultValue = []) {
+    const val = getEnv(name, '');
+    if (!val) return defaultValue;
+
+    // If starts with '[', parse as JSON array
+    if (val.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(val);
+            if (Array.isArray(parsed)) return parsed;
+        } catch (e) {
+            console.error(`[!] Failed to parse ${name} as JSON array: ${e.message}`);
+            // Fall through to comma-separated parsing
+        }
+    }
+
+    // Parse as comma-separated values
+    return val.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+/**
  * Parse resolution string into width/height.
  * @param {string} resolution - Resolution string like "1440,2000"
  * @returns {{width: number, height: number}} - Parsed dimensions
@@ -169,92 +203,146 @@ function waitForDebugPort(port, timeout = 30000) {
 
 /**
  * Kill zombie Chrome processes from stale crawls.
- * Scans DATA_DIR/crawls/<crawl_id>/chrome/<name>.pid for stale processes.
+ * Recursively scans DATA_DIR for any */chrome/*.pid files from stale crawls.
+ * Does not assume specific directory structure - works with nested paths.
  * @param {string} [dataDir] - Data directory (defaults to DATA_DIR env or '.')
  * @returns {number} - Number of zombies killed
  */
 function killZombieChrome(dataDir = null) {
     dataDir = dataDir || getEnv('DATA_DIR', '.');
-    const crawlsDir = path.join(dataDir, 'crawls');
     const now = Date.now();
     const fiveMinutesAgo = now - 300000;
     let killed = 0;
 
     console.error('[*] Checking for zombie Chrome processes...');
 
-    if (!fs.existsSync(crawlsDir)) {
-        console.error('[+] No crawls directory found');
+    if (!fs.existsSync(dataDir)) {
+        console.error('[+] No data directory found');
         return 0;
     }
 
+    /**
+     * Recursively find all chrome/.pid files in directory tree
+     * @param {string} dir - Directory to search
+     * @param {number} depth - Current recursion depth (limit to 10)
+     * @returns {Array<{pidFile: string, crawlDir: string}>} - Array of PID file info
+     */
+    function findChromePidFiles(dir, depth = 0) {
+        if (depth > 10) return [];  // Prevent infinite recursion
+
+        const results = [];
+        try {
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+            for (const entry of entries) {
+                if (!entry.isDirectory()) continue;
+
+                const fullPath = path.join(dir, entry.name);
+
+                // Found a chrome directory - check for .pid files
+                if (entry.name === 'chrome') {
+                    try {
+                        const pidFiles = fs.readdirSync(fullPath).filter(f => f.endsWith('.pid'));
+                        const crawlDir = dir;  // Parent of chrome/ is the crawl dir
+
+                        for (const pidFileName of pidFiles) {
+                            results.push({
+                                pidFile: path.join(fullPath, pidFileName),
+                                crawlDir: crawlDir,
+                            });
+                        }
+                    } catch (e) {
+                        // Skip if can't read chrome dir
+                    }
+                } else {
+                    // Recurse into subdirectory (skip hidden dirs and node_modules)
+                    if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
+                        results.push(...findChromePidFiles(fullPath, depth + 1));
+                    }
+                }
+            }
+        } catch (e) {
+            // Skip if can't read directory
+        }
+        return results;
+    }
+
     try {
-        const crawls = fs.readdirSync(crawlsDir, { withFileTypes: true });
+        const chromePids = findChromePidFiles(dataDir);
 
-        for (const crawl of crawls) {
-            if (!crawl.isDirectory()) continue;
-
-            const crawlDir = path.join(crawlsDir, crawl.name);
-            const chromeDir = path.join(crawlDir, 'chrome');
-
-            if (!fs.existsSync(chromeDir)) continue;
-
+        for (const {pidFile, crawlDir} of chromePids) {
             // Check if crawl was modified recently (still active)
             try {
                 const crawlStats = fs.statSync(crawlDir);
                 if (crawlStats.mtimeMs > fiveMinutesAgo) {
-                    continue;
+                    continue;  // Crawl is active, skip
                 }
             } catch (e) {
                 continue;
             }
 
-            // Crawl is stale, check for PIDs
+            // Crawl is stale, check PID
             try {
-                const pidFiles = fs.readdirSync(chromeDir).filter(f => f.endsWith('.pid'));
+                const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+                if (isNaN(pid) || pid <= 0) continue;
 
-                for (const pidFileName of pidFiles) {
-                    const pidFile = path.join(chromeDir, pidFileName);
+                // Check if process exists
+                try {
+                    process.kill(pid, 0);
+                } catch (e) {
+                    // Process dead, remove stale PID file
+                    try { fs.unlinkSync(pidFile); } catch (e) {}
+                    continue;
+                }
 
-                    try {
-                        const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
-                        if (isNaN(pid) || pid <= 0) continue;
+                // Process alive and crawl is stale - zombie!
+                console.error(`[!] Found zombie (PID ${pid}) from stale crawl ${path.basename(crawlDir)}`);
 
-                        // Check if process exists
-                        try {
-                            process.kill(pid, 0);
-                        } catch (e) {
-                            // Process dead, remove stale PID file
-                            try { fs.unlinkSync(pidFile); } catch (e) {}
-                            continue;
-                        }
-
-                        // Process alive and crawl is stale - zombie!
-                        console.error(`[!] Found zombie (PID ${pid}) from stale crawl ${crawl.name}`);
-
-                        try {
-                            try { process.kill(-pid, 'SIGKILL'); } catch (e) { process.kill(pid, 'SIGKILL'); }
-                            killed++;
-                            console.error(`[+] Killed zombie (PID ${pid})`);
-                            try { fs.unlinkSync(pidFile); } catch (e) {}
-                        } catch (e) {
-                            console.error(`[!] Failed to kill PID ${pid}: ${e.message}`);
-                        }
-                    } catch (e) {
-                        // Skip invalid PID files
-                    }
+                try {
+                    try { process.kill(-pid, 'SIGKILL'); } catch (e) { process.kill(pid, 'SIGKILL'); }
+                    killed++;
+                    console.error(`[+] Killed zombie (PID ${pid})`);
+                    try { fs.unlinkSync(pidFile); } catch (e) {}
+                } catch (e) {
+                    console.error(`[!] Failed to kill PID ${pid}: ${e.message}`);
                 }
             } catch (e) {
-                // Skip if can't read chrome dir
+                // Skip invalid PID files
             }
         }
     } catch (e) {
-        console.error(`[!] Error scanning crawls: ${e.message}`);
+        console.error(`[!] Error scanning for Chrome processes: ${e.message}`);
     }
 
     if (killed > 0) {
         console.error(`[+] Killed ${killed} zombie process(es)`);
     } else {
         console.error('[+] No zombies found');
+    }
+
+    // Clean up stale SingletonLock files from persona chrome_user_data directories
+    const personasDir = path.join(dataDir, 'personas');
+    if (fs.existsSync(personasDir)) {
+        try {
+            const personas = fs.readdirSync(personasDir, { withFileTypes: true });
+            for (const persona of personas) {
+                if (!persona.isDirectory()) continue;
+
+                const userDataDir = path.join(personasDir, persona.name, 'chrome_user_data');
+                const singletonLock = path.join(userDataDir, 'SingletonLock');
+
+                if (fs.existsSync(singletonLock)) {
+                    try {
+                        fs.unlinkSync(singletonLock);
+                        console.error(`[+] Removed stale SingletonLock: ${singletonLock}`);
+                    } catch (e) {
+                        // Ignore - may be in use by active Chrome
+                    }
+                }
+            }
+        } catch (e) {
+            // Ignore errors scanning personas directory
+        }
     }
 
     return killed;
@@ -270,8 +358,10 @@ function killZombieChrome(dataDir = null) {
  * @param {Object} options - Launch options
  * @param {string} [options.binary] - Chrome binary path (auto-detected if not provided)
  * @param {string} [options.outputDir='chrome'] - Directory for output files
+ * @param {string} [options.userDataDir] - Chrome user data directory for persistent sessions
  * @param {string} [options.resolution='1440,2000'] - Window resolution
  * @param {boolean} [options.headless=true] - Run in headless mode
+ * @param {boolean} [options.sandbox=true] - Enable Chrome sandbox
  * @param {boolean} [options.checkSsl=true] - Check SSL certificates
  * @param {string[]} [options.extensionPaths=[]] - Paths to unpacked extensions
  * @param {boolean} [options.killZombies=true] - Kill zombie processes first
@@ -281,8 +371,10 @@ async function launchChromium(options = {}) {
     const {
         binary = findChromium(),
         outputDir = 'chrome',
+        userDataDir = getEnv('CHROME_USER_DATA_DIR'),
         resolution = getEnv('CHROME_RESOLUTION') || getEnv('RESOLUTION', '1440,2000'),
         headless = getEnvBool('CHROME_HEADLESS', true),
+        sandbox = getEnvBool('CHROME_SANDBOX', true),
         checkSsl = getEnvBool('CHROME_CHECK_SSL_VALIDITY', getEnvBool('CHECK_SSL_VALIDITY', true)),
         extensionPaths = [],
         killZombies = true,
@@ -304,40 +396,64 @@ async function launchChromium(options = {}) {
         fs.mkdirSync(outputDir, { recursive: true });
     }
 
+    // Create user data directory if specified and doesn't exist
+    if (userDataDir) {
+        if (!fs.existsSync(userDataDir)) {
+            fs.mkdirSync(userDataDir, { recursive: true });
+            console.error(`[*] Created user data directory: ${userDataDir}`);
+        }
+        // Clean up any stale SingletonLock file from previous crashed sessions
+        const singletonLock = path.join(userDataDir, 'SingletonLock');
+        if (fs.existsSync(singletonLock)) {
+            try {
+                fs.unlinkSync(singletonLock);
+                console.error(`[*] Removed stale SingletonLock: ${singletonLock}`);
+            } catch (e) {
+                console.error(`[!] Failed to remove SingletonLock: ${e.message}`);
+            }
+        }
+    }
+
     // Find a free port
     const debugPort = await findFreePort();
     console.error(`[*] Using debug port: ${debugPort}`);
 
-    // Build Chrome arguments
-    const chromiumArgs = [
+    // Get base Chrome args from config (static flags from CHROME_ARGS env var)
+    // These come from config.json defaults, merged by get_config() in Python
+    const baseArgs = getEnvArray('CHROME_ARGS', []);
+
+    // Get extra user-provided args
+    const extraArgs = getEnvArray('CHROME_ARGS_EXTRA', []);
+
+    // Build dynamic Chrome arguments (these must be computed at runtime)
+    const dynamicArgs = [
+        // Remote debugging setup
         `--remote-debugging-port=${debugPort}`,
         '--remote-debugging-address=127.0.0.1',
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
+
+        // Sandbox settings (disable in Docker)
+        ...(sandbox ? [] : ['--no-sandbox', '--disable-setuid-sandbox']),
+
+        // Docker-specific workarounds
         '--disable-dev-shm-usage',
         '--disable-gpu',
-        '--disable-sync',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--disable-default-apps',
-        '--disable-infobars',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-component-update',
-        '--disable-domain-reliability',
-        '--disable-breakpad',
-        '--disable-background-networking',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--disable-ipc-flooding-protection',
-        '--password-store=basic',
-        '--use-mock-keychain',
-        '--font-render-hinting=none',
-        '--force-color-profile=srgb',
+
+        // Window size
         `--window-size=${width},${height}`,
+
+        // User data directory (for persistent sessions with persona)
+        ...(userDataDir ? [`--user-data-dir=${userDataDir}`] : []),
+
+        // Headless mode
         ...(headless ? ['--headless=new'] : []),
+
+        // SSL certificate checking
         ...(checkSsl ? [] : ['--ignore-certificate-errors']),
     ];
+
+    // Combine all args: base (from config) + dynamic (runtime) + extra (user overrides)
+    // Dynamic args come after base so they can override if needed
+    const chromiumArgs = [...baseArgs, ...dynamicArgs, ...extraArgs];
 
     // Add extension loading flags
     if (extensionPaths.length > 0) {
@@ -533,9 +649,9 @@ async function killChrome(pid, outputDir = null) {
     }
 
     // Step 8: Clean up PID files
+    // Note: hook-specific .pid files are cleaned up by run_hook() and Snapshot.cleanup()
     if (outputDir) {
         try { fs.unlinkSync(path.join(outputDir, 'chrome.pid')); } catch (e) {}
-        try { fs.unlinkSync(path.join(outputDir, 'hook.pid')); } catch (e) {}
     }
 
     console.error('[*] Chrome cleanup completed');
@@ -766,7 +882,8 @@ async function loadOrInstallExtension(ext, extensions_dir = null) {
     }
 
     // Determine extensions directory
-    const EXTENSIONS_DIR = extensions_dir || process.env.CHROME_EXTENSIONS_DIR || './data/chrome_extensions';
+    // Use provided dir, or fall back to getExtensionsDir() which handles env vars and defaults
+    const EXTENSIONS_DIR = extensions_dir || getExtensionsDir();
 
     // Set statically computable extension metadata
     ext.webstore_id = ext.webstore_id || ext.id;
@@ -1225,12 +1342,183 @@ function findChromium() {
     return null;
 }
 
+// ============================================================================
+// Shared Extension Installer Utilities
+// ============================================================================
+
+/**
+ * Get the extensions directory path.
+ * Centralized path calculation used by extension installers and chrome launch.
+ *
+ * Path is derived from environment variables in this priority:
+ * 1. CHROME_EXTENSIONS_DIR (explicit override)
+ * 2. DATA_DIR/personas/ACTIVE_PERSONA/chrome_extensions (default)
+ *
+ * @returns {string} - Absolute path to extensions directory
+ */
+function getExtensionsDir() {
+    const dataDir = getEnv('DATA_DIR', '.');
+    const persona = getEnv('ACTIVE_PERSONA', 'Default');
+    return getEnv('CHROME_EXTENSIONS_DIR') ||
+        path.join(dataDir, 'personas', persona, 'chrome_extensions');
+}
+
+/**
+ * Get machine type string for platform-specific paths.
+ * Matches Python's archivebox.config.paths.get_machine_type()
+ *
+ * @returns {string} - Machine type (e.g., 'x86_64-linux', 'arm64-darwin')
+ */
+function getMachineType() {
+    if (process.env.MACHINE_TYPE) {
+        return process.env.MACHINE_TYPE;
+    }
+
+    let machine = process.arch;
+    const system = process.platform;
+
+    // Normalize machine type to match Python's convention
+    if (machine === 'arm64' || machine === 'aarch64') {
+        machine = 'arm64';
+    } else if (machine === 'x64' || machine === 'x86_64' || machine === 'amd64') {
+        machine = 'x86_64';
+    } else if (machine === 'ia32' || machine === 'x86') {
+        machine = 'x86';
+    }
+
+    return `${machine}-${system}`;
+}
+
+/**
+ * Get LIB_DIR path for platform-specific binaries.
+ * Returns DATA_DIR/lib/MACHINE_TYPE/
+ *
+ * @returns {string} - Absolute path to lib directory
+ */
+function getLibDir() {
+    if (process.env.LIB_DIR) {
+        return process.env.LIB_DIR;
+    }
+    const dataDir = getEnv('DATA_DIR', './data');
+    const machineType = getMachineType();
+    return path.join(dataDir, 'lib', machineType);
+}
+
+/**
+ * Get NODE_MODULES_DIR path for npm packages.
+ * Returns LIB_DIR/npm/node_modules/
+ *
+ * @returns {string} - Absolute path to node_modules directory
+ */
+function getNodeModulesDir() {
+    if (process.env.NODE_MODULES_DIR) {
+        return process.env.NODE_MODULES_DIR;
+    }
+    return path.join(getLibDir(), 'npm', 'node_modules');
+}
+
+/**
+ * Get all test environment paths as a JSON object.
+ * This is the single source of truth for path calculations - Python calls this
+ * to avoid duplicating path logic.
+ *
+ * @returns {Object} - Object with all test environment paths
+ */
+function getTestEnv() {
+    const dataDir = getEnv('DATA_DIR', './data');
+    const machineType = getMachineType();
+    const libDir = getLibDir();
+    const nodeModulesDir = getNodeModulesDir();
+
+    return {
+        DATA_DIR: dataDir,
+        MACHINE_TYPE: machineType,
+        LIB_DIR: libDir,
+        NODE_MODULES_DIR: nodeModulesDir,
+        NPM_BIN_DIR: path.join(libDir, 'npm', '.bin'),
+        CHROME_EXTENSIONS_DIR: getExtensionsDir(),
+    };
+}
+
+/**
+ * Install a Chrome extension with caching support.
+ *
+ * This is the main entry point for extension installer hooks. It handles:
+ * - Checking for cached extension metadata
+ * - Installing the extension if not cached
+ * - Writing cache file for future runs
+ *
+ * @param {Object} extension - Extension metadata object
+ * @param {string} extension.webstore_id - Chrome Web Store extension ID
+ * @param {string} extension.name - Human-readable extension name (used for cache file)
+ * @param {Object} [options] - Options
+ * @param {string} [options.extensionsDir] - Override extensions directory
+ * @param {boolean} [options.quiet=false] - Suppress info logging
+ * @returns {Promise<Object|null>} - Installed extension metadata or null on failure
+ */
+async function installExtensionWithCache(extension, options = {}) {
+    const {
+        extensionsDir = getExtensionsDir(),
+        quiet = false,
+    } = options;
+
+    const cacheFile = path.join(extensionsDir, `${extension.name}.extension.json`);
+
+    // Check if extension is already cached and valid
+    if (fs.existsSync(cacheFile)) {
+        try {
+            const cached = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
+            const manifestPath = path.join(cached.unpacked_path, 'manifest.json');
+
+            if (fs.existsSync(manifestPath)) {
+                if (!quiet) {
+                    console.log(`[*] ${extension.name} extension already installed (using cache)`);
+                }
+                return cached;
+            }
+        } catch (e) {
+            // Cache file corrupted, re-install
+            console.warn(`[⚠️] Extension cache corrupted for ${extension.name}, re-installing...`);
+        }
+    }
+
+    // Install extension
+    if (!quiet) {
+        console.log(`[*] Installing ${extension.name} extension...`);
+    }
+
+    const installedExt = await loadOrInstallExtension(extension, extensionsDir);
+
+    if (!installedExt?.version) {
+        console.error(`[❌] Failed to install ${extension.name} extension`);
+        return null;
+    }
+
+    // Write cache file
+    try {
+        await fs.promises.mkdir(extensionsDir, { recursive: true });
+        await fs.promises.writeFile(cacheFile, JSON.stringify(installedExt, null, 2));
+        if (!quiet) {
+            console.log(`[+] Extension metadata written to ${cacheFile}`);
+        }
+    } catch (e) {
+        console.warn(`[⚠️] Failed to write cache file: ${e.message}`);
+    }
+
+    if (!quiet) {
+        console.log(`[+] ${extension.name} extension installed`);
+    }
+
+    return installedExt;
+}
+
 // Export all functions
 module.exports = {
     // Environment helpers
     getEnv,
     getEnvBool,
     getEnvInt,
+    getEnvArray,
     parseResolution,
     // PID file management
     writePidWithMtime,
@@ -1261,6 +1549,14 @@ module.exports = {
     getExtensionPaths,
     waitForExtensionTarget,
     getExtensionTargets,
+    // Shared path utilities (single source of truth for Python/JS)
+    getMachineType,
+    getLibDir,
+    getNodeModulesDir,
+    getExtensionsDir,
+    getTestEnv,
+    // Shared extension installer utilities
+    installExtensionWithCache,
     // Deprecated - use enableExtensions option instead
     getExtensionLaunchArgs,
 };
@@ -1273,16 +1569,31 @@ if (require.main === module) {
         console.log('Usage: chrome_utils.js <command> [args...]');
         console.log('');
         console.log('Commands:');
-        console.log('  findChromium');
-        console.log('  installChromium');
-        console.log('  installPuppeteerCore [npm_prefix]');
-        console.log('  launchChromium [output_dir] [extension_paths_json]');
-        console.log('  killChrome <pid> [output_dir]');
-        console.log('  killZombieChrome [data_dir]');
-        console.log('  getExtensionId <path>');
-        console.log('  loadExtensionManifest <path>');
-        console.log('  getExtensionLaunchArgs <extensions_json>');
-        console.log('  loadOrInstallExtension <webstore_id> <name> [extensions_dir]');
+        console.log('  findChromium              Find Chrome/Chromium binary');
+        console.log('  installChromium           Install Chromium via @puppeteer/browsers');
+        console.log('  installPuppeteerCore      Install puppeteer-core npm package');
+        console.log('  launchChromium            Launch Chrome with CDP debugging');
+        console.log('  killChrome <pid>          Kill Chrome process by PID');
+        console.log('  killZombieChrome          Clean up zombie Chrome processes');
+        console.log('');
+        console.log('  getMachineType            Get machine type (e.g., x86_64-linux)');
+        console.log('  getLibDir                 Get LIB_DIR path');
+        console.log('  getNodeModulesDir         Get NODE_MODULES_DIR path');
+        console.log('  getExtensionsDir          Get Chrome extensions directory');
+        console.log('  getTestEnv                Get all paths as JSON (for tests)');
+        console.log('');
+        console.log('  getExtensionId <path>     Get extension ID from unpacked path');
+        console.log('  loadExtensionManifest     Load extension manifest.json');
+        console.log('  loadOrInstallExtension    Load or install an extension');
+        console.log('  installExtensionWithCache Install extension with caching');
+        console.log('');
+        console.log('Environment variables:');
+        console.log('  DATA_DIR                  Base data directory');
+        console.log('  LIB_DIR                   Library directory (computed if not set)');
+        console.log('  MACHINE_TYPE              Machine type override');
+        console.log('  NODE_MODULES_DIR          Node modules directory');
+        console.log('  CHROME_BINARY             Chrome binary path');
+        console.log('  CHROME_EXTENSIONS_DIR     Extensions directory');
         process.exit(1);
     }
 
@@ -1392,6 +1703,46 @@ if (require.main === module) {
                     const [webstore_id, name, extensions_dir] = commandArgs;
                     const ext = await loadOrInstallExtension({ webstore_id, name }, extensions_dir);
                     console.log(JSON.stringify(ext, null, 2));
+                    break;
+                }
+
+                case 'getMachineType': {
+                    console.log(getMachineType());
+                    break;
+                }
+
+                case 'getLibDir': {
+                    console.log(getLibDir());
+                    break;
+                }
+
+                case 'getNodeModulesDir': {
+                    console.log(getNodeModulesDir());
+                    break;
+                }
+
+                case 'getExtensionsDir': {
+                    console.log(getExtensionsDir());
+                    break;
+                }
+
+                case 'getTestEnv': {
+                    console.log(JSON.stringify(getTestEnv(), null, 2));
+                    break;
+                }
+
+                case 'installExtensionWithCache': {
+                    const [webstore_id, name] = commandArgs;
+                    if (!webstore_id || !name) {
+                        console.error('Usage: installExtensionWithCache <webstore_id> <name>');
+                        process.exit(1);
+                    }
+                    const ext = await installExtensionWithCache({ webstore_id, name });
+                    if (ext) {
+                        console.log(JSON.stringify(ext, null, 2));
+                    } else {
+                        process.exit(1);
+                    }
                     break;
                 }
 

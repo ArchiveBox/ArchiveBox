@@ -105,8 +105,6 @@ class Migration(migrations.Migration):
                     id TEXT PRIMARY KEY NOT NULL,
                     created_at DATETIME NOT NULL,
                     modified_at DATETIME NOT NULL,
-                    num_uses_succeeded INTEGER NOT NULL DEFAULT 0,
-                    num_uses_failed INTEGER NOT NULL DEFAULT 0,
 
                     machine_id TEXT NOT NULL,
                     binary_id TEXT,
@@ -234,8 +232,6 @@ class Migration(migrations.Migration):
                         ('id', models.UUIDField(default=uuid7, editable=False, primary_key=True, serialize=False, unique=True)),
                         ('created_at', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
                         ('modified_at', models.DateTimeField(auto_now=True)),
-                        ('num_uses_succeeded', models.PositiveIntegerField(default=0)),
-                        ('num_uses_failed', models.PositiveIntegerField(default=0)),
                         ('pwd', models.CharField(blank=True, default='', help_text='Working directory for process execution', max_length=512)),
                         ('cmd', models.JSONField(blank=True, default=list, help_text='Command as array of arguments')),
                         ('env', models.JSONField(blank=True, default=dict, help_text='Environment variables for process')),

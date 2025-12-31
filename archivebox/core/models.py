@@ -1,6 +1,6 @@
 __package__ = 'archivebox.core'
 
-from typing import Optional, Dict, Iterable, Any, List, TYPE_CHECKING, Iterator, Set
+from typing import Optional, Dict, Iterable, Any, List, TYPE_CHECKING
 from archivebox.uuid_compat import uuid7
 from datetime import datetime, timedelta
 from django_stubs_ext.db.models import TypedModelMeta
@@ -41,8 +41,6 @@ from archivebox.machine.models import NetworkInterface, Binary
 
 
 class Tag(ModelWithSerializers):
-    JSONL_TYPE = 'Tag'
-
     # Keep AutoField for compatibility with main branch migrations
     # Don't use UUIDField here - requires complex FK transformation
     id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
@@ -93,66 +91,26 @@ class Tag(ModelWithSerializers):
     def api_url(self) -> str:
         return reverse_lazy('api-1:get_tag', args=[self.id])
 
-    def to_json(self) -> dict:
+    def to_jsonl(self) -> dict:
         """
-        Convert Tag model instance to a JSON-serializable dict.
+        Convert Tag model instance to a JSONL record.
         """
         from archivebox.config import VERSION
         return {
-            'type': self.JSONL_TYPE,
+            'type': 'Tag',
             'schema_version': VERSION,
             'id': str(self.id),
             'name': self.name,
             'slug': self.slug,
         }
 
-    def to_jsonl(self, seen: Set[tuple] = None, **kwargs) -> Iterator[dict]:
-        """
-        Yield this Tag as a JSON record.
-
-        Args:
-            seen: Set of (type, id) tuples already emitted (for deduplication)
-            **kwargs: Passed to children (none for Tag, leaf node)
-
-        Yields:
-            dict: JSON-serializable record for this tag
-        """
-        if seen is not None:
-            key = (self.JSONL_TYPE, str(self.id))
-            if key in seen:
-                return
-            seen.add(key)
-        yield self.to_json()
-
-    @classmethod
-    def from_jsonl(cls, records, overrides: Dict[str, Any] = None) -> list['Tag']:
-        """
-        Create/update Tags from an iterable of JSONL records.
-        Filters to only records with type='Tag'.
-
-        Args:
-            records: Iterable of dicts (JSONL records)
-            overrides: Optional dict with 'snapshot' to auto-attach tags
-
-        Returns:
-            List of Tag instances (skips None results)
-        """
-        results = []
-        for record in records:
-            record_type = record.get('type', cls.JSONL_TYPE)
-            if record_type == cls.JSONL_TYPE:
-                instance = cls.from_json(record, overrides=overrides)
-                if instance:
-                    results.append(instance)
-        return results
-
     @staticmethod
-    def from_json(record: Dict[str, Any], overrides: Dict[str, Any] = None) -> 'Tag | None':
+    def from_jsonl(record: Dict[str, Any], overrides: Dict[str, Any] = None):
         """
-        Create/update a single Tag from a JSON record dict.
+        Create/update Tag from JSONL record.
 
         Args:
-            record: Dict with 'name' field
+            record: JSONL record with 'name' field
             overrides: Optional dict with 'snapshot' to auto-attach tag
 
         Returns:
@@ -331,8 +289,6 @@ class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):
 
 
 class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, ModelWithStateMachine):
-    JSONL_TYPE = 'Snapshot'
-
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -1012,18 +968,38 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         Each line is a JSON record with a 'type' field:
         - Snapshot: snapshot metadata (crawl_id, url, tags, etc.)
+        - ArchiveResult: extractor results (plugin, status, output, etc.)
         - Binary: binary info used for the extraction
         - Process: process execution details (cmd, exit_code, timing, etc.)
-        - ArchiveResult: extractor results (plugin, status, output, etc.)
         """
         import json
 
         index_path = Path(self.output_dir) / CONSTANTS.JSONL_INDEX_FILENAME
         index_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Track unique binaries and processes to avoid duplicates
+        binaries_seen = set()
+        processes_seen = set()
+
         with open(index_path, 'w') as f:
-            for record in self.to_jsonl():
-                f.write(json.dumps(record) + '\n')
+            # Write Snapshot record first (to_jsonl includes crawl_id, fs_version)
+            f.write(json.dumps(self.to_jsonl()) + '\n')
+
+            # Write ArchiveResult records with their associated Binary and Process
+            # Use select_related to optimize queries
+            for ar in self.archiveresult_set.select_related('process__binary').order_by('start_ts'):
+                # Write Binary record if not already written
+                if ar.process and ar.process.binary and ar.process.binary_id not in binaries_seen:
+                    binaries_seen.add(ar.process.binary_id)
+                    f.write(json.dumps(ar.process.binary.to_jsonl()) + '\n')
+
+                # Write Process record if not already written
+                if ar.process and ar.process_id not in processes_seen:
+                    processes_seen.add(ar.process_id)
+                    f.write(json.dumps(ar.process.to_jsonl()) + '\n')
+
+                # Write ArchiveResult record
+                f.write(json.dumps(ar.to_jsonl()) + '\n')
 
     def read_index_jsonl(self) -> dict:
         """
@@ -1409,7 +1385,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         Called by the state machine when entering the 'sealed' state.
         Kills any background hooks and finalizes their ArchiveResults.
         """
-        from archivebox.hooks import kill_process
+        from archivebox.misc.process_utils import safe_kill_process
 
         # Kill any background ArchiveResult hooks
         if not self.OUTPUT_DIR.exists():
@@ -1417,7 +1393,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         # Find all .pid files in this snapshot's output directory
         for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
-            kill_process(pid_file, validate=True)
+            cmd_file = pid_file.parent / 'cmd.sh'
+            safe_kill_process(pid_file, cmd_file)
 
         # Update all STARTED ArchiveResults from filesystem
         results = self.archiveresult_set.filter(status=ArchiveResult.StatusChoices.STARTED)
@@ -1430,7 +1407,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         Used by state machine to determine if snapshot is finished.
         """
-        from archivebox.hooks import process_is_alive
+        from archivebox.misc.process_utils import validate_pid_file
 
         if not self.OUTPUT_DIR.exists():
             return False
@@ -1439,25 +1416,26 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             if not plugin_dir.is_dir():
                 continue
             pid_file = plugin_dir / 'hook.pid'
-            if process_is_alive(pid_file):
+            cmd_file = plugin_dir / 'cmd.sh'
+            if validate_pid_file(pid_file, cmd_file):
                 return True
 
         return False
 
-    def to_json(self) -> dict:
+    def to_jsonl(self) -> dict:
         """
-        Convert Snapshot model instance to a JSON-serializable dict.
+        Convert Snapshot model instance to a JSONL record.
         Includes all fields needed to fully reconstruct/identify this snapshot.
         """
         from archivebox.config import VERSION
         return {
-            'type': self.JSONL_TYPE,
+            'type': 'Snapshot',
             'schema_version': VERSION,
             'id': str(self.id),
             'crawl_id': str(self.crawl_id),
             'url': self.url,
             'title': self.title,
-            'tags_str': self.tags_str(),
+            'tags': self.tags_str(),
             'bookmarked_at': self.bookmarked_at.isoformat() if self.bookmarked_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'timestamp': self.timestamp,
@@ -1466,68 +1444,12 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             'fs_version': self.fs_version,
         }
 
-    def to_jsonl(self, seen: Set[tuple] = None, archiveresult: bool = True, process: bool = True, binary: bool = True, machine: bool = False, iface: bool = False, **kwargs) -> Iterator[dict]:
-        """
-        Yield this Snapshot and optionally related objects as JSON records.
-
-        Uses select_related for efficient querying. Deduplicates automatically.
-
-        Args:
-            seen: Set of (type, id) tuples already emitted (for deduplication)
-            archiveresult: Include related ArchiveResults (default: True)
-            process: Include Process for each ArchiveResult (default: True)
-            binary: Include Binary for each Process (default: True)
-            machine: Include Machine for each Process (default: False)
-            iface: Include NetworkInterface for each Process (default: False)
-            **kwargs: Additional options passed to children
-
-        Yields:
-            dict: JSON-serializable records
-        """
-        if seen is None:
-            seen = set()
-
-        key = (self.JSONL_TYPE, str(self.id))
-        if key in seen:
-            return
-        seen.add(key)
-
-        yield self.to_json()
-
-        if archiveresult:
-            # Use select_related to optimize queries
-            for ar in self.archiveresult_set.select_related('process__binary').order_by('start_ts'):
-                yield from ar.to_jsonl(seen=seen, process=process, binary=binary, machine=machine, iface=iface, **kwargs)
-
-    @classmethod
-    def from_jsonl(cls, records, overrides: Dict[str, Any] = None, queue_for_extraction: bool = True) -> list['Snapshot']:
-        """
-        Create/update Snapshots from an iterable of JSONL records.
-        Filters to only records with type='Snapshot' (or no type).
-
-        Args:
-            records: Iterable of dicts (JSONL records)
-            overrides: Dict with 'crawl', 'snapshot' (parent), 'created_by_id'
-            queue_for_extraction: If True, sets status=QUEUED and retry_at (default: True)
-
-        Returns:
-            List of Snapshot instances (skips None results)
-        """
-        results = []
-        for record in records:
-            record_type = record.get('type', cls.JSONL_TYPE)
-            if record_type == cls.JSONL_TYPE:
-                instance = cls.from_json(record, overrides=overrides, queue_for_extraction=queue_for_extraction)
-                if instance:
-                    results.append(instance)
-        return results
-
     @staticmethod
-    def from_json(record: Dict[str, Any], overrides: Dict[str, Any] = None, queue_for_extraction: bool = True) -> 'Snapshot | None':
+    def from_jsonl(record: Dict[str, Any], overrides: Dict[str, Any] = None, queue_for_extraction: bool = True):
         """
-        Create/update a single Snapshot from a JSON record dict.
+        Create/update Snapshot from JSONL record or dict.
 
-        Handles:
+        Unified method that handles:
         - ID-based patching: {"id": "...", "title": "new title"}
         - URL-based create/update: {"url": "...", "title": "...", "tags": "..."}
         - Auto-creates Crawl if not provided
@@ -2134,8 +2056,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             result['canonical'] = self.canonical_outputs()
         return result
 
-    def to_json_str(self, indent: int = 4) -> str:
-        """Convert to JSON string for file output."""
+    def to_json(self, indent: int = 4) -> str:
+        """Convert to JSON string"""
         return to_json(self.to_dict(extended=True), indent=indent)
 
     def to_csv(self, cols: Optional[List[str]] = None, separator: str = ',', ljust: int = 0) -> str:
@@ -2283,8 +2205,6 @@ class SnapshotMachine(BaseStateMachine, strict_states=True):
 
 
 class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, ModelWithStateMachine):
-    JSONL_TYPE = 'ArchiveResult'
-
     class StatusChoices(models.TextChoices):
         QUEUED = 'queued', 'Queued'
         STARTED = 'started', 'Started'
@@ -2356,13 +2276,13 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         """Convenience property to access the user who created this archive result via its snapshot's crawl."""
         return self.snapshot.crawl.created_by
 
-    def to_json(self) -> dict:
+    def to_jsonl(self) -> dict:
         """
-        Convert ArchiveResult model instance to a JSON-serializable dict.
+        Convert ArchiveResult model instance to a JSONL record.
         """
         from archivebox.config import VERSION
         record = {
-            'type': self.JSONL_TYPE,
+            'type': 'ArchiveResult',
             'schema_version': VERSION,
             'id': str(self.id),
             'snapshot_id': str(self.snapshot_id),
@@ -2389,121 +2309,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         if self.process_id:
             record['process_id'] = str(self.process_id)
         return record
-
-    def to_jsonl(self, seen: Set[tuple] = None, process: bool = True, **kwargs) -> Iterator[dict]:
-        """
-        Yield this ArchiveResult and optionally related objects as JSON records.
-
-        Args:
-            seen: Set of (type, id) tuples already emitted (for deduplication)
-            process: Include related Process and its children (default: True)
-            **kwargs: Passed to Process.to_jsonl() (e.g., binary=True, machine=False)
-
-        Yields:
-            dict: JSON-serializable records
-        """
-        if seen is None:
-            seen = set()
-
-        key = (self.JSONL_TYPE, str(self.id))
-        if key in seen:
-            return
-        seen.add(key)
-
-        yield self.to_json()
-
-        if process and self.process:
-            yield from self.process.to_jsonl(seen=seen, **kwargs)
-
-    @classmethod
-    def from_jsonl(cls, records, overrides: Dict[str, Any] = None) -> list['ArchiveResult']:
-        """
-        Create/update ArchiveResults from an iterable of JSONL records.
-        Filters to only records with type='ArchiveResult'.
-
-        Args:
-            records: Iterable of dicts (JSONL records)
-            overrides: Dict of field overrides
-
-        Returns:
-            List of ArchiveResult instances (skips None results)
-        """
-        results = []
-        for record in records:
-            record_type = record.get('type', cls.JSONL_TYPE)
-            if record_type == cls.JSONL_TYPE:
-                instance = cls.from_json(record, overrides=overrides)
-                if instance:
-                    results.append(instance)
-        return results
-
-    @staticmethod
-    def from_json(record: Dict[str, Any], overrides: Dict[str, Any] = None) -> 'ArchiveResult | None':
-        """
-        Create or update a single ArchiveResult from a JSON record dict.
-
-        Args:
-            record: Dict with 'snapshot_id' and 'plugin' (required for create),
-                    or 'id' (for update)
-            overrides: Dict of field overrides (e.g., config overrides)
-
-        Returns:
-            ArchiveResult instance or None if invalid
-        """
-        from django.utils import timezone
-
-        overrides = overrides or {}
-
-        # If 'id' is provided, lookup and update existing
-        result_id = record.get('id')
-        if result_id:
-            try:
-                result = ArchiveResult.objects.get(id=result_id)
-                # Update fields from record
-                if record.get('status'):
-                    result.status = record['status']
-                    result.retry_at = timezone.now()
-                result.save()
-                return result
-            except ArchiveResult.DoesNotExist:
-                pass  # Fall through to create
-
-        # Required fields for creation
-        snapshot_id = record.get('snapshot_id')
-        plugin = record.get('plugin')
-
-        if not snapshot_id or not plugin:
-            return None
-
-        try:
-            snapshot = Snapshot.objects.get(id=snapshot_id)
-        except Snapshot.DoesNotExist:
-            return None
-
-        # Check if result already exists for this snapshot+plugin
-        existing = ArchiveResult.objects.filter(
-            snapshot=snapshot,
-            plugin=plugin,
-        ).first()
-
-        if existing:
-            # Update existing result if status provided
-            if record.get('status'):
-                existing.status = record['status']
-                existing.retry_at = timezone.now()
-                existing.save()
-            return existing
-
-        # Create new ArchiveResult
-        result = ArchiveResult(
-            snapshot=snapshot,
-            plugin=plugin,
-            status=record.get('status', ArchiveResult.StatusChoices.QUEUED),
-            retry_at=timezone.now(),
-            hook_name=record.get('hook_name', ''),
-        )
-        result.save()
-        return result
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding

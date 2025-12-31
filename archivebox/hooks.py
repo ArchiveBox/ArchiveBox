@@ -1176,9 +1176,7 @@ def create_model_record(record: Dict[str, Any]) -> Any:
 def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any] = None) -> Dict[str, int]:
     """
     Process JSONL records from hook output.
-
-    Uses Model.from_jsonl() which automatically filters by JSONL_TYPE.
-    Each model only processes records matching its type.
+    Dispatches to Model.from_jsonl() for each record type.
 
     Args:
         records: List of JSONL record dicts from result['records']
@@ -1187,72 +1185,51 @@ def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any
     Returns:
         Dict with counts by record type
     """
-    from archivebox.core.models import Snapshot, Tag
-    from archivebox.machine.models import Binary, Machine
-
+    stats = {}
     overrides = overrides or {}
 
-    # Filter out ArchiveResult records (they update the calling AR, not create new ones)
-    filtered_records = [r for r in records if r.get('type') != 'ArchiveResult']
+    for record in records:
+        record_type = record.get('type')
+        if not record_type:
+            continue
 
-    # Each model's from_jsonl() filters to only its own type
-    snapshots = Snapshot.from_jsonl(filtered_records, overrides)
-    tags = Tag.from_jsonl(filtered_records, overrides)
-    binaries = Binary.from_jsonl(filtered_records, overrides)
-    machines = Machine.from_jsonl(filtered_records, overrides)
+        # Skip ArchiveResult records (they update the calling ArchiveResult, not create new ones)
+        if record_type == 'ArchiveResult':
+            continue
 
-    return {
-        'Snapshot': len(snapshots),
-        'Tag': len(tags),
-        'Binary': len(binaries),
-        'Machine': len(machines),
-    }
-
-
-def process_is_alive(pid_file: Path) -> bool:
-    """
-    Check if process in PID file is still running.
-
-    Args:
-        pid_file: Path to hook.pid file
-
-    Returns:
-        True if process is alive, False otherwise
-    """
-    if not pid_file.exists():
-        return False
-
-    try:
-        pid = int(pid_file.read_text().strip())
-        os.kill(pid, 0)  # Signal 0 = check if process exists without killing it
-        return True
-    except (OSError, ValueError):
-        return False
-
-
-def kill_process(pid_file: Path, sig: int = signal.SIGTERM, validate: bool = True):
-    """
-    Kill process in PID file with optional validation.
-
-    Args:
-        pid_file: Path to hook.pid file
-        sig: Signal to send (default SIGTERM)
-        validate: If True, validate process identity before killing (default: True)
-    """
-    from archivebox.misc.process_utils import safe_kill_process
-    
-    if validate:
-        # Use safe kill with validation
-        cmd_file = pid_file.parent / 'cmd.sh'
-        safe_kill_process(pid_file, cmd_file, signal_num=sig)
-    else:
-        # Legacy behavior - kill without validation
-        if not pid_file.exists():
-            return
         try:
-            pid = int(pid_file.read_text().strip())
-            os.kill(pid, sig)
-        except (OSError, ValueError):
-            pass
+            # Dispatch to appropriate model's from_jsonl() method
+            if record_type == 'Snapshot':
+                from archivebox.core.models import Snapshot
+                obj = Snapshot.from_jsonl(record.copy(), overrides)
+                if obj:
+                    stats['Snapshot'] = stats.get('Snapshot', 0) + 1
 
+            elif record_type == 'Tag':
+                from archivebox.core.models import Tag
+                obj = Tag.from_jsonl(record.copy(), overrides)
+                if obj:
+                    stats['Tag'] = stats.get('Tag', 0) + 1
 
+            elif record_type == 'Binary':
+                from archivebox.machine.models import Binary
+                obj = Binary.from_jsonl(record.copy(), overrides)
+                if obj:
+                    stats['Binary'] = stats.get('Binary', 0) + 1
+
+            elif record_type == 'Machine':
+                from archivebox.machine.models import Machine
+                obj = Machine.from_jsonl(record.copy(), overrides)
+                if obj:
+                    stats['Machine'] = stats.get('Machine', 0) + 1
+
+            else:
+                import sys
+                print(f"Warning: Unknown record type '{record_type}' from hook output", file=sys.stderr)
+
+        except Exception as e:
+            import sys
+            print(f"Warning: Failed to create {record_type}: {e}", file=sys.stderr)
+            continue
+
+    return stats

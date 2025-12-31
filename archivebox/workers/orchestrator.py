@@ -30,7 +30,7 @@ __package__ = 'archivebox.workers'
 import os
 import time
 from typing import Type
-from multiprocessing import Process
+from multiprocessing import Process as MPProcess
 
 from django.utils import timezone
 
@@ -38,12 +38,6 @@ from rich import print
 
 from archivebox.misc.logging_util import log_worker_event
 from .worker import Worker, CrawlWorker, SnapshotWorker, ArchiveResultWorker
-from .pid_utils import (
-    write_pid_file,
-    remove_pid_file,
-    get_all_worker_pids,
-    cleanup_stale_pid_files,
-)
 
 
 def _run_orchestrator_process(exit_on_idle: bool) -> None:
@@ -84,6 +78,7 @@ class Orchestrator:
         self.pid: int = os.getpid()
         self.pid_file = None
         self.idle_count: int = 0
+        self._last_cleanup_time: float = 0.0  # For throttling cleanup_stale_running()
 
         # Faster polling in inline mode
         if self.inline:
@@ -96,16 +91,26 @@ class Orchestrator:
     @classmethod
     def is_running(cls) -> bool:
         """Check if an orchestrator is already running."""
-        workers = get_all_worker_pids('orchestrator')
-        return len(workers) > 0
-    
+        from archivebox.machine.models import Process
+
+        # Clean up stale processes before counting
+        Process.cleanup_stale_running()
+        return Process.get_running_count(process_type=Process.TypeChoices.ORCHESTRATOR) > 0
+
     def on_startup(self) -> None:
         """Called when orchestrator starts."""
-        self.pid = os.getpid()
-        self.pid_file = write_pid_file('orchestrator', worker_id=0)
+        from archivebox.machine.models import Process
 
-        # Clean up any stale PID files from previous runs
-        stale_count = cleanup_stale_pid_files()
+        self.pid = os.getpid()
+        # Register orchestrator process in database with explicit type
+        self.db_process = Process.current()
+        # Ensure the process type is correctly set to ORCHESTRATOR
+        if self.db_process.process_type != Process.TypeChoices.ORCHESTRATOR:
+            self.db_process.process_type = Process.TypeChoices.ORCHESTRATOR
+            self.db_process.save(update_fields=['process_type'])
+
+        # Clean up any stale Process records from previous runs
+        stale_count = Process.cleanup_stale_running()
 
         # Collect startup metadata
         metadata = {
@@ -123,11 +128,16 @@ class Orchestrator:
             pid=self.pid,
             metadata=metadata,
         )
-    
+
     def on_shutdown(self, error: BaseException | None = None) -> None:
         """Called when orchestrator shuts down."""
-        if self.pid_file:
-            remove_pid_file(self.pid_file)
+        # Update Process record status
+        if hasattr(self, 'db_process') and self.db_process:
+            # KeyboardInterrupt is a graceful shutdown, not an error
+            self.db_process.exit_code = 1 if error and not isinstance(error, KeyboardInterrupt) else 0
+            self.db_process.status = self.db_process.StatusChoices.EXITED
+            self.db_process.ended_at = timezone.now()
+            self.db_process.save()
 
         log_worker_event(
             worker_type='Orchestrator',
@@ -136,10 +146,19 @@ class Orchestrator:
             pid=self.pid,
             error=error if error and not isinstance(error, KeyboardInterrupt) else None,
         )
-    
+
     def get_total_worker_count(self) -> int:
         """Get total count of running workers across all types."""
-        cleanup_stale_pid_files()
+        from archivebox.machine.models import Process
+        import time
+
+        # Throttle cleanup to once every 30 seconds to avoid performance issues
+        CLEANUP_THROTTLE_SECONDS = 30
+        now = time.time()
+        if now - self._last_cleanup_time > CLEANUP_THROTTLE_SECONDS:
+            Process.cleanup_stale_running()
+            self._last_cleanup_time = now
+
         return sum(len(W.get_running_workers()) for W in self.WORKER_TYPES)
     
     def should_spawn_worker(self, WorkerClass: Type[Worker], queue_count: int) -> bool:
@@ -322,7 +341,7 @@ class Orchestrator:
         Returns the PID of the new process.
         """
         # Use module-level function to avoid pickle errors with local functions
-        proc = Process(
+        proc = MPProcess(
             target=_run_orchestrator_process,
             args=(self.exit_on_idle,),
             name='orchestrator'

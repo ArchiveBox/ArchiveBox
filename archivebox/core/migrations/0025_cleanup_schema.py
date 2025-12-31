@@ -10,8 +10,8 @@ import archivebox.base_models.models
 
 def cleanup_extra_columns(apps, schema_editor):
     """
-    Remove extra columns that were needed for v0.7.2/v0.8.6rc0 migration but don't exist in final models.
-    The actual models use @property methods to access these values from the process FK.
+    Create Process records from old cmd/pwd/cmd_version columns and remove those columns.
+    This preserves the execution details by moving them to the Process model.
     """
     with schema_editor.connection.cursor() as cursor:
         # Check if cmd column exists (means we came from v0.7.2/v0.8.6rc0)
@@ -19,8 +19,41 @@ def cleanup_extra_columns(apps, schema_editor):
         has_cmd = cursor.fetchone()[0] > 0
 
         if has_cmd:
-            print("  Cleaning up temporary columns from core_archiveresult...")
-            # Rebuild table without the extra columns
+            print("  Migrating cmd/pwd/cmd_version data to Process records...")
+
+            # For each ArchiveResult, create a Process record with cmd/pwd data
+            # Note: cmd_version from old schema is not preserved (it's now derived from Binary)
+            cursor.execute("""
+                SELECT id, cmd, pwd, binary_id, iface_id, start_ts, end_ts, status
+                FROM core_archiveresult
+            """)
+            archive_results = cursor.fetchall()
+
+            from archivebox.uuid_compat import uuid7
+            from archivebox.base_models.models import get_or_create_system_user_pk
+
+            machine_id = cursor.execute("SELECT id FROM machine_machine LIMIT 1").fetchone()[0]
+
+            for ar_id, cmd, pwd, binary_id, iface_id, start_ts, end_ts, status in archive_results:
+                # Create Process record
+                process_id = str(uuid7())
+                cursor.execute("""
+                    INSERT INTO machine_process (
+                        id, created_at, modified_at,
+                        machine_id, binary_id, iface_id,
+                        pwd, cmd, env, timeout,
+                        pid, exit_code, stdout, stderr,
+                        started_at, ended_at, url, status, retry_at
+                    ) VALUES (?, datetime('now'), datetime('now'), ?, ?, ?, ?, ?, '{}', 120, NULL, NULL, '', '', ?, ?, '', ?, NULL)
+                """, (process_id, machine_id, binary_id, iface_id, pwd or '', cmd or '[]', start_ts, end_ts, status or 'queued'))
+
+                # Update ArchiveResult to point to new Process
+                cursor.execute("UPDATE core_archiveresult SET process_id = ? WHERE id = ?", (process_id, ar_id))
+
+            print(f"  ✓ Created {len(archive_results)} Process records from ArchiveResult data")
+
+            # Now rebuild table without the extra columns
+            print("  Rebuilding core_archiveresult table...")
             cursor.execute("""
                 CREATE TABLE core_archiveresult_final (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,14 +81,14 @@ def cleanup_extra_columns(apps, schema_editor):
                     num_uses_succeeded INTEGER NOT NULL DEFAULT 0,
                     num_uses_failed INTEGER NOT NULL DEFAULT 0,
 
-                    process_id TEXT,
+                    process_id TEXT NOT NULL,
 
                     FOREIGN KEY (snapshot_id) REFERENCES core_snapshot(id) ON DELETE CASCADE,
                     FOREIGN KEY (process_id) REFERENCES machine_process(id) ON DELETE RESTRICT
                 )
             """)
 
-            # Copy data (cmd, pwd, etc. are now accessed via process FK)
+            # Copy data (cmd, pwd, etc. are now in Process records)
             cursor.execute("""
                 INSERT INTO core_archiveresult_final SELECT
                     id, uuid, created_at, modified_at,

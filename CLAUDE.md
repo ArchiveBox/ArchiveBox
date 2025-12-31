@@ -27,6 +27,17 @@ uv sync --dev --all-extras  # Always use uv, never pip directly
 source .venv/bin/activate
 ```
 
+### Generate and Apply Migrations
+```bash
+# Generate migrations (run from archivebox subdirectory)
+cd archivebox
+./manage.py makemigrations
+
+# Apply migrations to test database
+cd data/
+archivebox init
+```
+
 ## Running Tests
 
 ### CRITICAL: Never Run as Root
