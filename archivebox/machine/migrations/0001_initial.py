@@ -153,8 +153,6 @@ class Migration(migrations.Migration):
                         ('id', models.UUIDField(default=uuid7, editable=False, primary_key=True, serialize=False, unique=True)),
                         ('created_at', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
                         ('modified_at', models.DateTimeField(auto_now=True)),
-                        ('num_uses_succeeded', models.PositiveIntegerField(default=0)),
-                        ('num_uses_failed', models.PositiveIntegerField(default=0)),
                         ('guid', models.CharField(default=None, editable=False, max_length=64, unique=True)),
                         ('hostname', models.CharField(default=None, max_length=63)),
                         ('hw_in_docker', models.BooleanField(default=False)),

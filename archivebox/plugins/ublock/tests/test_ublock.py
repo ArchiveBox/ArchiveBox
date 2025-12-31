@@ -712,12 +712,13 @@ const puppeteer = require('{env_base['NODE_MODULES_DIR']}/puppeteer-core');
             f"With extension: {ext_result['adElementsVisible']} visible ads\n" \
             f"Expected fewer ads with extension."
 
-        # Extension should block at least 10% of ads
-        assert reduction_percent >= 10, \
-            f"uBlock should block at least 10% of ads.\n" \
+        # Extension should block at least 20% of ads (was consistently blocking 5-13% without proper init time)
+        assert reduction_percent >= 20, \
+            f"uBlock should block at least 20% of ads.\n" \
             f"Baseline: {baseline_result['adElementsVisible']} visible ads\n" \
             f"With extension: {ext_result['adElementsVisible']} visible ads\n" \
-            f"Reduction: only {reduction_percent:.0f}% (expected at least 10%)"
+            f"Reduction: only {reduction_percent:.0f}% (expected at least 20%)\n" \
+            f"Note: Filter lists must be downloaded on first run (takes ~15s)"
 
         print(f"\n✓ SUCCESS: uBlock correctly blocks ads!")
         print(f"  - Baseline: {baseline_result['adElementsVisible']} visible ads")

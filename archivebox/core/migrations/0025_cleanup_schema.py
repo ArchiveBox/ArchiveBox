@@ -190,7 +190,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('core', '0024_assign_default_crawl'),
-        ('machine', '0001_initial'),
+        ('machine', '0005_add_process_table'),
         ('crawls', '0002_upgrade_to_0_9_0'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
