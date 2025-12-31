@@ -1702,6 +1702,227 @@ class ProcessAdmin(admin.ModelAdmin):
 
 ---
 
+## Phase 8: Code Consolidation (Delete Redundant Logic)
+
+The goal is to consolidate all subprocess management into `Process` model methods, eliminating duplicate logic scattered across the codebase.
+
+### 8.1 Files to Simplify/Delete
+
+| File | Current Lines | After Consolidation | Savings |
+|------|--------------|---------------------|---------|
+| `workers/pid_utils.py` | ~192 lines | DELETE entirely | -192 |
+| `misc/process_utils.py` | ~85 lines | Keep as low-level utils | 0 |
+| `hooks.py` (run_hook) | ~100 lines | -50 lines (use Process.launch) | -50 |
+| `hooks.py` (kill/alive) | ~50 lines | DELETE (use Process.kill/is_running) | -50 |
+| `crawls/models.py` (cleanup) | ~100 lines | -70 lines (use Process.kill) | -70 |
+| `supervisord_util.py` | ~50 lines process mgmt | -30 lines | -30 |
+| **TOTAL** | | | **~-390 lines** |
+
+### 8.2 Detailed Consolidation Map
+
+#### `workers/pid_utils.py` → DELETE ENTIRELY
+
+| Current Function | Replacement |
+|------------------|-------------|
+| `write_pid_file(worker_type, worker_id)` | `Process.current()` auto-creates |
+| `read_pid_file(path)` | `Process.objects.get_by_pid(pid)` |
+| `remove_pid_file(path)` | Automatic on `Process.status = EXITED` |
+| `is_process_alive(pid)` | `Process.is_running` / `Process.proc is not None` |
+| `get_all_pid_files()` | `Process.objects.filter(status='running')` |
+| `get_all_worker_pids(type)` | `Process.objects.filter(process_type=type, status='running')` |
+| `cleanup_stale_pid_files()` | `Process.cleanup_stale_running()` |
+| `get_running_worker_count(type)` | `Process.objects.filter(...).count()` |
+| `get_next_worker_id(type)` | Derive from `Process.objects.filter(...).count()` |
+| `stop_worker(pid, graceful)` | `Process.kill(signal_num=SIGTERM)` then `Process.kill(SIGKILL)` |
+
+#### `hooks.py` Changes
+
+**Current `run_hook()` lines 374-398:**
+```python
+# DELETE these lines - replaced by Process.launch()
+stdout_file = output_dir / 'stdout.log'
+stderr_file = output_dir / 'stderr.log'
+pid_file = output_dir / 'hook.pid'
+cmd_file = output_dir / 'cmd.sh'
+write_cmd_file(cmd_file, cmd)
+with open(stdout_file, 'w') as out, open(stderr_file, 'w') as err:
+    process = subprocess.Popen(cmd, ...)
+    write_pid_file_with_mtime(pid_file, process.pid, time.time())
+```
+
+**New `run_hook()` using Process:**
+```python
+hook_process = Process.objects.create(
+    parent=parent_process,
+    process_type=Process.TypeChoices.HOOK,
+    cmd=cmd, pwd=str(output_dir), env=env, timeout=timeout,
+)
+hook_process.launch(background=is_background)
+# stdout/stderr/pid_file all handled internally by Process.launch()
+```
+
+**DELETE these functions entirely:**
+```python
+def process_is_alive(pid_file: Path) -> bool:  # lines 1238-1256
+def kill_process(pid_file: Path, sig, validate):  # lines 1259-1282
+```
+
+**Replace with:**
+```python
+# Use Process methods directly:
+process.is_running  # replaces process_is_alive()
+process.kill()      # replaces kill_process()
+```
+
+#### `crawls/models.py` Changes
+
+**Current `Crawl.cleanup()` lines 418-493:**
+```python
+# DELETE all this inline process logic:
+def is_process_alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
+    if not validate_pid_file(pid_file, cmd_file):
+        pid_file.unlink(missing_ok=True)
+        continue
+    pid = int(pid_file.read_text().strip())
+    os.killpg(pid, signal.SIGTERM)
+    time.sleep(2)
+    if not is_process_alive(pid):
+        pid_file.unlink(missing_ok=True)
+        continue
+    os.killpg(pid, signal.SIGKILL)
+    # ... more cleanup logic
+```
+
+**New `Crawl.cleanup()` using Process:**
+```python
+def cleanup(self):
+    # Kill all running child processes for this crawl
+    for snapshot in self.snapshot_set.all():
+        for ar in snapshot.archiveresult_set.filter(status='started'):
+            if ar.process_id:
+                # Kill hook process and all its children
+                ar.process.kill()
+                for child in ar.process.children.filter(status='running'):
+                    child.kill()
+
+    # Run on_CrawlEnd hooks (foreground)
+    # ... existing hook running logic ...
+```
+
+#### `supervisord_util.py` Changes
+
+**Current global tracking:**
+```python
+_supervisord_proc = None  # subprocess.Popen reference
+
+def stop_existing_supervisord_process():
+    global _supervisord_proc
+    if _supervisord_proc and _supervisord_proc.poll() is None:
+        _supervisord_proc.terminate()
+        _supervisord_proc.wait(timeout=5)
+        # ... fallback to PID file ...
+```
+
+**New using Process model:**
+```python
+_supervisord_db_process = None  # Process model instance
+
+def start_new_supervisord_process():
+    # ... existing subprocess.Popen ...
+    global _supervisord_db_process
+    _supervisord_db_process = Process.objects.create(
+        parent=Process.current(),
+        process_type=Process.TypeChoices.SUPERVISORD,
+        pid=proc.pid,
+        cmd=['supervisord', f'--configuration={CONFIG_FILE}'],
+        started_at=timezone.now(),
+        status=Process.StatusChoices.RUNNING,
+    )
+
+def stop_existing_supervisord_process():
+    global _supervisord_db_process
+    if _supervisord_db_process:
+        _supervisord_db_process.kill()  # Handles children, PID validation, etc.
+        _supervisord_db_process = None
+```
+
+#### `workers/worker.py` Changes
+
+**Current:**
+```python
+from .pid_utils import write_pid_file, remove_pid_file, ...
+
+def on_startup(self):
+    self.pid = os.getpid()
+    self.pid_file = write_pid_file(self.name, self.worker_id)
+
+def on_shutdown(self, error=None):
+    if self.pid_file:
+        remove_pid_file(self.pid_file)
+```
+
+**New:**
+```python
+# No import needed - Process.current() handles everything
+
+def on_startup(self):
+    self.db_process = Process.current()
+    # Process.current() auto-detects type, finds parent via PPID, creates record
+
+def on_shutdown(self, error=None):
+    if self.db_process:
+        self.db_process.exit_code = 0 if error is None else 1
+        self.db_process.status = Process.StatusChoices.EXITED
+        self.db_process.ended_at = timezone.now()
+        self.db_process.save()
+```
+
+### 8.3 New Process Model Methods Summary
+
+All process operations now go through `Process`:
+
+```python
+# Getting current process
+Process.current()  # Creates/retrieves Process for os.getpid()
+
+# Spawning new process
+proc = Process.objects.create(parent=Process.current(), cmd=[...], ...)
+proc.launch(background=False)  # Handles Popen, PID file, stdout/stderr
+
+# Checking process status
+proc.is_running        # True if OS process exists and matches
+proc.proc              # psutil.Process or None (validated)
+proc.poll()            # Returns exit_code or None
+
+# Terminating process
+proc.kill()            # Safe kill with PID validation
+proc.kill(SIGKILL)     # Force kill
+
+# Waiting for completion
+proc.wait(timeout=30)  # Blocks until exit or timeout
+
+# Cleanup
+Process.cleanup_stale_running()  # Mark orphaned processes as EXITED
+```
+
+### 8.4 Benefits
+
+1. **Single Source of Truth**: All process state in database, queryable
+2. **PID Reuse Protection**: `Process.proc` validates via psutil.create_time()
+3. **Hierarchy Tracking**: `Process.parent` / `Process.children` for tree traversal
+4. **Machine-Scoped**: All queries filter by `machine=Machine.current()`
+5. **Audit Trail**: Every subprocess is logged with timestamps, exit codes
+6. **No Stale PID Files**: Process records update status automatically
+
+---
+
 ## Open Questions
 
 1. **Performance**: Deep hierarchies with many children could slow queries. Consider:
