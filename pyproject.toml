@@ -184,6 +184,8 @@ ignore = ["E731", "E303", "E266", "E241", "E222"]
 [tool.pytest.ini_options]
 testpaths = [ "tests" ]
 DJANGO_SETTINGS_MODULE = "archivebox.core.settings"
+# Note: Plugin tests under archivebox/plugins/ must NOT load Django
+# They use a conftest.py to disable Django automatically
 
 [tool.mypy]
 mypy_path = "archivebox,archivebox/typings"
