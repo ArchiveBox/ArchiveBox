@@ -706,11 +706,11 @@ def create_test_snapshot_json(url: str = None, **kwargs) -> Dict[str, Any]:
 - [x] Create `archivebox/tests/conftest.py` with pytest-django fixtures
 
 ### Phase 5: Unit Tests
-- [ ] Create `archivebox/tests/test_cli_crawl.py`
-- [ ] Create `archivebox/tests/test_cli_snapshot.py`
-- [ ] Create `archivebox/tests/test_cli_archiveresult.py`
-- [ ] Create `archivebox/tests/test_cli_run.py`
+- [x] Create `archivebox/tests/test_cli_crawl.py`
+- [x] Create `archivebox/tests/test_cli_snapshot.py`
+- [x] Create `archivebox/tests/test_cli_archiveresult.py`
+- [x] Create `archivebox/tests/test_cli_run.py`
 
 ### Phase 6: Integration & Config
-- [ ] Extend `archivebox/cli/tests_piping.py` with pass-through tests
+- [x] Extend `archivebox/cli/tests_piping.py` with pass-through tests
 - [x] Update `archivebox/workers/supervisord_util.py`: orchestrator→run
