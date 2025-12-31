@@ -203,7 +203,7 @@ function waitForDebugPort(port, timeout = 30000) {
 
 /**
  * Kill zombie Chrome processes from stale crawls.
- * Recursively scans DATA_DIR for any */chrome/*.pid files from stale crawls.
+ * Recursively scans DATA_DIR for any chrome/*.pid files from stale crawls.
  * Does not assume specific directory structure - works with nested paths.
  * @param {string} [dataDir] - Data directory (defaults to DATA_DIR env or '.')
  * @returns {number} - Number of zombies killed
