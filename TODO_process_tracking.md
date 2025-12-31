@@ -381,7 +381,144 @@ class Process(ModelWithHealthStats):
         return Process.objects.filter(pk__in=pks)
 ```
 
-### 1.4 Add Process Lifecycle Methods
+### 1.5 Add `Process.proc` Property for Validated psutil Access
+
+The `proc` property provides a validated `psutil.Process` object, ensuring the PID matches our recorded process (not a recycled PID):
+
+```python
+class Process(ModelWithHealthStats):
+    # ... existing fields ...
+
+    @property
+    def proc(self) -> 'psutil.Process | None':
+        """
+        Get validated psutil.Process for this record.
+
+        Returns psutil.Process ONLY if:
+        1. Process with this PID exists in OS
+        2. OS process start time matches our started_at (within tolerance)
+        3. Process is on current machine
+
+        Returns None if:
+        - PID doesn't exist (process exited)
+        - PID was reused by a different process (start times don't match)
+        - We're on a different machine than where process ran
+
+        This prevents accidentally matching a stale/recycled PID.
+        """
+        import psutil
+        from archivebox.machine.models import Machine
+
+        # Can't get psutil.Process if we don't have a PID
+        if not self.pid:
+            return None
+
+        # Can't validate processes on other machines
+        if self.machine_id != Machine.current().id:
+            return None
+
+        try:
+            os_proc = psutil.Process(self.pid)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            return None  # Process no longer exists
+
+        # Validate start time matches to prevent PID reuse confusion
+        if self.started_at:
+            os_start_time = os_proc.create_time()
+            db_start_time = self.started_at.timestamp()
+
+            if abs(os_start_time - db_start_time) > START_TIME_TOLERANCE:
+                # PID has been reused by a different process!
+                return None
+
+        # Optionally validate command matches (extra safety)
+        # This catches edge cases where start times are within tolerance
+        # but it's actually a different process
+        if self.cmd:
+            try:
+                os_cmdline = os_proc.cmdline()
+                # Check if first arg (binary) matches
+                if os_cmdline and self.cmd:
+                    os_binary = os_cmdline[0] if os_cmdline else ''
+                    db_binary = self.cmd[0] if self.cmd else ''
+                    # Match by basename (handles /usr/bin/python3 vs python3)
+                    if os_binary and db_binary:
+                        from pathlib import Path
+                        if Path(os_binary).name != Path(db_binary).name:
+                            return None  # Different binary, PID reused
+            except (psutil.AccessDenied, psutil.ZombieProcess):
+                pass  # Can't check cmdline, trust start time match
+
+        return os_proc
+
+    @property
+    def is_running(self) -> bool:
+        """
+        Check if process is currently running via psutil.
+
+        More reliable than checking status field since it validates
+        the actual OS process exists and matches our record.
+        """
+        return self.proc is not None and self.proc.is_running()
+
+    def is_alive(self) -> bool:
+        """
+        Alias for is_running, for compatibility with subprocess.Popen API.
+        """
+        return self.is_running
+
+    def get_memory_info(self) -> dict | None:
+        """Get memory usage if process is running."""
+        if self.proc:
+            try:
+                mem = self.proc.memory_info()
+                return {'rss': mem.rss, 'vms': mem.vms}
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+        return None
+
+    def get_cpu_percent(self) -> float | None:
+        """Get CPU usage percentage if process is running."""
+        if self.proc:
+            try:
+                return self.proc.cpu_percent(interval=0.1)
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+        return None
+
+    def get_children_pids(self) -> list[int]:
+        """Get PIDs of child processes from OS (not DB)."""
+        if self.proc:
+            try:
+                return [child.pid for child in self.proc.children(recursive=True)]
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+        return []
+```
+
+**Key Safety Features:**
+
+1. **Start time validation**: `psutil.Process.create_time()` must match `self.started_at` within `START_TIME_TOLERANCE` (5 seconds)
+2. **Machine check**: Only returns `proc` if on the same machine where process ran
+3. **Command validation**: Optional extra check that binary name matches
+4. **Returns None on mismatch**: Never returns a stale/wrong psutil.Process
+
+**Usage:**
+```python
+process = Process.objects.get(id=some_id)
+
+# Safe - returns None if PID was recycled
+if process.proc:
+    print(f"Memory: {process.proc.memory_info().rss}")
+    print(f"CPU: {process.proc.cpu_percent()}")
+    process.proc.terminate()  # Safe to kill - we validated it's OUR process
+
+# Convenience properties
+if process.is_running:
+    print("Still running!")
+```
+
+### 1.6 Add Process Lifecycle Methods
 
 Move logic from `process_utils.py` and `hooks.py` into the model:
 
@@ -500,24 +637,47 @@ class Process(ModelWithHealthStats):
         """
         Kill this process and update status.
 
+        Uses self.proc for safe killing - only kills if PID matches
+        our recorded process (prevents killing recycled PIDs).
+
         Args:
             signal_num: Signal to send (default SIGTERM=15)
 
         Returns:
             True if killed successfully, False otherwise
         """
-        from archivebox.misc.process_utils import safe_kill_process
         from django.utils import timezone
 
-        killed = safe_kill_process(self.pid_file, self.cmd_file, signal_num)
+        # Use validated psutil.Process to ensure we're killing the right process
+        proc = self.proc
+        if proc is None:
+            # Process doesn't exist or PID was recycled - just update status
+            if self.status != self.StatusChoices.EXITED:
+                self.status = self.StatusChoices.EXITED
+                self.ended_at = self.ended_at or timezone.now()
+                self.save()
+            return False
 
-        if killed:
+        try:
+            # Safe to kill - we validated it's our process via start time match
+            proc.send_signal(signal_num)
+
+            # Update our record
             self.exit_code = -signal_num
             self.ended_at = timezone.now()
             self.status = self.StatusChoices.EXITED
             self.save()
 
-        return killed
+            # Clean up PID file
+            self.pid_file.unlink(missing_ok=True)
+
+            return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied, ProcessLookupError):
+            # Process already exited between proc check and kill
+            self.status = self.StatusChoices.EXITED
+            self.ended_at = self.ended_at or timezone.now()
+            self.save()
+            return False
 
     def poll(self) -> int | None:
         """
