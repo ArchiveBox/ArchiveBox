@@ -504,7 +504,7 @@ def chrome_cleanup():
         chrome_user_data_dir = config.get('CHROME_USER_DATA_DIR')
         if chrome_user_data_dir:
             singleton_lock = Path(chrome_user_data_dir) / 'SingletonLock'
-            if singleton_lock.exists():
+            if os.path.lexists(singleton_lock):
                 try:
                     singleton_lock.unlink()
                 except OSError:
