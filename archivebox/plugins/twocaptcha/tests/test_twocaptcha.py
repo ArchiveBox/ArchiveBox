@@ -142,13 +142,18 @@ def launch_chrome(env: dict, chrome_dir: Path, crawl_id: str):
     )
 
     cdp_url = None
+    extensions_ready = False
     for _ in range(30):
         if process.poll() is not None:
             stdout, stderr = process.communicate()
             raise RuntimeError(f"Chromium failed:\n{stdout}\n{stderr}")
         cdp_file = chrome_dir / 'cdp_url.txt'
-        if cdp_file.exists():
+        ext_file = chrome_dir / 'extensions.json'
+        if cdp_file.exists() and not cdp_url:
             cdp_url = cdp_file.read_text().strip()
+        if ext_file.exists():
+            extensions_ready = True
+        if cdp_url and extensions_ready:
             break
         time.sleep(1)
 
@@ -156,13 +161,6 @@ def launch_chrome(env: dict, chrome_dir: Path, crawl_id: str):
         process.kill()
         stdout, stderr = process.communicate()
         raise RuntimeError(f"CDP URL not found after 30s.\nstdout: {stdout}\nstderr: {stderr}")
-
-    # Wait for extensions.json to be written (chrome launch hook parses chrome://extensions)
-    extensions_file = chrome_dir / 'extensions.json'
-    for _ in range(15):
-        if extensions_file.exists():
-            break
-        time.sleep(1)
 
     # Print chrome launch hook output for debugging
     import select

@@ -215,7 +215,25 @@ async function main() {
                     const manifestPath = path.join(ext.unpacked_path, 'manifest.json');
                     if (fs.existsSync(manifestPath)) {
                         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-                        const manifestName = manifest.name || '';
+                        let manifestName = manifest.name || '';
+
+                        // Resolve message placeholder (e.g., __MSG_extName__)
+                        if (manifestName.startsWith('__MSG_') && manifestName.endsWith('__')) {
+                            const msgKey = manifestName.slice(6, -2); // Extract key from __MSG_key__
+                            const defaultLocale = manifest.default_locale || 'en';
+                            const messagesPath = path.join(ext.unpacked_path, '_locales', defaultLocale, 'messages.json');
+                            if (fs.existsSync(messagesPath)) {
+                                try {
+                                    const messages = JSON.parse(fs.readFileSync(messagesPath, 'utf-8'));
+                                    if (messages[msgKey] && messages[msgKey].message) {
+                                        manifestName = messages[msgKey].message;
+                                    }
+                                } catch (e) {
+                                    console.error(`[!] Failed to read messages.json: ${e.message}`);
+                                }
+                            }
+                        }
+
                         console.error(`[*] Looking for match: ext.name="${ext.name}" manifest.name="${manifestName}"`);
 
                         // Find matching extension from page by exact name match first
