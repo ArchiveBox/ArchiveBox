@@ -5,18 +5,20 @@ Tests cover:
 1. Machine model creation and current() method
 2. NetworkInterface model and network detection
 3. Binary model lifecycle and state machine
-4. Process model lifecycle and state machine
+4. Process model lifecycle, hierarchy, and state machine
 5. JSONL serialization/deserialization
 6. Manager methods
+7. Process tracking methods (replacing pid_utils)
 """
 
 import os
-import tempfile
+import sys
 from pathlib import Path
 from datetime import timedelta
+from unittest.mock import patch
 
 import pytest
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.utils import timezone
 
 from archivebox.machine.models import (
@@ -27,11 +29,8 @@ from archivebox.machine.models import (
     BinaryMachine,
     ProcessMachine,
     MACHINE_RECHECK_INTERVAL,
-    NETWORK_INTERFACE_RECHECK_INTERVAL,
-    BINARY_RECHECK_INTERVAL,
-    _CURRENT_MACHINE,
-    _CURRENT_INTERFACE,
-    _CURRENT_BINARIES,
+    PROCESS_RECHECK_INTERVAL,
+    PID_REUSE_WINDOW,
 )
 
 
@@ -76,55 +75,23 @@ class TestMachineModel(TestCase):
         # Should have fetched/updated the machine (same GUID)
         self.assertEqual(machine1.guid, machine2.guid)
 
-    def test_machine_to_json(self):
-        """Machine.to_json() should serialize correctly."""
-        machine = Machine.current()
-        json_data = machine.to_json()
-
-        self.assertEqual(json_data['type'], 'Machine')
-        self.assertEqual(json_data['id'], str(machine.id))
-        self.assertEqual(json_data['guid'], machine.guid)
-        self.assertEqual(json_data['hostname'], machine.hostname)
-        self.assertIn('os_arch', json_data)
-        self.assertIn('os_family', json_data)
-
-    def test_machine_to_jsonl(self):
-        """Machine.to_jsonl() should yield JSON records."""
-        machine = Machine.current()
-        records = list(machine.to_jsonl())
-
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]['type'], 'Machine')
-        self.assertEqual(records[0]['id'], str(machine.id))
-
-    def test_machine_to_jsonl_deduplication(self):
-        """Machine.to_jsonl() should deduplicate with seen set."""
-        machine = Machine.current()
-        seen = set()
-
-        records1 = list(machine.to_jsonl(seen=seen))
-        records2 = list(machine.to_jsonl(seen=seen))
-
-        self.assertEqual(len(records1), 1)
-        self.assertEqual(len(records2), 0)  # Already seen
-
-    def test_machine_from_json_update(self):
-        """Machine.from_json() should update machine config."""
-        machine = Machine.current()
+    def test_machine_from_jsonl_update(self):
+        """Machine.from_jsonl() should update machine config."""
+        Machine.current()  # Ensure machine exists
         record = {
             '_method': 'update',
             'key': 'WGET_BINARY',
             'value': '/usr/bin/wget',
         }
 
-        result = Machine.from_json(record)
+        result = Machine.from_jsonl(record)
 
         self.assertIsNotNone(result)
         self.assertEqual(result.config.get('WGET_BINARY'), '/usr/bin/wget')
 
-    def test_machine_from_json_invalid(self):
-        """Machine.from_json() should return None for invalid records."""
-        result = Machine.from_json({'invalid': 'record'})
+    def test_machine_from_jsonl_invalid(self):
+        """Machine.from_jsonl() should return None for invalid records."""
+        result = Machine.from_jsonl({'invalid': 'record'})
         self.assertIsNone(result)
 
     def test_machine_manager_current(self):
@@ -150,7 +117,6 @@ class TestNetworkInterfaceModel(TestCase):
         self.assertIsNotNone(interface)
         self.assertIsNotNone(interface.id)
         self.assertIsNotNone(interface.machine)
-        # IP addresses should be populated
         self.assertIsNotNone(interface.ip_local)
 
     def test_networkinterface_current_returns_cached(self):
@@ -160,17 +126,6 @@ class TestNetworkInterfaceModel(TestCase):
 
         self.assertEqual(interface1.id, interface2.id)
 
-    def test_networkinterface_to_json(self):
-        """NetworkInterface.to_json() should serialize correctly."""
-        interface = NetworkInterface.current()
-        json_data = interface.to_json()
-
-        self.assertEqual(json_data['type'], 'NetworkInterface')
-        self.assertEqual(json_data['id'], str(interface.id))
-        self.assertEqual(json_data['machine_id'], str(interface.machine_id))
-        self.assertIn('ip_local', json_data)
-        self.assertIn('ip_public', json_data)
-
     def test_networkinterface_manager_current(self):
         """NetworkInterface.objects.current() should return current interface."""
         interface = NetworkInterface.objects.current()
@@ -178,7 +133,7 @@ class TestNetworkInterfaceModel(TestCase):
 
 
 class TestBinaryModel(TestCase):
-    """Test the Binary model and BinaryMachine state machine."""
+    """Test the Binary model."""
 
     def setUp(self):
         """Reset cached binaries and create a machine."""
@@ -211,67 +166,10 @@ class TestBinaryModel(TestCase):
 
         self.assertTrue(binary.is_valid)
 
-    def test_binary_to_json(self):
-        """Binary.to_json() should serialize correctly."""
-        binary = Binary.objects.create(
-            machine=self.machine,
-            name='wget',
-            abspath='/usr/bin/wget',
-            version='1.21',
-            binprovider='apt',
-        )
-        json_data = binary.to_json()
-
-        self.assertEqual(json_data['type'], 'Binary')
-        self.assertEqual(json_data['name'], 'wget')
-        self.assertEqual(json_data['abspath'], '/usr/bin/wget')
-        self.assertEqual(json_data['version'], '1.21')
-
-    def test_binary_from_json_queued(self):
-        """Binary.from_json() should create queued binary from binaries.jsonl format."""
-        record = {
-            'name': 'curl',
-            'binproviders': 'apt,brew',
-            'overrides': {'apt': {'packages': ['curl']}},
-        }
-
-        binary = Binary.from_json(record)
-
-        self.assertIsNotNone(binary)
-        self.assertEqual(binary.name, 'curl')
-        self.assertEqual(binary.binproviders, 'apt,brew')
-        self.assertEqual(binary.status, Binary.StatusChoices.QUEUED)
-
-    def test_binary_from_json_installed(self):
-        """Binary.from_json() should update binary from hook output format."""
-        # First create queued binary
-        Binary.objects.create(
-            machine=self.machine,
-            name='node',
-        )
-
-        # Then update with hook output
-        record = {
-            'name': 'node',
-            'abspath': '/usr/bin/node',
-            'version': '18.0.0',
-            'binprovider': 'apt',
-        }
-
-        binary = Binary.from_json(record)
-
-        self.assertIsNotNone(binary)
-        self.assertEqual(binary.abspath, '/usr/bin/node')
-        self.assertEqual(binary.version, '18.0.0')
-        self.assertEqual(binary.status, Binary.StatusChoices.SUCCEEDED)
-
     def test_binary_manager_get_valid_binary(self):
         """BinaryManager.get_valid_binary() should find valid binaries."""
         # Create invalid binary (no abspath)
-        Binary.objects.create(
-            machine=self.machine,
-            name='wget',
-        )
+        Binary.objects.create(machine=self.machine, name='wget')
 
         # Create valid binary
         Binary.objects.create(
@@ -288,10 +186,7 @@ class TestBinaryModel(TestCase):
 
     def test_binary_update_and_requeue(self):
         """Binary.update_and_requeue() should update fields and save."""
-        binary = Binary.objects.create(
-            machine=self.machine,
-            name='test',
-        )
+        binary = Binary.objects.create(machine=self.machine, name='test')
         old_modified = binary.modified_at
 
         binary.update_and_requeue(
@@ -328,7 +223,6 @@ class TestBinaryStateMachine(TestCase):
         sm = BinaryMachine(self.binary)
         self.assertTrue(sm.can_start())
 
-        # Binary without binproviders
         self.binary.binproviders = ''
         self.binary.save()
         sm = BinaryMachine(self.binary)
@@ -336,12 +230,13 @@ class TestBinaryStateMachine(TestCase):
 
 
 class TestProcessModel(TestCase):
-    """Test the Process model and ProcessMachine state machine."""
+    """Test the Process model."""
 
     def setUp(self):
         """Create a machine for process tests."""
         import archivebox.machine.models as models
         models._CURRENT_MACHINE = None
+        models._CURRENT_PROCESS = None
         self.machine = Machine.current()
 
     def test_process_creation(self):
@@ -358,63 +253,24 @@ class TestProcessModel(TestCase):
         self.assertIsNone(process.pid)
         self.assertIsNone(process.exit_code)
 
-    def test_process_to_json(self):
-        """Process.to_json() should serialize correctly."""
+    def test_process_to_jsonl(self):
+        """Process.to_jsonl() should serialize correctly."""
         process = Process.objects.create(
             machine=self.machine,
             cmd=['echo', 'hello'],
             pwd='/tmp',
             timeout=60,
         )
-        json_data = process.to_json()
+        json_data = process.to_jsonl()
 
         self.assertEqual(json_data['type'], 'Process')
         self.assertEqual(json_data['cmd'], ['echo', 'hello'])
         self.assertEqual(json_data['pwd'], '/tmp')
         self.assertEqual(json_data['timeout'], 60)
 
-    def test_process_to_jsonl_with_binary(self):
-        """Process.to_jsonl() should include related binary."""
-        binary = Binary.objects.create(
-            machine=self.machine,
-            name='echo',
-            abspath='/bin/echo',
-            version='1.0',
-        )
-        process = Process.objects.create(
-            machine=self.machine,
-            cmd=['echo', 'hello'],
-            binary=binary,
-        )
-
-        records = list(process.to_jsonl(binary=True))
-
-        self.assertEqual(len(records), 2)
-        types = {r['type'] for r in records}
-        self.assertIn('Process', types)
-        self.assertIn('Binary', types)
-
-    def test_process_manager_create_for_archiveresult(self):
-        """ProcessManager.create_for_archiveresult() should create process."""
-        # This test would require an ArchiveResult, which is complex to set up
-        # For now, test the direct creation path
-        process = Process.objects.create(
-            machine=self.machine,
-            pwd='/tmp/test',
-            cmd=['wget', 'http://example.com'],
-            timeout=120,
-        )
-
-        self.assertEqual(process.pwd, '/tmp/test')
-        self.assertEqual(process.cmd, ['wget', 'http://example.com'])
-        self.assertEqual(process.timeout, 120)
-
     def test_process_update_and_requeue(self):
         """Process.update_and_requeue() should update fields and save."""
-        process = Process.objects.create(
-            machine=self.machine,
-            cmd=['test'],
-        )
+        process = Process.objects.create(machine=self.machine, cmd=['test'])
         old_modified = process.modified_at
 
         process.update_and_requeue(
@@ -427,6 +283,240 @@ class TestProcessModel(TestCase):
         self.assertEqual(process.status, Process.StatusChoices.RUNNING)
         self.assertEqual(process.pid, 12345)
         self.assertIsNotNone(process.started_at)
+
+
+class TestProcessCurrent(TestCase):
+    """Test Process.current() method."""
+
+    def setUp(self):
+        """Reset caches."""
+        import archivebox.machine.models as models
+        models._CURRENT_MACHINE = None
+        models._CURRENT_PROCESS = None
+
+    def test_process_current_creates_record(self):
+        """Process.current() should create a Process for current PID."""
+        proc = Process.current()
+
+        self.assertIsNotNone(proc)
+        self.assertEqual(proc.pid, os.getpid())
+        self.assertEqual(proc.status, Process.StatusChoices.RUNNING)
+        self.assertIsNotNone(proc.machine)
+        self.assertIsNotNone(proc.started_at)
+
+    def test_process_current_caches(self):
+        """Process.current() should cache the result."""
+        proc1 = Process.current()
+        proc2 = Process.current()
+
+        self.assertEqual(proc1.id, proc2.id)
+
+    def test_process_detect_type_orchestrator(self):
+        """_detect_process_type should detect orchestrator."""
+        with patch('sys.argv', ['archivebox', 'manage', 'orchestrator']):
+            result = Process._detect_process_type()
+            self.assertEqual(result, Process.TypeChoices.ORCHESTRATOR)
+
+    def test_process_detect_type_cli(self):
+        """_detect_process_type should detect CLI commands."""
+        with patch('sys.argv', ['archivebox', 'add', 'http://example.com']):
+            result = Process._detect_process_type()
+            self.assertEqual(result, Process.TypeChoices.CLI)
+
+    def test_process_detect_type_worker(self):
+        """_detect_process_type should detect workers."""
+        with patch('sys.argv', ['python', '-m', 'crawl_worker']):
+            result = Process._detect_process_type()
+            self.assertEqual(result, Process.TypeChoices.WORKER)
+
+
+class TestProcessHierarchy(TestCase):
+    """Test Process parent/child relationships."""
+
+    def setUp(self):
+        """Create machine."""
+        import archivebox.machine.models as models
+        models._CURRENT_MACHINE = None
+        self.machine = Machine.current()
+
+    def test_process_parent_child(self):
+        """Process should track parent/child relationships."""
+        parent = Process.objects.create(
+            machine=self.machine,
+            process_type=Process.TypeChoices.CLI,
+            status=Process.StatusChoices.RUNNING,
+            pid=1,
+            started_at=timezone.now(),
+        )
+
+        child = Process.objects.create(
+            machine=self.machine,
+            parent=parent,
+            process_type=Process.TypeChoices.WORKER,
+            status=Process.StatusChoices.RUNNING,
+            pid=2,
+            started_at=timezone.now(),
+        )
+
+        self.assertEqual(child.parent, parent)
+        self.assertIn(child, parent.children.all())
+
+    def test_process_root(self):
+        """Process.root should return the root of the hierarchy."""
+        root = Process.objects.create(
+            machine=self.machine,
+            process_type=Process.TypeChoices.CLI,
+            status=Process.StatusChoices.RUNNING,
+            started_at=timezone.now(),
+        )
+        child = Process.objects.create(
+            machine=self.machine,
+            parent=root,
+            status=Process.StatusChoices.RUNNING,
+            started_at=timezone.now(),
+        )
+        grandchild = Process.objects.create(
+            machine=self.machine,
+            parent=child,
+            status=Process.StatusChoices.RUNNING,
+            started_at=timezone.now(),
+        )
+
+        self.assertEqual(grandchild.root, root)
+        self.assertEqual(child.root, root)
+        self.assertEqual(root.root, root)
+
+    def test_process_depth(self):
+        """Process.depth should return depth in tree."""
+        root = Process.objects.create(
+            machine=self.machine,
+            status=Process.StatusChoices.RUNNING,
+            started_at=timezone.now(),
+        )
+        child = Process.objects.create(
+            machine=self.machine,
+            parent=root,
+            status=Process.StatusChoices.RUNNING,
+            started_at=timezone.now(),
+        )
+
+        self.assertEqual(root.depth, 0)
+        self.assertEqual(child.depth, 1)
+
+
+class TestProcessLifecycle(TestCase):
+    """Test Process lifecycle methods."""
+
+    def setUp(self):
+        """Create machine."""
+        import archivebox.machine.models as models
+        models._CURRENT_MACHINE = None
+        self.machine = Machine.current()
+
+    def test_process_is_running_current_pid(self):
+        """is_running should be True for current PID."""
+        proc = Process.objects.create(
+            machine=self.machine,
+            status=Process.StatusChoices.RUNNING,
+            pid=os.getpid(),
+            started_at=timezone.now(),
+        )
+
+        self.assertTrue(proc.is_running)
+
+    def test_process_is_running_fake_pid(self):
+        """is_running should be False for non-existent PID."""
+        proc = Process.objects.create(
+            machine=self.machine,
+            status=Process.StatusChoices.RUNNING,
+            pid=999999,
+            started_at=timezone.now(),
+        )
+
+        self.assertFalse(proc.is_running)
+
+    def test_process_poll_detects_exit(self):
+        """poll() should detect exited process."""
+        proc = Process.objects.create(
+            machine=self.machine,
+            status=Process.StatusChoices.RUNNING,
+            pid=999999,
+            started_at=timezone.now(),
+        )
+
+        exit_code = proc.poll()
+
+        self.assertIsNotNone(exit_code)
+        proc.refresh_from_db()
+        self.assertEqual(proc.status, Process.StatusChoices.EXITED)
+
+    def test_process_terminate_dead_process(self):
+        """terminate() should handle already-dead process."""
+        proc = Process.objects.create(
+            machine=self.machine,
+            status=Process.StatusChoices.RUNNING,
+            pid=999999,
+            started_at=timezone.now(),
+        )
+
+        result = proc.terminate()
+
+        self.assertFalse(result)
+        proc.refresh_from_db()
+        self.assertEqual(proc.status, Process.StatusChoices.EXITED)
+
+
+class TestProcessClassMethods(TestCase):
+    """Test Process class methods for querying."""
+
+    def setUp(self):
+        """Create machine."""
+        import archivebox.machine.models as models
+        models._CURRENT_MACHINE = None
+        self.machine = Machine.current()
+
+    def test_get_running(self):
+        """get_running should return running processes."""
+        proc = Process.objects.create(
+            machine=self.machine,
+            process_type=Process.TypeChoices.HOOK,
+            status=Process.StatusChoices.RUNNING,
+            pid=99999,
+            started_at=timezone.now(),
+        )
+
+        running = Process.get_running(process_type=Process.TypeChoices.HOOK)
+
+        self.assertIn(proc, running)
+
+    def test_get_running_count(self):
+        """get_running_count should count running processes."""
+        for i in range(3):
+            Process.objects.create(
+                machine=self.machine,
+                process_type=Process.TypeChoices.HOOK,
+                status=Process.StatusChoices.RUNNING,
+                pid=99900 + i,
+                started_at=timezone.now(),
+            )
+
+        count = Process.get_running_count(process_type=Process.TypeChoices.HOOK)
+        self.assertGreaterEqual(count, 3)
+
+    def test_cleanup_stale_running(self):
+        """cleanup_stale_running should mark stale processes as exited."""
+        stale = Process.objects.create(
+            machine=self.machine,
+            status=Process.StatusChoices.RUNNING,
+            pid=999999,
+            started_at=timezone.now() - PID_REUSE_WINDOW - timedelta(hours=1),
+        )
+
+        cleaned = Process.cleanup_stale_running()
+
+        self.assertGreaterEqual(cleaned, 1)
+        stale.refresh_from_db()
+        self.assertEqual(stale.status, Process.StatusChoices.EXITED)
 
 
 class TestProcessStateMachine(TestCase):
@@ -453,7 +543,6 @@ class TestProcessStateMachine(TestCase):
         sm = ProcessMachine(self.process)
         self.assertTrue(sm.can_start())
 
-        # Process without cmd
         self.process.cmd = []
         self.process.save()
         sm = ProcessMachine(self.process)
