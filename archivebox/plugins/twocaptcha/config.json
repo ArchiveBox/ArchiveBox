@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": ["chrome"],
+  "properties": {
+    "TWOCAPTCHA_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["CAPTCHA2_ENABLED", "USE_CAPTCHA2", "USE_TWOCAPTCHA"],
+      "description": "Enable 2captcha browser extension for automatic CAPTCHA solving"
+    },
+    "TWOCAPTCHA_API_KEY": {
+      "type": "string",
+      "default": "",
+      "x-aliases": ["API_KEY_2CAPTCHA", "CAPTCHA2_API_KEY"],
+      "x-sensitive": true,
+      "description": "2captcha API key for CAPTCHA solving service (get from https://2captcha.com)"
+    },
+    "TWOCAPTCHA_RETRY_COUNT": {
+      "type": "integer",
+      "default": 3,
+      "minimum": 0,
+      "maximum": 10,
+      "x-aliases": ["CAPTCHA2_RETRY_COUNT"],
+      "description": "Number of times to retry CAPTCHA solving on error"
+    },
+    "TWOCAPTCHA_RETRY_DELAY": {
+      "type": "integer",
+      "default": 5,
+      "minimum": 0,
+      "maximum": 60,
+      "x-aliases": ["CAPTCHA2_RETRY_DELAY"],
+      "description": "Delay in seconds between CAPTCHA solving retries"
+    },
+    "TWOCAPTCHA_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "x-aliases": ["CAPTCHA2_TIMEOUT"],
+      "description": "Timeout for CAPTCHA solving in seconds"
+    },
+    "TWOCAPTCHA_AUTO_SUBMIT": {
+      "type": "boolean",
+      "default": false,
+      "description": "Automatically submit forms after CAPTCHA is solved"
+    }
+  }
+}

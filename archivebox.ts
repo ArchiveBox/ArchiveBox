@@ -478,7 +478,7 @@ interface LoadedChromeExtension extends ChromeExtension {
 
 const CHROME_EXTENSIONS: LoadedChromeExtension[] = [
     // Content access / unblocking / blocking plugins
-    {webstore_id: 'ifibfemgeogfhoebkmokieepdoobkbpo', name: 'captcha2'},                 // https://2captcha.com/blog/how-to-use-2captcha-solver-extension-in-puppeteer
+    {webstore_id: 'ifibfemgeogfhoebkmokieepdoobkbpo', name: 'twocaptcha'},                 // https://2captcha.com/blog/how-to-use-2captcha-solver-extension-in-puppeteer
     {webstore_id: 'edibdbjcniadpccecjdfdjjppcpchdlm', name: 'istilldontcareaboutcookies'},
     {webstore_id: 'cjpalhdlnbpafiamejdnhcphjbkeiagm', name: 'ublock'},
     // {webstore_id: 'mlomiejdfkolichcflejclcbmpeaniij', name: 'ghostery'},
@@ -1123,7 +1123,7 @@ async function setup2CaptchaExtension({browser, extensions}) {
     try {
         // open a new tab to finish setting up the 2captcha extension manually using its extension options page
         page = await browser.newPage()
-        const { options_url } = extensions.filter(ext => ext.name === 'captcha2')[0]
+        const { options_url } = extensions.filter(ext => ext.name === 'twocaptcha')[0]
         await page.goto(options_url)
         await wait(2_500)
         await page.bringToFront()

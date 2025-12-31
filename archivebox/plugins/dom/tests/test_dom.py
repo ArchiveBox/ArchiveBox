@@ -20,28 +20,21 @@ from pathlib import Path
 
 import pytest
 
+from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+    get_test_env,
+    get_plugin_dir,
+    get_hook_script,
+    run_hook_and_parse,
+    LIB_DIR,
+    NODE_MODULES_DIR,
+    PLUGINS_ROOT,
+)
 
-PLUGIN_DIR = Path(__file__).parent.parent
-PLUGINS_ROOT = PLUGIN_DIR.parent
-DOM_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_dom.*'), None)
-NPM_PROVIDER_HOOK = next((PLUGINS_ROOT / 'npm').glob('on_Binary__install_using_npm_provider.py'), None)
+
+PLUGIN_DIR = get_plugin_dir(__file__)
+DOM_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_dom.*')
+NPM_PROVIDER_HOOK = get_hook_script(PLUGINS_ROOT / 'npm', 'on_Binary__install_using_npm_provider.py')
 TEST_URL = 'https://example.com'
-
-# Get LIB_DIR for NODE_MODULES_DIR
-def get_lib_dir():
-    """Get LIB_DIR for tests."""
-    from archivebox.config.common import STORAGE_CONFIG
-    return Path(os.environ.get('LIB_DIR') or str(STORAGE_CONFIG.LIB_DIR))
-
-LIB_DIR = get_lib_dir()
-NODE_MODULES_DIR = LIB_DIR / 'npm' / 'node_modules'
-
-def get_test_env():
-    """Get environment with NODE_MODULES_DIR set correctly."""
-    env = os.environ.copy()
-    env['NODE_MODULES_DIR'] = str(NODE_MODULES_DIR)
-    env['LIB_DIR'] = str(LIB_DIR)
-    return env
 
 
 def test_hook_script_exists():

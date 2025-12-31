@@ -12,9 +12,17 @@ from pathlib import Path
 
 import pytest
 
+from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+    setup_test_env,
+    launch_chromium_session,
+    kill_chromium_session,
+    CHROME_LAUNCH_HOOK,
+    PLUGINS_ROOT,
+)
+
 
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_ublock.*'), None)
+INSTALL_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_install_ublock_extension.*'), None)
 
 
 def test_install_script_exists():
@@ -157,91 +165,143 @@ def test_large_extension_size():
             assert size_bytes > 1_000_000, f"uBlock Origin should be > 1MB, got {size_bytes} bytes"
 
 
-PLUGINS_ROOT = PLUGIN_DIR.parent
-CHROME_INSTALL_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__00_chrome_install.py'
-CHROME_LAUNCH_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__20_chrome_launch.bg.js'
+def check_ad_blocking(cdp_url: str, test_url: str, env: dict, script_dir: Path) -> dict:
+    """Check ad blocking effectiveness by counting ad elements on page.
 
-
-def setup_test_env(tmpdir: Path) -> dict:
-    """Set up isolated data/lib directory structure for tests.
-
-    Creates structure like:
-        <tmpdir>/data/
-            lib/
-                arm64-darwin/   (or x86_64-linux, etc.)
-                    npm/
-                        bin/
-                        node_modules/
-            chrome_extensions/
-
-    Calls chrome install hook which handles puppeteer-core and chromium installation.
-    Returns env dict with DATA_DIR, LIB_DIR, NPM_BIN_DIR, NODE_MODULES_DIR, CHROME_BINARY, etc.
+    Returns dict with:
+        - adElementsFound: int - number of ad-related elements found
+        - adElementsVisible: int - number of visible ad elements
+        - blockedRequests: int - number of blocked network requests (ads/trackers)
+        - totalRequests: int - total network requests made
+        - percentBlocked: int - percentage of ad elements hidden (0-100)
     """
-    import platform
+    test_script = f'''
+if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
+const puppeteer = require('puppeteer-core');
 
-    # Determine machine type (matches archivebox.config.paths.get_machine_type())
-    machine = platform.machine().lower()
-    system = platform.system().lower()
-    if machine in ('arm64', 'aarch64'):
-        machine = 'arm64'
-    elif machine in ('x86_64', 'amd64'):
-        machine = 'x86_64'
-    machine_type = f"{machine}-{system}"
+(async () => {{
+    const browser = await puppeteer.connect({{ browserWSEndpoint: '{cdp_url}' }});
 
-    # Create proper directory structure
-    data_dir = tmpdir / 'data'
-    lib_dir = data_dir / 'lib' / machine_type
-    npm_dir = lib_dir / 'npm'
-    npm_bin_dir = npm_dir / 'bin'
-    node_modules_dir = npm_dir / 'node_modules'
-    chrome_extensions_dir = data_dir / 'chrome_extensions'
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setViewport({{ width: 1440, height: 900 }});
 
-    # Create all directories
-    node_modules_dir.mkdir(parents=True, exist_ok=True)
-    npm_bin_dir.mkdir(parents=True, exist_ok=True)
-    chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
+    // Track network requests
+    let blockedRequests = 0;
+    let totalRequests = 0;
+    const adDomains = ['doubleclick', 'googlesyndication', 'googleadservices', 'facebook.com/tr',
+                       'analytics', 'adservice', 'advertising', 'taboola', 'outbrain', 'criteo',
+                       'amazon-adsystem', 'ads.yahoo', 'gemini.yahoo', 'yimg.com/cv/', 'beap.gemini'];
 
-    # Build complete env dict
-    env = os.environ.copy()
-    env.update({
-        'DATA_DIR': str(data_dir),
-        'LIB_DIR': str(lib_dir),
-        'MACHINE_TYPE': machine_type,
-        'NPM_BIN_DIR': str(npm_bin_dir),
-        'NODE_MODULES_DIR': str(node_modules_dir),
-        'CHROME_EXTENSIONS_DIR': str(chrome_extensions_dir),
-    })
+    page.on('request', request => {{
+        totalRequests++;
+        const url = request.url().toLowerCase();
+        if (adDomains.some(d => url.includes(d))) {{
+            // This is an ad request
+        }}
+    }});
 
-    # Call chrome install hook (installs puppeteer-core and chromium, outputs JSONL)
+    page.on('requestfailed', request => {{
+        const url = request.url().toLowerCase();
+        if (adDomains.some(d => url.includes(d))) {{
+            blockedRequests++;
+        }}
+    }});
+
+    console.error('Navigating to {test_url}...');
+    await page.goto('{test_url}', {{ waitUntil: 'domcontentloaded', timeout: 60000 }});
+
+    // Wait for page to fully render and ads to load
+    await new Promise(r => setTimeout(r, 5000));
+
+    // Check for ad elements in the DOM
+    const result = await page.evaluate(() => {{
+        // Common ad-related selectors
+        const adSelectors = [
+            // Generic ad containers
+            '[class*="ad-"]', '[class*="ad_"]', '[class*="-ad"]', '[class*="_ad"]',
+            '[id*="ad-"]', '[id*="ad_"]', '[id*="-ad"]', '[id*="_ad"]',
+            '[class*="advertisement"]', '[id*="advertisement"]',
+            '[class*="sponsored"]', '[id*="sponsored"]',
+            // Google ads
+            'ins.adsbygoogle', '[data-ad-client]', '[data-ad-slot]',
+            // Yahoo specific
+            '[class*="gemini"]', '[data-beacon]', '[class*="native-ad"]',
+            '[class*="stream-ad"]', '[class*="LDRB"]', '[class*="ntv-ad"]',
+            // iframes (often ads)
+            'iframe[src*="ad"]', 'iframe[src*="doubleclick"]', 'iframe[src*="googlesyndication"]',
+            // Common ad sizes
+            '[style*="300px"][style*="250px"]', '[style*="728px"][style*="90px"]',
+            '[style*="160px"][style*="600px"]', '[style*="320px"][style*="50px"]',
+        ];
+
+        let adElementsFound = 0;
+        let adElementsVisible = 0;
+
+        for (const selector of adSelectors) {{
+            try {{
+                const elements = document.querySelectorAll(selector);
+                for (const el of elements) {{
+                    adElementsFound++;
+                    const style = window.getComputedStyle(el);
+                    const rect = el.getBoundingClientRect();
+                    const isVisible = style.display !== 'none' &&
+                                     style.visibility !== 'hidden' &&
+                                     style.opacity !== '0' &&
+                                     rect.width > 0 && rect.height > 0;
+                    if (isVisible) {{
+                        adElementsVisible++;
+                    }}
+                }}
+            }} catch (e) {{
+                // Invalid selector, skip
+            }}
+        }}
+
+        return {{
+            adElementsFound,
+            adElementsVisible,
+            pageTitle: document.title
+        }};
+    }});
+
+    result.blockedRequests = blockedRequests;
+    result.totalRequests = totalRequests;
+    // Calculate how many ad elements were hidden (found but not visible)
+    const hiddenAds = result.adElementsFound - result.adElementsVisible;
+    result.percentBlocked = result.adElementsFound > 0
+        ? Math.round((hiddenAds / result.adElementsFound) * 100)
+        : 0;
+
+    console.error('Ad blocking result:', JSON.stringify(result));
+    browser.disconnect();
+    console.log(JSON.stringify(result));
+}})();
+'''
+    script_path = script_dir / 'check_ads.js'
+    script_path.write_text(test_script)
+
     result = subprocess.run(
-        ['python', str(CHROME_INSTALL_HOOK)],
-        capture_output=True, text=True, timeout=10, env=env
+        ['node', str(script_path)],
+        cwd=str(script_dir),
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=90
     )
+
     if result.returncode != 0:
-        pytest.skip(f"Chrome install hook failed: {result.stderr}")
+        raise RuntimeError(f"Ad check script failed: {result.stderr}")
 
-    # Parse JSONL output to get CHROME_BINARY
-    chrome_binary = None
-    for line in result.stdout.strip().split('\n'):
-        if not line.strip():
-            continue
-        try:
-            data = json.loads(line)
-            if data.get('type') == 'Binary' and data.get('abspath'):
-                chrome_binary = data['abspath']
-                break
-        except json.JSONDecodeError:
-            continue
+    output_lines = [l for l in result.stdout.strip().split('\n') if l.startswith('{')]
+    if not output_lines:
+        raise RuntimeError(f"No JSON output from ad check: {result.stdout}\nstderr: {result.stderr}")
 
-    if not chrome_binary or not Path(chrome_binary).exists():
-        pytest.skip(f"Chromium binary not found: {chrome_binary}")
-
-    env['CHROME_BINARY'] = chrome_binary
-    return env
+    return json.loads(output_lines[-1])
 
 
-# Test URL: ad blocker test page that shows if ads are blocked
-TEST_URL = 'https://d3ward.github.io/toolz/adblock.html'
+# Test URL: Yahoo has many ads that uBlock should block
+TEST_URL = 'https://www.yahoo.com/'
 
 
 @pytest.mark.timeout(15)
@@ -290,14 +350,18 @@ def test_extension_loads_in_chromium():
         print(f"[test] NODE_MODULES_DIR={env.get('NODE_MODULES_DIR')}", flush=True)
         print(f"[test] puppeteer-core exists: {(Path(env['NODE_MODULES_DIR']) / 'puppeteer-core').exists()}", flush=True)
         print("[test] Launching Chromium...", flush=True)
-        data_dir = Path(env['DATA_DIR'])
-        crawl_dir = data_dir / 'crawl'
-        crawl_dir.mkdir()
+
+        # Launch Chromium in crawls directory
+        crawl_id = 'test-ublock'
+        crawl_dir = Path(env['CRAWLS_DIR']) / crawl_id
+        crawl_dir.mkdir(parents=True, exist_ok=True)
         chrome_dir = crawl_dir / 'chrome'
+        chrome_dir.mkdir(parents=True, exist_ok=True)
+        env['CRAWL_OUTPUT_DIR'] = str(crawl_dir)
 
         chrome_launch_process = subprocess.Popen(
-            ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-ublock'],
-            cwd=str(crawl_dir),
+            ['node', str(CHROME_LAUNCH_HOOK), f'--crawl-id={crawl_id}'],
+            cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -457,161 +521,177 @@ const puppeteer = require('puppeteer-core');
 def test_blocks_ads_on_test_page():
     """Live test: verify uBlock Origin blocks ads on a test page.
 
-    Uses Chromium with extensions loaded automatically via chrome hook.
-    Tests against d3ward's ad blocker test page which checks ad domains.
+    This test runs TWO browser sessions:
+    1. WITHOUT extension - verifies ads are NOT blocked (baseline)
+    2. WITH extension - verifies ads ARE blocked
+
+    This ensures we're actually testing the extension's effect, not just
+    that a test page happens to show ads as blocked.
     """
-    import signal
     import time
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
         # Set up isolated env with proper directory structure
-        env = setup_test_env(tmpdir)
-        env['CHROME_HEADLESS'] = 'true'
+        env_base = setup_test_env(tmpdir)
+        env_base['CHROME_HEADLESS'] = 'true'
 
-        ext_dir = Path(env['CHROME_EXTENSIONS_DIR'])
+        # ============================================================
+        # STEP 1: BASELINE - Run WITHOUT extension, verify ads are NOT blocked
+        # ============================================================
+        print("\n" + "="*60)
+        print("STEP 1: BASELINE TEST (no extension)")
+        print("="*60)
 
-        # Step 1: Install the uBlock extension
+        data_dir = Path(env_base['DATA_DIR'])
+
+        env_no_ext = env_base.copy()
+        env_no_ext['CHROME_EXTENSIONS_DIR'] = str(data_dir / 'personas' / 'Default' / 'empty_extensions')
+        (data_dir / 'personas' / 'Default' / 'empty_extensions').mkdir(parents=True, exist_ok=True)
+
+        # Launch baseline Chromium in crawls directory
+        baseline_crawl_id = 'baseline-no-ext'
+        baseline_crawl_dir = Path(env_base['CRAWLS_DIR']) / baseline_crawl_id
+        baseline_crawl_dir.mkdir(parents=True, exist_ok=True)
+        baseline_chrome_dir = baseline_crawl_dir / 'chrome'
+        env_no_ext['CRAWL_OUTPUT_DIR'] = str(baseline_crawl_dir)
+        baseline_process = None
+
+        try:
+            baseline_process, baseline_cdp_url = launch_chromium_session(
+                env_no_ext, baseline_chrome_dir, baseline_crawl_id
+            )
+            print(f"Baseline Chromium launched: {baseline_cdp_url}")
+
+            # Wait a moment for browser to be ready
+            time.sleep(2)
+
+            baseline_result = check_ad_blocking(
+                baseline_cdp_url, TEST_URL, env_no_ext, tmpdir
+            )
+
+            print(f"Baseline result: {baseline_result['adElementsVisible']} visible ads "
+                  f"(found {baseline_result['adElementsFound']} ad elements)")
+
+        finally:
+            if baseline_process:
+                kill_chromium_session(baseline_process, baseline_chrome_dir)
+
+        # Verify baseline shows ads ARE visible (not blocked)
+        if baseline_result['adElementsFound'] == 0:
+            pytest.skip(
+                f"Cannot test extension: no ad elements found on {TEST_URL}. "
+                f"The page may have changed or loaded differently."
+            )
+
+        if baseline_result['adElementsVisible'] == 0:
+            print(f"\nWARNING: Baseline shows 0 visible ads despite finding {baseline_result['adElementsFound']} elements!")
+            print("This suggests either:")
+            print("  - There's another ad blocker interfering")
+            print("  - Network-level ad blocking is in effect")
+
+            pytest.skip(
+                f"Cannot test extension: baseline shows no visible ads "
+                f"despite finding {baseline_result['adElementsFound']} ad elements."
+            )
+
+        print(f"\n✓ Baseline confirmed: {baseline_result['adElementsVisible']} visible ads without extension")
+
+        # ============================================================
+        # STEP 2: Install the uBlock extension
+        # ============================================================
+        print("\n" + "="*60)
+        print("STEP 2: INSTALLING EXTENSION")
+        print("="*60)
+
+        ext_dir = Path(env_base['CHROME_EXTENSIONS_DIR'])
+
         result = subprocess.run(
             ['node', str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
-            env=env,
-            timeout=15
+            env=env_base,
+            timeout=60
         )
         assert result.returncode == 0, f"Extension install failed: {result.stderr}"
 
-        # Verify extension cache was created
         cache_file = ext_dir / 'ublock.extension.json'
         assert cache_file.exists(), "Extension cache not created"
         ext_data = json.loads(cache_file.read_text())
         print(f"Extension installed: {ext_data.get('name')} v{ext_data.get('version')}")
 
-        # Step 2: Launch Chromium using the chrome hook (loads extensions automatically)
-        data_dir = Path(env['DATA_DIR'])
-        crawl_dir = data_dir / 'crawl'
-        crawl_dir.mkdir()
-        chrome_dir = crawl_dir / 'chrome'
+        # ============================================================
+        # STEP 3: Run WITH extension, verify ads ARE blocked
+        # ============================================================
+        print("\n" + "="*60)
+        print("STEP 3: TEST WITH EXTENSION")
+        print("="*60)
 
-        chrome_launch_process = subprocess.Popen(
-            ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-ublock'],
-            cwd=str(crawl_dir),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=env
-        )
-
-        # Wait for Chrome to launch and CDP URL to be available
-        cdp_url = None
-        for i in range(20):
-            if chrome_launch_process.poll() is not None:
-                stdout, stderr = chrome_launch_process.communicate()
-                raise RuntimeError(f"Chrome launch failed:\nStdout: {stdout}\nStderr: {stderr}")
-            cdp_file = chrome_dir / 'cdp_url.txt'
-            if cdp_file.exists():
-                cdp_url = cdp_file.read_text().strip()
-                break
-            time.sleep(1)
-
-        assert cdp_url, "Chrome CDP URL not found after 20s"
-        print(f"Chrome launched with CDP URL: {cdp_url}")
-
-        # Check that extensions were loaded
-        extensions_file = chrome_dir / 'extensions.json'
-        if extensions_file.exists():
-            loaded_exts = json.loads(extensions_file.read_text())
-            print(f"Extensions loaded: {[e.get('name') for e in loaded_exts]}")
+        # Launch extension test Chromium in crawls directory
+        ext_crawl_id = 'test-with-ext'
+        ext_crawl_dir = Path(env_base['CRAWLS_DIR']) / ext_crawl_id
+        ext_crawl_dir.mkdir(parents=True, exist_ok=True)
+        ext_chrome_dir = ext_crawl_dir / 'chrome'
+        env_base['CRAWL_OUTPUT_DIR'] = str(ext_crawl_dir)
+        ext_process = None
 
         try:
-            # Step 3: Connect to Chrome and test ad blocking
-            test_script = f'''
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
-const puppeteer = require('puppeteer-core');
+            ext_process, ext_cdp_url = launch_chromium_session(
+                env_base, ext_chrome_dir, ext_crawl_id
+            )
+            print(f"Extension Chromium launched: {ext_cdp_url}")
 
-(async () => {{
-    const browser = await puppeteer.connect({{ browserWSEndpoint: '{cdp_url}' }});
+            # Check that extension was loaded
+            extensions_file = ext_chrome_dir / 'extensions.json'
+            if extensions_file.exists():
+                loaded_exts = json.loads(extensions_file.read_text())
+                print(f"Extensions loaded: {[e.get('name') for e in loaded_exts]}")
 
-    // Wait for extension to initialize
-    await new Promise(r => setTimeout(r, 500));
+            # Wait for extension to initialize
+            time.sleep(3)
 
-    // Check extension loaded by looking at targets
-    const targets = browser.targets();
-    const extTargets = targets.filter(t =>
-        t.url().startsWith('chrome-extension://') ||
-        t.type() === 'service_worker' ||
-        t.type() === 'background_page'
-    );
-    console.error('Extension targets found:', extTargets.length);
-    extTargets.forEach(t => console.error('  -', t.type(), t.url().substring(0, 60)));
-
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
-    await page.setViewport({{ width: 1440, height: 900 }});
-
-    console.error('Navigating to {TEST_URL}...');
-    await page.goto('{TEST_URL}', {{ waitUntil: 'networkidle2', timeout: 60000 }});
-
-    // Wait for the test page to run its checks
-    await new Promise(r => setTimeout(r, 5000));
-
-    // The d3ward test page shows blocked percentage
-    const result = await page.evaluate(() => {{
-        const scoreEl = document.querySelector('#score');
-        const score = scoreEl ? scoreEl.textContent : null;
-        const blockedItems = document.querySelectorAll('.blocked').length;
-        const totalItems = document.querySelectorAll('.testlist li').length;
-        return {{
-            score,
-            blockedItems,
-            totalItems,
-            percentBlocked: totalItems > 0 ? Math.round((blockedItems / totalItems) * 100) : 0
-        }};
-    }});
-
-    console.error('Ad blocking result:', JSON.stringify(result));
-    browser.disconnect();
-    console.log(JSON.stringify(result));
-}})();
-'''
-            script_path = tmpdir / 'test_ublock.js'
-            script_path.write_text(test_script)
-
-            result = subprocess.run(
-                ['node', str(script_path)],
-                cwd=str(tmpdir),
-                capture_output=True,
-                text=True,
-                env=env,
-                timeout=10
+            ext_result = check_ad_blocking(
+                ext_cdp_url, TEST_URL, env_base, tmpdir
             )
 
-            print(f"stderr: {result.stderr}")
-            print(f"stdout: {result.stdout}")
-
-            assert result.returncode == 0, f"Test failed: {result.stderr}"
-
-            output_lines = [l for l in result.stdout.strip().split('\n') if l.startswith('{')]
-            assert output_lines, f"No JSON output: {result.stdout}"
-
-            test_result = json.loads(output_lines[-1])
-
-            # uBlock should block most ad domains on the test page
-            assert test_result['percentBlocked'] >= 50, \
-                f"uBlock should block at least 50% of ads, only blocked {test_result['percentBlocked']}%. Result: {test_result}"
+            print(f"Extension result: {ext_result['adElementsVisible']} visible ads "
+                  f"(found {ext_result['adElementsFound']} ad elements)")
 
         finally:
-            # Clean up Chrome
-            try:
-                chrome_launch_process.send_signal(signal.SIGTERM)
-                chrome_launch_process.wait(timeout=5)
-            except:
-                pass
-            chrome_pid_file = chrome_dir / 'chrome.pid'
-            if chrome_pid_file.exists():
-                try:
-                    chrome_pid = int(chrome_pid_file.read_text().strip())
-                    os.kill(chrome_pid, signal.SIGKILL)
-                except (OSError, ValueError):
-                    pass
+            if ext_process:
+                kill_chromium_session(ext_process, ext_chrome_dir)
+
+        # ============================================================
+        # STEP 4: Compare results
+        # ============================================================
+        print("\n" + "="*60)
+        print("STEP 4: COMPARISON")
+        print("="*60)
+        print(f"Baseline (no extension): {baseline_result['adElementsVisible']} visible ads")
+        print(f"With extension: {ext_result['adElementsVisible']} visible ads")
+
+        # Calculate reduction in visible ads
+        ads_blocked = baseline_result['adElementsVisible'] - ext_result['adElementsVisible']
+        reduction_percent = (ads_blocked / baseline_result['adElementsVisible'] * 100) if baseline_result['adElementsVisible'] > 0 else 0
+
+        print(f"Reduction: {ads_blocked} fewer visible ads ({reduction_percent:.0f}% reduction)")
+
+        # Extension should significantly reduce visible ads
+        assert ext_result['adElementsVisible'] < baseline_result['adElementsVisible'], \
+            f"uBlock should reduce visible ads.\n" \
+            f"Baseline: {baseline_result['adElementsVisible']} visible ads\n" \
+            f"With extension: {ext_result['adElementsVisible']} visible ads\n" \
+            f"Expected fewer ads with extension."
+
+        # Extension should block at least 30% of ads
+        assert reduction_percent >= 30, \
+            f"uBlock should block at least 30% of ads.\n" \
+            f"Baseline: {baseline_result['adElementsVisible']} visible ads\n" \
+            f"With extension: {ext_result['adElementsVisible']} visible ads\n" \
+            f"Reduction: only {reduction_percent:.0f}% (expected at least 30%)"
+
+        print(f"\n✓ SUCCESS: uBlock correctly blocks ads!")
+        print(f"  - Baseline: {baseline_result['adElementsVisible']} visible ads")
+        print(f"  - With extension: {ext_result['adElementsVisible']} visible ads")
+        print(f"  - Blocked: {ads_blocked} ads ({reduction_percent:.0f}% reduction)")

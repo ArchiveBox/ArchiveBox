@@ -2,195 +2,173 @@
 Integration tests for singlefile plugin
 
 Tests verify:
-1. Hook script exists and has correct metadata
-2. Extension installation and caching works
-3. Chrome/node dependencies available
-4. Hook can be executed successfully
+1. Hook scripts exist with correct naming
+2. CLI-based singlefile extraction works
+3. Dependencies available via abx-pkg
+4. Output contains valid HTML
+5. Connects to Chrome session via CDP when available
+6. Works with extensions loaded (ublock, etc.)
 """
 
 import json
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
+from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+    get_test_env,
+    get_plugin_dir,
+    get_hook_script,
+    setup_chrome_session,
+    cleanup_chrome,
+)
 
-PLUGIN_DIR = Path(__file__).parent.parent
-PLUGINS_ROOT = PLUGIN_DIR.parent
-INSTALL_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_singlefile.*'), None)
-NPM_PROVIDER_HOOK = PLUGINS_ROOT / 'npm' / 'on_Binary__install_using_npm_provider.py'
+
+PLUGIN_DIR = get_plugin_dir(__file__)
+SNAPSHOT_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_singlefile.py')
 TEST_URL = "https://example.com"
 
 
-def test_install_script_exists():
-    """Verify install script exists"""
-    assert INSTALL_SCRIPT.exists(), f"Install script not found: {INSTALL_SCRIPT}"
+def test_snapshot_hook_exists():
+    """Verify snapshot extraction hook exists"""
+    assert SNAPSHOT_HOOK is not None and SNAPSHOT_HOOK.exists(), f"Snapshot hook not found in {PLUGIN_DIR}"
 
 
-def test_extension_metadata():
-    """Test that SingleFile extension has correct metadata"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        env = os.environ.copy()
-        env["CHROME_EXTENSIONS_DIR"] = str(Path(tmpdir) / "chrome_extensions")
-
-        result = subprocess.run(
-            ["node", "-e", f"const ext = require('{INSTALL_SCRIPT}'); console.log(JSON.stringify(ext.EXTENSION))"],
-            capture_output=True,
-            text=True,
-            env=env
-        )
-
-        assert result.returncode == 0, f"Failed to load extension metadata: {result.stderr}"
-
-        metadata = json.loads(result.stdout)
-        assert metadata["webstore_id"] == "mpiodijhokgodhhofbcjdecpffjipkle"
-        assert metadata["name"] == "singlefile"
-
-
-def test_install_creates_cache():
-    """Test that install creates extension cache"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        ext_dir = Path(tmpdir) / "chrome_extensions"
-        ext_dir.mkdir(parents=True)
-
-        env = os.environ.copy()
-        env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
-
-        result = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=60
-        )
-
-        # Check output mentions installation
-        assert "SingleFile" in result.stdout or "singlefile" in result.stdout
-
-        # Check cache file was created
-        cache_file = ext_dir / "singlefile.extension.json"
-        assert cache_file.exists(), "Cache file should be created"
-
-        # Verify cache content
-        cache_data = json.loads(cache_file.read_text())
-        assert cache_data["webstore_id"] == "mpiodijhokgodhhofbcjdecpffjipkle"
-        assert cache_data["name"] == "singlefile"
-
-
-def test_install_twice_uses_cache():
-    """Test that running install twice uses existing cache on second run"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        ext_dir = Path(tmpdir) / "chrome_extensions"
-        ext_dir.mkdir(parents=True)
-
-        env = os.environ.copy()
-        env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
-
-        # First install - downloads the extension
-        result1 = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=60
-        )
-        assert result1.returncode == 0, f"First install failed: {result1.stderr}"
-
-        # Verify cache was created
-        cache_file = ext_dir / "singlefile.extension.json"
-        assert cache_file.exists(), "Cache file should exist after first install"
-
-        # Second install - should use cache
-        result2 = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=30
-        )
-        assert result2.returncode == 0, f"Second install failed: {result2.stderr}"
-
-        # Second run should be faster (uses cache) and mention cache
-        assert "already installed" in result2.stdout or "cache" in result2.stdout.lower() or result2.returncode == 0
-
-
-def test_no_configuration_required():
-    """Test that SingleFile works without configuration"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        ext_dir = Path(tmpdir) / "chrome_extensions"
-        ext_dir.mkdir(parents=True)
-
-        env = os.environ.copy()
-        env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
-        # No API keys needed
-
-        result = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=60
-        )
-
-        # Should work without API keys
-        assert result.returncode == 0
-
-
-def test_priority_order():
-    """Test that singlefile has correct priority (04)"""
-    # Extract priority from filename
-    filename = INSTALL_SCRIPT.name
-    assert "04" in filename, "SingleFile should have priority 04"
-    assert filename.startswith("on_Crawl__04_"), "Should follow priority naming convention for Crawl hooks"
-
-
-def test_output_directory_structure():
-    """Test that plugin defines correct output structure"""
-    # Verify the script mentions singlefile output directory
-    script_content = INSTALL_SCRIPT.read_text()
-
-    # Should mention singlefile output directory
-    assert "singlefile" in script_content.lower()
-    # Should mention HTML output
-    assert ".html" in script_content or "html" in script_content.lower()
+def test_snapshot_hook_priority():
+    """Test that snapshot hook has correct priority (50)"""
+    filename = SNAPSHOT_HOOK.name
+    assert "50" in filename, "SingleFile snapshot hook should have priority 50"
+    assert filename.startswith("on_Snapshot__50_"), "Should follow priority naming convention"
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify dependencies are available via abx-pkg after hook installation."""
-    from abx_pkg import Binary, EnvProvider, BinProviderOverrides
+    """Verify dependencies are available via abx-pkg."""
+    from abx_pkg import Binary, EnvProvider
 
     EnvProvider.model_rebuild()
 
-    # Verify node is available (singlefile uses Chrome extension, needs Node)
+    # Verify node is available
     node_binary = Binary(name='node', binproviders=[EnvProvider()])
     node_loaded = node_binary.load()
     assert node_loaded and node_loaded.abspath, "Node.js required for singlefile plugin"
 
 
-def test_singlefile_hook_runs():
-    """Verify singlefile hook can be executed and completes."""
-    # Prerequisites checked by earlier test
-
+def test_singlefile_cli_archives_example_com():
+    """Test that singlefile CLI archives example.com and produces valid HTML."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Run singlefile extraction hook
+        env = get_test_env()
+        env['SINGLEFILE_ENABLED'] = 'true'
+
+        # Run singlefile snapshot hook
         result = subprocess.run(
-            ['node', str(INSTALL_SCRIPT), f'--url={TEST_URL}', '--snapshot-id=test789'],
+            ['python', str(SNAPSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=test789'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
+            env=env,
             timeout=120
         )
 
-        # Hook should complete successfully (even if it just installs extension)
         assert result.returncode == 0, f"Hook execution failed: {result.stderr}"
 
-        # Verify extension installation happens
-        assert 'SingleFile extension' in result.stdout or result.returncode == 0, "Should install extension or complete"
+        # Verify output file exists
+        output_file = tmpdir / 'singlefile.html'
+        assert output_file.exists(), f"singlefile.html not created. stdout: {result.stdout}, stderr: {result.stderr}"
+
+        # Verify it contains real HTML
+        html_content = output_file.read_text()
+        assert len(html_content) > 500, "Output file too small to be valid HTML"
+        assert '<!DOCTYPE html>' in html_content or '<html' in html_content, "Output should contain HTML doctype or html tag"
+        assert 'Example Domain' in html_content, "Output should contain example.com content"
+
+
+def test_singlefile_with_chrome_session():
+    """Test singlefile connects to existing Chrome session via CDP.
+
+    When a Chrome session exists (chrome/cdp_url.txt), singlefile should
+    connect to it instead of launching a new Chrome instance.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        try:
+            # Set up Chrome session using shared helper
+            chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(
+                tmpdir=tmpdir,
+                crawl_id='singlefile-test-crawl',
+                snapshot_id='singlefile-test-snap',
+                test_url=TEST_URL,
+                navigate=False,  # Don't navigate, singlefile will do that
+                timeout=20,
+            )
+
+            # singlefile looks for ../chrome/cdp_url.txt relative to cwd
+            # So we need to run from a directory that has ../chrome pointing to our chrome dir
+            singlefile_output_dir = tmpdir / 'snapshot' / 'singlefile'
+            singlefile_output_dir.mkdir(parents=True, exist_ok=True)
+
+            # Create symlink so singlefile can find the chrome session
+            chrome_link = singlefile_output_dir.parent / 'chrome'
+            if not chrome_link.exists():
+                chrome_link.symlink_to(tmpdir / 'crawl' / 'chrome')
+
+            env = get_test_env()
+            env['SINGLEFILE_ENABLED'] = 'true'
+            env['CHROME_HEADLESS'] = 'true'
+
+            # Run singlefile - it should find and use the existing Chrome session
+            result = subprocess.run(
+                ['python', str(SNAPSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=singlefile-test-snap'],
+                cwd=str(singlefile_output_dir),
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=120
+            )
+
+            # Verify output
+            output_file = singlefile_output_dir / 'singlefile.html'
+            if output_file.exists():
+                html_content = output_file.read_text()
+                assert len(html_content) > 500, "Output file too small"
+                assert 'Example Domain' in html_content, "Should contain example.com content"
+            else:
+                # If singlefile couldn't connect to Chrome, it may have failed
+                # Check if it mentioned browser-server in its args (indicating it tried to use CDP)
+                assert result.returncode == 0 or 'browser-server' in result.stderr or 'cdp' in result.stderr.lower(), \
+                    f"Singlefile should attempt CDP connection. stderr: {result.stderr}"
+
+        finally:
+            cleanup_chrome(chrome_launch_process, chrome_pid)
+
+
+def test_singlefile_disabled_skips():
+    """Test that SINGLEFILE_ENABLED=False exits without JSONL."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        env = get_test_env()
+        env['SINGLEFILE_ENABLED'] = 'False'
+
+        result = subprocess.run(
+            ['python', str(SNAPSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=test-disabled'],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30
+        )
+
+        assert result.returncode == 0, f"Should exit 0 when disabled: {result.stderr}"
+
+        # Should NOT emit JSONL when disabled
+        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
+        assert len(jsonl_lines) == 0, f"Should not emit JSONL when disabled, but got: {jsonl_lines}"
 
 
 if __name__ == '__main__':

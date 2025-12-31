@@ -14,7 +14,6 @@ Tests verify:
 import json
 import os
 import re
-import signal
 import subprocess
 import time
 import tempfile
@@ -22,35 +21,17 @@ from pathlib import Path
 
 import pytest
 
+# Import shared Chrome test helpers
+from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+    get_test_env,
+    setup_chrome_session,
+    cleanup_chrome,
+)
+
 
 PLUGIN_DIR = Path(__file__).parent.parent
-PLUGINS_ROOT = PLUGIN_DIR.parent
 INFINISCROLL_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_infiniscroll.*'), None)
-CHROME_LAUNCH_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__20_chrome_launch.bg.js'
-CHROME_TAB_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Snapshot__20_chrome_tab.bg.js'
-CHROME_NAVIGATE_HOOK = next((PLUGINS_ROOT / 'chrome').glob('on_Snapshot__*_chrome_navigate.*'), None)
 TEST_URL = 'https://www.singsing.movie/'
-
-
-def get_node_modules_dir():
-    """Get NODE_MODULES_DIR for tests, checking env first."""
-    # Check if NODE_MODULES_DIR is already set in environment
-    if os.environ.get('NODE_MODULES_DIR'):
-        return Path(os.environ['NODE_MODULES_DIR'])
-    # Otherwise compute from LIB_DIR
-    from archivebox.config.common import STORAGE_CONFIG
-    lib_dir = Path(os.environ.get('LIB_DIR') or str(STORAGE_CONFIG.LIB_DIR))
-    return lib_dir / 'npm' / 'node_modules'
-
-
-NODE_MODULES_DIR = get_node_modules_dir()
-
-
-def get_test_env():
-    """Get environment with NODE_MODULES_DIR set correctly."""
-    env = os.environ.copy()
-    env['NODE_MODULES_DIR'] = str(NODE_MODULES_DIR)
-    return env
 
 
 def test_hook_script_exists():
@@ -117,94 +98,18 @@ def test_fails_gracefully_without_chrome_session():
             f"Should mention chrome/CDP/puppeteer in error: {result.stderr}"
 
 
-def setup_chrome_session(tmpdir):
-    """Helper to set up Chrome session with tab and navigation."""
-    crawl_dir = Path(tmpdir) / 'crawl'
-    crawl_dir.mkdir()
-    chrome_dir = crawl_dir / 'chrome'
-
-    env = get_test_env()
-    env['CHROME_HEADLESS'] = 'true'
-
-    # Launch Chrome at crawl level
-    chrome_launch_process = subprocess.Popen(
-        ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-infiniscroll'],
-        cwd=str(crawl_dir),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=env
-    )
-
-    # Wait for Chrome to launch
-    for i in range(15):
-        if chrome_launch_process.poll() is not None:
-            stdout, stderr = chrome_launch_process.communicate()
-            raise RuntimeError(f"Chrome launch failed:\nStdout: {stdout}\nStderr: {stderr}")
-        if (chrome_dir / 'cdp_url.txt').exists():
-            break
-        time.sleep(1)
-
-    if not (chrome_dir / 'cdp_url.txt').exists():
-        raise RuntimeError("Chrome CDP URL not found after 15s")
-
-    chrome_pid = int((chrome_dir / 'chrome.pid').read_text().strip())
-
-    # Create snapshot directory structure
-    snapshot_dir = Path(tmpdir) / 'snapshot'
-    snapshot_dir.mkdir()
-    snapshot_chrome_dir = snapshot_dir / 'chrome'
-    snapshot_chrome_dir.mkdir()
-
-    # Create tab
-    tab_env = env.copy()
-    tab_env['CRAWL_OUTPUT_DIR'] = str(crawl_dir)
-    result = subprocess.run(
-        ['node', str(CHROME_TAB_HOOK), f'--url={TEST_URL}', '--snapshot-id=snap-infiniscroll', '--crawl-id=test-infiniscroll'],
-        cwd=str(snapshot_chrome_dir),
-        capture_output=True,
-        text=True,
-        timeout=60,
-        env=tab_env
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"Tab creation failed: {result.stderr}")
-
-    # Navigate to URL
-    result = subprocess.run(
-        ['node', str(CHROME_NAVIGATE_HOOK), f'--url={TEST_URL}', '--snapshot-id=snap-infiniscroll'],
-        cwd=str(snapshot_chrome_dir),
-        capture_output=True,
-        text=True,
-        timeout=120,
-        env=env
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"Navigation failed: {result.stderr}")
-
-    return chrome_launch_process, chrome_pid, snapshot_chrome_dir
-
-
-def cleanup_chrome(chrome_launch_process, chrome_pid):
-    """Helper to clean up Chrome processes."""
-    try:
-        chrome_launch_process.send_signal(signal.SIGTERM)
-        chrome_launch_process.wait(timeout=5)
-    except:
-        pass
-    try:
-        os.kill(chrome_pid, signal.SIGKILL)
-    except OSError:
-        pass
-
-
 def test_scrolls_page_and_outputs_stats():
     """Integration test: scroll page and verify JSONL output format."""
     with tempfile.TemporaryDirectory() as tmpdir:
         chrome_launch_process = None
         chrome_pid = None
         try:
-            chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(tmpdir)
+            chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(
+                Path(tmpdir),
+                crawl_id='test-infiniscroll',
+                snapshot_id='snap-infiniscroll',
+                test_url=TEST_URL,
+            )
 
             # Create infiniscroll output directory (sibling to chrome)
             infiniscroll_dir = snapshot_chrome_dir.parent / 'infiniscroll'
@@ -264,7 +169,12 @@ def test_config_scroll_limit_honored():
         chrome_launch_process = None
         chrome_pid = None
         try:
-            chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(tmpdir)
+            chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(
+                Path(tmpdir),
+                crawl_id='test-scroll-limit',
+                snapshot_id='snap-limit',
+                test_url=TEST_URL,
+            )
 
             infiniscroll_dir = snapshot_chrome_dir.parent / 'infiniscroll'
             infiniscroll_dir.mkdir()
@@ -316,7 +226,12 @@ def test_config_timeout_honored():
         chrome_launch_process = None
         chrome_pid = None
         try:
-            chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(tmpdir)
+            chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(
+                Path(tmpdir),
+                crawl_id='test-timeout',
+                snapshot_id='snap-timeout',
+                test_url=TEST_URL,
+            )
 
             infiniscroll_dir = snapshot_chrome_dir.parent / 'infiniscroll'
             infiniscroll_dir.mkdir()

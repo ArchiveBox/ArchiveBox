@@ -144,7 +144,7 @@ class BinaryAdmin(BaseModelAdmin):
 
 
 class ProcessAdmin(BaseModelAdmin):
-    list_display = ('id', 'created_at', 'machine_info', 'archiveresult_link', 'cmd_str', 'status', 'exit_code', 'pid', 'binary_info', 'health')
+    list_display = ('id', 'created_at', 'machine_info', 'archiveresult_link', 'cmd_str', 'status', 'exit_code', 'pid', 'binary_info')
     sort_fields = ('id', 'created_at', 'status', 'exit_code', 'pid')
     search_fields = ('id', 'machine__id', 'binary__name', 'cmd', 'pwd', 'stdout', 'stderr')
 
@@ -170,10 +170,6 @@ class ProcessAdmin(BaseModelAdmin):
         ('Output', {
             'fields': ('stdout', 'stderr'),
             'classes': ('card', 'wide', 'collapse'),
-        }),
-        ('Usage', {
-            'fields': ('num_uses_succeeded', 'num_uses_failed'),
-            'classes': ('card',),
         }),
         ('Timestamps', {
             'fields': ('created_at', 'modified_at'),

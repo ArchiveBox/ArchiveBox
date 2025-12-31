@@ -77,27 +77,9 @@ def has_staticfile_output() -> bool:
     return staticfile_dir.exists() and any(staticfile_dir.iterdir())
 
 
-# Chrome binary search paths
-CHROMIUM_BINARY_NAMES_LINUX = [
-    'chromium', 'chromium-browser', 'chromium-browser-beta',
-    'chromium-browser-unstable', 'chromium-browser-canary', 'chromium-browser-dev',
-]
-CHROME_BINARY_NAMES_LINUX = [
-    'google-chrome', 'google-chrome-stable', 'google-chrome-beta',
-    'google-chrome-canary', 'google-chrome-unstable', 'google-chrome-dev', 'chrome',
-]
-CHROME_BINARY_NAMES_MACOS = [
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
-]
-CHROMIUM_BINARY_NAMES_MACOS = ['/Applications/Chromium.app/Contents/MacOS/Chromium']
-
-ALL_CHROME_BINARIES = (
-    CHROME_BINARY_NAMES_LINUX + CHROMIUM_BINARY_NAMES_LINUX +
-    CHROME_BINARY_NAMES_MACOS + CHROMIUM_BINARY_NAMES_MACOS
-)
-
-
+# Chrome session directory (relative to extractor output dir)
+# Note: Chrome binary is obtained via CHROME_BINARY env var, not searched for.
+# The centralized Chrome binary search is in chrome_utils.js findChromium().
 CHROME_SESSION_DIR = '../chrome'
 
 
