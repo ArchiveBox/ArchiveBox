@@ -89,7 +89,7 @@ process.on('SIGINT', cleanup);
 function findCrawlChromeSession(crawlId) {
     if (!crawlId) return null;
 
-    // Use CRAWL_OUTPUT_DIR env var set by hooks.py
+    // Use CRAWL_OUTPUT_DIR env var set by get_config() in configset.py
     const crawlOutputDir = getEnv('CRAWL_OUTPUT_DIR', '');
     if (!crawlOutputDir) return null;
 

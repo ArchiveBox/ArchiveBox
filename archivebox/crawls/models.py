@@ -250,11 +250,45 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         )
         return crawl
 
+    @staticmethod
+    def extract_domain_from_url(url: str) -> str:
+        """
+        Extract domain from URL for path structure.
+        Uses full hostname with sanitized special chars.
+
+        Examples:
+            https://example.com:8080 → example.com_8080
+            https://sub.example.com → sub.example.com
+            file:///path → localhost
+            data:text/html → data
+        """
+        from urllib.parse import urlparse
+
+        try:
+            parsed = urlparse(url)
+
+            if parsed.scheme in ('http', 'https'):
+                if parsed.port:
+                    return f"{parsed.hostname}_{parsed.port}".replace(':', '_')
+                return parsed.hostname or 'unknown'
+            elif parsed.scheme == 'file':
+                return 'localhost'
+            elif parsed.scheme:
+                return parsed.scheme
+            else:
+                return 'unknown'
+        except Exception:
+            return 'unknown'
+
     @property
     def output_dir_parent(self) -> str:
-        """Construct parent directory: users/{user_id}/crawls/{YYYYMMDD}"""
+        """Construct parent directory: users/{username}/crawls/{YYYYMMDD}/{domain}"""
         date_str = self.created_at.strftime('%Y%m%d')
-        return f'users/{self.created_by_id}/crawls/{date_str}'
+        username = self.created_by.username
+        # Get domain from first URL
+        first_url = self.get_urls_list()[0] if self.get_urls_list() else ''
+        domain = self.extract_domain_from_url(first_url) if first_url else 'unknown'
+        return f'users/{username}/crawls/{date_str}/{domain}'
 
     @property
     def output_dir_name(self) -> str:
