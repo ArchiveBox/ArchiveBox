@@ -181,17 +181,17 @@ class Persona:
                 yield cls(persona_path.name, personas_dir)
 
     @classmethod
-    def get_active(cls) -> 'Persona':
+    def get_active(cls, config: Dict[str, Any]) -> 'Persona':
         """
-        Get the currently active persona based on ACTIVE_PERSONA config.
+        Get the currently active persona from a merged config dict.
+
+        Args:
+            config: Merged config dict from get_config(user=, crawl=, snapshot=, ...)
 
         Returns:
             Persona instance for the active persona
         """
-        from archivebox.config.configset import get_config
-
-        config = get_config()
-        active_name = config.get('ACTIVE_PERSONA', 'Default')
+        active_name = config.get('ACTIVE_PERSONA') or config.get('DEFAULT_PERSONA') or 'Default'
         return cls(active_name)
 
     @classmethod
@@ -216,32 +216,3 @@ class Persona:
 
     def __repr__(self) -> str:
         return f"Persona(name={self.name!r}, path={self.path!r})"
-
-
-# Convenience functions for use without instantiating Persona class
-
-def cleanup_chrome_for_persona(name: str, personas_dir: Optional[Path] = None) -> bool:
-    """
-    Clean up Chrome state files for a specific persona.
-
-    Args:
-        name: Persona name
-        personas_dir: Override PERSONAS_DIR (defaults to CONSTANTS.PERSONAS_DIR)
-
-    Returns:
-        True if cleanup was performed, False if no cleanup needed
-    """
-    return Persona(name, personas_dir).cleanup_chrome()
-
-
-def cleanup_chrome_all_personas(personas_dir: Optional[Path] = None) -> int:
-    """
-    Clean up Chrome state files for all personas.
-
-    Args:
-        personas_dir: Override PERSONAS_DIR (defaults to CONSTANTS.PERSONAS_DIR)
-
-    Returns:
-        Number of personas that had cleanup performed
-    """
-    return Persona.cleanup_chrome_all(personas_dir)
