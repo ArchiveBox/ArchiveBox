@@ -123,7 +123,7 @@ class TestSEOWithChrome(TestCase):
                 if seo_data:
                     # Verify we got some SEO data
                     has_seo_data = any(key in seo_data for key in ['title', 'description', 'og:title', 'canonical', 'meta'])
-                    self.assertTrue(has_seo_data or seo_data, f"No SEO data extracted: {seo_data}")
+                    self.assertTrue(has_seo_data, f"No SEO data extracted: {seo_data}")
 
         except RuntimeError as e:
             if 'Chrome' in str(e) or 'CDP' in str(e):
