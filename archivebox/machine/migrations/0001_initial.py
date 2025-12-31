@@ -105,8 +105,6 @@ class Migration(migrations.Migration):
                     id TEXT PRIMARY KEY NOT NULL,
                     created_at DATETIME NOT NULL,
                     modified_at DATETIME NOT NULL,
-                    num_uses_succeeded INTEGER NOT NULL DEFAULT 0,
-                    num_uses_failed INTEGER NOT NULL DEFAULT 0,
 
                     machine_id TEXT NOT NULL,
                     binary_id TEXT,
