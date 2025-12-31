@@ -12,6 +12,14 @@ from pathlib import Path
 
 import pytest
 
+from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+    setup_test_env,
+    launch_chromium_session,
+    kill_chromium_session,
+    CHROME_LAUNCH_HOOK,
+    PLUGINS_ROOT,
+)
+
 
 PLUGIN_DIR = Path(__file__).parent.parent
 INSTALL_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_install_ublock_extension.*'), None)
@@ -157,64 +165,6 @@ def test_large_extension_size():
             assert size_bytes > 1_000_000, f"uBlock Origin should be > 1MB, got {size_bytes} bytes"
 
 
-PLUGINS_ROOT = PLUGIN_DIR.parent
-CHROME_INSTALL_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__00_install_puppeteer_chromium.py'
-CHROME_LAUNCH_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__30_chrome_launch.bg.js'
-
-
-def launch_chromium_session(env: dict, chrome_dir: Path, crawl_id: str):
-    """Launch Chromium and return (process, cdp_url) or raise on failure."""
-    import signal
-    import time
-
-    chrome_dir.mkdir(parents=True, exist_ok=True)
-
-    chrome_launch_process = subprocess.Popen(
-        ['node', str(CHROME_LAUNCH_HOOK), f'--crawl-id={crawl_id}'],
-        cwd=str(chrome_dir),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=env
-    )
-
-    # Wait for Chromium to launch and CDP URL to be available
-    cdp_url = None
-    for i in range(20):
-        if chrome_launch_process.poll() is not None:
-            stdout, stderr = chrome_launch_process.communicate()
-            raise RuntimeError(f"Chromium launch failed:\nStdout: {stdout}\nStderr: {stderr}")
-        cdp_file = chrome_dir / 'cdp_url.txt'
-        if cdp_file.exists():
-            cdp_url = cdp_file.read_text().strip()
-            break
-        time.sleep(1)
-
-    if not cdp_url:
-        chrome_launch_process.kill()
-        raise RuntimeError("Chromium CDP URL not found after 20s")
-
-    return chrome_launch_process, cdp_url
-
-
-def kill_chromium_session(chrome_launch_process, chrome_dir: Path):
-    """Clean up Chromium process."""
-    import signal
-
-    try:
-        chrome_launch_process.send_signal(signal.SIGTERM)
-        chrome_launch_process.wait(timeout=5)
-    except:
-        pass
-    chrome_pid_file = chrome_dir / 'chrome.pid'
-    if chrome_pid_file.exists():
-        try:
-            chrome_pid = int(chrome_pid_file.read_text().strip())
-            os.kill(chrome_pid, signal.SIGKILL)
-        except (OSError, ValueError):
-            pass
-
-
 def check_ad_blocking(cdp_url: str, test_url: str, env: dict, script_dir: Path) -> dict:
     """Check ad blocking effectiveness by counting ad elements on page.
 
@@ -348,103 +298,6 @@ const puppeteer = require('puppeteer-core');
         raise RuntimeError(f"No JSON output from ad check: {result.stdout}\nstderr: {result.stderr}")
 
     return json.loads(output_lines[-1])
-
-
-def setup_test_env(tmpdir: Path) -> dict:
-    """Set up isolated data/lib directory structure for tests.
-
-    Creates structure matching real ArchiveBox data dir:
-        <tmpdir>/data/
-            lib/
-                arm64-darwin/   (or x86_64-linux, etc.)
-                    npm/
-                        .bin/
-                        node_modules/
-            personas/
-                default/
-                    chrome_extensions/
-            users/
-                testuser/
-                    crawls/
-                    snapshots/
-
-    Calls chrome install hook which handles puppeteer-core and chromium installation.
-    Returns env dict with DATA_DIR, LIB_DIR, NPM_BIN_DIR, NODE_MODULES_DIR, CHROME_BINARY, etc.
-    """
-    import platform
-    from datetime import datetime
-
-    # Determine machine type (matches archivebox.config.paths.get_machine_type())
-    machine = platform.machine().lower()
-    system = platform.system().lower()
-    if machine in ('arm64', 'aarch64'):
-        machine = 'arm64'
-    elif machine in ('x86_64', 'amd64'):
-        machine = 'x86_64'
-    machine_type = f"{machine}-{system}"
-
-    # Create proper directory structure matching real ArchiveBox layout
-    data_dir = tmpdir / 'data'
-    lib_dir = data_dir / 'lib' / machine_type
-    npm_dir = lib_dir / 'npm'
-    npm_bin_dir = npm_dir / '.bin'
-    node_modules_dir = npm_dir / 'node_modules'
-
-    # Extensions go under personas/Default/
-    chrome_extensions_dir = data_dir / 'personas' / 'Default' / 'chrome_extensions'
-
-    # User data goes under users/{username}/
-    date_str = datetime.now().strftime('%Y%m%d')
-    users_dir = data_dir / 'users' / 'testuser'
-    crawls_dir = users_dir / 'crawls' / date_str
-    snapshots_dir = users_dir / 'snapshots' / date_str
-
-    # Create all directories
-    node_modules_dir.mkdir(parents=True, exist_ok=True)
-    npm_bin_dir.mkdir(parents=True, exist_ok=True)
-    chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
-    crawls_dir.mkdir(parents=True, exist_ok=True)
-    snapshots_dir.mkdir(parents=True, exist_ok=True)
-
-    # Build complete env dict
-    env = os.environ.copy()
-    env.update({
-        'DATA_DIR': str(data_dir),
-        'LIB_DIR': str(lib_dir),
-        'MACHINE_TYPE': machine_type,
-        'NPM_BIN_DIR': str(npm_bin_dir),
-        'NODE_MODULES_DIR': str(node_modules_dir),
-        'CHROME_EXTENSIONS_DIR': str(chrome_extensions_dir),
-        'CRAWLS_DIR': str(crawls_dir),
-        'SNAPSHOTS_DIR': str(snapshots_dir),
-    })
-
-    # Call chrome install hook (installs puppeteer-core and chromium, outputs JSONL)
-    result = subprocess.run(
-        ['python', str(CHROME_INSTALL_HOOK)],
-        capture_output=True, text=True, timeout=120, env=env
-    )
-    if result.returncode != 0:
-        pytest.skip(f"Chrome install hook failed: {result.stderr}")
-
-    # Parse JSONL output to get CHROME_BINARY
-    chrome_binary = None
-    for line in result.stdout.strip().split('\n'):
-        if not line.strip():
-            continue
-        try:
-            data = json.loads(line)
-            if data.get('type') == 'Binary' and data.get('abspath'):
-                chrome_binary = data['abspath']
-                break
-        except json.JSONDecodeError:
-            continue
-
-    if not chrome_binary or not Path(chrome_binary).exists():
-        pytest.skip(f"Chromium binary not found: {chrome_binary}")
-
-    env['CHROME_BINARY'] = chrome_binary
-    return env
 
 
 # Test URL: Yahoo has many ads that uBlock should block

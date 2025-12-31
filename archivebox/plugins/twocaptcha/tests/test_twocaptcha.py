@@ -16,184 +16,25 @@ from pathlib import Path
 
 import pytest
 
+from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+    setup_test_env,
+    launch_chromium_session,
+    kill_chromium_session,
+    CHROME_LAUNCH_HOOK,
+    PLUGINS_ROOT,
+)
+
 
 PLUGIN_DIR = Path(__file__).parent.parent
-PLUGINS_ROOT = PLUGIN_DIR.parent
 INSTALL_SCRIPT = PLUGIN_DIR / 'on_Crawl__20_install_twocaptcha_extension.js'
 CONFIG_SCRIPT = PLUGIN_DIR / 'on_Crawl__25_configure_twocaptcha_extension_options.js'
-CHROME_INSTALL_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__00_install_puppeteer_chromium.py'
-CHROME_LAUNCH_HOOK = PLUGINS_ROOT / 'chrome' / 'on_Crawl__30_chrome_launch.bg.js'
 
 TEST_URL = 'https://2captcha.com/demo/recaptcha-v2'
 
 
-def setup_test_env(tmpdir: Path) -> dict:
-    """Set up isolated data/lib directory structure for tests.
-
-    Creates structure matching real ArchiveBox data dir:
-        <tmpdir>/data/
-            lib/
-                arm64-darwin/   (or x86_64-linux, etc.)
-                    npm/
-                        .bin/
-                        node_modules/
-            personas/
-                default/
-                    chrome_extensions/
-            users/
-                testuser/
-                    crawls/
-                    snapshots/
-
-    Calls chrome install hook which handles puppeteer-core and chromium installation.
-    Returns env dict with DATA_DIR, LIB_DIR, NPM_BIN_DIR, NODE_MODULES_DIR, CHROME_BINARY, etc.
-    """
-    import platform
-    from datetime import datetime
-
-    # Determine machine type (matches archivebox.config.paths.get_machine_type())
-    machine = platform.machine().lower()
-    system = platform.system().lower()
-    if machine in ('arm64', 'aarch64'):
-        machine = 'arm64'
-    elif machine in ('x86_64', 'amd64'):
-        machine = 'x86_64'
-    machine_type = f"{machine}-{system}"
-
-    # Create proper directory structure matching real ArchiveBox layout
-    data_dir = tmpdir / 'data'
-    lib_dir = data_dir / 'lib' / machine_type
-    npm_dir = lib_dir / 'npm'
-    npm_bin_dir = npm_dir / '.bin'
-    node_modules_dir = npm_dir / 'node_modules'
-
-    # Extensions go under personas/Default/
-    chrome_extensions_dir = data_dir / 'personas' / 'Default' / 'chrome_extensions'
-
-    # User data goes under users/{username}/
-    date_str = datetime.now().strftime('%Y%m%d')
-    users_dir = data_dir / 'users' / 'testuser'
-    crawls_dir = users_dir / 'crawls' / date_str
-    snapshots_dir = users_dir / 'snapshots' / date_str
-
-    # Create all directories
-    node_modules_dir.mkdir(parents=True, exist_ok=True)
-    npm_bin_dir.mkdir(parents=True, exist_ok=True)
-    chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
-    crawls_dir.mkdir(parents=True, exist_ok=True)
-    snapshots_dir.mkdir(parents=True, exist_ok=True)
-
-    # Build complete env dict
-    env = os.environ.copy()
-    env.update({
-        'DATA_DIR': str(data_dir),
-        'LIB_DIR': str(lib_dir),
-        'MACHINE_TYPE': machine_type,
-        'NPM_BIN_DIR': str(npm_bin_dir),
-        'NODE_MODULES_DIR': str(node_modules_dir),
-        'CHROME_EXTENSIONS_DIR': str(chrome_extensions_dir),
-        'CRAWLS_DIR': str(crawls_dir),
-        'SNAPSHOTS_DIR': str(snapshots_dir),
-    })
-
-    # Only set headless if not already in environment (allow override for debugging)
-    if 'CHROME_HEADLESS' not in os.environ:
-        env['CHROME_HEADLESS'] = 'true'
-
-    # Call chrome install hook (installs puppeteer-core and chromium, outputs JSONL)
-    result = subprocess.run(
-        ['python', str(CHROME_INSTALL_HOOK)],
-        capture_output=True, text=True, timeout=120, env=env
-    )
-    if result.returncode != 0:
-        pytest.skip(f"Chrome install hook failed: {result.stderr}")
-
-    # Parse JSONL output to get CHROME_BINARY
-    chrome_binary = None
-    for line in result.stdout.strip().split('\n'):
-        if not line.strip():
-            continue
-        try:
-            data = json.loads(line)
-            if data.get('type') == 'Binary' and data.get('abspath'):
-                chrome_binary = data['abspath']
-                break
-        except json.JSONDecodeError:
-            continue
-
-    if not chrome_binary or not Path(chrome_binary).exists():
-        pytest.skip(f"Chromium binary not found: {chrome_binary}")
-
-    env['CHROME_BINARY'] = chrome_binary
-    return env
-
-
-def launch_chrome(env: dict, chrome_dir: Path, crawl_id: str):
-    """Launch Chromium and return (process, cdp_url)."""
-    chrome_dir.mkdir(parents=True, exist_ok=True)
-
-    process = subprocess.Popen(
-        ['node', str(CHROME_LAUNCH_HOOK), f'--crawl-id={crawl_id}'],
-        cwd=str(chrome_dir),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=env
-    )
-
-    cdp_url = None
-    extensions_ready = False
-    for _ in range(30):
-        if process.poll() is not None:
-            stdout, stderr = process.communicate()
-            raise RuntimeError(f"Chromium failed:\n{stdout}\n{stderr}")
-        cdp_file = chrome_dir / 'cdp_url.txt'
-        ext_file = chrome_dir / 'extensions.json'
-        if cdp_file.exists() and not cdp_url:
-            cdp_url = cdp_file.read_text().strip()
-        if ext_file.exists():
-            extensions_ready = True
-        if cdp_url and extensions_ready:
-            break
-        time.sleep(1)
-
-    if not cdp_url:
-        process.kill()
-        stdout, stderr = process.communicate()
-        raise RuntimeError(f"CDP URL not found after 30s.\nstdout: {stdout}\nstderr: {stderr}")
-
-    # Print chrome launch hook output for debugging
-    import select
-    if hasattr(select, 'poll'):
-        # Read any available stderr without blocking
-        import fcntl
-        import os as os_module
-        fd = process.stderr.fileno()
-        fl = fcntl.fcntl(fd, fcntl.F_GETFL)
-        fcntl.fcntl(fd, fcntl.F_SETFL, fl | os_module.O_NONBLOCK)
-        try:
-            stderr_output = process.stderr.read()
-            if stderr_output:
-                print(f"[Chrome Launch Hook Output]\n{stderr_output}")
-        except:
-            pass
-
-    return process, cdp_url
-
-
-def kill_chrome(process, chrome_dir: Path):
-    """Kill Chromium process."""
-    try:
-        process.send_signal(signal.SIGTERM)
-        process.wait(timeout=5)
-    except:
-        pass
-    pid_file = chrome_dir / 'chrome.pid'
-    if pid_file.exists():
-        try:
-            os.kill(int(pid_file.read_text().strip()), signal.SIGKILL)
-        except:
-            pass
+# Alias for backward compatibility with existing test names
+launch_chrome = launch_chromium_session
+kill_chrome = kill_chromium_session
 
 
 class TestTwoCaptcha:

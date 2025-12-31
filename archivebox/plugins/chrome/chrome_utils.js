@@ -1334,6 +1334,83 @@ function getExtensionsDir() {
 }
 
 /**
+ * Get machine type string for platform-specific paths.
+ * Matches Python's archivebox.config.paths.get_machine_type()
+ *
+ * @returns {string} - Machine type (e.g., 'x86_64-linux', 'arm64-darwin')
+ */
+function getMachineType() {
+    if (process.env.MACHINE_TYPE) {
+        return process.env.MACHINE_TYPE;
+    }
+
+    let machine = process.arch;
+    const system = process.platform;
+
+    // Normalize machine type to match Python's convention
+    if (machine === 'arm64' || machine === 'aarch64') {
+        machine = 'arm64';
+    } else if (machine === 'x64' || machine === 'x86_64' || machine === 'amd64') {
+        machine = 'x86_64';
+    } else if (machine === 'ia32' || machine === 'x86') {
+        machine = 'x86';
+    }
+
+    return `${machine}-${system}`;
+}
+
+/**
+ * Get LIB_DIR path for platform-specific binaries.
+ * Returns DATA_DIR/lib/MACHINE_TYPE/
+ *
+ * @returns {string} - Absolute path to lib directory
+ */
+function getLibDir() {
+    if (process.env.LIB_DIR) {
+        return process.env.LIB_DIR;
+    }
+    const dataDir = getEnv('DATA_DIR', './data');
+    const machineType = getMachineType();
+    return path.join(dataDir, 'lib', machineType);
+}
+
+/**
+ * Get NODE_MODULES_DIR path for npm packages.
+ * Returns LIB_DIR/npm/node_modules/
+ *
+ * @returns {string} - Absolute path to node_modules directory
+ */
+function getNodeModulesDir() {
+    if (process.env.NODE_MODULES_DIR) {
+        return process.env.NODE_MODULES_DIR;
+    }
+    return path.join(getLibDir(), 'npm', 'node_modules');
+}
+
+/**
+ * Get all test environment paths as a JSON object.
+ * This is the single source of truth for path calculations - Python calls this
+ * to avoid duplicating path logic.
+ *
+ * @returns {Object} - Object with all test environment paths
+ */
+function getTestEnv() {
+    const dataDir = getEnv('DATA_DIR', './data');
+    const machineType = getMachineType();
+    const libDir = getLibDir();
+    const nodeModulesDir = getNodeModulesDir();
+
+    return {
+        DATA_DIR: dataDir,
+        MACHINE_TYPE: machineType,
+        LIB_DIR: libDir,
+        NODE_MODULES_DIR: nodeModulesDir,
+        NPM_BIN_DIR: path.join(libDir, 'npm', '.bin'),
+        CHROME_EXTENSIONS_DIR: getExtensionsDir(),
+    };
+}
+
+/**
  * Install a Chrome extension with caching support.
  *
  * This is the main entry point for extension installer hooks. It handles:
@@ -1442,8 +1519,13 @@ module.exports = {
     getExtensionPaths,
     waitForExtensionTarget,
     getExtensionTargets,
-    // Shared extension installer utilities
+    // Shared path utilities (single source of truth for Python/JS)
+    getMachineType,
+    getLibDir,
+    getNodeModulesDir,
     getExtensionsDir,
+    getTestEnv,
+    // Shared extension installer utilities
     installExtensionWithCache,
     // Deprecated - use enableExtensions option instead
     getExtensionLaunchArgs,
@@ -1457,18 +1539,31 @@ if (require.main === module) {
         console.log('Usage: chrome_utils.js <command> [args...]');
         console.log('');
         console.log('Commands:');
-        console.log('  findChromium');
-        console.log('  installChromium');
-        console.log('  installPuppeteerCore [npm_prefix]');
-        console.log('  launchChromium [output_dir] [extension_paths_json]');
-        console.log('  killChrome <pid> [output_dir]');
-        console.log('  killZombieChrome [data_dir]');
-        console.log('  getExtensionId <path>');
-        console.log('  loadExtensionManifest <path>');
-        console.log('  getExtensionLaunchArgs <extensions_json>');
-        console.log('  loadOrInstallExtension <webstore_id> <name> [extensions_dir]');
-        console.log('  getExtensionsDir');
-        console.log('  installExtensionWithCache <webstore_id> <name>');
+        console.log('  findChromium              Find Chrome/Chromium binary');
+        console.log('  installChromium           Install Chromium via @puppeteer/browsers');
+        console.log('  installPuppeteerCore      Install puppeteer-core npm package');
+        console.log('  launchChromium            Launch Chrome with CDP debugging');
+        console.log('  killChrome <pid>          Kill Chrome process by PID');
+        console.log('  killZombieChrome          Clean up zombie Chrome processes');
+        console.log('');
+        console.log('  getMachineType            Get machine type (e.g., x86_64-linux)');
+        console.log('  getLibDir                 Get LIB_DIR path');
+        console.log('  getNodeModulesDir         Get NODE_MODULES_DIR path');
+        console.log('  getExtensionsDir          Get Chrome extensions directory');
+        console.log('  getTestEnv                Get all paths as JSON (for tests)');
+        console.log('');
+        console.log('  getExtensionId <path>     Get extension ID from unpacked path');
+        console.log('  loadExtensionManifest     Load extension manifest.json');
+        console.log('  loadOrInstallExtension    Load or install an extension');
+        console.log('  installExtensionWithCache Install extension with caching');
+        console.log('');
+        console.log('Environment variables:');
+        console.log('  DATA_DIR                  Base data directory');
+        console.log('  LIB_DIR                   Library directory (computed if not set)');
+        console.log('  MACHINE_TYPE              Machine type override');
+        console.log('  NODE_MODULES_DIR          Node modules directory');
+        console.log('  CHROME_BINARY             Chrome binary path');
+        console.log('  CHROME_EXTENSIONS_DIR     Extensions directory');
         process.exit(1);
     }
 
@@ -1581,8 +1676,28 @@ if (require.main === module) {
                     break;
                 }
 
+                case 'getMachineType': {
+                    console.log(getMachineType());
+                    break;
+                }
+
+                case 'getLibDir': {
+                    console.log(getLibDir());
+                    break;
+                }
+
+                case 'getNodeModulesDir': {
+                    console.log(getNodeModulesDir());
+                    break;
+                }
+
                 case 'getExtensionsDir': {
                     console.log(getExtensionsDir());
+                    break;
+                }
+
+                case 'getTestEnv': {
+                    console.log(JSON.stringify(getTestEnv(), null, 2));
                     break;
                 }
 
