@@ -38,57 +38,109 @@ def process_stdin_records() -> int:
     """
     Process JSONL records from stdin.
 
-    Reads records, queues them for processing, then runs orchestrator until complete.
-    Handles any record type: Crawl, Snapshot, ArchiveResult, etc.
+    Create-or-update behavior:
+    - Records WITHOUT id: Create via Model.from_json(), then queue
+    - Records WITH id: Lookup existing, re-queue for processing
+
+    Outputs JSONL of all processed records (for chaining).
+
+    Handles any record type: Crawl, Snapshot, ArchiveResult.
+    Auto-cascades: Crawl → Snapshots → ArchiveResults.
 
     Returns exit code (0 = success, 1 = error).
     """
     from django.utils import timezone
 
-    from archivebox.misc.jsonl import read_stdin, TYPE_CRAWL, TYPE_SNAPSHOT, TYPE_ARCHIVERESULT
+    from archivebox.misc.jsonl import read_stdin, write_record, TYPE_CRAWL, TYPE_SNAPSHOT, TYPE_ARCHIVERESULT
+    from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.core.models import Snapshot, ArchiveResult
     from archivebox.crawls.models import Crawl
     from archivebox.workers.orchestrator import Orchestrator
 
     records = list(read_stdin())
+    is_tty = sys.stdout.isatty()
 
     if not records:
         return 0  # Nothing to process
 
+    created_by_id = get_or_create_system_user_pk()
     queued_count = 0
+    output_records = []
 
     for record in records:
-        record_type = record.get('type')
+        record_type = record.get('type', '')
         record_id = record.get('id')
-
-        if not record_id:
-            continue
 
         try:
             if record_type == TYPE_CRAWL:
-                crawl = Crawl.objects.get(id=record_id)
-                if crawl.status in [Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED]:
+                if record_id:
+                    # Existing crawl - re-queue
+                    try:
+                        crawl = Crawl.objects.get(id=record_id)
+                    except Crawl.DoesNotExist:
+                        crawl = Crawl.from_json(record, overrides={'created_by_id': created_by_id})
+                else:
+                    # New crawl - create it
+                    crawl = Crawl.from_json(record, overrides={'created_by_id': created_by_id})
+
+                if crawl:
                     crawl.retry_at = timezone.now()
+                    if crawl.status not in [Crawl.StatusChoices.SEALED]:
+                        crawl.status = Crawl.StatusChoices.QUEUED
                     crawl.save()
+                    output_records.append(crawl.to_json())
                     queued_count += 1
 
-            elif record_type == TYPE_SNAPSHOT:
-                snapshot = Snapshot.objects.get(id=record_id)
-                if snapshot.status in [Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED]:
+            elif record_type == TYPE_SNAPSHOT or (record.get('url') and not record_type):
+                if record_id:
+                    # Existing snapshot - re-queue
+                    try:
+                        snapshot = Snapshot.objects.get(id=record_id)
+                    except Snapshot.DoesNotExist:
+                        snapshot = Snapshot.from_json(record, overrides={'created_by_id': created_by_id})
+                else:
+                    # New snapshot - create it
+                    snapshot = Snapshot.from_json(record, overrides={'created_by_id': created_by_id})
+
+                if snapshot:
                     snapshot.retry_at = timezone.now()
+                    if snapshot.status not in [Snapshot.StatusChoices.SEALED]:
+                        snapshot.status = Snapshot.StatusChoices.QUEUED
                     snapshot.save()
+                    output_records.append(snapshot.to_json())
                     queued_count += 1
 
             elif record_type == TYPE_ARCHIVERESULT:
-                archiveresult = ArchiveResult.objects.get(id=record_id)
-                if archiveresult.status in [ArchiveResult.StatusChoices.QUEUED, ArchiveResult.StatusChoices.STARTED, ArchiveResult.StatusChoices.BACKOFF]:
+                if record_id:
+                    # Existing archiveresult - re-queue
+                    try:
+                        archiveresult = ArchiveResult.objects.get(id=record_id)
+                    except ArchiveResult.DoesNotExist:
+                        archiveresult = ArchiveResult.from_json(record)
+                else:
+                    # New archiveresult - create it
+                    archiveresult = ArchiveResult.from_json(record)
+
+                if archiveresult:
                     archiveresult.retry_at = timezone.now()
+                    if archiveresult.status in [ArchiveResult.StatusChoices.FAILED, ArchiveResult.StatusChoices.SKIPPED, ArchiveResult.StatusChoices.BACKOFF]:
+                        archiveresult.status = ArchiveResult.StatusChoices.QUEUED
                     archiveresult.save()
+                    output_records.append(archiveresult.to_json())
                     queued_count += 1
 
-        except (Crawl.DoesNotExist, Snapshot.DoesNotExist, ArchiveResult.DoesNotExist):
-            rprint(f'[yellow]Record not found: {record_type} {record_id}[/yellow]', file=sys.stderr)
+            else:
+                # Unknown type - pass through
+                output_records.append(record)
+
+        except Exception as e:
+            rprint(f'[yellow]Error processing record: {e}[/yellow]', file=sys.stderr)
             continue
+
+    # Output all processed records (for chaining)
+    if not is_tty:
+        for rec in output_records:
+            write_record(rec)
 
     if queued_count == 0:
         rprint('[yellow]No records to process[/yellow]', file=sys.stderr)

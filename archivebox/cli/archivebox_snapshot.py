@@ -36,21 +36,7 @@ from typing import Optional, Iterable
 import rich_click as click
 from rich import print as rprint
 
-
-def apply_filters(queryset, filter_kwargs: dict, limit: Optional[int] = None):
-    """Apply Django-style filters from CLI kwargs to a QuerySet."""
-    filters = {}
-    for key, value in filter_kwargs.items():
-        if value is not None and key not in ('limit', 'offset'):
-            filters[key] = value
-
-    if filters:
-        queryset = queryset.filter(**filters)
-
-    if limit:
-        queryset = queryset[:limit]
-
-    return queryset
+from archivebox.cli.cli_utils import apply_filters
 
 
 # =============================================================================
@@ -66,13 +52,12 @@ def create_snapshots(
 ) -> int:
     """
     Create Snapshots from URLs or stdin JSONL (Crawl or Snapshot records).
+    Pass-through: Records that are not Crawl/Snapshot/URL are output unchanged.
 
     Exit codes:
         0: Success
         1: Failure
     """
-    from django.utils import timezone
-
     from archivebox.misc.jsonl import (
         read_args_or_stdin, write_record,
         TYPE_SNAPSHOT, TYPE_CRAWL
@@ -93,11 +78,17 @@ def create_snapshots(
 
     # Process each record - handle Crawls and plain URLs/Snapshots
     created_snapshots = []
+    pass_through_count = 0
+
     for record in records:
-        record_type = record.get('type')
+        record_type = record.get('type', '')
 
         try:
             if record_type == TYPE_CRAWL:
+                # Pass through the Crawl record itself first
+                if not is_tty:
+                    write_record(record)
+
                 # Input is a Crawl - get or create it, then create Snapshots for its URLs
                 crawl = None
                 crawl_id = record.get('id')
@@ -144,11 +135,20 @@ def create_snapshots(
                     if not is_tty:
                         write_record(snapshot.to_json())
 
+            else:
+                # Pass-through: output records we don't handle
+                if not is_tty:
+                    write_record(record)
+                pass_through_count += 1
+
         except Exception as e:
             rprint(f'[red]Error creating snapshot: {e}[/red]', file=sys.stderr)
             continue
 
     if not created_snapshots:
+        if pass_through_count > 0:
+            rprint(f'[dim]Passed through {pass_through_count} records, no new snapshots[/dim]', file=sys.stderr)
+            return 0
         rprint('[red]No snapshots created[/red]', file=sys.stderr)
         return 1
 

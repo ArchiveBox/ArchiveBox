@@ -1460,7 +1460,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             'crawl_id': str(self.crawl_id),
             'url': self.url,
             'title': self.title,
-            'tags': self.tags_str(),
+            'tags_str': self.tags_str(),
             'bookmarked_at': self.bookmarked_at.isoformat() if self.bookmarked_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'timestamp': self.timestamp,
@@ -2417,6 +2417,96 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
         if process and self.process:
             yield from self.process.to_jsonl(seen=seen, **kwargs)
+
+    @classmethod
+    def from_jsonl(cls, records, overrides: Dict[str, Any] = None) -> list['ArchiveResult']:
+        """
+        Create/update ArchiveResults from an iterable of JSONL records.
+        Filters to only records with type='ArchiveResult'.
+
+        Args:
+            records: Iterable of dicts (JSONL records)
+            overrides: Dict of field overrides
+
+        Returns:
+            List of ArchiveResult instances (skips None results)
+        """
+        results = []
+        for record in records:
+            record_type = record.get('type', cls.JSONL_TYPE)
+            if record_type == cls.JSONL_TYPE:
+                instance = cls.from_json(record, overrides=overrides)
+                if instance:
+                    results.append(instance)
+        return results
+
+    @staticmethod
+    def from_json(record: Dict[str, Any], overrides: Dict[str, Any] = None) -> 'ArchiveResult | None':
+        """
+        Create or update a single ArchiveResult from a JSON record dict.
+
+        Args:
+            record: Dict with 'snapshot_id' and 'plugin' (required for create),
+                    or 'id' (for update)
+            overrides: Dict of field overrides (e.g., config overrides)
+
+        Returns:
+            ArchiveResult instance or None if invalid
+        """
+        from django.utils import timezone
+
+        overrides = overrides or {}
+
+        # If 'id' is provided, lookup and update existing
+        result_id = record.get('id')
+        if result_id:
+            try:
+                result = ArchiveResult.objects.get(id=result_id)
+                # Update fields from record
+                if record.get('status'):
+                    result.status = record['status']
+                    result.retry_at = timezone.now()
+                result.save()
+                return result
+            except ArchiveResult.DoesNotExist:
+                pass  # Fall through to create
+
+        # Required fields for creation
+        snapshot_id = record.get('snapshot_id')
+        plugin = record.get('plugin')
+
+        if not snapshot_id or not plugin:
+            return None
+
+        try:
+            snapshot = Snapshot.objects.get(id=snapshot_id)
+        except Snapshot.DoesNotExist:
+            return None
+
+        # Check if result already exists for this snapshot+plugin
+        existing = ArchiveResult.objects.filter(
+            snapshot=snapshot,
+            plugin=plugin,
+        ).first()
+
+        if existing:
+            # Update existing result if status provided
+            if record.get('status'):
+                existing.status = record['status']
+                existing.retry_at = timezone.now()
+                existing.save()
+            return existing
+
+        # Create new ArchiveResult
+        result = ArchiveResult(
+            snapshot=snapshot,
+            plugin=plugin,
+            status=record.get('status', ArchiveResult.StatusChoices.QUEUED),
+            retry_at=timezone.now(),
+            hook_name=record.get('hook_name', ''),
+        )
+        result.save()
+        return result
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding

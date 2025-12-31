@@ -28,21 +28,7 @@ from typing import Optional
 import rich_click as click
 from rich import print as rprint
 
-
-def apply_filters(queryset, filter_kwargs: dict, limit: Optional[int] = None):
-    """Apply Django-style filters from CLI kwargs to a QuerySet."""
-    filters = {}
-    for key, value in filter_kwargs.items():
-        if value is not None and key not in ('limit', 'offset'):
-            filters[key] = value
-
-    if filters:
-        queryset = queryset.filter(**filters)
-
-    if limit:
-        queryset = queryset[:limit]
-
-    return queryset
+from archivebox.cli.cli_utils import apply_filters
 
 
 # =============================================================================
