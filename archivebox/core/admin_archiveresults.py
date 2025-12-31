@@ -252,8 +252,8 @@ class ArchiveResultInline(admin.TabularInline):
 class ArchiveResultAdmin(BaseModelAdmin):
     list_display = ('id', 'created_at', 'snapshot_info', 'tags_str', 'status', 'plugin_with_icon', 'cmd_str', 'output_str')
     sort_fields = ('id', 'created_at', 'plugin', 'status')
-    readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary', 'plugin_with_icon', 'process')
-    search_fields = ('id', 'snapshot__url', 'plugin', 'output_str', 'cmd_version', 'cmd', 'snapshot__timestamp', 'process__cmd')
+    readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary', 'plugin_with_icon')
+    search_fields = ('id', 'snapshot__url', 'plugin', 'output_str', 'cmd_version', 'cmd', 'snapshot__timestamp')
     autocomplete_fields = ['snapshot']
 
     fieldsets = (
@@ -270,7 +270,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
             'classes': ('card',),
         }),
         ('Command', {
-            'fields': ('process', 'cmd', 'cmd_str', 'cmd_version', 'pwd'),
+            'fields': ('cmd', 'cmd_str', 'cmd_version', 'pwd'),
             'classes': ('card',),
         }),
         ('Output', {

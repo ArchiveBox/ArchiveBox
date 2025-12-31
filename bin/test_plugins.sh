@@ -67,7 +67,7 @@ for test_dir in $TEST_DIRS; do
 
     echo -e "${YELLOW}[RUNNING]${NC} $plugin_name"
 
-    if python -m pytest "$test_dir" -v --tb=short 2>&1 | grep -v "^platform\|^cachedir\|^rootdir\|^configfile\|^plugins:" | tail -100; then
+    if python -m pytest "$test_dir" -p no:django -v --tb=short 2>&1 | grep -v "^platform\|^cachedir\|^rootdir\|^configfile\|^plugins:" | tail -100; then
         echo -e "${GREEN}[PASSED]${NC} $plugin_name"
         PASSED_PLUGINS=$((PASSED_PLUGINS + 1))
     else

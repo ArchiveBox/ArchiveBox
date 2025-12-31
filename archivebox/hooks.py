@@ -1176,7 +1176,7 @@ def create_model_record(record: Dict[str, Any]) -> Any:
 def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any] = None) -> Dict[str, int]:
     """
     Process JSONL records from hook output.
-    Dispatches to Model.from_jsonl() for each record type.
+    Dispatches to Model.from_json() for each record type.
 
     Args:
         records: List of JSONL record dicts from result['records']
@@ -1201,25 +1201,25 @@ def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any
             # Dispatch to appropriate model's from_jsonl() method
             if record_type == 'Snapshot':
                 from archivebox.core.models import Snapshot
-                obj = Snapshot.from_jsonl(record.copy(), overrides)
+                obj = Snapshot.from_jsonll(record.copy(), overrides)
                 if obj:
                     stats['Snapshot'] = stats.get('Snapshot', 0) + 1
 
             elif record_type == 'Tag':
                 from archivebox.core.models import Tag
-                obj = Tag.from_jsonl(record.copy(), overrides)
+                obj = Tag.from_json(record.copy(), overrides)
                 if obj:
                     stats['Tag'] = stats.get('Tag', 0) + 1
 
             elif record_type == 'Binary':
                 from archivebox.machine.models import Binary
-                obj = Binary.from_jsonl(record.copy(), overrides)
+                obj = Binary.from_json(record.copy(), overrides)
                 if obj:
                     stats['Binary'] = stats.get('Binary', 0) + 1
 
             elif record_type == 'Machine':
                 from archivebox.machine.models import Machine
-                obj = Machine.from_jsonl(record.copy(), overrides)
+                obj = Machine.from_json(record.copy(), overrides)
                 if obj:
                     stats['Machine'] = stats.get('Machine', 0) + 1
 

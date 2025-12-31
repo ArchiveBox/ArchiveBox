@@ -100,46 +100,8 @@ class Migration(migrations.Migration):
                 CREATE INDEX IF NOT EXISTS machine_binary_status_idx ON machine_binary(status);
                 CREATE INDEX IF NOT EXISTS machine_binary_retry_at_idx ON machine_binary(retry_at);
 
-                -- Create machine_process table
-                CREATE TABLE IF NOT EXISTS machine_process (
-                    id TEXT PRIMARY KEY NOT NULL,
-                    created_at DATETIME NOT NULL,
-                    modified_at DATETIME NOT NULL,
-
-                    machine_id TEXT NOT NULL,
-                    binary_id TEXT,
-                    iface_id TEXT,
-
-                    pwd VARCHAR(512) NOT NULL DEFAULT '',
-                    cmd TEXT NOT NULL DEFAULT '[]',
-                    env TEXT NOT NULL DEFAULT '{}',
-                    timeout INTEGER NOT NULL DEFAULT 120,
-
-                    pid INTEGER,
-                    exit_code INTEGER,
-                    stdout TEXT NOT NULL DEFAULT '',
-                    stderr TEXT NOT NULL DEFAULT '',
-
-                    started_at DATETIME,
-                    ended_at DATETIME,
-
-                    url VARCHAR(2048),
-
-                    status VARCHAR(16) NOT NULL DEFAULT 'queued',
-                    retry_at DATETIME,
-
-                    FOREIGN KEY (machine_id) REFERENCES machine_machine(id) ON DELETE CASCADE,
-                    FOREIGN KEY (binary_id) REFERENCES machine_binary(id) ON DELETE SET NULL,
-                    FOREIGN KEY (iface_id) REFERENCES machine_networkinterface(id) ON DELETE SET NULL
-                );
-                CREATE INDEX IF NOT EXISTS machine_process_status_idx ON machine_process(status);
-                CREATE INDEX IF NOT EXISTS machine_process_retry_at_idx ON machine_process(retry_at);
-                CREATE INDEX IF NOT EXISTS machine_process_machine_id_idx ON machine_process(machine_id);
-                CREATE INDEX IF NOT EXISTS machine_process_binary_id_idx ON machine_process(binary_id);
-                CREATE INDEX IF NOT EXISTS machine_process_machine_status_retry_idx ON machine_process(machine_id, status, retry_at);
             """,
                     reverse_sql="""
-                        DROP TABLE IF EXISTS machine_process;
                         DROP TABLE IF EXISTS machine_binary;
                         DROP TABLE IF EXISTS machine_networkinterface;
                         DROP TABLE IF EXISTS machine_machine;
@@ -167,6 +129,8 @@ class Migration(migrations.Migration):
                         ('os_kernel', models.CharField(default=None, max_length=255)),
                         ('stats', models.JSONField(blank=True, default=dict, null=True)),
                         ('config', models.JSONField(blank=True, default=dict, help_text='Machine-specific config overrides (e.g., resolved binary paths like WGET_BINARY)', null=True)),
+                        ('num_uses_succeeded', models.PositiveIntegerField(default=0)),
+                        ('num_uses_failed', models.PositiveIntegerField(default=0)),
                     ],
                     options={
                         'app_label': 'machine',
@@ -189,6 +153,8 @@ class Migration(migrations.Migration):
                         ('region', models.CharField(default=None, max_length=63)),
                         ('country', models.CharField(default=None, max_length=63)),
                         ('machine', models.ForeignKey(default=None, on_delete=django.db.models.deletion.CASCADE, to='machine.machine')),
+                        ('num_uses_succeeded', models.PositiveIntegerField(default=0)),
+                        ('num_uses_failed', models.PositiveIntegerField(default=0)),
                     ],
                     options={
                         'unique_together': {('machine', 'ip_public', 'ip_local', 'mac_address', 'dns_server')},
@@ -212,6 +178,8 @@ class Migration(migrations.Migration):
                         ('retry_at', models.DateTimeField(blank=True, db_index=True, default=django.utils.timezone.now, help_text='When to retry this binary installation', null=True)),
                         ('output_dir', models.CharField(blank=True, default='', help_text='Directory where installation hook logs are stored', max_length=255)),
                         ('machine', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='machine.machine')),
+                        ('num_uses_succeeded', models.PositiveIntegerField(default=0)),
+                        ('num_uses_failed', models.PositiveIntegerField(default=0)),
                     ],
                     options={
                         'verbose_name': 'Binary',
@@ -219,43 +187,6 @@ class Migration(migrations.Migration):
                         'unique_together': {('machine', 'name', 'abspath', 'version', 'sha256')},
                         'app_label': 'machine',
                     },
-                ),
-                migrations.CreateModel(
-                    name='Process',
-                    fields=[
-                        ('id', models.UUIDField(default=uuid7, editable=False, primary_key=True, serialize=False, unique=True)),
-                        ('created_at', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
-                        ('modified_at', models.DateTimeField(auto_now=True)),
-                        ('pwd', models.CharField(blank=True, default='', help_text='Working directory for process execution', max_length=512)),
-                        ('cmd', models.JSONField(blank=True, default=list, help_text='Command as array of arguments')),
-                        ('env', models.JSONField(blank=True, default=dict, help_text='Environment variables for process')),
-                        ('timeout', models.IntegerField(default=120, help_text='Timeout in seconds')),
-                        ('pid', models.IntegerField(blank=True, default=None, help_text='OS process ID', null=True)),
-                        ('exit_code', models.IntegerField(blank=True, default=None, help_text='Process exit code (0 = success)', null=True)),
-                        ('stdout', models.TextField(blank=True, default='', help_text='Standard output from process')),
-                        ('stderr', models.TextField(blank=True, default='', help_text='Standard error from process')),
-                        ('started_at', models.DateTimeField(blank=True, default=None, help_text='When process was launched', null=True)),
-                        ('ended_at', models.DateTimeField(blank=True, default=None, help_text='When process completed/terminated', null=True)),
-                        ('url', models.URLField(blank=True, default=None, help_text='Connection URL (CDP endpoint, sonic server, etc.)', max_length=2048, null=True)),
-                        ('status', models.CharField(choices=[('queued', 'Queued'), ('running', 'Running'), ('exited', 'Exited')], db_index=True, default='queued', max_length=16)),
-                        ('retry_at', models.DateTimeField(blank=True, db_index=True, default=django.utils.timezone.now, help_text='When to retry this process', null=True)),
-                        ('machine', models.ForeignKey(help_text='Machine where this process executed', on_delete=django.db.models.deletion.CASCADE, related_name='process_set', to='machine.machine')),
-                        ('binary', models.ForeignKey(blank=True, help_text='Binary used by this process', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='process_set', to='machine.binary')),
-                        ('iface', models.ForeignKey(blank=True, help_text='Network interface used by this process', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='process_set', to='machine.networkinterface')),
-                    ],
-                    options={
-                        'verbose_name': 'Process',
-                        'verbose_name_plural': 'Processes',
-                        'app_label': 'machine',
-                    },
-                ),
-                migrations.AddIndex(
-                    model_name='process',
-                    index=models.Index(fields=['machine', 'status', 'retry_at'], name='machine_pro_machine_5e3a87_idx'),
-                ),
-                migrations.AddIndex(
-                    model_name='process',
-                    index=models.Index(fields=['binary', 'exit_code'], name='machine_pro_binary__7bd19c_idx'),
                 ),
             ],
         ),

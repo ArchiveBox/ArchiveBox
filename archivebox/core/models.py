@@ -91,9 +91,9 @@ class Tag(ModelWithSerializers):
     def api_url(self) -> str:
         return reverse_lazy('api-1:get_tag', args=[self.id])
 
-    def to_jsonl(self) -> dict:
+    def to_json(self) -> dict:
         """
-        Convert Tag model instance to a JSONL record.
+        Convert Tag model instance to a JSON-serializable dict.
         """
         from archivebox.config import VERSION
         return {
@@ -105,12 +105,12 @@ class Tag(ModelWithSerializers):
         }
 
     @staticmethod
-    def from_jsonl(record: Dict[str, Any], overrides: Dict[str, Any] = None):
+    def from_json(record: Dict[str, Any], overrides: Dict[str, Any] = None):
         """
-        Create/update Tag from JSONL record.
+        Create/update Tag from JSON dict.
 
         Args:
-            record: JSONL record with 'name' field
+            record: JSON dict with 'name' field
             overrides: Optional dict with 'snapshot' to auto-attach tag
 
         Returns:
@@ -982,8 +982,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         processes_seen = set()
 
         with open(index_path, 'w') as f:
-            # Write Snapshot record first (to_jsonl includes crawl_id, fs_version)
-            f.write(json.dumps(self.to_jsonl()) + '\n')
+            # Write Snapshot record first (to_json includes crawl_id, fs_version)
+            f.write(json.dumps(self.to_json()) + '\n')
 
             # Write ArchiveResult records with their associated Binary and Process
             # Use select_related to optimize queries
@@ -991,15 +991,15 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 # Write Binary record if not already written
                 if ar.process and ar.process.binary and ar.process.binary_id not in binaries_seen:
                     binaries_seen.add(ar.process.binary_id)
-                    f.write(json.dumps(ar.process.binary.to_jsonl()) + '\n')
+                    f.write(json.dumps(ar.process.binary.to_json()) + '\n')
 
                 # Write Process record if not already written
                 if ar.process and ar.process_id not in processes_seen:
                     processes_seen.add(ar.process_id)
-                    f.write(json.dumps(ar.process.to_jsonl()) + '\n')
+                    f.write(json.dumps(ar.process.to_json()) + '\n')
 
                 # Write ArchiveResult record
-                f.write(json.dumps(ar.to_jsonl()) + '\n')
+                f.write(json.dumps(ar.to_json()) + '\n')
 
     def read_index_jsonl(self) -> dict:
         """
@@ -1422,9 +1422,9 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         return False
 
-    def to_jsonl(self) -> dict:
+    def to_json(self) -> dict:
         """
-        Convert Snapshot model instance to a JSONL record.
+        Convert Snapshot model instance to a JSON-serializable dict.
         Includes all fields needed to fully reconstruct/identify this snapshot.
         """
         from archivebox.config import VERSION
@@ -1445,9 +1445,9 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         }
 
     @staticmethod
-    def from_jsonl(record: Dict[str, Any], overrides: Dict[str, Any] = None, queue_for_extraction: bool = True):
+    def from_json(record: Dict[str, Any], overrides: Dict[str, Any] = None, queue_for_extraction: bool = True):
         """
-        Create/update Snapshot from JSONL record or dict.
+        Create/update Snapshot from JSON dict.
 
         Unified method that handles:
         - ID-based patching: {"id": "...", "title": "new title"}
@@ -2106,8 +2106,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             result['canonical'] = self.canonical_outputs()
         return result
 
-    def to_json(self, indent: int = 4) -> str:
-        """Convert to JSON string"""
+    def to_json_str(self, indent: int = 4) -> str:
+        """Convert to JSON string (legacy method, use to_json() for dict)"""
         return to_json(self.to_dict(extended=True), indent=indent)
 
     def to_csv(self, cols: Optional[List[str]] = None, separator: str = ',', ljust: int = 0) -> str:
@@ -2284,14 +2284,14 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     hook_name = models.CharField(max_length=255, blank=True, default='', db_index=True, help_text='Full filename of the hook that executed (e.g., on_Snapshot__50_wget.py)')
 
     # Process FK - tracks execution details (cmd, pwd, stdout, stderr, etc.)
-    # Required - every ArchiveResult must have a Process
-    process = models.OneToOneField(
-        'machine.Process',
-        on_delete=models.PROTECT,
-        null=False,  # Required after migration 4
-        related_name='archiveresult',
-        help_text='Process execution details for this archive result'
-    )
+    # Added POST-v0.9.0, will be added in a separate migration
+    # process = models.OneToOneField(
+    #     'machine.Process',
+    #     on_delete=models.PROTECT,
+    #     null=False,
+    #     related_name='archiveresult',
+    #     help_text='Process execution details for this archive result'
+    # )
 
     # New output fields (replacing old 'output' field)
     output_str = models.TextField(blank=True, default='', help_text='Human-readable output summary')
@@ -2326,9 +2326,9 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         """Convenience property to access the user who created this archive result via its snapshot's crawl."""
         return self.snapshot.crawl.created_by
 
-    def to_jsonl(self) -> dict:
+    def to_json(self) -> dict:
         """
-        Convert ArchiveResult model instance to a JSONL record.
+        Convert ArchiveResult model instance to a JSON-serializable dict.
         """
         from archivebox.config import VERSION
         record = {
@@ -2359,6 +2359,50 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         if self.process_id:
             record['process_id'] = str(self.process_id)
         return record
+
+    @staticmethod
+    def from_json(record: Dict[str, Any], overrides: Dict[str, Any] = None):
+        """
+        Create/update ArchiveResult from JSON dict.
+
+        Args:
+            record: JSON dict with 'snapshot_id', 'plugin', etc.
+            overrides: Optional dict of field overrides
+
+        Returns:
+            ArchiveResult instance or None
+        """
+        snapshot_id = record.get('snapshot_id')
+        plugin = record.get('plugin')
+
+        if not snapshot_id or not plugin:
+            return None
+
+        # Try to get existing by ID first
+        result_id = record.get('id')
+        if result_id:
+            try:
+                return ArchiveResult.objects.get(id=result_id)
+            except ArchiveResult.DoesNotExist:
+                pass
+
+        # Get or create by snapshot_id + plugin
+        try:
+            from archivebox.core.models import Snapshot
+            snapshot = Snapshot.objects.get(id=snapshot_id)
+
+            result, _ = ArchiveResult.objects.get_or_create(
+                snapshot=snapshot,
+                plugin=plugin,
+                defaults={
+                    'hook_name': record.get('hook_name', ''),
+                    'status': record.get('status', 'queued'),
+                    'output_str': record.get('output_str', ''),
+                }
+            )
+            return result
+        except Snapshot.DoesNotExist:
+            return None
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding

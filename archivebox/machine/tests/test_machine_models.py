@@ -76,7 +76,7 @@ class TestMachineModel(TestCase):
         self.assertEqual(machine1.guid, machine2.guid)
 
     def test_machine_from_jsonl_update(self):
-        """Machine.from_jsonl() should update machine config."""
+        """Machine.from_json() should update machine config."""
         Machine.current()  # Ensure machine exists
         record = {
             '_method': 'update',
@@ -84,14 +84,14 @@ class TestMachineModel(TestCase):
             'value': '/usr/bin/wget',
         }
 
-        result = Machine.from_jsonl(record)
+        result = Machine.from_json(record)
 
         self.assertIsNotNone(result)
         self.assertEqual(result.config.get('WGET_BINARY'), '/usr/bin/wget')
 
     def test_machine_from_jsonl_invalid(self):
-        """Machine.from_jsonl() should return None for invalid records."""
-        result = Machine.from_jsonl({'invalid': 'record'})
+        """Machine.from_json() should return None for invalid records."""
+        result = Machine.from_json({'invalid': 'record'})
         self.assertIsNone(result)
 
     def test_machine_manager_current(self):
@@ -254,14 +254,14 @@ class TestProcessModel(TestCase):
         self.assertIsNone(process.exit_code)
 
     def test_process_to_jsonl(self):
-        """Process.to_jsonl() should serialize correctly."""
+        """Process.to_json() should serialize correctly."""
         process = Process.objects.create(
             machine=self.machine,
             cmd=['echo', 'hello'],
             pwd='/tmp',
             timeout=60,
         )
-        json_data = process.to_jsonl()
+        json_data = process.to_json()
 
         self.assertEqual(json_data['type'], 'Process')
         self.assertEqual(json_data['cmd'], ['echo', 'hello'])

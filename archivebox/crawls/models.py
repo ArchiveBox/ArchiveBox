@@ -134,9 +134,9 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     def api_url(self) -> str:
         return reverse_lazy('api-1:get_crawl', args=[self.id])
 
-    def to_jsonl(self) -> dict:
+    def to_json(self) -> dict:
         """
-        Convert Crawl model instance to a JSONL record.
+        Convert Crawl model instance to a JSON-serializable dict.
         """
         from archivebox.config import VERSION
         return {
@@ -152,9 +152,9 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         }
 
     @staticmethod
-    def from_jsonl(record: dict, overrides: dict = None):
+    def from_json(record: dict, overrides: dict = None):
         """
-        Create or get a Crawl from a JSONL record.
+        Create or get a Crawl from a JSON dict.
 
         Args:
             record: Dict with 'urls' (required), optional 'max_depth', 'tags_str', 'label'

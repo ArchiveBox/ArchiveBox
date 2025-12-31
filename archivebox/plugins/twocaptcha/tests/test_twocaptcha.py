@@ -29,7 +29,7 @@ PLUGIN_DIR = Path(__file__).parent.parent
 INSTALL_SCRIPT = PLUGIN_DIR / 'on_Crawl__20_install_twocaptcha_extension.js'
 CONFIG_SCRIPT = PLUGIN_DIR / 'on_Crawl__25_configure_twocaptcha_extension_options.js'
 
-TEST_URL = 'https://2captcha.com/demo/recaptcha-v2'
+TEST_URL = 'https://2captcha.com/demo/cloudflare-turnstile'
 
 
 # Alias for backward compatibility with existing test names
@@ -70,8 +70,17 @@ class TestTwoCaptcha:
             process, cdp_url = launch_chrome(env, chrome_dir, crawl_id)
 
             try:
-                exts = json.loads((chrome_dir / 'extensions.json').read_text())
-                assert any(e['name'] == 'twocaptcha' for e in exts), f"Not loaded: {exts}"
+                # Wait for extensions.json to be written
+                extensions_file = chrome_dir / 'extensions.json'
+                for i in range(20):
+                    if extensions_file.exists():
+                        break
+                    time.sleep(0.5)
+
+                assert extensions_file.exists(), f"extensions.json not created. Chrome dir files: {list(chrome_dir.iterdir())}"
+
+                exts = json.loads(extensions_file.read_text())
+                assert any(e['name'] == 'twocaptcha' for e in exts), f"twocaptcha not loaded: {exts}"
                 print(f"[+] Extension loaded: id={next(e['id'] for e in exts if e['name']=='twocaptcha')}")
             finally:
                 kill_chrome(process, chrome_dir)
@@ -95,6 +104,14 @@ class TestTwoCaptcha:
             process, cdp_url = launch_chrome(env, chrome_dir, crawl_id)
 
             try:
+                # Wait for extensions.json to be written
+                extensions_file = chrome_dir / 'extensions.json'
+                for i in range(20):
+                    if extensions_file.exists():
+                        break
+                    time.sleep(0.5)
+                assert extensions_file.exists(), f"extensions.json not created"
+
                 result = subprocess.run(
                     ['node', str(CONFIG_SCRIPT), '--url=https://example.com', '--snapshot-id=test'],
                     env=env, timeout=30, capture_output=True, text=True
@@ -163,7 +180,34 @@ const puppeteer = require('puppeteer-core');
                 kill_chrome(process, chrome_dir)
 
     def test_solves_recaptcha(self):
-        """Extension solves reCAPTCHA on demo page."""
+        """Extension attempts to solve CAPTCHA on demo page.
+
+        CRITICAL: DO NOT SKIP OR DISABLE THIS TEST EVEN IF IT'S FLAKY!
+
+        This test is INTENTIONALLY left enabled to expose the REAL, ACTUAL flakiness
+        of the 2captcha service and demo page. The test failures you see here are NOT
+        test bugs - they are ACCURATE representations of the real-world reliability
+        of this CAPTCHA solving service.
+
+        If this test is flaky, that's because 2captcha IS FLAKY in production.
+        If this test fails intermittently, that's because 2captcha FAILS INTERMITTENTLY in production.
+
+        NEVER EVER hide real flakiness by disabling tests or adding @pytest.mark.skip.
+        Users NEED to see this failure rate to understand what they're getting into.
+
+        When this test DOES pass, it confirms:
+        - Extension loads and configures correctly
+        - 2captcha API key is accepted
+        - Extension can successfully auto-solve CAPTCHAs
+        - The entire flow works end-to-end
+
+        When it fails (as it often does):
+        - Demo page has JavaScript errors (representing real-world broken sites)
+        - Turnstile tokens expire before solving (representing real-world timing issues)
+        - 2captcha service may be slow/down (representing real-world service issues)
+
+        This is VALUABLE INFORMATION about the service. DO NOT HIDE IT.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
             env = setup_test_env(tmpdir)
@@ -179,6 +223,14 @@ const puppeteer = require('puppeteer-core');
             process, cdp_url = launch_chrome(env, chrome_dir, crawl_id)
 
             try:
+                # Wait for extensions.json to be written
+                extensions_file = chrome_dir / 'extensions.json'
+                for i in range(20):
+                    if extensions_file.exists():
+                        break
+                    time.sleep(0.5)
+                assert extensions_file.exists(), f"extensions.json not created"
+
                 subprocess.run(['node', str(CONFIG_SCRIPT), '--url=x', '--snapshot-id=x'], env=env, timeout=30, capture_output=True)
 
                 script = f'''
@@ -187,48 +239,97 @@ const puppeteer = require('puppeteer-core');
 (async () => {{
     const browser = await puppeteer.connect({{ browserWSEndpoint: '{cdp_url}' }});
     const page = await browser.newPage();
+
+    // Capture console messages from the page (including extension messages)
+    page.on('console', msg => {{
+        const text = msg.text();
+        if (text.includes('2captcha') || text.includes('turnstile') || text.includes('captcha')) {{
+            console.error('[CONSOLE]', text);
+        }}
+    }});
+
     await page.setViewport({{ width: 1440, height: 900 }});
     console.error('[*] Loading {TEST_URL}...');
     await page.goto('{TEST_URL}', {{ waitUntil: 'networkidle2', timeout: 30000 }});
-    await new Promise(r => setTimeout(r, 3000));
 
+    // Wait for CAPTCHA iframe (minimal wait to avoid token expiration)
+    console.error('[*] Waiting for CAPTCHA iframe...');
+    await page.waitForSelector('iframe', {{ timeout: 30000 }});
+    console.error('[*] CAPTCHA iframe found - extension should auto-solve now');
+
+    // DON'T CLICK - extension should auto-solve since autoSolveTurnstile=True
+    console.error('[*] Waiting for auto-solve (extension configured with autoSolveTurnstile=True)...');
+
+    // Poll for data-state changes with debug output
+    console.error('[*] Waiting for CAPTCHA to be solved (up to 150s)...');
     const start = Date.now();
-    const maxWait = 90000;
+    let solved = false;
+    let lastState = null;
 
-    while (Date.now() - start < maxWait) {{
+    while (!solved && (Date.now() - start) < 150000) {{
         const state = await page.evaluate(() => {{
-            const resp = document.querySelector('textarea[name="g-recaptcha-response"]');
             const solver = document.querySelector('.captcha-solver');
             return {{
-                solved: resp ? resp.value.length > 0 : false,
                 state: solver?.getAttribute('data-state'),
-                text: solver?.textContent?.trim() || ''
+                text: solver?.textContent?.trim(),
+                classList: solver?.className
             }};
         }});
-        const sec = Math.round((Date.now() - start) / 1000);
-        console.error('[*] ' + sec + 's state=' + state.state + ' solved=' + state.solved + ' text=' + state.text.slice(0,30));
-        if (state.solved) {{ console.error('[+] SOLVED!'); break; }}
-        if (state.state === 'error') {{ console.error('[!] ERROR'); break; }}
+
+        if (state.state !== lastState) {{
+            const elapsed = Math.round((Date.now() - start) / 1000);
+            console.error(`[*] State change at ${{elapsed}}s: "${{lastState}}" -> "${{state.state}}" (text: "${{state.text?.slice(0, 50)}}")`);
+            lastState = state.state;
+        }}
+
+        if (state.state === 'solved') {{
+            solved = true;
+            const elapsed = Math.round((Date.now() - start) / 1000);
+            console.error('[+] SOLVED in ' + elapsed + 's!');
+            break;
+        }}
+
+        // Check every 2 seconds
         await new Promise(r => setTimeout(r, 2000));
     }}
 
+    if (!solved) {{
+        const elapsed = Math.round((Date.now() - start) / 1000);
+        const finalState = await page.evaluate(() => {{
+            const solver = document.querySelector('.captcha-solver');
+            return {{
+                state: solver?.getAttribute('data-state'),
+                text: solver?.textContent?.trim(),
+                html: solver?.outerHTML?.slice(0, 200)
+            }};
+        }});
+        console.error(`[!] TIMEOUT after ${{elapsed}}s. Final state: ${{JSON.stringify(finalState)}}`);
+        browser.disconnect();
+        process.exit(1);
+    }}
+
     const final = await page.evaluate(() => {{
-        const resp = document.querySelector('textarea[name="g-recaptcha-response"]');
-        return {{ solved: resp ? resp.value.length > 0 : false, preview: resp?.value?.slice(0,50) || '' }};
+        const solver = document.querySelector('.captcha-solver');
+        return {{
+            solved: true,
+            state: solver?.getAttribute('data-state'),
+            text: solver?.textContent?.trim()
+        }};
     }});
     browser.disconnect();
     console.log(JSON.stringify(final));
 }})();
 '''
                 (tmpdir / 's.js').write_text(script)
-                print("\n[*] Solving CAPTCHA (10-60s)...")
-                r = subprocess.run(['node', str(tmpdir / 's.js')], env=env, timeout=120, capture_output=True, text=True)
+                print("\n[*] Solving CAPTCHA (this can take up to 150s for 2captcha API)...")
+                r = subprocess.run(['node', str(tmpdir / 's.js')], env=env, timeout=200, capture_output=True, text=True)
                 print(r.stderr)
                 assert r.returncode == 0, f"Failed: {r.stderr}"
 
                 final = json.loads([l for l in r.stdout.strip().split('\n') if l.startswith('{')][-1])
                 assert final.get('solved'), f"Not solved: {final}"
-                print(f"[+] SOLVED! {final.get('preview','')[:30]}...")
+                assert final.get('state') == 'solved', f"State not 'solved': {final}"
+                print(f"[+] SUCCESS! CAPTCHA solved: {final.get('text','')[:50]}")
             finally:
                 kill_chrome(process, chrome_dir)
 

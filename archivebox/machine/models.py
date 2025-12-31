@@ -82,13 +82,38 @@ class Machine(ModelWithHealthStats):
         )
         return _CURRENT_MACHINE
 
-    @staticmethod
-    def from_jsonl(record: dict, overrides: dict = None):
+    def to_json(self) -> dict:
         """
-        Update Machine config from JSONL record.
+        Convert Machine model instance to a JSON-serializable dict.
+        """
+        from archivebox.config import VERSION
+        return {
+            'type': 'Machine',
+            'schema_version': VERSION,
+            'id': str(self.id),
+            'guid': self.guid,
+            'hostname': self.hostname,
+            'hw_in_docker': self.hw_in_docker,
+            'hw_in_vm': self.hw_in_vm,
+            'hw_manufacturer': self.hw_manufacturer,
+            'hw_product': self.hw_product,
+            'hw_uuid': self.hw_uuid,
+            'os_arch': self.os_arch,
+            'os_family': self.os_family,
+            'os_platform': self.os_platform,
+            'os_kernel': self.os_kernel,
+            'os_release': self.os_release,
+            'stats': self.stats,
+            'config': self.config or {},
+        }
+
+    @staticmethod
+    def from_json(record: dict, overrides: dict = None):
+        """
+        Update Machine config from JSON dict.
 
         Args:
-            record: JSONL record with '_method': 'update', 'key': '...', 'value': '...'
+            record: JSON dict with '_method': 'update', 'key': '...', 'value': '...'
             overrides: Not used
 
         Returns:
@@ -255,9 +280,9 @@ class Binary(ModelWithHealthStats):
             'is_valid': self.is_valid,
         }
 
-    def to_jsonl(self) -> dict:
+    def to_json(self) -> dict:
         """
-        Convert Binary model instance to a JSONL record.
+        Convert Binary model instance to a JSON-serializable dict.
         """
         from archivebox.config import VERSION
         return {
@@ -274,17 +299,17 @@ class Binary(ModelWithHealthStats):
         }
 
     @staticmethod
-    def from_jsonl(record: dict, overrides: dict = None):
+    def from_json(record: dict, overrides: dict = None):
         """
-        Create/update Binary from JSONL record.
+        Create/update Binary from JSON dict.
 
         Handles two cases:
-        1. From binaries.jsonl: creates queued binary with name, binproviders, overrides
+        1. From binaries.json: creates queued binary with name, binproviders, overrides
         2. From hook output: updates binary with abspath, version, sha256, binprovider
 
         Args:
-            record: JSONL record with 'name' and either:
-                    - 'binproviders', 'overrides' (from binaries.jsonl)
+            record: JSON dict with 'name' and either:
+                    - 'binproviders', 'overrides' (from binaries.json)
                     - 'abspath', 'version', 'sha256', 'binprovider' (from hook output)
             overrides: Not used
 
@@ -542,7 +567,7 @@ class ProcessManager(models.Manager):
         return process
 
 
-class Process(ModelWithHealthStats):
+class Process(models.Model):
     """
     Tracks a single OS process execution.
 
@@ -563,37 +588,10 @@ class Process(ModelWithHealthStats):
         RUNNING = 'running', 'Running'
         EXITED = 'exited', 'Exited'
 
-    class TypeChoices(models.TextChoices):
-        CLI = 'cli', 'CLI Command'
-        SUPERVISORD = 'supervisord', 'Supervisord Daemon'
-        ORCHESTRATOR = 'orchestrator', 'Orchestrator'
-        WORKER = 'worker', 'Worker Process'
-        HOOK = 'hook', 'Hook Script'
-        BINARY = 'binary', 'Binary Execution'
-
     # Primary fields
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
-
-    # Parent process FK for hierarchy tracking
-    parent = models.ForeignKey(
-        'self',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='children',
-        help_text='Parent process that spawned this one'
-    )
-
-    # Process type for distinguishing in hierarchy
-    process_type = models.CharField(
-        max_length=16,
-        choices=TypeChoices.choices,
-        default=TypeChoices.BINARY,
-        db_index=True,
-        help_text='Type of process in the execution hierarchy'
-    )
 
     # Machine FK - required (every process runs on a machine)
     machine = models.ForeignKey(
@@ -667,10 +665,6 @@ class Process(ModelWithHealthStats):
         help_text='When to retry this process'
     )
 
-    # Health stats
-    num_uses_failed = models.PositiveIntegerField(default=0)
-    num_uses_succeeded = models.PositiveIntegerField(default=0)
-
     state_machine_name: str = 'archivebox.machine.models.ProcessMachine'
 
     objects: ProcessManager = ProcessManager()
@@ -682,8 +676,6 @@ class Process(ModelWithHealthStats):
         indexes = [
             models.Index(fields=['machine', 'status', 'retry_at']),
             models.Index(fields=['binary', 'exit_code']),
-            models.Index(fields=['parent', 'status']),
-            models.Index(fields=['machine', 'pid', 'started_at']),
         ]
 
     def __str__(self) -> str:
@@ -716,9 +708,9 @@ class Process(ModelWithHealthStats):
             return self.archiveresult.hook_name
         return ''
 
-    def to_jsonl(self) -> dict:
+    def to_json(self) -> dict:
         """
-        Convert Process model instance to a JSONL record.
+        Convert Process model instance to a JSON-serializable dict.
         """
         from archivebox.config import VERSION
         record = {
@@ -741,6 +733,26 @@ class Process(ModelWithHealthStats):
         if self.timeout:
             record['timeout'] = self.timeout
         return record
+
+    @staticmethod
+    def from_json(record: dict, overrides: dict = None):
+        """
+        Create/update Process from JSON dict.
+
+        Args:
+            record: JSON dict with 'id' or process details
+            overrides: Optional dict of field overrides
+
+        Returns:
+            Process instance or None
+        """
+        process_id = record.get('id')
+        if process_id:
+            try:
+                return Process.objects.get(id=process_id)
+            except Process.DoesNotExist:
+                pass
+        return None
 
     def update_and_requeue(self, **kwargs):
         """
@@ -1751,16 +1763,11 @@ class ProcessMachine(BaseStateMachine, strict_states=True):
     @exited.enter
     def enter_exited(self):
         """Process has exited."""
-        success = self.process.exit_code == 0
-
         self.process.update_and_requeue(
             retry_at=None,
             status=Process.StatusChoices.EXITED,
             ended_at=timezone.now(),
         )
-
-        # Increment health stats based on exit code
-        self.process.increment_health_stats(success=success)
 
 
 # =============================================================================

@@ -207,7 +207,7 @@ def run_plugins(
                     }.get(result.status, 'dim')
                     rprint(f'  [{status_color}]{result.status}[/{status_color}] {result.plugin} → {result.output_str or ""}', file=sys.stderr)
                 else:
-                    write_record(result.to_jsonl())
+                    write_record(result.to_json())
         except Snapshot.DoesNotExist:
             continue
 

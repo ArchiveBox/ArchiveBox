@@ -271,10 +271,51 @@ async function configure2Captcha() {
 
                 if (result.success) {
                     console.error(`[+] 2captcha configured via ${result.method}`);
+
+                    // Verify config was applied by reloading options page and checking form values
+                    console.error('[*] Verifying config by reloading options page...');
+                    try {
+                        await configPage.reload({ waitUntil: 'networkidle0', timeout: 10000 });
+                    } catch (e) {
+                        console.error(`[*] Reload threw error (may still work): ${e.message}`);
+                    }
+
+                    await new Promise(r => setTimeout(r, 2000));
+
+                    // Wait for Config object again
+                    await configPage.waitForFunction(() => typeof Config !== 'undefined', { timeout: 10000 });
+
+                    // Read back the config using Config.getAll()
+                    const verifyConfig = await configPage.evaluate(async () => {
+                        if (typeof Config !== 'undefined' && typeof Config.getAll === 'function') {
+                            return await Config.getAll();
+                        }
+                        return null;
+                    });
+
+                    if (!verifyConfig) {
+                        return { success: false, error: 'Could not verify config - Config.getAll() not available' };
+                    }
+
+                    // Check that API key was actually set
+                    const actualApiKey = verifyConfig.apiKey || verifyConfig.api_key;
+                    if (!actualApiKey || actualApiKey !== config.apiKey) {
+                        console.error(`[!] Config verification FAILED - API key mismatch`);
+                        console.error(`[!]   Expected: ${config.apiKey.slice(0, 8)}...${config.apiKey.slice(-4)}`);
+                        console.error(`[!]   Got: ${actualApiKey ? actualApiKey.slice(0, 8) + '...' + actualApiKey.slice(-4) : 'null'}`);
+                        return { success: false, error: 'Config verification failed - API key not set correctly' };
+                    }
+
+                    console.error('[+] Config verified successfully!');
+                    console.error(`[+]   API Key: ${actualApiKey.slice(0, 8)}...${actualApiKey.slice(-4)}`);
+                    console.error(`[+]   Plugin Enabled: ${verifyConfig.isPluginEnabled}`);
+                    console.error(`[+]   Auto Solve Turnstile: ${verifyConfig.autoSolveTurnstile}`);
+
                     fs.writeFileSync(CONFIG_MARKER, JSON.stringify({
                         timestamp: new Date().toISOString(),
                         method: result.method,
                         extensionId: extensionId,
+                        verified: true,
                         config: {
                             apiKeySet: !!config.apiKey,
                             isPluginEnabled: config.isPluginEnabled,
@@ -284,7 +325,7 @@ async function configure2Captcha() {
                             autoSolveEnabled: true,
                         }
                     }, null, 2));
-                    return { success: true, method: result.method };
+                    return { success: true, method: result.method, verified: true };
                 }
 
                 return { success: false, error: result.error || 'Config failed' };

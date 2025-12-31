@@ -265,57 +265,60 @@ class Orchestrator:
     
     def runloop(self) -> None:
         """Main orchestrator loop."""
-        from archivebox.misc.logging import IS_TTY, CONSOLE
-        import sys
+        from rich.progress import Progress, BarColumn, TextColumn, TaskProgressColumn
+        from archivebox.misc.logging import IS_TTY
+        import archivebox.misc.logging as logging_module
 
         self.on_startup()
 
         # Enable progress bars only in TTY + foreground mode
         show_progress = IS_TTY and self.exit_on_idle
-        last_progress_output = ""
+
+        progress = Progress(
+            TextColumn("[cyan]{task.description}"),
+            BarColumn(bar_width=40),
+            TaskProgressColumn(),
+            transient=False,
+        ) if show_progress else None
+
+        task_ids = {}  # snapshot_id -> task_id
+
+        # Replace global CONSOLE with progress.console when active
+        original_console = logging_module.CONSOLE
+        original_stderr = logging_module.STDERR
 
         try:
+            if progress:
+                progress.start()
+                # Redirect all logging through progress.console
+                logging_module.CONSOLE = progress.console
+                logging_module.STDERR = progress.console
+
             while True:
                 # Check queues and spawn workers
                 queue_sizes = self.check_queues_and_spawn_workers()
 
-                # Update progress bars (simple inline update)
-                if show_progress:
+                # Update progress bars
+                if progress:
                     from archivebox.core.models import Snapshot
 
-                    active_snapshots = list(Snapshot.objects.filter(status='started').iterator(chunk_size=100))
+                    active_snapshots = Snapshot.objects.filter(status='started').iterator(chunk_size=100)
 
-                    if active_snapshots:
-                        # Build progress string
-                        progress_lines = []
-                        for snapshot in active_snapshots[:5]:  # Limit to 5 snapshots
-                            total = snapshot.archiveresult_set.count()
-                            if total == 0:
-                                continue
+                    for snapshot in active_snapshots:
+                        total = snapshot.archiveresult_set.count()
+                        if total == 0:
+                            continue
 
-                            completed = snapshot.archiveresult_set.filter(
-                                status__in=['succeeded', 'skipped', 'failed']
-                            ).count()
+                        completed = snapshot.archiveresult_set.filter(
+                            status__in=['succeeded', 'skipped', 'failed']
+                        ).count()
 
-                            percentage = (completed / total) * 100
-                            bar_width = 30
-                            filled = int(bar_width * completed / total)
-                            bar = '█' * filled + '░' * (bar_width - filled)
+                        # Create or update task
+                        if snapshot.id not in task_ids:
+                            url = snapshot.url[:60] + '...' if len(snapshot.url) > 60 else snapshot.url
+                            task_ids[snapshot.id] = progress.add_task(url, total=total)
 
-                            url = snapshot.url[:50] + '...' if len(snapshot.url) > 50 else snapshot.url
-                            progress_lines.append(f"{url} {bar} {percentage:>3.0f}%")
-
-                        progress_output = "\n".join(progress_lines)
-
-                        # Only update if changed
-                        if progress_output != last_progress_output:
-                            # Clear previous lines and print new ones
-                            if last_progress_output:
-                                num_lines = last_progress_output.count('\n') + 1
-                                sys.stderr.write(f"\r\033[{num_lines}A\033[J")
-                            sys.stderr.write(progress_output + "\n")
-                            sys.stderr.flush()
-                            last_progress_output = progress_output
+                        progress.update(task_ids[snapshot.id], completed=completed)
 
                 # Track idle state
                 if self.has_pending_work(queue_sizes) or self.has_running_workers():
@@ -327,12 +330,6 @@ class Orchestrator:
 
                 # Check if we should exit
                 if self.should_exit(queue_sizes):
-                    # Clear progress lines
-                    if show_progress and last_progress_output:
-                        num_lines = last_progress_output.count('\n') + 1
-                        sys.stderr.write(f"\r\033[{num_lines}A\033[J")
-                        sys.stderr.flush()
-
                     log_worker_event(
                         worker_type='Orchestrator',
                         event='All work complete',
@@ -350,6 +347,12 @@ class Orchestrator:
             raise
         else:
             self.on_shutdown()
+        finally:
+            if progress:
+                # Restore original consoles
+                logging_module.CONSOLE = original_console
+                logging_module.STDERR = original_stderr
+                progress.stop()
     
     def start(self) -> int:
         """
