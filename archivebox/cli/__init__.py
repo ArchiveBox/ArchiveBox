@@ -36,6 +36,7 @@ class ArchiveBoxGroup(click.Group):
         'binary': 'archivebox.cli.archivebox_binary.main',
         'process': 'archivebox.cli.archivebox_process.main',
         'machine': 'archivebox.cli.archivebox_machine.main',
+        'persona': 'archivebox.cli.archivebox_persona.main',
     }
     archive_commands = {
         # High-level commands
