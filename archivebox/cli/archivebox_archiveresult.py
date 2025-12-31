@@ -151,14 +151,14 @@ def create_archiveresults(
                 result.save()
 
             if not is_tty:
-                write_record(result.to_json())
+                write_record(result.to_jsonl())
             created_count += 1
         else:
             # Create all pending plugins
             snapshot.create_pending_archiveresults()
             for result in snapshot.archiveresult_set.filter(status=ArchiveResult.StatusChoices.QUEUED):
                 if not is_tty:
-                    write_record(result.to_json())
+                    write_record(result.to_jsonl())
                 created_count += 1
 
     rprint(f'[green]Created/queued {created_count} archive results[/green]', file=sys.stderr)
@@ -209,7 +209,7 @@ def list_archiveresults(
             }.get(result.status, 'dim')
             rprint(f'[{status_color}]{result.status:10}[/{status_color}] {result.plugin:15} [dim]{result.id}[/dim] {result.snapshot.url[:40]}')
         else:
-            write_record(result.to_json())
+            write_record(result.to_jsonl())
         count += 1
 
     rprint(f'[dim]Listed {count} archive results[/dim]', file=sys.stderr)
@@ -263,7 +263,7 @@ def update_archiveresults(
             updated_count += 1
 
             if not is_tty:
-                write_record(result.to_json())
+                write_record(result.to_jsonl())
 
         except ArchiveResult.DoesNotExist:
             rprint(f'[yellow]ArchiveResult not found: {result_id}[/yellow]', file=sys.stderr)

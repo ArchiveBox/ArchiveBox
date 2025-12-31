@@ -29,10 +29,25 @@ def cleanup_extra_columns(apps, schema_editor):
             """)
             archive_results = cursor.fetchall()
 
+            # Skip if no archive results to migrate
+            if not archive_results:
+                print("  ✓ No ArchiveResult records to migrate")
+                return
+
             from archivebox.uuid_compat import uuid7
             from archivebox.base_models.models import get_or_create_system_user_pk
 
-            machine_id = cursor.execute("SELECT id FROM machine_machine LIMIT 1").fetchone()[0]
+            # Get or create a machine record
+            machine_row = cursor.execute("SELECT id FROM machine_machine LIMIT 1").fetchone()
+            if machine_row:
+                machine_id = machine_row[0]
+            else:
+                # Create a default machine record
+                machine_id = str(uuid7())
+                cursor.execute("""
+                    INSERT INTO machine_machine (id, created_at, modified_at, hostname, hw_in_docker, hw_in_vm, os_arch, os_family, os_platform, os_kernel, os_release)
+                    VALUES (?, datetime('now'), datetime('now'), 'localhost', 0, 0, 'unknown', 'unknown', 'unknown', 'unknown', 'unknown')
+                """, (machine_id,))
 
             for ar_id, cmd, pwd, binary_id, iface_id, start_ts, end_ts, status in archive_results:
                 # Create Process record

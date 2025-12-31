@@ -195,6 +195,10 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         )
         return crawl
 
+    # Alias for from_jsonl
+    from_json = from_jsonl
+    to_json = to_jsonl
+
     @property
     def output_dir_parent(self) -> str:
         """Construct parent directory: users/{user_id}/crawls/{YYYYMMDD}"""

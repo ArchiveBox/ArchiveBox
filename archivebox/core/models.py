@@ -128,6 +128,10 @@ class Tag(ModelWithSerializers):
 
         return tag
 
+    # Aliases
+    from_json = from_jsonl
+    to_json = to_jsonl
+
 
 class SnapshotTag(models.Model):
     id = models.AutoField(primary_key=True)
@@ -1596,6 +1600,10 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         return snapshot
 
+    # Aliases
+    from_json = from_jsonl
+    to_json = to_jsonl
+
     def create_pending_archiveresults(self) -> list['ArchiveResult']:
         """
         Create ArchiveResult records for all enabled hooks.
@@ -2310,6 +2318,60 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             record['process_id'] = str(self.process_id)
         return record
 
+    @staticmethod
+    def from_jsonl(record: Dict[str, Any], overrides: Dict[str, Any] = None):
+        """
+        Create or get an ArchiveResult from a JSONL record.
+
+        Args:
+            record: Dict with 'snapshot_id' and 'plugin' (required)
+            overrides: Optional dict of field overrides
+
+        Returns:
+            ArchiveResult instance or None if invalid
+        """
+        from django.utils import timezone
+
+        overrides = overrides or {}
+
+        # Check if already exists by ID
+        ar_id = record.get('id')
+        if ar_id:
+            try:
+                return ArchiveResult.objects.get(id=ar_id)
+            except ArchiveResult.DoesNotExist:
+                pass
+
+        snapshot_id = record.get('snapshot_id')
+        plugin = record.get('plugin')
+        hook_name = record.get('hook_name', '')
+
+        if not snapshot_id or not plugin:
+            return None
+
+        # Get the snapshot
+        try:
+            snapshot = Snapshot.objects.get(id=snapshot_id)
+        except Snapshot.DoesNotExist:
+            return None
+
+        # Create or get the archive result
+        ar, created = ArchiveResult.objects.get_or_create(
+            snapshot=snapshot,
+            plugin=plugin,
+            hook_name=hook_name,
+            defaults={
+                'status': ArchiveResult.INITIAL_STATE,
+                'retry_at': timezone.now(),
+                **overrides,
+            },
+        )
+        return ar
+
+    # Aliases
+    from_json = from_jsonl
+    to_json = to_jsonl
+
     def save(self, *args, **kwargs):
         is_new = self._state.adding
 
@@ -2954,12 +3016,14 @@ class ArchiveResultMachine(BaseStateMachine, strict_states=True):
 
     @started.enter
     def enter_started(self):
-        from archivebox.machine.models import NetworkInterface
-
-        # Update Process with network interface
+        # Update Process with network interface (optional - fails gracefully)
         if self.archiveresult.process_id:
-            self.archiveresult.process.iface = NetworkInterface.current()
-            self.archiveresult.process.save()
+            try:
+                from archivebox.machine.models import NetworkInterface
+                self.archiveresult.process.iface = NetworkInterface.current()
+                self.archiveresult.process.save()
+            except Exception:
+                pass  # Network interface detection is optional
 
         # Lock the object and mark start time
         self.archiveresult.update_and_requeue(

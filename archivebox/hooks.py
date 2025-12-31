@@ -890,17 +890,35 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
         >>> get_plugin_special_config('wget', config)
         {'enabled': True, 'timeout': 120, 'binary': '/usr/bin/wget'}
     """
+    import os
+
     plugin_upper = plugin_name.upper()
 
-    # 1. Enabled: PLUGINNAME_ENABLED (default True)
+    # 1. Enabled: PLUGINNAME_ENABLED (default True unless DISABLE_ALL_PLUGINS is set)
     # Old names (USE_*, SAVE_*) are aliased in config.json via x-aliases
     enabled_key = f'{plugin_upper}_ENABLED'
-    enabled = config.get(enabled_key)
-    if enabled is None:
-        enabled = True
-    elif isinstance(enabled, str):
-        # Handle string values from config file ("true"/"false")
-        enabled = enabled.lower() not in ('false', '0', 'no', '')
+
+    # Check for global plugin disable flag (useful for tests)
+    # When set, only plugins with EXPLICIT env var override are enabled
+    global_disable = config.get('DISABLE_ALL_PLUGINS') or os.environ.get('DISABLE_ALL_PLUGINS', '')
+    is_globally_disabled = global_disable is True or (isinstance(global_disable, str) and global_disable.lower() in ('true', '1', 'yes'))
+
+    if is_globally_disabled:
+        # When globally disabled, only check environment for explicit override
+        # Ignore defaults from config.json
+        env_val = os.environ.get(enabled_key, '')
+        if env_val.lower() in ('true', '1', 'yes'):
+            enabled = True
+        else:
+            enabled = False
+    else:
+        # Normal mode - check config (which includes defaults from config.json)
+        enabled = config.get(enabled_key)
+        if enabled is None:
+            enabled = True
+        elif isinstance(enabled, str):
+            # Handle string values from config file ("true"/"false")
+            enabled = enabled.lower() not in ('false', '0', 'no', '')
 
     # 2. Timeout: PLUGINNAME_TIMEOUT (fallback to TIMEOUT, default 300)
     timeout_key = f'{plugin_upper}_TIMEOUT'

@@ -90,7 +90,7 @@ def process_stdin_records() -> int:
                     if crawl.status not in [Crawl.StatusChoices.SEALED]:
                         crawl.status = Crawl.StatusChoices.QUEUED
                     crawl.save()
-                    output_records.append(crawl.to_json())
+                    output_records.append(crawl.to_jsonl())
                     queued_count += 1
 
             elif record_type == TYPE_SNAPSHOT or (record.get('url') and not record_type):
@@ -109,7 +109,7 @@ def process_stdin_records() -> int:
                     if snapshot.status not in [Snapshot.StatusChoices.SEALED]:
                         snapshot.status = Snapshot.StatusChoices.QUEUED
                     snapshot.save()
-                    output_records.append(snapshot.to_json())
+                    output_records.append(snapshot.to_jsonl())
                     queued_count += 1
 
             elif record_type == TYPE_ARCHIVERESULT:
@@ -128,7 +128,7 @@ def process_stdin_records() -> int:
                     if archiveresult.status in [ArchiveResult.StatusChoices.FAILED, ArchiveResult.StatusChoices.SKIPPED, ArchiveResult.StatusChoices.BACKOFF]:
                         archiveresult.status = ArchiveResult.StatusChoices.QUEUED
                     archiveresult.save()
-                    output_records.append(archiveresult.to_json())
+                    output_records.append(archiveresult.to_jsonl())
                     queued_count += 1
 
             else:

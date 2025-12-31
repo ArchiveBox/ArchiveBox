@@ -119,7 +119,7 @@ def create_snapshots(
                     if snapshot:
                         created_snapshots.append(snapshot)
                         if not is_tty:
-                            write_record(snapshot.to_json())
+                            write_record(snapshot.to_jsonl())
 
             elif record_type == TYPE_SNAPSHOT or record.get('url'):
                 # Input is a Snapshot or plain URL
@@ -133,7 +133,7 @@ def create_snapshots(
                 if snapshot:
                     created_snapshots.append(snapshot)
                     if not is_tty:
-                        write_record(snapshot.to_json())
+                        write_record(snapshot.to_jsonl())
 
             else:
                 # Pass-through: output records we don't handle
@@ -209,7 +209,7 @@ def list_snapshots(
             }.get(snapshot.status, 'dim')
             rprint(f'[{status_color}]{snapshot.status:8}[/{status_color}] [dim]{snapshot.id}[/dim] {snapshot.url[:60]}')
         else:
-            write_record(snapshot.to_json())
+            write_record(snapshot.to_jsonl())
         count += 1
 
     rprint(f'[dim]Listed {count} snapshots[/dim]', file=sys.stderr)
@@ -270,7 +270,7 @@ def update_snapshots(
             updated_count += 1
 
             if not is_tty:
-                write_record(snapshot.to_json())
+                write_record(snapshot.to_jsonl())
 
         except Snapshot.DoesNotExist:
             rprint(f'[yellow]Snapshot not found: {snapshot_id}[/yellow]', file=sys.stderr)

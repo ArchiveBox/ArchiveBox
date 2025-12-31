@@ -25,12 +25,12 @@ def run_archivebox_cmd(
     env['DATA_DIR'] = str(data_dir)
     env['USE_COLOR'] = 'False'
     env['SHOW_PROGRESS'] = 'False'
-    # Enable only HEADERS extractor (pure Python, no Chrome) - disable all others
-    env['SAVE_HEADERS'] = 'True'
-    for extractor in ['TITLE', 'FAVICON', 'WGET', 'WARC', 'PDF', 'SCREENSHOT',
-                      'DOM', 'SINGLEFILE', 'READABILITY', 'MERCURY', 'GIT',
-                      'YTDLP', 'HTMLTOTEXT', 'ARCHIVEDOTORG']:
-        env[f'SAVE_{extractor}'] = 'False'
+
+    # Disable ALL plugins by default, then enable only the fast ones we need
+    env['DISABLE_ALL_PLUGINS'] = 'True'
+    # Enable only HEADERS - it's a fast JS script that makes HTTP HEAD request
+    env['HEADERS_ENABLED'] = 'True'
+
     # Speed up network operations
     env['TIMEOUT'] = '5'
     env['CHECK_SSL_VALIDITY'] = 'False'

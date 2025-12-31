@@ -542,7 +542,7 @@ class ProcessManager(models.Manager):
         return process
 
 
-class Process(ModelWithHealthStats):
+class Process(models.Model):
     """
     Tracks a single OS process execution.
 
@@ -666,10 +666,6 @@ class Process(ModelWithHealthStats):
         db_index=True,
         help_text='When to retry this process'
     )
-
-    # Health stats
-    num_uses_failed = models.PositiveIntegerField(default=0)
-    num_uses_succeeded = models.PositiveIntegerField(default=0)
 
     state_machine_name: str = 'archivebox.machine.models.ProcessMachine'
 
