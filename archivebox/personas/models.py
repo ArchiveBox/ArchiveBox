@@ -7,212 +7,149 @@ Each persona has its own:
 - Chrome extensions directory
 - Cookies file
 - Config overrides
-
-Personas are stored as directories under PERSONAS_DIR (default: data/personas/).
 """
 
 __package__ = 'archivebox.personas'
 
 from pathlib import Path
-from typing import Optional, Dict, Any, Iterator
+from typing import TYPE_CHECKING, Iterator
+
+from django.db import models
+from django.conf import settings
+from django.utils import timezone
+
+from archivebox.base_models.models import ModelWithConfig, get_or_create_system_user_pk
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
 
 
-class Persona:
+class Persona(ModelWithConfig):
     """
-    Represents a browser persona/profile for archiving sessions.
+    Browser persona/profile for archiving sessions.
 
-    Each persona is a directory containing:
-    - chrome_user_data/     Chrome profile directory
-    - chrome_extensions/    Installed extensions
-    - cookies.txt           Cookies file for wget/curl
-    - config.json           Persona-specific config overrides
+    Each persona provides:
+    - CHROME_USER_DATA_DIR: Chrome profile directory
+    - CHROME_EXTENSIONS_DIR: Installed extensions directory
+    - COOKIES_FILE: Cookies file for wget/curl
+    - config: JSON field with persona-specific config overrides
 
     Usage:
-        persona = Persona('Default')
-        persona.cleanup_chrome()
+        # Get persona and its derived config
+        config = get_config(persona=crawl.persona, crawl=crawl, snapshot=snapshot)
+        chrome_dir = config['CHROME_USER_DATA_DIR']
 
-        # Or iterate all personas:
-        for persona in Persona.all():
-            persona.cleanup_chrome()
+        # Or access directly from persona
+        persona = Persona.objects.get(name='Default')
+        persona.CHROME_USER_DATA_DIR  # -> Path to chrome_user_data
     """
 
-    def __init__(self, name: str, personas_dir: Optional[Path] = None):
+    name = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk)
+
+    class Meta:
+        app_label = 'personas'
+
+    def __str__(self) -> str:
+        return self.name
+
+    @property
+    def path(self) -> Path:
+        """Path to persona directory under PERSONAS_DIR."""
+        from archivebox.config.constants import CONSTANTS
+        return CONSTANTS.PERSONAS_DIR / self.name
+
+    @property
+    def CHROME_USER_DATA_DIR(self) -> str:
+        """Derived path to Chrome user data directory for this persona."""
+        return str(self.path / 'chrome_user_data')
+
+    @property
+    def CHROME_EXTENSIONS_DIR(self) -> str:
+        """Derived path to Chrome extensions directory for this persona."""
+        return str(self.path / 'chrome_extensions')
+
+    @property
+    def COOKIES_FILE(self) -> str:
+        """Derived path to cookies.txt file for this persona (if exists)."""
+        cookies_path = self.path / 'cookies.txt'
+        return str(cookies_path) if cookies_path.exists() else ''
+
+    def get_derived_config(self) -> dict:
         """
-        Initialize a Persona by name.
+        Get config dict with derived paths filled in.
 
-        Args:
-            name: Persona name (directory name under PERSONAS_DIR)
-            personas_dir: Override PERSONAS_DIR (defaults to CONSTANTS.PERSONAS_DIR)
+        Returns dict with:
+        - All values from self.config JSONField
+        - CHROME_USER_DATA_DIR (derived from persona path)
+        - CHROME_EXTENSIONS_DIR (derived from persona path)
+        - COOKIES_FILE (derived from persona path, if file exists)
+        - ACTIVE_PERSONA (set to this persona's name)
         """
-        self.name = name
+        derived = dict(self.config or {})
 
-        if personas_dir is None:
-            from archivebox.config.constants import CONSTANTS
-            personas_dir = CONSTANTS.PERSONAS_DIR
+        # Add derived paths (don't override if explicitly set in config)
+        if 'CHROME_USER_DATA_DIR' not in derived:
+            derived['CHROME_USER_DATA_DIR'] = self.CHROME_USER_DATA_DIR
+        if 'CHROME_EXTENSIONS_DIR' not in derived:
+            derived['CHROME_EXTENSIONS_DIR'] = self.CHROME_EXTENSIONS_DIR
+        if 'COOKIES_FILE' not in derived and self.COOKIES_FILE:
+            derived['COOKIES_FILE'] = self.COOKIES_FILE
 
-        self.personas_dir = Path(personas_dir)
-        self.path = self.personas_dir / name
+        # Always set ACTIVE_PERSONA to this persona's name
+        derived['ACTIVE_PERSONA'] = self.name
 
-    @property
-    def chrome_user_data_dir(self) -> Path:
-        """Path to Chrome user data directory for this persona."""
-        return self.path / 'chrome_user_data'
-
-    @property
-    def chrome_extensions_dir(self) -> Path:
-        """Path to Chrome extensions directory for this persona."""
-        return self.path / 'chrome_extensions'
-
-    @property
-    def cookies_file(self) -> Path:
-        """Path to cookies.txt file for this persona."""
-        return self.path / 'cookies.txt'
-
-    @property
-    def config_file(self) -> Path:
-        """Path to config.json file for this persona."""
-        return self.path / 'config.json'
-
-    @property
-    def singleton_lock(self) -> Path:
-        """Path to Chrome's SingletonLock file."""
-        return self.chrome_user_data_dir / 'SingletonLock'
-
-    def exists(self) -> bool:
-        """Check if persona directory exists."""
-        return self.path.is_dir()
+        return derived
 
     def ensure_dirs(self) -> None:
         """Create persona directories if they don't exist."""
         self.path.mkdir(parents=True, exist_ok=True)
-        self.chrome_user_data_dir.mkdir(parents=True, exist_ok=True)
-        self.chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
+        (self.path / 'chrome_user_data').mkdir(parents=True, exist_ok=True)
+        (self.path / 'chrome_extensions').mkdir(parents=True, exist_ok=True)
 
     def cleanup_chrome(self) -> bool:
         """
-        Clean up Chrome state files for this persona.
-
-        Removes stale SingletonLock files left behind when Chrome crashes
-        or is killed unexpectedly. This allows Chrome to start fresh.
+        Clean up Chrome state files (SingletonLock, etc.) for this persona.
 
         Returns:
             True if cleanup was performed, False if no cleanup needed
         """
         cleaned = False
+        chrome_dir = self.path / 'chrome_user_data'
 
-        # Remove SingletonLock if it exists
-        if self.singleton_lock.exists():
+        if not chrome_dir.exists():
+            return False
+
+        # Clean up SingletonLock files
+        for lock_file in chrome_dir.glob('**/SingletonLock'):
             try:
-                self.singleton_lock.unlink()
+                lock_file.unlink()
                 cleaned = True
             except OSError:
-                pass  # May be in use by active Chrome
+                pass
 
-        # Also clean up any other stale lock files Chrome might leave
-        if self.chrome_user_data_dir.exists():
-            for lock_file in self.chrome_user_data_dir.glob('**/SingletonLock'):
-                try:
-                    lock_file.unlink()
-                    cleaned = True
-                except OSError:
-                    pass
-
-            # Clean up socket files
-            for socket_file in self.chrome_user_data_dir.glob('**/SingletonSocket'):
-                try:
-                    socket_file.unlink()
-                    cleaned = True
-                except OSError:
-                    pass
+        # Clean up SingletonSocket files
+        for socket_file in chrome_dir.glob('**/SingletonSocket'):
+            try:
+                socket_file.unlink()
+                cleaned = True
+            except OSError:
+                pass
 
         return cleaned
 
-    def get_config(self) -> Dict[str, Any]:
-        """
-        Load persona-specific config overrides from config.json.
-
-        Returns:
-            Dict of config overrides, or empty dict if no config file
-        """
-        import json
-
-        if not self.config_file.exists():
-            return {}
-
-        try:
-            return json.loads(self.config_file.read_text())
-        except (json.JSONDecodeError, OSError):
-            return {}
-
-    def save_config(self, config: Dict[str, Any]) -> None:
-        """
-        Save persona-specific config overrides to config.json.
-
-        Args:
-            config: Dict of config overrides to save
-        """
-        import json
-
-        self.ensure_dirs()
-        self.config_file.write_text(json.dumps(config, indent=2))
+    @classmethod
+    def get_or_create_default(cls) -> 'Persona':
+        """Get or create the Default persona."""
+        persona, _ = cls.objects.get_or_create(name='Default')
+        return persona
 
     @classmethod
-    def all(cls, personas_dir: Optional[Path] = None) -> Iterator['Persona']:
-        """
-        Iterate over all personas in PERSONAS_DIR.
-
-        Args:
-            personas_dir: Override PERSONAS_DIR (defaults to CONSTANTS.PERSONAS_DIR)
-
-        Yields:
-            Persona instances for each persona directory
-        """
-        if personas_dir is None:
-            from archivebox.config.constants import CONSTANTS
-            personas_dir = CONSTANTS.PERSONAS_DIR
-
-        personas_dir = Path(personas_dir)
-
-        if not personas_dir.exists():
-            return
-
-        for persona_path in personas_dir.iterdir():
-            if persona_path.is_dir():
-                yield cls(persona_path.name, personas_dir)
-
-    @classmethod
-    def get_active(cls, config: Dict[str, Any]) -> 'Persona':
-        """
-        Get the currently active persona from a merged config dict.
-
-        Args:
-            config: Merged config dict from get_config(user=, crawl=, snapshot=, ...)
-
-        Returns:
-            Persona instance for the active persona
-        """
-        active_name = config.get('ACTIVE_PERSONA') or config.get('DEFAULT_PERSONA') or 'Default'
-        return cls(active_name)
-
-    @classmethod
-    def cleanup_chrome_all(cls, personas_dir: Optional[Path] = None) -> int:
-        """
-        Clean up Chrome state files for all personas.
-
-        Args:
-            personas_dir: Override PERSONAS_DIR (defaults to CONSTANTS.PERSONAS_DIR)
-
-        Returns:
-            Number of personas that had cleanup performed
-        """
-        cleaned_count = 0
-        for persona in cls.all(personas_dir):
+    def cleanup_chrome_all(cls) -> int:
+        """Clean up Chrome state files for all personas."""
+        cleaned = 0
+        for persona in cls.objects.all():
             if persona.cleanup_chrome():
-                cleaned_count += 1
-        return cleaned_count
-
-    def __str__(self) -> str:
-        return f"Persona({self.name})"
-
-    def __repr__(self) -> str:
-        return f"Persona(name={self.name!r}, path={self.path!r})"
+                cleaned += 1
+        return cleaned

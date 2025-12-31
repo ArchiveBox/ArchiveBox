@@ -120,6 +120,7 @@ class BaseConfigSet(BaseSettings):
 def get_config(
     scope: str = "global",
     defaults: Optional[Dict] = None,
+    persona: Any = None,
     user: Any = None,
     crawl: Any = None,
     snapshot: Any = None,
@@ -131,14 +132,16 @@ def get_config(
     1. Per-snapshot config (snapshot.config JSON field)
     2. Per-crawl config (crawl.config JSON field)
     3. Per-user config (user.config JSON field)
-    4. Environment variables
-    5. Config file (ArchiveBox.conf)
-    6. Plugin schema defaults (config.json)
-    7. Core config defaults
+    4. Per-persona config (persona.get_derived_config() - includes CHROME_USER_DATA_DIR etc.)
+    5. Environment variables
+    6. Config file (ArchiveBox.conf)
+    7. Plugin schema defaults (config.json)
+    8. Core config defaults
 
     Args:
         scope: Config scope ('global', 'crawl', 'snapshot', etc.)
         defaults: Default values to start with
+        persona: Persona object (provides derived paths like CHROME_USER_DATA_DIR)
         user: User object with config JSON field
         crawl: Crawl object with config JSON field
         snapshot: Snapshot object with config JSON field
@@ -205,6 +208,10 @@ def get_config(
     except ImportError:
         pass
 
+    # Apply persona config overrides (includes derived paths like CHROME_USER_DATA_DIR)
+    if persona and hasattr(persona, "get_derived_config"):
+        config.update(persona.get_derived_config())
+
     # Apply user config overrides
     if user and hasattr(user, "config") and user.config:
         config.update(user.config)
@@ -239,52 +246,6 @@ def get_config(
                 del config[alias_key]
     except ImportError:
         pass
-
-    # Derive persona-based paths if not explicitly set
-    # This allows plugins to just use CHROME_USER_DATA_DIR without knowing about personas
-    config = _derive_persona_paths(config, CONSTANTS)
-
-    return config
-
-
-def _derive_persona_paths(config: Dict[str, Any], CONSTANTS: Any) -> Dict[str, Any]:
-    """
-    Derive persona-specific paths from ACTIVE_PERSONA if not explicitly set.
-
-    This runs after all config sources are merged, so plugins receive
-    the final resolved paths without needing to know about the persona system.
-
-    Derived paths:
-        CHROME_USER_DATA_DIR  <- PERSONAS_DIR / ACTIVE_PERSONA / chrome_user_data
-        CHROME_EXTENSIONS_DIR <- PERSONAS_DIR / ACTIVE_PERSONA / chrome_extensions
-        COOKIES_FILE          <- PERSONAS_DIR / ACTIVE_PERSONA / cookies.txt (if exists)
-    """
-    # Get active persona (defaults to "Default")
-    active_persona = config.get('ACTIVE_PERSONA') or config.get('DEFAULT_PERSONA') or 'Default'
-
-    # Ensure ACTIVE_PERSONA is always set in config for downstream use
-    config['ACTIVE_PERSONA'] = active_persona
-
-    # Get personas directory
-    personas_dir = CONSTANTS.PERSONAS_DIR
-    persona_dir = personas_dir / active_persona
-
-    # Derive CHROME_USER_DATA_DIR if not explicitly set
-    chrome_user_data_dir = config.get('CHROME_USER_DATA_DIR')
-    if not chrome_user_data_dir:
-        config['CHROME_USER_DATA_DIR'] = str(persona_dir / 'chrome_user_data')
-
-    # Derive CHROME_EXTENSIONS_DIR if not explicitly set
-    chrome_extensions_dir = config.get('CHROME_EXTENSIONS_DIR')
-    if not chrome_extensions_dir:
-        config['CHROME_EXTENSIONS_DIR'] = str(persona_dir / 'chrome_extensions')
-
-    # Derive COOKIES_FILE if not explicitly set and file exists
-    cookies_file = config.get('COOKIES_FILE')
-    if not cookies_file:
-        persona_cookies = persona_dir / 'cookies.txt'
-        if persona_cookies.exists():
-            config['COOKIES_FILE'] = str(persona_cookies)
 
     return config
 
