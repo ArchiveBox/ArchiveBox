@@ -8,7 +8,7 @@
  * NOTE: We use Chromium instead of Chrome because Chrome 137+ removed support for
  * --load-extension and --disable-extensions-except flags.
  *
- * Usage: on_Crawl__20_chrome_launch.bg.js --crawl-id=<uuid> --source-url=<url>
+ * Usage: on_Crawl__30_chrome_launch.bg.js --crawl-id=<uuid> --source-url=<url>
  * Output: Writes to current directory (executor creates chrome/ dir):
  *   - cdp_url.txt: WebSocket URL for CDP connection
  *   - chrome.pid: Chromium process ID (for cleanup)
@@ -165,14 +165,6 @@ async function main() {
         chromePid = result.pid;
         const cdpUrl = result.cdpUrl;
 
-        // Write extensions metadata
-        if (installedExtensions.length > 0) {
-            fs.writeFileSync(
-                path.join(OUTPUT_DIR, 'extensions.json'),
-                JSON.stringify(installedExtensions, null, 2)
-            );
-        }
-
         // Connect puppeteer for extension verification
         console.error(`[*] Connecting puppeteer to CDP...`);
         const browser = await puppeteer.connect({
@@ -181,30 +173,84 @@ async function main() {
         });
         browserInstance = browser;
 
-        // Verify extensions loaded
+        // Get actual extension IDs from chrome://extensions page
         if (extensionPaths.length > 0) {
-            await new Promise(r => setTimeout(r, 3000));
+            await new Promise(r => setTimeout(r, 2000));
 
-            const targets = browser.targets();
-            console.error(`[*] All browser targets (${targets.length}):`);
-            for (const t of targets) {
-                console.error(`    - ${t.type()}: ${t.url().slice(0, 80)}`);
+            try {
+                const extPage = await browser.newPage();
+                await extPage.goto('chrome://extensions', { waitUntil: 'domcontentloaded', timeout: 10000 });
+                await new Promise(r => setTimeout(r, 2000));
+
+                // Parse extension info from the page
+                const extensionsFromPage = await extPage.evaluate(() => {
+                    const extensions = [];
+                    // Extensions manager uses shadow DOM
+                    const manager = document.querySelector('extensions-manager');
+                    if (!manager || !manager.shadowRoot) return extensions;
+
+                    const itemList = manager.shadowRoot.querySelector('extensions-item-list');
+                    if (!itemList || !itemList.shadowRoot) return extensions;
+
+                    const items = itemList.shadowRoot.querySelectorAll('extensions-item');
+                    for (const item of items) {
+                        const id = item.getAttribute('id');
+                        const nameEl = item.shadowRoot?.querySelector('#name');
+                        const name = nameEl?.textContent?.trim() || '';
+                        if (id && name) {
+                            extensions.push({ id, name });
+                        }
+                    }
+                    return extensions;
+                });
+
+                console.error(`[*] Found ${extensionsFromPage.length} extension(s) on chrome://extensions`);
+                for (const e of extensionsFromPage) {
+                    console.error(`    - ${e.id}: "${e.name}"`);
+                }
+
+                // Match extensions by name (strict matching)
+                for (const ext of installedExtensions) {
+                    // Read the extension's manifest to get its display name
+                    const manifestPath = path.join(ext.unpacked_path, 'manifest.json');
+                    if (fs.existsSync(manifestPath)) {
+                        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+                        const manifestName = manifest.name || '';
+                        console.error(`[*] Looking for match: ext.name="${ext.name}" manifest.name="${manifestName}"`);
+
+                        // Find matching extension from page by exact name match first
+                        let match = extensionsFromPage.find(e => e.name === manifestName);
+
+                        // If no exact match, try case-insensitive exact match
+                        if (!match) {
+                            match = extensionsFromPage.find(e =>
+                                e.name.toLowerCase() === manifestName.toLowerCase()
+                            );
+                        }
+
+                        if (match) {
+                            ext.id = match.id;
+                            console.error(`[+] Matched extension: ${ext.name} (${manifestName}) -> ${match.id}`);
+                        } else {
+                            console.error(`[!] No match found for: ${ext.name} (${manifestName})`);
+                        }
+                    }
+                }
+
+                await extPage.close();
+            } catch (e) {
+                console.error(`[!] Failed to get extensions from chrome://extensions: ${e.message}`);
             }
 
-            const extTargets = targets.filter(t =>
-                t.url().startsWith('chrome-extension://') ||
-                t.type() === 'service_worker' ||
-                t.type() === 'background_page'
-            );
-
-            // Filter out built-in extensions
+            // Fallback: check browser targets
+            const targets = browser.targets();
             const builtinIds = [
                 'nkeimhogjdpnpccoofpliimaahmaaome',
                 'fignfifoniblkonapihmkfakmlgkbkcf',
                 'ahfgeienlihckogmohjhadlkjgocpleb',
                 'mhjfbmdgcfjbbpaeojofohoefgiehjai',
             ];
-            const customExtTargets = extTargets.filter(t => {
+            const customExtTargets = targets.filter(t => {
                 const url = t.url();
                 if (!url.startsWith('chrome-extension://')) return false;
                 const extId = url.split('://')[1].split('/')[0];
@@ -216,13 +262,21 @@ async function main() {
             for (const target of customExtTargets) {
                 const url = target.url();
                 const extId = url.split('://')[1].split('/')[0];
-                console.error(`[+] Extension loaded: ${extId} (${target.type()})`);
+                console.error(`[+] Extension target: ${extId} (${target.type()})`);
             }
 
             if (customExtTargets.length === 0 && extensionPaths.length > 0) {
                 console.error(`[!] Warning: No custom extensions detected. Extension loading may have failed.`);
                 console.error(`[!] Make sure you are using Chromium, not Chrome (Chrome 137+ removed --load-extension support)`);
             }
+        }
+
+        // Write extensions metadata with actual IDs
+        if (installedExtensions.length > 0) {
+            fs.writeFileSync(
+                path.join(OUTPUT_DIR, 'extensions.json'),
+                JSON.stringify(installedExtensions, null, 2)
+            );
         }
 
         console.error(`[+] Chromium session started for crawl ${crawlId}`);

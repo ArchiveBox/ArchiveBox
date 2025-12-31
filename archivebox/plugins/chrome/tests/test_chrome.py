@@ -29,7 +29,7 @@ import shutil
 import platform
 
 PLUGIN_DIR = Path(__file__).parent.parent
-CHROME_LAUNCH_HOOK = PLUGIN_DIR / 'on_Crawl__20_chrome_launch.bg.js'
+CHROME_LAUNCH_HOOK = PLUGIN_DIR / 'on_Crawl__30_chrome_launch.bg.js'
 CHROME_TAB_HOOK = PLUGIN_DIR / 'on_Snapshot__20_chrome_tab.bg.js'
 CHROME_NAVIGATE_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_chrome_navigate.*'), None)
 
@@ -176,6 +176,7 @@ def test_chrome_launch_and_tab_creation():
         crawl_dir = Path(tmpdir) / 'crawl'
         crawl_dir.mkdir()
         chrome_dir = crawl_dir / 'chrome'
+        chrome_dir.mkdir()
 
         # Get test environment with NODE_MODULES_DIR set
         env = get_test_env()
@@ -184,7 +185,7 @@ def test_chrome_launch_and_tab_creation():
         # Launch Chrome at crawl level (background process)
         chrome_launch_process = subprocess.Popen(
             ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-crawl-123'],
-            cwd=str(crawl_dir),
+            cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -292,7 +293,7 @@ def test_chrome_navigation():
         # Launch Chrome (background process)
         chrome_launch_process = subprocess.Popen(
             ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-crawl-nav'],
-            cwd=str(crawl_dir),
+            cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -363,7 +364,7 @@ def test_tab_cleanup_on_sigterm():
         # Launch Chrome (background process)
         chrome_launch_process = subprocess.Popen(
             ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-cleanup'],
-            cwd=str(crawl_dir),
+            cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -423,11 +424,12 @@ def test_multiple_snapshots_share_chrome():
         crawl_dir = Path(tmpdir) / 'crawl'
         crawl_dir.mkdir()
         chrome_dir = crawl_dir / 'chrome'
+        chrome_dir.mkdir()
 
         # Launch Chrome at crawl level
         chrome_launch_process = subprocess.Popen(
             ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-multi-crawl'],
-            cwd=str(crawl_dir),
+            cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -513,7 +515,7 @@ def test_chrome_cleanup_on_crawl_end():
         # Launch Chrome in background
         chrome_launch_process = subprocess.Popen(
             ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-crawl-end'],
-            cwd=str(crawl_dir),
+            cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -554,11 +556,12 @@ def test_zombie_prevention_hook_killed():
         crawl_dir = Path(tmpdir) / 'crawl'
         crawl_dir.mkdir()
         chrome_dir = crawl_dir / 'chrome'
+        chrome_dir.mkdir()
 
         # Launch Chrome
         chrome_launch_process = subprocess.Popen(
             ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-zombie'],
-            cwd=str(crawl_dir),
+            cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

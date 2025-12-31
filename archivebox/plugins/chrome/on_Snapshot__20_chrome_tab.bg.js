@@ -2,7 +2,7 @@
 /**
  * Create a Chrome tab for this snapshot in the shared crawl Chrome session.
  *
- * If a crawl-level Chrome session exists (from on_Crawl__20_chrome_launch.bg.js),
+ * If a crawl-level Chrome session exists (from on_Crawl__30_chrome_launch.bg.js),
  * this connects to it and creates a new tab. Otherwise, falls back to launching
  * its own Chrome instance.
  *
@@ -215,7 +215,7 @@ async function launchNewChrome(url, binary) {
     console.log(`[*] Launched Chrome (PID: ${chromePid}), waiting for debug port...`);
 
     // Write PID immediately for cleanup
-    fs.writeFileSync(path.join(OUTPUT_DIR, 'pid.txt'), String(chromePid));
+    fs.writeFileSync(path.join(OUTPUT_DIR, 'chrome.pid'), String(chromePid));
 
     try {
         // Wait for Chrome to be ready
