@@ -88,7 +88,7 @@ class TestFreshInstall(unittest.TestCase):
             result = run_archivebox(work_dir, ['add', '--index-only', 'https://example.com'])
             self.assertEqual(result.returncode, 0, f"Add failed: {result.stderr}")
 
-            result = run_archivebox(work_dir, ['list'])
+            result = run_archivebox(work_dir, ['snapshot', 'list'])
             self.assertEqual(result.returncode, 0, f"List failed: {result.stderr}")
 
             # Verify the URL appears in output
@@ -176,7 +176,7 @@ class TestSchemaIntegrity(unittest.TestCase):
             columns = {row[1] for row in cursor.fetchall()}
             conn.close()
 
-            required = {'id', 'snapshot_id', 'extractor', 'status', 'created_at', 'modified_at'}
+            required = {'id', 'snapshot_id', 'hook_name', 'status', 'created_at', 'modified_at'}
             for col in required:
                 self.assertIn(col, columns, f"Missing column: {col}")
 

@@ -2,7 +2,7 @@
 
 import django.db.models.deletion
 import django.utils.timezone
-import uuid
+from archivebox import uuid_compat
 from django.db import migrations, models
 
 
@@ -73,7 +73,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='archiveresult',
             name='uuid',
-            field=models.UUIDField(blank=True, db_index=True, default=uuid.uuid7, null=True),
+            field=models.UUIDField(blank=True, db_index=True, default=uuid_compat.uuid7, null=True),
         ),
         migrations.AlterField(
             model_name='snapshot',
@@ -98,7 +98,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='snapshot',
             name='id',
-            field=models.UUIDField(default=uuid.uuid7, editable=False, primary_key=True, serialize=False, unique=True),
+            field=models.UUIDField(default=uuid_compat.uuid7, editable=False, primary_key=True, serialize=False, unique=True),
         ),
         migrations.AlterField(
             model_name='snapshottag',
