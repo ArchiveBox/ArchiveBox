@@ -1407,17 +1407,22 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         Clean up background ArchiveResult hooks.
 
         Called by the state machine when entering the 'sealed' state.
-        Kills any background hooks and finalizes their ArchiveResults.
+        Gracefully terminates background hooks using plugin-specific timeouts:
+            1. Send SIGTERM to all background hook processes
+            2. Wait up to each hook's plugin-specific timeout
+            3. Send SIGKILL to any hooks still running after timeout
         """
-        from archivebox.hooks import kill_process
+        from archivebox.hooks import graceful_terminate_background_hooks
+        from archivebox.config.configset import get_config
 
-        # Kill any background ArchiveResult hooks
         if not self.OUTPUT_DIR.exists():
             return
 
-        # Find all .pid files in this snapshot's output directory
-        for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
-            kill_process(pid_file, validate=True)
+        # Get merged config for plugin-specific timeout lookup
+        config = get_config(crawl=self.crawl, snapshot=self)
+
+        # Gracefully terminate all background hooks with plugin-specific timeouts
+        graceful_terminate_background_hooks(self.OUTPUT_DIR, config)
 
         # Update all STARTED ArchiveResults from filesystem
         results = self.archiveresult_set.filter(status=ArchiveResult.StatusChoices.STARTED)
@@ -2706,7 +2711,20 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
         # Read and parse JSONL output from hook-specific stdout log
         stdout_file = plugin_dir / f'{hook_basename}.stdout.log'
+        stderr_file = plugin_dir / f'{hook_basename}.stderr.log'
+        returncode_file = plugin_dir / f'{hook_basename}.returncode'
+
         stdout = stdout_file.read_text() if stdout_file.exists() else ''
+        stderr = stderr_file.read_text() if stderr_file.exists() else ''
+
+        # Read returncode from file (written by graceful_terminate_background_hooks)
+        returncode = None
+        if returncode_file.exists():
+            try:
+                rc_text = returncode_file.read_text().strip()
+                returncode = int(rc_text) if rc_text else None
+            except (ValueError, OSError):
+                pass
 
         records = []
         for line in stdout.splitlines():
@@ -2741,9 +2759,30 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
                 self._set_binary_from_cmd(hook_data['cmd'])
             # Note: cmd_version is derived from binary.version, not stored on Process
         else:
-            # No ArchiveResult record = failed
-            self.status = self.StatusChoices.FAILED
-            self.output_str = 'Hook did not output ArchiveResult record'
+            # No ArchiveResult JSONL record - determine status from returncode
+            if returncode is not None:
+                if returncode == 0:
+                    self.status = self.StatusChoices.SUCCEEDED
+                    self.output_str = 'Hook completed successfully (no JSONL output)'
+                elif returncode < 0:
+                    # Negative = killed by signal (e.g., -9 for SIGKILL, -15 for SIGTERM)
+                    sig_num = abs(returncode)
+                    sig_name = {9: 'SIGKILL', 15: 'SIGTERM'}.get(sig_num, f'signal {sig_num}')
+                    self.status = self.StatusChoices.FAILED
+                    self.output_str = f'Hook killed by {sig_name}'
+                    if stderr:
+                        self.output_str += f'\n\nstderr:\n{stderr[:2000]}'
+                else:
+                    self.status = self.StatusChoices.FAILED
+                    self.output_str = f'Hook failed with exit code {returncode}'
+                    if stderr:
+                        self.output_str += f'\n\nstderr:\n{stderr[:2000]}'
+            else:
+                # No returncode file and no JSONL = failed
+                self.status = self.StatusChoices.FAILED
+                self.output_str = 'Hook did not output ArchiveResult record'
+                if stderr:
+                    self.output_str += f'\n\nstderr:\n{stderr[:2000]}'
 
         # Walk filesystem and populate output_files, output_size, output_mimetypes
         # Exclude hook output files (hook-specific names like on_Snapshot__50_wget.stdout.log)
@@ -2753,6 +2792,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
                 name.endswith('.stdout.log') or
                 name.endswith('.stderr.log') or
                 name.endswith('.pid') or
+                name.endswith('.returncode') or
                 (name.endswith('.sh') and name.startswith('on_'))
             )
 
@@ -2821,10 +2861,10 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         }
         process_hook_records(filtered_records, overrides=overrides)
 
-        # Cleanup PID files and empty logs (hook-specific names)
+        # Cleanup PID files, returncode files, and empty logs (hook-specific names)
         pid_file = plugin_dir / f'{hook_basename}.pid'
         pid_file.unlink(missing_ok=True)
-        stderr_file = plugin_dir / f'{hook_basename}.stderr.log'
+        returncode_file.unlink(missing_ok=True)
         if stdout_file.exists() and stdout_file.stat().st_size == 0:
             stdout_file.unlink()
         if stderr_file.exists() and stderr_file.stat().st_size == 0:

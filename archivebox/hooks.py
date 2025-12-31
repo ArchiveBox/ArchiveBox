@@ -1266,3 +1266,180 @@ def kill_process(pid_file: Path, sig: int = signal.SIGTERM, validate: bool = Tru
             pass
 
 
+def graceful_terminate_background_hooks(
+    output_dir: Path,
+    config: Dict[str, Any],
+    poll_interval: float = 0.5,
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Gracefully terminate all background hooks in an output directory.
+
+    Termination strategy:
+        1. Send SIGTERM to all background hook processes (polite shutdown request)
+        2. For each hook, wait up to its plugin-specific timeout
+        3. Send SIGKILL to any hooks still running after their timeout expires
+        4. Reap each process with waitpid() to get exit code
+        5. Write returncode to .returncode file for update_from_output()
+
+    Args:
+        output_dir: Snapshot output directory containing plugin subdirs with .pid files
+        config: Merged config dict from get_config() for timeout lookup
+        poll_interval: Seconds between process liveness checks (default: 0.5s)
+
+    Returns:
+        Dict mapping hook names to result info:
+            {
+                'hook_name': {
+                    'status': 'sigterm' | 'sigkill' | 'already_dead' | 'invalid',
+                    'returncode': int or None,
+                    'pid': int or None,
+                }
+            }
+
+    Example:
+        from archivebox.config.configset import get_config
+        config = get_config(crawl=my_crawl, snapshot=my_snapshot)
+        results = graceful_terminate_background_hooks(snapshot.OUTPUT_DIR, config)
+        # {'on_Snapshot__20_chrome_tab.bg': {'status': 'sigterm', 'returncode': 0, 'pid': 12345}}
+    """
+    from archivebox.misc.process_utils import validate_pid_file
+
+    if not output_dir.exists():
+        return {}
+
+    results = {}
+
+    # Collect all pid files and their metadata
+    pid_files = list(output_dir.glob('**/*.pid'))
+    if not pid_files:
+        return {}
+
+    # Phase 1: Send SIGTERM to all background hook processes
+    active_hooks = []  # List of (pid_file, hook_name, plugin_name, timeout, pid)
+    for pid_file in pid_files:
+        hook_name = pid_file.stem  # e.g., "on_Snapshot__20_chrome_tab.bg"
+        cmd_file = pid_file.with_suffix('.sh')
+
+        # Validate and get PID
+        if not validate_pid_file(pid_file, cmd_file):
+            results[hook_name] = {'status': 'invalid', 'returncode': None, 'pid': None}
+            pid_file.unlink(missing_ok=True)
+            continue
+
+        try:
+            pid = int(pid_file.read_text().strip())
+        except (ValueError, OSError):
+            results[hook_name] = {'status': 'invalid', 'returncode': None, 'pid': None}
+            pid_file.unlink(missing_ok=True)
+            continue
+
+        # Check if process is still alive
+        if not process_is_alive(pid_file):
+            # Process already dead - try to reap it and get exit code
+            returncode = _reap_process(pid)
+            results[hook_name] = {'status': 'already_dead', 'returncode': returncode, 'pid': pid}
+            _write_returncode_file(pid_file, returncode)
+            pid_file.unlink(missing_ok=True)
+            continue
+
+        # Get plugin name from parent directory (e.g., "chrome_session")
+        plugin_name = pid_file.parent.name
+
+        # Get plugin-specific timeout
+        plugin_config = get_plugin_special_config(plugin_name, config)
+        timeout = plugin_config['timeout']
+
+        # Send SIGTERM
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except (OSError, ProcessLookupError):
+            returncode = _reap_process(pid)
+            results[hook_name] = {'status': 'already_dead', 'returncode': returncode, 'pid': pid}
+            _write_returncode_file(pid_file, returncode)
+            pid_file.unlink(missing_ok=True)
+            continue
+
+        active_hooks.append((pid_file, hook_name, plugin_name, timeout, pid))
+
+    # Phase 2: Wait for each hook's timeout, then SIGKILL if still running
+    for pid_file, hook_name, plugin_name, timeout, pid in active_hooks:
+        deadline = time.time() + timeout
+        exited_cleanly = False
+
+        # Poll until deadline or process exits
+        while time.time() < deadline:
+            if not process_is_alive(pid_file):
+                exited_cleanly = True
+                break
+            time.sleep(poll_interval)
+
+        if exited_cleanly:
+            # Process exited from SIGTERM - reap it to get exit code
+            returncode = _reap_process(pid)
+            results[hook_name] = {'status': 'sigterm', 'returncode': returncode, 'pid': pid}
+        else:
+            # Timeout expired, send SIGKILL
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except (OSError, ProcessLookupError):
+                pass  # Process died between check and kill
+
+            # Wait briefly for SIGKILL to take effect, then reap
+            time.sleep(0.1)
+            returncode = _reap_process(pid)
+
+            # returncode from SIGKILL is typically -9 (negative signal number)
+            results[hook_name] = {'status': 'sigkill', 'returncode': returncode, 'pid': pid}
+
+        # Write returncode file for update_from_output() to read
+        _write_returncode_file(pid_file, results[hook_name]['returncode'])
+        pid_file.unlink(missing_ok=True)
+
+    return results
+
+
+def _reap_process(pid: int) -> Optional[int]:
+    """
+    Reap a terminated process and return its exit code.
+
+    Uses os.waitpid() with WNOHANG to avoid blocking.
+    Returns None if process cannot be reaped (not a child, already reaped, etc).
+    """
+    try:
+        # WNOHANG: return immediately if process hasn't exited
+        # We call this after we know process is dead, so it should return immediately
+        wpid, status = os.waitpid(pid, os.WNOHANG)
+        if wpid == 0:
+            # Process still running (shouldn't happen since we checked)
+            return None
+        if os.WIFEXITED(status):
+            return os.WEXITSTATUS(status)
+        elif os.WIFSIGNALED(status):
+            # Killed by signal - return negative signal number (convention)
+            return -os.WTERMSIG(status)
+        return None
+    except ChildProcessError:
+        # Not our child process (was started by subprocess.Popen which already reaped it,
+        # or process was started by different parent). This is expected for hooks.
+        return None
+    except OSError:
+        return None
+
+
+def _write_returncode_file(pid_file: Path, returncode: Optional[int]) -> None:
+    """
+    Write returncode to a .returncode file next to the .pid file.
+
+    This allows update_from_output() to know the exit code even for background hooks.
+    """
+    returncode_file = pid_file.with_suffix('.returncode')
+    try:
+        if returncode is not None:
+            returncode_file.write_text(str(returncode))
+        else:
+            # Unknown exit code - write empty file to indicate process was terminated
+            returncode_file.write_text('')
+    except OSError:
+        pass  # Best effort
+
+
