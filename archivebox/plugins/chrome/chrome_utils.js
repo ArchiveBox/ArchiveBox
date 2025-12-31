@@ -58,6 +58,15 @@ function getEnvInt(name, defaultValue = 0) {
 
 /**
  * Get array environment variable (JSON array or comma-separated string).
+ *
+ * Parsing strategy:
+ * - If value contains '[' anywhere, parse as JSON array
+ * - Otherwise, parse as comma-separated values
+ *
+ * This prevents incorrect splitting of arguments that contain internal commas.
+ * For arguments with commas, use JSON format:
+ *   CHROME_ARGS='["--user-data-dir=/path/with,comma", "--window-size=1440,900"]'
+ *
  * @param {string} name - Environment variable name
  * @param {string[]} [defaultValue=[]] - Default value if not set
  * @returns {string[]} - Array of strings
@@ -66,23 +75,18 @@ function getEnvArray(name, defaultValue = []) {
     const val = getEnv(name, '');
     if (!val) return defaultValue;
 
-    // Try parsing as JSON array first
-    if (val.startsWith('[')) {
+    // If contains '[', parse as JSON array
+    if (val.includes('[')) {
         try {
             const parsed = JSON.parse(val);
             if (Array.isArray(parsed)) return parsed;
         } catch (e) {
+            console.error(`[!] Failed to parse ${name} as JSON array: ${e.message}`);
             // Fall through to comma-separated parsing
         }
     }
 
-    // Parse as comma-separated (but be careful with args that contain commas)
-    // For Chrome args, we split on comma followed by '--' to be safe
-    if (val.includes(',--')) {
-        return val.split(/,(?=--)/).map(s => s.trim()).filter(Boolean);
-    }
-
-    // Simple comma-separated
+    // Parse as comma-separated values
     return val.split(',').map(s => s.trim()).filter(Boolean);
 }
 
@@ -1314,6 +1318,7 @@ module.exports = {
     getEnv,
     getEnvBool,
     getEnvInt,
+    getEnvArray,
     parseResolution,
     // PID file management
     writePidWithMtime,
