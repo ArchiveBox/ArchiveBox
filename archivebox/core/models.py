@@ -1407,17 +1407,22 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         Clean up background ArchiveResult hooks.
 
         Called by the state machine when entering the 'sealed' state.
-        Kills any background hooks and finalizes their ArchiveResults.
+        Gracefully terminates background hooks using plugin-specific timeouts:
+            1. Send SIGTERM to all background hook processes
+            2. Wait up to each hook's plugin-specific timeout
+            3. Send SIGKILL to any hooks still running after timeout
         """
-        from archivebox.hooks import kill_process
+        from archivebox.hooks import graceful_terminate_background_hooks
+        from archivebox.config.configset import get_config
 
-        # Kill any background ArchiveResult hooks
         if not self.OUTPUT_DIR.exists():
             return
 
-        # Find all .pid files in this snapshot's output directory
-        for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
-            kill_process(pid_file, validate=True)
+        # Get merged config for plugin-specific timeout lookup
+        config = get_config(crawl=self.crawl, snapshot=self)
+
+        # Gracefully terminate all background hooks with plugin-specific timeouts
+        graceful_terminate_background_hooks(self.OUTPUT_DIR, config)
 
         # Update all STARTED ArchiveResults from filesystem
         results = self.archiveresult_set.filter(status=ArchiveResult.StatusChoices.STARTED)

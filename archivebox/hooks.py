@@ -1266,3 +1266,115 @@ def kill_process(pid_file: Path, sig: int = signal.SIGTERM, validate: bool = Tru
             pass
 
 
+def graceful_terminate_background_hooks(
+    output_dir: Path,
+    config: Dict[str, Any],
+    poll_interval: float = 0.5,
+) -> Dict[str, str]:
+    """
+    Gracefully terminate all background hooks in an output directory.
+
+    Termination strategy:
+        1. Send SIGTERM to all background hook processes (polite shutdown request)
+        2. For each hook, wait up to its plugin-specific timeout
+        3. Send SIGKILL to any hooks still running after their timeout expires
+
+    Args:
+        output_dir: Snapshot output directory containing plugin subdirs with .pid files
+        config: Merged config dict from get_config() for timeout lookup
+        poll_interval: Seconds between process liveness checks (default: 0.5s)
+
+    Returns:
+        Dict mapping hook names to termination status:
+            - 'sigterm': Exited cleanly after SIGTERM
+            - 'sigkill': Required SIGKILL after timeout
+            - 'already_dead': Process was already dead
+            - 'invalid': PID file was stale/invalid
+
+    Example:
+        from archivebox.config.configset import get_config
+        config = get_config(crawl=my_crawl, snapshot=my_snapshot)
+        results = graceful_terminate_background_hooks(snapshot.OUTPUT_DIR, config)
+        # {'on_Snapshot__20_chrome_tab.bg': 'sigterm', 'on_Snapshot__63_media.bg': 'sigkill'}
+    """
+    from archivebox.misc.process_utils import validate_pid_file, safe_kill_process
+
+    if not output_dir.exists():
+        return {}
+
+    results = {}
+
+    # Collect all pid files and their metadata
+    pid_files = list(output_dir.glob('**/*.pid'))
+    if not pid_files:
+        return {}
+
+    # Phase 1: Send SIGTERM to all background hook processes
+    active_hooks = []  # List of (pid_file, hook_name, plugin_name, timeout, pid)
+    for pid_file in pid_files:
+        hook_name = pid_file.stem  # e.g., "on_Snapshot__20_chrome_tab.bg"
+        cmd_file = pid_file.with_suffix('.sh')
+
+        # Validate and get PID
+        if not validate_pid_file(pid_file, cmd_file):
+            results[hook_name] = 'invalid'
+            pid_file.unlink(missing_ok=True)
+            continue
+
+        try:
+            pid = int(pid_file.read_text().strip())
+        except (ValueError, OSError):
+            results[hook_name] = 'invalid'
+            pid_file.unlink(missing_ok=True)
+            continue
+
+        # Check if process is still alive
+        if not process_is_alive(pid_file):
+            results[hook_name] = 'already_dead'
+            pid_file.unlink(missing_ok=True)
+            continue
+
+        # Get plugin name from parent directory (e.g., "chrome_session")
+        plugin_name = pid_file.parent.name
+
+        # Get plugin-specific timeout
+        plugin_config = get_plugin_special_config(plugin_name, config)
+        timeout = plugin_config['timeout']
+
+        # Send SIGTERM
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except (OSError, ProcessLookupError):
+            results[hook_name] = 'already_dead'
+            pid_file.unlink(missing_ok=True)
+            continue
+
+        active_hooks.append((pid_file, hook_name, plugin_name, timeout, pid))
+
+    # Phase 2: Wait for each hook's timeout, then SIGKILL if still running
+    for pid_file, hook_name, plugin_name, timeout, pid in active_hooks:
+        deadline = time.time() + timeout
+        exited_cleanly = False
+
+        # Poll until deadline or process exits
+        while time.time() < deadline:
+            if not process_is_alive(pid_file):
+                exited_cleanly = True
+                break
+            time.sleep(poll_interval)
+
+        if exited_cleanly:
+            results[hook_name] = 'sigterm'
+            pid_file.unlink(missing_ok=True)
+        else:
+            # Timeout expired, send SIGKILL
+            try:
+                os.kill(pid, signal.SIGKILL)
+                results[hook_name] = 'sigkill'
+            except (OSError, ProcessLookupError):
+                results[hook_name] = 'sigterm'  # Died between check and kill
+            pid_file.unlink(missing_ok=True)
+
+    return results
+
+
