@@ -20,15 +20,15 @@ import pytest
 
 from archivebox.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
+    get_plugin_dir,
+    get_hook_script,
     setup_chrome_session,
     cleanup_chrome,
-    CHROME_PLUGIN_DIR,
 )
 
 
-PLUGIN_DIR = Path(__file__).parent.parent
-PLUGINS_ROOT = PLUGIN_DIR.parent
-SNAPSHOT_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_singlefile.py'), None)
+PLUGIN_DIR = get_plugin_dir(__file__)
+SNAPSHOT_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_singlefile.py')
 TEST_URL = "https://example.com"
 
 

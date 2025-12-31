@@ -22,17 +22,17 @@ import pytest
 
 from archivebox.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
-    get_lib_dir,
+    get_plugin_dir,
+    get_hook_script,
+    run_hook_and_parse,
+    LIB_DIR,
+    NODE_MODULES_DIR,
 )
 
 
-PLUGIN_DIR = Path(__file__).parent.parent
-PLUGINS_ROOT = PLUGIN_DIR.parent
-SCREENSHOT_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_screenshot.*'), None)
+PLUGIN_DIR = get_plugin_dir(__file__)
+SCREENSHOT_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_screenshot.*')
 TEST_URL = 'https://example.com'
-
-LIB_DIR = get_lib_dir()
-NODE_MODULES_DIR = LIB_DIR / 'npm' / 'node_modules'
 
 
 def test_hook_script_exists():

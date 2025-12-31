@@ -6,25 +6,33 @@ duplication across test files. It uses the JavaScript utilities from chrome_util
 where appropriate.
 
 Usage:
-    # For simple tests (screenshot, dom, pdf, etc.):
+    # Simplest - just import what you need:
     from archivebox.plugins.chrome.tests.chrome_test_helpers import (
-        get_test_env,
-        get_lib_dir,
-        find_chromium_binary,
+        get_test_env,           # env dict with LIB_DIR, NODE_MODULES_DIR, MACHINE_TYPE
+        get_plugin_dir,         # get_plugin_dir(__file__) -> plugin dir Path
+        LIB_DIR,                # Path to lib dir (lazy-loaded)
+        NODE_MODULES_DIR,       # Path to node_modules (lazy-loaded)
+        PLUGINS_ROOT,           # Path to plugins root
     )
 
-    # For extension tests (ublock, istilldontcareaboutcookies, twocaptcha):
+    # For Chrome session tests:
     from archivebox.plugins.chrome.tests.chrome_test_helpers import (
-        setup_test_env,
-        launch_chromium_session,
-        kill_chromium_session,
+        setup_chrome_session,   # Full Chrome + tab setup
+        cleanup_chrome,         # Cleanup by PID
+        chrome_session,         # Context manager
     )
 
-    # For tab-based tests (infiniscroll, modalcloser):
+    # For extension tests:
     from archivebox.plugins.chrome.tests.chrome_test_helpers import (
-        setup_chrome_session,
-        cleanup_chrome,
-        chrome_session,
+        setup_test_env,         # Full dir structure + Chrome install
+        launch_chromium_session, # Launch Chrome, return CDP URL
+        kill_chromium_session,   # Cleanup Chrome
+    )
+
+    # Run hooks and parse JSONL:
+    from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+        run_hook,               # Run hook, return (returncode, stdout, stderr)
+        parse_jsonl_output,     # Parse JSONL from stdout
     )
 """
 
@@ -36,7 +44,7 @@ import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List, Dict, Any
 from contextlib import contextmanager
 
 
@@ -50,6 +58,43 @@ CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / 'on_Crawl__30_chrome_launch.bg.js'
 CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / 'on_Snapshot__20_chrome_tab.bg.js'
 CHROME_NAVIGATE_HOOK = next(CHROME_PLUGIN_DIR.glob('on_Snapshot__*_chrome_navigate.*'), None)
 CHROME_UTILS = CHROME_PLUGIN_DIR / 'chrome_utils.js'
+
+
+# =============================================================================
+# Path Helpers - use these to avoid boilerplate in test files
+# =============================================================================
+
+
+def get_plugin_dir(test_file: str) -> Path:
+    """Get the plugin directory from a test file path.
+
+    Usage:
+        PLUGIN_DIR = get_plugin_dir(__file__)
+
+    Args:
+        test_file: The __file__ of the test module (e.g., test_screenshot.py)
+
+    Returns:
+        Path to the plugin directory (e.g., plugins/screenshot/)
+    """
+    return Path(test_file).parent.parent
+
+
+def get_hook_script(plugin_dir: Path, pattern: str) -> Optional[Path]:
+    """Find a hook script in a plugin directory by pattern.
+
+    Usage:
+        HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_screenshot.*')
+
+    Args:
+        plugin_dir: Path to the plugin directory
+        pattern: Glob pattern to match
+
+    Returns:
+        Path to the hook script or None if not found
+    """
+    matches = list(plugin_dir.glob(pattern))
+    return matches[0] if matches else None
 
 
 def get_lib_dir() -> Path:
@@ -109,6 +154,171 @@ def get_test_env() -> dict:
     env['NODE_MODULES_DIR'] = str(get_node_modules_dir())
     env['MACHINE_TYPE'] = get_machine_type()
     return env
+
+
+# =============================================================================
+# Module-level constants (lazy-loaded on first access)
+# Import these directly: from chrome_test_helpers import LIB_DIR, NODE_MODULES_DIR
+# =============================================================================
+
+# These are computed once when first accessed
+_LIB_DIR: Optional[Path] = None
+_NODE_MODULES_DIR: Optional[Path] = None
+
+
+def _get_lib_dir_cached() -> Path:
+    global _LIB_DIR
+    if _LIB_DIR is None:
+        _LIB_DIR = get_lib_dir()
+    return _LIB_DIR
+
+
+def _get_node_modules_dir_cached() -> Path:
+    global _NODE_MODULES_DIR
+    if _NODE_MODULES_DIR is None:
+        _NODE_MODULES_DIR = get_node_modules_dir()
+    return _NODE_MODULES_DIR
+
+
+# Module-level constants that can be imported directly
+# Usage: from chrome_test_helpers import LIB_DIR, NODE_MODULES_DIR
+class _LazyPath:
+    """Lazy path that computes value on first access."""
+    def __init__(self, getter):
+        self._getter = getter
+        self._value = None
+
+    def __fspath__(self):
+        if self._value is None:
+            self._value = self._getter()
+        return str(self._value)
+
+    def __truediv__(self, other):
+        if self._value is None:
+            self._value = self._getter()
+        return self._value / other
+
+    def __str__(self):
+        return self.__fspath__()
+
+    def __repr__(self):
+        return f"<LazyPath: {self.__fspath__()}>"
+
+
+LIB_DIR = _LazyPath(_get_lib_dir_cached)
+NODE_MODULES_DIR = _LazyPath(_get_node_modules_dir_cached)
+
+
+# =============================================================================
+# Hook Execution Helpers
+# =============================================================================
+
+
+def run_hook(
+    hook_script: Path,
+    url: str,
+    snapshot_id: str,
+    cwd: Optional[Path] = None,
+    env: Optional[dict] = None,
+    timeout: int = 60,
+    extra_args: Optional[List[str]] = None,
+) -> Tuple[int, str, str]:
+    """Run a hook script and return (returncode, stdout, stderr).
+
+    Usage:
+        returncode, stdout, stderr = run_hook(
+            HOOK_SCRIPT, 'https://example.com', 'test-snap-123',
+            cwd=tmpdir, env=get_test_env()
+        )
+
+    Args:
+        hook_script: Path to the hook script
+        url: URL to process
+        snapshot_id: Snapshot ID
+        cwd: Working directory (default: current dir)
+        env: Environment dict (default: get_test_env())
+        timeout: Timeout in seconds
+        extra_args: Additional arguments to pass
+
+    Returns:
+        Tuple of (returncode, stdout, stderr)
+    """
+    if env is None:
+        env = get_test_env()
+
+    # Determine interpreter based on file extension
+    if hook_script.suffix == '.py':
+        cmd = ['python', str(hook_script)]
+    elif hook_script.suffix == '.js':
+        cmd = ['node', str(hook_script)]
+    else:
+        cmd = [str(hook_script)]
+
+    cmd.extend([f'--url={url}', f'--snapshot-id={snapshot_id}'])
+    if extra_args:
+        cmd.extend(extra_args)
+
+    result = subprocess.run(
+        cmd,
+        cwd=str(cwd) if cwd else None,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=timeout
+    )
+    return result.returncode, result.stdout, result.stderr
+
+
+def parse_jsonl_output(stdout: str, record_type: str = 'ArchiveResult') -> Optional[Dict[str, Any]]:
+    """Parse JSONL output from hook stdout and return the specified record type.
+
+    Usage:
+        result = parse_jsonl_output(stdout)
+        if result and result['status'] == 'succeeded':
+            print("Success!")
+
+    Args:
+        stdout: The stdout from a hook execution
+        record_type: The 'type' field to look for (default: 'ArchiveResult')
+
+    Returns:
+        The parsed JSON dict or None if not found
+    """
+    for line in stdout.strip().split('\n'):
+        line = line.strip()
+        if not line.startswith('{'):
+            continue
+        try:
+            record = json.loads(line)
+            if record.get('type') == record_type:
+                return record
+        except json.JSONDecodeError:
+            continue
+    return None
+
+
+def run_hook_and_parse(
+    hook_script: Path,
+    url: str,
+    snapshot_id: str,
+    cwd: Optional[Path] = None,
+    env: Optional[dict] = None,
+    timeout: int = 60,
+    extra_args: Optional[List[str]] = None,
+) -> Tuple[int, Optional[Dict[str, Any]], str]:
+    """Run a hook and parse its JSONL output.
+
+    Convenience function combining run_hook() and parse_jsonl_output().
+
+    Returns:
+        Tuple of (returncode, parsed_result_or_none, stderr)
+    """
+    returncode, stdout, stderr = run_hook(
+        hook_script, url, snapshot_id,
+        cwd=cwd, env=env, timeout=timeout, extra_args=extra_args
+    )
+    result = parse_jsonl_output(stdout)
+    return returncode, result, stderr
 
 
 def find_chromium_binary(data_dir: Optional[str] = None) -> Optional[str]:
