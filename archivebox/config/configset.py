@@ -220,6 +220,10 @@ def get_config(
     if crawl and hasattr(crawl, "config") and crawl.config:
         config.update(crawl.config)
 
+    # Add CRAWL_OUTPUT_DIR for snapshot hooks to find shared Chrome session
+    if crawl and hasattr(crawl, "OUTPUT_DIR"):
+        config['CRAWL_OUTPUT_DIR'] = str(crawl.OUTPUT_DIR)
+
     # Apply snapshot config overrides (highest priority)
     if snapshot and hasattr(snapshot, "config") and snapshot.config:
         config.update(snapshot.config)
