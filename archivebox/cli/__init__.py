@@ -48,6 +48,8 @@ class ArchiveBoxGroup(click.Group):
         'server': 'archivebox.cli.archivebox_server.main',
         'shell': 'archivebox.cli.archivebox_shell.main',
         'manage': 'archivebox.cli.archivebox_manage.main',
+        # Introspection commands
+        'pluginmap': 'archivebox.cli.archivebox_pluginmap.main',
         # Worker command
         'worker': 'archivebox.cli.archivebox_worker.main',
     }
