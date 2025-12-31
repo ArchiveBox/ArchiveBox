@@ -321,6 +321,51 @@ def run_hook_and_parse(
     return returncode, result, stderr
 
 
+def call_chrome_utils(command: str, *args: str, env: Optional[dict] = None) -> Tuple[int, str, str]:
+    """Call chrome_utils.js CLI command.
+
+    This is the central dispatch for calling the JS utilities from Python.
+    All path calculations and Chrome operations are centralized in chrome_utils.js
+    to ensure consistency between Python and JavaScript code.
+
+    Args:
+        command: The CLI command (e.g., 'findChromium', 'getTestEnv')
+        *args: Additional command arguments
+        env: Environment dict (default: current env)
+
+    Returns:
+        Tuple of (returncode, stdout, stderr)
+    """
+    cmd = ['node', str(CHROME_UTILS), command] + list(args)
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env or os.environ.copy()
+    )
+    return result.returncode, result.stdout, result.stderr
+
+
+def get_test_env_from_js() -> Optional[Dict[str, str]]:
+    """Get test environment paths from chrome_utils.js getTestEnv().
+
+    This is the single source of truth for path calculations.
+    Python calls JS to get all paths to avoid duplicating logic.
+
+    Returns:
+        Dict with DATA_DIR, MACHINE_TYPE, LIB_DIR, NODE_MODULES_DIR, etc.
+        or None if the JS call fails
+    """
+    returncode, stdout, stderr = call_chrome_utils('getTestEnv')
+    if returncode == 0 and stdout.strip():
+        try:
+            return json.loads(stdout)
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
 def find_chromium_binary(data_dir: Optional[str] = None) -> Optional[str]:
     """Find the Chromium binary using chrome_utils.js findChromium().
 
@@ -336,15 +381,12 @@ def find_chromium_binary(data_dir: Optional[str] = None) -> Optional[str]:
     Returns:
         Path to Chromium binary or None if not found
     """
-    search_dir = data_dir or os.environ.get('DATA_DIR', '.')
-    result = subprocess.run(
-        ['node', str(CHROME_UTILS), 'findChromium', str(search_dir)],
-        capture_output=True,
-        text=True,
-        timeout=10
-    )
-    if result.returncode == 0 and result.stdout.strip():
-        return result.stdout.strip()
+    env = os.environ.copy()
+    if data_dir:
+        env['DATA_DIR'] = str(data_dir)
+    returncode, stdout, stderr = call_chrome_utils('findChromium', env=env)
+    if returncode == 0 and stdout.strip():
+        return stdout.strip()
     return None
 
 
@@ -358,19 +400,50 @@ def get_extensions_dir() -> str:
     Returns:
         Path to extensions directory
     """
-    result = subprocess.run(
-        ['node', str(CHROME_UTILS), 'getExtensionsDir'],
-        capture_output=True,
-        text=True,
-        timeout=10,
-        env=get_test_env()
-    )
-    if result.returncode == 0 and result.stdout.strip():
-        return result.stdout.strip()
+    returncode, stdout, stderr = call_chrome_utils('getExtensionsDir')
+    if returncode == 0 and stdout.strip():
+        return stdout.strip()
     # Fallback to default computation if JS call fails
     data_dir = os.environ.get('DATA_DIR', './data')
     persona = os.environ.get('ACTIVE_PERSONA', 'Default')
     return str(Path(data_dir) / 'personas' / persona / 'chrome_extensions')
+
+
+def get_machine_type_from_js() -> Optional[str]:
+    """Get machine type from chrome_utils.js getMachineType().
+
+    This is the single source of truth for machine type calculation.
+    Returns values like 'x86_64-linux', 'arm64-darwin'.
+
+    Returns:
+        Machine type string or None if the JS call fails
+    """
+    returncode, stdout, stderr = call_chrome_utils('getMachineType')
+    if returncode == 0 and stdout.strip():
+        return stdout.strip()
+    return None
+
+
+def kill_chrome_via_js(pid: int, output_dir: Optional[str] = None) -> bool:
+    """Kill a Chrome process using chrome_utils.js killChrome().
+
+    This uses the centralized kill logic which handles:
+    - SIGTERM then SIGKILL
+    - Process group killing
+    - Zombie process cleanup
+
+    Args:
+        pid: Process ID to kill
+        output_dir: Optional chrome output directory for PID file cleanup
+
+    Returns:
+        True if the kill command succeeded
+    """
+    args = [str(pid)]
+    if output_dir:
+        args.append(str(output_dir))
+    returncode, stdout, stderr = call_chrome_utils('killChrome', *args)
+    return returncode == 0
 
 
 # =============================================================================
@@ -535,21 +608,26 @@ def launch_chromium_session(env: dict, chrome_dir: Path, crawl_id: str) -> Tuple
 def kill_chromium_session(chrome_launch_process: subprocess.Popen, chrome_dir: Path) -> None:
     """Clean up Chromium process launched by launch_chromium_session.
 
+    Uses chrome_utils.js killChrome for proper process group handling.
+
     Args:
         chrome_launch_process: The Popen object from launch_chromium_session
         chrome_dir: The chrome directory containing chrome.pid
     """
+    # First try to terminate the launch process gracefully
     try:
         chrome_launch_process.send_signal(signal.SIGTERM)
         chrome_launch_process.wait(timeout=5)
     except Exception:
         pass
+
+    # Read PID and use JS to kill with proper cleanup
     chrome_pid_file = chrome_dir / 'chrome.pid'
     if chrome_pid_file.exists():
         try:
             chrome_pid = int(chrome_pid_file.read_text().strip())
-            os.kill(chrome_pid, signal.SIGKILL)
-        except (OSError, ValueError):
+            kill_chrome_via_js(chrome_pid, str(chrome_dir))
+        except (ValueError, FileNotFoundError):
             pass
 
 
@@ -683,25 +761,28 @@ def setup_chrome_session(
     return chrome_launch_process, chrome_pid, snapshot_chrome_dir
 
 
-def cleanup_chrome(chrome_launch_process: subprocess.Popen, chrome_pid: int) -> None:
-    """Clean up Chrome processes.
+def cleanup_chrome(chrome_launch_process: subprocess.Popen, chrome_pid: int, chrome_dir: Optional[Path] = None) -> None:
+    """Clean up Chrome processes using chrome_utils.js killChrome.
 
-    Sends SIGTERM to the chrome_launch_process and SIGKILL to the Chrome PID.
-    Ignores errors if processes are already dead.
+    Uses the centralized kill logic from chrome_utils.js which handles:
+    - SIGTERM then SIGKILL
+    - Process group killing
+    - Zombie process cleanup
 
     Args:
         chrome_launch_process: The Popen object for the chrome launch hook
         chrome_pid: The PID of the Chrome process
+        chrome_dir: Optional path to chrome output directory
     """
+    # First try to terminate the launch process gracefully
     try:
         chrome_launch_process.send_signal(signal.SIGTERM)
         chrome_launch_process.wait(timeout=5)
     except Exception:
         pass
-    try:
-        os.kill(chrome_pid, signal.SIGKILL)
-    except OSError:
-        pass
+
+    # Use JS to kill Chrome with proper process group handling
+    kill_chrome_via_js(chrome_pid, str(chrome_dir) if chrome_dir else None)
 
 
 @contextmanager
