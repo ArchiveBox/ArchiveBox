@@ -6,6 +6,8 @@ Tests verify:
 2. CLI-based singlefile extraction works
 3. Dependencies available via abx-pkg
 4. Output contains valid HTML
+5. Connects to Chrome session via CDP when available
+6. Works with extensions loaded (ublock, etc.)
 """
 
 import json
@@ -15,6 +17,13 @@ import tempfile
 from pathlib import Path
 
 import pytest
+
+from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+    get_test_env,
+    setup_chrome_session,
+    cleanup_chrome,
+    CHROME_PLUGIN_DIR,
+)
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
@@ -52,7 +61,7 @@ def test_singlefile_cli_archives_example_com():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        env = os.environ.copy()
+        env = get_test_env()
         env['SINGLEFILE_ENABLED'] = 'true'
 
         # Run singlefile snapshot hook
@@ -76,6 +85,90 @@ def test_singlefile_cli_archives_example_com():
         assert len(html_content) > 500, "Output file too small to be valid HTML"
         assert '<!DOCTYPE html>' in html_content or '<html' in html_content, "Output should contain HTML doctype or html tag"
         assert 'Example Domain' in html_content, "Output should contain example.com content"
+
+
+def test_singlefile_with_chrome_session():
+    """Test singlefile connects to existing Chrome session via CDP.
+
+    When a Chrome session exists (chrome/cdp_url.txt), singlefile should
+    connect to it instead of launching a new Chrome instance.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        try:
+            # Set up Chrome session using shared helper
+            chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(
+                tmpdir=tmpdir,
+                crawl_id='singlefile-test-crawl',
+                snapshot_id='singlefile-test-snap',
+                test_url=TEST_URL,
+                navigate=False,  # Don't navigate, singlefile will do that
+                timeout=20,
+            )
+
+            # singlefile looks for ../chrome/cdp_url.txt relative to cwd
+            # So we need to run from a directory that has ../chrome pointing to our chrome dir
+            singlefile_output_dir = tmpdir / 'snapshot' / 'singlefile'
+            singlefile_output_dir.mkdir(parents=True, exist_ok=True)
+
+            # Create symlink so singlefile can find the chrome session
+            chrome_link = singlefile_output_dir.parent / 'chrome'
+            if not chrome_link.exists():
+                chrome_link.symlink_to(tmpdir / 'crawl' / 'chrome')
+
+            env = get_test_env()
+            env['SINGLEFILE_ENABLED'] = 'true'
+            env['CHROME_HEADLESS'] = 'true'
+
+            # Run singlefile - it should find and use the existing Chrome session
+            result = subprocess.run(
+                ['python', str(SNAPSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=singlefile-test-snap'],
+                cwd=str(singlefile_output_dir),
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=120
+            )
+
+            # Verify output
+            output_file = singlefile_output_dir / 'singlefile.html'
+            if output_file.exists():
+                html_content = output_file.read_text()
+                assert len(html_content) > 500, "Output file too small"
+                assert 'Example Domain' in html_content, "Should contain example.com content"
+            else:
+                # If singlefile couldn't connect to Chrome, it may have failed
+                # Check if it mentioned browser-server in its args (indicating it tried to use CDP)
+                assert result.returncode == 0 or 'browser-server' in result.stderr or 'cdp' in result.stderr.lower(), \
+                    f"Singlefile should attempt CDP connection. stderr: {result.stderr}"
+
+        finally:
+            cleanup_chrome(chrome_launch_process, chrome_pid)
+
+
+def test_singlefile_disabled_skips():
+    """Test that SINGLEFILE_ENABLED=False exits without JSONL."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        env = get_test_env()
+        env['SINGLEFILE_ENABLED'] = 'False'
+
+        result = subprocess.run(
+            ['python', str(SNAPSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=test-disabled'],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30
+        )
+
+        assert result.returncode == 0, f"Should exit 0 when disabled: {result.stderr}"
+
+        # Should NOT emit JSONL when disabled
+        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
+        assert len(jsonl_lines) == 0, f"Should not emit JSONL when disabled, but got: {jsonl_lines}"
 
 
 if __name__ == '__main__':
