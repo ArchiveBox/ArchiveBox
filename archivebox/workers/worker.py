@@ -17,7 +17,7 @@ import traceback
 from typing import ClassVar, Any
 from datetime import timedelta
 from pathlib import Path
-from multiprocessing import Process, cpu_count
+from multiprocessing import Process as MPProcess, cpu_count
 
 from django.db.models import QuerySet
 from django.utils import timezone
@@ -26,13 +26,6 @@ from django.conf import settings
 from rich import print
 
 from archivebox.misc.logging_util import log_worker_event
-from .pid_utils import (
-    write_pid_file,
-    remove_pid_file,
-    get_all_worker_pids,
-    get_next_worker_id,
-    cleanup_stale_pid_files,
-)
 
 
 CPU_COUNT = cpu_count()
@@ -133,8 +126,11 @@ class Worker:
 
     def on_startup(self) -> None:
         """Called when worker starts."""
+        from archivebox.machine.models import Process
+
         self.pid = os.getpid()
-        self.pid_file = write_pid_file(self.name, self.worker_id)
+        # Register this worker process in the database
+        self.db_process = Process.current()
 
         # Determine worker type for logging
         worker_type_name = self.__class__.__name__
@@ -160,9 +156,12 @@ class Worker:
 
     def on_shutdown(self, error: BaseException | None = None) -> None:
         """Called when worker shuts down."""
-        # Remove PID file
-        if self.pid_file:
-            remove_pid_file(self.pid_file)
+        # Update Process record status
+        if hasattr(self, 'db_process') and self.db_process:
+            self.db_process.exit_code = 1 if error else 0
+            self.db_process.status = self.db_process.StatusChoices.EXITED
+            self.db_process.ended_at = timezone.now()
+            self.db_process.save()
 
         # Determine worker type for logging
         worker_type_name = self.__class__.__name__
@@ -288,11 +287,13 @@ class Worker:
         Fork a new worker as a subprocess.
         Returns the PID of the new process.
         """
+        from archivebox.machine.models import Process
+
         if worker_id is None:
-            worker_id = get_next_worker_id(cls.name)
+            worker_id = Process.get_next_worker_id(process_type=cls.name)
 
         # Use module-level function for pickling compatibility
-        proc = Process(
+        proc = MPProcess(
             target=_run_worker,
             args=(cls.name, worker_id, daemon),
             kwargs=kwargs,
@@ -304,15 +305,19 @@ class Worker:
         return proc.pid
 
     @classmethod
-    def get_running_workers(cls) -> list[dict]:
+    def get_running_workers(cls) -> list:
         """Get info about all running workers of this type."""
-        cleanup_stale_pid_files()
-        return get_all_worker_pids(cls.name)
+        from archivebox.machine.models import Process
+
+        Process.cleanup_stale_running()
+        return list(Process.get_running(process_type=cls.name))
 
     @classmethod
     def get_worker_count(cls) -> int:
         """Get count of running workers of this type."""
-        return len(cls.get_running_workers())
+        from archivebox.machine.models import Process
+
+        return Process.get_running_count(process_type=cls.name)
 
 
 class CrawlWorker(Worker):
@@ -402,11 +407,13 @@ class ArchiveResultWorker(Worker):
     @classmethod
     def start(cls, worker_id: int | None = None, daemon: bool = False, plugin: str | None = None, **kwargs: Any) -> int:
         """Fork a new worker as subprocess with optional plugin filter."""
+        from archivebox.machine.models import Process
+
         if worker_id is None:
-            worker_id = get_next_worker_id(cls.name)
+            worker_id = Process.get_next_worker_id(process_type=cls.name)
 
         # Use module-level function for pickling compatibility
-        proc = Process(
+        proc = MPProcess(
             target=_run_worker,
             args=(cls.name, worker_id, daemon),
             kwargs={'plugin': plugin, **kwargs},

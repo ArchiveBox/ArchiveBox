@@ -449,7 +449,7 @@ class Binary(ModelWithHealthStats):
         since installations are foreground, but included for consistency).
         """
         from pathlib import Path
-        from archivebox.hooks import kill_process
+        from archivebox.misc.process_utils import safe_kill_process
 
         output_dir = self.OUTPUT_DIR
         if not output_dir.exists():
@@ -460,8 +460,8 @@ class Binary(ModelWithHealthStats):
             if not plugin_dir.is_dir():
                 continue
             pid_file = plugin_dir / 'hook.pid'
-            if pid_file.exists():
-                kill_process(pid_file)
+            cmd_file = plugin_dir / 'cmd.sh'
+            safe_kill_process(pid_file, cmd_file)
 
 
 # =============================================================================

@@ -417,84 +417,15 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
     def cleanup(self):
         """Clean up background hooks and run on_CrawlEnd hooks."""
-        import os
-        import signal
-        import time
-        from pathlib import Path
         from archivebox.hooks import run_hook, discover_hooks
-        from archivebox.misc.process_utils import validate_pid_file
-
-        def is_process_alive(pid):
-            """Check if a process exists."""
-            try:
-                os.kill(pid, 0)  # Signal 0 checks existence without killing
-                return True
-            except (OSError, ProcessLookupError):
-                return False
+        from archivebox.misc.process_utils import safe_kill_process
 
         # Kill any background processes by scanning for all .pid files
         if self.OUTPUT_DIR.exists():
             for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
-                # Validate PID before killing to avoid killing unrelated processes
                 cmd_file = pid_file.parent / 'cmd.sh'
-                if not validate_pid_file(pid_file, cmd_file):
-                    # PID reused by different process or process dead
-                    pid_file.unlink(missing_ok=True)
-                    continue
-
-                try:
-                    pid = int(pid_file.read_text().strip())
-
-                    # Step 1: Send SIGTERM for graceful shutdown
-                    try:
-                        # Try to kill process group first (handles detached processes like Chrome)
-                        try:
-                            os.killpg(pid, signal.SIGTERM)
-                        except (OSError, ProcessLookupError):
-                            # Fall back to killing just the process
-                            os.kill(pid, signal.SIGTERM)
-                    except ProcessLookupError:
-                        # Already dead
-                        pid_file.unlink(missing_ok=True)
-                        continue
-
-                    # Step 2: Wait for graceful shutdown
-                    time.sleep(2)
-
-                    # Step 3: Check if still alive
-                    if not is_process_alive(pid):
-                        # Process terminated gracefully
-                        pid_file.unlink(missing_ok=True)
-                        continue
-
-                    # Step 4: Process still alive, force kill ENTIRE process group with SIGKILL
-                    try:
-                        try:
-                            # Always kill entire process group with SIGKILL (not individual processes)
-                            os.killpg(pid, signal.SIGKILL)
-                        except (OSError, ProcessLookupError) as e:
-                            # Process group kill failed, try single process as fallback
-                            os.kill(pid, signal.SIGKILL)
-                    except ProcessLookupError:
-                        # Process died between check and kill
-                        pid_file.unlink(missing_ok=True)
-                        continue
-
-                    # Step 5: Wait and verify death
-                    time.sleep(1)
-
-                    if is_process_alive(pid):
-                        # Process is unkillable (likely in UNE state on macOS)
-                        # This happens when Chrome crashes in kernel syscall (IOSurface)
-                        # Log but don't block cleanup - process will remain until reboot
-                        print(f'[yellow]⚠️ Process {pid} is unkillable (likely crashed in kernel). Will remain until reboot.[/yellow]')
-                    else:
-                        # Successfully killed
-                        pid_file.unlink(missing_ok=True)
-
-                except (ValueError, OSError) as e:
-                    # Invalid PID file or permission error
-                    pass
+                safe_kill_process(pid_file, cmd_file)
+                pid_file.unlink(missing_ok=True)
 
         # Run on_CrawlEnd hooks
         from archivebox.config.configset import get_config

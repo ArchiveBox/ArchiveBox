@@ -1385,7 +1385,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         Called by the state machine when entering the 'sealed' state.
         Kills any background hooks and finalizes their ArchiveResults.
         """
-        from archivebox.hooks import kill_process
+        from archivebox.misc.process_utils import safe_kill_process
 
         # Kill any background ArchiveResult hooks
         if not self.OUTPUT_DIR.exists():
@@ -1393,7 +1393,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         # Find all .pid files in this snapshot's output directory
         for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
-            kill_process(pid_file, validate=True)
+            cmd_file = pid_file.parent / 'cmd.sh'
+            safe_kill_process(pid_file, cmd_file)
 
         # Update all STARTED ArchiveResults from filesystem
         results = self.archiveresult_set.filter(status=ArchiveResult.StatusChoices.STARTED)
@@ -1406,7 +1407,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         Used by state machine to determine if snapshot is finished.
         """
-        from archivebox.hooks import process_is_alive
+        from archivebox.misc.process_utils import validate_pid_file
 
         if not self.OUTPUT_DIR.exists():
             return False
@@ -1415,7 +1416,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             if not plugin_dir.is_dir():
                 continue
             pid_file = plugin_dir / 'hook.pid'
-            if process_is_alive(pid_file):
+            cmd_file = plugin_dir / 'cmd.sh'
+            if validate_pid_file(pid_file, cmd_file):
                 return True
 
         return False
