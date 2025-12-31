@@ -19,15 +19,11 @@ from pathlib import Path
 
 import pytest
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
-    get_plugin_dir,
-    get_hook_script,
-    parse_jsonl_output,
-)
+from archivebox.plugins.chrome.tests.chrome_test_helpers import parse_jsonl_output
 
 
-PLUGIN_DIR = get_plugin_dir(__file__)
-TITLE_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_title.*')
+PLUGIN_DIR = Path(__file__).parent.parent
+TITLE_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_title.*'), None)
 TEST_URL = 'https://example.com'
 
 

@@ -20,15 +20,11 @@ from pathlib import Path
 
 import pytest
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
-    get_plugin_dir,
-    get_hook_script,
-    parse_jsonl_output,
-)
+from archivebox.plugins.chrome.tests.chrome_test_helpers import parse_jsonl_output
 
 
-PLUGIN_DIR = get_plugin_dir(__file__)
-FAVICON_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_favicon.*')
+PLUGIN_DIR = Path(__file__).parent.parent
+FAVICON_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_favicon.*'), None)
 TEST_URL = 'https://example.com'
 
 

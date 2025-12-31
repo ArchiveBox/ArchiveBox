@@ -17,15 +17,11 @@ from pathlib import Path
 
 import pytest
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
-    get_plugin_dir,
-    get_hook_script,
-    PLUGINS_ROOT,
-)
+from archivebox.plugins.chrome.tests.chrome_test_helpers import PLUGINS_ROOT
 
 
-PLUGIN_DIR = get_plugin_dir(__file__)
-READABILITY_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_readability.*')
+PLUGIN_DIR = Path(__file__).parent.parent
+READABILITY_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_readability.*'), None)
 TEST_URL = 'https://example.com'
 
 

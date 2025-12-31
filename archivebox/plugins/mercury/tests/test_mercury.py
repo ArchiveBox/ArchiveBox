@@ -18,15 +18,11 @@ import tempfile
 from pathlib import Path
 import pytest
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
-    get_plugin_dir,
-    get_hook_script,
-    PLUGINS_ROOT,
-)
+from archivebox.plugins.chrome.tests.chrome_test_helpers import PLUGINS_ROOT
 
 
-PLUGIN_DIR = get_plugin_dir(__file__)
-MERCURY_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_mercury.*')
+PLUGIN_DIR = Path(__file__).parent.parent
+MERCURY_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_mercury.*'), None)
 TEST_URL = 'https://example.com'
 
 def test_hook_script_exists():
