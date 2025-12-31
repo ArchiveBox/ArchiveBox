@@ -1712,6 +1712,56 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         # otherwise archiveresults exist and are all finished, so it's finished
         return True
 
+    def get_progress_stats(self) -> dict:
+        """
+        Get progress statistics for this snapshot's archiving process.
+
+        Returns dict with:
+            - total: Total number of archive results
+            - succeeded: Number of succeeded results
+            - failed: Number of failed results
+            - running: Number of currently running results
+            - pending: Number of pending/queued results
+            - percent: Completion percentage (0-100)
+            - output_size: Total output size in bytes
+            - is_sealed: Whether the snapshot is in a final state
+        """
+        from django.db.models import Sum
+
+        results = self.archiveresult_set.all()
+
+        # Count by status
+        succeeded = results.filter(status='succeeded').count()
+        failed = results.filter(status='failed').count()
+        running = results.filter(status='started').count()
+        skipped = results.filter(status='skipped').count()
+        total = results.count()
+        pending = total - succeeded - failed - running - skipped
+
+        # Calculate percentage (succeeded + failed + skipped as completed)
+        completed = succeeded + failed + skipped
+        percent = int((completed / total * 100) if total > 0 else 0)
+
+        # Sum output sizes
+        output_size = results.filter(status='succeeded').aggregate(
+            total_size=Sum('output_size')
+        )['total_size'] or 0
+
+        # Check if sealed
+        is_sealed = self.status in (self.StatusChoices.SEALED, self.StatusChoices.FAILED, self.StatusChoices.BACKOFF)
+
+        return {
+            'total': total,
+            'succeeded': succeeded,
+            'failed': failed,
+            'running': running,
+            'pending': pending,
+            'skipped': skipped,
+            'percent': percent,
+            'output_size': output_size,
+            'is_sealed': is_sealed,
+        }
+
     def retry_failed_archiveresults(self, retry_at: Optional['timezone.datetime'] = None) -> int:
         """
         Reset failed/skipped ArchiveResults to queued for retry.

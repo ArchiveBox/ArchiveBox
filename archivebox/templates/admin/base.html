@@ -1346,10 +1346,16 @@
 
             <div id="content" class="{% block coltype %}colM{% endblock %}">
                 {% if opts.model_name == 'snapshot' and cl %}
-                    <small id="snapshot-view-mode">
-                        <a href="#list" title="List view" id="snapshot-view-list">☰</a> | 
-                        <a href="#grid" title="Grid view" id="snapshot-view-grid" style="letter-spacing: -.4em;">⣿⣿</a> 
-                    </small>
+                    <div id="snapshot-view-mode">
+                        <a href="#list" title="List view" id="snapshot-view-list">
+                            <span class="view-icon">☰</span>
+                            <span class="view-label">List</span>
+                        </a>
+                        <a href="#grid" title="Grid view" id="snapshot-view-grid">
+                            <span class="view-icon">⊞</span>
+                            <span class="view-label">Grid</span>
+                        </a>
+                    </div>
                 {% endif %}
                 {% block pretitle %}{% endblock %}
                 {% block content_title %}{# {% if title %}<h1>{{ title }}</h1>{% endif %} #}{% endblock %}
@@ -1500,10 +1506,20 @@
                 $("#snapshot-view-list").click(selectSnapshotListView)
                 $("#snapshot-view-grid").click(selectSnapshotGridView)
 
+                // Set active class based on current view
+                const isGridView = window.location.pathname === "{% url 'admin:grid' %}"
+                if (isGridView) {
+                    $("#snapshot-view-grid").addClass('active')
+                    $("#snapshot-view-list").removeClass('active')
+                } else {
+                    $("#snapshot-view-list").addClass('active')
+                    $("#snapshot-view-grid").removeClass('active')
+                }
+
                 $('#changelist-form .card input:checkbox').change(function() {
                     if ($(this).is(':checked'))
                         $(this).parents('.card').addClass('selected-card')
-                    else 
+                    else
                         $(this).parents('.card').removeClass('selected-card')
                 })
             };
