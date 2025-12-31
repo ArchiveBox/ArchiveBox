@@ -21,9 +21,10 @@ archivebox crawl create URL | archivebox snapshot create | archivebox archiveres
 
 ## Real-World Use Cases
 
-These examples demonstrate the power of the JSONL piping architecture. Note: `archivebox run`
-auto-cascades (Crawl → Snapshots → ArchiveResults), so intermediate commands are only needed
-when you want to customize behavior at that stage.
+These examples demonstrate the JSONL piping architecture. Key points:
+- `archivebox run` auto-cascades (Crawl → Snapshots → ArchiveResults)
+- `archivebox run` **emits JSONL** of everything it creates, enabling chained processing
+- Use CLI args (`--status=`, `--plugin=`) for efficient DB filtering; use jq for transforms
 
 ### 1. Basic Archive
 ```bash
@@ -42,38 +43,38 @@ archivebox crawl create --depth=2 https://docs.python.org | archivebox run
 # Retry all failed extractions
 archivebox archiveresult list --status=failed | archivebox run
 
-# Retry only failed PDFs
-archivebox archiveresult list --status=failed --plugin=pdf | archivebox run
-
-# Retry failed items from a specific domain (jq filter)
-archivebox snapshot list --status=queued \
-  | jq 'select(.url | contains("nytimes.com"))' \
+# Retry only failed PDFs from a specific domain
+archivebox archiveresult list --status=failed --plugin=pdf --url__icontains=nytimes.com \
   | archivebox run
 ```
 
-### 3. Import Bookmarks from Pinboard (jq)
+### 3. Import Bookmarks from Pinboard (jq transform)
 ```bash
-# Fetch Pinboard bookmarks and archive them
+# Fetch Pinboard API, transform fields to match ArchiveBox schema, archive
 curl -s "https://api.pinboard.in/v1/posts/all?format=json&auth_token=$TOKEN" \
   | jq -c '.[] | {url: .href, tags_str: .tags, title: .description}' \
   | archivebox crawl create \
   | archivebox run
 ```
 
-### 4. Filter and Process with jq
+### 4. Retry Failed with Different Binary (jq transform + re-run)
 ```bash
-# Archive only GitHub repository root pages (not issues, PRs, etc.)
-archivebox snapshot list \
-  | jq 'select(.url | test("github\\.com/[^/]+/[^/]+/?$"))' \
+# Get failed wget results, transform to use wget2 binary instead, re-queue as new attempts
+archivebox archiveresult list --status=failed --plugin=wget \
+  | jq -c '{snapshot_id, plugin, status: "queued", overrides: {WGET_BINARY: "wget2"}}' \
+  | archivebox archiveresult create \
   | archivebox run
 
-# Find snapshots with specific tag pattern
-archivebox snapshot list \
-  | jq 'select(.tags_str | contains("research"))' \
+# Chain processing: archive, then re-run any failures with increased timeout
+archivebox crawl create https://slow-site.com \
+  | archivebox run \
+  | jq -c 'select(.type == "ArchiveResult" and .status == "failed")
+           | del(.id) | .status = "queued" | .overrides.TIMEOUT = "120"' \
+  | archivebox archiveresult create \
   | archivebox run
 ```
 
-### 5. Selective Extraction (Screenshots Only)
+### 5. Selective Extraction
 ```bash
 # Create only screenshot extractions for queued snapshots
 archivebox snapshot list --status=queued \
@@ -88,68 +89,40 @@ archivebox archiveresult list --plugin=singlefile --status=skipped \
 
 ### 6. Bulk Tag Management
 ```bash
-# Tag all Twitter/X URLs
+# Tag all Twitter/X URLs (efficient DB filter, no jq needed)
 archivebox snapshot list --url__icontains=twitter.com \
   | archivebox snapshot update --tag=twitter
 
-# Tag all URLs from today's crawl
-archivebox crawl list --created_at__gte=$(date +%Y-%m-%d) \
-  | archivebox snapshot list \
-  | archivebox snapshot update --tag=daily-$(date +%Y%m%d)
+# Tag snapshots based on computed criteria (jq for logic DB can't do)
+archivebox snapshot list --status=sealed \
+  | jq -c 'select(.archiveresult_count > 5) | . + {tags_str: (.tags_str + ",well-archived")}' \
+  | archivebox snapshot update
 ```
 
-### 7. Deep Documentation Crawl
-```bash
-# Mirror documentation site (depth=3 follows links 3 levels deep)
-archivebox crawl create --depth=3 https://docs.djangoproject.com/en/4.2/ \
-  | archivebox run
-
-# Crawl with custom tag
-archivebox crawl create --depth=2 --tag=python-docs https://docs.python.org/3/ \
-  | archivebox run
-```
-
-### 8. RSS Feed Monitoring
+### 7. RSS Feed Monitoring
 ```bash
 # Archive all items from an RSS feed
 curl -s "https://hnrss.org/frontpage" \
-  | grep -oP '<link>\K[^<]+' \
-  | archivebox crawl create --tag=hackernews \
-  | archivebox run
-
-# Or with proper XML parsing
-curl -s "https://example.com/feed.xml" \
   | xq -r '.rss.channel.item[].link' \
-  | archivebox crawl create \
+  | archivebox crawl create --tag=hackernews-$(date +%Y%m%d) \
   | archivebox run
 ```
 
-### 9. Archive Audit with jq
+### 8. Recursive Link Following (run output → filter → re-run)
 ```bash
-# Count snapshots by status
-archivebox snapshot list | jq -s 'group_by(.status) | map({status: .[0].status, count: length})'
-
-# Find large archive results (over 50MB)
-archivebox archiveresult list \
-  | jq 'select(.output_size > 52428800) | {id, plugin, size_mb: (.output_size/1048576)}'
-
-# Export summary of archive
-archivebox snapshot list \
-  | jq -s '{total: length, by_status: (group_by(.status) | map({(.[0].status): length}) | add)}'
-```
-
-### 10. Incremental Backup
-```bash
-# Archive URLs not already in archive
-comm -23 \
-  <(sort new_urls.txt) \
-  <(archivebox snapshot list | jq -r '.url' | sort) \
-  | archivebox crawl create \
+# Archive a page, then archive all PDFs it links to
+archivebox crawl create https://research-papers.org/index.html \
+  | archivebox run \
+  | jq -c 'select(.type == "Snapshot") | .discovered_urls[]?
+           | select(endswith(".pdf")) | {url: .}' \
+  | archivebox crawl create --tag=linked-pdfs \
   | archivebox run
 
-# Re-archive anything older than 30 days
-archivebox snapshot list \
-  | jq "select(.created_at < \"$(date -d '30 days ago' --iso-8601)\")" \
+# Depth crawl with custom handling: retry timeouts with longer timeout
+archivebox crawl create --depth=1 https://example.com \
+  | archivebox run \
+  | jq -c 'select(.type == "ArchiveResult" and .status == "failed" and .error contains "timeout")
+           | del(.id) | .overrides.TIMEOUT = "300"' \
   | archivebox archiveresult create \
   | archivebox run
 ```
@@ -158,17 +131,17 @@ archivebox snapshot list \
 
 | Pattern | Example |
 |---------|---------|
-| **Filter → Process** | `list --status=failed \| run` |
-| **Transform → Archive** | `curl RSS \| jq \| crawl create \| run` |
-| **Bulk Tag** | `list --url__icontains=X \| update --tag=Y` |
-| **Selective Extract** | `snapshot list \| archiveresult create --plugin=pdf` |
-| **Chain Depth** | `crawl create --depth=2 \| run` |
-| **Export/Audit** | `list \| jq -s 'group_by(.status)'` |
-| **Compose with Unix** | `\| jq \| grep \| sort \| uniq \| parallel` |
+| **Filter → Process** | `list --status=failed --plugin=pdf \| run` |
+| **Transform → Archive** | `curl API \| jq '{url, tags_str}' \| crawl create \| run` |
+| **Retry w/ Changes** | `run \| jq 'select(.status=="failed") \| del(.id)' \| create \| run` |
+| **Selective Extract** | `snapshot list \| archiveresult create --plugin=screenshot` |
+| **Bulk Update** | `list --url__icontains=X \| update --tag=Y` |
+| **Chain Processing** | `crawl \| run \| jq transform \| create \| run` |
 
-The key insight: **every intermediate step produces valid JSONL** that can be saved, filtered,
-transformed, or resumed later. This makes archiving workflows debuggable, repeatable, and
-composable with the entire Unix ecosystem.
+The key insight: **`archivebox run` emits JSONL of everything it creates**, enabling:
+- Retry failed items with different settings (timeouts, binaries, etc.)
+- Recursive crawling (archive page → extract links → archive those)
+- Chained transforms (filter failures, modify config, re-queue)
 
 ---
 
