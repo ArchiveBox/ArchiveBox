@@ -597,8 +597,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         Calculate storage path for specific filesystem version.
         Centralizes path logic so it's reusable.
 
-        0.7.x/0.8.x: archive/{timestamp}
-        0.9.x: users/{username}/snapshots/YYYYMMDD/{domain}/{uuid}/
+        0.7.x/0.8.x: data/archive/{timestamp}
+        0.9.x: data/users/{username}/snapshots/YYYYMMDD/{domain}/{uuid}/
         """
         from datetime import datetime
 
