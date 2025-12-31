@@ -19,7 +19,7 @@ const puppeteer = require('puppeteer-core');
 const PLUGIN_NAME = 'redirects';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'redirects.jsonl';
-const PID_FILE = 'hook.pid';
+// PID file is now written by run_hook() with hook-specific name
 const CHROME_SESSION_DIR = '../chrome';
 
 // Global state
@@ -274,8 +274,8 @@ async function main() {
         // Set up redirect listener BEFORE navigation
         await setupRedirectListener();
 
-        // Write PID file
-        fs.writeFileSync(path.join(OUTPUT_DIR, PID_FILE), String(process.pid));
+        // Note: PID file is written by run_hook() with hook-specific name
+        // Snapshot.cleanup() kills all *.pid processes when done
 
         // Wait for chrome_navigate to complete (BLOCKING)
         await waitForNavigation();

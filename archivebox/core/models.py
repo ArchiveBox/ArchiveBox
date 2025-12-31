@@ -1435,10 +1435,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         if not self.OUTPUT_DIR.exists():
             return False
 
-        for plugin_dir in self.OUTPUT_DIR.iterdir():
-            if not plugin_dir.is_dir():
-                continue
-            pid_file = plugin_dir / 'hook.pid'
+        # Check all .pid files in the snapshot directory (hook-specific names)
+        for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
             if process_is_alive(pid_file):
                 return True
 
@@ -2702,8 +2700,12 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             self.save()
             return
 
-        # Read and parse JSONL output from stdout.log
-        stdout_file = plugin_dir / 'stdout.log'
+        # Derive hook basename for hook-specific filenames
+        # e.g., "on_Snapshot__50_wget.py" -> "on_Snapshot__50_wget"
+        hook_basename = Path(self.hook_name).stem if self.hook_name else 'hook'
+
+        # Read and parse JSONL output from hook-specific stdout log
+        stdout_file = plugin_dir / f'{hook_basename}.stdout.log'
         stdout = stdout_file.read_text() if stdout_file.exists() else ''
 
         records = []
@@ -2744,7 +2746,16 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             self.output_str = 'Hook did not output ArchiveResult record'
 
         # Walk filesystem and populate output_files, output_size, output_mimetypes
-        exclude_names = {'stdout.log', 'stderr.log', 'hook.pid', 'listener.pid'}
+        # Exclude hook output files (hook-specific names like on_Snapshot__50_wget.stdout.log)
+        def is_hook_output_file(name: str) -> bool:
+            """Check if a file is a hook output file that should be excluded."""
+            return (
+                name.endswith('.stdout.log') or
+                name.endswith('.stderr.log') or
+                name.endswith('.pid') or
+                (name.endswith('.sh') and name.startswith('on_'))
+            )
+
         mime_sizes = defaultdict(int)
         total_size = 0
         output_files = {}
@@ -2752,7 +2763,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         for file_path in plugin_dir.rglob('*'):
             if not file_path.is_file():
                 continue
-            if file_path.name in exclude_names:
+            if is_hook_output_file(file_path.name):
                 continue
 
             try:
@@ -2810,10 +2821,10 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         }
         process_hook_records(filtered_records, overrides=overrides)
 
-        # Cleanup PID files and empty logs
-        pid_file = plugin_dir / 'hook.pid'
+        # Cleanup PID files and empty logs (hook-specific names)
+        pid_file = plugin_dir / f'{hook_basename}.pid'
         pid_file.unlink(missing_ok=True)
-        stderr_file = plugin_dir / 'stderr.log'
+        stderr_file = plugin_dir / f'{hook_basename}.stderr.log'
         if stdout_file.exists() and stdout_file.stat().st_size == 0:
             stdout_file.unlink()
         if stderr_file.exists() and stderr_file.stat().st_size == 0:
@@ -2919,7 +2930,9 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         plugin_dir = Path(self.pwd) if self.pwd else None
         if not plugin_dir:
             return False
-        pid_file = plugin_dir / 'hook.pid'
+        # Use hook-specific pid filename
+        hook_basename = Path(self.hook_name).stem if self.hook_name else 'hook'
+        pid_file = plugin_dir / f'{hook_basename}.pid'
         return pid_file.exists()
 
 

@@ -365,11 +365,14 @@ def run_hook(
     # Old convention: __background in stem (for backwards compatibility)
     is_background = '.bg.' in script.name or '__background' in script.stem
 
-    # Set up output files for ALL hooks (useful for debugging)
-    stdout_file = output_dir / 'stdout.log'
-    stderr_file = output_dir / 'stderr.log'
-    pid_file = output_dir / 'hook.pid'
-    cmd_file = output_dir / 'cmd.sh'
+    # Set up output files for ALL hooks - use hook-specific names to avoid conflicts
+    # when multiple hooks run in the same plugin directory
+    # e.g., on_Snapshot__20_chrome_tab.bg.js -> on_Snapshot__20_chrome_tab.bg.stdout.log
+    hook_basename = script.stem  # e.g., "on_Snapshot__20_chrome_tab.bg"
+    stdout_file = output_dir / f'{hook_basename}.stdout.log'
+    stderr_file = output_dir / f'{hook_basename}.stderr.log'
+    pid_file = output_dir / f'{hook_basename}.pid'
+    cmd_file = output_dir / f'{hook_basename}.sh'
 
     try:
         # Write command script for validation
@@ -421,8 +424,14 @@ def run_hook(
         # Detect new files created by the hook
         files_after = set(output_dir.rglob('*')) if output_dir.exists() else set()
         new_files = [str(f.relative_to(output_dir)) for f in (files_after - files_before) if f.is_file()]
-        # Exclude the log files themselves from new_files
-        new_files = [f for f in new_files if f not in ('stdout.log', 'stderr.log', 'hook.pid')]
+        # Exclude the log/pid/sh files themselves from new_files (hook-specific names)
+        hook_output_files = {
+            f'{hook_basename}.stdout.log',
+            f'{hook_basename}.stderr.log',
+            f'{hook_basename}.pid',
+            f'{hook_basename}.sh',
+        }
+        new_files = [f for f in new_files if f not in hook_output_files]
 
         # Parse JSONL output from stdout
         # Each line starting with { that has 'type' field is a record
@@ -1235,15 +1244,16 @@ def kill_process(pid_file: Path, sig: int = signal.SIGTERM, validate: bool = Tru
     Kill process in PID file with optional validation.
 
     Args:
-        pid_file: Path to hook.pid file
+        pid_file: Path to hook-specific .pid file (e.g., on_Snapshot__20_chrome_tab.bg.pid)
         sig: Signal to send (default SIGTERM)
         validate: If True, validate process identity before killing (default: True)
     """
     from archivebox.misc.process_utils import safe_kill_process
-    
+
     if validate:
         # Use safe kill with validation
-        cmd_file = pid_file.parent / 'cmd.sh'
+        # Derive cmd file from pid file: on_Snapshot__20_chrome_tab.bg.pid -> on_Snapshot__20_chrome_tab.bg.sh
+        cmd_file = pid_file.with_suffix('.sh')
         safe_kill_process(pid_file, cmd_file, signal_num=sig)
     else:
         # Legacy behavior - kill without validation
