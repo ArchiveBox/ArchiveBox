@@ -1,6 +1,6 @@
 __package__ = 'archivebox.crawls'
 
-from typing import TYPE_CHECKING, Iterable, Iterator, Set
+from typing import TYPE_CHECKING, Iterable
 from datetime import timedelta
 from archivebox.uuid_compat import uuid7
 from pathlib import Path
@@ -59,8 +59,6 @@ class CrawlSchedule(ModelWithSerializers, ModelWithNotes, ModelWithHealthStats):
 
 
 class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWithStateMachine):
-    JSONL_TYPE = 'Crawl'
-
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
@@ -136,13 +134,13 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     def api_url(self) -> str:
         return reverse_lazy('api-1:get_crawl', args=[self.id])
 
-    def to_json(self) -> dict:
+    def to_jsonl(self) -> dict:
         """
-        Convert Crawl model instance to a JSON-serializable dict.
+        Convert Crawl model instance to a JSONL record.
         """
         from archivebox.config import VERSION
         return {
-            'type': self.JSONL_TYPE,
+            'type': 'Crawl',
             'schema_version': VERSION,
             'id': str(self.id),
             'urls': self.urls,
@@ -153,63 +151,10 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
 
-    def to_jsonl(self, seen: Set[tuple] = None, snapshot: bool = True, archiveresult: bool = True, process: bool = True, binary: bool = True, machine: bool = False, iface: bool = False, **kwargs) -> Iterator[dict]:
-        """
-        Yield this Crawl and optionally related objects as JSON records.
-
-        Args:
-            seen: Set of (type, id) tuples already emitted (for deduplication)
-            snapshot: Include related Snapshots (default: True)
-            archiveresult: Include ArchiveResults for each Snapshot (default: True)
-            process: Include Process for each ArchiveResult (default: True)
-            binary: Include Binary for each Process (default: True)
-            machine: Include Machine for each Process (default: False)
-            iface: Include NetworkInterface for each Process (default: False)
-            **kwargs: Additional options passed to children
-
-        Yields:
-            dict: JSON-serializable records
-        """
-        if seen is None:
-            seen = set()
-
-        key = (self.JSONL_TYPE, str(self.id))
-        if key in seen:
-            return
-        seen.add(key)
-
-        yield self.to_json()
-
-        if snapshot:
-            for snap in self.snapshot_set.all():
-                yield from snap.to_jsonl(seen=seen, archiveresult=archiveresult, process=process, binary=binary, machine=machine, iface=iface, **kwargs)
-
-    @classmethod
-    def from_jsonl(cls, records, overrides: dict = None) -> list['Crawl']:
-        """
-        Create/update Crawls from an iterable of JSONL records.
-        Filters to only records with type='Crawl' (or no type).
-
-        Args:
-            records: Iterable of dicts (JSONL records)
-            overrides: Dict of field overrides (e.g., created_by_id)
-
-        Returns:
-            List of Crawl instances (skips None results)
-        """
-        results = []
-        for record in records:
-            record_type = record.get('type', cls.JSONL_TYPE)
-            if record_type == cls.JSONL_TYPE:
-                instance = cls.from_json(record, overrides=overrides)
-                if instance:
-                    results.append(instance)
-        return results
-
     @staticmethod
-    def from_json(record: dict, overrides: dict = None) -> 'Crawl | None':
+    def from_jsonl(record: dict, overrides: dict = None):
         """
-        Create or get a single Crawl from a JSON record dict.
+        Create or get a Crawl from a JSONL record.
 
         Args:
             record: Dict with 'urls' (required), optional 'max_depth', 'tags_str', 'label'
@@ -250,45 +195,11 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         )
         return crawl
 
-    @staticmethod
-    def extract_domain_from_url(url: str) -> str:
-        """
-        Extract domain from URL for path structure.
-        Uses full hostname with sanitized special chars.
-
-        Examples:
-            https://example.com:8080 → example.com_8080
-            https://sub.example.com → sub.example.com
-            file:///path → localhost
-            data:text/html → data
-        """
-        from urllib.parse import urlparse
-
-        try:
-            parsed = urlparse(url)
-
-            if parsed.scheme in ('http', 'https'):
-                if parsed.port:
-                    return f"{parsed.hostname}_{parsed.port}".replace(':', '_')
-                return parsed.hostname or 'unknown'
-            elif parsed.scheme == 'file':
-                return 'localhost'
-            elif parsed.scheme:
-                return parsed.scheme
-            else:
-                return 'unknown'
-        except Exception:
-            return 'unknown'
-
     @property
     def output_dir_parent(self) -> str:
-        """Construct parent directory: users/{username}/crawls/{YYYYMMDD}/{domain}"""
+        """Construct parent directory: users/{user_id}/crawls/{YYYYMMDD}"""
         date_str = self.created_at.strftime('%Y%m%d')
-        username = self.created_by.username
-        # Get domain from first URL
-        first_url = self.get_urls_list()[0] if self.get_urls_list() else ''
-        domain = self.extract_domain_from_url(first_url) if first_url else 'unknown'
-        return f'users/{username}/crawls/{date_str}/{domain}'
+        return f'users/{self.created_by_id}/crawls/{date_str}'
 
     @property
     def output_dir_name(self) -> str:
@@ -506,84 +417,18 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
     def cleanup(self):
         """Clean up background hooks and run on_CrawlEnd hooks."""
-        import os
-        import signal
-        import time
-        from pathlib import Path
         from archivebox.hooks import run_hook, discover_hooks
-        from archivebox.misc.process_utils import validate_pid_file
-
-        def is_process_alive(pid):
-            """Check if a process exists."""
-            try:
-                os.kill(pid, 0)  # Signal 0 checks existence without killing
-                return True
-            except (OSError, ProcessLookupError):
-                return False
+        from archivebox.misc.process_utils import safe_kill_process
 
         # Kill any background processes by scanning for all .pid files
         if self.OUTPUT_DIR.exists():
             for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
-                # Validate PID before killing to avoid killing unrelated processes
                 cmd_file = pid_file.parent / 'cmd.sh'
-                if not validate_pid_file(pid_file, cmd_file):
-                    # PID reused by different process or process dead
+                # safe_kill_process now waits for termination and escalates to SIGKILL
+                # Returns True only if process is confirmed dead
+                killed = safe_kill_process(pid_file, cmd_file)
+                if killed:
                     pid_file.unlink(missing_ok=True)
-                    continue
-
-                try:
-                    pid = int(pid_file.read_text().strip())
-
-                    # Step 1: Send SIGTERM for graceful shutdown
-                    try:
-                        # Try to kill process group first (handles detached processes like Chrome)
-                        try:
-                            os.killpg(pid, signal.SIGTERM)
-                        except (OSError, ProcessLookupError):
-                            # Fall back to killing just the process
-                            os.kill(pid, signal.SIGTERM)
-                    except ProcessLookupError:
-                        # Already dead
-                        pid_file.unlink(missing_ok=True)
-                        continue
-
-                    # Step 2: Wait for graceful shutdown
-                    time.sleep(2)
-
-                    # Step 3: Check if still alive
-                    if not is_process_alive(pid):
-                        # Process terminated gracefully
-                        pid_file.unlink(missing_ok=True)
-                        continue
-
-                    # Step 4: Process still alive, force kill ENTIRE process group with SIGKILL
-                    try:
-                        try:
-                            # Always kill entire process group with SIGKILL (not individual processes)
-                            os.killpg(pid, signal.SIGKILL)
-                        except (OSError, ProcessLookupError) as e:
-                            # Process group kill failed, try single process as fallback
-                            os.kill(pid, signal.SIGKILL)
-                    except ProcessLookupError:
-                        # Process died between check and kill
-                        pid_file.unlink(missing_ok=True)
-                        continue
-
-                    # Step 5: Wait and verify death
-                    time.sleep(1)
-
-                    if is_process_alive(pid):
-                        # Process is unkillable (likely in UNE state on macOS)
-                        # This happens when Chrome crashes in kernel syscall (IOSurface)
-                        # Log but don't block cleanup - process will remain until reboot
-                        print(f'[yellow]⚠️ Process {pid} is unkillable (likely crashed in kernel). Will remain until reboot.[/yellow]')
-                    else:
-                        # Successfully killed
-                        pid_file.unlink(missing_ok=True)
-
-                except (ValueError, OSError) as e:
-                    # Invalid PID file or permission error
-                    pass
 
         # Run on_CrawlEnd hooks
         from archivebox.config.configset import get_config

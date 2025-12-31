@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": ["chrome"],
+  "properties": {
+    "CAPTCHA2_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["USE_CAPTCHA2"],
+      "description": "Enable Captcha2 browser extension for CAPTCHA solving"
+    },
+    "CAPTCHA2_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for CAPTCHA solving in seconds"
+    }
+  }
+}
