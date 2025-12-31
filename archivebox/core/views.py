@@ -565,6 +565,29 @@ def live_progress_view(request):
         archiveresults_succeeded = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.SUCCEEDED).count()
         archiveresults_failed = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.FAILED).count()
 
+        # Get recently completed ArchiveResults with thumbnails (last 20 succeeded results)
+        recent_thumbnails = []
+        recent_results = ArchiveResult.objects.filter(
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+        ).select_related('snapshot').order_by('-end_ts')[:20]
+
+        for ar in recent_results:
+            embed = ar.embed_path()
+            if embed:
+                # Only include results with embeddable image/media files
+                ext = embed.lower().split('.')[-1] if '.' in embed else ''
+                is_embeddable = ext in ('png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'pdf', 'html')
+                if is_embeddable or ar.plugin in ('screenshot', 'favicon', 'dom'):
+                    recent_thumbnails.append({
+                        'id': str(ar.id),
+                        'plugin': ar.plugin,
+                        'snapshot_id': str(ar.snapshot_id),
+                        'snapshot_url': ar.snapshot.url[:60] if ar.snapshot else '',
+                        'embed_path': embed,
+                        'archive_path': f'/archive/{ar.snapshot.timestamp}/{embed}' if ar.snapshot else '',
+                        'end_ts': ar.end_ts.isoformat() if ar.end_ts else None,
+                    })
+
         # Build hierarchical active crawls with nested snapshots and archive results
         from django.db.models import Prefetch
 
@@ -689,6 +712,7 @@ def live_progress_view(request):
             'archiveresults_succeeded': archiveresults_succeeded,
             'archiveresults_failed': archiveresults_failed,
             'active_crawls': active_crawls,
+            'recent_thumbnails': recent_thumbnails,
             'server_time': timezone.now().isoformat(),
         })
     except Exception as e:
@@ -708,6 +732,7 @@ def live_progress_view(request):
             'archiveresults_succeeded': 0,
             'archiveresults_failed': 0,
             'active_crawls': [],
+            'recent_thumbnails': [],
             'server_time': timezone.now().isoformat(),
         }, status=500)
 

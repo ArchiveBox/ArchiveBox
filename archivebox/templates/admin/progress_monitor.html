@@ -423,6 +423,102 @@
         color: #6e7681;
     }
 
+    /* Thumbnail Strip */
+    #progress-monitor .thumbnail-strip {
+        display: flex;
+        gap: 8px;
+        padding: 10px 16px;
+        background: rgba(0,0,0,0.15);
+        border-top: 1px solid #21262d;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #30363d #0d1117;
+    }
+    #progress-monitor .thumbnail-strip::-webkit-scrollbar {
+        height: 6px;
+    }
+    #progress-monitor .thumbnail-strip::-webkit-scrollbar-track {
+        background: #0d1117;
+    }
+    #progress-monitor .thumbnail-strip::-webkit-scrollbar-thumb {
+        background: #30363d;
+        border-radius: 3px;
+    }
+    #progress-monitor .thumbnail-strip::-webkit-scrollbar-thumb:hover {
+        background: #484f58;
+    }
+    #progress-monitor .thumbnail-strip.empty {
+        display: none;
+    }
+    #progress-monitor .thumbnail-item {
+        flex-shrink: 0;
+        position: relative;
+        width: 64px;
+        height: 48px;
+        border-radius: 4px;
+        overflow: hidden;
+        border: 1px solid #30363d;
+        background: #161b22;
+        cursor: pointer;
+        transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    #progress-monitor .thumbnail-item:hover {
+        transform: scale(1.1);
+        border-color: #58a6ff;
+        box-shadow: 0 0 12px rgba(88, 166, 255, 0.3);
+        z-index: 10;
+    }
+    #progress-monitor .thumbnail-item.new {
+        animation: thumbnail-pop 0.4s ease-out;
+    }
+    @keyframes thumbnail-pop {
+        0% { transform: scale(0.5); opacity: 0; }
+        50% { transform: scale(1.15); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    #progress-monitor .thumbnail-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    #progress-monitor .thumbnail-item .thumbnail-fallback {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: #8b949e;
+        background: linear-gradient(135deg, #21262d 0%, #161b22 100%);
+    }
+    #progress-monitor .thumbnail-item .thumbnail-plugin {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 2px 4px;
+        font-size: 8px;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: #fff;
+        background: rgba(0,0,0,0.7);
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    #progress-monitor .thumbnail-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 4px;
+        color: #8b949e;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        flex-shrink: 0;
+    }
+
 </style>
 
 <div id="progress-monitor">
@@ -456,6 +552,10 @@
         </div>
     </div>
 
+    <div class="thumbnail-strip empty" id="thumbnail-strip">
+        <span class="thumbnail-label">Recent:</span>
+    </div>
+
     <div class="tree-container" id="tree-container">
         <div class="idle-message" id="idle-message">No active crawls</div>
         <div id="crawl-tree"></div>
@@ -469,9 +569,11 @@
     const treeContainer = document.getElementById('tree-container');
     const crawlTree = document.getElementById('crawl-tree');
     const idleMessage = document.getElementById('idle-message');
+    const thumbnailStrip = document.getElementById('thumbnail-strip');
 
     let pollInterval = null;
     let isCollapsed = localStorage.getItem('progress-monitor-collapsed') === 'true';
+    let knownThumbnailIds = new Set();
 
     // Baselines for resettable counters
     let succeededBaseline = parseInt(localStorage.getItem('progress-succeeded-baseline') || '0');
@@ -498,6 +600,82 @@
             return u.hostname + u.pathname.substring(0, 30) + (u.pathname.length > 30 ? '...' : '');
         } catch {
             return String(url).substring(0, 50) + (String(url).length > 50 ? '...' : '');
+        }
+    }
+
+    function getPluginIcon(plugin) {
+        const icons = {
+            'screenshot': '&#128247;',
+            'favicon': '&#11088;',
+            'dom': '&#128196;',
+            'pdf': '&#128462;',
+            'title': '&#128221;',
+            'headers': '&#128203;',
+            'singlefile': '&#128230;',
+            'readability': '&#128214;',
+            'mercury': '&#9884;',
+            'wget': '&#128229;',
+            'media': '&#127909;',
+        };
+        return icons[plugin] || '&#128196;';
+    }
+
+    function renderThumbnail(thumb, isNew) {
+        const ext = (thumb.embed_path || '').toLowerCase().split('.').pop();
+        const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico'].includes(ext);
+
+        const item = document.createElement('a');
+        item.className = 'thumbnail-item' + (isNew ? ' new' : '');
+        item.href = `/admin/core/snapshot/${thumb.snapshot_id}/change/`;
+        item.title = `${thumb.plugin}: ${thumb.snapshot_url}`;
+        item.dataset.id = thumb.id;
+
+        if (isImage && thumb.archive_path) {
+            item.innerHTML = `
+                <img src="${thumb.archive_path}" alt="${thumb.plugin}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'thumbnail-fallback\\'>${getPluginIcon(thumb.plugin)}</div><span class=\\'thumbnail-plugin\\'>${thumb.plugin}</span>'">
+                <span class="thumbnail-plugin">${thumb.plugin}</span>
+            `;
+        } else {
+            item.innerHTML = `
+                <div class="thumbnail-fallback">${getPluginIcon(thumb.plugin)}</div>
+                <span class="thumbnail-plugin">${thumb.plugin}</span>
+            `;
+        }
+
+        return item;
+    }
+
+    function updateThumbnails(thumbnails) {
+        if (!thumbnails || thumbnails.length === 0) {
+            thumbnailStrip.classList.add('empty');
+            return;
+        }
+
+        thumbnailStrip.classList.remove('empty');
+
+        // Find new thumbnails (ones we haven't seen before)
+        const newThumbs = thumbnails.filter(t => !knownThumbnailIds.has(t.id));
+
+        // Add new thumbnails to the beginning (after the label)
+        const label = thumbnailStrip.querySelector('.thumbnail-label');
+        newThumbs.reverse().forEach(thumb => {
+            const item = renderThumbnail(thumb, true);
+            if (label.nextSibling) {
+                thumbnailStrip.insertBefore(item, label.nextSibling);
+            } else {
+                thumbnailStrip.appendChild(item);
+            }
+            knownThumbnailIds.add(thumb.id);
+        });
+
+        // Limit to 20 thumbnails (remove old ones)
+        const items = thumbnailStrip.querySelectorAll('.thumbnail-item');
+        if (items.length > 20) {
+            for (let i = 20; i < items.length; i++) {
+                const id = items[i].dataset.id;
+                knownThumbnailIds.delete(id);
+                items[i].remove();
+            }
         }
     }
 
@@ -705,6 +883,9 @@
             idleMessage.innerHTML = `No active crawls (${data.crawls_pending || 0} pending, ${data.crawls_started || 0} started, <a href="${recentUrl}" style="color: #58a6ff;">${data.crawls_recent || 0} recent</a>)`;
             crawlTree.innerHTML = '';
         }
+
+        // Update thumbnail strip with recently completed results
+        updateThumbnails(data.recent_thumbnails || []);
     }
 
     function fetchProgress() {
