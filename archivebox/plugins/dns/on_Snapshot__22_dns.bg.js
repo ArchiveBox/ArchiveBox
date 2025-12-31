@@ -147,6 +147,15 @@ async function setupListener(targetUrl) {
             if (errorText.includes('net::ERR_NAME_NOT_RESOLVED') ||
                 errorText.includes('net::ERR_NAME_RESOLUTION_FAILED')) {
 
+                // Create a unique key for this failed resolution
+                const resolutionKey = `${hostname}:NXDOMAIN`;
+
+                // Skip if we've already recorded this NXDOMAIN
+                if (seenResolutions.has(resolutionKey)) {
+                    return;
+                }
+                seenResolutions.set(resolutionKey, true);
+
                 const timestamp = new Date().toISOString();
                 const dnsRecord = {
                     ts: timestamp,
