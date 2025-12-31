@@ -30,17 +30,9 @@ class Migration(migrations.Migration):
                 -- Add composite index for machine + pid + started_at (for PID reuse protection)
                 CREATE INDEX IF NOT EXISTS machine_process_machine_pid_started_idx ON machine_process(machine_id, pid, started_at);
             """,
-                    reverse_sql="""
-                        DROP INDEX IF EXISTS machine_process_machine_pid_started_idx;
-                        DROP INDEX IF EXISTS machine_process_parent_status_idx;
-                        DROP INDEX IF EXISTS machine_process_process_type_idx;
-                        DROP INDEX IF EXISTS machine_process_parent_id_idx;
-
-                        -- SQLite doesn't support DROP COLUMN directly, but we record the intent
-                        -- In practice, this migration is forward-only for SQLite
-                        -- For PostgreSQL/MySQL: ALTER TABLE machine_process DROP COLUMN process_type;
-                        -- For PostgreSQL/MySQL: ALTER TABLE machine_process DROP COLUMN parent_id;
-                    """
+                    # Migration is irreversible due to SQLite limitations
+                    # SQLite doesn't support DROP COLUMN, would require table rebuild
+                    reverse_sql=migrations.RunSQL.noop
                 ),
             ],
             state_operations=[
@@ -75,7 +67,21 @@ class Migration(migrations.Migration):
                         max_length=16,
                     ),
                 ),
-                # Add indexes
+                # Add indexes - must match the SQL index names exactly
+                migrations.AddIndex(
+                    model_name='process',
+                    index=models.Index(
+                        fields=['parent'],
+                        name='machine_process_parent_id_idx',
+                    ),
+                ),
+                migrations.AddIndex(
+                    model_name='process',
+                    index=models.Index(
+                        fields=['process_type'],
+                        name='machine_process_process_type_idx',
+                    ),
+                ),
                 migrations.AddIndex(
                     model_name='process',
                     index=models.Index(

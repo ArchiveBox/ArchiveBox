@@ -424,9 +424,10 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         if self.OUTPUT_DIR.exists():
             for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
                 cmd_file = pid_file.parent / 'cmd.sh'
-                # Only delete PID file if kill succeeded or process is already dead
+                # safe_kill_process now waits for termination and escalates to SIGKILL
+                # Returns True only if process is confirmed dead
                 killed = safe_kill_process(pid_file, cmd_file)
-                if killed or not pid_file.exists():
+                if killed:
                     pid_file.unlink(missing_ok=True)
 
         # Run on_CrawlEnd hooks

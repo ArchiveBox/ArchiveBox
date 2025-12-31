@@ -70,15 +70,54 @@ def write_cmd_file(cmd_file: Path, cmd: list[str]):
         pass
 
 
-def safe_kill_process(pid_file: Path, cmd_file: Optional[Path] = None, signal_num: int = 15) -> bool:
-    """Kill process after validation. Returns True if killed."""
+def safe_kill_process(pid_file: Path, cmd_file: Optional[Path] = None, signal_num: int = 15, timeout: float = 3.0) -> bool:
+    """
+    Kill process after validation, with graceful wait and SIGKILL escalation.
+
+    Returns True only if process is confirmed dead (either already dead or killed successfully).
+    """
+    import time
+    import signal
+
     if not validate_pid_file(pid_file, cmd_file):
         pid_file.unlink(missing_ok=True)  # Clean stale file
-        return False
+        return True  # Process already dead, consider it killed
 
     try:
         pid = int(pid_file.read_text().strip())
-        os.kill(pid, signal_num)
-        return True
-    except (OSError, ValueError, ProcessLookupError):
+
+        # Send initial signal (SIGTERM by default)
+        try:
+            os.kill(pid, signal_num)
+        except ProcessLookupError:
+            # Process already dead
+            return True
+
+        # Wait for process to terminate gracefully
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                os.kill(pid, 0)  # Check if process still exists
+                time.sleep(0.1)
+            except ProcessLookupError:
+                # Process terminated
+                return True
+
+        # Process didn't terminate, escalate to SIGKILL
+        try:
+            os.kill(pid, signal.SIGKILL)
+            time.sleep(0.5)  # Brief wait after SIGKILL
+            # Verify it's dead
+            try:
+                os.kill(pid, 0)
+                # Process still alive after SIGKILL - this is unusual
+                return False
+            except ProcessLookupError:
+                # Process finally dead
+                return True
+        except ProcessLookupError:
+            # Process died between timeout and SIGKILL
+            return True
+
+    except (OSError, ValueError):
         return False

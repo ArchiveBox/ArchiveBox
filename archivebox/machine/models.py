@@ -812,6 +812,16 @@ class Process(ModelWithHealthStats):
         parent = cls._find_parent_process(machine)
         process_type = cls._detect_process_type()
 
+        # Use psutil cmdline if available (matches what proc() will validate against)
+        # Otherwise fall back to sys.argv
+        cmd = sys.argv
+        if PSUTIL_AVAILABLE:
+            try:
+                os_proc = psutil.Process(current_pid)
+                cmd = os_proc.cmdline()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+
         # Use psutil start time if available (more accurate than timezone.now())
         if os_start_time:
             started_at = datetime.fromtimestamp(os_start_time, tz=timezone.get_current_timezone())
@@ -822,7 +832,7 @@ class Process(ModelWithHealthStats):
             machine=machine,
             parent=parent,
             process_type=process_type,
-            cmd=sys.argv,
+            cmd=cmd,
             pwd=os.getcwd(),
             pid=current_pid,
             started_at=started_at,

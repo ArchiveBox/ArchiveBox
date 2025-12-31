@@ -131,6 +131,10 @@ class Worker:
         self.pid = os.getpid()
         # Register this worker process in the database
         self.db_process = Process.current()
+        # Explicitly set process_type to WORKER to prevent mis-detection
+        if self.db_process.process_type != Process.TypeChoices.WORKER:
+            self.db_process.process_type = Process.TypeChoices.WORKER
+            self.db_process.save(update_fields=['process_type'])
 
         # Determine worker type for logging
         worker_type_name = self.__class__.__name__
@@ -312,10 +316,12 @@ class Worker:
         Process.cleanup_stale_running()
         # Convert Process objects to dicts to match the expected API contract
         processes = Process.get_running(process_type=Process.TypeChoices.WORKER)
+        # Note: worker_id is not stored on Process model, it's dynamically generated
+        # We return process_id (UUID) and pid (OS process ID) instead
         return [
             {
                 'pid': p.pid,
-                'worker_id': p.id,
+                'process_id': str(p.id),  # UUID of Process record
                 'started_at': p.started_at.isoformat() if p.started_at else None,
                 'status': p.status,
             }
@@ -420,7 +426,7 @@ class ArchiveResultWorker(Worker):
         from archivebox.machine.models import Process
 
         if worker_id is None:
-            worker_id = Process.get_next_worker_id(process_type=cls.name)
+            worker_id = Process.get_next_worker_id(process_type=Process.TypeChoices.WORKER)
 
         # Use module-level function for pickling compatibility
         proc = MPProcess(

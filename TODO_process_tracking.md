@@ -1728,8 +1728,8 @@ The goal is to consolidate all subprocess management into `Process` model method
 | `read_pid_file(path)` | `Process.objects.get_by_pid(pid)` |
 | `remove_pid_file(path)` | Manual cleanup in `Process.kill()` and legacy hook cleanup code |
 | `is_process_alive(pid)` | `Process.is_running` / `Process.proc is not None` |
-| `get_all_pid_files()` | `Process.objects.filter(status='running')` |
-| `get_all_worker_pids(type)` | `Process.objects.filter(process_type=type, status='running')` |
+| `get_all_pid_files()` | `Process.objects.filter(machine=Machine.current(), status=Process.StatusChoices.RUNNING)` |
+| `get_all_worker_pids(type)` | `Process.objects.filter(machine=Machine.current(), process_type=type, status=Process.StatusChoices.RUNNING)` |
 | `cleanup_stale_pid_files()` | `Process.cleanup_stale_running()` |
 | `get_running_worker_count(type)` | `Process.objects.filter(...).count()` |
 | `get_next_worker_id(type)` | Use `Max(worker_id)+1` under transaction or DB sequence to avoid race conditions |
@@ -1808,7 +1808,7 @@ for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
 def cleanup(self):
     # Kill all running child processes for this crawl
     for snapshot in self.snapshot_set.all():
-        for ar in snapshot.archiveresult_set.filter(status='started'):
+        for ar in snapshot.archiveresult_set.filter(status=ArchiveResult.StatusChoices.STARTED):
             if ar.process_id:
                 # Kill hook process and all its children
                 ar.process.kill()
