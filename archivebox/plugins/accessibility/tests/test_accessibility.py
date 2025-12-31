@@ -105,10 +105,11 @@ class TestAccessibilityWithChrome(TestCase):
                 self.assertNotIn('Traceback', result.stderr)
 
                 # example.com has headings, so we should get accessibility data
-                if accessibility_data:
-                    # Verify we got page outline data
-                    self.assertIn('headings', accessibility_data, f"Missing headings: {accessibility_data}")
-                    self.assertIn('url', accessibility_data, f"Missing url: {accessibility_data}")
+                self.assertIsNotNone(accessibility_data, "No accessibility data was generated")
+
+                # Verify we got page outline data
+                self.assertIn('headings', accessibility_data, f"Missing headings: {accessibility_data}")
+                self.assertIn('url', accessibility_data, f"Missing url: {accessibility_data}")
 
         except RuntimeError as e:
             if 'Chrome' in str(e) or 'CDP' in str(e):

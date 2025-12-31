@@ -91,25 +91,27 @@ class TestParseDomOutlinksWithChrome(TestCase):
                 outlinks_output = snapshot_chrome_dir / 'outlinks.json'
 
                 outlinks_data = None
+                json_error = None
 
                 # Try parsing from file first
                 if outlinks_output.exists():
                     with open(outlinks_output) as f:
                         try:
                             outlinks_data = json.load(f)
-                        except json.JSONDecodeError:
-                            pass
+                        except json.JSONDecodeError as e:
+                            json_error = str(e)
 
                 # Verify hook ran successfully
                 self.assertEqual(result.returncode, 0, f"Hook failed: {result.stderr}")
                 self.assertNotIn('Traceback', result.stderr)
 
                 # Verify we got outlinks data with expected categories
-                if outlinks_data:
-                    self.assertIn('url', outlinks_data, f"Missing url: {outlinks_data}")
-                    self.assertIn('hrefs', outlinks_data, f"Missing hrefs: {outlinks_data}")
-                    # example.com has at least one link (to iana.org)
-                    self.assertIsInstance(outlinks_data['hrefs'], list)
+                self.assertIsNotNone(outlinks_data, f"No outlinks data found - file missing or invalid JSON: {json_error}")
+
+                self.assertIn('url', outlinks_data, f"Missing url: {outlinks_data}")
+                self.assertIn('hrefs', outlinks_data, f"Missing hrefs: {outlinks_data}")
+                # example.com has at least one link (to iana.org)
+                self.assertIsInstance(outlinks_data['hrefs'], list)
 
         except RuntimeError as e:
             if 'Chrome' in str(e) or 'CDP' in str(e):
