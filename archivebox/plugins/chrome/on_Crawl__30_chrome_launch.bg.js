@@ -117,6 +117,11 @@ async function main() {
         // Load installed extensions
         const extensionsDir = getEnv('CHROME_EXTENSIONS_DIR') ||
             path.join(getEnv('DATA_DIR', '.'), 'personas', getEnv('ACTIVE_PERSONA', 'Default'), 'chrome_extensions');
+        const userDataDir = getEnv('CHROME_USER_DATA_DIR');
+
+        if (userDataDir) {
+            console.error(`[*] Using user data dir: ${userDataDir}`);
+        }
 
         const installedExtensions = [];
         const extensionPaths = [];
@@ -150,9 +155,11 @@ async function main() {
         }
 
         // Launch Chromium using consolidated function
+        // userDataDir is derived from ACTIVE_PERSONA by get_config() if not explicitly set
         const result = await launchChromium({
             binary,
             outputDir: OUTPUT_DIR,
+            userDataDir,
             extensionPaths,
         });
 

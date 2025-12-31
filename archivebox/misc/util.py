@@ -480,12 +480,39 @@ for url_str, num_urls in _test_url_strs.items():
 
 def chrome_cleanup():
     """
-    Cleans up any state or runtime files that chrome leaves behind when killed by
-    a timeout or other error
+    Cleans up any state or runtime files that Chrome leaves behind when killed by
+    a timeout or other error. Handles:
+    - All persona chrome_user_data directories (via Persona.cleanup_chrome_all())
+    - Explicit CHROME_USER_DATA_DIR from config
+    - Legacy Docker chromium path
     """
     import os
+    from pathlib import Path
     from archivebox.config.permissions import IN_DOCKER
-    
+
+    # Clean up all persona chrome directories using Persona class
+    try:
+        from archivebox.personas.models import Persona
+
+        # Clean up all personas
+        Persona.cleanup_chrome_all()
+
+        # Also clean up the active persona's explicit CHROME_USER_DATA_DIR if set
+        # (in case it's a custom path not under PERSONAS_DIR)
+        from archivebox.config.configset import get_config
+        config = get_config()
+        chrome_user_data_dir = config.get('CHROME_USER_DATA_DIR')
+        if chrome_user_data_dir:
+            singleton_lock = Path(chrome_user_data_dir) / 'SingletonLock'
+            if os.path.lexists(singleton_lock):
+                try:
+                    singleton_lock.unlink()
+                except OSError:
+                    pass
+    except Exception:
+        pass  # Persona/config not available during early startup
+
+    # Legacy Docker cleanup (for backwards compatibility)
     if IN_DOCKER:
         singleton_lock = "/home/archivebox/.config/chromium/SingletonLock"
         if os.path.lexists(singleton_lock):

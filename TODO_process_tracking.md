@@ -621,18 +621,6 @@ class Process(ModelWithHealthStats):
 
         return self
 
-    def is_alive(self) -> bool:
-        """Check if this process is still running."""
-        from archivebox.misc.process_utils import validate_pid_file
-
-        if self.status == self.StatusChoices.EXITED:
-            return False
-
-        if not self.pid:
-            return False
-
-        return validate_pid_file(self.pid_file, self.cmd_file)
-
     def kill(self, signal_num: int = 15) -> bool:
         """
         Kill this process and update status.
@@ -712,7 +700,7 @@ class Process(ModelWithHealthStats):
         Wait for process to exit, polling periodically.
 
         Args:
-            timeout: Max seconds to wait (None = use self.timeout)
+            timeout: Max seconds to wait (None = use self.timeout, or config.TIMEOUT * 5 if that's also None)
 
         Returns:
             exit_code
@@ -721,8 +709,10 @@ class Process(ModelWithHealthStats):
             TimeoutError if process doesn't exit in time
         """
         import time
+        from archivebox import config
 
-        timeout = timeout or self.timeout
+        # Require a timeout - default to config.TIMEOUT * 5 (typically 300s)
+        timeout = timeout or self.timeout or (config.TIMEOUT * 5)
         start = time.time()
 
         while True:

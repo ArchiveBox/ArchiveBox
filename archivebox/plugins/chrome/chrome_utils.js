@@ -57,6 +57,40 @@ function getEnvInt(name, defaultValue = 0) {
 }
 
 /**
+ * Get array environment variable (JSON array or comma-separated string).
+ *
+ * Parsing strategy:
+ * - If value starts with '[', parse as JSON array
+ * - Otherwise, parse as comma-separated values
+ *
+ * This prevents incorrect splitting of arguments that contain internal commas.
+ * For arguments with commas, use JSON format:
+ *   CHROME_ARGS='["--user-data-dir=/path/with,comma", "--window-size=1440,900"]'
+ *
+ * @param {string} name - Environment variable name
+ * @param {string[]} [defaultValue=[]] - Default value if not set
+ * @returns {string[]} - Array of strings
+ */
+function getEnvArray(name, defaultValue = []) {
+    const val = getEnv(name, '');
+    if (!val) return defaultValue;
+
+    // If starts with '[', parse as JSON array
+    if (val.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(val);
+            if (Array.isArray(parsed)) return parsed;
+        } catch (e) {
+            console.error(`[!] Failed to parse ${name} as JSON array: ${e.message}`);
+            // Fall through to comma-separated parsing
+        }
+    }
+
+    // Parse as comma-separated values
+    return val.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+/**
  * Parse resolution string into width/height.
  * @param {string} resolution - Resolution string like "1440,2000"
  * @returns {{width: number, height: number}} - Parsed dimensions
@@ -257,6 +291,31 @@ function killZombieChrome(dataDir = null) {
         console.error('[+] No zombies found');
     }
 
+    // Clean up stale SingletonLock files from persona chrome_user_data directories
+    const personasDir = path.join(dataDir, 'personas');
+    if (fs.existsSync(personasDir)) {
+        try {
+            const personas = fs.readdirSync(personasDir, { withFileTypes: true });
+            for (const persona of personas) {
+                if (!persona.isDirectory()) continue;
+
+                const userDataDir = path.join(personasDir, persona.name, 'chrome_user_data');
+                const singletonLock = path.join(userDataDir, 'SingletonLock');
+
+                if (fs.existsSync(singletonLock)) {
+                    try {
+                        fs.unlinkSync(singletonLock);
+                        console.error(`[+] Removed stale SingletonLock: ${singletonLock}`);
+                    } catch (e) {
+                        // Ignore - may be in use by active Chrome
+                    }
+                }
+            }
+        } catch (e) {
+            // Ignore errors scanning personas directory
+        }
+    }
+
     return killed;
 }
 
@@ -270,8 +329,10 @@ function killZombieChrome(dataDir = null) {
  * @param {Object} options - Launch options
  * @param {string} [options.binary] - Chrome binary path (auto-detected if not provided)
  * @param {string} [options.outputDir='chrome'] - Directory for output files
+ * @param {string} [options.userDataDir] - Chrome user data directory for persistent sessions
  * @param {string} [options.resolution='1440,2000'] - Window resolution
  * @param {boolean} [options.headless=true] - Run in headless mode
+ * @param {boolean} [options.sandbox=true] - Enable Chrome sandbox
  * @param {boolean} [options.checkSsl=true] - Check SSL certificates
  * @param {string[]} [options.extensionPaths=[]] - Paths to unpacked extensions
  * @param {boolean} [options.killZombies=true] - Kill zombie processes first
@@ -281,8 +342,10 @@ async function launchChromium(options = {}) {
     const {
         binary = findChromium(),
         outputDir = 'chrome',
+        userDataDir = getEnv('CHROME_USER_DATA_DIR'),
         resolution = getEnv('CHROME_RESOLUTION') || getEnv('RESOLUTION', '1440,2000'),
         headless = getEnvBool('CHROME_HEADLESS', true),
+        sandbox = getEnvBool('CHROME_SANDBOX', true),
         checkSsl = getEnvBool('CHROME_CHECK_SSL_VALIDITY', getEnvBool('CHECK_SSL_VALIDITY', true)),
         extensionPaths = [],
         killZombies = true,
@@ -304,40 +367,64 @@ async function launchChromium(options = {}) {
         fs.mkdirSync(outputDir, { recursive: true });
     }
 
+    // Create user data directory if specified and doesn't exist
+    if (userDataDir) {
+        if (!fs.existsSync(userDataDir)) {
+            fs.mkdirSync(userDataDir, { recursive: true });
+            console.error(`[*] Created user data directory: ${userDataDir}`);
+        }
+        // Clean up any stale SingletonLock file from previous crashed sessions
+        const singletonLock = path.join(userDataDir, 'SingletonLock');
+        if (fs.existsSync(singletonLock)) {
+            try {
+                fs.unlinkSync(singletonLock);
+                console.error(`[*] Removed stale SingletonLock: ${singletonLock}`);
+            } catch (e) {
+                console.error(`[!] Failed to remove SingletonLock: ${e.message}`);
+            }
+        }
+    }
+
     // Find a free port
     const debugPort = await findFreePort();
     console.error(`[*] Using debug port: ${debugPort}`);
 
-    // Build Chrome arguments
-    const chromiumArgs = [
+    // Get base Chrome args from config (static flags from CHROME_ARGS env var)
+    // These come from config.json defaults, merged by get_config() in Python
+    const baseArgs = getEnvArray('CHROME_ARGS', []);
+
+    // Get extra user-provided args
+    const extraArgs = getEnvArray('CHROME_ARGS_EXTRA', []);
+
+    // Build dynamic Chrome arguments (these must be computed at runtime)
+    const dynamicArgs = [
+        // Remote debugging setup
         `--remote-debugging-port=${debugPort}`,
         '--remote-debugging-address=127.0.0.1',
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
+
+        // Sandbox settings (disable in Docker)
+        ...(sandbox ? [] : ['--no-sandbox', '--disable-setuid-sandbox']),
+
+        // Docker-specific workarounds
         '--disable-dev-shm-usage',
         '--disable-gpu',
-        '--disable-sync',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--disable-default-apps',
-        '--disable-infobars',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-component-update',
-        '--disable-domain-reliability',
-        '--disable-breakpad',
-        '--disable-background-networking',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--disable-ipc-flooding-protection',
-        '--password-store=basic',
-        '--use-mock-keychain',
-        '--font-render-hinting=none',
-        '--force-color-profile=srgb',
+
+        // Window size
         `--window-size=${width},${height}`,
+
+        // User data directory (for persistent sessions with persona)
+        ...(userDataDir ? [`--user-data-dir=${userDataDir}`] : []),
+
+        // Headless mode
         ...(headless ? ['--headless=new'] : []),
+
+        // SSL certificate checking
         ...(checkSsl ? [] : ['--ignore-certificate-errors']),
     ];
+
+    // Combine all args: base (from config) + dynamic (runtime) + extra (user overrides)
+    // Dynamic args come after base so they can override if needed
+    const chromiumArgs = [...baseArgs, ...dynamicArgs, ...extraArgs];
 
     // Add extension loading flags
     if (extensionPaths.length > 0) {
@@ -1231,6 +1318,7 @@ module.exports = {
     getEnv,
     getEnvBool,
     getEnvInt,
+    getEnvArray,
     parseResolution,
     // PID file management
     writePidWithMtime,

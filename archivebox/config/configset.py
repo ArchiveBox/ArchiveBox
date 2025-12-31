@@ -120,6 +120,7 @@ class BaseConfigSet(BaseSettings):
 def get_config(
     scope: str = "global",
     defaults: Optional[Dict] = None,
+    persona: Any = None,
     user: Any = None,
     crawl: Any = None,
     snapshot: Any = None,
@@ -131,14 +132,16 @@ def get_config(
     1. Per-snapshot config (snapshot.config JSON field)
     2. Per-crawl config (crawl.config JSON field)
     3. Per-user config (user.config JSON field)
-    4. Environment variables
-    5. Config file (ArchiveBox.conf)
-    6. Plugin schema defaults (config.json)
-    7. Core config defaults
+    4. Per-persona config (persona.get_derived_config() - includes CHROME_USER_DATA_DIR etc.)
+    5. Environment variables
+    6. Config file (ArchiveBox.conf)
+    7. Plugin schema defaults (config.json)
+    8. Core config defaults
 
     Args:
         scope: Config scope ('global', 'crawl', 'snapshot', etc.)
         defaults: Default values to start with
+        persona: Persona object (provides derived paths like CHROME_USER_DATA_DIR)
         user: User object with config JSON field
         crawl: Crawl object with config JSON field
         snapshot: Snapshot object with config JSON field
@@ -204,6 +207,10 @@ def get_config(
                     config[key] = config[fallback]
     except ImportError:
         pass
+
+    # Apply persona config overrides (includes derived paths like CHROME_USER_DATA_DIR)
+    if persona and hasattr(persona, "get_derived_config"):
+        config.update(persona.get_derived_config())
 
     # Apply user config overrides
     if user and hasattr(user, "config") and user.config:
