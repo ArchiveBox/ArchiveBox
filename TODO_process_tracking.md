@@ -1093,36 +1093,132 @@ class Orchestrator:
     # _get_parent_process() NO LONGER NEEDED
 ```
 
-### 3.3 Track Supervisord Process
+### 3.3 Track Supervisord Process (Detailed)
 
 **File:** `archivebox/workers/supervisord_util.py`
 
+Supervisord is special: it's spawned by `subprocess.Popen` (not through Process.current()).
+We create its Process record manually after spawning.
+
+#### 3.3.1 Update Module-Level Variables
+
+**CURRENT CODE (line 31):**
 ```python
-def start_new_supervisord_process(daemonize=False):
-    from archivebox.machine.models import Process, Machine
-
-    # ... existing setup ...
-
-    proc = subprocess.Popen(...)
-
-    # NEW: Create database Process record for supervisord
-    db_process = Process.objects.create(
-        machine=Machine.current(),
-        parent=get_cli_process(),  # Find the CLI command's Process
-        process_type=Process.TypeChoices.SUPERVISORD,
-        cmd=['supervisord', f'--configuration={CONFIG_FILE}'],
-        pwd=str(CONSTANTS.DATA_DIR),
-        pid=proc.pid,
-        started_at=timezone.now(),
-        status=Process.StatusChoices.RUNNING,
-    )
-
-    # Store reference for later cleanup
-    global _supervisord_db_process
-    _supervisord_db_process = db_process
-
-    # ... rest of function ...
+# Global reference to supervisord process for cleanup
+_supervisord_proc = None
 ```
+
+**NEW CODE:**
+```python
+# Global references for cleanup
+_supervisord_proc = None
+_supervisord_db_process = None  # NEW: Database Process record
+```
+
+#### 3.3.2 Update `start_new_supervisord_process()`
+
+**CURRENT CODE (lines 263-278):**
+```python
+proc = subprocess.Popen(
+    f"supervisord --configuration={CONFIG_FILE}",
+    stdin=None,
+    stdout=log_handle,
+    stderr=log_handle,
+    shell=True,
+    start_new_session=False,
+)
+
+global _supervisord_proc
+_supervisord_proc = proc
+
+time.sleep(2)
+return get_existing_supervisord_process()
+```
+
+**NEW CODE:**
+```python
+from archivebox.machine.models import Process, Machine
+import psutil
+
+proc = subprocess.Popen(
+    f"supervisord --configuration={CONFIG_FILE}",
+    stdin=None,
+    stdout=log_handle,
+    stderr=log_handle,
+    shell=True,
+    start_new_session=False,
+)
+
+global _supervisord_proc, _supervisord_db_process
+_supervisord_proc = proc
+
+# Create Process record for supervisord
+# Parent is Process.current() (the CLI command that started it)
+try:
+    os_proc = psutil.Process(proc.pid)
+    started_at = datetime.fromtimestamp(os_proc.create_time(), tz=timezone.utc)
+except (psutil.NoSuchProcess, psutil.AccessDenied):
+    started_at = timezone.now()
+
+_supervisord_db_process = Process.objects.create(
+    machine=Machine.current(),
+    parent=Process.current(),  # CLI process that spawned supervisord
+    process_type=Process.TypeChoices.SUPERVISORD,
+    cmd=['supervisord', f'--configuration={CONFIG_FILE}'],
+    pwd=str(CONSTANTS.DATA_DIR),
+    pid=proc.pid,
+    started_at=started_at,
+    status=Process.StatusChoices.RUNNING,
+)
+
+time.sleep(2)
+return get_existing_supervisord_process()
+```
+
+#### 3.3.3 Update `stop_existing_supervisord_process()`
+
+**ADD at end of function (after line 217):**
+```python
+# Update database Process record
+global _supervisord_db_process
+if _supervisord_db_process:
+    _supervisord_db_process.status = Process.StatusChoices.EXITED
+    _supervisord_db_process.ended_at = timezone.now()
+    _supervisord_db_process.exit_code = 0
+    _supervisord_db_process.save()
+    _supervisord_db_process = None
+```
+
+#### 3.3.4 Diagram: Supervisord Process Hierarchy
+
+```
+Process(archivebox server, type=CLI)          # Created by Process.current() in main()
+    │
+    └── Process(supervisord, type=SUPERVISORD)  # Created manually in start_new_supervisord_process()
+            │
+            ├── Process(orchestrator, type=ORCHESTRATOR)  # Created by Process.current() in Orchestrator.on_startup()
+            │       │
+            │       └── Process(crawl_worker, type=WORKER)
+            │               │
+            │               └── Process(snapshot_worker, type=WORKER)
+            │                       │
+            │                       └── Process(archiveresult_worker, type=WORKER)
+            │                               │
+            │                               └── Process(hook, type=HOOK)  # ArchiveResult.process
+            │                                       │
+            │                                       └── Process(binary, type=BINARY)
+            │
+            └── Process(daphne, type=WORKER)  # Web server worker
+```
+
+Note: Workers spawned BY supervisord (like orchestrator, daphne) are NOT tracked as supervisord's children
+in Process hierarchy - they appear as children of the orchestrator because that's where `Process.current()`
+is called (in `Worker.on_startup()` / `Orchestrator.on_startup()`).
+
+The PPID-based linking works because:
+1. Supervisord spawns orchestrator process
+2. Orchestrator calls `Process.current()` in `on_startup()`
+3. `Process.current()` looks up PPID → finds supervisord's Process → sets as parent
 
 ---
 
