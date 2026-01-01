@@ -29,7 +29,7 @@ from archivebox.hooks import (
     get_plugins, get_plugin_name, get_plugin_icon,
 )
 from archivebox.base_models.models import (
-    ModelWithUUID, ModelWithSerializers, ModelWithOutputDir,
+    ModelWithUUID, ModelWithOutputDir,
     ModelWithConfig, ModelWithNotes, ModelWithHealthStats,
     get_or_create_system_user_pk,
 )
@@ -40,7 +40,7 @@ from archivebox.machine.models import NetworkInterface, Binary
 
 
 
-class Tag(ModelWithSerializers):
+class Tag(ModelWithUUID):
     # Keep AutoField for compatibility with main branch migrations
     # Don't use UUIDField here - requires complex FK transformation
     id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
@@ -2254,7 +2254,7 @@ class SnapshotMachine(BaseStateMachine, strict_states=True):
         )
 
 
-class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, ModelWithStateMachine):
+class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithStateMachine):
     class StatusChoices(models.TextChoices):
         QUEUED = 'queued', 'Queued'
         STARTED = 'started', 'Started'
@@ -2551,10 +2551,19 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         pass
 
     def cascade_health_update(self, success: bool):
-        """Update health stats for self, parent Snapshot, and grandparent Crawl."""
-        self.increment_health_stats(success)
+        """Update health stats for parent Snapshot, Crawl, and execution infrastructure (Binary, Machine, NetworkInterface)."""
+        # Update archival hierarchy
         self.snapshot.increment_health_stats(success)
         self.snapshot.crawl.increment_health_stats(success)
+
+        # Update execution infrastructure
+        if self.binary:
+            self.binary.increment_health_stats(success)
+            if self.binary.machine:
+                self.binary.machine.increment_health_stats(success)
+
+        if self.iface:
+            self.iface.increment_health_stats(success)
 
     def run(self):
         """

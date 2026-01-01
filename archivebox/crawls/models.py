@@ -16,14 +16,14 @@ from statemachine import State, registry
 from rich import print
 
 from archivebox.config import CONSTANTS
-from archivebox.base_models.models import ModelWithSerializers, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, get_or_create_system_user_pk
+from archivebox.base_models.models import ModelWithUUID, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, get_or_create_system_user_pk
 from archivebox.workers.models import ModelWithStateMachine, BaseStateMachine
 
 if TYPE_CHECKING:
     from archivebox.core.models import Snapshot, ArchiveResult
 
 
-class CrawlSchedule(ModelWithSerializers, ModelWithNotes, ModelWithHealthStats):
+class CrawlSchedule(ModelWithUUID, ModelWithNotes):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
@@ -197,9 +197,9 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
     @property
     def output_dir_parent(self) -> str:
-        """Construct parent directory: users/{user_id}/crawls/{YYYYMMDD}"""
+        """Construct parent directory: users/{username}/crawls/{YYYYMMDD}"""
         date_str = self.created_at.strftime('%Y%m%d')
-        return f'users/{self.created_by_id}/crawls/{date_str}'
+        return f'users/{self.created_by.username}/crawls/{date_str}'
 
     @property
     def output_dir_name(self) -> str:

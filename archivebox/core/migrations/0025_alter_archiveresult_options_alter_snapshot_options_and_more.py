@@ -25,7 +25,7 @@ def copy_old_fields_to_new(apps, schema_editor):
         count = cursor.fetchone()[0]
         print(f'DEBUG 0025: Updated {count} rows with plugin data')
     else:
-        print(f'DEBUG 0025: NOT copying - extractor in cols: {extractor" in cols}, plugin in cols: {"plugin" in cols}')
+        print(f'DEBUG 0025: NOT copying - extractor in cols: {"extractor" in cols}, plugin in cols: {"plugin" in cols}')
 
     if 'output' in cols and 'output_str' in cols:
         # Copy output -> output_str
@@ -239,6 +239,16 @@ class Migration(migrations.Migration):
             copy_old_fields_to_new,
             reverse_code=migrations.RunPython.noop,
         ),
+        # Now remove the old ArchiveResult fields after data has been copied
+        migrations.RemoveField(
+            model_name='archiveresult',
+            name='extractor',
+        ),
+        migrations.RemoveField(
+            model_name='archiveresult',
+            name='output',
+        ),
+        # NOTE: Snapshot's added/updated fields were already removed by migration 0023
         migrations.AlterField(
             model_name='archiveresult',
             name='end_ts',

@@ -143,6 +143,11 @@ def upgrade_core_tables(apps, schema_editor):
             if has_added and not has_bookmarked_at:
                 # Migrating from v0.7.2 (has added/updated, no bookmarked_at/created_at/modified_at)
                 print('Migrating Snapshot from v0.7.2 schema...')
+                # Debug: Check what data we're about to copy
+                cursor.execute("SELECT id, added, updated FROM core_snapshot LIMIT 3")
+                sample_data = cursor.fetchall()
+                print(f'DEBUG 0023: Sample Snapshot data before migration: {sample_data}')
+
                 cursor.execute("""
                     INSERT OR IGNORE INTO core_snapshot_new (
                         id, url, timestamp, title, bookmarked_at, created_at, modified_at
@@ -154,6 +159,11 @@ def upgrade_core_tables(apps, schema_editor):
                         COALESCE(updated, added, CURRENT_TIMESTAMP) as modified_at
                     FROM core_snapshot;
                 """)
+
+                # Debug: Check what was inserted
+                cursor.execute("SELECT id, bookmarked_at, modified_at FROM core_snapshot_new LIMIT 3")
+                inserted_data = cursor.fetchall()
+                print(f'DEBUG 0023: Sample Snapshot data after INSERT: {inserted_data}')
             elif has_bookmarked_at and not has_added:
                 # Migrating from v0.8.6rc0 (already has bookmarked_at/created_at/modified_at)
                 print('Migrating Snapshot from v0.8.6rc0 schema...')
@@ -298,12 +308,15 @@ class Migration(migrations.Migration):
                 ),
             ],
             state_operations=[
-                # Remove old ArchiveResult fields
-                migrations.RemoveField(model_name='archiveresult', name='extractor'),
-                migrations.RemoveField(model_name='archiveresult', name='output'),
-                # Remove old Snapshot fields
+                # NOTE: We do NOT remove extractor/output here for ArchiveResult!
+                # They are still in the database and will be removed by migration 0025
+                # after copying their data to the new field names (plugin, output_str).
+
+                # However, for Snapshot, we DO remove added/updated here because
+                # the database operations above already renamed them to bookmarked_at/created_at/modified_at.
                 migrations.RemoveField(model_name='snapshot', name='added'),
                 migrations.RemoveField(model_name='snapshot', name='updated'),
+
                 # SnapshotTag table already exists from v0.7.2, just declare it in state
                 migrations.CreateModel(
                     name='SnapshotTag',
