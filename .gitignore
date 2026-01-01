@@ -6,6 +6,12 @@ __pycache__/
 .eggs/
 tests/out/
 
+# Coverage
+.coverage
+.coverage.*
+coverage.json
+htmlcov/
+
 # Python and Node dependencies
 venv/
 .venv/

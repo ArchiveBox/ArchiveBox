@@ -83,15 +83,15 @@ class ConstantsDict(Mapping):
     CRONTABS_DIR_NAME: str              = 'crontabs'
     CACHE_DIR_NAME: str                 = 'cache'
     LOGS_DIR_NAME: str                  = 'logs'
-    USER_PLUGINS_DIR_NAME: str          = 'user_plugins'
-    CUSTOM_TEMPLATES_DIR_NAME: str      = 'user_templates'
+    CUSTOM_PLUGINS_DIR_NAME: str        = 'custom_plugins'
+    CUSTOM_TEMPLATES_DIR_NAME: str      = 'custom_templates'
     ARCHIVE_DIR: Path                   = DATA_DIR / ARCHIVE_DIR_NAME
     SOURCES_DIR: Path                   = DATA_DIR / SOURCES_DIR_NAME
     PERSONAS_DIR: Path                  = DATA_DIR / PERSONAS_DIR_NAME
     LOGS_DIR: Path                      = DATA_DIR / LOGS_DIR_NAME
     CACHE_DIR: Path                     = DATA_DIR / CACHE_DIR_NAME
     CUSTOM_TEMPLATES_DIR: Path          = DATA_DIR / CUSTOM_TEMPLATES_DIR_NAME
-    USER_PLUGINS_DIR: Path              = DATA_DIR / USER_PLUGINS_DIR_NAME
+    USER_PLUGINS_DIR: Path              = DATA_DIR / CUSTOM_PLUGINS_DIR_NAME
 
     # Data dir files
     CONFIG_FILENAME: str                = 'ArchiveBox.conf'
@@ -171,8 +171,11 @@ class ConstantsDict(Mapping):
         TMP_DIR_NAME,
         PERSONAS_DIR_NAME,
         CUSTOM_TEMPLATES_DIR_NAME,
-        USER_PLUGINS_DIR_NAME,
+        CUSTOM_PLUGINS_DIR_NAME,
         CRONTABS_DIR_NAME,
+        # Backwards compatibility with old directory names
+        "user_plugins",          # old name for USER_PLUGINS_DIR (now 'plugins')
+        "user_templates",        # old name for CUSTOM_TEMPLATES_DIR (now 'templates')
         "static",                # created by old static exports <v0.6.0
         "sonic",                 # created by docker bind mount / sonic FTS process
         ".git",

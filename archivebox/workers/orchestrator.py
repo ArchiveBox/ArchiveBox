@@ -269,30 +269,44 @@ class Orchestrator:
         from archivebox.misc.logging import IS_TTY
         import archivebox.misc.logging as logging_module
 
-        self.on_startup()
-
         # Enable progress bars only in TTY + foreground mode
         show_progress = IS_TTY and self.exit_on_idle
 
+        # Save original consoles
+        original_console = logging_module.CONSOLE
+        original_stderr = logging_module.STDERR
+
+        # Create Progress with the console it will control
         progress = Progress(
             TextColumn("[cyan]{task.description}"),
             BarColumn(bar_width=40),
             TaskProgressColumn(),
             transient=False,
+            console=original_console,  # Use the original console
         ) if show_progress else None
 
         task_ids = {}  # snapshot_id -> task_id
 
-        # Replace global CONSOLE with progress.console when active
-        original_console = logging_module.CONSOLE
-        original_stderr = logging_module.STDERR
+        # Wrapper to convert console.print() to console.log() for Rich Progress
+        class ConsoleLogWrapper:
+            def __init__(self, console):
+                self._console = console
+            def print(self, *args, **kwargs):
+                # Use log() instead of print() to work with Live display
+                self._console.log(*args)
+            def __getattr__(self, name):
+                return getattr(self._console, name)
 
         try:
             if progress:
                 progress.start()
-                # Redirect all logging through progress.console
-                logging_module.CONSOLE = progress.console
-                logging_module.STDERR = progress.console
+                # Wrap progress.console so print() calls become log() calls
+                wrapped_console = ConsoleLogWrapper(progress.console)
+                logging_module.CONSOLE = wrapped_console
+                logging_module.STDERR = wrapped_console
+
+            # Call on_startup AFTER redirecting consoles
+            self.on_startup()
 
             while True:
                 # Check queues and spawn workers
@@ -302,9 +316,15 @@ class Orchestrator:
                 if progress:
                     from archivebox.core.models import Snapshot
 
-                    active_snapshots = Snapshot.objects.filter(status='started').iterator(chunk_size=100)
+                    # Get all started snapshots
+                    active_snapshots = list(Snapshot.objects.filter(status='started'))
+
+                    # Track which snapshots are still active
+                    active_ids = set()
 
                     for snapshot in active_snapshots:
+                        active_ids.add(snapshot.id)
+
                         total = snapshot.archiveresult_set.count()
                         if total == 0:
                             continue
@@ -316,9 +336,15 @@ class Orchestrator:
                         # Create or update task
                         if snapshot.id not in task_ids:
                             url = snapshot.url[:60] + '...' if len(snapshot.url) > 60 else snapshot.url
-                            task_ids[snapshot.id] = progress.add_task(url, total=total)
+                            task_ids[snapshot.id] = progress.add_task(url, total=total, completed=completed)
+                        else:
+                            progress.update(task_ids[snapshot.id], completed=completed)
 
-                        progress.update(task_ids[snapshot.id], completed=completed)
+                    # Remove tasks for snapshots that are no longer active
+                    for snapshot_id in list(task_ids.keys()):
+                        if snapshot_id not in active_ids:
+                            progress.remove_task(task_ids[snapshot_id])
+                            del task_ids[snapshot_id]
 
                 # Track idle state
                 if self.has_pending_work(queue_sizes) or self.has_running_workers():

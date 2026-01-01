@@ -5,7 +5,7 @@
  * Configures the 2captcha extension with API key and settings after Crawl-level Chrome session starts.
  * Runs once per crawl to inject configuration into extension storage.
  *
- * Priority: 25 (after chrome_launch at 30, before snapshots start)
+ * Priority: 25 (after chrome_launch at 20, before snapshots start)
  * Hook: on_Crawl (runs once per crawl, not per snapshot)
  *
  * Config Options (from config.json / environment):
@@ -346,7 +346,7 @@ async function main() {
     const snapshotId = args.snapshot_id;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Crawl__25_configure_twocaptcha_extension_options.js --url=<url> --snapshot-id=<uuid>');
+        console.error('Usage: on_Crawl__25_twocaptcha_config.js --url=<url> --snapshot-id=<uuid>');
         process.exit(1);
     }
 

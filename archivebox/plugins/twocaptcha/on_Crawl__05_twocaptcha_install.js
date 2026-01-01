@@ -28,7 +28,7 @@ const EXTENSION = {
 /**
  * Main entry point - install extension before archiving
  *
- * Note: 2captcha configuration is handled by on_Crawl__25_configure_twocaptcha_extension_options.js
+ * Note: 2captcha configuration is handled by on_Crawl__25_twocaptcha_config.js
  * during first-time browser setup to avoid repeated configuration on every snapshot.
  * The API key is injected via chrome.storage API once per browser session.
  */

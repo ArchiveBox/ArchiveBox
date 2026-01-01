@@ -9,23 +9,16 @@ from django.db import migrations, models, connection
 
 
 def copy_old_fields_to_new(apps, schema_editor):
-    """Copy data from old field names to new field names before AddField operations."""
+    """Copy data from old field names to new field names after AddField operations."""
     cursor = connection.cursor()
 
     # Check if old fields still exist
     cursor.execute("PRAGMA table_info(core_archiveresult)")
     cols = {row[1] for row in cursor.fetchall()}
-    print(f'DEBUG 0025: ArchiveResult columns: {sorted(cols)}')
 
     if 'extractor' in cols and 'plugin' in cols:
         # Copy extractor -> plugin
-        print('DEBUG 0025: Copying extractor -> plugin')
         cursor.execute("UPDATE core_archiveresult SET plugin = COALESCE(extractor, '') WHERE plugin = '' OR plugin IS NULL")
-        cursor.execute("SELECT COUNT(*) FROM core_archiveresult WHERE plugin != ''")
-        count = cursor.fetchone()[0]
-        print(f'DEBUG 0025: Updated {count} rows with plugin data')
-    else:
-        print(f'DEBUG 0025: NOT copying - extractor in cols: {"extractor" in cols}, plugin in cols: {"plugin" in cols}')
 
     if 'output' in cols and 'output_str' in cols:
         # Copy output -> output_str
@@ -38,16 +31,13 @@ def copy_old_fields_to_new(apps, schema_editor):
     if 'end_ts' in cols and 'modified_at' in cols:
         cursor.execute("UPDATE core_archiveresult SET modified_at = COALESCE(end_ts, start_ts, CURRENT_TIMESTAMP) WHERE modified_at IS NULL OR modified_at = ''")
 
-    # Same for Snapshot table
-    cursor.execute("PRAGMA table_info(core_snapshot)")
-    snap_cols = {row[1] for row in cursor.fetchall()}
+    # NOTE: Snapshot timestamps (added→bookmarked_at, updated→modified_at) were already
+    # transformed by migration 0023, so we don't need to copy them here.
 
-    if 'added' in snap_cols and 'bookmarked_at' in snap_cols:
-        cursor.execute("UPDATE core_snapshot SET bookmarked_at = COALESCE(added, CURRENT_TIMESTAMP) WHERE bookmarked_at IS NULL OR bookmarked_at = ''")
-        cursor.execute("UPDATE core_snapshot SET created_at = COALESCE(added, CURRENT_TIMESTAMP) WHERE created_at IS NULL OR created_at = ''")
-
-    if 'updated' in snap_cols and 'modified_at' in snap_cols:
-        cursor.execute("UPDATE core_snapshot SET modified_at = COALESCE(updated, added, CURRENT_TIMESTAMP) WHERE modified_at IS NULL OR modified_at = ''")
+    # Debug: Check Snapshot timestamps at end of RunPython
+    cursor.execute("SELECT id, bookmarked_at, modified_at FROM core_snapshot LIMIT 2")
+    snap_after = cursor.fetchall()
+    print(f'DEBUG 0025: Snapshot timestamps at END of RunPython: {snap_after}')
 
 
 class Migration(migrations.Migration):
@@ -149,20 +139,11 @@ class Migration(migrations.Migration):
             name='retry_at',
             field=models.DateTimeField(blank=True, db_index=True, default=django.utils.timezone.now, null=True),
         ),
-        migrations.AddField(
-            model_name='snapshot',
-            name='bookmarked_at',
-            field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
-        ),
+        # NOTE: bookmarked_at and created_at already added by migration 0023
         migrations.AddField(
             model_name='snapshot',
             name='config',
             field=models.JSONField(default=dict),
-        ),
-        migrations.AddField(
-            model_name='snapshot',
-            name='created_at',
-            field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
         ),
         migrations.AddField(
             model_name='snapshot',
@@ -184,11 +165,7 @@ class Migration(migrations.Migration):
             name='fs_version',
             field=models.CharField(default='0.9.0', help_text='Filesystem version of this snapshot (e.g., "0.7.0", "0.8.0", "0.9.0"). Used to trigger lazy migration on save().', max_length=10),
         ),
-        migrations.AddField(
-            model_name='snapshot',
-            name='modified_at',
-            field=models.DateTimeField(auto_now=True),
-        ),
+        # NOTE: modified_at already added by migration 0023
         migrations.AddField(
             model_name='snapshot',
             name='notes',
@@ -248,7 +225,7 @@ class Migration(migrations.Migration):
             model_name='archiveresult',
             name='output',
         ),
-        # NOTE: Snapshot's added/updated fields were already removed by migration 0023
+        # NOTE: Snapshot's added/updated were already removed by migration 0023
         migrations.AlterField(
             model_name='archiveresult',
             name='end_ts',

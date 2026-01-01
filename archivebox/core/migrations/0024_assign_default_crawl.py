@@ -103,15 +103,21 @@ class Migration(migrations.Migration):
                         );
 
                         INSERT INTO core_snapshot_final (
-                            id, created_at, modified_at, url, timestamp, bookmarked_at,
-                            crawl_id, parent_snapshot_id, title, downloaded_at, depth, fs_version,
-                            config, notes, num_uses_succeeded, num_uses_failed,
+                            id, url, timestamp, title,
+                            bookmarked_at, created_at, modified_at,
+                            crawl_id, parent_snapshot_id,
+                            downloaded_at, depth, fs_version,
+                            config, notes,
+                            num_uses_succeeded, num_uses_failed,
                             status, retry_at, current_step
                         )
                         SELECT
-                            id, created_at, modified_at, url, timestamp, bookmarked_at,
-                            crawl_id, parent_snapshot_id, title, downloaded_at, depth, fs_version,
-                            COALESCE(config, '{}'), COALESCE(notes, ''), num_uses_succeeded, num_uses_failed,
+                            id, url, timestamp, title,
+                            bookmarked_at, created_at, modified_at,
+                            crawl_id, parent_snapshot_id,
+                            downloaded_at, depth, fs_version,
+                            COALESCE(config, '{}'), COALESCE(notes, ''),
+                            num_uses_succeeded, num_uses_failed,
                             status, retry_at, current_step
                         FROM core_snapshot;
 

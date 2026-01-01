@@ -117,7 +117,7 @@ class SnapshotAdminForm(forms.ModelForm):
 
 class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     form = SnapshotAdminForm
-    list_display = ('created_at', 'title_str', 'status_with_progress', 'files', 'size_with_stats', 'url_str')
+    list_display = ('created_at', 'title_str', 'status_with_progress', 'files', 'size_with_stats', 'health_display', 'url_str')
     sort_fields = ('title_str', 'url_str', 'created_at', 'status', 'crawl')
     readonly_fields = ('admin_actions', 'status_info', 'imported_timestamp', 'created_at', 'modified_at', 'downloaded_at', 'output_dir', 'archiveresults_list')
     search_fields = ('id', 'url', 'timestamp', 'title', 'tags__name')
@@ -487,6 +487,12 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             obj.url,
             obj.url[:128],
         )
+
+    @admin.display(description='Health', ordering='health')
+    def health_display(self, obj):
+        h = obj.health
+        color = 'green' if h >= 80 else 'orange' if h >= 50 else 'red'
+        return format_html('<span style="color: {};">{}</span>', color, h)
 
     def grid_view(self, request, extra_context=None):
 

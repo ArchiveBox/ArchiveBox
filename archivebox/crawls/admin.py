@@ -154,7 +154,7 @@ class CrawlAdminForm(forms.ModelForm):
 
 class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     form = CrawlAdminForm
-    list_display = ('id', 'created_at', 'created_by', 'max_depth', 'label', 'notes', 'urls_preview', 'schedule_str', 'status', 'retry_at', 'num_snapshots')
+    list_display = ('id', 'created_at', 'created_by', 'max_depth', 'label', 'notes', 'urls_preview', 'schedule_str', 'status', 'retry_at', 'health_display', 'num_snapshots')
     sort_fields = ('id', 'created_at', 'created_by', 'max_depth', 'label', 'notes', 'schedule_str', 'status', 'retry_at')
     search_fields = ('id', 'created_by__username', 'max_depth', 'label', 'notes', 'schedule_id', 'status', 'urls')
 
@@ -269,6 +269,12 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     def urls_preview(self, obj):
         first_url = obj.get_urls_list()[0] if obj.get_urls_list() else ''
         return first_url[:80] + '...' if len(first_url) > 80 else first_url
+
+    @admin.display(description='Health', ordering='health')
+    def health_display(self, obj):
+        h = obj.health
+        color = 'green' if h >= 80 else 'orange' if h >= 50 else 'red'
+        return format_html('<span style="color: {};">{}</span>', color, h)
 
     @admin.display(description='URLs')
     def urls_editor(self, obj):

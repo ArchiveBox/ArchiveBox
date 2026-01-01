@@ -8,7 +8,7 @@
  * NOTE: We use Chromium instead of Chrome because Chrome 137+ removed support for
  * --load-extension and --disable-extensions-except flags.
  *
- * Usage: on_Crawl__30_chrome_launch.bg.js --crawl-id=<uuid> --source-url=<url>
+ * Usage: on_Crawl__20_chrome_launch.bg.js --crawl-id=<uuid> --source-url=<url>
  * Output: Writes to current directory (executor creates chrome/ dir):
  *   - cdp_url.txt: WebSocket URL for CDP connection
  *   - chrome.pid: Chromium process ID (for cleanup)

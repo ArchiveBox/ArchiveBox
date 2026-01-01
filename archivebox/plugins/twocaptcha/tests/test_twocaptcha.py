@@ -26,8 +26,8 @@ from archivebox.plugins.chrome.tests.chrome_test_helpers import (
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_SCRIPT = PLUGIN_DIR / 'on_Crawl__20_install_twocaptcha_extension.js'
-CONFIG_SCRIPT = PLUGIN_DIR / 'on_Crawl__25_configure_twocaptcha_extension_options.js'
+INSTALL_SCRIPT = PLUGIN_DIR / 'on_Crawl__05_twocaptcha_install.js'
+CONFIG_SCRIPT = PLUGIN_DIR / 'on_Crawl__25_twocaptcha_config.js'
 
 TEST_URL = 'https://2captcha.com/demo/cloudflare-turnstile'
 

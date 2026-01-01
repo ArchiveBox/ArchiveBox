@@ -8,7 +8,7 @@
  * - Accessibility snapshot
  * - ARIA labels and roles
  *
- * Usage: on_Snapshot__18_accessibility.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__39_accessibility.js --url=<url> --snapshot-id=<uuid>
  * Output: Writes accessibility/accessibility.json
  *
  * Environment variables:
@@ -203,7 +203,7 @@ async function main() {
     const snapshotId = args.snapshot_id;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__18_accessibility.js --url=<url> --snapshot-id=<uuid>');
+        console.error('Usage: on_Snapshot__39_accessibility.js --url=<url> --snapshot-id=<uuid>');
         process.exit(1);
     }
 

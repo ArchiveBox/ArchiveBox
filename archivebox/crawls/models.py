@@ -519,12 +519,14 @@ class CrawlMachine(BaseStateMachine, strict_states=True):
     def is_finished(self) -> bool:
         from archivebox.core.models import Snapshot
 
-        # check that at least one snapshot exists for this crawl
+        # Check if any snapshots exist for this crawl
         snapshots = Snapshot.objects.filter(crawl=self.crawl)
-        if not snapshots.exists():
-            return False
 
-        # check if all snapshots are sealed
+        # If no snapshots exist, allow finishing (e.g., archivebox://install crawls that only run hooks)
+        if not snapshots.exists():
+            return True
+
+        # If snapshots exist, check if all are sealed
         # Snapshots handle their own background hooks via the step system,
         # so we just need to wait for all snapshots to reach sealed state
         if snapshots.filter(status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED]).exists():

@@ -5,7 +5,7 @@
  * If a Chrome session exists (from chrome plugin), connects to it via CDP.
  * Otherwise launches a new Chrome instance.
  *
- * Usage: on_Snapshot__22_pdf.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__52_pdf.js --url=<url> --snapshot-id=<uuid>
  * Output: Writes pdf/output.pdf
  *
  * Environment variables:
@@ -184,7 +184,7 @@ async function main() {
     const snapshotId = args.snapshot_id;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__22_pdf.js --url=<url> --snapshot-id=<uuid>');
+        console.error('Usage: on_Snapshot__52_pdf.js --url=<url> --snapshot-id=<uuid>');
         process.exit(1);
     }
 

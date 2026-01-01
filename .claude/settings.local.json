@@ -25,7 +25,8 @@
       "Bash(echo:*)",
       "Bash(grep:*)",
       "WebFetch(domain:python-statemachine.readthedocs.io)",
-      "Bash(./bin/run_plugin_tests.sh:*)"
+      "Bash(./bin/run_plugin_tests.sh:*)",
+      "Bash(done)"
     ]
   }
 }

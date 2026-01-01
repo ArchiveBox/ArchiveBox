@@ -2,7 +2,7 @@
 /**
  * Create a Chrome tab for this snapshot in the shared crawl Chrome session.
  *
- * If a crawl-level Chrome session exists (from on_Crawl__30_chrome_launch.bg.js),
+ * If a crawl-level Chrome session exists (from on_Crawl__20_chrome_launch.bg.js),
  * this connects to it and creates a new tab. Otherwise, falls back to launching
  * its own Chrome instance.
  *

@@ -3,6 +3,7 @@
 # Handles both fresh installs and upgrades from v0.7.2/v0.8.6rc0
 
 from django.db import migrations, models, connection
+import django.utils.timezone
 
 
 def get_table_columns(table_name):
@@ -95,31 +96,31 @@ def upgrade_core_tables(apps, schema_editor):
     # ============================================================================
     # PART 2: Upgrade core_snapshot table
     # ============================================================================
+    # Create table with NEW field names for timestamps (bookmarked_at, created_at, modified_at)
+    # and all other fields needed by later migrations
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS core_snapshot_new (
             id TEXT PRIMARY KEY NOT NULL,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            modified_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
             url TEXT NOT NULL,
             timestamp VARCHAR(32) NOT NULL UNIQUE,
-            bookmarked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
+            title VARCHAR(512),
             crawl_id TEXT,
             parent_snapshot_id TEXT,
 
-            title VARCHAR(512),
+            bookmarked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            modified_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
             downloaded_at DATETIME,
+            status VARCHAR(15) NOT NULL DEFAULT 'queued',
+            retry_at DATETIME,
+
             depth INTEGER NOT NULL DEFAULT 0,
             fs_version VARCHAR(10) NOT NULL DEFAULT '0.9.0',
-
             config TEXT NOT NULL DEFAULT '{}',
             notes TEXT NOT NULL DEFAULT '',
             num_uses_succeeded INTEGER NOT NULL DEFAULT 0,
             num_uses_failed INTEGER NOT NULL DEFAULT 0,
-
-            status VARCHAR(15) NOT NULL DEFAULT 'queued',
-            retry_at DATETIME,
             current_step INTEGER NOT NULL DEFAULT 0,
 
             FOREIGN KEY (crawl_id) REFERENCES crawls_crawl(id) ON DELETE CASCADE,
@@ -141,29 +142,23 @@ def upgrade_core_tables(apps, schema_editor):
             has_bookmarked_at = 'bookmarked_at' in snapshot_cols
 
             if has_added and not has_bookmarked_at:
-                # Migrating from v0.7.2 (has added/updated, no bookmarked_at/created_at/modified_at)
+                # Migrating from v0.7.2 (has added/updated fields)
                 print('Migrating Snapshot from v0.7.2 schema...')
-                # Debug: Check what data we're about to copy
-                cursor.execute("SELECT id, added, updated FROM core_snapshot LIMIT 3")
-                sample_data = cursor.fetchall()
-                print(f'DEBUG 0023: Sample Snapshot data before migration: {sample_data}')
-
+                # Transform added→bookmarked_at/created_at and updated→modified_at
                 cursor.execute("""
                     INSERT OR IGNORE INTO core_snapshot_new (
-                        id, url, timestamp, title, bookmarked_at, created_at, modified_at
+                        id, url, timestamp, title,
+                        bookmarked_at, created_at, modified_at,
+                        status
                     )
                     SELECT
                         id, url, timestamp, title,
                         COALESCE(added, CURRENT_TIMESTAMP) as bookmarked_at,
                         COALESCE(added, CURRENT_TIMESTAMP) as created_at,
-                        COALESCE(updated, added, CURRENT_TIMESTAMP) as modified_at
+                        COALESCE(updated, added, CURRENT_TIMESTAMP) as modified_at,
+                        'queued' as status
                     FROM core_snapshot;
                 """)
-
-                # Debug: Check what was inserted
-                cursor.execute("SELECT id, bookmarked_at, modified_at FROM core_snapshot_new LIMIT 3")
-                inserted_data = cursor.fetchall()
-                print(f'DEBUG 0023: Sample Snapshot data after INSERT: {inserted_data}')
             elif has_bookmarked_at and not has_added:
                 # Migrating from v0.8.6rc0 (already has bookmarked_at/created_at/modified_at)
                 print('Migrating Snapshot from v0.8.6rc0 schema...')
@@ -308,14 +303,29 @@ class Migration(migrations.Migration):
                 ),
             ],
             state_operations=[
-                # NOTE: We do NOT remove extractor/output here for ArchiveResult!
+                # NOTE: We do NOT remove extractor/output for ArchiveResult!
                 # They are still in the database and will be removed by migration 0025
-                # after copying their data to the new field names (plugin, output_str).
+                # after copying their data to plugin/output_str.
 
-                # However, for Snapshot, we DO remove added/updated here because
-                # the database operations above already renamed them to bookmarked_at/created_at/modified_at.
+                # However, for Snapshot, we DO remove added/updated and ADD the new timestamp fields
+                # because the SQL above already transformed them.
                 migrations.RemoveField(model_name='snapshot', name='added'),
                 migrations.RemoveField(model_name='snapshot', name='updated'),
+                migrations.AddField(
+                    model_name='snapshot',
+                    name='bookmarked_at',
+                    field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
+                ),
+                migrations.AddField(
+                    model_name='snapshot',
+                    name='created_at',
+                    field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
+                ),
+                migrations.AddField(
+                    model_name='snapshot',
+                    name='modified_at',
+                    field=models.DateTimeField(auto_now=True),
+                ),
 
                 # SnapshotTag table already exists from v0.7.2, just declare it in state
                 migrations.CreateModel(

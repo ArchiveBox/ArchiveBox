@@ -153,8 +153,8 @@ class NetworkInterface(ModelWithHealthStats):
     city = models.CharField(max_length=63, default=None, null=False)
     region = models.CharField(max_length=63, default=None, null=False)
     country = models.CharField(max_length=63, default=None, null=False)
-    num_uses_failed = models.PositiveIntegerField(default=0)
-    num_uses_succeeded = models.PositiveIntegerField(default=0)
+    # num_uses_failed = models.PositiveIntegerField(default=0)  # from ModelWithHealthStats
+    # num_uses_succeeded = models.PositiveIntegerField(default=0)  # from ModelWithHealthStats
 
     objects: NetworkInterfaceManager = NetworkInterfaceManager()
 
@@ -588,6 +588,13 @@ class Process(models.Model):
         RUNNING = 'running', 'Running'
         EXITED = 'exited', 'Exited'
 
+    class TypeChoices(models.TextChoices):
+        SUPERVISORD = 'supervisord', 'Supervisord'
+        ORCHESTRATOR = 'orchestrator', 'Orchestrator'
+        WORKER = 'worker', 'Worker'
+        CLI = 'cli', 'CLI'
+        BINARY = 'binary', 'Binary'
+
     # Primary fields
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
@@ -600,6 +607,24 @@ class Process(models.Model):
         null=False,
         related_name='process_set',
         help_text='Machine where this process executed'
+    )
+
+    # Parent process (optional)
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='children',
+        help_text='Parent process that spawned this process'
+    )
+
+    # Process type (cli, worker, orchestrator, binary, supervisord)
+    process_type = models.CharField(
+        max_length=16,
+        choices=TypeChoices.choices,
+        default=TypeChoices.CLI,
+        db_index=True,
+        help_text='Type of process (cli, worker, orchestrator, binary, supervisord)'
     )
 
     # Execution metadata

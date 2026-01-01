@@ -5,7 +5,7 @@
  * If a Chrome session exists (from chrome plugin), connects to it via CDP.
  * Otherwise launches a new Chrome instance.
  *
- * Usage: on_Snapshot__23_dom.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__53_dom.js --url=<url> --snapshot-id=<uuid>
  * Output: Writes dom/output.html
  *
  * Environment variables:
@@ -175,7 +175,7 @@ async function main() {
     const snapshotId = args.snapshot_id;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__23_dom.js --url=<url> --snapshot-id=<uuid>');
+        console.error('Usage: on_Snapshot__53_dom.js --url=<url> --snapshot-id=<uuid>');
         process.exit(1);
     }
 

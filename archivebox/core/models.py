@@ -2285,13 +2285,14 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
     # Process FK - tracks execution details (cmd, pwd, stdout, stderr, etc.)
     # Added POST-v0.9.0, will be added in a separate migration
-    # process = models.OneToOneField(
-    #     'machine.Process',
-    #     on_delete=models.PROTECT,
-    #     null=False,
-    #     related_name='archiveresult',
-    #     help_text='Process execution details for this archive result'
-    # )
+    process = models.OneToOneField(
+        'machine.Process',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='archiveresult',
+        help_text='Process execution details for this archive result'
+    )
 
     # New output fields (replacing old 'output' field)
     output_str = models.TextField(blank=True, default='', help_text='Human-readable output summary')

@@ -6,7 +6,7 @@
  * response headers from chrome plugin/response_headers.json.
  * Otherwise falls back to making an HTTP HEAD request.
  *
- * Usage: on_Snapshot__12_headers.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__55_headers.js --url=<url> --snapshot-id=<uuid>
  * Output: Writes headers/headers.json
  *
  * Environment variables:
@@ -116,7 +116,7 @@ async function main() {
     const snapshotId = args.snapshot_id;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__12_headers.js --url=<url> --snapshot-id=<uuid>');
+        console.error('Usage: on_Snapshot__55_headers.js --url=<url> --snapshot-id=<uuid>');
         process.exit(1);
     }
 

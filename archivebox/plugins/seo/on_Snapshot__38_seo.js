@@ -8,7 +8,7 @@
  * - description, keywords, author
  * - Any other meta tags
  *
- * Usage: on_Snapshot__17_seo.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__38_seo.js --url=<url> --snapshot-id=<uuid>
  * Output: Writes seo/seo.json
  *
  * Environment variables:
@@ -157,7 +157,7 @@ async function main() {
     const snapshotId = args.snapshot_id;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__17_seo.js --url=<url> --snapshot-id=<uuid>');
+        console.error('Usage: on_Snapshot__38_seo.js --url=<url> --snapshot-id=<uuid>');
         process.exit(1);
     }
 
