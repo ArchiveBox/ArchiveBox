@@ -5,7 +5,49 @@ import django.db.models.deletion
 import django.utils.timezone
 import uuid
 from django.conf import settings
-from django.db import migrations, models
+from django.db import migrations, models, connection
+
+
+def copy_old_fields_to_new(apps, schema_editor):
+    """Copy data from old field names to new field names before AddField operations."""
+    cursor = connection.cursor()
+
+    # Check if old fields still exist
+    cursor.execute("PRAGMA table_info(core_archiveresult)")
+    cols = {row[1] for row in cursor.fetchall()}
+    print(f'DEBUG 0025: ArchiveResult columns: {sorted(cols)}')
+
+    if 'extractor' in cols and 'plugin' in cols:
+        # Copy extractor -> plugin
+        print('DEBUG 0025: Copying extractor -> plugin')
+        cursor.execute("UPDATE core_archiveresult SET plugin = COALESCE(extractor, '') WHERE plugin = '' OR plugin IS NULL")
+        cursor.execute("SELECT COUNT(*) FROM core_archiveresult WHERE plugin != ''")
+        count = cursor.fetchone()[0]
+        print(f'DEBUG 0025: Updated {count} rows with plugin data')
+    else:
+        print(f'DEBUG 0025: NOT copying - extractor in cols: {extractor" in cols}, plugin in cols: {"plugin" in cols}')
+
+    if 'output' in cols and 'output_str' in cols:
+        # Copy output -> output_str
+        cursor.execute("UPDATE core_archiveresult SET output_str = COALESCE(output, '') WHERE output_str = '' OR output_str IS NULL")
+
+    # Copy timestamps to new timestamp fields if they don't have values yet
+    if 'start_ts' in cols and 'created_at' in cols:
+        cursor.execute("UPDATE core_archiveresult SET created_at = COALESCE(start_ts, CURRENT_TIMESTAMP) WHERE created_at IS NULL OR created_at = ''")
+
+    if 'end_ts' in cols and 'modified_at' in cols:
+        cursor.execute("UPDATE core_archiveresult SET modified_at = COALESCE(end_ts, start_ts, CURRENT_TIMESTAMP) WHERE modified_at IS NULL OR modified_at = ''")
+
+    # Same for Snapshot table
+    cursor.execute("PRAGMA table_info(core_snapshot)")
+    snap_cols = {row[1] for row in cursor.fetchall()}
+
+    if 'added' in snap_cols and 'bookmarked_at' in snap_cols:
+        cursor.execute("UPDATE core_snapshot SET bookmarked_at = COALESCE(added, CURRENT_TIMESTAMP) WHERE bookmarked_at IS NULL OR bookmarked_at = ''")
+        cursor.execute("UPDATE core_snapshot SET created_at = COALESCE(added, CURRENT_TIMESTAMP) WHERE created_at IS NULL OR created_at = ''")
+
+    if 'updated' in snap_cols and 'modified_at' in snap_cols:
+        cursor.execute("UPDATE core_snapshot SET modified_at = COALESCE(updated, added, CURRENT_TIMESTAMP) WHERE modified_at IS NULL OR modified_at = ''")
 
 
 class Migration(migrations.Migration):
@@ -191,6 +233,11 @@ class Migration(migrations.Migration):
             model_name='tag',
             name='modified_at',
             field=models.DateTimeField(auto_now=True),
+        ),
+        # Copy data from old field names to new field names after AddField operations
+        migrations.RunPython(
+            copy_old_fields_to_new,
+            reverse_code=migrations.RunPython.noop,
         ),
         migrations.AlterField(
             model_name='archiveresult',

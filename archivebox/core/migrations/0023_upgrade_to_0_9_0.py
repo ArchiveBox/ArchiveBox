@@ -32,39 +32,26 @@ def upgrade_core_tables(apps, schema_editor):
     has_uuid = 'uuid' in archiveresult_cols
     has_abid = 'abid' in archiveresult_cols
 
+    print(f'DEBUG: ArchiveResult row_count={row_count}, has_data={has_data}, has_uuid={has_uuid}, has_abid={has_abid}')
+
     # ============================================================================
     # PART 1: Upgrade core_archiveresult table
     # ============================================================================
+    # Create minimal table with only OLD fields that exist in v0.7.2/v0.8.6rc0
+    # Migration 0025 will add the NEW fields (plugin, hook_name, output_files, etc.)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS core_archiveresult_new (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             uuid TEXT,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            modified_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
             snapshot_id TEXT NOT NULL,
-            plugin VARCHAR(32) NOT NULL DEFAULT '',
-            hook_name VARCHAR(255) NOT NULL DEFAULT '',
-
             cmd TEXT,
             pwd VARCHAR(256),
             cmd_version VARCHAR(128),
-
             start_ts DATETIME,
             end_ts DATETIME,
             status VARCHAR(15) NOT NULL DEFAULT 'queued',
-            retry_at DATETIME,
-
-            output_files TEXT NOT NULL DEFAULT '{}',
-            output_json TEXT,
-            output_str TEXT NOT NULL DEFAULT '',
-            output_size INTEGER NOT NULL DEFAULT 0,
-            output_mimetypes VARCHAR(512) NOT NULL DEFAULT '',
-
-            config TEXT,
-            notes TEXT NOT NULL DEFAULT '',
-            num_uses_succeeded INTEGER NOT NULL DEFAULT 0,
-            num_uses_failed INTEGER NOT NULL DEFAULT 0,
+            extractor VARCHAR(32),
+            output VARCHAR(1024),
 
             FOREIGN KEY (snapshot_id) REFERENCES core_snapshot(id) ON DELETE CASCADE
         );
@@ -76,36 +63,25 @@ def upgrade_core_tables(apps, schema_editor):
             print('Migrating ArchiveResult from v0.7.2 schema...')
             cursor.execute("""
                 INSERT OR IGNORE INTO core_archiveresult_new (
-                    id, uuid, created_at, modified_at, snapshot_id, plugin,
-                    cmd, pwd, cmd_version, start_ts, end_ts, status, output_str
+                    id, uuid, snapshot_id, cmd, pwd, cmd_version,
+                    start_ts, end_ts, status, extractor, output
                 )
                 SELECT
-                    id, uuid,
-                    COALESCE(start_ts, CURRENT_TIMESTAMP) as created_at,
-                    COALESCE(end_ts, start_ts, CURRENT_TIMESTAMP) as modified_at,
-                    snapshot_id,
-                    COALESCE(extractor, '') as plugin,
-                    cmd, pwd, cmd_version,
-                    start_ts, end_ts, status,
-                    COALESCE(output, '') as output_str
+                    id, uuid, snapshot_id, cmd, pwd, cmd_version,
+                    start_ts, end_ts, status, extractor, output
                 FROM core_archiveresult;
             """)
         elif has_abid and not has_uuid:
-            # Migrating from v0.8.6rc0 (has abid, full fields)
+            # Migrating from v0.8.6rc0 (has abid instead of uuid)
             print('Migrating ArchiveResult from v0.8.6rc0 schema...')
             cursor.execute("""
                 INSERT OR IGNORE INTO core_archiveresult_new (
-                    id, uuid, created_at, modified_at, snapshot_id, plugin,
-                    cmd, pwd, cmd_version, start_ts, end_ts, status, retry_at, output_str
+                    id, uuid, snapshot_id, cmd, pwd, cmd_version,
+                    start_ts, end_ts, status, extractor, output
                 )
                 SELECT
-                    id, abid as uuid,
-                    created_at, modified_at,
-                    snapshot_id,
-                    COALESCE(extractor, '') as plugin,
-                    cmd, pwd, cmd_version,
-                    start_ts, end_ts, status, retry_at,
-                    COALESCE(output, '') as output_str
+                    id, abid as uuid, snapshot_id, cmd, pwd, cmd_version,
+                    start_ts, end_ts, status, extractor, output
                 FROM core_archiveresult;
             """)
         else:
@@ -114,13 +90,7 @@ def upgrade_core_tables(apps, schema_editor):
     cursor.execute("DROP TABLE IF EXISTS core_archiveresult;")
     cursor.execute("ALTER TABLE core_archiveresult_new RENAME TO core_archiveresult;")
 
-    # Create indexes
-    cursor.execute("CREATE INDEX IF NOT EXISTS core_archiveresult_snapshot_id_idx ON core_archiveresult(snapshot_id);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS core_archiveresult_plugin_idx ON core_archiveresult(plugin);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS core_archiveresult_status_idx ON core_archiveresult(status);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS core_archiveresult_retry_at_idx ON core_archiveresult(retry_at);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS core_archiveresult_created_at_idx ON core_archiveresult(created_at);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS core_archiveresult_uuid_idx ON core_archiveresult(uuid);")
+    # Don't create indexes - migration 0025 will handle them
 
     # ============================================================================
     # PART 2: Upgrade core_snapshot table

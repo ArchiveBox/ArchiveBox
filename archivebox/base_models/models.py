@@ -2,12 +2,9 @@
 
 __package__ = 'archivebox.base_models'
 
-import io
-import csv
-import json
 from uuid import UUID
 from archivebox.uuid_compat import uuid7
-from typing import Any, Iterable, ClassVar
+from typing import ClassVar
 from pathlib import Path
 
 from django.contrib import admin
@@ -21,7 +18,6 @@ from django.conf import settings
 from django_stubs_ext.db.models import TypedModelMeta
 
 from archivebox import DATA_DIR
-from archivebox.misc.util import to_json
 from archivebox.misc.hashing import get_dir_info
 
 
@@ -72,22 +68,6 @@ class ModelWithUUID(models.Model):
     def api_docs_url(self) -> str:
         return f'/api/v1/docs#/{self._meta.app_label.title()}%20Models/api_v1_{self._meta.app_label}_get_{self._meta.db_table}'
 
-    def as_json(self, keys: Iterable[str] = ()) -> dict:
-        default_keys = ('id', 'created_at', 'modified_at')
-        return {key: getattr(self, key) for key in (keys or default_keys) if hasattr(self, key)}
-
-
-class ModelWithSerializers(ModelWithUUID):
-    class Meta(TypedModelMeta):
-        abstract = True
-
-    def as_csv_row(self, keys: Iterable[str] = (), separator: str = ',') -> str:
-        buffer = io.StringIO()
-        csv.writer(buffer, delimiter=separator).writerow(str(getattr(self, key, '')) for key in (keys or self.as_json().keys()))
-        return buffer.getvalue()
-
-    def as_jsonl_row(self, keys: Iterable[str] = (), **json_kwargs) -> str:
-        return json.dumps({key: getattr(self, key, '') for key in (keys or self.as_json().keys())}, sort_keys=True, indent=None, **json_kwargs)
 
 
 class ModelWithNotes(models.Model):
@@ -125,14 +105,14 @@ class ModelWithConfig(models.Model):
         abstract = True
 
 
-class ModelWithOutputDir(ModelWithSerializers):
+class ModelWithOutputDir(ModelWithUUID):
     class Meta:
         abstract = True
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        self.save_json_index()
+        # Note: index.json is deprecated, models should use write_index_jsonl() for full data
 
     @property
     def output_dir_parent(self) -> str:
@@ -149,6 +129,3 @@ class ModelWithOutputDir(ModelWithSerializers):
     @property
     def OUTPUT_DIR(self) -> Path:
         return DATA_DIR / self.output_dir_str
-
-    def save_json_index(self):
-        (self.OUTPUT_DIR / 'index.json').write_text(to_json(self.as_json()))
