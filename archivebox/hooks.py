@@ -1198,10 +1198,10 @@ def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any
             continue
 
         try:
-            # Dispatch to appropriate model's from_jsonl() method
+            # Dispatch to appropriate model's from_json() method
             if record_type == 'Snapshot':
                 from archivebox.core.models import Snapshot
-                obj = Snapshot.from_jsonll(record.copy(), overrides)
+                obj = Snapshot.from_json(record.copy(), overrides)
                 if obj:
                     stats['Snapshot'] = stats.get('Snapshot', 0) + 1
 

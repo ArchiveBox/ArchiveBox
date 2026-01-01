@@ -33,6 +33,7 @@ def create_default_crawl_and_assign_snapshots(apps, schema_editor):
         """, [datetime.now().isoformat()])
 
     # Create a default crawl for migrated snapshots
+    # At this point crawls_crawl is guaranteed to have v0.9.0 schema (crawls/0002 ran first)
     crawl_id = str(uuid_lib.uuid4())
     now = datetime.now().isoformat()
 
@@ -41,8 +42,8 @@ def create_default_crawl_and_assign_snapshots(apps, schema_editor):
             id, created_at, modified_at, num_uses_succeeded, num_uses_failed,
             urls, max_depth, tags_str, label, notes, output_dir,
             status, retry_at, created_by_id, schedule_id, config, persona_id
-        ) VALUES (?, ?, ?, 0, 0, '', 0, '', 'Migrated from v0.7.2',
-                  'Auto-created crawl for snapshots migrated from v0.7.2', '',
+        ) VALUES (?, ?, ?, 0, 0, '', 0, '', 'Migrated from v0.7.2/v0.8.6',
+                  'Auto-created crawl for migrated snapshots', '',
                   'sealed', ?, 1, NULL, '{}', NULL)
     """, [crawl_id, now, now, now])
 
@@ -56,7 +57,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('core', '0023_upgrade_to_0_9_0'),
-        ('crawls', '0001_initial'),
+        ('crawls', '0002_upgrade_from_0_8_6'),
         ('auth', '0012_alter_user_first_name_max_length'),
     ]
 

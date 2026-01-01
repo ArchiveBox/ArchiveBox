@@ -16,10 +16,16 @@ def upgrade_core_tables(apps, schema_editor):
     """Upgrade core tables from v0.7.2 or v0.8.6rc0 to v0.9.0."""
     cursor = connection.cursor()
 
-    # Check if core_archiveresult table exists
+    # Check if core_archiveresult table exists AND has data
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='core_archiveresult'")
     if not cursor.fetchone():
         # Fresh install - no migration needed, tables will be created by later migrations
+        return
+
+    # Check if table has any rows (fresh install has empty tables from CREATE TABLE IF NOT EXISTS)
+    cursor.execute("SELECT COUNT(*) FROM core_archiveresult")
+    if cursor.fetchone()[0] == 0:
+        # Fresh install with empty tables - skip migration
         return
 
     # Detect which version we're migrating from
@@ -231,11 +237,58 @@ def upgrade_core_tables(apps, schema_editor):
 
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='core_tag'")
     if cursor.fetchone():
-        cursor.execute("""
-            INSERT OR IGNORE INTO core_tag_new (id, name, slug)
-            SELECT id, name, slug
-            FROM core_tag;
-        """)
+        tag_cols = get_table_columns('core_tag')
+        cursor.execute("PRAGMA table_info(core_tag)")
+        tag_id_type = None
+        for row in cursor.fetchall():
+            if row[1] == 'id':  # row[1] is column name
+                tag_id_type = row[2]  # row[2] is type
+                break
+
+        if tag_id_type and 'char' in tag_id_type.lower():
+            # v0.8.6rc0: Tag IDs are UUIDs, need to convert to INTEGER
+            print('Converting Tag IDs from UUID to INTEGER...')
+
+            # Get all tags with their UUIDs
+            cursor.execute("SELECT id, name, slug, created_at, modified_at, created_by_id FROM core_tag ORDER BY name")
+            tags = cursor.fetchall()
+
+            # Create mapping from old UUID to new INTEGER ID
+            uuid_to_int_map = {}
+            for i, tag in enumerate(tags, start=1):
+                old_id, name, slug, created_at, modified_at, created_by_id = tag
+                uuid_to_int_map[old_id] = i
+                # Insert with new INTEGER ID
+                cursor.execute("""
+                    INSERT OR IGNORE INTO core_tag_new (id, name, slug, created_at, modified_at, created_by_id)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (i, name, slug, created_at, modified_at, created_by_id))
+
+            # Update snapshot_tags to use new INTEGER IDs
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='core_snapshot_tags'")
+            if cursor.fetchone():
+                cursor.execute("SELECT id, snapshot_id, tag_id FROM core_snapshot_tags")
+                snapshot_tags = cursor.fetchall()
+
+                # Delete old entries
+                cursor.execute("DELETE FROM core_snapshot_tags")
+
+                # Re-insert with new integer tag IDs
+                for st_id, snapshot_id, old_tag_id in snapshot_tags:
+                    new_tag_id = uuid_to_int_map.get(old_tag_id)
+                    if new_tag_id:
+                        cursor.execute("""
+                            INSERT OR IGNORE INTO core_snapshot_tags (id, snapshot_id, tag_id)
+                            VALUES (?, ?, ?)
+                        """, (st_id, snapshot_id, new_tag_id))
+        else:
+            # v0.7.2: Tag IDs are already INTEGER
+            print('Migrating Tag from v0.7.2 schema...')
+            cursor.execute("""
+                INSERT OR IGNORE INTO core_tag_new (id, name, slug)
+                SELECT id, name, slug
+                FROM core_tag;
+            """)
 
     cursor.execute("DROP TABLE IF EXISTS core_tag;")
     cursor.execute("ALTER TABLE core_tag_new RENAME TO core_tag;")
