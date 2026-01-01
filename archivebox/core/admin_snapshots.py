@@ -1,9 +1,6 @@
 
 __package__ = 'archivebox.core'
 
-import os
-from pathlib import Path
-
 from django.contrib import admin, messages
 from django.urls import path
 from django.utils.html import format_html, mark_safe
@@ -363,7 +360,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         # ordering='archiveresult_count'
     )
     def size(self, obj):
-        archive_size = os.access(Path(obj.output_dir) / 'index.html', os.F_OK) and obj.archive_size
+        """Display archive size from DB (no filesystem access)."""
+        archive_size = obj.archive_size
         if archive_size:
             size_txt = printable_filesize(archive_size)
             if archive_size > 52428800:
@@ -442,14 +440,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         description='Size',
     )
     def size_with_stats(self, obj):
-        """Show archive size with output size from archive results."""
+        """Show archive size from DB (no filesystem access)."""
         stats = obj.get_progress_stats()
 
-        # Use output_size from archive results if available, fallback to disk size
-        output_size = stats['output_size']
-        archive_size = os.access(Path(obj.output_dir) / 'index.html', os.F_OK) and obj.archive_size
-
-        size_bytes = output_size or archive_size or 0
+        # Use output_size from archive results (already aggregated in stats)
+        size_bytes = stats['output_size'] or 0
 
         if size_bytes:
             size_txt = printable_filesize(size_bytes)

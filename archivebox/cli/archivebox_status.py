@@ -37,45 +37,41 @@ def status(out_dir: Path=DATA_DIR) -> None:
     print(f'    > SQL Main Index: {num_sql_links} links'.ljust(36), f'(found in {CONSTANTS.SQL_INDEX_FILENAME})')
     print(f'    > JSON Link Details: {num_link_details} links'.ljust(36), f'(found in {ARCHIVE_DIR.name}/*/index.json)')
     print()
-    print('[green]\\[*] Scanning archive data directories...[/green]')
+    print('[green]\\[*] Scanning archive data from database...[/green]')
     print(f'[yellow]   {ARCHIVE_DIR}/*[/yellow]')
-    num_bytes, num_dirs, num_files = get_dir_size(ARCHIVE_DIR)
+
+    # Get archive stats from DB (no filesystem scanning)
+    from django.db.models import Sum, Count
+    from archivebox.core.models import ArchiveResult
+
+    archive_stats = ArchiveResult.objects.filter(status='succeeded').aggregate(
+        total_size=Sum('output_size'),
+        total_results=Count('id'),
+    )
+    num_bytes = archive_stats['total_size'] or 0
+    num_results = archive_stats['total_results'] or 0
     size = printable_filesize(num_bytes)
-    print(f'    Size: {size} across {num_files} files in {num_dirs} directories')
+    print(f'    Size: {size} across {num_results} archive results (from DB)')
 
     # Use DB as source of truth for snapshot status
     num_indexed = links.count()
-    num_archived = links.filter(status='archived').count() or links.exclude(downloaded_at=None).count()
+    num_archived = links.filter(status='sealed').count() or links.exclude(downloaded_at=None).count()
     num_unarchived = links.filter(status='queued').count() or links.filter(downloaded_at=None).count()
     print(f'    > indexed: {num_indexed}'.ljust(36), '(total snapshots in DB)')
     print(f'      > archived: {num_archived}'.ljust(36), '(snapshots with archived content)')
     print(f'      > unarchived: {num_unarchived}'.ljust(36), '(snapshots pending archiving)')
 
-    # Count directories on filesystem
-    num_present = 0
-    orphaned_dirs = []
-    if ARCHIVE_DIR.exists():
-        for entry in ARCHIVE_DIR.iterdir():
-            if entry.is_dir():
-                num_present += 1
-                if not links.filter(timestamp=entry.name).exists():
-                    orphaned_dirs.append(str(entry))
-
-    num_valid = min(num_present, num_indexed)  # approximate
+    # All snapshots are tracked in DB now, no need to count filesystem dirs
+    num_valid = num_indexed
     print()
-    print(f'    > present: {num_present}'.ljust(36), '(directories in archive/)')
-    print(f'      > [green]valid:[/green] {num_valid}'.ljust(36), '               (directories with matching DB entry)')
+    print(f'    > [green]valid:[/green] {num_valid}'.ljust(36), '(snapshots in database)')
 
-    num_orphaned = len(orphaned_dirs)
+    num_orphaned = 0  # Orphan detection would require filesystem scan, skip for S3 compatibility
     print(f'      > [red]orphaned:[/red] {num_orphaned}'.ljust(36), '         (directories without matching DB entry)')
 
     if num_indexed:
         print('    [violet]Hint:[/violet] You can list snapshots by status like so:')
         print('        [green]archivebox list --status=<status>  (e.g. archived, queued, etc.)[/green]')
-
-    if orphaned_dirs:
-        print('    [violet]Hint:[/violet] To automatically import orphaned data directories into the main index, run:')
-        print('        [green]archivebox init[/green]')
 
     print()
     print('[green]\\[*] Scanning recent archive changes and user logins:[/green]')

@@ -22,7 +22,7 @@ from django.contrib import admin
 from django.conf import settings
 
 from archivebox.config import CONSTANTS
-from archivebox.misc.system import get_dir_size, atomic_write
+from archivebox.misc.system import atomic_write
 from archivebox.misc.util import parse_date, base_url, domain as url_domain, to_json, ts_to_date_str, urlencode, htmlencode, urldecode
 from archivebox.misc.hashing import get_dir_info
 from archivebox.hooks import (
@@ -1345,11 +1345,19 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         return f'{CONSTANTS.ARCHIVE_DIR_NAME}/{self.timestamp}'
 
     @cached_property
-    def archive_size(self):
-        try:
-            return get_dir_size(self.output_dir)[0]
-        except Exception:
-            return 0
+    def archive_size(self) -> int:
+        """
+        Total size of all archived files for this snapshot.
+        Computed from ArchiveResult.output_size in DB (no filesystem access).
+        """
+        from django.db.models import Sum
+
+        total = self.archiveresult_set.filter(
+            status='succeeded'
+        ).aggregate(
+            total_size=Sum('output_size')
+        )['total_size']
+        return total or 0
 
     def save_tags(self, tags: Iterable[str] = ()) -> None:
         tags_id = [Tag.objects.get_or_create(name=tag)[0].pk for tag in tags if tag.strip()]
@@ -1904,8 +1912,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
     def canonical_outputs(self) -> Dict[str, Optional[str]]:
         """
-        Intelligently discover the best output file for each plugin.
-        Uses actual ArchiveResult data and filesystem scanning with smart heuristics.
+        Discover the best output file for each plugin.
+        Uses ArchiveResult.output_files from DB (no filesystem scanning).
         """
         FAVICON_PROVIDER = 'https://www.google.com/s2/favicons?domain={}'
 
@@ -1917,36 +1925,25 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         }
 
         MIN_DISPLAY_SIZE = 15_000  # 15KB - filter out tiny files
-        MAX_SCAN_FILES = 50  # Don't scan massive directories
 
-        def find_best_output_in_dir(dir_path: Path, plugin_name: str) -> Optional[str]:
-            """Find the best representative file in a plugin's output directory"""
-            if not dir_path.exists() or not dir_path.is_dir():
+        def find_best_output_from_files(output_files: dict, plugin_name: str) -> Optional[str]:
+            """Find the best representative file from output_files dict."""
+            if not output_files:
                 return None
 
             candidates = []
-            file_count = 0
-
-            # Special handling for media plugin - look for thumbnails
             is_media_dir = plugin_name == 'media'
 
-            # Scan for suitable files
-            for file_path in dir_path.rglob('*'):
-                file_count += 1
-                if file_count > MAX_SCAN_FILES:
-                    break
-
-                if file_path.is_dir() or file_path.name.startswith('.'):
+            for rel_path, metadata in output_files.items():
+                if rel_path.startswith('.'):
                     continue
 
-                ext = file_path.suffix.lstrip('.').lower()
+                ext = rel_path.rsplit('.', 1)[-1].lower() if '.' in rel_path else ''
                 if ext not in IFRAME_EMBEDDABLE_EXTENSIONS:
                     continue
 
-                try:
-                    size = file_path.stat().st_size
-                except OSError:
-                    continue
+                # Get size from metadata if available, otherwise assume it passes
+                size = metadata.get('size', MIN_DISPLAY_SIZE) if isinstance(metadata, dict) else MIN_DISPLAY_SIZE
 
                 # For media dir, allow smaller image files (thumbnails are often < 15KB)
                 min_size = 5_000 if (is_media_dir and ext in ('png', 'jpg', 'jpeg', 'webp', 'gif')) else MIN_DISPLAY_SIZE
@@ -1955,16 +1952,15 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
                 # Prefer main files: index.html, output.*, content.*, etc.
                 priority = 0
-                name_lower = file_path.name.lower()
+                name_lower = rel_path.lower()
 
                 if is_media_dir:
-                    # Special prioritization for media directories
                     if any(keyword in name_lower for keyword in ('thumb', 'thumbnail', 'cover', 'poster')):
-                        priority = 200  # Highest priority for thumbnails
+                        priority = 200
                     elif ext in ('png', 'jpg', 'jpeg', 'webp', 'gif'):
-                        priority = 150  # High priority for any image
+                        priority = 150
                     elif ext in ('mp4', 'webm', 'mp3', 'opus', 'ogg'):
-                        priority = 100  # Lower priority for actual media files
+                        priority = 100
                     else:
                         priority = 50
                 elif 'index' in name_lower:
@@ -1978,15 +1974,14 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 else:
                     priority = 10
 
-                candidates.append((priority, size, file_path))
+                candidates.append((priority, size, rel_path))
 
             if not candidates:
                 return None
 
             # Sort by priority (desc), then size (desc)
             candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
-            best_file = candidates[0][2]
-            return str(best_file.relative_to(Path(self.output_dir)))
+            return candidates[0][2]
 
         canonical = {
             'index_path': 'index.html',
@@ -1994,51 +1989,25 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             'archive_org_path': f'https://web.archive.org/web/{self.base_url}',
         }
 
-        # Scan each ArchiveResult's output directory for the best file
-        snap_dir = Path(self.output_dir)
+        # Get best output from each ArchiveResult using output_files from DB
         for result in self.archiveresult_set.filter(status='succeeded'):
             if not result.output_files and not result.output_str:
                 continue
 
-            # Try to find the best output file for this plugin
-            plugin_dir = snap_dir / result.plugin
             best_output = None
 
-            # Check output_files first (new field)
+            # Check output_files first (primary source)
             if result.output_files:
-                first_file = next(iter(result.output_files.keys()), None)
-                if first_file and (plugin_dir / first_file).exists():
-                    best_output = f'{result.plugin}/{first_file}'
+                best_file = find_best_output_from_files(result.output_files, result.plugin)
+                if best_file:
+                    best_output = f'{result.plugin}/{best_file}'
 
             # Fallback to output_str if it looks like a path
-            if not best_output and result.output_str and (snap_dir / result.output_str).exists():
+            if not best_output and result.output_str:
                 best_output = result.output_str
-
-            if not best_output and plugin_dir.exists():
-                # Intelligently find the best file in the plugin's directory
-                best_output = find_best_output_in_dir(plugin_dir, result.plugin)
 
             if best_output:
                 canonical[f'{result.plugin}_path'] = best_output
-
-        # Also scan top-level for legacy outputs (backwards compatibility)
-        for file_path in snap_dir.glob('*'):
-            if file_path.is_dir() or file_path.name in ('index.html', 'index.json'):
-                continue
-
-            ext = file_path.suffix.lstrip('.').lower()
-            if ext not in IFRAME_EMBEDDABLE_EXTENSIONS:
-                continue
-
-            try:
-                size = file_path.stat().st_size
-                if size >= MIN_DISPLAY_SIZE:
-                    # Add as generic output with stem as key
-                    key = f'{file_path.stem}_path'
-                    if key not in canonical:
-                        canonical[key] = file_path.name
-            except OSError:
-                continue
 
         if self.is_static:
             static_path = f'warc/{self.timestamp}'

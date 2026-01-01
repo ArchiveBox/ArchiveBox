@@ -25,7 +25,6 @@ from django.core.management.base import DjangoHelpFormatter
 
 from archivebox.config import CONSTANTS, DATA_DIR, VERSION
 from archivebox.config.common import SHELL_CONFIG
-from archivebox.misc.system import get_dir_size
 from archivebox.misc.util import enforce_types
 from archivebox.misc.logging import ANSI, stderr
 
@@ -312,14 +311,13 @@ def log_snapshot_archiving_finished(snapshot: "Snapshot", out_dir: str, is_new: 
     else:
         _LAST_RUN_STATS.succeeded += 1
 
-    try:
-        size = get_dir_size(out_dir)
-    except FileNotFoundError:
-        size = (0, None, '0')
+    # Get archive size from DB instead of filesystem
+    archive_size = snapshot.archive_size
+    num_results = snapshot.archiveresult_set.filter(status='succeeded').count()
 
     end_ts = datetime.now(timezone.utc)
     duration = str(end_ts - start_ts).split('.')[0]
-    print('        [bright_black]{} files ({}) in {}s [/]'.format(size[2], printable_filesize(size[0]), duration))
+    print('        [bright_black]{} results ({}) in {}s [/]'.format(num_results, printable_filesize(archive_size), duration))
 
 
 

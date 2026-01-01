@@ -54,6 +54,7 @@ class SnapshotView(View):
 
     @staticmethod
     def render_live_index(request, snapshot):
+        """Render the live index page using DB data (no filesystem access)."""
         TITLE_LOADING_MSG = 'Not yet archived...'
 
         # Dict of plugin -> ArchiveResult object
@@ -61,37 +62,33 @@ class SnapshotView(View):
         # Dict of plugin -> result info dict (for template compatibility)
         archiveresults = {}
 
-        results = snapshot.archiveresult_set.all()
+        # Get succeeded results with output files from DB
+        results = snapshot.archiveresult_set.filter(status='succeeded')
 
         for result in results:
             embed_path = result.embed_path()
-            abs_path = result.snapshot_dir / (embed_path or 'None')
 
-            if (result.status == 'succeeded'
-                and embed_path
-                and os.access(abs_path, os.R_OK)
-                and abs_path.exists()):
-                if os.path.isdir(abs_path) and not any(abs_path.glob('*.*')):
-                    continue
+            # Check if result has any output files (from DB, not filesystem)
+            if not embed_path or not (result.output_files or result.output_str):
+                continue
 
-                # Store the full ArchiveResult object for template tags
-                archiveresult_objects[result.plugin] = result
+            # Store the full ArchiveResult object for template tags
+            archiveresult_objects[result.plugin] = result
 
-                result_info = {
-                    'name': result.plugin,
-                    'path': embed_path,
-                    'ts': ts_to_date_str(result.end_ts),
-                    'size': abs_path.stat().st_size or '?',
-                    'result': result,  # Include the full object for template tags
-                }
-                archiveresults[result.plugin] = result_info
+            # Get size from output_size field (DB) instead of stat()
+            result_info = {
+                'name': result.plugin,
+                'path': embed_path,
+                'ts': ts_to_date_str(result.end_ts),
+                'size': result.output_size or '?',
+                'result': result,  # Include the full object for template tags
+            }
+            archiveresults[result.plugin] = result_info
 
-        # Use canonical_outputs for intelligent discovery
-        # This method now scans ArchiveResults and uses smart heuristics
+        # Use canonical_outputs for intelligent discovery (now uses DB, not filesystem)
         canonical = snapshot.canonical_outputs()
 
-        # Add any newly discovered outputs from canonical_outputs to archiveresults
-        snap_dir = Path(snapshot.output_dir)
+        # Add any outputs from canonical_outputs not already in archiveresults
         for key, path in canonical.items():
             if not key.endswith('_path') or not path or path.startswith('http'):
                 continue
@@ -100,22 +97,16 @@ class SnapshotView(View):
             if plugin_name in archiveresults:
                 continue  # Already have this from ArchiveResult
 
-            file_path = snap_dir / path
-            if not file_path.exists() or not file_path.is_file():
-                continue
-
-            try:
-                file_size = file_path.stat().st_size
-                if file_size >= 15_000:  # Only show files > 15KB
-                    archiveresults[plugin_name] = {
-                        'name': plugin_name,
-                        'path': path,
-                        'ts': ts_to_date_str(file_path.stat().st_mtime or 0),
-                        'size': file_size,
-                        'result': None,
-                    }
-            except OSError:
-                continue
+            # For canonical outputs not from ArchiveResult, add with minimal info
+            # (these are derived from output_files, so we know they exist)
+            if plugin_name not in ('index', 'google_favicon', 'archive_org'):
+                archiveresults[plugin_name] = {
+                    'name': plugin_name,
+                    'path': path,
+                    'ts': '',
+                    'size': '?',
+                    'result': None,
+                }
 
         # Get available extractor plugins from hooks (sorted by numeric prefix for ordering)
         # Convert to base names for display ordering
@@ -131,10 +122,8 @@ class SnapshotView(View):
 
         snapshot_info = snapshot.to_dict(extended=True)
 
-        try:
-            warc_path = 'warc/' + list(Path(snap_dir).glob('warc/*.warc.*'))[0].name
-        except IndexError:
-            warc_path = 'warc/'
+        # Get warc path from canonical outputs (DB) instead of filesystem glob
+        warc_path = canonical.get('wget_path', 'warc/')
 
         context = {
             **snapshot_info,
