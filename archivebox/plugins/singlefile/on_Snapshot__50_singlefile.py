@@ -14,6 +14,7 @@ Environment variables:
     SINGLEFILE_USER_AGENT: User agent string (x-fallback: USER_AGENT)
     SINGLEFILE_COOKIES_FILE: Path to cookies file (x-fallback: COOKIES_FILE)
     SINGLEFILE_CHECK_SSL_VALIDITY: Whether to verify SSL certs (x-fallback: CHECK_SSL_VALIDITY)
+    SINGLEFILE_CHROME_ARGS: Chrome command-line arguments (x-fallback: CHROME_ARGS)
     SINGLEFILE_ARGS: Default SingleFile arguments (JSON array)
     SINGLEFILE_ARGS_EXTRA: Extra arguments to append (JSON array)
 """
@@ -116,6 +117,7 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     cookies_file = get_env('SINGLEFILE_COOKIES_FILE') or get_env('COOKIES_FILE', '')
     singlefile_args = get_env_array('SINGLEFILE_ARGS', [])
     singlefile_args_extra = get_env_array('SINGLEFILE_ARGS_EXTRA', [])
+    chrome_args = get_env_array('SINGLEFILE_CHROME_ARGS') or get_env_array('CHROME_ARGS', [])
     chrome = get_env('SINGLEFILE_CHROME_BINARY') or get_env('CHROME_BINARY', '')
 
     cmd = [binary, *singlefile_args]
@@ -130,6 +132,11 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
             cmd.extend(['--browser-server', f'http://127.0.0.1:{port}'])
     elif chrome:
         cmd.extend(['--browser-executable-path', chrome])
+
+    # Pass Chrome arguments (includes user-data-dir and other launch options)
+    if chrome_args:
+        # SingleFile expects --browser-args as a JSON array string
+        cmd.extend(['--browser-args', json.dumps(chrome_args)])
 
     # SSL handling
     if not check_ssl:
