@@ -16,17 +16,16 @@ def upgrade_core_tables(apps, schema_editor):
     """Upgrade core tables from v0.7.2 or v0.8.6rc0 to v0.9.0."""
     cursor = connection.cursor()
 
-    # Check if core_archiveresult table exists AND has data
+    # Check if core_archiveresult table exists
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='core_archiveresult'")
     if not cursor.fetchone():
         # Fresh install - no migration needed, tables will be created by later migrations
         return
 
-    # Check if table has any rows (fresh install has empty tables from CREATE TABLE IF NOT EXISTS)
+    # Check if table has any rows
     cursor.execute("SELECT COUNT(*) FROM core_archiveresult")
-    if cursor.fetchone()[0] == 0:
-        # Fresh install with empty tables - skip migration
-        return
+    row_count = cursor.fetchone()[0]
+    has_data = row_count > 0
 
     # Detect which version we're migrating from
     archiveresult_cols = get_table_columns('core_archiveresult')
@@ -71,45 +70,46 @@ def upgrade_core_tables(apps, schema_editor):
         );
     """)
 
-    if has_uuid and not has_abid:
-        # Migrating from v0.7.2 (has uuid, minimal fields)
-        print('Migrating ArchiveResult from v0.7.2 schema...')
-        cursor.execute("""
-            INSERT OR IGNORE INTO core_archiveresult_new (
-                id, uuid, created_at, modified_at, snapshot_id, plugin,
-                cmd, pwd, cmd_version, start_ts, end_ts, status, output_str
-            )
-            SELECT
-                id, uuid,
-                COALESCE(start_ts, CURRENT_TIMESTAMP) as created_at,
-                COALESCE(end_ts, start_ts, CURRENT_TIMESTAMP) as modified_at,
-                snapshot_id,
-                COALESCE(extractor, '') as plugin,
-                cmd, pwd, cmd_version,
-                start_ts, end_ts, status,
-                COALESCE(output, '') as output_str
-            FROM core_archiveresult;
-        """)
-    elif has_abid and not has_uuid:
-        # Migrating from v0.8.6rc0 (has abid, full fields)
-        print('Migrating ArchiveResult from v0.8.6rc0 schema...')
-        cursor.execute("""
-            INSERT OR IGNORE INTO core_archiveresult_new (
-                id, uuid, created_at, modified_at, snapshot_id, plugin,
-                cmd, pwd, cmd_version, start_ts, end_ts, status, retry_at, output_str
-            )
-            SELECT
-                id, abid as uuid,
-                created_at, modified_at,
-                snapshot_id,
-                COALESCE(extractor, '') as plugin,
-                cmd, pwd, cmd_version,
-                start_ts, end_ts, status, retry_at,
-                COALESCE(output, '') as output_str
-            FROM core_archiveresult;
-        """)
-    else:
-        print(f'Warning: Unexpected schema - has_uuid={has_uuid}, has_abid={has_abid}')
+    if has_data:
+        if has_uuid and not has_abid:
+            # Migrating from v0.7.2 (has uuid, minimal fields)
+            print('Migrating ArchiveResult from v0.7.2 schema...')
+            cursor.execute("""
+                INSERT OR IGNORE INTO core_archiveresult_new (
+                    id, uuid, created_at, modified_at, snapshot_id, plugin,
+                    cmd, pwd, cmd_version, start_ts, end_ts, status, output_str
+                )
+                SELECT
+                    id, uuid,
+                    COALESCE(start_ts, CURRENT_TIMESTAMP) as created_at,
+                    COALESCE(end_ts, start_ts, CURRENT_TIMESTAMP) as modified_at,
+                    snapshot_id,
+                    COALESCE(extractor, '') as plugin,
+                    cmd, pwd, cmd_version,
+                    start_ts, end_ts, status,
+                    COALESCE(output, '') as output_str
+                FROM core_archiveresult;
+            """)
+        elif has_abid and not has_uuid:
+            # Migrating from v0.8.6rc0 (has abid, full fields)
+            print('Migrating ArchiveResult from v0.8.6rc0 schema...')
+            cursor.execute("""
+                INSERT OR IGNORE INTO core_archiveresult_new (
+                    id, uuid, created_at, modified_at, snapshot_id, plugin,
+                    cmd, pwd, cmd_version, start_ts, end_ts, status, retry_at, output_str
+                )
+                SELECT
+                    id, abid as uuid,
+                    created_at, modified_at,
+                    snapshot_id,
+                    COALESCE(extractor, '') as plugin,
+                    cmd, pwd, cmd_version,
+                    start_ts, end_ts, status, retry_at,
+                    COALESCE(output, '') as output_str
+                FROM core_archiveresult;
+            """)
+        else:
+            print(f'Warning: Unexpected schema - has_uuid={has_uuid}, has_abid={has_abid}')
 
     cursor.execute("DROP TABLE IF EXISTS core_archiveresult;")
     cursor.execute("ALTER TABLE core_archiveresult_new RENAME TO core_archiveresult;")
@@ -160,49 +160,54 @@ def upgrade_core_tables(apps, schema_editor):
     # Check if core_snapshot exists (it should)
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='core_snapshot'")
     if cursor.fetchone():
-        # Detect which version we're migrating from
-        snapshot_cols = get_table_columns('core_snapshot')
-        has_added = 'added' in snapshot_cols
-        has_bookmarked_at = 'bookmarked_at' in snapshot_cols
+        # Check if table has any rows
+        cursor.execute("SELECT COUNT(*) FROM core_snapshot")
+        snapshot_has_data = cursor.fetchone()[0] > 0
 
-        if has_added and not has_bookmarked_at:
-            # Migrating from v0.7.2 (has added/updated, no bookmarked_at/created_at/modified_at)
-            print('Migrating Snapshot from v0.7.2 schema...')
-            cursor.execute("""
-                INSERT OR IGNORE INTO core_snapshot_new (
-                    id, url, timestamp, title, bookmarked_at, created_at, modified_at
-                )
-                SELECT
-                    id, url, timestamp, title,
-                    COALESCE(added, CURRENT_TIMESTAMP) as bookmarked_at,
-                    COALESCE(added, CURRENT_TIMESTAMP) as created_at,
-                    COALESCE(updated, added, CURRENT_TIMESTAMP) as modified_at
-                FROM core_snapshot;
-            """)
-        elif has_bookmarked_at and not has_added:
-            # Migrating from v0.8.6rc0 (already has bookmarked_at/created_at/modified_at)
-            print('Migrating Snapshot from v0.8.6rc0 schema...')
-            # Check what fields exist
-            has_status = 'status' in snapshot_cols
-            has_retry_at = 'retry_at' in snapshot_cols
-            has_crawl_id = 'crawl_id' in snapshot_cols
+        if snapshot_has_data:
+            # Detect which version we're migrating from
+            snapshot_cols = get_table_columns('core_snapshot')
+            has_added = 'added' in snapshot_cols
+            has_bookmarked_at = 'bookmarked_at' in snapshot_cols
 
-            # Build column list based on what exists
-            cols = ['id', 'url', 'timestamp', 'title', 'bookmarked_at', 'created_at', 'modified_at', 'downloaded_at']
-            if has_crawl_id:
-                cols.append('crawl_id')
-            if has_status:
-                cols.append('status')
-            if has_retry_at:
-                cols.append('retry_at')
+            if has_added and not has_bookmarked_at:
+                # Migrating from v0.7.2 (has added/updated, no bookmarked_at/created_at/modified_at)
+                print('Migrating Snapshot from v0.7.2 schema...')
+                cursor.execute("""
+                    INSERT OR IGNORE INTO core_snapshot_new (
+                        id, url, timestamp, title, bookmarked_at, created_at, modified_at
+                    )
+                    SELECT
+                        id, url, timestamp, title,
+                        COALESCE(added, CURRENT_TIMESTAMP) as bookmarked_at,
+                        COALESCE(added, CURRENT_TIMESTAMP) as created_at,
+                        COALESCE(updated, added, CURRENT_TIMESTAMP) as modified_at
+                    FROM core_snapshot;
+                """)
+            elif has_bookmarked_at and not has_added:
+                # Migrating from v0.8.6rc0 (already has bookmarked_at/created_at/modified_at)
+                print('Migrating Snapshot from v0.8.6rc0 schema...')
+                # Check what fields exist
+                has_status = 'status' in snapshot_cols
+                has_retry_at = 'retry_at' in snapshot_cols
+                has_crawl_id = 'crawl_id' in snapshot_cols
 
-            cursor.execute(f"""
-                INSERT OR IGNORE INTO core_snapshot_new ({', '.join(cols)})
-                SELECT {', '.join(cols)}
-                FROM core_snapshot;
-            """)
-        else:
-            print(f'Warning: Unexpected Snapshot schema - has_added={has_added}, has_bookmarked_at={has_bookmarked_at}')
+                # Build column list based on what exists
+                cols = ['id', 'url', 'timestamp', 'title', 'bookmarked_at', 'created_at', 'modified_at', 'downloaded_at']
+                if has_crawl_id:
+                    cols.append('crawl_id')
+                if has_status:
+                    cols.append('status')
+                if has_retry_at:
+                    cols.append('retry_at')
+
+                cursor.execute(f"""
+                    INSERT OR IGNORE INTO core_snapshot_new ({', '.join(cols)})
+                    SELECT {', '.join(cols)}
+                    FROM core_snapshot;
+                """)
+            else:
+                print(f'Warning: Unexpected Snapshot schema - has_added={has_added}, has_bookmarked_at={has_bookmarked_at}')
 
     cursor.execute("DROP TABLE IF EXISTS core_snapshot;")
     cursor.execute("ALTER TABLE core_snapshot_new RENAME TO core_snapshot;")
@@ -237,58 +242,63 @@ def upgrade_core_tables(apps, schema_editor):
 
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='core_tag'")
     if cursor.fetchone():
-        tag_cols = get_table_columns('core_tag')
-        cursor.execute("PRAGMA table_info(core_tag)")
-        tag_id_type = None
-        for row in cursor.fetchall():
-            if row[1] == 'id':  # row[1] is column name
-                tag_id_type = row[2]  # row[2] is type
-                break
+        # Check if table has any rows
+        cursor.execute("SELECT COUNT(*) FROM core_tag")
+        tag_has_data = cursor.fetchone()[0] > 0
 
-        if tag_id_type and 'char' in tag_id_type.lower():
-            # v0.8.6rc0: Tag IDs are UUIDs, need to convert to INTEGER
-            print('Converting Tag IDs from UUID to INTEGER...')
+        if tag_has_data:
+            tag_cols = get_table_columns('core_tag')
+            cursor.execute("PRAGMA table_info(core_tag)")
+            tag_id_type = None
+            for row in cursor.fetchall():
+                if row[1] == 'id':  # row[1] is column name
+                    tag_id_type = row[2]  # row[2] is type
+                    break
 
-            # Get all tags with their UUIDs
-            cursor.execute("SELECT id, name, slug, created_at, modified_at, created_by_id FROM core_tag ORDER BY name")
-            tags = cursor.fetchall()
+            if tag_id_type and 'char' in tag_id_type.lower():
+                # v0.8.6rc0: Tag IDs are UUIDs, need to convert to INTEGER
+                print('Converting Tag IDs from UUID to INTEGER...')
 
-            # Create mapping from old UUID to new INTEGER ID
-            uuid_to_int_map = {}
-            for i, tag in enumerate(tags, start=1):
-                old_id, name, slug, created_at, modified_at, created_by_id = tag
-                uuid_to_int_map[old_id] = i
-                # Insert with new INTEGER ID
+                # Get all tags with their UUIDs
+                cursor.execute("SELECT id, name, slug, created_at, modified_at, created_by_id FROM core_tag ORDER BY name")
+                tags = cursor.fetchall()
+
+                # Create mapping from old UUID to new INTEGER ID
+                uuid_to_int_map = {}
+                for i, tag in enumerate(tags, start=1):
+                    old_id, name, slug, created_at, modified_at, created_by_id = tag
+                    uuid_to_int_map[old_id] = i
+                    # Insert with new INTEGER ID
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO core_tag_new (id, name, slug, created_at, modified_at, created_by_id)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (i, name, slug, created_at, modified_at, created_by_id))
+
+                # Update snapshot_tags to use new INTEGER IDs
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='core_snapshot_tags'")
+                if cursor.fetchone():
+                    cursor.execute("SELECT id, snapshot_id, tag_id FROM core_snapshot_tags")
+                    snapshot_tags = cursor.fetchall()
+
+                    # Delete old entries
+                    cursor.execute("DELETE FROM core_snapshot_tags")
+
+                    # Re-insert with new integer tag IDs
+                    for st_id, snapshot_id, old_tag_id in snapshot_tags:
+                        new_tag_id = uuid_to_int_map.get(old_tag_id)
+                        if new_tag_id:
+                            cursor.execute("""
+                                INSERT OR IGNORE INTO core_snapshot_tags (id, snapshot_id, tag_id)
+                                VALUES (?, ?, ?)
+                            """, (st_id, snapshot_id, new_tag_id))
+            else:
+                # v0.7.2: Tag IDs are already INTEGER
+                print('Migrating Tag from v0.7.2 schema...')
                 cursor.execute("""
-                    INSERT OR IGNORE INTO core_tag_new (id, name, slug, created_at, modified_at, created_by_id)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (i, name, slug, created_at, modified_at, created_by_id))
-
-            # Update snapshot_tags to use new INTEGER IDs
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='core_snapshot_tags'")
-            if cursor.fetchone():
-                cursor.execute("SELECT id, snapshot_id, tag_id FROM core_snapshot_tags")
-                snapshot_tags = cursor.fetchall()
-
-                # Delete old entries
-                cursor.execute("DELETE FROM core_snapshot_tags")
-
-                # Re-insert with new integer tag IDs
-                for st_id, snapshot_id, old_tag_id in snapshot_tags:
-                    new_tag_id = uuid_to_int_map.get(old_tag_id)
-                    if new_tag_id:
-                        cursor.execute("""
-                            INSERT OR IGNORE INTO core_snapshot_tags (id, snapshot_id, tag_id)
-                            VALUES (?, ?, ?)
-                        """, (st_id, snapshot_id, new_tag_id))
-        else:
-            # v0.7.2: Tag IDs are already INTEGER
-            print('Migrating Tag from v0.7.2 schema...')
-            cursor.execute("""
-                INSERT OR IGNORE INTO core_tag_new (id, name, slug)
-                SELECT id, name, slug
-                FROM core_tag;
-            """)
+                    INSERT OR IGNORE INTO core_tag_new (id, name, slug)
+                    SELECT id, name, slug
+                    FROM core_tag;
+                """)
 
     cursor.execute("DROP TABLE IF EXISTS core_tag;")
     cursor.execute("ALTER TABLE core_tag_new RENAME TO core_tag;")
@@ -297,7 +307,8 @@ def upgrade_core_tables(apps, schema_editor):
     cursor.execute("CREATE INDEX IF NOT EXISTS core_tag_created_at_idx ON core_tag(created_at);")
     cursor.execute("CREATE INDEX IF NOT EXISTS core_tag_created_by_id_idx ON core_tag(created_by_id);")
 
-    print('✓ Core tables upgraded to v0.9.0')
+    if has_data:
+        print('✓ Core tables upgraded to v0.9.0')
 
 
 class Migration(migrations.Migration):
