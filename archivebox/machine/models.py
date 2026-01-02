@@ -1548,7 +1548,10 @@ class Process(models.Model):
 
     def kill_tree(self, graceful_timeout: float = 2.0) -> int:
         """
-        Kill this process and all its children (OS children, not DB children).
+        Kill this process and all its children (OS children, not DB children) in parallel.
+
+        Uses parallel polling approach - sends SIGTERM to all processes at once,
+        then polls all simultaneously with individual deadline tracking.
 
         This consolidates the scattered child-killing logic from:
         - crawls/models.py Crawl.cleanup() os.killpg()
@@ -1561,6 +1564,8 @@ class Process(models.Model):
             Number of processes killed (including self)
         """
         import signal
+        import time
+        import os
 
         killed_count = 0
         proc = self.proc
@@ -1573,33 +1578,53 @@ class Process(models.Model):
             return 0
 
         try:
-            # Get all children before killing parent
+            # Phase 1: Get all children and send SIGTERM to entire tree in parallel
             children = proc.children(recursive=True)
+            deadline = time.time() + graceful_timeout
 
-            # Kill children first (reverse order - deepest first)
-            for child in reversed(children):
+            # Send SIGTERM to all children first (non-blocking)
+            for child in children:
                 try:
-                    child.terminate()
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    # Child already dead or we don't have permission - continue
+                    os.kill(child.pid, signal.SIGTERM)
+                except (OSError, ProcessLookupError):
                     pass
 
-            # Wait briefly for children to exit
-            gone, alive = psutil.wait_procs(children, timeout=graceful_timeout)
-            killed_count += len(gone)
+            # Send SIGTERM to parent
+            try:
+                os.kill(proc.pid, signal.SIGTERM)
+            except (OSError, ProcessLookupError):
+                pass
 
-            # Force kill remaining children
-            for child in alive:
-                try:
-                    child.kill()
-                    killed_count += 1
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    # Child exited or we don't have permission - continue
-                    pass
+            # Phase 2: Poll all processes in parallel
+            all_procs = children + [proc]
+            still_running = set(p.pid for p in all_procs)
 
-            # Now kill self
-            if self.terminate(graceful_timeout=graceful_timeout):
-                killed_count += 1
+            while still_running and time.time() < deadline:
+                time.sleep(0.1)
+
+                for pid in list(still_running):
+                    try:
+                        # Check if process exited
+                        os.kill(pid, 0)  # Signal 0 checks if process exists
+                    except (OSError, ProcessLookupError):
+                        # Process exited
+                        still_running.remove(pid)
+                        killed_count += 1
+
+            # Phase 3: SIGKILL any stragglers that exceeded timeout
+            if still_running:
+                for pid in still_running:
+                    try:
+                        os.kill(pid, signal.SIGKILL)
+                        killed_count += 1
+                    except (OSError, ProcessLookupError):
+                        pass
+
+            # Update self status
+            self.exit_code = 128 + signal.SIGTERM if killed_count > 0 else 0
+            self.status = self.StatusChoices.EXITED
+            self.ended_at = timezone.now()
+            self.save()
 
             return killed_count
 
