@@ -730,44 +730,26 @@ def seed_0_8_data(db_path: Path) -> Dict[str, List[Dict]]:
         tag_id = cursor.lastrowid
         created_data['tags'].append({'id': tag_id, 'name': name, 'slug': name.lower()})
 
-    # Create Seeds first (required for 0.8.x Crawls)
-    test_seeds = [
-        ('https://example.com', 'auto', 'Example Seed'),
-        ('https://github.com/ArchiveBox', 'auto', 'GitHub Seed'),
-    ]
-
-    created_data['seeds'] = []
-    for uri, extractor, label in test_seeds:
-        seed_id = generate_uuid()
-        cursor.execute("""
-            INSERT INTO crawls_seed (id, created_at, created_by_id, modified_at, uri,
-                                     extractor, tags_str, label, config, output_dir, notes,
-                                     num_uses_failed, num_uses_succeeded)
-            VALUES (?, datetime('now'), ?, datetime('now'), ?, ?, '', ?, '{}', '', '', 0, 0)
-        """, (seed_id, user_id, uri, extractor, label))
-        created_data['seeds'].append({'id': seed_id, 'uri': uri, 'label': label})
-
-    # Create 2 Crawls (linked to Seeds)
+    # Create 2 Crawls (0.9.0 schema - no seeds)
     test_crawls = [
-        ('https://example.com\nhttps://example.org', 0, 'Example Crawl', created_data['seeds'][0]['id']),
-        ('https://github.com/ArchiveBox', 1, 'GitHub Crawl', created_data['seeds'][1]['id']),
+        ('https://example.com\nhttps://example.org', 0, 'Example Crawl'),
+        ('https://github.com/ArchiveBox', 1, 'GitHub Crawl'),
     ]
 
-    for i, (urls, max_depth, label, seed_id) in enumerate(test_crawls):
+    for i, (urls, max_depth, label) in enumerate(test_crawls):
         crawl_id = generate_uuid()
         cursor.execute("""
-            INSERT INTO crawls_crawl (id, created_at, created_by_id, modified_at, seed_id, urls,
+            INSERT INTO crawls_crawl (id, created_at, created_by_id, modified_at, urls,
                                       config, max_depth, tags_str, label, status, retry_at,
                                       num_uses_failed, num_uses_succeeded)
-            VALUES (?, datetime('now'), ?, datetime('now'), ?, ?, '{}', ?, '', ?, 'queued', datetime('now'), 0, 0)
-        """, (crawl_id, user_id, seed_id, urls, max_depth, label))
+            VALUES (?, datetime('now'), ?, datetime('now'), ?, '{}', ?, '', ?, 'queued', datetime('now'), 0, 0)
+        """, (crawl_id, user_id, urls, max_depth, label))
 
         created_data['crawls'].append({
             'id': crawl_id,
             'urls': urls,
             'max_depth': max_depth,
             'label': label,
-            'seed_id': seed_id,
         })
 
     # Create 5 snapshots linked to crawls
@@ -1146,3 +1128,64 @@ def verify_crawl_count(db_path: Path, expected: int) -> Tuple[bool, str]:
     if count == expected:
         return True, f"Crawl count OK: {count}"
     return False, f"Crawl count mismatch: expected {expected}, got {count}"
+
+
+def verify_process_migration(db_path: Path, expected_archiveresult_count: int) -> Tuple[bool, str]:
+    """
+    Verify that ArchiveResults were properly migrated to Process records.
+
+    Checks:
+    1. All ArchiveResults have process_id set
+    2. Process count matches ArchiveResult count
+    3. Binary records created for unique cmd_version values
+    4. Status mapping is correct
+    """
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+
+    # Check all ArchiveResults have process_id
+    cursor.execute("SELECT COUNT(*) FROM core_archiveresult WHERE process_id IS NULL")
+    null_count = cursor.fetchone()[0]
+
+    if null_count > 0:
+        conn.close()
+        return False, f"Found {null_count} ArchiveResults without process_id"
+
+    # Check Process count
+    cursor.execute("SELECT COUNT(*) FROM machine_process")
+    process_count = cursor.fetchone()[0]
+
+    if process_count != expected_archiveresult_count:
+        conn.close()
+        return False, f"Expected {expected_archiveresult_count} Processes, got {process_count}"
+
+    # Check status mapping
+    cursor.execute("""
+        SELECT ar.status, p.status, p.exit_code
+        FROM core_archiveresult ar
+        JOIN machine_process p ON ar.process_id = p.id
+    """)
+
+    status_errors = []
+    for ar_status, p_status, p_exit_code in cursor.fetchall():
+        expected_p_status, expected_exit_code = {
+            'queued': ('queued', None),
+            'started': ('running', None),
+            'backoff': ('queued', None),
+            'succeeded': ('exited', 0),
+            'failed': ('exited', 1),
+            'skipped': ('exited', None),
+        }.get(ar_status, ('queued', None))
+
+        if p_status != expected_p_status:
+            status_errors.append(f"AR status {ar_status} → Process {p_status}, expected {expected_p_status}")
+
+        if p_exit_code != expected_exit_code:
+            status_errors.append(f"AR status {ar_status} → exit_code {p_exit_code}, expected {expected_exit_code}")
+
+    if status_errors:
+        conn.close()
+        return False, f"Status mapping errors: {'; '.join(status_errors[:5])}"
+
+    conn.close()
+    return True, f"Process migration verified: {process_count} Processes created"

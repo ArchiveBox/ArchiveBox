@@ -57,18 +57,8 @@ class Migration(migrations.Migration):
             name='snapshot',
             options={'verbose_name': 'Snapshot', 'verbose_name_plural': 'Snapshots'},
         ),
-        migrations.RemoveField(
-            model_name='archiveresult',
-            name='cmd',
-        ),
-        migrations.RemoveField(
-            model_name='archiveresult',
-            name='cmd_version',
-        ),
-        migrations.RemoveField(
-            model_name='archiveresult',
-            name='pwd',
-        ),
+        # NOTE: RemoveField for cmd, cmd_version, pwd moved to migration 0027
+        # to allow data migration to Process records first
         migrations.AddField(
             model_name='archiveresult',
             name='config',

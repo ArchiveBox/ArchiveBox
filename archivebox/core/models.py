@@ -2208,7 +2208,7 @@ class SnapshotMachine(BaseStateMachine, strict_states=True):
     tick = (
         queued.to.itself(unless='can_start') |
         queued.to(started, cond='can_start') |
-        started.to.itself(unless='is_finished') |
+        started.to.itself(unless='is_finished', on='on_started_to_started') |
         started.to(sealed, cond='is_finished')
     )
 
@@ -2241,6 +2241,13 @@ class SnapshotMachine(BaseStateMachine, strict_states=True):
         self.snapshot.update_and_requeue(
             retry_at=timezone.now() + timedelta(seconds=5),  # check again in 5s
             status=Snapshot.StatusChoices.STARTED,
+        )
+
+    def on_started_to_started(self):
+        """Called when Snapshot stays in started state (archiveresults not finished yet)."""
+        # Bump retry_at so we check again in a few seconds
+        self.snapshot.update_and_requeue(
+            retry_at=timezone.now() + timedelta(seconds=5),
         )
 
     @sealed.enter

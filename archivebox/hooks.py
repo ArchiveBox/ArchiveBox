@@ -1201,6 +1201,14 @@ def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any
             # Dispatch to appropriate model's from_json() method
             if record_type == 'Snapshot':
                 from archivebox.core.models import Snapshot
+
+                # Check if discovered snapshot exceeds crawl max_depth
+                snapshot_depth = record.get('depth', 0)
+                crawl = overrides.get('crawl')
+                if crawl and snapshot_depth > crawl.max_depth:
+                    # Skip - this URL was discovered but exceeds max crawl depth
+                    continue
+
                 obj = Snapshot.from_json(record.copy(), overrides)
                 if obj:
                     stats['Snapshot'] = stats.get('Snapshot', 0) + 1

@@ -30,6 +30,7 @@ from .test_migrations_helpers import (
     verify_foreign_keys,
     verify_all_snapshots_in_output,
     verify_crawl_count,
+    verify_process_migration,
 )
 
 
@@ -259,6 +260,54 @@ class TestMigrationFrom08x(unittest.TestCase):
         output = result.stdout + result.stderr
         self.assertTrue('ArchiveBox' in output or 'version' in output.lower(),
                        f"Version output missing expected content: {output[:500]}")
+
+    def test_migration_creates_process_records(self):
+        """Migration should create Process records for all ArchiveResults."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        # Verify Process records created
+        expected_count = len(self.original_data['archiveresults'])
+        ok, msg = verify_process_migration(self.db_path, expected_count)
+        self.assertTrue(ok, msg)
+
+    def test_migration_creates_binary_records(self):
+        """Migration should create Binary records from cmd_version data."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+
+        # Check Binary records exist
+        cursor.execute("SELECT COUNT(*) FROM machine_binary")
+        binary_count = cursor.fetchone()[0]
+
+        # Should have at least one binary per unique extractor
+        extractors = set(ar['extractor'] for ar in self.original_data['archiveresults'])
+        self.assertGreaterEqual(binary_count, len(extractors),
+                              f"Expected at least {len(extractors)} Binaries, got {binary_count}")
+
+        conn.close()
+
+    def test_migration_preserves_cmd_data(self):
+        """Migration should preserve cmd data in Process.cmd field."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+
+        # Check that Process records have cmd arrays
+        cursor.execute("SELECT cmd FROM machine_process WHERE cmd != '[]'")
+        cmd_records = cursor.fetchall()
+
+        # All Processes should have non-empty cmd (test data has json.dumps([extractor, '--version']))
+        expected_count = len(self.original_data['archiveresults'])
+        self.assertEqual(len(cmd_records), expected_count,
+                        f"Expected {expected_count} Processes with cmd, got {len(cmd_records)}")
+
+        conn.close()
 
 
 class TestMigrationDataIntegrity08x(unittest.TestCase):

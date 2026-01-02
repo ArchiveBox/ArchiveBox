@@ -502,7 +502,7 @@ class CrawlMachine(BaseStateMachine, strict_states=True):
     tick = (
         queued.to.itself(unless='can_start') |
         queued.to(started, cond='can_start') |
-        started.to.itself(unless='is_finished') |
+        started.to.itself(unless='is_finished', on='on_started_to_started') |
         started.to(sealed, cond='is_finished')
     )
 

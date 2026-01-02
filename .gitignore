@@ -10,6 +10,7 @@ tests/out/
 .coverage
 .coverage.*
 coverage.json
+coverage/
 htmlcov/
 
 # Python and Node dependencies

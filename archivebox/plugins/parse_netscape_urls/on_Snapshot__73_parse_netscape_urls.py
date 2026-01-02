@@ -163,8 +163,10 @@ def fetch_content(url: str) -> str:
 
 @click.command()
 @click.option('--url', required=True, help='Netscape bookmark file URL to parse')
-@click.option('--snapshot-id', required=False, help='Snapshot UUID (unused but required by hook runner)')
-def main(url: str, snapshot_id: str = None):
+@click.option('--snapshot-id', required=False, help='Parent Snapshot UUID')
+@click.option('--crawl-id', required=False, help='Crawl UUID')
+@click.option('--depth', type=int, default=0, help='Current depth level')
+def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0):
     """Parse Netscape bookmark HTML and extract URLs."""
 
     try:
@@ -188,7 +190,12 @@ def main(url: str, snapshot_id: str = None):
                 'type': 'Snapshot',
                 'url': unescape(bookmark_url),
                 'plugin': PLUGIN_NAME,
+                'depth': depth + 1,
             }
+            if snapshot_id:
+                entry['parent_snapshot_id'] = snapshot_id
+            if crawl_id:
+                entry['crawl_id'] = crawl_id
             if title:
                 entry['title'] = unescape(title)
             if tags_str:
