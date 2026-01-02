@@ -13,8 +13,15 @@ from archivebox.misc.util import docstring, enforce_types
 
 
 @enforce_types
-def install(dry_run: bool=False) -> None:
-    """Detect and install ArchiveBox dependencies by running a dependency-check crawl"""
+def install(binaries: tuple[str, ...] = (), binproviders: str = '*', dry_run: bool = False) -> None:
+    """Detect and install ArchiveBox dependencies by running a dependency-check crawl
+
+    Examples:
+        archivebox install                              # Install all dependencies
+        archivebox install wget curl                    # Install only wget and curl
+        archivebox install --binproviders=pip yt-dlp    # Install yt-dlp using only pip
+        archivebox install --binproviders=brew,apt      # Install all deps using only brew or apt
+    """
 
     from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
     from archivebox.config.paths import ARCHIVE_DIR
@@ -24,7 +31,14 @@ def install(dry_run: bool=False) -> None:
     if not (os.access(ARCHIVE_DIR, os.R_OK) and ARCHIVE_DIR.is_dir()):
         init()  # must init full index because we need a db to store Binary entries in
 
-    print('\n[green][+] Detecting ArchiveBox dependencies...[/green]')
+    # Show what we're installing
+    if binaries:
+        print(f'\n[green][+] Installing specific binaries: {", ".join(binaries)}[/green]')
+    else:
+        print('\n[green][+] Detecting and installing all ArchiveBox dependencies...[/green]')
+
+    if binproviders != '*':
+        print(f'[green][+] Using providers: {binproviders}[/green]')
 
     if IS_ROOT:
         EUID = os.geteuid()
@@ -49,6 +63,19 @@ def install(dry_run: bool=False) -> None:
     # Using a minimal crawl that will trigger on_Crawl hooks
     created_by_id = get_or_create_system_user_pk()
 
+    # Build config for this crawl using existing PLUGINS filter
+    crawl_config = {}
+
+    # Combine binary names and provider names into PLUGINS list
+    plugins = []
+    if binaries:
+        plugins.extend(binaries)
+    if binproviders != '*':
+        plugins.extend(binproviders.split(','))
+
+    if plugins:
+        crawl_config['PLUGINS'] = ','.join(plugins)
+
     crawl, created = Crawl.objects.get_or_create(
         urls='archivebox://install',
         defaults={
@@ -56,6 +83,7 @@ def install(dry_run: bool=False) -> None:
             'created_by_id': created_by_id,
             'max_depth': 0,
             'status': 'queued',
+            'config': crawl_config,
         }
     )
 
@@ -63,9 +91,12 @@ def install(dry_run: bool=False) -> None:
     if not created:
         crawl.status = 'queued'
         crawl.retry_at = timezone.now()
+        crawl.config = crawl_config  # Update config
         crawl.save()
 
     print(f'[+] Created dependency detection crawl: {crawl.id}')
+    if crawl_config:
+        print(f'[+] Crawl config: {crawl_config}')
     print(f'[+] Crawl status: {crawl.status}, retry_at: {crawl.retry_at}')
 
     # Verify the crawl is in the queue
@@ -100,15 +131,15 @@ def install(dry_run: bool=False) -> None:
 
     print()
 
-    # Run version to show full status
-    archivebox_path = shutil.which('archivebox') or sys.executable
-    if 'python' in archivebox_path:
-        os.system(f'{sys.executable} -m archivebox version')
-    else:
-        os.system(f'{archivebox_path} version')
+    # Show version to display full status including installed binaries
+    # Django is already loaded, so just import and call the function directly
+    from archivebox.cli.archivebox_version import version as show_version
+    show_version(quiet=False)
 
 
 @click.command()
+@click.argument('binaries', nargs=-1, type=str, required=False)
+@click.option('--binproviders', '-p', default='*', help='Comma-separated list of providers to use (pip,npm,brew,apt,env,custom) or * for all', show_default=True)
 @click.option('--dry-run', '-d', is_flag=True, help='Show what would happen without actually running', default=False)
 @docstring(install.__doc__)
 def main(**kwargs) -> None:

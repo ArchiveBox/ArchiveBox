@@ -480,7 +480,7 @@ def run_hook(
             returncode=returncode,
             stdout=stdout,
             stderr=stderr,
-            output_json=output_json,
+            output_json=None,  # Legacy field, we now use records for JSONL
             output_files=new_files,
             duration_ms=duration_ms,
             hook=str(script),
@@ -922,10 +922,14 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
     if plugins_whitelist:
         # PLUGINS whitelist is specified - only enable plugins in the list
         plugin_names = [p.strip().lower() for p in plugins_whitelist.split(',') if p.strip()]
+        import sys
+        print(f"DEBUG: PLUGINS whitelist='{plugins_whitelist}', checking plugin '{plugin_name}', plugin_names={plugin_names}", file=sys.stderr)
         if plugin_name.lower() not in plugin_names:
             # Plugin not in whitelist - explicitly disabled
+            print(f"DEBUG: Plugin '{plugin_name}' NOT in whitelist, disabling", file=sys.stderr)
             enabled = False
         else:
+            print(f"DEBUG: Plugin '{plugin_name}' IS in whitelist, enabling", file=sys.stderr)
             # Plugin is in whitelist - check if explicitly disabled by PLUGINNAME_ENABLED
             enabled_key = f'{plugin_upper}_ENABLED'
             enabled = config.get(enabled_key)
@@ -935,6 +939,8 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
                 enabled = enabled.lower() not in ('false', '0', 'no', '')
     else:
         # No PLUGINS whitelist - use PLUGINNAME_ENABLED (default True)
+        import sys
+        print(f"DEBUG: NO PLUGINS whitelist in config, checking {plugin_name}_ENABLED", file=sys.stderr)
         enabled_key = f'{plugin_upper}_ENABLED'
         enabled = config.get(enabled_key)
         if enabled is None:

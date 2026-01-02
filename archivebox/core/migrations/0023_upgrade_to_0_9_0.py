@@ -116,7 +116,7 @@ def upgrade_core_tables(apps, schema_editor):
             retry_at DATETIME,
 
             depth INTEGER NOT NULL DEFAULT 0,
-            fs_version VARCHAR(10) NOT NULL DEFAULT '0.9.0',
+            fs_version VARCHAR(10) NOT NULL DEFAULT '0.8.0',
             config TEXT NOT NULL DEFAULT '{}',
             notes TEXT NOT NULL DEFAULT '',
             num_uses_succeeded INTEGER NOT NULL DEFAULT 0,
@@ -325,6 +325,16 @@ class Migration(migrations.Migration):
                     model_name='snapshot',
                     name='modified_at',
                     field=models.DateTimeField(auto_now=True),
+                ),
+                # Declare fs_version (already created in database with DEFAULT '0.8.0')
+                migrations.AddField(
+                    model_name='snapshot',
+                    name='fs_version',
+                    field=models.CharField(
+                        max_length=10,
+                        default='0.8.0',
+                        help_text='Filesystem version of this snapshot (e.g., "0.7.0", "0.8.0", "0.9.0"). Used to trigger lazy migration on save().'
+                    ),
                 ),
 
                 # SnapshotTag table already exists from v0.7.2, just declare it in state

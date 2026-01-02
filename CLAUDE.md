@@ -158,6 +158,63 @@ env['SAVE_FAVICON'] = 'False'
 #### Timeout Settings
 Use appropriate timeouts for migration tests (45s for init, 60s default).
 
+### Plugin Testing & Code Coverage
+
+**Target: 80-90% coverage** for critical plugins (screenshot, chrome, singlefile, dom)
+
+```bash
+# Run plugin tests with coverage (both Python + JavaScript)
+bash bin/test_plugins.sh screenshot
+
+# View coverage reports
+bash bin/test_plugins.sh --coverage-report
+# Or individual reports:
+coverage report --show-missing --include='archivebox/plugins/*' --omit='*/tests/*'
+```
+
+#### Plugin Test Structure
+
+Tests are **completely isolated** from ArchiveBox - they replicate production directory structure in temp dirs:
+
+```python
+# Correct production paths:
+# Crawl:    DATA_DIR/users/{username}/crawls/YYYYMMDD/example.com/{crawl-id}/{plugin}/
+# Snapshot: DATA_DIR/users/{username}/snapshots/YYYYMMDD/example.com/{snapshot-uuid}/{plugin}/
+
+with tempfile.TemporaryDirectory() as tmpdir:
+    data_dir = Path(tmpdir)
+
+    # Crawl-level plugin (e.g., chrome launcher)
+    crawl_dir = data_dir / 'users' / 'testuser' / 'crawls' / '20240101' / 'example.com' / 'crawl-123'
+    chrome_dir = crawl_dir / 'chrome'
+    chrome_dir.mkdir(parents=True)
+
+    # Snapshot-level plugin (e.g., screenshot)
+    snapshot_dir = data_dir / 'users' / 'testuser' / 'snapshots' / '20240101' / 'example.com' / 'snap-456'
+    screenshot_dir = snapshot_dir / 'screenshot'
+    screenshot_dir.mkdir(parents=True)
+
+    # Run hook in its output directory
+    result = subprocess.run(
+        ['node', str(SCREENSHOT_HOOK), '--url=https://example.com', '--snapshot-id=snap-456'],
+        cwd=str(screenshot_dir),
+        env=get_test_env(),
+        capture_output=True,
+        timeout=120
+    )
+```
+
+#### Coverage Improvement Loop
+
+To improve from ~20% to 80%+:
+
+1. **Run tests**: `bash bin/test_plugins.sh screenshot` → Shows: `19.1% (13/68 ranges)`
+2. **Identify gaps**: Check hook file for untested paths (session connection vs fallback, config branches, error cases)
+3. **Add tests**: Test both execution paths (connect to session + launch own browser), skip conditions, error cases, config variations
+4. **Verify**: Re-run tests → Should show: `85%+ (58+/68 ranges)`
+
+**Critical**: JavaScript hooks have TWO paths that both must be tested (connect to session ~50% + launch browser ~30% + shared ~20%). Testing only one path = max 50% coverage possible!
+
 ## Database Migrations
 
 ### Generate and Apply Migrations

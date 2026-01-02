@@ -76,11 +76,11 @@ class Orchestrator:
         self.idle_count: int = 0
         self._last_cleanup_time: float = 0.0  # For throttling cleanup_stale_running()
 
-        # CRITICAL: In foreground mode (exit_on_idle=True), use ONLY 1 worker
-        # to keep execution strictly sequential and deterministic
+        # In foreground mode (exit_on_idle=True), limit workers but allow enough
+        # for crawl progression: 1 CrawlWorker + 1 SnapshotWorker + 1 ArchiveResultWorker
         if self.exit_on_idle:
             self.MAX_WORKERS_PER_TYPE = 1
-            self.MAX_TOTAL_WORKERS = 1
+            self.MAX_TOTAL_WORKERS = 3  # Allow one worker of each type to run concurrently
     
     def __repr__(self) -> str:
         return f'[underline]Orchestrator[/underline]\\[pid={self.pid}]'
@@ -157,32 +157,41 @@ class Orchestrator:
             self._last_cleanup_time = now
 
         return sum(len(W.get_running_workers()) for W in self.WORKER_TYPES)
+
+    def get_running_workers_for_type(self, WorkerClass: Type[Worker]) -> int:
+        """Get count of running workers for a specific worker type."""
+        return len(WorkerClass.get_running_workers())
     
     def should_spawn_worker(self, WorkerClass: Type[Worker], queue_count: int) -> bool:
         """Determine if we should spawn a new worker of the given type."""
         if queue_count == 0:
             return False
-        
+
         # Check per-type limit
         running_workers = WorkerClass.get_running_workers()
-        if len(running_workers) >= self.MAX_WORKERS_PER_TYPE:
+        running_count = len(running_workers)
+
+        if running_count >= self.MAX_WORKERS_PER_TYPE:
             return False
-        
+
         # Check total limit
-        if self.get_total_worker_count() >= self.MAX_TOTAL_WORKERS:
+        total_workers = self.get_total_worker_count()
+        if total_workers >= self.MAX_TOTAL_WORKERS:
             return False
-        
+
         # Check if we already have enough workers for the queue size
         # Spawn more gradually - don't flood with workers
-        if len(running_workers) > 0 and queue_count <= len(running_workers) * WorkerClass.MAX_CONCURRENT_TASKS:
+        if running_count > 0 and queue_count <= running_count * WorkerClass.MAX_CONCURRENT_TASKS:
             return False
-        
+
         return True
     
     def spawn_worker(self, WorkerClass: Type[Worker]) -> int | None:
         """Spawn a new worker process. Returns PID or None if spawn failed."""
         try:
+            print(f'[yellow]DEBUG: Spawning {WorkerClass.name} worker with crawl_id={self.crawl_id}...[/yellow]')
             pid = WorkerClass.start(daemon=False, crawl_id=self.crawl_id)
+            print(f'[yellow]DEBUG: Spawned {WorkerClass.name} worker with PID={pid}[/yellow]')
 
             # CRITICAL: Block until worker registers itself in Process table
             # This prevents race condition where orchestrator spawns multiple workers
@@ -202,6 +211,15 @@ class Orchestrator:
                 # 3. RUNNING status
                 # 4. Parent is this orchestrator
                 # 5. Started recently (within last 10 seconds)
+
+                # Debug: Check all processes with this PID first
+                if elapsed < 0.5:
+                    all_procs = list(Process.objects.filter(pid=pid))
+                    print(f'[yellow]DEBUG spawn_worker: elapsed={elapsed:.1f}s pid={pid} orchestrator_id={self.db_process.id}[/yellow]')
+                    print(f'[yellow]  Found {len(all_procs)} Process records for pid={pid}[/yellow]')
+                    for p in all_procs:
+                        print(f'[yellow]  -> type={p.process_type} status={p.status} parent_id={p.parent_id} match={p.parent_id == self.db_process.id}[/yellow]')
+
                 worker_process = Process.objects.filter(
                     pid=pid,
                     process_type=Process.TypeChoices.WORKER,
@@ -212,6 +230,7 @@ class Orchestrator:
 
                 if worker_process:
                     # Worker successfully registered!
+                    print(f'[green]DEBUG spawn_worker: Worker registered! Returning pid={pid}[/green]')
                     return pid
 
                 time.sleep(poll_interval)
@@ -244,7 +263,7 @@ class Orchestrator:
         Returns dict of queue sizes by worker type.
         """
         queue_sizes = {}
-        
+
         for WorkerClass in self.WORKER_TYPES:
             # Get queue for this worker type
             # Need to instantiate worker to get queue (for model access)
@@ -392,10 +411,17 @@ class Orchestrator:
 
     def _run_orchestrator_loop(self, progress, task_ids):
         """Run the main orchestrator loop with optional progress display."""
+        last_queue_sizes = {}
+        last_snapshot_count = None
         try:
             while True:
                 # Check queues and spawn workers
                 queue_sizes = self.check_queues_and_spawn_workers()
+
+                # Debug queue sizes (only when changed)
+                if progress and queue_sizes != last_queue_sizes:
+                    progress.console.print(f'[yellow]DEBUG: Queue sizes: {queue_sizes}[/yellow]')
+                    last_queue_sizes = queue_sizes.copy()
 
                 # Update progress bars
                 if progress:
@@ -411,6 +437,11 @@ class Orchestrator:
                         snapshot_filter['modified_at__gte'] = recent_cutoff
 
                     active_snapshots = list(Snapshot.objects.filter(**snapshot_filter))
+
+                    # Debug snapshot count (only when changed)
+                    if len(active_snapshots) != last_snapshot_count:
+                        progress.console.print(f'[yellow]DEBUG: Found {len(active_snapshots)} active snapshots (crawl_id={self.crawl_id})[/yellow]')
+                        last_snapshot_count = len(active_snapshots)
 
                     # Track which snapshots are still active
                     active_ids = set()
@@ -461,7 +492,9 @@ class Orchestrator:
                             del task_ids[snapshot_id]
 
                 # Track idle state
-                if self.has_pending_work(queue_sizes) or self.has_running_workers():
+                has_pending = self.has_pending_work(queue_sizes)
+                has_running = self.has_running_workers()
+                if has_pending or has_running:
                     self.idle_count = 0
                     self.on_tick(queue_sizes)
                 else:

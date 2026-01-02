@@ -203,13 +203,14 @@ class BinaryManager(models.Manager):
 
 class Binary(ModelWithHealthStats):
     """
-    Tracks an binary on a specific machine.
+    Tracks a binary on a specific machine.
 
-    Follows the unified state machine pattern:
+    Simple state machine with 2 states:
     - queued: Binary needs to be installed
-    - started: Installation in progress
-    - succeeded: Binary installed successfully (abspath, version, sha256 populated)
-    - failed: Installation failed
+    - installed: Binary installed successfully (abspath, version, sha256 populated)
+
+    Installation is synchronous during queued→installed transition.
+    If installation fails, Binary stays in queued with retry_at set for later retry.
 
     State machine calls run() which executes on_Binary__install_* hooks
     to install the binary using the specified providers.
@@ -217,9 +218,7 @@ class Binary(ModelWithHealthStats):
 
     class StatusChoices(models.TextChoices):
         QUEUED = 'queued', 'Queued'
-        STARTED = 'started', 'Started'
-        SUCCEEDED = 'succeeded', 'Succeeded'
-        FAILED = 'failed', 'Failed'
+        INSTALLED = 'installed', 'Installed'
 
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
@@ -323,8 +322,31 @@ class Binary(ModelWithHealthStats):
         machine = Machine.current()
         overrides = overrides or {}
 
-        # Case 1: From binaries.jsonl - create queued binary
-        if 'binproviders' in record or ('overrides' in record and not record.get('abspath')):
+        # Case 1: Already installed (from on_Crawl hooks) - has abspath AND binproviders
+        # This happens when on_Crawl hooks detect already-installed binaries
+        abspath = record.get('abspath')
+        version = record.get('version')
+        binproviders = record.get('binproviders')
+
+        if abspath and version and binproviders:
+            # Binary is already installed, create INSTALLED record with binproviders filter
+            binary, _ = Binary.objects.update_or_create(
+                machine=machine,
+                name=name,
+                defaults={
+                    'abspath': abspath,
+                    'version': version,
+                    'sha256': record.get('sha256', ''),
+                    'binprovider': record.get('binprovider', 'env'),
+                    'binproviders': binproviders,  # Preserve the filter
+                    'status': Binary.StatusChoices.INSTALLED,
+                    'retry_at': None,
+                }
+            )
+            return binary
+
+        # Case 2: From binaries.json - create queued binary (needs installation)
+        if 'binproviders' in record or ('overrides' in record and not abspath):
             binary, created = Binary.objects.get_or_create(
                 machine=machine,
                 name=name,
@@ -337,25 +359,23 @@ class Binary(ModelWithHealthStats):
             )
             return binary
 
-        # Case 2: From hook output - update with installation results
-        abspath = record.get('abspath')
-        version = record.get('version')
-        if not abspath or not version:
-            return None
+        # Case 3: From on_Binary__install hook output - update with installation results
+        if abspath and version:
+            binary, _ = Binary.objects.update_or_create(
+                machine=machine,
+                name=name,
+                defaults={
+                    'abspath': abspath,
+                    'version': version,
+                    'sha256': record.get('sha256', ''),
+                    'binprovider': record.get('binprovider', 'env'),
+                    'status': Binary.StatusChoices.INSTALLED,
+                    'retry_at': None,
+                }
+            )
+            return binary
 
-        binary, _ = Binary.objects.update_or_create(
-            machine=machine,
-            name=name,
-            defaults={
-                'abspath': abspath,
-                'version': version,
-                'sha256': record.get('sha256', ''),
-                'binprovider': record.get('binprovider', 'env'),
-                'status': Binary.StatusChoices.SUCCEEDED,
-                'retry_at': None,
-            }
-        )
-        return binary
+        return None
 
     @property
     def OUTPUT_DIR(self):
@@ -403,8 +423,7 @@ class Binary(ModelWithHealthStats):
         # Discover ALL on_Binary__install_* hooks
         hooks = discover_hooks('Binary', config=config)
         if not hooks:
-            self.status = self.StatusChoices.FAILED
-            self.save()
+            # No hooks available - stay queued, will retry later
             return
 
         # Run each hook - they decide if they can handle this binary
@@ -456,15 +475,21 @@ class Binary(ModelWithHealthStats):
                                 self.version = record.get('version', '')
                                 self.sha256 = record.get('sha256', '')
                                 self.binprovider = record.get('binprovider', 'env')
-                                self.status = self.StatusChoices.SUCCEEDED
+                                self.status = self.StatusChoices.INSTALLED
                                 self.save()
+
+                                # Symlink binary into LIB_BIN_DIR if configured
+                                from django.conf import settings
+                                lib_bin_dir = getattr(settings, 'LIB_BIN_DIR', None)
+                                if lib_bin_dir:
+                                    self.symlink_to_lib_bin(lib_bin_dir)
+
                                 return
                         except json.JSONDecodeError:
                             continue
 
-        # No hook succeeded
-        self.status = self.StatusChoices.FAILED
-        self.save()
+        # No hook succeeded - leave status as QUEUED (will retry later)
+        # Don't set to FAILED since we don't have that status anymore
 
     def cleanup(self):
         """
@@ -484,9 +509,74 @@ class Binary(ModelWithHealthStats):
         for plugin_dir in output_dir.iterdir():
             if not plugin_dir.is_dir():
                 continue
+
             pid_file = plugin_dir / 'hook.pid'
             cmd_file = plugin_dir / 'cmd.sh'
             safe_kill_process(pid_file, cmd_file)
+
+    def symlink_to_lib_bin(self, lib_bin_dir: str | Path) -> Path | None:
+        """
+        Symlink this binary into LIB_BIN_DIR for unified PATH management.
+
+        After a binary is installed by any binprovider (pip, npm, brew, apt, etc),
+        we symlink it into LIB_BIN_DIR so that:
+        1. All binaries can be found in a single directory
+        2. PATH only needs LIB_BIN_DIR prepended (not multiple provider-specific paths)
+        3. Binary priorities are clear (symlink points to the canonical install location)
+
+        Args:
+            lib_bin_dir: Path to LIB_BIN_DIR (e.g., /data/lib/arm64-darwin/bin)
+
+        Returns:
+            Path to the created symlink, or None if symlinking failed
+
+        Example:
+            >>> binary = Binary.objects.get(name='yt-dlp')
+            >>> binary.symlink_to_lib_bin('/data/lib/arm64-darwin/bin')
+            Path('/data/lib/arm64-darwin/bin/yt-dlp')
+        """
+        import sys
+        from pathlib import Path
+
+        if not self.abspath:
+            return None
+
+        binary_abspath = Path(self.abspath).resolve()
+        lib_bin_dir = Path(lib_bin_dir).resolve()
+
+        # Create LIB_BIN_DIR if it doesn't exist
+        try:
+            lib_bin_dir.mkdir(parents=True, exist_ok=True)
+        except (OSError, PermissionError) as e:
+            print(f"Failed to create LIB_BIN_DIR {lib_bin_dir}: {e}", file=sys.stderr)
+            return None
+
+        # Get binary name (last component of path)
+        binary_name = binary_abspath.name
+        symlink_path = lib_bin_dir / binary_name
+
+        # Remove existing symlink/file if it exists
+        if symlink_path.exists() or symlink_path.is_symlink():
+            try:
+                # Check if it's already pointing to the right place
+                if symlink_path.is_symlink() and symlink_path.resolve() == binary_abspath:
+                    # Already correctly symlinked, nothing to do
+                    return symlink_path
+
+                # Remove old symlink/file
+                symlink_path.unlink()
+            except (OSError, PermissionError) as e:
+                print(f"Failed to remove existing file at {symlink_path}: {e}", file=sys.stderr)
+                return None
+
+        # Create new symlink
+        try:
+            symlink_path.symlink_to(binary_abspath)
+            print(f"Symlinked {binary_name} -> {symlink_path}", file=sys.stderr)
+            return symlink_path
+        except (OSError, PermissionError) as e:
+            print(f"Failed to create symlink {symlink_path} -> {binary_abspath}: {e}", file=sys.stderr)
+            return None
 
 
 # =============================================================================
@@ -625,6 +715,16 @@ class Process(models.Model):
         default=TypeChoices.CLI,
         db_index=True,
         help_text='Type of process (cli, worker, orchestrator, binary, supervisord)'
+    )
+
+    # Worker type (only for WORKER processes: crawl, snapshot, archiveresult)
+    worker_type = models.CharField(
+        max_length=32,
+        default='',
+        null=False,
+        blank=True,
+        db_index=True,
+        help_text='Worker type name for WORKER processes (crawl, snapshot, archiveresult)'
     )
 
     # Execution metadata
@@ -895,11 +995,16 @@ class Process(models.Model):
         ppid = os.getppid()
         machine = machine or Machine.current()
 
+        # Debug logging
+        import sys
+        print(f"DEBUG _find_parent_process: my_pid={os.getpid()}, ppid={ppid}", file=sys.stderr)
+
         # Get parent process start time from OS
         try:
             os_parent = psutil.Process(ppid)
             os_parent_start = os_parent.create_time()
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            print(f"DEBUG _find_parent_process: Parent process {ppid} not accessible", file=sys.stderr)
             return None  # Parent process doesn't exist
 
         # Find matching Process record
@@ -910,12 +1015,18 @@ class Process(models.Model):
             started_at__gte=timezone.now() - PID_REUSE_WINDOW,
         ).order_by('-started_at')
 
+        print(f"DEBUG _find_parent_process: Found {candidates.count()} candidates for ppid={ppid}", file=sys.stderr)
+
         for candidate in candidates:
             if candidate.started_at:
                 db_start_time = candidate.started_at.timestamp()
-                if abs(db_start_time - os_parent_start) < START_TIME_TOLERANCE:
+                time_diff = abs(db_start_time - os_parent_start)
+                print(f"DEBUG _find_parent_process: Checking candidate id={candidate.id} time_diff={time_diff:.2f}s tolerance={START_TIME_TOLERANCE}s", file=sys.stderr)
+                if time_diff < START_TIME_TOLERANCE:
+                    print(f"DEBUG _find_parent_process: MATCH! Returning parent id={candidate.id} pid={candidate.pid}", file=sys.stderr)
                     return candidate
 
+        print(f"DEBUG _find_parent_process: No matching parent found for ppid={ppid}", file=sys.stderr)
         return None  # No matching ArchiveBox parent process
 
     @classmethod
@@ -1584,68 +1695,37 @@ class BinaryMachine(BaseStateMachine, strict_states=True):
     """
     State machine for managing Binary installation lifecycle.
 
-    Hook Lifecycle:
+    Simple 2-state machine:
     ┌─────────────────────────────────────────────────────────────┐
     │ QUEUED State                                                │
     │  • Binary needs to be installed                             │
     └─────────────────────────────────────────────────────────────┘
-                            ↓ tick() when can_start()
+                            ↓ tick() when can_install()
+                            ↓ Synchronous installation during transition
     ┌─────────────────────────────────────────────────────────────┐
-    │ STARTED State → enter_started()                             │
-    │  1. binary.run()                                            │
-    │     • discover_hooks('Binary') → all on_Binary__install_*   │
-    │     • Try each provider hook in sequence:                   │
-    │       - run_hook(script, output_dir, ...)                   │
-    │       - If returncode == 0:                                 │
-    │         * Read stdout.log                                   │
-    │         * Parse JSONL for 'Binary' record with abspath      │
-    │         * Update self: abspath, version, sha256, provider   │
-    │         * Set status=SUCCEEDED, RETURN                      │
-    │     • If no hook succeeds: set status=FAILED                │
+    │ INSTALLED State                                             │
+    │  • Binary installed (abspath, version, sha256 set)          │
+    │  • Health stats incremented                                 │
     └─────────────────────────────────────────────────────────────┘
-                            ↓ tick() checks status
-    ┌─────────────────────────────────────────────────────────────┐
-    │ SUCCEEDED / FAILED                                          │
-    │  • Set by binary.run() based on hook results                │
-    │  • Health stats incremented (num_uses_succeeded/failed)     │
-    └─────────────────────────────────────────────────────────────┘
+
+    If installation fails, Binary stays in QUEUED with retry_at bumped.
     """
 
     model_attr_name = 'binary'
 
     # States
     queued = State(value=Binary.StatusChoices.QUEUED, initial=True)
-    started = State(value=Binary.StatusChoices.STARTED)
-    succeeded = State(value=Binary.StatusChoices.SUCCEEDED, final=True)
-    failed = State(value=Binary.StatusChoices.FAILED, final=True)
+    installed = State(value=Binary.StatusChoices.INSTALLED, final=True)
 
-    # Tick Event - transitions based on conditions
+    # Tick Event - install happens during transition
     tick = (
-        queued.to.itself(unless='can_start') |
-        queued.to(started, cond='can_start') |
-        started.to.itself(unless='is_finished') |
-        started.to(succeeded, cond='is_succeeded') |
-        started.to(failed, cond='is_failed')
+        queued.to.itself(unless='can_install') |
+        queued.to(installed, cond='can_install', on='on_install')
     )
 
-    def can_start(self) -> bool:
+    def can_install(self) -> bool:
         """Check if binary installation can start."""
         return bool(self.binary.name and self.binary.binproviders)
-
-    def is_succeeded(self) -> bool:
-        """Check if installation succeeded (status was set by run())."""
-        return self.binary.status == Binary.StatusChoices.SUCCEEDED
-
-    def is_failed(self) -> bool:
-        """Check if installation failed (status was set by run())."""
-        return self.binary.status == Binary.StatusChoices.FAILED
-
-    def is_finished(self) -> bool:
-        """Check if installation has completed (success or failure)."""
-        return self.binary.status in (
-            Binary.StatusChoices.SUCCEEDED,
-            Binary.StatusChoices.FAILED,
-        )
 
     @queued.enter
     def enter_queued(self):
@@ -1655,42 +1735,47 @@ class BinaryMachine(BaseStateMachine, strict_states=True):
             status=Binary.StatusChoices.QUEUED,
         )
 
-    @started.enter
-    def enter_started(self):
-        """Start binary installation."""
-        # Lock the binary while installation runs
-        self.binary.update_and_requeue(
-            retry_at=timezone.now() + timedelta(seconds=300),  # 5 min timeout for installation
-            status=Binary.StatusChoices.STARTED,
-        )
+    def on_install(self):
+        """Called during queued→installed transition. Runs installation synchronously."""
+        import sys
 
-        # Run installation hooks
+        print(f'[cyan]      🔄 BinaryMachine.on_install() - installing {self.binary.name}[/cyan]', file=sys.stderr)
+
+        # Run installation hooks (synchronous, updates abspath/version/sha256 and sets status)
         self.binary.run()
 
-        # Save updated status (run() updates status to succeeded/failed)
-        self.binary.save()
+        # Check if installation succeeded by looking at updated status
+        # Note: Binary.run() updates self.binary.status internally but doesn't refresh our reference
+        self.binary.refresh_from_db()
 
-    @succeeded.enter
-    def enter_succeeded(self):
+        if self.binary.status != Binary.StatusChoices.INSTALLED:
+            # Installation failed - abort transition, stay in queued
+            print(f'[red]      ❌ BinaryMachine - {self.binary.name} installation failed, retrying later[/red]', file=sys.stderr)
+
+            # Bump retry_at to try again later
+            self.binary.update_and_requeue(
+                retry_at=timezone.now() + timedelta(seconds=300),  # Retry in 5 minutes
+                status=Binary.StatusChoices.QUEUED,  # Ensure we stay queued
+            )
+
+            # Increment health stats for failure
+            self.binary.increment_health_stats(success=False)
+
+            # Abort the transition - this will raise an exception and keep us in queued
+            raise Exception(f'Binary {self.binary.name} installation failed')
+
+        print(f'[cyan]      ✅ BinaryMachine - {self.binary.name} installed successfully[/cyan]', file=sys.stderr)
+
+    @installed.enter
+    def enter_installed(self):
         """Binary installed successfully."""
         self.binary.update_and_requeue(
             retry_at=None,
-            status=Binary.StatusChoices.SUCCEEDED,
+            status=Binary.StatusChoices.INSTALLED,
         )
 
         # Increment health stats
         self.binary.increment_health_stats(success=True)
-
-    @failed.enter
-    def enter_failed(self):
-        """Binary installation failed."""
-        self.binary.update_and_requeue(
-            retry_at=None,
-            status=Binary.StatusChoices.FAILED,
-        )
-
-        # Increment health stats
-        self.binary.increment_health_stats(success=False)
 
 
 # =============================================================================

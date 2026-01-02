@@ -150,11 +150,7 @@ class Migration(migrations.Migration):
             name='downloaded_at',
             field=models.DateTimeField(blank=True, db_index=True, default=None, editable=False, null=True),
         ),
-        migrations.AddField(
-            model_name='snapshot',
-            name='fs_version',
-            field=models.CharField(default='0.9.0', help_text='Filesystem version of this snapshot (e.g., "0.7.0", "0.8.0", "0.9.0"). Used to trigger lazy migration on save().', max_length=10),
-        ),
+        # NOTE: fs_version already added by migration 0023 with default='0.8.0'
         # NOTE: modified_at already added by migration 0023
         migrations.AddField(
             model_name='snapshot',

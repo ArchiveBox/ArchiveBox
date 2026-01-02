@@ -50,6 +50,9 @@ def get_snapshots(snapshots: Optional[QuerySet]=None,
     if filter_patterns:
         result = Snapshot.objects.filter_by_patterns(filter_patterns, filter_type)
 
+    # Prefetch crawl relationship to avoid N+1 queries when accessing output_dir
+    result = result.select_related('crawl', 'crawl__created_by')
+
     if not result:
         stderr('[!] No Snapshots matched your filters:', filter_patterns, f'({filter_type})', color='lightyellow')
 

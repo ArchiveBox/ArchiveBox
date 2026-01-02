@@ -39,30 +39,36 @@ from archivebox.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
 )
 
-# Get LIB_DIR and NODE_MODULES_DIR from shared helpers
-LIB_DIR = get_lib_dir()
-NODE_MODULES_DIR = get_node_modules_dir()
-NPM_PREFIX = LIB_DIR / 'npm'
-
-# Chromium install location (relative to DATA_DIR)
-CHROMIUM_INSTALL_DIR = Path(os.environ.get('DATA_DIR', '.')).resolve() / 'chromium'
-
-
 @pytest.fixture(scope="session", autouse=True)
-def ensure_chromium_and_puppeteer_installed():
-    """Ensure Chromium and puppeteer are installed before running tests."""
+def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
+    """Ensure Chromium and puppeteer are installed before running tests.
+
+    Puppeteer handles Chromium installation automatically in its own cache.
+    We only need to install puppeteer itself to LIB_DIR/npm.
+    """
     from abx_pkg import Binary, NpmProvider, BinProviderOverrides
+
+    # Set DATA_DIR if not already set (required by abx_pkg)
+    if not os.environ.get('DATA_DIR'):
+        # Use isolated temp dir for direct pytest runs
+        test_data_dir = tmp_path_factory.mktemp('chrome_test_data')
+        os.environ['DATA_DIR'] = str(test_data_dir)
+
+    # Compute paths AFTER setting DATA_DIR
+    lib_dir = get_lib_dir()
+    node_modules_dir = get_node_modules_dir()
+    npm_prefix = lib_dir / 'npm'
 
     # Rebuild pydantic models
     NpmProvider.model_rebuild()
 
-    # Install puppeteer-core if not available
-    puppeteer_core_path = NODE_MODULES_DIR / 'puppeteer-core'
+    # Install puppeteer if not available (it will handle Chromium in its own cache)
+    puppeteer_core_path = node_modules_dir / 'puppeteer-core'
     if not puppeteer_core_path.exists():
-        print(f"\n[*] Installing puppeteer to {NPM_PREFIX}...")
-        NPM_PREFIX.mkdir(parents=True, exist_ok=True)
+        print(f"\n[*] Installing puppeteer to {npm_prefix}...")
+        npm_prefix.mkdir(parents=True, exist_ok=True)
 
-        provider = NpmProvider(npm_prefix=NPM_PREFIX)
+        provider = NpmProvider(npm_prefix=npm_prefix)
         try:
             binary = Binary(
                 name='puppeteer',
@@ -70,34 +76,23 @@ def ensure_chromium_and_puppeteer_installed():
                 overrides={'npm': {'packages': ['puppeteer@^23.5.0']}}
             )
             binary.install()
-            print(f"[*] Puppeteer installed successfully to {NPM_PREFIX}")
+            print(f"[*] Puppeteer installed successfully to {npm_prefix}")
         except Exception as e:
             pytest.skip(f"Failed to install puppeteer: {e}")
 
-    # Install Chromium via @puppeteer/browsers if not available
+    # Find Chromium binary (puppeteer installs it automatically in its cache)
     chromium_binary = find_chromium_binary()
     if not chromium_binary:
-        print(f"\n[*] Installing Chromium to {CHROMIUM_INSTALL_DIR}...")
-        CHROMIUM_INSTALL_DIR.mkdir(parents=True, exist_ok=True)
-
-        result = subprocess.run(
-            ['npx', '@puppeteer/browsers', 'install', 'chromium@latest'],
-            cwd=str(CHROMIUM_INSTALL_DIR.parent),
-            capture_output=True,
-            text=True,
-            timeout=300
-        )
-        if result.returncode != 0:
-            pytest.skip(f"Failed to install Chromium: {result.stderr}")
-
-        chromium_binary = find_chromium_binary()
-        if not chromium_binary:
-            pytest.skip("Chromium installed but binary not found")
-
-        print(f"[*] Chromium installed: {chromium_binary}")
+        pytest.skip("Chromium not found - puppeteer should install it automatically")
 
     # Set CHROME_BINARY env var for tests
     os.environ['CHROME_BINARY'] = chromium_binary
+
+
+# Get paths from helpers (will use DATA_DIR if set, or compute based on __file__)
+LIB_DIR = get_lib_dir()
+NODE_MODULES_DIR = get_node_modules_dir()
+NPM_PREFIX = LIB_DIR / 'npm'
 
 
 def test_hook_scripts_exist():
@@ -208,8 +203,7 @@ def test_chrome_launch_and_tab_creation():
         env['CRAWL_OUTPUT_DIR'] = str(crawl_dir)
         result = subprocess.run(
             ['node', str(CHROME_TAB_HOOK), '--url=https://example.com', '--snapshot-id=snap-123', '--crawl-id=test-crawl-123'],
-            cwd=str(snapshot_chrome_dir,
-            env=get_test_env()),
+            cwd=str(snapshot_chrome_dir),
             capture_output=True,
             text=True,
             timeout=60,
@@ -269,8 +263,7 @@ def test_chrome_navigation():
 
         result = subprocess.run(
             ['node', str(CHROME_TAB_HOOK), '--url=https://example.com', '--snapshot-id=snap-nav-123', '--crawl-id=test-crawl-nav'],
-            cwd=str(snapshot_chrome_dir,
-            env=get_test_env()),
+            cwd=str(snapshot_chrome_dir),
             capture_output=True,
             text=True,
             timeout=60,
@@ -281,8 +274,7 @@ def test_chrome_navigation():
         # Navigate to URL
         result = subprocess.run(
             ['node', str(CHROME_NAVIGATE_HOOK), '--url=https://example.com', '--snapshot-id=snap-nav-123'],
-            cwd=str(snapshot_chrome_dir,
-            env=get_test_env()),
+            cwd=str(snapshot_chrome_dir),
             capture_output=True,
             text=True,
             timeout=120,
@@ -417,8 +409,7 @@ def test_multiple_snapshots_share_chrome():
             # Create tab for this snapshot
             result = subprocess.run(
                 ['node', str(CHROME_TAB_HOOK), f'--url=https://example.com/{snap_num}', f'--snapshot-id=snap-{snap_num}', '--crawl-id=test-multi-crawl'],
-                cwd=str(snapshot_chrome_dir,
-            env=get_test_env()),
+                cwd=str(snapshot_chrome_dir),
                 capture_output=True,
                 text=True,
                 timeout=60,

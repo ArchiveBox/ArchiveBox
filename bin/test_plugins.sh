@@ -3,18 +3,23 @@
 #
 # All plugin tests use pytest and are located in pluginname/tests/test_*.py
 #
-# Usage: ./bin/test_plugins.sh [plugin_name] [--no-coverage]
+# Usage: ./bin/test_plugins.sh [plugin_name] [--no-coverage] [--coverage-report]
 #
 # Examples:
 #   ./bin/test_plugins.sh                     # Run all plugin tests with coverage
 #   ./bin/test_plugins.sh chrome              # Run chrome plugin tests with coverage
 #   ./bin/test_plugins.sh parse_*             # Run all parse_* plugin tests with coverage
 #   ./bin/test_plugins.sh --no-coverage       # Run all tests without coverage
+#   ./bin/test_plugins.sh --coverage-report   # Just show coverage report without running tests
 #
-# Coverage results are saved to .coverage and can be viewed with:
-#   coverage combine
-#   coverage report
+# For running individual hooks with coverage:
+#   NODE_V8_COVERAGE=./coverage/js node <hook>.js [args]  # JS hooks
+#   coverage run --parallel-mode <hook>.py [args]         # Python hooks
+#
+# Coverage results are saved to .coverage (Python) and coverage/js (JavaScript):
+#   coverage combine && coverage report
 #   coverage json
+#   ./bin/test_plugins.sh --coverage-report
 
 set -e
 
@@ -30,14 +35,133 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 # Parse arguments
 PLUGIN_FILTER=""
 ENABLE_COVERAGE=true
+COVERAGE_REPORT_ONLY=false
 
 for arg in "$@"; do
     if [ "$arg" = "--no-coverage" ]; then
         ENABLE_COVERAGE=false
+    elif [ "$arg" = "--coverage-report" ]; then
+        COVERAGE_REPORT_ONLY=true
     else
         PLUGIN_FILTER="$arg"
     fi
 done
+
+# Function to show JS coverage report (inlined from convert_v8_coverage.js)
+show_js_coverage() {
+    local coverage_dir="$1"
+
+    if [ ! -d "$coverage_dir" ] || [ -z "$(ls -A "$coverage_dir" 2>/dev/null)" ]; then
+        echo "No JavaScript coverage data collected"
+        echo "(JS hooks may not have been executed during tests)"
+        return
+    fi
+
+    node - "$coverage_dir" << 'ENDJS'
+const fs = require('fs');
+const path = require('path');
+const coverageDir = process.argv[2];
+
+const files = fs.readdirSync(coverageDir).filter(f => f.startsWith('coverage-') && f.endsWith('.json'));
+if (files.length === 0) {
+    console.log('No coverage files found');
+    process.exit(0);
+}
+
+const coverageByFile = {};
+
+files.forEach(file => {
+    const data = JSON.parse(fs.readFileSync(path.join(coverageDir, file), 'utf8'));
+    data.result.forEach(script => {
+        const url = script.url;
+        if (url.startsWith('node:') || url.includes('node_modules')) return;
+
+        if (!coverageByFile[url]) {
+            coverageByFile[url] = { totalRanges: 0, executedRanges: 0 };
+        }
+
+        script.functions.forEach(func => {
+            func.ranges.forEach(range => {
+                coverageByFile[url].totalRanges++;
+                if (range.count > 0) coverageByFile[url].executedRanges++;
+            });
+        });
+    });
+});
+
+const allFiles = Object.keys(coverageByFile).sort();
+const pluginFiles = allFiles.filter(url => url.includes('archivebox/plugins'));
+const otherFiles = allFiles.filter(url => !url.startsWith('node:') && !url.includes('archivebox/plugins'));
+
+console.log('Total files with coverage: ' + allFiles.length + '\n');
+console.log('Plugin files: ' + pluginFiles.length);
+console.log('Node internal: ' + allFiles.filter(u => u.startsWith('node:')).length);
+console.log('Other: ' + otherFiles.length + '\n');
+
+console.log('JavaScript Coverage Report');
+console.log('='.repeat(80));
+console.log('');
+
+if (otherFiles.length > 0) {
+    console.log('Non-plugin files with coverage:');
+    otherFiles.forEach(url => console.log('  ' + url));
+    console.log('');
+}
+
+if (pluginFiles.length === 0) {
+    console.log('No plugin files covered');
+    process.exit(0);
+}
+
+let totalRanges = 0, totalExecuted = 0;
+
+pluginFiles.forEach(url => {
+    const cov = coverageByFile[url];
+    const pct = cov.totalRanges > 0 ? (cov.executedRanges / cov.totalRanges * 100).toFixed(1) : '0.0';
+    const match = url.match(/archivebox\/plugins\/.+/);
+    const displayPath = match ? match[0] : url;
+    console.log(displayPath + ': ' + pct + '% (' + cov.executedRanges + '/' + cov.totalRanges + ' ranges)');
+    totalRanges += cov.totalRanges;
+    totalExecuted += cov.executedRanges;
+});
+
+console.log('');
+console.log('-'.repeat(80));
+const overallPct = totalRanges > 0 ? (totalExecuted / totalRanges * 100).toFixed(1) : '0.0';
+console.log('Total: ' + overallPct + '% (' + totalExecuted + '/' + totalRanges + ' ranges)');
+ENDJS
+}
+
+# If --coverage-report only, just show the report and exit
+if [ "$COVERAGE_REPORT_ONLY" = true ]; then
+    cd "$ROOT_DIR" || exit 1
+    echo "=========================================="
+    echo "Python Coverage Summary"
+    echo "=========================================="
+    coverage combine 2>/dev/null || true
+    coverage report --include="archivebox/plugins/*" --omit="*/tests/*"
+    echo ""
+
+    echo "=========================================="
+    echo "JavaScript Coverage Summary"
+    echo "=========================================="
+    show_js_coverage "$ROOT_DIR/coverage/js"
+    echo ""
+
+    echo "For detailed coverage reports:"
+    echo "  Python:     coverage report --show-missing --include='archivebox/plugins/*' --omit='*/tests/*'"
+    echo "  Python:     coverage json  # LLM-friendly format"
+    echo "  Python:     coverage html  # Interactive HTML report"
+    exit 0
+fi
+
+# Set DATA_DIR for tests (required by abx_pkg and plugins)
+# Use temp dir to isolate tests from project files
+if [ -z "$DATA_DIR" ]; then
+    export DATA_DIR=$(mktemp -d -t archivebox_plugin_tests.XXXXXX)
+    # Clean up on exit
+    trap "rm -rf '$DATA_DIR'" EXIT
+fi
 
 # Reset coverage data if collecting coverage
 if [ "$ENABLE_COVERAGE" = true ]; then
@@ -161,19 +285,14 @@ elif [ $FAILED_PLUGINS -eq 0 ]; then
         echo "=========================================="
         echo "JavaScript Coverage Summary"
         echo "=========================================="
-        if [ -d "$ROOT_DIR/coverage/js" ] && [ "$(ls -A "$ROOT_DIR/coverage/js" 2>/dev/null)" ]; then
-            node "$ROOT_DIR/bin/convert_v8_coverage.js" "$ROOT_DIR/coverage/js"
-        else
-            echo "No JavaScript coverage data collected"
-            echo "(JS hooks may not have been executed during tests)"
-        fi
+        show_js_coverage "$ROOT_DIR/coverage/js"
         echo ""
 
         echo "For detailed coverage reports (from project root):"
         echo "  Python:     coverage report --show-missing --include='archivebox/plugins/*' --omit='*/tests/*'"
         echo "  Python:     coverage json  # LLM-friendly format"
         echo "  Python:     coverage html  # Interactive HTML report"
-        echo "  JavaScript: node bin/convert_v8_coverage.js coverage/js"
+        echo "  JavaScript: ./bin/test_plugins.sh --coverage-report"
     fi
 
     exit 0

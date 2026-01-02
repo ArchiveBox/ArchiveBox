@@ -40,8 +40,8 @@ def get_env_int(name: str, default: int = 0) -> int:
         return default
 
 
-def output_binary(binary: Binary, name: str):
-    """Output Binary JSONL record to stdout."""
+def output_binary_found(binary: Binary, name: str):
+    """Output Binary JSONL record for an installed binary."""
     machine_id = os.environ.get('MACHINE_ID', '')
 
     record = {
@@ -50,7 +50,20 @@ def output_binary(binary: Binary, name: str):
         'abspath': str(binary.abspath),
         'version': str(binary.version) if binary.version else '',
         'sha256': binary.sha256 or '',
-        'binprovider': 'env',
+        'binprovider': 'env',  # Already installed
+        'machine_id': machine_id,
+    }
+    print(json.dumps(record))
+
+
+def output_binary_missing(name: str, binproviders: str):
+    """Output Binary JSONL record for a missing binary that needs installation."""
+    machine_id = os.environ.get('MACHINE_ID', '')
+
+    record = {
+        'type': 'Binary',
+        'name': name,
+        'binproviders': binproviders,  # Providers that can install it
         'machine_id': machine_id,
     }
     print(json.dumps(record))
@@ -89,16 +102,19 @@ def main():
         binary_path = ''
 
     if not binary_path:
-        if use_wget:
-            errors.append(f"WGET_BINARY={wget_binary} not found. Install wget or set WGET_ENABLED=false.")
+        # Binary not found
         computed['WGET_BINARY'] = ''
+        if use_wget:
+            # Emit Binary record for installation
+            output_binary_missing(name='wget', binproviders='apt,brew')
     else:
+        # Binary found
         computed['WGET_BINARY'] = binary_path
         wget_version = str(binary.version) if binary.version else 'unknown'
         computed['WGET_VERSION'] = wget_version
 
-        # Output Binary JSONL record
-        output_binary(binary, name='wget')
+        # Output Binary JSONL record for installed binary
+        output_binary_found(binary, name='wget')
 
     # Check for compression support
     if computed.get('WGET_BINARY'):

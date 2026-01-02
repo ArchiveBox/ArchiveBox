@@ -60,8 +60,8 @@ class Worker:
     # Configuration (can be overridden by subclasses)
     MAX_TICK_TIME: ClassVar[int] = 60
     MAX_CONCURRENT_TASKS: ClassVar[int] = 1
-    POLL_INTERVAL: ClassVar[float] = 0.2  # How often to check for new work (seconds)
-    IDLE_TIMEOUT: ClassVar[int] = 50  # Exit after N idle iterations (10 sec at 0.2 poll interval)
+    POLL_INTERVAL: ClassVar[float] = 0.1  # How often to check for new work (seconds)
+    IDLE_TIMEOUT: ClassVar[int] = 100  # Exit after N idle iterations (10 sec at 0.1 poll interval)
 
     def __init__(self, worker_id: int = 0, daemon: bool = False, crawl_id: str | None = None, **kwargs: Any):
         self.worker_id = worker_id
@@ -93,7 +93,9 @@ class Worker:
         Returns the claimed object or None if queue is empty or claim failed.
         """
         Model = self.get_model()
-        obj = self.get_queue().first()
+
+        queue = self.get_queue()
+        obj = queue.first()
         if obj is None:
             return None
 
@@ -132,10 +134,17 @@ class Worker:
         self.pid = os.getpid()
         # Register this worker process in the database
         self.db_process = Process.current()
-        # Explicitly set process_type to WORKER to prevent mis-detection
+        # Explicitly set process_type to WORKER and store worker type name
+        update_fields = []
         if self.db_process.process_type != Process.TypeChoices.WORKER:
             self.db_process.process_type = Process.TypeChoices.WORKER
-            self.db_process.save(update_fields=['process_type'])
+            update_fields.append('process_type')
+        # Store worker type name (crawl/snapshot/archiveresult) in worker_type field
+        if not self.db_process.worker_type:
+            self.db_process.worker_type = self.name
+            update_fields.append('worker_type')
+        if update_fields:
+            self.db_process.save(update_fields=update_fields)
 
         # Determine worker type for logging
         worker_type_name = self.__class__.__name__
@@ -316,7 +325,12 @@ class Worker:
 
         Process.cleanup_stale_running()
         # Convert Process objects to dicts to match the expected API contract
-        processes = Process.get_running(process_type=Process.TypeChoices.WORKER)
+        # Filter by worker_type to get only workers of this specific type (crawl/snapshot/archiveresult)
+        processes = Process.objects.filter(
+            process_type=Process.TypeChoices.WORKER,
+            worker_type=cls.name,  # Filter by specific worker type
+            status__in=['running', 'started']
+        )
         # Note: worker_id is not stored on Process model, it's dynamically generated
         # We return process_id (UUID) and pid (OS process ID) instead
         return [
@@ -334,7 +348,11 @@ class Worker:
         """Get count of running workers of this type."""
         from archivebox.machine.models import Process
 
-        return Process.get_running_count(process_type=Process.TypeChoices.WORKER)
+        return Process.objects.filter(
+            process_type=Process.TypeChoices.WORKER,
+            worker_type=cls.name,  # Filter by specific worker type
+            status__in=['running', 'started']
+        ).count()
 
 
 class CrawlWorker(Worker):

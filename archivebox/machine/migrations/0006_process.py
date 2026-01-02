@@ -9,7 +9,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('machine', '0001_initial'),
+        ('machine', '0005_converge_binary_model'),
     ]
 
     operations = [

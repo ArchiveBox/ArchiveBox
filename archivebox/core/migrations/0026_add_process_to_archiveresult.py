@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('core', '0025_alter_archiveresult_options_alter_snapshot_options_and_more'),
-        ('machine', '0003_add_process_type_and_parent'),
+        ('machine', '0007_add_process_type_and_parent'),
     ]
 
     operations = [

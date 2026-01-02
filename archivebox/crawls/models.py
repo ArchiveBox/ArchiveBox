@@ -240,19 +240,26 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         if not first_url:
             raise ValueError(f'Crawl {self.id} has no URLs to create root snapshot from')
 
+        # Try to get existing snapshot
         try:
-            return Snapshot.objects.get(crawl=self, url=first_url)
+            snapshot = Snapshot.objects.get(crawl=self, url=first_url)
+            # If exists and already queued/started, return it as-is
+            if snapshot.status in [Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED]:
+                # Update retry_at to now so it can be picked up immediately
+                snapshot.retry_at = timezone.now()
+                snapshot.save(update_fields=['retry_at'])
+            return snapshot
         except Snapshot.DoesNotExist:
             pass
 
-        root_snapshot, _ = Snapshot.objects.update_or_create(
-            crawl=self, url=first_url,
-            defaults={
-                'status': Snapshot.INITIAL_STATE,
-                'retry_at': timezone.now(),
-                'timestamp': str(timezone.now().timestamp()),
-                'depth': 0,
-            },
+        # Create new snapshot
+        root_snapshot = Snapshot.objects.create(
+            crawl=self,
+            url=first_url,
+            status=Snapshot.INITIAL_STATE,
+            retry_at=timezone.now(),
+            timestamp=str(timezone.now().timestamp()),
+            depth=0,
         )
         return root_snapshot
 
@@ -362,14 +369,14 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
         return created_snapshots
 
-    def run(self) -> 'Snapshot':
+    def run(self) -> 'Snapshot | None':
         """
         Execute this Crawl: run hooks, process JSONL, create snapshots.
 
         Called by the state machine when entering the 'started' state.
 
         Returns:
-            The root Snapshot for this crawl
+            The root Snapshot for this crawl, or None for system crawls that don't create snapshots
         """
         import time
         from pathlib import Path
@@ -407,8 +414,18 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
             # Foreground hook - process JSONL records
             records = result.get('records', [])
+            if records:
+                print(f'[cyan]📝 Processing {len(records)} records from {hook.name}[/cyan]')
+                for record in records[:3]:  # Show first 3
+                    print(f'   Record: type={record.get("type")}, keys={list(record.keys())[:5]}')
             overrides = {'crawl': self}
-            process_hook_records(records, overrides=overrides)
+            stats = process_hook_records(records, overrides=overrides)
+            if stats:
+                print(f'[green]✓ Created: {stats}[/green]')
+
+        # System crawls (archivebox://*) don't create snapshots - they just run hooks
+        if first_url.startswith('archivebox://'):
+            return None
 
         # Create snapshots from URLs
         root_snapshot = self.create_root_snapshot()
@@ -498,13 +515,14 @@ class CrawlMachine(BaseStateMachine, strict_states=True):
     started = State(value=Crawl.StatusChoices.STARTED)
     sealed = State(value=Crawl.StatusChoices.SEALED, final=True)
 
-    # Tick Event
+    # Tick Event (polled by workers)
     tick = (
         queued.to.itself(unless='can_start') |
-        queued.to(started, cond='can_start') |
-        started.to.itself(unless='is_finished', on='on_started_to_started') |
-        started.to(sealed, cond='is_finished')
+        queued.to(started, cond='can_start')
     )
+
+    # Manual event (triggered by last Snapshot sealing)
+    seal = started.to(sealed)
 
     def can_start(self) -> bool:
         if not self.crawl.urls:
@@ -516,54 +534,37 @@ class CrawlMachine(BaseStateMachine, strict_states=True):
             return False
         return True
 
-    def is_finished(self) -> bool:
-        from archivebox.core.models import Snapshot
-
-        # Check if any snapshots exist for this crawl
-        snapshots = Snapshot.objects.filter(crawl=self.crawl)
-
-        # If no snapshots exist, allow finishing (e.g., archivebox://install crawls that only run hooks)
-        if not snapshots.exists():
-            return True
-
-        # If snapshots exist, check if all are sealed
-        # Snapshots handle their own background hooks via the step system,
-        # so we just need to wait for all snapshots to reach sealed state
-        if snapshots.filter(status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED]).exists():
-            return False
-
-        return True
-
     @started.enter
     def enter_started(self):
-        # Lock the crawl by bumping retry_at so other workers don't pick it up while we create snapshots
-        self.crawl.update_and_requeue(
-            retry_at=timezone.now() + timedelta(seconds=30),  # Lock for 30 seconds
-        )
+        import sys
+        from archivebox.core.models import Snapshot
+
+        print(f'[cyan]🔄 CrawlMachine.enter_started() - creating snapshots for {self.crawl.id}[/cyan]', file=sys.stderr)
 
         try:
             # Run the crawl - runs hooks, processes JSONL, creates snapshots
-            self.crawl.run()
+            root_snapshot = self.crawl.run()
 
-            # Update status to STARTED once snapshots are created
-            # Set retry_at to future so we don't busy-loop - wait for snapshots to process
-            self.crawl.update_and_requeue(
-                retry_at=timezone.now() + timedelta(seconds=5),  # Check again in 5s
-                status=Crawl.StatusChoices.STARTED,
-            )
+            if root_snapshot:
+                print(f'[cyan]🔄 Created root snapshot: {root_snapshot.url}[/cyan]', file=sys.stderr)
+                # Update status to STARTED
+                # Set retry_at to far future so workers don't claim us (we're waiting for snapshots to finish)
+                # Last snapshot will manually call self.seal() when done
+                self.crawl.update_and_requeue(
+                    retry_at=timezone.now() + timedelta(days=365),
+                    status=Crawl.StatusChoices.STARTED,
+                )
+            else:
+                # No snapshots (system crawl like archivebox://install)
+                print(f'[cyan]🔄 No snapshots created, sealing crawl immediately[/cyan]', file=sys.stderr)
+                # Seal immediately since there's no work to do
+                self.seal()
+
         except Exception as e:
             print(f'[red]⚠️ Crawl {self.crawl.id} failed to start: {e}[/red]')
             import traceback
             traceback.print_exc()
-            # Re-raise so the worker knows it failed
             raise
-
-    def on_started_to_started(self):
-        """Called when Crawl stays in started state (snapshots not sealed yet)."""
-        # Bump retry_at so we check again in a few seconds
-        self.crawl.update_and_requeue(
-            retry_at=timezone.now() + timedelta(seconds=5),
-        )
 
     @sealed.enter
     def enter_sealed(self):

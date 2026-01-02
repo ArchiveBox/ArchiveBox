@@ -145,16 +145,29 @@ def drain_old_archive_dirs(resume_from: str = None, batch_size: int = 100) -> di
         # Check if needs migration (0.8.x → 0.9.x)
         if snapshot.fs_migration_needed:
             try:
-                snapshot.save()  # Triggers migration + creates symlink
+                # Manually trigger filesystem migration without full save()
+                # This avoids UNIQUE constraint issues while still migrating files
+                cleanup_info = None
+                if hasattr(snapshot, '_fs_migrate_from_0_8_0_to_0_9_0'):
+                    cleanup_info = snapshot._fs_migrate_from_0_8_0_to_0_9_0()
+
+                # Update only fs_version field using queryset update (bypasses validation)
+                from archivebox.core.models import Snapshot as SnapshotModel
+                SnapshotModel.objects.filter(pk=snapshot.pk).update(fs_version='0.9.0')
+
+                # Commit the transaction
+                transaction.commit()
+
+                # Manually call cleanup since we bypassed normal save() flow
+                if cleanup_info:
+                    old_dir, new_dir = cleanup_info
+                    snapshot._cleanup_old_migration_dir(old_dir, new_dir)
+
                 stats['migrated'] += 1
                 print(f"    [{stats['processed']}] Migrated: {entry_path.name}")
             except Exception as e:
-                # Snapshot already exists in DB with different crawl - skip it
-                if 'UNIQUE constraint failed' in str(e):
-                    stats['skipped'] += 1
-                    print(f"    [{stats['processed']}] Skipped (already in DB): {entry_path.name}")
-                else:
-                    raise
+                stats['skipped'] += 1
+                print(f"    [{stats['processed']}] Skipped (error: {e}): {entry_path.name}")
         else:
             stats['skipped'] += 1
 
