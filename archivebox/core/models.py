@@ -2241,10 +2241,12 @@ class SnapshotMachine(BaseStateMachine, strict_states=True):
     # Tick Event (polled by workers)
     tick = (
         queued.to.itself(unless='can_start') |
-        queued.to(started, cond='can_start')
+        queued.to(started, cond='can_start') |
+        started.to.itself(unless='is_finished') |
+        started.to(sealed, cond='is_finished')
     )
 
-    # Manual event (triggered by last ArchiveResult finishing)
+    # Manual event (can also be triggered by last ArchiveResult finishing)
     seal = started.to(sealed)
 
     def can_start(self) -> bool:

@@ -548,17 +548,20 @@ class CrawlMachine(BaseStateMachine, strict_states=True):
             if root_snapshot:
                 print(f'[cyan]🔄 Created root snapshot: {root_snapshot.url}[/cyan]', file=sys.stderr)
                 # Update status to STARTED
-                # Set retry_at to far future so workers don't claim us (we're waiting for snapshots to finish)
+                # Set retry_at to None so workers don't claim us (we wait for snapshots to finish)
                 # Last snapshot will manually call self.seal() when done
                 self.crawl.update_and_requeue(
-                    retry_at=timezone.now() + timedelta(days=365),
+                    retry_at=None,
                     status=Crawl.StatusChoices.STARTED,
                 )
             else:
                 # No snapshots (system crawl like archivebox://install)
-                print(f'[cyan]🔄 No snapshots created, sealing crawl immediately[/cyan]', file=sys.stderr)
-                # Seal immediately since there's no work to do
-                self.seal()
+                print(f'[cyan]🔄 No snapshots created, allowing immediate seal[/cyan]', file=sys.stderr)
+                # Set retry_at=now so next tick() will transition to sealed
+                self.crawl.update_and_requeue(
+                    retry_at=timezone.now(),
+                    status=Crawl.StatusChoices.STARTED,
+                )
 
         except Exception as e:
             print(f'[red]⚠️ Crawl {self.crawl.id} failed to start: {e}[/red]')

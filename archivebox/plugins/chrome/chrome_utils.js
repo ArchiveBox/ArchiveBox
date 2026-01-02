@@ -1435,6 +1435,7 @@ function getTestEnv() {
         MACHINE_TYPE: machineType,
         LIB_DIR: libDir,
         NODE_MODULES_DIR: nodeModulesDir,
+        NODE_PATH: nodeModulesDir,  // Node.js uses NODE_PATH for module resolution
         NPM_BIN_DIR: path.join(libDir, 'npm', '.bin'),
         CHROME_EXTENSIONS_DIR: getExtensionsDir(),
     };
