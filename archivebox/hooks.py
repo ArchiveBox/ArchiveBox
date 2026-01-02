@@ -328,6 +328,24 @@ def run_hook(
     env['ARCHIVE_DIR'] = str(getattr(settings, 'ARCHIVE_DIR', Path.cwd() / 'archive'))
     env.setdefault('MACHINE_ID', getattr(settings, 'MACHINE_ID', '') or os.environ.get('MACHINE_ID', ''))
 
+    # Get LIB_DIR and LIB_BIN_DIR from config
+    lib_dir = config.get('LIB_DIR', getattr(settings, 'LIB_DIR', None))
+    lib_bin_dir = config.get('LIB_BIN_DIR', getattr(settings, 'LIB_BIN_DIR', None))
+    if lib_dir:
+        env['LIB_DIR'] = str(lib_dir)
+    if not lib_bin_dir and lib_dir:
+        # Derive LIB_BIN_DIR from LIB_DIR if not set
+        lib_bin_dir = Path(lib_dir) / 'bin'
+
+    # Prepend LIB_BIN_DIR to PATH so symlinked binaries take priority
+    if lib_bin_dir:
+        lib_bin_dir = str(lib_bin_dir)
+        env['LIB_BIN_DIR'] = lib_bin_dir
+        current_path = env.get('PATH', '')
+        # Only prepend if not already at the beginning
+        if not current_path.startswith(f'{lib_bin_dir}:'):
+            env['PATH'] = f'{lib_bin_dir}:{current_path}' if current_path else lib_bin_dir
+
     # Use Machine.config.PATH if set (includes pip/npm bin dirs from providers)
     try:
         from archivebox.machine.models import Machine
@@ -335,7 +353,11 @@ def run_hook(
         if machine and machine.config:
             machine_path = machine.config.get('config/PATH')
             if machine_path:
-                env['PATH'] = machine_path
+                # Prepend LIB_BIN_DIR to machine PATH as well
+                if lib_bin_dir and not machine_path.startswith(f'{lib_bin_dir}:'):
+                    env['PATH'] = f'{lib_bin_dir}:{machine_path}'
+                else:
+                    env['PATH'] = machine_path
             # Also set NODE_MODULES_DIR if configured
             node_modules_dir = machine.config.get('config/NODE_MODULES_DIR')
             if node_modules_dir:

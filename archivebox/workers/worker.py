@@ -238,7 +238,7 @@ class Worker:
 
                     log_worker_event(
                         worker_type=worker_type_name,
-                        event='Starting...',
+                        event='Processing',
                         indent_level=indent_level,
                         pid=self.pid,
                         worker_id=str(self.worker_id),
@@ -365,6 +365,13 @@ class SnapshotWorker(Worker):
         from archivebox.core.models import Snapshot
         return Snapshot
 
+    def get_queue(self) -> QuerySet:
+        """Get queue of Snapshots ready for processing, optionally filtered by crawl_id."""
+        qs = super().get_queue()
+        if self.crawl_id:
+            qs = qs.filter(crawl_id=self.crawl_id)
+        return qs
+
 
 class ArchiveResultWorker(Worker):
     """Worker for processing ArchiveResult objects."""
@@ -391,6 +398,9 @@ class ArchiveResultWorker(Worker):
         from archivebox.hooks import extract_step
 
         qs = super().get_queue()
+
+        if self.crawl_id:
+            qs = qs.filter(snapshot__crawl_id=self.crawl_id)
 
         if self.plugin:
             qs = qs.filter(plugin=self.plugin)

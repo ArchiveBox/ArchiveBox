@@ -108,9 +108,10 @@ class ConstantsDict(Mapping):
     # Runtime dirs
     TMP_DIR_NAME: str                   = 'tmp'
     DEFAULT_TMP_DIR: Path               = DATA_DIR / TMP_DIR_NAME / MACHINE_ID    # ./data/tmp/abc3244323
-    
+
     LIB_DIR_NAME: str                   = 'lib'
     DEFAULT_LIB_DIR: Path               = DATA_DIR / LIB_DIR_NAME / MACHINE_TYPE  # ./data/lib/arm64-linux-docker
+    DEFAULT_LIB_BIN_DIR: Path           = DEFAULT_LIB_DIR / 'bin'                  # ./data/lib/arm64-linux-docker/bin
 
     # Config constants
     TIMEZONE: str                       = 'UTC'

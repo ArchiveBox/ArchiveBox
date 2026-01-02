@@ -66,6 +66,10 @@ class StorageConfig(BaseConfigSet):
     # should not be a remote/network/FUSE mount for speed reasons, otherwise extractors will be slow
     LIB_DIR: Path = Field(default=CONSTANTS.DEFAULT_LIB_DIR)
 
+    # LIB_BIN_DIR is where all installed binaries are symlinked for easy PATH management
+    # Derived from LIB_DIR / 'bin', should be prepended to PATH for all hook executions
+    LIB_BIN_DIR: Path = Field(default=CONSTANTS.DEFAULT_LIB_BIN_DIR)
+
     # CUSTOM_TEMPLATES_DIR allows users to override default templates
     # defaults to DATA_DIR / 'user_templates' but can be configured
     CUSTOM_TEMPLATES_DIR: Path = Field(default=CONSTANTS.CUSTOM_TEMPLATES_DIR)

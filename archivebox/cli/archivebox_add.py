@@ -131,7 +131,7 @@ def add(urls: str | list[str],
     else:
         # Foreground mode: run orchestrator inline until all work is done
         print(f'[green]\\[*] Starting orchestrator to process crawl...[/green]')
-        orchestrator = Orchestrator(exit_on_idle=True)
+        orchestrator = Orchestrator(exit_on_idle=True, crawl_id=str(crawl.id))
         orchestrator.runloop()  # Block until complete
 
     # 6. Return the list of Snapshots in this crawl

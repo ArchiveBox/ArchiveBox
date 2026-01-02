@@ -182,7 +182,7 @@ class Orchestrator:
     def spawn_worker(self, WorkerClass: Type[Worker]) -> int | None:
         """Spawn a new worker process. Returns PID or None if spawn failed."""
         try:
-            pid = WorkerClass.start(daemon=False)
+            pid = WorkerClass.start(daemon=False, crawl_id=self.crawl_id)
 
             # CRITICAL: Block until worker registers itself in Process table
             # This prevents race condition where orchestrator spawns multiple workers
@@ -248,11 +248,11 @@ class Orchestrator:
         for WorkerClass in self.WORKER_TYPES:
             # Get queue for this worker type
             # Need to instantiate worker to get queue (for model access)
-            worker = WorkerClass(worker_id=-1)  # temp instance just for queue access
+            worker = WorkerClass(worker_id=-1, crawl_id=self.crawl_id)  # temp instance just for queue access
             queue = worker.get_queue()
             queue_count = queue.count()
             queue_sizes[WorkerClass.name] = queue_count
-            
+
             # Spawn worker if needed
             if self.should_spawn_worker(WorkerClass, queue_count):
                 self.spawn_worker(WorkerClass)
@@ -270,15 +270,26 @@ class Orchestrator:
     def has_future_work(self) -> bool:
         """Check if there's work scheduled for the future (retry_at > now)."""
         for WorkerClass in self.WORKER_TYPES:
-            worker = WorkerClass(worker_id=-1)
+            worker = WorkerClass(worker_id=-1, crawl_id=self.crawl_id)
             Model = worker.get_model()
-            # Check for items not in final state with future retry_at
-            future_count = Model.objects.filter(
+
+            # Build filter for future work, respecting crawl_id if set
+            qs = Model.objects.filter(
                 retry_at__gt=timezone.now()
             ).exclude(
                 status__in=Model.FINAL_STATES
-            ).count()
-            if future_count > 0:
+            )
+
+            # Apply crawl_id filter if set
+            if self.crawl_id:
+                if WorkerClass.name == 'crawl':
+                    qs = qs.filter(id=self.crawl_id)
+                elif WorkerClass.name == 'snapshot':
+                    qs = qs.filter(crawl_id=self.crawl_id)
+                elif WorkerClass.name == 'archiveresult':
+                    qs = qs.filter(snapshot__crawl_id=self.crawl_id)
+
+            if qs.count() > 0:
                 return True
         return False
     
@@ -404,14 +415,6 @@ class Orchestrator:
                     # Track which snapshots are still active
                     active_ids = set()
 
-                    # Debug: check for duplicates
-                    snapshot_urls = [s.url for s in active_snapshots]
-                    if len(active_snapshots) != len(set(snapshot_urls)):
-                        # We have duplicate URLs - let's deduplicate by showing snapshot ID
-                        show_id = True
-                    else:
-                        show_id = False
-
                     for snapshot in active_snapshots:
                         active_ids.add(snapshot.id)
 
@@ -442,11 +445,7 @@ class Orchestrator:
 
                         # Build description with URL + current plugin
                         url = snapshot.url[:50] + '...' if len(snapshot.url) > 50 else snapshot.url
-                        if show_id:
-                            # Show snapshot ID if there are duplicate URLs
-                            description = f"[{str(snapshot.id)[:8]}] {url}{current_plugin}"
-                        else:
-                            description = f"{url}{current_plugin}"
+                        description = f"{url}{current_plugin}"
 
                         # Create or update task
                         if snapshot.id not in task_ids:

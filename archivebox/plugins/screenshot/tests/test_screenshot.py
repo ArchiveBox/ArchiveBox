@@ -60,13 +60,15 @@ def test_extracts_screenshot_from_example_com():
         tmpdir = Path(tmpdir)
 
         # Run screenshot extraction hook
+        env = get_test_env()
+        print(f"\n[DEBUG] NODE_V8_COVERAGE={env.get('NODE_V8_COVERAGE', 'NOT SET')}", file=sys.stderr)
         result = subprocess.run(
             ['node', str(SCREENSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=test789'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             timeout=120,
-            env=get_test_env()
+            env=env
         )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
