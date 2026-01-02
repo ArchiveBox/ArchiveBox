@@ -163,10 +163,89 @@ class SnapshotWorkerPanel:
         self.recent_logs.append((message, style))
 
 
+class CrawlWorkerLogPanel:
+    """Display CrawlWorker logs by tailing stdout/stderr from Process."""
+
+    def __init__(self, max_lines: int = 8):
+        self.log_lines: deque = deque(maxlen=max_lines * 2)  # Allow more buffer
+        self.max_lines = max_lines
+        self.last_stdout_pos = 0  # Track file position for efficient tailing
+        self.last_stderr_pos = 0
+
+    def update_from_process(self, process: Any):
+        """Update logs by tailing the Process stdout/stderr files."""
+        from pathlib import Path
+
+        if not process:
+            return
+
+        # Read new stdout lines since last read
+        try:
+            stdout_path = Path(process.stdout)
+            if stdout_path.exists():
+                with open(stdout_path, 'r') as f:
+                    # Seek to last read position
+                    f.seek(self.last_stdout_pos)
+                    new_lines = f.readlines()
+
+                    # Update position
+                    self.last_stdout_pos = f.tell()
+
+                    # Add new lines (up to max_lines to avoid overflow)
+                    for line in new_lines[-self.max_lines:]:
+                        line = line.rstrip('\n')
+                        if line and not line.startswith('['):  # Skip Rich markup lines
+                            self.log_lines.append(('stdout', line))
+        except Exception:
+            pass
+
+        # Read new stderr lines since last read
+        try:
+            stderr_path = Path(process.stderr)
+            if stderr_path.exists():
+                with open(stderr_path, 'r') as f:
+                    f.seek(self.last_stderr_pos)
+                    new_lines = f.readlines()
+
+                    self.last_stderr_pos = f.tell()
+
+                    for line in new_lines[-self.max_lines:]:
+                        line = line.rstrip('\n')
+                        if line and not line.startswith('['):  # Skip Rich markup lines
+                            self.log_lines.append(('stderr', line))
+        except Exception:
+            pass
+
+    def __rich__(self) -> Panel:
+        if not self.log_lines:
+            content = Text("No CrawlWorker logs yet", style="grey53", justify="center")
+        else:
+            # Get the last max_lines for display
+            display_lines = list(self.log_lines)[-self.max_lines:]
+            lines = []
+            for stream, message in display_lines:
+                line = Text()
+                # Color code by stream - stderr is usually debug output
+                if stream == 'stderr':
+                    # Rich formatted logs from stderr
+                    line.append(message, style="cyan")
+                else:
+                    line.append(message, style="white")
+                lines.append(line)
+            content = Group(*lines)
+
+        return Panel(
+            content,
+            title="[bold cyan]CrawlWorker Logs (stdout/stderr)",
+            border_style="cyan",
+            box=box.ROUNDED,
+        )
+
+
 class OrchestratorLogPanel:
     """Display orchestrator and system logs."""
 
-    def __init__(self, max_events: int = 15):
+    def __init__(self, max_events: int = 8):
         self.events: deque = deque(maxlen=max_events)
         self.max_events = max_events
 
@@ -192,7 +271,6 @@ class OrchestratorLogPanel:
             title="[bold white]Orchestrator / Daphne Logs",
             border_style="white",
             box=box.ROUNDED,
-            height=12,
         )
 
 
@@ -211,6 +289,8 @@ class ArchiveBoxProgressLayout:
         │  Stats +      │  Stats +      │  Stats +      │  Stats +    │
         │  Logs         │  Logs         │  Logs         │  Logs       │
         ├───────────────┴───────────────┴───────────────┴─────────────┤
+        │              CrawlWorker Logs (stdout/stderr)               │
+        ├─────────────────────────────────────────────────────────────┤
         │           Orchestrator / Daphne Logs                        │
         └─────────────────────────────────────────────────────────────┘
     """
@@ -226,7 +306,8 @@ class ArchiveBoxProgressLayout:
         # Create 4 worker panels
         self.worker_panels = [SnapshotWorkerPanel(i + 1) for i in range(MAX_WORKER_COLUMNS)]
 
-        self.orchestrator_log = OrchestratorLogPanel(max_events=12)
+        self.crawl_worker_log = CrawlWorkerLogPanel(max_lines=8)
+        self.orchestrator_log = OrchestratorLogPanel(max_events=8)
 
         # Create layout
         self.layout = self._make_layout()
@@ -242,7 +323,7 @@ class ArchiveBoxProgressLayout:
         layout.split(
             Layout(name="crawl_queue", size=3),
             Layout(name="workers", ratio=1),
-            Layout(name="logs", size=13),
+            Layout(name="logs", size=20),
         )
 
         # Split workers into 4 columns
@@ -253,13 +334,20 @@ class ArchiveBoxProgressLayout:
             Layout(name="worker4"),
         )
 
+        # Split logs into crawl_worker_logs and orchestrator_logs
+        layout["logs"].split(
+            Layout(name="crawl_worker_logs", size=10),
+            Layout(name="orchestrator_logs", size=10),
+        )
+
         # Assign components to layout sections
         layout["crawl_queue"].update(self.crawl_queue)
         layout["worker1"].update(self.worker_panels[0])
         layout["worker2"].update(self.worker_panels[1])
         layout["worker3"].update(self.worker_panels[2])
         layout["worker4"].update(self.worker_panels[3])
-        layout["logs"].update(self.orchestrator_log)
+        layout["crawl_worker_logs"].update(self.crawl_worker_log)
+        layout["orchestrator_logs"].update(self.orchestrator_log)
 
         return layout
 
@@ -339,6 +427,10 @@ class ArchiveBoxProgressLayout:
     def log_event(self, message: str, style: str = "white"):
         """Add an event to the orchestrator log."""
         self.orchestrator_log.add_event(message, style)
+
+    def update_crawl_worker_logs(self, process: Any):
+        """Update CrawlWorker logs by tailing the Process stdout/stderr files."""
+        self.crawl_worker_log.update_from_process(process)
 
     def get_layout(self) -> Layout:
         """Get the Rich Layout object for rendering."""

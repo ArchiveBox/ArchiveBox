@@ -513,16 +513,15 @@ class SnapshotWorker(Worker):
         return Snapshot
 
     def on_startup(self) -> None:
-        """Load snapshot and mark as STARTED."""
+        """Load snapshot and mark as STARTED using state machine."""
         super().on_startup()
 
         from archivebox.core.models import Snapshot
         self.snapshot = Snapshot.objects.get(id=self.snapshot_id)
 
-        # Mark snapshot as STARTED
-        self.snapshot.status = Snapshot.StatusChoices.STARTED
-        self.snapshot.retry_at = None  # No more polling needed
-        self.snapshot.save(update_fields=['status', 'retry_at', 'modified_at'])
+        # Use state machine to transition queued -> started (triggers enter_started())
+        self.snapshot.sm.tick()
+        self.snapshot.refresh_from_db()
 
     def runloop(self) -> None:
         """Execute all hooks sequentially."""
@@ -587,15 +586,15 @@ class SnapshotWorker(Worker):
                 # Check if we can advance to next step
                 self._try_advance_step()
 
-            # All hooks launched (or completed) - cleanup and seal
-            self._cleanup_empty_archiveresults()
-            self.snapshot.status = Snapshot.StatusChoices.SEALED
-            self.snapshot.save(update_fields=['status', 'modified_at'])
+            # All hooks launched (or completed) - seal using state machine
+            # This triggers enter_sealed() which calls cleanup() and checks parent crawl sealing
+            self.snapshot.sm.seal()
+            self.snapshot.refresh_from_db()
 
         except Exception as e:
-            # Mark snapshot as failed
-            self.snapshot.status = Snapshot.StatusChoices.SEALED  # Still seal on error
-            self.snapshot.save(update_fields=['status', 'modified_at'])
+            # Mark snapshot as sealed even on error (still triggers cleanup)
+            self.snapshot.sm.seal()
+            self.snapshot.refresh_from_db()
             raise
         finally:
             self.on_shutdown()
@@ -675,24 +674,6 @@ class SnapshotWorker(Worker):
             indent_level=2,
             pid=self.pid,
         )
-
-    def _cleanup_empty_archiveresults(self) -> None:
-        """Delete ArchiveResults that produced no output files."""
-        empty_ars = self.snapshot.archiveresult_set.filter(
-            output_files={}  # No output files
-        ).filter(
-            status__in=self.snapshot.archiveresult_set.model.FINAL_STATES  # Only delete finished ones
-        )
-
-        deleted_count = empty_ars.count()
-        if deleted_count > 0:
-            empty_ars.delete()
-            log_worker_event(
-                worker_type='SnapshotWorker',
-                event=f'Deleted {deleted_count} empty ArchiveResults',
-                indent_level=2,
-                pid=self.pid,
-            )
 
     def on_shutdown(self, error: BaseException | None = None) -> None:
         """

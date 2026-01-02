@@ -497,6 +497,17 @@ class Orchestrator:
                         max_crawl_workers=self.MAX_CRAWL_WORKERS,
                     )
 
+                    # Update CrawlWorker logs by tailing Process stdout/stderr
+                    if crawl_workers_count > 0:
+                        from archivebox.machine.models import Process
+                        crawl_worker_process = Process.objects.filter(
+                            process_type=Process.TypeChoices.WORKER,
+                            worker_type='crawl',
+                            status__in=['running', 'started']
+                        ).first()
+                        if crawl_worker_process:
+                            progress_layout.update_crawl_worker_logs(crawl_worker_process)
+
                     # Log queue size changes
                     if queue_sizes != last_queue_sizes:
                         for worker_type, count in queue_sizes.items():

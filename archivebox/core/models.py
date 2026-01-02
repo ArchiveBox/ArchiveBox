@@ -1413,26 +1413,48 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
     def cleanup(self):
         """
-        Clean up background ArchiveResult hooks.
+        Clean up background ArchiveResult hooks and empty results.
 
         Called by the state machine when entering the 'sealed' state.
-        Kills any background hooks and finalizes their ArchiveResults.
+        Uses Process records to kill background hooks, then deletes empty ArchiveResults.
         """
-        from archivebox.misc.process_utils import safe_kill_process
+        from archivebox.machine.models import Process
 
-        # Kill any background ArchiveResult hooks
-        if not self.OUTPUT_DIR.exists():
-            return
+        # Kill any background ArchiveResult hooks using Process records
+        # Find all running hook Processes linked to this snapshot's ArchiveResults
+        running_hooks = Process.objects.filter(
+            archiveresult__snapshot=self,
+            process_type=Process.TypeChoices.HOOK,
+            status=Process.StatusChoices.RUNNING,
+        ).distinct()
 
-        # Find all .pid files in this snapshot's output directory
-        for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
-            cmd_file = pid_file.parent / 'cmd.sh'
-            safe_kill_process(pid_file, cmd_file)
+        for process in running_hooks:
+            # Use Process.kill_tree() to gracefully kill parent + children
+            killed_count = process.kill_tree(graceful_timeout=2.0)
+            if killed_count > 0:
+                print(f'[yellow]🔪 Killed {killed_count} process(es) for hook {process.pid}[/yellow]')
+
+        # Clean up .pid files from output directory
+        if self.OUTPUT_DIR.exists():
+            for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
+                pid_file.unlink(missing_ok=True)
 
         # Update all STARTED ArchiveResults from filesystem
         results = self.archiveresult_set.filter(status=ArchiveResult.StatusChoices.STARTED)
         for ar in results:
             ar.update_from_output()
+
+        # Delete ArchiveResults that produced no output files
+        empty_ars = self.archiveresult_set.filter(
+            output_files={}  # No output files
+        ).filter(
+            status__in=ArchiveResult.FINAL_STATES  # Only delete finished ones
+        )
+
+        deleted_count = empty_ars.count()
+        if deleted_count > 0:
+            empty_ars.delete()
+            print(f'[yellow]🗑️  Deleted {deleted_count} empty ArchiveResults for {self.url}[/yellow]')
 
     def has_running_background_hooks(self) -> bool:
         """
