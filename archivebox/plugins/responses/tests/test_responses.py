@@ -80,7 +80,8 @@ class TestResponsesWithChrome(TestCase):
                 # Run responses hook with the active Chrome session
                 result = subprocess.run(
                     ['node', str(RESPONSES_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
-                    cwd=str(snapshot_chrome_dir),
+                    cwd=str(snapshot_chrome_dir,
+            env=get_test_env()),
                     capture_output=True,
                     text=True,
                     timeout=120,  # Longer timeout as it waits for navigation

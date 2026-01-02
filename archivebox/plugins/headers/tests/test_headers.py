@@ -50,7 +50,8 @@ def test_node_is_available():
         capture_output=True,
         text=True,
         timeout=10
-    )
+    ,
+            env=get_test_env())
     assert result.returncode == 0, f"node not executable: {result.stderr}"
     assert result.stdout.startswith('v'), f"Unexpected node version format: {result.stdout}"
 
@@ -72,7 +73,8 @@ def test_extracts_headers_from_example_com():
             capture_output=True,
             text=True,
             timeout=60
-        )
+        ,
+            env=get_test_env())
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
@@ -133,7 +135,8 @@ def test_headers_output_structure():
             capture_output=True,
             text=True,
             timeout=60
-        )
+        ,
+            env=get_test_env())
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
@@ -192,7 +195,8 @@ def test_falls_back_to_http_when_chrome_unavailable():
             capture_output=True,
             text=True,
             timeout=60
-        )
+        ,
+            env=get_test_env())
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
@@ -309,7 +313,8 @@ def test_handles_https_urls():
             capture_output=True,
             text=True,
             timeout=60
-        )
+        ,
+            env=get_test_env())
 
         if result.returncode == 0:
             output_headers_file = tmpdir / 'headers.json'
@@ -334,7 +339,8 @@ def test_handles_404_gracefully():
             capture_output=True,
             text=True,
             timeout=60
-        )
+        ,
+            env=get_test_env())
 
         # May succeed or fail depending on server behavior
         # If it succeeds, verify 404 status is captured

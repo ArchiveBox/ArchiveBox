@@ -208,7 +208,8 @@ def test_chrome_launch_and_tab_creation():
         env['CRAWL_OUTPUT_DIR'] = str(crawl_dir)
         result = subprocess.run(
             ['node', str(CHROME_TAB_HOOK), '--url=https://example.com', '--snapshot-id=snap-123', '--crawl-id=test-crawl-123'],
-            cwd=str(snapshot_chrome_dir),
+            cwd=str(snapshot_chrome_dir,
+            env=get_test_env()),
             capture_output=True,
             text=True,
             timeout=60,
@@ -268,7 +269,8 @@ def test_chrome_navigation():
 
         result = subprocess.run(
             ['node', str(CHROME_TAB_HOOK), '--url=https://example.com', '--snapshot-id=snap-nav-123', '--crawl-id=test-crawl-nav'],
-            cwd=str(snapshot_chrome_dir),
+            cwd=str(snapshot_chrome_dir,
+            env=get_test_env()),
             capture_output=True,
             text=True,
             timeout=60,
@@ -279,7 +281,8 @@ def test_chrome_navigation():
         # Navigate to URL
         result = subprocess.run(
             ['node', str(CHROME_NAVIGATE_HOOK), '--url=https://example.com', '--snapshot-id=snap-nav-123'],
-            cwd=str(snapshot_chrome_dir),
+            cwd=str(snapshot_chrome_dir,
+            env=get_test_env()),
             capture_output=True,
             text=True,
             timeout=120,
@@ -414,7 +417,8 @@ def test_multiple_snapshots_share_chrome():
             # Create tab for this snapshot
             result = subprocess.run(
                 ['node', str(CHROME_TAB_HOOK), f'--url=https://example.com/{snap_num}', f'--snapshot-id=snap-{snap_num}', '--crawl-id=test-multi-crawl'],
-                cwd=str(snapshot_chrome_dir),
+                cwd=str(snapshot_chrome_dir,
+            env=get_test_env()),
                 capture_output=True,
                 text=True,
                 timeout=60,

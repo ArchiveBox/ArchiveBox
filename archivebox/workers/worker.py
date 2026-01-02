@@ -63,9 +63,10 @@ class Worker:
     POLL_INTERVAL: ClassVar[float] = 0.2  # How often to check for new work (seconds)
     IDLE_TIMEOUT: ClassVar[int] = 50  # Exit after N idle iterations (10 sec at 0.2 poll interval)
 
-    def __init__(self, worker_id: int = 0, daemon: bool = False, **kwargs: Any):
+    def __init__(self, worker_id: int = 0, daemon: bool = False, crawl_id: str | None = None, **kwargs: Any):
         self.worker_id = worker_id
         self.daemon = daemon
+        self.crawl_id = crawl_id  # If set, only process work for this crawl
         self.pid: int = os.getpid()
         self.pid_file: Path | None = None
         self.idle_count: int = 0
@@ -345,6 +346,13 @@ class CrawlWorker(Worker):
     def get_model(self):
         from archivebox.crawls.models import Crawl
         return Crawl
+
+    def get_queue(self) -> QuerySet:
+        """Get queue of Crawls ready for processing, optionally filtered by crawl_id."""
+        qs = super().get_queue()
+        if self.crawl_id:
+            qs = qs.filter(id=self.crawl_id)
+        return qs
 
 
 class SnapshotWorker(Worker):

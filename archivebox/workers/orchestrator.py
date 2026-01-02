@@ -30,6 +30,7 @@ __package__ = 'archivebox.workers'
 import os
 import time
 from typing import Type
+from datetime import timedelta
 from multiprocessing import Process as MPProcess
 
 from django.utils import timezone
@@ -67,12 +68,19 @@ class Orchestrator:
     MAX_WORKERS_PER_TYPE: int = 8  # Max workers per model type
     MAX_TOTAL_WORKERS: int = 24  # Max workers across all types
     
-    def __init__(self, exit_on_idle: bool = True):
+    def __init__(self, exit_on_idle: bool = True, crawl_id: str | None = None):
         self.exit_on_idle = exit_on_idle
+        self.crawl_id = crawl_id  # If set, only process work for this crawl
         self.pid: int = os.getpid()
         self.pid_file = None
         self.idle_count: int = 0
         self._last_cleanup_time: float = 0.0  # For throttling cleanup_stale_running()
+
+        # CRITICAL: In foreground mode (exit_on_idle=True), use ONLY 1 worker
+        # to keep execution strictly sequential and deterministic
+        if self.exit_on_idle:
+            self.MAX_WORKERS_PER_TYPE = 1
+            self.MAX_TOTAL_WORKERS = 1
     
     def __repr__(self) -> str:
         return f'[underline]Orchestrator[/underline]\\[pid={self.pid}]'
@@ -315,15 +323,12 @@ class Orchestrator:
         # Enable progress bars only in TTY + foreground mode
         show_progress = IS_TTY and self.exit_on_idle
 
-        # Debug
-        print(f"[yellow]DEBUG: IS_TTY={IS_TTY}, exit_on_idle={self.exit_on_idle}, show_progress={show_progress}[/yellow]")
-
         self.on_startup()
         task_ids = {}
 
         if not show_progress:
             # No progress bars - just run normally
-            self._run_orchestrator_loop(None, task_ids, None, None)
+            self._run_orchestrator_loop(None, task_ids)
         else:
             # Redirect worker subprocess output to /dev/null
             devnull_fd = os.open(os.devnull, os.O_WRONLY)
@@ -356,7 +361,7 @@ class Orchestrator:
                     TaskProgressColumn(),
                     console=orchestrator_console,
                 ) as progress:
-                    self._run_orchestrator_loop(progress, task_ids, None, None)
+                    self._run_orchestrator_loop(progress, task_ids)
 
                 # Restore original console
                 logging_module.CONSOLE = original_console
@@ -374,7 +379,7 @@ class Orchestrator:
                     pass
                 # stdout_for_console is closed by orchestrator_console
 
-    def _run_orchestrator_loop(self, progress, task_ids, read_fd, console):
+    def _run_orchestrator_loop(self, progress, task_ids):
         """Run the main orchestrator loop with optional progress display."""
         try:
             while True:
@@ -385,11 +390,27 @@ class Orchestrator:
                 if progress:
                     from archivebox.core.models import Snapshot
 
-                    # Get all started snapshots
-                    active_snapshots = list(Snapshot.objects.filter(status='started'))
+                    # Get all started snapshots (optionally filtered by crawl_id)
+                    snapshot_filter = {'status': 'started'}
+                    if self.crawl_id:
+                        snapshot_filter['crawl_id'] = self.crawl_id
+                    else:
+                        # Only if processing all crawls, filter by recent modified_at to avoid stale snapshots
+                        recent_cutoff = timezone.now() - timedelta(minutes=5)
+                        snapshot_filter['modified_at__gte'] = recent_cutoff
+
+                    active_snapshots = list(Snapshot.objects.filter(**snapshot_filter))
 
                     # Track which snapshots are still active
                     active_ids = set()
+
+                    # Debug: check for duplicates
+                    snapshot_urls = [s.url for s in active_snapshots]
+                    if len(active_snapshots) != len(set(snapshot_urls)):
+                        # We have duplicate URLs - let's deduplicate by showing snapshot ID
+                        show_id = True
+                    else:
+                        show_id = False
 
                     for snapshot in active_snapshots:
                         active_ids.add(snapshot.id)
@@ -421,7 +442,11 @@ class Orchestrator:
 
                         # Build description with URL + current plugin
                         url = snapshot.url[:50] + '...' if len(snapshot.url) > 50 else snapshot.url
-                        description = f"{url}{current_plugin}"
+                        if show_id:
+                            # Show snapshot ID if there are duplicate URLs
+                            description = f"[{str(snapshot.id)[:8]}] {url}{current_plugin}"
+                        else:
+                            description = f"{url}{current_plugin}"
 
                         # Create or update task
                         if snapshot.id not in task_ids:

@@ -1515,6 +1515,12 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         parent_snapshot = overrides.get('snapshot')  # Parent snapshot
         created_by_id = overrides.get('created_by_id') or (parent_snapshot.created_by.pk if parent_snapshot else get_or_create_system_user_pk())
 
+        # DEBUG: Check if crawl_id in record matches overrides crawl
+        import sys
+        record_crawl_id = record.get('crawl_id')
+        if record_crawl_id and crawl and str(crawl.id) != str(record_crawl_id):
+            print(f"[yellow]⚠️  Snapshot.from_json crawl mismatch: record has crawl_id={record_crawl_id}, overrides has crawl={crawl.id}[/yellow]", file=sys.stderr)
+
         # If no crawl provided, inherit from parent or auto-create one
         if not crawl:
             if parent_snapshot:
@@ -1536,6 +1542,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                     label=f'auto-created for {url[:50]}',
                     created_by_id=created_by_id,
                 )
+                print(f"[red]⚠️  Snapshot.from_json auto-created new crawl {crawl.id} for url={url}[/red]", file=sys.stderr)
 
         # Parse tags
         tags_str = record.get('tags', '')
@@ -1546,8 +1553,9 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 if tag.strip()
             ))
 
-        # Get most recent snapshot with this URL (URLs can exist in multiple crawls)
-        snapshot = Snapshot.objects.filter(url=url).order_by('-created_at').first()
+        # Check for existing snapshot with same URL in same crawl
+        # (URLs can exist in multiple crawls, but should be unique within a crawl)
+        snapshot = Snapshot.objects.filter(url=url, crawl=crawl).order_by('-created_at').first()
 
         title = record.get('title')
         timestamp = record.get('timestamp')

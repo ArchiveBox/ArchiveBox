@@ -68,7 +68,8 @@ def test_extracts_dom_from_example_com():
             capture_output=True,
             text=True,
             timeout=120
-        )
+        ,
+            env=get_test_env())
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
@@ -152,7 +153,8 @@ def test_staticfile_present_skips():
             capture_output=True,
             text=True,
             timeout=30
-        )
+        ,
+            env=get_test_env())
 
         assert result.returncode == 0, "Should exit 0 when permanently skipping"
 

@@ -892,15 +892,34 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
     """
     plugin_upper = plugin_name.upper()
 
-    # 1. Enabled: PLUGINNAME_ENABLED (default True)
+    # 1. Enabled: Check PLUGINS whitelist first, then PLUGINNAME_ENABLED (default True)
     # Old names (USE_*, SAVE_*) are aliased in config.json via x-aliases
-    enabled_key = f'{plugin_upper}_ENABLED'
-    enabled = config.get(enabled_key)
-    if enabled is None:
-        enabled = True
-    elif isinstance(enabled, str):
-        # Handle string values from config file ("true"/"false")
-        enabled = enabled.lower() not in ('false', '0', 'no', '')
+
+    # Check if PLUGINS whitelist is specified (e.g., --plugins=wget,favicon)
+    plugins_whitelist = config.get('PLUGINS', '')
+    if plugins_whitelist:
+        # PLUGINS whitelist is specified - only enable plugins in the list
+        plugin_names = [p.strip().lower() for p in plugins_whitelist.split(',') if p.strip()]
+        if plugin_name.lower() not in plugin_names:
+            # Plugin not in whitelist - explicitly disabled
+            enabled = False
+        else:
+            # Plugin is in whitelist - check if explicitly disabled by PLUGINNAME_ENABLED
+            enabled_key = f'{plugin_upper}_ENABLED'
+            enabled = config.get(enabled_key)
+            if enabled is None:
+                enabled = True  # Default to enabled if in whitelist
+            elif isinstance(enabled, str):
+                enabled = enabled.lower() not in ('false', '0', 'no', '')
+    else:
+        # No PLUGINS whitelist - use PLUGINNAME_ENABLED (default True)
+        enabled_key = f'{plugin_upper}_ENABLED'
+        enabled = config.get(enabled_key)
+        if enabled is None:
+            enabled = True
+        elif isinstance(enabled, str):
+            # Handle string values from config file ("true"/"false")
+            enabled = enabled.lower() not in ('false', '0', 'no', '')
 
     # 2. Timeout: PLUGINNAME_TIMEOUT (fallback to TIMEOUT, default 300)
     timeout_key = f'{plugin_upper}_TIMEOUT'

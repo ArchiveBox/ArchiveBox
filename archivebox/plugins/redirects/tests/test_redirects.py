@@ -81,7 +81,8 @@ class TestRedirectsWithChrome(TestCase):
                 # Run redirects hook with the active Chrome session
                 result = subprocess.run(
                     ['node', str(REDIRECTS_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
-                    cwd=str(snapshot_chrome_dir),
+                    cwd=str(snapshot_chrome_dir,
+            env=get_test_env()),
                     capture_output=True,
                     text=True,
                     timeout=60,

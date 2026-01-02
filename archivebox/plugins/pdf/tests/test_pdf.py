@@ -69,7 +69,8 @@ def test_extracts_pdf_from_example_com():
             capture_output=True,
             text=True,
             timeout=120
-        )
+        ,
+            env=get_test_env())
 
         # Parse clean JSONL output (hook might fail due to network issues)
         result_json = None

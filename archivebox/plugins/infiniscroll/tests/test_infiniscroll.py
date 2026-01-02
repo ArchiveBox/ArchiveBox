@@ -123,7 +123,8 @@ def test_scrolls_page_and_outputs_stats():
 
             result = subprocess.run(
                 ['node', str(INFINISCROLL_HOOK), f'--url={TEST_URL}', '--snapshot-id=snap-infiniscroll'],
-                cwd=str(infiniscroll_dir),
+                cwd=str(infiniscroll_dir,
+            env=get_test_env()),
                 capture_output=True,
                 text=True,
                 timeout=60,
@@ -187,7 +188,8 @@ def test_config_scroll_limit_honored():
 
             result = subprocess.run(
                 ['node', str(INFINISCROLL_HOOK), f'--url={TEST_URL}', '--snapshot-id=snap-limit'],
-                cwd=str(infiniscroll_dir),
+                cwd=str(infiniscroll_dir,
+            env=get_test_env()),
                 capture_output=True,
                 text=True,
                 timeout=60,
@@ -246,7 +248,8 @@ def test_config_timeout_honored():
             start_time = time.time()
             result = subprocess.run(
                 ['node', str(INFINISCROLL_HOOK), f'--url={TEST_URL}', '--snapshot-id=snap-timeout'],
-                cwd=str(infiniscroll_dir),
+                cwd=str(infiniscroll_dir,
+            env=get_test_env()),
                 capture_output=True,
                 text=True,
                 timeout=30,

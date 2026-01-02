@@ -154,7 +154,8 @@ def test_extension_loads_in_chromium():
         # Step 1: Install the extension
         result = subprocess.run(
             ['node', str(INSTALL_SCRIPT)],
-            cwd=str(tmpdir),
+            cwd=str(tmpdir,
+            env=get_test_env()),
             capture_output=True,
             text=True,
             env=env,
@@ -291,7 +292,8 @@ const puppeteer = require('puppeteer-core');
 
             result = subprocess.run(
                 ['node', str(script_path)],
-                cwd=str(tmpdir),
+                cwd=str(tmpdir,
+            env=get_test_env()),
                 capture_output=True,
                 text=True,
                 env=env,
@@ -443,7 +445,8 @@ const puppeteer = require('puppeteer-core');
 
     result = subprocess.run(
         ['node', str(script_path)],
-        cwd=str(script_dir),
+        cwd=str(script_dir,
+            env=get_test_env()),
         capture_output=True,
         text=True,
         env=env,
@@ -557,7 +560,8 @@ def test_hides_cookie_consent_on_filmin():
 
         result = subprocess.run(
             ['node', str(INSTALL_SCRIPT)],
-            cwd=str(tmpdir),
+            cwd=str(tmpdir,
+            env=get_test_env()),
             capture_output=True,
             text=True,
             env=env_with_ext,

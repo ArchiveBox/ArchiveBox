@@ -283,7 +283,8 @@ const puppeteer = require('puppeteer-core');
 
     result = subprocess.run(
         ['node', str(script_path)],
-        cwd=str(script_dir),
+        cwd=str(script_dir,
+            env=get_test_env()),
         capture_output=True,
         text=True,
         env=env,
@@ -482,7 +483,8 @@ const puppeteer = require('puppeteer-core');
 
             result = subprocess.run(
                 ['node', str(script_path)],
-                cwd=str(tmpdir),
+                cwd=str(tmpdir,
+            env=get_test_env()),
                 capture_output=True,
                 text=True,
                 env=env,

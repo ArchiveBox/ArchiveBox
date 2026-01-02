@@ -53,7 +53,8 @@ def test_extracts_title_from_example_com():
             capture_output=True,
             text=True,
             timeout=60
-        )
+        ,
+            env=get_test_env())
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
@@ -105,7 +106,8 @@ def test_falls_back_to_http_when_chrome_unavailable():
             capture_output=True,
             text=True,
             timeout=60
-        )
+        ,
+            env=get_test_env())
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
@@ -219,7 +221,8 @@ def test_handles_https_urls():
             capture_output=True,
             text=True,
             timeout=60
-        )
+        ,
+            env=get_test_env())
 
         if result.returncode == 0:
             # Hook writes to current directory
@@ -249,7 +252,8 @@ def test_handles_404_gracefully():
             capture_output=True,
             text=True,
             timeout=60
-        )
+        ,
+            env=get_test_env())
 
         # May succeed or fail depending on server behavior
         # example.com returns "Example Domain" even for 404s
@@ -272,7 +276,8 @@ def test_handles_redirects():
             capture_output=True,
             text=True,
             timeout=60
-        )
+        ,
+            env=get_test_env())
 
         # Should succeed and follow redirect
         if result.returncode == 0:

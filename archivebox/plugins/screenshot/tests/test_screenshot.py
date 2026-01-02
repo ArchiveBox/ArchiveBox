@@ -65,7 +65,8 @@ def test_extracts_screenshot_from_example_com():
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=120
+            timeout=120,
+            env=get_test_env()
         )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
