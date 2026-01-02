@@ -114,22 +114,6 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 },
             )
 
-    @classmethod
-    def from_file(cls, source_file: Path, max_depth: int = 0, label: str = '', extractor: str = 'auto',
-                  tags_str: str = '', config=None, created_by=None):
-        """Create a crawl from a file containing URLs."""
-        urls_content = source_file.read_text()
-        crawl = cls.objects.create(
-            urls=urls_content,
-            extractor=extractor,
-            max_depth=max_depth,
-            tags_str=tags_str,
-            label=label or source_file.name,
-            config=config or {},
-            created_by_id=getattr(created_by, 'pk', created_by) or get_or_create_system_user_pk(),
-        )
-        return crawl
-
     @property
     def api_url(self) -> str:
         return reverse_lazy('api-1:get_crawl', args=[self.id])
@@ -196,15 +180,19 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         return crawl
 
     @property
-    def output_dir_parent(self) -> str:
-        """Construct parent directory: users/{username}/crawls/{YYYYMMDD}"""
-        date_str = self.created_at.strftime('%Y%m%d')
-        return f'users/{self.created_by.username}/crawls/{date_str}'
+    def OUTPUT_DIR(self) -> Path:
+        """
+        Construct output directory: users/{username}/crawls/{YYYYMMDD}/{domain}/{crawl-id}
+        Domain is extracted from the first URL in the crawl.
+        """
+        from archivebox import DATA_DIR
+        from archivebox.core.models import Snapshot
 
-    @property
-    def output_dir_name(self) -> str:
-        """Use crawl ID as directory name"""
-        return str(self.id)
+        date_str = self.created_at.strftime('%Y%m%d')
+        urls = self.get_urls_list()
+        domain = Snapshot.extract_domain_from_url(urls[0]) if urls else 'unknown'
+
+        return DATA_DIR / 'users' / self.created_by.username / 'crawls' / date_str / domain / str(self.id)
 
     def get_urls_list(self) -> list[str]:
         """Get list of URLs from urls field, filtering out comments and empty lines."""
@@ -216,52 +204,6 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             if url.strip() and not url.strip().startswith('#')
         ]
 
-    def get_file_path(self) -> Path | None:
-        """
-        Get filesystem path if this crawl references a local file.
-        Checks if the first URL is a file:// URI.
-        """
-        urls = self.get_urls_list()
-        if not urls:
-            return None
-
-        first_url = urls[0]
-        if not first_url.startswith('file://'):
-            return None
-
-        # Remove file:// prefix
-        path_str = first_url.replace('file://', '', 1)
-        return Path(path_str)
-
-    def create_root_snapshot(self) -> 'Snapshot':
-        from archivebox.core.models import Snapshot
-
-        first_url = self.get_urls_list()[0] if self.get_urls_list() else None
-        if not first_url:
-            raise ValueError(f'Crawl {self.id} has no URLs to create root snapshot from')
-
-        # Try to get existing snapshot
-        try:
-            snapshot = Snapshot.objects.get(crawl=self, url=first_url)
-            # If exists and already queued/started, return it as-is
-            if snapshot.status in [Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED]:
-                # Update retry_at to now so it can be picked up immediately
-                snapshot.retry_at = timezone.now()
-                snapshot.save(update_fields=['retry_at'])
-            return snapshot
-        except Snapshot.DoesNotExist:
-            pass
-
-        # Create new snapshot
-        root_snapshot = Snapshot.objects.create(
-            crawl=self,
-            url=first_url,
-            status=Snapshot.INITIAL_STATE,
-            retry_at=timezone.now(),
-            timestamp=str(timezone.now().timestamp()),
-            depth=0,
-        )
-        return root_snapshot
 
     def add_url(self, entry: dict) -> bool:
         """
@@ -316,10 +258,14 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         Returns:
             List of newly created Snapshot objects
         """
+        import sys
         import json
         from archivebox.core.models import Snapshot
 
         created_snapshots = []
+
+        print(f'[cyan]DEBUG create_snapshots_from_urls: self.urls={repr(self.urls)}[/cyan]', file=sys.stderr)
+        print(f'[cyan]DEBUG create_snapshots_from_urls: lines={self.urls.splitlines()}[/cyan]', file=sys.stderr)
 
         for line in self.urls.splitlines():
             if not line.strip():
@@ -329,13 +275,13 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             try:
                 entry = json.loads(line)
                 url = entry.get('url', '')
-                depth = entry.get('depth', 1)
+                depth = entry.get('depth', 0)
                 title = entry.get('title')
                 timestamp = entry.get('timestamp')
                 tags = entry.get('tags', '')
             except json.JSONDecodeError:
                 url = line.strip()
-                depth = 1
+                depth = 0
                 title = None
                 timestamp = None
                 tags = ''
@@ -379,41 +325,90 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             The root Snapshot for this crawl, or None for system crawls that don't create snapshots
         """
         import time
+        import json
         from pathlib import Path
         from archivebox.hooks import run_hook, discover_hooks, process_hook_records
         from archivebox.config.configset import get_config
 
+        # Debug logging to file (since stdout/stderr redirected to /dev/null in progress mode)
+        debug_log = Path('/tmp/archivebox_crawl_debug.log')
+        with open(debug_log, 'a') as f:
+            f.write(f'\n=== Crawl.run() starting for {self.id} at {time.time()} ===\n')
+            f.flush()
+
         # Get merged config with crawl context
         config = get_config(crawl=self)
 
+        # Load all binaries.jsonl files from plugins
+        # This replaces individual on_Crawl install hooks with declarative configuration
+        from archivebox.hooks import BUILTIN_PLUGINS_DIR
+        from archivebox.machine.models import Machine
+
+        machine_id = str(Machine.current().id)
+        binaries_records = []
+
+        for binaries_file in BUILTIN_PLUGINS_DIR.glob('*/binaries.jsonl'):
+            try:
+                with open(binaries_file, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#'):
+                            try:
+                                record = json.loads(line)
+                                if record.get('type') == 'Binary':
+                                    record['machine_id'] = machine_id
+                                    binaries_records.append(record)
+                            except json.JSONDecodeError:
+                                pass
+            except Exception:
+                pass
+
+        # Process binary declarations before running hooks
+        if binaries_records:
+            overrides = {'crawl': self}
+            process_hook_records(binaries_records, overrides=overrides)
+
         # Discover and run on_Crawl hooks
+        with open(debug_log, 'a') as f:
+            f.write(f'Discovering Crawl hooks...\n')
+            f.flush()
         hooks = discover_hooks('Crawl', config=config)
-        first_url = self.get_urls_list()[0] if self.get_urls_list() else ''
+        with open(debug_log, 'a') as f:
+            f.write(f'Found {len(hooks)} hooks\n')
+            f.flush()
 
         for hook in hooks:
+            with open(debug_log, 'a') as f:
+                f.write(f'Running hook: {hook.name}\n')
+                f.flush()
             hook_start = time.time()
             plugin_name = hook.parent.name
             output_dir = self.OUTPUT_DIR / plugin_name
             output_dir.mkdir(parents=True, exist_ok=True)
 
-            result = run_hook(
+            # Run hook using Process.launch() - returns Process model
+            process = run_hook(
                 hook,
                 output_dir=output_dir,
                 config=config,
                 crawl_id=str(self.id),
-                source_url=first_url,
+                source_url=self.urls,  # Pass full newline-separated URLs
             )
+            with open(debug_log, 'a') as f:
+                f.write(f'Hook {hook.name} completed with status={process.status}\n')
+                f.flush()
 
             hook_elapsed = time.time() - hook_start
             if hook_elapsed > 0.5:  # Log slow hooks
                 print(f'[yellow]⏱️  Hook {hook.name} took {hook_elapsed:.2f}s[/yellow]')
 
-            # Background hook - returns None, continues running
-            if result is None:
+            # Background hook - still running
+            if process.status == process.StatusChoices.RUNNING:
                 continue
 
             # Foreground hook - process JSONL records
-            records = result.get('records', [])
+            from archivebox.hooks import extract_records_from_process
+            records = extract_records_from_process(process)
             if records:
                 print(f'[cyan]📝 Processing {len(records)} records from {hook.name}[/cyan]')
                 for record in records[:3]:  # Show first 3
@@ -423,14 +418,33 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             if stats:
                 print(f'[green]✓ Created: {stats}[/green]')
 
-        # System crawls (archivebox://*) don't create snapshots - they just run hooks
-        if first_url.startswith('archivebox://'):
-            return None
+        # Create snapshots from all URLs in self.urls
+        with open(debug_log, 'a') as f:
+            f.write(f'Creating snapshots from URLs...\n')
+            f.flush()
+        created_snapshots = self.create_snapshots_from_urls()
+        with open(debug_log, 'a') as f:
+            f.write(f'Created {len(created_snapshots)} snapshots\n')
+            f.write(f'=== Crawl.run() complete ===\n\n')
+            f.flush()
+        return created_snapshots[0] if created_snapshots else None
 
-        # Create snapshots from URLs
-        root_snapshot = self.create_root_snapshot()
-        self.create_snapshots_from_urls()
-        return root_snapshot
+    def is_finished(self) -> bool:
+        """Check if crawl is finished (all snapshots sealed or no snapshots exist)."""
+        from archivebox.core.models import Snapshot
+
+        # Check if any snapshots exist for this crawl
+        snapshots = Snapshot.objects.filter(crawl=self)
+
+        # If no snapshots exist, allow finishing (e.g., archivebox://install crawls that only run hooks)
+        if not snapshots.exists():
+            return True
+
+        # If snapshots exist, check if all are sealed
+        if snapshots.filter(status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED]).exists():
+            return False
+
+        return True
 
     def cleanup(self):
         """Clean up background hooks and run on_CrawlEnd hooks."""
@@ -452,7 +466,6 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         config = get_config(crawl=self)
 
         hooks = discover_hooks('CrawlEnd', config=config)
-        first_url = self.get_urls_list()[0] if self.get_urls_list() else ''
 
         for hook in hooks:
             plugin_name = hook.parent.name
@@ -464,7 +477,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 output_dir=output_dir,
                 config=config,
                 crawl_id=str(self.id),
-                source_url=first_url,
+                source_url=self.urls,  # Pass full newline-separated URLs
             )
 
             # Log failures but don't block
@@ -494,7 +507,6 @@ class CrawlMachine(BaseStateMachine, strict_states=True):
     │       - run_hook(script, output_dir, ...)                   │
     │       - Parse JSONL from hook output                        │
     │       - process_hook_records() → creates Snapshots          │
-    │     • create_root_snapshot() → root snapshot for crawl      │
     │     • create_snapshots_from_urls() → from self.urls field   │
     │                                                              │
     │  2. Snapshots process independently with their own          │
@@ -518,7 +530,8 @@ class CrawlMachine(BaseStateMachine, strict_states=True):
     # Tick Event (polled by workers)
     tick = (
         queued.to.itself(unless='can_start') |
-        queued.to(started, cond='can_start')
+        queued.to(started, cond='can_start') |
+        started.to(sealed, cond='is_finished')
     )
 
     # Manual event (triggered by last Snapshot sealing)
@@ -534,6 +547,10 @@ class CrawlMachine(BaseStateMachine, strict_states=True):
             return False
         return True
 
+    def is_finished(self) -> bool:
+        """Check if all Snapshots for this crawl are finished."""
+        return self.crawl.is_finished()
+
     @started.enter
     def enter_started(self):
         import sys
@@ -543,25 +560,21 @@ class CrawlMachine(BaseStateMachine, strict_states=True):
 
         try:
             # Run the crawl - runs hooks, processes JSONL, creates snapshots
-            root_snapshot = self.crawl.run()
+            first_snapshot = self.crawl.run()
 
-            if root_snapshot:
-                print(f'[cyan]🔄 Created root snapshot: {root_snapshot.url}[/cyan]', file=sys.stderr)
+            if first_snapshot:
+                print(f'[cyan]🔄 Created {self.crawl.snapshot_set.count()} snapshot(s), first: {first_snapshot.url}[/cyan]', file=sys.stderr)
                 # Update status to STARTED
-                # Set retry_at to None so workers don't claim us (we wait for snapshots to finish)
-                # Last snapshot will manually call self.seal() when done
+                # Set retry_at to near future so tick() can poll and check is_finished()
                 self.crawl.update_and_requeue(
-                    retry_at=None,
+                    retry_at=timezone.now() + timedelta(seconds=2),
                     status=Crawl.StatusChoices.STARTED,
                 )
             else:
                 # No snapshots (system crawl like archivebox://install)
-                print(f'[cyan]🔄 No snapshots created, allowing immediate seal[/cyan]', file=sys.stderr)
-                # Set retry_at=now so next tick() will transition to sealed
-                self.crawl.update_and_requeue(
-                    retry_at=timezone.now(),
-                    status=Crawl.StatusChoices.STARTED,
-                )
+                print(f'[cyan]🔄 No snapshots created, sealing crawl immediately[/cyan]', file=sys.stderr)
+                # Seal immediately since there's no work to do
+                self.seal()
 
         except Exception as e:
             print(f'[red]⚠️ Crawl {self.crawl.id} failed to start: {e}[/red]')

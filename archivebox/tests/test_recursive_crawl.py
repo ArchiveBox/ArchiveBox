@@ -384,11 +384,11 @@ def test_root_snapshot_has_depth_zero(tmp_path, process, disable_extractors_dict
 
 
 def test_archiveresult_worker_queue_filters_by_foreground_extractors(tmp_path, process):
-    """Test that ArchiveResultWorker.get_queue() only blocks on foreground extractors."""
+    """Test that background hooks don't block foreground extractors from running."""
     os.chdir(tmp_path)
 
-    # This test verifies the fix for the orchestrator bug where background hooks
-    # were blocking parser extractors from running
+    # This test verifies that background hooks run concurrently with foreground hooks
+    # and don't block parser extractors
 
     # Start a crawl
     env = os.environ.copy()

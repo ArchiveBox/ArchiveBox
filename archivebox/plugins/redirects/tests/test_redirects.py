@@ -73,10 +73,9 @@ class TestRedirectsWithChrome(TestCase):
                 test_url=test_url,
                 navigate=True,
                 timeout=30,
-            ) as (chrome_process, chrome_pid, snapshot_chrome_dir):
-                # Get environment and run the redirects hook
-                env = get_test_env()
-                env['CHROME_HEADLESS'] = 'true'
+            ) as (chrome_process, chrome_pid, snapshot_chrome_dir, env):
+                # Use the environment from chrome_session (already has CHROME_HEADLESS=true)
+
 
                 # Run redirects hook with the active Chrome session
                 result = subprocess.run(

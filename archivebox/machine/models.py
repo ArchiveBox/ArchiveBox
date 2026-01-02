@@ -683,6 +683,7 @@ class Process(models.Model):
         ORCHESTRATOR = 'orchestrator', 'Orchestrator'
         WORKER = 'worker', 'Worker'
         CLI = 'cli', 'CLI'
+        HOOK = 'hook', 'Hook'
         BINARY = 'binary', 'Binary'
 
     # Primary fields
@@ -1415,6 +1416,10 @@ class Process(models.Model):
         """
         Check if process has exited and update status if so.
 
+        Cleanup when process exits:
+        - Copy stdout/stderr to DB (keep files for debugging)
+        - Delete PID file
+
         Returns:
             exit_code if exited, None if still running
         """
@@ -1422,11 +1427,25 @@ class Process(models.Model):
             return self.exit_code
 
         if not self.is_running:
-            # Process exited - read output and update status
+            # Process exited - read output and copy to DB
             if self.stdout_file and self.stdout_file.exists():
                 self.stdout = self.stdout_file.read_text()
+                # TODO: Uncomment to cleanup (keeping for debugging for now)
+                # self.stdout_file.unlink(missing_ok=True)
             if self.stderr_file and self.stderr_file.exists():
                 self.stderr = self.stderr_file.read_text()
+                # TODO: Uncomment to cleanup (keeping for debugging for now)
+                # self.stderr_file.unlink(missing_ok=True)
+
+            # Clean up PID file (not needed for debugging)
+            if self.pid_file and self.pid_file.exists():
+                self.pid_file.unlink(missing_ok=True)
+
+            # TODO: Uncomment to cleanup cmd.sh (keeping for debugging for now)
+            # if self.pwd:
+            #     cmd_file = Path(self.pwd) / 'cmd.sh'
+            #     if cmd_file.exists():
+            #         cmd_file.unlink(missing_ok=True)
 
             # Try to get exit code from proc or default to unknown
             self.exit_code = self.exit_code if self.exit_code is not None else -1
@@ -1685,6 +1704,46 @@ class Process(models.Model):
             Next available worker ID (0-indexed)
         """
         return cls.get_running_count(process_type=process_type, machine=machine)
+
+    @classmethod
+    def cleanup_orphaned_chrome(cls) -> int:
+        """
+        Kill orphaned Chrome processes using chrome_utils.js killZombieChrome.
+
+        Scans DATA_DIR for chrome/*.pid files from stale crawls (>5 min old)
+        and kills any orphaned Chrome processes.
+
+        Called by:
+        - Orchestrator on startup (cleanup from previous crashes)
+        - Orchestrator periodically (every N minutes)
+
+        Returns:
+            Number of zombie Chrome processes killed
+        """
+        import subprocess
+        from pathlib import Path
+        from django.conf import settings
+
+        chrome_utils = Path(__file__).parent.parent / 'plugins' / 'chrome' / 'chrome_utils.js'
+        if not chrome_utils.exists():
+            return 0
+
+        try:
+            result = subprocess.run(
+                ['node', str(chrome_utils), 'killZombieChrome', str(settings.DATA_DIR)],
+                capture_output=True,
+                timeout=30,
+                text=True,
+            )
+            if result.returncode == 0:
+                killed = int(result.stdout.strip())
+                if killed > 0:
+                    print(f'[yellow]🧹 Cleaned up {killed} orphaned Chrome processes[/yellow]')
+                return killed
+        except (subprocess.TimeoutExpired, ValueError, FileNotFoundError) as e:
+            print(f'[red]Failed to cleanup orphaned Chrome: {e}[/red]')
+
+        return 0
 
 
 # =============================================================================

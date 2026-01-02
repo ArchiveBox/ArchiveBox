@@ -1,20 +1,15 @@
 #!/usr/bin/env node
 /**
- * Take a screenshot of a URL using Chrome/Puppeteer.
+ * Take a screenshot of a URL using an existing Chrome session.
  *
- * If a Chrome session exists (from chrome plugin), connects to it via CDP.
- * Otherwise launches a new Chrome instance.
+ * Requires chrome plugin to have already created a Chrome session.
+ * Connects to the existing session via CDP and takes a screenshot.
  *
  * Usage: on_Snapshot__51_screenshot.js --url=<url> --snapshot-id=<uuid>
  * Output: Writes screenshot/screenshot.png
  *
  * Environment variables:
- *     CHROME_BINARY: Path to Chrome/Chromium binary
- *     CHROME_TIMEOUT: Timeout in seconds (default: 60)
  *     CHROME_RESOLUTION: Screenshot resolution (default: 1440,2000)
- *     CHROME_USER_AGENT: User agent string (optional)
- *     CHROME_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: true)
- *     CHROME_HEADLESS: Run in headless mode (default: true)
  *     SCREENSHOT_ENABLED: Enable screenshot capture (default: true)
  */
 
@@ -24,10 +19,8 @@ const path = require('path');
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 
 const {
-    findChromium,
     getEnv,
     getEnvBool,
-    getEnvInt,
     parseResolution,
     parseArgs,
     readCdpUrl,
@@ -56,7 +49,7 @@ function hasStaticFileOutput() {
 }
 
 // Wait for chrome tab to be fully loaded
-async function waitForChromeTabLoaded(timeoutMs = 60000) {
+async function waitForChromeTabLoaded(timeoutMs = 10000) {
     const navigationFile = path.join(CHROME_SESSION_DIR, 'navigation.json');
     const startTime = Date.now();
 
@@ -72,102 +65,66 @@ async function waitForChromeTabLoaded(timeoutMs = 60000) {
 }
 
 async function takeScreenshot(url) {
-    const timeout = (getEnvInt('CHROME_TIMEOUT') || getEnvInt('TIMEOUT', 60)) * 1000;
-    const resolution = getEnv('CHROME_RESOLUTION') || getEnv('RESOLUTION', '1440,2000');
-    const userAgent = getEnv('CHROME_USER_AGENT') || getEnv('USER_AGENT', '');
-    const checkSsl = getEnvBool('CHROME_CHECK_SSL_VALIDITY', getEnvBool('CHECK_SSL_VALIDITY', true));
-    const headless = getEnvBool('CHROME_HEADLESS', true);
-
+    const resolution = getEnv('CHROME_RESOLUTION', '1440,2000');
     const { width, height } = parseResolution(resolution);
 
     // Output directory is current directory (hook already runs in output dir)
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
-    let browser = null;
-    let page = null;
-    let connectedToSession = false;
+    // Wait for chrome_navigate to complete (writes navigation.json)
+    const timeoutSeconds = parseInt(getEnv('SCREENSHOT_TIMEOUT', '10'), 10);
+    const timeoutMs = timeoutSeconds * 1000;
+    const pageLoaded = await waitForChromeTabLoaded(timeoutMs);
+    if (!pageLoaded) {
+        throw new Error(`Page not loaded after ${timeoutSeconds}s (chrome_navigate must complete first)`);
+    }
+
+    // Connect to existing Chrome session (required - no fallback)
+    const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
+    if (!cdpUrl) {
+        throw new Error('No Chrome session found (chrome plugin must run first)');
+    }
+
+    // Read target_id.txt to get the specific tab for this snapshot
+    const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
+    if (!fs.existsSync(targetIdFile)) {
+        throw new Error('No target_id.txt found (chrome_tab must run first)');
+    }
+    const targetId = fs.readFileSync(targetIdFile, 'utf8').trim();
+
+    const browser = await puppeteer.connect({
+        browserWSEndpoint: cdpUrl,
+        defaultViewport: { width, height },
+    });
 
     try {
-        // Try to connect to existing Chrome session
-        const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
-        if (cdpUrl) {
-            try {
-                browser = await puppeteer.connect({
-                    browserWSEndpoint: cdpUrl,
-                    defaultViewport: { width, height },
-                });
-                connectedToSession = true;
-
-                // Get existing pages or create new one
-                const pages = await browser.pages();
-                page = pages.find(p => p.url().startsWith('http')) || pages[0];
-
-                if (!page) {
-                    page = await browser.newPage();
-                }
-
-                // Set viewport on the page
-                await page.setViewport({ width, height });
-
-            } catch (e) {
-                console.error(`Failed to connect to CDP session: ${e.message}`);
-                browser = null;
-            }
+        // Get the specific page for this snapshot by target ID
+        const targets = await browser.targets();
+        const target = targets.find(t => t._targetId === targetId);
+        if (!target) {
+            throw new Error(`Target ${targetId} not found in Chrome session`);
         }
 
-        // Fall back to launching new browser
-        if (!browser) {
-            const executablePath = findChromium();
-            if (!executablePath) {
-                return { success: false, error: 'Chrome binary not found' };
-            }
-
-            browser = await puppeteer.launch({
-                executablePath,
-                headless: headless ? 'new' : false,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    `--window-size=${width},${height}`,
-                    ...(checkSsl ? [] : ['--ignore-certificate-errors']),
-                ],
-                defaultViewport: { width, height },
-            });
-
-            page = await browser.newPage();
-
-            // Navigate to URL (only if we launched fresh browser)
-            if (userAgent) {
-                await page.setUserAgent(userAgent);
-            }
-
-            await page.goto(url, {
-                waitUntil: 'networkidle2',
-                timeout,
-            });
+        const page = await target.page();
+        if (!page) {
+            throw new Error(`Could not get page for target ${targetId}`);
         }
 
-        // Take screenshot
+        // Set viewport on the page
+        await page.setViewport({ width, height });
+
+        // Take screenshot (Puppeteer throws on failure)
         await page.screenshot({
             path: outputPath,
             fullPage: true,
         });
 
-        if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) {
-            return { success: true, output: outputPath };
-        } else {
-            return { success: false, error: 'Screenshot file not created' };
-        }
+        return outputPath;
 
-    } catch (e) {
-        return { success: false, error: `${e.name}: ${e.message}` };
     } finally {
-        // Only close browser if we launched it (not if we connected to session)
-        if (browser && !connectedToSession) {
-            await browser.close();
-        }
+        // Disconnect from browser (don't close it - we're connected to a shared session)
+        // The chrome_launch hook manages the browser lifecycle
+        await browser.disconnect();
     }
 }
 
@@ -181,54 +138,33 @@ async function main() {
         process.exit(1);
     }
 
-    try {
-        // Check if staticfile extractor already handled this (permanent skip)
-        if (hasStaticFileOutput()) {
-            console.error(`Skipping screenshot - staticfile extractor already downloaded this`);
-            // Permanent skip - emit ArchiveResult
-            console.log(JSON.stringify({
-                type: 'ArchiveResult',
-                status: 'skipped',
-                output_str: 'staticfile already handled',
-            }));
-            process.exit(0);
-        }
-
-        // Only wait for page load if using shared Chrome session
-        const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
-        if (cdpUrl) {
-            // Wait for page to be fully loaded
-            const pageLoaded = await waitForChromeTabLoaded(60000);
-            if (!pageLoaded) {
-                throw new Error('Page not loaded after 60s (chrome_navigate must complete first)');
-            }
-        }
-
-        const result = await takeScreenshot(url);
-
-        if (result.success) {
-            // Success - emit ArchiveResult
-            const size = fs.statSync(result.output).size;
-            console.error(`Screenshot saved (${size} bytes)`);
-            console.log(JSON.stringify({
-                type: 'ArchiveResult',
-                status: 'succeeded',
-                output_str: result.output,
-            }));
-            process.exit(0);
-        } else {
-            // Transient error - emit NO JSONL
-            console.error(`ERROR: ${result.error}`);
-            process.exit(1);
-        }
-    } catch (e) {
-        // Transient error - emit NO JSONL
-        console.error(`ERROR: ${e.name}: ${e.message}`);
-        process.exit(1);
+    // Check if staticfile extractor already handled this (permanent skip)
+    if (hasStaticFileOutput()) {
+        console.error(`Skipping screenshot - staticfile extractor already downloaded this`);
+        // Permanent skip - emit ArchiveResult
+        console.log(JSON.stringify({
+            type: 'ArchiveResult',
+            status: 'skipped',
+            output_str: 'staticfile already handled',
+        }));
+        process.exit(0);
     }
+
+    // Take screenshot (throws on error)
+    const outputPath = await takeScreenshot(url);
+
+    // Success - emit ArchiveResult
+    const size = fs.statSync(outputPath).size;
+    console.error(`Screenshot saved (${size} bytes)`);
+    console.log(JSON.stringify({
+        type: 'ArchiveResult',
+        status: 'succeeded',
+        output_str: outputPath,
+    }));
 }
 
 main().catch(e => {
-    console.error(`Fatal error: ${e.message}`);
+    // Transient error - emit NO JSONL
+    console.error(`ERROR: ${e.message}`);
     process.exit(1);
 });

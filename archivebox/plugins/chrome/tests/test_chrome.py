@@ -525,10 +525,9 @@ def test_zombie_prevention_hook_killed():
             time.sleep(1)
 
         assert (chrome_dir / 'chrome.pid').exists(), "Chrome PID file should exist"
-        assert (chrome_dir / 'hook.pid').exists(), "Hook PID file should exist"
 
         chrome_pid = int((chrome_dir / 'chrome.pid').read_text().strip())
-        hook_pid = int((chrome_dir / 'hook.pid').read_text().strip())
+        hook_pid = chrome_launch_process.pid  # Use the Popen process PID instead of hook.pid file
 
         # Verify both Chrome and hook are running
         try:

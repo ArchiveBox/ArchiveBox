@@ -1397,11 +1397,11 @@ function getMachineType() {
  */
 function getLibDir() {
     if (process.env.LIB_DIR) {
-        return process.env.LIB_DIR;
+        return path.resolve(process.env.LIB_DIR);
     }
     const dataDir = getEnv('DATA_DIR', './data');
     const machineType = getMachineType();
-    return path.join(dataDir, 'lib', machineType);
+    return path.resolve(path.join(dataDir, 'lib', machineType));
 }
 
 /**
@@ -1412,9 +1412,9 @@ function getLibDir() {
  */
 function getNodeModulesDir() {
     if (process.env.NODE_MODULES_DIR) {
-        return process.env.NODE_MODULES_DIR;
+        return path.resolve(process.env.NODE_MODULES_DIR);
     }
-    return path.join(getLibDir(), 'npm', 'node_modules');
+    return path.resolve(path.join(getLibDir(), 'npm', 'node_modules'));
 }
 
 /**

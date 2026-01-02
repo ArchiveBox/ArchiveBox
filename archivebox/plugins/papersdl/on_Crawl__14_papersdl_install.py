@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Detect postlight-parser binary and emit Binary JSONL record.
+Detect papers-dl binary and emit Binary JSONL record.
 
-Output: Binary JSONL record to stdout if postlight-parser is found
+Output: Binary JSONL record to stdout if papers-dl is found
 """
 
 import json
@@ -48,35 +48,30 @@ def output_binary_missing(name: str, binproviders: str):
         'type': 'Binary',
         'name': name,
         'binproviders': binproviders,  # Providers that can install it
-        'overrides': {
-            'npm': {
-                'packages': ['@postlight/parser'],
-            }
-        },
         'machine_id': machine_id,
     }
     print(json.dumps(record))
 
 
 def main():
-    mercury_enabled = get_env_bool('MERCURY_ENABLED', True)
-    mercury_binary = get_env('MERCURY_BINARY', 'postlight-parser')
+    papersdl_enabled = get_env_bool('PAPERSDL_ENABLED', True)
+    papersdl_binary = get_env('PAPERSDL_BINARY', 'papers-dl')
 
-    if not mercury_enabled:
+    if not papersdl_enabled:
         sys.exit(0)
 
     provider = EnvProvider()
     try:
-        binary = Binary(name=mercury_binary, binproviders=[provider]).load()
+        binary = Binary(name=papersdl_binary, binproviders=[provider]).load()
         if binary.abspath:
             # Binary found
-            output_binary_found(binary, name='postlight-parser')
+            output_binary_found(binary, name='papers-dl')
         else:
             # Binary not found
-            output_binary_missing(name='postlight-parser', binproviders='npm')
+            output_binary_missing(name='papers-dl', binproviders='pip')
     except Exception:
         # Binary not found
-        output_binary_missing(name='postlight-parser', binproviders='npm')
+        output_binary_missing(name='papers-dl', binproviders='pip')
 
     sys.exit(0)
 

@@ -25,8 +25,7 @@ import pytest
 # Import shared Chrome test helpers
 from archivebox.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
-    setup_chrome_session,
-    cleanup_chrome,
+    chrome_session,
 )
 
 
@@ -103,129 +102,119 @@ def test_fails_gracefully_without_chrome_session():
 def test_background_script_handles_sigterm():
     """Test that background script runs and handles SIGTERM correctly."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        chrome_launch_process = None
-        chrome_pid = None
         modalcloser_process = None
         try:
-            chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(
+            with chrome_session(
                 Path(tmpdir),
                 crawl_id='test-modalcloser',
                 snapshot_id='snap-modalcloser',
                 test_url=TEST_URL,
-            )
+            ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
+                # Create modalcloser output directory (sibling to chrome)
+                modalcloser_dir = snapshot_chrome_dir.parent / 'modalcloser'
+                modalcloser_dir.mkdir()
 
-            # Create modalcloser output directory (sibling to chrome)
-            modalcloser_dir = snapshot_chrome_dir.parent / 'modalcloser'
-            modalcloser_dir.mkdir()
+                # Run modalcloser as background process (use env from setup_chrome_session)
+                env['MODALCLOSER_POLL_INTERVAL'] = '200'  # Faster polling for test
 
-            # Run modalcloser as background process
-            env = get_test_env()
-            env['MODALCLOSER_POLL_INTERVAL'] = '200'  # Faster polling for test
+                modalcloser_process = subprocess.Popen(
+                    ['node', str(MODALCLOSER_HOOK), f'--url={TEST_URL}', '--snapshot-id=snap-modalcloser'],
+                    cwd=str(modalcloser_dir),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=env
+                )
 
-            modalcloser_process = subprocess.Popen(
-                ['node', str(MODALCLOSER_HOOK), f'--url={TEST_URL}', '--snapshot-id=snap-modalcloser'],
-                cwd=str(modalcloser_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                env=env
-            )
+                # Let it run for a bit
+                time.sleep(2)
 
-            # Let it run for a bit
-            time.sleep(2)
+                # Verify it's still running (background script)
+                assert modalcloser_process.poll() is None, "Modalcloser should still be running as background process"
 
-            # Verify it's still running (background script)
-            assert modalcloser_process.poll() is None, "Modalcloser should still be running as background process"
+                # Send SIGTERM
+                modalcloser_process.send_signal(signal.SIGTERM)
+                stdout, stderr = modalcloser_process.communicate(timeout=5)
 
-            # Send SIGTERM
-            modalcloser_process.send_signal(signal.SIGTERM)
-            stdout, stderr = modalcloser_process.communicate(timeout=5)
+                assert modalcloser_process.returncode == 0, f"Should exit 0 on SIGTERM: {stderr}"
 
-            assert modalcloser_process.returncode == 0, f"Should exit 0 on SIGTERM: {stderr}"
+                # Parse JSONL output
+                result_json = None
+                for line in stdout.strip().split('\n'):
+                    line = line.strip()
+                    if line.startswith('{'):
+                        try:
+                            record = json.loads(line)
+                            if record.get('type') == 'ArchiveResult':
+                                result_json = record
+                                break
+                        except json.JSONDecodeError:
+                            pass
 
-            # Parse JSONL output
-            result_json = None
-            for line in stdout.strip().split('\n'):
-                line = line.strip()
-                if line.startswith('{'):
-                    try:
-                        record = json.loads(line)
-                        if record.get('type') == 'ArchiveResult':
-                            result_json = record
-                            break
-                    except json.JSONDecodeError:
-                        pass
+                assert result_json is not None, f"Should have ArchiveResult JSONL output. Stdout: {stdout}"
+                assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
-            assert result_json is not None, f"Should have ArchiveResult JSONL output. Stdout: {stdout}"
-            assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+                # Verify output_str format
+                output_str = result_json.get('output_str', '')
+                assert 'modal' in output_str.lower() or 'dialog' in output_str.lower(), \
+                    f"output_str should mention modals/dialogs: {output_str}"
 
-            # Verify output_str format
-            output_str = result_json.get('output_str', '')
-            assert 'modal' in output_str.lower() or 'dialog' in output_str.lower(), \
-                f"output_str should mention modals/dialogs: {output_str}"
-
-            # Verify no files created in output directory
-            output_files = list(modalcloser_dir.iterdir())
-            assert len(output_files) == 0, f"Should not create any files, but found: {output_files}"
+                # Verify no files created in output directory
+                output_files = list(modalcloser_dir.iterdir())
+                assert len(output_files) == 0, f"Should not create any files, but found: {output_files}"
 
         finally:
             if modalcloser_process and modalcloser_process.poll() is None:
                 modalcloser_process.kill()
-            if chrome_launch_process and chrome_pid:
-                cleanup_chrome(chrome_launch_process, chrome_pid)
 
 
 def test_dialog_handler_logs_dialogs():
     """Test that dialog handler is set up correctly."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        chrome_launch_process = None
-        chrome_pid = None
         modalcloser_process = None
         try:
-            chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(
-                Path(tmpdir),
-                crawl_id='test-dialog',
-                snapshot_id='snap-dialog',
-                test_url=TEST_URL,
-            )
+            with chrome_session(
+                    Path(tmpdir),
+                    crawl_id='test-dialog',
+                    snapshot_id='snap-dialog',
+                    test_url=TEST_URL,
+            ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
 
-            modalcloser_dir = snapshot_chrome_dir.parent / 'modalcloser'
-            modalcloser_dir.mkdir()
+                modalcloser_dir = snapshot_chrome_dir.parent / 'modalcloser'
+                modalcloser_dir.mkdir()
 
-            env = get_test_env()
-            env['MODALCLOSER_TIMEOUT'] = '100'  # Fast timeout for test
-            env['MODALCLOSER_POLL_INTERVAL'] = '200'
+                # Use env from setup_chrome_session
+                env['MODALCLOSER_TIMEOUT'] = '100'  # Fast timeout for test
+                env['MODALCLOSER_POLL_INTERVAL'] = '200'
 
-            modalcloser_process = subprocess.Popen(
-                ['node', str(MODALCLOSER_HOOK), f'--url={TEST_URL}', '--snapshot-id=snap-dialog'],
-                cwd=str(modalcloser_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                env=env
-            )
+                modalcloser_process = subprocess.Popen(
+                    ['node', str(MODALCLOSER_HOOK), f'--url={TEST_URL}', '--snapshot-id=snap-dialog'],
+                    cwd=str(modalcloser_dir),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=env
+                )
 
-            # Let it run briefly
-            time.sleep(1.5)
+                # Let it run briefly
+                time.sleep(1.5)
 
-            # Verify it's running
-            assert modalcloser_process.poll() is None, "Should be running"
+                # Verify it's running
+                assert modalcloser_process.poll() is None, "Should be running"
 
-            # Check stderr for "listening" message
-            # Note: Can't read stderr while process is running without blocking,
-            # so we just verify it exits cleanly
-            modalcloser_process.send_signal(signal.SIGTERM)
-            stdout, stderr = modalcloser_process.communicate(timeout=5)
+                # Check stderr for "listening" message
+                # Note: Can't read stderr while process is running without blocking,
+                # so we just verify it exits cleanly
+                modalcloser_process.send_signal(signal.SIGTERM)
+                stdout, stderr = modalcloser_process.communicate(timeout=5)
 
-            assert 'listening' in stderr.lower() or 'modalcloser' in stderr.lower(), \
-                f"Should log startup message: {stderr}"
-            assert modalcloser_process.returncode == 0, f"Should exit cleanly: {stderr}"
+                assert 'listening' in stderr.lower() or 'modalcloser' in stderr.lower(), \
+                    f"Should log startup message: {stderr}"
+                assert modalcloser_process.returncode == 0, f"Should exit cleanly: {stderr}"
 
         finally:
             if modalcloser_process and modalcloser_process.poll() is None:
                 modalcloser_process.kill()
-            if chrome_launch_process and chrome_pid:
-                cleanup_chrome(chrome_launch_process, chrome_pid)
 
 
 def test_config_poll_interval():
@@ -235,61 +224,58 @@ def test_config_poll_interval():
         chrome_pid = None
         modalcloser_process = None
         try:
-            chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(
-                Path(tmpdir),
-                crawl_id='test-poll',
-                snapshot_id='snap-poll',
-                test_url=TEST_URL,
-            )
+            with chrome_session(
+                    Path(tmpdir),
+                    crawl_id='test-poll',
+                    snapshot_id='snap-poll',
+                    test_url=TEST_URL,
+            ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
 
-            modalcloser_dir = snapshot_chrome_dir.parent / 'modalcloser'
-            modalcloser_dir.mkdir()
+                modalcloser_dir = snapshot_chrome_dir.parent / 'modalcloser'
+                modalcloser_dir.mkdir()
 
-            # Set very short poll interval
-            env = get_test_env()
-            env['MODALCLOSER_POLL_INTERVAL'] = '100'  # 100ms
+                # Set very short poll interval (use env from setup_chrome_session)
+                env['MODALCLOSER_POLL_INTERVAL'] = '100'  # 100ms
 
-            modalcloser_process = subprocess.Popen(
-                ['node', str(MODALCLOSER_HOOK), f'--url={TEST_URL}', '--snapshot-id=snap-poll'],
-                cwd=str(modalcloser_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                env=env
-            )
+                modalcloser_process = subprocess.Popen(
+                    ['node', str(MODALCLOSER_HOOK), f'--url={TEST_URL}', '--snapshot-id=snap-poll'],
+                    cwd=str(modalcloser_dir),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=env
+                )
 
-            # Run for short time
-            time.sleep(1)
+                # Run for short time
+                time.sleep(1)
 
-            # Should still be running
-            assert modalcloser_process.poll() is None, "Should still be running"
+                # Should still be running
+                assert modalcloser_process.poll() is None, "Should still be running"
 
-            # Clean exit
-            modalcloser_process.send_signal(signal.SIGTERM)
-            stdout, stderr = modalcloser_process.communicate(timeout=5)
+                # Clean exit
+                modalcloser_process.send_signal(signal.SIGTERM)
+                stdout, stderr = modalcloser_process.communicate(timeout=5)
 
-            assert modalcloser_process.returncode == 0, f"Should exit 0: {stderr}"
+                assert modalcloser_process.returncode == 0, f"Should exit 0: {stderr}"
 
-            # Verify JSONL output exists
-            result_json = None
-            for line in stdout.strip().split('\n'):
-                if line.strip().startswith('{'):
-                    try:
-                        record = json.loads(line)
-                        if record.get('type') == 'ArchiveResult':
-                            result_json = record
-                            break
-                    except json.JSONDecodeError:
-                        pass
+                # Verify JSONL output exists
+                result_json = None
+                for line in stdout.strip().split('\n'):
+                    if line.strip().startswith('{'):
+                        try:
+                            record = json.loads(line)
+                            if record.get('type') == 'ArchiveResult':
+                                result_json = record
+                                break
+                        except json.JSONDecodeError:
+                            pass
 
-            assert result_json is not None, "Should have JSONL output"
-            assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+                assert result_json is not None, "Should have JSONL output"
+                assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
         finally:
             if modalcloser_process and modalcloser_process.poll() is None:
                 modalcloser_process.kill()
-            if chrome_launch_process and chrome_pid:
-                cleanup_chrome(chrome_launch_process, chrome_pid)
 
 
 def test_hides_cookie_consent_on_filmin():

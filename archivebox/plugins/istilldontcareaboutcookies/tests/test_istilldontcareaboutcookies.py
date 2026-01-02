@@ -154,8 +154,7 @@ def test_extension_loads_in_chromium():
         # Step 1: Install the extension
         result = subprocess.run(
             ['node', str(INSTALL_SCRIPT)],
-            cwd=str(tmpdir,
-            env=get_test_env()),
+            cwd=str(tmpdir),
             capture_output=True,
             text=True,
             env=env,

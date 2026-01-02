@@ -72,10 +72,8 @@ class TestAccessibilityWithChrome(TestCase):
                 test_url=test_url,
                 navigate=True,
                 timeout=30,
-            ) as (chrome_process, chrome_pid, snapshot_chrome_dir):
-                # Get environment and run the accessibility hook
-                env = get_test_env()
-                env['CHROME_HEADLESS'] = 'true'
+            ) as (chrome_process, chrome_pid, snapshot_chrome_dir, env):
+                # Use the environment from chrome_session (already has CHROME_HEADLESS=true)
 
                 # Run accessibility hook with the active Chrome session
                 result = subprocess.run(
@@ -115,6 +113,85 @@ class TestAccessibilityWithChrome(TestCase):
             if 'Chrome' in str(e) or 'CDP' in str(e):
                 self.skipTest(f"Chrome session setup failed: {e}")
             raise
+
+    def test_accessibility_disabled_skips(self):
+        """Test that ACCESSIBILITY_ENABLED=False skips without error."""
+        test_url = 'https://example.com'
+        snapshot_id = 'test-disabled'
+
+        env = get_test_env()
+        env['ACCESSIBILITY_ENABLED'] = 'False'
+
+        result = subprocess.run(
+            ['node', str(ACCESSIBILITY_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
+            cwd=str(self.temp_dir),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env
+        )
+
+        # Should exit 0 even when disabled
+        self.assertEqual(result.returncode, 0, f"Should succeed when disabled: {result.stderr}")
+
+        # Should NOT create output file when disabled
+        accessibility_output = self.temp_dir / 'accessibility.json'
+        self.assertFalse(accessibility_output.exists(), "Should not create file when disabled")
+
+    def test_accessibility_missing_url_argument(self):
+        """Test that missing --url argument causes error."""
+        snapshot_id = 'test-missing-url'
+
+        result = subprocess.run(
+            ['node', str(ACCESSIBILITY_HOOK), f'--snapshot-id={snapshot_id}'],
+            cwd=str(self.temp_dir),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=get_test_env()
+        )
+
+        # Should fail with non-zero exit code
+        self.assertNotEqual(result.returncode, 0, "Should fail when URL missing")
+
+    def test_accessibility_missing_snapshot_id_argument(self):
+        """Test that missing --snapshot-id argument causes error."""
+        test_url = 'https://example.com'
+
+        result = subprocess.run(
+            ['node', str(ACCESSIBILITY_HOOK), f'--url={test_url}'],
+            cwd=str(self.temp_dir),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=get_test_env()
+        )
+
+        # Should fail with non-zero exit code
+        self.assertNotEqual(result.returncode, 0, "Should fail when snapshot-id missing")
+
+    def test_accessibility_with_no_chrome_session(self):
+        """Test that hook fails gracefully when no Chrome session exists."""
+        test_url = 'https://example.com'
+        snapshot_id = 'test-no-chrome'
+
+        result = subprocess.run(
+            ['node', str(ACCESSIBILITY_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
+            cwd=str(self.temp_dir),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=get_test_env()
+        )
+
+        # Should fail when no Chrome session
+        self.assertNotEqual(result.returncode, 0, "Should fail when no Chrome session exists")
+        # Error should mention CDP or Chrome
+        err_lower = result.stderr.lower()
+        self.assertTrue(
+            any(x in err_lower for x in ['chrome', 'cdp', 'cannot find', 'puppeteer']),
+            f"Should mention Chrome/CDP in error: {result.stderr}"
+        )
 
 
 if __name__ == '__main__':

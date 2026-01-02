@@ -362,6 +362,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         # Migrate filesystem if needed (happens automatically on save)
         if self.pk and self.fs_migration_needed:
+            print(f"[DEBUG save()] Triggering filesystem migration for {str(self.id)[:8]}: {self.fs_version} → {self._fs_current_version()}")
             # Walk through migration chain automatically
             current = self.fs_version
             target = self._fs_current_version()
@@ -372,6 +373,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
                 # Only run if method exists (most are no-ops)
                 if hasattr(self, method):
+                    print(f"[DEBUG save()] Running {method}()")
                     getattr(self, method)()
 
                 current = next_ver
@@ -449,10 +451,18 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         old_dir = self.get_storage_path_for_version('0.8.0')
         new_dir = self.get_storage_path_for_version('0.9.0')
 
-        if not old_dir.exists() or old_dir == new_dir or new_dir.exists():
-            # Even if no directory migration needed, still convert index format
-            self.convert_index_json_to_jsonl()
-            return
+        print(f"[DEBUG _fs_migrate] {self.timestamp}: old_exists={old_dir.exists()}, same={old_dir == new_dir}, new_exists={new_dir.exists()}")
+
+        if not old_dir.exists() or old_dir == new_dir:
+            # No migration needed
+            print(f"[DEBUG _fs_migrate] Returning None (early return)")
+            return None
+
+        if new_dir.exists():
+            # New directory already exists (files already copied), but we still need cleanup
+            # Return cleanup info so old directory can be cleaned up
+            print(f"[DEBUG _fs_migrate] Returning cleanup info (new_dir exists)")
+            return (old_dir, new_dir)
 
         new_dir.mkdir(parents=True, exist_ok=True)
 
@@ -495,47 +505,32 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     def _cleanup_old_migration_dir(self, old_dir: Path, new_dir: Path):
         """
         Delete old directory and create symlink after successful migration.
-        Called via transaction.on_commit() after DB commit succeeds.
         """
         import shutil
         import logging
 
-        print(f"[DEBUG] _cleanup_old_migration_dir called: old_dir={old_dir}, new_dir={new_dir}")
-
         # Delete old directory
         if old_dir.exists() and not old_dir.is_symlink():
-            print(f"[DEBUG] Attempting to delete old directory: {old_dir}")
             try:
                 shutil.rmtree(old_dir)
-                print(f"[DEBUG] Successfully deleted old directory: {old_dir}")
             except Exception as e:
-                # Log but don't raise - migration succeeded, this is just cleanup
-                print(f"[DEBUG] Failed to delete old directory {old_dir}: {e}")
                 logging.getLogger('archivebox.migration').warning(
                     f"Could not remove old migration directory {old_dir}: {e}"
                 )
                 return  # Don't create symlink if cleanup failed
-        else:
-            print(f"[DEBUG] Old directory doesn't exist or is already a symlink: {old_dir}")
 
         # Create backwards-compat symlink (after old dir is deleted)
         symlink_path = old_dir  # Same path as old_dir
         if symlink_path.is_symlink():
-            print(f"[DEBUG] Unlinking existing symlink: {symlink_path}")
             symlink_path.unlink()
 
         if not symlink_path.exists():
-            print(f"[DEBUG] Creating symlink: {symlink_path} -> {new_dir}")
             try:
                 symlink_path.symlink_to(new_dir, target_is_directory=True)
-                print(f"[DEBUG] Successfully created symlink")
             except Exception as e:
-                print(f"[DEBUG] Failed to create symlink: {e}")
                 logging.getLogger('archivebox.migration').warning(
                     f"Could not create symlink from {symlink_path} to {new_dir}: {e}"
                 )
-        else:
-            print(f"[DEBUG] Symlink path already exists: {symlink_path}")
 
     # =========================================================================
     # Path Calculation and Migration Helpers
@@ -660,13 +655,28 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         if not timestamp:
             return None
 
-        # Look up existing
+        # Look up existing (try exact match first, then fuzzy match for truncated timestamps)
         try:
-            return cls.objects.get(url=url, timestamp=timestamp)
+            snapshot = cls.objects.get(url=url, timestamp=timestamp)
+            print(f"[DEBUG load_from_directory] Found existing snapshot for {url} @ {timestamp}: {str(snapshot.id)[:8]}")
+            return snapshot
         except cls.DoesNotExist:
+            print(f"[DEBUG load_from_directory] NOT FOUND (exact): {url} @ {timestamp}")
+            # Try fuzzy match - index.json may have truncated timestamp
+            # e.g., index has "1767000340" but DB has "1767000340.624737"
+            candidates = cls.objects.filter(url=url, timestamp__startswith=timestamp)
+            if candidates.count() == 1:
+                snapshot = candidates.first()
+                print(f"[DEBUG load_from_directory] Found via fuzzy match: {snapshot.timestamp}")
+                return snapshot
+            elif candidates.count() > 1:
+                print(f"[DEBUG load_from_directory] Multiple fuzzy matches, using first")
+                return candidates.first()
+            print(f"[DEBUG load_from_directory] NOT FOUND (fuzzy): {url} @ {timestamp}")
             return None
         except cls.MultipleObjectsReturned:
             # Should not happen with unique constraint
+            print(f"[DEBUG load_from_directory] Multiple snapshots found for {url} @ {timestamp}")
             return cls.objects.filter(url=url, timestamp=timestamp).first()
 
     @classmethod
@@ -1668,83 +1678,20 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         return archiveresults
 
-    def advance_step_if_ready(self) -> bool:
-        """
-        Advance current_step if all foreground hooks in current step are finished.
-
-        Called by the state machine to check if step can advance.
-        Background hooks (.bg) don't block step advancement.
-
-        Step advancement rules:
-        - All foreground ARs in current step must be finished (SUCCEEDED/FAILED/SKIPPED)
-        - Background ARs (hook_name contains '.bg.') are ignored for advancement
-        - When ready, increments current_step by 1 (up to 9)
-
-        Returns:
-            True if step was advanced, False if not ready or already at step 9.
-        """
-        from archivebox.hooks import extract_step, is_background_hook
-
-        if self.current_step >= 9:
-            return False  # Already at final step
-
-        # Get all ARs for current step that are foreground
-        current_step_ars = self.archiveresult_set.filter(
-            hook_name__isnull=False
-        ).exclude(hook_name='')
-
-        # Check each AR in current step
-        for ar in current_step_ars:
-            ar_step = extract_step(ar.hook_name)
-            if ar_step != self.current_step:
-                continue  # Not in current step
-
-            if is_background_hook(ar.hook_name):
-                continue  # Background hooks don't block
-
-            # Foreground hook in current step - check if finished
-            if ar.status not in ArchiveResult.FINAL_OR_ACTIVE_STATES:
-                # Still pending/queued - can't advance
-                return False
-
-            if ar.status == ArchiveResult.StatusChoices.STARTED:
-                # Still running - can't advance
-                return False
-
-        # All foreground hooks in current step are finished - advance!
-        self.current_step += 1
-        self.save(update_fields=['current_step', 'modified_at'])
-        return True
 
     def is_finished_processing(self) -> bool:
         """
-        Check if this snapshot has finished processing.
+        Check if all ArchiveResults are finished.
 
-        Used by SnapshotMachine.is_finished() to determine if snapshot is complete.
-
-        Returns:
-            True if all archiveresults are finished (or no work to do), False otherwise.
+        Note: This is only called for observability/progress tracking.
+        SnapshotWorker owns the execution and doesn't poll this.
         """
-        # if no archiveresults exist yet, it's not finished
-        if not self.archiveresult_set.exists():
-            return False
+        # Check if any ARs are still pending/started
+        pending = self.archiveresult_set.exclude(
+            status__in=ArchiveResult.FINAL_OR_ACTIVE_STATES
+        ).exists()
 
-        # Try to advance step if ready (handles step-based hook execution)
-        # This will increment current_step when all foreground hooks in current step are done
-        while self.advance_step_if_ready():
-            pass  # Keep advancing until we can't anymore
-
-        # if archiveresults exist but are still pending, it's not finished
-        if self.pending_archiveresults().exists():
-            return False
-
-        # Don't wait for background hooks - they'll be cleaned up on entering sealed state
-        # Background hooks in STARTED state are excluded by pending_archiveresults()
-        # (STARTED is in FINAL_OR_ACTIVE_STATES) so once all results are FINAL or ACTIVE,
-        # we can transition to sealed and cleanup() will kill the background hooks
-
-        # otherwise archiveresults exist and are all finished, so it's finished
-        return True
+        return not pending
 
     def get_progress_stats(self) -> dict:
         """
@@ -2242,7 +2189,6 @@ class SnapshotMachine(BaseStateMachine, strict_states=True):
     tick = (
         queued.to.itself(unless='can_start') |
         queued.to(started, cond='can_start') |
-        started.to.itself(unless='is_finished') |
         started.to(sealed, cond='is_finished')
     )
 
@@ -2253,6 +2199,10 @@ class SnapshotMachine(BaseStateMachine, strict_states=True):
         can_start = bool(self.snapshot.url)
         return can_start
 
+    def is_finished(self) -> bool:
+        """Check if all ArchiveResults for this snapshot are finished."""
+        return self.snapshot.is_finished_processing()
+
     @queued.enter
     def enter_queued(self):
         self.snapshot.update_and_requeue(
@@ -2262,29 +2212,10 @@ class SnapshotMachine(BaseStateMachine, strict_states=True):
 
     @started.enter
     def enter_started(self):
-        import sys
-
-        print(f'[cyan]  🔄 SnapshotMachine.enter_started() - creating archiveresults for {self.snapshot.url}[/cyan]', file=sys.stderr)
-
-        # Run the snapshot - creates pending archiveresults for all enabled plugins
-        self.snapshot.run()
-
-        # Check if any archiveresults were created
-        ar_count = self.snapshot.archiveresult_set.count()
-        print(f'[cyan]  🔄 ArchiveResult count: {ar_count}[/cyan]', file=sys.stderr)
-
-        if ar_count == 0:
-            # No archiveresults created, seal immediately
-            print(f'[cyan]  🔄 No archiveresults created, sealing snapshot immediately[/cyan]', file=sys.stderr)
-            self.seal()
-        else:
-            # Set status = started with retry_at far future (so workers don't claim us - we're waiting for ARs)
-            # Last AR will manually call self.seal() when done
-            self.snapshot.update_and_requeue(
-                retry_at=timezone.now() + timedelta(days=365),
-                status=Snapshot.StatusChoices.STARTED,
-            )
-            print(f'[cyan]  🔄 {ar_count} archiveresults created, waiting for them to finish[/cyan]', file=sys.stderr)
+        """Just mark as started - SnapshotWorker will create ARs and run hooks."""
+        self.snapshot.status = Snapshot.StatusChoices.STARTED
+        self.snapshot.retry_at = None  # No more polling
+        self.snapshot.save(update_fields=['status', 'retry_at', 'modified_at'])
 
     @sealed.enter
     def enter_sealed(self):
@@ -2329,12 +2260,11 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         plugins = [get_plugin_name(e) for e in get_plugins()]
         return tuple((e, e) for e in plugins)
 
-    # Keep AutoField for backward compatibility with 0.7.x databases
-    # UUID field is added separately by migration for new records
-    id = models.AutoField(primary_key=True, editable=False)
-    # Note: unique constraint is added by migration 0027 - don't set unique=True here
-    # or SQLite table recreation in earlier migrations will fail
-    uuid = models.UUIDField(default=uuid7, null=True, blank=True, db_index=True)
+    # UUID primary key (migrated from integer in 0029)
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
+    # old_id preserves the legacy integer ID for backward compatibility
+    old_id = models.IntegerField(null=True, blank=True, db_index=True, help_text='Legacy integer ID from pre-0.9.0 versions')
+    # Note: uuid field was removed in migration 0029 when id became UUID
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -2684,13 +2614,11 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         plugin_dir = Path(self.snapshot.output_dir) / self.plugin
 
         start_ts = timezone.now()
-        is_bg_hook = False
+        process = None
 
         for hook in hooks:
-            # Check if this is a background hook
-            is_bg_hook = is_background_hook(hook.name)
-
-            result = run_hook(
+            # Run hook using Process.launch() - returns Process model
+            process = run_hook(
                 hook,
                 output_dir=plugin_dir,
                 config=config,
@@ -2700,27 +2628,25 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
                 depth=self.snapshot.depth,
             )
 
-            # Background hooks return None
-            if result is None:
-                is_bg_hook = True
-
-        # Update status based on hook execution
-        if is_bg_hook:
-            # BACKGROUND HOOK - still running, return immediately
-            # Status stays STARTED, will be finalized by Snapshot.cleanup()
-            self.status = self.StatusChoices.STARTED
+            # Link ArchiveResult to Process
+            self.process = process
             self.start_ts = start_ts
-            if self.process_id:
-                self.process.pwd = str(plugin_dir)
-                self.process.save()
+            self.save(update_fields=['process_id', 'start_ts', 'modified_at'])
+
+        if not process:
+            # No hooks ran
+            self.status = self.StatusChoices.FAILED
+            self.output_str = 'No hooks executed'
             self.save()
             return
 
+        # Update status based on hook execution
+        if process.status == process.StatusChoices.RUNNING:
+            # BACKGROUND HOOK - still running, return immediately
+            # Status is already STARTED from enter_started(), will be finalized by Snapshot.cleanup()
+            return
+
         # FOREGROUND HOOK - completed, update from filesystem
-        self.start_ts = start_ts
-        if self.process_id:
-            self.process.pwd = str(plugin_dir)
-            self.process.save()
         self.update_from_output()
 
         # Clean up empty output directory if no files were created
@@ -3037,26 +2963,30 @@ class ArchiveResultMachine(BaseStateMachine, strict_states=True):
     skipped = State(value=ArchiveResult.StatusChoices.SKIPPED, final=True)
 
     # Tick Event - transitions based on conditions
+    # Flow: queued → started → (succeeded|failed|skipped)
+    #       queued → skipped (if exceeded max attempts)
+    #       started → backoff → started (retry)
     tick = (
+        queued.to(skipped, cond='is_exceeded_max_attempts') |  # Check skip first
         queued.to.itself(unless='can_start') |
         queued.to(started, cond='can_start') |
-        started.to.itself(unless='is_finished') |
         started.to(succeeded, cond='is_succeeded') |
         started.to(failed, cond='is_failed') |
         started.to(skipped, cond='is_skipped') |
         started.to(backoff, cond='is_backoff') |
+        backoff.to(skipped, cond='is_exceeded_max_attempts') |  # Check skip from backoff too
         backoff.to.itself(unless='can_start') |
-        backoff.to(started, cond='can_start') |
-        backoff.to(succeeded, cond='is_succeeded') |
-        backoff.to(failed, cond='is_failed') |
-        backoff.to(skipped, cond='is_skipped')
+        backoff.to(started, cond='can_start')
+        # Removed redundant transitions: backoff.to(succeeded/failed/skipped)
+        # Reason: backoff should always retry→started, then started→final states
     )
 
     def can_start(self) -> bool:
-        if not self.archiveresult.snapshot.url:
-            return False
+        """Pure function - check if AR can start (has valid URL)."""
+        return bool(self.archiveresult.snapshot.url)
 
-        # Check if snapshot has exceeded MAX_URL_ATTEMPTS failed results
+    def is_exceeded_max_attempts(self) -> bool:
+        """Check if snapshot has exceeded MAX_URL_ATTEMPTS failed results."""
         from archivebox.config.configset import get_config
 
         config = get_config(
@@ -3070,15 +3000,7 @@ class ArchiveResultMachine(BaseStateMachine, strict_states=True):
             status=ArchiveResult.StatusChoices.FAILED
         ).count()
 
-        if failed_count >= max_attempts:
-            # Mark this result as skipped since we've hit the limit
-            self.archiveresult.status = ArchiveResult.StatusChoices.SKIPPED
-            self.archiveresult.output_str = f'Skipped: snapshot exceeded MAX_URL_ATTEMPTS ({max_attempts} failures)'
-            self.archiveresult.retry_at = None
-            self.archiveresult.save()
-            return False
-
-        return True
+        return failed_count >= max_attempts
 
     def is_succeeded(self) -> bool:
         """Check if extractor plugin succeeded (status was set by run())."""
@@ -3101,12 +3023,35 @@ class ArchiveResultMachine(BaseStateMachine, strict_states=True):
         )
 
     def is_finished(self) -> bool:
-        """Check if extraction has completed (success, failure, or skipped)."""
-        return self.archiveresult.status in (
+        """
+        Check if extraction has completed (success, failure, or skipped).
+
+        For background hooks in STARTED state, checks if their Process has finished and reaps them.
+        """
+        # If already in final state, return True
+        if self.archiveresult.status in (
             ArchiveResult.StatusChoices.SUCCEEDED,
             ArchiveResult.StatusChoices.FAILED,
             ArchiveResult.StatusChoices.SKIPPED,
-        )
+        ):
+            return True
+
+        # If in STARTED state with a Process, check if Process has finished running
+        if self.archiveresult.status == ArchiveResult.StatusChoices.STARTED:
+            if self.archiveresult.process_id:
+                process = self.archiveresult.process
+
+                # If process is NOT running anymore, reap the background hook
+                if not process.is_running():
+                    self.archiveresult.update_from_output()
+                    # Check if now in final state after reaping
+                    return self.archiveresult.status in (
+                        ArchiveResult.StatusChoices.SUCCEEDED,
+                        ArchiveResult.StatusChoices.FAILED,
+                        ArchiveResult.StatusChoices.SKIPPED,
+                    )
+
+        return False
 
     @queued.enter
     def enter_queued(self):
@@ -3148,7 +3093,12 @@ class ArchiveResultMachine(BaseStateMachine, strict_states=True):
         )
 
     def _check_and_seal_parent_snapshot(self):
-        """Check if this is the last ArchiveResult to finish - if so, seal the parent Snapshot."""
+        """
+        Check if this is the last ArchiveResult to finish - if so, seal the parent Snapshot.
+
+        Note: In the new architecture, SnapshotWorker handles step advancement and sealing.
+        This method is kept for backwards compatibility with manual CLI commands.
+        """
         import sys
 
         snapshot = self.archiveresult.snapshot
@@ -3189,6 +3139,8 @@ class ArchiveResultMachine(BaseStateMachine, strict_states=True):
     def enter_failed(self):
         import sys
 
+        print(f'[red]    ❌ ArchiveResult.enter_failed() called for {self.archiveresult.plugin}[/red]', file=sys.stderr)
+
         self.archiveresult.update_and_requeue(
             retry_at=None,
             status=ArchiveResult.StatusChoices.FAILED,
@@ -3206,6 +3158,16 @@ class ArchiveResultMachine(BaseStateMachine, strict_states=True):
     @skipped.enter
     def enter_skipped(self):
         import sys
+
+        # Set output_str if not already set (e.g., when skipped due to max attempts)
+        if not self.archiveresult.output_str and self.is_exceeded_max_attempts():
+            from archivebox.config.configset import get_config
+            config = get_config(
+                crawl=self.archiveresult.snapshot.crawl,
+                snapshot=self.archiveresult.snapshot,
+            )
+            max_attempts = config.get('MAX_URL_ATTEMPTS', 50)
+            self.archiveresult.output_str = f'Skipped: snapshot exceeded MAX_URL_ATTEMPTS ({max_attempts} failures)'
 
         self.archiveresult.update_and_requeue(
             retry_at=None,

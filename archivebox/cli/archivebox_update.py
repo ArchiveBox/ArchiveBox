@@ -109,15 +109,18 @@ def drain_old_archive_dirs(resume_from: str = None, batch_size: int = 100) -> di
     if not archive_dir.exists():
         return stats
 
-    print('[*] Scanning for old directories in archive/...')
+    print('[DEBUG Phase1] Scanning for old directories in archive/...')
 
     # Scan for real directories only (skip symlinks - they're already migrated)
+    all_entries = list(os.scandir(archive_dir))
+    print(f'[DEBUG Phase1] Total entries in archive/: {len(all_entries)}')
     entries = [
         (e.stat().st_mtime, e.path)
-        for e in os.scandir(archive_dir)
+        for e in all_entries
         if e.is_dir(follow_symlinks=False)  # Skip symlinks
     ]
     entries.sort(reverse=True)  # Newest first
+    print(f'[DEBUG Phase1] Real directories (not symlinks): {len(entries)}')
     print(f'[*] Found {len(entries)} old directories to drain')
 
     for mtime, entry_path in entries:
@@ -142,14 +145,48 @@ def drain_old_archive_dirs(resume_from: str = None, batch_size: int = 100) -> di
                 print(f"    [{stats['processed']}] Invalid: {entry_path.name}")
                 continue
 
+        # Ensure snapshot has a valid crawl (migration 0024 may have failed)
+        from archivebox.crawls.models import Crawl
+        has_valid_crawl = False
+        if snapshot.crawl_id:
+            # Check if the crawl actually exists
+            has_valid_crawl = Crawl.objects.filter(id=snapshot.crawl_id).exists()
+
+        if not has_valid_crawl:
+            # Create a new crawl (created_by will default to system user)
+            crawl = Crawl.objects.create(urls=snapshot.url)
+            # Use queryset update to avoid triggering save() hooks
+            from archivebox.core.models import Snapshot as SnapshotModel
+            SnapshotModel.objects.filter(pk=snapshot.pk).update(crawl=crawl)
+            # Refresh the instance
+            snapshot.crawl = crawl
+            snapshot.crawl_id = crawl.id
+            print(f"[DEBUG Phase1] Created missing crawl for snapshot {str(snapshot.id)[:8]}")
+
         # Check if needs migration (0.8.x → 0.9.x)
+        print(f"[DEBUG Phase1] Snapshot {str(snapshot.id)[:8]}: fs_version={snapshot.fs_version}, needs_migration={snapshot.fs_migration_needed}")
         if snapshot.fs_migration_needed:
             try:
-                # Manually trigger filesystem migration without full save()
-                # This avoids UNIQUE constraint issues while still migrating files
-                cleanup_info = None
-                if hasattr(snapshot, '_fs_migrate_from_0_8_0_to_0_9_0'):
-                    cleanup_info = snapshot._fs_migrate_from_0_8_0_to_0_9_0()
+                # Calculate paths using actual directory (entry_path), not snapshot.timestamp
+                # because snapshot.timestamp might be truncated
+                old_dir = entry_path
+                new_dir = snapshot.get_storage_path_for_version('0.9.0')
+                print(f"[DEBUG Phase1] Migrating {old_dir.name} → {new_dir}")
+
+                # Manually migrate files
+                if not new_dir.exists() and old_dir.exists():
+                    new_dir.mkdir(parents=True, exist_ok=True)
+                    import shutil
+                    file_count = 0
+                    for old_file in old_dir.rglob('*'):
+                        if old_file.is_file():
+                            rel_path = old_file.relative_to(old_dir)
+                            new_file = new_dir / rel_path
+                            if not new_file.exists():
+                                new_file.parent.mkdir(parents=True, exist_ok=True)
+                                shutil.copy2(old_file, new_file)
+                                file_count += 1
+                    print(f"[DEBUG Phase1] Copied {file_count} files")
 
                 # Update only fs_version field using queryset update (bypasses validation)
                 from archivebox.core.models import Snapshot as SnapshotModel
@@ -158,9 +195,8 @@ def drain_old_archive_dirs(resume_from: str = None, batch_size: int = 100) -> di
                 # Commit the transaction
                 transaction.commit()
 
-                # Manually call cleanup since we bypassed normal save() flow
-                if cleanup_info:
-                    old_dir, new_dir = cleanup_info
+                # Cleanup: delete old dir and create symlink
+                if old_dir.exists() and old_dir != new_dir:
                     snapshot._cleanup_old_migration_dir(old_dir, new_dir)
 
                 stats['migrated'] += 1
@@ -207,19 +243,39 @@ def process_all_db_snapshots(batch_size: int = 100) -> dict:
             continue
 
         try:
-            # Reconcile index.json with DB
-            snapshot.reconcile_with_index_json()
+            print(f"[DEBUG Phase2] Snapshot {str(snapshot.id)[:8]}: fs_version={snapshot.fs_version}, needs_migration={snapshot.fs_migration_needed}")
+
+            # Check if snapshot has a directory on disk
+            from pathlib import Path
+            output_dir = Path(snapshot.output_dir)
+            has_directory = output_dir.exists() and output_dir.is_dir()
+
+            # Only reconcile if directory exists (don't create empty directories for orphans)
+            if has_directory:
+                snapshot.reconcile_with_index_json()
 
             # Clean up invalid field values from old migrations
             if not isinstance(snapshot.current_step, int):
                 snapshot.current_step = 0
+
+            # If still needs migration, it's an orphan (no directory on disk)
+            # Mark it as migrated to prevent save() from triggering filesystem migration
+            if snapshot.fs_migration_needed:
+                if has_directory:
+                    print(f"[DEBUG Phase2] WARNING: Snapshot {str(snapshot.id)[:8]} has directory but still needs migration")
+                else:
+                    print(f"[DEBUG Phase2] Orphan snapshot {str(snapshot.id)[:8]} - marking as migrated without filesystem operation")
+                # Use queryset update to set fs_version without triggering save() hooks
+                from archivebox.core.models import Snapshot as SnapshotModel
+                SnapshotModel.objects.filter(pk=snapshot.pk).update(fs_version='0.9.0')
+                snapshot.fs_version = '0.9.0'
 
             # Queue for archiving (state machine will handle it)
             snapshot.status = Snapshot.StatusChoices.QUEUED
             snapshot.retry_at = timezone.now()
             snapshot.save()
 
-            stats['reconciled'] += 1
+            stats['reconciled'] += 1 if has_directory else 0
             stats['queued'] += 1
         except Exception as e:
             # Skip snapshots that can't be processed (e.g., missing crawl)

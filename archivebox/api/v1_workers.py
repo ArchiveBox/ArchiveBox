@@ -35,12 +35,8 @@ class WorkerSchema(Schema):
     model: str
     max_tick_time: int
     max_concurrent_tasks: int
-    poll_interval: float
-    idle_timeout: int
     running_count: int
     running_workers: List[dict[str, Any]]
-    queue_count: int
-    queue: List[QueueItemSchema]
 
     @staticmethod
     def resolve_model(obj) -> str:
@@ -56,28 +52,12 @@ class WorkerSchema(Schema):
         return obj.MAX_CONCURRENT_TASKS
 
     @staticmethod
-    def resolve_poll_interval(obj) -> float:
-        return obj.POLL_INTERVAL
-
-    @staticmethod
-    def resolve_idle_timeout(obj) -> int:
-        return obj.IDLE_TIMEOUT
-
-    @staticmethod
     def resolve_running_count(obj) -> int:
-        return len(obj.get_running_workers())
+        return obj.get_worker_count()
 
     @staticmethod
     def resolve_running_workers(obj) -> List[dict[str, Any]]:
         return obj.get_running_workers()
-
-    @staticmethod
-    def resolve_queue_count(obj) -> int:
-        return obj.get_queue().count()
-
-    @staticmethod
-    def resolve_queue(obj) -> List[QueueItemSchema]:
-        return list(obj.get_queue()[:50])  # Limit to 50 items
 
 
 class OrchestratorSchema(Schema):
@@ -85,8 +65,7 @@ class OrchestratorSchema(Schema):
     is_running: bool
     poll_interval: float
     idle_timeout: int
-    max_workers_per_type: int
-    max_total_workers: int
+    max_crawl_workers: int
     total_worker_count: int
     workers: List[WorkerSchema]
 
@@ -95,23 +74,20 @@ class OrchestratorSchema(Schema):
 def get_orchestrator(request):
     """Get the orchestrator status and all worker queues."""
     from archivebox.workers.orchestrator import Orchestrator
-    from archivebox.workers.worker import CrawlWorker, SnapshotWorker, ArchiveResultWorker
+    from archivebox.workers.worker import CrawlWorker
 
     orchestrator = Orchestrator()
 
     # Create temporary worker instances to query their queues
     workers = [
         CrawlWorker(worker_id=-1),
-        SnapshotWorker(worker_id=-1),
-        ArchiveResultWorker(worker_id=-1),
     ]
 
     return {
         'is_running': orchestrator.is_running(),
         'poll_interval': orchestrator.POLL_INTERVAL,
         'idle_timeout': orchestrator.IDLE_TIMEOUT,
-        'max_workers_per_type': orchestrator.MAX_WORKERS_PER_TYPE,
-        'max_total_workers': orchestrator.MAX_TOTAL_WORKERS,
+        'max_crawl_workers': orchestrator.MAX_CRAWL_WORKERS,
         'total_worker_count': orchestrator.get_total_worker_count(),
         'workers': workers,
     }
@@ -120,41 +96,12 @@ def get_orchestrator(request):
 @router.get("/workers", response=List[WorkerSchema], url_name="get_workers")
 def get_workers(request):
     """List all worker types and their current status."""
-    from archivebox.workers.worker import CrawlWorker, SnapshotWorker, ArchiveResultWorker
+    from archivebox.workers.worker import CrawlWorker
 
     # Create temporary instances to query their queues
     return [
         CrawlWorker(worker_id=-1),
-        SnapshotWorker(worker_id=-1),
-        ArchiveResultWorker(worker_id=-1),
     ]
-
-
-@router.get("/worker/{worker_name}", response=WorkerSchema, url_name="get_worker")
-def get_worker(request, worker_name: str):
-    """Get status and queue for a specific worker type."""
-    from archivebox.workers.worker import WORKER_TYPES
-
-    if worker_name not in WORKER_TYPES:
-        from ninja.errors import HttpError
-        raise HttpError(404, f"Unknown worker type: {worker_name}. Valid types: {list(WORKER_TYPES.keys())}")
-
-    WorkerClass = WORKER_TYPES[worker_name]
-    return WorkerClass(worker_id=-1)
-
-
-@router.get("/worker/{worker_name}/queue", response=List[QueueItemSchema], url_name="get_worker_queue")
-def get_worker_queue(request, worker_name: str, limit: int = 100):
-    """Get the current queue for a specific worker type."""
-    from archivebox.workers.worker import WORKER_TYPES
-
-    if worker_name not in WORKER_TYPES:
-        from ninja.errors import HttpError
-        raise HttpError(404, f"Unknown worker type: {worker_name}. Valid types: {list(WORKER_TYPES.keys())}")
-
-    WorkerClass = WORKER_TYPES[worker_name]
-    worker = WorkerClass(worker_id=-1)
-    return list(worker.get_queue()[:limit])
 
 
 # Progress endpoint moved to core.views.live_progress_view for simplicity

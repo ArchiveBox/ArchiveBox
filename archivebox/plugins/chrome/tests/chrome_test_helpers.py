@@ -37,9 +37,8 @@ Usage:
 
     # For Chrome session tests:
     from archivebox.plugins.chrome.tests.chrome_test_helpers import (
-        setup_chrome_session,   # Full Chrome + tab setup
-        cleanup_chrome,         # Cleanup by PID
-        chrome_session,         # Context manager
+        chrome_session,         # Context manager (Full Chrome + tab setup with automatic cleanup)
+        cleanup_chrome,         # Manual cleanup by PID (rarely needed)
     )
 
     # For extension tests:
@@ -184,8 +183,7 @@ def get_lib_dir() -> Path:
     # Fallback to Python
     if os.environ.get('LIB_DIR'):
         return Path(os.environ['LIB_DIR'])
-    from archivebox.config.common import STORAGE_CONFIG
-    return Path(str(STORAGE_CONFIG.LIB_DIR))
+    raise Exception('LIB_DIR env var must be set!')
 
 
 def get_node_modules_dir() -> Path:
@@ -695,111 +693,6 @@ def chromium_session(env: dict, chrome_dir: Path, crawl_id: str):
 # =============================================================================
 
 
-def setup_chrome_session(
-    tmpdir: Path,
-    crawl_id: str = 'test-crawl',
-    snapshot_id: str = 'test-snapshot',
-    test_url: str = 'about:blank',
-    navigate: bool = True,
-    timeout: int = 15,
-) -> Tuple[subprocess.Popen, int, Path]:
-    """Set up a Chrome session with tab and optional navigation.
-
-    Creates the directory structure, launches Chrome, creates a tab,
-    and optionally navigates to the test URL.
-
-    Args:
-        tmpdir: Temporary directory for test files
-        crawl_id: ID to use for the crawl
-        snapshot_id: ID to use for the snapshot
-        test_url: URL to navigate to (if navigate=True)
-        navigate: Whether to navigate to the URL after creating tab
-        timeout: Seconds to wait for Chrome to start
-
-    Returns:
-        Tuple of (chrome_launch_process, chrome_pid, snapshot_chrome_dir)
-
-    Raises:
-        RuntimeError: If Chrome fails to start or tab creation fails
-    """
-    crawl_dir = Path(tmpdir) / 'crawl'
-    crawl_dir.mkdir(exist_ok=True)
-    chrome_dir = crawl_dir / 'chrome'
-    chrome_dir.mkdir(exist_ok=True)
-
-    env = get_test_env()
-    env['CHROME_HEADLESS'] = 'true'
-
-    # Launch Chrome at crawl level
-    chrome_launch_process = subprocess.Popen(
-        ['node', str(CHROME_LAUNCH_HOOK), f'--crawl-id={crawl_id}'],
-        cwd=str(chrome_dir),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=env
-    )
-
-    # Wait for Chrome to launch
-    for i in range(timeout):
-        if chrome_launch_process.poll() is not None:
-            stdout, stderr = chrome_launch_process.communicate()
-            raise RuntimeError(f"Chrome launch failed:\nStdout: {stdout}\nStderr: {stderr}")
-        if (chrome_dir / 'cdp_url.txt').exists():
-            break
-        time.sleep(1)
-
-    if not (chrome_dir / 'cdp_url.txt').exists():
-        raise RuntimeError(f"Chrome CDP URL not found after {timeout}s")
-
-    chrome_pid = int((chrome_dir / 'chrome.pid').read_text().strip())
-
-    # Create snapshot directory structure
-    snapshot_dir = Path(tmpdir) / 'snapshot'
-    snapshot_dir.mkdir(exist_ok=True)
-    snapshot_chrome_dir = snapshot_dir / 'chrome'
-    snapshot_chrome_dir.mkdir(exist_ok=True)
-
-    # Create tab
-    tab_env = env.copy()
-    tab_env['CRAWL_OUTPUT_DIR'] = str(crawl_dir)
-    try:
-        result = subprocess.run(
-            ['node', str(CHROME_TAB_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}', f'--crawl-id={crawl_id}'],
-            cwd=str(snapshot_chrome_dir),
-            capture_output=True,
-            text=True,
-            timeout=60,
-            env=tab_env
-        )
-        if result.returncode != 0:
-            cleanup_chrome(chrome_launch_process, chrome_pid)
-            raise RuntimeError(f"Tab creation failed: {result.stderr}")
-    except subprocess.TimeoutExpired:
-        cleanup_chrome(chrome_launch_process, chrome_pid)
-        raise RuntimeError("Tab creation timed out after 60s")
-
-    # Navigate to URL if requested
-    if navigate and CHROME_NAVIGATE_HOOK and test_url != 'about:blank':
-        try:
-            result = subprocess.run(
-                ['node', str(CHROME_NAVIGATE_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
-                cwd=str(snapshot_chrome_dir),
-                capture_output=True,
-                text=True,
-                timeout=120,
-                env=env
-            )
-            if result.returncode != 0:
-                cleanup_chrome(chrome_launch_process, chrome_pid)
-                raise RuntimeError(f"Navigation failed: {result.stderr}")
-        except subprocess.TimeoutExpired:
-            cleanup_chrome(chrome_launch_process, chrome_pid)
-            raise RuntimeError("Navigation timed out after 120s")
-
-    return chrome_launch_process, chrome_pid, snapshot_chrome_dir
-
-
 def cleanup_chrome(chrome_launch_process: subprocess.Popen, chrome_pid: int, chrome_dir: Optional[Path] = None) -> None:
     """Clean up Chrome processes using chrome_utils.js killChrome.
 
@@ -835,8 +728,12 @@ def chrome_session(
 ):
     """Context manager for Chrome sessions with automatic cleanup.
 
+    Creates the directory structure, launches Chrome, creates a tab,
+    and optionally navigates to the test URL. Automatically cleans up
+    Chrome on exit.
+
     Usage:
-        with chrome_session(tmpdir, test_url='https://example.com') as (process, pid, chrome_dir):
+        with chrome_session(tmpdir, test_url='https://example.com') as (process, pid, chrome_dir, env):
             # Run tests with chrome session
             pass
         # Chrome automatically cleaned up
@@ -850,20 +747,129 @@ def chrome_session(
         timeout: Seconds to wait for Chrome to start
 
     Yields:
-        Tuple of (chrome_launch_process, chrome_pid, snapshot_chrome_dir)
+        Tuple of (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env)
+
+    Raises:
+        RuntimeError: If Chrome fails to start or tab creation fails
     """
     chrome_launch_process = None
     chrome_pid = None
     try:
-        chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(
-            tmpdir=tmpdir,
-            crawl_id=crawl_id,
-            snapshot_id=snapshot_id,
-            test_url=test_url,
-            navigate=navigate,
-            timeout=timeout,
+        # Create proper directory structure in tmpdir
+        machine = platform.machine().lower()
+        system = platform.system().lower()
+        if machine in ('arm64', 'aarch64'):
+            machine = 'arm64'
+        elif machine in ('x86_64', 'amd64'):
+            machine = 'x86_64'
+        machine_type = f"{machine}-{system}"
+
+        data_dir = Path(tmpdir) / 'data'
+        lib_dir = data_dir / 'lib' / machine_type
+        npm_dir = lib_dir / 'npm'
+        node_modules_dir = npm_dir / 'node_modules'
+
+        # Create lib structure for puppeteer installation
+        node_modules_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create crawl and snapshot directories
+        crawl_dir = Path(tmpdir) / 'crawl'
+        crawl_dir.mkdir(exist_ok=True)
+        chrome_dir = crawl_dir / 'chrome'
+        chrome_dir.mkdir(exist_ok=True)
+
+        # Build env with tmpdir-specific paths
+        env = os.environ.copy()
+        env.update({
+            'DATA_DIR': str(data_dir),
+            'LIB_DIR': str(lib_dir),
+            'MACHINE_TYPE': machine_type,
+            'NODE_MODULES_DIR': str(node_modules_dir),
+            'NODE_PATH': str(node_modules_dir),
+            'NPM_BIN_DIR': str(npm_dir / '.bin'),
+            'CHROME_HEADLESS': 'true',
+        })
+
+        # CRITICAL: Run chrome install hook first (installs puppeteer-core and chromium)
+        # chrome_launch assumes chrome_install has already run
+        install_result = subprocess.run(
+            ['python', str(CHROME_INSTALL_HOOK)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env
         )
-        yield chrome_launch_process, chrome_pid, snapshot_chrome_dir
+        if install_result.returncode != 0:
+            raise RuntimeError(f"Chrome install failed: {install_result.stderr}")
+
+        # Launch Chrome at crawl level
+        chrome_launch_process = subprocess.Popen(
+            ['node', str(CHROME_LAUNCH_HOOK), f'--crawl-id={crawl_id}'],
+            cwd=str(chrome_dir),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env
+        )
+
+        # Wait for Chrome to launch
+        for i in range(timeout):
+            if chrome_launch_process.poll() is not None:
+                stdout, stderr = chrome_launch_process.communicate()
+                raise RuntimeError(f"Chrome launch failed:\nStdout: {stdout}\nStderr: {stderr}")
+            if (chrome_dir / 'cdp_url.txt').exists():
+                break
+            time.sleep(1)
+
+        if not (chrome_dir / 'cdp_url.txt').exists():
+            raise RuntimeError(f"Chrome CDP URL not found after {timeout}s")
+
+        chrome_pid = int((chrome_dir / 'chrome.pid').read_text().strip())
+
+        # Create snapshot directory structure
+        snapshot_dir = Path(tmpdir) / 'snapshot'
+        snapshot_dir.mkdir(exist_ok=True)
+        snapshot_chrome_dir = snapshot_dir / 'chrome'
+        snapshot_chrome_dir.mkdir(exist_ok=True)
+
+        # Create tab
+        tab_env = env.copy()
+        tab_env['CRAWL_OUTPUT_DIR'] = str(crawl_dir)
+        try:
+            result = subprocess.run(
+                ['node', str(CHROME_TAB_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}', f'--crawl-id={crawl_id}'],
+                cwd=str(snapshot_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=tab_env
+            )
+            if result.returncode != 0:
+                cleanup_chrome(chrome_launch_process, chrome_pid)
+                raise RuntimeError(f"Tab creation failed: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            cleanup_chrome(chrome_launch_process, chrome_pid)
+            raise RuntimeError("Tab creation timed out after 60s")
+
+        # Navigate to URL if requested
+        if navigate and CHROME_NAVIGATE_HOOK and test_url != 'about:blank':
+            try:
+                result = subprocess.run(
+                    ['node', str(CHROME_NAVIGATE_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
+                    cwd=str(snapshot_chrome_dir),
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    env=env
+                )
+                if result.returncode != 0:
+                    cleanup_chrome(chrome_launch_process, chrome_pid)
+                    raise RuntimeError(f"Navigation failed: {result.stderr}")
+            except subprocess.TimeoutExpired:
+                cleanup_chrome(chrome_launch_process, chrome_pid)
+                raise RuntimeError("Navigation timed out after 120s")
+
+        yield chrome_launch_process, chrome_pid, snapshot_chrome_dir, env
     finally:
         if chrome_launch_process and chrome_pid:
             cleanup_chrome(chrome_launch_process, chrome_pid)

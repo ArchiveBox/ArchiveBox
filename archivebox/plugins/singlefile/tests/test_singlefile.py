@@ -22,7 +22,7 @@ from archivebox.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     get_plugin_dir,
     get_hook_script,
-    setup_chrome_session,
+    chrome_session,
     cleanup_chrome,
 )
 
@@ -96,17 +96,15 @@ def test_singlefile_with_chrome_session():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        try:
-            # Set up Chrome session using shared helper
-            chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(
-                tmpdir=tmpdir,
-                crawl_id='singlefile-test-crawl',
-                snapshot_id='singlefile-test-snap',
-                test_url=TEST_URL,
-                navigate=False,  # Don't navigate, singlefile will do that
-                timeout=20,
-            )
-
+        # Set up Chrome session using shared helper
+        with chrome_session(
+            tmpdir=tmpdir,
+            crawl_id='singlefile-test-crawl',
+            snapshot_id='singlefile-test-snap',
+            test_url=TEST_URL,
+            navigate=False,  # Don't navigate, singlefile will do that
+            timeout=20,
+        ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
             # singlefile looks for ../chrome/cdp_url.txt relative to cwd
             # So we need to run from a directory that has ../chrome pointing to our chrome dir
             singlefile_output_dir = tmpdir / 'snapshot' / 'singlefile'
@@ -117,9 +115,8 @@ def test_singlefile_with_chrome_session():
             if not chrome_link.exists():
                 chrome_link.symlink_to(tmpdir / 'crawl' / 'chrome')
 
-            env = get_test_env()
+            # Use env from chrome_session
             env['SINGLEFILE_ENABLED'] = 'true'
-            env['CHROME_HEADLESS'] = 'true'
 
             # Run singlefile - it should find and use the existing Chrome session
             result = subprocess.run(
@@ -142,9 +139,6 @@ def test_singlefile_with_chrome_session():
                 # Check if it mentioned browser-server in its args (indicating it tried to use CDP)
                 assert result.returncode == 0 or 'browser-server' in result.stderr or 'cdp' in result.stderr.lower(), \
                     f"Singlefile should attempt CDP connection. stderr: {result.stderr}"
-
-        finally:
-            cleanup_chrome(chrome_launch_process, chrome_pid)
 
 
 def test_singlefile_disabled_skips():

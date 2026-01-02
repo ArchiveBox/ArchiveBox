@@ -24,8 +24,7 @@ import pytest
 # Import shared Chrome test helpers
 from archivebox.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
-    setup_chrome_session,
-    cleanup_chrome,
+    chrome_session,
 )
 
 
@@ -101,22 +100,17 @@ def test_fails_gracefully_without_chrome_session():
 def test_scrolls_page_and_outputs_stats():
     """Integration test: scroll page and verify JSONL output format."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        chrome_launch_process = None
-        chrome_pid = None
-        try:
-            chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(
-                Path(tmpdir),
-                crawl_id='test-infiniscroll',
-                snapshot_id='snap-infiniscroll',
-                test_url=TEST_URL,
-            )
-
+        with chrome_session(
+            Path(tmpdir),
+            crawl_id='test-infiniscroll',
+            snapshot_id='snap-infiniscroll',
+            test_url=TEST_URL,
+        ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
             # Create infiniscroll output directory (sibling to chrome)
             infiniscroll_dir = snapshot_chrome_dir.parent / 'infiniscroll'
             infiniscroll_dir.mkdir()
 
             # Run infiniscroll hook
-            env = get_test_env()
             env['INFINISCROLL_SCROLL_LIMIT'] = '3'  # Limit scrolls for faster test
             env['INFINISCROLL_SCROLL_DELAY'] = '500'  # Faster scrolling
             env['INFINISCROLL_MIN_HEIGHT'] = '1000'  # Lower threshold for test
@@ -158,29 +152,21 @@ def test_scrolls_page_and_outputs_stats():
             output_files = list(infiniscroll_dir.iterdir())
             assert len(output_files) == 0, f"Should not create any files, but found: {output_files}"
 
-        finally:
-            if chrome_launch_process and chrome_pid:
-                cleanup_chrome(chrome_launch_process, chrome_pid)
-
 
 def test_config_scroll_limit_honored():
     """Test that INFINISCROLL_SCROLL_LIMIT config is respected."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        chrome_launch_process = None
-        chrome_pid = None
-        try:
-            chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(
-                Path(tmpdir),
-                crawl_id='test-scroll-limit',
-                snapshot_id='snap-limit',
-                test_url=TEST_URL,
-            )
+        with chrome_session(
+            Path(tmpdir),
+            crawl_id='test-scroll-limit',
+            snapshot_id='snap-limit',
+            test_url=TEST_URL,
+        ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
 
             infiniscroll_dir = snapshot_chrome_dir.parent / 'infiniscroll'
             infiniscroll_dir.mkdir()
 
-            # Set scroll limit to 2
-            env = get_test_env()
+            # Set scroll limit to 2 (use env from setup_chrome_session)
             env['INFINISCROLL_SCROLL_LIMIT'] = '2'
             env['INFINISCROLL_SCROLL_DELAY'] = '500'
             env['INFINISCROLL_MIN_HEIGHT'] = '100000'  # High threshold so limit kicks in
@@ -215,29 +201,22 @@ def test_config_scroll_limit_honored():
             assert output_str.startswith('scrolled to'), f"Should have valid output_str: {output_str}"
             assert result_json['status'] == 'succeeded', f"Should succeed with scroll limit: {result_json}"
 
-        finally:
-            if chrome_launch_process and chrome_pid:
-                cleanup_chrome(chrome_launch_process, chrome_pid)
 
 
 def test_config_timeout_honored():
     """Test that INFINISCROLL_TIMEOUT config is respected."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        chrome_launch_process = None
-        chrome_pid = None
-        try:
-            chrome_launch_process, chrome_pid, snapshot_chrome_dir = setup_chrome_session(
-                Path(tmpdir),
-                crawl_id='test-timeout',
-                snapshot_id='snap-timeout',
-                test_url=TEST_URL,
-            )
+        with chrome_session(
+            Path(tmpdir),
+            crawl_id='test-timeout',
+            snapshot_id='snap-timeout',
+            test_url=TEST_URL,
+        ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
 
             infiniscroll_dir = snapshot_chrome_dir.parent / 'infiniscroll'
             infiniscroll_dir.mkdir()
 
-            # Set very short timeout
-            env = get_test_env()
+            # Set very short timeout (use env from setup_chrome_session)
             env['INFINISCROLL_TIMEOUT'] = '3'  # 3 seconds
             env['INFINISCROLL_SCROLL_DELAY'] = '2000'  # 2s delay - timeout should trigger
             env['INFINISCROLL_SCROLL_LIMIT'] = '100'  # High limit
@@ -258,9 +237,6 @@ def test_config_timeout_honored():
             assert elapsed < 15, f"Should respect timeout, took {elapsed:.1f}s"
             assert result.returncode == 0, f"Should complete even with timeout: {result.stderr}"
 
-        finally:
-            if chrome_launch_process and chrome_pid:
-                cleanup_chrome(chrome_launch_process, chrome_pid)
 
 
 if __name__ == '__main__':

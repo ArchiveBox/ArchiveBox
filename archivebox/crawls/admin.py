@@ -281,25 +281,11 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         """Editor for crawl URLs."""
         widget_id = f'crawl_urls_{obj.pk}'
 
-        # Check if it's a local file we can edit
-        source_file = obj.get_file_path()
-        is_file = source_file is not None
-        file_contents = ""
-        error = None
-
-        if is_file and source_file:
-            try:
-                file_contents = source_file.read_text().strip()
-            except Exception as e:
-                error = f'Error reading {source_file}: {e}'
-
         # Escape for safe HTML embedding
         escaped_urls = (obj.urls or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
-        escaped_file_contents = file_contents.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
 
         # Count lines for auto-expand logic
         line_count = len((obj.urls or '').split('\n'))
-        file_line_count = len(file_contents.split('\n')) if file_contents else 0
         uri_rows = min(max(3, line_count), 10)
 
         html = f'''
@@ -318,21 +304,6 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
                     {line_count} URL{'s' if line_count != 1 else ''} · Note: URLs displayed here for reference only
                 </p>
             </div>
-
-            {"" if not is_file else f'''
-            <!-- File contents preview (if first URL is a file://) -->
-            <div style="margin-bottom: 8px;">
-                <label style="font-weight: bold; display: block; margin-bottom: 4px;">
-                    File Preview: <code style="font-weight: normal; color: #666;">{source_file}</code>
-                </label>
-                {"<div style='color: #dc3545; margin-bottom: 8px;'>" + error + "</div>" if error else ""}
-                <textarea id="{widget_id}_file_preview"
-                          style="width: 100%; height: {min(400, max(150, file_line_count * 18))}px; font-family: monospace; font-size: 12px;
-                                 padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; background: #f9f9f9;"
-                          readonly>{escaped_file_contents}</textarea>
-            </div>
-            '''}
-
         </div>
         '''
         return mark_safe(html)

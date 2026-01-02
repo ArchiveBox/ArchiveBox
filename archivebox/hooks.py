@@ -240,13 +240,14 @@ def run_hook(
     output_dir: Path,
     config: Dict[str, Any],
     timeout: Optional[int] = None,
+    parent: Optional['Process'] = None,
     **kwargs: Any
-) -> HookResult:
+) -> 'Process':
     """
-    Execute a hook script with the given arguments.
+    Execute a hook script with the given arguments using Process model.
 
-    This is the low-level hook executor. For running extractors with proper
-    metadata handling, use call_extractor() instead.
+    This is the low-level hook executor that creates a Process record and
+    uses Process.launch() for subprocess management.
 
     Config is passed to hooks via environment variables. Caller MUST use
     get_config() to merge all sources (file, env, machine, crawl, snapshot).
@@ -257,16 +258,20 @@ def run_hook(
         config: Merged config dict from get_config(crawl=..., snapshot=...) - REQUIRED
         timeout: Maximum execution time in seconds
                  If None, auto-detects from PLUGINNAME_TIMEOUT config (fallback to TIMEOUT, default 300)
+        parent: Optional parent Process (for tracking worker->hook hierarchy)
         **kwargs: Arguments passed to the script as --key=value
 
     Returns:
-        HookResult with 'returncode', 'stdout', 'stderr', 'output_json', 'output_files', 'duration_ms'
+        Process model instance (use process.exit_code, process.stdout, process.get_records())
 
     Example:
         from archivebox.config.configset import get_config
         config = get_config(crawl=my_crawl, snapshot=my_snapshot)
-        result = run_hook(hook_path, output_dir, config=config, url=url, snapshot_id=id)
+        process = run_hook(hook_path, output_dir, config=config, url=url, snapshot_id=id)
+        if process.status == 'exited':
+            records = process.get_records()  # Get parsed JSONL output
     """
+    from archivebox.machine.models import Process, Machine
     import time
     start_time = time.time()
 
@@ -276,18 +281,32 @@ def run_hook(
         plugin_config = get_plugin_special_config(plugin_name, config)
         timeout = plugin_config['timeout']
 
+    # Get current machine
+    machine = Machine.current()
+
+    # Auto-detect parent process if not explicitly provided
+    # This enables automatic hierarchy tracking: Worker -> Hook
+    if parent is None:
+        try:
+            parent = Process.current()
+        except Exception:
+            # If Process.current() fails (e.g., not in a worker context), leave parent as None
+            pass
+
     if not script.exists():
-        return HookResult(
-            returncode=1,
-            stdout='',
+        # Create a failed Process record for hooks that don't exist
+        process = Process.objects.create(
+            machine=machine,
+            parent=parent,
+            process_type=Process.TypeChoices.HOOK,
+            pwd=str(output_dir),
+            cmd=['echo', f'Hook script not found: {script}'],
+            timeout=timeout,
+            status=Process.StatusChoices.EXITED,
+            exit_code=1,
             stderr=f'Hook script not found: {script}',
-            output_json=None,
-            output_files=[],
-            duration_ms=0,
-            hook=str(script),
-            plugin=script.parent.name,
-            hook_name=script.name,
         )
+        return process
 
     # Determine the interpreter based on file extension
     ext = script.suffix.lower()
@@ -379,130 +398,138 @@ def run_hook(
     # Create output directory if needed
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Capture files before execution to detect new output
-    files_before = set(output_dir.rglob('*')) if output_dir.exists() else set()
-
     # Detect if this is a background hook (long-running daemon)
     # New convention: .bg. suffix (e.g., on_Snapshot__21_consolelog.bg.js)
     # Old convention: __background in stem (for backwards compatibility)
     is_background = '.bg.' in script.name or '__background' in script.stem
 
-    # Set up output files for ALL hooks (useful for debugging)
-    stdout_file = output_dir / 'stdout.log'
-    stderr_file = output_dir / 'stderr.log'
-    pid_file = output_dir / 'hook.pid'
-    cmd_file = output_dir / 'cmd.sh'
-
     try:
-        # Write command script for validation
-        from archivebox.misc.process_utils import write_cmd_file
-        write_cmd_file(cmd_file, cmd)
-
-        # Open log files for writing
-        with open(stdout_file, 'w') as out, open(stderr_file, 'w') as err:
-            process = subprocess.Popen(
-                cmd,
-                cwd=str(output_dir),
-                stdout=out,
-                stderr=err,
-                env=env,
-            )
-
-            # Write PID with mtime set to process start time for validation
-            from archivebox.misc.process_utils import write_pid_file_with_mtime
-            process_start_time = time.time()
-            write_pid_file_with_mtime(pid_file, process.pid, process_start_time)
-
-            if is_background:
-                # Background hook - return None immediately, don't wait
-                # Process continues running, writing to stdout.log
-                # ArchiveResult will poll for completion later
-                return None
-
-            # Normal hook - wait for completion with timeout
-            try:
-                returncode = process.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()  # Clean up zombie
-                duration_ms = int((time.time() - start_time) * 1000)
-                return HookResult(
-                    returncode=-1,
-                    stdout='',
-                    stderr=f'Hook timed out after {timeout} seconds',
-                    output_json=None,
-                    output_files=[],
-                    duration_ms=duration_ms,
-                    hook=str(script),
-                )
-
-        # Read output from files
-        stdout = stdout_file.read_text() if stdout_file.exists() else ''
-        stderr = stderr_file.read_text() if stderr_file.exists() else ''
-
-        # Detect new files created by the hook
-        files_after = set(output_dir.rglob('*')) if output_dir.exists() else set()
-        new_files = [str(f.relative_to(output_dir)) for f in (files_after - files_before) if f.is_file()]
-        # Exclude the log files themselves from new_files
-        new_files = [f for f in new_files if f not in ('stdout.log', 'stderr.log', 'hook.pid')]
-
-        # Parse JSONL output from stdout
-        # Each line starting with { that has 'type' field is a record
-        records = []
-        plugin_name = script.parent.name  # Plugin directory name (e.g., 'wget')
-        hook_name = script.name  # Full hook filename (e.g., 'on_Snapshot__50_wget.py')
-
-        for line in stdout.splitlines():
-            line = line.strip()
-            if not line or not line.startswith('{'):
-                continue
-
-            try:
-                data = json.loads(line)
-                if 'type' in data:
-                    # Add plugin metadata to every record
-                    data['plugin'] = plugin_name
-                    data['hook_name'] = hook_name
-                    data['plugin_hook'] = str(script)
-                    records.append(data)
-            except json.JSONDecodeError:
-                pass
-
-        duration_ms = int((time.time() - start_time) * 1000)
-
-        # Clean up log files on success (keep on failure for debugging)
-        if returncode == 0:
-            stdout_file.unlink(missing_ok=True)
-            stderr_file.unlink(missing_ok=True)
-            pid_file.unlink(missing_ok=True)
-
-        return HookResult(
-            returncode=returncode,
-            stdout=stdout,
-            stderr=stderr,
-            output_json=None,  # Legacy field, we now use records for JSONL
-            output_files=new_files,
-            duration_ms=duration_ms,
-            hook=str(script),
-            plugin=plugin_name,
-            hook_name=hook_name,
-            records=records,
+        # Create Process record
+        process = Process.objects.create(
+            machine=machine,
+            parent=parent,
+            process_type=Process.TypeChoices.HOOK,
+            pwd=str(output_dir),
+            cmd=cmd,
+            timeout=timeout,
         )
+
+        # Build environment from config (Process._build_env() expects self.env dict)
+        # We need to set env on the process before launching
+        process.env = {}
+        for key, value in config.items():
+            if value is None:
+                continue
+            elif isinstance(value, bool):
+                process.env[key] = 'true' if value else 'false'
+            elif isinstance(value, (list, dict)):
+                process.env[key] = json.dumps(value)
+            else:
+                process.env[key] = str(value)
+
+        # Add base paths to env
+        process.env['DATA_DIR'] = str(getattr(settings, 'DATA_DIR', Path.cwd()))
+        process.env['ARCHIVE_DIR'] = str(getattr(settings, 'ARCHIVE_DIR', Path.cwd() / 'archive'))
+        process.env.setdefault('MACHINE_ID', getattr(settings, 'MACHINE_ID', '') or os.environ.get('MACHINE_ID', ''))
+
+        # Add LIB_DIR and LIB_BIN_DIR
+        lib_dir = config.get('LIB_DIR', getattr(settings, 'LIB_DIR', None))
+        lib_bin_dir = config.get('LIB_BIN_DIR', getattr(settings, 'LIB_BIN_DIR', None))
+        if lib_dir:
+            process.env['LIB_DIR'] = str(lib_dir)
+        if not lib_bin_dir and lib_dir:
+            lib_bin_dir = Path(lib_dir) / 'bin'
+        if lib_bin_dir:
+            process.env['LIB_BIN_DIR'] = str(lib_bin_dir)
+
+        # Set PATH from Machine.config if available
+        try:
+            if machine and machine.config:
+                machine_path = machine.config.get('config/PATH')
+                if machine_path:
+                    # Prepend LIB_BIN_DIR to machine PATH as well
+                    if lib_bin_dir and not machine_path.startswith(f'{lib_bin_dir}:'):
+                        process.env['PATH'] = f'{lib_bin_dir}:{machine_path}'
+                    else:
+                        process.env['PATH'] = machine_path
+                elif lib_bin_dir:
+                    # Just prepend to current PATH
+                    current_path = os.environ.get('PATH', '')
+                    if not current_path.startswith(f'{lib_bin_dir}:'):
+                        process.env['PATH'] = f'{lib_bin_dir}:{current_path}' if current_path else str(lib_bin_dir)
+
+                # Also set NODE_MODULES_DIR if configured
+                node_modules_dir = machine.config.get('config/NODE_MODULES_DIR')
+                if node_modules_dir:
+                    process.env['NODE_MODULES_DIR'] = node_modules_dir
+        except Exception:
+            pass  # Fall back to system PATH if Machine not available
+
+        # Save env before launching
+        process.save()
+
+        # Launch subprocess using Process.launch()
+        process.launch(background=is_background)
+
+        # Return Process object (caller can use process.exit_code, process.stdout, process.get_records())
+        return process
 
     except Exception as e:
-        duration_ms = int((time.time() - start_time) * 1000)
-        return HookResult(
-            returncode=-1,
-            stdout='',
+        # Create a failed Process record for exceptions
+        process = Process.objects.create(
+            machine=machine,
+            process_type=Process.TypeChoices.HOOK,
+            pwd=str(output_dir),
+            cmd=cmd,
+            timeout=timeout,
+            status=Process.StatusChoices.EXITED,
+            exit_code=-1,
             stderr=f'Failed to run hook: {type(e).__name__}: {e}',
-            output_json=None,
-            output_files=[],
-            duration_ms=duration_ms,
-            hook=str(script),
-            plugin=script.parent.name,
-            hook_name=script.name,
-            records=[],
         )
+        return process
+
+
+def extract_records_from_process(process: 'Process') -> List[Dict[str, Any]]:
+    """
+    Extract JSONL records from a Process's stdout.
+
+    Uses the same parse_line() logic from misc/jsonl.py.
+    Adds plugin metadata to each record.
+
+    Args:
+        process: Process model instance with stdout captured
+
+    Returns:
+        List of parsed JSONL records with plugin metadata
+    """
+    from archivebox.misc.jsonl import parse_line
+
+    records = []
+
+    # Read stdout from process
+    stdout = process.stdout
+    if not stdout and process.stdout_file and process.stdout_file.exists():
+        stdout = process.stdout_file.read_text()
+
+    if not stdout:
+        return records
+
+    # Extract plugin metadata from process.pwd and process.cmd
+    plugin_name = Path(process.pwd).name if process.pwd else 'unknown'
+    hook_name = Path(process.cmd[1]).name if len(process.cmd) > 1 else 'unknown'
+    plugin_hook = process.cmd[1] if len(process.cmd) > 1 else ''
+
+    # Parse each line as JSONL
+    for line in stdout.splitlines():
+        record = parse_line(line)
+        if record and 'type' in record:
+            # Add plugin metadata to record
+            record.setdefault('plugin', plugin_name)
+            record.setdefault('hook_name', hook_name)
+            record.setdefault('plugin_hook', plugin_hook)
+            records.append(record)
+
+    return records
 
 
 def collect_urls_from_plugins(snapshot_dir: Path) -> List[Dict[str, Any]]:
@@ -940,7 +967,7 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
     else:
         # No PLUGINS whitelist - use PLUGINNAME_ENABLED (default True)
         import sys
-        print(f"DEBUG: NO PLUGINS whitelist in config, checking {plugin_name}_ENABLED", file=sys.stderr)
+        print(f"DEBUG: NO PLUGINS whitelist in config, checking {plugin_upper}_ENABLED", file=sys.stderr)
         enabled_key = f'{plugin_upper}_ENABLED'
         enabled = config.get(enabled_key)
         if enabled is None:

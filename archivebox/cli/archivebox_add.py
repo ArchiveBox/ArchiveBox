@@ -96,10 +96,9 @@ def add(urls: str | list[str],
     first_url = crawl.get_urls_list()[0] if crawl.get_urls_list() else ''
     print(f'    [dim]First URL: {first_url}[/dim]')
 
-    # 3. The CrawlMachine will create the root Snapshot when started
-    #    If URLs are from a file: first URL = file:///path/to/sources/...txt
-    #    Parser extractors will run on it and discover more URLs
-    #    Those URLs become child Snapshots (depth=1)
+    # 3. The CrawlMachine will create Snapshots from all URLs when started
+    #    Parser extractors run on snapshots and discover more URLs
+    #    Discovered URLs become child Snapshots (depth+1)
 
     if index_only:
         # Just create the crawl but don't start processing
@@ -119,10 +118,9 @@ def add(urls: str | list[str],
 
     # 5. Start the orchestrator to process the queue
     #    The orchestrator will:
-    #    - Process Crawl -> create root Snapshot
-    #    - Process root Snapshot -> run parser extractors -> discover URLs
-    #    - Create child Snapshots from discovered URLs
-    #    - Process child Snapshots -> run extractors
+    #    - Process Crawl -> create Snapshots from all URLs
+    #    - Process Snapshots -> run extractors
+    #    - Parser extractors discover new URLs -> create child Snapshots
     #    - Repeat until max_depth reached
 
     if bg:

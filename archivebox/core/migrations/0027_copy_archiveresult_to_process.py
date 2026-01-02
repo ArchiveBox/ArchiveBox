@@ -4,6 +4,7 @@
 from django.db import migrations, connection
 import json
 from pathlib import Path
+from archivebox.uuid_compat import uuid7
 
 
 def parse_cmd_field(cmd_raw):
@@ -39,7 +40,6 @@ def parse_cmd_field(cmd_raw):
 
 def get_or_create_current_machine(cursor):
     """Get or create Machine.current() using raw SQL."""
-    import uuid
     import socket
     from datetime import datetime
 
@@ -55,7 +55,8 @@ def get_or_create_current_machine(cursor):
         return row[0]
 
     # Create new machine
-    machine_id = str(uuid.uuid4())
+    # Django UUIDField stores UUIDs as 32-char hex (no dashes) in SQLite
+    machine_id = uuid7().hex
     now = datetime.now().isoformat()
 
     # Check which columns exist (schema differs between 0.8.x and 0.9.x)
@@ -103,7 +104,6 @@ def get_or_create_binary(cursor, machine_id, name, abspath, version):
     Returns:
         binary_id (str)
     """
-    import uuid
     from datetime import datetime
 
     # If abspath is just a name without slashes, it's not a full path
@@ -123,7 +123,8 @@ def get_or_create_binary(cursor, machine_id, name, abspath, version):
         return row[0]
 
     # Create new binary
-    binary_id = str(uuid.uuid4())
+    # Django UUIDField stores UUIDs as 32-char hex (no dashes) in SQLite
+    binary_id = uuid7().hex
     now = datetime.now().isoformat()
 
     # Check which columns exist (schema differs between 0.8.x and 0.9.x)
@@ -186,10 +187,10 @@ def create_process(cursor, machine_id, pwd, cmd, status, exit_code, started_at, 
     Returns:
         process_id (str)
     """
-    import uuid
     from datetime import datetime
 
-    process_id = str(uuid.uuid4())
+    # Django UUIDField stores UUIDs as 32-char hex (no dashes) in SQLite
+    process_id = uuid7().hex
     now = datetime.now().isoformat()
 
     # Convert cmd array to JSON

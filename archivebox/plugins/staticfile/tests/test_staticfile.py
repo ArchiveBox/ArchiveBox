@@ -72,16 +72,14 @@ class TestStaticfileWithChrome(TestCase):
                 test_url=test_url,
                 navigate=True,
                 timeout=30,
-            ) as (chrome_process, chrome_pid, snapshot_chrome_dir):
-                # Get environment and run the staticfile hook
-                env = get_test_env()
-                env['CHROME_HEADLESS'] = 'true'
+            ) as (chrome_process, chrome_pid, snapshot_chrome_dir, env):
+                # Use the environment from chrome_session (already has CHROME_HEADLESS=true)
+
 
                 # Run staticfile hook with the active Chrome session
                 result = subprocess.run(
                     ['node', str(STATICFILE_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
-                    cwd=str(snapshot_chrome_dir,
-            env=get_test_env()),
+                    cwd=str(snapshot_chrome_dir),
                     capture_output=True,
                     text=True,
                     timeout=120,  # Longer timeout as it waits for navigation
