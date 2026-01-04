@@ -17,7 +17,7 @@ import traceback
 from typing import ClassVar, Any
 from datetime import timedelta
 from pathlib import Path
-from multiprocessing import Process as MPProcess, cpu_count
+from multiprocessing import cpu_count
 
 from django.db.models import QuerySet
 from django.utils import timezone
@@ -282,26 +282,80 @@ class Worker:
                     still_running.remove(hook_name)
 
     @classmethod
-    def start(cls, **kwargs: Any) -> int:
+    def start(cls, parent: Any = None, **kwargs: Any) -> int:
         """
-        Fork a new worker as a subprocess.
+        Fork a new worker as a subprocess using Process.launch().
+
+        Args:
+            parent: Parent Process record (for hierarchy tracking)
+            **kwargs: Worker-specific args (crawl_id or snapshot_id)
+
         Returns the PID of the new process.
         """
-        from archivebox.machine.models import Process
+        from archivebox.machine.models import Process, Machine
+        from archivebox.config.configset import get_config
+        from pathlib import Path
+        from django.conf import settings
+        import sys
 
-        worker_id = Process.get_next_worker_id(process_type=Process.TypeChoices.WORKER)
+        # Build command and get config for the appropriate scope
+        if cls.name == 'crawl':
+            crawl_id = kwargs.get('crawl_id')
+            if not crawl_id:
+                raise ValueError("CrawlWorker requires crawl_id")
 
-        # Use module-level function for pickling compatibility
-        proc = MPProcess(
-            target=_run_worker,
-            args=(cls.name, worker_id),
-            kwargs=kwargs,
-            name=f'{cls.name}_worker_{worker_id}',
+            from archivebox.crawls.models import Crawl
+            crawl = Crawl.objects.get(id=crawl_id)
+
+            cmd = [sys.executable, '-m', 'archivebox', 'run', '--crawl-id', str(crawl_id)]
+            pwd = Path(crawl.OUTPUT_DIR)  # Run in crawl's output directory
+            env = get_config(scope='crawl', crawl=crawl)
+
+        elif cls.name == 'snapshot':
+            snapshot_id = kwargs.get('snapshot_id')
+            if not snapshot_id:
+                raise ValueError("SnapshotWorker requires snapshot_id")
+
+            from archivebox.core.models import Snapshot
+            snapshot = Snapshot.objects.get(id=snapshot_id)
+
+            cmd = [sys.executable, '-m', 'archivebox', 'run', '--snapshot-id', str(snapshot_id)]
+            pwd = Path(snapshot.output_dir)  # Run in snapshot's output directory
+            env = get_config(scope='snapshot', snapshot=snapshot)
+
+        else:
+            raise ValueError(f"Unknown worker type: {cls.name}")
+
+        # Ensure output directory exists
+        pwd.mkdir(parents=True, exist_ok=True)
+
+        # Convert config to JSON-serializable format for storage
+        import json
+        env_serializable = {
+            k: json.loads(json.dumps(v, default=str))
+            for k, v in env.items()
+            if v is not None
+        }
+
+        # Create Process record with full config as environment
+        # pwd = where stdout/stderr/pid/cmd files are written (snapshot/crawl output dir)
+        # cwd (passed to launch) = where subprocess runs from (DATA_DIR)
+        # parent = parent Process for hierarchy tracking (CrawlWorker -> SnapshotWorker)
+        process = Process.objects.create(
+            machine=Machine.current(),
+            parent=parent,
+            process_type=Process.TypeChoices.WORKER,
+            worker_type=cls.name,
+            pwd=str(pwd),
+            cmd=cmd,
+            env=env_serializable,
+            timeout=3600,  # 1 hour default timeout for workers
         )
-        proc.start()
 
-        assert proc.pid is not None
-        return proc.pid
+        # Launch in background with DATA_DIR as working directory
+        process.launch(background=True, cwd=str(settings.DATA_DIR))
+
+        return process.pid
 
     @classmethod
     def get_running_workers(cls) -> list:
@@ -377,17 +431,18 @@ class CrawlWorker(Worker):
         self.on_startup()
 
         try:
-            print(f'[cyan]🔄 CrawlWorker.runloop: Starting tick() for crawl {self.crawl_id}[/cyan]', file=sys.stderr)
+            print(f'🔄 CrawlWorker starting for crawl {self.crawl_id}', file=sys.stderr)
+
             # Advance state machine: QUEUED → STARTED (triggers run() via @started.enter)
             self.crawl.sm.tick()
             self.crawl.refresh_from_db()
-            print(f'[cyan]🔄 tick() complete, crawl status={self.crawl.status}[/cyan]', file=sys.stderr)
+            print(f'🔄 tick() complete, crawl status={self.crawl.status}', file=sys.stderr)
 
             # Now spawn SnapshotWorkers and monitor progress
             while True:
                 # Check if crawl is done
                 if self._is_crawl_finished():
-                    print(f'[cyan]🔄 Crawl finished, sealing...[/cyan]', file=sys.stderr)
+                    print(f'🔄 Crawl finished, sealing...', file=sys.stderr)
                     self.crawl.sm.seal()
                     break
 
@@ -401,8 +456,11 @@ class CrawlWorker(Worker):
 
     def _spawn_snapshot_workers(self) -> None:
         """Spawn SnapshotWorkers for queued snapshots (up to limit)."""
+        from pathlib import Path
         from archivebox.core.models import Snapshot
         from archivebox.machine.models import Process
+
+        debug_log = Path('/tmp/archivebox_crawl_worker_debug.log')
 
         # Count running SnapshotWorkers for this crawl
         running_count = Process.objects.filter(
@@ -412,22 +470,51 @@ class CrawlWorker(Worker):
             status__in=['running', 'started'],
         ).count()
 
+        with open(debug_log, 'a') as f:
+            f.write(f'  _spawn_snapshot_workers: running={running_count}/{self.MAX_SNAPSHOT_WORKERS}\n')
+            f.flush()
+
         if running_count >= self.MAX_SNAPSHOT_WORKERS:
             return  # At limit
 
-        # Get queued snapshots for this crawl (SnapshotWorker will mark as STARTED in on_startup)
-        queued_snapshots = Snapshot.objects.filter(
-            crawl_id=self.crawl_id,
-            status=Snapshot.StatusChoices.QUEUED,
-        ).order_by('created_at')[:self.MAX_SNAPSHOT_WORKERS - running_count]
+        # Get snapshots that need workers spawned
+        # Find all running SnapshotWorker processes for this crawl
+        running_processes = Process.objects.filter(
+            parent_id=self.db_process.id,
+            worker_type='snapshot',
+            status__in=['running', 'started'],
+        )
 
-        import sys
-        print(f'[yellow]🔧 _spawn_snapshot_workers: running={running_count}/{self.MAX_SNAPSHOT_WORKERS}, queued={queued_snapshots.count()}[/yellow]', file=sys.stderr)
+        # Extract snapshot IDs from their pwd (contains snapshot ID at the end)
+        running_snapshot_ids = []
+        for proc in running_processes:
+            if proc.pwd:
+                # pwd is like: /path/to/archive/{timestamp}
+                # We need to match this against snapshot.output_dir
+                running_snapshot_ids.append(proc.pwd)
+
+        # Find snapshots that don't have a running worker
+        all_snapshots = Snapshot.objects.filter(
+            crawl_id=self.crawl_id,
+            status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED],
+        ).order_by('created_at')
+
+        # Filter out snapshots that already have workers
+        pending_snapshots = [
+            snap for snap in all_snapshots
+            if snap.output_dir not in running_snapshot_ids
+        ][:self.MAX_SNAPSHOT_WORKERS - running_count]
+
+        with open(debug_log, 'a') as f:
+            f.write(f'  Found {len(pending_snapshots)} snapshots needing workers for crawl {self.crawl_id}\n')
+            f.flush()
 
         # Spawn workers
-        for snapshot in queued_snapshots:
-            print(f'[yellow]🔧 Spawning worker for {snapshot.url} (status={snapshot.status})[/yellow]', file=sys.stderr)
-            SnapshotWorker.start(snapshot_id=str(snapshot.id))
+        for snapshot in pending_snapshots:
+            with open(debug_log, 'a') as f:
+                f.write(f'  Spawning worker for {snapshot.url} (status={snapshot.status})\n')
+                f.flush()
+            SnapshotWorker.start(parent=self.db_process, snapshot_id=str(snapshot.id))
             log_worker_event(
                 worker_type='CrawlWorker',
                 event=f'Spawned SnapshotWorker for {snapshot.url}',
@@ -437,12 +524,24 @@ class CrawlWorker(Worker):
 
     def _is_crawl_finished(self) -> bool:
         """Check if all snapshots are sealed."""
+        from pathlib import Path
         from archivebox.core.models import Snapshot
 
+        debug_log = Path('/tmp/archivebox_crawl_worker_debug.log')
+
+        total = Snapshot.objects.filter(crawl_id=self.crawl_id).count()
         pending = Snapshot.objects.filter(
             crawl_id=self.crawl_id,
             status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED],
         ).count()
+
+        queued = Snapshot.objects.filter(crawl_id=self.crawl_id, status=Snapshot.StatusChoices.QUEUED).count()
+        started = Snapshot.objects.filter(crawl_id=self.crawl_id, status=Snapshot.StatusChoices.STARTED).count()
+        sealed = Snapshot.objects.filter(crawl_id=self.crawl_id, status=Snapshot.StatusChoices.SEALED).count()
+
+        with open(debug_log, 'a') as f:
+            f.write(f'  _is_crawl_finished: total={total}, queued={queued}, started={started}, sealed={sealed}, pending={pending}\n')
+            f.flush()
 
         return pending == 0
 
@@ -700,24 +799,6 @@ class SnapshotWorker(Worker):
         name = name.replace('.py', '').replace('.js', '').replace('.sh', '')
         name = name.replace('.bg', '')  # Remove .bg suffix
         return name
-
-    @classmethod
-    def start(cls, snapshot_id: str, **kwargs: Any) -> int:
-        """Fork a SnapshotWorker for a specific snapshot."""
-        from archivebox.machine.models import Process
-
-        worker_id = Process.get_next_worker_id(process_type=Process.TypeChoices.WORKER)
-
-        proc = MPProcess(
-            target=_run_snapshot_worker,  # New module-level function
-            args=(snapshot_id, worker_id),
-            kwargs=kwargs,
-            name=f'snapshot_worker_{snapshot_id[:8]}',
-        )
-        proc.start()
-
-        assert proc.pid is not None
-        return proc.pid
 
 
 # Populate the registry

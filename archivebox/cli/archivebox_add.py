@@ -127,10 +127,11 @@ def add(urls: str | list[str],
         # Background mode: just queue work and return (orchestrator via server will pick it up)
         print('[yellow]\\[*] URLs queued. Orchestrator will process them (run `archivebox server` if not already running).[/yellow]')
     else:
-        # Foreground mode: run orchestrator inline until all work is done
-        print(f'[green]\\[*] Starting orchestrator to process crawl...[/green]')
-        orchestrator = Orchestrator(exit_on_idle=True, crawl_id=str(crawl.id))
-        orchestrator.runloop()  # Block until complete
+        # Foreground mode: run CrawlWorker inline until all work is done
+        print(f'[green]\\[*] Starting worker to process crawl...[/green]')
+        from archivebox.workers.worker import CrawlWorker
+        worker = CrawlWorker(crawl_id=str(crawl.id), worker_id=0)
+        worker.runloop()  # Block until complete
 
     # 6. Return the list of Snapshots in this crawl
     return crawl.snapshot_set.all()

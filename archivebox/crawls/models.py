@@ -449,17 +449,27 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     def cleanup(self):
         """Clean up background hooks and run on_CrawlEnd hooks."""
         from archivebox.hooks import run_hook, discover_hooks
-        from archivebox.misc.process_utils import safe_kill_process
+        from archivebox.machine.models import Process
 
-        # Kill any background processes by scanning for all .pid files
+        # Kill any background Crawl hooks using Process records
+        # Find all running hook Processes that are children of this crawl's workers
+        # (CrawlWorker already kills its hooks via on_shutdown, but this is backup for orphans)
+        running_hooks = Process.objects.filter(
+            parent__worker_type='crawl',
+            process_type=Process.TypeChoices.HOOK,
+            status=Process.StatusChoices.RUNNING,
+        ).distinct()
+
+        for process in running_hooks:
+            # Use Process.kill_tree() to gracefully kill parent + children
+            killed_count = process.kill_tree(graceful_timeout=2.0)
+            if killed_count > 0:
+                print(f'[yellow]🔪 Killed {killed_count} orphaned crawl hook process(es)[/yellow]')
+
+        # Clean up .pid files from output directory
         if self.OUTPUT_DIR.exists():
             for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
-                cmd_file = pid_file.parent / 'cmd.sh'
-                # safe_kill_process now waits for termination and escalates to SIGKILL
-                # Returns True only if process is confirmed dead
-                killed = safe_kill_process(pid_file, cmd_file)
-                if killed:
-                    pid_file.unlink(missing_ok=True)
+                pid_file.unlink(missing_ok=True)
 
         # Run on_CrawlEnd hooks
         from archivebox.config.configset import get_config
@@ -472,7 +482,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             output_dir = self.OUTPUT_DIR / plugin_name
             output_dir.mkdir(parents=True, exist_ok=True)
 
-            result = run_hook(
+            process = run_hook(
                 hook,
                 output_dir=output_dir,
                 config=config,
@@ -481,7 +491,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             )
 
             # Log failures but don't block
-            if result and result['returncode'] != 0:
+            if process.exit_code != 0:
                 print(f'[yellow]⚠️ CrawlEnd hook failed: {hook.name}[/yellow]')
 
 

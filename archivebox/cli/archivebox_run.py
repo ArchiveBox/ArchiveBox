@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 
 """
-archivebox run [--daemon]
+archivebox run [--daemon] [--crawl-id=...] [--snapshot-id=...]
 
 Unified command for processing queued work.
 
 Modes:
     - With stdin JSONL: Process piped records, exit when complete
     - Without stdin (TTY): Run orchestrator in foreground until killed
+    - --crawl-id: Run orchestrator for specific crawl only
+    - --snapshot-id: Run worker for specific snapshot only (internal use)
 
 Examples:
-    # Run orchestrator in foreground (replaces `archivebox orchestrator`)
+    # Run orchestrator in foreground
     archivebox run
 
     # Run as daemon (don't exit on idle)
@@ -23,6 +25,12 @@ Examples:
 
     # Mixed types work too
     cat mixed_records.jsonl | archivebox run
+
+    # Run orchestrator for specific crawl (shows live progress for that crawl)
+    archivebox run --crawl-id=019b7e90-04d0-73ed-adec-aad9cfcd863e
+
+    # Run worker for specific snapshot (internal use by orchestrator)
+    archivebox run --snapshot-id=019b7e90-5a8e-712c-9877-2c70eebe80ad
 """
 
 __package__ = 'archivebox.cli'
@@ -187,15 +195,62 @@ def run_orchestrator(daemon: bool = False) -> int:
         return 1
 
 
+def run_snapshot_worker(snapshot_id: str) -> int:
+    """
+    Run a SnapshotWorker for a specific snapshot.
+
+    Args:
+        snapshot_id: Snapshot UUID to process
+
+    Returns exit code (0 = success, 1 = error).
+    """
+    from archivebox.workers.worker import _run_snapshot_worker
+
+    try:
+        _run_snapshot_worker(snapshot_id=snapshot_id, worker_id=0)
+        return 0
+    except KeyboardInterrupt:
+        return 0
+    except Exception as e:
+        rprint(f'[red]Worker error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
 @click.command()
 @click.option('--daemon', '-d', is_flag=True, help="Run forever (don't exit on idle)")
-def main(daemon: bool):
+@click.option('--crawl-id', help="Run orchestrator for specific crawl only")
+@click.option('--snapshot-id', help="Run worker for specific snapshot only")
+def main(daemon: bool, crawl_id: str, snapshot_id: str):
     """
     Process queued work.
 
-    When stdin is piped: Process those specific records and exit.
-    When run standalone: Run orchestrator in foreground.
+    Modes:
+    - No args + stdin piped: Process piped JSONL records
+    - No args + TTY: Run orchestrator for all work
+    - --crawl-id: Run orchestrator for that crawl only
+    - --snapshot-id: Run worker for that snapshot only
     """
+    # Snapshot worker mode
+    if snapshot_id:
+        sys.exit(run_snapshot_worker(snapshot_id))
+
+    # Crawl worker mode
+    if crawl_id:
+        from archivebox.workers.worker import CrawlWorker
+        try:
+            worker = CrawlWorker(crawl_id=crawl_id, worker_id=0)
+            worker.runloop()
+            sys.exit(0)
+        except KeyboardInterrupt:
+            sys.exit(0)
+        except Exception as e:
+            rprint(f'[red]Worker error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+
     # Check if stdin has data (non-TTY means piped input)
     if not sys.stdin.isatty():
         sys.exit(process_stdin_records())

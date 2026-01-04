@@ -1456,27 +1456,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             empty_ars.delete()
             print(f'[yellow]🗑️  Deleted {deleted_count} empty ArchiveResults for {self.url}[/yellow]')
 
-    def has_running_background_hooks(self) -> bool:
-        """
-        Check if any ArchiveResult background hooks are still running.
-
-        Used by state machine to determine if snapshot is finished.
-        """
-        from archivebox.misc.process_utils import validate_pid_file
-
-        if not self.OUTPUT_DIR.exists():
-            return False
-
-        for plugin_dir in self.OUTPUT_DIR.iterdir():
-            if not plugin_dir.is_dir():
-                continue
-            pid_file = plugin_dir / 'hook.pid'
-            cmd_file = plugin_dir / 'cmd.sh'
-            if validate_pid_file(pid_file, cmd_file):
-                return True
-
-        return False
-
     def to_json(self) -> dict:
         """
         Convert Snapshot model instance to a JSON-serializable dict.

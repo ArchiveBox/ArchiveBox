@@ -499,20 +499,25 @@ class Binary(ModelWithHealthStats):
         since installations are foreground, but included for consistency).
         """
         from pathlib import Path
-        from archivebox.misc.process_utils import safe_kill_process
 
+        # Kill any background binary installation hooks using Process records
+        # (rarely used since binary installations are typically foreground)
+        running_hooks = Process.objects.filter(
+            binary=self,
+            process_type=Process.TypeChoices.HOOK,
+            status=Process.StatusChoices.RUNNING,
+        )
+
+        for process in running_hooks:
+            killed_count = process.kill_tree(graceful_timeout=2.0)
+            if killed_count > 0:
+                print(f'[yellow]🔪 Killed {killed_count} binary installation hook process(es)[/yellow]')
+
+        # Clean up .pid files from output directory
         output_dir = self.OUTPUT_DIR
-        if not output_dir.exists():
-            return
-
-        # Kill any background hooks
-        for plugin_dir in output_dir.iterdir():
-            if not plugin_dir.is_dir():
-                continue
-
-            pid_file = plugin_dir / 'hook.pid'
-            cmd_file = plugin_dir / 'cmd.sh'
-            safe_kill_process(pid_file, cmd_file)
+        if output_dir.exists():
+            for pid_file in output_dir.glob('**/*.pid'):
+                pid_file.unlink(missing_ok=True)
 
     def symlink_to_lib_bin(self, lib_bin_dir: str | Path) -> Path | None:
         """
@@ -1273,32 +1278,61 @@ class Process(models.Model):
 
     def _write_pid_file(self) -> None:
         """Write PID file with mtime set to process start time."""
-        from archivebox.misc.process_utils import write_pid_file_with_mtime
         if self.pid and self.started_at and self.pid_file:
-            write_pid_file_with_mtime(
-                self.pid_file,
-                self.pid,
-                self.started_at.timestamp()
-            )
+            # Write PID to file
+            self.pid_file.write_text(str(self.pid))
+            # Set mtime to process start time for validation
+            try:
+                start_time = self.started_at.timestamp()
+                os.utime(self.pid_file, (start_time, start_time))
+            except OSError:
+                pass  # mtime optional, validation degrades gracefully
 
     def _write_cmd_file(self) -> None:
         """Write cmd.sh script for debugging/validation."""
-        from archivebox.misc.process_utils import write_cmd_file
         if self.cmd and self.cmd_file:
-            write_cmd_file(self.cmd_file, self.cmd)
+            # Escape shell arguments (quote if contains space, ", or $)
+            def escape(arg: str) -> str:
+                return f'"{arg.replace(chr(34), chr(92)+chr(34))}"' if any(c in arg for c in ' "$') else arg
+
+            # Write executable shell script
+            script = '#!/bin/bash\n' + ' '.join(escape(arg) for arg in self.cmd) + '\n'
+            self.cmd_file.write_text(script)
+            try:
+                self.cmd_file.chmod(0o755)
+            except OSError:
+                pass
 
     def _build_env(self) -> dict:
         """Build environment dict for subprocess, merging stored env with system."""
+        import json
+
         env = os.environ.copy()
-        env.update(self.env or {})
+
+        # Convert all values to strings for subprocess.Popen
+        if self.env:
+            for key, value in self.env.items():
+                if value is None:
+                    continue
+                elif isinstance(value, str):
+                    env[key] = value  # Already a string, use as-is
+                elif isinstance(value, bool):
+                    env[key] = 'True' if value else 'False'
+                elif isinstance(value, (int, float)):
+                    env[key] = str(value)
+                else:
+                    # Lists, dicts, etc. - serialize to JSON
+                    env[key] = json.dumps(value, default=str)
+
         return env
 
-    def launch(self, background: bool = False) -> 'Process':
+    def launch(self, background: bool = False, cwd: str | None = None) -> 'Process':
         """
         Spawn the subprocess and update this Process record.
 
         Args:
             background: If True, don't wait for completion (for daemons/bg hooks)
+            cwd: Working directory for the subprocess (defaults to self.pwd)
 
         Returns:
             self (updated with pid, started_at, etc.)
@@ -1309,6 +1343,9 @@ class Process(models.Model):
         # Validate pwd is set (required for output files)
         if not self.pwd:
             raise ValueError("Process.pwd must be set before calling launch()")
+
+        # Use provided cwd or default to pwd
+        working_dir = cwd or self.pwd
 
         # Ensure output directory exists
         Path(self.pwd).mkdir(parents=True, exist_ok=True)
@@ -1322,7 +1359,7 @@ class Process(models.Model):
         with open(stdout_path, 'w') as out, open(stderr_path, 'w') as err:
             proc = subprocess.Popen(
                 self.cmd,
-                cwd=self.pwd,
+                cwd=working_dir,
                 stdout=out,
                 stderr=err,
                 env=self._build_env(),

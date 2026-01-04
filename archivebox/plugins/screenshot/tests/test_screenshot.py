@@ -206,6 +206,12 @@ def test_config_save_screenshot_false_skips():
         env = os.environ.copy()
         env['SCREENSHOT_ENABLED'] = 'False'
 
+        # DEBUG: Check if NODE_V8_COVERAGE is in env
+        if 'NODE_V8_COVERAGE' in env:
+            print(f"\n[DEBUG] NODE_V8_COVERAGE in env: {env['NODE_V8_COVERAGE']}")
+        else:
+            print("\n[DEBUG] NODE_V8_COVERAGE NOT in env")
+
         result = subprocess.run(
             ['node', str(SCREENSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=test999'],
             cwd=tmpdir,
