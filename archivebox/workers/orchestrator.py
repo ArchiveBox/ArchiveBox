@@ -315,11 +315,8 @@ class Orchestrator:
         # Spawn BinaryWorker if needed (singleton - max 1 BinaryWorker, processes ALL binaries)
         if binary_count > 0:
             running_binary_workers_list = BinaryWorker.get_running_workers()
-            print(f"[DEBUG] binary_count={binary_count}, running_binary_workers={len(running_binary_workers_list)}")
             if len(running_binary_workers_list) == 0:
-                print(f"[DEBUG] Spawning BinaryWorker...")
                 BinaryWorker.start()
-                print(f"[DEBUG] BinaryWorker spawned")
 
         # Check if any BinaryWorkers are still running
         running_binary_workers = len(BinaryWorker.get_running_workers())

@@ -38,9 +38,6 @@ class TestBinaryWorkerSpawning:
             timeout=60,  # Increased timeout to allow for binary installation
         )
 
-        print(f"stdout: {stdout}")
-        print(f"stderr: {stderr}")
-
         assert code == 0, f"Failed to create Binary: {stderr}"
 
         # Verify Binary was created in DB
