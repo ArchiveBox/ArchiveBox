@@ -18,25 +18,17 @@ const path = require('path');
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 
-// Debug: Check NODE_V8_COVERAGE
-console.error(`[DEBUG JS START] NODE_V8_COVERAGE=${process.env.NODE_V8_COVERAGE || 'NOT SET'}`);
-
-// Hook into process.exit to flush V8 coverage (for NODE_V8_COVERAGE support)
-if (process.env.NODE_V8_COVERAGE) {
-    const originalExit = process.exit.bind(process);
-    process.exit = function(code) {
-        console.error(`[DEBUG] process.exit() override called with code=${code}`);
+// Flush V8 coverage before exiting (for NODE_V8_COVERAGE support)
+function flushCoverageAndExit(exitCode) {
+    if (process.env.NODE_V8_COVERAGE) {
         try {
             const v8 = require('v8');
-            const result = v8.takeCoverage();
-            console.error(`[DEBUG] v8.takeCoverage() returned: ${typeof result}`);
+            v8.takeCoverage();
         } catch (e) {
-            // Log but don't block exit - we're exiting anyway
-            console.error(`[!] Coverage flush failed: ${e.message}`);
+            // Ignore errors during coverage flush
         }
-        originalExit(code);
-    };
-    console.error('[DEBUG] process.exit() override installed');
+    }
+    process.exit(exitCode);
 }
 
 const {
@@ -51,7 +43,7 @@ const {
 if (!getEnvBool('SCREENSHOT_ENABLED', true)) {
     console.error('Skipping screenshot (SCREENSHOT_ENABLED=False)');
     // Temporary failure (config disabled) - NO JSONL emission
-    process.exit(0);
+    flushCoverageAndExit(0);
 }
 
 // Now safe to require puppeteer

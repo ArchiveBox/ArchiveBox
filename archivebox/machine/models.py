@@ -384,15 +384,6 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
 
         return None
 
-    @property
-    def output_dir(self):
-        """Return the output directory for this binary installation."""
-        from pathlib import Path
-        from django.conf import settings
-
-        DATA_DIR = getattr(settings, 'DATA_DIR', Path.cwd())
-        return Path(DATA_DIR) / 'machines' / str(self.machine_id) / 'binaries' / self.name / str(self.id)
-
     def update_and_requeue(self, **kwargs):
         """
         Update binary fields and requeue for worker state machine.
@@ -424,8 +415,6 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         # Create output directory
         output_dir = self.output_dir
         output_dir.mkdir(parents=True, exist_ok=True)
-        self.output_dir = str(output_dir)
-        self.save()
 
         # Discover ALL on_Binary__install_* hooks
         hooks = discover_hooks('Binary', config=config)
@@ -452,7 +441,7 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
                 hook_kwargs['overrides'] = json.dumps(self.overrides)
 
             # Run the hook
-            result = run_hook(
+            process = run_hook(
                 hook,
                 output_dir=plugin_output_dir,
                 config=config,
@@ -461,11 +450,11 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
             )
 
             # Background hook (unlikely for binary installation, but handle it)
-            if result is None:
+            if process is None:
                 continue
 
             # Failed or skipped hook - try next one
-            if result['returncode'] != 0:
+            if process.exit_code != 0:
                 continue
 
             # Parse JSONL output to check for successful installation
