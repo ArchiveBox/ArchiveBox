@@ -18,6 +18,27 @@ const path = require('path');
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 
+// Debug: Check NODE_V8_COVERAGE
+console.error(`[DEBUG JS START] NODE_V8_COVERAGE=${process.env.NODE_V8_COVERAGE || 'NOT SET'}`);
+
+// Hook into process.exit to flush V8 coverage (for NODE_V8_COVERAGE support)
+if (process.env.NODE_V8_COVERAGE) {
+    const originalExit = process.exit.bind(process);
+    process.exit = function(code) {
+        console.error(`[DEBUG] process.exit() override called with code=${code}`);
+        try {
+            const v8 = require('v8');
+            const result = v8.takeCoverage();
+            console.error(`[DEBUG] v8.takeCoverage() returned: ${typeof result}`);
+        } catch (e) {
+            // Log but don't block exit - we're exiting anyway
+            console.error(`[!] Coverage flush failed: ${e.message}`);
+        }
+        originalExit(code);
+    };
+    console.error('[DEBUG] process.exit() override installed');
+}
+
 const {
     getEnv,
     getEnvBool,
@@ -26,20 +47,11 @@ const {
     readCdpUrl,
 } = require('../chrome/chrome_utils.js');
 
-// Flush V8 coverage before exit (needed for NODE_V8_COVERAGE to capture early exits)
-function flushCoverageAndExit(exitCode) {
-    if (process.env.NODE_V8_COVERAGE) {
-        const v8 = require('v8');
-        v8.takeCoverage();
-    }
-    process.exit(exitCode);
-}
-
 // Check if screenshot is enabled BEFORE requiring puppeteer
 if (!getEnvBool('SCREENSHOT_ENABLED', true)) {
     console.error('Skipping screenshot (SCREENSHOT_ENABLED=False)');
     // Temporary failure (config disabled) - NO JSONL emission
-    flushCoverageAndExit(0);
+    process.exit(0);
 }
 
 // Now safe to require puppeteer

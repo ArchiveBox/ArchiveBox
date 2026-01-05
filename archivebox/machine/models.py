@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.utils.functional import cached_property
 
 from archivebox.base_models.models import ModelWithHealthStats
-from archivebox.workers.models import BaseStateMachine
+from archivebox.workers.models import BaseStateMachine, ModelWithStateMachine
 from .detect import get_host_guid, get_os_info, get_vm_info, get_host_network, get_host_stats
 
 try:
@@ -201,7 +201,7 @@ class BinaryManager(models.Manager):
         ).exclude(abspath='').exclude(abspath__isnull=True).order_by('-modified_at').first()
 
 
-class Binary(ModelWithHealthStats):
+class Binary(ModelWithHealthStats, ModelWithStateMachine):
     """
     Tracks a binary on a specific machine.
 
@@ -243,8 +243,6 @@ class Binary(ModelWithHealthStats):
     status = models.CharField(max_length=16, choices=StatusChoices.choices, default=StatusChoices.QUEUED, db_index=True)
     retry_at = models.DateTimeField(default=timezone.now, null=True, blank=True, db_index=True,
         help_text="When to retry this binary installation")
-    output_dir = models.CharField(max_length=255, default='', null=False, blank=True,
-        help_text="Directory where installation hook logs are stored")
 
     # Health stats
     num_uses_failed = models.PositiveIntegerField(default=0)
@@ -278,6 +276,15 @@ class Binary(ModelWithHealthStats):
             'binprovider': self.binprovider,
             'is_valid': self.is_valid,
         }
+
+    @property
+    def output_dir(self) -> Path:
+        """
+        Get output directory for this binary's hook logs.
+        Path: data/machines/{machine_uuid}/binaries/{binary_name}/{binary_uuid}
+        """
+        from django.conf import settings
+        return Path(settings.DATA_DIR) / 'machines' / str(self.machine_id) / 'binaries' / self.name / str(self.id)
 
     def to_json(self) -> dict:
         """

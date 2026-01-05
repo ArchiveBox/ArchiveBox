@@ -312,12 +312,14 @@ class Orchestrator:
         binary_count = binary_queue.count()
         queue_sizes['binary'] = binary_count
 
-        # Spawn BinaryWorker if needed (one worker per binary, up to MAX_BINARY_WORKERS)
-        if self.should_spawn_worker(BinaryWorker, binary_count):
-            # Get next binary to process
-            binary = binary_queue.first()
-            if binary:
-                BinaryWorker.start(binary_id=str(binary.id))
+        # Spawn BinaryWorker if needed (singleton - max 1 BinaryWorker, processes ALL binaries)
+        if binary_count > 0:
+            running_binary_workers_list = BinaryWorker.get_running_workers()
+            print(f"[DEBUG] binary_count={binary_count}, running_binary_workers={len(running_binary_workers_list)}")
+            if len(running_binary_workers_list) == 0:
+                print(f"[DEBUG] Spawning BinaryWorker...")
+                BinaryWorker.start()
+                print(f"[DEBUG] BinaryWorker spawned")
 
         # Check if any BinaryWorkers are still running
         running_binary_workers = len(BinaryWorker.get_running_workers())

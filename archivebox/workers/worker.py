@@ -324,17 +324,25 @@ class Worker:
             env = get_config(snapshot=snapshot)
 
         elif cls.name == 'binary':
-            # BinaryWorker processes a specific binary installation
+            # BinaryWorker supports two modes:
+            # 1. Singleton daemon (no binary_id) - processes ALL pending binaries
+            # 2. Specific binary (with binary_id) - processes just that one binary
             binary_id = kwargs.get('binary_id')
-            if not binary_id:
-                raise ValueError("BinaryWorker requires binary_id")
 
-            from archivebox.machine.models import Binary
-            binary = Binary.objects.get(id=binary_id)
+            if binary_id:
+                # Specific binary mode
+                from archivebox.machine.models import Binary
+                binary = Binary.objects.get(id=binary_id)
 
-            cmd = [sys.executable, '-m', 'archivebox', 'run', '--binary-id', str(binary_id)]
-            pwd = Path(settings.DATA_DIR) / 'machines' / str(Machine.current().id) / 'binaries' / binary.name / str(binary.id)
-            pwd.mkdir(parents=True, exist_ok=True)
+                cmd = [sys.executable, '-m', 'archivebox', 'run', '--binary-id', str(binary_id)]
+                pwd = Path(settings.DATA_DIR) / 'machines' / str(Machine.current().id) / 'binaries' / binary.name / str(binary.id)
+                pwd.mkdir(parents=True, exist_ok=True)
+            else:
+                # Singleton daemon mode - processes all pending binaries
+                cmd = [sys.executable, '-m', 'archivebox', 'run', '--worker-type', 'binary']
+                pwd = Path(settings.DATA_DIR) / 'machines' / str(Machine.current().id) / 'binaries'
+                pwd.mkdir(parents=True, exist_ok=True)
+
             env = get_config()
 
         else:
@@ -837,23 +845,26 @@ class SnapshotWorker(Worker):
 
 class BinaryWorker(Worker):
     """
-    Worker that processes a specific Binary installation.
+    Worker that processes Binary installations.
 
-    Like CrawlWorker and SnapshotWorker, BinaryWorker:
-    - Processes one specific binary (specified by binary_id)
-    - Installs it via Binary.run() which runs on_Binary__* hooks
-    - Exits when done
+    Two modes:
+    1. Specific binary mode (binary_id provided):
+       - Processes one specific binary
+       - Exits when done
 
-    Orchestrator spawns BinaryWorkers sequentially (MAX_BINARY_WORKERS=1) to avoid
-    conflicts during binary installations.
+    2. Daemon mode (no binary_id):
+       - Polls queue every 0.5s and processes ALL pending binaries
+       - Exits after 5 seconds idle
+       - Used by Orchestrator to ensure binaries installed before snapshots start
     """
 
     name: ClassVar[str] = 'binary'
     MAX_TICK_TIME: ClassVar[int] = 600  # 10 minutes for binary installations
     MAX_CONCURRENT_TASKS: ClassVar[int] = 1  # One binary per worker
+    POLL_INTERVAL: ClassVar[float] = 0.5  # Check every 500ms (daemon mode only)
 
-    def __init__(self, binary_id: str, worker_id: int = 0):
-        self.binary_id = binary_id
+    def __init__(self, binary_id: str = None, worker_id: int = 0):
+        self.binary_id = binary_id  # Optional - None means daemon mode
         super().__init__(worker_id=worker_id)
 
     def get_model(self):
@@ -861,19 +872,42 @@ class BinaryWorker(Worker):
         return Binary
 
     def get_next_item(self):
-        """Get the specific binary to install."""
-        from archivebox.machine.models import Binary
+        """Get binary to install (specific or next queued)."""
+        from archivebox.machine.models import Binary, Machine
 
-        try:
-            return Binary.objects.get(id=self.binary_id)
-        except Binary.DoesNotExist:
-            return None
+        if self.binary_id:
+            # Specific binary mode
+            try:
+                return Binary.objects.get(id=self.binary_id)
+            except Binary.DoesNotExist:
+                return None
+        else:
+            # Daemon mode - get all queued binaries for current machine
+            machine = Machine.current()
+            return Binary.objects.filter(
+                machine=machine,
+                status=Binary.StatusChoices.QUEUED,
+                retry_at__lte=timezone.now()
+            ).order_by('retry_at')
 
     def runloop(self) -> None:
-        """Install the specified binary."""
+        """Install binary(ies)."""
         import sys
 
         self.on_startup()
+
+        if self.binary_id:
+            # Specific binary mode - process once and exit
+            self._process_single_binary()
+        else:
+            # Daemon mode - poll and process all pending binaries
+            self._daemon_loop()
+
+        self.on_shutdown()
+
+    def _process_single_binary(self):
+        """Process a single specific binary."""
+        import sys
 
         try:
             binary = self.get_next_item()
@@ -888,12 +922,8 @@ class BinaryWorker(Worker):
                 return
 
             print(f'[cyan]🔧 BinaryWorker installing: {binary.name}[/cyan]', file=sys.stderr)
-
-            # Tick the state machine to trigger installation
-            # This calls BinaryMachine.on_install() -> Binary.run() -> on_Binary__* hooks
             binary.sm.tick()
 
-            # Check result
             binary.refresh_from_db()
             if binary.status == Binary.StatusChoices.INSTALLED:
                 log_worker_event(
@@ -918,8 +948,78 @@ class BinaryWorker(Worker):
                 pid=self.pid,
                 error=e,
             )
-        finally:
-            self.on_shutdown()
+
+    def _daemon_loop(self):
+        """Poll and process all pending binaries until idle."""
+        import sys
+
+        idle_count = 0
+        max_idle_ticks = 10  # Exit after 5 seconds idle (10 ticks * 0.5s)
+
+        try:
+            while True:
+                # Get all pending binaries
+                pending_binaries = list(self.get_next_item())
+
+                if not pending_binaries:
+                    idle_count += 1
+                    if idle_count >= max_idle_ticks:
+                        log_worker_event(
+                            worker_type='BinaryWorker',
+                            event='No work for 5 seconds, exiting',
+                            indent_level=1,
+                            pid=self.pid,
+                        )
+                        break
+                    time.sleep(self.POLL_INTERVAL)
+                    continue
+
+                # Reset idle counter - we have work
+                idle_count = 0
+
+                # Process ALL pending binaries
+                for binary in pending_binaries:
+                    try:
+                        print(f'[cyan]🔧 BinaryWorker processing: {binary.name}[/cyan]', file=sys.stderr)
+                        binary.sm.tick()
+
+                        binary.refresh_from_db()
+                        if binary.status == Binary.StatusChoices.INSTALLED:
+                            log_worker_event(
+                                worker_type='BinaryWorker',
+                                event=f'Installed: {binary.name} -> {binary.abspath}',
+                                indent_level=1,
+                                pid=self.pid,
+                            )
+                        else:
+                            log_worker_event(
+                                worker_type='BinaryWorker',
+                                event=f'Installation pending: {binary.name} (status={binary.status})',
+                                indent_level=1,
+                                pid=self.pid,
+                            )
+
+                    except Exception as e:
+                        log_worker_event(
+                            worker_type='BinaryWorker',
+                            event=f'Failed to install {binary.name}',
+                            indent_level=1,
+                            pid=self.pid,
+                            error=e,
+                        )
+                        continue
+
+                # Brief sleep before next poll
+                time.sleep(self.POLL_INTERVAL)
+
+        except Exception as e:
+            log_worker_event(
+                worker_type='BinaryWorker',
+                event='Daemon loop error',
+                indent_level=1,
+                pid=self.pid,
+                error=e,
+            )
 
 
 # Populate the registry

@@ -980,6 +980,85 @@ print(f"\\n✓ snapshot.config ({{expected}}) correctly overrides env var (999) 
         print("="*80 + "\n")
 
 
+def test_new_environment_variables_added():
+    """
+    Test that NEW environment variables (not in defaults) are added to config.
+
+    This is important for worker subprocesses that receive config via Process.env.
+    When Worker.start() creates a subprocess, it serializes config to Process.env.
+    The subprocess must be able to read those values back via get_config().
+    """
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        data_dir = Path(tmpdir) / 'test_archive'
+        data_dir.mkdir()
+
+        print(f"\n{'='*80}")
+        print(f"Test: New Environment Variables Added to Config")
+        print(f"DATA_DIR: {data_dir}")
+        print(f"{'='*80}\n")
+
+        # Initialize
+        result = subprocess.run(
+            ['python', '-m', 'archivebox', 'init'],
+            cwd=str(data_dir),
+            env={**os.environ, 'DATA_DIR': str(data_dir), 'USE_COLOR': 'False'},
+            capture_output=True,
+            timeout=60,
+        )
+        assert result.returncode == 0
+        print("✓ Archive initialized\n")
+
+        print("Step 1: Test that new uppercase env vars are added to config")
+        test_script = f"""
+import os
+os.environ['DATA_DIR'] = '{data_dir}'
+os.environ['NEW_CUSTOM_VAR'] = 'custom_value'  # Not in defaults
+os.environ['ANOTHER_VAR'] = 'another_value'
+os.environ['lowercase_var'] = 'should_be_ignored'  # Lowercase should be ignored
+
+from archivebox.config.django import setup_django
+setup_django()
+from archivebox.config.configset import get_config
+
+config = get_config()
+
+# Check uppercase vars are added
+new_var = config.get('NEW_CUSTOM_VAR')
+another_var = config.get('ANOTHER_VAR')
+lowercase_var = config.get('lowercase_var')
+
+print(f"NEW_CUSTOM_VAR: {{new_var}}")
+print(f"ANOTHER_VAR: {{another_var}}")
+print(f"lowercase_var: {{lowercase_var}}")
+
+assert new_var == 'custom_value', f"Expected 'custom_value', got {{new_var}}"
+assert another_var == 'another_value', f"Expected 'another_value', got {{another_var}}"
+assert lowercase_var is None, f"Lowercase vars should be ignored, got {{lowercase_var}}"
+
+print("\\n✓ New uppercase environment variables added to config")
+print("✓ Lowercase environment variables ignored")
+"""
+
+        result = subprocess.run(
+            ['python', '-c', test_script],
+            cwd=str(data_dir.parent),
+            capture_output=True,
+            timeout=30,
+        )
+
+        print(result.stdout.decode())
+        if result.returncode != 0:
+            print("\nTest error:")
+            print(result.stderr.decode())
+
+        assert result.returncode == 0, f"Test failed: {result.stderr.decode()}"
+
+        print("\n" + "="*80)
+        print("✓ TEST PASSED: New environment variables correctly added to config")
+        print("="*80 + "\n")
+
+
 if __name__ == '__main__':
     # Run as standalone script
     test_config_propagation_through_worker_hierarchy()
@@ -987,3 +1066,4 @@ if __name__ == '__main__':
     test_parent_environment_preserved_in_hooks()
     test_config_auto_fetch_relationships()
     test_config_precedence_with_environment_vars()
+    test_new_environment_variables_added()

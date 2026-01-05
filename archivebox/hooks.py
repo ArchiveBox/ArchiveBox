@@ -356,29 +356,38 @@ def run_hook(
         # Derive LIB_BIN_DIR from LIB_DIR if not set
         lib_bin_dir = Path(lib_dir) / 'bin'
 
-    # Prepend LIB_BIN_DIR to PATH so symlinked binaries take priority
+    # Build PATH with proper precedence:
+    # 1. LIB_BIN_DIR (highest priority - local symlinked binaries)
+    # 2. Machine.config.PATH (pip/npm bin dirs from providers)
+    # 3. os.environ['PATH'] (system PATH)
+
     if lib_bin_dir:
         lib_bin_dir = str(lib_bin_dir)
         env['LIB_BIN_DIR'] = lib_bin_dir
-        current_path = env.get('PATH', '')
-        # Only prepend if not already at the beginning
-        if not current_path.startswith(f'{lib_bin_dir}:'):
-            env['PATH'] = f'{lib_bin_dir}:{current_path}' if current_path else lib_bin_dir
 
-    # Use Machine.config.PATH if set (includes pip/npm bin dirs from providers)
+    # Start with base PATH
+    current_path = env.get('PATH', '')
+
+    # Prepend Machine.config.PATH if it exists (treat as extra entries, not replacement)
     try:
         from archivebox.machine.models import Machine
         machine = Machine.current()
         if machine and machine.config:
             machine_path = machine.config.get('PATH')
             if machine_path:
-                # Prepend LIB_BIN_DIR to machine PATH as well
-                if lib_bin_dir and not machine_path.startswith(f'{lib_bin_dir}:'):
-                    env['PATH'] = f'{lib_bin_dir}:{machine_path}'
-                else:
-                    env['PATH'] = machine_path
+                # Prepend machine_path to current PATH
+                current_path = f'{machine_path}:{current_path}' if current_path else machine_path
     except Exception:
-        pass  # Fall back to system PATH if Machine not available
+        pass
+
+    # Finally prepend LIB_BIN_DIR to the front (highest priority)
+    if lib_bin_dir:
+        if not current_path.startswith(f'{lib_bin_dir}:'):
+            env['PATH'] = f'{lib_bin_dir}:{current_path}' if current_path else lib_bin_dir
+        else:
+            env['PATH'] = current_path
+    else:
+        env['PATH'] = current_path
 
     # Set NODE_PATH for Node.js module resolution
     # Priority: config dict > Machine.config > derive from LIB_DIR
@@ -399,7 +408,11 @@ def run_hook(
         env['NODE_MODULES_DIR'] = node_path  # For backwards compatibility
 
     # Export all config values to environment (already merged by get_config())
+    # Skip keys we've already handled specially above (PATH, LIB_DIR, LIB_BIN_DIR, NODE_PATH, etc.)
+    SKIP_KEYS = {'PATH', 'LIB_DIR', 'LIB_BIN_DIR', 'NODE_PATH', 'NODE_MODULES_DIR', 'DATA_DIR', 'ARCHIVE_DIR', 'MACHINE_ID'}
     for key, value in config.items():
+        if key in SKIP_KEYS:
+            continue  # Already handled specially above, don't overwrite
         if value is None:
             continue
         elif isinstance(value, bool):

@@ -35,8 +35,11 @@ class TestBinaryWorkerSpawning:
             ['run'],
             stdin=json.dumps(binary_record),
             data_dir=initialized_archive,
-            timeout=30,
+            timeout=60,  # Increased timeout to allow for binary installation
         )
+
+        print(f"stdout: {stdout}")
+        print(f"stderr: {stderr}")
 
         assert code == 0, f"Failed to create Binary: {stderr}"
 

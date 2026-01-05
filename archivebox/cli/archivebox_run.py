@@ -244,7 +244,8 @@ def run_snapshot_worker(snapshot_id: str) -> int:
 @click.option('--crawl-id', help="Run orchestrator for specific crawl only")
 @click.option('--snapshot-id', help="Run worker for specific snapshot only")
 @click.option('--binary-id', help="Run worker for specific binary only")
-def main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str):
+@click.option('--worker-type', help="Run worker of specific type (binary)")
+def main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str, worker_type: str):
     """
     Process queued work.
 
@@ -259,7 +260,7 @@ def main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str):
     if snapshot_id:
         sys.exit(run_snapshot_worker(snapshot_id))
 
-    # Binary worker mode
+    # Binary worker mode (specific binary)
     if binary_id:
         from archivebox.workers.worker import BinaryWorker
         try:
@@ -272,6 +273,25 @@ def main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str):
             rprint(f'[red]Worker error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
             import traceback
             traceback.print_exc()
+            sys.exit(1)
+
+    # Worker type mode (daemon - processes all pending items)
+    if worker_type:
+        if worker_type == 'binary':
+            from archivebox.workers.worker import BinaryWorker
+            try:
+                worker = BinaryWorker(worker_id=0)  # No binary_id = daemon mode
+                worker.runloop()
+                sys.exit(0)
+            except KeyboardInterrupt:
+                sys.exit(0)
+            except Exception as e:
+                rprint(f'[red]Worker error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
+                import traceback
+                traceback.print_exc()
+                sys.exit(1)
+        else:
+            rprint(f'[red]Unknown worker type: {worker_type}[/red]', file=sys.stderr)
             sys.exit(1)
 
     # Crawl worker mode
