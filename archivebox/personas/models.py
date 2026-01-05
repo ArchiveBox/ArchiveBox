@@ -19,6 +19,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from archivebox.base_models.models import ModelWithConfig, get_or_create_system_user_pk
+from archivebox.uuid_compat import uuid7
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -44,6 +45,7 @@ class Persona(ModelWithConfig):
         persona.CHROME_USER_DATA_DIR  # -> Path to chrome_user_data
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     name = models.CharField(max_length=64, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk)

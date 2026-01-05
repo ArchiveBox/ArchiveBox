@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='archiveresult',
             name='extractor',
-            field=models.CharField(choices=[('favicon', 'favicon'), ('headers', 'headers'), ('singlefile', 'singlefile'), ('pdf', 'pdf'), ('screenshot', 'screenshot'), ('dom', 'dom'), ('wget', 'wget'), ('title', 'title'), ('readability', 'readability'), ('mercury', 'mercury'), ('htmltotext', 'htmltotext'), ('git', 'git'), ('media', 'media'), ('archive_org', 'archive_org')], max_length=32),
+            field=models.CharField(choices=[('favicon', 'favicon'), ('headers', 'headers'), ('singlefile', 'singlefile'), ('pdf', 'pdf'), ('screenshot', 'screenshot'), ('dom', 'dom'), ('wget', 'wget'), ('title', 'title'), ('readability', 'readability'), ('mercury', 'mercury'), ('htmltotext', 'htmltotext'), ('git', 'git'), ('media', 'media'), ('archivedotorg', 'archivedotorg')], max_length=32),
         ),
     ]

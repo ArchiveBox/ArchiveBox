@@ -226,9 +226,6 @@ def test_config_save_screenshot_false_skips():
         print(f"[DEBUG RESULT] Exit code: {result.returncode}")
         print(f"[DEBUG RESULT] Stderr: {result.stderr[:200]}")
 
-        # FORCE FAILURE to verify test actually runs
-        assert False, f"FORCED FAILURE - NODE_V8_COVERAGE={'NODE_V8_COVERAGE' in env} value={env.get('NODE_V8_COVERAGE', 'NOTSET')}"
-
         assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
 
         # Feature disabled - temporary failure, should NOT emit JSONL

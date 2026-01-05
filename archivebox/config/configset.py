@@ -123,6 +123,7 @@ def get_config(
     user: Any = None,
     crawl: Any = None,
     snapshot: Any = None,
+    archiveresult: Any = None,
     machine: Any = None,
 ) -> Dict[str, Any]:
     """
@@ -145,11 +146,26 @@ def get_config(
         user: User object with config JSON field
         crawl: Crawl object with config JSON field
         snapshot: Snapshot object with config JSON field
+        archiveresult: ArchiveResult object (auto-fetches snapshot)
         machine: Machine object with config JSON field (defaults to Machine.current())
+
+    Note: Objects are auto-fetched from relationships if not provided:
+        - snapshot auto-fetched from archiveresult.snapshot
+        - crawl auto-fetched from snapshot.crawl
+        - user auto-fetched from crawl.created_by
 
     Returns:
         Merged config dict
     """
+    # Auto-fetch related objects from relationships
+    if snapshot is None and archiveresult and hasattr(archiveresult, "snapshot"):
+        snapshot = archiveresult.snapshot
+
+    if crawl is None and snapshot and hasattr(snapshot, "crawl"):
+        crawl = snapshot.crawl
+
+    if user is None and crawl and hasattr(crawl, "created_by"):
+        user = crawl.created_by
     from archivebox.config.constants import CONSTANTS
     from archivebox.config.common import (
         SHELL_CONFIG,
@@ -197,11 +213,17 @@ def get_config(
     if machine and hasattr(machine, "config") and machine.config:
         config.update(machine.config)
 
-    # Override with environment variables
+    # Override with environment variables (for keys that exist in config)
     for key in config:
         env_val = os.environ.get(key)
         if env_val is not None:
             config[key] = _parse_env_value(env_val, config.get(key))
+
+    # Also add NEW environment variables (not yet in config)
+    # This is important for worker subprocesses that receive config via Process.env
+    for key, value in os.environ.items():
+        if key.isupper() and key not in config:  # Only uppercase keys (config convention)
+            config[key] = _parse_env_value(value, None)
 
     # Also check plugin config aliases in environment
     try:
@@ -335,7 +357,7 @@ DEFAULT_WORKER_CONCURRENCY = {
     "title": 5,
     "favicon": 5,
     "headers": 5,
-    "archive_org": 2,
+    "archivedotorg": 2,
     "readability": 3,
     "mercury": 3,
     "git": 2,

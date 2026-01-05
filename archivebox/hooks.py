@@ -370,19 +370,33 @@ def run_hook(
         from archivebox.machine.models import Machine
         machine = Machine.current()
         if machine and machine.config:
-            machine_path = machine.config.get('config/PATH')
+            machine_path = machine.config.get('PATH')
             if machine_path:
                 # Prepend LIB_BIN_DIR to machine PATH as well
                 if lib_bin_dir and not machine_path.startswith(f'{lib_bin_dir}:'):
                     env['PATH'] = f'{lib_bin_dir}:{machine_path}'
                 else:
                     env['PATH'] = machine_path
-            # Also set NODE_MODULES_DIR if configured
-            node_modules_dir = machine.config.get('config/NODE_MODULES_DIR')
-            if node_modules_dir:
-                env['NODE_MODULES_DIR'] = node_modules_dir
     except Exception:
         pass  # Fall back to system PATH if Machine not available
+
+    # Set NODE_PATH for Node.js module resolution
+    # Priority: config dict > Machine.config > derive from LIB_DIR
+    node_path = config.get('NODE_PATH')
+    if not node_path and lib_dir:
+        # Derive from LIB_DIR/npm/node_modules
+        node_modules_dir = Path(lib_dir) / 'npm' / 'node_modules'
+        if node_modules_dir.exists():
+            node_path = str(node_modules_dir)
+    if not node_path:
+        try:
+            # Fallback to Machine.config
+            node_path = machine.config.get('NODE_MODULES_DIR')
+        except Exception:
+            pass
+    if node_path:
+        env['NODE_PATH'] = node_path
+        env['NODE_MODULES_DIR'] = node_path  # For backwards compatibility
 
     # Export all config values to environment (already merged by get_config())
     for key, value in config.items():
@@ -414,56 +428,8 @@ def run_hook(
             timeout=timeout,
         )
 
-        # Build environment from config (Process._build_env() expects self.env dict)
-        # We need to set env on the process before launching
-        process.env = {}
-        for key, value in config.items():
-            if value is None:
-                continue
-            elif isinstance(value, bool):
-                process.env[key] = 'true' if value else 'false'
-            elif isinstance(value, (list, dict)):
-                process.env[key] = json.dumps(value)
-            else:
-                process.env[key] = str(value)
-
-        # Add base paths to env
-        process.env['DATA_DIR'] = str(getattr(settings, 'DATA_DIR', Path.cwd()))
-        process.env['ARCHIVE_DIR'] = str(getattr(settings, 'ARCHIVE_DIR', Path.cwd() / 'archive'))
-        process.env.setdefault('MACHINE_ID', getattr(settings, 'MACHINE_ID', '') or os.environ.get('MACHINE_ID', ''))
-
-        # Add LIB_DIR and LIB_BIN_DIR
-        lib_dir = config.get('LIB_DIR', getattr(settings, 'LIB_DIR', None))
-        lib_bin_dir = config.get('LIB_BIN_DIR', getattr(settings, 'LIB_BIN_DIR', None))
-        if lib_dir:
-            process.env['LIB_DIR'] = str(lib_dir)
-        if not lib_bin_dir and lib_dir:
-            lib_bin_dir = Path(lib_dir) / 'bin'
-        if lib_bin_dir:
-            process.env['LIB_BIN_DIR'] = str(lib_bin_dir)
-
-        # Set PATH from Machine.config if available
-        try:
-            if machine and machine.config:
-                machine_path = machine.config.get('config/PATH')
-                if machine_path:
-                    # Prepend LIB_BIN_DIR to machine PATH as well
-                    if lib_bin_dir and not machine_path.startswith(f'{lib_bin_dir}:'):
-                        process.env['PATH'] = f'{lib_bin_dir}:{machine_path}'
-                    else:
-                        process.env['PATH'] = machine_path
-                elif lib_bin_dir:
-                    # Just prepend to current PATH
-                    current_path = os.environ.get('PATH', '')
-                    if not current_path.startswith(f'{lib_bin_dir}:'):
-                        process.env['PATH'] = f'{lib_bin_dir}:{current_path}' if current_path else str(lib_bin_dir)
-
-                # Also set NODE_MODULES_DIR if configured
-                node_modules_dir = machine.config.get('config/NODE_MODULES_DIR')
-                if node_modules_dir:
-                    process.env['NODE_MODULES_DIR'] = node_modules_dir
-        except Exception:
-            pass  # Fall back to system PATH if Machine not available
+        # Copy the env dict we already built (includes os.environ + all customizations)
+        process.env = env.copy()
 
         # Save env before launching
         process.save()

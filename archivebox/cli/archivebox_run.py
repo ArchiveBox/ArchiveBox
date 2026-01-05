@@ -59,10 +59,11 @@ def process_stdin_records() -> int:
     """
     from django.utils import timezone
 
-    from archivebox.misc.jsonl import read_stdin, write_record, TYPE_CRAWL, TYPE_SNAPSHOT, TYPE_ARCHIVERESULT
+    from archivebox.misc.jsonl import read_stdin, write_record, TYPE_CRAWL, TYPE_SNAPSHOT, TYPE_ARCHIVERESULT, TYPE_BINARY
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.core.models import Snapshot, ArchiveResult
     from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Binary
     from archivebox.workers.orchestrator import Orchestrator
 
     records = list(read_stdin())
@@ -135,6 +136,26 @@ def process_stdin_records() -> int:
                         archiveresult.status = ArchiveResult.StatusChoices.QUEUED
                     archiveresult.save()
                     output_records.append(archiveresult.to_json())
+                    queued_count += 1
+
+            elif record_type == TYPE_BINARY:
+                # Binary records - create or update and queue for installation
+                if record_id:
+                    # Existing binary - re-queue
+                    try:
+                        binary = Binary.objects.get(id=record_id)
+                    except Binary.DoesNotExist:
+                        binary = Binary.from_json(record)
+                else:
+                    # New binary - create it
+                    binary = Binary.from_json(record)
+
+                if binary:
+                    binary.retry_at = timezone.now()
+                    if binary.status != Binary.StatusChoices.INSTALLED:
+                        binary.status = Binary.StatusChoices.QUEUED
+                    binary.save()
+                    output_records.append(binary.to_json())
                     queued_count += 1
 
             else:
@@ -222,7 +243,8 @@ def run_snapshot_worker(snapshot_id: str) -> int:
 @click.option('--daemon', '-d', is_flag=True, help="Run forever (don't exit on idle)")
 @click.option('--crawl-id', help="Run orchestrator for specific crawl only")
 @click.option('--snapshot-id', help="Run worker for specific snapshot only")
-def main(daemon: bool, crawl_id: str, snapshot_id: str):
+@click.option('--binary-id', help="Run worker for specific binary only")
+def main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str):
     """
     Process queued work.
 
@@ -231,10 +253,26 @@ def main(daemon: bool, crawl_id: str, snapshot_id: str):
     - No args + TTY: Run orchestrator for all work
     - --crawl-id: Run orchestrator for that crawl only
     - --snapshot-id: Run worker for that snapshot only
+    - --binary-id: Run worker for that binary only
     """
     # Snapshot worker mode
     if snapshot_id:
         sys.exit(run_snapshot_worker(snapshot_id))
+
+    # Binary worker mode
+    if binary_id:
+        from archivebox.workers.worker import BinaryWorker
+        try:
+            worker = BinaryWorker(binary_id=binary_id, worker_id=0)
+            worker.runloop()
+            sys.exit(0)
+        except KeyboardInterrupt:
+            sys.exit(0)
+        except Exception as e:
+            rprint(f'[red]Worker error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
 
     # Crawl worker mode
     if crawl_id:

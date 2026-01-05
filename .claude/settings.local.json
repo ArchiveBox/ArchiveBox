@@ -1,6 +1,9 @@
 {
   "permissions": {
     "allow": [
+      "Read(**)",
+      "Glob(**)",
+      "Grep(**)",
       "Bash(python -m archivebox:*)",
       "Bash(ls:*)",
       "Bash(xargs:*)",
@@ -28,6 +31,20 @@
       "Bash(./bin/run_plugin_tests.sh:*)",
       "Bash(done)",
       "Bash(coverage erase:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null); if [ -n \"$REPO_ROOT\" ] && [ \"$PWD\" != \"$REPO_ROOT\" ]; then echo \"ERROR: Not in repo root ($REPO_ROOT). Current dir: $PWD\" >&2; exit 1; fi",
+            "statusMessage": "Checking working directory..."
+          }
+        ]
+      }
     ]
   }
 }

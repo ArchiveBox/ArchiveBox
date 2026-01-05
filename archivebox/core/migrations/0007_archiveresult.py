@@ -120,7 +120,7 @@ class Migration(migrations.Migration):
                 ('output', models.CharField(max_length=512)),
                 ('start_ts', models.DateTimeField()),
                 ('end_ts', models.DateTimeField()),
-                ('extractor', models.CharField(choices=[('title', 'title'), ('favicon', 'favicon'), ('wget', 'wget'), ('singlefile', 'singlefile'), ('pdf', 'pdf'), ('screenshot', 'screenshot'), ('dom', 'dom'), ('readability', 'readability'), ('mercury', 'mercury'), ('git', 'git'), ('media', 'media'), ('headers', 'headers'), ('archive_org', 'archive_org')], max_length=32)),
+                ('extractor', models.CharField(choices=[('title', 'title'), ('favicon', 'favicon'), ('wget', 'wget'), ('singlefile', 'singlefile'), ('pdf', 'pdf'), ('screenshot', 'screenshot'), ('dom', 'dom'), ('readability', 'readability'), ('mercury', 'mercury'), ('git', 'git'), ('media', 'media'), ('headers', 'headers'), ('archivedotorg', 'archivedotorg')], max_length=32)),
                 ('snapshot', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='core.Snapshot')),
             ],
         ),

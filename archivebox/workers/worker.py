@@ -323,6 +323,20 @@ class Worker:
             pwd = Path(snapshot.output_dir)  # Run in snapshot's output directory
             env = get_config(snapshot=snapshot)
 
+        elif cls.name == 'binary':
+            # BinaryWorker processes a specific binary installation
+            binary_id = kwargs.get('binary_id')
+            if not binary_id:
+                raise ValueError("BinaryWorker requires binary_id")
+
+            from archivebox.machine.models import Binary
+            binary = Binary.objects.get(id=binary_id)
+
+            cmd = [sys.executable, '-m', 'archivebox', 'run', '--binary-id', str(binary_id)]
+            pwd = Path(settings.DATA_DIR) / 'machines' / str(Machine.current().id) / 'binaries' / binary.name / str(binary.id)
+            pwd.mkdir(parents=True, exist_ok=True)
+            env = get_config()
+
         else:
             raise ValueError(f"Unknown worker type: {cls.name}")
 
@@ -654,16 +668,8 @@ class SnapshotWorker(Worker):
             hooks = discover_hooks('Snapshot', config=config)
             hooks = sorted(hooks, key=lambda h: h.name)  # Sort by name (includes step prefix)
 
-            import sys
-            print(f'[SnapshotWorker] Discovered {len(hooks)} hooks for snapshot {self.snapshot.url}', file=sys.stderr, flush=True)
-            if hooks:
-                print(f'[SnapshotWorker] First 5 hooks: {[h.name for h in hooks[:5]]}', file=sys.stderr, flush=True)
-            else:
-                print(f'[SnapshotWorker] WARNING: No hooks discovered! Config keys: {list(config.keys())[:10]}...', file=sys.stderr, flush=True)
-
             # Execute each hook sequentially
             for hook_path in hooks:
-                print(f'[SnapshotWorker] Running hook: {hook_path.name}', file=sys.stderr, flush=True)
                 hook_name = hook_path.name
                 plugin = self._extract_plugin_name(hook_name)
                 hook_step = extract_step(hook_name)
@@ -829,8 +835,96 @@ class SnapshotWorker(Worker):
         return name
 
 
+class BinaryWorker(Worker):
+    """
+    Worker that processes a specific Binary installation.
+
+    Like CrawlWorker and SnapshotWorker, BinaryWorker:
+    - Processes one specific binary (specified by binary_id)
+    - Installs it via Binary.run() which runs on_Binary__* hooks
+    - Exits when done
+
+    Orchestrator spawns BinaryWorkers sequentially (MAX_BINARY_WORKERS=1) to avoid
+    conflicts during binary installations.
+    """
+
+    name: ClassVar[str] = 'binary'
+    MAX_TICK_TIME: ClassVar[int] = 600  # 10 minutes for binary installations
+    MAX_CONCURRENT_TASKS: ClassVar[int] = 1  # One binary per worker
+
+    def __init__(self, binary_id: str, worker_id: int = 0):
+        self.binary_id = binary_id
+        super().__init__(worker_id=worker_id)
+
+    def get_model(self):
+        from archivebox.machine.models import Binary
+        return Binary
+
+    def get_next_item(self):
+        """Get the specific binary to install."""
+        from archivebox.machine.models import Binary
+
+        try:
+            return Binary.objects.get(id=self.binary_id)
+        except Binary.DoesNotExist:
+            return None
+
+    def runloop(self) -> None:
+        """Install the specified binary."""
+        import sys
+
+        self.on_startup()
+
+        try:
+            binary = self.get_next_item()
+
+            if not binary:
+                log_worker_event(
+                    worker_type='BinaryWorker',
+                    event=f'Binary {self.binary_id} not found',
+                    indent_level=1,
+                    pid=self.pid,
+                )
+                return
+
+            print(f'[cyan]🔧 BinaryWorker installing: {binary.name}[/cyan]', file=sys.stderr)
+
+            # Tick the state machine to trigger installation
+            # This calls BinaryMachine.on_install() -> Binary.run() -> on_Binary__* hooks
+            binary.sm.tick()
+
+            # Check result
+            binary.refresh_from_db()
+            if binary.status == Binary.StatusChoices.INSTALLED:
+                log_worker_event(
+                    worker_type='BinaryWorker',
+                    event=f'Installed: {binary.name} -> {binary.abspath}',
+                    indent_level=1,
+                    pid=self.pid,
+                )
+            else:
+                log_worker_event(
+                    worker_type='BinaryWorker',
+                    event=f'Installation pending: {binary.name} (status={binary.status})',
+                    indent_level=1,
+                    pid=self.pid,
+                )
+
+        except Exception as e:
+            log_worker_event(
+                worker_type='BinaryWorker',
+                event=f'Failed to install binary',
+                indent_level=1,
+                pid=self.pid,
+                error=e,
+            )
+        finally:
+            self.on_shutdown()
+
+
 # Populate the registry
 WORKER_TYPES.update({
+    'binary': BinaryWorker,
     'crawl': CrawlWorker,
     'snapshot': SnapshotWorker,
 })

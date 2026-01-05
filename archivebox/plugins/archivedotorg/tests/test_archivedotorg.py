@@ -1,5 +1,5 @@
 """
-Integration tests for archive_org plugin
+Integration tests for archivedotorg plugin
 
 Tests verify standalone archive.org extractor execution.
 """
@@ -12,13 +12,13 @@ from pathlib import Path
 import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
-ARCHIVEDOTORG_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_archive_org.*'), None)
+ARCHIVEDOTORG_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_archivedotorg.*'), None)
 TEST_URL = 'https://example.com'
 
 def test_hook_script_exists():
     assert ARCHIVEDOTORG_HOOK.exists()
 
-def test_submits_to_archive_org():
+def test_submits_to_archivedotorg():
     with tempfile.TemporaryDirectory() as tmpdir:
         result = subprocess.run(
             [sys.executable, str(ARCHIVEDOTORG_HOOK), '--url', TEST_URL, '--snapshot-id', 'test789'],
@@ -49,7 +49,7 @@ def test_submits_to_archive_org():
             assert not result_json, "Should NOT emit JSONL on transient error"
             assert result.stderr, "Should have error message in stderr"
 
-def test_config_save_archive_org_false_skips():
+def test_config_save_archivedotorg_false_skips():
     with tempfile.TemporaryDirectory() as tmpdir:
         import os
         env = os.environ.copy()

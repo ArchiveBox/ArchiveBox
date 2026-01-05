@@ -246,6 +246,68 @@ print(snapshot.id)
             "Expected debug output not found in stderr"
         print("✓ Config debug output found in stderr")
 
+        # Verify precedence order: snapshot > crawl > user > persona > env > machine > file > defaults
+        verify_precedence_script = f"""
+import os
+os.environ['DATA_DIR'] = '{data_dir}'
+
+from archivebox.config.django import setup_django
+setup_django()
+
+from archivebox.core.models import Snapshot
+from archivebox.config.configset import get_config
+
+snapshot = Snapshot.objects.get(id='{snapshot_id}')
+
+# Test precedence by getting config at different levels
+print("\\nTesting config precedence order:")
+
+# 1. Just defaults (lowest priority)
+config_defaults = get_config()
+print(f"  Defaults only: TIMEOUT={{config_defaults.get('TIMEOUT')}}")
+
+# 2. With machine config
+from archivebox.machine.models import Machine
+machine = Machine.current()
+config_machine = get_config(machine=machine)
+custom_machine = config_machine.get('CUSTOM_MACHINE_KEY')
+print(f"  + Machine: CUSTOM_MACHINE_KEY={{custom_machine}}")
+
+# 3. With crawl config
+config_crawl = get_config(crawl=snapshot.crawl)
+print(f"  + Crawl: TIMEOUT={{config_crawl.get('TIMEOUT')}} (should be 777 from crawl.config)")
+assert config_crawl.get('TIMEOUT') == 777, f"Expected 777 from crawl, got {{config_crawl.get('TIMEOUT')}}"
+
+# 4. With snapshot config (highest priority)
+config_snapshot = get_config(snapshot=snapshot)
+print(f"  + Snapshot: TIMEOUT={{config_snapshot.get('TIMEOUT')}} (should be 555 from snapshot.config)")
+assert config_snapshot.get('TIMEOUT') == 555, f"Expected 555 from snapshot, got {{config_snapshot.get('TIMEOUT')}}"
+
+# Verify snapshot config overrides crawl config
+assert config_snapshot.get('CUSTOM_CRAWL_KEY') == 'from_crawl_json', "Crawl config should be present"
+assert config_snapshot.get('CUSTOM_SNAPSHOT_KEY') == 'from_snapshot_json', "Snapshot config should be present"
+assert config_snapshot.get('CUSTOM_MACHINE_KEY') == 'from_machine_config', "Machine config should be present"
+
+print("\\n✓ Config precedence order verified: snapshot > crawl > machine > defaults")
+"""
+        result = subprocess.run(
+            ['python', '-c', verify_precedence_script],
+            cwd=str(data_dir.parent),
+            env={
+                **os.environ,
+                'DATA_DIR': str(data_dir),
+                'USE_COLOR': 'False',
+            },
+            capture_output=True,
+            timeout=30,
+        )
+
+        print(result.stdout.decode())
+        if result.returncode != 0:
+            print("\nPrecedence verification error:")
+            print(result.stderr.decode())
+        assert result.returncode == 0, f"Precedence verification failed: {result.stderr.decode()}"
+
         # Verify config values were actually used by checking ArchiveResults
         verify_script = f"""
 import os
@@ -475,7 +537,453 @@ print("\\n✓ All config values correctly parsed from environment")
         print("="*80 + "\n")
 
 
+def test_parent_environment_preserved_in_hooks():
+    """
+    Test that parent environment variables are preserved in hook execution.
+
+    This test catches the bug where we built env=os.environ.copy() but then
+    clobbered it with process.env={}, losing all parent environment.
+
+    Also verifies:
+    - NODE_PATH is correctly derived from LIB_DIR/npm/node_modules
+    - LIB_BIN_DIR is correctly derived and added to PATH
+    """
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        data_dir = Path(tmpdir) / 'test_archive'
+        data_dir.mkdir()
+
+        print(f"\n{'='*80}")
+        print(f"Test: Parent Environment Preserved in Hooks")
+        print(f"DATA_DIR: {data_dir}")
+        print(f"{'='*80}\n")
+
+        # Initialize archive
+        print("Step 1: Initialize archive")
+        result = subprocess.run(
+            ['python', '-m', 'archivebox', 'init'],
+            cwd=str(data_dir),
+            env={
+                **os.environ,
+                'DATA_DIR': str(data_dir),
+                'USE_COLOR': 'False',
+            },
+            capture_output=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, f"Init failed: {result.stderr.decode()}"
+        print(f"✓ Archive initialized\n")
+
+        # Create snapshot
+        print("Step 2: Create Snapshot")
+        create_snapshot_script = f"""
+import os
+os.environ['DATA_DIR'] = '{data_dir}'
+
+from archivebox.config.django import setup_django
+setup_django()
+
+from django.utils import timezone
+from archivebox.core.models import Snapshot
+from archivebox.crawls.models import Crawl
+
+crawl = Crawl.objects.create(
+    urls='https://example.com',
+    status='queued',
+    retry_at=timezone.now()
+)
+
+snapshot = Snapshot.objects.create(
+    url='https://example.com',
+    crawl=crawl,
+    status='queued',
+    retry_at=timezone.now()
+)
+print(snapshot.id)
+"""
+        result = subprocess.run(
+            ['python', '-c', create_snapshot_script],
+            cwd=str(data_dir.parent),
+            env={
+                **os.environ,
+                'DATA_DIR': str(data_dir),
+                'USE_COLOR': 'False',
+            },
+            capture_output=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, f"Create snapshot failed: {result.stderr.decode()}"
+        snapshot_id = result.stdout.decode().strip().split('\n')[-1]
+        print(f"✓ Created snapshot {snapshot_id}\n")
+
+        # Run SnapshotWorker with custom parent environment variable
+        print("Step 3: Run SnapshotWorker with TEST_PARENT_ENV_VAR in parent process")
+        result = subprocess.run(
+            ['python', '-m', 'archivebox', 'run', '--snapshot-id', snapshot_id],
+            cwd=str(data_dir),
+            env={
+                **os.environ,
+                'DATA_DIR': str(data_dir),
+                'USE_COLOR': 'False',
+                'TEST_PARENT_ENV_VAR': 'preserved_from_parent',  # This should reach the hook
+                'PLUGINS': 'favicon',  # Use existing plugin (favicon is simple and fast)
+            },
+            capture_output=True,
+            timeout=120,
+        )
+
+        stdout = result.stdout.decode()
+        stderr = result.stderr.decode()
+
+        print("\n--- SnapshotWorker stderr (first 50 lines) ---")
+        print('\n'.join(stderr.split('\n')[:50]))
+        print("--- End stderr ---\n")
+
+        # Verify hooks ran by checking Process records
+        print("Step 4: Verify environment variables in hook Process records")
+        verify_env_script = f"""
+import os
+os.environ['DATA_DIR'] = '{data_dir}'
+
+from archivebox.config.django import setup_django
+setup_django()
+
+from archivebox.machine.models import Process
+from archivebox.core.models import Snapshot
+import json
+
+snapshot = Snapshot.objects.get(id='{snapshot_id}')
+
+# Find hook processes for this snapshot
+hook_processes = Process.objects.filter(
+    process_type=Process.TypeChoices.HOOK,
+    pwd__contains=str(snapshot.id)
+).order_by('-created_at')
+
+print(f"Found {{hook_processes.count()}} hook processes")
+
+if hook_processes.count() == 0:
+    print("ERROR: No hook processes found!")
+    import sys
+    sys.exit(1)
+
+# Check the first hook process environment
+hook_process = hook_processes.first()
+print(f"\\nChecking hook: {{hook_process.cmd}}")
+print(f"Hook env keys: {{len(hook_process.env)}} total")
+
+# Verify TEST_PARENT_ENV_VAR was preserved
+test_parent = hook_process.env.get('TEST_PARENT_ENV_VAR')
+print(f"  TEST_PARENT_ENV_VAR: {{test_parent}}")
+assert test_parent == 'preserved_from_parent', f"Expected 'preserved_from_parent', got {{test_parent}}"
+
+# Verify LIB_DIR is set
+lib_dir = hook_process.env.get('LIB_DIR')
+print(f"  LIB_DIR: {{lib_dir}}")
+assert lib_dir is not None, "LIB_DIR not set"
+
+# Verify LIB_BIN_DIR is derived
+lib_bin_dir = hook_process.env.get('LIB_BIN_DIR')
+print(f"  LIB_BIN_DIR: {{lib_bin_dir}}")
+if lib_dir:
+    assert lib_bin_dir is not None, "LIB_BIN_DIR not derived from LIB_DIR"
+    assert lib_bin_dir.endswith('/bin'), f"LIB_BIN_DIR should end with /bin, got {{lib_bin_dir}}"
+
+# Verify LIB_BIN_DIR is in PATH
+path = hook_process.env.get('PATH')
+if lib_bin_dir:
+    assert lib_bin_dir in path, f"LIB_BIN_DIR not in PATH. LIB_BIN_DIR={{lib_bin_dir}}, PATH={{path[:200]}}..."
+
+# Verify NODE_PATH is set
+node_path = hook_process.env.get('NODE_PATH')
+node_modules_dir = hook_process.env.get('NODE_MODULES_DIR')
+print(f"  NODE_PATH: {{node_path}}")
+print(f"  NODE_MODULES_DIR: {{node_modules_dir}}")
+if node_path:
+    # Should also have NODE_MODULES_DIR for backwards compatibility
+    assert node_modules_dir == node_path, f"NODE_MODULES_DIR should match NODE_PATH"
+
+print("\\n✓ All environment checks passed")
+"""
+        result = subprocess.run(
+            ['python', '-c', verify_env_script],
+            cwd=str(data_dir.parent),
+            env={
+                **os.environ,
+                'DATA_DIR': str(data_dir),
+                'USE_COLOR': 'False',
+            },
+            capture_output=True,
+            timeout=30,
+        )
+
+        print(result.stdout.decode())
+        if result.returncode != 0:
+            print("\nVerification error:")
+            print(result.stderr.decode())
+
+        assert result.returncode == 0, f"Environment verification failed: {result.stderr.decode()}"
+
+        print("\n" + "="*80)
+        print("✓ TEST PASSED: Parent environment preserved in hooks")
+        print("  - Custom parent env vars reach hooks")
+        print("  - LIB_DIR propagated correctly")
+        print("  - LIB_BIN_DIR derived and added to PATH")
+        print("  - NODE_PATH/NODE_MODULES_DIR set when available")
+        print("="*80 + "\n")
+
+
+def test_config_auto_fetch_relationships():
+    """
+    Test that get_config() auto-fetches related objects from relationships.
+
+    Verifies:
+    - snapshot auto-fetched from archiveresult.snapshot
+    - crawl auto-fetched from snapshot.crawl
+    - user auto-fetched from crawl.created_by
+    """
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        data_dir = Path(tmpdir) / 'test_archive'
+        data_dir.mkdir()
+
+        print(f"\n{'='*80}")
+        print(f"Test: Config Auto-Fetch Relationships")
+        print(f"DATA_DIR: {data_dir}")
+        print(f"{'='*80}\n")
+
+        # Initialize archive
+        print("Step 1: Initialize archive")
+        result = subprocess.run(
+            ['python', '-m', 'archivebox', 'init'],
+            cwd=str(data_dir),
+            env={
+                **os.environ,
+                'DATA_DIR': str(data_dir),
+                'USE_COLOR': 'False',
+            },
+            capture_output=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, f"Init failed: {result.stderr.decode()}"
+        print(f"✓ Archive initialized\n")
+
+        # Create objects with config at each level
+        print("Step 2: Create Crawl -> Snapshot -> ArchiveResult with config at each level")
+        create_objects_script = f"""
+import os
+os.environ['DATA_DIR'] = '{data_dir}'
+
+from archivebox.config.django import setup_django
+setup_django()
+
+from django.utils import timezone
+from archivebox.crawls.models import Crawl
+from archivebox.core.models import Snapshot, ArchiveResult
+from archivebox.config.configset import get_config
+
+# Create crawl with config
+crawl = Crawl.objects.create(
+    urls='https://example.com',
+    status='queued',
+    retry_at=timezone.now(),
+    config={{
+        'CRAWL_KEY': 'from_crawl',
+        'TIMEOUT': 777,
+    }}
+)
+
+# Create snapshot with config
+snapshot = Snapshot.objects.create(
+    url='https://example.com',
+    crawl=crawl,
+    status='queued',
+    retry_at=timezone.now(),
+    config={{
+        'SNAPSHOT_KEY': 'from_snapshot',
+        'TIMEOUT': 555,
+    }}
+)
+
+# Create ArchiveResult
+ar = ArchiveResult.objects.create(
+    snapshot=snapshot,
+    plugin='test',
+    hook_name='test_hook',
+    status=ArchiveResult.StatusChoices.STARTED
+)
+
+print(f"Created: crawl={{crawl.id}}, snapshot={{snapshot.id}}, ar={{ar.id}}")
+
+# Test 1: Auto-fetch crawl from snapshot
+print("\\nTest 1: get_config(snapshot=snapshot) auto-fetches crawl")
+config = get_config(snapshot=snapshot)
+assert config.get('TIMEOUT') == 555, f"Expected 555 from snapshot, got {{config.get('TIMEOUT')}}"
+assert config.get('SNAPSHOT_KEY') == 'from_snapshot', f"Expected from_snapshot, got {{config.get('SNAPSHOT_KEY')}}"
+assert config.get('CRAWL_KEY') == 'from_crawl', f"Expected from_crawl, got {{config.get('CRAWL_KEY')}}"
+print("✓ Snapshot config (TIMEOUT=555) overrides crawl config (TIMEOUT=777)")
+print("✓ Both snapshot.config and crawl.config values present")
+
+# Test 2: Auto-fetch snapshot from archiveresult
+print("\\nTest 2: get_config(archiveresult=ar) auto-fetches snapshot and crawl")
+config_from_ar = get_config(archiveresult=ar)
+assert config_from_ar.get('TIMEOUT') == 555, f"Expected 555, got {{config_from_ar.get('TIMEOUT')}}"
+assert config_from_ar.get('SNAPSHOT_KEY') == 'from_snapshot', f"Expected from_snapshot"
+assert config_from_ar.get('CRAWL_KEY') == 'from_crawl', f"Expected from_crawl"
+print("✓ Auto-fetched snapshot from ar.snapshot")
+print("✓ Auto-fetched crawl from snapshot.crawl")
+
+# Test 3: Precedence without auto-fetch (explicit crawl only)
+print("\\nTest 3: get_config(crawl=crawl) without snapshot")
+config_crawl_only = get_config(crawl=crawl)
+assert config_crawl_only.get('TIMEOUT') == 777, f"Expected 777 from crawl, got {{config_crawl_only.get('TIMEOUT')}}"
+assert config_crawl_only.get('CRAWL_KEY') == 'from_crawl'
+assert config_crawl_only.get('SNAPSHOT_KEY') is None, "Should not have snapshot config"
+print("✓ Crawl-only config has TIMEOUT=777")
+print("✓ No snapshot config values present")
+
+print("\\n✓ All auto-fetch tests passed")
+"""
+
+        result = subprocess.run(
+            ['python', '-c', create_objects_script],
+            cwd=str(data_dir.parent),
+            env={
+                **os.environ,
+                'DATA_DIR': str(data_dir),
+                'USE_COLOR': 'False',
+            },
+            capture_output=True,
+            timeout=30,
+        )
+
+        print(result.stdout.decode())
+        if result.returncode != 0:
+            print("\nAuto-fetch test error:")
+            print(result.stderr.decode())
+
+        assert result.returncode == 0, f"Auto-fetch test failed: {result.stderr.decode()}"
+
+        print("\n" + "="*80)
+        print("✓ TEST PASSED: Config auto-fetches related objects correctly")
+        print("  - archiveresult → snapshot → crawl → user")
+        print("  - Precedence preserved during auto-fetch")
+        print("="*80 + "\n")
+
+
+def test_config_precedence_with_environment_vars():
+    """
+    Test that config precedence order is correct when environment vars are set.
+
+    Documented order (highest to lowest):
+    1. snapshot.config
+    2. crawl.config
+    3. user.config
+    4. persona config
+    5. environment variables  <-- LOWER priority than snapshot/crawl
+    6. machine.config
+    7. config file
+    8. plugin defaults
+    9. core defaults
+
+    This test verifies snapshot.config overrides environment variables.
+    """
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        data_dir = Path(tmpdir) / 'test_archive'
+        data_dir.mkdir()
+
+        print(f"\n{'='*80}")
+        print(f"Test: Config Precedence with Environment Variables")
+        print(f"DATA_DIR: {data_dir}")
+        print(f"{'='*80}\n")
+
+        # Initialize
+        result = subprocess.run(
+            ['python', '-m', 'archivebox', 'init'],
+            cwd=str(data_dir),
+            env={**os.environ, 'DATA_DIR': str(data_dir), 'USE_COLOR': 'False'},
+            capture_output=True,
+            timeout=60,
+        )
+        assert result.returncode == 0
+        print("✓ Archive initialized\n")
+
+        # Test with environment variable set
+        print("Step 1: Test with TIMEOUT=999 in environment")
+        test_script = f"""
+import os
+os.environ['DATA_DIR'] = '{data_dir}'
+os.environ['TIMEOUT'] = '999'  # Set env var
+
+from archivebox.config.django import setup_django
+setup_django()
+
+from django.utils import timezone
+from archivebox.crawls.models import Crawl
+from archivebox.core.models import Snapshot
+from archivebox.config.configset import get_config
+
+# Create crawl with TIMEOUT=777
+crawl = Crawl.objects.create(
+    urls='https://example.com',
+    status='queued',
+    retry_at=timezone.now(),
+    config={{'TIMEOUT': 777}}
+)
+
+# Create snapshot with TIMEOUT=555
+snapshot = Snapshot.objects.create(
+    url='https://example.com',
+    crawl=crawl,
+    status='queued',
+    retry_at=timezone.now(),
+    config={{'TIMEOUT': 555}}
+)
+
+# Get config with all sources
+config = get_config(snapshot=snapshot)
+
+print(f"Environment: TIMEOUT={{os.environ.get('TIMEOUT')}}")
+print(f"Crawl config: TIMEOUT={{crawl.config.get('TIMEOUT')}}")
+print(f"Snapshot config: TIMEOUT={{snapshot.config.get('TIMEOUT')}}")
+print(f"Merged config: TIMEOUT={{config.get('TIMEOUT')}}")
+
+# Snapshot should override both crawl AND environment
+expected = 555
+actual = config.get('TIMEOUT')
+if actual != expected:
+    print(f"\\n❌ PRECEDENCE BUG: Expected {{expected}}, got {{actual}}")
+    print(f"   Snapshot.config should have highest priority!")
+    import sys
+    sys.exit(1)
+
+print(f"\\n✓ snapshot.config ({{expected}}) correctly overrides env var (999) and crawl.config (777)")
+"""
+
+        result = subprocess.run(
+            ['python', '-c', test_script],
+            cwd=str(data_dir.parent),
+            capture_output=True,
+            timeout=30,
+        )
+
+        print(result.stdout.decode())
+        if result.returncode != 0:
+            print("\nPrecedence bug detected:")
+            print(result.stderr.decode())
+
+        assert result.returncode == 0, f"Precedence test failed: {result.stderr.decode()}"
+
+        print("\n" + "="*80)
+        print("✓ TEST PASSED: Snapshot config correctly overrides environment variables")
+        print("="*80 + "\n")
+
+
 if __name__ == '__main__':
     # Run as standalone script
     test_config_propagation_through_worker_hierarchy()
     test_config_environment_variable_parsing()
+    test_parent_environment_preserved_in_hooks()
+    test_config_auto_fetch_relationships()
+    test_config_precedence_with_environment_vars()

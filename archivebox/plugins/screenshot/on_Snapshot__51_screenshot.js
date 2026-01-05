@@ -26,11 +26,20 @@ const {
     readCdpUrl,
 } = require('../chrome/chrome_utils.js');
 
+// Flush V8 coverage before exit (needed for NODE_V8_COVERAGE to capture early exits)
+function flushCoverageAndExit(exitCode) {
+    if (process.env.NODE_V8_COVERAGE) {
+        const v8 = require('v8');
+        v8.takeCoverage();
+    }
+    process.exit(exitCode);
+}
+
 // Check if screenshot is enabled BEFORE requiring puppeteer
 if (!getEnvBool('SCREENSHOT_ENABLED', true)) {
     console.error('Skipping screenshot (SCREENSHOT_ENABLED=False)');
     // Temporary failure (config disabled) - NO JSONL emission
-    process.exit(0);
+    flushCoverageAndExit(0);
 }
 
 // Now safe to require puppeteer
@@ -135,7 +144,7 @@ async function main() {
 
     if (!url || !snapshotId) {
         console.error('Usage: on_Snapshot__51_screenshot.js --url=<url> --snapshot-id=<uuid>');
-        process.exit(1);
+        flushCoverageAndExit(1);
     }
 
     // Check if staticfile extractor already handled this (permanent skip)
@@ -147,7 +156,7 @@ async function main() {
             status: 'skipped',
             output_str: 'staticfile already handled',
         }));
-        process.exit(0);
+        flushCoverageAndExit(0);
     }
 
     // Take screenshot (throws on error)
@@ -166,5 +175,5 @@ async function main() {
 main().catch(e => {
     // Transient error - emit NO JSONL
     console.error(`ERROR: ${e.message}`);
-    process.exit(1);
+    flushCoverageAndExit(1);
 });

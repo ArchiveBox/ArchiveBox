@@ -2,7 +2,7 @@
 """
 Submit a URL to archive.org for archiving.
 
-Usage: on_Snapshot__archive_org.py --url=<url> --snapshot-id=<uuid>
+Usage: on_Snapshot__archivedotorg.py --url=<url> --snapshot-id=<uuid>
 Output: Writes archive.org.txt to $PWD with the archived URL
 
 Environment variables:
@@ -25,7 +25,7 @@ import rich_click as click
 
 
 # Extractor metadata
-PLUGIN_NAME = 'archive_org'
+PLUGIN_NAME = 'archivedotorg'
 OUTPUT_DIR = '.'
 OUTPUT_FILE = 'archive.org.txt'
 
@@ -41,7 +41,7 @@ def get_env_int(name: str, default: int = 0) -> int:
         return default
 
 
-def submit_to_archive_org(url: str) -> tuple[bool, str | None, str]:
+def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
     """
     Submit URL to archive.org Wayback Machine.
 
@@ -113,7 +113,7 @@ def main(url: str, snapshot_id: str):
 
     try:
         # Run extraction
-        success, output, error = submit_to_archive_org(url)
+        success, output, error = submit_to_archivedotorg(url)
 
         if success:
             # Success - emit ArchiveResult with output file

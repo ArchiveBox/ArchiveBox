@@ -36,7 +36,7 @@ from django.utils import timezone
 from rich import print
 
 from archivebox.misc.logging_util import log_worker_event
-from .worker import Worker, CrawlWorker
+from .worker import Worker, BinaryWorker, CrawlWorker
 
 
 def _run_orchestrator_process(exit_on_idle: bool) -> None:
@@ -63,13 +63,14 @@ class Orchestrator:
     - Each SnapshotWorker runs hooks sequentially for its snapshot
     """
 
-    # Only CrawlWorker - SnapshotWorkers are spawned by CrawlWorker subprocess, not by Orchestrator
-    WORKER_TYPES: list[Type[Worker]] = [CrawlWorker]
+    # BinaryWorker (singleton daemon) and CrawlWorker - SnapshotWorkers are spawned by CrawlWorker subprocess, not by Orchestrator
+    WORKER_TYPES: list[Type[Worker]] = [BinaryWorker, CrawlWorker]
 
     # Configuration
     POLL_INTERVAL: float = 2.0  # How often to check for new work (seconds)
     IDLE_TIMEOUT: int = 3  # Exit after N idle ticks (0 = never exit)
     MAX_CRAWL_WORKERS: int = 8  # Max crawls processing simultaneously
+    MAX_BINARY_WORKERS: int = 1  # Max binaries installing simultaneously (sequential only)
 
     def __init__(self, exit_on_idle: bool = True, crawl_id: str | None = None):
         self.exit_on_idle = exit_on_idle
@@ -194,15 +195,23 @@ class Orchestrator:
         return len(WorkerClass.get_running_workers())
     
     def should_spawn_worker(self, WorkerClass: Type[Worker], queue_count: int) -> bool:
-        """Determine if we should spawn a new CrawlWorker."""
+        """Determine if we should spawn a new worker."""
         if queue_count == 0:
             return False
 
-        # Check CrawlWorker limit
+        # Get appropriate limit based on worker type
+        if WorkerClass.name == 'crawl':
+            max_workers = self.MAX_CRAWL_WORKERS
+        elif WorkerClass.name == 'binary':
+            max_workers = self.MAX_BINARY_WORKERS  # Force sequential: only 1 binary at a time
+        else:
+            max_workers = 1  # Default for unknown types
+
+        # Check worker limit
         running_workers = WorkerClass.get_running_workers()
         running_count = len(running_workers)
 
-        if running_count >= self.MAX_CRAWL_WORKERS:
+        if running_count >= max_workers:
             return False
 
         # Check if we already have enough workers for the queue size
@@ -285,14 +294,35 @@ class Orchestrator:
     
     def check_queues_and_spawn_workers(self) -> dict[str, int]:
         """
-        Check Crawl queue and spawn CrawlWorkers as needed.
+        Check Binary and Crawl queues and spawn workers as needed.
         Returns dict of queue sizes.
         """
         from archivebox.crawls.models import Crawl
+        from archivebox.machine.models import Binary, Machine
 
         queue_sizes = {}
 
-        # Only check Crawl queue
+        # Check Binary queue
+        machine = Machine.current()
+        binary_queue = Binary.objects.filter(
+            machine=machine,
+            status=Binary.StatusChoices.QUEUED,
+            retry_at__lte=timezone.now()
+        ).order_by('retry_at')
+        binary_count = binary_queue.count()
+        queue_sizes['binary'] = binary_count
+
+        # Spawn BinaryWorker if needed (one worker per binary, up to MAX_BINARY_WORKERS)
+        if self.should_spawn_worker(BinaryWorker, binary_count):
+            # Get next binary to process
+            binary = binary_queue.first()
+            if binary:
+                BinaryWorker.start(binary_id=str(binary.id))
+
+        # Check if any BinaryWorkers are still running
+        running_binary_workers = len(BinaryWorker.get_running_workers())
+
+        # Check Crawl queue
         crawl_queue = Crawl.objects.filter(
             retry_at__lte=timezone.now()
         ).exclude(
@@ -307,12 +337,15 @@ class Orchestrator:
         crawl_count = crawl_queue.count()
         queue_sizes['crawl'] = crawl_count
 
-        # Spawn CrawlWorker if needed
-        if self.should_spawn_worker(CrawlWorker, crawl_count):
-            # Claim next crawl
-            crawl = crawl_queue.first()
-            if crawl and self._claim_crawl(crawl):
-                CrawlWorker.start(crawl_id=str(crawl.id))
+        # CRITICAL: Only spawn CrawlWorkers if binary queue is empty AND no BinaryWorkers running
+        # This ensures all binaries are installed before snapshots start processing
+        if binary_count == 0 and running_binary_workers == 0:
+            # Spawn CrawlWorker if needed
+            if self.should_spawn_worker(CrawlWorker, crawl_count):
+                # Claim next crawl
+                crawl = crawl_queue.first()
+                if crawl and self._claim_crawl(crawl):
+                    CrawlWorker.start(crawl_id=str(crawl.id))
 
         return queue_sizes
 
@@ -328,7 +361,7 @@ class Orchestrator:
         )
 
         return updated == 1
-    
+
     def has_pending_work(self, queue_sizes: dict[str, int]) -> bool:
         """Check if any queue has pending work."""
         return any(count > 0 for count in queue_sizes.values())

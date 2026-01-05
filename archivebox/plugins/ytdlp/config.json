@@ -74,7 +74,7 @@
         "--geo-bypass",
         "--add-metadata",
         "--no-progress",
-        "--remote-components ejs:github",
+        "--remote-components=ejs:github",
         "-o",
         "%(title)s.%(ext)s"
       ],

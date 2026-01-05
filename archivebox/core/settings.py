@@ -206,7 +206,10 @@ DATABASES = {
 }
 MIGRATION_MODULES = {"signal_webhooks": None}
 
-# as much as I'd love this to be a UUID or ULID field, it's not supported yet as of Django 5.0
+# Django requires DEFAULT_AUTO_FIELD to subclass AutoField (BigAutoField, SmallAutoField, etc.)
+# Cannot use UUIDField here until Django 6.0 introduces DEFAULT_PK_FIELD setting
+# For now: manually add `id = models.UUIDField(primary_key=True, default=uuid7, ...)` to all models
+# OR inherit from ModelWithUUID base class which provides UUID primary key
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 

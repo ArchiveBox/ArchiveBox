@@ -128,4 +128,4 @@ class ModelWithOutputDir(ModelWithUUID):
 
     @property
     def output_dir(self) -> Path:
-        raise NotImplementedError(f'{self.__class__.__name__} must implement output_dir property')
+        raise NotImplementedError(f"{self.__class__.__name__} must implement output_dir property")

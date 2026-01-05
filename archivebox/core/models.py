@@ -1973,7 +1973,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         canonical = {
             'index_path': 'index.html',
             'google_favicon_path': FAVICON_PROVIDER.format(self.domain),
-            'archive_org_path': f'https://web.archive.org/web/{self.base_url}',
+            'archivedotorg_path': f'https://web.archive.org/web/{self.base_url}',
         }
 
         # Scan each ArchiveResult's output directory for the best file

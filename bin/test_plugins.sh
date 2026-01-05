@@ -239,6 +239,8 @@ for test_dir in $TEST_DIRS; do
     PYTEST_CMD="python -m pytest $test_dir -p no:django -v --tb=short"
     if [ "$ENABLE_COVERAGE" = true ]; then
         PYTEST_CMD="$PYTEST_CMD --cov=$plugin_name --cov-append --cov-branch"
+        echo "[DEBUG] NODE_V8_COVERAGE before pytest: $NODE_V8_COVERAGE"
+        python -c "import os; print('[DEBUG BASH->PYTHON] NODE_V8_COVERAGE:', os.environ.get('NODE_V8_COVERAGE', 'NOT_SET'))"
     fi
 
     if eval "$PYTEST_CMD" 2>&1 | grep -v "^platform\|^cachedir\|^rootdir\|^configfile\|^plugins:" | tail -100; then
