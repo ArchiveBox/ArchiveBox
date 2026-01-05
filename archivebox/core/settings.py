@@ -99,16 +99,66 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 
-# from ..plugins_auth.ldap.settings import LDAP_CONFIG
+# LDAP Authentication Configuration
+# Conditionally loaded if LDAP_ENABLED=True and django-auth-ldap is installed
+try:
+    from archivebox.config.ldap import LDAP_CONFIG
 
-# if LDAP_CONFIG.LDAP_ENABLED:
-#     AUTH_LDAP_BIND_DN = LDAP_CONFIG.LDAP_BIND_DN
-#     AUTH_LDAP_SERVER_URI = LDAP_CONFIG.LDAP_SERVER_URI
-#     AUTH_LDAP_BIND_PASSWORD = LDAP_CONFIG.LDAP_BIND_PASSWORD
-#     AUTH_LDAP_USER_ATTR_MAP = LDAP_CONFIG.LDAP_USER_ATTR_MAP
-#     AUTH_LDAP_USER_SEARCH = LDAP_CONFIG.AUTH_LDAP_USER_SEARCH
+    if LDAP_CONFIG.LDAP_ENABLED:
+        # Validate LDAP configuration
+        is_valid, error_msg = LDAP_CONFIG.validate_ldap_config()
+        if not is_valid:
+            from rich import print
+            print(f"[red][X] Error: {error_msg}[/red]")
+            raise ValueError(error_msg)
 
-#     AUTHENTICATION_BACKENDS = LDAP_CONFIG.AUTHENTICATION_BACKENDS
+        try:
+            # Try to import django-auth-ldap (will fail if not installed)
+            import django_auth_ldap
+            from django_auth_ldap.config import LDAPSearch
+            import ldap
+
+            # Configure LDAP authentication
+            AUTH_LDAP_SERVER_URI = LDAP_CONFIG.LDAP_SERVER_URI
+            AUTH_LDAP_BIND_DN = LDAP_CONFIG.LDAP_BIND_DN
+            AUTH_LDAP_BIND_PASSWORD = LDAP_CONFIG.LDAP_BIND_PASSWORD
+
+            # Configure user search
+            AUTH_LDAP_USER_SEARCH = LDAPSearch(
+                LDAP_CONFIG.LDAP_USER_BASE,
+                ldap.SCOPE_SUBTREE,
+                LDAP_CONFIG.LDAP_USER_FILTER,
+            )
+
+            # Map LDAP attributes to Django user model fields
+            AUTH_LDAP_USER_ATTR_MAP = {
+                "username": LDAP_CONFIG.LDAP_USERNAME_ATTR,
+                "first_name": LDAP_CONFIG.LDAP_FIRSTNAME_ATTR,
+                "last_name": LDAP_CONFIG.LDAP_LASTNAME_ATTR,
+                "email": LDAP_CONFIG.LDAP_EMAIL_ATTR,
+            }
+
+            # Use custom LDAP backend that supports LDAP_CREATE_SUPERUSER
+            AUTHENTICATION_BACKENDS = [
+                "archivebox.ldap.auth.ArchiveBoxLDAPBackend",
+                "django.contrib.auth.backends.RemoteUserBackend",
+                "django.contrib.auth.backends.ModelBackend",
+            ]
+
+        except ImportError as e:
+            from rich import print
+            print("[red][X] Error: LDAP_ENABLED=True but required LDAP libraries are not installed![/red]")
+            print(f"[red]    {e}[/red]")
+            print("[yellow]    To install LDAP support, run:[/yellow]")
+            print("[yellow]        pip install archivebox[ldap][/yellow]")
+            print("[yellow]    Or manually:[/yellow]")
+            print("[yellow]        apt install build-essential python3-dev libsasl2-dev libldap2-dev libssl-dev[/yellow]")
+            print("[yellow]        pip install python-ldap django-auth-ldap[/yellow]")
+            raise
+
+except ImportError:
+    # archivebox.config.ldap not available (shouldn't happen but handle gracefully)
+    pass
 
 ################################################################################
 ### Staticfile and Template Settings

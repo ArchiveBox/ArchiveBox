@@ -92,6 +92,7 @@ def get_CONFIG():
         ARCHIVING_CONFIG,
         SEARCH_BACKEND_CONFIG,
     )
+    from .ldap import LDAP_CONFIG
     return {
         'SHELL_CONFIG': SHELL_CONFIG,
         'STORAGE_CONFIG': STORAGE_CONFIG,
@@ -99,4 +100,5 @@ def get_CONFIG():
         'SERVER_CONFIG': SERVER_CONFIG,
         'ARCHIVING_CONFIG': ARCHIVING_CONFIG,
         'SEARCHBACKEND_CONFIG': SEARCH_BACKEND_CONFIG,
+        'LDAP_CONFIG': LDAP_CONFIG,
     }
