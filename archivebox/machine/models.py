@@ -378,7 +378,7 @@ class Binary(ModelWithHealthStats):
         return None
 
     @property
-    def OUTPUT_DIR(self):
+    def output_dir(self):
         """Return the output directory for this binary installation."""
         from pathlib import Path
         from django.conf import settings
@@ -412,10 +412,10 @@ class Binary(ModelWithHealthStats):
         from archivebox.config.configset import get_config
 
         # Get merged config (Binary doesn't have crawl/snapshot context)
-        config = get_config(scope='global')
+        config = get_config()
 
         # Create output directory
-        output_dir = self.OUTPUT_DIR
+        output_dir = self.output_dir
         output_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir = str(output_dir)
         self.save()
@@ -514,7 +514,7 @@ class Binary(ModelWithHealthStats):
                 print(f'[yellow]🔪 Killed {killed_count} binary installation hook process(es)[/yellow]')
 
         # Clean up .pid files from output directory
-        output_dir = self.OUTPUT_DIR
+        output_dir = self.output_dir
         if output_dir.exists():
             for pid_file in output_dir.glob('**/*.pid'):
                 pid_file.unlink(missing_ok=True)
@@ -1275,6 +1275,128 @@ class Process(models.Model):
     def stderr_file(self) -> Path:
         """Path to stderr log."""
         return Path(self.pwd) / 'stderr.log' if self.pwd else None
+
+    def tail_stdout(self, lines: int = 50, follow: bool = False):
+        """
+        Tail stdout log file (like `tail` or `tail -f`).
+
+        Args:
+            lines: Number of lines to show (default 50)
+            follow: If True, follow the file and yield new lines as they appear
+
+        Yields:
+            Lines from stdout
+        """
+        if not self.stdout_file or not self.stdout_file.exists():
+            return
+
+        if follow:
+            # Follow mode - yield new lines as they appear (tail -f)
+            import time
+            with open(self.stdout_file, 'r') as f:
+                # Seek to end minus roughly 'lines' worth of bytes
+                f.seek(0, 2)  # Seek to end
+                file_size = f.tell()
+                # Rough estimate: 100 bytes per line
+                seek_pos = max(0, file_size - (lines * 100))
+                f.seek(seek_pos)
+
+                # Skip partial line if we seeked to middle
+                if seek_pos > 0:
+                    f.readline()
+
+                # Yield existing lines
+                for line in f:
+                    yield line.rstrip('\n')
+
+                # Now follow for new lines
+                while True:
+                    line = f.readline()
+                    if line:
+                        yield line.rstrip('\n')
+                    else:
+                        time.sleep(0.1)  # Wait before checking again
+        else:
+            # Just get last N lines (tail -n)
+            try:
+                content = self.stdout_file.read_text()
+                for line in content.splitlines()[-lines:]:
+                    yield line
+            except Exception:
+                return
+
+    def tail_stderr(self, lines: int = 50, follow: bool = False):
+        """
+        Tail stderr log file (like `tail` or `tail -f`).
+
+        Args:
+            lines: Number of lines to show (default 50)
+            follow: If True, follow the file and yield new lines as they appear
+
+        Yields:
+            Lines from stderr
+        """
+        if not self.stderr_file or not self.stderr_file.exists():
+            return
+
+        if follow:
+            # Follow mode - yield new lines as they appear (tail -f)
+            import time
+            with open(self.stderr_file, 'r') as f:
+                # Seek to end minus roughly 'lines' worth of bytes
+                f.seek(0, 2)  # Seek to end
+                file_size = f.tell()
+                # Rough estimate: 100 bytes per line
+                seek_pos = max(0, file_size - (lines * 100))
+                f.seek(seek_pos)
+
+                # Skip partial line if we seeked to middle
+                if seek_pos > 0:
+                    f.readline()
+
+                # Yield existing lines
+                for line in f:
+                    yield line.rstrip('\n')
+
+                # Now follow for new lines
+                while True:
+                    line = f.readline()
+                    if line:
+                        yield line.rstrip('\n')
+                    else:
+                        time.sleep(0.1)  # Wait before checking again
+        else:
+            # Just get last N lines (tail -n)
+            try:
+                content = self.stderr_file.read_text()
+                for line in content.splitlines()[-lines:]:
+                    yield line
+            except Exception:
+                return
+
+    def pipe_stdout(self, lines: int = 10, follow: bool = True):
+        """
+        Pipe stdout to sys.stdout.
+
+        Args:
+            lines: Number of initial lines to show
+            follow: If True, follow the file and print new lines as they appear
+        """
+        import sys
+        for line in self.tail_stdout(lines=lines, follow=follow):
+            print(line, file=sys.stdout, flush=True)
+
+    def pipe_stderr(self, lines: int = 10, follow: bool = True):
+        """
+        Pipe stderr to sys.stderr.
+
+        Args:
+            lines: Number of initial lines to show
+            follow: If True, follow the file and print new lines as they appear
+        """
+        import sys
+        for line in self.tail_stderr(lines=lines, follow=follow):
+            print(line, file=sys.stderr, flush=True)
 
     def _write_pid_file(self) -> None:
         """Write PID file with mtime set to process start time."""

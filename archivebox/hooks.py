@@ -207,7 +207,7 @@ def discover_hooks(
         # Get merged config if not provided (lazy import to avoid circular dependency)
         if config is None:
             from archivebox.config.configset import get_config
-            config = get_config(scope='global')
+            config = get_config()
 
         enabled_hooks = []
 
@@ -703,7 +703,7 @@ def get_enabled_plugins(config: Optional[Dict[str, Any]] = None) -> List[str]:
     # Get merged config if not provided
     if config is None:
         from archivebox.config.configset import get_config
-        config = get_config(scope='global')
+        config = get_config()
 
     # Support explicit ENABLED_PLUGINS override (legacy)
     if 'ENABLED_PLUGINS' in config:
@@ -967,9 +967,9 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
     else:
         # No PLUGINS whitelist - use PLUGINNAME_ENABLED (default True)
         import sys
-        print(f"DEBUG: NO PLUGINS whitelist in config, checking {plugin_upper}_ENABLED", file=sys.stderr)
         enabled_key = f'{plugin_upper}_ENABLED'
         enabled = config.get(enabled_key)
+        print(f"DEBUG: NO PLUGINS whitelist in config, checking {enabled_key}={enabled}", file=sys.stderr)
         if enabled is None:
             enabled = True
         elif isinstance(enabled, str):

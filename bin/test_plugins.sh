@@ -179,7 +179,7 @@ if [ "$ENABLE_COVERAGE" = true ]; then
     export NODE_V8_COVERAGE="$ROOT_DIR/coverage/js"
 
     echo "Python coverage: enabled (subprocess support)"
-    echo "JavaScript coverage: enabled (NODE_V8_COVERAGE)"
+    echo "JavaScript coverage: enabled (NODE_V8_COVERAGE=$NODE_V8_COVERAGE)"
     echo ""
 fi
 

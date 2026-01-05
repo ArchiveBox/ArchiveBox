@@ -3,6 +3,12 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "CHROME_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["USE_CHROME"],
+      "description": "Enable Chrome/Chromium browser integration for archiving"
+    },
     "CHROME_BINARY": {
       "type": "string",
       "default": "chromium",

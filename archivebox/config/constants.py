@@ -176,6 +176,7 @@ class ConstantsDict(Mapping):
         CRONTABS_DIR_NAME,
         "invalid",
         "users",
+        "machine",
         # Backwards compatibility with old directory names
         "user_plugins",          # old name for USER_PLUGINS_DIR (now 'plugins')
         "user_templates",        # old name for CUSTOM_TEMPLATES_DIR (now 'templates')

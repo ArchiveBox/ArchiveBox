@@ -201,16 +201,18 @@ def test_config_save_screenshot_false_skips():
     """Test that SCREENSHOT_ENABLED=False exits without emitting JSONL."""
     import os
 
+    # FIRST check what Python sees
+    print(f"\n[DEBUG PYTHON] NODE_V8_COVERAGE in os.environ: {'NODE_V8_COVERAGE' in os.environ}")
+    print(f"[DEBUG PYTHON] Value: {os.environ.get('NODE_V8_COVERAGE', 'NOT SET')}")
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         env = os.environ.copy()
         env['SCREENSHOT_ENABLED'] = 'False'
 
-        # DEBUG: Check if NODE_V8_COVERAGE is in env
-        if 'NODE_V8_COVERAGE' in env:
-            print(f"\n[DEBUG] NODE_V8_COVERAGE in env: {env['NODE_V8_COVERAGE']}")
-        else:
-            print("\n[DEBUG] NODE_V8_COVERAGE NOT in env")
+        # Check what's in the copied env
+        print(f"[DEBUG ENV COPY] NODE_V8_COVERAGE in env: {'NODE_V8_COVERAGE' in env}")
+        print(f"[DEBUG ENV COPY] Value: {env.get('NODE_V8_COVERAGE', 'NOT SET')}")
 
         result = subprocess.run(
             ['node', str(SCREENSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=test999'],
@@ -220,6 +222,12 @@ def test_config_save_screenshot_false_skips():
             env=env,
             timeout=30
         )
+
+        print(f"[DEBUG RESULT] Exit code: {result.returncode}")
+        print(f"[DEBUG RESULT] Stderr: {result.stderr[:200]}")
+
+        # FORCE FAILURE to verify test actually runs
+        assert False, f"FORCED FAILURE - NODE_V8_COVERAGE={'NODE_V8_COVERAGE' in env} value={env.get('NODE_V8_COVERAGE', 'NOTSET')}"
 
         assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
 

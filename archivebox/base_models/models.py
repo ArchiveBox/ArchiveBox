@@ -111,7 +111,7 @@ class ModelWithOutputDir(ModelWithUUID):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        Path(self.output_dir).mkdir(parents=True, exist_ok=True)
         # Note: index.json is deprecated, models should use write_index_jsonl() for full data
 
     @property
@@ -127,5 +127,5 @@ class ModelWithOutputDir(ModelWithUUID):
         return f'{self.output_dir_parent}/{self.output_dir_name}'
 
     @property
-    def OUTPUT_DIR(self) -> Path:
-        return DATA_DIR / self.output_dir_str
+    def output_dir(self) -> Path:
+        raise NotImplementedError(f'{self.__class__.__name__} must implement output_dir property')

@@ -33,6 +33,7 @@ def copy_old_fields_to_new(apps, schema_editor):
 
     # NOTE: Snapshot timestamps (added→bookmarked_at, updated→modified_at) were already
     # transformed by migration 0023, so we don't need to copy them here.
+    # NOTE: UUIDs are already populated by migration 0023 for all migration paths
 
     # Debug: Check Snapshot timestamps at end of RunPython
     cursor.execute("SELECT id, bookmarked_at, modified_at FROM core_snapshot LIMIT 2")

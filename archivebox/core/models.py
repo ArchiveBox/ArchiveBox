@@ -1354,7 +1354,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     def domain(self) -> str:
         return url_domain(self.url)
 
-    @cached_property
+    @property
     def output_dir(self):
         """The filesystem path to the snapshot's output directory."""
         import os
@@ -1435,8 +1435,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 print(f'[yellow]🔪 Killed {killed_count} process(es) for hook {process.pid}[/yellow]')
 
         # Clean up .pid files from output directory
-        if self.OUTPUT_DIR.exists():
-            for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
+        if Path(self.output_dir).exists():
+            for pid_file in Path(self.output_dir).glob('**/*.pid'):
                 pid_file.unlink(missing_ok=True)
 
         # Update all STARTED ArchiveResults from filesystem
@@ -2263,9 +2263,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
     # UUID primary key (migrated from integer in 0029)
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
-    # old_id preserves the legacy integer ID for backward compatibility
-    old_id = models.IntegerField(null=True, blank=True, db_index=True, help_text='Legacy integer ID from pre-0.9.0 versions')
-    # Note: uuid field was removed in migration 0029 when id became UUID
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -2494,7 +2491,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
     @property
     def output_dir_parent(self) -> str:
-        return str(self.snapshot.OUTPUT_DIR.relative_to(CONSTANTS.DATA_DIR))
+        return str(Path(self.snapshot.output_dir).relative_to(CONSTANTS.DATA_DIR))
 
     # Properties that delegate to Process model (for backwards compatibility)
     # These properties will replace the direct fields after migration is complete

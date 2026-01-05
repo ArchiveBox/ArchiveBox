@@ -180,7 +180,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         return crawl
 
     @property
-    def OUTPUT_DIR(self) -> Path:
+    def output_dir(self) -> Path:
         """
         Construct output directory: users/{username}/crawls/{YYYYMMDD}/{domain}/{crawl-id}
         Domain is extracted from the first URL in the crawl.
@@ -383,7 +383,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 f.flush()
             hook_start = time.time()
             plugin_name = hook.parent.name
-            output_dir = self.OUTPUT_DIR / plugin_name
+            output_dir = self.output_dir / plugin_name
             output_dir.mkdir(parents=True, exist_ok=True)
 
             # Run hook using Process.launch() - returns Process model
@@ -427,7 +427,10 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             f.write(f'Created {len(created_snapshots)} snapshots\n')
             f.write(f'=== Crawl.run() complete ===\n\n')
             f.flush()
-        return created_snapshots[0] if created_snapshots else None
+
+        # Return first snapshot for this crawl (newly created or existing)
+        # This ensures the crawl doesn't seal if snapshots exist, even if they weren't just created
+        return self.snapshot_set.first()
 
     def is_finished(self) -> bool:
         """Check if crawl is finished (all snapshots sealed or no snapshots exist)."""
@@ -467,8 +470,8 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 print(f'[yellow]🔪 Killed {killed_count} orphaned crawl hook process(es)[/yellow]')
 
         # Clean up .pid files from output directory
-        if self.OUTPUT_DIR.exists():
-            for pid_file in self.OUTPUT_DIR.glob('**/*.pid'):
+        if self.output_dir.exists():
+            for pid_file in self.output_dir.glob('**/*.pid'):
                 pid_file.unlink(missing_ok=True)
 
         # Run on_CrawlEnd hooks
@@ -479,7 +482,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
         for hook in hooks:
             plugin_name = hook.parent.name
-            output_dir = self.OUTPUT_DIR / plugin_name
+            output_dir = self.output_dir / plugin_name
             output_dir.mkdir(parents=True, exist_ok=True)
 
             process = run_hook(

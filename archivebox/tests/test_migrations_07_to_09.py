@@ -136,7 +136,7 @@ class TestMigrationFrom07x(unittest.TestCase):
         result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
-        result = run_archivebox(self.work_dir, ['list'])
+        result = run_archivebox(self.work_dir, ['snapshot', 'list'])
         self.assertEqual(result.returncode, 0, f"List failed after migration: {result.stderr}")
 
         # Verify ALL snapshots appear in output

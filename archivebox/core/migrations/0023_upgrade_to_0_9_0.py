@@ -15,6 +15,7 @@ def get_table_columns(table_name):
 
 def upgrade_core_tables(apps, schema_editor):
     """Upgrade core tables from v0.7.2 or v0.8.6rc0 to v0.9.0."""
+    from archivebox.uuid_compat import uuid7
     cursor = connection.cursor()
 
     # Check if core_archiveresult table exists
@@ -60,8 +61,8 @@ def upgrade_core_tables(apps, schema_editor):
 
     if has_data:
         if has_uuid and not has_abid:
-            # Migrating from v0.7.2 (has uuid, minimal fields)
-            print('Migrating ArchiveResult from v0.7.2 schema...')
+            # Migrating from v0.7.2+ (has uuid column)
+            print('Migrating ArchiveResult from v0.7.2+ schema (with uuid)...')
             cursor.execute("""
                 INSERT OR IGNORE INTO core_archiveresult_new (
                     id, uuid, snapshot_id, cmd, pwd, cmd_version,
@@ -86,7 +87,18 @@ def upgrade_core_tables(apps, schema_editor):
                 FROM core_archiveresult;
             """)
         else:
-            print(f'Warning: Unexpected schema - has_uuid={has_uuid}, has_abid={has_abid}')
+            # Migrating from v0.7.2 (no uuid or abid column - generate fresh UUIDs)
+            print('Migrating ArchiveResult from v0.7.2 schema (no uuid - generating UUIDs)...')
+            cursor.execute("SELECT id, snapshot_id, cmd, pwd, cmd_version, start_ts, end_ts, status, extractor, output FROM core_archiveresult")
+            old_records = cursor.fetchall()
+            for record in old_records:
+                new_uuid = uuid7().hex
+                cursor.execute("""
+                    INSERT OR IGNORE INTO core_archiveresult_new (
+                        id, uuid, snapshot_id, cmd, pwd, cmd_version,
+                        start_ts, end_ts, status, extractor, output
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (record[0], new_uuid, record[1], record[2], record[3], record[4], record[5], record[6], record[7], record[8], record[9]))
 
     cursor.execute("DROP TABLE IF EXISTS core_archiveresult;")
     cursor.execute("ALTER TABLE core_archiveresult_new RENAME TO core_archiveresult;")

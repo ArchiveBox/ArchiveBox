@@ -8,12 +8,20 @@ from archivebox.uuid_compat import uuid7
 
 def migrate_archiveresult_id_to_uuid(apps, schema_editor):
     """
-    Migrate ArchiveResult from integer PK to UUID PK.
+    Migrate ArchiveResult from integer PK to UUID PK (clean one-step migration).
+
+    Handles both migration paths:
+    - 0.7.x: ArchiveResult has integer id, NO uuid field → generate new UUIDs
+    - 0.8.x: ArchiveResult has integer id + optional uuid field → reuse existing UUIDs
 
     Strategy:
-    1. Add old_id field to store current integer IDs
-    2. Generate UUIDs for any records missing them
-    3. Swap id and uuid fields (uuid becomes PK, old integer id becomes old_id)
+    1. Create new table with UUID as primary key (no temporary columns)
+    2. Generate UUIDs for records missing them (0.7.x) or reuse existing (0.8.x)
+    3. Copy all data with UUID as new id
+    4. Drop old table, rename new table
+    5. Recreate indexes
+
+    Result: Clean schema with ONLY id as UUIDField (no old_id, no uuid)
     """
     cursor = connection.cursor()
 
@@ -26,11 +34,13 @@ def migrate_archiveresult_id_to_uuid(apps, schema_editor):
     cursor.execute("SELECT COUNT(*) FROM core_archiveresult")
     row_count = cursor.fetchone()[0]
 
-    if row_count == 0:
-        print('No ArchiveResult records to migrate')
-        return
+    # Don't skip if table is empty - we still need to recreate to remove uuid column
+    # (fresh installs create table with uuid from 0025, but model expects no uuid after 0029)
 
-    print(f'Migrating {row_count} ArchiveResult records from integer PK to UUID PK...')
+    if row_count == 0:
+        print('[0029] Recreating ArchiveResult table schema (integer→UUID PK, removing uuid column)...')
+    else:
+        print(f'[0029] Migrating {row_count} ArchiveResult records from integer PK to UUID PK...')
 
     # Step 0: Check if machine_process table exists, if not NULL out process_id values
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='machine_process'")
@@ -40,12 +50,10 @@ def migrate_archiveresult_id_to_uuid(apps, schema_editor):
         print('machine_process table does not exist yet, setting process_id to NULL')
         cursor.execute("UPDATE core_archiveresult SET process_id = NULL WHERE process_id IS NOT NULL")
 
-    # Step 1: Create new table with UUID as primary key
+    # Step 1: Create new table with UUID as primary key (clean - no old_id or uuid columns)
     cursor.execute("""
         CREATE TABLE core_archiveresult_new (
             id TEXT PRIMARY KEY NOT NULL,
-            old_id INTEGER,
-            uuid TEXT UNIQUE,
             created_at DATETIME NOT NULL,
             modified_at DATETIME NOT NULL,
 
@@ -78,28 +86,36 @@ def migrate_archiveresult_id_to_uuid(apps, schema_editor):
     """)
 
     # Step 2: Generate UUIDs for records that don't have them
-    cursor.execute("SELECT id, uuid FROM core_archiveresult")
-    records = cursor.fetchall()
+    # Check if uuid column exists (0.8.x has it, 0.7.x doesn't)
+    cursor.execute("PRAGMA table_info(core_archiveresult)")
+    columns = cursor.fetchall()
+    col_names = [col[1] for col in columns]
+    has_uuid_column = 'uuid' in col_names
 
-    id_to_uuid = {}
-    for old_id, existing_uuid in records:
-        if existing_uuid:
-            # Normalize existing UUID to 32-char hex format (Django SQLite UUIDField format)
-            # (existing UUIDs might be stored with or without dashes in old schema)
-            id_to_uuid[old_id] = UUID(existing_uuid).hex
-        else:
-            # Generate new UUIDv7 (time-ordered) as 32-char hex
-            id_to_uuid[old_id] = uuid7().hex
+    if has_uuid_column:
+        cursor.execute("SELECT id, uuid FROM core_archiveresult")
+        records = cursor.fetchall()
+        id_to_uuid = {}
+        for old_id, existing_uuid in records:
+            if existing_uuid:
+                # Normalize existing UUID to 32-char hex format (Django SQLite UUIDField format)
+                # (existing UUIDs might be stored with or without dashes in old schema)
+                id_to_uuid[old_id] = UUID(existing_uuid).hex
+            else:
+                # Generate new UUIDv7 (time-ordered) as 32-char hex
+                id_to_uuid[old_id] = uuid7().hex
+    else:
+        # 0.7.x path: no uuid column, generate new UUIDs for all records
+        cursor.execute("SELECT id FROM core_archiveresult")
+        records = cursor.fetchall()
+        id_to_uuid = {old_id: uuid7().hex for (old_id,) in records}
 
     # Step 3: Copy data with UUIDs as new primary key
     cursor.execute("SELECT * FROM core_archiveresult")
     old_records = cursor.fetchall()
 
-    # Get column names
-    cursor.execute("PRAGMA table_info(core_archiveresult)")
-    columns = cursor.fetchall()
-    col_names = [col[1] for col in columns]
-
+    # col_names already fetched in Step 2
+    inserted_count = 0
     for i, record in enumerate(old_records):
         old_id = record[col_names.index('id')]
         new_uuid = id_to_uuid[old_id]
@@ -107,7 +123,7 @@ def migrate_archiveresult_id_to_uuid(apps, schema_editor):
         # Build insert with new structure
         values = {col_names[i]: record[i] for i in range(len(col_names))}
 
-        # Check which fields exist in new table
+        # List of fields to copy (all fields from new schema except id, old_id, uuid)
         fields_to_copy = [
             'created_at', 'modified_at', 'snapshot_id', 'plugin', 'hook_name',
             'status', 'retry_at', 'start_ts', 'end_ts',
@@ -115,17 +131,31 @@ def migrate_archiveresult_id_to_uuid(apps, schema_editor):
             'config', 'notes', 'num_uses_succeeded', 'num_uses_failed', 'process_id'
         ]
 
-        # Build INSERT statement
+        # Build INSERT statement (only copy fields that exist in source)
         existing_fields = [f for f in fields_to_copy if f in values]
-        placeholders = ', '.join(['?'] * (len(existing_fields) + 3))  # +3 for id, old_id, uuid
-        field_list = 'id, old_id, uuid, ' + ', '.join(existing_fields)
 
-        insert_values = [new_uuid, old_id, new_uuid] + [values.get(f) for f in existing_fields]
+        if i == 0:
+            print(f'[0029] Source columns: {col_names}')
+            print(f'[0029] Copying fields: {existing_fields}')
 
-        cursor.execute(
-            f"INSERT INTO core_archiveresult_new ({field_list}) VALUES ({placeholders})",
-            insert_values
-        )
+        placeholders = ', '.join(['?'] * (len(existing_fields) + 1))  # +1 for id
+        field_list = 'id, ' + ', '.join(existing_fields)
+
+        insert_values = [new_uuid] + [values.get(f) for f in existing_fields]
+
+        try:
+            cursor.execute(
+                f"INSERT INTO core_archiveresult_new ({field_list}) VALUES ({placeholders})",
+                insert_values
+            )
+            inserted_count += 1
+        except Exception as e:
+            print(f'[0029] ERROR inserting record {old_id}: {e}')
+            if i == 0:
+                print(f'[0029] First record values: {insert_values[:5]}...')
+                raise
+
+    print(f'[0029] Inserted {inserted_count}/{len(old_records)} records')
 
     # Step 4: Replace old table with new table
     cursor.execute("DROP TABLE core_archiveresult")
@@ -139,7 +169,6 @@ def migrate_archiveresult_id_to_uuid(apps, schema_editor):
     cursor.execute("CREATE INDEX core_archiveresult_created_at_idx ON core_archiveresult(created_at)")
     cursor.execute("CREATE INDEX core_archiveresult_hook_name_idx ON core_archiveresult(hook_name)")
     cursor.execute("CREATE INDEX core_archiveresult_process_id_idx ON core_archiveresult(process_id)")
-    cursor.execute("CREATE INDEX core_archiveresult_old_id_idx ON core_archiveresult(old_id)")
 
     print(f'✓ Migrated {row_count} ArchiveResult records to UUID primary key')
 
@@ -159,22 +188,16 @@ class Migration(migrations.Migration):
                 ),
             ],
             state_operations=[
-                # Remove old uuid field
+                # Remove uuid field (was added in 0025, we're merging it into id)
                 migrations.RemoveField(
                     model_name='archiveresult',
                     name='uuid',
                 ),
-                # Change id from AutoField to UUIDField
+                # Change id from AutoField to UUIDField (absorbing the uuid field)
                 migrations.AlterField(
                     model_name='archiveresult',
                     name='id',
                     field=models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True),
-                ),
-                # Add old_id field to preserve legacy integer IDs
-                migrations.AddField(
-                    model_name='archiveresult',
-                    name='old_id',
-                    field=models.IntegerField(null=True, blank=True, db_index=True, help_text='Legacy integer ID from pre-0.9.0 versions'),
                 ),
             ],
         ),
