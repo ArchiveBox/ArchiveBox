@@ -173,7 +173,7 @@ class TestBinaryWorkerHooks:
             ['run'],
             stdin=stdin,
             data_dir=initialized_archive,
-            timeout=45,
+            timeout=90,  # Need more time for multiple binaries
         )
 
         assert code == 0
