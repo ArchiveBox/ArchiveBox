@@ -1296,7 +1296,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 )}
 
             path = self.archive_path
-            canon = self.canonical_outputs()
             output = ""
             output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{}</a> &nbsp;'
 
@@ -1313,10 +1312,11 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 if not icon.strip() and not existing:
                     continue
 
+                embed_path = result.embed_path() if result else f'{plugin}/'
                 output += format_html(
                     output_template,
                     path,
-                    canon.get(plugin, plugin + '/'),
+                    embed_path,
                     str(bool(existing)),
                     plugin,
                     icon
@@ -1402,8 +1402,37 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             return
 
     @cached_property
-    def archive_path(self):
+    def legacy_archive_path(self) -> str:
         return f'{CONSTANTS.ARCHIVE_DIR_NAME}/{self.timestamp}'
+
+    @cached_property
+    def url_path(self) -> str:
+        """URL path matching the current snapshot output_dir layout."""
+        try:
+            rel_path = Path(self.output_dir).resolve().relative_to(CONSTANTS.DATA_DIR)
+        except Exception:
+            return self.legacy_archive_path
+
+        parts = rel_path.parts
+        # New layout: users/<username>/snapshots/<YYYYMMDD>/<domain>/<uuid>/
+        if len(parts) >= 6 and parts[0] == 'users' and parts[2] == 'snapshots':
+            username = parts[1]
+            if username == 'system':
+                username = 'web'
+            date_str = parts[3]
+            domain = parts[4]
+            snapshot_id = parts[5]
+            return f'{username}/{date_str}/{domain}/{snapshot_id}'
+
+        # Legacy layout: archive/<timestamp>/
+        if len(parts) >= 2 and parts[0] == CONSTANTS.ARCHIVE_DIR_NAME:
+            return f'{parts[0]}/{parts[1]}'
+
+        return '/'.join(parts)
+
+    @cached_property
+    def archive_path(self):
+        return self.url_path
 
     @cached_property
     def archive_size(self):
@@ -1467,8 +1496,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             for pid_file in Path(self.output_dir).glob('**/*.pid'):
                 pid_file.unlink(missing_ok=True)
 
-        # Update all STARTED ArchiveResults from filesystem
-        results = self.archiveresult_set.filter(status=ArchiveResult.StatusChoices.STARTED)
+        # Update all background ArchiveResults from filesystem (in case output arrived late)
+        results = self.archiveresult_set.filter(hook_name__contains='.bg.')
         for ar in results:
             ar.update_from_output()
 
@@ -1914,153 +1943,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     # Output Path Methods (migrated from Link schema)
     # =========================================================================
 
-    def canonical_outputs(self) -> Dict[str, Optional[str]]:
-        """
-        Intelligently discover the best output file for each plugin.
-        Uses actual ArchiveResult data and filesystem scanning with smart heuristics.
-        """
-        FAVICON_PROVIDER = 'https://www.google.com/s2/favicons?domain={}'
-
-        # Mimetypes that can be embedded/previewed in an iframe
-        IFRAME_EMBEDDABLE_EXTENSIONS = {
-            'html', 'htm', 'pdf', 'txt', 'md', 'json', 'jsonl',
-            'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico',
-            'mp4', 'webm', 'mp3', 'opus', 'ogg', 'wav',
-        }
-
-        MIN_DISPLAY_SIZE = 15_000  # 15KB - filter out tiny files
-        MAX_SCAN_FILES = 50  # Don't scan massive directories
-
-        def find_best_output_in_dir(dir_path: Path, plugin_name: str) -> Optional[str]:
-            """Find the best representative file in a plugin's output directory"""
-            if not dir_path.exists() or not dir_path.is_dir():
-                return None
-
-            candidates = []
-            file_count = 0
-
-            # Special handling for media plugin - look for thumbnails
-            is_media_dir = plugin_name == 'media'
-
-            # Scan for suitable files
-            for file_path in dir_path.rglob('*'):
-                file_count += 1
-                if file_count > MAX_SCAN_FILES:
-                    break
-
-                if file_path.is_dir() or file_path.name.startswith('.'):
-                    continue
-
-                ext = file_path.suffix.lstrip('.').lower()
-                if ext not in IFRAME_EMBEDDABLE_EXTENSIONS:
-                    continue
-
-                try:
-                    size = file_path.stat().st_size
-                except OSError:
-                    continue
-
-                # For media dir, allow smaller image files (thumbnails are often < 15KB)
-                min_size = 5_000 if (is_media_dir and ext in ('png', 'jpg', 'jpeg', 'webp', 'gif')) else MIN_DISPLAY_SIZE
-                if size < min_size:
-                    continue
-
-                # Prefer main files: index.html, output.*, content.*, etc.
-                priority = 0
-                name_lower = file_path.name.lower()
-
-                if is_media_dir:
-                    # Special prioritization for media directories
-                    if any(keyword in name_lower for keyword in ('thumb', 'thumbnail', 'cover', 'poster')):
-                        priority = 200  # Highest priority for thumbnails
-                    elif ext in ('png', 'jpg', 'jpeg', 'webp', 'gif'):
-                        priority = 150  # High priority for any image
-                    elif ext in ('mp4', 'webm', 'mp3', 'opus', 'ogg'):
-                        priority = 100  # Lower priority for actual media files
-                    else:
-                        priority = 50
-                elif 'index' in name_lower:
-                    priority = 100
-                elif name_lower.startswith(('output', 'content', plugin_name)):
-                    priority = 50
-                elif ext in ('html', 'htm', 'pdf'):
-                    priority = 30
-                elif ext in ('png', 'jpg', 'jpeg', 'webp'):
-                    priority = 20
-                else:
-                    priority = 10
-
-                candidates.append((priority, size, file_path))
-
-            if not candidates:
-                return None
-
-            # Sort by priority (desc), then size (desc)
-            candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
-            best_file = candidates[0][2]
-            return str(best_file.relative_to(Path(self.output_dir)))
-
-        canonical = {
-            'index_path': 'index.html',
-            'google_favicon_path': FAVICON_PROVIDER.format(self.domain),
-            'archivedotorg_path': f'https://web.archive.org/web/{self.base_url}',
-        }
-
-        # Scan each ArchiveResult's output directory for the best file
-        snap_dir = Path(self.output_dir)
-        for result in self.archiveresult_set.filter(status='succeeded'):
-            if not result.output_files and not result.output_str:
-                continue
-
-            # Try to find the best output file for this plugin
-            plugin_dir = snap_dir / result.plugin
-            best_output = None
-
-            # Check output_files first (new field)
-            if result.output_files:
-                first_file = next(iter(result.output_files.keys()), None)
-                if first_file and (plugin_dir / first_file).exists():
-                    best_output = f'{result.plugin}/{first_file}'
-
-            # Fallback to output_str if it looks like a path
-            if not best_output and result.output_str and (snap_dir / result.output_str).exists():
-                best_output = result.output_str
-
-            if not best_output and plugin_dir.exists():
-                # Intelligently find the best file in the plugin's directory
-                best_output = find_best_output_in_dir(plugin_dir, result.plugin)
-
-            if best_output:
-                canonical[f'{result.plugin}_path'] = best_output
-
-        # Also scan top-level for legacy outputs (backwards compatibility)
-        for file_path in snap_dir.glob('*'):
-            if file_path.is_dir() or file_path.name in ('index.html', 'index.json'):
-                continue
-
-            ext = file_path.suffix.lstrip('.').lower()
-            if ext not in IFRAME_EMBEDDABLE_EXTENSIONS:
-                continue
-
-            try:
-                size = file_path.stat().st_size
-                if size >= MIN_DISPLAY_SIZE:
-                    # Add as generic output with stem as key
-                    key = f'{file_path.stem}_path'
-                    if key not in canonical:
-                        canonical[key] = file_path.name
-            except OSError:
-                continue
-
-        if self.is_static:
-            static_path = f'warc/{self.timestamp}'
-            canonical.update({
-                'title': self.basename,
-                'wget_path': static_path,
-            })
-
-        return canonical
-
     def latest_outputs(self, status: Optional[str] = None) -> Dict[str, Any]:
         """Get the latest output that each plugin produced"""
         from archivebox.hooks import get_plugins
@@ -2077,6 +1959,96 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             # Return embed_path() for backwards compatibility
             latest[plugin] = result.embed_path() if result else None
         return latest
+
+    def discover_outputs(self) -> list[dict]:
+        """Discover output files from ArchiveResults and filesystem."""
+        from archivebox.misc.util import ts_to_date_str
+
+        ArchiveResult = self.archiveresult_set.model
+        snap_dir = Path(self.output_dir)
+        outputs: list[dict] = []
+        seen: set[str] = set()
+
+        text_exts = ('.json', '.jsonl', '.txt', '.csv', '.tsv', '.xml', '.yml', '.yaml', '.md', '.log')
+
+        def is_metadata_path(path: str | None) -> bool:
+            lower = (path or '').lower()
+            return lower.endswith(text_exts)
+
+        def is_compact_path(path: str | None) -> bool:
+            lower = (path or '').lower()
+            return lower.endswith(text_exts)
+
+        for result in self.archiveresult_set.all().order_by('start_ts'):
+            embed_path = result.embed_path()
+            if not embed_path or embed_path.strip() in ('.', '/', './'):
+                continue
+            abs_path = snap_dir / embed_path
+            if not abs_path.exists():
+                continue
+            if abs_path.is_dir():
+                if not any(p.is_file() for p in abs_path.rglob('*')):
+                    continue
+                size = sum(p.stat().st_size for p in abs_path.rglob('*') if p.is_file())
+            else:
+                size = abs_path.stat().st_size
+            outputs.append({
+                'name': result.plugin,
+                'path': embed_path,
+                'ts': ts_to_date_str(result.end_ts),
+                'size': size or 0,
+                'is_metadata': is_metadata_path(embed_path),
+                'is_compact': is_compact_path(embed_path),
+                'result': result,
+            })
+            seen.add(result.plugin)
+
+        embeddable_exts = {
+            'html', 'htm', 'pdf', 'txt', 'md', 'json', 'jsonl', 'csv', 'tsv',
+            'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico',
+            'mp4', 'webm', 'mp3', 'opus', 'ogg', 'wav',
+        }
+
+        for entry in snap_dir.iterdir():
+            if entry.name in ('index.html', 'index.json', 'favicon.ico', 'warc'):
+                continue
+            if entry.is_dir():
+                plugin = entry.name
+                if plugin in seen:
+                    continue
+                best_file = ArchiveResult._find_best_output_file(entry, plugin)
+                if not best_file:
+                    continue
+                rel_path = str(best_file.relative_to(snap_dir))
+                outputs.append({
+                    'name': plugin,
+                    'path': rel_path,
+                    'ts': ts_to_date_str(best_file.stat().st_mtime or 0),
+                    'size': best_file.stat().st_size or 0,
+                    'is_metadata': is_metadata_path(rel_path),
+                    'is_compact': is_compact_path(rel_path),
+                    'result': None,
+                })
+                seen.add(plugin)
+            elif entry.is_file():
+                ext = entry.suffix.lstrip('.').lower()
+                if ext not in embeddable_exts:
+                    continue
+                plugin = entry.stem
+                if plugin in seen:
+                    continue
+                outputs.append({
+                    'name': plugin,
+                    'path': entry.name,
+                    'ts': ts_to_date_str(entry.stat().st_mtime or 0),
+                    'size': entry.stat().st_size or 0,
+                    'is_metadata': is_metadata_path(entry.name),
+                    'is_compact': is_compact_path(entry.name),
+                    'result': None,
+                })
+                seen.add(plugin)
+
+        return outputs
 
     # =========================================================================
     # Serialization Methods
@@ -2114,8 +2086,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             'num_outputs': self.num_outputs,
             'num_failures': self.num_failures,
         }
-        if extended:
-            result['canonical'] = self.canonical_outputs()
         return result
 
     def to_json_str(self, indent: int = 4) -> str:
@@ -2146,23 +2116,29 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         SAVE_ARCHIVE_DOT_ORG = config.get('SAVE_ARCHIVE_DOT_ORG', True)
         TITLE_LOADING_MSG = 'Not yet archived...'
 
-        canonical = self.canonical_outputs()
         preview_priority = [
-            'singlefile_path',
-            'screenshot_path',
-            'wget_path',
-            'dom_path',
-            'pdf_path',
-            'readability_path',
+            'singlefile',
+            'screenshot',
+            'wget',
+            'dom',
+            'pdf',
+            'readability',
         ]
-        best_preview_path = next(
-            (canonical.get(key) for key in preview_priority if canonical.get(key)),
-            canonical.get('index_path', 'index.html'),
-        )
+
+        outputs = self.discover_outputs()
+        outputs_by_plugin = {out['name']: out for out in outputs}
+
+        best_preview_path = 'about:blank'
+        for plugin in preview_priority:
+            out = outputs_by_plugin.get(plugin)
+            if out and out.get('path'):
+                best_preview_path = out['path']
+                break
+
+        if best_preview_path == 'about:blank' and outputs:
+            best_preview_path = outputs[0].get('path') or 'about:blank'
         context = {
             **self.to_dict(extended=True),
-            **{f'{k}_path': v for k, v in canonical.items()},
-            'canonical': {f'{k}_path': v for k, v in canonical.items()},
             'title': htmlencode(self.title or (self.base_url if self.is_archived else TITLE_LOADING_MSG)),
             'url_str': htmlencode(urldecode(self.base_url)),
             'archive_url': urlencode(f'warc/{self.timestamp}' or (self.domain if self.is_archived else '')) or 'about:blank',
@@ -2175,6 +2151,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             'SAVE_ARCHIVE_DOT_ORG': SAVE_ARCHIVE_DOT_ORG,
             'PREVIEW_ORIGINALS': SERVER_CONFIG.PREVIEW_ORIGINALS,
             'best_preview_path': best_preview_path,
+            'archiveresults': outputs,
         }
         rendered_html = render_to_string('snapshot.html', context)
         atomic_write(str(Path(out_dir) / CONSTANTS.HTML_INDEX_FILENAME), rendered_html)
@@ -2496,6 +2473,61 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     def output_exists(self) -> bool:
         return os.path.exists(Path(self.snapshot_dir) / self.plugin)
 
+    @staticmethod
+    def _find_best_output_file(dir_path: Path, plugin_name: str | None = None) -> Optional[Path]:
+        if not dir_path.exists() or not dir_path.is_dir():
+            return None
+
+        embeddable_exts = {
+            'html', 'htm', 'pdf', 'txt', 'md', 'json', 'jsonl', 'csv', 'tsv',
+            'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico',
+            'mp4', 'webm', 'mp3', 'opus', 'ogg', 'wav',
+        }
+
+        for name in ('index.html', 'index.htm'):
+            candidate = dir_path / name
+            if candidate.exists() and candidate.is_file():
+                return candidate
+
+        candidates = []
+        file_count = 0
+        max_scan = 200
+        plugin_lower = (plugin_name or '').lower()
+        for file_path in dir_path.rglob('*'):
+            file_count += 1
+            if file_count > max_scan:
+                break
+            if file_path.is_dir() or file_path.name.startswith('.'):
+                continue
+            ext = file_path.suffix.lstrip('.').lower()
+            if ext not in embeddable_exts:
+                continue
+            try:
+                size = file_path.stat().st_size
+            except OSError:
+                continue
+            name_lower = file_path.name.lower()
+            priority = 0
+            if name_lower.startswith('index'):
+                priority = 100
+            elif plugin_lower and name_lower.startswith(('output', 'content', plugin_lower)):
+                priority = 60
+            elif ext in ('html', 'htm', 'pdf'):
+                priority = 40
+            elif ext in ('png', 'jpg', 'jpeg', 'webp', 'svg', 'gif', 'ico'):
+                priority = 30
+            elif ext in ('json', 'jsonl', 'txt', 'md', 'csv', 'tsv'):
+                priority = 20
+            else:
+                priority = 10
+            candidates.append((priority, size, file_path))
+
+        if not candidates:
+            return None
+
+        candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
+        return candidates[0][2]
+
     def embed_path(self) -> Optional[str]:
         """
         Get the relative path to the embeddable output file for this result.
@@ -2503,25 +2535,45 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         Returns the first file from output_files if set, otherwise tries to
         find a reasonable default based on the plugin type.
         """
-        # Check output_files dict for primary output
+        snapshot_dir = Path(self.snapshot_dir)
+        plugin_dir = snapshot_dir / self.plugin
+
+        # Fallback: treat output_str as a file path only if it exists on disk
+        if self.output_str:
+            try:
+                output_path = Path(self.output_str)
+
+                if output_path.is_absolute():
+                    # If absolute and within snapshot dir, normalize to relative
+                    if snapshot_dir in output_path.parents and output_path.exists():
+                        return str(output_path.relative_to(snapshot_dir))
+                else:
+                    # If relative, prefer plugin-prefixed path, then direct path
+                    if (plugin_dir / output_path).exists():
+                        return f'{self.plugin}/{output_path}'
+                    if output_path.name in ('index.html', 'index.json') and output_path.parent == Path('.'):
+                        return None
+                    if (snapshot_dir / output_path).exists():
+                        return str(output_path)
+            except Exception:
+                pass
+
+        # Check output_files dict for primary output (ignore non-output files)
         if self.output_files:
-            # Return first file from output_files (dict preserves insertion order)
-            first_file = next(iter(self.output_files.keys()), None)
-            if first_file:
+            ignored = {'stdout.log', 'stderr.log', 'hook.pid', 'listener.pid', 'cmd.sh'}
+            output_candidates = [
+                f for f in self.output_files.keys()
+                if Path(f).name not in ignored
+            ]
+            first_file = output_candidates[0] if output_candidates else None
+            if first_file and (plugin_dir / first_file).exists():
                 return f'{self.plugin}/{first_file}'
 
-        # Fallback: check output_str if it looks like a file path
-        if self.output_str and ('/' in self.output_str or '.' in self.output_str):
-            return self.output_str
+        best_file = self._find_best_output_file(plugin_dir, self.plugin)
+        if best_file:
+            return str(best_file.relative_to(snapshot_dir))
 
-        # Try to find output file based on plugin's canonical output path
-        canonical = self.snapshot.canonical_outputs()
-        plugin_key = f'{self.plugin}_path'
-        if plugin_key in canonical:
-            return canonical[plugin_key]
-
-        # Fallback to plugin directory
-        return f'{self.plugin}/'
+        return None
 
     def create_output_dir(self):
         output_dir = Path(self.snapshot_dir) / self.plugin
@@ -2779,7 +2831,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
                 self.output_str = 'Hook did not output ArchiveResult record'
 
         # Walk filesystem and populate output_files, output_size, output_mimetypes
-        exclude_names = {'stdout.log', 'stderr.log', 'hook.pid', 'listener.pid'}
+        exclude_names = {'stdout.log', 'stderr.log', 'hook.pid', 'listener.pid', 'cmd.sh'}
         mime_sizes = defaultdict(int)
         total_size = 0
         output_files = {}

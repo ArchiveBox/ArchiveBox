@@ -940,9 +940,8 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
 #     archivebox/plugins/<plugin_name>/
 #         templates/
 #             icon.html          # Icon for admin table view (small inline HTML)
-#             thumbnail.html     # Preview thumbnail for snapshot cards
-#             embed.html         # Iframe embed content for main preview
-#             fullscreen.html    # Fullscreen view template
+#             card.html          # Preview card for snapshot header
+#             full.html          # Fullscreen view template
 #
 # Template context variables available:
 #     {{ result }}         - ArchiveResult object
@@ -953,21 +952,22 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
 
 # Default templates used when plugin doesn't provide one
 DEFAULT_TEMPLATES = {
-    'icon': '''<span title="{{ plugin }}">{{ icon }}</span>''',
-    'thumbnail': '''
-        <img src="{{ output_path }}"
-             alt="{{ plugin }} output"
-             style="max-width: 100%; max-height: 100px; object-fit: cover;"
-             onerror="this.style.display='none'">
+    'icon': '''
+        <span title="{{ plugin }}" style="display:inline-flex; width:20px; height:20px; align-items:center; justify-content:center;">
+            {{ icon }}
+        </span>
     ''',
-    'embed': '''
+    'card': '''
         <iframe src="{{ output_path }}"
+                class="card-img-top"
                 style="width: 100%; height: 100%; border: none;"
-                sandbox="allow-same-origin allow-scripts">
+                sandbox="allow-same-origin allow-scripts allow-forms"
+                loading="lazy">
         </iframe>
     ''',
-    'fullscreen': '''
+    'full': '''
         <iframe src="{{ output_path }}"
+                class="full-page-iframe"
                 style="width: 100%; height: 100vh; border: none;"
                 sandbox="allow-same-origin allow-scripts allow-forms">
         </iframe>
@@ -981,7 +981,7 @@ def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) 
 
     Args:
         plugin: Plugin name (e.g., 'screenshot', '15_singlefile')
-        template_name: One of 'icon', 'thumbnail', 'embed', 'fullscreen'
+        template_name: One of 'icon', 'card', 'full'
         fallback: If True, return default template if plugin template not found
 
     Returns:
@@ -1050,7 +1050,7 @@ def discover_plugin_templates() -> Dict[str, Dict[str, str]]:
 
     Returns:
         Dict mapping plugin names to dicts of template_name -> template_path.
-        e.g., {'screenshot': {'icon': '/path/to/icon.html', 'thumbnail': '/path/to/thumbnail.html'}}
+        e.g., {'screenshot': {'icon': '/path/to/icon.html', 'card': '/path/to/card.html'}}
     """
     templates: Dict[str, Dict[str, str]] = {}
 
@@ -1068,7 +1068,7 @@ def discover_plugin_templates() -> Dict[str, Dict[str, str]]:
 
             plugin_templates = {}
             for template_file in templates_dir.glob('*.html'):
-                template_name = template_file.stem  # icon, thumbnail, embed, fullscreen
+                template_name = template_file.stem  # icon, card, full
                 plugin_templates[template_name] = str(template_file)
 
             if plugin_templates:

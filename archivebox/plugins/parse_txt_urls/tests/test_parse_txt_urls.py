@@ -32,7 +32,7 @@ https://www.iana.org/domains/reserved
         )
 
         assert result.returncode == 0, f"Failed: {result.stderr}"
-        assert 'Found 3 URLs' in result.stderr
+        assert 'urls.jsonl' in result.stderr
 
         # Parse Snapshot records from stdout
         lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '"type": "Snapshot"' in line]
@@ -113,7 +113,7 @@ Also see https://github.com/user/repo for the code.
         )
 
         assert result.returncode == 0
-        assert 'No URLs found' in result.stderr
+        assert 'urls.jsonl' in result.stderr
         assert '"status": "skipped"' in result.stdout
 
     def test_exits_1_when_file_not_found(self, tmp_path):

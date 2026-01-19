@@ -237,8 +237,8 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
     sha256 = models.CharField(max_length=64, default='', null=False, blank=True)
 
     # State machine fields
-    status = models.CharField(max_length=16, choices=StatusChoices.choices, default=StatusChoices.QUEUED, db_index=True)
-    retry_at = models.DateTimeField(default=timezone.now, null=True, blank=True, db_index=True,
+    status = ModelWithStateMachine.StatusField(choices=StatusChoices.choices, default=StatusChoices.QUEUED, max_length=16)
+    retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now,
         help_text="When to retry this binary installation")
 
     # Health stats
@@ -246,6 +246,7 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
     num_uses_succeeded = models.PositiveIntegerField(default=0)
 
     state_machine_name: str = 'archivebox.machine.models.BinaryMachine'
+    active_state: str = StatusChoices.QUEUED
 
     objects: BinaryManager = BinaryManager()
 

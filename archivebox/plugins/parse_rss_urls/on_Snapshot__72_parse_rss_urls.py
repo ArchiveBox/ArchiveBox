@@ -16,6 +16,7 @@ Examples:
 import json
 import os
 import sys
+from pathlib import Path
 from datetime import datetime, timezone
 from html import unescape
 from time import mktime
@@ -24,6 +25,7 @@ from urllib.parse import urlparse
 import rich_click as click
 
 PLUGIN_NAME = 'parse_rss_urls'
+URLS_FILE = Path('urls.jsonl')
 
 try:
     import feedparser
@@ -140,9 +142,12 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
     for entry in urls_found:
         print(json.dumps(entry))
 
+    # Write urls.jsonl to disk for crawl system
+    URLS_FILE.write_text('\n'.join(json.dumps(r) for r in urls_found) + ('\n' if urls_found else ''))
+
     # Emit ArchiveResult record to mark completion
     status = 'succeeded' if urls_found else 'skipped'
-    output_str = f'Found {len(urls_found)} URLs, {len(all_tags)} tags' if urls_found else 'No URLs found'
+    output_str = URLS_FILE.name
     ar_record = {
         'type': 'ArchiveResult',
         'status': status,

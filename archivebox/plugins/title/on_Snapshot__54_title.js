@@ -263,7 +263,7 @@ async function main() {
     const archiveResult = {
         type: 'ArchiveResult',
         status,
-        output_str: extractedTitle || error || '',
+        output_str: output || error || '',
     };
     console.log(JSON.stringify(archiveResult));
 

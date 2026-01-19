@@ -49,6 +49,111 @@ const OUTPUT_DIR = '.';
 let chromePid = null;
 let browserInstance = null;
 
+function parseCookiesTxt(contents) {
+    const cookies = [];
+    let skipped = 0;
+
+    for (const rawLine of contents.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line) continue;
+
+        let httpOnly = false;
+        let dataLine = line;
+
+        if (dataLine.startsWith('#HttpOnly_')) {
+            httpOnly = true;
+            dataLine = dataLine.slice('#HttpOnly_'.length);
+        } else if (dataLine.startsWith('#')) {
+            continue;
+        }
+
+        const parts = dataLine.split('\t');
+        if (parts.length < 7) {
+            skipped += 1;
+            continue;
+        }
+
+        const [domainRaw, includeSubdomainsRaw, pathRaw, secureRaw, expiryRaw, name, value] = parts;
+        if (!name || !domainRaw) {
+            skipped += 1;
+            continue;
+        }
+
+        const includeSubdomains = (includeSubdomainsRaw || '').toUpperCase() === 'TRUE';
+        let domain = domainRaw;
+        if (includeSubdomains && !domain.startsWith('.')) domain = `.${domain}`;
+        if (!includeSubdomains && domain.startsWith('.')) domain = domain.slice(1);
+
+        const cookie = {
+            name,
+            value,
+            domain,
+            path: pathRaw || '/',
+            secure: (secureRaw || '').toUpperCase() === 'TRUE',
+            httpOnly,
+        };
+
+        const expires = parseInt(expiryRaw, 10);
+        if (!isNaN(expires) && expires > 0) {
+            cookie.expires = expires;
+        }
+
+        cookies.push(cookie);
+    }
+
+    return { cookies, skipped };
+}
+
+async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
+    if (!cookiesFile) return;
+
+    if (!fs.existsSync(cookiesFile)) {
+        console.error(`[!] Cookies file not found: ${cookiesFile}`);
+        return;
+    }
+
+    let contents = '';
+    try {
+        contents = fs.readFileSync(cookiesFile, 'utf-8');
+    } catch (e) {
+        console.error(`[!] Failed to read COOKIES_TXT_FILE: ${e.message}`);
+        return;
+    }
+
+    const { cookies, skipped } = parseCookiesTxt(contents);
+    if (cookies.length === 0) {
+        console.error('[!] No cookies found to import');
+        return;
+    }
+
+    console.error(`[*] Importing ${cookies.length} cookies from ${cookiesFile}...`);
+    if (skipped) {
+        console.error(`[*] Skipped ${skipped} malformed cookie line(s)`);
+    }
+    if (!userDataDir) {
+        console.error('[!] CHROME_USER_DATA_DIR not set; cookies will not persist beyond this session');
+    }
+
+    const page = await browser.newPage();
+    const client = await page.target().createCDPSession();
+    await client.send('Network.enable');
+
+    const chunkSize = 200;
+    let imported = 0;
+    for (let i = 0; i < cookies.length; i += chunkSize) {
+        const chunk = cookies.slice(i, i + chunkSize);
+        try {
+            await client.send('Network.setCookies', { cookies: chunk });
+            imported += chunk.length;
+        } catch (e) {
+            console.error(`[!] Failed to import cookies ${i + 1}-${i + chunk.length}: ${e.message}`);
+        }
+    }
+
+    await page.close();
+    console.error(`[+] Imported ${imported}/${cookies.length} cookies`);
+}
+
 // Parse command line arguments
 function parseArgs() {
     const args = {};
@@ -118,9 +223,13 @@ async function main() {
         // Load installed extensions
         const extensionsDir = getExtensionsDir();
         const userDataDir = getEnv('CHROME_USER_DATA_DIR');
+        const cookiesFile = getEnv('COOKIES_TXT_FILE') || getEnv('COOKIES_FILE');
 
         if (userDataDir) {
             console.error(`[*] Using user data dir: ${userDataDir}`);
+        }
+        if (cookiesFile) {
+            console.error(`[*] Using cookies file: ${cookiesFile}`);
         }
 
         const installedExtensions = [];
@@ -178,6 +287,9 @@ async function main() {
             defaultViewport: null,
         });
         browserInstance = browser;
+
+        // Import cookies into Chrome profile at crawl start
+        await importCookiesFromFile(browser, cookiesFile, userDataDir);
 
         // Get actual extension IDs from chrome://extensions page
         if (extensionPaths.length > 0) {

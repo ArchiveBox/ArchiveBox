@@ -1,7 +1,6 @@
 __package__ = 'archivebox.core'
 
 import os
-import sys
 from django.utils import timezone
 import inspect
 from typing import Callable, get_type_hints
@@ -26,7 +25,7 @@ import archivebox
 from archivebox.config import CONSTANTS, CONSTANTS_CONFIG, DATA_DIR, VERSION
 from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG, ARCHIVING_CONFIG
 from archivebox.config.configset import get_flat_config, get_config, get_all_configs
-from archivebox.misc.util import base_url, htmlencode, ts_to_date_str
+from archivebox.misc.util import base_url, htmlencode, ts_to_date_str, urldecode
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.search import query_search_index
@@ -53,69 +52,43 @@ class SnapshotView(View):
     # render static html index from filesystem archive/<timestamp>/index.html
 
     @staticmethod
+    def find_snapshots_for_url(path: str):
+        """Return a queryset of snapshots matching a URL-ish path."""
+        normalized = path
+        if path.startswith(('http://', 'https://')):
+            # try exact match on full url / ID first
+            qs = Snapshot.objects.filter(Q(url=path) | Q(id__icontains=path))
+            if qs.exists():
+                return qs
+            normalized = path.split('://', 1)[1]
+
+        # try exact match on full url / ID (without scheme)
+        qs = Snapshot.objects.filter(
+            Q(url='http://' + normalized) | Q(url='https://' + normalized) | Q(id__icontains=normalized)
+        )
+        if qs.exists():
+            return qs
+
+        # fall back to match on exact base_url
+        base = base_url(normalized)
+        qs = Snapshot.objects.filter(
+            Q(url='http://' + base) | Q(url='https://' + base)
+        )
+        if qs.exists():
+            return qs
+
+        # fall back to matching base_url as prefix
+        return Snapshot.objects.filter(
+            Q(url__startswith='http://' + base) | Q(url__startswith='https://' + base)
+        )
+
+    @staticmethod
     def render_live_index(request, snapshot):
         TITLE_LOADING_MSG = 'Not yet archived...'
 
-        # Dict of plugin -> ArchiveResult object
-        archiveresult_objects = {}
-        # Dict of plugin -> result info dict (for template compatibility)
-        archiveresults = {}
-
-        results = snapshot.archiveresult_set.all()
-
-        for result in results:
-            embed_path = result.embed_path()
-            abs_path = result.snapshot_dir / (embed_path or 'None')
-
-            if (result.status == 'succeeded'
-                and embed_path
-                and os.access(abs_path, os.R_OK)
-                and abs_path.exists()):
-                if os.path.isdir(abs_path) and not any(abs_path.glob('*.*')):
-                    continue
-
-                # Store the full ArchiveResult object for template tags
-                archiveresult_objects[result.plugin] = result
-
-                result_info = {
-                    'name': result.plugin,
-                    'path': embed_path,
-                    'ts': ts_to_date_str(result.end_ts),
-                    'size': abs_path.stat().st_size or '?',
-                    'result': result,  # Include the full object for template tags
-                }
-                archiveresults[result.plugin] = result_info
-
-        # Use canonical_outputs for intelligent discovery
-        # This method now scans ArchiveResults and uses smart heuristics
-        canonical = snapshot.canonical_outputs()
-
-        # Add any newly discovered outputs from canonical_outputs to archiveresults
+        outputs = snapshot.discover_outputs()
+        archiveresults = {out['name']: out for out in outputs}
         snap_dir = Path(snapshot.output_dir)
-        for key, path in canonical.items():
-            if not key.endswith('_path') or not path or path.startswith('http'):
-                continue
-
-            plugin_name = key.replace('_path', '')
-            if plugin_name in archiveresults:
-                continue  # Already have this from ArchiveResult
-
-            file_path = snap_dir / path
-            if not file_path.exists() or not file_path.is_file():
-                continue
-
-            try:
-                file_size = file_path.stat().st_size
-                if file_size >= 15_000:  # Only show files > 15KB
-                    archiveresults[plugin_name] = {
-                        'name': plugin_name,
-                        'path': path,
-                        'ts': ts_to_date_str(file_path.stat().st_mtime or 0),
-                        'size': file_size,
-                        'result': None,
-                    }
-            except OSError:
-                continue
 
         # Get available extractor plugins from hooks (sorted by numeric prefix for ordering)
         # Convert to base names for display ordering
@@ -131,7 +104,7 @@ class SnapshotView(View):
         preferred_types = tuple(preview_priority + [p for p in all_plugins if p not in preview_priority])
         all_types = preferred_types + tuple(result_type for result_type in archiveresults.keys() if result_type not in preferred_types)
 
-        best_result = {'path': 'None', 'result': None}
+        best_result = {'path': 'about:blank', 'result': None}
         for result_type in preferred_types:
             if result_type in archiveresults:
                 best_result = archiveresults[result_type]
@@ -146,7 +119,6 @@ class SnapshotView(View):
 
         context = {
             **snapshot_info,
-            **snapshot_info.get('canonical', {}),
             'title': htmlencode(
                 snapshot.title
                 or (snapshot.base_url if snapshot.is_archived else TITLE_LOADING_MSG)
@@ -188,6 +160,14 @@ class SnapshotView(View):
             try:
                 try:
                     snapshot = Snapshot.objects.get(Q(timestamp=slug) | Q(id__startswith=slug))
+                    canonical_base = snapshot.url_path
+                    if canonical_base != snapshot.legacy_archive_path:
+                        target_path = f'/{canonical_base}/{archivefile or "index.html"}'
+                        query = request.META.get('QUERY_STRING')
+                        if query:
+                            target_path = f'{target_path}?{query}'
+                        return redirect(target_path)
+
                     if archivefile == 'index.html':
                         # if they requested snapshot index, serve live rendered template instead of static html
                         response = self.render_live_index(request, snapshot)
@@ -221,9 +201,9 @@ class SnapshotView(View):
             except Snapshot.MultipleObjectsReturned:
                 snapshot_hrefs = mark_safe('<br/>').join(
                     format_html(
-                        '{} <a href="/archive/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
+                        '{} <a href="/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
                         snap.bookmarked_at.strftime('%Y-%m-%d %H:%M:%S'),
-                        snap.timestamp,
+                        snap.archive_path,
                         snap.timestamp,
                         snap.url,
                         snap.title_stripped[:64] or '',
@@ -259,9 +239,9 @@ class SnapshotView(View):
                             #'</script>'
                             '</head><body>'
                             '<center><br/><br/><br/>'
-                            f'Snapshot <a href="/archive/{snapshot.timestamp}/index.html" target="_top"><b><code>[{snapshot.timestamp}]</code></b></a>: <a href="{snapshot.url}" target="_blank" rel="noreferrer">{snapshot.url}</a><br/>'
+                            f'Snapshot <a href="/{snapshot.archive_path}/index.html" target="_top"><b><code>[{snapshot.timestamp}]</code></b></a>: <a href="{snapshot.url}" target="_blank" rel="noreferrer">{snapshot.url}</a><br/>'
                             f'was queued on {str(snapshot.bookmarked_at).split(".")[0]}, '
-                            f'but no files have been saved yet in:<br/><b><a href="/archive/{snapshot.timestamp}/" target="_top"><code>{snapshot.timestamp}</code></a><code>/'
+                            f'but no files have been saved yet in:<br/><b><a href="/{snapshot.archive_path}/" target="_top"><code>{snapshot.timestamp}</code></a><code>/'
                             '{}'
                             f'</code></b><br/><br/>'
                             'It\'s possible {} '
@@ -270,8 +250,8 @@ class SnapshotView(View):
                             f'<code style="user-select: all; color: #333">archivebox update -t timestamp {snapshot.timestamp}</code></pre><br/><br/>'
                             '<div class="text-align: left; width: 100%; max-width: 400px">'
                             '<i><b>Next steps:</i></b><br/>'
-                            f'- list all the <a href="/archive/{snapshot.timestamp}/" target="_top">Snapshot files <code>.*</code></a><br/>'
-                            f'- view the <a href="/archive/{snapshot.timestamp}/index.html" target="_top">Snapshot <code>./index.html</code></a><br/>'
+                            f'- list all the <a href="/{snapshot.archive_path}/" target="_top">Snapshot files <code>.*</code></a><br/>'
+                            f'- view the <a href="/{snapshot.archive_path}/index.html" target="_top">Snapshot <code>./index.html</code></a><br/>'
                             f'- go to the <a href="/admin/core/snapshot/{snapshot.pk}/change/" target="_top">Snapshot admin</a> to edit<br/>'
                             f'- go to the <a href="/admin/core/snapshot/?id__exact={snapshot.id}" target="_top">Snapshot actions</a> to re-archive<br/>'
                             '- or return to <a href="/" target="_top">the main index...</a></div>'
@@ -288,22 +268,9 @@ class SnapshotView(View):
         # slug is a URL
         try:
             try:
-                # try exact match on full url / ID first
-                snapshot = Snapshot.objects.get(
-                    Q(url='http://' + path) | Q(url='https://' + path) | Q(id__icontains=path)
-                )
+                snapshot = SnapshotView.find_snapshots_for_url(path).get()
             except Snapshot.DoesNotExist:
-                # fall back to match on exact base_url
-                try:
-                    snapshot = Snapshot.objects.get(
-                        Q(url='http://' + base_url(path)) | Q(url='https://' + base_url(path))
-                    )
-                except Snapshot.DoesNotExist:
-                    # fall back to matching base_url as prefix
-                    snapshot = Snapshot.objects.get(
-                        Q(url__startswith='http://' + base_url(path)) | Q(url__startswith='https://' + base_url(path))
-                    )
-            return redirect(f'/archive/{snapshot.timestamp}/index.html')
+                raise
         except Snapshot.DoesNotExist:
             return HttpResponse(
                 format_html(
@@ -322,20 +289,18 @@ class SnapshotView(View):
                 status=404,
             )
         except Snapshot.MultipleObjectsReturned:
+            snapshots = SnapshotView.find_snapshots_for_url(path)
             snapshot_hrefs = mark_safe('<br/>').join(
                 format_html(
-                    '{} <code style="font-size: 0.8em">{}</code> <a href="/archive/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
+                    '{} <code style="font-size: 0.8em">{}</code> <a href="/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
                     snap.bookmarked_at.strftime('%Y-%m-%d %H:%M:%S'),
                     str(snap.id)[:8],
-                    snap.timestamp,
+                    snap.archive_path,
                     snap.timestamp,
                     snap.url,
                     snap.title_stripped[:64] or '',
                 )
-                for snap in Snapshot.objects.filter(
-                    Q(url__startswith='http://' + base_url(path)) | Q(url__startswith='https://' + base_url(path))
-                    | Q(id__icontains=path)
-                ).only('url', 'timestamp', 'title', 'bookmarked_at').order_by('-bookmarked_at')
+                for snap in snapshots.only('url', 'timestamp', 'title', 'bookmarked_at').order_by('-bookmarked_at')
             )
             return HttpResponse(
                 format_html(
@@ -352,6 +317,108 @@ class SnapshotView(View):
                 content_type="text/html",
                 status=404,
             )
+
+        target_path = f'/{snapshot.archive_path}/index.html'
+        query = request.META.get('QUERY_STRING')
+        if query:
+            target_path = f'{target_path}?{query}'
+        return redirect(target_path)
+
+
+class SnapshotPathView(View):
+    """Serve snapshots by the new URL scheme: /<username>/<YYYYMMDD>/<domain>/<uuid>/..."""
+
+    def get(self, request, username: str, date: str, domain: str | None = None, snapshot_id: str | None = None, path: str = "", url: str | None = None):
+        if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
+            return redirect(f'/admin/login/?next={request.path}')
+
+        if username == 'system':
+            return redirect(request.path.replace('/system/', '/web/', 1))
+
+        requested_url = url
+        if not requested_url and domain and domain.startswith(('http://', 'https://')):
+            requested_url = domain
+
+        snapshot = None
+        if snapshot_id:
+            try:
+                snapshot = Snapshot.objects.get(pk=snapshot_id)
+            except Snapshot.DoesNotExist:
+                try:
+                    snapshot = Snapshot.objects.get(id__startswith=snapshot_id)
+                except Snapshot.DoesNotExist:
+                    snapshot = None
+                except Snapshot.MultipleObjectsReturned:
+                    snapshot = Snapshot.objects.filter(id__startswith=snapshot_id).first()
+        else:
+            # fuzzy lookup by date + domain/url (most recent)
+            username_lookup = 'system' if username == 'web' else username
+            if requested_url:
+                qs = SnapshotView.find_snapshots_for_url(requested_url).filter(crawl__created_by__username=username_lookup)
+            else:
+                qs = Snapshot.objects.filter(crawl__created_by__username=username_lookup)
+
+            try:
+                if len(date) == 4:
+                    qs = qs.filter(created_at__year=int(date))
+                elif len(date) == 6:
+                    qs = qs.filter(created_at__year=int(date[:4]), created_at__month=int(date[4:6]))
+                elif len(date) == 8:
+                    qs = qs.filter(
+                        created_at__year=int(date[:4]),
+                        created_at__month=int(date[4:6]),
+                        created_at__day=int(date[6:8]),
+                    )
+            except ValueError:
+                pass
+
+            if requested_url:
+                snapshot = qs.order_by('-created_at', '-bookmarked_at', '-timestamp').first()
+            else:
+                requested_domain = domain or ''
+                if requested_domain.startswith(('http://', 'https://')):
+                    requested_domain = Snapshot.extract_domain_from_url(requested_domain)
+                else:
+                    requested_domain = Snapshot.extract_domain_from_url(f'https://{requested_domain}')
+
+                # Prefer exact domain matches
+                matches = [s for s in qs.order_by('-created_at', '-bookmarked_at') if Snapshot.extract_domain_from_url(s.url) == requested_domain]
+                snapshot = matches[0] if matches else qs.order_by('-created_at', '-bookmarked_at', '-timestamp').first()
+
+        if not snapshot:
+            return HttpResponse(
+                format_html(
+                    (
+                        '<center><br/><br/><br/>'
+                        'No Snapshots match the given id or url: <code>{}</code><br/><br/><br/>'
+                        'Return to the <a href="/" target="_top">Main Index</a>'
+                        '</center>'
+                    ),
+                    snapshot_id or requested_url or domain,
+                ),
+                content_type="text/html",
+                status=404,
+            )
+
+        canonical_base = snapshot.url_path
+        requested_base = f'{username}/{date}/{domain or url or ""}'
+        if snapshot_id:
+            requested_base = f'{requested_base}/{snapshot_id}'
+        if canonical_base != requested_base:
+            target = f'/{canonical_base}/{path or "index.html"}'
+            query = request.META.get('QUERY_STRING')
+            if query:
+                target = f'{target}?{query}'
+            return redirect(target)
+
+        archivefile = path or "index.html"
+
+        if archivefile == "index.html":
+            return SnapshotView.render_live_index(request, snapshot)
+
+        return serve_static_with_byterange_support(
+            request, archivefile, document_root=snapshot.output_dir, show_indexes=True,
+        )
 
 
 class PublicIndexView(ListView):
@@ -592,7 +659,7 @@ def live_progress_view(request):
                         'snapshot_id': str(ar.snapshot_id),
                         'snapshot_url': ar.snapshot.url[:60] if ar.snapshot else '',
                         'embed_path': embed,
-                        'archive_path': f'/archive/{ar.snapshot.timestamp}/{embed}' if ar.snapshot else '',
+                        'archive_path': f'/{ar.snapshot.archive_path}/{embed}' if ar.snapshot else '',
                         'end_ts': ar.end_ts.isoformat() if ar.end_ts else None,
                     })
 

@@ -31,6 +31,7 @@ PLUGIN_NAME = 'readability'
 BIN_NAME = 'readability-extractor'
 BIN_PROVIDERS = 'npm,env'
 OUTPUT_DIR = '.'
+OUTPUT_FILE = 'content.html'
 
 
 def get_env(name: str, default: str = '') -> str:
@@ -130,11 +131,11 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
         if not text_content and not html_content:
             return False, None, 'No content extracted'
 
-        (output_dir / 'content.html').write_text(html_content, encoding='utf-8')
+        (output_dir / OUTPUT_FILE).write_text(html_content, encoding='utf-8')
         (output_dir / 'content.txt').write_text(text_content, encoding='utf-8')
         (output_dir / 'article.json').write_text(json.dumps(result_json, indent=2), encoding='utf-8')
 
-        return True, OUTPUT_DIR, ''
+        return True, OUTPUT_FILE, ''
 
     except subprocess.TimeoutExpired:
         return False, None, f'Timed out after {timeout} seconds'

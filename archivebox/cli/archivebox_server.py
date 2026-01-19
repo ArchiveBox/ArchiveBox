@@ -30,10 +30,13 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
     from archivebox.misc.checks import check_data_folder
     check_data_folder()
 
-    from django.core.management import call_command
-    from django.contrib.auth.models import User
-    
     from archivebox.config.common import SHELL_CONFIG
+
+    run_in_debug = SHELL_CONFIG.DEBUG or debug or reload
+    if debug or reload:
+        SHELL_CONFIG.DEBUG = True
+
+    from django.contrib.auth.models import User
     
     if not User.objects.filter(is_superuser=True).exclude(username='system').exists():
         print()
@@ -56,7 +59,8 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
     except IndexError:
         pass
 
-    if SHELL_CONFIG.DEBUG:
+    if run_in_debug:
+        from django.core.management import call_command
         print('[green][+] Starting ArchiveBox webserver in DEBUG mode...[/green]')
         print(f'    [blink][green]>[/green][/blink] Starting ArchiveBox webserver on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link][/deep_sky_blue4]')
         print(f'    [green]>[/green] Log in to ArchiveBox Admin UI on [deep_sky_blue3][link=http://{host}:{port}/admin]http://{host}:{port}/admin[/link][/deep_sky_blue3]')

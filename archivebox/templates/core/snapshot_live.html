@@ -130,12 +130,15 @@
 
             .header-bottom-frames .card {
                 box-shadow: 2px 2px 7px 0px rgba(0, 0, 0, 0.1);
-                margin-bottom: 5px;
+                margin-bottom: 6px;
                 border: 1px solid rgba(0, 0, 0, 0.06);
                 border-radius: 10px;
                 background-color: #efefef;
                 overflow: hidden;
-                height: 130px;
+                min-height: 130px;
+            }
+            .header-bottom-frames .card:has([data-compact]) {
+                min-height: 0;
             }
             .card h4 {
                 font-size: 0.8em;
@@ -144,7 +147,7 @@
                 text-transform: uppercase;
                 margin-top: 0px;
                 margin-bottom: 5px;
-                color: rgb(93, 105, 110);
+                color: #222;
             }
             .card-body {
                 font-size: 14px;
@@ -158,7 +161,8 @@
                 max-height: 102px;
                 overflow: hidden;
                 text-overflow: ellipsis;
-                color: #d3d3d3;
+                color: #222;
+                background-color: #f6f6f6;
             }
             .card-title {
                 margin-bottom: 4px;
@@ -213,6 +217,10 @@
                 background-color: #333;
                 pointer-events: none;
             }
+            .thumbnail-wrapper.compact {
+                height: 32px;
+                background-color: #111;
+            }
             .thumbnail-wrapper iframe {
                 width: 405%;
                 height: 430px;
@@ -228,9 +236,88 @@
                 object-fit: cover;
                 object-position: top center;
             }
+            .thumbnail-compact {
+                height: 32px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 0 8px;
+                font-size: 13px;
+                line-height: 1;
+                color: #bdbdbd;
+                text-transform: uppercase;
+                letter-spacing: 0.02em;
+            }
+            .thumbnail-compact-label {
+                color: #e1e1e1;
+            }
+            .thumbnail-compact-meta {
+                color: #777;
+                font-size: 11px;
+                margin-left: auto;
+            }
+            .thumbnail-compact svg,
+            .thumbnail-compact img {
+                height: 12px;
+                width: 12px;
+            }
+            .thumbnail-text {
+                height: 100px;
+                background: #121212;
+                color: #d8d8d8;
+                padding: 6px 8px;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+                font-size: 11px;
+                line-height: 1.2;
+                overflow: hidden;
+            }
+            .thumbnail-text-header {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 10px;
+                color: #9b9b9b;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+            }
+            .thumbnail-text-pre {
+                margin: 0;
+                white-space: pre-wrap;
+                overflow: hidden;
+                display: -webkit-box;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 5;
+            }
+            .thumbnail-text[data-plugin="title"] .thumbnail-text-pre {
+                font-size: 13px;
+                font-weight: 600;
+                -webkit-line-clamp: 3;
+            }
             .card.selected-card {
                 border: 2px solid orange;
                 box-shadow: 0px -6px 13px 1px rgba(0,0,0,0.05);
+            }
+            .thumb-compact .card-body {
+                display: block;
+                padding: 4px 8px;
+                font-size: 12px;
+                line-height: 1.2;
+                max-height: none;
+            }
+            .thumb-compact {
+                margin-bottom: 0px;
+                border-radius: 6px;
+            }
+            .thumb-compact .thumbnail-wrapper {
+                height: 32px;
+            }
+            .thumb-compact .thumbnail-compact,
+            .thumb-compact .thumbnail-text {
+                height: 32px;
+                max-height: 32px;
             }
             .iframe-large {
                 height: calc(100vh - 70px);
@@ -256,6 +343,83 @@
                 object-fit: cover;
                 object-position: top center;
             }
+            .thumb-grid {
+                display: block;
+                column-width: 180px;
+                column-gap: 6px;
+                align-content: start;
+                width: 100%;
+            }
+            .thumb-card {
+                box-shadow: 2px 2px 7px 0px rgba(0, 0, 0, 0.1);
+                border: 1px solid rgba(0, 0, 0, 0.06);
+                border-radius: 10px;
+                background-color: #efefef;
+                overflow: hidden;
+                display: inline-block;
+                width: 100%;
+                break-inside: avoid;
+                box-sizing: border-box;
+                margin-bottom: 6px;
+                height: 138px;
+                min-height: 138px;
+                max-height: 138px;
+            }
+            .thumb-card:has([data-compact]) {
+                height: 46px;
+                min-height: 46px;
+                max-height: 46px;
+            }
+            .thumb-card .thumb-body {
+                font-size: 14px;
+                padding: 3px 8px;
+                line-height: 1.2;
+                word-wrap: break-word;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                color: #222;
+                background-color: #f6f6f6;
+            }
+            .thumb-card .thumb-body h4 {
+                font-size: 0.8em;
+                text-transform: uppercase;
+                margin: 0 0 2px 0;
+                color: #222;
+                line-height: 1.1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .thumb-card .thumbnail-wrapper,
+            .thumb-card iframe.card-img-top {
+                display: block;
+                width: 100%;
+            }
+            .thumb-card:has([data-compact]) .thumbnail-wrapper,
+            .thumb-card:has([data-compact]) .thumbnail-wrapper.compact {
+                height: 24px;
+                flex: 0 0 auto;
+            }
+            .thumb-card:has([data-compact]) .thumb-body {
+                padding: 2px 6px;
+                font-size: 12px;
+                max-height: 20px;
+            }
+            .thumb-card:has([data-compact]) .thumb-body h4 {
+                font-size: 0.9em;
+                margin-bottom: 0px;
+                line-height: 1;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .thumb-card.selected-card {
+                border: 2px solid orange;
+                box-shadow: 0px -6px 13px 1px rgba(0,0,0,0.05);
+            }
             .header-bottom {
                 border-top: 1px solid rgba(170, 30, 85, 0.9);
                 padding-bottom: 1px;
@@ -267,6 +431,10 @@
                 border: 1px solid rgba(0,0,0,0.2);
                 box-shadow: 4px 4px 4px rgba(0,0,0,0.2);
                 margin-top: 0px;
+            }
+            .header-bottom.container-fluid {
+                padding-left: 6px;
+                padding-right: 6px;
             }
             .header-bottom-info {
                 color: #6f6f6f;
@@ -315,9 +483,41 @@
                 width: 100%;
                 overflow: hidden;
             }
-            .header-bottom-frames {
+            .row.header-bottom-frames {
                 padding-top: 5px;
-                justify-content: center;
+                display: block !important;
+                width: 100%;
+                max-width: 100%;
+                column-width: 180px;
+                column-gap: 8px;
+                column-fill: auto;
+                margin-left: 0px;
+                margin-right: 0px;
+                flex: none !important;
+            }
+            .header-bottom-frames .col-lg-2 {
+                padding-left: 0px;
+                padding-right: 0px;
+                max-width: 100%;
+                width: 100% !important;
+                display: inline-block !important;
+                float: none !important;
+                flex: none !important;
+                break-inside: avoid;
+                margin-bottom: 6px;
+                vertical-align: top;
+            }
+            .header-bottom-frames .card:has([data-compact]) .thumbnail-wrapper,
+            .header-bottom-frames .card:has([data-compact]) .thumbnail-wrapper.compact {
+                height: 32px;
+            }
+            .header-bottom-frames .card:has([data-compact]) .thumbnail-text {
+                height: auto;
+                max-height: 64px;
+            }
+            .header-bottom-frames .card:has([data-compact]) .card-body {
+                padding: 4px 8px;
+                max-height: 44px;
             }
             .header-bottom-frames .card-title {
                 width: 100%;
@@ -325,7 +525,7 @@
                 font-size: 17px;
                 margin-bottom: 0px;
                 display: inline-block;
-                color: #d3d3d3;
+                color: #222;
                 font-weight: 200;
                 vertical-align: 3px;
             }
@@ -415,7 +615,7 @@
                         </small>
                     </div>
                     <div class="col-lg-2" style="padding-top: 4px">
-                        <a href="/archive/{{url}}" title="Date Added: {{bookmarked_date}}  |  First Archived: {{oldest_archive_date|default:downloaded_datestr}}  |  Last Checked: {{downloaded_datestr}}   (UTC)">
+                        <a href="/{{archive_path}}/index.html" title="Date Added: {{bookmarked_date}}  |  First Archived: {{oldest_archive_date|default:downloaded_datestr}}  |  Last Checked: {{downloaded_datestr}}   (UTC)">
                             {{oldest_archive_date|default:downloaded_datestr|default:bookmarked_date}}
                         </a>
                         <br/>
@@ -431,34 +631,45 @@
                 </div>
             </div>
             <div class="header-bottom container-fluid">
-                <div class="row header-bottom-frames">
+                <div class="thumb-grid">
                     
                     
                     {% for result in archiveresults %}
-                        <div class="col-lg-2">
-                            <div class="card {% if forloop.first %}selected-card{% endif %}">
-                                <div class="card-body">
-                                    <a href="{{result.path|urlencode}}" target="preview" title="./{{result.path}} (downloaded {{result.ts}})">
+                        <div class="thumb-card{% if forloop.first %} selected-card{% endif %}">
+                            {% with display_path=result.path %}
+                                <div class="thumb-body">
+                                    {% if display_path %}
+                                        <a href="{{display_path|urlencode}}" target="preview" title="./{{display_path}} (downloaded {{result.ts}})">
+                                            <h4>{% plugin_icon result.name %} {{result.name|plugin_name|truncatechars:20}} <small>({{result.size|filesizeformat}})</small></h4>
+                                        </a>
+                                    {% else %}
                                         <h4>{% plugin_icon result.name %} {{result.name|plugin_name|truncatechars:20}} <small>({{result.size|filesizeformat}})</small></h4>
-                                    </a>
+                                    {% endif %}
                                 </div>
-                                {% if result.result %}
-                                    {# Use plugin-specific thumbnail template when ArchiveResult is available #}
+                                {% if result.result and display_path %}
+                                    {# Use plugin-specific card template when ArchiveResult is available #}
                                     <div class="card-img-top thumbnail-wrapper">
-                                        {% plugin_thumbnail result.result %}
+                                        {% plugin_card result.result %}
                                     </div>
-                                {% else %}
+                                {% elif result.is_metadata and display_path %}
+                                    <div class="card-img-top thumbnail-wrapper compact">
+                                        <div class="thumbnail-compact" data-plugin="{{result.name}}">
+                                            <span class="thumbnail-compact-icon">{% plugin_icon result.name %}</span>
+                                            <span class="thumbnail-compact-label">{{result.name|plugin_name}}</span>
+                                            <span class="thumbnail-compact-meta">metadata</span>
+                                        </div>
+                                    </div>
+                                {% elif display_path %}
                                     {# Fall back to generic iframe for filesystem-discovered files #}
-                                    <iframe class="card-img-top" src="{{result.path|urlencode}}?autoplay=0" allow="autoplay 'none'; fullscreen 'none'; navigation-override 'none'; " sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
+                                    <iframe class="card-img-top" src="{{display_path|urlencode}}?autoplay=0" allow="autoplay 'none'; fullscreen 'none'; navigation-override 'none'; " sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
                                 {% endif %}
-                            </div>
+                            {% endwith %}
                         </div>
                     {% endfor %}
 
 
-                    <div class="col-lg-2">
-                        <div class="card">
-                            <div class="card-body">
+                    <div class="thumb-card">
+                            <div class="thumb-body">
                                 <a href="./" target="preview">
                                     <h4>Headers, JSON, etc.</h4>
                                 </a>
@@ -466,7 +677,6 @@
                             </div>
                             <iframe class="card-img-top" src="./" sandbox="" scrolling="no" loading="lazy"></iframe>
                         </div>
-                    </div>
                 </div>
             </div>
         </header>
@@ -476,11 +686,11 @@
         {% if best_result.result %}
             {# Use plugin-specific fullscreen template when ArchiveResult is available #}
             <div id="main-frame-wrapper" class="full-page-wrapper">
-                {% plugin_fullscreen best_result.result %}
+                {% plugin_full best_result.result %}
             </div>
         {% else %}
             {# Fall back to generic iframe #}
-            <iframe id="main-frame" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe" src="{{best_result.path|urlencode}}" name="preview"></iframe>
+            <iframe id="main-frame" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe" src="{{best_result.path|default:'about:blank'|urlencode}}" name="preview"></iframe>
         {% endif %}
     
 
@@ -513,21 +723,45 @@
                 return link.getAttribute('href')
             }
 
-            const iframe_elem = document.getElementById('main-frame')
+            function ensureMainFrame() {
+                let frame = document.getElementById('main-frame')
+                if (!frame) {
+                    const wrapper = document.getElementById('main-frame-wrapper')
+                    frame = document.createElement('iframe')
+                    frame.id = 'main-frame'
+                    frame.name = 'preview'
+                    frame.className = 'full-page-iframe'
+                    frame.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms"
+                    if (wrapper) {
+                        wrapper.innerHTML = ''
+                        wrapper.appendChild(frame)
+                        wrapper.classList.remove('full-page-wrapper')
+                    }
+                }
+                return frame
+            }
 
-            for (const card of [...document.querySelectorAll('.card')]) {
+            for (const card of [...document.querySelectorAll('.thumb-card')]) {
                 card.addEventListener('click', function(event) {
-                    const target = event.currentTarget.querySelector('a').href
+                    const link = event.target.closest('a[target=preview]') || event.currentTarget.querySelector('a[target=preview]') || event.currentTarget.querySelector('a')
+                    if (!link) {
+                        return
+                    }
+                    const target = link.href
+                    if (!target || target.endsWith('#')) {
+                        return
+                    }
 
                     jQuery('.selected-card').removeClass('selected-card')
-                    jQuery(event.currentTarget).closest('.card').addClass('selected-card')
+                    jQuery(event.currentTarget).closest('.thumb-card').addClass('selected-card')
 
+                    const iframe_elem = ensureMainFrame()
                     if (target.endsWith('.pdf')) {
-                        jQuery('#main-frame')[0].removeAttribute('sandbox')
+                        iframe_elem.removeAttribute('sandbox')
                     } else {
-                        jQuery('#main-frame')[0].sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms"
+                        iframe_elem.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms"
                     }
-                    window.location.hash = getPreviewTypeFromPath(event.currentTarget.querySelector('a'))
+                    window.location.hash = getPreviewTypeFromPath(link)
 
                     iframe_elem.src = target
                 })
@@ -587,7 +821,7 @@
                     for (const link of jQuery('a[target=preview]')) {
                         console.log(link.pathname)
                         if (getPreviewTypeFromPath(link) == window.location.hash.slice(1).toLowerCase()) {
-                            jQuery(link).closest('.card').click()
+                            jQuery(link).closest('.thumb-card').click()
                             jQuery(link).click()
                             link.click()
                         }

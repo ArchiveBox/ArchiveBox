@@ -26,6 +26,7 @@ from urllib.request import urlopen
 import rich_click as click
 
 PLUGIN_NAME = 'parse_txt_urls'
+URLS_FILE = Path('urls.jsonl')
 
 # URL regex from archivebox/misc/util.py
 # https://mathiasbynens.be/demo/url-regex
@@ -127,6 +128,7 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
             urls_found.add(cleaned_url)
 
     # Emit Snapshot records to stdout (JSONL)
+    records = []
     for found_url in sorted(urls_found):
         record = {
             'type': 'Snapshot',
@@ -138,11 +140,13 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
             record['parent_snapshot_id'] = snapshot_id
         if crawl_id:
             record['crawl_id'] = crawl_id
+        records.append(record)
         print(json.dumps(record))
 
     # Emit ArchiveResult record to mark completion
+    URLS_FILE.write_text('\n'.join(json.dumps(r) for r in records) + ('\n' if records else ''))
     status = 'succeeded' if urls_found else 'skipped'
-    output_str = f'Found {len(urls_found)} URLs' if urls_found else 'No URLs found'
+    output_str = URLS_FILE.name
     ar_record = {
         'type': 'ArchiveResult',
         'status': status,

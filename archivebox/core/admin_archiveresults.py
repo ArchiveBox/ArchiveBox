@@ -57,7 +57,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
 
         # Build output link - use embed_path() which checks output_files first
         embed_path = result.embed_path() if hasattr(result, 'embed_path') else None
-        output_link = f'/archive/{result.snapshot.timestamp}/{embed_path}' if embed_path and result.status == 'succeeded' else f'/archive/{result.snapshot.timestamp}/'
+        output_link = f'/{result.snapshot.archive_path}/{embed_path}' if embed_path and result.status == 'succeeded' else f'/{result.snapshot.archive_path}/'
 
         # Get version - try cmd_version field
         version = result.cmd_version if result.cmd_version else '-'
@@ -83,8 +83,8 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
                     {icon}
                 </td>
                 <td style="padding: 10px 12px; font-weight: 500; color: #334155;">
-                    <a href="{output_link}" target="_blank"
-                       style="color: #334155; text-decoration: none;"
+                        <a href="{output_link}" target="_blank"
+                           style="color: #334155; text-decoration: none;"
                        title="View output fullscreen"
                        onmouseover="this.style.color='#2563eb'; this.style.textDecoration='underline';"
                        onmouseout="this.style.color='#334155'; this.style.textDecoration='none';">
@@ -301,8 +301,8 @@ class ArchiveResultAdmin(BaseModelAdmin):
     )
     def snapshot_info(self, result):
         return format_html(
-            '<a href="/archive/{}/index.html"><b><code>[{}]</code></b> &nbsp; {} &nbsp; {}</a><br/>',
-            result.snapshot.timestamp,
+            '<a href="/{}/index.html"><b><code>[{}]</code></b> &nbsp; {} &nbsp; {}</a><br/>',
+            result.snapshot.archive_path,
             str(result.snapshot.id)[:8],
             result.snapshot.bookmarked_at.strftime('%Y-%m-%d %H:%M'),
             result.snapshot.url[:128],
@@ -336,8 +336,8 @@ class ArchiveResultAdmin(BaseModelAdmin):
         embed_path = result.embed_path() if hasattr(result, 'embed_path') else None
         output_path = embed_path if (result.status == 'succeeded' and embed_path) else 'index.html'
         return format_html(
-            '<a href="/archive/{}/{}" class="output-link">↗️</a><pre>{}</pre>',
-            result.snapshot.timestamp,
+            '<a href="/{}/{}" class="output-link">↗️</a><pre>{}</pre>',
+            result.snapshot.archive_path,
             output_path,
             result.output_str,
         )
@@ -348,7 +348,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
             '<pre style="display: inline-block">{}</pre><br/>',
             result.output_str,
         )
-        output_html += format_html('<a href="/archive/{}/index.html#all">See result files ...</a><br/><pre><code>', str(result.snapshot.timestamp))
+        output_html += format_html('<a href="/{}/index.html#all">See result files ...</a><br/><pre><code>', str(result.snapshot.archive_path))
         embed_path = result.embed_path() if hasattr(result, 'embed_path') else ''
         path_from_embed = (snapshot_dir / (embed_path or ''))
         output_html += format_html('<i style="padding: 1px">{}</i><b style="padding-right: 20px">/</b><i>{}</i><br/><hr/>', str(snapshot_dir), str(embed_path))

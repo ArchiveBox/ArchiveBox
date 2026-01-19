@@ -271,12 +271,11 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
         records.append(record)
         print(json.dumps(record))
 
-    if records:
-        URLS_FILE.write_text('\n'.join(json.dumps(r) for r in records) + '\n')
+    URLS_FILE.write_text('\n'.join(json.dumps(r) for r in records) + ('\n' if records else ''))
 
     # Emit ArchiveResult record to mark completion
     status = 'succeeded' if urls_found else 'skipped'
-    output_str = f'Found {len(urls_found)} URLs' if urls_found else 'No URLs found'
+    output_str = URLS_FILE.name
     ar_record = {
         'type': 'ArchiveResult',
         'status': status,

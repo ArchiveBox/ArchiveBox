@@ -1,6 +1,7 @@
 __package__ = 'archivebox.core'
 
 import ipaddress
+import re
 from django.utils import timezone
 from django.contrib.auth.middleware import RemoteUserMiddleware
 from django.core.exceptions import ImproperlyConfigured
@@ -28,10 +29,11 @@ def TimezoneMiddleware(get_response):
 
 
 def CacheControlMiddleware(get_response):
+    snapshot_path_re = re.compile(r"^/[^/]+/\\d{8}/[^/]+/[0-9a-fA-F-]{8,36}/")
     def middleware(request):
         response = get_response(request)
 
-        if '/archive/' in request.path or '/static/' in request.path:
+        if '/archive/' in request.path or '/static/' in request.path or snapshot_path_re.match(request.path):
             policy = 'public' if SERVER_CONFIG.PUBLIC_SNAPSHOTS else 'private'
             response['Cache-Control'] = f'{policy}, max-age=60, stale-while-revalidate=300'
             # print('Set Cache-Control header to', response['Cache-Control'])

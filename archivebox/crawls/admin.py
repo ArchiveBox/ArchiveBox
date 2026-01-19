@@ -71,8 +71,8 @@ def render_snapshots_list(snapshots_qs, limit=20):
                                  color: {color}; background: {bg};">{status}</span>
                 </td>
                 <td style="padding: 6px 8px; white-space: nowrap;">
-                    <a href="/archive/{snapshot.timestamp}/" style="text-decoration: none;">
-                        <img src="/archive/{snapshot.timestamp}/favicon.ico"
+                    <a href="/{snapshot.archive_path}/" style="text-decoration: none;">
+                        <img src="/{snapshot.archive_path}/favicon.ico"
                              style="width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;"
                              onerror="this.style.display='none'"/>
                     </a>

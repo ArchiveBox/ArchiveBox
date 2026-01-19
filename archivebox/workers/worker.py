@@ -698,7 +698,7 @@ class SnapshotWorker(Worker):
 
         try:
             # Get merged config (includes env vars passed via Process.env, snapshot.config, defaults, etc.)
-            config = get_config(snapshot=self.snapshot)
+            config = get_config(snapshot=self.snapshot, crawl=self.snapshot.crawl)
 
             # Discover all hooks for this snapshot
             hooks = discover_hooks('Snapshot', config=config)
@@ -842,14 +842,13 @@ class SnapshotWorker(Worker):
         # Clear to avoid double-termination during on_shutdown
         self.background_processes = {}
 
-        # Update STARTED background results now that hooks are done
+        # Update background results now that hooks are done
         from archivebox.core.models import ArchiveResult
 
-        started_bg = self.snapshot.archiveresult_set.filter(
-            status=ArchiveResult.StatusChoices.STARTED,
+        bg_results = self.snapshot.archiveresult_set.filter(
             hook_name__contains='.bg.',
         )
-        for ar in started_bg:
+        for ar in bg_results:
             ar.update_from_output()
 
     def _reap_background_hooks(self) -> None:
@@ -867,7 +866,7 @@ class SnapshotWorker(Worker):
                 continue
 
             ar = self.snapshot.archiveresult_set.filter(hook_name=hook_name).first()
-            if ar and ar.status == ArchiveResult.StatusChoices.STARTED:
+            if ar:
                 ar.update_from_output()
 
             # Remove completed hook from tracking

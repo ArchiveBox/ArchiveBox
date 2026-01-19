@@ -237,13 +237,13 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             '''
             <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
-                   href="/archive/{}"
+                   href="/{}"
                    onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';"
                    onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
                     📄 Summary Page
                 </a>
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
-                   href="/archive/{}/index.html#all"
+                   href="/{}/index.html#all"
                    onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';"
                    onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
                     📁 Result Files
@@ -291,8 +291,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 <b>Tip:</b> Action buttons link to the list view with this snapshot pre-selected. Select it and use the action dropdown to execute.
             </p>
             ''',
-            obj.timestamp,
-            obj.timestamp,
+            obj.archive_path,
+            obj.archive_path,
             obj.url,
             obj.pk,
             obj.pk,
@@ -310,7 +310,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             '✅' if obj.is_archived else '❌',
             obj.num_outputs,
             self.size(obj) or '0kb',
-            f'/archive/{obj.timestamp}/favicon.ico',
+            f'/{obj.archive_path}/favicon.ico',
             obj.extension or '-',
         )
 

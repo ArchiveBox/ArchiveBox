@@ -48,6 +48,19 @@ class CustomOutboundWebhookLogFormatter(logging.Formatter):
         result = super().format(record)
         return result.replace('HTTP Request: ', 'OutboundWebhook: ')
 
+class StripANSIColorCodesFilter(logging.Filter):
+    _ansi_re = re.compile(r'\x1b\[[0-9;]*m')
+    _bare_re = re.compile(r'\[[0-9;]*m')
+
+    def filter(self, record) -> bool:
+        msg = record.getMessage()
+        if isinstance(msg, str) and ('\x1b[' in msg or '[m' in msg):
+            msg = self._ansi_re.sub('', msg)
+            msg = self._bare_re.sub('', msg)
+            record.msg = msg
+            record.args = ()
+        return True
+
 
 ERROR_LOG = tempfile.NamedTemporaryFile().name
 
@@ -87,6 +100,9 @@ SETTINGS_LOGGING = {
         "noisyrequestsfilter": {
             "()": NoisyRequestsFilter,
         },
+        "stripansi": {
+            "()": StripANSIColorCodesFilter,
+        },
         "require_debug_false": {
             "()": "django.utils.log.RequireDebugFalse",
         },
@@ -101,7 +117,7 @@ SETTINGS_LOGGING = {
             "level": "DEBUG",
             "markup": False,
             "rich_tracebacks": False,  # Use standard Python tracebacks (no frame/box)
-            "filters": ["noisyrequestsfilter"],
+            "filters": ["noisyrequestsfilter", "stripansi"],
         },
         "logfile": {
             "level": "INFO",
@@ -110,7 +126,7 @@ SETTINGS_LOGGING = {
             "maxBytes": 1024 * 1024 * 25,  # 25 MB
             "backupCount": 10,
             "formatter": "rich",
-            "filters": ["noisyrequestsfilter"],
+            "filters": ["noisyrequestsfilter", "stripansi"],
         },
         "outbound_webhooks": {
             "class": "rich.logging.RichHandler",

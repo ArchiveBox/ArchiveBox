@@ -882,7 +882,7 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        assert 'Found 100 URLs' in result.stdout
+        assert 'urls.jsonl' in result.stderr or 'urls.jsonl' in result.stdout
 
         # Output goes to stdout (JSONL)
         lines = [line for line in result.stdout.strip().split('\n') if line.strip()]

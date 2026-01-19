@@ -16,6 +16,7 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 from datetime import datetime, timezone
 from html import unescape
 from urllib.parse import urlparse
@@ -23,6 +24,7 @@ from urllib.parse import urlparse
 import rich_click as click
 
 PLUGIN_NAME = 'parse_netscape_urls'
+URLS_FILE = Path('urls.jsonl')
 
 # Constants for timestamp epoch detection
 UNIX_EPOCH = 0  # 1970-01-01 00:00:00 UTC
@@ -232,9 +234,12 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
     for entry in urls_found:
         print(json.dumps(entry))
 
+    # Write urls.jsonl to disk for crawl system
+    URLS_FILE.write_text('\n'.join(json.dumps(r) for r in urls_found) + ('\n' if urls_found else ''))
+
     # Emit ArchiveResult record to mark completion
     status = 'succeeded' if urls_found else 'skipped'
-    output_str = f'Found {len(urls_found)} URLs, {len(all_tags)} tags' if urls_found else 'No bookmarks found'
+    output_str = URLS_FILE.name
     ar_record = {
         'type': 'ArchiveResult',
         'status': status,

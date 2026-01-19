@@ -113,6 +113,10 @@
                 border-radius: 10px;
                 background-color: black;
                 overflow: hidden;
+                min-height: 130px;
+            }
+            .header-bottom-frames .card:has([data-compact]) {
+                min-height: 0;
             }
             .card h4 {
                 font-size: 1.4vw;
@@ -153,6 +157,202 @@
 
                 transform: scale(0.25); 
                 transform-origin: 0 0;
+            }
+            .row.header-bottom-frames {
+                display: block !important;
+                width: 100%;
+                max-width: 100%;
+                column-width: 180px;
+                column-gap: 8px;
+                column-fill: auto;
+                margin-left: 0px;
+                margin-right: 0px;
+                flex: none !important;
+            }
+            .header-bottom-frames .col-lg-2 {
+                padding-left: 0px;
+                padding-right: 0px;
+                max-width: 100%;
+                width: 100% !important;
+                display: inline-block !important;
+                float: none !important;
+                flex: none !important;
+                break-inside: avoid;
+                margin-bottom: 6px;
+                vertical-align: top;
+            }
+            .header-bottom-frames .card:has([data-compact]) .thumbnail-wrapper,
+            .header-bottom-frames .card:has([data-compact]) .thumbnail-wrapper.compact {
+                height: 32px;
+            }
+            .header-bottom-frames .card:has([data-compact]) .thumbnail-text {
+                height: auto;
+                max-height: 64px;
+            }
+            .header-bottom-frames .card:has([data-compact]) .card-body {
+                padding: 4px 8px;
+                max-height: 44px;
+            }
+            .thumbnail-wrapper {
+                height: 100px;
+                overflow: hidden;
+                background: #333;
+            }
+            .thumbnail-compact {
+                height: 32px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 0 8px;
+                font-size: 13px;
+                line-height: 1;
+                color: #bdbdbd;
+                background: #111;
+                border-bottom: 1px solid #222;
+                text-transform: uppercase;
+                letter-spacing: 0.02em;
+            }
+            .thumbnail-compact-label {
+                color: #e1e1e1;
+            }
+            .thumbnail-compact-meta {
+                color: #777;
+                font-size: 11px;
+                margin-left: auto;
+            }
+            .thumbnail-compact svg,
+            .thumbnail-compact img {
+                height: 12px;
+                width: 12px;
+            }
+            .thumbnail-text {
+                height: 100px;
+                background: #121212;
+                color: #d8d8d8;
+                padding: 6px 8px;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+                font-size: 11px;
+                line-height: 1.2;
+                overflow: hidden;
+            }
+            .thumbnail-text-header {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 10px;
+                color: #9b9b9b;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+            }
+            .thumbnail-text-pre {
+                margin: 0;
+                white-space: pre-wrap;
+                overflow: hidden;
+                display: -webkit-box;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 5;
+            }
+            .thumbnail-text[data-plugin="title"] .thumbnail-text-pre {
+                font-size: 13px;
+                font-weight: 600;
+                -webkit-line-clamp: 3;
+            }
+            .thumb-grid {
+                display: block;
+                column-width: 180px;
+                column-gap: 6px;
+                align-content: start;
+                width: 100%;
+            }
+            .thumb-card {
+                box-shadow: 2px 3px 14px 0px rgba(0,0,0,0.02);
+                border: 1px solid rgba(0,0,0,3);
+                border-radius: 10px;
+                background-color: black;
+                overflow: hidden;
+                display: inline-block;
+                width: 100%;
+                break-inside: avoid;
+                box-sizing: border-box;
+                margin-bottom: 6px;
+                height: 138px;
+                min-height: 138px;
+                max-height: 138px;
+            }
+            .thumb-card:has([data-compact]) {
+                height: 46px;
+                min-height: 46px;
+                max-height: 46px;
+            }
+            .thumb-card .thumb-body {
+                font-size: 14px;
+                padding: 3px 8px;
+                line-height: 1.2;
+                word-wrap: break-word;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                background-color: #1a1a1a;
+                color: #d3d3d3;
+            }
+            .thumb-card .thumb-body h4 {
+                font-size: 1.1em;
+                margin: 0 0 2px 0;
+                line-height: 1.1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .thumb-card .thumbnail-wrapper,
+            .thumb-card iframe.card-img-top {
+                display: block;
+                width: 100%;
+            }
+            .thumb-card:has([data-compact]) .thumbnail-wrapper,
+            .thumb-card:has([data-compact]) .thumbnail-wrapper.compact {
+                height: 24px;
+                flex: 0 0 auto;
+            }
+            .thumb-card:has([data-compact]) .thumb-body {
+                padding: 2px 6px;
+                font-size: 12px;
+                max-height: 20px;
+            }
+            .thumb-card:has([data-compact]) .thumb-body h4 {
+                font-size: 0.9em;
+                margin-bottom: 0px;
+                line-height: 1;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .thumb-card.selected-card {
+                border: 2px solid orange;
+                box-shadow: 0px -6px 13px 1px rgba(0,0,0,0.05);
+            }
+            .thumb-compact .thumbnail-wrapper {
+                height: 32px;
+            }
+            .thumb-compact {
+                margin-bottom: 0px;
+                border-radius: 6px;
+            }
+            .thumb-compact .card-body {
+                display: block;
+                padding: 4px 8px;
+                font-size: 12px;
+                line-height: 1.2;
+                max-height: none;
+            }
+            .thumb-compact .thumbnail-compact,
+            .thumb-compact .thumbnail-text {
+                height: 32px;
+                max-height: 32px;
             }
             .full-page-iframe {
                 border-top: 1px solid #ddd;
@@ -202,6 +402,10 @@
                 border: 1px solid rgba(0,0,0,0.2);
                 box-shadow: 4px 4px 4px rgba(0,0,0,0.2);
                 margin-top: 0px;
+            }
+            .header-bottom.container-fluid {
+                padding-left: 6px;
+                padding-right: 6px;
             }
             .header-bottom-info {
                 color: #6f6f6f;
@@ -357,15 +561,15 @@
                         </div>
                     </div>
                 </div>
-                <div class="row header-bottom-frames">
+                <div class="thumb-grid">
                     {% for result_info in archiveresults %}
                         {% if result_info.result %}
-                            {% plugin_thumbnail result_info.result as thumbnail_html %}
-                            {% if thumbnail_html %}
-                            <div class="col-lg-2">
-                                <div class="card{% if forloop.first %} selected-card{% endif %}">
-                                    {{ thumbnail_html }}
-                                    <div class="card-body">
+                            {% plugin_card result_info.result as thumbnail_html %}
+                            <div class="thumb-card{% if forloop.first %} selected-card{% endif %}">
+                                    <div class="thumbnail-wrapper">
+                                        {{ thumbnail_html }}
+                                    </div>
+                                    <div class="thumb-body">
                                         <a href="{{ result_info.path }}" title="Open in new tab..." target="_blank" rel="noopener">
                                             <p class="card-text"><code>{{ result_info.path }}</code></p>
                                         </a>
@@ -373,18 +577,15 @@
                                             <h4 class="card-title">{{ result_info.name|title }}</h4>
                                         </a>
                                     </div>
-                                </div>
                             </div>
-                            {% endif %}
                         {% endif %}
                     {% endfor %}
 
                     {% get_config "PREVIEW_ORIGINALS" as preview_originals %}
                     {% if preview_originals %}
-                    <div class="col-lg-2">
-                        <div class="card">
+                    <div class="thumb-card">
                             <iframe class="card-img-top" src="{{url}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy" referrerpolicy="no-referrer"></iframe>
-                            <div class="card-body">
+                            <div class="thumb-body">
                                 <a href="{{url}}" title="Open in new tab..." target="_blank" rel="noopener" referrerpolicy="no-referrer">
                                     <p class="card-text"><code>🌐 {{domain}}</code></p>
                                 </a>
@@ -392,7 +593,6 @@
                                     <h4 class="card-title">Original</h4>
                                 </a>
                             </div>
-                        </div>
                     </div>
                     {% endif %}
                 </div>
@@ -417,18 +617,30 @@
             }
 
             // show selected file in iframe when preview card is clicked
-            jQuery('.card').on('click', function(e) {
+            jQuery('.thumb-card').on('click', function(e) {
                 jQuery('.selected-card').removeClass('selected-card')
-                jQuery(e.target).closest('.card').addClass('selected-card')
-            })
-            jQuery('.card a[target=preview]').on('click', function(e) {
-                if (e.currentTarget.href.endsWith('.pdf')) {
-                    jQuery('.full-page-iframe')[0].removeAttribute('sandbox')
-                } else {
-                    jQuery('.full-page-iframe')[0].sandbox = "allow-same-origin allow-scripts allow-forms allow-top-navigation-by-user-activation"
+                jQuery(e.target).closest('.thumb-card').addClass('selected-card')
+
+                const link = e.target.closest('a[target=preview]') || e.currentTarget.querySelector('a[target=preview]') || e.currentTarget.querySelector('a')
+                if (!link || !link.href || link.href.endsWith('#')) {
+                    return true
                 }
-                window.location.hash = getPreviewTypeFromPath(e.currentTarget)
+                const iframe = jQuery('.full-page-iframe')[0]
+                if (!iframe) {
+                    return true
+                }
+                if (link.href.endsWith('.pdf')) {
+                    iframe.removeAttribute('sandbox')
+                } else {
+                    iframe.sandbox = "allow-same-origin allow-scripts allow-forms allow-top-navigation-by-user-activation"
+                }
+                window.location.hash = getPreviewTypeFromPath(link)
+                iframe.src = link.href
                 return true
+            })
+            jQuery('.thumb-card a[target=preview]').on('click', function(e) {
+                e.preventDefault()
+                return false
             })
 
             function hideSnapshotHeader() {
@@ -483,7 +695,7 @@
                     for (const link of jQuery('a[target=preview]')) {
                         console.log(link.pathname)
                         if (getPreviewTypeFromPath(link) == window.location.hash.slice(1).toLowerCase()) {
-                            jQuery(link).closest('.card').click()
+                            jQuery(link).closest('.thumb-card').click()
                             jQuery(link).click()
                             link.click()
                         }
@@ -502,7 +714,7 @@
 
             // hide all preview iframes on small screens
             if (window.innerWidth < 1091) {
-                jQuery('.card a[target=preview]').attr('target', '_self')
+            jQuery('.thumb-card a[target=preview]').attr('target', '_self')
             }
 
             var pdf_frame = document.querySelector('.pdf-frame');

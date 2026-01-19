@@ -57,7 +57,7 @@ class TestParseHtmlUrls:
         )
 
         assert result.returncode == 0
-        assert 'Found 3 URLs' in result.stderr
+        assert 'urls.jsonl' in result.stderr
 
         # Parse Snapshot records from stdout
         lines = [line for line in result.stdout.strip().split('\n') if line.strip() and '"type": "Snapshot"' in line]
@@ -77,6 +77,11 @@ class TestParseHtmlUrls:
         # Verify ArchiveResult record
         assert '"type": "ArchiveResult"' in result.stdout
         assert '"status": "succeeded"' in result.stdout
+
+        urls_file = tmp_path / 'urls.jsonl'
+        assert urls_file.exists(), "urls.jsonl not created"
+        file_lines = [line for line in urls_file.read_text().splitlines() if line.strip()]
+        assert len(file_lines) == 3, f"Expected 3 urls.jsonl entries, got {len(file_lines)}"
 
     def test_ignores_non_http_schemes(self, tmp_path):
         """Test that non-http schemes are ignored."""
@@ -194,7 +199,7 @@ class TestParseHtmlUrls:
         )
 
         assert result.returncode == 0
-        assert 'No URLs found' in result.stderr
+        assert 'urls.jsonl' in result.stderr
         assert '"status": "skipped"' in result.stdout
 
     def test_handles_malformed_html(self, tmp_path):

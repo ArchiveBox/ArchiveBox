@@ -8,7 +8,7 @@ from django.views.generic.base import RedirectView
 from archivebox.misc.serve_static import serve_static
 
 from archivebox.core.admin_site import archivebox_admin
-from archivebox.core.views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthCheckView, live_progress_view
+from archivebox.core.views import HomepageView, SnapshotView, SnapshotPathView, PublicIndexView, AddView, HealthCheckView, live_progress_view
 
 from archivebox.workers.views import JobsDashboardView
 
@@ -32,6 +32,8 @@ urlpatterns = [
     
     path('archive/', RedirectView.as_view(url='/')),
     path('archive/<path:path>', SnapshotView.as_view(), name='Snapshot'),
+    re_path(r'^(?P<username>[^/]+)/(?P<date>\d{4}(?:\d{2})?(?:\d{2})?)/(?P<url>https?://.*)$', SnapshotPathView.as_view(), name='snapshot-path-url'),
+    re_path(r'^(?P<username>[^/]+)/(?P<date>\d{4}(?:\d{2})?(?:\d{2})?)/(?P<domain>[^/]+)(?:/(?P<snapshot_id>[0-9a-fA-F-]{8,36})(?:/(?P<path>.*))?)?$', SnapshotPathView.as_view(), name='snapshot-path'),
 
     path('admin/core/snapshot/add/', RedirectView.as_view(url='/add/')),
     path('add/', AddView.as_view(), name='add'),
