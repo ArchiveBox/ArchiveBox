@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -77,14 +78,13 @@ class TestRedirectsWithChrome(TestCase):
                 # Use the environment from chrome_session (already has CHROME_HEADLESS=true)
 
 
-                # Run redirects hook with the active Chrome session
-                result = subprocess.run(
+                # Run redirects hook with the active Chrome session (background hook)
+                result = subprocess.Popen(
                     ['node', str(REDIRECTS_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
-                    cwd=str(snapshot_chrome_dir,
-            env=get_test_env()),
-                    capture_output=True,
+                    cwd=str(snapshot_chrome_dir),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=60,
                     env=env
                 )
 
@@ -92,6 +92,12 @@ class TestRedirectsWithChrome(TestCase):
                 redirects_output = snapshot_chrome_dir / 'redirects.jsonl'
 
                 redirects_data = None
+
+                # Wait briefly for background hook to write output
+                for _ in range(10):
+                    if redirects_output.exists() and redirects_output.stat().st_size > 0:
+                        break
+                    time.sleep(1)
 
                 # Try parsing from file first
                 if redirects_output.exists():
@@ -107,7 +113,11 @@ class TestRedirectsWithChrome(TestCase):
 
                 # Try parsing from stdout if not in file
                 if not redirects_data:
-                    for line in result.stdout.split('\n'):
+                    try:
+                        stdout, stderr = result.communicate(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        stdout, stderr = "", ""
+                    for line in stdout.split('\n'):
                         line = line.strip()
                         if line.startswith('{'):
                             try:
@@ -120,9 +130,17 @@ class TestRedirectsWithChrome(TestCase):
 
                 # Verify hook ran successfully
                 # example.com typically doesn't redirect, so we just verify no errors
-                self.assertEqual(result.returncode, 0, f"Hook failed: {result.stderr}")
-                self.assertNotIn('Traceback', result.stderr)
-                self.assertNotIn('Error:', result.stderr)
+                if result.poll() is None:
+                    result.terminate()
+                    try:
+                        stdout, stderr = result.communicate(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        result.kill()
+                        stdout, stderr = result.communicate()
+                else:
+                    stdout, stderr = result.communicate()
+                self.assertNotIn('Traceback', stderr)
+                self.assertNotIn('Error:', stderr)
 
         except RuntimeError as e:
             if 'Chrome' in str(e) or 'CDP' in str(e):

@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -19,7 +20,6 @@ from django.test import TestCase
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'chrome' / 'tests'))
 from chrome_test_helpers import (
     chrome_session,
-    get_test_env,
     get_plugin_dir,
     get_hook_script,
 )
@@ -76,16 +76,27 @@ class TestSSLWithChrome(TestCase):
                 # Use the environment from chrome_session (already has CHROME_HEADLESS=true)
 
 
-                # Run SSL hook with the active Chrome session
-                result = subprocess.run(
+                # Run SSL hook with the active Chrome session (background hook)
+                result = subprocess.Popen(
                     ['node', str(SSL_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
-                    cwd=str(snapshot_chrome_dir,
-            env=get_test_env()),
-                    capture_output=True,
+                    cwd=str(snapshot_chrome_dir),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=60,
                     env=env
                 )
+
+                # Allow it to run briefly, then terminate (background hook)
+                time.sleep(3)
+                if result.poll() is None:
+                    result.terminate()
+                    try:
+                        stdout, stderr = result.communicate(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        result.kill()
+                        stdout, stderr = result.communicate()
+                else:
+                    stdout, stderr = result.communicate()
 
                 # Check for output file
                 ssl_output = snapshot_chrome_dir / 'ssl.jsonl'
@@ -106,7 +117,7 @@ class TestSSLWithChrome(TestCase):
 
                 # Try parsing from stdout if not in file
                 if not ssl_data:
-                    for line in result.stdout.split('\n'):
+                    for line in stdout.split('\n'):
                         line = line.strip()
                         if line.startswith('{'):
                             try:
@@ -118,9 +129,8 @@ class TestSSLWithChrome(TestCase):
                                 continue
 
                 # Verify hook ran successfully
-                self.assertEqual(result.returncode, 0, f"Hook failed: {result.stderr}")
-                self.assertNotIn('Traceback', result.stderr)
-                self.assertNotIn('Error:', result.stderr)
+                self.assertNotIn('Traceback', stderr)
+                self.assertNotIn('Error:', stderr)
 
                 # example.com uses HTTPS, so we MUST get SSL certificate data
                 self.assertIsNotNone(ssl_data, "No SSL data extracted from HTTPS URL")

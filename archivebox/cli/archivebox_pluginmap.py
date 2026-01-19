@@ -205,7 +205,6 @@ def pluginmap(
 
     from archivebox.hooks import (
         discover_hooks,
-        extract_step,
         is_background_hook,
         BUILTIN_PLUGINS_DIR,
         USER_PLUGINS_DIR,
@@ -277,16 +276,14 @@ def pluginmap(
         # Build hook info list
         hook_infos = []
         for hook_path in hooks:
-            # Get plugin name from parent directory (e.g., 'wget' from 'plugins/wget/on_Snapshot__61_wget.py')
+            # Get plugin name from parent directory (e.g., 'wget' from 'plugins/wget/on_Snapshot__06_wget.bg.py')
             plugin_name = hook_path.parent.name
-            step = extract_step(hook_path.name)
             is_bg = is_background_hook(hook_path.name)
 
             hook_infos.append({
                 'path': str(hook_path),
                 'name': hook_path.name,
                 'plugin': plugin_name,
-                'step': step,
                 'is_background': is_bg,
                 'extension': hook_path.suffix,
             })
@@ -316,20 +313,18 @@ def pluginmap(
                 show_header=True,
                 header_style='bold magenta',
             )
-            table.add_column('Step', justify='center', width=6)
             table.add_column('Plugin', style='cyan', width=20)
             table.add_column('Hook Name', style='green')
             table.add_column('BG', justify='center', width=4)
             table.add_column('Type', justify='center', width=5)
 
-            # Sort by step then by name
-            sorted_hooks = sorted(hook_infos, key=lambda h: (h['step'], h['name']))
+            # Sort lexicographically by hook name
+            sorted_hooks = sorted(hook_infos, key=lambda h: h['name'])
 
             for hook in sorted_hooks:
                 bg_marker = '[yellow]bg[/yellow]' if hook['is_background'] else ''
                 ext = hook['extension'].lstrip('.')
                 table.add_row(
-                    str(hook['step']),
                     hook['plugin'],
                     hook['name'],
                     bg_marker,
@@ -347,7 +342,7 @@ def pluginmap(
         prnt(f'[bold]Total hooks discovered: {total_hooks}[/bold]')
         prnt()
         prnt('[dim]Hook naming convention: on_{Model}__{XX}_{description}[.bg].{ext}[/dim]')
-        prnt('[dim]  - XX: Two-digit order (first digit = step 0-9)[/dim]')
+        prnt('[dim]  - XX: Two-digit lexicographic order (00-99)[/dim]')
         prnt('[dim]  - .bg: Background hook (non-blocking)[/dim]')
         prnt('[dim]  - ext: py, sh, or js[/dim]')
         prnt()

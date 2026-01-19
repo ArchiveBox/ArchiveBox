@@ -168,6 +168,13 @@ def fetch_content(url: str) -> str:
 @click.option('--depth', type=int, default=0, help='Current depth level')
 def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0):
     """Parse Netscape bookmark HTML and extract URLs."""
+    env_depth = os.environ.get('SNAPSHOT_DEPTH')
+    if env_depth is not None:
+        try:
+            depth = int(env_depth)
+        except Exception:
+            pass
+    crawl_id = crawl_id or os.environ.get('CRAWL_ID')
 
     try:
         content = fetch_content(url)

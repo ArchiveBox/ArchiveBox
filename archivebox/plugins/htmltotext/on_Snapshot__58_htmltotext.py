@@ -76,22 +76,28 @@ def find_html_source() -> str | None:
     # Hooks run in snapshot_dir, sibling extractor outputs are in subdirectories
     search_patterns = [
         'singlefile/singlefile.html',
+        '*_singlefile/singlefile.html',
         'singlefile/*.html',
+        '*_singlefile/*.html',
         'dom/output.html',
+        '*_dom/output.html',
         'dom/*.html',
+        '*_dom/*.html',
         'wget/**/*.html',
+        '*_wget/**/*.html',
         'wget/**/*.htm',
+        '*_wget/**/*.htm',
     ]
 
-    cwd = Path.cwd()
-    for pattern in search_patterns:
-        matches = list(cwd.glob(pattern))
-        for match in matches:
-            if match.is_file() and match.stat().st_size > 0:
-                try:
-                    return match.read_text(errors='ignore')
-                except Exception:
-                    continue
+    for base in (Path.cwd(), Path.cwd().parent):
+        for pattern in search_patterns:
+            matches = list(base.glob(pattern))
+            for match in matches:
+                if match.is_file() and match.stat().st_size > 0:
+                    try:
+                        return match.read_text(errors='ignore')
+                    except Exception:
+                        continue
 
     return None
 

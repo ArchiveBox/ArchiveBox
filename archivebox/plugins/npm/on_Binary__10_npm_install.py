@@ -90,30 +90,34 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
     }
     print(json.dumps(record))
 
-    # Emit PATH update if npm bin dir not already in PATH
-    npm_bin_dir = str(npm_prefix / 'bin')
+    # Emit PATH update for npm bin dirs (node_modules/.bin preferred)
+    npm_bin_dirs = [
+        str(npm_prefix / 'node_modules' / '.bin'),
+        str(npm_prefix / 'bin'),
+    ]
     current_path = os.environ.get('PATH', '')
+    path_dirs = current_path.split(':') if current_path else []
+    new_path = current_path
 
-    # Check if npm_bin_dir is already in PATH
-    path_dirs = current_path.split(':')
-    if npm_bin_dir not in path_dirs:
-        # Prepend npm_bin_dir to PATH
-        new_path = f"{npm_bin_dir}:{current_path}" if current_path else npm_bin_dir
-        print(json.dumps({
-            'type': 'Machine',
-            '_method': 'update',
-            'key': 'config/PATH',
-            'value': new_path,
-        }))
-        click.echo(f"  Added {npm_bin_dir} to PATH", err=True)
+    for npm_bin_dir in npm_bin_dirs:
+        if npm_bin_dir and npm_bin_dir not in path_dirs:
+            new_path = f"{npm_bin_dir}:{new_path}" if new_path else npm_bin_dir
+            path_dirs.insert(0, npm_bin_dir)
+
+    print(json.dumps({
+        'type': 'Machine',
+        'config': {
+            'PATH': new_path,
+        },
+    }))
 
     # Also emit NODE_MODULES_DIR for JS module resolution
     node_modules_dir = str(npm_prefix / 'node_modules')
     print(json.dumps({
         'type': 'Machine',
-        '_method': 'update',
-        'key': 'config/NODE_MODULES_DIR',
-        'value': node_modules_dir,
+        'config': {
+            'NODE_MODULES_DIR': node_modules_dir,
+        },
     }))
 
     # Log human-readable info to stderr

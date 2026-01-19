@@ -166,7 +166,7 @@ def test_skips_when_staticfile_exists():
         # Create staticfile output to simulate staticfile extractor already ran
         staticfile_dir = snapshot_dir / 'staticfile'
         staticfile_dir.mkdir()
-        (staticfile_dir / 'index.html').write_text('<html></html>')
+        (staticfile_dir / 'stdout.log').write_text('{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n')
 
         env = get_test_env()
         result = subprocess.run(

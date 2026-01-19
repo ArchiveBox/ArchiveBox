@@ -193,6 +193,9 @@ async function extractOutlinks(url) {
             type: 'Snapshot',
             url: href,
             plugin: PLUGIN_NAME,
+            depth: depth + 1,
+            parent_snapshot_id: snapshotId || undefined,
+            crawl_id: crawlId || undefined,
         })).join('\n');
 
         if (urlsJsonl) {
@@ -214,6 +217,8 @@ async function main() {
     const args = parseArgs();
     const url = args.url;
     const snapshotId = args.snapshot_id;
+    const crawlId = args.crawl_id || process.env.CRAWL_ID;
+    const depth = parseInt(args.depth || process.env.SNAPSHOT_DEPTH || '0', 10) || 0;
 
     if (!url || !snapshotId) {
         console.error('Usage: on_Snapshot__75_parse_dom_outlinks.js --url=<url> --snapshot-id=<uuid>');

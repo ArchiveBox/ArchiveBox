@@ -313,6 +313,12 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 if tags:
                     snapshot.save_tags(tags.split(','))
 
+            # Ensure crawl -> snapshot symlink exists for both new and existing snapshots
+            try:
+                snapshot.ensure_crawl_symlink()
+            except Exception:
+                pass
+
         return created_snapshots
 
     def run(self) -> 'Snapshot | None':
@@ -325,7 +331,6 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             The root Snapshot for this crawl, or None for system crawls that don't create snapshots
         """
         import time
-        import json
         from pathlib import Path
         from archivebox.hooks import run_hook, discover_hooks, process_hook_records
         from archivebox.config.configset import get_config
@@ -338,35 +343,6 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
         # Get merged config with crawl context
         config = get_config(crawl=self)
-
-        # Load all binaries.jsonl files from plugins
-        # This replaces individual on_Crawl install hooks with declarative configuration
-        from archivebox.hooks import BUILTIN_PLUGINS_DIR
-        from archivebox.machine.models import Machine
-
-        machine_id = str(Machine.current().id)
-        binaries_records = []
-
-        for binaries_file in BUILTIN_PLUGINS_DIR.glob('*/binaries.jsonl'):
-            try:
-                with open(binaries_file, 'r') as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and not line.startswith('#'):
-                            try:
-                                record = json.loads(line)
-                                if record.get('type') == 'Binary':
-                                    record['machine_id'] = machine_id
-                                    binaries_records.append(record)
-                            except json.JSONDecodeError:
-                                pass
-            except Exception:
-                pass
-
-        # Process binary declarations before running hooks
-        if binaries_records:
-            overrides = {'crawl': self}
-            process_hook_records(binaries_records, overrides=overrides)
 
         # Discover and run on_Crawl hooks
         with open(debug_log, 'a') as f:
@@ -417,6 +393,34 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             stats = process_hook_records(records, overrides=overrides)
             if stats:
                 print(f'[green]✓ Created: {stats}[/green]')
+
+        # Ensure any newly declared binaries are installed before creating snapshots
+        from archivebox.machine.models import Binary, Machine
+        from django.utils import timezone
+
+        machine = Machine.current()
+        while True:
+            pending_binaries = Binary.objects.filter(
+                machine=machine,
+                status=Binary.StatusChoices.QUEUED,
+                retry_at__lte=timezone.now(),
+            ).order_by('retry_at')
+            if not pending_binaries.exists():
+                break
+
+            for binary in pending_binaries:
+                try:
+                    binary.sm.tick()
+                except Exception:
+                    continue
+
+            # Exit if nothing else is immediately retryable
+            if not Binary.objects.filter(
+                machine=machine,
+                status=Binary.StatusChoices.QUEUED,
+                retry_at__lte=timezone.now(),
+            ).exists():
+                break
 
         # Create snapshots from all URLs in self.urls
         with open(debug_log, 'a') as f:

@@ -21,7 +21,7 @@ from django.test import TestCase
 
 # Get the path to the apt provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_HOOK = PLUGIN_DIR / 'on_Binary__install_using_apt_provider.py'
+INSTALL_HOOK = next(PLUGIN_DIR.glob('on_Binary__*_apt_install.py'), None)
 
 
 def apt_available() -> bool:
@@ -48,7 +48,7 @@ class TestAptProviderHook(TestCase):
 
     def test_hook_script_exists(self):
         """Hook script should exist."""
-        self.assertTrue(INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}")
+        self.assertTrue(INSTALL_HOOK and INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}")
 
     def test_hook_skips_when_apt_not_allowed(self):
         """Hook should skip when apt not in allowed binproviders."""

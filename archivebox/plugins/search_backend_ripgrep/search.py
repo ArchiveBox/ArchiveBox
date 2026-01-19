@@ -18,8 +18,6 @@ import shutil
 from pathlib import Path
 from typing import List, Iterable
 
-from django.conf import settings
-
 
 def get_env(name: str, default: str = '') -> str:
     return os.environ.get(name, default).strip()
@@ -46,6 +44,16 @@ def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
         return default if default is not None else []
 
 
+def _get_archive_dir() -> Path:
+    archive_dir = os.environ.get('ARCHIVE_DIR', '').strip()
+    if archive_dir:
+        return Path(archive_dir)
+    data_dir = os.environ.get('DATA_DIR', '').strip()
+    if data_dir:
+        return Path(data_dir) / 'archive'
+    return Path.cwd() / 'archive'
+
+
 def search(query: str) -> List[str]:
     """Search for snapshots using ripgrep."""
     rg_binary = get_env('RIPGREP_BINARY', 'rg')
@@ -57,7 +65,7 @@ def search(query: str) -> List[str]:
     ripgrep_args = get_env_array('RIPGREP_ARGS', [])
     ripgrep_args_extra = get_env_array('RIPGREP_ARGS_EXTRA', [])
 
-    archive_dir = Path(settings.ARCHIVE_DIR)
+    archive_dir = _get_archive_dir()
     if not archive_dir.exists():
         return []
 

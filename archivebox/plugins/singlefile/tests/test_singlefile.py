@@ -13,6 +13,7 @@ Tests verify:
 import json
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -66,7 +67,7 @@ def test_singlefile_cli_archives_example_com():
 
         # Run singlefile snapshot hook
         result = subprocess.run(
-            ['python', str(SNAPSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=test789'],
+            [sys.executable, str(SNAPSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=test789'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -120,7 +121,7 @@ def test_singlefile_with_chrome_session():
 
             # Run singlefile - it should find and use the existing Chrome session
             result = subprocess.run(
-                ['python', str(SNAPSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=singlefile-test-snap'],
+                [sys.executable, str(SNAPSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=singlefile-test-snap'],
                 cwd=str(singlefile_output_dir),
                 capture_output=True,
                 text=True,
@@ -150,7 +151,7 @@ def test_singlefile_disabled_skips():
         env['SINGLEFILE_ENABLED'] = 'False'
 
         result = subprocess.run(
-            ['python', str(SNAPSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=test-disabled'],
+            [sys.executable, str(SNAPSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=test-disabled'],
             cwd=tmpdir,
             capture_output=True,
             text=True,

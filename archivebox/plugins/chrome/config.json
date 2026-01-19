@@ -7,13 +7,13 @@
       "type": "boolean",
       "default": true,
       "x-aliases": ["USE_CHROME"],
-      "description": "Enable Chrome/Chromium browser integration for archiving"
+      "description": "Enable Chromium browser integration for archiving"
     },
     "CHROME_BINARY": {
       "type": "string",
       "default": "chromium",
       "x-aliases": ["CHROMIUM_BINARY", "GOOGLE_CHROME_BINARY"],
-      "description": "Path to Chrome/Chromium binary"
+      "description": "Path to Chromium binary"
     },
     "CHROME_NODE_BINARY": {
       "type": "string",

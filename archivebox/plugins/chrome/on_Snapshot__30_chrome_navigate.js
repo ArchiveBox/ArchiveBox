@@ -19,7 +19,7 @@ const fs = require('fs');
 const path = require('path');
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 
 const PLUGIN_NAME = 'chrome_navigate';
 const CHROME_SESSION_DIR = '.';

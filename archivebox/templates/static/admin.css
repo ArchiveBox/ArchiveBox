@@ -403,6 +403,38 @@ body.model-snapshot.change-list #content .object-tools {
     margin-top: 1px;
 }
 
+.files-icons {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    vertical-align: middle;
+}
+
+.files-icons a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.files-icons .abx-output-icon {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: #1f2937;
+    background: rgba(15, 23, 42, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+.files-icons .abx-output-icon svg {
+    width: 14px;
+    height: 14px;
+    display: block;
+}
+
 .exists-False {
     opacity: 0.1;
     filter: grayscale(100%);

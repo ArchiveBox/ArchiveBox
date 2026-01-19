@@ -11,6 +11,8 @@ Environment variables:
 
 import json
 import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -46,6 +48,26 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, override
     # Structure: lib/arm64-darwin/pip/venv (PipProvider will create venv automatically)
     pip_venv_path = Path(lib_dir) / 'pip' / 'venv'
     pip_venv_path.parent.mkdir(parents=True, exist_ok=True)
+    venv_python = pip_venv_path / 'bin' / 'python'
+
+    # Prefer a stable system python for venv creation if provided/available
+    preferred_python = os.environ.get('PIP_VENV_PYTHON', '').strip()
+    if not preferred_python:
+        for candidate in ('python3.12', 'python3.11', 'python3.10'):
+            if shutil.which(candidate):
+                preferred_python = candidate
+                break
+    if preferred_python and not venv_python.exists():
+        try:
+            subprocess.run(
+                [preferred_python, '-m', 'venv', str(pip_venv_path), '--upgrade-deps'],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except Exception:
+            # Fall back to PipProvider-managed venv creation
+            pass
 
     # Use abx-pkg PipProvider to install binary with custom venv
     provider = PipProvider(pip_venv=pip_venv_path)
@@ -87,22 +109,21 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, override
     }
     print(json.dumps(record))
 
-    # Emit PATH update if pip bin dir not already in PATH
+    # Emit PATH update for pip bin dir
     pip_bin_dir = str(pip_venv_path / 'bin')
     current_path = os.environ.get('PATH', '')
 
     # Check if pip_bin_dir is already in PATH
     path_dirs = current_path.split(':')
-    if pip_bin_dir not in path_dirs:
-        # Prepend pip_bin_dir to PATH
-        new_path = f"{pip_bin_dir}:{current_path}" if current_path else pip_bin_dir
-        print(json.dumps({
-            'type': 'Machine',
-            '_method': 'update',
-            'key': 'config/PATH',
-            'value': new_path,
-        }))
-        click.echo(f"  Added {pip_bin_dir} to PATH", err=True)
+    new_path = f"{pip_bin_dir}:{current_path}" if current_path else pip_bin_dir
+    if pip_bin_dir in path_dirs:
+        new_path = current_path
+    print(json.dumps({
+        'type': 'Machine',
+        'config': {
+            'PATH': new_path,
+        },
+    }))
 
     # Log human-readable info to stderr
     click.echo(f"Installed {name} at {binary.abspath}", err=True)

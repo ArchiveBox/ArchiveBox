@@ -1253,7 +1253,7 @@ function getExtensionTargets(browser) {
 }
 
 /**
- * Find Chromium/Chrome binary path.
+ * Find Chromium binary path.
  * Checks CHROME_BINARY env var first, then falls back to system locations.
  *
  * @returns {string|null} - Absolute path to browser binary or null if not found
@@ -1276,7 +1276,9 @@ function findChromium() {
     const chromeBinary = getEnv('CHROME_BINARY');
     if (chromeBinary) {
         const absPath = path.resolve(chromeBinary);
-        if (validateBinary(absPath)) {
+        if (absPath.includes('Google Chrome') || absPath.includes('google-chrome')) {
+            console.error('[!] Warning: CHROME_BINARY points to Chrome. Chromium is required for extension support.');
+        } else if (validateBinary(absPath)) {
             return absPath;
         }
         console.error(`[!] Warning: CHROME_BINARY="${chromeBinary}" is not valid`);
@@ -1309,7 +1311,7 @@ function findChromium() {
         return null;
     };
 
-    // 3. Search fallback locations (Chromium first, then Chrome)
+    // 3. Search fallback locations (Chromium only)
     const fallbackLocations = [
         // System Chromium
         '/Applications/Chromium.app/Contents/MacOS/Chromium',
@@ -1318,10 +1320,6 @@ function findChromium() {
         // Puppeteer cache
         path.join(process.env.HOME || '', '.cache/puppeteer/chromium'),
         path.join(process.env.HOME || '', '.cache/puppeteer'),
-        // Chrome (fallback - extensions may not work in 137+)
-        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        '/usr/bin/google-chrome',
-        '/usr/bin/google-chrome-stable',
     ];
 
     for (const loc of fallbackLocations) {
@@ -1332,9 +1330,6 @@ function findChromium() {
                 return binary;
             }
         } else if (validateBinary(loc)) {
-            if (loc.includes('Google Chrome') || loc.includes('google-chrome')) {
-                console.error('[!] Warning: Using Chrome instead of Chromium. Extension loading may not work in Chrome 137+');
-            }
             return loc;
         }
     }
@@ -1699,10 +1694,10 @@ module.exports = {
     // Chrome launching
     launchChromium,
     killChrome,
-    // Chrome/Chromium install
+    // Chromium install
     installChromium,
     installPuppeteerCore,
-    // Chrome/Chromium binary finding
+    // Chromium binary finding
     findChromium,
     // Extension utilities
     getExtensionId,
@@ -1744,7 +1739,7 @@ if (require.main === module) {
         console.log('Usage: chrome_utils.js <command> [args...]');
         console.log('');
         console.log('Commands:');
-        console.log('  findChromium              Find Chrome/Chromium binary');
+        console.log('  findChromium              Find Chromium binary');
         console.log('  installChromium           Install Chromium via @puppeteer/browsers');
         console.log('  installPuppeteerCore      Install puppeteer-core npm package');
         console.log('  launchChromium            Launch Chrome with CDP debugging');

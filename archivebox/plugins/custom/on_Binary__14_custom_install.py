@@ -59,9 +59,16 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
     provider = EnvProvider()
     try:
         binary = Binary(name=name, binproviders=[provider]).load()
-    except Exception as e:
-        click.echo(f"{name} not found after custom install: {e}", err=True)
-        sys.exit(1)
+    except Exception:
+        try:
+            binary = Binary(
+                name=name,
+                binproviders=[provider],
+                overrides={'env': {'version': '0.0.1'}},
+            ).load()
+        except Exception as e:
+            click.echo(f"{name} not found after custom install: {e}", err=True)
+            sys.exit(1)
 
     if not binary.abspath:
         click.echo(f"{name} not found after custom install", err=True)

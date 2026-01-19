@@ -142,7 +142,7 @@ def test_staticfile_present_skips():
         #   dom/         <- dom extractor runs here, looks for ../staticfile
         staticfile_dir = tmpdir / 'staticfile'
         staticfile_dir.mkdir()
-        (staticfile_dir / 'index.html').write_text('<html>test</html>')
+        (staticfile_dir / 'stdout.log').write_text('{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n')
 
         dom_dir = tmpdir / 'dom'
         dom_dir.mkdir()

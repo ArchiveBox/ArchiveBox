@@ -120,7 +120,15 @@ class SnapshotView(View):
         # Get available extractor plugins from hooks (sorted by numeric prefix for ordering)
         # Convert to base names for display ordering
         all_plugins = [get_plugin_name(e) for e in get_enabled_plugins()]
-        preferred_types = tuple(all_plugins)
+        preview_priority = [
+            'singlefile',
+            'screenshot',
+            'wget',
+            'dom',
+            'pdf',
+            'readability',
+        ]
+        preferred_types = tuple(preview_priority + [p for p in all_plugins if p not in preview_priority])
         all_types = preferred_types + tuple(result_type for result_type in archiveresults.keys() if result_type not in preferred_types)
 
         best_result = {'path': 'None', 'result': None}

@@ -15,29 +15,29 @@ Hook contract:
     Exit:   0 = success, non-zero = failure
 
 Execution order:
-    - Hooks are numbered 00-99 with first digit determining step (0-9)
-    - All hooks in a step can run in parallel
-    - Steps execute sequentially (step 0 → step 1 → ... → step 9)
-    - Background hooks (.bg suffix) don't block step advancement
+    - Hooks are named with two-digit prefixes (00-99) and sorted lexicographically by filename
+    - Foreground hooks run sequentially in that order
+    - Background hooks (.bg suffix) run concurrently and do not block foreground progress
+    - After all foreground hooks complete, background hooks receive SIGTERM and must finalize
     - Failed extractors don't block subsequent extractors
 
 Hook Naming Convention:
     on_{ModelName}__{run_order}_{description}[.bg].{ext}
 
     Examples:
-        on_Snapshot__00_setup.py         # Step 0, runs first
-        on_Snapshot__20_chrome_tab.bg.js # Step 2, background (doesn't block)
-        on_Snapshot__50_screenshot.js    # Step 5, foreground (blocks step)
-        on_Snapshot__63_media.bg.py      # Step 6, background (long-running)
+        on_Snapshot__00_setup.py         # runs first
+        on_Snapshot__10_chrome_tab.bg.js # background (doesn't block)
+        on_Snapshot__50_screenshot.js    # foreground (blocks)
+        on_Snapshot__63_media.bg.py      # background (long-running)
 
 Dependency handling:
     Extractor plugins that depend on other plugins' output should check at runtime:
 
     ```python
     # Example: screenshot plugin depends on chrome plugin
-    chrome_session_dir = Path(os.environ.get('SNAPSHOT_DIR', '.')) / 'chrome_session'
-    if not (chrome_session_dir / 'session.json').exists():
-        print('{"status": "skipped", "output": "chrome_session not available"}')
+    chrome_dir = Path(os.environ.get('SNAPSHOT_DIR', '.')) / 'chrome'
+    if not (chrome_dir / 'cdp_url.txt').exists():
+        print('{"status": "skipped", "output": "chrome session not available"}')
         sys.exit(1)  # Exit non-zero so it gets retried later
     ```
 
@@ -50,7 +50,7 @@ API (all hook logic lives here):
     discover_hooks(event)     -> List[Path]     Find hook scripts
     run_hook(script, ...)     -> HookResult     Execute a hook script
     run_hooks(event, ...)     -> List[HookResult]  Run all hooks for an event
-    extract_step(hook_name)   -> int            Get step number (0-9) from hook name
+    extract_step(hook_name)   -> int            Deprecated: get two-digit order prefix if present
     is_background_hook(name)  -> bool           Check if hook is background (.bg suffix)
 """
 
@@ -67,6 +67,7 @@ from typing import List, Dict, Any, Optional, TypedDict
 
 from django.conf import settings
 from django.utils import timezone
+from django.utils.safestring import mark_safe
 
 
 # Plugin directories
@@ -80,51 +81,33 @@ USER_PLUGINS_DIR = Path(getattr(settings, 'DATA_DIR', Path.cwd())) / 'plugins'
 
 def extract_step(hook_name: str) -> int:
     """
-    Extract step number (0-9) from hook name.
+    Deprecated: return the two-digit order prefix as an integer (00-99) if present.
 
-    Hooks are numbered 00-99 with the first digit determining the step.
-    Pattern: on_{Model}__{XX}_{description}[.bg].{ext}
-
-    Args:
-        hook_name: Hook filename (e.g., 'on_Snapshot__50_wget.py')
-
-    Returns:
-        Step number 0-9, or 9 (default) for unnumbered hooks.
-
-    Examples:
-        extract_step('on_Snapshot__05_chrome.py') -> 0
-        extract_step('on_Snapshot__50_wget.py') -> 5
-        extract_step('on_Snapshot__63_media.bg.py') -> 6
-        extract_step('on_Snapshot__99_cleanup.sh') -> 9
-        extract_step('on_Snapshot__unnumbered.py') -> 9 (default)
+    Hook execution is based on lexicographic ordering of filenames; callers should
+    not rely on parsed numeric steps for ordering decisions.
     """
-    # Pattern matches __XX_ where XX is two digits
     match = re.search(r'__(\d{2})_', hook_name)
     if match:
-        two_digit = int(match.group(1))
-        step = two_digit // 10  # First digit is the step (0-9)
-        return step
-
-    # Log warning for unnumbered hooks and default to step 9
+        return int(match.group(1))
     import sys
-    print(f"Warning: Hook '{hook_name}' has no step number (expected __XX_), defaulting to step 9", file=sys.stderr)
-    return 9
+    print(f"Warning: Hook '{hook_name}' has no order prefix (expected __XX_), defaulting to 99", file=sys.stderr)
+    return 99
 
 
 def is_background_hook(hook_name: str) -> bool:
     """
-    Check if a hook is a background hook (doesn't block step advancement).
+    Check if a hook is a background hook (doesn't block foreground progression).
 
     Background hooks have '.bg.' in their filename before the extension.
 
     Args:
-        hook_name: Hook filename (e.g., 'on_Snapshot__20_chrome_tab.bg.js')
+        hook_name: Hook filename (e.g., 'on_Snapshot__10_chrome_tab.bg.js')
 
     Returns:
         True if background hook, False if foreground.
 
     Examples:
-        is_background_hook('on_Snapshot__20_chrome_tab.bg.js') -> True
+        is_background_hook('on_Snapshot__10_chrome_tab.bg.js') -> True
         is_background_hook('on_Snapshot__50_wget.py') -> False
         is_background_hook('on_Snapshot__63_media.bg.py') -> True
     """
@@ -273,6 +256,7 @@ def run_hook(
     """
     from archivebox.machine.models import Process, Machine
     import time
+    import sys
     start_time = time.time()
 
     # Auto-detect timeout from plugin config if not explicitly provided
@@ -313,7 +297,7 @@ def run_hook(
     if ext == '.sh':
         cmd = ['bash', str(script)]
     elif ext == '.py':
-        cmd = ['python3', str(script)]
+        cmd = [sys.executable, str(script)]
     elif ext == '.js':
         cmd = ['node', str(script)]
     else:
@@ -393,10 +377,10 @@ def run_hook(
     # Priority: config dict > Machine.config > derive from LIB_DIR
     node_path = config.get('NODE_PATH')
     if not node_path and lib_dir:
-        # Derive from LIB_DIR/npm/node_modules
+        # Derive from LIB_DIR/npm/node_modules (create if needed)
         node_modules_dir = Path(lib_dir) / 'npm' / 'node_modules'
-        if node_modules_dir.exists():
-            node_path = str(node_modules_dir)
+        node_modules_dir.mkdir(parents=True, exist_ok=True)
+        node_path = str(node_modules_dir)
     if not node_path:
         try:
             # Fallback to Machine.config
@@ -462,7 +446,7 @@ def run_hook(
             cmd=cmd,
             timeout=timeout,
             status=Process.StatusChoices.EXITED,
-            exit_code=-1,
+            exit_code=1,
             stderr=f'Failed to run hook: {type(e).__name__}: {e}',
         )
         return process
@@ -472,7 +456,6 @@ def extract_records_from_process(process: 'Process') -> List[Dict[str, Any]]:
     """
     Extract JSONL records from a Process's stdout.
 
-    Uses the same parse_line() logic from misc/jsonl.py.
     Adds plugin metadata to each record.
 
     Args:
@@ -481,32 +464,20 @@ def extract_records_from_process(process: 'Process') -> List[Dict[str, Any]]:
     Returns:
         List of parsed JSONL records with plugin metadata
     """
-    from archivebox.misc.jsonl import parse_line
-
-    records = []
-
-    # Read stdout from process
-    stdout = process.stdout
-    if not stdout and process.stdout_file and process.stdout_file.exists():
-        stdout = process.stdout_file.read_text()
-
-    if not stdout:
-        return records
+    records = process.get_records()
+    if not records:
+        return []
 
     # Extract plugin metadata from process.pwd and process.cmd
     plugin_name = Path(process.pwd).name if process.pwd else 'unknown'
     hook_name = Path(process.cmd[1]).name if len(process.cmd) > 1 else 'unknown'
     plugin_hook = process.cmd[1] if len(process.cmd) > 1 else ''
 
-    # Parse each line as JSONL
-    for line in stdout.splitlines():
-        record = parse_line(line)
-        if record and 'type' in record:
-            # Add plugin metadata to record
-            record.setdefault('plugin', plugin_name)
-            record.setdefault('hook_name', hook_name)
-            record.setdefault('plugin_hook', plugin_hook)
-            records.append(record)
+    for record in records:
+        # Add plugin metadata to record
+        record.setdefault('plugin', plugin_name)
+        record.setdefault('hook_name', hook_name)
+        record.setdefault('plugin_hook', plugin_hook)
 
     return records
 
@@ -538,18 +509,13 @@ def collect_urls_from_plugins(snapshot_dir: Path) -> List[Dict[str, Any]]:
             continue
 
         try:
-            with open(urls_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        try:
-                            entry = json.loads(line)
-                            if entry.get('url'):
-                                # Track which parser plugin found this URL
-                                entry['plugin'] = subdir.name
-                                urls.append(entry)
-                        except json.JSONDecodeError:
-                            continue
+            from archivebox.machine.models import Process
+            text = urls_file.read_text()
+            for entry in Process.parse_records_from_text(text):
+                if entry.get('url'):
+                    # Track which parser plugin found this URL
+                    entry['plugin'] = subdir.name
+                    urls.append(entry)
         except Exception:
             pass
 
@@ -610,8 +576,8 @@ def get_plugins() -> List[str]:
     The plugin name is the plugin directory name, not the hook script name.
 
     Example:
-    archivebox/plugins/chrome_session/on_Snapshot__20_chrome_tab.bg.js
-    -> plugin = 'chrome_session'
+    archivebox/plugins/chrome/on_Snapshot__10_chrome_tab.bg.js
+    -> plugin = 'chrome'
 
     Sorted alphabetically (plugins control their hook order via numeric prefixes in hook names).
     """
@@ -817,7 +783,7 @@ def discover_plugin_configs() -> Dict[str, Dict[str, Any]]:
 
     Returns:
         Dict mapping plugin names to their parsed JSONSchema configs.
-        e.g., {'wget': {...schema...}, 'chrome_session': {...schema...}}
+        e.g., {'wget': {...schema...}, 'chrome': {...schema...}}
 
     Example config.json:
         {
@@ -928,14 +894,10 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
     if plugins_whitelist:
         # PLUGINS whitelist is specified - only enable plugins in the list
         plugin_names = [p.strip().lower() for p in plugins_whitelist.split(',') if p.strip()]
-        import sys
-        print(f"DEBUG: PLUGINS whitelist='{plugins_whitelist}', checking plugin '{plugin_name}', plugin_names={plugin_names}", file=sys.stderr)
         if plugin_name.lower() not in plugin_names:
             # Plugin not in whitelist - explicitly disabled
-            print(f"DEBUG: Plugin '{plugin_name}' NOT in whitelist, disabling", file=sys.stderr)
             enabled = False
         else:
-            print(f"DEBUG: Plugin '{plugin_name}' IS in whitelist, enabling", file=sys.stderr)
             # Plugin is in whitelist - check if explicitly disabled by PLUGINNAME_ENABLED
             enabled_key = f'{plugin_upper}_ENABLED'
             enabled = config.get(enabled_key)
@@ -945,10 +907,8 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
                 enabled = enabled.lower() not in ('false', '0', 'no', '')
     else:
         # No PLUGINS whitelist - use PLUGINNAME_ENABLED (default True)
-        import sys
         enabled_key = f'{plugin_upper}_ENABLED'
         enabled = config.get(enabled_key)
-        print(f"DEBUG: NO PLUGINS whitelist in config, checking {enabled_key}={enabled}", file=sys.stderr)
         if enabled is None:
             enabled = True
         elif isinstance(enabled, str):
@@ -1064,10 +1024,10 @@ def get_plugin_icon(plugin: str) -> str:
     # Try plugin-provided icon template
     icon_template = get_plugin_template(plugin, 'icon', fallback=False)
     if icon_template:
-        return icon_template.strip()
+        return mark_safe(icon_template.strip())
 
     # Fall back to generic folder icon
-    return '📁'
+    return mark_safe('📁')
 
 
 def get_all_plugin_icons() -> Dict[str, str]:
@@ -1204,18 +1164,14 @@ def create_model_record(record: Dict[str, Any]) -> Any:
         return obj
 
     elif record_type == 'Machine':
-        # Machine config update (special _method handling)
-        method = record.pop('_method', None)
-        if method == 'update':
-            key = record.get('key')
-            value = record.get('value')
-            if key and value:
-                machine = Machine.current()
-                if not machine.config:
-                    machine.config = {}
-                machine.config[key] = value
-                machine.save(update_fields=['config'])
-                return machine
+        config_patch = record.get('config')
+        if isinstance(config_patch, dict) and config_patch:
+            machine = Machine.current()
+            if not machine.config:
+                machine.config = {}
+            machine.config.update(config_patch)
+            machine.save(update_fields=['config'])
+            return machine
         return None
 
     # Add more types as needed (Dependency, Snapshot, etc.)

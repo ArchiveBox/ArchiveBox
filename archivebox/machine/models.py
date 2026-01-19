@@ -113,23 +113,20 @@ class Machine(ModelWithHealthStats):
         Update Machine config from JSON dict.
 
         Args:
-            record: JSON dict with '_method': 'update', 'key': '...', 'value': '...'
+            record: JSON dict with 'config': {key: value} patch
             overrides: Not used
 
         Returns:
             Machine instance or None
         """
-        method = record.get('_method')
-        if method == 'update':
-            key = record.get('key')
-            value = record.get('value')
-            if key and value:
-                machine = Machine.current()
-                if not machine.config:
-                    machine.config = {}
-                machine.config[key] = value
-                machine.save(update_fields=['config'])
-                return machine
+        config_patch = record.get('config')
+        if isinstance(config_patch, dict) and config_patch:
+            machine = Machine.current()
+            if not machine.config:
+                machine.config = {}
+            machine.config.update(config_patch)
+            machine.save(update_fields=['config'])
+            return machine
         return None
 
 
@@ -458,31 +455,31 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
                 continue
 
             # Parse JSONL output to check for successful installation
-            stdout_file = plugin_output_dir / 'stdout.log'
-            if stdout_file.exists():
-                stdout = stdout_file.read_text()
-                for line in stdout.splitlines():
-                    if line.strip() and line.strip().startswith('{'):
-                        try:
-                            record = json.loads(line)
-                            if record.get('type') == 'Binary' and record.get('abspath'):
-                                # Update self from successful installation
-                                self.abspath = record['abspath']
-                                self.version = record.get('version', '')
-                                self.sha256 = record.get('sha256', '')
-                                self.binprovider = record.get('binprovider', 'env')
-                                self.status = self.StatusChoices.INSTALLED
-                                self.save()
+            from archivebox.hooks import extract_records_from_process, process_hook_records
+            records = extract_records_from_process(process)
+            if records:
+                process_hook_records(records, overrides={})
+            binary_records = [
+                record for record in records
+                if record.get('type') == 'Binary' and record.get('abspath')
+            ]
+            if binary_records:
+                record = binary_records[0]
+                # Update self from successful installation
+                self.abspath = record['abspath']
+                self.version = record.get('version', '')
+                self.sha256 = record.get('sha256', '')
+                self.binprovider = record.get('binprovider', 'env')
+                self.status = self.StatusChoices.INSTALLED
+                self.save()
 
-                                # Symlink binary into LIB_BIN_DIR if configured
-                                from django.conf import settings
-                                lib_bin_dir = getattr(settings, 'LIB_BIN_DIR', None)
-                                if lib_bin_dir:
-                                    self.symlink_to_lib_bin(lib_bin_dir)
+                # Symlink binary into LIB_BIN_DIR if configured
+                from django.conf import settings
+                lib_bin_dir = getattr(settings, 'LIB_BIN_DIR', None)
+                if lib_bin_dir:
+                    self.symlink_to_lib_bin(lib_bin_dir)
 
-                                return
-                        except json.JSONDecodeError:
-                            continue
+                return
 
         # No hook succeeded - leave status as QUEUED (will retry later)
         # Don't set to FAILED since we don't have that status anymore
@@ -861,6 +858,27 @@ class Process(models.Model):
             record['timeout'] = self.timeout
         return record
 
+    @classmethod
+    def parse_records_from_text(cls, text: str) -> list[dict]:
+        """Parse JSONL records from raw text using the shared JSONL parser."""
+        from archivebox.misc.jsonl import parse_line
+
+        records: list[dict] = []
+        if not text:
+            return records
+        for line in text.splitlines():
+            record = parse_line(line)
+            if record and record.get('type'):
+                records.append(record)
+        return records
+
+    def get_records(self) -> list[dict]:
+        """Parse JSONL records from this process's stdout."""
+        stdout = self.stdout
+        if not stdout and self.stdout_file and self.stdout_file.exists():
+            stdout = self.stdout_file.read_text()
+        return self.parse_records_from_text(stdout or '')
+
     @staticmethod
     def from_json(record: dict, overrides: dict = None):
         """
@@ -919,6 +937,7 @@ class Process(models.Model):
             if (_CURRENT_PROCESS.pid == current_pid and
                 _CURRENT_PROCESS.machine_id == machine.id and
                 timezone.now() < _CURRENT_PROCESS.modified_at + timedelta(seconds=PROCESS_RECHECK_INTERVAL)):
+                _CURRENT_PROCESS.ensure_log_files()
                 return _CURRENT_PROCESS
             _CURRENT_PROCESS = None
 
@@ -945,6 +964,7 @@ class Process(models.Model):
                 db_start_time = existing.started_at.timestamp()
                 if abs(db_start_time - os_start_time) < START_TIME_TOLERANCE:
                     _CURRENT_PROCESS = existing
+                    _CURRENT_PROCESS.ensure_log_files()
                     return existing
 
         # No valid existing record - create new one
@@ -977,6 +997,7 @@ class Process(models.Model):
             started_at=started_at,
             status=cls.StatusChoices.RUNNING,
         )
+        _CURRENT_PROCESS.ensure_log_files()
         return _CURRENT_PROCESS
 
     @classmethod
@@ -1089,7 +1110,7 @@ class Process(models.Model):
             if is_stale:
                 proc.status = cls.StatusChoices.EXITED
                 proc.ended_at = proc.ended_at or timezone.now()
-                proc.exit_code = proc.exit_code if proc.exit_code is not None else -1
+                proc.exit_code = proc.exit_code if proc.exit_code is not None else 0
                 proc.save(update_fields=['status', 'ended_at', 'exit_code'])
                 cleaned += 1
 
@@ -1209,7 +1230,15 @@ class Process(models.Model):
         the actual OS process exists and matches our record.
         """
         proc = self.proc
-        return proc is not None and proc.is_running()
+        if proc is None:
+            return False
+        try:
+            # Treat zombies as not running (they should be reaped)
+            if proc.status() == psutil.STATUS_ZOMBIE:
+                return False
+        except Exception:
+            pass
+        return proc.is_running()
 
     def is_alive(self) -> bool:
         """
@@ -1421,6 +1450,22 @@ class Process(models.Model):
             except OSError:
                 pass
 
+    def ensure_log_files(self) -> None:
+        """Ensure stdout/stderr log files exist for this process."""
+        if not self.pwd:
+            return
+        try:
+            Path(self.pwd).mkdir(parents=True, exist_ok=True)
+        except OSError:
+            return
+        try:
+            if self.stdout_file:
+                self.stdout_file.touch(exist_ok=True)
+            if self.stderr_file:
+                self.stderr_file.touch(exist_ok=True)
+        except OSError:
+            return
+
     def _build_env(self) -> dict:
         """Build environment dict for subprocess, merging stored env with system."""
         import json
@@ -1507,9 +1552,11 @@ class Process(models.Model):
                     proc.wait(timeout=self.timeout)
                     self.exit_code = proc.returncode
                 except subprocess.TimeoutExpired:
+                    import signal
+
                     proc.kill()
                     proc.wait()
-                    self.exit_code = -1
+                    self.exit_code = 128 + signal.SIGKILL
 
                 self.ended_at = timezone.now()
                 if stdout_path.exists():
@@ -1579,9 +1626,19 @@ class Process(models.Model):
             exit_code if exited, None if still running
         """
         if self.status == self.StatusChoices.EXITED:
+            if self.exit_code == -1:
+                self.exit_code = 137
+                self.save(update_fields=['exit_code'])
             return self.exit_code
 
         if not self.is_running:
+            # Reap child process if it's a zombie (best-effort)
+            proc = self.proc
+            if proc is not None:
+                try:
+                    proc.wait(timeout=0)
+                except Exception:
+                    pass
             # Process exited - read output and copy to DB
             if self.stdout_file and self.stdout_file.exists():
                 self.stdout = self.stdout_file.read_text()
@@ -1603,7 +1660,9 @@ class Process(models.Model):
             #         cmd_file.unlink(missing_ok=True)
 
             # Try to get exit code from proc or default to unknown
-            self.exit_code = self.exit_code if self.exit_code is not None else -1
+            self.exit_code = self.exit_code if self.exit_code is not None else 0
+            if self.exit_code == -1:
+                self.exit_code = 137
             self.ended_at = timezone.now()
             self.status = self.StatusChoices.EXITED
             self.save()
@@ -1723,6 +1782,7 @@ class Process(models.Model):
         import os
 
         killed_count = 0
+        used_sigkill = False
         proc = self.proc
         if proc is None:
             # Already dead
@@ -1772,11 +1832,15 @@ class Process(models.Model):
                     try:
                         os.kill(pid, signal.SIGKILL)
                         killed_count += 1
+                        used_sigkill = True
                     except (OSError, ProcessLookupError):
                         pass
 
             # Update self status
-            self.exit_code = 128 + signal.SIGTERM if killed_count > 0 else 0
+            if used_sigkill:
+                self.exit_code = 128 + signal.SIGKILL
+            else:
+                self.exit_code = 128 + signal.SIGTERM if killed_count > 0 else 0
             self.status = self.StatusChoices.EXITED
             self.ended_at = timezone.now()
             self.save()
@@ -1924,6 +1988,50 @@ class Process(models.Model):
             print(f'[red]Failed to cleanup orphaned Chrome: {e}[/red]')
 
         return 0
+
+    @classmethod
+    def cleanup_orphaned_workers(cls) -> int:
+        """
+        Kill orphaned worker/hook processes whose root process is no longer running.
+
+        Orphaned if:
+        - Root (orchestrator/cli) is not running, or
+        - No orchestrator/cli ancestor exists.
+
+        Standalone worker runs (archivebox run --snapshot-id) are allowed.
+        """
+        killed = 0
+
+        running_children = cls.objects.filter(
+            process_type__in=[cls.TypeChoices.WORKER, cls.TypeChoices.HOOK],
+            status=cls.StatusChoices.RUNNING,
+        )
+
+        for proc in running_children:
+            if not proc.is_running:
+                continue
+
+            root = proc.root
+            # Standalone worker/hook process (run directly)
+            if root.id == proc.id and root.process_type in (cls.TypeChoices.WORKER, cls.TypeChoices.HOOK):
+                continue
+
+            # If root is an active orchestrator/cli, keep it
+            if root.process_type in (cls.TypeChoices.ORCHESTRATOR, cls.TypeChoices.CLI) and root.is_running:
+                continue
+
+            try:
+                if proc.process_type == cls.TypeChoices.HOOK:
+                    proc.kill_tree(graceful_timeout=1.0)
+                else:
+                    proc.terminate(graceful_timeout=1.0)
+                killed += 1
+            except Exception:
+                continue
+
+        if killed:
+            print(f'[yellow]🧹 Cleaned up {killed} orphaned worker/hook process(es)[/yellow]')
+        return killed
 
 
 # =============================================================================
@@ -2126,5 +2234,3 @@ class ProcessMachine(BaseStateMachine, strict_states=True):
 # Manually register state machines with python-statemachine registry
 registry.register(BinaryMachine)
 registry.register(ProcessMachine)
-
-

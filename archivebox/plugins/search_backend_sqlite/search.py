@@ -14,8 +14,6 @@ import sqlite3
 from pathlib import Path
 from typing import List, Iterable
 
-from django.conf import settings
-
 
 # Config with old var names for backwards compatibility
 SQLITEFTS_DB = os.environ.get('SQLITEFTS_DB', 'search.sqlite3').strip()
@@ -23,9 +21,16 @@ FTS_SEPARATE_DATABASE = os.environ.get('FTS_SEPARATE_DATABASE', 'true').lower() 
 FTS_TOKENIZERS = os.environ.get('FTS_TOKENIZERS', 'porter unicode61 remove_diacritics 2').strip()
 
 
+def _get_data_dir() -> Path:
+    data_dir = os.environ.get('DATA_DIR', '').strip()
+    if data_dir:
+        return Path(data_dir)
+    return Path.cwd() / 'data'
+
+
 def get_db_path() -> Path:
     """Get path to the search index database."""
-    return Path(settings.DATA_DIR) / SQLITEFTS_DB
+    return _get_data_dir() / SQLITEFTS_DB
 
 
 def search(query: str) -> List[str]:

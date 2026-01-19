@@ -32,6 +32,11 @@ const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'dns.jsonl';
 const CHROME_SESSION_DIR = '../chrome';
 
+let browser = null;
+let page = null;
+let recordCount = 0;
+let shuttingDown = false;
+
 function extractHostname(url) {
     try {
         const urlObj = new URL(url);
@@ -121,6 +126,7 @@ async function setupListener(targetUrl) {
 
             // Append to output file
             fs.appendFileSync(outputPath, JSON.stringify(dnsRecord) + '\n');
+            recordCount += 1;
 
         } catch (e) {
             // Ignore errors
@@ -170,6 +176,7 @@ async function setupListener(targetUrl) {
                 };
 
                 fs.appendFileSync(outputPath, JSON.stringify(dnsRecord) + '\n');
+                recordCount += 1;
             }
         } catch (e) {
             // Ignore errors
@@ -177,6 +184,28 @@ async function setupListener(targetUrl) {
     });
 
     return { browser, page, client };
+}
+
+function emitResult(status = 'succeeded') {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    console.log(JSON.stringify({
+        type: 'ArchiveResult',
+        status,
+        output_str: `${OUTPUT_FILE} (${recordCount} DNS records)`,
+    }));
+}
+
+async function handleShutdown(signal) {
+    console.error(`\nReceived ${signal}, emitting final results...`);
+    emitResult('succeeded');
+    if (browser) {
+        try {
+            browser.disconnect();
+        } catch (e) {}
+    }
+    process.exit(0);
 }
 
 async function main() {
@@ -195,31 +224,27 @@ async function main() {
         process.exit(0);
     }
 
-    const timeout = getEnvInt('DNS_TIMEOUT', 30) * 1000;
-
     try {
         // Set up listener BEFORE navigation
-        await setupListener(url);
+        const connection = await setupListener(url);
+        browser = connection.browser;
+        page = connection.page;
 
-        // Wait for chrome_navigate to complete (BLOCKING)
-        await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 500);
+        // Register signal handlers for graceful shutdown
+        process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+        process.on('SIGINT', () => handleShutdown('SIGINT'));
 
-        // Count DNS records
-        const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
-        let recordCount = 0;
-        if (fs.existsSync(outputPath)) {
-            const content = fs.readFileSync(outputPath, 'utf8');
-            recordCount = content.split('\n').filter(line => line.trim()).length;
+        // Wait for chrome_navigate to complete (non-fatal)
+        try {
+            const timeout = getEnvInt('DNS_TIMEOUT', 30) * 1000;
+            await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 500);
+        } catch (e) {
+            console.error(`WARN: ${e.message}`);
         }
 
-        // Output clean JSONL
-        console.log(JSON.stringify({
-            type: 'ArchiveResult',
-            status: 'succeeded',
-            output_str: `${OUTPUT_FILE} (${recordCount} DNS records)`,
-        }));
-
-        process.exit(0);
+        // console.error('DNS listener active, waiting for cleanup signal...');
+        await new Promise(() => {}); // Keep alive until SIGTERM
+        return;
 
     } catch (e) {
         const error = `${e.name}: ${e.message}`;

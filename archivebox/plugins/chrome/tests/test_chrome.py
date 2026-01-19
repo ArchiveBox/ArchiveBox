@@ -30,9 +30,8 @@ import platform
 
 from archivebox.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
-    get_lib_dir,
-    get_node_modules_dir,
     find_chromium_binary,
+    install_chromium_with_hooks,
     CHROME_PLUGIN_DIR as PLUGIN_DIR,
     CHROME_LAUNCH_HOOK,
     CHROME_TAB_HOOK,
@@ -41,58 +40,24 @@ from archivebox.plugins.chrome.tests.chrome_test_helpers import (
 
 @pytest.fixture(scope="session", autouse=True)
 def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
-    """Ensure Chromium and puppeteer are installed before running tests.
-
-    Puppeteer handles Chromium installation automatically in its own cache.
-    We only need to install puppeteer itself to LIB_DIR/npm.
-    """
-    from abx_pkg import Binary, NpmProvider, BinProviderOverrides
-
-    # Set DATA_DIR if not already set (required by abx_pkg)
+    """Ensure Chromium and puppeteer are installed before running tests."""
     if not os.environ.get('DATA_DIR'):
-        # Use isolated temp dir for direct pytest runs
         test_data_dir = tmp_path_factory.mktemp('chrome_test_data')
         os.environ['DATA_DIR'] = str(test_data_dir)
+    env = get_test_env()
 
-    # Compute paths AFTER setting DATA_DIR
-    lib_dir = get_lib_dir()
-    node_modules_dir = get_node_modules_dir()
-    npm_prefix = lib_dir / 'npm'
+    try:
+        chromium_binary = install_chromium_with_hooks(env)
+    except RuntimeError as e:
+        pytest.skip(str(e))
 
-    # Rebuild pydantic models
-    NpmProvider.model_rebuild()
-
-    # Install puppeteer if not available (it will handle Chromium in its own cache)
-    puppeteer_core_path = node_modules_dir / 'puppeteer-core'
-    if not puppeteer_core_path.exists():
-        print(f"\n[*] Installing puppeteer to {npm_prefix}...")
-        npm_prefix.mkdir(parents=True, exist_ok=True)
-
-        provider = NpmProvider(npm_prefix=npm_prefix)
-        try:
-            binary = Binary(
-                name='puppeteer',
-                binproviders=[provider],
-                overrides={'npm': {'packages': ['puppeteer@^23.5.0']}}
-            )
-            binary.install()
-            print(f"[*] Puppeteer installed successfully to {npm_prefix}")
-        except Exception as e:
-            pytest.skip(f"Failed to install puppeteer: {e}")
-
-    # Find Chromium binary (puppeteer installs it automatically in its cache)
-    chromium_binary = find_chromium_binary()
     if not chromium_binary:
-        pytest.skip("Chromium not found - puppeteer should install it automatically")
+        pytest.skip("Chromium not found after install")
 
-    # Set CHROME_BINARY env var for tests
     os.environ['CHROME_BINARY'] = chromium_binary
-
-
-# Get paths from helpers (will use DATA_DIR if set, or compute based on __file__)
-LIB_DIR = get_lib_dir()
-NODE_MODULES_DIR = get_node_modules_dir()
-NPM_PREFIX = LIB_DIR / 'npm'
+    for key in ('NODE_MODULES_DIR', 'NODE_PATH', 'PATH'):
+        if env.get(key):
+            os.environ[key] = env[key]
 
 
 def test_hook_scripts_exist():

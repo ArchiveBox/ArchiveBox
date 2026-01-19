@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -76,26 +77,33 @@ class TestConsolelogWithChrome(TestCase):
                 # Use the environment from chrome_session (already has CHROME_HEADLESS=true)
 
 
-                # Run consolelog hook with the active Chrome session
-                result = subprocess.run(
+                # Run consolelog hook with the active Chrome session (background hook)
+                result = subprocess.Popen(
                     ['node', str(CONSOLELOG_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
                     cwd=str(snapshot_chrome_dir),
-                    capture_output=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=120,  # Longer timeout as it waits for navigation
                     env=env
                 )
 
                 # Check for output file
                 console_output = snapshot_chrome_dir / 'console.jsonl'
 
-                # Verify hook ran (may succeed or timeout waiting for navigation)
-                # The hook is designed to wait for page_loaded.txt from chrome_navigate
-                # In test mode, that file may not exist, so hook may timeout
-                # But it should still create the console.jsonl file
+                # Allow it to run briefly, then terminate (background hook)
+                time.sleep(3)
+                if result.poll() is None:
+                    result.terminate()
+                    try:
+                        stdout, stderr = result.communicate(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        result.kill()
+                        stdout, stderr = result.communicate()
+                else:
+                    stdout, stderr = result.communicate()
 
                 # At minimum, verify no crash
-                self.assertNotIn('Traceback', result.stderr)
+                self.assertNotIn('Traceback', stderr)
 
                 # If output file exists, verify it's valid JSONL
                 if console_output.exists():

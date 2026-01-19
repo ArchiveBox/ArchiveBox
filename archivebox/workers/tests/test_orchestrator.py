@@ -215,6 +215,46 @@ class TestOrchestratorWithProcess(TestCase):
             mock_count.assert_called()
             self.assertTrue(result)
 
+    def test_orchestrator_scoped_worker_count(self):
+        """Orchestrator with crawl_id should count only descendant workers."""
+        import time
+        from archivebox.machine.models import Process, Machine
+
+        machine = Machine.current()
+        orchestrator = Orchestrator(exit_on_idle=True, crawl_id='test-crawl')
+
+        orchestrator.db_process = Process.objects.create(
+            machine=machine,
+            process_type=Process.TypeChoices.ORCHESTRATOR,
+            status=Process.StatusChoices.RUNNING,
+            pid=12345,
+            started_at=timezone.now(),
+        )
+
+        # Prevent cleanup from marking fake PIDs as exited
+        orchestrator._last_cleanup_time = time.time()
+
+        Process.objects.create(
+            machine=machine,
+            process_type=Process.TypeChoices.WORKER,
+            worker_type='crawl',
+            status=Process.StatusChoices.RUNNING,
+            pid=12346,
+            parent=orchestrator.db_process,
+            started_at=timezone.now(),
+        )
+
+        Process.objects.create(
+            machine=machine,
+            process_type=Process.TypeChoices.WORKER,
+            worker_type='crawl',
+            status=Process.StatusChoices.RUNNING,
+            pid=12347,
+            started_at=timezone.now(),
+        )
+
+        self.assertEqual(orchestrator.get_total_worker_count(), 1)
+
 
 class TestProcessBasedWorkerTracking(TestCase):
     """Test Process model methods that replace pid_utils functionality."""

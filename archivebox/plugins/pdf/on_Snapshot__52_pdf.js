@@ -52,7 +52,21 @@ const CHROME_SESSION_DIR = '../chrome';
 // Check if staticfile extractor already downloaded this URL
 const STATICFILE_DIR = '../staticfile';
 function hasStaticFileOutput() {
-    return fs.existsSync(STATICFILE_DIR) && fs.readdirSync(STATICFILE_DIR).length > 0;
+    if (!fs.existsSync(STATICFILE_DIR)) return false;
+    const stdoutPath = path.join(STATICFILE_DIR, 'stdout.log');
+    if (!fs.existsSync(stdoutPath)) return false;
+    const stdout = fs.readFileSync(stdoutPath, 'utf8');
+    for (const line of stdout.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('{')) continue;
+        try {
+            const record = JSON.parse(trimmed);
+            if (record.type === 'ArchiveResult' && record.status === 'succeeded') {
+                return true;
+            }
+        } catch (e) {}
+    }
+    return false;
 }
 
 // Wait for chrome tab to be fully loaded

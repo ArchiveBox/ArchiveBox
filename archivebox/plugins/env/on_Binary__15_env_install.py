@@ -25,7 +25,8 @@ from abx_pkg import Binary, EnvProvider
 @click.option('--binary-id', required=True, help="Dependency UUID")
 @click.option('--name', required=True, help="Binary name to find")
 @click.option('--binproviders', default='*', help="Allowed providers (comma-separated)")
-def main(binary_id: str, machine_id: str, name: str, binproviders: str):
+@click.option('--overrides', default=None, help="JSON-encoded overrides dict (unused)")
+def main(binary_id: str, machine_id: str, name: str, binproviders: str, overrides: str | None):
     """Check if binary is available in PATH and record it."""
 
     # Check if env provider is allowed

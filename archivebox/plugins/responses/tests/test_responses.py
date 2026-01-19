@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -76,22 +77,36 @@ class TestResponsesWithChrome(TestCase):
                 # Use the environment from chrome_session (already has CHROME_HEADLESS=true)
 
 
-                # Run responses hook with the active Chrome session
-                result = subprocess.run(
+                # Run responses hook with the active Chrome session (background hook)
+                result = subprocess.Popen(
                     ['node', str(RESPONSES_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
-                    cwd=str(snapshot_chrome_dir,
-            env=get_test_env()),
-                    capture_output=True,
+                    cwd=str(snapshot_chrome_dir),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=120,  # Longer timeout as it waits for navigation
                     env=env
                 )
 
                 # Check for output directory and index file
                 index_output = snapshot_chrome_dir / 'index.jsonl'
 
-                # Verify hook ran (may timeout waiting for page_loaded.txt in test mode)
-                self.assertNotIn('Traceback', result.stderr)
+                # Wait briefly for background hook to write output
+                for _ in range(10):
+                    if index_output.exists() and index_output.stat().st_size > 0:
+                        break
+                    time.sleep(1)
+
+                # Verify hook ran (may keep running waiting for cleanup signal)
+                if result.poll() is None:
+                    result.terminate()
+                    try:
+                        stdout, stderr = result.communicate(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        result.kill()
+                        stdout, stderr = result.communicate()
+                else:
+                    stdout, stderr = result.communicate()
+                self.assertNotIn('Traceback', stderr)
 
                 # If index file exists, verify it's valid JSONL
                 if index_output.exists():

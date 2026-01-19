@@ -22,7 +22,7 @@ from django.test import TestCase
 
 # Get the path to the pip provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_HOOK = PLUGIN_DIR / 'on_Binary__install_using_pip_provider.py'
+INSTALL_HOOK = next(PLUGIN_DIR.glob('on_Binary__*_pip_install.py'), None)
 
 
 class TestPipProviderHook(TestCase):
@@ -33,6 +33,10 @@ class TestPipProviderHook(TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.output_dir = Path(self.temp_dir) / 'output'
         self.output_dir.mkdir()
+        self.lib_dir = Path(self.temp_dir) / 'lib' / 'x86_64-linux'
+        self.lib_dir.mkdir(parents=True, exist_ok=True)
+        self.lib_dir = Path(self.temp_dir) / 'lib' / 'x86_64-linux'
+        self.lib_dir.mkdir(parents=True, exist_ok=True)
 
     def tearDown(self):
         """Clean up."""
@@ -41,7 +45,7 @@ class TestPipProviderHook(TestCase):
 
     def test_hook_script_exists(self):
         """Hook script should exist."""
-        self.assertTrue(INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}")
+        self.assertTrue(INSTALL_HOOK and INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}")
 
     def test_hook_help(self):
         """Hook should accept --help without error."""
@@ -55,16 +59,19 @@ class TestPipProviderHook(TestCase):
         # At minimum should not crash with Python error
         self.assertNotIn('Traceback', result.stderr)
 
-    def test_hook_finds_python(self):
-        """Hook should find Python binary."""
+    def test_hook_finds_pip(self):
+        """Hook should find pip binary."""
         env = os.environ.copy()
         env['DATA_DIR'] = self.temp_dir
+        env['LIB_DIR'] = str(self.lib_dir)
 
         result = subprocess.run(
             [
                 sys.executable, str(INSTALL_HOOK),
-                '--name=python3',
-                '--binproviders=pip,env',
+                '--name=pip',
+                '--binproviders=pip',
+                '--binary-id=test-uuid',
+                '--machine-id=test-machine',
             ],
             capture_output=True,
             text=True,
@@ -80,7 +87,7 @@ class TestPipProviderHook(TestCase):
             if line.startswith('{'):
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'Binary' and record.get('name') == 'python3':
+                    if record.get('type') == 'Binary' and record.get('name') == 'pip':
                         jsonl_found = True
                         # Verify structure
                         self.assertIn('abspath', record)
@@ -92,19 +99,22 @@ class TestPipProviderHook(TestCase):
         # Should not crash
         self.assertNotIn('Traceback', result.stderr)
 
-        # Should find python3 via pip or env provider
-        self.assertTrue(jsonl_found, "Expected to find python3 binary in JSONL output")
+        # Should find pip via pip provider
+        self.assertTrue(jsonl_found, "Expected to find pip binary in JSONL output")
 
     def test_hook_unknown_package(self):
         """Hook should handle unknown packages gracefully."""
         env = os.environ.copy()
         env['DATA_DIR'] = self.temp_dir
+        env['LIB_DIR'] = str(self.lib_dir)
 
         result = subprocess.run(
             [
                 sys.executable, str(INSTALL_HOOK),
                 '--name=nonexistent_package_xyz123',
                 '--binproviders=pip',
+                '--binary-id=test-uuid',
+                '--machine-id=test-machine',
             ],
             capture_output=True,
             text=True,
@@ -148,6 +158,8 @@ class TestPipProviderIntegration(TestCase):
                 sys.executable, str(INSTALL_HOOK),
                 '--name=pip',
                 '--binproviders=pip,env',
+                '--binary-id=test-uuid',
+                '--machine-id=test-machine',
             ],
             capture_output=True,
             text=True,

@@ -2,7 +2,6 @@
 
 import os
 import sys
-import json
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
@@ -110,16 +109,9 @@ def initialized_archive(isolated_data_dir):
 # =============================================================================
 
 def parse_jsonl_output(stdout: str) -> List[Dict[str, Any]]:
-    """Parse JSONL output into list of dicts."""
-    records = []
-    for line in stdout.strip().split('\n'):
-        line = line.strip()
-        if line and line.startswith('{'):
-            try:
-                records.append(json.loads(line))
-            except json.JSONDecodeError:
-                pass
-    return records
+    """Parse JSONL output into list of dicts via Process parser."""
+    from archivebox.machine.models import Process
+    return Process.parse_records_from_text(stdout or '')
 
 
 def assert_jsonl_contains_type(stdout: str, record_type: str, min_count: int = 1):

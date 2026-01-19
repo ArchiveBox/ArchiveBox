@@ -344,6 +344,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     @property
     def process_set(self):
         """Get all Process objects related to this snapshot's ArchiveResults."""
+        import json
+        import json
         from archivebox.machine.models import Process
         return Process.objects.filter(archiveresult__snapshot_id=self.id)
 
@@ -613,7 +615,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         ONLY used by: archivebox update (for orphan detection)
         """
-        import json
+        from archivebox.machine.models import Process
 
         # Try index.jsonl first (new format), then index.json (legacy)
         jsonl_path = snapshot_dir / CONSTANTS.JSONL_INDEX_FILENAME
@@ -622,15 +624,12 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         data = None
         if jsonl_path.exists():
             try:
-                with open(jsonl_path) as f:
-                    for line in f:
-                        line = line.strip()
-                        if line.startswith('{'):
-                            record = json.loads(line)
-                            if record.get('type') == 'Snapshot':
-                                data = record
-                                break
-            except (json.JSONDecodeError, OSError):
+                records = Process.parse_records_from_text(jsonl_path.read_text())
+                for record in records:
+                    if record.get('type') == 'Snapshot':
+                        data = record
+                        break
+            except OSError:
                 pass
         elif json_path.exists():
             try:
@@ -689,7 +688,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         ONLY used by: archivebox update (for orphan import)
         """
-        import json
+        from archivebox.machine.models import Process
 
         # Try index.jsonl first (new format), then index.json (legacy)
         jsonl_path = snapshot_dir / CONSTANTS.JSONL_INDEX_FILENAME
@@ -698,15 +697,12 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         data = None
         if jsonl_path.exists():
             try:
-                with open(jsonl_path) as f:
-                    for line in f:
-                        line = line.strip()
-                        if line.startswith('{'):
-                            record = json.loads(line)
-                            if record.get('type') == 'Snapshot':
-                                data = record
-                                break
-            except (json.JSONDecodeError, OSError):
+                records = Process.parse_records_from_text(jsonl_path.read_text())
+                for record in records:
+                    if record.get('type') == 'Snapshot':
+                        data = record
+                        break
+            except OSError:
                 pass
         elif json_path.exists():
             try:
@@ -1040,7 +1036,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         Returns dict with keys: 'snapshot', 'archive_results', 'binaries', 'processes'
         """
-        import json
+        from archivebox.machine.models import Process
         from archivebox.misc.jsonl import (
             TYPE_SNAPSHOT, TYPE_ARCHIVERESULT, TYPE_BINARY, TYPE_PROCESS,
         )
@@ -1056,24 +1052,17 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         if not index_path.exists():
             return result
 
-        with open(index_path, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if not line or not line.startswith('{'):
-                    continue
-                try:
-                    record = json.loads(line)
-                    record_type = record.get('type')
-                    if record_type == TYPE_SNAPSHOT:
-                        result['snapshot'] = record
-                    elif record_type == TYPE_ARCHIVERESULT:
-                        result['archive_results'].append(record)
-                    elif record_type == TYPE_BINARY:
-                        result['binaries'].append(record)
-                    elif record_type == TYPE_PROCESS:
-                        result['processes'].append(record)
-                except json.JSONDecodeError:
-                    continue
+        records = Process.parse_records_from_text(index_path.read_text())
+        for record in records:
+            record_type = record.get('type')
+            if record_type == TYPE_SNAPSHOT:
+                result['snapshot'] = record
+            elif record_type == TYPE_ARCHIVERESULT:
+                result['archive_results'].append(record)
+            elif record_type == TYPE_BINARY:
+                result['binaries'].append(record)
+            elif record_type == TYPE_PROCESS:
+                result['processes'].append(record)
 
         return result
 
@@ -1317,7 +1306,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             for plugin in all_plugins:
                 result = archive_results.get(plugin)
                 existing = result and result.status == 'succeeded' and (result.output_files or result.output_str)
-                icon = get_plugin_icon(plugin)
+                icon = mark_safe(get_plugin_icon(plugin))
 
                 # Skip plugins with empty icons that have no output
                 # (e.g., staticfile only shows when there's actual output)
@@ -1372,6 +1361,45 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             return str(old_path)
 
         return str(current_path)
+
+    def ensure_crawl_symlink(self) -> None:
+        """Ensure snapshot is symlinked under its crawl output directory."""
+        import os
+        from pathlib import Path
+        from django.utils import timezone
+        from archivebox import DATA_DIR
+        from archivebox.crawls.models import Crawl
+
+        if not self.crawl_id:
+            return
+        crawl = Crawl.objects.filter(id=self.crawl_id).select_related('created_by').first()
+        if not crawl:
+            return
+
+        date_base = crawl.created_at or self.created_at or timezone.now()
+        date_str = date_base.strftime('%Y%m%d')
+        domain = self.extract_domain_from_url(self.url)
+        username = crawl.created_by.username if crawl.created_by_id else 'system'
+
+        crawl_dir = DATA_DIR / 'users' / username / 'crawls' / date_str / domain / str(crawl.id)
+        link_path = crawl_dir / 'snapshots' / domain / str(self.id)
+        link_parent = link_path.parent
+        link_parent.mkdir(parents=True, exist_ok=True)
+
+        target = Path(self.output_dir)
+        if link_path.exists() or link_path.is_symlink():
+            if link_path.is_symlink():
+                if link_path.resolve() == target.resolve():
+                    return
+                link_path.unlink(missing_ok=True)
+            else:
+                return
+
+        rel_target = os.path.relpath(target, link_parent)
+        try:
+            link_path.symlink_to(rel_target, target_is_directory=True)
+        except OSError:
+            return
 
     @cached_property
     def archive_path(self):
@@ -1636,6 +1664,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         if update_fields:
             snapshot.save(update_fields=update_fields + ['modified_at'])
 
+        snapshot.ensure_crawl_symlink()
+
         return snapshot
 
     def create_pending_archiveresults(self) -> list['ArchiveResult']:
@@ -1689,7 +1719,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         """
         # Check if any ARs are still pending/started
         pending = self.archiveresult_set.exclude(
-            status__in=ArchiveResult.FINAL_OR_ACTIVE_STATES
+            status__in=ArchiveResult.FINAL_STATES
         ).exists()
 
         return not pending
@@ -1754,7 +1784,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         - Plugins run in order (numeric prefix)
         - Each plugin checks its dependencies at runtime
 
-        Dependency handling (e.g., chrome_session → screenshot):
+        Dependency handling (e.g., chrome → screenshot):
         - Plugins check if required outputs exist before running
         - If dependency output missing → plugin returns 'skipped'
         - On retry, if dependency now succeeds → dependent can run
@@ -2117,6 +2147,18 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         TITLE_LOADING_MSG = 'Not yet archived...'
 
         canonical = self.canonical_outputs()
+        preview_priority = [
+            'singlefile_path',
+            'screenshot_path',
+            'wget_path',
+            'dom_path',
+            'pdf_path',
+            'readability_path',
+        ]
+        best_preview_path = next(
+            (canonical.get(key) for key in preview_priority if canonical.get(key)),
+            canonical.get('index_path', 'index.html'),
+        )
         context = {
             **self.to_dict(extended=True),
             **{f'{k}_path': v for k, v in canonical.items()},
@@ -2132,6 +2174,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             'oldest_archive_date': ts_to_date_str(self.oldest_archive_date),
             'SAVE_ARCHIVE_DOT_ORG': SAVE_ARCHIVE_DOT_ORG,
             'PREVIEW_ORIGINALS': SERVER_CONFIG.PREVIEW_ORIGINALS,
+            'best_preview_path': best_preview_path,
         }
         rendered_html = render_to_string('snapshot.html', context)
         atomic_write(str(Path(out_dir) / CONSTANTS.HTML_INDEX_FILENAME), rendered_html)
@@ -2669,12 +2712,12 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         - end_ts, retry_at, cmd, cmd_version, binary FK
         - Processes side-effect records (Snapshot, Tag, etc.) via process_hook_records()
         """
-        import json
         import mimetypes
         from collections import defaultdict
         from pathlib import Path
         from django.utils import timezone
-        from archivebox.hooks import process_hook_records
+        from archivebox.hooks import process_hook_records, extract_records_from_process
+        from archivebox.machine.models import Process
 
         plugin_dir = Path(self.pwd) if self.pwd else None
         if not plugin_dir or not plugin_dir.exists():
@@ -2687,15 +2730,13 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
         # Read and parse JSONL output from stdout.log
         stdout_file = plugin_dir / 'stdout.log'
-        stdout = stdout_file.read_text() if stdout_file.exists() else ''
-
         records = []
-        for line in stdout.splitlines():
-            if line.strip() and line.strip().startswith('{'):
-                try:
-                    records.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
+        if self.process_id and self.process:
+            records = extract_records_from_process(self.process)
+
+        if not records:
+            stdout = stdout_file.read_text() if stdout_file.exists() else ''
+            records = Process.parse_records_from_text(stdout)
 
         # Find ArchiveResult record and update status/output from it
         ar_records = [r for r in records if r.get('type') == 'ArchiveResult']
@@ -2722,9 +2763,20 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
                 self._set_binary_from_cmd(hook_data['cmd'])
             # Note: cmd_version is derived from binary.version, not stored on Process
         else:
-            # No ArchiveResult record = failed
-            self.status = self.StatusChoices.FAILED
-            self.output_str = 'Hook did not output ArchiveResult record'
+            # No ArchiveResult record: treat background hooks or clean exits as skipped
+            is_background = False
+            try:
+                from archivebox.hooks import is_background_hook
+                is_background = bool(self.hook_name and is_background_hook(self.hook_name))
+            except Exception:
+                pass
+
+            if is_background or (self.process_id and self.process and self.process.exit_code == 0):
+                self.status = self.StatusChoices.SKIPPED
+                self.output_str = 'Hook did not output ArchiveResult record'
+            else:
+                self.status = self.StatusChoices.FAILED
+                self.output_str = 'Hook did not output ArchiveResult record'
 
         # Walk filesystem and populate output_files, output_size, output_mimetypes
         exclude_names = {'stdout.log', 'stderr.log', 'hook.pid', 'listener.pid'}
@@ -2793,14 +2845,9 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         }
         process_hook_records(filtered_records, overrides=overrides)
 
-        # Cleanup PID files and empty logs
+        # Cleanup PID files (keep logs even if empty so they can be tailed)
         pid_file = plugin_dir / 'hook.pid'
         pid_file.unlink(missing_ok=True)
-        stderr_file = plugin_dir / 'stderr.log'
-        if stdout_file.exists() and stdout_file.stat().st_size == 0:
-            stdout_file.unlink()
-        if stderr_file.exists() and stderr_file.stat().st_size == 0:
-            stderr_file.unlink()
 
     def _set_binary_from_cmd(self, cmd: list) -> None:
         """

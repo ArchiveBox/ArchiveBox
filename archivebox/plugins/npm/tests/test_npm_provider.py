@@ -22,7 +22,7 @@ from django.test import TestCase
 
 # Get the path to the npm provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_HOOK = PLUGIN_DIR / 'on_Binary__install_using_npm_provider.py'
+INSTALL_HOOK = next(PLUGIN_DIR.glob('on_Binary__*_npm_install.py'), None)
 
 
 def npm_available() -> bool:
@@ -45,7 +45,7 @@ class TestNpmProviderHook(TestCase):
 
     def test_hook_script_exists(self):
         """Hook script should exist."""
-        self.assertTrue(INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}")
+        self.assertTrue(INSTALL_HOOK and INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}")
 
     def test_hook_requires_lib_dir(self):
         """Hook should fail when LIB_DIR is not set."""

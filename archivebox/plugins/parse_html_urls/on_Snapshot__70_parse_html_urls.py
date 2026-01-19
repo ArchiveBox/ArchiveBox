@@ -24,14 +24,15 @@ from datetime import datetime, timezone
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlunparse
 
 import rich_click as click
 
 PLUGIN_NAME = 'parse_html_urls'
 
-# Check if parse_dom_outlinks extractor already ran
-DOM_OUTLINKS_URLS_FILE = Path('parse_dom_outlinks/urls.jsonl')
+# Check if parse_dom_outlinks extractor already ran (sibling plugin output dir)
+DOM_OUTLINKS_URLS_FILE = Path('..') / 'parse_dom_outlinks' / 'urls.jsonl'
+URLS_FILE = Path('urls.jsonl')
 
 
 # URL regex from archivebox/misc/util.py
@@ -95,8 +96,9 @@ def fix_urljoin_bug(url: str, nesting_limit=5) -> str:
 
 def normalize_url(url: str, root_url: str = None) -> str:
     """Normalize a URL, resolving relative paths if root_url provided."""
+    url = clean_url_candidate(url)
     if not root_url:
-        return url
+        return _normalize_trailing_slash(url)
 
     url_is_absolute = url.lower().startswith('http://') or url.lower().startswith('https://')
 
@@ -110,7 +112,40 @@ def normalize_url(url: str, root_url: str = None) -> str:
     if did_urljoin_misbehave(root_url, url, resolved):
         resolved = fix_urljoin_bug(resolved)
 
-    return resolved
+    return _normalize_trailing_slash(resolved)
+
+
+def _normalize_trailing_slash(url: str) -> str:
+    """Drop trailing slash for non-root paths when no query/fragment."""
+    try:
+        parsed = urlparse(url)
+        path = parsed.path or ''
+        if path != '/' and path.endswith('/') and not parsed.query and not parsed.fragment:
+            path = path.rstrip('/')
+            return urlunparse((parsed.scheme, parsed.netloc, path, parsed.params, parsed.query, parsed.fragment))
+    except Exception:
+        pass
+    return url
+
+
+def clean_url_candidate(url: str) -> str:
+    """Strip obvious surrounding/trailing punctuation from extracted URLs."""
+    cleaned = (url or '').strip()
+    if not cleaned:
+        return cleaned
+
+    # Strip common wrappers
+    cleaned = cleaned.strip(' \t\r\n')
+    cleaned = cleaned.strip('"\''"'"'<>[]()')
+
+    # Strip trailing punctuation and escape artifacts
+    cleaned = cleaned.rstrip('.,;:!?)\\\'"')
+    cleaned = cleaned.rstrip('"')
+
+    # Strip leading punctuation artifacts
+    cleaned = cleaned.lstrip('("'\''<')
+
+    return cleaned
 
 
 def fetch_content(url: str) -> str:
@@ -131,6 +166,43 @@ def fetch_content(url: str) -> str:
             return response.read().decode('utf-8', errors='replace')
 
 
+def find_html_sources() -> list[str]:
+    """Find HTML content from other extractors in the snapshot directory."""
+    search_patterns = [
+        'readability/content.html',
+        '*_readability/content.html',
+        'mercury/content.html',
+        '*_mercury/content.html',
+        'singlefile/singlefile.html',
+        '*_singlefile/singlefile.html',
+        'singlefile/*.html',
+        '*_singlefile/*.html',
+        'dom/output.html',
+        '*_dom/output.html',
+        'dom/*.html',
+        '*_dom/*.html',
+        'wget/**/*.html',
+        '*_wget/**/*.html',
+        'wget/**/*.htm',
+        '*_wget/**/*.htm',
+        'wget/**/*.htm*',
+        '*_wget/**/*.htm*',
+    ]
+
+    sources: list[str] = []
+    for base in (Path.cwd(), Path.cwd().parent):
+        for pattern in search_patterns:
+            for match in base.glob(pattern):
+                if not match.is_file() or match.stat().st_size == 0:
+                    continue
+                try:
+                    sources.append(match.read_text(errors='ignore'))
+                except Exception:
+                    continue
+
+    return sources
+
+
 @click.command()
 @click.option('--url', required=True, help='HTML URL to parse')
 @click.option('--snapshot-id', required=False, help='Parent Snapshot UUID')
@@ -138,6 +210,13 @@ def fetch_content(url: str) -> str:
 @click.option('--depth', type=int, default=0, help='Current depth level')
 def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0):
     """Parse HTML and extract href URLs."""
+    env_depth = os.environ.get('SNAPSHOT_DEPTH')
+    if env_depth is not None:
+        try:
+            depth = int(env_depth)
+        except Exception:
+            pass
+    crawl_id = crawl_id or os.environ.get('CRAWL_ID')
 
     # Skip only if parse_dom_outlinks already ran AND found URLs (it uses Chrome for better coverage)
     # If parse_dom_outlinks ran but found nothing, we still try static HTML parsing as fallback
@@ -145,32 +224,38 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
         click.echo(f'Skipping parse_html_urls - parse_dom_outlinks already extracted URLs')
         sys.exit(0)
 
-    try:
-        content = fetch_content(url)
-    except Exception as e:
-        click.echo(f'Failed to fetch {url}: {e}', err=True)
-        sys.exit(1)
-
-    # Parse HTML for hrefs
-    parser = HrefParser()
-    try:
-        parser.feed(content)
-    except Exception as e:
-        click.echo(f'Failed to parse HTML: {e}', err=True)
-        sys.exit(1)
+    contents = find_html_sources()
+    if not contents:
+        try:
+            contents = [fetch_content(url)]
+        except Exception as e:
+            click.echo(f'Failed to fetch {url}: {e}', err=True)
+            sys.exit(1)
 
     urls_found = set()
-    for href in parser.urls:
-        # Normalize URL
-        normalized = normalize_url(href, root_url=url)
+    for content in contents:
+        # Parse HTML for hrefs
+        parser = HrefParser()
+        try:
+            parser.feed(content)
+        except Exception:
+            pass
 
-        # Only include http/https URLs
-        if normalized.lower().startswith('http://') or normalized.lower().startswith('https://'):
-            # Skip the source URL itself
-            if normalized != url:
-                urls_found.add(unescape(normalized))
+        for href in parser.urls:
+            normalized = normalize_url(href, root_url=url)
+            if normalized.lower().startswith('http://') or normalized.lower().startswith('https://'):
+                if normalized != url:
+                    urls_found.add(unescape(normalized))
 
-    # Emit Snapshot records to stdout (JSONL)
+        # Also capture explicit URLs in the HTML text
+        for match in URL_REGEX.findall(content):
+            normalized = normalize_url(match, root_url=url)
+            if normalized.lower().startswith('http://') or normalized.lower().startswith('https://'):
+                if normalized != url:
+                    urls_found.add(unescape(normalized))
+
+    # Emit Snapshot records to stdout (JSONL) and urls.jsonl for crawl system
+    records = []
     for found_url in sorted(urls_found):
         record = {
             'type': 'Snapshot',
@@ -183,7 +268,11 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
         if crawl_id:
             record['crawl_id'] = crawl_id
 
+        records.append(record)
         print(json.dumps(record))
+
+    if records:
+        URLS_FILE.write_text('\n'.join(json.dumps(r) for r in records) + '\n')
 
     # Emit ArchiveResult record to mark completion
     status = 'succeeded' if urls_found else 'skipped'

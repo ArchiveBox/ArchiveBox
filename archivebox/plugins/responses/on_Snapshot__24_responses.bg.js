@@ -33,6 +33,11 @@ const PLUGIN_NAME = 'responses';
 const OUTPUT_DIR = '.';
 const CHROME_SESSION_DIR = '../chrome';
 
+let browser = null;
+let page = null;
+let responseCount = 0;
+let shuttingDown = false;
+
 // Resource types to capture (by default, capture everything)
 const DEFAULT_TYPES = ['script', 'stylesheet', 'font', 'image', 'media', 'xhr', 'websocket'];
 
@@ -199,6 +204,7 @@ async function setupListener() {
             };
 
             fs.appendFileSync(indexPath, JSON.stringify(indexEntry) + '\n');
+            responseCount += 1;
 
         } catch (e) {
             // Ignore errors
@@ -206,6 +212,31 @@ async function setupListener() {
     });
 
     return { browser, page };
+}
+
+function emitResult(status = 'succeeded') {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    const outputStr = responseCount > 0
+        ? `responses/ (${responseCount} responses)`
+        : 'responses/';
+    console.log(JSON.stringify({
+        type: 'ArchiveResult',
+        status,
+        output_str: outputStr,
+    }));
+}
+
+async function handleShutdown(signal) {
+    console.error(`\nReceived ${signal}, emitting final results...`);
+    emitResult('succeeded');
+    if (browser) {
+        try {
+            browser.disconnect();
+        } catch (e) {}
+    }
+    process.exit(0);
 }
 
 async function main() {
@@ -224,24 +255,27 @@ async function main() {
         process.exit(0);
     }
 
-    const timeout = getEnvInt('RESPONSES_TIMEOUT', 30) * 1000;
-
     try {
         // Set up listener BEFORE navigation
-        await setupListener();
+        const connection = await setupListener();
+        browser = connection.browser;
+        page = connection.page;
 
-        // Wait for chrome_navigate to complete (BLOCKING)
-        // Extra 1s delay for late responses
-        await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 1000);
+        // Register signal handlers for graceful shutdown
+        process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+        process.on('SIGINT', () => handleShutdown('SIGINT'));
 
-        // Output clean JSONL
-        console.log(JSON.stringify({
-            type: 'ArchiveResult',
-            status: 'succeeded',
-            output_str: 'responses/',
-        }));
+        // Wait for chrome_navigate to complete (non-fatal)
+        try {
+            const timeout = getEnvInt('RESPONSES_TIMEOUT', 30) * 1000;
+            await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 1000);
+        } catch (e) {
+            console.error(`WARN: ${e.message}`);
+        }
 
-        process.exit(0);
+        // console.error('Responses listener active, waiting for cleanup signal...');
+        await new Promise(() => {}); // Keep alive until SIGTERM
+        return;
 
     } catch (e) {
         const error = `${e.name}: ${e.message}`;

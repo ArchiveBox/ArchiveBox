@@ -32,6 +32,13 @@ const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'console.jsonl';
 const CHROME_SESSION_DIR = '../chrome';
 
+let browser = null;
+let page = null;
+let logCount = 0;
+let errorCount = 0;
+let requestFailCount = 0;
+let shuttingDown = false;
+
 async function serializeArgs(args) {
     const serialized = [];
     for (const arg of args) {
@@ -73,6 +80,7 @@ async function setupListeners() {
                 location: msg.location(),
             };
             fs.appendFileSync(outputPath, JSON.stringify(logEntry) + '\n');
+            logCount += 1;
         } catch (e) {
             // Ignore errors
         }
@@ -87,6 +95,7 @@ async function setupListeners() {
                 stack: error.stack || '',
             };
             fs.appendFileSync(outputPath, JSON.stringify(logEntry) + '\n');
+            errorCount += 1;
         } catch (e) {
             // Ignore
         }
@@ -103,12 +112,36 @@ async function setupListeners() {
                 url: request.url(),
             };
             fs.appendFileSync(outputPath, JSON.stringify(logEntry) + '\n');
+            requestFailCount += 1;
         } catch (e) {
             // Ignore
         }
     });
 
     return { browser, page };
+}
+
+function emitResult(status = 'succeeded') {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    const counts = `${logCount} console, ${errorCount} errors, ${requestFailCount} failed requests`;
+    console.log(JSON.stringify({
+        type: 'ArchiveResult',
+        status,
+        output_str: `${OUTPUT_FILE} (${counts})`,
+    }));
+}
+
+async function handleShutdown(signal) {
+    console.error(`\nReceived ${signal}, emitting final results...`);
+    emitResult('succeeded');
+    if (browser) {
+        try {
+            browser.disconnect();
+        } catch (e) {}
+    }
+    process.exit(0);
 }
 
 async function main() {
@@ -127,23 +160,27 @@ async function main() {
         process.exit(0);
     }
 
-    const timeout = getEnvInt('CONSOLELOG_TIMEOUT', 30) * 1000;
-
     try {
         // Set up listeners BEFORE navigation
-        await setupListeners();
+        const connection = await setupListeners();
+        browser = connection.browser;
+        page = connection.page;
 
-        // Wait for chrome_navigate to complete (BLOCKING)
-        await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 500);
+        // Register signal handlers for graceful shutdown
+        process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+        process.on('SIGINT', () => handleShutdown('SIGINT'));
 
-        // Output clean JSONL
-        console.log(JSON.stringify({
-            type: 'ArchiveResult',
-            status: 'succeeded',
-            output_str: OUTPUT_FILE,
-        }));
+        // Wait for chrome_navigate to complete (non-fatal)
+        try {
+            const timeout = getEnvInt('CONSOLELOG_TIMEOUT', 30) * 1000;
+            await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 500);
+        } catch (e) {
+            console.error(`WARN: ${e.message}`);
+        }
 
-        process.exit(0);
+        // console.error('Consolelog active, waiting for cleanup signal...');
+        await new Promise(() => {}); // Keep alive until SIGTERM
+        return;
 
     } catch (e) {
         const error = `${e.name}: ${e.message}`;

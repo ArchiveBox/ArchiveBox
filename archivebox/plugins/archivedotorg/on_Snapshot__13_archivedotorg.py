@@ -47,6 +47,9 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
+    def log(message: str) -> None:
+        print(f'[archivedotorg] {message}', file=sys.stderr)
+
     try:
         import requests
     except ImportError:
@@ -56,6 +59,8 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
     user_agent = get_env('USER_AGENT', 'Mozilla/5.0 (compatible; ArchiveBox/1.0)')
 
     submit_url = f'https://web.archive.org/save/{url}'
+    log(f'Submitting to Wayback Machine (timeout={timeout}s)')
+    log(f'GET {submit_url}')
 
     try:
         response = requests.get(
@@ -64,31 +69,40 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
             headers={'User-Agent': user_agent},
             allow_redirects=True,
         )
+        log(f'HTTP {response.status_code} final_url={response.url}')
 
         # Check for successful archive
         content_location = response.headers.get('Content-Location', '')
         x_archive_orig_url = response.headers.get('X-Archive-Orig-Url', '')
+        if content_location:
+            log(f'Content-Location: {content_location}')
+        if x_archive_orig_url:
+            log(f'X-Archive-Orig-Url: {x_archive_orig_url}')
 
         # Build archive URL
         if content_location:
             archive_url = f'https://web.archive.org{content_location}'
             Path(OUTPUT_FILE).write_text(archive_url, encoding='utf-8')
+            log(f'Saved archive URL -> {archive_url}')
             return True, OUTPUT_FILE, ''
         elif 'web.archive.org' in response.url:
             # We were redirected to an archive page
             Path(OUTPUT_FILE).write_text(response.url, encoding='utf-8')
+            log(f'Redirected to archive page -> {response.url}')
             return True, OUTPUT_FILE, ''
         else:
             # Check for errors in response
             if 'RobotAccessControlException' in response.text:
                 # Blocked by robots.txt - save submit URL for manual retry
                 Path(OUTPUT_FILE).write_text(submit_url, encoding='utf-8')
+                log('Blocked by robots.txt, saved submit URL for manual retry')
                 return True, OUTPUT_FILE, ''  # Consider this a soft success
             elif response.status_code >= 400:
                 return False, None, f'HTTP {response.status_code}'
             else:
                 # Save submit URL anyway
                 Path(OUTPUT_FILE).write_text(submit_url, encoding='utf-8')
+                log('No archive URL returned, saved submit URL for manual retry')
                 return True, OUTPUT_FILE, ''
 
     except requests.Timeout:

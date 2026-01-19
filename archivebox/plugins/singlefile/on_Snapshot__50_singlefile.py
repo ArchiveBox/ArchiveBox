@@ -23,6 +23,8 @@ import json
 import os
 import subprocess
 import sys
+import time
+from urllib.request import urlopen
 from pathlib import Path
 
 import rich_click as click
@@ -75,7 +77,22 @@ STATICFILE_DIR = '../staticfile'
 def has_staticfile_output() -> bool:
     """Check if staticfile extractor already downloaded this URL."""
     staticfile_dir = Path(STATICFILE_DIR)
-    return staticfile_dir.exists() and any(staticfile_dir.iterdir())
+    if not staticfile_dir.exists():
+        return False
+    stdout_log = staticfile_dir / 'stdout.log'
+    if not stdout_log.exists():
+        return False
+    for line in stdout_log.read_text(errors='ignore').splitlines():
+        line = line.strip()
+        if not line.startswith('{'):
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if record.get('type') == 'ArchiveResult' and record.get('status') == 'succeeded':
+            return True
+    return False
 
 
 # Chrome session directory (relative to extractor output dir)
@@ -84,12 +101,17 @@ def has_staticfile_output() -> bool:
 CHROME_SESSION_DIR = '../chrome'
 
 
-def get_cdp_url() -> str | None:
+def get_cdp_url(wait_seconds: float = 0.0) -> str | None:
     """Get CDP URL from chrome plugin if available."""
     cdp_file = Path(CHROME_SESSION_DIR) / 'cdp_url.txt'
-    if cdp_file.exists():
-        return cdp_file.read_text().strip()
-    return None
+    deadline = time.time() + max(wait_seconds, 0.0)
+    while True:
+        if cdp_file.exists():
+            cdp_url = cdp_file.read_text().strip()
+            return cdp_url or None
+        if time.time() >= deadline:
+            return None
+        time.sleep(0.2)
 
 
 def get_port_from_cdp_url(cdp_url: str) -> str | None:
@@ -99,6 +121,14 @@ def get_port_from_cdp_url(cdp_url: str) -> str | None:
     if match:
         return match.group(1)
     return None
+
+
+def is_cdp_server_available(cdp_remote_url: str) -> bool:
+    try:
+        with urlopen(f'{cdp_remote_url}/json/version', timeout=1) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
 
 
 def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
@@ -122,19 +152,30 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     cmd = [binary, *singlefile_args]
 
-    # Try to use existing Chrome session via CDP
-    cdp_url = get_cdp_url()
+    # Try to use existing Chrome session via CDP (prefer HTTP base URL)
+    cdp_wait = min(10, max(1, timeout // 10))
+    cdp_url = get_cdp_url(wait_seconds=cdp_wait)
+    cdp_remote_url = None
     if cdp_url:
-        # SingleFile can connect to existing browser via WebSocket
-        # Extract port from CDP URL (ws://127.0.0.1:PORT/...)
-        port = get_port_from_cdp_url(cdp_url)
-        if port:
-            cmd.extend(['--browser-server', f'http://127.0.0.1:{port}'])
+        if cdp_url.startswith(('http://', 'https://')):
+            cdp_remote_url = cdp_url
+        else:
+            port = get_port_from_cdp_url(cdp_url)
+            if port:
+                cdp_remote_url = f'http://127.0.0.1:{port}'
+            else:
+                cdp_remote_url = cdp_url
+
+    if cdp_remote_url and not is_cdp_server_available(cdp_remote_url):
+        cdp_remote_url = None
+
+    if cdp_remote_url:
+        cmd.extend(['--browser-server', cdp_remote_url])
     elif chrome:
         cmd.extend(['--browser-executable-path', chrome])
 
-    # Pass Chrome arguments (includes user-data-dir and other launch options)
-    if chrome_args:
+    # Pass Chrome arguments (only when launching a new browser)
+    if chrome_args and not cdp_remote_url:
         # SingleFile expects --browser-args as a JSON array string
         cmd.extend(['--browser-args', json.dumps(chrome_args)])
 
@@ -143,7 +184,7 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
         cmd.append('--browser-ignore-insecure-certs')
 
     if user_agent:
-        cmd.extend(['--browser-user-agent', user_agent])
+        cmd.extend(['--user-agent', user_agent])
 
     if cookies_file and Path(cookies_file).is_file():
         cmd.extend(['--browser-cookies-file', cookies_file])
@@ -165,11 +206,21 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
             return True, str(output_path), ''
         else:
             stderr = result.stderr.decode('utf-8', errors='replace')
+            stdout = result.stdout.decode('utf-8', errors='replace')
             if 'ERR_NAME_NOT_RESOLVED' in stderr:
                 return False, None, 'DNS resolution failed'
             if 'ERR_CONNECTION_REFUSED' in stderr:
                 return False, None, 'Connection refused'
-            return False, None, f'SingleFile failed: {stderr[:200]}'
+            detail = (stderr or stdout).strip()
+            if len(detail) > 2000:
+                detail = detail[:2000]
+            cmd_preview = list(cmd)
+            if '--browser-args' in cmd_preview:
+                idx = cmd_preview.index('--browser-args')
+                if idx + 1 < len(cmd_preview):
+                    cmd_preview[idx + 1] = '<json>'
+            cmd_str = ' '.join(cmd_preview)
+            return False, None, f'SingleFile failed (cmd={cmd_str}): {detail}'
 
     except subprocess.TimeoutExpired:
         return False, None, f'Timed out after {timeout} seconds'

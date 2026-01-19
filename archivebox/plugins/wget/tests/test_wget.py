@@ -300,7 +300,7 @@ def test_staticfile_present_skips():
         #   wget/         <- wget extractor runs here, looks for ../staticfile
         staticfile_dir = tmpdir / 'staticfile'
         staticfile_dir.mkdir()
-        (staticfile_dir / 'index.html').write_text('<html>test</html>')
+        (staticfile_dir / 'stdout.log').write_text('{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n')
 
         wget_dir = tmpdir / 'wget'
         wget_dir.mkdir()

@@ -436,6 +436,10 @@ SIGNAL_WEBHOOKS = {
     },
 }
 
+# Avoid background threads touching sqlite connections (especially during tests/migrations).
+if DATABASES["default"]["ENGINE"].endswith("sqlite3"):
+    SIGNAL_WEBHOOKS["TASK_HANDLER"] = "signal_webhooks.handlers.sync_task_handler"
+
 ################################################################################
 ### Admin Data View Settings
 ################################################################################

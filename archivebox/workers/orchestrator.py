@@ -83,6 +83,10 @@ class Orchestrator:
         # In foreground mode (exit_on_idle=True), limit to 1 CrawlWorker
         if self.exit_on_idle:
             self.MAX_CRAWL_WORKERS = 1
+            # Faster UI updates for interactive runs
+            self.POLL_INTERVAL = 0.25
+            # Exit quickly once idle in foreground mode
+            self.IDLE_TIMEOUT = 1
     
     def __repr__(self) -> str:
         return f'[underline]Orchestrator[/underline]\\[pid={self.pid}]'
@@ -111,8 +115,14 @@ class Orchestrator:
         # Clean up any stale Process records from previous runs
         stale_count = Process.cleanup_stale_running()
 
-        # Clean up orphaned Chrome processes from previous crashes
-        chrome_count = Process.cleanup_orphaned_chrome()
+        # Foreground runs should start fast; skip expensive orphan cleanup unless in daemon mode.
+        chrome_count = 0
+        orphaned_workers = 0
+        if not self.exit_on_idle:
+            # Clean up orphaned Chrome processes from previous crashes
+            chrome_count = Process.cleanup_orphaned_chrome()
+            # Clean up orphaned workers from previous crashes
+            orphaned_workers = Process.cleanup_orphaned_workers()
 
         # Collect startup metadata
         metadata = {
@@ -123,6 +133,8 @@ class Orchestrator:
             metadata['cleaned_stale_pids'] = stale_count
         if chrome_count:
             metadata['cleaned_orphaned_chrome'] = chrome_count
+        if orphaned_workers:
+            metadata['cleaned_orphaned_workers'] = orphaned_workers
 
         log_worker_event(
             worker_type='Orchestrator',
@@ -135,30 +147,26 @@ class Orchestrator:
     def terminate_all_workers(self) -> None:
         """Terminate all running worker processes."""
         from archivebox.machine.models import Process
-        import signal
-
-        # Get all running worker processes
-        running_workers = Process.objects.filter(
-            process_type=Process.TypeChoices.WORKER,
-            status__in=['running', 'started']
-        )
+        # Get running worker processes scoped to this orchestrator when possible
+        if getattr(self, 'db_process', None):
+            running_workers = self._get_scoped_running_workers()
+        else:
+            running_workers = Process.objects.filter(
+                process_type=Process.TypeChoices.WORKER,
+                status=Process.StatusChoices.RUNNING,
+            )
 
         for worker_process in running_workers:
             try:
-                # Send SIGTERM to gracefully terminate the worker
-                os.kill(worker_process.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                # Process already dead
-                pass
+                # Gracefully terminate the worker and update Process status
+                worker_process.terminate(graceful_timeout=5.0)
             except Exception:
-                # Ignore other errors during shutdown
                 pass
 
     def on_shutdown(self, error: BaseException | None = None) -> None:
         """Called when orchestrator shuts down."""
-        # Terminate all worker processes in exit_on_idle mode
-        if self.exit_on_idle:
-            self.terminate_all_workers()
+        # Terminate all worker processes on shutdown
+        self.terminate_all_workers()
 
         # Update Process record status
         if hasattr(self, 'db_process') and self.db_process:
@@ -188,11 +196,26 @@ class Orchestrator:
             Process.cleanup_stale_running()
             self._last_cleanup_time = now
 
+        if self.crawl_id and getattr(self, 'db_process', None):
+            return self._get_scoped_running_workers().count()
+
         return sum(len(W.get_running_workers()) for W in self.WORKER_TYPES)
 
     def get_running_workers_for_type(self, WorkerClass: Type[Worker]) -> int:
         """Get count of running workers for a specific worker type."""
+        if self.crawl_id and getattr(self, 'db_process', None):
+            return self._get_scoped_running_workers().filter(worker_type=WorkerClass.name).count()
         return len(WorkerClass.get_running_workers())
+
+    def _get_scoped_running_workers(self):
+        """Get running workers scoped to this orchestrator process tree."""
+        from archivebox.machine.models import Process
+
+        descendants = self.db_process.get_descendants(include_self=False)
+        return descendants.filter(
+            process_type=Process.TypeChoices.WORKER,
+            status=Process.StatusChoices.RUNNING,
+        )
     
     def should_spawn_worker(self, WorkerClass: Type[Worker], queue_count: int) -> bool:
         """Determine if we should spawn a new worker."""
@@ -208,8 +231,11 @@ class Orchestrator:
             max_workers = 1  # Default for unknown types
 
         # Check worker limit
-        running_workers = WorkerClass.get_running_workers()
-        running_count = len(running_workers)
+        if self.crawl_id and getattr(self, 'db_process', None) and WorkerClass.name != 'binary':
+            running_count = self._get_scoped_running_workers().filter(worker_type=WorkerClass.name).count()
+        else:
+            running_workers = WorkerClass.get_running_workers()
+            running_count = len(running_workers)
 
         if running_count >= max_workers:
             return False
@@ -225,8 +251,12 @@ class Orchestrator:
         """Spawn a new worker process. Returns PID or None if spawn failed."""
         try:
             print(f'[yellow]DEBUG: Spawning {WorkerClass.name} worker with crawl_id={self.crawl_id}...[/yellow]')
-            pid = WorkerClass.start(crawl_id=self.crawl_id)
+            pid = WorkerClass.start(parent=self.db_process, crawl_id=self.crawl_id)
             print(f'[yellow]DEBUG: Spawned {WorkerClass.name} worker with PID={pid}[/yellow]')
+
+            if self.exit_on_idle:
+                # Foreground runs have MAX_CRAWL_WORKERS=1; avoid blocking startup on registration.
+                return pid
 
             # CRITICAL: Block until worker registers itself in Process table
             # This prevents race condition where orchestrator spawns multiple workers
@@ -316,7 +346,7 @@ class Orchestrator:
         if binary_count > 0:
             running_binary_workers_list = BinaryWorker.get_running_workers()
             if len(running_binary_workers_list) == 0:
-                BinaryWorker.start()
+                BinaryWorker.start(parent=self.db_process)
 
         # Check if any BinaryWorkers are still running
         running_binary_workers = len(BinaryWorker.get_running_workers())
@@ -344,7 +374,7 @@ class Orchestrator:
                 # Claim next crawl
                 crawl = crawl_queue.first()
                 if crawl and self._claim_crawl(crawl):
-                    CrawlWorker.start(crawl_id=str(crawl.id))
+                    CrawlWorker.start(parent=self.db_process, crawl_id=str(crawl.id))
 
         return queue_sizes
 
@@ -463,7 +493,7 @@ class Orchestrator:
 
                 with Live(
                     progress_layout.get_layout(),
-                    refresh_per_second=4,
+                    refresh_per_second=8,
                     screen=True,
                     console=orchestrator_console,
                 ):
@@ -521,41 +551,147 @@ class Orchestrator:
                     else:
                         status = "Idle"
 
+                    binary_workers_count = worker_counts.get('binary', 0)
                     # Update orchestrator status
                     progress_layout.update_orchestrator_status(
                         status=status,
                         crawl_queue_count=crawl_queue_count,
                         crawl_workers_count=crawl_workers_count,
+                        binary_queue_count=queue_sizes.get('binary', 0),
+                        binary_workers_count=binary_workers_count,
                         max_crawl_workers=self.MAX_CRAWL_WORKERS,
                     )
 
-                    # Update CrawlWorker logs by tailing Process stdout/stderr
-                    if crawl_workers_count > 0:
-                        from archivebox.machine.models import Process
-                        crawl_worker_process = Process.objects.filter(
-                            process_type=Process.TypeChoices.WORKER,
-                            worker_type='crawl',
-                            status__in=['running', 'started']
-                        ).first()
-                        if crawl_worker_process:
-                            progress_layout.update_crawl_worker_logs(crawl_worker_process)
+                    # Update crawl queue tree (active + recently completed)
+                    from archivebox.crawls.models import Crawl
+                    from archivebox.core.models import Snapshot, ArchiveResult
+                    recent_cutoff = timezone.now() - timedelta(minutes=5)
+                    pending_snapshot_candidates: list[Snapshot] = []
+                    hooks_by_snapshot: dict[str, list] = {}
 
-                    # Log queue size changes
-                    if queue_sizes != last_queue_sizes:
-                        for worker_type, count in queue_sizes.items():
-                            old_count = last_queue_sizes.get(worker_type, 0)
-                            if count != old_count:
-                                if count > old_count:
-                                    progress_layout.log_event(
-                                        f"{worker_type.capitalize()} queue: {old_count} → {count}",
-                                        style="yellow"
-                                    )
-                                else:
-                                    progress_layout.log_event(
-                                        f"{worker_type.capitalize()} queue: {old_count} → {count}",
-                                        style="green"
-                                    )
-                        last_queue_sizes = queue_sizes.copy()
+                    active_qs = Crawl.objects.exclude(status__in=Crawl.FINAL_STATES)
+                    if self.crawl_id:
+                        active_qs = active_qs.filter(id=self.crawl_id)
+                    active_qs = active_qs.order_by('retry_at')
+
+                    recent_done_qs = Crawl.objects.filter(
+                        status__in=Crawl.FINAL_STATES,
+                        modified_at__gte=recent_cutoff,
+                    )
+                    if self.crawl_id:
+                        recent_done_qs = recent_done_qs.filter(id=self.crawl_id)
+                    recent_done_qs = recent_done_qs.order_by('-modified_at')
+
+                    crawls = list(active_qs)
+                    active_ids = {c.id for c in crawls}
+                    for crawl in recent_done_qs:
+                        if crawl.id not in active_ids:
+                            crawls.append(crawl)
+
+                    def _abbrev(text: str, max_len: int = 80) -> str:
+                        return text if len(text) <= max_len else f"{text[:max_len - 3]}..."
+
+                    tree_data: list[dict] = []
+                    for crawl in crawls:
+                        urls = crawl.get_urls_list()
+                        url_count = len(urls)
+                        label = f"{url_count} url" + ("s" if url_count != 1 else "")
+                        label = _abbrev(label)
+
+                        snapshots = []
+                        snap_qs = Snapshot.objects.filter(crawl_id=crawl.id)
+                        active_snaps = list(
+                            snap_qs.filter(status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED])
+                            .order_by('created_at')[:16]
+                        )
+                        recent_snaps = list(
+                            snap_qs.filter(status__in=Snapshot.FINAL_STATES)
+                            .order_by('-modified_at')[:8]
+                        )
+                        snap_ids = {s.id for s in active_snaps}
+                        for s in recent_snaps:
+                            if s.id not in snap_ids:
+                                active_snaps.append(s)
+
+                        for snap in active_snaps:
+                            total = snap.archiveresult_set.count()
+                            completed = snap.archiveresult_set.filter(status__in=[
+                                ArchiveResult.StatusChoices.SUCCEEDED,
+                                ArchiveResult.StatusChoices.SKIPPED,
+                                ArchiveResult.StatusChoices.FAILED,
+                            ]).count()
+                            running = snap.archiveresult_set.filter(status=ArchiveResult.StatusChoices.STARTED).count()
+                            try:
+                                from archivebox.config.configset import get_config
+                                from archivebox.hooks import discover_hooks
+                                hooks_list = discover_hooks('Snapshot', config=get_config(snapshot=snap))
+                                total_hooks = len(hooks_list)
+                                hooks_by_snapshot[str(snap.id)] = hooks_list
+                            except Exception:
+                                total_hooks = total
+                            pending = max(total_hooks - completed - running, 0)
+                            snap_label = _abbrev(snap.url or str(snap.id), max_len=60)
+                            snapshots.append({
+                                'id': str(snap.id),
+                                'status': snap.status,
+                                'label': snap_label,
+                                'hooks': {'completed': completed, 'running': running, 'pending': pending} if total else {},
+                            })
+                            pending_snapshot_candidates.append(snap)
+
+                        tree_data.append({
+                            'id': str(crawl.id),
+                            'status': crawl.status,
+                            'label': label,
+                            'snapshots': snapshots,
+                        })
+
+                    progress_layout.update_crawl_tree(tree_data)
+
+                    # Update running process panels (tail stdout/stderr for each running process)
+                    from archivebox.machine.models import Process
+                    if self.crawl_id and getattr(self, 'db_process', None):
+                        process_qs = self.db_process.get_descendants(include_self=False)
+                        process_qs = process_qs.filter(status=Process.StatusChoices.RUNNING)
+                    else:
+                        process_qs = Process.objects.filter(
+                            status=Process.StatusChoices.RUNNING,
+                        ).exclude(process_type=Process.TypeChoices.ORCHESTRATOR)
+
+                    running_processes = [
+                        proc for proc in process_qs.order_by('process_type', 'worker_type', 'started_at')
+                        if proc.is_running
+                    ]
+                    pending_processes = []
+                    try:
+                        from types import SimpleNamespace
+                        for snap in pending_snapshot_candidates:
+                            hooks_list = hooks_by_snapshot.get(str(snap.id), [])
+                            if not hooks_list:
+                                continue
+                            existing = set(
+                                snap.archiveresult_set.exclude(hook_name='').values_list('hook_name', flat=True)
+                            )
+                            for hook_path in hooks_list:
+                                if hook_path.name in existing:
+                                    continue
+                                pending_processes.append(SimpleNamespace(
+                                    process_type='hook',
+                                    worker_type='',
+                                    pid=None,
+                                    cmd=['', str(hook_path)],
+                                    url=snap.url,
+                                    status='queued',
+                                    started_at=None,
+                                    timeout=None,
+                                    pwd=None,
+                                ))
+                    except Exception:
+                        pending_processes = []
+
+                    progress_layout.update_process_panels(running_processes, pending=pending_processes)
+
+                    last_queue_sizes = queue_sizes.copy()
 
                     # Update snapshot progress
                     from archivebox.core.models import Snapshot
@@ -641,11 +777,10 @@ class Orchestrator:
                             # Hooks created but none started yet
                             current_plugin = "waiting"
 
-                        # Update snapshot worker (show even if no hooks yet)
                         # Debug: Log first time we see this snapshot
-                        if snapshot.id not in progress_layout.snapshot_to_worker:
+                        if snapshot.id not in snapshot_progress:
                             progress_layout.log_event(
-                                f"Assigning to worker: {snapshot.url[:50]}",
+                                f"Tracking snapshot: {snapshot.url[:50]}",
                                 style="grey53"
                             )
 
@@ -656,17 +791,21 @@ class Orchestrator:
                         if prev_progress != curr_progress:
                             prev_total, prev_completed, prev_plugin = prev_progress
 
-                            # Log hooks created
-                            if total > prev_total:
-                                progress_layout.log_event(
-                                    f"Hooks created: {total} for {snapshot.url[:40]}",
-                                    style="cyan"
-                                )
-
                             # Log hook completion
                             if completed > prev_completed:
+                                completed_ar = snapshot.archiveresult_set.filter(
+                                    status__in=['succeeded', 'skipped', 'failed']
+                                ).order_by('-end_ts', '-modified_at').first()
+                                hook_label = ''
+                                if completed_ar:
+                                    hook_name = completed_ar.hook_name or completed_ar.plugin or ''
+                                    if hook_name:
+                                        hook_label = hook_name.split('__')[-1] if '__' in hook_name else hook_name
+                                        hook_label = hook_label.replace('.py', '').replace('.js', '').replace('.sh', '').replace('.bg', '')
+                                if not hook_label:
+                                    hook_label = f"{completed}/{total}"
                                 progress_layout.log_event(
-                                    f"Hook completed: {completed}/{total} for {snapshot.url[:40]}",
+                                    f"Hook completed: {hook_label}",
                                     style="green"
                                 )
 
@@ -686,23 +825,15 @@ class Orchestrator:
                                 style="red"
                             )
 
-                        progress_layout.update_snapshot_worker(
-                            snapshot_id=snapshot.id,
-                            url=snapshot.url,
-                            total=max(total, 1),  # Show at least 1 to avoid division by zero
-                            completed=completed,
-                            current_plugin=current_plugin,
-                        )
+                        # No per-snapshot panels; logs only
 
-                    # Remove snapshots that are no longer active
-                    for snapshot_id in list(progress_layout.snapshot_to_worker.keys()):
+                    # Cleanup progress tracking for completed snapshots
+                    for snapshot_id in list(snapshot_progress.keys()):
                         if snapshot_id not in active_ids:
                             progress_layout.log_event(
                                 f"Snapshot completed/removed",
                                 style="blue"
                             )
-                            progress_layout.remove_snapshot_worker(snapshot_id)
-                            # Also clean up progress tracking
                             if snapshot_id in snapshot_progress:
                                 del snapshot_progress[snapshot_id]
 
@@ -734,6 +865,7 @@ class Orchestrator:
             if progress_layout:
                 progress_layout.log_event("Interrupted by user", style="red")
             print()  # Newline after ^C
+            self.on_shutdown(error=KeyboardInterrupt())
         except BaseException as e:
             if progress_layout:
                 progress_layout.log_event(f"Error: {e}", style="red")

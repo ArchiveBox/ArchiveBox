@@ -17,7 +17,7 @@ from django.test import TestCase
 
 # Get the path to the custom provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_HOOK = PLUGIN_DIR / 'on_Binary__install_using_custom_bash.py'
+INSTALL_HOOK = next(PLUGIN_DIR.glob('on_Binary__*_custom_install.py'), None)
 
 
 class TestCustomProviderHook(TestCase):
@@ -34,7 +34,7 @@ class TestCustomProviderHook(TestCase):
 
     def test_hook_script_exists(self):
         """Hook script should exist."""
-        self.assertTrue(INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}")
+        self.assertTrue(INSTALL_HOOK and INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}")
 
     def test_hook_skips_when_custom_not_allowed(self):
         """Hook should skip when custom not in allowed binproviders."""

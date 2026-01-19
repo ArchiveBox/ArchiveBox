@@ -258,10 +258,17 @@ def get_config(
     # Add CRAWL_OUTPUT_DIR for snapshot hooks to find shared Chrome session
     if crawl and hasattr(crawl, "output_dir"):
         config['CRAWL_OUTPUT_DIR'] = str(crawl.output_dir)
+        config['CRAWL_ID'] = str(getattr(crawl, "id", "")) if getattr(crawl, "id", None) else config.get('CRAWL_ID')
 
     # Apply snapshot config overrides (highest priority)
     if snapshot and hasattr(snapshot, "config") and snapshot.config:
         config.update(snapshot.config)
+
+    if snapshot:
+        config['SNAPSHOT_ID'] = str(getattr(snapshot, "id", "")) if getattr(snapshot, "id", None) else config.get('SNAPSHOT_ID')
+        config['SNAPSHOT_DEPTH'] = int(getattr(snapshot, "depth", 0) or 0)
+        if getattr(snapshot, "crawl_id", None):
+            config['CRAWL_ID'] = str(snapshot.crawl_id)
 
     # Normalize all aliases to canonical names (after all sources merged)
     # This handles aliases that came from user/crawl/snapshot configs, not just env

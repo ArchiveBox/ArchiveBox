@@ -23,6 +23,7 @@ from django.db.models import QuerySet
 from django.utils import timezone
 from django.conf import settings
 
+from statemachine.exceptions import TransitionNotAllowed
 from rich import print
 
 from archivebox.misc.logging_util import log_worker_event
@@ -450,13 +451,34 @@ class CrawlWorker(Worker):
     def runloop(self) -> None:
         """Run crawl state machine, spawn SnapshotWorkers."""
         import sys
+        from archivebox.crawls.models import Crawl
         self.on_startup()
 
         try:
             print(f'🔄 CrawlWorker starting for crawl {self.crawl_id}', file=sys.stderr)
 
+            if self.crawl.status == Crawl.StatusChoices.SEALED:
+                print(
+                    '✅ This crawl has already completed and there are no tasks remaining.\n'
+                    '   To re-crawl it, create a new crawl with the same URLs, e.g.\n'
+                    '   archivebox crawl create <urls> | archivebox run',
+                    file=sys.stderr,
+                )
+                return
+
             # Advance state machine: QUEUED → STARTED (triggers run() via @started.enter)
-            self.crawl.sm.tick()
+            try:
+                self.crawl.sm.tick()
+            except TransitionNotAllowed:
+                if self.crawl.status == Crawl.StatusChoices.SEALED:
+                    print(
+                        '✅ This crawl has already completed and there are no tasks remaining.\n'
+                        '   To re-crawl it, create a new crawl with the same URLs, e.g.\n'
+                        '   archivebox crawl create <urls> | archivebox run',
+                        file=sys.stderr,
+                    )
+                    return
+                raise
             self.crawl.refresh_from_db()
             print(f'🔄 tick() complete, crawl status={self.crawl.status}', file=sys.stderr)
 
@@ -509,13 +531,20 @@ class CrawlWorker(Worker):
             status__in=['running', 'started'],
         )
 
-        # Extract snapshot IDs from their pwd (contains snapshot ID at the end)
+        # Extract snapshot IDs from worker cmd args (more reliable than pwd paths)
         running_snapshot_ids = []
         for proc in running_processes:
-            if proc.pwd:
-                # pwd is like: /path/to/archive/{timestamp}
-                # We need to match this against snapshot.output_dir
-                running_snapshot_ids.append(proc.pwd)
+            cmd = proc.cmd or []
+            snapshot_id = None
+            for i, part in enumerate(cmd):
+                if part == '--snapshot-id' and i + 1 < len(cmd):
+                    snapshot_id = cmd[i + 1]
+                    break
+                if part.startswith('--snapshot-id='):
+                    snapshot_id = part.split('=', 1)[1]
+                    break
+            if snapshot_id:
+                running_snapshot_ids.append(snapshot_id)
 
         # Find snapshots that don't have a running worker
         all_snapshots = Snapshot.objects.filter(
@@ -526,7 +555,7 @@ class CrawlWorker(Worker):
         # Filter out snapshots that already have workers
         pending_snapshots = [
             snap for snap in all_snapshots
-            if snap.output_dir not in running_snapshot_ids
+            if str(snap.id) not in running_snapshot_ids
         ][:self.MAX_SNAPSHOT_WORKERS - running_count]
 
         with open(debug_log, 'a') as f:
@@ -631,7 +660,6 @@ class SnapshotWorker(Worker):
         b. If foreground: wait for completion
         c. If background: track but continue to next hook
         d. Update ArchiveResult status
-        e. Advance current_step when all step's hooks complete
     4. When all hooks done: seal snapshot
     5. On shutdown: SIGTERM all background hooks
     """
@@ -662,7 +690,7 @@ class SnapshotWorker(Worker):
 
     def runloop(self) -> None:
         """Execute all hooks sequentially."""
-        from archivebox.hooks import discover_hooks, is_background_hook, extract_step
+        from archivebox.hooks import discover_hooks, is_background_hook
         from archivebox.core.models import ArchiveResult
         from archivebox.config.configset import get_config
 
@@ -679,8 +707,7 @@ class SnapshotWorker(Worker):
             # Execute each hook sequentially
             for hook_path in hooks:
                 hook_name = hook_path.name
-                plugin = self._extract_plugin_name(hook_name)
-                hook_step = extract_step(hook_name)
+                plugin = self._extract_plugin_name(hook_path, hook_name)
                 is_background = is_background_hook(hook_name)
 
                 # Create ArchiveResult for THIS HOOK (not per plugin)
@@ -724,16 +751,18 @@ class SnapshotWorker(Worker):
                         pid=self.pid,
                     )
 
-                # Check if we can advance to next step
-                self._try_advance_step()
+                # Reap any background hooks that finished while we worked
+                self._reap_background_hooks()
 
-            # All hooks launched (or completed) - seal using state machine
+            # All hooks launched (or completed) - terminate bg hooks and seal
+            self._finalize_background_hooks()
             # This triggers enter_sealed() which calls cleanup() and checks parent crawl sealing
             self.snapshot.sm.seal()
             self.snapshot.refresh_from_db()
 
         except Exception as e:
             # Mark snapshot as sealed even on error (still triggers cleanup)
+            self._finalize_background_hooks()
             self.snapshot.sm.seal()
             self.snapshot.refresh_from_db()
             raise
@@ -753,7 +782,6 @@ class SnapshotWorker(Worker):
             script=hook_path,
             output_dir=output_dir,
             config=config,
-            timeout=120,
             parent=self.db_process,
             url=str(self.snapshot.url),
             snapshot_id=str(self.snapshot.id),
@@ -773,11 +801,21 @@ class SnapshotWorker(Worker):
         except TimeoutError:
             # Hook exceeded timeout - kill it
             process.kill(signal_num=9)
-            exit_code = -1
+            exit_code = process.exit_code or 137
 
         # Update ArchiveResult from hook output
         ar.update_from_output()
         ar.end_ts = timezone.now()
+
+        # Apply hook-emitted JSONL records regardless of exit code
+        from archivebox.hooks import extract_records_from_process, process_hook_records
+
+        records = extract_records_from_process(process)
+        if records:
+            process_hook_records(
+                records,
+                overrides={'snapshot': self.snapshot, 'crawl': self.snapshot.crawl},
+            )
 
         # Determine final status from hook exit code
         if exit_code == 0:
@@ -787,34 +825,53 @@ class SnapshotWorker(Worker):
 
         ar.save(update_fields=['status', 'end_ts', 'modified_at'])
 
-    def _try_advance_step(self) -> None:
-        """Advance current_step if all foreground hooks in current step are done."""
-        from django.db.models import Q
+    def _finalize_background_hooks(self) -> None:
+        """Gracefully terminate background hooks and update their ArchiveResults."""
+        if getattr(self, '_background_hooks_finalized', False):
+            return
+
+        self._background_hooks_finalized = True
+
+        # Send SIGTERM and wait up to each hook's remaining timeout
+        self._terminate_background_hooks(
+            background_processes=self.background_processes,
+            worker_type='SnapshotWorker',
+            indent_level=2,
+        )
+
+        # Clear to avoid double-termination during on_shutdown
+        self.background_processes = {}
+
+        # Update STARTED background results now that hooks are done
         from archivebox.core.models import ArchiveResult
 
-        current_step = self.snapshot.current_step
-
-        # Single query: foreground hooks in current step that aren't finished
-        # Foreground hooks: hook_name doesn't contain '.bg.'
-        pending_foreground = self.snapshot.archiveresult_set.filter(
-            Q(hook_name__contains=f'__{current_step}_') &  # Current step
-            ~Q(hook_name__contains='.bg.') &  # Not background
-            ~Q(status__in=ArchiveResult.FINAL_STATES)  # Not finished
-        ).exists()
-
-        if pending_foreground:
-            return  # Still waiting for hooks
-
-        # All foreground hooks done - advance!
-        self.snapshot.current_step += 1
-        self.snapshot.save(update_fields=['current_step', 'modified_at'])
-
-        log_worker_event(
-            worker_type='SnapshotWorker',
-            event=f'Advanced to step {self.snapshot.current_step}',
-            indent_level=2,
-            pid=self.pid,
+        started_bg = self.snapshot.archiveresult_set.filter(
+            status=ArchiveResult.StatusChoices.STARTED,
+            hook_name__contains='.bg.',
         )
+        for ar in started_bg:
+            ar.update_from_output()
+
+    def _reap_background_hooks(self) -> None:
+        """Update ArchiveResults for background hooks that already exited."""
+        if getattr(self, '_background_hooks_finalized', False):
+            return
+        if not self.background_processes:
+            return
+
+        from archivebox.core.models import ArchiveResult
+
+        for hook_name, process in list(self.background_processes.items()):
+            exit_code = process.poll()
+            if exit_code is None:
+                continue
+
+            ar = self.snapshot.archiveresult_set.filter(hook_name=hook_name).first()
+            if ar and ar.status == ArchiveResult.StatusChoices.STARTED:
+                ar.update_from_output()
+
+            # Remove completed hook from tracking
+            self.background_processes.pop(hook_name, None)
 
     def on_shutdown(self, error: BaseException | None = None) -> None:
         """
@@ -834,12 +891,15 @@ class SnapshotWorker(Worker):
         super().on_shutdown(error)
 
     @staticmethod
-    def _extract_plugin_name(hook_name: str) -> str:
-        """Extract plugin name from hook filename."""
-        # on_Snapshot__50_wget.py -> wget
-        name = hook_name.split('__')[-1]  # Get part after last __
+    def _extract_plugin_name(hook_path: Path, hook_name: str) -> str:
+        """Extract plugin name from hook path (fallback to filename)."""
+        plugin_dir = hook_path.parent.name
+        if plugin_dir not in ('plugins', '.'):
+            return plugin_dir
+        # Fallback: on_Snapshot__50_wget.py -> wget
+        name = hook_name.split('__')[-1]
         name = name.replace('.py', '').replace('.js', '').replace('.sh', '')
-        name = name.replace('.bg', '')  # Remove .bg suffix
+        name = name.replace('.bg', '')
         return name
 
 
@@ -888,7 +948,7 @@ class BinaryWorker(Worker):
                 machine=machine,
                 status=Binary.StatusChoices.QUEUED,
                 retry_at__lte=timezone.now()
-            ).order_by('retry_at')
+            ).order_by('retry_at', 'created_at', 'name')
 
     def runloop(self) -> None:
         """Install binary(ies)."""

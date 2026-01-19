@@ -227,33 +227,45 @@ def get_os_info() -> Dict[str, Any]:
     }
 
 def get_host_stats() -> Dict[str, Any]:
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_usage = psutil.disk_usage(str(tmp_dir))
-    app_usage = psutil.disk_usage(str(PACKAGE_DIR))
-    data_usage = psutil.disk_usage(str(DATA_DIR))
-    mem_usage = psutil.virtual_memory()
-    swap_usage = psutil.swap_memory()
-    return {
-        "cpu_boot_time": datetime.fromtimestamp(psutil.boot_time()).isoformat(),
-        "cpu_count": psutil.cpu_count(logical=False),
-        "cpu_load": psutil.getloadavg(),
-        # "cpu_pct": psutil.cpu_percent(interval=1),
-        "mem_virt_used_pct": mem_usage.percent,
-        "mem_virt_used_gb": round(mem_usage.used / 1024 / 1024 / 1024, 3),
-        "mem_virt_free_gb": round(mem_usage.free / 1024 / 1024 / 1024, 3),
-        "mem_swap_used_pct": swap_usage.percent,
-        "mem_swap_used_gb": round(swap_usage.used / 1024 / 1024 / 1024, 3),
-        "mem_swap_free_gb": round(swap_usage.free / 1024 / 1024 / 1024, 3),
-        "disk_tmp_used_pct": tmp_usage.percent,
-        "disk_tmp_used_gb": round(tmp_usage.used / 1024 / 1024 / 1024, 3),
-        "disk_tmp_free_gb": round(tmp_usage.free / 1024 / 1024 / 1024, 3),  # in GB
-        "disk_app_used_pct": app_usage.percent,
-        "disk_app_used_gb": round(app_usage.used / 1024 / 1024 / 1024, 3),
-        "disk_app_free_gb": round(app_usage.free / 1024 / 1024 / 1024, 3),
-        "disk_data_used_pct": data_usage.percent,
-        "disk_data_used_gb": round(data_usage.used / 1024 / 1024 / 1024, 3),
-        "disk_data_free_gb": round(data_usage.free / 1024 / 1024 / 1024, 3),
-    }
+    try:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_usage = psutil.disk_usage(str(tmp_dir))
+        app_usage = psutil.disk_usage(str(PACKAGE_DIR))
+        data_usage = psutil.disk_usage(str(DATA_DIR))
+        mem_usage = psutil.virtual_memory()
+        try:
+            swap_usage = psutil.swap_memory()
+            swap_used_pct = swap_usage.percent
+            swap_used_gb = round(swap_usage.used / 1024 / 1024 / 1024, 3)
+            swap_free_gb = round(swap_usage.free / 1024 / 1024 / 1024, 3)
+        except OSError:
+            # Some sandboxed environments deny access to swap stats
+            swap_used_pct = 0.0
+            swap_used_gb = 0.0
+            swap_free_gb = 0.0
+        return {
+            "cpu_boot_time": datetime.fromtimestamp(psutil.boot_time()).isoformat(),
+            "cpu_count": psutil.cpu_count(logical=False),
+            "cpu_load": psutil.getloadavg(),
+            # "cpu_pct": psutil.cpu_percent(interval=1),
+            "mem_virt_used_pct": mem_usage.percent,
+            "mem_virt_used_gb": round(mem_usage.used / 1024 / 1024 / 1024, 3),
+            "mem_virt_free_gb": round(mem_usage.free / 1024 / 1024 / 1024, 3),
+            "mem_swap_used_pct": swap_used_pct,
+            "mem_swap_used_gb": swap_used_gb,
+            "mem_swap_free_gb": swap_free_gb,
+            "disk_tmp_used_pct": tmp_usage.percent,
+            "disk_tmp_used_gb": round(tmp_usage.used / 1024 / 1024 / 1024, 3),
+            "disk_tmp_free_gb": round(tmp_usage.free / 1024 / 1024 / 1024, 3),  # in GB
+            "disk_app_used_pct": app_usage.percent,
+            "disk_app_used_gb": round(app_usage.used / 1024 / 1024 / 1024, 3),
+            "disk_app_free_gb": round(app_usage.free / 1024 / 1024 / 1024, 3),
+            "disk_data_used_pct": data_usage.percent,
+            "disk_data_used_gb": round(data_usage.used / 1024 / 1024 / 1024, 3),
+            "disk_data_free_gb": round(data_usage.free / 1024 / 1024 / 1024, 3),
+        }
+    except Exception:
+        return {}
 
 def get_host_immutable_info(host_info: Dict[str, Any]) -> Dict[str, Any]:
     return {

@@ -25,7 +25,7 @@
       "type": "string",
       "default": "",
       "x-fallback": "CHROME_BINARY",
-      "description": "Path to Chrome/Chromium binary"
+      "description": "Path to Chromium binary"
     },
     "SINGLEFILE_TIMEOUT": {
       "type": "integer",

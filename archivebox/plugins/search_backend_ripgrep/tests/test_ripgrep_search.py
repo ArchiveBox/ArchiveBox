@@ -117,8 +117,8 @@ class TestRipgrepSearch(TestCase):
             'title/title.txt': 'JavaScript Basics',
         })
         self._create_snapshot('snap-003', {
-            'wget/index.html': '<html><body>Web archiving best practices</body></html>',
-            'title/title.txt': 'Web Archiving Guide',
+            'wget/index.html': '<html><body>Web archiving guide and best practices</body></html>',
+            'title/title.txt': 'Web Archiving guide',
         })
 
         # Patch settings

@@ -287,7 +287,7 @@ async function main() {
             page = pages[pages.length - 1];
         }
 
-        console.error(`Modalcloser listening on ${url}`);
+        // console.error(`Modalcloser listening on ${url}`);
 
         // Set up dialog handler (for JS alert/confirm/prompt/beforeunload)
         page.on('dialog', async (dialog) => {

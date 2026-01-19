@@ -23,6 +23,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import rich_click as click
@@ -108,7 +109,35 @@ def save_paper(url: str, binary: str) -> tuple[bool, str | None, str]:
         cmd.extend(papersdl_args_extra)
 
     try:
-        result = subprocess.run(cmd, capture_output=True, timeout=timeout, text=True)
+        print(f'[papersdl] Starting download (timeout={timeout}s)', file=sys.stderr)
+        output_lines: list[str] = []
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+
+        def _read_output() -> None:
+            if not process.stdout:
+                return
+            for line in process.stdout:
+                output_lines.append(line)
+                sys.stderr.write(line)
+
+        reader = threading.Thread(target=_read_output, daemon=True)
+        reader.start()
+
+        try:
+            process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            reader.join(timeout=1)
+            return False, None, f'Timed out after {timeout} seconds'
+
+        reader.join(timeout=1)
+        combined_output = ''.join(output_lines)
 
         # Check if any PDF files were downloaded
         pdf_files = list(output_dir.glob('*.pdf'))
@@ -117,8 +146,8 @@ def save_paper(url: str, binary: str) -> tuple[bool, str | None, str]:
             # Return first PDF file
             return True, str(pdf_files[0]), ''
         else:
-            stderr = result.stderr
-            stdout = result.stdout
+            stderr = combined_output
+            stdout = combined_output
 
             # These are NOT errors - page simply has no downloadable paper
             stderr_lower = stderr.lower()
@@ -127,7 +156,7 @@ def save_paper(url: str, binary: str) -> tuple[bool, str | None, str]:
                 return True, None, ''  # Paper not available - success, no output
             if 'no results' in stderr_lower or 'no results' in stdout_lower:
                 return True, None, ''  # No paper found - success, no output
-            if result.returncode == 0:
+            if process.returncode == 0:
                 return True, None, ''  # papers-dl exited cleanly, just no paper - success
 
             # These ARE errors - something went wrong

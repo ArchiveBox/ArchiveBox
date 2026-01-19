@@ -79,9 +79,9 @@ class TestMachineModel(TestCase):
         """Machine.from_json() should update machine config."""
         Machine.current()  # Ensure machine exists
         record = {
-            '_method': 'update',
-            'key': 'WGET_BINARY',
-            'value': '/usr/bin/wget',
+            'config': {
+                'WGET_BINARY': '/usr/bin/wget',
+            },
         }
 
         result = Machine.from_json(record)
@@ -190,12 +190,12 @@ class TestBinaryModel(TestCase):
         old_modified = binary.modified_at
 
         binary.update_and_requeue(
-            status=Binary.StatusChoices.STARTED,
+            status=Binary.StatusChoices.QUEUED,
             retry_at=timezone.now() + timedelta(seconds=60),
         )
 
         binary.refresh_from_db()
-        self.assertEqual(binary.status, Binary.StatusChoices.STARTED)
+        self.assertEqual(binary.status, Binary.StatusChoices.QUEUED)
         self.assertGreater(binary.modified_at, old_modified)
 
 
@@ -221,12 +221,12 @@ class TestBinaryStateMachine(TestCase):
     def test_binary_state_machine_can_start(self):
         """BinaryMachine.can_start() should check name and binproviders."""
         sm = BinaryMachine(self.binary)
-        self.assertTrue(sm.can_start())
+        self.assertTrue(sm.can_install())
 
         self.binary.binproviders = ''
         self.binary.save()
         sm = BinaryMachine(self.binary)
-        self.assertFalse(sm.can_start())
+        self.assertFalse(sm.can_install())
 
 
 class TestProcessModel(TestCase):
@@ -415,11 +415,15 @@ class TestProcessLifecycle(TestCase):
 
     def test_process_is_running_current_pid(self):
         """is_running should be True for current PID."""
+        import psutil
+        from datetime import datetime
+
+        proc_start = datetime.fromtimestamp(psutil.Process(os.getpid()).create_time(), tz=timezone.get_current_timezone())
         proc = Process.objects.create(
             machine=self.machine,
             status=Process.StatusChoices.RUNNING,
             pid=os.getpid(),
-            started_at=timezone.now(),
+            started_at=proc_start,
         )
 
         self.assertTrue(proc.is_running)
@@ -449,6 +453,22 @@ class TestProcessLifecycle(TestCase):
         self.assertIsNotNone(exit_code)
         proc.refresh_from_db()
         self.assertEqual(proc.status, Process.StatusChoices.EXITED)
+
+    def test_process_poll_normalizes_negative_exit_code(self):
+        """poll() should normalize -1 exit codes to 137."""
+        proc = Process.objects.create(
+            machine=self.machine,
+            status=Process.StatusChoices.EXITED,
+            pid=999999,
+            exit_code=-1,
+            started_at=timezone.now(),
+        )
+
+        exit_code = proc.poll()
+
+        self.assertEqual(exit_code, 137)
+        proc.refresh_from_db()
+        self.assertEqual(proc.exit_code, 137)
 
     def test_process_terminate_dead_process(self):
         """terminate() should handle already-dead process."""

@@ -23,7 +23,7 @@ import pytest
 
 def test_ripgrep_hook_detects_binary_from_path():
     """Test that ripgrep hook finds binary using abx-pkg when env var is just a name."""
-    hook_path = Path(__file__).parent.parent / 'on_Crawl__00_install_ripgrep.py'
+    hook_path = Path(__file__).parent.parent / 'on_Crawl__50_ripgrep_install.py'
 
     # Skip if rg is not installed
     if not shutil.which('rg'):
@@ -44,26 +44,19 @@ def test_ripgrep_hook_detects_binary_from_path():
 
     assert result.returncode == 0, f"Hook failed: {result.stderr}"
 
-    # Parse JSONL output (filter out COMPUTED: lines)
+    # Parse JSONL output (filter out non-JSON lines)
     lines = [line for line in result.stdout.strip().split('\n') if line.strip() and line.strip().startswith('{')]
-    assert len(lines) >= 2, "Expected at least 2 JSONL lines (Binary + Machine config)"
+    assert len(lines) >= 1, "Expected at least 1 JSONL line (Binary)"
 
     binary = json.loads(lines[0])
     assert binary['type'] == 'Binary'
     assert binary['name'] == 'rg'
-    assert '/' in binary['abspath'], "Expected full path, not just binary name"
-    assert Path(binary['abspath']).is_file(), "Binary path should exist"
-    assert binary['version'], "Version should be detected"
-
-    machine_config = json.loads(lines[1])
-    assert machine_config['type'] == 'Machine'
-    assert machine_config['key'] == 'config/RIPGREP_BINARY'
-    assert '/' in machine_config['value'], "Machine config should store full path"
+    assert 'binproviders' in binary, "Expected binproviders declaration"
 
 
 def test_ripgrep_hook_skips_when_backend_not_ripgrep():
     """Test that ripgrep hook exits silently when search backend is not ripgrep."""
-    hook_path = Path(__file__).parent.parent / 'on_Crawl__00_install_ripgrep.py'
+    hook_path = Path(__file__).parent.parent / 'on_Crawl__50_ripgrep_install.py'
 
     env = os.environ.copy()
     env['SEARCH_BACKEND_ENGINE'] = 'sqlite'  # Different backend
@@ -82,7 +75,7 @@ def test_ripgrep_hook_skips_when_backend_not_ripgrep():
 
 def test_ripgrep_hook_handles_absolute_path():
     """Test that ripgrep hook exits successfully when RIPGREP_BINARY is a valid absolute path."""
-    hook_path = Path(__file__).parent.parent / 'on_Crawl__00_install_ripgrep.py'
+    hook_path = Path(__file__).parent.parent / 'on_Crawl__50_ripgrep_install.py'
 
     rg_path = shutil.which('rg')
     if not rg_path:
@@ -100,9 +93,9 @@ def test_ripgrep_hook_handles_absolute_path():
         timeout=10,
     )
 
-    # When binary is already configured with valid absolute path, hook exits early without output
     assert result.returncode == 0, f"Hook should exit successfully when binary already configured: {result.stderr}"
-    # No output is expected/needed when binary is already valid
+    lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
+    assert lines, "Expected Binary JSONL output when backend is ripgrep"
 
 
 @pytest.mark.django_db
@@ -115,6 +108,8 @@ def test_machine_config_overrides_base_config():
     """
     from archivebox.machine.models import Machine, Binary
 
+    import archivebox.machine.models as models
+    models._CURRENT_MACHINE = None
     machine = Machine.current()
 
     # Simulate a hook detecting chrome and storing it with a different path than base config
@@ -177,7 +172,9 @@ def test_install_creates_binary_records():
     This verifies the Binary model works correctly with the database.
     """
     from archivebox.machine.models import Machine, Binary
+    import archivebox.machine.models as models
 
+    models._CURRENT_MACHINE = None
     machine = Machine.current()
     initial_binary_count = Binary.objects.filter(machine=machine).count()
 
@@ -188,7 +185,7 @@ def test_install_creates_binary_records():
         abspath='/usr/bin/test-binary',
         version='1.0.0',
         binprovider='env',
-        status='succeeded'
+        status=Binary.StatusChoices.INSTALLED
     )
 
     # Verify Binary record was created
@@ -220,7 +217,7 @@ def test_ripgrep_only_detected_when_backend_enabled():
     if not shutil.which('rg'):
         pytest.skip("ripgrep not installed")
 
-    hook_path = Path(__file__).parent.parent / 'on_Crawl__00_install_ripgrep.py'
+    hook_path = Path(__file__).parent.parent / 'on_Crawl__50_ripgrep_install.py'
 
     # Test 1: With ripgrep backend - should output Binary record
     env1 = os.environ.copy()
@@ -237,8 +234,7 @@ def test_ripgrep_only_detected_when_backend_enabled():
 
     assert result1.returncode == 0, f"Hook should succeed with ripgrep backend: {result1.stderr}"
     # Should output Binary JSONL when backend is ripgrep
-    assert 'Binary' in result1.stdout or 'COMPUTED:' in result1.stdout, \
-        "Should output Binary or COMPUTED when backend=ripgrep"
+    assert 'Binary' in result1.stdout, "Should output Binary when backend=ripgrep"
 
     # Test 2: With different backend - should output nothing
     env2 = os.environ.copy()

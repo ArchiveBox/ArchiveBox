@@ -439,13 +439,13 @@
                             <div class="card {% if forloop.first %}selected-card{% endif %}">
                                 <div class="card-body">
                                     <a href="{{result.path|urlencode}}" target="preview" title="./{{result.path}} (downloaded {{result.ts}})">
-                                        <h4>{% extractor_icon result.name %} {{result.name|extractor_name|truncatechars:20}} <small>({{result.size|filesizeformat}})</small></h4>
+                                        <h4>{% plugin_icon result.name %} {{result.name|plugin_name|truncatechars:20}} <small>({{result.size|filesizeformat}})</small></h4>
                                     </a>
                                 </div>
                                 {% if result.result %}
                                     {# Use plugin-specific thumbnail template when ArchiveResult is available #}
                                     <div class="card-img-top thumbnail-wrapper">
-                                        {% extractor_thumbnail result.result %}
+                                        {% plugin_thumbnail result.result %}
                                     </div>
                                 {% else %}
                                     {# Fall back to generic iframe for filesystem-discovered files #}
@@ -476,7 +476,7 @@
         {% if best_result.result %}
             {# Use plugin-specific fullscreen template when ArchiveResult is available #}
             <div id="main-frame-wrapper" class="full-page-wrapper">
-                {% extractor_fullscreen best_result.result %}
+                {% plugin_fullscreen best_result.result %}
             </div>
         {% else %}
             {# Fall back to generic iframe #}

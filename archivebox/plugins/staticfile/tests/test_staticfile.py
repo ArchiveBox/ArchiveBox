@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -76,21 +77,33 @@ class TestStaticfileWithChrome(TestCase):
                 # Use the environment from chrome_session (already has CHROME_HEADLESS=true)
 
 
-                # Run staticfile hook with the active Chrome session
-                result = subprocess.run(
+                # Run staticfile hook with the active Chrome session (background hook)
+                result = subprocess.Popen(
                     ['node', str(STATICFILE_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
                     cwd=str(snapshot_chrome_dir),
-                    capture_output=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=120,  # Longer timeout as it waits for navigation
                     env=env
                 )
 
+                # Allow it to run briefly, then terminate (background hook)
+                time.sleep(3)
+                if result.poll() is None:
+                    result.terminate()
+                    try:
+                        stdout, stderr = result.communicate(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        result.kill()
+                        stdout, stderr = result.communicate()
+                else:
+                    stdout, stderr = result.communicate()
+
                 # Verify hook ran without crash
-                self.assertNotIn('Traceback', result.stderr)
+                self.assertNotIn('Traceback', stderr)
 
                 # Parse JSONL output to verify it recognized HTML as non-static
-                for line in result.stdout.split('\n'):
+                for line in stdout.split('\n'):
                     line = line.strip()
                     if line.startswith('{'):
                         try:

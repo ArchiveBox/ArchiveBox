@@ -126,7 +126,12 @@ def main(url: str, snapshot_id: str):
     try:
         # Run extraction
         success, output, error = get_favicon(url)
-        status = 'succeeded' if success else 'failed'
+        if success:
+            status = 'succeeded'
+        elif error == 'No favicon found':
+            status = 'skipped'
+        else:
+            status = 'failed'
 
     except Exception as e:
         error = f'{type(e).__name__}: {e}'
@@ -143,7 +148,7 @@ def main(url: str, snapshot_id: str):
     }
     print(json.dumps(result))
 
-    sys.exit(0 if status == 'succeeded' else 1)
+    sys.exit(0 if status in ('succeeded', 'skipped') else 1)
 
 
 if __name__ == '__main__':

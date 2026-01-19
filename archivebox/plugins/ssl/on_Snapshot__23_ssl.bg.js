@@ -32,6 +32,11 @@ const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'ssl.jsonl';
 const CHROME_SESSION_DIR = '../chrome';
 
+let browser = null;
+let page = null;
+let sslCaptured = false;
+let shuttingDown = false;
+
 async function setupListener(url) {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
     const timeout = getEnvInt('SSL_TIMEOUT', 30) * 1000;
@@ -94,6 +99,7 @@ async function setupListener(url) {
 
             // Write output directly to file
             fs.writeFileSync(outputPath, JSON.stringify(sslInfo, null, 2));
+            sslCaptured = true;
 
         } catch (e) {
             // Ignore errors
@@ -101,6 +107,29 @@ async function setupListener(url) {
     });
 
     return { browser, page };
+}
+
+function emitResult(status = 'succeeded') {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    const outputStr = sslCaptured ? OUTPUT_FILE : OUTPUT_FILE;
+    console.log(JSON.stringify({
+        type: 'ArchiveResult',
+        status,
+        output_str: outputStr,
+    }));
+}
+
+async function handleShutdown(signal) {
+    console.error(`\nReceived ${signal}, emitting final results...`);
+    emitResult('succeeded');
+    if (browser) {
+        try {
+            browser.disconnect();
+        } catch (e) {}
+    }
+    process.exit(0);
 }
 
 async function main() {
@@ -119,23 +148,27 @@ async function main() {
         process.exit(0);
     }
 
-    const timeout = getEnvInt('SSL_TIMEOUT', 30) * 1000;
-
     try {
         // Set up listener BEFORE navigation
-        await setupListener(url);
+        const connection = await setupListener(url);
+        browser = connection.browser;
+        page = connection.page;
 
-        // Wait for chrome_navigate to complete (BLOCKING)
-        await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4);
+        // Register signal handlers for graceful shutdown
+        process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+        process.on('SIGINT', () => handleShutdown('SIGINT'));
 
-        // Output clean JSONL
-        console.log(JSON.stringify({
-            type: 'ArchiveResult',
-            status: 'succeeded',
-            output_str: OUTPUT_FILE,
-        }));
+        // Wait for chrome_navigate to complete (non-fatal)
+        try {
+            const timeout = getEnvInt('SSL_TIMEOUT', 30) * 1000;
+            await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4);
+        } catch (e) {
+            console.error(`WARN: ${e.message}`);
+        }
 
-        process.exit(0);
+        // console.error('SSL listener active, waiting for cleanup signal...');
+        await new Promise(() => {}); // Keep alive until SIGTERM
+        return;
 
     } catch (e) {
         const error = `${e.name}: ${e.message}`;
