@@ -2484,15 +2484,19 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             'mp4', 'webm', 'mp3', 'opus', 'ogg', 'wav',
         }
 
-        for name in ('index.html', 'index.htm'):
-            candidate = dir_path / name
-            if candidate.exists() and candidate.is_file():
-                return candidate
+        plugin_lower = (plugin_name or '').lower()
+        prefer_media = plugin_lower in ('ytdlp', 'yt-dlp', 'youtube-dl')
+
+        if not prefer_media:
+            for name in ('index.html', 'index.htm'):
+                candidate = dir_path / name
+                if candidate.exists() and candidate.is_file():
+                    return candidate
 
         candidates = []
         file_count = 0
         max_scan = 200
-        plugin_lower = (plugin_name or '').lower()
+        media_exts = {'mp4', 'webm', 'mp3', 'opus', 'ogg', 'wav'}
         for file_path in dir_path.rglob('*'):
             file_count += 1
             if file_count > max_scan:
@@ -2514,6 +2518,8 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
                 priority = 60
             elif ext in ('html', 'htm', 'pdf'):
                 priority = 40
+            elif ext in media_exts:
+                priority = 50 if prefer_media else 10
             elif ext in ('png', 'jpg', 'jpeg', 'webp', 'svg', 'gif', 'ico'):
                 priority = 30
             elif ext in ('json', 'jsonl', 'txt', 'md', 'csv', 'tsv'):

@@ -5,14 +5,32 @@
     <head>
         <title>{{title}}</title>
         <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
-        <link href="{% static 'bootstrap.min.css' %}" rel="stylesheet">
         <style>
             /* Keep this inline, don't move to external css file because this template is used to generate static exports that need to be usable as-is without an accompanying staticfiles dir */
+            * { box-sizing: border-box; }
             html, body {
                 width: 100%;
                 height: 100%;
                 background-color: #ddd;
+                margin: 0;
+                padding: 0;
             }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+            a { color: inherit; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+            .container-fluid { width: 100%; margin: 0 auto; padding: 0 12px; }
+            .row { display: flex; flex-wrap: wrap; width: 100%; margin: 0; }
+            .col-lg-2 { flex: 0 0 16.6667%; max-width: 16.6667%; }
+            .col-lg-4 { flex: 0 0 33.3333%; max-width: 33.3333%; }
+            .col-lg-8 { flex: 0 0 66.6667%; max-width: 66.6667%; }
+            .col-lg-12 { flex: 0 0 100%; max-width: 100%; }
+            .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 12px; line-height: 1.2; }
+            .badge-default { background: rgba(255,255,255,0.2); color: #f6f6f6; }
+            .badge-info { background: #dbe7ff; color: #2b4aa0; }
+            .badge-success { background: #d4edda; color: #1e7e34; }
+            .badge-warning { background: #fff3cd; color: #856404; }
+            .badge-danger { background: #f8d7da; color: #721c24; }
+            .alert { padding: 6px 10px; border-radius: 6px; background: #f5f5f5; color: #333; }
             header {
                 background-color: #aa1e55;
             }
@@ -345,10 +363,28 @@
             }
             .thumb-grid {
                 display: block;
-                column-width: 180px;
                 column-gap: 6px;
                 align-content: start;
-                width: 100%;
+                width: 100vw;
+                margin-left: calc(50% - 50vw);
+                padding: 0 6px;
+                column-fill: balance;
+                column-count: 2;
+            }
+            @media (min-width: 720px) {
+                .thumb-grid { column-count: 3; }
+            }
+            @media (min-width: 1024px) {
+                .thumb-grid { column-count: 4; }
+            }
+            @media (min-width: 1280px) {
+                .thumb-grid { column-count: 5; }
+            }
+            @media (min-width: 1600px) {
+                .thumb-grid { column-count: 6; }
+            }
+            @media (min-width: 1920px) {
+                .thumb-grid { column-count: 7; }
             }
             .thumb-card {
                 box-shadow: 2px 2px 7px 0px rgba(0, 0, 0, 0.1);
@@ -364,6 +400,8 @@
                 height: 138px;
                 min-height: 138px;
                 max-height: 138px;
+                display: flex;
+                flex-direction: column;
             }
             .thumb-card:has([data-compact]) {
                 height: 46px;
@@ -379,6 +417,7 @@
                 text-overflow: ellipsis;
                 color: #222;
                 background-color: #f6f6f6;
+                flex: 0 0 auto;
             }
             .thumb-card .thumb-body h4 {
                 font-size: 0.8em;
@@ -394,6 +433,14 @@
             .thumb-card iframe.card-img-top {
                 display: block;
                 width: 100%;
+                flex: 1 1 auto;
+                min-height: 0;
+            }
+            .thumb-card .thumbnail-wrapper > *,
+            .thumb-card iframe.card-img-top {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
             }
             .thumb-card:has([data-compact]) .thumbnail-wrapper,
             .thumb-card:has([data-compact]) .thumbnail-wrapper.compact {
@@ -666,17 +713,6 @@
                             {% endwith %}
                         </div>
                     {% endfor %}
-
-
-                    <div class="thumb-card">
-                            <div class="thumb-body">
-                                <a href="./" target="preview">
-                                    <h4>Headers, JSON, etc.</h4>
-                                </a>
-                                <!--<a href="{{result.path|urlencode}}" target="preview"><h4 class="card-title">{{result.name}}</h4></a>-->
-                            </div>
-                            <iframe class="card-img-top" src="./" sandbox="" scrolling="no" loading="lazy"></iframe>
-                        </div>
                 </div>
             </div>
         </header>
