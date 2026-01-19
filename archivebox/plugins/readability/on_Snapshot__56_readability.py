@@ -109,6 +109,10 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
         cmd = [binary, *readability_args, *readability_args_extra, html_source]
         result = subprocess.run(cmd, stdout=subprocess.PIPE, timeout=timeout, text=True)
 
+        if result.stdout:
+            sys.stderr.write(result.stdout)
+            sys.stderr.flush()
+
         if result.returncode != 0:
             return False, None, f'readability-extractor failed (exit={result.returncode})'
 

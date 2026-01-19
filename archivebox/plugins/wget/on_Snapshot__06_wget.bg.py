@@ -144,6 +144,8 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
     try:
         result = subprocess.run(
             cmd,
+            capture_output=True,
+            text=True,
             timeout=timeout * 2,  # Allow extra time for large downloads
         )
 
@@ -166,7 +168,8 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
         output_path = str(html_files[0]) if html_files else str(downloaded_files[0])
 
         # Parse download stats from wget output
-        output_tail = result.stderr.decode('utf-8', errors='replace').strip().split('\n')[-3:]
+        stderr_text = (result.stderr or '')
+        output_tail = stderr_text.strip().split('\n')[-3:] if stderr_text else []
         files_count = len(downloaded_files)
 
         return True, output_path, ''

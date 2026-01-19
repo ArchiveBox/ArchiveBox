@@ -27,6 +27,7 @@ import threading
 import time
 from urllib.request import urlopen
 from pathlib import Path
+import shutil
 
 import rich_click as click
 
@@ -142,6 +143,7 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
+    print(f'[singlefile] CLI mode start url={url}', file=sys.stderr)
     # Get config from env (with SINGLEFILE_ prefix, x-fallback handled by config loader)
     timeout = get_env_int('SINGLEFILE_TIMEOUT') or get_env_int('TIMEOUT', 120)
     user_agent = get_env('SINGLEFILE_USER_AGENT') or get_env('USER_AGENT', '')
@@ -172,8 +174,10 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
         cdp_remote_url = None
 
     if cdp_remote_url:
+        print(f'[singlefile] Using existing Chrome session: {cdp_remote_url}', file=sys.stderr)
         cmd.extend(['--browser-server', cdp_remote_url])
     elif chrome:
+        print(f'[singlefile] Launching Chrome binary: {chrome}', file=sys.stderr)
         cmd.extend(['--browser-executable-path', chrome])
 
     # Pass Chrome arguments (only when launching a new browser)
@@ -200,6 +204,7 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     output_path = output_dir / OUTPUT_FILE
 
     cmd.extend([url, str(output_path)])
+    print(f'[singlefile] CLI command: {" ".join(cmd[:6])} ...', file=sys.stderr)
 
     try:
         output_lines: list[str] = []
@@ -258,36 +263,93 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
 
 def save_singlefile_with_extension(url: str, timeout: int) -> tuple[bool, str | None, str]:
     """Save using the SingleFile Chrome extension via existing Chrome session."""
+    print(f'[singlefile] Extension mode start url={url}', file=sys.stderr)
     # Only attempt if chrome session exists
     cdp_url = get_cdp_url(wait_seconds=min(5, max(1, timeout // 10)))
     if not cdp_url:
+        print('[singlefile] No chrome session (cdp_url.txt missing)', file=sys.stderr)
         return False, None, 'No Chrome session available'
 
     if not EXTENSION_SAVE_SCRIPT.exists():
+        print(f'[singlefile] Missing helper script: {EXTENSION_SAVE_SCRIPT}', file=sys.stderr)
         return False, None, 'SingleFile extension helper script missing'
 
     node_binary = get_env('SINGLEFILE_NODE_BINARY') or get_env('NODE_BINARY', 'node')
+    downloads_dir = get_env('CHROME_DOWNLOADS_DIR', '')
+    extensions_dir = get_env('CHROME_EXTENSIONS_DIR', '')
     cmd = [node_binary, str(EXTENSION_SAVE_SCRIPT), f'--url={url}']
+    print(f'[singlefile] cdp_url={cdp_url}', file=sys.stderr)
+    print(f'[singlefile] node={node_binary}', file=sys.stderr)
+    node_resolved = shutil.which(node_binary) if node_binary else None
+    print(f'[singlefile] node_resolved={node_resolved}', file=sys.stderr)
+    print(f'[singlefile] PATH={os.environ.get("PATH","")}', file=sys.stderr)
+    if downloads_dir:
+        print(f'[singlefile] CHROME_DOWNLOADS_DIR={downloads_dir}', file=sys.stderr)
+    if extensions_dir:
+        print(f'[singlefile] CHROME_EXTENSIONS_DIR={extensions_dir}', file=sys.stderr)
+    print(f'[singlefile] helper_cmd={" ".join(cmd)}', file=sys.stderr)
 
     try:
-        result = subprocess.run(cmd, capture_output=True, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        return False, None, f'Timed out after {timeout} seconds'
+        output_lines: list[str] = []
+        error_lines: list[str] = []
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+
+        def _read_stream(stream, sink, label: str) -> None:
+            if not stream:
+                return
+            for line in stream:
+                sink.append(line)
+                sys.stderr.write(line)
+                sys.stderr.flush()
+
+        stdout_thread = threading.Thread(target=_read_stream, args=(process.stdout, output_lines, 'stdout'), daemon=True)
+        stderr_thread = threading.Thread(target=_read_stream, args=(process.stderr, error_lines, 'stderr'), daemon=True)
+        stdout_thread.start()
+        stderr_thread.start()
+
+        try:
+            process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            stdout_thread.join(timeout=1)
+            stderr_thread.join(timeout=1)
+            print(f'[singlefile] Extension helper timed out after {timeout}s', file=sys.stderr)
+            return False, None, f'Timed out after {timeout} seconds'
+
+        stdout_thread.join(timeout=1)
+        stderr_thread.join(timeout=1)
+
+        result_stdout = ''.join(output_lines).encode('utf-8', errors='replace')
+        result_stderr = ''.join(error_lines).encode('utf-8', errors='replace')
+        result_returncode = process.returncode
     except Exception as e:
+        print(f'[singlefile] Extension helper error: {type(e).__name__}: {e}', file=sys.stderr)
         return False, None, f'{type(e).__name__}: {e}'
 
-    if result.returncode == 0:
+    print(f'[singlefile] helper_returncode={result_returncode}', file=sys.stderr)
+    print(f'[singlefile] helper_stdout_len={len(result_stdout or b"")}', file=sys.stderr)
+    print(f'[singlefile] helper_stderr_len={len(result_stderr or b"")}', file=sys.stderr)
+
+    if result_returncode == 0:
         # Prefer explicit stdout path, fallback to local output file
-        out_text = result.stdout.decode('utf-8', errors='replace').strip()
+        out_text = result_stdout.decode('utf-8', errors='replace').strip()
         if out_text and Path(out_text).exists():
+            print(f'[singlefile] Extension output: {out_text}', file=sys.stderr)
             return True, out_text, ''
         output_path = Path(OUTPUT_DIR) / OUTPUT_FILE
         if output_path.exists() and output_path.stat().st_size > 0:
+            print(f'[singlefile] Extension output: {output_path}', file=sys.stderr)
             return True, str(output_path), ''
         return False, None, 'SingleFile extension completed but no output file found'
 
-    stderr = result.stderr.decode('utf-8', errors='replace').strip()
-    stdout = result.stdout.decode('utf-8', errors='replace').strip()
+    stderr = result_stderr.decode('utf-8', errors='replace').strip()
+    stdout = result_stdout.decode('utf-8', errors='replace').strip()
     detail = stderr or stdout
     return False, None, detail or 'SingleFile extension failed'
 
@@ -298,6 +360,7 @@ def save_singlefile_with_extension(url: str, timeout: int) -> tuple[bool, str | 
 def main(url: str, snapshot_id: str):
     """Archive a URL using SingleFile."""
 
+    print(f'[singlefile] Hook starting pid={os.getpid()} url={url}', file=sys.stderr)
     output = None
     status = 'failed'
     error = ''
@@ -318,11 +381,6 @@ def main(url: str, snapshot_id: str):
         # Prefer SingleFile extension via existing Chrome session
         timeout = get_env_int('SINGLEFILE_TIMEOUT') or get_env_int('TIMEOUT', 120)
         success, output, error = save_singlefile_with_extension(url, timeout)
-
-        # Fallback to single-file-cli if extension path failed
-        if not success:
-            binary = get_env('SINGLEFILE_BINARY', 'single-file')
-            success, output, error = save_singlefile(url, binary)
         status = 'succeeded' if success else 'failed'
 
     except Exception as e:

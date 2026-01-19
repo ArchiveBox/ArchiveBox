@@ -1020,14 +1020,14 @@ class Process(models.Model):
 
         # Debug logging
         import sys
-        print(f"DEBUG _find_parent_process: my_pid={os.getpid()}, ppid={ppid}", file=sys.stderr)
+        # print(f"DEBUG _find_parent_process: my_pid={os.getpid()}, ppid={ppid}", file=sys.stderr)
 
         # Get parent process start time from OS
         try:
             os_parent = psutil.Process(ppid)
             os_parent_start = os_parent.create_time()
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            print(f"DEBUG _find_parent_process: Parent process {ppid} not accessible", file=sys.stderr)
+            # print(f"DEBUG _find_parent_process: Parent process {ppid} not accessible", file=sys.stderr)
             return None  # Parent process doesn't exist
 
         # Find matching Process record
@@ -1038,18 +1038,18 @@ class Process(models.Model):
             started_at__gte=timezone.now() - PID_REUSE_WINDOW,
         ).order_by('-started_at')
 
-        print(f"DEBUG _find_parent_process: Found {candidates.count()} candidates for ppid={ppid}", file=sys.stderr)
+        # print(f"DEBUG _find_parent_process: Found {candidates.count()} candidates for ppid={ppid}", file=sys.stderr)
 
         for candidate in candidates:
             if candidate.started_at:
                 db_start_time = candidate.started_at.timestamp()
                 time_diff = abs(db_start_time - os_parent_start)
-                print(f"DEBUG _find_parent_process: Checking candidate id={candidate.id} time_diff={time_diff:.2f}s tolerance={START_TIME_TOLERANCE}s", file=sys.stderr)
+                # print(f"DEBUG _find_parent_process: Checking candidate id={candidate.id} time_diff={time_diff:.2f}s tolerance={START_TIME_TOLERANCE}s", file=sys.stderr)
                 if time_diff < START_TIME_TOLERANCE:
-                    print(f"DEBUG _find_parent_process: MATCH! Returning parent id={candidate.id} pid={candidate.pid}", file=sys.stderr)
+                    # print(f"DEBUG _find_parent_process: MATCH! Returning parent id={candidate.id} pid={candidate.pid}", file=sys.stderr)
                     return candidate
 
-        print(f"DEBUG _find_parent_process: No matching parent found for ppid={ppid}", file=sys.stderr)
+        # print(f"DEBUG _find_parent_process: No matching parent found for ppid={ppid}", file=sys.stderr)
         return None  # No matching ArchiveBox parent process
 
     @classmethod
@@ -1519,7 +1519,7 @@ class Process(models.Model):
         stdout_path = self.stdout_file
         stderr_path = self.stderr_file
 
-        with open(stdout_path, 'w') as out, open(stderr_path, 'w') as err:
+        with open(stdout_path, 'a') as out, open(stderr_path, 'a') as err:
             proc = subprocess.Popen(
                 self.cmd,
                 cwd=working_dir,

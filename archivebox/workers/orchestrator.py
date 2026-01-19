@@ -459,7 +459,6 @@ class Orchestrator:
         # Enable progress layout only in TTY + foreground mode
         show_progress = IS_TTY and self.exit_on_idle
         plain_output = not IS_TTY
-
         self.on_startup()
 
         if not show_progress:
@@ -520,7 +519,6 @@ class Orchestrator:
 
     def _run_orchestrator_loop(self, progress_layout, plain_output: bool = False):
         """Run the main orchestrator loop with optional progress display."""
-        last_queue_sizes = {}
         last_snapshot_count = None
         tick_count = 0
         last_plain_lines: set[tuple[str, str]] = set()
@@ -611,6 +609,21 @@ class Orchestrator:
                         seconds = max(0.0, float(total_seconds))
                         return f"{seconds:.1f}s"
 
+                    def _tail_stderr_line(proc) -> str:
+                        try:
+                            path = getattr(proc, 'stderr_file', None)
+                            if not path or not path.exists():
+                                return ''
+                            with open(path, 'rb') as f:
+                                f.seek(0, os.SEEK_END)
+                                size = f.tell()
+                                f.seek(max(0, size - 4096))
+                                data = f.read().decode('utf-8', errors='ignore')
+                            lines = [ln.strip() for ln in data.splitlines() if ln.strip()]
+                            return lines[-1] if lines else ''
+                        except Exception:
+                            return ''
+
                     tree_data: list[dict] = []
                     for crawl in crawls:
                         urls = crawl.get_urls_list()
@@ -684,7 +697,10 @@ class Orchestrator:
                                 elapsed = ''
                                 timeout = ''
                                 size = ''
+                                stderr_tail = ''
                                 if ar:
+                                    if ar.process_id and ar.process:
+                                        stderr_tail = _tail_stderr_line(ar.process)
                                     if ar.status == ArchiveResult.StatusChoices.STARTED:
                                         status = 'started'
                                         is_running = True
@@ -700,6 +716,8 @@ class Orchestrator:
                                             timeout = _format_seconds(hook_timeout)
                                     else:
                                         status = ar.status
+                                        if ar.process_id and ar.process and ar.process.exit_code == 137:
+                                            status = 'failed'
                                         is_pending = False
                                         start_ts = ar.start_ts or (ar.process.started_at if ar.process_id and ar.process else None)
                                         end_ts = ar.end_ts or (ar.process.ended_at if ar.process_id and ar.process else None)
@@ -724,6 +742,7 @@ class Orchestrator:
                                     'is_running': is_running,
                                     'is_pending': is_pending,
                                     'hook_name': hook_name,
+                                    'stderr': stderr_tail,
                                 })
 
                             hooks = []
@@ -734,6 +753,7 @@ class Orchestrator:
                                 any_succeeded = any(h['status'] == ArchiveResult.StatusChoices.SUCCEEDED for h in hook_entries)
                                 any_skipped = any(h['status'] == ArchiveResult.StatusChoices.SKIPPED for h in hook_entries)
 
+                                stderr_tail = ''
                                 if running:
                                     status = 'started'
                                     is_running = True
@@ -741,6 +761,7 @@ class Orchestrator:
                                     is_bg = running['is_bg']
                                     elapsed = running.get('elapsed', '')
                                     timeout = running.get('timeout', '')
+                                    stderr_tail = running.get('stderr', '')
                                     size = ''
                                 elif pending:
                                     status = 'pending'
@@ -749,6 +770,7 @@ class Orchestrator:
                                     is_bg = pending['is_bg']
                                     elapsed = pending.get('elapsed', '') or _format_seconds(0)
                                     timeout = pending.get('timeout', '')
+                                    stderr_tail = pending.get('stderr', '')
                                     size = ''
                                 else:
                                     is_running = False
@@ -762,6 +784,10 @@ class Orchestrator:
                                         status = 'skipped'
                                     else:
                                         status = 'skipped'
+                                    for h in hook_entries:
+                                        if h.get('stderr'):
+                                            stderr_tail = h['stderr']
+                                            break
                                     total_elapsed = 0.0
                                     has_elapsed = False
                                     for h in hook_entries:
@@ -793,6 +819,7 @@ class Orchestrator:
                                     'is_bg': is_bg,
                                     'is_running': is_running,
                                     'is_pending': is_pending,
+                                    'stderr': stderr_tail,
                                 })
 
                             snap_label = _abbrev(f"{str(snap.id)[-8:]} {snap.url or ''}".strip(), max_len=80)
@@ -856,8 +883,6 @@ class Orchestrator:
                         pending_processes = []
 
                     progress_layout.update_process_panels(running_processes, pending=pending_processes)
-
-                    last_queue_sizes = queue_sizes.copy()
 
                     # Update snapshot progress
                     from archivebox.core.models import Snapshot

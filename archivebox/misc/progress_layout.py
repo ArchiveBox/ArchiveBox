@@ -10,6 +10,7 @@ Shows a comprehensive dashboard with:
 __package__ = 'archivebox.misc'
 
 from datetime import datetime, timezone
+import os
 import re
 from typing import List, Optional, Any
 from collections import deque
@@ -23,6 +24,7 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.table import Table
 from rich.tree import Tree
+from rich.cells import cell_len
 
 from archivebox.config import VERSION
 
@@ -533,7 +535,23 @@ class CrawlQueueTreePanel:
                         is_pending = hook.get('is_pending', False)
                         icon, color = self._hook_style(status, is_bg=is_bg, is_running=is_running, is_pending=is_pending)
                         stats = self._hook_stats(size=size, elapsed=elapsed, timeout=timeout, status=status)
-                        snap_node.add(Text(f"{icon} {path}{stats}", style=color))
+                        line = Text(f"{icon} {path}{stats}", style=color)
+                        stderr_tail = hook.get('stderr', '')
+                        if stderr_tail:
+                            left_str = f"{icon} {path}{stats}"
+                            avail = self._available_width(left_str, indent=16)
+                            trunc = getattr(self, "_truncate_tail", self._truncate_to_width)
+                            stderr_tail = trunc(stderr_tail, avail)
+                            if not stderr_tail:
+                                snap_node.add(line)
+                                continue
+                            row = Table.grid(expand=True)
+                            row.add_column(justify="left", ratio=1)
+                            row.add_column(justify="right")
+                            row.add_row(line, Text(stderr_tail, style="grey70"))
+                            snap_node.add(row)
+                        else:
+                            snap_node.add(line)
                 trees.append(crawl_tree)
             content = Group(*trees)
 
@@ -561,7 +579,7 @@ class CrawlQueueTreePanel:
         if status == 'succeeded':
             return '✅', 'green'
         if status == 'failed':
-            return '⚠️', 'yellow'
+            return '✖', 'red'
         if status == 'skipped':
             return '⏭', 'grey53'
         if is_pending:
@@ -594,6 +612,37 @@ class CrawlQueueTreePanel:
                 time_part = f"{elapsed}"
             return f" ({size_part} | {time_part})" if time_part else f" ({size_part})"
         return ''
+
+    @staticmethod
+    def _terminal_width() -> int:
+        try:
+            return os.get_terminal_size().columns
+        except OSError:
+            return 120
+
+    @staticmethod
+    def _truncate_to_width(text: str, max_width: int) -> str:
+        if not text or max_width <= 0:
+            return ''
+        t = Text(text)
+        t.truncate(max_width, overflow="ellipsis")
+        return t.plain
+
+    @staticmethod
+    def _truncate_tail(text: str, max_width: int) -> str:
+        if not text or max_width <= 0:
+            return ''
+        if cell_len(text) <= max_width:
+            return text
+        if max_width <= 1:
+            return '…'
+        return f"…{text[-(max_width - 1):]}"
+
+    def _available_width(self, left_text: str, indent: int = 0) -> int:
+        width = self._terminal_width()
+        base = max(0, width - cell_len(left_text) - indent - 6)
+        cap = max(0, (width * 2) // 5)
+        return max(0, min(base, cap))
 
 
 class ArchiveBoxProgressLayout:
@@ -631,7 +680,7 @@ class ArchiveBoxProgressLayout:
         # Top-level split: crawl_queue, crawl_tree, processes
         layout.split(
             Layout(name="crawl_queue", size=3),
-            Layout(name="crawl_tree", size=14),
+            Layout(name="crawl_tree", size=20),
             Layout(name="processes", ratio=1),
         )
 
@@ -671,6 +720,8 @@ class ArchiveBoxProgressLayout:
                 cmd = getattr(process, 'cmd', [])
                 hook_path = Path(cmd[1]) if len(cmd) > 1 else None
                 hook_name = hook_path.name if hook_path else ''
+                if '.bg.' in hook_name:
+                    continue
                 if '.bg.' not in hook_name:
                     fg_running = True
                     break
@@ -684,6 +735,8 @@ class ArchiveBoxProgressLayout:
                 cmd = getattr(process, 'cmd', [])
                 hook_path = Path(cmd[1]) if len(cmd) > 1 else None
                 hook_name = hook_path.name if hook_path else ''
+                if '.bg.' in hook_name:
+                    continue
                 if '.bg.' not in hook_name:
                     fg_pending = True
                     break
@@ -701,6 +754,10 @@ class ArchiveBoxProgressLayout:
                     is_bg = '.bg.' in hook_name
                 except Exception:
                     is_bg = False
+            if is_hook and is_bg:
+                continue
+            if not self._has_log_lines(process):
+                continue
             is_pending = getattr(process, 'status', '') in ('queued', 'pending', 'backoff') or (is_hook and not getattr(process, 'pid', None))
             max_lines = 2 if is_pending else (4 if is_bg else 7)
             panels.append(ProcessLogPanel(process, max_lines=max_lines, compact=is_bg, bg_terminating=bg_terminating))
@@ -718,6 +775,17 @@ class ArchiveBoxProgressLayout:
     def update_crawl_tree(self, crawls: list[dict[str, Any]]) -> None:
         """Update the crawl queue tree panel."""
         self.crawl_queue_tree.update_crawls(crawls)
+        # Auto-size crawl tree panel to content
+        line_count = 0
+        for crawl in crawls:
+            line_count += 1
+            for snap in crawl.get('snapshots', []) or []:
+                line_count += 1
+                if snap.get('output_path'):
+                    line_count += 1
+                for _ in snap.get('hooks', []) or []:
+                    line_count += 1
+        self.layout["crawl_tree"].size = max(4, line_count + 2)
 
     def log_event(self, message: str, style: str = "white") -> None:
         """Add an event to the orchestrator log."""
@@ -767,8 +835,28 @@ class ArchiveBoxProgressLayout:
                         timeout=hook.get('timeout', ''),
                         status=status,
                     )
+                    stderr_tail = hook.get('stderr', '')
                     hook_line = f"    {icon} {path}{stats}".strip()
+                    if stderr_tail:
+                        avail = self.crawl_queue_tree._available_width(hook_line, indent=16)
+                        trunc = getattr(self.crawl_queue_tree, "_truncate_tail", self.crawl_queue_tree._truncate_to_width)
+                        stderr_tail = trunc(stderr_tail, avail)
+                        if stderr_tail:
+                            hook_line = f"{hook_line}  {stderr_tail}"
                     if hook_line:
                         lines.append(("crawl_tree", hook_line))
 
         return lines
+
+    @staticmethod
+    def _has_log_lines(process: Any) -> bool:
+        try:
+            stdout_lines = list(process.tail_stdout(lines=1, follow=False))
+            if any(line.strip() for line in stdout_lines):
+                return True
+            stderr_lines = list(process.tail_stderr(lines=1, follow=False))
+            if any(line.strip() for line in stderr_lines):
+                return True
+        except Exception:
+            return False
+        return False

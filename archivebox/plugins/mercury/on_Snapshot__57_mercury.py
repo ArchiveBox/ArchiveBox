@@ -82,6 +82,9 @@ def extract_mercury(url: str, binary: str) -> tuple[bool, str | None, str]:
         # Get text version
         cmd_text = [binary, *mercury_args, *mercury_args_extra, url, '--format=text']
         result_text = subprocess.run(cmd_text, stdout=subprocess.PIPE, timeout=timeout, text=True)
+        if result_text.stdout:
+            sys.stderr.write(result_text.stdout)
+            sys.stderr.flush()
 
         if result_text.returncode != 0:
             return False, None, f'postlight-parser failed (exit={result_text.returncode})'
@@ -101,6 +104,9 @@ def extract_mercury(url: str, binary: str) -> tuple[bool, str | None, str]:
         # Get HTML version
         cmd_html = [binary, *mercury_args, *mercury_args_extra, url, '--format=html']
         result_html = subprocess.run(cmd_html, stdout=subprocess.PIPE, timeout=timeout, text=True)
+        if result_html.stdout:
+            sys.stderr.write(result_html.stdout)
+            sys.stderr.flush()
 
         try:
             html_json = json.loads(result_html.stdout)

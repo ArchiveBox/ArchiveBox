@@ -116,7 +116,19 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
 
     // Trigger the extension's action (toolbar button click)
     console.error('[singlefile] Dispatching extension action...');
-    await extension.dispatchAction();
+    try {
+        const actionTimeoutMs = options.actionTimeoutMs || 5000;
+        const actionPromise = extension.dispatchAction();
+        const actionResult = await Promise.race([
+            actionPromise,
+            wait(actionTimeoutMs).then(() => 'timeout'),
+        ]);
+        if (actionResult === 'timeout') {
+            console.error(`[singlefile] Extension action did not resolve within ${actionTimeoutMs}ms, continuing...`);
+        }
+    } catch (err) {
+        console.error(`[singlefile] Extension action error: ${err.message || err}`);
+    }
 
     // Wait for file to appear in downloads directory
     const check_delay = 3000; // 3 seconds

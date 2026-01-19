@@ -196,7 +196,7 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
             if 'unable to extract' in stderr_lower:
                 return False, None, 'Unable to extract gallery info'
 
-            return False, None, f'gallery-dl error: {stderr[:200]}'
+            return False, None, f'gallery-dl error: {stderr}'
 
     except subprocess.TimeoutExpired:
         return False, None, f'Timed out after {timeout} seconds'

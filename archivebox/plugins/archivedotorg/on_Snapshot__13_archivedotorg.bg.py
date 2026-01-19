@@ -2,7 +2,7 @@
 """
 Submit a URL to archive.org for archiving.
 
-Usage: on_Snapshot__archivedotorg.py --url=<url> --snapshot-id=<uuid>
+Usage: on_Snapshot__archivedotorg.bg.py --url=<url> --snapshot-id=<uuid>
 Output: Writes archive.org.txt to $PWD with the archived URL
 
 Environment variables:

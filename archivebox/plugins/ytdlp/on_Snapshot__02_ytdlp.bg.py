@@ -201,7 +201,7 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
             if 'Unable to extract' in stderr:
                 return False, None, 'Unable to extract media info'
 
-            return False, None, f'yt-dlp error: {stderr[:200]}'
+            return False, None, f'yt-dlp error: {stderr}'
 
     except subprocess.TimeoutExpired:
         return False, None, f'Timed out after {timeout} seconds'

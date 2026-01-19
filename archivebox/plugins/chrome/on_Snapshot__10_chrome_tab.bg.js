@@ -118,9 +118,7 @@ process.on('SIGTERM', () => cleanup('SIGTERM'));
 process.on('SIGINT', () => cleanup('SIGINT'));
 
 // Try to find the crawl's Chrome session
-function findCrawlChromeSession(crawlId) {
-    if (!crawlId) return null;
-
+function findCrawlChromeSession() {
     // Use CRAWL_OUTPUT_DIR env var set by get_config() in configset.py
     const crawlOutputDir = getEnv('CRAWL_OUTPUT_DIR', '');
     if (!crawlOutputDir) return null;
@@ -301,7 +299,7 @@ async function main() {
     const args = parseArgs();
     const url = args.url;
     const snapshotId = args.snapshot_id;
-    const crawlId = args.crawl_id;
+    const crawlId = args.crawl_id || getEnv('CRAWL_ID', '');
 
     if (!url || !snapshotId) {
         console.error('Usage: on_Snapshot__10_chrome_tab.bg.js --url=<url> --snapshot-id=<uuid> [--crawl-id=<uuid>]');
@@ -332,15 +330,14 @@ async function main() {
         }
 
         // Try to use existing crawl Chrome session
-        const crawlSession = findCrawlChromeSession(crawlId);
+        const crawlSession = findCrawlChromeSession();
         let result;
 
         if (crawlSession) {
             console.log(`[*] Found existing Chrome session from crawl ${crawlId}`);
             result = await createTabInExistingChrome(crawlSession.cdpUrl, url, crawlSession.pid);
         } else {
-            console.log(`[*] No crawl Chrome session found, launching new Chrome`);
-            result = await launchNewChrome(url, binary);
+            result = { success: false, error: 'No crawl Chrome session found (CRAWL_OUTPUT_DIR missing or chrome not running)' };
         }
 
         if (result.success) {

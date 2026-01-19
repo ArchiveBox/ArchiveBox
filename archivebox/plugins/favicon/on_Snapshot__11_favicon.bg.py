@@ -2,7 +2,7 @@
 """
 Extract favicon from a URL.
 
-Usage: on_Snapshot__favicon.py --url=<url> --snapshot-id=<uuid>
+Usage: on_Snapshot__favicon.bg.py --url=<url> --snapshot-id=<uuid>
 Output: Writes favicon.ico to $PWD
 
 Environment variables:

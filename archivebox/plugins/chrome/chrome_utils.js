@@ -803,9 +803,16 @@ try {
  * @returns {string} - 32-character extension ID
  */
 function getExtensionId(unpacked_path) {
+    let resolved_path = unpacked_path;
+    try {
+        resolved_path = fs.realpathSync(unpacked_path);
+    } catch (err) {
+        // Use the provided path if realpath fails
+        resolved_path = unpacked_path;
+    }
     // Chrome uses a SHA256 hash of the unpacked extension directory path
     const hash = crypto.createHash('sha256');
-    hash.update(Buffer.from(unpacked_path, 'utf-8'));
+    hash.update(Buffer.from(resolved_path, 'utf-8'));
 
     // Convert first 32 hex chars to characters in the range 'a'-'p'
     const detected_extension_id = Array.from(hash.digest('hex'))
@@ -978,6 +985,8 @@ async function isTargetExtension(target) {
 
     let extension_id = null;
     let manifest_version = null;
+    let manifest = null;
+    let manifest_name = null;
     const target_is_extension = is_chrome_extension || target_is_bg;
 
     if (target_is_extension) {
@@ -985,8 +994,9 @@ async function isTargetExtension(target) {
             extension_id = target_url?.split('://')[1]?.split('/')[0] || null;
 
             if (target_ctx) {
-                const manifest = await target_ctx.evaluate(() => chrome.runtime.getManifest());
+                manifest = await target_ctx.evaluate(() => chrome.runtime.getManifest());
                 manifest_version = manifest?.manifest_version || null;
+                manifest_name = manifest?.name || null;
             }
         } catch (err) {
             // Failed to get extension metadata
@@ -1001,6 +1011,8 @@ async function isTargetExtension(target) {
         target_url,
         extension_id,
         manifest_version,
+        manifest,
+        manifest_name,
     };
 }
 
@@ -1053,14 +1065,23 @@ async function loadExtensionFromTarget(extensions, target) {
 
         // Trigger extension toolbar button click
         dispatchAction: async (tab) => {
-            return await target_ctx.evaluate((tabId) => {
-                return new Promise((resolve) => {
-                    chrome.action.onClicked.addListener((tab) => {
-                        resolve({ success: true, tab });
-                    });
-                    chrome.action.openPopup();
-                });
-            }, tab?.id || null);
+            return await target_ctx.evaluate(async (tab) => {
+                tab = tab || (await new Promise((resolve) =>
+                    chrome.tabs.query({ currentWindow: true, active: true }, ([tab]) => resolve(tab))
+                ));
+
+                // Manifest V3: chrome.action
+                if (chrome.action?.onClicked?.dispatch) {
+                    return await chrome.action.onClicked.dispatch(tab);
+                }
+
+                // Manifest V2: chrome.browserAction
+                if (chrome.browserAction?.onClicked?.dispatch) {
+                    return await chrome.browserAction.onClicked.dispatch(tab);
+                }
+
+                throw new Error('Extension action dispatch not available');
+            }, tab || null);
         },
 
         // Send message to extension

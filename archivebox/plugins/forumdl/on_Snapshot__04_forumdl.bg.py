@@ -17,6 +17,7 @@ Environment variables:
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -87,6 +88,27 @@ def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
         return default if default is not None else []
 
 
+def get_binary_shebang(binary_path: str) -> str | None:
+    """Return interpreter from shebang line if present (e.g., /path/to/python)."""
+    try:
+        with open(binary_path, 'r', encoding='utf-8') as f:
+            first_line = f.readline().strip()
+            if first_line.startswith('#!'):
+                return first_line[2:].strip().split(' ')[0]
+    except Exception:
+        pass
+    return None
+
+
+def resolve_binary_path(binary: str) -> str | None:
+    """Resolve binary to an absolute path if possible."""
+    if not binary:
+        return None
+    if Path(binary).is_file():
+        return binary
+    return shutil.which(binary)
+
+
 
 def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
@@ -118,10 +140,12 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     # Use our Pydantic v2 compatible wrapper if available, otherwise fall back to binary
     wrapper_path = Path(__file__).parent / 'forum-dl-wrapper.py'
+    resolved_binary = resolve_binary_path(binary) or binary
     if wrapper_path.exists():
-        cmd = [sys.executable, str(wrapper_path), *forumdl_args, '-f', output_format, '-o', str(output_file)]
+        forumdl_python = get_binary_shebang(resolved_binary) or sys.executable
+        cmd = [forumdl_python, str(wrapper_path), *forumdl_args, '-f', output_format, '-o', str(output_file)]
     else:
-        cmd = [binary, *forumdl_args, '-f', output_format, '-o', str(output_file)]
+        cmd = [resolved_binary, *forumdl_args, '-f', output_format, '-o', str(output_file)]
 
     if not check_ssl:
         cmd.append('--no-check-certificate')
@@ -187,7 +211,7 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
             if 'unable to extract' in stderr_lower:
                 return False, None, 'Unable to extract forum info'
 
-            return False, None, f'forum-dl error: {stderr[:200]}'
+            return False, None, f'forum-dl error: {stderr}'
 
     except subprocess.TimeoutExpired:
         return False, None, f'Timed out after {timeout} seconds'
