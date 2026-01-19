@@ -3,19 +3,19 @@ Rich Layout-based live progress display for ArchiveBox orchestrator.
 
 Shows a comprehensive dashboard with:
 - Top: Crawl queue status (full width)
-- Middle: Running process logs (dynamic panels)
-- Bottom: Orchestrator/Daphne logs
+- Middle: Crawl queue tree with hook outputs
+- Bottom: Running process logs (dynamic panels)
 """
 
 __package__ = 'archivebox.misc'
 
 from datetime import datetime, timezone
+import re
 from typing import List, Optional, Any
 from collections import deque
 from pathlib import Path
 
 from rich import box
-from rich.align import Align
 from rich.console import Group
 from rich.layout import Layout
 from rich.columns import Columns
@@ -25,6 +25,13 @@ from rich.table import Table
 from rich.tree import Tree
 
 from archivebox.config import VERSION
+
+
+_RICH_TAG_RE = re.compile(r'\[/?[^\]]+\]')
+
+
+def _strip_rich(text: str) -> str:
+    return _RICH_TAG_RE.sub('', text or '').strip()
 
 
 class CrawlQueuePanel:
@@ -89,12 +96,18 @@ class CrawlQueuePanel:
 class ProcessLogPanel:
     """Display logs for a running Process."""
 
-    def __init__(self, process: Any, max_lines: int = 8, compact: bool | None = None):
+    def __init__(self, process: Any, max_lines: int = 8, compact: bool | None = None, bg_terminating: bool = False):
         self.process = process
         self.max_lines = max_lines
         self.compact = compact
+        self.bg_terminating = bg_terminating
 
     def __rich__(self) -> Panel:
+        completed_line = self._completed_output_line()
+        if completed_line:
+            style = "green" if self._completed_ok() else "yellow"
+            return Text(completed_line, style=style)
+
         is_pending = self._is_pending()
         output_line = '' if is_pending else self._output_line()
         stdout_lines = []
@@ -130,7 +143,7 @@ class ProcessLogPanel:
         content = Group(*lines) if lines else Text("")
 
         title = self._title()
-        border_style = "grey53" if is_pending else "cyan"
+        border_style = self._border_style(is_pending=is_pending)
         height = 2 if is_pending else None
         return Panel(
             content,
@@ -140,6 +153,32 @@ class ProcessLogPanel:
             padding=(0, 1),
             height=height,
         )
+
+    def plain_lines(self) -> list[str]:
+        completed_line = self._completed_output_line()
+        if completed_line:
+            return [completed_line]
+
+        lines = []
+        if not self._is_pending():
+            output_line = self._output_line()
+            if output_line:
+                lines.append(output_line)
+
+        try:
+            stdout_lines = list(self.process.tail_stdout(lines=self.max_lines, follow=False))
+            stderr_lines = list(self.process.tail_stderr(lines=self.max_lines, follow=False))
+        except Exception:
+            stdout_lines = []
+            stderr_lines = []
+
+        for line in stdout_lines:
+            if line:
+                lines.append(line)
+        for line in stderr_lines:
+            if line:
+                lines.append(line)
+        return lines
 
     def _title(self) -> str:
         process_type = getattr(self.process, 'process_type', 'process')
@@ -188,6 +227,51 @@ class ProcessLogPanel:
         if getattr(self.process, 'process_type', '') == 'hook' and not getattr(self.process, 'pid', None):
             return True
         return False
+
+    def _completed_ok(self) -> bool:
+        exit_code = getattr(self.process, 'exit_code', None)
+        return exit_code in (0, None)
+
+    def _completed_output_line(self) -> str:
+        status = getattr(self.process, 'status', '')
+        if status != 'exited':
+            return ''
+        output_line = self._output_line()
+        if not output_line:
+            return ''
+        if not self._has_output_files():
+            return ''
+        return output_line
+
+    def _has_output_files(self) -> bool:
+        pwd = getattr(self.process, 'pwd', None)
+        if not pwd:
+            return False
+        try:
+            base = Path(pwd)
+            if not base.exists():
+                return False
+            ignore = {'stdout.log', 'stderr.log', 'cmd.sh', 'process.pid', 'hook.pid', 'listener.pid'}
+            for path in base.rglob('*'):
+                if path.is_file() and path.name not in ignore:
+                    return True
+        except Exception:
+            return False
+        return False
+
+    def _border_style(self, is_pending: bool) -> str:
+        if is_pending:
+            return "grey53"
+        status = getattr(self.process, 'status', '')
+        if status == 'exited':
+            exit_code = getattr(self.process, 'exit_code', None)
+            return "green" if exit_code in (0, None) else "yellow"
+        is_hook = getattr(self.process, 'process_type', '') == 'hook'
+        if is_hook and not self._is_background_hook():
+            return "green"
+        if is_hook and self._is_background_hook() and self.bg_terminating:
+            return "red"
+        return "cyan"
 
     def _worker_label(self, worker_type: str) -> tuple[str, str]:
         cmd = getattr(self.process, 'cmd', []) or []
@@ -402,38 +486,6 @@ class WorkerLogPanel:
         )
 
 
-class OrchestratorLogPanel:
-    """Display orchestrator and system logs."""
-
-    def __init__(self, max_events: int = 8):
-        self.events: deque = deque(maxlen=max_events)
-        self.max_events = max_events
-
-    def add_event(self, message: str, style: str = "white"):
-        """Add an event to the log."""
-        timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
-        self.events.append((timestamp, message, style))
-
-    def __rich__(self) -> Panel:
-        if not self.events:
-            content = Text("No recent events", style="grey53", justify="center")
-        else:
-            lines = []
-            for timestamp, message, style in self.events:
-                line = Text()
-                line.append(f"[{timestamp}] ", style="grey53")
-                line.append(message, style=style)
-                lines.append(line)
-            content = Group(*lines)
-
-        return Panel(
-            content,
-            title="[bold white]Orchestrator / Daphne Logs",
-            border_style="white",
-            box=box.HORIZONTALS,
-        )
-
-
 class CrawlQueueTreePanel:
     """Display crawl queue with snapshots + hook summary in a tree view."""
 
@@ -465,13 +517,23 @@ class CrawlQueueTreePanel:
                     snap_text = Text(f"{self._status_icon(snap_status)} {snap_label}", style="white")
                     snap_node = crawl_tree.add(snap_text)
 
-                    hooks = snap.get('hooks', {})
-                    if hooks:
-                        completed = hooks.get('completed', 0)
-                        running = hooks.get('running', 0)
-                        pending = hooks.get('pending', 0)
-                        summary = f"✅ {completed} | ▶️  {running} | ⌛️ {pending}"
-                        snap_node.add(Text(summary, style="grey53"))
+                    output_path = snap.get('output_path', '')
+                    if output_path:
+                        snap_node.add(Text(output_path, style="grey53"))
+
+                    hooks = snap.get('hooks', []) or []
+                    for hook in hooks:
+                        status = hook.get('status', '')
+                        path = hook.get('path', '')
+                        size = hook.get('size', '')
+                        elapsed = hook.get('elapsed', '')
+                        timeout = hook.get('timeout', '')
+                        is_bg = hook.get('is_bg', False)
+                        is_running = hook.get('is_running', False)
+                        is_pending = hook.get('is_pending', False)
+                        icon, color = self._hook_style(status, is_bg=is_bg, is_running=is_running, is_pending=is_pending)
+                        stats = self._hook_stats(size=size, elapsed=elapsed, timeout=timeout, status=status)
+                        snap_node.add(Text(f"{icon} {path}{stats}", style=color))
                 trees.append(crawl_tree)
             content = Group(*trees)
 
@@ -494,6 +556,45 @@ class CrawlQueueTreePanel:
             return '✖'
         return '•'
 
+    @staticmethod
+    def _hook_style(status: str, is_bg: bool = False, is_running: bool = False, is_pending: bool = False) -> tuple[str, str]:
+        if status == 'succeeded':
+            return '✅', 'green'
+        if status == 'failed':
+            return '⚠️', 'yellow'
+        if status == 'skipped':
+            return '⏭', 'grey53'
+        if is_pending:
+            return '⌛️', 'grey53'
+        if is_running and is_bg:
+            return '᠁', 'cyan'
+        if is_running:
+            return '▶️', 'cyan'
+        if status == 'started':
+            return '▶️', 'cyan'
+        return '•', 'grey53'
+
+    @staticmethod
+    def _hook_stats(size: str = '', elapsed: str = '', timeout: str = '', status: str = '') -> str:
+        if status in ('succeeded', 'failed', 'skipped'):
+            parts = []
+            if size:
+                parts.append(size)
+            if elapsed:
+                parts.append(elapsed)
+            if not parts:
+                return ''
+            return f" ({' | '.join(parts)})"
+        if elapsed or timeout:
+            size_part = '...' if elapsed or timeout else ''
+            time_part = ''
+            if elapsed and timeout:
+                time_part = f"{elapsed}/{timeout}"
+            elif elapsed:
+                time_part = f"{elapsed}"
+            return f" ({size_part} | {time_part})" if time_part else f" ({size_part})"
+        return ''
+
 
 class ArchiveBoxProgressLayout:
     """
@@ -503,9 +604,9 @@ class ArchiveBoxProgressLayout:
         ┌─────────────────────────────────────────────────────────────┐
         │              Crawl Queue (full width)                       │
         ├─────────────────────────────────────────────────────────────┤
-        │           Running Process Logs (dynamic panels)             │
+        │           Crawl Queue Tree (hooks + outputs)                │
         ├─────────────────────────────────────────────────────────────┤
-        │           Orchestrator / Daphne Logs                        │
+        │           Running Process Logs (dynamic panels)             │
         └─────────────────────────────────────────────────────────────┘
     """
 
@@ -518,7 +619,6 @@ class ArchiveBoxProgressLayout:
         self.crawl_queue.crawl_id = crawl_id
 
         self.process_panels: List[ProcessLogPanel] = []
-        self.orchestrator_log = OrchestratorLogPanel(max_events=8)
         self.crawl_queue_tree = CrawlQueueTreePanel(max_crawls=8, max_snapshots=16)
 
         # Create layout
@@ -528,22 +628,17 @@ class ArchiveBoxProgressLayout:
         """Define the layout structure."""
         layout = Layout(name="root")
 
-        # Top-level split: crawl_queue, workers, bottom
+        # Top-level split: crawl_queue, crawl_tree, processes
         layout.split(
             Layout(name="crawl_queue", size=3),
+            Layout(name="crawl_tree", size=14),
             Layout(name="processes", ratio=1),
-            Layout(name="bottom", size=12),
         )
 
         # Assign components to layout sections
         layout["crawl_queue"].update(self.crawl_queue)
-        layout["processes"].update(Columns([]))
-        layout["bottom"].split_row(
-            Layout(name="orchestrator_logs", ratio=2),
-            Layout(name="crawl_tree", ratio=1),
-        )
-        layout["orchestrator_logs"].update(self.orchestrator_log)
         layout["crawl_tree"].update(self.crawl_queue_tree)
+        layout["processes"].update(Columns([]))
 
         return layout
 
@@ -568,6 +663,33 @@ class ArchiveBoxProgressLayout:
         """Update process panels to show all running processes."""
         panels = []
         all_processes = list(processes) + list(pending or [])
+        fg_running = False
+        for process in processes:
+            if getattr(process, 'process_type', '') != 'hook':
+                continue
+            try:
+                cmd = getattr(process, 'cmd', [])
+                hook_path = Path(cmd[1]) if len(cmd) > 1 else None
+                hook_name = hook_path.name if hook_path else ''
+                if '.bg.' not in hook_name:
+                    fg_running = True
+                    break
+            except Exception:
+                continue
+        fg_pending = False
+        for process in (pending or []):
+            if getattr(process, 'process_type', '') != 'hook':
+                continue
+            try:
+                cmd = getattr(process, 'cmd', [])
+                hook_path = Path(cmd[1]) if len(cmd) > 1 else None
+                hook_name = hook_path.name if hook_path else ''
+                if '.bg.' not in hook_name:
+                    fg_pending = True
+                    break
+            except Exception:
+                continue
+        bg_terminating = bool(processes) and not fg_running and not fg_pending
         for process in all_processes:
             is_hook = getattr(process, 'process_type', '') == 'hook'
             is_bg = False
@@ -581,12 +703,14 @@ class ArchiveBoxProgressLayout:
                     is_bg = False
             is_pending = getattr(process, 'status', '') in ('queued', 'pending', 'backoff') or (is_hook and not getattr(process, 'pid', None))
             max_lines = 2 if is_pending else (4 if is_bg else 7)
-            panels.append(ProcessLogPanel(process, max_lines=max_lines, compact=is_bg))
+            panels.append(ProcessLogPanel(process, max_lines=max_lines, compact=is_bg, bg_terminating=bg_terminating))
         if not panels:
             self.layout["processes"].size = 0
             self.layout["processes"].update(Text(""))
+            self.process_panels = []
             return
 
+        self.process_panels = panels
         self.layout["processes"].size = None
         self.layout["processes"].ratio = 1
         self.layout["processes"].update(Columns(panels, equal=True, expand=True))
@@ -597,8 +721,54 @@ class ArchiveBoxProgressLayout:
 
     def log_event(self, message: str, style: str = "white") -> None:
         """Add an event to the orchestrator log."""
-        self.orchestrator_log.add_event(message, style)
+        return
 
     def get_layout(self) -> Layout:
         """Get the Rich Layout object for rendering."""
         return self.layout
+
+    def plain_lines(self) -> list[tuple[str, str]]:
+        lines: list[tuple[str, str]] = []
+        queue = self.crawl_queue
+        queue_line = (
+            f"Status: {queue.orchestrator_status} | Crawls: {queue.crawl_queue_count} queued | "
+            f"Binaries: {queue.binary_queue_count} queued | Workers: {queue.crawl_workers_count}/{queue.max_crawl_workers} "
+            f"crawl, {queue.binary_workers_count} binary"
+        )
+        lines.append(("crawl_queue", queue_line))
+
+        for panel in self.process_panels:
+            title = _strip_rich(panel._title())
+            for line in panel.plain_lines():
+                if line:
+                    lines.append((title or "process", line))
+
+        for crawl in self.crawl_queue_tree.crawls:
+            crawl_line = f"{self.crawl_queue_tree._status_icon(crawl.get('status', ''))} {crawl.get('id', '')[:8]} {crawl.get('label', '')}".strip()
+            lines.append(("crawl_tree", crawl_line))
+            for snap in crawl.get('snapshots', []):
+                snap_line = f"  {self.crawl_queue_tree._status_icon(snap.get('status', ''))} {snap.get('label', '')}".rstrip()
+                lines.append(("crawl_tree", snap_line))
+                output_path = snap.get('output_path', '')
+                if output_path:
+                    lines.append(("crawl_tree", f"    {output_path}"))
+                for hook in snap.get('hooks', []) or []:
+                    status = hook.get('status', '')
+                    path = hook.get('path', '')
+                    icon, _ = self.crawl_queue_tree._hook_style(
+                        status,
+                        is_bg=hook.get('is_bg', False),
+                        is_running=hook.get('is_running', False),
+                        is_pending=hook.get('is_pending', False),
+                    )
+                    stats = self.crawl_queue_tree._hook_stats(
+                        size=hook.get('size', ''),
+                        elapsed=hook.get('elapsed', ''),
+                        timeout=hook.get('timeout', ''),
+                        status=status,
+                    )
+                    hook_line = f"    {icon} {path}{stats}".strip()
+                    if hook_line:
+                        lines.append(("crawl_tree", hook_line))
+
+        return lines

@@ -384,6 +384,8 @@ async function launchChromium(options = {}) {
         return { success: false, error: 'Chrome binary not found' };
     }
 
+    const downloadsDir = getEnv('CHROME_DOWNLOADS_DIR');
+
     // Kill zombies first
     if (killZombies) {
         killZombieChrome();
@@ -410,6 +412,28 @@ async function launchChromium(options = {}) {
                 console.error(`[*] Removed stale SingletonLock: ${singletonLock}`);
             } catch (e) {
                 console.error(`[!] Failed to remove SingletonLock: ${e.message}`);
+            }
+        }
+        if (downloadsDir) {
+            try {
+                const defaultProfileDir = path.join(userDataDir, 'Default');
+                const prefsPath = path.join(defaultProfileDir, 'Preferences');
+                fs.mkdirSync(defaultProfileDir, { recursive: true });
+                let prefs = {};
+                if (fs.existsSync(prefsPath)) {
+                    try {
+                        prefs = JSON.parse(fs.readFileSync(prefsPath, 'utf-8'));
+                    } catch (e) {
+                        prefs = {};
+                    }
+                }
+                prefs.download = prefs.download || {};
+                prefs.download.default_directory = downloadsDir;
+                prefs.download.prompt_for_download = false;
+                fs.writeFileSync(prefsPath, JSON.stringify(prefs));
+                console.error(`[*] Set Chrome download directory: ${downloadsDir}`);
+            } catch (e) {
+                console.error(`[!] Failed to set Chrome download directory: ${e.message}`);
             }
         }
     }
@@ -454,6 +478,11 @@ async function launchChromium(options = {}) {
     // Combine all args: base (from config) + dynamic (runtime) + extra (user overrides)
     // Dynamic args come after base so they can override if needed
     const chromiumArgs = [...baseArgs, ...dynamicArgs, ...extraArgs];
+
+    // Ensure keychain prompts are disabled on macOS
+    if (!chromiumArgs.includes('--use-mock-keychain')) {
+        chromiumArgs.push('--use-mock-keychain');
+    }
 
     // Add extension loading flags
     if (extensionPaths.length > 0) {

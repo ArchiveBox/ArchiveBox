@@ -32,6 +32,7 @@ class Persona(ModelWithConfig):
     Each persona provides:
     - CHROME_USER_DATA_DIR: Chrome profile directory
     - CHROME_EXTENSIONS_DIR: Installed extensions directory
+    - CHROME_DOWNLOADS_DIR: Chrome downloads directory
     - COOKIES_FILE: Cookies file for wget/curl
     - config: JSON field with persona-specific config overrides
 
@@ -73,6 +74,11 @@ class Persona(ModelWithConfig):
         return str(self.path / 'chrome_extensions')
 
     @property
+    def CHROME_DOWNLOADS_DIR(self) -> str:
+        """Derived path to Chrome downloads directory for this persona."""
+        return str(self.path / 'chrome_downloads')
+
+    @property
     def COOKIES_FILE(self) -> str:
         """Derived path to cookies.txt file for this persona (if exists)."""
         cookies_path = self.path / 'cookies.txt'
@@ -86,6 +92,7 @@ class Persona(ModelWithConfig):
         - All values from self.config JSONField
         - CHROME_USER_DATA_DIR (derived from persona path)
         - CHROME_EXTENSIONS_DIR (derived from persona path)
+        - CHROME_DOWNLOADS_DIR (derived from persona path)
         - COOKIES_FILE (derived from persona path, if file exists)
         - ACTIVE_PERSONA (set to this persona's name)
         """
@@ -96,6 +103,8 @@ class Persona(ModelWithConfig):
             derived['CHROME_USER_DATA_DIR'] = self.CHROME_USER_DATA_DIR
         if 'CHROME_EXTENSIONS_DIR' not in derived:
             derived['CHROME_EXTENSIONS_DIR'] = self.CHROME_EXTENSIONS_DIR
+        if 'CHROME_DOWNLOADS_DIR' not in derived:
+            derived['CHROME_DOWNLOADS_DIR'] = self.CHROME_DOWNLOADS_DIR
         if 'COOKIES_FILE' not in derived and self.COOKIES_FILE:
             derived['COOKIES_FILE'] = self.COOKIES_FILE
 
@@ -109,6 +118,7 @@ class Persona(ModelWithConfig):
         self.path.mkdir(parents=True, exist_ok=True)
         (self.path / 'chrome_user_data').mkdir(parents=True, exist_ok=True)
         (self.path / 'chrome_extensions').mkdir(parents=True, exist_ok=True)
+        (self.path / 'chrome_downloads').mkdir(parents=True, exist_ok=True)
 
     def cleanup_chrome(self) -> bool:
         """

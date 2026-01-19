@@ -84,6 +84,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     }
 
     const url = await page.url();
+    console.error(`[singlefile] Triggering extension for: ${url}`);
 
     // Check for unsupported URL schemes
     const URL_SCHEMES_IGNORED = ['about', 'chrome', 'chrome-extension', 'data', 'javascript', 'blob'];
@@ -93,24 +94,28 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
         return null;
     }
 
+    const downloadsDir = options.downloadsDir || CHROME_DOWNLOADS_DIR;
+    console.error(`[singlefile] Watching downloads dir: ${downloadsDir}`);
+
     // Ensure downloads directory exists
-    await fs.promises.mkdir(CHROME_DOWNLOADS_DIR, { recursive: true });
+    await fs.promises.mkdir(downloadsDir, { recursive: true });
 
     // Get list of existing files to ignore
     const files_before = new Set(
-        (await fs.promises.readdir(CHROME_DOWNLOADS_DIR))
-            .filter(fn => fn.endsWith('.html'))
+        (await fs.promises.readdir(downloadsDir))
+            .filter(fn => fn.toLowerCase().endsWith('.html') || fn.toLowerCase().endsWith('.htm'))
     );
 
     // Output directory is current directory (hook already runs in output dir)
     const out_path = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
-    console.log(`[🛠️] Saving SingleFile HTML using extension (${extension.id})...`);
+    console.error(`[singlefile] Saving via extension (${extension.id})...`);
 
     // Bring page to front (extension action button acts on foreground tab)
     await page.bringToFront();
 
     // Trigger the extension's action (toolbar button click)
+    console.error('[singlefile] Dispatching extension action...');
     await extension.dispatchAction();
 
     // Wait for file to appear in downloads directory
@@ -118,34 +123,90 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     const max_tries = 10;
     let files_new = [];
 
+    console.error(`[singlefile] Waiting up to ${(check_delay * max_tries) / 1000}s for download...`);
     for (let attempt = 0; attempt < max_tries; attempt++) {
         await wait(check_delay);
 
-        const files_after = (await fs.promises.readdir(CHROME_DOWNLOADS_DIR))
-            .filter(fn => fn.endsWith('.html'));
+        const files_after = (await fs.promises.readdir(downloadsDir))
+            .filter(fn => fn.toLowerCase().endsWith('.html') || fn.toLowerCase().endsWith('.htm'));
 
         files_new = files_after.filter(file => !files_before.has(file));
 
         if (files_new.length === 0) {
+            console.error(`[singlefile] No new downloads yet (${attempt + 1}/${max_tries})`);
             continue;
         }
 
-        // Find the matching file by checking if it contains the URL in the HTML header
-        for (const file of files_new) {
-            const dl_path = path.join(CHROME_DOWNLOADS_DIR, file);
-            const dl_text = await fs.promises.readFile(dl_path, 'utf-8');
-            const dl_header = dl_text.split('meta charset')[0];
+        console.error(`[singlefile] New download(s) detected: ${files_new.join(', ')}`);
 
-            if (dl_header.includes(`url: ${url}`)) {
-                console.log(`[✍️] Moving SingleFile download from ${file} to ${out_path}`);
-                await fs.promises.rename(dl_path, out_path);
+        // Prefer files that match the URL or have SingleFile markers
+        const url_variants = new Set([url]);
+        if (url.endsWith('/')) {
+            url_variants.add(url.slice(0, -1));
+        } else {
+            url_variants.add(`${url}/`);
+        }
+
+        const scored = [];
+        for (const file of files_new) {
+            const dl_path = path.join(downloadsDir, file);
+            let header = '';
+            try {
+                const dl_text = await fs.promises.readFile(dl_path, 'utf-8');
+                header = dl_text.slice(0, 200000);
+                const stat = await fs.promises.stat(dl_path);
+                console.error(`[singlefile] Download ${file} size=${stat.size} bytes`);
+            } catch (err) {
+                // Skip unreadable files
+                continue;
+            }
+
+            const header_lower = header.toLowerCase();
+            const has_url = Array.from(url_variants).some(v => header.includes(v));
+            const has_singlefile_marker = header_lower.includes('singlefile') || header_lower.includes('single-file');
+            const score = (has_url ? 2 : 0) + (has_singlefile_marker ? 1 : 0);
+            scored.push({ file, dl_path, score });
+        }
+
+        scored.sort((a, b) => b.score - a.score);
+
+        if (scored.length > 0) {
+            const best = scored[0];
+            if (best.score > 0 || files_new.length === 1) {
+                console.error(`[singlefile] Moving download from ${best.file} -> ${out_path}`);
+                await fs.promises.rename(best.dl_path, out_path);
+                const out_stat = await fs.promises.stat(out_path);
+                console.error(`[singlefile] Moved file size=${out_stat.size} bytes`);
+                return out_path;
+            }
+        }
+
+        if (files_new.length > 0) {
+            // Fallback: move the newest file if no clear match found
+            let newest = null;
+            let newest_mtime = -1;
+            for (const file of files_new) {
+                const dl_path = path.join(downloadsDir, file);
+                try {
+                    const stat = await fs.promises.stat(dl_path);
+                    if (stat.mtimeMs > newest_mtime) {
+                        newest_mtime = stat.mtimeMs;
+                        newest = { file, dl_path };
+                    }
+                } catch (err) {}
+            }
+            if (newest) {
+                console.error(`[singlefile] Moving newest download from ${newest.file} -> ${out_path}`);
+                await fs.promises.rename(newest.dl_path, out_path);
+                const out_stat = await fs.promises.stat(out_path);
+                console.error(`[singlefile] Moved file size=${out_stat.size} bytes`);
                 return out_path;
             }
         }
     }
 
-    console.warn(`[❌] Couldn't find matching SingleFile HTML in ${CHROME_DOWNLOADS_DIR} after waiting ${(check_delay * max_tries) / 1000}s`);
-    console.warn(`[⚠️] New files found: ${files_new.join(', ')}`);
+    console.error(`[singlefile] Failed to find SingleFile HTML in ${downloadsDir} after ${(check_delay * max_tries) / 1000}s`);
+    console.error(`[singlefile] New files seen: ${files_new.join(', ')}`);
     return null;
 }
 

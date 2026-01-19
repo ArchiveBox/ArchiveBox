@@ -30,6 +30,7 @@ from archivebox.plugins.chrome.tests.chrome_test_helpers import (
 
 PLUGIN_DIR = get_plugin_dir(__file__)
 SNAPSHOT_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_singlefile.py')
+INSTALL_SCRIPT = PLUGIN_DIR / 'on_Crawl__82_singlefile_install.js'
 TEST_URL = "https://example.com"
 
 
@@ -140,6 +141,95 @@ def test_singlefile_with_chrome_session():
                 # Check if it mentioned browser-server in its args (indicating it tried to use CDP)
                 assert result.returncode == 0 or 'browser-server' in result.stderr or 'cdp' in result.stderr.lower(), \
                     f"Singlefile should attempt CDP connection. stderr: {result.stderr}"
+
+
+def test_singlefile_with_extension_uses_existing_chrome():
+    """Test SingleFile uses the Chrome extension via existing session (CLI fallback disabled)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        data_dir = tmpdir / 'data'
+        extensions_dir = data_dir / 'personas' / 'Default' / 'chrome_extensions'
+        downloads_dir = data_dir / 'personas' / 'Default' / 'chrome_downloads'
+        user_data_dir = data_dir / 'personas' / 'Default' / 'chrome_user_data'
+        extensions_dir.mkdir(parents=True, exist_ok=True)
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        user_data_dir.mkdir(parents=True, exist_ok=True)
+
+        env_install = os.environ.copy()
+        env_install.update({
+            'DATA_DIR': str(data_dir),
+            'CHROME_EXTENSIONS_DIR': str(extensions_dir),
+            'CHROME_DOWNLOADS_DIR': str(downloads_dir),
+        })
+
+        # Install SingleFile extension cache before launching Chrome
+        result = subprocess.run(
+            ['node', str(INSTALL_SCRIPT)],
+            capture_output=True,
+            text=True,
+            env=env_install,
+            timeout=120
+        )
+        assert result.returncode == 0, f"Extension install failed: {result.stderr}"
+
+        # Launch Chrome session with extensions loaded
+        old_env = os.environ.copy()
+        os.environ['CHROME_USER_DATA_DIR'] = str(user_data_dir)
+        os.environ['CHROME_DOWNLOADS_DIR'] = str(downloads_dir)
+        os.environ['CHROME_EXTENSIONS_DIR'] = str(extensions_dir)
+        try:
+            with chrome_session(
+                tmpdir=tmpdir,
+                crawl_id='singlefile-ext-crawl',
+                snapshot_id='singlefile-ext-snap',
+                test_url=TEST_URL,
+                navigate=True,
+                timeout=30,
+            ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
+                singlefile_output_dir = tmpdir / 'snapshot' / 'singlefile'
+                singlefile_output_dir.mkdir(parents=True, exist_ok=True)
+
+                # Ensure ../chrome points to snapshot chrome session (contains target_id.txt)
+                chrome_dir = singlefile_output_dir.parent / 'chrome'
+                if not chrome_dir.exists():
+                    chrome_dir.symlink_to(snapshot_chrome_dir)
+
+                env['SINGLEFILE_ENABLED'] = 'true'
+                env['SINGLEFILE_BINARY'] = '/nonexistent/single-file'  # force extension path
+                env['CHROME_EXTENSIONS_DIR'] = str(extensions_dir)
+                env['CHROME_DOWNLOADS_DIR'] = str(downloads_dir)
+                env['CHROME_HEADLESS'] = 'false'
+
+                # Track downloads dir state before run to ensure file is created then moved out
+                downloads_before = set(downloads_dir.glob('*.html'))
+                downloads_mtime_before = downloads_dir.stat().st_mtime_ns
+
+                result = subprocess.run(
+                    [sys.executable, str(SNAPSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=singlefile-ext-snap'],
+                    cwd=str(singlefile_output_dir),
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=120
+                )
+
+                assert result.returncode == 0, f"SingleFile extension run failed: {result.stderr}"
+
+                output_file = singlefile_output_dir / 'singlefile.html'
+                assert output_file.exists(), f"singlefile.html not created. stdout: {result.stdout}, stderr: {result.stderr}"
+                html_content = output_file.read_text(errors='ignore')
+                assert 'Example Domain' in html_content, "Output should contain example.com content"
+
+                # Verify download moved out of downloads dir
+                downloads_after = set(downloads_dir.glob('*.html'))
+                new_downloads = downloads_after - downloads_before
+                downloads_mtime_after = downloads_dir.stat().st_mtime_ns
+                assert downloads_mtime_after != downloads_mtime_before, "Downloads dir should be modified during extension save"
+                assert not new_downloads, f"SingleFile download should be moved out of downloads dir, found: {new_downloads}"
+        finally:
+            os.environ.clear()
+            os.environ.update(old_env)
 
 
 def test_singlefile_disabled_skips():

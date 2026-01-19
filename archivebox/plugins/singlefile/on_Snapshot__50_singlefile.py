@@ -37,6 +37,7 @@ BIN_NAME = 'single-file'
 BIN_PROVIDERS = 'npm,env'
 OUTPUT_DIR = '.'
 OUTPUT_FILE = 'singlefile.html'
+EXTENSION_SAVE_SCRIPT = Path(__file__).parent / 'singlefile_extension_save.js'
 
 
 def get_env(name: str, default: str = '') -> str:
@@ -255,6 +256,42 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
         return False, None, f'{type(e).__name__}: {e}'
 
 
+def save_singlefile_with_extension(url: str, timeout: int) -> tuple[bool, str | None, str]:
+    """Save using the SingleFile Chrome extension via existing Chrome session."""
+    # Only attempt if chrome session exists
+    cdp_url = get_cdp_url(wait_seconds=min(5, max(1, timeout // 10)))
+    if not cdp_url:
+        return False, None, 'No Chrome session available'
+
+    if not EXTENSION_SAVE_SCRIPT.exists():
+        return False, None, 'SingleFile extension helper script missing'
+
+    node_binary = get_env('SINGLEFILE_NODE_BINARY') or get_env('NODE_BINARY', 'node')
+    cmd = [node_binary, str(EXTENSION_SAVE_SCRIPT), f'--url={url}']
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return False, None, f'Timed out after {timeout} seconds'
+    except Exception as e:
+        return False, None, f'{type(e).__name__}: {e}'
+
+    if result.returncode == 0:
+        # Prefer explicit stdout path, fallback to local output file
+        out_text = result.stdout.decode('utf-8', errors='replace').strip()
+        if out_text and Path(out_text).exists():
+            return True, out_text, ''
+        output_path = Path(OUTPUT_DIR) / OUTPUT_FILE
+        if output_path.exists() and output_path.stat().st_size > 0:
+            return True, str(output_path), ''
+        return False, None, 'SingleFile extension completed but no output file found'
+
+    stderr = result.stderr.decode('utf-8', errors='replace').strip()
+    stdout = result.stdout.decode('utf-8', errors='replace').strip()
+    detail = stderr or stdout
+    return False, None, detail or 'SingleFile extension failed'
+
+
 @click.command()
 @click.option('--url', required=True, help='URL to archive')
 @click.option('--snapshot-id', required=True, help='Snapshot UUID')
@@ -278,11 +315,14 @@ def main(url: str, snapshot_id: str):
             print(json.dumps({'type': 'ArchiveResult', 'status': 'skipped', 'output_str': 'staticfile already exists'}))
             sys.exit(0)
 
-        # Get binary from environment
-        binary = get_env('SINGLEFILE_BINARY', 'single-file')
+        # Prefer SingleFile extension via existing Chrome session
+        timeout = get_env_int('SINGLEFILE_TIMEOUT') or get_env_int('TIMEOUT', 120)
+        success, output, error = save_singlefile_with_extension(url, timeout)
 
-        # Run extraction
-        success, output, error = save_singlefile(url, binary)
+        # Fallback to single-file-cli if extension path failed
+        if not success:
+            binary = get_env('SINGLEFILE_BINARY', 'single-file')
+            success, output, error = save_singlefile(url, binary)
         status = 'succeeded' if success else 'failed'
 
     except Exception as e:
