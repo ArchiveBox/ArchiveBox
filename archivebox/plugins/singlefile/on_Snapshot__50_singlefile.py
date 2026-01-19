@@ -23,6 +23,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 from urllib.request import urlopen
 from pathlib import Path
@@ -200,18 +201,44 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     cmd.extend([url, str(output_path)])
 
     try:
-        result = subprocess.run(cmd, capture_output=True, timeout=timeout)
+        output_lines: list[str] = []
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+
+        def _read_output() -> None:
+            if not process.stdout:
+                return
+            for line in process.stdout:
+                output_lines.append(line)
+                sys.stderr.write(line)
+
+        reader = threading.Thread(target=_read_output, daemon=True)
+        reader.start()
+
+        try:
+            process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            reader.join(timeout=1)
+            return False, None, f'Timed out after {timeout} seconds'
+
+        reader.join(timeout=1)
+        combined_output = ''.join(output_lines)
 
         if output_path.exists() and output_path.stat().st_size > 0:
             return True, str(output_path), ''
         else:
-            stderr = result.stderr.decode('utf-8', errors='replace')
-            stdout = result.stdout.decode('utf-8', errors='replace')
+            stderr = combined_output
             if 'ERR_NAME_NOT_RESOLVED' in stderr:
                 return False, None, 'DNS resolution failed'
             if 'ERR_CONNECTION_REFUSED' in stderr:
                 return False, None, 'Connection refused'
-            detail = (stderr or stdout).strip()
+            detail = (stderr or '').strip()
             if len(detail) > 2000:
                 detail = detail[:2000]
             cmd_preview = list(cmd)

@@ -44,12 +44,10 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
         result = subprocess.run(
             custom_cmd,
             shell=True,
-            capture_output=True,
-            text=True,
             timeout=600,  # 10 minute timeout for custom installs
         )
         if result.returncode != 0:
-            click.echo(f"Custom install failed: {result.stderr}", err=True)
+            click.echo(f"Custom install failed (exit={result.returncode})", err=True)
             sys.exit(1)
     except subprocess.TimeoutExpired:
         click.echo("Custom install timed out", err=True)

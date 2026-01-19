@@ -62,8 +62,6 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, override
             subprocess.run(
                 [preferred_python, '-m', 'venv', str(pip_venv_path), '--upgrade-deps'],
                 check=True,
-                capture_output=True,
-                text=True,
             )
         except Exception:
             # Fall back to PipProvider-managed venv creation

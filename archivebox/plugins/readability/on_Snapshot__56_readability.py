@@ -107,11 +107,10 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
     try:
         # Run readability-extractor (outputs JSON by default)
         cmd = [binary, *readability_args, *readability_args_extra, html_source]
-        result = subprocess.run(cmd, capture_output=True, timeout=timeout)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, timeout=timeout, text=True)
 
         if result.returncode != 0:
-            stderr = result.stderr.decode('utf-8', errors='replace')
-            return False, None, f'readability-extractor failed: {stderr[:200]}'
+            return False, None, f'readability-extractor failed (exit={result.returncode})'
 
         # Parse JSON output
         try:

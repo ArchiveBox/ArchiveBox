@@ -82,13 +82,12 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
     cmd = [binary, *git_args, *git_args_extra, url, OUTPUT_DIR]
 
     try:
-        result = subprocess.run(cmd, capture_output=True, timeout=timeout)
+        result = subprocess.run(cmd, timeout=timeout)
 
         if result.returncode == 0 and Path(OUTPUT_DIR).is_dir():
             return True, OUTPUT_DIR, ''
         else:
-            stderr = result.stderr.decode('utf-8', errors='replace')
-            return False, None, f'git clone failed: {stderr[:200]}'
+            return False, None, f'git clone failed (exit={result.returncode})'
 
     except subprocess.TimeoutExpired:
         return False, None, f'Timed out after {timeout} seconds'

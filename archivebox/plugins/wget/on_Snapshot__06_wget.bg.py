@@ -144,7 +144,6 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
     try:
         result = subprocess.run(
             cmd,
-            capture_output=True,
             timeout=timeout * 2,  # Allow extra time for large downloads
         )
 
@@ -155,18 +154,9 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
         ]
 
         if not downloaded_files:
-            stderr = result.stderr.decode('utf-8', errors='replace')
-            stdout = result.stdout.decode('utf-8', errors='replace')
-            combined = stderr + stdout
-
-            if '403' in combined or 'Forbidden' in combined:
-                return False, None, '403 Forbidden (try changing USER_AGENT)'
-            elif '404' in combined or 'Not Found' in combined:
-                return False, None, '404 Not Found'
-            elif '500' in combined:
-                return False, None, '500 Internal Server Error'
-            else:
-                return False, None, f'No files downloaded: {stderr[:200]}'
+            if result.returncode != 0:
+                return False, None, f'wget failed (exit={result.returncode})'
+            return False, None, 'No files downloaded'
 
         # Find main HTML file
         html_files = [
