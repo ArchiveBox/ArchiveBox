@@ -1,5 +1,5 @@
 """
-Tests for the merkletree plugin.
+Tests for the hashes plugin.
 
 Tests the real merkle tree generation with actual files.
 """
@@ -15,27 +15,27 @@ import pytest
 from django.test import TestCase
 
 
-# Get the path to the merkletree hook
+# Get the path to the hashes hook
 PLUGIN_DIR = Path(__file__).parent.parent
-MERKLETREE_HOOK = PLUGIN_DIR / 'on_Snapshot__93_merkletree.py'
+HASHES_HOOK = PLUGIN_DIR / 'on_Snapshot__93_hashes.py'
 
 
-class TestMerkletreePlugin(TestCase):
-    """Test the merkletree plugin."""
+class TestHashesPlugin(TestCase):
+    """Test the hashes plugin."""
 
-    def test_merkletree_hook_exists(self):
-        """Merkletree hook script should exist."""
-        self.assertTrue(MERKLETREE_HOOK.exists(), f"Hook not found: {MERKLETREE_HOOK}")
+    def test_hashes_hook_exists(self):
+        """Hashes hook script should exist."""
+        self.assertTrue(HASHES_HOOK.exists(), f"Hook not found: {HASHES_HOOK}")
 
-    def test_merkletree_generates_tree_for_files(self):
-        """Merkletree hook should generate merkle tree for files in snapshot directory."""
+    def test_hashes_generates_tree_for_files(self):
+        """Hashes hook should generate merkle tree for files in snapshot directory."""
         with tempfile.TemporaryDirectory() as temp_dir:
             # Create a mock snapshot directory structure
             snapshot_dir = Path(temp_dir) / 'snapshot'
             snapshot_dir.mkdir()
 
-            # Create output directory for merkletree
-            output_dir = snapshot_dir / 'merkletree'
+            # Create output directory for hashes
+            output_dir = snapshot_dir / 'hashes'
             output_dir.mkdir()
 
             # Create some test files
@@ -48,11 +48,11 @@ class TestMerkletreePlugin(TestCase):
 
             # Run the hook from the output directory
             env = os.environ.copy()
-            env['MERKLETREE_ENABLED'] = 'true'
+            env['HASHES_ENABLED'] = 'true'
 
             result = subprocess.run(
                 [
-                    sys.executable, str(MERKLETREE_HOOK),
+                    sys.executable, str(HASHES_HOOK),
                     '--url=https://example.com',
                     '--snapshot-id=test-snapshot',
                 ],
@@ -67,8 +67,8 @@ class TestMerkletreePlugin(TestCase):
             self.assertEqual(result.returncode, 0, f"Hook failed: {result.stderr}")
 
             # Check output file exists
-            output_file = output_dir / 'merkletree.json'
-            self.assertTrue(output_file.exists(), "merkletree.json not created")
+            output_file = output_dir / 'hashes.json'
+            self.assertTrue(output_file.exists(), "hashes.json not created")
 
             # Parse and verify output
             with open(output_file) as f:
@@ -87,20 +87,20 @@ class TestMerkletreePlugin(TestCase):
             self.assertGreater(data['metadata']['file_count'], 0)
             self.assertGreater(data['metadata']['total_size'], 0)
 
-    def test_merkletree_skips_when_disabled(self):
-        """Merkletree hook should skip when MERKLETREE_ENABLED=false."""
+    def test_hashes_skips_when_disabled(self):
+        """Hashes hook should skip when HASHES_ENABLED=false."""
         with tempfile.TemporaryDirectory() as temp_dir:
             snapshot_dir = Path(temp_dir) / 'snapshot'
             snapshot_dir.mkdir()
-            output_dir = snapshot_dir / 'merkletree'
+            output_dir = snapshot_dir / 'hashes'
             output_dir.mkdir()
 
             env = os.environ.copy()
-            env['MERKLETREE_ENABLED'] = 'false'
+            env['HASHES_ENABLED'] = 'false'
 
             result = subprocess.run(
                 [
-                    sys.executable, str(MERKLETREE_HOOK),
+                    sys.executable, str(HASHES_HOOK),
                     '--url=https://example.com',
                     '--snapshot-id=test-snapshot',
                 ],
@@ -115,20 +115,20 @@ class TestMerkletreePlugin(TestCase):
             self.assertEqual(result.returncode, 0)
             self.assertIn('skipped', result.stdout)
 
-    def test_merkletree_handles_empty_directory(self):
-        """Merkletree hook should handle empty snapshot directory."""
+    def test_hashes_handles_empty_directory(self):
+        """Hashes hook should handle empty snapshot directory."""
         with tempfile.TemporaryDirectory() as temp_dir:
             snapshot_dir = Path(temp_dir) / 'snapshot'
             snapshot_dir.mkdir()
-            output_dir = snapshot_dir / 'merkletree'
+            output_dir = snapshot_dir / 'hashes'
             output_dir.mkdir()
 
             env = os.environ.copy()
-            env['MERKLETREE_ENABLED'] = 'true'
+            env['HASHES_ENABLED'] = 'true'
 
             result = subprocess.run(
                 [
-                    sys.executable, str(MERKLETREE_HOOK),
+                    sys.executable, str(HASHES_HOOK),
                     '--url=https://example.com',
                     '--snapshot-id=test-snapshot',
                 ],
@@ -143,7 +143,7 @@ class TestMerkletreePlugin(TestCase):
             self.assertEqual(result.returncode, 0, f"Hook failed: {result.stderr}")
 
             # Check output file exists
-            output_file = output_dir / 'merkletree.json'
+            output_file = output_dir / 'hashes.json'
             self.assertTrue(output_file.exists())
 
             with open(output_file) as f:

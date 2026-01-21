@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-Create a Merkle tree of all archived outputs.
+Create a hashed Merkle tree of all archived outputs.
 
 This plugin runs after all extractors complete (priority 93) and generates
-a cryptographic Merkle tree of all files in the snapshot directory.
+a cryptographic Merkle hash tree of all files in the snapshot directory.
 
-Output: merkletree.json containing root_hash, tree structure, file list, metadata
+Output: hashes.json containing root_hash, tree structure, file list, metadata
 
-Usage: on_Snapshot__93_merkletree.py --url=<url> --snapshot-id=<uuid>
+Usage: on_Snapshot__93_hashes.py --url=<url> --snapshot-id=<uuid>
 
 Environment variables:
-    SAVE_MERKLETREE: Enable merkle tree generation (default: true)
+    SAVE_HASHES: Enable hash merkle tree generation (default: true)
     DATA_DIR: ArchiveBox data directory
     ARCHIVE_DIR: Archive output directory
 """
@@ -45,7 +45,7 @@ def sha256_data(data: bytes) -> str:
 
 def collect_files(snapshot_dir: Path, exclude_dirs: Optional[List[str]] = None) -> List[Tuple[Path, str, int]]:
     """Recursively collect all files in snapshot directory."""
-    exclude_dirs = exclude_dirs or ['merkletree', '.git', '__pycache__']
+    exclude_dirs = exclude_dirs or ['hashes', '.git', '__pycache__']
     files = []
 
     for root, dirs, filenames in os.walk(snapshot_dir):
@@ -94,8 +94,8 @@ def build_merkle_tree(file_hashes: List[str]) -> Tuple[str, List[List[str]]]:
     return root_hash, tree_levels
 
 
-def create_merkle_tree(snapshot_dir: Path) -> Dict[str, Any]:
-    """Create a complete Merkle tree of all files in snapshot directory."""
+def create_hashes(snapshot_dir: Path) -> Dict[str, Any]:
+    """Create a complete Merkle hash tree of all files in snapshot directory."""
     files = collect_files(snapshot_dir)
     file_hashes = [file_hash for _, file_hash, _ in files]
     root_hash, tree_levels = build_merkle_tree(file_hashes)
@@ -132,14 +132,14 @@ def main(url: str, snapshot_id: str):
 
     try:
         # Check if enabled
-        save_merkletree = os.getenv('MERKLETREE_ENABLED', 'true').lower() in ('true', '1', 'yes', 'on')
+        save_hashes = os.getenv('HASHES_ENABLED', 'true').lower() in ('true', '1', 'yes', 'on')
 
-        if not save_merkletree:
+        if not save_hashes:
             status = 'skipped'
-            click.echo(json.dumps({'status': status, 'output': 'MERKLETREE_ENABLED=false'}))
+            click.echo(json.dumps({'status': status, 'output': 'HASHES_ENABLED=false'}))
             sys.exit(0)
 
-        # Working directory is the extractor output dir (e.g., <snapshot>/merkletree/)
+        # Working directory is the extractor output dir (e.g., <snapshot>/hashes/)
         # Parent is the snapshot directory
         output_dir = Path.cwd()
         snapshot_dir = output_dir.parent
@@ -149,17 +149,17 @@ def main(url: str, snapshot_id: str):
 
         # Ensure output directory exists
         output_dir.mkdir(exist_ok=True)
-        output_path = output_dir / 'merkletree.json'
+        output_path = output_dir / 'hashes.json'
 
         # Generate Merkle tree
-        merkle_data = create_merkle_tree(snapshot_dir)
+        merkle_data = create_hashes(snapshot_dir)
 
         # Write output
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(merkle_data, f, indent=2)
 
         status = 'succeeded'
-        output = 'merkletree.json'
+        output = 'hashes.json'
         root_hash = merkle_data['root_hash']
         file_count = merkle_data['metadata']['file_count']
 

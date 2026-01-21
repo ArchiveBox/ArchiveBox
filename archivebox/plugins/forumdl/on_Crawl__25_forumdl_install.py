@@ -48,7 +48,9 @@ def main():
             'pip': {
                 'packages': [
                     '--no-deps',
+                    '--prefer-binary',
                     'forum-dl',
+                    'chardet==5.2.0',
                     'pydantic',
                     'pydantic-core',
                     'typing-extensions',

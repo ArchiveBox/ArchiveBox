@@ -24,6 +24,7 @@ const puppeteer = require('puppeteer');
 const PLUGIN_NAME = 'chrome_navigate';
 const CHROME_SESSION_DIR = '.';
 const OUTPUT_DIR = '.';
+const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
 
 function parseArgs() {
     const args = {};
@@ -175,13 +176,13 @@ async function main() {
     // Wait for chrome tab to be open (up to 60s)
     const tabOpen = await waitForChromeTabOpen(60000);
     if (!tabOpen) {
-        console.error('ERROR: Chrome tab not open after 60s (chrome_tab must run first)');
+        console.error(`ERROR: ${CHROME_SESSION_REQUIRED_ERROR}`);
         process.exit(1);
     }
 
     const cdpUrl = getCdpUrl();
     if (!cdpUrl) {
-        console.error('ERROR: Chrome CDP URL not found (chrome tab not initialized)');
+        console.error(`ERROR: ${CHROME_SESSION_REQUIRED_ERROR}`);
         process.exit(1);
     }
 

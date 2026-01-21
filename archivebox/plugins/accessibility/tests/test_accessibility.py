@@ -47,7 +47,6 @@ class TestAccessibilityPlugin(TestCase):
         self.assertTrue(ACCESSIBILITY_HOOK.exists(), f"Hook not found: {ACCESSIBILITY_HOOK}")
 
 
-@pytest.mark.skipif(not chrome_available(), reason="Chrome not installed")
 class TestAccessibilityWithChrome(TestCase):
     """Integration tests for accessibility plugin with Chrome."""
 
@@ -109,9 +108,7 @@ class TestAccessibilityWithChrome(TestCase):
                 self.assertIn('headings', accessibility_data, f"Missing headings: {accessibility_data}")
                 self.assertIn('url', accessibility_data, f"Missing url: {accessibility_data}")
 
-        except RuntimeError as e:
-            if 'Chrome' in str(e) or 'CDP' in str(e):
-                self.skipTest(f"Chrome session setup failed: {e}")
+        except RuntimeError:
             raise
 
     def test_accessibility_disabled_skips(self):

@@ -21,6 +21,7 @@ const {
 } = require('./chrome_utils.js');
 
 const CHROME_SESSION_DIR = '.';
+const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
 
 function parseArgs() {
     const args = {};
@@ -50,7 +51,7 @@ async function main() {
 
     const ready = await waitForChromeSession(CHROME_SESSION_DIR, timeoutMs);
     if (!ready) {
-        const error = `Chrome session not ready after ${timeoutSeconds}s (cdp_url.txt/target_id.txt missing)`;
+        const error = CHROME_SESSION_REQUIRED_ERROR;
         console.error(`[chrome_wait] ERROR: ${error}`);
         console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: error }));
         process.exit(1);
@@ -59,7 +60,7 @@ async function main() {
     const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
     const targetId = readTargetId(CHROME_SESSION_DIR);
     if (!cdpUrl || !targetId) {
-        const error = 'Chrome session files incomplete (cdp_url.txt/target_id.txt missing)';
+        const error = CHROME_SESSION_REQUIRED_ERROR;
         console.error(`[chrome_wait] ERROR: ${error}`);
         console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: error }));
         process.exit(1);

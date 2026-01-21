@@ -125,10 +125,10 @@ def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
     try:
         chromium_binary = install_chromium_with_hooks(env)
     except RuntimeError as e:
-        pytest.skip(str(e))
+        raise RuntimeError(str(e))
 
     if not chromium_binary:
-        pytest.skip("Chromium not found after install")
+        raise RuntimeError("Chromium not found after install")
 
     os.environ['CHROME_BINARY'] = chromium_binary
     for key in ('NODE_MODULES_DIR', 'NODE_PATH', 'PATH'):

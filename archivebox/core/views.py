@@ -1,13 +1,16 @@
 __package__ = 'archivebox.core'
 
 import os
+import posixpath
+from glob import glob, escape
 from django.utils import timezone
 import inspect
 from typing import Callable, get_type_hints
 from pathlib import Path
+from urllib.parse import urlparse
 
 from django.shortcuts import render, redirect
-from django.http import HttpRequest, HttpResponse, Http404
+from django.http import HttpRequest, HttpResponse, Http404, HttpResponseForbidden
 from django.utils.html import format_html, mark_safe
 from django.views import View
 from django.views.generic.list import ListView
@@ -31,6 +34,21 @@ from archivebox.misc.logging_util import printable_filesize
 from archivebox.search import query_search_index
 
 from archivebox.core.models import Snapshot
+from archivebox.core.host_utils import build_snapshot_url
+
+
+def _files_index_target(snapshot: Snapshot, archivefile: str | None) -> str:
+    target = archivefile or ''
+    if target == 'index.html':
+        target = ''
+    fullpath = Path(snapshot.output_dir) / target
+    if fullpath.is_file():
+        target = str(Path(target).parent)
+        if target == '.':
+            target = ''
+    return target
+
+
 from archivebox.core.forms import AddLinkForm
 from archivebox.crawls.models import Crawl
 from archivebox.hooks import get_enabled_plugins, get_plugin_name
@@ -86,13 +104,95 @@ class SnapshotView(View):
     def render_live_index(request, snapshot):
         TITLE_LOADING_MSG = 'Not yet archived...'
 
-        outputs = snapshot.discover_outputs()
+        hidden_card_plugins = {'archivedotorg', 'favicon', 'title'}
+        outputs = [
+            out for out in snapshot.discover_outputs()
+            if (out.get('size') or 0) > 0 and out.get('name') not in hidden_card_plugins
+        ]
         archiveresults = {out['name']: out for out in outputs}
         snap_dir = Path(snapshot.output_dir)
-
         # Get available extractor plugins from hooks (sorted by numeric prefix for ordering)
         # Convert to base names for display ordering
         all_plugins = [get_plugin_name(e) for e in get_enabled_plugins()]
+        accounted_entries: set[str] = set()
+        for output in outputs:
+            output_name = output.get('name') or ''
+            if output_name:
+                accounted_entries.add(output_name)
+            output_path = output.get('path') or ''
+            if not output_path:
+                continue
+            parts = Path(output_path).parts
+            if parts:
+                accounted_entries.add(parts[0])
+
+        ignore_names = {
+            '.DS_Store',
+            'index.html',
+            'index.json',
+            'index.jsonl',
+            'favicon.ico',
+        }
+        ignored_suffixes = {'.log', '.pid', '.sh'}
+        max_loose_scan = 300
+
+        def has_meaningful_files(dir_path: Path) -> bool:
+            scanned = 0
+            for file_path in dir_path.rglob('*'):
+                scanned += 1
+                if scanned > max_loose_scan:
+                    return True
+                if file_path.is_dir() or file_path.name.startswith('.'):
+                    continue
+                if file_path.suffix.lower() in ignored_suffixes:
+                    continue
+                try:
+                    if file_path.stat().st_size == 0:
+                        continue
+                except OSError:
+                    continue
+                return True
+            return False
+
+        unaccounted_entries = []
+        if snap_dir.exists():
+            for entry in snap_dir.iterdir():
+                name = entry.name
+                if name.startswith('.') or name in ignore_names or name in accounted_entries:
+                    continue
+                is_dir = entry.is_dir()
+                is_meaningful = False
+                size = None
+                if is_dir:
+                    is_meaningful = has_meaningful_files(entry)
+                elif entry.is_file():
+                    if entry.suffix.lower() not in ignored_suffixes:
+                        try:
+                            size = entry.stat().st_size
+                            is_meaningful = size > 0
+                        except OSError:
+                            size = None
+                            is_meaningful = False
+
+                unaccounted_entries.append({
+                    'name': name,
+                    'path': name,
+                    'is_dir': is_dir,
+                    'size': size,
+                    'is_meaningful': is_meaningful,
+                })
+
+        unaccounted_entries.sort(key=lambda item: item['name'].lower())
+        loose_items = [item for item in unaccounted_entries if item['is_meaningful']]
+        failed_exclude_suffixes = {'.json', '.jsonl', '.sh', '.log'}
+        failed_items = [
+            item for item in unaccounted_entries
+            if not item['is_meaningful']
+            and not (
+                not item['is_dir']
+                and Path(item['name']).suffix.lower() in failed_exclude_suffixes
+            )
+        ]
         preview_priority = [
             'singlefile',
             'screenshot',
@@ -111,11 +211,47 @@ class SnapshotView(View):
                 break
 
         snapshot_info = snapshot.to_dict(extended=True)
+        related_snapshots_qs = SnapshotView.find_snapshots_for_url(snapshot.url)
+        related_snapshots = list(
+            related_snapshots_qs.exclude(id=snapshot.id).order_by('-bookmarked_at', '-created_at', '-timestamp')[:25]
+        )
+        related_years_map: dict[int, list[Snapshot]] = {}
+        for snap in [snapshot, *related_snapshots]:
+            snap_dt = snap.bookmarked_at or snap.created_at or snap.downloaded_at
+            if not snap_dt:
+                continue
+            related_years_map.setdefault(snap_dt.year, []).append(snap)
+        related_years = []
+        for year, snaps in related_years_map.items():
+            snaps_sorted = sorted(
+                snaps,
+                key=lambda s: (s.bookmarked_at or s.created_at or s.downloaded_at or timezone.now()),
+                reverse=True,
+            )
+            related_years.append({
+                'year': year,
+                'latest': snaps_sorted[0],
+                'snapshots': snaps_sorted,
+            })
+        related_years.sort(key=lambda item: item['year'], reverse=True)
 
         try:
             warc_path = 'warc/' + list(Path(snap_dir).glob('warc/*.warc.*'))[0].name
         except IndexError:
             warc_path = 'warc/'
+
+        ordered_outputs = sorted(
+            archiveresults.values(),
+            key=lambda r: all_types.index(r['name']) if r['name'] in all_types else -r['size'],
+        )
+        non_compact_outputs = [
+            out for out in ordered_outputs
+            if not out.get('is_compact') and not out.get('is_metadata')
+        ]
+        compact_outputs = [
+            out for out in ordered_outputs
+            if out.get('is_compact') or out.get('is_metadata')
+        ]
 
         context = {
             **snapshot_info,
@@ -131,9 +267,13 @@ class SnapshotView(View):
             'oldest_archive_date': ts_to_date_str(snapshot.oldest_archive_date),
             'warc_path': warc_path,
             'PREVIEW_ORIGINALS': SERVER_CONFIG.PREVIEW_ORIGINALS,
-            'archiveresults': sorted(archiveresults.values(), key=lambda r: all_types.index(r['name']) if r['name'] in all_types else -r['size']),
+            'archiveresults': [*non_compact_outputs, *compact_outputs],
             'best_result': best_result,
             'snapshot': snapshot,  # Pass the snapshot object for template tags
+            'related_snapshots': related_snapshots,
+            'related_years': related_years,
+            'loose_items': loose_items,
+            'failed_items': failed_items,
         }
         return render(template_name='core/snapshot_live.html', request=request, context=context)
 
@@ -168,13 +308,20 @@ class SnapshotView(View):
                             target_path = f'{target_path}?{query}'
                         return redirect(target_path)
 
-                    if archivefile == 'index.html':
+                    if request.GET.get('files'):
+                        target_path = _files_index_target(snapshot, archivefile)
+                        response = serve_static_with_byterange_support(
+                            request, target_path, document_root=snapshot.output_dir, show_indexes=True,
+                        )
+                    elif archivefile == 'index.html':
                         # if they requested snapshot index, serve live rendered template instead of static html
                         response = self.render_live_index(request, snapshot)
                     else:
-                        response = serve_static_with_byterange_support(
-                            request, archivefile, document_root=snapshot.output_dir, show_indexes=True,
-                        )
+                        target = build_snapshot_url(str(snapshot.id), archivefile, request=request)
+                        query = request.META.get('QUERY_STRING')
+                        if query:
+                            target = f'{target}?{query}'
+                        return redirect(target)
                     response["Link"] = f'<{snapshot.url}>; rel="canonical"'
                     return response
                 except Snapshot.DoesNotExist:
@@ -328,12 +475,15 @@ class SnapshotView(View):
 class SnapshotPathView(View):
     """Serve snapshots by the new URL scheme: /<username>/<YYYYMMDD>/<domain>/<uuid>/..."""
 
-    def get(self, request, username: str, date: str, domain: str | None = None, snapshot_id: str | None = None, path: str = "", url: str | None = None):
+    def get(self, request, username: str, date: str | None = None, domain: str | None = None, snapshot_id: str | None = None, path: str = "", url: str | None = None):
         if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
             return redirect(f'/admin/login/?next={request.path}')
 
         if username == 'system':
             return redirect(request.path.replace('/system/', '/web/', 1))
+
+        if date and domain and domain == date:
+            raise Http404
 
         requested_url = url
         if not requested_url and domain and domain.startswith(('http://', 'https://')):
@@ -358,19 +508,20 @@ class SnapshotPathView(View):
             else:
                 qs = Snapshot.objects.filter(crawl__created_by__username=username_lookup)
 
-            try:
-                if len(date) == 4:
-                    qs = qs.filter(created_at__year=int(date))
-                elif len(date) == 6:
-                    qs = qs.filter(created_at__year=int(date[:4]), created_at__month=int(date[4:6]))
-                elif len(date) == 8:
-                    qs = qs.filter(
-                        created_at__year=int(date[:4]),
-                        created_at__month=int(date[4:6]),
-                        created_at__day=int(date[6:8]),
-                    )
-            except ValueError:
-                pass
+            if date:
+                try:
+                    if len(date) == 4:
+                        qs = qs.filter(created_at__year=int(date))
+                    elif len(date) == 6:
+                        qs = qs.filter(created_at__year=int(date[:4]), created_at__month=int(date[4:6]))
+                    elif len(date) == 8:
+                        qs = qs.filter(
+                            created_at__year=int(date[:4]),
+                            created_at__month=int(date[4:6]),
+                            created_at__day=int(date[6:8]),
+                        )
+                except ValueError:
+                    pass
 
             if requested_url:
                 snapshot = qs.order_by('-created_at', '-bookmarked_at', '-timestamp').first()
@@ -401,7 +552,10 @@ class SnapshotPathView(View):
             )
 
         canonical_base = snapshot.url_path
-        requested_base = f'{username}/{date}/{domain or url or ""}'
+        if date:
+            requested_base = f'{username}/{date}/{domain or url or ""}'
+        else:
+            requested_base = f'{username}/{domain or url or ""}'
         if snapshot_id:
             requested_base = f'{requested_base}/{snapshot_id}'
         if canonical_base != requested_base:
@@ -412,6 +566,18 @@ class SnapshotPathView(View):
             return redirect(target)
 
         archivefile = path or "index.html"
+        if archivefile != "index.html" and not request.GET.get('files'):
+            target = build_snapshot_url(str(snapshot.id), archivefile, request=request)
+            query = request.META.get('QUERY_STRING')
+            if query:
+                target = f'{target}?{query}'
+            return redirect(target)
+
+        if request.GET.get('files'):
+            target_path = _files_index_target(snapshot, archivefile)
+            return serve_static_with_byterange_support(
+                request, target_path, document_root=snapshot.output_dir, show_indexes=True,
+            )
 
         if archivefile == "index.html":
             return SnapshotView.render_live_index(request, snapshot)
@@ -419,6 +585,202 @@ class SnapshotPathView(View):
         return serve_static_with_byterange_support(
             request, archivefile, document_root=snapshot.output_dir, show_indexes=True,
         )
+
+
+def _safe_archive_relpath(path: str) -> str | None:
+    if not path:
+        return ""
+    cleaned = posixpath.normpath(path)
+    cleaned = cleaned.lstrip("/")
+    if cleaned.startswith("..") or "/../" in f"/{cleaned}/":
+        return None
+    return cleaned
+
+
+def _latest_response_match(domain: str, rel_path: str) -> tuple[Path, Path] | None:
+    if not domain or not rel_path:
+        return None
+    domain = domain.split(":", 1)[0].lower()
+    # TODO: optimize by querying output_files in DB instead of globbing filesystem
+    data_root = DATA_DIR / "users"
+    escaped_domain = escape(domain)
+    escaped_path = escape(rel_path)
+    pattern = str(data_root / "*" / "snapshots" / "*" / escaped_domain / "*" / "responses" / escaped_domain / escaped_path)
+    matches = glob(pattern)
+    if not matches:
+        return None
+
+    def sort_key(match_path: str) -> tuple[str, str]:
+        parts = Path(match_path).parts
+        date_str = ""
+        try:
+            idx = parts.index("snapshots")
+            date_str = parts[idx + 1]
+        except Exception:
+            date_str = ""
+        return (date_str, match_path)
+
+    best = max(matches, key=sort_key)
+    best_path = Path(best)
+    parts = best_path.parts
+    try:
+        responses_idx = parts.index("responses")
+    except ValueError:
+        return None
+    responses_root = Path(*parts[: responses_idx + 1])
+    rel_to_root = Path(*parts[responses_idx + 1 :])
+    return responses_root, rel_to_root
+
+
+def _latest_responses_root(domain: str) -> Path | None:
+    if not domain:
+        return None
+    domain = domain.split(":", 1)[0].lower()
+    data_root = DATA_DIR / "users"
+    escaped_domain = escape(domain)
+    pattern = str(data_root / "*" / "snapshots" / "*" / escaped_domain / "*" / "responses" / escaped_domain)
+    matches = glob(pattern)
+    if not matches:
+        return None
+
+    def sort_key(match_path: str) -> tuple[str, str]:
+        parts = Path(match_path).parts
+        date_str = ""
+        try:
+            idx = parts.index("snapshots")
+            date_str = parts[idx + 1]
+        except Exception:
+            date_str = ""
+        return (date_str, match_path)
+
+    best = max(matches, key=sort_key)
+    return Path(best)
+
+
+def _serve_responses_path(request, responses_root: Path, rel_path: str, show_indexes: bool):
+    candidates: list[str] = []
+    rel_path = rel_path or ""
+    if rel_path.endswith("/"):
+        rel_path = f"{rel_path}index.html"
+    if "." not in Path(rel_path).name:
+        candidates.append(f"{rel_path.rstrip('/')}/index.html")
+    candidates.append(rel_path)
+
+    for candidate in candidates:
+        try:
+            return serve_static_with_byterange_support(
+                request,
+                candidate,
+                document_root=str(responses_root),
+                show_indexes=show_indexes,
+            )
+        except Http404:
+            pass
+
+    if rel_path.endswith("index.html"):
+        rel_dir = rel_path[: -len("index.html")]
+        try:
+            return serve_static_with_byterange_support(
+                request,
+                rel_dir,
+                document_root=str(responses_root),
+                show_indexes=True,
+            )
+        except Http404:
+            return None
+    return None
+
+
+class SnapshotHostView(View):
+    """Serve snapshot directory contents on <snapshot_id>.<listen_host>/<path>."""
+
+    def get(self, request, snapshot_id: str, path: str = ""):
+        if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
+            return HttpResponseForbidden("Public snapshots are disabled.")
+        snapshot = None
+        if snapshot_id:
+            try:
+                snapshot = Snapshot.objects.get(pk=snapshot_id)
+            except Snapshot.DoesNotExist:
+                try:
+                    snapshot = Snapshot.objects.get(id__startswith=snapshot_id)
+                except Snapshot.DoesNotExist:
+                    snapshot = None
+                except Snapshot.MultipleObjectsReturned:
+                    snapshot = Snapshot.objects.filter(id__startswith=snapshot_id).first()
+
+        if not snapshot:
+            raise Http404
+
+        rel_path = path or ""
+        show_indexes = bool(request.GET.get("files"))
+        if not rel_path or rel_path.endswith("/"):
+            if show_indexes:
+                rel_path = rel_path.rstrip("/")
+            else:
+                rel_path = f"{rel_path}index.html"
+        rel_path = _safe_archive_relpath(rel_path)
+        if rel_path is None:
+            raise Http404
+
+        try:
+            return serve_static_with_byterange_support(
+                request,
+                rel_path,
+                document_root=snapshot.output_dir,
+                show_indexes=show_indexes,
+            )
+        except Http404:
+            pass
+
+        # Fallback to responses/<domain>/<path>
+        host = urlparse(snapshot.url).hostname or snapshot.domain
+        responses_root = Path(snapshot.output_dir) / "responses" / host
+        if responses_root.exists():
+            response = _serve_responses_path(request, responses_root, rel_path, show_indexes)
+            if response is not None:
+                return response
+
+        raise Http404
+
+
+class OriginalDomainHostView(View):
+    """Serve responses from the most recent snapshot when using <domain>.<listen_host>/<path>."""
+
+    def get(self, request, domain: str, path: str = ""):
+        if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
+            return HttpResponseForbidden("Public snapshots are disabled.")
+        rel_path = path or ""
+        if not rel_path or rel_path.endswith("/"):
+            rel_path = f"{rel_path}index.html"
+        rel_path = _safe_archive_relpath(rel_path)
+        if rel_path is None:
+            raise Http404
+
+        domain = domain.lower()
+        match = _latest_response_match(domain, rel_path)
+        if not match and "." not in Path(rel_path).name:
+            index_path = f"{rel_path.rstrip('/')}/index.html"
+            match = _latest_response_match(domain, index_path)
+        if not match and "." not in Path(rel_path).name:
+            html_path = f"{rel_path}.html"
+            match = _latest_response_match(domain, html_path)
+
+        show_indexes = bool(request.GET.get("files"))
+        if match:
+            responses_root, rel_to_root = match
+            response = _serve_responses_path(request, responses_root, str(rel_to_root), show_indexes)
+            if response is not None:
+                return response
+
+        # If no direct match, try serving directory index from latest responses root
+        responses_root = _latest_responses_root(domain)
+        if responses_root:
+            response = _serve_responses_path(request, responses_root, rel_path, show_indexes)
+            if response is not None:
+                return response
+
+        raise Http404
 
 
 class PublicIndexView(ListView):
@@ -508,7 +870,7 @@ class AddView(UserPassesTestMixin, FormView):
             'available_tags': list(Tag.objects.all().order_by('name').values_list('name', flat=True)),
         }
 
-    def form_valid(self, form):
+    def _create_crawl_from_form(self, form, *, created_by_id=None) -> Crawl:
         urls = form.cleaned_data["url"]
         print(f'[+] Adding URL: {urls}')
 
@@ -522,13 +884,21 @@ class AddView(UserPassesTestMixin, FormView):
         update = form.cleaned_data.get("update", False)
         index_only = form.cleaned_data.get("index_only", False)
         notes = form.cleaned_data.get("notes", "")
-        custom_config = form.cleaned_data.get("config", {})
+        custom_config = form.cleaned_data.get("config") or {}
 
         from archivebox.config.permissions import HOSTNAME
 
+        if created_by_id is None:
+            if self.request.user.is_authenticated:
+                created_by_id = self.request.user.pk
+            else:
+                from archivebox.base_models.models import get_or_create_system_user_pk
+                created_by_id = get_or_create_system_user_pk()
+
+        created_by_name = self.request.user.username if self.request.user.is_authenticated else 'web'
 
         # 1. save the provided urls to sources/2024-11-05__23-59-59__web_ui_add_by_user_<user_pk>.txt
-        sources_file = CONSTANTS.SOURCES_DIR / f'{timezone.now().strftime("%Y-%m-%d__%H-%M-%S")}__web_ui_add_by_user_{self.request.user.pk}.txt'
+        sources_file = CONSTANTS.SOURCES_DIR / f'{timezone.now().strftime("%Y-%m-%d__%H-%M-%S")}__web_ui_add_by_user_{created_by_id}.txt'
         sources_file.write_text(urls if isinstance(urls, str) else '\n'.join(urls))
 
         # 2. create a new Crawl with the URLs from the file
@@ -552,8 +922,8 @@ class AddView(UserPassesTestMixin, FormView):
             max_depth=depth,
             tags_str=tag,
             notes=notes,
-            label=f'{self.request.user.username}@{HOSTNAME}{self.request.path} {timestamp}',
-            created_by_id=self.request.user.pk,
+            label=f'{created_by_name}@{HOSTNAME}{self.request.path} {timestamp}',
+            created_by_id=created_by_id,
             config=config
         )
 
@@ -566,7 +936,7 @@ class AddView(UserPassesTestMixin, FormView):
                 is_enabled=True,
                 label=crawl.label,
                 notes=f"Auto-created from add page. {notes}".strip(),
-                created_by_id=self.request.user.pk,
+                created_by_id=created_by_id,
             )
             crawl.schedule = crawl_schedule
             crawl.save(update_fields=['schedule'])
@@ -576,7 +946,13 @@ class AddView(UserPassesTestMixin, FormView):
         # from archivebox.crawls.actors import CrawlActor
         # from archivebox.core.actors import SnapshotActor, ArchiveResultActor
 
+        return crawl
 
+    def form_valid(self, form):
+        crawl = self._create_crawl_from_form(form)
+
+        urls = form.cleaned_data["url"]
+        schedule = form.cleaned_data.get("schedule", "").strip()
         rough_url_count = urls.count('://')
 
         # Build success message with schedule link if created
@@ -591,6 +967,74 @@ class AddView(UserPassesTestMixin, FormView):
 
         # Orchestrator (managed by supervisord) will pick up the queued crawl
         return redirect(crawl.admin_change_url)
+
+
+class WebAddView(AddView):
+    def _latest_snapshot_for_url(self, requested_url: str):
+        return SnapshotView.find_snapshots_for_url(requested_url).order_by(
+            '-created_at', '-bookmarked_at', '-timestamp'
+        ).first()
+
+    def _normalize_add_url(self, requested_url: str) -> str:
+        if requested_url.startswith(('http://', 'https://')):
+            return requested_url
+        return f'https://{requested_url}'
+
+    def dispatch(self, request, *args, **kwargs):
+        requested_url = urldecode(kwargs.get('url', '') or '')
+        if requested_url:
+            snapshot = self._latest_snapshot_for_url(requested_url)
+            if snapshot:
+                return redirect(f'/{snapshot.url_path}')
+
+        if not self.test_func():
+            return HttpResponse(
+                format_html(
+                    (
+                        '<center><br/><br/><br/>'
+                        'No Snapshots match the given url: <code>{}</code><br/><br/><br/>'
+                        'Return to the <a href="/" target="_top">Main Index</a>'
+                        '</center>'
+                    ),
+                    requested_url or '',
+                ),
+                content_type="text/html",
+                status=404,
+            )
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request, url: str):
+        requested_url = urldecode(url)
+        if not requested_url:
+            raise Http404
+
+        snapshot = self._latest_snapshot_for_url(requested_url)
+        if snapshot:
+            return redirect(f'/{snapshot.url_path}')
+
+        add_url = self._normalize_add_url(requested_url)
+        defaults_form = self.form_class()
+        form_data = {
+            'url': add_url,
+            'depth': defaults_form.fields['depth'].initial or '0',
+            'persona': defaults_form.fields['persona'].initial or 'Default',
+            'config': {},
+        }
+        if defaults_form.fields['update'].initial:
+            form_data['update'] = 'on'
+        if defaults_form.fields['overwrite'].initial:
+            form_data['overwrite'] = 'on'
+        if defaults_form.fields['index_only'].initial:
+            form_data['index_only'] = 'on'
+
+        form = self.form_class(data=form_data)
+        if not form.is_valid():
+            return self.form_invalid(form)
+
+        crawl = self._create_crawl_from_form(form)
+        snapshot = Snapshot.from_json({'url': add_url, 'tags': form.cleaned_data.get('tag', '')}, overrides={'crawl': crawl})
+        return redirect(f'/{snapshot.url_path}')
 
 
 class HealthCheckView(View):
@@ -617,11 +1061,19 @@ def live_progress_view(request):
         from archivebox.workers.orchestrator import Orchestrator
         from archivebox.crawls.models import Crawl
         from archivebox.core.models import Snapshot, ArchiveResult
+        from archivebox.machine.models import Process, Machine
         from django.db.models import Case, When, Value, IntegerField
 
         # Get orchestrator status
         orchestrator_running = Orchestrator.is_running()
         total_workers = Orchestrator().get_total_worker_count() if orchestrator_running else 0
+        machine = Machine.current()
+        orchestrator_proc = Process.objects.filter(
+            machine=machine,
+            process_type=Process.TypeChoices.ORCHESTRATOR,
+            status=Process.StatusChoices.RUNNING,
+        ).order_by('-started_at').first()
+        orchestrator_pid = orchestrator_proc.pid if orchestrator_proc else None
 
         # Get model counts by status
         crawls_pending = Crawl.objects.filter(status=Crawl.StatusChoices.QUEUED).count()
@@ -653,24 +1105,47 @@ def live_progress_view(request):
                 ext = embed.lower().split('.')[-1] if '.' in embed else ''
                 is_embeddable = ext in ('png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'pdf', 'html')
                 if is_embeddable or ar.plugin in ('screenshot', 'favicon', 'dom'):
+                    archive_path = embed or ''
                     recent_thumbnails.append({
                         'id': str(ar.id),
                         'plugin': ar.plugin,
                         'snapshot_id': str(ar.snapshot_id),
                         'snapshot_url': ar.snapshot.url[:60] if ar.snapshot else '',
                         'embed_path': embed,
-                        'archive_path': f'/{ar.snapshot.archive_path}/{embed}' if ar.snapshot else '',
+                        'archive_path': archive_path,
+                        'archive_url': build_snapshot_url(str(ar.snapshot_id), archive_path, request=request) if archive_path else '',
                         'end_ts': ar.end_ts.isoformat() if ar.end_ts else None,
                     })
 
         # Build hierarchical active crawls with nested snapshots and archive results
         from django.db.models import Prefetch
 
+        running_workers = Process.objects.filter(
+            machine=machine,
+            process_type=Process.TypeChoices.WORKER,
+            status=Process.StatusChoices.RUNNING,
+        )
+        crawl_worker_pids: dict[str, int] = {}
+        snapshot_worker_pids: dict[str, int] = {}
+        for proc in running_workers:
+            env = proc.env or {}
+            if not isinstance(env, dict):
+                continue
+            if proc.worker_type == 'crawl':
+                crawl_id = env.get('CRAWL_ID')
+                if crawl_id:
+                    crawl_worker_pids[str(crawl_id)] = proc.pid
+            elif proc.worker_type == 'snapshot':
+                snapshot_id = env.get('SNAPSHOT_ID')
+                if snapshot_id:
+                    snapshot_worker_pids[str(snapshot_id)] = proc.pid
+
         active_crawls_qs = Crawl.objects.filter(
             status__in=[Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED]
         ).prefetch_related(
             'snapshot_set',
             'snapshot_set__archiveresult_set',
+            'snapshot_set__archiveresult_set__process',
         ).distinct().order_by('-modified_at')[:10]
 
         active_crawls = []
@@ -710,8 +1185,9 @@ def live_progress_view(request):
                 failed_plugins = sum(1 for ar in snapshot_results if ar.status == ArchiveResult.StatusChoices.FAILED)
                 pending_plugins = sum(1 for ar in snapshot_results if ar.status == ArchiveResult.StatusChoices.QUEUED)
 
-                # Calculate snapshot progress
-                snapshot_progress = int(((completed_plugins + failed_plugins) / total_plugins) * 100) if total_plugins > 0 else 0
+                # Calculate snapshot progress using per-plugin progress
+                now = timezone.now()
+                plugin_progress_values: list[int] = []
 
                 # Get all extractor plugins for this snapshot (already prefetched, sort in Python)
                 # Order: started first, then queued, then completed
@@ -724,14 +1200,42 @@ def live_progress_view(request):
                     }
                     return (status_order.get(ar.status, 4), ar.plugin)
 
-                all_plugins = [
-                    {
+                all_plugins = []
+                for ar in sorted(snapshot_results, key=plugin_sort_key):
+                    status = ar.status
+                    progress_value = 0
+                    if status in (
+                        ArchiveResult.StatusChoices.SUCCEEDED,
+                        ArchiveResult.StatusChoices.FAILED,
+                        ArchiveResult.StatusChoices.SKIPPED,
+                    ):
+                        progress_value = 100
+                    elif status == ArchiveResult.StatusChoices.STARTED:
+                        started_at = ar.start_ts or (ar.process.started_at if ar.process_id and ar.process else None)
+                        timeout = ar.timeout or 120
+                        if started_at and timeout:
+                            elapsed = max(0.0, (now - started_at).total_seconds())
+                            progress_value = int(min(99, max(1, (elapsed / float(timeout)) * 100)))
+                        else:
+                            progress_value = 1
+                    else:
+                        progress_value = 0
+
+                    plugin_progress_values.append(progress_value)
+
+                    plugin_payload = {
                         'id': str(ar.id),
                         'plugin': ar.plugin,
-                        'status': ar.status,
+                        'status': status,
                     }
-                    for ar in sorted(snapshot_results, key=plugin_sort_key)
-                ]
+                    if ar.process_id and ar.process and ar.process.status == Process.StatusChoices.RUNNING:
+                        plugin_payload['pid'] = ar.process.pid
+                    if status == ArchiveResult.StatusChoices.STARTED:
+                        plugin_payload['progress'] = progress_value
+                        plugin_payload['timeout'] = ar.timeout or 120
+                    all_plugins.append(plugin_payload)
+
+                snapshot_progress = int(sum(plugin_progress_values) / total_plugins) if total_plugins > 0 else 0
 
                 active_snapshots_for_crawl.append({
                     'id': str(snapshot.id),
@@ -744,6 +1248,7 @@ def live_progress_view(request):
                     'failed_plugins': failed_plugins,
                     'pending_plugins': pending_plugins,
                     'all_plugins': all_plugins,
+                    'worker_pid': snapshot_worker_pids.get(str(snapshot.id)),
                 })
 
             # Check if crawl can start (for debugging stuck crawls)
@@ -772,10 +1277,12 @@ def live_progress_view(request):
                 'urls_preview': urls_preview,
                 'retry_at_future': retry_at_future,
                 'seconds_until_retry': seconds_until_retry,
+                'worker_pid': crawl_worker_pids.get(str(crawl.id)),
             })
 
         return JsonResponse({
             'orchestrator_running': orchestrator_running,
+            'orchestrator_pid': orchestrator_pid,
             'total_workers': total_workers,
             'crawls_pending': crawls_pending,
             'crawls_started': crawls_started,

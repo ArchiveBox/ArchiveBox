@@ -9,12 +9,12 @@ Environment variables:
     SINGLEFILE_ENABLED: Enable SingleFile archiving (default: True)
     SINGLEFILE_BINARY: Path to SingleFile binary (default: single-file)
     SINGLEFILE_NODE_BINARY: Path to Node.js binary (x-fallback: NODE_BINARY)
-    SINGLEFILE_CHROME_BINARY: Path to Chrome binary (x-fallback: CHROME_BINARY)
+    SINGLEFILE_CHROME_BINARY: Path to Chrome binary (x-fallback: CHROME_BINARY) [unused; shared Chrome session required]
     SINGLEFILE_TIMEOUT: Timeout in seconds (x-fallback: TIMEOUT)
     SINGLEFILE_USER_AGENT: User agent string (x-fallback: USER_AGENT)
     SINGLEFILE_COOKIES_FILE: Path to cookies file (x-fallback: COOKIES_FILE)
     SINGLEFILE_CHECK_SSL_VALIDITY: Whether to verify SSL certs (x-fallback: CHECK_SSL_VALIDITY)
-    SINGLEFILE_CHROME_ARGS: Chrome command-line arguments (x-fallback: CHROME_ARGS)
+    SINGLEFILE_CHROME_ARGS: Chrome command-line arguments (x-fallback: CHROME_ARGS) [unused; shared Chrome session required]
     SINGLEFILE_ARGS: Default SingleFile arguments (JSON array)
     SINGLEFILE_ARGS_EXTRA: Extra arguments to append (JSON array)
 """
@@ -138,8 +138,7 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     Archive URL using SingleFile.
 
-    If a Chrome session exists (from chrome plugin), connects to it via CDP.
-    Otherwise launches a new Chrome instance.
+    Requires a Chrome session (from chrome plugin) and connects to it via CDP.
 
     Returns: (success, output_path, error_message)
     """
@@ -151,8 +150,7 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     cookies_file = get_env('SINGLEFILE_COOKIES_FILE') or get_env('COOKIES_FILE', '')
     singlefile_args = get_env_array('SINGLEFILE_ARGS', [])
     singlefile_args_extra = get_env_array('SINGLEFILE_ARGS_EXTRA', [])
-    chrome_args = get_env_array('SINGLEFILE_CHROME_ARGS') or get_env_array('CHROME_ARGS', [])
-    chrome = get_env('SINGLEFILE_CHROME_BINARY') or get_env('CHROME_BINARY', '')
+    # Chrome args/binary are intentionally ignored because we require a shared Chrome session
 
     cmd = [binary, *singlefile_args]
 
@@ -176,14 +174,8 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     if cdp_remote_url:
         print(f'[singlefile] Using existing Chrome session: {cdp_remote_url}', file=sys.stderr)
         cmd.extend(['--browser-server', cdp_remote_url])
-    elif chrome:
-        print(f'[singlefile] Launching Chrome binary: {chrome}', file=sys.stderr)
-        cmd.extend(['--browser-executable-path', chrome])
-
-    # Pass Chrome arguments (only when launching a new browser)
-    if chrome_args and not cdp_remote_url:
-        # SingleFile expects --browser-args as a JSON array string
-        cmd.extend(['--browser-args', json.dumps(chrome_args)])
+    else:
+        return False, None, 'No Chrome session found (chrome plugin must run first)'
 
     # SSL handling
     if not check_ssl:
@@ -267,8 +259,8 @@ def save_singlefile_with_extension(url: str, timeout: int) -> tuple[bool, str | 
     # Only attempt if chrome session exists
     cdp_url = get_cdp_url(wait_seconds=min(5, max(1, timeout // 10)))
     if not cdp_url:
-        print('[singlefile] No chrome session (cdp_url.txt missing)', file=sys.stderr)
-        return False, None, 'No Chrome session available'
+        print('[singlefile] No Chrome session found (chrome plugin must run first)', file=sys.stderr)
+        return False, None, 'No Chrome session found (chrome plugin must run first)'
 
     if not EXTENSION_SAVE_SCRIPT.exists():
         print(f'[singlefile] Missing helper script: {EXTENSION_SAVE_SCRIPT}', file=sys.stderr)

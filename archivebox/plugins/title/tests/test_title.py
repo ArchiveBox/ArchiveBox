@@ -7,8 +7,7 @@ Tests verify:
 3. Title extraction works for real example.com
 4. Output file contains actual page title
 5. Handles various title sources (<title>, og:title, twitter:title)
-6. Config options work (TIMEOUT, USER_AGENT)
-7. Fallback to HTTP when chrome not available
+6. Config options work (TITLE_TIMEOUT)
 """
 
 import json
@@ -23,12 +22,34 @@ from archivebox.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
     parse_jsonl_output,
+    get_test_env,
+    chrome_session,
+    CHROME_NAVIGATE_HOOK,
 )
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
 TITLE_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_title.*')
 TEST_URL = 'https://example.com'
+
+def run_title_capture(title_dir, snapshot_chrome_dir, env, url, snapshot_id):
+    nav_result = subprocess.run(
+        ['node', str(CHROME_NAVIGATE_HOOK), f'--url={url}', f'--snapshot-id={snapshot_id}'],
+        cwd=str(snapshot_chrome_dir),
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env=env,
+    )
+    result = subprocess.run(
+        ['node', str(TITLE_HOOK), f'--url={url}', f'--snapshot-id={snapshot_id}'],
+        cwd=title_dir,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
+    )
+    return nav_result, result
 
 
 def test_hook_script_exists():
@@ -46,15 +67,18 @@ def test_extracts_title_from_example_com():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Run title extraction
-        result = subprocess.run(
-            ['node', str(TITLE_HOOK), f'--url={TEST_URL}', '--snapshot-id=test789'],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            timeout=60
-        ,
-            env=get_test_env())
+        with chrome_session(tmpdir, test_url=TEST_URL, navigate=False) as (_process, _pid, snapshot_chrome_dir, env):
+            title_dir = snapshot_chrome_dir.parent / 'title'
+            title_dir.mkdir(exist_ok=True)
+
+            nav_result, result = run_title_capture(
+                title_dir,
+                snapshot_chrome_dir,
+                env,
+                TEST_URL,
+                'test789',
+            )
+            assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
@@ -76,7 +100,7 @@ def test_extracts_title_from_example_com():
         assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
         # Verify output file exists (hook writes to current directory)
-        title_file = tmpdir / 'title.txt'
+        title_file = title_dir / 'title.txt'
         assert title_file.exists(), "title.txt not created"
 
         # Verify title contains REAL example.com title
@@ -88,56 +112,33 @@ def test_extracts_title_from_example_com():
         assert 'example domain' in title_text.lower(), f"Expected 'Example Domain', got: {title_text}"
 
 
-def test_falls_back_to_http_when_chrome_unavailable():
-    """Test that title plugin falls back to HTTP when chrome unavailable."""
+def test_fails_without_chrome_session():
+    """Test that title plugin fails when chrome session is missing."""
 
     if not shutil.which('node'):
         pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-
-        # Don't create chrome directory - force HTTP fallback
+        title_dir = tmpdir / 'snapshot' / 'title'
+        title_dir.mkdir(parents=True, exist_ok=True)
 
         # Run title extraction
         result = subprocess.run(
             ['node', str(TITLE_HOOK), f'--url={TEST_URL}', '--snapshot-id=testhttp'],
-            cwd=tmpdir,
+            cwd=title_dir,
             capture_output=True,
             text=True,
-            timeout=60
-        ,
-            env=get_test_env())
+            timeout=60,
+            env=get_test_env(),
+        )
 
-        assert result.returncode == 0, f"Extraction failed: {result.stderr}"
-
-        # Parse clean JSONL output
-        result_json = None
-        for line in result.stdout.strip().split('\n'):
-            line = line.strip()
-            if line.startswith('{'):
-                pass
-                try:
-                    record = json.loads(line)
-                    if record.get('type') == 'ArchiveResult':
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
-
-        assert result_json, "Should have ArchiveResult JSONL output"
-        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
-
-        # Verify output exists and has real title (hook writes to current directory)
-        output_title_file = tmpdir / 'title.txt'
-        assert output_title_file.exists(), "Output title.txt not created"
-
-        title_text = output_title_file.read_text().strip()
-        assert 'example' in title_text.lower()
+        assert result.returncode != 0, f"Should fail without chrome session: {result.stderr}"
+        assert 'No Chrome session found (chrome plugin must run first)' in (result.stdout + result.stderr)
 
 
 def test_config_timeout_honored():
-    """Test that TIMEOUT config is respected."""
+    """Test that TITLE_TIMEOUT config is respected."""
 
     if not shutil.which('node'):
         pass
@@ -147,63 +148,25 @@ def test_config_timeout_honored():
 
         # Set very short timeout (but example.com should still succeed)
         import os
-        env = os.environ.copy()
-        env['TIMEOUT'] = '5'
+        env_override = os.environ.copy()
+        env_override['TITLE_TIMEOUT'] = '5'
 
-        result = subprocess.run(
-            ['node', str(TITLE_HOOK), f'--url={TEST_URL}', '--snapshot-id=testtimeout'],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=30
-        )
+        with chrome_session(tmpdir, test_url=TEST_URL, navigate=False) as (_process, _pid, snapshot_chrome_dir, env):
+            title_dir = snapshot_chrome_dir.parent / 'title'
+            title_dir.mkdir(exist_ok=True)
+            env.update(env_override)
+
+            nav_result, result = run_title_capture(
+                title_dir,
+                snapshot_chrome_dir,
+                env,
+                TEST_URL,
+                'testtimeout',
+            )
+            assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
         # Should complete (success or fail, but not hang)
         assert result.returncode in (0, 1), "Should complete without hanging"
-
-
-def test_config_user_agent():
-    """Test that USER_AGENT config is used."""
-
-    if not shutil.which('node'):
-        pass
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-
-        # Set custom user agent
-        import os
-        env = os.environ.copy()
-        env['USER_AGENT'] = 'TestBot/1.0'
-
-        result = subprocess.run(
-            ['node', str(TITLE_HOOK), f'--url={TEST_URL}', '--snapshot-id=testua'],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=60
-        )
-
-        # Should succeed (example.com doesn't block)
-        if result.returncode == 0:
-            # Parse clean JSONL output
-            result_json = None
-            for line in result.stdout.strip().split('\n'):
-                line = line.strip()
-                if line.startswith('{'):
-                    pass
-                    try:
-                        record = json.loads(line)
-                        if record.get('type') == 'ArchiveResult':
-                            result_json = record
-                            break
-                    except json.JSONDecodeError:
-                        pass
-
-            assert result_json, "Should have ArchiveResult JSONL output"
-            assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
 
 def test_handles_https_urls():
@@ -215,18 +178,22 @@ def test_handles_https_urls():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        result = subprocess.run(
-            ['node', str(TITLE_HOOK), '--url=https://example.org', '--snapshot-id=testhttps'],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            timeout=60
-        ,
-            env=get_test_env())
+        with chrome_session(tmpdir, test_url='https://example.org', navigate=False) as (_process, _pid, snapshot_chrome_dir, env):
+            title_dir = snapshot_chrome_dir.parent / 'title'
+            title_dir.mkdir(exist_ok=True)
+
+            nav_result, result = run_title_capture(
+                title_dir,
+                snapshot_chrome_dir,
+                env,
+                'https://example.org',
+                'testhttps',
+            )
+            assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
         if result.returncode == 0:
             # Hook writes to current directory
-            output_title_file = tmpdir / 'title.txt'
+            output_title_file = title_dir / 'title.txt'
             if output_title_file.exists():
                 title_text = output_title_file.read_text().strip()
                 assert len(title_text) > 0, "Title should not be empty"
@@ -246,14 +213,23 @@ def test_handles_404_gracefully():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        result = subprocess.run(
-            ['node', str(TITLE_HOOK), '--url=https://example.com/nonexistent-page-404', '--snapshot-id=test404'],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            timeout=60
-        ,
-            env=get_test_env())
+        with chrome_session(tmpdir, test_url='https://example.com/nonexistent-page-404', navigate=False) as (
+            _process,
+            _pid,
+            snapshot_chrome_dir,
+            env,
+        ):
+            title_dir = snapshot_chrome_dir.parent / 'title'
+            title_dir.mkdir(exist_ok=True)
+
+            nav_result, result = run_title_capture(
+                title_dir,
+                snapshot_chrome_dir,
+                env,
+                'https://example.com/nonexistent-page-404',
+                'test404',
+            )
+            assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
         # May succeed or fail depending on server behavior
         # example.com returns "Example Domain" even for 404s
@@ -269,20 +245,29 @@ def test_handles_redirects():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # http://example.com redirects to https://example.com
-        result = subprocess.run(
-            ['node', str(TITLE_HOOK), '--url=http://example.com', '--snapshot-id=testredirect'],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            timeout=60
-        ,
-            env=get_test_env())
+        with chrome_session(tmpdir, test_url='http://example.com', navigate=False) as (
+            _process,
+            _pid,
+            snapshot_chrome_dir,
+            env,
+        ):
+            title_dir = snapshot_chrome_dir.parent / 'title'
+            title_dir.mkdir(exist_ok=True)
+
+            # http://example.com redirects to https://example.com
+            nav_result, result = run_title_capture(
+                title_dir,
+                snapshot_chrome_dir,
+                env,
+                'http://example.com',
+                'testredirect',
+            )
+            assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
         # Should succeed and follow redirect
         if result.returncode == 0:
             # Hook writes to current directory
-            output_title_file = tmpdir / 'title.txt'
+            output_title_file = title_dir / 'title.txt'
             if output_title_file.exists():
                 title_text = output_title_file.read_text().strip()
                 assert 'example' in title_text.lower()

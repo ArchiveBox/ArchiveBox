@@ -9,7 +9,6 @@
  * Output: Writes screenshot/screenshot.png
  *
  * Environment variables:
- *     CHROME_RESOLUTION: Screenshot resolution (default: 1440,2000)
  *     SCREENSHOT_ENABLED: Enable screenshot capture (default: true)
  */
 
@@ -34,9 +33,10 @@ function flushCoverageAndExit(exitCode) {
 const {
     getEnv,
     getEnvBool,
-    parseResolution,
     parseArgs,
-    readCdpUrl,
+    connectToPage,
+    waitForPageLoaded,
+    readTargetId,
 } = require('../chrome/chrome_utils.js');
 
 // Check if screenshot is enabled BEFORE requiring puppeteer
@@ -75,76 +75,57 @@ function hasStaticFileOutput() {
     return false;
 }
 
-// Wait for chrome tab to be fully loaded
-async function waitForChromeTabLoaded(timeoutMs = 10000) {
-    const navigationFile = path.join(CHROME_SESSION_DIR, 'navigation.json');
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeoutMs) {
-        if (fs.existsSync(navigationFile)) {
-            return true;
-        }
-        // Wait 100ms before checking again
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    return false;
-}
-
 async function takeScreenshot(url) {
-    const resolution = getEnv('CHROME_RESOLUTION', '1440,2000');
-    const { width, height } = parseResolution(resolution);
-
     // Output directory is current directory (hook already runs in output dir)
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
     // Wait for chrome_navigate to complete (writes navigation.json)
     const timeoutSeconds = parseInt(getEnv('SCREENSHOT_TIMEOUT', '10'), 10);
     const timeoutMs = timeoutSeconds * 1000;
-    const pageLoaded = await waitForChromeTabLoaded(timeoutMs);
-    if (!pageLoaded) {
-        throw new Error(`Page not loaded after ${timeoutSeconds}s (chrome_navigate must complete first)`);
+    const navigationFile = path.join(CHROME_SESSION_DIR, 'navigation.json');
+    if (!fs.existsSync(navigationFile)) {
+        await waitForPageLoaded(CHROME_SESSION_DIR, timeoutMs);
     }
 
-    // Connect to existing Chrome session (required - no fallback)
-    const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
-    if (!cdpUrl) {
+    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
+    const targetFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
+    if (!fs.existsSync(cdpFile)) {
         throw new Error('No Chrome session found (chrome plugin must run first)');
     }
-
-    // Read target_id.txt to get the specific tab for this snapshot
-    const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
-    if (!fs.existsSync(targetIdFile)) {
+    if (!fs.existsSync(targetFile)) {
         throw new Error('No target_id.txt found (chrome_tab must run first)');
     }
-    const targetId = fs.readFileSync(targetIdFile, 'utf8').trim();
+    const cdpUrl = fs.readFileSync(cdpFile, 'utf8').trim();
+    if (!cdpUrl.startsWith('ws://') && !cdpUrl.startsWith('wss://')) {
+        throw new Error('Invalid CDP URL in cdp_url.txt');
+    }
 
-    const browser = await puppeteer.connect({
-        browserWSEndpoint: cdpUrl,
-        defaultViewport: { width, height },
+    const { browser, page } = await connectToPage({
+        chromeSessionDir: CHROME_SESSION_DIR,
+        timeoutMs,
+        puppeteer,
     });
 
     try {
-        // Get the specific page for this snapshot by target ID
-        const targets = await browser.targets();
-        const target = targets.find(t => t._targetId === targetId);
-        if (!target) {
-            throw new Error(`Target ${targetId} not found in Chrome session`);
+        const expectedTargetId = readTargetId(CHROME_SESSION_DIR);
+        if (!expectedTargetId) {
+            throw new Error('No target_id.txt found (chrome_tab must run first)');
+        }
+        const actualTargetId = page.target()._targetId;
+        if (actualTargetId !== expectedTargetId) {
+            throw new Error(`Target ${expectedTargetId} not found in Chrome session`);
         }
 
-        const page = await target.page();
-        if (!page) {
-            throw new Error(`Could not get page for target ${targetId}`);
-        }
-
-        // Set viewport on the page
-        await page.setViewport({ width, height });
-
-        // Take screenshot (Puppeteer throws on failure)
-        await page.screenshot({
-            path: outputPath,
-            fullPage: true,
+        const captureTimeoutMs = Math.max(timeoutMs, 10000);
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Screenshot capture timed out')), captureTimeoutMs);
         });
+
+        await page.bringToFront();
+        await Promise.race([
+            page.screenshot({ path: outputPath, fullPage: true }),
+            timeoutPromise,
+        ]);
 
         return outputPath;
 
@@ -188,6 +169,7 @@ async function main() {
         status: 'succeeded',
         output_str: outputPath,
     }));
+    flushCoverageAndExit(0);
 }
 
 main().catch(e => {

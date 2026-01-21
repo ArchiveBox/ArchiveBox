@@ -59,27 +59,71 @@ def test_verify_deps_with_abx_pkg():
 
 
 def test_singlefile_cli_archives_example_com():
-    """Test that singlefile CLI archives example.com and produces valid HTML."""
+    """Test that singlefile archives example.com and produces valid HTML."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        env = get_test_env()
-        env['SINGLEFILE_ENABLED'] = 'true'
+        data_dir = tmpdir / 'data'
+        extensions_dir = data_dir / 'personas' / 'Default' / 'chrome_extensions'
+        downloads_dir = data_dir / 'personas' / 'Default' / 'chrome_downloads'
+        user_data_dir = data_dir / 'personas' / 'Default' / 'chrome_user_data'
+        extensions_dir.mkdir(parents=True, exist_ok=True)
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        user_data_dir.mkdir(parents=True, exist_ok=True)
 
-        # Run singlefile snapshot hook
+        env_install = os.environ.copy()
+        env_install.update({
+            'DATA_DIR': str(data_dir),
+            'CHROME_EXTENSIONS_DIR': str(extensions_dir),
+            'CHROME_DOWNLOADS_DIR': str(downloads_dir),
+        })
+
         result = subprocess.run(
-            [sys.executable, str(SNAPSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=test789'],
-            cwd=tmpdir,
+            ['node', str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
-            env=env,
-            timeout=120
+            env=env_install,
+            timeout=120,
         )
+        assert result.returncode == 0, f"Extension install failed: {result.stderr}"
+
+        old_env = os.environ.copy()
+        os.environ['CHROME_USER_DATA_DIR'] = str(user_data_dir)
+        os.environ['CHROME_DOWNLOADS_DIR'] = str(downloads_dir)
+        os.environ['CHROME_EXTENSIONS_DIR'] = str(extensions_dir)
+        try:
+            with chrome_session(
+                tmpdir=tmpdir,
+                crawl_id='singlefile-cli-crawl',
+                snapshot_id='singlefile-cli-snap',
+                test_url=TEST_URL,
+                navigate=True,
+                timeout=30,
+            ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
+                env['SINGLEFILE_ENABLED'] = 'true'
+                env['CHROME_EXTENSIONS_DIR'] = str(extensions_dir)
+                env['CHROME_DOWNLOADS_DIR'] = str(downloads_dir)
+
+                singlefile_output_dir = snapshot_chrome_dir.parent / 'singlefile'
+                singlefile_output_dir.mkdir(parents=True, exist_ok=True)
+
+                # Run singlefile snapshot hook
+                result = subprocess.run(
+                    [sys.executable, str(SNAPSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=test789'],
+                    cwd=singlefile_output_dir,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=120,
+                )
+        finally:
+            os.environ.clear()
+            os.environ.update(old_env)
 
         assert result.returncode == 0, f"Hook execution failed: {result.stderr}"
 
         # Verify output file exists
-        output_file = tmpdir / 'singlefile.html'
+        output_file = singlefile_output_dir / 'singlefile.html'
         assert output_file.exists(), f"singlefile.html not created. stdout: {result.stdout}, stderr: {result.stderr}"
 
         # Verify it contains real HTML

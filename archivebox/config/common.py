@@ -99,8 +99,11 @@ class ServerConfig(BaseConfigSet):
 
     SECRET_KEY: str = Field(default_factory=lambda: get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789_"))
     BIND_ADDR: str = Field(default="127.0.0.1:8000")
+    LISTEN_HOST: str = Field(default="archivebox.localhost:8000")
+    ADMIN_BASE_URL: str = Field(default="")
+    ARCHIVE_BASE_URL: str = Field(default="")
     ALLOWED_HOSTS: str = Field(default="*")
-    CSRF_TRUSTED_ORIGINS: str = Field(default="http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000")
+    CSRF_TRUSTED_ORIGINS: str = Field(default="http://admin.archivebox.localhost:8000")
 
     SNAPSHOTS_PER_PAGE: int = Field(default=40)
     PREVIEW_ORIGINALS: bool = Field(default=True)

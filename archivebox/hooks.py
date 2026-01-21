@@ -62,6 +62,7 @@ import json
 import signal
 import time
 import subprocess
+from functools import lru_cache
 from pathlib import Path
 from typing import List, Dict, Any, Optional, TypedDict
 
@@ -255,6 +256,7 @@ def run_hook(
             records = process.get_records()  # Get parsed JSONL output
     """
     from archivebox.machine.models import Process, Machine
+    from archivebox.config.constants import CONSTANTS
     import time
     import sys
     start_time = time.time()
@@ -264,6 +266,8 @@ def run_hook(
         plugin_name = script.parent.name
         plugin_config = get_plugin_special_config(plugin_name, config)
         timeout = plugin_config['timeout']
+    if timeout:
+        timeout = min(int(timeout), int(CONSTANTS.MAX_HOOK_RUNTIME_SECONDS))
 
     # Get current machine
     machine = Machine.current()
@@ -568,6 +572,7 @@ def run_hooks(
     return results
 
 
+@lru_cache(maxsize=1)
 def get_plugins() -> List[str]:
     """
     Get list of available plugins by discovering Snapshot hooks.
@@ -988,6 +993,8 @@ def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) 
         Template content as string, or None if not found and fallback=False.
     """
     base_name = get_plugin_name(plugin)
+    if base_name in ('yt-dlp', 'youtube-dl'):
+        base_name = 'ytdlp'
 
     for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
         if not base_dir.exists():
@@ -1011,6 +1018,7 @@ def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) 
     return None
 
 
+@lru_cache(maxsize=None)
 def get_plugin_icon(plugin: str) -> str:
     """
     Get the icon for a plugin from its icon.html template.

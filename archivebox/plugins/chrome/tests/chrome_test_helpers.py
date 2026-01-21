@@ -229,6 +229,33 @@ def get_extensions_dir() -> str:
     return str(Path(data_dir) / 'personas' / persona / 'chrome_extensions')
 
 
+def link_puppeteer_cache(lib_dir: Path) -> None:
+    """Best-effort symlink from system Puppeteer cache into test lib_dir.
+
+    Avoids repeated Chromium downloads across tests by reusing the
+    default Puppeteer cache directory.
+    """
+    cache_dir = lib_dir / 'puppeteer'
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    candidates = [
+        Path.home() / 'Library' / 'Caches' / 'puppeteer',
+        Path.home() / '.cache' / 'puppeteer',
+    ]
+    for src_root in candidates:
+        if not src_root.exists():
+            continue
+        for item in src_root.iterdir():
+            dst = cache_dir / item.name
+            if dst.exists():
+                continue
+            try:
+                os.symlink(item, dst, target_is_directory=item.is_dir())
+            except Exception:
+                # Best-effort only; if symlink fails, leave as-is.
+                pass
+
+
 def find_chromium(data_dir: Optional[str] = None) -> Optional[str]:
     """Find the Chromium binary path.
 
@@ -632,9 +659,8 @@ def setup_test_env(tmpdir: Path) -> dict:
         tmpdir: Base temporary directory for the test
 
     Returns:
-        Environment dict with all paths set, or pytest.skip() if Chrome install fails
+        Environment dict with all paths set.
     """
-    import pytest
 
     # Determine machine type (matches archivebox.config.paths.get_machine_type())
     machine = platform.machine().lower()
@@ -688,7 +714,7 @@ def setup_test_env(tmpdir: Path) -> dict:
     try:
         install_chromium_with_hooks(env)
     except RuntimeError as e:
-        pytest.skip(str(e))
+        raise RuntimeError(str(e))
     return env
 
 
@@ -873,6 +899,7 @@ def chrome_session(
         lib_dir = data_dir / 'lib' / machine_type
         npm_dir = lib_dir / 'npm'
         node_modules_dir = npm_dir / 'node_modules'
+        puppeteer_cache_dir = lib_dir / 'puppeteer'
 
         # Create lib structure for puppeteer installation
         node_modules_dir.mkdir(parents=True, exist_ok=True)
@@ -893,7 +920,11 @@ def chrome_session(
             'NODE_PATH': str(node_modules_dir),
             'NPM_BIN_DIR': str(npm_dir / '.bin'),
             'CHROME_HEADLESS': 'true',
+            'PUPPETEER_CACHE_DIR': str(puppeteer_cache_dir),
         })
+
+        # Reuse system Puppeteer cache to avoid redundant Chromium downloads
+        link_puppeteer_cache(lib_dir)
 
         # Install Chromium via npm + puppeteer hooks using normal Binary flow
         install_chromium_with_hooks(env)

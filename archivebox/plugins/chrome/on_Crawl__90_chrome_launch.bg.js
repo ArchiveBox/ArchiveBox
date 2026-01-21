@@ -31,12 +31,15 @@ if (process.env.NODE_MODULES_DIR) {
 
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 const puppeteer = require('puppeteer');
 const {
     findChromium,
     launchChromium,
     killChrome,
     getEnv,
+    getEnvBool,
+    getExtensionId,
     writePidWithMtime,
     getExtensionsDir,
 } = require('./chrome_utils.js');
@@ -154,6 +157,84 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
     console.error(`[+] Imported ${imported}/${cookies.length} cookies`);
 }
 
+function getPortFromCdpUrl(cdpUrl) {
+    if (!cdpUrl) return null;
+    const match = cdpUrl.match(/:(\d+)\/devtools\//);
+    return match ? match[1] : null;
+}
+
+async function fetchDevtoolsTargets(cdpUrl) {
+    const port = getPortFromCdpUrl(cdpUrl);
+    if (!port) return [];
+
+    const urlPath = '/json/list';
+    return new Promise((resolve, reject) => {
+        const req = http.get(
+            { hostname: '127.0.0.1', port, path: urlPath },
+            (res) => {
+                let data = '';
+                res.on('data', (chunk) => (data += chunk));
+                res.on('end', () => {
+                    try {
+                        const targets = JSON.parse(data);
+                        resolve(Array.isArray(targets) ? targets : []);
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
+            }
+        );
+        req.on('error', reject);
+    });
+}
+
+async function discoverExtensionTargets(cdpUrl, installedExtensions) {
+    const builtinIds = [
+        'nkeimhogjdpnpccoofpliimaahmaaome',
+        'fignfifoniblkonapihmkfakmlgkbkcf',
+        'ahfgeienlihckogmohjhadlkjgocpleb',
+        'mhjfbmdgcfjbbpaeojofohoefgiehjai',
+    ];
+
+    let targets = [];
+    for (let i = 0; i < 10; i += 1) {
+        try {
+            targets = await fetchDevtoolsTargets(cdpUrl);
+            if (targets.length > 0) break;
+        } catch (e) {
+            // Ignore and retry
+        }
+        await new Promise(r => setTimeout(r, 500));
+    }
+
+    const customExtTargets = targets.filter(t => {
+        const url = t.url || '';
+        if (!url.startsWith('chrome-extension://')) return false;
+        const extId = url.split('://')[1].split('/')[0];
+        return !builtinIds.includes(extId);
+    });
+
+    console.error(`[+] Found ${customExtTargets.length} custom extension target(s) via /json/list`);
+
+    for (const target of customExtTargets) {
+        const url = target.url || '';
+        const extId = url.split('://')[1].split('/')[0];
+        console.error(`[+] Extension target: ${extId} (${target.type || 'unknown'})`);
+    }
+
+    const runtimeIds = new Set(customExtTargets.map(t => (t.url || '').split('://')[1].split('/')[0]));
+    for (const ext of installedExtensions) {
+        if (ext.id) {
+            ext.loaded = runtimeIds.has(ext.id);
+        }
+    }
+
+    if (customExtTargets.length === 0 && installedExtensions.length > 0) {
+        console.error(`[!] Warning: No custom extensions detected. Extension loading may have failed.`);
+        console.error(`[!] Make sure you are using Chromium, not Chrome (Chrome 137+ removed --load-extension support)`);
+    }
+}
+
 // Parse command line arguments
 function parseArgs() {
     const args = {};
@@ -257,6 +338,17 @@ async function main() {
             console.error(`[+] Found ${installedExtensions.length} extension(s) to load`);
         }
 
+        // Ensure extension IDs are available without chrome://extensions
+        for (const ext of installedExtensions) {
+            if (!ext.id && ext.unpacked_path) {
+                try {
+                    ext.id = getExtensionId(ext.unpacked_path);
+                } catch (e) {
+                    console.error(`[!] Failed to compute extension id for ${ext.name}: ${e.message}`);
+                }
+            }
+        }
+
         // Note: PID file is written by run_hook() with hook-specific name
         // Snapshot.cleanup() kills all *.pid processes when done
         if (!fs.existsSync(OUTPUT_DIR)) {
@@ -280,131 +372,31 @@ async function main() {
         chromePid = result.pid;
         const cdpUrl = result.cdpUrl;
 
-        // Connect puppeteer for extension verification
-        console.error(`[*] Connecting puppeteer to CDP...`);
-        const browser = await puppeteer.connect({
-            browserWSEndpoint: cdpUrl,
-            defaultViewport: null,
-        });
-        browserInstance = browser;
-
-        // Import cookies into Chrome profile at crawl start
-        await importCookiesFromFile(browser, cookiesFile, userDataDir);
-
-        // Get actual extension IDs from chrome://extensions page
+        // Discover extension targets at launch (no chrome://extensions)
         if (extensionPaths.length > 0) {
             await new Promise(r => setTimeout(r, 2000));
+            console.error('[*] Discovering extension targets via devtools /json/list...');
+            await discoverExtensionTargets(cdpUrl, installedExtensions);
+        }
+
+        // Only connect to CDP when cookies import is needed to reduce crash risk.
+        if (cookiesFile) {
+            console.error(`[*] Connecting puppeteer to CDP for cookie import...`);
+            const browser = await puppeteer.connect({
+                browserWSEndpoint: cdpUrl,
+                defaultViewport: null,
+            });
+            browserInstance = browser;
+
+            // Import cookies into Chrome profile at crawl start
+            await importCookiesFromFile(browser, cookiesFile, userDataDir);
 
             try {
-                const extPage = await browser.newPage();
-                await extPage.goto('chrome://extensions', { waitUntil: 'domcontentloaded', timeout: 10000 });
-                await new Promise(r => setTimeout(r, 2000));
-
-                // Parse extension info from the page
-                const extensionsFromPage = await extPage.evaluate(() => {
-                    const extensions = [];
-                    // Extensions manager uses shadow DOM
-                    const manager = document.querySelector('extensions-manager');
-                    if (!manager || !manager.shadowRoot) return extensions;
-
-                    const itemList = manager.shadowRoot.querySelector('extensions-item-list');
-                    if (!itemList || !itemList.shadowRoot) return extensions;
-
-                    const items = itemList.shadowRoot.querySelectorAll('extensions-item');
-                    for (const item of items) {
-                        const id = item.getAttribute('id');
-                        const nameEl = item.shadowRoot?.querySelector('#name');
-                        const name = nameEl?.textContent?.trim() || '';
-                        if (id && name) {
-                            extensions.push({ id, name });
-                        }
-                    }
-                    return extensions;
-                });
-
-                console.error(`[*] Found ${extensionsFromPage.length} extension(s) on chrome://extensions`);
-                for (const e of extensionsFromPage) {
-                    console.error(`    - ${e.id}: "${e.name}"`);
-                }
-
-                // Match extensions by name (strict matching)
-                for (const ext of installedExtensions) {
-                    // Read the extension's manifest to get its display name
-                    const manifestPath = path.join(ext.unpacked_path, 'manifest.json');
-                    if (fs.existsSync(manifestPath)) {
-                        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-                        let manifestName = manifest.name || '';
-
-                        // Resolve message placeholder (e.g., __MSG_extName__)
-                        if (manifestName.startsWith('__MSG_') && manifestName.endsWith('__')) {
-                            const msgKey = manifestName.slice(6, -2); // Extract key from __MSG_key__
-                            const defaultLocale = manifest.default_locale || 'en';
-                            const messagesPath = path.join(ext.unpacked_path, '_locales', defaultLocale, 'messages.json');
-                            if (fs.existsSync(messagesPath)) {
-                                try {
-                                    const messages = JSON.parse(fs.readFileSync(messagesPath, 'utf-8'));
-                                    if (messages[msgKey] && messages[msgKey].message) {
-                                        manifestName = messages[msgKey].message;
-                                    }
-                                } catch (e) {
-                                    console.error(`[!] Failed to read messages.json: ${e.message}`);
-                                }
-                            }
-                        }
-
-                        console.error(`[*] Looking for match: ext.name="${ext.name}" manifest.name="${manifestName}"`);
-
-                        // Find matching extension from page by exact name match first
-                        let match = extensionsFromPage.find(e => e.name === manifestName);
-
-                        // If no exact match, try case-insensitive exact match
-                        if (!match) {
-                            match = extensionsFromPage.find(e =>
-                                e.name.toLowerCase() === manifestName.toLowerCase()
-                            );
-                        }
-
-                        if (match) {
-                            ext.id = match.id;
-                            console.error(`[+] Matched extension: ${ext.name} (${manifestName}) -> ${match.id}`);
-                        } else {
-                            console.error(`[!] No match found for: ${ext.name} (${manifestName})`);
-                        }
-                    }
-                }
-
-                await extPage.close();
-            } catch (e) {
-                console.error(`[!] Failed to get extensions from chrome://extensions: ${e.message}`);
-            }
-
-            // Fallback: check browser targets
-            const targets = browser.targets();
-            const builtinIds = [
-                'nkeimhogjdpnpccoofpliimaahmaaome',
-                'fignfifoniblkonapihmkfakmlgkbkcf',
-                'ahfgeienlihckogmohjhadlkjgocpleb',
-                'mhjfbmdgcfjbbpaeojofohoefgiehjai',
-            ];
-            const customExtTargets = targets.filter(t => {
-                const url = t.url();
-                if (!url.startsWith('chrome-extension://')) return false;
-                const extId = url.split('://')[1].split('/')[0];
-                return !builtinIds.includes(extId);
-            });
-
-            console.error(`[+] Found ${customExtTargets.length} custom extension target(s)`);
-
-            for (const target of customExtTargets) {
-                const url = target.url();
-                const extId = url.split('://')[1].split('/')[0];
-                console.error(`[+] Extension target: ${extId} (${target.type()})`);
-            }
-
-            if (customExtTargets.length === 0 && extensionPaths.length > 0) {
-                console.error(`[!] Warning: No custom extensions detected. Extension loading may have failed.`);
-                console.error(`[!] Make sure you are using Chromium, not Chrome (Chrome 137+ removed --load-extension support)`);
-            }
+                browser.disconnect();
+            } catch (e) {}
+            browserInstance = null;
+        } else {
+            console.error('[*] Skipping puppeteer CDP connection (no cookies to import)');
         }
 
         // Write extensions metadata with actual IDs

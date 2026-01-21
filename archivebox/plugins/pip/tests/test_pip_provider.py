@@ -142,13 +142,14 @@ class TestPipProviderIntegration(TestCase):
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    @pytest.mark.skipif(
-        subprocess.run([sys.executable, '-m', 'pip', '--version'],
-                       capture_output=True).returncode != 0,
-        reason="pip not available"
-    )
     def test_hook_finds_pip_installed_binary(self):
         """Hook should find binaries installed via pip."""
+        pip_check = subprocess.run(
+            [sys.executable, '-m', 'pip', '--version'],
+            capture_output=True,
+            text=True,
+        )
+        assert pip_check.returncode == 0, "pip not available"
         env = os.environ.copy()
         env['DATA_DIR'] = self.temp_dir
 

@@ -46,8 +46,8 @@ def test_crawl_hook_emits_puppeteer_binary():
         assert 'npm' in binaries[0].get('binproviders', ''), "puppeteer should be installable via npm provider"
 
 
-@pytest.mark.skipif(shutil.which('npm') is None, reason='npm is required for puppeteer installation')
 def test_puppeteer_installs_chromium():
+    assert shutil.which('npm'), "npm is required for puppeteer installation"
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         lib_dir = tmpdir / 'lib' / 'arm64-darwin'

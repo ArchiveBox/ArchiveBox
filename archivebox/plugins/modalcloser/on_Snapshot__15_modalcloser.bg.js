@@ -237,7 +237,7 @@ async function main() {
 
     const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
     if (!cdpUrl) {
-        console.error('ERROR: Chrome CDP URL not found (chrome plugin must run first)');
+        console.error('No Chrome session found (chrome plugin must run first)');
         process.exit(1);
     }
 

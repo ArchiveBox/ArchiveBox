@@ -48,7 +48,6 @@ class TestRedirectsPlugin(TestCase):
         self.assertTrue(REDIRECTS_HOOK.exists(), f"Hook not found: {REDIRECTS_HOOK}")
 
 
-@pytest.mark.skipif(not chrome_available(), reason="Chrome not installed")
 class TestRedirectsWithChrome(TestCase):
     """Integration tests for redirects plugin with Chrome."""
 
@@ -142,9 +141,7 @@ class TestRedirectsWithChrome(TestCase):
                 self.assertNotIn('Traceback', stderr)
                 self.assertNotIn('Error:', stderr)
 
-        except RuntimeError as e:
-            if 'Chrome' in str(e) or 'CDP' in str(e):
-                self.skipTest(f"Chrome session setup failed: {e}")
+        except RuntimeError:
             raise
 
 

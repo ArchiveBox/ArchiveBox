@@ -127,6 +127,20 @@ class UsernameAndPasswordAuth(UserPassAuthCheck, HttpBasicAuth):
     """Allow authenticating by passing username & password via HTTP Basic Authentication (not recommended)"""
     pass
 
+class DjangoSessionAuth:
+    """Allow authenticating with existing Django session cookies (same-origin only)."""
+    def __call__(self, request: HttpRequest) -> Optional[AbstractBaseUser]:
+        return self.authenticate(request)
+
+    def authenticate(self, request: HttpRequest, **kwargs) -> Optional[AbstractBaseUser]:
+        user = getattr(request, 'user', None)
+        if user and user.is_authenticated:
+            request._api_auth_method = self.__class__.__name__
+            if not user.is_superuser:
+                raise HttpError(403, 'Valid session but User does not have permission (make sure user.is_superuser=True)')
+            return cast(AbstractBaseUser, user)
+        return None
+
 ### Enabled Auth Methods
 
 API_AUTH_METHODS = [
@@ -134,5 +148,4 @@ API_AUTH_METHODS = [
     BearerTokenAuth(),
     QueryParamTokenAuth(), 
     # django_auth_superuser,       # django admin cookie auth, not secure to use with csrf=False
-    UsernameAndPasswordAuth(),
 ]

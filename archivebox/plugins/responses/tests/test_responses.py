@@ -13,25 +13,16 @@ import tempfile
 import time
 from pathlib import Path
 
-import pytest
 from django.test import TestCase
 
 # Import chrome test helpers
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'chrome' / 'tests'))
 from chrome_test_helpers import (
     chrome_session,
-    get_test_env,
+    CHROME_NAVIGATE_HOOK,
     get_plugin_dir,
     get_hook_script,
 )
-
-
-def chrome_available() -> bool:
-    """Check if Chrome/Chromium is available."""
-    for name in ['chromium', 'chromium-browser', 'google-chrome', 'chrome']:
-        if shutil.which(name):
-            return True
-    return False
 
 
 # Get the path to the responses hook
@@ -48,7 +39,6 @@ class TestResponsesPlugin(TestCase):
         self.assertTrue(RESPONSES_HOOK.exists(), f"Hook not found: {RESPONSES_HOOK}")
 
 
-@pytest.mark.skipif(not chrome_available(), reason="Chrome not installed")
 class TestResponsesWithChrome(TestCase):
     """Integration tests for responses plugin with Chrome."""
 
@@ -65,68 +55,72 @@ class TestResponsesWithChrome(TestCase):
         test_url = 'https://example.com'
         snapshot_id = 'test-responses-snapshot'
 
-        try:
-            with chrome_session(
-                self.temp_dir,
-                crawl_id='test-responses-crawl',
-                snapshot_id=snapshot_id,
-                test_url=test_url,
-                navigate=True,
-                timeout=30,
-            ) as (chrome_process, chrome_pid, snapshot_chrome_dir, env):
-                # Use the environment from chrome_session (already has CHROME_HEADLESS=true)
+        with chrome_session(
+            self.temp_dir,
+            crawl_id='test-responses-crawl',
+            snapshot_id=snapshot_id,
+            test_url=test_url,
+            navigate=False,
+            timeout=30,
+        ) as (chrome_process, chrome_pid, snapshot_chrome_dir, env):
+            responses_dir = snapshot_chrome_dir.parent / 'responses'
+            responses_dir.mkdir(exist_ok=True)
 
+            # Run responses hook with the active Chrome session (background hook)
+            result = subprocess.Popen(
+                ['node', str(RESPONSES_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
+                cwd=str(responses_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env
+            )
 
-                # Run responses hook with the active Chrome session (background hook)
-                result = subprocess.Popen(
-                    ['node', str(RESPONSES_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
-                    cwd=str(snapshot_chrome_dir),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    env=env
-                )
+            nav_result = subprocess.run(
+                ['node', str(CHROME_NAVIGATE_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
+                cwd=str(snapshot_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=120,
+                env=env
+            )
+            self.assertEqual(nav_result.returncode, 0, f"Navigation failed: {nav_result.stderr}")
 
-                # Check for output directory and index file
-                index_output = snapshot_chrome_dir / 'index.jsonl'
+            # Check for output directory and index file
+            index_output = responses_dir / 'index.jsonl'
 
-                # Wait briefly for background hook to write output
-                for _ in range(10):
-                    if index_output.exists() and index_output.stat().st_size > 0:
-                        break
-                    time.sleep(1)
+            # Wait briefly for background hook to write output
+            for _ in range(30):
+                if index_output.exists() and index_output.stat().st_size > 0:
+                    break
+                time.sleep(1)
 
-                # Verify hook ran (may keep running waiting for cleanup signal)
-                if result.poll() is None:
-                    result.terminate()
-                    try:
-                        stdout, stderr = result.communicate(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        result.kill()
-                        stdout, stderr = result.communicate()
-                else:
+            # Verify hook ran (may keep running waiting for cleanup signal)
+            if result.poll() is None:
+                result.terminate()
+                try:
+                    stdout, stderr = result.communicate(timeout=5)
+                except subprocess.TimeoutExpired:
+                    result.kill()
                     stdout, stderr = result.communicate()
-                self.assertNotIn('Traceback', stderr)
+            else:
+                stdout, stderr = result.communicate()
+            self.assertNotIn('Traceback', stderr)
 
-                # If index file exists, verify it's valid JSONL
-                if index_output.exists():
-                    with open(index_output) as f:
-                        content = f.read().strip()
-                        if content:
-                            for line in content.split('\n'):
-                                if line.strip():
-                                    try:
-                                        record = json.loads(line)
-                                        # Verify structure
-                                        self.assertIn('url', record)
-                                        self.assertIn('resourceType', record)
-                                    except json.JSONDecodeError:
-                                        pass  # Some lines may be incomplete
-
-        except RuntimeError as e:
-            if 'Chrome' in str(e) or 'CDP' in str(e):
-                self.skipTest(f"Chrome session setup failed: {e}")
-            raise
+            # If index file exists, verify it's valid JSONL
+            if index_output.exists():
+                with open(index_output) as f:
+                    content = f.read().strip()
+                    self.assertTrue(content, "Responses output should not be empty")
+                    for line in content.split('\n'):
+                        if line.strip():
+                            try:
+                                record = json.loads(line)
+                                # Verify structure
+                                self.assertIn('url', record)
+                                self.assertIn('resourceType', record)
+                            except json.JSONDecodeError:
+                                pass  # Some lines may be incomplete
 
 
 if __name__ == '__main__':

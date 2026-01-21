@@ -25,9 +25,7 @@ def test_ripgrep_hook_detects_binary_from_path():
     """Test that ripgrep hook finds binary using abx-pkg when env var is just a name."""
     hook_path = Path(__file__).parent.parent / 'on_Crawl__50_ripgrep_install.py'
 
-    # Skip if rg is not installed
-    if not shutil.which('rg'):
-        pass
+    assert shutil.which('rg'), "ripgrep not installed"
 
     # Set SEARCH_BACKEND_ENGINE to enable the hook
     env = os.environ.copy()
@@ -78,8 +76,7 @@ def test_ripgrep_hook_handles_absolute_path():
     hook_path = Path(__file__).parent.parent / 'on_Crawl__50_ripgrep_install.py'
 
     rg_path = shutil.which('rg')
-    if not rg_path:
-        pytest.skip("ripgrep not installed")
+    assert rg_path, "ripgrep not installed"
 
     env = os.environ.copy()
     env['SEARCH_BACKEND_ENGINE'] = 'ripgrep'
@@ -214,8 +211,7 @@ def test_ripgrep_only_detected_when_backend_enabled():
     import sys
     from pathlib import Path
 
-    if not shutil.which('rg'):
-        pytest.skip("ripgrep not installed")
+    assert shutil.which('rg'), "ripgrep not installed"
 
     hook_path = Path(__file__).parent.parent / 'on_Crawl__50_ripgrep_install.py'
 

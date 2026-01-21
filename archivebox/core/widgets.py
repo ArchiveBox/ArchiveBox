@@ -1,8 +1,11 @@
 __package__ = 'archivebox.core'
 
 import json
+import re
+import hashlib
 from django import forms
 from django.utils.html import escape
+from django.utils.safestring import mark_safe
 
 
 class TagEditorWidget(forms.Widget):
@@ -26,6 +29,23 @@ class TagEditorWidget(forms.Widget):
     def _escape(self, value):
         """Escape HTML entities in value."""
         return escape(str(value)) if value else ''
+
+    def _normalize_id(self, value):
+        """Normalize IDs for HTML + JS usage (letters, digits, underscore; JS-safe start)."""
+        normalized = re.sub(r'[^A-Za-z0-9_]', '_', str(value))
+        if not normalized or not re.match(r'[A-Za-z_]', normalized):
+            normalized = f't_{normalized}'
+        return normalized
+
+    def _tag_style(self, value):
+        """Compute a stable pastel color style for a tag value."""
+        tag = (value or '').strip().lower()
+        digest = hashlib.md5(tag.encode('utf-8')).hexdigest()
+        hue = int(digest[:4], 16) % 360
+        bg = f'hsl({hue}, 70%, 92%)'
+        border = f'hsl({hue}, 60%, 82%)'
+        fg = f'hsl({hue}, 35%, 28%)'
+        return f'--tag-bg: {bg}; --tag-border: {border}; --tag-fg: {fg};'
 
     def render(self, name, value, attrs=None, renderer=None):
         """
@@ -67,13 +87,14 @@ class TagEditorWidget(forms.Widget):
             elif isinstance(value, str):
                 tags = sorted([t.strip() for t in value.split(',') if t.strip()])
 
-        widget_id = attrs.get('id', name) if attrs else name
+        widget_id_raw = attrs.get('id', name) if attrs else name
+        widget_id = self._normalize_id(widget_id_raw)
 
         # Build pills HTML
         pills_html = ''
         for tag in tags:
             pills_html += f'''
-                <span class="tag-pill" data-tag="{self._escape(tag)}">
+                <span class="tag-pill" data-tag="{self._escape(tag)}" style="{self._tag_style(tag)}">
                     {self._escape(tag)}
                     <button type="button" class="tag-remove-btn" data-tag-name="{self._escape(tag)}">&times;</button>
                 </span>
@@ -92,6 +113,7 @@ class TagEditorWidget(forms.Widget):
                    placeholder="Add tag..."
                    autocomplete="off"
                    onkeydown="handleTagKeydown_{widget_id}(event)"
+                   onkeypress="if(event.key==='Enter' || event.keyCode===13){{event.preventDefault(); event.stopPropagation();}}"
                    oninput="fetchTagAutocomplete_{widget_id}(this.value)"
             >
             <datalist id="{widget_id}_datalist"></datalist>
@@ -111,6 +133,47 @@ class TagEditorWidget(forms.Widget):
             window.updateHiddenInput_{widget_id} = function() {{
                 document.getElementById('{widget_id}').value = currentTags_{widget_id}.join(',');
             }};
+
+            function computeTagStyle_{widget_id}(tagName) {{
+                var hash = 0;
+                var name = String(tagName || '').toLowerCase();
+                for (var i = 0; i < name.length; i++) {{
+                    hash = (hash * 31 + name.charCodeAt(i)) % 360;
+                }}
+                var bg = 'hsl(' + hash + ', 70%, 92%)';
+                var border = 'hsl(' + hash + ', 60%, 82%)';
+                var fg = 'hsl(' + hash + ', 35%, 28%)';
+                return {{ bg: bg, border: border, fg: fg }};
+            }}
+
+            function applyTagStyle_{widget_id}(el, tagName) {{
+                var colors = computeTagStyle_{widget_id}(tagName);
+                el.style.setProperty('--tag-bg', colors.bg);
+                el.style.setProperty('--tag-border', colors.border);
+                el.style.setProperty('--tag-fg', colors.fg);
+            }}
+
+            function getApiKey() {{
+                return (window.ARCHIVEBOX_API_KEY || '').trim();
+            }}
+
+            function buildApiUrl(path) {{
+                var apiKey = getApiKey();
+                if (!apiKey) return path;
+                var sep = path.indexOf('?') !== -1 ? '&' : '?';
+                return path + sep + 'api_key=' + encodeURIComponent(apiKey);
+            }}
+
+            function buildApiHeaders() {{
+                var headers = {{
+                    'Content-Type': 'application/json',
+                }};
+                var apiKey = getApiKey();
+                if (apiKey) headers['X-ArchiveBox-API-Key'] = apiKey;
+                var csrfToken = getCSRFToken();
+                if (csrfToken) headers['X-CSRFToken'] = csrfToken;
+                return headers;
+            }}
 
             window.addTag_{widget_id} = function(tagName) {{
                 tagName = tagName.trim();
@@ -139,12 +202,9 @@ class TagEditorWidget(forms.Widget):
                 document.getElementById('{widget_id}_input').value = '';
 
                 // Create tag via API if it doesn't exist (fire and forget)
-                fetch('/api/v1/core/tags/create/', {{
+                fetch(buildApiUrl('/api/v1/core/tags/create/'), {{
                     method: 'POST',
-                    headers: {{
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken()
-                    }},
+                    headers: buildApiHeaders(),
                     body: JSON.stringify({{ name: tagName }})
                 }}).catch(function(err) {{
                     console.log('Tag creation note:', err);
@@ -166,6 +226,7 @@ class TagEditorWidget(forms.Widget):
                     var pill = document.createElement('span');
                     pill.className = 'tag-pill';
                     pill.setAttribute('data-tag', tag);
+                    applyTagStyle_{widget_id}(pill, tag);
 
                     var tagText = document.createTextNode(tag);
                     pill.appendChild(tagText);
@@ -195,14 +256,16 @@ class TagEditorWidget(forms.Widget):
                 var input = event.target;
                 var value = input.value.trim();
 
-                if (event.key === 'Enter' || event.key === ' ' || event.key === ',') {{
+                if (event.key === 'Enter' || event.keyCode === 13 || event.key === ' ' || event.key === ',') {{
                     event.preventDefault();
+                    event.stopPropagation();
                     if (value) {{
                         // Handle comma-separated values
                         value.split(',').forEach(function(tag) {{
                             addTag_{widget_id}(tag.trim());
                         }});
                     }}
+                    return false;
                 }} else if (event.key === 'Backspace' && !value && currentTags_{widget_id}.length > 0) {{
                     // Remove last tag on backspace when input is empty
                     var lastTag = currentTags_{widget_id}.pop();
@@ -222,7 +285,7 @@ class TagEditorWidget(forms.Widget):
                         return;
                     }}
 
-                    fetch('/api/v1/core/tags/autocomplete/?q=' + encodeURIComponent(query))
+                    fetch(buildApiUrl('/api/v1/core/tags/autocomplete/?q=' + encodeURIComponent(query)))
                         .then(function(response) {{ return response.json(); }})
                         .then(function(data) {{
                             var datalist = document.getElementById('{widget_id}_datalist');
@@ -261,7 +324,7 @@ class TagEditorWidget(forms.Widget):
         </script>
         '''
 
-        return html
+        return mark_safe(html)
 
 
 class InlineTagEditorWidget(TagEditorWidget):
@@ -295,20 +358,23 @@ class InlineTagEditorWidget(TagEditorWidget):
                     tag_data.sort(key=lambda x: x['name'].lower())
                     tags = [t['name'] for t in tag_data]
 
-        widget_id = f"inline_tags_{snapshot_id}" if snapshot_id else (attrs.get('id', name) if attrs else name)
+        widget_id_raw = f"inline_tags_{snapshot_id}" if snapshot_id else (attrs.get('id', name) if attrs else name)
+        widget_id = self._normalize_id(widget_id_raw)
 
         # Build pills HTML with filter links
         pills_html = ''
         for td in tag_data:
             pills_html += f'''
-                <span class="tag-pill" data-tag="{self._escape(td['name'])}" data-tag-id="{td['id']}">
+                <span class="tag-pill" data-tag="{self._escape(td['name'])}" data-tag-id="{td['id']}" style="{self._tag_style(td['name'])}">
                     <a href="/admin/core/snapshot/?tags__id__exact={td['id']}" class="tag-link">{self._escape(td['name'])}</a>
                     <button type="button" class="tag-remove-btn" data-tag-id="{td['id']}" data-tag-name="{self._escape(td['name'])}">&times;</button>
                 </span>
             '''
 
+        tags_json = escape(json.dumps(tag_data))
+
         html = f'''
-        <span id="{widget_id}_container" class="tag-editor-inline" onclick="focusInlineTagInput_{widget_id}(event)">
+        <span id="{widget_id}_container" class="tag-editor-inline" data-snapshot-id="{snapshot_id}" data-tags="{tags_json}">
             <span id="{widget_id}_pills" class="tag-pills-inline">
                 {pills_html}
             </span>
@@ -318,195 +384,10 @@ class InlineTagEditorWidget(TagEditorWidget):
                    list="{widget_id}_datalist"
                    placeholder="+"
                    autocomplete="off"
-                   onkeydown="handleInlineTagKeydown_{widget_id}(event)"
-                   oninput="fetchInlineTagAutocomplete_{widget_id}(this.value)"
-                   onfocus="this.placeholder='add tag...'"
-                   onblur="this.placeholder='+'"
+                   data-inline-tag-input="1"
             >
             <datalist id="{widget_id}_datalist"></datalist>
         </span>
-
-        <script>
-        (function() {{
-            var snapshotId_{widget_id} = '{snapshot_id}';
-            var currentTagData_{widget_id} = {json.dumps(tag_data)};
-            var autocompleteTimeout_{widget_id} = null;
-
-            window.focusInlineTagInput_{widget_id} = function(event) {{
-                event.stopPropagation();
-                if (event.target.classList.contains('tag-remove-btn') || event.target.classList.contains('tag-link')) return;
-                document.getElementById('{widget_id}_input').focus();
-            }};
-
-            window.addInlineTag_{widget_id} = function(tagName) {{
-                tagName = tagName.trim();
-                if (!tagName) return;
-
-                // Check if tag already exists
-                var exists = currentTagData_{widget_id}.some(function(t) {{
-                    return t.name.toLowerCase() === tagName.toLowerCase();
-                }});
-                if (exists) {{
-                    document.getElementById('{widget_id}_input').value = '';
-                    return;
-                }}
-
-                // Add via API
-                fetch('/api/v1/core/tags/add-to-snapshot/', {{
-                    method: 'POST',
-                    headers: {{
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken()
-                    }},
-                    body: JSON.stringify({{
-                        snapshot_id: snapshotId_{widget_id},
-                        tag_name: tagName
-                    }})
-                }})
-                .then(function(response) {{ return response.json(); }})
-                .then(function(data) {{
-                    if (data.success) {{
-                        currentTagData_{widget_id}.push({{ id: data.tag_id, name: data.tag_name }});
-                        currentTagData_{widget_id}.sort(function(a, b) {{
-                            return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-                        }});
-                        rebuildInlinePills_{widget_id}();
-                    }}
-                }})
-                .catch(function(err) {{
-                    console.error('Error adding tag:', err);
-                }});
-
-                document.getElementById('{widget_id}_input').value = '';
-            }};
-
-            window.removeInlineTag_{widget_id} = function(tagId) {{
-                fetch('/api/v1/core/tags/remove-from-snapshot/', {{
-                    method: 'POST',
-                    headers: {{
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken()
-                    }},
-                    body: JSON.stringify({{
-                        snapshot_id: snapshotId_{widget_id},
-                        tag_id: tagId
-                    }})
-                }})
-                .then(function(response) {{ return response.json(); }})
-                .then(function(data) {{
-                    if (data.success) {{
-                        currentTagData_{widget_id} = currentTagData_{widget_id}.filter(function(t) {{
-                            return t.id !== tagId;
-                        }});
-                        rebuildInlinePills_{widget_id}();
-                    }}
-                }})
-                .catch(function(err) {{
-                    console.error('Error removing tag:', err);
-                }});
-            }};
-
-            window.rebuildInlinePills_{widget_id} = function() {{
-                var container = document.getElementById('{widget_id}_pills');
-                container.innerHTML = '';
-                currentTagData_{widget_id}.forEach(function(td) {{
-                    var pill = document.createElement('span');
-                    pill.className = 'tag-pill';
-                    pill.setAttribute('data-tag', td.name);
-                    pill.setAttribute('data-tag-id', td.id);
-
-                    var link = document.createElement('a');
-                    link.href = '/admin/core/snapshot/?tags__id__exact=' + td.id;
-                    link.className = 'tag-link';
-                    link.textContent = td.name;
-                    pill.appendChild(link);
-
-                    var removeBtn = document.createElement('button');
-                    removeBtn.type = 'button';
-                    removeBtn.className = 'tag-remove-btn';
-                    removeBtn.setAttribute('data-tag-id', td.id);
-                    removeBtn.setAttribute('data-tag-name', td.name);
-                    removeBtn.innerHTML = '&times;';
-                    pill.appendChild(removeBtn);
-
-                    container.appendChild(pill);
-                }});
-            }};
-
-            // Add event delegation for remove buttons
-            document.getElementById('{widget_id}_pills').addEventListener('click', function(event) {{
-                if (event.target.classList.contains('tag-remove-btn')) {{
-                    event.stopPropagation();
-                    event.preventDefault();
-                    var tagId = parseInt(event.target.getAttribute('data-tag-id'), 10);
-                    if (tagId) {{
-                        removeInlineTag_{widget_id}(tagId);
-                    }}
-                }}
-            }});
-
-            window.handleInlineTagKeydown_{widget_id} = function(event) {{
-                event.stopPropagation();
-                var input = event.target;
-                var value = input.value.trim();
-
-                if (event.key === 'Enter' || event.key === ',') {{
-                    event.preventDefault();
-                    if (value) {{
-                        value.split(',').forEach(function(tag) {{
-                            addInlineTag_{widget_id}(tag.trim());
-                        }});
-                    }}
-                }}
-            }};
-
-            window.fetchInlineTagAutocomplete_{widget_id} = function(query) {{
-                if (autocompleteTimeout_{widget_id}) {{
-                    clearTimeout(autocompleteTimeout_{widget_id});
-                }}
-
-                autocompleteTimeout_{widget_id} = setTimeout(function() {{
-                    if (!query || query.length < 1) {{
-                        document.getElementById('{widget_id}_datalist').innerHTML = '';
-                        return;
-                    }}
-
-                    fetch('/api/v1/core/tags/autocomplete/?q=' + encodeURIComponent(query))
-                        .then(function(response) {{ return response.json(); }})
-                        .then(function(data) {{
-                            var datalist = document.getElementById('{widget_id}_datalist');
-                            datalist.innerHTML = '';
-                            (data.tags || []).forEach(function(tag) {{
-                                var option = document.createElement('option');
-                                option.value = tag.name;
-                                datalist.appendChild(option);
-                            }});
-                        }})
-                        .catch(function(err) {{
-                            console.log('Autocomplete error:', err);
-                        }});
-                }}, 150);
-            }};
-
-            function escapeHtml(text) {{
-                var div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }}
-
-            function getCSRFToken() {{
-                var cookies = document.cookie.split(';');
-                for (var i = 0; i < cookies.length; i++) {{
-                    var cookie = cookies[i].trim();
-                    if (cookie.startsWith('csrftoken=')) {{
-                        return cookie.substring('csrftoken='.length);
-                    }}
-                }}
-                var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
-                return input ? input.value : '';
-            }}
-        }})();
-        </script>
         '''
 
-        return html
+        return mark_safe(html)

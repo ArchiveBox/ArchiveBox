@@ -18,6 +18,8 @@ import shutil
 from pathlib import Path
 from typing import List, Iterable
 
+from django.conf import settings
+
 
 def get_env(name: str, default: str = '') -> str:
     return os.environ.get(name, default).strip()
@@ -51,6 +53,12 @@ def _get_archive_dir() -> Path:
     data_dir = os.environ.get('DATA_DIR', '').strip()
     if data_dir:
         return Path(data_dir) / 'archive'
+    settings_archive_dir = getattr(settings, 'ARCHIVE_DIR', None)
+    if settings_archive_dir:
+        return Path(settings_archive_dir)
+    settings_data_dir = getattr(settings, 'DATA_DIR', None)
+    if settings_data_dir:
+        return Path(settings_data_dir) / 'archive'
     return Path.cwd() / 'archive'
 
 

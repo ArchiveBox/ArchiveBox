@@ -174,7 +174,7 @@ async function configure2Captcha() {
         // Connect to the existing Chrome session via CDP
         const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
         if (!fs.existsSync(cdpFile)) {
-            return { success: false, error: 'CDP URL not found - chrome plugin must run first' };
+            return { success: false, error: 'No Chrome session found (chrome plugin must run first)' };
         }
 
         const cdpUrl = fs.readFileSync(cdpFile, 'utf-8').trim();

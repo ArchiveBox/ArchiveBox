@@ -81,7 +81,7 @@ function getCdpUrl() {
 }
 
 // Extract outlinks
-async function extractOutlinks(url) {
+async function extractOutlinks(url, snapshotId, crawlId, depth) {
     // Output directory is current directory (hook already runs in output dir)
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
@@ -253,7 +253,7 @@ async function main() {
             }
         }
 
-        const result = await extractOutlinks(url);
+        const result = await extractOutlinks(url, snapshotId, crawlId, depth);
 
         if (result.success) {
             status = 'succeeded';

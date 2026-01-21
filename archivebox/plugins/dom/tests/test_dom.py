@@ -28,6 +28,7 @@ from archivebox.plugins.chrome.tests.chrome_test_helpers import (
     LIB_DIR,
     NODE_MODULES_DIR,
     PLUGINS_ROOT,
+    chrome_session,
 )
 
 
@@ -61,15 +62,19 @@ def test_extracts_dom_from_example_com():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Run DOM extraction hook
-        result = subprocess.run(
-            ['node', str(DOM_HOOK), f'--url={TEST_URL}', '--snapshot-id=test789'],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            timeout=120
-        ,
-            env=get_test_env())
+        with chrome_session(tmpdir, test_url=TEST_URL) as (_process, _pid, snapshot_chrome_dir, env):
+            dom_dir = snapshot_chrome_dir.parent / 'dom'
+            dom_dir.mkdir(exist_ok=True)
+
+            # Run DOM extraction hook
+            result = subprocess.run(
+                ['node', str(DOM_HOOK), f'--url={TEST_URL}', '--snapshot-id=test789'],
+                cwd=dom_dir,
+                capture_output=True,
+                text=True,
+                timeout=120,
+                env=env
+            )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
@@ -90,7 +95,7 @@ def test_extracts_dom_from_example_com():
         assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
         # Verify filesystem output (hook writes directly to working dir)
-        dom_file = tmpdir / 'output.html'
+        dom_file = dom_dir / 'output.html'
         assert dom_file.exists(), f"output.html not created. Files: {list(tmpdir.iterdir())}"
 
         # Verify HTML content contains REAL example.com text

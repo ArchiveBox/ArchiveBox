@@ -19,7 +19,7 @@ import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
 GIT_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_git.*'), None)
-TEST_URL = 'https://github.com/example/repo.git'
+TEST_URL = 'https://github.com/ArchiveBox/abx-pkg.git'
 
 def test_hook_script_exists():
     assert GIT_HOOK.exists()
@@ -31,10 +31,7 @@ def test_verify_deps_with_abx_pkg():
     git_binary = Binary(name='git', binproviders=[AptProvider(), BrewProvider(), EnvProvider()])
     git_loaded = git_binary.load()
 
-    if git_loaded and git_loaded.abspath:
-        assert True, "git is available"
-    else:
-        pass
+    assert git_loaded and git_loaded.abspath, "git is required for git plugin tests"
 
 def test_reports_missing_git():
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -48,9 +45,7 @@ def test_reports_missing_git():
             assert 'DEPENDENCY_NEEDED' in combined or 'git' in combined.lower() or 'ERROR=' in combined
 
 def test_handles_non_git_url():
-    pass
-    if not shutil.which('git'):
-        pass
+    assert shutil.which('git'), "git binary not available"
 
     with tempfile.TemporaryDirectory() as tmpdir:
         result = subprocess.run(
@@ -83,8 +78,7 @@ def test_real_git_repo():
     """Test that git can clone a real GitHub repository."""
     import os
 
-    if not shutil.which('git'):
-        pytest.skip("git binary not available")
+    assert shutil.which('git'), "git binary not available"
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)

@@ -39,7 +39,7 @@ let responseCount = 0;
 let shuttingDown = false;
 
 // Resource types to capture (by default, capture everything)
-const DEFAULT_TYPES = ['script', 'stylesheet', 'font', 'image', 'media', 'xhr', 'websocket'];
+const DEFAULT_TYPES = ['document', 'script', 'stylesheet', 'font', 'image', 'media', 'xhr', 'websocket'];
 
 function getExtensionFromMimeType(mimeType) {
     const mimeMap = {
@@ -176,11 +176,17 @@ async function setupListener() {
                 const hostname = urlObj.hostname;
                 const pathname = urlObj.pathname || '/';
                 const filename = path.basename(pathname) || 'index' + (extension ? '.' + extension : '');
-                const dirPath = path.dirname(pathname);
+                const dirPathRaw = path.dirname(pathname);
+                const dirPath = dirPathRaw === '.' ? '' : dirPathRaw.replace(/^\/+/, '');
 
                 const symlinkDir = path.join(OUTPUT_DIR, resourceType, hostname, dirPath);
                 const symlinkPath = path.join(symlinkDir, filename);
                 await createSymlink(uniquePath, symlinkPath);
+
+                // Also create a site-style symlink without resource type for easy browsing
+                const siteDir = path.join(OUTPUT_DIR, hostname, dirPath);
+                const sitePath = path.join(siteDir, filename);
+                await createSymlink(uniquePath, sitePath);
             } catch (e) {
                 // URL parsing or symlink creation failed, skip
             }

@@ -42,6 +42,8 @@ from .worker import Worker, BinaryWorker, CrawlWorker
 
 def _run_orchestrator_process(exit_on_idle: bool) -> None:
     """Top-level function for multiprocessing (must be picklable)."""
+    import os
+    os.environ['ARCHIVEBOX_ORCHESTRATOR_PROCESS'] = '1'
     from archivebox.config.django import setup_django
     setup_django()
     orchestrator = Orchestrator(exit_on_idle=exit_on_idle)
@@ -80,6 +82,7 @@ class Orchestrator:
         self.pid_file = None
         self.idle_count: int = 0
         self._last_cleanup_time: float = 0.0  # For throttling cleanup_stale_running()
+        self._last_hard_timeout_check: float = 0.0  # Throttle hard timeout enforcement
 
         # In foreground mode (exit_on_idle=True), limit to 1 CrawlWorker
         if self.exit_on_idle:
@@ -255,10 +258,6 @@ class Orchestrator:
             pid = WorkerClass.start(parent=self.db_process, crawl_id=self.crawl_id)
             print(f'[yellow]DEBUG: Spawned {WorkerClass.name} worker with PID={pid}[/yellow]')
 
-            if self.exit_on_idle:
-                # Foreground runs have MAX_CRAWL_WORKERS=1; avoid blocking startup on registration.
-                return pid
-
             # CRITICAL: Block until worker registers itself in Process table
             # This prevents race condition where orchestrator spawns multiple workers
             # before any of them finish on_startup() and register
@@ -333,6 +332,8 @@ class Orchestrator:
 
         queue_sizes = {}
 
+        self._enforce_hard_timeouts()
+
         # Check Binary queue
         machine = Machine.current()
         binary_queue = Binary.objects.filter(
@@ -359,6 +360,22 @@ class Orchestrator:
             status__in=Crawl.FINAL_STATES
         )
 
+        # Prevent duplicate CrawlWorkers for the same crawl (even across orchestrators)
+        from archivebox.machine.models import Process
+        running_crawl_ids: set[str] = set()
+        running_crawl_workers = Process.objects.filter(
+            process_type=Process.TypeChoices.WORKER,
+            worker_type='crawl',
+            status=Process.StatusChoices.RUNNING,
+        ).values_list('env', flat=True)
+        for env in running_crawl_workers:
+            if isinstance(env, dict):
+                crawl_id = env.get('CRAWL_ID')
+                if crawl_id:
+                    running_crawl_ids.add(str(crawl_id))
+        if running_crawl_ids:
+            crawl_queue = crawl_queue.exclude(id__in=running_crawl_ids)
+
         # Apply crawl_id filter if set
         if self.crawl_id:
             crawl_queue = crawl_queue.filter(id=self.crawl_id)
@@ -378,6 +395,156 @@ class Orchestrator:
                     CrawlWorker.start(parent=self.db_process, crawl_id=str(crawl.id))
 
         return queue_sizes
+
+    def _enforce_hard_timeouts(self) -> None:
+        """Force-kill and seal hooks/archiveresults/snapshots that exceed hard limits."""
+        import time
+        from datetime import timedelta
+        from archivebox.config.constants import CONSTANTS
+        from archivebox.machine.models import Process
+        from archivebox.core.models import Snapshot, ArchiveResult
+        from archivebox.crawls.models import Crawl
+
+        throttle_seconds = 30
+        now_ts = time.time()
+        if now_ts - self._last_hard_timeout_check < throttle_seconds:
+            return
+        self._last_hard_timeout_check = now_ts
+
+        now = timezone.now()
+
+        # Hard limit for hook processes / archiveresults
+        hook_cutoff = now - timedelta(seconds=CONSTANTS.MAX_HOOK_RUNTIME_SECONDS)
+        overdue_hooks = Process.objects.filter(
+            process_type=Process.TypeChoices.HOOK,
+            status=Process.StatusChoices.RUNNING,
+            started_at__lt=hook_cutoff,
+        ).select_related('archiveresult')
+
+        for proc in overdue_hooks:
+            try:
+                proc.kill_tree(graceful_timeout=0.0)
+            except Exception:
+                pass
+
+            ar = getattr(proc, 'archiveresult', None)
+            if ar and ar.status == ArchiveResult.StatusChoices.STARTED:
+                ar.status = ArchiveResult.StatusChoices.FAILED
+                ar.end_ts = now
+                ar.retry_at = None
+                ar.save(update_fields=['status', 'end_ts', 'retry_at', 'modified_at'])
+
+        # Hard limit for snapshots
+        snapshot_cutoff = now - timedelta(seconds=CONSTANTS.MAX_SNAPSHOT_RUNTIME_SECONDS)
+        overdue_snapshots = Snapshot.objects.filter(
+            status=Snapshot.StatusChoices.STARTED,
+            modified_at__lt=snapshot_cutoff,
+        )
+
+        overdue_snapshot_ids = {str(s.id) for s in overdue_snapshots}
+        if overdue_snapshot_ids:
+            running_snapshot_workers = Process.objects.filter(
+                process_type=Process.TypeChoices.WORKER,
+                worker_type='snapshot',
+                status=Process.StatusChoices.RUNNING,
+            )
+            for proc in running_snapshot_workers:
+                env = proc.env or {}
+                if isinstance(env, dict) and str(env.get('SNAPSHOT_ID', '')) in overdue_snapshot_ids:
+                    try:
+                        proc.terminate(graceful_timeout=1.0)
+                    except Exception:
+                        pass
+
+        for snapshot in overdue_snapshots:
+            running_hooks = Process.objects.filter(
+                archiveresult__snapshot=snapshot,
+                process_type=Process.TypeChoices.HOOK,
+                status=Process.StatusChoices.RUNNING,
+            ).distinct()
+            for process in running_hooks:
+                try:
+                    process.kill_tree(graceful_timeout=0.0)
+                except Exception:
+                    continue
+
+            snapshot.archiveresult_set.filter(
+                status__in=[ArchiveResult.StatusChoices.QUEUED, ArchiveResult.StatusChoices.STARTED],
+            ).update(
+                status=ArchiveResult.StatusChoices.FAILED,
+                end_ts=now,
+                retry_at=None,
+                modified_at=now,
+            )
+
+            snapshot.cleanup()
+            snapshot.status = Snapshot.StatusChoices.SEALED
+            snapshot.retry_at = None
+            snapshot.save(update_fields=['status', 'retry_at', 'modified_at'])
+
+            crawl = snapshot.crawl
+            if crawl and crawl.is_finished():
+                crawl.status = crawl.StatusChoices.SEALED
+                crawl.retry_at = None
+                crawl.save(update_fields=['status', 'retry_at', 'modified_at'])
+
+        # Reconcile snapshot/crawl state with running archiveresults
+        started_snapshot_ids = list(
+            ArchiveResult.objects.filter(
+                status=ArchiveResult.StatusChoices.STARTED,
+            ).values_list('snapshot_id', flat=True).distinct()
+        )
+        if started_snapshot_ids:
+            Snapshot.objects.filter(
+                id__in=started_snapshot_ids,
+            ).exclude(
+                status=Snapshot.StatusChoices.SEALED,
+            ).exclude(
+                status=Snapshot.StatusChoices.STARTED,
+            ).update(
+                status=Snapshot.StatusChoices.STARTED,
+                retry_at=None,
+                modified_at=now,
+            )
+
+            Crawl.objects.filter(
+                snapshot_set__id__in=started_snapshot_ids,
+                status=Crawl.StatusChoices.QUEUED,
+            ).distinct().update(
+                status=Crawl.StatusChoices.STARTED,
+                retry_at=None,
+                modified_at=now,
+            )
+
+        # If a snapshot is sealed, any still-started archiveresults should be failed
+        sealed_snapshot_ids = list(
+            Snapshot.objects.filter(status=Snapshot.StatusChoices.SEALED).values_list('id', flat=True)
+        )
+        if sealed_snapshot_ids:
+            started_ars = ArchiveResult.objects.filter(
+                snapshot_id__in=sealed_snapshot_ids,
+                status=ArchiveResult.StatusChoices.STARTED,
+            ).select_related('process')
+            for ar in started_ars:
+                if ar.process_id and ar.process and ar.process.status == Process.StatusChoices.RUNNING:
+                    try:
+                        ar.process.kill_tree(graceful_timeout=0.0)
+                    except Exception:
+                        pass
+                ar.status = ArchiveResult.StatusChoices.FAILED
+                ar.end_ts = now
+                ar.retry_at = None
+                ar.save(update_fields=['status', 'end_ts', 'retry_at', 'modified_at'])
+
+        # Clear queued/started snapshots that belong to sealed crawls
+        Snapshot.objects.filter(
+            crawl__status=Crawl.StatusChoices.SEALED,
+            status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED],
+        ).update(
+            status=Snapshot.StatusChoices.SEALED,
+            retry_at=None,
+            modified_at=now,
+        )
 
     def _claim_crawl(self, crawl) -> bool:
         """Atomically claim a crawl using optimistic locking."""

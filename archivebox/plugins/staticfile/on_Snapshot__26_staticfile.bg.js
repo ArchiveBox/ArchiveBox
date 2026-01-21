@@ -149,6 +149,17 @@ function getFilenameFromUrl(url) {
     }
 }
 
+function normalizeUrl(url) {
+    try {
+        const parsed = new URL(url);
+        let path = parsed.pathname || '';
+        if (path === '/') path = '';
+        return `${parsed.origin}${path}`;
+    } catch (e) {
+        return url;
+    }
+}
+
 async function setupStaticFileListener() {
     const timeout = getEnvInt('STATICFILE_TIMEOUT', 30) * 1000;
 
@@ -174,7 +185,7 @@ async function setupStaticFileListener() {
             const status = response.status();
 
             // Only process the main document response
-            if (url !== originalUrl) return;
+            if (normalizeUrl(url) !== normalizeUrl(originalUrl)) return;
             if (status < 200 || status >= 300) return;
 
             firstResponseHandled = true;
@@ -313,6 +324,19 @@ async function main() {
         // Wait for chrome_navigate to complete (non-fatal)
         try {
             await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 500);
+            if (!detectedContentType && page) {
+                try {
+                    const inferred = await page.evaluate(() => document.contentType || '');
+                    if (inferred) {
+                        detectedContentType = inferred.split(';')[0].trim();
+                        if (isStaticContentType(detectedContentType)) {
+                            isStaticFile = true;
+                        }
+                    }
+                } catch (e) {
+                    // Best-effort only
+                }
+            }
         } catch (e) {
             console.error(`WARN: ${e.message}`);
         }

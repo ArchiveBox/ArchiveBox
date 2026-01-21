@@ -15,6 +15,6 @@ def get_config(key: str) -> any:
     Usage: {% get_config "ARCHIVEDOTORG_ENABLED" as enabled %}
     """
     try:
-        return _get_config(key)
+        return _get_config().get(key)
     except (KeyError, AttributeError):
         return None

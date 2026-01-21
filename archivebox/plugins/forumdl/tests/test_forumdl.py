@@ -13,6 +13,7 @@ Tests verify:
 """
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -28,6 +29,7 @@ TEST_URL = 'https://example.com'
 
 # Module-level cache for binary path
 _forumdl_binary_path = None
+_forumdl_lib_root = None
 
 def get_forumdl_binary_path():
     """Get the installed forum-dl binary path from cache or by running installation."""
@@ -50,11 +52,48 @@ def get_forumdl_binary_path():
     except Exception:
         pass
 
-    # If not found, try to install via pip
-    pip_hook = PLUGINS_ROOT / 'pip' / 'on_Binary__install_using_pip_provider.py'
+    # If not found, try to install via pip using the crawl hook overrides
+    pip_hook = PLUGINS_ROOT / 'pip' / 'on_Binary__11_pip_install.py'
+    crawl_hook = PLUGIN_DIR / 'on_Crawl__25_forumdl_install.py'
     if pip_hook.exists():
         binary_id = str(uuid.uuid4())
         machine_id = str(uuid.uuid4())
+        overrides = None
+
+        if crawl_hook.exists():
+            crawl_result = subprocess.run(
+                [sys.executable, str(crawl_hook)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            for crawl_line in crawl_result.stdout.strip().split('\n'):
+                if crawl_line.strip().startswith('{'):
+                    try:
+                        crawl_record = json.loads(crawl_line)
+                        if crawl_record.get('type') == 'Binary' and crawl_record.get('name') == 'forum-dl':
+                            overrides = crawl_record.get('overrides')
+                            break
+                    except json.JSONDecodeError:
+                        continue
+
+        # Create a persistent temp LIB_DIR for the pip provider
+        import platform
+        global _forumdl_lib_root
+        if not _forumdl_lib_root:
+            _forumdl_lib_root = tempfile.mkdtemp(prefix='forumdl-lib-')
+        machine = platform.machine().lower()
+        system = platform.system().lower()
+        if machine in ('arm64', 'aarch64'):
+            machine = 'arm64'
+        elif machine in ('x86_64', 'amd64'):
+            machine = 'x86_64'
+        machine_type = f"{machine}-{system}"
+        lib_dir = Path(_forumdl_lib_root) / 'lib' / machine_type
+        lib_dir.mkdir(parents=True, exist_ok=True)
+        env = os.environ.copy()
+        env['LIB_DIR'] = str(lib_dir)
+        env['DATA_DIR'] = str(Path(_forumdl_lib_root) / 'data')
 
         cmd = [
             sys.executable, str(pip_hook),
@@ -62,12 +101,15 @@ def get_forumdl_binary_path():
             '--machine-id', machine_id,
             '--name', 'forum-dl'
         ]
+        if overrides:
+            cmd.append(f'--overrides={json.dumps(overrides)}')
 
         install_result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=300
+            timeout=300,
+            env=env,
         )
 
         # Parse Binary from pip installation
@@ -212,8 +254,7 @@ def test_real_forum_url():
     import os
 
     binary_path = get_forumdl_binary_path()
-    if not binary_path:
-        pytest.skip("forum-dl binary not available")
+    assert binary_path, "forum-dl binary not available"
     assert Path(binary_path).is_file(), f"Binary must be a valid file: {binary_path}"
 
     with tempfile.TemporaryDirectory() as tmpdir:

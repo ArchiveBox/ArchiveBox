@@ -188,6 +188,11 @@ class SnapshotSchema(Schema):
         return ArchiveResult.objects.none()
 
 
+class SnapshotUpdateSchema(Schema):
+    status: str | None = None
+    retry_at: datetime | None = None
+
+
 class SnapshotFilterSchema(FilterSchema):
     id: Optional[str] = Field(None, q=['id__icontains', 'timestamp__startswith'])
     created_by_id: str = Field(None, q='crawl__created_by_id')
@@ -223,6 +228,31 @@ def get_snapshot(request, snapshot_id: str, with_archiveresults: bool = True):
         return Snapshot.objects.get(Q(id__startswith=snapshot_id) | Q(timestamp__startswith=snapshot_id))
     except Snapshot.DoesNotExist:
         return Snapshot.objects.get(Q(id__icontains=snapshot_id))
+
+
+@router.patch("/snapshot/{snapshot_id}", response=SnapshotSchema, url_name="patch_snapshot")
+def patch_snapshot(request, snapshot_id: str, data: SnapshotUpdateSchema):
+    """Update a snapshot (e.g., set status=sealed to cancel queued work)."""
+    try:
+        snapshot = Snapshot.objects.get(Q(id__startswith=snapshot_id) | Q(timestamp__startswith=snapshot_id))
+    except Snapshot.DoesNotExist:
+        snapshot = Snapshot.objects.get(Q(id__icontains=snapshot_id))
+
+    payload = data.dict(exclude_unset=True)
+
+    if 'status' in payload:
+        if payload['status'] not in Snapshot.StatusChoices.values:
+            raise HttpError(400, f'Invalid status: {payload["status"]}')
+        snapshot.status = payload['status']
+        if snapshot.status == Snapshot.StatusChoices.SEALED and 'retry_at' not in payload:
+            snapshot.retry_at = None
+
+    if 'retry_at' in payload:
+        snapshot.retry_at = payload['retry_at']
+
+    snapshot.save(update_fields=['status', 'retry_at', 'modified_at'])
+    request.with_archiveresults = False
+    return snapshot
 
 
 ### Tag #########################################################################

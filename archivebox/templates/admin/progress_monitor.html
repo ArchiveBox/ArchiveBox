@@ -130,6 +130,29 @@
         color: #c9d1d9;
         border-color: #8b949e;
     }
+    #progress-monitor .cancel-item-btn {
+        background: transparent;
+        border: 1px solid #30363d;
+        color: #f85149;
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-size: 11px;
+        line-height: 1;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+    #progress-monitor .cancel-item-btn:hover {
+        background: rgba(248, 81, 73, 0.12);
+        border-color: #f85149;
+        color: #ff7b72;
+    }
+    #progress-monitor .cancel-item-btn.is-busy {
+        opacity: 0.6;
+        cursor: wait;
+        border-color: #6e7681;
+        color: #6e7681;
+    }
 
     /* Tree Container */
     #progress-monitor .tree-container {
@@ -161,14 +184,21 @@
         gap: 12px;
         padding: 10px 14px;
         background: rgba(0,0,0,0.2);
-        cursor: pointer;
-        text-decoration: none;
-        color: inherit;
     }
     #progress-monitor .crawl-header:hover {
         background: rgba(88, 166, 255, 0.1);
     }
-    #progress-monitor a.crawl-header:visited {
+    #progress-monitor .crawl-header-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        min-width: 0;
+        cursor: pointer;
+        text-decoration: none;
+        color: inherit;
+    }
+    #progress-monitor a.crawl-header-link:visited {
         color: inherit;
     }
     #progress-monitor .crawl-icon {
@@ -256,14 +286,21 @@
         align-items: center;
         gap: 10px;
         padding: 8px 12px;
-        cursor: pointer;
-        text-decoration: none;
-        color: inherit;
     }
     #progress-monitor .snapshot-header:hover {
         background: rgba(88, 166, 255, 0.05);
     }
-    #progress-monitor a.snapshot-header:visited {
+    #progress-monitor .snapshot-header-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+        min-width: 0;
+        cursor: pointer;
+        text-decoration: none;
+        color: inherit;
+    }
+    #progress-monitor a.snapshot-header-link:visited {
         color: inherit;
     }
     #progress-monitor .snapshot-icon {
@@ -342,7 +379,6 @@
     }
     #progress-monitor .extractor-badge.started .progress-fill {
         background: rgba(210, 153, 34, 0.3);
-        width: 50%;
         animation: progress-pulse 1.5s ease-in-out infinite;
     }
     @keyframes progress-pulse {
@@ -518,6 +554,25 @@
         letter-spacing: 0.5px;
         flex-shrink: 0;
     }
+    #progress-monitor .pid-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 600;
+        color: #8b949e;
+        background: rgba(148, 163, 184, 0.12);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        letter-spacing: 0.2px;
+        white-space: nowrap;
+    }
+    #progress-monitor .pid-label.compact {
+        padding: 1px 5px;
+        font-size: 9px;
+    }
 
 </style>
 
@@ -527,6 +582,7 @@
             <div class="orchestrator-status">
                 <span class="status-dot stopped" id="orchestrator-dot"></span>
                 <span id="orchestrator-text">Stopped</span>
+                <span class="pid-label compact" id="orchestrator-pid" style="display:none;"></span>
             </div>
             <div class="stats">
                 <div class="stat">
@@ -572,12 +628,32 @@
     const thumbnailStrip = document.getElementById('thumbnail-strip');
 
     let pollInterval = null;
+    let pollDelayMs = 1000;
+    let idleTicks = 0;
     let isCollapsed = localStorage.getItem('progress-monitor-collapsed') === 'true';
     let knownThumbnailIds = new Set();
 
     // Baselines for resettable counters
     let succeededBaseline = parseInt(localStorage.getItem('progress-succeeded-baseline') || '0');
     let failedBaseline = parseInt(localStorage.getItem('progress-failed-baseline') || '0');
+
+    function getApiKey() {
+        return (window.ARCHIVEBOX_API_KEY || '').trim();
+    }
+
+    function buildApiUrl(path) {
+        const apiKey = getApiKey();
+        if (!apiKey) return path;
+        const sep = path.includes('?') ? '&' : '?';
+        return `${path}${sep}api_key=${encodeURIComponent(apiKey)}`;
+    }
+
+    function buildApiHeaders() {
+        const headers = { 'Content-Type': 'application/json' };
+        const apiKey = getApiKey();
+        if (apiKey) headers['X-ArchiveBox-API-Key'] = apiKey;
+        return headers;
+    }
     let lastSucceeded = 0;
     let lastFailed = 0;
 
@@ -620,6 +696,7 @@
         return icons[plugin] || '&#128196;';
     }
 
+
     function renderThumbnail(thumb, isNew) {
         const ext = (thumb.embed_path || '').toLowerCase().split('.').pop();
         const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico'].includes(ext);
@@ -630,9 +707,10 @@
         item.title = `${thumb.plugin}: ${thumb.snapshot_url}`;
         item.dataset.id = thumb.id;
 
-        if (isImage && thumb.archive_path) {
+        const archiveUrl = thumb.archive_url || thumb.archive_path;
+        if (isImage && archiveUrl) {
             item.innerHTML = `
-                <img src="${thumb.archive_path}" alt="${thumb.plugin}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'thumbnail-fallback\\'>${getPluginIcon(thumb.plugin)}</div><span class=\\'thumbnail-plugin\\'>${thumb.plugin}</span>'">
+                <img src="${archiveUrl}" alt="${thumb.plugin}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'thumbnail-fallback\\'>${getPluginIcon(thumb.plugin)}</div><span class=\\'thumbnail-plugin\\'>${thumb.plugin}</span>'">
                 <span class="thumbnail-plugin">${thumb.plugin}</span>
             `;
         } else {
@@ -685,13 +763,19 @@
                     extractor.status === 'failed' ? '&#10007;' :
                     extractor.status === 'backoff' ? '&#8987;' :
                     extractor.status === 'skipped' ? '&#8674;' : '&#9675;';
+        const progress = typeof extractor.progress === 'number'
+            ? Math.max(0, Math.min(100, extractor.progress))
+            : null;
+        const progressStyle = progress !== null ? ` style="width: ${progress}%;"` : '';
+        const pidHtml = extractor.pid ? `<span class="pid-label compact">pid ${extractor.pid}</span>` : '';
 
         return `
             <span class="extractor-badge ${extractor.status || 'queued'}">
-                <span class="progress-fill"></span>
+                <span class="progress-fill"${progressStyle}></span>
                 <span class="badge-content">
                     <span class="badge-icon">${icon}</span>
                     <span>${extractor.plugin || 'unknown'}</span>
+                    ${pidHtml}
                 </span>
             </span>
         `;
@@ -700,6 +784,11 @@
     function renderSnapshot(snapshot, crawlId) {
         const statusIcon = snapshot.status === 'started' ? '&#8635;' : '&#128196;';
         const adminUrl = `/admin/core/snapshot/${snapshot.id || 'unknown'}/change/`;
+        const canCancel = snapshot.status === 'queued';
+        const cancelBtn = canCancel
+            ? `<button class="cancel-item-btn" data-cancel-type="snapshot" data-snapshot-id="${snapshot.id}" data-label="✕" title="Cancel snapshot">✕</button>`
+            : '';
+        const snapshotPidHtml = snapshot.worker_pid ? `<span class="pid-label compact">pid ${snapshot.worker_pid}</span>` : '';
 
         let extractorHtml = '';
         if (snapshot.all_plugins && snapshot.all_plugins.length > 0) {
@@ -716,18 +805,22 @@
 
         return `
             <div class="snapshot-item">
-                <a class="snapshot-header" href="${adminUrl}">
-                    <span class="snapshot-icon">${statusIcon}</span>
-                    <div class="snapshot-info">
-                        <div class="snapshot-url">${formatUrl(snapshot.url)}</div>
-                        <div class="snapshot-meta">
-                            ${(snapshot.total_plugins || 0) > 0
-                                ? `${snapshot.completed_plugins || 0}/${snapshot.total_plugins || 0} extractors${(snapshot.failed_plugins || 0) > 0 ? ` <span style="color:#f85149">(${snapshot.failed_plugins} failed)</span>` : ''}`
-                                : 'Waiting for extractors...'}
+                <div class="snapshot-header">
+                    <a class="snapshot-header-link" href="${adminUrl}">
+                        <span class="snapshot-icon">${statusIcon}</span>
+                        <div class="snapshot-info">
+                            <div class="snapshot-url">${formatUrl(snapshot.url)}</div>
+                            <div class="snapshot-meta">
+                                ${(snapshot.total_plugins || 0) > 0
+                                    ? `${snapshot.completed_plugins || 0}/${snapshot.total_plugins || 0} extractors${(snapshot.failed_plugins || 0) > 0 ? ` <span style="color:#f85149">(${snapshot.failed_plugins} failed)</span>` : ''}`
+                                    : 'Waiting for extractors...'}
+                            </div>
                         </div>
-                    </div>
-                    <span class="status-badge ${snapshot.status || 'unknown'}">${snapshot.status || 'unknown'}</span>
-                </a>
+                        ${snapshotPidHtml}
+                        <span class="status-badge ${snapshot.status || 'unknown'}">${snapshot.status || 'unknown'}</span>
+                    </a>
+                    ${cancelBtn}
+                </div>
                 <div class="snapshot-progress">
                     <div class="progress-bar-container">
                         <div class="progress-bar snapshot ${snapshot.status === 'started' && (snapshot.progress || 0) === 0 ? 'indeterminate' : ''}"
@@ -742,6 +835,11 @@
     function renderCrawl(crawl) {
         const statusIcon = crawl.status === 'started' ? '&#8635;' : '&#128269;';
         const adminUrl = `/admin/crawls/crawl/${crawl.id || 'unknown'}/change/`;
+        const canCancel = crawl.status === 'queued' || crawl.status === 'started';
+        const cancelBtn = canCancel
+            ? `<button class="cancel-item-btn" data-cancel-type="crawl" data-crawl-id="${crawl.id}" data-label="✕" title="Cancel crawl">✕</button>`
+            : '';
+        const crawlPidHtml = crawl.worker_pid ? `<span class="pid-label compact">pid ${crawl.worker_pid}</span>` : '';
 
         let snapshotsHtml = '';
         if (crawl.active_snapshots && crawl.active_snapshots.length > 0) {
@@ -760,7 +858,7 @@
             // Queued but retry_at is in future (was claimed by worker, will retry)
             warningHtml = `
                 <div style="padding: 8px 14px; background: rgba(88, 166, 255, 0.1); border-top: 1px solid #58a6ff; color: #58a6ff; font-size: 11px;">
-                    🔄 Retrying in ${crawl.seconds_until_retry || 0}s...${crawl.urls_preview ? ` (${crawl.urls_preview})` : ''}
+                    🔄 Trying in ${crawl.seconds_until_retry || 0}s...${crawl.urls_preview ? ` (${crawl.urls_preview})` : ''}
                 </div>
             `;
         } else if (crawl.status === 'queued' && crawl.total_snapshots === 0) {
@@ -784,19 +882,23 @@
 
         return `
             <div class="crawl-item" data-crawl-id="${crawl.id || 'unknown'}">
-                <a class="crawl-header" href="${adminUrl}">
-                    <span class="crawl-icon">${statusIcon}</span>
-                    <div class="crawl-info">
-                        <div class="crawl-label">${crawl.label || '(no label)'}</div>
-                        <div class="crawl-meta">${metaText}</div>
-                    </div>
-                    <div class="crawl-stats">
-                        <span style="color:#3fb950">${crawl.completed_snapshots || 0} done</span>
-                        <span style="color:#d29922">${crawl.started_snapshots || 0} active</span>
-                        <span style="color:#8b949e">${crawl.pending_snapshots || 0} pending</span>
-                    </div>
-                    <span class="status-badge ${crawl.status || 'unknown'}">${crawl.status || 'unknown'}</span>
-                </a>
+                <div class="crawl-header">
+                    <a class="crawl-header-link" href="${adminUrl}">
+                        <span class="crawl-icon">${statusIcon}</span>
+                        <div class="crawl-info">
+                            <div class="crawl-label">${crawl.label || '(no label)'}</div>
+                            <div class="crawl-meta">${metaText}</div>
+                        </div>
+                        <div class="crawl-stats">
+                            <span style="color:#3fb950">${crawl.completed_snapshots || 0} done</span>
+                            <span style="color:#d29922">${crawl.started_snapshots || 0} active</span>
+                            <span style="color:#8b949e">${crawl.pending_snapshots || 0} pending</span>
+                        </div>
+                        ${crawlPidHtml}
+                        <span class="status-badge ${crawl.status || 'unknown'}">${crawl.status || 'unknown'}</span>
+                    </a>
+                    ${cancelBtn}
+                </div>
                 <div class="crawl-progress">
                     <div class="progress-bar-container">
                         <div class="progress-bar crawl ${crawl.status === 'started' && (crawl.progress || 0) === 0 ? 'indeterminate' : ''}"
@@ -820,11 +922,26 @@
                            data.crawls_pending > 0 || data.crawls_started > 0 ||
                            data.snapshots_pending > 0 || data.snapshots_started > 0 ||
                            data.archiveresults_pending > 0 || data.archiveresults_started > 0;
+        if (!hasActivity && !isCollapsed) {
+            setCollapsedState(true);
+        }
+        if (hasActivity) {
+            idleTicks = 0;
+            if (pollDelayMs !== 1000) {
+                setPollingDelay(1000);
+            }
+        } else {
+            idleTicks += 1;
+            if (idleTicks > 5 && pollDelayMs !== 10000) {
+                setPollingDelay(10000);
+            }
+        }
 
         // Update orchestrator status - show "Running" only when there's actual activity
         // Don't distinguish between "Stopped" and "Idle" since orchestrator starts/stops frequently
         const dot = document.getElementById('orchestrator-dot');
         const text = document.getElementById('orchestrator-text');
+        const pidEl = document.getElementById('orchestrator-pid');
         const hasWorkers = data.total_workers > 0;
 
         if (hasWorkers || hasActivity) {
@@ -836,6 +953,14 @@
             dot.classList.remove('stopped', 'running');
             dot.classList.add('idle');
             text.textContent = 'Idle';
+        }
+
+        if (data.orchestrator_pid) {
+            pidEl.textContent = `pid ${data.orchestrator_pid}`;
+            pidEl.style.display = 'inline-flex';
+        } else {
+            pidEl.textContent = '';
+            pidEl.style.display = 'none';
         }
 
         // Pulse the dot to show we got fresh data
@@ -909,7 +1034,7 @@
     function startPolling() {
         if (pollInterval) return;
         fetchProgress();
-        pollInterval = setInterval(fetchProgress, 1000);  // Poll every 1 second
+        pollInterval = setInterval(fetchProgress, pollDelayMs);
     }
 
     function stopPolling() {
@@ -919,10 +1044,19 @@
         }
     }
 
-    // Collapse toggle
-    collapseBtn.addEventListener('click', function() {
-        isCollapsed = !isCollapsed;
-        localStorage.setItem('progress-monitor-collapsed', isCollapsed);
+    function setPollingDelay(ms) {
+        pollDelayMs = ms;
+        if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = setInterval(fetchProgress, pollDelayMs);
+        }
+    }
+
+    function setCollapsedState(collapsed, persist = true) {
+        isCollapsed = collapsed;
+        if (persist) {
+            localStorage.setItem('progress-monitor-collapsed', isCollapsed);
+        }
         if (isCollapsed) {
             monitor.classList.add('collapsed');
             collapseBtn.textContent = 'Expand';
@@ -930,12 +1064,92 @@
             monitor.classList.remove('collapsed');
             collapseBtn.textContent = 'Details';
         }
+    }
+
+    function setCancelButtonState(btn, busy) {
+        if (!btn) return;
+        const label = btn.dataset.label || '✕';
+        btn.disabled = !!busy;
+        btn.classList.toggle('is-busy', !!busy);
+        btn.textContent = busy ? '…' : label;
+    }
+
+    function cancelCrawl(crawlId, btn) {
+        if (!crawlId) return;
+        if (!getApiKey()) {
+            console.warn('API key unavailable for this session.');
+            setCancelButtonState(btn, false);
+            return;
+        }
+        setCancelButtonState(btn, true);
+
+        fetch(buildApiUrl(`/api/v1/crawls/crawl/${crawlId}`), {
+            method: 'PATCH',
+            headers: buildApiHeaders(),
+            body: JSON.stringify({ status: 'sealed', retry_at: null }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Cancel crawl error:', data.error);
+            }
+            fetchProgress();
+        })
+        .catch(error => {
+            console.error('Cancel crawl failed:', error);
+            setCancelButtonState(btn, false);
+        });
+    }
+
+    function cancelSnapshot(snapshotId, btn) {
+        if (!snapshotId) return;
+        if (!getApiKey()) {
+            console.warn('API key unavailable for this session.');
+            setCancelButtonState(btn, false);
+            return;
+        }
+        setCancelButtonState(btn, true);
+
+        fetch(buildApiUrl(`/api/v1/core/snapshot/${snapshotId}`), {
+            method: 'PATCH',
+            headers: buildApiHeaders(),
+            body: JSON.stringify({ status: 'sealed', retry_at: null }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Cancel snapshot error:', data.error);
+            }
+            fetchProgress();
+        })
+        .catch(error => {
+            console.error('Cancel snapshot failed:', error);
+            setCancelButtonState(btn, false);
+        });
+    }
+
+    // Collapse toggle
+    collapseBtn.addEventListener('click', function() {
+        setCollapsedState(!isCollapsed);
+    });
+
+    crawlTree.addEventListener('click', function(event) {
+        const btn = event.target.closest('.cancel-item-btn');
+        if (!btn) return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        const cancelType = btn.dataset.cancelType;
+        if (cancelType === 'crawl') {
+            cancelCrawl(btn.dataset.crawlId, btn);
+        } else if (cancelType === 'snapshot') {
+            cancelSnapshot(btn.dataset.snapshotId, btn);
+        }
     });
 
     // Apply initial state
     if (isCollapsed) {
-        monitor.classList.add('collapsed');
-        collapseBtn.textContent = 'Expand';
+        setCollapsedState(true, false);
     }
 
     // Start polling when page loads

@@ -118,6 +118,10 @@ class ConstantsDict(Mapping):
     DEFAULT_CLI_COLORS: Dict[str, str]  = DEFAULT_CLI_COLORS
     DISABLED_CLI_COLORS: Dict[str, str] = benedict({k: '' for k in DEFAULT_CLI_COLORS})
 
+    # Hard safety limits (seconds)
+    MAX_HOOK_RUNTIME_SECONDS: int       = 60 * 60 * 12   # 12 hours
+    MAX_SNAPSHOT_RUNTIME_SECONDS: int   = 60 * 60 * 12   # 12 hours
+
     ALLOWDENYLIST_REGEX_FLAGS: int      = re.IGNORECASE | re.UNICODE | re.MULTILINE
 
     STATICFILE_EXTENSIONS: frozenset[str] = frozenset((

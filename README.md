@@ -104,7 +104,8 @@ archivebox init --setup
 curl -fsSL 'https://get.archivebox.io' | bash
 </code></pre>
 <br/>
-<sub>Open <a href="http://localhost:8000"><code>http://localhost:8000</code></a> to see your server's Web UI ➡️</sub>
+<sub>Open <a href="http://web.archivebox.localhost:8000"><code>http://web.archivebox.localhost:8000</code></a> for the public UI and <a href="http://admin.archivebox.localhost:8000"><code>http://admin.archivebox.localhost:8000</code></a> for the admin UI ➡️</sub><br/>
+<sub>Set <code>LISTEN_HOST</code> to change the base domain; <code>web.</code> and <code>admin.</code> subdomains are used automatically.</sub>
 </details>
 <br/>
 
@@ -469,6 +470,7 @@ For more discussion on managed and paid hosting options see here: <a href="https
 #### ➡️&nbsp; Next Steps
 
 - Import URLs from some of the supported [Input Formats](#input-formats) or view the supported [Output Formats](#output-formats)...
+- (Optional) Create a persona and import browser cookies to archive logged-in sites: `archivebox persona create --import=chrome personal`
 - Tweak your UI or archiving behavior [Configuration](#configuration), read about some of the [Caveats](#caveats), or [Troubleshoot](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting)
 - Read about the [Dependencies](#dependencies) used for archiving, the [Upgrading Process](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives), or the [Archive Layout](#archive-layout) on disk...
 - Or check out our full [Documentation](#documentation) or [Community Wiki](#internet-archiving-ecosystem)...
@@ -495,6 +497,11 @@ docker compose run archivebox help
 
 # equivalent: docker run -it -v $PWD:/data archivebox/archivebox [subcommand] [--help]
 docker run -it -v $PWD:/data archivebox/archivebox help
+
+# optional: import your browser cookies into a persona for logged-in archiving
+archivebox persona create --import=chrome personal
+# supported: chrome/chromium/brave/edge (Chromium-based only)
+# re-running import merges/dedupes cookies.txt (by domain/path/name) but replaces chrome_user_data
 ```
 
 #### ArchiveBox Subcommands
@@ -587,7 +594,8 @@ docker run -v $PWD:/data -it archivebox/archivebox archivebox manage createsuper
 docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
 </code></pre>
 
-<sup>Open <a href="http://localhost:8000"><code>http://localhost:8000</code></a> to see your server's Web UI ➡️</sup>
+<sup>Open <a href="http://web.archivebox.localhost:8000"><code>http://web.archivebox.localhost:8000</code></a> for the public UI and <a href="http://admin.archivebox.localhost:8000"><code>http://admin.archivebox.localhost:8000</code></a> for the admin UI ➡️</sup><br/>
+<sup>Set <code>LISTEN_HOST</code> to change the base domain; <code>web.</code> and <code>admin.</code> subdomains are used automatically.</sup>
 <br/><br/>
 <i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#ui-usage">Usage: Web UI</a> wiki. ➡️</i>
 <br/><br/>

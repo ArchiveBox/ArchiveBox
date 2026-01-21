@@ -1297,7 +1297,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
             path = self.archive_path
             output = ""
-            output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{}</a> &nbsp;'
+            output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{}</a>'
 
             # Get all plugins from hooks system (sorted by numeric prefix)
             all_plugins = [get_plugin_name(e) for e in get_plugins()]
@@ -1322,7 +1322,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                     icon
                 )
 
-            return format_html('<span class="files-icons" style="font-size: 1.1em; opacity: 0.8; min-width: 240px; display: inline-block">{}</span>', mark_safe(output))
+            return format_html('<span class="files-icons" style="font-size: 1em; opacity: 0.8; display: inline-grid; grid-auto-flow: column; grid-auto-columns: auto; grid-template-rows: repeat(4, auto); gap: 0 0; justify-content: start; align-content: start;">{}</span>', mark_safe(output))
 
         cache_result = cache.get(cache_key)
         if cache_result:
@@ -1789,7 +1789,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         )['total_size'] or 0
 
         # Check if sealed
-        is_sealed = self.status in (self.StatusChoices.SEALED, self.StatusChoices.FAILED, self.StatusChoices.BACKOFF)
+        is_sealed = self.status not in (self.StatusChoices.QUEUED, self.StatusChoices.STARTED)
 
         return {
             'total': total,
@@ -1992,6 +1992,14 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 size = sum(p.stat().st_size for p in abs_path.rglob('*') if p.is_file())
             else:
                 size = abs_path.stat().st_size
+                plugin_lower = (result.plugin or '').lower()
+                if plugin_lower in ('ytdlp', 'yt-dlp', 'youtube-dl'):
+                    plugin_dir = snap_dir / result.plugin
+                    if plugin_dir.exists():
+                        try:
+                            size = sum(p.stat().st_size for p in plugin_dir.rglob('*') if p.is_file())
+                        except OSError:
+                            pass
             outputs.append({
                 'name': result.plugin,
                 'path': embed_path,
@@ -2057,6 +2065,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     def to_dict(self, extended: bool = False) -> Dict[str, Any]:
         """Convert Snapshot to a dictionary (replacement for Link._asdict())"""
         from archivebox.misc.util import ts_to_date_str
+        from archivebox.core.host_utils import build_snapshot_url
 
         result = {
             'TYPE': 'core.models.Snapshot',
@@ -2078,6 +2087,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             'is_static': self.is_static,
             'is_archived': self.is_archived,
             'archive_path': self.archive_path,
+            'archive_url': build_snapshot_url(str(self.id), 'index.html'),
             'output_dir': self.output_dir,
             'link_dir': self.output_dir,  # backwards compatibility alias
             'archive_size': self.archive_size,
@@ -2129,14 +2139,17 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         outputs_by_plugin = {out['name']: out for out in outputs}
 
         best_preview_path = 'about:blank'
+        best_result = {'path': 'about:blank', 'result': None}
         for plugin in preview_priority:
             out = outputs_by_plugin.get(plugin)
             if out and out.get('path'):
                 best_preview_path = out['path']
+                best_result = out
                 break
 
         if best_preview_path == 'about:blank' and outputs:
             best_preview_path = outputs[0].get('path') or 'about:blank'
+            best_result = outputs[0]
         context = {
             **self.to_dict(extended=True),
             'title': htmlencode(self.title or (self.base_url if self.is_archived else TITLE_LOADING_MSG)),
@@ -2151,6 +2164,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             'SAVE_ARCHIVE_DOT_ORG': SAVE_ARCHIVE_DOT_ORG,
             'PREVIEW_ORIGINALS': SERVER_CONFIG.PREVIEW_ORIGINALS,
             'best_preview_path': best_preview_path,
+            'best_result': best_result,
             'archiveresults': outputs,
         }
         rendered_html = render_to_string('snapshot.html', context)
@@ -2326,6 +2340,9 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         app_label = 'core'
         verbose_name = 'Archive Result'
         verbose_name_plural = 'Archive Results Log'
+        indexes = [
+            models.Index(fields=['snapshot', 'status'], name='archiveresult_snap_status_idx'),
+        ]
 
     def __str__(self):
         return f'[{self.id}] {self.snapshot.url[:64]} -> {self.plugin}'
@@ -2487,6 +2504,20 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         plugin_lower = (plugin_name or '').lower()
         prefer_media = plugin_lower in ('ytdlp', 'yt-dlp', 'youtube-dl')
 
+        preferred_text = []
+        if plugin_lower:
+            preferred_text.extend([
+                f'{plugin_lower}.jsonl',
+                f'{plugin_lower}.json',
+                f'{plugin_lower}.txt',
+                f'{plugin_lower}.log',
+            ])
+        preferred_text.extend(['index.jsonl', 'index.json'])
+        for name in preferred_text:
+            candidate = dir_path / name
+            if candidate.exists() and candidate.is_file():
+                return candidate
+
         if not prefer_media:
             for name in ('index.html', 'index.htm'):
                 candidate = dir_path / name
@@ -2504,6 +2535,8 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             if file_path.is_dir() or file_path.name.startswith('.'):
                 continue
             ext = file_path.suffix.lstrip('.').lower()
+            if ext in ('pid', 'log', 'sh'):
+                continue
             if ext not in embeddable_exts:
                 continue
             try:
@@ -2547,20 +2580,44 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         # Fallback: treat output_str as a file path only if it exists on disk
         if self.output_str:
             try:
-                output_path = Path(self.output_str)
+                raw_output = str(self.output_str).strip()
+                if raw_output in ('.', './', ''):
+                    best_file = self._find_best_output_file(plugin_dir, self.plugin)
+                    if best_file:
+                        return str(best_file.relative_to(snapshot_dir))
+                    output_path = None
+                else:
+                    output_path = Path(raw_output)
 
-                if output_path.is_absolute():
+                if output_path and output_path.is_absolute():
                     # If absolute and within snapshot dir, normalize to relative
                     if snapshot_dir in output_path.parents and output_path.exists():
-                        return str(output_path.relative_to(snapshot_dir))
-                else:
+                        if output_path.is_file():
+                            return str(output_path.relative_to(snapshot_dir))
+                        if output_path.is_dir():
+                            best_file = self._find_best_output_file(output_path, self.plugin)
+                            if best_file:
+                                return str(best_file.relative_to(snapshot_dir))
+                elif output_path:
                     # If relative, prefer plugin-prefixed path, then direct path
-                    if (plugin_dir / output_path).exists():
-                        return f'{self.plugin}/{output_path}'
+                    plugin_candidate = plugin_dir / output_path
+                    if plugin_candidate.exists():
+                        if plugin_candidate.is_file():
+                            return f'{self.plugin}/{output_path}'
+                        if plugin_candidate.is_dir():
+                            best_file = self._find_best_output_file(plugin_candidate, self.plugin)
+                            if best_file:
+                                return str(best_file.relative_to(snapshot_dir))
                     if output_path.name in ('index.html', 'index.json') and output_path.parent == Path('.'):
                         return None
-                    if (snapshot_dir / output_path).exists():
-                        return str(output_path)
+                    snapshot_candidate = snapshot_dir / output_path
+                    if snapshot_candidate.exists():
+                        if snapshot_candidate.is_file():
+                            return str(output_path)
+                        if snapshot_candidate.is_dir():
+                            best_file = self._find_best_output_file(snapshot_candidate, self.plugin)
+                            if best_file:
+                                return str(best_file.relative_to(snapshot_dir))
             except Exception:
                 pass
 
@@ -2569,7 +2626,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             ignored = {'stdout.log', 'stderr.log', 'hook.pid', 'listener.pid', 'cmd.sh'}
             output_candidates = [
                 f for f in self.output_files.keys()
-                if Path(f).name not in ignored
+                if Path(f).name not in ignored and Path(f).suffix not in ('.pid', '.log', '.sh')
             ]
             first_file = output_candidates[0] if output_candidates else None
             if first_file and (plugin_dir / first_file).exists():

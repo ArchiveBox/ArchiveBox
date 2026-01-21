@@ -26,6 +26,7 @@ const PLUGIN_NAME = 'accessibility';
 const OUTPUT_DIR = '.';
 const OUTPUT_FILE = 'accessibility.json';
 const CHROME_SESSION_DIR = '../chrome';
+const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
 
 // Parse command line arguments
 function parseArgs() {
@@ -76,6 +77,27 @@ function getCdpUrl() {
     return null;
 }
 
+function assertChromeSession() {
+    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
+    const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
+    const pidFile = path.join(CHROME_SESSION_DIR, 'chrome.pid');
+    if (!fs.existsSync(cdpFile) || !fs.existsSync(targetIdFile) || !fs.existsSync(pidFile)) {
+        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+    }
+    try {
+        const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+        if (!pid || Number.isNaN(pid)) throw new Error('Invalid pid');
+        process.kill(pid, 0);
+    } catch (e) {
+        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+    }
+    const cdpUrl = getCdpUrl();
+    if (!cdpUrl) {
+        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+    }
+    return cdpUrl;
+}
+
 // Extract accessibility info
 async function extractAccessibility(url) {
     // Output directory is current directory (hook already runs in output dir)
@@ -85,10 +107,7 @@ async function extractAccessibility(url) {
 
     try {
         // Connect to existing Chrome session
-        const cdpUrl = getCdpUrl();
-        if (!cdpUrl) {
-            return { success: false, error: 'No Chrome session found (chrome plugin must run first)' };
-        }
+        const cdpUrl = assertChromeSession();
 
         browser = await puppeteer.connect({
             browserWSEndpoint: cdpUrl,
@@ -226,13 +245,10 @@ async function main() {
         }
 
         // Check if Chrome session exists, then wait for page load
-        const cdpUrl = getCdpUrl();
-        if (cdpUrl) {
-            // Wait for page to be fully loaded
-            const pageLoaded = await waitForChromeTabLoaded(60000);
-            if (!pageLoaded) {
-                throw new Error('Page not loaded after 60s (chrome_navigate must complete first)');
-            }
+        assertChromeSession();
+        const pageLoaded = await waitForChromeTabLoaded(60000);
+        if (!pageLoaded) {
+            throw new Error('Page not loaded after 60s (chrome_navigate must complete first)');
         }
 
         const result = await extractAccessibility(url);

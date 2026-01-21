@@ -151,7 +151,6 @@ class TestRipgrepSearch(TestCase):
         results = search('test')
         self.assertEqual(results, [])
 
-    @pytest.mark.skipif(not shutil.which('rg'), reason="ripgrep not installed")
     def test_search_single_match(self):
         """search should find matching snapshot."""
         results = search('Python programming')
@@ -160,7 +159,6 @@ class TestRipgrepSearch(TestCase):
         self.assertNotIn('snap-002', results)
         self.assertNotIn('snap-003', results)
 
-    @pytest.mark.skipif(not shutil.which('rg'), reason="ripgrep not installed")
     def test_search_multiple_matches(self):
         """search should find all matching snapshots."""
         # 'guide' appears in snap-002 (JavaScript guide) and snap-003 (Archiving Guide)
@@ -170,7 +168,6 @@ class TestRipgrepSearch(TestCase):
         self.assertIn('snap-003', results)
         self.assertNotIn('snap-001', results)
 
-    @pytest.mark.skipif(not shutil.which('rg'), reason="ripgrep not installed")
     def test_search_case_insensitive_by_default(self):
         """search should be case-sensitive (ripgrep default)."""
         # By default rg is case-sensitive
@@ -181,13 +178,11 @@ class TestRipgrepSearch(TestCase):
         self.assertIsInstance(results_upper, list)
         self.assertIsInstance(results_lower, list)
 
-    @pytest.mark.skipif(not shutil.which('rg'), reason="ripgrep not installed")
     def test_search_no_results(self):
         """search should return empty list for no matches."""
         results = search('xyznonexistent123')
         self.assertEqual(results, [])
 
-    @pytest.mark.skipif(not shutil.which('rg'), reason="ripgrep not installed")
     def test_search_regex(self):
         """search should support regex patterns."""
         results = search('(Python|JavaScript)')
@@ -195,7 +190,6 @@ class TestRipgrepSearch(TestCase):
         self.assertIn('snap-001', results)
         self.assertIn('snap-002', results)
 
-    @pytest.mark.skipif(not shutil.which('rg'), reason="ripgrep not installed")
     def test_search_distinct_snapshots(self):
         """search should return distinct snapshot IDs."""
         # Query matches both files in snap-001
@@ -212,7 +206,6 @@ class TestRipgrepSearch(TestCase):
                     search('test')
                 self.assertIn('ripgrep binary not found', str(context.exception))
 
-    @pytest.mark.skipif(not shutil.which('rg'), reason="ripgrep not installed")
     def test_search_with_custom_args(self):
         """search should use custom RIPGREP_ARGS."""
         with patch.dict(os.environ, {'RIPGREP_ARGS': '["-i"]'}):  # Case insensitive
@@ -220,7 +213,6 @@ class TestRipgrepSearch(TestCase):
             # With -i flag, should find regardless of case
             self.assertIn('snap-001', results)
 
-    @pytest.mark.skipif(not shutil.which('rg'), reason="ripgrep not installed")
     def test_search_timeout(self):
         """search should handle timeout gracefully."""
         with patch.dict(os.environ, {'RIPGREP_TIMEOUT': '1'}):
@@ -285,19 +277,16 @@ class TestRipgrepSearchIntegration(TestCase):
             else:
                 file_path.write_text(content)
 
-    @pytest.mark.skipif(not shutil.which('rg'), reason="ripgrep not installed")
     def test_search_archivebox(self):
         """Search for archivebox should find documentation snapshot."""
         results = search('archivebox')
         self.assertIn('1704067200.123456', results)
 
-    @pytest.mark.skipif(not shutil.which('rg'), reason="ripgrep not installed")
     def test_search_python(self):
         """Search for python should find Python news snapshot."""
         results = search('Python')
         self.assertIn('1704153600.654321', results)
 
-    @pytest.mark.skipif(not shutil.which('rg'), reason="ripgrep not installed")
     def test_search_pip_install(self):
         """Search for installation command."""
         results = search('pip install')

@@ -23,7 +23,7 @@ if (process.env.NODE_MODULES_DIR) {
 const fs = require('fs');
 const path = require('path');
 const {
-    findChromium,
+    findAnyChromiumBinary,
     launchChromium,
     killChrome,
     getEnv,
@@ -109,9 +109,9 @@ async function main() {
         process.exit(1);
     }
 
-    const binary = findChromium();
+    const binary = findAnyChromiumBinary();
     if (!binary) {
-        console.error('ERROR: Chromium binary not found');
+        console.error('ERROR: Chromium-based browser binary not found');
         process.exit(1);
     }
 

@@ -180,7 +180,7 @@
               <input type="checkbox" name="_selected_action" value="{{obj.pk}}"/>
             </label>
           </div>
-          <a href="/{{obj.archive_path}}/index.html" class="card-thumbnail {% if not obj.thumbnail_url %}missing{% endif %}">
+          <a href="{% snapshot_base_url obj %}/index.html" class="card-thumbnail {% if not obj.thumbnail_url %}missing{% endif %}">
             <img src="{{obj.thumbnail_url|default:'/static/spinner.gif' }}" alt="{{obj.title|default:'Not yet archived...'}}" /> 
           </a>
           <div class="card-footer">
@@ -194,10 +194,10 @@
                 </div>
               {% endif %}
               <div class="card-title" title="{{obj.title}}">
-                <a href="/{{obj.archive_path}}/index.html">
+                <a href="{% snapshot_base_url obj %}/index.html">
                   <h4>
                     {% if obj.is_archived %}
-                        <img src="/{{obj.archive_path}}/favicon.ico" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
+                        <img src="{% snapshot_base_url obj %}/favicon.ico" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
                     {% else %}
                         <img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
                     {% endif %}

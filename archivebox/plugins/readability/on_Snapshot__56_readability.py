@@ -22,6 +22,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from urllib.parse import urlparse
 
 import rich_click as click
 
@@ -134,6 +135,24 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
         (output_dir / OUTPUT_FILE).write_text(html_content, encoding='utf-8')
         (output_dir / 'content.txt').write_text(text_content, encoding='utf-8')
         (output_dir / 'article.json').write_text(json.dumps(result_json, indent=2), encoding='utf-8')
+
+        # Link images/ to responses capture (if available)
+        try:
+            hostname = urlparse(url).hostname or ''
+            if hostname:
+                responses_images = (output_dir / '..' / 'responses' / 'image' / hostname / 'images').resolve()
+                link_path = output_dir / 'images'
+                if responses_images.exists() and responses_images.is_dir():
+                    if link_path.exists() or link_path.is_symlink():
+                        if link_path.is_symlink() or link_path.is_file():
+                            link_path.unlink()
+                        else:
+                            responses_images = None
+                    if responses_images:
+                        rel_target = os.path.relpath(str(responses_images), str(output_dir))
+                        link_path.symlink_to(rel_target)
+        except Exception:
+            pass
 
         return True, OUTPUT_FILE, ''
 

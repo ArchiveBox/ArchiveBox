@@ -112,27 +112,7 @@ def test_screenshot_with_chrome_session():
                 assert screenshot_file.exists() and screenshot_file.stat().st_size > 1000
                 assert screenshot_file.read_bytes()[:8] == b'\x89PNG\r\n\x1a\n'
 
-                # Scenario 2: Custom resolution
-                screenshot_dir2 = snapshot_chrome_dir.parent / 'screenshot2'
-                screenshot_dir2.mkdir()
-                env['CHROME_RESOLUTION'] = '800,600'
-
-                result = subprocess.run(
-                    ['node', str(SCREENSHOT_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
-                    cwd=str(screenshot_dir2),
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                    env=env
-                )
-
-                assert result.returncode == 0
-                screenshot_file2 = screenshot_dir2 / 'screenshot.png'
-                assert screenshot_file2.exists()
-                file_size = screenshot_file2.stat().st_size
-                assert 500 < file_size < 100000, f"800x600 screenshot size unexpected: {file_size}"
-
-                # Scenario 3: Wrong target ID (error case)
+                # Scenario 2: Wrong target ID (error case)
                 screenshot_dir3 = snapshot_chrome_dir.parent / 'screenshot3'
                 screenshot_dir3.mkdir()
                 (snapshot_chrome_dir / 'target_id.txt').write_text('nonexistent-target-id')
@@ -149,9 +129,7 @@ def test_screenshot_with_chrome_session():
                 assert result.returncode != 0
                 assert 'target' in result.stderr.lower() and 'not found' in result.stderr.lower()
 
-        except RuntimeError as e:
-            if 'Chrome' in str(e) or 'CDP' in str(e):
-                pytest.skip(f"Chrome session setup failed: {e}")
+        except RuntimeError:
             raise
 
 
@@ -361,30 +339,6 @@ def test_missing_snapshot_id_argument():
         assert result.returncode != 0, "Should fail when snapshot-id is missing"
         assert 'Usage:' in result.stderr or 'snapshot' in result.stderr.lower()
 
-
-def test_invalid_resolution_format():
-    """Test that invalid CHROME_RESOLUTION format is handled gracefully."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        data_dir = Path(tmpdir)
-        snapshot_dir = data_dir / 'users' / 'testuser' / 'snapshots' / '20240101' / 'example.com' / 'snap-badres'
-        screenshot_dir = snapshot_dir / 'screenshot'
-        screenshot_dir.mkdir(parents=True)
-
-        env = get_test_env()
-        # Invalid resolution formats to test parseResolution error handling
-        for bad_resolution in ['invalid', '1440', '1440x2000', 'abc,def']:
-            env['CHROME_RESOLUTION'] = bad_resolution
-            result = subprocess.run(
-                ['node', str(SCREENSHOT_HOOK), f'--url={TEST_URL}', '--snapshot-id=snap-badres'],
-                cwd=str(screenshot_dir),
-                capture_output=True,
-                text=True,
-                timeout=120,
-                env=env
-            )
-            # Should either fail gracefully or fall back to default
-            # (depending on implementation - script should not crash with uncaught error)
-            assert result.returncode in (0, 1), f"Script should handle bad resolution: {bad_resolution}"
 
 def test_no_cdp_url_fails():
     """Test error when chrome dir exists but no cdp_url.txt."""

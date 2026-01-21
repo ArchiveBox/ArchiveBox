@@ -3,13 +3,13 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "MERKLETREE_ENABLED": {
+    "HASHES_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_MERKLETREE", "USE_MERKLETREE"],
+      "x-aliases": ["SAVE_HASHES", "USE_HASHES"],
       "description": "Enable merkle tree hash generation"
     },
-    "MERKLETREE_TIMEOUT": {
+    "HASHES_TIMEOUT": {
       "type": "integer",
       "default": 30,
       "minimum": 5,

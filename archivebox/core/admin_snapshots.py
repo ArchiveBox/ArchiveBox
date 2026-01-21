@@ -8,6 +8,8 @@ from django.contrib import admin, messages
 from django.urls import path
 from django.utils.html import format_html, mark_safe
 from django.utils import timezone
+from django.db.models import Q, Sum, Count, Prefetch
+from django.db.models.functions import Coalesce
 from django import forms
 from django.template import Template, RequestContext
 from django.contrib.admin.helpers import ActionForm
@@ -18,11 +20,12 @@ from archivebox.misc.util import htmldecode, urldecode
 from archivebox.misc.paginators import AccelleratedPaginator
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.search.admin import SearchResultsAdminMixin
+from archivebox.core.host_utils import build_snapshot_url, build_web_url
 
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 from archivebox.workers.tasks import bg_archive_snapshots, bg_add
 
-from archivebox.core.models import Tag, Snapshot
+from archivebox.core.models import Tag, Snapshot, ArchiveResult
 from archivebox.core.admin_archiveresults import ArchiveResultInline, render_archiveresults_list
 from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
 
@@ -36,7 +39,7 @@ class SnapshotActionForm(ActionForm):
         super().__init__(*args, **kwargs)
         # Define tags field in __init__ to avoid database access during app initialization
         self.fields['tags'] = forms.CharField(
-            label='Edit tags',
+            label='',
             required=False,
             widget=TagEditorWidget(),
         )
@@ -65,6 +68,19 @@ class SnapshotActionForm(ActionForm):
     #     required=False,
     #     widget=forms.MultileChoiceField(attrs={'class': "form-control"})
     # )
+
+
+class TagNameListFilter(admin.SimpleListFilter):
+    title = 'By tag name'
+    parameter_name = 'tag'
+
+    def lookups(self, request, model_admin):
+        return [(str(tag.pk), tag.name) for tag in Tag.objects.order_by('name')]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(tags__id=self.value())
+        return queryset
 
 
 class SnapshotAdminForm(forms.ModelForm):
@@ -117,11 +133,11 @@ class SnapshotAdminForm(forms.ModelForm):
 
 class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     form = SnapshotAdminForm
-    list_display = ('created_at', 'title_str', 'status_with_progress', 'files', 'size_with_stats', 'health_display', 'url_str')
-    sort_fields = ('title_str', 'url_str', 'created_at', 'status', 'crawl')
+    list_display = ('created_at', 'preview_icon', 'title_str', 'tags_inline', 'status_with_progress', 'files', 'size_with_stats')
+    sort_fields = ('title_str', 'created_at', 'status', 'crawl')
     readonly_fields = ('admin_actions', 'status_info', 'imported_timestamp', 'created_at', 'modified_at', 'downloaded_at', 'output_dir', 'archiveresults_list')
     search_fields = ('id', 'url', 'timestamp', 'title', 'tags__name')
-    list_filter = ('created_at', 'downloaded_at', 'archiveresult__status', 'crawl__created_by', 'tags__name')
+    list_filter = ('created_at', 'downloaded_at', 'archiveresult__status', 'crawl__created_by', TagNameListFilter)
 
     fieldsets = (
         ('URL', {
@@ -163,7 +179,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     )
 
     ordering = ['-created_at']
-    actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
+    actions = ['add_tags', 'remove_tags', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
     inlines = []  # Removed TagInline, using TagEditorWidget instead
     list_per_page = min(max(5, SERVER_CONFIG.SNAPSHOTS_PER_PAGE), 5000)
 
@@ -182,6 +198,13 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             self.message_user(request, f'Error occurred while loading the page: {str(e)} {request.GET} {request.POST}')
             return super().changelist_view(request, GLOBAL_CONTEXT)
 
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            func, name, _desc = actions['delete_selected']
+            actions['delete_selected'] = (func, name, 'Delete')
+        return actions
+
 
     def get_urls(self):
         urls = super().get_urls()
@@ -196,6 +219,52 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     #     self.request = request
     #     return super().get_queryset(request).prefetch_related('archiveresult_set').distinct()  # .annotate(archiveresult_count=Count('archiveresult'))
+    def get_queryset(self, request):
+        self.request = request
+        ordering_fields = self._get_ordering_fields(request)
+        needs_size_sort = 'size_with_stats' in ordering_fields
+        needs_files_sort = 'files' in ordering_fields
+        needs_tags_sort = 'tags_inline' in ordering_fields
+
+        prefetch_qs = ArchiveResult.objects.filter(
+            Q(status='succeeded')
+        ).only(
+            'id',
+            'snapshot_id',
+            'plugin',
+            'status',
+            'output_size',
+            'output_files',
+            'output_str',
+        )
+
+        qs = (
+            super()
+            .get_queryset(request)
+            .defer('config', 'notes')
+            .prefetch_related('tags')
+            .prefetch_related(Prefetch('archiveresult_set', queryset=prefetch_qs))
+        )
+
+        if needs_size_sort:
+            qs = qs.annotate(
+                output_size_sum=Coalesce(Sum(
+                    'archiveresult__output_size',
+                    filter=Q(archiveresult__status='succeeded'),
+                ), 0),
+            )
+
+        if needs_files_sort:
+            qs = qs.annotate(
+                ar_succeeded_count=Count(
+                    'archiveresult',
+                    filter=Q(archiveresult__status='succeeded'),
+                ),
+            )
+        if needs_tags_sort:
+            qs = qs.annotate(tag_count=Count('tags', distinct=True))
+
+        return qs
 
     @admin.display(description="Imported Timestamp")
     def imported_timestamp(self, obj):
@@ -233,17 +302,19 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     #     )
 
     def admin_actions(self, obj):
+        summary_url = build_web_url(f'/{obj.archive_path}')
+        results_url = build_web_url(f'/{obj.archive_path}/index.html#all')
         return format_html(
             '''
             <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
-                   href="/{}"
+                   href="{}"
                    onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';"
                    onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
                     📄 Summary Page
                 </a>
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
-                   href="/{}/index.html#all"
+                   href="{}"
                    onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';"
                    onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
                     📁 Result Files
@@ -263,7 +334,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                    title="Get missing extractors"
                    onmouseover="this.style.background='#d1fae5';"
                    onmouseout="this.style.background='#ecfdf5';">
-                    ⬇️ Get Missing
+                    ⬇️ Finish
                 </a>
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1e40af; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
                    href="/admin/core/snapshot/?id__exact={}"
@@ -291,8 +362,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 <b>Tip:</b> Action buttons link to the list view with this snapshot pre-selected. Select it and use the action dropdown to execute.
             </p>
             ''',
-            obj.archive_path,
-            obj.archive_path,
+            summary_url,
+            results_url,
             obj.url,
             obj.pk,
             obj.pk,
@@ -301,6 +372,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         )
 
     def status_info(self, obj):
+        favicon_url = build_snapshot_url(str(obj.id), 'favicon.ico')
         return format_html(
             '''
             Archived: {} ({} files {}) &nbsp; &nbsp;
@@ -310,7 +382,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             '✅' if obj.is_archived else '❌',
             obj.num_outputs,
             self.size(obj) or '0kb',
-            f'/{obj.archive_path}/favicon.ico',
+            favicon_url,
             obj.extension or '-',
         )
 
@@ -323,7 +395,37 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         ordering='title',
     )
     def title_str(self, obj):
-        # Render inline tag editor widget
+        title_raw = (obj.title or '').strip()
+        url_raw = (obj.url or '').strip()
+        title_normalized = title_raw.lower()
+        url_normalized = url_raw.lower()
+        show_title = bool(title_raw) and title_normalized != 'pending...' and title_normalized != url_normalized
+        css_class = 'fetched' if show_title else 'pending'
+
+        detail_url = build_web_url(f'/{obj.archive_path}/index.html')
+        title_html = ''
+        if show_title:
+            title_html = format_html(
+                '<a href="{}">'
+                    '<b class="status-{}">{}</b>'
+                '</a>',
+                detail_url,
+                css_class,
+                urldecode(htmldecode(title_raw))[:128],
+            )
+
+        return format_html(
+            '{}'
+            '<div style="font-size: 11px; color: #64748b; margin-top: 2px;">'
+                '<a href="{}"><code style="user-select: all;">{}</code></a>'
+            '</div>',
+            title_html,
+            url_raw or obj.url,
+            (url_raw or obj.url)[:128],
+        )
+
+    @admin.display(description='Tags', ordering='tag_count')
+    def tags_inline(self, obj):
         widget = InlineTagEditorWidget(snapshot_id=str(obj.pk))
         tags_html = widget.render(
             name=f'tags_{obj.pk}',
@@ -331,28 +433,58 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             attrs={'id': f'tags_{obj.pk}'},
             snapshot_id=str(obj.pk),
         )
+        return mark_safe(f'<span class="tags-inline-editor">{tags_html}</span>')
 
-        # Show title if available, otherwise show URL
-        display_text = obj.title or obj.url
-        css_class = 'fetched' if obj.title else 'pending'
+    @admin.display(description='Preview', empty_value='')
+    def preview_icon(self, obj):
+        results = self._get_prefetched_results(obj)
+        has_screenshot = False
+        has_favicon = False
+        if results is not None:
+            has_screenshot = any(r.plugin == 'screenshot' for r in results)
+            has_favicon = any(r.plugin == 'favicon' for r in results)
+
+        if not has_screenshot and not has_favicon:
+            return None
+
+        if has_screenshot:
+            img_url = build_snapshot_url(str(obj.id), 'screenshot/screenshot.png')
+            fallbacks = [
+                build_snapshot_url(str(obj.id), 'screenshot.png'),
+                build_snapshot_url(str(obj.id), 'favicon/favicon.ico'),
+                build_snapshot_url(str(obj.id), 'favicon.ico'),
+            ]
+            img_alt = 'Screenshot'
+            preview_class = 'screenshot'
+        else:
+            img_url = build_snapshot_url(str(obj.id), 'favicon/favicon.ico')
+            fallbacks = [
+                build_snapshot_url(str(obj.id), 'favicon.ico'),
+            ]
+            img_alt = 'Favicon'
+            preview_class = 'favicon'
+
+        fallback_list = ','.join(fallbacks)
+        onerror_js = (
+            "this.dataset.fallbacks && this.dataset.fallbacks.length ? "
+            "(this.src=this.dataset.fallbacks.split(',').shift(), "
+            "this.dataset.fallbacks=this.dataset.fallbacks.split(',').slice(1).join(',')) : "
+            "this.remove()"
+        )
 
         return format_html(
-            '<a href="/{}">'
-                '<img src="/{}/favicon.ico" class="favicon" onerror="this.remove()">'
-            '</a>'
-            '<a href="/{}/index.html">'
-                '<b class="status-{}">{}</b>'
-            '</a>',
-            obj.archive_path,
-            obj.archive_path,
-            obj.archive_path,
-            css_class,
-            urldecode(htmldecode(display_text))[:128]
-        ) + mark_safe(f' <span class="tags-inline-editor">{tags_html}</span>')
+            '<img src="{}" alt="{}" class="snapshot-preview {}" decoding="async" loading="lazy" '
+            'onerror="{}" data-fallbacks="{}">',
+            img_url,
+            img_alt,
+            preview_class,
+            onerror_js,
+            fallback_list,
+        )
 
     @admin.display(
         description='Files Saved',
-        # ordering='archiveresult_count',
+        ordering='ar_succeeded_count',
     )
     def files(self, obj):
         # return '-'
@@ -371,8 +503,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         else:
             size_txt = mark_safe('<span style="opacity: 0.3">...</span>')
         return format_html(
-            '<a href="/{}" title="View all files">{}</a>',
-            obj.archive_path,
+            '<a href="{}" title="View all files">{}</a>',
+            build_web_url(f'/{obj.archive_path}'),
             size_txt,
         )
 
@@ -382,7 +514,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     )
     def status_with_progress(self, obj):
         """Show status with progress bar for in-progress snapshots."""
-        stats = obj.get_progress_stats()
+        stats = self._get_progress_stats(obj)
 
         # Status badge colors
         status_colors = {
@@ -440,16 +572,13 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     @admin.display(
         description='Size',
+        ordering='output_size_sum',
     )
     def size_with_stats(self, obj):
         """Show archive size with output size from archive results."""
-        stats = obj.get_progress_stats()
-
-        # Use output_size from archive results if available, fallback to disk size
+        stats = self._get_progress_stats(obj)
         output_size = stats['output_size']
-        archive_size = os.access(Path(obj.output_dir) / 'index.html', os.F_OK) and obj.archive_size
-
-        size_bytes = output_size or archive_size or 0
+        size_bytes = output_size or 0
 
         if size_bytes:
             size_txt = printable_filesize(size_bytes)
@@ -461,21 +590,75 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         # Show hook statistics
         if stats['total'] > 0:
             return format_html(
-                '<a href="/{}" title="View all files" style="white-space: nowrap;">'
+                '<a href="{}" title="View all files" style="white-space: nowrap;">'
                 '{}</a>'
                 '<div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">'
                 '{}/{} hooks</div>',
-                obj.archive_path,
+                build_web_url(f'/{obj.archive_path}'),
                 size_txt,
                 stats['succeeded'],
                 stats['total'],
             )
 
         return format_html(
-            '<a href="/{}" title="View all files">{}</a>',
-            obj.archive_path,
+            '<a href="{}" title="View all files">{}</a>',
+            build_web_url(f'/{obj.archive_path}'),
             size_txt,
         )
+
+    def _get_progress_stats(self, obj):
+        results = self._get_prefetched_results(obj)
+        if results is None:
+            return obj.get_progress_stats()
+
+        total = len(results)
+        succeeded = sum(1 for r in results if r.status == 'succeeded')
+        failed = sum(1 for r in results if r.status == 'failed')
+        running = sum(1 for r in results if r.status == 'started')
+        skipped = sum(1 for r in results if r.status == 'skipped')
+        pending = max(total - succeeded - failed - running - skipped, 0)
+        completed = succeeded + failed + skipped
+        percent = int((completed / total * 100) if total > 0 else 0)
+        is_sealed = obj.status not in (obj.StatusChoices.QUEUED, obj.StatusChoices.STARTED)
+        output_size = None
+
+        if hasattr(obj, 'output_size_sum'):
+            output_size = obj.output_size_sum or 0
+        else:
+            output_size = sum(r.output_size or 0 for r in results if r.status == 'succeeded')
+
+        return {
+            'total': total,
+            'succeeded': succeeded,
+            'failed': failed,
+            'running': running,
+            'pending': pending,
+            'skipped': skipped,
+            'percent': percent,
+            'output_size': output_size or 0,
+            'is_sealed': is_sealed,
+        }
+
+    def _get_prefetched_results(self, obj):
+        if hasattr(obj, '_prefetched_objects_cache') and 'archiveresult_set' in obj._prefetched_objects_cache:
+            return obj.archiveresult_set.all()
+        return None
+
+    def _get_ordering_fields(self, request):
+        ordering = request.GET.get('o')
+        if not ordering:
+            return set()
+        fields = set()
+        for part in ordering.split('.'):
+            if not part:
+                continue
+            try:
+                idx = abs(int(part)) - 1
+            except ValueError:
+                continue
+            if 0 <= idx < len(self.list_display):
+                fields.add(self.list_display[idx])
+        return fields
 
     @admin.display(
         description='Original URL',
@@ -524,20 +707,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     #     return super().changelist_view(request, extra_context=None)
 
     @admin.action(
-        description="ℹ️ Get Title"
-    )
-    def update_titles(self, request, queryset):
-        count = queryset.count()
-
-        # Queue snapshots for archiving via the state machine system
-        queued = bg_archive_snapshots(queryset, kwargs={"overwrite": True, "methods": ["title", "favicon"], "out_dir": DATA_DIR})
-        messages.success(
-            request,
-            f"Queued {queued} snapshots for title/favicon update. The orchestrator will process them in the background.",
-        )
-
-    @admin.action(
-        description="⬇️ Get Missing"
+        description="⏯️ Finish"
     )
     def update_snapshots(self, request, queryset):
         count = queryset.count()
@@ -551,7 +721,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
 
     @admin.action(
-        description="🆕 Archive Again"
+        description="⬇️ Fresh"
     )
     def resnapshot_snapshot(self, request, queryset):
         for snapshot in queryset:
@@ -579,7 +749,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         )
 
     @admin.action(
-        description="☠️ Delete"
+        description="🗑️ Delete"
     )
     def delete_snapshots(self, request, queryset):
         """Delete snapshots in a single transaction to avoid SQLite concurrency issues."""

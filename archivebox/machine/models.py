@@ -1685,8 +1685,11 @@ class Process(models.Model):
             TimeoutError if process doesn't exit in time
         """
         import time
+        from archivebox.config.constants import CONSTANTS
 
         timeout = timeout or self.timeout
+        if self.process_type == self.TypeChoices.HOOK:
+            timeout = min(int(timeout), int(CONSTANTS.MAX_HOOK_RUNTIME_SECONDS))
         start = time.time()
 
         while True:

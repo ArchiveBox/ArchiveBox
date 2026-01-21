@@ -91,9 +91,9 @@ class TestNpmProviderHook(TestCase):
         self.assertIn('npm provider not allowed', result.stderr)
         self.assertEqual(result.returncode, 0)
 
-    @pytest.mark.skipif(not npm_available(), reason="npm not installed")
     def test_hook_creates_npm_prefix(self):
         """Hook should create npm prefix directory."""
+        assert npm_available(), "npm not installed"
         env = os.environ.copy()
         env['LIB_DIR'] = str(self.lib_dir)
 

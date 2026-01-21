@@ -44,7 +44,7 @@ class TestTwoCaptcha:
     def setup(self):
         self.api_key = os.environ.get('TWOCAPTCHA_API_KEY') or os.environ.get('API_KEY_2CAPTCHA')
         if not self.api_key:
-            pytest.skip("TWOCAPTCHA_API_KEY required")
+            pytest.fail("TWOCAPTCHA_API_KEY required")
 
     def test_install_and_load(self):
         """Extension installs and loads in Chromium."""

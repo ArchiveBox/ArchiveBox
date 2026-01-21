@@ -47,7 +47,6 @@ class TestParseDomOutlinksPlugin(TestCase):
         self.assertTrue(OUTLINKS_HOOK.exists(), f"Hook not found: {OUTLINKS_HOOK}")
 
 
-@pytest.mark.skipif(not chrome_available(), reason="Chrome not installed")
 class TestParseDomOutlinksWithChrome(TestCase):
     """Integration tests for parse_dom_outlinks plugin with Chrome."""
 
@@ -112,9 +111,7 @@ class TestParseDomOutlinksWithChrome(TestCase):
                 # example.com has at least one link (to iana.org)
                 self.assertIsInstance(outlinks_data['hrefs'], list)
 
-        except RuntimeError as e:
-            if 'Chrome' in str(e) or 'CDP' in str(e):
-                self.skipTest(f"Chrome session setup failed: {e}")
+        except RuntimeError:
             raise
 
 

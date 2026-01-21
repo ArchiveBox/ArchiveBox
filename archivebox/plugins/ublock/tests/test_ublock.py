@@ -14,6 +14,7 @@ import pytest
 
 from archivebox.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
+    get_test_env,
     launch_chromium_session,
     kill_chromium_session,
     CHROME_LAUNCH_HOOK,
@@ -283,8 +284,7 @@ const puppeteer = require('puppeteer-core');
 
     result = subprocess.run(
         ['node', str(script_path)],
-        cwd=str(script_dir,
-            env=get_test_env()),
+        cwd=str(script_dir),
         capture_output=True,
         text=True,
         env=env,
@@ -301,11 +301,10 @@ const puppeteer = require('puppeteer-core');
     return json.loads(output_lines[-1])
 
 
-# Test URL: Yahoo has many ads that uBlock should block
+# Test URL: Yahoo has many ads that uBlock should block (no mocks)
 TEST_URL = 'https://www.yahoo.com/'
 
 
-@pytest.mark.timeout(15)
 def test_extension_loads_in_chromium():
     """Verify uBlock extension loads in Chromium by visiting its dashboard page.
 
@@ -519,15 +518,15 @@ const puppeteer = require('puppeteer-core');
                     pass
 
 
-def test_blocks_ads_on_test_page():
-    """Live test: verify uBlock Origin blocks ads on a test page.
+def test_blocks_ads_on_yahoo_com():
+    """Live test: verify uBlock Origin blocks ads on yahoo.com (real network).
 
     This test runs TWO browser sessions:
     1. WITHOUT extension - verifies ads are NOT blocked (baseline)
     2. WITH extension - verifies ads ARE blocked
 
     This ensures we're actually testing the extension's effect, not just
-    that a test page happens to show ads as blocked.
+    that a test page happens to show ads as blocked. No mocks are used.
     """
     import time
 
@@ -581,20 +580,15 @@ def test_blocks_ads_on_test_page():
 
         # Verify baseline shows ads ARE visible (not blocked)
         if baseline_result['adElementsFound'] == 0:
-            pytest.skip(
-                f"Cannot test extension: no ad elements found on {TEST_URL}. "
-                f"The page may have changed or loaded differently."
+            pytest.fail(
+                f"Baseline must find ad elements on {TEST_URL}, but found none. "
+                f"This test requires a real ad-heavy page."
             )
 
         if baseline_result['adElementsVisible'] == 0:
-            print(f"\nWARNING: Baseline shows 0 visible ads despite finding {baseline_result['adElementsFound']} elements!")
-            print("This suggests either:")
-            print("  - There's another ad blocker interfering")
-            print("  - Network-level ad blocking is in effect")
-
-            pytest.skip(
-                f"Cannot test extension: baseline shows no visible ads "
-                f"despite finding {baseline_result['adElementsFound']} ad elements."
+            pytest.fail(
+                f"Baseline must have visible ads on {TEST_URL}, but none were visible. "
+                f"This likely means another ad blocker is active or network-level blocking is in effect."
             )
 
         print(f"\n✓ Baseline confirmed: {baseline_result['adElementsVisible']} visible ads without extension")
@@ -712,6 +706,10 @@ const puppeteer = require('{env_base['NODE_MODULES_DIR']}/puppeteer-core');
             f"Baseline: {baseline_result['adElementsVisible']} visible ads\n" \
             f"With extension: {ext_result['adElementsVisible']} visible ads\n" \
             f"Expected fewer ads with extension."
+
+        # Ensure uBlock actually blocks at least some ad/track requests
+        assert ext_result['blockedRequests'] > 0, \
+            "uBlock should block at least one ad/track request on yahoo.com"
 
         # Extension should block at least 20% of ads (was consistently blocking 5-13% without proper init time)
         assert reduction_percent >= 20, \

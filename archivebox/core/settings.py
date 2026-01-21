@@ -12,6 +12,7 @@ import archivebox
 
 from archivebox.config import DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS  # noqa
 from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG, STORAGE_CONFIG  # noqa
+from archivebox.core.host_utils import normalize_base_url, get_admin_base_url, get_api_base_url
 
 
 IS_MIGRATING = "makemigrations" in sys.argv[:3] or "migrate" in sys.argv[:3]
@@ -77,9 +78,11 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "archivebox.api.middleware.ApiCorsMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "archivebox.core.middleware.ReverseProxyAuthMiddleware",
+    "archivebox.core.middleware.HostRoutingMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "archivebox.core.middleware.CacheControlMiddleware",
     # Additional middlewares from plugins (if any)
@@ -347,6 +350,14 @@ SECRET_KEY = SERVER_CONFIG.SECRET_KEY or get_random_string(50, "abcdefghijklmnop
 ALLOWED_HOSTS = SERVER_CONFIG.ALLOWED_HOSTS.split(",")
 CSRF_TRUSTED_ORIGINS = list(set(SERVER_CONFIG.CSRF_TRUSTED_ORIGINS.split(",")))
 
+admin_base_url = normalize_base_url(get_admin_base_url())
+if admin_base_url and admin_base_url not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(admin_base_url)
+
+api_base_url = normalize_base_url(get_api_base_url())
+if api_base_url and api_base_url not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(api_base_url)
+
 # automatically fix case when user sets ALLOWED_HOSTS (e.g. to archivebox.example.com)
 # but forgets to add https://archivebox.example.com to CSRF_TRUSTED_ORIGINS
 for hostname in ALLOWED_HOSTS:
@@ -363,6 +374,7 @@ CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_DOMAIN = None
+CSRF_COOKIE_DOMAIN = None
 SESSION_COOKIE_AGE = 1209600  # 2 weeks
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = False

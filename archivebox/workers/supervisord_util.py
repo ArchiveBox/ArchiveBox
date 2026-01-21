@@ -32,7 +32,8 @@ _supervisord_proc = None
 
 ORCHESTRATOR_WORKER = {
     "name": "worker_orchestrator",
-    "command": "archivebox run",  # runs forever by default
+    # Use Django management command to avoid stdin/TTY ambiguity in `archivebox run`.
+    "command": "archivebox manage orchestrator",
     "autostart": "true",
     "autorestart": "true",
     "stdout_logfile": "logs/worker_orchestrator.log",

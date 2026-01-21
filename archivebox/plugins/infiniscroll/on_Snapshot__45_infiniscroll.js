@@ -42,6 +42,7 @@ const puppeteer = require('puppeteer-core');
 
 const PLUGIN_NAME = 'infiniscroll';
 const CHROME_SESSION_DIR = '../chrome';
+const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
 
 function parseArgs() {
     const args = {};
@@ -330,7 +331,7 @@ async function main() {
 
     const cdpUrl = getCdpUrl();
     if (!cdpUrl) {
-        console.error('ERROR: Chrome CDP URL not found (chrome plugin must run first)');
+        console.error(CHROME_SESSION_REQUIRED_ERROR);
         process.exit(1);
     }
 
@@ -362,10 +363,6 @@ async function main() {
         if (!page) {
             page = pages[pages.length - 1];
         }
-
-        // Set viewport to ensure proper page rendering
-        const resolution = getEnv('CHROME_RESOLUTION', '1440,2000').split(',').map(x => parseInt(x.trim(), 10));
-        await page.setViewport({ width: resolution[0] || 1440, height: resolution[1] || 2000 });
 
         console.error(`Starting infinite scroll on ${url}`);
 

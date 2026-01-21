@@ -16,6 +16,7 @@ import pytest
 
 from archivebox.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
+    get_test_env,
     launch_chromium_session,
     kill_chromium_session,
     CHROME_LAUNCH_HOOK,
@@ -291,8 +292,7 @@ const puppeteer = require('puppeteer-core');
 
             result = subprocess.run(
                 ['node', str(script_path)],
-                cwd=str(tmpdir,
-            env=get_test_env()),
+                cwd=str(tmpdir),
                 capture_output=True,
                 text=True,
                 env=env,
@@ -444,8 +444,7 @@ const puppeteer = require('puppeteer-core');
 
     result = subprocess.run(
         ['node', str(script_path)],
-        cwd=str(script_dir,
-            env=get_test_env()),
+        cwd=str(script_dir),
         capture_output=True,
         text=True,
         env=env,
@@ -539,7 +538,7 @@ def test_hides_cookie_consent_on_filmin():
             print(f"HTML has cookie keywords: {baseline_result.get('has_cookie_keyword_in_html')}")
             print(f"HTML snippet: {baseline_result.get('html_snippet', '')[:200]}")
 
-            pytest.skip(
+            pytest.fail(
                 f"Cannot test extension: no cookie consent visible in baseline on {TEST_URL}. "
                 f"Elements found: {len(baseline_result['elements_found'])}. "
                 f"The site may have changed or cookie consent may be region-specific."
@@ -559,8 +558,7 @@ def test_hides_cookie_consent_on_filmin():
 
         result = subprocess.run(
             ['node', str(INSTALL_SCRIPT)],
-            cwd=str(tmpdir,
-            env=get_test_env()),
+            cwd=str(tmpdir),
             capture_output=True,
             text=True,
             env=env_with_ext,

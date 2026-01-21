@@ -15,11 +15,13 @@ Environment variables:
 Note: Requires postlight-parser: npm install -g @postlight/parser
 """
 
+import html
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 import rich_click as click
 
@@ -115,13 +117,39 @@ def extract_mercury(url: str, binary: str) -> tuple[bool, str | None, str]:
 
         # Save HTML content and metadata
         html_content = html_json.pop('content', '')
+        # Some sources return HTML-escaped markup inside the content blob.
+        # If it looks heavily escaped, unescape once so it renders properly.
+        if html_content:
+            escaped_count = html_content.count('&lt;') + html_content.count('&gt;')
+            tag_count = html_content.count('<')
+            if escaped_count and escaped_count > tag_count * 2:
+                html_content = html.unescape(html_content)
         (output_dir / 'content.html').write_text(html_content, encoding='utf-8')
 
         # Save article metadata
         metadata = {k: v for k, v in text_json.items() if k != 'content'}
         (output_dir / 'article.json').write_text(json.dumps(metadata, indent=2), encoding='utf-8')
 
-        return True, OUTPUT_DIR, ''
+        # Link images/ to responses capture (if available)
+        try:
+            hostname = urlparse(url).hostname or ''
+            if hostname:
+                responses_images = (output_dir / '..' / 'responses' / 'image' / hostname / 'images').resolve()
+                link_path = output_dir / 'images'
+                if responses_images.exists() and responses_images.is_dir():
+                    if link_path.exists() or link_path.is_symlink():
+                        if link_path.is_symlink() or link_path.is_file():
+                            link_path.unlink()
+                        else:
+                            # Don't remove real directories
+                            responses_images = None
+                    if responses_images:
+                        rel_target = os.path.relpath(str(responses_images), str(output_dir))
+                        link_path.symlink_to(rel_target)
+        except Exception:
+            pass
+
+        return True, 'content.html', ''
 
     except subprocess.TimeoutExpired:
         return False, None, f'Timed out after {timeout} seconds'

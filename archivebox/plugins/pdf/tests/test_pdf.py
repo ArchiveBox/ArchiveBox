@@ -29,6 +29,7 @@ from archivebox.plugins.chrome.tests.chrome_test_helpers import (
     LIB_DIR,
     NODE_MODULES_DIR,
     PLUGINS_ROOT,
+    chrome_session,
 )
 
 
@@ -62,15 +63,19 @@ def test_extracts_pdf_from_example_com():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Run PDF extraction hook
-        result = subprocess.run(
-            ['node', str(PDF_HOOK), f'--url={TEST_URL}', '--snapshot-id=test789'],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            timeout=120
-        ,
-            env=get_test_env())
+        with chrome_session(tmpdir, test_url=TEST_URL) as (_process, _pid, snapshot_chrome_dir, env):
+            pdf_dir = snapshot_chrome_dir.parent / 'pdf'
+            pdf_dir.mkdir(exist_ok=True)
+
+            # Run PDF extraction hook
+            result = subprocess.run(
+                ['node', str(PDF_HOOK), f'--url={TEST_URL}', '--snapshot-id=test789'],
+                cwd=pdf_dir,
+                capture_output=True,
+                text=True,
+                timeout=120,
+                env=env
+            )
 
         # Parse clean JSONL output (hook might fail due to network issues)
         result_json = None
@@ -98,7 +103,7 @@ def test_extracts_pdf_from_example_com():
         assert result.returncode == 0, f"Should exit 0 on success: {result.stderr}"
 
         # Verify filesystem output (hook writes to current directory)
-        pdf_file = tmpdir / 'output.pdf'
+        pdf_file = pdf_dir / 'output.pdf'
         assert pdf_file.exists(), "output.pdf not created"
 
         # Verify file is valid PDF
@@ -117,7 +122,7 @@ def test_config_save_pdf_false_skips():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        env = os.environ.copy()
+        env = get_test_env()
         env['PDF_ENABLED'] = 'False'
 
         result = subprocess.run(
@@ -140,50 +145,46 @@ def test_config_save_pdf_false_skips():
 
 
 def test_reports_missing_chrome():
-    """Test that script reports error when Chrome is not found."""
+    """Test that script reports error when Chrome session is missing."""
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-
-        # Set CHROME_BINARY to nonexistent path
-        env = os.environ.copy()
-        env['CHROME_BINARY'] = '/nonexistent/chrome'
+        env = get_test_env()
+        pdf_dir = tmpdir / 'snapshot' / 'pdf'
+        pdf_dir.mkdir(parents=True, exist_ok=True)
 
         result = subprocess.run(
             ['node', str(PDF_HOOK), f'--url={TEST_URL}', '--snapshot-id=test123'],
-            cwd=tmpdir,
+            cwd=pdf_dir,
             capture_output=True,
             text=True,
             env=env,
             timeout=30
         )
 
-        # Should fail and report missing Chrome
-        if result.returncode != 0:
-            combined = result.stdout + result.stderr
-            assert 'chrome' in combined.lower() or 'browser' in combined.lower() or 'ERROR=' in combined
+        assert result.returncode != 0, "Should fail without shared Chrome session"
+        combined = result.stdout + result.stderr
+        assert 'chrome session' in combined.lower() or 'chrome plugin' in combined.lower()
 
 
-def test_config_timeout_honored():
-    """Test that CHROME_TIMEOUT config is respected."""
-    import os
-
+def test_runs_with_shared_chrome_session():
+    """Test that PDF hook completes when shared Chrome session is available."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Set very short timeout
-        env = os.environ.copy()
-        env['CHROME_TIMEOUT'] = '5'
+        with chrome_session(tmpdir, test_url=TEST_URL) as (_process, _pid, snapshot_chrome_dir, env):
+            pdf_dir = snapshot_chrome_dir.parent / 'pdf'
+            pdf_dir.mkdir(exist_ok=True)
 
-        result = subprocess.run(
-            ['node', str(PDF_HOOK), f'--url={TEST_URL}', '--snapshot-id=testtimeout'],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=30
-        )
+            result = subprocess.run(
+                ['node', str(PDF_HOOK), f'--url={TEST_URL}', '--snapshot-id=testtimeout'],
+                cwd=pdf_dir,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=30
+            )
 
         # Should complete (success or fail, but not hang)
         assert result.returncode in (0, 1), "Should complete without hanging"

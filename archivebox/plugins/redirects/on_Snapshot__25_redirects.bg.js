@@ -38,6 +38,7 @@ let originalUrl = '';
 let finalUrl = '';
 let page = null;
 let browser = null;
+let initialRecorded = false;
 
 async function setupRedirectListener() {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
@@ -61,6 +62,20 @@ async function setupRedirectListener() {
     // Track redirect chain using CDP
     client.on('Network.requestWillBeSent', (params) => {
         const { requestId, request, redirectResponse } = params;
+
+        if (!initialRecorded && request.url && request.url.startsWith('http')) {
+            const initialEntry = {
+                timestamp: new Date().toISOString(),
+                from_url: null,
+                to_url: request.url,
+                status: null,
+                type: 'initial',
+                request_id: requestId,
+            };
+            redirectChain.push(initialEntry);
+            fs.appendFileSync(outputPath, JSON.stringify(initialEntry) + '\n');
+            initialRecorded = true;
+        }
 
         if (redirectResponse) {
             // This is a redirect

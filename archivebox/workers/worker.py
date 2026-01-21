@@ -436,6 +436,7 @@ class CrawlWorker(Worker):
         super().__init__(**kwargs)
         self.crawl_id = crawl_id
         self.crawl = None
+        self.crawl_config = None
 
     def get_model(self):
         from archivebox.crawls.models import Crawl
@@ -446,7 +447,9 @@ class CrawlWorker(Worker):
         super().on_startup()
 
         from archivebox.crawls.models import Crawl
+        from archivebox.config.configset import get_config
         self.crawl = Crawl.objects.get(id=self.crawl_id)
+        self.crawl_config = get_config(crawl=self.crawl)
 
     def runloop(self) -> None:
         """Run crawl state machine, spawn SnapshotWorkers."""
@@ -484,6 +487,12 @@ class CrawlWorker(Worker):
 
             # Now spawn SnapshotWorkers and monitor progress
             while True:
+                self.crawl.refresh_from_db()
+                if self.crawl.status == Crawl.StatusChoices.SEALED:
+                    print(f'🛑 Crawl {self.crawl_id} was sealed, stopping workers', file=sys.stderr)
+                    self._terminate_running_snapshot_workers()
+                    break
+
                 # Check if crawl is done
                 if self._is_crawl_finished():
                     print(f'🔄 Crawl finished, sealing...', file=sys.stderr)
@@ -589,6 +598,22 @@ class CrawlWorker(Worker):
                 thread = threading.Thread(target=pipe_worker_stderr, daemon=True)
                 thread.start()
 
+    def _terminate_running_snapshot_workers(self) -> None:
+        """Terminate any running SnapshotWorkers for this crawl."""
+        from archivebox.machine.models import Process
+
+        running_workers = Process.objects.filter(
+            process_type=Process.TypeChoices.WORKER,
+            worker_type='snapshot',
+            parent_id=self.db_process.id,
+            status=Process.StatusChoices.RUNNING,
+        )
+        for proc in running_workers:
+            try:
+                proc.terminate(graceful_timeout=1.0)
+            except Exception:
+                continue
+
     def _is_crawl_finished(self) -> bool:
         """Check if all snapshots are sealed."""
         from pathlib import Path
@@ -684,19 +709,29 @@ class SnapshotWorker(Worker):
         from archivebox.core.models import Snapshot
         self.snapshot = Snapshot.objects.get(id=self.snapshot_id)
 
+        if self.snapshot.status == Snapshot.StatusChoices.SEALED:
+            return
+
         # Use state machine to transition queued -> started (triggers enter_started())
         self.snapshot.sm.tick()
         self.snapshot.refresh_from_db()
+        self.snapshot_started_at = self.snapshot.modified_at or self.snapshot.created_at
 
     def runloop(self) -> None:
         """Execute all hooks sequentially."""
         from archivebox.hooks import discover_hooks, is_background_hook
-        from archivebox.core.models import ArchiveResult
+        from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.config.configset import get_config
 
         self.on_startup()
 
         try:
+            if self.snapshot.status == Snapshot.StatusChoices.SEALED:
+                return
+            if self._snapshot_exceeded_hard_timeout():
+                self._seal_snapshot_due_to_timeout()
+                return
+
             # Get merged config (includes env vars passed via Process.env, snapshot.config, defaults, etc.)
             config = get_config(snapshot=self.snapshot, crawl=self.snapshot.crawl)
 
@@ -706,6 +741,13 @@ class SnapshotWorker(Worker):
 
             # Execute each hook sequentially
             for hook_path in hooks:
+                self.snapshot.refresh_from_db()
+                if self.snapshot.status == Snapshot.StatusChoices.SEALED:
+                    break
+                if self._snapshot_exceeded_hard_timeout():
+                    self._seal_snapshot_due_to_timeout()
+                    return
+
                 hook_name = hook_path.name
                 plugin = self._extract_plugin_name(hook_path, hook_name)
                 is_background = is_background_hook(hook_name)
@@ -756,9 +798,10 @@ class SnapshotWorker(Worker):
 
             # All hooks launched (or completed) - terminate bg hooks and seal
             self._finalize_background_hooks()
-            # This triggers enter_sealed() which calls cleanup() and checks parent crawl sealing
-            self.snapshot.sm.seal()
-            self.snapshot.refresh_from_db()
+            if self.snapshot.status != Snapshot.StatusChoices.SEALED:
+                # This triggers enter_sealed() which calls cleanup() and checks parent crawl sealing
+                self.snapshot.sm.seal()
+                self.snapshot.refresh_from_db()
 
         except Exception as e:
             # Mark snapshot as sealed even on error (still triggers cleanup)
@@ -771,10 +814,26 @@ class SnapshotWorker(Worker):
 
     def _run_hook(self, hook_path: Path, ar: Any, config: dict) -> Any:
         """Fork and run a hook using Process model, return Process."""
-        from archivebox.hooks import run_hook
+        from archivebox.hooks import run_hook, get_plugin_special_config
+        from archivebox.config.constants import CONSTANTS
 
         # Create output directory
         output_dir = ar.create_output_dir()
+
+        timeout = None
+        try:
+            plugin_name = hook_path.parent.name
+            plugin_config = get_plugin_special_config(plugin_name, config)
+            timeout = plugin_config.get('timeout')
+        except Exception:
+            timeout = None
+
+        if getattr(self, 'snapshot_started_at', None):
+            remaining = max(1, int(CONSTANTS.MAX_SNAPSHOT_RUNTIME_SECONDS - (timezone.now() - self.snapshot_started_at).total_seconds()))
+            if timeout:
+                timeout = min(int(timeout), remaining)
+            else:
+                timeout = remaining
 
         # Run hook using Process.launch() - returns Process model directly
         # Pass self.db_process as parent to track SnapshotWorker -> Hook hierarchy
@@ -782,6 +841,7 @@ class SnapshotWorker(Worker):
             script=hook_path,
             output_dir=output_dir,
             config=config,
+            timeout=timeout,
             parent=self.db_process,
             url=str(self.snapshot.url),
             snapshot_id=str(self.snapshot.id),
@@ -871,6 +931,44 @@ class SnapshotWorker(Worker):
 
             # Remove completed hook from tracking
             self.background_processes.pop(hook_name, None)
+
+    def _snapshot_exceeded_hard_timeout(self) -> bool:
+        from archivebox.config.constants import CONSTANTS
+
+        if not getattr(self, 'snapshot_started_at', None):
+            return False
+        return (timezone.now() - self.snapshot_started_at).total_seconds() > CONSTANTS.MAX_SNAPSHOT_RUNTIME_SECONDS
+
+    def _seal_snapshot_due_to_timeout(self) -> None:
+        from archivebox.core.models import ArchiveResult
+        from archivebox.machine.models import Process
+
+        now = timezone.now()
+
+        running_hooks = Process.objects.filter(
+            archiveresult__snapshot=self.snapshot,
+            process_type=Process.TypeChoices.HOOK,
+            status=Process.StatusChoices.RUNNING,
+        ).distinct()
+        for process in running_hooks:
+            try:
+                process.kill_tree(graceful_timeout=0.0)
+            except Exception:
+                continue
+
+        self.snapshot.archiveresult_set.filter(
+            status__in=[ArchiveResult.StatusChoices.QUEUED, ArchiveResult.StatusChoices.STARTED],
+        ).update(
+            status=ArchiveResult.StatusChoices.FAILED,
+            end_ts=now,
+            retry_at=None,
+            modified_at=now,
+        )
+
+        self.snapshot.cleanup()
+        self.snapshot.status = self.snapshot.StatusChoices.SEALED
+        self.snapshot.retry_at = None
+        self.snapshot.save(update_fields=['status', 'retry_at', 'modified_at'])
 
     def on_shutdown(self, error: BaseException | None = None) -> None:
         """

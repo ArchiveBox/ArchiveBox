@@ -47,37 +47,127 @@
                 margin: 0px;
                 text-align: center;
                 color: #f6f6f6;
-                font-size: calc(10px + 0.84vw);
+                font-size: calc(10px + 0.44vw);
                 font-weight: 200;
                 padding: 3px 4px;
                 background-color: #aa1e55;
             }
-            .header-top .nav {
+            .header-top .header-nav {
+                display: grid;
+                grid-template-columns: auto minmax(0, 1fr) auto auto;
+                align-items: start;
+                gap: 16px;
                 width: 100%;
             }
-            .nav > div {
+            .header-top .header-col {
                 min-height: 30px;
                 line-height: 1.2;
+                min-width: 0;
+            }
+            .header-top .header-left {
+                white-space: nowrap;
+            }
+            .header-top .header-main {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+                min-width: 0;
+            }
+            .header-top .header-meta {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 4px;
+                min-width: 0;
+            }
+            .header-top .header-right {
+                text-align: right;
+                white-space: nowrap;
+                padding-right: 10px;
+            }
+            .header-right .header-date {
+                text-align: center;
+            }
+            .snapshot-variants {
+                position: relative;
+                display: inline-block;
+                white-space: nowrap;
+            }
+            .snapshot-variants summary {
+                list-style: none;
+                cursor: pointer;
+                color: #f6f6f6 !important;
+            }
+            .snapshot-variants summary:hover {
+                color: #f6f6f6 !important;
+            }
+            .header-top .snapshot-variants summary {
+                color: #f6f6f6 !important;
+            }
+            .snapshot-variants summary::-webkit-details-marker {
+                display: none;
+            }
+            .snapshot-variants-list {
+                position: absolute;
+                right: 0;
+                top: calc(100% + 6px);
+                background: rgba(18, 18, 18, 0.95);
+                border: 1px solid rgba(255,255,255,0.15);
+                border-radius: 8px;
+                min-width: 260px;
+                max-width: 420px;
+                max-height: 240px;
+                overflow: auto;
+                box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+                z-index: 50;
+                padding: 6px;
+            }
+            .snapshot-variants-list a {
+                display: block;
+                padding: 6px 8px;
+                color: #f6f6f6;
+                font-size: 12px;
+                line-height: 1.3;
+                border-radius: 6px;
+            }
+            .snapshot-variants-list a:hover {
+                background: rgba(255,255,255,0.08);
+                color: #fff;
+            }
+            .header-top .snapshot-variants-list a {
+                color: #f6f6f6 !important;
+            }
+            .header-top .snapshot-variants-list a:hover {
+                color: #fff !important;
+            }
+            .year-variants summary {
+                list-style: none;
+                cursor: pointer;
+            }
+            .year-variants summary::-webkit-details-marker {
+                display: none;
             }
             .header-top .header-url {
-                display: inline-block;
                 width: 100%;
                 background-color: rgb(216, 216, 235, 0.05);
-                text-align: center;
+                text-align: left;
                 line-height: 1.3;
                 font-family: monospace;
-                white-space: nowrap;
                 font-weight: 200;
-                display: block;
-                margin-top: -1px;
+                margin-top: 0;
                 font-size: 23px;
                 opacity: 0.8;
                 border-radius: 0px 0px 8px 8px;
             }
             .header-top .header-url a.header-url-text {
+                display: block;
                 color: #f6f6f6;
                 user-select: all;
+                overflow: hidden;
                 text-overflow: ellipsis;
+                white-space: nowrap;
+                padding: 2px 10px;
             }
             .header-top .header-url a.header-url-text:hover {
                 color: rgb(144, 161, 255);
@@ -90,13 +180,53 @@
                 text-decoration: none;
                 color: rgba(0,0,0,0.9);
             }
-            .header-top .header-title {
+            .header-title-line {
                 color: rgba(0,0,0,0.6);
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                min-width: 0;
+                width: 100%;
+            }
+            .header-title-text {
+                display: inline-block;
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                text-align: left;
+            }
+            .header-tags {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+                gap: 4px;
+            }
+            .header-badges {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+                align-items: center;
+                gap: 6px;
+            }
+            .header-year-badges {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+                align-items: center;
+                gap: 6px;
+                margin-top: 4px;
             }
             .header-top .favicon {
-                height: 24px;
-                vertical-align: -5px;
-                margin-right: 4px;
+                width: 20px;
+                height: 20px;
+                max-width: 30px;
+                max-height: 30px;
+                vertical-align: -4px;
+                margin-right: 6px;
+                object-fit: contain;
+                border-radius: 3px;
+                background: rgba(255,255,255,0.08);
             }
             .header-top .col-lg-4 {
                 text-align: center;
@@ -110,6 +240,16 @@
                 margin-left: 12px;
                 margin-top: -4px;
                 margin-bottom: 2px;
+            }
+            .header-archivebox {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                white-space: nowrap;
+            }
+            .header-right .header-date {
+                display: inline-block;
+                white-space: nowrap;
             }
             .header-archivebox img:hover {
                 opacity: 0.5;
@@ -128,6 +268,48 @@
                 font-size: 70px;
                 vertical-align: -12px;
                 margin-left: 4px;
+            }
+            @media(max-width: 900px) {
+                .header-top .header-nav {
+                    grid-template-columns: 1fr;
+                    gap: 8px;
+                }
+                .header-top .header-left,
+                .header-top .header-main,
+                .header-top .header-meta,
+                .header-top .header-right {
+                    width: 100%;
+                    text-align: left;
+                    align-items: flex-start;
+                }
+                .header-archivebox img {
+                    margin-left: 0;
+                }
+            }
+            @media(max-width: 600px) {
+                .header-top {
+                    font-size: 14px;
+                }
+                .header-top .header-url {
+                    font-size: 16px;
+                }
+                .header-title-text,
+                .header-top .header-url a.header-url-text {
+                    white-space: normal;
+                    overflow: hidden;
+                    display: -webkit-box;
+                    -webkit-line-clamp: 2;
+                    -webkit-box-orient: vertical;
+                }
+                .header-badges,
+                .header-tags,
+                .header-year-badges {
+                    justify-content: flex-start;
+                }
+                .header-toggle {
+                    font-size: 46px;
+                    vertical-align: -6px;
+                }
             }
             
             .info-row {
@@ -340,6 +522,9 @@
             .iframe-large {
                 height: calc(100vh - 70px);
             }
+            .preview-hidden {
+                display: none !important;
+            }
             img.external {
                 height: 30px;
                 margin-right: -10px;
@@ -353,7 +538,8 @@
             }
             .screenshot {
                 background-color: #333;
-                transform: none;
+                transform: scale(1.05);
+                transform-origin: top center;
                 width: 100%;
                 min-height: 100px;
                 max-height: 100px;
@@ -402,6 +588,7 @@
                 max-height: 138px;
                 display: flex;
                 flex-direction: column;
+                align-items: stretch;
             }
             .thumb-card:has([data-compact]) {
                 height: 46px;
@@ -418,6 +605,24 @@
                 color: #222;
                 background-color: #f6f6f6;
                 flex: 0 0 auto;
+                position: relative;
+            }
+            .thumb-actions {
+                position: absolute;
+                top: 2px;
+                right: 6px;
+                display: flex;
+                gap: 6px;
+                font-size: 12px;
+                line-height: 1;
+                opacity: 0.7;
+            }
+            .thumb-actions a {
+                text-decoration: none;
+                color: inherit;
+            }
+            .thumb-actions a:hover {
+                opacity: 1;
             }
             .thumb-card .thumb-body h4 {
                 font-size: 0.8em;
@@ -436,11 +641,57 @@
                 flex: 1 1 auto;
                 min-height: 0;
             }
+            .thumb-card .thumbnail-wrapper {
+                display: flex;
+                align-items: stretch;
+                width: 100% !important;
+                min-width: 0;
+                max-width: 100%;
+                box-sizing: border-box;
+                height: auto !important;
+            }
             .thumb-card .thumbnail-wrapper > *,
             .thumb-card iframe.card-img-top {
-                width: 100%;
+                width: 100% !important;
                 height: 100%;
                 object-fit: cover;
+                max-width: 100%;
+            }
+            .thumb-card .card-img-top {
+                width: 100% !important;
+                max-width: 100% !important;
+                height: 100% !important;
+                margin: 0 !important;
+                transform: none !important;
+                opacity: 1 !important;
+            }
+            .thumb-card .thumbnail-wrapper img,
+            .thumb-card .thumbnail-wrapper video,
+            .thumb-card .thumbnail-wrapper canvas {
+                width: 100% !important;
+                height: 100% !important;
+                max-width: 100% !important;
+                object-fit: cover;
+                transform: none !important;
+                margin: 0 !important;
+            }
+            .thumb-card .thumbnail-wrapper iframe,
+            .thumb-card .thumbnail-wrapper object,
+            .thumb-card .thumbnail-wrapper embed {
+                width: 405% !important;
+                height: 405% !important;
+                transform: scale(0.25);
+                transform-origin: 0 0;
+                margin: 0 !important;
+                border: 0 !important;
+            }
+            .thumb-card iframe.card-img-top {
+                width: 405% !important;
+                height: 405% !important;
+                transform: scale(0.25);
+                transform-origin: 0 0;
+                margin: 0 !important;
+                border: 0 !important;
             }
             .thumb-card:has([data-compact]) .thumbnail-wrapper,
             .thumb-card:has([data-compact]) .thumbnail-wrapper.compact {
@@ -463,9 +714,40 @@
                 text-overflow: ellipsis;
                 white-space: nowrap;
             }
+            .thumb-card:has([data-compact]) .thumbnail-text-header,
+            .thumb-card:has([data-compact]) .thumbnail-compact-icon,
+            .thumb-card:has([data-compact]) .thumbnail-compact-label {
+                display: none;
+            }
             .thumb-card.selected-card {
                 border: 2px solid orange;
                 box-shadow: 0px -6px 13px 1px rgba(0,0,0,0.05);
+            }
+            .loose-items {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px 8px;
+                font-size: 12px;
+                line-height: 1.2;
+                max-height: 84px;
+                overflow: auto;
+            }
+            .loose-items a {
+                color: #333;
+                text-decoration: none;
+                background: rgba(0, 0, 0, 0.04);
+                padding: 2px 6px;
+                border-radius: 6px;
+            }
+            .loose-items a:hover {
+                background: rgba(0, 0, 0, 0.08);
+            }
+            .failed-items a {
+                color: #b91c1c;
+                background: rgba(185, 28, 28, 0.08);
+            }
+            .failed-items a:hover {
+                background: rgba(185, 28, 28, 0.16);
             }
             .header-bottom {
                 border-top: 1px solid rgba(170, 30, 85, 0.9);
@@ -617,62 +899,108 @@
     </head>
     <body>
         <header>
-            <div class="header-top container-fluid">
-                <div class="row nav">
-                    <div class="col-lg-2" style="line-height: 58px; vertical-align: middle">
-                        <a href="../../index.html" class="header-archivebox" title="Go to Main Index...">
-                            <img src="../../static/archive.png" alt="Archive Icon">
+            <div class="header-top">
+                <div class="header-nav">
+                    <div class="header-col header-left" style="line-height: 58px; vertical-align: middle">
+                        <a href="/" class="header-archivebox" title="Go to Main Index...">
+                            {% web_base_url as web_base %}
+                            <img src="{% if web_base %}//{{ web_base|cut:'http://'|cut:'https://' }}/static/archive.png{% else %}{% static 'archive.png' %}{% endif %}" alt="Archive Icon">
                             ArchiveBox
                         </a>
                     </div>
-                    <div class="col-lg-8">
+                    <div class="header-col header-main">
                         <div class="header-url">
                             <a class="header-url-text" href="{{url}}" title="Open original URL in new window..." target="_blank" rel="noreferrer">
                                 {{url}}
                             </a>
                         </div>
-                        <div class="badge badge-{{status_color}}" style="float: left">
-                            <a href="/admin/core/snapshot/?q={{snapshot_id}}" title="Click to see options to pull, re-snapshot, or delete this Snapshot">
-                                {{status|upper}}
-                            </a>
+                        <div class="header-title-line header-toggle-trigger">
+                            <img src="{% snapshot_url snapshot 'favicon/favicon.ico' %}" onerror="this.style.opacity=0" alt="Favicon" class="favicon"/>
+                            <span class="header-title-text">{{title|truncatechars:120|safe}}</span>
+                            <a href="#" class="header-toggle header-toggle-trigger">▾</a>
                         </div>
-                        <div class="badge badge-default" style="float: left; font-weight: 200">
-                            {{num_outputs}}
-                            {% if num_failures %}
-                                + {{num_failures}} <small>errors</small>
-                            {% endif %}
-                        </div>
-                        <div class="badge badge-info" style="float: right">
-                            <a href="/admin/core/snapshot/{{snapshot_id}}/change/" title="Click to edit this Snapshot in the Admin UI">
-                                {{size}}
-                            </a>
-                        </div>
-                        <div class="badge badge-default" style="float: right">
-                            <a href="/admin/core/snapshot/{{snapshot_id}}/change/" title="Click to edit this Snapshot in the Admin UI">
-                                {{extension}}
-                            </a>
-                        </div>
-                        <small class="header-title header-toggle-trigger">
-                            <img src="favicon.ico" onerror="this.style.opacity=0" alt="Favicon" class="favicon"/>
-                            {{title|truncatechars:120|safe}} <a href="#" class="header-toggle header-toggle-trigger">▾</a>
-                            <br/>
-                            {% for tag in tags_str|split:',' %}
-                                <div class="badge badge-default tag" style="word-break: break-all;">{{tag}}</div>
-                            {% endfor %}
-                        </small>
                     </div>
-                    <div class="col-lg-2" style="padding-top: 4px">
-                        <a href="/{{archive_path}}/index.html" title="Date Added: {{bookmarked_date}}  |  First Archived: {{oldest_archive_date|default:downloaded_datestr}}  |  Last Checked: {{downloaded_datestr}}   (UTC)">
-                            {{oldest_archive_date|default:downloaded_datestr|default:bookmarked_date}}
-                        </a>
+                    <div class="header-col header-meta">
+                        <div class="header-badges">
+                            <div class="badge badge-default" style="font-weight: 200">
+                                {{num_outputs}}
+                                {% if num_failures %}
+                                    + {{num_failures}} <small>errors</small>
+                                {% endif %}
+                            </div>
+                            <div class="badge badge-info">
+                                <a href="{% admin_base_url %}/admin/core/snapshot/{{snapshot_id|default:id}}/change/" title="Click to edit this Snapshot in the Admin UI">
+                                    {{size}}
+                                </a>
+                            </div>
+                            <div class="badge badge-default">
+                                <a href="{% admin_base_url %}/admin/core/snapshot/{{snapshot_id|default:id}}/change/" title="Click to edit this Snapshot in the Admin UI">
+                                    ✏️
+                                </a>
+                            </div>
+                            {% for tag in tags_str|split:',' %}
+                                {% if tag %}
+                                    <div class="badge badge-default tag" style="word-break: break-all;">{{tag}}</div>
+                                {% endif %}
+                            {% endfor %}
+                            <div class="badge badge-{{status_color}}">
+                                <a href="{% admin_base_url %}/admin/core/snapshot/?q={{snapshot_id|default:id}}" title="Click to see options to pull, re-snapshot, or delete this Snapshot">
+                                    {{status|upper}}
+                                </a>
+                            </div>
+                        </div>
+                        {% if related_years %}
+                        <div class="header-year-badges">
+                            {% for entry in related_years %}
+                                {% if entry.snapshots|length > 1 %}
+                                    <details class="snapshot-variants year-variants">
+                                        <summary class="badge badge-default">{{ entry.year }}</summary>
+                                        <div class="snapshot-variants-list">
+                                            {% for snap in entry.snapshots %}
+                                                <a href="{% web_base_url %}/{{ snap.archive_path }}/index.html" title="{{ snap.url }}">
+                                                    {{ snap.bookmarked_at|default:snap.created_at|default:snap.downloaded_at|date:"Y-m-d H:i:s" }} &nbsp; 📁 {{ snap.num_outputs }}
+                                                </a>
+                                            {% endfor %}
+                                        </div>
+                                    </details>
+                                {% else %}
+                                    <div class="badge badge-default">
+                                        <a href="{% web_base_url %}/{{ entry.latest.archive_path }}/index.html" title="{{ entry.latest.url }}">
+                                            {{ entry.year }}
+                                        </a>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="header-col header-right" style="padding-top: 4px">
+                        {% if related_snapshots %}
+                            <details class="snapshot-variants">
+                                <summary class="header-date" title="Click to see other snapshots for this URL">
+                                    {{oldest_archive_date|default:downloaded_datestr|default:bookmarked_date}}
+                                </summary>
+                                <div class="snapshot-variants-list">
+                                    {% for snap in related_snapshots %}
+                                        <a href="{% web_base_url %}/{{ snap.archive_path }}/index.html" title="{{ snap.url }}">
+                                            {{ snap.bookmarked_at|default:snap.created_at|default:snap.downloaded_at|date:"Y-m-d H:i:s" }} &nbsp; 📁 {{ snap.num_outputs }}
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            </details>
+                        {% else %}
+                            <a class="header-date" href="{% web_base_url %}/{{archive_path}}/index.html" title="Date Added: {{bookmarked_date}}  |  First Archived: {{oldest_archive_date|default:downloaded_datestr}}  |  Last Checked: {{downloaded_datestr}}   (UTC)">
+                                {{oldest_archive_date|default:downloaded_datestr|default:bookmarked_date}}
+                            </a>
+                        {% endif %}
                         <br/>
                         <div class="external-links">
-                            ↗️ &nbsp;
-                            <a href="./index.json" title="Get the Snapshot details as a JSON file" target="_blank">JSON</a> &nbsp;|&nbsp; 🗃️ 
-                            <a href="{{warc_path}}" title="Download the ArchiveBox-generated WARC file" target="_blank">WARC</a>  &nbsp;|&nbsp; 
+                            📁 &nbsp;
+                            <a href="{% snapshot_base_url snapshot %}/?files=1" title="Browse files for this snapshot" target="_blank">FILES</a> &nbsp;|&nbsp; 🗃️ 
+                            <a href="{% snapshot_url snapshot warc_path %}" title="Download the ArchiveBox-generated WARC file" target="_blank">WARC</a>  &nbsp;|&nbsp; 
                             <a href="https://web.archive.org/web/{{url}}" title="Search for a copy of the URL saved in Archive.org" target="_blank" rel="noreferrer">🏛️ Archive.org</a>
                             <!--<a href="https://archive.md/{{url}}" title="Search for a copy of the URL saved in Archive.today" target="_blank" rel="noreferrer">Archive.today</a>  &nbsp;|&nbsp; -->
-                            <!--<a href="https://ghostarchive.org/search?term={{url|urlencode}}" title="Search for a copy of the URL saved in GhostArchive.org" target="_blank" rel="noreferrer">More...</a>-->
+                            <!--<a href="https://ghostarchive.org/search?term={{url}}" title="Search for a copy of the URL saved in GhostArchive.org" target="_blank" rel="noreferrer">More...</a>-->
                         </div>
                     </div>
                 </div>
@@ -682,22 +1010,42 @@
                     
                     
                     {% for result in archiveresults %}
-                        <div class="thumb-card{% if forloop.first %} selected-card{% endif %}">
-                            {% with display_path=result.path %}
+                        {% with display_path=result.path|default:result.result.embed_path display_url='' %}
+                        {% if display_path %}{% snapshot_url snapshot display_path as display_url %}{% endif %}
+                        <div class="thumb-card{% if forloop.first %} selected-card{% endif %}"{% if display_url %} data-preview-url="{{display_url}}"{% endif %}>
                                 <div class="thumb-body">
+                                    <div class="thumb-actions">
+                                        <a href="{% snapshot_url snapshot result.name %}/?files=1" data-no-preview="1" title="Open output folder" target="_blank" rel="noopener">📁</a>
+                                        {% if display_path %}
+                                            <a href="{{display_url}}" data-no-preview="1" title="Download output file" download>⬇️</a>
+                                        {% endif %}
+                                    </div>
                                     {% if display_path %}
-                                        <a href="{{display_path|urlencode}}" target="preview" title="./{{display_path}} (downloaded {{result.ts}})">
-                                            <h4>{% plugin_icon result.name %} {{result.name|plugin_name|truncatechars:20}} <small>({{result.size|filesizeformat}})</small></h4>
+                                        <a href="{{display_url}}" target="preview" title="./{{display_path}} (downloaded {{result.ts}})">
+                                            <h4>{% plugin_icon result.name %} {{result.name|plugin_name|truncatechars:20}}{% if result.size %} <small>({{result.size|filesizeformat}})</small>{% endif %}</h4>
                                         </a>
                                     {% else %}
-                                        <h4>{% plugin_icon result.name %} {{result.name|plugin_name|truncatechars:20}} <small>({{result.size|filesizeformat}})</small></h4>
+                                        <h4>{% plugin_icon result.name %} {{result.name|plugin_name|truncatechars:20}}{% if result.size %} <small>({{result.size|filesizeformat}})</small>{% endif %}</h4>
+                                    {% endif %}
+                                    {% if result.result %}
+                                        {% with plugin_base=result.name|plugin_name %}
+                                            {% if plugin_base == 'ytdlp' or plugin_base == 'yt-dlp' or plugin_base == 'youtube-dl' %}
+                                                {% plugin_card result.result %}
+                                            {% endif %}
+                                        {% endwith %}
                                     {% endif %}
                                 </div>
                                 {% if result.result and display_path %}
-                                    {# Use plugin-specific card template when ArchiveResult is available #}
-                                    <div class="card-img-top thumbnail-wrapper">
-                                        {% plugin_card result.result %}
-                                    </div>
+                                    {% with plugin_base=result.name|plugin_name %}
+                                        {% if plugin_base != 'ytdlp' and plugin_base != 'yt-dlp' and plugin_base != 'youtube-dl' %}
+                                            {# Use plugin-specific card template when ArchiveResult is available #}
+                                            <div class="card-img-top thumbnail-wrapper">
+                                                {% plugin_card result.result %}
+                                            </div>
+                                        {% else %}
+                                            {# YT-DLP renders its file list in the body #}
+                                        {% endif %}
+                                    {% endwith %}
                                 {% elif result.is_metadata and display_path %}
                                     <div class="card-img-top thumbnail-wrapper compact">
                                         <div class="thumbnail-compact" data-plugin="{{result.name}}">
@@ -708,11 +1056,49 @@
                                     </div>
                                 {% elif display_path %}
                                     {# Fall back to generic iframe for filesystem-discovered files #}
-                                    <iframe class="card-img-top" src="{{display_path|urlencode}}?autoplay=0" allow="autoplay 'none'; fullscreen 'none'; navigation-override 'none'; " sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
+                                    <iframe class="card-img-top" src="{{display_url}}?autoplay=0" allow="autoplay 'none'; fullscreen 'none'; navigation-override 'none'; " sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
                                 {% endif %}
-                            {% endwith %}
                         </div>
+                        {% endwith %}
                     {% endfor %}
+                    {% if loose_items %}
+                    <div class="thumb-card">
+                            <div class="thumb-body">
+                                <div class="thumb-actions">
+                                    <a href="{% snapshot_base_url snapshot %}/?files=1" data-no-preview="1" title="Browse all snapshot files" target="_blank" rel="noopener">📁</a>
+                                </div>
+                                <h4>📦 Other files</h4>
+                                <div class="loose-items">
+                                    {% for item in loose_items %}
+                                        {% if item.is_dir %}
+                                            <a href="{% snapshot_url snapshot item.path %}/?files=1" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
+                                        {% else %}
+                                            <a href="{% snapshot_url snapshot item.path %}" data-no-preview="1" target="_blank" rel="noopener">📄 {{item.name}}</a>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                    </div>
+                    {% endif %}
+                    {% if failed_items %}
+                    <div class="thumb-card">
+                            <div class="thumb-body">
+                                <div class="thumb-actions">
+                                    <a href="{% snapshot_base_url snapshot %}/?files=1" data-no-preview="1" title="Browse all snapshot files" target="_blank" rel="noopener">📁</a>
+                                </div>
+                                <h4>⚠️ Failed</h4>
+                                <div class="loose-items failed-items">
+                                    {% for item in failed_items %}
+                                        {% if item.is_dir %}
+                                            <a href="{% snapshot_url snapshot item.path %}/?files=1" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
+                                        {% else %}
+                                            <a href="{% snapshot_url snapshot item.path %}" data-no-preview="1" target="_blank" rel="noopener">📄 {{item.name}}</a>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </header>
@@ -722,11 +1108,14 @@
         {% if best_result.result %}
             {# Use plugin-specific fullscreen template when ArchiveResult is available #}
             <div id="main-frame-wrapper" class="full-page-wrapper">
-                {% plugin_full best_result.result %}
+                <div id="plugin-full-wrapper">
+                    {% plugin_full best_result.result %}
+                </div>
+                <iframe id="main-frame" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe preview-hidden" src="{% if best_result.path %}{% snapshot_url snapshot best_result.path %}{% else %}about:blank{% endif %}" name="preview"></iframe>
             </div>
         {% else %}
             {# Fall back to generic iframe #}
-            <iframe id="main-frame" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe" src="{{best_result.path|default:'about:blank'|urlencode}}" name="preview"></iframe>
+            <iframe id="main-frame" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe" src="{% if best_result.path %}{% snapshot_url snapshot best_result.path %}{% else %}about:blank{% endif %}" name="preview"></iframe>
         {% endif %}
     
 
@@ -734,22 +1123,53 @@
         <script src="{% static 'jquery.min.js' %}" type="text/javascript"></script>
 
         <script>
-            // un-sandbox iframes showing pdfs (required to display pdf viewer)
-            jQuery('iframe').map(function() {
-                if (this.src.endsWith('.pdf')) {
-                    this.removeAttribute('sandbox')
-                    this.src = this.src + '#toolbar=0'
+            const snapshotBaseUrl = "{% snapshot_base_url snapshot %}";
+
+            function tryCenterImageFrame(frame) {
+                try {
+                    const doc = frame.contentDocument || frame.contentWindow.document
+                    if (!doc || !doc.body || !doc.images || doc.images.length !== 1) {
+                        return
+                    }
+                    const img = doc.images[0]
+                    doc.documentElement.style.height = '100%'
+                    doc.body.style.height = '100%'
+                    doc.documentElement.style.width = '100%'
+                    doc.body.style.width = '100%'
+                    doc.body.style.margin = '0'
+                    doc.body.style.display = 'flex'
+                    doc.body.style.alignItems = 'flex-start'
+                    doc.body.style.justifyContent = 'center'
+                    doc.body.style.background = '#222'
+                    img.style.maxWidth = '100%'
+                    img.style.width = 'auto'
+                    img.style.height = 'auto'
+                    img.style.maxHeight = 'none'
+                    img.style.display = 'block'
+                } catch (err) {}
+            }
+
+            function attachPreviewFrameHandlers(frame) {
+                if (frame.src.endsWith('.pdf')) {
+                    frame.removeAttribute('sandbox')
+                    frame.src = frame.src + '#toolbar=0'
                 }
-                this.onload = function() {
+                frame.onload = function() {
                     if (this.src.includes('.pdf')) {
                         this.removeAttribute('sandbox')
                         this.src = this.src.split('?autoplay=')[0] + '#toolbar=0'
                     }
+                    tryCenterImageFrame(this)
                     try {
                         // doesnt work if frame origin rules prevent accessing its DOM via JS
                         this.contentWindow.scrollTo(0, 0);
                     } catch(err) {}
                 }
+            }
+
+            // un-sandbox iframes showing pdfs (required to display pdf viewer)
+            jQuery('iframe').map(function() {
+                attachPreviewFrameHandlers(this)
             })
 
             function getPreviewTypeFromPath(link) {
@@ -757,6 +1177,14 @@
                     return 'all'
                 }
                 return link.getAttribute('href')
+            }
+
+            function resolvePreviewUrl(raw) {
+                if (!raw) return ''
+                if (raw.startsWith('http://') || raw.startsWith('https://')) return raw
+                if (raw.startsWith('//')) return window.location.protocol + raw
+                if (!snapshotBaseUrl) return raw
+                return snapshotBaseUrl + (raw.startsWith('/') ? raw : `/${raw}`)
             }
 
             function ensureMainFrame() {
@@ -773,34 +1201,55 @@
                         wrapper.appendChild(frame)
                         wrapper.classList.remove('full-page-wrapper')
                     }
+                    attachPreviewFrameHandlers(frame)
                 }
+                const pluginWrapper = document.getElementById('plugin-full-wrapper')
+                if (pluginWrapper) {
+                    pluginWrapper.classList.add('preview-hidden')
+                }
+                frame.classList.remove('preview-hidden')
                 return frame
+            }
+
+            function handleCardClick(card, event) {
+                const targetEl = event.target.nodeType === Node.ELEMENT_NODE ? event.target : event.target.parentElement
+                if (targetEl && targetEl.closest('[data-no-preview]')) {
+                    return
+                }
+                const link = (targetEl && targetEl.closest('a[target=preview]')) || card.querySelector('a[target=preview]') || card.querySelector('a')
+                const previewUrl = card.dataset.previewUrl
+                const rawTarget = (link ? link.getAttribute('href') : '') || previewUrl || ''
+                const target = resolvePreviewUrl(rawTarget)
+                if (!target || target.endsWith('#')) {
+                    return
+                }
+                event.preventDefault()
+
+                jQuery('.selected-card').removeClass('selected-card')
+                jQuery(card).closest('.thumb-card').addClass('selected-card')
+
+                const iframe_elem = ensureMainFrame()
+                if (target.endsWith('.pdf')) {
+                    iframe_elem.removeAttribute('sandbox')
+                } else {
+                    iframe_elem.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms"
+                }
+                if (link) {
+                    window.location.hash = getPreviewTypeFromPath(link)
+                }
+
+                iframe_elem.src = target
             }
 
             for (const card of [...document.querySelectorAll('.thumb-card')]) {
                 card.addEventListener('click', function(event) {
-                    const link = event.target.closest('a[target=preview]') || event.currentTarget.querySelector('a[target=preview]') || event.currentTarget.querySelector('a')
-                    if (!link) {
-                        return
-                    }
-                    const target = link.href
-                    if (!target || target.endsWith('#')) {
-                        return
-                    }
-
-                    jQuery('.selected-card').removeClass('selected-card')
-                    jQuery(event.currentTarget).closest('.thumb-card').addClass('selected-card')
-
-                    const iframe_elem = ensureMainFrame()
-                    if (target.endsWith('.pdf')) {
-                        iframe_elem.removeAttribute('sandbox')
-                    } else {
-                        iframe_elem.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms"
-                    }
-                    window.location.hash = getPreviewTypeFromPath(link)
-
-                    iframe_elem.src = target
+                    handleCardClick(card, event)
                 })
+                for (const link of card.querySelectorAll('a')) {
+                    link.addEventListener('click', function(event) {
+                        handleCardClick(card, event)
+                    })
+                }
             }
 
 

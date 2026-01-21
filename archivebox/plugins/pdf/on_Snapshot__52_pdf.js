@@ -2,19 +2,12 @@
 /**
  * Print a URL to PDF using Chrome/Puppeteer.
  *
- * If a Chrome session exists (from chrome plugin), connects to it via CDP.
- * Otherwise launches a new Chrome instance.
+ * Requires a Chrome session (from chrome plugin) and connects to it via CDP.
  *
  * Usage: on_Snapshot__52_pdf.js --url=<url> --snapshot-id=<uuid>
  * Output: Writes pdf/output.pdf
  *
  * Environment variables:
- *     CHROME_BINARY: Path to Chrome/Chromium binary
- *     CHROME_TIMEOUT: Timeout in seconds (default: 60)
- *     CHROME_RESOLUTION: Page resolution (default: 1440,2000)
- *     CHROME_USER_AGENT: User agent string (optional)
- *     CHROME_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: true)
- *     CHROME_HEADLESS: Run in headless mode (default: true)
  *     PDF_ENABLED: Enable PDF generation (default: true)
  */
 
@@ -24,11 +17,7 @@ const path = require('path');
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 
 const {
-    findChromium,
-    getEnv,
     getEnvBool,
-    getEnvInt,
-    parseResolution,
     parseArgs,
     readCdpUrl,
 } = require('../chrome/chrome_utils.js');
@@ -86,81 +75,30 @@ async function waitForChromeTabLoaded(timeoutMs = 60000) {
 }
 
 async function printToPdf(url) {
-    const timeout = (getEnvInt('CHROME_TIMEOUT') || getEnvInt('TIMEOUT', 60)) * 1000;
-    const resolution = getEnv('CHROME_RESOLUTION') || getEnv('RESOLUTION', '1440,2000');
-    const userAgent = getEnv('CHROME_USER_AGENT') || getEnv('USER_AGENT', '');
-    const checkSsl = getEnvBool('CHROME_CHECK_SSL_VALIDITY', getEnvBool('CHECK_SSL_VALIDITY', true));
-    const headless = getEnvBool('CHROME_HEADLESS', true);
-
-    const { width, height } = parseResolution(resolution);
-
     // Output directory is current directory (hook already runs in output dir)
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
     let browser = null;
     let page = null;
-    let connectedToSession = false;
 
     try {
-        // Try to connect to existing Chrome session
+        // Connect to existing Chrome session (required)
         const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
-        if (cdpUrl) {
-            try {
-                browser = await puppeteer.connect({
-                    browserWSEndpoint: cdpUrl,
-                    defaultViewport: { width, height },
-                });
-                connectedToSession = true;
-
-                // Get existing pages or create new one
-                const pages = await browser.pages();
-                page = pages.find(p => p.url().startsWith('http')) || pages[0];
-
-                if (!page) {
-                    page = await browser.newPage();
-                }
-
-                // Set viewport on the page
-                await page.setViewport({ width, height });
-
-            } catch (e) {
-                console.error(`Failed to connect to CDP session: ${e.message}`);
-                browser = null;
-            }
+        if (!cdpUrl) {
+            return { success: false, error: 'No Chrome session found (chrome plugin must run first)' };
         }
 
-        // Fall back to launching new browser
-        if (!browser) {
-            const executablePath = findChromium();
-            if (!executablePath) {
-                return { success: false, error: 'Chrome binary not found' };
-            }
+        browser = await puppeteer.connect({
+            browserWSEndpoint: cdpUrl,
+            defaultViewport: null,
+        });
 
-            browser = await puppeteer.launch({
-                executablePath,
-                headless: headless ? 'new' : false,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    `--window-size=${width},${height}`,
-                    ...(checkSsl ? [] : ['--ignore-certificate-errors']),
-                ],
-                defaultViewport: { width, height },
-            });
+        // Get existing pages or create new one
+        const pages = await browser.pages();
+        page = pages.find(p => p.url().startsWith('http')) || pages[0];
 
+        if (!page) {
             page = await browser.newPage();
-
-            // Navigate to URL (only if we launched fresh browser)
-            if (userAgent) {
-                await page.setUserAgent(userAgent);
-            }
-
-            await page.goto(url, {
-                waitUntil: 'networkidle2',
-                timeout,
-            });
         }
 
         // Print to PDF
@@ -185,9 +123,8 @@ async function printToPdf(url) {
     } catch (e) {
         return { success: false, error: `${e.name}: ${e.message}` };
     } finally {
-        // Only close browser if we launched it (not if we connected to session)
-        if (browser && !connectedToSession) {
-            await browser.close();
+        if (browser) {
+            browser.disconnect();
         }
     }
 }
@@ -215,14 +152,15 @@ async function main() {
             process.exit(0);
         }
 
-        // Only wait for page load if using shared Chrome session
         const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
-        if (cdpUrl) {
-            // Wait for page to be fully loaded
-            const pageLoaded = await waitForChromeTabLoaded(60000);
-            if (!pageLoaded) {
-                throw new Error('Page not loaded after 60s (chrome_navigate must complete first)');
-            }
+        if (!cdpUrl) {
+            throw new Error('No Chrome session found (chrome plugin must run first)');
+        }
+
+        // Wait for page to be fully loaded
+        const pageLoaded = await waitForChromeTabLoaded(60000);
+        if (!pageLoaded) {
+            throw new Error('Page not loaded after 60s (chrome_navigate must complete first)');
         }
 
         const result = await printToPdf(url);

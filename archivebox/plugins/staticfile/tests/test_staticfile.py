@@ -48,7 +48,6 @@ class TestStaticfilePlugin(TestCase):
         self.assertTrue(STATICFILE_HOOK.exists(), f"Hook not found: {STATICFILE_HOOK}")
 
 
-@pytest.mark.skipif(not chrome_available(), reason="Chrome not installed")
 class TestStaticfileWithChrome(TestCase):
     """Integration tests for staticfile plugin with Chrome."""
 
@@ -116,9 +115,7 @@ class TestStaticfileWithChrome(TestCase):
                         except json.JSONDecodeError:
                             continue
 
-        except RuntimeError as e:
-            if 'Chrome' in str(e) or 'CDP' in str(e):
-                self.skipTest(f"Chrome session setup failed: {e}")
+        except RuntimeError:
             raise
 
 

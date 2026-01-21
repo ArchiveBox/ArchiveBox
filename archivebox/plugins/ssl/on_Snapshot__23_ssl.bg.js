@@ -34,16 +34,24 @@ const CHROME_SESSION_DIR = '../chrome';
 
 let browser = null;
 let page = null;
+let client = null;
 let sslCaptured = false;
 let shuttingDown = false;
 
 async function setupListener(url) {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
     const timeout = getEnvInt('SSL_TIMEOUT', 30) * 1000;
+    let targetHost = null;
 
     // Only extract SSL for HTTPS URLs
     if (!url.startsWith('https://')) {
         throw new Error('URL is not HTTPS');
+    }
+
+    try {
+        targetHost = new URL(url).host;
+    } catch (e) {
+        targetHost = null;
     }
 
     // Connect to Chrome page using shared utility
@@ -53,54 +61,54 @@ async function setupListener(url) {
         puppeteer,
     });
 
-    // Set up listener to capture SSL details during navigation
-    page.on('response', async (response) => {
+    client = await page.target().createCDPSession();
+    await client.send('Network.enable');
+
+    client.on('Network.responseReceived', (params) => {
         try {
-            const request = response.request();
+            if (sslCaptured) return;
+            if (params.type && params.type !== 'Document') return;
+            const response = params.response || {};
+            const responseUrl = response.url || '';
+            if (!responseUrl.startsWith('http')) return;
 
-            // Only capture the main navigation request
-            if (!request.isNavigationRequest() || request.frame() !== page.mainFrame()) {
-                return;
+            if (targetHost) {
+                try {
+                    const responseHost = new URL(responseUrl).host;
+                    if (responseHost !== targetHost) return;
+                } catch (e) {
+                    // Ignore URL parse errors, fall through
+                }
             }
 
-            // Only capture if it's for our target URL
-            if (!response.url().startsWith(url.split('?')[0])) {
-                return;
-            }
-
-            // Get security details from the response
-            const securityDetails = response.securityDetails();
-            let sslInfo = {};
+            const securityDetails = response.securityDetails || null;
+            let sslInfo = { url: responseUrl };
 
             if (securityDetails) {
-                sslInfo.protocol = securityDetails.protocol();
-                sslInfo.subjectName = securityDetails.subjectName();
-                sslInfo.issuer = securityDetails.issuer();
-                sslInfo.validFrom = securityDetails.validFrom();
-                sslInfo.validTo = securityDetails.validTo();
-                sslInfo.certificateId = securityDetails.subjectName();
-                sslInfo.securityState = 'secure';
+                sslInfo.protocol = securityDetails.protocol;
+                sslInfo.subjectName = securityDetails.subjectName;
+                sslInfo.issuer = securityDetails.issuer;
+                sslInfo.validFrom = securityDetails.validFrom;
+                sslInfo.validTo = securityDetails.validTo;
+                sslInfo.certificateId = securityDetails.subjectName;
+                sslInfo.securityState = response.securityState || 'secure';
                 sslInfo.schemeIsCryptographic = true;
 
-                const sanList = securityDetails.sanList();
+                const sanList = securityDetails.sanList;
                 if (sanList && sanList.length > 0) {
                     sslInfo.subjectAlternativeNames = sanList;
                 }
-            } else if (response.url().startsWith('https://')) {
-                // HTTPS URL but no security details means something went wrong
-                sslInfo.securityState = 'unknown';
+            } else if (responseUrl.startsWith('https://')) {
+                sslInfo.securityState = response.securityState || 'unknown';
                 sslInfo.schemeIsCryptographic = true;
                 sslInfo.error = 'No security details available';
             } else {
-                // Non-HTTPS URL
                 sslInfo.securityState = 'insecure';
                 sslInfo.schemeIsCryptographic = false;
             }
 
-            // Write output directly to file
             fs.writeFileSync(outputPath, JSON.stringify(sslInfo, null, 2));
             sslCaptured = true;
-
         } catch (e) {
             // Ignore errors
         }

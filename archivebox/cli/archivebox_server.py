@@ -3,6 +3,9 @@
 __package__ = 'archivebox.cli'
 
 from typing import Iterable
+import os
+import sys
+import subprocess
 
 import rich_click as click
 from rich import print
@@ -60,6 +63,26 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
         pass
 
     if run_in_debug:
+        os.environ['ARCHIVEBOX_RUNSERVER'] = '1'
+        if reload:
+            os.environ['ARCHIVEBOX_AUTORELOAD'] = '1'
+            os.environ['ARCHIVEBOX_ORCHESTRATOR_MANAGED_BY_WATCHER'] = '1'
+            from archivebox.config.common import STORAGE_CONFIG
+            pidfile = str(STORAGE_CONFIG.TMP_DIR / 'runserver.pid')
+            os.environ['ARCHIVEBOX_RUNSERVER_PIDFILE'] = pidfile
+
+            from django.utils.autoreload import DJANGO_AUTORELOAD_ENV
+            is_reloader_child = os.environ.get(DJANGO_AUTORELOAD_ENV) == 'true'
+            if not is_reloader_child:
+                env = os.environ.copy()
+                env['ARCHIVEBOX_ORCHESTRATOR_WATCHER'] = '1'
+                subprocess.Popen(
+                    [sys.executable, '-m', 'archivebox', 'manage', 'orchestrator_watch', f'--pidfile={pidfile}'],
+                    env=env,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+
         from django.core.management import call_command
         print('[green][+] Starting ArchiveBox webserver in DEBUG mode...[/green]')
         print(f'    [blink][green]>[/green][/blink] Starting ArchiveBox webserver on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link][/deep_sky_blue4]')
@@ -79,7 +102,6 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
             is_port_in_use,
         )
         from archivebox.workers.orchestrator import Orchestrator
-        import sys
 
         # Check if port is already in use
         if is_port_in_use(host, int(port)):

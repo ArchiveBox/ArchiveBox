@@ -79,10 +79,12 @@ def test_fails_gracefully_without_chrome_session():
     """Test that hook fails gracefully when no chrome session exists."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        infiniscroll_dir = tmpdir / 'snapshot' / 'infiniscroll'
+        infiniscroll_dir.mkdir(parents=True, exist_ok=True)
 
         result = subprocess.run(
             ['node', str(INFINISCROLL_HOOK), f'--url={TEST_URL}', '--snapshot-id=test-no-chrome'],
-            cwd=tmpdir,
+            cwd=infiniscroll_dir,
             capture_output=True,
             text=True,
             env=get_test_env(),

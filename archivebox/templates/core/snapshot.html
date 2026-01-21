@@ -97,6 +97,25 @@
                 vertical-align: -2px;
                 margin-right: 4px;
             }
+            .header-archivebox {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                white-space: nowrap;
+            }
+            .header-top .col-lg-2 {
+                white-space: nowrap;
+            }
+            .favicon {
+                width: 20px;
+                height: 20px;
+                max-width: 30px;
+                max-height: 30px;
+                object-fit: contain;
+                border-radius: 3px;
+                background: rgba(0,0,0,0.06);
+                vertical-align: -4px;
+            }
             .header-toggle {
                 line-height: 14px;
                 font-size: 70px;
@@ -312,6 +331,9 @@
                 height: 138px;
                 min-height: 138px;
                 max-height: 138px;
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
             }
             .thumb-card:has([data-compact]) {
                 height: 46px;
@@ -327,6 +349,25 @@
                 text-overflow: ellipsis;
                 background-color: #1a1a1a;
                 color: #d3d3d3;
+                flex: 0 0 auto;
+                position: relative;
+            }
+            .thumb-actions {
+                position: absolute;
+                top: 2px;
+                right: 6px;
+                display: flex;
+                gap: 6px;
+                font-size: 12px;
+                line-height: 1;
+                opacity: 0.7;
+            }
+            .thumb-actions a {
+                text-decoration: none;
+                color: inherit;
+            }
+            .thumb-actions a:hover {
+                opacity: 1;
             }
             .thumb-card .thumb-body h4 {
                 font-size: 1.1em;
@@ -340,6 +381,59 @@
             .thumb-card iframe.card-img-top {
                 display: block;
                 width: 100%;
+                flex: 1 1 auto;
+                min-height: 0;
+            }
+            .thumb-card .thumbnail-wrapper {
+                display: flex;
+                align-items: stretch;
+                width: 100% !important;
+                min-width: 0;
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+            .thumb-card .thumbnail-wrapper > *,
+            .thumb-card iframe.card-img-top {
+                width: 100% !important;
+                height: 100%;
+                object-fit: cover;
+                max-width: 100%;
+            }
+            .thumb-card .card-img-top {
+                width: 100% !important;
+                max-width: 100% !important;
+                height: 100% !important;
+                margin: 0 !important;
+                transform: none !important;
+                opacity: 1 !important;
+            }
+            .thumb-card .thumbnail-wrapper img,
+            .thumb-card .thumbnail-wrapper video,
+            .thumb-card .thumbnail-wrapper canvas {
+                width: 100% !important;
+                height: 100% !important;
+                max-width: 100% !important;
+                object-fit: cover;
+                transform: none !important;
+                margin: 0 !important;
+            }
+            .thumb-card .thumbnail-wrapper iframe,
+            .thumb-card .thumbnail-wrapper object,
+            .thumb-card .thumbnail-wrapper embed {
+                width: 405% !important;
+                height: 405% !important;
+                transform: scale(0.25);
+                transform-origin: 0 0;
+                margin: 0 !important;
+                border: 0 !important;
+            }
+            .thumb-card iframe.card-img-top {
+                width: 405% !important;
+                height: 405% !important;
+                transform: scale(0.25);
+                transform-origin: 0 0;
+                margin: 0 !important;
+                border: 0 !important;
             }
             .thumb-card:has([data-compact]) .thumbnail-wrapper,
             .thumb-card:has([data-compact]) .thumbnail-wrapper.compact {
@@ -361,6 +455,11 @@
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
+            }
+            .thumb-card:has([data-compact]) .thumbnail-text-header,
+            .thumb-card:has([data-compact]) .thumbnail-compact-icon,
+            .thumb-card:has([data-compact]) .thumbnail-compact-label {
+                display: none;
             }
             .thumb-card.selected-card {
                 border: 2px solid orange;
@@ -413,7 +512,8 @@
             }
             .screenshot {
                 background-color: #333;
-                transform: none;
+                transform: scale(1.05);
+                transform-origin: top center;
                 width: 100%;
                 min-height: 100px;
                 max-height: 100px;
@@ -521,12 +621,12 @@
                 <div class="row nav">
                     <div class="col-lg-2" style="line-height: 50px; vertical-align: middle">
                         <a href="../../index.html" class="header-archivebox" title="Go to Main Index...">
-                            <img src="../../static/archive.png" alt="Archive Icon">
+                            <img src="/static/archive.png" alt="Archive Icon">
                             ArchiveBox
                         </a>
                     </div>
                     <div class="col-lg-8">
-                        <img src="favicon.ico" onerror="this.style.opacity=0" alt="Favicon">
+                        <img src="{% snapshot_url snapshot 'favicon/favicon.ico' %}" onerror="this.style.opacity=0" alt="Favicon" class="favicon">
                         &nbsp;&nbsp;
                         {{title|safe}}
                         &nbsp;&nbsp;
@@ -581,14 +681,14 @@
                     </div>
                     <div class="col-lg-4">
                         <div class="info-chunk">
-                            <h5>🗃&nbsp; Snapshot: <a href="/admin/core/snapshot/{{snapshot_id}}/change/"><code style="color: rgba(255,255,255,0.6); font-weight: 200; font-size: 12px; background-color: #1a1a1a"><b>[{{timestamp}}]</b> <small>{{snapshot_id|truncatechars:24}}</small></code></a></h5>
-                            <a href="index.json" title="JSON summary of archived link.">JSON</a> | 
-                            <a href="warc/" title="Any WARC archives for the page">WARC</a> | 
-                            <a href="media/" title="Audio, Video, and Subtitle files.">Media</a> | 
-                            <a href="git/" title="Any git repos at the url">Git</a> | 
-                            <a href="/admin/core/snapshot/?q={{snapshot_id}}" title="Go to the Snapshot admin to update, overwrite, or delete this Snapshot">Actions</a> | 
-                            <a href="/admin/core/snapshot/{{snapshot_id}}/change/" title="Edit this snapshot in the Admin UI">Admin</a> | 
-                            <a href="." title="Webserver-provided index of files directory.">See all files...</a><br/>
+                            <h5>🗃&nbsp; Snapshot: <a href="{% admin_base_url %}/admin/core/snapshot/{{snapshot_id|default:id}}/change/"><code style="color: rgba(255,255,255,0.6); font-weight: 200; font-size: 12px; background-color: #1a1a1a"><b>[{{timestamp}}]</b> <small>{{snapshot_id|default:id|truncatechars:24}}</small></code></a></h5>
+                            <a href="{% snapshot_url snapshot 'index.json' %}" title="JSON summary of archived link.">JSON</a> | 
+                            <a href="{% snapshot_url snapshot 'warc/' %}" title="Any WARC archives for the page">WARC</a> | 
+                            <a href="{% snapshot_url snapshot 'media/' %}" title="Audio, Video, and Subtitle files.">Media</a> | 
+                            <a href="{% snapshot_url snapshot 'git/' %}" title="Any git repos at the url">Git</a> | 
+                            <a href="{% admin_base_url %}/admin/core/snapshot/?q={{snapshot_id|default:id}}" title="Go to the Snapshot admin to update, overwrite, or delete this Snapshot">Actions</a> | 
+                            <a href="{% admin_base_url %}/admin/core/snapshot/{{snapshot_id|default:id}}/change/" title="Edit this snapshot in the Admin UI">Admin</a> | 
+                            <a href="{% snapshot_base_url snapshot %}/?files=1" title="Webserver-provided index of files directory.">See all files...</a><br/>
                         </div>
                     </div>
                 </div>
@@ -596,19 +696,39 @@
                     {% for result_info in archiveresults %}
                         {% if result_info.result %}
                             {% plugin_card result_info.result as thumbnail_html %}
-                            <div class="thumb-card{% if forloop.first %} selected-card{% endif %}">
-                                    <div class="thumbnail-wrapper">
-                                        {{ thumbnail_html }}
-                                    </div>
+                            {% with display_path=result_info.path|default:result_info.result.embed_path display_url='' %}
+                            {% if display_path %}{% snapshot_url snapshot display_path as display_url %}{% endif %}
+                            <div class="thumb-card{% if forloop.first %} selected-card{% endif %}"{% if display_url %} data-preview-url="{{display_url}}"{% endif %}>
+                                    {% with plugin_base=result_info.name|plugin_name %}
+                                        {% if plugin_base != 'ytdlp' and plugin_base != 'yt-dlp' and plugin_base != 'youtube-dl' %}
+                                            <div class="thumbnail-wrapper">
+                                                {{ thumbnail_html }}
+                                            </div>
+                                        {% endif %}
+                                    {% endwith %}
                                     <div class="thumb-body">
-                                        <a href="{{ result_info.path }}" title="Open in new tab..." target="_blank" rel="noopener">
+                                        <div class="thumb-actions">
+                                            <a href="{% snapshot_url snapshot result_info.name %}/?files=1" data-no-preview="1" title="Open output folder" target="_blank" rel="noopener">📁</a>
+                                            {% if display_path %}
+                                                <a href="{{display_url}}" data-no-preview="1" title="Download output file" download>⬇️</a>
+                                            {% endif %}
+                                        </div>
+                                        <a href="{{ display_url }}" title="Open in new tab..." target="_blank" rel="noopener">
                                             <p class="card-text"><code>{{ result_info.path }}</code></p>
                                         </a>
-                                        <a href="{{ result_info.path }}" target="preview">
-                                            <h4 class="card-title">{{ result_info.name|title }}</h4>
-                                        </a>
-                                    </div>
+                                    <a href="{{ display_url }}" target="preview">
+                                        <h4 class="card-title">{{ result_info.name|plugin_display_name|title }}</h4>
+                                    </a>
+                                    {% if result_info.result %}
+                                        {% with plugin_base=result_info.name|plugin_name %}
+                                            {% if plugin_base == 'ytdlp' or plugin_base == 'yt-dlp' or plugin_base == 'youtube-dl' %}
+                                                {% plugin_card result_info.result %}
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% endif %}
+                                </div>
                             </div>
+                            {% endwith %}
                         {% endif %}
                     {% endfor %}
 
@@ -629,7 +749,13 @@
                 </div>
             </div>
         </header>
-        <iframe sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe" src="{{best_preview_path}}" name="preview"></iframe>
+        {% if best_result.result %}
+        <div id="main-frame-wrapper" class="full-page-wrapper">
+            {% plugin_full best_result.result %}
+        </div>
+        {% else %}
+        <iframe id="main-frame" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe" src="{{best_preview_path}}" name="preview"></iframe>
+        {% endif %}
     
         <script>
             /*! jQuery v3.2.1 -ajax,-ajax/jsonp,-ajax/load,-ajax/parseXML,-ajax/script,-ajax/var/location,-ajax/var/nonce,-ajax/var/rquery,-ajax/xhr,-manipulation/_evalUrl,-event/ajax,-effects,-effects/Tween,-effects/animatedSelector | (c) JS Foundation and other contributors | jquery.org/license */
@@ -647,31 +773,99 @@
                 return link.pathname.split('/').filter(a => a.length).slice(-1)[0].toLowerCase()
             }
 
-            // show selected file in iframe when preview card is clicked
-            jQuery('.thumb-card').on('click', function(e) {
-                jQuery('.selected-card').removeClass('selected-card')
-                jQuery(e.target).closest('.thumb-card').addClass('selected-card')
+            function tryCenterImageFrame(frame) {
+                try {
+                    const doc = frame.contentDocument || frame.contentWindow.document
+                    if (!doc || !doc.body || !doc.images || doc.images.length !== 1) {
+                        return
+                    }
+                    const img = doc.images[0]
+                    doc.documentElement.style.height = '100%'
+                    doc.body.style.height = '100%'
+                    doc.documentElement.style.width = '100%'
+                    doc.body.style.width = '100%'
+                    doc.body.style.margin = '0'
+                    doc.body.style.display = 'flex'
+                    doc.body.style.alignItems = 'flex-start'
+                    doc.body.style.justifyContent = 'center'
+                    doc.body.style.background = '#222'
+                    img.style.maxWidth = '100%'
+                    img.style.width = 'auto'
+                    img.style.height = 'auto'
+                    img.style.maxHeight = 'none'
+                    img.style.display = 'block'
+                } catch (err) {}
+            }
 
-                const link = e.target.closest('a[target=preview]') || e.currentTarget.querySelector('a[target=preview]') || e.currentTarget.querySelector('a')
-                if (!link || !link.href || link.href.endsWith('#')) {
+            function attachPreviewFrameHandlers(frame) {
+                if (frame.src.endsWith('.pdf')) {
+                    frame.removeAttribute('sandbox')
+                    frame.src = frame.src
+                }
+                frame.onload = function() {
+                    if (this.src.includes('.pdf')) {
+                        this.removeAttribute('sandbox')
+                    }
+                    tryCenterImageFrame(this)
+                }
+            }
+
+            // show selected file in iframe when preview card is clicked
+            function ensureMainFrame() {
+                let frame = document.querySelector('.full-page-iframe')
+                if (!frame) {
+                    const wrapper = document.getElementById('main-frame-wrapper')
+                    frame = document.createElement('iframe')
+                    frame.id = 'main-frame'
+                    frame.name = 'preview'
+                    frame.className = 'full-page-iframe'
+                    frame.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms"
+                    if (wrapper) {
+                        wrapper.innerHTML = ''
+                        wrapper.appendChild(frame)
+                        wrapper.classList.remove('full-page-wrapper')
+                    }
+                    attachPreviewFrameHandlers(frame)
+                }
+                return frame
+            }
+
+            function handleThumbCardClick(card, e) {
+                const targetEl = e.target.nodeType === Node.ELEMENT_NODE ? e.target : e.target.parentElement
+                if (targetEl && targetEl.closest('[data-no-preview]')) {
                     return true
                 }
-                const iframe = jQuery('.full-page-iframe')[0]
+                jQuery('.selected-card').removeClass('selected-card')
+                jQuery(card).closest('.thumb-card').addClass('selected-card')
+
+                const link = (targetEl && targetEl.closest('a[target=preview]')) || card.querySelector('a[target=preview]') || card.querySelector('a')
+                const previewUrl = card.dataset.previewUrl
+                const target = (link && link.href) ? link.href : (previewUrl || '')
+                if (!target || target.endsWith('#')) {
+                    return true
+                }
+                e.preventDefault()
+                const iframe = ensureMainFrame()
                 if (!iframe) {
                     return true
                 }
-                if (link.href.endsWith('.pdf')) {
+                if (target.endsWith('.pdf')) {
                     iframe.removeAttribute('sandbox')
                 } else {
                     iframe.sandbox = "allow-same-origin allow-scripts allow-forms allow-top-navigation-by-user-activation"
                 }
-                window.location.hash = getPreviewTypeFromPath(link)
-                iframe.src = link.href
+                if (link) {
+                    window.location.hash = getPreviewTypeFromPath(link)
+                }
+                iframe.src = target
                 return true
+            }
+
+            jQuery('.thumb-card').on('click', function(e) {
+                return handleThumbCardClick(this, e)
             })
-            jQuery('.thumb-card a[target=preview]').on('click', function(e) {
-                e.preventDefault()
-                return false
+            jQuery('.thumb-card a').on('click', function(e) {
+                return handleThumbCardClick(this.closest('.thumb-card'), e)
             })
 
             function hideSnapshotHeader() {
@@ -737,10 +931,7 @@
 
             // un-sandbox iframes showing pdfs (required to display pdf viewer)
             jQuery('iframe').map(function() {
-                if (this.src.endsWith('.pdf')) {
-                    this.removeAttribute('sandbox')
-                    this.src = this.src
-                }
+                attachPreviewFrameHandlers(this)
             })
 
             // hide all preview iframes on small screens
@@ -749,8 +940,10 @@
             }
 
             var pdf_frame = document.querySelector('.pdf-frame');
-            pdf_frame.onload = function () {
-                pdf_frame.contentWindow.scrollTo(0, 400);
+            if (pdf_frame) {
+                pdf_frame.onload = function () {
+                    pdf_frame.contentWindow.scrollTo(0, 400);
+                }
             }
         </script>
     </body>

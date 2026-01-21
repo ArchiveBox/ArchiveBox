@@ -18,6 +18,8 @@ const { finished } = require('stream/promises');
 
 const execAsync = promisify(exec);
 
+const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
+
 // ============================================================================
 // Environment helpers
 // ============================================================================
@@ -373,6 +375,7 @@ async function launchChromium(options = {}) {
         outputDir = 'chrome',
         userDataDir = getEnv('CHROME_USER_DATA_DIR'),
         resolution = getEnv('CHROME_RESOLUTION') || getEnv('RESOLUTION', '1440,2000'),
+        userAgent = getEnv('CHROME_USER_AGENT') || getEnv('USER_AGENT', ''),
         headless = getEnvBool('CHROME_HEADLESS', true),
         sandbox = getEnvBool('CHROME_SANDBOX', true),
         checkSsl = getEnvBool('CHROME_CHECK_SSL_VALIDITY', getEnvBool('CHECK_SSL_VALIDITY', true)),
@@ -450,23 +453,26 @@ async function launchChromium(options = {}) {
     const extraArgs = getEnvArray('CHROME_ARGS_EXTRA', []);
 
     // Build dynamic Chrome arguments (these must be computed at runtime)
+    const inDocker = getEnvBool('IN_DOCKER', false);
     const dynamicArgs = [
         // Remote debugging setup
         `--remote-debugging-port=${debugPort}`,
         '--remote-debugging-address=127.0.0.1',
 
         // Sandbox settings (disable in Docker)
-        ...(sandbox ? [] : ['--no-sandbox', '--disable-setuid-sandbox']),
+        ...(sandbox ? [] : (inDocker ? ['--no-sandbox', '--disable-setuid-sandbox'] : [])),
 
         // Docker-specific workarounds
         '--disable-dev-shm-usage',
-        '--disable-gpu',
 
         // Window size
         `--window-size=${width},${height}`,
 
         // User data directory (for persistent sessions with persona)
         ...(userDataDir ? [`--user-data-dir=${userDataDir}`] : []),
+
+        // User agent
+        ...(userAgent ? [`--user-agent=${userAgent}`] : []),
 
         // Headless mode
         ...(headless ? ['--headless=new'] : []),
@@ -1387,6 +1393,18 @@ function findChromium() {
     return null;
 }
 
+/**
+ * Find Chromium binary path only (never Chrome/Brave/Edge).
+ * Prefers CHROME_BINARY if set, then Chromium.
+ *
+ * @returns {string|null} - Absolute path or command name to browser binary
+ */
+function findAnyChromiumBinary() {
+    const chromiumBinary = findChromium();
+    if (chromiumBinary) return chromiumBinary;
+    return null;
+}
+
 // ============================================================================
 // Shared Extension Installer Utilities
 // ============================================================================
@@ -1658,13 +1676,13 @@ async function connectToPage(options = {}) {
     // Wait for chrome session to be ready
     const sessionReady = await waitForChromeSession(chromeSessionDir, timeoutMs);
     if (!sessionReady) {
-        throw new Error(`Chrome session not ready after ${timeoutMs/1000}s (chrome plugin must run first)`);
+        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
     }
 
     // Read session files
     const cdpUrl = readCdpUrl(chromeSessionDir);
     if (!cdpUrl) {
-        throw new Error('No Chrome session found (cdp_url.txt missing)');
+        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
     }
 
     const targetId = readTargetId(chromeSessionDir);
@@ -1749,6 +1767,7 @@ module.exports = {
     installPuppeteerCore,
     // Chromium binary finding
     findChromium,
+    findAnyChromiumBinary,
     // Extension utilities
     getExtensionId,
     loadExtensionManifest,
