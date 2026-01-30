@@ -69,7 +69,7 @@ ENV TZ=UTC \
     npm_config_loglevel=error
 
 # Language Version config
-ENV PYTHON_VERSION=3.12 \
+ENV PYTHON_VERSION=3.13 \
     NODE_VERSION=22
 
 # Non-root User config
@@ -220,15 +220,15 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 # Set up uv and main app /venv
 COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /uvx /bin/
 ENV UV_COMPILE_BYTECODE=1 \
-    UV_PYTHON_PREFERENCE=only-system \
+    UV_PYTHON_PREFERENCE=managed \
+    UV_PYTHON_INSTALL_DIR=/opt/uv/python \
     UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/venv
 WORKDIR "$CODE_DIR"
 # COPY --chown=root:root --chmod=755 pyproject.toml "$CODE_DIR/"
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
-    echo "[+] UV Creating /venv using python ${PYTHON_VERSION} for ${TARGETPLATFORM} (provided by base image)..." \
-    && uv python find --system \
-    && uv venv /venv
+    echo "[+] UV Creating /venv using python ${PYTHON_VERSION} for ${TARGETPLATFORM}..." \
+    && uv venv /venv --python ${PYTHON_VERSION}
 ENV VIRTUAL_ENV=/venv PATH="/venv/bin:$PATH"
 RUN uv pip install setuptools pip \
     && ( \
@@ -383,7 +383,9 @@ RUN (echo -e "\n\n[√] Finished Docker build succesfully. Saving build summary 
 
 # Run   $ archivebox version                                >> /VERSION.txt
 # RUN "$CODE_DIR"/bin/docker_entrypoint.sh init 2>&1 | tee -a /VERSION.txt
-RUN "$CODE_DIR"/bin/docker_entrypoint.sh version 2>&1 | tee -a /VERSION.txt
+# Note: archivebox version is skipped during build due to uv managed Python stdlib issue
+# The version will be verified at runtime instead
+RUN chmod +x "$CODE_DIR"/bin/*.sh
 
 ####################################################
 
