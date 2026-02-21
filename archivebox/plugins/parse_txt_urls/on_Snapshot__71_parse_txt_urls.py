@@ -79,6 +79,38 @@ def find_all_urls(text: str):
         yield fix_url_from_markdown(url)
 
 
+def inject_url_auth(url: str, root_url: str) -> str:
+    """
+    Inject HTTP basic auth credentials from root_url into url if they share the same host.
+
+    This ensures that when crawling a site with HTTP basic auth (e.g. depth > 0),
+    discovered child URLs on the same host inherit the parent's credentials.
+    Without this, depth > 0 crawls would fail to authenticate on discovered links.
+    """
+    root_parsed = urlparse(root_url)
+    if not root_parsed.username:
+        return url  # No credentials in root URL, nothing to inject
+
+    child_parsed = urlparse(url)
+    if child_parsed.username:
+        return url  # Child URL already has credentials
+
+    # Only inject if same host (hostname and port match)
+    if root_parsed.hostname != child_parsed.hostname or root_parsed.port != child_parsed.port:
+        return url
+
+    # Rebuild netloc with credentials: user:pass@host or user:pass@host:port
+    auth = root_parsed.username
+    if root_parsed.password:
+        auth = f'{root_parsed.username}:{root_parsed.password}'
+    if child_parsed.port:
+        new_netloc = f'{auth}@{child_parsed.hostname}:{child_parsed.port}'
+    else:
+        new_netloc = f'{auth}@{child_parsed.hostname}'
+
+    return child_parsed._replace(netloc=new_netloc).geturl()
+
+
 def fetch_content(url: str) -> str:
     """Fetch content from a URL (supports file:// and https://)."""
     parsed = urlparse(url)
@@ -125,6 +157,8 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
         cleaned_url = unescape(found_url)
         # Skip the source URL itself
         if cleaned_url != url:
+            # Propagate HTTP basic auth credentials to discovered URLs on the same host
+            cleaned_url = inject_url_auth(cleaned_url, url)
             urls_found.add(cleaned_url)
 
     # Emit Snapshot records to stdout (JSONL)

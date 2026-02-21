@@ -41,11 +41,12 @@ without_fragment = lambda url: urlparse(url)._replace(fragment='').geturl().stri
 without_path = lambda url: urlparse(url)._replace(path='', fragment='', query='').geturl().strip('//')
 path = lambda url: urlparse(url).path
 basename = lambda url: urlparse(url).path.rsplit('/', 1)[-1]
-domain = lambda url: urlparse(url).netloc
+domain = lambda url: (lambda p: f'{p.hostname}:{p.port}' if p.port else (p.hostname or p.netloc))(urlparse(url))  # returns host:port without HTTP basic auth credentials
 query = lambda url: urlparse(url).query
 fragment = lambda url: urlparse(url).fragment
 extension = lambda url: basename(url).rsplit('.', 1)[-1].lower() if '.' in basename(url) else ''
-base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
+without_auth = lambda url: (lambda p: p._replace(netloc=(f'{p.hostname}:{p.port}' if p.port else p.hostname) or '').geturl())(urlparse(url))  # strip HTTP basic auth user:pass@ from URL
+base_url = lambda url: without_scheme(without_auth(url))  # uniq base url used to dedupe links (strips credentials so user:pass@domain == domain)
 
 without_www = lambda url: url.replace('://www.', '://', 1)
 without_trailing_slash = lambda url: url[:-1] if url[-1] == '/' else url.replace('/?', '?')
