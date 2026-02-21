@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "SOURCEMAP_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["SAVE_SOURCEMAP"],
+      "description": "Enable JavaScript sourcemap (.js.map) downloading"
+    },
+    "SOURCEMAP_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for sourcemap fetch in seconds"
+    },
+    "SOURCEMAP_USER_AGENT": {
+      "type": "string",
+      "default": "",
+      "x-fallback": "USER_AGENT",
+      "description": "User agent string for sourcemap requests"
+    },
+    "SOURCEMAP_MAX_FILES": {
+      "type": "integer",
+      "default": 50,
+      "minimum": 1,
+      "description": "Maximum number of sourcemap files to download per snapshot"
+    }
+  }
+}
