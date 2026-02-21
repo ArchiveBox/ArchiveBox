@@ -1635,12 +1635,14 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 )
                 print(f"[red]⚠️  Snapshot.from_json auto-created new crawl {crawl.id} for url={url}[/red]", file=sys.stderr)
 
-        # Parse tags
-        tags_str = record.get('tags', '')
+        # Parse tags (accept either a list ["tag1", "tag2"] or a comma-separated string "tag1,tag2")
+        tags_raw = record.get('tags', '')
         tag_list = []
-        if tags_str:
+        if isinstance(tags_raw, list):
+            tag_list = list(dict.fromkeys(tag.strip() for tag in tags_raw if tag.strip()))
+        elif tags_raw:
             tag_list = list(dict.fromkeys(
-                tag.strip() for tag in re.split(GENERAL_CONFIG.TAG_SEPARATOR_PATTERN, tags_str)
+                tag.strip() for tag in re.split(GENERAL_CONFIG.TAG_SEPARATOR_PATTERN, tags_raw)
                 if tag.strip()
             ))
 
@@ -2073,7 +2075,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             'url': self.url,
             'timestamp': self.timestamp,
             'title': self.title,
-            'tags': self.tags_str(),
+            'tags': sorted(tag.name for tag in self.tags.all()),
             'downloaded_at': self.downloaded_at.isoformat() if self.downloaded_at else None,
             'bookmarked_at': self.bookmarked_at.isoformat() if self.bookmarked_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
