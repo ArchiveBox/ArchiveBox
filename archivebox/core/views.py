@@ -856,6 +856,21 @@ class AddView(UserPassesTestMixin, FormView):
     def test_func(self):
         return SERVER_CONFIG.PUBLIC_ADD_VIEW or self.request.user.is_authenticated
 
+    def _can_override_crawl_config(self) -> bool:
+        user = self.request.user
+        return bool(user.is_authenticated and (user.is_superuser or user.is_staff))
+
+    def _get_custom_config_overrides(self, form: AddLinkForm) -> dict:
+        custom_config = form.cleaned_data.get("config") or {}
+
+        if not isinstance(custom_config, dict):
+            return {}
+
+        if not self._can_override_crawl_config():
+            return {}
+
+        return custom_config
+
     def get_context_data(self, **kwargs):
         from archivebox.core.models import Tag
 
@@ -884,7 +899,7 @@ class AddView(UserPassesTestMixin, FormView):
         update = form.cleaned_data.get("update", False)
         index_only = form.cleaned_data.get("index_only", False)
         notes = form.cleaned_data.get("notes", "")
-        custom_config = form.cleaned_data.get("config") or {}
+        custom_config = self._get_custom_config_overrides(form)
 
         from archivebox.config.permissions import HOSTNAME
 

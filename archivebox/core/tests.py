@@ -2,6 +2,7 @@
 
 import os
 import django
+from unittest.mock import patch
 
 # Set up Django before importing any Django-dependent modules
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.settings')
@@ -13,6 +14,7 @@ from django.urls import reverse
 
 from archivebox.crawls.models import Crawl, CrawlSchedule
 from archivebox.core.models import Tag
+from archivebox.config.common import SERVER_CONFIG
 
 
 class AddViewTests(TestCase):
@@ -219,6 +221,54 @@ class AddViewTests(TestCase):
         # so this test would need to use the form directly or mock the cleaned_data
         # For now, we'll skip this test or mark it as TODO
         pass
+
+    def test_add_public_anonymous_custom_config_is_silently_stripped(self):
+        """Anonymous users cannot override crawl config, even with PUBLIC_ADD_VIEW enabled."""
+        self.client.logout()
+
+        with patch.object(SERVER_CONFIG, 'PUBLIC_ADD_VIEW', True):
+            response = self.client.post(self.add_url, {
+                'url': 'https://example.com',
+                'depth': '0',
+                'config': '{"YTDLP_ARGS_EXTRA":["--exec","id > /tmp/pwned"]}',
+            })
+
+        self.assertEqual(response.status_code, 302)
+        crawl = Crawl.objects.order_by('-created_at').first()
+        self.assertNotIn('YTDLP_ARGS_EXTRA', crawl.config)
+
+    def test_add_authenticated_non_admin_custom_config_is_silently_stripped(self):
+        """Authenticated non-admin users cannot override crawl config."""
+        response = self.client.post(self.add_url, {
+            'url': 'https://example.com',
+            'depth': '0',
+            'config': '{"YTDLP_ARGS_EXTRA":["--exec","id > /tmp/pwned"]}',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        crawl = Crawl.objects.order_by('-created_at').first()
+        self.assertNotIn('YTDLP_ARGS_EXTRA', crawl.config)
+
+    def test_add_staff_admin_custom_config_is_allowed(self):
+        """Admin users can override crawl config."""
+        self.client.logout()
+        admin_user = User.objects.create_user(
+            username='adminuser',
+            password='adminpass123',
+            email='admin@example.com',
+            is_staff=True,
+        )
+        self.client.login(username='adminuser', password='adminpass123')
+
+        response = self.client.post(self.add_url, {
+            'url': 'https://example.com',
+            'depth': '0',
+            'config': '{"YTDLP_ARGS_EXTRA":["--exec","echo hello"]}',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        crawl = Crawl.objects.order_by('-created_at').first()
+        self.assertEqual(crawl.config.get('YTDLP_ARGS_EXTRA'), ['--exec', 'echo hello'])
 
     def test_add_empty_urls_fails(self):
         """Test that submitting without URLs fails validation."""
