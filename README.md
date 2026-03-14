@@ -1378,6 +1378,7 @@ git pull --recurse-submodules
 # Install ArchiveBox + python dependencies
 pip install uv
 ./bin/lock_pkgs.sh         # (aka `uv venv; uv sync;` + generate requirements.txt)
+source .venv/bin/activate  # activate the venv
 
 # Install ArchiveBox runtime dependencies
 mkdir -p data && cd data
