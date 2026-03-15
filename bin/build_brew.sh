@@ -80,6 +80,14 @@ ${RESOURCES}
     virtualenv_install_with_resources
   end
 
+  def post_install
+    # Initialize ArchiveBox data in the Homebrew-managed var directory
+    data_dir = var/"archivebox"
+    data_dir.mkpath
+    ENV["DATA_DIR"] = data_dir.to_s
+    system bin/"archivebox", "init"
+  end
+
   test do
     assert_match version.to_s, shell_output("#{bin}/archivebox version")
   end

@@ -195,10 +195,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Verify the release exists before uploading (workflow_dispatch may not have one)
-          if ! gh release view "${{ steps.tag.outputs.tag }}" >/dev/null 2>&1; then
-            echo "[!] No GitHub Release found for tag ${{ steps.tag.outputs.tag }}, skipping upload."
+          TAG="${{ steps.tag.outputs.tag }}"
+          # Verify the release exists before uploading
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            echo "[!] No GitHub Release found for tag $TAG."
+            if [ -n "${{ github.event.release.tag_name }}" ]; then
+              echo "[X] This was triggered by a release event — the release should exist. Failing."
+              exit 1
+            fi
+            echo "[i] Skipping upload (workflow_dispatch without a release)."
             echo "    Create a release first or trigger via the release event."
             exit 0
           fi
-          gh release upload "${{ steps.tag.outputs.tag }}" *.deb --clobber
+          gh release upload "$TAG" *.deb --clobber
