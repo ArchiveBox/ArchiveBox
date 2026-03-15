@@ -179,7 +179,7 @@ class TestHookDiscovery(unittest.TestCase):
         (wget_dir / 'on_Crawl__10_wget_install.finite.bg.py').write_text('# install hook')
 
         chrome_dir = self.plugins_dir / 'chrome'
-        chrome_dir.mkdir()
+        chrome_dir.mkdir(exist_ok=True)
         (chrome_dir / 'on_Snapshot__20_chrome_tab.daemon.bg.js').write_text('// background hook')
 
         consolelog_dir = self.plugins_dir / 'consolelog'
@@ -262,6 +262,42 @@ class TestHookDiscovery(unittest.TestCase):
 
         hook_names = [hook.name for hook in hooks]
         self.assertIn('on_Binary__10_npm_install.py', hook_names)
+
+    def test_discover_crawl_hooks_keeps_binary_provider_dependencies_enabled(self):
+        """Provider crawl hooks should remain enabled when a whitelisted plugin depends on them transitively."""
+        responses_dir = self.plugins_dir / 'responses'
+        responses_dir.mkdir()
+        (responses_dir / 'config.json').write_text(
+            json.dumps(
+                {
+                    "type": "object",
+                    "required_plugins": ["chrome"],
+                    "properties": {},
+                }
+            )
+        )
+
+        chrome_dir = self.plugins_dir / 'chrome'
+        chrome_dir.mkdir(exist_ok=True)
+        (chrome_dir / 'config.json').write_text('{"type": "object", "properties": {}}')
+        (chrome_dir / 'on_Crawl__70_chrome_install.finite.bg.py').write_text('# chrome crawl hook')
+
+        npm_dir = self.plugins_dir / 'npm'
+        npm_dir.mkdir()
+        (npm_dir / 'on_Binary__10_npm_install.py').write_text('# npm binary hook')
+        (npm_dir / 'on_Crawl__00_npm_install.py').write_text('# npm crawl hook')
+        (npm_dir / 'config.json').write_text('{"type": "object", "properties": {}}')
+
+        from archivebox import hooks as hooks_module
+
+        hooks_module.get_plugins.cache_clear()
+        hooks_module.get_binary_provider_plugins.cache_clear()
+        with patch.object(hooks_module, 'BUILTIN_PLUGINS_DIR', self.plugins_dir), patch.object(hooks_module, 'USER_PLUGINS_DIR', self.test_dir / 'user_plugins'):
+            hooks = hooks_module.discover_hooks('Crawl', config={'PLUGINS': 'responses'})
+
+        hook_names = [hook.name for hook in hooks]
+        self.assertIn('on_Crawl__70_chrome_install.finite.bg.py', hook_names)
+        self.assertIn('on_Crawl__00_npm_install.py', hook_names)
 
 
 class TestGetExtractorName(unittest.TestCase):
