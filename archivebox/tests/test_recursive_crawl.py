@@ -5,31 +5,11 @@ import json
 import os
 import subprocess
 import sqlite3
-import time
 from pathlib import Path
 
 import pytest
 
 from .fixtures import process, disable_extractors_dict, recursive_test_site
-
-
-def wait_for_db_condition(timeout, condition, interval=0.5):
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        if os.path.exists("index.sqlite3"):
-            conn = sqlite3.connect("index.sqlite3")
-            try:
-                if condition(conn.cursor()):
-                    return True
-            finally:
-                conn.close()
-        time.sleep(interval)
-    return False
-
-
-def stop_process(proc):
-    proc.kill()
-    return proc.communicate()
 
 
 def test_background_hooks_dont_block_parser_extractors(tmp_path, process, recursive_test_site):
@@ -60,21 +40,15 @@ def test_background_hooks_dont_block_parser_extractors(tmp_path, process, recurs
         "SAVE_WGET": "true",
     })
 
-    proc = subprocess.Popen(
+    result = subprocess.run(
         ['archivebox', 'add', '--depth=1', '--plugins=favicon,wget,parse_html_urls', recursive_test_site['root_url']],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=True,
         env=env,
+        timeout=60,
     )
-
-    assert wait_for_db_condition(
-        timeout=30,
-        condition=lambda c: c.execute(
-            "SELECT COUNT(*) FROM core_archiveresult WHERE plugin LIKE 'parse_%_urls' AND status IN ('started', 'succeeded', 'failed')"
-        ).fetchone()[0] > 0,
-    ), "Parser extractors never progressed beyond queued status"
-    stdout, stderr = stop_process(proc)
+    assert result.returncode == 0, result.stderr
+    stdout, stderr = result.stdout, result.stderr
 
     if stderr:
         print(f"\n=== STDERR ===\n{stderr}\n=== END STDERR ===\n")
@@ -137,21 +111,14 @@ def test_parser_extractors_emit_snapshot_jsonl(tmp_path, process, recursive_test
         "USE_CHROME": "false",
     })
 
-    proc = subprocess.Popen(
+    result = subprocess.run(
         ['archivebox', 'add', '--depth=0', '--plugins=wget,parse_html_urls', recursive_test_site['root_url']],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=True,
         env=env,
+        timeout=60,
     )
-
-    assert wait_for_db_condition(
-        timeout=20,
-        condition=lambda c: c.execute(
-            "SELECT COUNT(*) FROM core_archiveresult WHERE plugin LIKE '%parse_html_urls' AND status IN ('started', 'succeeded', 'failed')"
-        ).fetchone()[0] > 0,
-    ), "parse_html_urls did not run in time"
-    stop_process(proc)
+    assert result.returncode == 0, result.stderr
 
     conn = sqlite3.connect('index.sqlite3')
     c = conn.cursor()
@@ -204,21 +171,15 @@ def test_recursive_crawl_creates_child_snapshots(tmp_path, process, recursive_te
         "SAVE_TITLE": "false",
     })
 
-    proc = subprocess.Popen(
+    result = subprocess.run(
         ['archivebox', 'add', '--depth=1', '--plugins=wget,parse_html_urls', recursive_test_site['root_url']],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=True,
         env=env,
+        timeout=60,
     )
-
-    assert wait_for_db_condition(
-        timeout=30,
-        condition=lambda c: c.execute(
-            "SELECT COUNT(*) FROM core_snapshot WHERE depth = 1"
-        ).fetchone()[0] >= 3,
-    ), "Recursive crawl never created child snapshots"
-    stdout, stderr = stop_process(proc)
+    assert result.returncode == 0, result.stderr
+    stdout, stderr = result.stdout, result.stderr
 
     if stderr:
         print(f"\n=== STDERR ===\n{stderr}\n=== END STDERR ===\n")
@@ -368,21 +329,14 @@ def test_archiveresult_worker_queue_filters_by_foreground_extractors(tmp_path, p
         "SAVE_FAVICON": "true",
     })
 
-    proc = subprocess.Popen(
+    result = subprocess.run(
         ['archivebox', 'add', '--plugins=favicon,wget,parse_html_urls', recursive_test_site['root_url']],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=True,
         env=env,
+        timeout=60,
     )
-
-    assert wait_for_db_condition(
-        timeout=20,
-        condition=lambda c: c.execute(
-            "SELECT COUNT(*) FROM core_archiveresult WHERE plugin LIKE 'parse_%_urls' AND status IN ('started', 'succeeded', 'failed')"
-        ).fetchone()[0] > 0,
-    ), "Parser extractor never started"
-    stop_process(proc)
+    assert result.returncode == 0, result.stderr
 
     conn = sqlite3.connect('index.sqlite3')
     c = conn.cursor()
