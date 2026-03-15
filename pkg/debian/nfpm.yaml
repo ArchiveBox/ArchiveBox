@@ -25,17 +25,8 @@ depends:
   - python3 (>= 3.11)
   - python3-pip
   - python3-venv
-  - nodejs
-  - npm
-  - git
-  - wget
-  - curl
-  - ripgrep
-
-recommends:
-  - yt-dlp
-  - ffmpeg
-  - chromium | chromium-browser | google-chrome-stable
+  # All other runtime deps (node, chrome, yt-dlp, etc.) are installed on-demand
+  # by `archivebox install` and should NOT be declared as package dependencies.
 
 contents:
   # Wrapper script for /usr/bin/archivebox

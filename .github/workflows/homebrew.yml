@@ -87,38 +87,11 @@ class Archivebox < Formula
   license "MIT"
 
   depends_on "python@3.13"
-  depends_on "node"
-  depends_on "git"
-  depends_on "wget"
-  depends_on "curl"
-  depends_on "ripgrep"
-  depends_on "yt-dlp"
-
-  on_linux do
-    depends_on "pkg-config" => :build
-    depends_on "openssl@3"
-    depends_on "libffi"
-  end
 
 ${RESOURCES}
 
   def install
     virtualenv_install_with_resources
-  end
-
-  def post_install
-    (var/"archivebox").mkpath
-    with_env(DATA_DIR: var/"archivebox") do
-      system bin/"archivebox", "install", "--binproviders", "pip,npm"
-    end
-  end
-
-  service do
-    run [opt_bin/"archivebox", "server", "--quick-init", "0.0.0.0:8000"]
-    keep_alive crashed: true
-    working_dir var/"archivebox"
-    log_path var/"log/archivebox.log"
-    error_log_path var/"log/archivebox.log"
   end
 
   test do
@@ -148,11 +121,7 @@ RUBY
           echo "$HOMEBREW_PREFIX/sbin" >> "$GITHUB_PATH"
 
       - name: Install brew dependencies
-        run: |
-          brew install python@3.13 node git wget curl ripgrep yt-dlp
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            brew install pkg-config openssl@3 libffi
-          fi
+        run: brew install python@3.13
 
       - name: Install archivebox via brew from local formula
         run: |
@@ -256,38 +225,11 @@ class Archivebox < Formula
   head "https://github.com/ArchiveBox/ArchiveBox.git", branch: "dev"
 
   depends_on "python@3.13"
-  depends_on "node"
-  depends_on "git"
-  depends_on "wget"
-  depends_on "curl"
-  depends_on "ripgrep"
-  depends_on "yt-dlp"
-
-  on_linux do
-    depends_on "pkg-config" => :build
-    depends_on "openssl@3"
-    depends_on "libffi"
-  end
 
 ${RESOURCES}
 
   def install
     virtualenv_install_with_resources
-  end
-
-  def post_install
-    (var/"archivebox").mkpath
-    with_env(DATA_DIR: var/"archivebox") do
-      system bin/"archivebox", "install", "--binproviders", "pip,npm"
-    end
-  end
-
-  service do
-    run [opt_bin/"archivebox", "server", "--quick-init", "0.0.0.0:8000"]
-    keep_alive crashed: true
-    working_dir var/"archivebox"
-    log_path var/"log/archivebox.log"
-    error_log_path var/"log/archivebox.log"
   end
 
   test do

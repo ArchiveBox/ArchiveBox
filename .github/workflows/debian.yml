@@ -108,7 +108,7 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt-get install -y python3.13 python3.13-venv python3-pip nodejs npm git wget curl ripgrep
+          sudo apt-get install -y python3.13 python3.13-venv python3-pip
 
       - name: Pre-seed virtualenv with local wheel before dpkg install
         run: |
