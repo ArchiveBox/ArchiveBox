@@ -109,7 +109,7 @@ def add(urls: str | list[str],
         print('[yellow]\\[*] Index-only mode - crawl created but not started[/yellow]')
         # Create snapshots for all URLs in the crawl
         for url in crawl.get_urls_list():
-            Snapshot.objects.update_or_create(
+            snapshot, _ = Snapshot.objects.update_or_create(
                 crawl=crawl, url=url,
                 defaults={
                     'status': Snapshot.INITIAL_STATE,
@@ -118,6 +118,8 @@ def add(urls: str | list[str],
                     'depth': 0,
                 },
             )
+            if tag:
+                snapshot.save_tags(tag.split(','))
         return crawl.snapshot_set.all()
 
     # 5. Start the orchestrator to process the queue
