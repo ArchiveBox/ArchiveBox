@@ -314,6 +314,7 @@ setup_django()
 
 from archivebox.core.models import Snapshot, ArchiveResult
 from archivebox.config.configset import get_config
+from archivebox.hooks import discover_hooks
 
 snapshot = Snapshot.objects.get(id='{snapshot_id}')
 print(f"Snapshot status: {{snapshot.status}}")
@@ -366,10 +367,16 @@ wget_results = results.filter(plugin='wget')
 print(f"\\nWGET results: {{wget_results.count()}} (expected: 0, disabled in snapshot.config)")
 assert wget_results.count() == 0, f"WGET should be disabled, found {{wget_results.count()}} results"
 
-# Verify SAVE_SCREENSHOT=True was respected (should have screenshot result)
-screenshot_results = results.filter(plugin='screenshot')
-print(f"SCREENSHOT results: {{screenshot_results.count()}} (expected: >0, enabled globally)")
-assert screenshot_results.count() > 0, f"SCREENSHOT should be enabled, found {{screenshot_results.count()}} results"
+# Verify hook selection respected merged SAVE_* config, without depending on
+# a browser extractor finishing successfully in CI.
+snapshot_hooks = [hook.name for hook in discover_hooks('Snapshot', config=config)]
+print(f"Enabled snapshot hooks: {{snapshot_hooks}}")
+assert any('screenshot' in hook_name for hook_name in snapshot_hooks), (
+    f"SCREENSHOT should remain enabled in hook discovery, got {{snapshot_hooks}}"
+)
+assert not any('wget' in hook_name for hook_name in snapshot_hooks), (
+    f"WGET should be filtered out by snapshot.config, got {{snapshot_hooks}}"
+)
 
 print("\\n✓ All config sources correctly merged:")
 print("  - Snapshot.config overrides (highest priority)")
