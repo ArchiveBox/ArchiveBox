@@ -299,6 +299,10 @@ class Worker:
         from django.conf import settings
         import sys
 
+        refresh_machine_config = bool(
+            parent and getattr(parent, 'process_type', None) == Process.TypeChoices.WORKER
+        )
+
         # Build command and get config for the appropriate scope
         if cls.name == 'crawl':
             crawl_id = kwargs.get('crawl_id')
@@ -348,6 +352,14 @@ class Worker:
 
         else:
             raise ValueError(f"Unknown worker type: {cls.name}")
+
+        if refresh_machine_config:
+            current_machine = Machine.current()
+            if current_machine.config:
+                # Worker subprocesses inherit parent Process.env, which can contain
+                # stale pre-install binary aliases. Refresh resolved machine values
+                # before serializing the child worker env.
+                env.update(current_machine.config)
 
         # Ensure output directory exists
         pwd.mkdir(parents=True, exist_ok=True)

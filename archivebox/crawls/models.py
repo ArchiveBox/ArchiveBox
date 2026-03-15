@@ -342,8 +342,8 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             f.write(f'\n=== Crawl.run() starting for {self.id} at {time.time()} ===\n')
             f.flush()
 
-        # Get merged config with crawl context
-        config = get_config(crawl=self)
+        def get_runtime_config():
+            return get_config(crawl=self)
 
         machine = Machine.current()
         declared_binary_names: set[str] = set()
@@ -393,6 +393,10 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
         def run_crawl_hook(hook: Path) -> set[str]:
             executed_crawl_hooks.add(str(hook))
+            primary_url = next(
+                (line.strip() for line in self.urls.splitlines() if line.strip()),
+                self.urls.strip(),
+            )
 
             with open(debug_log, 'a') as f:
                 f.write(f'Running hook: {hook.name}\n')
@@ -405,9 +409,11 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             process = run_hook(
                 hook,
                 output_dir=output_dir,
-                config=config,
+                config=get_runtime_config(),
                 crawl_id=str(self.id),
                 source_url=self.urls,
+                url=primary_url,
+                snapshot_id=str(self.id),
             )
             with open(debug_log, 'a') as f:
                 f.write(f'Hook {hook.name} completed with status={process.status}\n')
@@ -476,7 +482,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
                 provider_hooks = [
                     hook
-                    for hook in discover_hooks('Crawl', filter_disabled=False, config=config)
+                    for hook in discover_hooks('Crawl', filter_disabled=False, config=get_runtime_config())
                     if hook.parent.name in needed_provider_names and str(hook) not in executed_crawl_hooks
                 ]
                 if not provider_hooks:
@@ -489,7 +495,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         with open(debug_log, 'a') as f:
             f.write(f'Discovering Crawl hooks...\n')
             f.flush()
-        hooks = discover_hooks('Crawl', config=config)
+        hooks = discover_hooks('Crawl', config=get_runtime_config())
         with open(debug_log, 'a') as f:
             f.write(f'Found {len(hooks)} hooks\n')
             f.flush()

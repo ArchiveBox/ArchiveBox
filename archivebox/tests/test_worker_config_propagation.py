@@ -697,6 +697,15 @@ path = hook_process.env.get('PATH')
 if lib_bin_dir:
     assert lib_bin_dir in path, f"LIB_BIN_DIR not in PATH. LIB_BIN_DIR={{lib_bin_dir}}, PATH={{path[:200]}}..."
 
+# Verify canonical crawl/snapshot directories are exported for plugins
+crawl_dir = hook_process.env.get('CRAWL_DIR')
+snap_dir = hook_process.env.get('SNAP_DIR')
+print(f"  CRAWL_DIR: {{crawl_dir}}")
+print(f"  SNAP_DIR: {{snap_dir}}")
+assert crawl_dir is not None, "CRAWL_DIR not set"
+assert snap_dir is not None, "SNAP_DIR not set"
+assert str(snapshot.id) in snap_dir, f"SNAP_DIR should contain snapshot id, got {{snap_dir}}"
+
 # Verify NODE_PATH is set
 node_path = hook_process.env.get('NODE_PATH')
 node_modules_dir = hook_process.env.get('NODE_MODULES_DIR')

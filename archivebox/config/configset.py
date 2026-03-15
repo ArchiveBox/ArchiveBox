@@ -255,9 +255,10 @@ def get_config(
     if crawl and hasattr(crawl, "config") and crawl.config:
         config.update(crawl.config)
 
-    # Add CRAWL_OUTPUT_DIR for snapshot hooks to find shared Chrome session
+    # Add crawl path aliases for hooks that need shared crawl state.
     if crawl and hasattr(crawl, "output_dir"):
         config['CRAWL_OUTPUT_DIR'] = str(crawl.output_dir)
+        config['CRAWL_DIR'] = str(crawl.output_dir)
         config['CRAWL_ID'] = str(getattr(crawl, "id", "")) if getattr(crawl, "id", None) else config.get('CRAWL_ID')
 
     # Apply snapshot config overrides (highest priority)
@@ -267,6 +268,8 @@ def get_config(
     if snapshot:
         config['SNAPSHOT_ID'] = str(getattr(snapshot, "id", "")) if getattr(snapshot, "id", None) else config.get('SNAPSHOT_ID')
         config['SNAPSHOT_DEPTH'] = int(getattr(snapshot, "depth", 0) or 0)
+        if hasattr(snapshot, "output_dir"):
+            config['SNAP_DIR'] = str(snapshot.output_dir)
         if getattr(snapshot, "crawl_id", None):
             config['CRAWL_ID'] = str(snapshot.crawl_id)
 

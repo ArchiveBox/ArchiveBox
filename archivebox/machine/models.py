@@ -74,13 +74,31 @@ class Machine(ModelWithHealthStats):
         global _CURRENT_MACHINE
         if _CURRENT_MACHINE:
             if timezone.now() < _CURRENT_MACHINE.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL):
-                return _CURRENT_MACHINE
+                return cls._hydrate_config_from_sibling(_CURRENT_MACHINE)
             _CURRENT_MACHINE = None
         _CURRENT_MACHINE, _ = cls.objects.update_or_create(
             guid=get_host_guid(),
             defaults={'hostname': socket.gethostname(), **get_os_info(), **get_vm_info(), 'stats': get_host_stats()},
         )
-        return _CURRENT_MACHINE
+        return cls._hydrate_config_from_sibling(_CURRENT_MACHINE)
+
+    @classmethod
+    def _hydrate_config_from_sibling(cls, machine: 'Machine') -> 'Machine':
+        if machine.config:
+            return machine
+
+        sibling = (
+            cls.objects
+            .exclude(pk=machine.pk)
+            .filter(hostname=machine.hostname)
+            .exclude(config={})
+            .order_by('-modified_at')
+            .first()
+        )
+        if sibling and sibling.config:
+            machine.config = dict(sibling.config)
+            machine.save(update_fields=['config', 'modified_at'])
+        return machine
 
     def to_json(self) -> dict:
         """
@@ -326,6 +344,7 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
 
         machine = Machine.current()
         overrides = overrides or {}
+        normalized_overrides = Binary._normalize_overrides(record.get('overrides', {}))
 
         # Case 1: Already installed (from on_Crawl hooks) - has abspath AND binproviders
         # This happens when on_Crawl hooks detect already-installed binaries
@@ -357,7 +376,7 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
                 name=name,
                 defaults={
                     'binproviders': record.get('binproviders', 'env'),
-                    'overrides': record.get('overrides', {}),
+                    'overrides': normalized_overrides,
                     'status': Binary.StatusChoices.QUEUED,
                     'retry_at': timezone.now(),
                 }
@@ -393,6 +412,31 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
             setattr(self, key, value)
         self.modified_at = timezone.now()
         self.save()
+
+    @staticmethod
+    def _normalize_overrides(overrides: dict | None) -> dict:
+        """Normalize hook-emitted binary overrides to the canonical install_args shape."""
+        if not isinstance(overrides, dict):
+            return {}
+
+        normalized: dict = {}
+        reserved_keys = {'custom_cmd', 'cmd', 'command'}
+
+        for provider, value in overrides.items():
+            if provider in reserved_keys:
+                normalized[provider] = value
+                continue
+
+            if isinstance(value, dict):
+                normalized[provider] = value
+            elif isinstance(value, (list, tuple)):
+                normalized[provider] = {'install_args': list(value)}
+            elif isinstance(value, str) and value.strip():
+                normalized[provider] = {'install_args': value.strip()}
+            else:
+                normalized[provider] = value
+
+        return normalized
 
     def _allowed_binproviders(self) -> set[str] | None:
         """Return the allowed binproviders for this binary, or None for wildcard."""
@@ -441,8 +485,13 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         from archivebox.hooks import discover_hooks, run_hook
         from archivebox.config.configset import get_config
 
-        # Get merged config (Binary doesn't have crawl/snapshot context)
+        # Get merged config (Binary doesn't have crawl/snapshot context).
+        # Binary workers can install several dependencies in one process, so
+        # refresh from the latest persisted machine config before each hook run.
         config = get_config()
+        current_machine = Machine.current()
+        if current_machine.config:
+            config.update(current_machine.config)
 
         # Create output directory
         output_dir = self.output_dir
