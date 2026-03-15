@@ -1,7 +1,7 @@
 # Usage:
 #     mkdir -p ~/archivebox/data && cd ~/archivebox
 #     curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
-#     docker compose run archivebox init
+#     docker compose run archivebox init --install
 #     docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
 #     docker compose run -T archivebox add < bookmarks.txt
 #     docker compose up -d && open 'http://localhost:8000'
