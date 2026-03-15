@@ -394,6 +394,40 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         self.modified_at = timezone.now()
         self.save()
 
+    def _allowed_binproviders(self) -> set[str] | None:
+        """Return the allowed binproviders for this binary, or None for wildcard."""
+        providers = str(self.binproviders or '').strip()
+        if not providers or providers == '*':
+            return None
+        return {provider.strip() for provider in providers.split(',') if provider.strip()}
+
+    def _get_custom_install_command(self) -> str | None:
+        """Extract a custom install command from overrides when the custom provider is used."""
+        import shlex
+
+        if not isinstance(self.overrides, dict):
+            return None
+
+        for key in ('custom_cmd', 'cmd', 'command'):
+            value = self.overrides.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+        custom_overrides = self.overrides.get('custom')
+        if isinstance(custom_overrides, dict):
+            for key in ('custom_cmd', 'cmd', 'command'):
+                value = custom_overrides.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+
+            install_args = custom_overrides.get('install_args')
+            if isinstance(install_args, str) and install_args.strip():
+                return install_args.strip()
+            if isinstance(install_args, list) and install_args:
+                return ' '.join(shlex.quote(str(arg)) for arg in install_args if str(arg).strip())
+
+        return None
+
     def run(self):
         """
         Execute binary installation by running on_Binary__install_* hooks.
@@ -420,9 +454,14 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
             # No hooks available - stay queued, will retry later
             return
 
+        allowed_binproviders = self._allowed_binproviders()
+
         # Run each hook - they decide if they can handle this binary
         for hook in hooks:
             plugin_name = hook.parent.name
+            if allowed_binproviders is not None and plugin_name not in allowed_binproviders:
+                continue
+
             plugin_output_dir = output_dir / plugin_name
             plugin_output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -434,8 +473,12 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
                 'binproviders': self.binproviders,
             }
 
-            # Add overrides as JSON string if present
-            if self.overrides:
+            if plugin_name == 'custom':
+                custom_cmd = self._get_custom_install_command()
+                if not custom_cmd:
+                    continue
+                hook_kwargs['custom_cmd'] = custom_cmd
+            elif self.overrides:
                 hook_kwargs['overrides'] = json.dumps(self.overrides)
 
             # Run the hook

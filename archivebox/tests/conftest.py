@@ -287,8 +287,8 @@ def _ensure_puppeteer(shared_lib: Path) -> None:
 @pytest.fixture(scope="class")
 def real_archive_with_example(tmp_path_factory, request):
     """
-    Initialize archive and add https://example.com using chrome+responses only.
-    Uses cwd for DATA_DIR and symlinks lib dir to a shared cache.
+    Initialize archive and add https://example.com using responses only.
+    Uses cwd for DATA_DIR.
     """
     tmp_path = tmp_path_factory.mktemp("archivebox_data")
     if getattr(request, "cls", None) is not None:
@@ -314,82 +314,13 @@ def real_archive_with_example(tmp_path_factory, request):
     )
     assert returncode == 0, f"archivebox config failed: {stderr}"
 
-    machine_type = _get_machine_type()
-    shared_root = Path(__file__).resolve().parents[3] / 'tmp' / 'test_lib_cache'
-    shared_lib = shared_root / machine_type
-    shared_lib.mkdir(parents=True, exist_ok=True)
-
-    lib_target = tmp_path / 'lib' / machine_type
-    if lib_target.exists() and not lib_target.is_symlink():
-        shutil.rmtree(lib_target)
-    if not lib_target.exists():
-        lib_target.parent.mkdir(parents=True, exist_ok=True)
-        lib_target.symlink_to(shared_lib, target_is_directory=True)
-
-    _ensure_puppeteer(shared_lib)
-    cached_chromium = _find_cached_chromium(shared_lib)
-    if cached_chromium:
-        browser_binary = cached_chromium
-    else:
-        browser_binary = _find_system_browser()
-        if browser_binary:
-            chromium_link = shared_lib / 'chromium-bin'
-            if not chromium_link.exists():
-                chromium_link.symlink_to(browser_binary)
-            browser_binary = chromium_link
-
-    if browser_binary:
-        stdout, stderr, returncode = run_archivebox_cmd_cwd(
-            [f'config', '--set', f'CHROME_BINARY={browser_binary}'],
-            cwd=tmp_path,
-        )
-        assert returncode == 0, f"archivebox config CHROME_BINARY failed: {stderr}"
-        script = textwrap.dedent(f"""\
-        import os
-        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
-        import django
-        django.setup()
-        from django.utils import timezone
-        from archivebox.machine.models import Binary, Machine
-        machine = Machine.current()
-        Binary.objects.filter(machine=machine, name='chromium').update(
-            status='installed',
-            abspath='{browser_binary}',
-            binprovider='env',
-            retry_at=timezone.now(),
-        )
-        Binary.objects.update_or_create(
-            machine=machine,
-            name='chromium',
-            defaults={{
-                'status': 'installed',
-                'abspath': '{browser_binary}',
-                'binprovider': 'env',
-                'retry_at': timezone.now(),
-            }},
-        )
-        print('OK')
-        """
-        )
-        stdout, stderr, returncode = run_python_cwd(script, cwd=tmp_path, timeout=60)
-        assert returncode == 0, f"Register chromium binary failed: {stderr}"
-
     add_env = {
-        'CHROME_ENABLED': 'True',
         'RESPONSES_ENABLED': 'True',
-        'DOM_ENABLED': 'False',
         'SHOW_PROGRESS': 'False',
         'USE_COLOR': 'False',
-        'CHROME_HEADLESS': 'True',
-        'CHROME_PAGELOAD_TIMEOUT': '45',
-        'CHROME_TIMEOUT': '60',
         'RESPONSES_TIMEOUT': '30',
     }
-    if browser_binary:
-        add_env['CHROME_BINARY'] = str(browser_binary)
-    if cached_chromium:
-        add_env['PUPPETEER_CACHE_DIR'] = str(shared_lib / 'puppeteer')
-    cmd = [sys.executable, '-m', 'archivebox', 'add', '--depth=0', '--plugins=chrome,responses', 'https://example.com']
+    cmd = [sys.executable, '-m', 'archivebox', 'add', '--depth=0', '--plugins=responses', 'https://example.com']
     base_env = os.environ.copy()
     base_env.pop('DATA_DIR', None)
     base_env['USE_COLOR'] = 'False'
