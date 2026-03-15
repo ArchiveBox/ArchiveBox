@@ -5,6 +5,7 @@ import shutil
 import sys
 import subprocess
 import textwrap
+import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -144,6 +145,16 @@ def run_archivebox_cmd_cwd(
     return result.stdout, result.stderr, result.returncode
 
 
+def stop_process(proc: subprocess.Popen[str]) -> Tuple[str, str]:
+    if proc.poll() is None:
+        proc.terminate()
+        try:
+            return proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    return proc.communicate()
+
+
 def run_python_cwd(
     script: str,
     cwd: Path,
@@ -161,6 +172,61 @@ def run_python_cwd(
         timeout=timeout,
     )
     return result.stdout, result.stderr, result.returncode
+
+
+def wait_for_archive_outputs(
+    cwd: Path,
+    url: str,
+    timeout: int = 120,
+    interval: float = 1.0,
+) -> bool:
+    script = textwrap.dedent(
+        f"""\
+        from pathlib import Path
+
+        import os
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
+        import django
+        django.setup()
+
+        from archivebox.core.models import Snapshot
+
+        snapshot = Snapshot.objects.filter(url={url!r}).order_by('-created_at').first()
+        if snapshot is None or snapshot.status != 'sealed':
+            raise SystemExit(1)
+
+        output_rel = None
+        for output in snapshot.discover_outputs():
+            candidate = output.get('path')
+            if not candidate or candidate.startswith('responses/'):
+                continue
+            if Path(snapshot.output_dir, candidate).is_file():
+                output_rel = candidate
+                break
+        if output_rel is None:
+            fallback = Path(snapshot.output_dir, 'index.jsonl')
+            if fallback.exists():
+                output_rel = 'index.jsonl'
+        if output_rel is None:
+            raise SystemExit(1)
+
+        responses_root = Path(snapshot.output_dir) / 'responses' / snapshot.domain
+        if not responses_root.exists():
+            raise SystemExit(1)
+        if not any(candidate.is_file() for candidate in responses_root.rglob('*')):
+            raise SystemExit(1)
+
+        print('READY')
+        """
+    )
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        stdout, _stderr, returncode = run_python_cwd(script, cwd=cwd, timeout=30)
+        if returncode == 0 and 'READY' in stdout:
+            return True
+        time.sleep(interval)
+    return False
 
 def _get_machine_type() -> str:
     import platform
@@ -323,13 +389,25 @@ def real_archive_with_example(tmp_path_factory, request):
         add_env['CHROME_BINARY'] = str(browser_binary)
     if cached_chromium:
         add_env['PUPPETEER_CACHE_DIR'] = str(shared_lib / 'puppeteer')
-    stdout, stderr, returncode = run_archivebox_cmd_cwd(
-        ['add', '--depth=0', '--plugins=chrome,responses', 'https://example.com'],
+    cmd = [sys.executable, '-m', 'archivebox', 'add', '--depth=0', '--plugins=chrome,responses', 'https://example.com']
+    base_env = os.environ.copy()
+    base_env.pop('DATA_DIR', None)
+    base_env['USE_COLOR'] = 'False'
+    base_env['SHOW_PROGRESS'] = 'False'
+    base_env.update(add_env)
+
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
         cwd=tmp_path,
-        timeout=600,
-        env=add_env,
+        env=base_env,
     )
-    assert returncode == 0, f"archivebox add failed: {stderr}"
+
+    ready = wait_for_archive_outputs(tmp_path, 'https://example.com', timeout=600)
+    stdout, stderr = stop_process(proc)
+    assert ready, f"archivebox add did not produce required outputs within timeout:\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
 
     return tmp_path
 
