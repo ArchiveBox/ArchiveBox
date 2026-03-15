@@ -297,14 +297,15 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <ol>
 <li>Download and install the <code>.deb</code> package from the <a href="https://github.com/ArchiveBox/ArchiveBox/releases">latest release</a>.
 <pre lang="bash"><code style="white-space: pre-line"># download the .deb for your architecture (amd64 or arm64)
-curl -fsSL "https://github.com/ArchiveBox/ArchiveBox/releases/latest/download/archivebox_amd64.deb" -o /tmp/archivebox.deb
+ARCH="$(dpkg --print-architecture)"
+curl -fsSL "https://github.com/ArchiveBox/ArchiveBox/releases/latest/download/archivebox_${ARCH}.deb" -o /tmp/archivebox.deb
 sudo apt install /tmp/archivebox.deb
 archivebox version                         # make sure all dependencies are installed
 </code></pre>
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
-archivebox init --setup
+archivebox init
 </code></pre>
 <br/>
 </li>

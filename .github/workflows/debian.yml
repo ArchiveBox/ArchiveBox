@@ -64,13 +64,6 @@ jobs:
           name: archivebox-${{ steps.version.outputs.version }}-${{ matrix.arch }}.deb
           path: dist/*.deb
 
-      - name: Upload .deb to GitHub Release
-        if: github.event_name == 'release'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload "${{ github.event.release.tag_name }}" dist/*.deb --clobber
-
   test:
     needs: build
     runs-on: ubuntu-24.04
@@ -157,3 +150,24 @@ jobs:
         run: |
           test -f /usr/lib/systemd/system/archivebox.service
           cat /usr/lib/systemd/system/archivebox.service
+
+  # Upload .deb to GitHub Release only after tests pass
+  release:
+    if: github.event_name == 'release' || github.event_name == 'workflow_call'
+    needs: [build, test]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all .deb artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: archivebox-*.deb
+          merge-multiple: true
+
+      - name: Upload .deb to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" *.deb --clobber

@@ -155,19 +155,28 @@ fi
 
 echo
 
-if ! (python3 --version && python3 -m pip --version && python3 -m django --version); then
-    echo "[X] Python 3 pip was not found on your system!"
-    echo "    You must first install Python >= 3.7 (and pip3):"
-    echo "      https://www.python.org/downloads/"
-    echo "      https://wiki.python.org/moin/BeginnersGuide/Download"
-    echo "    After installing, run this script again."
-    exit 1
+if ! which archivebox > /dev/null 2>&1; then
+    # If archivebox isn't in PATH (e.g. pip install), check python modules directly
+    if ! (python3 --version && python3 -m pip --version && python3 -m django --version) 2>/dev/null; then
+        echo "[X] Python 3 pip was not found on your system!"
+        echo "    You must first install Python >= 3.7 (and pip3):"
+        echo "      https://www.python.org/downloads/"
+        echo "      https://wiki.python.org/moin/BeginnersGuide/Download"
+        echo "    After installing, run this script again."
+        exit 1
+    fi
+
+    if ! (python3 -m django --version && python3 -m pip show archivebox) 2>/dev/null; then
+        echo "[X] Django and ArchiveBox were not found after installing!"
+        echo "    Check to see if a previous step failed."
+        echo
+        exit 1
+    fi
 fi
 
-if ! (python3 -m django --version && python3 -m pip show archivebox && which -a archivebox); then
-    echo "[X] Django and ArchiveBox were not found after installing!"
+if ! which archivebox > /dev/null 2>&1; then
+    echo "[X] archivebox command was not found in PATH after installing!"
     echo "    Check to see if a previous step failed."
-    echo
     exit 1
 fi
 

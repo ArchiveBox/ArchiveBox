@@ -171,7 +171,7 @@ RUBY
 
   # On release only: generate the real formula with PyPI URL and push to tap
   release:
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || github.event_name == 'workflow_call'
     needs: build-and-test
     runs-on: macos-latest
 
