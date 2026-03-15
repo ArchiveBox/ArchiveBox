@@ -1,5 +1,5 @@
 # This is the Dockerfile for ArchiveBox, it bundles the following main dependencies:
-#     python3.14, pip, pipx, uv, python3-ldap
+#     python3.13, uv, python3-ldap
 #     curl, wget, git, dig, ping, tree, nano
 #     node, npm, single-file, readability-extractor, postlight-parser
 #     ArchiveBox, yt-dlp, playwright, chromium
@@ -12,7 +12,7 @@
 #     docker run -v "$PWD/data":/data -p 8000:8000 archivebox server
 # Multi-arch build:
 #     docker buildx create --use
-#     docker buildx build . --platform=linux/amd64,linux/arm64--push -t archivebox/archivebox:dev -t archivebox/archivebox:sha-abc123
+#     docker buildx build . --platform=linux/amd64,linux/arm64 --push -t archivebox/archivebox:dev -t archivebox/archivebox:sha-abc123
 # Read more here: https://github.com/ArchiveBox/ArchiveBox#archivebox-development
 
 
@@ -20,9 +20,9 @@
 
 ### Example: Using ArchiveBox in your own project's Dockerfile ########
 
-# FROM python:3.14-slim
+# FROM python:3.13-slim
 # WORKDIR /data
-# RUN pip install archivebox>=0.8.5rc51   # use latest release here
+# RUN pip install archivebox>=0.9.0   # use latest release here
 # RUN archivebox install
 # RUN useradd -ms /bin/bash archivebox && chown -R archivebox /data
 
@@ -82,8 +82,6 @@ ENV ARCHIVEBOX_USER="archivebox" \
 ENV CODE_DIR=/app \
     DATA_DIR=/data \
     PLAYWRIGHT_BROWSERS_PATH=/browsers
-    # GLOBAL_VENV=/venv \
-    # TODO: add TMP_DIR and LIB_DIR?
 
 # Bash SHELL config
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/
@@ -201,7 +199,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
     echo "[+] APT Installing NODE $NODE_VERSION for $TARGETPLATFORM..." \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" >> /etc/apt/sources.list.d/nodejs.list \
-    && curl -fsSL "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key" | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && curl -fsSL "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key" | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && apt-get update -qq \
     && apt-get install -qq -y --no-upgrade libatomic1 \
     && apt-get install -y --no-upgrade \
@@ -218,7 +216,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 
 
 # Set up uv and main app /venv
-COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.6 /uv /uvx /bin/
 ENV UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_PREFERENCE=managed \
     UV_PYTHON_INSTALL_DIR=/opt/uv/python \
@@ -282,7 +280,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     # && service dbus start \
     && echo "[+] PIP Installing playwright into /venv and CHROMIUM binary into $PLAYWRIGHT_BROWSERS_PATH..." \
     && uv pip install "playwright>=1.49.1" \
-    && uv run playwright install chromium --no-shell --with-deps \  
+    && uv run playwright install chromium --no-shell --with-deps \
     && export CHROME_BINARY="$(uv run python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" \
     && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
     && ln -s /browsers/ffmpeg-*/ffmpeg-linux /usr/bin/ffmpeg \
@@ -381,11 +379,9 @@ RUN (echo -e "\n\n[√] Finished Docker build succesfully. Saving build summary 
     && echo -e "BUILD_END_TIME=$(date +"%Y-%m-%d %H:%M:%S %s")\n\n" \
     ) | tee -a /VERSION.txt
 
-# Run   $ archivebox version                                >> /VERSION.txt
-# RUN "$CODE_DIR"/bin/docker_entrypoint.sh init 2>&1 | tee -a /VERSION.txt
-# Note: archivebox version is skipped during build due to uv managed Python stdlib issue
-# The version will be verified at runtime instead
-RUN chmod +x "$CODE_DIR"/bin/*.sh
+# Verify ArchiveBox is installed and print version info
+RUN chmod +x "$CODE_DIR"/bin/*.sh \
+    && gosu "$DEFAULT_PUID" archivebox version 2>&1 | tee -a /VERSION.txt || true
 
 ####################################################
 

@@ -32,8 +32,8 @@ export ARCHIVEBOX_USER="${ARCHIVEBOX_USER:-archivebox}"
 export DEFAULT_PUID=911
 export DEFAULT_PGID=911
 
-# If user tires to set PUID and PGID to root values manually, catch and reject because root is not allowed
-if [[ "$PUID" == "0" ]]; then
+# If user tries to set PUID and PGID to root values manually, catch and reject because root is not allowed
+if [[ "${PUID:-}" == "0" ]]; then
     echo -e "\n[X] Error: Got PUID=$PUID and PGID=$PGID but ArchiveBox is not allowed to be run as root, please change or unset PUID & PGID and try again." > /dev/stderr
     echo -e "    Hint: some NFS/SMB/FUSE/etc. filesystems force-remap/ignore all permissions," > /dev/stderr
         echo -e "          leave PUID/PGID unset, disable root_squash, or use values the drive prefers (default is $DEFAULT_PUID:$DEFAULT_PGID)" > /dev/stderr
