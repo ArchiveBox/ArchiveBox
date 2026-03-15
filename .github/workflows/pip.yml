@@ -2,6 +2,7 @@ name: Build Pip package
 
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     branches:
       - '**'

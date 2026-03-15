@@ -20,7 +20,10 @@ fi
 # Install or upgrade archivebox
 if [ -n "$ARCHIVEBOX_VERSION" ]; then
     echo "[+] Installing archivebox==$ARCHIVEBOX_VERSION..."
-    "$ARCHIVEBOX_VENV/bin/pip" install --quiet --upgrade "archivebox==$ARCHIVEBOX_VERSION"
+    "$ARCHIVEBOX_VENV/bin/pip" install --quiet --upgrade "archivebox==$ARCHIVEBOX_VERSION" || {
+        echo "[!] archivebox==$ARCHIVEBOX_VERSION not found on PyPI, installing latest..."
+        "$ARCHIVEBOX_VENV/bin/pip" install --quiet --upgrade archivebox
+    }
 else
     echo "[+] Installing latest archivebox..."
     "$ARCHIVEBOX_VENV/bin/pip" install --quiet --upgrade archivebox

@@ -129,11 +129,16 @@ if which apt-get > /dev/null; then
     echo
     echo "[+] Downloading and installing ArchiveBox .deb package..."
     ARCH="$(dpkg --print-architecture)"
-    DEB_URL="https://github.com/ArchiveBox/ArchiveBox/releases/latest/download/archivebox_${ARCH}.deb"
-    curl -fsSL "$DEB_URL" -o /tmp/archivebox.deb && sudo apt install -y /tmp/archivebox.deb && rm /tmp/archivebox.deb || {
-        echo "[!] .deb install failed, falling back to pip install..."
-        sudo python3 -m pip install --upgrade archivebox yt-dlp
-    }
+    # Get the latest release .deb URL from GitHub API (filename includes version)
+    DEB_URL="$(curl -fsSL https://api.github.com/repos/ArchiveBox/ArchiveBox/releases/latest \
+        | grep -o "\"browser_download_url\": \"[^\"]*_${ARCH}\.deb\"" \
+        | head -1 | cut -d'"' -f4)" || true
+    if [ -n "$DEB_URL" ]; then
+        curl -fsSL "$DEB_URL" -o /tmp/archivebox.deb && sudo apt install -y /tmp/archivebox.deb && rm -f /tmp/archivebox.deb
+    else
+        echo "[!] Could not find .deb download URL, falling back to pip install..."
+        pip install --upgrade archivebox yt-dlp
+    fi
 # On Mac:
 elif which brew > /dev/null; then
     echo "[+] Installing ArchiveBox using Homebrew..."

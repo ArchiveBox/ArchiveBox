@@ -2,8 +2,12 @@ name: Build Debian package
 
 on:
   workflow_dispatch:
+  workflow_call:
   release:
     types: [published]
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -22,14 +26,31 @@ jobs:
         run: echo "version=$(grep '^version = ' pyproject.toml | awk -F'\"' '{print $2}')" >> "$GITHUB_OUTPUT"
 
       - name: Install nfpm
+        env:
+          # Pin nfpm version for reproducible builds
+          NFPM_VERSION: "2.45.1"
         run: |
-          curl -sfL https://install.goreleaser.com/github.com/goreleaser/nfpm.sh | sh -s -- -b /usr/local/bin
+          curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin nfpm
+          nfpm --version
 
       - name: Build .deb package
         run: |
           export VERSION="${{ steps.version.outputs.version }}"
           export ARCH="${{ matrix.arch }}"
           ./bin/build_deb.sh
+
+      - name: Verify .deb package contents
+        run: |
+          DEB_FILE="$(ls dist/archivebox*.deb | head -1)"
+          echo "=== Package info ==="
+          dpkg-deb --info "$DEB_FILE"
+          echo ""
+          echo "=== Package contents ==="
+          dpkg-deb --contents "$DEB_FILE"
+          echo ""
+          echo "=== Control fields ==="
+          dpkg-deb --field "$DEB_FILE"
 
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
@@ -55,14 +76,36 @@ jobs:
           pattern: archivebox-*-amd64.deb
           merge-multiple: true
 
-      - name: Install .deb package
+      - name: Install system dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y python3 python3-pip python3-venv nodejs npm git wget curl ripgrep
+
+      - name: Install .deb package
+        run: |
           sudo dpkg -i archivebox*.deb || sudo apt-get install -f -y
 
-      - name: Test archivebox CLI
+      - name: Run postinstall setup
         run: |
+          # The postinstall script creates the venv and pip-installs archivebox
+          # If it didn't run during dpkg install, run it manually
+          if [ ! -f /opt/archivebox/venv/bin/archivebox ]; then
+            sudo /opt/archivebox/install.sh
+          fi
+
+      - name: Verify archivebox is installed
+        run: |
+          which archivebox
           archivebox version
-          mkdir -p /tmp/archivebox-test && cd /tmp/archivebox-test
-          archivebox init --setup
+
+      - name: Test archivebox init
+        run: |
+          # Create a test data directory and init
+          sudo useradd -r -s /bin/bash -d /var/lib/archivebox archivebox 2>/dev/null || true
+          sudo mkdir -p /tmp/archivebox-test
+          sudo chown archivebox:archivebox /tmp/archivebox-test
+          sudo -u archivebox bash -c 'cd /tmp/archivebox-test && /opt/archivebox/venv/bin/archivebox init --setup'
+
+      - name: Test archivebox status
+        run: |
+          sudo -u archivebox bash -c 'cd /tmp/archivebox-test && /opt/archivebox/venv/bin/archivebox status'

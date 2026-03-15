@@ -19,6 +19,8 @@ section: "web"
 priority: "optional"
 
 depends:
+  # python3 >= 3.11 allows .deb to install on more systems;
+  # pip enforces the actual Python version requirement from pyproject.toml
   - python3 (>= 3.11)
   - python3-pip
   - python3-venv

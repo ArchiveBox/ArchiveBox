@@ -1,0 +1,40 @@
+name: Release
+
+# Orchestrates the full release pipeline:
+#   1. Build and publish pip package to PyPI
+#   2. Build .deb packages and Homebrew formula (in parallel, after pip)
+#   3. Build Docker images (in parallel with deb/brew)
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  pip:
+    name: Publish to PyPI
+    uses: ./.github/workflows/pip.yml
+    secrets: inherit
+
+  debian:
+    name: Build .deb packages
+    needs: pip
+    uses: ./.github/workflows/debian.yml
+    secrets: inherit
+
+  homebrew:
+    name: Update Homebrew formula
+    needs: pip
+    uses: ./.github/workflows/homebrew.yml
+    secrets: inherit
+
+  docker:
+    name: Build Docker images
+    needs: pip
+    uses: ./.github/workflows/docker.yml
+    secrets: inherit
