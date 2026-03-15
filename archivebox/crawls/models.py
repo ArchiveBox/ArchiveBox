@@ -506,7 +506,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 # State Machines
 # =============================================================================
 
-class CrawlMachine(BaseStateMachine, strict_states=True):
+class CrawlMachine(BaseStateMachine):
     """
     State machine for managing Crawl lifecycle.
 

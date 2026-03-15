@@ -129,7 +129,7 @@ class TestBinaryWorkerHooks:
     """Tests for specific Binary hook providers."""
 
     def test_env_provider_hook_detects_system_binary(self, initialized_archive):
-        """on_Binary__15_env_install.py hook detects system binaries."""
+        """on_Binary__15_env_discover.py hook detects system binaries."""
         binary_record = {
             'type': 'Binary',
             'name': 'python3',

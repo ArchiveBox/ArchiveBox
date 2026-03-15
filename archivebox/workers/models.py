@@ -338,7 +338,7 @@ class BaseStateMachine(StateMachine):
     (e.g., 'snapshot', 'archiveresult', 'crawl', 'binary').
 
     Example usage:
-        class SnapshotMachine(BaseStateMachine, strict_states=True):
+        class SnapshotMachine(BaseStateMachine):
             model_attr_name = 'snapshot'
 
             # States and transitions...

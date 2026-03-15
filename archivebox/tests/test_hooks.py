@@ -27,39 +27,33 @@ class TestBackgroundHookDetection(unittest.TestCase):
 
     def test_bg_js_suffix_detected(self):
         """Hooks with .bg.js suffix should be detected as background."""
-        script = Path('/path/to/on_Snapshot__21_consolelog.bg.js')
-        is_background = '.bg.' in script.name or '__background' in script.stem
-        self.assertTrue(is_background)
+        from archivebox.hooks import is_background_hook
+        self.assertTrue(is_background_hook('on_Snapshot__21_consolelog.daemon.bg.js'))
 
     def test_bg_py_suffix_detected(self):
         """Hooks with .bg.py suffix should be detected as background."""
-        script = Path('/path/to/on_Snapshot__24_responses.bg.py')
-        is_background = '.bg.' in script.name or '__background' in script.stem
-        self.assertTrue(is_background)
+        from archivebox.hooks import is_background_hook
+        self.assertTrue(is_background_hook('on_Snapshot__24_responses.finite.bg.py'))
 
     def test_bg_sh_suffix_detected(self):
         """Hooks with .bg.sh suffix should be detected as background."""
-        script = Path('/path/to/on_Snapshot__23_ssl.bg.sh')
-        is_background = '.bg.' in script.name or '__background' in script.stem
-        self.assertTrue(is_background)
+        from archivebox.hooks import is_background_hook
+        self.assertTrue(is_background_hook('on_Snapshot__23_ssl.daemon.bg.sh'))
 
     def test_legacy_background_suffix_detected(self):
         """Hooks with __background in stem should be detected (backwards compat)."""
-        script = Path('/path/to/on_Snapshot__21_consolelog__background.js')
-        is_background = '.bg.' in script.name or '__background' in script.stem
-        self.assertTrue(is_background)
+        from archivebox.hooks import is_background_hook
+        self.assertTrue(is_background_hook('on_Snapshot__21_consolelog__background.js'))
 
     def test_foreground_hook_not_detected(self):
         """Hooks without .bg. or __background should NOT be detected as background."""
-        script = Path('/path/to/on_Snapshot__11_favicon.js')
-        is_background = '.bg.' in script.name or '__background' in script.stem
-        self.assertFalse(is_background)
+        from archivebox.hooks import is_background_hook
+        self.assertFalse(is_background_hook('on_Snapshot__11_favicon.js'))
 
     def test_foreground_py_hook_not_detected(self):
         """Python hooks without .bg. should NOT be detected as background."""
-        script = Path('/path/to/on_Snapshot__50_wget.py')
-        is_background = '.bg.' in script.name or '__background' in script.stem
-        self.assertFalse(is_background)
+        from archivebox.hooks import is_background_hook
+        self.assertFalse(is_background_hook('on_Snapshot__50_wget.py'))
 
 
 class TestJSONLParsing(unittest.TestCase):
@@ -182,15 +176,15 @@ class TestHookDiscovery(unittest.TestCase):
         wget_dir = self.plugins_dir / 'wget'
         wget_dir.mkdir()
         (wget_dir / 'on_Snapshot__50_wget.py').write_text('# test hook')
-        (wget_dir / 'on_Crawl__00_install_wget.py').write_text('# install hook')
+        (wget_dir / 'on_Crawl__10_wget_install.finite.bg.py').write_text('# install hook')
 
         chrome_dir = self.plugins_dir / 'chrome'
         chrome_dir.mkdir()
-        (chrome_dir / 'on_Snapshot__20_chrome_tab.bg.js').write_text('// background hook')
+        (chrome_dir / 'on_Snapshot__20_chrome_tab.daemon.bg.js').write_text('// background hook')
 
         consolelog_dir = self.plugins_dir / 'consolelog'
         consolelog_dir.mkdir()
-        (consolelog_dir / 'on_Snapshot__21_consolelog.bg.js').write_text('// background hook')
+        (consolelog_dir / 'on_Snapshot__21_consolelog.daemon.bg.js').write_text('// background hook')
 
     def tearDown(self):
         """Clean up test directory."""
@@ -208,8 +202,8 @@ class TestHookDiscovery(unittest.TestCase):
 
         self.assertEqual(len(hooks), 3)
         hook_names = [h.name for h in hooks]
-        self.assertIn('on_Snapshot__20_chrome_tab.bg.js', hook_names)
-        self.assertIn('on_Snapshot__21_consolelog.bg.js', hook_names)
+        self.assertIn('on_Snapshot__20_chrome_tab.daemon.bg.js', hook_names)
+        self.assertIn('on_Snapshot__21_consolelog.daemon.bg.js', hook_names)
         self.assertIn('on_Snapshot__50_wget.py', hook_names)
 
     def test_discover_hooks_sorted_by_name(self):
@@ -222,9 +216,24 @@ class TestHookDiscovery(unittest.TestCase):
         hooks = sorted(set(hooks), key=lambda p: p.name)
 
         # Check numeric ordering
-        self.assertEqual(hooks[0].name, 'on_Snapshot__20_chrome_tab.bg.js')
-        self.assertEqual(hooks[1].name, 'on_Snapshot__21_consolelog.bg.js')
+        self.assertEqual(hooks[0].name, 'on_Snapshot__20_chrome_tab.daemon.bg.js')
+        self.assertEqual(hooks[1].name, 'on_Snapshot__21_consolelog.daemon.bg.js')
         self.assertEqual(hooks[2].name, 'on_Snapshot__50_wget.py')
+
+    def test_get_plugins_includes_non_snapshot_plugin_dirs(self):
+        """get_plugins() should include binary-only plugins with standardized metadata."""
+        env_dir = self.plugins_dir / 'env'
+        env_dir.mkdir()
+        (env_dir / 'on_Binary__15_env_discover.py').write_text('# binary hook')
+        (env_dir / 'config.json').write_text('{"type": "object", "properties": {}}')
+
+        from archivebox import hooks as hooks_module
+
+        hooks_module.get_plugins.cache_clear()
+        with patch.object(hooks_module, 'BUILTIN_PLUGINS_DIR', self.plugins_dir), patch.object(hooks_module, 'USER_PLUGINS_DIR', self.test_dir / 'user_plugins'):
+            plugins = hooks_module.get_plugins()
+
+        self.assertIn('env', plugins)
 
 
 class TestGetExtractorName(unittest.TestCase):

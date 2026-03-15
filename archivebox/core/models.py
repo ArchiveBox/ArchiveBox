@@ -2185,7 +2185,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 # Snapshot State Machine
 # =============================================================================
 
-class SnapshotMachine(BaseStateMachine, strict_states=True):
+class SnapshotMachine(BaseStateMachine):
     """
     State machine for managing Snapshot lifecycle.
 
@@ -3074,7 +3074,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 # ArchiveResult State Machine
 # =============================================================================
 
-class ArchiveResultMachine(BaseStateMachine, strict_states=True):
+class ArchiveResultMachine(BaseStateMachine):
     """
     State machine for managing ArchiveResult (single plugin execution) lifecycle.
 

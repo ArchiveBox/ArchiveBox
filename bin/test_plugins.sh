@@ -21,7 +21,7 @@
 #   coverage json
 #   ./bin/test_plugins.sh --coverage-report
 
-set -e
+set -euo pipefail
 
 # Color codes
 GREEN='\033[0;32m'
@@ -31,6 +31,7 @@ NC='\033[0m' # No Color
 
 # Save root directory first
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+PLUGINS_DIR="${ABX_PLUGINS_DIR:-$(python3 -c 'from abx_plugins import get_plugins_dir; print(get_plugins_dir())')}"
 
 # Parse arguments
 PLUGIN_FILTER=""
@@ -49,7 +50,8 @@ done
 
 # Function to show JS coverage report (inlined from convert_v8_coverage.js)
 show_js_coverage() {
-    local coverage_dir="$1"
+    local plugin_root="$1"
+    local coverage_dir="$2"
 
     if [ ! -d "$coverage_dir" ] || [ -z "$(ls -A "$coverage_dir" 2>/dev/null)" ]; then
         echo "No JavaScript coverage data collected"
@@ -57,10 +59,11 @@ show_js_coverage() {
         return
     fi
 
-    node - "$coverage_dir" << 'ENDJS'
+    node - "$plugin_root" "$coverage_dir" << 'ENDJS'
 const fs = require('fs');
 const path = require('path');
-const coverageDir = process.argv[2];
+const pluginRoot = path.resolve(process.argv[2]).replace(/\\/g, '/');
+const coverageDir = process.argv[3];
 
 const files = fs.readdirSync(coverageDir).filter(f => f.startsWith('coverage-') && f.endsWith('.json'));
 if (files.length === 0) {
@@ -90,8 +93,8 @@ files.forEach(file => {
 });
 
 const allFiles = Object.keys(coverageByFile).sort();
-const pluginFiles = allFiles.filter(url => url.includes('archivebox/plugins'));
-const otherFiles = allFiles.filter(url => !url.startsWith('node:') && !url.includes('archivebox/plugins'));
+const pluginFiles = allFiles.filter(url => url.replace(/\\/g, '/').includes(pluginRoot));
+const otherFiles = allFiles.filter(url => !url.startsWith('node:') && !url.replace(/\\/g, '/').includes(pluginRoot));
 
 console.log('Total files with coverage: ' + allFiles.length + '\n');
 console.log('Plugin files: ' + pluginFiles.length);
@@ -118,8 +121,8 @@ let totalRanges = 0, totalExecuted = 0;
 pluginFiles.forEach(url => {
     const cov = coverageByFile[url];
     const pct = cov.totalRanges > 0 ? (cov.executedRanges / cov.totalRanges * 100).toFixed(1) : '0.0';
-    const match = url.match(/archivebox\/plugins\/.+/);
-    const displayPath = match ? match[0] : url;
+    const normalizedUrl = url.replace(/\\/g, '/');
+    const displayPath = normalizedUrl.includes(pluginRoot) ? normalizedUrl.slice(normalizedUrl.indexOf(pluginRoot)) : url;
     console.log(displayPath + ': ' + pct + '% (' + cov.executedRanges + '/' + cov.totalRanges + ' ranges)');
     totalRanges += cov.totalRanges;
     totalExecuted += cov.executedRanges;
@@ -139,17 +142,17 @@ if [ "$COVERAGE_REPORT_ONLY" = true ]; then
     echo "Python Coverage Summary"
     echo "=========================================="
     coverage combine 2>/dev/null || true
-    coverage report --include="archivebox/plugins/*" --omit="*/tests/*"
+    coverage report --include="*/abx_plugins/plugins/*" --omit="*/tests/*"
     echo ""
 
     echo "=========================================="
     echo "JavaScript Coverage Summary"
     echo "=========================================="
-    show_js_coverage "$ROOT_DIR/coverage/js"
+    show_js_coverage "$PLUGINS_DIR" "$ROOT_DIR/coverage/js"
     echo ""
 
     echo "For detailed coverage reports:"
-    echo "  Python:     coverage report --show-missing --include='archivebox/plugins/*' --omit='*/tests/*'"
+    echo "  Python:     coverage report --show-missing --include='*/abx_plugins/plugins/*' --omit='*/tests/*'"
     echo "  Python:     coverage json  # LLM-friendly format"
     echo "  Python:     coverage html  # Interactive HTML report"
     exit 0
@@ -157,7 +160,7 @@ fi
 
 # Set DATA_DIR for tests (required by abx_pkg and plugins)
 # Use temp dir to isolate tests from project files
-if [ -z "$DATA_DIR" ]; then
+if [ -z "${DATA_DIR:-}" ]; then
     export DATA_DIR=$(mktemp -d -t archivebox_plugin_tests.XXXXXX)
     # Clean up on exit
     trap "rm -rf '$DATA_DIR'" EXIT
@@ -173,7 +176,7 @@ if [ "$ENABLE_COVERAGE" = true ]; then
 
     # Enable Python subprocess coverage
     export COVERAGE_PROCESS_START="$ROOT_DIR/pyproject.toml"
-    export PYTHONPATH="$ROOT_DIR:$PYTHONPATH"  # For sitecustomize.py
+    export PYTHONPATH="$ROOT_DIR${PYTHONPATH:+:$PYTHONPATH}"  # For sitecustomize.py
 
     # Enable Node.js V8 coverage (built-in, no packages needed)
     export NODE_V8_COVERAGE="$ROOT_DIR/coverage/js"
@@ -183,8 +186,7 @@ if [ "$ENABLE_COVERAGE" = true ]; then
     echo ""
 fi
 
-# Change to plugins directory
-cd "$ROOT_DIR/archivebox/plugins" || exit 1
+cd "$ROOT_DIR" || exit 1
 
 echo "=========================================="
 echo "ArchiveBox Plugin Tests"
@@ -212,10 +214,10 @@ FAILED_PLUGINS=0
 # Find and run plugin tests
 if [ -n "$PLUGIN_FILTER" ]; then
     # Run tests for specific plugin(s) matching pattern
-    TEST_DIRS=$(find . -maxdepth 2 -type d -path "./${PLUGIN_FILTER}*/tests" 2>/dev/null | sort)
+    TEST_DIRS=$(find "$PLUGINS_DIR" -maxdepth 2 -type d -path "$PLUGINS_DIR/${PLUGIN_FILTER}*/tests" 2>/dev/null | sort)
 else
     # Run all plugin tests
-    TEST_DIRS=$(find . -maxdepth 2 -type d -name "tests" -path "./*/tests" 2>/dev/null | sort)
+    TEST_DIRS=$(find "$PLUGINS_DIR" -maxdepth 2 -type d -name "tests" -path "$PLUGINS_DIR/*/tests" 2>/dev/null | sort)
 fi
 
 if [ -z "$TEST_DIRS" ]; then
@@ -230,26 +232,35 @@ for test_dir in $TEST_DIRS; do
         continue
     fi
 
-    plugin_name=$(basename $(dirname "$test_dir"))
+    plugin_name=$(basename "$(dirname "$test_dir")")
     TOTAL_PLUGINS=$((TOTAL_PLUGINS + 1))
 
     echo -e "${YELLOW}[RUNNING]${NC} $plugin_name"
 
     # Build pytest command with optional coverage
-    PYTEST_CMD="python -m pytest $test_dir -p no:django -v --tb=short"
+    PYTEST_CMD=(python -m pytest "$test_dir" -p no:django -v --tb=short)
     if [ "$ENABLE_COVERAGE" = true ]; then
-        PYTEST_CMD="$PYTEST_CMD --cov=$plugin_name --cov-append --cov-branch"
+        PYTEST_CMD+=(--cov="$(dirname "$test_dir")" --cov-append --cov-branch)
         echo "[DEBUG] NODE_V8_COVERAGE before pytest: $NODE_V8_COVERAGE"
         python -c "import os; print('[DEBUG BASH->PYTHON] NODE_V8_COVERAGE:', os.environ.get('NODE_V8_COVERAGE', 'NOT_SET'))"
     fi
 
-    if eval "$PYTEST_CMD" 2>&1 | grep -v "^platform\|^cachedir\|^rootdir\|^configfile\|^plugins:" | tail -100; then
+    LOG_FILE=$(mktemp -t "archivebox_plugin_${plugin_name}.XXXXXX.log")
+    PLUGIN_TMPDIR=$(mktemp -d -t "archivebox_plugin_${plugin_name}.XXXXXX")
+    if (
+        cd "$PLUGIN_TMPDIR"
+        TMPDIR="$PLUGIN_TMPDIR" "${PYTEST_CMD[@]}"
+    ) >"$LOG_FILE" 2>&1; then
+        grep -v "^platform\|^cachedir\|^rootdir\|^configfile\|^plugins:" "$LOG_FILE" | tail -100
         echo -e "${GREEN}[PASSED]${NC} $plugin_name"
         PASSED_PLUGINS=$((PASSED_PLUGINS + 1))
     else
+        grep -v "^platform\|^cachedir\|^rootdir\|^configfile\|^plugins:" "$LOG_FILE" | tail -100
         echo -e "${RED}[FAILED]${NC} $plugin_name"
         FAILED_PLUGINS=$((FAILED_PLUGINS + 1))
     fi
+    rm -f "$LOG_FILE"
+    rm -rf "$PLUGIN_TMPDIR"
     echo ""
 done
 
@@ -277,21 +288,18 @@ elif [ $FAILED_PLUGINS -eq 0 ]; then
         # Coverage data is in ROOT_DIR, combine and report from there
         cd "$ROOT_DIR" || exit 1
         # Copy coverage data from plugins dir if it exists
-        if [ -f "$ROOT_DIR/archivebox/plugins/.coverage" ]; then
-            cp "$ROOT_DIR/archivebox/plugins/.coverage" "$ROOT_DIR/.coverage"
-        fi
         coverage combine 2>/dev/null || true
-        coverage report --include="archivebox/plugins/*" --omit="*/tests/*" 2>&1 | head -50
+        coverage report --include="*/abx_plugins/plugins/*" --omit="*/tests/*" 2>&1 | head -50
         echo ""
 
         echo "=========================================="
         echo "JavaScript Coverage Summary"
         echo "=========================================="
-        show_js_coverage "$ROOT_DIR/coverage/js"
+        show_js_coverage "$PLUGINS_DIR" "$ROOT_DIR/coverage/js"
         echo ""
 
         echo "For detailed coverage reports (from project root):"
-        echo "  Python:     coverage report --show-missing --include='archivebox/plugins/*' --omit='*/tests/*'"
+        echo "  Python:     coverage report --show-missing --include='*/abx_plugins/plugins/*' --omit='*/tests/*'"
         echo "  Python:     coverage json  # LLM-friendly format"
         echo "  Python:     coverage html  # Interactive HTML report"
         echo "  JavaScript: ./bin/test_plugins.sh --coverage-report"

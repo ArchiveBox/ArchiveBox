@@ -28,13 +28,7 @@ jobs:
         id: set-matrix
         run: |
           # Find all main test files
-          main_tests=$(find tests -maxdepth 1 -name "test_*.py" -type f | sort)
-
-          # Find all plugin test files
-          plugin_tests=$(find archivebox/plugins -path "*/tests/test_*.py" -type f | sort)
-
-          # Combine and format as JSON array
-          all_tests=$(echo "$main_tests $plugin_tests" | tr ' ' '\n' | grep -v '^$')
+          all_tests=$(find archivebox/tests -maxdepth 1 -name "test_*.py" -type f | sort)
 
           # Create JSON array with test file info
           json_array="["
@@ -47,13 +41,7 @@ jobs:
             fi
 
             # Extract a display name for the test
-            if [[ $test_file == tests/* ]]; then
-              name="main/$(basename $test_file .py | sed 's/^test_//')"
-            else
-              plugin=$(echo $test_file | sed 's|archivebox/plugins/\([^/]*\)/.*|\1|')
-              test_name=$(basename $test_file .py | sed 's/^test_//')
-              name="plugin/$plugin/$test_name"
-            fi
+            name="main/$(basename $test_file .py | sed 's/^test_//')"
 
             json_array+="{\"path\":\"$test_file\",\"name\":\"$name\"}"
           done
@@ -111,9 +99,56 @@ jobs:
 
       - name: Install dependencies with uv
         run: |
-          uv sync --dev --all-extras
+          uv sync --dev --all-extras --no-sources
 
       - name: Run test - ${{ matrix.test.name }}
         run: |
           mkdir -p tests/out
           uv run pytest -xvs "${{ matrix.test.path }}" --basetemp=tests/out --ignore=archivebox/pkgs
+
+  plugin-tests:
+    name: Plugin tests
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 1
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+          architecture: x64
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Node JS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cache uv
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-3.13-uv-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-3.13-uv-
+
+      - uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: git ripgrep build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 python3-minimal gnupg2 curl wget python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
+          version: 1.1
+
+      - name: Install dependencies with uv
+        run: |
+          uv sync --dev --all-extras --no-sources
+
+      - name: Run plugin tests
+        run: |
+          uv run bash ./bin/test_plugins.sh --no-coverage

@@ -22,13 +22,13 @@ Execution order:
     - Failed extractors don't block subsequent extractors
 
 Hook Naming Convention:
-    on_{ModelName}__{run_order}_{description}[.bg].{ext}
+    on_{ModelName}__{run_order}_{description}[.finite.bg|.daemon.bg].{ext}
 
     Examples:
         on_Snapshot__00_setup.py         # runs first
-        on_Snapshot__10_chrome_tab.bg.js # background (doesn't block)
+        on_Snapshot__10_chrome_tab.daemon.bg.js # background (doesn't block)
         on_Snapshot__50_screenshot.js    # foreground (blocks)
-        on_Snapshot__63_media.bg.py      # background (long-running)
+        on_Snapshot__63_media.finite.bg.py      # background (long-running)
 
 Dependency handling:
     Extractor plugins that depend on other plugins' output should check at runtime:
@@ -108,17 +108,32 @@ def is_background_hook(hook_name: str) -> bool:
     Background hooks have '.bg.' in their filename before the extension.
 
     Args:
-        hook_name: Hook filename (e.g., 'on_Snapshot__10_chrome_tab.bg.js')
+        hook_name: Hook filename (e.g., 'on_Snapshot__10_chrome_tab.daemon.bg.js')
 
     Returns:
         True if background hook, False if foreground.
 
     Examples:
-        is_background_hook('on_Snapshot__10_chrome_tab.bg.js') -> True
+        is_background_hook('on_Snapshot__10_chrome_tab.daemon.bg.js') -> True
         is_background_hook('on_Snapshot__50_wget.py') -> False
-        is_background_hook('on_Snapshot__63_media.bg.py') -> True
+        is_background_hook('on_Snapshot__63_media.finite.bg.py') -> True
     """
     return '.bg.' in hook_name or '__background' in hook_name
+
+
+def iter_plugin_dirs() -> List[Path]:
+    """Iterate over all built-in and user plugin directories."""
+    plugin_dirs: List[Path] = []
+
+    for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
+        if not base_dir.exists():
+            continue
+
+        for plugin_dir in base_dir.iterdir():
+            if plugin_dir.is_dir() and not plugin_dir.name.startswith('_'):
+                plugin_dirs.append(plugin_dir)
+
+    return plugin_dirs
 
 
 class HookResult(TypedDict, total=False):
@@ -420,7 +435,7 @@ def run_hook(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Detect if this is a background hook (long-running daemon)
-    # New convention: .bg. suffix (e.g., on_Snapshot__21_consolelog.bg.js)
+    # Background hooks use the .daemon.bg. or .finite.bg. filename convention.
     # Old convention: __background in stem (for backwards compatibility)
     is_background = '.bg.' in script.name or '__background' in script.stem
 
@@ -581,28 +596,20 @@ def run_hooks(
 @lru_cache(maxsize=1)
 def get_plugins() -> List[str]:
     """
-    Get list of available plugins by discovering Snapshot hooks.
+    Get list of available plugins by discovering plugin directories.
 
-    Returns plugin names (directory names) that contain on_Snapshot hooks.
-    The plugin name is the plugin directory name, not the hook script name.
-
-    Example:
-    abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.bg.js
-    -> plugin = 'chrome'
-
-    Sorted alphabetically (plugins control their hook order via numeric prefixes in hook names).
+    Returns plugin directory names for any plugin that exposes hooks, config.json,
+    or a standardized templates/icon.html asset. This includes non-extractor
+    plugins such as binary providers and shared base plugins.
     """
     plugins = []
 
-    for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
-        if not base_dir.exists():
-            continue
-
-        for ext in ('sh', 'py', 'js'):
-            for hook_path in base_dir.glob(f'*/on_Snapshot__*.{ext}'):
-                # Use plugin directory name as plugin name
-                plugin_name = hook_path.parent.name
-                plugins.append(plugin_name)
+    for plugin_dir in iter_plugin_dirs():
+        has_hooks = any(plugin_dir.glob('on_*__*.*'))
+        has_config = (plugin_dir / 'config.json').exists()
+        has_icon = (plugin_dir / 'templates' / 'icon.html').exists()
+        if has_hooks or has_config or has_icon:
+            plugins.append(plugin_dir.name)
 
     return sorted(set(plugins))
 
@@ -808,37 +815,31 @@ def discover_plugin_configs() -> Dict[str, Dict[str, Any]]:
     """
     configs = {}
 
-    for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
-        if not base_dir.exists():
+    for plugin_dir in iter_plugin_dirs():
+
+        config_path = plugin_dir / 'config.json'
+        if not config_path.exists():
             continue
 
-        for plugin_dir in base_dir.iterdir():
-            if not plugin_dir.is_dir():
+        try:
+            with open(config_path, 'r') as f:
+                schema = json.load(f)
+
+            # Basic validation: must be an object with properties
+            if not isinstance(schema, dict):
+                continue
+            if schema.get('type') != 'object':
+                continue
+            if 'properties' not in schema:
                 continue
 
-            config_path = plugin_dir / 'config.json'
-            if not config_path.exists():
-                continue
+            configs[plugin_dir.name] = schema
 
-            try:
-                with open(config_path, 'r') as f:
-                    schema = json.load(f)
-
-                # Basic validation: must be an object with properties
-                if not isinstance(schema, dict):
-                    continue
-                if schema.get('type') != 'object':
-                    continue
-                if 'properties' not in schema:
-                    continue
-
-                configs[plugin_dir.name] = schema
-
-            except (json.JSONDecodeError, OSError) as e:
-                # Log warning but continue - malformed config shouldn't break discovery
-                import sys
-                print(f"Warning: Failed to load config.json from {plugin_dir.name}: {e}", file=sys.stderr)
-                continue
+        except (json.JSONDecodeError, OSError) as e:
+            # Log warning but continue - malformed config shouldn't break discovery
+            import sys
+            print(f"Warning: Failed to load config.json from {plugin_dir.name}: {e}", file=sys.stderr)
+            continue
 
     return configs
 
@@ -1002,20 +1003,13 @@ def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) 
     if base_name in ('yt-dlp', 'youtube-dl'):
         base_name = 'ytdlp'
 
-    for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
-        if not base_dir.exists():
-            continue
+    for plugin_dir in iter_plugin_dirs():
 
-        # Look for plugin directory matching plugin name
-        for plugin_dir in base_dir.iterdir():
-            if not plugin_dir.is_dir():
-                continue
-
-            # Match by directory name (exact or partial)
-            if plugin_dir.name == base_name or plugin_dir.name.endswith(f'_{base_name}'):
-                template_path = plugin_dir / 'templates' / f'{template_name}.html'
-                if template_path.exists():
-                    return template_path.read_text()
+        # Match by directory name (exact or partial)
+        if plugin_dir.name == base_name or plugin_dir.name.endswith(f'_{base_name}'):
+            template_path = plugin_dir / 'templates' / f'{template_name}.html'
+            if template_path.exists():
+                return template_path.read_text()
 
     # Fall back to default template if requested
     if fallback:
@@ -1068,25 +1062,19 @@ def discover_plugin_templates() -> Dict[str, Dict[str, str]]:
     """
     templates: Dict[str, Dict[str, str]] = {}
 
-    for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
-        if not base_dir.exists():
+    for plugin_dir in iter_plugin_dirs():
+
+        templates_dir = plugin_dir / 'templates'
+        if not templates_dir.exists():
             continue
 
-        for plugin_dir in base_dir.iterdir():
-            if not plugin_dir.is_dir():
-                continue
+        plugin_templates = {}
+        for template_file in templates_dir.glob('*.html'):
+            template_name = template_file.stem  # icon, card, full
+            plugin_templates[template_name] = str(template_file)
 
-            templates_dir = plugin_dir / 'templates'
-            if not templates_dir.exists():
-                continue
-
-            plugin_templates = {}
-            for template_file in templates_dir.glob('*.html'):
-                template_name = template_file.stem  # icon, card, full
-                plugin_templates[template_name] = str(template_file)
-
-            if plugin_templates:
-                templates[plugin_dir.name] = plugin_templates
+        if plugin_templates:
+            templates[plugin_dir.name] = plugin_templates
 
     return templates
 

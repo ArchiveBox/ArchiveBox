@@ -147,8 +147,8 @@ class AddLinkForm(forms.Form):
             'screenshot', 'seo', 'singlefile', 'ssl', 'staticfile', 'title'
         }
         archiving = {
-            'archivedotorg', 'favicon', 'forumdl', 'gallerydl', 'git',
-            'htmltotext', 'media', 'mercury', 'papersdl', 'readability', 'wget'
+            'archivedotorg', 'defuddle', 'favicon', 'forumdl', 'gallerydl', 'git',
+            'htmltotext', 'mercury', 'papersdl', 'readability', 'trafilatura', 'wget', 'ytdlp'
         }
         parsing = {
             'parse_html_urls', 'parse_jsonl_urls',

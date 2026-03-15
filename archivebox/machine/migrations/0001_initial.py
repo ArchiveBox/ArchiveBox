@@ -169,7 +169,7 @@ class Migration(migrations.Migration):
                         ('modified_at', models.DateTimeField(auto_now=True)),
                         ('name', models.CharField(blank=True, db_index=True, default='', max_length=63)),
                         ('binproviders', models.CharField(blank=True, default='env', help_text='Comma-separated list of allowed providers: apt,brew,pip,npm,env', max_length=127)),
-                        ('overrides', models.JSONField(blank=True, default=dict, help_text="Provider-specific overrides: {'apt': {'packages': ['pkg']}, ...}")),
+                        ('overrides', models.JSONField(blank=True, default=dict, help_text="Provider-specific overrides: {'apt': {'install_args': ['pkg']}, ...}")),
                         ('binprovider', models.CharField(blank=True, default='', help_text='Provider that successfully installed this binary', max_length=31)),
                         ('abspath', models.CharField(blank=True, default='', max_length=255)),
                         ('version', models.CharField(blank=True, default='', max_length=32)),

@@ -227,7 +227,7 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
     binproviders = models.CharField(max_length=127, default='env', null=False, blank=True,
         help_text="Comma-separated list of allowed providers: apt,brew,pip,npm,env")
     overrides = models.JSONField(default=dict, blank=True,
-        help_text="Provider-specific overrides: {'apt': {'packages': ['pkg']}, ...}")
+        help_text="Provider-specific overrides: {'apt': {'install_args': ['pkg']}, ...}")
 
     # Installation results (populated after installation)
     binprovider = models.CharField(max_length=31, default='', null=False, blank=True,
@@ -2042,7 +2042,7 @@ class Process(models.Model):
 # Binary State Machine
 # =============================================================================
 
-class BinaryMachine(BaseStateMachine, strict_states=True):
+class BinaryMachine(BaseStateMachine):
     """
     State machine for managing Binary installation lifecycle.
 
@@ -2133,7 +2133,7 @@ class BinaryMachine(BaseStateMachine, strict_states=True):
 # Process State Machine
 # =============================================================================
 
-class ProcessMachine(BaseStateMachine, strict_states=True):
+class ProcessMachine(BaseStateMachine):
     """
     State machine for managing Process (OS subprocess) lifecycle.
 

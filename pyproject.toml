@@ -83,8 +83,8 @@ dependencies = [
     ### Extractor dependencies (optional binaries detected at runtime via shutil.which)
     "yt-dlp>=2024.1.0",      # for: media extractor
     ### Binary/Package Management
-    "abx-pkg>=0.1.0",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
-    "abx-plugins>=0.1.0",    # shared plugin package (sourced from uv workspace in local dev)
+    "abx-pkg>=0.7.0",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
+    "abx-plugins>=0.9.5",    # shared ArchiveBox plugin package with install_args-only overrides
     "gallery-dl>=1.31.1",
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # for: uuid7 support on Python 3.13 (provides uuid_extensions module)
@@ -165,9 +165,6 @@ package = true
 python-version = "3.13"
 # compile-bytecode = true
 
-[tool.uv.sources]
-abx-plugins = { workspace = true }
-
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
@@ -188,9 +185,9 @@ exclude = ["*.pyi", "typings/", "migrations/"]
 ignore = ["E731", "E303", "E266", "E241", "E222"]
 
 [tool.pytest.ini_options]
-testpaths = [ "tests" ]
+testpaths = [ "archivebox/tests" ]
 DJANGO_SETTINGS_MODULE = "archivebox.core.settings"
-# Note: Plugin tests under archivebox/plugins/ must NOT load Django
+# Note: Plugin tests under abx_plugins/plugins/ must NOT load Django
 # They use a conftest.py to disable Django automatically
 
 [tool.coverage.run]
