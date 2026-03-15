@@ -31,6 +31,19 @@ class Archivebox < Formula
     system bin/"archivebox", "init"
   end
 
+  def caveats
+    <<~EOS
+      ArchiveBox data is stored in:
+        #{var}/archivebox
+
+      To start archiving, run:
+        cd #{var}/archivebox && archivebox add 'https://example.com'
+
+      To start the web UI:
+        cd #{var}/archivebox && archivebox server 0.0.0.0:8000
+    EOS
+  end
+
   test do
     assert_match version.to_s, shell_output("#{bin}/archivebox version")
   end
