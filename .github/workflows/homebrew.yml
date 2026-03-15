@@ -162,7 +162,7 @@ RUBY
       - name: Test archivebox init
         run: |
           mkdir -p /tmp/archivebox-test && cd /tmp/archivebox-test
-          archivebox init --setup
+          archivebox init --install
 
       - name: Test archivebox status
         run: |
