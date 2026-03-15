@@ -4,6 +4,9 @@ name: Release
 #   1. Build and publish pip package to PyPI
 #   2. Build .deb packages and Homebrew formula (in parallel, after pip)
 #   3. Build Docker images (in parallel with deb/brew)
+#
+# Individual workflows also run on push for CI (see their own triggers).
+# This workflow ensures the correct ordering during a release.
 
 on:
   workflow_dispatch:
