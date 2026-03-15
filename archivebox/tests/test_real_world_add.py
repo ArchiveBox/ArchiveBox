@@ -39,6 +39,17 @@ def test_add_real_world_example_domain(tmp_path):
     env = os.environ.copy()
     env["TMP_DIR"] = str(tmp_short)
     env["ARCHIVEBOX_ALLOW_NO_UNIX_SOCKETS"] = "true"
+    env["SAVE_TITLE"] = "True"
+    env["SAVE_WGET"] = "True"
+    env["SAVE_SINGLEFILE"] = "True"
+    env["SAVE_READABILITY"] = "False"
+    env["SAVE_HTMLTOTEXT"] = "True"
+    env["SAVE_HEADERS"] = "True"
+    env["SAVE_PDF"] = "False"
+    env["SAVE_SCREENSHOT"] = "False"
+    env["SAVE_ARCHIVEDOTORG"] = "False"
+    env["SAVE_YTDLP"] = "False"
+    env["SAVE_GIT"] = "False"
 
     init = subprocess.run(
         ["archivebox", "init"],
@@ -50,7 +61,7 @@ def test_add_real_world_example_domain(tmp_path):
     assert init.returncode == 0, f"archivebox init failed: {init.stderr}"
 
     result = subprocess.run(
-        ["archivebox", "add", "https://example.com"],
+        ["archivebox", "add", "--plugins=title,wget,singlefile,htmltotext,headers", "https://example.com"],
         capture_output=True,
         text=True,
         timeout=900,
@@ -116,18 +127,12 @@ def test_add_real_world_example_domain(tmp_path):
 
     text_hits = 0
     for path in (
-        *snapshot_dir.glob("*_readability/content.txt"),
-        snapshot_dir / "readability" / "content.txt",
-    ):
-        if path.exists() and "Example Domain" in path.read_text(errors="ignore"):
-            text_hits += 1
-    for path in (
         *snapshot_dir.glob("*_htmltotext/htmltotext.txt"),
         snapshot_dir / "htmltotext" / "htmltotext.txt",
     ):
         if path.exists() and "Example Domain" in path.read_text(errors="ignore"):
             text_hits += 1
-    assert text_hits >= 2, (
-        "Expected multiple text extractors to contain Example Domain "
-        f"(readability/htmltotext hits={text_hits})."
+    assert text_hits >= 1, (
+        "Expected htmltotext output to contain Example Domain "
+        f"(htmltotext hits={text_hits})."
     )

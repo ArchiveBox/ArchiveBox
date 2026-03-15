@@ -6,14 +6,19 @@ from .fixtures import *
 def test_title_is_extracted(tmp_path, process, disable_extractors_dict):
     """Test that title is extracted from the page."""
     disable_extractors_dict.update({"SAVE_TITLE": "true"})
-    subprocess.run(['archivebox', 'add', 'https://example.com'],
-                                 capture_output=True, env=disable_extractors_dict)
+    add_process = subprocess.run(
+        ['archivebox', 'add', '--plugins=title', 'https://example.com'],
+        capture_output=True,
+        text=True,
+        env=disable_extractors_dict,
+    )
+    assert add_process.returncode == 0, add_process.stderr or add_process.stdout
 
     os.chdir(tmp_path)
     conn = sqlite3.connect("index.sqlite3")
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    c.execute("SELECT title from archivebox.core.snapshot")
+    c.execute("SELECT title FROM core_snapshot")
     snapshot = c.fetchone()
     conn.close()
 
@@ -27,8 +32,13 @@ def test_title_is_htmlencoded_in_index_html(tmp_path, process, disable_extractor
     and breaks the layout.
     """
     disable_extractors_dict.update({"SAVE_TITLE": "true"})
-    subprocess.run(['archivebox', 'add', 'https://example.com'],
-                                 capture_output=True, env=disable_extractors_dict)
+    add_process = subprocess.run(
+        ['archivebox', 'add', '--plugins=title', 'https://example.com'],
+        capture_output=True,
+        text=True,
+        env=disable_extractors_dict,
+    )
+    assert add_process.returncode == 0, add_process.stderr or add_process.stdout
     list_process = subprocess.run(["archivebox", "list", "--html"], capture_output=True)
 
     # Should not contain unescaped HTML tags in output

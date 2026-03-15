@@ -3,7 +3,7 @@ import json as pyjson
 
 
 def test_singlefile_works(tmp_path, process, disable_extractors_dict):
-    disable_extractors_dict.update({"USE_SINGLEFILE": "true"})
+    disable_extractors_dict.update({"SAVE_SINGLEFILE": "true"})
     add_process = subprocess.run(['archivebox', 'add', 'https://example.com'],
                                   capture_output=True, env=disable_extractors_dict)
     archived_item_path = list(tmp_path.glob('archive/**/*'))[0]
@@ -11,7 +11,7 @@ def test_singlefile_works(tmp_path, process, disable_extractors_dict):
     assert output_file.exists()
 
 def test_readability_works(tmp_path, process, disable_extractors_dict):
-    disable_extractors_dict.update({"USE_READABILITY": "true"})
+    disable_extractors_dict.update({"SAVE_READABILITY": "true"})
     add_process = subprocess.run(['archivebox', 'add', 'https://example.com'],
                                   capture_output=True, env=disable_extractors_dict)
     archived_item_path = list(tmp_path.glob("archive/**/*"))[0]
@@ -27,7 +27,7 @@ def test_htmltotext_works(tmp_path, process, disable_extractors_dict):
     assert output_file.exists()
 
 def test_use_node_false_disables_readability_and_singlefile(tmp_path, process, disable_extractors_dict):
-    disable_extractors_dict.update({"USE_READABILITY": "true", "SAVE_DOM": "true", "USE_SINGLEFILE": "true", "USE_NODE": "false"})
+    disable_extractors_dict.update({"SAVE_READABILITY": "true", "SAVE_DOM": "true", "SAVE_SINGLEFILE": "true", "USE_NODE": "false"})
     add_process = subprocess.run(['archivebox', 'add', 'https://example.com'],
                                   capture_output=True, env=disable_extractors_dict)
     output_str = add_process.stdout.decode("utf-8")

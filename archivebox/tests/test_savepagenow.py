@@ -9,7 +9,10 @@ from pathlib import Path
 from archivebox.tests.conftest import create_test_url
 
 
-def _run_savepagenow_script(initialized_archive: Path, request_url: str, expected_url: str, *, login: bool, public_add_view: bool):
+ADMIN_HOST = 'admin.archivebox.localhost:8000'
+
+
+def _run_savepagenow_script(initialized_archive: Path, request_url: str, expected_url: str, *, login: bool, public_add_view: bool, host: str):
     project_root = Path(__file__).resolve().parents[2]
     script = textwrap.dedent(
         f"""
@@ -31,7 +34,7 @@ def _run_savepagenow_script(initialized_archive: Path, request_url: str, expecte
 
         target_url = {request_url!r}
 
-        resp = client.get('/web/' + target_url, HTTP_HOST='web.archivebox.localhost:8000')
+        resp = client.get('/web/' + target_url, HTTP_HOST={host!r})
         assert resp.status_code == 302, resp.status_code
 
         snapshot = Snapshot.objects.filter(url={expected_url!r}).order_by('-created_at').first()
@@ -46,7 +49,7 @@ def _run_savepagenow_script(initialized_archive: Path, request_url: str, expecte
             )
         assert resp['Location'] == f"/{{snapshot.url_path}}"
 
-        resp2 = client.get('/web/' + target_url, HTTP_HOST='web.archivebox.localhost:8000')
+        resp2 = client.get('/web/' + target_url, HTTP_HOST={host!r})
         assert resp2.status_code == 302, resp2.status_code
         assert Snapshot.objects.filter(url={expected_url!r}).count() == 1
         assert resp2['Location'] == f"/{{snapshot.url_path}}"
@@ -208,7 +211,7 @@ def test_web_add_creates_and_reuses_snapshot_logged_in(initialized_archive):
     """/web/https://... should work for authenticated users even when public add is off."""
     url = create_test_url(domain='example.com', path='savepagenow-auth')
     request_url = url.replace('https://', '')
-    result = _run_savepagenow_script(initialized_archive, request_url, url, login=True, public_add_view=False)
+    result = _run_savepagenow_script(initialized_archive, request_url, url, login=True, public_add_view=False, host=ADMIN_HOST)
     assert result.returncode == 0, (
         "SavePageNow shortcut (logged-in) test failed.\n"
         f"stdout:\n{result.stdout}\n"
@@ -220,7 +223,7 @@ def test_web_add_creates_and_reuses_snapshot_public(initialized_archive):
     """/web/https://... should work when PUBLIC_ADD_VIEW is enabled without login."""
     url = create_test_url(domain='example.com', path='savepagenow-public')
     request_url = url.replace('https://', '')
-    result = _run_savepagenow_script(initialized_archive, request_url, url, login=False, public_add_view=True)
+    result = _run_savepagenow_script(initialized_archive, request_url, url, login=False, public_add_view=True, host='web.archivebox.localhost:8000')
     assert result.returncode == 0, (
         "SavePageNow shortcut (public add) test failed.\n"
         f"stdout:\n{result.stdout}\n"

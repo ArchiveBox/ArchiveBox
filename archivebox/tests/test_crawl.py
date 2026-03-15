@@ -145,8 +145,8 @@ def test_crawl_from_file_creates_snapshot(tmp_path, process, disable_extractors_
     assert snapshot is not None, "Should create at least one snapshot"
 
 
-def test_crawl_creates_seed_for_input(tmp_path, process, disable_extractors_dict):
-    """Test that crawl creates a Seed object for input."""
+def test_crawl_persists_input_urls_on_crawl(tmp_path, process, disable_extractors_dict):
+    """Test that crawl input URLs are stored on the Crawl record."""
     os.chdir(tmp_path)
 
     subprocess.run(
@@ -158,10 +158,11 @@ def test_crawl_creates_seed_for_input(tmp_path, process, disable_extractors_dict
 
     conn = sqlite3.connect('index.sqlite3')
     c = conn.cursor()
-    seed = c.execute("SELECT id FROM crawls_seed").fetchone()
+    crawl_urls = c.execute("SELECT urls FROM crawls_crawl ORDER BY created_at DESC LIMIT 1").fetchone()
     conn.close()
 
-    assert seed is not None, "Seed should be created for crawl input"
+    assert crawl_urls is not None, "Crawl should be created for crawl input"
+    assert 'https://example.com' in crawl_urls[0], "Crawl should persist input URLs"
 
 
 class TestCrawlCLI:
@@ -178,7 +179,7 @@ class TestCrawlCLI:
         )
 
         assert result.returncode == 0
-        assert '--depth' in result.stdout or '-d' in result.stdout
+        assert 'create' in result.stdout
 
 
 if __name__ == '__main__':

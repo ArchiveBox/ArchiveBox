@@ -22,16 +22,16 @@ def test_background_hooks_dont_block_parser_extractors(tmp_path, process):
     env = os.environ.copy()
     env.update({
         # Disable most extractors
-        "USE_WGET": "false",
-        "USE_SINGLEFILE": "false",
-        "USE_READABILITY": "false",
-        "USE_MERCURY": "false",
+        "SAVE_WGET": "false",
+        "SAVE_SINGLEFILE": "false",
+        "SAVE_READABILITY": "false",
+        "SAVE_MERCURY": "false",
         "SAVE_HTMLTOTEXT": "false",
         "SAVE_PDF": "false",
         "SAVE_SCREENSHOT": "false",
         "SAVE_DOM": "false",
         "SAVE_HEADERS": "false",
-        "USE_GIT": "false",
+        "SAVE_GIT": "false",
         "SAVE_YTDLP": "false",
         "SAVE_ARCHIVEDOTORG": "false",
         "SAVE_TITLE": "false",
@@ -122,16 +122,16 @@ def test_parser_extractors_emit_snapshot_jsonl(tmp_path, process):
     # Enable only parse_html_urls for this test
     env = os.environ.copy()
     env.update({
-        "USE_WGET": "false",
-        "USE_SINGLEFILE": "false",
-        "USE_READABILITY": "false",
-        "USE_MERCURY": "false",
+        "SAVE_WGET": "false",
+        "SAVE_SINGLEFILE": "false",
+        "SAVE_READABILITY": "false",
+        "SAVE_MERCURY": "false",
         "SAVE_HTMLTOTEXT": "false",
         "SAVE_PDF": "false",
         "SAVE_SCREENSHOT": "false",
         "SAVE_DOM": "false",
         "SAVE_HEADERS": "false",
-        "USE_GIT": "false",
+        "SAVE_GIT": "false",
         "SAVE_YTDLP": "false",
         "SAVE_ARCHIVEDOTORG": "false",
         "SAVE_TITLE": "false",
@@ -202,12 +202,22 @@ def test_recursive_crawl_creates_child_snapshots(tmp_path, process):
     env = os.environ.copy()
     env.update({
         "URL_ALLOWLIST": r"monadical\.com/.*",  # Only crawl same domain
+        "SAVE_READABILITY": "false",
+        "SAVE_SINGLEFILE": "false",
+        "SAVE_MERCURY": "false",
+        "SAVE_SCREENSHOT": "false",
+        "SAVE_PDF": "false",
+        "SAVE_HEADERS": "false",
+        "SAVE_ARCHIVEDOTORG": "false",
+        "SAVE_GIT": "false",
+        "SAVE_YTDLP": "false",
+        "SAVE_TITLE": "false",
     })
 
     # Start a crawl with depth=1 (just one hop to test recursive crawling)
     # Use file:// URL so it's instant, no network fetch needed
     proc = subprocess.Popen(
-        ['archivebox', 'add', '--depth=1', f'file://{test_html}'],
+        ['archivebox', 'add', '--depth=1', '--plugins=wget,parse_html_urls', f'file://{test_html}'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

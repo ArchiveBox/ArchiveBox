@@ -1557,6 +1557,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             'url': self.url,
             'title': self.title,
             'tags': self.tags_str(),
+            'tags_str': self.tags_str(),
             'bookmarked_at': self.bookmarked_at.isoformat() if self.bookmarked_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'timestamp': self.timestamp,
@@ -2306,7 +2307,7 @@ class SnapshotMachine(BaseStateMachine):
                 status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED]
             ).count()
 
-            if remaining_active == 0:
+            if remaining_active == 0 and crawl.status == crawl.StatusChoices.STARTED:
                 print(f'[cyan]🔒 All snapshots sealed for crawl {crawl.id}, sealing crawl[/cyan]', file=sys.stderr)
                 # Seal the parent crawl
                 crawl.sm.seal()

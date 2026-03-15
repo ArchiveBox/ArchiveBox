@@ -226,7 +226,7 @@ def is_archiveresult_id(value: str) -> bool:
 
 
 @click.command()
-@click.option('--plugins', '-p', default='', help='Comma-separated list of plugins to run (e.g., screenshot,singlefile)')
+@click.option('--plugins', '--plugin', '-p', default='', help='Comma-separated list of plugins to run (e.g., screenshot,singlefile)')
 @click.option('--wait/--no-wait', default=True, help='Wait for plugins to complete (default: wait)')
 @click.argument('args', nargs=-1)
 def main(plugins: str, wait: bool, args: tuple):

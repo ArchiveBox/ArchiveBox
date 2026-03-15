@@ -121,6 +121,11 @@ def is_background_hook(hook_name: str) -> bool:
     return '.bg.' in hook_name or '__background' in hook_name
 
 
+def is_finite_background_hook(hook_name: str) -> bool:
+    """Check if a background hook is finite-lived and should be awaited."""
+    return '.finite.bg.' in hook_name
+
+
 def iter_plugin_dirs() -> List[Path]:
     """Iterate over all built-in and user plugin directories."""
     plugin_dirs: List[Path] = []
@@ -904,8 +909,25 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
     # Check if PLUGINS whitelist is specified (e.g., --plugins=wget,favicon)
     plugins_whitelist = config.get('PLUGINS', '')
     if plugins_whitelist:
-        # PLUGINS whitelist is specified - only enable plugins in the list
-        plugin_names = [p.strip().lower() for p in plugins_whitelist.split(',') if p.strip()]
+        # PLUGINS whitelist is specified - include transitive required_plugins from config.json
+        plugin_configs = discover_plugin_configs()
+        plugin_names = {p.strip().lower() for p in plugins_whitelist.split(',') if p.strip()}
+        pending = list(plugin_names)
+
+        while pending:
+            current = pending.pop()
+            schema = plugin_configs.get(current, {})
+            required_plugins = schema.get('required_plugins', [])
+            if not isinstance(required_plugins, list):
+                continue
+
+            for required_plugin in required_plugins:
+                required_plugin_name = str(required_plugin).strip().lower()
+                if not required_plugin_name or required_plugin_name in plugin_names:
+                    continue
+                plugin_names.add(required_plugin_name)
+                pending.append(required_plugin_name)
+
         if plugin_name.lower() not in plugin_names:
             # Plugin not in whitelist - explicitly disabled
             enabled = False

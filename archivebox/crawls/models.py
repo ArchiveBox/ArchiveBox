@@ -332,8 +332,9 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         """
         import time
         from pathlib import Path
-        from archivebox.hooks import run_hook, discover_hooks, process_hook_records
+        from archivebox.hooks import run_hook, discover_hooks, process_hook_records, is_finite_background_hook
         from archivebox.config.configset import get_config
+        from archivebox.machine.models import Binary, Machine
 
         # Debug logging to file (since stdout/stderr redirected to /dev/null in progress mode)
         debug_log = Path('/tmp/archivebox_crawl_debug.log')
@@ -343,6 +344,43 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
         # Get merged config with crawl context
         config = get_config(crawl=self)
+
+        machine = Machine.current()
+        declared_binary_names: set[str] = set()
+
+        def install_declared_binaries(binary_names: set[str]) -> None:
+            if not binary_names:
+                return
+
+            pending_binaries = Binary.objects.filter(
+                machine=machine,
+                name__in=binary_names,
+            ).exclude(
+                status=Binary.StatusChoices.INSTALLED,
+            ).order_by('retry_at')
+
+            for binary in pending_binaries:
+                try:
+                    binary.sm.tick()
+                except Exception:
+                    continue
+
+            unresolved_binaries = list(
+                Binary.objects.filter(
+                    machine=machine,
+                    name__in=binary_names,
+                ).exclude(
+                    status=Binary.StatusChoices.INSTALLED,
+                ).order_by('name')
+            )
+            if unresolved_binaries:
+                binary_details = ', '.join(
+                    f'{binary.name} (status={binary.status})'
+                    for binary in unresolved_binaries
+                )
+                raise RuntimeError(
+                    f'Crawl dependencies failed to install before continuing: {binary_details}'
+                )
 
         # Discover and run on_Crawl hooks
         with open(debug_log, 'a') as f:
@@ -378,9 +416,15 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             if hook_elapsed > 0.5:  # Log slow hooks
                 print(f'[yellow]⏱️  Hook {hook.name} took {hook_elapsed:.2f}s[/yellow]')
 
-            # Background hook - still running
+            # Finite background hooks must finish before snapshots start so they can
+            # emit dependency records (Binary, Machine config, etc.).
             if process.status == process.StatusChoices.RUNNING:
-                continue
+                if not is_finite_background_hook(hook.name):
+                    continue
+                try:
+                    process.wait(timeout=process.timeout)
+                except Exception:
+                    continue
 
             # Foreground hook - process JSONL records
             from archivebox.hooks import extract_records_from_process
@@ -394,33 +438,19 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             if stats:
                 print(f'[green]✓ Created: {stats}[/green]')
 
-        # Ensure any newly declared binaries are installed before creating snapshots
-        from archivebox.machine.models import Binary, Machine
-        from django.utils import timezone
+            hook_binary_names = {
+                str(record.get('name')).strip()
+                for record in records
+                if record.get('type') == 'Binary' and record.get('name')
+            }
+            hook_binary_names.discard('')
+            if hook_binary_names:
+                declared_binary_names.update(hook_binary_names)
+                install_declared_binaries(hook_binary_names)
 
-        machine = Machine.current()
-        while True:
-            pending_binaries = Binary.objects.filter(
-                machine=machine,
-                status=Binary.StatusChoices.QUEUED,
-                retry_at__lte=timezone.now(),
-            ).order_by('retry_at')
-            if not pending_binaries.exists():
-                break
-
-            for binary in pending_binaries:
-                try:
-                    binary.sm.tick()
-                except Exception:
-                    continue
-
-            # Exit if nothing else is immediately retryable
-            if not Binary.objects.filter(
-                machine=machine,
-                status=Binary.StatusChoices.QUEUED,
-                retry_at__lte=timezone.now(),
-            ).exists():
-                break
+        # Safety check: don't create snapshots if any crawl-declared dependency
+        # is still unresolved after all crawl hooks have run.
+        install_declared_binaries(declared_binary_names)
 
         # Create snapshots from all URLs in self.urls
         with open(debug_log, 'a') as f:

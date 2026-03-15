@@ -13,16 +13,16 @@ def process(tmp_path):
 def disable_extractors_dict():
     env = os.environ.copy()
     env.update({
-        "USE_WGET": "false",
-        "USE_SINGLEFILE": "false",
-        "USE_READABILITY": "false",
-        "USE_MERCURY": "false",
+        "SAVE_WGET": "false",
+        "SAVE_SINGLEFILE": "false",
+        "SAVE_READABILITY": "false",
+        "SAVE_MERCURY": "false",
         "SAVE_HTMLTOTEXT": "false",
         "SAVE_PDF": "false",
         "SAVE_SCREENSHOT": "false",
         "SAVE_DOM": "false",
         "SAVE_HEADERS": "false",
-        "USE_GIT": "false",
+        "SAVE_GIT": "false",
         "SAVE_YTDLP": "false",
         "SAVE_ARCHIVEDOTORG": "false",
         "SAVE_TITLE": "false",

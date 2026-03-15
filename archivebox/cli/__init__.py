@@ -41,6 +41,7 @@ class ArchiveBoxGroup(click.Group):
     archive_commands = {
         # High-level commands
         'add': 'archivebox.cli.archivebox_add.main',
+        'extract': 'archivebox.cli.archivebox_extract.main',
         'list': 'archivebox.cli.archivebox_list.main',
         'remove': 'archivebox.cli.archivebox_remove.main',
         'run': 'archivebox.cli.archivebox_run.main',
@@ -55,6 +56,10 @@ class ArchiveBoxGroup(click.Group):
         # Introspection commands
         'pluginmap': 'archivebox.cli.archivebox_pluginmap.main',
     }
+    legacy_model_commands = {
+        'crawl': 'archivebox.cli.archivebox_crawl_compat.main',
+        'snapshot': 'archivebox.cli.archivebox_snapshot_compat.main',
+    }
     all_subcommands = {
         **meta_commands,
         **setup_commands,
@@ -67,12 +72,35 @@ class ArchiveBoxGroup(click.Group):
         'archive': 'add',
         # Old commands replaced by new model commands
         'orchestrator': 'run',
-        'extract': 'archiveresult',
+    }
+    legacy_model_subcommands = {
+        'crawl': {'create', 'list', 'update', 'delete'},
+        'snapshot': {'create', 'list', 'update', 'delete'},
     }
     
     @classmethod
     def get_canonical_name(cls, cmd_name):
         return cls.renamed_commands.get(cmd_name, cmd_name)
+
+    @classmethod
+    def _should_use_legacy_model_command(cls, cmd_name: str) -> bool:
+        if cmd_name not in cls.legacy_model_commands:
+            return False
+
+        try:
+            arg_idx = sys.argv.index(cmd_name)
+        except ValueError:
+            return False
+
+        remaining_args = sys.argv[arg_idx + 1:]
+        if not remaining_args:
+            return False
+
+        first_arg = remaining_args[0]
+        if first_arg in ('-h', '--help'):
+            return False
+
+        return first_arg not in cls.legacy_model_subcommands[cmd_name]
     
 
     def get_command(self, ctx, cmd_name):
@@ -82,6 +110,9 @@ class ArchiveBoxGroup(click.Group):
             print(f' [violet]Hint:[/violet] `archivebox {cmd_name}` has been renamed to `archivebox {new_name}`')
             cmd_name = new_name
             ctx.invoked_subcommand = cmd_name
+
+        if self._should_use_legacy_model_command(cmd_name):
+            return self._lazy_load(self.legacy_model_commands[cmd_name])
         
         # handle lazy loading of commands
         if cmd_name in self.all_subcommands:
@@ -91,8 +122,8 @@ class ArchiveBoxGroup(click.Group):
         return super().get_command(ctx, cmd_name)
 
     @classmethod
-    def _lazy_load(cls, cmd_name):
-        import_path = cls.all_subcommands[cmd_name]
+    def _lazy_load(cls, cmd_name_or_path):
+        import_path = cls.all_subcommands.get(cmd_name_or_path, cmd_name_or_path)
         modname, funcname = import_path.rsplit('.', 1)
         
         # print(f'LAZY LOADING {import_path}')

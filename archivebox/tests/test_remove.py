@@ -12,7 +12,7 @@ def test_remove_single_snapshot(tmp_path, process, disable_extractors_dict):
     # Verify snapshot exists
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
-    count_before = c.execute("SELECT COUNT() from archivebox.core.snapshot").fetchone()[0]
+    count_before = c.execute("SELECT COUNT() FROM core_snapshot").fetchone()[0]
     conn.close()
     assert count_before >= 1
 
@@ -24,7 +24,7 @@ def test_remove_single_snapshot(tmp_path, process, disable_extractors_dict):
 
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
-    count = c.execute("SELECT COUNT() from archivebox.core.snapshot").fetchone()[0]
+    count = c.execute("SELECT COUNT() FROM core_snapshot").fetchone()[0]
     conn.close()
 
     assert count == 0
@@ -59,7 +59,7 @@ def test_remove_regex(tmp_path, process, disable_extractors_dict):
 
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
-    count_before = c.execute("SELECT COUNT() from archivebox.core.snapshot").fetchone()[0]
+    count_before = c.execute("SELECT COUNT() FROM core_snapshot").fetchone()[0]
     conn.close()
     assert count_before >= 2
 
@@ -67,7 +67,7 @@ def test_remove_regex(tmp_path, process, disable_extractors_dict):
 
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
-    count_after = c.execute("SELECT COUNT() from archivebox.core.snapshot").fetchone()[0]
+    count_after = c.execute("SELECT COUNT() FROM core_snapshot").fetchone()[0]
     conn.close()
     assert count_after == 0
 
@@ -80,7 +80,7 @@ def test_add_creates_crawls(tmp_path, process, disable_extractors_dict):
 
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
-    crawl_count = c.execute("SELECT COUNT() from archivebox.crawls.crawl").fetchone()[0]
+    crawl_count = c.execute("SELECT COUNT() FROM crawls_crawl").fetchone()[0]
     conn.close()
 
     assert crawl_count == 2

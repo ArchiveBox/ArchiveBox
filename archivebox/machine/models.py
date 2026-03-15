@@ -352,7 +352,7 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
 
         # Case 2: From binaries.json - create queued binary (needs installation)
         if 'binproviders' in record or ('overrides' in record and not abspath):
-            binary, created = Binary.objects.get_or_create(
+            binary, _ = Binary.objects.update_or_create(
                 machine=machine,
                 name=name,
                 defaults={
