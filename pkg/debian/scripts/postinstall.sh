@@ -20,6 +20,13 @@ export ARCHIVEBOX_VERSION
 # Reload systemd to pick up the service file (skip if systemd is not running)
 if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
     systemctl daemon-reload
-    echo "[i] To start ArchiveBox: sudo systemctl start archivebox"
-    echo "[i] To enable on boot:   sudo systemctl enable archivebox"
+
+    # On upgrade: restart the service if it was enabled (prerm stopped it)
+    if [ "$1" = "configure" ] && systemctl is-enabled archivebox >/dev/null 2>&1; then
+        systemctl start archivebox 2>/dev/null || true
+        echo "[+] Restarted archivebox service after upgrade"
+    else
+        echo "[i] To start ArchiveBox: sudo systemctl start archivebox"
+        echo "[i] To enable on boot:   sudo systemctl enable archivebox"
+    fi
 fi
