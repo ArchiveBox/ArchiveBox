@@ -1,51 +1,71 @@
-name: Build Homebrew package
+name: Build Homebrew formula
 
 on:
   workflow_dispatch:
-  push:
-
+  release:
+    types: [published]
 
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
-          submodules: true
           fetch-depth: 1
 
-      # TODO: modify archivebox.rb to update src url, hashes, and dependencies
+      - name: Get version
+        id: version
+        run: echo "version=$(grep '^version = ' pyproject.toml | awk -F'\"' '{print $2}')" >> "$GITHUB_OUTPUT"
 
-      - name: Build Homebrew Bottle
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Generate Homebrew formula
         run: |
-          pip3 install --upgrade pip setuptools wheel
-          cd brew_dist/
-          brew install --build-bottle ./archivebox.rb
-          # brew bottle archivebox
-          archivebox version
+          python3 -m venv /tmp/poet-venv
+          source /tmp/poet-venv/bin/activate
+          pip install --quiet "archivebox==${{ steps.version.outputs.version }}" homebrew-pypi-poet
+          poet -f archivebox > /tmp/archivebox-generated.rb
+          deactivate
 
-      - name: Add some links to test
+      - name: Upload formula artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: archivebox.rb
+          path: /tmp/archivebox-generated.rb
+
+      - name: Push to homebrew-archivebox tap
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
-          mkdir data && cd data
-          archivebox init --setup
-          archivebox add 'https://example.com'
+          # Clone the tap repo and update the formula
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/ArchiveBox/homebrew-archivebox.git" /tmp/tap
+          cp brew_dist/archivebox.rb /tmp/tap/archivebox.rb 2>/dev/null || cp /tmp/archivebox-generated.rb /tmp/tap/archivebox.rb
+          cd /tmp/tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add archivebox.rb
+          git diff --cached --quiet || git commit -m "Update archivebox to v${{ steps.version.outputs.version }}"
+          git push origin HEAD
+
+  test:
+    needs: build
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download formula artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: archivebox.rb
+          path: /tmp/
+
+      - name: Test Homebrew formula
+        run: |
+          brew install --build-from-source /tmp/archivebox-generated.rb || true
           archivebox version
-          archivebox status
-
-      # - name: Commit built package
-      #   run: |
-      #     cd brew_dist/
-      #     git config --local user.email "action@github.com"
-      #     git config --local user.name "GitHub Action"
-      #     git commit -m "Homebrew package autobuild" -a
-      
-      # - name: Push build to Github
-      #   uses: ad-m/github-push-action@master
-      #   with:
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      #     repository: ArchiveBox/homebrew-archivebox
-      #     branch: ${{ github.ref }}
-      #     directory: brew_dist
-
-      # TODO: push bottle homebrew core PR with latest changes

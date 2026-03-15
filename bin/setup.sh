@@ -122,32 +122,24 @@ echo
 
 # On Linux:
 if which apt-get > /dev/null; then
-    echo "[+] Adding ArchiveBox apt repo and signing key to sources..."
-    if ! (sudo apt install -y software-properties-common && sudo add-apt-repository -u ppa:archivebox/archivebox); then
-        echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/archivebox.list
-        echo "deb-src http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee -a /etc/apt/sources.list.d/archivebox.list
-        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
-        sudo apt-get update -qq
-    fi
-    echo
     echo "[+] Installing ArchiveBox system dependencies using apt..."
-    sudo apt-get install -y git python3 python3-pip python3-distutils wget curl yt-dlp ffmpeg git nodejs npm ripgrep
-    sudo apt-get install -y libgtk2.0-0 libgtk-3-0 libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb libgbm-dev || sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser || true
-    sudo apt-get install -y archivebox
-    sudo apt-get --only-upgrade install -y archivebox
+    sudo apt-get update -qq
+    sudo apt-get install -y git python3 python3-pip python3-venv wget curl yt-dlp ffmpeg git nodejs npm ripgrep
+    sudo apt-get install -y libgtk2.0-0 libgtk-3-0 libnotify-dev libnss3 libxss1 libasound2 libxtst6 xauth xvfb libgbm-dev || sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser || true
     echo
-    echo "[+] Installing ArchiveBox python dependencies using pip3..."
-    sudo python3 -m pip install --upgrade --ignore-installed archivebox yt-dlp playwright
+    echo "[+] Downloading and installing ArchiveBox .deb package..."
+    ARCH="$(dpkg --print-architecture)"
+    DEB_URL="https://github.com/ArchiveBox/ArchiveBox/releases/latest/download/archivebox_${ARCH}.deb"
+    curl -fsSL "$DEB_URL" -o /tmp/archivebox.deb && sudo apt install -y /tmp/archivebox.deb && rm /tmp/archivebox.deb || {
+        echo "[!] .deb install failed, falling back to pip install..."
+        sudo python3 -m pip install --upgrade archivebox yt-dlp
+    }
 # On Mac:
 elif which brew > /dev/null; then
-    echo "[+] Installing ArchiveBox system dependencies using brew..."
+    echo "[+] Installing ArchiveBox using Homebrew..."
     brew tap archivebox/archivebox
     brew update
-    brew install python3 node git wget curl yt-dlp ripgrep
-    brew install --fetch-HEAD -f archivebox
-    echo
-    echo "[+] Installing ArchiveBox python dependencies using pip3..."
-    python3 -m pip install --upgrade --ignore-installed archivebox yt-dlp playwright
+    brew install archivebox
 elif which pkg > /dev/null; then
     echo "[+] Installing ArchiveBox system dependencies using pkg and pip (python3.9)..."
     sudo pkg install -y python3 py39-pip py39-sqlite3 npm wget curl youtube_dl ffmpeg git ripgrep

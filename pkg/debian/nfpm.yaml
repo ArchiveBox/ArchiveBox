@@ -1,0 +1,67 @@
+# nFPM configuration for building ArchiveBox .deb packages
+# Docs: https://nfpm.goreleaser.com/configuration/
+# Usage: nfpm package --config pkg/debian/nfpm.yaml --packager deb --target dist/
+
+name: archivebox
+arch: "${ARCH:-amd64}"
+platform: linux
+version: "${VERSION}"
+version_schema: semver
+maintainer: "Nick Sweeting <nfpm@archivebox.io>"
+description: |
+  Self-hosted internet archiving solution.
+  Save pages from the web including HTML, PDF, screenshots, media, and more.
+  Install with: sudo apt install archivebox && archivebox init --setup
+vendor: "ArchiveBox"
+homepage: "https://archivebox.io"
+license: "MIT"
+section: "web"
+priority: "optional"
+
+depends:
+  - python3 (>= 3.11)
+  - python3-pip
+  - python3-venv
+  - nodejs
+  - npm
+  - git
+  - wget
+  - curl
+  - ripgrep
+
+recommends:
+  - yt-dlp
+  - ffmpeg
+  - chromium | chromium-browser | google-chrome-stable
+
+contents:
+  # Wrapper script for /usr/bin/archivebox
+  - src: pkg/debian/archivebox
+    dst: /usr/bin/archivebox
+    file_info:
+      mode: 0755
+
+  # Install helper script
+  - src: pkg/debian/install.sh
+    dst: /opt/archivebox/install.sh
+    file_info:
+      mode: 0755
+
+  # Systemd service file
+  - src: pkg/debian/archivebox.service
+    dst: /usr/lib/systemd/system/archivebox.service
+    file_info:
+      mode: 0644
+
+  # Create data directory
+  - dst: /var/lib/archivebox
+    type: dir
+    file_info:
+      mode: 0755
+
+scripts:
+  postinstall: pkg/debian/scripts/postinstall.sh
+  preremove: pkg/debian/scripts/preremove.sh
+
+deb:
+  compression: zstd

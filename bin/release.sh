@@ -28,6 +28,8 @@ cd "$REPO_DIR"
 # ./bin/release_docs.sh
 ./bin/release_git.sh "$@"
 ./bin/release_pip.sh "$@"
+./bin/release_deb.sh "$@"
+./bin/release_brew.sh "$@"
 ./bin/release_docker.sh "$@"
 
 VERSION="$(grep '^version = ' "${REPO_DIR}/pyproject.toml" | awk -F'"' '{print $2}')"

@@ -1,0 +1,16 @@
+[Unit]
+Description=ArchiveBox Web Archiving Server
+After=network.target
+
+[Service]
+Type=simple
+User=archivebox
+Group=archivebox
+WorkingDirectory=/var/lib/archivebox
+ExecStartPre=/opt/archivebox/venv/bin/archivebox init --setup
+ExecStart=/opt/archivebox/venv/bin/archivebox server 0.0.0.0:8000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
