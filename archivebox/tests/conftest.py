@@ -208,6 +208,18 @@ def wait_for_archive_outputs(
             if fallback.exists():
                 output_rel = 'index.jsonl'
         if output_rel is None:
+            snapshot_dir = Path(snapshot.output_dir)
+            for candidate in snapshot_dir.rglob('*'):
+                if not candidate.is_file():
+                    continue
+                rel_path = candidate.relative_to(snapshot_dir)
+                if rel_path.parts and rel_path.parts[0] == 'responses':
+                    continue
+                if rel_path.name in {'stdout.log', 'stderr.log', 'cmd.sh'}:
+                    continue
+                output_rel = str(rel_path)
+                break
+        if output_rel is None:
             raise SystemExit(1)
 
         responses_root = Path(snapshot.output_dir) / 'responses' / snapshot.domain
