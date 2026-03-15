@@ -150,5 +150,9 @@ jobs:
           uv sync --dev --all-extras --no-sources
 
       - name: Run plugin tests
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
+          API_KEY_2CAPTCHA: ${{ secrets.TWOCAPTCHA_API_KEY }}
         run: |
           uv run bash ./bin/test_plugins.sh --no-coverage

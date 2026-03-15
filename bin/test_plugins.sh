@@ -48,6 +48,39 @@ for arg in "$@"; do
     fi
 done
 
+# Read secret-like config properties from a plugin's standardized config.json.
+# Each output line is a pipe-delimited env alias group where any populated alias
+# satisfies the requirement, e.g. TWOCAPTCHA_API_KEY|API_KEY_2CAPTCHA.
+get_plugin_secret_groups() {
+    local plugin_dir="$1"
+    local config_json="$plugin_dir/config.json"
+
+    if [ ! -f "$config_json" ]; then
+        return 0
+    fi
+
+    python3 - "$config_json" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+config_path = Path(sys.argv[1])
+try:
+    config = json.loads(config_path.read_text())
+except Exception:
+    sys.exit(0)
+
+properties = config.get("properties", {})
+for env_name, schema in properties.items():
+    default = schema.get("default")
+    aliases = [alias for alias in schema.get("x-aliases", []) if alias]
+    looks_secret = bool(schema.get("x-sensitive")) or bool(re.search(r"(API_KEY|TOKEN|SECRET)", env_name))
+    if schema.get("type") == "string" and looks_secret and default in ("", None):
+        print("|".join([env_name, *aliases]))
+PY
+}
+
 # Function to show JS coverage report (inlined from convert_v8_coverage.js)
 show_js_coverage() {
     local plugin_root="$1"
@@ -210,6 +243,7 @@ echo ""
 TOTAL_PLUGINS=0
 PASSED_PLUGINS=0
 FAILED_PLUGINS=0
+UNAVAILABLE_PLUGINS=0
 
 # Find and run plugin tests
 if [ -n "$PLUGIN_FILTER" ]; then
@@ -233,7 +267,37 @@ for test_dir in $TEST_DIRS; do
     fi
 
     plugin_name=$(basename "$(dirname "$test_dir")")
+    plugin_dir=$(dirname "$test_dir")
     TOTAL_PLUGINS=$((TOTAL_PLUGINS + 1))
+
+    # New plugin packages can include live integration suites that require API
+    # credentials. Only run those suites when the standardized config.json
+    # secrets are actually available in the current environment.
+    missing_secret_groups=()
+    while IFS= read -r secret_group; do
+        [ -z "$secret_group" ] && continue
+
+        secret_available=false
+        IFS='|' read -r -a secret_names <<< "$secret_group"
+        for secret_name in "${secret_names[@]}"; do
+            if [ -n "${!secret_name:-}" ]; then
+                secret_available=true
+                break
+            fi
+        done
+
+        if [ "$secret_available" = false ]; then
+            missing_secret_groups+=("$secret_group")
+        fi
+    done < <(get_plugin_secret_groups "$plugin_dir")
+
+    if [ ${#missing_secret_groups[@]} -gt 0 ]; then
+        echo -e "${YELLOW}[UNAVAILABLE]${NC} $plugin_name"
+        printf 'Missing secret env for full suite: %s\n' "${missing_secret_groups[*]}"
+        UNAVAILABLE_PLUGINS=$((UNAVAILABLE_PLUGINS + 1))
+        echo ""
+        continue
+    fi
 
     echo -e "${YELLOW}[RUNNING]${NC} $plugin_name"
 
@@ -271,13 +335,19 @@ echo "=========================================="
 echo -e "Total plugins tested: $TOTAL_PLUGINS"
 echo -e "${GREEN}Passed:${NC}              $PASSED_PLUGINS"
 echo -e "${RED}Failed:${NC}              $FAILED_PLUGINS"
+echo -e "${YELLOW}Unavailable:${NC}         $UNAVAILABLE_PLUGINS"
 echo ""
 
 if [ $TOTAL_PLUGINS -eq 0 ]; then
     echo -e "${YELLOW}⚠ No tests found${NC}"
     exit 0
 elif [ $FAILED_PLUGINS -eq 0 ]; then
-    echo -e "${GREEN}✓ All plugin tests passed!${NC}"
+    if [ $UNAVAILABLE_PLUGINS -eq 0 ]; then
+        echo -e "${GREEN}✓ All plugin tests passed!${NC}"
+    else
+        echo -e "${GREEN}✓ All runnable plugin tests passed!${NC}"
+        echo -e "${YELLOW}⚠ Some plugin suites were unavailable in this environment${NC}"
+    fi
 
     # Show coverage summary if enabled
     if [ "$ENABLE_COVERAGE" = true ]; then
