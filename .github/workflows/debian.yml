@@ -66,7 +66,15 @@ jobs:
 
   test:
     needs: build
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - uses: actions/checkout@v4
@@ -82,10 +90,9 @@ jobs:
           enable-cache: true
 
       - name: Install build dependencies
-        uses: awalsh128/cache-apt-pkgs-action@v1.6.0
-        with:
-          packages: build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1
-          version: 1.0
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1
 
       - name: Build local wheel
         run: |
@@ -95,12 +102,11 @@ jobs:
       - name: Download .deb artifact
         uses: actions/download-artifact@v4
         with:
-          pattern: archivebox-*-amd64.deb
+          pattern: archivebox-*-${{ matrix.arch }}.deb
           merge-multiple: true
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update -qq
           sudo apt-get install -y python3.13 python3.13-venv python3-pip nodejs npm git wget curl ripgrep
 
       - name: Pre-seed virtualenv with local wheel before dpkg install
