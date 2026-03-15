@@ -229,6 +229,27 @@ class TestBinaryModel(TestCase):
 
         self.assertEqual(binary.overrides, overrides)
 
+    def test_binary_from_json_prefers_published_readability_package(self):
+        """Binary.from_json() should rewrite readability's npm git URL to the published package."""
+        binary = Binary.from_json({
+            'name': 'readability-extractor',
+            'binproviders': 'env,npm',
+            'overrides': {
+                'npm': {
+                    'install_args': ['https://github.com/ArchiveBox/readability-extractor'],
+                },
+            },
+        })
+
+        self.assertEqual(
+            binary.overrides,
+            {
+                'npm': {
+                    'install_args': ['readability-extractor'],
+                },
+            },
+        )
+
 
 class TestBinaryStateMachine(TestCase):
     """Test the BinaryMachine state machine."""

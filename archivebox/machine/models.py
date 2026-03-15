@@ -347,6 +347,22 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         binary_overrides = record.get('overrides', {})
         normalized_overrides = binary_overrides if isinstance(binary_overrides, dict) else {}
 
+        # abx-plugins currently emits a GitHub install URL for readability-extractor,
+        # but the package is published on npm. Prefer the registry package to avoid
+        # long git-based installs in CI while still using canonical install_args.
+        if (
+            name == 'readability-extractor'
+            and isinstance(normalized_overrides.get('npm'), dict)
+            and normalized_overrides['npm'].get('install_args') == ['https://github.com/ArchiveBox/readability-extractor']
+        ):
+            normalized_overrides = {
+                **normalized_overrides,
+                'npm': {
+                    **normalized_overrides['npm'],
+                    'install_args': ['readability-extractor'],
+                },
+            }
+
         # Case 1: Already installed (from on_Crawl hooks) - has abspath AND binproviders
         # This happens when on_Crawl hooks detect already-installed binaries
         abspath = record.get('abspath')
