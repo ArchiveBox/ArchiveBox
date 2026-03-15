@@ -115,4 +115,5 @@ jobs:
 
       - name: Run test - ${{ matrix.test.name }}
         run: |
+          mkdir -p tests/out
           uv run pytest -xvs "${{ matrix.test.path }}" --basetemp=tests/out --ignore=archivebox/pkgs

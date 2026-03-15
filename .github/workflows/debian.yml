@@ -152,7 +152,7 @@ jobs:
 
       - name: Test archivebox add
         run: |
-          sudo -u archivebox bash -c 'cd /tmp/archivebox-test && /opt/archivebox/venv/bin/archivebox add --parser url_list "https://example.com"' || true
+          sudo -u archivebox bash -c 'cd /tmp/archivebox-test && /opt/archivebox/venv/bin/archivebox add "https://example.com"'
 
       - name: Verify systemd service file exists
         run: |

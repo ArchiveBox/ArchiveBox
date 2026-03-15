@@ -127,18 +127,8 @@ if which apt-get > /dev/null; then
     sudo apt-get install -y git python3 python3-pip python3-venv wget curl yt-dlp ffmpeg git nodejs npm ripgrep
     sudo apt-get install -y libgtk2.0-0 libgtk-3-0 libnotify-dev libnss3 libxss1 libasound2 libxtst6 xauth xvfb libgbm-dev || sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser || true
     echo
-    echo "[+] Downloading and installing ArchiveBox .deb package..."
-    ARCH="$(dpkg --print-architecture)"
-    # Get the latest release .deb URL from GitHub API (filename includes version)
-    DEB_URL="$(curl -fsSL https://api.github.com/repos/ArchiveBox/ArchiveBox/releases/latest \
-        | grep -o "\"browser_download_url\": \"[^\"]*_${ARCH}\.deb\"" \
-        | head -1 | cut -d'"' -f4)" || true
-    if [ -n "$DEB_URL" ]; then
-        curl -fsSL "$DEB_URL" -o /tmp/archivebox.deb && sudo apt install -y /tmp/archivebox.deb && rm -f /tmp/archivebox.deb
-    else
-        echo "[!] Could not find .deb download URL, falling back to pip install..."
-        pip install --upgrade archivebox yt-dlp
-    fi
+    echo "[+] Installing ArchiveBox python dependencies using pip3..."
+    sudo python3 -m pip install --upgrade --ignore-installed archivebox yt-dlp
 # On Mac:
 elif which brew > /dev/null; then
     echo "[+] Installing ArchiveBox using Homebrew..."
