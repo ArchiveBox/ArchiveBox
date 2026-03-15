@@ -432,7 +432,16 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                     return set()
 
             from archivebox.hooks import extract_records_from_process
-            records = extract_records_from_process(process)
+            records = []
+            # Finite background hooks can exit before their stdout log is fully
+            # visible to our polling loop. Give successful hooks a brief chance
+            # to flush JSONL records before we move on to downstream hooks.
+            for delay in (0.0, 0.05, 0.1, 0.25, 0.5):
+                if delay:
+                    time.sleep(delay)
+                records = extract_records_from_process(process)
+                if records:
+                    break
             if records:
                 print(f'[cyan]📝 Processing {len(records)} records from {hook.name}[/cyan]')
                 for record in records[:3]:
