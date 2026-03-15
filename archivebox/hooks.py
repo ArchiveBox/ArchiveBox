@@ -49,26 +49,20 @@ Dependency handling:
 API (all hook logic lives here):
     discover_hooks(event)     -> List[Path]     Find hook scripts
     run_hook(script, ...)     -> HookResult     Execute a hook script
-    run_hooks(event, ...)     -> List[HookResult]  Run all hooks for an event
-    extract_step(hook_name)   -> int            Deprecated: get two-digit order prefix if present
     is_background_hook(name)  -> bool           Check if hook is background (.bg suffix)
 """
 
 __package__ = 'archivebox'
 
 import os
-import re
 import json
-import signal
 import time
-import subprocess
 from functools import lru_cache
 from pathlib import Path
 from typing import List, Dict, Any, Optional, TypedDict
 
 from abx_plugins import get_plugins_dir
 from django.conf import settings
-from django.utils import timezone
 from django.utils.safestring import mark_safe
 from archivebox.config.constants import CONSTANTS
 
@@ -85,20 +79,6 @@ USER_PLUGINS_DIR = Path(
 # =============================================================================
 # Hook Step Extraction
 # =============================================================================
-
-def extract_step(hook_name: str) -> int:
-    """
-    Deprecated: return the two-digit order prefix as an integer (00-99) if present.
-
-    Hook execution is based on lexicographic ordering of filenames; callers should
-    not rely on parsed numeric steps for ordering decisions.
-    """
-    match = re.search(r'__(\d{2})_', hook_name)
-    if match:
-        return int(match.group(1))
-    import sys
-    print(f"Warning: Hook '{hook_name}' has no order prefix (expected __XX_), defaulting to 99", file=sys.stderr)
-    return 99
 
 
 def is_background_hook(hook_name: str) -> bool:
@@ -573,51 +553,6 @@ def collect_urls_from_plugins(snapshot_dir: Path) -> List[Dict[str, Any]]:
     return urls
 
 
-def run_hooks(
-    event_name: str,
-    output_dir: Path,
-    config: Dict[str, Any],
-    timeout: Optional[int] = None,
-    stop_on_failure: bool = False,
-    **kwargs: Any
-) -> List[HookResult]:
-    """
-    Run all hooks for a given event.
-
-    Args:
-        event_name: The event name to trigger (e.g., 'Snapshot', 'Crawl', 'Binary')
-        output_dir: Working directory for hook scripts
-        config: Merged config dict from get_config(crawl=..., snapshot=...) - REQUIRED
-        timeout: Maximum execution time per hook (None = auto-detect from plugin config)
-        stop_on_failure: If True, stop executing hooks after first failure
-        **kwargs: Arguments passed to each hook script
-
-    Returns:
-        List of results from each hook execution
-
-    Example:
-        from archivebox.config.configset import get_config
-        config = get_config(crawl=my_crawl, snapshot=my_snapshot)
-        results = run_hooks('Snapshot', output_dir, config=config, url=url, snapshot_id=id)
-    """
-    hooks = discover_hooks(event_name, config=config)
-    results = []
-
-    for hook in hooks:
-        result = run_hook(hook, output_dir, config=config, timeout=timeout, **kwargs)
-
-        # Background hooks return None - skip adding to results
-        if result is None:
-            continue
-
-        result['hook'] = str(hook)
-        results.append(result)
-
-        if stop_on_failure and result['returncode'] != 0:
-            break
-
-    return results
-
 
 @lru_cache(maxsize=1)
 def get_plugins() -> List[str]:
@@ -640,15 +575,6 @@ def get_plugins() -> List[str]:
     return sorted(set(plugins))
 
 
-def get_parser_plugins() -> List[str]:
-    """
-    Get list of parser plugins by discovering parse_*_urls hooks.
-
-    Parser plugins discover URLs from source files and output urls.jsonl.
-    Returns plugin names like: ['50_parse_html_urls', '51_parse_rss_urls', ...]
-    """
-    return [e for e in get_plugins() if 'parse_' in e and '_urls' in e]
-
 
 def get_plugin_name(plugin: str) -> str:
     """
@@ -665,11 +591,6 @@ def get_plugin_name(plugin: str) -> str:
         return parts[1]
     return plugin
 
-
-def is_parser_plugin(plugin: str) -> bool:
-    """Check if a plugin is a parser plugin (discovers URLs)."""
-    name = get_plugin_name(plugin)
-    return name.startswith('parse_') and name.endswith('_urls')
 
 
 def get_enabled_plugins(config: Optional[Dict[str, Any]] = None) -> List[str]:
@@ -1083,45 +1004,6 @@ def get_plugin_icon(plugin: str) -> str:
     return mark_safe('📁')
 
 
-def get_all_plugin_icons() -> Dict[str, str]:
-    """
-    Get icons for all discovered plugins.
-
-    Returns:
-        Dict mapping plugin base names to their icons.
-    """
-    icons = {}
-    for plugin in get_plugins():
-        base_name = get_plugin_name(plugin)
-        icons[base_name] = get_plugin_icon(plugin)
-    return icons
-
-
-def discover_plugin_templates() -> Dict[str, Dict[str, str]]:
-    """
-    Discover all plugin templates organized by plugin.
-
-    Returns:
-        Dict mapping plugin names to dicts of template_name -> template_path.
-        e.g., {'screenshot': {'icon': '/path/to/icon.html', 'card': '/path/to/card.html'}}
-    """
-    templates: Dict[str, Dict[str, str]] = {}
-
-    for plugin_dir in iter_plugin_dirs():
-
-        templates_dir = plugin_dir / 'templates'
-        if not templates_dir.exists():
-            continue
-
-        plugin_templates = {}
-        for template_file in templates_dir.glob('*.html'):
-            template_name = template_file.stem  # icon, card, full
-            plugin_templates[template_name] = str(template_file)
-
-        if plugin_templates:
-            templates[plugin_dir.name] = plugin_templates
-
-    return templates
 
 
 # =============================================================================
@@ -1129,104 +1011,6 @@ def discover_plugin_templates() -> Dict[str, Dict[str, str]]:
 # =============================================================================
 
 
-def find_binary_for_cmd(cmd: List[str], machine_id: str) -> Optional[str]:
-    """
-    Find Binary for a command, trying abspath first then name.
-    Only matches binaries on the current machine.
-
-    Args:
-        cmd: Command list (e.g., ['/usr/bin/wget', '-p', 'url'])
-        machine_id: Current machine ID
-
-    Returns:
-        Binary ID as string if found, None otherwise
-    """
-    if not cmd:
-        return None
-
-    from archivebox.machine.models import Binary
-
-    bin_path_or_name = cmd[0] if isinstance(cmd, list) else cmd
-
-    # Try matching by absolute path first
-    binary = Binary.objects.filter(
-        abspath=bin_path_or_name,
-        machine_id=machine_id
-    ).first()
-
-    if binary:
-        return str(binary.id)
-
-    # Fallback: match by binary name
-    bin_name = Path(bin_path_or_name).name
-    binary = Binary.objects.filter(
-        name=bin_name,
-        machine_id=machine_id
-    ).first()
-
-    return str(binary.id) if binary else None
-
-
-def create_model_record(record: Dict[str, Any]) -> Any:
-    """
-    Generic helper to create/update model instances from hook JSONL output.
-
-    Args:
-        record: Dict with 'type' field and model data
-
-    Returns:
-        Created/updated model instance, or None if type unknown
-    """
-    from archivebox.machine.models import Binary, Machine
-
-    record_type = record.pop('type', None)
-    if not record_type:
-        return None
-
-    # Remove plugin metadata (not model fields)
-    record.pop('plugin', None)
-    record.pop('plugin_hook', None)
-
-    if record_type == 'Binary':
-        # Binary requires machine FK
-        machine = Machine.current()
-        record.setdefault('machine', machine)
-
-        # Required fields check
-        name = record.get('name')
-        abspath = record.get('abspath')
-        if not name or not abspath:
-            return None
-
-        obj, created = Binary.objects.update_or_create(
-            machine=machine,
-            name=name,
-            defaults={
-                'abspath': abspath,
-                'version': record.get('version', ''),
-                'sha256': record.get('sha256', ''),
-                'binprovider': record.get('binprovider', 'env'),
-            }
-        )
-        return obj
-
-    elif record_type == 'Machine':
-        config_patch = record.get('config')
-        if isinstance(config_patch, dict) and config_patch:
-            machine = Machine.current()
-            if not machine.config:
-                machine.config = {}
-            machine.config.update(config_patch)
-            machine.save(update_fields=['config'])
-            return machine
-        return None
-
-    # Add more types as needed (Dependency, Snapshot, etc.)
-    else:
-        # Unknown type - log warning but don't fail
-        import sys
-        print(f"Warning: Unknown record type '{record_type}' from hook output", file=sys.stderr)
-        return None
 
 
 def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any] = None) -> Dict[str, int]:
