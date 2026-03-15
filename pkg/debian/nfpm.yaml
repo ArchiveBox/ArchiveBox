@@ -28,6 +28,14 @@ depends:
   # All other runtime deps (node, chrome, yt-dlp, etc.) are installed on-demand
   # by `archivebox install` and should NOT be declared as package dependencies.
 
+recommends:
+  # Common utilities used by archivebox extractors. Declared as recommends
+  # (not depends) so dpkg doesn't hard-fail if they're missing, but apt
+  # installs them by default so users have a working baseline out of the box.
+  - git
+  - curl
+  - wget
+
 contents:
   # Wrapper script for /usr/bin/archivebox
   - src: pkg/debian/archivebox

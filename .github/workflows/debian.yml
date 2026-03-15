@@ -108,7 +108,7 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt-get install -y python3.13 python3.13-venv python3-pip
+          sudo apt-get install -y python3.13 python3.13-venv python3-pip git curl wget
 
       - name: Pre-seed virtualenv with local wheel before dpkg install
         run: |
@@ -178,8 +178,6 @@ jobs:
       - name: Determine release tag
         id: tag
         run: |
-          # github.event.release.tag_name is set for release events but empty
-          # for workflow_dispatch. Fall back to the version from pyproject.toml.
           TAG="${{ github.event.release.tag_name }}"
           if [ -z "$TAG" ]; then
             TAG="v$(grep '^version = ' pyproject.toml | awk -F'\"' '{print $2}')"
@@ -197,4 +195,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Verify the release exists before uploading (workflow_dispatch may not have one)
+          if ! gh release view "${{ steps.tag.outputs.tag }}" >/dev/null 2>&1; then
+            echo "[!] No GitHub Release found for tag ${{ steps.tag.outputs.tag }}, skipping upload."
+            echo "    Create a release first or trigger via the release event."
+            exit 0
+          fi
           gh release upload "${{ steps.tag.outputs.tag }}" *.deb --clobber

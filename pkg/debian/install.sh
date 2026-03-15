@@ -13,8 +13,10 @@ if command -v python3.13 >/dev/null 2>&1; then
     PYTHON="python3.13"
 elif command -v python3 >/dev/null 2>&1; then
     PYTHON="python3"
-    PY_VER="$("$PYTHON" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-    if [ "$(echo "$PY_VER 3.13" | awk '{print ($1 >= $2)}')" != "1" ]; then
+    PY_MAJOR="$("$PYTHON" -c 'import sys; print(sys.version_info.major)')"
+    PY_MINOR="$("$PYTHON" -c 'import sys; print(sys.version_info.minor)')"
+    if [ "$PY_MAJOR" -lt 3 ] || { [ "$PY_MAJOR" -eq 3 ] && [ "$PY_MINOR" -lt 13 ]; }; then
+        PY_VER="${PY_MAJOR}.${PY_MINOR}"
         echo "[!] Error: ArchiveBox requires Python >= 3.13, but found Python $PY_VER"
         echo "    Install python3.13: sudo apt install python3.13 python3.13-venv"
         exit 1
