@@ -352,18 +352,25 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             if not binary_names:
                 return
 
-            pending_binaries = Binary.objects.filter(
-                machine=machine,
-                name__in=binary_names,
-            ).exclude(
-                status=Binary.StatusChoices.INSTALLED,
-            ).order_by('retry_at')
+            max_attempts = max(2, len(binary_names))
 
-            for binary in pending_binaries:
-                try:
-                    binary.sm.tick()
-                except Exception:
-                    continue
+            for _ in range(max_attempts):
+                pending_binaries = list(
+                    Binary.objects.filter(
+                        machine=machine,
+                        name__in=binary_names,
+                    ).exclude(
+                        status=Binary.StatusChoices.INSTALLED,
+                    ).order_by('retry_at', 'name')
+                )
+                if not pending_binaries:
+                    return
+
+                for binary in pending_binaries:
+                    try:
+                        binary.sm.tick()
+                    except Exception:
+                        continue
 
             unresolved_binaries = list(
                 Binary.objects.filter(
@@ -382,16 +389,11 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                     f'Crawl dependencies failed to install before continuing: {binary_details}'
                 )
 
-        # Discover and run on_Crawl hooks
-        with open(debug_log, 'a') as f:
-            f.write(f'Discovering Crawl hooks...\n')
-            f.flush()
-        hooks = discover_hooks('Crawl', config=config)
-        with open(debug_log, 'a') as f:
-            f.write(f'Found {len(hooks)} hooks\n')
-            f.flush()
+        executed_crawl_hooks: set[str] = set()
 
-        for hook in hooks:
+        def run_crawl_hook(hook: Path) -> set[str]:
+            executed_crawl_hooks.add(str(hook))
+
             with open(debug_log, 'a') as f:
                 f.write(f'Running hook: {hook.name}\n')
                 f.flush()
@@ -400,38 +402,34 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             output_dir = self.output_dir / plugin_name
             output_dir.mkdir(parents=True, exist_ok=True)
 
-            # Run hook using Process.launch() - returns Process model
             process = run_hook(
                 hook,
                 output_dir=output_dir,
                 config=config,
                 crawl_id=str(self.id),
-                source_url=self.urls,  # Pass full newline-separated URLs
+                source_url=self.urls,
             )
             with open(debug_log, 'a') as f:
                 f.write(f'Hook {hook.name} completed with status={process.status}\n')
                 f.flush()
 
             hook_elapsed = time.time() - hook_start
-            if hook_elapsed > 0.5:  # Log slow hooks
+            if hook_elapsed > 0.5:
                 print(f'[yellow]⏱️  Hook {hook.name} took {hook_elapsed:.2f}s[/yellow]')
 
-            # Finite background hooks must finish before snapshots start so they can
-            # emit dependency records (Binary, Machine config, etc.).
             if process.status == process.StatusChoices.RUNNING:
                 if not is_finite_background_hook(hook.name):
-                    continue
+                    return set()
                 try:
                     process.wait(timeout=process.timeout)
                 except Exception:
-                    continue
+                    return set()
 
-            # Foreground hook - process JSONL records
             from archivebox.hooks import extract_records_from_process
             records = extract_records_from_process(process)
             if records:
                 print(f'[cyan]📝 Processing {len(records)} records from {hook.name}[/cyan]')
-                for record in records[:3]:  # Show first 3
+                for record in records[:3]:
                     print(f'   Record: type={record.get("type")}, keys={list(record.keys())[:5]}')
             overrides = {'crawl': self}
             stats = process_hook_records(records, overrides=overrides)
@@ -446,7 +444,60 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             hook_binary_names.discard('')
             if hook_binary_names:
                 declared_binary_names.update(hook_binary_names)
-                install_declared_binaries(hook_binary_names)
+            return hook_binary_names
+
+        def resolve_provider_binaries(binary_names: set[str]) -> set[str]:
+            if not binary_names:
+                return set()
+
+            resolved_binary_names = set(binary_names)
+
+            while True:
+                unresolved_binaries = list(
+                    Binary.objects.filter(
+                        machine=machine,
+                        name__in=resolved_binary_names,
+                    ).exclude(
+                        status=Binary.StatusChoices.INSTALLED,
+                    ).order_by('name')
+                )
+                if not unresolved_binaries:
+                    return resolved_binary_names
+
+                needed_provider_names: set[str] = set()
+                for binary in unresolved_binaries:
+                    allowed_binproviders = binary._allowed_binproviders()
+                    if allowed_binproviders is None:
+                        continue
+                    needed_provider_names.update(allowed_binproviders)
+
+                if not needed_provider_names:
+                    return resolved_binary_names
+
+                provider_hooks = [
+                    hook
+                    for hook in discover_hooks('Crawl', filter_disabled=False, config=config)
+                    if hook.parent.name in needed_provider_names and str(hook) not in executed_crawl_hooks
+                ]
+                if not provider_hooks:
+                    return resolved_binary_names
+
+                for hook in provider_hooks:
+                    resolved_binary_names.update(run_crawl_hook(hook))
+
+        # Discover and run on_Crawl hooks
+        with open(debug_log, 'a') as f:
+            f.write(f'Discovering Crawl hooks...\n')
+            f.flush()
+        hooks = discover_hooks('Crawl', config=config)
+        with open(debug_log, 'a') as f:
+            f.write(f'Found {len(hooks)} hooks\n')
+            f.flush()
+
+        for hook in hooks:
+            hook_binary_names = run_crawl_hook(hook)
+            if hook_binary_names:
+                install_declared_binaries(resolve_provider_binaries(hook_binary_names))
 
         # Safety check: don't create snapshots if any crawl-declared dependency
         # is still unresolved after all crawl hooks have run.

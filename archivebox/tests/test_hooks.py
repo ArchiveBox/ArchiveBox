@@ -263,8 +263,8 @@ class TestHookDiscovery(unittest.TestCase):
         hook_names = [hook.name for hook in hooks]
         self.assertIn('on_Binary__10_npm_install.py', hook_names)
 
-    def test_discover_crawl_hooks_keeps_binary_provider_dependencies_enabled(self):
-        """Provider crawl hooks should remain enabled when a whitelisted plugin depends on them transitively."""
+    def test_discover_crawl_hooks_only_include_declared_plugin_dependencies(self):
+        """Crawl hook discovery should include required_plugins without broadening to provider plugins."""
         responses_dir = self.plugins_dir / 'responses'
         responses_dir.mkdir()
         (responses_dir / 'config.json').write_text(
@@ -291,13 +291,12 @@ class TestHookDiscovery(unittest.TestCase):
         from archivebox import hooks as hooks_module
 
         hooks_module.get_plugins.cache_clear()
-        hooks_module.get_binary_provider_plugins.cache_clear()
         with patch.object(hooks_module, 'BUILTIN_PLUGINS_DIR', self.plugins_dir), patch.object(hooks_module, 'USER_PLUGINS_DIR', self.test_dir / 'user_plugins'):
             hooks = hooks_module.discover_hooks('Crawl', config={'PLUGINS': 'responses'})
 
         hook_names = [hook.name for hook in hooks]
         self.assertIn('on_Crawl__70_chrome_install.finite.bg.py', hook_names)
-        self.assertIn('on_Crawl__00_npm_install.py', hook_names)
+        self.assertNotIn('on_Crawl__00_npm_install.py', hook_names)
 
 
 class TestGetExtractorName(unittest.TestCase):

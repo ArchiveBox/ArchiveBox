@@ -622,19 +622,6 @@ def get_plugins() -> List[str]:
     return sorted(set(plugins))
 
 
-@lru_cache(maxsize=1)
-def get_binary_provider_plugins() -> List[str]:
-    """Get plugin names that expose Binary hooks and act as provider plugins."""
-    providers = []
-
-    for plugin_dir in iter_plugin_dirs():
-        has_binary_hooks = any(plugin_dir.glob('on_Binary__*.*'))
-        if has_binary_hooks:
-            providers.append(plugin_dir.name)
-
-    return sorted(set(providers))
-
-
 def get_parser_plugins() -> List[str]:
     """
     Get list of parser plugins by discovering parse_*_urls hooks.
@@ -926,12 +913,10 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
     plugins_whitelist = config.get('PLUGINS', '')
     if plugins_whitelist:
         # PLUGINS whitelist is specified - include transitive required_plugins from
-        # config.json as well as binary provider plugins. Provider plugins may also
-        # expose early on_Crawl hooks (e.g. npm -> install node/npm) that are
-        # required before a selected extractor's Binary hooks can succeed.
+        # config.json so selecting a plugin also enables its declared plugin-level
+        # dependencies (e.g. singlefile -> chrome).
         plugin_configs = discover_plugin_configs()
         plugin_names = {p.strip().lower() for p in plugins_whitelist.split(',') if p.strip()}
-        plugin_names.update(provider.lower() for provider in get_binary_provider_plugins())
         pending = list(plugin_names)
 
         while pending:
