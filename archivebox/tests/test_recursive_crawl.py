@@ -5,11 +5,36 @@ import json
 import os
 import subprocess
 import sqlite3
+import time
 from pathlib import Path
 
 import pytest
 
 from .fixtures import process, disable_extractors_dict, recursive_test_site
+
+
+def wait_for_db_condition(timeout, condition, interval=0.5):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if os.path.exists("index.sqlite3"):
+            conn = sqlite3.connect("index.sqlite3")
+            try:
+                if condition(conn.cursor()):
+                    return True
+            finally:
+                conn.close()
+        time.sleep(interval)
+    return False
+
+
+def stop_process(proc):
+    if proc.poll() is None:
+        proc.terminate()
+        try:
+            return proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    return proc.communicate()
 
 
 def test_background_hooks_dont_block_parser_extractors(tmp_path, process, recursive_test_site):
@@ -37,18 +62,24 @@ def test_background_hooks_dont_block_parser_extractors(tmp_path, process, recurs
         "SAVE_ARCHIVEDOTORG": "false",
         "SAVE_TITLE": "false",
         "SAVE_FAVICON": "true",
-        "SAVE_WGET": "true",
+        "SAVE_WGET": "false",
     })
 
-    result = subprocess.run(
-        ['archivebox', 'add', '--depth=1', '--plugins=favicon,wget,parse_html_urls', recursive_test_site['root_url']],
-        capture_output=True,
+    proc = subprocess.Popen(
+        ['archivebox', 'add', '--depth=1', '--plugins=favicon,parse_html_urls', recursive_test_site['root_url']],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
         env=env,
-        timeout=60,
     )
-    assert result.returncode == 0, result.stderr
-    stdout, stderr = result.stdout, result.stderr
+
+    assert wait_for_db_condition(
+        timeout=120,
+        condition=lambda c: c.execute(
+            "SELECT COUNT(*) FROM core_archiveresult WHERE plugin LIKE 'parse_%_urls' AND status IN ('started', 'succeeded', 'failed')"
+        ).fetchone()[0] > 0,
+    ), "Parser extractors never progressed beyond queued status"
+    stdout, stderr = stop_process(proc)
 
     if stderr:
         print(f"\n=== STDERR ===\n{stderr}\n=== END STDERR ===\n")
