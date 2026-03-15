@@ -1145,13 +1145,31 @@ def live_progress_view(request):
         for proc in running_workers:
             env = proc.env or {}
             if not isinstance(env, dict):
-                continue
+                env = {}
+
+            cmd = proc.cmd or []
             if proc.worker_type == 'crawl':
                 crawl_id = env.get('CRAWL_ID')
+                if not crawl_id:
+                    for i, part in enumerate(cmd):
+                        if part == '--crawl-id' and i + 1 < len(cmd):
+                            crawl_id = cmd[i + 1]
+                            break
+                        if part.startswith('--crawl-id='):
+                            crawl_id = part.split('=', 1)[1]
+                            break
                 if crawl_id:
                     crawl_worker_pids[str(crawl_id)] = proc.pid
             elif proc.worker_type == 'snapshot':
                 snapshot_id = env.get('SNAPSHOT_ID')
+                if not snapshot_id:
+                    for i, part in enumerate(cmd):
+                        if part == '--snapshot-id' and i + 1 < len(cmd):
+                            snapshot_id = cmd[i + 1]
+                            break
+                        if part.startswith('--snapshot-id='):
+                            snapshot_id = part.split('=', 1)[1]
+                            break
                 if snapshot_id:
                     snapshot_worker_pids[str(snapshot_id)] = proc.pid
 
@@ -1243,7 +1261,7 @@ def live_progress_view(request):
                         'plugin': ar.plugin,
                         'status': status,
                     }
-                    if ar.process_id and ar.process and ar.process.status == Process.StatusChoices.RUNNING:
+                    if status == ArchiveResult.StatusChoices.STARTED and ar.process_id and ar.process:
                         plugin_payload['pid'] = ar.process.pid
                     if status == ArchiveResult.StatusChoices.STARTED:
                         plugin_payload['progress'] = progress_value

@@ -349,15 +349,6 @@ def plugin_name(value: str) -> str:
     return get_plugin_name(value)
 
 
-@register.filter
-def plugin_display_name(value: str) -> str:
-    """
-    Human-friendly plugin name overrides for UI display.
-    """
-    name = get_plugin_name(value)
-    if name == 'merkletree':
-        return 'hashes'
-    return name
 
 
 @register.simple_tag(takes_context=True)

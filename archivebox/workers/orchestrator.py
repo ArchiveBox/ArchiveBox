@@ -3,13 +3,16 @@ Orchestrator for managing worker processes.
 
 The Orchestrator polls the Crawl queue and spawns CrawlWorkers as needed.
 
-Architecture:
-    Orchestrator (polls Crawl queue)
-    └── CrawlWorker(s) (one per active Crawl)
-        └── SnapshotWorker(s) (one per Snapshot, up to limit)
-            └── Hook Processes (sequential, forked by SnapshotWorker)
+Orchestrator (takes list of specific crawls | polls for pending queued crawls forever) spawns:
+└── CrawlWorker(s) (one per active Crawl)
+    └── SnapshotWorker(s) (one per Snapshot, up to limit)
+        └── Hook Processes (sequential, forked by SnapshotWorker)
+            e.g on_Snapshot__23_save_pdf.js
+                on_Snapshot__24_save_screenshot.js
+                ...
 
 Usage:
+
     # Default: runs forever (for use as subprocess of server)
     orchestrator = Orchestrator(exit_on_idle=False)
     orchestrator.runloop()

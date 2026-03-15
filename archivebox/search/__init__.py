@@ -2,7 +2,7 @@
 Search module for ArchiveBox.
 
 Search indexing is handled by search backend hooks in plugins:
-    archivebox/plugins/search_backend_*/on_Snapshot__*_index_*.py
+    abx_plugins/plugins/search_backend_*/on_Snapshot__*_index_*.py
 
 This module provides the query interface that dynamically discovers
 search backend plugins using the hooks system.

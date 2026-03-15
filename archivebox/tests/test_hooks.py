@@ -468,7 +468,7 @@ class TestPluginMetadata(unittest.TestCase):
     def test_plugin_name_added(self):
         """run_hook() should add plugin name to records."""
         # Simulate what run_hook() does
-        script = Path('/archivebox/plugins/wget/on_Snapshot__50_wget.py')
+        script = Path('/abx_plugins/plugins/wget/on_Snapshot__50_wget.py')
         plugin_name = script.parent.name
 
         record = {'type': 'ArchiveResult', 'status': 'succeeded'}

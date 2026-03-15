@@ -63,7 +63,7 @@ class TestLDAPConfig(unittest.TestCase):
 
         config = LDAPConfig(
             LDAP_ENABLED=True,
-            LDAP_SERVER_URI="ldap://localhost:389",
+            LDAP_SERVER_URI="ldap://ldap-test.localhost:389",
             LDAP_BIND_DN="cn=admin,dc=example,dc=com",
             LDAP_BIND_PASSWORD="password",
             LDAP_USER_BASE="ou=users,dc=example,dc=com",
@@ -172,7 +172,7 @@ class TestArchiveBoxWithLDAP(unittest.TestCase):
             env={
                 **os.environ,
                 'LDAP_ENABLED': 'False',
-                'LDAP_SERVER_URI': 'ldap://localhost:389',
+                'LDAP_SERVER_URI': 'ldap://ldap-test.localhost:389',
             }
         )
 

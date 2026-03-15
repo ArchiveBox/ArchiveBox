@@ -6,8 +6,8 @@ with ArchiveBox via CLI arguments and stdout JSON output. This keeps the plugin
 system simple and language-agnostic.
 
 Directory structure:
-    archivebox/plugins/<plugin_name>/on_<Event>__<hook_name>.<ext>  (built-in)
-    data/plugins/<plugin_name>/on_<Event>__<hook_name>.<ext>        (user)
+    abx_plugins/plugins/<plugin_name>/on_<Event>__<hook_name>.<ext>     (built-in package)
+    data/custom_plugins/<plugin_name>/on_<Event>__<hook_name>.<ext>     (user)
 
 Hook contract:
     Input:  --url=<url> (and other --key=value args)
@@ -66,14 +66,20 @@ from functools import lru_cache
 from pathlib import Path
 from typing import List, Dict, Any, Optional, TypedDict
 
+from abx_plugins import get_plugins_dir
 from django.conf import settings
 from django.utils import timezone
 from django.utils.safestring import mark_safe
+from archivebox.config.constants import CONSTANTS
 
 
 # Plugin directories
-BUILTIN_PLUGINS_DIR = Path(__file__).parent / 'plugins'
-USER_PLUGINS_DIR = Path(getattr(settings, 'DATA_DIR', Path.cwd())) / 'plugins'
+BUILTIN_PLUGINS_DIR = Path(get_plugins_dir()).resolve()
+USER_PLUGINS_DIR = Path(
+    os.environ.get('ARCHIVEBOX_USER_PLUGINS_DIR')
+    or getattr(settings, 'USER_PLUGINS_DIR', '')
+    or str(CONSTANTS.USER_PLUGINS_DIR)
+).expanduser()
 
 
 # =============================================================================
@@ -197,11 +203,11 @@ def discover_hooks(
 
         for hook in hooks:
             # Get plugin name from parent directory
-            # e.g., archivebox/plugins/wget/on_Snapshot__50_wget.py -> 'wget'
+            # e.g., abx_plugins/plugins/wget/on_Snapshot__50_wget.py -> 'wget'
             plugin_name = hook.parent.name
 
             # Check if this is a plugin directory (not the root plugins dir)
-            if plugin_name in ('plugins', '.'):
+            if hook.parent.resolve() in (BUILTIN_PLUGINS_DIR.resolve(), USER_PLUGINS_DIR.resolve()):
                 # Hook is in root plugins directory, not a plugin subdir
                 # Include it by default (no filtering for non-plugin hooks)
                 enabled_hooks.append(hook)
@@ -581,7 +587,7 @@ def get_plugins() -> List[str]:
     The plugin name is the plugin directory name, not the hook script name.
 
     Example:
-    archivebox/plugins/chrome/on_Snapshot__10_chrome_tab.bg.js
+    abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.bg.js
     -> plugin = 'chrome'
 
     Sorted alphabetically (plugins control their hook order via numeric prefixes in hook names).
@@ -728,7 +734,7 @@ def discover_plugins_that_provide_interface(
             try:
                 # Import the module dynamically
                 spec = importlib.util.spec_from_file_location(
-                    f'archivebox.plugins.{plugin_name}.{module_name}',
+                    f'archivebox.dynamic_plugins.{plugin_name}.{module_name}',
                     module_path
                 )
                 if spec is None or spec.loader is None:
@@ -942,7 +948,7 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
 # Plugins can provide custom templates for rendering their output in the UI.
 # Templates are discovered by filename convention inside each plugin's templates/ dir:
 #
-#     archivebox/plugins/<plugin_name>/
+#     abx_plugins/plugins/<plugin_name>/
 #         templates/
 #             icon.html          # Icon for admin table view (small inline HTML)
 #             card.html          # Preview card for snapshot header

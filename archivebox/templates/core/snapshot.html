@@ -717,7 +717,7 @@
                                             <p class="card-text"><code>{{ result_info.path }}</code></p>
                                         </a>
                                     <a href="{{ display_url }}" target="preview">
-                                        <h4 class="card-title">{{ result_info.name|plugin_display_name|title }}</h4>
+                                        <h4 class="card-title">{{ result_info.name|title }}</h4>
                                     </a>
                                     {% if result_info.result %}
                                         {% with plugin_base=result_info.name|plugin_name %}

@@ -33,6 +33,7 @@ import shutil
 import platform
 import subprocess
 import tempfile
+import json
 from pathlib import Path
 from typing import Optional, Iterable
 from collections import OrderedDict
@@ -138,6 +139,55 @@ def get_edge_user_data_dir() -> Optional[Path]:
     return None
 
 
+def get_browser_binary(browser: str) -> Optional[str]:
+    system = platform.system()
+    home = Path.home()
+    browser = browser.lower()
+
+    if system == 'Darwin':
+        candidates = {
+            'chrome': ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'],
+            'chromium': ['/Applications/Chromium.app/Contents/MacOS/Chromium'],
+            'brave': ['/Applications/Brave Browser.app/Contents/MacOS/Brave Browser'],
+            'edge': ['/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'],
+        }.get(browser, [])
+    elif system == 'Linux':
+        candidates = {
+            'chrome': ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/google-chrome-beta', '/usr/bin/google-chrome-unstable'],
+            'chromium': ['/usr/bin/chromium', '/usr/bin/chromium-browser'],
+            'brave': ['/usr/bin/brave-browser', '/usr/bin/brave-browser-beta', '/usr/bin/brave-browser-nightly'],
+            'edge': ['/usr/bin/microsoft-edge', '/usr/bin/microsoft-edge-stable', '/usr/bin/microsoft-edge-beta', '/usr/bin/microsoft-edge-dev'],
+        }.get(browser, [])
+    elif system == 'Windows':
+        local_app_data = Path(os.environ.get('LOCALAPPDATA', home / 'AppData' / 'Local'))
+        candidates = {
+            'chrome': [
+                str(local_app_data / 'Google' / 'Chrome' / 'Application' / 'chrome.exe'),
+                'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+                'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+            ],
+            'chromium': [str(local_app_data / 'Chromium' / 'Application' / 'chrome.exe')],
+            'brave': [
+                str(local_app_data / 'BraveSoftware' / 'Brave-Browser' / 'Application' / 'brave.exe'),
+                'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+                'C:\\Program Files (x86)\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+            ],
+            'edge': [
+                str(local_app_data / 'Microsoft' / 'Edge' / 'Application' / 'msedge.exe'),
+                'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+                'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+            ],
+        }.get(browser, [])
+    else:
+        candidates = []
+
+    for candidate in candidates:
+        if candidate and Path(candidate).exists():
+            return candidate
+
+    return None
+
+
 BROWSER_PROFILE_FINDERS = {
     'chrome': get_chrome_user_data_dir,
     'chromium': get_chrome_user_data_dir,  # Same locations
@@ -194,7 +244,12 @@ def _merge_netscape_cookies(existing_file: Path, new_file: Path) -> None:
     _write_netscape_cookies(existing_file, existing)
 
 
-def extract_cookies_via_cdp(user_data_dir: Path, output_file: Path) -> bool:
+def extract_cookies_via_cdp(
+    user_data_dir: Path,
+    output_file: Path,
+    profile_dir: str | None = None,
+    chrome_binary: str | None = None,
+) -> bool:
     """
     Launch Chrome with the given user data dir and extract cookies via CDP.
 
@@ -218,6 +273,8 @@ def extract_cookies_via_cdp(user_data_dir: Path, output_file: Path) -> bool:
     env['NODE_MODULES_DIR'] = str(node_modules_dir)
     env['CHROME_USER_DATA_DIR'] = str(user_data_dir)
     env['CHROME_HEADLESS'] = 'true'
+    if chrome_binary:
+        env['CHROME_BINARY'] = str(chrome_binary)
     output_path = output_file
     temp_output = None
     temp_dir = None
@@ -225,6 +282,23 @@ def extract_cookies_via_cdp(user_data_dir: Path, output_file: Path) -> bool:
         temp_dir = Path(tempfile.mkdtemp(prefix='ab_cookies_'))
         temp_output = temp_dir / 'cookies.txt'
         output_path = temp_output
+    if profile_dir:
+        extra_arg = f'--profile-directory={profile_dir}'
+        existing_extra = env.get('CHROME_ARGS_EXTRA', '').strip()
+        args_list = []
+        if existing_extra:
+            if existing_extra.startswith('['):
+                try:
+                    parsed = json.loads(existing_extra)
+                    if isinstance(parsed, list):
+                        args_list.extend(str(x) for x in parsed)
+                except Exception:
+                    args_list.extend([s.strip() for s in existing_extra.split(',') if s.strip()])
+            else:
+                args_list.extend([s.strip() for s in existing_extra.split(',') if s.strip()])
+        args_list.append(extra_arg)
+        env['CHROME_ARGS_EXTRA'] = json.dumps(args_list)
+
     env['COOKIES_OUTPUT_FILE'] = str(output_path)
 
     try:
@@ -322,6 +396,7 @@ def ensure_path_within_personas_dir(persona_path: Path) -> bool:
 def create_personas(
     names: Iterable[str],
     import_from: Optional[str] = None,
+    profile: Optional[str] = None,
 ) -> int:
     """
     Create Personas from names.
@@ -359,6 +434,15 @@ def create_personas(
             return 1
 
         rprint(f'[dim]Found {import_from} profile: {source_profile_dir}[/dim]', file=sys.stderr)
+
+        if profile is None and (source_profile_dir / 'Default').exists():
+            profile = 'Default'
+
+        browser_binary = get_browser_binary(import_from)
+        if browser_binary:
+            rprint(f'[dim]Using {import_from} binary: {browser_binary}[/dim]', file=sys.stderr)
+    else:
+        browser_binary = None
 
     created_count = 0
     for name in name_list:
@@ -414,7 +498,12 @@ def create_personas(
                 # Extract cookies via CDP
                 rprint(f'[dim]Extracting cookies via CDP...[/dim]', file=sys.stderr)
 
-                if extract_cookies_via_cdp(persona_chrome_dir, cookies_file):
+                if extract_cookies_via_cdp(
+                    persona_chrome_dir,
+                    cookies_file,
+                    profile_dir=profile,
+                    chrome_binary=browser_binary,
+                ):
                     rprint(f'[green]Extracted cookies to {cookies_file}[/green]', file=sys.stderr)
                 else:
                     rprint(f'[yellow]Could not extract cookies automatically.[/yellow]', file=sys.stderr)
@@ -652,9 +741,10 @@ def main():
 @main.command('create')
 @click.argument('names', nargs=-1)
 @click.option('--import', 'import_from', help='Import profile from browser (chrome, chromium, brave, edge)')
-def create_cmd(names: tuple, import_from: Optional[str]):
+@click.option('--profile', help='Profile directory name under the user data dir (e.g. Default, Profile 1)')
+def create_cmd(names: tuple, import_from: Optional[str], profile: Optional[str]):
     """Create Personas, optionally importing from a browser profile."""
-    sys.exit(create_personas(names, import_from=import_from))
+    sys.exit(create_personas(names, import_from=import_from, profile=profile))
 
 
 @main.command('list')

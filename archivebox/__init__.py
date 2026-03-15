@@ -18,6 +18,7 @@ from pathlib import Path
 # Import uuid_compat early to monkey-patch uuid.uuid7 before Django loads migrations
 # This fixes migrations generated on Python 3.14+ that reference uuid.uuid7 directly
 from archivebox import uuid_compat  # noqa: F401
+from abx_plugins import get_plugins_dir
 
 # Force unbuffered output for real-time logs
 if hasattr(sys.stdout, 'reconfigure'):
@@ -56,9 +57,13 @@ check_io_encoding()
 # Install monkey patches for third-party libraries
 from .misc.monkey_patches import *                    # noqa
 
-# Built-in plugin directories
-BUILTIN_PLUGINS_DIR = PACKAGE_DIR / 'plugins'
-USER_PLUGINS_DIR = Path(os.getcwd()) / 'plugins'
+# Plugin directories
+BUILTIN_PLUGINS_DIR = Path(get_plugins_dir()).resolve()
+USER_PLUGINS_DIR = Path(
+    os.environ.get('ARCHIVEBOX_USER_PLUGINS_DIR')
+    or os.environ.get('USER_PLUGINS_DIR')
+    or os.environ.get('DATA_DIR', os.getcwd())
+) / 'custom_plugins'
 
 # These are kept for backwards compatibility with existing code
 # that checks for plugins. The new hook system uses discover_hooks()

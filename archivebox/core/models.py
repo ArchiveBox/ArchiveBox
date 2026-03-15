@@ -1704,8 +1704,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         Create ArchiveResult records for all enabled hooks.
 
         Uses the hooks system to discover available hooks from:
-        - archivebox/plugins/*/on_Snapshot__*.{py,sh,js}
-        - data/plugins/*/on_Snapshot__*.{py,sh,js}
+        - abx_plugins/plugins/*/on_Snapshot__*.{py,sh,js}
+        - data/custom_plugins/*/on_Snapshot__*.{py,sh,js}
 
         Creates one ArchiveResult per hook (not per plugin), with hook_name set.
         This enables step-based execution where all hooks in a step can run in parallel.
@@ -2486,7 +2486,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     @property
     def plugin_module(self) -> Any | None:
         # Hook scripts are now used instead of Python plugin modules
-        # The plugin name maps to hooks in archivebox/plugins/{plugin}/
+        # The plugin name maps to hooks in abx_plugins/plugins/{plugin}/
         return None
 
     def output_exists(self) -> bool:

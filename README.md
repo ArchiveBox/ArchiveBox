@@ -491,6 +491,7 @@ docker run -it -v $PWD:/data archivebox/archivebox help
 # optional: import your browser cookies into a persona for logged-in archiving
 archivebox persona create --import=chrome personal
 # supported: chrome/chromium/brave/edge (Chromium-based only)
+# use --profile to target a specific profile (e.g. Default, Profile 1)
 # re-running import merges/dedupes cookies.txt (by domain/path/name) but replaces chrome_user_data
 ```
 

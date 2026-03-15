@@ -275,6 +275,21 @@
                 -moz-osx-font-smoothing: grayscale;
             }
 
+            /* Snapshot admin actions: hide label/colon and remove card border */
+            #content-main form .field-admin_actions > label,
+            #content form .field-admin_actions > label,
+            #content-main form .field-admin_actions label,
+            #content form .field-admin_actions label {
+                display: none !important;
+            }
+
+            #content-main form fieldset.actions-card,
+            #content form fieldset.actions-card {
+                border: none !important;
+                box-shadow: none !important;
+                background: transparent !important;
+            }
+
             /* Readonly fields styling */
             #content-main form fieldset .readonly,
             #content form fieldset .readonly {

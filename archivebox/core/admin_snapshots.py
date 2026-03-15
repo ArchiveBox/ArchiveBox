@@ -140,6 +140,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     list_filter = ('created_at', 'downloaded_at', 'archiveresult__status', 'crawl__created_by', TagNameListFilter)
 
     fieldsets = (
+        ('Actions', {
+            'fields': ('admin_actions',),
+            'classes': ('card', 'wide', 'actions-card'),
+        }),
         ('URL', {
             'fields': ('url', 'title'),
             'classes': ('card', 'wide'),
@@ -168,10 +172,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             'fields': ('output_dir',),
             'classes': ('card',),
         }),
-        ('Actions', {
-            'fields': ('admin_actions',),
-            'classes': ('card', 'wide'),
-        }),
         ('Archive Results', {
             'fields': ('archiveresults_list',),
             'classes': ('card', 'wide'),
@@ -179,7 +179,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     )
 
     ordering = ['-created_at']
-    actions = ['add_tags', 'remove_tags', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
+    actions = ['add_tags', 'remove_tags', 'resnapshot_snapshot', 'update_snapshots', 'overwrite_snapshots', 'delete_snapshots']
     inlines = []  # Removed TagInline, using TagEditorWidget instead
     list_per_page = min(max(5, SERVER_CONFIG.SNAPSHOTS_PER_PAGE), 5000)
 
@@ -301,6 +301,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     #         obj.pk,
     #     )
 
+    @admin.display(description='')
     def admin_actions(self, obj):
         summary_url = build_web_url(f'/{obj.archive_path}')
         results_url = build_web_url(f'/{obj.archive_path}/index.html#all')
@@ -311,13 +312,13 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                    href="{}"
                    onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';"
                    onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
-                    📄 Summary Page
+                    📄 View Snapshot
                 </a>
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
                    href="{}"
                    onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';"
                    onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
-                    📁 Result Files
+                    📁 All files
                 </a>
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
                    href="{}"
@@ -329,19 +330,19 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
                 <span style="border-left: 1px solid #e2e8f0; height: 24px; margin: 0 4px;"></span>
 
-                <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; color: #065f46; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
-                   href="/admin/core/snapshot/?id__exact={}"
-                   title="Get missing extractors"
-                   onmouseover="this.style.background='#d1fae5';"
-                   onmouseout="this.style.background='#ecfdf5';">
-                    ⬇️ Finish
-                </a>
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1e40af; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
                    href="/admin/core/snapshot/?id__exact={}"
                    title="Create a fresh new snapshot of this URL"
                    onmouseover="this.style.background='#dbeafe';"
                    onmouseout="this.style.background='#eff6ff';">
-                    🆕 Archive Again
+                    🆕 Archive Now
+                </a>
+                <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; color: #065f46; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
+                   href="/admin/core/snapshot/?id__exact={}"
+                   title="Redo failed extractors (missing outputs)"
+                   onmouseover="this.style.background='#d1fae5';"
+                   onmouseout="this.style.background='#ecfdf5';">
+                    🔁 Redo Failed
                 </a>
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; color: #92400e; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
                    href="/admin/core/snapshot/?id__exact={}"
@@ -707,7 +708,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     #     return super().changelist_view(request, extra_context=None)
 
     @admin.action(
-        description="⏯️ Finish"
+        description="🔁 Redo Failed"
     )
     def update_snapshots(self, request, queryset):
         count = queryset.count()
@@ -721,7 +722,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
 
     @admin.action(
-        description="⬇️ Fresh"
+        description="🆕 Archive Now"
     )
     def resnapshot_snapshot(self, request, queryset):
         for snapshot in queryset:

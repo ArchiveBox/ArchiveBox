@@ -608,10 +608,6 @@
         </div>
     </div>
 
-    <div class="thumbnail-strip empty" id="thumbnail-strip">
-        <span class="thumbnail-label">Recent:</span>
-    </div>
-
     <div class="tree-container" id="tree-container">
         <div class="idle-message" id="idle-message">No active crawls</div>
         <div id="crawl-tree"></div>
@@ -625,7 +621,7 @@
     const treeContainer = document.getElementById('tree-container');
     const crawlTree = document.getElementById('crawl-tree');
     const idleMessage = document.getElementById('idle-message');
-    const thumbnailStrip = document.getElementById('thumbnail-strip');
+    const thumbnailStrip = null;
 
     let pollInterval = null;
     let pollDelayMs = 1000;
@@ -697,65 +693,8 @@
     }
 
 
-    function renderThumbnail(thumb, isNew) {
-        const ext = (thumb.embed_path || '').toLowerCase().split('.').pop();
-        const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico'].includes(ext);
-
-        const item = document.createElement('a');
-        item.className = 'thumbnail-item' + (isNew ? ' new' : '');
-        item.href = `/admin/core/snapshot/${thumb.snapshot_id}/change/`;
-        item.title = `${thumb.plugin}: ${thumb.snapshot_url}`;
-        item.dataset.id = thumb.id;
-
-        const archiveUrl = thumb.archive_url || thumb.archive_path;
-        if (isImage && archiveUrl) {
-            item.innerHTML = `
-                <img src="${archiveUrl}" alt="${thumb.plugin}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'thumbnail-fallback\\'>${getPluginIcon(thumb.plugin)}</div><span class=\\'thumbnail-plugin\\'>${thumb.plugin}</span>'">
-                <span class="thumbnail-plugin">${thumb.plugin}</span>
-            `;
-        } else {
-            item.innerHTML = `
-                <div class="thumbnail-fallback">${getPluginIcon(thumb.plugin)}</div>
-                <span class="thumbnail-plugin">${thumb.plugin}</span>
-            `;
-        }
-
-        return item;
-    }
-
-    function updateThumbnails(thumbnails) {
-        if (!thumbnails || thumbnails.length === 0) {
-            thumbnailStrip.classList.add('empty');
-            return;
-        }
-
-        thumbnailStrip.classList.remove('empty');
-
-        // Find new thumbnails (ones we haven't seen before)
-        const newThumbs = thumbnails.filter(t => !knownThumbnailIds.has(t.id));
-
-        // Add new thumbnails to the beginning (after the label)
-        const label = thumbnailStrip.querySelector('.thumbnail-label');
-        newThumbs.reverse().forEach(thumb => {
-            const item = renderThumbnail(thumb, true);
-            if (label.nextSibling) {
-                thumbnailStrip.insertBefore(item, label.nextSibling);
-            } else {
-                thumbnailStrip.appendChild(item);
-            }
-            knownThumbnailIds.add(thumb.id);
-        });
-
-        // Limit to 20 thumbnails (remove old ones)
-        const items = thumbnailStrip.querySelectorAll('.thumbnail-item');
-        if (items.length > 20) {
-            for (let i = 20; i < items.length; i++) {
-                const id = items[i].dataset.id;
-                knownThumbnailIds.delete(id);
-                items[i].remove();
-            }
-        }
-    }
+    function renderThumbnail(thumb, isNew) { return null; }
+    function updateThumbnails(thumbnails) {}
 
     function renderExtractor(extractor) {
         const icon = extractor.status === 'started' ? '&#8635;' :
@@ -1009,8 +948,7 @@
             crawlTree.innerHTML = '';
         }
 
-        // Update thumbnail strip with recently completed results
-        updateThumbnails(data.recent_thumbnails || []);
+        // Recent thumbnails removed
     }
 
     function fetchProgress() {
