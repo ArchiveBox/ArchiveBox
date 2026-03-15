@@ -39,8 +39,13 @@ def test_title_is_htmlencoded_in_index_html(tmp_path, process, disable_extractor
         env=disable_extractors_dict,
     )
     assert add_process.returncode == 0, add_process.stderr or add_process.stdout
-    list_process = subprocess.run(["archivebox", "list", "--html"], capture_output=True)
+    list_process = subprocess.run(
+        ["archivebox", "search", "--html"],
+        capture_output=True,
+        text=True,
+    )
+    assert list_process.returncode == 0, list_process.stderr or list_process.stdout
 
     # Should not contain unescaped HTML tags in output
-    output = list_process.stdout.decode("utf-8")
+    output = list_process.stdout
     assert "https://example.com" in output
