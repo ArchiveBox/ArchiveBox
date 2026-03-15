@@ -17,6 +17,8 @@ pytestmark = pytest.mark.django_db
 
 
 User = get_user_model()
+ADMIN_HOST = 'admin.archivebox.localhost:8000'
+PUBLIC_HOST = 'public.archivebox.localhost:8000'
 
 
 @pytest.fixture
@@ -120,7 +122,7 @@ class TestAdminSnapshotListView:
         """Test that the list view renders successfully."""
         client.login(username='testadmin', password='testpassword')
         url = reverse('admin:core_snapshot_changelist')
-        response = client.get(url)
+        response = client.get(url, HTTP_HOST=ADMIN_HOST)
 
         assert response.status_code == 200
 
@@ -128,7 +130,7 @@ class TestAdminSnapshotListView:
         """Test list view with snapshots displays them."""
         client.login(username='testadmin', password='testpassword')
         url = reverse('admin:core_snapshot_changelist')
-        response = client.get(url)
+        response = client.get(url, HTTP_HOST=ADMIN_HOST)
 
         assert response.status_code == 200
         assert b'example.com' in response.content
@@ -137,7 +139,7 @@ class TestAdminSnapshotListView:
         """Test that the grid view renders successfully."""
         client.login(username='testadmin', password='testpassword')
         url = reverse('admin:grid')
-        response = client.get(url)
+        response = client.get(url, HTTP_HOST=ADMIN_HOST)
 
         assert response.status_code == 200
 
@@ -145,7 +147,7 @@ class TestAdminSnapshotListView:
         """Test that view mode switcher is present."""
         client.login(username='testadmin', password='testpassword')
         url = reverse('admin:core_snapshot_changelist')
-        response = client.get(url)
+        response = client.get(url, HTTP_HOST=ADMIN_HOST)
 
         assert response.status_code == 200
         # Check for view mode toggle elements
@@ -161,7 +163,7 @@ class TestAdminSnapshotSearch:
         """Test searching snapshots by URL."""
         client.login(username='testadmin', password='testpassword')
         url = reverse('admin:core_snapshot_changelist')
-        response = client.get(url, {'q': 'example.com'})
+        response = client.get(url, {'q': 'example.com'}, HTTP_HOST=ADMIN_HOST)
 
         assert response.status_code == 200
         # The search should find the example.com snapshot
@@ -178,7 +180,7 @@ class TestAdminSnapshotSearch:
 
         client.login(username='testadmin', password='testpassword')
         url = reverse('admin:core_snapshot_changelist')
-        response = client.get(url, {'q': 'Unique Title'})
+        response = client.get(url, {'q': 'Unique Title'}, HTTP_HOST=ADMIN_HOST)
 
         assert response.status_code == 200
 
@@ -190,7 +192,7 @@ class TestAdminSnapshotSearch:
 
         client.login(username='testadmin', password='testpassword')
         url = reverse('admin:core_snapshot_changelist')
-        response = client.get(url, {'q': 'test-search-tag'})
+        response = client.get(url, {'q': 'test-search-tag'}, HTTP_HOST=ADMIN_HOST)
 
         assert response.status_code == 200
 
@@ -198,7 +200,7 @@ class TestAdminSnapshotSearch:
         """Test empty search returns all snapshots."""
         client.login(username='testadmin', password='testpassword')
         url = reverse('admin:core_snapshot_changelist')
-        response = client.get(url, {'q': ''})
+        response = client.get(url, {'q': ''}, HTTP_HOST=ADMIN_HOST)
 
         assert response.status_code == 200
 
@@ -206,7 +208,7 @@ class TestAdminSnapshotSearch:
         """Test search with no results."""
         client.login(username='testadmin', password='testpassword')
         url = reverse('admin:core_snapshot_changelist')
-        response = client.get(url, {'q': 'nonexistent-url-xyz789'})
+        response = client.get(url, {'q': 'nonexistent-url-xyz789'}, HTTP_HOST=ADMIN_HOST)
 
         assert response.status_code == 200
 
@@ -228,29 +230,29 @@ class TestPublicIndexSearch:
     @override_settings(PUBLIC_INDEX=True)
     def test_public_search_by_url(self, client, public_snapshot):
         """Test public search by URL."""
-        response = client.get('/public/', {'q': 'public-example.com'})
+        response = client.get('/public/', {'q': 'public-example.com'}, HTTP_HOST=PUBLIC_HOST)
         assert response.status_code == 200
 
     @override_settings(PUBLIC_INDEX=True)
     def test_public_search_by_title(self, client, public_snapshot):
         """Test public search by title."""
-        response = client.get('/public/', {'q': 'Public Example'})
+        response = client.get('/public/', {'q': 'Public Example'}, HTTP_HOST=PUBLIC_HOST)
         assert response.status_code == 200
 
     @override_settings(PUBLIC_INDEX=True)
     def test_public_search_query_type_meta(self, client, public_snapshot):
         """Test public search with query_type=meta."""
-        response = client.get('/public/', {'q': 'example', 'query_type': 'meta'})
+        response = client.get('/public/', {'q': 'example', 'query_type': 'meta'}, HTTP_HOST=PUBLIC_HOST)
         assert response.status_code == 200
 
     @override_settings(PUBLIC_INDEX=True)
     def test_public_search_query_type_url(self, client, public_snapshot):
         """Test public search with query_type=url."""
-        response = client.get('/public/', {'q': 'public-example.com', 'query_type': 'url'})
+        response = client.get('/public/', {'q': 'public-example.com', 'query_type': 'url'}, HTTP_HOST=PUBLIC_HOST)
         assert response.status_code == 200
 
     @override_settings(PUBLIC_INDEX=True)
     def test_public_search_query_type_title(self, client, public_snapshot):
         """Test public search with query_type=title."""
-        response = client.get('/public/', {'q': 'Website', 'query_type': 'title'})
+        response = client.get('/public/', {'q': 'Website', 'query_type': 'title'}, HTTP_HOST=PUBLIC_HOST)
         assert response.status_code == 200

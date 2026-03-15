@@ -145,6 +145,15 @@ def drain_old_archive_dirs(resume_from: str = None, batch_size: int = 100) -> di
                 print(f"    [{stats['processed']}] Invalid: {entry_path.name}")
                 continue
 
+            try:
+                snapshot.save()
+                stats['migrated'] += 1
+                print(f"    [{stats['processed']}] Imported orphaned snapshot: {entry_path.name}")
+            except Exception as e:
+                stats['skipped'] += 1
+                print(f"    [{stats['processed']}] Skipped (error: {e}): {entry_path.name}")
+            continue
+
         # Ensure snapshot has a valid crawl (migration 0024 may have failed)
         from archivebox.crawls.models import Crawl
         has_valid_crawl = False

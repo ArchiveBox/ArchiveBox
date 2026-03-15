@@ -1,33 +1,42 @@
+import json
 import sqlite3
 
 from .fixtures import *
 
 def test_update_imports_orphaned_snapshots(tmp_path, process, disable_extractors_dict):
-    """Test that archivebox update imports orphaned snapshot directories."""
-    # Add a snapshot
-    subprocess.run(['archivebox', 'add', 'https://example.com'], capture_output=True, env=disable_extractors_dict)
-    assert list((tmp_path / "archive").iterdir()) != []
+    """Test that archivebox update imports real legacy archive directories."""
+    legacy_timestamp = '1710000000'
+    legacy_dir = tmp_path / 'archive' / legacy_timestamp
+    legacy_dir.mkdir(parents=True, exist_ok=True)
+    (legacy_dir / 'singlefile.html').write_text('<html>example</html>')
+    (legacy_dir / 'index.json').write_text(json.dumps({
+        'url': 'https://example.com',
+        'timestamp': legacy_timestamp,
+        'title': 'Example Domain',
+        'fs_version': '0.8.0',
+        'archive_results': [],
+    }))
 
-    # Remove from DB but leave directory intact
-    subprocess.run(['archivebox', 'remove', 'https://example.com', '--yes'], capture_output=True)
+    # Run update without filters - should import and migrate the legacy directory.
+    update_process = subprocess.run(
+        ['archivebox', 'update'],
+        capture_output=True,
+        text=True,
+        env=disable_extractors_dict,
+        timeout=60,
+    )
+    assert update_process.returncode == 0, update_process.stderr
 
-    # Verify snapshot removed from DB
     conn = sqlite3.connect(str(tmp_path / "index.sqlite3"))
     c = conn.cursor()
-    link = c.execute("SELECT * FROM core_snapshot").fetchone()
+    row = c.execute("SELECT url, fs_version FROM core_snapshot").fetchone()
     conn.commit()
     conn.close()
 
-    assert link is None
+    assert row == ('https://example.com', '0.9.0')
+    assert legacy_dir.is_symlink()
 
-    # Run update without filters - should scan filesystem and import orphaned directory
-    update_process = subprocess.run(['archivebox', 'update'], capture_output=True, env=disable_extractors_dict)
-
-    # Verify snapshot was re-imported from orphaned directory
-    conn = sqlite3.connect(str(tmp_path / "index.sqlite3"))
-    c = conn.cursor()
-    url = c.execute("SELECT url FROM core_snapshot").fetchone()[0]
-    conn.commit()
-    conn.close()
-
-    assert url == 'https://example.com'
+    migrated_dir = legacy_dir.resolve()
+    assert migrated_dir.exists()
+    assert (migrated_dir / 'index.jsonl').exists()
+    assert (migrated_dir / 'singlefile.html').exists()

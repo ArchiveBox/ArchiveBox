@@ -167,10 +167,12 @@ class TestArchiveBoxWithLDAP(unittest.TestCase):
         # Run archivebox version with LDAP config env vars
         result = subprocess.run(
             [sys.executable, '-m', 'archivebox', 'version'],
+            cwd=self.work_dir,
             capture_output=True,
             timeout=10,
             env={
                 **os.environ,
+                'DATA_DIR': self.work_dir,
                 'LDAP_ENABLED': 'False',
                 'LDAP_SERVER_URI': 'ldap://ldap-test.localhost:389',
             }
