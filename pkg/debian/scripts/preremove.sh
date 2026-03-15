@@ -2,7 +2,9 @@
 # preremove script for archivebox .deb package
 set -e
 
-# Only clean up on full removal, not during upgrade
+# Only clean up on full removal, not during upgrade.
+# dpkg passes "$1" as "remove", "purge", or "upgrade" — we skip cleanup on
+# upgrade so the venv and service persist across package version bumps.
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
     # Stop the service if running
     if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then

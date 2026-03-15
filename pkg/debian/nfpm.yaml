@@ -55,7 +55,7 @@ contents:
     file_info:
       mode: 0644
 
-  # Create data directory
+  # Create data directory (unpacked as root; postinstall.sh chowns to archivebox user)
   - dst: /var/lib/archivebox
     type: dir
     file_info:
