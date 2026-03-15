@@ -344,7 +344,8 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
 
         machine = Machine.current()
         overrides = overrides or {}
-        normalized_overrides = Binary._normalize_overrides(record.get('overrides', {}))
+        binary_overrides = record.get('overrides', {})
+        normalized_overrides = binary_overrides if isinstance(binary_overrides, dict) else {}
 
         # Case 1: Already installed (from on_Crawl hooks) - has abspath AND binproviders
         # This happens when on_Crawl hooks detect already-installed binaries
@@ -412,31 +413,6 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
             setattr(self, key, value)
         self.modified_at = timezone.now()
         self.save()
-
-    @staticmethod
-    def _normalize_overrides(overrides: dict | None) -> dict:
-        """Normalize hook-emitted binary overrides to the canonical install_args shape."""
-        if not isinstance(overrides, dict):
-            return {}
-
-        normalized: dict = {}
-        reserved_keys = {'custom_cmd', 'cmd', 'command'}
-
-        for provider, value in overrides.items():
-            if provider in reserved_keys:
-                normalized[provider] = value
-                continue
-
-            if isinstance(value, dict):
-                normalized[provider] = value
-            elif isinstance(value, (list, tuple)):
-                normalized[provider] = {'install_args': list(value)}
-            elif isinstance(value, str) and value.strip():
-                normalized[provider] = {'install_args': value.strip()}
-            else:
-                normalized[provider] = value
-
-        return normalized
 
     def _allowed_binproviders(self) -> set[str] | None:
         """Return the allowed binproviders for this binary, or None for wildcard."""

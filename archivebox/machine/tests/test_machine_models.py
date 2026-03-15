@@ -198,6 +198,37 @@ class TestBinaryModel(TestCase):
         self.assertEqual(binary.status, Binary.StatusChoices.QUEUED)
         self.assertGreater(binary.modified_at, old_modified)
 
+    def test_binary_from_json_preserves_install_args_overrides(self):
+        """Binary.from_json() should persist canonical install_args overrides unchanged."""
+        overrides = {
+            'apt': {'install_args': ['chromium']},
+            'npm': {'install_args': 'puppeteer'},
+            'custom': {'install_args': ['bash', '-lc', 'echo ok']},
+        }
+
+        binary = Binary.from_json({
+            'name': 'chrome',
+            'binproviders': 'apt,npm,custom',
+            'overrides': overrides,
+        })
+
+        self.assertEqual(binary.overrides, overrides)
+
+    def test_binary_from_json_does_not_coerce_legacy_override_shapes(self):
+        """Binary.from_json() should no longer translate legacy non-dict provider overrides."""
+        overrides = {
+            'apt': ['chromium'],
+            'npm': 'puppeteer',
+        }
+
+        binary = Binary.from_json({
+            'name': 'chrome',
+            'binproviders': 'apt,npm',
+            'overrides': overrides,
+        })
+
+        self.assertEqual(binary.overrides, overrides)
+
 
 class TestBinaryStateMachine(TestCase):
     """Test the BinaryMachine state machine."""
