@@ -10,8 +10,9 @@ Type=simple
 User=archivebox
 Group=archivebox
 WorkingDirectory=/var/lib/archivebox
-ExecStartPre=/opt/archivebox/venv/bin/archivebox init
-ExecStart=/opt/archivebox/venv/bin/archivebox server 0.0.0.0:8000
+Environment="PATH=/opt/archivebox/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStartPre=/usr/bin/archivebox init
+ExecStart=/usr/bin/archivebox server 0.0.0.0:8000
 Restart=on-failure
 RestartSec=5
 

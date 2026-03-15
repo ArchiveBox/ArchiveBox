@@ -112,9 +112,13 @@ jobs:
 
       - name: Pre-seed virtualenv with local wheel before dpkg install
         run: |
-          # Create the venv and install from local wheel BEFORE dpkg runs postinstall.
-          # This way the postinstall's pip install either succeeds (release) or
-          # finds archivebox already installed (CI) and just upgrades deps.
+          # CI-only: pre-seed the venv with a local wheel so we test the
+          # unreleased code, not whatever is on PyPI. We explicitly use python3.13
+          # here (matching the system dep installed above) to ensure the venv is
+          # created with the correct Python version. On real installs, install.sh
+          # handles this by preferring python3.13 and failing if < 3.13.
+          # When postinstall.sh runs during dpkg -i, it finds the venv already
+          # populated and just upgrades deps.
           sudo mkdir -p /opt/archivebox
           sudo python3.13 -m venv /opt/archivebox/venv
           sudo /opt/archivebox/venv/bin/python3 -m pip install --quiet --upgrade pip setuptools
@@ -167,6 +171,22 @@ jobs:
       contents: write
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Determine release tag
+        id: tag
+        run: |
+          # github.event.release.tag_name is set for release events but empty
+          # for workflow_dispatch. Fall back to the version from pyproject.toml.
+          TAG="${{ github.event.release.tag_name }}"
+          if [ -z "$TAG" ]; then
+            TAG="v$(grep '^version = ' pyproject.toml | awk -F'\"' '{print $2}')"
+            echo "[i] No release tag in event context, using version from pyproject.toml: $TAG"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
       - name: Download all .deb artifacts
         uses: actions/download-artifact@v4
         with:
@@ -177,4 +197,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" *.deb --clobber
+          gh release upload "${{ steps.tag.outputs.tag }}" *.deb --clobber
