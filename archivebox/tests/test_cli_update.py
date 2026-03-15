@@ -53,13 +53,13 @@ def test_update_specific_snapshot_by_filter(tmp_path, process, disable_extractor
 
     # Add multiple snapshots
     subprocess.run(
-        ['archivebox', 'add', '--depth=0', 'https://example.com'],
+        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=90,
     )
     subprocess.run(
-        ['archivebox', 'add', '--depth=0', 'https://example.org'],
+        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.org'],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=90,
@@ -83,7 +83,7 @@ def test_update_preserves_snapshot_count(tmp_path, process, disable_extractors_d
 
     # Add snapshots
     subprocess.run(
-        ['archivebox', 'add', '--depth=0', 'https://example.com'],
+        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=90,
@@ -120,7 +120,7 @@ def test_update_queues_snapshots_for_archiving(tmp_path, process, disable_extrac
     os.chdir(tmp_path)
 
     subprocess.run(
-        ['archivebox', 'add', '--depth=0', 'https://example.com'],
+        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=90,

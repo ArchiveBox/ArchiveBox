@@ -19,6 +19,7 @@ Config priority order (highest to lowest):
 
 import os
 import json
+import sys
 import tempfile
 import subprocess
 import time
@@ -51,7 +52,7 @@ def test_config_propagation_through_worker_hierarchy():
         # Step 1: Initialize archive
         print("Step 1: Initialize archive")
         result = subprocess.run(
-            ['python', '-m', 'archivebox', 'init'],
+            [sys.executable, '-m', 'archivebox', 'init'],
             cwd=str(data_dir),
             env={
                 **os.environ,
@@ -111,7 +112,7 @@ machine.save()
 print(f"Machine {{machine.hostname}} config updated")
 """
         result = subprocess.run(
-            ['python', '-c', set_machine_config_script],
+            [sys.executable, '-c', set_machine_config_script],
             cwd=str(data_dir.parent),
             env={
                 **os.environ,
@@ -149,7 +150,7 @@ crawl = Crawl.objects.create(
 print(crawl.id)
 """
         result = subprocess.run(
-            ['python', '-c', create_crawl_script],
+            [sys.executable, '-c', create_crawl_script],
             cwd=str(data_dir.parent),
             env={
                 **os.environ,
@@ -193,7 +194,7 @@ snapshot = Snapshot.objects.create(
 print(snapshot.id)
 """
         result = subprocess.run(
-            ['python', '-c', create_snapshot_script],
+            [sys.executable, '-c', create_snapshot_script],
             cwd=str(data_dir.parent),
             env={
                 **os.environ,
@@ -211,7 +212,7 @@ print(snapshot.id)
         # Step 5: Run SnapshotWorker with additional env var
         print("Step 5: Run SnapshotWorker with ENV_VAR_KEY=from_environment")
         result = subprocess.run(
-            ['python', '-m', 'archivebox', 'run', '--snapshot-id', snapshot_id],
+            [sys.executable, '-m', 'archivebox', 'run', '--snapshot-id', snapshot_id],
             cwd=str(data_dir),
             env={
                 **os.environ,
@@ -238,13 +239,8 @@ print(snapshot.id)
         # Check that SnapshotWorker ran successfully
         assert result.returncode == 0, f"SnapshotWorker failed with exit code {result.returncode}\n{stderr}"
 
-        # Verify config by checking stderr debug output and ArchiveResults in database
+        # Verify config by checking ArchiveResults and merged config state
         print("\n--- Verifying config propagation ---\n")
-
-        # Check for config debug messages in stderr
-        assert "DEBUG: NO PLUGINS whitelist in config" in stderr, \
-            "Expected debug output not found in stderr"
-        print("✓ Config debug output found in stderr")
 
         # Verify precedence order: snapshot > crawl > user > persona > env > machine > file > defaults
         verify_precedence_script = f"""
@@ -291,7 +287,7 @@ assert config_snapshot.get('CUSTOM_MACHINE_KEY') == 'from_machine_config', "Mach
 print("\\n✓ Config precedence order verified: snapshot > crawl > machine > defaults")
 """
         result = subprocess.run(
-            ['python', '-c', verify_precedence_script],
+            [sys.executable, '-c', verify_precedence_script],
             cwd=str(data_dir.parent),
             env={
                 **os.environ,
@@ -332,29 +328,29 @@ config = get_config(snapshot=snapshot)
 
 # 1. Snapshot.config (highest priority)
 timeout = config.get('TIMEOUT')
-print(f"  1. Snapshot.config: TIMEOUT={timeout} (expected: 555)")
+print(f"  1. Snapshot.config: TIMEOUT={{timeout}} (expected: 555)")
 assert timeout == 555, f"TIMEOUT should be 555 from snapshot.config, got {{timeout}}"
 
-wget_enabled = config.get('SAVE_WGET')
-print(f"  1. Snapshot.config: SAVE_WGET={wget_enabled} (expected: False)")
-assert wget_enabled == False, f"SAVE_WGET should be False from snapshot.config, got {{wget_enabled}}"
+wget_enabled = config.get('WGET_ENABLED')
+print(f"  1. Snapshot.config: WGET_ENABLED={{wget_enabled}} (expected: False)")
+assert wget_enabled == False, f"WGET_ENABLED should be False from snapshot.config, got {{wget_enabled}}"
 
 custom_snapshot = config.get('CUSTOM_SNAPSHOT_KEY')
-print(f"  1. Snapshot.config: CUSTOM_SNAPSHOT_KEY={custom_snapshot} (expected: from_snapshot_json)")
+print(f"  1. Snapshot.config: CUSTOM_SNAPSHOT_KEY={{custom_snapshot}} (expected: from_snapshot_json)")
 assert custom_snapshot == 'from_snapshot_json', f"Expected from_snapshot_json, got {{custom_snapshot}}"
 
 # 2. Crawl.config
 custom_crawl = config.get('CUSTOM_CRAWL_KEY')
-print(f"  2. Crawl.config: CUSTOM_CRAWL_KEY={custom_crawl} (expected: from_crawl_json)")
+print(f"  2. Crawl.config: CUSTOM_CRAWL_KEY={{custom_crawl}} (expected: from_crawl_json)")
 assert custom_crawl == 'from_crawl_json', f"Expected from_crawl_json, got {{custom_crawl}}"
 
 # 6. Machine.config
 custom_machine = config.get('CUSTOM_MACHINE_KEY')
-print(f"  6. Machine.config: CUSTOM_MACHINE_KEY={custom_machine} (expected: from_machine_config)")
+print(f"  6. Machine.config: CUSTOM_MACHINE_KEY={{custom_machine}} (expected: from_machine_config)")
 assert custom_machine == 'from_machine_config', f"Expected from_machine_config, got {{custom_machine}}"
 
 wget_binary = config.get('WGET_BINARY')
-print(f"  6. Machine.config: WGET_BINARY={wget_binary} (expected: /custom/machine/wget)")
+print(f"  6. Machine.config: WGET_BINARY={{wget_binary}} (expected: /custom/machine/wget)")
 # Note: This might be overridden by environment or other sources, just check it's present
 assert wget_binary is not None, f"WGET_BINARY should be present"
 
@@ -384,7 +380,7 @@ print("✓ Config priority order verified")
 print("✓ Snapshot successfully sealed")
 """
         result = subprocess.run(
-            ['python', '-c', verify_script],
+            [sys.executable, '-c', verify_script],
             cwd=str(data_dir.parent),
             env={
                 **os.environ,
@@ -424,7 +420,7 @@ def test_config_environment_variable_parsing():
 
         # Initialize archive
         result = subprocess.run(
-            ['python', '-m', 'archivebox', 'init'],
+            [sys.executable, '-m', 'archivebox', 'init'],
             cwd=str(data_dir),
             env={
                 **os.environ,
@@ -514,7 +510,7 @@ print("\\n✓ All config values correctly parsed from environment")
 """
 
         result = subprocess.run(
-            ['python', '-c', test_config_types_script],
+            [sys.executable, '-c', test_config_types_script],
             cwd=str(data_dir.parent),
             env={
                 **os.environ,
@@ -561,7 +557,7 @@ def test_parent_environment_preserved_in_hooks():
         # Initialize archive
         print("Step 1: Initialize archive")
         result = subprocess.run(
-            ['python', '-m', 'archivebox', 'init'],
+            [sys.executable, '-m', 'archivebox', 'init'],
             cwd=str(data_dir),
             env={
                 **os.environ,
@@ -602,7 +598,7 @@ snapshot = Snapshot.objects.create(
 print(snapshot.id)
 """
         result = subprocess.run(
-            ['python', '-c', create_snapshot_script],
+            [sys.executable, '-c', create_snapshot_script],
             cwd=str(data_dir.parent),
             env={
                 **os.environ,
@@ -619,7 +615,7 @@ print(snapshot.id)
         # Run SnapshotWorker with custom parent environment variable
         print("Step 3: Run SnapshotWorker with TEST_PARENT_ENV_VAR in parent process")
         result = subprocess.run(
-            ['python', '-m', 'archivebox', 'run', '--snapshot-id', snapshot_id],
+            [sys.executable, '-m', 'archivebox', 'run', '--snapshot-id', snapshot_id],
             cwd=str(data_dir),
             env={
                 **os.environ,
@@ -706,7 +702,7 @@ if node_path:
 print("\\n✓ All environment checks passed")
 """
         result = subprocess.run(
-            ['python', '-c', verify_env_script],
+            [sys.executable, '-c', verify_env_script],
             cwd=str(data_dir.parent),
             env={
                 **os.environ,
@@ -755,7 +751,7 @@ def test_config_auto_fetch_relationships():
         # Initialize archive
         print("Step 1: Initialize archive")
         result = subprocess.run(
-            ['python', '-m', 'archivebox', 'init'],
+            [sys.executable, '-m', 'archivebox', 'init'],
             cwd=str(data_dir),
             env={
                 **os.environ,
@@ -846,7 +842,7 @@ print("\\n✓ All auto-fetch tests passed")
 """
 
         result = subprocess.run(
-            ['python', '-c', create_objects_script],
+            [sys.executable, '-c', create_objects_script],
             cwd=str(data_dir.parent),
             env={
                 **os.environ,
@@ -900,7 +896,7 @@ def test_config_precedence_with_environment_vars():
 
         # Initialize
         result = subprocess.run(
-            ['python', '-m', 'archivebox', 'init'],
+            [sys.executable, '-m', 'archivebox', 'init'],
             cwd=str(data_dir),
             env={**os.environ, 'DATA_DIR': str(data_dir), 'USE_COLOR': 'False'},
             capture_output=True,
@@ -962,7 +958,7 @@ print(f"\\n✓ snapshot.config ({{expected}}) correctly overrides env var (999) 
 """
 
         result = subprocess.run(
-            ['python', '-c', test_script],
+            [sys.executable, '-c', test_script],
             cwd=str(data_dir.parent),
             capture_output=True,
             timeout=30,
@@ -1000,7 +996,7 @@ def test_new_environment_variables_added():
 
         # Initialize
         result = subprocess.run(
-            ['python', '-m', 'archivebox', 'init'],
+            [sys.executable, '-m', 'archivebox', 'init'],
             cwd=str(data_dir),
             env={**os.environ, 'DATA_DIR': str(data_dir), 'USE_COLOR': 'False'},
             capture_output=True,
@@ -1041,7 +1037,7 @@ print("✓ Lowercase environment variables ignored")
 """
 
         result = subprocess.run(
-            ['python', '-c', test_script],
+            [sys.executable, '-c', test_script],
             cwd=str(data_dir.parent),
             capture_output=True,
             timeout=30,

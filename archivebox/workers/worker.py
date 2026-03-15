@@ -1082,7 +1082,7 @@ class BinaryWorker(Worker):
             binary.sm.tick()
 
             binary.refresh_from_db()
-            if binary.status == Binary.StatusChoices.INSTALLED:
+            if binary.status == binary.__class__.StatusChoices.INSTALLED:
                 log_worker_event(
                     worker_type='BinaryWorker',
                     event=f'Installed: {binary.name} -> {binary.abspath}',
@@ -1141,7 +1141,7 @@ class BinaryWorker(Worker):
                         binary.sm.tick()
 
                         binary.refresh_from_db()
-                        if binary.status == Binary.StatusChoices.INSTALLED:
+                        if binary.status == binary.__class__.StatusChoices.INSTALLED:
                             log_worker_event(
                                 worker_type='BinaryWorker',
                                 event=f'Installed: {binary.name} -> {binary.abspath}',

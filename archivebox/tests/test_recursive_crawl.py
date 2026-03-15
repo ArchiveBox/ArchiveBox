@@ -35,25 +35,21 @@ def test_background_hooks_dont_block_parser_extractors(tmp_path, process):
         "SAVE_YTDLP": "false",
         "SAVE_ARCHIVEDOTORG": "false",
         "SAVE_TITLE": "false",
-        "SAVE_FAVICON": "false",
-        # Enable chrome session (required for background hooks to start)
-        "USE_CHROME": "true",
-        # Parser extractors enabled by default
+        "SAVE_FAVICON": "true",
+        "SAVE_WGET": "true",
     })
 
     # Start a crawl with depth=1
     proc = subprocess.Popen(
-        ['archivebox', 'add', '--depth=1', 'https://monadical.com'],
+        ['archivebox', 'add', '--depth=1', '--plugins=favicon,wget,parse_html_urls', 'https://monadical.com'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
         env=env,
     )
 
-    # Give orchestrator time to run all Crawl hooks and create snapshot
-    # First crawl in a new data dir: ~10-20s (install hooks do full binary lookups)
-    # Subsequent crawls: ~3-5s (Machine config cached, hooks exit early)
-    time.sleep(25)
+    # Give the background hook + parser enough time to create and process the root snapshot.
+    time.sleep(20)
 
     # Kill the process
     proc.kill()
@@ -141,7 +137,7 @@ def test_parser_extractors_emit_snapshot_jsonl(tmp_path, process):
 
     # Add a URL with depth=0 (no recursion yet)
     proc = subprocess.Popen(
-        ['archivebox', 'add', '--depth=0', 'https://monadical.com'],
+        ['archivebox', 'add', '--depth=0', '--plugins=wget,parse_html_urls', 'https://monadical.com'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -297,7 +293,7 @@ def test_recursive_crawl_respects_depth_limit(tmp_path, process, disable_extract
 
     # Start a crawl with depth=1
     proc = subprocess.Popen(
-        ['archivebox', 'add', '--depth=1', 'https://monadical.com'],
+        ['archivebox', 'add', '--depth=1', '--plugins=wget,parse_html_urls', 'https://monadical.com'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -371,7 +367,7 @@ def test_root_snapshot_has_depth_zero(tmp_path, process, disable_extractors_dict
     os.chdir(tmp_path)
 
     subprocess.run(
-        ['archivebox', 'add', '--depth=1', 'https://monadical.com'],
+        ['archivebox', 'add', '--depth=1', '--plugins=wget,parse_html_urls', 'https://monadical.com'],
         capture_output=True,
         text=True,
         env=disable_extractors_dict,
@@ -403,15 +399,15 @@ def test_archiveresult_worker_queue_filters_by_foreground_extractors(tmp_path, p
     # Start a crawl
     env = os.environ.copy()
     env.update({
-        "USE_WGET": "false",
-        "USE_SINGLEFILE": "false",
+        "SAVE_WGET": "true",
+        "SAVE_SINGLEFILE": "false",
         "SAVE_PDF": "false",
         "SAVE_SCREENSHOT": "false",
-        "USE_CHROME": "true",  # Enables background hooks
+        "SAVE_FAVICON": "true",
     })
 
     proc = subprocess.Popen(
-        ['archivebox', 'add', 'https://monadical.com'],
+        ['archivebox', 'add', '--plugins=favicon,wget,parse_html_urls', 'https://monadical.com'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -430,7 +426,7 @@ def test_archiveresult_worker_queue_filters_by_foreground_extractors(tmp_path, p
 
     # Get background hooks that are started
     bg_started = c.execute(
-        "SELECT plugin FROM core_archiveresult WHERE plugin IN ('consolelog', 'ssl', 'responses', 'redirects', 'staticfile') AND status = 'started'"
+        "SELECT plugin FROM core_archiveresult WHERE plugin IN ('favicon') AND status = 'started'"
     ).fetchall()
 
     # Get parser extractors that should be queued or better

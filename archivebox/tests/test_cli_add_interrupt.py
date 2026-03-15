@@ -24,10 +24,10 @@ def _make_env(data_dir: Path) -> dict:
     env["USE_COLOR"] = "False"
     env["SHOW_PROGRESS"] = "False"
     env["ARCHIVEBOX_ALLOW_NO_UNIX_SOCKETS"] = "true"
-    env["PLUGINS"] = "title,favicon"
+    env["PLUGINS"] = "favicon"
     # Keep it fast but still real hooks
-    env["SAVE_TITLE"] = "True"
     env["SAVE_FAVICON"] = "True"
+    env["SAVE_TITLE"] = "False"
     env["SAVE_WGET"] = "False"
     env["SAVE_WARC"] = "False"
     env["SAVE_PDF"] = "False"
@@ -75,7 +75,7 @@ def test_add_parents_workers_to_orchestrator(tmp_path):
     init = _run([sys.executable, "-m", "archivebox", "init", "--quick"], data_dir, env)
     assert init.returncode == 0, init.stderr
 
-    add = _run([sys.executable, "-m", "archivebox", "add", "https://example.com"], data_dir, env, timeout=120)
+    add = _run([sys.executable, "-m", "archivebox", "add", "--plugins=favicon", "https://example.com"], data_dir, env, timeout=120)
     assert add.returncode == 0, add.stderr
 
     conn = sqlite3.connect(data_dir / "index.sqlite3")
@@ -105,7 +105,7 @@ def test_add_interrupt_cleans_orphaned_processes(tmp_path):
     assert init.returncode == 0, init.stderr
 
     proc = subprocess.Popen(
-        [sys.executable, "-m", "archivebox", "add", "https://example.com"],
+        [sys.executable, "-m", "archivebox", "add", "--plugins=favicon", "https://example.com"],
         cwd=data_dir,
         env=env,
         stdout=subprocess.PIPE,

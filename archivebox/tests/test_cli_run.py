@@ -18,6 +18,11 @@ from archivebox.tests.conftest import (
     create_test_snapshot_json,
 )
 
+RUN_TEST_ENV = {
+    'PLUGINS': 'favicon',
+    'SAVE_FAVICON': 'True',
+}
+
 
 class TestRunWithCrawl:
     """Tests for `archivebox run` with Crawl input."""
@@ -31,6 +36,7 @@ class TestRunWithCrawl:
             stdin=json.dumps(crawl_record),
             data_dir=initialized_archive,
             timeout=120,
+            env=RUN_TEST_ENV,
         )
 
         assert code == 0, f"Command failed: {stderr}"
@@ -46,7 +52,7 @@ class TestRunWithCrawl:
         url = create_test_url()
 
         # First create a crawl
-        stdout1, _, _ = run_archivebox_cmd(['crawl', 'create', url], data_dir=initialized_archive)
+        stdout1, _, _ = run_archivebox_cmd(['crawl', 'create', url], data_dir=initialized_archive, env=RUN_TEST_ENV)
         crawl = parse_jsonl_output(stdout1)[0]
 
         # Run with the existing crawl
@@ -55,6 +61,7 @@ class TestRunWithCrawl:
             stdin=json.dumps(crawl),
             data_dir=initialized_archive,
             timeout=120,
+            env=RUN_TEST_ENV,
         )
 
         assert code == 0
@@ -74,6 +81,7 @@ class TestRunWithSnapshot:
             stdin=json.dumps(snapshot_record),
             data_dir=initialized_archive,
             timeout=120,
+            env=RUN_TEST_ENV,
         )
 
         assert code == 0, f"Command failed: {stderr}"
@@ -88,7 +96,7 @@ class TestRunWithSnapshot:
         url = create_test_url()
 
         # First create a snapshot
-        stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive)
+        stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive, env=RUN_TEST_ENV)
         snapshot = parse_jsonl_output(stdout1)[0]
 
         # Run with the existing snapshot
@@ -97,6 +105,7 @@ class TestRunWithSnapshot:
             stdin=json.dumps(snapshot),
             data_dir=initialized_archive,
             timeout=120,
+            env=RUN_TEST_ENV,
         )
 
         assert code == 0
@@ -113,6 +122,7 @@ class TestRunWithSnapshot:
             stdin=json.dumps(url_record),
             data_dir=initialized_archive,
             timeout=120,
+            env=RUN_TEST_ENV,
         )
 
         assert code == 0
@@ -128,13 +138,14 @@ class TestRunWithArchiveResult:
         url = create_test_url()
 
         # Create snapshot and archive result
-        stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive)
+        stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive, env=RUN_TEST_ENV)
         snapshot = parse_jsonl_output(stdout1)[0]
 
         stdout2, _, _ = run_archivebox_cmd(
-            ['archiveresult', 'create', '--plugin=title'],
+            ['archiveresult', 'create', '--plugin=favicon'],
             stdin=json.dumps(snapshot),
             data_dir=initialized_archive,
+            env=RUN_TEST_ENV,
         )
         ar = next(r for r in parse_jsonl_output(stdout2) if r.get('type') == 'ArchiveResult')
 
@@ -144,6 +155,7 @@ class TestRunWithArchiveResult:
             ['archiveresult', 'update', '--status=failed'],
             stdin=json.dumps(ar),
             data_dir=initialized_archive,
+            env=RUN_TEST_ENV,
         )
 
         # Now run should re-queue it
@@ -152,6 +164,7 @@ class TestRunWithArchiveResult:
             stdin=json.dumps(ar),
             data_dir=initialized_archive,
             timeout=120,
+            env=RUN_TEST_ENV,
         )
 
         assert code == 0
@@ -189,6 +202,7 @@ class TestRunPassThrough:
             stdin=json.dumps(crawl_record),
             data_dir=initialized_archive,
             timeout=120,
+            env=RUN_TEST_ENV,
         )
 
         assert code == 0
@@ -217,6 +231,7 @@ class TestRunMixedInput:
             stdin=stdin,
             data_dir=initialized_archive,
             timeout=120,
+            env=RUN_TEST_ENV,
         )
 
         assert code == 0

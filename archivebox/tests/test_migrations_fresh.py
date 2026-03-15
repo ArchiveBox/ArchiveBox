@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .test_migrations_helpers import run_archivebox
+from .migrations_helpers import run_archivebox
 
 
 class TestFreshInstall(unittest.TestCase):
