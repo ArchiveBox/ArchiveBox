@@ -380,8 +380,8 @@ RUN (echo -e "\n\n[√] Finished Docker build succesfully. Saving build summary 
     ) | tee -a /VERSION.txt
 
 # Verify ArchiveBox is installed and print version info
-RUN chmod +x "$CODE_DIR"/bin/*.sh 
-    && (archivebox version 2>&1 | tee -a /VERSION.txt || true)
+RUN chmod +x "$CODE_DIR"/bin/*.sh \
+    && gosu "$DEFAULT_PUID" archivebox version 2>&1 | tee -a /VERSION.txt || true
 
 ####################################################
 
