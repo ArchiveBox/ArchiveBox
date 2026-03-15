@@ -1005,7 +1005,7 @@ https://127.0.0.1:8000/archive/*
 
 <blockquote>
 <p><em>NOTE: Only the <code>wget</code> &amp; <code>dom</code> extractor methods execute archived JS when viewing snapshots, all other archive methods produce static output that does not execute JS on viewing.</em><br/>
-<em>If you are worried about these issues ^ you can disable specific extractor plugins via the admin UI or configuration.</em></p>
+<em>If you are worried about these issues ^ you should disable these extractors using:<br/> <code>archivebox config --set SAVE_WGET=False SAVE_DOM=False</code>.</em></p>
 </blockquote>
 
 <h4>Learn More</h4>
@@ -1365,7 +1365,7 @@ git pull --recurse-submodules
 ```bash
 # Install ArchiveBox + python dependencies
 pip install uv
-uv sync --dev --all-extras
+./bin/lock_pkgs.sh         # (aka `uv venv; uv sync;` + generate requirements.txt)
 source .venv/bin/activate  # activate the venv
 
 # Install ArchiveBox runtime dependencies

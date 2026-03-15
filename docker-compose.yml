@@ -4,7 +4,7 @@
 #     docker compose run archivebox init --install
 #     docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
 #     docker compose run -T archivebox add < bookmarks.txt
-#     docker compose up -d && open 'http://localhost:8000'
+#     docker compose up -d && open 'http://web.archivebox.localhost:8000'
 #     docker compose run archivebox help
 # Documentation:
 #     https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker-compose
@@ -20,8 +20,9 @@ services:
         environment:
             # - ADMIN_USERNAME=admin            # creates an admin user on first run with the given user/pass combo
             # - ADMIN_PASSWORD=SomeSecretPassword
+            - LISTEN_HOST=archivebox.localhost:8000
             - ALLOWED_HOSTS=*                   # set this to the hostname(s) you're going to serve the site from!
-            - CSRF_TRUSTED_ORIGINS=http://localhost:8000  # MUST match the admin UI URL for login/API to work
+            - CSRF_TRUSTED_ORIGINS=http://admin.archivebox.localhost:8000  # MUST match the admin UI URL for login/API to work
             - PUBLIC_INDEX=True                 # set to False to prevent anonymous users from viewing snapshot list
             - PUBLIC_SNAPSHOTS=True             # set to False to prevent anonymous users from viewing snapshot content
             - PUBLIC_ADD_VIEW=False             # set to True to allow anonymous users to submit new URLs to archive
