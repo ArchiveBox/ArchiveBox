@@ -235,6 +235,34 @@ class TestHookDiscovery(unittest.TestCase):
 
         self.assertIn('env', plugins)
 
+    def test_discover_binary_hooks_ignores_plugins_whitelist(self):
+        """Binary provider hooks should remain discoverable under --plugins filtering."""
+        singlefile_dir = self.plugins_dir / 'singlefile'
+        singlefile_dir.mkdir()
+        (singlefile_dir / 'config.json').write_text(
+            json.dumps(
+                {
+                    "type": "object",
+                    "required_plugins": ["chrome"],
+                    "properties": {},
+                }
+            )
+        )
+
+        npm_dir = self.plugins_dir / 'npm'
+        npm_dir.mkdir()
+        (npm_dir / 'on_Binary__10_npm_install.py').write_text('# npm binary hook')
+        (npm_dir / 'config.json').write_text('{"type": "object", "properties": {}}')
+
+        from archivebox import hooks as hooks_module
+
+        hooks_module.get_plugins.cache_clear()
+        with patch.object(hooks_module, 'BUILTIN_PLUGINS_DIR', self.plugins_dir), patch.object(hooks_module, 'USER_PLUGINS_DIR', self.test_dir / 'user_plugins'):
+            hooks = hooks_module.discover_hooks('Binary', config={'PLUGINS': 'singlefile'})
+
+        hook_names = [hook.name for hook in hooks]
+        self.assertIn('on_Binary__10_npm_install.py', hook_names)
+
 
 class TestGetExtractorName(unittest.TestCase):
     """Test get_extractor_name() function."""

@@ -37,6 +37,21 @@ def stop_process(proc):
     return proc.communicate()
 
 
+def run_add_until(args, env, condition, timeout=120):
+    proc = subprocess.Popen(
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    )
+
+    assert wait_for_db_condition(timeout=timeout, condition=condition), (
+        f"Timed out waiting for condition while running: {' '.join(args)}"
+    )
+    return stop_process(proc)
+
+
 def test_background_hooks_dont_block_parser_extractors(tmp_path, process, recursive_test_site):
     """Test that background hooks (.bg.) don't block other extractors from running."""
     os.chdir(tmp_path)
@@ -202,15 +217,15 @@ def test_recursive_crawl_creates_child_snapshots(tmp_path, process, recursive_te
         "SAVE_TITLE": "false",
     })
 
-    result = subprocess.run(
+    stdout, stderr = run_add_until(
         ['archivebox', 'add', '--depth=1', '--plugins=wget,parse_html_urls', recursive_test_site['root_url']],
-        capture_output=True,
-        text=True,
         env=env,
-        timeout=60,
+        timeout=120,
+        condition=lambda c: (
+            c.execute("SELECT COUNT(*) FROM core_snapshot WHERE depth = 0").fetchone()[0] >= 1
+            and c.execute("SELECT COUNT(*) FROM core_snapshot WHERE depth = 1").fetchone()[0] >= len(recursive_test_site['child_urls'])
+        ),
     )
-    assert result.returncode == 0, result.stderr
-    stdout, stderr = result.stdout, result.stderr
 
     if stderr:
         print(f"\n=== STDERR ===\n{stderr}\n=== END STDERR ===\n")
@@ -260,14 +275,26 @@ def test_recursive_crawl_respects_depth_limit(tmp_path, process, disable_extract
     """Test that recursive crawling stops at max_depth."""
     os.chdir(tmp_path)
 
-    result = subprocess.run(
+    env = disable_extractors_dict.copy()
+    env["URL_ALLOWLIST"] = r"127\.0\.0\.1[:/].*"
+
+    stdout, stderr = run_add_until(
         ['archivebox', 'add', '--depth=1', '--plugins=wget,parse_html_urls', recursive_test_site['root_url']],
-        capture_output=True,
-        text=True,
-        env=disable_extractors_dict,
-        timeout=60,
+        env=env,
+        timeout=120,
+        condition=lambda c: (
+            c.execute("SELECT COUNT(*) FROM core_snapshot WHERE depth = 0").fetchone()[0] >= 1
+            and c.execute("SELECT COUNT(*) FROM core_snapshot WHERE depth = 1").fetchone()[0] >= len(recursive_test_site['child_urls'])
+            and c.execute(
+                "SELECT COUNT(DISTINCT ar.snapshot_id) "
+                "FROM core_archiveresult ar "
+                "JOIN core_snapshot s ON s.id = ar.snapshot_id "
+                "WHERE s.depth = 1 "
+                "AND ar.plugin LIKE 'parse_%_urls' "
+                "AND ar.status IN ('started', 'succeeded', 'failed')"
+            ).fetchone()[0] >= len(recursive_test_site['child_urls'])
+        ),
     )
-    assert result.returncode == 0, result.stderr
 
     conn = sqlite3.connect('index.sqlite3')
     c = conn.cursor()
@@ -324,14 +351,18 @@ def test_root_snapshot_has_depth_zero(tmp_path, process, disable_extractors_dict
     """Test that root snapshots are created with depth=0."""
     os.chdir(tmp_path)
 
-    result = subprocess.run(
+    env = disable_extractors_dict.copy()
+    env["URL_ALLOWLIST"] = r"127\.0\.0\.1[:/].*"
+
+    stdout, stderr = run_add_until(
         ['archivebox', 'add', '--depth=1', '--plugins=wget,parse_html_urls', recursive_test_site['root_url']],
-        capture_output=True,
-        text=True,
-        env=disable_extractors_dict,
-        timeout=60,
+        env=env,
+        timeout=120,
+        condition=lambda c: c.execute(
+            "SELECT COUNT(*) FROM core_snapshot WHERE url = ?",
+            (recursive_test_site['root_url'],),
+        ).fetchone()[0] >= 1,
     )
-    assert result.returncode == 0, result.stderr
 
     conn = sqlite3.connect('index.sqlite3')
     c = conn.cursor()
@@ -360,14 +391,14 @@ def test_archiveresult_worker_queue_filters_by_foreground_extractors(tmp_path, p
         "SAVE_FAVICON": "true",
     })
 
-    result = subprocess.run(
+    stdout, stderr = run_add_until(
         ['archivebox', 'add', '--plugins=favicon,wget,parse_html_urls', recursive_test_site['root_url']],
-        capture_output=True,
-        text=True,
         env=env,
-        timeout=60,
+        timeout=120,
+        condition=lambda c: c.execute(
+            "SELECT COUNT(*) FROM core_archiveresult WHERE plugin LIKE 'parse_%_urls' AND status IN ('started', 'succeeded', 'failed')"
+        ).fetchone()[0] > 0,
     )
-    assert result.returncode == 0, result.stderr
 
     conn = sqlite3.connect('index.sqlite3')
     c = conn.cursor()

@@ -212,8 +212,11 @@ def discover_hooks(
             pattern_direct = f'on_{event_name}__*.{ext}'
             hooks.extend(base_dir.glob(pattern_direct))
 
-    # Filter by enabled plugins
-    if filter_disabled:
+    # Binary install hooks are provider hooks, not end-user extractors. They
+    # self-filter via `binproviders`, so applying the PLUGINS whitelist here
+    # can hide the very installer needed by a selected plugin (e.g.
+    # `--plugins=singlefile` still needs the `npm` Binary hook).
+    if filter_disabled and event_name != 'Binary':
         # Get merged config if not provided (lazy import to avoid circular dependency)
         if config is None:
             from archivebox.config.configset import get_config

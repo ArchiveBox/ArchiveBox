@@ -2927,7 +2927,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
                 self.output_str = 'Hook did not output ArchiveResult record'
 
         # Walk filesystem and populate output_files, output_size, output_mimetypes
-        exclude_names = {'stdout.log', 'stderr.log', 'hook.pid', 'listener.pid', 'cmd.sh'}
+        exclude_names = {'stdout.log', 'stderr.log', 'process.pid', 'hook.pid', 'listener.pid', 'cmd.sh'}
         mime_sizes = defaultdict(int)
         total_size = 0
         output_files = {}
