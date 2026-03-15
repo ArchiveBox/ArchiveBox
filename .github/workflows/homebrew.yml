@@ -11,8 +11,7 @@ on:
       - 'bin/release_brew.sh'
       - '.github/workflows/homebrew.yml'
       - 'pyproject.toml'
-  release:
-    types: [published]
+  # release trigger is handled by release.yml to avoid double-runs
 
 permissions:
   contents: read
@@ -49,7 +48,7 @@ jobs:
 
       - name: Install build dependencies (Linux)
         if: runner.os == 'Linux'
-        uses: awalsh128/cache-apt-pkgs-action@latest
+        uses: awalsh128/cache-apt-pkgs-action@v1.6.0
         with:
           packages: build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1
           version: 1.0
@@ -108,7 +107,8 @@ ${RESOURCES}
   end
 
   def post_install
-    system bin/"archivebox", "install", "--binproviders", "pip,npm"
+    (var/"archivebox").mkpath
+    system({ "DATA_DIR" => var/"archivebox" }, bin/"archivebox", "install", "--binproviders", "pip,npm")
   end
 
   service do
@@ -162,7 +162,7 @@ RUBY
       - name: Test archivebox init
         run: |
           mkdir -p /tmp/archivebox-test && cd /tmp/archivebox-test
-          archivebox init --install
+          archivebox init
 
       - name: Test archivebox status
         run: |
@@ -274,7 +274,8 @@ ${RESOURCES}
   end
 
   def post_install
-    system bin/"archivebox", "install", "--binproviders", "pip,npm"
+    (var/"archivebox").mkpath
+    system({ "DATA_DIR" => var/"archivebox" }, bin/"archivebox", "install", "--binproviders", "pip,npm")
   end
 
   service do

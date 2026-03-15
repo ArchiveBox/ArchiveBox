@@ -40,7 +40,8 @@ class Archivebox < Formula
 
   def post_install
     # Install runtime dependencies (plugins, JS extractors, etc.)
-    system bin/"archivebox", "install", "--binproviders", "pip,npm"
+    (var/"archivebox").mkpath
+    system({ "DATA_DIR" => var/"archivebox" }, bin/"archivebox", "install", "--binproviders", "pip,npm")
   end
 
   service do

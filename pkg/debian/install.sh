@@ -17,20 +17,14 @@ fi
 # Upgrade pip inside the virtualenv
 "$ARCHIVEBOX_VENV/bin/python3" -m pip install --quiet --upgrade pip setuptools
 
-# Install or upgrade archivebox
+# Install or upgrade archivebox (pinned to .deb version if set)
 if [ -n "$ARCHIVEBOX_VERSION" ]; then
     echo "[+] Installing archivebox==$ARCHIVEBOX_VERSION..."
-    "$ARCHIVEBOX_VENV/bin/pip" install --quiet --upgrade "archivebox==$ARCHIVEBOX_VERSION" || {
-        echo "[!] archivebox==$ARCHIVEBOX_VERSION not found on PyPI, installing latest..."
-        "$ARCHIVEBOX_VENV/bin/pip" install --quiet --upgrade archivebox
-    }
+    "$ARCHIVEBOX_VENV/bin/pip" install --quiet --upgrade "archivebox==$ARCHIVEBOX_VERSION"
 else
     echo "[+] Installing latest archivebox..."
     "$ARCHIVEBOX_VENV/bin/pip" install --quiet --upgrade archivebox
 fi
-
-echo "[+] Installing archivebox runtime dependencies..."
-"$ARCHIVEBOX_VENV/bin/archivebox" install --binproviders pip,npm 2>/dev/null || true
 
 echo "[√] ArchiveBox installed successfully."
 echo "    Run 'archivebox version' to verify."

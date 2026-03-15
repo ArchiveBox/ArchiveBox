@@ -31,6 +31,8 @@ echo "[+] Generating resource stanzas with homebrew-pypi-poet..."
 RESOURCES="$(poet archivebox)"
 
 # Get the sdist URL and SHA256 from PyPI JSON API (works on macOS and Linux)
+SDIST_URL=""
+SDIST_SHA256=""
 PYPI_JSON="$(curl -fsSL "https://pypi.org/pypi/archivebox/${VERSION}/json" 2>/dev/null || echo '')"
 if [ -n "$PYPI_JSON" ]; then
     SDIST_URL="$(echo "$PYPI_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(next((u['url'] for u in d['urls'] if u['packagetype']=='sdist'), ''))" 2>/dev/null || echo '')"
@@ -94,7 +96,8 @@ ${RESOURCES}
 
   def post_install
     # Install runtime dependencies (plugins, JS extractors, etc.)
-    system bin/"archivebox", "install", "--binproviders", "pip,npm"
+    (var/"archivebox").mkpath
+    system({ "DATA_DIR" => var/"archivebox" }, bin/"archivebox", "install", "--binproviders", "pip,npm")
   end
 
   service do
