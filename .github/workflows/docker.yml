@@ -66,7 +66,7 @@ jobs:
         # https://github.com/docker/metadata-action
         id: docker_meta
         uses: docker/metadata-action@v5
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
         with:
           images: archivebox/archivebox,ghcr.io/archivebox/archivebox
           tags: |
@@ -80,12 +80,12 @@ jobs:
               type=sha
               # :latest
               type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'stable') }}
-      
+
       - name: Collect Non-Release Docker tags
         # https://github.com/docker/metadata-action
         id: docker_meta_non_release
         uses: docker/metadata-action@v5
-        if: github.event_name != 'workflow_dispatch'
+        if: github.event_name != 'workflow_dispatch' && github.event_name != 'workflow_call'
         with:
           images: archivebox/archivebox,ghcr.io/archivebox/archivebox
           tags: |
@@ -102,8 +102,8 @@ jobs:
           file: ./Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ github.event_name == 'workflow_dispatch' ? steps.docker_meta.outputs.tags : steps.docker_meta_non_release.outputs.tags }}
-          labels: ${{ github.event_name == 'workflow_dispatch' ? steps.docker_meta.outputs.labels : steps.docker_meta_non_release.outputs.labels }}
+          tags: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && steps.docker_meta.outputs.tags || steps.docker_meta_non_release.outputs.tags }}
+          labels: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && steps.docker_meta.outputs.labels || steps.docker_meta_non_release.outputs.labels }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new
           platforms: linux/amd64,linux/arm64
