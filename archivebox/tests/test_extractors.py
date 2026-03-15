@@ -147,4 +147,6 @@ def test_headers_retrieved(tmp_path, process, disable_extractors_dict):
     assert output_file is not None, f"Expected headers output_files to include a JSON file, got: {output_files}"
     with open(output_file, 'r', encoding='utf-8') as f:
         headers = pyjson.load(f)
-    assert 'Content-Type' in headers or 'content-type' in headers
+    response_headers = headers.get("response_headers") or headers.get("headers") or {}
+    assert isinstance(response_headers, dict), f"Expected response_headers dict, got: {response_headers!r}"
+    assert 'Content-Type' in response_headers or 'content-type' in response_headers

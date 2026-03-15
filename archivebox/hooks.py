@@ -364,6 +364,24 @@ def run_hook(
     env['ARCHIVE_DIR'] = str(getattr(settings, 'ARCHIVE_DIR', Path.cwd() / 'archive'))
     env.setdefault('MACHINE_ID', getattr(settings, 'MACHINE_ID', '') or os.environ.get('MACHINE_ID', ''))
 
+    resolved_output_dir = output_dir.resolve()
+    output_parts = set(resolved_output_dir.parts)
+    if 'snapshots' in output_parts:
+        env['SNAP_DIR'] = str(resolved_output_dir.parent)
+    if 'crawls' in output_parts:
+        env['CRAWL_DIR'] = str(resolved_output_dir.parent)
+
+    crawl_id = kwargs.get('_crawl_id') or kwargs.get('crawl_id')
+    if crawl_id:
+        try:
+            from archivebox.crawls.models import Crawl
+
+            crawl = Crawl.objects.filter(id=crawl_id).first()
+            if crawl:
+                env['CRAWL_DIR'] = str(crawl.output_dir)
+        except Exception:
+            pass
+
     # Get LIB_DIR and LIB_BIN_DIR from config
     lib_dir = config.get('LIB_DIR', getattr(settings, 'LIB_DIR', None))
     lib_bin_dir = config.get('LIB_BIN_DIR', getattr(settings, 'LIB_BIN_DIR', None))
@@ -426,7 +444,7 @@ def run_hook(
 
     # Export all config values to environment (already merged by get_config())
     # Skip keys we've already handled specially above (PATH, LIB_DIR, LIB_BIN_DIR, NODE_PATH, etc.)
-    SKIP_KEYS = {'PATH', 'LIB_DIR', 'LIB_BIN_DIR', 'NODE_PATH', 'NODE_MODULES_DIR', 'DATA_DIR', 'ARCHIVE_DIR', 'MACHINE_ID'}
+    SKIP_KEYS = {'PATH', 'LIB_DIR', 'LIB_BIN_DIR', 'NODE_PATH', 'NODE_MODULES_DIR', 'DATA_DIR', 'ARCHIVE_DIR', 'MACHINE_ID', 'SNAP_DIR', 'CRAWL_DIR'}
     for key, value in config.items():
         if key in SKIP_KEYS:
             continue  # Already handled specially above, don't overwrite
