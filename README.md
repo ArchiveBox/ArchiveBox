@@ -77,7 +77,7 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 <pre lang="bash"><code style="white-space: pre-line"># Option A: Get ArchiveBox with Docker Compose (recommended):
 mkdir -p ~/archivebox/data && cd ~/archivebox
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml   # edit options in this file as-needed
-docker compose run archivebox init --setup
+docker compose run archivebox init --install
 # docker compose run archivebox add 'https://example.com'
 # docker compose run archivebox help
 # docker compose up
@@ -85,7 +85,7 @@ docker compose run archivebox init --setup
 <br/>
 # Option B: Or use it as a plain Docker container:
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
-docker run -it -v $PWD:/data archivebox/archivebox init --setup
+docker run -it -v $PWD:/data archivebox/archivebox init --install
 # docker run -it -v $PWD:/data archivebox/archivebox add 'https://example.com'
 # docker run -it -v $PWD:/data archivebox/archivebox help
 # docker run -it -v $PWD:/data -p 8000:8000 archivebox/archivebox
@@ -94,7 +94,7 @@ docker run -it -v $PWD:/data archivebox/archivebox init --setup
 # Option C: Or install it with your preferred pkg manager (see Quickstart below for apt, brew, and more)
 pip install archivebox
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
-archivebox init --setup
+archivebox init --install
 # archivebox add 'https://example.com'
 # archivebox help
 # archivebox server 0.0.0.0:8000
@@ -189,7 +189,7 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 </code></pre></li>
 <li>Run the initial setup to create an admin user (or set ADMIN_USER/PASS in docker-compose.yml)
-<pre lang="bash"><code style="white-space: pre-line">docker compose run archivebox init --setup
+<pre lang="bash"><code style="white-space: pre-line">docker compose run archivebox init --install
 </code></pre></li>
 <li>Next steps: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">docker compose up
@@ -213,7 +213,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
-docker run -v $PWD:/data -it archivebox/archivebox init --setup
+docker run -v $PWD:/data -it archivebox/archivebox init --install
 </code></pre>
 </li>
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
@@ -259,19 +259,18 @@ See <a href="https://docs.sweeting.me/s/against-curl-sh">"Against curl | sh as a
 <br/>
 <ol>
 
-<li>Install <a href="https://realpython.com/installing-python/">Python >= v3.10</a> and <a href="https://nodejs.org/en/download/package-manager/">Node >= v18</a> on your system (if not already installed).</li>
+<li>Install <a href="https://realpython.com/installing-python/">Python >= v3.13</a> and <a href="https://nodejs.org/en/download/package-manager/">Node >= v22</a> on your system (if not already installed).</li>
 <li>Install the ArchiveBox package using <code>pip3</code> (or <a href="https://docs.astral.sh/uv/guides/tools/#running-tools"><code>uvx</code></a>).
-<pre lang="bash"><code style="white-space: pre-line">pip3 install --upgrade archivebox yt-dlp playwright
-playwright install --with-deps chromium
+<pre lang="bash"><code style="white-space: pre-line">pip3 install --upgrade archivebox
 archivebox version
 # install any missing extras shown using apt/brew/pkg/etc. see Wiki for instructions
-#    python@3.10 node curl wget git ripgrep ...
+#    python@3.13 node curl wget git ripgrep ...
 </code></pre>
 <i>See the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install">Install: Bare Metal</a> Wiki for full install instructions for each OS...</i>
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data   # for example
-archivebox init --setup   # instantialize a new collection
+archivebox init --install   # instantialize a new collection
 # (--setup auto-installs and link JS dependencies: singlefile, readability, mercury, etc.)
 </code></pre>
 </li>
@@ -306,7 +305,7 @@ archivebox version                         # make sure all dependencies are inst
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
-archivebox init
+archivebox init --install
 </code></pre>
 <br/>
 </li>
@@ -337,7 +336,7 @@ archivebox version                         # make sure all dependencies are inst
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
-archivebox init --setup
+archivebox init --install
 </code></pre>
 </li>
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
@@ -510,7 +509,7 @@ archivebox persona create --import=chrome personal
 # make sure you have pip-installed ArchiveBox and it's available in your $PATH first  
 <br/>
 # archivebox [subcommand] [--help]
-archivebox init --setup      # safe to run init multiple times (also how you update versions)
+archivebox init --install      # safe to run init multiple times (also how you update versions)
 archivebox version           # get archivebox version info + check dependencies
 archivebox help              # get list of archivebox subcommands that can be run
 archivebox add --depth=1 'https://news.ycombinator.com'
@@ -527,7 +526,7 @@ archivebox add --depth=1 'https://news.ycombinator.com'
 # make sure you have `docker-compose.yml` from the Quickstart instructions first
 <br/>
 # docker compose run archivebox [subcommand] [--help]
-docker compose run archivebox init --setup
+docker compose run archivebox init --install
 docker compose run archivebox version
 docker compose run archivebox help
 docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
@@ -545,7 +544,7 @@ docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
 # make sure you create and cd into in a new empty directory first  
 <br/>
 # docker run -it -v $PWD:/data archivebox/archivebox [subcommand] [--help]
-docker run -v $PWD:/data -it archivebox/archivebox init --setup
+docker run -v $PWD:/data -it archivebox/archivebox init --install
 docker run -v $PWD:/data -it archivebox/archivebox version
 docker run -v $PWD:/data -it archivebox/archivebox help
 docker run -v $PWD:/data -it archivebox/archivebox add --depth=1 'https://news.ycombinator.com'
@@ -751,7 +750,7 @@ env CHROME_BINARY=chromium archivebox ...       # run with a one-off config
 <sub>These methods also work the same way when run inside Docker, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#configuration">Docker Configuration</a> wiki page for details.</sub>
 </details><br/>
 
-The configuration is documented here: **[Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**, and loaded here: [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config.py).
+The configuration is documented here: **[Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**, and loaded from: [`archivebox/config/`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/).
 
 <a name="most-common-options-to-tweak"></a>
 <details>
@@ -762,16 +761,12 @@ The configuration is documented here: **[Configuration Wiki](https://github.com/
 <br/>
 TIMEOUT=240                # default: 60    add more seconds on slower networks
 CHECK_SSL_VALIDITY=False   # default: True  False = allow saving URLs w/ bad SSL
-SAVE_ARCHIVEDOTORG=False # default: True  False = disable Archive.org saving
-YTDLP_MAX_SIZE=1500m       # default: 750m  raise/lower yt-dlp output size
 <br/>
 PUBLIC_INDEX=True          # default: True  whether anon users can view index
 PUBLIC_SNAPSHOTS=True      # default: True  whether anon users can view pages
 PUBLIC_ADD_VIEW=False      # default: False whether anon users can add new URLs
 <br/>
-CHROME_USER_AGENT="Mozilla/5.0 ..."  # change these to get around bot blocking
-WGET_USER_AGENT="Mozilla/5.0 ..."
-CURL_USER_AGENT="Mozilla/5.0 ..."
+USER_AGENT="Mozilla/5.0 ..."  # change this to get around bot blocking
 </code></pre>
 </details>
 <br/>
@@ -793,13 +788,13 @@ ArchiveBox bundles industry-standard tools like [Google Chrome](https://github.c
 </blockquote>
 
 <ul>
-<li>Language: Python <code>&gt;=3.10</code></li>
+<li>Language: Python <code>&gt;=3.13</code></li>
 <li>Backend: <a href="https://www.djangoproject.com/">Django</a> + <a href="https://django-ninja.dev/">Django-Ninja</a> for REST API</li>
-<li>Frontend: <a href="https://docs.djangoproject.com/en/5.1/ref/contrib/admin/">Django Admin</a> + Vanilla HTML, CSS, JS</li>
-<li>Web Server: <a href="https://www.djangoproject.com/">Django</a> + <a href="https://channels.readthedocs.io/en/latest/"><code>channels</code></a> + <a href="https://github.com/django/daphne/"><code>daphne]</code></a></li>
-<li>Database: <a href="https://docs.djangoproject.com/en/5.1/ref/databases/#sqlite-notes">Django ORM</a> saving to <a href="https://www.sqlite.org/mostdeployed.html">SQLite3</a> <code>./data/index.sqlite</code></li>
-<li>Job Queue: <a href="https://huey.readthedocs.io/">Huey</a> using <code>./data/queue.sqlite3</code> under <code>supervisord</code></li>
-<li>Build/test/lint: <a href="https://github.com/pdm-project/pdm"><code>pdm</code></a> / <code>mypy</code>+<code>pyright</code>+<code>pytest</code> / <code>ruff</code></li>
+<li>Frontend: <a href="https://docs.djangoproject.com/en/6.0/ref/contrib/admin/">Django Admin</a> + Vanilla HTML, CSS, JS</li>
+<li>Web Server: <a href="https://www.djangoproject.com/">Django</a> + <a href="https://github.com/django/daphne/"><code>daphne</code></a> (ASGI)</li>
+<li>Database: <a href="https://docs.djangoproject.com/en/6.0/ref/databases/#sqlite-notes">Django ORM</a> saving to <a href="https://www.sqlite.org/mostdeployed.html">SQLite3</a> <code>./data/index.sqlite3</code></li>
+<li>Job Queue: Custom orchestrator using <code>supervisord</code> for worker management</li>
+<li>Build/test/lint: <a href="https://github.com/astral-sh/uv"><code>uv</code></a> / <code>mypy</code>+<code>pyright</code>+<code>pytest</code> / <code>ruff</code></li>
 <li>Subdependencies: <a href="https://github.com/ArchiveBox/abx-pkg"><code>abx-pkg</code></a> installs apt/brew/pip/npm pkgs at runtime (e.g. <code>yt-dlp</code>, <code>singlefile</code>, <code>readability</code>, <code>git</code>)</li>
 </ul>
 
@@ -829,7 +824,7 @@ If not using Docker, make sure to keep the dependencies up-to-date yourself and 
 # apt/brew/pip/etc install ... (see Quickstart instructions above)
 <br/>
 which -a archivebox    # see where you have installed archivebox
-archivebox setup       # auto install all the extractors and extras
+archivebox install     # auto install all the extractors and extras
 archivebox --version   # see info and check validity of installed dependencies
 </code></pre>
   
@@ -954,18 +949,11 @@ If you're importing pages with private content or URLs containing secret tokens 
 archivebox add 'https://docs.google.com/document/d/12345somePrivateDocument'
 archivebox add 'https://vimeo.com/somePrivateVideo'
 
-# without first disabling saving to Archive.org:
-archivebox config --set SAVE_ARCHIVEDOTORG=False  # disable saving all URLs in Archive.org
-
 # restrict the main index, Snapshot content, and Add Page to authenticated users as-needed:
 archivebox config --set PUBLIC_INDEX=False
 archivebox config --set PUBLIC_SNAPSHOTS=False
-archivebox config --set PUBLIC_ADD_VIEW=False 
+archivebox config --set PUBLIC_ADD_VIEW=False
 archivebox manage createsuperuser
-
-# if extra paranoid or anti-Google:
-archivebox config --set SAVE_FAVICON=False          # disable favicon fetching (it calls a Google API passing the URL's domain part only)
-archivebox config --set CHROME_BINARY=chromium      # ensure it's using Chromium instead of Chrome
 </code></pre>
 
 <blockquote>
@@ -1373,10 +1361,10 @@ source .venv/bin/activate  # activate the venv
 
 # Install ArchiveBox runtime dependencies
 mkdir -p data && cd data
-archivebox install         # on >=v0.8.5 (otherwise `archivebox setup`)
+archivebox install         # detect and install all extractor dependencies
 
 # Run the development server w/ autoreloading (but no bg workers)
-archivebox manage runserver --debug --reload 0.0.0.0:8000
+archivebox server --debug --reload 0.0.0.0:8000
 
 # Run the production server (with bg workers but no autoreloading)
 archivebox server 0.0.0.0:8000
@@ -1390,10 +1378,10 @@ archivebox server 0.0.0.0:8000
 # inside the container will reload and pick up your changes
 ./bin/build_docker.sh dev
 
-docker run -it -v $PWD/data:/data archivebox/archivebox:dev init --setup
+docker run -it -v $PWD/data:/data archivebox/archivebox:dev init --install
 
 # Run the development server w/ autoreloading (but no bg workers)
-docker run -it -v $PWD/data:/data -v $PWD/archivebox:/app/archivebox -p 8000:8000 archivebox/archivebox:dev manage runserver 0.0.0.0:8000 --debug --reload
+docker run -it -v $PWD/data:/data -v $PWD/archivebox:/app/archivebox -p 8000:8000 archivebox/archivebox:dev server --debug --reload 0.0.0.0:8000
 
 # Run the production server (with bg workers but no autoreloading)
 docker run -it -v $PWD/data:/data -v $PWD/archivebox:/app/archivebox -p 8000:8000 archivebox/archivebox:dev server
@@ -1418,7 +1406,7 @@ You can also run all these in Docker. For more examples see the GitHub Actions C
 archivebox config --set DEBUG=True
 
 # OR you can run a dev server with DEBUG=True in a few ways:
-archivebox manage runserver --debug --reload 0.0.0.0:8000
+archivebox server --debug --reload 0.0.0.0:8000
 # or
 archivebox server --debug 0.0.0.0:8000
 # or
