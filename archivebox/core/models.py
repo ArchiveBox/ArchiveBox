@@ -384,6 +384,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             self.fs_version = target
 
         super().save(*args, **kwargs)
+        self.ensure_legacy_archive_symlink()
         if self.url not in self.crawl.urls:
             self.crawl.urls += f'\n{self.url}'
             self.crawl.save()
@@ -1361,6 +1362,35 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             return str(old_path)
 
         return str(current_path)
+
+    def ensure_legacy_archive_symlink(self) -> None:
+        """Ensure the legacy archive/<timestamp> path resolves to this snapshot."""
+        import os
+
+        legacy_path = CONSTANTS.ARCHIVE_DIR / self.timestamp
+        target = Path(self.get_storage_path_for_version(self._fs_current_version()))
+
+        if target == legacy_path:
+            return
+
+        legacy_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if legacy_path.exists() or legacy_path.is_symlink():
+            if legacy_path.is_symlink():
+                try:
+                    if legacy_path.resolve() == target.resolve():
+                        return
+                except OSError:
+                    pass
+                legacy_path.unlink(missing_ok=True)
+            else:
+                return
+
+        rel_target = os.path.relpath(target, legacy_path.parent)
+        try:
+            legacy_path.symlink_to(rel_target, target_is_directory=True)
+        except OSError:
+            return
 
     def ensure_crawl_symlink(self) -> None:
         """Ensure snapshot is symlinked under its crawl output directory."""

@@ -120,6 +120,7 @@ def add(urls: str | list[str],
             )
             if tag:
                 snapshot.save_tags(tag.split(','))
+            snapshot.ensure_crawl_symlink()
         return crawl.snapshot_set.all()
 
     # 5. Start the orchestrator to process the queue
