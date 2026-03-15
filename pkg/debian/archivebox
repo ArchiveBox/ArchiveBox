@@ -1,0 +1,15 @@
+#!/bin/bash
+# /usr/bin/archivebox - wrapper script installed by the archivebox .deb package
+# Activates the pip-installed virtualenv and runs archivebox CLI
+
+ARCHIVEBOX_VENV="/opt/archivebox/venv"
+
+if [ ! -f "$ARCHIVEBOX_VENV/bin/archivebox" ]; then
+    echo "Error: ArchiveBox is not installed in $ARCHIVEBOX_VENV"
+    echo "Try running: sudo /opt/archivebox/install.sh"
+    exit 1
+fi
+
+# Export venv bin to PATH so bundled console scripts (yt-dlp, etc.) are discoverable
+export PATH="$ARCHIVEBOX_VENV/bin:$PATH"
+exec "$ARCHIVEBOX_VENV/bin/archivebox" "$@"
