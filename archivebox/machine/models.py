@@ -493,6 +493,13 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         if current_machine.config:
             config.update(current_machine.config)
 
+        # ArchiveBox installs the puppeteer package and Chromium in separate
+        # hook phases. Suppress puppeteer's bundled browser download during the
+        # package install step so the dedicated chromium hook owns that work.
+        if self.name == 'puppeteer':
+            config.setdefault('PUPPETEER_SKIP_DOWNLOAD', 'true')
+            config.setdefault('PUPPETEER_SKIP_CHROMIUM_DOWNLOAD', 'true')
+
         # Create output directory
         output_dir = self.output_dir
         output_dir.mkdir(parents=True, exist_ok=True)

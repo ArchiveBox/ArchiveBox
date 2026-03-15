@@ -188,6 +188,94 @@ class TestBinaryWorkerHooks:
 
         assert len(installed) >= 1, "At least one binary should be created"
 
+    def test_puppeteer_binary_sets_skip_download_for_hooks(self, initialized_archive):
+        """Puppeteer installs expose skip-download env to Binary hooks."""
+        user_plugins_dir = initialized_archive / 'test_plugins'
+        plugin_dir = user_plugins_dir / 'inspectnpm'
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+
+        hook = plugin_dir / 'on_Binary__10_inspectnpm_install.py'
+        hook.write_text(
+            """#!/usr/bin/env python3
+import argparse
+import json
+import os
+import shutil
+import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--machine-id', required=True)
+parser.add_argument('--binary-id', required=True)
+parser.add_argument('--name', required=True)
+parser.add_argument('--binproviders', default='*')
+args = parser.parse_args()
+
+record = {
+    'type': 'Binary',
+    'name': args.name,
+    'abspath': shutil.which('python3') or sys.executable,
+    'version': '1.0.0',
+    'sha256': '',
+    'binprovider': 'inspectnpm',
+    'machine_id': args.machine_id,
+    'binary_id': args.binary_id,
+}
+print(json.dumps(record))
+print(json.dumps({
+    'type': 'Machine',
+    'config': {
+        'SEEN_PUPPETEER_SKIP_DOWNLOAD': os.environ.get('PUPPETEER_SKIP_DOWNLOAD', ''),
+        'SEEN_PUPPETEER_SKIP_CHROMIUM_DOWNLOAD': os.environ.get('PUPPETEER_SKIP_CHROMIUM_DOWNLOAD', ''),
+    },
+}))
+"""
+        )
+
+        binary_record = {
+            'type': 'Binary',
+            'name': 'puppeteer',
+            'binproviders': 'inspectnpm',
+        }
+
+        stdout, stderr, code = run_archivebox_cmd(
+            ['run'],
+            stdin=json.dumps(binary_record),
+            data_dir=initialized_archive,
+            env={
+                'ARCHIVEBOX_USER_PLUGINS_DIR': str(user_plugins_dir),
+                'PLUGINS': 'inspectnpm',
+            },
+            timeout=60,
+        )
+
+        assert code == 0, f"Failed to process puppeteer Binary: {stderr}"
+
+        conn = sqlite3.connect(initialized_archive / 'index.sqlite3')
+        c = conn.cursor()
+        result = c.execute(
+            "SELECT status, binprovider FROM machine_binary WHERE name='puppeteer'"
+        ).fetchone()
+        hook_rows = c.execute(
+            "SELECT cmd, env FROM machine_process WHERE process_type='hook' ORDER BY created_at DESC"
+        ).fetchall()
+        conn.close()
+
+        assert result is not None, "Puppeteer binary not found in database"
+        status, binprovider = result
+        assert status == 'installed', f"Expected puppeteer to install, got: {status}"
+        assert binprovider == 'inspectnpm', f"Expected inspectnpm provider, got: {binprovider}"
+
+        hook_env = None
+        for cmd_json, env_json in hook_rows:
+            cmd = json.loads(cmd_json)
+            if any('inspectnpm' in part for part in cmd):
+                hook_env = json.loads(env_json)
+                break
+
+        assert hook_env is not None, "Inspectnpm hook process not found"
+        assert hook_env.get('PUPPETEER_SKIP_DOWNLOAD') == 'true'
+        assert hook_env.get('PUPPETEER_SKIP_CHROMIUM_DOWNLOAD') == 'true'
+
 
 class TestBinaryWorkerEdgeCases:
     """Tests for edge cases and error handling."""
