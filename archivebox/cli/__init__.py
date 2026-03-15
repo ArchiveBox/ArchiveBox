@@ -41,6 +41,7 @@ class ArchiveBoxGroup(click.Group):
     archive_commands = {
         # High-level commands
         'add': 'archivebox.cli.archivebox_add.main',
+        'list': 'archivebox.cli.archivebox_list.main',
         'remove': 'archivebox.cli.archivebox_remove.main',
         'run': 'archivebox.cli.archivebox_run.main',
         'update': 'archivebox.cli.archivebox_update.main',
