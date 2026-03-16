@@ -21,6 +21,7 @@ from archivebox.config.permissions import USER, HOSTNAME
 
 if TYPE_CHECKING:
     from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
 
 
 def _collect_input_urls(args: tuple[str, ...]) -> list[str]:
@@ -53,7 +54,7 @@ def add(urls: str | list[str],
         update: bool=not ARCHIVING_CONFIG.ONLY_NEW,
         index_only: bool=False,
         bg: bool=False,
-        created_by_id: int | None=None) -> QuerySet['Snapshot']:
+        created_by_id: int | None=None) -> tuple['Crawl', QuerySet['Snapshot']]:
     """Add a new URL or list of URLs to your archive.
 
     The flow is:
@@ -145,7 +146,7 @@ def add(urls: str | list[str],
             if tag:
                 snapshot.save_tags(tag.split(','))
             snapshot.ensure_crawl_symlink()
-        return crawl.snapshot_set.all()
+        return crawl, crawl.snapshot_set.all()
 
     # 5. Start the orchestrator to process the queue
     #    The orchestrator will:
@@ -210,8 +211,7 @@ def add(urls: str | list[str],
 
     # 6. Return the list of Snapshots in this crawl
     snapshots = crawl.snapshot_set.all()
-    snapshots.crawl_id = str(crawl.id)
-    return snapshots
+    return crawl, snapshots
 
 
 @click.command()

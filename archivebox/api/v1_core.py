@@ -427,7 +427,7 @@ def get_any(request: HttpRequest, id: str):
         try:
             response = getter(request, id)
             if isinstance(response, Model):
-                return redirect(f"/api/v1/{response._meta.app_label}/{response._meta.model_name}/{response.id}?{request.META['QUERY_STRING']}")
+                return redirect(f"/api/v1/{response._meta.app_label}/{response._meta.model_name}/{response.pk}?{request.META['QUERY_STRING']}")
         except Exception:
             pass
 
@@ -435,7 +435,7 @@ def get_any(request: HttpRequest, id: str):
         from archivebox.api.v1_crawls import get_crawl
         response = get_crawl(request, id)
         if isinstance(response, Model):
-            return redirect(f"/api/v1/{response._meta.app_label}/{response._meta.model_name}/{response.id}?{request.META['QUERY_STRING']}")
+            return redirect(f"/api/v1/{response._meta.app_label}/{response._meta.model_name}/{response.pk}?{request.META['QUERY_STRING']}")
     except Exception:
         pass
 

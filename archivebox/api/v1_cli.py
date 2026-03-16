@@ -112,7 +112,7 @@ class RemoveCommandSchema(Schema):
 def cli_add(request: HttpRequest, args: AddCommandSchema):
     from archivebox.cli.archivebox_add import add
 
-    result = add(
+    crawl, snapshots = add(
         urls=args.urls,
         tag=args.tag,
         depth=args.depth,
@@ -125,9 +125,9 @@ def cli_add(request: HttpRequest, args: AddCommandSchema):
         created_by_id=request.user.pk,
     )
 
-    snapshot_ids = [str(snapshot_id) for snapshot_id in result.values_list('id', flat=True)]
+    snapshot_ids = [str(snapshot_id) for snapshot_id in snapshots.values_list('id', flat=True)]
     result_payload = {
-        "crawl_id": getattr(result, "crawl_id", None),
+        "crawl_id": str(crawl.id),
         "num_snapshots": len(snapshot_ids),
         "snapshot_ids": snapshot_ids,
         "queued_urls": args.urls,

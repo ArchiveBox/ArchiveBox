@@ -27,7 +27,7 @@ def bg_add(add_kwargs: dict) -> int:
     add_kwargs = add_kwargs.copy()
     add_kwargs['bg'] = True
 
-    result = add(**add_kwargs)
+    _, result = add(**add_kwargs)
 
     return len(result) if result else 0
 

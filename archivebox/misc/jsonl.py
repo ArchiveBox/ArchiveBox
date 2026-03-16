@@ -85,21 +85,21 @@ def read_stdin(stream: Optional[TextIO] = None) -> Iterator[Dict[str, Any]]:
     Yields parsed records as dicts.
     Supports both JSONL format and plain URLs (one per line).
     """
-    stream = stream or sys.stdin
+    active_stream: TextIO = sys.stdin if stream is None else stream
 
     # Don't block if stdin is a tty with no input
-    if stream.isatty():
+    if active_stream.isatty():
         return
 
     try:
-        ready, _, _ = select.select([stream], [], [], 0)
+        ready, _, _ = select.select([active_stream], [], [], 0)
     except (OSError, ValueError):
-        ready = [stream]
+        ready = [active_stream]
 
     if not ready:
         return
 
-    for line in stream:
+    for line in active_stream:
         record = parse_line(line)
         if record:
             yield record
@@ -142,9 +142,9 @@ def write_record(record: Dict[str, Any], stream: Optional[TextIO] = None) -> Non
     """
     Write a single JSONL record to stdout (or provided stream).
     """
-    stream = stream or sys.stdout
-    stream.write(json.dumps(record) + '\n')
-    stream.flush()
+    active_stream: TextIO = sys.stdout if stream is None else stream
+    active_stream.write(json.dumps(record) + '\n')
+    active_stream.flush()
 
 
 def write_records(records: Iterator[Dict[str, Any]], stream: Optional[TextIO] = None) -> int:

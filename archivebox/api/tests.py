@@ -25,8 +25,8 @@ class CLIScheduleAPITests(TestCase):
     def test_schedule_api_creates_schedule(self):
         request = RequestFactory().post('/api/v1/cli/schedule')
         request.user = self.user
-        request.stdout = StringIO()
-        request.stderr = StringIO()
+        setattr(request, 'stdout', StringIO())
+        setattr(request, 'stderr', StringIO())
         args = ScheduleCommandSchema(
             every='daily',
             import_path='https://example.com/feed.xml',
