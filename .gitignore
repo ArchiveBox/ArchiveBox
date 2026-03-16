@@ -38,6 +38,7 @@ lib/
 tmp/
 data/
 data*/
+archive/
 output/
 logs/
 index.sqlite3
@@ -46,6 +47,10 @@ queue.sqlite3
 data.*
 .archivebox_id
 ArchiveBox.conf
+*.stdout
+*.stderr
+*.log
+.tmp/
 
 # vim
 *.sw?

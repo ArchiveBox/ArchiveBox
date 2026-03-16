@@ -569,6 +569,7 @@ class CrawlWorker(Worker):
     def _spawn_snapshot_workers(self) -> None:
         """Spawn SnapshotWorkers for queued snapshots (up to limit)."""
         from pathlib import Path
+        from archivebox.config.constants import CONSTANTS
         from archivebox.core.models import Snapshot
         from archivebox.machine.models import Process
         import sys
@@ -635,6 +636,18 @@ class CrawlWorker(Worker):
             with open(debug_log, 'a') as f:
                 f.write(f'  Spawning worker for {snapshot.url} (status={snapshot.status})\n')
                 f.flush()
+
+            # Claim the snapshot before spawning the worker so retry_at remains
+            # the single source of truth for ownership even if process tracking
+            # lags or multiple schedulers look at the same queue.
+            if not Snapshot.claim_for_worker(snapshot, lock_seconds=CONSTANTS.MAX_SNAPSHOT_RUNTIME_SECONDS):
+                log_worker_event(
+                    worker_type='CrawlWorker',
+                    event=f'Skipped already-claimed Snapshot: {snapshot.url}',
+                    indent_level=1,
+                    pid=self.pid,
+                )
+                continue
 
             pid = SnapshotWorker.start(parent=self.db_process, snapshot_id=str(snapshot.id))
 
@@ -1195,9 +1208,15 @@ class BinaryWorker(Worker):
                 return
 
             print(f'[cyan]🔧 BinaryWorker installing: {binary.name}[/cyan]', file=sys.stderr)
-            binary.sm.tick()
+            if not binary.tick_claimed(lock_seconds=self.MAX_TICK_TIME):
+                log_worker_event(
+                    worker_type='BinaryWorker',
+                    event=f'Skipped already-claimed binary: {binary.name}',
+                    indent_level=1,
+                    pid=self.pid,
+                )
+                return
 
-            binary.refresh_from_db()
             if binary.status == binary.__class__.StatusChoices.INSTALLED:
                 log_worker_event(
                     worker_type='BinaryWorker',
@@ -1254,9 +1273,15 @@ class BinaryWorker(Worker):
                 for binary in pending_binaries:
                     try:
                         print(f'[cyan]🔧 BinaryWorker processing: {binary.name}[/cyan]', file=sys.stderr)
-                        binary.sm.tick()
+                        if not binary.tick_claimed(lock_seconds=self.MAX_TICK_TIME):
+                            log_worker_event(
+                                worker_type='BinaryWorker',
+                                event=f'Skipped already-claimed binary: {binary.name}',
+                                indent_level=1,
+                                pid=self.pid,
+                            )
+                            continue
 
-                        binary.refresh_from_db()
                         if binary.status == binary.__class__.StatusChoices.INSTALLED:
                             log_worker_event(
                                 worker_type='BinaryWorker',

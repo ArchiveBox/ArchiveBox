@@ -39,7 +39,10 @@ def process_archiveresult_by_id(archiveresult_id: str) -> int:
     """
     Run extraction for a single ArchiveResult by ID (used by workers).
 
-    Triggers the ArchiveResult's state machine tick() to run the extractor plugin.
+    Triggers the ArchiveResult's state machine tick() to run the extractor
+    plugin, but only after claiming ownership via retry_at. This keeps direct
+    CLI execution aligned with the worker lifecycle and prevents duplicate hook
+    runs if another process already owns the same ArchiveResult.
     """
     from rich import print as rprint
     from archivebox.core.models import ArchiveResult
@@ -53,9 +56,12 @@ def process_archiveresult_by_id(archiveresult_id: str) -> int:
     rprint(f'[blue]Extracting {archiveresult.plugin} for {archiveresult.snapshot.url}[/blue]', file=sys.stderr)
 
     try:
-        # Trigger state machine tick - this runs the actual extraction
-        archiveresult.sm.tick()
-        archiveresult.refresh_from_db()
+        # Claim-before-tick is the required calling pattern for direct
+        # state-machine drivers. If another worker already owns this row,
+        # report that and exit without running duplicate extractor side effects.
+        if not archiveresult.tick_claimed(lock_seconds=120):
+            print(f'[yellow]Extraction already claimed by another process: {archiveresult.plugin}[/yellow]')
+            return 0
 
         if archiveresult.status == ArchiveResult.StatusChoices.SUCCEEDED:
             print(f'[green]Extraction succeeded: {archiveresult.output_str}[/green]')

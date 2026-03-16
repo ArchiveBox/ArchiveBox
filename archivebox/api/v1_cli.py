@@ -1,8 +1,11 @@
 __package__ = 'archivebox.api'
 
 import json
+from io import StringIO
 from typing import List, Dict, Any, Optional
 from enum import Enum
+
+from django.http import HttpRequest
 
 from ninja import Router, Schema
 
@@ -60,16 +63,13 @@ class AddCommandSchema(Schema):
     index_only: bool = False
 
 class UpdateCommandSchema(Schema):
-    resume: Optional[float] = 0
-    only_new: bool = ARCHIVING_CONFIG.ONLY_NEW
-    index_only: bool = False
-    overwrite: bool = False
+    resume: Optional[str] = None
     after: Optional[float] = 0
     before: Optional[float] = 999999999999999
-    status: Optional[StatusChoices] = StatusChoices.unarchived
     filter_type: Optional[str] = FilterTypeChoices.substring
     filter_patterns: Optional[List[str]] = ['https://example.com']
-    plugins: Optional[str] = ""
+    batch_size: int = 100
+    continuous: bool = False
 
 class ScheduleCommandSchema(Schema):
     import_path: Optional[str] = None
@@ -109,7 +109,7 @@ class RemoveCommandSchema(Schema):
 
 
 @router.post("/add", response=CLICommandResponseSchema, summary='archivebox add [args] [urls]')
-def cli_add(request, args: AddCommandSchema):
+def cli_add(request: HttpRequest, args: AddCommandSchema):
     from archivebox.cli.archivebox_add import add
 
     result = add(
@@ -132,44 +132,45 @@ def cli_add(request, args: AddCommandSchema):
         "snapshot_ids": snapshot_ids,
         "queued_urls": args.urls,
     }
+    stdout = getattr(request, 'stdout', None)
+    stderr = getattr(request, 'stderr', None)
 
     return {
         "success": True,
         "errors": [],
         "result": result_payload,
         "result_format": "json",
-        "stdout": ansi_to_html(request.stdout.getvalue().strip()),
-        "stderr": ansi_to_html(request.stderr.getvalue().strip()),
+        "stdout": ansi_to_html(stdout.getvalue().strip()) if isinstance(stdout, StringIO) else '',
+        "stderr": ansi_to_html(stderr.getvalue().strip()) if isinstance(stderr, StringIO) else '',
     }
 
 
 @router.post("/update", response=CLICommandResponseSchema, summary='archivebox update [args] [filter_patterns]')
-def cli_update(request, args: UpdateCommandSchema):
+def cli_update(request: HttpRequest, args: UpdateCommandSchema):
     from archivebox.cli.archivebox_update import update
     
     result = update(
-        resume=args.resume,
-        only_new=args.only_new,
-        index_only=args.index_only,
-        overwrite=args.overwrite,
-        before=args.before,
+        filter_patterns=args.filter_patterns or [],
+        filter_type=args.filter_type or FilterTypeChoices.substring,
         after=args.after,
-        status=args.status,
-        filter_type=args.filter_type,
-        filter_patterns=args.filter_patterns,
-        plugins=args.plugins,
+        before=args.before,
+        resume=args.resume,
+        batch_size=args.batch_size,
+        continuous=args.continuous,
     )
+    stdout = getattr(request, 'stdout', None)
+    stderr = getattr(request, 'stderr', None)
     return {
         "success": True,
         "errors": [],
         "result": result,
-        "stdout": ansi_to_html(request.stdout.getvalue().strip()),
-        "stderr": ansi_to_html(request.stderr.getvalue().strip()),
+        "stdout": ansi_to_html(stdout.getvalue().strip()) if isinstance(stdout, StringIO) else '',
+        "stderr": ansi_to_html(stderr.getvalue().strip()) if isinstance(stderr, StringIO) else '',
     }
 
 
 @router.post("/schedule", response=CLICommandResponseSchema, summary='archivebox schedule [args] [import_path]')
-def cli_schedule(request, args: ScheduleCommandSchema):
+def cli_schedule(request: HttpRequest, args: ScheduleCommandSchema):
     from archivebox.cli.archivebox_schedule import schedule
     
     result = schedule(
@@ -187,19 +188,21 @@ def cli_schedule(request, args: ScheduleCommandSchema):
         update=args.update,
     )
 
+    stdout = getattr(request, 'stdout', None)
+    stderr = getattr(request, 'stderr', None)
     return {
         "success": True,
         "errors": [],
         "result": result,
         "result_format": "json",
-        "stdout": ansi_to_html(request.stdout.getvalue().strip()),
-        "stderr": ansi_to_html(request.stderr.getvalue().strip()),
+        "stdout": ansi_to_html(stdout.getvalue().strip()) if isinstance(stdout, StringIO) else '',
+        "stderr": ansi_to_html(stderr.getvalue().strip()) if isinstance(stderr, StringIO) else '',
     }
 
 
 
 @router.post("/search", response=CLICommandResponseSchema, summary='archivebox search [args] [filter_patterns]')
-def cli_search(request, args: ListCommandSchema):
+def cli_search(request: HttpRequest, args: ListCommandSchema):
     from archivebox.cli.archivebox_search import search
     
     result = search(
@@ -224,25 +227,28 @@ def cli_search(request, args: ListCommandSchema):
     elif args.as_csv:
         result_format = "csv"
 
+    stdout = getattr(request, 'stdout', None)
+    stderr = getattr(request, 'stderr', None)
     return {
         "success": True,
         "errors": [],
         "result": result,
         "result_format": result_format,
-        "stdout": ansi_to_html(request.stdout.getvalue().strip()),
-        "stderr": ansi_to_html(request.stderr.getvalue().strip()),
+        "stdout": ansi_to_html(stdout.getvalue().strip()) if isinstance(stdout, StringIO) else '',
+        "stderr": ansi_to_html(stderr.getvalue().strip()) if isinstance(stderr, StringIO) else '',
     }
     
 
 
 @router.post("/remove", response=CLICommandResponseSchema, summary='archivebox remove [args] [filter_patterns]')
-def cli_remove(request, args: RemoveCommandSchema):
+def cli_remove(request: HttpRequest, args: RemoveCommandSchema):
     from archivebox.cli.archivebox_remove import remove
     from archivebox.cli.archivebox_search import get_snapshots
     from archivebox.core.models import Snapshot
 
+    filter_patterns = args.filter_patterns or []
     snapshots_to_remove = get_snapshots(
-        filter_patterns=args.filter_patterns,
+        filter_patterns=filter_patterns,
         filter_type=args.filter_type,
         after=args.after,
         before=args.before,
@@ -256,7 +262,7 @@ def cli_remove(request, args: RemoveCommandSchema):
         before=args.before,
         after=args.after,
         filter_type=args.filter_type,
-        filter_patterns=args.filter_patterns,
+        filter_patterns=filter_patterns,
     )
 
     result = {
@@ -264,12 +270,14 @@ def cli_remove(request, args: RemoveCommandSchema):
         "removed_snapshot_ids": removed_snapshot_ids,
         "remaining_snapshots": Snapshot.objects.count(),
     }
+    stdout = getattr(request, 'stdout', None)
+    stderr = getattr(request, 'stderr', None)
     return {
         "success": True,
         "errors": [],
         "result": result,
         "result_format": "json",
-        "stdout": ansi_to_html(request.stdout.getvalue().strip()),
-        "stderr": ansi_to_html(request.stderr.getvalue().strip()),
+        "stdout": ansi_to_html(stdout.getvalue().strip()) if isinstance(stdout, StringIO) else '',
+        "stderr": ansi_to_html(stderr.getvalue().strip()) if isinstance(stderr, StringIO) else '',
     }
     

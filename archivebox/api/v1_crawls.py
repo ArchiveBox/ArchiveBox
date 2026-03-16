@@ -3,9 +3,11 @@ __package__ = 'archivebox.api'
 from uuid import UUID
 from typing import List, Optional
 from datetime import datetime
+from django.http import HttpRequest
 from django.utils import timezone
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User
 
 from ninja import Router, Schema
 from ninja.errors import HttpError
@@ -44,12 +46,14 @@ class CrawlSchema(Schema):
 
     @staticmethod
     def resolve_created_by_username(obj):
-        User = get_user_model()
-        return User.objects.get(id=obj.created_by_id).username
+        user_model = get_user_model()
+        user = user_model.objects.get(id=obj.created_by_id)
+        username = getattr(user, 'username', None)
+        return username if isinstance(username, str) else str(user)
 
     @staticmethod
     def resolve_snapshots(obj, context):
-        if context['request'].with_snapshots:
+        if bool(getattr(context['request'], 'with_snapshots', False)):
             return obj.snapshot_set.all().distinct()
         return Snapshot.objects.none()
 
@@ -85,12 +89,12 @@ def normalize_tag_list(tags: Optional[List[str]] = None, tags_str: str = '') -> 
 
 
 @router.get("/crawls", response=List[CrawlSchema], url_name="get_crawls")
-def get_crawls(request):
+def get_crawls(request: HttpRequest):
     return Crawl.objects.all().distinct()
 
 
 @router.post("/crawls", response=CrawlSchema, url_name="create_crawl")
-def create_crawl(request, data: CrawlCreateSchema):
+def create_crawl(request: HttpRequest, data: CrawlCreateSchema):
     urls = [url.strip() for url in data.urls if url and url.strip()]
     if not urls:
         raise HttpError(400, 'At least one URL is required')
@@ -107,16 +111,16 @@ def create_crawl(request, data: CrawlCreateSchema):
         config=data.config,
         status=Crawl.StatusChoices.QUEUED,
         retry_at=timezone.now(),
-        created_by=request.user,
+        created_by=request.user if isinstance(request.user, User) else None,
     )
     crawl.create_snapshots_from_urls()
     return crawl
 
 @router.get("/crawl/{crawl_id}", response=CrawlSchema | str, url_name="get_crawl")
-def get_crawl(request, crawl_id: str, as_rss: bool=False, with_snapshots: bool=False, with_archiveresults: bool=False):
+def get_crawl(request: HttpRequest, crawl_id: str, as_rss: bool=False, with_snapshots: bool=False, with_archiveresults: bool=False):
     """Get a specific Crawl by id."""
-    request.with_snapshots = with_snapshots
-    request.with_archiveresults = with_archiveresults
+    setattr(request, 'with_snapshots', with_snapshots)
+    setattr(request, 'with_archiveresults', with_archiveresults)
     crawl = Crawl.objects.get(id__icontains=crawl_id)
     
     if crawl and as_rss:
@@ -135,7 +139,7 @@ def get_crawl(request, crawl_id: str, as_rss: bool=False, with_snapshots: bool=F
 
 
 @router.patch("/crawl/{crawl_id}", response=CrawlSchema, url_name="patch_crawl")
-def patch_crawl(request, crawl_id: str, data: CrawlUpdateSchema):
+def patch_crawl(request: HttpRequest, crawl_id: str, data: CrawlUpdateSchema):
     """Update a crawl (e.g., set status=sealed to cancel queued work)."""
     crawl = Crawl.objects.get(id__icontains=crawl_id)
     payload = data.dict(exclude_unset=True)
@@ -174,7 +178,7 @@ def patch_crawl(request, crawl_id: str, data: CrawlUpdateSchema):
 
 
 @router.delete("/crawl/{crawl_id}", response=CrawlDeleteResponseSchema, url_name="delete_crawl")
-def delete_crawl(request, crawl_id: str):
+def delete_crawl(request: HttpRequest, crawl_id: str):
     crawl = Crawl.objects.get(id__icontains=crawl_id)
     crawl_id_str = str(crawl.id)
     snapshot_count = crawl.snapshot_set.count()

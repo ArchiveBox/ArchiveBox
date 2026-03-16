@@ -1,6 +1,7 @@
 __package__ = 'archivebox.api'
 
 from typing import Optional
+from django.http import HttpRequest
 
 from ninja import Router, Schema
 
@@ -17,7 +18,7 @@ class PasswordAuthSchema(Schema):
 
 
 @router.post("/get_api_token", auth=None, summary='Generate an API token for a given username & password (or currently logged-in user)')             # auth=None because they are not authed yet
-def get_api_token(request, auth_data: PasswordAuthSchema):
+def get_api_token(request: HttpRequest, auth_data: PasswordAuthSchema):
     user = auth_using_password(
         username=auth_data.username,
         password=auth_data.password,
@@ -45,7 +46,7 @@ class TokenAuthSchema(Schema):
 
 
 @router.post("/check_api_token", auth=None, summary='Validate an API token to make sure its valid and non-expired')        # auth=None because they are not authed yet
-def check_api_token(request, token_data: TokenAuthSchema):
+def check_api_token(request: HttpRequest, token_data: TokenAuthSchema):
     user = auth_using_token(
         token=token_data.token,
         request=request,

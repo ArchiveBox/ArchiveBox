@@ -210,16 +210,70 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
     @classmethod
     def claim_for_worker(cls, obj: 'BaseModelWithStateMachine', lock_seconds: int = 60) -> bool:
         """
-        Atomically claim an object for processing using optimistic locking.
-        Returns True if successfully claimed, False if another worker got it first.
+        Atomically claim a due object for processing using retry_at as the lock.
+
+        Correct lifecycle for any state-machine-driven work item:
+        1. Queue the item by setting retry_at <= now
+        2. Exactly one owner claims it by moving retry_at into the future
+        3. Only that owner may call .sm.tick() and perform side effects
+        4. State-machine callbacks update retry_at again when the work completes,
+           backs off, or is re-queued
+
+        The critical rule is that future retry_at values are already owned.
+        Callers must never "steal" those future timestamps and start another
+        copy of the same work. That is what prevents duplicate installs, hook
+        runs, and other concurrent side effects.
+
+        Returns True if successfully claimed, False if another worker got it
+        first or the object is not currently due.
         """
         updated = cls.objects.filter(
             pk=obj.pk,
             retry_at=obj.retry_at,
+            retry_at__lte=timezone.now(),
         ).update(
             retry_at=timezone.now() + timedelta(seconds=lock_seconds)
         )
         return updated == 1
+
+    def claim_processing_lock(self, lock_seconds: int = 60) -> bool:
+        """
+        Claim this model instance immediately before executing one state-machine tick.
+
+        This helper is the safe entrypoint for any direct state-machine driver
+        (workers, synchronous crawl dependency installers, one-off CLI helpers).
+        Calling `.sm.tick()` without claiming first turns retry_at into "just a
+        schedule" instead of the ownership lock it is meant to be.
+
+        Returns True only for the caller that successfully moved retry_at into
+        the future. False means another process already owns the work item or it
+        is not currently due.
+        """
+        if self.STATE in self.FINAL_STATES:
+            return False
+        if self.RETRY_AT is None:
+            return False
+
+        claimed = type(self).claim_for_worker(self, lock_seconds=lock_seconds)
+        if claimed:
+            self.refresh_from_db()
+        return claimed
+
+    def tick_claimed(self, lock_seconds: int = 60) -> bool:
+        """
+        Claim ownership via retry_at and then execute exactly one `.sm.tick()`.
+
+        Future maintainers should prefer this helper over calling `.sm.tick()`
+        directly whenever there is any chance another process could see the same
+        queued row. If this method returns False, someone else already owns the
+        work and the caller must not run side effects for it.
+        """
+        if not self.claim_processing_lock(lock_seconds=lock_seconds):
+            return False
+
+        self.sm.tick()
+        self.refresh_from_db()
+        return True
 
     @classproperty
     def ACTIVE_STATE(cls) -> str:

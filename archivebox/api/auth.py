@@ -1,18 +1,18 @@
 __package__ = 'archivebox.api'
 
-from typing import Optional, cast
+from typing import Optional
 from datetime import timedelta
 
-from django.http import HttpRequest
 from django.utils import timezone
+from django.http import HttpRequest
 from django.contrib.auth import authenticate
-from django.contrib.auth.models import AbstractBaseUser
+from django.contrib.auth.models import User
 
 from ninja.security import HttpBearer, APIKeyQuery, APIKeyHeader, HttpBasicAuth
 from ninja.errors import HttpError
 
 
-def get_or_create_api_token(user):
+def get_or_create_api_token(user: User | None):
     from archivebox.api.models import APIToken
     
     if user and user.is_superuser:
@@ -23,122 +23,106 @@ def get_or_create_api_token(user):
         else:
             # does not exist, create a new one
             api_token = APIToken.objects.create(created_by_id=user.pk, expires=timezone.now() + timedelta(days=30))
-        
+
+        if api_token is None:
+            return None
         assert api_token.is_valid(), f"API token is not valid {api_token}"
 
         return api_token
     return None
 
 
-def auth_using_token(token, request: Optional[HttpRequest]=None) -> Optional[AbstractBaseUser]:
+def auth_using_token(token: str | None, request: HttpRequest | None = None) -> User | None:
     """Given an API token string, check if a corresponding non-expired APIToken exists, and return its user"""
     from archivebox.api.models import APIToken        # lazy import model to avoid loading it at urls.py import time
     
-    user = None
+    user: User | None = None
 
     submitted_empty_form = str(token).strip() in ('string', '', 'None', 'null')
     if not submitted_empty_form:
         try:
-            token = APIToken.objects.get(token=token)
-            if token.is_valid():
-                user = token.created_by
-                request._api_token = token
+            api_token = APIToken.objects.get(token=token)
+            if api_token.is_valid() and isinstance(api_token.created_by, User):
+                user = api_token.created_by
+                if request is not None:
+                    setattr(request, '_api_token', api_token)
         except APIToken.DoesNotExist:
             pass
 
-    if not user:
-        # print('[❌] Failed to authenticate API user using API Key:', request)
-        return None
-    
-    return cast(AbstractBaseUser, user)
+    return user
 
-def auth_using_password(username, password, request: Optional[HttpRequest]=None) -> Optional[AbstractBaseUser]:
+
+def auth_using_password(username: str | None, password: str | None, request: HttpRequest | None = None) -> User | None:
     """Given a username and password, check if they are valid and return the corresponding user"""
-    user = None
+    user: User | None = None
     
     submitted_empty_form = (username, password) in (('string', 'string'), ('', ''), (None, None))
     if not submitted_empty_form:
-        user = authenticate(
+        authenticated_user = authenticate(
             username=username,
             password=password,
         )
-
-    if not user:
-        # print('[❌] Failed to authenticate API user using API Key:', request)
-        user = None
-
-    return cast(AbstractBaseUser | None, user)
+        if isinstance(authenticated_user, User):
+            user = authenticated_user
+    return user
 
 
 ### Base Auth Types
 
 
-class APITokenAuthCheck:
-    """The base class for authentication methods that use an api.models.APIToken"""
-    def authenticate(self, request: HttpRequest, key: Optional[str]=None) -> Optional[AbstractBaseUser]:
-        request.user = auth_using_token(
-            token=key,
-            request=request,
-        )
-        if request.user and request.user.pk:
-            # Don't set cookie/persist login ouside this erquest, user may be accessing the API from another domain (CSRF/CORS):
-            # login(request, request.user, backend='django.contrib.auth.backends.ModelBackend')
-            request._api_auth_method = self.__class__.__name__
-
-            if not request.user.is_superuser:
-                raise HttpError(403, 'Valid API token but User does not have permission (make sure user.is_superuser=True)')
-        return request.user
-
-
-class UserPassAuthCheck:
-    """The base class for authentication methods that use a username & password"""
-    def authenticate(self, request: HttpRequest, username: Optional[str]=None, password: Optional[str]=None) -> Optional[AbstractBaseUser]:
-        request.user = auth_using_password(
-            username=username,
-            password=password,
-            request=request,
-        )
-        if request.user and request.user.pk:
-            # Don't set cookie/persist login ouside this erquest, user may be accessing the API from another domain (CSRF/CORS):
-            # login(request, request.user, backend='django.contrib.auth.backends.ModelBackend')
-            request._api_auth_method = self.__class__.__name__
-
-            if not request.user.is_superuser:
-                raise HttpError(403, 'Valid API token but User does not have permission (make sure user.is_superuser=True)')
-
-        return request.user
+def _require_superuser(user: User | None, request: HttpRequest, auth_method: str) -> User | None:
+    if user and user.pk:
+        request.user = user
+        setattr(request, '_api_auth_method', auth_method)
+        if not user.is_superuser:
+            raise HttpError(403, 'Valid credentials but User does not have permission (make sure user.is_superuser=True)')
+    return user
 
 
 ### Django-Ninja-Provided Auth Methods
 
-class HeaderTokenAuth(APITokenAuthCheck, APIKeyHeader):
+class HeaderTokenAuth(APIKeyHeader):
     """Allow authenticating by passing X-API-Key=xyz as a request header"""
     param_name = "X-ArchiveBox-API-Key"
 
-class BearerTokenAuth(APITokenAuthCheck, HttpBearer):
-    """Allow authenticating by passing Bearer=xyz as a request header"""
-    pass
+    def authenticate(self, request: HttpRequest, key: Optional[str]) -> User | None:
+        return _require_superuser(auth_using_token(token=key, request=request), request, self.__class__.__name__)
 
-class QueryParamTokenAuth(APITokenAuthCheck, APIKeyQuery):
+class BearerTokenAuth(HttpBearer):
+    """Allow authenticating by passing Bearer=xyz as a request header"""
+
+    def authenticate(self, request: HttpRequest, token: str) -> User | None:
+        return _require_superuser(auth_using_token(token=token, request=request), request, self.__class__.__name__)
+
+class QueryParamTokenAuth(APIKeyQuery):
     """Allow authenticating by passing api_key=xyz as a GET/POST query parameter"""
     param_name = "api_key"
 
-class UsernameAndPasswordAuth(UserPassAuthCheck, HttpBasicAuth):
+    def authenticate(self, request: HttpRequest, key: Optional[str]) -> User | None:
+        return _require_superuser(auth_using_token(token=key, request=request), request, self.__class__.__name__)
+
+class UsernameAndPasswordAuth(HttpBasicAuth):
     """Allow authenticating by passing username & password via HTTP Basic Authentication (not recommended)"""
-    pass
+
+    def authenticate(self, request: HttpRequest, username: str, password: str) -> User | None:
+        return _require_superuser(
+            auth_using_password(username=username, password=password, request=request),
+            request,
+            self.__class__.__name__,
+        )
 
 class DjangoSessionAuth:
     """Allow authenticating with existing Django session cookies (same-origin only)."""
-    def __call__(self, request: HttpRequest) -> Optional[AbstractBaseUser]:
+    def __call__(self, request: HttpRequest) -> User | None:
         return self.authenticate(request)
 
-    def authenticate(self, request: HttpRequest, **kwargs) -> Optional[AbstractBaseUser]:
+    def authenticate(self, request: HttpRequest, **kwargs) -> User | None:
         user = getattr(request, 'user', None)
-        if user and user.is_authenticated:
-            request._api_auth_method = self.__class__.__name__
+        if isinstance(user, User) and user.is_authenticated:
+            setattr(request, '_api_auth_method', self.__class__.__name__)
             if not user.is_superuser:
                 raise HttpError(403, 'Valid session but User does not have permission (make sure user.is_superuser=True)')
-            return cast(AbstractBaseUser, user)
+            return user
         return None
 
 ### Enabled Auth Methods

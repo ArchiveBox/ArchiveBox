@@ -382,6 +382,88 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
         return created_snapshots
 
+    def install_declared_binaries(self, binary_names: set[str], machine=None) -> None:
+        """
+        Install crawl-declared Binary rows without violating the retry_at lock lifecycle.
+
+        Correct calling pattern:
+        1. Crawl hooks declare Binary records and queue them with retry_at <= now
+        2. Exactly one actor claims each Binary by moving retry_at into the future
+        3. Only that owner executes `.sm.tick()` and performs install side effects
+        4. Everyone else waits for the claimed owner to finish instead of launching
+           a second install against shared state such as the pip or npm trees
+
+        This helper follows that contract by claiming each Binary before ticking
+        it, and by waiting when another worker already owns the row. That keeps
+        synchronous crawl execution compatible with the global BinaryWorker and
+        avoids duplicate installs of the same dependency.
+        """
+        import time
+        from archivebox.machine.models import Binary, Machine
+
+        if not binary_names:
+            return
+
+        machine = machine or Machine.current()
+        lock_seconds = 600
+        deadline = time.monotonic() + max(lock_seconds, len(binary_names) * lock_seconds)
+
+        while time.monotonic() < deadline:
+            unresolved_binaries = list(
+                Binary.objects.filter(
+                    machine=machine,
+                    name__in=binary_names,
+                ).exclude(
+                    status=Binary.StatusChoices.INSTALLED,
+                ).order_by('name')
+            )
+            if not unresolved_binaries:
+                return
+
+            claimed_any = False
+            waiting_on_existing_owner = False
+            now = timezone.now()
+
+            for binary in unresolved_binaries:
+                try:
+                    if binary.tick_claimed(lock_seconds=lock_seconds):
+                        claimed_any = True
+                        continue
+                except Exception:
+                    claimed_any = True
+                    continue
+
+                binary.refresh_from_db()
+                if binary.status == Binary.StatusChoices.INSTALLED:
+                    claimed_any = True
+                    continue
+                if binary.retry_at and binary.retry_at > now:
+                    waiting_on_existing_owner = True
+
+            if claimed_any:
+                continue
+            if waiting_on_existing_owner:
+                time.sleep(0.5)
+                continue
+            break
+
+        unresolved_binaries = list(
+            Binary.objects.filter(
+                machine=machine,
+                name__in=binary_names,
+            ).exclude(
+                status=Binary.StatusChoices.INSTALLED,
+            ).order_by('name')
+        )
+        if unresolved_binaries:
+            binary_details = ', '.join(
+                f'{binary.name} (status={binary.status}, retry_at={binary.retry_at})'
+                for binary in unresolved_binaries
+            )
+            raise RuntimeError(
+                f'Crawl dependencies failed to install before continuing: {binary_details}'
+            )
+
     def run(self) -> 'Snapshot | None':
         """
         Execute this Crawl: run hooks, process JSONL, create snapshots.
@@ -427,47 +509,6 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 crawl=self,
                 chrome_binary=chrome_binary,
             )
-
-        def install_declared_binaries(binary_names: set[str]) -> None:
-            if not binary_names:
-                return
-
-            max_attempts = max(2, len(binary_names))
-
-            for _ in range(max_attempts):
-                pending_binaries = list(
-                    Binary.objects.filter(
-                        machine=machine,
-                        name__in=binary_names,
-                    ).exclude(
-                        status=Binary.StatusChoices.INSTALLED,
-                    ).order_by('retry_at', 'name')
-                )
-                if not pending_binaries:
-                    return
-
-                for binary in pending_binaries:
-                    try:
-                        binary.sm.tick()
-                    except Exception:
-                        continue
-
-            unresolved_binaries = list(
-                Binary.objects.filter(
-                    machine=machine,
-                    name__in=binary_names,
-                ).exclude(
-                    status=Binary.StatusChoices.INSTALLED,
-                ).order_by('name')
-            )
-            if unresolved_binaries:
-                binary_details = ', '.join(
-                    f'{binary.name} (status={binary.status})'
-                    for binary in unresolved_binaries
-                )
-                raise RuntimeError(
-                    f'Crawl dependencies failed to install before continuing: {binary_details}'
-                )
 
         executed_crawl_hooks: set[str] = set()
 
@@ -598,11 +639,11 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         for hook in hooks:
             hook_binary_names = run_crawl_hook(hook)
             if hook_binary_names:
-                install_declared_binaries(resolve_provider_binaries(hook_binary_names))
+                self.install_declared_binaries(resolve_provider_binaries(hook_binary_names), machine=machine)
 
         # Safety check: don't create snapshots if any crawl-declared dependency
         # is still unresolved after all crawl hooks have run.
-        install_declared_binaries(declared_binary_names)
+        self.install_declared_binaries(declared_binary_names, machine=machine)
 
         # Create snapshots from all URLs in self.urls
         if system_task:

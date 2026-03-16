@@ -35,6 +35,7 @@ from datetime import timedelta
 from multiprocessing import Process as MPProcess
 from pathlib import Path
 
+from django.db import connections
 from django.utils import timezone
 
 from rich import print
@@ -403,6 +404,17 @@ class Orchestrator:
 
         return queue_sizes
 
+    def _refresh_db_connections(self) -> None:
+        """
+        Drop long-lived DB connections before each poll tick.
+
+        The daemon orchestrator must observe rows created by sibling processes
+        (server requests, CLI helpers, docker-compose run invocations). With
+        SQLite, reusing the same connection indefinitely can miss externally
+        committed rows until the process reconnects.
+        """
+        connections.close_all()
+
     def _should_process_schedules(self) -> bool:
         return (not self.exit_on_idle) and (self.crawl_id is None)
 
@@ -576,17 +588,10 @@ class Orchestrator:
         )
 
     def _claim_crawl(self, crawl) -> bool:
-        """Atomically claim a crawl using optimistic locking."""
+        """Atomically claim a due crawl using the shared retry_at lock lifecycle."""
         from archivebox.crawls.models import Crawl
 
-        updated = Crawl.objects.filter(
-            pk=crawl.pk,
-            retry_at=crawl.retry_at,
-        ).update(
-            retry_at=timezone.now() + timedelta(hours=24),  # Long lock (crawls take time)
-        )
-
-        return updated == 1
+        return Crawl.claim_for_worker(crawl, lock_seconds=24 * 60 * 60)
 
     def has_pending_work(self, queue_sizes: dict[str, int]) -> bool:
         """Check if any queue has pending work."""
@@ -725,6 +730,10 @@ class Orchestrator:
         try:
             while True:
                 tick_count += 1
+
+                # Refresh DB state before polling so this long-lived daemon sees
+                # work created by other processes using the same collection.
+                self._refresh_db_connections()
 
                 # Check queues and spawn workers
                 queue_sizes = self.check_queues_and_spawn_workers()

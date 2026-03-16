@@ -1,10 +1,12 @@
 __package__ = 'archivebox.api'
 
 from uuid import UUID
-from typing import List, Optional
+from typing import Annotated, List, Optional
 from datetime import datetime
 
-from ninja import Router, Schema, FilterSchema, Field, Query
+from django.http import HttpRequest
+
+from ninja import FilterLookup, FilterSchema, Query, Router, Schema
 from ninja.pagination import paginate
 
 from archivebox.api.v1_core import CustomPagination
@@ -41,16 +43,13 @@ class MachineSchema(Schema):
 
 
 class MachineFilterSchema(FilterSchema):
-    id: Optional[str] = Field(None, q='id__startswith')
-    hostname: Optional[str] = Field(None, q='hostname__icontains')
-    os_platform: Optional[str] = Field(None, q='os_platform__icontains')
-    os_arch: Optional[str] = Field(None, q='os_arch')
-    hw_in_docker: Optional[bool] = Field(None, q='hw_in_docker')
-    hw_in_vm: Optional[bool] = Field(None, q='hw_in_vm')
-
-
-# ============================================================================
-    bin_providers: Optional[str] = Field(None, q='bin_providers__icontains')
+    id: Annotated[Optional[str], FilterLookup('id__startswith')] = None
+    hostname: Annotated[Optional[str], FilterLookup('hostname__icontains')] = None
+    os_platform: Annotated[Optional[str], FilterLookup('os_platform__icontains')] = None
+    os_arch: Annotated[Optional[str], FilterLookup('os_arch')] = None
+    hw_in_docker: Annotated[Optional[bool], FilterLookup('hw_in_docker')] = None
+    hw_in_vm: Annotated[Optional[bool], FilterLookup('hw_in_vm')] = None
+    bin_providers: Annotated[Optional[str], FilterLookup('bin_providers__icontains')] = None
 
 
 # ============================================================================
@@ -86,12 +85,12 @@ class BinarySchema(Schema):
 
 
 class BinaryFilterSchema(FilterSchema):
-    id: Optional[str] = Field(None, q='id__startswith')
-    name: Optional[str] = Field(None, q='name__icontains')
-    binprovider: Optional[str] = Field(None, q='binprovider')
-    status: Optional[str] = Field(None, q='status')
-    machine_id: Optional[str] = Field(None, q='machine_id__startswith')
-    version: Optional[str] = Field(None, q='version__icontains')
+    id: Annotated[Optional[str], FilterLookup('id__startswith')] = None
+    name: Annotated[Optional[str], FilterLookup('name__icontains')] = None
+    binprovider: Annotated[Optional[str], FilterLookup('binprovider')] = None
+    status: Annotated[Optional[str], FilterLookup('status')] = None
+    machine_id: Annotated[Optional[str], FilterLookup('machine_id__startswith')] = None
+    version: Annotated[Optional[str], FilterLookup('version__icontains')] = None
 
 
 # ============================================================================
@@ -100,21 +99,21 @@ class BinaryFilterSchema(FilterSchema):
 
 @router.get("/machines", response=List[MachineSchema], url_name="get_machines")
 @paginate(CustomPagination)
-def get_machines(request, filters: MachineFilterSchema = Query(...)):
+def get_machines(request: HttpRequest, filters: Query[MachineFilterSchema]):
     """List all machines."""
     from archivebox.machine.models import Machine
     return filters.filter(Machine.objects.all()).distinct()
 
 
 @router.get("/machine/current", response=MachineSchema, url_name="get_current_machine")
-def get_current_machine(request):
+def get_current_machine(request: HttpRequest):
     """Get the current machine."""
     from archivebox.machine.models import Machine
     return Machine.current()
 
 
 @router.get("/machine/{machine_id}", response=MachineSchema, url_name="get_machine")
-def get_machine(request, machine_id: str):
+def get_machine(request: HttpRequest, machine_id: str):
     """Get a specific machine by ID."""
     from archivebox.machine.models import Machine
     from django.db.models import Q
@@ -130,21 +129,21 @@ def get_machine(request, machine_id: str):
 
 @router.get("/binaries", response=List[BinarySchema], url_name="get_binaries")
 @paginate(CustomPagination)
-def get_binaries(request, filters: BinaryFilterSchema = Query(...)):
+def get_binaries(request: HttpRequest, filters: Query[BinaryFilterSchema]):
     """List all binaries."""
     from archivebox.machine.models import Binary
     return filters.filter(Binary.objects.all().select_related('machine')).distinct()
 
 
 @router.get("/binary/{binary_id}", response=BinarySchema, url_name="get_binary")
-def get_binary(request, binary_id: str):
+def get_binary(request: HttpRequest, binary_id: str):
     """Get a specific binary by ID."""
     from archivebox.machine.models import Binary
     return Binary.objects.select_related('machine').get(id__startswith=binary_id)
 
 
 @router.get("/binary/by-name/{name}", response=List[BinarySchema], url_name="get_binaries_by_name")
-def get_binaries_by_name(request, name: str):
+def get_binaries_by_name(request: HttpRequest, name: str):
     """Get all binaries with the given name."""
     from archivebox.machine.models import Binary
     return list(Binary.objects.filter(name__iexact=name).select_related('machine'))

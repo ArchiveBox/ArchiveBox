@@ -7,6 +7,7 @@ from contextlib import redirect_stdout, redirect_stderr
 
 from django.http import HttpRequest, HttpResponse
 from django.core.exceptions import ObjectDoesNotExist, EmptyResultSet, PermissionDenied
+from django.contrib.auth.models import User
 
 from ninja import NinjaAPI, Swagger
 
@@ -16,6 +17,7 @@ from archivebox.config import VERSION
 from archivebox.config.version import get_COMMIT_HASH
 
 from archivebox.api.auth import API_AUTH_METHODS
+from archivebox.api.models import APIToken
 
 
 COMMIT_HASH = get_COMMIT_HASH() or 'unknown'
@@ -51,8 +53,8 @@ class NinjaAPIWithIOCapture(NinjaAPI):
 
         with redirect_stderr(stderr):
             with redirect_stdout(stdout):
-                request.stdout = stdout
-                request.stderr = stderr
+                setattr(request, 'stdout', stdout)
+                setattr(request, 'stderr', stderr)
 
                 response = super().create_temporal_response(request)
 
@@ -60,19 +62,20 @@ class NinjaAPIWithIOCapture(NinjaAPI):
         response['Cache-Control'] = 'no-store'
 
         # Add debug stdout and stderr headers to response
-        response['X-ArchiveBox-Stdout'] = str(request.stdout)[200:]
-        response['X-ArchiveBox-Stderr'] = str(request.stderr)[200:]
+        response['X-ArchiveBox-Stdout'] = stdout.getvalue().replace('\n', '\\n')[:200]
+        response['X-ArchiveBox-Stderr'] = stderr.getvalue().replace('\n', '\\n')[:200]
         # response['X-ArchiveBox-View'] = self.get_openapi_operation_id(request) or 'Unknown'
 
         # Add Auth Headers to response
-        api_token = getattr(request, '_api_token', None)
+        api_token_attr = getattr(request, '_api_token', None)
+        api_token = api_token_attr if isinstance(api_token_attr, APIToken) else None
         token_expiry = api_token.expires.isoformat() if api_token and api_token.expires else 'Never'
 
-        response['X-ArchiveBox-Auth-Method'] = getattr(request, '_api_auth_method', None) or 'None'
+        response['X-ArchiveBox-Auth-Method'] = str(getattr(request, '_api_auth_method', 'None'))
         response['X-ArchiveBox-Auth-Expires'] = token_expiry
         response['X-ArchiveBox-Auth-Token-Id'] = str(api_token.id) if api_token else 'None'
-        response['X-ArchiveBox-Auth-User-Id'] = request.user.pk if request.user.pk else 'None'
-        response['X-ArchiveBox-Auth-User-Username'] = request.user.username if request.user.pk else 'None'
+        response['X-ArchiveBox-Auth-User-Id'] = str(request.user.pk) if getattr(request.user, 'pk', None) else 'None'
+        response['X-ArchiveBox-Auth-User-Username'] = request.user.username if isinstance(request.user, User) else 'None'
 
         # import ipdb; ipdb.set_trace()
         # print('RESPONDING NOW', response)
