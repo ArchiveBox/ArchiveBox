@@ -9,12 +9,14 @@ from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.shortcuts import redirect
+from django.utils import timezone
 
 from ninja import Router, Schema, FilterSchema, Field, Query
 from ninja.pagination import paginate, PaginationBase
 from ninja.errors import HttpError
 
 from archivebox.core.models import Snapshot, ArchiveResult, Tag
+from archivebox.crawls.models import Crawl
 from archivebox.api.v1_crawls import CrawlSchema
 
 
@@ -191,6 +193,27 @@ class SnapshotSchema(Schema):
 class SnapshotUpdateSchema(Schema):
     status: str | None = None
     retry_at: datetime | None = None
+    tags: Optional[List[str]] = None
+
+
+class SnapshotCreateSchema(Schema):
+    url: str
+    crawl_id: Optional[str] = None
+    depth: int = 0
+    title: Optional[str] = None
+    tags: Optional[List[str]] = None
+    status: Optional[str] = None
+
+
+class SnapshotDeleteResponseSchema(Schema):
+    success: bool
+    snapshot_id: str
+    crawl_id: str
+    deleted_count: int
+
+
+def normalize_tag_list(tags: Optional[List[str]] = None) -> List[str]:
+    return [tag.strip() for tag in (tags or []) if tag and tag.strip()]
 
 
 class SnapshotFilterSchema(FilterSchema):
@@ -230,6 +253,68 @@ def get_snapshot(request, snapshot_id: str, with_archiveresults: bool = True):
         return Snapshot.objects.get(Q(id__icontains=snapshot_id))
 
 
+@router.post("/snapshots", response=SnapshotSchema, url_name="create_snapshot")
+def create_snapshot(request, data: SnapshotCreateSchema):
+    tags = normalize_tag_list(data.tags)
+    if data.status is not None and data.status not in Snapshot.StatusChoices.values:
+        raise HttpError(400, f'Invalid status: {data.status}')
+    if not data.url.strip():
+        raise HttpError(400, 'URL is required')
+    if data.depth not in (0, 1, 2, 3, 4):
+        raise HttpError(400, 'depth must be between 0 and 4')
+
+    if data.crawl_id:
+        crawl = Crawl.objects.get(id__icontains=data.crawl_id)
+        crawl_tags = normalize_tag_list(crawl.tags_str.split(','))
+        tags = tags or crawl_tags
+    else:
+        crawl = Crawl.objects.create(
+            urls=data.url,
+            max_depth=max(data.depth, 0),
+            tags_str=','.join(tags),
+            status=Crawl.StatusChoices.QUEUED,
+            retry_at=timezone.now(),
+            created_by=request.user,
+        )
+
+    snapshot_defaults = {
+        'depth': data.depth,
+        'title': data.title,
+        'timestamp': str(timezone.now().timestamp()),
+        'status': data.status or Snapshot.StatusChoices.QUEUED,
+        'retry_at': timezone.now(),
+    }
+    snapshot, _ = Snapshot.objects.get_or_create(
+        url=data.url,
+        crawl=crawl,
+        defaults=snapshot_defaults,
+    )
+
+    update_fields: List[str] = []
+    if data.title is not None and snapshot.title != data.title:
+        snapshot.title = data.title
+        update_fields.append('title')
+    if data.status is not None and snapshot.status != data.status:
+        if data.status not in Snapshot.StatusChoices.values:
+            raise HttpError(400, f'Invalid status: {data.status}')
+        snapshot.status = data.status
+        update_fields.append('status')
+    if update_fields:
+        update_fields.append('modified_at')
+        snapshot.save(update_fields=update_fields)
+
+    if tags:
+        snapshot.save_tags(tags)
+
+    try:
+        snapshot.ensure_crawl_symlink()
+    except Exception:
+        pass
+
+    request.with_archiveresults = False
+    return snapshot
+
+
 @router.patch("/snapshot/{snapshot_id}", response=SnapshotSchema, url_name="patch_snapshot")
 def patch_snapshot(request, snapshot_id: str, data: SnapshotUpdateSchema):
     """Update a snapshot (e.g., set status=sealed to cancel queued work)."""
@@ -239,6 +324,8 @@ def patch_snapshot(request, snapshot_id: str, data: SnapshotUpdateSchema):
         snapshot = Snapshot.objects.get(Q(id__icontains=snapshot_id))
 
     payload = data.dict(exclude_unset=True)
+    update_fields = ['modified_at']
+    tags = payload.pop('tags', None)
 
     if 'status' in payload:
         if payload['status'] not in Snapshot.StatusChoices.values:
@@ -246,20 +333,39 @@ def patch_snapshot(request, snapshot_id: str, data: SnapshotUpdateSchema):
         snapshot.status = payload['status']
         if snapshot.status == Snapshot.StatusChoices.SEALED and 'retry_at' not in payload:
             snapshot.retry_at = None
+        update_fields.append('status')
 
     if 'retry_at' in payload:
         snapshot.retry_at = payload['retry_at']
+        update_fields.append('retry_at')
 
-    snapshot.save(update_fields=['status', 'retry_at', 'modified_at'])
+    if tags is not None:
+        snapshot.save_tags(normalize_tag_list(tags))
+
+    snapshot.save(update_fields=update_fields)
     request.with_archiveresults = False
     return snapshot
+
+
+@router.delete("/snapshot/{snapshot_id}", response=SnapshotDeleteResponseSchema, url_name="delete_snapshot")
+def delete_snapshot(request, snapshot_id: str):
+    snapshot = get_snapshot(request, snapshot_id, with_archiveresults=False)
+    snapshot_id_str = str(snapshot.id)
+    crawl_id_str = str(snapshot.crawl_id)
+    deleted_count, _ = snapshot.delete()
+    return {
+        'success': True,
+        'snapshot_id': snapshot_id_str,
+        'crawl_id': crawl_id_str,
+        'deleted_count': deleted_count,
+    }
 
 
 ### Tag #########################################################################
 
 class TagSchema(Schema):
     TYPE: str = 'core.models.Tag'
-    id: UUID
+    id: int
     modified_at: datetime
     created_at: datetime
     created_by_id: str

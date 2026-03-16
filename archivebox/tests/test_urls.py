@@ -312,6 +312,40 @@ class TestUrlRouting:
             """
         )
 
+    def test_api_auth_token_endpoint_available_on_admin_and_api_hosts(self) -> None:
+        self._run(
+            """
+            ensure_admin_user()
+            client = Client()
+            admin_host = get_admin_host()
+            api_host = get_api_host()
+
+            payload = '{"username": "testadmin", "password": "testpassword"}'
+
+            resp = client.post(
+                "/api/v1/auth/get_api_token",
+                data=payload,
+                content_type="application/json",
+                HTTP_HOST=admin_host,
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data.get("token")
+
+            resp = client.post(
+                "/api/v1/auth/get_api_token",
+                data=payload,
+                content_type="application/json",
+                HTTP_HOST=api_host,
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data.get("token")
+
+            print("OK")
+            """
+        )
+
     def test_api_post_with_token_on_admin_and_api_hosts(self) -> None:
         self._run(
             """

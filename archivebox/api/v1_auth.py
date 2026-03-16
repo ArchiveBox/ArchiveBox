@@ -30,7 +30,13 @@ def get_api_token(request, auth_data: PasswordAuthSchema):
     if user and user.is_superuser:
         api_token = get_or_create_api_token(user)
         assert api_token is not None, "Failed to create API token"
-        return api_token.__json__()
+        return {
+            "success": True,
+            "user_id": str(user.pk),
+            "username": user.username,
+            "token": api_token.token,
+            "expires": api_token.expires.isoformat() if api_token.expires else None,
+        }
     
     return {"success": False, "errors": ["Invalid credentials"]}
 

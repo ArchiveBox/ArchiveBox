@@ -186,7 +186,9 @@ def add(urls: str | list[str],
             pass
 
     # 6. Return the list of Snapshots in this crawl
-    return crawl.snapshot_set.all()
+    snapshots = crawl.snapshot_set.all()
+    snapshots.crawl_id = str(crawl.id)
+    return snapshots
 
 
 @click.command()

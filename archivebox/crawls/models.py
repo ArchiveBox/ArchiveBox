@@ -284,7 +284,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 depth = 0
                 title = None
                 timestamp = None
-                tags = ''
+                tags = self.tags_str
 
             if not url:
                 continue

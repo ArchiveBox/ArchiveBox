@@ -15,14 +15,15 @@ REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && p
 if [[ -f "$REPO_DIR/.venv/bin/activate" ]]; then
     source "$REPO_DIR/.venv/bin/activate"
 else
-    echo "[!] Warning: No virtualenv presesnt in $REPO_DIR.venv"
+    echo "[!] Warning: No virtualenv present in $REPO_DIR/.venv"
 fi
 cd "$REPO_DIR"
 
 
 echo "[*] Fetching latest docs version"
 cd "$REPO_DIR/docs"
-git pull
+git fetch wiki || true
+git fetch docs || true
 cd "$REPO_DIR"
 
 echo "[+] Building docs"

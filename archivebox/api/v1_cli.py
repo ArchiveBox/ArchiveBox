@@ -121,10 +121,19 @@ def cli_add(request, args: AddCommandSchema):
         created_by_id=request.user.pk,
     )
 
+    snapshot_ids = [str(snapshot_id) for snapshot_id in result.values_list('id', flat=True)]
+    result_payload = {
+        "crawl_id": getattr(result, "crawl_id", None),
+        "num_snapshots": len(snapshot_ids),
+        "snapshot_ids": snapshot_ids,
+        "queued_urls": args.urls,
+    }
+
     return {
         "success": True,
         "errors": [],
-        "result": result,
+        "result": result_payload,
+        "result_format": "json",
         "stdout": ansi_to_html(request.stdout.getvalue().strip()),
         "stderr": ansi_to_html(request.stderr.getvalue().strip()),
     }
