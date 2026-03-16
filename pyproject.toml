@@ -245,7 +245,7 @@ output = "coverage.json"
 show_contexts = true
 
 [tool.mypy]
-mypy_path = "archivebox,archivebox/typings"
+mypy_path = "typings"
 namespace_packages = true
 explicit_package_bases = true
 # follow_imports = "silent"
@@ -257,7 +257,7 @@ explicit_package_bases = true
 plugins = ["mypy_django_plugin.main"]
 
 [tool.django-stubs]
-django_settings_module = "core.settings"
+django_settings_module = "archivebox.core.settings"
 
 [tool.pyright]
 include = [
@@ -271,7 +271,7 @@ exclude = [
     "**/__pycache__",
     "**/migrations",
 ]
-stubPath = "./archivebox/typings"
+stubPath = "./typings"
 venvPath = "."
 venv = ".venv"
 # ignore = ["src/oldstuff"]

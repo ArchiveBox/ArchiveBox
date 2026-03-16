@@ -32,7 +32,7 @@ def mcp():
         {"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}
     """
 
-    from mcp.server import run_mcp_server
+    from archivebox.mcp.server import run_mcp_server
 
     # Run the stdio server (blocks until stdin closes)
     run_mcp_server()

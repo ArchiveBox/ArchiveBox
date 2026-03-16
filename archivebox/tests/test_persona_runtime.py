@@ -144,3 +144,37 @@ def test_crawl_resolve_persona_raises_for_missing_persona_id(initialized_archive
     payload = json.loads(stdout.strip().splitlines()[-1])
     assert payload['raised'] is True
     assert 'references missing Persona' in payload['message']
+
+
+def test_get_config_raises_for_missing_persona_id(initialized_archive):
+    script = textwrap.dedent(
+        """
+        import json
+        import os
+        from uuid import uuid4
+
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
+        import django
+        django.setup()
+
+        from archivebox.config.configset import get_config
+        from archivebox.crawls.models import Crawl
+        from archivebox.personas.models import Persona
+
+        crawl = Crawl.objects.create(urls='https://example.com', persona_id=uuid4())
+
+        try:
+            get_config(crawl=crawl)
+        except Persona.DoesNotExist as err:
+            print(json.dumps({'raised': True, 'message': str(err)}))
+        else:
+            raise SystemExit('get_config unexpectedly succeeded')
+        """
+    )
+
+    stdout, stderr, code = run_python_cwd(script, cwd=initialized_archive, timeout=60)
+    assert code == 0, stderr
+
+    payload = json.loads(stdout.strip().splitlines()[-1])
+    assert payload['raised'] is True
+    assert 'references missing Persona' in payload['message']

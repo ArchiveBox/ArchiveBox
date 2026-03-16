@@ -24,6 +24,7 @@ __package__ = 'archivebox.misc'
 
 import sys
 import json
+import select
 from typing import Iterator, Dict, Any, Optional, TextIO
 from pathlib import Path
 
@@ -90,6 +91,14 @@ def read_stdin(stream: Optional[TextIO] = None) -> Iterator[Dict[str, Any]]:
     if stream.isatty():
         return
 
+    try:
+        ready, _, _ = select.select([stream], [], [], 0)
+    except (OSError, ValueError):
+        ready = [stream]
+
+    if not ready:
+        return
+
     for line in stream:
         record = parse_line(line)
         if record:
@@ -149,4 +158,3 @@ def write_records(records: Iterator[Dict[str, Any]], stream: Optional[TextIO] = 
         write_record(record, stream)
         count += 1
     return count
-

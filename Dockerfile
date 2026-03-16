@@ -216,7 +216,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 
 
 # Set up uv and main app /venv
-COPY --from=ghcr.io/astral-sh/uv:0.6 /uv /uvx /bin/
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/bin sh
 ENV UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_PREFERENCE=managed \
     UV_PYTHON_INSTALL_DIR=/opt/uv/python \
@@ -231,7 +231,7 @@ ENV VIRTUAL_ENV=/venv PATH="/venv/bin:$PATH"
 RUN uv pip install setuptools pip \
     && ( \
         which python3 && python3 --version \
-        && which uv && uv version \
+        && which uv && uv self version \
         && uv python find --system && uv python find \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt

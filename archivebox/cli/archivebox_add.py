@@ -23,6 +23,25 @@ if TYPE_CHECKING:
     from archivebox.core.models import Snapshot
 
 
+def _collect_input_urls(args: tuple[str, ...]) -> list[str]:
+    from archivebox.misc.jsonl import read_args_or_stdin
+
+    urls: list[str] = []
+    for record in read_args_or_stdin(args):
+        url = record.get('url')
+        if isinstance(url, str) and url:
+            urls.append(url)
+
+        urls_field = record.get('urls')
+        if isinstance(urls_field, str):
+            for line in urls_field.splitlines():
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    urls.append(line)
+
+    return urls
+
+
 @enforce_types
 def add(urls: str | list[str],
         depth: int | str=0,
@@ -210,7 +229,12 @@ def add(urls: str | list[str],
 def main(**kwargs):
     """Add a new URL or list of URLs to your archive"""
 
-    add(**kwargs)
+    raw_urls = kwargs.pop('urls')
+    urls = _collect_input_urls(raw_urls)
+    if not urls:
+        raise click.UsageError('No URLs provided. Pass URLs as arguments or via stdin.')
+
+    add(urls=urls, **kwargs)
 
 
 if __name__ == '__main__':

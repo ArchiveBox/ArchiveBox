@@ -339,7 +339,7 @@ class Orchestrator:
         queue_sizes = {}
 
         self._enforce_hard_timeouts()
-        self._materialize_due_schedules()
+        materialized_schedule_count = self._materialize_due_schedules()
 
         # Check Binary queue
         machine = Machine.current()
@@ -393,7 +393,7 @@ class Orchestrator:
 
         # CRITICAL: Only spawn CrawlWorkers if binary queue is empty AND no BinaryWorkers running
         # This ensures all binaries are installed before snapshots start processing
-        if binary_count == 0 and running_binary_workers == 0:
+        if binary_count == 0 and running_binary_workers == 0 and materialized_schedule_count == 0:
             # Spawn CrawlWorker if needed
             if self.should_spawn_worker(CrawlWorker, crawl_count):
                 # Claim next crawl
@@ -406,20 +406,24 @@ class Orchestrator:
     def _should_process_schedules(self) -> bool:
         return (not self.exit_on_idle) and (self.crawl_id is None)
 
-    def _materialize_due_schedules(self) -> None:
+    def _materialize_due_schedules(self) -> int:
         if not self._should_process_schedules():
-            return
+            return 0
 
         from archivebox.crawls.models import CrawlSchedule
 
         now = timezone.now()
         due_schedules = CrawlSchedule.objects.filter(is_enabled=True).select_related('template', 'template__created_by')
+        materialized_count = 0
 
         for schedule in due_schedules:
             if not schedule.is_due(now):
                 continue
 
             schedule.enqueue(queued_at=now)
+            materialized_count += 1
+
+        return materialized_count
 
     def _enforce_hard_timeouts(self) -> None:
         """Force-kill and seal hooks/archiveresults/snapshots that exceed hard limits."""

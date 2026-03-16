@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -6,6 +7,7 @@ from django.utils import timezone
 
 from archivebox.crawls.models import Crawl, CrawlSchedule
 from archivebox.workers.orchestrator import Orchestrator
+from archivebox.workers.worker import CrawlWorker
 
 
 class TestScheduledCrawlMaterialization(TestCase):
@@ -63,3 +65,15 @@ class TestScheduledCrawlMaterialization(TestCase):
 
         Orchestrator(exit_on_idle=False, crawl_id=str(schedule.template_id))._materialize_due_schedules()
         self.assertEqual(Crawl.objects.filter(schedule=schedule).count(), 1)
+
+    @patch.object(CrawlWorker, 'start')
+    def test_global_orchestrator_waits_one_tick_before_spawning_materialized_schedule(self, mock_start):
+        schedule = self._create_due_schedule()
+
+        orchestrator = Orchestrator(exit_on_idle=False)
+        with patch.object(orchestrator, '_claim_crawl', return_value=True):
+            queue_sizes = orchestrator.check_queues_and_spawn_workers()
+
+        self.assertEqual(queue_sizes['crawl'], 1)
+        self.assertEqual(Crawl.objects.filter(schedule=schedule).count(), 2)
+        mock_start.assert_not_called()

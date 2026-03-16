@@ -90,8 +90,8 @@ def test_add_multiple_urls_single_command(tmp_path, process, disable_extractors_
 def test_add_from_file(tmp_path, process, disable_extractors_dict):
     """Test adding URLs from a file.
 
-    With --index-only, this creates a snapshot for the file itself, not the URLs inside.
-    To get snapshots for the URLs inside, you need to run without --index-only so parsers run.
+    The add command should treat a file argument as URL input and create snapshots
+    for each URL it contains.
     """
     os.chdir(tmp_path)
 
@@ -113,9 +113,9 @@ def test_add_from_file(tmp_path, process, disable_extractors_dict):
     snapshot_count = c.execute("SELECT COUNT(*) FROM core_snapshot").fetchone()[0]
     conn.close()
 
-    # With --index-only, creates 1 snapshot for the file itself
+    # The file is parsed into two input URLs.
     assert crawl_count == 1
-    assert snapshot_count == 1
+    assert snapshot_count == 2
 
 
 def test_add_with_depth_0_flag(tmp_path, process, disable_extractors_dict):
