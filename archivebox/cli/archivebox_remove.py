@@ -41,12 +41,14 @@ def remove(filter_patterns: Iterable[str]=(),
     
     from archivebox.cli.archivebox_search import get_snapshots
 
-    log_list_started(filter_patterns, filter_type)
+    pattern_list = list(filter_patterns)
+
+    log_list_started(pattern_list or None, filter_type)
     timer = TimedProgress(360, prefix='      ')
     try:
         snapshots = get_snapshots(
             snapshots=snapshots,
-            filter_patterns=list(filter_patterns) if filter_patterns else None,
+            filter_patterns=pattern_list or None,
             filter_type=filter_type,
             after=after,
             before=before,

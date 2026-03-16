@@ -4,12 +4,55 @@ __package__ = 'archivebox.cli'
 
 import os
 import time
-import rich_click as click
 
-from typing import Iterable
+from typing import TYPE_CHECKING, Callable, Iterable
 from pathlib import Path
 
+import rich_click as click
+from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Q, QuerySet
+
 from archivebox.misc.util import enforce_types, docstring
+
+if TYPE_CHECKING:
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+
+
+LINK_FILTERS: dict[str, Callable[[str], Q]] = {
+    'exact': lambda pattern: Q(url=pattern),
+    'substring': lambda pattern: Q(url__icontains=pattern),
+    'regex': lambda pattern: Q(url__iregex=pattern),
+    'domain': lambda pattern: (
+        Q(url__istartswith=f'http://{pattern}')
+        | Q(url__istartswith=f'https://{pattern}')
+        | Q(url__istartswith=f'ftp://{pattern}')
+    ),
+    'tag': lambda pattern: Q(tags__name=pattern),
+    'timestamp': lambda pattern: Q(timestamp=pattern),
+}
+
+
+def _apply_pattern_filters(
+    snapshots: QuerySet['Snapshot', 'Snapshot'],
+    filter_patterns: list[str],
+    filter_type: str,
+) -> QuerySet['Snapshot', 'Snapshot']:
+    filter_builder = LINK_FILTERS.get(filter_type)
+    if filter_builder is None:
+        raise SystemExit(2)
+
+    query = Q()
+    for pattern in filter_patterns:
+        query |= filter_builder(pattern)
+    return snapshots.filter(query)
+
+
+def _get_snapshot_crawl(snapshot: 'Snapshot') -> 'Crawl | None':
+    try:
+        return snapshot.crawl
+    except ObjectDoesNotExist:
+        return None
 
 
 @enforce_types
@@ -84,7 +127,7 @@ def update(filter_patterns: Iterable[str] = (),
         resume = None
 
 
-def drain_old_archive_dirs(resume_from: str = None, batch_size: int = 100) -> dict:
+def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 100) -> dict[str, int]:
     """
     Drain old archive/ directories (0.8.x → 0.9.x migration).
 
@@ -153,21 +196,17 @@ def drain_old_archive_dirs(resume_from: str = None, batch_size: int = 100) -> di
             continue
 
         # Ensure snapshot has a valid crawl (migration 0024 may have failed)
-        from archivebox.crawls.models import Crawl
-        has_valid_crawl = False
-        if snapshot.crawl_id:
-            # Check if the crawl actually exists
-            has_valid_crawl = Crawl.objects.filter(id=snapshot.crawl_id).exists()
+        has_valid_crawl = _get_snapshot_crawl(snapshot) is not None
 
         if not has_valid_crawl:
             # Create a new crawl (created_by will default to system user)
+            from archivebox.crawls.models import Crawl
             crawl = Crawl.objects.create(urls=snapshot.url)
             # Use queryset update to avoid triggering save() hooks
             from archivebox.core.models import Snapshot as SnapshotModel
             SnapshotModel.objects.filter(pk=snapshot.pk).update(crawl=crawl)
             # Refresh the instance
             snapshot.crawl = crawl
-            snapshot.crawl_id = crawl.id
             print(f"[DEBUG Phase1] Created missing crawl for snapshot {str(snapshot.id)[:8]}")
 
         # Check if needs migration (0.8.x → 0.9.x)
@@ -221,7 +260,7 @@ def drain_old_archive_dirs(resume_from: str = None, batch_size: int = 100) -> di
     return stats
 
 
-def process_all_db_snapshots(batch_size: int = 100) -> dict:
+def process_all_db_snapshots(batch_size: int = 100) -> dict[str, int]:
     """
     O(n) scan over entire DB from most recent to least recent.
 
@@ -246,7 +285,7 @@ def process_all_db_snapshots(batch_size: int = 100) -> dict:
         stats['processed'] += 1
 
         # Skip snapshots with missing crawl references (orphaned by migration errors)
-        if not snapshot.crawl_id:
+        if _get_snapshot_crawl(snapshot) is None:
             continue
 
         try:
@@ -303,7 +342,7 @@ def process_filtered_snapshots(
     before: float | None,
     after: float | None,
     batch_size: int
-) -> dict:
+) -> dict[str, int]:
     """Process snapshots matching filters (DB query only)."""
     from archivebox.core.models import Snapshot
     from django.db import transaction
@@ -315,7 +354,7 @@ def process_filtered_snapshots(
     snapshots = Snapshot.objects.all()
 
     if filter_patterns:
-        snapshots = Snapshot.objects.filter_by_patterns(list(filter_patterns), filter_type)
+        snapshots = _apply_pattern_filters(snapshots, list(filter_patterns), filter_type)
 
     if before:
         snapshots = snapshots.filter(bookmarked_at__lt=datetime.fromtimestamp(before))
@@ -329,7 +368,7 @@ def process_filtered_snapshots(
         stats['processed'] += 1
 
         # Skip snapshots with missing crawl references
-        if not snapshot.crawl_id:
+        if _get_snapshot_crawl(snapshot) is None:
             continue
 
         try:

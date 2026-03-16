@@ -5,11 +5,25 @@ __package__ = 'archivebox.cli'
 import os
 import sys
 from pathlib import Path
+from typing import Mapping
 
 from rich import print
 import rich_click as click
 
 from archivebox.misc.util import docstring, enforce_types
+
+
+def _normalize_snapshot_record(link_dict: Mapping[str, object]) -> tuple[str, dict[str, object]] | None:
+    url = link_dict.get('url')
+    if not isinstance(url, str) or not url:
+        return None
+
+    record: dict[str, object] = {'url': url}
+    for key in ('timestamp', 'title', 'tags', 'sources'):
+        value = link_dict.get(key)
+        if value is not None:
+            record[key] = value
+    return url, record
 
 
 @enforce_types
@@ -96,7 +110,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False) -> None:
     from archivebox.core.models import Snapshot
 
     all_links = Snapshot.objects.none()
-    pending_links: dict[str, SnapshotDict] = {}
+    pending_links: dict[str, dict[str, object]] = {}
 
     if existing_index:
         all_links = Snapshot.objects.all()
@@ -107,20 +121,26 @@ def init(force: bool=False, quick: bool=False, install: bool=False) -> None:
     else:
         try:
             # Import orphaned links from legacy JSON indexes
-            orphaned_json_links = {
-                link_dict['url']: link_dict
-                for link_dict in parse_json_main_index(DATA_DIR)
-                if not all_links.filter(url=link_dict['url']).exists()
-            }
+            orphaned_json_links: dict[str, dict[str, object]] = {}
+            for link_dict in parse_json_main_index(DATA_DIR):
+                normalized = _normalize_snapshot_record(link_dict)
+                if normalized is None:
+                    continue
+                url, record = normalized
+                if not all_links.filter(url=url).exists():
+                    orphaned_json_links[url] = record
             if orphaned_json_links:
                 pending_links.update(orphaned_json_links)
                 print(f'    [yellow]√ Added {len(orphaned_json_links)} orphaned links from existing JSON index...[/yellow]')
 
-            orphaned_data_dir_links = {
-                link_dict['url']: link_dict
-                for link_dict in parse_json_links_details(DATA_DIR)
-                if not all_links.filter(url=link_dict['url']).exists()
-            }
+            orphaned_data_dir_links: dict[str, dict[str, object]] = {}
+            for link_dict in parse_json_links_details(DATA_DIR):
+                normalized = _normalize_snapshot_record(link_dict)
+                if normalized is None:
+                    continue
+                url, record = normalized
+                if not all_links.filter(url=url).exists():
+                    orphaned_data_dir_links[url] = record
             if orphaned_data_dir_links:
                 pending_links.update(orphaned_data_dir_links)
                 print(f'    [yellow]√ Added {len(orphaned_data_dir_links)} orphaned links from existing archive directories.[/yellow]')

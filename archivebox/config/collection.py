@@ -15,6 +15,11 @@ from archivebox.config.constants import CONSTANTS
 from archivebox.misc.logging import stderr
 
 
+class CaseConfigParser(ConfigParser):
+    def optionxform(self, optionstr: str) -> str:
+        return optionstr
+
+
 def get_real_name(key: str) -> str:
     """get the up-to-date canonical name for a given old alias or current key"""
     # Config aliases are no longer used with the simplified config system
@@ -59,6 +64,8 @@ def load_config_val(key: str,
             return default(config)
         return default
 
+    assert isinstance(val, str)
+
     # calculate value based on expected type
     BOOL_TRUEIES = ('true', 'yes', '1')
     BOOL_FALSEIES = ('false', 'no', '0')
@@ -95,8 +102,7 @@ def load_config_file() -> Optional[benedict]:
 
     config_path = CONSTANTS.CONFIG_FILE
     if os.access(config_path, os.R_OK):
-        config_file = ConfigParser()
-        config_file.optionxform = str
+        config_file = CaseConfigParser()
         config_file.read(config_path)
         # flatten into one namespace
         config_file_vars = benedict({
@@ -108,8 +114,6 @@ def load_config_file() -> Optional[benedict]:
         # print(config_file_vars)
         return config_file_vars
     return None
-
-
 class PluginConfigSection:
     """Pseudo-section for all plugin config keys written to [PLUGINS] section in ArchiveBox.conf"""
     toml_section_header = "PLUGINS"
@@ -181,8 +185,7 @@ def write_config_file(config: Dict[str, str]) -> benedict:
     if not os.access(config_path, os.F_OK):
         atomic_write(config_path, CONFIG_HEADER)
 
-    config_file = ConfigParser()
-    config_file.optionxform = str
+    config_file = CaseConfigParser()
     config_file.read(config_path)
 
     with open(config_path, 'r', encoding='utf-8') as old:
@@ -288,4 +291,3 @@ def load_all_config():
         flat_config.update(dict(config_section))
         
     return flat_config
-

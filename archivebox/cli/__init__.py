@@ -123,7 +123,9 @@ class ArchiveBoxGroup(click.Group):
 
     @classmethod
     def _lazy_load(cls, cmd_name_or_path):
-        import_path = cls.all_subcommands.get(cmd_name_or_path, cmd_name_or_path)
+        import_path = cls.all_subcommands.get(cmd_name_or_path)
+        if import_path is None:
+            import_path = cmd_name_or_path
         modname, funcname = import_path.rsplit('.', 1)
         
         # print(f'LAZY LOADING {import_path}')

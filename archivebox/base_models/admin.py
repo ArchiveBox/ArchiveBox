@@ -3,11 +3,23 @@
 __package__ = 'archivebox.base_models'
 
 import json
+from collections.abc import Mapping
+from typing import TypedDict
 
 from django import forms
 from django.contrib import admin
-from django.utils.html import mark_safe
+from django.db import models
+from django.forms.renderers import BaseRenderer
+from django.http import HttpRequest, QueryDict
+from django.utils.safestring import SafeString, mark_safe
 from django_object_actions import DjangoObjectActions
+
+
+class ConfigOption(TypedDict):
+    plugin: str
+    type: str
+    default: object
+    description: str
 
 
 class KeyValueWidget(forms.Widget):
@@ -16,7 +28,7 @@ class KeyValueWidget(forms.Widget):
     with + and - buttons to add/remove rows.
     Includes autocomplete for available config keys from the plugin system.
     """
-    template_name = None  # We render manually
+    template_name = ""  # We render manually
 
     class Media:
         css = {
@@ -24,12 +36,12 @@ class KeyValueWidget(forms.Widget):
         }
         js = []
 
-    def _get_config_options(self):
+    def _get_config_options(self) -> dict[str, ConfigOption]:
         """Get available config options from plugins."""
         try:
             from archivebox.hooks import discover_plugin_configs
             plugin_configs = discover_plugin_configs()
-            options = {}
+            options: dict[str, ConfigOption] = {}
             for plugin_name, schema in plugin_configs.items():
                 for key, prop in schema.get('properties', {}).items():
                     options[key] = {
@@ -42,19 +54,28 @@ class KeyValueWidget(forms.Widget):
         except Exception:
             return {}
 
-    def render(self, name, value, attrs=None, renderer=None):
+    def _parse_value(self, value: object) -> dict[str, object]:
         # Parse JSON value to dict
         if value is None:
-            data = {}
-        elif isinstance(value, str):
+            return {}
+        if isinstance(value, str):
             try:
-                data = json.loads(value) if value else {}
+                parsed = json.loads(value) if value else {}
             except json.JSONDecodeError:
-                data = {}
-        elif isinstance(value, dict):
-            data = value
-        else:
-            data = {}
+                return {}
+            return parsed if isinstance(parsed, dict) else {}
+        if isinstance(value, Mapping):
+            return {str(key): item for key, item in value.items()}
+        return {}
+
+    def render(
+        self,
+        name: str,
+        value: object,
+        attrs: Mapping[str, str] | None = None,
+        renderer: BaseRenderer | None = None,
+    ) -> SafeString:
+        data = self._parse_value(value)
 
         widget_id = attrs.get('id', name) if attrs else name
         config_options = self._get_config_options()
@@ -185,7 +206,7 @@ class KeyValueWidget(forms.Widget):
         '''
         return mark_safe(html)
 
-    def _render_row(self, widget_id, idx, key, value):
+    def _render_row(self, widget_id: str, idx: int, key: str, value: str) -> str:
         return f'''
             <div class="key-value-row" style="display: flex; gap: 8px; margin-bottom: 6px; align-items: center;">
                 <input type="text" class="kv-key" value="{self._escape(key)}" placeholder="KEY" list="{widget_id}_keys"
@@ -199,25 +220,35 @@ class KeyValueWidget(forms.Widget):
             </div>
         '''
 
-    def _escape(self, s):
+    def _escape(self, s: object) -> str:
         """Escape HTML special chars in attribute values."""
         if not s:
             return ''
         return str(s).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
 
-    def value_from_datadict(self, data, files, name):
+    def value_from_datadict(
+        self,
+        data: QueryDict | Mapping[str, object],
+        files: object,
+        name: str,
+    ) -> str:
         value = data.get(name, '{}')
-        return value
+        return value if isinstance(value, str) else '{}'
 
 
-class ConfigEditorMixin:
+class ConfigEditorMixin(admin.ModelAdmin):
     """
     Mixin for admin classes with a config JSON field.
 
     Provides a key-value editor widget with autocomplete for available config keys.
     """
 
-    def formfield_for_dbfield(self, db_field, request, **kwargs):
+    def formfield_for_dbfield(
+        self,
+        db_field: models.Field[object, object],
+        request: HttpRequest,
+        **kwargs: object,
+    ) -> forms.Field | None:
         """Use KeyValueWidget for the config JSON field."""
         if db_field.name == 'config':
             kwargs['widget'] = KeyValueWidget()
@@ -228,8 +259,14 @@ class BaseModelAdmin(DjangoObjectActions, admin.ModelAdmin):
     list_display = ('id', 'created_at', 'created_by')
     readonly_fields = ('id', 'created_at', 'modified_at')
 
-    def get_form(self, request, obj=None, **kwargs):
-        form = super().get_form(request, obj, **kwargs)
+    def get_form(
+        self,
+        request: HttpRequest,
+        obj: models.Model | None = None,
+        change: bool = False,
+        **kwargs: object,
+    ):
+        form = super().get_form(request, obj, change=change, **kwargs)
         if 'created_by' in form.base_fields:
             form.base_fields['created_by'].initial = request.user
         return form

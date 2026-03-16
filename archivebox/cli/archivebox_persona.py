@@ -464,11 +464,10 @@ def create_personas(
         else:
             rprint(f'[dim]Persona already exists: {name}[/dim]', file=sys.stderr)
 
-        # Import browser profile if requested
-        if import_from and source_profile_dir:
-            cookies_file = Path(persona.path) / 'cookies.txt'
+        cookies_file = Path(persona.path) / 'cookies.txt'
 
-        if import_from in CHROMIUM_BROWSERS:
+        # Import browser profile if requested
+        if import_from in CHROMIUM_BROWSERS and source_profile_dir is not None:
             persona_chrome_dir = Path(persona.CHROME_USER_DATA_DIR)
 
             # Copy the browser profile

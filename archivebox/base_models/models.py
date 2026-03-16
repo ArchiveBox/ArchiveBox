@@ -48,7 +48,7 @@ class ModelWithUUID(models.Model):
     class Meta(TypedModelMeta):
         abstract = True
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'[{self.id}] {self.__class__.__name__}'
 
     @property
@@ -57,7 +57,7 @@ class ModelWithUUID(models.Model):
 
     @property
     def api_url(self) -> str:
-        return reverse_lazy('api-1:get_any', args=[self.id])
+        return str(reverse_lazy('api-1:get_any', args=[self.id]))
 
     @property
     def api_docs_url(self) -> str:
@@ -101,7 +101,7 @@ class ModelWithConfig(models.Model):
 
 
 class ModelWithOutputDir(ModelWithUUID):
-    class Meta:
+    class Meta(ModelWithUUID.Meta):
         abstract = True
 
     def save(self, *args, **kwargs):

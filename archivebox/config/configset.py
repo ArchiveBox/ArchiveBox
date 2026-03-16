@@ -14,8 +14,12 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Type, Tuple
 from configparser import ConfigParser
 
-from pydantic import ConfigDict
-from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
+
+
+class CaseConfigParser(ConfigParser):
+    def optionxform(self, optionstr: str) -> str:
+        return optionstr
 
 
 class IniConfigSettingsSource(PydanticBaseSettingsSource):
@@ -42,8 +46,7 @@ class IniConfigSettingsSource(PydanticBaseSettingsSource):
         if not config_path.exists():
             return {}
 
-        parser = ConfigParser()
-        parser.optionxform = lambda x: x  # preserve case
+        parser = CaseConfigParser()
         parser.read(config_path)
 
         # Flatten all sections into single namespace (ignore section headers)
@@ -66,7 +69,7 @@ class BaseConfigSet(BaseSettings):
             USE_COLOR: bool = Field(default=True)
     """
 
-    model_config = ConfigDict(
+    model_config = SettingsConfigDict(
         env_prefix="",
         extra="ignore",
         validate_default=True,
@@ -98,8 +101,7 @@ class BaseConfigSet(BaseSettings):
         if not config_path.exists():
             return {}
 
-        parser = ConfigParser()
-        parser.optionxform = lambda x: x  # preserve case
+        parser = CaseConfigParser()
         parser.read(config_path)
 
         # Flatten all sections into single namespace

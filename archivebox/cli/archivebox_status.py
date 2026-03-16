@@ -20,7 +20,6 @@ def status(out_dir: Path=DATA_DIR) -> None:
     """Print out some info and statistics about the archive collection"""
 
     from django.contrib.auth import get_user_model
-    from archivebox.misc.db import get_admins
     from archivebox.core.models import Snapshot
     User = get_user_model()
 
@@ -102,11 +101,12 @@ def status(out_dir: Path=DATA_DIR) -> None:
     print()
     print('[green]\\[*] Scanning recent archive changes and user logins:[/green]')
     print(f'[yellow]   {CONSTANTS.LOGS_DIR}/*[/yellow]')
-    users = get_admins().values_list('username', flat=True)
+    admin_users = User.objects.filter(is_superuser=True).exclude(username='system')
+    users = [user.get_username() for user in admin_users]
     print(f'    UI users {len(users)}: {", ".join(users)}')
-    last_login = User.objects.order_by('last_login').last()
+    last_login = admin_users.order_by('last_login').last()
     if last_login:
-        print(f'    Last UI login: {last_login.username} @ {str(last_login.last_login)[:16]}')
+        print(f'    Last UI login: {last_login.get_username()} @ {str(last_login.last_login)[:16]}')
     last_downloaded = Snapshot.objects.order_by('downloaded_at').last()
     if last_downloaded:
         print(f'    Last changes: {str(last_downloaded.downloaded_at)[:16]}')

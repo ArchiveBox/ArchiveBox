@@ -1,5 +1,7 @@
 __package__ = 'archivebox.api'
 
+from django.contrib import admin
+from django.http import HttpRequest
 from signal_webhooks.admin import WebhookAdmin
 from signal_webhooks.utils import get_webhook_model
 
@@ -62,7 +64,11 @@ class CustomWebhookAdmin(WebhookAdmin, BaseModelAdmin):
         }),
     )
 
+    def lookup_allowed(self, lookup: str, value: str, request: HttpRequest | None = None) -> bool:
+        """Preserve WebhookAdmin's auth token filter with Django's current admin signature."""
+        return not lookup.startswith("auth_token") and admin.ModelAdmin.lookup_allowed(self, lookup, value, request)
 
-def register_admin(admin_site):
+
+def register_admin(admin_site: admin.AdminSite) -> None:
     admin_site.register(APIToken, APITokenAdmin)
     admin_site.register(get_webhook_model(), CustomWebhookAdmin)

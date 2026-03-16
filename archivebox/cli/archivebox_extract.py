@@ -254,9 +254,15 @@ def main(plugins: str, wait: bool, args: tuple):
 
     if all_are_archiveresult_ids:
         # Process existing ArchiveResults by ID
+        from rich import print as rprint
+
         exit_code = 0
         for record in records:
             archiveresult_id = record.get('id') or record.get('url')
+            if not isinstance(archiveresult_id, str):
+                rprint(f'[red]Invalid ArchiveResult input: {record}[/red]', file=sys.stderr)
+                exit_code = 1
+                continue
             result = process_archiveresult_by_id(archiveresult_id)
             if result != 0:
                 exit_code = result
