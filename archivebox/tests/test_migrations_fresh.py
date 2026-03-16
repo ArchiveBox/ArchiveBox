@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .test_migrations_helpers import run_archivebox
+from .migrations_helpers import run_archivebox
 
 
 class TestFreshInstall(unittest.TestCase):
@@ -176,7 +176,7 @@ class TestSchemaIntegrity(unittest.TestCase):
             columns = {row[1] for row in cursor.fetchall()}
             conn.close()
 
-            required = {'id', 'snapshot_id', 'extractor', 'status', 'created_at', 'modified_at'}
+            required = {'id', 'snapshot_id', 'plugin', 'status', 'created_at', 'modified_at'}
             for col in required:
                 self.assertIn(col, columns, f"Missing column: {col}")
 

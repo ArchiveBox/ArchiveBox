@@ -127,7 +127,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False) -> None:
 
             if pending_links:
                 for link_dict in pending_links.values():
-                    Snapshot.from_jsonl(link_dict)
+                    Snapshot.from_json(link_dict)
 
             # Hint for orphaned snapshot directories
             print()
@@ -160,10 +160,12 @@ def init(force: bool=False, quick: bool=False, install: bool=False) -> None:
     CONSTANTS.PERSONAS_DIR.mkdir(parents=True, exist_ok=True)
     CONSTANTS.DEFAULT_TMP_DIR.mkdir(parents=True, exist_ok=True)
     CONSTANTS.DEFAULT_LIB_DIR.mkdir(parents=True, exist_ok=True)
-    
+    (CONSTANTS.DEFAULT_LIB_DIR / 'bin').mkdir(parents=True, exist_ok=True)
+
     from archivebox.config.common import STORAGE_CONFIG
     STORAGE_CONFIG.TMP_DIR.mkdir(parents=True, exist_ok=True)
     STORAGE_CONFIG.LIB_DIR.mkdir(parents=True, exist_ok=True)
+    (STORAGE_CONFIG.LIB_DIR / 'bin').mkdir(parents=True, exist_ok=True)
     
     if install:
         from archivebox.cli.archivebox_install import install as install_method

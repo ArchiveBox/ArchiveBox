@@ -126,6 +126,21 @@
   .cards .card .card-info .timestamp {
       font-weight: 600;
   }
+  .cards .card .card-progress {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 0;
+  }
+  .cards .card .card-progress .progress-text {
+      font-size: 11px;
+      color: #3b82f6;
+      font-weight: 500;
+  }
+  .cards .card.archiving {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  }
   .cards .card .card-footer code {
       display: inline-block;
       width: 100%;
@@ -145,20 +160,27 @@
 {% block content %}
   <section class="cards">
     {% for obj in results %}
-      <div class="card">
+      <div class="card{% if obj.status == 'started' %} archiving{% endif %}">
           <div class="card-info">
             <a href="{% url 'admin:core_snapshot_change' obj.pk %}">
               <span class="timestamp">{{obj.bookmarked_at}}</span>
             </a>
-            <div style="padding: 4px 0;">
-              {{ obj.icons|safe }}
-            </div>
+            {% if obj.status == 'started' %}
+              <div class="card-progress">
+                <span class="snapshot-progress-spinner"></span>
+                <span class="progress-text">Archiving...</span>
+              </div>
+            {% else %}
+              <div style="padding: 4px 0;">
+                {{ obj.icons|safe }}
+              </div>
+            {% endif %}
             <label>
               <span>🗄&nbsp; {{ obj.archive_size | file_size }}</span>
               <input type="checkbox" name="_selected_action" value="{{obj.pk}}"/>
             </label>
           </div>
-          <a href="/{{obj.archive_path}}/index.html" class="card-thumbnail {% if not obj.thumbnail_url %}missing{% endif %}">
+          <a href="{% snapshot_base_url obj %}/index.html" class="card-thumbnail {% if not obj.thumbnail_url %}missing{% endif %}">
             <img src="{{obj.thumbnail_url|default:'/static/spinner.gif' }}" alt="{{obj.title|default:'Not yet archived...'}}" /> 
           </a>
           <div class="card-footer">
@@ -172,10 +194,10 @@
                 </div>
               {% endif %}
               <div class="card-title" title="{{obj.title}}">
-                <a href="/{{obj.archive_path}}/index.html">
+                <a href="{% snapshot_base_url obj %}/index.html">
                   <h4>
                     {% if obj.is_archived %}
-                        <img src="/{{obj.archive_path}}/favicon.ico" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
+                        <img src="{% snapshot_base_url obj %}/favicon.ico" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
                     {% else %}
                         <img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
                     {% endif %}

@@ -4,6 +4,7 @@ __package__ = 'archivebox.cli'
 __command__ = 'archivebox add'
 
 import sys
+from pathlib import Path
 
 from typing import TYPE_CHECKING
 
@@ -14,7 +15,7 @@ from django.db.models import QuerySet
 
 from archivebox.misc.util import enforce_types, docstring
 from archivebox import CONSTANTS
-from archivebox.config.common import ARCHIVING_CONFIG
+from archivebox.config.common import ARCHIVING_CONFIG, SERVER_CONFIG
 from archivebox.config.permissions import USER, HOSTNAME
 
 
@@ -57,8 +58,11 @@ def add(urls: str | list[str],
     from archivebox.crawls.models import Crawl
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.workers.orchestrator import Orchestrator
+    from archivebox.misc.logging_util import printable_filesize
+    from archivebox.misc.system import get_dir_size
 
     created_by_id = created_by_id or get_or_create_system_user_pk()
+    started_at = timezone.now()
 
     # 1. Save the provided URLs to sources/2024-11-05__23-59-59__cli_add.txt
     sources_file = CONSTANTS.SOURCES_DIR / f'{timezone.now().strftime("%Y-%m-%d__%H-%M-%S")}__cli_add.txt'
@@ -96,34 +100,90 @@ def add(urls: str | list[str],
     first_url = crawl.get_urls_list()[0] if crawl.get_urls_list() else ''
     print(f'    [dim]First URL: {first_url}[/dim]')
 
-    # 3. The CrawlMachine will create the root Snapshot when started
-    #    If URLs are from a file: first URL = file:///path/to/sources/...txt
-    #    Parser extractors will run on it and discover more URLs
-    #    Those URLs become child Snapshots (depth=1)
+    # 3. The CrawlMachine will create Snapshots from all URLs when started
+    #    Parser extractors run on snapshots and discover more URLs
+    #    Discovered URLs become child Snapshots (depth+1)
 
     if index_only:
         # Just create the crawl but don't start processing
         print('[yellow]\\[*] Index-only mode - crawl created but not started[/yellow]')
-        # Create root snapshot manually
-        crawl.create_root_snapshot()
+        # Create snapshots for all URLs in the crawl
+        for url in crawl.get_urls_list():
+            snapshot, _ = Snapshot.objects.update_or_create(
+                crawl=crawl, url=url,
+                defaults={
+                    'status': Snapshot.INITIAL_STATE,
+                    'retry_at': timezone.now(),
+                    'timestamp': str(timezone.now().timestamp()),
+                    'depth': 0,
+                },
+            )
+            if tag:
+                snapshot.save_tags(tag.split(','))
+            snapshot.ensure_crawl_symlink()
         return crawl.snapshot_set.all()
 
     # 5. Start the orchestrator to process the queue
     #    The orchestrator will:
-    #    - Process Crawl -> create root Snapshot
-    #    - Process root Snapshot -> run parser extractors -> discover URLs
-    #    - Create child Snapshots from discovered URLs
-    #    - Process child Snapshots -> run extractors
+    #    - Process Crawl -> create Snapshots from all URLs
+    #    - Process Snapshots -> run extractors
+    #    - Parser extractors discover new URLs -> create child Snapshots
     #    - Repeat until max_depth reached
 
     if bg:
         # Background mode: just queue work and return (orchestrator via server will pick it up)
         print('[yellow]\\[*] URLs queued. Orchestrator will process them (run `archivebox server` if not already running).[/yellow]')
     else:
-        # Foreground mode: run orchestrator inline until all work is done
+        # Foreground mode: run full orchestrator until all work is done
         print(f'[green]\\[*] Starting orchestrator to process crawl...[/green]')
-        orchestrator = Orchestrator(exit_on_idle=True)
+        from archivebox.workers.orchestrator import Orchestrator
+        orchestrator = Orchestrator(exit_on_idle=True, crawl_id=str(crawl.id))
         orchestrator.runloop()  # Block until complete
+
+        # Print summary for foreground runs
+        try:
+            crawl.refresh_from_db()
+            snapshots_count = crawl.snapshot_set.count()
+            try:
+                total_bytes = sum(s.archive_size for s in crawl.snapshot_set.all())
+            except Exception:
+                total_bytes, _, _ = get_dir_size(crawl.output_dir)
+            total_size = printable_filesize(total_bytes)
+            total_time = timezone.now() - started_at
+            total_seconds = int(total_time.total_seconds())
+            mins, secs = divmod(total_seconds, 60)
+            hours, mins = divmod(mins, 60)
+            if hours:
+                duration_str = f"{hours}h {mins}m {secs}s"
+            elif mins:
+                duration_str = f"{mins}m {secs}s"
+            else:
+                duration_str = f"{secs}s"
+
+            # Output dir relative to DATA_DIR
+            try:
+                rel_output = Path(crawl.output_dir).relative_to(CONSTANTS.DATA_DIR)
+                rel_output_str = f'./{rel_output}'
+            except Exception:
+                rel_output_str = str(crawl.output_dir)
+
+            # Build admin URL from SERVER_CONFIG
+            bind_addr = SERVER_CONFIG.BIND_ADDR
+            if bind_addr.startswith('http://') or bind_addr.startswith('https://'):
+                base_url = bind_addr
+            else:
+                base_url = f'http://{bind_addr}'
+            admin_url = f'{base_url}/admin/crawls/crawl/{crawl.id}/change/'
+
+            print('\n[bold]crawl output saved to:[/bold]')
+            print(f'  {rel_output_str}')
+            print(f'  {admin_url}')
+            print(f'\n[bold]total urls snapshotted:[/bold] {snapshots_count}')
+            print(f'[bold]total size:[/bold] {total_size}')
+            print(f'[bold]total time:[/bold] {duration_str}')
+        except Exception:
+            # Summary is best-effort; avoid failing the command if something goes wrong
+            pass
 
     # 6. Return the list of Snapshots in this crawl
     return crawl.snapshot_set.all()

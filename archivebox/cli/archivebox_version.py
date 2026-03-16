@@ -104,40 +104,47 @@ def version(quiet: bool=False,
     failures = []
 
     # Setup Django before importing models
-    from archivebox.config.django import setup_django
-    setup_django()
+    try:
+        from archivebox.config.django import setup_django
+        setup_django()
 
-    from archivebox.machine.models import Machine, Binary
+        from archivebox.machine.models import Machine, Binary
 
-    machine = Machine.current()
+        machine = Machine.current()
 
-    # Get all binaries from the database
-    all_installed = Binary.objects.filter(
-        machine=machine
-    ).exclude(abspath='').exclude(abspath__isnull=True).order_by('name')
+        # Get all binaries from the database with timeout protection
+        all_installed = Binary.objects.filter(
+            machine=machine
+        ).exclude(abspath='').exclude(abspath__isnull=True).order_by('name')
 
-    if not all_installed.exists():
-        prnt('', '[grey53]No binaries detected. Run [green]archivebox install[/green] to detect dependencies.[/grey53]')
-    else:
-        for installed in all_installed:
-            # Skip if user specified specific binaries and this isn't one
-            if binaries and installed.name not in binaries:
-                continue
+        if not all_installed.exists():
+            prnt('', '[grey53]No binaries detected. Run [green]archivebox install[/green] to detect dependencies.[/grey53]')
+        else:
+            for installed in all_installed:
+                # Skip if user specified specific binaries and this isn't one
+                if binaries and installed.name not in binaries:
+                    continue
 
-            if installed.is_valid:
-                display_path = installed.abspath.replace(str(DATA_DIR), '.').replace(str(Path('~').expanduser()), '~')
-                version_str = (installed.version or 'unknown')[:15]
-                provider = (installed.binprovider or 'env')[:8]
-                prnt('', '[green]√[/green]', '', installed.name.ljust(18), version_str.ljust(16), provider.ljust(8), display_path, overflow='ignore', crop=False)
-            else:
-                prnt('', '[red]X[/red]', '', installed.name.ljust(18), '[grey53]not installed[/grey53]', overflow='ignore', crop=False)
-                failures.append(installed.name)
+                if installed.is_valid:
+                    display_path = installed.abspath.replace(str(DATA_DIR), '.').replace(str(Path('~').expanduser()), '~')
+                    version_str = (installed.version or 'unknown')[:15]
+                    provider = (installed.binprovider or 'env')[:8]
+                    prnt('', '[green]√[/green]', '', installed.name.ljust(18), version_str.ljust(16), provider.ljust(8), display_path, overflow='ignore', crop=False)
+                else:
+                    prnt('', '[red]X[/red]', '', installed.name.ljust(18), '[grey53]not installed[/grey53]', overflow='ignore', crop=False)
+                    failures.append(installed.name)
 
-    # Show hint if no binaries are installed yet
-    has_any_installed = Binary.objects.filter(machine=machine).exclude(abspath='').exists()
-    if not has_any_installed:
+        # Show hint if no binaries are installed yet
+        has_any_installed = Binary.objects.filter(machine=machine).exclude(abspath='').exists()
+        if not has_any_installed:
+            prnt()
+            prnt('', '[grey53]Run [green]archivebox install[/green] to detect and install dependencies.[/grey53]')
+
+    except Exception as e:
+        # Handle database errors gracefully (locked, missing, etc.)
         prnt()
-        prnt('', '[grey53]Run [green]archivebox install[/green] to detect and install dependencies.[/grey53]')
+        prnt('', f'[yellow]Warning: Could not query binaries from database: {e}[/yellow]')
+        prnt('', '[grey53]Run [green]archivebox init[/green] and [green]archivebox install[/green] to set up dependencies.[/grey53]')
 
     if not binaries:
         # Show code and data locations

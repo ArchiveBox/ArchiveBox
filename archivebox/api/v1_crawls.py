@@ -3,11 +3,13 @@ __package__ = 'archivebox.api'
 from uuid import UUID
 from typing import List
 from datetime import datetime
+from django.utils import timezone
 
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 
 from ninja import Router, Schema
+from ninja.errors import HttpError
 
 from archivebox.core.models import Snapshot
 from archivebox.crawls.models import Crawl
@@ -54,6 +56,11 @@ class CrawlSchema(Schema):
         return Snapshot.objects.none()
 
 
+class CrawlUpdateSchema(Schema):
+    status: str | None = None
+    retry_at: datetime | None = None
+
+
 @router.get("/crawls", response=List[CrawlSchema], url_name="get_crawls")
 def get_crawls(request):
     return Crawl.objects.all().distinct()
@@ -79,3 +86,32 @@ def get_crawl(request, crawl_id: str, as_rss: bool=False, with_snapshots: bool=F
     
     return crawl
 
+
+@router.patch("/crawl/{crawl_id}", response=CrawlSchema, url_name="patch_crawl")
+def patch_crawl(request, crawl_id: str, data: CrawlUpdateSchema):
+    """Update a crawl (e.g., set status=sealed to cancel queued work)."""
+    crawl = Crawl.objects.get(id__icontains=crawl_id)
+    payload = data.dict(exclude_unset=True)
+
+    if 'status' in payload:
+        if payload['status'] not in Crawl.StatusChoices.values:
+            raise HttpError(400, f'Invalid status: {payload["status"]}')
+        crawl.status = payload['status']
+        if crawl.status == Crawl.StatusChoices.SEALED and 'retry_at' not in payload:
+            crawl.retry_at = None
+
+    if 'retry_at' in payload:
+        crawl.retry_at = payload['retry_at']
+
+    crawl.save(update_fields=['status', 'retry_at', 'modified_at'])
+
+    if payload.get('status') == Crawl.StatusChoices.SEALED:
+        Snapshot.objects.filter(
+            crawl=crawl,
+            status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED],
+        ).update(
+            status=Snapshot.StatusChoices.SEALED,
+            retry_at=None,
+            modified_at=timezone.now(),
+        )
+    return crawl

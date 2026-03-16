@@ -2,63 +2,209 @@ name: Build Debian package
 
 on:
   workflow_dispatch:
+  workflow_call:
   push:
+    branches: ['**']
+    paths:
+      - 'pkg/debian/**'
+      - 'bin/build_deb.sh'
+      - 'bin/release_deb.sh'
+      - '.github/workflows/debian.yml'
+      - 'pyproject.toml'
+  # release trigger is handled by release.yml to avoid double-runs
 
-env:
-  DEB_BUILD_OPTIONS: nocheck
+permissions:
+  contents: write
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
-          submodules: true
           fetch-depth: 1
 
-      - name: Install packaging dependencies
+      - name: Get version
+        id: version
+        run: echo "version=$(grep '^version = ' pyproject.toml | awk -F'\"' '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Install nfpm
+        env:
+          NFPM_VERSION: "2.45.1"
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y \
-            python3 python3-dev python3-pip python3-venv python3-all \
-            dh-python debhelper devscripts dput software-properties-common \
-            python3-distutils python3-setuptools python3-wheel python3-stdeb
+          curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin nfpm
+          nfpm --version
 
-      # - name: Build Debian/Apt sdist_dsc
-      #   run: |
-      #     ./bin/build_pip.sh
+      - name: Build .deb package
+        run: |
+          export VERSION="${{ steps.version.outputs.version }}"
+          export ARCH="${{ matrix.arch }}"
+          ./bin/build_deb.sh
 
-      # - name: Check ArchiveBox version
-      #   run: |
-      #     # must create dir needed for snaps to run as non-root on github actions
-      #     sudo mkdir -p /run/user/1001 && sudo chmod -R 777 /run/user/1001
-      #     mkdir "${{ github.workspace }}/data" && cd "${{ github.workspace }}/data"
-      #     archivebox --version
-      #     archivebox init --setup
+      - name: Verify .deb package contents
+        run: |
+          DEB_FILE="$(ls dist/archivebox*.deb | head -1)"
+          echo "=== Package info ==="
+          dpkg-deb --info "$DEB_FILE"
+          echo ""
+          echo "=== Package contents ==="
+          dpkg-deb --contents "$DEB_FILE"
+          echo ""
+          echo "=== Control fields ==="
+          dpkg-deb --field "$DEB_FILE"
 
-      # - name: Add some links to test
-      #   run: |
-      #     cd "${{ github.workspace }}/data"
-      #     archivebox add 'https://example.com'
-      #     archivebox status
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: archivebox-${{ steps.version.outputs.version }}-${{ matrix.arch }}.deb
+          path: dist/*.deb
 
-      # - name: Commit built package
-      #   run: |
-      #     cd deb_dist/
-      #     git config --local user.email "action@github.com"
-      #     git config --local user.name "GitHub Action"
-      #     git commit -m "Debian package autobuild" -a
-      
-      # - name: Push build to Github
-      #   uses: ad-m/github-push-action@master
-      #   with:
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      #     repository: ArchiveBox/debian-archivebox
-      #     branch: ${{ github.ref }}
-      #     directory: deb_dist
+  test:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
 
-      # - name: Push build to Launchpad PPA
-      #   run: |
-      #     debsign -k "$PGP_KEY_ID" "deb_dist/archivebox_${VERSION}-${DEBIAN_VERSION}_source.changes"
-      #     dput archivebox "deb_dist/archivebox_${VERSION}-${DEBIAN_VERSION}_source.changes"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install build dependencies
+        uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # v1.6.0
+        with:
+          packages: build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1
+          version: 1.0
+
+      - name: Build local wheel
+        run: |
+          uv sync --frozen --all-extras --no-install-project --no-install-workspace
+          uv build --wheel --out-dir /tmp/wheels/
+
+      - name: Download .deb artifact
+        uses: actions/download-artifact@v4
+        with:
+          pattern: archivebox-*-${{ matrix.arch }}.deb
+          merge-multiple: true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get install -y python3.13 python3.13-venv python3-pip git curl wget
+
+      - name: Pre-seed virtualenv with local wheel before dpkg install
+        run: |
+          # CI-only: pre-seed the venv with a local wheel so we test the
+          # unreleased code, not whatever is on PyPI. We explicitly use python3.13
+          # here (matching the system dep installed above) to ensure the venv is
+          # created with the correct Python version. On real installs, install.sh
+          # handles this by preferring python3.13 and failing if < 3.13.
+          # When postinstall.sh runs during dpkg -i, it finds the venv already
+          # populated and just upgrades deps.
+          sudo mkdir -p /opt/archivebox
+          sudo python3.13 -m venv /opt/archivebox/venv
+          sudo /opt/archivebox/venv/bin/python3 -m pip install --quiet --upgrade pip setuptools
+          sudo /opt/archivebox/venv/bin/pip install --quiet /tmp/wheels/archivebox-*.whl
+          echo "[√] Pre-seeded /opt/archivebox/venv with local wheel"
+
+      - name: Install .deb package
+        run: |
+          # dpkg install will run postinstall which creates the user,
+          # sets up systemd, and tries pip install (which finds it already installed)
+          sudo dpkg -i archivebox*.deb || sudo apt-get install -f -y
+
+      - name: Verify archivebox is installed
+        run: |
+          which archivebox
+          archivebox version
+
+      - name: Verify wrapper script works
+        run: |
+          /usr/bin/archivebox version
+          /usr/bin/archivebox --help | head -5
+
+      - name: Test archivebox init as archivebox user
+        run: |
+          # The postinstall should have created the user
+          id archivebox
+          sudo mkdir -p /tmp/archivebox-test
+          sudo chown archivebox:archivebox /tmp/archivebox-test
+          sudo -u archivebox bash -c 'cd /tmp/archivebox-test && /opt/archivebox/venv/bin/archivebox init'
+
+      - name: Test archivebox status
+        run: |
+          sudo -u archivebox bash -c 'cd /tmp/archivebox-test && /opt/archivebox/venv/bin/archivebox status'
+
+      - name: Test archivebox add
+        run: |
+          sudo -u archivebox bash -c 'cd /tmp/archivebox-test && /opt/archivebox/venv/bin/archivebox add "https://example.com"'
+
+      - name: Verify systemd service file exists
+        run: |
+          test -f /usr/lib/systemd/system/archivebox.service
+          cat /usr/lib/systemd/system/archivebox.service
+
+  # Upload .deb to GitHub Release only after tests pass
+  release:
+    if: github.event_name == 'release' || github.event_name == 'workflow_call'
+    needs: [build, test]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Determine release tag
+        id: tag
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          if [ -z "$TAG" ]; then
+            TAG="v$(grep '^version = ' pyproject.toml | awk -F'\"' '{print $2}')"
+            echo "[i] No release tag in event context, using version from pyproject.toml: $TAG"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Download all .deb artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: archivebox-*.deb
+          merge-multiple: true
+
+      - name: Upload .deb to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          # Verify the release exists before uploading
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            echo "[!] No GitHub Release found for tag $TAG."
+            if [ -n "${{ github.event.release.tag_name }}" ]; then
+              echo "[X] This was triggered by a release event — the release should exist. Failing."
+              exit 1
+            fi
+            echo "[i] Skipping upload (workflow_dispatch without a release)."
+            echo "    Create a release first or trigger via the release event."
+            exit 0
+          fi
+          gh release upload "$TAG" *.deb --clobber

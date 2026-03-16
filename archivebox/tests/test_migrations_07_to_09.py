@@ -14,7 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .test_migrations_helpers import (
+from .migrations_helpers import (
     SCHEMA_0_7,
     seed_0_7_data,
     run_archivebox,
@@ -136,7 +136,7 @@ class TestMigrationFrom07x(unittest.TestCase):
         result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
-        result = run_archivebox(self.work_dir, ['list'])
+        result = run_archivebox(self.work_dir, ['snapshot', 'list'])
         self.assertEqual(result.returncode, 0, f"List failed after migration: {result.stderr}")
 
         # Verify ALL snapshots appear in output

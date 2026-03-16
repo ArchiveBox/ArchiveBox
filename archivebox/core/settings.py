@@ -12,6 +12,7 @@ import archivebox
 
 from archivebox.config import DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS  # noqa
 from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG, STORAGE_CONFIG  # noqa
+from archivebox.core.host_utils import normalize_base_url, get_admin_base_url, get_api_base_url
 
 
 IS_MIGRATING = "makemigrations" in sys.argv[:3] or "migrate" in sys.argv[:3]
@@ -77,9 +78,11 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "archivebox.api.middleware.ApiCorsMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "archivebox.core.middleware.ReverseProxyAuthMiddleware",
+    "archivebox.core.middleware.HostRoutingMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "archivebox.core.middleware.CacheControlMiddleware",
     # Additional middlewares from plugins (if any)
@@ -99,16 +102,66 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 
-# from ..plugins_auth.ldap.settings import LDAP_CONFIG
+# LDAP Authentication Configuration
+# Conditionally loaded if LDAP_ENABLED=True and django-auth-ldap is installed
+try:
+    from archivebox.config.ldap import LDAP_CONFIG
 
-# if LDAP_CONFIG.LDAP_ENABLED:
-#     AUTH_LDAP_BIND_DN = LDAP_CONFIG.LDAP_BIND_DN
-#     AUTH_LDAP_SERVER_URI = LDAP_CONFIG.LDAP_SERVER_URI
-#     AUTH_LDAP_BIND_PASSWORD = LDAP_CONFIG.LDAP_BIND_PASSWORD
-#     AUTH_LDAP_USER_ATTR_MAP = LDAP_CONFIG.LDAP_USER_ATTR_MAP
-#     AUTH_LDAP_USER_SEARCH = LDAP_CONFIG.AUTH_LDAP_USER_SEARCH
+    if LDAP_CONFIG.LDAP_ENABLED:
+        # Validate LDAP configuration
+        is_valid, error_msg = LDAP_CONFIG.validate_ldap_config()
+        if not is_valid:
+            from rich import print
+            print(f"[red][X] Error: {error_msg}[/red]")
+            raise ValueError(error_msg)
 
-#     AUTHENTICATION_BACKENDS = LDAP_CONFIG.AUTHENTICATION_BACKENDS
+        try:
+            # Try to import django-auth-ldap (will fail if not installed)
+            import django_auth_ldap
+            from django_auth_ldap.config import LDAPSearch
+            import ldap
+
+            # Configure LDAP authentication
+            AUTH_LDAP_SERVER_URI = LDAP_CONFIG.LDAP_SERVER_URI
+            AUTH_LDAP_BIND_DN = LDAP_CONFIG.LDAP_BIND_DN
+            AUTH_LDAP_BIND_PASSWORD = LDAP_CONFIG.LDAP_BIND_PASSWORD
+
+            # Configure user search
+            AUTH_LDAP_USER_SEARCH = LDAPSearch(
+                LDAP_CONFIG.LDAP_USER_BASE,
+                ldap.SCOPE_SUBTREE,
+                LDAP_CONFIG.LDAP_USER_FILTER,
+            )
+
+            # Map LDAP attributes to Django user model fields
+            AUTH_LDAP_USER_ATTR_MAP = {
+                "username": LDAP_CONFIG.LDAP_USERNAME_ATTR,
+                "first_name": LDAP_CONFIG.LDAP_FIRSTNAME_ATTR,
+                "last_name": LDAP_CONFIG.LDAP_LASTNAME_ATTR,
+                "email": LDAP_CONFIG.LDAP_EMAIL_ATTR,
+            }
+
+            # Use custom LDAP backend that supports LDAP_CREATE_SUPERUSER
+            AUTHENTICATION_BACKENDS = [
+                "archivebox.ldap.auth.ArchiveBoxLDAPBackend",
+                "django.contrib.auth.backends.RemoteUserBackend",
+                "django.contrib.auth.backends.ModelBackend",
+            ]
+
+        except ImportError as e:
+            from rich import print
+            print("[red][X] Error: LDAP_ENABLED=True but required LDAP libraries are not installed![/red]")
+            print(f"[red]    {e}[/red]")
+            print("[yellow]    To install LDAP support, run:[/yellow]")
+            print("[yellow]        pip install archivebox[ldap][/yellow]")
+            print("[yellow]    Or manually:[/yellow]")
+            print("[yellow]        apt install build-essential python3-dev libsasl2-dev libldap2-dev libssl-dev[/yellow]")
+            print("[yellow]        pip install python-ldap django-auth-ldap[/yellow]")
+            raise
+
+except ImportError:
+    # archivebox.config.ldap not available (shouldn't happen but handle gracefully)
+    pass
 
 ################################################################################
 ### Staticfile and Template Settings
@@ -206,7 +259,10 @@ DATABASES = {
 }
 MIGRATION_MODULES = {"signal_webhooks": None}
 
-# as much as I'd love this to be a UUID or ULID field, it's not supported yet as of Django 5.0
+# Django requires DEFAULT_AUTO_FIELD to subclass AutoField (BigAutoField, SmallAutoField, etc.)
+# Cannot use UUIDField here until Django 6.0 introduces DEFAULT_PK_FIELD setting
+# For now: manually add `id = models.UUIDField(primary_key=True, default=uuid7, ...)` to all models
+# OR inherit from ModelWithUUID base class which provides UUID primary key
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
@@ -294,6 +350,14 @@ SECRET_KEY = SERVER_CONFIG.SECRET_KEY or get_random_string(50, "abcdefghijklmnop
 ALLOWED_HOSTS = SERVER_CONFIG.ALLOWED_HOSTS.split(",")
 CSRF_TRUSTED_ORIGINS = list(set(SERVER_CONFIG.CSRF_TRUSTED_ORIGINS.split(",")))
 
+admin_base_url = normalize_base_url(get_admin_base_url())
+if admin_base_url and admin_base_url not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(admin_base_url)
+
+api_base_url = normalize_base_url(get_api_base_url())
+if api_base_url and api_base_url not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(api_base_url)
+
 # automatically fix case when user sets ALLOWED_HOSTS (e.g. to archivebox.example.com)
 # but forgets to add https://archivebox.example.com to CSRF_TRUSTED_ORIGINS
 for hostname in ALLOWED_HOSTS:
@@ -310,6 +374,7 @@ CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_DOMAIN = None
+CSRF_COOKIE_DOMAIN = None
 SESSION_COOKIE_AGE = 1209600  # 2 weeks
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = False
@@ -382,6 +447,10 @@ SIGNAL_WEBHOOKS = {
         "archivebox.api.models.APIToken": ...,
     },
 }
+
+# Avoid background threads touching sqlite connections (especially during tests/migrations).
+if DATABASES["default"]["ENGINE"].endswith("sqlite3"):
+    SIGNAL_WEBHOOKS["TASK_HANDLER"] = "signal_webhooks.handlers.sync_task_handler"
 
 ################################################################################
 ### Admin Data View Settings

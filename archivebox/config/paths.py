@@ -288,6 +288,11 @@ def get_code_locations():
             'enabled': True,
             'is_valid': os.path.isdir(STORAGE_CONFIG.LIB_DIR) and os.access(STORAGE_CONFIG.LIB_DIR, os.R_OK) and os.access(STORAGE_CONFIG.LIB_DIR, os.W_OK),                      # read + write
         },
+        'LIB_BIN_DIR': {
+            'path': STORAGE_CONFIG.LIB_BIN_DIR.resolve(),
+            'enabled': True,
+            'is_valid': os.path.isdir(STORAGE_CONFIG.LIB_BIN_DIR) and os.access(STORAGE_CONFIG.LIB_BIN_DIR, os.R_OK) and os.access(STORAGE_CONFIG.LIB_BIN_DIR, os.W_OK),        # read + write
+        },
     })
 
 

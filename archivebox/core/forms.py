@@ -147,8 +147,8 @@ class AddLinkForm(forms.Form):
             'screenshot', 'seo', 'singlefile', 'ssl', 'staticfile', 'title'
         }
         archiving = {
-            'archive_org', 'favicon', 'forumdl', 'gallerydl', 'git',
-            'htmltotext', 'media', 'mercury', 'papersdl', 'readability', 'wget'
+            'archivedotorg', 'defuddle', 'favicon', 'forumdl', 'gallerydl', 'git',
+            'htmltotext', 'mercury', 'papersdl', 'readability', 'trafilatura', 'wget', 'ytdlp'
         }
         parsing = {
             'parse_html_urls', 'parse_jsonl_urls',
@@ -158,7 +158,7 @@ class AddLinkForm(forms.Form):
             'search_backend_ripgrep', 'search_backend_sonic', 'search_backend_sqlite'
         }
         binary = {'apt', 'brew', 'custom', 'env', 'npm', 'pip'}
-        extensions = {'captcha2', 'istilldontcareaboutcookies', 'ublock'}
+        extensions = {'twocaptcha', 'istilldontcareaboutcookies', 'ublock'}
 
         # Populate plugin field choices
         self.fields['chrome_plugins'].choices = [

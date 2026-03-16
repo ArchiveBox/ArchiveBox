@@ -188,6 +188,11 @@ class SnapshotSchema(Schema):
         return ArchiveResult.objects.none()
 
 
+class SnapshotUpdateSchema(Schema):
+    status: str | None = None
+    retry_at: datetime | None = None
+
+
 class SnapshotFilterSchema(FilterSchema):
     id: Optional[str] = Field(None, q=['id__icontains', 'timestamp__startswith'])
     created_by_id: str = Field(None, q='crawl__created_by_id')
@@ -223,6 +228,31 @@ def get_snapshot(request, snapshot_id: str, with_archiveresults: bool = True):
         return Snapshot.objects.get(Q(id__startswith=snapshot_id) | Q(timestamp__startswith=snapshot_id))
     except Snapshot.DoesNotExist:
         return Snapshot.objects.get(Q(id__icontains=snapshot_id))
+
+
+@router.patch("/snapshot/{snapshot_id}", response=SnapshotSchema, url_name="patch_snapshot")
+def patch_snapshot(request, snapshot_id: str, data: SnapshotUpdateSchema):
+    """Update a snapshot (e.g., set status=sealed to cancel queued work)."""
+    try:
+        snapshot = Snapshot.objects.get(Q(id__startswith=snapshot_id) | Q(timestamp__startswith=snapshot_id))
+    except Snapshot.DoesNotExist:
+        snapshot = Snapshot.objects.get(Q(id__icontains=snapshot_id))
+
+    payload = data.dict(exclude_unset=True)
+
+    if 'status' in payload:
+        if payload['status'] not in Snapshot.StatusChoices.values:
+            raise HttpError(400, f'Invalid status: {payload["status"]}')
+        snapshot.status = payload['status']
+        if snapshot.status == Snapshot.StatusChoices.SEALED and 'retry_at' not in payload:
+            snapshot.retry_at = None
+
+    if 'retry_at' in payload:
+        snapshot.retry_at = payload['retry_at']
+
+    snapshot.save(update_fields=['status', 'retry_at', 'modified_at'])
+    request.with_archiveresults = False
+    return snapshot
 
 
 ### Tag #########################################################################
@@ -300,3 +330,160 @@ def get_any(request, id: str):
         pass
 
     raise HttpError(404, 'Object with given ID not found')
+
+
+### Tag Editor API Endpoints #########################################################################
+
+class TagAutocompleteSchema(Schema):
+    tags: List[dict]
+
+
+class TagCreateSchema(Schema):
+    name: str
+
+
+class TagCreateResponseSchema(Schema):
+    success: bool
+    tag_id: int
+    tag_name: str
+    created: bool
+
+
+class TagSnapshotRequestSchema(Schema):
+    snapshot_id: str
+    tag_name: Optional[str] = None
+    tag_id: Optional[int] = None
+
+
+class TagSnapshotResponseSchema(Schema):
+    success: bool
+    tag_id: int
+    tag_name: str
+
+
+@router.get("/tags/autocomplete/", response=TagAutocompleteSchema, url_name="tags_autocomplete")
+def tags_autocomplete(request, q: str = ""):
+    """Return tags matching the query for autocomplete."""
+    if not q:
+        # Return all tags if no query (limited to 50)
+        tags = Tag.objects.all().order_by('name')[:50]
+    else:
+        tags = Tag.objects.filter(name__icontains=q).order_by('name')[:20]
+
+    return {
+        'tags': [{'id': tag.pk, 'name': tag.name, 'slug': tag.slug} for tag in tags]
+    }
+
+
+@router.post("/tags/create/", response=TagCreateResponseSchema, url_name="tags_create")
+def tags_create(request, data: TagCreateSchema):
+    """Create a new tag or return existing one."""
+    name = data.name.strip()
+    if not name:
+        raise HttpError(400, 'Tag name is required')
+
+    tag, created = Tag.objects.get_or_create(
+        name__iexact=name,
+        defaults={
+            'name': name,
+            'created_by': request.user if request.user.is_authenticated else None,
+        }
+    )
+
+    # If found by case-insensitive match, use that tag
+    if not created:
+        tag = Tag.objects.filter(name__iexact=name).first()
+
+    return {
+        'success': True,
+        'tag_id': tag.pk,
+        'tag_name': tag.name,
+        'created': created,
+    }
+
+
+@router.post("/tags/add-to-snapshot/", response=TagSnapshotResponseSchema, url_name="tags_add_to_snapshot")
+def tags_add_to_snapshot(request, data: TagSnapshotRequestSchema):
+    """Add a tag to a snapshot. Creates the tag if it doesn't exist."""
+    # Get the snapshot
+    try:
+        snapshot = Snapshot.objects.get(
+            Q(id__startswith=data.snapshot_id) | Q(timestamp__startswith=data.snapshot_id)
+        )
+    except Snapshot.DoesNotExist:
+        raise HttpError(404, 'Snapshot not found')
+    except Snapshot.MultipleObjectsReturned:
+        snapshot = Snapshot.objects.filter(
+            Q(id__startswith=data.snapshot_id) | Q(timestamp__startswith=data.snapshot_id)
+        ).first()
+
+    # Get or create the tag
+    if data.tag_name:
+        name = data.tag_name.strip()
+        if not name:
+            raise HttpError(400, 'Tag name is required')
+
+        tag, _ = Tag.objects.get_or_create(
+            name__iexact=name,
+            defaults={
+                'name': name,
+                'created_by': request.user if request.user.is_authenticated else None,
+            }
+        )
+        # If found by case-insensitive match, use that tag
+        tag = Tag.objects.filter(name__iexact=name).first() or tag
+    elif data.tag_id:
+        try:
+            tag = Tag.objects.get(pk=data.tag_id)
+        except Tag.DoesNotExist:
+            raise HttpError(404, 'Tag not found')
+    else:
+        raise HttpError(400, 'Either tag_name or tag_id is required')
+
+    # Add the tag to the snapshot
+    snapshot.tags.add(tag)
+
+    return {
+        'success': True,
+        'tag_id': tag.pk,
+        'tag_name': tag.name,
+    }
+
+
+@router.post("/tags/remove-from-snapshot/", response=TagSnapshotResponseSchema, url_name="tags_remove_from_snapshot")
+def tags_remove_from_snapshot(request, data: TagSnapshotRequestSchema):
+    """Remove a tag from a snapshot."""
+    # Get the snapshot
+    try:
+        snapshot = Snapshot.objects.get(
+            Q(id__startswith=data.snapshot_id) | Q(timestamp__startswith=data.snapshot_id)
+        )
+    except Snapshot.DoesNotExist:
+        raise HttpError(404, 'Snapshot not found')
+    except Snapshot.MultipleObjectsReturned:
+        snapshot = Snapshot.objects.filter(
+            Q(id__startswith=data.snapshot_id) | Q(timestamp__startswith=data.snapshot_id)
+        ).first()
+
+    # Get the tag
+    if data.tag_id:
+        try:
+            tag = Tag.objects.get(pk=data.tag_id)
+        except Tag.DoesNotExist:
+            raise HttpError(404, 'Tag not found')
+    elif data.tag_name:
+        try:
+            tag = Tag.objects.get(name__iexact=data.tag_name.strip())
+        except Tag.DoesNotExist:
+            raise HttpError(404, 'Tag not found')
+    else:
+        raise HttpError(400, 'Either tag_name or tag_id is required')
+
+    # Remove the tag from the snapshot
+    snapshot.tags.remove(tag)
+
+    return {
+        'success': True,
+        'tag_id': tag.pk,
+        'tag_name': tag.name,
+    }

@@ -6,6 +6,13 @@ __pycache__/
 .eggs/
 tests/out/
 
+# Coverage
+.coverage
+.coverage.*
+coverage.json
+coverage/
+htmlcov/
+
 # Python and Node dependencies
 venv/
 .venv/
@@ -32,11 +39,13 @@ tmp/
 data/
 data*/
 output/
+logs/
 index.sqlite3
 queue.sqlite3
 *.sqlite*
 data.*
 .archivebox_id
+ArchiveBox.conf
 
 # vim
 *.sw?

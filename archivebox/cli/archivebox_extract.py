@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-archivebox extract [snapshot_ids...] [--plugin=NAME]
+archivebox extract [snapshot_ids...] [--plugins=NAMES]
 
 Run plugins on Snapshots. Accepts snapshot IDs as arguments, from stdin, or via JSONL.
 
@@ -20,8 +20,8 @@ Examples:
     # Pipe from snapshot command
     archivebox snapshot https://example.com | archivebox extract
 
-    # Run specific plugin only
-    archivebox extract --plugin=screenshot 01234567-89ab-cdef-0123-456789abcdef
+    # Run specific plugins only
+    archivebox extract --plugins=screenshot,singlefile 01234567-89ab-cdef-0123-456789abcdef
 
     # Chain commands
     archivebox crawl https://example.com | archivebox snapshot | archivebox extract
@@ -76,7 +76,7 @@ def process_archiveresult_by_id(archiveresult_id: str) -> int:
 
 def run_plugins(
     args: tuple,
-    plugin: str = '',
+    plugins: str = '',
     wait: bool = True,
 ) -> int:
     """
@@ -92,13 +92,16 @@ def run_plugins(
     from django.utils import timezone
 
     from archivebox.misc.jsonl import (
-        read_args_or_stdin, write_record, archiveresult_to_jsonl,
+        read_args_or_stdin, write_record,
         TYPE_SNAPSHOT, TYPE_ARCHIVERESULT
     )
     from archivebox.core.models import Snapshot, ArchiveResult
     from archivebox.workers.orchestrator import Orchestrator
 
     is_tty = sys.stdout.isatty()
+
+    # Parse comma-separated plugins list once (reused in creation and filtering)
+    plugins_list = [p.strip() for p in plugins.split(',') if p.strip()] if plugins else []
 
     # Collect all input records
     records = list(read_args_or_stdin(args))
@@ -147,21 +150,22 @@ def run_plugins(
             continue
 
         # Create pending ArchiveResults if needed
-        if plugin:
-            # Only create for specific plugin
-            result, created = ArchiveResult.objects.get_or_create(
-                snapshot=snapshot,
-                plugin=plugin,
-                defaults={
-                    'status': ArchiveResult.StatusChoices.QUEUED,
-                    'retry_at': timezone.now(),
-                }
-            )
-            if not created and result.status in [ArchiveResult.StatusChoices.FAILED, ArchiveResult.StatusChoices.SKIPPED]:
-                # Reset for retry
-                result.status = ArchiveResult.StatusChoices.QUEUED
-                result.retry_at = timezone.now()
-                result.save()
+        if plugins_list:
+            # Only create for specific plugins
+            for plugin_name in plugins_list:
+                result, created = ArchiveResult.objects.get_or_create(
+                    snapshot=snapshot,
+                    plugin=plugin_name,
+                    defaults={
+                        'status': ArchiveResult.StatusChoices.QUEUED,
+                        'retry_at': timezone.now(),
+                    }
+                )
+                if not created and result.status in [ArchiveResult.StatusChoices.FAILED, ArchiveResult.StatusChoices.SKIPPED]:
+                    # Reset for retry
+                    result.status = ArchiveResult.StatusChoices.QUEUED
+                    result.retry_at = timezone.now()
+                    result.save()
         else:
             # Create all pending plugins
             snapshot.create_pending_archiveresults()
@@ -191,8 +195,8 @@ def run_plugins(
         try:
             snapshot = Snapshot.objects.get(id=snapshot_id)
             results = snapshot.archiveresult_set.all()
-            if plugin:
-                results = results.filter(plugin=plugin)
+            if plugins_list:
+                results = results.filter(plugin__in=plugins_list)
 
             for result in results:
                 if is_tty:
@@ -203,7 +207,7 @@ def run_plugins(
                     }.get(result.status, 'dim')
                     rprint(f'  [{status_color}]{result.status}[/{status_color}] {result.plugin} → {result.output_str or ""}', file=sys.stderr)
                 else:
-                    write_record(archiveresult_to_jsonl(result))
+                    write_record(result.to_json())
         except Snapshot.DoesNotExist:
             continue
 
@@ -222,10 +226,10 @@ def is_archiveresult_id(value: str) -> bool:
 
 
 @click.command()
-@click.option('--plugin', '-p', default='', help='Run only this plugin (e.g., screenshot, singlefile)')
+@click.option('--plugins', '--plugin', '-p', default='', help='Comma-separated list of plugins to run (e.g., screenshot,singlefile)')
 @click.option('--wait/--no-wait', default=True, help='Wait for plugins to complete (default: wait)')
 @click.argument('args', nargs=-1)
-def main(plugin: str, wait: bool, args: tuple):
+def main(plugins: str, wait: bool, args: tuple):
     """Run plugins on Snapshots, or process existing ArchiveResults by ID"""
     from archivebox.misc.jsonl import read_args_or_stdin
 
@@ -254,7 +258,7 @@ def main(plugin: str, wait: bool, args: tuple):
         sys.exit(exit_code)
     else:
         # Default behavior: run plugins on Snapshots from input
-        sys.exit(run_plugins(args, plugin=plugin, wait=wait))
+        sys.exit(run_plugins(args, plugins=plugins, wait=wait))
 
 
 if __name__ == '__main__':

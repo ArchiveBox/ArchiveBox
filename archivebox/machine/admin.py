@@ -8,7 +8,7 @@ from archivebox.machine.models import Machine, NetworkInterface, Binary, Process
 
 
 class MachineAdmin(ConfigEditorMixin, BaseModelAdmin):
-    list_display = ('id', 'created_at', 'hostname', 'ips', 'os_platform', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'os_arch', 'os_family', 'os_release', 'hw_uuid', 'health')
+    list_display = ('id', 'created_at', 'hostname', 'ips', 'os_platform', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'os_arch', 'os_family', 'os_release', 'hw_uuid', 'health_display')
     sort_fields = ('id', 'created_at', 'hostname', 'ips', 'os_platform', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'os_arch', 'os_family', 'os_release', 'hw_uuid')
 
     readonly_fields = ('guid', 'created_at', 'modified_at', 'ips')
@@ -52,9 +52,15 @@ class MachineAdmin(ConfigEditorMixin, BaseModelAdmin):
             machine.id, ', '.join(machine.networkinterface_set.values_list('ip_public', flat=True)),
         )
 
+    @admin.display(description='Health', ordering='health')
+    def health_display(self, obj):
+        h = obj.health
+        color = 'green' if h >= 80 else 'orange' if h >= 50 else 'red'
+        return format_html('<span style="color: {};">{}</span>', color, h)
+
 
 class NetworkInterfaceAdmin(BaseModelAdmin):
-    list_display = ('id', 'created_at', 'machine_info', 'ip_public', 'dns_server', 'isp', 'country', 'region', 'city', 'iface', 'ip_local', 'mac_address', 'health')
+    list_display = ('id', 'created_at', 'machine_info', 'ip_public', 'dns_server', 'isp', 'country', 'region', 'city', 'iface', 'ip_local', 'mac_address', 'health_display')
     sort_fields = ('id', 'created_at', 'machine_info', 'ip_public', 'dns_server', 'isp', 'country', 'region', 'city', 'iface', 'ip_local', 'mac_address')
     search_fields = ('id', 'machine__id', 'iface', 'ip_public', 'ip_local', 'mac_address', 'dns_server', 'hostname', 'isp', 'city', 'region', 'country')
 
@@ -95,9 +101,15 @@ class NetworkInterfaceAdmin(BaseModelAdmin):
             iface.machine.id, str(iface.machine.id)[:8], iface.machine.hostname,
         )
 
+    @admin.display(description='Health', ordering='health')
+    def health_display(self, obj):
+        h = obj.health
+        color = 'green' if h >= 80 else 'orange' if h >= 50 else 'red'
+        return format_html('<span style="color: {};">{}</span>', color, h)
+
 
 class BinaryAdmin(BaseModelAdmin):
-    list_display = ('id', 'created_at', 'machine_info', 'name', 'binprovider', 'version', 'abspath', 'sha256', 'status', 'health')
+    list_display = ('id', 'created_at', 'machine_info', 'name', 'binprovider', 'version', 'abspath', 'sha256', 'status', 'health_display')
     sort_fields = ('id', 'created_at', 'machine_info', 'name', 'binprovider', 'version', 'abspath', 'sha256', 'status')
     search_fields = ('id', 'machine__id', 'name', 'binprovider', 'version', 'abspath', 'sha256')
 
@@ -142,9 +154,15 @@ class BinaryAdmin(BaseModelAdmin):
             binary.machine.id, str(binary.machine.id)[:8], binary.machine.hostname,
         )
 
+    @admin.display(description='Health', ordering='health')
+    def health_display(self, obj):
+        h = obj.health
+        color = 'green' if h >= 80 else 'orange' if h >= 50 else 'red'
+        return format_html('<span style="color: {};">{}</span>', color, h)
+
 
 class ProcessAdmin(BaseModelAdmin):
-    list_display = ('id', 'created_at', 'machine_info', 'archiveresult_link', 'cmd_str', 'status', 'exit_code', 'pid', 'binary_info', 'health')
+    list_display = ('id', 'created_at', 'machine_info', 'archiveresult_link', 'cmd_str', 'status', 'exit_code', 'pid', 'binary_info')
     sort_fields = ('id', 'created_at', 'status', 'exit_code', 'pid')
     search_fields = ('id', 'machine__id', 'binary__name', 'cmd', 'pwd', 'stdout', 'stderr')
 
@@ -170,10 +188,6 @@ class ProcessAdmin(BaseModelAdmin):
         ('Output', {
             'fields': ('stdout', 'stderr'),
             'classes': ('card', 'wide', 'collapse'),
-        }),
-        ('Usage', {
-            'fields': ('num_uses_succeeded', 'num_uses_failed'),
-            'classes': ('card',),
         }),
         ('Timestamps', {
             'fields': ('created_at', 'modified_at'),

@@ -180,9 +180,11 @@ def check_tmp_dir(tmp_dir=None, throw=False, quiet=False, must_exist=True):
         return len(f'file://{socket_file}') <= 96
 
     tmp_is_valid = False
+    allow_no_unix_sockets = os.environ.get('ARCHIVEBOX_ALLOW_NO_UNIX_SOCKETS', '').lower() in ('1', 'true', 'yes')
     try:
         tmp_is_valid = dir_is_writable(tmp_dir)
-        tmp_is_valid = tmp_is_valid and assert_dir_can_contain_unix_sockets(tmp_dir)
+        if not allow_no_unix_sockets:
+            tmp_is_valid = tmp_is_valid and assert_dir_can_contain_unix_sockets(tmp_dir)
         assert tmp_is_valid, f'ArchiveBox user PUID={ARCHIVEBOX_USER} PGID={ARCHIVEBOX_GROUP} is unable to write to TMP_DIR={tmp_dir}'            
         assert len(f'file://{socket_file}') <= 96, f'ArchiveBox TMP_DIR={tmp_dir} is too long, dir containing unix socket files must be <90 chars.'
         return True

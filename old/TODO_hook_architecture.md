@@ -1878,7 +1878,7 @@ Updated `archivebox/core/statemachines.py`:
 |--------|------|--------|-------|
 | favicon | `on_Snapshot__11_favicon.py` | ✅ UPDATED | Now outputs clean JSONL |
 | git | `on_Snapshot__12_git.py` | ✅ UPDATED | Now outputs clean JSONL with cmd |
-| archive_org | `on_Snapshot__13_archive_org.py` | ✅ UPDATED | Now outputs clean JSONL |
+| archivedotorg | `on_Snapshot__13_archivedotorg.py` | ✅ UPDATED | Now outputs clean JSONL |
 | title | `on_Snapshot__32_title.js` | ✅ UPDATED | Now outputs clean JSONL |
 | singlefile | `on_Snapshot__37_singlefile.py` | ✅ UPDATED | Now outputs clean JSONL with cmd |
 | wget | `on_Snapshot__50_wget.py` | ✅ UPDATED | Now outputs clean JSONL with cmd |
@@ -1930,7 +1930,7 @@ The following hooks have been renamed with `.bg.` suffix:
 - `archivebox/core/migrations/0030_migrate_output_field.py` (new)
 
 ### Plugins Updated (Python Hooks)
-- `archivebox/plugins/archive_org/on_Snapshot__13_archive_org.py`
+- `archivebox/plugins/archivedotorg/on_Snapshot__13_archivedotorg.py`
 - `archivebox/plugins/favicon/on_Snapshot__11_favicon.py`
 - `archivebox/plugins/git/on_Snapshot__12_git.py`
 - `archivebox/plugins/media/on_Snapshot__51_media.py`

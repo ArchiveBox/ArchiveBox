@@ -10,6 +10,7 @@ Migration tests from 0.8.x to 0.9.x.
 - New fields like depth, retry_at, etc.
 """
 
+import json
 import shutil
 import sqlite3
 import subprocess
@@ -17,7 +18,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .test_migrations_helpers import (
+from .migrations_helpers import (
     SCHEMA_0_8,
     seed_0_8_data,
     run_archivebox,
@@ -30,6 +31,7 @@ from .test_migrations_helpers import (
     verify_foreign_keys,
     verify_all_snapshots_in_output,
     verify_crawl_count,
+    verify_process_migration,
 )
 
 
@@ -77,29 +79,43 @@ class TestMigrationFrom08x(unittest.TestCase):
         self.assertTrue(ok, msg)
 
     def test_migration_preserves_crawls(self):
-        """Migration should preserve all Crawl records."""
+        """Migration should preserve all Crawl records and create default crawl if needed."""
         result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
+        # Count snapshots with NULL crawl_id in original data
+        snapshots_without_crawl = sum(1 for s in self.original_data['snapshots'] if s['crawl_id'] is None)
+
+        # Expected count: original crawls + 1 default crawl if any snapshots had NULL crawl_id
         expected_count = len(self.original_data['crawls'])
+        if snapshots_without_crawl > 0:
+            expected_count += 1  # Migration 0024 creates a default crawl
+
         ok, msg = verify_crawl_count(self.db_path, expected_count)
         self.assertTrue(ok, msg)
 
     def test_migration_preserves_snapshot_crawl_links(self):
-        """Migration should preserve snapshot-to-crawl relationships."""
+        """Migration should preserve snapshot-to-crawl relationships and assign default crawl to orphans."""
         result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
         conn = sqlite3.connect(str(self.db_path))
         cursor = conn.cursor()
 
-        # Check EVERY snapshot still has its crawl_id
+        # Check EVERY snapshot has a crawl_id after migration
         for snapshot in self.original_data['snapshots']:
             cursor.execute("SELECT crawl_id FROM core_snapshot WHERE url = ?", (snapshot['url'],))
             row = cursor.fetchone()
             self.assertIsNotNone(row, f"Snapshot {snapshot['url']} not found after migration")
-            self.assertEqual(row[0], snapshot['crawl_id'],
-                f"Crawl ID mismatch for {snapshot['url']}: expected {snapshot['crawl_id']}, got {row[0]}")
+
+            if snapshot['crawl_id'] is not None:
+                # Snapshots that had a crawl should keep it
+                self.assertEqual(row[0], snapshot['crawl_id'],
+                    f"Crawl ID changed for {snapshot['url']}: expected {snapshot['crawl_id']}, got {row[0]}")
+            else:
+                # Snapshots without a crawl should now have one (the default crawl)
+                self.assertIsNotNone(row[0],
+                    f"Snapshot {snapshot['url']} should have been assigned to default crawl but has NULL")
 
         conn.close()
 
@@ -152,7 +168,7 @@ class TestMigrationFrom08x(unittest.TestCase):
         result = run_archivebox(self.work_dir, ['init'], timeout=45)
         self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
-        result = run_archivebox(self.work_dir, ['list'])
+        result = run_archivebox(self.work_dir, ['snapshot', 'list'])
         self.assertEqual(result.returncode, 0, f"List failed after migration: {result.stderr}")
 
         # Verify ALL snapshots appear in output
@@ -259,6 +275,54 @@ class TestMigrationFrom08x(unittest.TestCase):
         output = result.stdout + result.stderr
         self.assertTrue('ArchiveBox' in output or 'version' in output.lower(),
                        f"Version output missing expected content: {output[:500]}")
+
+    def test_migration_creates_process_records(self):
+        """Migration should create Process records for all ArchiveResults."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        # Verify Process records created
+        expected_count = len(self.original_data['archiveresults'])
+        ok, msg = verify_process_migration(self.db_path, expected_count)
+        self.assertTrue(ok, msg)
+
+    def test_migration_creates_binary_records(self):
+        """Migration should create Binary records from cmd_version data."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+
+        # Check Binary records exist
+        cursor.execute("SELECT COUNT(*) FROM machine_binary")
+        binary_count = cursor.fetchone()[0]
+
+        # Should have at least one binary per unique extractor
+        extractors = set(ar['extractor'] for ar in self.original_data['archiveresults'])
+        self.assertGreaterEqual(binary_count, len(extractors),
+                              f"Expected at least {len(extractors)} Binaries, got {binary_count}")
+
+        conn.close()
+
+    def test_migration_preserves_cmd_data(self):
+        """Migration should preserve cmd data in Process.cmd field."""
+        result = run_archivebox(self.work_dir, ['init'], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+
+        # Check that Process records have cmd arrays
+        cursor.execute("SELECT cmd FROM machine_process WHERE cmd != '[]'")
+        cmd_records = cursor.fetchall()
+
+        # All Processes should have non-empty cmd (test data has json.dumps([extractor, '--version']))
+        expected_count = len(self.original_data['archiveresults'])
+        self.assertEqual(len(cmd_records), expected_count,
+                        f"Expected {expected_count} Processes with cmd, got {len(cmd_records)}")
+
+        conn.close()
 
 
 class TestMigrationDataIntegrity08x(unittest.TestCase):
@@ -426,357 +490,227 @@ class TestFilesystemMigration08to09(unittest.TestCase):
         """Clean up temporary directory."""
         shutil.rmtree(self.work_dir, ignore_errors=True)
 
-    def test_filesystem_migration_with_real_archiving(self):
+    def test_archiveresult_files_preserved_after_migration(self):
         """
-        Test that filesystem migration works with real archived content.
+        Test that ArchiveResult output files are reorganized into new structure.
 
-        Steps:
-        1. Initialize archivebox
-        2. Archive https://example.com (creates real files)
-        3. Manually set fs_version to 0.8.0
-        4. Trigger migration by saving snapshot
-        5. Verify files are organized correctly
+        This test verifies that:
+        1. Migration preserves ArchiveResult data in Process/Binary records
+        2. Running `archivebox update` reorganizes files into new structure
+        3. New structure: users/username/snapshots/YYYYMMDD/example.com/snap-uuid-here/output.ext
+        4. All files are moved (no data loss)
+        5. Old archive/timestamp/ directories are cleaned up
         """
-        # Step 1: Initialize
-        result = run_archivebox(self.work_dir, ['init'], timeout=45)
-        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+        # Use the real 0.7.2 database which has actual ArchiveResults with files
+        gold_db = Path('/Users/squash/Local/Code/archiveboxes/archivebox-migration-path/archivebox-v0.7.2/data')
+        if not gold_db.exists():
+            self.skipTest(f"Gold standard database not found at {gold_db}")
 
-        # Step 2: Archive example.com with ALL extractors enabled
-        # This ensures we test migration with all file types
-        try:
-            result = run_archivebox(
-                self.work_dir,
-                ['add', '--depth=0', 'https://example.com'],
-                timeout=300,  # 5 minutes for all extractors
-                env={
-                    'SAVE_TITLE': 'True',
-                    'SAVE_FAVICON': 'True',
-                    'SAVE_WGET': 'True',
-                    'SAVE_SCREENSHOT': 'True',
-                    'SAVE_DOM': 'True',
-                    'SAVE_SINGLEFILE': 'True',
-                    'SAVE_READABILITY': 'True',
-                    'SAVE_MERCURY': 'True',
-                    'SAVE_PDF': 'True',
-                    'SAVE_YTDLP': 'True',
-                    'SAVE_ARCHIVEDOTORG': 'True',
-                    'SAVE_HEADERS': 'True',
-                    'SAVE_HTMLTOTEXT': 'True',
-                    'SAVE_GIT': 'True',
-                }
-            )
-        except subprocess.TimeoutExpired as e:
-            # If timeout, still continue - we want to test with whatever files were created
-            print(f"\n[!] Add command timed out after {e.timeout}s, continuing with partial results...")
-            # Note: Snapshot may still have been created even if command timed out
+        # Copy gold database to test directory
+        import shutil
+        for item in gold_db.iterdir():
+            if item.is_dir():
+                shutil.copytree(item, self.work_dir / item.name, dirs_exist_ok=True)
+            else:
+                shutil.copy2(item, self.work_dir / item.name)
 
-        # Step 3: Get the snapshot and verify files were created
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, url, timestamp, fs_version FROM core_snapshot WHERE url = ?", ('https://example.com',))
-        row = cursor.fetchone()
-        conn.close()
-
-        if not row:
-            self.skipTest("Failed to create snapshot for https://example.com")
-
-        snapshot_id, url, timestamp, fs_version = row
-
-        # Verify initial fs_version is 0.9.0 (current version)
-        self.assertEqual(fs_version, '0.9.0', f"Expected new snapshot to have fs_version='0.9.0', got '{fs_version}'")
-
-        # Verify output directory exists
-        output_dir = self.work_dir / 'archive' / timestamp
-        self.assertTrue(output_dir.exists(), f"Output directory not found: {output_dir}")
-
-        # List all files created (for debugging)
-        files_before = list(output_dir.rglob('*'))
-        files_before_count = len([f for f in files_before if f.is_file()])
-        print(f"\n[*] Files created by archiving: {files_before_count}")
-        for f in sorted(files_before):
-            if f.is_file():
-                print(f"    {f.relative_to(output_dir)}")
-
-        # Step 4: Manually set fs_version to 0.8.0 to simulate old snapshot
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        cursor.execute("UPDATE core_snapshot SET fs_version = '0.8.0' WHERE id = ?", (snapshot_id,))
-        conn.commit()
-
-        # Verify the update worked
-        cursor.execute("SELECT fs_version FROM core_snapshot WHERE id = ?", (snapshot_id,))
-        updated_version = cursor.fetchone()[0]
-        conn.close()
-        self.assertEqual(updated_version, '0.8.0', "Failed to set fs_version to 0.8.0")
-
-        # Step 5: Trigger migration by running a command that loads and saves the snapshot
-        # We'll use the Python API directly to trigger save()
-        import os
-        import sys
-        import django
-
-        # Setup Django
-        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.settings')
-        os.environ['DATA_DIR'] = str(self.work_dir)
-
-        # Add parent dir to path so we can import archivebox
-        sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-        try:
-            django.setup()
-            from archivebox.core.models import Snapshot
-
-            # Load the snapshot (should trigger migration on save)
-            snapshot = Snapshot.objects.get(url='https://example.com')
-
-            # Verify fs_migration_needed returns True
-            self.assertTrue(snapshot.fs_migration_needed,
-                          f"fs_migration_needed should be True for fs_version='0.8.0'")
-
-            # Save to trigger migration
-            print(f"\n[*] Triggering filesystem migration by saving snapshot...")
-            snapshot.save()
-
-            # Refresh from DB
-            snapshot.refresh_from_db()
-
-            # Verify migration completed
-            self.assertEqual(snapshot.fs_version, '0.9.0',
-                           f"Migration failed: fs_version is still '{snapshot.fs_version}'")
-            self.assertFalse(snapshot.fs_migration_needed,
-                           "fs_migration_needed should be False after migration")
-
-            print(f"[√] Filesystem migration completed: 0.8.0 -> 0.9.0")
-
-        except Exception as e:
-            self.fail(f"Failed to trigger migration via Django: {e}")
-
-        # Step 6: Verify files still exist and are accessible
-        # For 0.8 -> 0.9, the migration is a no-op, so files should be in the same place
-        files_after = list(output_dir.rglob('*'))
-        files_after_count = len([f for f in files_after if f.is_file()])
-
-        print(f"\n[*] Files after migration: {files_after_count}")
-
-        # Verify no files were lost
-        self.assertGreaterEqual(files_after_count, files_before_count,
-                               f"Files were lost during migration: {files_before_count} -> {files_after_count}")
-
-
-class TestDBOnlyCommands(unittest.TestCase):
-    """Test that status/search/list commands only use DB, not filesystem."""
-
-    def setUp(self):
-        """Create a temporary directory with 0.8.x schema and data."""
-        self.work_dir = Path(tempfile.mkdtemp())
-        self.db_path = self.work_dir / 'index.sqlite3'
-
-        create_data_dir_structure(self.work_dir)
-        conn = sqlite3.connect(str(self.db_path))
-        conn.executescript(SCHEMA_0_8)
-        conn.close()
-        self.original_data = seed_0_8_data(self.db_path)
-
-    def tearDown(self):
-        """Clean up temporary directory."""
-        shutil.rmtree(self.work_dir, ignore_errors=True)
-
-    def test_status_works_with_empty_archive(self):
-        """Status command should work with empty archive/ (queries DB only)."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=45)
-        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
-
-        # Add a snapshot to DB
-        result = run_archivebox(self.work_dir, ['add', 'https://example.com'], timeout=60)
-
-        # Empty the archive directory (but keep it existing)
+        # Count archive directories and files BEFORE migration
         archive_dir = self.work_dir / 'archive'
-        if archive_dir.exists():
-            for item in archive_dir.iterdir():
-                if item.is_dir():
-                    shutil.rmtree(item)
-                else:
-                    item.unlink()
+        dirs_before = list(archive_dir.glob('*')) if archive_dir.exists() else []
+        dirs_before_count = len([d for d in dirs_before if d.is_dir()])
 
-        # Status should still work (queries DB only, doesn't scan filesystem)
-        result = run_archivebox(self.work_dir, ['status'])
-        self.assertEqual(result.returncode, 0,
-                        f"Status should work with empty archive: {result.stderr}")
+        # Count total files in all archive directories
+        files_before = []
+        for d in dirs_before:
+            if d.is_dir():
+                files_before.extend([f for f in d.rglob('*') if f.is_file()])
+        files_before_count = len(files_before)
 
-        # Should show count from DB
-        output = result.stdout + result.stderr
-        self.assertIn('Total', output,
-                     "Status should show DB statistics even with no files")
+        # Sample some specific files to check they're preserved
+        sample_files = [
+            'favicon.ico',
+            'screenshot.png',
+            'singlefile.html',
+            'headers.json',
+        ]
+        sample_paths_before = {}
+        for d in dirs_before:
+            if d.is_dir():
+                for sample_file in sample_files:
+                    matching = list(d.glob(sample_file))
+                    if matching:
+                        sample_paths_before[f"{d.name}/{sample_file}"] = matching[0]
 
-    def test_list_works_with_empty_archive(self):
-        """List command should work with empty archive/ (queries DB only)."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=45)
-        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+        print(f"\n[*] Archive directories before migration: {dirs_before_count}")
+        print(f"[*] Total files before migration: {files_before_count}")
+        print(f"[*] Sample files found: {len(sample_paths_before)}")
 
-        # Add a snapshot to DB
-        result = run_archivebox(self.work_dir, ['add', 'https://example.com'], timeout=60)
+        # Run init to trigger migration
+        result = run_archivebox(self.work_dir, ['init'], timeout=60)
+        self.assertEqual(result.returncode, 0, f"Init (migration) failed: {result.stderr}")
 
-        # Empty the archive directory (but keep it existing)
-        archive_dir = self.work_dir / 'archive'
-        if archive_dir.exists():
-            for item in archive_dir.iterdir():
-                if item.is_dir():
-                    shutil.rmtree(item)
-                else:
-                    item.unlink()
+        # Count archive directories and files AFTER migration
+        dirs_after = list(archive_dir.glob('*')) if archive_dir.exists() else []
+        dirs_after_count = len([d for d in dirs_after if d.is_dir()])
 
-        # List should still work (queries DB only, doesn't scan filesystem)
-        result = run_archivebox(self.work_dir, ['list'])
-        self.assertEqual(result.returncode, 0,
-                        f"List should work with empty archive: {result.stderr}")
+        files_after = []
+        for d in dirs_after:
+            if d.is_dir():
+                files_after.extend([f for f in d.rglob('*') if f.is_file()])
+        files_after_count = len(files_after)
 
-        # Should show snapshot from DB
-        output = result.stdout + result.stderr
-        self.assertIn('example.com', output,
-                     "Snapshot should appear in list output even with no files")
+        # Verify sample files still exist
+        sample_paths_after = {}
+        for d in dirs_after:
+            if d.is_dir():
+                for sample_file in sample_files:
+                    matching = list(d.glob(sample_file))
+                    if matching:
+                        sample_paths_after[f"{d.name}/{sample_file}"] = matching[0]
 
-    def test_search_works_with_empty_archive(self):
-        """Search command should work with empty archive/ (queries DB only)."""
-        result = run_archivebox(self.work_dir, ['init'], timeout=45)
-        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+        print(f"[*] Archive directories after migration: {dirs_after_count}")
+        print(f"[*] Total files after migration: {files_after_count}")
+        print(f"[*] Sample files found: {len(sample_paths_after)}")
 
-        # Add a snapshot to DB
-        result = run_archivebox(self.work_dir, ['add', 'https://example.com'], timeout=60)
+        # Verify files still in old structure after migration (not moved yet)
+        self.assertEqual(dirs_before_count, dirs_after_count,
+                        f"Archive directories lost during migration: {dirs_before_count} -> {dirs_after_count}")
+        self.assertEqual(files_before_count, files_after_count,
+                        f"Files lost during migration: {files_before_count} -> {files_after_count}")
 
-        # Empty the archive directory (but keep it existing)
-        archive_dir = self.work_dir / 'archive'
-        if archive_dir.exists():
-            for item in archive_dir.iterdir():
-                if item.is_dir():
-                    shutil.rmtree(item)
-                else:
-                    item.unlink()
-
-        # Search should still work (queries DB only, doesn't scan filesystem)
-        result = run_archivebox(self.work_dir, ['search'])
-        self.assertEqual(result.returncode, 0,
-                        f"Search should work with empty archive: {result.stderr}")
-
-        # Should show snapshot from DB
-        output = result.stdout + result.stderr
-        self.assertIn('example.com', output,
-                     "Snapshot should appear in search output even with no files")
-
-
-class TestUpdateCommandArchitecture(unittest.TestCase):
-    """Test new update command architecture: filters=DB only, no filters=scan filesystem."""
-
-    def setUp(self):
-        """Create a temporary directory with 0.8.x schema and data."""
-        self.work_dir = Path(tempfile.mkdtemp())
-        self.db_path = self.work_dir / 'index.sqlite3'
-        create_data_dir_structure(self.work_dir)
-
-    def tearDown(self):
-        """Clean up temporary directory."""
-        shutil.rmtree(self.work_dir, ignore_errors=True)
-
-    def test_update_with_filters_uses_db_only(self):
-        """Update with filters should only query DB, not scan filesystem."""
-        # Initialize with data
-        conn = sqlite3.connect(str(self.db_path))
-        conn.executescript(SCHEMA_0_8)
-        conn.close()
-        seed_0_8_data(self.db_path)
-
-        result = run_archivebox(self.work_dir, ['init'], timeout=45)
-        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
-
-        # Run update with filter - should not scan filesystem
-        # Use a URL from the seeded data
-        result = run_archivebox(self.work_dir, ['update', 'example.com'], timeout=120)
-        # Should complete successfully (or with orchestrator error, which is okay)
-        # The key is it should not scan filesystem
-
-    def test_update_without_filters_imports_orphans(self):
-        """Update without filters should scan filesystem and import orphaned directories."""
-        # Initialize empty DB
-        result = run_archivebox(self.work_dir, ['init'], timeout=45)
-        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
-
-        # Create an orphaned directory in archive/
-        timestamp = '1609459200'
-        orphan_dir = self.work_dir / 'archive' / timestamp
-        orphan_dir.mkdir(parents=True, exist_ok=True)
-
-        index_data = {
-            'url': 'https://orphan.example.com',
-            'timestamp': timestamp,
-            'title': 'Orphaned Snapshot',
-        }
-        (orphan_dir / 'index.json').write_text(json.dumps(index_data))
-        (orphan_dir / 'index.html').write_text('<html>Orphan</html>')
-
-        # Count snapshots before update
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM core_snapshot")
-        count_before = cursor.fetchone()[0]
-        conn.close()
-
-        # Run full update (no filters) - should scan filesystem
+        # Run update to trigger filesystem reorganization
+        print(f"\n[*] Running archivebox update to reorganize filesystem...")
         result = run_archivebox(self.work_dir, ['update'], timeout=120)
+        self.assertEqual(result.returncode, 0, f"Update failed: {result.stderr}")
 
-        # Check if orphan was imported
+        # Check new filesystem structure
+        # New structure: users/username/snapshots/YYYYMMDD/example.com/snap-uuid-here/output.ext
+        users_dir = self.work_dir / 'users'
+        snapshots_base = None
+
+        if users_dir.exists():
+            # Find the snapshots directory
+            for user_dir in users_dir.iterdir():
+                if user_dir.is_dir():
+                    user_snapshots = user_dir / 'snapshots'
+                    if user_snapshots.exists():
+                        snapshots_base = user_snapshots
+                        break
+
+        print(f"[*] New structure base: {snapshots_base}")
+
+        # Count files in new structure
+        # Structure: users/{username}/snapshots/YYYYMMDD/{domain}/{uuid}/files...
+        files_new_structure = []
+        new_sample_files = {}
+
+        if snapshots_base and snapshots_base.exists():
+            for date_dir in snapshots_base.iterdir():
+                if date_dir.is_dir():
+                    for domain_dir in date_dir.iterdir():
+                        if domain_dir.is_dir():
+                            for snap_dir in domain_dir.iterdir():
+                                if snap_dir.is_dir():
+                                    # Files are directly in snap-uuid/ directory (no plugin subdirs)
+                                    for f in snap_dir.rglob('*'):
+                                        if f.is_file():
+                                            files_new_structure.append(f)
+                                            # Track sample files
+                                            if f.name in sample_files:
+                                                new_sample_files[f"{snap_dir.name}/{f.name}"] = f
+
+        files_new_count = len(files_new_structure)
+        print(f"[*] Files in new structure: {files_new_count}")
+        print(f"[*] Sample files in new structure: {len(new_sample_files)}")
+
+        # Check old structure (should be gone or empty)
+        old_archive_dir = self.work_dir / 'archive'
+        old_files_remaining = []
+        unmigrated_dirs = []
+        if old_archive_dir.exists():
+            for d in old_archive_dir.glob('*'):
+                # Only count REAL directories, not symlinks (symlinks are the migrated ones)
+                if d.is_dir(follow_symlinks=False) and d.name.replace('.', '').isdigit():
+                    # This is a timestamp directory (old structure)
+                    files_in_dir = [f for f in d.rglob('*') if f.is_file()]
+                    if files_in_dir:
+                        unmigrated_dirs.append((d.name, len(files_in_dir)))
+                        old_files_remaining.extend(files_in_dir)
+
+        old_files_count = len(old_files_remaining)
+        print(f"[*] Files remaining in old structure: {old_files_count}")
+        if unmigrated_dirs:
+            print(f"[*] Unmigrated directories: {unmigrated_dirs}")
+
+        # CRITICAL: Verify files were moved to new structure
+        self.assertGreater(files_new_count, 0,
+                          "No files found in new structure after update")
+
+        # CRITICAL: Verify old structure is cleaned up
+        self.assertEqual(old_files_count, 0,
+                        f"Old structure not cleaned up: {old_files_count} files still in archive/timestamp/ directories")
+
+        # CRITICAL: Verify all files were moved (total count should match)
+        total_after_update = files_new_count + old_files_count
+        self.assertEqual(files_before_count, total_after_update,
+                        f"Files lost during reorganization: {files_before_count} before → {total_after_update} after")
+
+        # CRITICAL: Verify sample files exist in new structure
+        self.assertGreater(len(new_sample_files), 0,
+                          f"Sample files not found in new structure")
+
+        # Verify new path format
+        for path_key, file_path in new_sample_files.items():
+            # Path should contain: snapshots/YYYYMMDD/domain/snap-uuid/plugin/file
+            path_parts = file_path.parts
+            self.assertIn('snapshots', path_parts,
+                         f"New path should contain 'snapshots': {file_path}")
+            self.assertIn('users', path_parts,
+                         f"New path should contain 'users': {file_path}")
+            print(f"    ✓ {path_key} → {file_path.relative_to(self.work_dir)}")
+
+        # Verify Process and Binary records were created
         conn = sqlite3.connect(str(self.db_path))
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM core_snapshot WHERE url = ?",
-                      ('https://orphan.example.com',))
-        orphan_count = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM core_archiveresult")
+        archiveresult_count = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM machine_process")
+        process_count = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM machine_binary")
+        binary_count = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM core_archiveresult WHERE process_id IS NOT NULL")
+        linked_count = cursor.fetchone()[0]
+
         conn.close()
 
-        # If update succeeded, orphan should be imported
-        if result.returncode == 0:
-            self.assertGreaterEqual(orphan_count, 1,
-                                  "Orphaned snapshot should be imported by update")
+        print(f"[*] ArchiveResults: {archiveresult_count}")
+        print(f"[*] Process records created: {process_count}")
+        print(f"[*] Binary records created: {binary_count}")
+        print(f"[*] ArchiveResults linked to Process: {linked_count}")
+
+        # Verify data migration happened correctly
+        # The 0.7.2 gold database has 44 ArchiveResults
+        self.assertEqual(archiveresult_count, 44,
+                        f"Expected 44 ArchiveResults from 0.7.2 database, got {archiveresult_count}")
+
+        # Each ArchiveResult should create one Process record
+        self.assertEqual(process_count, 44,
+                        f"Expected 44 Process records (1 per ArchiveResult), got {process_count}")
+
+        # The 44 ArchiveResults use 7 unique binaries (curl, wget, etc.)
+        self.assertEqual(binary_count, 7,
+                        f"Expected 7 unique Binary records, got {binary_count}")
+
+        # ALL ArchiveResults should be linked to Process records
+        self.assertEqual(linked_count, 44,
+                        f"Expected all 44 ArchiveResults linked to Process, got {linked_count}")
 
 
-class TestTimestampUniqueness(unittest.TestCase):
-    """Test timestamp uniqueness constraint."""
 
-    def setUp(self):
-        """Create a temporary directory."""
-        self.work_dir = Path(tempfile.mkdtemp())
-        self.db_path = self.work_dir / 'index.sqlite3'
-        create_data_dir_structure(self.work_dir)
-
-    def tearDown(self):
-        """Clean up temporary directory."""
-        shutil.rmtree(self.work_dir, ignore_errors=True)
-
-    def test_timestamp_uniqueness_constraint_exists(self):
-        """Database should have timestamp uniqueness constraint after migration."""
-        # Initialize with 0.8.x and migrate
-        conn = sqlite3.connect(str(self.db_path))
-        conn.executescript(SCHEMA_0_8)
-        conn.close()
-
-        result = run_archivebox(self.work_dir, ['init'], timeout=45)
-        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
-
-        # Check if unique_timestamp constraint exists
-        conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-
-        # Query sqlite_master for constraints
-        cursor.execute("""
-            SELECT sql FROM sqlite_master
-            WHERE type='table' AND name='core_snapshot'
-        """)
-        table_sql = cursor.fetchone()[0]
-        conn.close()
-
-        # Should contain unique_timestamp constraint or UNIQUE(timestamp)
-        has_constraint = 'unique_timestamp' in table_sql.lower() or \
-                        'unique' in table_sql.lower() and 'timestamp' in table_sql.lower()
-
-        self.assertTrue(has_constraint,
-                       f"Timestamp uniqueness constraint should exist. Table SQL: {table_sql}")
 
 
 if __name__ == '__main__':

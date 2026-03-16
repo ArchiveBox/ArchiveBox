@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.9.0rc1"
+version = "0.9.8"
 requires-python = ">=3.13"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
@@ -41,7 +41,7 @@ dependencies = [
     ### Django libraries
     "setuptools>=74.1.0",   # for: django 5 on python >=3.12, distutils is no longer in stdlib but django 5.1 expects distutils (TODO: check if this can be removed eventually)
     "django>=6.0",
-    "daphne>=4.2.0",  # ASGI server for Django (no channels needed - websockets not used)
+    "daphne>=4.2.1",  # ASGI server for Django (no channels needed - websockets not used)
     "django-ninja>=1.5.1",
     "django-extensions>=3.2.3",
     "django-signal-webhooks>=0.3.0",
@@ -51,9 +51,9 @@ dependencies = [
     ### State Management
     "python-statemachine>=2.3.6",
     ### CLI / Logging
-    "click>=8.1.7",          # for: nicer CLI command + argument definintions
-    "rich>=13.8.0",          # for: pretty CLI output
-    "rich-click>=1.8.4",     # for: pretty CLI command help text & output
+    "click>=8.3.1",          # for: nicer CLI command + argument definintions
+    "rich>=14.2.0",          # for: pretty CLI output
+    "rich-click>=1.9.5",     # for: pretty CLI command help text & output
     "ipython>=8.27.0",       # for: archivebox shell (TODO: replace with bpython?)
     ### Host OS / System
     "supervisor>=4.2.5",     # for: archivebox server starting daphne and workers
@@ -81,9 +81,10 @@ dependencies = [
     "tzdata>=2024.2",        # needed for dateparser {TZ: UTC} on some systems: https://github.com/ArchiveBox/ArchiveBox/issues/1553
     "w3lib>=2.2.1",          # used for parsing content-type encoding from http response headers & html tags
     ### Extractor dependencies (optional binaries detected at runtime via shutil.which)
-    "yt-dlp>=2024.1.0",      # for: media extractor
+    "yt-dlp[default]>=2026.03.13",      # for: media extractor
     ### Binary/Package Management
-    "abx-pkg>=0.1.0",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
+    "abx-pkg>=1.9.5",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
+    "abx-plugins>=1.9.5",    # shared ArchiveBox plugin package with install_args-only overrides
     "gallery-dl>=1.31.1",
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # for: uuid7 support on Python 3.13 (provides uuid_extensions module)
@@ -146,6 +147,8 @@ dev = [
     # "snakeviz",                                      # usage: python -m cProfile -o flamegraph.prof ../.venv/bin/archivebox manage check
     ### TESTING
     "pytest>=8.3.3",
+    "pytest-cov>=6.0.0",
+    "coverage[toml]>=7.6.0",
     "bottle>=0.13.1",
     ### LINTING
     "ruff>=0.6.6",
@@ -182,8 +185,65 @@ exclude = ["*.pyi", "typings/", "migrations/"]
 ignore = ["E731", "E303", "E266", "E241", "E222"]
 
 [tool.pytest.ini_options]
-testpaths = [ "tests" ]
+testpaths = [ "archivebox/tests" ]
 DJANGO_SETTINGS_MODULE = "archivebox.core.settings"
+# Note: Plugin tests under abx_plugins/plugins/ must NOT load Django
+# They use a conftest.py to disable Django automatically
+
+[tool.coverage.run]
+# Enable branch coverage (tracks if/else branches)
+branch = true
+# What to measure
+source = ["archivebox"]
+# Support parallel execution (for integration tests, dev server, etc.)
+parallel = true
+# Store data in .coverage instead of .coverage.<pid>
+data_file = ".coverage"
+# What to exclude
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/migrations/*",
+    "*/typings/*",
+    "*/__pycache__/*",
+    "*/node_modules/*",
+    "*/.venv/*",
+    "*/manage.py",
+]
+
+[tool.coverage.report]
+# Show lines missing coverage
+show_missing = true
+# Skip files with no executable code
+skip_empty = true
+# Fail if coverage below this (set to 0 for now)
+fail_under = 0
+# Exclude patterns (regex)
+exclude_lines = [
+    # Standard pragma
+    "pragma: no cover",
+    # Don't complain about missing debug code
+    "def __repr__",
+    "if self.debug",
+    # Don't complain if tests don't cover defensive assertion code
+    "raise AssertionError",
+    "raise NotImplementedError",
+    # Don't complain if non-runnable code isn't run
+    "if 0:",
+    "if False:",
+    "if __name__ == .__main__.:",
+    # Type checking blocks
+    "if TYPE_CHECKING:",
+    # Abstract methods
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.json]
+output = "coverage.json"
+show_contexts = true
 
 [tool.mypy]
 mypy_path = "archivebox,archivebox/typings"

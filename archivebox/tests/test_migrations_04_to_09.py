@@ -13,7 +13,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .test_migrations_helpers import (
+from .migrations_helpers import (
     SCHEMA_0_4,
     seed_0_4_data,
     run_archivebox,

@@ -32,7 +32,8 @@ _supervisord_proc = None
 
 ORCHESTRATOR_WORKER = {
     "name": "worker_orchestrator",
-    "command": "archivebox manage orchestrator",  # runs forever by default
+    # Use Django management command to avoid stdin/TTY ambiguity in `archivebox run`.
+    "command": "archivebox manage orchestrator",
     "autostart": "true",
     "autorestart": "true",
     "stdout_logfile": "logs/worker_orchestrator.log",
@@ -254,8 +255,7 @@ def start_new_supervisord_process(daemonize=False):
             shell=True,
             start_new_session=True,
         )
-        time.sleep(2)
-        return get_existing_supervisord_process()
+        return wait_for_supervisord_ready()
     else:
         # Start supervisord in FOREGROUND - this will block until supervisord exits
         # supervisord with nodaemon=true will run in foreground and handle signals properly
@@ -273,10 +273,19 @@ def start_new_supervisord_process(daemonize=False):
         global _supervisord_proc
         _supervisord_proc = proc
 
-        # Wait a bit for supervisord to start up
-        time.sleep(2)
+        return wait_for_supervisord_ready()
 
-        return get_existing_supervisord_process()
+
+def wait_for_supervisord_ready(max_wait_sec: float = 5.0, interval_sec: float = 0.1):
+    """Poll for supervisord readiness without a fixed startup sleep."""
+    deadline = time.monotonic() + max_wait_sec
+    supervisor = None
+    while time.monotonic() < deadline:
+        supervisor = get_existing_supervisord_process()
+        if supervisor is not None:
+            return supervisor
+        time.sleep(interval_sec)
+    return supervisor
 
 
 def get_or_create_supervisord_process(daemonize=False):
@@ -287,17 +296,16 @@ def get_or_create_supervisord_process(daemonize=False):
     if supervisor is None:
         stop_existing_supervisord_process()
         supervisor = start_new_supervisord_process(daemonize=daemonize)
-        time.sleep(0.5)
 
     # wait up to 5s in case supervisord is slow to start
     if not supervisor:
-        for _ in range(10):
+        for _ in range(50):
             if supervisor is not None:
                 print()
                 break
             sys.stdout.write('.')
             sys.stdout.flush()
-            time.sleep(0.5)
+            time.sleep(0.1)
             supervisor = get_existing_supervisord_process()
         else:
             print()
@@ -328,9 +336,7 @@ def start_worker(supervisor, daemon, lazy=False):
     for added in added:
         supervisor.addProcessGroup(added)
 
-    time.sleep(1)
-
-    for _ in range(10):
+    for _ in range(25):
         procs = supervisor.getAllProcessInfo()
         for proc in procs:
             if proc['name'] == daemon["name"]:
@@ -345,8 +351,8 @@ def start_worker(supervisor, daemon, lazy=False):
                     print(f"     - Worker {daemon['name']}: started {proc['statename']} ({proc['description']})")
                 return proc
 
-        # retry in a second in case it's slow to launch
-        time.sleep(0.5)
+        # retry in a moment in case it's slow to launch
+        time.sleep(0.2)
 
     raise Exception(f"Failed to start worker {daemon['name']}! Only found: {procs}")
 

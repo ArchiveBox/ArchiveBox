@@ -83,15 +83,15 @@ class ConstantsDict(Mapping):
     CRONTABS_DIR_NAME: str              = 'crontabs'
     CACHE_DIR_NAME: str                 = 'cache'
     LOGS_DIR_NAME: str                  = 'logs'
-    USER_PLUGINS_DIR_NAME: str          = 'user_plugins'
-    CUSTOM_TEMPLATES_DIR_NAME: str      = 'user_templates'
+    CUSTOM_PLUGINS_DIR_NAME: str        = 'custom_plugins'
+    CUSTOM_TEMPLATES_DIR_NAME: str      = 'custom_templates'
     ARCHIVE_DIR: Path                   = DATA_DIR / ARCHIVE_DIR_NAME
     SOURCES_DIR: Path                   = DATA_DIR / SOURCES_DIR_NAME
     PERSONAS_DIR: Path                  = DATA_DIR / PERSONAS_DIR_NAME
     LOGS_DIR: Path                      = DATA_DIR / LOGS_DIR_NAME
     CACHE_DIR: Path                     = DATA_DIR / CACHE_DIR_NAME
     CUSTOM_TEMPLATES_DIR: Path          = DATA_DIR / CUSTOM_TEMPLATES_DIR_NAME
-    USER_PLUGINS_DIR: Path              = DATA_DIR / USER_PLUGINS_DIR_NAME
+    USER_PLUGINS_DIR: Path              = DATA_DIR / CUSTOM_PLUGINS_DIR_NAME
 
     # Data dir files
     CONFIG_FILENAME: str                = 'ArchiveBox.conf'
@@ -100,6 +100,7 @@ class ConstantsDict(Mapping):
     DATABASE_FILE: Path                 = DATA_DIR / SQL_INDEX_FILENAME
     
     JSON_INDEX_FILENAME: str            = 'index.json'
+    JSONL_INDEX_FILENAME: str           = 'index.jsonl'
     HTML_INDEX_FILENAME: str            = 'index.html'
     ROBOTS_TXT_FILENAME: str            = 'robots.txt'
     FAVICON_FILENAME: str               = 'favicon.ico'
@@ -107,14 +108,19 @@ class ConstantsDict(Mapping):
     # Runtime dirs
     TMP_DIR_NAME: str                   = 'tmp'
     DEFAULT_TMP_DIR: Path               = DATA_DIR / TMP_DIR_NAME / MACHINE_ID    # ./data/tmp/abc3244323
-    
+
     LIB_DIR_NAME: str                   = 'lib'
     DEFAULT_LIB_DIR: Path               = DATA_DIR / LIB_DIR_NAME / MACHINE_TYPE  # ./data/lib/arm64-linux-docker
+    DEFAULT_LIB_BIN_DIR: Path           = DEFAULT_LIB_DIR / 'bin'                  # ./data/lib/arm64-linux-docker/bin
 
     # Config constants
     TIMEZONE: str                       = 'UTC'
     DEFAULT_CLI_COLORS: Dict[str, str]  = DEFAULT_CLI_COLORS
     DISABLED_CLI_COLORS: Dict[str, str] = benedict({k: '' for k in DEFAULT_CLI_COLORS})
+
+    # Hard safety limits (seconds)
+    MAX_HOOK_RUNTIME_SECONDS: int       = 60 * 60 * 12   # 12 hours
+    MAX_SNAPSHOT_RUNTIME_SECONDS: int   = 60 * 60 * 12   # 12 hours
 
     ALLOWDENYLIST_REGEX_FLAGS: int      = re.IGNORECASE | re.UNICODE | re.MULTILINE
 
@@ -170,8 +176,14 @@ class ConstantsDict(Mapping):
         TMP_DIR_NAME,
         PERSONAS_DIR_NAME,
         CUSTOM_TEMPLATES_DIR_NAME,
-        USER_PLUGINS_DIR_NAME,
+        CUSTOM_PLUGINS_DIR_NAME,
         CRONTABS_DIR_NAME,
+        "invalid",
+        "users",
+        "machine",
+        # Backwards compatibility with old directory names
+        "user_plugins",          # old name for USER_PLUGINS_DIR (now 'plugins')
+        "user_templates",        # old name for CUSTOM_TEMPLATES_DIR (now 'templates')
         "static",                # created by old static exports <v0.6.0
         "sonic",                 # created by docker bind mount / sonic FTS process
         ".git",
@@ -187,6 +199,7 @@ class ConstantsDict(Mapping):
         "queue.sqlite3-wal",
         "queue.sqlite3-shm",
         JSON_INDEX_FILENAME,
+        JSONL_INDEX_FILENAME,
         HTML_INDEX_FILENAME,
         ROBOTS_TXT_FILENAME,
         FAVICON_FILENAME,

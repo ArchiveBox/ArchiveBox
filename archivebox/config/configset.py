@@ -118,11 +118,13 @@ class BaseConfigSet(BaseSettings):
 
 
 def get_config(
-    scope: str = "global",
     defaults: Optional[Dict] = None,
+    persona: Any = None,
     user: Any = None,
     crawl: Any = None,
     snapshot: Any = None,
+    archiveresult: Any = None,
+    machine: Any = None,
 ) -> Dict[str, Any]:
     """
     Get merged config from all sources.
@@ -131,21 +133,39 @@ def get_config(
     1. Per-snapshot config (snapshot.config JSON field)
     2. Per-crawl config (crawl.config JSON field)
     3. Per-user config (user.config JSON field)
-    4. Environment variables
-    5. Config file (ArchiveBox.conf)
-    6. Plugin schema defaults (config.json)
-    7. Core config defaults
+    4. Per-persona config (persona.get_derived_config() - includes CHROME_USER_DATA_DIR etc.)
+    5. Environment variables
+    6. Per-machine config (machine.config JSON field - resolved binary paths)
+    7. Config file (ArchiveBox.conf)
+    8. Plugin schema defaults (config.json)
+    9. Core config defaults
 
     Args:
-        scope: Config scope ('global', 'crawl', 'snapshot', etc.)
         defaults: Default values to start with
+        persona: Persona object (provides derived paths like CHROME_USER_DATA_DIR)
         user: User object with config JSON field
         crawl: Crawl object with config JSON field
         snapshot: Snapshot object with config JSON field
+        archiveresult: ArchiveResult object (auto-fetches snapshot)
+        machine: Machine object with config JSON field (defaults to Machine.current())
+
+    Note: Objects are auto-fetched from relationships if not provided:
+        - snapshot auto-fetched from archiveresult.snapshot
+        - crawl auto-fetched from snapshot.crawl
+        - user auto-fetched from crawl.created_by
 
     Returns:
         Merged config dict
     """
+    # Auto-fetch related objects from relationships
+    if snapshot is None and archiveresult and hasattr(archiveresult, "snapshot"):
+        snapshot = archiveresult.snapshot
+
+    if crawl is None and snapshot and hasattr(snapshot, "crawl"):
+        crawl = snapshot.crawl
+
+    if user is None and crawl and hasattr(crawl, "created_by"):
+        user = crawl.created_by
     from archivebox.config.constants import CONSTANTS
     from archivebox.config.common import (
         SHELL_CONFIG,
@@ -181,11 +201,29 @@ def get_config(
         file_config = BaseConfigSet.load_from_file(config_file)
         config.update(file_config)
 
-    # Override with environment variables
+    # Apply machine config overrides (cached binary paths, etc.)
+    if machine is None:
+        # Default to current machine if not provided
+        try:
+            from archivebox.machine.models import Machine
+            machine = Machine.current()
+        except Exception:
+            pass  # Machine might not be available during early init
+
+    if machine and hasattr(machine, "config") and machine.config:
+        config.update(machine.config)
+
+    # Override with environment variables (for keys that exist in config)
     for key in config:
         env_val = os.environ.get(key)
         if env_val is not None:
             config[key] = _parse_env_value(env_val, config.get(key))
+
+    # Also add NEW environment variables (not yet in config)
+    # This is important for worker subprocesses that receive config via Process.env
+    for key, value in os.environ.items():
+        if key.isupper() and key not in config:  # Only uppercase keys (config convention)
+            config[key] = _parse_env_value(value, None)
 
     # Also check plugin config aliases in environment
     try:
@@ -205,6 +243,10 @@ def get_config(
     except ImportError:
         pass
 
+    # Apply persona config overrides (includes derived paths like CHROME_USER_DATA_DIR)
+    if persona and hasattr(persona, "get_derived_config"):
+        config.update(persona.get_derived_config())
+
     # Apply user config overrides
     if user and hasattr(user, "config") and user.config:
         config.update(user.config)
@@ -213,9 +255,23 @@ def get_config(
     if crawl and hasattr(crawl, "config") and crawl.config:
         config.update(crawl.config)
 
+    # Add crawl path aliases for hooks that need shared crawl state.
+    if crawl and hasattr(crawl, "output_dir"):
+        config['CRAWL_OUTPUT_DIR'] = str(crawl.output_dir)
+        config['CRAWL_DIR'] = str(crawl.output_dir)
+        config['CRAWL_ID'] = str(getattr(crawl, "id", "")) if getattr(crawl, "id", None) else config.get('CRAWL_ID')
+
     # Apply snapshot config overrides (highest priority)
     if snapshot and hasattr(snapshot, "config") and snapshot.config:
         config.update(snapshot.config)
+
+    if snapshot:
+        config['SNAPSHOT_ID'] = str(getattr(snapshot, "id", "")) if getattr(snapshot, "id", None) else config.get('SNAPSHOT_ID')
+        config['SNAPSHOT_DEPTH'] = int(getattr(snapshot, "depth", 0) or 0)
+        if hasattr(snapshot, "output_dir"):
+            config['SNAP_DIR'] = str(snapshot.output_dir)
+        if getattr(snapshot, "crawl_id", None):
+            config['CRAWL_ID'] = str(snapshot.crawl_id)
 
     # Normalize all aliases to canonical names (after all sources merged)
     # This handles aliases that came from user/crawl/snapshot configs, not just env
@@ -249,7 +305,7 @@ def get_flat_config() -> Dict[str, Any]:
 
     Replaces abx.pm.hook.get_FLAT_CONFIG()
     """
-    return get_config(scope="global")
+    return get_config()
 
 
 def get_all_configs() -> Dict[str, BaseConfigSet]:
@@ -311,7 +367,7 @@ DEFAULT_WORKER_CONCURRENCY = {
     "title": 5,
     "favicon": 5,
     "headers": 5,
-    "archive_org": 2,
+    "archivedotorg": 2,
     "readability": 3,
     "mercury": 3,
     "git": 2,

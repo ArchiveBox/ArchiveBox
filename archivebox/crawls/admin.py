@@ -71,8 +71,8 @@ def render_snapshots_list(snapshots_qs, limit=20):
                                  color: {color}; background: {bg};">{status}</span>
                 </td>
                 <td style="padding: 6px 8px; white-space: nowrap;">
-                    <a href="/archive/{snapshot.timestamp}/" style="text-decoration: none;">
-                        <img src="/archive/{snapshot.timestamp}/favicon.ico"
+                    <a href="/{snapshot.archive_path}/" style="text-decoration: none;">
+                        <img src="/{snapshot.archive_path}/favicon.ico"
                              style="width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;"
                              onerror="this.style.display='none'"/>
                     </a>
@@ -154,7 +154,7 @@ class CrawlAdminForm(forms.ModelForm):
 
 class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     form = CrawlAdminForm
-    list_display = ('id', 'created_at', 'created_by', 'max_depth', 'label', 'notes', 'urls_preview', 'schedule_str', 'status', 'retry_at', 'num_snapshots')
+    list_display = ('id', 'created_at', 'created_by', 'max_depth', 'label', 'notes', 'urls_preview', 'schedule_str', 'status', 'retry_at', 'health_display', 'num_snapshots')
     sort_fields = ('id', 'created_at', 'created_by', 'max_depth', 'label', 'notes', 'schedule_str', 'status', 'retry_at')
     search_fields = ('id', 'created_by__username', 'max_depth', 'label', 'notes', 'schedule_id', 'status', 'urls')
 
@@ -270,30 +270,22 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         first_url = obj.get_urls_list()[0] if obj.get_urls_list() else ''
         return first_url[:80] + '...' if len(first_url) > 80 else first_url
 
+    @admin.display(description='Health', ordering='health')
+    def health_display(self, obj):
+        h = obj.health
+        color = 'green' if h >= 80 else 'orange' if h >= 50 else 'red'
+        return format_html('<span style="color: {};">{}</span>', color, h)
+
     @admin.display(description='URLs')
     def urls_editor(self, obj):
         """Editor for crawl URLs."""
         widget_id = f'crawl_urls_{obj.pk}'
 
-        # Check if it's a local file we can edit
-        source_file = obj.get_file_path()
-        is_file = source_file is not None
-        file_contents = ""
-        error = None
-
-        if is_file and source_file:
-            try:
-                file_contents = source_file.read_text().strip()
-            except Exception as e:
-                error = f'Error reading {source_file}: {e}'
-
         # Escape for safe HTML embedding
         escaped_urls = (obj.urls or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
-        escaped_file_contents = file_contents.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
 
         # Count lines for auto-expand logic
         line_count = len((obj.urls or '').split('\n'))
-        file_line_count = len(file_contents.split('\n')) if file_contents else 0
         uri_rows = min(max(3, line_count), 10)
 
         html = f'''
@@ -312,21 +304,6 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
                     {line_count} URL{'s' if line_count != 1 else ''} · Note: URLs displayed here for reference only
                 </p>
             </div>
-
-            {"" if not is_file else f'''
-            <!-- File contents preview (if first URL is a file://) -->
-            <div style="margin-bottom: 8px;">
-                <label style="font-weight: bold; display: block; margin-bottom: 4px;">
-                    File Preview: <code style="font-weight: normal; color: #666;">{source_file}</code>
-                </label>
-                {"<div style='color: #dc3545; margin-bottom: 8px;'>" + error + "</div>" if error else ""}
-                <textarea id="{widget_id}_file_preview"
-                          style="width: 100%; height: {min(400, max(150, file_line_count * 18))}px; font-family: monospace; font-size: 12px;
-                                 padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; background: #f9f9f9;"
-                          readonly>{escaped_file_contents}</textarea>
-            </div>
-            '''}
-
         </div>
         '''
         return mark_safe(html)

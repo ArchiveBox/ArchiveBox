@@ -66,6 +66,10 @@ class StorageConfig(BaseConfigSet):
     # should not be a remote/network/FUSE mount for speed reasons, otherwise extractors will be slow
     LIB_DIR: Path = Field(default=CONSTANTS.DEFAULT_LIB_DIR)
 
+    # LIB_BIN_DIR is where all installed binaries are symlinked for easy PATH management
+    # Derived from LIB_DIR / 'bin', should be prepended to PATH for all hook executions
+    LIB_BIN_DIR: Path = Field(default=CONSTANTS.DEFAULT_LIB_BIN_DIR)
+
     # CUSTOM_TEMPLATES_DIR allows users to override default templates
     # defaults to DATA_DIR / 'user_templates' but can be configured
     CUSTOM_TEMPLATES_DIR: Path = Field(default=CONSTANTS.CUSTOM_TEMPLATES_DIR)
@@ -95,8 +99,11 @@ class ServerConfig(BaseConfigSet):
 
     SECRET_KEY: str = Field(default_factory=lambda: get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789_"))
     BIND_ADDR: str = Field(default="127.0.0.1:8000")
+    LISTEN_HOST: str = Field(default="archivebox.localhost:8000")
+    ADMIN_BASE_URL: str = Field(default="")
+    ARCHIVE_BASE_URL: str = Field(default="")
     ALLOWED_HOSTS: str = Field(default="*")
-    CSRF_TRUSTED_ORIGINS: str = Field(default="http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000")
+    CSRF_TRUSTED_ORIGINS: str = Field(default="http://admin.archivebox.localhost:8000")
 
     SNAPSHOTS_PER_PAGE: int = Field(default=40)
     PREVIEW_ORIGINALS: bool = Field(default=True)

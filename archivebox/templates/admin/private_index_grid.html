@@ -78,7 +78,19 @@
       {% block filters %}
         {% if cl.has_filters %}
           <div id="changelist-filter">
-            <h2>{% translate 'Filter' %}</h2>
+            <h2>
+              {% translate 'Filter' %}
+              <button
+                type="button"
+                id="changelist-filter-toggle"
+                class="filter-toggle"
+                aria-expanded="true"
+                data-show-label="{% translate 'Filters' %}"
+                data-hide-label="{% translate 'Hide' %}"
+              >
+                {% translate 'Hide' %}
+              </button>
+            </h2>
             {% if cl.has_active_filters %}<h3 id="changelist-filter-clear">
               <a href="{{ cl.clear_all_filters_qs }}">&#10006; {% translate "Clear all filters" %}</a>
             </h3>{% endif %}
@@ -88,4 +100,28 @@
       {% endblock %}
     </div>
   </div>
+  {% if cl.has_filters %}
+    <script>
+      (function() {
+        var storageKey = 'admin-filters-collapsed';
+        var toggle = document.getElementById('changelist-filter-toggle');
+        if (!toggle) return;
+
+        function applyState() {
+          var collapsed = localStorage.getItem(storageKey) === 'true';
+          document.body.classList.toggle('filters-collapsed', collapsed);
+          toggle.textContent = collapsed ? toggle.dataset.showLabel : toggle.dataset.hideLabel;
+          toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        }
+
+        toggle.addEventListener('click', function() {
+          var collapsed = !document.body.classList.contains('filters-collapsed');
+          localStorage.setItem(storageKey, collapsed ? 'true' : 'false');
+          applyState();
+        });
+
+        applyState();
+      })();
+    </script>
+  {% endif %}
 {% endblock %}

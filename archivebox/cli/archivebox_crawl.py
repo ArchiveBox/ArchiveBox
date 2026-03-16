@@ -1,302 +1,372 @@
 #!/usr/bin/env python3
 
 """
-archivebox crawl [urls_or_snapshot_ids...] [--depth=N] [--plugin=NAME]
+archivebox crawl <action> [args...] [--filters]
 
-Discover outgoing links from URLs or existing Snapshots.
+Manage Crawl records.
 
-If a URL is passed, creates a Snapshot for it first, then runs parser plugins.
-If a snapshot_id is passed, runs parser plugins on the existing Snapshot.
-Outputs discovered outlink URLs as JSONL.
-
-Pipe the output to `archivebox snapshot` to archive the discovered URLs.
-
-Input formats:
-    - Plain URLs (one per line)
-    - Snapshot UUIDs (one per line)
-    - JSONL: {"type": "Snapshot", "url": "...", ...}
-    - JSONL: {"type": "Snapshot", "id": "...", ...}
-
-Output (JSONL):
-    {"type": "Snapshot", "url": "https://discovered-url.com", "via_extractor": "...", ...}
+Actions:
+    create  - Create Crawl jobs from URLs
+    list    - List Crawls as JSONL (with optional filters)
+    update  - Update Crawls from stdin JSONL
+    delete  - Delete Crawls from stdin JSONL
 
 Examples:
-    # Discover links from a page (creates snapshot first)
-    archivebox crawl https://example.com
+    # Create
+    archivebox crawl create https://example.com https://foo.com --depth=1
+    archivebox crawl create --tag=news https://example.com
 
-    # Discover links from an existing snapshot
-    archivebox crawl 01234567-89ab-cdef-0123-456789abcdef
+    # List with filters
+    archivebox crawl list --status=queued
+    archivebox crawl list --urls__icontains=example.com
 
-    # Full recursive crawl pipeline
-    archivebox crawl https://example.com | archivebox snapshot | archivebox extract
+    # Update
+    archivebox crawl list --status=started | archivebox crawl update --status=queued
 
-    # Use only specific parser plugin
-    archivebox crawl --plugin=parse_html_urls https://example.com
+    # Delete
+    archivebox crawl list --urls__icontains=spam.com | archivebox crawl delete --yes
 
-    # Chain: create snapshot, then crawl its outlinks
-    archivebox snapshot https://example.com | archivebox crawl | archivebox snapshot | archivebox extract
+    # Full pipeline
+    archivebox crawl create https://example.com | archivebox snapshot create | archivebox run
 """
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox crawl'
 
 import sys
-import json
-from pathlib import Path
-from typing import Optional
+from typing import Optional, Iterable
 
 import rich_click as click
+from rich import print as rprint
 
-from archivebox.misc.util import docstring
+from archivebox.cli.cli_utils import apply_filters
 
 
-def discover_outlinks(
-    args: tuple,
-    depth: int = 1,
-    plugin: str = '',
-    wait: bool = True,
+# =============================================================================
+# CREATE
+# =============================================================================
+
+def create_crawl(
+    urls: Iterable[str],
+    depth: int = 0,
+    tag: str = '',
+    status: str = 'queued',
+    created_by_id: Optional[int] = None,
 ) -> int:
     """
-    Discover outgoing links from URLs or existing Snapshots.
+    Create a Crawl job from URLs.
 
-    Accepts URLs or snapshot_ids. For URLs, creates Snapshots first.
-    Runs parser plugins, outputs discovered URLs as JSONL.
-    The output can be piped to `archivebox snapshot` to archive the discovered links.
+    Takes URLs as args or stdin, creates one Crawl with all URLs, outputs JSONL.
+    Pass-through: Records that are not URLs are output unchanged (for piping).
 
     Exit codes:
         0: Success
         1: Failure
     """
-    from rich import print as rprint
-    from django.utils import timezone
-
-    from archivebox.misc.jsonl import (
-        read_args_or_stdin, write_record,
-        TYPE_SNAPSHOT
-    )
+    from archivebox.misc.jsonl import read_args_or_stdin, write_record, TYPE_CRAWL
     from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.core.models import Snapshot, ArchiveResult
     from archivebox.crawls.models import Crawl
-    from archivebox.config import CONSTANTS
-    from archivebox.workers.orchestrator import Orchestrator
 
-    created_by_id = get_or_create_system_user_pk()
+    created_by_id = created_by_id or get_or_create_system_user_pk()
     is_tty = sys.stdout.isatty()
 
     # Collect all input records
-    records = list(read_args_or_stdin(args))
+    records = list(read_args_or_stdin(urls))
 
     if not records:
-        rprint('[yellow]No URLs or snapshot IDs provided. Pass as arguments or via stdin.[/yellow]', file=sys.stderr)
+        rprint('[yellow]No URLs provided. Pass URLs as arguments or via stdin.[/yellow]', file=sys.stderr)
         return 1
 
-    # Separate records into existing snapshots vs new URLs
-    existing_snapshot_ids = []
-    new_url_records = []
+    # Separate pass-through records from URL records
+    url_list = []
+    pass_through_records = []
 
     for record in records:
-        # Check if it's an existing snapshot (has id but no url, or looks like a UUID)
-        if record.get('id') and not record.get('url'):
-            existing_snapshot_ids.append(record['id'])
-        elif record.get('id'):
-            # Has both id and url - check if snapshot exists
-            try:
-                Snapshot.objects.get(id=record['id'])
-                existing_snapshot_ids.append(record['id'])
-            except Snapshot.DoesNotExist:
-                new_url_records.append(record)
-        elif record.get('url'):
-            new_url_records.append(record)
+        record_type = record.get('type', '')
 
-    # For new URLs, create a Crawl and Snapshots
-    snapshot_ids = list(existing_snapshot_ids)
+        # Pass-through: output records that aren't URL/Crawl types
+        if record_type and record_type != TYPE_CRAWL and not record.get('url') and not record.get('urls'):
+            pass_through_records.append(record)
+            continue
 
-    if new_url_records:
-        # Create a Crawl to manage this operation
-        sources_file = CONSTANTS.SOURCES_DIR / f'{timezone.now().strftime("%Y-%m-%d__%H-%M-%S")}__crawl.txt'
-        sources_file.parent.mkdir(parents=True, exist_ok=True)
-        sources_file.write_text('\n'.join(r.get('url', '') for r in new_url_records if r.get('url')))
+        # Handle existing Crawl records (just pass through with id)
+        if record_type == TYPE_CRAWL and record.get('id'):
+            pass_through_records.append(record)
+            continue
 
-        crawl = Crawl.from_file(
-            sources_file,
-            max_depth=depth,
-            label=f'crawl --depth={depth}',
-            created_by=created_by_id,
-        )
+        # Collect URLs
+        url = record.get('url')
+        if url:
+            url_list.append(url)
 
-        # Create snapshots for new URLs
-        for record in new_url_records:
-            try:
-                record['crawl_id'] = str(crawl.id)
-                record['depth'] = record.get('depth', 0)
+        # Handle 'urls' field (newline-separated)
+        urls_field = record.get('urls')
+        if urls_field:
+            for line in urls_field.split('\n'):
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    url_list.append(line)
 
-                overrides = {'created_by_id': created_by_id}
-                snapshot = Snapshot.from_jsonl(record, overrides=overrides)
-                if snapshot:
-                    snapshot_ids.append(str(snapshot.id))
+    # Output pass-through records first
+    if not is_tty:
+        for record in pass_through_records:
+            write_record(record)
 
-            except Exception as e:
-                rprint(f'[red]Error creating snapshot: {e}[/red]', file=sys.stderr)
-                continue
-
-    if not snapshot_ids:
-        rprint('[red]No snapshots to process[/red]', file=sys.stderr)
+    if not url_list:
+        if pass_through_records:
+            # If we had pass-through records but no URLs, that's OK
+            rprint(f'[dim]Passed through {len(pass_through_records)} records, no new URLs[/dim]', file=sys.stderr)
+            return 0
+        rprint('[red]No valid URLs found[/red]', file=sys.stderr)
         return 1
 
-    if existing_snapshot_ids:
-        rprint(f'[blue]Using {len(existing_snapshot_ids)} existing snapshots[/blue]', file=sys.stderr)
-    if new_url_records:
-        rprint(f'[blue]Created {len(snapshot_ids) - len(existing_snapshot_ids)} new snapshots[/blue]', file=sys.stderr)
-    rprint(f'[blue]Running parser plugins on {len(snapshot_ids)} snapshots...[/blue]', file=sys.stderr)
+    try:
+        # Build crawl record with all URLs as newline-separated string
+        crawl_record = {
+            'urls': '\n'.join(url_list),
+            'max_depth': depth,
+            'tags_str': tag,
+            'status': status,
+            'label': '',
+        }
 
-    # Create ArchiveResults for plugins
-    # If --plugin is specified, only run that one. Otherwise, run all available plugins.
-    # The orchestrator will handle dependency ordering (plugins declare deps in config.json)
-    for snapshot_id in snapshot_ids:
-        try:
-            snapshot = Snapshot.objects.get(id=snapshot_id)
+        crawl = Crawl.from_json(crawl_record, overrides={'created_by_id': created_by_id})
+        if not crawl:
+            rprint('[red]Failed to create crawl[/red]', file=sys.stderr)
+            return 1
 
-            if plugin:
-                # User specified a single plugin to run
-                ArchiveResult.objects.get_or_create(
-                    snapshot=snapshot,
-                    extractor=plugin,
-                    defaults={
-                        'status': ArchiveResult.StatusChoices.QUEUED,
-                        'retry_at': timezone.now(),
-                    }
-                )
-            else:
-                # Create pending ArchiveResults for all enabled plugins
-                # This uses hook discovery to find available plugins dynamically
-                snapshot.create_pending_archiveresults()
+        # Output JSONL record (only when piped)
+        if not is_tty:
+            write_record(crawl.to_json())
 
-            # Mark snapshot as started
-            snapshot.status = Snapshot.StatusChoices.STARTED
-            snapshot.retry_at = timezone.now()
-            snapshot.save()
+        rprint(f'[green]Created crawl with {len(url_list)} URLs[/green]', file=sys.stderr)
 
-        except Snapshot.DoesNotExist:
-            continue
-
-    # Run plugins
-    if wait:
-        rprint('[blue]Running outlink plugins...[/blue]', file=sys.stderr)
-        orchestrator = Orchestrator(exit_on_idle=True)
-        orchestrator.runloop()
-
-    # Collect discovered URLs from urls.jsonl files
-    # Uses dynamic discovery - any plugin that outputs urls.jsonl is considered a parser
-    from archivebox.hooks import collect_urls_from_plugins
-
-    discovered_urls = {}
-    for snapshot_id in snapshot_ids:
-        try:
-            snapshot = Snapshot.objects.get(id=snapshot_id)
-            snapshot_dir = Path(snapshot.output_dir)
-
-            # Dynamically collect urls.jsonl from ANY plugin subdirectory
-            for entry in collect_urls_from_plugins(snapshot_dir):
-                url = entry.get('url')
-                if url and url not in discovered_urls:
-                    # Add metadata for crawl tracking
-                    entry['type'] = TYPE_SNAPSHOT
-                    entry['depth'] = snapshot.depth + 1
-                    entry['via_snapshot'] = str(snapshot.id)
-                    discovered_urls[url] = entry
-
-        except Snapshot.DoesNotExist:
-            continue
-
-    rprint(f'[green]Discovered {len(discovered_urls)} URLs[/green]', file=sys.stderr)
-
-    # Output discovered URLs as JSONL (when piped) or human-readable (when TTY)
-    for url, entry in discovered_urls.items():
+        # If TTY, show human-readable output
         if is_tty:
-            via = entry.get('via_extractor', 'unknown')
-            rprint(f'  [dim]{via}[/dim] {url[:80]}', file=sys.stderr)
-        else:
-            write_record(entry)
+            rprint(f'  [dim]{crawl.id}[/dim]', file=sys.stderr)
+            for url in url_list[:5]:  # Show first 5 URLs
+                rprint(f'    {url[:70]}', file=sys.stderr)
+            if len(url_list) > 5:
+                rprint(f'    ... and {len(url_list) - 5} more', file=sys.stderr)
 
+        return 0
+
+    except Exception as e:
+        rprint(f'[red]Error creating crawl: {e}[/red]', file=sys.stderr)
+        return 1
+
+
+# =============================================================================
+# LIST
+# =============================================================================
+
+def list_crawls(
+    status: Optional[str] = None,
+    urls__icontains: Optional[str] = None,
+    max_depth: Optional[int] = None,
+    limit: Optional[int] = None,
+) -> int:
+    """
+    List Crawls as JSONL with optional filters.
+
+    Exit codes:
+        0: Success (even if no results)
+    """
+    from archivebox.misc.jsonl import write_record
+    from archivebox.crawls.models import Crawl
+
+    is_tty = sys.stdout.isatty()
+
+    queryset = Crawl.objects.all().order_by('-created_at')
+
+    # Apply filters
+    filter_kwargs = {
+        'status': status,
+        'urls__icontains': urls__icontains,
+        'max_depth': max_depth,
+    }
+    queryset = apply_filters(queryset, filter_kwargs, limit=limit)
+
+    count = 0
+    for crawl in queryset:
+        if is_tty:
+            status_color = {
+                'queued': 'yellow',
+                'started': 'blue',
+                'sealed': 'green',
+            }.get(crawl.status, 'dim')
+            url_preview = crawl.urls[:50].replace('\n', ' ')
+            rprint(f'[{status_color}]{crawl.status:8}[/{status_color}] [dim]{crawl.id}[/dim] {url_preview}...')
+        else:
+            write_record(crawl.to_json())
+        count += 1
+
+    rprint(f'[dim]Listed {count} crawls[/dim]', file=sys.stderr)
     return 0
 
 
-def process_crawl_by_id(crawl_id: str) -> int:
-    """
-    Process a single Crawl by ID (used by workers).
+# =============================================================================
+# UPDATE
+# =============================================================================
 
-    Triggers the Crawl's state machine tick() which will:
-    - Transition from queued -> started (creates root snapshot)
-    - Transition from started -> sealed (when all snapshots done)
+def update_crawls(
+    status: Optional[str] = None,
+    max_depth: Optional[int] = None,
+) -> int:
     """
-    from rich import print as rprint
+    Update Crawls from stdin JSONL.
+
+    Reads Crawl records from stdin and applies updates.
+    Uses PATCH semantics - only specified fields are updated.
+
+    Exit codes:
+        0: Success
+        1: No input or error
+    """
+    from django.utils import timezone
+
+    from archivebox.misc.jsonl import read_stdin, write_record
     from archivebox.crawls.models import Crawl
 
-    try:
-        crawl = Crawl.objects.get(id=crawl_id)
-    except Crawl.DoesNotExist:
-        rprint(f'[red]Crawl {crawl_id} not found[/red]', file=sys.stderr)
-        return 1
+    is_tty = sys.stdout.isatty()
 
-    rprint(f'[blue]Processing Crawl {crawl.id} (status={crawl.status})[/blue]', file=sys.stderr)
-
-    try:
-        crawl.sm.tick()
-        crawl.refresh_from_db()
-        rprint(f'[green]Crawl complete (status={crawl.status})[/green]', file=sys.stderr)
-        return 0
-    except Exception as e:
-        rprint(f'[red]Crawl error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
-        return 1
-
-
-def is_crawl_id(value: str) -> bool:
-    """Check if value looks like a Crawl UUID."""
-    import re
-    uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.I)
-    if not uuid_pattern.match(value):
-        return False
-    # Verify it's actually a Crawl (not a Snapshot or other object)
-    from archivebox.crawls.models import Crawl
-    return Crawl.objects.filter(id=value).exists()
-
-
-@click.command()
-@click.option('--depth', '-d', type=int, default=1, help='Max depth for recursive crawling (default: 1)')
-@click.option('--plugin', '-p', default='', help='Use only this parser plugin (e.g., parse_html_urls, parse_dom_outlinks)')
-@click.option('--wait/--no-wait', default=True, help='Wait for plugins to complete (default: wait)')
-@click.argument('args', nargs=-1)
-def main(depth: int, plugin: str, wait: bool, args: tuple):
-    """Discover outgoing links from URLs or existing Snapshots, or process Crawl by ID"""
-    from archivebox.misc.jsonl import read_args_or_stdin
-
-    # Read all input
-    records = list(read_args_or_stdin(args))
-
+    records = list(read_stdin())
     if not records:
-        from rich import print as rprint
-        rprint('[yellow]No URLs, Snapshot IDs, or Crawl IDs provided. Pass as arguments or via stdin.[/yellow]', file=sys.stderr)
-        sys.exit(1)
+        rprint('[yellow]No records provided via stdin[/yellow]', file=sys.stderr)
+        return 1
 
-    # Check if input looks like existing Crawl IDs to process
-    # If ALL inputs are Crawl UUIDs, process them
-    all_are_crawl_ids = all(
-        is_crawl_id(r.get('id') or r.get('url', ''))
-        for r in records
-    )
+    updated_count = 0
+    for record in records:
+        crawl_id = record.get('id')
+        if not crawl_id:
+            continue
 
-    if all_are_crawl_ids:
-        # Process existing Crawls by ID
-        exit_code = 0
-        for record in records:
-            crawl_id = record.get('id') or record.get('url')
-            result = process_crawl_by_id(crawl_id)
-            if result != 0:
-                exit_code = result
-        sys.exit(exit_code)
-    else:
-        # Default behavior: discover outlinks from input (URLs or Snapshot IDs)
-        sys.exit(discover_outlinks(args, depth=depth, plugin=plugin, wait=wait))
+        try:
+            crawl = Crawl.objects.get(id=crawl_id)
+
+            # Apply updates from CLI flags
+            if status:
+                crawl.status = status
+                crawl.retry_at = timezone.now()
+            if max_depth is not None:
+                crawl.max_depth = max_depth
+
+            crawl.save()
+            updated_count += 1
+
+            if not is_tty:
+                write_record(crawl.to_json())
+
+        except Crawl.DoesNotExist:
+            rprint(f'[yellow]Crawl not found: {crawl_id}[/yellow]', file=sys.stderr)
+            continue
+
+    rprint(f'[green]Updated {updated_count} crawls[/green]', file=sys.stderr)
+    return 0
+
+
+# =============================================================================
+# DELETE
+# =============================================================================
+
+def delete_crawls(yes: bool = False, dry_run: bool = False) -> int:
+    """
+    Delete Crawls from stdin JSONL.
+
+    Requires --yes flag to confirm deletion.
+
+    Exit codes:
+        0: Success
+        1: No input or missing --yes flag
+    """
+    from archivebox.misc.jsonl import read_stdin
+    from archivebox.crawls.models import Crawl
+
+    records = list(read_stdin())
+    if not records:
+        rprint('[yellow]No records provided via stdin[/yellow]', file=sys.stderr)
+        return 1
+
+    crawl_ids = [r.get('id') for r in records if r.get('id')]
+
+    if not crawl_ids:
+        rprint('[yellow]No valid crawl IDs in input[/yellow]', file=sys.stderr)
+        return 1
+
+    crawls = Crawl.objects.filter(id__in=crawl_ids)
+    count = crawls.count()
+
+    if count == 0:
+        rprint('[yellow]No matching crawls found[/yellow]', file=sys.stderr)
+        return 0
+
+    if dry_run:
+        rprint(f'[yellow]Would delete {count} crawls (dry run)[/yellow]', file=sys.stderr)
+        for crawl in crawls:
+            url_preview = crawl.urls[:50].replace('\n', ' ')
+            rprint(f'  [dim]{crawl.id}[/dim] {url_preview}...', file=sys.stderr)
+        return 0
+
+    if not yes:
+        rprint('[red]Use --yes to confirm deletion[/red]', file=sys.stderr)
+        return 1
+
+    # Perform deletion
+    deleted_count, _ = crawls.delete()
+    rprint(f'[green]Deleted {deleted_count} crawls[/green]', file=sys.stderr)
+    return 0
+
+
+# =============================================================================
+# CLI Commands
+# =============================================================================
+
+@click.group()
+def main():
+    """Manage Crawl records."""
+    pass
+
+
+@main.command('create')
+@click.argument('urls', nargs=-1)
+@click.option('--depth', '-d', type=int, default=0, help='Max crawl depth (default: 0)')
+@click.option('--tag', '-t', default='', help='Comma-separated tags to add')
+@click.option('--status', '-s', default='queued', help='Initial status (default: queued)')
+def create_cmd(urls: tuple, depth: int, tag: str, status: str):
+    """Create a Crawl job from URLs or stdin."""
+    sys.exit(create_crawl(urls, depth=depth, tag=tag, status=status))
+
+
+@main.command('list')
+@click.option('--status', '-s', help='Filter by status (queued, started, sealed)')
+@click.option('--urls__icontains', help='Filter by URLs contains')
+@click.option('--max-depth', type=int, help='Filter by max depth')
+@click.option('--limit', '-n', type=int, help='Limit number of results')
+def list_cmd(status: Optional[str], urls__icontains: Optional[str],
+             max_depth: Optional[int], limit: Optional[int]):
+    """List Crawls as JSONL."""
+    sys.exit(list_crawls(
+        status=status,
+        urls__icontains=urls__icontains,
+        max_depth=max_depth,
+        limit=limit,
+    ))
+
+
+@main.command('update')
+@click.option('--status', '-s', help='Set status')
+@click.option('--max-depth', type=int, help='Set max depth')
+def update_cmd(status: Optional[str], max_depth: Optional[int]):
+    """Update Crawls from stdin JSONL."""
+    sys.exit(update_crawls(status=status, max_depth=max_depth))
+
+
+@main.command('delete')
+@click.option('--yes', '-y', is_flag=True, help='Confirm deletion')
+@click.option('--dry-run', is_flag=True, help='Show what would be deleted')
+def delete_cmd(yes: bool, dry_run: bool):
+    """Delete Crawls from stdin JSONL."""
+    sys.exit(delete_crawls(yes=yes, dry_run=dry_run))
 
 
 if __name__ == '__main__':

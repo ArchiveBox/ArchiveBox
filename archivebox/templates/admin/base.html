@@ -1,4 +1,4 @@
-{% load i18n static tz %}
+{% load i18n static tz core_tags %}
 {% get_current_language as LANGUAGE_CODE %}
 {% get_current_language_bidi as LANGUAGE_BIDI %}
 
@@ -12,6 +12,10 @@
         {% endblock %}
         
         <link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}">
+        {% api_token as api_token %}
+        <script>
+            window.ARCHIVEBOX_API_KEY = "{{ api_token|escapejs }}";
+        </script>
         {% block extrastyle %}
         <style>
             #upgrade-banner {
@@ -55,8 +59,8 @@
             }
 
             /* Main form container - flexbox grid */
-            #content-main form > div,
-            #content form > div {
+            body:not(.change-list) #content-main form > div,
+            body:not(.change-list) #content form > div {
                 display: flex;
                 flex-wrap: wrap;
                 gap: 20px;
@@ -269,6 +273,21 @@
                 letter-spacing: -0.01em;
                 -webkit-font-smoothing: antialiased;
                 -moz-osx-font-smoothing: grayscale;
+            }
+
+            /* Snapshot admin actions: hide label/colon and remove card border */
+            #content-main form .field-admin_actions > label,
+            #content form .field-admin_actions > label,
+            #content-main form .field-admin_actions label,
+            #content form .field-admin_actions label {
+                display: none !important;
+            }
+
+            #content-main form fieldset.actions-card,
+            #content form fieldset.actions-card {
+                border: none !important;
+                box-shadow: none !important;
+                background: transparent !important;
             }
 
             /* Readonly fields styling */
@@ -909,8 +928,8 @@
             }
 
             /* Toolbar / search bar */
-            #toolbar {
-                padding: 16px;
+            #changelist #toolbar {
+                padding: 12px 16px;
                 background: #fff;
                 border-bottom: 1px solid #e2e8f0;
                 display: flex;
@@ -925,6 +944,21 @@
                 gap: 8px;
                 flex: 0 1 auto;
                 max-width: 500px;
+            }
+            body.change-list #toolbar form > div {
+                display: flex !important;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: nowrap !important;
+                white-space: nowrap;
+            }
+            body.change-list #toolbar label {
+                margin: 0;
+                display: inline-flex;
+                align-items: center;
+            }
+            body.change-list #toolbar input[type="submit"] {
+                margin: 0;
             }
 
             #searchbar {
@@ -961,6 +995,36 @@
                 letter-spacing: 0.025em;
                 margin: 0;
                 border-bottom: 1px solid #e2e8f0;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+            }
+
+            #changelist-filter .filter-toggle {
+                border: 1px solid #e2e8f0;
+                background: #ffffff;
+                color: #64748b;
+                font-size: 11px;
+                padding: 4px 8px;
+                border-radius: 999px;
+                cursor: pointer;
+                text-transform: none;
+                letter-spacing: normal;
+            }
+
+            #changelist-filter .filter-toggle:hover {
+                background: #f1f5f9;
+                color: #334155;
+            }
+
+            .filter-toggle-floating {
+                position: static;
+                box-shadow: none;
+                padding: 2px 6px;
+                font-size: 11px;
+                line-height: 1.2;
+                height: 20px;
             }
 
             #changelist-filter h3 {
@@ -1004,15 +1068,62 @@
                 font-weight: 500;
             }
 
+            body.filters-collapsed #changelist-filter {
+                display: none !important;
+            }
+
+            body.filters-collapsed.change-list .results,
+            body.filters-collapsed.change-list .paginator,
+            body.filters-collapsed.change-list #toolbar,
+            body.filters-collapsed.change-list div.xfull,
+            body.filters-collapsed.change-list #changelist .changelist-form-container,
+            body.filters-collapsed.change-list #changelist-form,
+            body.filters-collapsed.change-list #result_list {
+                margin-right: 0 !important;
+                width: 100% !important;
+            }
+
+            body.filters-collapsed.change-list #changelist .changelist-form-container > div {
+                max-width: 100% !important;
+            }
+
             /* Actions bar */
-            .actions {
+            body.change-list #changelist .actions {
                 padding: 12px 16px;
                 background: #f8fafc;
-                border-bottom: 1px solid #e2e8f0;
+                border-bottom: 0;
+                display: flex !important;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: nowrap !important;
+                overflow-x: auto;
+            }
+            body.change-list #changelist {
+                border: 0 !important;
+            }
+            body.change-list #changelist .actions .button,
+            body.change-list #changelist .actions select,
+            body.change-list #changelist .actions label {
+                line-height: 1.5rem;
+                height: 1.5rem;
+                display: inline-flex;
+                align-items: center;
+            }
+            body.change-list #changelist .actions-left {
                 display: flex;
                 align-items: center;
-                gap: 12px;
-                flex-wrap: wrap;
+                gap: 8px;
+                flex-wrap: nowrap !important;
+                flex: 1 1 auto;
+                min-width: 0;
+                white-space: nowrap;
+            }
+            body.change-list #changelist .actions-right {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-left: auto;
+                flex: 0 0 auto;
             }
 
             .actions label {
@@ -1058,6 +1169,255 @@
             .xfull a {
                 color: #2563eb;
                 margin-right: 8px;
+            }
+
+            /* ============================================
+               Tag Editor Widget Styles
+               ============================================ */
+
+            /* Main container - acts as input field */
+            .tag-editor-container {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 6px;
+                padding: 8px 12px;
+                min-height: 42px;
+                background: #fff;
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                cursor: text;
+                transition: border-color 0.15s ease, box-shadow 0.15s ease;
+            }
+
+            .tag-editor-container:focus-within {
+                border-color: #3b82f6;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+            }
+
+            /* Pills container */
+            .tag-pills {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                align-items: center;
+            }
+
+            /* Individual tag pill */
+            .tag-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                padding: 4px 8px 4px 10px;
+                background: var(--tag-bg, #e2e8f0);
+                color: var(--tag-fg, #1e293b);
+                font-size: 13px;
+                font-weight: 500;
+                border-radius: 16px;
+                white-space: nowrap;
+                transition: all 0.15s ease;
+                -webkit-font-smoothing: antialiased;
+                border: 1px solid var(--tag-border, #cbd5e1);
+            }
+
+            .tag-pill:hover {
+                filter: brightness(0.98);
+            }
+
+            .tag-pill a.tag-link {
+                color: inherit;
+                text-decoration: none;
+            }
+
+            .tag-pill a.tag-link:hover {
+                text-decoration: underline;
+            }
+
+            /* Remove button on pills */
+            .tag-remove-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 16px;
+                height: 16px;
+                padding: 0;
+                margin: 0;
+                background: rgba(15, 23, 42, 0.08);
+                border: 1px solid rgba(15, 23, 42, 0.12);
+                border-radius: 50%;
+                color: inherit;
+                font-size: 14px;
+                font-weight: 600;
+                line-height: 1;
+                cursor: pointer;
+                opacity: 0.7;
+                transition: all 0.15s ease;
+            }
+
+            .tag-remove-btn:hover {
+                background: rgba(15, 23, 42, 0.18);
+                opacity: 1;
+            }
+
+            /* Inline input for adding tags */
+            .tag-inline-input {
+                flex: 1;
+                min-width: 120px;
+                padding: 4px 0;
+                border: none;
+                outline: none;
+                font-size: 14px;
+                font-family: inherit;
+                background: transparent;
+                color: #1e293b;
+            }
+
+            .tag-inline-input::placeholder {
+                color: #94a3b8;
+            }
+
+            /* Inline editor for list view - more compact */
+            .tag-editor-inline {
+                display: inline-flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 4px;
+                padding: 2px 4px;
+                background: transparent;
+                border-radius: 4px;
+                cursor: text;
+                vertical-align: middle;
+            }
+
+            .tag-pills-inline {
+                display: inline-flex;
+                flex-wrap: wrap;
+                gap: 4px;
+                align-items: center;
+            }
+
+            .tag-editor-inline .tag-pill {
+                padding: 2px 6px 2px 8px;
+                font-size: 11px;
+                border-radius: 12px;
+            }
+
+            .tag-editor-inline .tag-remove-btn {
+                width: 14px;
+                height: 14px;
+                font-size: 12px;
+            }
+
+            #content .tag-editor-inline input.tag-inline-input-sm {
+                width: 22px;
+                min-width: 22px;
+                max-width: 140px;
+                height: 22px;
+                padding: 0 6px;
+                border: 1px solid #e2e8f0;
+                outline: none;
+                font-size: 12px;
+                font-family: inherit;
+                background: #f1f5f9;
+                color: #94a3b8;
+                border-radius: 999px;
+                text-align: center;
+                cursor: text;
+                transition: width 0.15s ease, color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+            }
+
+            #content .tag-editor-inline input.tag-inline-input-sm:focus {
+                width: 120px;
+                color: #1e293b;
+                border-color: #94a3b8;
+                background: #ffffff;
+                text-align: left;
+            }
+
+            #content .tag-editor-inline input.tag-inline-input-sm::placeholder {
+                color: #94a3b8;
+            }
+
+            /* Actions bar tag editor (compact to avoid crowding buttons) */
+            body.change-list #changelist .actions .tag-editor-container {
+                padding: 2px 6px;
+                min-height: 24px;
+                height: 24px;
+                width: 160px;
+                max-width: 160px;
+                flex: 0 0 160px;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                overflow-y: hidden;
+                gap: 4px;
+            }
+            body.change-list #changelist .actions-tags {
+                display: none;
+                align-items: center;
+            }
+
+            /* Ensure changelist filter sidebar is visible */
+            body.change-list #changelist .changelist-form-container {
+                display: flex;
+                align-items: flex-start;
+                width: 100%;
+                gap: 20px;
+                flex-wrap: nowrap;
+            }
+            body.change-list #changelist-filter {
+                flex: 0 0 260px;
+                max-width: 260px;
+                display: block;
+                margin: 0;
+                order: 2;
+                align-self: flex-start;
+            }
+            body.change-list #changelist .changelist-form-container > div {
+                flex: 1 1 auto;
+                min-width: 0;
+                order: 1;
+                max-width: calc(100% - 280px);
+            }
+
+            .actions .tag-pills {
+                gap: 4px;
+                flex-wrap: nowrap;
+            }
+
+            .actions .tag-pill {
+                padding: 1px 6px 1px 8px;
+                font-size: 10px;
+            }
+
+            .actions .tag-inline-input {
+                min-width: 40px;
+                padding: 0;
+                font-size: 11px;
+            }
+
+
+            /* Container in list view title column */
+            .tags-inline-editor {
+                display: inline;
+                margin-left: 8px;
+            }
+
+            /* Existing tag styles (keep for backwards compat) */
+            .tags .tag {
+                display: inline-block;
+                padding: 2px 8px;
+                margin: 1px 2px;
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                color: #fff;
+                font-size: 11px;
+                font-weight: 500;
+                border-radius: 12px;
+                text-decoration: none;
+                transition: all 0.15s ease;
+            }
+
+            .tags .tag:hover {
+                background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
             }
         </style>
         {% endblock %}
@@ -1163,10 +1523,16 @@
 
             <div id="content" class="{% block coltype %}colM{% endblock %}">
                 {% if opts.model_name == 'snapshot' and cl %}
-                    <small id="snapshot-view-mode">
-                        <a href="#list" title="List view" id="snapshot-view-list">☰</a> | 
-                        <a href="#grid" title="Grid view" id="snapshot-view-grid" style="letter-spacing: -.4em;">⣿⣿</a> 
-                    </small>
+                    <div id="snapshot-view-mode">
+                        <a href="#list" title="List view" id="snapshot-view-list">
+                            <span class="view-icon">☰</span>
+                            <span class="view-label">List</span>
+                        </a>
+                        <a href="#grid" title="Grid view" id="snapshot-view-grid">
+                            <span class="view-icon">⊞</span>
+                            <span class="view-label">Grid</span>
+                        </a>
+                    </div>
                 {% endif %}
                 {% block pretitle %}{% endblock %}
                 {% block content_title %}{# {% if title %}<h1>{{ title }}</h1>{% endif %} #}{% endblock %}
@@ -1308,6 +1674,12 @@
                 console.log('Converted', buttons.children().length, 'admin actions from dropdown to buttons')
                 jQuery('select[multiple]').select2();
             }
+            function updateTagWidgetVisibility() {
+                const tagContainer = document.querySelector('.actions-tags');
+                if (!tagContainer) return;
+                const checked = document.querySelectorAll('#changelist-form input.action-select:checked').length;
+                tagContainer.style.display = checked > 0 ? 'inline-flex' : 'none';
+            }
             function fixInlineAddRow() {
                 $('#id_snapshottag-MAX_NUM_FORMS').val('1000')
                 $('.add-row').show()
@@ -1317,10 +1689,20 @@
                 $("#snapshot-view-list").click(selectSnapshotListView)
                 $("#snapshot-view-grid").click(selectSnapshotGridView)
 
+                // Set active class based on current view
+                const isGridView = window.location.pathname === "{% url 'admin:grid' %}"
+                if (isGridView) {
+                    $("#snapshot-view-grid").addClass('active')
+                    $("#snapshot-view-list").removeClass('active')
+                } else {
+                    $("#snapshot-view-list").addClass('active')
+                    $("#snapshot-view-grid").removeClass('active')
+                }
+
                 $('#changelist-form .card input:checkbox').change(function() {
                     if ($(this).is(':checked'))
                         $(this).parents('.card').addClass('selected-card')
-                    else 
+                    else
                         $(this).parents('.card').removeClass('selected-card')
                 })
             };
@@ -1337,11 +1719,87 @@
             }
             $(document).ready(function() {
                 fix_actions()
+                updateTagWidgetVisibility()
+                const form = document.querySelector('#changelist-form')
+                if (form) {
+                    form.addEventListener('change', updateTagWidgetVisibility)
+                }
                 fixInlineAddRow()
                 setupSnapshotGridListToggle()
                 setTimeOffset()
                 selectSnapshotIfHotlinked()
             })
         </script>
+        <script>
+            (function() {
+                if (!document.body.classList.contains('change-list')) return;
+                var filter = document.getElementById('changelist-filter');
+                if (!filter) return;
+                var header = filter.querySelector('h2');
+                if (!header) return;
+
+                var toggle = document.getElementById('changelist-filter-toggle');
+                if (!toggle) {
+                    toggle = document.createElement('button');
+                    toggle.type = 'button';
+                    toggle.id = 'changelist-filter-toggle';
+                    toggle.className = 'filter-toggle';
+                    toggle.setAttribute('aria-expanded', 'true');
+                    toggle.dataset.showLabel = '{% translate "Filters" %}';
+                    toggle.dataset.hideLabel = '{% translate "Hide" %}';
+                    toggle.textContent = toggle.dataset.hideLabel;
+                    header.appendChild(toggle);
+                }
+
+                var storageKey = 'admin-filters-collapsed';
+                var changelist = document.getElementById('changelist');
+                var hadFiltered = changelist && changelist.classList.contains('filtered');
+
+                var floating = document.getElementById('changelist-filter-float-toggle');
+                if (!floating) {
+                    floating = document.createElement('button');
+                    floating.type = 'button';
+                    floating.id = 'changelist-filter-float-toggle';
+                    floating.className = 'filter-toggle filter-toggle-floating';
+                    floating.textContent = toggle.dataset.showLabel;
+                }
+
+                var actionsRight = document.querySelector('#changelist .actions .actions-right');
+                var actionsBar = document.querySelector('#changelist .actions');
+                if (actionsRight) {
+                    actionsRight.appendChild(floating);
+                } else if (actionsBar) {
+                    actionsBar.appendChild(floating);
+                }
+
+                function applyState() {
+                    var collapsed = localStorage.getItem(storageKey) === 'true';
+                    document.body.classList.toggle('filters-collapsed', collapsed);
+                    filter.style.display = collapsed ? 'none' : '';
+                    toggle.textContent = collapsed ? toggle.dataset.showLabel : toggle.dataset.hideLabel;
+                    toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                    floating.style.display = collapsed ? 'inline-flex' : 'none';
+                    if (changelist) {
+                        if (collapsed) {
+                            changelist.classList.remove('filtered');
+                        } else if (hadFiltered) {
+                            changelist.classList.add('filtered');
+                        }
+                    }
+                }
+
+                function toggleFilters() {
+                    var collapsed = !document.body.classList.contains('filters-collapsed');
+                    localStorage.setItem(storageKey, collapsed ? 'true' : 'false');
+                    applyState();
+                }
+
+                toggle.addEventListener('click', toggleFilters);
+                floating.addEventListener('click', toggleFilters);
+
+                applyState();
+            })();
+        </script>
+        <script src="{% static 'admin-inline-tags.js' %}"></script>
     </body>
 </html>

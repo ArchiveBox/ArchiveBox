@@ -27,39 +27,33 @@ class TestBackgroundHookDetection(unittest.TestCase):
 
     def test_bg_js_suffix_detected(self):
         """Hooks with .bg.js suffix should be detected as background."""
-        script = Path('/path/to/on_Snapshot__21_consolelog.bg.js')
-        is_background = '.bg.' in script.name or '__background' in script.stem
-        self.assertTrue(is_background)
+        from archivebox.hooks import is_background_hook
+        self.assertTrue(is_background_hook('on_Snapshot__21_consolelog.daemon.bg.js'))
 
     def test_bg_py_suffix_detected(self):
         """Hooks with .bg.py suffix should be detected as background."""
-        script = Path('/path/to/on_Snapshot__24_responses.bg.py')
-        is_background = '.bg.' in script.name or '__background' in script.stem
-        self.assertTrue(is_background)
+        from archivebox.hooks import is_background_hook
+        self.assertTrue(is_background_hook('on_Snapshot__24_responses.finite.bg.py'))
 
     def test_bg_sh_suffix_detected(self):
         """Hooks with .bg.sh suffix should be detected as background."""
-        script = Path('/path/to/on_Snapshot__23_ssl.bg.sh')
-        is_background = '.bg.' in script.name or '__background' in script.stem
-        self.assertTrue(is_background)
+        from archivebox.hooks import is_background_hook
+        self.assertTrue(is_background_hook('on_Snapshot__23_ssl.daemon.bg.sh'))
 
     def test_legacy_background_suffix_detected(self):
         """Hooks with __background in stem should be detected (backwards compat)."""
-        script = Path('/path/to/on_Snapshot__21_consolelog__background.js')
-        is_background = '.bg.' in script.name or '__background' in script.stem
-        self.assertTrue(is_background)
+        from archivebox.hooks import is_background_hook
+        self.assertTrue(is_background_hook('on_Snapshot__21_consolelog__background.js'))
 
     def test_foreground_hook_not_detected(self):
         """Hooks without .bg. or __background should NOT be detected as background."""
-        script = Path('/path/to/on_Snapshot__11_favicon.js')
-        is_background = '.bg.' in script.name or '__background' in script.stem
-        self.assertFalse(is_background)
+        from archivebox.hooks import is_background_hook
+        self.assertFalse(is_background_hook('on_Snapshot__11_favicon.js'))
 
     def test_foreground_py_hook_not_detected(self):
         """Python hooks without .bg. should NOT be detected as background."""
-        script = Path('/path/to/on_Snapshot__50_wget.py')
-        is_background = '.bg.' in script.name or '__background' in script.stem
-        self.assertFalse(is_background)
+        from archivebox.hooks import is_background_hook
+        self.assertFalse(is_background_hook('on_Snapshot__50_wget.py'))
 
 
 class TestJSONLParsing(unittest.TestCase):
@@ -68,17 +62,8 @@ class TestJSONLParsing(unittest.TestCase):
     def test_parse_clean_jsonl(self):
         """Clean JSONL format should be parsed correctly."""
         stdout = '{"type": "ArchiveResult", "status": "succeeded", "output_str": "Done"}'
-        records = []
-        for line in stdout.splitlines():
-            line = line.strip()
-            if not line or not line.startswith('{'):
-                continue
-            try:
-                data = json.loads(line)
-                if 'type' in data:
-                    records.append(data)
-            except json.JSONDecodeError:
-                pass
+        from archivebox.machine.models import Process
+        records = Process.parse_records_from_text(stdout)
 
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]['type'], 'ArchiveResult')
@@ -89,17 +74,8 @@ class TestJSONLParsing(unittest.TestCase):
         """Multiple JSONL records should all be parsed."""
         stdout = '''{"type": "ArchiveResult", "status": "succeeded", "output_str": "Done"}
 {"type": "Binary", "name": "wget", "abspath": "/usr/bin/wget"}'''
-        records = []
-        for line in stdout.splitlines():
-            line = line.strip()
-            if not line or not line.startswith('{'):
-                continue
-            try:
-                data = json.loads(line)
-                if 'type' in data:
-                    records.append(data)
-            except json.JSONDecodeError:
-                pass
+        from archivebox.machine.models import Process
+        records = Process.parse_records_from_text(stdout)
 
         self.assertEqual(len(records), 2)
         self.assertEqual(records[0]['type'], 'ArchiveResult')
@@ -111,40 +87,10 @@ class TestJSONLParsing(unittest.TestCase):
 Processing URL: https://example.com
 {"type": "ArchiveResult", "status": "succeeded", "output_str": "Downloaded"}
 Hook completed successfully'''
-        records = []
-        for line in stdout.splitlines():
-            line = line.strip()
-            if not line or not line.startswith('{'):
-                continue
-            try:
-                data = json.loads(line)
-                if 'type' in data:
-                    records.append(data)
-            except json.JSONDecodeError:
-                pass
+        from archivebox.machine.models import Process
+        records = Process.parse_records_from_text(stdout)
 
         self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]['status'], 'succeeded')
-
-    def test_parse_legacy_result_json_format(self):
-        """Legacy RESULT_JSON= format should be parsed for backwards compat."""
-        stdout = 'RESULT_JSON={"status": "succeeded", "output": "Done"}'
-        output_json = None
-        records = []
-        for line in stdout.splitlines():
-            line = line.strip()
-            if line.startswith('RESULT_JSON='):
-                try:
-                    data = json.loads(line[len('RESULT_JSON='):])
-                    if output_json is None:
-                        output_json = data
-                    data['type'] = 'ArchiveResult'
-                    records.append(data)
-                except json.JSONDecodeError:
-                    pass
-
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]['type'], 'ArchiveResult')
         self.assertEqual(records[0]['status'], 'succeeded')
 
     def test_ignore_invalid_json(self):
@@ -153,17 +99,8 @@ Hook completed successfully'''
 {invalid json here}
 not json at all
 {"type": "Binary", "name": "wget"}'''
-        records = []
-        for line in stdout.splitlines():
-            line = line.strip()
-            if not line or not line.startswith('{'):
-                continue
-            try:
-                data = json.loads(line)
-                if 'type' in data:
-                    records.append(data)
-            except json.JSONDecodeError:
-                pass
+        from archivebox.machine.models import Process
+        records = Process.parse_records_from_text(stdout)
 
         self.assertEqual(len(records), 2)
 
@@ -171,17 +108,8 @@ not json at all
         """JSON objects without 'type' field should be ignored."""
         stdout = '''{"status": "succeeded", "output_str": "Done"}
 {"type": "ArchiveResult", "status": "succeeded"}'''
-        records = []
-        for line in stdout.splitlines():
-            line = line.strip()
-            if not line or not line.startswith('{'):
-                continue
-            try:
-                data = json.loads(line)
-                if 'type' in data:
-                    records.append(data)
-            except json.JSONDecodeError:
-                pass
+        from archivebox.machine.models import Process
+        records = Process.parse_records_from_text(stdout)
 
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]['type'], 'ArchiveResult')
@@ -248,15 +176,15 @@ class TestHookDiscovery(unittest.TestCase):
         wget_dir = self.plugins_dir / 'wget'
         wget_dir.mkdir()
         (wget_dir / 'on_Snapshot__50_wget.py').write_text('# test hook')
-        (wget_dir / 'on_Crawl__00_install_wget.py').write_text('# install hook')
+        (wget_dir / 'on_Crawl__10_wget_install.finite.bg.py').write_text('# install hook')
 
-        chrome_dir = self.plugins_dir / 'chrome_session'
-        chrome_dir.mkdir()
-        (chrome_dir / 'on_Snapshot__20_chrome_session.bg.js').write_text('// background hook')
+        chrome_dir = self.plugins_dir / 'chrome'
+        chrome_dir.mkdir(exist_ok=True)
+        (chrome_dir / 'on_Snapshot__20_chrome_tab.daemon.bg.js').write_text('// background hook')
 
         consolelog_dir = self.plugins_dir / 'consolelog'
         consolelog_dir.mkdir()
-        (consolelog_dir / 'on_Snapshot__21_consolelog.bg.js').write_text('// background hook')
+        (consolelog_dir / 'on_Snapshot__21_consolelog.daemon.bg.js').write_text('// background hook')
 
     def tearDown(self):
         """Clean up test directory."""
@@ -274,8 +202,8 @@ class TestHookDiscovery(unittest.TestCase):
 
         self.assertEqual(len(hooks), 3)
         hook_names = [h.name for h in hooks]
-        self.assertIn('on_Snapshot__20_chrome_session.bg.js', hook_names)
-        self.assertIn('on_Snapshot__21_consolelog.bg.js', hook_names)
+        self.assertIn('on_Snapshot__20_chrome_tab.daemon.bg.js', hook_names)
+        self.assertIn('on_Snapshot__21_consolelog.daemon.bg.js', hook_names)
         self.assertIn('on_Snapshot__50_wget.py', hook_names)
 
     def test_discover_hooks_sorted_by_name(self):
@@ -288,9 +216,87 @@ class TestHookDiscovery(unittest.TestCase):
         hooks = sorted(set(hooks), key=lambda p: p.name)
 
         # Check numeric ordering
-        self.assertEqual(hooks[0].name, 'on_Snapshot__20_chrome_session.js')
-        self.assertEqual(hooks[1].name, 'on_Snapshot__21_consolelog.bg.js')
+        self.assertEqual(hooks[0].name, 'on_Snapshot__20_chrome_tab.daemon.bg.js')
+        self.assertEqual(hooks[1].name, 'on_Snapshot__21_consolelog.daemon.bg.js')
         self.assertEqual(hooks[2].name, 'on_Snapshot__50_wget.py')
+
+    def test_get_plugins_includes_non_snapshot_plugin_dirs(self):
+        """get_plugins() should include binary-only plugins with standardized metadata."""
+        env_dir = self.plugins_dir / 'env'
+        env_dir.mkdir()
+        (env_dir / 'on_Binary__15_env_discover.py').write_text('# binary hook')
+        (env_dir / 'config.json').write_text('{"type": "object", "properties": {}}')
+
+        from archivebox import hooks as hooks_module
+
+        hooks_module.get_plugins.cache_clear()
+        with patch.object(hooks_module, 'BUILTIN_PLUGINS_DIR', self.plugins_dir), patch.object(hooks_module, 'USER_PLUGINS_DIR', self.test_dir / 'user_plugins'):
+            plugins = hooks_module.get_plugins()
+
+        self.assertIn('env', plugins)
+
+    def test_discover_binary_hooks_ignores_plugins_whitelist(self):
+        """Binary provider hooks should remain discoverable under --plugins filtering."""
+        singlefile_dir = self.plugins_dir / 'singlefile'
+        singlefile_dir.mkdir()
+        (singlefile_dir / 'config.json').write_text(
+            json.dumps(
+                {
+                    "type": "object",
+                    "required_plugins": ["chrome"],
+                    "properties": {},
+                }
+            )
+        )
+
+        npm_dir = self.plugins_dir / 'npm'
+        npm_dir.mkdir()
+        (npm_dir / 'on_Binary__10_npm_install.py').write_text('# npm binary hook')
+        (npm_dir / 'config.json').write_text('{"type": "object", "properties": {}}')
+
+        from archivebox import hooks as hooks_module
+
+        hooks_module.get_plugins.cache_clear()
+        with patch.object(hooks_module, 'BUILTIN_PLUGINS_DIR', self.plugins_dir), patch.object(hooks_module, 'USER_PLUGINS_DIR', self.test_dir / 'user_plugins'):
+            hooks = hooks_module.discover_hooks('Binary', config={'PLUGINS': 'singlefile'})
+
+        hook_names = [hook.name for hook in hooks]
+        self.assertIn('on_Binary__10_npm_install.py', hook_names)
+
+    def test_discover_crawl_hooks_only_include_declared_plugin_dependencies(self):
+        """Crawl hook discovery should include required_plugins without broadening to provider plugins."""
+        responses_dir = self.plugins_dir / 'responses'
+        responses_dir.mkdir()
+        (responses_dir / 'config.json').write_text(
+            json.dumps(
+                {
+                    "type": "object",
+                    "required_plugins": ["chrome"],
+                    "properties": {},
+                }
+            )
+        )
+
+        chrome_dir = self.plugins_dir / 'chrome'
+        chrome_dir.mkdir(exist_ok=True)
+        (chrome_dir / 'config.json').write_text('{"type": "object", "properties": {}}')
+        (chrome_dir / 'on_Crawl__70_chrome_install.finite.bg.py').write_text('# chrome crawl hook')
+
+        npm_dir = self.plugins_dir / 'npm'
+        npm_dir.mkdir()
+        (npm_dir / 'on_Binary__10_npm_install.py').write_text('# npm binary hook')
+        (npm_dir / 'on_Crawl__00_npm_install.py').write_text('# npm crawl hook')
+        (npm_dir / 'config.json').write_text('{"type": "object", "properties": {}}')
+
+        from archivebox import hooks as hooks_module
+
+        hooks_module.get_plugins.cache_clear()
+        with patch.object(hooks_module, 'BUILTIN_PLUGINS_DIR', self.plugins_dir), patch.object(hooks_module, 'USER_PLUGINS_DIR', self.test_dir / 'user_plugins'):
+            hooks = hooks_module.discover_hooks('Crawl', config={'PLUGINS': 'responses'})
+
+        hook_names = [hook.name for hook in hooks]
+        self.assertIn('on_Crawl__70_chrome_install.finite.bg.py', hook_names)
+        self.assertNotIn('on_Crawl__00_npm_install.py', hook_names)
 
 
 class TestGetExtractorName(unittest.TestCase):
@@ -348,9 +354,11 @@ print(json.dumps({"type": "ArchiveResult", "status": "succeeded", "output_str": 
         )
 
         self.assertEqual(result.returncode, 0)
-        output = json.loads(result.stdout.strip())
-        self.assertEqual(output['type'], 'ArchiveResult')
-        self.assertEqual(output['status'], 'succeeded')
+        from archivebox.machine.models import Process
+        records = Process.parse_records_from_text(result.stdout)
+        self.assertTrue(records)
+        self.assertEqual(records[0]['type'], 'ArchiveResult')
+        self.assertEqual(records[0]['status'], 'succeeded')
 
     def test_js_hook_execution(self):
         """JavaScript hook should execute and output JSONL."""
@@ -371,9 +379,11 @@ console.log(JSON.stringify({type: 'ArchiveResult', status: 'succeeded', output_s
         )
 
         self.assertEqual(result.returncode, 0)
-        output = json.loads(result.stdout.strip())
-        self.assertEqual(output['type'], 'ArchiveResult')
-        self.assertEqual(output['status'], 'succeeded')
+        from archivebox.machine.models import Process
+        records = Process.parse_records_from_text(result.stdout)
+        self.assertTrue(records)
+        self.assertEqual(records[0]['type'], 'ArchiveResult')
+        self.assertEqual(records[0]['status'], 'succeeded')
 
     def test_hook_receives_cli_args(self):
         """Hook should receive CLI arguments."""
@@ -398,8 +408,10 @@ print(json.dumps({"type": "ArchiveResult", "status": "succeeded", "url": args.ge
         )
 
         self.assertEqual(result.returncode, 0)
-        output = json.loads(result.stdout.strip())
-        self.assertEqual(output['url'], 'https://example.com')
+        from archivebox.machine.models import Process
+        records = Process.parse_records_from_text(result.stdout)
+        self.assertTrue(records)
+        self.assertEqual(records[0]['url'], 'https://example.com')
 
 
 class TestInstallHookOutput(unittest.TestCase):
@@ -424,7 +436,8 @@ class TestInstallHookOutput(unittest.TestCase):
             'binprovider': 'apt',
         })
 
-        data = json.loads(hook_output)
+        from archivebox.machine.models import Process
+        data = Process.parse_records_from_text(hook_output)[0]
         self.assertEqual(data['type'], 'Binary')
         self.assertEqual(data['name'], 'wget')
         self.assertTrue(data['abspath'].startswith('/'))
@@ -433,15 +446,16 @@ class TestInstallHookOutput(unittest.TestCase):
         """Install hook should output Machine config update JSONL."""
         hook_output = json.dumps({
             'type': 'Machine',
-            '_method': 'update',
-            'key': 'config/WGET_BINARY',
-            'value': '/usr/bin/wget',
+            'config': {
+                'WGET_BINARY': '/usr/bin/wget',
+            },
         })
 
-        data = json.loads(hook_output)
+        from archivebox.machine.models import Process
+        data = Process.parse_records_from_text(hook_output)[0]
         self.assertEqual(data['type'], 'Machine')
-        self.assertEqual(data['_method'], 'update')
-        self.assertEqual(data['key'], 'config/WGET_BINARY')
+        self.assertIn('config', data)
+        self.assertEqual(data['config']['WGET_BINARY'], '/usr/bin/wget')
 
 
 class TestSnapshotHookOutput(unittest.TestCase):
@@ -455,7 +469,8 @@ class TestSnapshotHookOutput(unittest.TestCase):
             'output_str': 'Downloaded 5 files',
         })
 
-        data = json.loads(hook_output)
+        from archivebox.machine.models import Process
+        data = Process.parse_records_from_text(hook_output)[0]
         self.assertEqual(data['type'], 'ArchiveResult')
         self.assertEqual(data['status'], 'succeeded')
         self.assertIn('output_str', data)
@@ -469,7 +484,8 @@ class TestSnapshotHookOutput(unittest.TestCase):
             'cmd': ['/usr/bin/wget', '-p', '-k', 'https://example.com'],
         })
 
-        data = json.loads(hook_output)
+        from archivebox.machine.models import Process
+        data = Process.parse_records_from_text(hook_output)[0]
         self.assertEqual(data['type'], 'ArchiveResult')
         self.assertIsInstance(data['cmd'], list)
         self.assertEqual(data['cmd'][0], '/usr/bin/wget')
@@ -487,7 +503,8 @@ class TestSnapshotHookOutput(unittest.TestCase):
             },
         })
 
-        data = json.loads(hook_output)
+        from archivebox.machine.models import Process
+        data = Process.parse_records_from_text(hook_output)[0]
         self.assertEqual(data['type'], 'ArchiveResult')
         self.assertIsInstance(data['output_json'], dict)
         self.assertEqual(data['output_json']['status-code'], 200)
@@ -500,7 +517,8 @@ class TestSnapshotHookOutput(unittest.TestCase):
             'output_str': 'SAVE_WGET=False',
         })
 
-        data = json.loads(hook_output)
+        from archivebox.machine.models import Process
+        data = Process.parse_records_from_text(hook_output)[0]
         self.assertEqual(data['status'], 'skipped')
 
     def test_snapshot_hook_failed_status(self):
@@ -511,7 +529,8 @@ class TestSnapshotHookOutput(unittest.TestCase):
             'output_str': '404 Not Found',
         })
 
-        data = json.loads(hook_output)
+        from archivebox.machine.models import Process
+        data = Process.parse_records_from_text(hook_output)[0]
         self.assertEqual(data['status'], 'failed')
 
 
@@ -521,7 +540,7 @@ class TestPluginMetadata(unittest.TestCase):
     def test_plugin_name_added(self):
         """run_hook() should add plugin name to records."""
         # Simulate what run_hook() does
-        script = Path('/archivebox/plugins/wget/on_Snapshot__50_wget.py')
+        script = Path('/abx_plugins/plugins/wget/on_Snapshot__50_wget.py')
         plugin_name = script.parent.name
 
         record = {'type': 'ArchiveResult', 'status': 'succeeded'}

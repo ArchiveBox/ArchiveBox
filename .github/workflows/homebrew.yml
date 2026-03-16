@@ -1,51 +1,229 @@
-name: Build Homebrew package
+name: Build Homebrew formula
 
 on:
   workflow_dispatch:
+  workflow_call:
   push:
+    branches: ['**']
+    paths:
+      - 'brew_dist/**'
+      - 'bin/build_brew.sh'
+      - 'bin/release_brew.sh'
+      - '.github/workflows/homebrew.yml'
+      - 'pyproject.toml'
+  # release trigger is handled by release.yml to avoid double-runs
 
+permissions:
+  contents: read
 
 jobs:
-  build:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Get version
+        id: version
+        run: echo "version=$(grep '^version = ' pyproject.toml | awk -F'\"' '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Validate formula template syntax
+        run: ruby -c brew_dist/archivebox.rb
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install build dependencies (Linux)
+        if: runner.os == 'Linux'
+        uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # v1.6.0
+        with:
+          packages: build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1
+          version: 1.0
+
+      - name: Build local sdist
+        run: |
+          uv sync --frozen --all-extras --no-install-project --no-install-workspace
+          uv build --sdist --out-dir /tmp/sdist/
+
+      - name: Generate formula from local sdist
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          SDIST_PATH="$(ls /tmp/sdist/archivebox-*.tar.gz | head -1)"
+          SDIST_SHA256="$(shasum -a 256 "$SDIST_PATH" | awk '{print $1}')"
+
+          # Install archivebox + poet into a temp venv to generate resource stanzas
+          python3 -m venv /tmp/poet-venv
+          source /tmp/poet-venv/bin/activate
+          pip install --quiet "$SDIST_PATH" homebrew-pypi-poet
+          echo "[+] Generating resource stanzas with homebrew-pypi-poet..."
+          RESOURCES="$(poet archivebox)"
+          deactivate
+
+          # For CI: use file:// URL pointing to local sdist
+          # For release: this gets overridden with the PyPI URL
+          SDIST_URL="file://${SDIST_PATH}"
+
+          cat > /tmp/archivebox.rb << RUBY
+class Archivebox < Formula
+  include Language::Python::Virtualenv
+
+  desc "Self-hosted internet archiving solution"
+  homepage "https://github.com/ArchiveBox/ArchiveBox"
+  url "${SDIST_URL}"
+  sha256 "${SDIST_SHA256}"
+  license "MIT"
+
+  depends_on "python@3.13"
+
+${RESOURCES}
+
+  def install
+    virtualenv_install_with_resources
+  end
+
+  def post_install
+    data_dir = var/"archivebox"
+    data_dir.mkpath
+    ENV["DATA_DIR"] = data_dir.to_s
+    system bin/"archivebox", "init"
+  end
+
+  def caveats
+    <<~EOS
+      ArchiveBox data is stored in:
+        #{var}/archivebox
+
+      To start archiving, run:
+        cd #{var}/archivebox && archivebox add 'https://example.com'
+
+      To start the web UI:
+        cd #{var}/archivebox && archivebox server 0.0.0.0:8000
+    EOS
+  end
+
+  test do
+    assert_match version.to_s, shell_output("#{bin}/archivebox version")
+  end
+end
+RUBY
+
+          echo "[√] Generated formula:"
+          ruby -c /tmp/archivebox.rb
+          cat /tmp/archivebox.rb
+
+      - name: Install Homebrew (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "HOMEBREW_PREFIX=$HOMEBREW_PREFIX" >> "$GITHUB_ENV"
+          echo "HOMEBREW_CELLAR=$HOMEBREW_CELLAR" >> "$GITHUB_ENV"
+          echo "HOMEBREW_REPOSITORY=$HOMEBREW_REPOSITORY" >> "$GITHUB_ENV"
+          echo "$HOMEBREW_PREFIX/bin" >> "$GITHUB_PATH"
+          echo "$HOMEBREW_PREFIX/sbin" >> "$GITHUB_PATH"
+
+      - name: Install brew dependencies
+        run: brew install python@3.13
+
+      - name: Install archivebox via brew from local formula
+        run: |
+          brew install --build-from-source --verbose /tmp/archivebox.rb
+
+      - name: Verify archivebox version
+        run: archivebox version
+
+      - name: Test archivebox init
+        run: |
+          mkdir -p /tmp/archivebox-test && cd /tmp/archivebox-test
+          archivebox init
+
+      - name: Test archivebox status
+        run: |
+          cd /tmp/archivebox-test
+          archivebox status
+
+  # On release only: generate the real formula with PyPI URL and push to tap
+  release:
+    if: github.event_name == 'release' || github.event_name == 'workflow_call'
+    needs: build-and-test
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
-          submodules: true
           fetch-depth: 1
 
-      # TODO: modify archivebox.rb to update src url, hashes, and dependencies
+      - name: Get version
+        id: version
+        run: echo "version=$(grep '^version = ' pyproject.toml | awk -F'\"' '{print $2}')" >> "$GITHUB_OUTPUT"
 
-      - name: Build Homebrew Bottle
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Wait for PyPI package availability
         run: |
-          pip3 install --upgrade pip setuptools wheel
-          cd brew_dist/
-          brew install --build-bottle ./archivebox.rb
-          # brew bottle archivebox
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "[+] Waiting for archivebox==${VERSION} to be available on PyPI..."
+          for i in $(seq 1 30); do
+            if pip index versions archivebox 2>/dev/null | grep -q "$VERSION"; then
+              echo "[√] archivebox==${VERSION} is available on PyPI"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "[!] Timed out waiting for PyPI. Trying to install anyway..."
+              break
+            fi
+            echo "    Attempt $i/30 - not yet available, waiting 30s..."
+            sleep 30
+          done
+
+      - name: Generate release formula via build_brew.sh
+        run: ./bin/build_brew.sh
+
+      - name: Test formula install
+        run: |
+          brew install --build-from-source brew_dist/archivebox.rb
           archivebox version
 
-      - name: Add some links to test
+      - name: Upload formula artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: archivebox.rb
+          path: brew_dist/archivebox.rb
+
+      - name: Push to homebrew-archivebox tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
-          mkdir data && cd data
-          archivebox init --setup
-          archivebox add 'https://example.com'
-          archivebox version
-          archivebox status
+          VERSION="${{ steps.version.outputs.version }}"
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/ArchiveBox/homebrew-archivebox.git" /tmp/tap
 
-      # - name: Commit built package
-      #   run: |
-      #     cd brew_dist/
-      #     git config --local user.email "action@github.com"
-      #     git config --local user.name "GitHub Action"
-      #     git commit -m "Homebrew package autobuild" -a
-      
-      # - name: Push build to Github
-      #   uses: ad-m/github-push-action@master
-      #   with:
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      #     repository: ArchiveBox/homebrew-archivebox
-      #     branch: ${{ github.ref }}
-      #     directory: brew_dist
+          cp brew_dist/archivebox.rb /tmp/tap/Formula/archivebox.rb 2>/dev/null || \
+            cp brew_dist/archivebox.rb /tmp/tap/archivebox.rb
 
-      # TODO: push bottle homebrew core PR with latest changes
+          cd /tmp/tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "[i] No changes to formula, skipping push."
+          else
+            git commit -m "Update archivebox to v${VERSION}"
+            git push origin HEAD
+            echo "[√] Formula pushed to homebrew-archivebox tap"
+          fi

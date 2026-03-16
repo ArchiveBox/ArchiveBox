@@ -6,12 +6,12 @@
     </td>
     <td class="title-col" style="opacity: {% if link.title %}1{% else %}0.3{% endif %}" title="{{link.title|default:'Not yet archived...'}}">
         {% if link.is_archived %}
-            <a href="/archive/{{link.timestamp}}/index.html"><img src="/archive/{{link.timestamp}}/favicon.ico" onerror="this.style.display='none'" class="link-favicon" decoding="async"></a>
+            <a href="{% web_base_url %}/{{link.archive_path}}/index.html"><img src="{% snapshot_url link 'favicon.ico' %}" onerror="this.style.display='none'" class="link-favicon" decoding="async"></a>
         {% else %}
-            <a href="/archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="link-favicon" decoding="async" style="height: 15px"></a>
+            <a href="{% web_base_url %}/{{link.archive_path}}/index.html"><img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="link-favicon" decoding="async" style="height: 15px"></a>
         {% endif %}
 
-        <a href="/archive/{{link.timestamp}}/index.html" title="{{link.title|default:'Not yet archived...'}}">
+        <a href="{% web_base_url %}/{{link.archive_path}}/index.html" title="{{link.title|default:'Not yet archived...'}}">
             <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">
                 {{link.title|default:'Loading...'|truncatechars:128}}
             </span>
@@ -29,7 +29,7 @@
             {% if link.icons  %}
                 {{link.icons}}&nbsp; <small style="float:right; opacity: 0.5">{{link.num_outputs}}</small>
             {% else %}
-                <a href="/archive/{{link.timestamp}}/index.html">
+                <a href="{% web_base_url %}/{{link.archive_path}}/index.html">
                     📄 &nbsp;
                     {{link.num_outputs}} <img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="files-spinner" decoding="async" style="height: 15px"/>
                 </a>

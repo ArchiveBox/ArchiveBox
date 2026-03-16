@@ -530,13 +530,13 @@ def log_worker_event(
     Log a worker event with structured metadata and indentation.
 
     Args:
-        worker_type: Type of worker (Orchestrator, CrawlWorker, SnapshotWorker, etc.)
+        worker_type: Type of worker (Orchestrator, CrawlWorker, SnapshotWorker)
         event: Event name (Starting, Completed, Failed, etc.)
-        indent_level: Indentation level (0=Orchestrator, 1=CrawlWorker, 2=SnapshotWorker, 3=ArchiveResultWorker)
+        indent_level: Indentation level (0=Orchestrator, 1=CrawlWorker, 2=SnapshotWorker)
         pid: Process ID
-        worker_id: Worker ID (UUID for CrawlWorker, url for SnapshotWorker, plugin for ArchiveResultWorker)
-        url: URL being processed (for SnapshotWorker/ArchiveResultWorker)
-        plugin: Plugin name (for ArchiveResultWorker)
+        worker_id: Worker ID (UUID for workers)
+        url: URL being processed (for SnapshotWorker)
+        plugin: Plugin name (for hook processes)
         metadata: Dict of metadata to show in curly braces
         error: Exception if event is an error
     """
