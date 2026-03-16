@@ -16,7 +16,8 @@ import subprocess
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Dict, List, Tuple
-from uuid import uuid4
+
+from archivebox.uuid_compat import uuid7
 
 
 # =============================================================================
@@ -495,7 +496,7 @@ INSERT INTO django_content_type (app_label, model) VALUES
 
 def generate_uuid() -> str:
     """Generate a UUID string without dashes for SQLite."""
-    return uuid4().hex
+    return uuid7().hex
 
 
 def generate_timestamp() -> str:

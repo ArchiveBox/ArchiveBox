@@ -1280,7 +1280,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         cache_key = f'{self.pk}-tags'
         return cache.get_or_set(cache_key, calc_tags_str) if not nocache else calc_tags_str()
 
-    def icons(self) -> str:
+    def icons(self, path: Optional[str] = None) -> str:
         """Generate HTML icons showing which extractor plugins have succeeded for this snapshot"""
         from django.utils.html import format_html, mark_safe
 
@@ -1296,7 +1296,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                     Q(status="succeeded") & (Q(output_files__isnull=False) | ~Q(output_str=''))
                 )}
 
-            path = self.archive_path
+            archive_path = path or self.archive_path
             output = ""
             output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{}</a>'
 
@@ -1316,7 +1316,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 embed_path = result.embed_path() if result else f'{plugin}/'
                 output += format_html(
                     output_template,
-                    path,
+                    archive_path,
                     embed_path,
                     str(bool(existing)),
                     plugin,
@@ -1434,6 +1434,34 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     @cached_property
     def legacy_archive_path(self) -> str:
         return f'{CONSTANTS.ARCHIVE_DIR_NAME}/{self.timestamp}'
+
+    @cached_property
+    def archive_path_from_db(self) -> str:
+        """Best-effort public URL path derived from DB fields only."""
+        if self.fs_version in ('0.7.0', '0.8.0'):
+            return self.legacy_archive_path
+
+        if self.fs_version in ('0.9.0', '1.0.0'):
+            username = 'web'
+            crawl = getattr(self, 'crawl', None)
+            if crawl and getattr(crawl, 'created_by_id', None):
+                username = crawl.created_by.username
+            if username == 'system':
+                username = 'web'
+
+            date_base = self.created_at or self.bookmarked_at
+            if date_base:
+                date_str = date_base.strftime('%Y%m%d')
+            else:
+                try:
+                    date_str = datetime.fromtimestamp(float(self.timestamp)).strftime('%Y%m%d')
+                except (TypeError, ValueError, OSError):
+                    return self.legacy_archive_path
+
+            domain = self.extract_domain_from_url(self.url)
+            return f'{username}/{date_str}/{domain}/{self.id}'
+
+        return self.legacy_archive_path
 
     @cached_property
     def url_path(self) -> str:

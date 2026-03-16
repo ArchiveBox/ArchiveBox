@@ -241,6 +241,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         qs = (
             super()
             .get_queryset(request)
+            .select_related('crawl__created_by')
             .defer('config', 'notes')
             .prefetch_related('tags')
             .prefetch_related(Prefetch('archiveresult_set', queryset=prefetch_qs))
@@ -403,7 +404,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         show_title = bool(title_raw) and title_normalized != 'pending...' and title_normalized != url_normalized
         css_class = 'fetched' if show_title else 'pending'
 
-        detail_url = build_web_url(f'/{obj.archive_path}/index.html')
+        detail_url = build_web_url(f'/{obj.archive_path_from_db}/index.html')
         title_html = ''
         if show_title:
             title_html = format_html(
@@ -489,7 +490,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     )
     def files(self, obj):
         # return '-'
-        return obj.icons()
+        return obj.icons(path=obj.archive_path_from_db)
 
 
     @admin.display(
@@ -595,7 +596,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 '{}</a>'
                 '<div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">'
                 '{}/{} hooks</div>',
-                build_web_url(f'/{obj.archive_path}'),
+                build_web_url(f'/{obj.archive_path_from_db}'),
                 size_txt,
                 stats['succeeded'],
                 stats['total'],
@@ -603,7 +604,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         return format_html(
             '<a href="{}" title="View all files">{}</a>',
-            build_web_url(f'/{obj.archive_path}'),
+            build_web_url(f'/{obj.archive_path_from_db}'),
             size_txt,
         )
 

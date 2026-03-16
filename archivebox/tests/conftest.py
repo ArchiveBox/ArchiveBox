@@ -11,6 +11,8 @@ from typing import List, Dict, Any, Optional, Tuple
 
 import pytest
 
+from archivebox.uuid_compat import uuid7
+
 
 # =============================================================================
 # CLI Helpers (defined before fixtures that use them)
@@ -399,8 +401,7 @@ def assert_record_has_fields(record: Dict[str, Any], required_fields: List[str])
 
 def create_test_url(domain: str = 'example.com', path: str = None) -> str:
     """Generate unique test URL."""
-    import uuid
-    path = path or uuid.uuid4().hex[:8]
+    path = path or uuid7().hex[:8]
     return f'https://{domain}/{path}'
 
 

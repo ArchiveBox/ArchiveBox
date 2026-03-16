@@ -135,6 +135,44 @@ class TestAdminSnapshotListView:
         assert response.status_code == 200
         assert b'example.com' in response.content
 
+    def test_list_view_avoids_legacy_title_fallbacks(self, client, admin_user, snapshot, monkeypatch):
+        """Title-less snapshots should render without touching history-based fallback paths."""
+        from archivebox.core.models import Snapshot
+
+        Snapshot.objects.filter(pk=snapshot.pk).update(title='')
+
+        def _latest_title_should_not_be_used(self):
+            raise AssertionError('admin changelist should not access Snapshot.latest_title')
+
+        def _history_should_not_be_used(self):
+            raise AssertionError('admin changelist should not access Snapshot.history')
+
+        monkeypatch.setattr(Snapshot, 'latest_title', property(_latest_title_should_not_be_used), raising=False)
+        monkeypatch.setattr(Snapshot, 'history', property(_history_should_not_be_used), raising=False)
+
+        client.login(username='testadmin', password='testpassword')
+        url = reverse('admin:core_snapshot_changelist')
+        response = client.get(url, HTTP_HOST=ADMIN_HOST)
+
+        assert response.status_code == 200
+        assert b'example.com' in response.content
+
+    def test_list_view_avoids_output_dir_lookups(self, client, admin_user, snapshot, monkeypatch):
+        """Changelist links should render without probing snapshot paths on disk."""
+        from archivebox.core.models import Snapshot
+
+        def _output_dir_should_not_be_used(self):
+            raise AssertionError('admin changelist should not access Snapshot.output_dir')
+
+        monkeypatch.setattr(Snapshot, 'output_dir', property(_output_dir_should_not_be_used), raising=False)
+
+        client.login(username='testadmin', password='testpassword')
+        url = reverse('admin:core_snapshot_changelist')
+        response = client.get(url, HTTP_HOST=ADMIN_HOST)
+
+        assert response.status_code == 200
+        assert b'example.com' in response.content
+
     def test_grid_view_renders(self, client, admin_user):
         """Test that the grid view renders successfully."""
         client.login(username='testadmin', password='testpassword')
