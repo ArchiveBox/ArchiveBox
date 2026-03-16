@@ -131,6 +131,7 @@ def check_data_dir_permissions():
     from archivebox import DATA_DIR
     from archivebox.misc.logging import STDERR
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, DEFAULT_PUID, DEFAULT_PGID, IS_ROOT, USER
+    from archivebox.config.paths import get_or_create_working_tmp_dir, get_or_create_working_lib_dir
     
     data_dir_stat = Path(DATA_DIR).stat()
     data_dir_uid, data_dir_gid = data_dir_stat.st_uid, data_dir_stat.st_gid
@@ -156,11 +157,21 @@ def check_data_dir_permissions():
 
     from archivebox.config.common import STORAGE_CONFIG
 
+    try:
+        tmp_dir = get_or_create_working_tmp_dir(autofix=True, quiet=True) or STORAGE_CONFIG.TMP_DIR
+    except Exception:
+        tmp_dir = STORAGE_CONFIG.TMP_DIR
+
+    try:
+        lib_dir = get_or_create_working_lib_dir(autofix=True, quiet=True) or STORAGE_CONFIG.LIB_DIR
+    except Exception:
+        lib_dir = STORAGE_CONFIG.LIB_DIR
+
     # Check /tmp dir permissions
-    check_tmp_dir(STORAGE_CONFIG.TMP_DIR, throw=False, must_exist=True)
+    check_tmp_dir(tmp_dir, throw=False, must_exist=True)
 
     # Check /lib dir permissions
-    check_lib_dir(STORAGE_CONFIG.LIB_DIR, throw=False, must_exist=True)
+    check_lib_dir(lib_dir, throw=False, must_exist=True)
     
     os.umask(0o777 - int(STORAGE_CONFIG.DIR_OUTPUT_PERMISSIONS, base=8))                        # noqa: F821
 

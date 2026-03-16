@@ -1,56 +1,62 @@
 #!/usr/bin/env python3
-"""
-Tests for archivebox schedule command.
-Verify schedule creates scheduled crawl records.
-"""
+"""CLI-specific tests for archivebox schedule."""
 
 import os
-import subprocess
 import sqlite3
+import subprocess
 
-from .fixtures import *
+from .fixtures import process, disable_extractors_dict
 
 
-def test_schedule_creates_scheduled_crawl(tmp_path, process, disable_extractors_dict):
-    """Test that schedule command creates a scheduled crawl."""
+def test_schedule_run_all_enqueues_scheduled_crawl(tmp_path, process, disable_extractors_dict):
     os.chdir(tmp_path)
 
-    result = subprocess.run(
-        ['archivebox', 'schedule', '--every=day', '--depth=0', 'https://example.com'],
-        capture_output=True,
-        env=disable_extractors_dict,
-        timeout=30,
-    )
-
-    # Should complete (creating schedule or showing usage)
-    assert result.returncode in [0, 1, 2]
-
-
-def test_schedule_with_every_flag(tmp_path, process, disable_extractors_dict):
-    """Test schedule with --every flag."""
-    os.chdir(tmp_path)
-
-    result = subprocess.run(
-        ['archivebox', 'schedule', '--every=week', '--depth=0', 'https://example.com'],
-        capture_output=True,
-        env=disable_extractors_dict,
-        timeout=30,
-    )
-
-    assert result.returncode in [0, 1, 2]
-
-
-def test_schedule_list_shows_schedules(tmp_path, process):
-    """Test that schedule can list existing schedules."""
-    os.chdir(tmp_path)
-
-    # Try to list schedules
-    result = subprocess.run(
-        ['archivebox', 'schedule', '--list'],
+    subprocess.run(
+        ['archivebox', 'schedule', '--every=daily', '--depth=0', 'https://example.com'],
         capture_output=True,
         text=True,
-        timeout=30,
+        check=True,
     )
 
-    # Should show schedules or empty list
-    assert result.returncode in [0, 1, 2]
+    result = subprocess.run(
+        ['archivebox', 'schedule', '--run-all'],
+        capture_output=True,
+        text=True,
+        env=disable_extractors_dict,
+    )
+
+    assert result.returncode == 0
+    assert 'Enqueued 1 scheduled crawl' in result.stdout
+
+    conn = sqlite3.connect(tmp_path / "index.sqlite3")
+    try:
+        crawl_count = conn.execute("SELECT COUNT(*) FROM crawls_crawl").fetchone()[0]
+        queued_count = conn.execute("SELECT COUNT(*) FROM crawls_crawl WHERE status = 'queued'").fetchone()[0]
+    finally:
+        conn.close()
+
+    assert crawl_count >= 2
+    assert queued_count >= 1
+
+
+def test_schedule_without_import_path_creates_maintenance_schedule(tmp_path, process):
+    os.chdir(tmp_path)
+
+    result = subprocess.run(
+        ['archivebox', 'schedule', '--every=day'],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert 'Created scheduled maintenance update' in result.stdout
+
+    conn = sqlite3.connect(tmp_path / "index.sqlite3")
+    try:
+        row = conn.execute(
+            "SELECT urls, status FROM crawls_crawl ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row == ('archivebox://update', 'sealed')

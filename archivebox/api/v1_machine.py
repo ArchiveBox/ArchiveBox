@@ -106,19 +106,19 @@ def get_machines(request, filters: MachineFilterSchema = Query(...)):
     return filters.filter(Machine.objects.all()).distinct()
 
 
+@router.get("/machine/current", response=MachineSchema, url_name="get_current_machine")
+def get_current_machine(request):
+    """Get the current machine."""
+    from archivebox.machine.models import Machine
+    return Machine.current()
+
+
 @router.get("/machine/{machine_id}", response=MachineSchema, url_name="get_machine")
 def get_machine(request, machine_id: str):
     """Get a specific machine by ID."""
     from archivebox.machine.models import Machine
     from django.db.models import Q
     return Machine.objects.get(Q(id__startswith=machine_id) | Q(hostname__iexact=machine_id))
-
-
-@router.get("/machine/current", response=MachineSchema, url_name="get_current_machine")
-def get_current_machine(request):
-    """Get the current machine."""
-    from archivebox.machine.models import Machine
-    return Machine.current()
 
 
 # ============================================================================
@@ -133,18 +133,18 @@ def get_current_machine(request):
 def get_binaries(request, filters: BinaryFilterSchema = Query(...)):
     """List all binaries."""
     from archivebox.machine.models import Binary
-    return filters.filter(Binary.objects.all().select_related('machine', 'dependency')).distinct()
+    return filters.filter(Binary.objects.all().select_related('machine')).distinct()
 
 
 @router.get("/binary/{binary_id}", response=BinarySchema, url_name="get_binary")
 def get_binary(request, binary_id: str):
     """Get a specific binary by ID."""
     from archivebox.machine.models import Binary
-    return Binary.objects.select_related('machine', 'dependency').get(id__startswith=binary_id)
+    return Binary.objects.select_related('machine').get(id__startswith=binary_id)
 
 
 @router.get("/binary/by-name/{name}", response=List[BinarySchema], url_name="get_binaries_by_name")
 def get_binaries_by_name(request, name: str):
     """Get all binaries with the given name."""
     from archivebox.machine.models import Binary
-    return list(Binary.objects.filter(name__iexact=name).select_related('machine', 'dependency'))
+    return list(Binary.objects.filter(name__iexact=name).select_related('machine'))

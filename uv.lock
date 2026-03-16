@@ -110,7 +110,6 @@ dependencies = [
     { name = "pydantic-settings", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "pytest-django", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "python-benedict", extra = ["io", "parse"], marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "python-crontab", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "python-statemachine", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "requests", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -212,7 +211,6 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.5.2" },
     { name = "pytest-django", specifier = ">=4.11.1" },
     { name = "python-benedict", extras = ["io", "parse"], specifier = ">=0.33.2" },
-    { name = "python-crontab", specifier = ">=3.2.0" },
     { name = "python-ldap", marker = "extra == 'ldap'", specifier = ">=3.4.3" },
     { name = "python-statemachine", specifier = ">=2.3.6" },
     { name = "requests", specifier = ">=2.32.3" },
@@ -2025,15 +2023,6 @@ parse = [
     { name = "mailchecker", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "phonenumbers", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "python-dateutil", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-]
-
-[[package]]
-name = "python-crontab"
-version = "3.3.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/99/7f/c54fb7e70b59844526aa4ae321e927a167678660ab51dda979955eafb89a/python_crontab-3.3.0.tar.gz", hash = "sha256:007c8aee68dddf3e04ec4dce0fac124b93bd68be7470fc95d2a9617a15de291b", size = 57626, upload-time = "2025-07-13T20:05:35.535Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/47/42/bb4afa5b088f64092036221843fc989b7db9d9d302494c1f8b024ee78a46/python_crontab-3.3.0-py3-none-any.whl", hash = "sha256:739a778b1a771379b75654e53fd4df58e5c63a9279a63b5dfe44c0fcc3ee7884", size = 27533, upload-time = "2025-07-13T20:05:34.266Z" },
 ]
 
 [[package]]

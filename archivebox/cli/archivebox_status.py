@@ -31,39 +31,61 @@ def status(out_dir: Path=DATA_DIR) -> None:
     print(f'    Index size: {size} across {num_files} files')
     print()
 
-    links = Snapshot.objects.all()
-    num_sql_links = links.count()
+    links = list(Snapshot.objects.all())
+    num_sql_links = len(links)
     num_link_details = sum(1 for link in parse_json_links_details(out_dir=out_dir))
     print(f'    > SQL Main Index: {num_sql_links} links'.ljust(36), f'(found in {CONSTANTS.SQL_INDEX_FILENAME})')
     print(f'    > JSON Link Details: {num_link_details} links'.ljust(36), f'(found in {ARCHIVE_DIR.name}/*/index.json)')
     print()
     print('[green]\\[*] Scanning archive data directories...[/green]')
-    print(f'[yellow]   {ARCHIVE_DIR}/*[/yellow]')
-    num_bytes, num_dirs, num_files = get_dir_size(ARCHIVE_DIR)
+    users_dir = out_dir / 'users'
+    scan_roots = [root for root in (ARCHIVE_DIR, users_dir) if root.exists()]
+    scan_roots_display = ', '.join(str(root) for root in scan_roots) if scan_roots else str(ARCHIVE_DIR)
+    print(f'[yellow]   {scan_roots_display}[/yellow]')
+    num_bytes = num_dirs = num_files = 0
+    for root in scan_roots:
+        root_bytes, root_dirs, root_files = get_dir_size(root)
+        num_bytes += root_bytes
+        num_dirs += root_dirs
+        num_files += root_files
     size = printable_filesize(num_bytes)
     print(f'    Size: {size} across {num_files} files in {num_dirs} directories')
 
     # Use DB as source of truth for snapshot status
-    num_indexed = links.count()
-    num_archived = links.filter(status='archived').count() or links.exclude(downloaded_at=None).count()
-    num_unarchived = links.filter(status='queued').count() or links.filter(downloaded_at=None).count()
+    num_indexed = len(links)
+    num_archived = sum(1 for snapshot in links if snapshot.is_archived)
+    num_unarchived = max(num_indexed - num_archived, 0)
     print(f'    > indexed: {num_indexed}'.ljust(36), '(total snapshots in DB)')
     print(f'      > archived: {num_archived}'.ljust(36), '(snapshots with archived content)')
     print(f'      > unarchived: {num_unarchived}'.ljust(36), '(snapshots pending archiving)')
 
-    # Count directories on filesystem
-    num_present = 0
-    orphaned_dirs = []
-    if ARCHIVE_DIR.exists():
-        for entry in ARCHIVE_DIR.iterdir():
-            if entry.is_dir():
-                num_present += 1
-                if not links.filter(timestamp=entry.name).exists():
-                    orphaned_dirs.append(str(entry))
+    # Count snapshot directories on filesystem across both legacy and current layouts.
+    expected_snapshot_dirs = {
+        str(Path(snapshot.output_dir).resolve())
+        for snapshot in links
+        if Path(snapshot.output_dir).exists()
+    }
+    discovered_snapshot_dirs = set()
 
-    num_valid = min(num_present, num_indexed)  # approximate
+    if ARCHIVE_DIR.exists():
+        discovered_snapshot_dirs.update(
+            str(entry.resolve())
+            for entry in ARCHIVE_DIR.iterdir()
+            if entry.is_dir()
+        )
+
+    if users_dir.exists():
+        discovered_snapshot_dirs.update(
+            str(entry.resolve())
+            for entry in users_dir.glob('*/snapshots/*/*/*')
+            if entry.is_dir()
+        )
+
+    orphaned_dirs = sorted(discovered_snapshot_dirs - expected_snapshot_dirs)
+    num_present = len(discovered_snapshot_dirs)
+    num_valid = len(discovered_snapshot_dirs & expected_snapshot_dirs)
     print()
-    print(f'    > present: {num_present}'.ljust(36), '(directories in archive/)')
+    print(f'    > present: {num_present}'.ljust(36), '(snapshot directories on disk)')
     print(f'      > [green]valid:[/green] {num_valid}'.ljust(36), '               (directories with matching DB entry)')
 
     num_orphaned = len(orphaned_dirs)
@@ -95,7 +117,14 @@ def status(out_dir: Path=DATA_DIR) -> None:
         print('        [green]archivebox manage createsuperuser[/green]')
 
     print()
-    for snapshot in links.order_by('-downloaded_at')[:10]:
+    recent_snapshots = sorted(
+        links,
+        key=lambda snapshot: (
+            snapshot.downloaded_at or snapshot.modified_at or snapshot.created_at
+        ),
+        reverse=True,
+    )[:10]
+    for snapshot in recent_snapshots:
         if not snapshot.downloaded_at:
             continue
         print(

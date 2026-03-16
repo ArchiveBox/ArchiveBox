@@ -7,6 +7,7 @@ Verify install detects and records binary dependencies in DB.
 import os
 import subprocess
 import sqlite3
+from pathlib import Path
 
 from .fixtures import *
 
@@ -94,24 +95,41 @@ def test_install_shows_binary_status(tmp_path, process):
     assert len(output) > 50
 
 
-def test_install_updates_binary_table(tmp_path, process, disable_extractors_dict):
-    """Test that install command runs successfully.
-
-    Binary records are created lazily when binaries are first used, not during install.
-    """
+def test_install_updates_binary_table(tmp_path, process):
+    """Test that install completes and only mutates dependency state."""
     os.chdir(tmp_path)
+    env = os.environ.copy()
+    tmp_short = Path('/tmp') / f'abx-install-{tmp_path.name}'
+    tmp_short.mkdir(parents=True, exist_ok=True)
+    env.update({
+        'TMP_DIR': str(tmp_short),
+        'ARCHIVEBOX_ALLOW_NO_UNIX_SOCKETS': 'true',
+    })
 
-    # Run install - it should complete without errors or timeout (which is expected)
-    # The install command starts the orchestrator which runs continuously
-    try:
-        result = subprocess.run(
-            ['archivebox', 'install'],
-            capture_output=True,
-            timeout=30,
-            env=disable_extractors_dict,
-        )
-        # If it completes, should be successful
-        assert result.returncode == 0
-    except subprocess.TimeoutExpired:
-        # Timeout is expected since orchestrator runs continuously
-        pass
+    result = subprocess.run(
+        ['archivebox', 'install'],
+        capture_output=True,
+        text=True,
+        timeout=420,
+        env=env,
+    )
+
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, output
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+
+    binary_counts = dict(c.execute(
+        "SELECT status, COUNT(*) FROM machine_binary GROUP BY status"
+    ).fetchall())
+    snapshot_count = c.execute("SELECT COUNT(*) FROM core_snapshot").fetchone()[0]
+    sealed_crawls = c.execute(
+        "SELECT COUNT(*) FROM crawls_crawl WHERE status='sealed'"
+    ).fetchone()[0]
+    conn.close()
+
+    assert sealed_crawls >= 1
+    assert snapshot_count == 0
+    assert binary_counts.get('queued', 0) == 0
+    assert binary_counts.get('installed', 0) > 0

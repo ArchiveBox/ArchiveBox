@@ -99,6 +99,8 @@ def test_remove_yes_flag_skips_confirmation(tmp_path, process, disable_extractor
     )
 
     assert result.returncode == 0
+    output = result.stdout.decode("utf-8") + result.stderr.decode("utf-8")
+    assert "Index now contains 0 links." in output
 
 
 def test_remove_multiple_snapshots(tmp_path, process, disable_extractors_dict):
@@ -171,6 +173,30 @@ def test_remove_nonexistent_url_fails_gracefully(tmp_path, process, disable_extr
 
     # Should fail or show error
     assert result.returncode != 0 or 'not found' in result.stdout.lower() or 'no matches' in result.stdout.lower()
+
+
+def test_remove_reports_remaining_link_count_correctly(tmp_path, process, disable_extractors_dict):
+    """Test remove reports the remaining snapshot count after deletion."""
+    os.chdir(tmp_path)
+
+    for url in ['https://example.com', 'https://example.org']:
+        subprocess.run(
+            ['archivebox', 'add', '--index-only', '--depth=0', url],
+            capture_output=True,
+            env=disable_extractors_dict,
+            check=True,
+        )
+
+    result = subprocess.run(
+        ['archivebox', 'remove', 'https://example.org', '--yes'],
+        capture_output=True,
+        env=disable_extractors_dict,
+        check=True,
+    )
+
+    output = result.stdout.decode("utf-8") + result.stderr.decode("utf-8")
+    assert "Removed 1 out of 2 links" in output
+    assert "Index now contains 1 links." in output
 
 
 def test_remove_after_flag(tmp_path, process, disable_extractors_dict):

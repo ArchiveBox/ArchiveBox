@@ -1376,22 +1376,54 @@ class Process(models.Model):
     @property
     def pid_file(self) -> Path:
         """Path to PID file for this process."""
-        return Path(self.pwd) / 'process.pid' if self.pwd else None
+        runtime_dir = self.runtime_dir
+        return runtime_dir / 'process.pid' if runtime_dir else None
 
     @property
     def cmd_file(self) -> Path:
         """Path to cmd.sh script for this process."""
-        return Path(self.pwd) / 'cmd.sh' if self.pwd else None
+        runtime_dir = self.runtime_dir
+        return runtime_dir / 'cmd.sh' if runtime_dir else None
 
     @property
     def stdout_file(self) -> Path:
         """Path to stdout log."""
-        return Path(self.pwd) / 'stdout.log' if self.pwd else None
+        runtime_dir = self.runtime_dir
+        return runtime_dir / 'stdout.log' if runtime_dir else None
 
     @property
     def stderr_file(self) -> Path:
         """Path to stderr log."""
-        return Path(self.pwd) / 'stderr.log' if self.pwd else None
+        runtime_dir = self.runtime_dir
+        return runtime_dir / 'stderr.log' if runtime_dir else None
+
+    @property
+    def hook_script_name(self) -> str | None:
+        """Best-effort hook filename extracted from the process command."""
+        if self.process_type != self.TypeChoices.HOOK or not self.cmd:
+            return None
+
+        for arg in self.cmd:
+            arg = str(arg)
+            if arg.startswith('-'):
+                continue
+            candidate = Path(arg).name
+            if candidate.startswith('on_') and Path(candidate).suffix in {'.py', '.js', '.sh'}:
+                return candidate
+
+        return None
+
+    @property
+    def runtime_dir(self) -> Path | None:
+        """Directory where this process stores runtime logs/pid/cmd metadata."""
+        if not self.pwd:
+            return None
+
+        base_dir = Path(self.pwd)
+        hook_name = self.hook_script_name
+        if hook_name:
+            return base_dir / '.hooks' / hook_name
+        return base_dir
 
     def tail_stdout(self, lines: int = 50, follow: bool = False):
         """
@@ -1518,6 +1550,7 @@ class Process(models.Model):
     def _write_pid_file(self) -> None:
         """Write PID file with mtime set to process start time."""
         if self.pid and self.started_at and self.pid_file:
+            self.pid_file.parent.mkdir(parents=True, exist_ok=True)
             # Write PID to file
             self.pid_file.write_text(str(self.pid))
             # Set mtime to process start time for validation
@@ -1530,6 +1563,7 @@ class Process(models.Model):
     def _write_cmd_file(self) -> None:
         """Write cmd.sh script for debugging/validation."""
         if self.cmd and self.cmd_file:
+            self.cmd_file.parent.mkdir(parents=True, exist_ok=True)
             # Escape shell arguments (quote if contains space, ", or $)
             def escape(arg: str) -> str:
                 return f'"{arg.replace(chr(34), chr(92)+chr(34))}"' if any(c in arg for c in ' "$') else arg
@@ -1544,16 +1578,19 @@ class Process(models.Model):
 
     def ensure_log_files(self) -> None:
         """Ensure stdout/stderr log files exist for this process."""
-        if not self.pwd:
+        runtime_dir = self.runtime_dir
+        if not runtime_dir:
             return
         try:
-            Path(self.pwd).mkdir(parents=True, exist_ok=True)
+            runtime_dir.mkdir(parents=True, exist_ok=True)
         except OSError:
             return
         try:
             if self.stdout_file:
+                self.stdout_file.parent.mkdir(parents=True, exist_ok=True)
                 self.stdout_file.touch(exist_ok=True)
             if self.stderr_file:
+                self.stderr_file.parent.mkdir(parents=True, exist_ok=True)
                 self.stderr_file.touch(exist_ok=True)
         except OSError:
             return
@@ -1602,14 +1639,15 @@ class Process(models.Model):
         # Use provided cwd or default to pwd
         working_dir = cwd or self.pwd
 
-        # Ensure output directory exists
-        Path(self.pwd).mkdir(parents=True, exist_ok=True)
-
         # Write cmd.sh for debugging
         self._write_cmd_file()
 
         stdout_path = self.stdout_file
         stderr_path = self.stderr_file
+        if stdout_path:
+            stdout_path.parent.mkdir(parents=True, exist_ok=True)
+        if stderr_path:
+            stderr_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(stdout_path, 'a') as out, open(stderr_path, 'a') as err:
             proc = subprocess.Popen(

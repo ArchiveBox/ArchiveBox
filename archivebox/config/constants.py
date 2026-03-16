@@ -80,7 +80,6 @@ class ConstantsDict(Mapping):
     ARCHIVE_DIR_NAME: str               = 'archive'
     SOURCES_DIR_NAME: str               = 'sources'
     PERSONAS_DIR_NAME: str              = 'personas'
-    CRONTABS_DIR_NAME: str              = 'crontabs'
     CACHE_DIR_NAME: str                 = 'cache'
     LOGS_DIR_NAME: str                  = 'logs'
     CUSTOM_PLUGINS_DIR_NAME: str        = 'custom_plugins'
@@ -177,7 +176,6 @@ class ConstantsDict(Mapping):
         PERSONAS_DIR_NAME,
         CUSTOM_TEMPLATES_DIR_NAME,
         CUSTOM_PLUGINS_DIR_NAME,
-        CRONTABS_DIR_NAME,
         "invalid",
         "users",
         "machine",

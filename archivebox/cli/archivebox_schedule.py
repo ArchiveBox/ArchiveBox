@@ -2,166 +2,171 @@
 
 __package__ = 'archivebox.cli'
 
-import sys
-from pathlib import Path
-
 import rich_click as click
 from rich import print
 
 from archivebox.misc.util import enforce_types, docstring
-from archivebox.config import DATA_DIR, CONSTANTS
 from archivebox.config.common import ARCHIVING_CONFIG
-from archivebox.config.permissions import USER
-
-
-CRON_COMMENT = 'ArchiveBox'
 
 
 @enforce_types
-def schedule(add: bool=False,
-            show: bool=False,
-            clear: bool=False,
-            foreground: bool=False,
-            run_all: bool=False,
-            quiet: bool=False,
-            every: str | None=None,
-            tag: str='',
-            depth: int | str=0,
-            overwrite: bool=False,
-            update: bool=not ARCHIVING_CONFIG.ONLY_NEW,
-            import_path: str | None=None,
-            out_dir: Path=DATA_DIR) -> None:
-    """Set ArchiveBox to regularly import URLs at specific times using cron"""
- 
+def schedule(add: bool = False,
+            show: bool = False,
+            clear: bool = False,
+            foreground: bool = False,
+            run_all: bool = False,
+            quiet: bool = False,
+            every: str | None = None,
+            tag: str = '',
+            depth: int | str = 0,
+            overwrite: bool = False,
+            update: bool = not ARCHIVING_CONFIG.ONLY_NEW,
+            import_path: str | None = None):
+    """Manage database-backed scheduled crawls processed by the orchestrator."""
+
+    from django.utils import timezone
+
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl, CrawlSchedule
+    from archivebox.crawls.schedule_utils import validate_schedule
+    from archivebox.workers.orchestrator import Orchestrator
+
     depth = int(depth)
-    
-    import shutil
-    from crontab import CronTab, CronSlices
-    from archivebox.misc.system import dedupe_cron_jobs
-    
-    # Find the archivebox binary path
-    ARCHIVEBOX_ABSPATH = shutil.which('archivebox') or sys.executable.replace('python', 'archivebox')
+    result: dict[str, object] = {
+        'created_schedule_ids': [],
+        'disabled_count': 0,
+        'run_all_enqueued': 0,
+        'active_schedule_ids': [],
+    }
 
-    Path(CONSTANTS.LOGS_DIR).mkdir(exist_ok=True)
-
-    cron = CronTab(user=True)
-    cron = dedupe_cron_jobs(cron)
+    def _active_schedules():
+        return CrawlSchedule.objects.filter(is_enabled=True).select_related('template').order_by('created_at')
 
     if clear:
-        print(cron.remove_all(comment=CRON_COMMENT))
-        cron.write()
-        raise SystemExit(0)
-
-    existing_jobs = list(cron.find_comment(CRON_COMMENT))
+        disabled_count = CrawlSchedule.objects.filter(is_enabled=True).update(
+            is_enabled=False,
+            modified_at=timezone.now(),
+        )
+        result['disabled_count'] = disabled_count
+        print(f'[green]\\[√] Disabled {disabled_count} scheduled crawl(s).[/green]')
 
     if every or add:
-        every = every or 'day'
-        quoted = lambda s: f'"{s}"' if (s and ' ' in str(s)) else str(s)
-        cmd = [
-            'cd',
-            quoted(out_dir),
-            '&&',
-            quoted(ARCHIVEBOX_ABSPATH),
-            *([
-                'add',
-                *(['--overwrite'] if overwrite else []),
-                *(['--update'] if update else []),
-                *([f'--tag={tag}'] if tag else []),
-                f'--depth={depth}',
-                f'"{import_path}"',
-            ] if import_path else ['update']),
-            '>>',
-            quoted(Path(CONSTANTS.LOGS_DIR) / 'schedule.log'),
-            '2>&1',
-        ]
-        new_job = cron.new(command=' '.join(cmd), comment=CRON_COMMENT)
+        schedule_str = (every or 'day').strip()
+        validate_schedule(schedule_str)
 
-        if every in ('minute', 'hour', 'day', 'month', 'year'):
-            set_every = getattr(new_job.every(), every)
-            set_every()
-        elif CronSlices.is_valid(every):
-            new_job.setall(every)
+        created_by_id = get_or_create_system_user_pk()
+        is_update_schedule = not import_path
+        template_urls = import_path or 'archivebox://update'
+        template_label = (
+            f'Scheduled import: {template_urls}'
+            if import_path else
+            'Scheduled ArchiveBox update'
+        )[:64]
+        template_notes = (
+            f'Created by archivebox schedule for {template_urls}'
+            if import_path else
+            'Created by archivebox schedule to queue recurring archivebox://update maintenance crawls.'
+        )
+
+        template = Crawl.objects.create(
+            urls=template_urls,
+            max_depth=0 if is_update_schedule else depth,
+            tags_str='' if is_update_schedule else tag,
+            label=template_label,
+            notes=template_notes,
+            created_by_id=created_by_id,
+            status=Crawl.StatusChoices.SEALED,
+            retry_at=None,
+            config={
+                'ONLY_NEW': not update,
+                'OVERWRITE': overwrite,
+                'DEPTH': 0 if is_update_schedule else depth,
+                'SCHEDULE_KIND': 'update' if is_update_schedule else 'crawl',
+            },
+        )
+        crawl_schedule = CrawlSchedule.objects.create(
+            template=template,
+            schedule=schedule_str,
+            is_enabled=True,
+            label=template_label,
+            notes=template_notes,
+            created_by_id=created_by_id,
+        )
+        result['created_schedule_ids'] = [str(crawl_schedule.id)]
+
+        schedule_type = 'maintenance update' if is_update_schedule else 'crawl'
+        print(f'[green]\\[√] Created scheduled {schedule_type}.[/green]')
+        print(f'    id={crawl_schedule.id}')
+        print(f'    every={crawl_schedule.schedule}')
+        print(f'    next_run={crawl_schedule.next_run_at.isoformat()}')
+        if import_path:
+            print(f'    source={import_path}')
+
+    schedules = list(_active_schedules())
+    result['active_schedule_ids'] = [str(schedule.id) for schedule in schedules]
+
+    if show:
+        if schedules:
+            print(f'[green]\\[*] Active scheduled crawls: {len(schedules)}[/green]')
+            for scheduled_crawl in schedules:
+                template = scheduled_crawl.template
+                print(
+                    f'  - id={scheduled_crawl.id} every={scheduled_crawl.schedule} '
+                    f'next_run={scheduled_crawl.next_run_at.isoformat()} '
+                    f'source={template.urls.splitlines()[0] if template.urls else ""}'
+                )
         else:
-            print('[red]\\[X] Got invalid timeperiod for cron task.[/red]')
-            print('    It must be one of minute/hour/day/month')
-            print('    or a quoted cron-format schedule like:')
-            print('        archivebox init --every=day --depth=1 https://example.com/some/rss/feed.xml')
-            print('        archivebox init --every="0/5 * * * *" --depth=1 https://example.com/some/rss/feed.xml')
-            raise SystemExit(1)
+            print('[yellow]\\[*] No scheduled crawls are enabled.[/yellow]')
 
-        cron = dedupe_cron_jobs(cron)
-        print(cron)
-        cron.write()
+    if run_all:
+        enqueued = 0
+        now = timezone.now()
+        for scheduled_crawl in schedules:
+            scheduled_crawl.enqueue(queued_at=now)
+            enqueued += 1
+        result['run_all_enqueued'] = enqueued
+        print(f'[green]\\[*] Enqueued {enqueued} scheduled crawl(s) immediately.[/green]')
+        if enqueued and not Orchestrator.is_running():
+            print('[yellow]\\[*] No orchestrator is running yet. Start `archivebox server` or `archivebox schedule --foreground` to process the queued crawls.[/yellow]')
 
-        total_runs = sum(j.frequency_per_year() for j in cron)
-        existing_jobs = list(cron.find_command('archivebox'))
-
-        print()
-        print('[green]\\[√] Scheduled new ArchiveBox cron job for user: {} ({} jobs are active).[/green]'.format(USER, len(existing_jobs)))
-        print('\n'.join(f'  > {cmd}' if str(cmd) == str(new_job) else f'    {cmd}' for cmd in existing_jobs))
-        if total_runs > 60 and not quiet:
-            print()
-            print('[yellow]\\[!] With the current cron config, ArchiveBox is estimated to run >{} times per year.[/yellow]'.format(total_runs))
-            print('    Congrats on being an enthusiastic internet archiver! 👌')
-            print()
-            print('    [violet]Make sure you have enough storage space available to hold all the data.[/violet]')
-            print('    Using a compressed/deduped filesystem like ZFS is recommended if you plan on archiving a lot.')
-            print()
-    elif show:
-        if existing_jobs:
-            print('\n'.join(str(cmd) for cmd in existing_jobs))
+    if foreground:
+        print('[green]\\[*] Starting global orchestrator in foreground mode. It will materialize scheduled crawls and process queued work.[/green]')
+        if Orchestrator.is_running():
+            print('[yellow]\\[*] Orchestrator is already running.[/yellow]')
         else:
-            print('[red]\\[X] There are no ArchiveBox cron jobs scheduled for your user ({}).[/red]'.format(USER))
-            print('    To schedule a new job, run:')
-            print('        archivebox schedule --every=[timeperiod] --depth=1 https://example.com/some/rss/feed.xml')
-        raise SystemExit(0)
+            orchestrator = Orchestrator(exit_on_idle=False)
+            orchestrator.runloop()
 
-    if foreground or run_all:
-        if not existing_jobs:
-            print('[red]\\[X] You must schedule some jobs first before running in foreground mode.[/red]')
-            print('    archivebox schedule --every=hour --depth=1 https://example.com/some/rss/feed.xml')
-            raise SystemExit(1)
+    if quiet:
+        return result
 
-        print('[green]\\[*] Running {} ArchiveBox jobs in foreground task scheduler...[/green]'.format(len(existing_jobs)))
-        if run_all:
-            try:
-                for job in existing_jobs:
-                    sys.stdout.write(f'  > {job.command.split("/archivebox ")[0].split(" && ")[0]}\n')
-                    sys.stdout.write(f'    > {job.command.split("/archivebox ")[-1].split(" >> ")[0]}')
-                    sys.stdout.flush()
-                    job.run()
-                    sys.stdout.write(f'\r    √ {job.command.split("/archivebox ")[-1]}\n')
-            except KeyboardInterrupt:
-                print('\n[green]\\[√] Stopped.[/green] (Ctrl+C)')
-                raise SystemExit(1)
+    if not any((every, add, show, clear, foreground, run_all)):
+        if schedules:
+            print('[green]\\[*] Active scheduled crawls:[/green]')
+            for scheduled_crawl in schedules:
+                print(f'  - {scheduled_crawl.id} every={scheduled_crawl.schedule} next_run={scheduled_crawl.next_run_at.isoformat()}')
+        else:
+            print('[yellow]\\[*] No scheduled crawls are enabled.[/yellow]')
 
-        if foreground:
-            try:
-                for job in existing_jobs:
-                    print(f'  > {job.command.split("/archivebox ")[-1].split(" >> ")[0]}')
-                for result in cron.run_scheduler():
-                    print(result)
-            except KeyboardInterrupt:
-                print('\n[green]\\[√] Stopped.[/green] (Ctrl+C)')
-                raise SystemExit(1)
+    return result
 
 
 @click.command()
-@click.option('--quiet', '-q', is_flag=True, help="Don't warn about storage space")
-@click.option('--add', is_flag=True, help='Add a new scheduled ArchiveBox update job to cron')
-@click.option('--every', type=str, help='Run ArchiveBox once every [timeperiod] (hour/day/month/year or cron format e.g. "0 0 * * *")')
-@click.option('--tag', '-t', default='', help='Tag the added URLs with the provided tags e.g. --tag=tag1,tag2,tag3')
-@click.option('--depth', type=click.Choice(['0', '1']), default='0', help='Depth to archive to [0] or 1')
-@click.option('--overwrite', is_flag=True, help='Re-archive any URLs that have been previously archived, overwriting existing Snapshots')
-@click.option('--update', is_flag=True, help='Re-pull any URLs that have been previously added, as needed to fill missing ArchiveResults')
-@click.option('--clear', is_flag=True, help='Stop all ArchiveBox scheduled runs (remove cron jobs)')
-@click.option('--show', is_flag=True, help='Print a list of currently active ArchiveBox cron jobs')
-@click.option('--foreground', '-f', is_flag=True, help='Launch ArchiveBox scheduler as a long-running foreground task instead of using cron')
-@click.option('--run-all', is_flag=True, help='Run all the scheduled jobs once immediately, independent of their configured schedules')
+@click.option('--quiet', '-q', is_flag=True, help="Return structured results without extra summary output")
+@click.option('--add', is_flag=True, help='Create a new scheduled crawl')
+@click.option('--every', type=str, help='Run on an alias like daily/weekly/monthly or a cron expression such as "0 */6 * * *"')
+@click.option('--tag', '-t', default='', help='Comma-separated tags to apply to scheduled crawl snapshots')
+@click.option('--depth', type=click.Choice([str(i) for i in range(5)]), default='0', help='Recursively archive linked pages up to N hops away')
+@click.option('--overwrite', is_flag=True, help='Overwrite existing data if URLs have been archived previously')
+@click.option('--update', is_flag=True, help='Retry previously failed/skipped URLs when scheduled crawls run')
+@click.option('--clear', is_flag=True, help='Disable all currently enabled schedules')
+@click.option('--show', is_flag=True, help='Print all currently enabled schedules')
+@click.option('--foreground', '-f', is_flag=True, help='Run the global orchestrator in the foreground (no crontab required)')
+@click.option('--run-all', is_flag=True, help='Enqueue all enabled schedules immediately and process them once')
 @click.argument('import_path', required=False)
 @docstring(schedule.__doc__)
 def main(**kwargs):
-    """Set ArchiveBox to regularly import URLs at specific times using cron"""
+    """Manage database-backed scheduled crawls processed by the orchestrator."""
     schedule(**kwargs)
 
 

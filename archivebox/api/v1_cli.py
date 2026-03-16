@@ -74,6 +74,10 @@ class UpdateCommandSchema(Schema):
 class ScheduleCommandSchema(Schema):
     import_path: Optional[str] = None
     add: bool = False
+    show: bool = False
+    foreground: bool = False
+    run_all: bool = False
+    quiet: bool = False
     every: Optional[str] = None
     tag: str = ''
     depth: int = 0
@@ -172,6 +176,9 @@ def cli_schedule(request, args: ScheduleCommandSchema):
         import_path=args.import_path,
         add=args.add,
         show=args.show,
+        foreground=args.foreground,
+        run_all=args.run_all,
+        quiet=args.quiet,
         clear=args.clear,
         every=args.every,
         tag=args.tag,
@@ -184,6 +191,7 @@ def cli_schedule(request, args: ScheduleCommandSchema):
         "success": True,
         "errors": [],
         "result": result,
+        "result_format": "json",
         "stdout": ansi_to_html(request.stdout.getvalue().strip()),
         "stderr": ansi_to_html(request.stderr.getvalue().strip()),
     }
@@ -230,19 +238,37 @@ def cli_search(request, args: ListCommandSchema):
 @router.post("/remove", response=CLICommandResponseSchema, summary='archivebox remove [args] [filter_patterns]')
 def cli_remove(request, args: RemoveCommandSchema):
     from archivebox.cli.archivebox_remove import remove
+    from archivebox.cli.archivebox_search import get_snapshots
+    from archivebox.core.models import Snapshot
+
+    snapshots_to_remove = get_snapshots(
+        filter_patterns=args.filter_patterns,
+        filter_type=args.filter_type,
+        after=args.after,
+        before=args.before,
+    )
+    removed_snapshot_ids = [str(snapshot_id) for snapshot_id in snapshots_to_remove.values_list('id', flat=True)]
     
-    result = remove(
+    remove(
         yes=True,            # no way to interactively ask for confirmation via API, so we force yes
         delete=args.delete,
+        snapshots=snapshots_to_remove,
         before=args.before,
         after=args.after,
         filter_type=args.filter_type,
         filter_patterns=args.filter_patterns,
     )
+
+    result = {
+        "removed_count": len(removed_snapshot_ids),
+        "removed_snapshot_ids": removed_snapshot_ids,
+        "remaining_snapshots": Snapshot.objects.count(),
+    }
     return {
         "success": True,
         "errors": [],
         "result": result,
+        "result_format": "json",
         "stdout": ansi_to_html(request.stdout.getvalue().strip()),
         "stderr": ansi_to_html(request.stderr.getvalue().strip()),
     }

@@ -7,8 +7,23 @@ Verify status reports accurate collection state from DB and filesystem.
 import os
 import subprocess
 import sqlite3
+from pathlib import Path
 
 from .fixtures import *
+
+
+def _find_snapshot_dir(data_dir: Path, snapshot_id: str) -> Path | None:
+    candidates = {snapshot_id}
+    if len(snapshot_id) == 32:
+        candidates.add(f"{snapshot_id[:8]}-{snapshot_id[8:12]}-{snapshot_id[12:16]}-{snapshot_id[16:20]}-{snapshot_id[20:]}")
+    elif len(snapshot_id) == 36 and '-' in snapshot_id:
+        candidates.add(snapshot_id.replace('-', ''))
+
+    for needle in candidates:
+        for path in data_dir.rglob(needle):
+            if path.is_dir():
+                return path
+    return None
 
 
 def test_status_runs_successfully(tmp_path, process):
@@ -115,6 +130,37 @@ def test_status_detects_orphaned_directories(tmp_path, process, disable_extracto
 
     # Should mention orphaned dirs
     assert 'orphan' in result.stdout.lower() or '1' in result.stdout
+
+
+def test_status_counts_new_snapshot_output_dirs_as_archived(tmp_path, process, disable_extractors_dict):
+    """Test status reads archived/present counts from the current snapshot output layout."""
+    os.chdir(tmp_path)
+    env = disable_extractors_dict.copy()
+    env["ARCHIVEBOX_ALLOW_NO_UNIX_SOCKETS"] = "true"
+
+    subprocess.run(
+        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        capture_output=True,
+        env=env,
+        check=True,
+    )
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    snapshot_id = c.execute("SELECT id FROM core_snapshot WHERE url = ?", ('https://example.com',)).fetchone()[0]
+    conn.close()
+
+    snapshot_dir = _find_snapshot_dir(tmp_path, str(snapshot_id))
+    assert snapshot_dir is not None, f"Snapshot output directory not found for {snapshot_id}"
+    title_dir = snapshot_dir / "title"
+    title_dir.mkdir(parents=True, exist_ok=True)
+    (title_dir / "title.txt").write_text("Example Domain")
+
+    result = subprocess.run(['archivebox', 'status'], capture_output=True, text=True, env=env)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'archived: 1' in result.stdout
+    assert 'present: 1' in result.stdout
 
 
 def test_status_shows_user_info(tmp_path, process):

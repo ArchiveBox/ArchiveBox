@@ -18,6 +18,7 @@ from rich import print
 from archivebox.config import CONSTANTS
 from archivebox.base_models.models import ModelWithUUID, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, get_or_create_system_user_pk
 from archivebox.workers.models import ModelWithStateMachine, BaseStateMachine
+from archivebox.crawls.schedule_utils import next_run_for_schedule, validate_schedule
 
 if TYPE_CHECKING:
     from archivebox.core.models import Snapshot, ArchiveResult
@@ -51,11 +52,49 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
         return reverse_lazy('api-1:get_any', args=[self.id])
 
     def save(self, *args, **kwargs):
+        self.schedule = (self.schedule or '').strip()
+        validate_schedule(self.schedule)
         self.label = self.label or (self.template.label if self.template else '')
         super().save(*args, **kwargs)
         if self.template:
             self.template.schedule = self
             self.template.save()
+
+    @property
+    def last_run_at(self):
+        latest_crawl = self.crawl_set.order_by('-created_at').first()
+        if latest_crawl:
+            return latest_crawl.created_at
+        if self.template:
+            return self.template.created_at
+        return self.created_at
+
+    @property
+    def next_run_at(self):
+        return next_run_for_schedule(self.schedule, self.last_run_at)
+
+    def is_due(self, now=None) -> bool:
+        now = now or timezone.now()
+        return self.is_enabled and self.next_run_at <= now
+
+    def enqueue(self, queued_at=None) -> 'Crawl':
+        queued_at = queued_at or timezone.now()
+        template = self.template
+        label = template.label or self.label
+
+        return Crawl.objects.create(
+            urls=template.urls,
+            config=template.config or {},
+            max_depth=template.max_depth,
+            tags_str=template.tags_str,
+            persona_id=template.persona_id,
+            label=label,
+            notes=template.notes,
+            schedule=self,
+            status=Crawl.StatusChoices.QUEUED,
+            retry_at=queued_at,
+            created_by=template.created_by,
+        )
 
 
 class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWithStateMachine):
@@ -204,6 +243,15 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             if url.strip() and not url.strip().startswith('#')
         ]
 
+    def get_system_task(self) -> str | None:
+        urls = self.get_urls_list()
+        if len(urls) != 1:
+            return None
+        system_url = urls[0].strip().lower()
+        if system_url.startswith('archivebox://'):
+            return system_url
+        return None
+
 
     def add_url(self, entry: dict) -> bool:
         """
@@ -345,6 +393,13 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         def get_runtime_config():
             return get_config(crawl=self)
 
+        system_task = self.get_system_task()
+        if system_task == 'archivebox://update':
+            from archivebox.cli.archivebox_update import process_all_db_snapshots
+
+            process_all_db_snapshots()
+            return None
+
         machine = Machine.current()
         declared_binary_names: set[str] = set()
 
@@ -446,6 +501,12 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 print(f'[cyan]📝 Processing {len(records)} records from {hook.name}[/cyan]')
                 for record in records[:3]:
                     print(f'   Record: type={record.get("type")}, keys={list(record.keys())[:5]}')
+            if system_task:
+                records = [
+                    record
+                    for record in records
+                    if record.get('type') in ('Binary', 'Machine')
+                ]
             overrides = {'crawl': self}
             stats = process_hook_records(records, overrides=overrides)
             if stats:
@@ -519,6 +580,18 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         install_declared_binaries(declared_binary_names)
 
         # Create snapshots from all URLs in self.urls
+        if system_task:
+            leaked_snapshots = self.snapshot_set.all()
+            if leaked_snapshots.exists():
+                leaked_count = leaked_snapshots.count()
+                leaked_snapshots.delete()
+                print(f'[yellow]⚠️  Removed {leaked_count} leaked snapshot(s) created during system crawl {system_task}[/yellow]')
+            with open(debug_log, 'a') as f:
+                f.write(f'Skipping snapshot creation for system crawl: {system_task}\n')
+                f.write(f'=== Crawl.run() complete ===\n\n')
+                f.flush()
+            return None
+
         with open(debug_log, 'a') as f:
             f.write(f'Creating snapshots from URLs...\n')
             f.flush()

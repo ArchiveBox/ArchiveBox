@@ -61,8 +61,7 @@ dependencies = [
     "platformdirs>=4.3.6",   # for: finding a xdg-config dir to store tmp/lib files in
     "py-machineid>=0.6.0",   # for: machine/detect.py calculating unique machine guid
     "atomicwrites==1.4.1",   # for: config file writes, index.json file writes, etc. (TODO: remove this deprecated lib in favor of archivebox.filestore.util/os.rename/os.replace)
-    "python-crontab>=3.2.0", # for: archivebox schedule (TODO: remove this in favor of our own custom archivebox scheduler)
-    "croniter>=3.0.3",       # for: archivebox schedule (TODO: remove this in favor of our own custom archivebox scheduler)
+    "croniter>=3.0.3",       # for: archivebox schedule alias/cron parsing
     ### Base Types
     "pydantic>=2.8.0",       # for: archivebox.api (django-ninja), archivebox.config (pydantic-settings), and archivebox.index.schema (pydantic)
     "pydantic-settings>=2.5.2", # for: archivebox.config

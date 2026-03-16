@@ -39,6 +39,27 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
     if debug or reload:
         SHELL_CONFIG.DEBUG = True
 
+    if run_in_debug:
+        os.environ['ARCHIVEBOX_RUNSERVER'] = '1'
+        if reload:
+            os.environ['ARCHIVEBOX_AUTORELOAD'] = '1'
+            os.environ['ARCHIVEBOX_ORCHESTRATOR_MANAGED_BY_WATCHER'] = '1'
+            from archivebox.config.common import STORAGE_CONFIG
+            pidfile = str(STORAGE_CONFIG.TMP_DIR / 'runserver.pid')
+            os.environ['ARCHIVEBOX_RUNSERVER_PIDFILE'] = pidfile
+
+            from django.utils.autoreload import DJANGO_AUTORELOAD_ENV
+            is_reloader_child = os.environ.get(DJANGO_AUTORELOAD_ENV) == 'true'
+            if not is_reloader_child:
+                env = os.environ.copy()
+                env['ARCHIVEBOX_ORCHESTRATOR_WATCHER'] = '1'
+                subprocess.Popen(
+                    [sys.executable, '-m', 'archivebox', 'manage', 'orchestrator_watch', f'--pidfile={pidfile}'],
+                    env=env,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+
     from django.contrib.auth.models import User
     
     if not User.objects.filter(is_superuser=True).exclude(username='system').exists():
@@ -63,26 +84,6 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
         pass
 
     if run_in_debug:
-        os.environ['ARCHIVEBOX_RUNSERVER'] = '1'
-        if reload:
-            os.environ['ARCHIVEBOX_AUTORELOAD'] = '1'
-            os.environ['ARCHIVEBOX_ORCHESTRATOR_MANAGED_BY_WATCHER'] = '1'
-            from archivebox.config.common import STORAGE_CONFIG
-            pidfile = str(STORAGE_CONFIG.TMP_DIR / 'runserver.pid')
-            os.environ['ARCHIVEBOX_RUNSERVER_PIDFILE'] = pidfile
-
-            from django.utils.autoreload import DJANGO_AUTORELOAD_ENV
-            is_reloader_child = os.environ.get(DJANGO_AUTORELOAD_ENV) == 'true'
-            if not is_reloader_child:
-                env = os.environ.copy()
-                env['ARCHIVEBOX_ORCHESTRATOR_WATCHER'] = '1'
-                subprocess.Popen(
-                    [sys.executable, '-m', 'archivebox', 'manage', 'orchestrator_watch', f'--pidfile={pidfile}'],
-                    env=env,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-
         from django.core.management import call_command
         print('[green][+] Starting ArchiveBox webserver in DEBUG mode...[/green]')
         print(f'    [blink][green]>[/green][/blink] Starting ArchiveBox webserver on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link][/deep_sky_blue4]')

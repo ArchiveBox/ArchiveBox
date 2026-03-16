@@ -336,6 +336,7 @@ class Orchestrator:
         queue_sizes = {}
 
         self._enforce_hard_timeouts()
+        self._materialize_due_schedules()
 
         # Check Binary queue
         machine = Machine.current()
@@ -398,6 +399,24 @@ class Orchestrator:
                     CrawlWorker.start(parent=self.db_process, crawl_id=str(crawl.id))
 
         return queue_sizes
+
+    def _should_process_schedules(self) -> bool:
+        return (not self.exit_on_idle) and (self.crawl_id is None)
+
+    def _materialize_due_schedules(self) -> None:
+        if not self._should_process_schedules():
+            return
+
+        from archivebox.crawls.models import CrawlSchedule
+
+        now = timezone.now()
+        due_schedules = CrawlSchedule.objects.filter(is_enabled=True).select_related('template', 'template__created_by')
+
+        for schedule in due_schedules:
+            if not schedule.is_due(now):
+                continue
+
+            schedule.enqueue(queued_at=now)
 
     def _enforce_hard_timeouts(self) -> None:
         """Force-kill and seal hooks/archiveresults/snapshots that exceed hard limits."""

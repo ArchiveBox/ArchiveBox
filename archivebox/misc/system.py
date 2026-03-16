@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Optional, Union, Set, Tuple
 from subprocess import _mswindows, PIPE, Popen, CalledProcessError, CompletedProcess, TimeoutExpired
 
-from crontab import CronTab
 from atomicwrites import atomic_write as lib_atomic_write
 
 from archivebox.config.common import STORAGE_CONFIG
@@ -169,28 +168,6 @@ def get_dir_size(path: Union[str, Path], recursive: bool=True, pattern: Optional
         # e.g. FileNameTooLong or other error while trying to read dir
         pass
     return num_bytes, num_dirs, num_files
-
-
-CRON_COMMENT = 'archivebox_schedule'
-
-
-@enforce_types
-def dedupe_cron_jobs(cron: CronTab) -> CronTab:
-    deduped: Set[Tuple[str, str]] = set()
-
-    for job in list(cron):
-        unique_tuple = (str(job.slices), str(job.command))
-        if unique_tuple not in deduped:
-            deduped.add(unique_tuple)
-        cron.remove(job)
-
-    for schedule, command in deduped:
-        job = cron.new(command=command, comment=CRON_COMMENT)
-        job.setall(schedule)
-        job.enable()
-
-    return cron
-
 
 class suppress_output(object):
     """

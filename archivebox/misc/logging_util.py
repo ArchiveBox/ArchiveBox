@@ -426,14 +426,15 @@ def log_removal_started(snapshots, yes: bool, delete: bool):
         except (KeyboardInterrupt, EOFError, AssertionError):
             raise SystemExit(0)
 
-def log_removal_finished(all_links: int, to_remove: int):
-    if all_links == 0:
+def log_removal_finished(remaining_links: int, removed_links: int):
+    if remaining_links == 0 and removed_links == 0:
         print()
         print('[red1][X] No matching links found.[/]')
     else:
+        total_before = remaining_links + removed_links
         print()
-        print(f'[red1][√] Removed {to_remove} out of {all_links} links from the archive index.[/]')
-        print(f'    Index now contains {all_links - to_remove} links.')
+        print(f'[red1][√] Removed {removed_links} out of {total_before} links from the archive index.[/]')
+        print(f'    Index now contains {remaining_links} links.')
 
 
 ### Search Indexing Stage

@@ -157,6 +157,16 @@ def cli(ctx, help=False):
     if subcommand in ArchiveBoxGroup.archive_commands or subcommand in ArchiveBoxGroup.model_commands:
         # print('SETUP DJANGO AND CHECK DATA FOLDER')
         try:
+            if subcommand == 'server':
+                run_in_debug = '--reload' in sys.argv or os.environ.get('DEBUG') in ('1', 'true', 'True', 'TRUE', 'yes')
+                if run_in_debug:
+                    os.environ['ARCHIVEBOX_RUNSERVER'] = '1'
+                    if '--reload' in sys.argv:
+                        os.environ['ARCHIVEBOX_AUTORELOAD'] = '1'
+                        os.environ['ARCHIVEBOX_ORCHESTRATOR_MANAGED_BY_WATCHER'] = '1'
+                        from archivebox.config.common import STORAGE_CONFIG
+                        os.environ['ARCHIVEBOX_RUNSERVER_PIDFILE'] = str(STORAGE_CONFIG.TMP_DIR / 'runserver.pid')
+
             from archivebox.config.django import setup_django
             from archivebox.misc.checks import check_data_folder
             setup_django()

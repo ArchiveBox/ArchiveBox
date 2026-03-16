@@ -547,7 +547,7 @@ def tags_add_to_snapshot(request, data: TagSnapshotRequestSchema):
         raise HttpError(400, 'Either tag_name or tag_id is required')
 
     # Add the tag to the snapshot
-    snapshot.tags.add(tag)
+    snapshot.tags.add(tag.pk)
 
     return {
         'success': True,
@@ -586,7 +586,7 @@ def tags_remove_from_snapshot(request, data: TagSnapshotRequestSchema):
         raise HttpError(400, 'Either tag_name or tag_id is required')
 
     # Remove the tag from the snapshot
-    snapshot.tags.remove(tag)
+    snapshot.tags.remove(tag.pk)
 
     return {
         'success': True,

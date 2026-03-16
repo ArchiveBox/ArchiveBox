@@ -1,30 +1,41 @@
-__package__ = 'archivebox.api'
+import os
+import django
+from io import StringIO
+from types import SimpleNamespace
 
-# from django.test import TestCase
-# from ninja.testing import TestClient
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.settings')
+django.setup()
 
-# from .routes_cli import router
+from django.contrib.auth.models import User
+from django.test import TestCase
 
-# class ArchiveBoxCLIAPITestCase(TestCase):
-#     def setUp(self):
-#         self.client = TestClient(router)
+from archivebox.api.v1_cli import ScheduleCommandSchema, cli_schedule
+from archivebox.crawls.models import CrawlSchedule
 
-#     def test_add_endpoint(self):
-#         response = self.client.post("/add", json={"urls": ["http://example.com"], "tag": "testTag1,testTag2"})
-#         self.assertEqual(response.status_code, 200)
-#         self.assertTrue(response.json()["success"])
 
-#     def test_remove_endpoint(self):
-#         response = self.client.post("/remove", json={"filter_patterns": ["http://example.com"]})
-#         self.assertEqual(response.status_code, 200)
-#         self.assertTrue(response.json()["success"])
+class CLIScheduleAPITests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='api-user',
+            password='testpass123',
+            email='api@example.com',
+        )
 
-#     def test_update_endpoint(self):
-#         response = self.client.post("/update", json={})
-#         self.assertEqual(response.status_code, 200)
-#         self.assertTrue(response.json()["success"])
+    def test_schedule_api_creates_schedule(self):
+        request = SimpleNamespace(
+            user=self.user,
+            stdout=StringIO(),
+            stderr=StringIO(),
+        )
+        args = ScheduleCommandSchema(
+            every='daily',
+            import_path='https://example.com/feed.xml',
+            quiet=True,
+        )
 
-#     def test_list_all_endpoint(self):
-#         response = self.client.post("/list_all", json={})
-#         self.assertEqual(response.status_code, 200)
-#         self.assertTrue(response.json()["success"])
+        response = cli_schedule(request, args)
+
+        self.assertTrue(response['success'])
+        self.assertEqual(response['result_format'], 'json')
+        self.assertEqual(CrawlSchedule.objects.count(), 1)
+        self.assertEqual(len(response['result']['created_schedule_ids']), 1)

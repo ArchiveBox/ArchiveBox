@@ -141,6 +141,11 @@ def create_and_chown_dir(dir_path: Path) -> None:
         os.system(f'chown {ARCHIVEBOX_USER} "{dir_path}" 2>/dev/null')
         os.system(f'chown {ARCHIVEBOX_USER} "{dir_path}"/* 2>/dev/null &')
 
+
+def tmp_dir_socket_path_is_short_enough(dir_path: Path) -> bool:
+    socket_file = dir_path.absolute().resolve() / 'supervisord.sock'
+    return len(f'file://{socket_file}') <= 96
+
 @cache
 def get_or_create_working_tmp_dir(autofix=True, quiet=True):
     from archivebox import CONSTANTS
@@ -158,6 +163,7 @@ def get_or_create_working_tmp_dir(autofix=True, quiet=True):
         Path(tempfile.gettempdir()) / 'archivebox' / get_collection_id()[:4],  # /var/folders/qy/6tpfrpx100j1t4l312nz683m0000gn/T/archivebox/abc5d
         Path(tempfile.gettempdir()) / 'abx' / get_collection_id()[:4],         # /var/folders/qy/6tpfrpx100j1t4l312nz683m0000gn/T/abx/abc5
     ]
+    fallback_candidate = None
     for candidate in CANDIDATES:
         try:
             create_and_chown_dir(candidate)
@@ -167,6 +173,19 @@ def get_or_create_working_tmp_dir(autofix=True, quiet=True):
             if autofix and STORAGE_CONFIG.TMP_DIR != candidate:
                 STORAGE_CONFIG.update_in_place(TMP_DIR=candidate)
             return candidate
+        try:
+            if fallback_candidate is None and candidate.exists() and dir_is_writable(candidate) and tmp_dir_socket_path_is_short_enough(candidate):
+                fallback_candidate = candidate
+        except Exception:
+            pass
+
+    # Some sandboxed environments disallow AF_UNIX binds entirely.
+    # Fall back to the shortest writable path so read-only CLI commands can still run,
+    # and let later permission checks surface the missing socket support if needed.
+    if fallback_candidate:
+        if autofix and STORAGE_CONFIG.TMP_DIR != fallback_candidate:
+            STORAGE_CONFIG.update_in_place(TMP_DIR=fallback_candidate)
+        return fallback_candidate
     
     if not quiet:
         raise OSError(f'ArchiveBox is unable to find a writable TMP_DIR, tried {CANDIDATES}!')
@@ -205,6 +224,11 @@ def get_or_create_working_lib_dir(autofix=True, quiet=False):
 def get_data_locations():
     from archivebox.config import CONSTANTS
     from archivebox.config.common import STORAGE_CONFIG
+
+    try:
+        tmp_dir = get_or_create_working_tmp_dir(autofix=True, quiet=True) or STORAGE_CONFIG.TMP_DIR
+    except Exception:
+        tmp_dir = STORAGE_CONFIG.TMP_DIR
     
     return benedict({
         "DATA_DIR": {
@@ -246,9 +270,9 @@ def get_data_locations():
             "is_valid": os.path.isdir(CONSTANTS.LOGS_DIR) and os.access(CONSTANTS.LOGS_DIR, os.R_OK) and os.access(CONSTANTS.LOGS_DIR, os.W_OK),                             # read + write
         },
         'TMP_DIR': {
-            'path': STORAGE_CONFIG.TMP_DIR.resolve(),
+            'path': tmp_dir.resolve(),
             'enabled': True,
-            'is_valid': os.path.isdir(STORAGE_CONFIG.TMP_DIR) and os.access(STORAGE_CONFIG.TMP_DIR, os.R_OK) and os.access(STORAGE_CONFIG.TMP_DIR, os.W_OK),        # read + write
+            'is_valid': os.path.isdir(tmp_dir) and os.access(tmp_dir, os.R_OK) and os.access(tmp_dir, os.W_OK),        # read + write
         },
         # "CACHE_DIR": {
         #     "path": CACHE_DIR.resolve(),
@@ -262,6 +286,13 @@ def get_code_locations():
     from archivebox.config import CONSTANTS
     from archivebox.config.common import STORAGE_CONFIG
 
+    try:
+        lib_dir = get_or_create_working_lib_dir(autofix=True, quiet=True) or STORAGE_CONFIG.LIB_DIR
+    except Exception:
+        lib_dir = STORAGE_CONFIG.LIB_DIR
+
+    lib_bin_dir = lib_dir / 'bin'
+    
     return benedict({
         'PACKAGE_DIR': {
             'path': (PACKAGE_DIR).resolve(),
@@ -284,14 +315,14 @@ def get_code_locations():
             'is_valid': os.path.isdir(CONSTANTS.USER_PLUGINS_DIR) and os.access(CONSTANTS.USER_PLUGINS_DIR, os.R_OK),                                              # read
         },
         'LIB_DIR': {
-            'path': STORAGE_CONFIG.LIB_DIR.resolve(),
+            'path': lib_dir.resolve(),
             'enabled': True,
-            'is_valid': os.path.isdir(STORAGE_CONFIG.LIB_DIR) and os.access(STORAGE_CONFIG.LIB_DIR, os.R_OK) and os.access(STORAGE_CONFIG.LIB_DIR, os.W_OK),                      # read + write
+            'is_valid': os.path.isdir(lib_dir) and os.access(lib_dir, os.R_OK) and os.access(lib_dir, os.W_OK),                      # read + write
         },
         'LIB_BIN_DIR': {
-            'path': STORAGE_CONFIG.LIB_BIN_DIR.resolve(),
+            'path': lib_bin_dir.resolve(),
             'enabled': True,
-            'is_valid': os.path.isdir(STORAGE_CONFIG.LIB_BIN_DIR) and os.access(STORAGE_CONFIG.LIB_BIN_DIR, os.R_OK) and os.access(STORAGE_CONFIG.LIB_BIN_DIR, os.W_OK),        # read + write
+            'is_valid': os.path.isdir(lib_bin_dir) and os.access(lib_bin_dir, os.R_OK) and os.access(lib_bin_dir, os.W_OK),        # read + write
         },
     })
 
@@ -409,4 +440,3 @@ def get_code_locations():
 #         print(f'[red]:cross_mark:  ERROR: SYSTEM_TMP_DIR {run_dir} is not writable by archivebox user {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}[/red]', file=sys.stderr)
         
 #     return run_dir
-

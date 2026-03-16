@@ -5,6 +5,7 @@ from django import forms
 from archivebox.misc.util import URL_REGEX
 from taggit.utils import edit_string_for_tags, parse_tags
 from archivebox.base_models.admin import KeyValueWidget
+from archivebox.crawls.schedule_utils import validate_schedule
 
 DEPTH_CHOICES = (
     ('0', 'depth = 0 (archive just these URLs)'),
@@ -196,6 +197,18 @@ class AddLinkForm(forms.Form):
         cleaned_data['plugins'] = all_selected_plugins
 
         return cleaned_data
+
+    def clean_schedule(self):
+        schedule = (self.cleaned_data.get('schedule') or '').strip()
+        if not schedule:
+            return ''
+
+        try:
+            validate_schedule(schedule)
+        except ValueError as err:
+            raise forms.ValidationError(str(err))
+
+        return schedule
 
 class TagWidgetMixin:
     def format_value(self, value):

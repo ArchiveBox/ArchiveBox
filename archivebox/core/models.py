@@ -2963,6 +2963,8 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         for file_path in plugin_dir.rglob('*'):
             if not file_path.is_file():
                 continue
+            if '.hooks' in file_path.parts:
+                continue
             if file_path.name in exclude_names:
                 continue
 

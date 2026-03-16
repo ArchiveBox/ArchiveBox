@@ -776,7 +776,7 @@ class SnapshotWorker(Worker):
 
     def runloop(self) -> None:
         """Execute all hooks sequentially."""
-        from archivebox.hooks import discover_hooks, is_background_hook
+        from archivebox.hooks import discover_hooks, is_background_hook, is_finite_background_hook
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.config.configset import get_config
 
@@ -797,7 +797,7 @@ class SnapshotWorker(Worker):
             hooks = sorted(hooks, key=lambda h: h.name)  # Sort by name (includes step prefix)
 
             foreground_hooks: list[tuple[Path, ArchiveResult]] = []
-            launched_background_hooks = False
+            launched_finite_background_hooks = False
 
             # Execute each hook sequentially
             for hook_path in hooks:
@@ -835,7 +835,8 @@ class SnapshotWorker(Worker):
                 process = self._run_hook(hook_path, ar, config)
 
                 if is_background:
-                    launched_background_hooks = True
+                    if is_finite_background_hook(hook_name):
+                        launched_finite_background_hooks = True
                     # Track but don't wait
                     self.background_processes[hook_name] = process
                     log_worker_event(
@@ -860,7 +861,7 @@ class SnapshotWorker(Worker):
 
             # All hooks launched (or completed) - terminate bg hooks and seal
             self._finalize_background_hooks()
-            if launched_background_hooks:
+            if launched_finite_background_hooks:
                 self._retry_failed_empty_foreground_hooks(foreground_hooks, config)
             if self.snapshot.status != Snapshot.StatusChoices.SEALED:
                 # This triggers enter_sealed() which calls cleanup() and checks parent crawl sealing
@@ -961,9 +962,13 @@ class SnapshotWorker(Worker):
         window before giving up.
         """
         import time
-        from archivebox.core.models import Snapshot
+        from archivebox.core.models import ArchiveResult, Snapshot
 
         retry_delays = (0.0, 0.25, 0.5, 1.0)
+        retryable_statuses = {
+            ArchiveResult.StatusChoices.FAILED,
+            ArchiveResult.StatusChoices.SKIPPED,
+        }
 
         for hook_path, ar in hooks:
             for attempt, delay in enumerate(retry_delays, start=1):
@@ -975,7 +980,9 @@ class SnapshotWorker(Worker):
                     return
 
                 ar.refresh_from_db()
-                if ar.output_files:
+                if ar.status not in retryable_statuses:
+                    break
+                if ar.output_files or ar.output_str or ar.output_json:
                     break
 
                 if delay:

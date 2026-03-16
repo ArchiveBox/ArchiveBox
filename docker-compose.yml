@@ -47,31 +47,11 @@ services:
 
     ######## Optional Addons: tweak examples below as needed for your specific use case ########
 
-    ### This optional container runs scheduled jobs in the background (and retries failed ones). To add a new job:
+    ### `archivebox server` now runs the orchestrator itself, so scheduled crawls and queued UI/API jobs
+    # are processed by the main container without needing a separate scheduler sidecar. To add a new job:
     #   $ docker compose run archivebox schedule --add --every=day --depth=1 'https://example.com/some/rss/feed.xml'
-    # then restart the scheduler container to apply any changes to the scheduled task list:
-    #   $ docker compose restart archivebox_scheduler
+    # the running server orchestrator will pick it up automatically at the next due time.
     # https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving
-
-    archivebox_scheduler:
-        
-        image: archivebox/archivebox:latest
-        command: schedule --foreground --update --every=day
-        environment:
-            # - PUID=911                        # set to your host user's UID & GID if you encounter permissions issues
-            # - PGID=911
-            - TIMEOUT=120                       # use a higher timeout than the main container to give slow tasks more time when retrying
-            - SEARCH_BACKEND_ENGINE=sonic       # tells ArchiveBox to use sonic container below for fast full-text search
-            - SEARCH_BACKEND_HOST_NAME=sonic
-            - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
-            # For other config it's better to set using `docker compose run archivebox config --set SOME_KEY=someval` instead of setting here
-            # ...
-            # For more info, see: https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#configuration
-        volumes:
-            - ./data:/data
-        # cpus: 2                               # uncomment / edit these values to limit scheduler container resource consumption
-        # mem_limit: 2048m
-        # restart: always
 
 
     ### This runs the optional Sonic full-text search backend (much faster than default rg backend).
