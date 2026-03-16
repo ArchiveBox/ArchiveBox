@@ -9,9 +9,11 @@ Tests cover:
 """
 
 import pytest
+from typing import cast
 from django.test import override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import UserManager
 
 pytestmark = pytest.mark.django_db
 
@@ -24,7 +26,7 @@ PUBLIC_HOST = 'public.archivebox.localhost:8000'
 @pytest.fixture
 def admin_user(db):
     """Create admin user for tests."""
-    return User.objects.create_superuser(
+    return cast(UserManager, User.objects).create_superuser(
         username='testadmin',
         email='admin@test.com',
         password='testpassword'

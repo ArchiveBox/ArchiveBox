@@ -31,7 +31,7 @@ __package__ = 'archivebox.workers'
 import os
 import time
 from typing import Type
-from datetime import timedelta
+from datetime import datetime, timedelta
 from multiprocessing import Process as MPProcess
 from pathlib import Path
 
@@ -189,7 +189,7 @@ class Orchestrator:
             event='Shutting down',
             indent_level=0,
             pid=self.pid,
-            error=error if error and not isinstance(error, KeyboardInterrupt) else None,
+            error=error if isinstance(error, Exception) and not isinstance(error, KeyboardInterrupt) else None,
         )
 
     def get_total_worker_count(self) -> int:
@@ -567,7 +567,8 @@ class Orchestrator:
                 status=ArchiveResult.StatusChoices.STARTED,
             ).select_related('process')
             for ar in started_ars:
-                if ar.process_id and ar.process and ar.process.status == Process.StatusChoices.RUNNING:
+                process_id = getattr(ar, 'process_id', None)
+                if process_id and ar.process and ar.process.status == Process.StatusChoices.RUNNING:
                     try:
                         ar.process.kill_tree(graceful_timeout=0.0)
                     except Exception:
@@ -904,28 +905,29 @@ class Orchestrator:
                                 size = ''
                                 stderr_tail = ''
                                 if ar:
-                                    if ar.process_id and ar.process:
+                                    process_id = getattr(ar, 'process_id', None)
+                                    if process_id and ar.process:
                                         stderr_tail = _tail_stderr_line(ar.process)
                                     if ar.status == ArchiveResult.StatusChoices.STARTED:
                                         status = 'started'
                                         is_running = True
                                         is_pending = False
-                                        start_ts = ar.start_ts or (ar.process.started_at if ar.process_id and ar.process else None)
+                                        start_ts = ar.start_ts or (ar.process.started_at if process_id and ar.process else None)
                                         if start_ts:
                                             elapsed = _format_seconds((now - start_ts).total_seconds())
                                         hook_timeout = None
-                                        if ar.process_id and ar.process and ar.process.timeout:
+                                        if process_id and ar.process and ar.process.timeout:
                                             hook_timeout = ar.process.timeout
                                         hook_timeout = hook_timeout or hook_timeouts.get(hook_name)
                                         if hook_timeout:
                                             timeout = _format_seconds(hook_timeout)
                                     else:
                                         status = ar.status
-                                        if ar.process_id and ar.process and ar.process.exit_code == 137:
+                                        if process_id and ar.process and ar.process.exit_code == 137:
                                             status = 'failed'
                                         is_pending = False
-                                        start_ts = ar.start_ts or (ar.process.started_at if ar.process_id and ar.process else None)
-                                        end_ts = ar.end_ts or (ar.process.ended_at if ar.process_id and ar.process else None)
+                                        start_ts = ar.start_ts or (ar.process.started_at if process_id and ar.process else None)
+                                        end_ts = ar.end_ts or (ar.process.ended_at if process_id and ar.process else None)
                                         if start_ts and end_ts:
                                             elapsed = _format_seconds((end_ts - start_ts).total_seconds())
                                         size = _format_size(getattr(ar, 'output_size', None))
@@ -1093,7 +1095,7 @@ class Orchestrator:
                     from archivebox.core.models import Snapshot
 
                     # Get all started snapshots (optionally filtered by crawl_id)
-                    snapshot_filter = {'status': 'started'}
+                    snapshot_filter: dict[str, str | datetime] = {'status': 'started'}
                     if self.crawl_id:
                         snapshot_filter['crawl_id'] = self.crawl_id
                     else:

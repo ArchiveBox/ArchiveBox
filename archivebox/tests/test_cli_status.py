@@ -202,3 +202,24 @@ def test_status_shows_index_file_info(tmp_path, process):
 
     # Should mention index
     assert 'index' in result.stdout.lower() or 'Index' in result.stdout
+
+
+def test_status_help_lists_available_options(tmp_path, process):
+    """Test that status --help works and documents the command."""
+    os.chdir(tmp_path)
+    result = subprocess.run(
+        ['archivebox', 'status', '--help'],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert 'status' in result.stdout.lower() or 'statistic' in result.stdout.lower()
+
+
+def test_status_shows_data_directory_path(tmp_path, process):
+    """Test that status reports which collection directory it is inspecting."""
+    os.chdir(tmp_path)
+    result = subprocess.run(['archivebox', 'status'], capture_output=True, text=True)
+
+    assert 'archive' in result.stdout.lower() or str(tmp_path) in result.stdout

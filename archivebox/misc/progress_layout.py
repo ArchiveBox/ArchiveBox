@@ -17,7 +17,7 @@ from collections import deque
 from pathlib import Path
 
 from rich import box
-from rich.console import Group
+from rich.console import Group, RenderableType
 from rich.layout import Layout
 from rich.columns import Columns
 from rich.panel import Panel
@@ -48,7 +48,7 @@ class CrawlQueuePanel:
         self.max_crawl_workers = 8
         self.crawl_id: Optional[str] = None
 
-    def __rich__(self) -> Panel:
+    def __rich__(self) -> RenderableType:
         grid = Table.grid(expand=True)
         grid.add_column(justify="left", ratio=1)
         grid.add_column(justify="center", ratio=1)
@@ -104,7 +104,7 @@ class ProcessLogPanel:
         self.compact = compact
         self.bg_terminating = bg_terminating
 
-    def __rich__(self) -> Panel:
+    def __rich__(self) -> RenderableType:
         completed_line = self._completed_output_line()
         if completed_line:
             style = "green" if self._completed_ok() else "yellow"

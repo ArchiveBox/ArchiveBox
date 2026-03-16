@@ -165,6 +165,8 @@ class ReverseProxyAuthMiddleware(RemoteUserMiddleware):
             return
 
         ip = request.META.get('REMOTE_ADDR')
+        if not isinstance(ip, str):
+            return
 
         for cidr in SERVER_CONFIG.REVERSE_PROXY_WHITELIST.split(','):
             try:

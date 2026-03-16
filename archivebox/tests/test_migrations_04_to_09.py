@@ -12,6 +12,7 @@ import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from typing import cast
 
 from .migrations_helpers import (
     SCHEMA_0_4,
@@ -74,7 +75,7 @@ class TestMigrationFrom04x(unittest.TestCase):
 
         # Collect unique tags from original data
         original_tags = set()
-        for tags_str in self.original_data['tags_str']:
+        for tags_str in cast(list[str], self.original_data['tags_str']):
             if tags_str:
                 for tag in tags_str.split(','):
                     original_tags.add(tag.strip())

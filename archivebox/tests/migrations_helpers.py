@@ -967,7 +967,7 @@ def seed_0_8_data(db_path: Path) -> Dict[str, List[Dict]]:
 # Helper Functions
 # =============================================================================
 
-def run_archivebox(data_dir: Path, args: list, timeout: int = 60, env: dict = None) -> subprocess.CompletedProcess:
+def run_archivebox(data_dir: Path, args: list, timeout: int = 60, env: dict | None = None) -> subprocess.CompletedProcess:
     """Run archivebox command in subprocess with given data directory."""
     base_env = os.environ.copy()
     base_env['DATA_DIR'] = str(data_dir)

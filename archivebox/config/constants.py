@@ -17,7 +17,6 @@ import sys
 
 from typing import Dict
 from pathlib import Path
-from collections.abc import Mapping
 
 from benedict import benedict
 
@@ -46,7 +45,7 @@ from .version import detect_installed_version
 ###################### Config ##########################
 
 
-class ConstantsDict(Mapping):
+class ConstantsDict:
     PACKAGE_DIR: Path                   = PACKAGE_DIR
     DATA_DIR: Path                      = DATA_DIR
     ARCHIVE_DIR: Path                   = ARCHIVE_DIR
@@ -225,16 +224,9 @@ class ConstantsDict(Mapping):
     def __benedict__(cls):
         # when casting to benedict, only include uppercase keys that don't start with an underscore
         return benedict({key: value for key, value in cls.__dict__.items() if key.isupper() and not key.startswith('_')})
-    
-    @classmethod
-    def __len__(cls):
-        return len(cls.__benedict__())
 
-    @classmethod
-    def __iter__(cls):
-        return iter(cls.__benedict__())
 
-CONSTANTS = ConstantsDict()
+CONSTANTS = ConstantsDict
 CONSTANTS_CONFIG = CONSTANTS.__benedict__()
 
 # add all key: values to globals() for easier importing, e.g.:

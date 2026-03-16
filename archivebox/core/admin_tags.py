@@ -1,16 +1,17 @@
 __package__ = 'archivebox.core'
 
 from django.contrib import admin
-from django.utils.html import format_html, mark_safe
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from archivebox.misc.paginators import AccelleratedPaginator
 from archivebox.base_models.admin import BaseModelAdmin
 
-from archivebox.core.models import Tag
+from archivebox.core.models import SnapshotTag, Tag
 
 
 class TagInline(admin.TabularInline):
-    model = Tag.snapshot_set.through       # type: ignore
+    model = SnapshotTag
     # fk_name = 'snapshot'
     fields = ('id', 'tag')
     extra = 1
@@ -173,4 +174,3 @@ class TagAdmin(BaseModelAdmin):
 
 def register_admin(admin_site):
     admin_site.register(Tag, TagAdmin)
-

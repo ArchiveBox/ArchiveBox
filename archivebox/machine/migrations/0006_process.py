@@ -2,8 +2,9 @@
 
 import django.db.models.deletion
 import django.utils.timezone
-import uuid
 from django.db import migrations, models
+
+from archivebox.uuid_compat import uuid7
 
 
 class Migration(migrations.Migration):
@@ -16,7 +17,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Process',
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid7, editable=False, primary_key=True, serialize=False, unique=True)),
+                ('id', models.UUIDField(default=uuid7, editable=False, primary_key=True, serialize=False, unique=True)),
                 ('created_at', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
                 ('modified_at', models.DateTimeField(auto_now=True)),
                 ('pwd', models.CharField(blank=True, default='', help_text='Working directory for process execution', max_length=512)),

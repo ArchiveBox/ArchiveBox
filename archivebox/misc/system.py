@@ -9,13 +9,14 @@ import sys
 from json import dump
 from pathlib import Path
 from typing import Optional, Union, Tuple
-from subprocess import _mswindows, PIPE, Popen, CalledProcessError, CompletedProcess, TimeoutExpired
+from subprocess import PIPE, Popen, CalledProcessError, CompletedProcess, TimeoutExpired
 
 from atomicwrites import atomic_write as lib_atomic_write
 
 from archivebox.config.common import STORAGE_CONFIG
 from archivebox.misc.util import enforce_types, ExtendedEncoder
 
+IS_WINDOWS = os.name == 'nt'
 
 def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, text=False, start_new_session=True, **kwargs):
     """Patched of subprocess.run to kill forked child subprocesses and fix blocking io making timeout=innefective
@@ -47,13 +48,15 @@ def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, 
                 stdout, stderr = process.communicate(input, timeout=timeout)
             except TimeoutExpired as exc:
                 process.kill()
-                if _mswindows:
+                if IS_WINDOWS:
                     # Windows accumulates the output in a single blocking
                     # read() call run on child threads, with the timeout
                     # being done in a join() on those threads.  communicate()
                     # _after_ kill() is required to collect that and add it
                     # to the exception.
-                    exc.stdout, exc.stderr = process.communicate()
+                    timed_out_stdout, timed_out_stderr = process.communicate()
+                    exc.stdout = timed_out_stdout.encode() if isinstance(timed_out_stdout, str) else timed_out_stdout
+                    exc.stderr = timed_out_stderr.encode() if isinstance(timed_out_stderr, str) else timed_out_stderr
                 else:
                     # POSIX _communicate already populated the output so
                     # far into the TimeoutExpired exception.
@@ -71,11 +74,12 @@ def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, 
     finally:
         # force kill any straggler subprocesses that were forked from the main proc
         try:
-            os.killpg(pgid, signal.SIGINT)
+            if pgid is not None:
+                os.killpg(pgid, signal.SIGINT)
         except Exception:
             pass
 
-    return CompletedProcess(process.args, retcode, stdout, stderr)
+    return CompletedProcess(process.args, retcode or 0, stdout, stderr)
 
 
 @enforce_types

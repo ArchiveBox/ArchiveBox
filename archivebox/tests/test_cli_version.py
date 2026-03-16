@@ -77,6 +77,17 @@ def test_version_quiet_outputs_version_number(tmp_path):
     assert len(parts) >= 2
 
 
+def test_version_flag_outputs_version_number(tmp_path):
+    """Test that top-level --version reports the package version."""
+    os.chdir(tmp_path)
+    result = subprocess.run(['archivebox', '--version'], capture_output=True, text=True)
+
+    assert result.returncode == 0
+    version = result.stdout.strip()
+    assert version
+    assert len(version.split('.')) >= 2
+
+
 def test_version_shows_system_info_in_initialized_dir(tmp_path, process):
     """Test that version shows system metadata in initialized directory."""
     os.chdir(tmp_path)
@@ -148,3 +159,20 @@ def test_version_auto_selects_short_tmp_dir_for_deep_collection_path(tmp_path):
     assert reported_tmp_dir.exists()
     assert not reported_tmp_dir.is_relative_to(default_tmp_dir)
     assert len(f"file://{reported_tmp_dir / 'supervisord.sock'}") <= 96
+
+
+def test_version_help_lists_quiet_flag(tmp_path):
+    """Test that version --help documents the quiet output mode."""
+    os.chdir(tmp_path)
+    result = subprocess.run(['archivebox', 'version', '--help'], capture_output=True, text=True)
+
+    assert result.returncode == 0
+    assert '--quiet' in result.stdout or '-q' in result.stdout
+
+
+def test_version_invalid_option_fails(tmp_path):
+    """Test that invalid version options fail cleanly."""
+    os.chdir(tmp_path)
+    result = subprocess.run(['archivebox', 'version', '--invalid-option'], capture_output=True, text=True)
+
+    assert result.returncode != 0

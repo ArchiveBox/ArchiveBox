@@ -13,7 +13,7 @@ django_stubs_ext.monkeypatch()
 
 
 # monkey patch django timezone to add back utc (it was removed in Django 5.0)
-timezone.utc = datetime.timezone.utc
+setattr(timezone, 'utc', datetime.timezone.utc)
 
 # monkey patch django-signals-webhooks to change how it shows up in Admin UI
 # from signal_webhooks.apps import DjangoSignalWebhooksConfig

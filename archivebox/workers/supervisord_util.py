@@ -335,6 +335,7 @@ def start_worker(supervisor, daemon, lazy=False):
     for added in added:
         supervisor.addProcessGroup(added)
 
+    procs = []
     for _ in range(25):
         procs = supervisor.getAllProcessInfo()
         for proc in procs:

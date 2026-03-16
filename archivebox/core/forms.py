@@ -22,12 +22,19 @@ def get_plugin_choices():
     return [(name, name) for name in get_plugins()]
 
 
+def get_choice_field(form: forms.Form, name: str) -> forms.ChoiceField:
+    field = form.fields[name]
+    if not isinstance(field, forms.ChoiceField):
+        raise TypeError(f'{name} must be a ChoiceField')
+    return field
+
+
 class AddLinkForm(forms.Form):
     # Basic fields
     url = forms.RegexField(
         label="URLs (one per line)",
         regex=URL_REGEX,
-        min_length='6',
+        min_length=6,
         strip=True,
         widget=forms.Textarea,
         required=True
@@ -162,22 +169,22 @@ class AddLinkForm(forms.Form):
         extensions = {'twocaptcha', 'istilldontcareaboutcookies', 'ublock'}
 
         # Populate plugin field choices
-        self.fields['chrome_plugins'].choices = [
+        get_choice_field(self, 'chrome_plugins').choices = [
             (p, p) for p in sorted(all_plugins) if p in chrome_dependent
         ]
-        self.fields['archiving_plugins'].choices = [
+        get_choice_field(self, 'archiving_plugins').choices = [
             (p, p) for p in sorted(all_plugins) if p in archiving
         ]
-        self.fields['parsing_plugins'].choices = [
+        get_choice_field(self, 'parsing_plugins').choices = [
             (p, p) for p in sorted(all_plugins) if p in parsing
         ]
-        self.fields['search_plugins'].choices = [
+        get_choice_field(self, 'search_plugins').choices = [
             (p, p) for p in sorted(all_plugins) if p in search
         ]
-        self.fields['binary_plugins'].choices = [
+        get_choice_field(self, 'binary_plugins').choices = [
             (p, p) for p in sorted(all_plugins) if p in binary
         ]
-        self.fields['extension_plugins'].choices = [
+        get_choice_field(self, 'extension_plugins').choices = [
             (p, p) for p in sorted(all_plugins) if p in extensions
         ]
 
@@ -185,13 +192,15 @@ class AddLinkForm(forms.Form):
         self.fields['update'].initial = not ARCHIVING_CONFIG.ONLY_NEW
 
     def clean(self):
-        cleaned_data = super().clean()
+        cleaned_data = super().clean() or {}
 
         # Combine all plugin groups into single list
         all_selected_plugins = []
         for field in ['chrome_plugins', 'archiving_plugins', 'parsing_plugins',
                       'search_plugins', 'binary_plugins', 'extension_plugins']:
-            all_selected_plugins.extend(cleaned_data.get(field, []))
+            selected = cleaned_data.get(field)
+            if isinstance(selected, list):
+                all_selected_plugins.extend(selected)
 
         # Store combined list for easy access
         cleaned_data['plugins'] = all_selected_plugins
@@ -211,15 +220,11 @@ class AddLinkForm(forms.Form):
         return schedule
 
 
-class TagWidgetMixin:
+class TagWidget(forms.TextInput):
     def format_value(self, value):
         if value is not None and not isinstance(value, str):
             value = edit_string_for_tags(value)
         return super().format_value(value)
-
-
-class TagWidget(TagWidgetMixin, forms.TextInput):
-    pass
 
 
 class TagField(forms.CharField):
@@ -234,21 +239,21 @@ class TagField(forms.CharField):
                 "Please provide a comma-separated list of tags."
             )
 
-    def has_changed(self, initial_value, data_value):
+    def has_changed(self, initial, data):
         # Always return False if the field is disabled since self.bound_data
         # always uses the initial value in this case.
         if self.disabled:
             return False
 
         try:
-            data_value = self.clean(data_value)
+            cleaned_data = self.clean(data)
         except forms.ValidationError:
-            pass
+            cleaned_data = data
 
-        if initial_value is None:
-            initial_value = []
+        initial_value = [] if initial is None else initial
 
-        initial_value = [tag.name for tag in initial_value]
-        initial_value.sort()
+        if not isinstance(initial_value, list):
+            initial_value = list(initial_value)
 
-        return initial_value != data_value
+        normalized_initial = sorted(tag.name for tag in initial_value)
+        return normalized_initial != cleaned_data

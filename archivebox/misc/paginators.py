@@ -13,12 +13,17 @@ class AccelleratedPaginator(Paginator):
 
     @cached_property
     def count(self):
-        if self.object_list._has_filters():                             # type: ignore
+        has_filters = getattr(self.object_list, '_has_filters', None)
+        if callable(has_filters) and has_filters():
             # fallback to normal count method on filtered queryset
             return super().count
-        else:
-            # otherwise count total rows in a separate fast query
-            return self.object_list.model.objects.count()
+
+        model = getattr(self.object_list, 'model', None)
+        if model is None:
+            return super().count
+
+        # otherwise count total rows in a separate fast query
+        return model.objects.count()
     
         # Alternative approach for PostgreSQL: fallback count takes > 200ms
         # from django.db import connection, transaction, OperationalError

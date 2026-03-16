@@ -68,7 +68,6 @@ dependencies = [
     "python-benedict[io,parse]>=0.33.2", # for: dict replacement all over the codebase to allow .attr-style access
     "base32-crockford>=0.3.0", # for: encoding UUIDs in base32
     ### Static Typing
-    "mypy-extensions>=1.0.0", # for: django-stubs type hints (TODO: remove in favor of pylance/pyright?)
     "django-stubs>=5.0.4",    # for: vscode type hints on models and common django APIs
     ### API clients
     "requests>=2.32.3",      # for: fetching title, static files, headers (TODO: replace with httpx?)
@@ -86,7 +85,7 @@ dependencies = [
     "abx-plugins>=1.9.11",    # shared ArchiveBox plugin package with install_args-only overrides
     "gallery-dl>=1.31.1",
     ### UUID7 backport for Python <3.14
-    "uuid7>=0.1.0; python_version < '3.14'",  # for: uuid7 support on Python 3.13 (provides uuid_extensions module)
+    "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
     "pytest-django>=4.11.1",
 ]
 
@@ -243,21 +242,6 @@ directory = "htmlcov"
 [tool.coverage.json]
 output = "coverage.json"
 show_contexts = true
-
-[tool.mypy]
-mypy_path = "typings"
-namespace_packages = true
-explicit_package_bases = true
-# follow_imports = "silent"
-# ignore_missing_imports = true
-# disallow_incomplete_defs = true
-# disallow_untyped_defs = true
-# disallow_untyped_decorators = true
-# exclude = "tests/.*"
-plugins = ["mypy_django_plugin.main"]
-
-[tool.django-stubs]
-django_settings_module = "archivebox.core.settings"
 
 [tool.pyright]
 include = [

@@ -6,7 +6,7 @@ __package__ = 'archivebox.misc'
 
 from io import StringIO
 from pathlib import Path
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 from archivebox.config import DATA_DIR
 from archivebox.misc.util import enforce_types
@@ -48,8 +48,8 @@ def apply_migrations(out_dir: Path = DATA_DIR) -> List[str]:
 
 
 @enforce_types
-def get_admins(out_dir: Path = DATA_DIR) -> List:
+def get_admins(out_dir: Path = DATA_DIR) -> List[Any]:
     """Get list of superuser accounts"""
     from django.contrib.auth.models import User
 
-    return User.objects.filter(is_superuser=True).exclude(username='system')
+    return list(User.objects.filter(is_superuser=True).exclude(username='system'))

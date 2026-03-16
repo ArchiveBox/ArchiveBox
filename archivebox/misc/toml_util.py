@@ -42,7 +42,7 @@ def convert(ini_str: str) -> str:
     """Convert a string of INI config into its TOML equivalent (warning: strips comments)"""
 
     config = configparser.ConfigParser()
-    config.optionxform = str  # capitalize key names
+    setattr(config, 'optionxform', str)  # capitalize key names
     config.read_string(ini_str)
 
     # Initialize an empty dictionary to store the TOML representation
@@ -77,12 +77,12 @@ class JSONSchemaWithLambdas(GenerateJsonSchema):
     Usage:
     >>> json.dumps(value, encoder=JSONSchemaWithLambdas())
     """
-    def encode_default(self, default: Any) -> Any:
+    def encode_default(self, dft: Any) -> Any:
         config = self._config
-        if isinstance(default, Callable):
-            return '{{lambda ' + inspect.getsource(default).split('=lambda ')[-1].strip()[:-1] + '}}'
+        if isinstance(dft, Callable):
+            return '{{lambda ' + inspect.getsource(dft).split('=lambda ')[-1].strip()[:-1] + '}}'
         return to_jsonable_python(
-            default,
+            dft,
             timedelta_mode=config.ser_json_timedelta,
             bytes_mode=config.ser_json_bytes,
             serialize_unknown=True

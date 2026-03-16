@@ -795,7 +795,7 @@ ArchiveBox bundles industry-standard tools like [Google Chrome](https://github.c
 <li>Web Server: <a href="https://www.djangoproject.com/">Django</a> + <a href="https://github.com/django/daphne/"><code>daphne</code></a> (ASGI)</li>
 <li>Database: <a href="https://docs.djangoproject.com/en/6.0/ref/databases/#sqlite-notes">Django ORM</a> saving to <a href="https://www.sqlite.org/mostdeployed.html">SQLite3</a> <code>./data/index.sqlite3</code></li>
 <li>Job Queue: Custom orchestrator using <code>supervisord</code> for worker management</li>
-<li>Build/test/lint: <a href="https://github.com/astral-sh/uv"><code>uv</code></a> / <code>mypy</code>+<code>pyright</code>+<code>pytest</code> / <code>ruff</code></li>
+<li>Build/test/lint: <a href="https://github.com/astral-sh/uv"><code>uv</code></a> / <code>pyright</code>+<code>ty</code>+<code>pytest</code> / <code>ruff</code></li>
 <li>Subdependencies: <a href="https://github.com/ArchiveBox/abx-pkg"><code>abx-pkg</code></a> installs apt/brew/pip/npm pkgs at runtime (e.g. <code>yt-dlp</code>, <code>singlefile</code>, <code>readability</code>, <code>git</code>)</li>
 </ul>
 
@@ -1464,7 +1464,7 @@ archivebox install
 ./bin/lint.sh
 ./bin/test.sh
 ```
-(uses `flake8`, `mypy`, and `pytest -s`)
+(uses `ruff`, `pyright`, `ty`, and `pytest -s`)
 
 </details>
 

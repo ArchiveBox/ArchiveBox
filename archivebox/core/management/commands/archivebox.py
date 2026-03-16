@@ -2,8 +2,7 @@ __package__ = 'archivebox'
 
 from django.core.management.base import BaseCommand
 
-
-from .cli import run_subcommand
+from archivebox.cli import main as run_cli
 
 
 class Command(BaseCommand):
@@ -15,4 +14,5 @@ class Command(BaseCommand):
 
 
     def handle(self, *args, **kwargs):
-        run_subcommand(kwargs['subcommand'], args=kwargs['command_args'])
+        command_args = [kwargs['subcommand'], *kwargs['command_args']]
+        run_cli(args=command_args)

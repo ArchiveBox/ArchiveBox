@@ -8,7 +8,7 @@ Click command metadata. Handles JSON-RPC 2.0 requests over stdio transport.
 import sys
 import json
 import traceback
-from typing import Optional
+from typing import Any, Optional
 
 import click
 from click.testing import CliRunner
@@ -19,25 +19,25 @@ from archivebox.config.version import VERSION
 class MCPJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder that handles Click sentinel values and other special types"""
 
-    def default(self, obj):
+    def default(self, o):
         # Handle Click's sentinel values
-        if hasattr(click, 'core') and hasattr(click.core, '_SentinelClass'):
-            if isinstance(obj, click.core._SentinelClass):
+        sentinel_type = getattr(click.core, '_SentinelClass', None)
+        if isinstance(sentinel_type, type) and isinstance(o, sentinel_type):
                 return None
 
         # Handle tuples (convert to lists)
-        if isinstance(obj, tuple):
-            return list(obj)
+        if isinstance(o, tuple):
+            return list(o)
 
         # Handle any other non-serializable objects
         try:
-            return super().default(obj)
+            return super().default(o)
         except TypeError:
-            return str(obj)
+            return str(o)
 
 
 # Type mapping from Click types to JSON Schema types
-def click_type_to_json_schema_type(click_type) -> dict:
+def click_type_to_json_schema_type(click_type: click.ParamType) -> dict[str, Any]:
     """Convert a Click parameter type to JSON Schema type definition"""
 
     if isinstance(click_type, click.types.StringParamType):
@@ -49,7 +49,7 @@ def click_type_to_json_schema_type(click_type) -> dict:
     elif isinstance(click_type, click.types.BoolParamType):
         return {"type": "boolean"}
     elif isinstance(click_type, click.types.Choice):
-        return {"type": "string", "enum": click_type.choices}
+        return {"type": "string", "enum": list(click_type.choices)}
     elif isinstance(click_type, click.types.Path):
         return {"type": "string", "description": "File or directory path"}
     elif isinstance(click_type, click.types.File):
@@ -62,7 +62,7 @@ def click_type_to_json_schema_type(click_type) -> dict:
         return {"type": "string"}
 
 
-def click_command_to_mcp_tool(cmd_name: str, click_command: click.Command) -> dict:
+def click_command_to_mcp_tool(cmd_name: str, click_command: click.Command) -> dict[str, Any]:
     """
     Convert a Click command to an MCP tool definition with JSON Schema.
 
@@ -70,20 +70,21 @@ def click_command_to_mcp_tool(cmd_name: str, click_command: click.Command) -> di
     the input schema without manual definition.
     """
 
-    properties = {}
-    required = []
+    properties: dict[str, dict[str, Any]] = {}
+    required: list[str] = []
 
     # Extract parameters from Click command
     for param in click_command.params:
         # Skip internal parameters
-        if param.name in ('help', 'version'):
+        if param.name is None or param.name in ('help', 'version'):
             continue
 
         param_schema = click_type_to_json_schema_type(param.type)
 
         # Add description from Click help text
-        if param.help:
-            param_schema["description"] = param.help
+        help_text = getattr(param, 'help', None)
+        if help_text:
+            param_schema["description"] = help_text
 
         # Handle default values
         if param.default is not None and param.default != ():
@@ -248,7 +249,7 @@ class MCPServer:
         if cmd_name not in self._tool_cache:
             if cmd_name not in self.cli_group.all_subcommands:
                 return None
-            self._tool_cache[cmd_name] = self.cli_group.get_command(None, cmd_name)
+            self._tool_cache[cmd_name] = self.cli_group.get_command(click.Context(self.cli_group), cmd_name)
         return self._tool_cache[cmd_name]
 
     def handle_initialize(self, params: dict) -> dict:

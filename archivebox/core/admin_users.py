@@ -2,8 +2,9 @@ __package__ = 'archivebox.core'
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from django.utils.html import format_html, mark_safe
 from django.contrib.auth import get_user_model
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 
 class CustomUserAdmin(UserAdmin):
@@ -16,7 +17,7 @@ class CustomUserAdmin(UserAdmin):
     add_fieldsets = UserAdmin.add_fieldsets
 
     # Extend fieldsets for change form only (not user creation)
-    fieldsets = [*UserAdmin.fieldsets, ('Data', {'fields': readonly_fields})]
+    fieldsets = [*(UserAdmin.fieldsets or ()), ('Data', {'fields': readonly_fields})]
 
     @admin.display(description='Snapshots')
     def snapshot_set(self, obj):

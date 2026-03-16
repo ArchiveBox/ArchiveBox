@@ -7,6 +7,21 @@ Verify add creates snapshots in DB, crawls, source files, and archive directorie
 import os
 import sqlite3
 import subprocess
+from pathlib import Path
+
+
+def _find_snapshot_dir(data_dir: Path, snapshot_id: str) -> Path | None:
+    candidates = {snapshot_id}
+    if len(snapshot_id) == 32:
+        candidates.add(f"{snapshot_id[:8]}-{snapshot_id[8:12]}-{snapshot_id[12:16]}-{snapshot_id[16:20]}-{snapshot_id[20:]}")
+    elif len(snapshot_id) == 36 and '-' in snapshot_id:
+        candidates.add(snapshot_id.replace('-', ''))
+
+    for needle in candidates:
+        for path in data_dir.rglob(needle):
+            if path.is_dir():
+                return path
+    return None
 
 
 def test_add_single_url_creates_snapshot_in_db(tmp_path, process, disable_extractors_dict):
@@ -144,6 +159,21 @@ def test_add_with_depth_1_flag(tmp_path, process, disable_extractors_dict):
     assert 'unrecognized arguments: --depth' not in result.stderr.decode('utf-8')
 
 
+def test_add_rejects_invalid_depth_values(tmp_path, process, disable_extractors_dict):
+    """Test that add rejects depth values outside the supported range."""
+    os.chdir(tmp_path)
+
+    for depth in ('5', '-1'):
+        result = subprocess.run(
+            ['archivebox', 'add', '--index-only', f'--depth={depth}', 'https://example.com'],
+            capture_output=True,
+            env=disable_extractors_dict,
+        )
+        stderr = result.stderr.decode('utf-8').lower()
+        assert result.returncode != 0
+        assert 'invalid' in stderr or 'not one of' in stderr
+
+
 def test_add_with_tags(tmp_path, process, disable_extractors_dict):
     """Test adding URL with tags stores tags_str in crawl.
 
@@ -245,11 +275,8 @@ def test_add_with_overwrite_flag(tmp_path, process, disable_extractors_dict):
     assert 'unrecognized arguments: --overwrite' not in result.stderr.decode('utf-8')
 
 
-def test_add_creates_archive_subdirectory(tmp_path, process, disable_extractors_dict):
-    """Test that add creates archive subdirectory for the snapshot.
-
-    Archive subdirectories are named by timestamp, not by snapshot ID.
-    """
+def test_add_creates_snapshot_output_directory(tmp_path, process, disable_extractors_dict):
+    """Test that add creates the current snapshot output directory on disk."""
     os.chdir(tmp_path)
     subprocess.run(
         ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
@@ -257,16 +284,44 @@ def test_add_creates_archive_subdirectory(tmp_path, process, disable_extractors_
         env=disable_extractors_dict,
     )
 
-    # Get the snapshot timestamp from the database
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
-    timestamp = c.execute("SELECT timestamp FROM core_snapshot").fetchone()[0]
+    snapshot_id = str(c.execute("SELECT id FROM core_snapshot").fetchone()[0])
     conn.close()
 
-    # Check that archive subdirectory was created using timestamp
-    archive_dir = tmp_path / "archive" / str(timestamp)
-    assert archive_dir.exists()
-    assert archive_dir.is_dir()
+    snapshot_dir = _find_snapshot_dir(tmp_path, snapshot_id)
+    assert snapshot_dir is not None, f"Snapshot output directory not found for {snapshot_id}"
+    assert snapshot_dir.is_dir()
+
+
+def test_add_help_shows_depth_and_tag_options(tmp_path, process):
+    """Test that add --help documents the main filter and crawl options."""
+    os.chdir(tmp_path)
+
+    result = subprocess.run(
+        ['archivebox', 'add', '--help'],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert '--depth' in result.stdout
+    assert '--tag' in result.stdout
+
+
+def test_add_without_args_shows_usage(tmp_path, process):
+    """Test that add without URLs fails with a usage hint instead of crashing."""
+    os.chdir(tmp_path)
+
+    result = subprocess.run(
+        ['archivebox', 'add'],
+        capture_output=True,
+        text=True,
+    )
+
+    combined = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert 'usage' in combined.lower() or 'url' in combined.lower()
 
 
 def test_add_index_only_skips_extraction(tmp_path, process, disable_extractors_dict):

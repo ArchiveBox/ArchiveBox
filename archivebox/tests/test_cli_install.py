@@ -93,6 +93,59 @@ def test_install_shows_binary_status(tmp_path, process):
     assert len(output) > 50
 
 
+def test_install_dry_run_prints_dry_run_message(tmp_path, process):
+    """Test that install --dry-run clearly reports that no changes will be made."""
+    os.chdir(tmp_path)
+    result = subprocess.run(
+        ['archivebox', 'install', '--dry-run'],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert result.returncode == 0
+    assert 'dry run' in result.stdout.lower()
+
+
+def test_install_help_lists_dry_run_flag(tmp_path):
+    """Test that install --help documents the dry-run option."""
+    os.chdir(tmp_path)
+    result = subprocess.run(
+        ['archivebox', 'install', '--help'],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert '--dry-run' in result.stdout or '-d' in result.stdout
+
+
+def test_install_invalid_option_fails(tmp_path):
+    """Test that invalid install options fail cleanly."""
+    os.chdir(tmp_path)
+    result = subprocess.run(
+        ['archivebox', 'install', '--invalid-option'],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+
+
+def test_install_from_empty_dir_initializes_collection(tmp_path):
+    """Test that install bootstraps an empty dir before performing work."""
+    os.chdir(tmp_path)
+    result = subprocess.run(
+        ['archivebox', 'install', '--dry-run'],
+        capture_output=True,
+        text=True,
+    )
+
+    output = result.stdout + result.stderr
+    assert result.returncode == 0
+    assert 'Initializing' in output or 'Dry run' in output or 'init' in output.lower()
+
+
 def test_install_updates_binary_table(tmp_path, process):
     """Test that install completes and only mutates dependency state."""
     os.chdir(tmp_path)

@@ -1,7 +1,9 @@
 from datetime import timedelta
+from typing import cast
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import UserManager
 from django.test import TestCase
 from django.utils import timezone
 
@@ -12,7 +14,8 @@ from archivebox.workers.worker import CrawlWorker
 
 class TestScheduledCrawlMaterialization(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(
+        user_manager = cast(UserManager, get_user_model().objects)
+        self.user = user_manager.create_user(
             username='schedule-user',
             password='password',
         )
@@ -52,6 +55,8 @@ class TestScheduledCrawlMaterialization(TestCase):
         self.assertEqual(scheduled_crawls.count(), 2)
 
         queued_crawl = scheduled_crawls.last()
+        self.assertIsNotNone(queued_crawl)
+        assert queued_crawl is not None
         self.assertEqual(queued_crawl.status, Crawl.StatusChoices.QUEUED)
         self.assertEqual(queued_crawl.urls, 'https://example.com/feed.xml')
         self.assertEqual(queued_crawl.max_depth, 1)
@@ -63,7 +68,7 @@ class TestScheduledCrawlMaterialization(TestCase):
         Orchestrator(exit_on_idle=True)._materialize_due_schedules()
         self.assertEqual(Crawl.objects.filter(schedule=schedule).count(), 1)
 
-        Orchestrator(exit_on_idle=False, crawl_id=str(schedule.template_id))._materialize_due_schedules()
+        Orchestrator(exit_on_idle=False, crawl_id=str(schedule.template.id))._materialize_due_schedules()
         self.assertEqual(Crawl.objects.filter(schedule=schedule).count(), 1)
 
     @patch.object(CrawlWorker, 'start')

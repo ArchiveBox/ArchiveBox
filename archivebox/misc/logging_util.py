@@ -14,7 +14,7 @@ from pathlib import Path
 
 from datetime import datetime, timezone
 from dataclasses import dataclass
-from typing import Any, Optional, List, Dict, Union, Iterable, IO, TYPE_CHECKING
+from typing import Any, Optional, List, Dict, Union, Iterable, IO, TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from archivebox.core.models import Snapshot
@@ -397,7 +397,8 @@ def log_list_finished(snapshots):
     from archivebox.core.models import Snapshot
     print()
     print('---------------------------------------------------------------------------------------------------')
-    print(Snapshot.objects.filter(pk__in=[s.pk for s in snapshots]).to_csv(cols=['timestamp', 'is_archived', 'num_outputs', 'url'], header=True, ljust=16, separator=' | '))
+    csv_queryset = cast(Any, Snapshot.objects.filter(pk__in=[s.pk for s in snapshots]))
+    print(csv_queryset.to_csv(cols=['timestamp', 'is_archived', 'num_outputs', 'url'], header=True, ljust=16, separator=' | '))
     print('---------------------------------------------------------------------------------------------------')
     print()
 

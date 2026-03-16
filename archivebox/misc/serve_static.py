@@ -111,7 +111,7 @@ def _render_markdown_fallback(text: str) -> str:
             return _markdown.markdown(
                 text,
                 extensions=["extra", "toc", "sane_lists"],
-                output_format="html5",
+                output_format="html",
             )
         except Exception:
             pass

@@ -56,9 +56,19 @@ urldecode = lambda s: s and unquote(s)
 htmlencode = lambda s: s and escape(s, quote=True)
 htmldecode = lambda s: s and unescape(s)
 
-short_ts = lambda ts: str(parse_date(ts).timestamp()).split('.')[0]
-ts_to_date_str = lambda ts: ts and parse_date(ts).strftime('%Y-%m-%d %H:%M')
-ts_to_iso = lambda ts: ts and parse_date(ts).isoformat()
+def short_ts(ts: Any) -> str | None:
+    parsed = parse_date(ts)
+    return None if parsed is None else str(parsed.timestamp()).split('.')[0]
+
+
+def ts_to_date_str(ts: Any) -> str | None:
+    parsed = parse_date(ts)
+    return None if parsed is None else parsed.strftime('%Y-%m-%d %H:%M')
+
+
+def ts_to_iso(ts: Any) -> str | None:
+    parsed = parse_date(ts)
+    return None if parsed is None else parsed.isoformat()
 
 COLOR_REGEX = re.compile(r'\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m')
 
@@ -175,7 +185,7 @@ def docstring(text: Optional[str]):
 
 
 @enforce_types
-def str_between(string: str, start: str, end: str=None) -> str:
+def str_between(string: str, start: str, end: str | None = None) -> str:
     """(<abc>12345</def>, <abc>, </def>)  ->  12345"""
 
     content = string.split(start, 1)[-1]
@@ -186,7 +196,7 @@ def str_between(string: str, start: str, end: str=None) -> str:
 
 
 @enforce_types
-def parse_date(date: Any) -> datetime:
+def parse_date(date: Any) -> datetime | None:
     """Parse unix timestamps, iso format, and human-readable strings"""
     
     if date is None:
@@ -196,20 +206,24 @@ def parse_date(date: Any) -> datetime:
         if date.tzinfo is None:
             return date.replace(tzinfo=timezone.utc)
 
-        assert date.tzinfo.utcoffset(datetime.now()).seconds == 0, 'Refusing to load a non-UTC date!'
+        offset = date.utcoffset()
+        assert offset == datetime.now(timezone.utc).utcoffset(), 'Refusing to load a non-UTC date!'
         return date
     
     if isinstance(date, (float, int)):
         date = str(date)
 
     if isinstance(date, str):
-        return dateparser(date, settings={'TIMEZONE': 'UTC'}).astimezone(timezone.utc)
+        parsed_date = dateparser(date, settings={'TIMEZONE': 'UTC'})
+        if parsed_date is None:
+            raise ValueError(f'Tried to parse invalid date string! {date}')
+        return parsed_date.astimezone(timezone.utc)
 
     raise ValueError('Tried to parse invalid date! {}'.format(date))
 
 
 @enforce_types
-def download_url(url: str, timeout: int=None) -> str:
+def download_url(url: str, timeout: int | None = None) -> str:
     """Download the contents of a remote url and return the text"""
 
     from archivebox.config.common import ARCHIVING_CONFIG
@@ -221,7 +235,8 @@ def download_url(url: str, timeout: int=None) -> str:
         cookie_jar = http.cookiejar.MozillaCookieJar(ARCHIVING_CONFIG.COOKIES_FILE)
         cookie_jar.load(ignore_discard=True, ignore_expires=True)
         for cookie in cookie_jar:
-            session.cookies.set(cookie.name, cookie.value, domain=cookie.domain, path=cookie.path)
+            if cookie.value is not None:
+                session.cookies.set(cookie.name, cookie.value, domain=cookie.domain, path=cookie.path)
 
     response = session.get(
         url,
@@ -331,47 +346,47 @@ class ExtendedEncoder(pyjson.JSONEncoder):
     fields and objects
     """
 
-    def default(self, obj):
-        cls_name = obj.__class__.__name__
+    def default(self, o):
+        cls_name = o.__class__.__name__
 
-        if hasattr(obj, '_asdict'):
-            return obj._asdict()
+        if hasattr(o, '_asdict'):
+            return o._asdict()
 
-        elif isinstance(obj, bytes):
-            return obj.decode()
+        elif isinstance(o, bytes):
+            return o.decode()
 
-        elif isinstance(obj, datetime):
-            return obj.isoformat()
+        elif isinstance(o, datetime):
+            return o.isoformat()
 
-        elif isinstance(obj, Exception):
-            return '{}: {}'.format(obj.__class__.__name__, obj)
+        elif isinstance(o, Exception):
+            return '{}: {}'.format(o.__class__.__name__, o)
 
-        elif isinstance(obj, Path):
-            return str(obj)
+        elif isinstance(o, Path):
+            return str(o)
 
         elif cls_name in ('dict_items', 'dict_keys', 'dict_values'):
-            return list(obj)
+            return list(o)
 
-        elif isinstance(obj, Callable):
-            return str(obj)
+        elif isinstance(o, Callable):
+            return str(o)
 
         # Try dict/list conversion as fallback
         try:
-            return dict(obj)
+            return dict(o)
         except Exception:
             pass
 
         try:
-            return list(obj)
+            return list(o)
         except Exception:
             pass
 
         try:
-            return str(obj)
+            return str(o)
         except Exception:
             pass
 
-        return pyjson.JSONEncoder.default(self, obj)
+        return pyjson.JSONEncoder.default(self, o)
 
 
 @enforce_types

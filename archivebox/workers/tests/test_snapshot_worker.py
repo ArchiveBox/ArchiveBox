@@ -1,5 +1,6 @@
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 from unittest.mock import patch
 
 from django.test import SimpleTestCase
@@ -11,14 +12,14 @@ class TestSnapshotWorkerRetryForegroundHooks(SimpleTestCase):
     def _make_worker(self):
         worker = SnapshotWorker.__new__(SnapshotWorker)
         worker.pid = 12345
-        worker.snapshot = SimpleNamespace(
+        cast(Any, worker).snapshot = SimpleNamespace(
             status='started',
             refresh_from_db=lambda: None,
         )
         worker._snapshot_exceeded_hard_timeout = lambda: False
         worker._seal_snapshot_due_to_timeout = lambda: None
         worker._run_hook = lambda *args, **kwargs: SimpleNamespace()
-        worker._wait_for_hook = lambda *args, **kwargs: None
+        worker._wait_for_hook = lambda process, ar: None
         return worker
 
     @patch('archivebox.workers.worker.log_worker_event')
@@ -49,10 +50,10 @@ class TestSnapshotWorkerRetryForegroundHooks(SimpleTestCase):
             run_calls.append((args, kwargs))
             return SimpleNamespace()
 
-        def wait_for_hook(process, archive_result):
-            wait_calls.append((process, archive_result))
-            archive_result.status = 'succeeded'
-            archive_result.output_files = {'singlefile.html': {}}
+        def wait_for_hook(process, ar):
+            wait_calls.append((process, ar))
+            ar.status = 'succeeded'
+            ar.output_files = {'singlefile.html': {}}
 
         archive_result = SimpleNamespace(
             status='failed',

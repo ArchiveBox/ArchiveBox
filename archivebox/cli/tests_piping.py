@@ -29,6 +29,7 @@ import tempfile
 import unittest
 from io import StringIO
 from pathlib import Path
+from typing import TypeVar
 
 # Test configuration - disable slow extractors
 TEST_CONFIG = {
@@ -58,6 +59,14 @@ TEST_CONFIG = {
 
 os.environ.update(TEST_CONFIG)
 
+T = TypeVar('T')
+
+
+def require(value: T | None) -> T:
+    if value is None:
+        raise AssertionError('Expected value to be present')
+    return value
+
 
 # =============================================================================
 # JSONL Utility Tests
@@ -70,8 +79,7 @@ class TestJSONLParsing(unittest.TestCase):
         """Plain URLs should be parsed as Snapshot records."""
         from archivebox.misc.jsonl import parse_line, TYPE_SNAPSHOT
 
-        result = parse_line('https://example.com')
-        self.assertIsNotNone(result)
+        result = require(parse_line('https://example.com'))
         self.assertEqual(result['type'], TYPE_SNAPSHOT)
         self.assertEqual(result['url'], 'https://example.com')
 
@@ -80,8 +88,7 @@ class TestJSONLParsing(unittest.TestCase):
         from archivebox.misc.jsonl import parse_line, TYPE_SNAPSHOT
 
         line = '{"type": "Snapshot", "url": "https://example.com", "tags": "test,demo"}'
-        result = parse_line(line)
-        self.assertIsNotNone(result)
+        result = require(parse_line(line))
         self.assertEqual(result['type'], TYPE_SNAPSHOT)
         self.assertEqual(result['url'], 'https://example.com')
         self.assertEqual(result['tags'], 'test,demo')
@@ -91,8 +98,7 @@ class TestJSONLParsing(unittest.TestCase):
         from archivebox.misc.jsonl import parse_line, TYPE_CRAWL
 
         line = '{"type": "Crawl", "id": "abc123", "urls": "https://example.com", "max_depth": 1}'
-        result = parse_line(line)
-        self.assertIsNotNone(result)
+        result = require(parse_line(line))
         self.assertEqual(result['type'], TYPE_CRAWL)
         self.assertEqual(result['id'], 'abc123')
         self.assertEqual(result['urls'], 'https://example.com')
@@ -103,8 +109,7 @@ class TestJSONLParsing(unittest.TestCase):
         from archivebox.misc.jsonl import parse_line
 
         line = '{"type": "Snapshot", "id": "abc123", "url": "https://example.com"}'
-        result = parse_line(line)
-        self.assertIsNotNone(result)
+        result = require(parse_line(line))
         self.assertEqual(result['id'], 'abc123')
         self.assertEqual(result['url'], 'https://example.com')
 
@@ -113,8 +118,7 @@ class TestJSONLParsing(unittest.TestCase):
         from archivebox.misc.jsonl import parse_line, TYPE_SNAPSHOT
 
         uuid = '01234567-89ab-cdef-0123-456789abcdef'
-        result = parse_line(uuid)
-        self.assertIsNotNone(result)
+        result = require(parse_line(uuid))
         self.assertEqual(result['type'], TYPE_SNAPSHOT)
         self.assertEqual(result['id'], uuid)
 
@@ -144,8 +148,7 @@ class TestJSONLParsing(unittest.TestCase):
         """file:// URLs should be parsed."""
         from archivebox.misc.jsonl import parse_line, TYPE_SNAPSHOT
 
-        result = parse_line('file:///path/to/file.txt')
-        self.assertIsNotNone(result)
+        result = require(parse_line('file:///path/to/file.txt'))
         self.assertEqual(result['type'], TYPE_SNAPSHOT)
         self.assertEqual(result['url'], 'file:///path/to/file.txt')
 
@@ -501,9 +504,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
 
         # Create crawl with multiple URLs (as newline-separated string)
         urls = 'https://test-crawl-1.example.com\nhttps://test-crawl-2.example.com'
-        crawl = Crawl.from_json({'urls': urls}, overrides={'created_by_id': created_by_id})
-
-        self.assertIsNotNone(crawl)
+        crawl = require(Crawl.from_json({'urls': urls}, overrides={'created_by_id': created_by_id}))
         self.assertIsNotNone(crawl.id)
         self.assertEqual(crawl.urls, urls)
         self.assertEqual(crawl.status, 'queued')
@@ -538,7 +539,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
 
         # Step 1: Create crawl (simulating 'archivebox crawl')
         urls = 'https://crawl-to-snap-1.example.com\nhttps://crawl-to-snap-2.example.com'
-        crawl = Crawl.from_json({'urls': urls}, overrides={'created_by_id': created_by_id})
+        crawl = require(Crawl.from_json({'urls': urls}, overrides={'created_by_id': created_by_id}))
         crawl_output = crawl.to_json()
 
         # Step 2: Parse crawl output as snapshot input
@@ -590,7 +591,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
 
         # Create snapshot
         overrides = {'created_by_id': created_by_id}
-        snapshot = Snapshot.from_json(records[0], overrides=overrides)
+        snapshot = require(Snapshot.from_json(records[0], overrides=overrides))
 
         self.assertIsNotNone(snapshot.id)
         self.assertEqual(snapshot.url, url)
@@ -618,7 +619,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         # Step 1: Create snapshot (simulating 'archivebox snapshot')
         url = 'https://test-extract-1.example.com'
         overrides = {'created_by_id': created_by_id}
-        snapshot = Snapshot.from_json({'url': url}, overrides=overrides)
+        snapshot = require(Snapshot.from_json({'url': url}, overrides=overrides))
         snapshot_output = snapshot.to_json()
 
         # Step 2: Parse snapshot output as extract input
@@ -657,7 +658,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
 
         # === archivebox crawl https://example.com ===
         url = 'https://test-pipeline-full.example.com'
-        crawl = Crawl.from_json({'url': url}, overrides={'created_by_id': created_by_id})
+        crawl = require(Crawl.from_json({'url': url}, overrides={'created_by_id': created_by_id}))
         crawl_jsonl = json.dumps(crawl.to_json())
 
         # === | archivebox snapshot ===
@@ -728,12 +729,12 @@ class TestDepthWorkflows(unittest.TestCase):
 
         # Create crawl with depth 0
         url = 'https://depth0-test.example.com'
-        crawl = Crawl.from_json({'url': url, 'max_depth': 0}, overrides={'created_by_id': created_by_id})
+        crawl = require(Crawl.from_json({'url': url, 'max_depth': 0}, overrides={'created_by_id': created_by_id}))
 
         self.assertEqual(crawl.max_depth, 0)
 
         # Create snapshot
-        snapshot = Snapshot.from_json({'url': url}, overrides={'created_by_id': created_by_id})
+        snapshot = require(Snapshot.from_json({'url': url}, overrides={'created_by_id': created_by_id}))
         self.assertEqual(snapshot.url, url)
 
     def test_depth_metadata_in_crawl(self):
@@ -744,10 +745,10 @@ class TestDepthWorkflows(unittest.TestCase):
         created_by_id = get_or_create_system_user_pk()
 
         # Create crawl with depth
-        crawl = Crawl.from_json(
+        crawl = require(Crawl.from_json(
             {'url': 'https://depth-meta-test.example.com', 'max_depth': 2},
             overrides={'created_by_id': created_by_id}
-        )
+        ))
 
         self.assertEqual(crawl.max_depth, 2)
 

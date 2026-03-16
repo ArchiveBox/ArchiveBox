@@ -84,6 +84,7 @@ class TestMachineModel(TestCase):
         result = Machine.from_json(record)
 
         self.assertIsNotNone(result)
+        assert result is not None
         self.assertEqual(result.config.get('WGET_BINARY'), '/usr/bin/wget')
 
     def test_machine_from_jsonl_invalid(self):
@@ -179,6 +180,7 @@ class TestBinaryModel(TestCase):
         result = Binary.objects.get_valid_binary('wget')
 
         self.assertIsNotNone(result)
+        assert result is not None
         self.assertEqual(result.abspath, '/usr/bin/wget')
 
     def test_binary_update_and_requeue(self):
@@ -209,6 +211,8 @@ class TestBinaryModel(TestCase):
             'overrides': overrides,
         })
 
+        self.assertIsNotNone(binary)
+        assert binary is not None
         self.assertEqual(binary.overrides, overrides)
 
     def test_binary_from_json_does_not_coerce_legacy_override_shapes(self):
@@ -224,6 +228,8 @@ class TestBinaryModel(TestCase):
             'overrides': overrides,
         })
 
+        self.assertIsNotNone(binary)
+        assert binary is not None
         self.assertEqual(binary.overrides, overrides)
 
     def test_binary_from_json_prefers_published_readability_package(self):
@@ -238,6 +244,8 @@ class TestBinaryModel(TestCase):
             },
         })
 
+        self.assertIsNotNone(binary)
+        assert binary is not None
         self.assertEqual(
             binary.overrides,
             {
@@ -265,7 +273,7 @@ class TestBinaryStateMachine(TestCase):
     def test_binary_state_machine_initial_state(self):
         """BinaryMachine should start in queued state."""
         sm = BinaryMachine(self.binary)
-        self.assertEqual(sm.current_state.value, Binary.StatusChoices.QUEUED)
+        self.assertEqual(sm.current_state_value, Binary.StatusChoices.QUEUED)
 
     def test_binary_state_machine_can_start(self):
         """BinaryMachine.can_start() should check name and binproviders."""
@@ -604,7 +612,7 @@ class TestProcessStateMachine(TestCase):
     def test_process_state_machine_initial_state(self):
         """ProcessMachine should start in queued state."""
         sm = ProcessMachine(self.process)
-        self.assertEqual(sm.current_state.value, Process.StatusChoices.QUEUED)
+        self.assertEqual(sm.current_state_value, Process.StatusChoices.QUEUED)
 
     def test_process_state_machine_can_start(self):
         """ProcessMachine.can_start() should check cmd and machine."""

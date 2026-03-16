@@ -400,13 +400,13 @@ def assert_record_has_fields(record: Dict[str, Any], required_fields: List[str])
 # Test Data Factories
 # =============================================================================
 
-def create_test_url(domain: str = 'example.com', path: str = None) -> str:
+def create_test_url(domain: str = 'example.com', path: str | None = None) -> str:
     """Generate unique test URL."""
     path = path or uuid7().hex[:8]
     return f'https://{domain}/{path}'
 
 
-def create_test_crawl_json(urls: List[str] = None, **kwargs) -> Dict[str, Any]:
+def create_test_crawl_json(urls: List[str] | None = None, **kwargs) -> Dict[str, Any]:
     """Create Crawl JSONL record for testing."""
     urls = urls or [create_test_url()]
     return {
@@ -419,7 +419,7 @@ def create_test_crawl_json(urls: List[str] = None, **kwargs) -> Dict[str, Any]:
     }
 
 
-def create_test_snapshot_json(url: str = None, **kwargs) -> Dict[str, Any]:
+def create_test_snapshot_json(url: str | None = None, **kwargs) -> Dict[str, Any]:
     """Create Snapshot JSONL record for testing."""
     return {
         'type': 'Snapshot',

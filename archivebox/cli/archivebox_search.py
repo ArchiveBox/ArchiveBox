@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 import rich_click as click
-from rich import print
 
 from django.db.models import Q, QuerySet
 
@@ -212,7 +211,11 @@ def search(filter_patterns: list[str] | None=None,
         folders: dict[str, Snapshot | None] = {snapshot.output_dir: snapshot for snapshot in snapshots}
         output = printable_folders(folders, with_headers)
 
-    print(output)
+    # Structured exports must be written directly to stdout.
+    # rich.print() reflows long lines to console width, which corrupts JSON/CSV/HTML output.
+    sys.stdout.write(output)
+    if not output.endswith('\n'):
+        sys.stdout.write('\n')
     return output
 
 

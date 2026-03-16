@@ -241,3 +241,24 @@ def test_init_output_shows_collection_info(tmp_path):
     output = result.stdout
     # Should show some helpful info about the collection
     assert 'ArchiveBox' in output or 'collection' in output.lower() or 'Initializing' in output
+
+
+def test_init_ignores_unrecognized_archive_directories(tmp_path, process, disable_extractors_dict):
+    """Test that init upgrades existing dirs without choking on extra folders."""
+    os.chdir(tmp_path)
+    subprocess.run(
+        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        capture_output=True,
+        env=disable_extractors_dict,
+        check=True,
+    )
+    (tmp_path / "archive" / "some_random_folder").mkdir(parents=True, exist_ok=True)
+
+    result = subprocess.run(
+        ['archivebox', 'init'],
+        capture_output=True,
+        text=True,
+        env=disable_extractors_dict,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr

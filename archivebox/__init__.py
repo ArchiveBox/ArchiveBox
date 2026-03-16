@@ -16,9 +16,6 @@ import sys
 from pathlib import Path
 from typing import Protocol, cast
 
-# Import uuid_compat early to monkey-patch uuid.uuid7 before Django loads migrations
-# This fixes migrations generated on Python 3.14+ that reference uuid.uuid7 directly
-from archivebox import uuid_compat  # noqa: F401
 from abx_plugins import get_plugins_dir
 
 
