@@ -17,7 +17,6 @@ from archivebox.config import VERSION
 from archivebox.config.version import get_COMMIT_HASH
 from archivebox.core.host_utils import (
     build_admin_url,
-    build_api_url,
     build_web_url,
     get_api_host,
     get_admin_host,

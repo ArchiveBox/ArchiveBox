@@ -6,7 +6,7 @@ import sys
 import os
 import platform
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable
 
 import rich_click as click
 

@@ -35,7 +35,6 @@ def fix_invalid_folder_locations(out_dir: Path = DATA_DIR) -> Tuple[List[str], L
                     with open(index_path, 'r') as f:
                         data = json.load(f)
                     timestamp = data.get('timestamp')
-                    url = data.get('url')
                 except Exception:
                     continue
 

@@ -46,7 +46,6 @@ if RUNNING_AS_UID == 0:
         # if we are running as root it's really hard to figure out what the correct archivebox user should be
         # as a last resort instead of setting DATA_DIR ownership to 0:0 (which breaks it for non-root users)
         # check if 911:911 archivebox user exists on host system, and use it instead of 0
-        import pwd
         if pwd.getpwuid(DEFAULT_PUID).pw_name == 'archivebox':
             FALLBACK_UID = DEFAULT_PUID
             FALLBACK_GID = DEFAULT_PGID

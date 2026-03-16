@@ -1,7 +1,10 @@
 import json
 import sqlite3
+import subprocess
 
-from .fixtures import *
+from .fixtures import disable_extractors_dict, process
+
+FIXTURES = (disable_extractors_dict, process)
 
 def test_update_imports_orphaned_snapshots(tmp_path, process, disable_extractors_dict):
     """Test that archivebox update imports real legacy archive directories."""

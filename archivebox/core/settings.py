@@ -6,6 +6,7 @@ import inspect
 
 from pathlib import Path
 
+from django.conf.locale.en import formats as en_formats  # type: ignore
 from django.utils.crypto import get_random_string
 
 import archivebox
@@ -13,6 +14,7 @@ import archivebox
 from archivebox.config import DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS  # noqa
 from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG, STORAGE_CONFIG  # noqa
 from archivebox.core.host_utils import normalize_base_url, get_admin_base_url, get_api_base_url
+from .settings_logging import SETTINGS_LOGGING
 
 
 IS_MIGRATING = "makemigrations" in sys.argv[:3] or "migrate" in sys.argv[:3]
@@ -54,8 +56,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.admin",
     # 3rd-party apps from PyPI
-    "signal_webhooks",  # handles REST API outbound webhooks                              https://github.com/MrThearMan/django-signal-webhooks
-    "django_object_actions",  # provides easy Django Admin action buttons on change views       https://github.com/crccheck/django-object-actions
+    "signal_webhooks",  # handles REST API outbound webhooks
+    "django_object_actions",  # provides easy Django Admin action buttons on change views
     # Our ArchiveBox-provided apps (use fully qualified names)
     # NOTE: Order matters! Apps with migrations that depend on other apps must come AFTER their dependencies
     # "archivebox.config",  # ArchiveBox config settings (no models, not a real Django app)
@@ -117,7 +119,6 @@ try:
 
         try:
             # Try to import django-auth-ldap (will fail if not installed)
-            import django_auth_ldap
             from django_auth_ldap.config import LDAPSearch
             import ldap
 
@@ -414,9 +415,6 @@ DATETIME_FORMAT = "Y-m-d h:i:s A"
 SHORT_DATETIME_FORMAT = "Y-m-d h:i:s A"
 TIME_ZONE = CONSTANTS.TIMEZONE  # django convention is TIME_ZONE, archivebox config uses TIMEZONE, they are equivalent
 
-
-from django.conf.locale.en import formats as en_formats  # type: ignore
-
 en_formats.DATETIME_FORMAT = DATETIME_FORMAT  # monkey patch en_format default with our preferred format
 en_formats.SHORT_DATETIME_FORMAT = SHORT_DATETIME_FORMAT
 
@@ -424,9 +422,6 @@ en_formats.SHORT_DATETIME_FORMAT = SHORT_DATETIME_FORMAT
 ################################################################################
 ### Logging Settings
 ################################################################################
-
-
-from .settings_logging import SETTINGS_LOGGING, LOGS_DIR, ERROR_LOG
 
 LOGGING = SETTINGS_LOGGING
 

@@ -13,13 +13,10 @@ __package__ = 'archivebox.workers'
 
 import os
 import time
-import traceback
-from typing import ClassVar, Any
-from datetime import timedelta
+from typing import TYPE_CHECKING, Any, ClassVar
 from pathlib import Path
 from multiprocessing import cpu_count
 
-from django.db.models import QuerySet
 from django.utils import timezone
 from django.conf import settings
 
@@ -27,6 +24,9 @@ from statemachine.exceptions import TransitionNotAllowed
 from rich import print
 
 from archivebox.misc.logging_util import log_worker_event
+
+if TYPE_CHECKING:
+    from archivebox.machine.models import Process
 
 
 CPU_COUNT = cpu_count()
@@ -314,7 +314,10 @@ class Worker:
                         process.kill(signal_num=signal.SIGKILL)
                         log_worker_event(
                             worker_type=worker_type,
-                            event=f'⚠ Sent SIGKILL to {hook_name} + {len(children_pids) if children_pids else 0} children (exceeded timeout)',
+                            event=(
+                                f'⚠ Sent SIGKILL to {hook_name} + '
+                                f'{len(children_pids) if children_pids else 0} children (exceeded timeout)'
+                            ),
                             indent_level=indent_level,
                             pid=self.pid,
                         )
@@ -341,7 +344,6 @@ class Worker:
         from archivebox.machine.models import Process, Machine
         from archivebox.config.configset import get_config
         from pathlib import Path
-        from django.conf import settings
         import sys
 
         refresh_machine_config = bool(
@@ -552,7 +554,7 @@ class CrawlWorker(Worker):
 
                 # Check if crawl is done
                 if self._is_crawl_finished():
-                    print(f'🔄 Crawl finished, sealing...', file=sys.stderr)
+                    print('🔄 Crawl finished, sealing...', file=sys.stderr)
                     self.crawl.sm.seal()
                     break
 
@@ -813,7 +815,8 @@ class SnapshotWorker(Worker):
                 is_background = is_background_hook(hook_name)
 
                 # Create ArchiveResult for THIS HOOK (not per plugin)
-                # One plugin can have multiple hooks (e.g., chrome/on_Snapshot__20_launch_chrome.js, chrome/on_Snapshot__21_navigate_chrome.js)
+                # One plugin can have multiple hooks
+                # (e.g., chrome/on_Snapshot__20_launch_chrome.js, chrome/on_Snapshot__21_navigate_chrome.js)
                 # Unique key = (snapshot, plugin, hook_name) for idempotency
                 ar, created = ArchiveResult.objects.get_or_create(
                     snapshot=self.snapshot,
@@ -868,7 +871,7 @@ class SnapshotWorker(Worker):
                 self.snapshot.sm.seal()
                 self.snapshot.refresh_from_db()
 
-        except Exception as e:
+        except Exception:
             # Mark snapshot as sealed even on error (still triggers cleanup)
             self._finalize_background_hooks()
             self.snapshot.sm.seal()
@@ -1019,7 +1022,6 @@ class SnapshotWorker(Worker):
         self.background_processes = {}
 
         # Update background results now that hooks are done
-        from archivebox.core.models import ArchiveResult
 
         bg_results = self.snapshot.archiveresult_set.filter(
             hook_name__contains='.bg.',
@@ -1034,7 +1036,6 @@ class SnapshotWorker(Worker):
         if not self.background_processes:
             return
 
-        from archivebox.core.models import ArchiveResult
 
         for hook_name, process in list(self.background_processes.items()):
             exit_code = process.poll()
@@ -1165,7 +1166,6 @@ class BinaryWorker(Worker):
 
     def runloop(self) -> None:
         """Install binary(ies)."""
-        import sys
 
         self.on_startup()
 
@@ -1216,7 +1216,7 @@ class BinaryWorker(Worker):
         except Exception as e:
             log_worker_event(
                 worker_type='BinaryWorker',
-                event=f'Failed to install binary',
+                event='Failed to install binary',
                 indent_level=1,
                 pid=self.pid,
                 error=e,

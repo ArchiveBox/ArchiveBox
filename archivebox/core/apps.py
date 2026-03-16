@@ -60,7 +60,7 @@ class CoreConfig(AppConfig):
             from archivebox.workers.orchestrator import Orchestrator
 
             Process.cleanup_stale_running()
-            machine = Machine.current()
+            Machine.current()
 
             if not Orchestrator.is_running():
                 Orchestrator(exit_on_idle=False).start()

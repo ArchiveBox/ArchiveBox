@@ -2,12 +2,9 @@
 
 __package__ = 'archivebox.base_models'
 
-from uuid import UUID
 from archivebox.uuid_compat import uuid7
-from typing import ClassVar
 from pathlib import Path
 
-from django.contrib import admin
 from django.db import models
 from django.db.models import F
 from django.utils import timezone
@@ -17,8 +14,6 @@ from django.conf import settings
 
 from django_stubs_ext.db.models import TypedModelMeta
 
-from archivebox import DATA_DIR
-from archivebox.misc.hashing import get_dir_info
 
 
 def get_or_create_system_user_pk(username='system'):

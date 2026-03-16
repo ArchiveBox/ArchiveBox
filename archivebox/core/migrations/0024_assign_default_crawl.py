@@ -2,7 +2,6 @@
 # Creates a default crawl for v0.7.2 migrated snapshots and makes crawl_id NOT NULL
 
 from django.db import migrations, models
-import uuid
 
 
 def create_default_crawl_and_assign_snapshots(apps, schema_editor):

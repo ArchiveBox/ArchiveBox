@@ -135,7 +135,6 @@ class ProcessLogPanel:
             if line:
                 log_lines.append(Text(line, style="cyan"))
 
-        compact = self.compact if self.compact is not None else self._is_background_hook()
         max_body = max(1, self.max_lines - len(header_lines))
         if not log_lines:
             log_lines = []

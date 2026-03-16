@@ -10,10 +10,8 @@ Migration tests from 0.8.x to 0.9.x.
 - New fields like depth, retry_at, etc.
 """
 
-import json
 import shutil
 import sqlite3
-import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -579,7 +577,7 @@ class TestFilesystemMigration08to09(unittest.TestCase):
                         f"Files lost during migration: {files_before_count} -> {files_after_count}")
 
         # Run update to trigger filesystem reorganization
-        print(f"\n[*] Running archivebox update to reorganize filesystem...")
+        print("\n[*] Running archivebox update to reorganize filesystem...")
         result = run_archivebox(self.work_dir, ['update'], timeout=120)
         self.assertEqual(result.returncode, 0, f"Update failed: {result.stderr}")
 
@@ -657,7 +655,7 @@ class TestFilesystemMigration08to09(unittest.TestCase):
 
         # CRITICAL: Verify sample files exist in new structure
         self.assertGreater(len(new_sample_files), 0,
-                          f"Sample files not found in new structure")
+                          "Sample files not found in new structure")
 
         # Verify new path format
         for path_key, file_path in new_sample_files.items():

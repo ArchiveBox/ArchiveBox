@@ -3,11 +3,9 @@
 
 import os
 import subprocess
-import sqlite3
 
 import pytest
 
-from .fixtures import process, disable_extractors_dict
 
 
 def test_status_shows_index_info(tmp_path, process):

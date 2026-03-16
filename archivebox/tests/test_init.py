@@ -3,13 +3,13 @@
 
 import os
 import subprocess
-from pathlib import Path
-import json, shutil
 import sqlite3
 
 from archivebox.config.common import STORAGE_CONFIG
 
-from .fixtures import *
+from .fixtures import disable_extractors_dict, process
+
+FIXTURES = (disable_extractors_dict, process)
 
 DIR_PERMISSIONS = STORAGE_CONFIG.OUTPUT_PERMISSIONS.replace('6', '7').replace('4', '5')
 
@@ -25,6 +25,7 @@ def test_add_link(tmp_path, process, disable_extractors_dict):
     os.chdir(tmp_path)
     add_process = subprocess.run(['archivebox', 'add', '--index-only', 'https://example.com'],
                                   capture_output=True, env=disable_extractors_dict)
+    assert add_process.returncode == 0, add_process.stderr.decode("utf-8")
 
     # In the new architecture, URLs are saved to source files
     # Check that a source file was created with the URL
@@ -41,6 +42,7 @@ def test_add_multiple_urls(tmp_path, process, disable_extractors_dict):
     os.chdir(tmp_path)
     add_process = subprocess.run(['archivebox', 'add', '--index-only', 'https://example.com', 'https://iana.org'],
                                   capture_output=True, env=disable_extractors_dict)
+    assert add_process.returncode == 0, add_process.stderr.decode("utf-8")
 
     # Check that a source file was created with both URLs
     sources_dir = tmp_path / "sources"
@@ -61,6 +63,7 @@ def test_correct_permissions_add_command_results(tmp_path, process, disable_extr
     os.chdir(tmp_path)
     add_process = subprocess.run(['archivebox', 'add', '--index-only', 'https://example.com'], capture_output=True,
                                   env=disable_extractors_dict)
+    assert add_process.returncode == 0, add_process.stderr.decode("utf-8")
 
     # Check database permissions
     assert oct((tmp_path / "index.sqlite3").stat().st_mode)[-3:] in (STORAGE_CONFIG.OUTPUT_PERMISSIONS, DIR_PERMISSIONS)

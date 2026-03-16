@@ -8,7 +8,6 @@ Tests cover:
 """
 
 import json
-import pytest
 
 from archivebox.tests.conftest import (
     run_archivebox_cmd,

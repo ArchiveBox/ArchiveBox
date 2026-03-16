@@ -1,7 +1,10 @@
 import os
 import sqlite3
+import subprocess
 
-from .fixtures import *
+from .fixtures import disable_extractors_dict, process
+
+FIXTURES = (disable_extractors_dict, process)
 
 def test_title_is_extracted(tmp_path, process, disable_extractors_dict):
     """Test that title is extracted from the page."""

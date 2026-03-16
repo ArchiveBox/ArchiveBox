@@ -94,10 +94,10 @@ class Orchestrator:
             self.POLL_INTERVAL = 0.25
             # Exit quickly once idle in foreground mode
             self.IDLE_TIMEOUT = 1
-    
+
     def __repr__(self) -> str:
         return f'[underline]Orchestrator[/underline]\\[pid={self.pid}]'
-    
+
     @classmethod
     def is_running(cls) -> bool:
         """Check if an orchestrator is already running."""
@@ -223,7 +223,7 @@ class Orchestrator:
             process_type=Process.TypeChoices.WORKER,
             status=Process.StatusChoices.RUNNING,
         )
-    
+
     def should_spawn_worker(self, WorkerClass: Type[Worker], queue_count: int) -> bool:
         """Determine if we should spawn a new worker."""
         if queue_count == 0:
@@ -253,7 +253,7 @@ class Orchestrator:
             return False
 
         return True
-    
+
     def spawn_worker(self, WorkerClass: Type[Worker]) -> int | None:
         """Spawn a new worker process. Returns PID or None if spawn failed."""
         try:
@@ -286,7 +286,10 @@ class Orchestrator:
                     print(f'[yellow]DEBUG spawn_worker: elapsed={elapsed:.1f}s pid={pid} orchestrator_id={self.db_process.id}[/yellow]')
                     print(f'[yellow]  Found {len(all_procs)} Process records for pid={pid}[/yellow]')
                     for p in all_procs:
-                        print(f'[yellow]  -> type={p.process_type} status={p.status} parent_id={p.parent_id} match={p.parent_id == self.db_process.id}[/yellow]')
+                        print(
+                            f'[yellow]  -> type={p.process_type} status={p.status} '
+                            f'parent_id={p.parent_id} match={p.parent_id == self.db_process.id}[/yellow]'
+                        )
 
                 worker_process = Process.objects.filter(
                     pid=pid,
@@ -324,7 +327,7 @@ class Orchestrator:
                 error=e,
             )
             return None
-    
+
     def check_queues_and_spawn_workers(self) -> dict[str, int]:
         """
         Check Binary and Crawl queues and spawn workers as needed.
@@ -584,11 +587,11 @@ class Orchestrator:
     def has_pending_work(self, queue_sizes: dict[str, int]) -> bool:
         """Check if any queue has pending work."""
         return any(count > 0 for count in queue_sizes.values())
-    
+
     def has_running_workers(self) -> bool:
         """Check if any workers are still running."""
         return self.get_total_worker_count() > 0
-    
+
     def has_future_work(self) -> bool:
         """Check if there's work scheduled for the future (retry_at > now) in Crawl queue."""
         from archivebox.crawls.models import Crawl
@@ -605,38 +608,38 @@ class Orchestrator:
             qs = qs.filter(id=self.crawl_id)
 
         return qs.count() > 0
-    
+
     def on_tick(self, queue_sizes: dict[str, int]) -> None:
         """Called each orchestrator tick. Override for custom behavior."""
         # Tick logging suppressed to reduce noise
         pass
-    
+
     def on_idle(self) -> None:
         """Called when orchestrator is idle (no work, no workers)."""
         # Idle logging suppressed to reduce noise
         pass
-    
+
     def should_exit(self, queue_sizes: dict[str, int]) -> bool:
         """Determine if orchestrator should exit."""
         if not self.exit_on_idle:
             return False
-        
+
         if self.IDLE_TIMEOUT == 0:
             return False
-        
+
         # Don't exit if there's pending or future work
         if self.has_pending_work(queue_sizes):
             return False
-        
+
         if self.has_running_workers():
             return False
-        
+
         if self.has_future_work():
             return False
-        
+
         # Exit after idle timeout
         return self.idle_count >= self.IDLE_TIMEOUT
-    
+
     def runloop(self) -> None:
         """Main orchestrator loop."""
         from rich.live import Live
@@ -702,7 +705,7 @@ class Orchestrator:
                     os.close(devnull_fd)
                     os.close(stdout_for_restore)
                     os.close(stderr_for_restore)
-                except:
+                except OSError:
                     pass
                 # stdout_for_console is closed by orchestrator_console
 
@@ -1132,7 +1135,6 @@ class Orchestrator:
 
                         # Count hooks by status for debugging
                         queued = snapshot.archiveresult_set.filter(status='queued').count()
-                        started = snapshot.archiveresult_set.filter(status='started').count()
 
                         # Find currently running hook (ordered by hook_name to get lowest step number)
                         current_ar = snapshot.archiveresult_set.filter(status='started').order_by('hook_name').first()
@@ -1211,7 +1213,7 @@ class Orchestrator:
                     for snapshot_id in list(snapshot_progress.keys()):
                         if snapshot_id not in active_ids:
                             progress_layout.log_event(
-                                f"Snapshot completed/removed",
+                                "Snapshot completed/removed",
                                 style="blue"
                             )
                             if snapshot_id in snapshot_progress:
@@ -1263,7 +1265,7 @@ class Orchestrator:
             raise
         else:
             self.on_shutdown()
-    
+
     def start(self) -> int:
         """
         Fork orchestrator as a background process.
@@ -1285,7 +1287,7 @@ class Orchestrator:
             pid=proc.pid,
         )
         return proc.pid
-    
+
     @classmethod
     def get_or_start(cls, exit_on_idle: bool = True) -> 'Orchestrator':
         """
@@ -1296,6 +1298,6 @@ class Orchestrator:
             print('[grey53]👨‍✈️ Orchestrator already running[/grey53]')
             # Return a placeholder - actual orchestrator is in another process
             return cls(exit_on_idle=exit_on_idle)
-        
+
         orchestrator = cls(exit_on_idle=exit_on_idle)
         return orchestrator

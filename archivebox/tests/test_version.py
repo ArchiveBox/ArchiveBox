@@ -3,11 +3,9 @@
 
 import os
 import subprocess
-import json
 
 import pytest
 
-from .fixtures import process, disable_extractors_dict
 
 
 class TestVersionQuiet:

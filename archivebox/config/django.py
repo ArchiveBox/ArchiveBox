@@ -100,9 +100,11 @@ def setup_django(check_db=False, in_memory_db=False) -> None:
                 return
 
         from django.conf import settings
+        from archivebox.core.settings_logging import ERROR_LOG as DEFAULT_ERROR_LOG
 
         # log startup message to the error log
-        with open(settings.ERROR_LOG, "a", encoding='utf-8') as f:
+        error_log = getattr(settings, 'ERROR_LOG', DEFAULT_ERROR_LOG)
+        with open(error_log, "a", encoding='utf-8') as f:
             command = ' '.join(sys.argv)
             ts = datetime.now(timezone.utc).strftime('%Y-%m-%d__%H:%M:%S')
             f.write(f"\n> {command}; TS={ts} VERSION={CONSTANTS.VERSION} IN_DOCKER={SHELL_CONFIG.IN_DOCKER} IS_TTY={SHELL_CONFIG.IS_TTY}\n")

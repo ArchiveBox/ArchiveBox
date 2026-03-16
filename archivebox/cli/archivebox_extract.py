@@ -31,7 +31,6 @@ __package__ = 'archivebox.cli'
 __command__ = 'archivebox extract'
 
 import sys
-from typing import Optional, List
 
 import rich_click as click
 

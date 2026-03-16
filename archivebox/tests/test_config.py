@@ -6,7 +6,6 @@ import subprocess
 
 import pytest
 
-from .fixtures import process, disable_extractors_dict
 
 
 def test_config_shows_all_config_values(tmp_path, process):
@@ -49,6 +48,7 @@ def test_config_set_value_writes_to_config_file(tmp_path, process):
         capture_output=True,
         text=True,
     )
+    assert result.returncode == 0, result.stderr
 
     # Read the config file directly to verify it was written
     config_file = tmp_path / 'ArchiveBox.conf'

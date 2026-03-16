@@ -9,7 +9,7 @@ Tests cover:
 """
 
 import pytest
-from django.test import TestCase, Client, override_settings
+from django.test import override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 

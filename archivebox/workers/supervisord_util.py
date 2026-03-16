@@ -2,7 +2,6 @@ __package__ = 'archivebox.workers'
 
 import sys
 import time
-import signal
 import socket
 import psutil
 import shutil
@@ -42,7 +41,7 @@ ORCHESTRATOR_WORKER = {
 
 SERVER_WORKER = lambda host, port: {
     "name": "worker_daphne",
-    "command": f"daphne --bind={host} --port={port} --application-close-timeout=600 archivebox.core.asgi:application",
+    "command": f"{sys.executable} -m daphne --bind={host} --port={port} --application-close-timeout=600 archivebox.core.asgi:application",
     "autostart": "false",
     "autorestart": "true",
     "stdout_logfile": "logs/worker_daphne.log",
@@ -513,8 +512,6 @@ def watch_worker(supervisor, daemon_name, interval=5):
 
 
 def start_server_workers(host='0.0.0.0', port='8000', daemonize=False):
-    global _supervisord_proc
-
     supervisor = get_or_create_supervisord_process(daemonize=daemonize)
 
     bg_workers = [
@@ -551,8 +548,6 @@ def start_server_workers(host='0.0.0.0', port='8000', daemonize=False):
 
 
 def start_cli_workers(watch=False):
-    global _supervisord_proc
-
     supervisor = get_or_create_supervisord_process(daemonize=False)
 
     start_worker(supervisor, ORCHESTRATOR_WORKER)

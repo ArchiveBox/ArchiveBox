@@ -1,16 +1,17 @@
-import os
-import django
+import importlib
 from io import StringIO
 from types import SimpleNamespace
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.settings')
-django.setup()
+from archivebox.config.django import setup_django
 
-from django.contrib.auth.models import User
-from django.test import TestCase
+setup_django()
 
-from archivebox.api.v1_cli import ScheduleCommandSchema, cli_schedule
-from archivebox.crawls.models import CrawlSchedule
+User = importlib.import_module('django.contrib.auth.models').User
+TestCase = importlib.import_module('django.test').TestCase
+api_v1_cli = importlib.import_module('archivebox.api.v1_cli')
+ScheduleCommandSchema = api_v1_cli.ScheduleCommandSchema
+cli_schedule = api_v1_cli.cli_schedule
+CrawlSchedule = importlib.import_module('archivebox.crawls.models').CrawlSchedule
 
 
 class CLIScheduleAPITests(TestCase):

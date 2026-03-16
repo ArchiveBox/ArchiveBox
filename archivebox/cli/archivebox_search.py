@@ -4,7 +4,7 @@ __package__ = 'archivebox.cli'
 __command__ = 'archivebox search'
 
 from pathlib import Path
-from typing import Optional, List, Any
+from typing import Optional, List
 
 import rich_click as click
 from rich import print
@@ -71,7 +71,6 @@ def search(filter_patterns: list[str] | None=None,
            csv: str | None=None,
            with_headers: bool=False):
     """List, filter, and export information about archive entries"""
-    from archivebox.core.models import Snapshot
 
     if with_headers and not (json or html or csv):
         stderr('[X] --with-headers requires --json, --html or --csv\n', color='red')

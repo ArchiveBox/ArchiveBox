@@ -3,10 +3,7 @@ __package__ = 'archivebox.api'
 from typing import Optional
 
 from ninja import Router, Schema
-from django.utils import timezone
-from datetime import timedelta
 
-from archivebox.api.models import APIToken
 from archivebox.api.auth import auth_using_token, auth_using_password, get_or_create_api_token
 
 

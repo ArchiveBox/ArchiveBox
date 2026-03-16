@@ -410,7 +410,6 @@ def create_personas(
     """
     from archivebox.misc.jsonl import write_record
     from archivebox.personas.models import Persona
-    from archivebox.config.constants import CONSTANTS
 
     is_tty = sys.stdout.isatty()
     name_list = list(names) if names else []
@@ -493,10 +492,10 @@ def create_personas(
                         'SingletonLock', 'SingletonSocket', 'SingletonCookie',
                     ),
                 )
-                rprint(f'[green]Copied browser profile to persona[/green]', file=sys.stderr)
+                rprint('[green]Copied browser profile to persona[/green]', file=sys.stderr)
 
                 # Extract cookies via CDP
-                rprint(f'[dim]Extracting cookies via CDP...[/dim]', file=sys.stderr)
+                rprint('[dim]Extracting cookies via CDP...[/dim]', file=sys.stderr)
 
                 if extract_cookies_via_cdp(
                     persona_chrome_dir,
@@ -506,8 +505,8 @@ def create_personas(
                 ):
                     rprint(f'[green]Extracted cookies to {cookies_file}[/green]', file=sys.stderr)
                 else:
-                    rprint(f'[yellow]Could not extract cookies automatically.[/yellow]', file=sys.stderr)
-                    rprint(f'[dim]You can manually export cookies using a browser extension.[/dim]', file=sys.stderr)
+                    rprint('[yellow]Could not extract cookies automatically.[/yellow]', file=sys.stderr)
+                    rprint('[dim]You can manually export cookies using a browser extension.[/dim]', file=sys.stderr)
 
             except Exception as e:
                 rprint(f'[red]Failed to copy browser profile: {e}[/red]', file=sys.stderr)

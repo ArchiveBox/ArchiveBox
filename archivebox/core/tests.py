@@ -1,5 +1,6 @@
 """Tests for the core views, especially AddView."""
 
+import importlib
 import os
 import django
 from unittest.mock import patch
@@ -8,13 +9,14 @@ from unittest.mock import patch
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.settings')
 django.setup()
 
-from django.test import TestCase, Client
-from django.contrib.auth.models import User
-from django.urls import reverse
-
-from archivebox.crawls.models import Crawl, CrawlSchedule
-from archivebox.core.models import Tag
-from archivebox.config.common import SERVER_CONFIG
+TestCase = importlib.import_module('django.test').TestCase
+Client = importlib.import_module('django.test').Client
+User = importlib.import_module('django.contrib.auth.models').User
+reverse = importlib.import_module('django.urls').reverse
+Crawl = importlib.import_module('archivebox.crawls.models').Crawl
+CrawlSchedule = importlib.import_module('archivebox.crawls.models').CrawlSchedule
+Tag = importlib.import_module('archivebox.core.models').Tag
+SERVER_CONFIG = importlib.import_module('archivebox.config.common').SERVER_CONFIG
 
 
 class AddViewTests(TestCase):
@@ -252,7 +254,7 @@ class AddViewTests(TestCase):
     def test_add_staff_admin_custom_config_is_allowed(self):
         """Admin users can override crawl config."""
         self.client.logout()
-        admin_user = User.objects.create_user(
+        User.objects.create_user(
             username='adminuser',
             password='adminpass123',
             email='admin@example.com',

@@ -8,10 +8,6 @@ and other modules that expect to import config values directly.
 __package__ = 'archivebox.config'
 __order__ = 200
 
-import shutil
-from pathlib import Path
-from typing import Dict, List, Optional
-
 from .paths import (
     PACKAGE_DIR,                                    # noqa
     DATA_DIR,                                       # noqa
@@ -30,6 +26,7 @@ def _get_config():
     """Lazy import to avoid circular imports."""
     from .common import ARCHIVING_CONFIG, STORAGE_CONFIG
     return ARCHIVING_CONFIG, STORAGE_CONFIG
+
 
 # Direct exports (evaluated at import time for backwards compat)
 # These are recalculated each time the module attribute is accessed

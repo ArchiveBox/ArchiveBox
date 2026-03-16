@@ -5,11 +5,9 @@ Verify install detects and records binary dependencies in DB.
 """
 
 import os
-import subprocess
 import sqlite3
+import subprocess
 from pathlib import Path
-
-from .fixtures import *
 
 
 def test_install_runs_successfully(tmp_path, process):

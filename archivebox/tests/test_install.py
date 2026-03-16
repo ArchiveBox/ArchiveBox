@@ -7,7 +7,6 @@ import sqlite3
 
 import pytest
 
-from .fixtures import process, disable_extractors_dict
 
 
 class TestInstallDryRun:

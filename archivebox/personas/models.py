@@ -11,8 +11,12 @@ Each persona has its own:
 
 __package__ = 'archivebox.personas'
 
+import shutil
+import subprocess
+import sys
+from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
 
 from django.db import models
 from django.conf import settings
@@ -21,8 +25,32 @@ from django.utils import timezone
 from archivebox.base_models.models import ModelWithConfig, get_or_create_system_user_pk
 from archivebox.uuid_compat import uuid7
 
+try:
+    import fcntl
+except ImportError:  # pragma: no cover
+    fcntl = None
+
 if TYPE_CHECKING:
-    from django.db.models import QuerySet
+    pass
+
+
+VOLATILE_PROFILE_DIR_NAMES = {
+    'Cache',
+    'Code Cache',
+    'GPUCache',
+    'ShaderCache',
+    'Service Worker',
+    'GCM Store',
+    'Crashpad',
+    'BrowserMetrics',
+}
+
+VOLATILE_PROFILE_FILE_NAMES = {
+    'BrowserMetrics-spare.pma',
+    'SingletonCookie',
+    'SingletonLock',
+    'SingletonSocket',
+}
 
 
 class Persona(ModelWithConfig):
@@ -120,36 +148,117 @@ class Persona(ModelWithConfig):
         (self.path / 'chrome_extensions').mkdir(parents=True, exist_ok=True)
         (self.path / 'chrome_downloads').mkdir(parents=True, exist_ok=True)
 
-    def cleanup_chrome(self) -> bool:
-        """
-        Clean up Chrome state files (SingletonLock, etc.) for this persona.
-
-        Returns:
-            True if cleanup was performed, False if no cleanup needed
-        """
+    def cleanup_chrome_profile(self, profile_dir: Path) -> bool:
+        """Remove volatile Chrome state that should never be reused across launches."""
         cleaned = False
-        chrome_dir = self.path / 'chrome_user_data'
 
-        if not chrome_dir.exists():
+        if not profile_dir.exists():
             return False
 
-        # Clean up SingletonLock files
-        for lock_file in chrome_dir.glob('**/SingletonLock'):
-            try:
-                lock_file.unlink()
-                cleaned = True
-            except OSError:
-                pass
+        for path in profile_dir.rglob('*'):
+            if path.name in VOLATILE_PROFILE_FILE_NAMES:
+                try:
+                    path.unlink()
+                    cleaned = True
+                except OSError:
+                    pass
 
-        # Clean up SingletonSocket files
-        for socket_file in chrome_dir.glob('**/SingletonSocket'):
+        for dirname in VOLATILE_PROFILE_DIR_NAMES:
+            for path in profile_dir.rglob(dirname):
+                if not path.is_dir():
+                    continue
+                shutil.rmtree(path, ignore_errors=True)
+                cleaned = True
+
+        for path in profile_dir.rglob('*.log'):
             try:
-                socket_file.unlink()
+                path.unlink()
                 cleaned = True
             except OSError:
                 pass
 
         return cleaned
+
+    def cleanup_chrome(self) -> bool:
+        """Clean up volatile Chrome state for this persona's base profile."""
+        return self.cleanup_chrome_profile(self.path / 'chrome_user_data')
+
+    @contextmanager
+    def lock_runtime_for_crawl(self):
+        lock_path = self.path / '.archivebox-crawl-profile.lock'
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with lock_path.open('w') as lock_file:
+            if fcntl is not None:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                if fcntl is not None:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+    def runtime_root_for_crawl(self, crawl) -> Path:
+        return Path(crawl.output_dir) / '.persona' / self.name
+
+    def runtime_profile_dir_for_crawl(self, crawl) -> Path:
+        return self.runtime_root_for_crawl(crawl) / 'chrome_user_data'
+
+    def runtime_downloads_dir_for_crawl(self, crawl) -> Path:
+        return self.runtime_root_for_crawl(crawl) / 'chrome_downloads'
+
+    def copy_chrome_profile(self, source_dir: Path, destination_dir: Path) -> None:
+        destination_dir.parent.mkdir(parents=True, exist_ok=True)
+        shutil.rmtree(destination_dir, ignore_errors=True)
+        destination_dir.mkdir(parents=True, exist_ok=True)
+
+        copy_cmd: list[str] | None = None
+        source_contents = f'{source_dir}/.'
+
+        if sys.platform == 'darwin':
+            copy_cmd = ['cp', '-cR', source_contents, str(destination_dir)]
+        elif sys.platform.startswith('linux'):
+            copy_cmd = ['cp', '-a', source_contents, str(destination_dir)]
+
+        if copy_cmd:
+            result = subprocess.run(copy_cmd, capture_output=True, text=True)
+            if result.returncode == 0:
+                return
+
+            shutil.rmtree(destination_dir, ignore_errors=True)
+            destination_dir.mkdir(parents=True, exist_ok=True)
+
+        shutil.copytree(source_dir, destination_dir, symlinks=True, dirs_exist_ok=True)
+
+    def prepare_runtime_for_crawl(self, crawl, chrome_binary: str = '') -> dict[str, str]:
+        self.ensure_dirs()
+
+        template_dir = Path(self.CHROME_USER_DATA_DIR)
+        runtime_root = self.runtime_root_for_crawl(crawl)
+        runtime_profile_dir = self.runtime_profile_dir_for_crawl(crawl)
+        runtime_downloads_dir = self.runtime_downloads_dir_for_crawl(crawl)
+
+        with self.lock_runtime_for_crawl():
+            if not runtime_profile_dir.exists():
+                if template_dir.exists() and any(template_dir.iterdir()):
+                    self.copy_chrome_profile(template_dir, runtime_profile_dir)
+                else:
+                    runtime_profile_dir.mkdir(parents=True, exist_ok=True)
+
+            runtime_downloads_dir.mkdir(parents=True, exist_ok=True)
+            self.cleanup_chrome_profile(runtime_profile_dir)
+
+            (runtime_root / 'persona_name.txt').write_text(self.name)
+            (runtime_root / 'template_dir.txt').write_text(str(template_dir))
+            if chrome_binary:
+                (runtime_root / 'chrome_binary.txt').write_text(chrome_binary)
+
+        return {
+            'CHROME_USER_DATA_DIR': str(runtime_profile_dir),
+            'CHROME_DOWNLOADS_DIR': str(runtime_downloads_dir),
+        }
+
+    def cleanup_runtime_for_crawl(self, crawl) -> None:
+        shutil.rmtree(Path(crawl.output_dir) / '.persona', ignore_errors=True)
 
     @classmethod
     def get_or_create_default(cls) -> 'Persona':

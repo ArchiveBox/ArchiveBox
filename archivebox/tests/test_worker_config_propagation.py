@@ -18,11 +18,9 @@ Config priority order (highest to lowest):
 """
 
 import os
-import json
 import sys
 import tempfile
 import subprocess
-import time
 from pathlib import Path
 
 
@@ -45,7 +43,7 @@ def test_config_propagation_through_worker_hierarchy():
         data_dir.mkdir()
 
         print(f"\n{'='*80}")
-        print(f"Test: Config Propagation Through Worker Hierarchy")
+        print("Test: Config Propagation Through Worker Hierarchy")
         print(f"DATA_DIR: {data_dir}")
         print(f"{'='*80}\n")
 
@@ -63,7 +61,7 @@ def test_config_propagation_through_worker_hierarchy():
             timeout=60,
         )
         assert result.returncode == 0, f"Init failed: {result.stderr.decode()}"
-        print(f"✓ Archive initialized\n")
+        print("✓ Archive initialized\n")
 
         # Step 2: Write custom config to ArchiveBox.conf
         print("Step 2: Write custom config to ArchiveBox.conf")
@@ -90,7 +88,7 @@ SAVE_TITLE = True
 SAVE_FAVICON = True
 SAVE_SCREENSHOT = True
 """)
-        print(f"✓ Wrote config file with TIMEOUT=999, all plugins enabled\n")
+        print("✓ Wrote config file with TIMEOUT=999, all plugins enabled\n")
 
         # Step 2.5: Set Machine.config values
         print("Step 2.5: Set Machine.config with custom binary path")
@@ -123,7 +121,7 @@ print(f"Machine {{machine.hostname}} config updated")
             timeout=30,
         )
         assert result.returncode == 0, f"Set machine config failed: {result.stderr.decode()}"
-        print(f"✓ Set Machine.config with CUSTOM_MACHINE_KEY=from_machine_config, WGET_BINARY=/custom/machine/wget\n")
+        print("✓ Set Machine.config with CUSTOM_MACHINE_KEY=from_machine_config, WGET_BINARY=/custom/machine/wget\n")
 
         # Step 3: Create Crawl via Django ORM with custom crawl.config
         print("Step 3: Create Crawl with custom crawl.config JSON")
@@ -421,7 +419,7 @@ def test_config_environment_variable_parsing():
         data_dir.mkdir()
 
         print(f"\n{'='*80}")
-        print(f"Test: Config Environment Variable Parsing")
+        print("Test: Config Environment Variable Parsing")
         print(f"DATA_DIR: {data_dir}")
         print(f"{'='*80}\n")
 
@@ -557,7 +555,7 @@ def test_parent_environment_preserved_in_hooks():
         data_dir.mkdir()
 
         print(f"\n{'='*80}")
-        print(f"Test: Parent Environment Preserved in Hooks")
+        print("Test: Parent Environment Preserved in Hooks")
         print(f"DATA_DIR: {data_dir}")
         print(f"{'='*80}\n")
 
@@ -575,7 +573,7 @@ def test_parent_environment_preserved_in_hooks():
             timeout=60,
         )
         assert result.returncode == 0, f"Init failed: {result.stderr.decode()}"
-        print(f"✓ Archive initialized\n")
+        print("✓ Archive initialized\n")
 
         # Create snapshot
         print("Step 2: Create Snapshot")
@@ -635,7 +633,6 @@ print(snapshot.id)
             timeout=120,
         )
 
-        stdout = result.stdout.decode()
         stderr = result.stderr.decode()
 
         print("\n--- SnapshotWorker stderr (first 50 lines) ---")
@@ -760,7 +757,7 @@ def test_config_auto_fetch_relationships():
         data_dir.mkdir()
 
         print(f"\n{'='*80}")
-        print(f"Test: Config Auto-Fetch Relationships")
+        print("Test: Config Auto-Fetch Relationships")
         print(f"DATA_DIR: {data_dir}")
         print(f"{'='*80}\n")
 
@@ -778,7 +775,7 @@ def test_config_auto_fetch_relationships():
             timeout=60,
         )
         assert result.returncode == 0, f"Init failed: {result.stderr.decode()}"
-        print(f"✓ Archive initialized\n")
+        print("✓ Archive initialized\n")
 
         # Create objects with config at each level
         print("Step 2: Create Crawl -> Snapshot -> ArchiveResult with config at each level")
@@ -906,7 +903,7 @@ def test_config_precedence_with_environment_vars():
         data_dir.mkdir()
 
         print(f"\n{'='*80}")
-        print(f"Test: Config Precedence with Environment Variables")
+        print("Test: Config Precedence with Environment Variables")
         print(f"DATA_DIR: {data_dir}")
         print(f"{'='*80}\n")
 
@@ -1006,7 +1003,7 @@ def test_new_environment_variables_added():
         data_dir.mkdir()
 
         print(f"\n{'='*80}")
-        print(f"Test: New Environment Variables Added to Config")
+        print("Test: New Environment Variables Added to Config")
         print(f"DATA_DIR: {data_dir}")
         print(f"{'='*80}\n")
 

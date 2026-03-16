@@ -6,10 +6,6 @@ Verify server can start (basic smoke tests only, no full server testing).
 
 import os
 import subprocess
-import signal
-import time
-
-from .fixtures import *
 
 
 def test_server_shows_usage_info(tmp_path, process):

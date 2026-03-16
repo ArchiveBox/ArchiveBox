@@ -5,8 +5,6 @@ import os
 import tempfile
 import logging
 
-import pydantic
-import django.template
 
 from archivebox.config import CONSTANTS
 

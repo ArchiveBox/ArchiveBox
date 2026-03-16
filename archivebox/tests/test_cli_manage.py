@@ -6,9 +6,6 @@ Verify manage command runs Django management commands.
 
 import os
 import subprocess
-import sqlite3
-
-from .fixtures import *
 
 
 def test_manage_help_works(tmp_path, process):

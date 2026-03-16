@@ -7,8 +7,6 @@ Verify command runs successfully and produces output.
 import os
 import subprocess
 
-from .fixtures import *
-
 
 def test_help_runs_successfully(tmp_path):
     """Test that help command runs and produces output."""

@@ -128,13 +128,13 @@ def status(out_dir: Path=DATA_DIR) -> None:
         if not snapshot.downloaded_at:
             continue
         print(
-            '[grey53] ' +
             (
+                '[grey53] '
                 f'   > {str(snapshot.downloaded_at)[:16]} '
                 f'[{snapshot.num_outputs} {("X", "√")[snapshot.is_archived]} {printable_filesize(snapshot.archive_size)}] '
                 f'"{snapshot.title}": {snapshot.url}'
-            )[:SHELL_CONFIG.TERM_WIDTH]
-            + '[grey53]',
+                '[/grey53]'
+            )[:SHELL_CONFIG.TERM_WIDTH],
         )
     print('[grey53]   ...')
 

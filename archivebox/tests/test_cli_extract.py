@@ -5,10 +5,8 @@ Verify extract re-runs extractors on existing snapshots.
 """
 
 import os
-import subprocess
 import sqlite3
-
-from .fixtures import *
+import subprocess
 
 
 def test_extract_runs_on_existing_snapshots(tmp_path, process, disable_extractors_dict):

@@ -57,6 +57,7 @@ def add(urls: str | list[str],
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
     from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.personas.models import Persona
     from archivebox.workers.orchestrator import Orchestrator
     from archivebox.misc.logging_util import printable_filesize
     from archivebox.misc.system import get_dir_size
@@ -79,11 +80,15 @@ def add(urls: str | list[str],
 
     # Read URLs directly into crawl
     urls_content = sources_file.read_text()
+    persona_name = (persona or 'Default').strip() or 'Default'
+    persona_obj, _ = Persona.objects.get_or_create(name=persona_name)
+    persona_obj.ensure_dirs()
 
     crawl = Crawl.objects.create(
         urls=urls_content,
         max_depth=depth,
         tags_str=tag,
+        persona_id=persona_obj.id,
         label=f'{USER}@{HOSTNAME} $ {cmd_str} [{timestamp}]',
         created_by_id=created_by_id,
         config={
@@ -91,7 +96,7 @@ def add(urls: str | list[str],
             'INDEX_ONLY': index_only,
             'OVERWRITE': overwrite,
             'PLUGINS': plugins,
-            'DEFAULT_PERSONA': persona or 'Default',
+            'DEFAULT_PERSONA': persona_name,
             'PARSER': parser,
         }
     )
@@ -135,8 +140,7 @@ def add(urls: str | list[str],
         print('[yellow]\\[*] URLs queued. Orchestrator will process them (run `archivebox server` if not already running).[/yellow]')
     else:
         # Foreground mode: run full orchestrator until all work is done
-        print(f'[green]\\[*] Starting orchestrator to process crawl...[/green]')
-        from archivebox.workers.orchestrator import Orchestrator
+        print('[green]\\[*] Starting orchestrator to process crawl...[/green]')
         orchestrator = Orchestrator(exit_on_idle=True, crawl_id=str(crawl.id))
         orchestrator.runloop()  # Block until complete
 

@@ -5,11 +5,9 @@ Verify status reports accurate collection state from DB and filesystem.
 """
 
 import os
-import subprocess
 import sqlite3
+import subprocess
 from pathlib import Path
-
-from .fixtures import *
 
 
 def _find_snapshot_dir(data_dir: Path, snapshot_id: str) -> Path | None:

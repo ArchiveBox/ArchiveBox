@@ -9,7 +9,7 @@ import os
 import sys
 import tempfile
 import unittest
-from pathlib import Path
+from importlib.util import find_spec
 
 
 class TestLDAPConfig(unittest.TestCase):
@@ -100,13 +100,7 @@ class TestLDAPIntegration(unittest.TestCase):
 
     def test_django_settings_with_ldap_library_check(self):
         """Test that Django settings check for LDAP libraries when enabled."""
-        # Try to import django-auth-ldap to see if it's available
-        try:
-            import django_auth_ldap
-            import ldap
-            ldap_available = True
-        except ImportError:
-            ldap_available = False
+        ldap_available = find_spec("django_auth_ldap") is not None and find_spec("ldap") is not None
 
         # If LDAP libraries are not available, settings should handle gracefully
         if not ldap_available:

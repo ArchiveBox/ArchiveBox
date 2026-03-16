@@ -8,10 +8,9 @@ https://docs.djangoproject.com/en/stable/howto/deployment/asgi/
 """
 
 from archivebox.config.django import setup_django
+from django.core.asgi import get_asgi_application
 
 setup_django(in_memory_db=False, check_db=True)
-
-from django.core.asgi import get_asgi_application
 
 # Standard Django ASGI application (no websockets/channels needed)
 application = get_asgi_application()

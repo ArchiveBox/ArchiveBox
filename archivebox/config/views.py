@@ -3,7 +3,6 @@ __package__ = 'archivebox.config'
 import os
 import shutil
 import inspect
-from pathlib import Path
 from typing import Any, List, Dict, cast
 from benedict import benedict
 
@@ -30,11 +29,11 @@ KNOWN_BINARIES = [
 ]
 
 
-def obj_to_yaml(obj: Any, indent: int=0) -> str:
+def obj_to_yaml(obj: Any, indent: int = 0) -> str:
     indent_str = "  " * indent
     if indent == 0:
         indent_str = '\n'  # put extra newline between top-level entries
-    
+
     if isinstance(obj, dict):
         if not obj:
             return "{}"
@@ -42,7 +41,7 @@ def obj_to_yaml(obj: Any, indent: int=0) -> str:
         for key, value in obj.items():
             result += f"{indent_str}{key}:{obj_to_yaml(value, indent + 1)}\n"
         return result
-    
+
     elif isinstance(obj, list):
         if not obj:
             return "[]"
@@ -50,16 +49,16 @@ def obj_to_yaml(obj: Any, indent: int=0) -> str:
         for item in obj:
             result += f"{indent_str}- {obj_to_yaml(item, indent + 1).lstrip()}\n"
         return result.rstrip()
-    
+
     elif isinstance(obj, str):
         if "\n" in obj:
             return f" |\n{indent_str}  " + obj.replace("\n", f"\n{indent_str}  ")
         else:
             return f" {obj}"
-    
+
     elif isinstance(obj, (int, float, bool)):
         return f" {str(obj)}"
-    
+
     elif callable(obj):
         source = '\n'.join(
             '' if 'def ' in line else line
@@ -67,7 +66,7 @@ def obj_to_yaml(obj: Any, indent: int=0) -> str:
             if line.strip()
         ).split('lambda: ')[-1].rstrip(',')
         return f" {indent_str}  " + source.replace("\n", f"\n{indent_str}  ")
-    
+
     else:
         return f" {str(obj)}"
 
@@ -75,7 +74,7 @@ def obj_to_yaml(obj: Any, indent: int=0) -> str:
 def get_detected_binaries() -> Dict[str, Dict[str, Any]]:
     """Detect available binaries using shutil.which."""
     binaries = {}
-    
+
     for name in KNOWN_BINARIES:
         path = shutil.which(name)
         if path:
@@ -85,7 +84,7 @@ def get_detected_binaries() -> Dict[str, Dict[str, Any]]:
                 'version': None,  # Could add version detection later
                 'is_available': True,
             }
-    
+
     return binaries
 
 
@@ -144,19 +143,19 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
     # Get binaries from database (previously detected/installed)
     db_binaries = {b.name: b for b in Binary.objects.all()}
-    
-    # Get currently detectable binaries  
+
+    # Get currently detectable binaries
     detected = get_detected_binaries()
-    
+
     # Merge and display
     all_binary_names = sorted(set(list(db_binaries.keys()) + list(detected.keys())))
-    
+
     for name in all_binary_names:
         db_binary = db_binaries.get(name)
         detected_binary = detected.get(name)
-        
+
         rows['Binary Name'].append(ItemLink(name, key=name))
-        
+
         if db_binary:
             rows['Found Version'].append(f'✅ {db_binary.version}' if db_binary.version else '✅ found')
             rows['Provided By'].append(db_binary.binprovider or 'PATH')
@@ -174,6 +173,7 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
         title="Binaries",
         table=rows,
     )
+
 
 @render_with_item_view
 def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
@@ -203,7 +203,7 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
         )
     except Binary.DoesNotExist:
         pass
-    
+
     # Try to detect from PATH
     path = shutil.which(key)
     if path:
@@ -224,7 +224,7 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
                 },
             ],
         )
-    
+
     return ItemContext(
         slug=key,
         title=key,
@@ -286,6 +286,7 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
         table=rows,
     )
 
+
 @render_with_item_view
 def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     import json
@@ -314,7 +315,10 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     # Add config.json data if available
     if plugin.get('config'):
         config_json = json.dumps(plugin['config'], indent=2)
-        fields["config.json"] = mark_safe(f'<pre style="max-height: 600px; overflow-y: auto; background: #f5f5f5; padding: 10px; border-radius: 4px;"><code>{config_json}</code></pre>')
+        fields["config.json"] = mark_safe(
+            '<pre style="max-height: 600px; overflow-y: auto; background: #f5f5f5; '
+            f'padding: 10px; border-radius: 4px;"><code>{config_json}</code></pre>'
+        )
 
         # Also extract and display individual config properties for easier viewing
         if 'properties' in plugin['config']:
@@ -322,7 +326,6 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
             properties_summary = []
             for prop_name, prop_info in config_properties.items():
                 prop_type = prop_info.get('type', 'unknown')
-                prop_default = prop_info.get('default', 'N/A')
                 prop_desc = prop_info.get('description', '')
                 properties_summary.append(f"• {prop_name} ({prop_type}): {prop_desc}")
 
@@ -365,7 +368,7 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
             title="No running worker processes",
             table=rows,
         )
-        
+
     all_config_entries = cast(List[Dict[str, Any]], supervisor.getAllConfigInfo() or [])
     all_config = {config["name"]: benedict(config) for config in all_config_entries}
 
@@ -514,7 +517,7 @@ def log_list_view(request: HttpRequest, **kwargs) -> TableContext:
 @render_with_item_view
 def log_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     assert request.user.is_superuser, "Must be a superuser to view configuration settings."
-    
+
     log_file = [logfile for logfile in CONSTANTS.LOGS_DIR.glob('*.log') if key in logfile.name][0]
 
     log_text = log_file.read_text()

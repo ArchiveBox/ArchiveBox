@@ -1,7 +1,11 @@
-from .fixtures import *
 import json as pyjson
 import sqlite3
+import subprocess
 from pathlib import Path
+
+from .fixtures import disable_extractors_dict, process
+
+FIXTURES = (disable_extractors_dict, process)
 
 
 def _find_snapshot_dir(data_dir: Path, snapshot_id: str) -> Path | None:

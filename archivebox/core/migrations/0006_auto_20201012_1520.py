@@ -7,10 +7,8 @@ def forwards_func(apps, schema_editor):
     SnapshotModel = apps.get_model("core", "Snapshot")
     TagModel = apps.get_model("core", "Tag")
 
-    db_alias = schema_editor.connection.alias
     snapshots = SnapshotModel.objects.all()
     for snapshot in snapshots:
-        tags = snapshot.tags
         tag_set = (
             set(tag.strip() for tag in (snapshot.tags_old or '').split(','))
         )
@@ -23,9 +21,7 @@ def forwards_func(apps, schema_editor):
 
 def reverse_func(apps, schema_editor):
     SnapshotModel = apps.get_model("core", "Snapshot")
-    TagModel = apps.get_model("core", "Tag")
 
-    db_alias = schema_editor.connection.alias
     snapshots = SnapshotModel.objects.all()
     for snapshot in snapshots:
         tags = snapshot.tags.values_list("name", flat=True)

@@ -5,7 +5,6 @@ import os
 import sqlite3
 import subprocess
 
-from .fixtures import process, disable_extractors_dict
 
 
 def test_schedule_run_all_enqueues_scheduled_crawl(tmp_path, process, disable_extractors_dict):

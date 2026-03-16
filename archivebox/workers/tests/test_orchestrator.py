@@ -10,9 +10,7 @@ Tests cover:
 """
 
 import os
-import tempfile
 import time
-from pathlib import Path
 from datetime import timedelta
 from unittest.mock import patch, MagicMock
 
@@ -217,7 +215,6 @@ class TestOrchestratorWithProcess(TestCase):
 
     def test_orchestrator_scoped_worker_count(self):
         """Orchestrator with crawl_id should count only descendant workers."""
-        import time
         from archivebox.machine.models import Process, Machine
 
         machine = Machine.current()

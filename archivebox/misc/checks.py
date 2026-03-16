@@ -225,7 +225,6 @@ def check_tmp_dir(tmp_dir=None, throw=False, quiet=False, must_exist=True):
 
 
 def check_lib_dir(lib_dir: Path | None = None, throw=False, quiet=False, must_exist=True):
-    import archivebox
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
     from archivebox.misc.logging import STDERR
     from archivebox.misc.logging_util import pretty_path

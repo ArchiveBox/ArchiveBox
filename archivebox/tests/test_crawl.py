@@ -4,11 +4,9 @@
 import os
 import subprocess
 import sqlite3
-import json
 
 import pytest
 
-from .fixtures import process, disable_extractors_dict
 
 
 def test_crawl_creates_crawl_object(tmp_path, process, disable_extractors_dict):

@@ -347,7 +347,7 @@ def copy_archiveresult_data_to_process(apps, schema_editor):
             migrated_count += 1
 
             if i == 0:
-                print(f'DEBUG 0027: Linked ArchiveResult to Process')
+                print('DEBUG 0027: Linked ArchiveResult to Process')
 
         except Exception as e:
             print(f'✗ Error migrating ArchiveResult {ar_id}: {e}')

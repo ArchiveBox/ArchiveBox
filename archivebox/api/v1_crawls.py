@@ -5,7 +5,6 @@ from typing import List, Optional
 from datetime import datetime
 from django.utils import timezone
 
-from django.db.models import Q
 from django.contrib.auth import get_user_model
 
 from ninja import Router, Schema

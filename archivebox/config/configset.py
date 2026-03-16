@@ -11,10 +11,10 @@ __package__ = "archivebox.config"
 import os
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, List, Type, Tuple, TYPE_CHECKING, cast
+from typing import Any, Dict, Optional, Type, Tuple
 from configparser import ConfigParser
 
-from pydantic import Field, ConfigDict
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
 
 
@@ -166,6 +166,23 @@ def get_config(
 
     if user is None and crawl and hasattr(crawl, "created_by"):
         user = crawl.created_by
+
+    if persona is None and crawl is not None:
+        try:
+            from archivebox.personas.models import Persona
+
+            persona_id = getattr(crawl, "persona_id", None)
+            if persona_id:
+                persona = Persona.objects.filter(id=persona_id).first()
+
+            if persona is None:
+                crawl_config = getattr(crawl, "config", None) or {}
+                default_persona_name = crawl_config.get("DEFAULT_PERSONA")
+                if default_persona_name:
+                    persona, _ = Persona.objects.get_or_create(name=str(default_persona_name).strip() or "Default")
+                    persona.ensure_dirs()
+        except Exception:
+            pass
     from archivebox.config.constants import CONSTANTS
     from archivebox.config.common import (
         SHELL_CONFIG,

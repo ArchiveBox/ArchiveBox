@@ -343,20 +343,17 @@ class InlineTagEditorWidget(TagEditorWidget):
         snapshot_id = snapshot_id or self.snapshot_id
 
         # Parse value to get list of tag dicts with id and name
-        tags = []
         tag_data = []
         if value:
             if hasattr(value, 'all'):  # QuerySet
                 for tag in value.all():
                     tag_data.append({'id': tag.pk, 'name': tag.name})
                 tag_data.sort(key=lambda x: x['name'].lower())
-                tags = [t['name'] for t in tag_data]
             elif isinstance(value, (list, tuple)):
                 if value and hasattr(value[0], 'name'):
                     for tag in value:
                         tag_data.append({'id': tag.pk, 'name': tag.name})
                     tag_data.sort(key=lambda x: x['name'].lower())
-                    tags = [t['name'] for t in tag_data]
 
         widget_id_raw = f"inline_tags_{snapshot_id}" if snapshot_id else (attrs.get('id', name) if attrs else name)
         widget_id = self._normalize_id(widget_id_raw)

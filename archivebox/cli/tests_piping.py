@@ -23,7 +23,6 @@ Each command should:
 __package__ = 'archivebox.cli'
 
 import os
-import sys
 import json
 import shutil
 import tempfile
@@ -101,7 +100,7 @@ class TestJSONLParsing(unittest.TestCase):
 
     def test_parse_jsonl_with_id(self):
         """JSONL with id field should be recognized."""
-        from archivebox.misc.jsonl import parse_line, TYPE_SNAPSHOT
+        from archivebox.misc.jsonl import parse_line
 
         line = '{"type": "Snapshot", "id": "abc123", "url": "https://example.com"}'
         result = parse_line(line)
@@ -576,8 +575,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         """
         from archivebox.core.models import Snapshot
         from archivebox.misc.jsonl import (
-            read_args_or_stdin, write_record,
-            TYPE_SNAPSHOT
+            read_args_or_stdin, TYPE_SNAPSHOT
         )
         from archivebox.base_models.models import get_or_create_system_user_pk
 
@@ -608,7 +606,7 @@ class TestPipingWorkflowIntegration(unittest.TestCase):
         Test: archivebox snapshot URL | archivebox extract
         Extract should accept JSONL output from snapshot command.
         """
-        from archivebox.core.models import Snapshot, ArchiveResult
+        from archivebox.core.models import Snapshot
         from archivebox.misc.jsonl import (
             read_args_or_stdin,
             TYPE_SNAPSHOT
@@ -783,7 +781,6 @@ class TestParserPluginWorkflows(unittest.TestCase):
         Test: archivebox crawl --plugin=parse_html_urls URL | archivebox snapshot | archivebox extract
         """
         from archivebox.hooks import collect_urls_from_plugins
-        from archivebox.misc.jsonl import TYPE_SNAPSHOT
 
         # Create mock output directory
         snapshot_dir = Path(self.test_dir) / 'archive' / 'html-parser-test'
@@ -938,7 +935,6 @@ class TestPassThroughBehavior(unittest.TestCase):
 
     def test_crawl_passes_through_other_types(self):
         """crawl create should pass through records with other types."""
-        from archivebox.misc.jsonl import TYPE_CRAWL
 
         # Input: a Tag record (not a Crawl or URL)
         tag_record = {'type': 'Tag', 'id': 'test-tag', 'name': 'example'}
@@ -946,8 +942,9 @@ class TestPassThroughBehavior(unittest.TestCase):
 
         # Mock stdin with both records
         stdin = StringIO(
-            json.dumps(tag_record) + '\n' +
-            json.dumps(url_record)
+            json.dumps(tag_record)
+            + '\n'
+            + json.dumps(url_record)
         )
         stdin.isatty = lambda: False
 
@@ -964,7 +961,7 @@ class TestPassThroughBehavior(unittest.TestCase):
 
     def test_snapshot_passes_through_crawl(self):
         """snapshot create should pass through Crawl records."""
-        from archivebox.misc.jsonl import TYPE_CRAWL, TYPE_SNAPSHOT
+        from archivebox.misc.jsonl import TYPE_CRAWL
 
         crawl_record = {
             'type': TYPE_CRAWL,

@@ -26,7 +26,7 @@ from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 from archivebox.workers.tasks import bg_archive_snapshots, bg_add
 
 from archivebox.core.models import Tag, Snapshot, ArchiveResult
-from archivebox.core.admin_archiveresults import ArchiveResultInline, render_archiveresults_list
+from archivebox.core.admin_archiveresults import render_archiveresults_list
 from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
 
 
@@ -712,8 +712,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         description="🔁 Redo Failed"
     )
     def update_snapshots(self, request, queryset):
-        count = queryset.count()
-
         queued = bg_archive_snapshots(queryset, kwargs={"overwrite": False, "out_dir": DATA_DIR})
 
         messages.success(
@@ -741,8 +739,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         description="🔄 Redo"
     )
     def overwrite_snapshots(self, request, queryset):
-        count = queryset.count()
-
         queued = bg_archive_snapshots(queryset, kwargs={"overwrite": True, "out_dir": DATA_DIR})
 
         messages.success(

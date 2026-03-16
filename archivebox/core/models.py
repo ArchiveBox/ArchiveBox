@@ -1,6 +1,6 @@
 __package__ = 'archivebox.core'
 
-from typing import Optional, Dict, Iterable, Any, List, TYPE_CHECKING
+from typing import Optional, Dict, Iterable, Any, List
 from archivebox.uuid_compat import uuid7
 from datetime import datetime, timedelta
 from django_stubs_ext.db.models import TypedModelMeta
@@ -12,19 +12,18 @@ from pathlib import Path
 from statemachine import State, registry
 
 from django.db import models
-from django.db.models import QuerySet, Value, Case, When, IntegerField
+from django.db.models import QuerySet
 from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.utils import timezone
 from django.core.cache import cache
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse_lazy
 from django.contrib import admin
 from django.conf import settings
 
 from archivebox.config import CONSTANTS
 from archivebox.misc.system import get_dir_size, atomic_write
-from archivebox.misc.util import parse_date, base_url, domain as url_domain, to_json, ts_to_date_str, urlencode, htmlencode, urldecode
-from archivebox.misc.hashing import get_dir_info
+from archivebox.misc.util import parse_date, domain as url_domain, to_json, ts_to_date_str, urlencode, htmlencode, urldecode
 from archivebox.hooks import (
     get_plugins, get_plugin_name, get_plugin_icon,
 )
@@ -186,7 +185,7 @@ class SnapshotQuerySet(models.QuerySet):
         for pattern in patterns:
             try:
                 qsearch |= query_search_index(pattern)
-            except:
+            except BaseException:
                 raise SystemExit(2)
         return self.all() & qsearch
 
@@ -344,8 +343,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     @property
     def process_set(self):
         """Get all Process objects related to this snapshot's ArchiveResults."""
-        import json
-        import json
         from archivebox.machine.models import Process
         return Process.objects.filter(archiveresult__snapshot_id=self.id)
 
@@ -458,13 +455,13 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         if not old_dir.exists() or old_dir == new_dir:
             # No migration needed
-            print(f"[DEBUG _fs_migrate] Returning None (early return)")
+            print("[DEBUG _fs_migrate] Returning None (early return)")
             return None
 
         if new_dir.exists():
             # New directory already exists (files already copied), but we still need cleanup
             # Return cleanup info so old directory can be cleaned up
-            print(f"[DEBUG _fs_migrate] Returning cleanup info (new_dir exists)")
+            print("[DEBUG _fs_migrate] Returning cleanup info (new_dir exists)")
             return (old_dir, new_dir)
 
         new_dir.mkdir(parents=True, exist_ok=True)
@@ -499,7 +496,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         # Schedule cleanup AFTER transaction commits successfully
         # This ensures DB changes are committed before we delete old files
-        from django.db import transaction
         transaction.on_commit(lambda: self._cleanup_old_migration_dir(old_dir, new_dir))
 
         # Return cleanup info for manual cleanup if needed (when called directly)
@@ -594,8 +590,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             domain = self.extract_domain_from_url(self.url)
 
             return (
-                CONSTANTS.DATA_DIR / 'users' / username / 'snapshots' /
-                date_str / domain / str(self.id)
+                CONSTANTS.DATA_DIR / 'users' / username / 'snapshots'
+                / date_str / domain / str(self.id)
             )
         else:
             # Unknown version - use current
@@ -670,7 +666,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 print(f"[DEBUG load_from_directory] Found via fuzzy match: {snapshot.timestamp}")
                 return snapshot
             elif candidates.count() > 1:
-                print(f"[DEBUG load_from_directory] Multiple fuzzy matches, using first")
+                print("[DEBUG load_from_directory] Multiple fuzzy matches, using first")
                 return candidates.first()
             print(f"[DEBUG load_from_directory] NOT FOUND (fuzzy): {url} @ {timestamp}")
             return None
@@ -767,7 +763,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 ts_int = int(float(ts))
                 # 1995-01-01 to 2035-12-31
                 return 788918400 <= ts_int <= 2082758400
-            except:
+            except (TypeError, ValueError, OverflowError):
                 return False
 
         index_valid = is_valid_timestamp(index_timestamp) if index_timestamp else False
@@ -850,7 +846,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             try:
                 with open(json_path) as f:
                     index_data = json.load(f)
-            except:
+            except (OSError, TypeError, ValueError, json.JSONDecodeError):
                 pass
 
         # Merge title
@@ -929,7 +925,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         if result_data.get('start_ts'):
             try:
                 start_ts = parser.parse(result_data['start_ts'])
-            except:
+            except (TypeError, ValueError, OverflowError):
                 pass
 
         if (plugin, start_ts) in existing:
@@ -940,7 +936,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             if result_data.get('end_ts'):
                 try:
                     end_ts = parser.parse(result_data['end_ts'])
-                except:
+                except (TypeError, ValueError, OverflowError):
                     pass
 
             # Support both 'output' (legacy) and 'output_str' (new JSONL) field names
@@ -957,7 +953,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 start_ts=start_ts,
                 end_ts=end_ts,
             )
-        except:
+        except Exception:
             pass
 
     def write_index_json(self):
@@ -1176,7 +1172,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         try:
             shutil.move(str(snapshot_dir), str(dest))
-        except:
+        except Exception:
             pass
 
     @classmethod
@@ -1208,7 +1204,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 try:
                     cls._merge_snapshots(snapshots)
                     merged += 1
-                except:
+                except Exception:
                     pass
 
         return merged
@@ -1244,7 +1240,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
                 try:
                     shutil.rmtree(dup_dir)
-                except:
+                except Exception:
                     pass
 
             # Merge tags
@@ -1615,7 +1611,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         """
         import re
         from django.utils import timezone
-        from archivebox.misc.util import parse_date
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.config.common import GENERAL_CONFIG
 
@@ -2125,7 +2120,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
     def to_dict(self, extended: bool = False) -> Dict[str, Any]:
         """Convert Snapshot to a dictionary (replacement for Link._asdict())"""
-        from archivebox.misc.util import ts_to_date_str
         from archivebox.core.host_utils import build_snapshot_url
 
         result = {
@@ -2283,9 +2277,9 @@ class SnapshotMachine(BaseStateMachine):
 
     # Tick Event (polled by workers)
     tick = (
-        queued.to.itself(unless='can_start') |
-        queued.to(started, cond='can_start') |
-        started.to(sealed, cond='is_finished')
+        queued.to.itself(unless='can_start')
+        | queued.to(started, cond='can_start')
+        | started.to(sealed, cond='is_finished')
     )
 
     # Manual event (can also be triggered by last ArchiveResult finishing)
@@ -2783,7 +2777,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         Updates status/output fields, queues discovered URLs, and triggers indexing.
         """
         from django.utils import timezone
-        from archivebox.hooks import BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR, run_hook, is_background_hook
+        from archivebox.hooks import BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR, run_hook
         from archivebox.config.configset import get_config
 
         # Get merged config with proper context
@@ -3190,16 +3184,16 @@ class ArchiveResultMachine(BaseStateMachine):
     #       queued → skipped (if exceeded max attempts)
     #       started → backoff → started (retry)
     tick = (
-        queued.to(skipped, cond='is_exceeded_max_attempts') |  # Check skip first
-        queued.to.itself(unless='can_start') |
-        queued.to(started, cond='can_start') |
-        started.to(succeeded, cond='is_succeeded') |
-        started.to(failed, cond='is_failed') |
-        started.to(skipped, cond='is_skipped') |
-        started.to(backoff, cond='is_backoff') |
-        backoff.to(skipped, cond='is_exceeded_max_attempts') |  # Check skip from backoff too
-        backoff.to.itself(unless='can_start') |
-        backoff.to(started, cond='can_start')
+        queued.to(skipped, cond='is_exceeded_max_attempts')  # Check skip first
+        | queued.to.itself(unless='can_start')
+        | queued.to(started, cond='can_start')
+        | started.to(succeeded, cond='is_succeeded')
+        | started.to(failed, cond='is_failed')
+        | started.to(skipped, cond='is_skipped')
+        | started.to(backoff, cond='is_backoff')
+        | backoff.to(skipped, cond='is_exceeded_max_attempts')  # Check skip from backoff too
+        | backoff.to.itself(unless='can_start')
+        | backoff.to(started, cond='can_start')
         # Removed redundant transitions: backoff.to(succeeded/failed/skipped)
         # Reason: backoff should always retry→started, then started→final states
     )
@@ -3241,8 +3235,8 @@ class ArchiveResultMachine(BaseStateMachine):
         """Check if we should backoff and retry later."""
         # Backoff if status is still started (plugin didn't complete) and output_str is empty
         return (
-            self.archiveresult.status == ArchiveResult.StatusChoices.STARTED and
-            not self.archiveresult.output_str
+            self.archiveresult.status == ArchiveResult.StatusChoices.STARTED
+            and not self.archiveresult.output_str
         )
 
     def is_finished(self) -> bool:
@@ -3286,7 +3280,6 @@ class ArchiveResultMachine(BaseStateMachine):
 
     @started.enter
     def enter_started(self):
-        from archivebox.machine.models import NetworkInterface
 
         # Update Process with network interface
         if self.archiveresult.process_id:

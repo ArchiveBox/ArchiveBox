@@ -6,9 +6,6 @@ Verify config reads/writes ArchiveBox.conf file correctly.
 
 import os
 import subprocess
-from pathlib import Path
-
-from .fixtures import *
 
 
 def test_config_displays_all_config(tmp_path, process):

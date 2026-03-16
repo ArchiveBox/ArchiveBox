@@ -56,15 +56,17 @@ __package__ = 'archivebox'
 
 import os
 import json
-import time
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Dict, Any, Optional, TypedDict
+from typing import TYPE_CHECKING, List, Dict, Any, Optional, TypedDict
 
 from abx_plugins import get_plugins_dir
 from django.conf import settings
 from django.utils.safestring import mark_safe
 from archivebox.config.constants import CONSTANTS
+
+if TYPE_CHECKING:
+    from archivebox.machine.models import Process
 
 
 # Plugin directories
@@ -266,9 +268,7 @@ def run_hook(
     """
     from archivebox.machine.models import Process, Machine
     from archivebox.config.constants import CONSTANTS
-    import time
     import sys
-    start_time = time.time()
 
     # Auto-detect timeout from plugin config if not explicitly provided
     if timeout is None:

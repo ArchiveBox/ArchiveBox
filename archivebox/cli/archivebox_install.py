@@ -3,8 +3,6 @@
 __package__ = 'archivebox.cli'
 
 import os
-import sys
-import shutil
 
 import rich_click as click
 from rich import print

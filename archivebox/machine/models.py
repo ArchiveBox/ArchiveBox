@@ -10,6 +10,7 @@ from datetime import timedelta, datetime
 from statemachine import State, registry
 
 from django.db import models
+from django.db.models import QuerySet
 from django.utils import timezone
 from django.utils.functional import cached_property
 
@@ -197,7 +198,6 @@ class NetworkInterface(ModelWithHealthStats):
 class BinaryManager(models.Manager):
     def get_from_db_or_cache(self, name: str, abspath: str = '', version: str = '', sha256: str = '', binprovider: str = 'env') -> 'Binary':
         """Get or create an Binary record from the database or cache."""
-        global _CURRENT_BINARIES
         cached = _CURRENT_BINARIES.get(name)
         if cached and timezone.now() < cached.modified_at + timedelta(seconds=BINARY_RECHECK_INTERVAL):
             return cached
@@ -583,7 +583,6 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         Called by state machine if needed (not typically used for binaries
         since installations are foreground, but included for consistency).
         """
-        from pathlib import Path
 
         # Kill any background binary installation hooks using Process records
         # (rarely used since binary installations are typically foreground)
@@ -1026,9 +1025,11 @@ class Process(models.Model):
         # Check cache validity
         if _CURRENT_PROCESS:
             # Verify: same PID, same machine, cache not expired
-            if (_CURRENT_PROCESS.pid == current_pid and
-                _CURRENT_PROCESS.machine_id == machine.id and
-                timezone.now() < _CURRENT_PROCESS.modified_at + timedelta(seconds=PROCESS_RECHECK_INTERVAL)):
+            if (
+                _CURRENT_PROCESS.pid == current_pid
+                and _CURRENT_PROCESS.machine_id == machine.id
+                and timezone.now() < _CURRENT_PROCESS.modified_at + timedelta(seconds=PROCESS_RECHECK_INTERVAL)
+            ):
                 _CURRENT_PROCESS.ensure_log_files()
                 return _CURRENT_PROCESS
             _CURRENT_PROCESS = None
@@ -1111,7 +1112,6 @@ class Process(models.Model):
         machine = machine or Machine.current()
 
         # Debug logging
-        import sys
         # print(f"DEBUG _find_parent_process: my_pid={os.getpid()}, ppid={ppid}", file=sys.stderr)
 
         # Get parent process start time from OS
@@ -1630,7 +1630,6 @@ class Process(models.Model):
             self (updated with pid, started_at, etc.)
         """
         import subprocess
-        import time
 
         # Validate pwd is set (required for output files)
         if not self.pwd:
@@ -1846,7 +1845,6 @@ class Process(models.Model):
         Returns:
             True if process was terminated, False if already dead
         """
-        import time
         import signal
 
         proc = self.proc
@@ -2199,8 +2197,8 @@ class BinaryMachine(BaseStateMachine):
 
     # Tick Event - install happens during transition
     tick = (
-        queued.to.itself(unless='can_install') |
-        queued.to(installed, cond='can_install', on='on_install')
+        queued.to.itself(unless='can_install')
+        | queued.to(installed, cond='can_install', on='on_install')
     )
 
     def can_install(self) -> bool:
@@ -2303,10 +2301,10 @@ class ProcessMachine(BaseStateMachine):
 
     # Tick Event - transitions based on conditions
     tick = (
-        queued.to.itself(unless='can_start') |
-        queued.to(running, cond='can_start') |
-        running.to.itself(unless='is_exited') |
-        running.to(exited, cond='is_exited')
+        queued.to.itself(unless='can_start')
+        | queued.to(running, cond='can_start')
+        | running.to.itself(unless='is_exited')
+        | running.to(exited, cond='is_exited')
     )
 
     # Additional events (for explicit control)

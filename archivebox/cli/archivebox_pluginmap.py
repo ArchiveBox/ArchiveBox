@@ -3,7 +3,6 @@
 __package__ = 'archivebox.cli'
 
 from typing import Optional
-from pathlib import Path
 
 import rich_click as click
 

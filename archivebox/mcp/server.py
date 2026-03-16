@@ -1,5 +1,3 @@
-__package__ = 'archivebox.mcp'
-
 """
 Model Context Protocol (MCP) server implementation for ArchiveBox.
 
@@ -10,9 +8,7 @@ Click command metadata. Handles JSON-RPC 2.0 requests over stdio transport.
 import sys
 import json
 import traceback
-from typing import Any, Dict, List, Optional
-from io import StringIO
-from contextlib import redirect_stdout, redirect_stderr
+from typing import Optional
 
 import click
 from click.testing import CliRunner

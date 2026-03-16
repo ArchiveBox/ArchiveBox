@@ -9,7 +9,6 @@ from configparser import ConfigParser
 
 from benedict import benedict
 
-import archivebox
 
 from archivebox.config.constants import CONSTANTS
 

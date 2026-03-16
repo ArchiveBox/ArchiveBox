@@ -94,7 +94,7 @@ def config(*keys,
 
         # Display all plugin config in single [PLUGINS] section
         if plugin_keys:
-            print(f'[grey53]\\[PLUGINS][/grey53]')
+            print('[grey53]\\[PLUGINS][/grey53]')
             print(benedict(plugin_keys).to_toml(encoder=CustomTOMLEncoder()).strip().replace('\n\n', '\n'))
             print('[grey53]################################################################[/grey53]')
 

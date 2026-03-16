@@ -1,16 +1,18 @@
 __package__ = 'archivebox'
 
-import django
-import pydantic
 
+import datetime
+import warnings
+
+import benedict
+from daphne import access
 import django_stubs_ext
+from django.utils import timezone
 
 django_stubs_ext.monkeypatch()
 
 
 # monkey patch django timezone to add back utc (it was removed in Django 5.0)
-import datetime
-from django.utils import timezone
 timezone.utc = datetime.timezone.utc
 
 # monkey patch django-signals-webhooks to change how it shows up in Admin UI
@@ -26,12 +28,9 @@ timezone.utc = datetime.timezone.utc
 
 # Hide site-packages/sonic/client.py:115: SyntaxWarning
 # https://github.com/xmonader/python-sonic-client/pull/18
-import warnings     # noqa
 warnings.filterwarnings("ignore", category=SyntaxWarning, module='sonic')
 
 # Make daphne log requests quieter and esier to read
-from daphne import access                                        # noqa
-
 class ModifiedAccessLogGenerator(access.AccessLogGenerator):
     """Clutge workaround until daphne uses the Python logging framework. https://github.com/django/daphne/pull/473/files"""
     
@@ -68,5 +67,4 @@ access.AccessLogGenerator.write_entry = ModifiedAccessLogGenerator.write_entry #
 # fix benedict objects to pretty-print/repr more nicely with rich
 # https://stackoverflow.com/a/79048811/2156113
 # https://rich.readthedocs.io/en/stable/pretty.html#rich-repr-protocol
-import benedict                                                  # noqa
 benedict.benedict.__rich_repr__ = lambda self: (dict(self),)     # type: ignore

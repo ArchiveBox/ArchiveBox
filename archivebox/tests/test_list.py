@@ -1,7 +1,9 @@
 import json
 import subprocess
 
-from .fixtures import *
+from .fixtures import disable_extractors_dict, process
+
+FIXTURES = (disable_extractors_dict, process)
 
 def test_search_json(process, disable_extractors_dict):
     subprocess.run(["archivebox", "add", "--index-only", "https://example.com", "--depth=0"],

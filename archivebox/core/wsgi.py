@@ -9,9 +9,8 @@ https://docs.djangoproject.com/en/2.1/howto/deployment/wsgi/
 
 import archivebox                                       # noqa
 from archivebox.config.django import setup_django
+from django.core.wsgi import get_wsgi_application
 
 setup_django(in_memory_db=False, check_db=True)
-
-from django.core.wsgi import get_wsgi_application
 
 application = get_wsgi_application()

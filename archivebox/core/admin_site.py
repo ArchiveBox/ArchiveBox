@@ -1,8 +1,8 @@
 __package__ = 'archivebox.core'
 
 from django.contrib import admin
+from admin_data_views.admin import get_app_list, admin_data_index_view, get_admin_data_urls, get_urls
 
-import archivebox
 
 class ArchiveBoxAdmin(admin.AdminSite):
     site_header = 'ArchiveBox'
@@ -20,7 +20,6 @@ archivebox_admin = ArchiveBoxAdmin()
 # patch admin with methods to add data views (implemented by admin_data_views package)
 # https://github.com/MrThearMan/django-admin-data-views
 # https://mrthearman.github.io/django-admin-data-views/setup/
-from admin_data_views.admin import get_app_list, admin_data_index_view, get_admin_data_urls, get_urls
 archivebox_admin.get_app_list = get_app_list.__get__(archivebox_admin, ArchiveBoxAdmin)
 archivebox_admin.admin_data_index_view = admin_data_index_view.__get__(archivebox_admin, ArchiveBoxAdmin)       # type: ignore
 archivebox_admin.get_admin_data_urls = get_admin_data_urls.__get__(archivebox_admin, ArchiveBoxAdmin)           # type: ignore

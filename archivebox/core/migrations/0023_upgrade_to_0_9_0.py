@@ -234,7 +234,6 @@ def upgrade_core_tables(apps, schema_editor):
         tag_has_data = cursor.fetchone()[0] > 0
 
         if tag_has_data:
-            tag_cols = get_table_columns('core_tag')
             cursor.execute("PRAGMA table_info(core_tag)")
             tag_id_type = None
             for row in cursor.fetchall():

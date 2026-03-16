@@ -9,7 +9,6 @@ __package__ = "archivebox.ldap"
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from django.contrib.auth.models import User
     from django_auth_ldap.backend import LDAPBackend as BaseLDAPBackend
 else:
     try:

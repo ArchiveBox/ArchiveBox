@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-from .fixtures import process, disable_extractors_dict, recursive_test_site
 
 
 def wait_for_db_condition(timeout, condition, interval=0.5):
@@ -77,7 +76,6 @@ def test_background_hooks_dont_block_parser_extractors(tmp_path, process, recurs
         "SAVE_ARCHIVEDOTORG": "false",
         "SAVE_TITLE": "false",
         "SAVE_FAVICON": "true",
-        "SAVE_WGET": "false",
     })
 
     proc = subprocess.Popen(

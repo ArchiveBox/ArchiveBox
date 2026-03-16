@@ -8,7 +8,6 @@ import json
 
 import pytest
 
-from .fixtures import process, disable_extractors_dict
 
 
 def test_extract_runs_on_snapshot_id(tmp_path, process, disable_extractors_dict):
@@ -231,6 +230,7 @@ def test_extract_multiple_snapshots(tmp_path, process, disable_extractors_dict):
         text=True,
         env=disable_extractors_dict,
     )
+    assert result.returncode == 0, result.stderr
 
     # Should not error
     conn = sqlite3.connect('index.sqlite3')

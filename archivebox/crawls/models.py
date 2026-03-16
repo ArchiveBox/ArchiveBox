@@ -1,12 +1,11 @@
 __package__ = 'archivebox.crawls'
 
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
 from datetime import timedelta
 from archivebox.uuid_compat import uuid7
 from pathlib import Path
 
 from django.db import models
-from django.db.models import QuerySet
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.conf import settings
 from django.urls import reverse_lazy
@@ -15,13 +14,12 @@ from django_stubs_ext.db.models import TypedModelMeta
 from statemachine import State, registry
 from rich import print
 
-from archivebox.config import CONSTANTS
 from archivebox.base_models.models import ModelWithUUID, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, get_or_create_system_user_pk
 from archivebox.workers.models import ModelWithStateMachine, BaseStateMachine
 from archivebox.crawls.schedule_utils import next_run_for_schedule, validate_schedule
 
 if TYPE_CHECKING:
-    from archivebox.core.models import Snapshot, ArchiveResult
+    from archivebox.core.models import Snapshot
 
 
 class CrawlSchedule(ModelWithUUID, ModelWithNotes):
@@ -111,7 +109,6 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     label = models.CharField(max_length=64, blank=True, null=False, default='')
     notes = models.TextField(blank=True, null=False, default='')
     schedule = models.ForeignKey(CrawlSchedule, on_delete=models.SET_NULL, null=True, blank=True, editable=True)
-    output_dir = models.CharField(max_length=512, null=False, blank=True, default='')
 
     status = ModelWithStateMachine.StatusField(choices=ModelWithStateMachine.StatusChoices, default=ModelWithStateMachine.StatusChoices.QUEUED)
     retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
@@ -250,6 +247,22 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         system_url = urls[0].strip().lower()
         if system_url.startswith('archivebox://'):
             return system_url
+        return None
+
+    def resolve_persona(self):
+        from archivebox.personas.models import Persona
+
+        if self.persona_id:
+            persona = Persona.objects.filter(id=self.persona_id).first()
+            if persona is None:
+                raise Persona.DoesNotExist(f'Crawl {self.id} references missing Persona {self.persona_id}')
+            return persona
+
+        default_persona_name = str((self.config or {}).get('DEFAULT_PERSONA') or '').strip()
+        if default_persona_name:
+            persona, _ = Persona.objects.get_or_create(name=default_persona_name or 'Default')
+            return persona
+
         return None
 
 
@@ -391,7 +404,10 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             f.flush()
 
         def get_runtime_config():
-            return get_config(crawl=self)
+            config = get_config(crawl=self)
+            if persona_runtime_overrides:
+                config.update(persona_runtime_overrides)
+            return config
 
         system_task = self.get_system_task()
         if system_task == 'archivebox://update':
@@ -402,6 +418,15 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
         machine = Machine.current()
         declared_binary_names: set[str] = set()
+        persona_runtime_overrides: dict[str, str] = {}
+        persona = self.resolve_persona()
+        if persona:
+            base_runtime_config = get_config(crawl=self, persona=persona)
+            chrome_binary = str(base_runtime_config.get('CHROME_BINARY') or '')
+            persona_runtime_overrides = persona.prepare_runtime_for_crawl(
+                crawl=self,
+                chrome_binary=chrome_binary,
+            )
 
         def install_declared_binaries(binary_names: set[str]) -> None:
             if not binary_names:
@@ -563,7 +588,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
         # Discover and run on_Crawl hooks
         with open(debug_log, 'a') as f:
-            f.write(f'Discovering Crawl hooks...\n')
+            f.write('Discovering Crawl hooks...\n')
             f.flush()
         hooks = discover_hooks('Crawl', config=get_runtime_config())
         with open(debug_log, 'a') as f:
@@ -588,17 +613,17 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 print(f'[yellow]⚠️  Removed {leaked_count} leaked snapshot(s) created during system crawl {system_task}[/yellow]')
             with open(debug_log, 'a') as f:
                 f.write(f'Skipping snapshot creation for system crawl: {system_task}\n')
-                f.write(f'=== Crawl.run() complete ===\n\n')
+                f.write('=== Crawl.run() complete ===\n\n')
                 f.flush()
             return None
 
         with open(debug_log, 'a') as f:
-            f.write(f'Creating snapshots from URLs...\n')
+            f.write('Creating snapshots from URLs...\n')
             f.flush()
         created_snapshots = self.create_snapshots_from_urls()
         with open(debug_log, 'a') as f:
             f.write(f'Created {len(created_snapshots)} snapshots\n')
-            f.write(f'=== Crawl.run() complete ===\n\n')
+            f.write('=== Crawl.run() complete ===\n\n')
             f.flush()
 
         # Return first snapshot for this crawl (newly created or existing)
@@ -646,6 +671,10 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         if self.output_dir.exists():
             for pid_file in self.output_dir.glob('**/*.pid'):
                 pid_file.unlink(missing_ok=True)
+
+        persona = self.resolve_persona()
+        if persona:
+            persona.cleanup_runtime_for_crawl(self)
 
         # Run on_CrawlEnd hooks
         from archivebox.config.configset import get_config
@@ -715,9 +744,9 @@ class CrawlMachine(BaseStateMachine):
 
     # Tick Event (polled by workers)
     tick = (
-        queued.to.itself(unless='can_start') |
-        queued.to(started, cond='can_start') |
-        started.to(sealed, cond='is_finished')
+        queued.to.itself(unless='can_start')
+        | queued.to(started, cond='can_start')
+        | started.to(sealed, cond='is_finished')
     )
 
     # Manual event (triggered by last Snapshot sealing)
@@ -740,7 +769,6 @@ class CrawlMachine(BaseStateMachine):
     @started.enter
     def enter_started(self):
         import sys
-        from archivebox.core.models import Snapshot
 
         print(f'[cyan]🔄 CrawlMachine.enter_started() - creating snapshots for {self.crawl.id}[/cyan]', file=sys.stderr)
 
@@ -758,7 +786,7 @@ class CrawlMachine(BaseStateMachine):
                 )
             else:
                 # No snapshots (system crawl like archivebox://install)
-                print(f'[cyan]🔄 No snapshots created, sealing crawl immediately[/cyan]', file=sys.stderr)
+                print('[cyan]🔄 No snapshots created, sealing crawl immediately[/cyan]', file=sys.stderr)
                 # Seal immediately since there's no work to do
                 self.seal()
 

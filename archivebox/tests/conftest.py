@@ -1,7 +1,6 @@
 """archivebox/tests/conftest.py - Pytest fixtures for CLI tests."""
 
 import os
-import shutil
 import sys
 import subprocess
 import textwrap
@@ -12,6 +11,8 @@ from typing import List, Dict, Any, Optional, Tuple
 import pytest
 
 from archivebox.uuid_compat import uuid7
+
+pytest_plugins = ["archivebox.tests.fixtures"]
 
 
 # =============================================================================

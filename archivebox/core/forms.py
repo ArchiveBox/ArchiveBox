@@ -6,6 +6,7 @@ from archivebox.misc.util import URL_REGEX
 from taggit.utils import edit_string_for_tags, parse_tags
 from archivebox.base_models.admin import KeyValueWidget
 from archivebox.crawls.schedule_utils import validate_schedule
+from archivebox.hooks import get_plugins
 
 DEPTH_CHOICES = (
     ('0', 'depth = 0 (archive just these URLs)'),
@@ -15,7 +16,6 @@ DEPTH_CHOICES = (
     ('4', 'depth = 4 (+ URLs four hops away)'),
 )
 
-from archivebox.hooks import get_plugins
 
 def get_plugin_choices():
     """Get available extractor plugins from discovered hooks."""
@@ -210,14 +210,17 @@ class AddLinkForm(forms.Form):
 
         return schedule
 
+
 class TagWidgetMixin:
     def format_value(self, value):
         if value is not None and not isinstance(value, str):
             value = edit_string_for_tags(value)
         return super().format_value(value)
 
+
 class TagWidget(TagWidgetMixin, forms.TextInput):
     pass
+
 
 class TagField(forms.CharField):
     widget = TagWidget

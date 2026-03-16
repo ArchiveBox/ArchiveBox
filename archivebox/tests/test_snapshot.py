@@ -6,13 +6,11 @@ import subprocess
 import sqlite3
 from archivebox.machine.models import Process
 from datetime import datetime
-from pathlib import Path
 from urllib.parse import urlparse
 import uuid
 
 import pytest
 
-from .fixtures import process, disable_extractors_dict
 
 
 def test_snapshot_creates_snapshot_with_correct_url(tmp_path, process, disable_extractors_dict):
@@ -46,9 +44,7 @@ def test_snapshot_creates_snapshot_with_correct_url(tmp_path, process, disable_e
 
     snapshot_id_raw, snapshot_created_at, snapshot_url, crawl_id = snapshot_row
     snapshot_id = str(uuid.UUID(snapshot_id_raw))
-    crawl_id, crawl_created_at, crawl_urls, crawl_created_by_id = crawl_row
     username = user_row[0]
-    crawl_date_str = datetime.fromisoformat(crawl_created_at).strftime('%Y%m%d')
     snapshot_date_str = datetime.fromisoformat(snapshot_created_at).strftime('%Y%m%d')
     domain = urlparse(snapshot_url).hostname or 'unknown'
 

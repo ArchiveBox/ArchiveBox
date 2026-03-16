@@ -11,7 +11,9 @@ import tempfile
 import subprocess
 from pathlib import Path
 
-from .fixtures import *
+from .fixtures import process
+
+FIXTURES = (process,)
 
 
 def _archivebox_cli() -> str:

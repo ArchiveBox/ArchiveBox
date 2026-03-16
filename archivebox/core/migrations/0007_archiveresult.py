@@ -43,7 +43,7 @@ def forwards_func(apps, schema_editor):
         try:
             with open(out_dir / "index.json", "r") as f:
                 fs_index = json.load(f)
-        except Exception as e:
+        except Exception:
             continue
 
         history = fs_index["history"]

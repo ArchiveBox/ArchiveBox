@@ -9,12 +9,10 @@ Tests cover:
 """
 
 import json
-import pytest
 
 from archivebox.tests.conftest import (
     run_archivebox_cmd,
     parse_jsonl_output,
-    assert_jsonl_contains_type,
     create_test_url,
 )
 

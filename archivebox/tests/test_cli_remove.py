@@ -5,11 +5,8 @@ Verify remove deletes snapshots from DB and filesystem.
 """
 
 import os
-import subprocess
 import sqlite3
-from pathlib import Path
-
-from .fixtures import *
+import subprocess
 
 
 def test_remove_deletes_snapshot_from_db(tmp_path, process, disable_extractors_dict):

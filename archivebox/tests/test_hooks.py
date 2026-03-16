@@ -16,7 +16,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 # Set up Django before importing any Django-dependent modules
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.settings')

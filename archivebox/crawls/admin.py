@@ -1,17 +1,11 @@
 __package__ = 'archivebox.crawls'
 
-import json
-from pathlib import Path
 
 from django import forms
 from django.utils.html import format_html, format_html_join, mark_safe
 from django.contrib import admin, messages
-from django.urls import path
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
 from django.db.models import Count, Q
 
-from archivebox import DATA_DIR
 
 from django_object_actions import action
 

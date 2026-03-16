@@ -10,11 +10,9 @@ Tests cover:
 
 import json
 import sqlite3
-import time
 
 from archivebox.tests.conftest import (
     run_archivebox_cmd,
-    parse_jsonl_output,
 )
 
 

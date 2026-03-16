@@ -5,13 +5,10 @@ Verify init creates correct database schema, filesystem structure, and config.
 """
 
 import os
-import subprocess
 import sqlite3
-from pathlib import Path
+import subprocess
 
 from archivebox.config.common import STORAGE_CONFIG
-
-from .fixtures import *
 
 
 DIR_PERMISSIONS = STORAGE_CONFIG.OUTPUT_PERMISSIONS.replace('6', '7').replace('4', '5')

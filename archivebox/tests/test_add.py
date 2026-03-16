@@ -1,9 +1,6 @@
-import subprocess
-import json
-import sqlite3
 import os
-
-from .fixtures import *
+import sqlite3
+import subprocess
 
 def test_depth_flag_is_accepted(process, disable_extractors_dict):
     arg_process = subprocess.run(["archivebox", "add", "--index-only", "https://example.com", "--depth=0"],
@@ -31,7 +28,7 @@ def test_depth_flag_fails_if_it_is_not_0_or_1(process, disable_extractors_dict):
 
 def test_depth_flag_0_creates_source_file(tmp_path, process, disable_extractors_dict):
     os.chdir(tmp_path)
-    arg_process = subprocess.run(
+    subprocess.run(
         ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,

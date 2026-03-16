@@ -7,8 +7,6 @@ Verify shell command starts Django shell (basic smoke tests only).
 import os
 import subprocess
 
-from .fixtures import *
-
 
 def test_shell_command_exists(tmp_path, process):
     """Test that shell command is recognized."""

@@ -36,8 +36,6 @@ def update(filter_patterns: Iterable[str] = (),
     from archivebox.config.django import setup_django
     setup_django()
 
-    from archivebox.core.models import Snapshot
-    from django.utils import timezone
     from django.core.management import call_command
 
     # Run migrations first to ensure DB schema is up-to-date

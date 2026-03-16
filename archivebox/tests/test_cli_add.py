@@ -5,11 +5,8 @@ Verify add creates snapshots in DB, crawls, source files, and archive directorie
 """
 
 import os
-import subprocess
 import sqlite3
-from pathlib import Path
-
-from .fixtures import *
+import subprocess
 
 
 def test_add_single_url_creates_snapshot_in_db(tmp_path, process, disable_extractors_dict):
@@ -167,6 +164,30 @@ def test_add_with_tags(tmp_path, process, disable_extractors_dict):
 
     # Tags are stored as a comma-separated string in crawl
     assert 'test' in tags_str or 'example' in tags_str
+
+
+def test_add_records_selected_persona_on_crawl(tmp_path, process, disable_extractors_dict):
+    """Test add persists the selected persona so browser config derives from it later."""
+    os.chdir(tmp_path)
+    result = subprocess.run(
+        ['archivebox', 'add', '--index-only', '--depth=0', '--persona=Default', 'https://example.com'],
+        capture_output=True,
+        env=disable_extractors_dict,
+    )
+
+    assert result.returncode == 0
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    persona_id, default_persona = c.execute(
+        "SELECT persona_id, json_extract(config, '$.DEFAULT_PERSONA') FROM crawls_crawl LIMIT 1"
+    ).fetchone()
+    conn.close()
+
+    assert persona_id
+    assert default_persona == 'Default'
+    assert (tmp_path / "personas" / "Default" / "chrome_user_data").is_dir()
+    assert (tmp_path / "personas" / "Default" / "chrome_extensions").is_dir()
 
 
 def test_add_duplicate_url_creates_separate_crawls(tmp_path, process, disable_extractors_dict):

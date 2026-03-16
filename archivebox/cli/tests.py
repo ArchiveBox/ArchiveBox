@@ -3,13 +3,13 @@
 __package__ = 'archivebox.cli'
 
 
+import importlib
 import os
-import sys
 import shutil
+import sys
 import unittest
-from pathlib import Path
-
 from contextlib import contextmanager
+from pathlib import Path
 
 TEST_CONFIG = {
     'USE_COLOR': 'False',
@@ -30,18 +30,15 @@ TEST_CONFIG = {
 DATA_DIR = 'data.tests'
 os.environ.update(TEST_CONFIG)
 
-from ..main import init
-from archivebox.config.constants import (
-    SQL_INDEX_FILENAME,
-    JSON_INDEX_FILENAME,
-    HTML_INDEX_FILENAME,
-)
-
-from . import (
-    archivebox_init,
-    archivebox_add,
-    archivebox_remove,
-)
+init = importlib.import_module('archivebox.main').init
+constants = importlib.import_module('archivebox.config.constants')
+SQL_INDEX_FILENAME = constants.SQL_INDEX_FILENAME
+JSON_INDEX_FILENAME = constants.JSON_INDEX_FILENAME
+HTML_INDEX_FILENAME = constants.HTML_INDEX_FILENAME
+archivebox_init = importlib.import_module('archivebox.cli.archivebox_init')
+archivebox_add = importlib.import_module('archivebox.cli.archivebox_add')
+archivebox_remove = importlib.import_module('archivebox.cli.archivebox_remove')
+parse_json_main_index = importlib.import_module('archivebox.misc.legacy').parse_json_main_index
 
 HIDE_CLI_OUTPUT = True
 
@@ -66,6 +63,13 @@ and example14.badb
 
 stdout = sys.stdout
 stderr = sys.stderr
+
+
+def load_main_index(*, out_dir: str):
+    index_path = Path(out_dir) / JSON_INDEX_FILENAME
+    if not index_path.exists():
+        raise FileNotFoundError(index_path)
+    return list(parse_json_main_index(Path(out_dir)))
 
 
 @contextmanager

@@ -6,9 +6,6 @@ Verify search queries snapshots from DB.
 
 import os
 import subprocess
-import sqlite3
-
-from .fixtures import *
 
 
 def test_search_finds_snapshots(tmp_path, process, disable_extractors_dict):

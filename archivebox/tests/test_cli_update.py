@@ -5,10 +5,8 @@ Verify update drains old dirs, reconciles DB, and queues snapshots.
 """
 
 import os
-import subprocess
 import sqlite3
-
-from .fixtures import *
+import subprocess
 
 
 def test_update_runs_successfully_on_empty_archive(tmp_path, process):

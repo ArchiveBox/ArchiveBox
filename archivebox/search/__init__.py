@@ -14,16 +14,13 @@ Search backends must provide a search.py module with:
 
 __package__ = 'archivebox.search'
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 from django.db.models import QuerySet
 
 from archivebox.misc.util import enforce_types
 from archivebox.misc.logging import stderr
 from archivebox.config.common import SEARCH_BACKEND_CONFIG
-
-if TYPE_CHECKING:
-    from archivebox.core.models import Snapshot
 
 
 # Cache discovered backends to avoid repeated filesystem scans

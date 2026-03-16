@@ -7,7 +7,6 @@ import subprocess
 
 import pytest
 
-from .fixtures import process
 
 
 def _fetchone(tmp_path, query):

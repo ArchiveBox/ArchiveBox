@@ -12,8 +12,6 @@ Tests cover:
 """
 
 import os
-import sys
-from pathlib import Path
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -29,7 +27,6 @@ from archivebox.machine.models import (
     BinaryMachine,
     ProcessMachine,
     MACHINE_RECHECK_INTERVAL,
-    PROCESS_RECHECK_INTERVAL,
     PID_REUSE_WINDOW,
 )
 
@@ -323,7 +320,6 @@ class TestProcessModel(TestCase):
     def test_process_update_and_requeue(self):
         """Process.update_and_requeue() should update fields and save."""
         process = Process.objects.create(machine=self.machine, cmd=['test'])
-        old_modified = process.modified_at
 
         process.update_and_requeue(
             status=Process.StatusChoices.RUNNING,

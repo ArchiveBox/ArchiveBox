@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from django.shortcuts import render, redirect
-from django.http import HttpRequest, HttpResponse, Http404, HttpResponseForbidden
+from django.http import JsonResponse, HttpRequest, HttpResponse, Http404, HttpResponseForbidden
 from django.utils.html import format_html, mark_safe
 from django.views import View
 from django.views.generic.list import ListView
@@ -24,9 +24,8 @@ from django.utils.decorators import method_decorator
 from admin_data_views.typing import TableContext, ItemContext
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
-import archivebox
 from archivebox.config import CONSTANTS, CONSTANTS_CONFIG, DATA_DIR, VERSION
-from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG, ARCHIVING_CONFIG
+from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG
 from archivebox.config.configset import get_flat_config, get_config, get_all_configs
 from archivebox.misc.util import base_url, htmlencode, ts_to_date_str, urldecode
 from archivebox.misc.serve_static import serve_static_with_byterange_support
@@ -35,6 +34,9 @@ from archivebox.search import query_search_index
 
 from archivebox.core.models import Snapshot
 from archivebox.core.host_utils import build_snapshot_url
+from archivebox.core.forms import AddLinkForm
+from archivebox.crawls.models import Crawl
+from archivebox.hooks import get_enabled_plugins, get_plugin_name
 
 
 def _files_index_target(snapshot: Snapshot, archivefile: str | None) -> str:
@@ -47,12 +49,6 @@ def _files_index_target(snapshot: Snapshot, archivefile: str | None) -> str:
         if target == '.':
             target = ''
     return target
-
-
-from archivebox.core.forms import AddLinkForm
-from archivebox.crawls.models import Crawl
-from archivebox.hooks import get_enabled_plugins, get_plugin_name
-
 
 
 class HomepageView(View):
@@ -1066,10 +1062,6 @@ class HealthCheckView(View):
             status=200
         )
 
-
-import json
-from django.http import JsonResponse
-
 def live_progress_view(request):
     """Simple JSON endpoint for live progress status - used by admin progress monitor."""
     try:
@@ -1077,7 +1069,6 @@ def live_progress_view(request):
         from archivebox.crawls.models import Crawl
         from archivebox.core.models import Snapshot, ArchiveResult
         from archivebox.machine.models import Process, Machine
-        from django.db.models import Case, When, Value, IntegerField
 
         # Get orchestrator status
         orchestrator_running = Orchestrator.is_running()
@@ -1133,7 +1124,6 @@ def live_progress_view(request):
                     })
 
         # Build hierarchical active crawls with nested snapshots and archive results
-        from django.db.models import Prefetch
 
         running_workers = Process.objects.filter(
             machine=machine,
@@ -1387,7 +1377,7 @@ def find_config_default(key: str) -> str:
     return default_val
 
 def find_config_type(key: str) -> str:
-    from typing import get_type_hints, ClassVar
+    from typing import ClassVar
     CONFIGS = get_all_configs()
 
     for config in CONFIGS.values():
@@ -1430,7 +1420,6 @@ def key_is_safe(key: str) -> bool:
 
 def find_config_source(key: str, merged_config: dict) -> str:
     """Determine where a config value comes from."""
-    import os
     from archivebox.machine.models import Machine
 
     # Check if it's from archivebox.machine.config
@@ -1464,12 +1453,11 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
     # Get merged config that includes Machine.config overrides
     try:
         from archivebox.machine.models import Machine
-        machine = Machine.current()
+        Machine.current()
         merged_config = get_config()
-    except Exception as e:
+    except Exception:
         # Fallback if Machine model not available
         merged_config = get_config()
-        machine = None
 
     rows = {
         "Section": [],
@@ -1525,7 +1513,6 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
 @render_with_item_view
 def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
-    import os
     from archivebox.machine.models import Machine
     from archivebox.config.configset import BaseConfigSet
 

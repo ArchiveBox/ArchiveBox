@@ -4,10 +4,11 @@ __package__ = 'archivebox.misc'
 import os
 import signal
 import shutil
+import sys
 
 from json import dump
 from pathlib import Path
-from typing import Optional, Union, Set, Tuple
+from typing import Optional, Union, Tuple
 from subprocess import _mswindows, PIPE, Popen, CalledProcessError, CompletedProcess, TimeoutExpired
 
 from atomicwrites import atomic_write as lib_atomic_write
@@ -58,7 +59,7 @@ def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, 
                     # far into the TimeoutExpired exception.
                     process.wait()
                 raise
-            except:  # Including KeyboardInterrupt, communicate handled that.
+            except BaseException:  # Including KeyboardInterrupt, communicate handled that.
                 process.kill()
                 # We don't call process.wait() as .__exit__ does that for us.
                 raise
