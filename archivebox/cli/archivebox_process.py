@@ -69,8 +69,8 @@ def list_processes(
     for process in queryset:
         if is_tty:
             binary_name_str = process.binary.name if process.binary else 'unknown'
-            exit_code = process.returncode if process.returncode is not None else '?'
-            status_color = 'green' if process.returncode == 0 else 'red' if process.returncode else 'yellow'
+            exit_code = process.exit_code if process.exit_code is not None else '?'
+            status_color = 'green' if process.exit_code == 0 else 'red' if process.exit_code else 'yellow'
             rprint(f'[{status_color}]exit={exit_code:3}[/{status_color}] [cyan]{binary_name_str:15}[/cyan] [dim]{process.id}[/dim]')
         else:
             write_record(process.to_json())

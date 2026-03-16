@@ -1,7 +1,20 @@
 __package__ = 'archivebox.core'
 
+from typing import TYPE_CHECKING, Any
+
 from django.contrib import admin
-from admin_data_views.admin import get_app_list, admin_data_index_view, get_admin_data_urls, get_urls
+from admin_data_views.admin import (
+    admin_data_index_view as adv_admin_data_index_view,
+    get_admin_data_urls as adv_get_admin_data_urls,
+    get_app_list as adv_get_app_list,
+)
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest
+    from django.template.response import TemplateResponse
+    from django.urls import URLPattern, URLResolver
+
+    from admin_data_views.typing import AppDict
 
 
 class ArchiveBoxAdmin(admin.AdminSite):
@@ -10,6 +23,20 @@ class ArchiveBoxAdmin(admin.AdminSite):
     site_title = 'Admin'
     namespace = 'admin'
 
+    def get_app_list(self, request: 'HttpRequest', app_label: str | None = None) -> list['AppDict']:
+        if app_label is None:
+            return adv_get_app_list(self, request)
+        return adv_get_app_list(self, request, app_label)
+
+    def admin_data_index_view(self, request: 'HttpRequest', **kwargs: Any) -> 'TemplateResponse':
+        return adv_admin_data_index_view(self, request, **kwargs)
+
+    def get_admin_data_urls(self) -> list['URLResolver | URLPattern']:
+        return adv_get_admin_data_urls(self)
+
+    def get_urls(self) -> list['URLResolver | URLPattern']:
+        return self.get_admin_data_urls() + super().get_urls()
+
 
 archivebox_admin = ArchiveBoxAdmin()
 # Note: delete_selected is enabled per-model via actions = ['delete_selected'] in each ModelAdmin
@@ -17,13 +44,6 @@ archivebox_admin = ArchiveBoxAdmin()
 
 
 
-# patch admin with methods to add data views (implemented by admin_data_views package)
-# https://github.com/MrThearMan/django-admin-data-views
-# https://mrthearman.github.io/django-admin-data-views/setup/
-archivebox_admin.get_app_list = get_app_list.__get__(archivebox_admin, ArchiveBoxAdmin)
-archivebox_admin.admin_data_index_view = admin_data_index_view.__get__(archivebox_admin, ArchiveBoxAdmin)       # type: ignore
-archivebox_admin.get_admin_data_urls = get_admin_data_urls.__get__(archivebox_admin, ArchiveBoxAdmin)           # type: ignore
-archivebox_admin.get_urls = get_urls(archivebox_admin.get_urls).__get__(archivebox_admin, ArchiveBoxAdmin)
 ############### Admin Data View sections are defined in settings.ADMIN_DATA_VIEWS #########
 
 

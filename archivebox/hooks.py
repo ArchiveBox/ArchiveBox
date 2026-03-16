@@ -1013,7 +1013,7 @@ def get_plugin_icon(plugin: str) -> str:
 
 
 
-def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any] = None) -> Dict[str, int]:
+def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any] | None = None) -> Dict[str, int]:
     """
     Process JSONL records from hook output.
     Dispatches to Model.from_json() for each record type.

@@ -16,7 +16,7 @@ import subprocess
 import sys
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.db import models
 from django.conf import settings
@@ -25,13 +25,18 @@ from django.utils import timezone
 from archivebox.base_models.models import ModelWithConfig, get_or_create_system_user_pk
 from archivebox.uuid_compat import uuid7
 
+_fcntl: Any | None = None
 try:
-    import fcntl
+    import fcntl as _fcntl_import
 except ImportError:  # pragma: no cover
-    fcntl = None
+    pass
+else:
+    _fcntl = _fcntl_import
 
 if TYPE_CHECKING:
-    pass
+    import fcntl
+else:
+    fcntl = _fcntl
 
 
 VOLATILE_PROFILE_DIR_NAMES = {
@@ -79,7 +84,7 @@ class Persona(ModelWithConfig):
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk)
 
-    class Meta:
+    class Meta(ModelWithConfig.Meta):
         app_label = 'personas'
 
     def __str__(self) -> str:

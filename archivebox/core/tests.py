@@ -4,6 +4,9 @@ import importlib
 import os
 import django
 from unittest.mock import patch
+from typing import TypeVar, cast
+
+from django.forms import BaseForm
 
 # Set up Django before importing any Django-dependent modules
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.settings')
@@ -17,6 +20,14 @@ Crawl = importlib.import_module('archivebox.crawls.models').Crawl
 CrawlSchedule = importlib.import_module('archivebox.crawls.models').CrawlSchedule
 Tag = importlib.import_module('archivebox.core.models').Tag
 SERVER_CONFIG = importlib.import_module('archivebox.config.common').SERVER_CONFIG
+
+T = TypeVar('T')
+
+
+def require(value: T | None) -> T:
+    if value is None:
+        raise AssertionError('Expected value to be present')
+    return value
 
 
 class AddViewTests(TestCase):
@@ -111,7 +122,7 @@ class AddViewTests(TestCase):
 
         # Check that crawl was created
         self.assertEqual(Crawl.objects.count(), 1)
-        crawl = Crawl.objects.first()
+        crawl = require(Crawl.objects.first())
 
         self.assertIn('https://example.com', crawl.urls)
         self.assertIn('https://example.org', crawl.urls)
@@ -140,8 +151,8 @@ class AddViewTests(TestCase):
         self.assertEqual(Crawl.objects.count(), 1)
         self.assertEqual(CrawlSchedule.objects.count(), 1)
 
-        crawl = Crawl.objects.first()
-        schedule = CrawlSchedule.objects.first()
+        crawl = require(Crawl.objects.first())
+        schedule = require(CrawlSchedule.objects.first())
 
         self.assertEqual(crawl.schedule, schedule)
         self.assertEqual(schedule.template, crawl)
@@ -159,7 +170,7 @@ class AddViewTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
 
-        schedule = CrawlSchedule.objects.first()
+        schedule = require(CrawlSchedule.objects.first())
         self.assertEqual(schedule.schedule, '0 */6 * * *')
 
     def test_add_crawl_with_plugins(self):
@@ -173,7 +184,7 @@ class AddViewTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
 
-        crawl = Crawl.objects.first()
+        crawl = require(Crawl.objects.first())
         plugins = crawl.config.get('PLUGINS', '')
 
         # Should contain the selected plugins
@@ -209,7 +220,7 @@ class AddViewTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
 
-        crawl = Crawl.objects.first()
+        crawl = require(Crawl.objects.first())
         config = crawl.config
 
         self.assertEqual(config.get('DEFAULT_PERSONA'), 'CustomPersona')
@@ -236,7 +247,7 @@ class AddViewTests(TestCase):
             })
 
         self.assertEqual(response.status_code, 302)
-        crawl = Crawl.objects.order_by('-created_at').first()
+        crawl = require(Crawl.objects.order_by('-created_at').first())
         self.assertNotIn('YTDLP_ARGS_EXTRA', crawl.config)
 
     def test_add_authenticated_non_admin_custom_config_is_silently_stripped(self):
@@ -248,7 +259,7 @@ class AddViewTests(TestCase):
         })
 
         self.assertEqual(response.status_code, 302)
-        crawl = Crawl.objects.order_by('-created_at').first()
+        crawl = require(Crawl.objects.order_by('-created_at').first())
         self.assertNotIn('YTDLP_ARGS_EXTRA', crawl.config)
 
     def test_add_staff_admin_custom_config_is_allowed(self):
@@ -269,7 +280,7 @@ class AddViewTests(TestCase):
         })
 
         self.assertEqual(response.status_code, 302)
-        crawl = Crawl.objects.order_by('-created_at').first()
+        crawl = require(Crawl.objects.order_by('-created_at').first())
         self.assertEqual(crawl.config.get('YTDLP_ARGS_EXTRA'), ['--exec', 'echo hello'])
 
     def test_add_empty_urls_fails(self):
@@ -281,7 +292,7 @@ class AddViewTests(TestCase):
 
         # Should show form again with errors, not redirect
         self.assertEqual(response.status_code, 200)
-        self.assertFormError(response, 'form', 'url', 'This field is required.')
+        self.assertFormError(cast(BaseForm, response.context['form']), 'url', 'This field is required.')
 
     def test_add_invalid_urls_fails(self):
         """Test that invalid URLs fail validation."""
@@ -355,7 +366,7 @@ class AddViewTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
 
-        crawl = Crawl.objects.first()
+        crawl = require(Crawl.objects.first())
         self.assertEqual(crawl.tags_str, 'tag1,tag2,tag3')
 
     def test_crawl_redirects_to_admin_change_page(self):
@@ -365,7 +376,7 @@ class AddViewTests(TestCase):
             'depth': '0',
         })
 
-        crawl = Crawl.objects.first()
+        crawl = require(Crawl.objects.first())
         expected_redirect = f'/admin/crawls/crawl/{crawl.id}/change/'
 
         self.assertRedirects(response, expected_redirect, fetch_redirect_response=False)

@@ -33,6 +33,11 @@ def is_superuser(request: HttpRequest) -> bool:
     return bool(getattr(request.user, 'is_superuser', False))
 
 
+def format_parsed_datetime(value: object) -> str:
+    parsed = parse_date(value)
+    return parsed.strftime("%Y-%m-%d %H:%M:%S") if parsed else ""
+
+
 def obj_to_yaml(obj: Any, indent: int = 0) -> str:
     indent_str = "  " * indent
     if indent == 0:
@@ -412,7 +417,7 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
         rows["Name"].append(ItemLink(proc_name, key=proc_name))
         rows["State"].append(str(proc_data.get("statename") or ""))
         rows['PID'].append(proc_description.replace('pid ', ''))
-        rows["Started"].append(parse_date(proc_start).strftime("%Y-%m-%d %H:%M:%S") if proc_start else '')
+        rows["Started"].append(format_parsed_datetime(proc_start))
         rows["Command"].append(str(proc_config.get("command") or ""))
         rows["Logfile"].append(
             format_html(
@@ -458,7 +463,8 @@ def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
         relevant_config = CONFIG_FILE.read_text()
         relevant_logs = str(supervisor.readLog(0, 10_000_000))
         start_ts = [line for line in relevant_logs.split("\n") if "RPC interface 'supervisor' initialized" in line][-1].split(",", 1)[0]
-        uptime = str(timezone.now() - parse_date(start_ts)).split(".")[0]
+        start_dt = parse_date(start_ts)
+        uptime = str(timezone.now() - start_dt).split(".")[0] if start_dt else ""
         supervisor_state = supervisor.getState()
 
         proc: Dict[str, object] = {
@@ -485,8 +491,8 @@ def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
             "Command": str(proc.get("name") or ""),
             "PID": str(proc.get("pid") or ""),
             "State": str(proc.get("statename") or ""),
-            "Started": parse_date(proc.get("start")).strftime("%Y-%m-%d %H:%M:%S") if proc.get("start") else "",
-            "Stopped": parse_date(proc.get("stop")).strftime("%Y-%m-%d %H:%M:%S") if proc.get("stop") else "",
+            "Started": format_parsed_datetime(proc.get("start")),
+            "Stopped": format_parsed_datetime(proc.get("stop")),
             "Exit Status": str(proc.get("exitstatus") or ""),
             "Logfile": str(proc.get("stdout_logfile") or ""),
             "Uptime": str(str(proc.get("description") or "").split("uptime ", 1)[-1]),
@@ -524,7 +530,7 @@ def log_list_view(request: HttpRequest, **kwargs) -> TableContext:
     for logfile in log_files:
         st = logfile.stat()
         rows["Name"].append(ItemLink("logs" + str(logfile).rsplit("/logs", 1)[-1], key=logfile.name))
-        rows["Last Updated"].append(parse_date(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S"))
+        rows["Last Updated"].append(format_parsed_datetime(st.st_mtime))
         rows["Size"].append(f'{st.st_size//1000} kb')
 
         with open(logfile, 'rb') as f:
@@ -557,7 +563,7 @@ def log_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
         "fields": {
             "Path": str(log_file),
             "Size": f"{log_stat.st_size//1000} kb",
-            "Last Updated": parse_date(log_stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+            "Last Updated": format_parsed_datetime(log_stat.st_mtime),
             "Tail": "\n".join(log_text[-10_000:].split("\n")[-20:]),
             "Full Log": log_text,
         },

@@ -1,9 +1,9 @@
 __package__ = 'archivebox.core'
 
-from typing import Optional, Dict, Iterable, Any, List
+from typing import Optional, Dict, Iterable, Any, List, Sequence, cast
+import uuid
 from archivebox.uuid_compat import uuid7
 from datetime import datetime, timedelta
-from django_stubs_ext.db.models import TypedModelMeta
 
 import os
 import json
@@ -20,6 +20,7 @@ from django.core.cache import cache
 from django.urls import reverse_lazy
 from django.contrib import admin
 from django.conf import settings
+from django.utils.safestring import mark_safe
 
 from archivebox.config import CONSTANTS
 from archivebox.misc.system import get_dir_size, atomic_write
@@ -51,7 +52,7 @@ class Tag(ModelWithUUID):
 
     snapshot_set: models.Manager['Snapshot']
 
-    class Meta(TypedModelMeta):
+    class Meta(ModelWithUUID.Meta):
         app_label = 'core'
         verbose_name = "Tag"
         verbose_name_plural = "Tags"
@@ -88,7 +89,7 @@ class Tag(ModelWithUUID):
 
     @property
     def api_url(self) -> str:
-        return reverse_lazy('api-1:get_tag', args=[self.id])
+        return str(reverse_lazy('api-1:get_tag', args=[self.id]))
 
     def to_json(self) -> dict:
         """
@@ -104,7 +105,7 @@ class Tag(ModelWithUUID):
         }
 
     @staticmethod
-    def from_json(record: Dict[str, Any], overrides: Dict[str, Any] = None):
+    def from_json(record: Dict[str, Any], overrides: Dict[str, Any] | None = None):
         """
         Create/update Tag from JSON dict.
 
@@ -259,7 +260,7 @@ class SnapshotQuerySet(models.QuerySet):
         })
 
 
-class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):
+class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):  # ty: ignore[unsupported-base]
     """Manager for Snapshot model - uses SnapshotQuerySet for chainable methods"""
 
     def filter(self, *args, **kwargs):
@@ -283,8 +284,8 @@ class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):
         from django.db import transaction
         if atomic:
             with transaction.atomic():
-                return self.delete()
-        return self.delete()
+                return self.get_queryset().delete()
+        return self.get_queryset().delete()
 
 
 class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, ModelWithStateMachine):
@@ -318,10 +319,20 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     StatusChoices = ModelWithStateMachine.StatusChoices
     active_state = StatusChoices.STARTED
 
+    crawl_id: uuid.UUID
+    parent_snapshot_id: uuid.UUID | None
+    _prefetched_objects_cache: dict[str, Any]
+
     objects = SnapshotManager()
     archiveresult_set: models.Manager['ArchiveResult']
 
-    class Meta(TypedModelMeta):
+    class Meta(
+        ModelWithOutputDir.Meta,
+        ModelWithConfig.Meta,
+        ModelWithNotes.Meta,
+        ModelWithHealthStats.Meta,
+        ModelWithStateMachine.Meta,
+    ):
         app_label = 'core'
         verbose_name = "Snapshot"
         verbose_name_plural = "Snapshots"
@@ -663,6 +674,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             candidates = cls.objects.filter(url=url, timestamp__startswith=timestamp)
             if candidates.count() == 1:
                 snapshot = candidates.first()
+                if snapshot is None:
+                    return None
                 print(f"[DEBUG load_from_directory] Found via fuzzy match: {snapshot.timestamp}")
                 return snapshot
             elif candidates.count() > 1:
@@ -751,14 +764,16 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         )
 
     @staticmethod
-    def _select_best_timestamp(index_timestamp: str, folder_name: str) -> Optional[str]:
+    def _select_best_timestamp(index_timestamp: object | None, folder_name: str) -> Optional[str]:
         """
         Select best timestamp from index.json vs folder name.
 
         Validates range (1995-2035).
         Prefers index.json if valid.
         """
-        def is_valid_timestamp(ts):
+        def is_valid_timestamp(ts: object | None) -> bool:
+            if not isinstance(ts, (str, int, float)):
+                return False
             try:
                 ts_int = int(float(ts))
                 # 1995-01-01 to 2035-12-31
@@ -769,12 +784,11 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         index_valid = is_valid_timestamp(index_timestamp) if index_timestamp else False
         folder_valid = is_valid_timestamp(folder_name)
 
-        if index_valid:
-            return str(int(float(index_timestamp)))
-        elif folder_valid:
-            return str(int(float(folder_name)))
-        else:
-            return None
+        if index_valid and index_timestamp is not None:
+            return str(int(float(str(index_timestamp))))
+        if folder_valid:
+            return str(int(float(str(folder_name))))
+        return None
 
     @classmethod
     def _ensure_unique_timestamp(cls, url: str, timestamp: str) -> str:
@@ -1039,7 +1053,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         )
 
         index_path = Path(self.output_dir) / CONSTANTS.JSONL_INDEX_FILENAME
-        result = {
+        result: dict[str, Any] = {
             'snapshot': None,
             'archive_results': [],
             'binaries': [],
@@ -1210,7 +1224,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         return merged
 
     @classmethod
-    def _merge_snapshots(cls, snapshots: list['Snapshot']):
+    def _merge_snapshots(cls, snapshots: Sequence['Snapshot']):
         """
         Merge exact duplicates.
         Keep oldest, union files + ArchiveResults.
@@ -1271,19 +1285,21 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     @admin.display(description='Tags')
     def tags_str(self, nocache=True) -> str | None:
         calc_tags_str = lambda: ','.join(sorted(tag.name for tag in self.tags.all()))
-        if hasattr(self, '_prefetched_objects_cache') and 'tags' in self._prefetched_objects_cache:
+        prefetched_cache = getattr(self, '_prefetched_objects_cache', {})
+        if 'tags' in prefetched_cache:
             return calc_tags_str()
         cache_key = f'{self.pk}-tags'
         return cache.get_or_set(cache_key, calc_tags_str) if not nocache else calc_tags_str()
 
     def icons(self, path: Optional[str] = None) -> str:
         """Generate HTML icons showing which extractor plugins have succeeded for this snapshot"""
-        from django.utils.html import format_html, mark_safe
+        from django.utils.html import format_html
 
         cache_key = f'result_icons:{self.pk}:{(self.downloaded_at or self.modified_at or self.created_at or self.bookmarked_at).timestamp()}'
 
         def calc_icons():
-            if hasattr(self, '_prefetched_objects_cache') and 'archiveresult_set' in self._prefetched_objects_cache:
+            prefetched_cache = getattr(self, '_prefetched_objects_cache', {})
+            if 'archiveresult_set' in prefetched_cache:
                 archive_results = {r.plugin: r for r in self.archiveresult_set.all() if r.status == "succeeded" and (r.output_files or r.output_str)}
             else:
                 # Filter for results that have either output_files or output_str
@@ -1331,7 +1347,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
     @property
     def api_url(self) -> str:
-        return reverse_lazy('api-1:get_snapshot', args=[self.id])
+        return str(reverse_lazy('api-1:get_snapshot', args=[self.id]))
 
     def get_absolute_url(self):
         return f'/{self.archive_path}'
@@ -1341,23 +1357,28 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         return url_domain(self.url)
 
     @property
-    def output_dir(self):
+    def title_stripped(self) -> str:
+        return (self.title or '').strip()
+
+    @property
+    def output_dir(self) -> Path:
         """The filesystem path to the snapshot's output directory."""
         import os
 
         current_path = self.get_storage_path_for_version(self.fs_version)
 
         if current_path.exists():
-            return str(current_path)
+            return current_path
 
         # Check for backwards-compat symlink
         old_path = CONSTANTS.ARCHIVE_DIR / self.timestamp
         if old_path.is_symlink():
-            return str(Path(os.readlink(old_path)).resolve())
+            link_target = Path(os.readlink(old_path))
+            return (old_path.parent / link_target).resolve() if not link_target.is_absolute() else link_target.resolve()
         elif old_path.exists():
-            return str(old_path)
+            return old_path
 
-        return str(current_path)
+        return current_path
 
     def ensure_legacy_archive_symlink(self) -> None:
         """Ensure the legacy archive/<timestamp> path resolves to this snapshot."""
@@ -1405,7 +1426,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         date_base = crawl.created_at or self.created_at or timezone.now()
         date_str = date_base.strftime('%Y%m%d')
         domain = self.extract_domain_from_url(self.url)
-        username = crawl.created_by.username if crawl.created_by_id else 'system'
+        username = crawl.created_by.username if getattr(crawl, 'created_by_id', None) else 'system'
 
         crawl_dir = DATA_DIR / 'users' / username / 'crawls' / date_str / domain / str(crawl.id)
         link_path = crawl_dir / 'snapshots' / domain / str(self.id)
@@ -1591,7 +1612,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         }
 
     @staticmethod
-    def from_json(record: Dict[str, Any], overrides: Dict[str, Any] = None, queue_for_extraction: bool = True):
+    def from_json(record: Dict[str, Any], overrides: Dict[str, Any] | None = None, queue_for_extraction: bool = True):
         """
         Create/update Snapshot from JSON dict.
 
@@ -1859,7 +1880,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             'is_sealed': is_sealed,
         }
 
-    def retry_failed_archiveresults(self, retry_at: Optional['timezone.datetime'] = None) -> int:
+    def retry_failed_archiveresults(self, retry_at: Optional[datetime] = None) -> int:
         """
         Reset failed/skipped ArchiveResults to queued for retry.
 
@@ -2163,20 +2184,20 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         cols = cols or ['timestamp', 'is_archived', 'url']
         return separator.join(to_json(data.get(col, ''), indent=None).ljust(ljust) for col in cols)
 
-    def write_json_details(self, out_dir: Optional[str] = None) -> None:
+    def write_json_details(self, out_dir: Path | str | None = None) -> None:
         """Write JSON index file for this snapshot to its output directory"""
-        out_dir = out_dir or self.output_dir
-        path = Path(out_dir) / CONSTANTS.JSON_INDEX_FILENAME
+        output_dir = Path(out_dir) if out_dir is not None else self.output_dir
+        path = output_dir / CONSTANTS.JSON_INDEX_FILENAME
         atomic_write(str(path), self.to_dict(extended=True))
 
-    def write_html_details(self, out_dir: Optional[str] = None) -> None:
+    def write_html_details(self, out_dir: Path | str | None = None) -> None:
         """Write HTML detail page for this snapshot to its output directory"""
         from django.template.loader import render_to_string
         from archivebox.config.common import SERVER_CONFIG
         from archivebox.config.configset import get_config
         from archivebox.misc.logging_util import printable_filesize
 
-        out_dir = out_dir or self.output_dir
+        output_dir = Path(out_dir) if out_dir is not None else self.output_dir
         config = get_config()
         SAVE_ARCHIVE_DOT_ORG = config.get('SAVE_ARCHIVE_DOT_ORG', True)
         TITLE_LOADING_MSG = 'Not yet archived...'
@@ -2198,12 +2219,12 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         for plugin in preview_priority:
             out = outputs_by_plugin.get(plugin)
             if out and out.get('path'):
-                best_preview_path = out['path']
+                best_preview_path = str(out['path'])
                 best_result = out
                 break
 
         if best_preview_path == 'about:blank' and outputs:
-            best_preview_path = outputs[0].get('path') or 'about:blank'
+            best_preview_path = str(outputs[0].get('path') or 'about:blank')
             best_result = outputs[0]
         context = {
             **self.to_dict(extended=True),
@@ -2223,7 +2244,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             'archiveresults': outputs,
         }
         rendered_html = render_to_string('snapshot.html', context)
-        atomic_write(str(Path(out_dir) / CONSTANTS.HTML_INDEX_FILENAME), rendered_html)
+        atomic_write(str(output_dir / CONSTANTS.HTML_INDEX_FILENAME), rendered_html)
 
     # =========================================================================
     # Helper Methods
@@ -2285,6 +2306,8 @@ class SnapshotMachine(BaseStateMachine):
     # Manual event (can also be triggered by last ArchiveResult finishing)
     seal = started.to(sealed)
 
+    snapshot: Snapshot
+
     def can_start(self) -> bool:
         can_start = bool(self.snapshot.url)
         return can_start
@@ -2332,7 +2355,7 @@ class SnapshotMachine(BaseStateMachine):
             if remaining_active == 0 and crawl.status == crawl.StatusChoices.STARTED:
                 print(f'[cyan]🔒 All snapshots sealed for crawl {crawl.id}, sealing crawl[/cyan]', file=sys.stderr)
                 # Seal the parent crawl
-                crawl.sm.seal()
+                cast(Any, crawl).sm.seal()
 
 
 class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithStateMachine):
@@ -2391,7 +2414,15 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     state_field_name = 'status'
     active_state = StatusChoices.STARTED
 
-    class Meta(TypedModelMeta):
+    snapshot_id: uuid.UUID
+    process_id: uuid.UUID | None
+
+    class Meta(
+        ModelWithOutputDir.Meta,
+        ModelWithConfig.Meta,
+        ModelWithNotes.Meta,
+        ModelWithStateMachine.Meta,
+    ):
         app_label = 'core'
         verbose_name = 'Archive Result'
         verbose_name_plural = 'Archive Results Log'
@@ -2442,7 +2473,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         return record
 
     @staticmethod
-    def from_json(record: Dict[str, Any], overrides: Dict[str, Any] = None):
+    def from_json(record: Dict[str, Any], overrides: Dict[str, Any] | None = None):
         """
         Create/update ArchiveResult from JSON dict.
 
@@ -2469,7 +2500,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
         # Get or create by snapshot_id + plugin
         try:
-            from archivebox.core.models import Snapshot
             snapshot = Snapshot.objects.get(id=snapshot_id)
 
             result, _ = ArchiveResult.objects.get_or_create(
@@ -2531,7 +2561,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
     @property
     def api_url(self) -> str:
-        return reverse_lazy('api-1:get_archiveresult', args=[self.id])
+        return str(reverse_lazy('api-1:get_archiveresult', args=[self.id]))
 
     def get_absolute_url(self):
         return f'/{self.snapshot.archive_path}/{self.plugin}'
@@ -3198,6 +3228,8 @@ class ArchiveResultMachine(BaseStateMachine):
         # Reason: backoff should always retry→started, then started→final states
     )
 
+    archiveresult: ArchiveResult
+
     def can_start(self) -> bool:
         """Pure function - check if AR can start (has valid URL)."""
         return bool(self.archiveresult.snapshot.url)
@@ -3259,7 +3291,7 @@ class ArchiveResultMachine(BaseStateMachine):
                 process = self.archiveresult.process
 
                 # If process is NOT running anymore, reap the background hook
-                if not process.is_running():
+                if not process.is_running:
                     self.archiveresult.update_from_output()
                     # Check if now in final state after reaping
                     return self.archiveresult.status in (
@@ -3331,7 +3363,7 @@ class ArchiveResultMachine(BaseStateMachine):
         if remaining_active == 0:
             print(f'[cyan]    🔒 All archiveresults finished for snapshot {snapshot.url}, sealing snapshot[/cyan]', file=sys.stderr)
             # Seal the parent snapshot
-            snapshot.sm.seal()
+            cast(Any, snapshot).sm.seal()
 
     @succeeded.enter
     def enter_succeeded(self):

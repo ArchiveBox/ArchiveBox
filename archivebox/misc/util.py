@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from dateparser import parse as dateparser
 from requests.exceptions import RequestException, ReadTimeout
 
-from base32_crockford import encode as base32_encode                            # type: ignore
+from base32_crockford import encode as base32_encode
 from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
 try:
     import chardet    # type:ignore
@@ -200,7 +200,7 @@ def parse_date(date: Any) -> datetime | None:
     """Parse unix timestamps, iso format, and human-readable strings"""
     
     if date is None:
-        return None    # type: ignore
+        return None
 
     if isinstance(date, datetime):
         if date.tzinfo is None:

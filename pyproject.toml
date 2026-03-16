@@ -82,7 +82,7 @@ dependencies = [
     "yt-dlp[default]>=2026.03.13",      # for: media extractor
     ### Binary/Package Management
     "abx-pkg>=1.9.10",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
-    "abx-plugins>=1.9.11",    # shared ArchiveBox plugin package with install_args-only overrides
+    "abx-plugins>=1.9.14",    # shared ArchiveBox plugin package with install_args-only overrides
     "gallery-dl>=1.31.1",
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
@@ -264,6 +264,10 @@ reportMissingImports = true
 reportMissingTypeStubs = false
 pythonVersion = "3.13"
 pythonPlatform = "Linux"
+
+[tool.ty]
+environment = { python-version = "3.13", python-platform = "linux" }
+src = { include = ["archivebox"], exclude = [".venv", "**/*.pyi", "**/__init__.pyi", "**/node_modules", "**/__pycache__", "**/migrations"] }
 
 
 [project.scripts]

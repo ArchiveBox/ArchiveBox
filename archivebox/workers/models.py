@@ -8,6 +8,7 @@ from django.db import models
 from django.core import checks
 from django.utils import timezone
 from django.utils.functional import classproperty
+from django_stubs_ext.db.models import TypedModelMeta
 
 from statemachine import registry, StateMachine, State
 
@@ -31,7 +32,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
     # status: models.CharField
     # retry_at: models.DateTimeField
 
-    state_machine_name: str | None
+    state_machine_name: str | None = None
     state_field_name: str
     state_machine_attr: str = 'sm'
     bind_events_as_methods: bool = True
@@ -39,7 +40,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
     active_state: ObjectState
     retry_at_field_name: str
 
-    class Meta:
+    class Meta(TypedModelMeta):
         app_label = 'workers'
         abstract = True
 
@@ -92,7 +93,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
         if not found_id_field:
             errors.append(checks.Error(
                 f'{cls.__name__} must have an id field that is a primary key',
-                hint=f'{cls.__name__}.id = {cls.id!r}',
+                hint=f'{cls.__name__}.id field missing or not configured as primary key',
                 obj=cls,
                 id='workers.E014',
             ))

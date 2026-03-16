@@ -11,14 +11,26 @@ Tests cover:
 
 import os
 import time
-from datetime import timedelta
-from unittest.mock import patch, MagicMock
+from datetime import datetime, timedelta
+from unittest.mock import patch
+from typing import ClassVar
 
 import pytest
 from django.test import TestCase
 from django.utils import timezone
 
 from archivebox.workers.orchestrator import Orchestrator
+from archivebox.workers.worker import Worker
+
+
+class FakeWorker(Worker):
+    name: ClassVar[str] = 'crawl'
+    MAX_CONCURRENT_TASKS: ClassVar[int] = 5
+    running_workers: ClassVar[list[dict[str, object]]] = []
+
+    @classmethod
+    def get_running_workers(cls) -> list[dict[str, object]]:
+        return cls.running_workers
 
 
 class TestOrchestratorUnit(TestCase):
@@ -99,31 +111,25 @@ class TestOrchestratorUnit(TestCase):
         """should_spawn_worker should return False when queue is empty."""
         orchestrator = Orchestrator()
 
-        # Create a mock worker class
-        mock_worker = MagicMock()
-        mock_worker.get_running_workers.return_value = []
-
-        self.assertFalse(orchestrator.should_spawn_worker(mock_worker, 0))
+        FakeWorker.running_workers = []
+        self.assertFalse(orchestrator.should_spawn_worker(FakeWorker, 0))
 
     def test_should_spawn_worker_at_limit(self):
         """should_spawn_worker should return False when at per-type limit."""
         orchestrator = Orchestrator()
 
-        mock_worker = MagicMock()
-        mock_worker.get_running_workers.return_value = [{}] * orchestrator.MAX_WORKERS_PER_TYPE
-
-        self.assertFalse(orchestrator.should_spawn_worker(mock_worker, 10))
+        running_workers: list[dict[str, object]] = [{'worker_id': worker_id} for worker_id in range(orchestrator.MAX_CRAWL_WORKERS)]
+        FakeWorker.running_workers = running_workers
+        self.assertFalse(orchestrator.should_spawn_worker(FakeWorker, 10))
 
     @patch.object(Orchestrator, 'get_total_worker_count')
     def test_should_spawn_worker_at_total_limit(self, mock_total):
         """should_spawn_worker should return False when at total limit."""
         orchestrator = Orchestrator()
-        mock_total.return_value = orchestrator.MAX_TOTAL_WORKERS
-
-        mock_worker = MagicMock()
-        mock_worker.get_running_workers.return_value = []
-
-        self.assertFalse(orchestrator.should_spawn_worker(mock_worker, 10))
+        mock_total.return_value = 0
+        running_workers: list[dict[str, object]] = [{'worker_id': worker_id} for worker_id in range(orchestrator.MAX_CRAWL_WORKERS)]
+        FakeWorker.running_workers = running_workers
+        self.assertFalse(orchestrator.should_spawn_worker(FakeWorker, 10))
 
     @patch.object(Orchestrator, 'get_total_worker_count')
     def test_should_spawn_worker_success(self, mock_total):
@@ -131,11 +137,8 @@ class TestOrchestratorUnit(TestCase):
         orchestrator = Orchestrator()
         mock_total.return_value = 0
 
-        mock_worker = MagicMock()
-        mock_worker.get_running_workers.return_value = []
-        mock_worker.MAX_CONCURRENT_TASKS = 5
-
-        self.assertTrue(orchestrator.should_spawn_worker(mock_worker, 10))
+        FakeWorker.running_workers = []
+        self.assertTrue(orchestrator.should_spawn_worker(FakeWorker, 10))
 
     @patch.object(Orchestrator, 'get_total_worker_count')
     def test_should_spawn_worker_enough_workers(self, mock_total):
@@ -143,12 +146,8 @@ class TestOrchestratorUnit(TestCase):
         orchestrator = Orchestrator()
         mock_total.return_value = 2
 
-        mock_worker = MagicMock()
-        mock_worker.get_running_workers.return_value = [{}]  # 1 worker running
-        mock_worker.MAX_CONCURRENT_TASKS = 5  # Can handle 5 items
-
-        # Queue size (3) <= running_workers (1) * MAX_CONCURRENT_TASKS (5)
-        self.assertFalse(orchestrator.should_spawn_worker(mock_worker, 3))
+        FakeWorker.running_workers = [{}]  # 1 worker running
+        self.assertFalse(orchestrator.should_spawn_worker(FakeWorker, 3))
 
 
 class TestOrchestratorWithProcess(TestCase):
@@ -178,8 +177,10 @@ class TestOrchestratorWithProcess(TestCase):
     def test_is_running_with_orchestrator_process(self):
         """is_running should return True when orchestrator Process exists."""
         from archivebox.machine.models import Process, Machine
+        import psutil
 
         machine = Machine.current()
+        current_proc = psutil.Process(os.getpid())
 
         # Create an orchestrator Process record
         proc = Process.objects.create(
@@ -187,8 +188,8 @@ class TestOrchestratorWithProcess(TestCase):
             process_type=Process.TypeChoices.ORCHESTRATOR,
             status=Process.StatusChoices.RUNNING,
             pid=os.getpid(),  # Use current PID so it appears alive
-            started_at=timezone.now(),
-            cmd=['archivebox', 'manage', 'orchestrator'],
+            started_at=datetime.fromtimestamp(current_proc.create_time(), tz=timezone.get_current_timezone()),
+            cmd=current_proc.cmdline(),
         )
 
         try:
@@ -393,14 +394,7 @@ class TestProcessLifecycle(TestCase):
     def test_process_is_running_property(self):
         """Process.is_running should check actual OS process."""
         from archivebox.machine.models import Process
-
-        # Create a process with current PID (should be running)
-        proc = Process.objects.create(
-            machine=self.machine,
-            status=Process.StatusChoices.RUNNING,
-            pid=os.getpid(),
-            started_at=timezone.now(),
-        )
+        proc = Process.current()
 
         # Should be running (current process exists)
         self.assertTrue(proc.is_running)

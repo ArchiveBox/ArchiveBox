@@ -13,6 +13,7 @@ Tests cover:
 
 import os
 from datetime import timedelta
+from typing import cast
 from unittest.mock import patch
 
 import pytest
@@ -20,6 +21,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from archivebox.machine.models import (
+    BinaryManager,
     Machine,
     NetworkInterface,
     Binary,
@@ -94,7 +96,7 @@ class TestMachineModel(TestCase):
 
     def test_machine_manager_current(self):
         """Machine.objects.current() should return current machine."""
-        machine = Machine.objects.current()
+        machine = Machine.current()
         self.assertIsNotNone(machine)
         self.assertEqual(machine.id, Machine.current().id)
 
@@ -126,7 +128,7 @@ class TestNetworkInterfaceModel(TestCase):
 
     def test_networkinterface_manager_current(self):
         """NetworkInterface.objects.current() should return current interface."""
-        interface = NetworkInterface.objects.current()
+        interface = NetworkInterface.current()
         self.assertIsNotNone(interface)
 
 
@@ -177,7 +179,7 @@ class TestBinaryModel(TestCase):
             version='1.21',
         )
 
-        result = Binary.objects.get_valid_binary('wget')
+        result = cast(BinaryManager, Binary.objects).get_valid_binary('wget')
 
         self.assertIsNotNone(result)
         assert result is not None

@@ -1,6 +1,7 @@
 __package__ = 'archivebox.crawls'
 
 from typing import TYPE_CHECKING
+import uuid
 from datetime import timedelta
 from archivebox.uuid_compat import uuid7
 from pathlib import Path
@@ -10,7 +11,6 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.conf import settings
 from django.urls import reverse_lazy
 from django.utils import timezone
-from django_stubs_ext.db.models import TypedModelMeta
 from statemachine import State, registry
 from rich import print
 
@@ -36,7 +36,7 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
 
     crawl_set: models.Manager['Crawl']
 
-    class Meta(TypedModelMeta):
+    class Meta(ModelWithUUID.Meta, ModelWithNotes.Meta):
         app_label = 'crawls'
         verbose_name = 'Scheduled Crawl'
         verbose_name_plural = 'Scheduled Crawls'
@@ -47,7 +47,7 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
 
     @property
     def api_url(self) -> str:
-        return reverse_lazy('api-1:get_any', args=[self.id])
+        return str(reverse_lazy('api-1:get_any', args=[self.id]))
 
     def save(self, *args, **kwargs):
         self.schedule = (self.schedule or '').strip()
@@ -119,9 +119,17 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     StatusChoices = ModelWithStateMachine.StatusChoices
     active_state = StatusChoices.STARTED
 
+    schedule_id: uuid.UUID | None
+    sm: 'CrawlMachine'
+
     snapshot_set: models.Manager['Snapshot']
 
-    class Meta(TypedModelMeta):
+    class Meta(
+        ModelWithOutputDir.Meta,
+        ModelWithConfig.Meta,
+        ModelWithHealthStats.Meta,
+        ModelWithStateMachine.Meta,
+    ):
         app_label = 'crawls'
         verbose_name = 'Crawl'
         verbose_name_plural = 'Crawls'
@@ -152,7 +160,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
     @property
     def api_url(self) -> str:
-        return reverse_lazy('api-1:get_crawl', args=[self.id])
+        return str(reverse_lazy('api-1:get_crawl', args=[self.id]))
 
     def to_json(self) -> dict:
         """
@@ -172,7 +180,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         }
 
     @staticmethod
-    def from_json(record: dict, overrides: dict = None):
+    def from_json(record: dict, overrides: dict | None = None):
         """
         Create or get a Crawl from a JSON dict.
 
@@ -746,6 +754,8 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 # =============================================================================
 
 class CrawlMachine(BaseStateMachine):
+    crawl: Crawl
+
     """
     State machine for managing Crawl lifecycle.
 

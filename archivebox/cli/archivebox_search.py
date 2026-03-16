@@ -208,7 +208,7 @@ def search(filter_patterns: list[str] | None=None,
     else:
         from archivebox.misc.logging_util import printable_folders
         # Convert to dict for printable_folders
-        folders: dict[str, Snapshot | None] = {snapshot.output_dir: snapshot for snapshot in snapshots}
+        folders: dict[str, Snapshot | None] = {str(snapshot.output_dir): snapshot for snapshot in snapshots}
         output = printable_folders(folders, with_headers)
 
     # Structured exports must be written directly to stdout.

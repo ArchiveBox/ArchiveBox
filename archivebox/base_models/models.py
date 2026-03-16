@@ -69,7 +69,7 @@ class ModelWithNotes(models.Model):
     """Mixin for models with a notes field."""
     notes = models.TextField(blank=True, null=False, default='')
 
-    class Meta:
+    class Meta(TypedModelMeta):
         abstract = True
 
 
@@ -78,7 +78,7 @@ class ModelWithHealthStats(models.Model):
     num_uses_failed = models.PositiveIntegerField(default=0)
     num_uses_succeeded = models.PositiveIntegerField(default=0)
 
-    class Meta:
+    class Meta(TypedModelMeta):
         abstract = True
 
     @property
@@ -96,7 +96,7 @@ class ModelWithConfig(models.Model):
     """Mixin for models with a JSON config field."""
     config = models.JSONField(default=dict, null=True, blank=True, editable=True)
 
-    class Meta:
+    class Meta(TypedModelMeta):
         abstract = True
 
 

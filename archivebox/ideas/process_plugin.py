@@ -1,6 +1,7 @@
 __package__ = 'archivebox.ideas'
 
 import asyncio
+import importlib
 import json
 import os
 import shlex
@@ -13,12 +14,14 @@ from typing import Any, Callable, Mapping, MutableMapping, Optional
 from pydantic import BaseModel, Field
 
 try:
-    from bubus import BaseEvent, EventBus
+    bubus = importlib.import_module("bubus")
+    BaseEvent = bubus.BaseEvent
+    EventBus = bubus.EventBus
 except Exception as exc:  # pragma: no cover - optional dependency
     raise ImportError('ProcessPlugin requires bubus to be installed') from exc
 
 try:
-    from bubus.service import uuid7str
+    uuid7str = importlib.import_module("bubus.service").uuid7str
 except Exception:  # pragma: no cover - optional dependency
     from uuid import uuid4 as _uuid4
 

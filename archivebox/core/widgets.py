@@ -16,7 +16,7 @@ class TagEditorWidget(forms.Widget):
     - Press Enter or Space to create new tags (auto-creates if doesn't exist)
     - Uses AJAX for autocomplete and tag creation
     """
-    template_name = None  # We render manually
+    template_name = ""  # We render manually
 
     class Media:
         css = {'all': []}

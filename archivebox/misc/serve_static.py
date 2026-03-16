@@ -5,6 +5,8 @@ import os
 import stat
 import posixpath
 import mimetypes
+import importlib
+from collections.abc import Callable
 from pathlib import Path
 
 from django.contrib.staticfiles import finders
@@ -69,9 +71,9 @@ mimetypes.add_type("application/xml", ".xml")
 mimetypes.add_type("image/svg+xml", ".svg")
 
 try:
-    import markdown as _markdown
-except Exception:
-    _markdown = None
+    _markdown = getattr(importlib.import_module('markdown'), 'markdown')
+except ImportError:
+    _markdown: Callable[..., str] | None = None
 
 MARKDOWN_INLINE_LINK_RE = re.compile(r'\[([^\]]+)\]\(([^)\s]+(?:\([^)]*\)[^)\s]*)*)\)')
 MARKDOWN_INLINE_IMAGE_RE = re.compile(r'!\[([^\]]*)\]\(([^)]+)\)')
@@ -108,7 +110,7 @@ def _looks_like_markdown(text: str) -> bool:
 def _render_markdown_fallback(text: str) -> str:
     if _markdown is not None and not HTML_TAG_RE.search(text):
         try:
-            return _markdown.markdown(
+            return _markdown(
                 text,
                 extensions=["extra", "toc", "sane_lists"],
                 output_format="html",

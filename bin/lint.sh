@@ -16,18 +16,31 @@ source "$DIR/.venv/bin/activate"
 
 cd "$DIR"
 
+FAILED=0
+
 echo "[*] Running ruff..."
-ruff check archivebox
-echo "√ No errors found."
+if ruff check --fix archivebox; then
+    echo "√ No errors found."
+else
+    FAILED=1
+fi
 
 echo
 
 echo "[*] Running pyright..."
-pyright
-echo "√ No errors found."
+if pyright; then
+    echo "√ No errors found."
+else
+    FAILED=1
+fi
 
 echo
 
 echo "[*] Running ty..."
-ty check archivebox
-echo "√ No errors found."
+if ty check --force-exclude --exclude '**/migrations/**' archivebox; then
+    echo "√ No errors found."
+else
+    FAILED=1
+fi
+
+exit "$FAILED"

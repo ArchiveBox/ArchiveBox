@@ -5,13 +5,14 @@ import posixpath
 from glob import glob, escape
 from django.utils import timezone
 import inspect
-from typing import Callable, get_type_hints
+from typing import Callable, cast, get_type_hints
 from pathlib import Path
 from urllib.parse import urlparse
 
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, HttpRequest, HttpResponse, Http404, HttpResponseForbidden
-from django.utils.html import format_html, mark_safe
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.views import View
 from django.views.generic.list import ListView
 from django.views.generic import FormView
@@ -21,7 +22,7 @@ from django.contrib.auth.mixins import UserPassesTestMixin
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 
-from admin_data_views.typing import TableContext, ItemContext
+from admin_data_views.typing import TableContext, ItemContext, SectionData
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
 from archivebox.config import CONSTANTS, CONSTANTS_CONFIG, DATA_DIR, VERSION
@@ -854,7 +855,7 @@ class AddView(UserPassesTestMixin, FormView):
 
     def _can_override_crawl_config(self) -> bool:
         user = self.request.user
-        return bool(user.is_authenticated and (user.is_superuser or user.is_staff))
+        return bool(user.is_authenticated and (getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False)))
 
     def _get_custom_config_overrides(self, form: AddLinkForm) -> dict:
         custom_config = form.cleaned_data.get("config") or {}
@@ -906,7 +907,7 @@ class AddView(UserPassesTestMixin, FormView):
                 from archivebox.base_models.models import get_or_create_system_user_pk
                 created_by_id = get_or_create_system_user_pk()
 
-        created_by_name = self.request.user.username if self.request.user.is_authenticated else 'web'
+        created_by_name = getattr(self.request.user, 'username', 'web') if self.request.user.is_authenticated else 'web'
 
         # 1. save the provided urls to sources/2024-11-05__23-59-59__web_ui_add_by_user_<user_pk>.txt
         sources_file = CONSTANTS.SOURCES_DIR / f'{timezone.now().strftime("%Y-%m-%d__%H-%M-%S")}__web_ui_add_by_user_{created_by_id}.txt'
@@ -1015,8 +1016,8 @@ class WebAddView(AddView):
 
         return super().dispatch(request, *args, **kwargs)
 
-    def get(self, request, url: str):
-        requested_url = urldecode(url)
+    def get(self, request: HttpRequest, *args: object, **kwargs: object):
+        requested_url = urldecode(str(kwargs.get('url') or (args[0] if args else '')))
         if not requested_url:
             raise Http404
 
@@ -1025,6 +1026,7 @@ class WebAddView(AddView):
             return redirect(f'/{snapshot.url_path}')
 
         add_url = self._normalize_add_url(requested_url)
+        assert self.form_class is not None
         defaults_form = self.form_class()
         form_data = {
             'url': add_url,
@@ -1045,6 +1047,7 @@ class WebAddView(AddView):
 
         crawl = self._create_crawl_from_form(form)
         snapshot = Snapshot.from_json({'url': add_url, 'tags': form.cleaned_data.get('tag', '')}, overrides={'crawl': crawl})
+        assert snapshot is not None
         return redirect(f'/{snapshot.url_path}')
 
 
@@ -1385,7 +1388,7 @@ def find_config_type(key: str) -> str:
             # Try to get from pydantic model_fields first (more reliable)
             if hasattr(config, 'model_fields') and key in config.model_fields:
                 field = config.model_fields[key]
-                if hasattr(field, 'annotation'):
+                if hasattr(field, 'annotation') and field.annotation is not None:
                     try:
                         return str(field.annotation.__name__)
                     except AttributeError:
@@ -1448,7 +1451,7 @@ def find_config_source(key: str, merged_config: dict) -> str:
 def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
     CONFIGS = get_all_configs()
 
-    assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
+    assert getattr(request.user, 'is_superuser', False), 'Must be a superuser to view configuration settings.'
 
     # Get merged config that includes Machine.config overrides
     try:
@@ -1519,7 +1522,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
     CONFIGS = get_all_configs()
     FLAT_CONFIG = get_flat_config()
 
-    assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
+    assert getattr(request.user, 'is_superuser', False), 'Must be a superuser to view configuration settings.'
 
     # Get merged config
     merged_config = get_config()
@@ -1575,62 +1578,62 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
         section_header = mark_safe(f'[DYNAMIC CONFIG]   &nbsp; <b><code style="color: lightgray">{key}</code></b> &nbsp; <small>(read-only, calculated at runtime)</small>')
 
 
+    section_data = cast(SectionData, {
+        "name": section_header,
+        "description": None,
+        "fields": {
+            'Key': key,
+            'Type': find_config_type(key),
+            'Value': final_value,
+            'Source': find_config_source(key, merged_config),
+        },
+        "help_texts": {
+            'Key': mark_safe(f'''
+                <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">Documentation</a>  &nbsp;
+                <span style="display: {"inline" if aliases else "none"}">
+                    Aliases: {", ".join(aliases)}
+                </span>
+            '''),
+            'Type': mark_safe(f'''
+                <a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig+{key}&type=code">
+                    See full definition in <code>archivebox/config</code>...
+                </a>
+            '''),
+            'Value': mark_safe(f'''
+                {'<b style="color: red">Value is redacted for your security. (Passwords, secrets, API tokens, etc. cannot be viewed in the Web UI)</b><br/><br/>' if not key_is_safe(key) else ''}
+                <br/><hr/><br/>
+                <b>Configuration Sources (in priority order):</b><br/><br/>
+                {sources_html}
+                <br/><br/>
+                <p style="display: {"block" if key in FLAT_CONFIG and key not in CONSTANTS_CONFIG else "none"}">
+                    <i>To change this value, edit <code>data/ArchiveBox.conf</code> or run:</i>
+                    <br/><br/>
+                    <code>archivebox config --set {key}="{
+                        val.strip("'")
+                        if (val := find_config_default(key)) else
+                        (str(FLAT_CONFIG[key] if key_is_safe(key) else '********')).strip("'")
+                    }"</code>
+                </p>
+            '''),
+            'Source': mark_safe(f'''
+                The value shown in the "Value" field comes from the <b>{find_config_source(key, merged_config)}</b> source.
+                <br/><br/>
+                Priority order (highest to lowest):
+                <ol>
+                    <li><b style="color: purple">Machine</b> - Machine-specific overrides (e.g., resolved binary paths)
+                        {f'<br/><a href="{machine_admin_url}">→ Edit <code>{key}</code> in Machine.config for this server</a>' if machine_admin_url else ''}
+                    </li>
+                    <li><b style="color: blue">Environment</b> - Environment variables</li>
+                    <li><b style="color: green">Config File</b> - data/ArchiveBox.conf</li>
+                    <li><b style="color: gray">Default</b> - Default value from code</li>
+                </ol>
+                {f'<br/><b>Tip:</b> To override <code>{key}</code> on this machine, <a href="{machine_admin_url}">edit the Machine.config field</a> and add:<br/><code>{{"\\"{key}\\": "your_value_here"}}</code>' if machine_admin_url and key not in CONSTANTS_CONFIG else ''}
+            '''),
+        },
+    })
+
     return ItemContext(
         slug=key,
         title=key,
-        data=[
-            {
-                "name": section_header,
-                "description": None,
-                "fields": {
-                    'Key': key,
-                    'Type': find_config_type(key),
-                    'Value': final_value,
-                    'Source': find_config_source(key, merged_config),
-                },
-                "help_texts": {
-                    'Key': mark_safe(f'''
-                        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">Documentation</a>  &nbsp;
-                        <span style="display: {"inline" if aliases else "none"}">
-                            Aliases: {", ".join(aliases)}
-                        </span>
-                    '''),
-                    'Type': mark_safe(f'''
-                        <a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig+{key}&type=code">
-                            See full definition in <code>archivebox/config</code>...
-                        </a>
-                    '''),
-                    'Value': mark_safe(f'''
-                        {'<b style="color: red">Value is redacted for your security. (Passwords, secrets, API tokens, etc. cannot be viewed in the Web UI)</b><br/><br/>' if not key_is_safe(key) else ''}
-                        <br/><hr/><br/>
-                        <b>Configuration Sources (in priority order):</b><br/><br/>
-                        {sources_html}
-                        <br/><br/>
-                        <p style="display: {"block" if key in FLAT_CONFIG and key not in CONSTANTS_CONFIG else "none"}">
-                            <i>To change this value, edit <code>data/ArchiveBox.conf</code> or run:</i>
-                            <br/><br/>
-                            <code>archivebox config --set {key}="{
-                                val.strip("'")
-                                if (val := find_config_default(key)) else
-                                (str(FLAT_CONFIG[key] if key_is_safe(key) else '********')).strip("'")
-                            }"</code>
-                        </p>
-                    '''),
-                    'Source': mark_safe(f'''
-                        The value shown in the "Value" field comes from the <b>{find_config_source(key, merged_config)}</b> source.
-                        <br/><br/>
-                        Priority order (highest to lowest):
-                        <ol>
-                            <li><b style="color: purple">Machine</b> - Machine-specific overrides (e.g., resolved binary paths)
-                                {f'<br/><a href="{machine_admin_url}">→ Edit <code>{key}</code> in Machine.config for this server</a>' if machine_admin_url else ''}
-                            </li>
-                            <li><b style="color: blue">Environment</b> - Environment variables</li>
-                            <li><b style="color: green">Config File</b> - data/ArchiveBox.conf</li>
-                            <li><b style="color: gray">Default</b> - Default value from code</li>
-                        </ol>
-                        {f'<br/><b>💡 Tip:</b> To override <code>{key}</code> on this machine, <a href="{machine_admin_url}">edit the Machine.config field</a> and add:<br/><code>{{"\\"{key}\\": "your_value_here"}}</code>' if machine_admin_url and key not in CONSTANTS_CONFIG else ''}
-                    '''),
-                },
-            },
-        ],
+        data=[section_data],
     )

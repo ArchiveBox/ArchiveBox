@@ -79,8 +79,8 @@ def hint(text: Union[Tuple[str, ...], List[str], str], prefix='    ', config: Op
     ansi = DEFAULT_CLI_COLORS if (config or {}).get('USE_COLOR') else ANSI
 
     if isinstance(text, str):
-        stderr('{}{lightred}Hint:{reset} {}'.format(prefix, text, **ansi))
+        stderr(f"{prefix}{ansi['lightred']}Hint:{ansi['reset']} {text}")
     else:
-        stderr('{}{lightred}Hint:{reset} {}'.format(prefix, text[0], **ansi))
+        stderr(f"{prefix}{ansi['lightred']}Hint:{ansi['reset']} {text[0]}")
         for line in text[1:]:
-            stderr('{}      {}'.format(prefix, line))
+            stderr(f'{prefix}      {line}')

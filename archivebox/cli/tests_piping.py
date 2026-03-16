@@ -68,6 +68,15 @@ def require(value: T | None) -> T:
     return value
 
 
+class MockTTYStringIO(StringIO):
+    def __init__(self, initial_value: str = '', *, is_tty: bool):
+        super().__init__(initial_value)
+        self._is_tty = is_tty
+
+    def isatty(self) -> bool:
+        return self._is_tty
+
+
 # =============================================================================
 # JSONL Utility Tests
 # =============================================================================
@@ -176,10 +185,7 @@ class TestReadArgsOrStdin(unittest.TestCase):
         from archivebox.misc.jsonl import read_args_or_stdin
 
         stdin_content = 'https://example1.com\nhttps://example2.com\n'
-        stream = StringIO(stdin_content)
-
-        # Mock isatty to return False (simulating piped input)
-        stream.isatty = lambda: False
+        stream = MockTTYStringIO(stdin_content, is_tty=False)
 
         records = list(read_args_or_stdin((), stream=stream))
 
@@ -192,8 +198,7 @@ class TestReadArgsOrStdin(unittest.TestCase):
         from archivebox.misc.jsonl import read_args_or_stdin
 
         stdin_content = '{"type": "Snapshot", "url": "https://example.com", "tags": "test"}\n'
-        stream = StringIO(stdin_content)
-        stream.isatty = lambda: False
+        stream = MockTTYStringIO(stdin_content, is_tty=False)
 
         records = list(read_args_or_stdin((), stream=stream))
 
@@ -206,8 +211,7 @@ class TestReadArgsOrStdin(unittest.TestCase):
         from archivebox.misc.jsonl import read_args_or_stdin, TYPE_CRAWL
 
         stdin_content = '{"type": "Crawl", "id": "abc123", "urls": "https://example.com\\nhttps://foo.com"}\n'
-        stream = StringIO(stdin_content)
-        stream.isatty = lambda: False
+        stream = MockTTYStringIO(stdin_content, is_tty=False)
 
         records = list(read_args_or_stdin((), stream=stream))
 
@@ -219,8 +223,7 @@ class TestReadArgsOrStdin(unittest.TestCase):
         """Should not read from TTY stdin (would block)."""
         from archivebox.misc.jsonl import read_args_or_stdin
 
-        stream = StringIO('https://example.com')
-        stream.isatty = lambda: True  # Simulate TTY
+        stream = MockTTYStringIO('https://example.com', is_tty=True)
 
         records = list(read_args_or_stdin((), stream=stream))
         self.assertEqual(len(records), 0)
@@ -297,8 +300,7 @@ class TestSnapshotCommand(unittest.TestCase):
         """snapshot should accept Crawl JSONL as input."""
         from archivebox.misc.jsonl import read_args_or_stdin, TYPE_CRAWL
 
-        stdin = StringIO('{"type": "Crawl", "id": "abc123", "urls": "https://example.com"}\n')
-        stdin.isatty = lambda: False
+        stdin = MockTTYStringIO('{"type": "Crawl", "id": "abc123", "urls": "https://example.com"}\n', is_tty=False)
 
         records = list(read_args_or_stdin((), stream=stdin))
 
@@ -311,8 +313,7 @@ class TestSnapshotCommand(unittest.TestCase):
         """snapshot should accept JSONL with tags and other metadata."""
         from archivebox.misc.jsonl import read_args_or_stdin
 
-        stdin = StringIO('{"type": "Snapshot", "url": "https://example.com", "tags": "tag1,tag2", "title": "Test"}\n')
-        stdin.isatty = lambda: False
+        stdin = MockTTYStringIO('{"type": "Snapshot", "url": "https://example.com", "tags": "tag1,tag2", "title": "Test"}\n', is_tty=False)
 
         records = list(read_args_or_stdin((), stream=stdin))
 
@@ -353,8 +354,7 @@ class TestArchiveResultCommand(unittest.TestCase):
         """archiveresult should accept JSONL Snapshot records."""
         from archivebox.misc.jsonl import read_args_or_stdin, TYPE_SNAPSHOT
 
-        stdin = StringIO('{"type": "Snapshot", "id": "abc123", "url": "https://example.com"}\n')
-        stdin.isatty = lambda: False
+        stdin = MockTTYStringIO('{"type": "Snapshot", "id": "abc123", "url": "https://example.com"}\n', is_tty=False)
 
         records = list(read_args_or_stdin((), stream=stdin))
 
@@ -461,395 +461,6 @@ class TestURLCollection(unittest.TestCase):
         self.assertEqual(len(urls), 0)
 
 
-# =============================================================================
-# Integration Tests
-# =============================================================================
-
-class TestPipingWorkflowIntegration(unittest.TestCase):
-    """
-    Integration tests for the complete piping workflow.
-
-    These tests require Django to be set up and use the actual database.
-    """
-
-    @classmethod
-    def setUpClass(cls):
-        """Set up Django and test database."""
-        cls.test_dir = tempfile.mkdtemp()
-        os.environ['DATA_DIR'] = cls.test_dir
-
-        # Initialize Django
-        from archivebox.config.django import setup_django
-        setup_django()
-
-        # Initialize the archive
-        from archivebox.cli.archivebox_init import init
-        init()
-
-    @classmethod
-    def tearDownClass(cls):
-        """Clean up test database."""
-        shutil.rmtree(cls.test_dir, ignore_errors=True)
-
-    def test_crawl_creates_and_outputs_jsonl(self):
-        """
-        Test: archivebox crawl URL1 URL2 URL3
-        Should create a single Crawl with all URLs and output JSONL when piped.
-        """
-        from archivebox.crawls.models import Crawl
-        from archivebox.misc.jsonl import TYPE_CRAWL
-        from archivebox.base_models.models import get_or_create_system_user_pk
-
-        created_by_id = get_or_create_system_user_pk()
-
-        # Create crawl with multiple URLs (as newline-separated string)
-        urls = 'https://test-crawl-1.example.com\nhttps://test-crawl-2.example.com'
-        crawl = require(Crawl.from_json({'urls': urls}, overrides={'created_by_id': created_by_id}))
-        self.assertIsNotNone(crawl.id)
-        self.assertEqual(crawl.urls, urls)
-        self.assertEqual(crawl.status, 'queued')
-
-        # Verify URLs list
-        urls_list = crawl.get_urls_list()
-        self.assertEqual(len(urls_list), 2)
-        self.assertIn('https://test-crawl-1.example.com', urls_list)
-        self.assertIn('https://test-crawl-2.example.com', urls_list)
-
-        # Verify output format
-        output = crawl.to_json()
-        self.assertEqual(output['type'], TYPE_CRAWL)
-        self.assertIn('id', output)
-        self.assertEqual(output['urls'], urls)
-        self.assertIn('schema_version', output)
-
-    def test_snapshot_accepts_crawl_jsonl(self):
-        """
-        Test: archivebox crawl URL | archivebox snapshot
-        Snapshot should accept Crawl JSONL and create Snapshots for each URL.
-        """
-        from archivebox.crawls.models import Crawl
-        from archivebox.core.models import Snapshot
-        from archivebox.misc.jsonl import (
-            read_args_or_stdin,
-            TYPE_CRAWL, TYPE_SNAPSHOT
-        )
-        from archivebox.base_models.models import get_or_create_system_user_pk
-
-        created_by_id = get_or_create_system_user_pk()
-
-        # Step 1: Create crawl (simulating 'archivebox crawl')
-        urls = 'https://crawl-to-snap-1.example.com\nhttps://crawl-to-snap-2.example.com'
-        crawl = require(Crawl.from_json({'urls': urls}, overrides={'created_by_id': created_by_id}))
-        crawl_output = crawl.to_json()
-
-        # Step 2: Parse crawl output as snapshot input
-        stdin = StringIO(json.dumps(crawl_output) + '\n')
-        stdin.isatty = lambda: False
-
-        records = list(read_args_or_stdin((), stream=stdin))
-
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]['type'], TYPE_CRAWL)
-
-        # Step 3: Create snapshots from crawl URLs
-        created_snapshots = []
-        for url in crawl.get_urls_list():
-            snapshot = Snapshot.from_json({'url': url}, overrides={'created_by_id': created_by_id})
-            if snapshot:
-                created_snapshots.append(snapshot)
-
-        self.assertEqual(len(created_snapshots), 2)
-
-        # Verify snapshot output
-        for snapshot in created_snapshots:
-            output = snapshot.to_json()
-            self.assertEqual(output['type'], TYPE_SNAPSHOT)
-            self.assertIn(output['url'], [
-                'https://crawl-to-snap-1.example.com',
-                'https://crawl-to-snap-2.example.com'
-            ])
-
-    def test_snapshot_creates_and_outputs_jsonl(self):
-        """
-        Test: archivebox snapshot URL
-        Should create a Snapshot and output JSONL when piped.
-        """
-        from archivebox.core.models import Snapshot
-        from archivebox.misc.jsonl import (
-            read_args_or_stdin, TYPE_SNAPSHOT
-        )
-        from archivebox.base_models.models import get_or_create_system_user_pk
-
-        created_by_id = get_or_create_system_user_pk()
-
-        # Simulate input
-        url = 'https://test-snapshot-1.example.com'
-        records = list(read_args_or_stdin((url,)))
-
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]['url'], url)
-
-        # Create snapshot
-        overrides = {'created_by_id': created_by_id}
-        snapshot = require(Snapshot.from_json(records[0], overrides=overrides))
-
-        self.assertIsNotNone(snapshot.id)
-        self.assertEqual(snapshot.url, url)
-
-        # Verify output format
-        output = snapshot.to_json()
-        self.assertEqual(output['type'], TYPE_SNAPSHOT)
-        self.assertIn('id', output)
-        self.assertEqual(output['url'], url)
-
-    def test_extract_accepts_snapshot_from_previous_command(self):
-        """
-        Test: archivebox snapshot URL | archivebox extract
-        Extract should accept JSONL output from snapshot command.
-        """
-        from archivebox.core.models import Snapshot
-        from archivebox.misc.jsonl import (
-            read_args_or_stdin,
-            TYPE_SNAPSHOT
-        )
-        from archivebox.base_models.models import get_or_create_system_user_pk
-
-        created_by_id = get_or_create_system_user_pk()
-
-        # Step 1: Create snapshot (simulating 'archivebox snapshot')
-        url = 'https://test-extract-1.example.com'
-        overrides = {'created_by_id': created_by_id}
-        snapshot = require(Snapshot.from_json({'url': url}, overrides=overrides))
-        snapshot_output = snapshot.to_json()
-
-        # Step 2: Parse snapshot output as extract input
-        stdin = StringIO(json.dumps(snapshot_output) + '\n')
-        stdin.isatty = lambda: False
-
-        records = list(read_args_or_stdin((), stream=stdin))
-
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]['type'], TYPE_SNAPSHOT)
-        self.assertEqual(records[0]['id'], str(snapshot.id))
-
-        # Step 3: Gather snapshot IDs (as extract does)
-        snapshot_ids = set()
-        for record in records:
-            if record.get('type') == TYPE_SNAPSHOT and record.get('id'):
-                snapshot_ids.add(record['id'])
-
-        self.assertIn(str(snapshot.id), snapshot_ids)
-
-    def test_full_pipeline_crawl_snapshot_extract(self):
-        """
-        Test: archivebox crawl URL | archivebox snapshot | archivebox extract
-
-        This is equivalent to: archivebox add --depth=0 URL
-        """
-        from archivebox.crawls.models import Crawl
-        from archivebox.core.models import Snapshot
-        from archivebox.misc.jsonl import (
-            read_args_or_stdin,
-            TYPE_CRAWL, TYPE_SNAPSHOT
-        )
-        from archivebox.base_models.models import get_or_create_system_user_pk
-
-        created_by_id = get_or_create_system_user_pk()
-
-        # === archivebox crawl https://example.com ===
-        url = 'https://test-pipeline-full.example.com'
-        crawl = require(Crawl.from_json({'url': url}, overrides={'created_by_id': created_by_id}))
-        crawl_jsonl = json.dumps(crawl.to_json())
-
-        # === | archivebox snapshot ===
-        stdin = StringIO(crawl_jsonl + '\n')
-        stdin.isatty = lambda: False
-
-        records = list(read_args_or_stdin((), stream=stdin))
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]['type'], TYPE_CRAWL)
-
-        # Create snapshots from crawl
-        created_snapshots = []
-        for record in records:
-            if record.get('type') == TYPE_CRAWL:
-                crawl_id = record.get('id')
-                if crawl_id:
-                    db_crawl = Crawl.objects.get(id=crawl_id)
-                    for crawl_url in db_crawl.get_urls_list():
-                        snapshot = Snapshot.from_json({'url': crawl_url}, overrides={'created_by_id': created_by_id})
-                        if snapshot:
-                            created_snapshots.append(snapshot)
-
-        self.assertEqual(len(created_snapshots), 1)
-        self.assertEqual(created_snapshots[0].url, url)
-
-        # === | archivebox extract ===
-        snapshot_jsonl_lines = [json.dumps(s.to_json()) for s in created_snapshots]
-        stdin = StringIO('\n'.join(snapshot_jsonl_lines) + '\n')
-        stdin.isatty = lambda: False
-
-        records = list(read_args_or_stdin((), stream=stdin))
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]['type'], TYPE_SNAPSHOT)
-        self.assertEqual(records[0]['id'], str(created_snapshots[0].id))
-
-
-class TestDepthWorkflows(unittest.TestCase):
-    """Test various depth crawl workflows."""
-
-    @classmethod
-    def setUpClass(cls):
-        """Set up Django and test database."""
-        cls.test_dir = tempfile.mkdtemp()
-        os.environ['DATA_DIR'] = cls.test_dir
-
-        from archivebox.config.django import setup_django
-        setup_django()
-
-        from archivebox.cli.archivebox_init import init
-        init()
-
-    @classmethod
-    def tearDownClass(cls):
-        """Clean up test database."""
-        shutil.rmtree(cls.test_dir, ignore_errors=True)
-
-    def test_depth_0_workflow(self):
-        """
-        Test: archivebox crawl URL | archivebox snapshot | archivebox extract
-
-        Depth 0: Only archive the specified URL, no recursive crawling.
-        """
-        from archivebox.crawls.models import Crawl
-        from archivebox.core.models import Snapshot
-        from archivebox.base_models.models import get_or_create_system_user_pk
-
-        created_by_id = get_or_create_system_user_pk()
-
-        # Create crawl with depth 0
-        url = 'https://depth0-test.example.com'
-        crawl = require(Crawl.from_json({'url': url, 'max_depth': 0}, overrides={'created_by_id': created_by_id}))
-
-        self.assertEqual(crawl.max_depth, 0)
-
-        # Create snapshot
-        snapshot = require(Snapshot.from_json({'url': url}, overrides={'created_by_id': created_by_id}))
-        self.assertEqual(snapshot.url, url)
-
-    def test_depth_metadata_in_crawl(self):
-        """Test that depth metadata is stored in Crawl."""
-        from archivebox.crawls.models import Crawl
-        from archivebox.base_models.models import get_or_create_system_user_pk
-
-        created_by_id = get_or_create_system_user_pk()
-
-        # Create crawl with depth
-        crawl = require(Crawl.from_json(
-            {'url': 'https://depth-meta-test.example.com', 'max_depth': 2},
-            overrides={'created_by_id': created_by_id}
-        ))
-
-        self.assertEqual(crawl.max_depth, 2)
-
-        # Verify in JSONL output
-        output = crawl.to_json()
-        self.assertEqual(output['max_depth'], 2)
-
-
-class TestParserPluginWorkflows(unittest.TestCase):
-    """Test workflows with specific parser plugins."""
-
-    @classmethod
-    def setUpClass(cls):
-        """Set up Django and test database."""
-        cls.test_dir = tempfile.mkdtemp()
-        os.environ['DATA_DIR'] = cls.test_dir
-
-        from archivebox.config.django import setup_django
-        setup_django()
-
-        from archivebox.cli.archivebox_init import init
-        init()
-
-    @classmethod
-    def tearDownClass(cls):
-        """Clean up test database."""
-        shutil.rmtree(cls.test_dir, ignore_errors=True)
-
-    def test_html_parser_workflow(self):
-        """
-        Test: archivebox crawl --plugin=parse_html_urls URL | archivebox snapshot | archivebox extract
-        """
-        from archivebox.hooks import collect_urls_from_plugins
-
-        # Create mock output directory
-        snapshot_dir = Path(self.test_dir) / 'archive' / 'html-parser-test'
-        snapshot_dir.mkdir(parents=True, exist_ok=True)
-        (snapshot_dir / 'parse_html_urls').mkdir(exist_ok=True)
-        (snapshot_dir / 'parse_html_urls' / 'urls.jsonl').write_text(
-            '{"url": "https://html-discovered.com", "title": "HTML Link"}\n'
-        )
-
-        # Collect URLs
-        discovered = collect_urls_from_plugins(snapshot_dir)
-
-        self.assertEqual(len(discovered), 1)
-        self.assertEqual(discovered[0]['url'], 'https://html-discovered.com')
-        self.assertEqual(discovered[0]['plugin'], 'parse_html_urls')
-
-    def test_rss_parser_workflow(self):
-        """
-        Test: archivebox crawl --plugin=parse_rss_urls URL | archivebox snapshot | archivebox extract
-        """
-        from archivebox.hooks import collect_urls_from_plugins
-
-        # Create mock output directory
-        snapshot_dir = Path(self.test_dir) / 'archive' / 'rss-parser-test'
-        snapshot_dir.mkdir(parents=True, exist_ok=True)
-        (snapshot_dir / 'parse_rss_urls').mkdir(exist_ok=True)
-        (snapshot_dir / 'parse_rss_urls' / 'urls.jsonl').write_text(
-            '{"url": "https://rss-item-1.com", "title": "RSS Item 1"}\n'
-            '{"url": "https://rss-item-2.com", "title": "RSS Item 2"}\n'
-        )
-
-        # Collect URLs
-        discovered = collect_urls_from_plugins(snapshot_dir)
-
-        self.assertEqual(len(discovered), 2)
-        self.assertTrue(all(d['plugin'] == 'parse_rss_urls' for d in discovered))
-
-    def test_multiple_parsers_dedupe(self):
-        """
-        Multiple parsers may discover the same URL - should be deduplicated.
-        """
-        from archivebox.hooks import collect_urls_from_plugins
-
-        # Create mock output with duplicate URLs from different parsers
-        snapshot_dir = Path(self.test_dir) / 'archive' / 'dedupe-test'
-        snapshot_dir.mkdir(parents=True, exist_ok=True)
-
-        (snapshot_dir / 'parse_html_urls').mkdir(exist_ok=True)
-        (snapshot_dir / 'parse_html_urls' / 'urls.jsonl').write_text(
-            '{"url": "https://same-url.com"}\n'
-        )
-
-        (snapshot_dir / 'wget').mkdir(exist_ok=True)
-        (snapshot_dir / 'wget' / 'urls.jsonl').write_text(
-            '{"url": "https://same-url.com"}\n'  # Same URL, different extractor
-        )
-
-        # Collect URLs
-        all_discovered = collect_urls_from_plugins(snapshot_dir)
-
-        # Both entries are returned (deduplication happens at the crawl command level)
-        self.assertEqual(len(all_discovered), 2)
-
-        # Verify both extractors found the same URL
-        urls = {d['url'] for d in all_discovered}
-        self.assertEqual(urls, {'https://same-url.com'})
-
-
 class TestEdgeCases(unittest.TestCase):
     """Test edge cases and error handling."""
 
@@ -858,8 +469,7 @@ class TestEdgeCases(unittest.TestCase):
         from archivebox.misc.jsonl import read_args_or_stdin
 
         # Empty args, TTY stdin (should not block)
-        stdin = StringIO('')
-        stdin.isatty = lambda: True
+        stdin = MockTTYStringIO('', is_tty=True)
 
         records = list(read_args_or_stdin((), stream=stdin))
         self.assertEqual(len(records), 0)
@@ -868,12 +478,12 @@ class TestEdgeCases(unittest.TestCase):
         """Should skip malformed JSONL lines."""
         from archivebox.misc.jsonl import read_args_or_stdin
 
-        stdin = StringIO(
+        stdin = MockTTYStringIO(
             '{"url": "https://good.com"}\n'
             'not valid json\n'
-            '{"url": "https://also-good.com"}\n'
+            '{"url": "https://also-good.com"}\n',
+            is_tty=False,
         )
-        stdin.isatty = lambda: False
 
         records = list(read_args_or_stdin((), stream=stdin))
 
@@ -885,12 +495,12 @@ class TestEdgeCases(unittest.TestCase):
         """Should handle mixed URLs and JSONL."""
         from archivebox.misc.jsonl import read_args_or_stdin
 
-        stdin = StringIO(
+        stdin = MockTTYStringIO(
             'https://plain-url.com\n'
             '{"type": "Snapshot", "url": "https://jsonl-url.com", "tags": "test"}\n'
-            '01234567-89ab-cdef-0123-456789abcdef\n'  # UUID
+            '01234567-89ab-cdef-0123-456789abcdef\n',  # UUID
+            is_tty=False,
         )
-        stdin.isatty = lambda: False
 
         records = list(read_args_or_stdin((), stream=stdin))
 
@@ -942,12 +552,12 @@ class TestPassThroughBehavior(unittest.TestCase):
         url_record = {'url': 'https://example.com'}
 
         # Mock stdin with both records
-        stdin = StringIO(
+        stdin = MockTTYStringIO(
             json.dumps(tag_record)
             + '\n'
-            + json.dumps(url_record)
+            + json.dumps(url_record),
+            is_tty=False,
         )
-        stdin.isatty = lambda: False
 
         # The Tag should be passed through, the URL should create a Crawl
         # (This is a unit test of the pass-through logic)

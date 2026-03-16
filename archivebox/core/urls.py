@@ -4,6 +4,7 @@ from django.urls import path, re_path, include
 from django.views import static
 from django.conf import settings
 from django.views.generic.base import RedirectView
+from django.http import HttpRequest
 
 from archivebox.misc.serve_static import serve_static
 
@@ -53,13 +54,17 @@ urlpatterns = [
     path("api/",      include('archivebox.api.urls'), name='api'),
 
     path('health/', HealthCheckView.as_view(), name='healthcheck'),
-    path('error/', lambda *_: 1/0),                                             # type: ignore
+    path('error/', lambda request: _raise_test_error(request)),
 
     # path('jet_api/', include('jet_django.urls')),  Enable to use https://www.jetadmin.io/integrations/django
 
     path('index.html', RedirectView.as_view(url='/')),
     path('', HomepageView.as_view(), name='Home'),
 ]
+
+
+def _raise_test_error(_request: HttpRequest):
+    raise ZeroDivisionError('Intentional test error route')
 
 if settings.DEBUG_TOOLBAR:
     urlpatterns += [path('__debug__/', include("debug_toolbar.urls"))]

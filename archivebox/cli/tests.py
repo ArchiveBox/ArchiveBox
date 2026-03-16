@@ -11,6 +11,8 @@ import unittest
 from contextlib import contextmanager
 from pathlib import Path
 
+from archivebox.config.constants import CONSTANTS
+
 TEST_CONFIG = {
     'USE_COLOR': 'False',
     'SHOW_PROGRESS': 'False',
@@ -31,10 +33,9 @@ DATA_DIR = 'data.tests'
 os.environ.update(TEST_CONFIG)
 
 init = importlib.import_module('archivebox.main').init
-constants = importlib.import_module('archivebox.config.constants')
-SQL_INDEX_FILENAME = constants.SQL_INDEX_FILENAME
-JSON_INDEX_FILENAME = constants.JSON_INDEX_FILENAME
-HTML_INDEX_FILENAME = constants.HTML_INDEX_FILENAME
+SQL_INDEX_FILENAME = CONSTANTS.SQL_INDEX_FILENAME
+JSON_INDEX_FILENAME = CONSTANTS.JSON_INDEX_FILENAME
+HTML_INDEX_FILENAME = CONSTANTS.HTML_INDEX_FILENAME
 archivebox_init = importlib.import_module('archivebox.cli.archivebox_init')
 archivebox_add = importlib.import_module('archivebox.cli.archivebox_add')
 archivebox_remove = importlib.import_module('archivebox.cli.archivebox_remove')

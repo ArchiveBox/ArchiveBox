@@ -2,7 +2,8 @@ __package__ = 'archivebox.crawls'
 
 
 from django import forms
-from django.utils.html import format_html, format_html_join, mark_safe
+from django.utils.html import format_html, format_html_join
+from django.utils.safestring import mark_safe
 from django.contrib import admin, messages
 from django.db.models import Count, Q
 

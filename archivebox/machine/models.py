@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 __package__ = 'archivebox.machine'
 
 import os
 import sys
+import uuid
 import socket
 from pathlib import Path
 from archivebox.uuid_compat import uuid7
 from datetime import timedelta, datetime
+from typing import TYPE_CHECKING, Any, cast
 
 from statemachine import State, registry
 
@@ -13,21 +17,31 @@ from django.db import models
 from django.db.models import QuerySet
 from django.utils import timezone
 from django.utils.functional import cached_property
+from django_stubs_ext.db.models import TypedModelMeta
 
 from archivebox.base_models.models import ModelWithHealthStats
 from archivebox.workers.models import BaseStateMachine, ModelWithStateMachine
 from .detect import get_host_guid, get_os_info, get_vm_info, get_host_network, get_host_stats
 
+_psutil: Any | None = None
 try:
-    import psutil
+    import psutil as _psutil_import
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
+else:
+    _psutil = _psutil_import
 
-_CURRENT_MACHINE = None
-_CURRENT_INTERFACE = None
-_CURRENT_BINARIES = {}
-_CURRENT_PROCESS = None
+if TYPE_CHECKING:
+    import psutil
+    from archivebox.core.models import ArchiveResult
+else:
+    psutil = cast(Any, _psutil)
+
+_CURRENT_MACHINE: Machine | None = None
+_CURRENT_INTERFACE: NetworkInterface | None = None
+_CURRENT_BINARIES: dict[str, Binary] = {}
+_CURRENT_PROCESS: Process | None = None
 
 MACHINE_RECHECK_INTERVAL = 7 * 24 * 60 * 60
 NETWORK_INTERFACE_RECHECK_INTERVAL = 1 * 60 * 60
@@ -64,10 +78,10 @@ class Machine(ModelWithHealthStats):
     num_uses_failed = models.PositiveIntegerField(default=0)
     num_uses_succeeded = models.PositiveIntegerField(default=0)
 
-    objects: MachineManager = MachineManager()
+    objects = MachineManager()  # pyright: ignore[reportIncompatibleVariableOverride]
     networkinterface_set: models.Manager['NetworkInterface']
 
-    class Meta:
+    class Meta(ModelWithHealthStats.Meta):
         app_label = 'machine'
 
     @classmethod
@@ -127,7 +141,7 @@ class Machine(ModelWithHealthStats):
         }
 
     @staticmethod
-    def from_json(record: dict, overrides: dict = None):
+    def from_json(record: dict[str, Any], overrides: dict[str, Any] | None = None):
         """
         Update Machine config from JSON dict.
 
@@ -172,9 +186,10 @@ class NetworkInterface(ModelWithHealthStats):
     # num_uses_failed = models.PositiveIntegerField(default=0)  # from ModelWithHealthStats
     # num_uses_succeeded = models.PositiveIntegerField(default=0)  # from ModelWithHealthStats
 
-    objects: NetworkInterfaceManager = NetworkInterfaceManager()
+    objects = NetworkInterfaceManager()  # pyright: ignore[reportIncompatibleVariableOverride]
+    machine_id: uuid.UUID
 
-    class Meta:
+    class Meta(ModelWithHealthStats.Meta):
         app_label = 'machine'
         unique_together = (('machine', 'ip_public', 'ip_local', 'mac_address', 'dns_server'),)
 
@@ -185,7 +200,7 @@ class NetworkInterface(ModelWithHealthStats):
             if timezone.now() < _CURRENT_INTERFACE.modified_at + timedelta(seconds=NETWORK_INTERFACE_RECHECK_INTERVAL):
                 return _CURRENT_INTERFACE
             _CURRENT_INTERFACE = None
-        machine = Machine.objects.current()
+        machine = Machine.current()
         net_info = get_host_network()
         _CURRENT_INTERFACE, _ = cls.objects.update_or_create(
             machine=machine, ip_public=net_info.pop('ip_public'), ip_local=net_info.pop('ip_local'),
@@ -202,7 +217,7 @@ class BinaryManager(models.Manager):
         if cached and timezone.now() < cached.modified_at + timedelta(seconds=BINARY_RECHECK_INTERVAL):
             return cached
         _CURRENT_BINARIES[name], _ = self.update_or_create(
-            machine=Machine.objects.current(), name=name, binprovider=binprovider,
+            machine=Machine.current(), name=name, binprovider=binprovider,
             version=version, abspath=abspath, sha256=sha256,
         )
         return _CURRENT_BINARIES[name]
@@ -263,12 +278,14 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
     num_uses_failed = models.PositiveIntegerField(default=0)
     num_uses_succeeded = models.PositiveIntegerField(default=0)
 
-    state_machine_name: str = 'archivebox.machine.models.BinaryMachine'
+    machine_id: uuid.UUID
+
+    state_machine_name: str | None = 'archivebox.machine.models.BinaryMachine'
     active_state: str = StatusChoices.QUEUED
 
-    objects: BinaryManager = BinaryManager()
+    objects = BinaryManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
-    class Meta:
+    class Meta(ModelWithHealthStats.Meta, ModelWithStateMachine.Meta):
         app_label = 'machine'
         verbose_name = 'Binary'
         verbose_name_plural = 'Binaries'
@@ -321,7 +338,7 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         }
 
     @staticmethod
-    def from_json(record: dict, overrides: dict = None):
+    def from_json(record: dict[str, Any], overrides: dict[str, Any] | None = None):
         """
         Create/update Binary from JSON dict.
 
@@ -418,7 +435,7 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
 
         return None
 
-    def update_and_requeue(self, **kwargs):
+    def update_and_requeue(self, **kwargs) -> bool:
         """
         Update binary fields and requeue for worker state machine.
 
@@ -429,6 +446,7 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
             setattr(self, key, value)
         self.modified_at = timezone.now()
         self.save()
+        return True
 
     def _allowed_binproviders(self) -> set[str] | None:
         """Return the allowed binproviders for this binary, or None for wildcard."""
@@ -513,21 +531,14 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
             plugin_output_dir = output_dir / plugin_name
             plugin_output_dir.mkdir(parents=True, exist_ok=True)
 
-            # Build kwargs for hook
-            hook_kwargs = {
-                'binary_id': str(self.id),
-                'machine_id': str(self.machine_id),
-                'name': self.name,
-                'binproviders': self.binproviders,
-            }
-
+            custom_cmd = None
+            overrides_json = None
             if plugin_name == 'custom':
                 custom_cmd = self._get_custom_install_command()
                 if not custom_cmd:
                     continue
-                hook_kwargs['custom_cmd'] = custom_cmd
             elif self.overrides:
-                hook_kwargs['overrides'] = json.dumps(self.overrides)
+                overrides_json = json.dumps(self.overrides)
 
             # Run the hook
             process = run_hook(
@@ -535,7 +546,12 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
                 output_dir=plugin_output_dir,
                 config=config,
                 timeout=600,  # 10 min timeout for binary installation
-                **hook_kwargs
+                binary_id=str(self.id),
+                machine_id=str(self.machine_id),
+                name=self.name,
+                binproviders=self.binproviders,
+                custom_cmd=custom_cmd,
+                overrides=overrides_json,
             )
 
             # Background hook (unlikely for binary installation, but handle it)
@@ -679,7 +695,7 @@ class ProcessManager(models.Manager):
         """Get the Process record for the current OS process."""
         return Process.current()
 
-    def get_by_pid(self, pid: int, machine: 'Machine' = None) -> 'Process | None':
+    def get_by_pid(self, pid: int, machine: 'Machine | None' = None) -> 'Process | None':
         """
         Find a Process by PID with proper validation against PID reuse.
 
@@ -880,11 +896,17 @@ class Process(models.Model):
         help_text='When to retry this process'
     )
 
+    machine_id: uuid.UUID
+    parent_id: uuid.UUID | None
+    binary_id: uuid.UUID | None
+    children: models.Manager['Process']
+    archiveresult: 'ArchiveResult'
+
     state_machine_name: str = 'archivebox.machine.models.ProcessMachine'
 
-    objects: ProcessManager = ProcessManager()
+    objects = ProcessManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
-    class Meta:
+    class Meta(TypedModelMeta):
         app_label = 'machine'
         verbose_name = 'Process'
         verbose_name_plural = 'Processes'
@@ -971,7 +993,7 @@ class Process(models.Model):
         return self.parse_records_from_text(stdout or '')
 
     @staticmethod
-    def from_json(record: dict, overrides: dict = None):
+    def from_json(record: dict[str, Any], overrides: dict[str, Any] | None = None):
         """
         Create/update Process from JSON dict.
 
@@ -990,7 +1012,7 @@ class Process(models.Model):
                 pass
         return None
 
-    def update_and_requeue(self, **kwargs):
+    def update_and_requeue(self, **kwargs) -> bool:
         """
         Update process fields and requeue for worker state machine.
         Sets modified_at to ensure workers pick up changes.
@@ -999,6 +1021,7 @@ class Process(models.Model):
             setattr(self, key, value)
         self.modified_at = timezone.now()
         self.save()
+        return True
 
     # =========================================================================
     # Process.current() and hierarchy methods
@@ -1094,7 +1117,7 @@ class Process(models.Model):
         return _CURRENT_PROCESS
 
     @classmethod
-    def _find_parent_process(cls, machine: 'Machine' = None) -> 'Process | None':
+    def _find_parent_process(cls, machine: 'Machine | None' = None) -> 'Process | None':
         """
         Find the parent Process record by looking up PPID.
 
@@ -1163,7 +1186,7 @@ class Process(models.Model):
             return cls.TypeChoices.BINARY
 
     @classmethod
-    def cleanup_stale_running(cls, machine: 'Machine' = None) -> int:
+    def cleanup_stale_running(cls, machine: 'Machine | None' = None) -> int:
         """
         Mark stale RUNNING processes as EXITED.
 
@@ -1374,25 +1397,25 @@ class Process(models.Model):
     # =========================================================================
 
     @property
-    def pid_file(self) -> Path:
+    def pid_file(self) -> Path | None:
         """Path to PID file for this process."""
         runtime_dir = self.runtime_dir
         return runtime_dir / 'process.pid' if runtime_dir else None
 
     @property
-    def cmd_file(self) -> Path:
+    def cmd_file(self) -> Path | None:
         """Path to cmd.sh script for this process."""
         runtime_dir = self.runtime_dir
         return runtime_dir / 'cmd.sh' if runtime_dir else None
 
     @property
-    def stdout_file(self) -> Path:
+    def stdout_file(self) -> Path | None:
         """Path to stdout log."""
         runtime_dir = self.runtime_dir
         return runtime_dir / 'stdout.log' if runtime_dir else None
 
     @property
-    def stderr_file(self) -> Path:
+    def stderr_file(self) -> Path | None:
         """Path to stderr log."""
         runtime_dir = self.runtime_dir
         return runtime_dir / 'stderr.log' if runtime_dir else None
@@ -1647,6 +1670,8 @@ class Process(models.Model):
             stdout_path.parent.mkdir(parents=True, exist_ok=True)
         if stderr_path:
             stderr_path.parent.mkdir(parents=True, exist_ok=True)
+        if stdout_path is None or stderr_path is None:
+            raise RuntimeError('Process log paths could not be determined')
 
         with open(stdout_path, 'a') as out, open(stderr_path, 'a') as err:
             proc = subprocess.Popen(
@@ -2006,7 +2031,7 @@ class Process(models.Model):
     # =========================================================================
 
     @classmethod
-    def get_running(cls, process_type: str = None, machine: 'Machine' = None) -> 'QuerySet[Process]':
+    def get_running(cls, process_type: str | None = None, machine: 'Machine | None' = None) -> 'QuerySet[Process]':
         """
         Get all running processes, optionally filtered by type.
 
@@ -2031,7 +2056,7 @@ class Process(models.Model):
         return qs
 
     @classmethod
-    def get_running_count(cls, process_type: str = None, machine: 'Machine' = None) -> int:
+    def get_running_count(cls, process_type: str | None = None, machine: 'Machine | None' = None) -> int:
         """
         Get count of running processes.
 
@@ -2041,7 +2066,7 @@ class Process(models.Model):
         return cls.get_running(process_type=process_type, machine=machine).count()
 
     @classmethod
-    def stop_all(cls, process_type: str = None, machine: 'Machine' = None, graceful: bool = True) -> int:
+    def stop_all(cls, process_type: str | None = None, machine: 'Machine | None' = None, graceful: bool = True) -> int:
         """
         Stop all running processes of a given type.
 
@@ -2064,7 +2089,7 @@ class Process(models.Model):
         return stopped
 
     @classmethod
-    def get_next_worker_id(cls, process_type: str = 'worker', machine: 'Machine' = None) -> int:
+    def get_next_worker_id(cls, process_type: str = 'worker', machine: 'Machine | None' = None) -> int:
         """
         Get the next available worker ID for spawning new workers.
 
@@ -2190,6 +2215,7 @@ class BinaryMachine(BaseStateMachine):
     """
 
     model_attr_name = 'binary'
+    binary: Binary
 
     # States
     queued = State(value=Binary.StatusChoices.QUEUED, initial=True)
@@ -2293,6 +2319,7 @@ class ProcessMachine(BaseStateMachine):
     """
 
     model_attr_name = 'process'
+    process: Process
 
     # States
     queued = State(value=Process.StatusChoices.QUEUED, initial=True)

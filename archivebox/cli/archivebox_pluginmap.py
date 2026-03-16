@@ -297,6 +297,7 @@ def pluginmap(
         if not quiet:
             # Show diagram if this model has one
             if info.get('diagram'):
+                assert info['diagram'] is not None
                 prnt(Panel(
                     info['diagram'],
                     title=f'[bold green]{info["machine"]}[/bold green]',
