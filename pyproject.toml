@@ -151,8 +151,8 @@ dev = [
     "bottle>=0.13.1",
     ### LINTING
     "ruff>=0.6.6",
-    "flake8>=7.1.1",
-    "mypy>=1.11.2",
+    "pyright>=1.1.406",
+    "ty>=0.0.1a19",
 ]
 
 [tool.uv]

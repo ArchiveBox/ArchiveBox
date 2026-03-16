@@ -121,13 +121,15 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
         supervisor = get_existing_supervisord_process()
         if supervisor:
             daphne_proc = get_worker(supervisor, 'worker_daphne')
+            daphne_state = daphne_proc.get('statename') if isinstance(daphne_proc, dict) else None
 
             # If daphne is already running, error out
-            if daphne_proc and daphne_proc.get('statename') == 'RUNNING':
+            if daphne_state == 'RUNNING':
                 orchestrator_proc = get_worker(supervisor, 'worker_orchestrator')
+                orchestrator_state = orchestrator_proc.get('statename') if isinstance(orchestrator_proc, dict) else None
                 print('[red][X] Error: ArchiveBox server is already running[/red]')
                 print(f'    [green]√[/green] Web server (worker_daphne) is RUNNING on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link][/deep_sky_blue4]')
-                if orchestrator_proc and orchestrator_proc.get('statename') == 'RUNNING':
+                if orchestrator_state == 'RUNNING':
                     print('    [green]√[/green] Background worker (worker_orchestrator) is RUNNING')
                 print()
                 print('[yellow]To stop the existing server, run:[/yellow]')

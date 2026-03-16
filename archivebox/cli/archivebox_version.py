@@ -152,7 +152,7 @@ def version(quiet: bool=False,
         prnt('[deep_sky_blue3][i] Code locations:[/deep_sky_blue3]')
         try:
             for name, path in get_code_locations().items():
-                if isinstance(path, dict):
+                if isinstance(name, str) and isinstance(path, dict):
                     prnt(printable_folder_status(name, path), overflow='ignore', crop=False)
         except Exception as e:
             prnt(f'  [red]Error getting code locations: {e}[/red]')
@@ -162,7 +162,7 @@ def version(quiet: bool=False,
             prnt('[bright_yellow][i] Data locations:[/bright_yellow]')
             try:
                 for name, path in get_data_locations().items():
-                    if isinstance(path, dict):
+                    if isinstance(name, str) and isinstance(path, dict):
                         prnt(printable_folder_status(name, path), overflow='ignore', crop=False)
             except Exception as e:
                 prnt(f'  [red]Error getting data locations: {e}[/red]')

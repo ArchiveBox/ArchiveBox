@@ -69,8 +69,9 @@ def config(*keys,
 
         # Display core config sections
         for config_section in CONFIGS.values():
-            if hasattr(config_section, 'toml_section_header'):
-                print(f'[grey53]\\[{config_section.toml_section_header}][/grey53]')
+            section_header = getattr(config_section, 'toml_section_header', '')
+            if isinstance(section_header, str) and section_header:
+                print(f'[grey53]\\[{section_header}][/grey53]')
             else:
                 print('[grey53]\\[CONSTANTS]                                        # (read-only)[/grey53]')
 

@@ -28,18 +28,18 @@ ObjectStateList = Iterable[ObjectState]
 class BaseModelWithStateMachine(models.Model, MachineMixin):
     id: models.UUIDField
 
-    StatusChoices: ClassVar[Type[models.TextChoices]]
+    StatusChoices: ClassVar[Type[DefaultStatusChoices]]
 
     # status: models.CharField
     # retry_at: models.DateTimeField
 
-    state_machine_name: ClassVar[str]
-    state_field_name: ClassVar[str]
-    state_machine_attr: ClassVar[str] = 'sm'
-    bind_events_as_methods: ClassVar[bool] = True
+    state_machine_name: str | None
+    state_field_name: str
+    state_machine_attr: str = 'sm'
+    bind_events_as_methods: bool = True
 
-    active_state: ClassVar[ObjectState]
-    retry_at_field_name: ClassVar[str]
+    active_state: ObjectState
+    retry_at_field_name: str
 
     class Meta:
         app_label = 'workers'
@@ -229,7 +229,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
         """
         updated = cls.objects.filter(
             pk=obj.pk,
-            retry_at=obj.retry_at,
+            retry_at=obj.RETRY_AT,
             retry_at__lte=timezone.now(),
         ).update(
             retry_at=timezone.now() + timedelta(seconds=lock_seconds)
@@ -271,7 +271,10 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
         if not self.claim_processing_lock(lock_seconds=lock_seconds):
             return False
 
-        self.sm.tick()
+        tick = getattr(getattr(self, self.state_machine_attr, None), 'tick', None)
+        if not callable(tick):
+            raise TypeError(f'{type(self).__name__}.{self.state_machine_attr}.tick() must be callable')
+        tick()
         self.refresh_from_db()
         return True
 
@@ -281,7 +284,10 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
 
     @classproperty
     def INITIAL_STATE(cls) -> str:
-        return cls._state_to_str(cls.StateMachineClass.initial_state)
+        initial_state = cls.StateMachineClass.initial_state
+        if initial_state is None:
+            raise ValueError('StateMachineClass.initial_state must not be None')
+        return cls._state_to_str(initial_state)
 
     @classproperty
     def FINAL_STATES(cls) -> list[str]:
@@ -311,7 +317,9 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
                 joined[item[0]] = item[1]
             for item in extra_choices.choices:
                 joined[item[0]] = item[1]
-            return models.TextChoices('StatusChoices', joined)
+            joined_choices = models.TextChoices('StatusChoices', joined)
+            assert isinstance(joined_choices, type)
+            return joined_choices
         return wrapper
 
     @classmethod
@@ -359,27 +367,22 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
             StateMachineCls = registry.get_machine_cls(model_state_machine_name)
             assert issubclass(StateMachineCls, StateMachine)
             return StateMachineCls
-        raise NotImplementedError(f'ActorType[{cls.__name__}] must define .state_machine_name: str that points to a valid StateMachine')
+        raise NotImplementedError('ActorType must define .state_machine_name that points to a valid StateMachine')
 
 
 class ModelWithStateMachine(BaseModelWithStateMachine):
-    StatusChoices: ClassVar[Type[DefaultStatusChoices]] = DefaultStatusChoices
+    StatusChoices = DefaultStatusChoices
 
     status: models.CharField = BaseModelWithStateMachine.StatusField()
     retry_at: models.DateTimeField = BaseModelWithStateMachine.RetryAtField()
 
-    state_machine_name: ClassVar[str]      # e.g. 'core.models.ArchiveResultMachine'
-    state_field_name: ClassVar[str]        = 'status'
-    state_machine_attr: ClassVar[str]      = 'sm'
-    bind_events_as_methods: ClassVar[bool] = True
+    state_machine_name: str | None         # e.g. 'core.models.ArchiveResultMachine'
+    state_field_name: str                  = 'status'
+    state_machine_attr: str                = 'sm'
+    bind_events_as_methods: bool           = True
 
-    active_state: ClassVar[str]            = StatusChoices.STARTED
-    retry_at_field_name: ClassVar[str]     = 'retry_at'
-
-    class Meta:
-        app_label = 'workers'
-        abstract = True
-
+    active_state = StatusChoices.STARTED
+    retry_at_field_name: str               = 'retry_at'
 
 class BaseStateMachine(StateMachine):
     """

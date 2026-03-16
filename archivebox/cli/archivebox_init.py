@@ -33,7 +33,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False) -> None:
     from archivebox.config import CONSTANTS, VERSION, DATA_DIR
     from archivebox.config.common import SERVER_CONFIG
     from archivebox.config.collection import write_config_file
-    from archivebox.misc.legacy import parse_json_main_index, parse_json_links_details, SnapshotDict
+    from archivebox.misc.legacy import parse_json_main_index, parse_json_links_details
     from archivebox.misc.db import apply_migrations
     
     # if os.access(out_dir / CONSTANTS.JSON_INDEX_FILENAME, os.F_OK):

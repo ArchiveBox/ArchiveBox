@@ -26,6 +26,8 @@ from rich import print
 from archivebox.misc.logging_util import log_worker_event
 
 if TYPE_CHECKING:
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
     from archivebox.machine.models import Process
 
 
@@ -85,6 +87,10 @@ class Worker:
         """Get the Django model class. Subclasses must override this."""
         raise NotImplementedError("Subclasses must implement get_model()")
 
+    def runloop(self) -> None:
+        """Execute the worker loop."""
+        raise NotImplementedError("Subclasses must implement runloop()")
+
     def on_startup(self) -> None:
         """Called when worker starts."""
         from archivebox.machine.models import Process
@@ -136,13 +142,14 @@ class Worker:
         if 'Snapshot' in worker_type_name:
             indent_level = 2
 
+        log_error = error if isinstance(error, Exception) and not isinstance(error, KeyboardInterrupt) else None
         log_worker_event(
             worker_type=worker_type_name,
             event='Shutting down',
             indent_level=indent_level,
             pid=self.pid,
             worker_id=str(self.worker_id),
-            error=error if error and not isinstance(error, KeyboardInterrupt) else None,
+            error=log_error,
         )
 
     def _terminate_background_hooks(
@@ -494,8 +501,18 @@ class CrawlWorker(Worker):
     def __init__(self, crawl_id: str, **kwargs: Any):
         super().__init__(**kwargs)
         self.crawl_id = crawl_id
-        self.crawl = None
+        self._crawl: Crawl | None = None
         self.crawl_config = None
+
+    @property
+    def crawl(self) -> 'Crawl':
+        if self._crawl is None:
+            raise RuntimeError('CrawlWorker.crawl accessed before on_startup()')
+        return self._crawl
+
+    @crawl.setter
+    def crawl(self, value: 'Crawl | None') -> None:
+        self._crawl = value
 
     def get_model(self):
         from archivebox.crawls.models import Crawl
@@ -530,7 +547,10 @@ class CrawlWorker(Worker):
 
             # Advance state machine: QUEUED → STARTED (triggers run() via @started.enter)
             try:
-                self.crawl.sm.tick()
+                tick = getattr(getattr(self.crawl, 'sm', None), 'tick', None)
+                if not callable(tick):
+                    raise RuntimeError('Crawl.sm.tick() is unavailable')
+                tick()
             except TransitionNotAllowed:
                 if self.crawl.status == Crawl.StatusChoices.SEALED:
                     print(
@@ -555,7 +575,10 @@ class CrawlWorker(Worker):
                 # Check if crawl is done
                 if self._is_crawl_finished():
                     print('🔄 Crawl finished, sealing...', file=sys.stderr)
-                    self.crawl.sm.seal()
+                    seal = getattr(getattr(self.crawl, 'sm', None), 'seal', None)
+                    if not callable(seal):
+                        raise RuntimeError('Crawl.sm.seal() is unavailable')
+                    seal()
                     break
 
                 # Spawn workers for queued snapshots
@@ -662,9 +685,10 @@ class CrawlWorker(Worker):
             # Get the Process record that was just created
             worker_process = Process.objects.filter(pid=pid).first()
             if worker_process:
+                process_for_pipe = worker_process
                 # Pipe stderr in background thread so it doesn't block
-                def pipe_worker_stderr():
-                    for line in worker_process.tail_stderr(lines=0, follow=True):
+                def pipe_worker_stderr() -> None:
+                    for line in process_for_pipe.tail_stderr(lines=0, follow=True):
                         print(f'  [SnapshotWorker] {line}', file=sys.stderr, flush=True)
 
                 thread = threading.Thread(target=pipe_worker_stderr, daemon=True)
@@ -766,8 +790,18 @@ class SnapshotWorker(Worker):
     def __init__(self, snapshot_id: str, **kwargs: Any):
         super().__init__(**kwargs)
         self.snapshot_id = snapshot_id
-        self.snapshot = None
+        self._snapshot: Snapshot | None = None
         self.background_processes: dict[str, Any] = {}  # hook_name -> Process
+
+    @property
+    def snapshot(self) -> 'Snapshot':
+        if self._snapshot is None:
+            raise RuntimeError('SnapshotWorker.snapshot accessed before on_startup()')
+        return self._snapshot
+
+    @snapshot.setter
+    def snapshot(self, value: 'Snapshot | None') -> None:
+        self._snapshot = value
 
     def get_model(self):
         """Not used - SnapshotWorker doesn't poll queues."""
@@ -785,7 +819,10 @@ class SnapshotWorker(Worker):
             return
 
         # Use state machine to transition queued -> started (triggers enter_started())
-        self.snapshot.sm.tick()
+        tick = getattr(getattr(self.snapshot, 'sm', None), 'tick', None)
+        if not callable(tick):
+            raise RuntimeError('Snapshot.sm.tick() is unavailable')
+        tick()
         self.snapshot.refresh_from_db()
         self.snapshot_started_at = self.snapshot.modified_at or self.snapshot.created_at
 
@@ -881,13 +918,19 @@ class SnapshotWorker(Worker):
                 self._retry_failed_empty_foreground_hooks(foreground_hooks, config)
             if self.snapshot.status != Snapshot.StatusChoices.SEALED:
                 # This triggers enter_sealed() which calls cleanup() and checks parent crawl sealing
-                self.snapshot.sm.seal()
+                seal = getattr(getattr(self.snapshot, 'sm', None), 'seal', None)
+                if not callable(seal):
+                    raise RuntimeError('Snapshot.sm.seal() is unavailable')
+                seal()
                 self.snapshot.refresh_from_db()
 
         except Exception:
             # Mark snapshot as sealed even on error (still triggers cleanup)
             self._finalize_background_hooks()
-            self.snapshot.sm.seal()
+            seal = getattr(getattr(self.snapshot, 'sm', None), 'seal', None)
+            if not callable(seal):
+                raise RuntimeError('Snapshot.sm.seal() is unavailable')
+            seal()
             self.snapshot.refresh_from_db()
             raise
         finally:
@@ -926,7 +969,7 @@ class SnapshotWorker(Worker):
             parent=self.db_process,
             url=str(self.snapshot.url),
             snapshot_id=str(self.snapshot.id),
-            _crawl_id=str(self.snapshot.crawl_id) if self.snapshot.crawl_id else None,
+            _crawl_id=str(self.snapshot.crawl.id),
         )
 
         # Link ArchiveResult to Process for tracking
@@ -1150,7 +1193,7 @@ class BinaryWorker(Worker):
     MAX_CONCURRENT_TASKS: ClassVar[int] = 1  # One binary per worker
     POLL_INTERVAL: ClassVar[float] = 0.5  # Check every 500ms (daemon mode only)
 
-    def __init__(self, binary_id: str = None, worker_id: int = 0):
+    def __init__(self, binary_id: str | None = None, worker_id: int = 0):
         self.binary_id = binary_id  # Optional - None means daemon mode
         super().__init__(worker_id=worker_id)
 
@@ -1158,24 +1201,27 @@ class BinaryWorker(Worker):
         from archivebox.machine.models import Binary
         return Binary
 
-    def get_next_item(self):
-        """Get binary to install (specific or next queued)."""
-        from archivebox.machine.models import Binary, Machine
+    def _get_binary(self):
+        """Get a specific binary in one-shot mode."""
+        from archivebox.machine.models import Binary
 
         if self.binary_id:
-            # Specific binary mode
             try:
                 return Binary.objects.get(id=self.binary_id)
             except Binary.DoesNotExist:
                 return None
-        else:
-            # Daemon mode - get all queued binaries for current machine
-            machine = Machine.current()
-            return Binary.objects.filter(
-                machine=machine,
-                status=Binary.StatusChoices.QUEUED,
-                retry_at__lte=timezone.now()
-            ).order_by('retry_at', 'created_at', 'name')
+        return None
+
+    def _get_pending_binaries(self):
+        """Get all queued binaries for the current machine."""
+        from archivebox.machine.models import Binary, Machine
+
+        machine = Machine.current()
+        return Binary.objects.filter(
+            machine=machine,
+            status=Binary.StatusChoices.QUEUED,
+            retry_at__lte=timezone.now()
+        ).order_by('retry_at', 'created_at', 'name')
 
     def runloop(self) -> None:
         """Install binary(ies)."""
@@ -1196,7 +1242,7 @@ class BinaryWorker(Worker):
         import sys
 
         try:
-            binary = self.get_next_item()
+            binary = self._get_binary()
 
             if not binary:
                 log_worker_event(
@@ -1251,7 +1297,7 @@ class BinaryWorker(Worker):
         try:
             while True:
                 # Get all pending binaries
-                pending_binaries = list(self.get_next_item())
+                pending_binaries = list(self._get_pending_binaries())
 
                 if not pending_binaries:
                     idle_count += 1
