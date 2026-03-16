@@ -9,7 +9,7 @@ from django.http import HttpRequest
 from archivebox.misc.serve_static import serve_static
 
 from archivebox.core.admin_site import archivebox_admin
-from archivebox.core.views import HomepageView, SnapshotView, SnapshotPathView, PublicIndexView, AddView, WebAddView, HealthCheckView, live_progress_view
+from archivebox.core.views import HomepageView, SnapshotView, SnapshotPathView, SnapshotReplayView, OriginalDomainReplayView, PublicIndexView, AddView, WebAddView, HealthCheckView, live_progress_view
 
 
 # GLOBAL_CONTEXT doesn't work as-is, disabled for now: https://github.com/ArchiveBox/ArchiveBox/discussions/1306
@@ -33,6 +33,8 @@ urlpatterns = [
     
     path('archive/', RedirectView.as_view(url='/')),
     path('archive/<path:path>', SnapshotView.as_view(), name='Snapshot'),
+    re_path(r'^snapshot\/(?P<snapshot_id>[0-9a-fA-F-]{8,36})(?:\/(?P<path>.*))?$', SnapshotReplayView.as_view(), name='snapshot-replay'),
+    re_path(r'^original\/(?P<domain>[^/]+)(?:\/(?P<path>.*))?$', OriginalDomainReplayView.as_view(), name='original-replay'),
     re_path(r'^web/(?P<url>(?!\d{4}(?:\d{2})?(?:\d{2})?(?:/|$)).+)$', WebAddView.as_view(), name='web-add'),
     re_path(r'^(?P<username>[^/]+)/(?P<date>\d{4}(?:\d{2})?(?:\d{2})?)/(?P<url>https?://.*)$', SnapshotPathView.as_view(), name='snapshot-path-url'),
     re_path(r'^(?P<username>[^/]+)/(?P<date>\d{4}(?:\d{2})?(?:\d{2})?)/(?P<domain>[^/]+)(?:/(?P<snapshot_id>[0-9a-fA-F-]{8,36})(?:/(?P<path>.*))?)?$', SnapshotPathView.as_view(), name='snapshot-path'),

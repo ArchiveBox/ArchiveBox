@@ -86,6 +86,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "archivebox.core.middleware.ReverseProxyAuthMiddleware",
+    "archivebox.core.middleware.ServerSecurityModeMiddleware",
     "archivebox.core.middleware.HostRoutingMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "archivebox.core.middleware.CacheControlMiddleware",

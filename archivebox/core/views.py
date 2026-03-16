@@ -52,15 +52,21 @@ def _files_index_target(snapshot: Snapshot, archivefile: str | None) -> str:
     return target
 
 
+def _admin_login_redirect_or_forbidden(request: HttpRequest):
+    if SERVER_CONFIG.CONTROL_PLANE_ENABLED:
+        return redirect(f'/admin/login/?next={request.path}')
+    return HttpResponseForbidden("ArchiveBox is running with the control plane disabled in this security mode.")
+
+
 class HomepageView(View):
     def get(self, request):
-        if request.user.is_authenticated:
+        if request.user.is_authenticated and SERVER_CONFIG.CONTROL_PLANE_ENABLED:
             return redirect('/admin/core/snapshot/')
 
         if SERVER_CONFIG.PUBLIC_INDEX:
             return redirect('/public')
 
-        return redirect(f'/admin/login/?next={request.path}')
+        return _admin_login_redirect_or_forbidden(request)
 
 
 class SnapshotView(View):
@@ -277,7 +283,7 @@ class SnapshotView(View):
 
     def get(self, request, path):
         if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
-            return redirect(f'/admin/login/?next={request.path}')
+            return _admin_login_redirect_or_forbidden(request)
 
         snapshot = None
 
@@ -308,7 +314,7 @@ class SnapshotView(View):
                     if request.GET.get('files'):
                         target_path = _files_index_target(snapshot, archivefile)
                         response = serve_static_with_byterange_support(
-                            request, target_path, document_root=snapshot.output_dir, show_indexes=True,
+                            request, target_path, document_root=snapshot.output_dir, show_indexes=True, is_archive_replay=True,
                         )
                     elif archivefile == 'index.html':
                         # if they requested snapshot index, serve live rendered template instead of static html
@@ -474,7 +480,7 @@ class SnapshotPathView(View):
 
     def get(self, request, username: str, date: str | None = None, domain: str | None = None, snapshot_id: str | None = None, path: str = "", url: str | None = None):
         if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
-            return redirect(f'/admin/login/?next={request.path}')
+            return _admin_login_redirect_or_forbidden(request)
 
         if username == 'system':
             return redirect(request.path.replace('/system/', '/web/', 1))
@@ -573,14 +579,14 @@ class SnapshotPathView(View):
         if request.GET.get('files'):
             target_path = _files_index_target(snapshot, archivefile)
             return serve_static_with_byterange_support(
-                request, target_path, document_root=snapshot.output_dir, show_indexes=True,
+                request, target_path, document_root=snapshot.output_dir, show_indexes=True, is_archive_replay=True,
             )
 
         if archivefile == "index.html":
             return SnapshotView.render_live_index(request, snapshot)
 
         return serve_static_with_byterange_support(
-            request, archivefile, document_root=snapshot.output_dir, show_indexes=True,
+            request, archivefile, document_root=snapshot.output_dir, show_indexes=True, is_archive_replay=True,
         )
 
 
@@ -670,6 +676,7 @@ def _serve_responses_path(request, responses_root: Path, rel_path: str, show_ind
                 candidate,
                 document_root=str(responses_root),
                 show_indexes=show_indexes,
+                is_archive_replay=True,
             )
         except Http404:
             pass
@@ -682,10 +689,77 @@ def _serve_responses_path(request, responses_root: Path, rel_path: str, show_ind
                 rel_dir,
                 document_root=str(responses_root),
                 show_indexes=True,
+                is_archive_replay=True,
             )
         except Http404:
             return None
     return None
+
+
+def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str = ""):
+    rel_path = path or ""
+    show_indexes = bool(request.GET.get("files"))
+    if not rel_path or rel_path.endswith("/"):
+        if show_indexes:
+            rel_path = rel_path.rstrip("/")
+        else:
+            rel_path = f"{rel_path}index.html"
+    rel_path = _safe_archive_relpath(rel_path)
+    if rel_path is None:
+        raise Http404
+
+    try:
+        return serve_static_with_byterange_support(
+            request,
+            rel_path,
+            document_root=snapshot.output_dir,
+            show_indexes=show_indexes,
+            is_archive_replay=True,
+        )
+    except Http404:
+        pass
+
+    host = urlparse(snapshot.url).hostname or snapshot.domain
+    responses_root = Path(snapshot.output_dir) / "responses" / host
+    if responses_root.exists():
+        response = _serve_responses_path(request, responses_root, rel_path, show_indexes)
+        if response is not None:
+            return response
+
+    raise Http404
+
+
+def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str = ""):
+    rel_path = path or ""
+    if not rel_path or rel_path.endswith("/"):
+        rel_path = f"{rel_path}index.html"
+    rel_path = _safe_archive_relpath(rel_path)
+    if rel_path is None:
+        raise Http404
+
+    domain = domain.lower()
+    match = _latest_response_match(domain, rel_path)
+    if not match and "." not in Path(rel_path).name:
+        index_path = f"{rel_path.rstrip('/')}/index.html"
+        match = _latest_response_match(domain, index_path)
+    if not match and "." not in Path(rel_path).name:
+        html_path = f"{rel_path}.html"
+        match = _latest_response_match(domain, html_path)
+
+    show_indexes = bool(request.GET.get("files"))
+    if match:
+        responses_root, rel_to_root = match
+        response = _serve_responses_path(request, responses_root, str(rel_to_root), show_indexes)
+        if response is not None:
+            return response
+
+    responses_root = _latest_responses_root(domain)
+    if responses_root:
+        response = _serve_responses_path(request, responses_root, rel_path, show_indexes)
+        if response is not None:
+            return response
+
+    raise Http404
 
 
 class SnapshotHostView(View):
@@ -693,7 +767,7 @@ class SnapshotHostView(View):
 
     def get(self, request, snapshot_id: str, path: str = ""):
         if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
-            return HttpResponseForbidden("Public snapshots are disabled.")
+            return _admin_login_redirect_or_forbidden(request)
         snapshot = None
         if snapshot_id:
             try:
@@ -708,37 +782,30 @@ class SnapshotHostView(View):
 
         if not snapshot:
             raise Http404
+        return _serve_snapshot_replay(request, snapshot, path)
 
-        rel_path = path or ""
-        show_indexes = bool(request.GET.get("files"))
-        if not rel_path or rel_path.endswith("/"):
-            if show_indexes:
-                rel_path = rel_path.rstrip("/")
-            else:
-                rel_path = f"{rel_path}index.html"
-        rel_path = _safe_archive_relpath(rel_path)
-        if rel_path is None:
-            raise Http404
+
+class SnapshotReplayView(View):
+    """Serve snapshot directory contents on a one-domain replay path."""
+
+    def get(self, request, snapshot_id: str, path: str = ""):
+        if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
+            return _admin_login_redirect_or_forbidden(request)
 
         try:
-            return serve_static_with_byterange_support(
-                request,
-                rel_path,
-                document_root=snapshot.output_dir,
-                show_indexes=show_indexes,
-            )
-        except Http404:
-            pass
+            snapshot = Snapshot.objects.get(pk=snapshot_id)
+        except Snapshot.DoesNotExist:
+            try:
+                snapshot = Snapshot.objects.get(id__startswith=snapshot_id)
+            except Snapshot.DoesNotExist:
+                raise Http404
+            except Snapshot.MultipleObjectsReturned:
+                snapshot = Snapshot.objects.filter(id__startswith=snapshot_id).first()
 
-        # Fallback to responses/<domain>/<path>
-        host = urlparse(snapshot.url).hostname or snapshot.domain
-        responses_root = Path(snapshot.output_dir) / "responses" / host
-        if responses_root.exists():
-            response = _serve_responses_path(request, responses_root, rel_path, show_indexes)
-            if response is not None:
-                return response
+        if snapshot is None:
+            raise Http404
 
-        raise Http404
+        return _serve_snapshot_replay(request, snapshot, path)
 
 
 class OriginalDomainHostView(View):
@@ -746,38 +813,17 @@ class OriginalDomainHostView(View):
 
     def get(self, request, domain: str, path: str = ""):
         if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
-            return HttpResponseForbidden("Public snapshots are disabled.")
-        rel_path = path or ""
-        if not rel_path or rel_path.endswith("/"):
-            rel_path = f"{rel_path}index.html"
-        rel_path = _safe_archive_relpath(rel_path)
-        if rel_path is None:
-            raise Http404
+            return _admin_login_redirect_or_forbidden(request)
+        return _serve_original_domain_replay(request, domain, path)
 
-        domain = domain.lower()
-        match = _latest_response_match(domain, rel_path)
-        if not match and "." not in Path(rel_path).name:
-            index_path = f"{rel_path.rstrip('/')}/index.html"
-            match = _latest_response_match(domain, index_path)
-        if not match and "." not in Path(rel_path).name:
-            html_path = f"{rel_path}.html"
-            match = _latest_response_match(domain, html_path)
 
-        show_indexes = bool(request.GET.get("files"))
-        if match:
-            responses_root, rel_to_root = match
-            response = _serve_responses_path(request, responses_root, str(rel_to_root), show_indexes)
-            if response is not None:
-                return response
+class OriginalDomainReplayView(View):
+    """Serve original-domain replay content on a one-domain replay path."""
 
-        # If no direct match, try serving directory index from latest responses root
-        responses_root = _latest_responses_root(domain)
-        if responses_root:
-            response = _serve_responses_path(request, responses_root, rel_path, show_indexes)
-            if response is not None:
-                return response
-
-        raise Http404
+    def get(self, request, domain: str, path: str = ""):
+        if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
+            return _admin_login_redirect_or_forbidden(request)
+        return _serve_original_domain_replay(request, domain, path)
 
 
 class PublicIndexView(ListView):
@@ -834,7 +880,7 @@ class PublicIndexView(ListView):
             response = super().get(*args, **kwargs)
             return response
         else:
-            return redirect(f'/admin/login/?next={self.request.path}')
+            return _admin_login_redirect_or_forbidden(self.request)
 
 @method_decorator(csrf_exempt, name='dispatch')
 class AddView(UserPassesTestMixin, FormView):

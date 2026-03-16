@@ -55,6 +55,8 @@ def _build_listen_host(subdomain: str | None) -> str:
 
 
 def get_admin_host() -> str:
+    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+        return get_listen_host().lower()
     override = _normalize_base_url(SERVER_CONFIG.ADMIN_BASE_URL)
     if override:
         return urlparse(override).netloc.lower()
@@ -62,23 +64,33 @@ def get_admin_host() -> str:
 
 
 def get_web_host() -> str:
+    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+        return get_listen_host().lower()
     override = _normalize_base_url(SERVER_CONFIG.ARCHIVE_BASE_URL)
     if override:
         return urlparse(override).netloc.lower()
     return _build_listen_host("web")
 
 def get_api_host() -> str:
+    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+        return get_listen_host().lower()
     return _build_listen_host("api")
 
 def get_public_host() -> str:
+    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+        return get_listen_host().lower()
     return _build_listen_host("public")
 
 
 def get_snapshot_host(snapshot_id: str) -> str:
+    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+        return get_listen_host().lower()
     return _build_listen_host(snapshot_id)
 
 
 def get_original_host(domain: str) -> str:
+    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+        return get_listen_host().lower()
     return _build_listen_host(domain)
 
 
@@ -87,6 +99,8 @@ def is_snapshot_subdomain(subdomain: str) -> bool:
 
 
 def get_listen_subdomain(request_host: str) -> str:
+    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+        return ""
     req_host, req_port = split_host_port(request_host)
     listen_host, listen_port = get_listen_parts()
     if not listen_host:
@@ -127,6 +141,8 @@ def _build_base_url_for_host(host: str, request=None) -> str:
 
 
 def get_admin_base_url(request=None) -> str:
+    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+        return _build_base_url_for_host(get_listen_host(), request=request)
     override = _normalize_base_url(SERVER_CONFIG.ADMIN_BASE_URL)
     if override:
         return override
@@ -134,12 +150,16 @@ def get_admin_base_url(request=None) -> str:
 
 
 def get_web_base_url(request=None) -> str:
+    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+        return _build_base_url_for_host(get_listen_host(), request=request)
     override = _normalize_base_url(SERVER_CONFIG.ARCHIVE_BASE_URL)
     if override:
         return override
     return _build_base_url_for_host(get_web_host(), request=request)
 
 def get_api_base_url(request=None) -> str:
+    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+        return _build_base_url_for_host(get_listen_host(), request=request)
     return _build_base_url_for_host(get_api_host(), request=request)
 
 
@@ -149,10 +169,14 @@ def get_archive_base_url(request=None) -> str:
 
 
 def get_snapshot_base_url(snapshot_id: str, request=None) -> str:
+    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+        return _build_url(get_web_base_url(request=request), f"/snapshot/{snapshot_id}")
     return _build_base_url_for_host(get_snapshot_host(snapshot_id), request=request)
 
 
 def get_original_base_url(domain: str, request=None) -> str:
+    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+        return _build_url(get_web_base_url(request=request), f"/original/{domain}")
     return _build_base_url_for_host(get_original_host(domain), request=request)
 
 

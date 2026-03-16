@@ -81,6 +81,17 @@ MARKDOWN_BOLD_RE = re.compile(r'\*\*([^*]+)\*\*')
 MARKDOWN_ITALIC_RE = re.compile(r'(?<!\*)\*([^*]+)\*(?!\*)')
 HTML_TAG_RE = re.compile(r'<[A-Za-z][^>]*>')
 HTML_BODY_RE = re.compile(r'<body[^>]*>(.*)</body>', flags=re.IGNORECASE | re.DOTALL)
+RISKY_REPLAY_MIMETYPES = {
+    "text/html",
+    "application/xhtml+xml",
+    "image/svg+xml",
+}
+RISKY_REPLAY_EXTENSIONS = {".html", ".htm", ".xhtml", ".svg", ".svgz"}
+RISKY_REPLAY_MARKERS = (
+    "<!doctype html",
+    "<html",
+    "<svg",
+)
 
 
 def _extract_markdown_candidate(text: str) -> str:
@@ -278,7 +289,56 @@ def _render_markdown_document(markdown_text: str) -> str:
     return wrapped
 
 
-def serve_static_with_byterange_support(request, path, document_root=None, show_indexes=False):
+def _content_type_base(content_type: str) -> str:
+    return (content_type or "").split(";", 1)[0].strip().lower()
+
+
+def _is_risky_replay_document(fullpath: Path, content_type: str) -> bool:
+    if fullpath.suffix.lower() in RISKY_REPLAY_EXTENSIONS:
+        return True
+
+    if _content_type_base(content_type) in RISKY_REPLAY_MIMETYPES:
+        return True
+
+    # Unknown archived response paths often have no extension. Sniff a small prefix
+    # so one-domain no-JS mode still catches HTML/SVG documents.
+    try:
+        head = fullpath.read_bytes()[:4096].decode("utf-8", errors="ignore").lower()
+    except Exception:
+        return False
+
+    return any(marker in head for marker in RISKY_REPLAY_MARKERS)
+
+
+def _apply_archive_replay_headers(response: HttpResponse, *, fullpath: Path, content_type: str, is_archive_replay: bool) -> HttpResponse:
+    if not is_archive_replay:
+        return response
+
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-ArchiveBox-Security-Mode", SERVER_CONFIG.SERVER_SECURITY_MODE)
+
+    if SERVER_CONFIG.SHOULD_NEUTER_RISKY_REPLAY and _is_risky_replay_document(fullpath, content_type):
+        response.headers["Content-Security-Policy"] = (
+            "sandbox; "
+            "default-src 'self' data: blob:; "
+            "script-src 'none'; "
+            "object-src 'none'; "
+            "base-uri 'none'; "
+            "form-action 'none'; "
+            "connect-src 'none'; "
+            "worker-src 'none'; "
+            "frame-ancestors 'self'; "
+            "style-src 'self' 'unsafe-inline' data: blob:; "
+            "img-src 'self' data: blob:; "
+            "media-src 'self' data: blob:; "
+            "font-src 'self' data: blob:;"
+        )
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+
+    return response
+
+
+def serve_static_with_byterange_support(request, path, document_root=None, show_indexes=False, is_archive_replay: bool=False):
     """
     Overrides Django's built-in django.views.static.serve function to support byte range requests.
     This allows you to do things like seek into the middle of a huge mp4 or WACZ without downloading the whole file.
@@ -289,7 +349,8 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     fullpath = Path(safe_join(document_root, path))
     if os.access(fullpath, os.R_OK) and fullpath.is_dir():
         if show_indexes:
-            return static.directory_index(path, fullpath)
+            response = static.directory_index(path, fullpath)
+            return _apply_archive_replay_headers(response, fullpath=fullpath, content_type="text/html", is_archive_replay=is_archive_replay)
         raise Http404(_("Directory indexes are not allowed here."))
     if not os.access(fullpath, os.R_OK):
         raise Http404(_("“%(path)s” does not exist") % {"path": fullpath})
@@ -312,7 +373,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 not_modified.headers["ETag"] = etag
                 not_modified.headers["Cache-Control"] = f"{_cache_policy()}, max-age=31536000, immutable"
                 not_modified.headers["Last-Modified"] = http_date(statobj.st_mtime)
-                return not_modified
+                return _apply_archive_replay_headers(not_modified, fullpath=fullpath, content_type="", is_archive_replay=is_archive_replay)
     
     content_type, encoding = mimetypes.guess_type(str(fullpath))
     content_type = content_type or "application/octet-stream"
@@ -333,7 +394,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     # Respect the If-Modified-Since header for non-markdown responses.
     if not (content_type.startswith("text/plain") or content_type.startswith("text/html")):
         if not static.was_modified_since(request.META.get("HTTP_IF_MODIFIED_SINCE"), statobj.st_mtime):
-            return HttpResponseNotModified()
+            return _apply_archive_replay_headers(HttpResponseNotModified(), fullpath=fullpath, content_type=content_type, is_archive_replay=is_archive_replay)
 
     # Heuristic fix: some archived HTML outputs (e.g. mercury content.html)
     # are stored with HTML-escaped markup or markdown sources. If so, render sensibly.
@@ -360,7 +421,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
                     if encoding:
                         response.headers["Content-Encoding"] = encoding
-                    return response
+                    return _apply_archive_replay_headers(response, fullpath=fullpath, content_type="text/html; charset=utf-8", is_archive_replay=is_archive_replay)
                 if escaped_count and escaped_count > tag_count * 2:
                     response = HttpResponse(decoded, content_type=content_type)
                     response.headers["Last-Modified"] = http_date(statobj.st_mtime)
@@ -372,7 +433,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
                     if encoding:
                         response.headers["Content-Encoding"] = encoding
-                    return response
+                    return _apply_archive_replay_headers(response, fullpath=fullpath, content_type=content_type, is_archive_replay=is_archive_replay)
         except Exception:
             pass
 
@@ -416,7 +477,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 response.status_code = 206
     if encoding:
         response.headers["Content-Encoding"] = encoding
-    return response
+    return _apply_archive_replay_headers(response, fullpath=fullpath, content_type=content_type, is_archive_replay=is_archive_replay)
 
 
 def serve_static(request, path, **kwargs):
