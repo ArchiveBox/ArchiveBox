@@ -3,8 +3,10 @@
 import os
 import sys
 import subprocess
+import tempfile
 import textwrap
 import time
+import shutil
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -13,6 +15,9 @@ import pytest
 from archivebox.uuid_compat import uuid7
 
 pytest_plugins = ["archivebox.tests.fixtures"]
+
+SESSION_DATA_DIR = Path(tempfile.mkdtemp(prefix="archivebox-pytest-session-")).resolve()
+os.environ.setdefault("DATA_DIR", str(SESSION_DATA_DIR))
 
 
 # =============================================================================
@@ -81,6 +86,36 @@ def run_archivebox_cmd(
 # =============================================================================
 # Fixtures
 # =============================================================================
+
+@pytest.fixture(autouse=True)
+def isolate_test_runtime(tmp_path):
+    """
+    Run each pytest test from an isolated temp cwd and restore env mutations.
+
+    The maintained pytest suite lives under ``archivebox/tests``. Many of those
+    CLI tests shell out without passing ``cwd=`` explicitly, so the safest
+    contract is that every test starts in its own temp directory and any
+    in-process ``os.environ`` edits are rolled back afterwards.
+
+    We intentionally clear ``DATA_DIR`` for the body of each test so subprocess
+    tests that rely on cwd keep working. During collection/import time we still
+    seed a separate session-scoped temp ``DATA_DIR`` above so any ArchiveBox
+    config imported before this fixture runs never points at the repo root.
+    """
+    original_cwd = Path.cwd()
+    original_env = os.environ.copy()
+    os.chdir(tmp_path)
+    os.environ.pop("DATA_DIR", None)
+    try:
+        yield
+    finally:
+        os.chdir(original_cwd)
+        os.environ.clear()
+        os.environ.update(original_env)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    shutil.rmtree(SESSION_DATA_DIR, ignore_errors=True)
 
 @pytest.fixture
 def isolated_data_dir(tmp_path):

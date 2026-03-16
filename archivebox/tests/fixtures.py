@@ -7,8 +7,11 @@ import pytest
 
 @pytest.fixture
 def process(tmp_path):
-    os.chdir(tmp_path)
-    process = subprocess.run(['archivebox', 'init'], capture_output=True)
+    process = subprocess.run(
+        ['archivebox', 'init'],
+        capture_output=True,
+        cwd=tmp_path,
+    )
     return process
 
 @pytest.fixture

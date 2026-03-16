@@ -63,11 +63,28 @@ def create_binary(
         return 1
 
     try:
-        binary, created = Binary.objects.get_or_create(
+        from archivebox.machine.models import Machine
+
+        machine = Machine.current()
+        created = not Binary.objects.filter(
+            machine=machine,
             name=name,
             abspath=abspath,
-            defaults={'version': version}
-        )
+            version=version,
+        ).exists()
+
+        # Mirror the Binary model lifecycle used elsewhere in the system so CLI
+        # records are owned by the current machine and can be safely piped into
+        # `archivebox run` without creating invalid rows missing machine_id.
+        binary = Binary.from_json({
+            'name': name,
+            'abspath': abspath,
+            'version': version,
+            'binproviders': 'env',
+            'binprovider': 'env',
+        })
+        if binary is None:
+            raise ValueError('failed to create binary record')
 
         if not is_tty:
             write_record(binary.to_json())

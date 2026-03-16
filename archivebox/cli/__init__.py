@@ -107,7 +107,10 @@ class ArchiveBoxGroup(click.Group):
         # handle renamed commands
         if cmd_name in self.renamed_commands:
             new_name = self.renamed_commands[cmd_name]
-            print(f' [violet]Hint:[/violet] `archivebox {cmd_name}` has been renamed to `archivebox {new_name}`')
+            print(
+                f' [violet]Hint:[/violet] `archivebox {cmd_name}` has been renamed to `archivebox {new_name}`',
+                file=sys.stderr,
+            )
             cmd_name = new_name
             ctx.invoked_subcommand = cmd_name
 

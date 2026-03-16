@@ -1,17 +1,12 @@
-import importlib
 from io import StringIO
 
-from archivebox.config.django import setup_django
+from django.contrib.auth import get_user_model
+from django.test import RequestFactory, TestCase
 
-setup_django()
+from archivebox.api.v1_cli import ScheduleCommandSchema, cli_schedule
+from archivebox.crawls.models import CrawlSchedule
 
-User = importlib.import_module('django.contrib.auth.models').User
-TestCase = importlib.import_module('django.test').TestCase
-RequestFactory = importlib.import_module('django.test').RequestFactory
-api_v1_cli = importlib.import_module('archivebox.api.v1_cli')
-ScheduleCommandSchema = api_v1_cli.ScheduleCommandSchema
-cli_schedule = api_v1_cli.cli_schedule
-CrawlSchedule = importlib.import_module('archivebox.crawls.models').CrawlSchedule
+User = get_user_model()
 
 
 class CLIScheduleAPITests(TestCase):

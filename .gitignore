@@ -38,6 +38,7 @@ lib/
 tmp/
 data/
 data*/
+archivebox/tests/data/
 archive/
 output/
 logs/

@@ -13,7 +13,6 @@ ADMIN_HOST = 'admin.archivebox.localhost:8000'
 
 
 def _run_savepagenow_script(initialized_archive: Path, request_url: str, expected_url: str, *, login: bool, public_add_view: bool, host: str):
-    project_root = Path(__file__).resolve().parents[2]
     script = textwrap.dedent(
         f"""
         import os
@@ -81,7 +80,7 @@ def _run_savepagenow_script(initialized_archive: Path, request_url: str, expecte
 
     return subprocess.run(
         [sys.executable, '-c', script],
-        cwd=project_root,
+        cwd=initialized_archive,
         env=env,
         text=True,
         capture_output=True,
@@ -90,7 +89,6 @@ def _run_savepagenow_script(initialized_archive: Path, request_url: str, expecte
 
 
 def _run_savepagenow_not_found_script(initialized_archive: Path, request_url: str):
-    project_root = Path(__file__).resolve().parents[2]
     script = textwrap.dedent(
         f"""
         import os
@@ -137,7 +135,7 @@ def _run_savepagenow_not_found_script(initialized_archive: Path, request_url: st
 
     return subprocess.run(
         [sys.executable, '-c', script],
-        cwd=project_root,
+        cwd=initialized_archive,
         env=env,
         text=True,
         capture_output=True,
@@ -146,7 +144,6 @@ def _run_savepagenow_not_found_script(initialized_archive: Path, request_url: st
 
 
 def _run_savepagenow_existing_snapshot_script(initialized_archive: Path, request_url: str, stored_url: str):
-    project_root = Path(__file__).resolve().parents[2]
     script = textwrap.dedent(
         f"""
         import os
@@ -199,7 +196,7 @@ def _run_savepagenow_existing_snapshot_script(initialized_archive: Path, request
 
     return subprocess.run(
         [sys.executable, '-c', script],
-        cwd=project_root,
+        cwd=initialized_archive,
         env=env,
         text=True,
         capture_output=True,

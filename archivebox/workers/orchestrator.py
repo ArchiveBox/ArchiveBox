@@ -29,6 +29,7 @@ Usage:
 __package__ = 'archivebox.workers'
 
 import os
+import sys
 import time
 from typing import Type
 from datetime import datetime, timedelta
@@ -258,9 +259,7 @@ class Orchestrator:
     def spawn_worker(self, WorkerClass: Type[Worker]) -> int | None:
         """Spawn a new worker process. Returns PID or None if spawn failed."""
         try:
-            print(f'[yellow]DEBUG: Spawning {WorkerClass.name} worker with crawl_id={self.crawl_id}...[/yellow]')
             pid = WorkerClass.start(parent=self.db_process, crawl_id=self.crawl_id)
-            print(f'[yellow]DEBUG: Spawned {WorkerClass.name} worker with PID={pid}[/yellow]')
 
             # CRITICAL: Block until worker registers itself in Process table
             # This prevents race condition where orchestrator spawns multiple workers
@@ -281,17 +280,6 @@ class Orchestrator:
                 # 4. Parent is this orchestrator
                 # 5. Started recently (within last 10 seconds)
 
-                # Debug: Check all processes with this PID first
-                if elapsed < 0.5:
-                    all_procs = list(Process.objects.filter(pid=pid))
-                    print(f'[yellow]DEBUG spawn_worker: elapsed={elapsed:.1f}s pid={pid} orchestrator_id={self.db_process.id}[/yellow]')
-                    print(f'[yellow]  Found {len(all_procs)} Process records for pid={pid}[/yellow]')
-                    for p in all_procs:
-                        print(
-                            f'[yellow]  -> type={p.process_type} status={p.status} '
-                            f'parent_id={p.parent_id} match={p.parent_id == self.db_process.id}[/yellow]'
-                        )
-
                 worker_process = Process.objects.filter(
                     pid=pid,
                     process_type=Process.TypeChoices.WORKER,
@@ -302,7 +290,6 @@ class Orchestrator:
 
                 if worker_process:
                     # Worker successfully registered!
-                    print(f'[green]DEBUG spawn_worker: Worker registered! Returning pid={pid}[/green]')
                     return pid
 
                 time.sleep(poll_interval)
@@ -653,14 +640,15 @@ class Orchestrator:
     def runloop(self) -> None:
         """Main orchestrator loop."""
         from rich.live import Live
-        from archivebox.misc.logging import IS_TTY
         from archivebox.misc.progress_layout import ArchiveBoxProgressLayout
-        import sys
         import os
 
+        is_tty = sys.stdout.isatty()
         # Enable progress layout only in TTY + foreground mode
-        show_progress = IS_TTY and self.exit_on_idle
-        plain_output = not IS_TTY
+        show_progress = is_tty and self.exit_on_idle
+        # When stdout is not a TTY, it may be reserved for JSONL pipeline output.
+        # Keep the plain progress view, but emit it to stderr instead of stdout.
+        plain_output = not is_tty
         self.on_startup()
 
         if not show_progress:
@@ -1241,7 +1229,7 @@ class Orchestrator:
                             ts = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
                             for panel, line in new_lines:
                                 if line:
-                                    print(f"[{ts}] [{panel}] {line}")
+                                    print(f"[{ts}] [{panel}] {line}", file=sys.stderr)
                         last_plain_lines = set(plain_lines)
 
                 # Track idle state
@@ -1271,7 +1259,7 @@ class Orchestrator:
         except KeyboardInterrupt:
             if progress_layout:
                 progress_layout.log_event("Interrupted by user", style="red")
-            print()  # Newline after ^C
+            print(file=sys.stderr)  # Newline after ^C
             self.on_shutdown(error=KeyboardInterrupt())
         except BaseException as e:
             if progress_layout:
@@ -1310,7 +1298,7 @@ class Orchestrator:
         Used by commands like 'add' to ensure orchestrator is running.
         """
         if cls.is_running():
-            print('[grey53]👨‍✈️ Orchestrator already running[/grey53]')
+            print('[grey53]👨‍✈️ Orchestrator already running[/grey53]', file=sys.stderr)
             # Return a placeholder - actual orchestrator is in another process
             return cls(exit_on_idle=exit_on_idle)
 

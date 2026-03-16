@@ -176,7 +176,7 @@ package-dir = {"archivebox" = "archivebox"}
 line-length = 140
 target-version = "py313"
 src = ["archivebox"]
-exclude = ["*.pyi", "typings/", "migrations/"]
+exclude = ["*.pyi", "typings/", "migrations/", "archivebox/tests/data/"]
 
 # https://docs.astral.sh/ruff/rules/
 [tool.ruff.lint]
@@ -184,6 +184,7 @@ ignore = ["E731", "E303", "E266", "E241", "E222"]
 
 [tool.pytest.ini_options]
 testpaths = [ "archivebox/tests" ]
+norecursedirs = ["archivebox/tests/data"]
 DJANGO_SETTINGS_MODULE = "archivebox.core.settings"
 # Note: Plugin tests under abx_plugins/plugins/ must NOT load Django
 # They use a conftest.py to disable Django automatically
@@ -254,6 +255,8 @@ exclude = [
     "**/node_modules",
     "**/__pycache__",
     "**/migrations",
+    "archivebox/tests/data",
+    "archivebox/tests/data/**",
 ]
 stubPath = "./typings"
 venvPath = "."
@@ -267,7 +270,7 @@ pythonPlatform = "Linux"
 
 [tool.ty]
 environment = { python-version = "3.13", python-platform = "linux" }
-src = { include = ["archivebox"], exclude = [".venv", "**/*.pyi", "**/__init__.pyi", "**/node_modules", "**/__pycache__", "**/migrations"] }
+src = { include = ["archivebox"], exclude = [".venv", "**/*.pyi", "**/__init__.pyi", "**/node_modules", "**/__pycache__", "**/migrations", "archivebox/tests/data", "archivebox/tests/data/**"] }
 
 
 [project.scripts]

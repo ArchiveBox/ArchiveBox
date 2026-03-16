@@ -607,7 +607,7 @@ def log_worker_event(
 
     # Build final message
     error_str = f' {type(error).__name__}: {error}' if error else ''
-    from archivebox.misc.logging import CONSOLE
+    from archivebox.misc.logging import CONSOLE, STDERR
     from rich.text import Text
 
     # Create a Rich Text object for proper formatting
@@ -632,7 +632,11 @@ def log_worker_event(
     if metadata_str:
         text.append(f' | {metadata_str}')
 
-    CONSOLE.print(text, soft_wrap=True)
+    # Stdout is reserved for JSONL records whenever commands are piped together.
+    # Route worker/DB progress to stderr in non-TTY contexts so pipelines like
+    # `archivebox snapshot list | archivebox run` keep stdout machine-readable.
+    output_console = CONSOLE if sys.stdout.isatty() else STDERR
+    output_console.print(text, soft_wrap=True)
 
 
 @enforce_types

@@ -81,6 +81,7 @@ def process_archiveresult_by_id(archiveresult_id: str) -> int:
 
 def run_plugins(
     args: tuple,
+    records: list[dict] | None = None,
     plugins: str = '',
     wait: bool = True,
 ) -> int:
@@ -108,8 +109,12 @@ def run_plugins(
     # Parse comma-separated plugins list once (reused in creation and filtering)
     plugins_list = [p.strip() for p in plugins.split(',') if p.strip()] if plugins else []
 
-    # Collect all input records
-    records = list(read_args_or_stdin(args))
+    # Parse stdin/args exactly once per CLI invocation.
+    # `main()` may already have consumed stdin to distinguish Snapshot input from
+    # ArchiveResult IDs; if so, it must pass the parsed records through here
+    # instead of asking this helper to reread an already-drained pipe.
+    if records is None:
+        records = list(read_args_or_stdin(args))
 
     if not records:
         rprint('[yellow]No snapshots provided. Pass snapshot IDs as arguments or via stdin.[/yellow]', file=sys.stderr)
@@ -269,7 +274,7 @@ def main(plugins: str, wait: bool, args: tuple):
         sys.exit(exit_code)
     else:
         # Default behavior: run plugins on Snapshots from input
-        sys.exit(run_plugins(args, plugins=plugins, wait=wait))
+        sys.exit(run_plugins(args, records=records, plugins=plugins, wait=wait))
 
 
 if __name__ == '__main__':

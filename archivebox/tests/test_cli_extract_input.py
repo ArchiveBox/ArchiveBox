@@ -1,12 +1,9 @@
-#!/usr/bin/env python3
-"""Integration tests for archivebox extract command."""
+"""Tests for archivebox extract input handling and pipelines."""
 
 import os
 import subprocess
 import sqlite3
 import json
-
-import pytest
 
 
 
@@ -271,7 +268,3 @@ class TestExtractCLI:
 
         # Should show warning about no snapshots or exit normally (empty input)
         assert result.returncode == 0 or 'No' in result.stderr
-
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])

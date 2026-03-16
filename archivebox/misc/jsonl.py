@@ -70,9 +70,16 @@ def parse_line(line: str) -> Optional[Dict[str, Any]]:
     if line.startswith('http://') or line.startswith('https://') or line.startswith('file://'):
         return {'type': TYPE_SNAPSHOT, 'url': line}
 
-    # Could be a snapshot ID (UUID)
+    # Could be a snapshot ID (UUID with dashes or compact 32-char hex)
     if len(line) == 36 and line.count('-') == 4:
         return {'type': TYPE_SNAPSHOT, 'id': line}
+    if len(line) == 32:
+        try:
+            int(line, 16)
+        except ValueError:
+            pass
+        else:
+            return {'type': TYPE_SNAPSHOT, 'id': line}
 
     # Unknown format, skip
     return None
