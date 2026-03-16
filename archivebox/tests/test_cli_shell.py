@@ -22,3 +22,18 @@ def test_shell_command_exists(tmp_path, process):
 
     # Should show shell help or recognize command
     assert result.returncode in [0, 1, 2]
+
+
+def test_shell_c_executes_python(tmp_path, process):
+    """shell -c should fully initialize Django and run the provided command."""
+    os.chdir(tmp_path)
+
+    result = subprocess.run(
+        ['archivebox', 'shell', '-c', 'print("shell-ok")'],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert 'shell-ok' in result.stdout

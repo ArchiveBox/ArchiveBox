@@ -6,7 +6,8 @@ from pathlib import Path
 
 from django.contrib import admin, messages
 from django.urls import path
-from django.utils.html import format_html, mark_safe
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.db.models import Q, Sum, Count, Prefetch
 from django.db.models.functions import Coalesce
@@ -110,7 +111,9 @@ class SnapshotAdminForm(forms.ModelForm):
         # Handle tags_editor field
         if commit:
             instance.save()
-            self._save_m2m()
+            save_m2m = getattr(self, '_save_m2m', None)
+            if callable(save_m2m):
+                save_m2m()
 
             # Parse and save tags from tags_editor
             tags_str = self.cleaned_data.get('tags_editor', '')
@@ -200,6 +203,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     def get_actions(self, request):
         actions = super().get_actions(request)
+        if not actions:
+            return {}
         if 'delete_selected' in actions:
             func, name, _desc = actions['delete_selected']
             actions['delete_selected'] = (func, name, 'Delete')
@@ -684,22 +689,23 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         # cl = self.get_changelist_instance(request)
 
         # Save before monkey patching to restore for changelist list view
-        saved_change_list_template = self.change_list_template
-        saved_list_per_page = self.list_per_page
-        saved_list_max_show_all = self.list_max_show_all
+        admin_cls = type(self)
+        saved_change_list_template = admin_cls.change_list_template
+        saved_list_per_page = admin_cls.list_per_page
+        saved_list_max_show_all = admin_cls.list_max_show_all
 
         # Monkey patch here plus core_tags.py
-        self.change_list_template = 'private_index_grid.html'
-        self.list_per_page = SERVER_CONFIG.SNAPSHOTS_PER_PAGE
-        self.list_max_show_all = self.list_per_page
+        admin_cls.change_list_template = 'private_index_grid.html'
+        admin_cls.list_per_page = SERVER_CONFIG.SNAPSHOTS_PER_PAGE
+        admin_cls.list_max_show_all = admin_cls.list_per_page
 
         # Call monkey patched view
         rendered_response = self.changelist_view(request, extra_context=extra_context)
 
         # Restore values
-        self.change_list_template = saved_change_list_template
-        self.list_per_page = saved_list_per_page
-        self.list_max_show_all = saved_list_max_show_all
+        admin_cls.change_list_template = saved_change_list_template
+        admin_cls.list_per_page = saved_list_per_page
+        admin_cls.list_max_show_all = saved_list_max_show_all
 
         return rendered_response
 

@@ -4,7 +4,8 @@ import os
 from pathlib import Path
 
 from django.contrib import admin
-from django.utils.html import format_html, mark_safe
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.core.exceptions import ValidationError
 from django.urls import reverse, resolve
 from django.utils import timezone

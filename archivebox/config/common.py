@@ -151,7 +151,7 @@ class ArchivingConfig(BaseConfigSet):
 
     DEFAULT_PERSONA: str = Field(default="Default")
 
-    def validate(self):
+    def warn_if_invalid(self) -> None:
         if int(self.TIMEOUT) < 5:
             print(f"[red][!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={self.TIMEOUT} seconds)[/red]", file=sys.stderr)
             print("    You must allow *at least* 5 seconds for indexing and archive methods to run succesfully.", file=sys.stderr)
@@ -165,10 +165,8 @@ class ArchivingConfig(BaseConfigSet):
     def validate_check_ssl_validity(cls, v):
         """SIDE EFFECT: disable "you really shouldnt disable ssl" warnings emitted by requests"""
         if not v:
-            import requests
             import urllib3
 
-            requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         return v
 
@@ -206,6 +204,7 @@ class ArchivingConfig(BaseConfigSet):
 
 
 ARCHIVING_CONFIG = ArchivingConfig()
+ARCHIVING_CONFIG.warn_if_invalid()
 
 
 class SearchBackendConfig(BaseConfigSet):

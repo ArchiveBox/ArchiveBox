@@ -3,14 +3,15 @@ __package__ = 'archivebox.config'
 import os
 import shutil
 import inspect
-from typing import Any, List, Dict, cast
+from typing import Any, List, Dict
 from benedict import benedict
 
 from django.http import HttpRequest
 from django.utils import timezone
-from django.utils.html import format_html, mark_safe
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
-from admin_data_views.typing import TableContext, ItemContext
+from admin_data_views.typing import TableContext, ItemContext, SectionData
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
 from archivebox.config import CONSTANTS
@@ -27,6 +28,10 @@ KNOWN_BINARIES = [
     'python3', 'python', 'bash', 'zsh',
     'ffmpeg', 'ripgrep', 'rg', 'sonic', 'archivebox',
 ]
+
+
+def is_superuser(request: HttpRequest) -> bool:
+    return bool(getattr(request.user, 'is_superuser', False))
 
 
 def obj_to_yaml(obj: Any, indent: int = 0) -> str:
@@ -132,7 +137,7 @@ def get_filesystem_plugins() -> Dict[str, Dict[str, Any]]:
 
 @render_with_table_view
 def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
-    assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
+    assert is_superuser(request), 'Must be a superuser to view configuration settings.'
 
     rows = {
         "Binary Name": [],
@@ -177,29 +182,27 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
 @render_with_item_view
 def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
-
-    assert request.user and request.user.is_superuser, 'Must be a superuser to view configuration settings.'
+    assert is_superuser(request), 'Must be a superuser to view configuration settings.'
 
     # Try database first
     try:
         binary = Binary.objects.get(name=key)
+        section: SectionData = {
+            "name": binary.name,
+            "description": str(binary.abspath or ''),
+            "fields": {
+                'name': binary.name,
+                'binprovider': binary.binprovider,
+                'abspath': str(binary.abspath),
+                'version': binary.version,
+                'sha256': binary.sha256,
+            },
+            "help_texts": {},
+        }
         return ItemContext(
             slug=key,
             title=key,
-            data=[
-                {
-                    "name": binary.name,
-                    "description": str(binary.abspath or ''),
-                    "fields": {
-                        'name': binary.name,
-                        'binprovider': binary.binprovider,
-                        'abspath': str(binary.abspath),
-                        'version': binary.version,
-                        'sha256': binary.sha256,
-                    },
-                    "help_texts": {},
-                },
-            ],
+            data=[section],
         )
     except Binary.DoesNotExist:
         pass
@@ -207,47 +210,44 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     # Try to detect from PATH
     path = shutil.which(key)
     if path:
+        section: SectionData = {
+            "name": key,
+            "description": path,
+            "fields": {
+                'name': key,
+                'binprovider': 'PATH',
+                'abspath': path,
+                'version': 'unknown',
+            },
+            "help_texts": {},
+        }
         return ItemContext(
             slug=key,
             title=key,
-            data=[
-                {
-                    "name": key,
-                    "description": path,
-                    "fields": {
-                        'name': key,
-                        'binprovider': 'PATH',
-                        'abspath': path,
-                        'version': 'unknown',
-                    },
-                    "help_texts": {},
-                },
-            ],
+            data=[section],
         )
 
+    section: SectionData = {
+        "name": key,
+        "description": "Binary not found",
+        "fields": {
+            'name': key,
+            'binprovider': 'not installed',
+            'abspath': 'not found',
+            'version': 'N/A',
+        },
+        "help_texts": {},
+    }
     return ItemContext(
         slug=key,
         title=key,
-        data=[
-            {
-                "name": key,
-                "description": "Binary not found",
-                "fields": {
-                    'name': key,
-                    'binprovider': 'not installed',
-                    'abspath': 'not found',
-                    'version': 'N/A',
-                },
-                "help_texts": {},
-            },
-        ],
+        data=[section],
     )
 
 
 @render_with_table_view
 def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
-
-    assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
+    assert is_superuser(request), 'Must be a superuser to view configuration settings.'
 
     rows = {
         "Name": [],
@@ -291,7 +291,7 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
 def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     import json
 
-    assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
+    assert is_superuser(request), 'Must be a superuser to view configuration settings.'
 
     plugins = get_filesystem_plugins()
 
@@ -309,7 +309,7 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
         "name": plugin['name'],
         "source": plugin['source'],
         "path": plugin['path'],
-        "hooks": plugin['hooks'],
+        "hooks": ', '.join(plugin['hooks']),
     }
 
     # Add config.json data if available
@@ -348,7 +348,7 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
 
 @render_with_table_view
 def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
-    assert request.user.is_superuser, "Must be a superuser to view configuration settings."
+    assert is_superuser(request), "Must be a superuser to view configuration settings."
 
     rows = {
         "Name": [],
@@ -369,8 +369,12 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
             table=rows,
         )
 
-    all_config_entries = cast(List[Dict[str, Any]], supervisor.getAllConfigInfo() or [])
-    all_config = {config["name"]: benedict(config) for config in all_config_entries}
+    all_config_entries = [
+        benedict(config)
+        for config in (supervisor.getAllConfigInfo() or [])
+        if isinstance(config, dict) and "name" in config
+    ]
+    all_config = {str(config["name"]): config for config in all_config_entries}
 
     # Add top row for supervisord process manager
     rows["Name"].append(ItemLink('supervisord', key='supervisord'))
@@ -388,8 +392,10 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
     rows['Exit Status'].append('0')
 
     # Add a row for each worker process managed by supervisord
-    for proc in cast(List[Dict[str, Any]], supervisor.getAllProcessInfo()):
-        proc = benedict(proc)
+    for proc_data in supervisor.getAllProcessInfo():
+        if not isinstance(proc_data, dict):
+            continue
+        proc = benedict(proc_data)
         rows["Name"].append(ItemLink(proc.name, key=proc.name))
         rows["State"].append(proc.statename)
         rows['PID'].append(proc.description.replace('pid ', ''))
@@ -412,7 +418,7 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
 @render_with_item_view
 def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
-    assert request.user.is_superuser, "Must be a superuser to view configuration settings."
+    assert is_superuser(request), "Must be a superuser to view configuration settings."
 
     from archivebox.workers.supervisord_util import get_existing_supervisord_process, get_worker, get_sock_file, CONFIG_FILE_NAME
 
@@ -427,11 +433,15 @@ def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
             data=[],
         )
 
-    all_config = cast(List[Dict[str, Any]], supervisor.getAllConfigInfo() or [])
+    all_config = [
+        benedict(config)
+        for config in (supervisor.getAllConfigInfo() or [])
+        if isinstance(config, dict)
+    ]
 
     if key == 'supervisord':
         relevant_config = CONFIG_FILE.read_text()
-        relevant_logs = cast(str, supervisor.readLog(0, 10_000_000))
+        relevant_logs = str(supervisor.readLog(0, 10_000_000))
         start_ts = [line for line in relevant_logs.split("\n") if "RPC interface 'supervisor' initialized" in line][-1].split(",", 1)[0]
         uptime = str(timezone.now() - parse_date(start_ts)).split(".")[0]
 
@@ -449,37 +459,37 @@ def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
         )
     else:
         proc = benedict(get_worker(supervisor, key) or {})
-        relevant_config = [config for config in all_config if config['name'] == key][0]
-        relevant_logs = supervisor.tailProcessStdoutLog(key, 0, 10_000_000)[0]
+        relevant_config = next((config for config in all_config if config.get('name') == key), benedict({}))
+        relevant_logs = str(supervisor.tailProcessStdoutLog(key, 0, 10_000_000)[0])
+
+    section: SectionData = {
+        "name": key,
+        "description": key,
+        "fields": {
+            "Command": str(proc.name),
+            "PID": str(proc.pid),
+            "State": str(proc.statename),
+            "Started": parse_date(proc.start).strftime("%Y-%m-%d %H:%M:%S") if proc.start else "",
+            "Stopped": parse_date(proc.stop).strftime("%Y-%m-%d %H:%M:%S") if proc.stop else "",
+            "Exit Status": str(proc.exitstatus),
+            "Logfile": str(proc.stdout_logfile),
+            "Uptime": str((proc.description or "").split("uptime ", 1)[-1]),
+            "Config": obj_to_yaml(dict(relevant_config)) if isinstance(relevant_config, dict) else str(relevant_config),
+            "Logs": relevant_logs,
+        },
+        "help_texts": {"Uptime": "How long the process has been running ([days:]hours:minutes:seconds)"},
+    }
 
     return ItemContext(
         slug=key,
         title=key,
-        data=[
-            {
-                "name": key,
-                "description": key,
-                "fields": {
-                    "Command": proc.name,
-                    "PID": proc.pid,
-                    "State": proc.statename,
-                    "Started": parse_date(proc.start).strftime("%Y-%m-%d %H:%M:%S") if proc.start else "",
-                    "Stopped": parse_date(proc.stop).strftime("%Y-%m-%d %H:%M:%S") if proc.stop else "",
-                    "Exit Status": str(proc.exitstatus),
-                    "Logfile": proc.stdout_logfile,
-                    "Uptime": (proc.description or "").split("uptime ", 1)[-1],
-                    "Config": relevant_config,
-                    "Logs": relevant_logs,
-                },
-                "help_texts": {"Uptime": "How long the process has been running ([days:]hours:minutes:seconds)"},
-            },
-        ],
+        data=[section],
     )
 
 
 @render_with_table_view
 def log_list_view(request: HttpRequest, **kwargs) -> TableContext:
-    assert request.user.is_superuser, "Must be a superuser to view configuration settings."
+    assert is_superuser(request), "Must be a superuser to view configuration settings."
 
 
     log_files = CONSTANTS.LOGS_DIR.glob("*.log")
@@ -516,7 +526,7 @@ def log_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
 @render_with_item_view
 def log_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
-    assert request.user.is_superuser, "Must be a superuser to view configuration settings."
+    assert is_superuser(request), "Must be a superuser to view configuration settings."
 
     log_file = [logfile for logfile in CONSTANTS.LOGS_DIR.glob('*.log') if key in logfile.name][0]
 

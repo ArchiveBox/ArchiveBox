@@ -26,8 +26,6 @@ ObjectStateList = Iterable[ObjectState]
 
 
 class BaseModelWithStateMachine(models.Model, MachineMixin):
-    id: models.UUIDField
-
     StatusChoices: ClassVar[Type[DefaultStatusChoices]]
 
     # status: models.CharField
@@ -383,6 +381,9 @@ class ModelWithStateMachine(BaseModelWithStateMachine):
 
     active_state = StatusChoices.STARTED
     retry_at_field_name: str               = 'retry_at'
+
+    class Meta(BaseModelWithStateMachine.Meta):
+        abstract = True
 
 class BaseStateMachine(StateMachine):
     """

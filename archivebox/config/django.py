@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from rich.console import Console
 
 import django
+import django.db
 
 from archivebox.misc import logging
 
