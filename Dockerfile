@@ -345,12 +345,11 @@ RUN --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
     echo "[*] Installing ArchiveBox Python source code from $CODE_DIR..." \
-    && uv sync \
-        --frozen \
-        --inexact \
-        --all-extras \
+    && pip install \
+        --no-deps \
+        "$CODE_DIR" \
     && ( \
-        uv tree \
+        pip show archivebox \
         && which archivebox \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
