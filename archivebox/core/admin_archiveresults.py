@@ -225,26 +225,29 @@ class ArchiveResultInline(admin.TabularInline):
     def get_formset(self, request, obj=None, **kwargs):
         formset = super().get_formset(request, obj, **kwargs)
         snapshot = self.get_parent_object_from_request(request)
+        form_class = getattr(formset, 'form', None)
+        base_fields = getattr(form_class, 'base_fields', {})
+        snapshot_output_dir = str(snapshot.output_dir) if snapshot else ''
 
         # import ipdb; ipdb.set_trace()
         # formset.form.base_fields['id'].widget = formset.form.base_fields['id'].hidden_widget()
         
         # default values for new entries
-        formset.form.base_fields['status'].initial = 'succeeded'
-        formset.form.base_fields['start_ts'].initial = timezone.now()
-        formset.form.base_fields['end_ts'].initial = timezone.now()
-        formset.form.base_fields['cmd_version'].initial = '-'
-        formset.form.base_fields['pwd'].initial = str(snapshot.output_dir)
-        formset.form.base_fields['cmd'].initial = '["-"]'
-        formset.form.base_fields['output_str'].initial = 'Manually recorded cmd output...'
+        base_fields['status'].initial = 'succeeded'
+        base_fields['start_ts'].initial = timezone.now()
+        base_fields['end_ts'].initial = timezone.now()
+        base_fields['cmd_version'].initial = '-'
+        base_fields['pwd'].initial = snapshot_output_dir
+        base_fields['cmd'].initial = '["-"]'
+        base_fields['output_str'].initial = 'Manually recorded cmd output...'
 
         if obj is not None:
             # hidden values for existing entries and new entries
-            formset.form.base_fields['start_ts'].widget = formset.form.base_fields['start_ts'].hidden_widget()
-            formset.form.base_fields['end_ts'].widget = formset.form.base_fields['end_ts'].hidden_widget()
-            formset.form.base_fields['cmd'].widget = formset.form.base_fields['cmd'].hidden_widget()
-            formset.form.base_fields['pwd'].widget = formset.form.base_fields['pwd'].hidden_widget()
-            formset.form.base_fields['cmd_version'].widget = formset.form.base_fields['cmd_version'].hidden_widget()
+            base_fields['start_ts'].widget = base_fields['start_ts'].hidden_widget()
+            base_fields['end_ts'].widget = base_fields['end_ts'].hidden_widget()
+            base_fields['cmd'].widget = base_fields['cmd'].hidden_widget()
+            base_fields['pwd'].widget = base_fields['pwd'].hidden_widget()
+            base_fields['cmd_version'].widget = base_fields['cmd_version'].hidden_widget()
         return formset
     
     def get_readonly_fields(self, request, obj=None):

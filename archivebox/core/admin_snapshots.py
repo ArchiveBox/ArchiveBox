@@ -205,8 +205,9 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         actions = super().get_actions(request)
         if not actions:
             return {}
-        if 'delete_selected' in actions:
-            func, name, _desc = actions['delete_selected']
+        delete_selected = actions.get('delete_selected')
+        if delete_selected:
+            func, name, _desc = delete_selected
             actions['delete_selected'] = (func, name, 'Delete')
         return actions
 
