@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0024_assign_default_crawl'),
+        ('core', '0025_alter_archiveresult_options_alter_snapshot_options_and_more'),
     ]
 
     operations = [
