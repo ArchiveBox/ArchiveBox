@@ -25,7 +25,7 @@ __package__ = 'archivebox.misc'
 import sys
 import json
 import select
-from typing import Iterator, Dict, Any, Optional, TextIO
+from typing import Iterable, Iterator, Dict, Any, Optional, TextIO
 from pathlib import Path
 
 
@@ -118,7 +118,7 @@ def read_file(path: Path) -> Iterator[Dict[str, Any]]:
                 yield record
 
 
-def read_args_or_stdin(args: tuple, stream: Optional[TextIO] = None) -> Iterator[Dict[str, Any]]:
+def read_args_or_stdin(args: Iterable[str], stream: Optional[TextIO] = None) -> Iterator[Dict[str, Any]]:
     """
     Read from CLI arguments if provided, otherwise from stdin.
 

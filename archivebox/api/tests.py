@@ -1,6 +1,5 @@
 import importlib
 from io import StringIO
-from types import SimpleNamespace
 
 from archivebox.config.django import setup_django
 
@@ -8,6 +7,7 @@ setup_django()
 
 User = importlib.import_module('django.contrib.auth.models').User
 TestCase = importlib.import_module('django.test').TestCase
+RequestFactory = importlib.import_module('django.test').RequestFactory
 api_v1_cli = importlib.import_module('archivebox.api.v1_cli')
 ScheduleCommandSchema = api_v1_cli.ScheduleCommandSchema
 cli_schedule = api_v1_cli.cli_schedule
@@ -23,11 +23,10 @@ class CLIScheduleAPITests(TestCase):
         )
 
     def test_schedule_api_creates_schedule(self):
-        request = SimpleNamespace(
-            user=self.user,
-            stdout=StringIO(),
-            stderr=StringIO(),
-        )
+        request = RequestFactory().post('/api/v1/cli/schedule')
+        request.user = self.user
+        request.stdout = StringIO()
+        request.stderr = StringIO()
         args = ScheduleCommandSchema(
             every='daily',
             import_path='https://example.com/feed.xml',
