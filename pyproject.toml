@@ -61,32 +61,27 @@ dependencies = [
     "platformdirs>=4.3.6",   # for: finding a xdg-config dir to store tmp/lib files in
     "py-machineid>=0.6.0",   # for: machine/detect.py calculating unique machine guid
     "atomicwrites==1.4.1",   # for: config file writes, index.json file writes, etc. (TODO: remove this deprecated lib in favor of archivebox.filestore.util/os.rename/os.replace)
-    "croniter>=3.0.3",       # for: archivebox schedule alias/cron parsing
     ### Base Types
     "pydantic>=2.8.0",       # for: archivebox.api (django-ninja), archivebox.config (pydantic-settings), and archivebox.index.schema (pydantic)
     "pydantic-settings>=2.5.2", # for: archivebox.config
     "python-benedict[io,parse]>=0.33.2", # for: dict replacement all over the codebase to allow .attr-style access
     "base32-crockford>=0.3.0", # for: encoding UUIDs in base32
     ### Static Typing
-    "django-stubs>=5.0.4",    # for: vscode type hints on models and common django APIs
+    "django-stubs>=5.0.4",   # for: vscode type hints on models and common django APIs
     ### API clients
     "requests>=2.32.3",      # for: fetching title, static files, headers (TODO: replace with httpx?)
     "sonic-client>=1.0.0",
-    "pocket>=0.3.6",         # for: importing URLs from Pocket API
     ### Parsers
-    "feedparser>=6.0.11",    # for: parsing pocket/pinboard/etc. RSS/bookmarks imports
     "dateparser>=1.2.0",     # for: parsing pocket/pinboard/etc. RSS/bookmark import dates
     "tzdata>=2024.2",        # needed for dateparser {TZ: UTC} on some systems: https://github.com/ArchiveBox/ArchiveBox/issues/1553
     "w3lib>=2.2.1",          # used for parsing content-type encoding from http response headers & html tags
     ### Extractor dependencies (optional binaries detected at runtime via shutil.which)
-    "yt-dlp[default]>=2026.03.13",      # for: media extractor
     ### Binary/Package Management
-    "abx-pkg>=1.9.10",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
-    "abx-plugins>=1.9.15",    # shared ArchiveBox plugin package with install_args-only overrides
-    "gallery-dl>=1.31.1",
+    "abx-pkg>=1.9.14",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
+    "abx-plugins>=1.9.18",    # shared ArchiveBox plugin package with install_args-only overrides
+    "abx-dl>=1.10.11",        # shared ArchiveBox downloader package with install_args-only overrides
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
-    "pytest-django>=4.11.1",
 ]
 
 [project.optional-dependencies]
@@ -144,6 +139,7 @@ dev = [
     "viztracer>=0.17.0",                               # usage: viztracer ../.venv/bin/archivebox manage check
     # "snakeviz",                                      # usage: python -m cProfile -o flamegraph.prof ../.venv/bin/archivebox manage check
     ### TESTING
+    "pytest-django>=4.11.1",
     "pytest>=8.3.3",
     "pytest-cov>=6.0.0",
     "coverage[toml]>=7.6.0",
