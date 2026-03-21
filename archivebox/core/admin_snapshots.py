@@ -723,7 +723,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         messages.success(
             request,
-            f"Queued {queued} snapshots for re-archiving. The orchestrator will process them in the background.",
+            f"Queued {queued} snapshots for re-archiving. The background runner will process them.",
         )
 
 
@@ -739,7 +739,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         messages.success(
             request,
-            f"Creating {queryset.count()} new fresh snapshots. The orchestrator will process them in the background.",
+            f"Creating {queryset.count()} new fresh snapshots. The background runner will process them.",
         )
 
     @admin.action(
@@ -750,7 +750,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         messages.success(
             request,
-            f"Queued {queued} snapshots for full re-archive (overwriting existing). The orchestrator will process them in the background.",
+            f"Queued {queued} snapshots for full re-archive (overwriting existing). The background runner will process them.",
         )
 
     @admin.action(

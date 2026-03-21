@@ -70,8 +70,6 @@ class ArchiveBoxGroup(click.Group):
         'setup': 'install',
         'import': 'add',
         'archive': 'add',
-        # Old commands replaced by new model commands
-        'orchestrator': 'run',
     }
     legacy_model_subcommands = {
         'crawl': {'create', 'list', 'update', 'delete'},
@@ -168,7 +166,6 @@ def cli(ctx, help=False):
                     os.environ['ARCHIVEBOX_RUNSERVER'] = '1'
                     if '--reload' in sys.argv:
                         os.environ['ARCHIVEBOX_AUTORELOAD'] = '1'
-                        os.environ['ARCHIVEBOX_ORCHESTRATOR_MANAGED_BY_WATCHER'] = '1'
                         from archivebox.config.common import STORAGE_CONFIG
                         os.environ['ARCHIVEBOX_RUNSERVER_PIDFILE'] = str(STORAGE_CONFIG.TMP_DIR / 'runserver.pid')
 

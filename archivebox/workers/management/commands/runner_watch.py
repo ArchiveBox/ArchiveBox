@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = "Watch the runserver autoreload PID file and restart orchestrator on reloads."
+    help = "Watch the runserver autoreload PID file and restart the background runner on reloads."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -19,22 +19,24 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         import os
+        import subprocess
+        import sys
         import time
-        from archivebox.config.common import STORAGE_CONFIG
-        from archivebox.machine.models import Process, Machine
-        from archivebox.workers.orchestrator import Orchestrator
 
-        os.environ['ARCHIVEBOX_ORCHESTRATOR_WATCHER'] = '1'
+        from archivebox.config.common import STORAGE_CONFIG
+        from archivebox.machine.models import Machine, Process
 
         pidfile = kwargs.get("pidfile") or os.environ.get("ARCHIVEBOX_RUNSERVER_PIDFILE")
         if not pidfile:
             pidfile = str(STORAGE_CONFIG.TMP_DIR / "runserver.pid")
 
         interval = max(0.2, float(kwargs.get("interval", 1.0)))
-
         last_pid = None
+        runner_proc: subprocess.Popen[bytes] | None = None
 
-        def restart_orchestrator():
+        def restart_runner() -> None:
+            nonlocal runner_proc
+
             Process.cleanup_stale_running()
             machine = Machine.current()
 
@@ -43,21 +45,39 @@ class Command(BaseCommand):
                 status=Process.StatusChoices.RUNNING,
                 process_type__in=[
                     Process.TypeChoices.ORCHESTRATOR,
-                    Process.TypeChoices.WORKER,
                     Process.TypeChoices.HOOK,
+                    Process.TypeChoices.BINARY,
                 ],
             )
             for proc in running:
                 try:
-                    if proc.process_type == Process.TypeChoices.HOOK:
-                        proc.kill_tree(graceful_timeout=0.5)
-                    else:
-                        proc.terminate(graceful_timeout=1.0)
+                    proc.kill_tree(graceful_timeout=0.5)
                 except Exception:
                     continue
 
-            if not Orchestrator.is_running():
-                Orchestrator(exit_on_idle=False).start()
+            if runner_proc and runner_proc.poll() is None:
+                try:
+                    runner_proc.terminate()
+                    runner_proc.wait(timeout=2.0)
+                except Exception:
+                    try:
+                        runner_proc.kill()
+                    except Exception:
+                        pass
+
+            runner_proc = subprocess.Popen(
+                [sys.executable, '-m', 'archivebox', 'run', '--daemon'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+
+        def runner_running() -> bool:
+            return Process.objects.filter(
+                machine=Machine.current(),
+                status=Process.StatusChoices.RUNNING,
+                process_type=Process.TypeChoices.ORCHESTRATOR,
+            ).exists()
 
         while True:
             try:
@@ -68,11 +88,10 @@ class Command(BaseCommand):
                     pid = None
 
                 if pid and pid != last_pid:
-                    restart_orchestrator()
+                    restart_runner()
                     last_pid = pid
-                elif not Orchestrator.is_running():
-                    Orchestrator(exit_on_idle=False).start()
-
+                elif not runner_running():
+                    restart_runner()
             except Exception:
                 pass
 

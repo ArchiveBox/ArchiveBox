@@ -296,8 +296,8 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
 
     @property
     def is_valid(self) -> bool:
-        """A binary is valid if it has both abspath and version set."""
-        return bool(self.abspath) and bool(self.version)
+        """A binary is valid if it has a resolved path and is marked installed."""
+        return bool(self.abspath) and self.status == self.StatusChoices.INSTALLED
 
     @cached_property
     def binary_info(self) -> dict:
@@ -1176,10 +1176,8 @@ class Process(models.Model):
 
         if 'supervisord' in argv_str:
             return cls.TypeChoices.SUPERVISORD
-        elif 'orchestrator' in argv_str:
+        elif 'archivebox run' in argv_str or 'runner_watch' in argv_str:
             return cls.TypeChoices.ORCHESTRATOR
-        elif any(w in argv_str for w in ['crawl_worker', 'snapshot_worker', 'archiveresult_worker']):
-            return cls.TypeChoices.WORKER
         elif 'archivebox' in argv_str:
             return cls.TypeChoices.CLI
         else:

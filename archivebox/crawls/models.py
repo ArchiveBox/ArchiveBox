@@ -403,7 +403,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
         This helper follows that contract by claiming each Binary before ticking
         it, and by waiting when another worker already owns the row. That keeps
-        synchronous crawl execution compatible with the global BinaryWorker and
+        synchronous crawl execution compatible with the shared background runner and
         avoids duplicate installs of the same dependency.
         """
         import time
@@ -701,13 +701,10 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         from archivebox.hooks import run_hook, discover_hooks
         from archivebox.machine.models import Process
 
-        # Kill any background Crawl hooks using Process records
-        # Find all running hook Processes that are children of this crawl's workers
-        # (CrawlWorker already kills its hooks via on_shutdown, but this is backup for orphans)
         running_hooks = Process.objects.filter(
-            parent__worker_type='crawl',
             process_type=Process.TypeChoices.HOOK,
             status=Process.StatusChoices.RUNNING,
+            env__CRAWL_ID=str(self.id),
         ).distinct()
 
         for process in running_hooks:

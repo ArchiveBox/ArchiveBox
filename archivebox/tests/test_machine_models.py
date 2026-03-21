@@ -369,9 +369,9 @@ class TestProcessCurrent(TestCase):
 
         self.assertEqual(proc1.id, proc2.id)
 
-    def test_process_detect_type_orchestrator(self):
-        """_detect_process_type should detect orchestrator."""
-        with patch('sys.argv', ['archivebox', 'manage', 'orchestrator']):
+    def test_process_detect_type_runner(self):
+        """_detect_process_type should detect the background runner command."""
+        with patch('sys.argv', ['archivebox', 'run', '--daemon']):
             result = Process._detect_process_type()
             self.assertEqual(result, Process.TypeChoices.ORCHESTRATOR)
 
@@ -381,11 +381,11 @@ class TestProcessCurrent(TestCase):
             result = Process._detect_process_type()
             self.assertEqual(result, Process.TypeChoices.CLI)
 
-    def test_process_detect_type_worker(self):
-        """_detect_process_type should detect workers."""
-        with patch('sys.argv', ['python', '-m', 'crawl_worker']):
+    def test_process_detect_type_binary(self):
+        """_detect_process_type should detect non-ArchiveBox subprocesses as binary processes."""
+        with patch('sys.argv', ['/usr/bin/wget', 'https://example.com']):
             result = Process._detect_process_type()
-            self.assertEqual(result, Process.TypeChoices.WORKER)
+            self.assertEqual(result, Process.TypeChoices.BINARY)
 
 
 class TestProcessHierarchy(TestCase):

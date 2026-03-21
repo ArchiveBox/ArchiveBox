@@ -60,8 +60,8 @@ def add(urls: str | list[str],
     The flow is:
     1. Save URLs to sources file
     2. Create Crawl with URLs and max_depth
-    3. Orchestrator creates Snapshots from Crawl URLs (depth=0)
-    4. Orchestrator runs parser extractors on root snapshots
+    3. Crawl runner creates Snapshots from Crawl URLs (depth=0)
+    4. Crawl runner runs parser extractors on root snapshots
     5. Parser extractors output to urls.jsonl
     6. URLs are added to Crawl.urls and child Snapshots are created
     7. Repeat until max_depth is reached
@@ -78,9 +78,10 @@ def add(urls: str | list[str],
     from archivebox.crawls.models import Crawl
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.personas.models import Persona
-    from archivebox.workers.orchestrator import Orchestrator
     from archivebox.misc.logging_util import printable_filesize
     from archivebox.misc.system import get_dir_size
+    from archivebox.config.configset import get_config
+    from archivebox.services.runner import run_crawl
 
     created_by_id = created_by_id or get_or_create_system_user_pk()
     started_at = timezone.now()
@@ -101,6 +102,7 @@ def add(urls: str | list[str],
     # Read URLs directly into crawl
     urls_content = sources_file.read_text()
     persona_name = (persona or 'Default').strip() or 'Default'
+    plugins = plugins or str(get_config().get('PLUGINS') or '')
     persona_obj, _ = Persona.objects.get_or_create(name=persona_name)
     persona_obj.ensure_dirs()
 
@@ -148,21 +150,20 @@ def add(urls: str | list[str],
             snapshot.ensure_crawl_symlink()
         return crawl, crawl.snapshot_set.all()
 
-    # 5. Start the orchestrator to process the queue
-    #    The orchestrator will:
+    # 5. Start the crawl runner to process the queue
+    #    The runner will:
     #    - Process Crawl -> create Snapshots from all URLs
     #    - Process Snapshots -> run extractors
     #    - Parser extractors discover new URLs -> create child Snapshots
     #    - Repeat until max_depth reached
 
     if bg:
-        # Background mode: just queue work and return (orchestrator via server will pick it up)
-        print('[yellow]\\[*] URLs queued. Orchestrator will process them (run `archivebox server` if not already running).[/yellow]')
+        # Background mode: just queue work and return (background runner via server will pick it up)
+        print('[yellow]\\[*] URLs queued. The background runner will process them (run `archivebox server` or `archivebox run --daemon` if not already running).[/yellow]')
     else:
-        # Foreground mode: run full orchestrator until all work is done
-        print('[green]\\[*] Starting orchestrator to process crawl...[/green]')
-        orchestrator = Orchestrator(exit_on_idle=True, crawl_id=str(crawl.id))
-        orchestrator.runloop()  # Block until complete
+        # Foreground mode: run full crawl runner until all work is done
+        print('[green]\\[*] Starting crawl runner to process crawl...[/green]')
+        run_crawl(str(crawl.id))
 
         # Print summary for foreground runs
         try:
@@ -223,7 +224,7 @@ def add(urls: str | list[str],
 @click.option('--overwrite', '-F', is_flag=True, help='Overwrite existing data if URLs have been archived previously')
 @click.option('--update', is_flag=True, default=ARCHIVING_CONFIG.ONLY_NEW, help='Retry any previously skipped/failed URLs when re-adding them')
 @click.option('--index-only', is_flag=True, help='Just add the URLs to the index without archiving them now')
-@click.option('--bg', is_flag=True, help='Run archiving in background (start orchestrator and return immediately)')
+@click.option('--bg', is_flag=True, help='Run archiving in background (queue work and return immediately)')
 @click.argument('urls', nargs=-1, type=click.Path())
 @docstring(add.__doc__)
 def main(**kwargs):

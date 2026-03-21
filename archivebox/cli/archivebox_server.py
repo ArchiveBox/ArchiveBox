@@ -43,7 +43,6 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
         os.environ['ARCHIVEBOX_RUNSERVER'] = '1'
         if reload:
             os.environ['ARCHIVEBOX_AUTORELOAD'] = '1'
-            os.environ['ARCHIVEBOX_ORCHESTRATOR_MANAGED_BY_WATCHER'] = '1'
             from archivebox.config.common import STORAGE_CONFIG
             pidfile = str(STORAGE_CONFIG.TMP_DIR / 'runserver.pid')
             os.environ['ARCHIVEBOX_RUNSERVER_PIDFILE'] = pidfile
@@ -52,9 +51,8 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
             is_reloader_child = os.environ.get(DJANGO_AUTORELOAD_ENV) == 'true'
             if not is_reloader_child:
                 env = os.environ.copy()
-                env['ARCHIVEBOX_ORCHESTRATOR_WATCHER'] = '1'
                 subprocess.Popen(
-                    [sys.executable, '-m', 'archivebox', 'manage', 'orchestrator_watch', f'--pidfile={pidfile}'],
+                    [sys.executable, '-m', 'archivebox', 'manage', 'runner_watch', f'--pidfile={pidfile}'],
                     env=env,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -101,7 +99,7 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
             start_server_workers,
             is_port_in_use,
         )
-        from archivebox.workers.orchestrator import Orchestrator
+        from archivebox.machine.models import Machine, Process
 
         # Check if port is already in use
         if is_port_in_use(host, int(port)):
@@ -110,11 +108,15 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
             print('    Stop the conflicting process or choose a different port')
             sys.exit(1)
 
-        # Check if orchestrator is already running for this data directory
-        if Orchestrator.is_running():
-            print('[red][X] Error: ArchiveBox orchestrator is already running for this data directory[/red]')
-            print('    Stop the existing orchestrator before starting a new server')
-            print('    To stop: pkill -f "archivebox manage orchestrator"')
+        # Check if the background crawl runner is already running for this data directory
+        if Process.objects.filter(
+            machine=Machine.current(),
+            status=Process.StatusChoices.RUNNING,
+            process_type=Process.TypeChoices.ORCHESTRATOR,
+        ).exists():
+            print('[red][X] Error: ArchiveBox background runner is already running for this data directory[/red]')
+            print('    Stop the existing runner before starting a new server')
+            print('    To stop: pkill -f "archivebox run --daemon"')
             sys.exit(1)
 
         # Check if supervisord is already running
@@ -125,12 +127,12 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
 
             # If daphne is already running, error out
             if daphne_state == 'RUNNING':
-                orchestrator_proc = get_worker(supervisor, 'worker_orchestrator')
-                orchestrator_state = orchestrator_proc.get('statename') if isinstance(orchestrator_proc, dict) else None
+                runner_proc = get_worker(supervisor, 'worker_runner')
+                runner_state = runner_proc.get('statename') if isinstance(runner_proc, dict) else None
                 print('[red][X] Error: ArchiveBox server is already running[/red]')
                 print(f'    [green]√[/green] Web server (worker_daphne) is RUNNING on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link][/deep_sky_blue4]')
-                if orchestrator_state == 'RUNNING':
-                    print('    [green]√[/green] Background worker (worker_orchestrator) is RUNNING')
+                if runner_state == 'RUNNING':
+                    print('    [green]√[/green] Background runner (worker_runner) is RUNNING')
                 print()
                 print('[yellow]To stop the existing server, run:[/yellow]')
                 print('    pkill -f "archivebox server"')

@@ -22,14 +22,14 @@ def schedule(add: bool = False,
             overwrite: bool = False,
             update: bool = not ARCHIVING_CONFIG.ONLY_NEW,
             import_path: str | None = None):
-    """Manage database-backed scheduled crawls processed by the orchestrator."""
+    """Manage database-backed scheduled crawls processed by the crawl runner."""
 
     from django.utils import timezone
 
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl, CrawlSchedule
     from archivebox.crawls.schedule_utils import validate_schedule
-    from archivebox.workers.orchestrator import Orchestrator
+    from archivebox.services.runner import run_pending_crawls
 
     depth = int(depth)
     result: dict[str, object] = {
@@ -126,16 +126,12 @@ def schedule(add: bool = False,
             enqueued += 1
         result['run_all_enqueued'] = enqueued
         print(f'[green]\\[*] Enqueued {enqueued} scheduled crawl(s) immediately.[/green]')
-        if enqueued and not Orchestrator.is_running():
-            print('[yellow]\\[*] No orchestrator is running yet. Start `archivebox server` or `archivebox schedule --foreground` to process the queued crawls.[/yellow]')
+        if enqueued:
+            print('[yellow]\\[*] Start `archivebox server`, `archivebox run --daemon`, or `archivebox schedule --foreground` to process the queued crawls.[/yellow]')
 
     if foreground:
-        print('[green]\\[*] Starting global orchestrator in foreground mode. It will materialize scheduled crawls and process queued work.[/green]')
-        if Orchestrator.is_running():
-            print('[yellow]\\[*] Orchestrator is already running.[/yellow]')
-        else:
-            orchestrator = Orchestrator(exit_on_idle=False)
-            orchestrator.runloop()
+        print('[green]\\[*] Starting global crawl runner in foreground mode. It will materialize scheduled crawls and process queued work.[/green]')
+        run_pending_crawls(daemon=True)
 
     if quiet:
         return result
@@ -161,12 +157,12 @@ def schedule(add: bool = False,
 @click.option('--update', is_flag=True, help='Retry previously failed/skipped URLs when scheduled crawls run')
 @click.option('--clear', is_flag=True, help='Disable all currently enabled schedules')
 @click.option('--show', is_flag=True, help='Print all currently enabled schedules')
-@click.option('--foreground', '-f', is_flag=True, help='Run the global orchestrator in the foreground (no crontab required)')
+@click.option('--foreground', '-f', is_flag=True, help='Run the global crawl runner in the foreground (no crontab required)')
 @click.option('--run-all', is_flag=True, help='Enqueue all enabled schedules immediately and process them once')
 @click.argument('import_path', required=False)
 @docstring(schedule.__doc__)
 def main(**kwargs):
-    """Manage database-backed scheduled crawls processed by the orchestrator."""
+    """Manage database-backed scheduled crawls processed by the crawl runner."""
     schedule(**kwargs)
 
 

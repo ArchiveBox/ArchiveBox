@@ -12,7 +12,7 @@ from archivebox.misc.util import docstring, enforce_types
 
 @enforce_types
 def install(binaries: tuple[str, ...] = (), binproviders: str = '*', dry_run: bool = False) -> None:
-    """Detect and install ArchiveBox dependencies by running a dependency-check crawl
+    """Detect and install ArchiveBox dependencies by running the abx-dl install flow
 
     Examples:
         archivebox install                              # Install all dependencies
@@ -46,76 +46,23 @@ def install(binaries: tuple[str, ...] = (), binproviders: str = '*', dry_run: bo
         print()
 
     if dry_run:
-        print('[dim]Dry run - would create a crawl to detect dependencies[/dim]')
+        print('[dim]Dry run - would run the abx-dl install flow[/dim]')
         return
 
     # Set up Django
     from archivebox.config.django import setup_django
     setup_django()
 
-    from django.utils import timezone
-    from archivebox.crawls.models import Crawl
-    from archivebox.base_models.models import get_or_create_system_user_pk
-
-    # Create a crawl for dependency detection
-    # Using a minimal crawl that will trigger on_Crawl hooks
-    created_by_id = get_or_create_system_user_pk()
-
-    # Build config for this crawl using existing PLUGINS filter
-    crawl_config = {}
-
-    # Combine binary names and provider names into PLUGINS list
-    plugins = []
-    if binaries:
-        plugins.extend(binaries)
+    plugin_names = list(binaries)
     if binproviders != '*':
-        plugins.extend(binproviders.split(','))
+        plugin_names.extend(provider.strip() for provider in binproviders.split(',') if provider.strip())
 
-    if plugins:
-        crawl_config['PLUGINS'] = ','.join(plugins)
-
-    crawl, created = Crawl.objects.get_or_create(
-        urls='archivebox://install',
-        defaults={
-            'label': 'Dependency detection',
-            'created_by_id': created_by_id,
-            'max_depth': 0,
-            'status': 'queued',
-            'config': crawl_config,
-        }
-    )
-
-    # If crawl already existed, reset it to queued state so it can be processed again
-    if not created:
-        crawl.status = 'queued'
-        crawl.retry_at = timezone.now()
-        crawl.config = crawl_config  # Update config
-        crawl.save()
-
-    print(f'[+] Created dependency detection crawl: {crawl.id}')
-    if crawl_config:
-        print(f'[+] Crawl config: {crawl_config}')
-    print(f'[+] Crawl status: {crawl.status}, retry_at: {crawl.retry_at}')
-
-    # Verify the crawl is in the queue
-    from archivebox.crawls.models import Crawl as CrawlModel
-    queued_crawls = CrawlModel.objects.filter(
-        retry_at__lte=timezone.now()
-    ).exclude(
-        status__in=CrawlModel.FINAL_STATES
-    )
-    print(f'[+] Crawls in queue: {queued_crawls.count()}')
-    if queued_crawls.exists():
-        for c in queued_crawls:
-            print(f'    - Crawl {c.id}: status={c.status}, retry_at={c.retry_at}')
-
-    print('[+] Running crawl to detect binaries via on_Crawl hooks...')
+    print('[+] Running installer via abx-dl bus...')
     print()
 
-    # Run the crawl synchronously (this triggers on_Crawl hooks)
-    from archivebox.workers.orchestrator import Orchestrator
-    orchestrator = Orchestrator(exit_on_idle=True)
-    orchestrator.runloop()
+    from archivebox.services.runner import run_install
+
+    run_install(plugin_names=plugin_names or None)
 
     print()
 

@@ -581,12 +581,12 @@
         <div class="header-left">
             <div class="orchestrator-status">
                 <span class="status-dot stopped" id="orchestrator-dot"></span>
-                <span id="orchestrator-text">Stopped</span>
+                <span id="orchestrator-text">Runner stopped</span>
                 <span class="pid-label compact" id="orchestrator-pid" style="display:none;"></span>
             </div>
             <div class="stats">
                 <div class="stat">
-                    <span class="stat-label">Workers</span>
+                    <span class="stat-label">Processes</span>
                     <span class="stat-value info" id="worker-count">0</span>
                 </div>
                 <div class="stat">
@@ -804,7 +804,7 @@
             // Queued and waiting to be picked up by worker
             warningHtml = `
                 <div style="padding: 8px 14px; background: rgba(210, 153, 34, 0.1); border-top: 1px solid #d29922; color: #d29922; font-size: 11px;">
-                    ⏳ Waiting for worker to pick up...${crawl.urls_preview ? ` (${crawl.urls_preview})` : ''}
+                    ⏳ Waiting for the runner to pick up...${crawl.urls_preview ? ` (${crawl.urls_preview})` : ''}
                 </div>
             `;
         }

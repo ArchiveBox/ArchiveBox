@@ -3,8 +3,6 @@ __package__ = 'archivebox.core'
 from django.apps import AppConfig
 import os
 
-_ORCHESTRATOR_BOOTSTRAPPED = False
-
 
 class CoreConfig(AppConfig):
     name = 'archivebox.core'
@@ -35,32 +33,15 @@ class CoreConfig(AppConfig):
                 except Exception:
                     pass
 
-        def _should_manage_orchestrator() -> bool:
-            if os.environ.get('ARCHIVEBOX_ORCHESTRATOR_MANAGED_BY_WATCHER') == '1':
-                return False
-            if os.environ.get('ARCHIVEBOX_ORCHESTRATOR_PROCESS') == '1':
-                return False
+        def _should_prepare_runtime() -> bool:
             if os.environ.get('ARCHIVEBOX_RUNSERVER') == '1':
                 if os.environ.get('ARCHIVEBOX_AUTORELOAD') == '1':
                     return os.environ.get(DJANGO_AUTORELOAD_ENV) == 'true'
                 return True
+            return False
 
-            argv = ' '.join(sys.argv).lower()
-            if 'orchestrator' in argv:
-                return False
-            return 'daphne' in argv and '--reload' in sys.argv
-
-        if _should_manage_orchestrator():
-            global _ORCHESTRATOR_BOOTSTRAPPED
-            if _ORCHESTRATOR_BOOTSTRAPPED:
-                return
-            _ORCHESTRATOR_BOOTSTRAPPED = True
-
+        if _should_prepare_runtime():
             from archivebox.machine.models import Process, Machine
-            from archivebox.workers.orchestrator import Orchestrator
 
             Process.cleanup_stale_running()
             Machine.current()
-
-            if not Orchestrator.is_running():
-                Orchestrator(exit_on_idle=False).start()

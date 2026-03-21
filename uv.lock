@@ -14,7 +14,7 @@ supported-markers = [
 
 [[package]]
 name = "abx-dl"
-version = "1.10.11"
+version = "1.10.13"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abx-pkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -27,9 +27,9 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ec/a4/6ae43b2ca465e0683d8192e7b345e0bbcedef5e88eeee0d3ba23d4e4f813/abx_dl-1.10.11.tar.gz", hash = "sha256:1db771666ebbddcc635fb72f0827674fa2a040d1ec3bd245c30ade757050e467", size = 70418, upload-time = "2026-03-21T08:13:45.511Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/10/de/d9d5a398f053f899fc62d45b9d21eb85412c6ca7d32099c25b9b43f84e32/abx_dl-1.10.13.tar.gz", hash = "sha256:f9fef6119691e07e1792593ed5bcd8de2f84df9d01e77966006d743593c611aa", size = 58200, upload-time = "2026-03-21T18:47:20.901Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/23/62/43bd5cc277521fd3d8ece0453a9e2fce8a8f2ea9cd3a6f2a77679b3a94ea/abx_dl-1.10.11-py3-none-any.whl", hash = "sha256:c46795aa653338f373f5d02c721923c73f842f59b209ab9ce8ab7645ac8ffce8", size = 60313, upload-time = "2026-03-21T08:13:44.494Z" },
+    { url = "https://files.pythonhosted.org/packages/e7/11/670fbdc0afe2274893b63774643f6bb44f09d4975d3968cf394384af1306/abx_dl-1.10.13-py3-none-any.whl", hash = "sha256:cd4aab469563b1c7d9f9202161d94ba7de62cf31fbe924f6fe6f51ad051f4d70", size = 62597, upload-time = "2026-03-21T18:47:19.573Z" },
 ]
 
 [[package]]
@@ -49,16 +49,16 @@ wheels = [
 
 [[package]]
 name = "abx-plugins"
-version = "1.10.11"
+version = "1.10.13"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abx-pkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "pydantic-settings", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d6/59/b3a7160dbdbc234adae2180f893608121b7eaf6fd640b45d0b80a6e4bbbc/abx_plugins-1.10.11.tar.gz", hash = "sha256:5cfe8c53112b9572bd5caaa63bcd925d92aa548f1358426687d80d5d05ce43fb", size = 526204, upload-time = "2026-03-21T08:01:02.656Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2b/ea/7e70fa30a1e52039decd8b755b22549b8c51fb9d97cf54751b6fd1af7f2d/abx_plugins-1.10.13.tar.gz", hash = "sha256:945623afc6436894d26e8e27ce6101032b0c42655d5cbfaeeaa8a57913d0d46a", size = 525322, upload-time = "2026-03-21T17:39:10.142Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9b/84/e073f13d413042ce96541591c99c2e93f3ea843f139510da6b3e336a267f/abx_plugins-1.10.11-py3-none-any.whl", hash = "sha256:87e14a3a7cb11242ac966ff6361fe6c67a2dc2ecb55d586ffbc9c269ef058d65", size = 732471, upload-time = "2026-03-21T08:01:04.099Z" },
+    { url = "https://files.pythonhosted.org/packages/29/25/d5338a5a7a1958916e7104727046ec01744da3fb28b1e30934480ab57f65/abx_plugins-1.10.13-py3-none-any.whl", hash = "sha256:79353763baf685871d52ea7e5fa8d0249937ec9edb2f63c7768b0c0a98d5518e", size = 731961, upload-time = "2026-03-21T17:39:11.713Z" },
 ]
 
 [[package]]
@@ -119,7 +119,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.10rc0"
+version = "0.9.10rc1"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -128,6 +128,7 @@ dependencies = [
     { name = "atomicwrites", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "base32-crockford", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "croniter", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "daphne", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "dateparser", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "django", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -212,13 +213,14 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-dl", specifier = ">=1.10.11" },
+    { name = "abx-dl", specifier = ">=1.10.13" },
     { name = "abx-pkg", specifier = ">=1.9.14" },
     { name = "abx-plugins", specifier = ">=1.9.18" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
     { name = "atomicwrites", specifier = "==1.4.1" },
     { name = "base32-crockford", specifier = ">=0.3.0" },
     { name = "click", specifier = ">=8.3.1" },
+    { name = "croniter", specifier = ">=6.0.0" },
     { name = "daphne", specifier = ">=4.2.1" },
     { name = "dateparser", specifier = ">=1.2.0" },
     { name = "django", specifier = ">=6.0" },
@@ -620,6 +622,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/3d/16/d5ae91455541d1a78bc90abf495be600588aff8f6db5c8b0dae739fa39c9/coverage-7.13.5-cp314-cp314t-musllinux_1_2_riscv64.whl", hash = "sha256:8769751c10f339021e2638cd354e13adeac54004d1941119b2c96fe5276d45ea", size = 260427, upload-time = "2026-03-17T10:33:03.945Z" },
     { url = "https://files.pythonhosted.org/packages/48/11/07f413dba62db21fb3fad5d0de013a50e073cc4e2dc4306e770360f6dfc8/coverage-7.13.5-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:cec2d83125531bd153175354055cdb7a09987af08a9430bd173c937c6d0fba2a", size = 262745, upload-time = "2026-03-17T10:33:06.285Z" },
     { url = "https://files.pythonhosted.org/packages/9e/ee/a4cf96b8ce1e566ed238f0659ac2d3f007ed1d14b181bcb684e19561a69a/coverage-7.13.5-py3-none-any.whl", hash = "sha256:34b02417cf070e173989b3db962f7ed56d2f644307b2cf9d5a0f258e13084a61", size = 211346, upload-time = "2026-03-17T10:33:15.691Z" },
+]
+
+[[package]]
+name = "croniter"
+version = "6.2.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-dateutil", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/df/de/5832661ed55107b8a09af3f0a2e71e0957226a59eb1dcf0a445cce6daf20/croniter-6.2.2.tar.gz", hash = "sha256:ba60832a5ec8e12e51b8691c3309a113d1cf6526bdf1a48150ce8ec7a532d0ab", size = 113762, upload-time = "2026-03-15T08:43:48.112Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d0/39/783980e78cb92c2d7bdb1fc7dbc86e94ccc6d58224d76a7f1f51b6c51e30/croniter-6.2.2-py3-none-any.whl", hash = "sha256:a5d17b1060974d36251ea4faf388233eca8acf0d09cbd92d35f4c4ac8f279960", size = 45422, upload-time = "2026-03-15T08:43:46.626Z" },
 ]
 
 [[package]]

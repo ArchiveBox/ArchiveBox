@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 
 """
-archivebox run [--daemon] [--crawl-id=...] [--snapshot-id=...]
+archivebox run [--daemon] [--crawl-id=...] [--snapshot-id=...] [--binary-id=...]
 
-Unified command for processing queued work.
+Unified command for processing queued work on the shared abx-dl bus.
 
 Modes:
     - With stdin JSONL: Process piped records, exit when complete
-    - Without stdin (TTY): Run orchestrator in foreground until killed
-    - --crawl-id: Run orchestrator for specific crawl only
-    - --snapshot-id: Run worker for specific snapshot only (internal use)
+    - Without stdin (TTY): Run the background runner in foreground until killed
+    - --crawl-id: Run the crawl runner for a specific crawl only
+    - --snapshot-id: Run a specific snapshot through its parent crawl
+    - --binary-id: Emit a BinaryEvent for a specific Binary row
 
 Examples:
-    # Run orchestrator in foreground
+    # Run the background runner in foreground
     archivebox run
 
     # Run as daemon (don't exit on idle)
@@ -26,17 +27,21 @@ Examples:
     # Mixed types work too
     cat mixed_records.jsonl | archivebox run
 
-    # Run orchestrator for specific crawl (shows live progress for that crawl)
+    # Run the crawl runner for a specific crawl
     archivebox run --crawl-id=019b7e90-04d0-73ed-adec-aad9cfcd863e
 
-    # Run worker for specific snapshot (internal use by orchestrator)
+    # Run one snapshot from an existing crawl
     archivebox run --snapshot-id=019b7e90-5a8e-712c-9877-2c70eebe80ad
+
+    # Run one queued binary install directly on the bus
+    archivebox run --binary-id=019b7e90-5a8e-712c-9877-2c70eebe80ad
 """
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox run'
 
 import sys
+from collections import defaultdict
 
 import rich_click as click
 from rich import print as rprint
@@ -64,7 +69,7 @@ def process_stdin_records() -> int:
     from archivebox.core.models import Snapshot, ArchiveResult
     from archivebox.crawls.models import Crawl
     from archivebox.machine.models import Binary
-    from archivebox.workers.orchestrator import Orchestrator
+    from archivebox.services.runner import run_binary, run_crawl
 
     records = list(read_stdin())
     is_tty = sys.stdout.isatty()
@@ -75,6 +80,11 @@ def process_stdin_records() -> int:
     created_by_id = get_or_create_system_user_pk()
     queued_count = 0
     output_records = []
+    full_crawl_ids: set[str] = set()
+    snapshot_ids_by_crawl: dict[str, set[str]] = defaultdict(set)
+    plugin_names_by_crawl: dict[str, set[str]] = defaultdict(set)
+    run_all_plugins_for_crawl: set[str] = set()
+    binary_ids: list[str] = []
 
     for record in records:
         record_type = record.get('type', '')
@@ -97,6 +107,8 @@ def process_stdin_records() -> int:
                     if crawl.status not in [Crawl.StatusChoices.SEALED]:
                         crawl.status = Crawl.StatusChoices.QUEUED
                     crawl.save()
+                    full_crawl_ids.add(str(crawl.id))
+                    run_all_plugins_for_crawl.add(str(crawl.id))
                     output_records.append(crawl.to_json())
                     queued_count += 1
 
@@ -116,6 +128,14 @@ def process_stdin_records() -> int:
                     if snapshot.status not in [Snapshot.StatusChoices.SEALED]:
                         snapshot.status = Snapshot.StatusChoices.QUEUED
                     snapshot.save()
+                    crawl = snapshot.crawl
+                    crawl.retry_at = timezone.now()
+                    if crawl.status != Crawl.StatusChoices.STARTED:
+                        crawl.status = Crawl.StatusChoices.QUEUED
+                    crawl.save(update_fields=['status', 'retry_at', 'modified_at'])
+                    crawl_id = str(snapshot.crawl_id)
+                    snapshot_ids_by_crawl[crawl_id].add(str(snapshot.id))
+                    run_all_plugins_for_crawl.add(crawl_id)
                     output_records.append(snapshot.to_json())
                     queued_count += 1
 
@@ -135,19 +155,30 @@ def process_stdin_records() -> int:
                     if archiveresult.status in [ArchiveResult.StatusChoices.FAILED, ArchiveResult.StatusChoices.SKIPPED, ArchiveResult.StatusChoices.BACKOFF]:
                         archiveresult.status = ArchiveResult.StatusChoices.QUEUED
                     archiveresult.save()
+                    snapshot = archiveresult.snapshot
+                    snapshot.retry_at = timezone.now()
+                    if snapshot.status != Snapshot.StatusChoices.STARTED:
+                        snapshot.status = Snapshot.StatusChoices.QUEUED
+                    snapshot.save(update_fields=['status', 'retry_at', 'modified_at'])
+                    crawl = snapshot.crawl
+                    crawl.retry_at = timezone.now()
+                    if crawl.status != Crawl.StatusChoices.STARTED:
+                        crawl.status = Crawl.StatusChoices.QUEUED
+                    crawl.save(update_fields=['status', 'retry_at', 'modified_at'])
+                    crawl_id = str(snapshot.crawl_id)
+                    snapshot_ids_by_crawl[crawl_id].add(str(snapshot.id))
+                    if archiveresult.plugin:
+                        plugin_names_by_crawl[crawl_id].add(archiveresult.plugin)
                     output_records.append(archiveresult.to_json())
                     queued_count += 1
 
             elif record_type == TYPE_BINARY:
-                # Binary records - create or update and queue for installation
                 if record_id:
-                    # Existing binary - re-queue
                     try:
                         binary = Binary.objects.get(id=record_id)
                     except Binary.DoesNotExist:
                         binary = Binary.from_json(record)
                 else:
-                    # New binary - create it
                     binary = Binary.from_json(record)
 
                 if binary:
@@ -155,6 +186,7 @@ def process_stdin_records() -> int:
                     if binary.status != Binary.StatusChoices.INSTALLED:
                         binary.status = Binary.StatusChoices.QUEUED
                     binary.save()
+                    binary_ids.append(str(binary.id))
                     output_records.append(binary.to_json())
                     queued_count += 1
 
@@ -177,143 +209,123 @@ def process_stdin_records() -> int:
 
     rprint(f'[blue]Processing {queued_count} records...[/blue]', file=sys.stderr)
 
-    # Run orchestrator until all queued work is done
-    orchestrator = Orchestrator(exit_on_idle=True)
-    orchestrator.runloop()
+    for binary_id in binary_ids:
+        run_binary(binary_id)
 
+    targeted_crawl_ids = full_crawl_ids | set(snapshot_ids_by_crawl)
+    if targeted_crawl_ids:
+        for crawl_id in sorted(targeted_crawl_ids):
+            run_crawl(
+                crawl_id,
+                snapshot_ids=None if crawl_id in full_crawl_ids else sorted(snapshot_ids_by_crawl[crawl_id]),
+                selected_plugins=None if crawl_id in run_all_plugins_for_crawl else sorted(plugin_names_by_crawl[crawl_id]),
+            )
     return 0
 
 
-def run_orchestrator(daemon: bool = False) -> int:
+def run_runner(daemon: bool = False) -> int:
     """
-    Run the orchestrator process.
-
-    The orchestrator:
-    1. Polls each model queue (Crawl, Snapshot, ArchiveResult)
-    2. Spawns worker processes when there is work to do
-    3. Monitors worker health and restarts failed workers
-    4. Exits when all queues are empty (unless --daemon)
+    Run the background runner loop.
 
     Args:
         daemon: Run forever (don't exit when idle)
 
     Returns exit code (0 = success, 1 = error).
     """
-    from archivebox.workers.orchestrator import Orchestrator
+    from django.utils import timezone
+    from archivebox.machine.models import Machine, Process
+    from archivebox.services.runner import run_pending_crawls
 
-    if Orchestrator.is_running():
-        rprint('[yellow]Orchestrator is already running[/yellow]', file=sys.stderr)
-        return 0
+    Process.cleanup_stale_running()
+    Machine.current()
+    current = Process.current()
+    if current.process_type != Process.TypeChoices.ORCHESTRATOR:
+        current.process_type = Process.TypeChoices.ORCHESTRATOR
+        current.save(update_fields=['process_type', 'modified_at'])
 
     try:
-        orchestrator = Orchestrator(exit_on_idle=not daemon)
-        orchestrator.runloop()
+        run_pending_crawls(daemon=daemon)
         return 0
     except KeyboardInterrupt:
         return 0
     except Exception as e:
-        rprint(f'[red]Orchestrator error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
+        rprint(f'[red]Runner error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
         return 1
-
-
-def run_snapshot_worker(snapshot_id: str) -> int:
-    """
-    Run a SnapshotWorker for a specific snapshot.
-
-    Args:
-        snapshot_id: Snapshot UUID to process
-
-    Returns exit code (0 = success, 1 = error).
-    """
-    from archivebox.workers.worker import _run_snapshot_worker
-
-    try:
-        _run_snapshot_worker(snapshot_id=snapshot_id, worker_id=0)
-        return 0
-    except KeyboardInterrupt:
-        return 0
-    except Exception as e:
-        rprint(f'[red]Worker error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
-        import traceback
-        traceback.print_exc()
-        return 1
+    finally:
+        current.refresh_from_db()
+        if current.status != Process.StatusChoices.EXITED:
+            current.status = Process.StatusChoices.EXITED
+            current.ended_at = current.ended_at or timezone.now()
+            current.save(update_fields=['status', 'ended_at', 'modified_at'])
 
 
 @click.command()
 @click.option('--daemon', '-d', is_flag=True, help="Run forever (don't exit on idle)")
-@click.option('--crawl-id', help="Run orchestrator for specific crawl only")
-@click.option('--snapshot-id', help="Run worker for specific snapshot only")
-@click.option('--binary-id', help="Run worker for specific binary only")
-@click.option('--worker-type', help="Run worker of specific type (binary)")
-def main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str, worker_type: str):
+@click.option('--crawl-id', help="Run the crawl runner for a specific crawl only")
+@click.option('--snapshot-id', help="Run one snapshot through its crawl")
+@click.option('--binary-id', help="Run one queued binary install directly on the bus")
+def main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str):
     """
     Process queued work.
 
     Modes:
     - No args + stdin piped: Process piped JSONL records
-    - No args + TTY: Run orchestrator for all work
-    - --crawl-id: Run orchestrator for that crawl only
-    - --snapshot-id: Run worker for that snapshot only
-    - --binary-id: Run worker for that binary only
+    - No args + TTY: Run the crawl runner for all work
+    - --crawl-id: Run the crawl runner for that crawl only
+    - --snapshot-id: Run one snapshot through its crawl only
+    - --binary-id: Run one queued binary install directly on the bus
     """
-    # Snapshot worker mode
     if snapshot_id:
         sys.exit(run_snapshot_worker(snapshot_id))
 
-    # Binary worker mode (specific binary)
     if binary_id:
-        from archivebox.workers.worker import BinaryWorker
         try:
-            worker = BinaryWorker(binary_id=binary_id, worker_id=0)
-            worker.runloop()
+            from archivebox.services.runner import run_binary
+
+            run_binary(binary_id)
             sys.exit(0)
         except KeyboardInterrupt:
             sys.exit(0)
         except Exception as e:
-            rprint(f'[red]Worker error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
+            rprint(f'[red]Runner error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
             import traceback
             traceback.print_exc()
             sys.exit(1)
 
-    # Worker type mode (daemon - processes all pending items)
-    if worker_type:
-        if worker_type == 'binary':
-            from archivebox.workers.worker import BinaryWorker
-            try:
-                worker = BinaryWorker(worker_id=0)  # No binary_id = daemon mode
-                worker.runloop()
-                sys.exit(0)
-            except KeyboardInterrupt:
-                sys.exit(0)
-            except Exception as e:
-                rprint(f'[red]Worker error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
-                import traceback
-                traceback.print_exc()
-                sys.exit(1)
-        else:
-            rprint(f'[red]Unknown worker type: {worker_type}[/red]', file=sys.stderr)
-            sys.exit(1)
-
-    # Crawl worker mode
     if crawl_id:
-        from archivebox.workers.worker import CrawlWorker
         try:
-            worker = CrawlWorker(crawl_id=crawl_id, worker_id=0)
-            worker.runloop()
+            from archivebox.services.runner import run_crawl
+            run_crawl(crawl_id)
             sys.exit(0)
         except KeyboardInterrupt:
             sys.exit(0)
         except Exception as e:
-            rprint(f'[red]Worker error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
+            rprint(f'[red]Runner error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
             import traceback
             traceback.print_exc()
             sys.exit(1)
 
-    # Check if stdin has data (non-TTY means piped input)
     if not sys.stdin.isatty():
         sys.exit(process_stdin_records())
     else:
-        sys.exit(run_orchestrator(daemon=daemon))
+        sys.exit(run_runner(daemon=daemon))
+
+
+def run_snapshot_worker(snapshot_id: str) -> int:
+    from archivebox.core.models import Snapshot
+    from archivebox.services.runner import run_crawl
+
+    try:
+        snapshot = Snapshot.objects.select_related('crawl').get(id=snapshot_id)
+        run_crawl(str(snapshot.crawl_id), snapshot_ids=[str(snapshot.id)])
+        return 0
+    except KeyboardInterrupt:
+        return 0
+    except Exception as e:
+        rprint(f'[red]Runner error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        return 1
 
 
 if __name__ == '__main__':

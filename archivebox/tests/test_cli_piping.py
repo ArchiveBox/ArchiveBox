@@ -1,5 +1,5 @@
 """
-Tests for JSONL piping contracts and `archivebox run` / `archivebox orchestrator`.
+Tests for JSONL piping contracts and `archivebox run`.
 
 This file covers both:
 - low-level JSONL/stdin parsing behavior that makes CLI piping work
@@ -252,8 +252,8 @@ def test_snapshot_list_stdout_pipes_into_run(initialized_archive):
     assert snapshot_status == "sealed"
 
 
-def test_archiveresult_list_stdout_pipes_into_orchestrator_alias(initialized_archive):
-    """`archivebox archiveresult list | archivebox orchestrator` should preserve clean JSONL stdout."""
+def test_archiveresult_list_stdout_pipes_into_run(initialized_archive):
+    """`archivebox archiveresult list | archivebox run` should preserve clean JSONL stdout."""
     url = create_test_url()
 
     snapshot_stdout, snapshot_stderr, snapshot_code = run_archivebox_cmd(
@@ -279,18 +279,17 @@ def test_archiveresult_list_stdout_pipes_into_orchestrator_alias(initialized_arc
     assert list_code == 0, list_stderr
     _assert_stdout_is_jsonl_only(list_stdout)
 
-    orchestrator_stdout, orchestrator_stderr, orchestrator_code = run_archivebox_cmd(
-        ["orchestrator"],
+    run_stdout, run_stderr, run_code = run_archivebox_cmd(
+        ["run"],
         stdin=list_stdout,
         data_dir=initialized_archive,
         timeout=120,
         env=PIPE_TEST_ENV,
     )
-    assert orchestrator_code == 0, orchestrator_stderr
-    _assert_stdout_is_jsonl_only(orchestrator_stdout)
-    assert "renamed to `archivebox run`" in orchestrator_stderr
+    assert run_code == 0, run_stderr
+    _assert_stdout_is_jsonl_only(run_stdout)
 
-    run_records = parse_jsonl_output(orchestrator_stdout)
+    run_records = parse_jsonl_output(run_stdout)
     assert any(
         record.get("type") == "ArchiveResult" and record.get("id") == archiveresult["id"]
         for record in run_records

@@ -29,13 +29,12 @@ WORKERS_DIR_NAME = "workers"
 # Global reference to supervisord process for cleanup
 _supervisord_proc = None
 
-ORCHESTRATOR_WORKER = {
-    "name": "worker_orchestrator",
-    # Use Django management command to avoid stdin/TTY ambiguity in `archivebox run`.
-    "command": "archivebox manage orchestrator",
+RUNNER_WORKER = {
+    "name": "worker_runner",
+    "command": "archivebox run --daemon",
     "autostart": "true",
     "autorestart": "true",
-    "stdout_logfile": "logs/worker_orchestrator.log",
+    "stdout_logfile": "logs/worker_runner.log",
     "redirect_stderr": "true",
 }
 
@@ -515,9 +514,7 @@ def watch_worker(supervisor, daemon_name, interval=5):
 def start_server_workers(host='0.0.0.0', port='8000', daemonize=False):
     supervisor = get_or_create_supervisord_process(daemonize=daemonize)
 
-    bg_workers = [
-        ORCHESTRATOR_WORKER,
-    ]
+    bg_workers = [RUNNER_WORKER]
 
     print()
     start_worker(supervisor, SERVER_WORKER(host=host, port=port))
@@ -532,7 +529,7 @@ def start_server_workers(host='0.0.0.0', port='8000', daemonize=False):
             sys.stdout.write('Tailing worker logs (Ctrl+C to stop)...\n\n')
             sys.stdout.flush()
             tail_multiple_worker_logs(
-                log_files=['logs/worker_daphne.log', 'logs/worker_orchestrator.log'],
+                log_files=['logs/worker_daphne.log', 'logs/worker_runner.log'],
                 follow=True,
                 proc=_supervisord_proc,  # Stop tailing when supervisord exits
             )
@@ -551,7 +548,7 @@ def start_server_workers(host='0.0.0.0', port='8000', daemonize=False):
 def start_cli_workers(watch=False):
     supervisor = get_or_create_supervisord_process(daemonize=False)
 
-    start_worker(supervisor, ORCHESTRATOR_WORKER)
+    start_worker(supervisor, RUNNER_WORKER)
 
     if watch:
         try:
@@ -560,7 +557,7 @@ def start_cli_workers(watch=False):
                 _supervisord_proc.wait()
             else:
                 # Fallback to watching worker if no proc reference
-                watch_worker(supervisor, ORCHESTRATOR_WORKER['name'])
+                watch_worker(supervisor, RUNNER_WORKER['name'])
         except (KeyboardInterrupt, BrokenPipeError, IOError):
             STDERR.print("\n[🛑] Got Ctrl+C, stopping gracefully...")
         except SystemExit:
@@ -571,7 +568,7 @@ def start_cli_workers(watch=False):
             # Ensure supervisord and all children are stopped
             stop_existing_supervisord_process()
             time.sleep(1.0)  # Give processes time to fully terminate
-    return [ORCHESTRATOR_WORKER]
+    return [RUNNER_WORKER]
 
 
 # def main(daemons):

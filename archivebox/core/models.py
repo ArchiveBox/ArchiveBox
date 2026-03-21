@@ -1821,7 +1821,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         Check if all ArchiveResults are finished.
 
         Note: This is only called for observability/progress tracking.
-        SnapshotWorker owns the execution and doesn't poll this.
+        The shared runner owns execution and does not poll this.
         """
         # Check if any ARs are still pending/started
         pending = self.archiveresult_set.exclude(
@@ -2325,7 +2325,7 @@ class SnapshotMachine(BaseStateMachine):
 
     @started.enter
     def enter_started(self):
-        """Just mark as started - SnapshotWorker will create ARs and run hooks."""
+        """Just mark as started. The shared runner creates ArchiveResults and runs hooks."""
         self.snapshot.status = Snapshot.StatusChoices.STARTED
         self.snapshot.retry_at = None  # No more polling
         self.snapshot.save(update_fields=['status', 'retry_at', 'modified_at'])
@@ -3344,8 +3344,8 @@ class ArchiveResultMachine(BaseStateMachine):
         """
         Check if this is the last ArchiveResult to finish - if so, seal the parent Snapshot.
 
-        Note: In the new architecture, SnapshotWorker handles step advancement and sealing.
-        This method is kept for backwards compatibility with manual CLI commands.
+        Note: In the new architecture, the shared runner handles step advancement and sealing.
+        This method is kept for direct model-driven edge cases.
         """
         import sys
 

@@ -122,7 +122,7 @@ def list_binaries(
 
     is_tty = sys.stdout.isatty()
 
-    queryset = Binary.objects.all().order_by('name', '-loaded_at')
+    queryset = Binary.objects.all().order_by('name', '-modified_at', '-created_at')
 
     # Apply filters
     filter_kwargs = {

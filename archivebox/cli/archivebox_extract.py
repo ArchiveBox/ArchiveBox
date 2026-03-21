@@ -31,6 +31,7 @@ __package__ = 'archivebox.cli'
 __command__ = 'archivebox extract'
 
 import sys
+from collections import defaultdict
 
 import rich_click as click
 
@@ -102,7 +103,7 @@ def run_plugins(
         TYPE_SNAPSHOT, TYPE_ARCHIVERESULT
     )
     from archivebox.core.models import Snapshot, ArchiveResult
-    from archivebox.workers.orchestrator import Orchestrator
+    from archivebox.services.runner import run_crawl
 
     is_tty = sys.stdout.isatty()
 
@@ -197,8 +198,20 @@ def run_plugins(
     # Run orchestrator if --wait (default)
     if wait:
         rprint('[blue]Running plugins...[/blue]', file=sys.stderr)
-        orchestrator = Orchestrator(exit_on_idle=True)
-        orchestrator.runloop()
+        snapshot_ids_by_crawl: dict[str, set[str]] = defaultdict(set)
+        for snapshot_id in snapshot_ids:
+            try:
+                snapshot = Snapshot.objects.only('id', 'crawl_id').get(id=snapshot_id)
+            except Snapshot.DoesNotExist:
+                continue
+            snapshot_ids_by_crawl[str(snapshot.crawl_id)].add(str(snapshot.id))
+
+        for crawl_id, crawl_snapshot_ids in snapshot_ids_by_crawl.items():
+            run_crawl(
+                crawl_id,
+                snapshot_ids=sorted(crawl_snapshot_ids),
+                selected_plugins=plugins_list or None,
+            )
 
     # Output results as JSONL (when piped) or human-readable (when TTY)
     for snapshot_id in snapshot_ids:

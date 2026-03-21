@@ -1068,21 +1068,27 @@ class HealthCheckView(View):
 def live_progress_view(request):
     """Simple JSON endpoint for live progress status - used by admin progress monitor."""
     try:
-        from archivebox.workers.orchestrator import Orchestrator
         from archivebox.crawls.models import Crawl
         from archivebox.core.models import Snapshot, ArchiveResult
         from archivebox.machine.models import Process, Machine
 
-        # Get orchestrator status
-        orchestrator_running = Orchestrator.is_running()
-        total_workers = Orchestrator().get_total_worker_count() if orchestrator_running else 0
         machine = Machine.current()
         orchestrator_proc = Process.objects.filter(
             machine=machine,
             process_type=Process.TypeChoices.ORCHESTRATOR,
             status=Process.StatusChoices.RUNNING,
         ).order_by('-started_at').first()
+        orchestrator_running = orchestrator_proc is not None
         orchestrator_pid = orchestrator_proc.pid if orchestrator_proc else None
+        total_workers = Process.objects.filter(
+            machine=machine,
+            status=Process.StatusChoices.RUNNING,
+            process_type__in=[
+                Process.TypeChoices.WORKER,
+                Process.TypeChoices.HOOK,
+                Process.TypeChoices.BINARY,
+            ],
+        ).count()
 
         # Get model counts by status
         crawls_pending = Crawl.objects.filter(status=Crawl.StatusChoices.QUEUED).count()
@@ -1128,43 +1134,27 @@ def live_progress_view(request):
 
         # Build hierarchical active crawls with nested snapshots and archive results
 
-        running_workers = Process.objects.filter(
+        running_processes = Process.objects.filter(
             machine=machine,
-            process_type=Process.TypeChoices.WORKER,
             status=Process.StatusChoices.RUNNING,
+            process_type__in=[
+                Process.TypeChoices.HOOK,
+                Process.TypeChoices.BINARY,
+            ],
         )
-        crawl_worker_pids: dict[str, int] = {}
-        snapshot_worker_pids: dict[str, int] = {}
-        for proc in running_workers:
+        crawl_process_pids: dict[str, int] = {}
+        snapshot_process_pids: dict[str, int] = {}
+        for proc in running_processes:
             env = proc.env or {}
             if not isinstance(env, dict):
                 env = {}
 
-            cmd = proc.cmd or []
-            if proc.worker_type == 'crawl':
-                crawl_id = env.get('CRAWL_ID')
-                if not crawl_id:
-                    for i, part in enumerate(cmd):
-                        if part == '--crawl-id' and i + 1 < len(cmd):
-                            crawl_id = cmd[i + 1]
-                            break
-                        if part.startswith('--crawl-id='):
-                            crawl_id = part.split('=', 1)[1]
-                            break
-                if crawl_id:
-                    crawl_worker_pids[str(crawl_id)] = proc.pid
-            elif proc.worker_type == 'snapshot':
-                snapshot_id = env.get('SNAPSHOT_ID')
-                if not snapshot_id:
-                    for i, part in enumerate(cmd):
-                        if part == '--snapshot-id' and i + 1 < len(cmd):
-                            snapshot_id = cmd[i + 1]
-                            break
-                        if part.startswith('--snapshot-id='):
-                            snapshot_id = part.split('=', 1)[1]
-                            break
-                if snapshot_id:
-                    snapshot_worker_pids[str(snapshot_id)] = proc.pid
+            crawl_id = env.get('CRAWL_ID')
+            snapshot_id = env.get('SNAPSHOT_ID')
+            if crawl_id and proc.pid:
+                crawl_process_pids.setdefault(str(crawl_id), proc.pid)
+            if snapshot_id and proc.pid:
+                snapshot_process_pids.setdefault(str(snapshot_id), proc.pid)
 
         active_crawls_qs = Crawl.objects.filter(
             status__in=[Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED]
@@ -1274,7 +1264,7 @@ def live_progress_view(request):
                     'failed_plugins': failed_plugins,
                     'pending_plugins': pending_plugins,
                     'all_plugins': all_plugins,
-                    'worker_pid': snapshot_worker_pids.get(str(snapshot.id)),
+                    'worker_pid': snapshot_process_pids.get(str(snapshot.id)),
                 })
 
             # Check if crawl can start (for debugging stuck crawls)
@@ -1303,7 +1293,7 @@ def live_progress_view(request):
                 'urls_preview': urls_preview,
                 'retry_at_future': retry_at_future,
                 'seconds_until_retry': seconds_until_retry,
-                'worker_pid': crawl_worker_pids.get(str(crawl.id)),
+                'worker_pid': crawl_process_pids.get(str(crawl.id)),
             })
 
         return JsonResponse({

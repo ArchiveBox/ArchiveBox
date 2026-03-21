@@ -1,8 +1,7 @@
 """
 Workers admin module.
 
-The orchestrator/worker system doesn't need Django admin registration
-as workers are managed via CLI commands and the orchestrator.
+Background runner processes do not need Django admin registration.
 """
 
 __package__ = 'archivebox.workers'
