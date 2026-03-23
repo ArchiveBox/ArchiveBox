@@ -948,19 +948,6 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     def cleanup(self):
         """Clean up background hooks and run on_CrawlEnd hooks."""
         from archivebox.hooks import run_hook, discover_hooks
-        from archivebox.machine.models import Process
-
-        running_hooks = Process.objects.filter(
-            process_type=Process.TypeChoices.HOOK,
-            status=Process.StatusChoices.RUNNING,
-            env__CRAWL_ID=str(self.id),
-        ).distinct()
-
-        for process in running_hooks:
-            # Use Process.kill_tree() to gracefully kill parent + children
-            killed_count = process.kill_tree(graceful_timeout=2.0)
-            if killed_count > 0:
-                print(f"[yellow]🔪 Killed {killed_count} orphaned crawl hook process(es)[/yellow]")
 
         # Clean up .pid files from output directory
         if self.output_dir.exists():

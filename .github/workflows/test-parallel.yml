@@ -104,7 +104,7 @@ jobs:
       - name: Run test - ${{ matrix.test.name }}
         run: |
           mkdir -p tests/out
-          uv run pytest -xvs "${{ matrix.test.path }}" --basetemp=tests/out --ignore=archivebox/pkgs
+          uv run --no-sync pytest -xvs "${{ matrix.test.path }}" --basetemp=tests/out --ignore=archivebox/pkgs
 
   plugin-tests:
     name: Plugin tests
@@ -155,4 +155,4 @@ jobs:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           API_KEY_2CAPTCHA: ${{ secrets.TWOCAPTCHA_API_KEY }}
         run: |
-          uv run bash ./bin/test_plugins.sh --no-coverage
+          uv run --no-sync bash ./bin/test_plugins.sh --no-coverage

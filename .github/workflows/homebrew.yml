@@ -55,7 +55,7 @@ jobs:
 
       - name: Build local sdist
         run: |
-          uv sync --frozen --all-extras --no-install-project --no-install-workspace
+          uv sync --frozen --all-extras --no-install-project --no-install-workspace --no-sources
           uv build --sdist --out-dir /tmp/sdist/
 
       - name: Generate formula from local sdist

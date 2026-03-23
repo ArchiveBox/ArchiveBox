@@ -78,11 +78,7 @@ class Command(BaseCommand):
             running = Process.objects.filter(
                 machine=machine,
                 status=Process.StatusChoices.RUNNING,
-                process_type__in=[
-                    Process.TypeChoices.ORCHESTRATOR,
-                    Process.TypeChoices.HOOK,
-                    Process.TypeChoices.BINARY,
-                ],
+                process_type=Process.TypeChoices.ORCHESTRATOR,
             )
             for proc in running:
                 try:

@@ -5,6 +5,7 @@ __package__ = "archivebox.cli"
 import sys
 import os
 import platform
+import logging
 from pathlib import Path
 from collections.abc import Iterable
 
@@ -123,28 +124,28 @@ def version(
         setup_django()
 
         from archivebox.machine.models import Machine, Binary
+        from archivebox.config.views import KNOWN_BINARIES, canonical_binary_name
+        from abx_dl.dependencies import load_binary
 
         machine = Machine.current()
 
-        # Get all binaries from the database with timeout protection
-        all_installed = (
-            Binary.objects.filter(
-                machine=machine,
-            )
-            .exclude(abspath="")
-            .exclude(abspath__isnull=True)
-            .order_by("name")
-        )
+        requested_names = {canonical_binary_name(name) for name in binaries} if binaries else set()
 
-        if not all_installed.exists():
+        db_binaries = {
+            canonical_binary_name(binary.name): binary for binary in Binary.objects.filter(machine=machine).order_by("name", "-modified_at")
+        }
+        all_binary_names = sorted(set(KNOWN_BINARIES) | set(db_binaries.keys()))
+
+        if not all_binary_names:
             prnt("", "[grey53]No binaries detected. Run [green]archivebox install[/green] to detect dependencies.[/grey53]")
         else:
-            for installed in all_installed:
-                # Skip if user specified specific binaries and this isn't one
-                if binaries and installed.name not in binaries:
+            any_available = False
+            for name in all_binary_names:
+                if requested_names and name not in requested_names:
                     continue
 
-                if installed.is_valid:
+                installed = db_binaries.get(name)
+                if installed and installed.is_valid:
                     display_path = installed.abspath.replace(str(DATA_DIR), ".").replace(str(Path("~").expanduser()), "~")
                     version_str = (installed.version or "unknown")[:15]
                     provider = (installed.binprovider or "env")[:8]
@@ -152,16 +153,51 @@ def version(
                         "",
                         "[green]√[/green]",
                         "",
-                        installed.name.ljust(18),
+                        name.ljust(18),
                         version_str.ljust(16),
                         provider.ljust(8),
                         display_path,
                         overflow="ignore",
                         crop=False,
                     )
-                else:
-                    prnt("", "[red]X[/red]", "", installed.name.ljust(18), "[grey53]not installed[/grey53]", overflow="ignore", crop=False)
-                    failures.append(installed.name)
+                    any_available = True
+                    continue
+
+                loaded = None
+                try:
+                    abx_pkg_logger = logging.getLogger("abx_pkg")
+                    previous_level = abx_pkg_logger.level
+                    abx_pkg_logger.setLevel(logging.CRITICAL)
+                    try:
+                        loaded = load_binary({"name": name, "binproviders": "env,pip,npm,brew,apt"})
+                    finally:
+                        abx_pkg_logger.setLevel(previous_level)
+                except Exception:
+                    loaded = None
+
+                if loaded and loaded.is_valid and loaded.loaded_abspath:
+                    display_path = str(loaded.loaded_abspath).replace(str(DATA_DIR), ".").replace(str(Path("~").expanduser()), "~")
+                    version_str = str(loaded.loaded_version or "unknown")[:15]
+                    provider = str(getattr(getattr(loaded, "loaded_binprovider", None), "name", "") or "env")[:8]
+                    prnt(
+                        "",
+                        "[green]√[/green]",
+                        "",
+                        name.ljust(18),
+                        version_str.ljust(16),
+                        provider.ljust(8),
+                        display_path,
+                        overflow="ignore",
+                        crop=False,
+                    )
+                    any_available = True
+                    continue
+
+                prnt("", "[red]X[/red]", "", name.ljust(18), "[grey53]not installed[/grey53]", overflow="ignore", crop=False)
+                failures.append(name)
+
+            if not any_available:
+                prnt("", "[grey53]No binaries detected. Run [green]archivebox install[/green] to detect dependencies.[/grey53]")
 
         # Show hint if no binaries are installed yet
         has_any_installed = Binary.objects.filter(machine=machine).exclude(abspath="").exists()

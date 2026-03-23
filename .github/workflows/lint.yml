@@ -28,4 +28,4 @@ jobs:
         run: uv sync --all-extras --all-groups --no-sources --no-cache
 
       - name: Run prek
-        run: uv run prek run --all-files
+        run: uv run --no-sync prek run --all-files

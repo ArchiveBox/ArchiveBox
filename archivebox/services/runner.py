@@ -58,10 +58,6 @@ def _count_selected_hooks(plugins: dict[str, Plugin], selected_plugins: list[str
     )
 
 
-def _runner_debug(message: str) -> None:
-    print(f"[runner] {message}", file=sys.stderr, flush=True)
-
-
 def _binary_env_key(name: str) -> str:
     normalized = "".join(ch if ch.isalnum() else "_" for ch in name).upper()
     return f"{normalized}_BINARY"
@@ -302,24 +298,13 @@ class CrawlRunner:
                 snapshot_ids = await sync_to_async(self._initial_snapshot_ids, thread_sensitive=True)()
                 if snapshot_ids:
                     root_snapshot_id = snapshot_ids[0]
-                    _runner_debug(f"crawl {self.crawl.id} starting crawl setup root_snapshot={root_snapshot_id}")
                     await self._run_crawl_setup(root_snapshot_id)
-                    _runner_debug(f"crawl {self.crawl.id} finished crawl setup root_snapshot={root_snapshot_id}")
                     for snapshot_id in snapshot_ids:
                         await self.enqueue_snapshot(snapshot_id)
-                    _runner_debug(f"crawl {self.crawl.id} waiting for snapshot tasks count={len(self.snapshot_tasks)}")
                     await self._wait_for_snapshot_tasks()
-                    _runner_debug(f"crawl {self.crawl.id} finished waiting for snapshot tasks")
-                    _runner_debug(f"crawl {self.crawl.id} starting django crawl.cleanup()")
-                    await sync_to_async(self.crawl.cleanup, thread_sensitive=True)()
-                    _runner_debug(f"crawl {self.crawl.id} finished django crawl.cleanup()")
-                    _runner_debug(f"crawl {self.crawl.id} starting abx crawl cleanup root_snapshot={root_snapshot_id}")
                     await self._run_crawl_cleanup(root_snapshot_id)
-                    _runner_debug(f"crawl {self.crawl.id} finished abx crawl cleanup root_snapshot={root_snapshot_id}")
                 if self.abx_services is not None:
-                    _runner_debug(f"crawl {self.crawl.id} waiting for main bus background monitors")
                     await self.abx_services.process.wait_for_background_monitors()
-                    _runner_debug(f"crawl {self.crawl.id} finished waiting for main bus background monitors")
         finally:
             await _stop_bus_trace(self.bus)
             await self.bus.stop()
@@ -551,7 +536,6 @@ class CrawlRunner:
             )
             try:
                 _attach_bus_trace(snapshot_bus)
-                _runner_debug(f"snapshot {snapshot_id} starting download()")
                 await download(
                     url=snapshot["url"],
                     plugins=self.plugins,
@@ -564,9 +548,7 @@ class CrawlRunner:
                     skip_crawl_setup=True,
                     skip_crawl_cleanup=True,
                 )
-                _runner_debug(f"snapshot {snapshot_id} finished download(), waiting for background monitors")
                 await snapshot_services.process.wait_for_background_monitors()
-                _runner_debug(f"snapshot {snapshot_id} finished waiting for background monitors")
             finally:
                 current_task = asyncio.current_task()
                 if current_task is not None and self.snapshot_tasks.get(snapshot_id) is current_task:

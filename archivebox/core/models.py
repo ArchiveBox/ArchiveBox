@@ -1689,24 +1689,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         Clean up background ArchiveResult hooks and empty results.
 
         Called by the state machine when entering the 'sealed' state.
-        Uses Process records to kill background hooks, then deletes empty ArchiveResults.
+        Deletes empty ArchiveResults after the abx-dl cleanup phase has finished.
         """
-        from archivebox.machine.models import Process
-
-        # Kill any background ArchiveResult hooks using Process records
-        # Find all running hook Processes linked to this snapshot's ArchiveResults
-        running_hooks = Process.objects.filter(
-            archiveresult__snapshot=self,
-            process_type=Process.TypeChoices.HOOK,
-            status=Process.StatusChoices.RUNNING,
-        ).distinct()
-
-        for process in running_hooks:
-            # Use Process.kill_tree() to gracefully kill parent + children
-            killed_count = process.kill_tree(graceful_timeout=2.0)
-            if killed_count > 0:
-                print(f"[yellow]🔪 Killed {killed_count} process(es) for hook {process.pid}[/yellow]")
-
         # Clean up .pid files from output directory
         if Path(self.output_dir).exists():
             for pid_file in Path(self.output_dir).glob("**/*.pid"):

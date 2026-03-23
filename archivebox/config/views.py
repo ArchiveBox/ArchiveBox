@@ -59,6 +59,9 @@ KNOWN_BINARIES = [
 CANONICAL_BINARY_ALIASES = {
     "youtube-dl": "yt-dlp",
     "ytdlp": "yt-dlp",
+    "ripgrep": "rg",
+    "singlefile": "single-file",
+    "mercury-parser": "postlight-parser",
 }
 
 

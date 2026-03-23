@@ -725,19 +725,6 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         since installations are foreground, but included for consistency).
         """
 
-        # Kill any background binary installation hooks using Process records
-        # (rarely used since binary installations are typically foreground)
-        running_hooks = Process.objects.filter(
-            binary=self,
-            process_type=Process.TypeChoices.HOOK,
-            status=Process.StatusChoices.RUNNING,
-        )
-
-        for process in running_hooks:
-            killed_count = process.kill_tree(graceful_timeout=2.0)
-            if killed_count > 0:
-                print(f"[yellow]🔪 Killed {killed_count} binary installation hook process(es)[/yellow]")
-
         # Clean up .pid files from output directory
         output_dir = self.output_dir
         if output_dir.exists():

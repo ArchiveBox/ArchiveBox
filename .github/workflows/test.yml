@@ -67,14 +67,14 @@ jobs:
       - name: Archivebox version
         run: |
           mkdir -p tests/out/data
-          DATA_DIR="$PWD/tests/out/data" uv run archivebox version
+          DATA_DIR="$PWD/tests/out/data" uv run --no-sync archivebox version
 
       - name: Test built package with pytest
         # TODO: remove this exception for windows once we get tests passing on that platform
         if: ${{ !contains(matrix.os, 'windows') }}
         run: |
           mkdir -p tests/out
-          uv run pytest -s archivebox/tests --basetemp=tests/out --ignore=archivebox/pkgs
+          uv run --no-sync pytest -s archivebox/tests --basetemp=tests/out --ignore=archivebox/pkgs
 
       - name: Run plugin tests
         if: ${{ !contains(matrix.os, 'windows') }}
@@ -83,7 +83,7 @@ jobs:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           API_KEY_2CAPTCHA: ${{ secrets.TWOCAPTCHA_API_KEY }}
         run: |
-          uv run bash ./bin/test_plugins.sh --no-coverage
+          uv run --no-sync bash ./bin/test_plugins.sh --no-coverage
 
   docker_tests:
     runs-on: ubuntu-latest
