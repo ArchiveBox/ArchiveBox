@@ -26,26 +26,14 @@ def is_redacted_env_key(key: str) -> bool:
 def redact_env(env: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(env, dict):
         return {}
-    return {
-        str(key): value
-        for key, value in env.items()
-        if key is not None and not is_redacted_env_key(str(key))
-    }
+    return {str(key): value for key, value in env.items() if key is not None and not is_redacted_env_key(str(key))}
 
 
 def env_to_dotenv_text(env: dict[str, Any] | None) -> str:
     redacted_env = redact_env(env)
-    return "\n".join(
-        f"{key}={shlex.quote(stringify_env_value(value))}"
-        for key, value in sorted(redacted_env.items())
-        if value is not None
-    )
+    return "\n".join(f"{key}={shlex.quote(stringify_env_value(value))}" for key, value in sorted(redacted_env.items()) if value is not None)
 
 
 def env_to_shell_exports(env: dict[str, Any] | None) -> str:
     redacted_env = redact_env(env)
-    return " ".join(
-        f"{key}={shlex.quote(stringify_env_value(value))}"
-        for key, value in sorted(redacted_env.items())
-        if value is not None
-    )
+    return " ".join(f"{key}={shlex.quote(stringify_env_value(value))}" for key, value in sorted(redacted_env.items()) if value is not None)

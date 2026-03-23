@@ -305,6 +305,10 @@ create_release() {
     if [[ "${version}" == *rc* ]]; then
         prerelease_args+=(--prerelease)
     fi
+    if gh release view "${TAG_PREFIX}${version}" --repo "${slug}" >/dev/null 2>&1; then
+        echo "GitHub release ${TAG_PREFIX}${version} already exists"
+        return 0
+    fi
 
     gh release create "${TAG_PREFIX}${version}" \
         --repo "${slug}" \
@@ -318,13 +322,17 @@ publish_artifacts() {
     local version="$1"
     local pypi_token="${UV_PUBLISH_TOKEN:-${PYPI_TOKEN:-${PYPI_PAT_SECRET:-}}}"
 
-    if [[ -n "${pypi_token}" ]]; then
-        UV_PUBLISH_TOKEN="${pypi_token}" uv publish --username=__token__ dist/*
-    elif [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-        uv publish --trusted-publishing always dist/*
+    if curl -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" | jq -e --arg version "${version}" '.releases[$version] | length > 0' >/dev/null 2>&1; then
+        echo "${PYPI_PACKAGE} ${version} already published on PyPI"
     else
-        echo "Missing PyPI credentials: set UV_PUBLISH_TOKEN or PYPI_TOKEN" >&2
-        return 1
+        if [[ -n "${pypi_token}" ]]; then
+            UV_PUBLISH_TOKEN="${pypi_token}" uv publish --username=__token__ dist/*
+        elif [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+            uv publish --trusted-publishing always dist/*
+        else
+            echo "Missing PyPI credentials: set UV_PUBLISH_TOKEN or PYPI_TOKEN" >&2
+            return 1
+        fi
     fi
 
     wait_for_pypi "${PYPI_PACKAGE}" "${version}"
@@ -347,15 +355,35 @@ main() {
         return 1
     fi
 
-    update_internal_dependencies
-    version="$(bump_version)"
-    run_checks
+    version="$(current_version)"
+    latest="$(latest_release_version "${slug}")"
+    if [[ -z "${latest}" ]]; then
+        relation="gt"
+    else
+        relation="$(compare_versions "${version}" "${latest}")"
+    fi
 
-    git add -A
-    git commit -m "release: ${TAG_PREFIX}${version}"
-    git push origin "${branch}"
+    if [[ "${relation}" == "eq" ]]; then
+        update_internal_dependencies
+        version="$(bump_version)"
+        run_checks
 
-    wait_for_runs "${slug}" push "$(git rev-parse HEAD)" "push"
+        git add -A
+        git commit -m "release: ${TAG_PREFIX}${version}"
+        git push origin "${branch}"
+
+        wait_for_runs "${slug}" push "$(git rev-parse HEAD)" "push"
+    elif [[ "${relation}" == "gt" ]]; then
+        if [[ -n "$(git status --short)" ]]; then
+            echo "Refusing to publish existing unreleased version ${version} with a dirty worktree" >&2
+            return 1
+        fi
+        run_checks
+        wait_for_runs "${slug}" push "$(git rev-parse HEAD)" "push"
+    else
+        echo "Current version ${version} is behind latest GitHub release ${latest}" >&2
+        return 1
+    fi
 
     publish_artifacts "${version}"
     create_release "${slug}" "${version}"

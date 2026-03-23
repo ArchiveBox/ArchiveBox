@@ -130,7 +130,7 @@ dev = [{ name = "prek", specifier = ">=0.3.6" }]
 
 [[package]]
 name = "abxbus"
-version = "2.4.7"
+version = "2.4.8"
 source = { editable = "../abxbus" }
 dependencies = [
     { name = "aiofiles", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },

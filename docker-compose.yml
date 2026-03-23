@@ -26,8 +26,8 @@ services:
             - PUBLIC_INDEX=True                 # set to False to prevent anonymous users from viewing snapshot list
             - PUBLIC_SNAPSHOTS=True             # set to False to prevent anonymous users from viewing snapshot content
             - PUBLIC_ADD_VIEW=False             # set to True to allow anonymous users to submit new URLs to archive
-            - SEARCH_BACKEND_ENGINE=sonic       # tells ArchiveBox to use sonic container below for fast full-text search
-            - SEARCH_BACKEND_HOST_NAME=sonic
+            - SEARCH_BACKEND_ENGINE=sonic       # tells ArchiveBox to use its built-in Sonic worker for fast full-text search
+            # - SEARCH_BACKEND_HOST_NAME=127.0.0.1
             - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
             # - PUID=911                        # set to your host user's UID & GID if you encounter permissions issues
             # - PGID=911                        # UID/GIDs lower than 500 may clash with system uids and are not recommended
@@ -54,20 +54,21 @@ services:
     # https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving
 
 
-    ### This runs the optional Sonic full-text search backend (much faster than default rg backend).
+    ### ArchiveBox now starts and uses Sonic automatically when SEARCH_BACKEND_ENGINE=sonic,
+    # so the old standalone docker sidecar below is no longer necessary.
     # If Sonic is ever started after not running for a while, update its full-text index by running:
     #   $ docker compose run archivebox update --index-only
     # https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Search
 
-    sonic:
-        image: archivebox/sonic:latest
-        expose:
-            - 1491
-        environment:
-            - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
-        volumes:
-            #- ./sonic.cfg:/etc/sonic.cfg:ro    # mount to customize: https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/stable/etc/sonic.cfg
-            - ./data/sonic:/var/lib/sonic/store
+    # sonic:
+    #     image: archivebox/sonic:latest
+    #     expose:
+    #         - 1491
+    #     environment:
+    #         - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
+    #     volumes:
+    #         #- ./sonic.cfg:/etc/sonic.cfg:ro    # mount to customize: https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/stable/etc/sonic.cfg
+    #         - ./data/sonic:/var/lib/sonic/store
 
 
     ### This optional container runs xvfb+noVNC so you can watch the ArchiveBox browser as it archives things,

@@ -1,8 +1,9 @@
 """archivebox/tests/conftest.py - Pytest fixtures for CLI tests."""
 
 import os
-import sys
+import secrets
 import subprocess
+import sys
 import tempfile
 import textwrap
 import time
@@ -12,12 +13,35 @@ from typing import Any
 
 import pytest
 
-from archivebox.uuid_compat import uuid7
-
 pytest_plugins = ["archivebox.tests.fixtures"]
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
 SESSION_DATA_DIR = Path(tempfile.mkdtemp(prefix="archivebox-pytest-session-")).resolve()
-os.environ.setdefault("DATA_DIR", str(SESSION_DATA_DIR))
+# Force ArchiveBox imports to see a temp DATA_DIR and cwd during test collection.
+os.environ["DATA_DIR"] = str(SESSION_DATA_DIR)
+os.environ.pop("CRAWL_DIR", None)
+os.environ.pop("SNAP_DIR", None)
+os.chdir(SESSION_DATA_DIR)
+
+
+def _is_repo_path(path: Path) -> bool:
+    resolved = path.expanduser().resolve(strict=False)
+    return resolved == REPO_ROOT or REPO_ROOT in resolved.parents
+
+
+def _assert_not_repo_path(path: Path, *, label: str) -> None:
+    if _is_repo_path(path):
+        raise AssertionError(f"{label} must not point inside the repo root during tests: {path}")
+
+
+def _assert_safe_runtime_paths(*, cwd: Path | None = None, env: dict[str, str] | None = None) -> None:
+    if cwd is not None:
+        _assert_not_repo_path(cwd, label="cwd")
+
+    for key in ("DATA_DIR", "CRAWL_DIR", "SNAP_DIR"):
+        value = (env or {}).get(key)
+        if value:
+            _assert_not_repo_path(Path(value), label=key)
 
 
 # =============================================================================
@@ -47,6 +71,7 @@ def run_archivebox_cmd(
     """
     cmd = [sys.executable, "-m", "archivebox"] + args
 
+    _assert_not_repo_path(data_dir, label="DATA_DIR")
     base_env = os.environ.copy()
     base_env["DATA_DIR"] = str(data_dir)
     base_env["USE_COLOR"] = "False"
@@ -71,6 +96,7 @@ def run_archivebox_cmd(
     if env:
         base_env.update(env)
 
+    _assert_safe_runtime_paths(cwd=data_dir, env=base_env)
     result = subprocess.run(
         cmd,
         input=stdin,
@@ -90,7 +116,7 @@ def run_archivebox_cmd(
 
 
 @pytest.fixture(autouse=True)
-def isolate_test_runtime(tmp_path):
+def isolate_test_runtime(tmp_path, monkeypatch):
     """
     Run each pytest test from an isolated temp cwd and restore env mutations.
 
@@ -104,14 +130,35 @@ def isolate_test_runtime(tmp_path):
     seed a separate session-scoped temp ``DATA_DIR`` above so any ArchiveBox
     config imported before this fixture runs never points at the repo root.
     """
+    _assert_not_repo_path(tmp_path, label="tmp_path")
     original_cwd = Path.cwd()
     original_env = os.environ.copy()
+    original_chdir = os.chdir
+    original_popen = subprocess.Popen
     os.chdir(tmp_path)
     os.environ.pop("DATA_DIR", None)
+    os.environ.pop("CRAWL_DIR", None)
+    os.environ.pop("SNAP_DIR", None)
+
+    def guarded_chdir(path: os.PathLike[str] | str) -> None:
+        _assert_not_repo_path(Path(path), label="cwd")
+        original_chdir(path)
+
+    def guarded_popen(*args: Any, **kwargs: Any):
+        cwd = kwargs.get("cwd")
+        env = kwargs.get("env")
+        if cwd is not None:
+            _assert_not_repo_path(Path(cwd), label="cwd")
+        _assert_safe_runtime_paths(cwd=Path(cwd) if cwd is not None else None, env=env)
+        return original_popen(*args, **kwargs)
+
+    monkeypatch.setattr(os, "chdir", guarded_chdir)
+    monkeypatch.setattr(subprocess, "Popen", guarded_popen)
     try:
+        _assert_safe_runtime_paths(cwd=Path.cwd(), env=os.environ)
         yield
     finally:
-        os.chdir(original_cwd)
+        original_chdir(original_cwd)
         os.environ.clear()
         os.environ.update(original_env)
 
@@ -166,14 +213,18 @@ def run_archivebox_cmd_cwd(
     """
     cmd = [sys.executable, "-m", "archivebox"] + args
 
+    _assert_not_repo_path(cwd, label="cwd")
     base_env = os.environ.copy()
     base_env.pop("DATA_DIR", None)
+    base_env.pop("CRAWL_DIR", None)
+    base_env.pop("SNAP_DIR", None)
     base_env["USE_COLOR"] = "False"
     base_env["SHOW_PROGRESS"] = "False"
 
     if env:
         base_env.update(env)
 
+    _assert_safe_runtime_paths(cwd=cwd, env=base_env)
     result = subprocess.run(
         cmd,
         input=stdin,
@@ -202,8 +253,12 @@ def run_python_cwd(
     cwd: Path,
     timeout: int = 60,
 ) -> tuple[str, str, int]:
+    _assert_not_repo_path(cwd, label="cwd")
     base_env = os.environ.copy()
     base_env.pop("DATA_DIR", None)
+    base_env.pop("CRAWL_DIR", None)
+    base_env.pop("SNAP_DIR", None)
+    _assert_safe_runtime_paths(cwd=cwd, env=base_env)
     result = subprocess.run(
         [sys.executable, "-"],
         input=script,
@@ -446,7 +501,7 @@ def assert_record_has_fields(record: dict[str, Any], required_fields: list[str])
 
 def create_test_url(domain: str = "example.com", path: str | None = None) -> str:
     """Generate unique test URL."""
-    path = path or uuid7().hex[:8]
+    path = path or secrets.token_hex(4)
     return f"https://{domain}/{path}"
 
 
