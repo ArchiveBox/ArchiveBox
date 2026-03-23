@@ -7,7 +7,7 @@ import shutil
 from typing import ClassVar, Dict, Optional, List
 from pathlib import Path
 
-from rich import print
+from rich.console import Console
 from pydantic import Field, field_validator
 
 from archivebox.config.configset import BaseConfigSet
@@ -17,6 +17,14 @@ from .version import get_COMMIT_HASH, get_BUILD_TIME, VERSION
 from .permissions import IN_DOCKER
 
 ###################### Config ##########################
+
+_STDOUT_CONSOLE = Console()
+_STDERR_CONSOLE = Console(stderr=True)
+
+
+def rprint(*args, file=None, **kwargs):
+    console = _STDERR_CONSOLE if file is sys.stderr else _STDOUT_CONSOLE
+    console.print(*args, **kwargs)
 
 
 class ShellConfig(BaseConfigSet):
@@ -185,27 +193,27 @@ def _print_server_security_mode_warning() -> None:
     if not SERVER_CONFIG.IS_LOWER_SECURITY_MODE:
         return
 
-    print(
+    rprint(
         f"[yellow][!] WARNING: ArchiveBox is running with SERVER_SECURITY_MODE={SERVER_CONFIG.SERVER_SECURITY_MODE}[/yellow]",
         file=sys.stderr,
     )
-    print(
+    rprint(
         "[yellow]    Archived pages may share an origin with privileged app routes in this mode.[/yellow]",
         file=sys.stderr,
     )
-    print(
+    rprint(
         "[yellow]    To switch to the safer isolated setup:[/yellow]",
         file=sys.stderr,
     )
-    print(
+    rprint(
         "[yellow]    1. Set SERVER_SECURITY_MODE=safe-subdomains-fullreplay[/yellow]",
         file=sys.stderr,
     )
-    print(
+    rprint(
         "[yellow]    2. Point *.archivebox.localhost (or your chosen base domain) at this server[/yellow]",
         file=sys.stderr,
     )
-    print(
+    rprint(
         "[yellow]    3. Configure wildcard DNS/TLS or your reverse proxy so admin., web., api., and snapshot subdomains resolve[/yellow]",
         file=sys.stderr,
     )
@@ -240,13 +248,13 @@ class ArchivingConfig(BaseConfigSet):
 
     def warn_if_invalid(self) -> None:
         if int(self.TIMEOUT) < 5:
-            print(f"[red][!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={self.TIMEOUT} seconds)[/red]", file=sys.stderr)
-            print("    You must allow *at least* 5 seconds for indexing and archive methods to run succesfully.", file=sys.stderr)
-            print("    (Setting it to somewhere between 30 and 3000 seconds is recommended)", file=sys.stderr)
-            print(file=sys.stderr)
-            print("    If you want to make ArchiveBox run faster, disable specific archive methods instead:", file=sys.stderr)
-            print("        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#archive-method-toggles", file=sys.stderr)
-            print(file=sys.stderr)
+            rprint(f"[red][!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={self.TIMEOUT} seconds)[/red]", file=sys.stderr)
+            rprint("    You must allow *at least* 5 seconds for indexing and archive methods to run succesfully.", file=sys.stderr)
+            rprint("    (Setting it to somewhere between 30 and 3000 seconds is recommended)", file=sys.stderr)
+            rprint(file=sys.stderr)
+            rprint("    If you want to make ArchiveBox run faster, disable specific archive methods instead:", file=sys.stderr)
+            rprint("        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#archive-method-toggles", file=sys.stderr)
+            rprint(file=sys.stderr)
 
     @field_validator("CHECK_SSL_VALIDITY", mode="after")
     def validate_check_ssl_validity(cls, v):
