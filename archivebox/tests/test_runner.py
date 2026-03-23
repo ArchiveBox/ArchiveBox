@@ -318,7 +318,9 @@ def test_installed_binary_config_overrides_include_valid_installed_binaries(monk
     monkeypatch.setattr(
         Path,
         "is_file",
-        lambda self: str(self) in {sys.executable, mercury_binary.abspath, wget_binary.abspath, puppeteer_binary.abspath, ytdlp_binary.abspath},
+        lambda self: (
+            str(self) in {sys.executable, mercury_binary.abspath, wget_binary.abspath, puppeteer_binary.abspath, ytdlp_binary.abspath}
+        ),
     )
     monkeypatch.setattr(
         runner_module.os,

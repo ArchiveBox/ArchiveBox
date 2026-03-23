@@ -110,7 +110,11 @@ def _installed_binary_config_overrides(plugins: dict[str, Plugin]) -> dict[str, 
             node_modules_dir = node_modules_dir or resolved_path.parent.parent
             npm_home = npm_home or resolved_path.parent.parent.parent
             shared_lib_dir = shared_lib_dir or resolved_path.parent.parent.parent.parent
-        elif resolved_path.parent.name == "bin" and resolved_path.parent.parent.name == "venv" and resolved_path.parent.parent.parent.name == "pip":
+        elif (
+            resolved_path.parent.name == "bin"
+            and resolved_path.parent.parent.name == "venv"
+            and resolved_path.parent.parent.parent.name == "pip"
+        ):
             pip_bin_dir = pip_bin_dir or resolved_path.parent
             pip_home = pip_home or resolved_path.parent.parent.parent
             shared_lib_dir = shared_lib_dir or resolved_path.parent.parent.parent.parent

@@ -337,11 +337,7 @@ def test_binary_create_stdout_pipes_into_run(initialized_archive):
     assert create_code == 0, create_stderr
     _assert_stdout_is_jsonl_only(create_stdout)
 
-    binary = next(
-        record
-        for record in parse_jsonl_output(create_stdout)
-        if record.get("type") in {"BinaryRequest", "Binary"}
-    )
+    binary = next(record for record in parse_jsonl_output(create_stdout) if record.get("type") in {"BinaryRequest", "Binary"})
 
     run_stdout, run_stderr, run_code = run_archivebox_cmd(
         ["run"],
@@ -353,10 +349,7 @@ def test_binary_create_stdout_pipes_into_run(initialized_archive):
     _assert_stdout_is_jsonl_only(run_stdout)
 
     run_records = parse_jsonl_output(run_stdout)
-    assert any(
-        record.get("type") in {"BinaryRequest", "Binary"} and record.get("id") == binary["id"]
-        for record in run_records
-    )
+    assert any(record.get("type") in {"BinaryRequest", "Binary"} and record.get("id") == binary["id"] for record in run_records)
 
     status = _db_value(
         initialized_archive,
