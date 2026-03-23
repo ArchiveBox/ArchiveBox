@@ -55,6 +55,7 @@ def _build_script(body: str) -> str:
         get_admin_host,
         get_api_host,
         get_web_host,
+        get_public_host,
         get_snapshot_host,
         get_original_host,
         get_listen_subdomain,
@@ -198,6 +199,7 @@ class TestUrlRouting:
             web_host = get_web_host()
             admin_host = get_admin_host()
             api_host = get_api_host()
+            public_host = get_public_host()
             snapshot_host = get_snapshot_host(snapshot_id)
             original_host = get_original_host(domain)
             base_host = SERVER_CONFIG.LISTEN_HOST
@@ -208,6 +210,7 @@ class TestUrlRouting:
             assert web_host == "web.archivebox.localhost:8000"
             assert admin_host == "admin.archivebox.localhost:8000"
             assert api_host == "api.archivebox.localhost:8000"
+            assert public_host == "public.archivebox.localhost:8000"
             assert snapshot_host == f"{snapshot_id}.archivebox.localhost:8000"
             assert original_host == f"{domain}.archivebox.localhost:8000"
             assert get_listen_subdomain(web_host) == "web"
@@ -301,6 +304,20 @@ class TestUrlRouting:
             resp = client.get(f"/{response_rel}", HTTP_HOST=original_host)
             assert resp.status_code == 200
             assert response_body(resp) == response_file.read_bytes()
+
+            resp = client.get("/index.html", HTTP_HOST=snapshot_host)
+            assert resp.status_code == 200
+            snapshot_html = response_body(resp).decode("utf-8", "ignore")
+            assert f"http://{snapshot_host}/" in snapshot_html
+            assert "See all files..." in snapshot_html
+            assert ">WARC<" not in snapshot_html
+            assert ">Media<" not in snapshot_html
+            assert ">Git<" not in snapshot_html
+
+            resp = client.get("/?files=1", HTTP_HOST=snapshot_host)
+            assert resp.status_code == 200
+            files_html = response_body(resp).decode("utf-8", "ignore")
+            assert output_rel.split("/", 1)[0] in files_html
 
             print("OK")
             """
@@ -479,6 +496,7 @@ class TestUrlRouting:
             snapshot_host = get_snapshot_host(snapshot_id)
             admin_host = get_admin_host()
             web_host = get_web_host()
+            public_host = get_public_host()
 
             client = Client()
 
@@ -491,10 +509,17 @@ class TestUrlRouting:
             assert resp.status_code == 200
             live_html = response_body(resp).decode("utf-8", "ignore")
             assert f"http://{snapshot_host}/" in live_html
-            assert "http://web.archivebox.localhost:8000" in live_html
+            assert f"http://{public_host}/static/archive.png" in live_html
+            assert ">WARC<" not in live_html
+            assert ">Media<" not in live_html
+            assert ">Git<" not in live_html
 
             static_html = Path(snapshot.output_dir, "index.html").read_text(encoding="utf-8", errors="ignore")
             assert f"http://{snapshot_host}/" in static_html
+            assert f"http://{public_host}/static/archive.png" in static_html
+            assert ">WARC<" not in static_html
+            assert ">Media<" not in static_html
+            assert ">Git<" not in static_html
 
             client.login(username="testadmin", password="testpassword")
             resp = client.get(f"/admin/core/snapshot/{snapshot_id}/change/", HTTP_HOST=admin_host)

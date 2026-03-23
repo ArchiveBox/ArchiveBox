@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from asgiref.sync import sync_to_async
-from django.utils import timezone
-
 from abx_dl.events import CrawlCleanupEvent, CrawlCompletedEvent, CrawlSetupEvent, CrawlStartEvent
 from abx_dl.services.base import BaseService
+
+from .db import run_db_op
 
 
 class CrawlService(BaseService):
@@ -15,17 +14,17 @@ class CrawlService(BaseService):
         self.crawl_id = crawl_id
         super().__init__(bus)
 
-    async def on_CrawlSetupEvent(self, event: CrawlSetupEvent) -> None:
-        await sync_to_async(self._mark_started, thread_sensitive=True)()
+    async def on_CrawlSetupEvent__Outer(self, event: CrawlSetupEvent) -> None:
+        await run_db_op(self._mark_started)
 
-    async def on_CrawlStartEvent(self, event: CrawlStartEvent) -> None:
-        await sync_to_async(self._mark_started, thread_sensitive=True)()
+    async def on_CrawlStartEvent__Outer(self, event: CrawlStartEvent) -> None:
+        await run_db_op(self._mark_started)
 
-    async def on_CrawlCleanupEvent(self, event: CrawlCleanupEvent) -> None:
-        await sync_to_async(self._mark_started, thread_sensitive=True)()
+    async def on_CrawlCleanupEvent__Outer(self, event: CrawlCleanupEvent) -> None:
+        await run_db_op(self._mark_started)
 
-    async def on_CrawlCompletedEvent(self, event: CrawlCompletedEvent) -> None:
-        await sync_to_async(self._mark_completed, thread_sensitive=True)()
+    async def on_CrawlCompletedEvent__Outer(self, event: CrawlCompletedEvent) -> None:
+        await run_db_op(self._mark_completed)
 
     def _mark_started(self) -> None:
         from archivebox.crawls.models import Crawl

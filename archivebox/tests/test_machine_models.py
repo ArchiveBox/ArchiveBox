@@ -14,7 +14,7 @@ Tests cover:
 import os
 from datetime import timedelta
 from typing import cast
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from django.test import TestCase
@@ -89,10 +89,44 @@ class TestMachineModel(TestCase):
         assert result is not None
         self.assertEqual(result.config.get('WGET_BINARY'), '/usr/bin/wget')
 
+    def test_machine_from_jsonl_strips_legacy_chromium_version(self):
+        """Machine.from_json() should ignore legacy browser version keys."""
+        Machine.current()  # Ensure machine exists
+        record = {
+            'config': {
+                'WGET_BINARY': '/usr/bin/wget',
+                'CHROMIUM_VERSION': '123.4.5',
+            },
+        }
+
+        result = Machine.from_json(record)
+
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(result.config.get('WGET_BINARY'), '/usr/bin/wget')
+        self.assertNotIn('CHROMIUM_VERSION', result.config)
+
     def test_machine_from_jsonl_invalid(self):
         """Machine.from_json() should return None for invalid records."""
         result = Machine.from_json({'invalid': 'record'})
         self.assertIsNone(result)
+
+    def test_machine_current_strips_legacy_chromium_version(self):
+        """Machine.current() should clean legacy browser version keys from persisted config."""
+        import archivebox.machine.models as models
+
+        machine = Machine.current()
+        machine.config = {
+            'CHROME_BINARY': '/tmp/chromium',
+            'CHROMIUM_VERSION': '123.4.5',
+        }
+        machine.save(update_fields=['config'])
+        models._CURRENT_MACHINE = machine
+
+        refreshed = Machine.current()
+
+        self.assertEqual(refreshed.config.get('CHROME_BINARY'), '/tmp/chromium')
+        self.assertNotIn('CHROMIUM_VERSION', refreshed.config)
 
     def test_machine_manager_current(self):
         """Machine.objects.current() should return current machine."""
@@ -130,6 +164,36 @@ class TestNetworkInterfaceModel(TestCase):
         """NetworkInterface.objects.current() should return current interface."""
         interface = NetworkInterface.current()
         self.assertIsNotNone(interface)
+
+    def test_networkinterface_current_refresh_creates_new_interface_when_properties_change(self):
+        """Refreshing should persist a new NetworkInterface row when the host network fingerprint changes."""
+        import archivebox.machine.models as models
+
+        first = {
+            'mac_address': 'aa:bb:cc:dd:ee:01',
+            'ip_public': '1.1.1.1',
+            'ip_local': '192.168.1.10',
+            'dns_server': '8.8.8.8',
+            'hostname': 'host-a',
+            'iface': 'en0',
+            'isp': 'ISP A',
+            'city': 'City',
+            'region': 'Region',
+            'country': 'Country',
+        }
+        second = {
+            **first,
+            'ip_public': '2.2.2.2',
+            'ip_local': '10.0.0.5',
+        }
+
+        with patch.object(models, 'get_host_network', side_effect=[first, second]):
+            interface1 = NetworkInterface.current(refresh=True)
+            interface2 = NetworkInterface.current(refresh=True)
+
+        self.assertNotEqual(interface1.id, interface2.id)
+        self.assertEqual(interface1.machine_id, interface2.machine_id)
+        self.assertEqual(NetworkInterface.objects.filter(machine=interface1.machine).count(), 2)
 
 
 class TestBinaryModel(TestCase):
@@ -360,6 +424,8 @@ class TestProcessCurrent(TestCase):
         self.assertEqual(proc.pid, os.getpid())
         self.assertEqual(proc.status, Process.StatusChoices.RUNNING)
         self.assertIsNotNone(proc.machine)
+        self.assertIsNotNone(proc.iface)
+        self.assertEqual(proc.iface.machine_id, proc.machine_id)
         self.assertIsNotNone(proc.started_at)
 
     def test_process_current_caches(self):
@@ -375,6 +441,12 @@ class TestProcessCurrent(TestCase):
             result = Process._detect_process_type()
             self.assertEqual(result, Process.TypeChoices.ORCHESTRATOR)
 
+    def test_process_detect_type_runner_watch(self):
+        """runner_watch should be classified as a worker, not the orchestrator itself."""
+        with patch('sys.argv', ['archivebox', 'manage', 'runner_watch', '--pidfile=/tmp/runserver.pid']):
+            result = Process._detect_process_type()
+            self.assertEqual(result, Process.TypeChoices.WORKER)
+
     def test_process_detect_type_cli(self):
         """_detect_process_type should detect CLI commands."""
         with patch('sys.argv', ['archivebox', 'add', 'http://example.com']):
@@ -386,6 +458,27 @@ class TestProcessCurrent(TestCase):
         with patch('sys.argv', ['/usr/bin/wget', 'https://example.com']):
             result = Process._detect_process_type()
             self.assertEqual(result, Process.TypeChoices.BINARY)
+
+    def test_process_proc_allows_interpreter_wrapped_script(self):
+        """Process.proc should accept a script recorded in DB when wrapped by an interpreter in psutil."""
+        proc = Process.objects.create(
+            machine=Machine.current(),
+            cmd=['/tmp/on_Crawl__90_chrome_launch.daemon.bg.js', '--url=https://example.com/'],
+            pid=12345,
+            status=Process.StatusChoices.RUNNING,
+            started_at=timezone.now(),
+        )
+
+        os_proc = Mock()
+        os_proc.create_time.return_value = proc.started_at.timestamp()
+        os_proc.cmdline.return_value = [
+            'node',
+            '/tmp/on_Crawl__90_chrome_launch.daemon.bg.js',
+            '--url=https://example.com/',
+        ]
+
+        with patch('archivebox.machine.models.psutil.Process', return_value=os_proc):
+            self.assertIs(proc.proc, os_proc)
 
 
 class TestProcessHierarchy(TestCase):

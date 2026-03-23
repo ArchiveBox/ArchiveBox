@@ -902,9 +902,9 @@
             <div class="header-top">
                 <div class="header-nav">
                     <div class="header-col header-left" style="line-height: 58px; vertical-align: middle">
-                        <a href="/" class="header-archivebox" title="Go to Main Index...">
-                            {% web_base_url as web_base %}
-                            <img src="{% if web_base %}//{{ web_base|cut:'http://'|cut:'https://' }}/static/archive.png{% else %}{% static 'archive.png' %}{% endif %}" alt="Archive Icon">
+                        {% public_base_url as public_base %}
+                        <a href="{% if public_base %}{{ public_base }}/public/{% else %}/{% endif %}" class="header-archivebox" title="Go to Public Index...">
+                            <img src="{% if public_base %}{{ public_base }}/static/archive.png{% else %}{% static 'archive.png' %}{% endif %}" alt="Archive Icon">
                             ArchiveBox
                         </a>
                     </div>
@@ -996,8 +996,7 @@
                         <br/>
                         <div class="external-links">
                             📁 &nbsp;
-                            <a href="{% snapshot_base_url snapshot %}/?files=1" title="Browse files for this snapshot" target="_blank">FILES</a> &nbsp;|&nbsp; 🗃️ 
-                            <a href="{% snapshot_url snapshot warc_path %}" title="Download the ArchiveBox-generated WARC file" target="_blank">WARC</a>  &nbsp;|&nbsp; 
+                            <a href="{% snapshot_base_url snapshot %}/?files=1" title="Browse the full SNAP_DIR for this snapshot" target="_blank">See all files...</a> &nbsp;|&nbsp;
                             <a href="https://web.archive.org/web/{{url}}" title="Search for a copy of the URL saved in Archive.org" target="_blank" rel="noreferrer">🏛️ Archive.org</a>
                             <!--<a href="https://archive.md/{{url}}" title="Search for a copy of the URL saved in Archive.today" target="_blank" rel="noreferrer">Archive.today</a>  &nbsp;|&nbsp; -->
                             <!--<a href="https://ghostarchive.org/search?term={{url}}" title="Search for a copy of the URL saved in GhostArchive.org" target="_blank" rel="noreferrer">More...</a>-->
@@ -1010,7 +1009,7 @@
                     
                     
                     {% for result in archiveresults %}
-                        {% with display_path=result.path|default:result.result.embed_path display_url='' %}
+                        {% with display_path=result.path display_url='' %}
                         {% if display_path %}{% snapshot_url snapshot display_path as display_url %}{% endif %}
                         <div class="thumb-card{% if forloop.first %} selected-card{% endif %}"{% if display_url %} data-preview-url="{{display_url}}"{% endif %}>
                                 <div class="thumb-body">

@@ -1,4 +1,4 @@
-{% load static tz admin_urls %}
+{% load static tz admin_urls core_tags %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -9,6 +9,10 @@
         <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
         <link rel="stylesheet" href="{% static 'admin.css' %}">
         <link rel="stylesheet" href="{% static 'bootstrap.min.css' %}">
+        {% api_token as api_token %}
+        <script>
+            window.ARCHIVEBOX_API_KEY = "{{ api_token|escapejs }}";
+        </script>
         
         <script src="{% static 'jquery.min.js' %}"></script>
         {% block extra_head %}

@@ -706,14 +706,14 @@
             ? Math.max(0, Math.min(100, extractor.progress))
             : null;
         const progressStyle = progress !== null ? ` style="width: ${progress}%;"` : '';
-        const pidHtml = extractor.pid ? `<span class="pid-label compact">pid ${extractor.pid}</span>` : '';
+        const pidHtml = extractor.status === 'started' && extractor.pid ? `<span class="pid-label compact">pid ${extractor.pid}</span>` : '';
 
         return `
             <span class="extractor-badge ${extractor.status || 'queued'}">
                 <span class="progress-fill"${progressStyle}></span>
                 <span class="badge-content">
                     <span class="badge-icon">${icon}</span>
-                    <span>${extractor.plugin || 'unknown'}</span>
+                    <span>${extractor.label || extractor.plugin || 'unknown'}</span>
                     ${pidHtml}
                 </span>
             </span>
@@ -742,6 +742,23 @@
             `;
         }
 
+        const hasProcessEntries = (snapshot.all_plugins || []).some(extractor => extractor.source === 'process');
+        const hasArchiveResults = (snapshot.all_plugins || []).some(extractor => extractor.source === 'archiveresult');
+        const processOnly = hasProcessEntries && !hasArchiveResults;
+        const runningProcessCount = (snapshot.all_plugins || []).filter(extractor => extractor.source === 'process' && extractor.status === 'started').length;
+        const failedProcessCount = (snapshot.all_plugins || []).filter(extractor => extractor.source === 'process' && extractor.status === 'failed').length;
+        const snapshotMeta = (snapshot.total_plugins || 0) > 0
+            ? processOnly
+                ? runningProcessCount > 0
+                    ? `Running ${runningProcessCount}/${snapshot.total_plugins || 0} setup hooks`
+                    : failedProcessCount > 0
+                        ? `${failedProcessCount} setup hook${failedProcessCount === 1 ? '' : 's'} failed`
+                        : `${snapshot.completed_plugins || 0}/${snapshot.total_plugins || 0} setup hooks`
+                : hasProcessEntries
+                    ? `${snapshot.completed_plugins || 0}/${snapshot.total_plugins || 0} tasks${(snapshot.failed_plugins || 0) > 0 ? ` <span style="color:#f85149">(${snapshot.failed_plugins} failed)</span>` : ''}${runningProcessCount > 0 ? ` <span style="color:#d29922">(${runningProcessCount} hooks running)</span>` : ''}`
+                    : `${snapshot.completed_plugins || 0}/${snapshot.total_plugins || 0} extractors${(snapshot.failed_plugins || 0) > 0 ? ` <span style="color:#f85149">(${snapshot.failed_plugins} failed)</span>` : ''}`
+            : 'Waiting for extractors...';
+
         return `
             <div class="snapshot-item">
                 <div class="snapshot-header">
@@ -750,9 +767,7 @@
                         <div class="snapshot-info">
                             <div class="snapshot-url">${formatUrl(snapshot.url)}</div>
                             <div class="snapshot-meta">
-                                ${(snapshot.total_plugins || 0) > 0
-                                    ? `${snapshot.completed_plugins || 0}/${snapshot.total_plugins || 0} extractors${(snapshot.failed_plugins || 0) > 0 ? ` <span style="color:#f85149">(${snapshot.failed_plugins} failed)</span>` : ''}`
-                                    : 'Waiting for extractors...'}
+                                ${snapshotMeta}
                             </div>
                         </div>
                         ${snapshotPidHtml}
@@ -762,7 +777,7 @@
                 </div>
                 <div class="snapshot-progress">
                     <div class="progress-bar-container">
-                        <div class="progress-bar snapshot ${snapshot.status === 'started' && (snapshot.progress || 0) === 0 ? 'indeterminate' : ''}"
+                        <div class="progress-bar snapshot ${((processOnly && runningProcessCount > 0) || (snapshot.status === 'started' && (snapshot.progress || 0) === 0)) ? 'indeterminate' : ''}"
                              style="width: ${snapshot.progress || 0}%"></div>
                     </div>
                 </div>
@@ -783,6 +798,29 @@
         let snapshotsHtml = '';
         if (crawl.active_snapshots && crawl.active_snapshots.length > 0) {
             snapshotsHtml = crawl.active_snapshots.map(s => renderSnapshot(s, crawl.id)).join('');
+        }
+        let setupHtml = '';
+        if (crawl.setup_plugins && crawl.setup_plugins.length > 0) {
+            const setupSummary = `${crawl.setup_completed_plugins || 0}/${crawl.setup_total_plugins || 0} setup tasks${(crawl.setup_failed_plugins || 0) > 0 ? ` <span style="color:#f85149">(${crawl.setup_failed_plugins} failed)</span>` : ''}`;
+            const sortedSetup = [...crawl.setup_plugins].sort((a, b) =>
+                (a.plugin || '').localeCompare(b.plugin || '')
+            );
+            setupHtml = `
+                <div class="snapshot-item">
+                    <div class="snapshot-header">
+                        <div class="snapshot-header-link">
+                            <span class="snapshot-icon">&#9881;</span>
+                            <div class="snapshot-info">
+                                <div class="snapshot-url">Crawl Setup</div>
+                                <div class="snapshot-meta">${setupSummary}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="extractor-list">
+                        ${sortedSetup.map(e => renderExtractor(e)).join('')}
+                    </div>
+                </div>
+            `;
         }
 
         // Show warning if crawl is stuck (queued but can't start)
@@ -847,6 +885,7 @@
                 ${warningHtml}
                 <div class="crawl-body">
                     <div class="snapshot-list">
+                        ${setupHtml}
                         ${snapshotsHtml}
                     </div>
                 </div>

@@ -19,12 +19,19 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         import os
-        import subprocess
-        import sys
         import time
+
+        import psutil
 
         from archivebox.config.common import STORAGE_CONFIG
         from archivebox.machine.models import Machine, Process
+        from archivebox.workers.supervisord_util import (
+            RUNNER_WORKER,
+            get_existing_supervisord_process,
+            get_worker,
+            start_worker,
+            stop_worker,
+        )
 
         pidfile = kwargs.get("pidfile") or os.environ.get("ARCHIVEBOX_RUNSERVER_PIDFILE")
         if not pidfile:
@@ -32,11 +39,38 @@ class Command(BaseCommand):
 
         interval = max(0.2, float(kwargs.get("interval", 1.0)))
         last_pid = None
-        runner_proc: subprocess.Popen[bytes] | None = None
+
+        def stop_duplicate_watchers() -> None:
+            current_pid = os.getpid()
+            for proc in psutil.process_iter(["pid", "cmdline"]):
+                if proc.info["pid"] == current_pid:
+                    continue
+                cmdline = proc.info.get("cmdline") or []
+                if not cmdline:
+                    continue
+                if "runner_watch" not in " ".join(cmdline):
+                    continue
+                if not any(str(arg) == f"--pidfile={pidfile}" or str(arg) == pidfile for arg in cmdline):
+                    continue
+                try:
+                    proc.terminate()
+                    proc.wait(timeout=2.0)
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.TimeoutExpired):
+                    try:
+                        proc.kill()
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+
+        def get_supervisor():
+            supervisor = get_existing_supervisord_process()
+            if supervisor is None:
+                raise RuntimeError("runner_watch requires a running supervisord process")
+            return supervisor
+
+        stop_duplicate_watchers()
+        start_worker(get_supervisor(), RUNNER_WORKER, lazy=True)
 
         def restart_runner() -> None:
-            nonlocal runner_proc
-
             Process.cleanup_stale_running()
             machine = Machine.current()
 
@@ -55,29 +89,18 @@ class Command(BaseCommand):
                 except Exception:
                     continue
 
-            if runner_proc and runner_proc.poll() is None:
-                try:
-                    runner_proc.terminate()
-                    runner_proc.wait(timeout=2.0)
-                except Exception:
-                    try:
-                        runner_proc.kill()
-                    except Exception:
-                        pass
+            supervisor = get_supervisor()
 
-            runner_proc = subprocess.Popen(
-                [sys.executable, '-m', 'archivebox', 'run', '--daemon'],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
+            try:
+                stop_worker(supervisor, RUNNER_WORKER["name"])
+            except Exception:
+                pass
+
+            start_worker(supervisor, RUNNER_WORKER)
 
         def runner_running() -> bool:
-            return Process.objects.filter(
-                machine=Machine.current(),
-                status=Process.StatusChoices.RUNNING,
-                process_type=Process.TypeChoices.ORCHESTRATOR,
-            ).exists()
+            proc = get_worker(get_supervisor(), RUNNER_WORKER["name"])
+            return bool(proc and proc.get("statename") == "RUNNING")
 
         while True:
             try:

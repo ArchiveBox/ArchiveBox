@@ -145,17 +145,25 @@ def process_stdin_records() -> int:
                     try:
                         archiveresult = ArchiveResult.objects.get(id=record_id)
                     except ArchiveResult.DoesNotExist:
-                        archiveresult = ArchiveResult.from_json(record)
+                        archiveresult = None
                 else:
-                    # New archiveresult - create it
-                    archiveresult = ArchiveResult.from_json(record)
+                    archiveresult = None
 
+                snapshot_id = record.get('snapshot_id')
+                plugin_name = record.get('plugin')
+                snapshot = None
                 if archiveresult:
-                    archiveresult.retry_at = timezone.now()
-                    if archiveresult.status in [ArchiveResult.StatusChoices.FAILED, ArchiveResult.StatusChoices.SKIPPED, ArchiveResult.StatusChoices.BACKOFF]:
-                        archiveresult.status = ArchiveResult.StatusChoices.QUEUED
-                    archiveresult.save()
+                    if archiveresult.status in [ArchiveResult.StatusChoices.FAILED, ArchiveResult.StatusChoices.SKIPPED, ArchiveResult.StatusChoices.NORESULTS, ArchiveResult.StatusChoices.BACKOFF]:
+                        archiveresult.reset_for_retry()
                     snapshot = archiveresult.snapshot
+                    plugin_name = plugin_name or archiveresult.plugin
+                elif snapshot_id:
+                    try:
+                        snapshot = Snapshot.objects.get(id=snapshot_id)
+                    except Snapshot.DoesNotExist:
+                        snapshot = None
+
+                if snapshot:
                     snapshot.retry_at = timezone.now()
                     if snapshot.status != Snapshot.StatusChoices.STARTED:
                         snapshot.status = Snapshot.StatusChoices.QUEUED
@@ -167,9 +175,9 @@ def process_stdin_records() -> int:
                     crawl.save(update_fields=['status', 'retry_at', 'modified_at'])
                     crawl_id = str(snapshot.crawl_id)
                     snapshot_ids_by_crawl[crawl_id].add(str(snapshot.id))
-                    if archiveresult.plugin:
-                        plugin_names_by_crawl[crawl_id].add(archiveresult.plugin)
-                    output_records.append(archiveresult.to_json())
+                    if plugin_name:
+                        plugin_names_by_crawl[crawl_id].add(str(plugin_name))
+                    output_records.append(record if not archiveresult else archiveresult.to_json())
                     queued_count += 1
 
             elif record_type == TYPE_BINARY:
@@ -234,9 +242,11 @@ def run_runner(daemon: bool = False) -> int:
     """
     from django.utils import timezone
     from archivebox.machine.models import Machine, Process
-    from archivebox.services.runner import run_pending_crawls
+    from archivebox.services.runner import recover_orphaned_crawls, recover_orphaned_snapshots, run_pending_crawls
 
     Process.cleanup_stale_running()
+    recover_orphaned_snapshots()
+    recover_orphaned_crawls()
     Machine.current()
     current = Process.current()
     if current.process_type != Process.TypeChoices.ORCHESTRATOR:
@@ -304,6 +314,13 @@ def main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str):
             import traceback
             traceback.print_exc()
             sys.exit(1)
+
+    if daemon:
+        if not sys.stdin.isatty():
+            exit_code = process_stdin_records()
+            if exit_code != 0:
+                sys.exit(exit_code)
+        sys.exit(run_runner(daemon=True))
 
     if not sys.stdin.isatty():
         sys.exit(process_stdin_records())

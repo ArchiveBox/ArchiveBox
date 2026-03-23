@@ -6,8 +6,9 @@ from django.views.generic.base import RedirectView
 from .v1_api import urls as v1_api_urls
 
 urlpatterns = [
-    path("",                 RedirectView.as_view(url='/api/v1')),
+    path("",                 RedirectView.as_view(url='/api/v1/docs')),
 
+    path("v1/",              RedirectView.as_view(url='/api/v1/docs')),
     path("v1/",              v1_api_urls),
     path("v1",               RedirectView.as_view(url='/api/v1/docs')),
 

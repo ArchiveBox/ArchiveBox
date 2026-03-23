@@ -3,15 +3,48 @@
 __package__ = 'archivebox.cli'
 
 from typing import Iterable
-import os
 import sys
-import subprocess
 
 import rich_click as click
 from rich import print
 
 from archivebox.misc.util import docstring, enforce_types
 from archivebox.config.common import SERVER_CONFIG
+
+
+def stop_existing_background_runner(*, machine, process_model, supervisor=None, stop_worker_fn=None, log=print) -> int:
+    """Stop any existing orchestrator process so the server can take ownership."""
+    process_model.cleanup_stale_running(machine=machine)
+
+    running_runners = list(process_model.objects.filter(
+        machine=machine,
+        status=process_model.StatusChoices.RUNNING,
+        process_type=process_model.TypeChoices.ORCHESTRATOR,
+    ).order_by('created_at'))
+
+    if not running_runners:
+        return 0
+
+    log('[yellow][*] Stopping existing ArchiveBox background runner...[/yellow]')
+
+    if supervisor is not None and stop_worker_fn is not None:
+        for worker_name in ('worker_runner', 'worker_runner_watch'):
+            try:
+                stop_worker_fn(supervisor, worker_name)
+            except Exception:
+                pass
+
+    for proc in running_runners:
+        try:
+            proc.kill_tree(graceful_timeout=2.0)
+        except Exception:
+            try:
+                proc.terminate(graceful_timeout=2.0)
+            except Exception:
+                pass
+
+    process_model.cleanup_stale_running(machine=machine)
+    return len(running_runners)
 
 
 @enforce_types
@@ -39,25 +72,6 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
     if debug or reload:
         SHELL_CONFIG.DEBUG = True
 
-    if run_in_debug:
-        os.environ['ARCHIVEBOX_RUNSERVER'] = '1'
-        if reload:
-            os.environ['ARCHIVEBOX_AUTORELOAD'] = '1'
-            from archivebox.config.common import STORAGE_CONFIG
-            pidfile = str(STORAGE_CONFIG.TMP_DIR / 'runserver.pid')
-            os.environ['ARCHIVEBOX_RUNSERVER_PIDFILE'] = pidfile
-
-            from django.utils.autoreload import DJANGO_AUTORELOAD_ENV
-            is_reloader_child = os.environ.get(DJANGO_AUTORELOAD_ENV) == 'true'
-            if not is_reloader_child:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    [sys.executable, '-m', 'archivebox', 'manage', 'runner_watch', f'--pidfile={pidfile}'],
-                    env=env,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-
     from django.contrib.auth.models import User
     
     if not User.objects.filter(is_superuser=True).exclude(username='system').exists():
@@ -81,73 +95,62 @@ def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
     except IndexError:
         pass
 
+    from archivebox.workers.supervisord_util import (
+        get_existing_supervisord_process,
+        get_worker,
+        stop_worker,
+        start_server_workers,
+        is_port_in_use,
+    )
+    from archivebox.machine.models import Machine, Process
+
+    # Check if port is already in use
+    if is_port_in_use(host, int(port)):
+        print(f'[red][X] Error: Port {port} is already in use[/red]')
+        print(f'    Another process (possibly daphne or runserver) is already listening on {host}:{port}')
+        print('    Stop the conflicting process or choose a different port')
+        sys.exit(1)
+
+    machine = Machine.current()
+    stop_existing_background_runner(
+        machine=machine,
+        process_model=Process,
+        supervisor=get_existing_supervisord_process(),
+        stop_worker_fn=stop_worker,
+    )
+
+    supervisor = get_existing_supervisord_process()
+    if supervisor:
+        server_worker_name = 'worker_runserver' if run_in_debug else 'worker_daphne'
+        server_proc = get_worker(supervisor, server_worker_name)
+        server_state = server_proc.get('statename') if isinstance(server_proc, dict) else None
+        if server_state == 'RUNNING':
+            runner_proc = get_worker(supervisor, 'worker_runner')
+            runner_watch_proc = get_worker(supervisor, 'worker_runner_watch')
+            runner_state = runner_proc.get('statename') if isinstance(runner_proc, dict) else None
+            runner_watch_state = runner_watch_proc.get('statename') if isinstance(runner_watch_proc, dict) else None
+            print('[red][X] Error: ArchiveBox server is already running[/red]')
+            print(f'    [green]√[/green] Web server ({server_worker_name}) is RUNNING on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link][/deep_sky_blue4]')
+            if runner_state == 'RUNNING':
+                print('    [green]√[/green] Background runner (worker_runner) is RUNNING')
+            if runner_watch_state == 'RUNNING':
+                print('    [green]√[/green] Reload watcher (worker_runner_watch) is RUNNING')
+            print()
+            print('[yellow]To stop the existing server, run:[/yellow]')
+            print('    pkill -f "archivebox server"')
+            print('    pkill -f supervisord')
+            sys.exit(1)
+
     if run_in_debug:
-        from django.core.management import call_command
         print('[green][+] Starting ArchiveBox webserver in DEBUG mode...[/green]')
-        print(f'    [blink][green]>[/green][/blink] Starting ArchiveBox webserver on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link][/deep_sky_blue4]')
-        print(f'    [green]>[/green] Log in to ArchiveBox Admin UI on [deep_sky_blue3][link=http://{host}:{port}/admin]http://{host}:{port}/admin[/link][/deep_sky_blue3]')
-        print('    > Writing ArchiveBox error log to ./logs/errors.log')
-        if not reload:
-            runserver_args.append('--noreload')  # '--insecure'
-        if nothreading:
-            runserver_args.append('--nothreading')
-        call_command("runserver", *runserver_args)
     else:
-        from archivebox.workers.supervisord_util import (
-            get_existing_supervisord_process,
-            get_worker,
-            start_server_workers,
-            is_port_in_use,
-        )
-        from archivebox.machine.models import Machine, Process
-
-        # Check if port is already in use
-        if is_port_in_use(host, int(port)):
-            print(f'[red][X] Error: Port {port} is already in use[/red]')
-            print(f'    Another process (possibly daphne) is already listening on {host}:{port}')
-            print('    Stop the conflicting process or choose a different port')
-            sys.exit(1)
-
-        # Check if the background crawl runner is already running for this data directory
-        if Process.objects.filter(
-            machine=Machine.current(),
-            status=Process.StatusChoices.RUNNING,
-            process_type=Process.TypeChoices.ORCHESTRATOR,
-        ).exists():
-            print('[red][X] Error: ArchiveBox background runner is already running for this data directory[/red]')
-            print('    Stop the existing runner before starting a new server')
-            print('    To stop: pkill -f "archivebox run --daemon"')
-            sys.exit(1)
-
-        # Check if supervisord is already running
-        supervisor = get_existing_supervisord_process()
-        if supervisor:
-            daphne_proc = get_worker(supervisor, 'worker_daphne')
-            daphne_state = daphne_proc.get('statename') if isinstance(daphne_proc, dict) else None
-
-            # If daphne is already running, error out
-            if daphne_state == 'RUNNING':
-                runner_proc = get_worker(supervisor, 'worker_runner')
-                runner_state = runner_proc.get('statename') if isinstance(runner_proc, dict) else None
-                print('[red][X] Error: ArchiveBox server is already running[/red]')
-                print(f'    [green]√[/green] Web server (worker_daphne) is RUNNING on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link][/deep_sky_blue4]')
-                if runner_state == 'RUNNING':
-                    print('    [green]√[/green] Background runner (worker_runner) is RUNNING')
-                print()
-                print('[yellow]To stop the existing server, run:[/yellow]')
-                print('    pkill -f "archivebox server"')
-                print('    pkill -f supervisord')
-                sys.exit(1)
-            # Otherwise, daphne is not running - fall through to start it
-
-        # No existing workers found - start new ones
         print('[green][+] Starting ArchiveBox webserver...[/green]')
-        print(f'    [blink][green]>[/green][/blink] Starting ArchiveBox webserver on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link][/deep_sky_blue4]')
-        print(f'    [green]>[/green] Log in to ArchiveBox Admin UI on [deep_sky_blue3][link=http://{host}:{port}/admin]http://{host}:{port}/admin[/link][/deep_sky_blue3]')
-        print('    > Writing ArchiveBox error log to ./logs/errors.log')
-        print()
-        start_server_workers(host=host, port=port, daemonize=daemonize)
-        print("\n[i][green][🟩] ArchiveBox server shut down gracefully.[/green][/i]")
+    print(f'    [blink][green]>[/green][/blink] Starting ArchiveBox webserver on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link][/deep_sky_blue4]')
+    print(f'    [green]>[/green] Log in to ArchiveBox Admin UI on [deep_sky_blue3][link=http://{host}:{port}/admin]http://{host}:{port}/admin[/link][/deep_sky_blue3]')
+    print('    > Writing ArchiveBox error log to ./logs/errors.log')
+    print()
+    start_server_workers(host=host, port=port, daemonize=daemonize, debug=run_in_debug, reload=reload, nothreading=nothreading)
+    print("\n[i][green][🟩] ArchiveBox server shut down gracefully.[/green][/i]")
 
 
 @click.command()

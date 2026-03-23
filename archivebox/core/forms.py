@@ -1,12 +1,16 @@
 __package__ = 'archivebox.core'
 
 from django import forms
+from django.utils.html import format_html
 
-from archivebox.misc.util import URL_REGEX
+from archivebox.misc.util import URL_REGEX, find_all_urls
 from taggit.utils import edit_string_for_tags, parse_tags
 from archivebox.base_models.admin import KeyValueWidget
 from archivebox.crawls.schedule_utils import validate_schedule
-from archivebox.hooks import get_plugins
+from archivebox.config.common import SEARCH_BACKEND_CONFIG
+from archivebox.core.widgets import TagEditorWidget, URLFiltersWidget
+from archivebox.hooks import get_plugins, discover_plugin_configs, get_plugin_icon
+from archivebox.personas.models import Persona
 
 DEPTH_CHOICES = (
     ('0', 'depth = 0 (archive just these URLs)'),
@@ -22,6 +26,22 @@ def get_plugin_choices():
     return [(name, name) for name in get_plugins()]
 
 
+def get_plugin_choice_label(plugin_name: str, plugin_configs: dict[str, dict]) -> str:
+    schema = plugin_configs.get(plugin_name, {})
+    description = str(schema.get('description') or '').strip()
+    if not description:
+        return plugin_name
+    icon_html = get_plugin_icon(plugin_name)
+
+    return format_html(
+        '<span class="plugin-choice-icon">{}</span><span class="plugin-choice-name">{}</span><a class="plugin-choice-description" href="https://archivebox.github.io/abx-plugins/#{}" target="_blank" rel="noopener noreferrer">{}</a>',
+        icon_html,
+        plugin_name,
+        plugin_name,
+        description,
+    )
+
+
 def get_choice_field(form: forms.Form, name: str) -> forms.ChoiceField:
     field = form.fields[name]
     if not isinstance(field, forms.ChoiceField):
@@ -31,22 +51,19 @@ def get_choice_field(form: forms.Form, name: str) -> forms.ChoiceField:
 
 class AddLinkForm(forms.Form):
     # Basic fields
-    url = forms.RegexField(
-        label="URLs (one per line)",
-        regex=URL_REGEX,
-        min_length=6,
+    url = forms.CharField(
+        label="URLs",
         strip=True,
-        widget=forms.Textarea,
+        widget=forms.Textarea(attrs={
+            'data-url-regex': URL_REGEX.pattern,
+        }),
         required=True
     )
     tag = forms.CharField(
-        label="Tags (comma separated tag1,tag2,tag3)",
+        label="Tags",
         strip=True,
         required=False,
-        widget=forms.TextInput(attrs={
-            'list': 'tag-datalist',
-            'autocomplete': 'off',
-        })
+        widget=TagEditorWidget(),
     )
     depth = forms.ChoiceField(
         label="Archive depth",
@@ -58,10 +75,14 @@ class AddLinkForm(forms.Form):
         label="Notes",
         strip=True,
         required=False,
-        widget=forms.Textarea(attrs={
-            'rows': 3,
-            'placeholder': 'Optional notes about this crawl (e.g., purpose, project name, context...)',
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Optional notes about this crawl',
         })
+    )
+    url_filters = forms.Field(
+        label="URL allowlist / denylist",
+        required=False,
+        widget=URLFiltersWidget(source_selector='textarea[name="url"]'),
     )
 
     # Plugin groups
@@ -111,24 +132,15 @@ class AddLinkForm(forms.Form):
             'placeholder': 'e.g., daily, weekly, 0 */6 * * * (every 6 hours)',
         })
     )
-    persona = forms.CharField(
+    persona = forms.ModelChoiceField(
         label="Persona (authentication profile)",
-        max_length=100,
-        initial='Default',
         required=False,
-    )
-    overwrite = forms.BooleanField(
-        label="Overwrite existing snapshots",
-        initial=False,
-        required=False,
-    )
-    update = forms.BooleanField(
-        label="Update/retry previously failed URLs",
-        initial=False,
-        required=False,
+        queryset=Persona.objects.none(),
+        empty_label=None,
+        to_field_name='name',
     )
     index_only = forms.BooleanField(
-        label="Index only (don't archive yet)",
+        label="Index only dry run (add crawl but don't archive yet)",
         initial=False,
         required=False,
     )
@@ -142,11 +154,13 @@ class AddLinkForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Import at runtime to avoid circular imports
-        from archivebox.config.common import ARCHIVING_CONFIG
+        default_persona = Persona.get_or_create_default()
+        self.fields['persona'].queryset = Persona.objects.order_by('name')
+        self.fields['persona'].initial = default_persona.name
 
         # Get all plugins
         all_plugins = get_plugins()
+        plugin_configs = discover_plugin_configs()
 
         # Define plugin groups
         chrome_dependent = {
@@ -170,26 +184,28 @@ class AddLinkForm(forms.Form):
 
         # Populate plugin field choices
         get_choice_field(self, 'chrome_plugins').choices = [
-            (p, p) for p in sorted(all_plugins) if p in chrome_dependent
+            (p, get_plugin_choice_label(p, plugin_configs)) for p in sorted(all_plugins) if p in chrome_dependent
         ]
         get_choice_field(self, 'archiving_plugins').choices = [
-            (p, p) for p in sorted(all_plugins) if p in archiving
+            (p, get_plugin_choice_label(p, plugin_configs)) for p in sorted(all_plugins) if p in archiving
         ]
         get_choice_field(self, 'parsing_plugins').choices = [
-            (p, p) for p in sorted(all_plugins) if p in parsing
+            (p, get_plugin_choice_label(p, plugin_configs)) for p in sorted(all_plugins) if p in parsing
         ]
         get_choice_field(self, 'search_plugins').choices = [
-            (p, p) for p in sorted(all_plugins) if p in search
+            (p, get_plugin_choice_label(p, plugin_configs)) for p in sorted(all_plugins) if p in search
         ]
         get_choice_field(self, 'binary_plugins').choices = [
-            (p, p) for p in sorted(all_plugins) if p in binary
+            (p, get_plugin_choice_label(p, plugin_configs)) for p in sorted(all_plugins) if p in binary
         ]
         get_choice_field(self, 'extension_plugins').choices = [
-            (p, p) for p in sorted(all_plugins) if p in extensions
+            (p, get_plugin_choice_label(p, plugin_configs)) for p in sorted(all_plugins) if p in extensions
         ]
 
-        # Set update default from config
-        self.fields['update'].initial = not ARCHIVING_CONFIG.ONLY_NEW
+        required_search_plugin = f'search_backend_{SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE}'.strip()
+        search_choices = [choice[0] for choice in get_choice_field(self, 'search_plugins').choices]
+        if required_search_plugin in search_choices:
+            get_choice_field(self, 'search_plugins').initial = [required_search_plugin]
 
     def clean(self):
         cleaned_data = super().clean() or {}
@@ -206,6 +222,23 @@ class AddLinkForm(forms.Form):
         cleaned_data['plugins'] = all_selected_plugins
 
         return cleaned_data
+
+    def clean_url(self):
+        value = self.cleaned_data.get('url') or ''
+        urls = '\n'.join(find_all_urls(value))
+        if not urls:
+            raise forms.ValidationError('Enter at least one valid URL.')
+        return urls
+
+    def clean_url_filters(self):
+        from archivebox.crawls.models import Crawl
+
+        value = self.cleaned_data.get('url_filters') or {}
+        return {
+            'allowlist': '\n'.join(Crawl.split_filter_patterns(value.get('allowlist', ''))),
+            'denylist': '\n'.join(Crawl.split_filter_patterns(value.get('denylist', ''))),
+            'same_domain_only': bool(value.get('same_domain_only')),
+        }
 
     def clean_schedule(self):
         schedule = (self.cleaned_data.get('schedule') or '').strip()

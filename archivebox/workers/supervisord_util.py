@@ -6,6 +6,7 @@ import socket
 import psutil
 import shutil
 import subprocess
+import shlex
 
 from typing import Dict, cast, Iterator
 from pathlib import Path
@@ -29,23 +30,62 @@ WORKERS_DIR_NAME = "workers"
 # Global reference to supervisord process for cleanup
 _supervisord_proc = None
 
+
+def _shell_join(args: list[str]) -> str:
+    return shlex.join(args)
+
 RUNNER_WORKER = {
     "name": "worker_runner",
-    "command": "archivebox run --daemon",
-    "autostart": "true",
+    "command": _shell_join([sys.executable, "-m", "archivebox", "run", "--daemon"]),
+    "autostart": "false",
     "autorestart": "true",
     "stdout_logfile": "logs/worker_runner.log",
     "redirect_stderr": "true",
 }
 
+RUNNER_WATCH_WORKER = lambda pidfile: {
+    "name": "worker_runner_watch",
+    "command": _shell_join([sys.executable, "-m", "archivebox", "manage", "runner_watch", f"--pidfile={pidfile}"]),
+    "autostart": "false",
+    "autorestart": "true",
+    "stdout_logfile": "logs/worker_runner_watch.log",
+    "redirect_stderr": "true",
+}
+
 SERVER_WORKER = lambda host, port: {
     "name": "worker_daphne",
-    "command": f"{sys.executable} -m daphne --bind={host} --port={port} --application-close-timeout=600 archivebox.core.asgi:application",
+    "command": _shell_join([sys.executable, "-m", "daphne", f"--bind={host}", f"--port={port}", "--application-close-timeout=600", "archivebox.core.asgi:application"]),
     "autostart": "false",
     "autorestart": "true",
     "stdout_logfile": "logs/worker_daphne.log",
     "redirect_stderr": "true",
 }
+
+
+def RUNSERVER_WORKER(host: str, port: str, *, reload: bool, pidfile: str | None = None, nothreading: bool = False):
+    command = [sys.executable, "-m", "archivebox", "manage", "runserver", f"{host}:{port}"]
+    if not reload:
+        command.append("--noreload")
+    if nothreading:
+        command.append("--nothreading")
+
+    environment = ['ARCHIVEBOX_RUNSERVER="1"']
+    if reload:
+        assert pidfile, "RUNSERVER_WORKER requires a pidfile when reload=True"
+        environment.extend([
+            'ARCHIVEBOX_AUTORELOAD="1"',
+            f'ARCHIVEBOX_RUNSERVER_PIDFILE="{pidfile}"',
+        ])
+
+    return {
+        "name": "worker_runserver",
+        "command": _shell_join(command),
+        "environment": ",".join(environment),
+        "autostart": "false",
+        "autorestart": "true",
+        "stdout_logfile": "logs/worker_runserver.log",
+        "redirect_stderr": "true",
+    }
 
 def is_port_in_use(host: str, port: int) -> bool:
     """Check if a port is already in use."""
@@ -511,16 +551,30 @@ def watch_worker(supervisor, daemon_name, interval=5):
 
 
 
-def start_server_workers(host='0.0.0.0', port='8000', daemonize=False):
+def start_server_workers(host='0.0.0.0', port='8000', daemonize=False, debug=False, reload=False, nothreading=False):
+    from archivebox.config.common import STORAGE_CONFIG
+
     supervisor = get_or_create_supervisord_process(daemonize=daemonize)
 
-    bg_workers = [RUNNER_WORKER]
+    if debug:
+        pidfile = str(STORAGE_CONFIG.TMP_DIR / 'runserver.pid') if reload else None
+        server_worker = RUNSERVER_WORKER(host=host, port=port, reload=reload, pidfile=pidfile, nothreading=nothreading)
+        bg_workers: list[tuple[dict[str, str], bool]] = (
+            [(RUNNER_WORKER, True), (RUNNER_WATCH_WORKER(pidfile), False)] if reload else [(RUNNER_WORKER, False)]
+        )
+        log_files = ['logs/worker_runserver.log', 'logs/worker_runner.log']
+        if reload:
+            log_files.insert(1, 'logs/worker_runner_watch.log')
+    else:
+        server_worker = SERVER_WORKER(host=host, port=port)
+        bg_workers = [(RUNNER_WORKER, False)]
+        log_files = ['logs/worker_daphne.log', 'logs/worker_runner.log']
 
     print()
-    start_worker(supervisor, SERVER_WORKER(host=host, port=port))
+    start_worker(supervisor, server_worker)
     print()
-    for worker in bg_workers:
-        start_worker(supervisor, worker)
+    for worker, lazy in bg_workers:
+        start_worker(supervisor, worker, lazy=lazy)
     print()
 
     if not daemonize:
@@ -529,7 +583,7 @@ def start_server_workers(host='0.0.0.0', port='8000', daemonize=False):
             sys.stdout.write('Tailing worker logs (Ctrl+C to stop)...\n\n')
             sys.stdout.flush()
             tail_multiple_worker_logs(
-                log_files=['logs/worker_daphne.log', 'logs/worker_runner.log'],
+                log_files=log_files,
                 follow=True,
                 proc=_supervisord_proc,  # Stop tailing when supervisord exits
             )

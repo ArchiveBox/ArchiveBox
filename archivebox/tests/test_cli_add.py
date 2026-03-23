@@ -44,6 +44,27 @@ def test_add_single_url_creates_snapshot_in_db(tmp_path, process, disable_extrac
     assert snapshots[0][0] == 'https://example.com'
 
 
+def test_add_bg_creates_root_snapshot_rows_immediately(tmp_path, process, disable_extractors_dict):
+    """Background add should create root snapshots immediately so the queue is visible in the DB."""
+    os.chdir(tmp_path)
+    result = subprocess.run(
+        ['archivebox', 'add', '--bg', '--depth=0', 'https://example.com'],
+        capture_output=True,
+        env=disable_extractors_dict,
+    )
+
+    assert result.returncode == 0
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    snapshots = c.execute("SELECT url, status FROM core_snapshot").fetchall()
+    conn.close()
+
+    assert len(snapshots) == 1
+    assert snapshots[0][0] == 'https://example.com'
+    assert snapshots[0][1] == 'queued'
+
+
 def test_add_creates_crawl_record(tmp_path, process, disable_extractors_dict):
     """Test that add command creates a Crawl record in the database."""
     os.chdir(tmp_path)
@@ -217,6 +238,32 @@ def test_add_records_selected_persona_on_crawl(tmp_path, process, disable_extrac
     assert persona_id
     assert default_persona == 'Default'
     assert (tmp_path / "personas" / "Default" / "chrome_user_data").is_dir()
+
+
+def test_add_records_url_filter_overrides_on_crawl(tmp_path, process, disable_extractors_dict):
+    os.chdir(tmp_path)
+    result = subprocess.run(
+        [
+            'archivebox', 'add', '--index-only', '--depth=0',
+            '--domain-allowlist=example.com,*.example.com',
+            '--domain-denylist=static.example.com',
+            'https://example.com',
+        ],
+        capture_output=True,
+        env=disable_extractors_dict,
+    )
+
+    assert result.returncode == 0
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    allowlist, denylist = c.execute(
+        "SELECT json_extract(config, '$.URL_ALLOWLIST'), json_extract(config, '$.URL_DENYLIST') FROM crawls_crawl LIMIT 1"
+    ).fetchone()
+    conn.close()
+
+    assert allowlist == 'example.com,*.example.com'
+    assert denylist == 'static.example.com'
     assert (tmp_path / "personas" / "Default" / "chrome_extensions").is_dir()
 
 

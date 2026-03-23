@@ -9,7 +9,6 @@ name: Release
 # This workflow ensures the correct ordering during a release.
 
 on:
-  workflow_dispatch:
   release:
     types: [published]
 

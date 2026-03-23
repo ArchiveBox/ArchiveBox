@@ -1,0 +1,249 @@
+{% extends "admin/change_form.html" %}
+
+{% block bodyclass %}{{ block.super }} app-personas model-persona{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .persona-import-hero {
+        margin: 0 0 22px;
+        padding: 22px 24px;
+        border-radius: 18px;
+        border: 1px solid #d8dee9;
+        background:
+            radial-gradient(circle at top right, rgba(67, 97, 238, 0.10), transparent 32%),
+            linear-gradient(135deg, #fff7ed 0%, #ffffff 45%, #ecfeff 100%);
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+        display: grid;
+        gap: 18px;
+        grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr);
+        align-items: start;
+    }
+
+    .persona-import-hero h2 {
+        margin: 0 0 8px;
+        font-size: 28px;
+        line-height: 1.1;
+        color: #111827;
+    }
+
+    .persona-import-hero p {
+        margin: 0;
+        color: #475569;
+        max-width: 70ch;
+        font-size: 14px;
+    }
+
+    .persona-import-hero__meta {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    }
+
+    .persona-import-hero__stat {
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.86);
+        border: 1px solid rgba(203, 213, 225, 0.85);
+    }
+
+    .persona-import-hero__stat span {
+        display: block;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+        color: #64748b;
+        margin-bottom: 8px;
+    }
+
+    .persona-import-hero__stat strong,
+    .persona-import-hero__stat code {
+        font-size: 18px;
+        color: #0f172a;
+    }
+
+    .field-import_mode ul,
+    .field-import_discovered_profile ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 12px;
+    }
+
+    .field-import_mode ul {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .field-import_discovered_profile ul {
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        max-height: 460px;
+        overflow: auto;
+        padding-right: 4px;
+    }
+
+    .field-import_mode li,
+    .field-import_discovered_profile li {
+        margin: 0;
+    }
+
+    .field-import_mode label,
+    .field-import_discovered_profile label {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        min-height: 100%;
+        padding: 14px 16px;
+        border-radius: 14px;
+        border: 1px solid #dbe4ee;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        cursor: pointer;
+        transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .field-import_mode label:hover,
+    .field-import_discovered_profile label:hover {
+        transform: translateY(-1px);
+        border-color: #7c3aed;
+        box-shadow: 0 8px 20px rgba(124, 58, 237, 0.10);
+    }
+
+    .field-import_mode input[type="radio"],
+    .field-import_discovered_profile input[type="radio"] {
+        margin-top: 3px;
+        flex: 0 0 auto;
+    }
+
+    .abx-import-mode-option,
+    .abx-profile-option {
+        display: grid;
+        gap: 6px;
+    }
+
+    .abx-import-mode-option strong,
+    .abx-profile-option strong {
+        color: #0f172a;
+        font-size: 15px;
+    }
+
+    .abx-import-mode-option span:last-child,
+    .abx-profile-option__meta {
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    .abx-profile-option code {
+        font-size: 11px;
+        line-height: 1.5;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        color: #334155;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 8px 10px;
+    }
+
+    .abx-persona-path-list,
+    .abx-persona-artifacts {
+        display: grid;
+        gap: 10px;
+    }
+
+    .abx-persona-path-list div,
+    .abx-persona-artifact {
+        display: grid;
+        gap: 6px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+    }
+
+    .abx-persona-path-list code,
+    .abx-persona-artifact code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        font-size: 12px;
+    }
+
+    .abx-artifact-state {
+        display: inline-flex;
+        width: fit-content;
+        align-items: center;
+        border-radius: 999px;
+        padding: 2px 10px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .abx-artifact-state--yes {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .abx-artifact-state--no {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    @media (max-width: 960px) {
+        .persona-import-hero {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modeInputs = Array.from(document.querySelectorAll('input[name="import_mode"]'));
+    const discoveredRow = document.querySelector('.form-row.field-import_discovered_profile');
+    const sourceRow = document.querySelector('.form-row.field-import_source');
+    const profileRow = document.querySelector('.form-row.field-import_profile_name');
+
+    const updateVisibility = () => {
+        const selected = modeInputs.find((input) => input.checked)?.value || 'none';
+        if (discoveredRow) discoveredRow.style.display = selected === 'discovered' ? '' : 'none';
+        if (sourceRow) sourceRow.style.display = selected === 'custom' ? '' : 'none';
+        if (profileRow) profileRow.style.display = selected === 'custom' ? '' : 'none';
+    };
+
+    modeInputs.forEach((input) => input.addEventListener('change', updateVisibility));
+    updateVisibility();
+});
+</script>
+{% endblock %}
+
+{% block form_top %}
+<section class="persona-import-hero">
+    <div>
+        <h2>Bootstrap a persona from a real browser session</h2>
+        <p>
+            Pick a local Chromium profile, paste an absolute profile path, or attach to a live CDP endpoint.
+            The form saves the Persona normally, then imports profile files, cookies, and optional tab storage into
+            the Persona's own directories.
+        </p>
+    </div>
+    <div class="persona-import-hero__meta">
+        <div class="persona-import-hero__stat">
+            <span>Detected profiles</span>
+            <strong>{{ detected_profile_count }}</strong>
+        </div>
+        <div class="persona-import-hero__stat">
+            <span>Persona artifacts</span>
+            <code>chrome_user_data</code>
+            <code>cookies.txt</code>
+            <code>auth.json</code>
+        </div>
+    </div>
+</section>
+{{ block.super }}
+{% endblock %}

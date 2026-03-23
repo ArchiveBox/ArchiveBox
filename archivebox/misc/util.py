@@ -4,6 +4,7 @@ import re
 import requests
 import json as pyjson
 import http.cookiejar
+from dateparser import parse as dateparser
 
 from typing import List, Optional, Any, Callable
 from pathlib import Path
@@ -13,7 +14,6 @@ from hashlib import sha256
 from urllib.parse import urlparse, quote, unquote
 from html import escape, unescape
 from datetime import datetime, timezone
-from dateparser import parse as dateparser
 from requests.exceptions import RequestException, ReadTimeout
 
 from base32_crockford import encode as base32_encode
@@ -122,9 +122,35 @@ def fix_url_from_markdown(url_str: str) -> str:
     
     return url_str
 
+def split_comma_separated_urls(url: str):
+    offset = 0
+    while True:
+        http_index = url.find('http://', 1)
+        https_index = url.find('https://', 1)
+        next_indices = [idx for idx in (http_index, https_index) if idx != -1]
+        if not next_indices:
+            yield offset, url
+            return
+
+        next_index = min(next_indices)
+        if url[next_index - 1] != ',':
+            yield offset, url
+            return
+
+        yield offset, url[:next_index - 1]
+        offset += next_index
+        url = url[next_index:]
+
 def find_all_urls(urls_str: str):
-    for url in re.findall(URL_REGEX, urls_str):
-        yield fix_url_from_markdown(url)
+    skipped_starts = set()
+    for match in re.finditer(URL_REGEX, urls_str):
+        if match.start() in skipped_starts:
+            continue
+
+        for offset, url in split_comma_separated_urls(fix_url_from_markdown(match.group(1))):
+            if offset:
+                skipped_starts.add(match.start() + offset)
+            yield url
 
 
 def is_static_file(url: str):
@@ -214,7 +240,25 @@ def parse_date(date: Any) -> datetime | None:
         date = str(date)
 
     if isinstance(date, str):
-        parsed_date = dateparser(date, settings={'TIMEZONE': 'UTC'})
+        normalized = date.strip()
+        if not normalized:
+            raise ValueError(f'Tried to parse invalid date string! {date}')
+
+        try:
+            return datetime.fromtimestamp(float(normalized), tz=timezone.utc)
+        except (TypeError, ValueError, OSError):
+            pass
+
+        try:
+            iso_date = normalized.replace('Z', '+00:00')
+            parsed_date = datetime.fromisoformat(iso_date)
+            if parsed_date.tzinfo is None:
+                return parsed_date.replace(tzinfo=timezone.utc)
+            return parsed_date.astimezone(timezone.utc)
+        except ValueError:
+            pass
+
+        parsed_date = dateparser(normalized, settings={'TIMEZONE': 'UTC'})
         if parsed_date is None:
             raise ValueError(f'Tried to parse invalid date string! {date}')
         return parsed_date.astimezone(timezone.utc)
@@ -408,6 +452,7 @@ assert fix_url_from_markdown('https://wikipedia.org/en/some_article_(Disambiguat
 
 URL_REGEX_TESTS = [
     ('https://example.com', ['https://example.com']),
+    ('https://sweeting.me,https://google.com', ['https://sweeting.me', 'https://google.com']),
     ('http://abc-file234example.com/abc?def=abc&23423=sdfsdf#abc=234&234=a234', ['http://abc-file234example.com/abc?def=abc&23423=sdfsdf#abc=234&234=a234']),
 
     ('https://twitter.com/share?url=https://akaao.success-corp.co.jp&text=ア@サ!ト&hashtags=ア%オ,元+ア.ア-オ_イ*シ$ロ abc', ['https://twitter.com/share?url=https://akaao.success-corp.co.jp&text=ア@サ!ト&hashtags=ア%オ,元+ア.ア-オ_イ*シ$ロ', 'https://akaao.success-corp.co.jp&text=ア@サ!ト&hashtags=ア%オ,元+ア.ア-オ_イ*シ$ロ']),

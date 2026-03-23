@@ -1,6 +1,7 @@
 __package__ = "archivebox.config"
 
 import re
+import secrets
 import sys
 import shutil
 from typing import ClassVar, Dict, Optional, List
@@ -8,7 +9,6 @@ from pathlib import Path
 
 from rich import print
 from pydantic import Field, field_validator
-from django.utils.crypto import get_random_string
 
 from archivebox.config.configset import BaseConfigSet
 
@@ -104,7 +104,7 @@ class ServerConfig(BaseConfigSet):
         "danger-onedomain-fullreplay",
     )
 
-    SECRET_KEY: str = Field(default_factory=lambda: get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789_"))
+    SECRET_KEY: str = Field(default_factory=lambda: ''.join(secrets.choice("abcdefghijklmnopqrstuvwxyz0123456789_") for _ in range(50)))
     BIND_ADDR: str = Field(default="127.0.0.1:8000")
     LISTEN_HOST: str = Field(default="archivebox.localhost:8000")
     ADMIN_BASE_URL: str = Field(default="")

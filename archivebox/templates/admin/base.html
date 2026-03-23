@@ -1083,8 +1083,11 @@
                 width: 100% !important;
             }
 
-            body.filters-collapsed.change-list #changelist .changelist-form-container > div {
+            body.filters-collapsed.change-list #changelist .changelist-form-container > div,
+            body.filters-collapsed.change-list #changelist .changelist-form-container > form {
                 max-width: 100% !important;
+                width: 100% !important;
+                flex: 1 1 100% !important;
             }
 
             /* Actions bar */
@@ -1372,7 +1375,8 @@
                 order: 2;
                 align-self: flex-start;
             }
-            body.change-list #changelist .changelist-form-container > div {
+            body.change-list #changelist .changelist-form-container > div,
+            body.change-list #changelist .changelist-form-container > form {
                 flex: 1 1 auto;
                 min-width: 0;
                 order: 1;

@@ -1,14 +1,23 @@
 __package__ = 'archivebox.core'
 
+import html
+import json
 import os
+import shlex
 from pathlib import Path
+from urllib.parse import quote
+from functools import reduce
+from operator import and_
 
 from django.contrib import admin
+from django.db.models import Min, Q, TextField
+from django.db.models.functions import Cast
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.core.exceptions import ValidationError
 from django.urls import reverse, resolve
 from django.utils import timezone
+from django.utils.text import smart_split
 
 from archivebox.config import DATA_DIR
 from archivebox.config.common import SERVER_CONFIG
@@ -16,9 +25,69 @@ from archivebox.misc.paginators import AccelleratedPaginator
 from archivebox.base_models.admin import BaseModelAdmin
 from archivebox.hooks import get_plugin_icon
 from archivebox.core.host_utils import build_snapshot_url
+from archivebox.core.widgets import InlineTagEditorWidget
+from archivebox.core.views import LIVE_PLUGIN_BASE_URL
 
 
 from archivebox.core.models import ArchiveResult, Snapshot
+
+
+def _stringify_env_value(value) -> str:
+    if value is None:
+        return ''
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, separators=(',', ':'))
+
+
+def _quote_shell_string(value: str) -> str:
+    return "'" + str(value).replace("'", "'\"'\"'") + "'"
+
+
+def _get_replay_source_url(result: ArchiveResult) -> str:
+    process_env = getattr(getattr(result, 'process', None), 'env', None) or {}
+    return str(process_env.get('SOURCE_URL') or result.snapshot.url or '')
+
+
+def build_abx_dl_display_command(result: ArchiveResult) -> str:
+    source_url = _get_replay_source_url(result)
+    plugin_name = str(result.plugin or '').strip()
+    if not plugin_name and not source_url:
+        return 'abx-dl'
+    if not source_url:
+        return f'abx-dl --plugins={plugin_name}'
+    return f'abx-dl --plugins={plugin_name} {_quote_shell_string(source_url)}'
+
+
+def build_abx_dl_replay_command(result: ArchiveResult) -> str:
+    display_command = build_abx_dl_display_command(result)
+    process = getattr(result, 'process', None)
+    env = getattr(process, 'env', None) or {}
+    env_items = ' '.join(
+        f'{key}={shlex.quote(_stringify_env_value(value))}'
+        for key, value in sorted(env.items())
+        if value is not None
+    )
+    snapshot_dir = shlex.quote(str(result.snapshot_dir))
+    if env_items:
+        return f'cd {snapshot_dir}; env {env_items} {display_command}'
+    return f'cd {snapshot_dir}; {display_command}'
+
+
+def get_plugin_admin_url(plugin_name: str) -> str:
+    from archivebox.hooks import BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR, iter_plugin_dirs
+
+    plugin_dir = next((path.resolve() for path in iter_plugin_dirs() if path.name == plugin_name), None)
+    if plugin_dir:
+        builtin_root = BUILTIN_PLUGINS_DIR.resolve()
+        if plugin_dir.is_relative_to(builtin_root):
+            return f'{LIVE_PLUGIN_BASE_URL}builtin.{quote(plugin_name)}/'
+
+        user_root = USER_PLUGINS_DIR.resolve()
+        if plugin_dir.is_relative_to(user_root):
+            return f'{LIVE_PLUGIN_BASE_URL}user.{quote(plugin_name)}/'
+
+    return f'{LIVE_PLUGIN_BASE_URL}builtin.{quote(plugin_name)}/'
 
 
 def render_archiveresults_list(archiveresults_qs, limit=50):
@@ -35,6 +104,9 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
         'failed': ('#991b1b', '#fee2e2'),       # red
         'queued': ('#6b7280', '#f3f4f6'),       # gray
         'started': ('#92400e', '#fef3c7'),      # amber
+        'backoff': ('#92400e', '#fef3c7'),
+        'skipped': ('#475569', '#f1f5f9'),
+        'noresults': ('#475569', '#f1f5f9'),
     }
 
     rows = []
@@ -54,8 +126,10 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
         if len(full_output) > 60:
             output_display += '...'
 
-        # Get full command as tooltip
-        cmd_str = ' '.join(result.cmd) if isinstance(result.cmd, list) else str(result.cmd or '-')
+        display_cmd = build_abx_dl_display_command(result)
+        replay_cmd = build_abx_dl_replay_command(result)
+        cmd_str_escaped = html.escape(display_cmd)
+        cmd_attr = html.escape(replay_cmd, quote=True)
 
         # Build output link - use embed_path() which checks output_files first
         embed_path = result.embed_path() if hasattr(result, 'embed_path') else None
@@ -77,7 +151,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
                     <a href="{reverse('admin:core_archiveresult_change', args=[result.id])}"
                        style="color: #2563eb; text-decoration: none; font-family: ui-monospace, monospace; font-size: 11px;"
                        title="View/edit archive result">
-                        <code>{str(result.id)[:8]}</code>
+                        <code>{str(result.id)[-8:]}</code>
                     </a>
                 </td>
                 <td style="padding: 10px 12px; white-space: nowrap;">
@@ -140,7 +214,15 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
                             <div style="font-size: 11px; color: #64748b; margin-top: 8px;">
                                 <b>Command:</b>
                             </div>
-                            <pre style="margin: 0; padding: 8px; background: #1e293b; border-radius: 4px; color: #e2e8f0; font-size: 11px; white-space: pre-wrap; word-break: break-all;">{cmd_str}</pre>
+                            <div style="position: relative; margin: 0; padding: 8px 56px 8px 8px; background: #1e293b; border-radius: 4px;">
+                                <button type="button"
+                                        data-command="{cmd_attr}"
+                                        onclick="(function(btn){{var text=btn.dataset.command||''; if(navigator.clipboard&&navigator.clipboard.writeText){{navigator.clipboard.writeText(text);}} else {{var ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);}}}})(this); return false;"
+                                        style="position: absolute; top: 6px; right: 6px; padding: 2px 8px; border: 0; border-radius: 4px; background: #334155; color: #e2e8f0; font-size: 11px; cursor: pointer;">
+                                    Copy
+                                </button>
+                                <code title="{cmd_attr}" style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e2e8f0; font-size: 11px;">{cmd_str_escaped}</code>
+                            </div>
                         </div>
                     </details>
                 </td>
@@ -165,7 +247,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
             <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                 <thead>
                     <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
-                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">ID</th>
+                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Details</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; width: 32px;"></th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Plugin</th>
@@ -193,7 +275,7 @@ class ArchiveResultInline(admin.TabularInline):
     extra = 0
     sort_fields = ('end_ts', 'plugin', 'output_str', 'status', 'cmd_version')
     readonly_fields = ('id', 'result_id', 'completed', 'command', 'version')
-    fields = ('start_ts', 'end_ts', *readonly_fields, 'plugin', 'cmd', 'cmd_version', 'pwd', 'status', 'retry_at', 'output_str')
+    fields = ('start_ts', 'end_ts', *readonly_fields, 'plugin', 'cmd', 'cmd_version', 'pwd', 'status', 'output_str')
     # exclude = ('id',)
     ordering = ('end_ts',)
     show_change_link = True
@@ -259,10 +341,11 @@ class ArchiveResultInline(admin.TabularInline):
 
 
 class ArchiveResultAdmin(BaseModelAdmin):
-    list_display = ('id', 'created_at', 'snapshot_info', 'tags_str', 'status', 'plugin_with_icon', 'cmd_str', 'output_str')
+    list_display = ('details_link', 'created_at', 'snapshot_info', 'tags_inline', 'status_badge', 'plugin_with_icon', 'process_link', 'machine_link', 'cmd_str', 'output_str_display')
+    list_display_links = None
     sort_fields = ('id', 'created_at', 'plugin', 'status')
-    readonly_fields = ('cmd', 'cmd_version', 'pwd', 'cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary', 'plugin_with_icon')
-    search_fields = ('id', 'snapshot__url', 'plugin', 'output_str', 'cmd_version', 'cmd', 'snapshot__timestamp')
+    readonly_fields = ('cmd', 'cmd_version', 'pwd', 'cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'output_summary', 'plugin_with_icon', 'process_link')
+    search_fields = ()
     autocomplete_fields = ['snapshot']
 
     fieldsets = (
@@ -271,7 +354,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
             'classes': ('card', 'wide'),
         }),
         ('Plugin', {
-            'fields': ('plugin', 'plugin_with_icon', 'status', 'retry_at'),
+            'fields': ('plugin_with_icon', 'process_link', 'status'),
             'classes': ('card',),
         }),
         ('Timing', {
@@ -305,8 +388,61 @@ class ArchiveResultAdmin(BaseModelAdmin):
         self.request = request
         return super().change_view(request, object_id, form_url, extra_context)
 
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .select_related('snapshot', 'process')
+            .prefetch_related('snapshot__tags')
+            .annotate(snapshot_first_tag=Min('snapshot__tags__name'))
+        )
+
+    def get_search_results(self, request, queryset, search_term):
+        if not search_term:
+            return queryset, False
+
+        queryset = queryset.annotate(
+            snapshot_id_text=Cast('snapshot__id', output_field=TextField()),
+            snapshot_crawl_id_text=Cast('snapshot__crawl_id', output_field=TextField()),
+            output_json_text=Cast('output_json', output_field=TextField()),
+            cmd_text=Cast('process__cmd', output_field=TextField()),
+        )
+
+        search_bits = [
+            bit[1:-1] if len(bit) >= 2 and bit[0] == bit[-1] and bit[0] in {'"', "'"} else bit
+            for bit in smart_split(search_term)
+        ]
+        search_bits = [bit.strip() for bit in search_bits if bit.strip()]
+        if not search_bits:
+            return queryset, False
+
+        filters = []
+        for bit in search_bits:
+            filters.append(
+                Q(snapshot_id_text__icontains=bit)
+                | Q(snapshot__url__icontains=bit)
+                | Q(snapshot__tags__name__icontains=bit)
+                | Q(snapshot_crawl_id_text__icontains=bit)
+                | Q(plugin__icontains=bit)
+                | Q(hook_name__icontains=bit)
+                | Q(output_str__icontains=bit)
+                | Q(output_json_text__icontains=bit)
+                | Q(cmd_text__icontains=bit)
+            )
+
+        return queryset.filter(reduce(and_, filters)).distinct(), True
+
+    @admin.display(description='Details', ordering='id')
+    def details_link(self, result):
+        return format_html(
+            '<a href="{}"><code>{}</code></a>',
+            reverse('admin:core_archiveresult_change', args=[result.id]),
+            str(result.id)[-8:],
+        )
+
     @admin.display(
-        description='Snapshot Info'
+        description='Snapshot',
+        ordering='snapshot__url',
     )
     def snapshot_info(self, result):
         snapshot_id = str(result.snapshot_id)
@@ -325,20 +461,83 @@ class ArchiveResultAdmin(BaseModelAdmin):
     def tags_str(self, result):
         return result.snapshot.tags_str()
 
+    @admin.display(description='Tags', ordering='snapshot_first_tag')
+    def tags_inline(self, result):
+        widget = InlineTagEditorWidget(snapshot_id=str(result.snapshot_id), editable=False)
+        tags_html = widget.render(
+            name=f'tags_{result.snapshot_id}',
+            value=result.snapshot.tags.all(),
+            attrs={'id': f'tags_{result.snapshot_id}'},
+            snapshot_id=str(result.snapshot_id),
+        )
+        return mark_safe(f'<span class="tags-inline-editor">{tags_html}</span>')
+
+    @admin.display(description='Status', ordering='status')
+    def status_badge(self, result):
+        status = result.status or ArchiveResult.StatusChoices.QUEUED
+        return format_html(
+            '<span class="status-badge {} status-{}">{}</span>',
+            status,
+            status,
+            result.get_status_display() or status,
+        )
+
     @admin.display(description='Plugin', ordering='plugin')
     def plugin_with_icon(self, result):
         icon = get_plugin_icon(result.plugin)
         return format_html(
-            '<span title="{}">{}</span> {}',
+            '<a href="{}" title="{}">{}</a> <a href="{}"><code>{}</code></a>',
+            get_plugin_admin_url(result.plugin),
             result.plugin,
             icon,
+            get_plugin_admin_url(result.plugin),
             result.plugin,
         )
 
-    def cmd_str(self, result):
+    @admin.display(description='Process', ordering='process__pid')
+    def process_link(self, result):
+        if not result.process_id:
+            return '-'
+        process_label = result.process.pid if result.process and result.process.pid else '-'
         return format_html(
-            '<pre>{}</pre>',
-            ' '.join(result.cmd) if isinstance(result.cmd, list) else str(result.cmd),
+            '<a href="{}"><code>{}</code></a>',
+            reverse('admin:machine_process_change', args=[result.process_id]),
+            process_label,
+        )
+
+    @admin.display(description='Machine', ordering='process__machine__hostname')
+    def machine_link(self, result):
+        if not result.process_id or not result.process or not result.process.machine_id:
+            return '-'
+        machine = result.process.machine
+        return format_html(
+            '<a href="{}"><code>{}</code> {}</a>',
+            reverse('admin:machine_machine_change', args=[machine.id]),
+            str(machine.id)[:8],
+            machine.hostname,
+        )
+
+    @admin.display(description='Command')
+    def cmd_str(self, result):
+        display_cmd = build_abx_dl_display_command(result)
+        replay_cmd = build_abx_dl_replay_command(result)
+        return format_html(
+            '''
+            <div style="position: relative; width: 300px; min-width: 300px; max-width: 300px; overflow: hidden; box-sizing: border-box;">
+                <button type="button"
+                        data-command="{}"
+                        onclick="(function(btn){{var text=btn.dataset.command||''; if(navigator.clipboard&&navigator.clipboard.writeText){{navigator.clipboard.writeText(text);}} else {{var ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);}}}})(this); return false;"
+                        style="position: absolute; top: 6px; right: 6px; z-index: 1; padding: 2px 8px; border: 0; border-radius: 4px; background: #e2e8f0; color: #334155; font-size: 11px; cursor: pointer;">
+                    Copy
+                </button>
+                <code title="{}" style="display: block; width: 100%; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 8px 56px 8px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 11px; box-sizing: border-box;">
+                    {}
+                </code>
+            </div>
+            ''',
+            replay_cmd,
+            replay_cmd,
+            display_cmd,
         )
 
     def output_display(self, result):
@@ -350,6 +549,27 @@ class ArchiveResultAdmin(BaseModelAdmin):
             '<a href="{}" class="output-link">↗️</a><pre>{}</pre>',
             build_snapshot_url(snapshot_id, output_path),
             result.output_str,
+        )
+
+    @admin.display(description='Output', ordering='output_str')
+    def output_str_display(self, result):
+        output_text = str(result.output_str or '').strip()
+        if not output_text:
+            return '-'
+
+        live_path = result.embed_path() if hasattr(result, 'embed_path') else None
+        if live_path:
+            return format_html(
+                '<a href="{}" title="{}"><code>{}</code></a>',
+                build_snapshot_url(str(result.snapshot_id), live_path),
+                output_text,
+                output_text,
+            )
+
+        return format_html(
+            '<span title="{}">{}</span>',
+            output_text,
+            output_text,
         )
 
     def output_summary(self, result):

@@ -50,10 +50,11 @@ def bg_archive_snapshots(snapshots, kwargs: dict | None = None) -> int:
             Snapshot.objects.filter(id=snapshot.id).update(
                 status=Snapshot.StatusChoices.QUEUED,
                 retry_at=timezone.now(),
+                downloaded_at=None,
             )
             crawl_id = getattr(snapshot, 'crawl_id', None)
             if crawl_id:
-                Crawl.objects.filter(id=crawl_id).exclude(status=Crawl.StatusChoices.SEALED).update(
+                Crawl.objects.filter(id=crawl_id).update(
                     status=Crawl.StatusChoices.QUEUED,
                     retry_at=timezone.now(),
                 )
@@ -75,10 +76,11 @@ def bg_archive_snapshot(snapshot, overwrite: bool = False, methods: list | None 
         Snapshot.objects.filter(id=snapshot.id).update(
             status=Snapshot.StatusChoices.QUEUED,
             retry_at=timezone.now(),
+            downloaded_at=None,
         )
         crawl_id = getattr(snapshot, 'crawl_id', None)
         if crawl_id:
-            Crawl.objects.filter(id=crawl_id).exclude(status=Crawl.StatusChoices.SEALED).update(
+            Crawl.objects.filter(id=crawl_id).update(
                 status=Crawl.StatusChoices.QUEUED,
                 retry_at=timezone.now(),
             )

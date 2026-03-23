@@ -36,7 +36,7 @@ from archivebox.base_models.models import (
 from archivebox.workers.models import ModelWithStateMachine, BaseStateMachine
 from archivebox.workers.tasks import bg_archive_snapshot
 from archivebox.crawls.models import Crawl
-from archivebox.machine.models import NetworkInterface, Binary
+from archivebox.machine.models import Binary
 
 
 
@@ -60,32 +60,41 @@ class Tag(ModelWithUUID):
     def __str__(self):
         return self.name
 
+    def _generate_unique_slug(self) -> str:
+        base_slug = slugify(self.name) or 'tag'
+        existing = Tag.objects.filter(slug__startswith=base_slug)
+        if self.pk:
+            existing = existing.exclude(pk=self.pk)
+        existing_slugs = set(existing.values_list("slug", flat=True))
+
+        slug = base_slug
+        i = 1
+        while slug in existing_slugs:
+            slug = f"{base_slug}_{i}"
+            i += 1
+        return slug
+
     def save(self, *args, **kwargs):
-        is_new = self._state.adding
-        if is_new:
-            self.slug = slugify(self.name)
-            existing = set(Tag.objects.filter(slug__startswith=self.slug).values_list("slug", flat=True))
-            i = None
-            while True:
-                slug = f"{slugify(self.name)}_{i}" if i else slugify(self.name)
-                if slug not in existing:
-                    self.slug = slug
-                    break
-                i = (i or 0) + 1
+        existing_name = None
+        if self.pk:
+            existing_name = Tag.objects.filter(pk=self.pk).values_list('name', flat=True).first()
+
+        if not self.slug or existing_name != self.name:
+            self.slug = self._generate_unique_slug()
         super().save(*args, **kwargs)
 
-        if is_new:
-            from archivebox.misc.logging_util import log_worker_event
-            log_worker_event(
-                worker_type='DB',
-                event='Created Tag',
-                indent_level=0,
-                metadata={
-                    'id': self.id,
-                    'name': self.name,
-                    'slug': self.slug,
-                },
-            )
+        # if is_new:
+        #     from archivebox.misc.logging_util import log_worker_event
+        #     log_worker_event(
+        #         worker_type='DB',
+        #         event='Created Tag',
+        #         indent_level=0,
+        #         metadata={
+        #             'id': self.id,
+        #             'name': self.name,
+        #             'slug': self.slug,
+        #         },
+        #     )
 
     @property
     def api_url(self) -> str:
@@ -364,7 +373,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         return Binary.objects.filter(process_set__archiveresult__snapshot_id=self.id).distinct()
 
     def save(self, *args, **kwargs):
-        is_new = self._state.adding
         if not self.bookmarked_at:
             self.bookmarked_at = self.created_at or timezone.now()
         if not self.timestamp:
@@ -393,24 +401,25 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         super().save(*args, **kwargs)
         self.ensure_legacy_archive_symlink()
-        if self.url not in self.crawl.urls:
+        existing_urls = {url for _raw_line, url in self.crawl._iter_url_lines() if url}
+        if self.crawl.url_passes_filters(self.url, snapshot=self) and self.url not in existing_urls:
             self.crawl.urls += f'\n{self.url}'
             self.crawl.save()
 
-        if is_new:
-            from archivebox.misc.logging_util import log_worker_event
-            log_worker_event(
-                worker_type='DB',
-                event='Created Snapshot',
-                indent_level=2,
-                url=self.url,
-                metadata={
-                    'id': str(self.id),
-                    'crawl_id': str(self.crawl_id),
-                    'depth': self.depth,
-                    'status': self.status,
-                },
-            )
+        # if is_new:
+        #     from archivebox.misc.logging_util import log_worker_event
+        #     log_worker_event(
+        #         worker_type='DB',
+        #         event='Created Snapshot',
+        #         indent_level=2,
+        #         url=self.url,
+        #         metadata={
+        #             'id': str(self.id),
+        #             'crawl_id': str(self.crawl_id),
+        #             'depth': self.depth,
+        #             'status': self.status,
+        #         },
+        #     )
 
     # =========================================================================
     # Filesystem Migration Methods
@@ -1528,16 +1537,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         """
         Execute snapshot by creating pending ArchiveResults for all enabled hooks.
 
-        Called by: SnapshotMachine.enter_started()
-
-        Hook Lifecycle:
-            1. discover_hooks('Snapshot') → finds all plugin hooks
-            2. For each hook:
-               - Create ArchiveResult with status=QUEUED
-               - Store hook_name (e.g., 'on_Snapshot__50_wget.py')
-            3. ArchiveResults execute independently via ArchiveResultMachine
-            4. Hook execution happens in ArchiveResult.run(), NOT here
-
         Returns:
             list[ArchiveResult]: Newly created pending results
         """
@@ -1602,7 +1601,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             'url': self.url,
             'title': self.title,
             'tags': self.tags_str(),
-            'tags_str': self.tags_str(),
             'bookmarked_at': self.bookmarked_at.isoformat() if self.bookmarked_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'timestamp': self.timestamp,
@@ -1672,7 +1670,9 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 # ID not found, fall through to create-by-URL logic
                 pass
 
-        url = record.get('url')
+        from archivebox.misc.util import fix_url_from_markdown
+
+        url = fix_url_from_markdown(str(record.get('url') or '').strip())
         if not url:
             return None
 
@@ -1807,7 +1807,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 defaults={
                     'plugin': plugin,
                     'status': ArchiveResult.INITIAL_STATE,
-                    'retry_at': timezone.now(),
                 },
             )
             if archiveresult.status == ArchiveResult.INITIAL_STATE:
@@ -1853,11 +1852,12 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         failed = results.filter(status='failed').count()
         running = results.filter(status='started').count()
         skipped = results.filter(status='skipped').count()
+        noresults = results.filter(status='noresults').count()
         total = results.count()
-        pending = total - succeeded - failed - running - skipped
+        pending = total - succeeded - failed - running - skipped - noresults
 
-        # Calculate percentage (succeeded + failed + skipped as completed)
-        completed = succeeded + failed + skipped
+        # Calculate percentage (succeeded + failed + skipped + noresults as completed)
+        completed = succeeded + failed + skipped + noresults
         percent = int((completed / total * 100) if total > 0 else 0)
 
         # Sum output sizes
@@ -1875,47 +1875,38 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             'running': running,
             'pending': pending,
             'skipped': skipped,
+            'noresults': noresults,
             'percent': percent,
             'output_size': output_size,
             'is_sealed': is_sealed,
         }
 
-    def retry_failed_archiveresults(self, retry_at: Optional[datetime] = None) -> int:
+    def retry_failed_archiveresults(self) -> int:
         """
         Reset failed/skipped ArchiveResults to queued for retry.
 
-        This enables seamless retry of the entire extraction pipeline:
-        - Resets FAILED and SKIPPED results to QUEUED
-        - Sets retry_at so workers pick them up
-        - Plugins run in order (numeric prefix)
-        - Each plugin checks its dependencies at runtime
-
-        Dependency handling (e.g., chrome → screenshot):
-        - Plugins check if required outputs exist before running
-        - If dependency output missing → plugin returns 'skipped'
-        - On retry, if dependency now succeeds → dependent can run
-
         Returns count of ArchiveResults reset.
         """
-        retry_at = retry_at or timezone.now()
-
         count = self.archiveresult_set.filter(
             status__in=[
                 ArchiveResult.StatusChoices.FAILED,
                 ArchiveResult.StatusChoices.SKIPPED,
+                ArchiveResult.StatusChoices.NORESULTS,
             ]
         ).update(
             status=ArchiveResult.StatusChoices.QUEUED,
-            retry_at=retry_at,
-            output=None,
+            output_str='',
+            output_json=None,
+            output_files={},
+            output_size=0,
+            output_mimetypes='',
             start_ts=None,
             end_ts=None,
         )
 
-        # Also reset the snapshot and current_step so it gets re-checked from the beginning
         if count > 0:
             self.status = self.StatusChoices.STARTED
-            self.retry_at = retry_at
+            self.retry_at = timezone.now()
             self.current_step = 0  # Reset to step 0 for retry
             self.save(update_fields=['status', 'retry_at', 'current_step', 'modified_at'])
 
@@ -2228,6 +2219,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             best_result = outputs[0]
         context = {
             **self.to_dict(extended=True),
+            'snapshot': self,
             'title': htmlencode(self.title or (self.base_url if self.is_archived else TITLE_LOADING_MSG)),
             'url_str': htmlencode(urldecode(self.base_url)),
             'archive_url': urlencode(f'warc/{self.timestamp}' or (self.domain if self.is_archived else '')) or 'about:blank',
@@ -2275,8 +2267,8 @@ class SnapshotMachine(BaseStateMachine):
     │     • discover_hooks('Snapshot') → finds all plugin hooks   │
     │     • create_pending_archiveresults() → creates ONE         │
     │       ArchiveResult per hook (NO execution yet)             │
-    │  2. ArchiveResults process independently with their own     │
-    │     state machines (see ArchiveResultMachine)               │
+    │  2. The shared abx-dl runner executes hooks and the         │
+    │     projector updates ArchiveResult rows from events        │
     │  3. Advance through steps 0-9 as foreground hooks complete  │
     └─────────────────────────────────────────────────────────────┘
                             ↓ tick() when is_finished()
@@ -2358,7 +2350,7 @@ class SnapshotMachine(BaseStateMachine):
                 cast(Any, crawl).sm.seal()
 
 
-class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithStateMachine):
+class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes):
     class StatusChoices(models.TextChoices):
         QUEUED = 'queued', 'Queued'
         STARTED = 'started', 'Started'
@@ -2366,6 +2358,17 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         SUCCEEDED = 'succeeded', 'Succeeded'
         FAILED = 'failed', 'Failed'
         SKIPPED = 'skipped', 'Skipped'
+        NORESULTS = 'noresults', 'No Results'
+
+    INITIAL_STATE = StatusChoices.QUEUED
+    ACTIVE_STATE = StatusChoices.STARTED
+    FINAL_STATES = (
+        StatusChoices.SUCCEEDED,
+        StatusChoices.FAILED,
+        StatusChoices.SKIPPED,
+        StatusChoices.NORESULTS,
+    )
+    FINAL_OR_ACTIVE_STATES = (*FINAL_STATES, ACTIVE_STATE)
 
     @classmethod
     def get_plugin_choices(cls):
@@ -2404,15 +2407,9 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     start_ts = models.DateTimeField(default=None, null=True, blank=True)
     end_ts = models.DateTimeField(default=None, null=True, blank=True)
 
-    status = ModelWithStateMachine.StatusField(choices=StatusChoices.choices, default=StatusChoices.QUEUED)
-    retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
+    status = models.CharField(max_length=16, choices=StatusChoices.choices, default=StatusChoices.QUEUED, db_index=True)
     notes = models.TextField(blank=True, null=False, default='')
     # output_dir is computed via @property from snapshot.output_dir / plugin
-
-    state_machine_name = 'archivebox.core.models.ArchiveResultMachine'
-    retry_at_field_name = 'retry_at'
-    state_field_name = 'status'
-    active_state = StatusChoices.STARTED
 
     snapshot_id: uuid.UUID
     process_id: uuid.UUID | None
@@ -2421,7 +2418,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
         ModelWithOutputDir.Meta,
         ModelWithConfig.Meta,
         ModelWithNotes.Meta,
-        ModelWithStateMachine.Meta,
     ):
         app_label = 'core'
         verbose_name = 'Archive Result'
@@ -2516,40 +2512,24 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             return None
 
     def save(self, *args, **kwargs):
-        is_new = self._state.adding
-
-        # Create Process record if this is a new ArchiveResult and no process exists yet
-        if is_new and not self.process_id:
-            from archivebox.machine.models import Process, Machine
-
-            process = Process.objects.create(
-                machine=Machine.current(),
-                pwd=str(Path(self.snapshot.output_dir) / self.plugin),
-                cmd=[],  # Will be set by run()
-                status='queued',
-                timeout=120,
-                env={},
-            )
-            self.process = process
-
         # Skip ModelWithOutputDir.save() to avoid creating index.json in plugin directories
         # Call the Django Model.save() directly instead
         models.Model.save(self, *args, **kwargs)
 
-        if is_new:
-            from archivebox.misc.logging_util import log_worker_event
-            log_worker_event(
-                worker_type='DB',
-                event='Created ArchiveResult',
-                indent_level=3,
-                plugin=self.plugin,
-                metadata={
-                    'id': str(self.id),
-                    'snapshot_id': str(self.snapshot_id),
-                    'snapshot_url': str(self.snapshot.url)[:64],
-                    'status': self.status,
-                },
-            )
+        # if is_new:
+        #     from archivebox.misc.logging_util import log_worker_event
+        #     log_worker_event(
+        #         worker_type='DB',
+        #         event='Created ArchiveResult',
+        #         indent_level=3,
+        #         plugin=self.plugin,
+        #         metadata={
+        #             'id': str(self.id),
+        #             'snapshot_id': str(self.snapshot_id),
+        #             'snapshot_url': str(self.snapshot.url)[:64],
+        #             'status': self.status,
+        #         },
+        #     )
 
     @cached_property
     def snapshot_dir(self):
@@ -2565,6 +2545,28 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
     def get_absolute_url(self):
         return f'/{self.snapshot.archive_path}/{self.plugin}'
+
+    def reset_for_retry(self, *, save: bool = True) -> None:
+        self.status = self.StatusChoices.QUEUED
+        self.output_str = ''
+        self.output_json = None
+        self.output_files = {}
+        self.output_size = 0
+        self.output_mimetypes = ''
+        self.start_ts = None
+        self.end_ts = None
+        if save:
+            self.save(update_fields=[
+                'status',
+                'output_str',
+                'output_json',
+                'output_files',
+                'output_size',
+                'output_mimetypes',
+                'start_ts',
+                'end_ts',
+                'modified_at',
+            ])
 
     @property
     def plugin_module(self) -> Any | None:
@@ -2723,11 +2725,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
         return None
 
-    def create_output_dir(self):
-        output_dir = Path(self.snapshot_dir) / self.plugin
-        output_dir.mkdir(parents=True, exist_ok=True)
-        return output_dir
-
     @property
     def output_dir_name(self) -> str:
         return self.plugin
@@ -2782,134 +2779,17 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
     def save_search_index(self):
         pass
 
-    def cascade_health_update(self, success: bool):
-        """Update health stats for parent Snapshot, Crawl, and execution infrastructure (Binary, Machine, NetworkInterface)."""
-        # Update archival hierarchy
-        self.snapshot.increment_health_stats(success)
-        self.snapshot.crawl.increment_health_stats(success)
-
-        # Update execution infrastructure
-        if self.binary:
-            self.binary.increment_health_stats(success)
-            if self.binary.machine:
-                self.binary.machine.increment_health_stats(success)
-
-        if self.iface:
-            self.iface.increment_health_stats(success)
-
-    def run(self):
-        """
-        Execute this ArchiveResult's hook and update status.
-
-        If self.hook_name is set, runs only that specific hook.
-        If self.hook_name is empty, discovers and runs all hooks for self.plugin (backwards compat).
-
-        Updates status/output fields, queues discovered URLs, and triggers indexing.
-        """
-        from django.utils import timezone
-        from archivebox.hooks import BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR, run_hook
-        from archivebox.config.configset import get_config
-
-        # Get merged config with proper context
-        config = get_config(
-            crawl=self.snapshot.crawl,
-            snapshot=self.snapshot,
-        )
-
-        # Determine which hook(s) to run
-        hooks = []
-
-        if self.hook_name:
-            # SPECIFIC HOOK MODE: Find the specific hook by name
-            for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
-                if not base_dir.exists():
-                    continue
-                plugin_dir = base_dir / self.plugin
-                if plugin_dir.exists():
-                    hook_path = plugin_dir / self.hook_name
-                    if hook_path.exists():
-                        hooks.append(hook_path)
-                        break
-        else:
-            # LEGACY MODE: Discover all hooks for this plugin (backwards compatibility)
-            for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
-                if not base_dir.exists():
-                    continue
-                plugin_dir = base_dir / self.plugin
-                if plugin_dir.exists():
-                    matches = list(plugin_dir.glob('on_Snapshot__*.*'))
-                    if matches:
-                        hooks.extend(sorted(matches))
-
-        if not hooks:
-            self.status = self.StatusChoices.FAILED
-            if self.hook_name:
-                self.output_str = f'Hook not found: {self.plugin}/{self.hook_name}'
-            else:
-                self.output_str = f'No hooks found for plugin: {self.plugin}'
-            self.retry_at = None
-            self.save()
-            return
-
-        # Output directory is plugin_dir for the hook output
-        plugin_dir = Path(self.snapshot.output_dir) / self.plugin
-
-        start_ts = timezone.now()
-        process = None
-
-        for hook in hooks:
-            # Run hook using Process.launch() - returns Process model
-            process = run_hook(
-                hook,
-                output_dir=plugin_dir,
-                config=config,
-                url=self.snapshot.url,
-                snapshot_id=str(self.snapshot.id),
-                crawl_id=str(self.snapshot.crawl.id),
-                depth=self.snapshot.depth,
-            )
-
-            # Link ArchiveResult to Process
-            self.process = process
-            self.start_ts = start_ts
-            self.save(update_fields=['process_id', 'start_ts', 'modified_at'])
-
-        if not process:
-            # No hooks ran
-            self.status = self.StatusChoices.FAILED
-            self.output_str = 'No hooks executed'
-            self.save()
-            return
-
-        # Update status based on hook execution
-        if process.status == process.StatusChoices.RUNNING:
-            # BACKGROUND HOOK - still running, return immediately
-            # Status is already STARTED from enter_started(), will be finalized by Snapshot.cleanup()
-            return
-
-        # FOREGROUND HOOK - completed, update from filesystem
-        self.update_from_output()
-
-        # Clean up empty output directory if no files were created
-        if plugin_dir.exists() and not self.output_files:
-            try:
-                if not any(plugin_dir.iterdir()):
-                    plugin_dir.rmdir()
-            except (OSError, RuntimeError):
-                pass
-
     def update_from_output(self):
         """
         Update this ArchiveResult from filesystem logs and output files.
 
-        Used for:
-        - Foreground hooks that completed (called from ArchiveResult.run())
-        - Background hooks that completed (called from Snapshot.cleanup())
+        Used for Snapshot cleanup / orphan recovery when a hook's output exists
+        on disk but the projector did not finalize the row in the database.
 
         Updates:
         - status, output_str, output_json from ArchiveResult JSONL record
         - output_files, output_size, output_mimetypes by walking filesystem
-        - end_ts, retry_at, cmd, cmd_version, binary FK
+        - end_ts, cmd, cmd_version, binary FK
         - Processes side-effect records (Snapshot, Tag, etc.) via process_hook_records()
         """
         import mimetypes
@@ -2924,7 +2804,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
             self.status = self.StatusChoices.FAILED
             self.output_str = 'Output directory not found'
             self.end_ts = timezone.now()
-            self.retry_at = None
             self.save()
             return
 
@@ -2948,6 +2827,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
                 'succeeded': self.StatusChoices.SUCCEEDED,
                 'failed': self.StatusChoices.FAILED,
                 'skipped': self.StatusChoices.SKIPPED,
+                'noresults': self.StatusChoices.NORESULTS,
             }
             self.status = status_map.get(hook_data.get('status', 'failed'), self.StatusChoices.FAILED)
 
@@ -3011,7 +2891,6 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
         # Update timestamps
         self.end_ts = timezone.now()
-        self.retry_at = None
 
         self.save()
 
@@ -3095,339 +2974,12 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWi
 
         Uses proper config hierarchy: defaults -> file -> env -> machine -> user -> crawl -> snapshot
         """
-        import re
-        from archivebox.config.configset import get_config
-
-        # Get merged config with proper hierarchy
-        config = get_config(
-            user=self.created_by,
-            crawl=self.snapshot.crawl,
-            snapshot=self.snapshot,
-        )
-
-        # Get allowlist/denylist (can be string or list)
-        allowlist_raw = config.get('URL_ALLOWLIST', '')
-        denylist_raw = config.get('URL_DENYLIST', '')
-
-        # Normalize to list of patterns
-        def to_pattern_list(value):
-            if isinstance(value, list):
-                return value
-            if isinstance(value, str):
-                return [p.strip() for p in value.split(',') if p.strip()]
-            return []
-
-        allowlist = to_pattern_list(allowlist_raw)
-        denylist = to_pattern_list(denylist_raw)
-
-        # Denylist takes precedence
-        if denylist:
-            for pattern in denylist:
-                try:
-                    if re.search(pattern, url):
-                        return False
-                except re.error:
-                    continue  # Skip invalid regex patterns
-
-        # If allowlist exists, URL must match at least one pattern
-        if allowlist:
-            for pattern in allowlist:
-                try:
-                    if re.search(pattern, url):
-                        return True
-                except re.error:
-                    continue  # Skip invalid regex patterns
-            return False  # No allowlist patterns matched
-
-        return True  # No filters or passed filters
+        return self.snapshot.crawl.url_passes_filters(url, snapshot=self.snapshot)
 
     @property
     def output_dir(self) -> Path:
         """Get the output directory for this plugin's results."""
         return Path(self.snapshot.output_dir) / self.plugin
-
-    def is_background_hook(self) -> bool:
-        """Check if this ArchiveResult is for a background hook."""
-        plugin_dir = Path(self.pwd) if self.pwd else None
-        if not plugin_dir:
-            return False
-        pid_file = plugin_dir / 'hook.pid'
-        return pid_file.exists()
-
-
-# =============================================================================
-# ArchiveResult State Machine
-# =============================================================================
-
-class ArchiveResultMachine(BaseStateMachine):
-    """
-    State machine for managing ArchiveResult (single plugin execution) lifecycle.
-
-    Hook Lifecycle:
-    ┌─────────────────────────────────────────────────────────────┐
-    │ QUEUED State                                                │
-    │  • Waiting for its turn to run                              │
-    └─────────────────────────────────────────────────────────────┘
-                            ↓ tick() when can_start()
-    ┌─────────────────────────────────────────────────────────────┐
-    │ STARTED State → enter_started()                             │
-    │  1. archiveresult.run()                                     │
-    │     • Find specific hook by hook_name                       │
-    │     • run_hook(script, output_dir, ...) → subprocess        │
-    │                                                              │
-    │  2a. FOREGROUND hook (returns HookResult):                  │
-    │      • update_from_output() immediately                     │
-    │        - Read stdout.log                                    │
-    │        - Parse JSONL records                                │
-    │        - Extract 'ArchiveResult' record → update status     │
-    │        - Walk output_dir → populate output_files            │
-    │        - Call process_hook_records() for side effects       │
-    │                                                              │
-    │  2b. BACKGROUND hook (returns None):                        │
-    │      • Status stays STARTED                                 │
-    │      • Continues running in background                      │
-    │      • Killed by Snapshot.cleanup() when sealed             │
-    └─────────────────────────────────────────────────────────────┘
-                            ↓ tick() checks status
-    ┌─────────────────────────────────────────────────────────────┐
-    │ SUCCEEDED / FAILED / SKIPPED / BACKOFF                      │
-    │  • Set by hook's JSONL output during update_from_output()   │
-    │  • Health stats incremented (num_uses_succeeded/failed)     │
-    │  • Parent Snapshot health stats also updated                │
-    └─────────────────────────────────────────────────────────────┘
-
-    https://github.com/ArchiveBox/ArchiveBox/wiki/ArchiveBox-Architecture-Diagrams
-    """
-
-    model_attr_name = 'archiveresult'
-
-    # States
-    queued = State(value=ArchiveResult.StatusChoices.QUEUED, initial=True)
-    started = State(value=ArchiveResult.StatusChoices.STARTED)
-    backoff = State(value=ArchiveResult.StatusChoices.BACKOFF)
-    succeeded = State(value=ArchiveResult.StatusChoices.SUCCEEDED, final=True)
-    failed = State(value=ArchiveResult.StatusChoices.FAILED, final=True)
-    skipped = State(value=ArchiveResult.StatusChoices.SKIPPED, final=True)
-
-    # Tick Event - transitions based on conditions
-    # Flow: queued → started → (succeeded|failed|skipped)
-    #       queued → skipped (if exceeded max attempts)
-    #       started → backoff → started (retry)
-    tick = (
-        queued.to(skipped, cond='is_exceeded_max_attempts')  # Check skip first
-        | queued.to.itself(unless='can_start')
-        | queued.to(started, cond='can_start')
-        | started.to(succeeded, cond='is_succeeded')
-        | started.to(failed, cond='is_failed')
-        | started.to(skipped, cond='is_skipped')
-        | started.to(backoff, cond='is_backoff')
-        | backoff.to(skipped, cond='is_exceeded_max_attempts')  # Check skip from backoff too
-        | backoff.to.itself(unless='can_start')
-        | backoff.to(started, cond='can_start')
-        # Removed redundant transitions: backoff.to(succeeded/failed/skipped)
-        # Reason: backoff should always retry→started, then started→final states
-    )
-
-    archiveresult: ArchiveResult
-
-    def can_start(self) -> bool:
-        """Pure function - check if AR can start (has valid URL)."""
-        return bool(self.archiveresult.snapshot.url)
-
-    def is_exceeded_max_attempts(self) -> bool:
-        """Check if snapshot has exceeded MAX_URL_ATTEMPTS failed results."""
-        from archivebox.config.configset import get_config
-
-        config = get_config(
-            crawl=self.archiveresult.snapshot.crawl,
-            snapshot=self.archiveresult.snapshot,
-        )
-        max_attempts = config.get('MAX_URL_ATTEMPTS', 50)
-
-        # Count failed ArchiveResults for this snapshot (any plugin type)
-        failed_count = self.archiveresult.snapshot.archiveresult_set.filter(
-            status=ArchiveResult.StatusChoices.FAILED
-        ).count()
-
-        return failed_count >= max_attempts
-
-    def is_succeeded(self) -> bool:
-        """Check if extractor plugin succeeded (status was set by run())."""
-        return self.archiveresult.status == ArchiveResult.StatusChoices.SUCCEEDED
-
-    def is_failed(self) -> bool:
-        """Check if extractor plugin failed (status was set by run())."""
-        return self.archiveresult.status == ArchiveResult.StatusChoices.FAILED
-
-    def is_skipped(self) -> bool:
-        """Check if extractor plugin was skipped (status was set by run())."""
-        return self.archiveresult.status == ArchiveResult.StatusChoices.SKIPPED
-
-    def is_backoff(self) -> bool:
-        """Check if we should backoff and retry later."""
-        # Backoff if status is still started (plugin didn't complete) and output_str is empty
-        return (
-            self.archiveresult.status == ArchiveResult.StatusChoices.STARTED
-            and not self.archiveresult.output_str
-        )
-
-    def is_finished(self) -> bool:
-        """
-        Check if extraction has completed (success, failure, or skipped).
-
-        For background hooks in STARTED state, checks if their Process has finished and reaps them.
-        """
-        # If already in final state, return True
-        if self.archiveresult.status in (
-            ArchiveResult.StatusChoices.SUCCEEDED,
-            ArchiveResult.StatusChoices.FAILED,
-            ArchiveResult.StatusChoices.SKIPPED,
-        ):
-            return True
-
-        # If in STARTED state with a Process, check if Process has finished running
-        if self.archiveresult.status == ArchiveResult.StatusChoices.STARTED:
-            if self.archiveresult.process_id:
-                process = self.archiveresult.process
-
-                # If process is NOT running anymore, reap the background hook
-                if not process.is_running:
-                    self.archiveresult.update_from_output()
-                    # Check if now in final state after reaping
-                    return self.archiveresult.status in (
-                        ArchiveResult.StatusChoices.SUCCEEDED,
-                        ArchiveResult.StatusChoices.FAILED,
-                        ArchiveResult.StatusChoices.SKIPPED,
-                    )
-
-        return False
-
-    @queued.enter
-    def enter_queued(self):
-        self.archiveresult.update_and_requeue(
-            retry_at=timezone.now(),
-            status=ArchiveResult.StatusChoices.QUEUED,
-            start_ts=None,
-        )  # bump the snapshot's retry_at so they pickup any new changes
-
-    @started.enter
-    def enter_started(self):
-
-        # Update Process with network interface
-        if self.archiveresult.process_id:
-            self.archiveresult.process.iface = NetworkInterface.current()
-            self.archiveresult.process.save()
-
-        # Lock the object and mark start time
-        self.archiveresult.update_and_requeue(
-            retry_at=timezone.now() + timedelta(seconds=120),  # 2 min timeout for plugin
-            status=ArchiveResult.StatusChoices.STARTED,
-            start_ts=timezone.now(),
-        )
-
-        # Run the plugin - this updates status, output, timestamps, etc.
-        self.archiveresult.run()
-
-        # Save the updated result
-        self.archiveresult.save()
-
-
-    @backoff.enter
-    def enter_backoff(self):
-        self.archiveresult.update_and_requeue(
-            retry_at=timezone.now() + timedelta(seconds=60),
-            status=ArchiveResult.StatusChoices.BACKOFF,
-            end_ts=None,
-        )
-
-    def _check_and_seal_parent_snapshot(self):
-        """
-        Check if this is the last ArchiveResult to finish - if so, seal the parent Snapshot.
-
-        Note: In the new architecture, the shared runner handles step advancement and sealing.
-        This method is kept for direct model-driven edge cases.
-        """
-        import sys
-
-        snapshot = self.archiveresult.snapshot
-
-        # Check if all archiveresults are finished (in final states)
-        remaining_active = snapshot.archiveresult_set.exclude(
-            status__in=[
-                ArchiveResult.StatusChoices.SUCCEEDED,
-                ArchiveResult.StatusChoices.FAILED,
-                ArchiveResult.StatusChoices.SKIPPED,
-            ]
-        ).count()
-
-        if remaining_active == 0:
-            print(f'[cyan]    🔒 All archiveresults finished for snapshot {snapshot.url}, sealing snapshot[/cyan]', file=sys.stderr)
-            # Seal the parent snapshot
-            cast(Any, snapshot).sm.seal()
-
-    @succeeded.enter
-    def enter_succeeded(self):
-        import sys
-
-        self.archiveresult.update_and_requeue(
-            retry_at=None,
-            status=ArchiveResult.StatusChoices.SUCCEEDED,
-            end_ts=timezone.now(),
-        )
-
-        # Update health stats for ArchiveResult, Snapshot, and Crawl cascade
-        self.archiveresult.cascade_health_update(success=True)
-
-        print(f'[cyan]    ✅ ArchiveResult succeeded: {self.archiveresult.plugin} for {self.archiveresult.snapshot.url}[/cyan]', file=sys.stderr)
-
-        # Check if this is the last AR to finish - seal parent snapshot if so
-        self._check_and_seal_parent_snapshot()
-
-    @failed.enter
-    def enter_failed(self):
-        import sys
-
-        print(f'[red]    ❌ ArchiveResult.enter_failed() called for {self.archiveresult.plugin}[/red]', file=sys.stderr)
-
-        self.archiveresult.update_and_requeue(
-            retry_at=None,
-            status=ArchiveResult.StatusChoices.FAILED,
-            end_ts=timezone.now(),
-        )
-
-        # Update health stats for ArchiveResult, Snapshot, and Crawl cascade
-        self.archiveresult.cascade_health_update(success=False)
-
-        print(f'[red]    ❌ ArchiveResult failed: {self.archiveresult.plugin} for {self.archiveresult.snapshot.url}[/red]', file=sys.stderr)
-
-        # Check if this is the last AR to finish - seal parent snapshot if so
-        self._check_and_seal_parent_snapshot()
-
-    @skipped.enter
-    def enter_skipped(self):
-        import sys
-
-        # Set output_str if not already set (e.g., when skipped due to max attempts)
-        if not self.archiveresult.output_str and self.is_exceeded_max_attempts():
-            from archivebox.config.configset import get_config
-            config = get_config(
-                crawl=self.archiveresult.snapshot.crawl,
-                snapshot=self.archiveresult.snapshot,
-            )
-            max_attempts = config.get('MAX_URL_ATTEMPTS', 50)
-            self.archiveresult.output_str = f'Skipped: snapshot exceeded MAX_URL_ATTEMPTS ({max_attempts} failures)'
-
-        self.archiveresult.update_and_requeue(
-            retry_at=None,
-            status=ArchiveResult.StatusChoices.SKIPPED,
-            end_ts=timezone.now(),
-        )
-
-        print(f'[dim]    ⏭️  ArchiveResult skipped: {self.archiveresult.plugin} for {self.archiveresult.snapshot.url}[/dim]', file=sys.stderr)
-
-        # Check if this is the last AR to finish - seal parent snapshot if so
-        self._check_and_seal_parent_snapshot()
-
 
 # =============================================================================
 # State Machine Registration
@@ -3436,4 +2988,3 @@ class ArchiveResultMachine(BaseStateMachine):
 # Manually register state machines with python-statemachine registry
 # (normally auto-discovered from statemachines.py, but we define them here for clarity)
 registry.register(SnapshotMachine)
-registry.register(ArchiveResultMachine)

@@ -38,15 +38,16 @@ import rich_click as click
 
 def process_archiveresult_by_id(archiveresult_id: str) -> int:
     """
-    Run extraction for a single ArchiveResult by ID (used by workers).
+    Re-run extraction for a single ArchiveResult by ID.
 
-    Triggers the ArchiveResult's state machine tick() to run the extractor
-    plugin, but only after claiming ownership via retry_at. This keeps direct
-    CLI execution aligned with the worker lifecycle and prevents duplicate hook
-    runs if another process already owns the same ArchiveResult.
+    ArchiveResults are projected status rows, not queued work items. Re-running
+    a single result means resetting that row and queueing its parent snapshot
+    through the shared crawl runner with the corresponding plugin selected.
     """
     from rich import print as rprint
+    from django.utils import timezone
     from archivebox.core.models import ArchiveResult
+    from archivebox.services.runner import run_crawl
 
     try:
         archiveresult = ArchiveResult.objects.get(id=archiveresult_id)
@@ -57,15 +58,26 @@ def process_archiveresult_by_id(archiveresult_id: str) -> int:
     rprint(f'[blue]Extracting {archiveresult.plugin} for {archiveresult.snapshot.url}[/blue]', file=sys.stderr)
 
     try:
-        # Claim-before-tick is the required calling pattern for direct
-        # state-machine drivers. If another worker already owns this row,
-        # report that and exit without running duplicate extractor side effects.
-        if not archiveresult.tick_claimed(lock_seconds=120):
-            print(f'[yellow]Extraction already claimed by another process: {archiveresult.plugin}[/yellow]')
-            return 0
+        archiveresult.reset_for_retry()
+        snapshot = archiveresult.snapshot
+        snapshot.status = snapshot.StatusChoices.QUEUED
+        snapshot.retry_at = timezone.now()
+        snapshot.save(update_fields=['status', 'retry_at', 'modified_at'])
+
+        crawl = snapshot.crawl
+        if crawl.status != crawl.StatusChoices.STARTED:
+            crawl.status = crawl.StatusChoices.QUEUED
+        crawl.retry_at = timezone.now()
+        crawl.save(update_fields=['status', 'retry_at', 'modified_at'])
+
+        run_crawl(str(crawl.id), snapshot_ids=[str(snapshot.id)], selected_plugins=[archiveresult.plugin])
+        archiveresult.refresh_from_db()
 
         if archiveresult.status == ArchiveResult.StatusChoices.SUCCEEDED:
             print(f'[green]Extraction succeeded: {archiveresult.output_str}[/green]')
+            return 0
+        elif archiveresult.status == ArchiveResult.StatusChoices.NORESULTS:
+            print(f'[dim]Extraction completed with no results: {archiveresult.output_str}[/dim]')
             return 0
         elif archiveresult.status == ArchiveResult.StatusChoices.FAILED:
             print(f'[red]Extraction failed: {archiveresult.output_str}[/red]', file=sys.stderr)
@@ -121,8 +133,9 @@ def run_plugins(
         rprint('[yellow]No snapshots provided. Pass snapshot IDs as arguments or via stdin.[/yellow]', file=sys.stderr)
         return 1
 
-    # Gather snapshot IDs to process
+    # Gather snapshot IDs and optional plugin constraints to process
     snapshot_ids = set()
+    requested_plugins_by_snapshot: dict[str, set[str]] = defaultdict(set)
     for record in records:
         record_type = record.get('type')
 
@@ -142,6 +155,9 @@ def run_plugins(
             snapshot_id = record.get('snapshot_id')
             if snapshot_id:
                 snapshot_ids.add(snapshot_id)
+                plugin_name = record.get('plugin')
+                if plugin_name and not plugins_list:
+                    requested_plugins_by_snapshot[str(snapshot_id)].add(str(plugin_name))
 
         elif 'id' in record:
             # Assume it's a snapshot ID
@@ -160,26 +176,15 @@ def run_plugins(
             rprint(f'[yellow]Snapshot {snapshot_id} not found[/yellow]', file=sys.stderr)
             continue
 
-        # Create pending ArchiveResults if needed
-        if plugins_list:
-            # Only create for specific plugins
-            for plugin_name in plugins_list:
-                result, created = ArchiveResult.objects.get_or_create(
-                    snapshot=snapshot,
-                    plugin=plugin_name,
-                    defaults={
-                        'status': ArchiveResult.StatusChoices.QUEUED,
-                        'retry_at': timezone.now(),
-                    }
-                )
-                if not created and result.status in [ArchiveResult.StatusChoices.FAILED, ArchiveResult.StatusChoices.SKIPPED]:
-                    # Reset for retry
-                    result.status = ArchiveResult.StatusChoices.QUEUED
-                    result.retry_at = timezone.now()
-                    result.save()
-        else:
-            # Create all pending plugins
-            snapshot.create_pending_archiveresults()
+        for plugin_name in requested_plugins_by_snapshot.get(str(snapshot.id), set()):
+            existing_result = snapshot.archiveresult_set.filter(plugin=plugin_name).order_by('-created_at').first()
+            if existing_result and existing_result.status in [
+                ArchiveResult.StatusChoices.FAILED,
+                ArchiveResult.StatusChoices.SKIPPED,
+                ArchiveResult.StatusChoices.NORESULTS,
+                ArchiveResult.StatusChoices.BACKOFF,
+            ]:
+                existing_result.reset_for_retry()
 
         # Reset snapshot status to allow processing
         if snapshot.status == Snapshot.StatusChoices.SEALED:
@@ -207,10 +212,15 @@ def run_plugins(
             snapshot_ids_by_crawl[str(snapshot.crawl_id)].add(str(snapshot.id))
 
         for crawl_id, crawl_snapshot_ids in snapshot_ids_by_crawl.items():
+            selected_plugins = plugins_list or sorted({
+                plugin
+                for snapshot_id in crawl_snapshot_ids
+                for plugin in requested_plugins_by_snapshot.get(str(snapshot_id), set())
+            }) or None
             run_crawl(
                 crawl_id,
                 snapshot_ids=sorted(crawl_snapshot_ids),
-                selected_plugins=plugins_list or None,
+                selected_plugins=selected_plugins,
             )
 
     # Output results as JSONL (when piped) or human-readable (when TTY)

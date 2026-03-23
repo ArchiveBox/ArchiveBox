@@ -14,8 +14,8 @@ supported-markers = [
 
 [[package]]
 name = "abx-dl"
-version = "1.10.13"
-source = { registry = "https://pypi.org/simple" }
+version = "1.10.14"
+source = { editable = "../abx-dl" }
 dependencies = [
     { name = "abx-pkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -27,44 +27,110 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/10/de/d9d5a398f053f899fc62d45b9d21eb85412c6ca7d32099c25b9b43f84e32/abx_dl-1.10.13.tar.gz", hash = "sha256:f9fef6119691e07e1792593ed5bcd8de2f84df9d01e77966006d743593c611aa", size = 58200, upload-time = "2026-03-21T18:47:20.901Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e7/11/670fbdc0afe2274893b63774643f6bb44f09d4975d3968cf394384af1306/abx_dl-1.10.13-py3-none-any.whl", hash = "sha256:cd4aab469563b1c7d9f9202161d94ba7de62cf31fbe924f6fe6f51ad051f4d70", size = 62597, upload-time = "2026-03-21T18:47:19.573Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "abx-pkg", editable = "../abx-pkg" },
+    { name = "abx-plugins", editable = "../abx-plugins" },
+    { name = "abxbus", editable = "../abxbus" },
+    { name = "flake8", marker = "extra == 'dev'", specifier = ">=7.1.1" },
+    { name = "flask", marker = "extra == 'dev'", specifier = ">=3.0" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11.2" },
+    { name = "platformdirs", specifier = ">=4.0.0" },
+    { name = "psutil", specifier = ">=7.2.1" },
+    { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+    { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.5.0" },
+    { name = "requests", specifier = ">=2.28.0" },
+    { name = "rich", specifier = ">=13.0.0" },
+    { name = "rich-click", specifier = ">=1.8.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.6" },
+]
+provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "prek", specifier = ">=0.3.6" },
+    { name = "pyright", specifier = ">=1.1.408" },
+    { name = "ruff", specifier = ">=0.15.7" },
+    { name = "ty", specifier = ">=0.0.24" },
 ]
 
 [[package]]
 name = "abx-pkg"
-version = "1.9.14"
-source = { registry = "https://pypi.org/simple" }
+version = "1.9.18"
+source = { editable = "../abx-pkg" }
 dependencies = [
     { name = "pip", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "platformdirs", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "pydantic", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "typing-extensions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f9/6e/4465d44686b40ab0361d153160e2bd0167f588756518084308a8e8d08d8c/abx_pkg-1.9.14.tar.gz", hash = "sha256:b94d42cdbc6dde88635903cf14977b34e552d807a72c03d60f27f075deb59952", size = 146811, upload-time = "2026-03-21T07:44:12.158Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/56/af/8e65a23d44e5ccc069c344a7a626f575498b3c1a3ccacb17e941b36ecd35/abx_pkg-1.9.14-py3-none-any.whl", hash = "sha256:cf89dc4c5737e2078cb05fa7e33683718d540391a018445b6e54aa22666f25e0", size = 63511, upload-time = "2026-03-21T07:44:11.038Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "abx-pkg", extras = ["rich", "pyinfra", "ansible"], marker = "extra == 'all'" },
+    { name = "ansible", marker = "extra == 'ansible'", specifier = ">=12.3.0" },
+    { name = "ansible-core", marker = "extra == 'ansible'", specifier = ">=2.0.0" },
+    { name = "ansible-runner", marker = "extra == 'ansible'", specifier = ">=2.4.2" },
+    { name = "pip", specifier = ">=26.0.1" },
+    { name = "platformdirs", specifier = ">=4.9.2" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "pyinfra", marker = "extra == 'pyinfra'", specifier = ">=3.6.1" },
+    { name = "rich", marker = "extra == 'rich'", specifier = ">=14.0.0" },
+    { name = "typing-extensions", specifier = ">=4.15.0" },
+]
+provides-extras = ["rich", "pyinfra", "ansible", "all"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "django", specifier = ">=4.0" },
+    { name = "django-admin-data-views", specifier = ">=0.3.1" },
+    { name = "django-jsonform", specifier = ">=2.22.0" },
+    { name = "django-pydantic-field", specifier = ">=0.3.9" },
+    { name = "django-stubs", specifier = ">=5.0.0" },
+    { name = "mypy", specifier = ">=1.19.1" },
+    { name = "prek", specifier = ">=0.3.6" },
+    { name = "pyright" },
+    { name = "pytest", specifier = ">=9.0.2" },
+    { name = "rich", specifier = ">=14.0.0" },
+    { name = "ruff", specifier = ">=0.15.7" },
+    { name = "ty", specifier = ">=0.0.24" },
 ]
 
 [[package]]
 name = "abx-plugins"
-version = "1.10.13"
-source = { registry = "https://pypi.org/simple" }
+version = "1.10.14"
+source = { editable = "../abx-plugins" }
 dependencies = [
     { name = "abx-pkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "pydantic-settings", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2b/ea/7e70fa30a1e52039decd8b755b22549b8c51fb9d97cf54751b6fd1af7f2d/abx_plugins-1.10.13.tar.gz", hash = "sha256:945623afc6436894d26e8e27ce6101032b0c42655d5cbfaeeaa8a57913d0d46a", size = 525322, upload-time = "2026-03-21T17:39:10.142Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/29/25/d5338a5a7a1958916e7104727046ec01744da3fb28b1e30934480ab57f65/abx_plugins-1.10.13-py3-none-any.whl", hash = "sha256:79353763baf685871d52ea7e5fa8d0249937ec9edb2f63c7768b0c0a98d5518e", size = 731961, upload-time = "2026-03-21T17:39:11.713Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "abx-pkg", editable = "../abx-pkg" },
+    { name = "feedparser", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+    { name = "jinja2", marker = "extra == 'dev'", specifier = ">=3.1.0" },
+    { name = "pydantic-settings", specifier = ">=2.0.0" },
+    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.408" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.2" },
+    { name = "pytest-httpserver", marker = "extra == 'dev'", specifier = ">=1.1.0" },
+    { name = "requests", marker = "extra == 'dev'", specifier = ">=2.28.0" },
+    { name = "rich-click", specifier = ">=1.9.7" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.2" },
+    { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.18" },
 ]
+provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "prek", specifier = ">=0.3.6" }]
 
 [[package]]
 name = "abxbus"
-version = "2.4.2"
-source = { registry = "https://pypi.org/simple" }
+version = "2.4.7"
+source = { editable = "../abxbus" }
 dependencies = [
     { name = "aiofiles", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "anyio", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -73,9 +139,41 @@ dependencies = [
     { name = "typing-extensions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "uuid7", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/14/e5/ddf5dab0db243ddd9b193a4461a2d07f3d554b595c77e58af0beceb60eb2/abxbus-2.4.2.tar.gz", hash = "sha256:1c8056655decc81d28a8622f313109df9da36bde77175b0388a0ab9300b878a8", size = 114123, upload-time = "2026-03-20T21:09:35.643Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/86/c8/7815696415e66a7753112062a1357457f1cdd52d623964942f9086872dcb/abxbus-2.4.2-py3-none-any.whl", hash = "sha256:bd2058280fea91a021b604fdc32c4e4e690dfdee848fa50ea746cd786581f923", size = 110208, upload-time = "2026-03-20T21:09:33.942Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "aiofiles", specifier = ">=24.1.0" },
+    { name = "anyio", specifier = ">=4.9.0" },
+    { name = "asyncpg", marker = "extra == 'bridges'", specifier = ">=0.31.0" },
+    { name = "asyncpg", marker = "extra == 'postgres'", specifier = ">=0.31.0" },
+    { name = "nats-py", marker = "extra == 'bridges'", specifier = ">=2.13.1" },
+    { name = "nats-py", marker = "extra == 'nats'", specifier = ">=2.13.1" },
+    { name = "portalocker", specifier = ">=2.7.0" },
+    { name = "pydantic", specifier = ">=2.11.5" },
+    { name = "redis", marker = "extra == 'bridges'", specifier = ">=7.1.1" },
+    { name = "redis", marker = "extra == 'redis'", specifier = ">=7.1.1" },
+    { name = "typing-extensions", specifier = ">=4.12.2" },
+    { name = "uuid7", specifier = ">=0.1.0" },
+]
+provides-extras = ["postgres", "nats", "redis", "bridges"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "build", specifier = ">=1.2.2" },
+    { name = "codespell", specifier = ">=2.4.1" },
+    { name = "fastapi", specifier = ">=0.118.0" },
+    { name = "ipdb", specifier = ">=0.13.13" },
+    { name = "prek", specifier = ">=0.3.3" },
+    { name = "psutil", specifier = ">=7.0.0" },
+    { name = "pyright", specifier = ">=1.1.404" },
+    { name = "pytest", specifier = ">=8.3.5" },
+    { name = "pytest-asyncio", specifier = ">=1.1.0" },
+    { name = "pytest-cov", specifier = ">=6.2.1" },
+    { name = "pytest-httpserver", specifier = ">=1.0.8" },
+    { name = "pytest-timeout", specifier = ">=2.4.0" },
+    { name = "pytest-xdist", specifier = ">=3.7.0" },
+    { name = "ruff", specifier = ">=0.15.1" },
+    { name = "ty", specifier = ">=0.0.1a19" },
 ]
 
 [[package]]
@@ -119,12 +217,13 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.10rc1"
+version = "0.9.10rc2"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abx-pkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "atomicwrites", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "base32-crockford", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -213,9 +312,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-dl", specifier = ">=1.10.13" },
-    { name = "abx-pkg", specifier = ">=1.9.14" },
-    { name = "abx-plugins", specifier = ">=1.9.18" },
+    { name = "abx-dl", editable = "../abx-dl" },
+    { name = "abx-pkg", editable = "../abx-pkg" },
+    { name = "abx-plugins", editable = "../abx-plugins" },
+    { name = "abxbus", editable = "../abxbus" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
     { name = "atomicwrites", specifier = "==1.4.1" },
     { name = "base32-crockford", specifier = ">=0.3.0" },
@@ -1856,16 +1956,16 @@ wheels = [
 
 [[package]]
 name = "pytest-cov"
-version = "7.0.0"
+version = "7.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "coverage", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "pluggy", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "pytest", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5e/f7/c933acc76f5208b3b00089573cf6a2bc26dc80a8aece8f52bb7d6b1855ca/pytest_cov-7.0.0.tar.gz", hash = "sha256:33c97eda2e049a0c5298e91f519302a1334c26ac65c1a483d6206fd458361af1", size = 54328, upload-time = "2025-09-09T10:57:02.113Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b1/51/a849f96e117386044471c8ec2bd6cfebacda285da9525c9106aeb28da671/pytest_cov-7.1.0.tar.gz", hash = "sha256:30674f2b5f6351aa09702a9c8c364f6a01c27aae0c1366ae8016160d1efc56b2", size = 55592, upload-time = "2026-03-21T20:11:16.284Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ee/49/1377b49de7d0c1ce41292161ea0f721913fa8722c19fb9c1e3aa0367eecb/pytest_cov-7.0.0-py3-none-any.whl", hash = "sha256:3b8e9558b16cc1479da72058bdecf8073661c7f57f7d3c5f22a1c23507f2d861", size = 22424, upload-time = "2025-09-09T10:57:00.695Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/7a/d968e294073affff457b041c2be9868a40c1c71f4a35fcc1e45e5493067b/pytest_cov-7.1.0-py3-none-any.whl", hash = "sha256:a0461110b7865f9a271aa1b51e516c9a95de9d696734a2f71e3e78f46e1d4678", size = 22876, upload-time = "2026-03-21T20:11:14.438Z" },
 ]
 
 [[package]]

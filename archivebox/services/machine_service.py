@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from asgiref.sync import sync_to_async
 from abx_dl.events import MachineEvent
 from abx_dl.services.base import BaseService
+
+from .db import run_db_op
 
 
 class MachineService(BaseService):
     LISTENS_TO = [MachineEvent]
     EMITS = []
 
-    async def on_MachineEvent(self, event: MachineEvent) -> None:
-        await sync_to_async(self._project, thread_sensitive=True)(event)
+    async def on_MachineEvent__Outer(self, event: MachineEvent) -> None:
+        await run_db_op(self._project, event)
 
     def _project(self, event: MachineEvent) -> None:
         from archivebox.machine.models import Machine

@@ -1,5 +1,6 @@
 __package__ = 'archivebox.core'
 
+import json
 import os
 import posixpath
 from glob import glob, escape
@@ -7,7 +8,7 @@ from django.utils import timezone
 import inspect
 from typing import Callable, cast, get_type_hints
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, HttpRequest, HttpResponse, Http404, HttpResponseForbidden
@@ -26,7 +27,7 @@ from admin_data_views.typing import TableContext, ItemContext, SectionData
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
 from archivebox.config import CONSTANTS, CONSTANTS_CONFIG, DATA_DIR, VERSION
-from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG
+from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG, SEARCH_BACKEND_CONFIG
 from archivebox.config.configset import get_flat_config, get_config, get_all_configs
 from archivebox.misc.util import base_url, htmlencode, ts_to_date_str, urldecode
 from archivebox.misc.serve_static import serve_static_with_byterange_support
@@ -37,7 +38,18 @@ from archivebox.core.models import Snapshot
 from archivebox.core.host_utils import build_snapshot_url
 from archivebox.core.forms import AddLinkForm
 from archivebox.crawls.models import Crawl
-from archivebox.hooks import get_enabled_plugins, get_plugin_name
+from archivebox.hooks import (
+    BUILTIN_PLUGINS_DIR,
+    USER_PLUGINS_DIR,
+    discover_plugin_configs,
+    get_enabled_plugins,
+    get_plugin_name,
+    iter_plugin_dirs,
+)
+
+
+ABX_PLUGINS_GITHUB_BASE_URL = 'https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/'
+LIVE_PLUGIN_BASE_URL = '/admin/environment/plugins/'
 
 
 def _files_index_target(snapshot: Snapshot, archivefile: str | None) -> str:
@@ -699,6 +711,9 @@ def _serve_responses_path(request, responses_root: Path, rel_path: str, show_ind
 def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str = ""):
     rel_path = path or ""
     show_indexes = bool(request.GET.get("files"))
+    if not show_indexes and (not rel_path or rel_path == "index.html"):
+        return SnapshotView.render_live_index(request, snapshot)
+
     if not rel_path or rel_path.endswith("/"):
         if show_indexes:
             rel_path = rel_path.rstrip("/")
@@ -783,7 +798,6 @@ class SnapshotHostView(View):
         if not snapshot:
             raise Http404
         return _serve_snapshot_replay(request, snapshot, path)
-
 
 class SnapshotReplayView(View):
     """Serve snapshot directory contents on a one-domain replay path."""
@@ -915,8 +929,17 @@ class AddView(UserPassesTestMixin, FormView):
         return custom_config
 
     def get_context_data(self, **kwargs):
-        from archivebox.core.models import Tag
-
+        required_search_plugin = f'search_backend_{SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE}'.strip()
+        plugin_configs = discover_plugin_configs()
+        plugin_dependency_map = {
+            plugin_name: [
+                str(required_plugin).strip()
+                for required_plugin in (schema.get('required_plugins') or [])
+                if str(required_plugin).strip()
+            ]
+            for plugin_name, schema in plugin_configs.items()
+            if isinstance(schema.get('required_plugins'), list) and schema.get('required_plugins')
+        }
         return {
             **super().get_context_data(**kwargs),
             'title': "Create Crawl",
@@ -924,8 +947,9 @@ class AddView(UserPassesTestMixin, FormView):
             'absolute_add_path': self.request.build_absolute_uri(self.request.path),
             'VERSION': VERSION,
             'FOOTER_INFO': SERVER_CONFIG.FOOTER_INFO,
+            'required_search_plugin': required_search_plugin,
+            'plugin_dependency_map_json': json.dumps(plugin_dependency_map, sort_keys=True),
             'stdout': '',
-            'available_tags': list(Tag.objects.all().order_by('name').values_list('name', flat=True)),
         }
 
     def _create_crawl_from_form(self, form, *, created_by_id=None) -> Crawl:
@@ -937,11 +961,10 @@ class AddView(UserPassesTestMixin, FormView):
         depth = int(form.cleaned_data["depth"])
         plugins = ','.join(form.cleaned_data.get("plugins", []))
         schedule = form.cleaned_data.get("schedule", "").strip()
-        persona = form.cleaned_data.get("persona", "Default")
-        overwrite = form.cleaned_data.get("overwrite", False)
-        update = form.cleaned_data.get("update", False)
+        persona = form.cleaned_data.get("persona")
         index_only = form.cleaned_data.get("index_only", False)
         notes = form.cleaned_data.get("notes", "")
+        url_filters = form.cleaned_data.get("url_filters") or {}
         custom_config = self._get_custom_config_overrides(form)
 
         from archivebox.config.permissions import HOSTNAME
@@ -957,6 +980,7 @@ class AddView(UserPassesTestMixin, FormView):
 
         # 1. save the provided urls to sources/2024-11-05__23-59-59__web_ui_add_by_user_<user_pk>.txt
         sources_file = CONSTANTS.SOURCES_DIR / f'{timezone.now().strftime("%Y-%m-%d__%H-%M-%S")}__web_ui_add_by_user_{created_by_id}.txt'
+        sources_file.parent.mkdir(parents=True, exist_ok=True)
         sources_file.write_text(urls if isinstance(urls, str) else '\n'.join(urls))
 
         # 2. create a new Crawl with the URLs from the file
@@ -964,16 +988,18 @@ class AddView(UserPassesTestMixin, FormView):
         urls_content = sources_file.read_text()
         # Build complete config
         config = {
-            'ONLY_NEW': not update,
             'INDEX_ONLY': index_only,
-            'OVERWRITE': overwrite,
             'DEPTH': depth,
             'PLUGINS': plugins or '',
-            'DEFAULT_PERSONA': persona or 'Default',
+            'DEFAULT_PERSONA': (persona.name if persona else 'Default'),
         }
 
         # Merge custom config overrides
         config.update(custom_config)
+        if url_filters.get('allowlist'):
+            config['URL_ALLOWLIST'] = url_filters['allowlist']
+        if url_filters.get('denylist'):
+            config['URL_DENYLIST'] = url_filters['denylist']
 
         crawl = Crawl.objects.create(
             urls=urls_content,
@@ -999,6 +1025,8 @@ class AddView(UserPassesTestMixin, FormView):
             crawl.schedule = crawl_schedule
             crawl.save(update_fields=['schedule'])
 
+        crawl.create_snapshots_from_urls()
+
         # 4. start the Orchestrator & wait until it completes
         #    ... orchestrator will create the root Snapshot, which creates pending ArchiveResults, which gets run by the ArchiveResultActors ...
         # from archivebox.crawls.actors import CrawlActor
@@ -1011,7 +1039,7 @@ class AddView(UserPassesTestMixin, FormView):
 
         urls = form.cleaned_data["url"]
         schedule = form.cleaned_data.get("schedule", "").strip()
-        rough_url_count = urls.count('://')
+        rough_url_count = len([url for url in urls.splitlines() if url.strip()])
 
         # Build success message with schedule link if created
         schedule_msg = ""
@@ -1080,10 +1108,6 @@ class WebAddView(AddView):
             'persona': defaults_form.fields['persona'].initial or 'Default',
             'config': {},
         }
-        if defaults_form.fields['update'].initial:
-            form_data['update'] = 'on'
-        if defaults_form.fields['overwrite'].initial:
-            form_data['overwrite'] = 'on'
         if defaults_form.fields['index_only'].initial:
             form_data['index_only'] = 'on'
 
@@ -1117,6 +1141,41 @@ def live_progress_view(request):
         from archivebox.crawls.models import Crawl
         from archivebox.core.models import Snapshot, ArchiveResult
         from archivebox.machine.models import Process, Machine
+
+        def hook_details(hook_name: str, plugin: str = "setup") -> tuple[str, str, str, str]:
+            normalized_hook_name = Path(hook_name).name if hook_name else ""
+            if not normalized_hook_name:
+                return (plugin, plugin, "unknown", "")
+
+            phase = "unknown"
+            if normalized_hook_name.startswith("on_Crawl__"):
+                phase = "crawl"
+            elif normalized_hook_name.startswith("on_Snapshot__"):
+                phase = "snapshot"
+            elif normalized_hook_name.startswith("on_Binary__"):
+                phase = "binary"
+
+            label = normalized_hook_name
+            if "__" in normalized_hook_name:
+                label = normalized_hook_name.split("__", 1)[1]
+            label = label.rsplit(".", 1)[0]
+            if len(label) > 3 and label[:2].isdigit() and label[2] == "_":
+                label = label[3:]
+            label = label.replace("_", " ").strip() or plugin
+
+            return (plugin, label, phase, normalized_hook_name)
+
+        def process_label(cmd: list[str] | None) -> tuple[str, str, str, str]:
+            hook_path = ""
+            if isinstance(cmd, list) and cmd:
+                first = cmd[0]
+                if isinstance(first, str):
+                    hook_path = first
+
+            if not hook_path:
+                return ("", "setup", "unknown", "")
+
+            return hook_details(Path(hook_path).name, plugin=Path(hook_path).parent.name or "setup")
 
         machine = Machine.current()
         orchestrator_proc = Process.objects.filter(
@@ -1188,8 +1247,19 @@ def live_progress_view(request):
                 Process.TypeChoices.BINARY,
             ],
         )
+        recent_processes = Process.objects.filter(
+            machine=machine,
+            process_type__in=[
+                Process.TypeChoices.HOOK,
+                Process.TypeChoices.BINARY,
+            ],
+            modified_at__gte=timezone.now() - timedelta(minutes=10),
+        ).order_by("-modified_at")
         crawl_process_pids: dict[str, int] = {}
         snapshot_process_pids: dict[str, int] = {}
+        process_records_by_crawl: dict[str, list[dict[str, object]]] = {}
+        process_records_by_snapshot: dict[str, list[dict[str, object]]] = {}
+        seen_process_records: set[str] = set()
         for proc in running_processes:
             env = proc.env or {}
             if not isinstance(env, dict):
@@ -1197,10 +1267,47 @@ def live_progress_view(request):
 
             crawl_id = env.get('CRAWL_ID')
             snapshot_id = env.get('SNAPSHOT_ID')
+            _plugin, _label, phase, _hook_name = process_label(proc.cmd)
             if crawl_id and proc.pid:
                 crawl_process_pids.setdefault(str(crawl_id), proc.pid)
-            if snapshot_id and proc.pid:
+            if phase == "snapshot" and snapshot_id and proc.pid:
                 snapshot_process_pids.setdefault(str(snapshot_id), proc.pid)
+
+        for proc in recent_processes:
+            env = proc.env or {}
+            if not isinstance(env, dict):
+                env = {}
+
+            crawl_id = env.get("CRAWL_ID")
+            snapshot_id = env.get("SNAPSHOT_ID")
+            if not crawl_id and not snapshot_id:
+                continue
+
+            plugin, label, phase, hook_name = process_label(proc.cmd)
+
+            record_scope = str(snapshot_id) if phase == "snapshot" and snapshot_id else str(crawl_id)
+            proc_key = f"{record_scope}:{plugin}:{label}:{proc.status}:{proc.exit_code}"
+            if proc_key in seen_process_records:
+                continue
+            seen_process_records.add(proc_key)
+
+            status = "started" if proc.status == Process.StatusChoices.RUNNING else ("failed" if proc.exit_code not in (None, 0) else "succeeded")
+            payload: dict[str, object] = {
+                "id": str(proc.id),
+                "plugin": plugin,
+                "label": label,
+                "hook_name": hook_name,
+                "status": status,
+                "phase": phase,
+                "source": "process",
+                "process_id": str(proc.id),
+            }
+            if status == "started" and proc.pid:
+                payload["pid"] = proc.pid
+            if phase == "snapshot" and snapshot_id:
+                process_records_by_snapshot.setdefault(str(snapshot_id), []).append(payload)
+            elif crawl_id:
+                process_records_by_crawl.setdefault(str(crawl_id), []).append(payload)
 
         active_crawls_qs = Crawl.objects.filter(
             status__in=[Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED]
@@ -1234,6 +1341,11 @@ def live_progress_view(request):
 
             # Calculate crawl progress
             crawl_progress = int((completed_snapshots / total_snapshots) * 100) if total_snapshots > 0 else 0
+            crawl_setup_plugins = list(process_records_by_crawl.get(str(crawl.id), []))
+            crawl_setup_total = len(crawl_setup_plugins)
+            crawl_setup_completed = sum(1 for item in crawl_setup_plugins if item.get("status") == "succeeded")
+            crawl_setup_failed = sum(1 for item in crawl_setup_plugins if item.get("status") == "failed")
+            crawl_setup_pending = sum(1 for item in crawl_setup_plugins if item.get("status") == "queued")
 
             # Get active snapshots for this crawl (already prefetched)
             active_snapshots_for_crawl = []
@@ -1241,28 +1353,21 @@ def live_progress_view(request):
                 # Get archive results for this snapshot (already prefetched)
                 snapshot_results = snapshot.archiveresult_set.all()
 
-                # Count in memory instead of DB queries
-                total_plugins = len(snapshot_results)
-                completed_plugins = sum(1 for ar in snapshot_results if ar.status == ArchiveResult.StatusChoices.SUCCEEDED)
-                failed_plugins = sum(1 for ar in snapshot_results if ar.status == ArchiveResult.StatusChoices.FAILED)
-                pending_plugins = sum(1 for ar in snapshot_results if ar.status == ArchiveResult.StatusChoices.QUEUED)
-
-                # Calculate snapshot progress using per-plugin progress
                 now = timezone.now()
                 plugin_progress_values: list[int] = []
+                all_plugins: list[dict[str, object]] = []
+                seen_plugin_keys: set[str] = set()
 
-                # Get all extractor plugins for this snapshot (already prefetched, sort in Python)
-                # Order: started first, then queued, then completed
                 def plugin_sort_key(ar):
                     status_order = {
                         ArchiveResult.StatusChoices.STARTED: 0,
                         ArchiveResult.StatusChoices.QUEUED: 1,
                         ArchiveResult.StatusChoices.SUCCEEDED: 2,
-                        ArchiveResult.StatusChoices.FAILED: 3,
+                        ArchiveResult.StatusChoices.NORESULTS: 3,
+                        ArchiveResult.StatusChoices.FAILED: 4,
                     }
-                    return (status_order.get(ar.status, 4), ar.plugin)
+                    return (status_order.get(ar.status, 5), ar.plugin, ar.hook_name or "")
 
-                all_plugins = []
                 for ar in sorted(snapshot_results, key=plugin_sort_key):
                     status = ar.status
                     progress_value = 0
@@ -1270,6 +1375,7 @@ def live_progress_view(request):
                         ArchiveResult.StatusChoices.SUCCEEDED,
                         ArchiveResult.StatusChoices.FAILED,
                         ArchiveResult.StatusChoices.SKIPPED,
+                        ArchiveResult.StatusChoices.NORESULTS,
                     ):
                         progress_value = 100
                     elif status == ArchiveResult.StatusChoices.STARTED:
@@ -1284,20 +1390,49 @@ def live_progress_view(request):
                         progress_value = 0
 
                     plugin_progress_values.append(progress_value)
+                    plugin, label, phase, hook_name = hook_details(ar.hook_name or ar.plugin, plugin=ar.plugin)
 
                     plugin_payload = {
                         'id': str(ar.id),
                         'plugin': ar.plugin,
+                        'label': label,
+                        'hook_name': hook_name,
+                        'phase': phase,
                         'status': status,
+                        'process_id': str(ar.process_id) if ar.process_id else None,
                     }
                     if status == ArchiveResult.StatusChoices.STARTED and ar.process_id and ar.process:
                         plugin_payload['pid'] = ar.process.pid
                     if status == ArchiveResult.StatusChoices.STARTED:
                         plugin_payload['progress'] = progress_value
                         plugin_payload['timeout'] = ar.timeout or 120
+                    plugin_payload['source'] = 'archiveresult'
                     all_plugins.append(plugin_payload)
+                    seen_plugin_keys.add(
+                        str(ar.process_id) if ar.process_id else f"{ar.plugin}:{hook_name}"
+                    )
 
-                snapshot_progress = int(sum(plugin_progress_values) / total_plugins) if total_plugins > 0 else 0
+                for proc_payload in process_records_by_snapshot.get(str(snapshot.id), []):
+                    proc_key = str(proc_payload.get("process_id") or f"{proc_payload.get('plugin')}:{proc_payload.get('hook_name')}")
+                    if proc_key in seen_plugin_keys:
+                        continue
+                    seen_plugin_keys.add(proc_key)
+                    all_plugins.append(proc_payload)
+
+                    proc_status = proc_payload.get("status")
+                    if proc_status in ("succeeded", "failed", "skipped"):
+                        plugin_progress_values.append(100)
+                    elif proc_status == "started":
+                        plugin_progress_values.append(1)
+                    else:
+                        plugin_progress_values.append(0)
+
+                total_plugins = len(all_plugins)
+                completed_plugins = sum(1 for item in all_plugins if item.get("status") == "succeeded")
+                failed_plugins = sum(1 for item in all_plugins if item.get("status") == "failed")
+                pending_plugins = sum(1 for item in all_plugins if item.get("status") == "queued")
+
+                snapshot_progress = int(sum(plugin_progress_values) / len(plugin_progress_values)) if plugin_progress_values else 0
 
                 active_snapshots_for_crawl.append({
                     'id': str(snapshot.id),
@@ -1334,6 +1469,11 @@ def live_progress_view(request):
                 'started_snapshots': started_snapshots,
                 'failed_snapshots': 0,
                 'pending_snapshots': pending_snapshots,
+                'setup_plugins': crawl_setup_plugins,
+                'setup_total_plugins': crawl_setup_total,
+                'setup_completed_plugins': crawl_setup_completed,
+                'setup_failed_plugins': crawl_setup_failed,
+                'setup_pending_plugins': crawl_setup_pending,
                 'active_snapshots': active_snapshots_for_crawl,
                 'can_start': can_start,
                 'urls_preview': urls_preview,
@@ -1461,17 +1601,17 @@ def find_config_source(key: str, merged_config: dict) -> str:
     """Determine where a config value comes from."""
     from archivebox.machine.models import Machine
 
-    # Check if it's from archivebox.machine.config
+    # Environment variables override all persistent config sources.
+    if key in os.environ:
+        return 'Environment'
+
+    # Machine.config overrides ArchiveBox.conf.
     try:
         machine = Machine.current()
         if machine.config and key in machine.config:
             return 'Machine'
     except Exception:
         pass
-
-    # Check if it's from environment variable
-    if key in os.environ:
-        return 'Environment'
 
     # Check if it's from archivebox.config.file
     from archivebox.config.configset import BaseConfigSet
@@ -1481,6 +1621,43 @@ def find_config_source(key: str, merged_config: dict) -> str:
 
     # Otherwise it's using the default
     return 'Default'
+
+
+def find_plugin_for_config_key(key: str) -> str | None:
+    for plugin_name, schema in discover_plugin_configs().items():
+        if key in (schema.get('properties') or {}):
+            return plugin_name
+    return None
+
+
+def get_config_definition_link(key: str) -> tuple[str, str]:
+    plugin_name = find_plugin_for_config_key(key)
+    if not plugin_name:
+        return (
+            f'https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig+{quote(key)}&type=code',
+            'archivebox/config',
+        )
+
+    plugin_dir = next((path.resolve() for path in iter_plugin_dirs() if path.name == plugin_name), None)
+    if plugin_dir:
+        builtin_root = BUILTIN_PLUGINS_DIR.resolve()
+        if plugin_dir.is_relative_to(builtin_root):
+            return (
+                f'{ABX_PLUGINS_GITHUB_BASE_URL}{quote(plugin_name)}/config.json',
+                f'abx_plugins/plugins/{plugin_name}/config.json',
+            )
+
+        user_root = USER_PLUGINS_DIR.resolve()
+        if plugin_dir.is_relative_to(user_root):
+            return (
+                f'{LIVE_PLUGIN_BASE_URL}user.{quote(plugin_name)}/',
+                f'data/custom_plugins/{plugin_name}/config.json',
+            )
+
+    return (
+        f'{LIVE_PLUGIN_BASE_URL}builtin.{quote(plugin_name)}/',
+        f'abx_plugins/plugins/{plugin_name}/config.json',
+    )
 
 
 @render_with_table_view
@@ -1566,17 +1743,6 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
     # Determine all sources for this config value
     sources_info = []
 
-    # Default value
-    default_val = find_config_default(key)
-    if default_val:
-        sources_info.append(('Default', default_val, 'gray'))
-
-    # Config file value
-    if CONSTANTS.CONFIG_FILE.exists():
-        file_config = BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
-        if key in file_config:
-            sources_info.append(('Config File', file_config[key], 'green'))
-
     # Environment variable
     if key in os.environ:
         sources_info.append(('Environment', os.environ[key] if key_is_safe(key) else '********', 'blue'))
@@ -1591,6 +1757,17 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
             sources_info.append(('Machine', machine.config[key] if key_is_safe(key) else '********', 'purple'))
     except Exception:
         pass
+
+    # Config file value
+    if CONSTANTS.CONFIG_FILE.exists():
+        file_config = BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
+        if key in file_config:
+            sources_info.append(('Config File', file_config[key], 'green'))
+
+    # Default value
+    default_val = find_config_default(key)
+    if default_val:
+        sources_info.append(('Default', default_val, 'gray'))
 
     # Final computed value
     final_value = merged_config.get(key, FLAT_CONFIG.get(key, CONFIGS.get(key, None)))
@@ -1614,6 +1791,8 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
         section_header = mark_safe(f'[DYNAMIC CONFIG]   &nbsp; <b><code style="color: lightgray">{key}</code></b> &nbsp; <small>(read-only, calculated at runtime)</small>')
 
 
+    definition_url, definition_label = get_config_definition_link(key)
+
     section_data = cast(SectionData, {
         "name": section_header,
         "description": None,
@@ -1621,7 +1800,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
             'Key': key,
             'Type': find_config_type(key),
             'Value': final_value,
-            'Source': find_config_source(key, merged_config),
+            'Currently read from': find_config_source(key, merged_config),
         },
         "help_texts": {
             'Key': mark_safe(f'''
@@ -1631,14 +1810,14 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                 </span>
             '''),
             'Type': mark_safe(f'''
-                <a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig+{key}&type=code">
-                    See full definition in <code>archivebox/config</code>...
+                <a href="{definition_url}" target="_blank" rel="noopener noreferrer">
+                    See full definition in <code>{definition_label}</code>...
                 </a>
             '''),
             'Value': mark_safe(f'''
                 {'<b style="color: red">Value is redacted for your security. (Passwords, secrets, API tokens, etc. cannot be viewed in the Web UI)</b><br/><br/>' if not key_is_safe(key) else ''}
                 <br/><hr/><br/>
-                <b>Configuration Sources (in priority order):</b><br/><br/>
+                <b>Configuration Sources (highest priority first):</b><br/><br/>
                 {sources_html}
                 <br/><br/>
                 <p style="display: {"block" if key in FLAT_CONFIG and key not in CONSTANTS_CONFIG else "none"}">
@@ -1651,15 +1830,15 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                     }"</code>
                 </p>
             '''),
-            'Source': mark_safe(f'''
+            'Currently read from': mark_safe(f'''
                 The value shown in the "Value" field comes from the <b>{find_config_source(key, merged_config)}</b> source.
                 <br/><br/>
                 Priority order (highest to lowest):
                 <ol>
+                    <li><b style="color: blue">Environment</b> - Environment variables</li>
                     <li><b style="color: purple">Machine</b> - Machine-specific overrides (e.g., resolved binary paths)
                         {f'<br/><a href="{machine_admin_url}">→ Edit <code>{key}</code> in Machine.config for this server</a>' if machine_admin_url else ''}
                     </li>
-                    <li><b style="color: blue">Environment</b> - Environment variables</li>
                     <li><b style="color: green">Config File</b> - data/ArchiveBox.conf</li>
                     <li><b style="color: gray">Default</b> - Default value from code</li>
                 </ol>

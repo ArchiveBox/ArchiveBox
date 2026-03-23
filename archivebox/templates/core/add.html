@@ -38,56 +38,76 @@
                 </center>
             </div>
             <form id="add-form" method="POST" class="p-form">{% csrf_token %}
-                <h1>Create a new Crawl</h1>
+                <center>
+                    <h1>Create a new Crawl</h1>
+                </center>
                 <div class="crawl-explanation">
                     <p>
                         A <strong>Crawl</strong> is a job that processes URLs and creates <strong>Snapshots</strong> (archived copies) for each URL discovered.
                         The settings below apply to the entire crawl and all snapshots it creates.
                     </p>
                 </div>
-                <br/>
 
                 <!-- Basic fields -->
                 <div class="form-section">
-                    <h3>Crawl Settings</h3>
-
                     <div class="form-field">
-                        {{ form.url.label_tag }}
-                        {{ form.url }}
-                        <div id="url-counter" class="url-counter">0 URLs detected</div>
+                        <div class="url-workbench">
+                            <div class="url-editor-column">
+                                <div class="field-header">
+                                    {{ form.url.label_tag }}
+                                    <div id="url-counter" class="url-counter">0 URLs detected</div>
+                                </div>
+                                <div class="url-editor-shell">
+                                    <pre id="url-highlight-layer" class="url-highlight-layer" aria-hidden="true"></pre>
+                                    {{ form.url }}
+                                </div>
+                            </div>
+                            <aside class="detected-urls-panel" aria-live="polite">
+                                <div class="detected-urls-header">
+                                    <strong>Filter URLs</strong>
+                                    <span id="detected-urls-summary" class="detected-urls-summary">No URLs yet</span>
+                                </div>
+                                <div id="detected-urls-list" class="detected-urls-list">
+                                    <div class="detected-urls-empty">Paste URLs, markdown, JSON, or prose to preview matches here.</div>
+                                </div>
+                            </aside>
+                        </div>
                         {% if form.url.errors %}
                             <div class="error">{{ form.url.errors }}</div>
                         {% endif %}
                         <div class="help-text">
-                            Enter URLs to archive, one per line. Examples:<br/>
+                            Enter URLs to archive, as one per line, CSV, JSON, or embedded in text (e.g. markdown, HTML, etc.). Examples:<br/>
                             <code>https://example.com</code><br/>
-                            <code>https://news.ycombinator.com</code><br/>
-                            <code>https://github.com/ArchiveBox/ArchiveBox</code>
+                            <code>https://news.ycombinator.com,https://news.google.com</code><br/>
+                            <code>[ArchiveBox](https://github.com/ArchiveBox/ArchiveBox)</code>
                         </div>
                     </div>
 
                     <div class="form-field">
                         {{ form.tag.label_tag }}
                         {{ form.tag }}
-                        <!-- Tag autocomplete datalist -->
-                        <datalist id="tag-datalist">
-                            {% for tag_name in available_tags %}
-                                <option value="{{ tag_name }}">
-                            {% endfor %}
-                        </datalist>
                         {% if form.tag.errors %}
                             <div class="error">{{ form.tag.errors }}</div>
                         {% endif %}
-                        <div class="help-text">Tags will be applied to all snapshots created by this crawl. Start typing to see existing tags.</div>
+                        <div class="help-text">Tags will be applied to all snapshots created by this crawl.</div>
                     </div>
 
-                    <div class="form-field">
-                        {{ form.depth.label_tag }}
-                        {{ form.depth }}
-                        {% if form.depth.errors %}
-                            <div class="error">{{ form.depth.errors }}</div>
-                        {% endif %}
-                        <div class="help-text">Controls how many links deep the crawl will follow from the starting URLs.</div>
+                    <div class="settings-row">
+                        <div class="form-field">
+                            {{ form.depth.label_tag }}
+                            {{ form.depth }}
+                            {% if form.depth.errors %}
+                                <div class="error">{{ form.depth.errors }}</div>
+                            {% endif %}
+                            <div class="help-text">Controls how many links deep the crawl will follow from the starting URLs.</div>
+                        </div>
+
+                        <div class="form-field url-filters-field">
+                            {{ form.url_filters }}
+                            {% if form.url_filters.errors %}
+                                <div class="error">{{ form.url_filters.errors }}</div>
+                            {% endif %}
+                        </div>
                     </div>
 
                     <div class="form-field">
@@ -97,6 +117,18 @@
                             <div class="error">{{ form.notes.errors }}</div>
                         {% endif %}
                         <div class="help-text">Optional description for this crawl (visible in the admin interface).</div>
+                    </div>
+
+                    <div class="form-field">
+                        {{ form.persona.label_tag }}
+                        {{ form.persona }}
+                        {% if form.persona.errors %}
+                            <div class="error">{{ form.persona.errors }}</div>
+                        {% endif %}
+                        <div class="help-text">
+                            Authentication profile (Chrome profile, cookies, etc.) to use when accessing URLs.
+                            <a href="/admin/personas/persona/add/" target="_blank">Create new persona / import from Chrome →</a>
+                        </div>
                     </div>
                 </div>
 
@@ -108,7 +140,6 @@
                         <a href="/admin/environment/plugins/" target="_blank">View plugin details →</a>
                     </p>
 
-                    <!-- Plugin Presets -->
                     <div class="plugin-presets">
                         <span class="preset-label">Quick Select:</span>
                         <button type="button" class="preset-btn" data-preset="quick-archive">📦 Quick Archive</button>
@@ -118,66 +149,63 @@
                         <button type="button" class="preset-btn" data-preset="clear-all">✗ Clear All</button>
                     </div>
 
-                    <!-- Chrome-dependent plugins with "Select All" -->
-                    <div class="plugin-group">
-                        <div class="plugin-group-header">
-                            <label>Chrome-dependent plugins</label>
-                            <button type="button" class="select-all-btn" data-group="chrome">
-                                Select All Chrome
-                            </button>
+                    <div class="plugin-groups-grid">
+                        <div class="plugin-group">
+                            <div class="plugin-group-header">
+                                <label>Chrome-dependent plugins</label>
+                                <button type="button" class="select-all-btn" data-group="chrome">
+                                    Select All Chrome
+                                </button>
+                            </div>
+                            <div class="plugin-checkboxes" id="chrome-plugins">
+                                {{ form.chrome_plugins }}
+                            </div>
                         </div>
-                        <div class="plugin-checkboxes" id="chrome-plugins">
-                            {{ form.chrome_plugins }}
-                        </div>
-                    </div>
 
-                    <!-- Archiving plugins -->
-                    <div class="plugin-group">
-                        <div class="plugin-group-header">
-                            <label>Archiving</label>
+                        <div class="plugin-group">
+                            <div class="plugin-group-header">
+                                <label>Archiving</label>
+                            </div>
+                            <div class="plugin-checkboxes">
+                                {{ form.archiving_plugins }}
+                            </div>
                         </div>
-                        <div class="plugin-checkboxes">
-                            {{ form.archiving_plugins }}
-                        </div>
-                    </div>
 
-                    <!-- Parsing plugins -->
-                    <div class="plugin-group">
-                        <div class="plugin-group-header">
-                            <label>Parsing</label>
+                        <div class="plugin-group">
+                            <div class="plugin-group-header">
+                                <label>Parsing</label>
+                            </div>
+                            <div class="plugin-checkboxes">
+                                {{ form.parsing_plugins }}
+                            </div>
                         </div>
-                        <div class="plugin-checkboxes">
-                            {{ form.parsing_plugins }}
-                        </div>
-                    </div>
 
-                    <!-- Search plugins -->
-                    <div class="plugin-group">
-                        <div class="plugin-group-header">
-                            <label>Search</label>
+                        <div class="plugin-group">
+                            <div class="plugin-group-header">
+                                <label>Search</label>
+                                <span class="plugin-group-note">(defaults to SEARCH_BACKEND_ENGINE)</span>
+                            </div>
+                            <div class="plugin-checkboxes">
+                                {{ form.search_plugins }}
+                            </div>
                         </div>
-                        <div class="plugin-checkboxes">
-                            {{ form.search_plugins }}
-                        </div>
-                    </div>
 
-                    <!-- Binary provider plugins -->
-                    <div class="plugin-group">
-                        <div class="plugin-group-header">
-                            <label>Binary Providers</label>
+                        <div class="plugin-group">
+                            <div class="plugin-group-header">
+                                <label>Binary Providers</label>
+                            </div>
+                            <div class="plugin-checkboxes">
+                                {{ form.binary_plugins }}
+                            </div>
                         </div>
-                        <div class="plugin-checkboxes">
-                            {{ form.binary_plugins }}
-                        </div>
-                    </div>
 
-                    <!-- Extension plugins -->
-                    <div class="plugin-group">
-                        <div class="plugin-group-header">
-                            <label>Browser Extensions</label>
-                        </div>
-                        <div class="plugin-checkboxes">
-                            {{ form.extension_plugins }}
+                        <div class="plugin-group">
+                            <div class="plugin-group-header">
+                                <label>Browser Extensions</label>
+                            </div>
+                            <div class="plugin-checkboxes">
+                                {{ form.extension_plugins }}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -203,43 +231,13 @@
                             </div>
                         </div>
 
-                        <div class="form-field">
-                            {{ form.persona.label_tag }}
-                            {{ form.persona }}
-                            {% if form.persona.errors %}
-                                <div class="error">{{ form.persona.errors }}</div>
-                            {% endif %}
-                            <div class="help-text">
-                                Authentication profile to use for all snapshots in this crawl.
-                                <a href="/admin/personas/persona/add/" target="_blank">Create new persona →</a>
-                            </div>
-                        </div>
-
-                        <div class="form-field checkbox-field">
-                            {{ form.overwrite }}
-                            {{ form.overwrite.label_tag }}
-                            {% if form.overwrite.errors %}
-                                <div class="error">{{ form.overwrite.errors }}</div>
-                            {% endif %}
-                            <div class="help-text">Re-archive URLs even if they already exist</div>
-                        </div>
-
-                        <div class="form-field checkbox-field">
-                            {{ form.update }}
-                            {{ form.update.label_tag }}
-                            {% if form.update.errors %}
-                                <div class="error">{{ form.update.errors }}</div>
-                            {% endif %}
-                            <div class="help-text">Retry archiving URLs that previously failed</div>
-                        </div>
-
                         <div class="form-field checkbox-field">
                             {{ form.index_only }}
                             {{ form.index_only.label_tag }}
                             {% if form.index_only.errors %}
                                 <div class="error">{{ form.index_only.errors }}</div>
                             {% endif %}
-                            <div class="help-text">Create snapshots but don't run archiving plugins yet (queue for later)</div>
+                            <div class="help-text">Create the crawl and queue snapshots without running archive plugins yet.</div>
                         </div>
 
                         <div class="form-field">
@@ -249,7 +247,7 @@
                                 <div class="error">{{ form.config.errors }}</div>
                             {% endif %}
                             <div class="help-text">
-                                Override any config option for this crawl (e.g., TIMEOUT, USER_AGENT, CHROME_BINARY, etc.)
+                                Override any config option for this crawl (e.g., TIMEOUT, USER_AGENT, CHROME_BINARY, etc.). <code>URL_ALLOWLIST</code>, <code>URL_DENYLIST</code>, and <code>ENABLED_PLUGINS</code> are updated automatically from the fields above.
                             </div>
                         </div>
                     </details>
@@ -270,22 +268,738 @@
             </center> -->
             {% endif %}
             <script>
-                // URL Counter - detect URLs in textarea using regex
+                // URL preview / counter
                 const urlTextarea = document.querySelector('textarea[name="url"]');
                 const urlCounter = document.getElementById('url-counter');
+                const urlHighlightLayer = document.getElementById('url-highlight-layer');
+                const detectedURLsPanel = document.querySelector('.detected-urls-panel');
+                const detectedURLsSummary = document.getElementById('detected-urls-summary');
+                const detectedURLsList = document.getElementById('detected-urls-list');
+                const sharedURLPattern = urlTextarea.dataset.urlRegex || '(?=(http[s]?://(?:[a-zA-Z]|[0-9]|[-_$@.&+!*\\(\\),]|[^\\u0000-\\u007F])+[^\\]\\[<>"\\\'\\s]+))';
+                const previewURLPattern = (
+                    sharedURLPattern && sharedURLPattern.startsWith('(?=(') && sharedURLPattern.endsWith('))')
+                ) ? sharedURLPattern.slice(4, -2) : sharedURLPattern;
+                const urlMatchRegex = previewURLPattern ? new RegExp(`^${previewURLPattern}`, 'i') : null;
+                const fallbackURLMatchRegex = /^https?:\/\/[^\s<>"']+/i;
+                const urlValidationRegex = previewURLPattern ? new RegExp(`^${previewURLPattern}$`, 'i') : fallbackURLMatchRegex;
+                const urlPalette = [
+                    { bg: 'rgba(0, 115, 230, 0.16)', border: 'rgba(0, 115, 230, 0.5)' },
+                    { bg: 'rgba(214, 90, 49, 0.18)', border: 'rgba(214, 90, 49, 0.55)' },
+                    { bg: 'rgba(5, 132, 95, 0.17)', border: 'rgba(5, 132, 95, 0.52)' },
+                    { bg: 'rgba(142, 68, 173, 0.17)', border: 'rgba(142, 68, 173, 0.52)' },
+                    { bg: 'rgba(191, 90, 242, 0.16)', border: 'rgba(191, 90, 242, 0.5)' },
+                    { bg: 'rgba(210, 105, 30, 0.16)', border: 'rgba(210, 105, 30, 0.5)' },
+                ];
+                const requiredSearchPlugin = '{{ required_search_plugin|default:""|escapejs }}';
+                const pluginDependencyMap = JSON.parse('{{ plugin_dependency_map_json|default:"{}"|escapejs }}');
 
-                function updateURLCount() {
-                    const text = urlTextarea.value;
-                    // Match http(s):// URLs
-                    const urlRegex = /https?:\/\/[^\s]+/gi;
-                    const matches = text.match(urlRegex) || [];
+                function dispatchChange(el) {
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                function getSavedFormState() {
+                    try {
+                        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+                    } catch (e) {
+                        return {};
+                    }
+                }
+
+                function getStoredPluginPreference(pluginName) {
+                    if (!pluginName) return false;
+                    const state = getSavedFormState();
+                    const key = `search_plugins:${pluginName}`;
+                    if (!Object.prototype.hasOwnProperty.call(state, key)) {
+                        return null;
+                    }
+                    return Boolean(state[key]);
+                }
+
+                function getRequiredSearchCheckbox() {
+                    if (!requiredSearchPlugin) return null;
+                    return document.querySelector(`input[name="search_plugins"][value="${requiredSearchPlugin}"]`);
+                }
+
+                function getPluginCheckbox(pluginName) {
+                    if (!pluginName) return null;
+                    return document.querySelector(`.plugin-checkboxes input[type="checkbox"][value="${pluginName}"]`);
+                }
+
+                function getRequiredPlugins(pluginName) {
+                    const requiredPlugins = pluginDependencyMap[pluginName];
+                    return Array.isArray(requiredPlugins) ? requiredPlugins : [];
+                }
+
+                function getDependentPlugins(pluginName) {
+                    return Object.entries(pluginDependencyMap)
+                        .filter(([, requiredPlugins]) => Array.isArray(requiredPlugins) && requiredPlugins.includes(pluginName))
+                        .map(([dependentPlugin]) => dependentPlugin);
+                }
+
+                function getConfigEditorRows() {
+                    return document.getElementById('id_config_rows');
+                }
+
+                function getConfigUpdater() {
+                    return window.updateHiddenField_id_config || null;
+                }
+
+                function findConfigRow(key) {
+                    const rows = getConfigEditorRows();
+                    if (!rows) return null;
+                    const matches = Array.from(rows.querySelectorAll('.key-value-row')).filter(row => {
+                        const keyInput = row.querySelector('.kv-key');
+                        return keyInput && keyInput.value.trim() === key;
+                    });
+                    return matches.length ? matches[0] : null;
+                }
+
+                function addConfigRow() {
+                    if (typeof window.addKeyValueRow_id_config !== 'function') return null;
+                    window.addKeyValueRow_id_config();
+                    const rows = getConfigEditorRows();
+                    return rows ? rows.lastElementChild : null;
+                }
+
+                function setConfigRow(key, value) {
+                    const rows = getConfigEditorRows();
+                    const updater = getConfigUpdater();
+                    if (!rows || !updater) return;
+
+                    let row = findConfigRow(key);
+                    if (!value) {
+                        if (row) {
+                            row.remove();
+                            updater();
+                        }
+                        return;
+                    }
+
+                    if (!row) {
+                        row = addConfigRow();
+                    }
+                    if (!row) return;
+
+                    const keyInput = row.querySelector('.kv-key');
+                    const valueInput = row.querySelector('.kv-value');
+                    if (!keyInput || !valueInput) return;
+
+                    keyInput.value = key;
+                    valueInput.value = value;
+                    keyInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    valueInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    updater();
+                }
+
+                function syncEnabledPluginsConfig() {
+                    const selectedPlugins = Array.from(document.querySelectorAll('.plugin-checkboxes input[type="checkbox"]:checked'))
+                        .map(cb => cb.value)
+                        .filter(Boolean)
+                        .sort((left, right) => left.localeCompare(right));
+                    setConfigRow('ENABLED_PLUGINS', selectedPlugins.join(','));
+                }
+
+                function ensureRequiredPluginsChecked(pluginName, visited = new Set()) {
+                    if (!pluginName || visited.has(pluginName)) {
+                        return;
+                    }
+                    visited.add(pluginName);
+
+                    getRequiredPlugins(pluginName).forEach(requiredPlugin => {
+                        const requiredCheckbox = getPluginCheckbox(requiredPlugin);
+                        if (!requiredCheckbox) {
+                            return;
+                        }
+                        requiredCheckbox.checked = true;
+                        ensureRequiredPluginsChecked(requiredPlugin, visited);
+                    });
+                }
+
+                function uncheckDependentPlugins(pluginName, visited = new Set()) {
+                    if (!pluginName || visited.has(pluginName)) {
+                        return;
+                    }
+                    visited.add(pluginName);
+
+                    getDependentPlugins(pluginName).forEach(dependentPlugin => {
+                        const dependentCheckbox = getPluginCheckbox(dependentPlugin);
+                        if (!dependentCheckbox) {
+                            return;
+                        }
+                        dependentCheckbox.checked = false;
+                        uncheckDependentPlugins(dependentPlugin, visited);
+                    });
+                }
+
+                function normalizePluginSelections() {
+                    const checkedPlugins = Array.from(document.querySelectorAll('.plugin-checkboxes input[type="checkbox"]:checked'))
+                        .map(cb => cb.value)
+                        .filter(Boolean);
+                    checkedPlugins.forEach(pluginName => ensureRequiredPluginsChecked(pluginName));
+                }
+
+                function applyRequiredSearchPlugin(preferredValue = undefined) {
+                    const requiredCheckbox = getRequiredSearchCheckbox();
+                    if (!requiredCheckbox) return;
+                    const storedPreference = preferredValue === undefined
+                        ? getStoredPluginPreference(requiredSearchPlugin)
+                        : preferredValue;
+                    if (storedPreference === false) return;
+                    if (storedPreference === true || !requiredCheckbox.checked) {
+                        requiredCheckbox.checked = true;
+                        dispatchChange(requiredCheckbox);
+                    }
+                }
+
+                function parensAreMatched(string, openChar = '(', closeChar = ')') {
+                    let count = 0;
+                    for (const char of string) {
+                        if (char === openChar) count += 1;
+                        else if (char === closeChar) count -= 1;
+                        if (count < 0) return false;
+                    }
+                    return count === 0;
+                }
+
+                function fixURLFromMarkdown(url) {
+                    let trimmedURL = url;
+                    while (trimmedURL && !parensAreMatched(trimmedURL)) {
+                        trimmedURL = trimmedURL.slice(0, -1);
+                    }
+
+                    urlValidationRegex.lastIndex = 0;
+                    return urlValidationRegex.test(trimmedURL) ? trimmedURL : url;
+                }
+
+                function nextEmbeddedURLIndex(url) {
+                    const httpIndex = url.indexOf('http://', 1);
+                    const httpsIndex = url.indexOf('https://', 1);
+                    if (httpIndex === -1) return httpsIndex;
+                    if (httpsIndex === -1) return httpIndex;
+                    return Math.min(httpIndex, httpsIndex);
+                }
+
+                function splitCombinedURLMatch(url) {
+                    const parts = [];
+                    let offset = 0;
+
+                    while (true) {
+                        const nextIndex = nextEmbeddedURLIndex(url);
+                        if (nextIndex === -1 || url[nextIndex - 1] !== ',') {
+                            parts.push({ offset, url });
+                            return parts;
+                        }
+
+                        parts.push({ offset, url: url.slice(0, nextIndex - 1) });
+                        offset += nextIndex;
+                        url = url.slice(nextIndex);
+                    }
+                }
+
+                function escapeHTML(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                }
+
+                function splitFilterPatterns(value) {
+                    const seen = new Set();
+                    return String(value || '')
+                        .split(/\r?\n+/)
+                        .map(pattern => pattern.trim())
+                        .filter(pattern => {
+                            if (!pattern || seen.has(pattern)) {
+                                return false;
+                            }
+                            seen.add(pattern);
+                            return true;
+                        });
+                }
+
+                function escapeRegex(text) {
+                    return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                }
+
+                function buildExactURLRegex(url) {
+                    return `^${escapeRegex(url)}$`;
+                }
+
+                function buildDomainPattern(url) {
+                    const normalized = normalizeDomain(url);
+                    return normalized || '';
+                }
+
+                function getURLExtension(url) {
+                    try {
+                        const parsed = new URL(url);
+                        const pathname = parsed.pathname || '';
+                        const lastSegment = pathname.split('/').pop() || '';
+                        const match = lastSegment.match(/(\.[A-Za-z0-9]{1,16})$/);
+                        return match ? match[1].toLowerCase() : '';
+                    } catch (error) {
+                        return '';
+                    }
+                }
+
+                function buildExtensionPattern(url) {
+                    const extension = getURLExtension(url);
+                    if (!extension) {
+                        return '';
+                    }
+                    return `^https?://.+${escapeRegex(extension)}(?:[?#].*)?$`;
+                }
+
+                function normalizeDomain(value) {
+                    let candidate = String(value || '').trim().toLowerCase();
+                    if (!candidate) {
+                        return '';
+                    }
+                    if (!candidate.includes('://') && !candidate.includes('/')) {
+                        candidate = 'https://' + candidate.replace(/^\.+/, '');
+                    }
+                    try {
+                        const parsed = new URL(candidate);
+                        if (!parsed.hostname) {
+                            return '';
+                        }
+                        return parsed.port ? `${parsed.hostname}_${parsed.port}` : parsed.hostname;
+                    } catch (error) {
+                        return '';
+                    }
+                }
+
+                function isSimpleFilterPattern(pattern) {
+                    return /^[\w.*:-]+$/.test(pattern);
+                }
+
+                function patternMatchesURL(url, pattern) {
+                    const normalizedPattern = String(pattern || '').trim();
+                    if (!normalizedPattern) {
+                        return false;
+                    }
+
+                    if (isSimpleFilterPattern(normalizedPattern)) {
+                        const wildcardOnlySubdomains = normalizedPattern.startsWith('*.');
+                        const normalizedDomain = normalizeDomain(
+                            wildcardOnlySubdomains ? normalizedPattern.slice(2) : normalizedPattern
+                        );
+                        const normalizedURLDomain = normalizeDomain(url);
+                        if (!normalizedDomain || !normalizedURLDomain) {
+                            return false;
+                        }
+
+                        const patternHost = normalizedDomain.split('_', 1)[0];
+                        const urlHost = normalizedURLDomain.split('_', 1)[0];
+
+                        if (wildcardOnlySubdomains) {
+                            return urlHost.endsWith(`.${patternHost}`);
+                        }
+                        if (normalizedURLDomain === normalizedDomain) {
+                            return true;
+                        }
+                        return urlHost === patternHost || urlHost.endsWith(`.${patternHost}`);
+                    }
+
+                    try {
+                        return new RegExp(normalizedPattern).test(url);
+                    } catch (error) {
+                        return false;
+                    }
+                }
+
+                function getConfigOverrideValue(key) {
+                    const rows = document.querySelectorAll('#id_config_rows .key-value-row');
+                    let value = '';
+                    rows.forEach(row => {
+                        const keyInput = row.querySelector('.kv-key');
+                        const valueInput = row.querySelector('.kv-value');
+                        if (keyInput && valueInput && keyInput.value.trim() === key) {
+                            value = valueInput.value.trim();
+                        }
+                    });
+                    return value;
+                }
+
+                function getEffectiveFilterText(key, fallbackSelector) {
+                    const configValue = getConfigOverrideValue(key);
+                    if (configValue) {
+                        return configValue;
+                    }
+                    const fallbackField = document.querySelector(fallbackSelector);
+                    return fallbackField ? fallbackField.value.trim() : '';
+                }
+
+                function getEffectiveFilterPatterns(key, fallbackSelector) {
+                    const fallbackField = document.querySelector(fallbackSelector);
+                    const fallbackPatterns = splitFilterPatterns(fallbackField ? fallbackField.value : '');
+                    const configPatterns = splitFilterPatterns(getConfigOverrideValue(key));
+                    return Array.from(new Set([...fallbackPatterns, ...configPatterns]));
+                }
+
+                function getFilterState(url) {
+                    const allowPatterns = getEffectiveFilterPatterns('URL_ALLOWLIST', 'textarea[name="url_filters_allowlist"]');
+                    const denyPatterns = getEffectiveFilterPatterns('URL_DENYLIST', 'textarea[name="url_filters_denylist"]');
+
+                    const matchedDenyPattern = denyPatterns.find(pattern => patternMatchesURL(url, pattern));
+                    if (matchedDenyPattern) {
+                        return {
+                            status: 'denied',
+                            message: `Excluded by URL_DENYLIST: ${matchedDenyPattern}`,
+                        };
+                    }
+
+                    if (allowPatterns.length) {
+                        const matchedAllowPattern = allowPatterns.find(pattern => patternMatchesURL(url, pattern));
+                        if (matchedAllowPattern) {
+                            return {
+                                status: 'allowlisted',
+                                message: `Included by URL_ALLOWLIST: ${matchedAllowPattern}`,
+                            };
+                        }
+                        return {
+                            status: 'filtered',
+                            message: 'Not matched by URL_ALLOWLIST',
+                        };
+                    }
+
+                    return {
+                        status: 'neutral',
+                        message: 'No URL filters applied',
+                    };
+                }
+
+                function getCurrentDenyPatterns() {
+                    return getEffectiveFilterPatterns('URL_DENYLIST', 'textarea[name="url_filters_denylist"]');
+                }
+
+                function hasDenyPattern(pattern) {
+                    return !!pattern && getCurrentDenyPatterns().includes(pattern);
+                }
+
+                function findURLStarts(text) {
+                    const starts = [];
+                    let index = text.indexOf('http');
+                    while (index !== -1) {
+                        if (text.startsWith('http://', index) || text.startsWith('https://', index)) {
+                            starts.push(index);
+                        }
+                        index = text.indexOf('http', index + 4);
+                    }
+                    return starts;
+                }
+
+                function extractURLs(text) {
+                    const urls = [];
+                    const skippedStarts = new Set();
+
+                    for (const start of findURLStarts(text)) {
+                        if (skippedStarts.has(start)) {
+                            continue;
+                        }
+
+                        const candidate = text.slice(start);
+                        const match = (urlMatchRegex && candidate.match(urlMatchRegex)) || candidate.match(fallbackURLMatchRegex);
+                        const rawURL = fixURLFromMarkdown((match && match[0]) || '');
+                        if (!rawURL) {
+                            continue;
+                        }
+
+                        for (const part of splitCombinedURLMatch(rawURL)) {
+                            if (!part.url) {
+                                continue;
+                            }
+                            const partStart = start + part.offset;
+                            const end = partStart + part.url.length;
+                            if (part.offset) {
+                                skippedStarts.add(partStart);
+                            }
+                            urls.push({ url: part.url, start: partStart, end });
+                        }
+                    }
+
+                    return urls;
+                }
+
+                function buildSegmentStyle(activeMatches) {
+                    if (!activeMatches.length) {
+                        return '';
+                    }
+
+                    const isDenied = activeMatches.some(match => match.filter.status === 'denied');
+
+                    if (activeMatches.length === 1) {
+                        const color = urlPalette[activeMatches[0].colorIndex];
+                        const backgrounds = [];
+                        if (isDenied) {
+                            backgrounds.push('linear-gradient(180deg, transparent 0 44%, rgba(180, 35, 24, 0.72) 44% 56%, transparent 56% 100%)');
+                        }
+                        backgrounds.push(color.bg);
+                        return `background:${backgrounds.join(', ')}; box-shadow: inset 0 -1px 0 ${color.border};`;
+                    }
+
+                    const stripeSize = 100 / activeMatches.length;
+                    const stripes = activeMatches.map((match, index) => {
+                        const color = urlPalette[match.colorIndex];
+                        const start = (index * stripeSize).toFixed(2);
+                        const end = ((index + 1) * stripeSize).toFixed(2);
+                        return `${color.bg} ${start}% ${end}%`;
+                    }).join(', ');
+                    const borderShadows = activeMatches.map((match, index) => {
+                        const color = urlPalette[match.colorIndex];
+                        return `inset 0 ${index + 1}px 0 ${color.border}`;
+                    }).join(', ');
+                    const backgrounds = [];
+                    if (isDenied) {
+                        backgrounds.push('linear-gradient(180deg, transparent 0 44%, rgba(180, 35, 24, 0.72) 44% 56%, transparent 56% 100%)');
+                    }
+                    backgrounds.push(`linear-gradient(180deg, ${stripes})`);
+                    return `background:${backgrounds.join(', ')}; box-shadow: ${borderShadows};`;
+                }
+
+                function renderHighlightLayer(text, matches) {
+                    if (!text) {
+                        urlHighlightLayer.innerHTML = '&nbsp;';
+                        return;
+                    }
+
+                    const boundaries = new Set([0, text.length]);
+                    matches.forEach(match => {
+                        boundaries.add(match.start);
+                        boundaries.add(match.end);
+                    });
+
+                    const sortedBoundaries = Array.from(boundaries).sort((left, right) => left - right);
+                    const html = [];
+
+                    for (let index = 0; index < sortedBoundaries.length - 1; index += 1) {
+                        const start = sortedBoundaries[index];
+                        const end = sortedBoundaries[index + 1];
+                        const segment = text.slice(start, end);
+                        const activeMatches = matches.filter(match => match.start < end && match.end > start);
+
+                        if (!activeMatches.length) {
+                            html.push(escapeHTML(segment));
+                            continue;
+                        }
+
+                        html.push(
+                            `<span class="url-highlight-segment" style="${buildSegmentStyle(activeMatches)}">${escapeHTML(segment)}</span>`
+                        );
+                    }
+
+                    if (text.endsWith('\n')) {
+                        html.push('\n');
+                    }
+
+                    urlHighlightLayer.innerHTML = html.join('');
+                }
+
+                function renderDetectedURLs(matches) {
+                    if (!matches.length) {
+                        detectedURLsSummary.textContent = 'No URLs yet';
+                        detectedURLsList.innerHTML = '<div class="detected-urls-empty">Paste URLs, markdown, JSON, or prose to preview matches here.</div>';
+                        return;
+                    }
+
+                    const summary = {
+                        allowlisted: matches.filter(match => match.filter.status === 'allowlisted').length,
+                        denied: matches.filter(match => match.filter.status === 'denied').length,
+                        filtered: matches.filter(match => match.filter.status === 'filtered').length,
+                    };
+                    summary.total = matches.length - summary.denied - summary.filtered;
+                    const summaryParts = [];
+                    if (summary.allowlisted) summaryParts.push(`${summary.allowlisted} allowed`);
+                    if (summary.denied) summaryParts.push(`${summary.denied} denied`);
+                    summaryParts.push(`${summary.total} total`);
+                    detectedURLsSummary.textContent = summaryParts.join(' • ');
+
+                    detectedURLsList.innerHTML = matches.map(match => {
+                        const color = urlPalette[match.colorIndex];
+                        const messageHTML = match.filter.status === 'neutral'
+                            ? ''
+                            : `<div class="detected-url-message">${escapeHTML(match.filter.message)}</div>`;
+                        const exactPattern = buildExactURLRegex(match.url);
+                        const domainPattern = buildDomainPattern(match.url);
+                        const extensionPattern = buildExtensionPattern(match.url);
+                        const controls = [
+                            {
+                                pattern: exactPattern,
+                                active: hasDenyPattern(exactPattern),
+                                label: 'URL',
+                                titleAdd: 'Add exact-match regex to URL_DENYLIST',
+                                titleRemove: 'Remove exact-match regex from URL_DENYLIST',
+                            },
+                            {
+                                pattern: domainPattern,
+                                active: hasDenyPattern(domainPattern),
+                                label: 'Domain',
+                                titleAdd: 'Add domain pattern to URL_DENYLIST',
+                                titleRemove: 'Remove domain pattern from URL_DENYLIST',
+                            },
+                            {
+                                pattern: extensionPattern,
+                                active: hasDenyPattern(extensionPattern),
+                                label: getURLExtension(match.url) || 'EXT',
+                                titleAdd: 'Add extension regex to URL_DENYLIST',
+                                titleRemove: 'Remove extension regex from URL_DENYLIST',
+                            },
+                        ].filter(control => control.pattern);
+                        const controlsHTML = controls.map(control => {
+                            const prefix = control.active ? '🚫' : '⚪';
+                            const title = control.active ? control.titleRemove : control.titleAdd;
+                            return `
+                                <button
+                                    type="button"
+                                    class="detected-url-toggle-btn ${control.active ? 'detected-url-toggle-btn-active' : 'detected-url-toggle-btn-inactive'}"
+                                    data-pattern="${escapeHTML(control.pattern)}"
+                                    data-active="${control.active ? '1' : '0'}"
+                                    title="${title}"
+                                >${prefix} ${escapeHTML(control.label)}</button>
+                            `;
+                        }).join('');
+                        return `
+                            <div class="detected-url-item detected-url-${match.filter.status}" style="--detected-url-bg:${color.bg}; --detected-url-border:${color.border};">
+                                <div class="detected-url-topline">
+                                    <div class="detected-url-number">${match.number}</div>
+                                    <div class="detected-url-controls">${controlsHTML}</div>
+                                </div>
+                                <div class="detected-url-body">
+                                    <code class="detected-url-value">${escapeHTML(match.url)}</code>
+                                    ${messageHTML}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                function dedupeMatchesForFilterView(matches) {
+                    const seen = new Set();
+                    return matches.filter(match => {
+                        if (seen.has(match.url)) {
+                            return false;
+                        }
+                        seen.add(match.url);
+                        return true;
+                    }).map((match, index) => ({
+                        ...match,
+                        number: index + 1,
+                    }));
+                }
+
+                function setDenylistPatternEntry(pattern, shouldDeny) {
+                    if (!pattern) {
+                        return;
+                    }
+                    const denylistField = document.querySelector('textarea[name="url_filters_denylist"]');
+                    const existingPatterns = splitFilterPatterns(
+                        denylistField ? denylistField.value : getEffectiveFilterText('URL_DENYLIST', '')
+                    );
+                    const nextPatterns = shouldDeny
+                        ? (existingPatterns.includes(pattern) ? existingPatterns : [...existingPatterns, pattern])
+                        : existingPatterns.filter(existingPattern => existingPattern !== pattern);
+                    const nextValue = nextPatterns.join('\n');
+                    if (denylistField) {
+                        denylistField.value = nextValue;
+                        dispatchChange(denylistField);
+                        return;
+                    }
+
+                    setConfigRow('URL_DENYLIST', nextValue);
+                    updateURLPreview();
+                }
+
+                function syncHighlightScroll() {
+                    urlHighlightLayer.scrollTop = urlTextarea.scrollTop;
+                    urlHighlightLayer.scrollLeft = urlTextarea.scrollLeft;
+                }
+
+                function syncHighlightMetrics() {
+                    const style = window.getComputedStyle(urlTextarea);
+                    urlHighlightLayer.style.font = style.font;
+                    urlHighlightLayer.style.fontFamily = style.fontFamily;
+                    urlHighlightLayer.style.fontSize = style.fontSize;
+                    urlHighlightLayer.style.fontWeight = style.fontWeight;
+                    urlHighlightLayer.style.fontStyle = style.fontStyle;
+                    urlHighlightLayer.style.lineHeight = style.lineHeight;
+                    urlHighlightLayer.style.letterSpacing = style.letterSpacing;
+                    urlHighlightLayer.style.wordSpacing = style.wordSpacing;
+                    urlHighlightLayer.style.textIndent = style.textIndent;
+                    urlHighlightLayer.style.textTransform = style.textTransform;
+                    urlHighlightLayer.style.tabSize = style.tabSize;
+                    urlHighlightLayer.style.paddingTop = style.paddingTop;
+                    urlHighlightLayer.style.paddingRight = style.paddingRight;
+                    urlHighlightLayer.style.paddingBottom = style.paddingBottom;
+                    urlHighlightLayer.style.paddingLeft = style.paddingLeft;
+                }
+
+                function syncPreviewPanelHeight() {
+                    detectedURLsPanel.style.height = `${urlTextarea.offsetHeight}px`;
+                }
+
+                function updateURLPreview() {
+                    const matches = extractURLs(urlTextarea.value).map((match, index) => ({
+                        ...match,
+                        number: index + 1,
+                        colorIndex: index % urlPalette.length,
+                        filter: getFilterState(match.url),
+                    }));
+                    const uniqueMatches = dedupeMatchesForFilterView(matches);
                     const count = matches.length;
                     urlCounter.textContent = `${count} URL${count !== 1 ? 's' : ''} detected`;
                     urlCounter.className = count > 0 ? 'url-counter url-counter-positive' : 'url-counter';
+                    renderHighlightLayer(urlTextarea.value, matches);
+                    renderDetectedURLs(uniqueMatches);
+                    syncHighlightScroll();
                 }
 
-                urlTextarea.addEventListener('input', updateURLCount);
-                updateURLCount(); // Initial count
+                urlTextarea.addEventListener('input', updateURLPreview);
+                urlTextarea.addEventListener('scroll', syncHighlightScroll);
+                window.addEventListener('resize', syncHighlightMetrics);
+                window.addEventListener('resize', syncPreviewPanelHeight);
+                if (window.ResizeObserver) {
+                    new ResizeObserver(function() {
+                        syncHighlightMetrics();
+                        syncPreviewPanelHeight();
+                        syncHighlightScroll();
+                    }).observe(urlTextarea);
+                }
+
+                document.getElementById('add-form').addEventListener('input', function(event) {
+                    if (
+                        event.target === urlTextarea ||
+                        event.target.matches('textarea[name="url_filters_allowlist"]') ||
+                        event.target.matches('textarea[name="url_filters_denylist"]') ||
+                        event.target.matches('#id_config_rows .kv-key') ||
+                        event.target.matches('#id_config_rows .kv-value')
+                    ) {
+                        updateURLPreview();
+                    }
+                });
+
+                document.getElementById('add-form').addEventListener('change', function(event) {
+                    if (
+                        event.target.matches('textarea[name="url_filters_allowlist"]') ||
+                        event.target.matches('textarea[name="url_filters_denylist"]') ||
+                        event.target.matches('input[name="url_filters_same_domain_only"]') ||
+                        event.target.matches('#id_config_rows .kv-key') ||
+                        event.target.matches('#id_config_rows .kv-value')
+                    ) {
+                        updateURLPreview();
+                    }
+                });
+
+                detectedURLsList.addEventListener('click', function(event) {
+                    const button = event.target.closest('.detected-url-toggle-btn');
+                    if (!button || button.disabled) {
+                        return;
+                    }
+                    setDenylistPatternEntry(button.dataset.pattern || '', button.dataset.active !== '1');
+                });
+
+                syncHighlightMetrics();
+                syncPreviewPanelHeight();
+                updateURLPreview(); // Initial count + preview
 
                 // Plugin Presets
                 const presetConfigs = {
@@ -298,36 +1012,77 @@
                     btn.addEventListener('click', function() {
                         const preset = this.dataset.preset;
                         const allCheckboxes = document.querySelectorAll('.plugin-checkboxes input[type="checkbox"]');
+                        const requiredSearchPreference = getStoredPluginPreference(requiredSearchPlugin);
 
                         if (preset === 'select-all') {
-                            allCheckboxes.forEach(cb => cb.checked = true);
+                            allCheckboxes.forEach(cb => {
+                                cb.checked = true;
+                                dispatchChange(cb);
+                            });
                         } else if (preset === 'clear-all') {
-                            allCheckboxes.forEach(cb => cb.checked = false);
+                            allCheckboxes.forEach(cb => {
+                                cb.checked = false;
+                                dispatchChange(cb);
+                            });
                         } else if (presetConfigs[preset]) {
                             const pluginsToSelect = presetConfigs[preset];
                             allCheckboxes.forEach(cb => {
                                 cb.checked = pluginsToSelect.includes(cb.value);
+                                dispatchChange(cb);
                             });
                         }
 
-                        // Save to localStorage after preset selection
+                        normalizePluginSelections();
+                        applyRequiredSearchPlugin(requiredSearchPreference);
+                        syncEnabledPluginsConfig();
+                        updateChromeToggleButton();
                         saveFormState();
                     });
                 });
 
-                // Select All Chrome button handler
+                function updateChromeToggleButton() {
+                    document.querySelectorAll('.select-all-btn').forEach(btn => {
+                        const group = btn.dataset.group;
+                        const container = document.getElementById(group + '-plugins');
+                        if (!container) return;
+                        const checkboxes = Array.from(container.querySelectorAll('input[type="checkbox"]'));
+                        const allChecked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
+                        btn.textContent = allChecked ? 'Deselect All Chrome' : 'Select All Chrome';
+                    });
+                }
+
                 document.querySelectorAll('.select-all-btn').forEach(btn => {
                     btn.addEventListener('click', function() {
                         const group = this.dataset.group;
                         const container = document.getElementById(group + '-plugins');
-                        const checkboxes = container.querySelectorAll('input[type="checkbox"]');
-                        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                        if (!container) return;
+
+                        const checkboxes = Array.from(container.querySelectorAll('input[type="checkbox"]'));
+                        const allChecked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
+                        const requiredSearchPreference = getStoredPluginPreference(requiredSearchPlugin);
 
                         checkboxes.forEach(cb => {
                             cb.checked = !allChecked;
+                            dispatchChange(cb);
                         });
 
-                        this.textContent = allChecked ? 'Select All Chrome' : 'Deselect All Chrome';
+                        normalizePluginSelections();
+                        applyRequiredSearchPlugin(requiredSearchPreference);
+                        syncEnabledPluginsConfig();
+                        updateChromeToggleButton();
+                        saveFormState();
+                    });
+                });
+
+                document.querySelectorAll('.plugin-checkboxes input[type="checkbox"]').forEach(checkbox => {
+                    checkbox.addEventListener('change', function() {
+                        if (this.checked) {
+                            ensureRequiredPluginsChecked(this.value);
+                        } else {
+                            uncheckDependentPlugins(this.value);
+                        }
+                        syncEnabledPluginsConfig();
+                        updateChromeToggleButton();
                         saveFormState();
                     });
                 });
@@ -355,13 +1110,30 @@
                             if (key.includes(':')) {
                                 const [name, val] = key.split(':');
                                 const el = document.querySelector(`[name="${name}"][value="${val}"]`);
-                                if (el) el.checked = value;
+                                if (el) el.checked = Boolean(value);
                             } else {
                                 const el = document.querySelector(`[name="${key}"]`);
-                                if (el && el.type !== 'checkbox' && el.type !== 'radio') el.value = value;
+                                if (el && el.type !== 'checkbox' && el.type !== 'radio') {
+                                    if (el.tagName === 'SELECT') {
+                                        const stringValue = String(value || '').trim();
+                                        if (!stringValue || !Array.from(el.options).some(option => option.value === stringValue)) {
+                                            continue;
+                                        }
+                                    }
+                                    el.value = value;
+                                    if (el.type === 'hidden') {
+                                        el.dispatchEvent(new Event('archivebox:sync-tags', { bubbles: true }));
+                                        el.dispatchEvent(new Event('change', { bubbles: true }));
+                                    }
+                                }
                             }
                         }
-                        updateURLCount(); // Update counter after loading URLs
+                        updateURLPreview(); // Update preview after loading URLs
+                        normalizePluginSelections();
+                        applyRequiredSearchPlugin();
+                        syncEnabledPluginsConfig();
+                        updateChromeToggleButton();
+                        saveFormState();
                     } catch (e) {}
                 }
 

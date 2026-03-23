@@ -11,6 +11,7 @@ from archivebox.hooks import (
 )
 from archivebox.core.host_utils import (
     get_admin_base_url,
+    get_public_base_url,
     get_web_base_url,
     get_snapshot_base_url,
     build_snapshot_url,
@@ -164,6 +165,11 @@ def admin_base_url(context) -> str:
 @register.simple_tag(takes_context=True)
 def web_base_url(context) -> str:
     return get_web_base_url(request=context.get('request'))
+
+
+@register.simple_tag(takes_context=True)
+def public_base_url(context) -> str:
+    return get_public_base_url(request=context.get('request'))
 
 
 @register.simple_tag(takes_context=True)

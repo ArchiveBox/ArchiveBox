@@ -74,7 +74,7 @@ class TestSnapshotCreate:
 
         assert code == 0
         records = parse_jsonl_output(stdout)
-        assert 'test-tag' in records[0].get('tags_str', '')
+        assert 'test-tag' in records[0].get('tags', '')
 
     def test_create_pass_through_other_types(self, initialized_archive):
         """Pass-through records of other types unchanged."""

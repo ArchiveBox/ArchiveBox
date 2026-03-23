@@ -2,9 +2,12 @@ __package__ = 'archivebox.crawls'
 
 from typing import TYPE_CHECKING
 import uuid
+import json
+import re
 from datetime import timedelta
 from archivebox.uuid_compat import uuid7
 from pathlib import Path
+from urllib.parse import urlparse
 
 from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -141,22 +144,21 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         return f'[...{short_id}] {first_url[:120]}'
 
     def save(self, *args, **kwargs):
-        is_new = self._state.adding
         super().save(*args, **kwargs)
-        if is_new:
-            from archivebox.misc.logging_util import log_worker_event
-            first_url = self.get_urls_list()[0] if self.get_urls_list() else ''
-            log_worker_event(
-                worker_type='DB',
-                event='Created Crawl',
-                indent_level=1,
-                metadata={
-                    'id': str(self.id),
-                    'first_url': first_url[:64],
-                    'max_depth': self.max_depth,
-                    'status': self.status,
-                },
-            )
+        # if is_new:
+        #     from archivebox.misc.logging_util import log_worker_event
+        #     first_url = self.get_urls_list()[0] if self.get_urls_list() else ''
+        #     log_worker_event(
+        #         worker_type='DB',
+        #         event='Created Crawl',
+        #         indent_level=1,
+        #         metadata={
+        #             'id': str(self.id),
+        #             'first_url': first_url[:64],
+        #             'max_depth': self.max_depth,
+        #             'status': self.status,
+        #         },
+        #     )
 
     @property
     def api_url(self) -> str:
@@ -248,6 +250,222 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             if url.strip() and not url.strip().startswith('#')
         ]
 
+    @staticmethod
+    def normalize_domain(value: str) -> str:
+        candidate = (value or '').strip().lower()
+        if not candidate:
+            return ''
+        if '://' not in candidate and '/' not in candidate:
+            candidate = f'https://{candidate.lstrip(".")}'
+        try:
+            parsed = urlparse(candidate)
+            hostname = parsed.hostname or ''
+            if not hostname:
+                return ''
+            if parsed.port:
+                return f'{hostname}_{parsed.port}'
+            return hostname
+        except Exception:
+            return ''
+
+    @staticmethod
+    def split_filter_patterns(value) -> list[str]:
+        patterns = []
+        seen = set()
+        if isinstance(value, list):
+            raw_values = value
+        elif isinstance(value, str):
+            raw_values = value.splitlines()
+        else:
+            raw_values = []
+
+        for raw_value in raw_values:
+            pattern = str(raw_value or '').strip()
+            if not pattern or pattern in seen:
+                continue
+            seen.add(pattern)
+            patterns.append(pattern)
+        return patterns
+
+    @classmethod
+    def _pattern_matches_url(cls, url: str, pattern: str) -> bool:
+        normalized_pattern = str(pattern or '').strip()
+        if not normalized_pattern:
+            return False
+
+        if re.fullmatch(r'[\w.*:-]+', normalized_pattern):
+            wildcard_only_subdomains = normalized_pattern.startswith('*.')
+            normalized_domain = cls.normalize_domain(
+                normalized_pattern[2:] if wildcard_only_subdomains else normalized_pattern
+            )
+            normalized_url_domain = cls.normalize_domain(url)
+            if not normalized_domain or not normalized_url_domain:
+                return False
+
+            pattern_host = normalized_domain.split('_', 1)[0]
+            url_host = normalized_url_domain.split('_', 1)[0]
+
+            if wildcard_only_subdomains:
+                return url_host.endswith(f'.{pattern_host}')
+
+            if normalized_url_domain == normalized_domain:
+                return True
+            return url_host == pattern_host or url_host.endswith(f'.{pattern_host}')
+
+        try:
+            return bool(re.search(normalized_pattern, url))
+        except re.error:
+            return False
+
+    def get_url_allowlist(self, *, use_effective_config: bool = False, snapshot=None) -> list[str]:
+        if use_effective_config:
+            from archivebox.config.configset import get_config
+
+            config = get_config(crawl=self, snapshot=snapshot)
+        else:
+            config = self.config or {}
+        return self.split_filter_patterns(config.get('URL_ALLOWLIST', ''))
+
+    def get_url_denylist(self, *, use_effective_config: bool = False, snapshot=None) -> list[str]:
+        if use_effective_config:
+            from archivebox.config.configset import get_config
+
+            config = get_config(crawl=self, snapshot=snapshot)
+        else:
+            config = self.config or {}
+        return self.split_filter_patterns(config.get('URL_DENYLIST', ''))
+
+    def url_passes_filters(self, url: str, *, snapshot=None, use_effective_config: bool = True) -> bool:
+        denylist = self.get_url_denylist(use_effective_config=use_effective_config, snapshot=snapshot)
+        allowlist = self.get_url_allowlist(use_effective_config=use_effective_config, snapshot=snapshot)
+
+        for pattern in denylist:
+            if self._pattern_matches_url(url, pattern):
+                return False
+
+        if allowlist:
+            return any(self._pattern_matches_url(url, pattern) for pattern in allowlist)
+
+        return True
+
+    def set_url_filters(self, allowlist, denylist) -> None:
+        config = dict(self.config or {})
+        allow_patterns = self.split_filter_patterns(allowlist)
+        deny_patterns = self.split_filter_patterns(denylist)
+
+        if allow_patterns:
+            config['URL_ALLOWLIST'] = '\n'.join(allow_patterns)
+        else:
+            config.pop('URL_ALLOWLIST', None)
+
+        if deny_patterns:
+            config['URL_DENYLIST'] = '\n'.join(deny_patterns)
+        else:
+            config.pop('URL_DENYLIST', None)
+
+        self.config = config
+
+    def apply_crawl_config_filters(self) -> dict[str, int]:
+        from archivebox.core.models import Snapshot
+
+        removed_urls = self.prune_urls(
+            lambda url: not self.url_passes_filters(url, use_effective_config=False)
+        )
+
+        filtered_snapshots = [
+            snapshot
+            for snapshot in self.snapshot_set.filter(
+                status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED],
+            ).only('pk', 'url', 'status')
+            if not self.url_passes_filters(snapshot.url, snapshot=snapshot, use_effective_config=False)
+        ]
+
+        deleted_snapshots = 0
+        if filtered_snapshots:
+            started_snapshots = [
+                snapshot for snapshot in filtered_snapshots
+                if snapshot.status == Snapshot.StatusChoices.STARTED
+            ]
+            for snapshot in started_snapshots:
+                snapshot.cancel_running_hooks()
+
+            filtered_snapshot_ids = [snapshot.pk for snapshot in filtered_snapshots]
+            deleted_snapshots, _ = self.snapshot_set.filter(pk__in=filtered_snapshot_ids).delete()
+
+        return {
+            'removed_urls': len(removed_urls),
+            'deleted_snapshots': deleted_snapshots,
+        }
+
+    def _iter_url_lines(self) -> list[tuple[str, str]]:
+        entries: list[tuple[str, str]] = []
+        for raw_line in (self.urls or '').splitlines():
+            stripped = raw_line.strip()
+            if not stripped:
+                continue
+            if stripped.startswith('#'):
+                entries.append((raw_line.rstrip(), ''))
+                continue
+            try:
+                entry = json.loads(stripped)
+                entries.append((raw_line.rstrip(), str(entry.get('url', '') or '').strip()))
+            except json.JSONDecodeError:
+                entries.append((raw_line.rstrip(), stripped))
+        return entries
+
+    def prune_urls(self, predicate) -> list[str]:
+        kept_lines: list[str] = []
+        removed_urls: list[str] = []
+
+        for raw_line, url in self._iter_url_lines():
+            if not url:
+                kept_lines.append(raw_line)
+                continue
+            if predicate(url):
+                removed_urls.append(url)
+                continue
+            kept_lines.append(raw_line)
+
+        next_urls = '\n'.join(kept_lines)
+        if next_urls != (self.urls or ''):
+            self.urls = next_urls
+            self.save(update_fields=['urls', 'modified_at'])
+        return removed_urls
+
+    def prune_url(self, url: str) -> int:
+        target = (url or '').strip()
+        removed = self.prune_urls(lambda candidate: candidate == target)
+        return len(removed)
+
+    def exclude_domain(self, domain: str) -> dict[str, int | str | bool]:
+        normalized_domain = self.normalize_domain(domain)
+        if not normalized_domain:
+            return {
+                'domain': '',
+                'created': False,
+                'removed_urls': 0,
+                'deleted_snapshots': 0,
+            }
+
+        domains = self.get_url_denylist(use_effective_config=False)
+        created = normalized_domain not in domains
+        if created:
+            domains.append(normalized_domain)
+            self.set_url_filters(
+                self.get_url_allowlist(use_effective_config=False),
+                domains,
+            )
+            self.save(update_fields=['config', 'modified_at'])
+
+        filter_result = self.apply_crawl_config_filters()
+
+        return {
+            'domain': normalized_domain,
+            'created': created,
+            'removed_urls': filter_result['removed_urls'],
+            'deleted_snapshots': filter_result['deleted_snapshots'],
+        }
+
     def get_system_task(self) -> str | None:
         urls = self.get_urls_list()
         if len(urls) != 1:
@@ -284,10 +502,12 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         Returns:
             True if URL was added, False if skipped (duplicate or depth exceeded)
         """
-        import json
+        from archivebox.misc.util import fix_url_from_markdown
 
-        url = entry.get('url', '')
+        url = fix_url_from_markdown(str(entry.get('url', '') or '').strip())
         if not url:
+            return False
+        if not self.url_passes_filters(url):
             return False
 
         depth = entry.get('depth', 1)
@@ -301,20 +521,13 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             return False
 
         # Check if already in urls (parse existing JSONL entries)
-        existing_urls = set()
-        for line in self.urls.splitlines():
-            if not line.strip():
-                continue
-            try:
-                existing_entry = json.loads(line)
-                existing_urls.add(existing_entry.get('url', ''))
-            except json.JSONDecodeError:
-                existing_urls.add(line.strip())
+        existing_urls = {url for _raw_line, url in self._iter_url_lines() if url}
 
         if url in existing_urls:
             return False
 
         # Append as JSONL
+        entry = {**entry, 'url': url}
         jsonl_entry = json.dumps(entry)
         self.urls = (self.urls.rstrip() + '\n' + jsonl_entry).lstrip('\n')
         self.save(update_fields=['urls', 'modified_at'])
@@ -327,14 +540,10 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         Returns:
             List of newly created Snapshot objects
         """
-        import sys
-        import json
         from archivebox.core.models import Snapshot
+        from archivebox.misc.util import fix_url_from_markdown
 
         created_snapshots = []
-
-        print(f'[cyan]DEBUG create_snapshots_from_urls: self.urls={repr(self.urls)}[/cyan]', file=sys.stderr)
-        print(f'[cyan]DEBUG create_snapshots_from_urls: lines={self.urls.splitlines()}[/cyan]', file=sys.stderr)
 
         for line in self.urls.splitlines():
             if not line.strip():
@@ -343,19 +552,21 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             # Parse JSONL or plain URL
             try:
                 entry = json.loads(line)
-                url = entry.get('url', '')
+                url = fix_url_from_markdown(str(entry.get('url', '') or '').strip())
                 depth = entry.get('depth', 0)
                 title = entry.get('title')
                 timestamp = entry.get('timestamp')
                 tags = entry.get('tags', '')
             except json.JSONDecodeError:
-                url = line.strip()
+                url = fix_url_from_markdown(line.strip())
                 depth = 0
                 title = None
                 timestamp = None
                 tags = self.tags_str
 
             if not url:
+                continue
+            if not self.url_passes_filters(url):
                 continue
 
             # Skip if depth exceeds max_depth

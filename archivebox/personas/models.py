@@ -117,6 +117,12 @@ class Persona(ModelWithConfig):
         cookies_path = self.path / 'cookies.txt'
         return str(cookies_path) if cookies_path.exists() else ''
 
+    @property
+    def AUTH_STORAGE_FILE(self) -> str:
+        """Derived path to auth.json for this persona (if it exists)."""
+        auth_path = self.path / 'auth.json'
+        return str(auth_path) if auth_path.exists() else ''
+
     def get_derived_config(self) -> dict:
         """
         Get config dict with derived paths filled in.
@@ -127,6 +133,7 @@ class Persona(ModelWithConfig):
         - CHROME_EXTENSIONS_DIR (derived from persona path)
         - CHROME_DOWNLOADS_DIR (derived from persona path)
         - COOKIES_FILE (derived from persona path, if file exists)
+        - AUTH_STORAGE_FILE (derived from persona path, if file exists)
         - ACTIVE_PERSONA (set to this persona's name)
         """
         derived = dict(self.config or {})
@@ -140,6 +147,8 @@ class Persona(ModelWithConfig):
             derived['CHROME_DOWNLOADS_DIR'] = self.CHROME_DOWNLOADS_DIR
         if 'COOKIES_FILE' not in derived and self.COOKIES_FILE:
             derived['COOKIES_FILE'] = self.COOKIES_FILE
+        if 'AUTH_STORAGE_FILE' not in derived and self.AUTH_STORAGE_FILE:
+            derived['AUTH_STORAGE_FILE'] = self.AUTH_STORAGE_FILE
 
         # Always set ACTIVE_PERSONA to this persona's name
         derived['ACTIVE_PERSONA'] = self.name

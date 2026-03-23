@@ -477,6 +477,10 @@ body.model-snapshot.change-list #content .object-tools {
     max-width: 220px;
 }
 
+#content td.field-tags_inline .tag-editor-inline.readonly {
+    padding-right: 0;
+}
+
 #content th.field-tags_inline,
 #content td.field-tags_inline {
     max-width: 220px;
@@ -610,6 +614,56 @@ body.model-snapshot.change-list #content .object-tools {
     border-radius: 4px;
 }
 
+body.model-archiveresult.change-list #result_list td.field-cmd_str {
+    width: 300px !important;
+    max-width: 300px !important;
+    min-width: 300px !important;
+}
+
+body.model-archiveresult.change-list #result_list td.field-cmd_str > div,
+body.model-archiveresult.change-list #result_list td.field-cmd_str code {
+    max-width: 300px !important;
+}
+
+body.model-archiveresult.change-list #result_list {
+    table-layout: fixed;
+    width: 100%;
+}
+
+body.model-archiveresult.change-list #result_list th.column-cmd_str,
+body.model-archiveresult.change-list #result_list td.field-cmd_str {
+    width: 300px !important;
+    max-width: 300px !important;
+    min-width: 300px !important;
+    overflow: hidden !important;
+    box-sizing: border-box;
+}
+
+body.model-archiveresult.change-list #result_list th.column-process_link,
+body.model-archiveresult.change-list #result_list td.field-process_link {
+    width: 72px;
+    white-space: nowrap;
+}
+
+body.model-archiveresult.change-list #result_list th.column-machine_link,
+body.model-archiveresult.change-list #result_list td.field-machine_link {
+    width: 180px;
+}
+
+body.model-archiveresult.change-list #result_list td.field-snapshot_info a {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.model-archiveresult.change-list #result_list td.field-cmd_str > div,
+body.model-archiveresult.change-list #result_list td.field-cmd_str code {
+    width: 300px !important;
+    min-width: 300px !important;
+    max-width: 300px !important;
+    box-sizing: border-box;
+}
+
 body.filters-collapsed #content #changelist-filter {
     display: none !important;
 }
@@ -637,8 +691,47 @@ body.filters-collapsed .filtered div.xfull {
     font-variant: small-caps;
 }
 
-#result_list tbody td.field-status {
+#result_list tbody td.field-status,
+#result_list tbody td.field-status_badge {
     font-variant: small-caps;
+}
+
+body.model-archiveresult.filters-collapsed.change-list #changelist .changelist-form-container {
+    gap: 0 !important;
+}
+
+body.model-archiveresult.filters-collapsed.change-list #changelist .changelist-form-container > div,
+body.model-archiveresult.filters-collapsed.change-list #changelist .results,
+body.model-archiveresult.filters-collapsed.change-list #changelist .paginator,
+body.model-archiveresult.filters-collapsed.change-list #changelist #toolbar,
+body.model-archiveresult.filters-collapsed.change-list #changelist #changelist-form,
+body.model-archiveresult.filters-collapsed.change-list #changelist #result_list {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-right: 0 !important;
+}
+
+body.model-archiveresult.change-list #result_list tbody tr {
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+body.model-archiveresult.change-list #result_list tbody tr:has(td.field-status_badge .status-badge.started),
+body.model-archiveresult.change-list #result_list tbody tr:has(td.field-status_badge .status-badge.backoff) {
+    background: rgba(251, 191, 36, 0.14);
+}
+
+body.model-archiveresult.change-list #result_list tbody tr:has(td.field-status_badge .status-badge.failed) {
+    background: rgba(239, 68, 68, 0.12);
+}
+
+body.model-archiveresult.change-list #result_list tbody tr:has(td.field-status_badge .status-badge.succeeded) {
+    background: rgba(34, 197, 94, 0.11);
+}
+
+body.model-archiveresult.change-list #result_list tbody tr:has(td.field-status_badge .status-badge.skipped),
+body.model-archiveresult.change-list #result_list tbody tr:has(td.field-status_badge .status-badge.noresults) {
+    background: rgba(148, 163, 184, 0.10);
+    opacity: 0.82;
 }
 
 .inline-group .tabular td.original p {
@@ -697,6 +790,7 @@ tbody .output-link:hover {opacity: 1;}
 .status-badge.failed { background: #fee2e2; color: #ef4444; }
 .status-badge.backoff { background: #fef3c7; color: #f59e0b; }
 .status-badge.skipped { background: #f3f4f6; color: #6b7280; }
+.status-badge.noresults { background: #f1f5f9; color: #64748b; }
 
 /* Progress Bar */
 .snapshot-progress-bar {

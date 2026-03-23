@@ -456,6 +456,9 @@
                 text-overflow: ellipsis;
                 white-space: nowrap;
             }
+            .thumb-card:has([data-compact]) .card-text {
+                display: none;
+            }
             .thumb-card:has([data-compact]) .thumbnail-text-header,
             .thumb-card:has([data-compact]) .thumbnail-compact-icon,
             .thumb-card:has([data-compact]) .thumbnail-compact-label {
@@ -620,8 +623,9 @@
             <div class="header-top container-fluid">
                 <div class="row nav">
                     <div class="col-lg-2" style="line-height: 50px; vertical-align: middle">
-                        <a href="../../index.html" class="header-archivebox" title="Go to Main Index...">
-                            <img src="/static/archive.png" alt="Archive Icon">
+                        {% public_base_url as public_base %}
+                        <a href="{% if public_base %}{{ public_base }}/public/{% else %}/{% endif %}" class="header-archivebox" title="Go to Public Index...">
+                            <img src="{% if public_base %}{{ public_base }}/static/archive.png{% else %}/static/archive.png{% endif %}" alt="Archive Icon">
                             ArchiveBox
                         </a>
                     </div>
@@ -683,12 +687,10 @@
                         <div class="info-chunk">
                             <h5>🗃&nbsp; Snapshot: <a href="{% admin_base_url %}/admin/core/snapshot/{{snapshot_id|default:id}}/change/"><code style="color: rgba(255,255,255,0.6); font-weight: 200; font-size: 12px; background-color: #1a1a1a"><b>[{{timestamp}}]</b> <small>{{snapshot_id|default:id|truncatechars:24}}</small></code></a></h5>
                             <a href="{% snapshot_url snapshot 'index.json' %}" title="JSON summary of archived link.">JSON</a> | 
-                            <a href="{% snapshot_url snapshot 'warc/' %}" title="Any WARC archives for the page">WARC</a> | 
-                            <a href="{% snapshot_url snapshot 'media/' %}" title="Audio, Video, and Subtitle files.">Media</a> | 
-                            <a href="{% snapshot_url snapshot 'git/' %}" title="Any git repos at the url">Git</a> | 
+                            <a href="{% snapshot_base_url snapshot %}/?files=1" title="Browse the full SNAP_DIR for this snapshot">See all files...</a> | 
                             <a href="{% admin_base_url %}/admin/core/snapshot/?q={{snapshot_id|default:id}}" title="Go to the Snapshot admin to update, overwrite, or delete this Snapshot">Actions</a> | 
                             <a href="{% admin_base_url %}/admin/core/snapshot/{{snapshot_id|default:id}}/change/" title="Edit this snapshot in the Admin UI">Admin</a> | 
-                            <a href="{% snapshot_base_url snapshot %}/?files=1" title="Webserver-provided index of files directory.">See all files...</a><br/>
+                            <a href="https://web.archive.org/web/{{url}}" title="Search for a copy of the URL saved in Archive.org" target="_blank" rel="noreferrer">Archive.org</a><br/>
                         </div>
                     </div>
                 </div>
@@ -713,12 +715,12 @@
                                                 <a href="{{display_url}}" data-no-preview="1" title="Download output file" download>⬇️</a>
                                             {% endif %}
                                         </div>
+                                    <a href="{{ display_url }}" target="preview">
+                                        <h4 class="card-title">{% plugin_icon result_info.name %} {{ result_info.name|plugin_name|truncatechars:20 }}</h4>
+                                    </a>
                                         <a href="{{ display_url }}" title="Open in new tab..." target="_blank" rel="noopener">
                                             <p class="card-text"><code>{{ result_info.path }}</code></p>
                                         </a>
-                                    <a href="{{ display_url }}" target="preview">
-                                        <h4 class="card-title">{{ result_info.name|title }}</h4>
-                                    </a>
                                     {% if result_info.result %}
                                         {% with plugin_base=result_info.name|plugin_name %}
                                             {% if plugin_base == 'ytdlp' or plugin_base == 'yt-dlp' or plugin_base == 'youtube-dl' %}

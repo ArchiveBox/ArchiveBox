@@ -232,11 +232,12 @@ SQLITE_CONNECTION_OPTIONS = {
         # https://gcollazo.com/optimal-sqlite-settings-for-django/
         # https://litestream.io/tips/#busy-timeout
         # https://docs.djangoproject.com/en/5.1/ref/databases/#setting-pragma-options
-        "timeout": 10,
+        "timeout": 30,
         "check_same_thread": False,
         "transaction_mode": "IMMEDIATE",
         "init_command": (
             "PRAGMA foreign_keys=ON;"
+            "PRAGMA busy_timeout = 30000;"
             "PRAGMA journal_mode = WAL;"
             "PRAGMA synchronous = NORMAL;"
             "PRAGMA temp_store = MEMORY;"

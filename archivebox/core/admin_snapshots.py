@@ -6,6 +6,7 @@ from pathlib import Path
 
 from django.contrib import admin, messages
 from django.urls import path
+from django.shortcuts import get_object_or_404, redirect
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils import timezone
@@ -14,6 +15,7 @@ from django.db.models.functions import Coalesce
 from django import forms
 from django.template import Template, RequestContext
 from django.contrib.admin.helpers import ActionForm
+from django.middleware.csrf import get_token
 
 from archivebox.config import DATA_DIR
 from archivebox.config.common import SERVER_CONFIG
@@ -24,7 +26,7 @@ from archivebox.search.admin import SearchResultsAdminMixin
 from archivebox.core.host_utils import build_snapshot_url, build_web_url
 
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
-from archivebox.workers.tasks import bg_archive_snapshots, bg_add
+from archivebox.workers.tasks import bg_archive_snapshot, bg_archive_snapshots, bg_add
 
 from archivebox.core.models import Tag, Snapshot, ArchiveResult
 from archivebox.core.admin_archiveresults import render_archiveresults_list
@@ -215,9 +217,22 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path('grid/', self.admin_site.admin_view(self.grid_view), name='grid')
+            path('grid/', self.admin_site.admin_view(self.grid_view), name='grid'),
+            path('<path:object_id>/redo-failed/', self.admin_site.admin_view(self.redo_failed_view), name='core_snapshot_redo_failed'),
         ]
         return custom_urls + urls
+
+    def redo_failed_view(self, request, object_id):
+        snapshot = get_object_or_404(Snapshot, pk=object_id)
+
+        if request.method == 'POST':
+            queued = bg_archive_snapshot(snapshot, overwrite=False)
+            messages.success(
+                request,
+                f"Queued {queued} snapshot for re-archiving. The background runner will process it.",
+            )
+
+        return redirect(snapshot.admin_change_url)
 
     # def get_queryset(self, request):
     #     # tags_qs = SnapshotTag.objects.all().select_related('tag')
@@ -312,6 +327,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def admin_actions(self, obj):
         summary_url = build_web_url(f'/{obj.archive_path}')
         results_url = build_web_url(f'/{obj.archive_path}/index.html#all')
+        redo_failed_url = f'/admin/core/snapshot/{obj.pk}/redo-failed/'
+        csrf_token = get_token(self.request)
         return format_html(
             '''
             <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
@@ -344,13 +361,15 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                    onmouseout="this.style.background='#eff6ff';">
                     🆕 Archive Now
                 </a>
-                <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; color: #065f46; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
-                   href="/admin/core/snapshot/?id__exact={}"
-                   title="Redo failed extractors (missing outputs)"
-                   onmouseover="this.style.background='#d1fae5';"
-                   onmouseout="this.style.background='#ecfdf5';">
-                    🔁 Redo Failed
-                </a>
+                <form action="{}" method="post" style="display: inline-flex; margin: 0;">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="{}">
+                    <button type="submit" class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; color: #065f46; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s; cursor: pointer;"
+                       title="Redo failed extractors (missing outputs)"
+                       onmouseover="this.style.background='#d1fae5';"
+                       onmouseout="this.style.background='#ecfdf5';">
+                        🔁 Redo Failed
+                    </button>
+                </form>
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; color: #92400e; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
                    href="/admin/core/snapshot/?id__exact={}"
                    title="Re-run all extractors (overwrite existing)"
@@ -367,14 +386,15 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 </a>
             </div>
             <p style="margin-top: 12px; font-size: 12px; color: #64748b;">
-                <b>Tip:</b> Action buttons link to the list view with this snapshot pre-selected. Select it and use the action dropdown to execute.
+                <b>Tip:</b> Redo Failed runs immediately. The other action buttons link to the list view with this snapshot pre-selected.
             </p>
             ''',
             summary_url,
             results_url,
             obj.url,
             obj.pk,
-            obj.pk,
+            redo_failed_url,
+            csrf_token,
             obj.pk,
             obj.pk,
         )

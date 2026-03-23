@@ -42,6 +42,7 @@ import rich_click as click
 from rich import print as rprint
 
 from archivebox.cli.cli_utils import apply_filters
+from archivebox.personas import importers as persona_importers
 
 
 # =============================================================================
@@ -440,8 +441,6 @@ def create_personas(
         browser_binary = get_browser_binary(import_from)
         if browser_binary:
             rprint(f'[dim]Using {import_from} binary: {browser_binary}[/dim]', file=sys.stderr)
-    else:
-        browser_binary = None
 
     created_count = 0
     for name in name_list:
@@ -450,7 +449,7 @@ def create_personas(
             continue
 
         # Validate persona name to prevent path traversal
-        is_valid, error_msg = validate_persona_name(name)
+        is_valid, error_msg = persona_importers.validate_persona_name(name)
         if not is_valid:
             rprint(f'[red]Invalid persona name "{name}": {error_msg}[/red]', file=sys.stderr)
             continue
@@ -468,48 +467,28 @@ def create_personas(
 
         # Import browser profile if requested
         if import_from in CHROMIUM_BROWSERS and source_profile_dir is not None:
-            persona_chrome_dir = Path(persona.CHROME_USER_DATA_DIR)
-
-            # Copy the browser profile
-            rprint(f'[dim]Copying browser profile to {persona_chrome_dir}...[/dim]', file=sys.stderr)
-
             try:
-                # Remove existing chrome_user_data if it exists
-                if persona_chrome_dir.exists():
-                    shutil.rmtree(persona_chrome_dir)
-
-                # Copy the profile directory
-                # We copy the entire user data dir, not just Default profile
-                shutil.copytree(
-                    source_profile_dir,
-                    persona_chrome_dir,
-                    symlinks=True,
-                    ignore=shutil.ignore_patterns(
-                        'Cache', 'Code Cache', 'GPUCache', 'ShaderCache',
-                        'Service Worker', 'GCM Store', '*.log', 'Crashpad',
-                        'BrowserMetrics', 'BrowserMetrics-spare.pma',
-                        'SingletonLock', 'SingletonSocket', 'SingletonCookie',
-                    ),
+                import_source = persona_importers.resolve_browser_import_source(import_from, profile_dir=profile)
+                import_result = persona_importers.import_persona_from_source(
+                    persona,
+                    import_source,
+                    copy_profile=True,
+                    import_cookies=True,
+                    capture_storage=False,
                 )
-                rprint('[green]Copied browser profile to persona[/green]', file=sys.stderr)
-
-                # Extract cookies via CDP
-                rprint('[dim]Extracting cookies via CDP...[/dim]', file=sys.stderr)
-
-                if extract_cookies_via_cdp(
-                    persona_chrome_dir,
-                    cookies_file,
-                    profile_dir=profile,
-                    chrome_binary=browser_binary,
-                ):
-                    rprint(f'[green]Extracted cookies to {cookies_file}[/green]', file=sys.stderr)
-                else:
-                    rprint('[yellow]Could not extract cookies automatically.[/yellow]', file=sys.stderr)
-                    rprint('[dim]You can manually export cookies using a browser extension.[/dim]', file=sys.stderr)
-
             except Exception as e:
-                rprint(f'[red]Failed to copy browser profile: {e}[/red]', file=sys.stderr)
+                rprint(f'[red]Failed to import browser profile: {e}[/red]', file=sys.stderr)
                 return 1
+
+            if import_result.profile_copied:
+                rprint('[green]Copied browser profile to persona[/green]', file=sys.stderr)
+            if import_result.cookies_imported:
+                rprint(f'[green]Extracted cookies to {cookies_file}[/green]', file=sys.stderr)
+            elif not import_result.profile_copied:
+                rprint('[yellow]Could not import cookies automatically.[/yellow]', file=sys.stderr)
+
+            for warning in import_result.warnings:
+                rprint(f'[yellow]{warning}[/yellow]', file=sys.stderr)
 
         if not is_tty:
             write_record({
@@ -616,7 +595,7 @@ def update_personas(name: Optional[str] = None) -> int:
             # Apply updates from CLI flags
             if name:
                 # Validate new name to prevent path traversal
-                is_valid, error_msg = validate_persona_name(name)
+                is_valid, error_msg = persona_importers.validate_persona_name(name)
                 if not is_valid:
                     rprint(f'[red]Invalid new persona name "{name}": {error_msg}[/red]', file=sys.stderr)
                     continue

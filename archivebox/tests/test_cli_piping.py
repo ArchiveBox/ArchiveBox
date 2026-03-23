@@ -173,6 +173,20 @@ def test_collect_urls_from_plugins_reads_only_parser_outputs(tmp_path):
     assert collect_urls_from_plugins(tmp_path / "nonexistent") == []
 
 
+def test_collect_urls_from_plugins_trims_markdown_suffixes(tmp_path):
+    from archivebox.hooks import collect_urls_from_plugins
+
+    (tmp_path / "parse_html_urls").mkdir()
+    (tmp_path / "parse_html_urls" / "urls.jsonl").write_text(
+        '{"url":"https://docs.sweeting.me/s/youtube-favorites)**"}\n',
+        encoding="utf-8",
+    )
+
+    urls = collect_urls_from_plugins(tmp_path)
+    assert len(urls) == 1
+    assert urls[0]["url"] == "https://docs.sweeting.me/s/youtube-favorites"
+
+
 def test_crawl_create_stdout_pipes_into_run(initialized_archive):
     """`archivebox crawl create | archivebox run` should queue and materialize snapshots."""
     url = create_test_url()
@@ -269,8 +283,13 @@ def test_archiveresult_list_stdout_pipes_into_run(initialized_archive):
     )
     assert ar_create_code == 0, ar_create_stderr
 
-    created_records = parse_jsonl_output(ar_create_stdout)
-    archiveresult = next(record for record in created_records if record.get("type") == "ArchiveResult")
+    run_archivebox_cmd(
+        ["run"],
+        stdin=ar_create_stdout,
+        data_dir=initialized_archive,
+        timeout=120,
+        env=PIPE_TEST_ENV,
+    )
 
     list_stdout, list_stderr, list_code = run_archivebox_cmd(
         ["archiveresult", "list", "--plugin=favicon"],
@@ -278,6 +297,8 @@ def test_archiveresult_list_stdout_pipes_into_run(initialized_archive):
     )
     assert list_code == 0, list_stderr
     _assert_stdout_is_jsonl_only(list_stdout)
+    listed_records = parse_jsonl_output(list_stdout)
+    archiveresult = next(record for record in listed_records if record.get("type") == "ArchiveResult")
 
     run_stdout, run_stderr, run_code = run_archivebox_cmd(
         ["run"],

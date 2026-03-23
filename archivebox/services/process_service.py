@@ -3,11 +3,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from asgiref.sync import sync_to_async
 from django.utils import timezone
 
 from abx_dl.events import ProcessCompletedEvent, ProcessStartedEvent
 from abx_dl.services.base import BaseService
+
+from .db import run_db_op
 
 if TYPE_CHECKING:
     from archivebox.machine.models import Process
@@ -33,27 +34,33 @@ class ProcessService(BaseService):
         self.process_ids: dict[str, str] = {}
         super().__init__(bus)
 
-    async def on_ProcessStartedEvent(self, event: ProcessStartedEvent) -> None:
-        await sync_to_async(self._project_started, thread_sensitive=True)(event)
+    async def on_ProcessStartedEvent__Outer(self, event: ProcessStartedEvent) -> None:
+        await run_db_op(self._project_started, event)
 
-    async def on_ProcessCompletedEvent(self, event: ProcessCompletedEvent) -> None:
-        await sync_to_async(self._project_completed, thread_sensitive=True)(event)
+    async def on_ProcessCompletedEvent__Outer(self, event: ProcessCompletedEvent) -> None:
+        await run_db_op(self._project_completed, event)
 
     def get_db_process_id(self, process_id: str) -> str | None:
         return self.process_ids.get(process_id)
 
     def _get_or_create_process(self, event: ProcessStartedEvent | ProcessCompletedEvent) -> "Process":
-        from archivebox.machine.models import Machine, Process
+        from archivebox.machine.models import NetworkInterface, Process
 
         db_process_id = self.process_ids.get(event.process_id)
+        iface = NetworkInterface.current(refresh=True)
         if db_process_id:
             process = Process.objects.filter(id=db_process_id).first()
             if process is not None:
+                if process.iface_id != iface.id or process.machine_id != iface.machine_id:
+                    process.iface = iface
+                    process.machine = iface.machine
+                    process.save(update_fields=["iface", "machine", "modified_at"])
                 return process
 
         process_type = Process.TypeChoices.BINARY if event.hook_name.startswith("on_Binary") else Process.TypeChoices.HOOK
         process = Process.objects.create(
-            machine=Machine.current(),
+            machine=iface.machine,
+            iface=iface,
             process_type=process_type,
             pwd=event.output_dir,
             cmd=[event.hook_path, *event.hook_args],
@@ -77,12 +84,14 @@ class ProcessService(BaseService):
         process.started_at = parse_event_datetime(event.start_ts) or process.started_at or timezone.now()
         process.status = process.StatusChoices.RUNNING
         process.retry_at = None
+        process.hydrate_binary_from_context(plugin_name=event.plugin_name, hook_path=event.hook_path)
         process.save()
 
     def _project_completed(self, event: ProcessCompletedEvent) -> None:
         process = self._get_or_create_process(event)
         process.pwd = event.output_dir
-        process.cmd = [event.hook_path, *event.hook_args]
+        if not process.cmd:
+            process.cmd = [event.hook_path, *event.hook_args]
         process.env = event.env
         process.pid = event.pid or process.pid
         process.started_at = parse_event_datetime(event.start_ts) or process.started_at
@@ -92,4 +101,5 @@ class ProcessService(BaseService):
         process.exit_code = event.exit_code
         process.status = process.StatusChoices.EXITED
         process.retry_at = None
+        process.hydrate_binary_from_context(plugin_name=event.plugin_name, hook_path=event.hook_path)
         process.save()

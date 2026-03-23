@@ -163,6 +163,10 @@ def get_api_base_url(request=None) -> str:
     return _build_base_url_for_host(get_api_host(), request=request)
 
 
+def get_public_base_url(request=None) -> str:
+    return _build_base_url_for_host(get_public_host(), request=request)
+
+
 # Backwards-compat aliases (archive == web)
 def get_archive_base_url(request=None) -> str:
     return get_web_base_url(request=request)

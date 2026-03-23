@@ -113,7 +113,7 @@ class BinaryAdmin(BaseModelAdmin):
     sort_fields = ('id', 'created_at', 'machine_info', 'name', 'binprovider', 'version', 'abspath', 'sha256', 'status')
     search_fields = ('id', 'machine__id', 'name', 'binprovider', 'version', 'abspath', 'sha256')
 
-    readonly_fields = ('created_at', 'modified_at')
+    readonly_fields = ('created_at', 'modified_at', 'output_dir')
 
     fieldsets = (
         ('Binary Info', {
@@ -166,7 +166,7 @@ class ProcessAdmin(BaseModelAdmin):
     sort_fields = ('id', 'created_at', 'status', 'exit_code', 'pid')
     search_fields = ('id', 'machine__id', 'binary__name', 'cmd', 'pwd', 'stdout', 'stderr')
 
-    readonly_fields = ('created_at', 'modified_at', 'machine', 'binary', 'iface', 'archiveresult_link')
+    readonly_fields = ('created_at', 'modified_at', 'machine', 'binary_link', 'iface_link', 'archiveresult_link')
 
     fieldsets = (
         ('Process Info', {
@@ -178,7 +178,7 @@ class ProcessAdmin(BaseModelAdmin):
             'classes': ('card', 'wide'),
         }),
         ('Execution', {
-            'fields': ('binary', 'iface', 'pid', 'exit_code', 'url'),
+            'fields': ('binary_link', 'iface_link', 'pid', 'exit_code', 'url'),
             'classes': ('card',),
         }),
         ('Timing', {
@@ -214,6 +214,21 @@ class ProcessAdmin(BaseModelAdmin):
         return format_html(
             '<a href="/admin/machine/binary/{}/change"><code>{}</code> v{}</a>',
             process.binary.id, process.binary.name, process.binary.version,
+        )
+
+    @admin.display(description='Binary', ordering='binary__name')
+    def binary_link(self, process):
+        return self.binary_info(process)
+
+    @admin.display(description='Network Interface', ordering='iface__id')
+    def iface_link(self, process):
+        if not process.iface:
+            return '-'
+        return format_html(
+            '<a href="/admin/machine/networkinterface/{}/change"><code>{}</code> {}</a>',
+            process.iface.id,
+            str(process.iface.id)[:8],
+            process.iface.iface or process.iface.ip_public or process.iface.ip_local,
         )
 
     @admin.display(description='ArchiveResult')

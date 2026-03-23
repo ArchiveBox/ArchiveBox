@@ -61,12 +61,14 @@ def register_admin_site():
     from archivebox.crawls.admin import register_admin as register_crawls_admin
     from archivebox.api.admin import register_admin as register_api_admin
     from archivebox.machine.admin import register_admin as register_machine_admin
+    from archivebox.personas.admin import register_admin as register_personas_admin
     from archivebox.workers.admin import register_admin as register_workers_admin
 
     register_core_admin(archivebox_admin)
     register_crawls_admin(archivebox_admin)
     register_api_admin(archivebox_admin)
     register_machine_admin(archivebox_admin)
+    register_personas_admin(archivebox_admin)
     register_workers_admin(archivebox_admin)
 
     return archivebox_admin

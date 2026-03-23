@@ -1,0 +1,268 @@
+{% extends "admin/change_form.html" %}
+
+{% block bodyclass %}{{ block.super }} app-core model-tag tag-form-page{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .tag-form-hero {
+        margin: 0 0 20px;
+        padding: 22px 24px;
+        border-radius: 20px;
+        border: 1px solid #dbe4ee;
+        background:
+            radial-gradient(circle at top right, rgba(245, 158, 11, 0.12), transparent 30%),
+            linear-gradient(135deg, #fff7ed 0%, #ffffff 48%, #eff6ff 100%);
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+        display: grid;
+        gap: 16px;
+        grid-template-columns: minmax(0, 1.7fr) minmax(260px, 1fr);
+    }
+
+    .tag-form-hero h2 {
+        margin: 0 0 8px;
+        font-size: 28px;
+        line-height: 1.05;
+        color: #111827;
+    }
+
+    .tag-form-hero p {
+        margin: 0;
+        color: #475569;
+        font-size: 14px;
+        max-width: 70ch;
+    }
+
+    .tag-form-hero__meta {
+        display: grid;
+        gap: 10px;
+    }
+
+    .tag-form-hero__meta div {
+        padding: 14px 16px;
+        border-radius: 14px;
+        border: 1px solid rgba(203, 213, 225, 0.85);
+        background: rgba(255, 255, 255, 0.88);
+    }
+
+    .tag-form-hero__meta span {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #64748b;
+    }
+
+    .tag-similar-panel {
+        margin-top: 18px;
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid #dbe4ee;
+        background: #fff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+    }
+
+    .tag-similar-panel h3 {
+        margin: 0 0 6px;
+        font-size: 16px;
+        color: #111827;
+    }
+
+    .tag-similar-panel p {
+        margin: 0 0 14px;
+        font-size: 13px;
+        color: #64748b;
+    }
+
+    .tag-similar-list {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .tag-similar-card {
+        display: grid;
+        gap: 8px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        border: 1px solid #dbe4ee;
+        background: #f8fafc;
+        text-decoration: none;
+        color: #0f172a;
+    }
+
+    .tag-similar-card strong {
+        font-size: 15px;
+        line-height: 1.1;
+    }
+
+    .tag-similar-card span {
+        font-size: 12px;
+        color: #64748b;
+    }
+
+    .tag-similar-card__snapshots {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .tag-similar-snapshot {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        max-width: 100%;
+        padding: 6px 8px;
+        border-radius: 999px;
+        background: #fff;
+        border: 1px solid #dbe4ee;
+        font-size: 11px;
+        color: #334155;
+    }
+
+    .tag-similar-snapshot img {
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+        flex: 0 0 auto;
+    }
+
+    .tag-similar-empty {
+        padding: 16px;
+        border-radius: 16px;
+        border: 1px dashed #cbd5e1;
+        background: #f8fafc;
+        color: #64748b;
+        font-size: 13px;
+    }
+
+    @media (max-width: 920px) {
+        .tag-form-hero {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block form_top %}
+<section class="tag-form-hero">
+    <div>
+        <h2>{% if add %}New Tag{% else %}Edit Tag{% endif %}</h2>
+        <p>Similar tags are shown below while typing.</p>
+    </div>
+    <div class="tag-form-hero__meta">
+        <div>
+            <span>Matches</span>
+            <strong>Current tags</strong>
+        </div>
+        <div>
+            <span>Links</span>
+            <strong>Open filtered snapshots</strong>
+        </div>
+    </div>
+</section>
+{{ block.super }}
+{% endblock %}
+
+{% block after_field_sets %}
+{{ block.super }}
+<section
+    id="tag-similar-panel"
+    class="tag-similar-panel"
+    data-search-url="{{ tag_search_api_url }}"
+>
+    <h3>Similar Tags</h3>
+    <p>Updates while typing.</p>
+    <div id="tag-similar-list" class="tag-similar-list"></div>
+</section>
+
+{{ tag_similar_cards|json_script:"abx-tag-similar-data" }}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const panel = document.getElementById('tag-similar-panel');
+    const list = document.getElementById('tag-similar-list');
+    const nameInput = document.querySelector('input[data-tag-name-input="1"]');
+    if (!panel || !list || !nameInput) return;
+
+    const searchUrl = panel.dataset.searchUrl;
+    let similarCards = JSON.parse(document.getElementById('abx-tag-similar-data').textContent || '[]');
+    let timeoutId = null;
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    }
+
+    function getApiKey() {
+        return (window.ARCHIVEBOX_API_KEY || '').trim();
+    }
+
+    function withApiKey(url) {
+        const apiKey = getApiKey();
+        if (!apiKey) return url;
+        const separator = url.includes('?') ? '&' : '?';
+        return url + separator + 'api_key=' + encodeURIComponent(apiKey);
+    }
+
+    function buildHeaders() {
+        const headers = {};
+        const apiKey = getApiKey();
+        if (apiKey) headers['X-ArchiveBox-API-Key'] = apiKey;
+        return headers;
+    }
+
+    function render(cards) {
+        const filtered = (cards || []).filter(function (card) {
+            return (card.name || '').toLowerCase() !== (nameInput.value || '').trim().toLowerCase();
+        });
+
+        if (!filtered.length) {
+            list.innerHTML = '<div class="tag-similar-empty">No similar tags.</div>';
+            return;
+        }
+
+        list.innerHTML = filtered.map(function (card) {
+            const snapshots = (card.snapshots || []).slice(0, 3).map(function (snapshot) {
+                return '' +
+                    '<span class="tag-similar-snapshot">' +
+                        '<img src="' + escapeHtml(snapshot.favicon_url) + '" alt="" onerror="this.style.display=\\'none\\'">' +
+                        '<span>' + escapeHtml(snapshot.title) + '</span>' +
+                    '</span>';
+            }).join('');
+
+            return '' +
+                '<a class="tag-similar-card" href="' + escapeHtml(card.filter_url) + '">' +
+                    '<strong>' + escapeHtml(card.name) + '</strong>' +
+                    '<span>' + escapeHtml(card.num_snapshots) + ' snapshots · slug: ' + escapeHtml(card.slug) + '</span>' +
+                    '<div class="tag-similar-card__snapshots">' + (snapshots || '<span class="tag-similar-snapshot">No snapshots</span>') + '</div>' +
+                '</a>';
+        }).join('');
+    }
+
+    async function fetchSimilar(query) {
+        const response = await fetch(withApiKey(searchUrl + '?q=' + encodeURIComponent(query || '')), {
+            headers: buildHeaders(),
+            credentials: 'same-origin',
+        });
+        if (!response.ok) return [];
+        const payload = await response.json();
+        return payload.tags || [];
+    }
+
+    nameInput.addEventListener('input', function () {
+        window.clearTimeout(timeoutId);
+        timeoutId = window.setTimeout(async function () {
+            similarCards = await fetchSimilar((nameInput.value || '').trim());
+            render(similarCards);
+        }, 140);
+    });
+
+    render(similarCards);
+});
+</script>
+{% endblock %}

@@ -131,7 +131,46 @@ class TagEditorWidget(forms.Widget):
             }};
 
             window.updateHiddenInput_{widget_id} = function() {{
-                document.getElementById('{widget_id}').value = currentTags_{widget_id}.join(',');
+                var hiddenInput = document.getElementById('{widget_id}');
+                if (!hiddenInput) {{
+                    return;
+                }}
+                hiddenInput.value = currentTags_{widget_id}.join(',');
+                hiddenInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                hiddenInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+            }};
+
+            function normalizeTags_{widget_id}(value) {{
+                var rawTags = Array.isArray(value) ? value : String(value || '').split(',');
+                var seen = {{}};
+                return rawTags
+                    .map(function(tag) {{ return String(tag || '').trim(); }})
+                    .filter(function(tag) {{
+                        if (!tag) return false;
+                        var normalized = tag.toLowerCase();
+                        if (seen[normalized]) return false;
+                        seen[normalized] = true;
+                        return true;
+                    }})
+                    .sort(function(a, b) {{
+                        return a.toLowerCase().localeCompare(b.toLowerCase());
+                    }});
+            }}
+
+            window.setTags_{widget_id} = function(value, options) {{
+                currentTags_{widget_id} = normalizeTags_{widget_id}(value);
+                rebuildPills_{widget_id}();
+                if (!(options && options.skipHiddenUpdate)) {{
+                    updateHiddenInput_{widget_id}();
+                }}
+            }};
+
+            window.syncTagEditorFromHidden_{widget_id} = function() {{
+                var hiddenInput = document.getElementById('{widget_id}');
+                if (!hiddenInput) {{
+                    return;
+                }}
+                setTags_{widget_id}(hiddenInput.value, {{ skipHiddenUpdate: true }});
             }};
 
             function computeTagStyle_{widget_id}(tagName) {{
@@ -190,9 +229,7 @@ class TagEditorWidget(forms.Widget):
 
                 // Add to current tags
                 currentTags_{widget_id}.push(tagName);
-                currentTags_{widget_id}.sort(function(a, b) {{
-                    return a.toLowerCase().localeCompare(b.toLowerCase());
-                }});
+                currentTags_{widget_id} = normalizeTags_{widget_id}(currentTags_{widget_id});
 
                 // Rebuild pills
                 rebuildPills_{widget_id}();
@@ -250,6 +287,14 @@ class TagEditorWidget(forms.Widget):
                         removeTag_{widget_id}(tagName);
                     }}
                 }}
+            }});
+
+            document.getElementById('{widget_id}').addEventListener('change', function() {{
+                syncTagEditorFromHidden_{widget_id}();
+            }});
+
+            document.getElementById('{widget_id}').addEventListener('archivebox:sync-tags', function() {{
+                syncTagEditorFromHidden_{widget_id}();
             }});
 
             window.handleTagKeydown_{widget_id} = function(event) {{
@@ -320,11 +365,229 @@ class TagEditorWidget(forms.Widget):
                 var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
                 return input ? input.value : '';
             }}
+
+            syncTagEditorFromHidden_{widget_id}();
         }})();
         </script>
         '''
 
         return mark_safe(html)
+
+
+class URLFiltersWidget(forms.Widget):
+    """Render URL allowlist / denylist controls with same-domain autofill."""
+
+    template_name = ""
+
+    def __init__(self, attrs=None, *, source_selector='textarea[name="url"]'):
+        self.source_selector = source_selector
+        super().__init__(attrs)
+
+    def render(self, name, value, attrs=None, renderer=None):
+        value = value if isinstance(value, dict) else {}
+        widget_id_raw = attrs.get('id', name) if attrs else name
+        widget_id = re.sub(r'[^A-Za-z0-9_]', '_', str(widget_id_raw)) or name
+        allowlist = escape(value.get('allowlist', '') or '')
+        denylist = escape(value.get('denylist', '') or '')
+
+        return mark_safe(f'''
+        <div id="{widget_id}_container" class="url-filters-widget">
+            <input type="hidden" name="{name}" value="">
+            <div class="url-filters-grid">
+                <div class="url-filters-column">
+                    <div class="url-filter-label-row">
+                        <label for="{widget_id}_allowlist" class="url-filter-label"><span class="url-filter-label-main">🟢 URL_ALLOWLIST</span></label>
+                        <span class="url-filter-label-note">Regex patterns or domains to exclude, one pattern per line.</span>
+                    </div>
+                    <textarea id="{widget_id}_allowlist"
+                              name="{name}_allowlist"
+                              rows="2"
+                              placeholder="^https?://([^/]+\\.)?(example\\.com|example\\.org)([:/]|$)">{allowlist}</textarea>
+                </div>
+                <div class="url-filters-column">
+                    <div class="url-filter-label-row">
+                        <label for="{widget_id}_denylist" class="url-filter-label"><span class="url-filter-label-main">⛔ URL_DENYLIST</span></label>
+                        <span class="url-filter-label-note">Regex patterns or domains to exclude, one pattern per line.</span>
+                    </div>
+                    <textarea id="{widget_id}_denylist"
+                              name="{name}_denylist"
+                              rows="2"
+                              placeholder="^https?://([^/]+\\.)?(cdn\\.example\\.com|analytics\\.example\\.org)([:/]|$)">{denylist}</textarea>
+                </div>
+            </div>
+            <label class="url-filters-toggle" for="{widget_id}_same_domain_only">
+                <input type="checkbox" id="{widget_id}_same_domain_only" name="{name}_same_domain_only" value="1">
+                <span>Same domain only</span>
+            </label>
+            <div class="help-text">These values can be one regex pattern or domain per line. URL_DENYLIST takes precedence over URL_ALLOWLIST.</div>
+            <script>
+            (function() {{
+                var allowlistField = document.getElementById('{widget_id}_allowlist');
+                var denylistField = document.getElementById('{widget_id}_denylist');
+                var sameDomainOnly = document.getElementById('{widget_id}_same_domain_only');
+                var sourceField = document.querySelector({json.dumps(self.source_selector)});
+                var lastAutoGeneratedAllowlist = '';
+                if (!allowlistField || !sameDomainOnly || !sourceField) {{
+                    return;
+                }}
+
+                function extractUrl(line) {{
+                    var trimmed = String(line || '').trim();
+                    if (!trimmed || trimmed.charAt(0) === '#') {{
+                        return '';
+                    }}
+                    if (trimmed.charAt(0) === '{{') {{
+                        try {{
+                            var record = JSON.parse(trimmed);
+                            return String(record.url || '').trim();
+                        }} catch (error) {{
+                            return '';
+                        }}
+                    }}
+                    return trimmed;
+                }}
+
+                function escapeRegex(text) {{
+                    return String(text || '').replace(/[.*+?^${{}}()|[\\]\\\\]/g, '\\\\$&');
+                }}
+
+                function buildHostRegex(domains) {{
+                    if (!domains.length) {{
+                        return '';
+                    }}
+                    return '^https?://(' + domains.map(escapeRegex).join('|') + ')([:/]|$)';
+                }}
+
+                function getConfigEditorRows() {{
+                    return document.getElementById('id_config_rows');
+                }}
+
+                function getConfigUpdater() {{
+                    return window.updateHiddenField_id_config || null;
+                }}
+
+                function findConfigRow(key) {{
+                    var rows = getConfigEditorRows();
+                    if (!rows) {{
+                        return null;
+                    }}
+                    var matches = Array.prototype.filter.call(rows.querySelectorAll('.key-value-row'), function(row) {{
+                        var keyInput = row.querySelector('.kv-key');
+                        return keyInput && keyInput.value.trim() === key;
+                    }});
+                    return matches.length ? matches[0] : null;
+                }}
+
+                function addConfigRow() {{
+                    if (typeof window.addKeyValueRow_id_config === 'function') {{
+                        window.addKeyValueRow_id_config();
+                        var rows = getConfigEditorRows();
+                        return rows ? rows.lastElementChild : null;
+                    }}
+                    return null;
+                }}
+
+                function setConfigRow(key, value) {{
+                    var rows = getConfigEditorRows();
+                    var updater = getConfigUpdater();
+                    if (!rows || !updater) {{
+                        return;
+                    }}
+
+                    var row = findConfigRow(key);
+                    if (!value) {{
+                        if (row) {{
+                            row.remove();
+                            updater();
+                        }}
+                        return;
+                    }}
+
+                    if (!row) {{
+                        row = addConfigRow();
+                    }}
+                    if (!row) {{
+                        return;
+                    }}
+
+                    var keyInput = row.querySelector('.kv-key');
+                    var valueInput = row.querySelector('.kv-value');
+                    if (!keyInput || !valueInput) {{
+                        return;
+                    }}
+
+                    keyInput.value = key;
+                    valueInput.value = value;
+                    keyInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                    valueInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                    updater();
+                }}
+
+                function syncConfigEditor() {{
+                    setConfigRow('URL_ALLOWLIST', allowlistField.value.trim());
+                    setConfigRow('URL_DENYLIST', denylistField ? denylistField.value.trim() : '');
+                }}
+
+                function syncAllowlistFromUrls() {{
+                    if (!sameDomainOnly.checked) {{
+                        if (allowlistField.value.trim() === lastAutoGeneratedAllowlist) {{
+                            allowlistField.value = '';
+                            syncConfigEditor();
+                        }}
+                        lastAutoGeneratedAllowlist = '';
+                        return;
+                    }}
+
+                    var seen = Object.create(null);
+                    var domains = [];
+                    sourceField.value.split(/\\n+/).forEach(function(line) {{
+                        var url = extractUrl(line);
+                        if (!url) {{
+                            return;
+                        }}
+                        try {{
+                            var parsed = new URL(url);
+                            var domain = String(parsed.hostname || '').toLowerCase();
+                            if (!domain || seen[domain]) {{
+                                return;
+                            }}
+                            seen[domain] = true;
+                            domains.push(domain);
+                        }} catch (error) {{
+                            return;
+                        }}
+                    }});
+                    lastAutoGeneratedAllowlist = buildHostRegex(domains);
+                    allowlistField.value = lastAutoGeneratedAllowlist;
+                    syncConfigEditor();
+                }}
+
+                sameDomainOnly.addEventListener('change', syncAllowlistFromUrls);
+                sourceField.addEventListener('input', syncAllowlistFromUrls);
+                sourceField.addEventListener('change', syncAllowlistFromUrls);
+                allowlistField.addEventListener('input', syncConfigEditor);
+                allowlistField.addEventListener('change', syncConfigEditor);
+                if (denylistField) {{
+                    denylistField.addEventListener('input', syncConfigEditor);
+                    denylistField.addEventListener('change', syncConfigEditor);
+                }}
+
+                if (document.readyState === 'loading') {{
+                    document.addEventListener('DOMContentLoaded', syncConfigEditor, {{ once: true }});
+                }} else {{
+                    syncConfigEditor();
+                }}
+            }})();
+            </script>
+        </div>
+        ''')
+
+    def value_from_datadict(self, data, files, name):
+        return {
+            'allowlist': data.get(f'{name}_allowlist', ''),
+            'denylist': data.get(f'{name}_denylist', ''),
+            'same_domain_only': data.get(f'{name}_same_domain_only') in ('1', 'on', 'true'),
+        }
 
 
 class InlineTagEditorWidget(TagEditorWidget):
@@ -333,9 +596,10 @@ class InlineTagEditorWidget(TagEditorWidget):
     Includes AJAX save functionality for immediate persistence.
     """
 
-    def __init__(self, attrs=None, snapshot_id=None):
+    def __init__(self, attrs=None, snapshot_id=None, editable=True):
         super().__init__(attrs, snapshot_id)
         self.snapshot_id = snapshot_id
+        self.editable = editable
 
     def render(self, name, value, attrs=None, renderer=None, snapshot_id=None):
         """Render inline tag editor with AJAX save."""
@@ -361,20 +625,24 @@ class InlineTagEditorWidget(TagEditorWidget):
         # Build pills HTML with filter links
         pills_html = ''
         for td in tag_data:
+            remove_button = ''
+            if self.editable:
+                remove_button = (
+                    f'<button type="button" class="tag-remove-btn" '
+                    f'data-tag-id="{td["id"]}" data-tag-name="{self._escape(td["name"])}">&times;</button>'
+                )
             pills_html += f'''
                 <span class="tag-pill" data-tag="{self._escape(td['name'])}" data-tag-id="{td['id']}" style="{self._tag_style(td['name'])}">
                     <a href="/admin/core/snapshot/?tags__id__exact={td['id']}" class="tag-link">{self._escape(td['name'])}</a>
-                    <button type="button" class="tag-remove-btn" data-tag-id="{td['id']}" data-tag-name="{self._escape(td['name'])}">&times;</button>
+                    {remove_button}
                 </span>
             '''
 
         tags_json = escape(json.dumps(tag_data))
-
-        html = f'''
-        <span id="{widget_id}_container" class="tag-editor-inline" data-snapshot-id="{snapshot_id}" data-tags="{tags_json}">
-            <span id="{widget_id}_pills" class="tag-pills-inline">
-                {pills_html}
-            </span>
+        input_html = ''
+        readonly_class = ' readonly' if not self.editable else ''
+        if self.editable:
+            input_html = f'''
             <input type="text"
                    id="{widget_id}_input"
                    class="tag-inline-input-sm"
@@ -384,6 +652,14 @@ class InlineTagEditorWidget(TagEditorWidget):
                    data-inline-tag-input="1"
             >
             <datalist id="{widget_id}_datalist"></datalist>
+            '''
+
+        html = f'''
+        <span id="{widget_id}_container" class="tag-editor-inline{readonly_class}" data-snapshot-id="{snapshot_id}" data-tags="{tags_json}" data-readonly="{int(not self.editable)}">
+            <span id="{widget_id}_pills" class="tag-pills-inline">
+                {pills_html}
+            </span>
+            {input_html}
         </span>
         '''
 

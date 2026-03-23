@@ -49,6 +49,89 @@ BINARY_RECHECK_INTERVAL = 1 * 30 * 60
 PROCESS_RECHECK_INTERVAL = 60  # Re-validate every 60 seconds
 PID_REUSE_WINDOW = timedelta(hours=24)  # Max age for considering a PID match valid
 START_TIME_TOLERANCE = 5.0  # Seconds tolerance for start time matching
+LEGACY_MACHINE_CONFIG_KEYS = frozenset({"CHROMIUM_VERSION"})
+
+
+def _find_existing_binary_for_reference(machine: 'Machine', reference: str) -> 'Binary | None':
+    reference = str(reference or '').strip()
+    if not reference:
+        return None
+
+    qs = Binary.objects.filter(machine=machine)
+
+    direct_match = qs.filter(abspath=reference).order_by('-modified_at').first()
+    if direct_match:
+        return direct_match
+
+    ref_name = Path(reference).name
+    if ref_name:
+        named_match = qs.filter(name=ref_name).order_by('-modified_at').first()
+        if named_match:
+            return named_match
+
+    return qs.filter(name=reference).order_by('-modified_at').first()
+
+
+def _get_process_binary_env_keys(plugin_name: str, hook_path: str, env: dict[str, Any] | None) -> list[str]:
+    env = env or {}
+    plugin_name = str(plugin_name or '').strip()
+    hook_path = str(hook_path or '').strip()
+    plugin_key = plugin_name.upper().replace('-', '_')
+    keys: list[str] = []
+    seen: set[str] = set()
+
+    def add(key: str) -> None:
+        if key and key not in seen and env.get(key):
+            seen.add(key)
+            keys.append(key)
+
+    if plugin_key:
+        add(f'{plugin_key}_BINARY')
+
+    try:
+        from archivebox.hooks import discover_plugin_configs
+
+        plugin_schema = discover_plugin_configs().get(plugin_name, {})
+        schema_keys = [
+            key
+            for key in (plugin_schema.get('properties') or {})
+            if key.endswith('_BINARY')
+        ]
+    except Exception:
+        schema_keys = []
+
+    schema_keys.sort(key=lambda key: (
+        key != f'{plugin_key}_BINARY',
+        key.endswith('_NODE_BINARY'),
+        key.endswith('_CHROME_BINARY'),
+        key,
+    ))
+    for key in schema_keys:
+        add(key)
+
+    if plugin_name.startswith('search_backend_'):
+        backend_name = plugin_name.removeprefix('search_backend_').upper().replace('-', '_')
+        configured_engine = str(env.get('SEARCH_BACKEND_ENGINE') or '').strip().upper().replace('-', '_')
+        if backend_name and backend_name == configured_engine:
+            add(f'{backend_name}_BINARY')
+
+    hook_suffix = Path(hook_path).suffix.lower()
+    if hook_suffix == '.js':
+        if plugin_key:
+            add(f'{plugin_key}_NODE_BINARY')
+        add('NODE_BINARY')
+
+    return keys
+
+
+def _sanitize_machine_config(config: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(config, dict):
+        return {}
+
+    sanitized = dict(config)
+    for key in LEGACY_MACHINE_CONFIG_KEYS:
+        sanitized.pop(key, None)
+    return sanitized
 
 
 class MachineManager(models.Manager):
@@ -89,13 +172,13 @@ class Machine(ModelWithHealthStats):
         global _CURRENT_MACHINE
         if _CURRENT_MACHINE:
             if timezone.now() < _CURRENT_MACHINE.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL):
-                return cls._hydrate_config_from_sibling(_CURRENT_MACHINE)
+                return cls._sanitize_config(cls._hydrate_config_from_sibling(_CURRENT_MACHINE))
             _CURRENT_MACHINE = None
         _CURRENT_MACHINE, _ = cls.objects.update_or_create(
             guid=get_host_guid(),
             defaults={'hostname': socket.gethostname(), **get_os_info(), **get_vm_info(), 'stats': get_host_stats()},
         )
-        return cls._hydrate_config_from_sibling(_CURRENT_MACHINE)
+        return cls._sanitize_config(cls._hydrate_config_from_sibling(_CURRENT_MACHINE))
 
     @classmethod
     def _hydrate_config_from_sibling(cls, machine: 'Machine') -> 'Machine':
@@ -112,6 +195,15 @@ class Machine(ModelWithHealthStats):
         )
         if sibling and sibling.config:
             machine.config = dict(sibling.config)
+            machine.save(update_fields=['config', 'modified_at'])
+        return machine
+
+    @classmethod
+    def _sanitize_config(cls, machine: 'Machine') -> 'Machine':
+        sanitized = _sanitize_machine_config(machine.config)
+        current = machine.config or {}
+        if sanitized != current:
+            machine.config = sanitized
             machine.save(update_fields=['config', 'modified_at'])
         return machine
 
@@ -152,11 +244,10 @@ class Machine(ModelWithHealthStats):
         Returns:
             Machine instance or None
         """
-        config_patch = record.get('config')
-        if isinstance(config_patch, dict) and config_patch:
+        config_patch = _sanitize_machine_config(record.get('config'))
+        if config_patch:
             machine = Machine.current()
-            if not machine.config:
-                machine.config = {}
+            machine.config = _sanitize_machine_config(machine.config)
             machine.config.update(config_patch)
             machine.save(update_fields=['config'])
             return machine
@@ -194,13 +285,17 @@ class NetworkInterface(ModelWithHealthStats):
         unique_together = (('machine', 'ip_public', 'ip_local', 'mac_address', 'dns_server'),)
 
     @classmethod
-    def current(cls) -> 'NetworkInterface':
+    def current(cls, refresh: bool = False) -> 'NetworkInterface':
         global _CURRENT_INTERFACE
+        machine = Machine.current()
         if _CURRENT_INTERFACE:
-            if timezone.now() < _CURRENT_INTERFACE.modified_at + timedelta(seconds=NETWORK_INTERFACE_RECHECK_INTERVAL):
+            if (
+                not refresh
+                and _CURRENT_INTERFACE.machine_id == machine.id
+                and timezone.now() < _CURRENT_INTERFACE.modified_at + timedelta(seconds=NETWORK_INTERFACE_RECHECK_INTERVAL)
+            ):
                 return _CURRENT_INTERFACE
             _CURRENT_INTERFACE = None
-        machine = Machine.current()
         net_info = get_host_network()
         _CURRENT_INTERFACE, _ = cls.objects.update_or_create(
             machine=machine, ip_public=net_info.pop('ip_public'), ip_local=net_info.pop('ip_local'),
@@ -747,14 +842,17 @@ class ProcessManager(models.Manager):
 
         Called during migration and when creating new ArchiveResults.
         """
+        iface = kwargs.get('iface') or NetworkInterface.current()
+
         # Defaults from ArchiveResult if not provided
         defaults = {
-            'machine': Machine.current(),
+            'machine': iface.machine,
             'pwd': kwargs.get('pwd') or str(archiveresult.snapshot.output_dir / archiveresult.plugin),
             'cmd': kwargs.get('cmd') or [],
             'status': 'queued',
             'timeout': kwargs.get('timeout', 120),
             'env': kwargs.get('env', {}),
+            'iface': iface,
         }
         defaults.update(kwargs)
 
@@ -971,6 +1069,28 @@ class Process(models.Model):
             record['timeout'] = self.timeout
         return record
 
+    def hydrate_binary_from_context(self, *, plugin_name: str = '', hook_path: str = '') -> 'Binary | None':
+        machine = self.machine if self.machine_id else Machine.current()
+
+        references: list[str] = []
+        for key in _get_process_binary_env_keys(plugin_name, hook_path, self.env):
+            value = str(self.env.get(key) or '').strip()
+            if value and value not in references:
+                references.append(value)
+
+        if self.cmd:
+            cmd_0 = str(self.cmd[0]).strip()
+            if cmd_0 and cmd_0 not in references:
+                references.append(cmd_0)
+
+        for reference in references:
+            binary = _find_existing_binary_for_reference(machine, reference)
+            if binary:
+                self.binary = binary
+                return binary
+
+        return None
+
     @classmethod
     def parse_records_from_text(cls, text: str) -> list[dict]:
         """Parse JSONL records from raw text using the shared JSONL parser."""
@@ -1044,6 +1164,7 @@ class Process(models.Model):
 
         current_pid = os.getpid()
         machine = Machine.current()
+        iface = NetworkInterface.current()
 
         # Check cache validity
         if _CURRENT_PROCESS:
@@ -1053,6 +1174,9 @@ class Process(models.Model):
                 and _CURRENT_PROCESS.machine_id == machine.id
                 and timezone.now() < _CURRENT_PROCESS.modified_at + timedelta(seconds=PROCESS_RECHECK_INTERVAL)
             ):
+                if _CURRENT_PROCESS.iface_id != iface.id:
+                    _CURRENT_PROCESS.iface = iface
+                    _CURRENT_PROCESS.save(update_fields=['iface', 'modified_at'])
                 _CURRENT_PROCESS.ensure_log_files()
                 return _CURRENT_PROCESS
             _CURRENT_PROCESS = None
@@ -1080,6 +1204,9 @@ class Process(models.Model):
                 db_start_time = existing.started_at.timestamp()
                 if abs(db_start_time - os_start_time) < START_TIME_TOLERANCE:
                     _CURRENT_PROCESS = existing
+                    if existing.iface_id != iface.id:
+                        existing.iface = iface
+                        existing.save(update_fields=['iface', 'modified_at'])
                     _CURRENT_PROCESS.ensure_log_files()
                     return existing
 
@@ -1112,6 +1239,7 @@ class Process(models.Model):
             pid=current_pid,
             started_at=started_at,
             status=cls.StatusChoices.RUNNING,
+            iface=iface,
         )
         _CURRENT_PROCESS.ensure_log_files()
         return _CURRENT_PROCESS
@@ -1176,7 +1304,9 @@ class Process(models.Model):
 
         if 'supervisord' in argv_str:
             return cls.TypeChoices.SUPERVISORD
-        elif 'archivebox run' in argv_str or 'runner_watch' in argv_str:
+        elif 'runner_watch' in argv_str:
+            return cls.TypeChoices.WORKER
+        elif 'archivebox run' in argv_str:
             return cls.TypeChoices.ORCHESTRATOR
         elif 'archivebox' in argv_str:
             return cls.TypeChoices.CLI
@@ -1321,14 +1451,17 @@ class Process(models.Model):
         if self.cmd:
             try:
                 os_cmdline = os_proc.cmdline()
-                # Check if first arg (binary) matches
                 if os_cmdline and self.cmd:
-                    os_binary = os_cmdline[0] if os_cmdline else ''
                     db_binary = self.cmd[0] if self.cmd else ''
-                    # Match by basename (handles /usr/bin/python3 vs python3)
-                    if os_binary and db_binary:
-                        if Path(os_binary).name != Path(db_binary).name:
-                            return None  # Different binary, PID reused
+                    if db_binary:
+                        db_binary_name = Path(db_binary).name
+                        cmd_matches = any(
+                            arg == db_binary or Path(arg).name == db_binary_name
+                            for arg in os_cmdline
+                            if arg
+                        )
+                        if not cmd_matches:
+                            return None  # Different command, PID reused
             except (psutil.AccessDenied, psutil.ZombieProcess):
                 pass  # Can't check cmdline, trust start time match
 

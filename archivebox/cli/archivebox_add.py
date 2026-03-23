@@ -47,11 +47,13 @@ def _collect_input_urls(args: tuple[str, ...]) -> list[str]:
 def add(urls: str | list[str],
         depth: int | str=0,
         tag: str='',
+        url_allowlist: str='',
+        url_denylist: str='',
         parser: str="auto",
         plugins: str="",
         persona: str='Default',
         overwrite: bool=False,
-        update: bool=not ARCHIVING_CONFIG.ONLY_NEW,
+        update: bool | None=None,
         index_only: bool=False,
         bg: bool=False,
         created_by_id: int | None=None) -> tuple['Crawl', QuerySet['Snapshot']]:
@@ -85,6 +87,8 @@ def add(urls: str | list[str],
 
     created_by_id = created_by_id or get_or_create_system_user_pk()
     started_at = timezone.now()
+    if update is None:
+        update = not ARCHIVING_CONFIG.ONLY_NEW
 
     # 1. Save the provided URLs to sources/2024-11-05__23-59-59__cli_add.txt
     sources_file = CONSTANTS.SOURCES_DIR / f'{timezone.now().strftime("%Y-%m-%d__%H-%M-%S")}__cli_add.txt'
@@ -120,6 +124,8 @@ def add(urls: str | list[str],
             'PLUGINS': plugins,
             'DEFAULT_PERSONA': persona_name,
             'PARSER': parser,
+            **({'URL_ALLOWLIST': url_allowlist} if url_allowlist else {}),
+            **({'URL_DENYLIST': url_denylist} if url_denylist else {}),
         }
     )
 
@@ -149,6 +155,9 @@ def add(urls: str | list[str],
                 snapshot.save_tags(tag.split(','))
             snapshot.ensure_crawl_symlink()
         return crawl, crawl.snapshot_set.all()
+
+    if bg:
+        crawl.create_snapshots_from_urls()
 
     # 5. Start the crawl runner to process the queue
     #    The runner will:
@@ -192,8 +201,7 @@ def add(urls: str | list[str],
             except Exception:
                 rel_output_str = str(crawl.output_dir)
 
-            # Build admin URL from SERVER_CONFIG
-            bind_addr = SERVER_CONFIG.BIND_ADDR
+            bind_addr = SERVER_CONFIG.BIND_ADDR or '127.0.0.1:8000'
             if bind_addr.startswith('http://') or bind_addr.startswith('https://'):
                 base_url = bind_addr
             else:
@@ -218,11 +226,13 @@ def add(urls: str | list[str],
 @click.command()
 @click.option('--depth', '-d', type=click.Choice([str(i) for i in range(5)]), default='0', help='Recursively archive linked pages up to N hops away')
 @click.option('--tag', '-t', default='', help='Comma-separated list of tags to add to each snapshot e.g. tag1,tag2,tag3')
+@click.option('--url-allowlist', '--domain-allowlist', default='', help='Comma-separated URL/domain allowlist for this crawl')
+@click.option('--url-denylist', '--domain-denylist', default='', help='Comma-separated URL/domain denylist for this crawl')
 @click.option('--parser', default='auto', help='Parser for reading input URLs (auto, txt, html, rss, json, jsonl, netscape, ...)')
 @click.option('--plugins', '-p', default='', help='Comma-separated list of plugins to run e.g. title,favicon,screenshot,singlefile,...')
 @click.option('--persona', default='Default', help='Authentication profile to use when archiving')
 @click.option('--overwrite', '-F', is_flag=True, help='Overwrite existing data if URLs have been archived previously')
-@click.option('--update', is_flag=True, default=ARCHIVING_CONFIG.ONLY_NEW, help='Retry any previously skipped/failed URLs when re-adding them')
+@click.option('--update', is_flag=True, default=None, help='Retry any previously skipped/failed URLs when re-adding them')
 @click.option('--index-only', is_flag=True, help='Just add the URLs to the index without archiving them now')
 @click.option('--bg', is_flag=True, help='Run archiving in background (queue work and return immediately)')
 @click.argument('urls', nargs=-1, type=click.Path())

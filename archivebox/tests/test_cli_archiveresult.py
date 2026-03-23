@@ -16,6 +16,13 @@ from archivebox.tests.conftest import (
     create_test_url,
 )
 
+PROJECTOR_TEST_ENV = {
+    'PLUGINS': 'favicon',
+    'SAVE_FAVICON': 'True',
+    'USE_COLOR': 'False',
+    'SHOW_PROGRESS': 'False',
+}
+
 
 class TestArchiveResultCreate:
     """Tests for `archivebox archiveresult create`."""
@@ -38,13 +45,14 @@ class TestArchiveResultCreate:
         assert code == 0, f"Command failed: {stderr}"
 
         records = parse_jsonl_output(stdout2)
-        # Should have the Snapshot passed through and ArchiveResult created
+        # Should have the Snapshot passed through and an ArchiveResult request emitted
         types = [r.get('type') for r in records]
         assert 'Snapshot' in types
         assert 'ArchiveResult' in types
 
         ar = next(r for r in records if r['type'] == 'ArchiveResult')
         assert ar['plugin'] == 'title'
+        assert 'id' not in ar
 
     def test_create_with_specific_plugin(self, initialized_archive):
         """Create archive result for specific plugin."""
@@ -122,13 +130,31 @@ class TestArchiveResultList:
 
     def test_list_filter_by_status(self, initialized_archive):
         """Filter archive results by status."""
-        # Create snapshot and archive result
+        # Create snapshot and materialize an archive result via the runner
         url = create_test_url()
         stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive)
         snapshot = parse_jsonl_output(stdout1)[0]
-        run_archivebox_cmd(
-            ['archiveresult', 'create', '--plugin=title'],
+        stdout2, _, _ = run_archivebox_cmd(
+            ['archiveresult', 'create', '--plugin=favicon'],
             stdin=json.dumps(snapshot),
+            data_dir=initialized_archive,
+        )
+        run_archivebox_cmd(
+            ['run'],
+            stdin=stdout2,
+            data_dir=initialized_archive,
+            timeout=120,
+            env=PROJECTOR_TEST_ENV,
+        )
+        created = parse_jsonl_output(
+            run_archivebox_cmd(
+                ['archiveresult', 'list', '--plugin=favicon'],
+                data_dir=initialized_archive,
+            )[0]
+        )[0]
+        run_archivebox_cmd(
+            ['archiveresult', 'update', '--status=queued'],
+            stdin=json.dumps(created),
             data_dir=initialized_archive,
         )
 
@@ -147,21 +173,28 @@ class TestArchiveResultList:
         url = create_test_url()
         stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive)
         snapshot = parse_jsonl_output(stdout1)[0]
-        run_archivebox_cmd(
-            ['archiveresult', 'create', '--plugin=title'],
+        stdout2, _, _ = run_archivebox_cmd(
+            ['archiveresult', 'create', '--plugin=favicon'],
             stdin=json.dumps(snapshot),
             data_dir=initialized_archive,
         )
+        run_archivebox_cmd(
+            ['run'],
+            stdin=stdout2,
+            data_dir=initialized_archive,
+            timeout=120,
+            env=PROJECTOR_TEST_ENV,
+        )
 
         stdout, stderr, code = run_archivebox_cmd(
-            ['archiveresult', 'list', '--plugin=title'],
+            ['archiveresult', 'list', '--plugin=favicon'],
             data_dir=initialized_archive,
         )
 
         assert code == 0
         records = parse_jsonl_output(stdout)
         for r in records:
-            assert r['plugin'] == 'title'
+            assert r['plugin'] == 'favicon'
 
     def test_list_with_limit(self, initialized_archive):
         """Limit number of results."""
@@ -170,10 +203,17 @@ class TestArchiveResultList:
             url = create_test_url()
             stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive)
             snapshot = parse_jsonl_output(stdout1)[0]
-            run_archivebox_cmd(
-                ['archiveresult', 'create', '--plugin=title'],
+            stdout2, _, _ = run_archivebox_cmd(
+                ['archiveresult', 'create', '--plugin=favicon'],
                 stdin=json.dumps(snapshot),
                 data_dir=initialized_archive,
+            )
+            run_archivebox_cmd(
+                ['run'],
+                stdin=stdout2,
+                data_dir=initialized_archive,
+                timeout=120,
+                env=PROJECTOR_TEST_ENV,
             )
 
         stdout, stderr, code = run_archivebox_cmd(
@@ -196,11 +236,22 @@ class TestArchiveResultUpdate:
         snapshot = parse_jsonl_output(stdout1)[0]
 
         stdout2, _, _ = run_archivebox_cmd(
-            ['archiveresult', 'create', '--plugin=title'],
+            ['archiveresult', 'create', '--plugin=favicon'],
             stdin=json.dumps(snapshot),
             data_dir=initialized_archive,
         )
-        ar = next(r for r in parse_jsonl_output(stdout2) if r.get('type') == 'ArchiveResult')
+        stdout_run, _, _ = run_archivebox_cmd(
+            ['run'],
+            stdin=stdout2,
+            data_dir=initialized_archive,
+            timeout=120,
+            env=PROJECTOR_TEST_ENV,
+        )
+        stdout_list, _, _ = run_archivebox_cmd(
+            ['archiveresult', 'list', '--plugin=favicon'],
+            data_dir=initialized_archive,
+        )
+        ar = parse_jsonl_output(stdout_list)[0]
 
         stdout3, stderr, code = run_archivebox_cmd(
             ['archiveresult', 'update', '--status=failed'],
@@ -225,11 +276,22 @@ class TestArchiveResultDelete:
         snapshot = parse_jsonl_output(stdout1)[0]
 
         stdout2, _, _ = run_archivebox_cmd(
-            ['archiveresult', 'create', '--plugin=title'],
+            ['archiveresult', 'create', '--plugin=favicon'],
             stdin=json.dumps(snapshot),
             data_dir=initialized_archive,
         )
-        ar = next(r for r in parse_jsonl_output(stdout2) if r.get('type') == 'ArchiveResult')
+        stdout_run, _, _ = run_archivebox_cmd(
+            ['run'],
+            stdin=stdout2,
+            data_dir=initialized_archive,
+            timeout=120,
+            env=PROJECTOR_TEST_ENV,
+        )
+        stdout_list, _, _ = run_archivebox_cmd(
+            ['archiveresult', 'list', '--plugin=favicon'],
+            data_dir=initialized_archive,
+        )
+        ar = parse_jsonl_output(stdout_list)[0]
 
         stdout, stderr, code = run_archivebox_cmd(
             ['archiveresult', 'delete'],
@@ -247,11 +309,22 @@ class TestArchiveResultDelete:
         snapshot = parse_jsonl_output(stdout1)[0]
 
         stdout2, _, _ = run_archivebox_cmd(
-            ['archiveresult', 'create', '--plugin=title'],
+            ['archiveresult', 'create', '--plugin=favicon'],
             stdin=json.dumps(snapshot),
             data_dir=initialized_archive,
         )
-        ar = next(r for r in parse_jsonl_output(stdout2) if r.get('type') == 'ArchiveResult')
+        stdout_run, _, _ = run_archivebox_cmd(
+            ['run'],
+            stdin=stdout2,
+            data_dir=initialized_archive,
+            timeout=120,
+            env=PROJECTOR_TEST_ENV,
+        )
+        stdout_list, _, _ = run_archivebox_cmd(
+            ['archiveresult', 'list', '--plugin=favicon'],
+            data_dir=initialized_archive,
+        )
+        ar = parse_jsonl_output(stdout_list)[0]
 
         stdout, stderr, code = run_archivebox_cmd(
             ['archiveresult', 'delete', '--yes'],

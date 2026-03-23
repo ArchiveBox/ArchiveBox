@@ -64,6 +64,7 @@ from abx_plugins import get_plugins_dir
 from django.conf import settings
 from django.utils.safestring import mark_safe
 from archivebox.config.constants import CONSTANTS
+from archivebox.misc.util import fix_url_from_markdown
 
 if TYPE_CHECKING:
     from archivebox.machine.models import Process
@@ -266,7 +267,7 @@ def run_hook(
         if process.status == 'exited':
             records = process.get_records()  # Get parsed JSONL output
     """
-    from archivebox.machine.models import Process, Machine
+    from archivebox.machine.models import Process, Machine, NetworkInterface
     from archivebox.config.constants import CONSTANTS
     import sys
 
@@ -280,6 +281,8 @@ def run_hook(
 
     # Get current machine
     machine = Machine.current()
+    iface = NetworkInterface.current(refresh=True)
+    machine = iface.machine
 
     # Auto-detect parent process if not explicitly provided
     # This enables automatic hierarchy tracking: Worker -> Hook
@@ -294,6 +297,7 @@ def run_hook(
         # Create a failed Process record for hooks that don't exist
         process = Process.objects.create(
             machine=machine,
+            iface=iface,
             parent=parent,
             process_type=Process.TypeChoices.HOOK,
             pwd=str(output_dir),
@@ -449,6 +453,7 @@ def run_hook(
         # Create Process record
         process = Process.objects.create(
             machine=machine,
+            iface=iface,
             parent=parent,
             process_type=Process.TypeChoices.HOOK,
             pwd=str(output_dir),
@@ -458,6 +463,7 @@ def run_hook(
 
         # Copy the env dict we already built (includes os.environ + all customizations)
         process.env = env.copy()
+        process.hydrate_binary_from_context(plugin_name=script.parent.name, hook_path=str(script))
 
         # Save env before launching
         process.save()
@@ -472,6 +478,7 @@ def run_hook(
         # Create a failed Process record for exceptions
         process = Process.objects.create(
             machine=machine,
+            iface=iface,
             process_type=Process.TypeChoices.HOOK,
             pwd=str(output_dir),
             cmd=cmd,
@@ -544,6 +551,9 @@ def collect_urls_from_plugins(snapshot_dir: Path) -> List[Dict[str, Any]]:
             text = urls_file.read_text()
             for entry in Process.parse_records_from_text(text):
                 if entry.get('url'):
+                    entry['url'] = fix_url_from_markdown(str(entry['url']).strip())
+                    if not entry['url']:
+                        continue
                     # Track which parser plugin found this URL
                     entry['plugin'] = subdir.name
                     urls.append(entry)
@@ -615,11 +625,30 @@ def get_enabled_plugins(config: Optional[Dict[str, Any]] = None) -> List[str]:
         from archivebox.config.configset import get_config
         config = get_config()
 
+    def normalize_enabled_plugins(value: Any) -> List[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return []
+            if raw.startswith('['):
+                try:
+                    parsed = json.loads(raw)
+                except json.JSONDecodeError:
+                    parsed = None
+                if isinstance(parsed, list):
+                    return [str(plugin).strip() for plugin in parsed if str(plugin).strip()]
+            return [plugin.strip() for plugin in raw.split(',') if plugin.strip()]
+        if isinstance(value, (list, tuple, set)):
+            return [str(plugin).strip() for plugin in value if str(plugin).strip()]
+        return [str(value).strip()] if str(value).strip() else []
+
     # Support explicit ENABLED_PLUGINS override (legacy)
     if 'ENABLED_PLUGINS' in config:
-        return config['ENABLED_PLUGINS']
+        return normalize_enabled_plugins(config['ENABLED_PLUGINS'])
     if 'ENABLED_EXTRACTORS' in config:
-        return config['ENABLED_EXTRACTORS']
+        return normalize_enabled_plugins(config['ENABLED_EXTRACTORS'])
 
     # Filter all plugins by enabled status
     all_plugins = get_plugins()
@@ -1041,6 +1070,14 @@ def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any
             # Dispatch to appropriate model's from_json() method
             if record_type == 'Snapshot':
                 from archivebox.core.models import Snapshot
+
+                if record.get('url'):
+                    record = {
+                        **record,
+                        'url': fix_url_from_markdown(str(record['url']).strip()),
+                    }
+                    if not record['url']:
+                        continue
 
                 # Check if discovered snapshot exceeds crawl max_depth
                 snapshot_depth = record.get('depth', 0)

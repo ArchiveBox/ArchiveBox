@@ -172,6 +172,9 @@ def list_snapshots(
     tag: Optional[str] = None,
     crawl_id: Optional[str] = None,
     limit: Optional[int] = None,
+    sort: Optional[str] = None,
+    csv: Optional[str] = None,
+    with_headers: bool = False,
 ) -> int:
     """
     List Snapshots as JSONL with optional filters.
@@ -182,7 +185,11 @@ def list_snapshots(
     from archivebox.misc.jsonl import write_record
     from archivebox.core.models import Snapshot
 
-    is_tty = sys.stdout.isatty()
+    if with_headers and not csv:
+        rprint('[red]--with-headers requires --csv[/red]', file=sys.stderr)
+        return 2
+
+    is_tty = sys.stdout.isatty() and not csv
 
     queryset = Snapshot.objects.all().order_by('-created_at')
 
@@ -199,7 +206,29 @@ def list_snapshots(
     if tag:
         queryset = queryset.filter(tags__name__iexact=tag)
 
+    if sort:
+        queryset = queryset.order_by(sort)
+
     count = 0
+    if csv:
+        cols = [col.strip() for col in csv.split(',') if col.strip()]
+        if not cols:
+            rprint('[red]No CSV columns provided[/red]', file=sys.stderr)
+            return 2
+        rows: list[str] = []
+        if with_headers:
+            rows.append(','.join(cols))
+        for snapshot in queryset.iterator(chunk_size=500):
+            rows.append(snapshot.to_csv(cols=cols, separator=','))
+            count += 1
+        output = '\n'.join(rows)
+        if output:
+            sys.stdout.write(output)
+            if not output.endswith('\n'):
+                sys.stdout.write('\n')
+        rprint(f'[dim]Listed {count} snapshots[/dim]', file=sys.stderr)
+        return 0
+
     for snapshot in queryset:
         if is_tty:
             status_color = {

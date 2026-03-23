@@ -6,7 +6,8 @@ from typing import List, Optional, Union, Any, Annotated
 from datetime import datetime
 
 from django.db.models import Model, Q
-from django.http import HttpRequest
+from django.conf import settings
+from django.http import HttpRequest, HttpResponse
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
@@ -18,6 +19,22 @@ from ninja.pagination import paginate, PaginationBase
 from ninja.errors import HttpError
 
 from archivebox.core.models import Snapshot, ArchiveResult, Tag
+from archivebox.api.auth import auth_using_token
+from archivebox.config.common import SERVER_CONFIG
+from archivebox.core.tag_utils import (
+    build_tag_cards,
+    delete_tag as delete_tag_record,
+    export_tag_snapshots_jsonl,
+    export_tag_urls,
+    get_matching_tags,
+    get_or_create_tag,
+    get_tag_by_ref,
+    normalize_created_by_filter,
+    normalize_created_year_filter,
+    normalize_has_snapshots_filter,
+    normalize_tag_sort,
+    rename_tag as rename_tag_record,
+)
 from archivebox.crawls.models import Crawl
 from archivebox.api.v1_crawls import CrawlSchema
 
@@ -404,7 +421,7 @@ class TagSchema(Schema):
 def get_tags(request: HttpRequest):
     setattr(request, 'with_snapshots', False)
     setattr(request, 'with_archiveresults', False)
-    return Tag.objects.all().distinct()
+    return get_matching_tags()
 
 
 @router.get("/tag/{tag_id}", response=TagSchema, url_name="get_tag")
@@ -412,9 +429,9 @@ def get_tag(request: HttpRequest, tag_id: str, with_snapshots: bool = True):
     setattr(request, 'with_snapshots', with_snapshots)
     setattr(request, 'with_archiveresults', False)
     try:
-        return Tag.objects.get(id__icontains=tag_id)
+        return get_tag_by_ref(tag_id)
     except (Tag.DoesNotExist, ValidationError):
-        return Tag.objects.get(slug__icontains=tag_id)
+        raise HttpError(404, 'Tag not found')
 
 
 @router.get("/any/{id}", response=Union[SnapshotSchema, ArchiveResultSchema, TagSchema, CrawlSchema], url_name="get_any", summary="Get any object by its ID")
@@ -459,6 +476,55 @@ class TagCreateResponseSchema(Schema):
     created: bool
 
 
+class TagSearchSnapshotSchema(Schema):
+    id: str
+    title: str
+    url: str
+    favicon_url: str
+    admin_url: str
+    archive_url: str
+    downloaded_at: Optional[str] = None
+
+
+class TagSearchCardSchema(Schema):
+    id: int
+    name: str
+    slug: str
+    num_snapshots: int
+    filter_url: str
+    edit_url: str
+    export_urls_url: str
+    export_jsonl_url: str
+    rename_url: str
+    delete_url: str
+    snapshots: List[TagSearchSnapshotSchema]
+
+
+class TagSearchResponseSchema(Schema):
+    tags: List[TagSearchCardSchema]
+    sort: str
+    created_by: str
+    year: str
+    has_snapshots: str
+
+
+class TagUpdateSchema(Schema):
+    name: str
+
+
+class TagUpdateResponseSchema(Schema):
+    success: bool
+    tag_id: int
+    tag_name: str
+    slug: str
+
+
+class TagDeleteResponseSchema(Schema):
+    success: bool
+    tag_id: int
+    deleted_count: int
+
+
 class TagSnapshotRequestSchema(Schema):
     snapshot_id: str
     tag_name: Optional[str] = None
@@ -471,41 +537,82 @@ class TagSnapshotResponseSchema(Schema):
     tag_name: str
 
 
-@router.get("/tags/autocomplete/", response=TagAutocompleteSchema, url_name="tags_autocomplete")
+@router.get("/tags/search/", response=TagSearchResponseSchema, url_name="search_tags")
+def search_tags(
+    request: HttpRequest,
+    q: str = "",
+    sort: str = 'created_desc',
+    created_by: str = '',
+    year: str = '',
+    has_snapshots: str = 'all',
+):
+    """Return detailed tag cards for admin/live-search UIs."""
+    normalized_sort = normalize_tag_sort(sort)
+    normalized_created_by = normalize_created_by_filter(created_by)
+    normalized_year = normalize_created_year_filter(year)
+    normalized_has_snapshots = normalize_has_snapshots_filter(has_snapshots)
+    return {
+        'tags': build_tag_cards(
+            query=q,
+            request=request,
+            sort=normalized_sort,
+            created_by=normalized_created_by,
+            year=normalized_year,
+            has_snapshots=normalized_has_snapshots,
+        ),
+        'sort': normalized_sort,
+        'created_by': normalized_created_by,
+        'year': normalized_year,
+        'has_snapshots': normalized_has_snapshots,
+    }
+
+
+def _public_tag_listing_enabled() -> bool:
+    explicit = getattr(settings, 'PUBLIC_SNAPSHOTS_LIST', None)
+    if explicit is not None:
+        return bool(explicit)
+    return bool(getattr(settings, 'PUBLIC_INDEX', SERVER_CONFIG.PUBLIC_INDEX))
+
+
+def _request_has_tag_autocomplete_access(request: HttpRequest) -> bool:
+    user = getattr(request, 'user', None)
+    if getattr(user, 'is_authenticated', False):
+        return True
+
+    token = request.GET.get('api_key') or request.headers.get('X-ArchiveBox-API-Key')
+    auth_header = request.headers.get('Authorization', '')
+    if not token and auth_header.lower().startswith('bearer '):
+        token = auth_header.split(None, 1)[1].strip()
+
+    if token and auth_using_token(token=token, request=request):
+        return True
+
+    return _public_tag_listing_enabled()
+
+
+@router.get("/tags/autocomplete/", response=TagAutocompleteSchema, url_name="tags_autocomplete", auth=None)
 def tags_autocomplete(request: HttpRequest, q: str = ""):
     """Return tags matching the query for autocomplete."""
-    if not q:
-        # Return all tags if no query (limited to 50)
-        tags = Tag.objects.all().order_by('name')[:50]
-    else:
-        tags = Tag.objects.filter(name__icontains=q).order_by('name')[:20]
+    if not _request_has_tag_autocomplete_access(request):
+        raise HttpError(401, 'Authentication required')
+
+    tags = get_matching_tags(q)[:50 if not q else 20]
 
     return {
-        'tags': [{'id': tag.pk, 'name': tag.name, 'slug': tag.slug} for tag in tags]
+        'tags': [{'id': tag.pk, 'name': tag.name, 'slug': tag.slug, 'num_snapshots': getattr(tag, 'num_snapshots', 0)} for tag in tags]
     }
 
 
 @router.post("/tags/create/", response=TagCreateResponseSchema, url_name="tags_create")
 def tags_create(request: HttpRequest, data: TagCreateSchema):
     """Create a new tag or return existing one."""
-    name = data.name.strip()
-    if not name:
-        raise HttpError(400, 'Tag name is required')
-
-    tag, created = Tag.objects.get_or_create(
-        name__iexact=name,
-        defaults={
-            'name': name,
-            'created_by': request.user if request.user.is_authenticated else None,
-        }
-    )
-
-    # If found by case-insensitive match, use that tag
-    if not created:
-        existing_tag = Tag.objects.filter(name__iexact=name).first()
-        if existing_tag is None:
-            raise HttpError(500, 'Failed to load existing tag after get_or_create')
-        tag = existing_tag
+    try:
+        tag, created = get_or_create_tag(
+            data.name,
+            created_by=request.user if request.user.is_authenticated else None,
+        )
+    except ValueError as err:
+        raise HttpError(400, str(err)) from err
 
     return {
         'success': True,
@@ -513,6 +620,62 @@ def tags_create(request: HttpRequest, data: TagCreateSchema):
         'tag_name': tag.name,
         'created': created,
     }
+
+
+@router.post("/tag/{tag_id}/rename", response=TagUpdateResponseSchema, url_name="rename_tag")
+def rename_tag(request: HttpRequest, tag_id: int, data: TagUpdateSchema):
+    try:
+        tag = rename_tag_record(get_tag_by_ref(tag_id), data.name)
+    except Tag.DoesNotExist as err:
+        raise HttpError(404, 'Tag not found') from err
+    except ValueError as err:
+        raise HttpError(400, str(err)) from err
+
+    return {
+        'success': True,
+        'tag_id': tag.pk,
+        'tag_name': tag.name,
+        'slug': tag.slug,
+    }
+
+
+@router.delete("/tag/{tag_id}", response=TagDeleteResponseSchema, url_name="delete_tag")
+def delete_tag(request: HttpRequest, tag_id: int):
+    try:
+        tag = get_tag_by_ref(tag_id)
+    except Tag.DoesNotExist as err:
+        raise HttpError(404, 'Tag not found') from err
+
+    deleted_count, _ = delete_tag_record(tag)
+    return {
+        'success': True,
+        'tag_id': int(tag_id),
+        'deleted_count': deleted_count,
+    }
+
+
+@router.get("/tag/{tag_id}/urls.txt", url_name="tag_urls_export")
+def tag_urls_export(request: HttpRequest, tag_id: int):
+    try:
+        tag = get_tag_by_ref(tag_id)
+    except Tag.DoesNotExist as err:
+        raise HttpError(404, 'Tag not found') from err
+
+    response = HttpResponse(export_tag_urls(tag), content_type='text/plain; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="tag-{tag.slug}-urls.txt"'
+    return response
+
+
+@router.get("/tag/{tag_id}/snapshots.jsonl", url_name="tag_snapshots_export")
+def tag_snapshots_export(request: HttpRequest, tag_id: int):
+    try:
+        tag = get_tag_by_ref(tag_id)
+    except Tag.DoesNotExist as err:
+        raise HttpError(404, 'Tag not found') from err
+
+    response = HttpResponse(export_tag_snapshots_jsonl(tag), content_type='application/x-ndjson; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="tag-{tag.slug}-snapshots.jsonl"'
+    return response
 
 
 @router.post("/tags/add-to-snapshot/", response=TagSnapshotResponseSchema, url_name="tags_add_to_snapshot")
@@ -534,24 +697,16 @@ def tags_add_to_snapshot(request: HttpRequest, data: TagSnapshotRequestSchema):
 
     # Get or create the tag
     if data.tag_name:
-        name = data.tag_name.strip()
-        if not name:
-            raise HttpError(400, 'Tag name is required')
-
-        tag, _ = Tag.objects.get_or_create(
-            name__iexact=name,
-            defaults={
-                'name': name,
-                'created_by': request.user if request.user.is_authenticated else None,
-            }
-        )
-        # If found by case-insensitive match, use that tag
-        existing_tag = Tag.objects.filter(name__iexact=name).first()
-        if existing_tag is not None:
-            tag = existing_tag
+        try:
+            tag, _ = get_or_create_tag(
+                data.tag_name,
+                created_by=request.user if request.user.is_authenticated else None,
+            )
+        except ValueError as err:
+            raise HttpError(400, str(err)) from err
     elif data.tag_id:
         try:
-            tag = Tag.objects.get(pk=data.tag_id)
+            tag = get_tag_by_ref(data.tag_id)
         except Tag.DoesNotExist:
             raise HttpError(404, 'Tag not found')
     else:

@@ -8,6 +8,9 @@ Tests cover:
 """
 
 import json
+import sys
+
+import pytest
 
 from archivebox.tests.conftest import (
     run_archivebox_cmd,
@@ -266,3 +269,182 @@ class TestRunEmpty:
 
         assert code == 0
         assert 'No records to process' in stderr
+
+
+class TestRunDaemonMode:
+    def test_run_daemon_processes_stdin_before_runner(self, monkeypatch):
+        from archivebox.cli import archivebox_run
+
+        class FakeStdin:
+            def isatty(self):
+                return False
+
+        monkeypatch.setattr(sys, "stdin", FakeStdin())
+        calls = []
+        monkeypatch.setattr(
+            archivebox_run,
+            "process_stdin_records",
+            lambda: calls.append("stdin") or 0,
+        )
+        monkeypatch.setattr(
+            archivebox_run,
+            "run_runner",
+            lambda daemon=False: calls.append(f"runner:{daemon}") or 0,
+        )
+
+        with pytest.raises(SystemExit) as exit_info:
+            archivebox_run.main.callback(daemon=True, crawl_id=None, snapshot_id=None, binary_id=None)
+
+        assert exit_info.value.code == 0
+        assert calls == ["stdin", "runner:True"]
+
+    def test_run_daemon_skips_runner_if_stdin_processing_fails(self, monkeypatch):
+        from archivebox.cli import archivebox_run
+
+        class FakeStdin:
+            def isatty(self):
+                return False
+
+        monkeypatch.setattr(sys, "stdin", FakeStdin())
+        monkeypatch.setattr(archivebox_run, "process_stdin_records", lambda: 1)
+        monkeypatch.setattr(
+            archivebox_run,
+            "run_runner",
+            lambda daemon=False: (_ for _ in ()).throw(AssertionError("runner should not start after stdin failure")),
+        )
+
+        with pytest.raises(SystemExit) as exit_info:
+            archivebox_run.main.callback(daemon=True, crawl_id=None, snapshot_id=None, binary_id=None)
+
+        assert exit_info.value.code == 1
+
+
+@pytest.mark.django_db
+class TestRecoverOrphanedCrawls:
+    def test_recover_orphaned_crawl_requeues_started_crawl_without_active_processes(self):
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.crawls.models import Crawl
+        from archivebox.core.models import Snapshot
+        from archivebox.services.runner import recover_orphaned_crawls
+
+        crawl = Crawl.objects.create(
+            urls='https://example.com',
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.STARTED,
+            retry_at=None,
+        )
+        Snapshot.objects.create(
+            url='https://example.com',
+            crawl=crawl,
+            status=Snapshot.StatusChoices.QUEUED,
+            retry_at=None,
+        )
+
+        recovered = recover_orphaned_crawls()
+
+        crawl.refresh_from_db()
+        assert recovered == 1
+        assert crawl.status == Crawl.StatusChoices.STARTED
+        assert crawl.retry_at is not None
+
+    def test_recover_orphaned_crawl_skips_active_child_processes(self):
+        import archivebox.machine.models as machine_models
+        from django.utils import timezone
+
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.crawls.models import Crawl
+        from archivebox.core.models import Snapshot
+        from archivebox.machine.models import Machine, Process
+        from archivebox.services.runner import recover_orphaned_crawls
+
+        crawl = Crawl.objects.create(
+            urls='https://example.com',
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.STARTED,
+            retry_at=None,
+        )
+        snapshot = Snapshot.objects.create(
+            url='https://example.com',
+            crawl=crawl,
+            status=Snapshot.StatusChoices.QUEUED,
+            retry_at=None,
+        )
+
+        machine_models._CURRENT_MACHINE = None
+        machine = Machine.current()
+        Process.objects.create(
+            machine=machine,
+            process_type=Process.TypeChoices.HOOK,
+            status=Process.StatusChoices.RUNNING,
+            cmd=['/plugins/chrome/on_Crawl__91_chrome_wait.js'],
+            env={
+                'CRAWL_ID': str(crawl.id),
+                'SNAPSHOT_ID': str(snapshot.id),
+            },
+            started_at=timezone.now(),
+        )
+
+        recovered = recover_orphaned_crawls()
+
+        crawl.refresh_from_db()
+        assert recovered == 0
+        assert crawl.retry_at is None
+
+    def test_recover_orphaned_crawl_seals_when_all_snapshots_are_already_sealed(self):
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.crawls.models import Crawl
+        from archivebox.core.models import Snapshot
+        from archivebox.services.runner import recover_orphaned_crawls
+
+        crawl = Crawl.objects.create(
+            urls='https://example.com',
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.STARTED,
+            retry_at=None,
+        )
+        Snapshot.objects.create(
+            url='https://example.com',
+            crawl=crawl,
+            status=Snapshot.StatusChoices.SEALED,
+            retry_at=None,
+        )
+
+        recovered = recover_orphaned_crawls()
+
+        crawl.refresh_from_db()
+        assert recovered == 1
+        assert crawl.status == Crawl.StatusChoices.SEALED
+        assert crawl.retry_at is None
+
+
+@pytest.mark.django_db
+class TestRecoverOrphanedSnapshots:
+    def test_recover_orphaned_snapshot_requeues_started_snapshot_without_active_processes(self):
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.crawls.models import Crawl
+        from archivebox.core.models import Snapshot
+        from archivebox.services.runner import recover_orphaned_snapshots
+
+        crawl = Crawl.objects.create(
+            urls='https://example.com',
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.SEALED,
+            retry_at=None,
+        )
+        snapshot = Snapshot.objects.create(
+            url='https://example.com',
+            crawl=crawl,
+            status=Snapshot.StatusChoices.STARTED,
+            retry_at=None,
+        )
+
+        recovered = recover_orphaned_snapshots()
+
+        snapshot.refresh_from_db()
+        crawl.refresh_from_db()
+
+        assert recovered == 1
+        assert snapshot.status == Snapshot.StatusChoices.QUEUED
+        assert snapshot.retry_at is not None
+        assert crawl.status == Crawl.StatusChoices.QUEUED
+        assert crawl.retry_at is not None

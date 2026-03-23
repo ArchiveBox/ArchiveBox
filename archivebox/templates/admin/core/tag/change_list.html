@@ -1,0 +1,997 @@
+{% extends "admin/change_list.html" %}
+
+{% block bodyclass %}{{ block.super }} app-core model-tag change-list tag-admin-page{% endblock %}
+
+{% block object-tools %}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .tag-admin-shell {
+        display: grid;
+        gap: 12px;
+    }
+
+    .tag-admin-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: start;
+    }
+
+    .tag-admin-panel {
+        flex: 1 1 320px;
+        padding: 12px;
+        border-radius: 16px;
+        border: 1px solid #dbe4ee;
+        background: #fff;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+    }
+
+    .tag-admin-panel--search {
+        flex: 3 1 360px;
+    }
+
+    .tag-admin-panel--filters {
+        flex: 3 1 440px;
+    }
+
+    .tag-admin-panel--create {
+        flex: 1 1 280px;
+    }
+
+    .tag-admin-panel h2 {
+        margin: 0 0 12px;
+        font-size: 16px;
+        color: #0f172a;
+    }
+
+    .tag-create-form,
+    .tag-search-form {
+        display: grid;
+        gap: 10px;
+    }
+
+    .tag-input-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .tag-create-form .tag-input-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+    }
+
+    .tag-input-row input {
+        flex: 1 1 auto;
+        min-width: 0;
+        height: 40px;
+        box-sizing: border-box;
+        padding: 0 12px;
+        line-height: 1.2;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        font-size: 13px;
+        color: #0f172a;
+    }
+
+    .tag-input-row input:focus {
+        outline: none;
+        border-color: #0ea5e9;
+        box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.14);
+        background: #fff;
+    }
+
+    .tag-button,
+    .tag-chip-button {
+        border: 0;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 700;
+        transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+    }
+
+    .tag-button:hover,
+    .tag-chip-button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    }
+
+    .tag-button:disabled,
+    .tag-chip-button:disabled {
+        cursor: wait;
+        opacity: 0.6;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .tag-button {
+        flex: 0 0 auto;
+        height: 40px;
+        padding: 0 12px;
+        background: linear-gradient(135deg, #0f766e 0%, #0ea5e9 100%);
+        color: #fff;
+        white-space: nowrap;
+        font-size: 12px;
+    }
+
+    .tag-toolbar-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: #64748b;
+    }
+
+    .tag-toolbar-meta strong {
+        color: #0f172a;
+    }
+
+    .tag-help {
+        margin: 0;
+        font-size: 12px;
+        color: #64748b;
+    }
+
+    .tag-filter-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .tag-select-field {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+        font-size: 11px;
+        font-weight: 700;
+        color: #475569;
+    }
+
+    .tag-select-field select {
+        width: 100%;
+        min-width: 0;
+        height: 40px;
+        box-sizing: border-box;
+        padding: 0 10px;
+        line-height: 1.2;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        color: #0f172a;
+        font-size: 12px;
+        vertical-align: middle;
+    }
+
+    .tag-select-field select:focus {
+        outline: none;
+        border-color: #0ea5e9;
+        box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.14);
+        background: #fff;
+    }
+
+    .tag-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .tag-card {
+        position: relative;
+        display: grid;
+        gap: 10px;
+        padding: 10px;
+        border-radius: 16px;
+        border: 1px solid #dbe4ee;
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 250, 252, 0.94) 100%);
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+        transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+        cursor: pointer;
+    }
+
+    .tag-card:hover {
+        transform: translateY(-2px);
+        border-color: #93c5fd;
+        box-shadow: 0 14px 26px rgba(15, 23, 42, 0.08);
+    }
+
+    .tag-card__header {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: flex-start;
+    }
+
+    .tag-card__title {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: grid;
+        gap: 4px;
+    }
+
+    .tag-card__title strong,
+    .tag-card__rename strong {
+        display: block;
+        font-size: 17px;
+        line-height: 1.1;
+        color: #111827;
+        word-break: break-word;
+    }
+
+    .tag-card__count {
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: #e0f2fe;
+        color: #075985;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .tag-card__actions {
+        flex: 0 0 auto;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .tag-chip-button {
+        height: 30px;
+        padding: 0 8px;
+        background: #fff;
+        border: 1px solid #dbe4ee;
+        color: #334155;
+        font-size: 11px;
+    }
+
+    .tag-chip-button.is-danger {
+        background: #fff1f2;
+        border-color: #fecdd3;
+        color: #be123c;
+    }
+
+    .tag-card__rename {
+        display: none;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 2px;
+    }
+
+    .tag-card.is-editing .tag-card__display {
+        display: none;
+    }
+
+    .tag-card.is-editing .tag-card__rename {
+        display: flex;
+    }
+
+    .tag-card.is-editing .tag-card__header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .tag-card.is-editing .tag-card__actions {
+        justify-content: flex-start;
+    }
+
+    .tag-card__rename input {
+        flex: 1 1 220px;
+        min-width: 0;
+        height: 34px;
+        padding: 0 10px;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        background: #fff;
+        font-size: 12px;
+    }
+
+    .tag-card__snapshots {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    }
+
+    .tag-snapshot-badge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        padding: 6px 8px;
+        border-radius: 12px;
+        border: 1px solid #dbe4ee;
+        background: rgba(255, 255, 255, 0.86);
+        text-decoration: none;
+        color: #0f172a;
+    }
+
+    .tag-snapshot-badge img {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        flex: 0 0 auto;
+        background: #f8fafc;
+    }
+
+    .tag-snapshot-badge span {
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .tag-card__empty {
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px dashed #cbd5e1;
+        background: #f8fafc;
+        color: #64748b;
+        font-size: 13px;
+    }
+
+    .tag-toast {
+        position: sticky;
+        top: 12px;
+        z-index: 30;
+        display: none;
+        width: fit-content;
+        max-width: min(100%, 420px);
+        padding: 12px 14px;
+        border-radius: 14px;
+        font-size: 13px;
+        font-weight: 700;
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+    }
+
+    .tag-toast.is-visible {
+        display: block;
+    }
+
+    .tag-toast.is-success {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .tag-toast.is-error {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .tag-empty-state {
+        padding: 24px 18px;
+        border-radius: 16px;
+        border: 1px dashed #cbd5e1;
+        background: #fff;
+        text-align: center;
+        color: #64748b;
+        font-size: 13px;
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div
+        id="abx-tag-admin"
+        class="tag-admin-shell"
+        data-search-url="{{ tag_search_api_url }}"
+        data-create-url="{{ tag_create_api_url }}"
+    >
+        <section class="tag-admin-toolbar">
+            <div class="tag-admin-panel tag-admin-panel--search">
+                <div class="tag-search-form">
+                    <div class="tag-input-row">
+                        <input
+                            id="tag-live-search"
+                            type="search"
+                            placeholder="Search by tag name"
+                            value="{{ initial_query }}"
+                            autocomplete="off"
+                        >
+                    </div>
+                    <div class="tag-toolbar-meta">
+                        <span id="tag-query-label">{% if initial_query %}“{{ initial_query }}”{% else %}All tags{% endif %}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tag-admin-panel tag-admin-panel--filters">
+                <div class="tag-filter-grid">
+                    <label class="tag-select-field" for="tag-sort-select">
+                        <span>Sort</span>
+                        <select id="tag-sort-select">
+                            {% for value, label in tag_sort_choices %}
+                                <option value="{{ value }}"{% if value == initial_sort %} selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label class="tag-select-field" for="tag-created-by-select">
+                        <span>Created By</span>
+                        <select id="tag-created-by-select">
+                            <option value="">All users</option>
+                            {% for value, label in tag_created_by_choices %}
+                                <option value="{{ value }}"{% if value == initial_created_by %} selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label class="tag-select-field" for="tag-year-select">
+                        <span>Year</span>
+                        <select id="tag-year-select">
+                            <option value="">All years</option>
+                            {% for value in tag_year_choices %}
+                                <option value="{{ value }}"{% if value == initial_year %} selected{% endif %}>{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </div>
+            </div>
+
+            <div class="tag-admin-panel tag-admin-panel--create">
+                <form id="tag-create-form" class="tag-create-form">
+                    {% csrf_token %}
+                    <div class="tag-input-row">
+                        <input
+                            id="tag-create-name"
+                            type="text"
+                            name="name"
+                            placeholder="New tag name"
+                            autocomplete="off"
+                            value=""
+                        >
+                        <button class="tag-button" type="submit">Create</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <div id="tag-toast" class="tag-toast" aria-live="polite"></div>
+        <div id="tag-card-grid" class="tag-grid">
+            {% if initial_tag_cards %}
+                {% for card in initial_tag_cards %}
+                    <article
+                        class="tag-card"
+                        data-id="{{ card.id }}"
+                        data-filter-url="{{ card.filter_url }}"
+                        data-rename-url="{{ card.rename_url }}"
+                        data-delete-url="{{ card.delete_url }}"
+                        data-export-urls-url="{{ card.export_urls_url }}"
+                        data-export-jsonl-url="{{ card.export_jsonl_url }}"
+                    >
+                        <div class="tag-card__header">
+                            <div class="tag-card__title">
+                                <div class="tag-card__display">
+                                    <strong><a href="{{ card.filter_url }}" style="color:inherit;text-decoration:none;">{{ card.name }}</a></strong>
+                                </div>
+                                <div class="tag-card__rename">
+                                    <input type="text" value="{{ card.name }}" aria-label="Rename tag {{ card.name }}">
+                                    <button type="button" class="tag-chip-button" data-action="save-edit">Save</button>
+                                    <button type="button" class="tag-chip-button" data-action="cancel-edit">Cancel</button>
+                                </div>
+                            </div>
+                            <div class="tag-card__actions">
+                                <button type="button" class="tag-chip-button" data-action="edit" aria-label="Rename tag" title="Rename tag">✎</button>
+                                <button type="button" class="tag-chip-button" data-action="copy-urls">Copy URLs</button>
+                                <button type="button" class="tag-chip-button" data-action="download-jsonl">JSONL</button>
+                                <button type="button" class="tag-chip-button is-danger" data-action="delete">Delete</button>
+                                <span class="tag-card__count">{{ card.num_snapshots }}</span>
+                            </div>
+                        </div>
+                        <div class="tag-card__snapshots">
+                            {% if card.snapshots %}
+                                {% for snapshot in card.snapshots %}
+                                    <a class="tag-snapshot-badge" href="{{ snapshot.admin_url }}" title="{{ snapshot.url }}">
+                                        <img src="{{ snapshot.favicon_url }}" alt="" onerror="this.style.display='none'">
+                                        <span>{{ snapshot.title }}</span>
+                                    </a>
+                                {% endfor %}
+                            {% else %}
+                                <div class="tag-card__empty">No snapshots attached yet.</div>
+                            {% endif %}
+                        </div>
+                    </article>
+                {% endfor %}
+            {% else %}
+                <div class="tag-empty-state">No tags.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{{ initial_tag_cards|json_script:"abx-tag-cards-data" }}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const shell = document.getElementById('abx-tag-admin');
+    if (!shell) return;
+
+    const initialCards = JSON.parse(document.getElementById('abx-tag-cards-data').textContent || '[]');
+    const searchUrl = shell.dataset.searchUrl;
+    const createUrl = shell.dataset.createUrl;
+    const searchInput = document.getElementById('tag-live-search');
+    const sortSelect = document.getElementById('tag-sort-select');
+    const createdBySelect = document.getElementById('tag-created-by-select');
+    const yearSelect = document.getElementById('tag-year-select');
+    const createForm = document.getElementById('tag-create-form');
+    const createInput = document.getElementById('tag-create-name');
+    const grid = document.getElementById('tag-card-grid');
+    const queryLabel = document.getElementById('tag-query-label');
+    const toast = document.getElementById('tag-toast');
+    let cards = initialCards;
+    let searchTimeout = null;
+    let activeQuery = (searchInput?.value || '').trim();
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    }
+
+    function slugify(value) {
+        return String(value || '')
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'tag';
+    }
+
+    function getCSRFToken() {
+        const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (input) return input.value;
+        const cookies = document.cookie.split(';');
+        for (const cookieRaw of cookies) {
+            const cookie = cookieRaw.trim();
+            if (cookie.startsWith('csrftoken=')) return cookie.slice('csrftoken='.length);
+        }
+        return '';
+    }
+
+    function getApiKey() {
+        return (window.ARCHIVEBOX_API_KEY || '').trim();
+    }
+
+    function withApiKey(url) {
+        const apiKey = getApiKey();
+        if (!apiKey) return url;
+        const separator = url.includes('?') ? '&' : '?';
+        return url + separator + 'api_key=' + encodeURIComponent(apiKey);
+    }
+
+    function buildHeaders(isJsonBody) {
+        const headers = {};
+        if (isJsonBody) headers['Content-Type'] = 'application/json';
+        const csrfToken = getCSRFToken();
+        if (csrfToken) headers['X-CSRFToken'] = csrfToken;
+        const apiKey = getApiKey();
+        if (apiKey) headers['X-ArchiveBox-API-Key'] = apiKey;
+        return headers;
+    }
+
+    function setToast(message, tone) {
+        toast.textContent = message;
+        toast.className = 'tag-toast is-visible ' + (tone === 'error' ? 'is-error' : 'is-success');
+        window.clearTimeout(setToast._timer);
+        setToast._timer = window.setTimeout(function () {
+            toast.className = 'tag-toast';
+            toast.textContent = '';
+        }, 2600);
+    }
+
+    function getCurrentState(overrides) {
+        const next = overrides || {};
+        return {
+            query: typeof next.query === 'string' ? next.query.trim() : (searchInput?.value || '').trim(),
+            sort: typeof next.sort === 'string' ? next.sort : (sortSelect?.value || 'created_desc'),
+            created_by: typeof next.created_by === 'string' ? next.created_by : (createdBySelect?.value || ''),
+            year: typeof next.year === 'string' ? next.year : (yearSelect?.value || ''),
+        };
+    }
+
+    function syncSearchState(state) {
+        if (searchInput) searchInput.value = state.query;
+        if (sortSelect) sortSelect.value = state.sort;
+        if (createdBySelect) createdBySelect.value = state.created_by;
+        if (yearSelect) yearSelect.value = state.year;
+    }
+
+    function syncLocation(state) {
+        const url = new URL(window.location.href);
+        if (state.query) {
+            url.searchParams.set('q', state.query);
+        } else {
+            url.searchParams.delete('q');
+        }
+
+        if (state.sort && state.sort !== 'created_desc') {
+            url.searchParams.set('sort', state.sort);
+        } else {
+            url.searchParams.delete('sort');
+        }
+
+        if (state.created_by) {
+            url.searchParams.set('created_by', state.created_by);
+        } else {
+            url.searchParams.delete('created_by');
+        }
+
+        if (state.year) {
+            url.searchParams.set('year', state.year);
+        } else {
+            url.searchParams.delete('year');
+        }
+
+        window.history.replaceState({}, '', url.toString());
+    }
+
+    function setMeta(state, count) {
+        const baseLabel = state.query ? '"' + state.query + '"' : 'All tags';
+        queryLabel.textContent = baseLabel + ' · ' + count + ' shown';
+        activeQuery = state.query;
+    }
+
+    function renderCards(nextCards, state) {
+        cards = Array.isArray(nextCards) ? nextCards : [];
+        setMeta(state || getCurrentState(), cards.length);
+
+        if (!cards.length) {
+            grid.innerHTML = '<div class="tag-empty-state">No tags.</div>';
+            return;
+        }
+
+        grid.innerHTML = cards.map(function (card) {
+            const snapshotHtml = (card.snapshots || []).length
+                ? card.snapshots.map(function (snapshot) {
+                    return '' +
+                        '<a class="tag-snapshot-badge" href="' + escapeHtml(snapshot.admin_url) + '" title="' + escapeHtml(snapshot.url) + '">' +
+                            '<img src="' + escapeHtml(snapshot.favicon_url) + '" alt="" onerror="this.hidden=true">' +
+                            '<span>' + escapeHtml(snapshot.title) + '</span>' +
+                        '</a>';
+                }).join('')
+                : '<div class="tag-card__empty">No snapshots attached yet.</div>';
+
+            return '' +
+                '<article class="tag-card" data-id="' + escapeHtml(card.id) + '" data-filter-url="' + escapeHtml(card.filter_url) + '" data-rename-url="' + escapeHtml(card.rename_url) + '" data-delete-url="' + escapeHtml(card.delete_url) + '" data-export-urls-url="' + escapeHtml(card.export_urls_url) + '" data-export-jsonl-url="' + escapeHtml(card.export_jsonl_url) + '">' +
+                    '<div class="tag-card__header">' +
+                        '<div class="tag-card__title">' +
+                            '<div class="tag-card__display">' +
+                                '<strong>' + escapeHtml(card.name) + '</strong>' +
+                            '</div>' +
+                            '<div class="tag-card__rename">' +
+                                '<input type="text" value="' + escapeHtml(card.name) + '" aria-label="Rename tag ' + escapeHtml(card.name) + '">' +
+                                '<button type="button" class="tag-chip-button" data-action="save-edit">Save</button>' +
+                                '<button type="button" class="tag-chip-button" data-action="cancel-edit">Cancel</button>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="tag-card__actions">' +
+                            '<button type="button" class="tag-chip-button" data-action="edit" aria-label="Rename tag" title="Rename tag">✎</button>' +
+                            '<button type="button" class="tag-chip-button" data-action="copy-urls">Copy URLs</button>' +
+                            '<button type="button" class="tag-chip-button" data-action="download-jsonl">JSONL</button>' +
+                            '<button type="button" class="tag-chip-button is-danger" data-action="delete">Delete</button>' +
+                            '<span class="tag-card__count">' + escapeHtml(card.num_snapshots) + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="tag-card__snapshots">' + snapshotHtml + '</div>' +
+                '</article>';
+        }).join('');
+    }
+
+    async function fetchCards(state) {
+        const params = new URLSearchParams();
+        if (state.query) params.set('q', state.query);
+        if (state.sort) params.set('sort', state.sort);
+        if (state.created_by) params.set('created_by', state.created_by);
+        if (state.year) params.set('year', state.year);
+        const url = withApiKey(searchUrl + '?' + params.toString());
+        const response = await fetch(url, {
+            headers: buildHeaders(false),
+            credentials: 'same-origin',
+        });
+        if (!response.ok) {
+            const message = await response.text();
+            throw new Error(message || 'Failed to load matching tags');
+        }
+        const payload = await response.json();
+        return {
+            tags: payload.tags || [],
+            state: {
+                query: state.query,
+                sort: payload.sort || state.sort,
+                created_by: payload.created_by || '',
+                year: payload.year || '',
+            },
+        };
+    }
+
+    async function refreshCards(overrides) {
+        const requestedState = getCurrentState(overrides);
+        const result = await fetchCards(requestedState);
+        syncSearchState(result.state);
+        renderCards(result.tags, result.state);
+        syncLocation(result.state);
+        return result.tags;
+    }
+
+    async function submitJson(url, method, payload) {
+        const response = await fetch(withApiKey(url), {
+            method: method,
+            headers: buildHeaders(true),
+            credentials: 'same-origin',
+            body: JSON.stringify(payload || {}),
+        });
+        if (!response.ok) {
+            let message = 'Request failed';
+            try {
+                const data = await response.json();
+                message = data.detail || data.message || message;
+            } catch (_err) {
+                message = await response.text() || message;
+            }
+            throw new Error(message);
+        }
+        if (response.status === 204) return {};
+        return response.json();
+    }
+
+    async function copyTextFromUrl(url) {
+        const response = await fetch(withApiKey(url), {
+            headers: buildHeaders(false),
+            credentials: 'same-origin',
+        });
+        if (!response.ok) throw new Error('Failed to export URLs');
+        const text = await response.text();
+        await copyTextToClipboard(text);
+        return text;
+    }
+
+    async function copyTextToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return;
+            } catch (_error) {
+            }
+        }
+
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.top = '-9999px';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+
+        const copied = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (!copied) {
+            throw new Error('Clipboard write failed');
+        }
+    }
+
+    function getDownloadFilename(response, fallbackFilename) {
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const utf8Match = disposition.match(/filename\\*=UTF-8''([^;]+)/i);
+        if (utf8Match && utf8Match[1]) {
+            return decodeURIComponent(utf8Match[1]);
+        }
+
+        const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+        if (filenameMatch && filenameMatch[1]) {
+            return filenameMatch[1];
+        }
+
+        return fallbackFilename;
+    }
+
+    async function downloadFileFromUrl(url, fallbackFilename) {
+        const response = await fetch(withApiKey(url), {
+            headers: buildHeaders(false),
+            credentials: 'same-origin',
+        });
+        if (!response.ok) {
+            let message = 'Download failed';
+            try {
+                const data = await response.json();
+                message = data.detail || data.message || message;
+            } catch (_err) {
+                message = await response.text() || message;
+            }
+            throw new Error(message);
+        }
+
+        const blob = await response.blob();
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = getDownloadFilename(response, fallbackFilename);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(function () {
+            URL.revokeObjectURL(downloadUrl);
+        }, 1000);
+    }
+
+    createForm?.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const name = (createInput.value || '').trim();
+        if (!name) {
+            setToast('Enter a tag name first.', 'error');
+            createInput.focus();
+            return;
+        }
+
+        const button = createForm.querySelector('button[type="submit"]');
+        button.disabled = true;
+        try {
+            const result = await submitJson(createUrl, 'POST', { name: name });
+            createInput.value = '';
+            await refreshCards({ query: result.tag_name || name });
+            setToast(result.created ? 'Tag created.' : 'Existing tag loaded.', 'success');
+        } catch (error) {
+            setToast(error.message || 'Failed to create tag.', 'error');
+        } finally {
+            button.disabled = false;
+        }
+    });
+
+    searchInput?.addEventListener('input', function () {
+        window.clearTimeout(searchTimeout);
+        searchTimeout = window.setTimeout(async function () {
+            try {
+                await refreshCards();
+            } catch (error) {
+                setToast(error.message || 'Failed to search tags.', 'error');
+            }
+        }, 150);
+    });
+
+    [sortSelect, createdBySelect, yearSelect].forEach(function (field) {
+        field?.addEventListener('change', async function () {
+            try {
+                await refreshCards();
+            } catch (error) {
+                setToast(error.message || 'Failed to update tag filters.', 'error');
+            }
+        });
+    });
+
+    grid.addEventListener('click', async function (event) {
+        const actionButton = event.target.closest('[data-action]');
+        const snapshotLink = event.target.closest('.tag-snapshot-badge');
+        if (snapshotLink) return;
+
+        const cardEl = event.target.closest('.tag-card');
+        if (!cardEl) return;
+
+        if (!actionButton) {
+            window.location.href = cardEl.dataset.filterUrl;
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const action = actionButton.dataset.action;
+        if (action === 'edit') {
+            cardEl.classList.add('is-editing');
+            const input = cardEl.querySelector('.tag-card__rename input');
+            if (input) {
+                input.focus();
+                input.select();
+            }
+            return;
+        }
+
+        if (action === 'cancel-edit') {
+            cardEl.classList.remove('is-editing');
+            return;
+        }
+
+        if (action === 'save-edit') {
+            const input = cardEl.querySelector('.tag-card__rename input');
+            const nextName = (input?.value || '').trim();
+            if (!nextName) {
+                setToast('Tag name is required.', 'error');
+                input?.focus();
+                return;
+            }
+
+            actionButton.disabled = true;
+            try {
+                await submitJson(cardEl.dataset.renameUrl, 'POST', { name: nextName });
+                await refreshCards();
+                setToast('Tag renamed.', 'success');
+            } catch (error) {
+                setToast(error.message || 'Rename failed.', 'error');
+            } finally {
+                actionButton.disabled = false;
+            }
+            return;
+        }
+
+        if (action === 'delete') {
+            const tagName = cardEl.querySelector('.tag-card__display strong')?.textContent || 'this tag';
+            if (!window.confirm('Delete "' + tagName + '"? This only removes the tag and its tag links.')) return;
+
+            actionButton.disabled = true;
+            try {
+                await fetch(withApiKey(cardEl.dataset.deleteUrl), {
+                    method: 'DELETE',
+                    headers: buildHeaders(false),
+                    credentials: 'same-origin',
+                }).then(async function (response) {
+                    if (!response.ok) {
+                        let message = 'Delete failed';
+                        try {
+                            const payload = await response.json();
+                            message = payload.detail || message;
+                        } catch (_err) {
+                            message = await response.text() || message;
+                        }
+                        throw new Error(message);
+                    }
+                });
+                await refreshCards();
+                setToast('Tag deleted.', 'success');
+            } catch (error) {
+                setToast(error.message || 'Delete failed.', 'error');
+            } finally {
+                actionButton.disabled = false;
+            }
+            return;
+        }
+
+        if (action === 'copy-urls') {
+            actionButton.disabled = true;
+            try {
+                await copyTextFromUrl(cardEl.dataset.exportUrlsUrl);
+            } catch (error) {
+                setToast(error.message || 'Failed to copy URLs.', 'error');
+            } finally {
+                actionButton.disabled = false;
+            }
+            return;
+        }
+
+        if (action === 'download-jsonl') {
+            actionButton.disabled = true;
+            try {
+                const tagName = cardEl.querySelector('.tag-card__display strong')?.textContent || 'tag';
+                await downloadFileFromUrl(cardEl.dataset.exportJsonlUrl, 'tag-' + slugify(tagName) + '-snapshots.jsonl');
+            } catch (error) {
+                setToast(error.message || 'Failed to download JSONL.', 'error');
+            } finally {
+                actionButton.disabled = false;
+            }
+        }
+    });
+
+    grid.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter') return;
+        const input = event.target.closest('.tag-card__rename input');
+        if (!input) return;
+        event.preventDefault();
+        const saveButton = input.closest('.tag-card__rename')?.querySelector('[data-action="save-edit"]');
+        saveButton?.click();
+    });
+
+    const initialState = getCurrentState();
+    renderCards(cards, initialState);
+    syncLocation(initialState);
+});
+</script>
+{% endblock %}

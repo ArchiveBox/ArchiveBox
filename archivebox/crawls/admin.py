@@ -1,8 +1,11 @@
 __package__ = 'archivebox.crawls'
 
-
 from django import forms
-from django.utils.html import format_html, format_html_join
+from django.http import JsonResponse, HttpRequest, HttpResponseNotAllowed
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import path, reverse
+from django.utils.html import escape, format_html, format_html_join
+from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.contrib import admin, messages
 from django.db.models import Count, Q
@@ -13,16 +16,19 @@ from django_object_actions import action
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 
 from archivebox.core.models import Snapshot
+from archivebox.core.widgets import TagEditorWidget
 from archivebox.crawls.models import Crawl, CrawlSchedule
 
 
-def render_snapshots_list(snapshots_qs, limit=20):
+def render_snapshots_list(snapshots_qs, limit=20, crawl=None):
     """Render a nice inline list view of snapshots with status, title, URL, and progress."""
 
     snapshots = snapshots_qs.order_by('-created_at')[:limit].annotate(
         total_results=Count('archiveresult'),
         succeeded_results=Count('archiveresult', filter=Q(archiveresult__status='succeeded')),
         failed_results=Count('archiveresult', filter=Q(archiveresult__status='failed')),
+        started_results=Count('archiveresult', filter=Q(archiveresult__status='started')),
+        skipped_results=Count('archiveresult', filter=Q(archiveresult__status='skipped')),
     )
 
     if not snapshots:
@@ -43,17 +49,57 @@ def render_snapshots_list(snapshots_qs, limit=20):
 
         # Calculate progress
         total = snapshot.total_results
-        done = snapshot.succeeded_results + snapshot.failed_results
+        succeeded = snapshot.succeeded_results
+        failed = snapshot.failed_results
+        running = snapshot.started_results
+        skipped = snapshot.skipped_results
+        done = succeeded + failed + skipped
+        pending = max(total - done - running, 0)
         progress_pct = int((done / total) * 100) if total > 0 else 0
         progress_text = f'{done}/{total}' if total > 0 else '-'
+        progress_title = (
+            f'{succeeded} succeeded, {failed} failed, {running} running, '
+            f'{pending} pending, {skipped} skipped'
+        )
+        progress_color = '#28a745'
+        if failed:
+            progress_color = '#dc3545'
+        elif running:
+            progress_color = '#17a2b8'
+        elif pending:
+            progress_color = '#ffc107'
 
         # Truncate title and URL
-        title = (snapshot.title or 'Untitled')[:60]
-        if len(snapshot.title or '') > 60:
+        snapshot_title = snapshot.title or 'Untitled'
+        title = snapshot_title[:60]
+        if len(snapshot_title) > 60:
             title += '...'
         url_display = snapshot.url[:50]
         if len(snapshot.url) > 50:
             url_display += '...'
+        delete_button = ''
+        exclude_button = ''
+        if crawl is not None:
+            delete_url = reverse('admin:crawls_crawl_snapshot_delete', args=[crawl.pk, snapshot.pk])
+            exclude_url = reverse('admin:crawls_crawl_snapshot_exclude_domain', args=[crawl.pk, snapshot.pk])
+            delete_button = f'''
+                <button type="button"
+                        class="crawl-snapshots-action"
+                        data-post-url="{escape(delete_url)}"
+                        data-confirm="Delete this snapshot from the crawl?"
+                        title="Delete this snapshot from the crawl and remove its URL from the crawl queue."
+                        aria-label="Delete snapshot"
+                        style="border: 1px solid #ddd; background: #fff; color: #666; border-radius: 4px; width: 28px; height: 28px; cursor: pointer;">🗑</button>
+            '''
+            exclude_button = f'''
+                <button type="button"
+                        class="crawl-snapshots-action"
+                        data-post-url="{escape(exclude_url)}"
+                        data-confirm="Exclude this domain from the crawl? This removes matching queued URLs, deletes pending matching snapshots, and blocks future matches."
+                        title="Exclude this domain from this crawl. This removes matching URLs from the crawl queue, deletes pending matching snapshots, and blocks future matches."
+                        aria-label="Exclude domain from crawl"
+                        style="border: 1px solid #ddd; background: #fff; color: #666; border-radius: 4px; width: 28px; height: 28px; cursor: pointer;">⊘</button>
+            '''
 
         # Format date
         date_str = snapshot.created_at.strftime('%Y-%m-%d %H:%M') if snapshot.created_at else '-'
@@ -74,18 +120,18 @@ def render_snapshots_list(snapshots_qs, limit=20):
                 </td>
                 <td style="padding: 6px 8px; max-width: 300px;">
                     <a href="{snapshot.admin_change_url}" style="color: #417690; text-decoration: none; font-weight: 500;"
-                       title="{snapshot.title or 'Untitled'}">{title}</a>
+                       title="{escape(snapshot_title)}">{escape(title)}</a>
                 </td>
                 <td style="padding: 6px 8px; max-width: 250px;">
-                    <a href="{snapshot.url}" target="_blank"
+                    <a href="{escape(snapshot.url)}" target="_blank"
                        style="color: #666; text-decoration: none; font-family: monospace; font-size: 11px;"
-                       title="{snapshot.url}">{url_display}</a>
+                       title="{escape(snapshot.url)}">{escape(url_display)}</a>
                 </td>
                 <td style="padding: 6px 8px; white-space: nowrap; text-align: center;">
-                    <div style="display: inline-flex; align-items: center; gap: 6px;">
+                    <div style="display: inline-flex; align-items: center; gap: 6px;" title="{escape(progress_title)}">
                         <div style="width: 60px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden;">
                             <div style="width: {progress_pct}%; height: 100%;
-                                        background: {'#28a745' if snapshot.failed_results == 0 else '#ffc107' if snapshot.succeeded_results > 0 else '#dc3545'};
+                                        background: {progress_color};
                                         transition: width 0.3s;"></div>
                         </div>
                         <a href="/admin/core/archiveresult/?snapshot__id__exact={snapshot.id}"
@@ -96,6 +142,7 @@ def render_snapshots_list(snapshots_qs, limit=20):
                 <td style="padding: 6px 8px; white-space: nowrap; color: #888; font-size: 11px;">
                     {date_str}
                 </td>
+                {"<td style=\"padding: 6px 8px; white-space: nowrap; text-align: right;\"><div style=\"display: inline-flex; gap: 6px;\">%s%s</div></td>" % (exclude_button, delete_button) if crawl is not None else ""}
             </tr>
         ''')
 
@@ -111,7 +158,7 @@ def render_snapshots_list(snapshots_qs, limit=20):
         '''
 
     return mark_safe(f'''
-        <div style="border: 1px solid #ddd; border-radius: 6px; overflow: hidden; max-width: 100%;">
+        <div data-crawl-snapshots-list style="border: 1px solid #ddd; border-radius: 6px; overflow: hidden; max-width: 100%;">
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                 <thead>
                     <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
@@ -121,6 +168,7 @@ def render_snapshots_list(snapshots_qs, limit=20):
                         <th style="padding: 8px; text-align: left; font-weight: 600; color: #333;">URL</th>
                         <th style="padding: 8px; text-align: center; font-weight: 600; color: #333;">Progress</th>
                         <th style="padding: 8px; text-align: left; font-weight: 600; color: #333;">Created</th>
+                        {'<th style="padding: 8px; text-align: right; font-weight: 600; color: #333;">Actions</th>' if crawl is not None else ''}
                     </tr>
                 </thead>
                 <tbody>
@@ -129,11 +177,197 @@ def render_snapshots_list(snapshots_qs, limit=20):
                 </tbody>
             </table>
         </div>
+        {'''
+        <script>
+        (function() {
+            if (window.__archiveboxCrawlSnapshotActionsBound) {
+                return;
+            }
+            window.__archiveboxCrawlSnapshotActionsBound = true;
+
+            function getCookie(name) {
+                var cookieValue = null;
+                if (!document.cookie) {
+                    return cookieValue;
+                }
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+                return cookieValue;
+            }
+
+            document.addEventListener('click', function(event) {
+                var button = event.target.closest('.crawl-snapshots-action');
+                if (!button) {
+                    return;
+                }
+                event.preventDefault();
+
+                var confirmMessage = button.getAttribute('data-confirm');
+                if (confirmMessage && !window.confirm(confirmMessage)) {
+                    return;
+                }
+
+                button.disabled = true;
+
+                fetch(button.getAttribute('data-post-url'), {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken') || '',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                }).then(function(response) {
+                    return response.json().then(function(data) {
+                        if (!response.ok) {
+                            throw new Error(data.error || 'Request failed');
+                        }
+                        return data;
+                    });
+                }).then(function() {
+                    window.location.reload();
+                }).catch(function(error) {
+                    button.disabled = false;
+                    window.alert(error.message || 'Request failed');
+                });
+            });
+        })();
+        </script>
+        ''' if crawl is not None else ''}
     ''')
+
+
+class URLFiltersWidget(forms.Widget):
+    def render(self, name, value, attrs=None, renderer=None):
+        value = value if isinstance(value, dict) else {}
+        widget_id = (attrs or {}).get('id', name)
+        allowlist = escape(value.get('allowlist', '') or '')
+        denylist = escape(value.get('denylist', '') or '')
+
+        return mark_safe(f'''
+            <div id="{widget_id}_container" style="min-width: 420px;">
+                <input type="hidden" name="{name}" value="">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label for="{widget_id}_allowlist" style="display: block; font-weight: 600; margin-bottom: 4px;">Allowlist</label>
+                        <textarea id="{widget_id}_allowlist" name="{name}_allowlist" rows="3"
+                                  style="width: 100%; font-family: monospace; font-size: 12px;"
+                                  placeholder="example.com&#10;*.example.com">{allowlist}</textarea>
+                    </div>
+                    <div>
+                        <label for="{widget_id}_denylist" style="display: block; font-weight: 600; margin-bottom: 4px;">Denylist</label>
+                        <textarea id="{widget_id}_denylist" name="{name}_denylist" rows="3"
+                                  style="width: 100%; font-family: monospace; font-size: 12px;"
+                                  placeholder="static.example.com">{denylist}</textarea>
+                    </div>
+                </div>
+                <label style="display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-weight: 500;">
+                    <input type="checkbox" id="{widget_id}_same_domain_only" name="{name}_same_domain_only" value="1">
+                    Same domain only
+                </label>
+                <p style="color: #666; font-size: 11px; margin: 6px 0 0 0;">
+                    Enter domains, wildcards, or regex patterns. Denylist takes precedence over allowlist.
+                </p>
+                <script>
+                    (function() {{
+                        if (window.__archiveboxUrlFilterEditors && window.__archiveboxUrlFilterEditors['{widget_id}']) {{
+                            return;
+                        }}
+                        window.__archiveboxUrlFilterEditors = window.__archiveboxUrlFilterEditors || {{}};
+                        window.__archiveboxUrlFilterEditors['{widget_id}'] = true;
+
+                        var urlsField = document.getElementById('id_urls');
+                        var allowlistField = document.getElementById('{widget_id}_allowlist');
+                        var sameDomainOnly = document.getElementById('{widget_id}_same_domain_only');
+
+                        function extractUrl(line) {{
+                            var trimmed = (line || '').trim();
+                            if (!trimmed || trimmed.charAt(0) === '#') {{
+                                return '';
+                            }}
+                            if (trimmed.charAt(0) === '{{') {{
+                                try {{
+                                    var record = JSON.parse(trimmed);
+                                    return String(record.url || '').trim();
+                                }} catch (error) {{
+                                    return '';
+                                }}
+                            }}
+                            return trimmed;
+                        }}
+
+                        function syncAllowlistFromUrls() {{
+                            if (!urlsField || !allowlistField || !sameDomainOnly || !sameDomainOnly.checked) {{
+                                return;
+                            }}
+                            var domains = [];
+                            var seen = Object.create(null);
+                            urlsField.value.split(/\\n+/).forEach(function(line) {{
+                                var url = extractUrl(line);
+                                if (!url) {{
+                                    return;
+                                }}
+                                try {{
+                                    var parsed = new URL(url);
+                                    var domain = (parsed.hostname || '').toLowerCase();
+                                    if (domain && !seen[domain]) {{
+                                        seen[domain] = true;
+                                        domains.push(domain);
+                                    }}
+                                }} catch (error) {{
+                                    return;
+                                }}
+                            }});
+                            allowlistField.value = domains.join('\\n');
+                        }}
+
+                        if (sameDomainOnly) {{
+                            sameDomainOnly.addEventListener('change', syncAllowlistFromUrls);
+                        }}
+                        if (urlsField) {{
+                            urlsField.addEventListener('input', syncAllowlistFromUrls);
+                            urlsField.addEventListener('change', syncAllowlistFromUrls);
+                        }}
+                    }})();
+                </script>
+            </div>
+        ''')
+
+    def value_from_datadict(self, data, files, name):
+        return {
+            'allowlist': data.get(f'{name}_allowlist', ''),
+            'denylist': data.get(f'{name}_denylist', ''),
+            'same_domain_only': data.get(f'{name}_same_domain_only') in ('1', 'on', 'true'),
+        }
+
+
+class URLFiltersField(forms.Field):
+    widget = URLFiltersWidget
+
+    def to_python(self, value):
+        if isinstance(value, dict):
+            return value
+        return {'allowlist': '', 'denylist': '', 'same_domain_only': False}
 
 
 class CrawlAdminForm(forms.ModelForm):
     """Custom form for Crawl admin to render urls field as textarea."""
+    tags_editor = forms.CharField(
+        label='Tags',
+        required=False,
+        widget=TagEditorWidget(),
+        help_text='Type tag names and press Enter or Space to add. Click × to remove.',
+    )
+    url_filters = URLFiltersField(
+        label='URL Filters',
+        required=False,
+        help_text='Set URL_ALLOWLIST / URL_DENYLIST for this crawl.',
+    )
 
     class Meta:
         model = Crawl
@@ -144,7 +378,61 @@ class CrawlAdminForm(forms.ModelForm):
                 'style': 'width: 100%; font-family: monospace; font-size: 13px;',
                 'placeholder': 'https://example.com\nhttps://example2.com\n# Comments start with #',
             }),
+            'notes': forms.Textarea(attrs={
+                'rows': 1,
+                'style': 'width: 100%; min-height: 0; resize: vertical;',
+            }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        config = dict(self.instance.config or {}) if self.instance and self.instance.pk else {}
+        if self.instance and self.instance.pk:
+            self.initial['tags_editor'] = self.instance.tags_str
+        self.initial['url_filters'] = {
+            'allowlist': config.get('URL_ALLOWLIST', ''),
+            'denylist': config.get('URL_DENYLIST', ''),
+            'same_domain_only': False,
+        }
+
+    def clean_tags_editor(self):
+        tags_str = self.cleaned_data.get('tags_editor', '')
+        tag_names = []
+        seen = set()
+        for raw_name in tags_str.split(','):
+            name = raw_name.strip()
+            if not name:
+                continue
+            lowered = name.lower()
+            if lowered in seen:
+                continue
+            seen.add(lowered)
+            tag_names.append(name)
+        return ','.join(tag_names)
+
+    def clean_url_filters(self):
+        value = self.cleaned_data.get('url_filters') or {}
+        return {
+            'allowlist': '\n'.join(Crawl.split_filter_patterns(value.get('allowlist', ''))),
+            'denylist': '\n'.join(Crawl.split_filter_patterns(value.get('denylist', ''))),
+            'same_domain_only': bool(value.get('same_domain_only')),
+        }
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.tags_str = self.cleaned_data.get('tags_editor', '')
+        url_filters = self.cleaned_data.get('url_filters') or {}
+        instance.set_url_filters(
+            url_filters.get('allowlist', ''),
+            url_filters.get('denylist', ''),
+        )
+        if commit:
+            instance.save()
+            instance.apply_crawl_config_filters()
+            save_m2m = getattr(self, '_save_m2m', None)
+            if callable(save_m2m):
+                save_m2m()
+        return instance
 
 
 class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
@@ -161,11 +449,11 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
             'classes': ('card', 'wide'),
         }),
         ('Info', {
-            'fields': ('label', 'notes', 'tags_str'),
+            'fields': ('label', 'notes', 'tags_editor'),
             'classes': ('card',),
         }),
         ('Settings', {
-            'fields': ('max_depth', 'config'),
+            'fields': (('max_depth', 'url_filters'), 'config'),
             'classes': ('card',),
         }),
         ('Status', {
@@ -185,6 +473,28 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
             'classes': ('card', 'wide'),
         }),
     )
+    add_fieldsets = (
+        ('URLs', {
+            'fields': ('urls',),
+            'classes': ('card', 'wide'),
+        }),
+        ('Info', {
+            'fields': ('label', 'notes', 'tags_editor'),
+            'classes': ('card',),
+        }),
+        ('Settings', {
+            'fields': (('max_depth', 'url_filters'), 'config'),
+            'classes': ('card',),
+        }),
+        ('Status', {
+            'fields': ('status', 'retry_at'),
+            'classes': ('card',),
+        }),
+        ('Relations', {
+            'fields': ('schedule', 'created_by'),
+            'classes': ('card',),
+        }),
+    )
 
     list_filter = ('max_depth', 'schedule', 'created_by', 'status', 'retry_at')
     ordering = ['-created_at', '-retry_at']
@@ -198,6 +508,25 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         return qs.select_related('schedule', 'created_by').annotate(
             num_snapshots_cached=Count('snapshot_set')
         )
+
+    def get_fieldsets(self, request, obj=None):
+        return self.fieldsets if obj else self.add_fieldsets
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                '<path:object_id>/snapshot/<path:snapshot_id>/delete/',
+                self.admin_site.admin_view(self.delete_snapshot_view),
+                name='crawls_crawl_snapshot_delete',
+            ),
+            path(
+                '<path:object_id>/snapshot/<path:snapshot_id>/exclude-domain/',
+                self.admin_site.admin_view(self.exclude_domain_view),
+                name='crawls_crawl_snapshot_exclude_domain',
+            ),
+        ]
+        return custom_urls + urls
 
     @admin.action(description='Delete selected crawls')
     def delete_selected_batched(self, request, queryset):
@@ -218,8 +547,6 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     @action(label='Recrawl', description='Create a new crawl with the same settings')
     def recrawl(self, request, obj):
         """Duplicate this crawl as a new crawl with the same URLs and settings."""
-        from django.utils import timezone
-        from django.shortcuts import redirect
 
         # Validate URLs (required for crawl to start)
         if not obj.urls:
@@ -252,7 +579,37 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         return getattr(obj, 'num_snapshots_cached', obj.snapshot_set.count())
 
     def snapshots(self, obj):
-        return render_snapshots_list(obj.snapshot_set.all())
+        return render_snapshots_list(obj.snapshot_set.all(), crawl=obj)
+
+    def delete_snapshot_view(self, request: HttpRequest, object_id: str, snapshot_id: str):
+        if request.method != 'POST':
+            return HttpResponseNotAllowed(['POST'])
+
+        crawl = get_object_or_404(Crawl, pk=object_id)
+        snapshot = get_object_or_404(Snapshot, pk=snapshot_id, crawl=crawl)
+
+        if snapshot.status == Snapshot.StatusChoices.STARTED:
+            snapshot.cancel_running_hooks()
+
+        removed_urls = crawl.prune_url(snapshot.url)
+        snapshot.delete()
+        return JsonResponse({
+            'ok': True,
+            'snapshot_id': str(snapshot.id),
+            'removed_urls': removed_urls,
+        })
+
+    def exclude_domain_view(self, request: HttpRequest, object_id: str, snapshot_id: str):
+        if request.method != 'POST':
+            return HttpResponseNotAllowed(['POST'])
+
+        crawl = get_object_or_404(Crawl, pk=object_id)
+        snapshot = get_object_or_404(Snapshot, pk=snapshot_id, crawl=crawl)
+        result = crawl.exclude_domain(snapshot.url)
+        return JsonResponse({
+            'ok': True,
+            **result,
+        })
 
     @admin.display(description='Schedule', ordering='schedule')
     def schedule_str(self, obj):

@@ -89,56 +89,6 @@ SNAPSHOT_MACHINE_DIAGRAM = """
 └─────────────────────────────────────────────────────────────────────────────┘
 """
 
-ARCHIVERESULT_MACHINE_DIAGRAM = """
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          ArchiveResultMachine                               │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   ┌─────────────┐                                                           │
-│   │   QUEUED    │◄─────────────────┐                                        │
-│   │  (initial)  │                  │                                        │
-│   └──┬───────┬──┘                  │                                        │
-│      │       │                     │ tick() unless can_start()              │
-│      │       │ exceeded_max_       │                                        │
-│      │       │ attempts            │                                        │
-│      │       ▼                     │                                        │
-│      │  ┌──────────┐               │                                        │
-│      │  │ SKIPPED  │               │                                        │
-│      │  │ (final)  │               │                                        │
-│      │  └──────────┘               │                                        │
-│      │ tick() when                 │                                        │
-│      │ can_start()                 │                                        │
-│      ▼                             │                                        │
-│   ┌─────────────┐                  │                                        │
-│   │   STARTED   │──────────────────┘                                        │
-│   │             │◄─────────────────────────────────────────────────┐        │
-│   │ enter:      │                      │                           │        │
-│   │ result.run()│ tick() unless        │                           │        │
-│   │ (execute    │ is_finished()        │                           │        │
-│   │  hook via   │──────────────────────┘                           │        │
-│   │  run_hook())│                                                  │        │
-│   └──────┬──────┘                                                  │        │
-│          │                                                         │        │
-│          │ tick() checks status set by hook output                 │        │
-│          ├─────────────┬─────────────┬─────────────┐               │        │
-│          ▼             ▼             ▼             ▼               │        │
-│   ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐         │        │
-│   │ SUCCEEDED │ │  FAILED   │ │  SKIPPED  │ │  BACKOFF  │         │        │
-│   │  (final)  │ │  (final)  │ │  (final)  │ │           │         │        │
-│   └───────────┘ └───────────┘ └───────────┘ └──┬──────┬─┘         │        │
-│                                                 │      │            │        │
-│                                   exceeded_max_ │      │ can_start()│        │
-│                                   attempts      │      │ loops back │        │
-│                                        ▼        │      └────────────┘        │
-│                                   ┌──────────┐  │                            │
-│                                   │ SKIPPED  │◄─┘                            │
-│                                   │ (final)  │                               │
-│                                   └──────────┘                               │
-│                                                                             │
-│   Each ArchiveResult runs ONE specific hook (stored in .hook_name field)    │
-└─────────────────────────────────────────────────────────────────────────────┘
-"""
-
 BINARY_MACHINE_DIAGRAM = """
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                             BinaryMachine                                   │
@@ -193,8 +143,8 @@ def pluginmap(
     """
     Show a map of all state machines and their associated plugin hooks.
 
-    Displays ASCII art diagrams of the core model state machines (Crawl, Snapshot,
-    ArchiveResult, Binary) and lists all auto-detected on_Modelname_xyz hooks
+    Displays ASCII art diagrams of the core queued model state machines (Crawl,
+    Snapshot, Binary) and lists all auto-detected on_Modelname_xyz hooks
     that will run for each model's transitions.
     """
     from rich.console import Console
@@ -255,17 +205,6 @@ def pluginmap(
         prnt('[bold cyan]ArchiveBox Plugin Map[/bold cyan]')
         prnt(f'[dim]Built-in plugins: {BUILTIN_PLUGINS_DIR}[/dim]')
         prnt(f'[dim]User plugins: {USER_PLUGINS_DIR}[/dim]')
-        prnt()
-
-    # Show diagrams first (unless quiet mode)
-    if not quiet:
-        # Show ArchiveResult diagram separately since it's different
-        prnt(Panel(
-            ARCHIVERESULT_MACHINE_DIAGRAM,
-            title='[bold green]ArchiveResultMachine[/bold green]',
-            border_style='green',
-            expand=False,
-        ))
         prnt()
 
     for event_name, info in model_events.items():

@@ -42,6 +42,16 @@ from rich import print as rprint
 from archivebox.cli.cli_utils import apply_filters
 
 
+def build_archiveresult_request(snapshot_id: str, plugin: str, hook_name: str = '', status: str = 'queued') -> dict:
+    return {
+        'type': 'ArchiveResult',
+        'snapshot_id': str(snapshot_id),
+        'plugin': plugin,
+        'hook_name': hook_name,
+        'status': status,
+    }
+
+
 # =============================================================================
 # CREATE
 # =============================================================================
@@ -52,21 +62,21 @@ def create_archiveresults(
     status: str = 'queued',
 ) -> int:
     """
-    Create ArchiveResults for Snapshots.
+    Create ArchiveResult request records for Snapshots.
 
-    Reads Snapshot records from stdin and creates ArchiveResult entries.
+    Reads Snapshot records from stdin and emits ArchiveResult request JSONL.
     Pass-through: Non-Snapshot/ArchiveResult records are output unchanged.
-    If --plugin is specified, only creates results for that plugin.
-    Otherwise, creates results for all pending plugins.
+    If --plugin is specified, only emits requests for that plugin.
+    Otherwise, emits requests for all enabled snapshot hooks.
 
     Exit codes:
         0: Success
         1: Failure
     """
-    from django.utils import timezone
-
+    from archivebox.config.configset import get_config
+    from archivebox.hooks import discover_hooks
     from archivebox.misc.jsonl import read_stdin, write_record, TYPE_SNAPSHOT, TYPE_ARCHIVERESULT
-    from archivebox.core.models import Snapshot, ArchiveResult
+    from archivebox.core.models import Snapshot
 
     is_tty = sys.stdout.isatty()
 
@@ -135,33 +145,20 @@ def create_archiveresults(
     created_count = 0
     for snapshot in snapshots:
         if plugin:
-            # Create for specific plugin only
-            result, created = ArchiveResult.objects.get_or_create(
-                snapshot=snapshot,
-                plugin=plugin,
-                defaults={
-                    'status': status,
-                    'retry_at': timezone.now(),
-                }
-            )
-            if not created and result.status in [ArchiveResult.StatusChoices.FAILED, ArchiveResult.StatusChoices.SKIPPED]:
-                # Reset for retry
-                result.status = status
-                result.retry_at = timezone.now()
-                result.save()
-
             if not is_tty:
-                write_record(result.to_json())
+                write_record(build_archiveresult_request(snapshot.id, plugin, status=status))
             created_count += 1
         else:
-            # Create all pending plugins
-            snapshot.create_pending_archiveresults()
-            for result in snapshot.archiveresult_set.filter(status=ArchiveResult.StatusChoices.QUEUED):
+            config = get_config(crawl=snapshot.crawl, snapshot=snapshot)
+            hooks = discover_hooks('Snapshot', config=config)
+            for hook_path in hooks:
+                hook_name = hook_path.name
+                plugin_name = hook_path.parent.name
                 if not is_tty:
-                    write_record(result.to_json())
+                    write_record(build_archiveresult_request(snapshot.id, plugin_name, hook_name=hook_name, status=status))
                 created_count += 1
 
-    rprint(f'[green]Created/queued {created_count} archive results[/green]', file=sys.stderr)
+    rprint(f'[green]Created {created_count} archive result request records[/green]', file=sys.stderr)
     return 0
 
 
@@ -205,6 +202,7 @@ def list_archiveresults(
                 'succeeded': 'green',
                 'failed': 'red',
                 'skipped': 'dim',
+                'noresults': 'dim',
                 'backoff': 'magenta',
             }.get(result.status, 'dim')
             rprint(f'[{status_color}]{result.status:10}[/{status_color}] {result.plugin:15} [dim]{result.id}[/dim] {result.snapshot.url[:40]}')
@@ -233,8 +231,6 @@ def update_archiveresults(
         0: Success
         1: No input or error
     """
-    from django.utils import timezone
-
     from archivebox.misc.jsonl import read_stdin, write_record
     from archivebox.core.models import ArchiveResult
 
@@ -257,7 +253,6 @@ def update_archiveresults(
             # Apply updates from CLI flags
             if status:
                 result.status = status
-                result.retry_at = timezone.now()
 
             result.save()
             updated_count += 1
