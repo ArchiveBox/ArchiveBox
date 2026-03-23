@@ -3,7 +3,7 @@ __package__ = "archivebox.config"
 import re
 import sys
 import shutil
-from typing import Dict, Optional, List
+from typing import ClassVar, Dict, Optional, List
 from pathlib import Path
 
 from rich import print
@@ -97,6 +97,13 @@ GENERAL_CONFIG = GeneralConfig()
 class ServerConfig(BaseConfigSet):
     toml_section_header: str = "SERVER_CONFIG"
 
+    SERVER_SECURITY_MODES: ClassVar[tuple[str, ...]] = (
+        "safe-subdomains-fullreplay",
+        "safe-onedomain-nojsreplay",
+        "unsafe-onedomain-noadmin",
+        "danger-onedomain-fullreplay",
+    )
+
     SECRET_KEY: str = Field(default_factory=lambda: get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789_"))
     BIND_ADDR: str = Field(default="127.0.0.1:8000")
     LISTEN_HOST: str = Field(default="archivebox.localhost:8000")
@@ -104,6 +111,7 @@ class ServerConfig(BaseConfigSet):
     ARCHIVE_BASE_URL: str = Field(default="")
     ALLOWED_HOSTS: str = Field(default="*")
     CSRF_TRUSTED_ORIGINS: str = Field(default="http://admin.archivebox.localhost:8000")
+    SERVER_SECURITY_MODE: str = Field(default="safe-subdomains-fullreplay")
 
     SNAPSHOTS_PER_PAGE: int = Field(default=40)
     PREVIEW_ORIGINALS: bool = Field(default=True)
@@ -123,8 +131,87 @@ class ServerConfig(BaseConfigSet):
     REVERSE_PROXY_WHITELIST: str = Field(default="")
     LOGOUT_REDIRECT_URL: str = Field(default="/")
 
+    @field_validator("SERVER_SECURITY_MODE", mode="after")
+    def validate_server_security_mode(cls, v: str) -> str:
+        mode = (v or "").strip().lower()
+        if mode not in cls.SERVER_SECURITY_MODES:
+            raise ValueError(f"SERVER_SECURITY_MODE must be one of: {', '.join(cls.SERVER_SECURITY_MODES)}")
+        return mode
+
+    @property
+    def USES_SUBDOMAIN_ROUTING(self) -> bool:
+        return self.SERVER_SECURITY_MODE == "safe-subdomains-fullreplay"
+
+    @property
+    def ENABLES_FULL_JS_REPLAY(self) -> bool:
+        return self.SERVER_SECURITY_MODE in (
+            "safe-subdomains-fullreplay",
+            "unsafe-onedomain-noadmin",
+            "danger-onedomain-fullreplay",
+        )
+
+    @property
+    def CONTROL_PLANE_ENABLED(self) -> bool:
+        return self.SERVER_SECURITY_MODE != "unsafe-onedomain-noadmin"
+
+    @property
+    def BLOCK_UNSAFE_METHODS(self) -> bool:
+        return self.SERVER_SECURITY_MODE == "unsafe-onedomain-noadmin"
+
+    @property
+    def SHOULD_NEUTER_RISKY_REPLAY(self) -> bool:
+        return self.SERVER_SECURITY_MODE == "safe-onedomain-nojsreplay"
+
+    @property
+    def IS_UNSAFE_MODE(self) -> bool:
+        return self.SERVER_SECURITY_MODE == "unsafe-onedomain-noadmin"
+
+    @property
+    def IS_DANGEROUS_MODE(self) -> bool:
+        return self.SERVER_SECURITY_MODE == "danger-onedomain-fullreplay"
+
+    @property
+    def IS_LOWER_SECURITY_MODE(self) -> bool:
+        return self.SERVER_SECURITY_MODE in (
+            "unsafe-onedomain-noadmin",
+            "danger-onedomain-fullreplay",
+        )
+
 
 SERVER_CONFIG = ServerConfig()
+
+
+def _print_server_security_mode_warning() -> None:
+    if not SERVER_CONFIG.IS_LOWER_SECURITY_MODE:
+        return
+
+    print(
+        f"[yellow][!] WARNING: ArchiveBox is running with SERVER_SECURITY_MODE={SERVER_CONFIG.SERVER_SECURITY_MODE}[/yellow]",
+        file=sys.stderr,
+    )
+    print(
+        "[yellow]    Archived pages may share an origin with privileged app routes in this mode.[/yellow]",
+        file=sys.stderr,
+    )
+    print(
+        "[yellow]    To switch to the safer isolated setup:[/yellow]",
+        file=sys.stderr,
+    )
+    print(
+        "[yellow]    1. Set SERVER_SECURITY_MODE=safe-subdomains-fullreplay[/yellow]",
+        file=sys.stderr,
+    )
+    print(
+        "[yellow]    2. Point *.archivebox.localhost (or your chosen base domain) at this server[/yellow]",
+        file=sys.stderr,
+    )
+    print(
+        "[yellow]    3. Configure wildcard DNS/TLS or your reverse proxy so admin., web., api., and snapshot subdomains resolve[/yellow]",
+        file=sys.stderr,
+    )
+
+
+_print_server_security_mode_warning()
 
 
 class ArchivingConfig(BaseConfigSet):

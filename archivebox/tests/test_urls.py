@@ -20,8 +20,10 @@ def _merge_pythonpath(env: dict[str, str]) -> dict[str, str]:
     return env
 
 
-def _run_python(script: str, cwd: Path, timeout: int = 60) -> subprocess.CompletedProcess:
+def _run_python(script: str, cwd: Path, timeout: int = 60, env_overrides: dict[str, str] | None = None) -> subprocess.CompletedProcess:
     env = _merge_pythonpath(os.environ.copy())
+    if env_overrides:
+        env.update(env_overrides)
     return subprocess.run(
         [sys.executable, "-"],
         cwd=cwd,
@@ -47,6 +49,7 @@ def _build_script(body: str) -> str:
     from django.contrib.auth import get_user_model
 
     from archivebox.core.models import Snapshot, ArchiveResult
+    from archivebox.crawls.models import Crawl
     from archivebox.config.common import SERVER_CONFIG
     from archivebox.core.host_utils import (
         get_admin_host,
@@ -58,6 +61,7 @@ def _build_script(body: str) -> str:
         split_host_port,
         host_matches,
         is_snapshot_subdomain,
+        build_snapshot_url,
     )
 
     def response_body(resp):
@@ -77,7 +81,41 @@ def _build_script(body: str) -> str:
 
     def get_snapshot():
         snapshot = Snapshot.objects.order_by("-created_at").first()
-        assert snapshot is not None
+        if snapshot is None:
+            admin = ensure_admin_user()
+            crawl = Crawl.objects.create(
+                urls="https://example.com",
+                created_by=admin,
+            )
+            snapshot = Snapshot.objects.create(
+                url="https://example.com",
+                title="Example Domain",
+                crawl=crawl,
+                status=Snapshot.StatusChoices.SEALED,
+            )
+            snapshot_dir = Path(snapshot.output_dir)
+            snapshot_dir.mkdir(parents=True, exist_ok=True)
+            (snapshot_dir / "index.json").write_text('{"url": "https://example.com"}', encoding="utf-8")
+            (snapshot_dir / "favicon.ico").write_bytes(b"ico")
+            screenshot_dir = snapshot_dir / "screenshot"
+            screenshot_dir.mkdir(parents=True, exist_ok=True)
+            (screenshot_dir / "screenshot.png").write_bytes(b"png")
+            responses_root = snapshot_dir / "responses" / snapshot.domain
+            responses_root.mkdir(parents=True, exist_ok=True)
+            (responses_root / "index.html").write_text(
+                "<!doctype html><html><body><h1>Example Domain</h1></body></html>",
+                encoding="utf-8",
+            )
+            ArchiveResult.objects.get_or_create(
+                snapshot=snapshot,
+                plugin="screenshot",
+                defaults={"status": "succeeded", "output_size": 1, "output_str": "."},
+            )
+            ArchiveResult.objects.get_or_create(
+                snapshot=snapshot,
+                plugin="responses",
+                defaults={"status": "succeeded", "output_size": 1, "output_str": "."},
+            )
         return snapshot
 
     def get_snapshot_files(snapshot):
@@ -114,18 +152,39 @@ def _build_script(body: str) -> str:
             response_rel = str(response_file.relative_to(responses_root))
         response_output_path = Path(snapshot.output_dir) / response_rel
         return output_rel, response_file, response_rel, response_output_path
+
+    def write_replay_fixtures(snapshot):
+        dangerous_html = Path(snapshot.output_dir) / "dangerous.html"
+        dangerous_html.write_text(
+            "<!doctype html><html><body><script>window.__archivebox_danger__ = true;</script><h1>Danger</h1></body></html>",
+            encoding="utf-8",
+        )
+        safe_json = Path(snapshot.output_dir) / "safe.json"
+        safe_json.write_text('{"ok": true}', encoding="utf-8")
+        responses_root = Path(snapshot.output_dir) / "responses" / snapshot.domain
+        responses_root.mkdir(parents=True, exist_ok=True)
+        sniffed_response = responses_root / "dangerous-response"
+        sniffed_response.write_text(
+            "<!doctype html><html><body><script>window.__archivebox_response__ = true;</script><p>Response Danger</p></body></html>",
+            encoding="utf-8",
+        )
+        return "dangerous.html", "safe.json", "dangerous-response"
     """
     )
     return prelude + "\n" + textwrap.dedent(body)
 
 
-@pytest.mark.usefixtures("real_archive_with_example")
 class TestUrlRouting:
     data_dir: Path
 
-    def _run(self, body: str, timeout: int = 120) -> None:
+    @pytest.fixture(autouse=True)
+    def _setup_data_dir(self, initialized_archive: Path) -> None:
+        self.data_dir = initialized_archive
+
+    def _run(self, body: str, timeout: int = 120, mode: str | None = None) -> None:
         script = _build_script(body)
-        result = _run_python(script, cwd=self.data_dir, timeout=timeout)
+        env_overrides = {"SERVER_SECURITY_MODE": mode} if mode else None
+        result = _run_python(script, cwd=self.data_dir, timeout=timeout, env_overrides=env_overrides)
         assert result.returncode == 0, result.stderr
         assert "OK" in result.stdout
 
@@ -184,9 +243,6 @@ class TestUrlRouting:
             client = Client()
             web_host = get_web_host()
             admin_host = get_admin_host()
-
-            resp = client.get("/add/", HTTP_HOST=web_host)
-            assert resp.status_code == 200
 
             resp = client.get("/admin/login/", HTTP_HOST=web_host)
             assert resp.status_code in (301, 302)
@@ -248,6 +304,169 @@ class TestUrlRouting:
 
             print("OK")
             """
+        )
+
+    def test_safe_subdomains_fullreplay_leaves_risky_replay_unrestricted(self) -> None:
+        self._run(
+            """
+            snapshot = get_snapshot()
+            dangerous_rel, safe_json_rel, sniffed_rel = write_replay_fixtures(snapshot)
+            snapshot_host = get_snapshot_host(str(snapshot.id))
+
+            client = Client()
+
+            resp = client.get(f"/{dangerous_rel}", HTTP_HOST=snapshot_host)
+            assert resp.status_code == 200
+            assert resp.headers.get("Content-Security-Policy") is None
+            assert resp.headers.get("X-Content-Type-Options") == "nosniff"
+
+            resp = client.get(f"/{safe_json_rel}", HTTP_HOST=snapshot_host)
+            assert resp.status_code == 200
+            assert resp.headers.get("Content-Security-Policy") is None
+
+            resp = client.get(f"/{sniffed_rel}", HTTP_HOST=snapshot_host)
+            assert resp.status_code == 200
+            assert resp.headers.get("Content-Security-Policy") is None
+
+            print("OK")
+            """
+        )
+
+    def test_safe_onedomain_nojsreplay_routes_and_neuters_risky_documents(self) -> None:
+        self._run(
+            """
+            ensure_admin_user()
+            snapshot = get_snapshot()
+            dangerous_rel, safe_json_rel, sniffed_rel = write_replay_fixtures(snapshot)
+            snapshot_id = str(snapshot.id)
+
+            client = Client()
+            base_host = SERVER_CONFIG.LISTEN_HOST
+            web_host = get_web_host()
+            admin_host = get_admin_host()
+            api_host = get_api_host()
+
+            assert SERVER_CONFIG.SERVER_SECURITY_MODE == "safe-onedomain-nojsreplay"
+            assert web_host == base_host
+            assert admin_host == base_host
+            assert api_host == base_host
+            assert get_snapshot_host(snapshot_id) == base_host
+            assert get_original_host(snapshot.domain) == base_host
+            assert get_listen_subdomain(base_host) == ""
+
+            replay_url = build_snapshot_url(snapshot_id, dangerous_rel)
+            assert replay_url == f"http://{base_host}/snapshot/{snapshot_id}/{dangerous_rel}"
+
+            resp = client.get(f"/{snapshot.url_path}/{dangerous_rel}", HTTP_HOST=base_host)
+            assert resp.status_code in (301, 302)
+            assert resp["Location"] == replay_url
+
+            resp = client.get("/admin/login/", HTTP_HOST=base_host)
+            assert resp.status_code == 200
+
+            resp = client.get("/api/v1/docs", HTTP_HOST=base_host)
+            assert resp.status_code == 200
+
+            resp = client.get(f"/snapshot/{snapshot_id}/{dangerous_rel}", HTTP_HOST=base_host)
+            assert resp.status_code == 200
+            csp = resp.headers.get("Content-Security-Policy") or ""
+            assert "sandbox" in csp
+            assert "script-src 'none'" in csp
+            assert resp.headers.get("X-Content-Type-Options") == "nosniff"
+
+            resp = client.get(f"/snapshot/{snapshot_id}/{safe_json_rel}", HTTP_HOST=base_host)
+            assert resp.status_code == 200
+            assert resp.headers.get("Content-Security-Policy") is None
+            assert resp.headers.get("X-Content-Type-Options") == "nosniff"
+
+            resp = client.get(f"/snapshot/{snapshot_id}/{sniffed_rel}", HTTP_HOST=base_host)
+            assert resp.status_code == 200
+            csp = resp.headers.get("Content-Security-Policy") or ""
+            assert "sandbox" in csp
+            assert "script-src 'none'" in csp
+
+            print("OK")
+            """,
+            mode="safe-onedomain-nojsreplay",
+        )
+
+    def test_unsafe_onedomain_noadmin_blocks_control_plane_and_unsafe_methods(self) -> None:
+        self._run(
+            """
+            ensure_admin_user()
+            snapshot = get_snapshot()
+            dangerous_rel, _, _ = write_replay_fixtures(snapshot)
+            snapshot_id = str(snapshot.id)
+
+            client = Client()
+            base_host = SERVER_CONFIG.LISTEN_HOST
+
+            assert SERVER_CONFIG.SERVER_SECURITY_MODE == "unsafe-onedomain-noadmin"
+            assert SERVER_CONFIG.CONTROL_PLANE_ENABLED is False
+            assert SERVER_CONFIG.BLOCK_UNSAFE_METHODS is True
+            assert get_web_host() == base_host
+            assert get_admin_host() == base_host
+            assert get_api_host() == base_host
+
+            for blocked_path in ("/admin/login/", "/api/v1/docs", "/add/", f"/web/{snapshot.domain}"):
+                resp = client.get(blocked_path, HTTP_HOST=base_host)
+                assert resp.status_code == 403, (blocked_path, resp.status_code)
+
+            resp = client.post("/public/", data="x=1", content_type="application/x-www-form-urlencoded", HTTP_HOST=base_host)
+            assert resp.status_code == 403
+
+            resp = client.get(f"/snapshot/{snapshot_id}/{dangerous_rel}", HTTP_HOST=base_host)
+            assert resp.status_code == 200
+            assert resp.headers.get("Content-Security-Policy") is None
+            assert resp.headers.get("X-Content-Type-Options") == "nosniff"
+
+            print("OK")
+            """,
+            mode="unsafe-onedomain-noadmin",
+        )
+
+    def test_danger_onedomain_fullreplay_keeps_control_plane_and_raw_replay(self) -> None:
+        self._run(
+            """
+            ensure_admin_user()
+            snapshot = get_snapshot()
+            dangerous_rel, _, _ = write_replay_fixtures(snapshot)
+            snapshot_id = str(snapshot.id)
+
+            client = Client()
+            base_host = SERVER_CONFIG.LISTEN_HOST
+
+            assert SERVER_CONFIG.SERVER_SECURITY_MODE == "danger-onedomain-fullreplay"
+            assert SERVER_CONFIG.CONTROL_PLANE_ENABLED is True
+            assert get_web_host() == base_host
+            assert get_admin_host() == base_host
+            assert get_api_host() == base_host
+            assert build_snapshot_url(snapshot_id, dangerous_rel) == f"http://{base_host}/snapshot/{snapshot_id}/{dangerous_rel}"
+
+            resp = client.get("/admin/login/", HTTP_HOST=base_host)
+            assert resp.status_code == 200
+
+            resp = client.get("/api/v1/docs", HTTP_HOST=base_host)
+            assert resp.status_code == 200
+
+            payload = '{"username": "testadmin", "password": "testpassword"}'
+            resp = client.post(
+                "/api/v1/auth/get_api_token",
+                data=payload,
+                content_type="application/json",
+                HTTP_HOST=base_host,
+            )
+            assert resp.status_code == 200
+            assert resp.json().get("token")
+
+            resp = client.get(f"/snapshot/{snapshot_id}/{dangerous_rel}", HTTP_HOST=base_host)
+            assert resp.status_code == 200
+            assert resp.headers.get("Content-Security-Policy") is None
+            assert resp.headers.get("X-Content-Type-Options") == "nosniff"
+
+            print("OK")
+            """,
+            mode="danger-onedomain-fullreplay",
         )
 
     def test_template_and_admin_links(self) -> None:

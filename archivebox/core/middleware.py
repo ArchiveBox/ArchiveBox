@@ -10,7 +10,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.shortcuts import redirect
 from django.contrib.staticfiles import finders
 from django.utils.http import http_date
-from django.http import HttpResponseNotModified
+from django.http import HttpResponseForbidden, HttpResponseNotModified
 
 from archivebox.config.common import SERVER_CONFIG
 from archivebox.config import VERSION
@@ -26,6 +26,7 @@ from archivebox.core.host_utils import (
     get_web_host,
     host_matches,
     is_snapshot_subdomain,
+    split_host_port,
 )
 from archivebox.core.views import SnapshotHostView, OriginalDomainHostView
 
@@ -90,6 +91,29 @@ def CacheControlMiddleware(get_response):
     return middleware
 
 
+def ServerSecurityModeMiddleware(get_response):
+    blocked_prefixes = ("/admin", "/accounts", "/api", "/add", "/web")
+    allowed_methods = {"GET", "HEAD", "OPTIONS"}
+
+    def middleware(request):
+        if SERVER_CONFIG.CONTROL_PLANE_ENABLED:
+            return get_response(request)
+
+        request.user = AnonymousUser()
+        request._cached_user = request.user
+
+        if request.method.upper() not in allowed_methods:
+            return HttpResponseForbidden("ArchiveBox is running with the control plane disabled in this security mode.")
+
+        for prefix in blocked_prefixes:
+            if request.path == prefix or request.path.startswith(f"{prefix}/"):
+                return HttpResponseForbidden("ArchiveBox is running with the control plane disabled in this security mode.")
+
+        return get_response(request)
+
+    return middleware
+
+
 def HostRoutingMiddleware(get_response):
     def middleware(request):
         request_host = (request.get_host() or "").lower()
@@ -99,6 +123,21 @@ def HostRoutingMiddleware(get_response):
         public_host = get_public_host()
         listen_host = get_listen_host()
         subdomain = get_listen_subdomain(request_host)
+
+        if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+            if host_matches(request_host, listen_host):
+                return get_response(request)
+
+            req_host, req_port = split_host_port(request_host)
+            listen_host_only, listen_port = split_host_port(listen_host)
+            if req_host.endswith(f".{listen_host_only}"):
+                if not listen_port or not req_port or listen_port == req_port:
+                    target = build_web_url(request.path, request=request)
+                    if request.META.get("QUERY_STRING"):
+                        target = f"{target}?{request.META['QUERY_STRING']}"
+                    return redirect(target)
+
+            return get_response(request)
 
         if host_matches(request_host, admin_host):
             return get_response(request)
