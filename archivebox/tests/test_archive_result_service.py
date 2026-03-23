@@ -5,7 +5,7 @@ import pytest
 from django.db import connection
 
 
-from abx_dl.events import BinaryEvent, ProcessCompletedEvent, ProcessStartedEvent
+from abx_dl.events import BinaryRequestEvent, ProcessCompletedEvent, ProcessStartedEvent
 from abx_dl.orchestrator import create_bus
 from abx_dl.output_files import OutputFile
 
@@ -515,10 +515,10 @@ def test_binary_event_reuses_existing_installed_binary_row(monkeypatch):
     )
 
     service = ArchiveBoxBinaryService(create_bus(name="test_binary_event_reuses_existing_installed_binary_row"))
-    event = BinaryEvent(
+    event = BinaryRequestEvent(
         name="wget",
         plugin_name="wget",
-        hook_name="on_Crawl__10_wget_install.finite.bg",
+        hook_name="on_Install__10_wget.finite.bg",
         output_dir="/tmp/wget",
         binproviders="provider",
     )

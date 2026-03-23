@@ -58,7 +58,7 @@ class ProcessService(BaseService):
                 return process
 
         process_type = getattr(event, "process_type", "") or (
-            Process.TypeChoices.BINARY if event.hook_name.startswith("on_Binary") else Process.TypeChoices.HOOK
+            Process.TypeChoices.BINARY if event.hook_name.startswith("on_BinaryRequest") else Process.TypeChoices.HOOK
         )
         worker_type = getattr(event, "worker_type", "") or ""
         if process_type == Process.TypeChoices.WORKER and worker_type:

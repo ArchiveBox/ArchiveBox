@@ -478,7 +478,7 @@ class TestProcessCurrent(TestCase):
         """Process.proc should accept a script recorded in DB when wrapped by an interpreter in psutil."""
         proc = Process.objects.create(
             machine=Machine.current(),
-            cmd=["/tmp/on_Crawl__90_chrome_launch.daemon.bg.js", "--url=https://example.com/"],
+            cmd=["/tmp/on_CrawlSetup__90_chrome_launch.daemon.bg.js", "--url=https://example.com/"],
             pid=12345,
             status=Process.StatusChoices.RUNNING,
             started_at=timezone.now(),
@@ -488,7 +488,7 @@ class TestProcessCurrent(TestCase):
         os_proc.create_time.return_value = proc.started_at.timestamp()
         os_proc.cmdline.return_value = [
             "node",
-            "/tmp/on_Crawl__90_chrome_launch.daemon.bg.js",
+            "/tmp/on_CrawlSetup__90_chrome_launch.daemon.bg.js",
             "--url=https://example.com/",
         ]
 

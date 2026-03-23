@@ -107,7 +107,7 @@ Hook completed successfully"""
         stdout = """{"type": "ArchiveResult", "status": "succeeded"}
 {invalid json here}
 not json at all
-{"type": "Binary", "name": "wget"}"""
+{"type": "BinaryRequest", "name": "wget"}"""
         from archivebox.machine.models import Process
 
         records = Process.parse_records_from_text(stdout)
@@ -187,7 +187,7 @@ class TestHookDiscovery(unittest.TestCase):
         wget_dir = self.plugins_dir / "wget"
         wget_dir.mkdir()
         (wget_dir / "on_Snapshot__50_wget.py").write_text("# test hook")
-        (wget_dir / "on_Crawl__10_wget_install.finite.bg.py").write_text("# install hook")
+        (wget_dir / "on_Install__10_wget.finite.bg.py").write_text("# install hook")
 
         chrome_dir = self.plugins_dir / "chrome"
         chrome_dir.mkdir(exist_ok=True)
@@ -231,11 +231,29 @@ class TestHookDiscovery(unittest.TestCase):
         self.assertEqual(hooks[1].name, "on_Snapshot__21_consolelog.daemon.bg.js")
         self.assertEqual(hooks[2].name, "on_Snapshot__50_wget.py")
 
+    def test_normalize_hook_event_name_accepts_event_classes(self):
+        """Hook discovery should normalize bus event class names to hook families."""
+        from archivebox import hooks as hooks_module
+
+        self.assertEqual(hooks_module.normalize_hook_event_name("InstallEvent"), "Install")
+        self.assertEqual(hooks_module.normalize_hook_event_name("BinaryRequestEvent"), "BinaryRequest")
+        self.assertEqual(hooks_module.normalize_hook_event_name("CrawlSetupEvent"), "CrawlSetup")
+        self.assertEqual(hooks_module.normalize_hook_event_name("SnapshotEvent"), "Snapshot")
+
+    def test_normalize_hook_event_name_strips_event_suffix_for_lifecycle_events(self):
+        """Lifecycle event names should normalize via simple suffix stripping."""
+        from archivebox import hooks as hooks_module
+
+        self.assertEqual(hooks_module.normalize_hook_event_name("BinaryEvent"), "Binary")
+        self.assertEqual(hooks_module.normalize_hook_event_name("CrawlEvent"), "Crawl")
+        self.assertEqual(hooks_module.normalize_hook_event_name("SnapshotCleanupEvent"), "SnapshotCleanup")
+        self.assertEqual(hooks_module.normalize_hook_event_name("CrawlCleanupEvent"), "CrawlCleanup")
+
     def test_get_plugins_includes_non_snapshot_plugin_dirs(self):
         """get_plugins() should include binary-only plugins with standardized metadata."""
         env_dir = self.plugins_dir / "env"
         env_dir.mkdir()
-        (env_dir / "on_Binary__15_env_discover.py").write_text("# binary hook")
+        (env_dir / "on_BinaryRequest__15_env.py").write_text("# binary hook")
         (env_dir / "config.json").write_text('{"type": "object", "properties": {}}')
 
         from archivebox import hooks as hooks_module
@@ -265,7 +283,7 @@ class TestHookDiscovery(unittest.TestCase):
 
         npm_dir = self.plugins_dir / "npm"
         npm_dir.mkdir()
-        (npm_dir / "on_Binary__10_npm_install.py").write_text("# npm binary hook")
+        (npm_dir / "on_BinaryRequest__10_npm.py").write_text("# npm binary hook")
         (npm_dir / "config.json").write_text('{"type": "object", "properties": {}}')
 
         from archivebox import hooks as hooks_module
@@ -275,13 +293,40 @@ class TestHookDiscovery(unittest.TestCase):
             patch.object(hooks_module, "BUILTIN_PLUGINS_DIR", self.plugins_dir),
             patch.object(hooks_module, "USER_PLUGINS_DIR", self.test_dir / "user_plugins"),
         ):
-            hooks = hooks_module.discover_hooks("Binary", config={"PLUGINS": "singlefile"})
+            hooks = hooks_module.discover_hooks("BinaryRequest", config={"PLUGINS": "singlefile"})
 
         hook_names = [hook.name for hook in hooks]
-        self.assertIn("on_Binary__10_npm_install.py", hook_names)
+        self.assertIn("on_BinaryRequest__10_npm.py", hook_names)
 
-    def test_discover_crawl_hooks_only_include_declared_plugin_dependencies(self):
-        """Crawl hook discovery should include required_plugins without broadening to provider plugins."""
+    def test_discover_hooks_accepts_event_class_names(self):
+        """discover_hooks should accept InstallEvent / SnapshotEvent class names."""
+        from archivebox import hooks as hooks_module
+
+        hooks_module.get_plugins.cache_clear()
+        with (
+            patch.object(hooks_module, "BUILTIN_PLUGINS_DIR", self.plugins_dir),
+            patch.object(hooks_module, "USER_PLUGINS_DIR", self.test_dir / "user_plugins"),
+        ):
+            install_hooks = hooks_module.discover_hooks("InstallEvent", filter_disabled=False)
+            snapshot_hooks = hooks_module.discover_hooks("SnapshotEvent", filter_disabled=False)
+
+        self.assertIn("on_Install__10_wget.finite.bg.py", [hook.name for hook in install_hooks])
+        self.assertIn("on_Snapshot__50_wget.py", [hook.name for hook in snapshot_hooks])
+
+    def test_discover_hooks_returns_empty_for_non_hook_lifecycle_events(self):
+        """Lifecycle events without a hook family should return no hooks."""
+        from archivebox import hooks as hooks_module
+
+        hooks_module.get_plugins.cache_clear()
+        with (
+            patch.object(hooks_module, "BUILTIN_PLUGINS_DIR", self.plugins_dir),
+            patch.object(hooks_module, "USER_PLUGINS_DIR", self.test_dir / "user_plugins"),
+        ):
+            self.assertEqual(hooks_module.discover_hooks("BinaryEvent", filter_disabled=False), [])
+            self.assertEqual(hooks_module.discover_hooks("CrawlCleanupEvent", filter_disabled=False), [])
+
+    def test_discover_install_hooks_only_include_declared_plugin_dependencies(self):
+        """Install hook discovery should include required_plugins without broadening to provider plugins."""
         responses_dir = self.plugins_dir / "responses"
         responses_dir.mkdir()
         (responses_dir / "config.json").write_text(
@@ -297,12 +342,12 @@ class TestHookDiscovery(unittest.TestCase):
         chrome_dir = self.plugins_dir / "chrome"
         chrome_dir.mkdir(exist_ok=True)
         (chrome_dir / "config.json").write_text('{"type": "object", "properties": {}}')
-        (chrome_dir / "on_Crawl__70_chrome_install.finite.bg.py").write_text("# chrome crawl hook")
+        (chrome_dir / "on_Install__70_chrome.finite.bg.py").write_text("# chrome install hook")
 
         npm_dir = self.plugins_dir / "npm"
         npm_dir.mkdir()
-        (npm_dir / "on_Binary__10_npm_install.py").write_text("# npm binary hook")
-        (npm_dir / "on_Crawl__00_npm_install.py").write_text("# npm crawl hook")
+        (npm_dir / "on_BinaryRequest__10_npm.py").write_text("# npm binary hook")
+        (npm_dir / "on_Install__00_npm.py").write_text("# npm install hook")
         (npm_dir / "config.json").write_text('{"type": "object", "properties": {}}')
 
         from archivebox import hooks as hooks_module
@@ -312,11 +357,11 @@ class TestHookDiscovery(unittest.TestCase):
             patch.object(hooks_module, "BUILTIN_PLUGINS_DIR", self.plugins_dir),
             patch.object(hooks_module, "USER_PLUGINS_DIR", self.test_dir / "user_plugins"),
         ):
-            hooks = hooks_module.discover_hooks("Crawl", config={"PLUGINS": "responses"})
+            hooks = hooks_module.discover_hooks("Install", config={"PLUGINS": "responses"})
 
         hook_names = [hook.name for hook in hooks]
-        self.assertIn("on_Crawl__70_chrome_install.finite.bg.py", hook_names)
-        self.assertNotIn("on_Crawl__00_npm_install.py", hook_names)
+        self.assertIn("on_Install__70_chrome.finite.bg.py", hook_names)
+        self.assertNotIn("on_Install__00_npm.py", hook_names)
 
 
 class TestGetExtractorName(unittest.TestCase):

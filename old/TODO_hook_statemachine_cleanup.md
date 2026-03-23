@@ -644,7 +644,7 @@ Binary(queued) → BinaryMachine → Binary.run() → succeeded/failed
 
 #### Benefits of Eliminating Dependency
 1. **No global singleton conflicts**: Binary is per-machine, no race conditions
-2. **Simpler data model**: One table instead of two (Dependency + InstalledBinary)
+2. **Simpler data model**: One table instead of two (Dependency + Binary)
 3. **Static configuration**: dependencies.jsonl in version control, not database
 4. **Consistent state machine**: Binary follows same pattern as other models
 5. **Cleaner hooks**: Hooks check bin_providers themselves instead of orchestrator parsing names

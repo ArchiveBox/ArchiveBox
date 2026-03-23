@@ -1104,6 +1104,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         from archivebox.misc.jsonl import (
             TYPE_SNAPSHOT,
             TYPE_ARCHIVERESULT,
+            TYPE_BINARYREQUEST,
             TYPE_BINARY,
             TYPE_PROCESS,
         )
@@ -1126,7 +1127,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 result["snapshot"] = record
             elif record_type == TYPE_ARCHIVERESULT:
                 result["archive_results"].append(record)
-            elif record_type == TYPE_BINARY:
+            elif record_type in {TYPE_BINARYREQUEST, TYPE_BINARY}:
                 result["binaries"].append(record)
             elif record_type == TYPE_PROCESS:
                 result["processes"].append(record)

@@ -348,7 +348,7 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
     Installation is synchronous during queued→installed transition.
     If installation fails, Binary stays in queued with retry_at set for later retry.
 
-    State machine calls run() which executes on_Binary__install_* hooks
+    State machine calls run() which executes on_BinaryRequest__* hooks
     to install the binary using the specified providers.
     """
 
@@ -447,12 +447,15 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         """
         from archivebox.config import VERSION
 
+        is_installed = bool(self.abspath and self.version)
         return {
-            "type": "Binary",
+            "type": "Binary" if is_installed else "BinaryRequest",
             "schema_version": VERSION,
             "id": str(self.id),
             "machine_id": str(self.machine_id),
             "name": self.name,
+            "binproviders": self.binproviders,
+            "overrides": self.overrides,
             "binprovider": self.binprovider,
             "abspath": self.abspath,
             "version": self.version,
@@ -540,7 +543,7 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
             )
             return binary
 
-        # Case 3: From on_Binary__install hook output - update with installation results
+        # Case 3: From on_BinaryRequest__ hook output - update with installation results
         if abspath and version:
             binary, _ = Binary.objects.update_or_create(
                 machine=machine,
@@ -607,10 +610,10 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
 
     def run(self):
         """
-        Execute binary installation by running on_Binary__install_* hooks.
+        Execute binary installation by running on_BinaryRequest__* hooks.
 
         Called by BinaryMachine when entering 'started' state.
-        Runs ALL on_Binary__install_* hooks - each hook checks binproviders
+        Runs ALL on_BinaryRequest__* hooks - each hook checks binproviders
         and decides if it can handle this binary. First hook to succeed wins.
         Updates status to SUCCEEDED or FAILED based on hook output.
         """
@@ -637,8 +640,8 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         output_dir = self.output_dir
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Discover ALL on_Binary__install_* hooks
-        hooks = discover_hooks("Binary", config=config)
+        # Discover ALL on_BinaryRequest__* hooks
+        hooks = discover_hooks("BinaryRequest", config=config)
         if not hooks:
             # No hooks available - stay queued, will retry later
             return

@@ -15,14 +15,13 @@ from typing import Any
 from django.utils import timezone
 from rich.console import Console
 
-from abx_dl.events import BinaryEvent
+from abx_dl.events import BinaryRequestEvent
 from abx_dl.limits import CrawlLimitState
-from abx_dl.models import INSTALL_URL, Plugin, Snapshot as AbxSnapshot, discover_plugins, filter_plugins
+from abx_dl.models import Plugin, Snapshot as AbxSnapshot, discover_plugins, filter_plugins
 from abx_dl.orchestrator import (
     create_bus,
     download,
     install_plugins as abx_install_plugins,
-    prepare_install_plugins,
     setup_services as setup_abx_services,
 )
 
@@ -51,11 +50,12 @@ def _selected_plugins_from_config(config: dict[str, Any]) -> list[str] | None:
 
 def _count_selected_hooks(plugins: dict[str, Plugin], selected_plugins: list[str] | None) -> int:
     selected = filter_plugins(plugins, selected_plugins) if selected_plugins else plugins
-    total = 0
-    for plugin in selected.values():
-        total += len(list(plugin.get_crawl_hooks()))
-        total += len(list(plugin.get_snapshot_hooks()))
-    return total
+    return sum(
+        1
+        for plugin in selected.values()
+        for hook in plugin.hooks
+        if "Install" in hook.name or "CrawlSetup" in hook.name or "Snapshot" in hook.name
+    )
 
 
 def _runner_debug(message: str) -> None:
@@ -68,10 +68,9 @@ def _binary_env_key(name: str) -> str:
 
 
 def _binary_config_keys_for_plugins(plugins: dict[str, Plugin], binary_name: str) -> list[str]:
-    keys = [_binary_env_key(binary_name)]
-
-    if binary_name == "postlight-parser":
-        keys.insert(0, "MERCURY_BINARY")
+    keys: list[str] = []
+    if binary_name != "postlight-parser":
+        keys.append(_binary_env_key(binary_name))
 
     for plugin in plugins.values():
         for key, prop in plugin.config_schema.items():
@@ -86,6 +85,12 @@ def _installed_binary_config_overrides(plugins: dict[str, Plugin]) -> dict[str, 
 
     machine = Machine.current()
     overrides: dict[str, str] = {}
+    shared_lib_dir: Path | None = None
+    pip_home: Path | None = None
+    pip_bin_dir: Path | None = None
+    npm_home: Path | None = None
+    node_modules_dir: Path | None = None
+    npm_bin_dir: Path | None = None
     binaries = (
         Binary.objects.filter(machine=machine, status=Binary.StatusChoices.INSTALLED).exclude(abspath="").exclude(abspath__isnull=True)
     )
@@ -99,6 +104,32 @@ def _installed_binary_config_overrides(plugins: dict[str, Plugin]) -> dict[str, 
             continue
         for key in _binary_config_keys_for_plugins(plugins, binary.name):
             overrides[key] = binary.abspath
+
+        if resolved_path.parent.name == ".bin" and resolved_path.parent.parent.name == "node_modules":
+            npm_bin_dir = npm_bin_dir or resolved_path.parent
+            node_modules_dir = node_modules_dir or resolved_path.parent.parent
+            npm_home = npm_home or resolved_path.parent.parent.parent
+            shared_lib_dir = shared_lib_dir or resolved_path.parent.parent.parent.parent
+        elif resolved_path.parent.name == "bin" and resolved_path.parent.parent.name == "venv" and resolved_path.parent.parent.parent.name == "pip":
+            pip_bin_dir = pip_bin_dir or resolved_path.parent
+            pip_home = pip_home or resolved_path.parent.parent.parent
+            shared_lib_dir = shared_lib_dir or resolved_path.parent.parent.parent.parent
+
+    if shared_lib_dir is not None:
+        overrides["LIB_DIR"] = str(shared_lib_dir)
+        overrides["LIB_BIN_DIR"] = str(shared_lib_dir / "bin")
+    if pip_home is not None:
+        overrides["PIP_HOME"] = str(pip_home)
+    if pip_bin_dir is not None:
+        overrides["PIP_BIN_DIR"] = str(pip_bin_dir)
+    if npm_home is not None:
+        overrides["NPM_HOME"] = str(npm_home)
+    if node_modules_dir is not None:
+        overrides["NODE_MODULES_DIR"] = str(node_modules_dir)
+        overrides["NODE_MODULE_DIR"] = str(node_modules_dir)
+        overrides["NODE_PATH"] = str(node_modules_dir)
+    if npm_bin_dir is not None:
+        overrides["NPM_BIN_DIR"] = str(npm_bin_dir)
 
     return overrides
 
@@ -264,26 +295,23 @@ class CrawlRunner:
                     auto_install=True,
                     emit_jsonl=False,
                 )
-                if self.crawl.get_system_task() == INSTALL_URL:
-                    await self._run_install_crawl()
-                else:
-                    snapshot_ids = await sync_to_async(self._initial_snapshot_ids, thread_sensitive=True)()
-                    if snapshot_ids:
-                        root_snapshot_id = snapshot_ids[0]
-                        _runner_debug(f"crawl {self.crawl.id} starting crawl setup root_snapshot={root_snapshot_id}")
-                        await self._run_crawl_setup(root_snapshot_id)
-                        _runner_debug(f"crawl {self.crawl.id} finished crawl setup root_snapshot={root_snapshot_id}")
-                        for snapshot_id in snapshot_ids:
-                            await self.enqueue_snapshot(snapshot_id)
-                        _runner_debug(f"crawl {self.crawl.id} waiting for snapshot tasks count={len(self.snapshot_tasks)}")
-                        await self._wait_for_snapshot_tasks()
-                        _runner_debug(f"crawl {self.crawl.id} finished waiting for snapshot tasks")
-                        _runner_debug(f"crawl {self.crawl.id} starting django crawl.cleanup()")
-                        await sync_to_async(self.crawl.cleanup, thread_sensitive=True)()
-                        _runner_debug(f"crawl {self.crawl.id} finished django crawl.cleanup()")
-                        _runner_debug(f"crawl {self.crawl.id} starting abx crawl cleanup root_snapshot={root_snapshot_id}")
-                        await self._run_crawl_cleanup(root_snapshot_id)
-                        _runner_debug(f"crawl {self.crawl.id} finished abx crawl cleanup root_snapshot={root_snapshot_id}")
+                snapshot_ids = await sync_to_async(self._initial_snapshot_ids, thread_sensitive=True)()
+                if snapshot_ids:
+                    root_snapshot_id = snapshot_ids[0]
+                    _runner_debug(f"crawl {self.crawl.id} starting crawl setup root_snapshot={root_snapshot_id}")
+                    await self._run_crawl_setup(root_snapshot_id)
+                    _runner_debug(f"crawl {self.crawl.id} finished crawl setup root_snapshot={root_snapshot_id}")
+                    for snapshot_id in snapshot_ids:
+                        await self.enqueue_snapshot(snapshot_id)
+                    _runner_debug(f"crawl {self.crawl.id} waiting for snapshot tasks count={len(self.snapshot_tasks)}")
+                    await self._wait_for_snapshot_tasks()
+                    _runner_debug(f"crawl {self.crawl.id} finished waiting for snapshot tasks")
+                    _runner_debug(f"crawl {self.crawl.id} starting django crawl.cleanup()")
+                    await sync_to_async(self.crawl.cleanup, thread_sensitive=True)()
+                    _runner_debug(f"crawl {self.crawl.id} finished django crawl.cleanup()")
+                    _runner_debug(f"crawl {self.crawl.id} starting abx crawl cleanup root_snapshot={root_snapshot_id}")
+                    await self._run_crawl_cleanup(root_snapshot_id)
+                    _runner_debug(f"crawl {self.crawl.id} finished abx crawl cleanup root_snapshot={root_snapshot_id}")
                 if self.abx_services is not None:
                     _runner_debug(f"crawl {self.crawl.id} waiting for main bus background monitors")
                     await self.abx_services.process.wait_for_background_monitors()
@@ -404,7 +432,7 @@ class CrawlRunner:
             interactive_tty=True,
         )
         live_ui.print_intro(
-            url=self.primary_url or INSTALL_URL,
+            url=self.primary_url or "crawl",
             output_dir=Path(self.crawl.output_dir),
             plugins_label=plugins_label,
         )
@@ -434,30 +462,6 @@ class CrawlRunner:
         if snapshot.parent_snapshot_id:
             config["PARENT_SNAPSHOT_ID"] = str(snapshot.parent_snapshot_id)
         return config
-
-    async def _run_install_crawl(self) -> None:
-        install_snapshot = AbxSnapshot(
-            url=self.primary_url or INSTALL_URL,
-            id=str(self.crawl.id),
-            crawl_id=str(self.crawl.id),
-        )
-        await download(
-            url=self.primary_url or INSTALL_URL,
-            plugins=self.plugins,
-            output_dir=Path(self.crawl.output_dir),
-            selected_plugins=self.selected_plugins,
-            config_overrides={
-                **self.base_config,
-                "CRAWL_DIR": str(self.crawl.output_dir),
-                "SNAP_DIR": str(self.crawl.output_dir),
-                "CRAWL_ID": str(self.crawl.id),
-                "SOURCE_URL": self.crawl.urls,
-            },
-            bus=self.bus,
-            emit_jsonl=False,
-            snapshot=install_snapshot,
-            crawl_only=True,
-        )
 
     async def _run_crawl_setup(self, snapshot_id: str) -> None:
         from asgiref.sync import sync_to_async
@@ -625,7 +629,7 @@ async def _run_binary(binary_id: str) -> None:
     binary = await sync_to_async(Binary.objects.get, thread_sensitive=True)(id=binary_id)
     plugins = discover_plugins()
     config = get_config()
-    config.update(_installed_binary_config_overrides(plugins))
+    config.update(await sync_to_async(_installed_binary_config_overrides, thread_sensitive=True)(plugins))
     config["ABX_RUNTIME"] = "archivebox"
     bus = create_bus(name=_bus_name("ArchiveBox_binary", str(binary.id)), total_timeout=1800.0)
     process_service = ProcessService(bus)
@@ -645,18 +649,14 @@ async def _run_binary(binary_id: str) -> None:
     try:
         _attach_bus_trace(bus)
         await bus.emit(
-            BinaryEvent(
+            BinaryRequestEvent(
                 name=binary.name,
                 plugin_name="archivebox",
-                hook_name="archivebox_run",
+                hook_name="on_BinaryRequest__archivebox_run",
                 output_dir=str(binary.output_dir),
                 binary_id=str(binary.id),
                 machine_id=str(binary.machine_id),
-                abspath=binary.abspath,
-                version=binary.version,
-                sha256=binary.sha256,
                 binproviders=binary.binproviders,
-                binprovider=binary.binprovider,
                 overrides=binary.overrides or None,
             ),
         )
@@ -670,11 +670,13 @@ def run_binary(binary_id: str) -> None:
 
 
 async def _run_install(plugin_names: list[str] | None = None) -> None:
+    from asgiref.sync import sync_to_async
+
     from archivebox.config.configset import get_config
 
     plugins = discover_plugins()
     config = get_config()
-    config.update(_installed_binary_config_overrides(plugins))
+    config.update(await sync_to_async(_installed_binary_config_overrides, thread_sensitive=True)(plugins))
     config["ABX_RUNTIME"] = "archivebox"
     bus = create_bus(name="ArchiveBox_install", total_timeout=3600.0)
     process_service = ProcessService(bus)
@@ -693,7 +695,9 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
     live_stream = None
 
     try:
-        selected_plugins = prepare_install_plugins(plugins, plugin_names=plugin_names)
+        selected_plugins = filter_plugins(plugins, list(plugin_names), include_providers=True) if plugin_names else plugins
+        if not selected_plugins:
+            return
         plugins_label = ", ".join(plugin_names) if plugin_names else f"all ({len(plugins)} available)"
         timeout_seconds = int(config.get("TIMEOUT") or 60)
         stdout_is_tty = sys.stdout.isatty()
@@ -740,7 +744,7 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
                     interactive_tty=interactive_tty,
                 )
                 live_ui.print_intro(
-                    url=INSTALL_URL,
+                    url="install",
                     output_dir=output_dir,
                     plugins_label=plugins_label,
                 )

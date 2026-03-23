@@ -10,7 +10,7 @@ Modes:
     - Without stdin (TTY): Run the background runner in foreground until killed
     - --crawl-id: Run the crawl runner for a specific crawl only
     - --snapshot-id: Run a specific snapshot through its parent crawl
-    - --binary-id: Emit a BinaryEvent for a specific Binary row
+    - --binary-id: Emit a BinaryRequestEvent for a specific Binary row
 
 Examples:
     # Run the background runner in foreground
@@ -64,7 +64,15 @@ def process_stdin_records() -> int:
     """
     from django.utils import timezone
 
-    from archivebox.misc.jsonl import read_stdin, write_record, TYPE_CRAWL, TYPE_SNAPSHOT, TYPE_ARCHIVERESULT, TYPE_BINARY
+    from archivebox.misc.jsonl import (
+        read_stdin,
+        write_record,
+        TYPE_CRAWL,
+        TYPE_SNAPSHOT,
+        TYPE_ARCHIVERESULT,
+        TYPE_BINARYREQUEST,
+        TYPE_BINARY,
+    )
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.core.models import Snapshot, ArchiveResult
     from archivebox.crawls.models import Crawl
@@ -185,7 +193,7 @@ def process_stdin_records() -> int:
                     output_records.append(record if not archiveresult else archiveresult.to_json())
                     queued_count += 1
 
-            elif record_type == TYPE_BINARY:
+            elif record_type in {TYPE_BINARYREQUEST, TYPE_BINARY}:
                 if record_id:
                     try:
                         binary = Binary.objects.get(id=record_id)

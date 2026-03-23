@@ -295,13 +295,35 @@ def test_installed_binary_config_overrides_include_valid_installed_binaries(monk
         binproviders="env",
         status=Binary.StatusChoices.INSTALLED,
     )
+    puppeteer_binary = Binary.objects.create(
+        machine=machine,
+        name="puppeteer",
+        abspath="/tmp/shared-lib/npm/node_modules/.bin/puppeteer",
+        version="24.40.0",
+        binprovider="npm",
+        binproviders="npm",
+        status=Binary.StatusChoices.INSTALLED,
+    )
+    ytdlp_binary = Binary.objects.create(
+        machine=machine,
+        name="yt-dlp",
+        abspath="/tmp/shared-lib/pip/venv/bin/yt-dlp",
+        version="2026.3.17",
+        binprovider="pip",
+        binproviders="pip",
+        status=Binary.StatusChoices.INSTALLED,
+    )
 
     monkeypatch.setattr(Machine, "current", classmethod(lambda cls: machine))
-    monkeypatch.setattr(Path, "is_file", lambda self: str(self) in {sys.executable, mercury_binary.abspath, wget_binary.abspath})
+    monkeypatch.setattr(
+        Path,
+        "is_file",
+        lambda self: str(self) in {sys.executable, mercury_binary.abspath, wget_binary.abspath, puppeteer_binary.abspath, ytdlp_binary.abspath},
+    )
     monkeypatch.setattr(
         runner_module.os,
         "access",
-        lambda path, mode: str(path) == sys.executable,
+        lambda path, mode: str(path) in {sys.executable, puppeteer_binary.abspath, ytdlp_binary.abspath},
     )
 
     overrides = runner_module._installed_binary_config_overrides(
@@ -316,8 +338,17 @@ def test_installed_binary_config_overrides_include_valid_installed_binaries(monk
     )
 
     assert overrides["MERCURY_BINARY"] == sys.executable
-    assert overrides["POSTLIGHT_PARSER_BINARY"] == sys.executable
+    assert "POSTLIGHT_PARSER_BINARY" not in overrides
     assert "WGET_BINARY" not in overrides
+    assert overrides["LIB_DIR"] == "/tmp/shared-lib"
+    assert overrides["LIB_BIN_DIR"] == "/tmp/shared-lib/bin"
+    assert overrides["PIP_HOME"] == "/tmp/shared-lib/pip"
+    assert overrides["PIP_BIN_DIR"] == "/tmp/shared-lib/pip/venv/bin"
+    assert overrides["NPM_HOME"] == "/tmp/shared-lib/npm"
+    assert overrides["NPM_BIN_DIR"] == "/tmp/shared-lib/npm/node_modules/.bin"
+    assert overrides["NODE_MODULES_DIR"] == "/tmp/shared-lib/npm/node_modules"
+    assert overrides["NODE_MODULE_DIR"] == "/tmp/shared-lib/npm/node_modules"
+    assert overrides["NODE_PATH"] == "/tmp/shared-lib/npm/node_modules"
 
 
 def test_run_snapshot_skips_descendant_when_max_size_already_reached(monkeypatch):
@@ -707,10 +738,10 @@ def test_abx_process_service_background_monitor_finishes_after_process_exit(monk
 
     plugin_output_dir = tmp_path / "chrome"
     plugin_output_dir.mkdir()
-    stdout_file = plugin_output_dir / "on_Crawl__90_chrome_launch.daemon.bg.stdout.log"
-    stderr_file = plugin_output_dir / "on_Crawl__90_chrome_launch.daemon.bg.stderr.log"
+    stdout_file = plugin_output_dir / "on_CrawlSetup__90_chrome_launch.daemon.bg.stdout.log"
+    stderr_file = plugin_output_dir / "on_CrawlSetup__90_chrome_launch.daemon.bg.stderr.log"
     stderr_file.write_text("")
-    pid_file = plugin_output_dir / "on_Crawl__90_chrome_launch.daemon.bg.pid"
+    pid_file = plugin_output_dir / "on_CrawlSetup__90_chrome_launch.daemon.bg.pid"
     pid_file.write_text("12345")
 
     proc = AbxProcess(
@@ -719,12 +750,12 @@ def test_abx_process_service_background_monitor_finishes_after_process_exit(monk
         timeout=60,
         started_at=now_iso(),
         plugin="chrome",
-        hook_name="on_Crawl__90_chrome_launch.daemon.bg",
+        hook_name="on_CrawlSetup__90_chrome_launch.daemon.bg",
     )
     process = FakeAsyncProcess()
     event = SimpleNamespace(
         plugin_name="chrome",
-        hook_name="on_Crawl__90_chrome_launch.daemon.bg",
+        hook_name="on_CrawlSetup__90_chrome_launch.daemon.bg",
         hook_path="hook",
         hook_args=["--url=https://example.org/"],
         env={},

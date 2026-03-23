@@ -1,9 +1,22 @@
 """
-Hook discovery and execution system for ArchiveBox plugins.
+Hook discovery and execution helpers for ArchiveBox plugins.
 
-Hooks are standalone scripts that run as separate processes and communicate
-with ArchiveBox via CLI arguments and stdout JSON output. This keeps the plugin
-system simple and language-agnostic.
+ArchiveBox no longer drives plugin execution itself during normal crawls.
+`abx-dl` owns the live runtime and emits typed bus events; ArchiveBox mainly:
+
+- discovers hook files for inspection / docs / legacy direct execution helpers
+- executes individual hook scripts when explicitly requested
+- parses hook stdout JSONL records into ArchiveBox models when needed
+
+Hook-backed event families are discovered from filenames like:
+    on_Install__*
+    on_BinaryRequest__*
+    on_CrawlSetup__*
+    on_Snapshot__*
+
+Lifecycle event names like `InstallEvent` or `SnapshotCleanupEvent` are
+normalized to the corresponding `on_{EventFamily}__*` prefix by a simple
+string transform. If no scripts exist for that prefix, discovery returns `[]`.
 
 Directory structure:
     abx_plugins/plugins/<plugin_name>/on_<Event>__<hook_name>.<ext>     (built-in package)
@@ -11,7 +24,7 @@ Directory structure:
 
 Hook contract:
     Input:  --url=<url> (and other --key=value args)
-    Output: JSON to stdout, files to $PWD
+    Output: JSONL records to stdout, files to $PWD
     Exit:   0 = success, non-zero = failure
 
 Execution order:
@@ -19,36 +32,13 @@ Execution order:
     - Foreground hooks run sequentially in that order
     - Background hooks (.bg suffix) run concurrently and do not block foreground progress
     - After all foreground hooks complete, background hooks receive SIGTERM and must finalize
-    - Failed extractors don't block subsequent extractors
 
-Hook Naming Convention:
-    on_{ModelName}__{run_order}_{description}[.finite.bg|.daemon.bg].{ext}
+Hook naming convention:
+    on_{EventFamily}__{run_order}_{description}[.finite.bg|.daemon.bg].{ext}
 
-    Examples:
-        on_Snapshot__00_setup.py         # runs first
-        on_Snapshot__10_chrome_tab.daemon.bg.js # background (doesn't block)
-        on_Snapshot__50_screenshot.js    # foreground (blocks)
-        on_Snapshot__63_media.finite.bg.py      # background (long-running)
-
-Dependency handling:
-    Extractor plugins that depend on other plugins' output should check at runtime:
-
-    ```python
-    # Example: screenshot plugin depends on chrome plugin
-    chrome_dir = Path(os.environ.get('SNAPSHOT_DIR', '.')) / 'chrome'
-    if not (chrome_dir / 'cdp_url.txt').exists():
-        print('{"status": "skipped", "output": "chrome session not available"}')
-        sys.exit(1)  # Exit non-zero so it gets retried later
-    ```
-
-    On retry (Snapshot.retry_failed_archiveresults()):
-    - Only FAILED/SKIPPED plugins reset to queued (SUCCEEDED stays)
-    - Run in order again
-    - If dependencies now succeed, dependents can run
-
-API (all hook logic lives here):
-    discover_hooks(event)     -> List[Path]     Find hook scripts
-    run_hook(script, ...)     -> HookResult     Execute a hook script
+API:
+    discover_hooks(event)     -> List[Path]     Find hook scripts for a hook-backed event family
+    run_hook(script, ...)     -> Process        Execute a hook script directly
     is_background_hook(name)  -> bool           Check if hook is background (.bg suffix)
 """
 
@@ -122,6 +112,27 @@ def iter_plugin_dirs() -> list[Path]:
     return plugin_dirs
 
 
+def normalize_hook_event_name(event_name: str) -> str | None:
+    """
+    Normalize a hook event family or event class name to its on_* prefix.
+
+    Examples:
+        InstallEvent -> Install
+        BinaryRequestEvent -> BinaryRequest
+        CrawlSetupEvent -> CrawlSetup
+        SnapshotEvent -> Snapshot
+        BinaryEvent -> Binary
+        CrawlCleanupEvent -> CrawlCleanup
+    """
+    normalized = str(event_name or "").strip()
+    if not normalized:
+        return None
+
+    if normalized.endswith("Event"):
+        return normalized[:-5] or None
+    return normalized
+
+
 class HookResult(TypedDict, total=False):
     """Raw result from run_hook()."""
 
@@ -144,7 +155,7 @@ def discover_hooks(
     config: dict[str, Any] | None = None,
 ) -> list[Path]:
     """
-    Find all hook scripts matching on_{event_name}__*.{sh,py,js} pattern.
+    Find all hook scripts for an event family.
 
     Searches both built-in and user plugin directories.
     Filters out hooks from disabled plugins by default (respects USE_/SAVE_ flags).
@@ -156,7 +167,10 @@ def discover_hooks(
         on_Snapshot__26_readability.py  # runs later (depends on singlefile)
 
     Args:
-        event_name: Event name (e.g., 'Snapshot', 'Binary', 'Crawl')
+        event_name: Hook event family or event class name.
+            Examples: 'Install', 'InstallEvent', 'BinaryRequestEvent', 'Snapshot'.
+            Event names are normalized by stripping a trailing `Event`.
+            If no matching `on_{EventFamily}__*` scripts exist, returns [].
         filter_disabled: If True, skip hooks from disabled plugins (default: True)
         config: Optional config dict from get_config() (merges file, env, machine, crawl, snapshot)
                 If None, will call get_config() with global scope
@@ -179,6 +193,10 @@ def discover_hooks(
         discover_hooks('Snapshot', filter_disabled=False)
         # Returns: [Path('.../on_Snapshot__10_title.py'), ..., Path('.../on_Snapshot__50_wget.py')]
     """
+    hook_event_name = normalize_hook_event_name(event_name)
+    if not hook_event_name:
+        return []
+
     hooks = []
 
     for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
@@ -187,18 +205,18 @@ def discover_hooks(
 
         # Search for hook scripts in all subdirectories
         for ext in ("sh", "py", "js"):
-            pattern = f"*/on_{event_name}__*.{ext}"
+            pattern = f"*/on_{hook_event_name}__*.{ext}"
             hooks.extend(base_dir.glob(pattern))
 
             # Also check for hooks directly in the plugins directory
-            pattern_direct = f"on_{event_name}__*.{ext}"
+            pattern_direct = f"on_{hook_event_name}__*.{ext}"
             hooks.extend(base_dir.glob(pattern_direct))
 
     # Binary install hooks are provider hooks, not end-user extractors. They
     # self-filter via `binproviders`, so applying the PLUGINS whitelist here
     # can hide the very installer needed by a selected plugin (e.g.
-    # `--plugins=singlefile` still needs the `npm` Binary hook).
-    if filter_disabled and event_name != "Binary":
+    # `--plugins=singlefile` still needs the `npm` BinaryRequest hook).
+    if filter_disabled and hook_event_name != "BinaryRequest":
         # Get merged config if not provided (lazy import to avoid circular dependency)
         if config is None:
             from archivebox.config.configset import get_config
@@ -1051,8 +1069,12 @@ def get_plugin_icon(plugin: str) -> str:
 
 def process_hook_records(records: list[dict[str, Any]], overrides: dict[str, Any] | None = None) -> dict[str, int]:
     """
-    Process JSONL records from hook output.
-    Dispatches to Model.from_json() for each record type.
+    Process JSONL records emitted by hook stdout.
+
+    This handles hook-emitted record types such as Snapshot, Tag, BinaryRequest,
+    Binary, and Machine. It does not process bus lifecycle events like
+    InstallEvent, CrawlEvent, CrawlCleanupEvent, or SnapshotCleanupEvent, since
+    those are not emitted as JSONL records by hook subprocesses.
 
     Args:
         records: List of JSONL record dicts from result['records']
@@ -1104,12 +1126,12 @@ def process_hook_records(records: list[dict[str, Any]], overrides: dict[str, Any
                 if obj:
                     stats["Tag"] = stats.get("Tag", 0) + 1
 
-            elif record_type == "Binary":
+            elif record_type in {"BinaryRequest", "Binary"}:
                 from archivebox.machine.models import Binary
 
                 obj = Binary.from_json(record.copy(), overrides)
                 if obj:
-                    stats["Binary"] = stats.get("Binary", 0) + 1
+                    stats[record_type] = stats.get(record_type, 0) + 1
 
             elif record_type == "Machine":
                 from archivebox.machine.models import Machine

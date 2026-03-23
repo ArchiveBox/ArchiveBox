@@ -8,127 +8,32 @@ import rich_click as click
 from archivebox.misc.util import docstring, enforce_types
 
 
-# State Machine ASCII Art Diagrams
-CRAWL_MACHINE_DIAGRAM = """
+EVENT_FLOW_DIAGRAM = """
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              CrawlMachine                                   │
+│                           ArchiveBox / abx-dl Flow                         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│   ┌─────────────┐                                                           │
-│   │   QUEUED    │◄────────────────┐                                         │
-│   │  (initial)  │                 │                                         │
-│   └──────┬──────┘                 │                                         │
-│          │                        │ tick() unless can_start()               │
-│          │ tick() when            │                                         │
-│          │ can_start()            │                                         │
-│          ▼                        │                                         │
-│   ┌─────────────┐                 │                                         │
-│   │   STARTED   │─────────────────┘                                         │
-│   │             │◄────────────────┐                                         │
-│   │ enter:      │                 │                                         │
-│   │  crawl.run()│                 │ tick() unless is_finished()             │
-│   │  (discover  │                 │                                         │
-│   │   Crawl     │─────────────────┘                                         │
-│   │   hooks)    │                                                           │
-│   └──────┬──────┘                                                           │
-│          │                                                                  │
-│          │ tick() when is_finished()                                        │
-│          ▼                                                                  │
-│   ┌─────────────┐                                                           │
-│   │   SEALED    │                                                           │
-│   │   (final)   │                                                           │
-│   │             │                                                           │
-│   │ enter:      │                                                           │
-│   │  cleanup()  │                                                           │
-│   └─────────────┘                                                           │
+│  InstallEvent                                                               │
+│    └─ on_Install__*                                                         │
+│         └─ BinaryRequest records                                            │
+│              └─ BinaryRequestEvent                                          │
+│                   └─ on_BinaryRequest__*                                    │
+│                        └─ BinaryEvent / MachineEvent                        │
 │                                                                             │
-│   Hooks triggered: on_Crawl__* (during STARTED.enter via crawl.run())       │
-│                    on_CrawlEnd__* (during SEALED.enter via cleanup())       │
-└─────────────────────────────────────────────────────────────────────────────┘
-"""
-
-SNAPSHOT_MACHINE_DIAGRAM = """
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            SnapshotMachine                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
+│  CrawlEvent                                                                 │
+│    └─ CrawlSetupEvent                                                       │
+│         └─ on_CrawlSetup__*                                                 │
 │                                                                             │
-│   ┌─────────────┐                                                           │
-│   │   QUEUED    │◄────────────────┐                                         │
-│   │  (initial)  │                 │                                         │
-│   └──────┬──────┘                 │                                         │
-│          │                        │ tick() unless can_start()               │
-│          │ tick() when            │                                         │
-│          │ can_start()            │                                         │
-│          ▼                        │                                         │
-│   ┌─────────────┐                 │                                         │
-│   │   STARTED   │─────────────────┘                                         │
-│   │             │◄────────────────┐                                         │
-│   │ enter:      │                 │                                         │
-│   │ snapshot    │                 │ tick() unless is_finished()             │
-│   │  .run()     │                 │                                         │
-│   │ (discover   │─────────────────┘                                         │
-│   │  Snapshot   │                                                           │
-│   │  hooks,     │                                                           │
-│   │  create     │                                                           │
-│   │  pending    │                                                           │
-│   │  results)   │                                                           │
-│   └──────┬──────┘                                                           │
-│          │                                                                  │
-│          │ tick() when is_finished()                                        │
-│          ▼                                                                  │
-│   ┌─────────────┐                                                           │
-│   │   SEALED    │                                                           │
-│   │   (final)   │                                                           │
-│   │             │                                                           │
-│   │ enter:      │                                                           │
-│   │  cleanup()  │                                                           │
-│   └─────────────┘                                                           │
+│  CrawlStartEvent                                                            │
+│    └─ SnapshotEvent                                                         │
+│         └─ on_Snapshot__*                                                   │
+│              └─ Snapshot / ArchiveResult / Tag / Machine / BinaryRequest    │
 │                                                                             │
-│   Hooks triggered: on_Snapshot__* (creates ArchiveResults in STARTED.enter) │
-└─────────────────────────────────────────────────────────────────────────────┘
-"""
-
-BINARY_MACHINE_DIAGRAM = """
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                             BinaryMachine                                   │
-├─────────────────────────────────────────────────────────────────────────────┤
+│  SnapshotCleanupEvent  -> internal cleanup, no direct hook family           │
+│  CrawlCleanupEvent     -> internal cleanup, no direct hook family           │
 │                                                                             │
-│   ┌─────────────┐                                                           │
-│   │   QUEUED    │◄────────────────┐                                         │
-│   │  (initial)  │                 │                                         │
-│   └──────┬──────┘                 │                                         │
-│          │                        │ tick() unless can_install()             │
-│          │                        │ (stays queued if failed)                │
-│          │ tick() when            │                                         │
-│          │ can_install()          │                                         │
-│          │                        │                                         │
-│          │ on_install() runs      │                                         │
-│          │ during transition:     │                                         │
-│          │  • binary.run()        │                                         │
-│          │    (discover Binary    │                                         │
-│          │     hooks, try each    │                                         │
-│          │     provider until     │                                         │
-│          │     one succeeds)      │                                         │
-│          │  • Sets abspath,       │                                         │
-│          │    version, sha256     │                                         │
-│          │                        │                                         │
-│          │ If install fails:      │                                         │
-│          │  raises exception──────┘                                         │
-│          │  (retry_at bumped)                                               │
-│          │                                                                  │
-│          ▼                                                                  │
-│   ┌─────────────┐                                                           │
-│   │  INSTALLED  │                                                           │
-│   │   (final)   │                                                           │
-│   │             │                                                           │
-│   │ Binary is   │                                                           │
-│   │ ready to    │                                                           │
-│   │ use         │                                                           │
-│   └─────────────┘                                                           │
-│                                                                             │
-│   Hooks triggered: on_Binary__* (provider hooks during transition)          │
-│   Providers tried in sequence until one succeeds: apt, brew, pip, npm, etc. │
-│   Installation is synchronous - no intermediate STARTED state               │
+│  ArchiveBox projects bus events into the DB; it no longer drives plugin     │
+│  execution through the old queued model executor.                           │
 └─────────────────────────────────────────────────────────────────────────────┘
 """
 
@@ -136,15 +41,16 @@ BINARY_MACHINE_DIAGRAM = """
 @enforce_types
 def pluginmap(
     show_disabled: bool = False,
-    model: str | None = None,
+    event: str | None = None,
     quiet: bool = False,
 ) -> dict:
     """
-    Show a map of all state machines and their associated plugin hooks.
+    Show the current abx-dl event phases and their associated plugin hooks.
 
-    Displays ASCII art diagrams of the core queued model state machines (Crawl,
-    Snapshot, Binary) and lists all auto-detected on_Modelname_xyz hooks
-    that will run for each model's transitions.
+    This command reflects the new bus-driven runtime, not the legacy ArchiveBox
+    state-machine executor. Event names are normalized to hook prefixes by
+    stripping a trailing `Event`, then ArchiveBox checks whether any matching
+    `on_{EventFamily}__*` scripts actually exist.
     """
     from rich.console import Console
     from rich.table import Table
@@ -152,49 +58,65 @@ def pluginmap(
     from rich import box
 
     from archivebox.hooks import (
-        discover_hooks,
-        is_background_hook,
         BUILTIN_PLUGINS_DIR,
         USER_PLUGINS_DIR,
+        discover_hooks,
+        is_background_hook,
+        normalize_hook_event_name,
     )
 
     console = Console()
     prnt = console.print
 
-    # Model event types that can have hooks
-    model_events = {
-        "Crawl": {
-            "description": "Hooks run when a Crawl starts (QUEUED→STARTED)",
-            "machine": "CrawlMachine",
-            "diagram": CRAWL_MACHINE_DIAGRAM,
+    event_phases = {
+        "InstallEvent": {
+            "description": "Pre-run dependency phase. on_Install hooks request binaries and update machine config.",
+            "emits": ["BinaryRequestEvent", "BinaryEvent", "MachineEvent", "ProcessEvent"],
         },
-        "CrawlEnd": {
-            "description": "Hooks run when a Crawl finishes (STARTED→SEALED)",
-            "machine": "CrawlMachine",
-            "diagram": None,  # Part of CrawlMachine
+        "BinaryRequestEvent": {
+            "description": "Provider phase. on_BinaryRequest hooks resolve or install requested binaries.",
+            "emits": ["BinaryEvent", "MachineEvent", "ProcessEvent"],
         },
-        "Snapshot": {
-            "description": "Hooks run for each Snapshot (creates ArchiveResults)",
-            "machine": "SnapshotMachine",
-            "diagram": SNAPSHOT_MACHINE_DIAGRAM,
+        "BinaryEvent": {
+            "description": "Resolved binary metadata event. Projected into the DB/runtime config.",
+            "emits": [],
         },
-        "Binary": {
-            "description": "Hooks for installing binary dependencies (providers)",
-            "machine": "BinaryMachine",
-            "diagram": BINARY_MACHINE_DIAGRAM,
+        "CrawlEvent": {
+            "description": "Root crawl lifecycle event emitted by the runner.",
+            "emits": ["CrawlSetupEvent", "CrawlStartEvent", "CrawlCleanupEvent", "CrawlCompletedEvent"],
+        },
+        "CrawlSetupEvent": {
+            "description": "Crawl-scoped setup phase. on_CrawlSetup hooks launch/configure shared daemons and runtime state.",
+            "emits": ["MachineEvent", "ProcessEvent"],
+        },
+        "SnapshotEvent": {
+            "description": "Per-snapshot extraction phase. on_Snapshot hooks emit ArchiveResult, Snapshot, Tag, Machine, and BinaryRequest records.",
+            "emits": ["ArchiveResultEvent", "SnapshotEvent", "TagEvent", "MachineEvent", "BinaryRequestEvent", "ProcessEvent"],
+        },
+        "SnapshotCleanupEvent": {
+            "description": "Internal snapshot cleanup phase.",
+            "emits": ["ProcessKillEvent"],
+        },
+        "CrawlCleanupEvent": {
+            "description": "Internal crawl cleanup phase.",
+            "emits": ["ProcessKillEvent"],
         },
     }
 
-    # Filter to specific model if requested
-    if model:
-        model = model.title()
-        if model not in model_events:
-            prnt(f'[red]Error: Unknown model "{model}". Available: {", ".join(model_events.keys())}[/red]')
-            return {}
-        model_events = {model: model_events[model]}
+    if event:
+        requested = str(event).strip()
+        if requested in event_phases:
+            event_phases = {requested: event_phases[requested]}
+        else:
+            normalized_requested = normalize_hook_event_name(requested)
+            matched_name = next((name for name in event_phases if normalize_hook_event_name(name) == normalized_requested), None)
+            if matched_name is None:
+                prnt(f'[red]Error: Unknown event "{requested}". Available: {", ".join(event_phases.keys())}[/red]')
+                return {}
+            event_phases = {matched_name: event_phases[matched_name]}
 
     result = {
-        "models": {},
+        "events": {},
         "plugins_dir": str(BUILTIN_PLUGINS_DIR),
         "user_plugins_dir": str(USER_PLUGINS_DIR),
     }
@@ -205,88 +127,83 @@ def pluginmap(
         prnt(f"[dim]Built-in plugins: {BUILTIN_PLUGINS_DIR}[/dim]")
         prnt(f"[dim]User plugins: {USER_PLUGINS_DIR}[/dim]")
         prnt()
+        prnt(
+            Panel(
+                EVENT_FLOW_DIAGRAM,
+                title="[bold green]Event Flow[/bold green]",
+                border_style="green",
+                expand=False,
+            ),
+        )
+        prnt()
 
-    for event_name, info in model_events.items():
-        # Discover hooks for this event
+    for event_name, info in event_phases.items():
+        hook_event = normalize_hook_event_name(event_name)
         hooks = discover_hooks(event_name, filter_disabled=not show_disabled)
 
-        # Build hook info list
         hook_infos = []
         for hook_path in hooks:
-            # Get plugin name from parent directory (e.g., 'wget' from 'plugins/wget/on_Snapshot__06_wget.bg.py')
             plugin_name = hook_path.parent.name
-            is_bg = is_background_hook(hook_path.name)
-
             hook_infos.append(
                 {
                     "path": str(hook_path),
                     "name": hook_path.name,
                     "plugin": plugin_name,
-                    "is_background": is_bg,
+                    "is_background": is_background_hook(hook_path.name),
                     "extension": hook_path.suffix,
                 },
             )
 
-        result["models"][event_name] = {
+        result["events"][event_name] = {
             "description": info["description"],
-            "machine": info["machine"],
+            "hook_event": hook_event,
+            "emits": info["emits"],
             "hooks": hook_infos,
             "hook_count": len(hook_infos),
         }
 
-        if not quiet:
-            # Show diagram if this model has one
-            if info.get("diagram"):
-                assert info["diagram"] is not None
-                prnt(
-                    Panel(
-                        info["diagram"],
-                        title=f"[bold green]{info['machine']}[/bold green]",
-                        border_style="green",
-                        expand=False,
-                    ),
-                )
-                prnt()
+        if quiet:
+            continue
 
-            # Create hooks table
-            table = Table(
-                title=f"[bold yellow]on_{event_name}__* Hooks[/bold yellow] ({len(hooks)} found)",
-                box=box.ROUNDED,
-                show_header=True,
-                header_style="bold magenta",
-            )
-            table.add_column("Plugin", style="cyan", width=20)
-            table.add_column("Hook Name", style="green")
-            table.add_column("BG", justify="center", width=4)
-            table.add_column("Type", justify="center", width=5)
+        title_suffix = f" -> on_{hook_event}__*" if hook_infos else ""
+        table = Table(
+            title=f"[bold yellow]{event_name}[/bold yellow]{title_suffix} ({len(hooks)} hooks)",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold magenta",
+        )
+        table.add_column("Plugin", style="cyan", width=20)
+        table.add_column("Hook Name", style="green")
+        table.add_column("BG", justify="center", width=4)
+        table.add_column("Type", justify="center", width=5)
 
-            # Sort lexicographically by hook name
-            sorted_hooks = sorted(hook_infos, key=lambda h: h["name"])
-
-            for hook in sorted_hooks:
+        if hook_infos:
+            for hook in sorted(hook_infos, key=lambda h: h["name"]):
                 bg_marker = "[yellow]bg[/yellow]" if hook["is_background"] else ""
-                ext = hook["extension"].lstrip(".")
                 table.add_row(
                     hook["plugin"],
                     hook["name"],
                     bg_marker,
-                    ext,
+                    hook["extension"].lstrip("."),
                 )
+        else:
+            table.add_row("[dim]-[/dim]", "[dim]No direct hooks[/dim]", "", "")
 
-            prnt(table)
-            prnt()
-            prnt(f"[dim]{info['description']}[/dim]")
-            prnt()
+        prnt(table)
+        prnt(f"[dim]{info['description']}[/dim]")
+        if info["emits"]:
+            prnt(f"[dim]Emits: {', '.join(info['emits'])}[/dim]")
+        if not hook_infos:
+            prnt(f"[dim]No direct on_{hook_event}__* scripts are currently defined for this event family.[/dim]")
+        prnt()
 
-    # Summary
     if not quiet:
-        total_hooks = sum(m["hook_count"] for m in result["models"].values())
+        total_hooks = sum(event_info["hook_count"] for event_info in result["events"].values())
         prnt(f"[bold]Total hooks discovered: {total_hooks}[/bold]")
         prnt()
-        prnt("[dim]Hook naming convention: on_{Model}__{XX}_{description}[.bg].{ext}[/dim]")
-        prnt("[dim]  - XX: Two-digit lexicographic order (00-99)[/dim]")
-        prnt("[dim]  - .bg: Background hook (non-blocking)[/dim]")
-        prnt("[dim]  - ext: py, sh, or js[/dim]")
+        prnt("[dim]Hook naming convention: on_{EventFamily}__{XX}_{description}[.bg].{ext}[/dim]")
+        prnt("[dim]Event names are normalized with a simple `Event` suffix strip before hook discovery.[/dim]")
+        prnt("[dim]If no `on_{EventFamily}__*` scripts exist, the event is shown as having no direct hooks.[/dim]")
         prnt()
 
     return result
@@ -294,8 +211,8 @@ def pluginmap(
 
 @click.command()
 @click.option("--show-disabled", "-a", is_flag=True, help="Show hooks from disabled plugins too")
-@click.option("--model", "-m", type=str, default=None, help="Filter to specific model (Crawl, Snapshot, Binary, CrawlEnd)")
-@click.option("--quiet", "-q", is_flag=True, help="Output JSON only, no ASCII diagrams")
+@click.option("--event", "-e", type=str, default=None, help="Filter to specific event (e.g. InstallEvent, SnapshotEvent)")
+@click.option("--quiet", "-q", is_flag=True, help="Output JSON only, no tables")
 @docstring(pluginmap.__doc__)
 def main(**kwargs):
     import json

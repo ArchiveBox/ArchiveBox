@@ -1226,11 +1226,13 @@ def live_progress_view(request):
                 return (plugin, plugin, "unknown", "")
 
             phase = "unknown"
-            if normalized_hook_name.startswith("on_Crawl__"):
+            if normalized_hook_name.startswith("on_Install__"):
+                phase = "install"
+            elif normalized_hook_name.startswith("on_CrawlSetup__"):
                 phase = "crawl"
             elif normalized_hook_name.startswith("on_Snapshot__"):
                 phase = "snapshot"
-            elif normalized_hook_name.startswith("on_Binary__"):
+            elif normalized_hook_name.startswith("on_BinaryRequest__"):
                 phase = "binary"
 
             label = normalized_hook_name

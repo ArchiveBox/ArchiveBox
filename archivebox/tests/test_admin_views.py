@@ -1252,7 +1252,7 @@ class TestLiveProgressView:
             process_type=Process.TypeChoices.HOOK,
             status=Process.StatusChoices.RUNNING,
             pid=pid,
-            cmd=["/plugins/chrome/on_Crawl__91_chrome_wait.js", "--url=https://example.com"],
+            cmd=["/plugins/chrome/on_CrawlSetup__91_chrome_wait.js", "--url=https://example.com"],
             env={
                 "CRAWL_ID": str(snapshot.crawl_id),
                 "SNAPSHOT_ID": str(snapshot.id),

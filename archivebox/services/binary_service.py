@@ -2,24 +2,24 @@ from __future__ import annotations
 
 import asyncio
 
-from abx_dl.events import BinaryEvent, BinaryInstalledEvent
+from abx_dl.events import BinaryRequestEvent, BinaryEvent
 from abx_dl.services.base import BaseService
 
 from .db import run_db_op
 
 
 class BinaryService(BaseService):
-    LISTENS_TO = [BinaryEvent, BinaryInstalledEvent]
+    LISTENS_TO = [BinaryRequestEvent, BinaryEvent]
     EMITS = []
 
-    async def on_BinaryEvent__Outer(self, event: BinaryEvent) -> None:
+    async def on_BinaryRequestEvent__Outer(self, event: BinaryRequestEvent) -> None:
         await run_db_op(self._project_binary, event)
 
-    async def on_BinaryInstalledEvent__Outer(self, event: BinaryInstalledEvent) -> None:
+    async def on_BinaryEvent__Outer(self, event: BinaryEvent) -> None:
         resolved = await asyncio.to_thread(self._resolve_installed_binary_metadata, event)
         await run_db_op(self._project_installed_binary, event, resolved)
 
-    def _project_binary(self, event: BinaryEvent) -> None:
+    def _project_binary(self, event: BinaryRequestEvent) -> None:
         from archivebox.machine.models import Binary, Machine
 
         machine = Machine.current()
@@ -39,16 +39,12 @@ class BinaryService(BaseService):
         Binary.from_json(
             {
                 "name": event.name,
-                "abspath": event.abspath,
-                "version": event.version,
-                "sha256": event.sha256,
                 "binproviders": event.binproviders,
-                "binprovider": event.binprovider,
                 "overrides": event.overrides or {},
             },
         )
 
-    def _resolve_installed_binary_metadata(self, event: BinaryInstalledEvent) -> dict[str, str]:
+    def _resolve_installed_binary_metadata(self, event: BinaryEvent) -> dict[str, str]:
         resolved = {
             "abspath": event.abspath or "",
             "version": event.version or "",
@@ -58,6 +54,18 @@ class BinaryService(BaseService):
         }
         if resolved["abspath"] and resolved["version"] and resolved["binprovider"]:
             return resolved
+
+        if resolved["abspath"] and not resolved["version"]:
+            try:
+                from abx_pkg.semver import bin_version
+
+                detected_version = bin_version(resolved["abspath"])
+            except Exception:
+                detected_version = None
+            if detected_version:
+                resolved["version"] = str(detected_version)
+                if resolved["version"] and resolved["binprovider"]:
+                    return resolved
 
         try:
             from abx_dl.dependencies import load_binary
@@ -80,7 +88,7 @@ class BinaryService(BaseService):
 
         return resolved
 
-    def _project_installed_binary(self, event: BinaryInstalledEvent, resolved: dict[str, str]) -> None:
+    def _project_installed_binary(self, event: BinaryEvent, resolved: dict[str, str]) -> None:
         from archivebox.machine.models import Binary, Machine
 
         machine = Machine.current()

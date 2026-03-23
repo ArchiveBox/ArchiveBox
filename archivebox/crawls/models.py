@@ -827,14 +827,16 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 for record in records[:3]:
                     print(f"   Record: type={record.get('type')}, keys={list(record.keys())[:5]}")
             if system_task:
-                records = [record for record in records if record.get("type") in ("Binary", "Machine")]
+                records = [record for record in records if record.get("type") in ("BinaryRequest", "Binary", "Machine")]
             overrides = {"crawl": self}
             stats = process_hook_records(records, overrides=overrides)
             if stats:
                 print(f"[green]✓ Created: {stats}[/green]")
 
             hook_binary_names = {
-                str(record.get("name")).strip() for record in records if record.get("type") == "Binary" and record.get("name")
+                str(record.get("name")).strip()
+                for record in records
+                if record.get("type") in ("BinaryRequest", "Binary") and record.get("name")
             }
             hook_binary_names.discard("")
             if hook_binary_names:
@@ -933,7 +935,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         # Check if any snapshots exist for this crawl
         snapshots = Snapshot.objects.filter(crawl=self)
 
-        # If no snapshots exist, allow finishing (e.g., archivebox://install crawls that only run hooks)
+        # If no snapshots exist, allow finishing (e.g., system crawls that only run setup hooks)
         if not snapshots.exists():
             return True
 
@@ -1081,7 +1083,7 @@ class CrawlMachine(BaseStateMachine):
                     status=Crawl.StatusChoices.STARTED,
                 )
             else:
-                # No snapshots (system crawl like archivebox://install)
+                # No snapshots (system crawl that only runs setup hooks)
                 print("[cyan]🔄 No snapshots created, sealing crawl immediately[/cyan]", file=sys.stderr)
                 # Seal immediately since there's no work to do
                 self.seal()
