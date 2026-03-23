@@ -101,4 +101,6 @@ class BinaryService(BaseService):
             binary.overrides = event.overrides
         binary.status = Binary.StatusChoices.INSTALLED
         binary.retry_at = None
-        binary.save(update_fields=["abspath", "version", "sha256", "binproviders", "binprovider", "overrides", "status", "retry_at", "modified_at"])
+        binary.save(
+            update_fields=["abspath", "version", "sha256", "binproviders", "binprovider", "overrides", "status", "retry_at", "modified_at"],
+        )

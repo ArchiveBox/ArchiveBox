@@ -1,4 +1,4 @@
-__package__ = 'archivebox.core'
+__package__ = "archivebox.core"
 
 from typing import TYPE_CHECKING, Any
 
@@ -18,30 +18,29 @@ if TYPE_CHECKING:
 
 
 class ArchiveBoxAdmin(admin.AdminSite):
-    site_header = 'ArchiveBox'
-    index_title = 'Admin Views'
-    site_title = 'Admin'
-    namespace = 'admin'
+    site_header = "ArchiveBox"
+    index_title = "Admin Views"
+    site_title = "Admin"
+    namespace = "admin"
 
-    def get_app_list(self, request: 'HttpRequest', app_label: str | None = None) -> list['AppDict']:
+    def get_app_list(self, request: "HttpRequest", app_label: str | None = None) -> list["AppDict"]:
         if app_label is None:
             return adv_get_app_list(self, request)
         return adv_get_app_list(self, request, app_label)
 
-    def admin_data_index_view(self, request: 'HttpRequest', **kwargs: Any) -> 'TemplateResponse':
+    def admin_data_index_view(self, request: "HttpRequest", **kwargs: Any) -> "TemplateResponse":
         return adv_admin_data_index_view(self, request, **kwargs)
 
-    def get_admin_data_urls(self) -> list['URLResolver | URLPattern']:
+    def get_admin_data_urls(self) -> list["URLResolver | URLPattern"]:
         return adv_get_admin_data_urls(self)
 
-    def get_urls(self) -> list['URLResolver | URLPattern']:
+    def get_urls(self) -> list["URLResolver | URLPattern"]:
         return self.get_admin_data_urls() + super().get_urls()
 
 
 archivebox_admin = ArchiveBoxAdmin()
 # Note: delete_selected is enabled per-model via actions = ['delete_selected'] in each ModelAdmin
 # TODO: https://stackoverflow.com/questions/40760880/add-custom-button-to-django-admin-panel
-
 
 
 ############### Admin Data View sections are defined in settings.ADMIN_DATA_VIEWS #########

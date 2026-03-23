@@ -6,8 +6,8 @@ Start the Model Context Protocol (MCP) server in stdio mode.
 Exposes all ArchiveBox CLI commands as MCP tools for AI agents.
 """
 
-__package__ = 'archivebox.cli'
-__command__ = 'archivebox mcp'
+__package__ = "archivebox.cli"
+__command__ = "archivebox mcp"
 
 import rich_click as click
 
@@ -45,5 +45,5 @@ def main(**kwargs):
     mcp()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

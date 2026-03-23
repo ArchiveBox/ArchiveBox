@@ -30,11 +30,10 @@ Examples:
     archivebox archiveresult list --status=failed | archivebox run
 """
 
-__package__ = 'archivebox.cli'
-__command__ = 'archivebox archiveresult'
+__package__ = "archivebox.cli"
+__command__ = "archivebox archiveresult"
 
 import sys
-from typing import Optional
 
 import rich_click as click
 from rich import print as rprint
@@ -42,13 +41,13 @@ from rich import print as rprint
 from archivebox.cli.cli_utils import apply_filters
 
 
-def build_archiveresult_request(snapshot_id: str, plugin: str, hook_name: str = '', status: str = 'queued') -> dict:
+def build_archiveresult_request(snapshot_id: str, plugin: str, hook_name: str = "", status: str = "queued") -> dict:
     return {
-        'type': 'ArchiveResult',
-        'snapshot_id': str(snapshot_id),
-        'plugin': plugin,
-        'hook_name': hook_name,
-        'status': status,
+        "type": "ArchiveResult",
+        "snapshot_id": str(snapshot_id),
+        "plugin": plugin,
+        "hook_name": hook_name,
+        "status": status,
     }
 
 
@@ -56,10 +55,11 @@ def build_archiveresult_request(snapshot_id: str, plugin: str, hook_name: str = 
 # CREATE
 # =============================================================================
 
+
 def create_archiveresults(
-    snapshot_id: Optional[str] = None,
-    plugin: Optional[str] = None,
-    status: str = 'queued',
+    snapshot_id: str | None = None,
+    plugin: str | None = None,
+    status: str = "queued",
 ) -> int:
     """
     Create ArchiveResult request records for Snapshots.
@@ -86,13 +86,13 @@ def create_archiveresults(
             snapshots = [Snapshot.objects.get(id=snapshot_id)]
             pass_through_records = []
         except Snapshot.DoesNotExist:
-            rprint(f'[red]Snapshot not found: {snapshot_id}[/red]', file=sys.stderr)
+            rprint(f"[red]Snapshot not found: {snapshot_id}[/red]", file=sys.stderr)
             return 1
     else:
         # Read from stdin
         records = list(read_stdin())
         if not records:
-            rprint('[yellow]No Snapshot records provided via stdin[/yellow]', file=sys.stderr)
+            rprint("[yellow]No Snapshot records provided via stdin[/yellow]", file=sys.stderr)
             return 1
 
         # Separate snapshot records from pass-through records
@@ -100,17 +100,17 @@ def create_archiveresults(
         pass_through_records = []
 
         for record in records:
-            record_type = record.get('type', '')
+            record_type = record.get("type", "")
 
             if record_type == TYPE_SNAPSHOT:
                 # Pass through the Snapshot record itself
                 pass_through_records.append(record)
-                if record.get('id'):
-                    snapshot_ids.append(record['id'])
+                if record.get("id"):
+                    snapshot_ids.append(record["id"])
 
             elif record_type == TYPE_ARCHIVERESULT:
                 # ArchiveResult records: pass through if they have an id
-                if record.get('id'):
+                if record.get("id"):
                     pass_through_records.append(record)
                 # If no id, we could create it, but for now just pass through
                 else:
@@ -120,9 +120,9 @@ def create_archiveresults(
                 # Other typed records (Crawl, Tag, etc): pass through
                 pass_through_records.append(record)
 
-            elif record.get('id'):
+            elif record.get("id"):
                 # Untyped record with id - assume it's a snapshot ID
-                snapshot_ids.append(record['id'])
+                snapshot_ids.append(record["id"])
 
         # Output pass-through records first
         if not is_tty:
@@ -131,15 +131,15 @@ def create_archiveresults(
 
         if not snapshot_ids:
             if pass_through_records:
-                rprint(f'[dim]Passed through {len(pass_through_records)} records, no new snapshots to process[/dim]', file=sys.stderr)
+                rprint(f"[dim]Passed through {len(pass_through_records)} records, no new snapshots to process[/dim]", file=sys.stderr)
                 return 0
-            rprint('[yellow]No valid Snapshot IDs in input[/yellow]', file=sys.stderr)
+            rprint("[yellow]No valid Snapshot IDs in input[/yellow]", file=sys.stderr)
             return 1
 
         snapshots = list(Snapshot.objects.filter(id__in=snapshot_ids))
 
     if not snapshots:
-        rprint('[yellow]No matching snapshots found[/yellow]', file=sys.stderr)
+        rprint("[yellow]No matching snapshots found[/yellow]", file=sys.stderr)
         return 0 if pass_through_records else 1
 
     created_count = 0
@@ -150,7 +150,7 @@ def create_archiveresults(
             created_count += 1
         else:
             config = get_config(crawl=snapshot.crawl, snapshot=snapshot)
-            hooks = discover_hooks('Snapshot', config=config)
+            hooks = discover_hooks("Snapshot", config=config)
             for hook_path in hooks:
                 hook_name = hook_path.name
                 plugin_name = hook_path.parent.name
@@ -158,7 +158,7 @@ def create_archiveresults(
                     write_record(build_archiveresult_request(snapshot.id, plugin_name, hook_name=hook_name, status=status))
                 created_count += 1
 
-    rprint(f'[green]Created {created_count} archive result request records[/green]', file=sys.stderr)
+    rprint(f"[green]Created {created_count} archive result request records[/green]", file=sys.stderr)
     return 0
 
 
@@ -166,11 +166,12 @@ def create_archiveresults(
 # LIST
 # =============================================================================
 
+
 def list_archiveresults(
-    status: Optional[str] = None,
-    plugin: Optional[str] = None,
-    snapshot_id: Optional[str] = None,
-    limit: Optional[int] = None,
+    status: str | None = None,
+    plugin: str | None = None,
+    snapshot_id: str | None = None,
+    limit: int | None = None,
 ) -> int:
     """
     List ArchiveResults as JSONL with optional filters.
@@ -183,13 +184,13 @@ def list_archiveresults(
 
     is_tty = sys.stdout.isatty()
 
-    queryset = ArchiveResult.objects.all().order_by('-start_ts')
+    queryset = ArchiveResult.objects.all().order_by("-start_ts")
 
     # Apply filters
     filter_kwargs = {
-        'status': status,
-        'plugin': plugin,
-        'snapshot_id': snapshot_id,
+        "status": status,
+        "plugin": plugin,
+        "snapshot_id": snapshot_id,
     }
     queryset = apply_filters(queryset, filter_kwargs, limit=limit)
 
@@ -197,20 +198,22 @@ def list_archiveresults(
     for result in queryset:
         if is_tty:
             status_color = {
-                'queued': 'yellow',
-                'started': 'blue',
-                'succeeded': 'green',
-                'failed': 'red',
-                'skipped': 'dim',
-                'noresults': 'dim',
-                'backoff': 'magenta',
-            }.get(result.status, 'dim')
-            rprint(f'[{status_color}]{result.status:10}[/{status_color}] {result.plugin:15} [dim]{result.id}[/dim] {result.snapshot.url[:40]}')
+                "queued": "yellow",
+                "started": "blue",
+                "succeeded": "green",
+                "failed": "red",
+                "skipped": "dim",
+                "noresults": "dim",
+                "backoff": "magenta",
+            }.get(result.status, "dim")
+            rprint(
+                f"[{status_color}]{result.status:10}[/{status_color}] {result.plugin:15} [dim]{result.id}[/dim] {result.snapshot.url[:40]}",
+            )
         else:
             write_record(result.to_json())
         count += 1
 
-    rprint(f'[dim]Listed {count} archive results[/dim]', file=sys.stderr)
+    rprint(f"[dim]Listed {count} archive results[/dim]", file=sys.stderr)
     return 0
 
 
@@ -218,8 +221,9 @@ def list_archiveresults(
 # UPDATE
 # =============================================================================
 
+
 def update_archiveresults(
-    status: Optional[str] = None,
+    status: str | None = None,
 ) -> int:
     """
     Update ArchiveResults from stdin JSONL.
@@ -238,12 +242,12 @@ def update_archiveresults(
 
     records = list(read_stdin())
     if not records:
-        rprint('[yellow]No records provided via stdin[/yellow]', file=sys.stderr)
+        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
         return 1
 
     updated_count = 0
     for record in records:
-        result_id = record.get('id')
+        result_id = record.get("id")
         if not result_id:
             continue
 
@@ -261,16 +265,17 @@ def update_archiveresults(
                 write_record(result.to_json())
 
         except ArchiveResult.DoesNotExist:
-            rprint(f'[yellow]ArchiveResult not found: {result_id}[/yellow]', file=sys.stderr)
+            rprint(f"[yellow]ArchiveResult not found: {result_id}[/yellow]", file=sys.stderr)
             continue
 
-    rprint(f'[green]Updated {updated_count} archive results[/green]', file=sys.stderr)
+    rprint(f"[green]Updated {updated_count} archive results[/green]", file=sys.stderr)
     return 0
 
 
 # =============================================================================
 # DELETE
 # =============================================================================
+
 
 def delete_archiveresults(yes: bool = False, dry_run: bool = False) -> int:
     """
@@ -287,37 +292,37 @@ def delete_archiveresults(yes: bool = False, dry_run: bool = False) -> int:
 
     records = list(read_stdin())
     if not records:
-        rprint('[yellow]No records provided via stdin[/yellow]', file=sys.stderr)
+        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
         return 1
 
-    result_ids = [r.get('id') for r in records if r.get('id')]
+    result_ids = [r.get("id") for r in records if r.get("id")]
 
     if not result_ids:
-        rprint('[yellow]No valid archive result IDs in input[/yellow]', file=sys.stderr)
+        rprint("[yellow]No valid archive result IDs in input[/yellow]", file=sys.stderr)
         return 1
 
     results = ArchiveResult.objects.filter(id__in=result_ids)
     count = results.count()
 
     if count == 0:
-        rprint('[yellow]No matching archive results found[/yellow]', file=sys.stderr)
+        rprint("[yellow]No matching archive results found[/yellow]", file=sys.stderr)
         return 0
 
     if dry_run:
-        rprint(f'[yellow]Would delete {count} archive results (dry run)[/yellow]', file=sys.stderr)
+        rprint(f"[yellow]Would delete {count} archive results (dry run)[/yellow]", file=sys.stderr)
         for result in results[:10]:
-            rprint(f'  [dim]{result.id}[/dim] {result.plugin} {result.snapshot.url[:40]}', file=sys.stderr)
+            rprint(f"  [dim]{result.id}[/dim] {result.plugin} {result.snapshot.url[:40]}", file=sys.stderr)
         if count > 10:
-            rprint(f'  ... and {count - 10} more', file=sys.stderr)
+            rprint(f"  ... and {count - 10} more", file=sys.stderr)
         return 0
 
     if not yes:
-        rprint('[red]Use --yes to confirm deletion[/red]', file=sys.stderr)
+        rprint("[red]Use --yes to confirm deletion[/red]", file=sys.stderr)
         return 1
 
     # Perform deletion
     deleted_count, _ = results.delete()
-    rprint(f'[green]Deleted {deleted_count} archive results[/green]', file=sys.stderr)
+    rprint(f"[green]Deleted {deleted_count} archive results[/green]", file=sys.stderr)
     return 0
 
 
@@ -325,51 +330,58 @@ def delete_archiveresults(yes: bool = False, dry_run: bool = False) -> int:
 # CLI Commands
 # =============================================================================
 
+
 @click.group()
 def main():
     """Manage ArchiveResult records (plugin extraction results)."""
     pass
 
 
-@main.command('create')
-@click.option('--snapshot-id', help='Snapshot ID to create results for')
-@click.option('--plugin', '-p', help='Plugin name (e.g., screenshot, singlefile)')
-@click.option('--status', '-s', default='queued', help='Initial status (default: queued)')
-def create_cmd(snapshot_id: Optional[str], plugin: Optional[str], status: str):
+@main.command("create")
+@click.option("--snapshot-id", help="Snapshot ID to create results for")
+@click.option("--plugin", "-p", help="Plugin name (e.g., screenshot, singlefile)")
+@click.option("--status", "-s", default="queued", help="Initial status (default: queued)")
+def create_cmd(snapshot_id: str | None, plugin: str | None, status: str):
     """Create ArchiveResults for Snapshots from stdin JSONL."""
     sys.exit(create_archiveresults(snapshot_id=snapshot_id, plugin=plugin, status=status))
 
 
-@main.command('list')
-@click.option('--status', '-s', help='Filter by status (queued, started, succeeded, failed, skipped)')
-@click.option('--plugin', '-p', help='Filter by plugin name')
-@click.option('--snapshot-id', help='Filter by snapshot ID')
-@click.option('--limit', '-n', type=int, help='Limit number of results')
-def list_cmd(status: Optional[str], plugin: Optional[str],
-             snapshot_id: Optional[str], limit: Optional[int]):
+@main.command("list")
+@click.option("--status", "-s", help="Filter by status (queued, started, succeeded, failed, skipped)")
+@click.option("--plugin", "-p", help="Filter by plugin name")
+@click.option("--snapshot-id", help="Filter by snapshot ID")
+@click.option("--limit", "-n", type=int, help="Limit number of results")
+def list_cmd(
+    status: str | None,
+    plugin: str | None,
+    snapshot_id: str | None,
+    limit: int | None,
+):
     """List ArchiveResults as JSONL."""
-    sys.exit(list_archiveresults(
-        status=status,
-        plugin=plugin,
-        snapshot_id=snapshot_id,
-        limit=limit,
-    ))
+    sys.exit(
+        list_archiveresults(
+            status=status,
+            plugin=plugin,
+            snapshot_id=snapshot_id,
+            limit=limit,
+        ),
+    )
 
 
-@main.command('update')
-@click.option('--status', '-s', help='Set status')
-def update_cmd(status: Optional[str]):
+@main.command("update")
+@click.option("--status", "-s", help="Set status")
+def update_cmd(status: str | None):
     """Update ArchiveResults from stdin JSONL."""
     sys.exit(update_archiveresults(status=status))
 
 
-@main.command('delete')
-@click.option('--yes', '-y', is_flag=True, help='Confirm deletion')
-@click.option('--dry-run', is_flag=True, help='Show what would be deleted')
+@main.command("delete")
+@click.option("--yes", "-y", is_flag=True, help="Confirm deletion")
+@click.option("--dry-run", is_flag=True, help="Show what would be deleted")
 def delete_cmd(yes: bool, dry_run: bool):
     """Delete ArchiveResults from stdin JSONL."""
     sys.exit(delete_archiveresults(yes=yes, dry_run=dry_run))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

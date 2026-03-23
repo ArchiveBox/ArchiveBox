@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
 import re
 from urllib.parse import urlparse
 
@@ -9,6 +7,7 @@ from archivebox.config.common import SERVER_CONFIG
 
 
 _SNAPSHOT_ID_RE = re.compile(r"^[0-9a-fA-F-]{8,36}$")
+_SNAPSHOT_SUBDOMAIN_RE = re.compile(r"^snap-(?P<suffix>[0-9a-fA-F]{12})$")
 
 
 def split_host_port(host: str) -> tuple[str, str | None]:
@@ -71,10 +70,12 @@ def get_web_host() -> str:
         return urlparse(override).netloc.lower()
     return _build_listen_host("web")
 
+
 def get_api_host() -> str:
     if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
         return get_listen_host().lower()
     return _build_listen_host("api")
+
 
 def get_public_host() -> str:
     if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
@@ -82,10 +83,16 @@ def get_public_host() -> str:
     return _build_listen_host("public")
 
 
+def get_snapshot_subdomain(snapshot_id: str) -> str:
+    normalized = re.sub(r"[^0-9a-fA-F]", "", snapshot_id or "")
+    suffix = (normalized[-12:] if len(normalized) >= 12 else normalized).lower()
+    return f"snap-{suffix}"
+
+
 def get_snapshot_host(snapshot_id: str) -> str:
     if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
         return get_listen_host().lower()
-    return _build_listen_host(snapshot_id)
+    return _build_listen_host(get_snapshot_subdomain(snapshot_id))
 
 
 def get_original_host(domain: str) -> str:
@@ -95,7 +102,16 @@ def get_original_host(domain: str) -> str:
 
 
 def is_snapshot_subdomain(subdomain: str) -> bool:
-    return bool(_SNAPSHOT_ID_RE.match(subdomain or ""))
+    value = (subdomain or "").strip()
+    return bool(_SNAPSHOT_SUBDOMAIN_RE.match(value) or _SNAPSHOT_ID_RE.match(value))
+
+
+def get_snapshot_lookup_key(snapshot_ref: str) -> str:
+    value = (snapshot_ref or "").strip().lower()
+    match = _SNAPSHOT_SUBDOMAIN_RE.match(value)
+    if match:
+        return match.group("suffix")
+    return value
 
 
 def get_listen_subdomain(request_host: str) -> str:
@@ -141,21 +157,22 @@ def _build_base_url_for_host(host: str, request=None) -> str:
 
 
 def get_admin_base_url(request=None) -> str:
-    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
-        return _build_base_url_for_host(get_listen_host(), request=request)
     override = _normalize_base_url(SERVER_CONFIG.ADMIN_BASE_URL)
     if override:
         return override
+    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+        return _build_base_url_for_host(get_listen_host(), request=request)
     return _build_base_url_for_host(get_admin_host(), request=request)
 
 
 def get_web_base_url(request=None) -> str:
-    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
-        return _build_base_url_for_host(get_listen_host(), request=request)
     override = _normalize_base_url(SERVER_CONFIG.ARCHIVE_BASE_URL)
     if override:
         return override
+    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+        return _build_base_url_for_host(get_listen_host(), request=request)
     return _build_base_url_for_host(get_web_host(), request=request)
+
 
 def get_api_base_url(request=None) -> str:
     if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
@@ -190,6 +207,7 @@ def build_admin_url(path: str = "", request=None) -> str:
 
 def build_web_url(path: str = "", request=None) -> str:
     return _build_url(get_web_base_url(request), path)
+
 
 def build_api_url(path: str = "", request=None) -> str:
     return _build_url(get_api_base_url(request), path)

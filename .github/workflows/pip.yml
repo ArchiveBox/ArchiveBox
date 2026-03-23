@@ -63,4 +63,3 @@ jobs:
           # && uv run archivebox add 'https://example.com' \
           # && uv run archivebox status \
           # || (echo "UV Failed to run archivebox!" && exit 1)
-

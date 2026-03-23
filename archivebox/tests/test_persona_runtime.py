@@ -53,23 +53,23 @@ def test_persona_prepare_runtime_for_crawl_clones_and_cleans_profile(initialized
             'template_dir_recorded': (runtime_root / 'template_dir.txt').read_text().strip(),
             'chrome_binary_recorded': (runtime_root / 'chrome_binary.txt').read_text().strip(),
         }))
-        """
+        """,
     )
 
     stdout, stderr, code = run_python_cwd(script, cwd=initialized_archive, timeout=60)
     assert code == 0, stderr
 
     payload = json.loads(stdout.strip().splitlines()[-1])
-    assert payload['runtime_root_exists'] is True
-    assert payload['runtime_profile_exists'] is True
-    assert payload['runtime_downloads_exists'] is True
-    assert payload['preferences_copied'] is True
-    assert payload['singleton_removed'] is True
-    assert payload['cache_removed'] is True
-    assert payload['log_removed'] is True
-    assert payload['persona_name_recorded'] == 'Default'
-    assert payload['template_dir_recorded'].endswith('/personas/Default/chrome_user_data')
-    assert payload['chrome_binary_recorded'] == '/Applications/Chromium.app/Contents/MacOS/Chromium'
+    assert payload["runtime_root_exists"] is True
+    assert payload["runtime_profile_exists"] is True
+    assert payload["runtime_downloads_exists"] is True
+    assert payload["preferences_copied"] is True
+    assert payload["singleton_removed"] is True
+    assert payload["cache_removed"] is True
+    assert payload["log_removed"] is True
+    assert payload["persona_name_recorded"] == "Default"
+    assert payload["template_dir_recorded"].endswith("/personas/Default/chrome_user_data")
+    assert payload["chrome_binary_recorded"] == "/Applications/Chromium.app/Contents/MacOS/Chromium"
 
 
 def test_persona_cleanup_runtime_for_crawl_removes_only_runtime_copy(initialized_archive):
@@ -102,15 +102,15 @@ def test_persona_cleanup_runtime_for_crawl_removes_only_runtime_copy(initialized
             'runtime_removed': not runtime_root.exists(),
             'template_still_exists': (template_dir / 'Default' / 'Preferences').exists(),
         }))
-        """
+        """,
     )
 
     stdout, stderr, code = run_python_cwd(script, cwd=initialized_archive, timeout=60)
     assert code == 0, stderr
 
     payload = json.loads(stdout.strip().splitlines()[-1])
-    assert payload['runtime_removed'] is True
-    assert payload['template_still_exists'] is True
+    assert payload["runtime_removed"] is True
+    assert payload["template_still_exists"] is True
 
 
 def test_crawl_resolve_persona_raises_for_missing_persona_id(initialized_archive):
@@ -135,15 +135,15 @@ def test_crawl_resolve_persona_raises_for_missing_persona_id(initialized_archive
             print(json.dumps({'raised': True, 'message': str(err)}))
         else:
             raise SystemExit('resolve_persona unexpectedly succeeded')
-        """
+        """,
     )
 
     stdout, stderr, code = run_python_cwd(script, cwd=initialized_archive, timeout=60)
     assert code == 0, stderr
 
     payload = json.loads(stdout.strip().splitlines()[-1])
-    assert payload['raised'] is True
-    assert 'references missing Persona' in payload['message']
+    assert payload["raised"] is True
+    assert "references missing Persona" in payload["message"]
 
 
 def test_get_config_raises_for_missing_persona_id(initialized_archive):
@@ -169,12 +169,12 @@ def test_get_config_raises_for_missing_persona_id(initialized_archive):
             print(json.dumps({'raised': True, 'message': str(err)}))
         else:
             raise SystemExit('get_config unexpectedly succeeded')
-        """
+        """,
     )
 
     stdout, stderr, code = run_python_cwd(script, cwd=initialized_archive, timeout=60)
     assert code == 0, stderr
 
     payload = json.loads(stdout.strip().splitlines()[-1])
-    assert payload['raised'] is True
-    assert 'references missing Persona' in payload['message']
+    assert payload["raised"] is True
+    assert "references missing Persona" in payload["message"]

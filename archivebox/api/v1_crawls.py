@@ -1,7 +1,6 @@
-__package__ = 'archivebox.api'
+__package__ = "archivebox.api"
 
 from uuid import UUID
-from typing import List, Optional
 from datetime import datetime
 from django.http import HttpRequest
 from django.utils import timezone
@@ -17,11 +16,11 @@ from archivebox.crawls.models import Crawl
 
 from .auth import API_AUTH_METHODS
 
-router = Router(tags=['Crawl Models'], auth=API_AUTH_METHODS)
+router = Router(tags=["Crawl Models"], auth=API_AUTH_METHODS)
 
 
 class CrawlSchema(Schema):
-    TYPE: str = 'crawls.models.Crawl'
+    TYPE: str = "crawls.models.Crawl"
 
     id: UUID
 
@@ -35,6 +34,8 @@ class CrawlSchema(Schema):
 
     urls: str
     max_depth: int
+    max_urls: int
+    max_size: int
     tags_str: str
     config: dict
 
@@ -48,12 +49,12 @@ class CrawlSchema(Schema):
     def resolve_created_by_username(obj):
         user_model = get_user_model()
         user = user_model.objects.get(id=obj.created_by_id)
-        username = getattr(user, 'username', None)
+        username = getattr(user, "username", None)
         return username if isinstance(username, str) else str(user)
 
     @staticmethod
     def resolve_snapshots(obj, context):
-        if bool(getattr(context['request'], 'with_snapshots', False)):
+        if bool(getattr(context["request"], "with_snapshots", False)):
             return obj.snapshot_set.all().distinct()
         return Snapshot.objects.none()
 
@@ -61,17 +62,19 @@ class CrawlSchema(Schema):
 class CrawlUpdateSchema(Schema):
     status: str | None = None
     retry_at: datetime | None = None
-    tags: Optional[List[str]] = None
+    tags: list[str] | None = None
     tags_str: str | None = None
 
 
 class CrawlCreateSchema(Schema):
-    urls: List[str]
+    urls: list[str]
     max_depth: int = 0
-    tags: Optional[List[str]] = None
-    tags_str: str = ''
-    label: str = ''
-    notes: str = ''
+    max_urls: int = 0
+    max_size: int = 0
+    tags: list[str] | None = None
+    tags_str: str = ""
+    label: str = ""
+    notes: str = ""
     config: dict = {}
 
 
@@ -82,13 +85,13 @@ class CrawlDeleteResponseSchema(Schema):
     deleted_snapshots: int
 
 
-def normalize_tag_list(tags: Optional[List[str]] = None, tags_str: str = '') -> List[str]:
+def normalize_tag_list(tags: list[str] | None = None, tags_str: str = "") -> list[str]:
     if tags is not None:
         return [tag.strip() for tag in tags if tag and tag.strip()]
-    return [tag.strip() for tag in tags_str.split(',') if tag.strip()]
+    return [tag.strip() for tag in tags_str.split(",") if tag.strip()]
 
 
-@router.get("/crawls", response=List[CrawlSchema], url_name="get_crawls")
+@router.get("/crawls", response=list[CrawlSchema], url_name="get_crawls")
 def get_crawls(request: HttpRequest):
     return Crawl.objects.all().distinct()
 
@@ -97,15 +100,21 @@ def get_crawls(request: HttpRequest):
 def create_crawl(request: HttpRequest, data: CrawlCreateSchema):
     urls = [url.strip() for url in data.urls if url and url.strip()]
     if not urls:
-        raise HttpError(400, 'At least one URL is required')
+        raise HttpError(400, "At least one URL is required")
     if data.max_depth not in (0, 1, 2, 3, 4):
-        raise HttpError(400, 'max_depth must be between 0 and 4')
+        raise HttpError(400, "max_depth must be between 0 and 4")
+    if data.max_urls < 0:
+        raise HttpError(400, "max_urls must be >= 0")
+    if data.max_size < 0:
+        raise HttpError(400, "max_size must be >= 0")
 
     tags = normalize_tag_list(data.tags, data.tags_str)
     crawl = Crawl.objects.create(
-        urls='\n'.join(urls),
+        urls="\n".join(urls),
         max_depth=data.max_depth,
-        tags_str=','.join(tags),
+        max_urls=data.max_urls,
+        max_size=data.max_size,
+        tags_str=",".join(tags),
         label=data.label,
         notes=data.notes,
         config=data.config,
@@ -116,25 +125,26 @@ def create_crawl(request: HttpRequest, data: CrawlCreateSchema):
     crawl.create_snapshots_from_urls()
     return crawl
 
+
 @router.get("/crawl/{crawl_id}", response=CrawlSchema | str, url_name="get_crawl")
-def get_crawl(request: HttpRequest, crawl_id: str, as_rss: bool=False, with_snapshots: bool=False, with_archiveresults: bool=False):
+def get_crawl(request: HttpRequest, crawl_id: str, as_rss: bool = False, with_snapshots: bool = False, with_archiveresults: bool = False):
     """Get a specific Crawl by id."""
-    setattr(request, 'with_snapshots', with_snapshots)
-    setattr(request, 'with_archiveresults', with_archiveresults)
+    setattr(request, "with_snapshots", with_snapshots)
+    setattr(request, "with_archiveresults", with_archiveresults)
     crawl = Crawl.objects.get(id__icontains=crawl_id)
-    
+
     if crawl and as_rss:
         # return snapshots as XML rss feed
         urls = [
-            {'url': snapshot.url, 'title': snapshot.title, 'bookmarked_at': snapshot.bookmarked_at, 'tags': snapshot.tags_str}
+            {"url": snapshot.url, "title": snapshot.title, "bookmarked_at": snapshot.bookmarked_at, "tags": snapshot.tags_str}
             for snapshot in crawl.snapshot_set.all()
         ]
         xml = '<rss version="2.0"><channel>'
         for url in urls:
-            xml += f'<item><url>{url["url"]}</url><title>{url["title"]}</title><bookmarked_at>{url["bookmarked_at"]}</bookmarked_at><tags>{url["tags"]}</tags></item>'
-        xml += '</channel></rss>'
+            xml += f"<item><url>{url['url']}</url><title>{url['title']}</title><bookmarked_at>{url['bookmarked_at']}</bookmarked_at><tags>{url['tags']}</tags></item>"
+        xml += "</channel></rss>"
         return xml
-    
+
     return crawl
 
 
@@ -143,29 +153,29 @@ def patch_crawl(request: HttpRequest, crawl_id: str, data: CrawlUpdateSchema):
     """Update a crawl (e.g., set status=sealed to cancel queued work)."""
     crawl = Crawl.objects.get(id__icontains=crawl_id)
     payload = data.dict(exclude_unset=True)
-    update_fields = ['modified_at']
+    update_fields = ["modified_at"]
 
-    tags = payload.pop('tags', None)
-    tags_str = payload.pop('tags_str', None)
+    tags = payload.pop("tags", None)
+    tags_str = payload.pop("tags_str", None)
     if tags is not None or tags_str is not None:
-        crawl.tags_str = ','.join(normalize_tag_list(tags, tags_str or ''))
-        update_fields.append('tags_str')
+        crawl.tags_str = ",".join(normalize_tag_list(tags, tags_str or ""))
+        update_fields.append("tags_str")
 
-    if 'status' in payload:
-        if payload['status'] not in Crawl.StatusChoices.values:
-            raise HttpError(400, f'Invalid status: {payload["status"]}')
-        crawl.status = payload['status']
-        if crawl.status == Crawl.StatusChoices.SEALED and 'retry_at' not in payload:
+    if "status" in payload:
+        if payload["status"] not in Crawl.StatusChoices.values:
+            raise HttpError(400, f"Invalid status: {payload['status']}")
+        crawl.status = payload["status"]
+        if crawl.status == Crawl.StatusChoices.SEALED and "retry_at" not in payload:
             crawl.retry_at = None
-        update_fields.append('status')
+        update_fields.append("status")
 
-    if 'retry_at' in payload:
-        crawl.retry_at = payload['retry_at']
-        update_fields.append('retry_at')
+    if "retry_at" in payload:
+        crawl.retry_at = payload["retry_at"]
+        update_fields.append("retry_at")
 
     crawl.save(update_fields=update_fields)
 
-    if payload.get('status') == Crawl.StatusChoices.SEALED:
+    if payload.get("status") == Crawl.StatusChoices.SEALED:
         Snapshot.objects.filter(
             crawl=crawl,
             status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED],
@@ -184,8 +194,8 @@ def delete_crawl(request: HttpRequest, crawl_id: str):
     snapshot_count = crawl.snapshot_set.count()
     deleted_count, _ = crawl.delete()
     return {
-        'success': True,
-        'crawl_id': crawl_id_str,
-        'deleted_count': deleted_count,
-        'deleted_snapshots': snapshot_count,
+        "success": True,
+        "crawl_id": crawl_id_str,
+        "deleted_count": deleted_count,
+        "deleted_snapshots": snapshot_count,
     }

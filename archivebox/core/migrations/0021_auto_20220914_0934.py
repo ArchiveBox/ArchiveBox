@@ -4,15 +4,31 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0020_auto_20210410_1031'),
+        ("core", "0020_auto_20210410_1031"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='archiveresult',
-            name='extractor',
-            field=models.CharField(choices=[('favicon', 'favicon'), ('headers', 'headers'), ('singlefile', 'singlefile'), ('pdf', 'pdf'), ('screenshot', 'screenshot'), ('dom', 'dom'), ('wget', 'wget'), ('title', 'title'), ('readability', 'readability'), ('mercury', 'mercury'), ('git', 'git'), ('media', 'media'), ('archivedotorg', 'archivedotorg')], max_length=32),
+            model_name="archiveresult",
+            name="extractor",
+            field=models.CharField(
+                choices=[
+                    ("favicon", "favicon"),
+                    ("headers", "headers"),
+                    ("singlefile", "singlefile"),
+                    ("pdf", "pdf"),
+                    ("screenshot", "screenshot"),
+                    ("dom", "dom"),
+                    ("wget", "wget"),
+                    ("title", "title"),
+                    ("readability", "readability"),
+                    ("mercury", "mercury"),
+                    ("git", "git"),
+                    ("media", "media"),
+                    ("archivedotorg", "archivedotorg"),
+                ],
+                max_length=32,
+            ),
         ),
     ]

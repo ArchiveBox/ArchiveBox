@@ -56,7 +56,7 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 ######### Environment Variables #################################
 
-# Global built-time and runtime environment constants + default pkg manager config
+# Global build-time and runtime environment constants + default pkg manager config
 ENV TZ=UTC \
     LANGUAGE=en_US:en \
     LC_ALL=C.UTF-8 \
@@ -121,7 +121,7 @@ RUN echo "[*] Setting up $ARCHIVEBOX_USER user uid=${DEFAULT_PUID}..." \
     && groupmod -g "$DEFAULT_PGID" "$ARCHIVEBOX_USER" \
     && echo -e "\nARCHIVEBOX_USER=$ARCHIVEBOX_USER PUID=$(id -u $ARCHIVEBOX_USER) PGID=$(id -g $ARCHIVEBOX_USER)\n\n" \
     | tee -a /VERSION.txt
-    # DEFAULT_PUID and DEFAULT_PID are overriden by PUID and PGID in /bin/docker_entrypoint.sh at runtime
+    # DEFAULT_PUID and DEFAULT_PID are overridden by PUID and PGID in /bin/docker_entrypoint.sh at runtime
     # https://docs.linuxserver.io/general/understanding-puid-and-pgid
 
 # Install system apt dependencies (adding backports to access more recent apt updates)
@@ -139,7 +139,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         # nano iputils-ping dnsutils htop procps jq yq
     && rm -rf /var/lib/apt/lists/*
 
-# Install apt binary dependencies for exractors
+# Install apt binary dependencies for extractors
 # COPY --from=selenium/ffmpeg:latest /usr/local/bin/ffmpeg /usr/local/bin/ffmpeg
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
     echo "[+] APT Installing extractor dependencies for $TARGETPLATFORM..." \
@@ -373,7 +373,7 @@ RUN openssl rand -hex 16 > /etc/machine-id \
     && echo -e "\nTMP_DIR=$TMP_DIR\nLIB_DIR=$LIB_DIR\nMACHINE_ID=$(cat /etc/machine-id)\n" | tee -a /VERSION.txt
 
 # Print version for nice docker finish summary
-RUN (echo -e "\n\n[√] Finished Docker build succesfully. Saving build summary in: /VERSION.txt" \
+RUN (echo -e "\n\n[√] Finished Docker build successfully. Saving build summary in: /VERSION.txt" \
     && echo -e "PLATFORM=${TARGETPLATFORM} ARCH=$(uname -m) ($(uname -s) ${TARGETARCH} ${TARGETVARIANT})\n" \
     && echo -e "BUILD_END_TIME=$(date +"%Y-%m-%d %H:%M:%S %s")\n\n" \
     ) | tee -a /VERSION.txt

@@ -148,7 +148,7 @@ else
     echo
     echo "    If you're on macOS, make sure you have homebrew installed:     https://brew.sh/"
     echo "    If you're on Linux, only Ubuntu/Debian/BSD systems are officially supported with this script."
-    echo "    If you're on Windows, this script is not officially supported (Docker is recommeded instead)."
+    echo "    If you're on Windows, this script is not officially supported (Docker is recommended instead)."
     echo
     echo "See the README.md for Manual Setup & Troubleshooting instructions if you you're unable to run ArchiveBox after this script completes."
 fi

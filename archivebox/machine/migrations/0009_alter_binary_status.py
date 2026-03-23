@@ -4,15 +4,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('machine', '0008_add_worker_type_field'),
+        ("machine", "0008_add_worker_type_field"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='binary',
-            name='status',
-            field=models.CharField(choices=[('queued', 'Queued'), ('installed', 'Installed')], db_index=True, default='queued', max_length=16),
+            model_name="binary",
+            name="status",
+            field=models.CharField(
+                choices=[("queued", "Queued"), ("installed", "Installed")],
+                db_index=True,
+                default="queued",
+                max_length=16,
+            ),
         ),
     ]

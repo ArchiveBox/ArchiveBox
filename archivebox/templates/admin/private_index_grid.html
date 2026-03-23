@@ -106,12 +106,17 @@
         var storageKey = 'admin-filters-collapsed';
         var toggle = document.getElementById('changelist-filter-toggle');
         if (!toggle) return;
+        var toolbarToggle = document.getElementById('changelist-toolbar-filter-toggle');
 
         function applyState() {
           var collapsed = localStorage.getItem(storageKey) === 'true';
           document.body.classList.toggle('filters-collapsed', collapsed);
           toggle.textContent = collapsed ? toggle.dataset.showLabel : toggle.dataset.hideLabel;
           toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+          if (toolbarToggle) {
+            toolbarToggle.textContent = toggle.dataset.showLabel;
+            toolbarToggle.style.display = collapsed ? 'inline-block' : 'none';
+          }
         }
 
         toggle.addEventListener('click', function() {
@@ -119,6 +124,12 @@
           localStorage.setItem(storageKey, collapsed ? 'true' : 'false');
           applyState();
         });
+        if (toolbarToggle) {
+          toolbarToggle.addEventListener('click', function() {
+            localStorage.setItem(storageKey, 'false');
+            applyState();
+          });
+        }
 
         applyState();
       })();

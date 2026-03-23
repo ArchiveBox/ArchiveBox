@@ -6,15 +6,14 @@ from archivebox.uuid_compat import uuid7
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('personas', '0001_initial'),
+        ("personas", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='persona',
-            name='id',
+            model_name="persona",
+            name="id",
             field=models.UUIDField(default=uuid7, editable=False, primary_key=True, serialize=False, unique=True),
         ),
     ]

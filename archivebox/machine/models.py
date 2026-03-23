@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__package__ = 'archivebox.machine'
+__package__ = "archivebox.machine"
 
 import os
 import sys
@@ -26,6 +26,7 @@ from .detect import get_host_guid, get_os_info, get_vm_info, get_host_network, g
 _psutil: Any | None = None
 try:
     import psutil as _psutil_import
+
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
@@ -48,35 +49,36 @@ NETWORK_INTERFACE_RECHECK_INTERVAL = 1 * 60 * 60
 BINARY_RECHECK_INTERVAL = 1 * 30 * 60
 PROCESS_RECHECK_INTERVAL = 60  # Re-validate every 60 seconds
 PID_REUSE_WINDOW = timedelta(hours=24)  # Max age for considering a PID match valid
+PROCESS_TIMEOUT_GRACE = timedelta(seconds=30)  # Extra margin before force-cleaning timed-out RUNNING rows
 START_TIME_TOLERANCE = 5.0  # Seconds tolerance for start time matching
 LEGACY_MACHINE_CONFIG_KEYS = frozenset({"CHROMIUM_VERSION"})
 
 
-def _find_existing_binary_for_reference(machine: 'Machine', reference: str) -> 'Binary | None':
-    reference = str(reference or '').strip()
+def _find_existing_binary_for_reference(machine: Machine, reference: str) -> Binary | None:
+    reference = str(reference or "").strip()
     if not reference:
         return None
 
     qs = Binary.objects.filter(machine=machine)
 
-    direct_match = qs.filter(abspath=reference).order_by('-modified_at').first()
+    direct_match = qs.filter(abspath=reference).order_by("-modified_at").first()
     if direct_match:
         return direct_match
 
     ref_name = Path(reference).name
     if ref_name:
-        named_match = qs.filter(name=ref_name).order_by('-modified_at').first()
+        named_match = qs.filter(name=ref_name).order_by("-modified_at").first()
         if named_match:
             return named_match
 
-    return qs.filter(name=reference).order_by('-modified_at').first()
+    return qs.filter(name=reference).order_by("-modified_at").first()
 
 
 def _get_process_binary_env_keys(plugin_name: str, hook_path: str, env: dict[str, Any] | None) -> list[str]:
     env = env or {}
-    plugin_name = str(plugin_name or '').strip()
-    hook_path = str(hook_path or '').strip()
-    plugin_key = plugin_name.upper().replace('-', '_')
+    plugin_name = str(plugin_name or "").strip()
+    hook_path = str(hook_path or "").strip()
+    plugin_key = plugin_name.upper().replace("-", "_")
     keys: list[str] = []
     seen: set[str] = set()
 
@@ -86,40 +88,38 @@ def _get_process_binary_env_keys(plugin_name: str, hook_path: str, env: dict[str
             keys.append(key)
 
     if plugin_key:
-        add(f'{plugin_key}_BINARY')
+        add(f"{plugin_key}_BINARY")
 
     try:
         from archivebox.hooks import discover_plugin_configs
 
         plugin_schema = discover_plugin_configs().get(plugin_name, {})
-        schema_keys = [
-            key
-            for key in (plugin_schema.get('properties') or {})
-            if key.endswith('_BINARY')
-        ]
+        schema_keys = [key for key in (plugin_schema.get("properties") or {}) if key.endswith("_BINARY")]
     except Exception:
         schema_keys = []
 
-    schema_keys.sort(key=lambda key: (
-        key != f'{plugin_key}_BINARY',
-        key.endswith('_NODE_BINARY'),
-        key.endswith('_CHROME_BINARY'),
-        key,
-    ))
+    schema_keys.sort(
+        key=lambda key: (
+            key != f"{plugin_key}_BINARY",
+            key.endswith("_NODE_BINARY"),
+            key.endswith("_CHROME_BINARY"),
+            key,
+        ),
+    )
     for key in schema_keys:
         add(key)
 
-    if plugin_name.startswith('search_backend_'):
-        backend_name = plugin_name.removeprefix('search_backend_').upper().replace('-', '_')
-        configured_engine = str(env.get('SEARCH_BACKEND_ENGINE') or '').strip().upper().replace('-', '_')
+    if plugin_name.startswith("search_backend_"):
+        backend_name = plugin_name.removeprefix("search_backend_").upper().replace("-", "_")
+        configured_engine = str(env.get("SEARCH_BACKEND_ENGINE") or "").strip().upper().replace("-", "_")
         if backend_name and backend_name == configured_engine:
-            add(f'{backend_name}_BINARY')
+            add(f"{backend_name}_BINARY")
 
     hook_suffix = Path(hook_path).suffix.lower()
-    if hook_suffix == '.js':
+    if hook_suffix == ".js":
         if plugin_key:
-            add(f'{plugin_key}_NODE_BINARY')
-        add('NODE_BINARY')
+            add(f"{plugin_key}_NODE_BINARY")
+        add("NODE_BINARY")
 
     return keys
 
@@ -135,7 +135,7 @@ def _sanitize_machine_config(config: dict[str, Any] | None) -> dict[str, Any]:
 
 
 class MachineManager(models.Manager):
-    def current(self) -> 'Machine':
+    def current(self) -> Machine:
         return Machine.current()
 
 
@@ -156,19 +156,23 @@ class Machine(ModelWithHealthStats):
     os_release = models.CharField(max_length=63, default=None, null=False)
     os_kernel = models.CharField(max_length=255, default=None, null=False)
     stats = models.JSONField(default=dict, null=True, blank=True)
-    config = models.JSONField(default=dict, null=True, blank=True,
-        help_text="Machine-specific config overrides (e.g., resolved binary paths like WGET_BINARY)")
+    config = models.JSONField(
+        default=dict,
+        null=True,
+        blank=True,
+        help_text="Machine-specific config overrides (e.g., resolved binary paths like WGET_BINARY)",
+    )
     num_uses_failed = models.PositiveIntegerField(default=0)
     num_uses_succeeded = models.PositiveIntegerField(default=0)
 
     objects = MachineManager()  # pyright: ignore[reportIncompatibleVariableOverride]
-    networkinterface_set: models.Manager['NetworkInterface']
+    networkinterface_set: models.Manager[NetworkInterface]
 
     class Meta(ModelWithHealthStats.Meta):
-        app_label = 'machine'
+        app_label = "machine"
 
     @classmethod
-    def current(cls) -> 'Machine':
+    def current(cls) -> Machine:
         global _CURRENT_MACHINE
         if _CURRENT_MACHINE:
             if timezone.now() < _CURRENT_MACHINE.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL):
@@ -176,35 +180,28 @@ class Machine(ModelWithHealthStats):
             _CURRENT_MACHINE = None
         _CURRENT_MACHINE, _ = cls.objects.update_or_create(
             guid=get_host_guid(),
-            defaults={'hostname': socket.gethostname(), **get_os_info(), **get_vm_info(), 'stats': get_host_stats()},
+            defaults={"hostname": socket.gethostname(), **get_os_info(), **get_vm_info(), "stats": get_host_stats()},
         )
         return cls._sanitize_config(cls._hydrate_config_from_sibling(_CURRENT_MACHINE))
 
     @classmethod
-    def _hydrate_config_from_sibling(cls, machine: 'Machine') -> 'Machine':
+    def _hydrate_config_from_sibling(cls, machine: Machine) -> Machine:
         if machine.config:
             return machine
 
-        sibling = (
-            cls.objects
-            .exclude(pk=machine.pk)
-            .filter(hostname=machine.hostname)
-            .exclude(config={})
-            .order_by('-modified_at')
-            .first()
-        )
+        sibling = cls.objects.exclude(pk=machine.pk).filter(hostname=machine.hostname).exclude(config={}).order_by("-modified_at").first()
         if sibling and sibling.config:
             machine.config = dict(sibling.config)
-            machine.save(update_fields=['config', 'modified_at'])
+            machine.save(update_fields=["config", "modified_at"])
         return machine
 
     @classmethod
-    def _sanitize_config(cls, machine: 'Machine') -> 'Machine':
+    def _sanitize_config(cls, machine: Machine) -> Machine:
         sanitized = _sanitize_machine_config(machine.config)
         current = machine.config or {}
         if sanitized != current:
             machine.config = sanitized
-            machine.save(update_fields=['config', 'modified_at'])
+            machine.save(update_fields=["config", "modified_at"])
         return machine
 
     def to_json(self) -> dict:
@@ -212,24 +209,25 @@ class Machine(ModelWithHealthStats):
         Convert Machine model instance to a JSON-serializable dict.
         """
         from archivebox.config import VERSION
+
         return {
-            'type': 'Machine',
-            'schema_version': VERSION,
-            'id': str(self.id),
-            'guid': self.guid,
-            'hostname': self.hostname,
-            'hw_in_docker': self.hw_in_docker,
-            'hw_in_vm': self.hw_in_vm,
-            'hw_manufacturer': self.hw_manufacturer,
-            'hw_product': self.hw_product,
-            'hw_uuid': self.hw_uuid,
-            'os_arch': self.os_arch,
-            'os_family': self.os_family,
-            'os_platform': self.os_platform,
-            'os_kernel': self.os_kernel,
-            'os_release': self.os_release,
-            'stats': self.stats,
-            'config': self.config or {},
+            "type": "Machine",
+            "schema_version": VERSION,
+            "id": str(self.id),
+            "guid": self.guid,
+            "hostname": self.hostname,
+            "hw_in_docker": self.hw_in_docker,
+            "hw_in_vm": self.hw_in_vm,
+            "hw_manufacturer": self.hw_manufacturer,
+            "hw_product": self.hw_product,
+            "hw_uuid": self.hw_uuid,
+            "os_arch": self.os_arch,
+            "os_family": self.os_family,
+            "os_platform": self.os_platform,
+            "os_kernel": self.os_kernel,
+            "os_release": self.os_release,
+            "stats": self.stats,
+            "config": self.config or {},
         }
 
     @staticmethod
@@ -244,18 +242,18 @@ class Machine(ModelWithHealthStats):
         Returns:
             Machine instance or None
         """
-        config_patch = _sanitize_machine_config(record.get('config'))
+        config_patch = _sanitize_machine_config(record.get("config"))
         if config_patch:
             machine = Machine.current()
             machine.config = _sanitize_machine_config(machine.config)
             machine.config.update(config_patch)
-            machine.save(update_fields=['config'])
+            machine.save(update_fields=["config"])
             return machine
         return None
 
 
 class NetworkInterfaceManager(models.Manager):
-    def current(self) -> 'NetworkInterface':
+    def current(self) -> NetworkInterface:
         return NetworkInterface.current()
 
 
@@ -281,11 +279,11 @@ class NetworkInterface(ModelWithHealthStats):
     machine_id: uuid.UUID
 
     class Meta(ModelWithHealthStats.Meta):
-        app_label = 'machine'
-        unique_together = (('machine', 'ip_public', 'ip_local', 'mac_address', 'dns_server'),)
+        app_label = "machine"
+        unique_together = (("machine", "ip_public", "ip_local", "mac_address", "dns_server"),)
 
     @classmethod
-    def current(cls, refresh: bool = False) -> 'NetworkInterface':
+    def current(cls, refresh: bool = False) -> NetworkInterface:
         global _CURRENT_INTERFACE
         machine = Machine.current()
         if _CURRENT_INTERFACE:
@@ -298,32 +296,45 @@ class NetworkInterface(ModelWithHealthStats):
             _CURRENT_INTERFACE = None
         net_info = get_host_network()
         _CURRENT_INTERFACE, _ = cls.objects.update_or_create(
-            machine=machine, ip_public=net_info.pop('ip_public'), ip_local=net_info.pop('ip_local'),
-            mac_address=net_info.pop('mac_address'), dns_server=net_info.pop('dns_server'), defaults=net_info,
+            machine=machine,
+            ip_public=net_info.pop("ip_public"),
+            ip_local=net_info.pop("ip_local"),
+            mac_address=net_info.pop("mac_address"),
+            dns_server=net_info.pop("dns_server"),
+            defaults=net_info,
         )
         return _CURRENT_INTERFACE
 
 
-
 class BinaryManager(models.Manager):
-    def get_from_db_or_cache(self, name: str, abspath: str = '', version: str = '', sha256: str = '', binprovider: str = 'env') -> 'Binary':
+    def get_from_db_or_cache(self, name: str, abspath: str = "", version: str = "", sha256: str = "", binprovider: str = "env") -> Binary:
         """Get or create an Binary record from the database or cache."""
         cached = _CURRENT_BINARIES.get(name)
         if cached and timezone.now() < cached.modified_at + timedelta(seconds=BINARY_RECHECK_INTERVAL):
             return cached
         _CURRENT_BINARIES[name], _ = self.update_or_create(
-            machine=Machine.current(), name=name, binprovider=binprovider,
-            version=version, abspath=abspath, sha256=sha256,
+            machine=Machine.current(),
+            name=name,
+            binprovider=binprovider,
+            version=version,
+            abspath=abspath,
+            sha256=sha256,
         )
         return _CURRENT_BINARIES[name]
 
-    def get_valid_binary(self, name: str, machine: 'Machine | None' = None) -> 'Binary | None':
+    def get_valid_binary(self, name: str, machine: Machine | None = None) -> Binary | None:
         """Get a valid Binary for the given name on the current machine, or None if not found."""
         machine = machine or Machine.current()
-        return self.filter(
-            machine=machine,
-            name__iexact=name,
-        ).exclude(abspath='').exclude(abspath__isnull=True).order_by('-modified_at').first()
+        return (
+            self.filter(
+                machine=machine,
+                name__iexact=name,
+            )
+            .exclude(abspath="")
+            .exclude(abspath__isnull=True)
+            .order_by("-modified_at")
+            .first()
+        )
 
 
 class Binary(ModelWithHealthStats, ModelWithStateMachine):
@@ -342,8 +353,8 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
     """
 
     class StatusChoices(models.TextChoices):
-        QUEUED = 'queued', 'Queued'
-        INSTALLED = 'installed', 'Installed'
+        QUEUED = "queued", "Queued"
+        INSTALLED = "installed", "Installed"
 
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
@@ -351,23 +362,38 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
     machine = models.ForeignKey(Machine, on_delete=models.CASCADE, null=False)
 
     # Binary metadata
-    name = models.CharField(max_length=63, default='', null=False, blank=True, db_index=True)
-    binproviders = models.CharField(max_length=127, default='env', null=False, blank=True,
-        help_text="Comma-separated list of allowed providers: apt,brew,pip,npm,env")
-    overrides = models.JSONField(default=dict, blank=True,
-        help_text="Provider-specific overrides: {'apt': {'install_args': ['pkg']}, ...}")
+    name = models.CharField(max_length=63, default="", null=False, blank=True, db_index=True)
+    binproviders = models.CharField(
+        max_length=127,
+        default="env",
+        null=False,
+        blank=True,
+        help_text="Comma-separated list of allowed providers: apt,brew,pip,npm,env",
+    )
+    overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Provider-specific overrides: {'apt': {'install_args': ['pkg']}, ...}",
+    )
 
     # Installation results (populated after installation)
-    binprovider = models.CharField(max_length=31, default='', null=False, blank=True,
-        help_text="Provider that successfully installed this binary")
-    abspath = models.CharField(max_length=255, default='', null=False, blank=True)
-    version = models.CharField(max_length=32, default='', null=False, blank=True)
-    sha256 = models.CharField(max_length=64, default='', null=False, blank=True)
+    binprovider = models.CharField(
+        max_length=31,
+        default="",
+        null=False,
+        blank=True,
+        help_text="Provider that successfully installed this binary",
+    )
+    abspath = models.CharField(max_length=255, default="", null=False, blank=True)
+    version = models.CharField(max_length=32, default="", null=False, blank=True)
+    sha256 = models.CharField(max_length=64, default="", null=False, blank=True)
 
     # State machine fields
     status = ModelWithStateMachine.StatusField(choices=StatusChoices.choices, default=StatusChoices.QUEUED, max_length=16)
-    retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now,
-        help_text="When to retry this binary installation")
+    retry_at = ModelWithStateMachine.RetryAtField(
+        default=timezone.now,
+        help_text="When to retry this binary installation",
+    )
 
     # Health stats
     num_uses_failed = models.PositiveIntegerField(default=0)
@@ -375,19 +401,19 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
 
     machine_id: uuid.UUID
 
-    state_machine_name: str | None = 'archivebox.machine.models.BinaryMachine'
+    state_machine_name: str | None = "archivebox.machine.models.BinaryMachine"
     active_state: str = StatusChoices.QUEUED
 
     objects = BinaryManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
     class Meta(ModelWithHealthStats.Meta, ModelWithStateMachine.Meta):
-        app_label = 'machine'
-        verbose_name = 'Binary'
-        verbose_name_plural = 'Binaries'
-        unique_together = (('machine', 'name', 'abspath', 'version', 'sha256'),)
+        app_label = "machine"
+        verbose_name = "Binary"
+        verbose_name_plural = "Binaries"
+        unique_together = (("machine", "name", "abspath", "version", "sha256"),)
 
     def __str__(self) -> str:
-        return f'{self.name}@{self.binprovider}+{self.abspath}@{self.version}'
+        return f"{self.name}@{self.binprovider}+{self.abspath}@{self.version}"
 
     @property
     def is_valid(self) -> bool:
@@ -398,11 +424,11 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
     def binary_info(self) -> dict:
         """Return info about the binary."""
         return {
-            'name': self.name,
-            'abspath': self.abspath,
-            'version': self.version,
-            'binprovider': self.binprovider,
-            'is_valid': self.is_valid,
+            "name": self.name,
+            "abspath": self.abspath,
+            "version": self.version,
+            "binprovider": self.binprovider,
+            "is_valid": self.is_valid,
         }
 
     @property
@@ -412,24 +438,26 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         Path: data/machines/{machine_uuid}/binaries/{binary_name}/{binary_uuid}
         """
         from django.conf import settings
-        return Path(settings.DATA_DIR) / 'machines' / str(self.machine_id) / 'binaries' / self.name / str(self.id)
+
+        return Path(settings.DATA_DIR) / "machines" / str(self.machine_id) / "binaries" / self.name / str(self.id)
 
     def to_json(self) -> dict:
         """
         Convert Binary model instance to a JSON-serializable dict.
         """
         from archivebox.config import VERSION
+
         return {
-            'type': 'Binary',
-            'schema_version': VERSION,
-            'id': str(self.id),
-            'machine_id': str(self.machine_id),
-            'name': self.name,
-            'binprovider': self.binprovider,
-            'abspath': self.abspath,
-            'version': self.version,
-            'sha256': self.sha256,
-            'status': self.status,
+            "type": "Binary",
+            "schema_version": VERSION,
+            "id": str(self.id),
+            "machine_id": str(self.machine_id),
+            "name": self.name,
+            "binprovider": self.binprovider,
+            "abspath": self.abspath,
+            "version": self.version,
+            "sha256": self.sha256,
+            "status": self.status,
         }
 
     @staticmethod
@@ -450,36 +478,36 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         Returns:
             Binary instance or None
         """
-        name = record.get('name')
+        name = record.get("name")
         if not name:
             return None
 
         machine = Machine.current()
         overrides = overrides or {}
-        binary_overrides = record.get('overrides', {})
+        binary_overrides = record.get("overrides", {})
         normalized_overrides = binary_overrides if isinstance(binary_overrides, dict) else {}
 
         # abx-plugins currently emits a GitHub install URL for readability-extractor,
         # but the package is published on npm. Prefer the registry package to avoid
         # long git-based installs in CI while still using canonical install_args.
         if (
-            name == 'readability-extractor'
-            and isinstance(normalized_overrides.get('npm'), dict)
-            and normalized_overrides['npm'].get('install_args') == ['https://github.com/ArchiveBox/readability-extractor']
+            name == "readability-extractor"
+            and isinstance(normalized_overrides.get("npm"), dict)
+            and normalized_overrides["npm"].get("install_args") == ["https://github.com/ArchiveBox/readability-extractor"]
         ):
             normalized_overrides = {
                 **normalized_overrides,
-                'npm': {
-                    **normalized_overrides['npm'],
-                    'install_args': ['readability-extractor'],
+                "npm": {
+                    **normalized_overrides["npm"],
+                    "install_args": ["readability-extractor"],
                 },
             }
 
         # Case 1: Already installed (from on_Crawl hooks) - has abspath AND binproviders
         # This happens when on_Crawl hooks detect already-installed binaries
-        abspath = record.get('abspath')
-        version = record.get('version')
-        binproviders = record.get('binproviders')
+        abspath = record.get("abspath")
+        version = record.get("version")
+        binproviders = record.get("binproviders")
 
         if abspath and version and binproviders:
             # Binary is already installed, create INSTALLED record with binproviders filter
@@ -487,28 +515,28 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
                 machine=machine,
                 name=name,
                 defaults={
-                    'abspath': abspath,
-                    'version': version,
-                    'sha256': record.get('sha256', ''),
-                    'binprovider': record.get('binprovider', 'env'),
-                    'binproviders': binproviders,  # Preserve the filter
-                    'status': Binary.StatusChoices.INSTALLED,
-                    'retry_at': None,
-                }
+                    "abspath": abspath,
+                    "version": version,
+                    "sha256": record.get("sha256", ""),
+                    "binprovider": record.get("binprovider", "env"),
+                    "binproviders": binproviders,  # Preserve the filter
+                    "status": Binary.StatusChoices.INSTALLED,
+                    "retry_at": None,
+                },
             )
             return binary
 
         # Case 2: From binaries.json - create queued binary (needs installation)
-        if 'binproviders' in record or ('overrides' in record and not abspath):
+        if "binproviders" in record or ("overrides" in record and not abspath):
             binary, _ = Binary.objects.update_or_create(
                 machine=machine,
                 name=name,
                 defaults={
-                    'binproviders': record.get('binproviders', 'env'),
-                    'overrides': normalized_overrides,
-                    'status': Binary.StatusChoices.QUEUED,
-                    'retry_at': timezone.now(),
-                }
+                    "binproviders": record.get("binproviders", "env"),
+                    "overrides": normalized_overrides,
+                    "status": Binary.StatusChoices.QUEUED,
+                    "retry_at": timezone.now(),
+                },
             )
             return binary
 
@@ -518,13 +546,13 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
                 machine=machine,
                 name=name,
                 defaults={
-                    'abspath': abspath,
-                    'version': version,
-                    'sha256': record.get('sha256', ''),
-                    'binprovider': record.get('binprovider', 'env'),
-                    'status': Binary.StatusChoices.INSTALLED,
-                    'retry_at': None,
-                }
+                    "abspath": abspath,
+                    "version": version,
+                    "sha256": record.get("sha256", ""),
+                    "binprovider": record.get("binprovider", "env"),
+                    "status": Binary.StatusChoices.INSTALLED,
+                    "retry_at": None,
+                },
             )
             return binary
 
@@ -545,10 +573,10 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
 
     def _allowed_binproviders(self) -> set[str] | None:
         """Return the allowed binproviders for this binary, or None for wildcard."""
-        providers = str(self.binproviders or '').strip()
-        if not providers or providers == '*':
+        providers = str(self.binproviders or "").strip()
+        if not providers or providers == "*":
             return None
-        return {provider.strip() for provider in providers.split(',') if provider.strip()}
+        return {provider.strip() for provider in providers.split(",") if provider.strip()}
 
     def _get_custom_install_command(self) -> str | None:
         """Extract a custom install command from overrides when the custom provider is used."""
@@ -557,23 +585,23 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         if not isinstance(self.overrides, dict):
             return None
 
-        for key in ('custom_cmd', 'cmd', 'command'):
+        for key in ("custom_cmd", "cmd", "command"):
             value = self.overrides.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()
 
-        custom_overrides = self.overrides.get('custom')
+        custom_overrides = self.overrides.get("custom")
         if isinstance(custom_overrides, dict):
-            for key in ('custom_cmd', 'cmd', 'command'):
+            for key in ("custom_cmd", "cmd", "command"):
                 value = custom_overrides.get(key)
                 if isinstance(value, str) and value.strip():
                     return value.strip()
 
-            install_args = custom_overrides.get('install_args')
+            install_args = custom_overrides.get("install_args")
             if isinstance(install_args, str) and install_args.strip():
                 return install_args.strip()
             if isinstance(install_args, list) and install_args:
-                return ' '.join(shlex.quote(str(arg)) for arg in install_args if str(arg).strip())
+                return " ".join(shlex.quote(str(arg)) for arg in install_args if str(arg).strip())
 
         return None
 
@@ -601,16 +629,16 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         # ArchiveBox installs the puppeteer package and Chromium in separate
         # hook phases. Suppress puppeteer's bundled browser download during the
         # package install step so the dedicated chromium hook owns that work.
-        if self.name == 'puppeteer':
-            config.setdefault('PUPPETEER_SKIP_DOWNLOAD', 'true')
-            config.setdefault('PUPPETEER_SKIP_CHROMIUM_DOWNLOAD', 'true')
+        if self.name == "puppeteer":
+            config.setdefault("PUPPETEER_SKIP_DOWNLOAD", "true")
+            config.setdefault("PUPPETEER_SKIP_CHROMIUM_DOWNLOAD", "true")
 
         # Create output directory
         output_dir = self.output_dir
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Discover ALL on_Binary__install_* hooks
-        hooks = discover_hooks('Binary', config=config)
+        hooks = discover_hooks("Binary", config=config)
         if not hooks:
             # No hooks available - stay queued, will retry later
             return
@@ -628,7 +656,7 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
 
             custom_cmd = None
             overrides_json = None
-            if plugin_name == 'custom':
+            if plugin_name == "custom":
                 custom_cmd = self._get_custom_install_command()
                 if not custom_cmd:
                     continue
@@ -659,26 +687,25 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
 
             # Parse JSONL output to check for successful installation
             from archivebox.hooks import extract_records_from_process, process_hook_records
+
             records = extract_records_from_process(process)
             if records:
                 process_hook_records(records, overrides={})
-            binary_records = [
-                record for record in records
-                if record.get('type') == 'Binary' and record.get('abspath')
-            ]
+            binary_records = [record for record in records if record.get("type") == "Binary" and record.get("abspath")]
             if binary_records:
                 record = binary_records[0]
                 # Update self from successful installation
-                self.abspath = record['abspath']
-                self.version = record.get('version', '')
-                self.sha256 = record.get('sha256', '')
-                self.binprovider = record.get('binprovider', 'env')
+                self.abspath = record["abspath"]
+                self.version = record.get("version", "")
+                self.sha256 = record.get("sha256", "")
+                self.binprovider = record.get("binprovider", "env")
                 self.status = self.StatusChoices.INSTALLED
                 self.save()
 
                 # Symlink binary into LIB_BIN_DIR if configured
                 from django.conf import settings
-                lib_bin_dir = getattr(settings, 'LIB_BIN_DIR', None)
+
+                lib_bin_dir = getattr(settings, "LIB_BIN_DIR", None)
                 if lib_bin_dir:
                     self.symlink_to_lib_bin(lib_bin_dir)
 
@@ -706,12 +733,12 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         for process in running_hooks:
             killed_count = process.kill_tree(graceful_timeout=2.0)
             if killed_count > 0:
-                print(f'[yellow]🔪 Killed {killed_count} binary installation hook process(es)[/yellow]')
+                print(f"[yellow]🔪 Killed {killed_count} binary installation hook process(es)[/yellow]")
 
         # Clean up .pid files from output directory
         output_dir = self.output_dir
         if output_dir.exists():
-            for pid_file in output_dir.glob('**/*.pid'):
+            for pid_file in output_dir.glob("**/*.pid"):
                 pid_file.unlink(missing_ok=True)
 
     def symlink_to_lib_bin(self, lib_bin_dir: str | Path) -> Path | None:
@@ -783,14 +810,15 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
 # Process Model
 # =============================================================================
 
+
 class ProcessManager(models.Manager):
     """Manager for Process model."""
 
-    def current(self) -> 'Process':
+    def current(self) -> Process:
         """Get the Process record for the current OS process."""
         return Process.current()
 
-    def get_by_pid(self, pid: int, machine: 'Machine | None' = None) -> 'Process | None':
+    def get_by_pid(self, pid: int, machine: Machine | None = None) -> Process | None:
         """
         Find a Process by PID with proper validation against PID reuse.
 
@@ -825,7 +853,7 @@ class ProcessManager(models.Manager):
             pid=pid,
             status=Process.StatusChoices.RUNNING,
             started_at__gte=timezone.now() - PID_REUSE_WINDOW,
-        ).order_by('-started_at')
+        ).order_by("-started_at")
 
         for candidate in candidates:
             # Validate start time matches (within tolerance)
@@ -842,17 +870,17 @@ class ProcessManager(models.Manager):
 
         Called during migration and when creating new ArchiveResults.
         """
-        iface = kwargs.get('iface') or NetworkInterface.current()
+        iface = kwargs.get("iface") or NetworkInterface.current()
 
         # Defaults from ArchiveResult if not provided
         defaults = {
-            'machine': iface.machine,
-            'pwd': kwargs.get('pwd') or str(archiveresult.snapshot.output_dir / archiveresult.plugin),
-            'cmd': kwargs.get('cmd') or [],
-            'status': 'queued',
-            'timeout': kwargs.get('timeout', 120),
-            'env': kwargs.get('env', {}),
-            'iface': iface,
+            "machine": iface.machine,
+            "pwd": kwargs.get("pwd") or str(archiveresult.snapshot.output_dir / archiveresult.plugin),
+            "cmd": kwargs.get("cmd") or [],
+            "status": "queued",
+            "timeout": kwargs.get("timeout", 120),
+            "env": kwargs.get("env", {}),
+            "iface": iface,
         }
         defaults.update(kwargs)
 
@@ -877,17 +905,17 @@ class Process(models.Model):
     """
 
     class StatusChoices(models.TextChoices):
-        QUEUED = 'queued', 'Queued'
-        RUNNING = 'running', 'Running'
-        EXITED = 'exited', 'Exited'
+        QUEUED = "queued", "Queued"
+        RUNNING = "running", "Running"
+        EXITED = "exited", "Exited"
 
     class TypeChoices(models.TextChoices):
-        SUPERVISORD = 'supervisord', 'Supervisord'
-        ORCHESTRATOR = 'orchestrator', 'Orchestrator'
-        WORKER = 'worker', 'Worker'
-        CLI = 'cli', 'CLI'
-        HOOK = 'hook', 'Hook'
-        BINARY = 'binary', 'Binary'
+        SUPERVISORD = "supervisord", "Supervisord"
+        ORCHESTRATOR = "orchestrator", "Orchestrator"
+        WORKER = "worker", "Worker"
+        CLI = "cli", "CLI"
+        HOOK = "hook", "Hook"
+        BINARY = "binary", "Binary"
 
     # Primary fields
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
@@ -899,17 +927,18 @@ class Process(models.Model):
         Machine,
         on_delete=models.CASCADE,
         null=False,
-        related_name='process_set',
-        help_text='Machine where this process executed'
+        related_name="process_set",
+        help_text="Machine where this process executed",
     )
 
     # Parent process (optional)
     parent = models.ForeignKey(
-        'self',
+        "self",
         on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='children',
-        help_text='Parent process that spawned this process'
+        null=True,
+        blank=True,
+        related_name="children",
+        help_text="Parent process that spawned this process",
     )
 
     # Process type (cli, worker, orchestrator, binary, supervisord)
@@ -918,64 +947,111 @@ class Process(models.Model):
         choices=TypeChoices.choices,
         default=TypeChoices.CLI,
         db_index=True,
-        help_text='Type of process (cli, worker, orchestrator, binary, supervisord)'
+        help_text="Type of process (cli, worker, orchestrator, binary, supervisord)",
     )
 
     # Worker type (only for WORKER processes: crawl, snapshot, archiveresult)
     worker_type = models.CharField(
         max_length=32,
-        default='',
+        default="",
         null=False,
         blank=True,
         db_index=True,
-        help_text='Worker type name for WORKER processes (crawl, snapshot, archiveresult)'
+        help_text="Worker type name for WORKER processes (crawl, snapshot, archiveresult)",
     )
 
     # Execution metadata
-    pwd = models.CharField(max_length=512, default='', null=False, blank=True,
-        help_text='Working directory for process execution')
-    cmd = models.JSONField(default=list, null=False, blank=True,
-        help_text='Command as array of arguments')
-    env = models.JSONField(default=dict, null=False, blank=True,
-        help_text='Environment variables for process')
-    timeout = models.IntegerField(default=120, null=False,
-        help_text='Timeout in seconds')
+    pwd = models.CharField(
+        max_length=512,
+        default="",
+        null=False,
+        blank=True,
+        help_text="Working directory for process execution",
+    )
+    cmd = models.JSONField(
+        default=list,
+        null=False,
+        blank=True,
+        help_text="Command as array of arguments",
+    )
+    env = models.JSONField(
+        default=dict,
+        null=False,
+        blank=True,
+        help_text="Environment variables for process",
+    )
+    timeout = models.IntegerField(
+        default=120,
+        null=False,
+        help_text="Timeout in seconds",
+    )
 
     # Process results
-    pid = models.IntegerField(default=None, null=True, blank=True,
-        help_text='OS process ID')
-    exit_code = models.IntegerField(default=None, null=True, blank=True,
-        help_text='Process exit code (0 = success)')
-    stdout = models.TextField(default='', null=False, blank=True,
-        help_text='Standard output from process')
-    stderr = models.TextField(default='', null=False, blank=True,
-        help_text='Standard error from process')
+    pid = models.IntegerField(
+        default=None,
+        null=True,
+        blank=True,
+        help_text="OS process ID",
+    )
+    exit_code = models.IntegerField(
+        default=None,
+        null=True,
+        blank=True,
+        help_text="Process exit code (0 = success)",
+    )
+    stdout = models.TextField(
+        default="",
+        null=False,
+        blank=True,
+        help_text="Standard output from process",
+    )
+    stderr = models.TextField(
+        default="",
+        null=False,
+        blank=True,
+        help_text="Standard error from process",
+    )
 
     # Timing
-    started_at = models.DateTimeField(default=None, null=True, blank=True,
-        help_text='When process was launched')
-    ended_at = models.DateTimeField(default=None, null=True, blank=True,
-        help_text='When process completed/terminated')
+    started_at = models.DateTimeField(
+        default=None,
+        null=True,
+        blank=True,
+        help_text="When process was launched",
+    )
+    ended_at = models.DateTimeField(
+        default=None,
+        null=True,
+        blank=True,
+        help_text="When process completed/terminated",
+    )
 
     # Optional FKs
     binary = models.ForeignKey(
         Binary,
         on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='process_set',
-        help_text='Binary used by this process'
+        null=True,
+        blank=True,
+        related_name="process_set",
+        help_text="Binary used by this process",
     )
     iface = models.ForeignKey(
         NetworkInterface,
         on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='process_set',
-        help_text='Network interface used by this process'
+        null=True,
+        blank=True,
+        related_name="process_set",
+        help_text="Network interface used by this process",
     )
 
     # Optional connection URL (for CDP, sonic, etc.)
-    url = models.URLField(max_length=2048, default=None, null=True, blank=True,
-        help_text='Connection URL (CDP endpoint, sonic server, etc.)')
+    url = models.URLField(
+        max_length=2048,
+        default=None,
+        null=True,
+        blank=True,
+        help_text="Connection URL (CDP endpoint, sonic server, etc.)",
+    )
 
     # Reverse relation to ArchiveResult (OneToOne from AR side)
     # archiveresult: OneToOneField defined on ArchiveResult model
@@ -985,96 +1061,98 @@ class Process(models.Model):
         max_length=16,
         choices=StatusChoices.choices,
         default=StatusChoices.QUEUED,
-        db_index=True
+        db_index=True,
     )
     retry_at = models.DateTimeField(
         default=timezone.now,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         db_index=True,
-        help_text='When to retry this process'
+        help_text="When to retry this process",
     )
 
     machine_id: uuid.UUID
     parent_id: uuid.UUID | None
     binary_id: uuid.UUID | None
-    children: models.Manager['Process']
-    archiveresult: 'ArchiveResult'
+    children: models.Manager[Process]
+    archiveresult: ArchiveResult
 
-    state_machine_name: str = 'archivebox.machine.models.ProcessMachine'
+    state_machine_name: str = "archivebox.machine.models.ProcessMachine"
 
     objects = ProcessManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
     class Meta(TypedModelMeta):
-        app_label = 'machine'
-        verbose_name = 'Process'
-        verbose_name_plural = 'Processes'
+        app_label = "machine"
+        verbose_name = "Process"
+        verbose_name_plural = "Processes"
         indexes = [
-            models.Index(fields=['machine', 'status', 'retry_at']),
-            models.Index(fields=['binary', 'exit_code']),
+            models.Index(fields=["machine", "status", "retry_at"]),
+            models.Index(fields=["binary", "exit_code"]),
         ]
 
     def __str__(self) -> str:
-        cmd_str = ' '.join(self.cmd[:3]) if self.cmd else '(no cmd)'
-        return f'Process[{self.id}] {cmd_str} ({self.status})'
+        cmd_str = " ".join(self.cmd[:3]) if self.cmd else "(no cmd)"
+        return f"Process[{self.id}] {cmd_str} ({self.status})"
 
     # Properties that delegate to related objects
     @property
     def cmd_version(self) -> str:
         """Get version from associated binary."""
-        return self.binary.version if self.binary else ''
+        return self.binary.version if self.binary else ""
 
     @property
     def bin_abspath(self) -> str:
         """Get absolute path from associated binary."""
-        return self.binary.abspath if self.binary else ''
+        return self.binary.abspath if self.binary else ""
 
     @property
     def plugin(self) -> str:
         """Get plugin name from associated ArchiveResult (if any)."""
-        if hasattr(self, 'archiveresult'):
+        if hasattr(self, "archiveresult"):
             # Inline import to avoid circular dependency
             return self.archiveresult.plugin
-        return ''
+        return ""
 
     @property
     def hook_name(self) -> str:
         """Get hook name from associated ArchiveResult (if any)."""
-        if hasattr(self, 'archiveresult'):
+        if hasattr(self, "archiveresult"):
             return self.archiveresult.hook_name
-        return ''
+        return ""
 
     def to_json(self) -> dict:
         """
         Convert Process model instance to a JSON-serializable dict.
         """
         from archivebox.config import VERSION
+
         record = {
-            'type': 'Process',
-            'schema_version': VERSION,
-            'id': str(self.id),
-            'machine_id': str(self.machine_id),
-            'cmd': self.cmd,
-            'pwd': self.pwd,
-            'status': self.status,
-            'exit_code': self.exit_code,
-            'started_at': self.started_at.isoformat() if self.started_at else None,
-            'ended_at': self.ended_at.isoformat() if self.ended_at else None,
+            "type": "Process",
+            "schema_version": VERSION,
+            "id": str(self.id),
+            "machine_id": str(self.machine_id),
+            "cmd": self.cmd,
+            "pwd": self.pwd,
+            "status": self.status,
+            "exit_code": self.exit_code,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "ended_at": self.ended_at.isoformat() if self.ended_at else None,
         }
         # Include optional fields if set
         if self.binary_id:
-            record['binary_id'] = str(self.binary_id)
+            record["binary_id"] = str(self.binary_id)
         if self.pid:
-            record['pid'] = self.pid
+            record["pid"] = self.pid
         if self.timeout:
-            record['timeout'] = self.timeout
+            record["timeout"] = self.timeout
         return record
 
-    def hydrate_binary_from_context(self, *, plugin_name: str = '', hook_path: str = '') -> 'Binary | None':
+    def hydrate_binary_from_context(self, *, plugin_name: str = "", hook_path: str = "") -> Binary | None:
         machine = self.machine if self.machine_id else Machine.current()
 
         references: list[str] = []
         for key in _get_process_binary_env_keys(plugin_name, hook_path, self.env):
-            value = str(self.env.get(key) or '').strip()
+            value = str(self.env.get(key) or "").strip()
             if value and value not in references:
                 references.append(value)
 
@@ -1101,7 +1179,7 @@ class Process(models.Model):
             return records
         for line in text.splitlines():
             record = parse_line(line)
-            if record and record.get('type'):
+            if record and record.get("type"):
                 records.append(record)
         return records
 
@@ -1110,7 +1188,7 @@ class Process(models.Model):
         stdout = self.stdout
         if not stdout and self.stdout_file and self.stdout_file.exists():
             stdout = self.stdout_file.read_text()
-        return self.parse_records_from_text(stdout or '')
+        return self.parse_records_from_text(stdout or "")
 
     @staticmethod
     def from_json(record: dict[str, Any], overrides: dict[str, Any] | None = None):
@@ -1124,7 +1202,7 @@ class Process(models.Model):
         Returns:
             Process instance or None
         """
-        process_id = record.get('id')
+        process_id = record.get("id")
         if process_id:
             try:
                 return Process.objects.get(id=process_id)
@@ -1148,7 +1226,7 @@ class Process(models.Model):
     # =========================================================================
 
     @classmethod
-    def current(cls) -> 'Process':
+    def current(cls) -> Process:
         """
         Get or create the Process record for the current OS process.
 
@@ -1176,7 +1254,7 @@ class Process(models.Model):
             ):
                 if _CURRENT_PROCESS.iface_id != iface.id:
                     _CURRENT_PROCESS.iface = iface
-                    _CURRENT_PROCESS.save(update_fields=['iface', 'modified_at'])
+                    _CURRENT_PROCESS.save(update_fields=["iface", "modified_at"])
                 _CURRENT_PROCESS.ensure_log_files()
                 return _CURRENT_PROCESS
             _CURRENT_PROCESS = None
@@ -1193,12 +1271,16 @@ class Process(models.Model):
         # Try to find existing Process for this PID on this machine
         # Filter by: machine + PID + RUNNING + recent + start time matches
         if os_start_time:
-            existing = cls.objects.filter(
-                machine=machine,
-                pid=current_pid,
-                status=cls.StatusChoices.RUNNING,
-                started_at__gte=timezone.now() - PID_REUSE_WINDOW,
-            ).order_by('-started_at').first()
+            existing = (
+                cls.objects.filter(
+                    machine=machine,
+                    pid=current_pid,
+                    status=cls.StatusChoices.RUNNING,
+                    started_at__gte=timezone.now() - PID_REUSE_WINDOW,
+                )
+                .order_by("-started_at")
+                .first()
+            )
 
             if existing and existing.started_at:
                 db_start_time = existing.started_at.timestamp()
@@ -1206,7 +1288,7 @@ class Process(models.Model):
                     _CURRENT_PROCESS = existing
                     if existing.iface_id != iface.id:
                         existing.iface = iface
-                        existing.save(update_fields=['iface', 'modified_at'])
+                        existing.save(update_fields=["iface", "modified_at"])
                     _CURRENT_PROCESS.ensure_log_files()
                     return existing
 
@@ -1245,7 +1327,7 @@ class Process(models.Model):
         return _CURRENT_PROCESS
 
     @classmethod
-    def _find_parent_process(cls, machine: 'Machine | None' = None) -> 'Process | None':
+    def _find_parent_process(cls, machine: Machine | None = None) -> Process | None:
         """
         Find the parent Process record by looking up PPID.
 
@@ -1279,7 +1361,7 @@ class Process(models.Model):
             pid=ppid,
             status=cls.StatusChoices.RUNNING,
             started_at__gte=timezone.now() - PID_REUSE_WINDOW,
-        ).order_by('-started_at')
+        ).order_by("-started_at")
 
         # print(f"DEBUG _find_parent_process: Found {candidates.count()} candidates for ppid={ppid}", file=sys.stderr)
 
@@ -1300,26 +1382,27 @@ class Process(models.Model):
         """
         Detect the type of the current process from sys.argv.
         """
-        argv_str = ' '.join(sys.argv).lower()
+        argv_str = " ".join(sys.argv).lower()
 
-        if 'supervisord' in argv_str:
+        if "supervisord" in argv_str:
             return cls.TypeChoices.SUPERVISORD
-        elif 'runner_watch' in argv_str:
+        elif "runner_watch" in argv_str:
             return cls.TypeChoices.WORKER
-        elif 'archivebox run' in argv_str:
+        elif "archivebox run" in argv_str:
             return cls.TypeChoices.ORCHESTRATOR
-        elif 'archivebox' in argv_str:
+        elif "archivebox" in argv_str:
             return cls.TypeChoices.CLI
         else:
             return cls.TypeChoices.BINARY
 
     @classmethod
-    def cleanup_stale_running(cls, machine: 'Machine | None' = None) -> int:
+    def cleanup_stale_running(cls, machine: Machine | None = None) -> int:
         """
-        Mark stale RUNNING processes as EXITED.
+        Mark stale RUNNING processes as EXITED in the DB.
 
         Processes are stale if:
         - Status is RUNNING but OS process no longer exists
+        - Status is RUNNING but exceeded its timeout plus a small grace margin
         - Status is RUNNING but started_at is older than PID_REUSE_WINDOW
 
         Returns count of processes cleaned up.
@@ -1333,12 +1416,22 @@ class Process(models.Model):
         )
 
         for proc in stale:
+            if proc.poll() is not None:
+                cleaned += 1
+                continue
+
             is_stale = False
 
+            if proc.started_at:
+                timeout_seconds = max(int(proc.timeout or 0), 0)
+                timeout_deadline = proc.started_at + timedelta(seconds=timeout_seconds) + PROCESS_TIMEOUT_GRACE
+                if timezone.now() >= timeout_deadline:
+                    is_stale = True
+
             # Check if too old (PID definitely reused)
-            if proc.started_at and proc.started_at < timezone.now() - PID_REUSE_WINDOW:
+            if not is_stale and proc.started_at and proc.started_at < timezone.now() - PID_REUSE_WINDOW:
                 is_stale = True
-            elif PSUTIL_AVAILABLE and proc.pid is not None:
+            elif not is_stale and PSUTIL_AVAILABLE and proc.pid is not None:
                 # Check if OS process still exists with matching start time
                 try:
                     os_proc = psutil.Process(proc.pid)
@@ -1354,7 +1447,7 @@ class Process(models.Model):
                 proc.status = cls.StatusChoices.EXITED
                 proc.ended_at = proc.ended_at or timezone.now()
                 proc.exit_code = proc.exit_code if proc.exit_code is not None else 0
-                proc.save(update_fields=['status', 'ended_at', 'exit_code'])
+                proc.save(update_fields=["status", "ended_at", "exit_code"])
                 cleaned += 1
 
         return cleaned
@@ -1364,7 +1457,7 @@ class Process(models.Model):
     # =========================================================================
 
     @property
-    def root(self) -> 'Process':
+    def root(self) -> Process:
         """Get the root process (CLI command) of this hierarchy."""
         proc = self
         while proc.parent_id:
@@ -1372,7 +1465,7 @@ class Process(models.Model):
         return proc
 
     @property
-    def ancestors(self) -> list['Process']:
+    def ancestors(self) -> list[Process]:
         """Get all ancestor processes from parent to root."""
         ancestors = []
         proc = self.parent
@@ -1393,10 +1486,10 @@ class Process(models.Model):
         else:
             pks = []
 
-        children = list(self.children.values_list('pk', flat=True))
+        children = list(self.children.values_list("pk", flat=True))
         while children:
             pks.extend(children)
-            children = list(Process.objects.filter(parent_id__in=children).values_list('pk', flat=True))
+            children = list(Process.objects.filter(parent_id__in=children).values_list("pk", flat=True))
 
         return Process.objects.filter(pk__in=pks)
 
@@ -1405,7 +1498,7 @@ class Process(models.Model):
     # =========================================================================
 
     @property
-    def proc(self) -> 'psutil.Process | None':
+    def proc(self) -> psutil.Process | None:
         """
         Get validated psutil.Process for this record.
 
@@ -1452,14 +1545,10 @@ class Process(models.Model):
             try:
                 os_cmdline = os_proc.cmdline()
                 if os_cmdline and self.cmd:
-                    db_binary = self.cmd[0] if self.cmd else ''
+                    db_binary = self.cmd[0] if self.cmd else ""
                     if db_binary:
                         db_binary_name = Path(db_binary).name
-                        cmd_matches = any(
-                            arg == db_binary or Path(arg).name == db_binary_name
-                            for arg in os_cmdline
-                            if arg
-                        )
+                        cmd_matches = any(arg == db_binary or Path(arg).name == db_binary_name for arg in os_cmdline if arg)
                         if not cmd_matches:
                             return None  # Different command, PID reused
             except (psutil.AccessDenied, psutil.ZombieProcess):
@@ -1498,7 +1587,7 @@ class Process(models.Model):
         if proc:
             try:
                 mem = proc.memory_info()
-                return {'rss': mem.rss, 'vms': mem.vms}
+                return {"rss": mem.rss, "vms": mem.vms}
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
         return None
@@ -1531,25 +1620,25 @@ class Process(models.Model):
     def pid_file(self) -> Path | None:
         """Path to PID file for this process."""
         runtime_dir = self.runtime_dir
-        return runtime_dir / 'process.pid' if runtime_dir else None
+        return runtime_dir / "process.pid" if runtime_dir else None
 
     @property
     def cmd_file(self) -> Path | None:
         """Path to cmd.sh script for this process."""
         runtime_dir = self.runtime_dir
-        return runtime_dir / 'cmd.sh' if runtime_dir else None
+        return runtime_dir / "cmd.sh" if runtime_dir else None
 
     @property
     def stdout_file(self) -> Path | None:
         """Path to stdout log."""
         runtime_dir = self.runtime_dir
-        return runtime_dir / 'stdout.log' if runtime_dir else None
+        return runtime_dir / "stdout.log" if runtime_dir else None
 
     @property
     def stderr_file(self) -> Path | None:
         """Path to stderr log."""
         runtime_dir = self.runtime_dir
-        return runtime_dir / 'stderr.log' if runtime_dir else None
+        return runtime_dir / "stderr.log" if runtime_dir else None
 
     @property
     def hook_script_name(self) -> str | None:
@@ -1559,10 +1648,10 @@ class Process(models.Model):
 
         for arg in self.cmd:
             arg = str(arg)
-            if arg.startswith('-'):
+            if arg.startswith("-"):
                 continue
             candidate = Path(arg).name
-            if candidate.startswith('on_') and Path(candidate).suffix in {'.py', '.js', '.sh'}:
+            if candidate.startswith("on_") and Path(candidate).suffix in {".py", ".js", ".sh"}:
                 return candidate
 
         return None
@@ -1576,7 +1665,7 @@ class Process(models.Model):
         base_dir = Path(self.pwd)
         hook_name = self.hook_script_name
         if hook_name:
-            return base_dir / '.hooks' / hook_name
+            return base_dir / ".hooks" / hook_name
         return base_dir
 
     def tail_stdout(self, lines: int = 50, follow: bool = False):
@@ -1596,7 +1685,8 @@ class Process(models.Model):
         if follow:
             # Follow mode - yield new lines as they appear (tail -f)
             import time
-            with open(self.stdout_file, 'r') as f:
+
+            with open(self.stdout_file) as f:
                 # Seek to end minus roughly 'lines' worth of bytes
                 f.seek(0, 2)  # Seek to end
                 file_size = f.tell()
@@ -1610,13 +1700,13 @@ class Process(models.Model):
 
                 # Yield existing lines
                 for line in f:
-                    yield line.rstrip('\n')
+                    yield line.rstrip("\n")
 
                 # Now follow for new lines
                 while True:
                     line = f.readline()
                     if line:
-                        yield line.rstrip('\n')
+                        yield line.rstrip("\n")
                     else:
                         time.sleep(0.1)  # Wait before checking again
         else:
@@ -1645,7 +1735,8 @@ class Process(models.Model):
         if follow:
             # Follow mode - yield new lines as they appear (tail -f)
             import time
-            with open(self.stderr_file, 'r') as f:
+
+            with open(self.stderr_file) as f:
                 # Seek to end minus roughly 'lines' worth of bytes
                 f.seek(0, 2)  # Seek to end
                 file_size = f.tell()
@@ -1659,13 +1750,13 @@ class Process(models.Model):
 
                 # Yield existing lines
                 for line in f:
-                    yield line.rstrip('\n')
+                    yield line.rstrip("\n")
 
                 # Now follow for new lines
                 while True:
                     line = f.readline()
                     if line:
-                        yield line.rstrip('\n')
+                        yield line.rstrip("\n")
                     else:
                         time.sleep(0.1)  # Wait before checking again
         else:
@@ -1686,6 +1777,7 @@ class Process(models.Model):
             follow: If True, follow the file and print new lines as they appear
         """
         import sys
+
         for line in self.tail_stdout(lines=lines, follow=follow):
             print(line, file=sys.stdout, flush=True)
 
@@ -1698,6 +1790,7 @@ class Process(models.Model):
             follow: If True, follow the file and print new lines as they appear
         """
         import sys
+
         for line in self.tail_stderr(lines=lines, follow=follow):
             print(line, file=sys.stderr, flush=True)
 
@@ -1718,12 +1811,13 @@ class Process(models.Model):
         """Write cmd.sh script for debugging/validation."""
         if self.cmd and self.cmd_file:
             self.cmd_file.parent.mkdir(parents=True, exist_ok=True)
+
             # Escape shell arguments (quote if contains space, ", or $)
             def escape(arg: str) -> str:
-                return f'"{arg.replace(chr(34), chr(92)+chr(34))}"' if any(c in arg for c in ' "$') else arg
+                return f'"{arg.replace(chr(34), chr(92) + chr(34))}"' if any(c in arg for c in ' "$') else arg
 
             # Write executable shell script
-            script = '#!/bin/bash\n' + ' '.join(escape(arg) for arg in self.cmd) + '\n'
+            script = "#!/bin/bash\n" + " ".join(escape(arg) for arg in self.cmd) + "\n"
             self.cmd_file.write_text(script)
             try:
                 self.cmd_file.chmod(0o755)
@@ -1763,7 +1857,7 @@ class Process(models.Model):
                 elif isinstance(value, str):
                     env[key] = value  # Already a string, use as-is
                 elif isinstance(value, bool):
-                    env[key] = 'True' if value else 'False'
+                    env[key] = "True" if value else "False"
                 elif isinstance(value, (int, float)):
                     env[key] = str(value)
                 else:
@@ -1772,7 +1866,7 @@ class Process(models.Model):
 
         return env
 
-    def launch(self, background: bool = False, cwd: str | None = None) -> 'Process':
+    def launch(self, background: bool = False, cwd: str | None = None) -> Process:
         """
         Spawn the subprocess and update this Process record.
 
@@ -1802,9 +1896,9 @@ class Process(models.Model):
         if stderr_path:
             stderr_path.parent.mkdir(parents=True, exist_ok=True)
         if stdout_path is None or stderr_path is None:
-            raise RuntimeError('Process log paths could not be determined')
+            raise RuntimeError("Process log paths could not be determined")
 
-        with open(stdout_path, 'a') as out, open(stderr_path, 'a') as err:
+        with open(stdout_path, "a") as out, open(stderr_path, "a") as err:
             proc = subprocess.Popen(
                 self.cmd,
                 cwd=working_dir,
@@ -1819,7 +1913,7 @@ class Process(models.Model):
                     ps_proc = psutil.Process(proc.pid)
                     self.started_at = datetime.fromtimestamp(
                         ps_proc.create_time(),
-                        tz=timezone.get_current_timezone()
+                        tz=timezone.get_current_timezone(),
                     )
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     self.started_at = timezone.now()
@@ -1913,7 +2007,7 @@ class Process(models.Model):
         if self.status == self.StatusChoices.EXITED:
             if self.exit_code == -1:
                 self.exit_code = 137
-                self.save(update_fields=['exit_code'])
+                self.save(update_fields=["exit_code"])
             return self.exit_code
 
         if not self.is_running:
@@ -2099,7 +2193,7 @@ class Process(models.Model):
 
             # Phase 2: Poll all processes in parallel
             all_procs = children + [proc]
-            still_running = set(p.pid for p in all_procs)
+            still_running = {p.pid for p in all_procs}
 
             while still_running and time.time() < deadline:
                 time.sleep(0.1)
@@ -2162,7 +2256,7 @@ class Process(models.Model):
     # =========================================================================
 
     @classmethod
-    def get_running(cls, process_type: str | None = None, machine: 'Machine | None' = None) -> 'QuerySet[Process]':
+    def get_running(cls, process_type: str | None = None, machine: Machine | None = None) -> QuerySet[Process]:
         """
         Get all running processes, optionally filtered by type.
 
@@ -2187,7 +2281,7 @@ class Process(models.Model):
         return qs
 
     @classmethod
-    def get_running_count(cls, process_type: str | None = None, machine: 'Machine | None' = None) -> int:
+    def get_running_count(cls, process_type: str | None = None, machine: Machine | None = None) -> int:
         """
         Get count of running processes.
 
@@ -2197,7 +2291,7 @@ class Process(models.Model):
         return cls.get_running(process_type=process_type, machine=machine).count()
 
     @classmethod
-    def stop_all(cls, process_type: str | None = None, machine: 'Machine | None' = None, graceful: bool = True) -> int:
+    def stop_all(cls, process_type: str | None = None, machine: Machine | None = None, graceful: bool = True) -> int:
         """
         Stop all running processes of a given type.
 
@@ -2220,7 +2314,7 @@ class Process(models.Model):
         return stopped
 
     @classmethod
-    def get_next_worker_id(cls, process_type: str = 'worker', machine: 'Machine | None' = None) -> int:
+    def get_next_worker_id(cls, process_type: str = "worker", machine: Machine | None = None) -> int:
         """
         Get the next available worker ID for spawning new workers.
 
@@ -2255,13 +2349,13 @@ class Process(models.Model):
         from pathlib import Path
         from django.conf import settings
 
-        chrome_utils = Path(__file__).parent.parent / 'plugins' / 'chrome' / 'chrome_utils.js'
+        chrome_utils = Path(__file__).parent.parent / "plugins" / "chrome" / "chrome_utils.js"
         if not chrome_utils.exists():
             return 0
 
         try:
             result = subprocess.run(
-                ['node', str(chrome_utils), 'killZombieChrome', str(settings.DATA_DIR)],
+                ["node", str(chrome_utils), "killZombieChrome", str(settings.DATA_DIR)],
                 capture_output=True,
                 timeout=30,
                 text=True,
@@ -2269,17 +2363,17 @@ class Process(models.Model):
             if result.returncode == 0:
                 killed = int(result.stdout.strip())
                 if killed > 0:
-                    print(f'[yellow]🧹 Cleaned up {killed} orphaned Chrome processes[/yellow]')
+                    print(f"[yellow]🧹 Cleaned up {killed} orphaned Chrome processes[/yellow]")
                 return killed
         except (subprocess.TimeoutExpired, ValueError, FileNotFoundError) as e:
-            print(f'[red]Failed to cleanup orphaned Chrome: {e}[/red]')
+            print(f"[red]Failed to cleanup orphaned Chrome: {e}[/red]")
 
         return 0
 
     @classmethod
     def cleanup_orphaned_workers(cls) -> int:
         """
-        Kill orphaned worker/hook processes whose root process is no longer running.
+        Mark orphaned worker/hook processes as EXITED in the DB.
 
         Orphaned if:
         - Root (orchestrator/cli) is not running, or
@@ -2287,7 +2381,7 @@ class Process(models.Model):
 
         Standalone worker runs (archivebox run --snapshot-id) are allowed.
         """
-        killed = 0
+        cleaned = 0
 
         running_children = cls.objects.filter(
             process_type__in=[cls.TypeChoices.WORKER, cls.TypeChoices.HOOK],
@@ -2307,23 +2401,21 @@ class Process(models.Model):
             if root.process_type in (cls.TypeChoices.ORCHESTRATOR, cls.TypeChoices.CLI) and root.is_running:
                 continue
 
-            try:
-                if proc.process_type == cls.TypeChoices.HOOK:
-                    proc.kill_tree(graceful_timeout=1.0)
-                else:
-                    proc.terminate(graceful_timeout=1.0)
-                killed += 1
-            except Exception:
-                continue
+            proc.status = cls.StatusChoices.EXITED
+            proc.ended_at = proc.ended_at or timezone.now()
+            proc.exit_code = proc.exit_code if proc.exit_code is not None else 0
+            proc.save(update_fields=["status", "ended_at", "exit_code"])
+            cleaned += 1
 
-        if killed:
-            print(f'[yellow]🧹 Cleaned up {killed} orphaned worker/hook process(es)[/yellow]')
-        return killed
+        if cleaned:
+            print(f"[yellow]🧹 Cleaned up {cleaned} orphaned worker/hook process record(s)[/yellow]")
+        return cleaned
 
 
 # =============================================================================
 # Binary State Machine
 # =============================================================================
+
 
 class BinaryMachine(BaseStateMachine):
     """
@@ -2345,7 +2437,7 @@ class BinaryMachine(BaseStateMachine):
     If installation fails, Binary stays in QUEUED with retry_at bumped.
     """
 
-    model_attr_name = 'binary'
+    model_attr_name = "binary"
     binary: Binary
 
     # States
@@ -2353,10 +2445,7 @@ class BinaryMachine(BaseStateMachine):
     installed = State(value=Binary.StatusChoices.INSTALLED, final=True)
 
     # Tick Event - install happens during transition
-    tick = (
-        queued.to.itself(unless='can_install')
-        | queued.to(installed, cond='can_install', on='on_install')
-    )
+    tick = queued.to.itself(unless="can_install") | queued.to(installed, cond="can_install", on="on_install")
 
     def can_install(self) -> bool:
         """Check if binary installation can start."""
@@ -2374,7 +2463,7 @@ class BinaryMachine(BaseStateMachine):
         """Called during queued→installed transition. Runs installation synchronously."""
         import sys
 
-        print(f'[cyan]      🔄 BinaryMachine.on_install() - installing {self.binary.name}[/cyan]', file=sys.stderr)
+        print(f"[cyan]      🔄 BinaryMachine.on_install() - installing {self.binary.name}[/cyan]", file=sys.stderr)
 
         # Run installation hooks (synchronous, updates abspath/version/sha256 and sets status)
         self.binary.run()
@@ -2385,7 +2474,7 @@ class BinaryMachine(BaseStateMachine):
 
         if self.binary.status != Binary.StatusChoices.INSTALLED:
             # Installation failed - abort transition, stay in queued
-            print(f'[red]      ❌ BinaryMachine - {self.binary.name} installation failed, retrying later[/red]', file=sys.stderr)
+            print(f"[red]      ❌ BinaryMachine - {self.binary.name} installation failed, retrying later[/red]", file=sys.stderr)
 
             # Bump retry_at to try again later
             self.binary.update_and_requeue(
@@ -2397,9 +2486,9 @@ class BinaryMachine(BaseStateMachine):
             self.binary.increment_health_stats(success=False)
 
             # Abort the transition - this will raise an exception and keep us in queued
-            raise Exception(f'Binary {self.binary.name} installation failed')
+            raise Exception(f"Binary {self.binary.name} installation failed")
 
-        print(f'[cyan]      ✅ BinaryMachine - {self.binary.name} installed successfully[/cyan]', file=sys.stderr)
+        print(f"[cyan]      ✅ BinaryMachine - {self.binary.name} installed successfully[/cyan]", file=sys.stderr)
 
     @installed.enter
     def enter_installed(self):
@@ -2416,6 +2505,7 @@ class BinaryMachine(BaseStateMachine):
 # =============================================================================
 # Process State Machine
 # =============================================================================
+
 
 class ProcessMachine(BaseStateMachine):
     """
@@ -2449,7 +2539,7 @@ class ProcessMachine(BaseStateMachine):
     the archival-specific logic (status, output parsing, etc.).
     """
 
-    model_attr_name = 'process'
+    model_attr_name = "process"
     process: Process
 
     # States
@@ -2459,10 +2549,10 @@ class ProcessMachine(BaseStateMachine):
 
     # Tick Event - transitions based on conditions
     tick = (
-        queued.to.itself(unless='can_start')
-        | queued.to(running, cond='can_start')
-        | running.to.itself(unless='is_exited')
-        | running.to(exited, cond='is_exited')
+        queued.to.itself(unless="can_start")
+        | queued.to(running, cond="can_start")
+        | running.to.itself(unless="is_exited")
+        | running.to(exited, cond="is_exited")
     )
 
     # Additional events (for explicit control)

@@ -1,11 +1,13 @@
-__package__ = 'archivebox.api'
+__package__ = "archivebox.api"
 
 import math
+from collections import defaultdict
 from uuid import UUID
-from typing import List, Optional, Union, Any, Annotated
+from typing import Union, Any, Annotated
 from datetime import datetime
 
-from django.db.models import Model, Q
+from django.db.models import Model, Q, Sum
+from django.db.models.functions import Coalesce
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 from django.core.exceptions import ValidationError
@@ -39,7 +41,7 @@ from archivebox.crawls.models import Crawl
 from archivebox.api.v1_crawls import CrawlSchema
 
 
-router = Router(tags=['Core Models'])
+router = Router(tags=["Core Models"])
 
 
 class CustomPagination(PaginationBase):
@@ -49,13 +51,14 @@ class CustomPagination(PaginationBase):
         page: int = 0
 
     class Output(PaginationBase.Output):
+        count: int
         total_items: int
         total_pages: int
         page: int
         limit: int
         offset: int
         num_items: int
-        items: List[Any]
+        items: list[Any]
 
     def paginate_queryset(self, queryset, pagination: Input, request: HttpRequest, **params):
         limit = min(pagination.limit, 500)
@@ -65,27 +68,29 @@ class CustomPagination(PaginationBase):
         current_page = math.ceil(offset / (limit + 1))
         items = queryset[offset : offset + limit]
         return {
-            'total_items': total,
-            'total_pages': total_pages,
-            'page': current_page,
-            'limit': limit,
-            'offset': offset,
-            'num_items': len(items),
-            'items': items,
+            "count": total,
+            "total_items": total,
+            "total_pages": total_pages,
+            "page": current_page,
+            "limit": limit,
+            "offset": offset,
+            "num_items": len(items),
+            "items": items,
         }
 
 
 ### ArchiveResult #########################################################################
 
+
 class MinimalArchiveResultSchema(Schema):
-    TYPE: str = 'core.models.ArchiveResult'
+    TYPE: str = "core.models.ArchiveResult"
     id: UUID
     created_at: datetime | None
     modified_at: datetime | None
     created_by_id: str
     created_by_username: str
     status: str
-    retry_at: datetime | None
+    retry_at: datetime | None = None
     plugin: str
     hook_name: str
     process_id: UUID | None
@@ -93,8 +98,8 @@ class MinimalArchiveResultSchema(Schema):
     cmd: list[str] | None
     pwd: str | None
     output_str: str
-    output_json: dict | None
-    output_files: dict | None
+    output_json: dict[str, Any] | None
+    output_files: dict[str, dict[str, Any]] | None
     output_size: int
     output_mimetypes: str
     start_ts: datetime | None
@@ -108,13 +113,34 @@ class MinimalArchiveResultSchema(Schema):
     def resolve_created_by_username(obj) -> str:
         return obj.created_by.username
 
+    @staticmethod
+    def resolve_output_files(obj):
+        return obj.output_file_map()
+
+    @staticmethod
+    def resolve_output_mimetypes(obj) -> str:
+        mime_sizes: dict[str, int] = defaultdict(int)
+        for metadata in obj.output_file_map().values():
+            if not isinstance(metadata, dict):
+                continue
+            mimetype = str(metadata.get("mimetype") or "").strip()
+            try:
+                size = max(int(metadata.get("size") or 0), 0)
+            except (TypeError, ValueError):
+                size = 0
+            if mimetype and size:
+                mime_sizes[mimetype] += size
+        if mime_sizes:
+            return ",".join(mime for mime, _size in sorted(mime_sizes.items(), key=lambda item: item[1], reverse=True))
+        return obj.output_mimetypes or ""
+
 
 class ArchiveResultSchema(MinimalArchiveResultSchema):
-    TYPE: str = 'core.models.ArchiveResult'
+    TYPE: str = "core.models.ArchiveResult"
     snapshot_id: UUID
     snapshot_timestamp: str
     snapshot_url: str
-    snapshot_tags: List[str]
+    snapshot_tags: list[str]
 
     @staticmethod
     def resolve_snapshot_timestamp(obj):
@@ -134,25 +160,39 @@ class ArchiveResultSchema(MinimalArchiveResultSchema):
 
 
 class ArchiveResultFilterSchema(FilterSchema):
-    id: Annotated[Optional[str], FilterLookup(['id__startswith', 'snapshot__id__startswith', 'snapshot__timestamp__startswith'])] = None
-    search: Annotated[Optional[str], FilterLookup(['snapshot__url__icontains', 'snapshot__title__icontains', 'snapshot__tags__name__icontains', 'plugin', 'output_str__icontains', 'id__startswith', 'snapshot__id__startswith', 'snapshot__timestamp__startswith'])] = None
-    snapshot_id: Annotated[Optional[str], FilterLookup(['snapshot__id__startswith', 'snapshot__timestamp__startswith'])] = None
-    snapshot_url: Annotated[Optional[str], FilterLookup('snapshot__url__icontains')] = None
-    snapshot_tag: Annotated[Optional[str], FilterLookup('snapshot__tags__name__icontains')] = None
-    status: Annotated[Optional[str], FilterLookup('status')] = None
-    output_str: Annotated[Optional[str], FilterLookup('output_str__icontains')] = None
-    plugin: Annotated[Optional[str], FilterLookup('plugin__icontains')] = None
-    hook_name: Annotated[Optional[str], FilterLookup('hook_name__icontains')] = None
-    process_id: Annotated[Optional[str], FilterLookup('process__id__startswith')] = None
-    cmd: Annotated[Optional[str], FilterLookup('cmd__0__icontains')] = None
-    pwd: Annotated[Optional[str], FilterLookup('pwd__icontains')] = None
-    cmd_version: Annotated[Optional[str], FilterLookup('cmd_version')] = None
-    created_at: Annotated[Optional[datetime], FilterLookup('created_at')] = None
-    created_at__gte: Annotated[Optional[datetime], FilterLookup('created_at__gte')] = None
-    created_at__lt: Annotated[Optional[datetime], FilterLookup('created_at__lt')] = None
+    id: Annotated[str | None, FilterLookup(["id__startswith", "snapshot__id__startswith", "snapshot__timestamp__startswith"])] = None
+    search: Annotated[
+        str | None,
+        FilterLookup(
+            [
+                "snapshot__url__icontains",
+                "snapshot__title__icontains",
+                "snapshot__tags__name__icontains",
+                "plugin",
+                "output_str__icontains",
+                "id__startswith",
+                "snapshot__id__startswith",
+                "snapshot__timestamp__startswith",
+            ],
+        ),
+    ] = None
+    snapshot_id: Annotated[str | None, FilterLookup(["snapshot__id__startswith", "snapshot__timestamp__startswith"])] = None
+    snapshot_url: Annotated[str | None, FilterLookup("snapshot__url__icontains")] = None
+    snapshot_tag: Annotated[str | None, FilterLookup("snapshot__tags__name__icontains")] = None
+    status: Annotated[str | None, FilterLookup("status")] = None
+    output_str: Annotated[str | None, FilterLookup("output_str__icontains")] = None
+    plugin: Annotated[str | None, FilterLookup("plugin__icontains")] = None
+    hook_name: Annotated[str | None, FilterLookup("hook_name__icontains")] = None
+    process_id: Annotated[str | None, FilterLookup("process__id__startswith")] = None
+    cmd: Annotated[str | None, FilterLookup("cmd__0__icontains")] = None
+    pwd: Annotated[str | None, FilterLookup("pwd__icontains")] = None
+    cmd_version: Annotated[str | None, FilterLookup("cmd_version")] = None
+    created_at: Annotated[datetime | None, FilterLookup("created_at")] = None
+    created_at__gte: Annotated[datetime | None, FilterLookup("created_at__gte")] = None
+    created_at__lt: Annotated[datetime | None, FilterLookup("created_at__lt")] = None
 
 
-@router.get("/archiveresults", response=List[ArchiveResultSchema], url_name="get_archiveresult")
+@router.get("/archiveresults", response=list[ArchiveResultSchema], url_name="get_archiveresult")
 @paginate(CustomPagination)
 def get_archiveresults(request: HttpRequest, filters: Query[ArchiveResultFilterSchema]):
     """List all ArchiveResult entries matching these filters."""
@@ -167,8 +207,9 @@ def get_archiveresult(request: HttpRequest, archiveresult_id: str):
 
 ### Snapshot #########################################################################
 
+
 class SnapshotSchema(Schema):
-    TYPE: str = 'core.models.Snapshot'
+    TYPE: str = "core.models.Snapshot"
     id: UUID
     created_by_id: str
     created_by_username: str
@@ -177,14 +218,16 @@ class SnapshotSchema(Schema):
     status: str
     retry_at: datetime | None
     bookmarked_at: datetime
-    downloaded_at: Optional[datetime]
+    downloaded_at: datetime | None
     url: str
-    tags: List[str]
-    title: Optional[str]
+    tags: list[str]
+    title: str | None
     timestamp: str
     archive_path: str
+    archive_size: int
+    output_size: int
     num_archiveresults: int
-    archiveresults: List[MinimalArchiveResultSchema]
+    archiveresults: list[MinimalArchiveResultSchema]
 
     @staticmethod
     def resolve_created_by_id(obj):
@@ -199,12 +242,20 @@ class SnapshotSchema(Schema):
         return sorted(tag.name for tag in obj.tags.all())
 
     @staticmethod
+    def resolve_archive_size(obj):
+        return int(getattr(obj, "output_size_sum", obj.archive_size) or 0)
+
+    @staticmethod
+    def resolve_output_size(obj):
+        return SnapshotSchema.resolve_archive_size(obj)
+
+    @staticmethod
     def resolve_num_archiveresults(obj, context):
         return obj.archiveresult_set.all().distinct().count()
 
     @staticmethod
     def resolve_archiveresults(obj, context):
-        if bool(getattr(context['request'], 'with_archiveresults', False)):
+        if bool(getattr(context["request"], "with_archiveresults", False)):
             return obj.archiveresult_set.all().distinct()
         return ArchiveResult.objects.none()
 
@@ -212,16 +263,16 @@ class SnapshotSchema(Schema):
 class SnapshotUpdateSchema(Schema):
     status: str | None = None
     retry_at: datetime | None = None
-    tags: Optional[List[str]] = None
+    tags: list[str] | None = None
 
 
 class SnapshotCreateSchema(Schema):
     url: str
-    crawl_id: Optional[str] = None
+    crawl_id: str | None = None
     depth: int = 0
-    title: Optional[str] = None
-    tags: Optional[List[str]] = None
-    status: Optional[str] = None
+    title: str | None = None
+    tags: list[str] | None = None
+    status: str | None = None
 
 
 class SnapshotDeleteResponseSchema(Schema):
@@ -231,77 +282,82 @@ class SnapshotDeleteResponseSchema(Schema):
     deleted_count: int
 
 
-def normalize_tag_list(tags: Optional[List[str]] = None) -> List[str]:
+def normalize_tag_list(tags: list[str] | None = None) -> list[str]:
     return [tag.strip() for tag in (tags or []) if tag and tag.strip()]
 
 
 class SnapshotFilterSchema(FilterSchema):
-    id: Annotated[Optional[str], FilterLookup(['id__icontains', 'timestamp__startswith'])] = None
-    created_by_id: Annotated[Optional[str], FilterLookup('crawl__created_by_id')] = None
-    created_by_username: Annotated[Optional[str], FilterLookup('crawl__created_by__username__icontains')] = None
-    created_at__gte: Annotated[Optional[datetime], FilterLookup('created_at__gte')] = None
-    created_at__lt: Annotated[Optional[datetime], FilterLookup('created_at__lt')] = None
-    created_at: Annotated[Optional[datetime], FilterLookup('created_at')] = None
-    modified_at: Annotated[Optional[datetime], FilterLookup('modified_at')] = None
-    modified_at__gte: Annotated[Optional[datetime], FilterLookup('modified_at__gte')] = None
-    modified_at__lt: Annotated[Optional[datetime], FilterLookup('modified_at__lt')] = None
-    search: Annotated[Optional[str], FilterLookup(['url__icontains', 'title__icontains', 'tags__name__icontains', 'id__icontains', 'timestamp__startswith'])] = None
-    url: Annotated[Optional[str], FilterLookup('url')] = None
-    tag: Annotated[Optional[str], FilterLookup('tags__name')] = None
-    title: Annotated[Optional[str], FilterLookup('title__icontains')] = None
-    timestamp: Annotated[Optional[str], FilterLookup('timestamp__startswith')] = None
-    bookmarked_at__gte: Annotated[Optional[datetime], FilterLookup('bookmarked_at__gte')] = None
-    bookmarked_at__lt: Annotated[Optional[datetime], FilterLookup('bookmarked_at__lt')] = None
+    id: Annotated[str | None, FilterLookup(["id__icontains", "timestamp__startswith"])] = None
+    created_by_id: Annotated[str | None, FilterLookup("crawl__created_by_id")] = None
+    created_by_username: Annotated[str | None, FilterLookup("crawl__created_by__username__icontains")] = None
+    created_at__gte: Annotated[datetime | None, FilterLookup("created_at__gte")] = None
+    created_at__lt: Annotated[datetime | None, FilterLookup("created_at__lt")] = None
+    created_at: Annotated[datetime | None, FilterLookup("created_at")] = None
+    modified_at: Annotated[datetime | None, FilterLookup("modified_at")] = None
+    modified_at__gte: Annotated[datetime | None, FilterLookup("modified_at__gte")] = None
+    modified_at__lt: Annotated[datetime | None, FilterLookup("modified_at__lt")] = None
+    search: Annotated[
+        str | None,
+        FilterLookup(["url__icontains", "title__icontains", "tags__name__icontains", "id__icontains", "timestamp__startswith"]),
+    ] = None
+    url: Annotated[str | None, FilterLookup("url")] = None
+    tag: Annotated[str | None, FilterLookup("tags__name")] = None
+    title: Annotated[str | None, FilterLookup("title__icontains")] = None
+    timestamp: Annotated[str | None, FilterLookup("timestamp__startswith")] = None
+    bookmarked_at__gte: Annotated[datetime | None, FilterLookup("bookmarked_at__gte")] = None
+    bookmarked_at__lt: Annotated[datetime | None, FilterLookup("bookmarked_at__lt")] = None
 
 
-@router.get("/snapshots", response=List[SnapshotSchema], url_name="get_snapshots")
+@router.get("/snapshots", response=list[SnapshotSchema], url_name="get_snapshots")
 @paginate(CustomPagination)
 def get_snapshots(request: HttpRequest, filters: Query[SnapshotFilterSchema], with_archiveresults: bool = False):
     """List all Snapshot entries matching these filters."""
-    setattr(request, 'with_archiveresults', with_archiveresults)
-    return filters.filter(Snapshot.objects.all()).distinct()
+    setattr(request, "with_archiveresults", with_archiveresults)
+    queryset = Snapshot.objects.annotate(output_size_sum=Coalesce(Sum("archiveresult__output_size"), 0))
+    return filters.filter(queryset).distinct()
 
 
 @router.get("/snapshot/{snapshot_id}", response=SnapshotSchema, url_name="get_snapshot")
 def get_snapshot(request: HttpRequest, snapshot_id: str, with_archiveresults: bool = True):
     """Get a specific Snapshot by id."""
-    setattr(request, 'with_archiveresults', with_archiveresults)
+    setattr(request, "with_archiveresults", with_archiveresults)
+    queryset = Snapshot.objects.annotate(output_size_sum=Coalesce(Sum("archiveresult__output_size"), 0))
     try:
-        return Snapshot.objects.get(Q(id__startswith=snapshot_id) | Q(timestamp__startswith=snapshot_id))
+        return queryset.get(Q(id__startswith=snapshot_id) | Q(timestamp__startswith=snapshot_id))
     except Snapshot.DoesNotExist:
-        return Snapshot.objects.get(Q(id__icontains=snapshot_id))
+        return queryset.get(Q(id__icontains=snapshot_id))
 
 
 @router.post("/snapshots", response=SnapshotSchema, url_name="create_snapshot")
 def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
     tags = normalize_tag_list(data.tags)
     if data.status is not None and data.status not in Snapshot.StatusChoices.values:
-        raise HttpError(400, f'Invalid status: {data.status}')
+        raise HttpError(400, f"Invalid status: {data.status}")
     if not data.url.strip():
-        raise HttpError(400, 'URL is required')
+        raise HttpError(400, "URL is required")
     if data.depth not in (0, 1, 2, 3, 4):
-        raise HttpError(400, 'depth must be between 0 and 4')
+        raise HttpError(400, "depth must be between 0 and 4")
 
     if data.crawl_id:
         crawl = Crawl.objects.get(id__icontains=data.crawl_id)
-        crawl_tags = normalize_tag_list(crawl.tags_str.split(','))
+        crawl_tags = normalize_tag_list(crawl.tags_str.split(","))
         tags = tags or crawl_tags
     else:
         crawl = Crawl.objects.create(
             urls=data.url,
             max_depth=max(data.depth, 0),
-            tags_str=','.join(tags),
+            tags_str=",".join(tags),
             status=Crawl.StatusChoices.QUEUED,
             retry_at=timezone.now(),
             created_by=request.user if isinstance(request.user, User) else None,
         )
 
     snapshot_defaults = {
-        'depth': data.depth,
-        'title': data.title,
-        'timestamp': str(timezone.now().timestamp()),
-        'status': data.status or Snapshot.StatusChoices.QUEUED,
-        'retry_at': timezone.now(),
+        "depth": data.depth,
+        "title": data.title,
+        "timestamp": str(timezone.now().timestamp()),
+        "status": data.status or Snapshot.StatusChoices.QUEUED,
+        "retry_at": timezone.now(),
     }
     snapshot, _ = Snapshot.objects.get_or_create(
         url=data.url,
@@ -309,17 +365,17 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
         defaults=snapshot_defaults,
     )
 
-    update_fields: List[str] = []
+    update_fields: list[str] = []
     if data.title is not None and snapshot.title != data.title:
         snapshot.title = data.title
-        update_fields.append('title')
+        update_fields.append("title")
     if data.status is not None and snapshot.status != data.status:
         if data.status not in Snapshot.StatusChoices.values:
-            raise HttpError(400, f'Invalid status: {data.status}')
+            raise HttpError(400, f"Invalid status: {data.status}")
         snapshot.status = data.status
-        update_fields.append('status')
+        update_fields.append("status")
     if update_fields:
-        update_fields.append('modified_at')
+        update_fields.append("modified_at")
         snapshot.save(update_fields=update_fields)
 
     if tags:
@@ -330,7 +386,7 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
     except Exception:
         pass
 
-    setattr(request, 'with_archiveresults', False)
+    setattr(request, "with_archiveresults", False)
     return snapshot
 
 
@@ -343,26 +399,26 @@ def patch_snapshot(request: HttpRequest, snapshot_id: str, data: SnapshotUpdateS
         snapshot = Snapshot.objects.get(Q(id__icontains=snapshot_id))
 
     payload = data.dict(exclude_unset=True)
-    update_fields = ['modified_at']
-    tags = payload.pop('tags', None)
+    update_fields = ["modified_at"]
+    tags = payload.pop("tags", None)
 
-    if 'status' in payload:
-        if payload['status'] not in Snapshot.StatusChoices.values:
-            raise HttpError(400, f'Invalid status: {payload["status"]}')
-        snapshot.status = payload['status']
-        if snapshot.status == Snapshot.StatusChoices.SEALED and 'retry_at' not in payload:
+    if "status" in payload:
+        if payload["status"] not in Snapshot.StatusChoices.values:
+            raise HttpError(400, f"Invalid status: {payload['status']}")
+        snapshot.status = payload["status"]
+        if snapshot.status == Snapshot.StatusChoices.SEALED and "retry_at" not in payload:
             snapshot.retry_at = None
-        update_fields.append('status')
+        update_fields.append("status")
 
-    if 'retry_at' in payload:
-        snapshot.retry_at = payload['retry_at']
-        update_fields.append('retry_at')
+    if "retry_at" in payload:
+        snapshot.retry_at = payload["retry_at"]
+        update_fields.append("retry_at")
 
     if tags is not None:
         snapshot.save_tags(normalize_tag_list(tags))
 
     snapshot.save(update_fields=update_fields)
-    setattr(request, 'with_archiveresults', False)
+    setattr(request, "with_archiveresults", False)
     return snapshot
 
 
@@ -373,17 +429,18 @@ def delete_snapshot(request: HttpRequest, snapshot_id: str):
     crawl_id_str = str(snapshot.crawl.pk)
     deleted_count, _ = snapshot.delete()
     return {
-        'success': True,
-        'snapshot_id': snapshot_id_str,
-        'crawl_id': crawl_id_str,
-        'deleted_count': deleted_count,
+        "success": True,
+        "snapshot_id": snapshot_id_str,
+        "crawl_id": crawl_id_str,
+        "deleted_count": deleted_count,
     }
 
 
 ### Tag #########################################################################
 
+
 class TagSchema(Schema):
-    TYPE: str = 'core.models.Tag'
+    TYPE: str = "core.models.Tag"
     id: int
     modified_at: datetime
     created_at: datetime
@@ -392,7 +449,7 @@ class TagSchema(Schema):
     name: str
     slug: str
     num_snapshots: int
-    snapshots: List[SnapshotSchema]
+    snapshots: list[SnapshotSchema]
 
     @staticmethod
     def resolve_created_by_id(obj):
@@ -402,7 +459,7 @@ class TagSchema(Schema):
     def resolve_created_by_username(obj):
         user_model = get_user_model()
         user = user_model.objects.get(id=obj.created_by_id)
-        username = getattr(user, 'username', None)
+        username = getattr(user, "username", None)
         return username if isinstance(username, str) else str(user)
 
     @staticmethod
@@ -411,58 +468,67 @@ class TagSchema(Schema):
 
     @staticmethod
     def resolve_snapshots(obj, context):
-        if bool(getattr(context['request'], 'with_snapshots', False)):
+        if bool(getattr(context["request"], "with_snapshots", False)):
             return obj.snapshot_set.all().distinct()
         return Snapshot.objects.none()
 
 
-@router.get("/tags", response=List[TagSchema], url_name="get_tags")
+@router.get("/tags", response=list[TagSchema], url_name="get_tags")
 @paginate(CustomPagination)
 def get_tags(request: HttpRequest):
-    setattr(request, 'with_snapshots', False)
-    setattr(request, 'with_archiveresults', False)
+    setattr(request, "with_snapshots", False)
+    setattr(request, "with_archiveresults", False)
     return get_matching_tags()
 
 
 @router.get("/tag/{tag_id}", response=TagSchema, url_name="get_tag")
 def get_tag(request: HttpRequest, tag_id: str, with_snapshots: bool = True):
-    setattr(request, 'with_snapshots', with_snapshots)
-    setattr(request, 'with_archiveresults', False)
+    setattr(request, "with_snapshots", with_snapshots)
+    setattr(request, "with_archiveresults", False)
     try:
         return get_tag_by_ref(tag_id)
     except (Tag.DoesNotExist, ValidationError):
-        raise HttpError(404, 'Tag not found')
+        raise HttpError(404, "Tag not found")
 
 
-@router.get("/any/{id}", response=Union[SnapshotSchema, ArchiveResultSchema, TagSchema, CrawlSchema], url_name="get_any", summary="Get any object by its ID")
+@router.get(
+    "/any/{id}",
+    response=Union[SnapshotSchema, ArchiveResultSchema, TagSchema, CrawlSchema],
+    url_name="get_any",
+    summary="Get any object by its ID",
+)
 def get_any(request: HttpRequest, id: str):
     """Get any object by its ID (e.g. snapshot, archiveresult, tag, crawl, etc.)."""
-    setattr(request, 'with_snapshots', False)
-    setattr(request, 'with_archiveresults', False)
+    setattr(request, "with_snapshots", False)
+    setattr(request, "with_archiveresults", False)
 
     for getter in [get_snapshot, get_archiveresult, get_tag]:
         try:
             response = getter(request, id)
             if isinstance(response, Model):
-                return redirect(f"/api/v1/{response._meta.app_label}/{response._meta.model_name}/{response.pk}?{request.META['QUERY_STRING']}")
+                return redirect(
+                    f"/api/v1/{response._meta.app_label}/{response._meta.model_name}/{response.pk}?{request.META['QUERY_STRING']}",
+                )
         except Exception:
             pass
 
     try:
         from archivebox.api.v1_crawls import get_crawl
+
         response = get_crawl(request, id)
         if isinstance(response, Model):
             return redirect(f"/api/v1/{response._meta.app_label}/{response._meta.model_name}/{response.pk}?{request.META['QUERY_STRING']}")
     except Exception:
         pass
 
-    raise HttpError(404, 'Object with given ID not found')
+    raise HttpError(404, "Object with given ID not found")
 
 
 ### Tag Editor API Endpoints #########################################################################
 
+
 class TagAutocompleteSchema(Schema):
-    tags: List[dict]
+    tags: list[dict]
 
 
 class TagCreateSchema(Schema):
@@ -483,7 +549,7 @@ class TagSearchSnapshotSchema(Schema):
     favicon_url: str
     admin_url: str
     archive_url: str
-    downloaded_at: Optional[str] = None
+    downloaded_at: str | None = None
 
 
 class TagSearchCardSchema(Schema):
@@ -497,11 +563,11 @@ class TagSearchCardSchema(Schema):
     export_jsonl_url: str
     rename_url: str
     delete_url: str
-    snapshots: List[TagSearchSnapshotSchema]
+    snapshots: list[TagSearchSnapshotSchema]
 
 
 class TagSearchResponseSchema(Schema):
-    tags: List[TagSearchCardSchema]
+    tags: list[TagSearchCardSchema]
     sort: str
     created_by: str
     year: str
@@ -527,8 +593,8 @@ class TagDeleteResponseSchema(Schema):
 
 class TagSnapshotRequestSchema(Schema):
     snapshot_id: str
-    tag_name: Optional[str] = None
-    tag_id: Optional[int] = None
+    tag_name: str | None = None
+    tag_id: int | None = None
 
 
 class TagSnapshotResponseSchema(Schema):
@@ -541,10 +607,10 @@ class TagSnapshotResponseSchema(Schema):
 def search_tags(
     request: HttpRequest,
     q: str = "",
-    sort: str = 'created_desc',
-    created_by: str = '',
-    year: str = '',
-    has_snapshots: str = 'all',
+    sort: str = "created_desc",
+    created_by: str = "",
+    year: str = "",
+    has_snapshots: str = "all",
 ):
     """Return detailed tag cards for admin/live-search UIs."""
     normalized_sort = normalize_tag_sort(sort)
@@ -552,7 +618,7 @@ def search_tags(
     normalized_year = normalize_created_year_filter(year)
     normalized_has_snapshots = normalize_has_snapshots_filter(has_snapshots)
     return {
-        'tags': build_tag_cards(
+        "tags": build_tag_cards(
             query=q,
             request=request,
             sort=normalized_sort,
@@ -560,28 +626,28 @@ def search_tags(
             year=normalized_year,
             has_snapshots=normalized_has_snapshots,
         ),
-        'sort': normalized_sort,
-        'created_by': normalized_created_by,
-        'year': normalized_year,
-        'has_snapshots': normalized_has_snapshots,
+        "sort": normalized_sort,
+        "created_by": normalized_created_by,
+        "year": normalized_year,
+        "has_snapshots": normalized_has_snapshots,
     }
 
 
 def _public_tag_listing_enabled() -> bool:
-    explicit = getattr(settings, 'PUBLIC_SNAPSHOTS_LIST', None)
+    explicit = getattr(settings, "PUBLIC_SNAPSHOTS_LIST", None)
     if explicit is not None:
         return bool(explicit)
-    return bool(getattr(settings, 'PUBLIC_INDEX', SERVER_CONFIG.PUBLIC_INDEX))
+    return bool(getattr(settings, "PUBLIC_INDEX", SERVER_CONFIG.PUBLIC_INDEX))
 
 
 def _request_has_tag_autocomplete_access(request: HttpRequest) -> bool:
-    user = getattr(request, 'user', None)
-    if getattr(user, 'is_authenticated', False):
+    user = getattr(request, "user", None)
+    if getattr(user, "is_authenticated", False):
         return True
 
-    token = request.GET.get('api_key') or request.headers.get('X-ArchiveBox-API-Key')
-    auth_header = request.headers.get('Authorization', '')
-    if not token and auth_header.lower().startswith('bearer '):
+    token = request.GET.get("api_key") or request.headers.get("X-ArchiveBox-API-Key")
+    auth_header = request.headers.get("Authorization", "")
+    if not token and auth_header.lower().startswith("bearer "):
         token = auth_header.split(None, 1)[1].strip()
 
     if token and auth_using_token(token=token, request=request):
@@ -594,12 +660,12 @@ def _request_has_tag_autocomplete_access(request: HttpRequest) -> bool:
 def tags_autocomplete(request: HttpRequest, q: str = ""):
     """Return tags matching the query for autocomplete."""
     if not _request_has_tag_autocomplete_access(request):
-        raise HttpError(401, 'Authentication required')
+        raise HttpError(401, "Authentication required")
 
-    tags = get_matching_tags(q)[:50 if not q else 20]
+    tags = get_matching_tags(q)[: 50 if not q else 20]
 
     return {
-        'tags': [{'id': tag.pk, 'name': tag.name, 'slug': tag.slug, 'num_snapshots': getattr(tag, 'num_snapshots', 0)} for tag in tags]
+        "tags": [{"id": tag.pk, "name": tag.name, "slug": tag.slug, "num_snapshots": getattr(tag, "num_snapshots", 0)} for tag in tags],
     }
 
 
@@ -615,10 +681,10 @@ def tags_create(request: HttpRequest, data: TagCreateSchema):
         raise HttpError(400, str(err)) from err
 
     return {
-        'success': True,
-        'tag_id': tag.pk,
-        'tag_name': tag.name,
-        'created': created,
+        "success": True,
+        "tag_id": tag.pk,
+        "tag_name": tag.name,
+        "created": created,
     }
 
 
@@ -627,15 +693,15 @@ def rename_tag(request: HttpRequest, tag_id: int, data: TagUpdateSchema):
     try:
         tag = rename_tag_record(get_tag_by_ref(tag_id), data.name)
     except Tag.DoesNotExist as err:
-        raise HttpError(404, 'Tag not found') from err
+        raise HttpError(404, "Tag not found") from err
     except ValueError as err:
         raise HttpError(400, str(err)) from err
 
     return {
-        'success': True,
-        'tag_id': tag.pk,
-        'tag_name': tag.name,
-        'slug': tag.slug,
+        "success": True,
+        "tag_id": tag.pk,
+        "tag_name": tag.name,
+        "slug": tag.slug,
     }
 
 
@@ -644,13 +710,13 @@ def delete_tag(request: HttpRequest, tag_id: int):
     try:
         tag = get_tag_by_ref(tag_id)
     except Tag.DoesNotExist as err:
-        raise HttpError(404, 'Tag not found') from err
+        raise HttpError(404, "Tag not found") from err
 
     deleted_count, _ = delete_tag_record(tag)
     return {
-        'success': True,
-        'tag_id': int(tag_id),
-        'deleted_count': deleted_count,
+        "success": True,
+        "tag_id": int(tag_id),
+        "deleted_count": deleted_count,
     }
 
 
@@ -659,10 +725,10 @@ def tag_urls_export(request: HttpRequest, tag_id: int):
     try:
         tag = get_tag_by_ref(tag_id)
     except Tag.DoesNotExist as err:
-        raise HttpError(404, 'Tag not found') from err
+        raise HttpError(404, "Tag not found") from err
 
-    response = HttpResponse(export_tag_urls(tag), content_type='text/plain; charset=utf-8')
-    response['Content-Disposition'] = f'attachment; filename="tag-{tag.slug}-urls.txt"'
+    response = HttpResponse(export_tag_urls(tag), content_type="text/plain; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="tag-{tag.slug}-urls.txt"'
     return response
 
 
@@ -671,10 +737,10 @@ def tag_snapshots_export(request: HttpRequest, tag_id: int):
     try:
         tag = get_tag_by_ref(tag_id)
     except Tag.DoesNotExist as err:
-        raise HttpError(404, 'Tag not found') from err
+        raise HttpError(404, "Tag not found") from err
 
-    response = HttpResponse(export_tag_snapshots_jsonl(tag), content_type='application/x-ndjson; charset=utf-8')
-    response['Content-Disposition'] = f'attachment; filename="tag-{tag.slug}-snapshots.jsonl"'
+    response = HttpResponse(export_tag_snapshots_jsonl(tag), content_type="application/x-ndjson; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="tag-{tag.slug}-snapshots.jsonl"'
     return response
 
 
@@ -684,16 +750,16 @@ def tags_add_to_snapshot(request: HttpRequest, data: TagSnapshotRequestSchema):
     # Get the snapshot
     try:
         snapshot = Snapshot.objects.get(
-            Q(id__startswith=data.snapshot_id) | Q(timestamp__startswith=data.snapshot_id)
+            Q(id__startswith=data.snapshot_id) | Q(timestamp__startswith=data.snapshot_id),
         )
     except Snapshot.DoesNotExist:
-        raise HttpError(404, 'Snapshot not found')
+        raise HttpError(404, "Snapshot not found")
     except Snapshot.MultipleObjectsReturned:
         snapshot = Snapshot.objects.filter(
-            Q(id__startswith=data.snapshot_id) | Q(timestamp__startswith=data.snapshot_id)
+            Q(id__startswith=data.snapshot_id) | Q(timestamp__startswith=data.snapshot_id),
         ).first()
         if snapshot is None:
-            raise HttpError(404, 'Snapshot not found')
+            raise HttpError(404, "Snapshot not found")
 
     # Get or create the tag
     if data.tag_name:
@@ -708,17 +774,17 @@ def tags_add_to_snapshot(request: HttpRequest, data: TagSnapshotRequestSchema):
         try:
             tag = get_tag_by_ref(data.tag_id)
         except Tag.DoesNotExist:
-            raise HttpError(404, 'Tag not found')
+            raise HttpError(404, "Tag not found")
     else:
-        raise HttpError(400, 'Either tag_name or tag_id is required')
+        raise HttpError(400, "Either tag_name or tag_id is required")
 
     # Add the tag to the snapshot
     snapshot.tags.add(tag.pk)
 
     return {
-        'success': True,
-        'tag_id': tag.pk,
-        'tag_name': tag.name,
+        "success": True,
+        "tag_id": tag.pk,
+        "tag_name": tag.name,
     }
 
 
@@ -728,36 +794,36 @@ def tags_remove_from_snapshot(request: HttpRequest, data: TagSnapshotRequestSche
     # Get the snapshot
     try:
         snapshot = Snapshot.objects.get(
-            Q(id__startswith=data.snapshot_id) | Q(timestamp__startswith=data.snapshot_id)
+            Q(id__startswith=data.snapshot_id) | Q(timestamp__startswith=data.snapshot_id),
         )
     except Snapshot.DoesNotExist:
-        raise HttpError(404, 'Snapshot not found')
+        raise HttpError(404, "Snapshot not found")
     except Snapshot.MultipleObjectsReturned:
         snapshot = Snapshot.objects.filter(
-            Q(id__startswith=data.snapshot_id) | Q(timestamp__startswith=data.snapshot_id)
+            Q(id__startswith=data.snapshot_id) | Q(timestamp__startswith=data.snapshot_id),
         ).first()
         if snapshot is None:
-            raise HttpError(404, 'Snapshot not found')
+            raise HttpError(404, "Snapshot not found")
 
     # Get the tag
     if data.tag_id:
         try:
             tag = Tag.objects.get(pk=data.tag_id)
         except Tag.DoesNotExist:
-            raise HttpError(404, 'Tag not found')
+            raise HttpError(404, "Tag not found")
     elif data.tag_name:
         try:
             tag = Tag.objects.get(name__iexact=data.tag_name.strip())
         except Tag.DoesNotExist:
-            raise HttpError(404, 'Tag not found')
+            raise HttpError(404, "Tag not found")
     else:
-        raise HttpError(400, 'Either tag_name or tag_id is required')
+        raise HttpError(400, "Either tag_name or tag_id is required")
 
     # Remove the tag from the snapshot
     snapshot.tags.remove(tag.pk)
 
     return {
-        'success': True,
-        'tag_id': tag.pk,
-        'tag_name': tag.name,
+        "success": True,
+        "tag_id": tag.pk,
+        "tag_name": tag.name,
     }

@@ -1,4 +1,4 @@
-__package__ = 'archivebox.core'
+__package__ = "archivebox.core"
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
@@ -8,87 +8,100 @@ from django.utils.safestring import mark_safe
 
 
 class CustomUserAdmin(UserAdmin):
-    sort_fields = ['id', 'email', 'username', 'is_superuser', 'last_login', 'date_joined']
-    list_display = ['username', 'id', 'email', 'is_superuser', 'last_login', 'date_joined']
-    readonly_fields = ('snapshot_set', 'archiveresult_set', 'tag_set', 'apitoken_set', 'outboundwebhook_set')
+    sort_fields = ["id", "email", "username", "is_superuser", "last_login", "date_joined"]
+    list_display = ["username", "id", "email", "is_superuser", "last_login", "date_joined"]
+    readonly_fields = ("snapshot_set", "archiveresult_set", "tag_set", "apitoken_set", "outboundwebhook_set")
 
     # Preserve Django's default user creation form and fieldsets
     # This ensures passwords are properly hashed and permissions are set correctly
     add_fieldsets = UserAdmin.add_fieldsets
 
     # Extend fieldsets for change form only (not user creation)
-    fieldsets = [*(UserAdmin.fieldsets or ()), ('Data', {'fields': readonly_fields})]
+    fieldsets = [*(UserAdmin.fieldsets or ()), ("Data", {"fields": readonly_fields})]
 
-    @admin.display(description='Snapshots')
+    @admin.display(description="Snapshots")
     def snapshot_set(self, obj):
         total_count = obj.snapshot_set.count()
-        return mark_safe('<br/>'.join(
-            format_html(
-                '<code><a href="/admin/core/snapshot/{}/change"><b>[{}]</b></a></code> <b>📅 {}</b> {}',
-                snap.pk,
-                str(snap.id)[:8],
-                snap.downloaded_at.strftime('%Y-%m-%d %H:%M') if snap.downloaded_at else 'pending...',
-                snap.url[:64],
+        return mark_safe(
+            "<br/>".join(
+                format_html(
+                    '<code><a href="/admin/core/snapshot/{}/change"><b>[{}]</b></a></code> <b>📅 {}</b> {}',
+                    snap.pk,
+                    str(snap.id)[:8],
+                    snap.downloaded_at.strftime("%Y-%m-%d %H:%M") if snap.downloaded_at else "pending...",
+                    snap.url[:64],
+                )
+                for snap in obj.snapshot_set.order_by("-modified_at")[:10]
             )
-            for snap in obj.snapshot_set.order_by('-modified_at')[:10]
-        ) + f'<br/><a href="/admin/core/snapshot/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
+            + f'<br/><a href="/admin/core/snapshot/?created_by__id__exact={obj.pk}">{total_count} total records...<a>',
+        )
 
-    @admin.display(description='Archive Result Logs')
+    @admin.display(description="Archive Result Logs")
     def archiveresult_set(self, obj):
         total_count = obj.archiveresult_set.count()
-        return mark_safe('<br/>'.join(
-            format_html(
-                '<code><a href="/admin/core/archiveresult/{}/change"><b>[{}]</b></a></code> <b>📅 {}</b> <b>📄 {}</b> {}',
-                result.pk,
-                str(result.id)[:8],
-                result.snapshot.downloaded_at.strftime('%Y-%m-%d %H:%M') if result.snapshot.downloaded_at else 'pending...',
-                result.extractor,
-                result.snapshot.url[:64],
+        return mark_safe(
+            "<br/>".join(
+                format_html(
+                    '<code><a href="/admin/core/archiveresult/{}/change"><b>[{}]</b></a></code> <b>📅 {}</b> <b>📄 {}</b> {}',
+                    result.pk,
+                    str(result.id)[:8],
+                    result.snapshot.downloaded_at.strftime("%Y-%m-%d %H:%M") if result.snapshot.downloaded_at else "pending...",
+                    result.extractor,
+                    result.snapshot.url[:64],
+                )
+                for result in obj.archiveresult_set.order_by("-modified_at")[:10]
             )
-            for result in obj.archiveresult_set.order_by('-modified_at')[:10]
-        ) + f'<br/><a href="/admin/core/archiveresult/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
+            + f'<br/><a href="/admin/core/archiveresult/?created_by__id__exact={obj.pk}">{total_count} total records...<a>',
+        )
 
-    @admin.display(description='Tags')
+    @admin.display(description="Tags")
     def tag_set(self, obj):
         total_count = obj.tag_set.count()
-        return mark_safe(', '.join(
-            format_html(
-                '<code><a href="/admin/core/tag/{}/change"><b>{}</b></a></code>',
-                tag.pk,
-                tag.name,
+        return mark_safe(
+            ", ".join(
+                format_html(
+                    '<code><a href="/admin/core/tag/{}/change"><b>{}</b></a></code>',
+                    tag.pk,
+                    tag.name,
+                )
+                for tag in obj.tag_set.order_by("-modified_at")[:10]
             )
-            for tag in obj.tag_set.order_by('-modified_at')[:10]
-        ) + f'<br/><a href="/admin/core/tag/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
+            + f'<br/><a href="/admin/core/tag/?created_by__id__exact={obj.pk}">{total_count} total records...<a>',
+        )
 
-    @admin.display(description='API Tokens')
+    @admin.display(description="API Tokens")
     def apitoken_set(self, obj):
         total_count = obj.apitoken_set.count()
-        return mark_safe('<br/>'.join(
-            format_html(
-                '<code><a href="/admin/api/apitoken/{}/change"><b>[{}]</b></a></code> {} (expires {})',
-                apitoken.pk,
-                str(apitoken.id)[:8],
-                apitoken.token_redacted[:64],
-                apitoken.expires,
+        return mark_safe(
+            "<br/>".join(
+                format_html(
+                    '<code><a href="/admin/api/apitoken/{}/change"><b>[{}]</b></a></code> {} (expires {})',
+                    apitoken.pk,
+                    str(apitoken.id)[:8],
+                    apitoken.token_redacted[:64],
+                    apitoken.expires,
+                )
+                for apitoken in obj.apitoken_set.order_by("-modified_at")[:10]
             )
-            for apitoken in obj.apitoken_set.order_by('-modified_at')[:10]
-        ) + f'<br/><a href="/admin/api/apitoken/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
+            + f'<br/><a href="/admin/api/apitoken/?created_by__id__exact={obj.pk}">{total_count} total records...<a>',
+        )
 
-    @admin.display(description='API Outbound Webhooks')
+    @admin.display(description="API Outbound Webhooks")
     def outboundwebhook_set(self, obj):
         total_count = obj.outboundwebhook_set.count()
-        return mark_safe('<br/>'.join(
-            format_html(
-                '<code><a href="/admin/api/outboundwebhook/{}/change"><b>[{}]</b></a></code> {} -> {}',
-                outboundwebhook.pk,
-                str(outboundwebhook.id)[:8],
-                outboundwebhook.referenced_model,
-                outboundwebhook.endpoint,
+        return mark_safe(
+            "<br/>".join(
+                format_html(
+                    '<code><a href="/admin/api/outboundwebhook/{}/change"><b>[{}]</b></a></code> {} -> {}',
+                    outboundwebhook.pk,
+                    str(outboundwebhook.id)[:8],
+                    outboundwebhook.referenced_model,
+                    outboundwebhook.endpoint,
+                )
+                for outboundwebhook in obj.outboundwebhook_set.order_by("-modified_at")[:10]
             )
-            for outboundwebhook in obj.outboundwebhook_set.order_by('-modified_at')[:10]
-        ) + f'<br/><a href="/admin/api/outboundwebhook/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
-
-
+            + f'<br/><a href="/admin/api/outboundwebhook/?created_by__id__exact={obj.pk}">{total_count} total records...<a>',
+        )
 
 
 def register_admin(admin_site):

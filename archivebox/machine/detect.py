@@ -2,7 +2,7 @@ import os
 import json
 import socket
 import urllib.request
-from typing import Dict, Any
+from typing import Any
 from pathlib import Path
 import subprocess
 import platform
@@ -10,34 +10,35 @@ import tempfile
 from datetime import datetime
 
 import psutil
-import machineid             # https://github.com/keygen-sh/py-machineid
+import machineid  # https://github.com/keygen-sh/py-machineid
 
 from rich import print
 
 PACKAGE_DIR = Path(__file__).parent
 DATA_DIR = Path(os.getcwd()).resolve()
 
+
 def get_vm_info():
-    hw_in_docker = bool(os.getenv('IN_DOCKER', False) in ('1', 'true', 'True', 'TRUE'))
+    hw_in_docker = bool(os.getenv("IN_DOCKER", False) in ("1", "true", "True", "TRUE"))
     hw_in_vm = False
     try:
         # check for traces of docker/containerd/podman in cgroup
-        with open('/proc/self/cgroup', 'r') as procfile:
+        with open("/proc/self/cgroup") as procfile:
             for line in procfile:
                 cgroup = line.strip()  # .split('/', 1)[-1].lower()
-                if 'docker' in cgroup or 'containerd' in cgroup or 'podman' in cgroup:
+                if "docker" in cgroup or "containerd" in cgroup or "podman" in cgroup:
                     hw_in_docker = True
     except Exception:
         pass
-    
-    hw_manufacturer = 'Docker' if hw_in_docker else 'Unknown'
-    hw_product = 'Container' if hw_in_docker else 'Unknown'
+
+    hw_manufacturer = "Docker" if hw_in_docker else "Unknown"
+    hw_product = "Container" if hw_in_docker else "Unknown"
     hw_uuid = machineid.id()
-    
-    if platform.system().lower() == 'darwin':
+
+    if platform.system().lower() == "darwin":
         # Get macOS machine info
-        hw_manufacturer = 'Apple'
-        hw_product = 'Mac'
+        hw_manufacturer = "Apple"
+        hw_product = "Mac"
         try:
             # Hardware:
             #     Hardware Overview:
@@ -48,14 +49,14 @@ def get_vm_info():
             #       Serial Number (system): M230YYTD77
             #       Hardware UUID: 39A12B50-1972-5910-8BEE-235AD20C8EE3
             #       ...
-            result = subprocess.run(['system_profiler', 'SPHardwareDataType'], capture_output=True, text=True, check=True)
-            for line in result.stdout.split('\n'):
-                if 'Model Name:' in line:
-                    hw_product = line.split(':', 1)[-1].strip()
-                elif 'Model Identifier:' in line:
-                    hw_product += ' ' + line.split(':', 1)[-1].strip()
-                elif 'Hardware UUID:' in line:
-                    hw_uuid = line.split(':', 1)[-1].strip()
+            result = subprocess.run(["system_profiler", "SPHardwareDataType"], capture_output=True, text=True, check=True)
+            for line in result.stdout.split("\n"):
+                if "Model Name:" in line:
+                    hw_product = line.split(":", 1)[-1].strip()
+                elif "Model Identifier:" in line:
+                    hw_product += " " + line.split(":", 1)[-1].strip()
+                elif "Hardware UUID:" in line:
+                    hw_uuid = line.split(":", 1)[-1].strip()
         except Exception:
             pass
     else:
@@ -72,25 +73,25 @@ def get_vm_info():
             #         UUID: fb65f41c-ec24-4539-beaf-f941903bdb2c
             #         ...
             #         Family: DigitalOcean_Droplet
-            dmidecode = subprocess.run(['dmidecode', '-t', 'system'], capture_output=True, text=True, check=True)
-            for line in dmidecode.stdout.split('\n'):
-                if 'Manufacturer:' in line:
-                    hw_manufacturer = line.split(':', 1)[-1].strip()
-                elif 'Product Name:' in line:
-                    hw_product = line.split(':', 1)[-1].strip()
-                elif 'UUID:' in line:
-                    hw_uuid = line.split(':', 1)[-1].strip()
+            dmidecode = subprocess.run(["dmidecode", "-t", "system"], capture_output=True, text=True, check=True)
+            for line in dmidecode.stdout.split("\n"):
+                if "Manufacturer:" in line:
+                    hw_manufacturer = line.split(":", 1)[-1].strip()
+                elif "Product Name:" in line:
+                    hw_product = line.split(":", 1)[-1].strip()
+                elif "UUID:" in line:
+                    hw_uuid = line.split(":", 1)[-1].strip()
         except Exception:
             pass
 
     # Check for VM fingerprint in manufacturer/product name
-    if 'qemu' in hw_product.lower() or 'vbox' in hw_product.lower() or 'lxc' in hw_product.lower() or 'vm' in hw_product.lower():
+    if "qemu" in hw_product.lower() or "vbox" in hw_product.lower() or "lxc" in hw_product.lower() or "vm" in hw_product.lower():
         hw_in_vm = True
-    
+
     # Check for QEMU explicitly in pmap output
     try:
-        result = subprocess.run(['pmap', '1'], capture_output=True, text=True, check=True)
-        if 'qemu' in result.stdout.lower():
+        result = subprocess.run(["pmap", "1"], capture_output=True, text=True, check=True)
+        if "qemu" in result.stdout.lower():
             hw_in_vm = True
     except Exception:
         pass
@@ -103,17 +104,18 @@ def get_vm_info():
         "hw_uuid": hw_uuid,
     }
 
+
 def get_public_ip() -> str:
     def fetch_url(url: str) -> str:
         with urllib.request.urlopen(url, timeout=5) as response:
-            return response.read().decode('utf-8').strip()
+            return response.read().decode("utf-8").strip()
 
     def fetch_dns(pubip_lookup_host: str) -> str:
         return socket.gethostbyname(pubip_lookup_host).strip()
 
     methods = [
         (lambda: fetch_url("https://ipinfo.io/ip"), lambda r: r),
-        (lambda: fetch_url("https://api.ipify.org?format=json"), lambda r: json.loads(r)['ip']),
+        (lambda: fetch_url("https://api.ipify.org?format=json"), lambda r: json.loads(r)["ip"]),
         (lambda: fetch_dns("myip.opendns.com"), lambda r: r),
         (lambda: fetch_url("http://whatismyip.akamai.com/"), lambda r: r),  # try HTTP as final fallback in case of TLS/system time errors
     ]
@@ -128,68 +130,72 @@ def get_public_ip() -> str:
 
     raise Exception("Could not determine public IP address")
 
-def get_local_ip(remote_ip: str='1.1.1.1', remote_port: int=80) -> str:
+
+def get_local_ip(remote_ip: str = "1.1.1.1", remote_port: int = 80) -> str:
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.connect((remote_ip, remote_port))
             return s.getsockname()[0]
     except Exception:
         pass
-    return '127.0.0.1'
+    return "127.0.0.1"
+
 
 ip_addrs = lambda addrs: (a for a in addrs if a.family == socket.AF_INET)
 mac_addrs = lambda addrs: (a for a in addrs if a.family == psutil.AF_LINK)
 
+
 def get_isp_info(ip=None):
     # Get public IP
     try:
-        ip = ip or urllib.request.urlopen('https://api.ipify.org').read().decode('utf8')
+        ip = ip or urllib.request.urlopen("https://api.ipify.org").read().decode("utf8")
     except Exception:
         pass
-    
+
     # Get ISP name, city, and country
     data = {}
     try:
-        url = f'https://ipapi.co/{ip}/json/'
+        url = f"https://ipapi.co/{ip}/json/"
         response = urllib.request.urlopen(url)
         data = json.loads(response.read().decode())
     except Exception:
         pass
-    
-    isp = data.get('org', 'Unknown')
-    city = data.get('city', 'Unknown')
-    region = data.get('region', 'Unknown')
-    country = data.get('country_name', 'Unknown')
-    
+
+    isp = data.get("org", "Unknown")
+    city = data.get("city", "Unknown")
+    region = data.get("region", "Unknown")
+    country = data.get("country_name", "Unknown")
+
     # Get system DNS resolver servers
     dns_server = None
     try:
-        result = subprocess.run(['dig', 'example.com', 'A'], capture_output=True, text=True, check=True).stdout
-        dns_server = result.split(';; SERVER: ', 1)[-1].split('\n')[0].split('#')[0].strip()
+        result = subprocess.run(["dig", "example.com", "A"], capture_output=True, text=True, check=True).stdout
+        dns_server = result.split(";; SERVER: ", 1)[-1].split("\n")[0].split("#")[0].strip()
     except Exception:
         try:
-            dns_server = Path('/etc/resolv.conf').read_text().split('nameserver ', 1)[-1].split('\n')[0].strip()
+            dns_server = Path("/etc/resolv.conf").read_text().split("nameserver ", 1)[-1].split("\n")[0].strip()
         except Exception:
-            dns_server = '127.0.0.1'
-            print(f'[red]:warning: WARNING: Could not determine DNS server, using {dns_server}[/red]')
-    
+            dns_server = "127.0.0.1"
+            print(f"[red]:warning: WARNING: Could not determine DNS server, using {dns_server}[/red]")
+
     # Get DNS resolver's ISP name
     # url = f'https://ipapi.co/{dns_server}/json/'
     # dns_isp = json.loads(urllib.request.urlopen(url).read().decode()).get('org', 'Unknown')
-    
+
     return {
-        'isp': isp,
-        'city': city,
-        'region': region,
-        'country': country,
-        'dns_server': dns_server,
+        "isp": isp,
+        "city": city,
+        "region": region,
+        "country": country,
+        "dns_server": dns_server,
         # 'net_dns_isp': dns_isp,
     }
-    
-def get_host_network() -> Dict[str, Any]:
+
+
+def get_host_network() -> dict[str, Any]:
     default_gateway_local_ip = get_local_ip()
     gateways = psutil.net_if_addrs()
-    
+
     for interface, ips in gateways.items():
         for local_ip in ip_addrs(ips):
             if default_gateway_local_ip == local_ip.address:
@@ -204,20 +210,20 @@ def get_host_network() -> Dict[str, Any]:
                     # "is_behind_nat": local_ip.address != public_ip,
                     **get_isp_info(public_ip),
                 }
-    
+
     raise Exception("Could not determine host network info")
 
 
-def get_os_info() -> Dict[str, Any]:
+def get_os_info() -> dict[str, Any]:
     os_release = platform.release()
-    if platform.system().lower() == 'darwin':
-        os_release = 'macOS ' + platform.mac_ver()[0]
+    if platform.system().lower() == "darwin":
+        os_release = "macOS " + platform.mac_ver()[0]
     else:
         try:
-            os_release = subprocess.run(['lsb_release', '-ds'], capture_output=True, text=True, check=True).stdout.strip()
+            os_release = subprocess.run(["lsb_release", "-ds"], capture_output=True, text=True, check=True).stdout.strip()
         except Exception:
             pass
-    
+
     return {
         "os_arch": platform.machine(),
         "os_family": platform.system().lower(),
@@ -226,7 +232,8 @@ def get_os_info() -> Dict[str, Any]:
         "os_release": os_release,
     }
 
-def get_host_stats() -> Dict[str, Any]:
+
+def get_host_stats() -> dict[str, Any]:
     try:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_usage = psutil.disk_usage(str(tmp_dir))
@@ -267,24 +274,23 @@ def get_host_stats() -> Dict[str, Any]:
     except Exception:
         return {}
 
-def get_host_immutable_info(host_info: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        key: value
-        for key, value in host_info.items()
-        if key in ['guid', 'net_mac', 'os_family', 'cpu_arch']
-    }
-    
+
+def get_host_immutable_info(host_info: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in host_info.items() if key in ["guid", "net_mac", "os_family", "cpu_arch"]}
+
+
 def get_host_guid() -> str:
-    return machineid.hashed_id('archivebox')
+    return machineid.hashed_id("archivebox")
+
 
 # Example usage
 if __name__ == "__main__":
     host_info = {
-        'guid': get_host_guid(),
-        'os': get_os_info(),
-        'vm': get_vm_info(),
-        'net': get_host_network(),
-        'stats': get_host_stats(),
+        "guid": get_host_guid(),
+        "os": get_os_info(),
+        "vm": get_vm_info(),
+        "net": get_host_network(),
+        "stats": get_host_stats(),
     }
     print(host_info)
 

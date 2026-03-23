@@ -16,6 +16,7 @@ class _ExampleHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         return
 
+
 def test_download_url_downloads_content():
     server = ThreadingHTTPServer(("127.0.0.1", 0), _ExampleHandler)
     thread = Thread(target=server.serve_forever, daemon=True)

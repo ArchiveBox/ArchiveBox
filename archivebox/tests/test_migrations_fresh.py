@@ -22,13 +22,13 @@ class TestFreshInstall(unittest.TestCase):
         work_dir = Path(tempfile.mkdtemp())
 
         try:
-            result = run_archivebox(work_dir, ['init'])
+            result = run_archivebox(work_dir, ["init"])
             self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
             # Verify database was created
-            self.assertTrue((work_dir / 'index.sqlite3').exists(), "Database not created")
+            self.assertTrue((work_dir / "index.sqlite3").exists(), "Database not created")
             # Verify archive directory exists
-            self.assertTrue((work_dir / 'archive').is_dir(), "Archive dir not created")
+            self.assertTrue((work_dir / "archive").is_dir(), "Archive dir not created")
 
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)
@@ -38,10 +38,10 @@ class TestFreshInstall(unittest.TestCase):
         work_dir = Path(tempfile.mkdtemp())
 
         try:
-            result = run_archivebox(work_dir, ['init'])
+            result = run_archivebox(work_dir, ["init"])
             self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
-            result = run_archivebox(work_dir, ['status'])
+            result = run_archivebox(work_dir, ["status"])
             self.assertEqual(result.returncode, 0, f"Status failed: {result.stderr}")
 
         finally:
@@ -52,14 +52,14 @@ class TestFreshInstall(unittest.TestCase):
         work_dir = Path(tempfile.mkdtemp())
 
         try:
-            result = run_archivebox(work_dir, ['init'])
+            result = run_archivebox(work_dir, ["init"])
             self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
             # Add a URL with --index-only for speed
-            result = run_archivebox(work_dir, ['add', '--index-only', 'https://example.com'])
+            result = run_archivebox(work_dir, ["add", "--index-only", "https://example.com"])
             self.assertEqual(result.returncode, 0, f"Add command failed: {result.stderr}")
 
-            conn = sqlite3.connect(str(work_dir / 'index.sqlite3'))
+            conn = sqlite3.connect(str(work_dir / "index.sqlite3"))
             cursor = conn.cursor()
 
             # Verify a Crawl was created
@@ -82,18 +82,18 @@ class TestFreshInstall(unittest.TestCase):
         work_dir = Path(tempfile.mkdtemp())
 
         try:
-            result = run_archivebox(work_dir, ['init'])
+            result = run_archivebox(work_dir, ["init"])
             self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
-            result = run_archivebox(work_dir, ['add', '--index-only', 'https://example.com'])
+            result = run_archivebox(work_dir, ["add", "--index-only", "https://example.com"])
             self.assertEqual(result.returncode, 0, f"Add failed: {result.stderr}")
 
-            result = run_archivebox(work_dir, ['list'])
+            result = run_archivebox(work_dir, ["list"])
             self.assertEqual(result.returncode, 0, f"List failed: {result.stderr}")
 
             # Verify the URL appears in output
             output = result.stdout + result.stderr
-            self.assertIn('example.com', output, f"Added URL not in list output: {output[:500]}")
+            self.assertIn("example.com", output, f"Added URL not in list output: {output[:500]}")
 
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)
@@ -103,10 +103,10 @@ class TestFreshInstall(unittest.TestCase):
         work_dir = Path(tempfile.mkdtemp())
 
         try:
-            result = run_archivebox(work_dir, ['init'])
+            result = run_archivebox(work_dir, ["init"])
             self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
-            conn = sqlite3.connect(str(work_dir / 'index.sqlite3'))
+            conn = sqlite3.connect(str(work_dir / "index.sqlite3"))
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM django_migrations")
             count = cursor.fetchone()[0]
@@ -123,16 +123,16 @@ class TestFreshInstall(unittest.TestCase):
         work_dir = Path(tempfile.mkdtemp())
 
         try:
-            result = run_archivebox(work_dir, ['init'])
+            result = run_archivebox(work_dir, ["init"])
             self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
-            conn = sqlite3.connect(str(work_dir / 'index.sqlite3'))
+            conn = sqlite3.connect(str(work_dir / "index.sqlite3"))
             cursor = conn.cursor()
             cursor.execute("SELECT name FROM django_migrations WHERE app='core' ORDER BY name")
             migrations = [row[0] for row in cursor.fetchall()]
             conn.close()
 
-            self.assertIn('0001_initial', migrations)
+            self.assertIn("0001_initial", migrations)
 
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)
@@ -146,16 +146,16 @@ class TestSchemaIntegrity(unittest.TestCase):
         work_dir = Path(tempfile.mkdtemp())
 
         try:
-            result = run_archivebox(work_dir, ['init'])
+            result = run_archivebox(work_dir, ["init"])
             self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
-            conn = sqlite3.connect(str(work_dir / 'index.sqlite3'))
+            conn = sqlite3.connect(str(work_dir / "index.sqlite3"))
             cursor = conn.cursor()
-            cursor.execute('PRAGMA table_info(core_snapshot)')
+            cursor.execute("PRAGMA table_info(core_snapshot)")
             columns = {row[1] for row in cursor.fetchall()}
             conn.close()
 
-            required = {'id', 'url', 'timestamp', 'title', 'status', 'created_at', 'modified_at'}
+            required = {"id", "url", "timestamp", "title", "status", "created_at", "modified_at"}
             for col in required:
                 self.assertIn(col, columns, f"Missing column: {col}")
 
@@ -167,16 +167,16 @@ class TestSchemaIntegrity(unittest.TestCase):
         work_dir = Path(tempfile.mkdtemp())
 
         try:
-            result = run_archivebox(work_dir, ['init'])
+            result = run_archivebox(work_dir, ["init"])
             self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
-            conn = sqlite3.connect(str(work_dir / 'index.sqlite3'))
+            conn = sqlite3.connect(str(work_dir / "index.sqlite3"))
             cursor = conn.cursor()
-            cursor.execute('PRAGMA table_info(core_archiveresult)')
+            cursor.execute("PRAGMA table_info(core_archiveresult)")
             columns = {row[1] for row in cursor.fetchall()}
             conn.close()
 
-            required = {'id', 'snapshot_id', 'plugin', 'status', 'created_at', 'modified_at'}
+            required = {"id", "snapshot_id", "plugin", "status", "created_at", "modified_at"}
             for col in required:
                 self.assertIn(col, columns, f"Missing column: {col}")
 
@@ -188,16 +188,16 @@ class TestSchemaIntegrity(unittest.TestCase):
         work_dir = Path(tempfile.mkdtemp())
 
         try:
-            result = run_archivebox(work_dir, ['init'])
+            result = run_archivebox(work_dir, ["init"])
             self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
-            conn = sqlite3.connect(str(work_dir / 'index.sqlite3'))
+            conn = sqlite3.connect(str(work_dir / "index.sqlite3"))
             cursor = conn.cursor()
-            cursor.execute('PRAGMA table_info(core_tag)')
+            cursor.execute("PRAGMA table_info(core_tag)")
             columns = {row[1] for row in cursor.fetchall()}
             conn.close()
 
-            required = {'id', 'name', 'slug'}
+            required = {"id", "name", "slug"}
             for col in required:
                 self.assertIn(col, columns, f"Missing column: {col}")
 
@@ -209,21 +209,21 @@ class TestSchemaIntegrity(unittest.TestCase):
         work_dir = Path(tempfile.mkdtemp())
 
         try:
-            result = run_archivebox(work_dir, ['init'])
+            result = run_archivebox(work_dir, ["init"])
             self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
-            conn = sqlite3.connect(str(work_dir / 'index.sqlite3'))
+            conn = sqlite3.connect(str(work_dir / "index.sqlite3"))
             cursor = conn.cursor()
-            cursor.execute('PRAGMA table_info(crawls_crawl)')
+            cursor.execute("PRAGMA table_info(crawls_crawl)")
             columns = {row[1] for row in cursor.fetchall()}
             conn.close()
 
-            required = {'id', 'urls', 'status', 'created_at', 'created_by_id'}
+            required = {"id", "urls", "status", "created_at", "created_by_id"}
             for col in required:
                 self.assertIn(col, columns, f"Missing column: {col}")
 
             # seed_id should NOT exist (removed in 0.9.x)
-            self.assertNotIn('seed_id', columns, "seed_id column should not exist in 0.9.x")
+            self.assertNotIn("seed_id", columns, "seed_id column should not exist in 0.9.x")
 
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)
@@ -237,17 +237,17 @@ class TestMultipleSnapshots(unittest.TestCase):
         work_dir = Path(tempfile.mkdtemp())
 
         try:
-            result = run_archivebox(work_dir, ['init'])
+            result = run_archivebox(work_dir, ["init"])
             self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
             # Add URLs one at a time
-            result = run_archivebox(work_dir, ['add', '--index-only', 'https://example.com'])
+            result = run_archivebox(work_dir, ["add", "--index-only", "https://example.com"])
             self.assertEqual(result.returncode, 0, f"Add 1 failed: {result.stderr}")
 
-            result = run_archivebox(work_dir, ['add', '--index-only', 'https://example.org'])
+            result = run_archivebox(work_dir, ["add", "--index-only", "https://example.org"])
             self.assertEqual(result.returncode, 0, f"Add 2 failed: {result.stderr}")
 
-            conn = sqlite3.connect(str(work_dir / 'index.sqlite3'))
+            conn = sqlite3.connect(str(work_dir / "index.sqlite3"))
             cursor = conn.cursor()
 
             # Verify snapshots were created
@@ -270,13 +270,13 @@ class TestMultipleSnapshots(unittest.TestCase):
         work_dir = Path(tempfile.mkdtemp())
 
         try:
-            result = run_archivebox(work_dir, ['init'])
+            result = run_archivebox(work_dir, ["init"])
             self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
-            result = run_archivebox(work_dir, ['add', '--index-only', 'https://example.com'])
+            result = run_archivebox(work_dir, ["add", "--index-only", "https://example.com"])
             self.assertEqual(result.returncode, 0, f"Add failed: {result.stderr}")
 
-            conn = sqlite3.connect(str(work_dir / 'index.sqlite3'))
+            conn = sqlite3.connect(str(work_dir / "index.sqlite3"))
             cursor = conn.cursor()
 
             # Check that snapshot has a crawl_id
@@ -291,5 +291,5 @@ class TestMultipleSnapshots(unittest.TestCase):
             shutil.rmtree(work_dir, ignore_errors=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

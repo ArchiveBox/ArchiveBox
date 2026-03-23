@@ -103,7 +103,10 @@ async function main() {
     timeout: 15000,
   });
 
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+  await page.waitForFunction(
+    () => window.__dangerousScriptRan !== true || window.__probeResults !== undefined,
+    {timeout: 15000},
+  );
 
   const pageState = await page.evaluate(() => ({
     href: location.href,
@@ -297,7 +300,7 @@ def _seed_archive(data_dir: Path) -> dict[str, object]:
             "password": "testpassword",
             "snapshots": snapshots,
         }))
-        """
+        """,
     )
     stdout, stderr, returncode = run_python_cwd(script, cwd=data_dir, timeout=120)
     assert returncode == 0, stderr
@@ -310,10 +313,17 @@ def _get_free_port() -> int:
         return sock.getsockname()[1]
 
 
-def _wait_for_http(port: int, host: str, timeout: float = 30.0) -> None:
+def _wait_for_http(
+    port: int,
+    host: str,
+    timeout: float = 30.0,
+    process: subprocess.Popen[str] | None = None,
+) -> None:
     deadline = time.time() + timeout
     last_error = "server did not answer"
     while time.time() < deadline:
+        if process is not None and process.poll() is not None:
+            raise AssertionError(f"Server exited before becoming ready with code {process.returncode}")
         try:
             response = requests.get(
                 f"http://127.0.0.1:{port}/",
@@ -358,7 +368,7 @@ def _start_server(data_dir: Path, *, mode: str, port: int) -> subprocess.Popen[s
             "SAVE_HEADERS": "False",
             "SAVE_HTMLTOTEXT": "False",
             "USE_CHROME": "False",
-        }
+        },
     )
     process = subprocess.Popen(
         [sys.executable, "-m", "archivebox", "server", "--debug", "--nothreading", f"127.0.0.1:{port}"],
@@ -369,7 +379,11 @@ def _start_server(data_dir: Path, *, mode: str, port: int) -> subprocess.Popen[s
         text=True,
         start_new_session=True,
     )
-    _wait_for_http(port, f"archivebox.localhost:{port}")
+    try:
+        _wait_for_http(port, f"archivebox.localhost:{port}", process=process)
+    except AssertionError as exc:
+        server_log = _stop_server(process)
+        raise AssertionError(f"{exc}\n\nSERVER LOG:\n{server_log}") from exc
     return process
 
 
@@ -414,7 +428,7 @@ def _build_probe_config(mode: str, port: int, fixture: dict[str, object], runtim
             "victim": victim_url,
             "admin": f"{admin_origin}/admin/",
             "api": f"{admin_origin}/api/v1/docs",
-        }
+        },
     )
 
     return {
@@ -427,7 +441,13 @@ def _build_probe_config(mode: str, port: int, fixture: dict[str, object], runtim
     }
 
 
-def _run_browser_probe(data_dir: Path, runtime: dict[str, Path], mode: str, fixture: dict[str, object], tmp_path: Path) -> dict[str, object]:
+def _run_browser_probe(
+    data_dir: Path,
+    runtime: dict[str, Path],
+    mode: str,
+    fixture: dict[str, object],
+    tmp_path: Path,
+) -> dict[str, object]:
     port = _get_free_port()
     process = _start_server(data_dir, mode=mode, port=port)
     probe_path = tmp_path / "server_security_probe.js"
@@ -517,7 +537,13 @@ def _run_browser_probe(data_dir: Path, runtime: dict[str, Path], mode: str, fixt
         ),
     ],
 )
-def test_server_security_modes_in_chrome(initialized_archive: Path, browser_runtime, tmp_path: Path, mode: str, expected: dict[str, object]) -> None:
+def test_server_security_modes_in_chrome(
+    initialized_archive: Path,
+    browser_runtime,
+    tmp_path: Path,
+    mode: str,
+    expected: dict[str, object],
+) -> None:
     fixture = _seed_archive(initialized_archive)
     result = _run_browser_probe(initialized_archive, browser_runtime, mode, fixture, tmp_path)
 

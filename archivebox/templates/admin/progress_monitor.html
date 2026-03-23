@@ -765,7 +765,7 @@
                     <a class="snapshot-header-link" href="${adminUrl}">
                         <span class="snapshot-icon">${statusIcon}</span>
                         <div class="snapshot-info">
-                            <div class="snapshot-url">${formatUrl(snapshot.url)}</div>
+                            <div class="snapshot-url">Snapshot: ${formatUrl(snapshot.url)}</div>
                             <div class="snapshot-meta">
                                 ${snapshotMeta}
                             </div>
@@ -863,7 +863,7 @@
                     <a class="crawl-header-link" href="${adminUrl}">
                         <span class="crawl-icon">${statusIcon}</span>
                         <div class="crawl-info">
-                            <div class="crawl-label">${crawl.label || '(no label)'}</div>
+                            <div class="crawl-label">Crawl: ${crawl.label || '(no label)'}</div>
                             <div class="crawl-meta">${metaText}</div>
                         </div>
                         <div class="crawl-stats">

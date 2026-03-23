@@ -4,15 +4,27 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('machine', '0009_alter_binary_status'),
+        ("machine", "0009_alter_binary_status"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='process',
-            name='process_type',
-            field=models.CharField(choices=[('supervisord', 'Supervisord'), ('orchestrator', 'Orchestrator'), ('worker', 'Worker'), ('cli', 'CLI'), ('hook', 'Hook'), ('binary', 'Binary')], db_index=True, default='cli', help_text='Type of process (cli, worker, orchestrator, binary, supervisord)', max_length=16),
+            model_name="process",
+            name="process_type",
+            field=models.CharField(
+                choices=[
+                    ("supervisord", "Supervisord"),
+                    ("orchestrator", "Orchestrator"),
+                    ("worker", "Worker"),
+                    ("cli", "CLI"),
+                    ("hook", "Hook"),
+                    ("binary", "Binary"),
+                ],
+                db_index=True,
+                default="cli",
+                help_text="Type of process (cli, worker, orchestrator, binary, supervisord)",
+                max_length=16,
+            ),
         ),
     ]

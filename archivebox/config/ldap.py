@@ -1,6 +1,5 @@
 __package__ = "archivebox.config"
 
-from typing import Optional
 from pydantic import Field
 
 from archivebox.config.configset import BaseConfigSet
@@ -13,13 +12,14 @@ class LDAPConfig(BaseConfigSet):
     Only loads and validates if django-auth-ldap is installed.
     These settings integrate with Django's LDAP authentication backend.
     """
+
     toml_section_header: str = "LDAP_CONFIG"
 
     LDAP_ENABLED: bool = Field(default=False)
-    LDAP_SERVER_URI: Optional[str] = Field(default=None)
-    LDAP_BIND_DN: Optional[str] = Field(default=None)
-    LDAP_BIND_PASSWORD: Optional[str] = Field(default=None)
-    LDAP_USER_BASE: Optional[str] = Field(default=None)
+    LDAP_SERVER_URI: str | None = Field(default=None)
+    LDAP_BIND_DN: str | None = Field(default=None)
+    LDAP_BIND_PASSWORD: str | None = Field(default=None)
+    LDAP_USER_BASE: str | None = Field(default=None)
     LDAP_USER_FILTER: str = Field(default="(uid=%(user)s)")
     LDAP_USERNAME_ATTR: str = Field(default="username")
     LDAP_FIRSTNAME_ATTR: str = Field(default="givenName")

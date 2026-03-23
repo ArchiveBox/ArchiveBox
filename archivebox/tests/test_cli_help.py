@@ -11,20 +11,20 @@ import subprocess
 def test_help_runs_successfully(tmp_path):
     """Test that help command runs and produces output."""
     os.chdir(tmp_path)
-    result = subprocess.run(['archivebox', 'help'], capture_output=True, text=True)
+    result = subprocess.run(["archivebox", "help"], capture_output=True, text=True)
 
     assert result.returncode == 0
     combined = result.stdout + result.stderr
     assert len(combined) > 100
-    assert 'archivebox' in combined.lower()
+    assert "archivebox" in combined.lower()
 
 
 def test_help_in_initialized_dir(tmp_path, process):
     """Test help command in initialized data directory."""
     os.chdir(tmp_path)
-    result = subprocess.run(['archivebox', 'help'], capture_output=True, text=True)
+    result = subprocess.run(["archivebox", "help"], capture_output=True, text=True)
 
     assert result.returncode == 0
     combined = result.stdout + result.stderr
-    assert 'init' in combined
-    assert 'add' in combined
+    assert "init" in combined
+    assert "add" in combined

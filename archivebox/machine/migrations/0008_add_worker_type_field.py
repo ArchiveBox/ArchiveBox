@@ -4,15 +4,20 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('machine', '0007_add_process_type_and_parent'),
+        ("machine", "0007_add_process_type_and_parent"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='process',
-            name='worker_type',
-            field=models.CharField(blank=True, db_index=True, default='', help_text='Worker type name for WORKER processes (crawl, snapshot, archiveresult)', max_length=32),
+            model_name="process",
+            name="worker_type",
+            field=models.CharField(
+                blank=True,
+                db_index=True,
+                default="",
+                help_text="Worker type name for WORKER processes (crawl, snapshot, archiveresult)",
+                max_length=32,
+            ),
         ),
     ]

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
-__package__ = 'archivebox.cli'
-__command__ = 'archivebox remove'
+__package__ = "archivebox.cli"
+__command__ = "archivebox remove"
 
 import shutil
 from pathlib import Path
-from typing import Iterable
+from collections.abc import Iterable
 
 import rich_click as click
 
@@ -26,25 +26,27 @@ from archivebox.misc.logging_util import (
 
 
 @enforce_types
-def remove(filter_patterns: Iterable[str]=(),
-          filter_type: str='exact',
-          snapshots: QuerySet | None=None,
-          after: float | None=None,
-          before: float | None=None,
-          yes: bool=False,
-          delete: bool=False,
-          out_dir: Path=DATA_DIR) -> QuerySet:
+def remove(
+    filter_patterns: Iterable[str] = (),
+    filter_type: str = "exact",
+    snapshots: QuerySet | None = None,
+    after: float | None = None,
+    before: float | None = None,
+    yes: bool = False,
+    delete: bool = False,
+    out_dir: Path = DATA_DIR,
+) -> QuerySet:
     """Remove the specified URLs from the archive"""
-    
+
     setup_django()
     check_data_folder()
-    
+
     from archivebox.cli.archivebox_search import get_snapshots
 
     pattern_list = list(filter_patterns)
 
     log_list_started(pattern_list or None, filter_type)
-    timer = TimedProgress(360, prefix='      ')
+    timer = TimedProgress(360, prefix="      ")
     try:
         snapshots = get_snapshots(
             snapshots=snapshots,
@@ -63,7 +65,7 @@ def remove(filter_patterns: Iterable[str]=(),
     log_list_finished(snapshots)
     log_removal_started(snapshots, yes=yes, delete=delete)
 
-    timer = TimedProgress(360, prefix='      ')
+    timer = TimedProgress(360, prefix="      ")
     try:
         for snapshot in snapshots:
             if delete:
@@ -88,17 +90,23 @@ def remove(filter_patterns: Iterable[str]=(),
 
 
 @click.command()
-@click.option('--yes', is_flag=True, help='Remove links instantly without prompting to confirm')
-@click.option('--delete', is_flag=True, help='Delete the archived content and metadata folder in addition to removing from index')
-@click.option('--before', type=float, help='Remove only URLs bookmarked before timestamp')
-@click.option('--after', type=float, help='Remove only URLs bookmarked after timestamp')
-@click.option('--filter-type', '-f', type=click.Choice(('exact', 'substring', 'domain', 'regex', 'tag')), default='exact', help='Type of pattern matching to use when filtering URLs')
-@click.argument('filter_patterns', nargs=-1)
+@click.option("--yes", is_flag=True, help="Remove links instantly without prompting to confirm")
+@click.option("--delete", is_flag=True, help="Delete the archived content and metadata folder in addition to removing from index")
+@click.option("--before", type=float, help="Remove only URLs bookmarked before timestamp")
+@click.option("--after", type=float, help="Remove only URLs bookmarked after timestamp")
+@click.option(
+    "--filter-type",
+    "-f",
+    type=click.Choice(("exact", "substring", "domain", "regex", "tag")),
+    default="exact",
+    help="Type of pattern matching to use when filtering URLs",
+)
+@click.argument("filter_patterns", nargs=-1)
 @docstring(remove.__doc__)
 def main(**kwargs):
     """Remove the specified URLs from the archive"""
     remove(**kwargs)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

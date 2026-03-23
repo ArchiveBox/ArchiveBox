@@ -1,4 +1,4 @@
-__package__ = 'archivebox.core'
+__package__ = "archivebox.core"
 
 import ipaddress
 import re
@@ -16,6 +16,7 @@ from archivebox.config.common import SERVER_CONFIG
 from archivebox.config import VERSION
 from archivebox.config.version import get_COMMIT_HASH
 from archivebox.core.host_utils import (
+    build_snapshot_url,
     build_admin_url,
     build_web_url,
     get_api_host,
@@ -31,10 +32,10 @@ from archivebox.core.host_utils import (
 from archivebox.core.views import SnapshotHostView, OriginalDomainHostView
 
 
-def detect_timezone(request, activate: bool=True):
-    gmt_offset = (request.COOKIES.get('GMT_OFFSET') or '').strip()
+def detect_timezone(request, activate: bool = True):
+    gmt_offset = (request.COOKIES.get("GMT_OFFSET") or "").strip()
     tz = None
-    if gmt_offset.replace('-', '').isdigit():
+    if gmt_offset.replace("-", "").isdigit():
         tz = timezone.get_fixed_timezone(int(gmt_offset))
         if activate:
             timezone.activate(tz)
@@ -53,11 +54,12 @@ def TimezoneMiddleware(get_response):
 def CacheControlMiddleware(get_response):
     snapshot_path_re = re.compile(r"^/[^/]+/\\d{8}/[^/]+/[0-9a-fA-F-]{8,36}/")
     static_cache_key = (get_COMMIT_HASH() or VERSION or "dev").strip()
+
     def middleware(request):
         response = get_response(request)
 
-        if request.path.startswith('/static/'):
-            rel_path = request.path[len('/static/'):]
+        if request.path.startswith("/static/"):
+            rel_path = request.path[len("/static/") :]
             static_path = finders.find(rel_path)
             if static_path:
                 try:
@@ -81,10 +83,10 @@ def CacheControlMiddleware(get_response):
                     response.headers["Last-Modified"] = http_date(mtime)
                 return response
 
-        if '/archive/' in request.path or '/static/' in request.path or snapshot_path_re.match(request.path):
-            if not response.get('Cache-Control'):
-                policy = 'public' if SERVER_CONFIG.PUBLIC_SNAPSHOTS else 'private'
-                response['Cache-Control'] = f'{policy}, max-age=60, stale-while-revalidate=300'
+        if "/archive/" in request.path or "/static/" in request.path or snapshot_path_re.match(request.path):
+            if not response.get("Cache-Control"):
+                policy = "public" if SERVER_CONFIG.PUBLIC_SNAPSHOTS else "private"
+                response["Cache-Control"] = f"{policy}, max-age=60, stale-while-revalidate=300"
                 # print('Set Cache-Control header to', response['Cache-Control'])
         return response
 
@@ -115,6 +117,10 @@ def ServerSecurityModeMiddleware(get_response):
 
 
 def HostRoutingMiddleware(get_response):
+    snapshot_path_re = re.compile(
+        r"^/(?P<username>[^/]+)/(?P<date>\d{4}(?:\d{2})?(?:\d{2})?)/(?P<domain>[^/]+)/(?P<snapshot_id>[0-9a-fA-F-]{8,36})(?:/(?P<path>.*))?$",
+    )
+
     def middleware(request):
         request_host = (request.get_host() or "").lower()
         admin_host = get_admin_host()
@@ -123,6 +129,23 @@ def HostRoutingMiddleware(get_response):
         public_host = get_public_host()
         listen_host = get_listen_host()
         subdomain = get_listen_subdomain(request_host)
+
+        # Framework-owned assets must bypass snapshot/original-domain replay routing.
+        # Otherwise pages on snapshot subdomains can receive HTML for JS/CSS requests.
+        if request.path.startswith("/static/") or request.path in {"/favicon.ico", "/robots.txt"}:
+            return get_response(request)
+
+        if SERVER_CONFIG.USES_SUBDOMAIN_ROUTING and not host_matches(request_host, admin_host):
+            if (
+                request.path == "/admin"
+                or request.path.startswith("/admin/")
+                or request.path == "/accounts"
+                or request.path.startswith("/accounts/")
+            ):
+                target = build_admin_url(request.path, request=request)
+                if request.META.get("QUERY_STRING"):
+                    target = f"{target}?{request.META['QUERY_STRING']}"
+                return redirect(target)
 
         if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
             if host_matches(request_host, listen_host):
@@ -140,6 +163,16 @@ def HostRoutingMiddleware(get_response):
             return get_response(request)
 
         if host_matches(request_host, admin_host):
+            snapshot_match = snapshot_path_re.match(request.path)
+            if SERVER_CONFIG.USES_SUBDOMAIN_ROUTING and snapshot_match:
+                snapshot_id = snapshot_match.group("snapshot_id")
+                replay_path = (snapshot_match.group("path") or "").strip("/")
+                if replay_path == "index.html":
+                    replay_path = ""
+                target = build_snapshot_url(snapshot_id, replay_path, request=request)
+                if request.META.get("QUERY_STRING"):
+                    target = f"{target}?{request.META['QUERY_STRING']}"
+                return redirect(target)
             return get_response(request)
 
         if host_matches(request_host, api_host):
@@ -160,16 +193,9 @@ def HostRoutingMiddleware(get_response):
         if host_matches(request_host, web_host):
             request.user = AnonymousUser()
             request._cached_user = request.user
-            if request.path.startswith("/admin"):
-                target = build_admin_url(request.path, request=request)
-                if request.META.get("QUERY_STRING"):
-                    target = f"{target}?{request.META['QUERY_STRING']}"
-                return redirect(target)
             return get_response(request)
 
         if host_matches(request_host, public_host):
-            request.user = AnonymousUser()
-            request._cached_user = request.user
             return get_response(request)
 
         if subdomain:
@@ -196,24 +222,26 @@ def HostRoutingMiddleware(get_response):
 
     return middleware
 
+
 class ReverseProxyAuthMiddleware(RemoteUserMiddleware):
-    header = 'HTTP_{normalized}'.format(normalized=SERVER_CONFIG.REVERSE_PROXY_USER_HEADER.replace('-', '_').upper())
+    header = "HTTP_{normalized}".format(normalized=SERVER_CONFIG.REVERSE_PROXY_USER_HEADER.replace("-", "_").upper())
 
     def process_request(self, request):
-        if SERVER_CONFIG.REVERSE_PROXY_WHITELIST == '':
+        if SERVER_CONFIG.REVERSE_PROXY_WHITELIST == "":
             return
 
-        ip = request.META.get('REMOTE_ADDR')
+        ip = request.META.get("REMOTE_ADDR")
         if not isinstance(ip, str):
             return
 
-        for cidr in SERVER_CONFIG.REVERSE_PROXY_WHITELIST.split(','):
+        for cidr in SERVER_CONFIG.REVERSE_PROXY_WHITELIST.split(","):
             try:
                 network = ipaddress.ip_network(cidr)
             except ValueError:
                 raise ImproperlyConfigured(
-                    "The REVERSE_PROXY_WHITELIST config paramater is in invalid format, or "
-                    "contains invalid CIDR. Correct format is a coma-separated list of IPv4/IPv6 CIDRs.")
+                    "The REVERSE_PROXY_WHITELIST config parameter is in invalid format, or "
+                    "contains invalid CIDR. Correct format is a coma-separated list of IPv4/IPv6 CIDRs.",
+                )
 
             if ipaddress.ip_address(ip) in network:
                 return super().process_request(request)

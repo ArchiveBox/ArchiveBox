@@ -111,14 +111,14 @@ def test_read_args_or_stdin_handles_args_stdin_and_mixed_jsonl():
         read_args_or_stdin(
             (),
             stream=MockTTYStringIO(
-                'https://plain-url.com\n'
+                "https://plain-url.com\n"
                 '{"type":"Snapshot","url":"https://jsonl-url.com","tags":"test"}\n'
                 '{"type":"Tag","id":"tag-1","name":"example"}\n'
-                '01234567-89ab-cdef-0123-456789abcdef\n'
-                'not valid json\n',
+                "01234567-89ab-cdef-0123-456789abcdef\n"
+                "not valid json\n",
                 is_tty=False,
             ),
-        )
+        ),
     )
     assert len(stdin_records) == 4
     assert stdin_records[0]["url"] == "https://plain-url.com"
@@ -135,7 +135,7 @@ def test_read_args_or_stdin_handles_args_stdin_and_mixed_jsonl():
                 '{"type":"Crawl","id":"crawl-1","urls":"https://example.com\\nhttps://foo.com"}\n',
                 is_tty=False,
             ),
-        )
+        ),
     )
     assert len(crawl_records) == 1
     assert crawl_records[0]["type"] == TYPE_CRAWL
@@ -151,14 +151,12 @@ def test_collect_urls_from_plugins_reads_only_parser_outputs(tmp_path):
 
     (tmp_path / "wget").mkdir()
     (tmp_path / "wget" / "urls.jsonl").write_text(
-        '{"url":"https://wget-link-1.com"}\n'
-        '{"url":"https://wget-link-2.com"}\n',
+        '{"url":"https://wget-link-1.com"}\n{"url":"https://wget-link-2.com"}\n',
         encoding="utf-8",
     )
     (tmp_path / "parse_html_urls").mkdir()
     (tmp_path / "parse_html_urls" / "urls.jsonl").write_text(
-        '{"url":"https://html-link-1.com"}\n'
-        '{"url":"https://html-link-2.com","title":"HTML Link 2"}\n',
+        '{"url":"https://html-link-1.com"}\n{"url":"https://html-link-2.com","title":"HTML Link 2"}\n',
         encoding="utf-8",
     )
     (tmp_path / "screenshot").mkdir()
@@ -185,6 +183,22 @@ def test_collect_urls_from_plugins_trims_markdown_suffixes(tmp_path):
     urls = collect_urls_from_plugins(tmp_path)
     assert len(urls) == 1
     assert urls[0]["url"] == "https://docs.sweeting.me/s/youtube-favorites"
+
+
+def test_collect_urls_from_plugins_trims_trailing_punctuation(tmp_path):
+    from archivebox.hooks import collect_urls_from_plugins
+
+    (tmp_path / "parse_html_urls").mkdir()
+    (tmp_path / "parse_html_urls" / "urls.jsonl").write_text(
+        ('{"url":"https://github.com/ArchiveBox/ArchiveBox."}\n{"url":"https://github.com/abc?abc#234234?."}\n'),
+        encoding="utf-8",
+    )
+
+    urls = collect_urls_from_plugins(tmp_path)
+    assert [url["url"] for url in urls] == [
+        "https://github.com/ArchiveBox/ArchiveBox",
+        "https://github.com/abc?abc#234234",
+    ]
 
 
 def test_crawl_create_stdout_pipes_into_run(initialized_archive):
@@ -311,10 +325,7 @@ def test_archiveresult_list_stdout_pipes_into_run(initialized_archive):
     _assert_stdout_is_jsonl_only(run_stdout)
 
     run_records = parse_jsonl_output(run_stdout)
-    assert any(
-        record.get("type") == "ArchiveResult" and record.get("id") == archiveresult["id"]
-        for record in run_records
-    )
+    assert any(record.get("type") == "ArchiveResult" and record.get("id") == archiveresult["id"] for record in run_records)
 
 
 def test_binary_create_stdout_pipes_into_run(initialized_archive):

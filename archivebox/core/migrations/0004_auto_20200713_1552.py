@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0003_auto_20200630_1034'),
+        ("core", "0003_auto_20200630_1034"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='snapshot',
-            name='timestamp',
+            model_name="snapshot",
+            name="timestamp",
             field=models.CharField(db_index=True, default=None, max_length=32, unique=True),
             preserve_default=False,
         ),

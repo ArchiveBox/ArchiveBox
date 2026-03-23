@@ -13,7 +13,7 @@ def test_manage_help_works(tmp_path, process):
     os.chdir(tmp_path)
 
     result = subprocess.run(
-        ['archivebox', 'manage', 'help'],
+        ["archivebox", "manage", "help"],
         capture_output=True,
         text=True,
         timeout=30,
@@ -28,7 +28,7 @@ def test_manage_showmigrations_works(tmp_path, process):
     os.chdir(tmp_path)
 
     result = subprocess.run(
-        ['archivebox', 'manage', 'showmigrations'],
+        ["archivebox", "manage", "showmigrations"],
         capture_output=True,
         text=True,
         timeout=30,
@@ -36,7 +36,7 @@ def test_manage_showmigrations_works(tmp_path, process):
 
     assert result.returncode == 0
     # Should show migration status
-    assert 'core' in result.stdout or '[' in result.stdout
+    assert "core" in result.stdout or "[" in result.stdout
 
 
 def test_manage_dbshell_command_exists(tmp_path, process):
@@ -44,7 +44,7 @@ def test_manage_dbshell_command_exists(tmp_path, process):
     os.chdir(tmp_path)
 
     result = subprocess.run(
-        ['archivebox', 'manage', 'help', 'dbshell'],
+        ["archivebox", "manage", "help", "dbshell"],
         capture_output=True,
         text=True,
         timeout=30,
@@ -52,7 +52,7 @@ def test_manage_dbshell_command_exists(tmp_path, process):
 
     # Should show help for dbshell
     assert result.returncode == 0
-    assert 'dbshell' in result.stdout or 'database' in result.stdout.lower()
+    assert "dbshell" in result.stdout or "database" in result.stdout.lower()
 
 
 def test_manage_check_works(tmp_path, process):
@@ -60,7 +60,7 @@ def test_manage_check_works(tmp_path, process):
     os.chdir(tmp_path)
 
     result = subprocess.run(
-        ['archivebox', 'manage', 'check'],
+        ["archivebox", "manage", "check"],
         capture_output=True,
         text=True,
         timeout=30,

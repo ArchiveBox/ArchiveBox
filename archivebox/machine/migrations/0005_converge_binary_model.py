@@ -16,17 +16,17 @@ def converge_binary_table(apps, schema_editor):
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('machine_installedbinary', 'machine_binary')")
     existing_tables = {row[0] for row in cursor.fetchall()}
 
-    print(f'DEBUG 0005: Existing tables: {existing_tables}')
+    print(f"DEBUG 0005: Existing tables: {existing_tables}")
 
     # Drop old InstalledBinary table if it exists (0.8.6rc0 path)
-    if 'machine_installedbinary' in existing_tables:
-        print('✓ Dropping machine_installedbinary table (0.8.6rc0 divergence)')
+    if "machine_installedbinary" in existing_tables:
+        print("✓ Dropping machine_installedbinary table (0.8.6rc0 divergence)")
         cursor.execute("DROP TABLE IF EXISTS machine_installedbinary")
 
     # Create Binary table if it doesn't exist
     # This handles the case where 0.8.6rc0's 0001_initial didn't create it
-    if 'machine_binary' not in existing_tables:
-        print('✓ Creating machine_binary table with correct schema')
+    if "machine_binary" not in existing_tables:
+        print("✓ Creating machine_binary table with correct schema")
         cursor.execute("""
             CREATE TABLE machine_binary (
                 id TEXT PRIMARY KEY NOT NULL,
@@ -53,15 +53,14 @@ def converge_binary_table(apps, schema_editor):
         cursor.execute("CREATE INDEX machine_binary_name_idx ON machine_binary(name)")
         cursor.execute("CREATE INDEX machine_binary_abspath_idx ON machine_binary(abspath)")
 
-        print('✓ machine_binary table created')
+        print("✓ machine_binary table created")
     else:
-        print('✓ machine_binary table already exists')
+        print("✓ machine_binary table already exists")
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('machine', '0001_initial'),
+        ("machine", "0001_initial"),
     ]
 
     operations = [

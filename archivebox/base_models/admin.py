@@ -1,6 +1,6 @@
 """Base admin classes for models using UUIDv7."""
 
-__package__ = 'archivebox.base_models'
+__package__ = "archivebox.base_models"
 
 import json
 from collections.abc import Mapping
@@ -32,11 +32,12 @@ class KeyValueWidget(forms.Widget):
     with + and - buttons to add/remove rows.
     Includes autocomplete for available config keys from the plugin system.
     """
+
     template_name = ""  # We render manually
 
     class Media:
         css = {
-            'all': []
+            "all": [],
         }
         js = []
 
@@ -44,17 +45,18 @@ class KeyValueWidget(forms.Widget):
         """Get available config options from plugins."""
         try:
             from archivebox.hooks import discover_plugin_configs
+
             plugin_configs = discover_plugin_configs()
             options: dict[str, ConfigOption] = {}
             for plugin_name, schema in plugin_configs.items():
-                for key, prop in schema.get('properties', {}).items():
+                for key, prop in schema.get("properties", {}).items():
                     option: ConfigOption = {
-                        'plugin': plugin_name,
-                        'type': prop.get('type', 'string'),
-                        'default': prop.get('default', ''),
-                        'description': prop.get('description', ''),
+                        "plugin": plugin_name,
+                        "type": prop.get("type", "string"),
+                        "default": prop.get("default", ""),
+                        "description": prop.get("description", ""),
                     }
-                    for schema_key in ('enum', 'pattern', 'minimum', 'maximum'):
+                    for schema_key in ("enum", "pattern", "minimum", "maximum"):
                         if schema_key in prop:
                             option[schema_key] = prop[schema_key]
                     options[key] = option
@@ -85,11 +87,11 @@ class KeyValueWidget(forms.Widget):
     ) -> SafeString:
         data = self._parse_value(value)
 
-        widget_id = attrs.get('id', name) if attrs else name
+        widget_id = attrs.get("id", name) if attrs else name
         config_options = self._get_config_options()
 
         # Build datalist options
-        datalist_options = '\n'.join(
+        datalist_options = "\n".join(
             f'<option value="{self._escape(key)}">{self._escape(opt["description"][:60] or opt["type"])}</option>'
             for key, opt in sorted(config_options.items())
         )
@@ -111,7 +113,7 @@ class KeyValueWidget(forms.Widget):
             html += self._render_row(widget_id, key, val_str)
 
         # Always add one empty row for new entries
-        html += self._render_row(widget_id, '', '')
+        html += self._render_row(widget_id, "", "")
 
         html += f'''
             </div>
@@ -669,8 +671,8 @@ class KeyValueWidget(forms.Widget):
     def _escape(self, s: object) -> str:
         """Escape HTML special chars in attribute values."""
         if not s:
-            return ''
-        return str(s).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+            return ""
+        return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
     def value_from_datadict(
         self,
@@ -678,8 +680,8 @@ class KeyValueWidget(forms.Widget):
         files: object,
         name: str,
     ) -> str:
-        value = data.get(name, '{}')
-        return value if isinstance(value, str) else '{}'
+        value = data.get(name, "{}")
+        return value if isinstance(value, str) else "{}"
 
 
 class ConfigEditorMixin(admin.ModelAdmin):
@@ -696,14 +698,20 @@ class ConfigEditorMixin(admin.ModelAdmin):
         **kwargs: object,
     ) -> forms.Field | None:
         """Use KeyValueWidget for the config JSON field."""
-        if db_field.name == 'config':
-            kwargs['widget'] = KeyValueWidget()
+        if db_field.name == "config":
+            kwargs["widget"] = KeyValueWidget()
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
 class BaseModelAdmin(DjangoObjectActions, admin.ModelAdmin):
-    list_display = ('id', 'created_at', 'created_by')
-    readonly_fields = ('id', 'created_at', 'modified_at')
+    list_display = ("id", "created_at", "created_by")
+    readonly_fields = ("id", "created_at", "modified_at")
+    show_search_mode_selector = False
+
+    def get_default_search_mode(self) -> str:
+        # The shared changelist template always asks every admin for a default
+        # search mode, even when the search-mode toggle is hidden.
+        return "meta"
 
     def get_form(
         self,
@@ -713,6 +721,6 @@ class BaseModelAdmin(DjangoObjectActions, admin.ModelAdmin):
         **kwargs: object,
     ):
         form = super().get_form(request, obj, change=change, **kwargs)
-        if 'created_by' in form.base_fields:
-            form.base_fields['created_by'].initial = request.user
+        if "created_by" in form.base_fields:
+            form.base_fields["created_by"].initial = request.user
         return form

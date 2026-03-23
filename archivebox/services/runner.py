@@ -16,13 +16,21 @@ from django.utils import timezone
 from rich.console import Console
 
 from abx_dl.events import BinaryEvent
+from abx_dl.limits import CrawlLimitState
 from abx_dl.models import INSTALL_URL, Plugin, Snapshot as AbxSnapshot, discover_plugins, filter_plugins
-from abx_dl.orchestrator import create_bus, download, install_plugins as abx_install_plugins, prepare_install_plugins, setup_services as setup_abx_services
+from abx_dl.orchestrator import (
+    create_bus,
+    download,
+    install_plugins as abx_install_plugins,
+    prepare_install_plugins,
+    setup_services as setup_abx_services,
+)
 
 from .archive_result_service import ArchiveResultService
 from .binary_service import BinaryService
 from .crawl_service import CrawlService
 from .machine_service import MachineService
+from .process_request_service import ProcessRequestService
 from .process_service import ProcessService
 from .snapshot_service import SnapshotService
 from .tag_service import TagService
@@ -52,6 +60,51 @@ def _count_selected_hooks(plugins: dict[str, Plugin], selected_plugins: list[str
 
 def _runner_debug(message: str) -> None:
     print(f"[runner] {message}", file=sys.stderr, flush=True)
+
+
+def _binary_env_key(name: str) -> str:
+    normalized = "".join(ch if ch.isalnum() else "_" for ch in name).upper()
+    return f"{normalized}_BINARY"
+
+
+def _binary_config_keys_for_plugins(plugins: dict[str, Plugin], binary_name: str) -> list[str]:
+    keys = [_binary_env_key(binary_name)]
+
+    if binary_name == "postlight-parser":
+        keys.insert(0, "MERCURY_BINARY")
+
+    for plugin in plugins.values():
+        for key, prop in plugin.config_schema.items():
+            if key.endswith("_BINARY") and prop.get("default") == binary_name:
+                keys.insert(0, key)
+
+    return list(dict.fromkeys(keys))
+
+
+def _installed_binary_config_overrides(plugins: dict[str, Plugin]) -> dict[str, str]:
+    from archivebox.machine.models import Binary, Machine
+
+    machine = Machine.current()
+    overrides: dict[str, str] = {}
+    binaries = (
+        Binary.objects.filter(machine=machine, status=Binary.StatusChoices.INSTALLED).exclude(abspath="").exclude(abspath__isnull=True)
+    )
+
+    for binary in binaries:
+        try:
+            resolved_path = Path(binary.abspath).expanduser()
+        except (TypeError, ValueError):
+            continue
+        if not resolved_path.is_file() or not os.access(resolved_path, os.X_OK):
+            continue
+        for key in _binary_config_keys_for_plugins(plugins, binary.name):
+            overrides[key] = binary.abspath
+
+    return overrides
+
+
+def _limit_stop_reason(config: dict[str, Any]) -> str:
+    return CrawlLimitState.from_config(config).get_stop_reason()
 
 
 def _attach_bus_trace(bus) -> None:
@@ -105,6 +158,7 @@ def ensure_background_runner(*, allow_under_pytest: bool = False) -> bool:
     from archivebox.machine.models import Machine, Process
 
     Process.cleanup_stale_running()
+    Process.cleanup_orphaned_workers()
     machine = Machine.current()
     if Process.objects.filter(
         machine=machine,
@@ -149,6 +203,7 @@ class CrawlRunner:
         self.machine_service = MachineService(self.bus)
         self.binary_service = BinaryService(self.bus)
         self.tag_service = TagService(self.bus)
+        self.process_request_service = ProcessRequestService(self.bus)
         self.crawl_service = CrawlService(self.bus, crawl_id=str(crawl.id))
         self.process_discovered_snapshots_inline = process_discovered_snapshots_inline
         self.snapshot_service = SnapshotService(
@@ -173,6 +228,7 @@ class CrawlRunner:
         MachineService(bus)
         BinaryService(bus)
         TagService(bus)
+        ProcessRequestService(bus)
         CrawlService(bus, crawl_id=str(self.crawl.id))
         SnapshotService(
             bus,
@@ -201,7 +257,10 @@ class CrawlRunner:
                 self.abx_services = setup_abx_services(
                     self.bus,
                     plugins=self.plugins,
-                    config_overrides=self.base_config,
+                    config_overrides={
+                        **self.base_config,
+                        "ABX_RUNTIME": "archivebox",
+                    },
                     auto_install=True,
                     emit_jsonl=False,
                 )
@@ -293,6 +352,8 @@ class CrawlRunner:
             current_process.save(update_fields=["iface", "machine", "modified_at"])
         self.persona = self.crawl.resolve_persona()
         self.base_config = get_config(crawl=self.crawl)
+        self.base_config.update(_installed_binary_config_overrides(self.plugins))
+        self.base_config["ABX_RUNTIME"] = "archivebox"
         if self.selected_plugins is None:
             self.selected_plugins = _selected_plugins_from_config(self.base_config)
         if self.persona:
@@ -459,6 +520,11 @@ class CrawlRunner:
 
         async with self.snapshot_semaphore:
             snapshot = await sync_to_async(self._load_snapshot_run_data, thread_sensitive=True)(snapshot_id)
+            if snapshot["status"] == "sealed":
+                return
+            if snapshot["depth"] > 0 and _limit_stop_reason(snapshot["config"]) == "max_size":
+                await sync_to_async(self._cancel_snapshot_due_to_limit, thread_sensitive=True)(snapshot_id)
+                return
             abx_snapshot = AbxSnapshot(
                 url=snapshot["url"],
                 id=snapshot["id"],
@@ -513,10 +579,21 @@ class CrawlRunner:
             "created_at": snapshot.created_at.isoformat() if snapshot.created_at else "",
             "tags": snapshot.tags_str(),
             "depth": snapshot.depth,
+            "status": snapshot.status,
             "parent_snapshot_id": str(snapshot.parent_snapshot_id) if snapshot.parent_snapshot_id else None,
             "output_dir": str(snapshot.output_dir),
             "config": self._snapshot_config(snapshot),
         }
+
+    def _cancel_snapshot_due_to_limit(self, snapshot_id: str) -> None:
+        from archivebox.core.models import Snapshot
+
+        snapshot = Snapshot.objects.filter(id=snapshot_id).first()
+        if snapshot is None or snapshot.status == Snapshot.StatusChoices.SEALED:
+            return
+        snapshot.status = Snapshot.StatusChoices.SEALED
+        snapshot.retry_at = None
+        snapshot.save(update_fields=["status", "retry_at", "modified_at"])
 
 
 def run_crawl(
@@ -535,7 +612,7 @@ def run_crawl(
             snapshot_ids=snapshot_ids,
             selected_plugins=selected_plugins,
             process_discovered_snapshots_inline=process_discovered_snapshots_inline,
-        ).run()
+        ).run(),
     )
 
 
@@ -546,9 +623,17 @@ async def _run_binary(binary_id: str) -> None:
     from archivebox.machine.models import Binary
 
     binary = await sync_to_async(Binary.objects.get, thread_sensitive=True)(id=binary_id)
-    config = get_config()
     plugins = discover_plugins()
+    config = get_config()
+    config.update(_installed_binary_config_overrides(plugins))
+    config["ABX_RUNTIME"] = "archivebox"
     bus = create_bus(name=_bus_name("ArchiveBox_binary", str(binary.id)), total_timeout=1800.0)
+    process_service = ProcessService(bus)
+    MachineService(bus)
+    BinaryService(bus)
+    TagService(bus)
+    ProcessRequestService(bus)
+    ArchiveResultService(bus, process_service=process_service)
     setup_abx_services(
         bus,
         plugins=plugins,
@@ -556,11 +641,6 @@ async def _run_binary(binary_id: str) -> None:
         auto_install=True,
         emit_jsonl=False,
     )
-    process_service = ProcessService(bus)
-    MachineService(bus)
-    BinaryService(bus)
-    TagService(bus)
-    ArchiveResultService(bus, process_service=process_service)
 
     try:
         _attach_bus_trace(bus)
@@ -592,9 +672,17 @@ def run_binary(binary_id: str) -> None:
 async def _run_install(plugin_names: list[str] | None = None) -> None:
     from archivebox.config.configset import get_config
 
-    config = get_config()
     plugins = discover_plugins()
+    config = get_config()
+    config.update(_installed_binary_config_overrides(plugins))
+    config["ABX_RUNTIME"] = "archivebox"
     bus = create_bus(name="ArchiveBox_install", total_timeout=3600.0)
+    process_service = ProcessService(bus)
+    MachineService(bus)
+    BinaryService(bus)
+    TagService(bus)
+    ProcessRequestService(bus)
+    ArchiveResultService(bus, process_service=process_service)
     abx_services = setup_abx_services(
         bus,
         plugins=plugins,
@@ -602,11 +690,6 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
         auto_install=True,
         emit_jsonl=False,
     )
-    process_service = ProcessService(bus)
-    MachineService(bus)
-    BinaryService(bus)
-    TagService(bus)
-    ArchiveResultService(bus, process_service=process_service)
     live_stream = None
 
     try:
@@ -763,8 +846,7 @@ def recover_orphaned_snapshots() -> int:
     recovered = 0
     now = timezone.now()
     orphaned_snapshots = (
-        Snapshot.objects
-        .filter(status=Snapshot.StatusChoices.STARTED, retry_at__isnull=True)
+        Snapshot.objects.filter(status=Snapshot.StatusChoices.STARTED, retry_at__isnull=True)
         .select_related("crawl")
         .prefetch_related("archiveresult_set")
     )

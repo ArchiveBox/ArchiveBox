@@ -72,6 +72,7 @@ class Command(BaseCommand):
 
         def restart_runner() -> None:
             Process.cleanup_stale_running()
+            Process.cleanup_orphaned_workers()
             machine = Machine.current()
 
             running = Process.objects.filter(
@@ -105,7 +106,7 @@ class Command(BaseCommand):
         while True:
             try:
                 if os.path.exists(pidfile):
-                    with open(pidfile, "r") as handle:
+                    with open(pidfile) as handle:
                         pid = handle.read().strip() or None
                 else:
                     pid = None

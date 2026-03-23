@@ -153,7 +153,7 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 - **Individuals:**
   `saving bookmarks`, `preserving portfolio content`, `legacy / memoirs archival`
 - **Governments:**
-  `snapshoting public service sites`, `recordkeeping compliance`
+  `snapshotting public service sites`, `recordkeeping compliance`
 
 > ***[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102)** if your org wants help using ArchiveBox professionally.*  
 > We offer: setup & support, CAPTCHA/ratelimit unblocking, SSO, audit logging/chain-of-custody, and more  
@@ -423,7 +423,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 <ul>
 <li><a href="https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102">
  <img src="https://img.shields.io/badge/Custom_Development-ArchiveBox.io-%231a1a1a.svg?style=flat" height="22px"/>
-</a> (<a href="https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102">get hosting, support, and feature customization directy from us</a>)</li>
+</a> (<a href="https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102">get hosting, support, and feature customization directly from us</a>)</li>
 <li><a href="https://monadical.com">
  <img src="https://img.shields.io/badge/General_Dev_Consulting-Monadical.com-%231a1a1a.svg?style=flat" height="22px"/>
 </a> (<a href="https://monadical.com/contact-us.html">generalist consultancy that has ArchiveBox experience</a>)</li>
@@ -1183,7 +1183,7 @@ ArchiveBox's stance is that duplication of other people's content is only ethica
 
 In the U.S., <a href="https://guides.library.oregonstate.edu/copyright/libraries">libraries, researchers, and archivists</a> are allowed to duplicate copyrighted materials under <a href="https://libguides.ala.org/copyright/fairuse">"fair use"</a> for <a href="https://guides.cuny.edu/cunyfairuse/librarians#:~:text=One%20of%20these%20specified%20conditions,may%20be%20liable%20for%20copyright">private study, scholarship, or research</a>. Archive.org's non-profit preservation work is <a href="https://blog.archive.org/2024/03/01/fair-use-in-action-at-the-internet-archive/">covered under fair use</a> in the US, and they properly handle <a href="https://cardozoaelj.com/2015/03/20/use-of-copyright-law-to-take-down-revenge-porn/">unethical content</a>/<a href="https://help.archive.org/help/rights/">DMCA</a>/<a href="https://gdpr.eu/right-to-be-forgotten/#:~:text=An%20individual%20has%20the%20right,that%20individual%20withdraws%20their%20consent.">GDPR</a> removal requests to maintain good standing in the eyes of the law.
 
-As long as you A. don't try to profit off pirating copyrighted content and B. have processes in place to respond to removal requests, many countries allow you to use sofware like ArchiveBox to ethically and responsibly archive any web content you can view. That being said, ArchiveBox is not liable for how you choose to operate the software. You must research your own local laws and regulations, and get proper legal council if you plan to host a public instance (start by putting your DMCA/GDPR contact info in <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#footer_info"><code>FOOTER_INFO</code></a> and changing your instance's branding using <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#custom_templates_dir"><code>CUSTOM_TEMPLATES_DIR</code></a>).
+As long as you A. don't try to profit off pirating copyrighted content and B. have processes in place to respond to removal requests, many countries allow you to use software like ArchiveBox to ethically and responsibly archive any web content you can view. That being said, ArchiveBox is not liable for how you choose to operate the software. You must research your own local laws and regulations, and get proper legal council if you plan to host a public instance (start by putting your DMCA/GDPR contact info in <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#footer_info"><code>FOOTER_INFO</code></a> and changing your instance's branding using <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#custom_templates_dir"><code>CUSTOM_TEMPLATES_DIR</code></a>).
 
 </details>
 <br/>
@@ -1212,7 +1212,7 @@ ArchiveBox tries to be a robust, set-and-forget archiving solution suitable for 
 
 Not all content is suitable to be archived on a centralized, publicly accessible platform. Archive.org doesn't offer the ability to save things behind login walls for good reason, as the content may not have been intended for a public audience. ArchiveBox exists to fill that gap by letting everyone save what they have access to on an individual basis, and to encourage decentralized archiving that's less succeptible to censorship or natural disasters.
 
-By having users store their content locally or within their organizations, we can also save much larger portions of the internet than a centralized service has the disk capcity handle. The eventual goal is to work towards federated archiving where users can share portions of their collections with each other, and with central archives on a case-by-case basis.
+By having users store their content locally or within their organizations, we can also save much larger portions of the internet than a centralized service has the disk capacity to handle. The eventual goal is to work towards federated archiving where users can share portions of their collections with each other, and with central archives on a case-by-case basis.
 
 <h3>Comparison With Other Self-Hosted Archiving Options</h3>
 

@@ -28,4 +28,38 @@
       {% endblock %}
     {% endblock %}
   </div>
+  {% if action_index|default:0 == 0 %}
+    {% if cl.has_filters or opts.model_name == 'snapshot' %}
+      <div class="actions-right">
+        {% if cl.has_filters %}
+          <button
+            type="button"
+            class="button"
+            id="changelist-toolbar-filter-toggle"
+          >
+            {% translate "Filters" %}
+          </button>
+        {% endif %}
+        {% if request.resolver_match.url_name == 'grid' %}
+          <button
+            type="button"
+            class="button"
+            id="snapshot-view-toggle"
+            onclick="window.location.href='{% url 'admin:core_snapshot_changelist' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}'"
+          >
+            {% translate "List" %}
+          </button>
+        {% elif opts.model_name == 'snapshot' %}
+          <button
+            type="button"
+            class="button"
+            id="snapshot-view-toggle"
+            onclick="window.location.href='{% url 'admin:grid' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}'"
+          >
+            {% translate "Grid" %}
+          </button>
+        {% endif %}
+      </div>
+    {% endif %}
+  {% endif %}
 </div>

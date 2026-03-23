@@ -13,11 +13,10 @@ import signal_webhooks.utils
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('auth', '0012_alter_user_first_name_max_length'),
+        ("auth", "0012_alter_user_first_name_max_length"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -75,55 +74,165 @@ class Migration(migrations.Migration):
                     reverse_sql="""
                 DROP TABLE IF EXISTS api_outboundwebhook;
                 DROP TABLE IF EXISTS api_apitoken;
-                    """
+                    """,
                 ),
             ],
             state_operations=[
                 migrations.CreateModel(
-                    name='APIToken',
+                    name="APIToken",
                     fields=[
-                        ('id', models.UUIDField(default=uuid7, editable=False, primary_key=True, serialize=False, unique=True)),
-                        ('created_at', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
-                        ('modified_at', models.DateTimeField(auto_now=True)),
-                        ('token', models.CharField(default=archivebox.api.models.generate_secret_token, max_length=32, unique=True)),
-                        ('expires', models.DateTimeField(blank=True, null=True)),
-                        ('created_by', models.ForeignKey(default=get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                        ("id", models.UUIDField(default=uuid7, editable=False, primary_key=True, serialize=False, unique=True)),
+                        ("created_at", models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
+                        ("modified_at", models.DateTimeField(auto_now=True)),
+                        ("token", models.CharField(default=archivebox.api.models.generate_secret_token, max_length=32, unique=True)),
+                        ("expires", models.DateTimeField(blank=True, null=True)),
+                        (
+                            "created_by",
+                            models.ForeignKey(
+                                default=get_or_create_system_user_pk,
+                                on_delete=django.db.models.deletion.CASCADE,
+                                to=settings.AUTH_USER_MODEL,
+                            ),
+                        ),
                     ],
                     options={
-                        'verbose_name': 'API Key',
-                        'verbose_name_plural': 'API Keys',
-                        'app_label': 'api',
+                        "verbose_name": "API Key",
+                        "verbose_name_plural": "API Keys",
+                        "app_label": "api",
                     },
                 ),
                 migrations.CreateModel(
-                    name='OutboundWebhook',
+                    name="OutboundWebhook",
                     fields=[
-                        ('id', models.UUIDField(default=uuid7, editable=False, primary_key=True, serialize=False, unique=True)),
-                        ('created_at', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
-                        ('modified_at', models.DateTimeField(auto_now=True)),
-                        ('name', models.CharField(db_index=True, help_text='Webhook name.', max_length=255, unique=True, verbose_name='name')),
-                        ('signal', models.CharField(choices=[('CREATE', 'Create'), ('UPDATE', 'Update'), ('DELETE', 'Delete'), ('M2M', 'M2M changed'), ('CREATE_OR_UPDATE', 'Create or Update'), ('CREATE_OR_DELETE', 'Create or Delete'), ('CREATE_OR_M2M', 'Create or M2M changed'), ('UPDATE_OR_DELETE', 'Update or Delete'), ('UPDATE_OR_M2M', 'Update or M2M changed'), ('DELETE_OR_M2M', 'Delete or M2M changed'), ('CREATE_UPDATE_OR_DELETE', 'Create, Update or Delete'), ('CREATE_UPDATE_OR_M2M', 'Create, Update or M2M changed'), ('CREATE_DELETE_OR_M2M', 'Create, Delete or M2M changed'), ('UPDATE_DELETE_OR_M2M', 'Update, Delete or M2M changed'), ('CREATE_UPDATE_DELETE_OR_M2M', 'Create, Update or Delete, or M2M changed')], help_text='Signal the webhook fires to.', max_length=255, verbose_name='signal')),
-                        ('ref', models.CharField(db_index=True, help_text='Dot import notation to the model the webhook is for.', max_length=1023, validators=[signal_webhooks.utils.model_from_reference], verbose_name='referenced model')),
-                        ('endpoint', models.URLField(help_text='Target endpoint for this webhook.', max_length=2047, verbose_name='endpoint')),
-                        ('headers', models.JSONField(blank=True, default=dict, help_text='Headers to send with the webhook request.', validators=[signal_webhooks.utils.is_dict], verbose_name='headers')),
-                        ('auth_token', signal_webhooks.fields.TokenField(blank=True, default='', help_text='Authentication token to use in an Authorization header.', max_length=8000, validators=[signal_webhooks.utils.decode_cipher_key], verbose_name='authentication token')),
-                        ('enabled', models.BooleanField(default=True, help_text='Is this webhook enabled?', verbose_name='enabled')),
-                        ('keep_last_response', models.BooleanField(default=False, help_text='Should the webhook keep a log of the latest response it got?', verbose_name='keep last response')),
-                        ('created', models.DateTimeField(auto_now_add=True, help_text='When the webhook was created.', verbose_name='created')),
-                        ('updated', models.DateTimeField(auto_now=True, help_text='When the webhook was last updated.', verbose_name='updated')),
-                        ('last_response', models.CharField(blank=True, default='', help_text='Latest response to this webhook.', max_length=8000, verbose_name='last response')),
-                        ('last_success', models.DateTimeField(default=None, help_text='When the webhook last succeeded.', null=True, verbose_name='last success')),
-                        ('last_failure', models.DateTimeField(default=None, help_text='When the webhook last failed.', null=True, verbose_name='last failure')),
-                        ('created_by', models.ForeignKey(default=get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                        ("id", models.UUIDField(default=uuid7, editable=False, primary_key=True, serialize=False, unique=True)),
+                        ("created_at", models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
+                        ("modified_at", models.DateTimeField(auto_now=True)),
+                        (
+                            "name",
+                            models.CharField(db_index=True, help_text="Webhook name.", max_length=255, unique=True, verbose_name="name"),
+                        ),
+                        (
+                            "signal",
+                            models.CharField(
+                                choices=[
+                                    ("CREATE", "Create"),
+                                    ("UPDATE", "Update"),
+                                    ("DELETE", "Delete"),
+                                    ("M2M", "M2M changed"),
+                                    ("CREATE_OR_UPDATE", "Create or Update"),
+                                    ("CREATE_OR_DELETE", "Create or Delete"),
+                                    ("CREATE_OR_M2M", "Create or M2M changed"),
+                                    ("UPDATE_OR_DELETE", "Update or Delete"),
+                                    ("UPDATE_OR_M2M", "Update or M2M changed"),
+                                    ("DELETE_OR_M2M", "Delete or M2M changed"),
+                                    ("CREATE_UPDATE_OR_DELETE", "Create, Update or Delete"),
+                                    ("CREATE_UPDATE_OR_M2M", "Create, Update or M2M changed"),
+                                    ("CREATE_DELETE_OR_M2M", "Create, Delete or M2M changed"),
+                                    ("UPDATE_DELETE_OR_M2M", "Update, Delete or M2M changed"),
+                                    ("CREATE_UPDATE_DELETE_OR_M2M", "Create, Update or Delete, or M2M changed"),
+                                ],
+                                help_text="Signal the webhook fires to.",
+                                max_length=255,
+                                verbose_name="signal",
+                            ),
+                        ),
+                        (
+                            "ref",
+                            models.CharField(
+                                db_index=True,
+                                help_text="Dot import notation to the model the webhook is for.",
+                                max_length=1023,
+                                validators=[signal_webhooks.utils.model_from_reference],
+                                verbose_name="referenced model",
+                            ),
+                        ),
+                        (
+                            "endpoint",
+                            models.URLField(help_text="Target endpoint for this webhook.", max_length=2047, verbose_name="endpoint"),
+                        ),
+                        (
+                            "headers",
+                            models.JSONField(
+                                blank=True,
+                                default=dict,
+                                help_text="Headers to send with the webhook request.",
+                                validators=[signal_webhooks.utils.is_dict],
+                                verbose_name="headers",
+                            ),
+                        ),
+                        (
+                            "auth_token",
+                            signal_webhooks.fields.TokenField(
+                                blank=True,
+                                default="",
+                                help_text="Authentication token to use in an Authorization header.",
+                                max_length=8000,
+                                validators=[signal_webhooks.utils.decode_cipher_key],
+                                verbose_name="authentication token",
+                            ),
+                        ),
+                        ("enabled", models.BooleanField(default=True, help_text="Is this webhook enabled?", verbose_name="enabled")),
+                        (
+                            "keep_last_response",
+                            models.BooleanField(
+                                default=False,
+                                help_text="Should the webhook keep a log of the latest response it got?",
+                                verbose_name="keep last response",
+                            ),
+                        ),
+                        (
+                            "created",
+                            models.DateTimeField(auto_now_add=True, help_text="When the webhook was created.", verbose_name="created"),
+                        ),
+                        (
+                            "updated",
+                            models.DateTimeField(auto_now=True, help_text="When the webhook was last updated.", verbose_name="updated"),
+                        ),
+                        (
+                            "last_response",
+                            models.CharField(
+                                blank=True,
+                                default="",
+                                help_text="Latest response to this webhook.",
+                                max_length=8000,
+                                verbose_name="last response",
+                            ),
+                        ),
+                        (
+                            "last_success",
+                            models.DateTimeField(
+                                default=None,
+                                help_text="When the webhook last succeeded.",
+                                null=True,
+                                verbose_name="last success",
+                            ),
+                        ),
+                        (
+                            "last_failure",
+                            models.DateTimeField(
+                                default=None,
+                                help_text="When the webhook last failed.",
+                                null=True,
+                                verbose_name="last failure",
+                            ),
+                        ),
+                        (
+                            "created_by",
+                            models.ForeignKey(
+                                default=get_or_create_system_user_pk,
+                                on_delete=django.db.models.deletion.CASCADE,
+                                to=settings.AUTH_USER_MODEL,
+                            ),
+                        ),
                     ],
                     options={
-                        'verbose_name': 'API Outbound Webhook',
-                        'app_label': 'api',
+                        "verbose_name": "API Outbound Webhook",
+                        "app_label": "api",
                     },
                 ),
                 migrations.AddConstraint(
-                    model_name='outboundwebhook',
-                    constraint=models.UniqueConstraint(fields=['ref', 'endpoint'], name='prevent_duplicate_hooks_api_outboundwebhook'),
+                    model_name="outboundwebhook",
+                    constraint=models.UniqueConstraint(fields=["ref", "endpoint"], name="prevent_duplicate_hooks_api_outboundwebhook"),
                 ),
             ],
         ),

@@ -51,7 +51,7 @@ dependencies = [
     ### State Management
     "python-statemachine>=2.3.6",
     ### CLI / Logging
-    "click>=8.3.1",          # for: nicer CLI command + argument definintions
+    "click>=8.3.1",          # for: nicer CLI command + argument definitions
     "rich>=14.2.0",          # for: pretty CLI output
     "rich-click>=1.9.5",     # for: pretty CLI command help text & output
     "ipython>=8.27.0",       # for: archivebox shell (TODO: replace with bpython?)
@@ -97,7 +97,7 @@ sonic = [
     # apt install sonic
 ]
 ldap = [
-    # python-ldap depends on the openldap bindings which provide no prebuilt wheels becuase they link against tons of other system packages
+    # python-ldap depends on the openldap bindings which provide no prebuilt wheels because they link against tons of other system packages
     # apt install build-essential python3-dev python3-ldap libsasl2-dev libldap2-dev libssl-dev
     "python-ldap>=3.4.3",
     "django-auth-ldap>=4.1.0",
@@ -147,6 +147,7 @@ dev = [
     "coverage[toml]>=7.6.0",
     "bottle>=0.13.1",
     ### LINTING
+    "prek>=0.3.6",
     "ruff>=0.6.6",
     "pyright>=1.1.406",
     "ty>=0.0.1a19",
@@ -181,6 +182,10 @@ exclude = ["*.pyi", "typings/", "migrations/", "archivebox/tests/data/"]
 # https://docs.astral.sh/ruff/rules/
 [tool.ruff.lint]
 ignore = ["E731", "E303", "E266", "E241", "E222"]
+
+[tool.codespell]
+ignore-words-list = "abx,archivebox,adminsnapshots,bu,wit,dont,cant,wont,havent,thats,shouldnt,doesnt,doenst,re-use,re-used,re-using,re-usable"
+skip = "*.json,*.min.js,*.min.css,uv.lock,old/*,website/*"
 
 [tool.pytest.ini_options]
 testpaths = [ "archivebox/tests" ]

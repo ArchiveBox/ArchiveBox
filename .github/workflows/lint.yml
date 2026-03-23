@@ -4,32 +4,28 @@ on:
   workflow_dispatch:
   push:
 
-env:
-  MAX_LINE_LENGTH: 110
-
 jobs:
   lint:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 1
 
       - name: Set up Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.9
+          python-version: "3.13"
           architecture: x64
 
-      - name: Install flake8
-        run: |
-          pip install flake8
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
 
-      - name: Lint with flake8
-        run: |
-          cd archivebox
-          # one pass for show-stopper syntax errors or undefined names
-          flake8 . --count --show-source --statistics
-          # one pass for small stylistic things
-          flake8 . --count --max-line-length="$MAX_LINE_LENGTH" --statistics
+      - name: Install dependencies with uv
+        run: uv sync --all-extras --all-groups --no-sources --no-cache
+
+      - name: Run prek
+        run: uv run prek run --all-files

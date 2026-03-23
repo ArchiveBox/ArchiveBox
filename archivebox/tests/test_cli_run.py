@@ -21,8 +21,8 @@ from archivebox.tests.conftest import (
 )
 
 RUN_TEST_ENV = {
-    'PLUGINS': 'favicon',
-    'SAVE_FAVICON': 'True',
+    "PLUGINS": "favicon",
+    "SAVE_FAVICON": "True",
 }
 
 
@@ -34,7 +34,7 @@ class TestRunWithCrawl:
         crawl_record = create_test_crawl_json()
 
         stdout, stderr, code = run_archivebox_cmd(
-            ['run'],
+            ["run"],
             stdin=json.dumps(crawl_record),
             data_dir=initialized_archive,
             timeout=120,
@@ -45,21 +45,21 @@ class TestRunWithCrawl:
 
         # Should output the created Crawl
         records = parse_jsonl_output(stdout)
-        crawl_records = [r for r in records if r.get('type') == 'Crawl']
+        crawl_records = [r for r in records if r.get("type") == "Crawl"]
         assert len(crawl_records) >= 1
-        assert crawl_records[0].get('id')  # Should have an id now
+        assert crawl_records[0].get("id")  # Should have an id now
 
     def test_run_with_existing_crawl(self, initialized_archive):
         """Run re-queues an existing Crawl (with id)."""
         url = create_test_url()
 
         # First create a crawl
-        stdout1, _, _ = run_archivebox_cmd(['crawl', 'create', url], data_dir=initialized_archive, env=RUN_TEST_ENV)
+        stdout1, _, _ = run_archivebox_cmd(["crawl", "create", url], data_dir=initialized_archive, env=RUN_TEST_ENV)
         crawl = parse_jsonl_output(stdout1)[0]
 
         # Run with the existing crawl
         stdout2, stderr, code = run_archivebox_cmd(
-            ['run'],
+            ["run"],
             stdin=json.dumps(crawl),
             data_dir=initialized_archive,
             timeout=120,
@@ -79,7 +79,7 @@ class TestRunWithSnapshot:
         snapshot_record = create_test_snapshot_json()
 
         stdout, stderr, code = run_archivebox_cmd(
-            ['run'],
+            ["run"],
             stdin=json.dumps(snapshot_record),
             data_dir=initialized_archive,
             timeout=120,
@@ -89,21 +89,21 @@ class TestRunWithSnapshot:
         assert code == 0, f"Command failed: {stderr}"
 
         records = parse_jsonl_output(stdout)
-        snapshot_records = [r for r in records if r.get('type') == 'Snapshot']
+        snapshot_records = [r for r in records if r.get("type") == "Snapshot"]
         assert len(snapshot_records) >= 1
-        assert snapshot_records[0].get('id')
+        assert snapshot_records[0].get("id")
 
     def test_run_with_existing_snapshot(self, initialized_archive):
         """Run re-queues an existing Snapshot (with id)."""
         url = create_test_url()
 
         # First create a snapshot
-        stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive, env=RUN_TEST_ENV)
+        stdout1, _, _ = run_archivebox_cmd(["snapshot", "create", url], data_dir=initialized_archive, env=RUN_TEST_ENV)
         snapshot = parse_jsonl_output(stdout1)[0]
 
         # Run with the existing snapshot
         stdout2, stderr, code = run_archivebox_cmd(
-            ['run'],
+            ["run"],
             stdin=json.dumps(snapshot),
             data_dir=initialized_archive,
             timeout=120,
@@ -117,10 +117,10 @@ class TestRunWithSnapshot:
     def test_run_with_plain_url(self, initialized_archive):
         """Run accepts plain URL records (no type field)."""
         url = create_test_url()
-        url_record = {'url': url}
+        url_record = {"url": url}
 
         stdout, stderr, code = run_archivebox_cmd(
-            ['run'],
+            ["run"],
             stdin=json.dumps(url_record),
             data_dir=initialized_archive,
             timeout=120,
@@ -140,21 +140,21 @@ class TestRunWithArchiveResult:
         url = create_test_url()
 
         # Create snapshot and archive result
-        stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive, env=RUN_TEST_ENV)
+        stdout1, _, _ = run_archivebox_cmd(["snapshot", "create", url], data_dir=initialized_archive, env=RUN_TEST_ENV)
         snapshot = parse_jsonl_output(stdout1)[0]
 
         stdout2, _, _ = run_archivebox_cmd(
-            ['archiveresult', 'create', '--plugin=favicon'],
+            ["archiveresult", "create", "--plugin=favicon"],
             stdin=json.dumps(snapshot),
             data_dir=initialized_archive,
             env=RUN_TEST_ENV,
         )
-        ar = next(r for r in parse_jsonl_output(stdout2) if r.get('type') == 'ArchiveResult')
+        ar = next(r for r in parse_jsonl_output(stdout2) if r.get("type") == "ArchiveResult")
 
         # Update to failed
-        ar['status'] = 'failed'
+        ar["status"] = "failed"
         run_archivebox_cmd(
-            ['archiveresult', 'update', '--status=failed'],
+            ["archiveresult", "update", "--status=failed"],
             stdin=json.dumps(ar),
             data_dir=initialized_archive,
             env=RUN_TEST_ENV,
@@ -162,7 +162,7 @@ class TestRunWithArchiveResult:
 
         # Now run should re-queue it
         stdout3, stderr, code = run_archivebox_cmd(
-            ['run'],
+            ["run"],
             stdin=json.dumps(ar),
             data_dir=initialized_archive,
             timeout=120,
@@ -171,7 +171,7 @@ class TestRunWithArchiveResult:
 
         assert code == 0
         records = parse_jsonl_output(stdout3)
-        ar_records = [r for r in records if r.get('type') == 'ArchiveResult']
+        ar_records = [r for r in records if r.get("type") == "ArchiveResult"]
         assert len(ar_records) >= 1
 
 
@@ -180,19 +180,19 @@ class TestRunPassThrough:
 
     def test_run_passes_through_unknown_types(self, initialized_archive):
         """Run passes through records with unknown types."""
-        unknown_record = {'type': 'Unknown', 'id': 'fake-id', 'data': 'test'}
+        unknown_record = {"type": "Unknown", "id": "fake-id", "data": "test"}
 
         stdout, stderr, code = run_archivebox_cmd(
-            ['run'],
+            ["run"],
             stdin=json.dumps(unknown_record),
             data_dir=initialized_archive,
         )
 
         assert code == 0
         records = parse_jsonl_output(stdout)
-        unknown_records = [r for r in records if r.get('type') == 'Unknown']
+        unknown_records = [r for r in records if r.get("type") == "Unknown"]
         assert len(unknown_records) == 1
-        assert unknown_records[0]['data'] == 'test'
+        assert unknown_records[0]["data"] == "test"
 
     def test_run_outputs_all_processed_records(self, initialized_archive):
         """Run outputs all processed records for chaining."""
@@ -200,7 +200,7 @@ class TestRunPassThrough:
         crawl_record = create_test_crawl_json(urls=[url])
 
         stdout, stderr, code = run_archivebox_cmd(
-            ['run'],
+            ["run"],
             stdin=json.dumps(crawl_record),
             data_dir=initialized_archive,
             timeout=120,
@@ -220,16 +220,18 @@ class TestRunMixedInput:
         """Run handles mixed Crawl/Snapshot/ArchiveResult input."""
         crawl = create_test_crawl_json()
         snapshot = create_test_snapshot_json()
-        unknown = {'type': 'Tag', 'id': 'fake', 'name': 'test'}
+        unknown = {"type": "Tag", "id": "fake", "name": "test"}
 
-        stdin = '\n'.join([
-            json.dumps(crawl),
-            json.dumps(snapshot),
-            json.dumps(unknown),
-        ])
+        stdin = "\n".join(
+            [
+                json.dumps(crawl),
+                json.dumps(snapshot),
+                json.dumps(unknown),
+            ],
+        )
 
         stdout, stderr, code = run_archivebox_cmd(
-            ['run'],
+            ["run"],
             stdin=stdin,
             data_dir=initialized_archive,
             timeout=120,
@@ -239,9 +241,9 @@ class TestRunMixedInput:
         assert code == 0
         records = parse_jsonl_output(stdout)
 
-        types = set(r.get('type') for r in records)
+        types = {r.get("type") for r in records}
         # Should have processed Crawl and Snapshot, passed through Tag
-        assert 'Crawl' in types or 'Snapshot' in types or 'Tag' in types
+        assert "Crawl" in types or "Snapshot" in types or "Tag" in types
 
 
 class TestRunEmpty:
@@ -250,8 +252,8 @@ class TestRunEmpty:
     def test_run_empty_stdin(self, initialized_archive):
         """Run with empty stdin returns success."""
         stdout, stderr, code = run_archivebox_cmd(
-            ['run'],
-            stdin='',
+            ["run"],
+            stdin="",
             data_dir=initialized_archive,
         )
 
@@ -259,16 +261,16 @@ class TestRunEmpty:
 
     def test_run_no_records_to_process(self, initialized_archive):
         """Run with only pass-through records shows message."""
-        unknown = {'type': 'Unknown', 'id': 'fake'}
+        unknown = {"type": "Unknown", "id": "fake"}
 
         stdout, stderr, code = run_archivebox_cmd(
-            ['run'],
+            ["run"],
             stdin=json.dumps(unknown),
             data_dir=initialized_archive,
         )
 
         assert code == 0
-        assert 'No records to process' in stderr
+        assert "No records to process" in stderr
 
 
 class TestRunDaemonMode:
@@ -328,13 +330,13 @@ class TestRecoverOrphanedCrawls:
         from archivebox.services.runner import recover_orphaned_crawls
 
         crawl = Crawl.objects.create(
-            urls='https://example.com',
+            urls="https://example.com",
             created_by_id=get_or_create_system_user_pk(),
             status=Crawl.StatusChoices.STARTED,
             retry_at=None,
         )
         Snapshot.objects.create(
-            url='https://example.com',
+            url="https://example.com",
             crawl=crawl,
             status=Snapshot.StatusChoices.QUEUED,
             retry_at=None,
@@ -358,13 +360,13 @@ class TestRecoverOrphanedCrawls:
         from archivebox.services.runner import recover_orphaned_crawls
 
         crawl = Crawl.objects.create(
-            urls='https://example.com',
+            urls="https://example.com",
             created_by_id=get_or_create_system_user_pk(),
             status=Crawl.StatusChoices.STARTED,
             retry_at=None,
         )
         snapshot = Snapshot.objects.create(
-            url='https://example.com',
+            url="https://example.com",
             crawl=crawl,
             status=Snapshot.StatusChoices.QUEUED,
             retry_at=None,
@@ -376,10 +378,10 @@ class TestRecoverOrphanedCrawls:
             machine=machine,
             process_type=Process.TypeChoices.HOOK,
             status=Process.StatusChoices.RUNNING,
-            cmd=['/plugins/chrome/on_Crawl__91_chrome_wait.js'],
+            cmd=["/plugins/chrome/on_Crawl__91_chrome_wait.js"],
             env={
-                'CRAWL_ID': str(crawl.id),
-                'SNAPSHOT_ID': str(snapshot.id),
+                "CRAWL_ID": str(crawl.id),
+                "SNAPSHOT_ID": str(snapshot.id),
             },
             started_at=timezone.now(),
         )
@@ -397,13 +399,13 @@ class TestRecoverOrphanedCrawls:
         from archivebox.services.runner import recover_orphaned_crawls
 
         crawl = Crawl.objects.create(
-            urls='https://example.com',
+            urls="https://example.com",
             created_by_id=get_or_create_system_user_pk(),
             status=Crawl.StatusChoices.STARTED,
             retry_at=None,
         )
         Snapshot.objects.create(
-            url='https://example.com',
+            url="https://example.com",
             crawl=crawl,
             status=Snapshot.StatusChoices.SEALED,
             retry_at=None,
@@ -426,13 +428,13 @@ class TestRecoverOrphanedSnapshots:
         from archivebox.services.runner import recover_orphaned_snapshots
 
         crawl = Crawl.objects.create(
-            urls='https://example.com',
+            urls="https://example.com",
             created_by_id=get_or_create_system_user_pk(),
             status=Crawl.StatusChoices.SEALED,
             retry_at=None,
         )
         snapshot = Snapshot.objects.create(
-            url='https://example.com',
+            url="https://example.com",
             crawl=crawl,
             status=Snapshot.StatusChoices.STARTED,
             retry_at=None,

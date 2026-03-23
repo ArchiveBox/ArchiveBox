@@ -1,4 +1,4 @@
-__package__ = 'archivebox.core'
+__package__ = "archivebox.core"
 
 import json
 import re
@@ -16,10 +16,11 @@ class TagEditorWidget(forms.Widget):
     - Press Enter or Space to create new tags (auto-creates if doesn't exist)
     - Uses AJAX for autocomplete and tag creation
     """
+
     template_name = ""  # We render manually
 
     class Media:
-        css = {'all': []}
+        css = {"all": []}
         js = []
 
     def __init__(self, attrs=None, snapshot_id=None):
@@ -28,24 +29,24 @@ class TagEditorWidget(forms.Widget):
 
     def _escape(self, value):
         """Escape HTML entities in value."""
-        return escape(str(value)) if value else ''
+        return escape(str(value)) if value else ""
 
     def _normalize_id(self, value):
         """Normalize IDs for HTML + JS usage (letters, digits, underscore; JS-safe start)."""
-        normalized = re.sub(r'[^A-Za-z0-9_]', '_', str(value))
-        if not normalized or not re.match(r'[A-Za-z_]', normalized):
-            normalized = f't_{normalized}'
+        normalized = re.sub(r"[^A-Za-z0-9_]", "_", str(value))
+        if not normalized or not re.match(r"[A-Za-z_]", normalized):
+            normalized = f"t_{normalized}"
         return normalized
 
     def _tag_style(self, value):
         """Compute a stable pastel color style for a tag value."""
-        tag = (value or '').strip().lower()
-        digest = hashlib.md5(tag.encode('utf-8')).hexdigest()
+        tag = (value or "").strip().lower()
+        digest = hashlib.md5(tag.encode("utf-8")).hexdigest()
         hue = int(digest[:4], 16) % 360
-        bg = f'hsl({hue}, 70%, 92%)'
-        border = f'hsl({hue}, 60%, 82%)'
-        fg = f'hsl({hue}, 35%, 28%)'
-        return f'--tag-bg: {bg}; --tag-border: {border}; --tag-fg: {fg};'
+        bg = f"hsl({hue}, 70%, 92%)"
+        border = f"hsl({hue}, 60%, 82%)"
+        fg = f"hsl({hue}, 35%, 28%)"
+        return f"--tag-bg: {bg}; --tag-border: {border}; --tag-fg: {fg};"
 
     def render(self, name, value, attrs=None, renderer=None):
         """
@@ -64,14 +65,15 @@ class TagEditorWidget(forms.Widget):
         # Parse value to get list of tag names
         tags = []
         if value:
-            if hasattr(value, 'all'):  # QuerySet
+            if hasattr(value, "all"):  # QuerySet
                 tags = sorted([tag.name for tag in value.all()])
             elif isinstance(value, (list, tuple)):
-                if value and hasattr(value[0], 'name'):  # List of Tag objects
+                if value and hasattr(value[0], "name"):  # List of Tag objects
                     tags = sorted([tag.name for tag in value])
                 else:  # List of strings or IDs
                     # Could be tag IDs from form submission
                     from archivebox.core.models import Tag
+
                     tag_names = []
                     for v in value:
                         if isinstance(v, str) and not v.isdigit():
@@ -85,13 +87,13 @@ class TagEditorWidget(forms.Widget):
                                     tag_names.append(v)
                     tags = sorted(tag_names)
             elif isinstance(value, str):
-                tags = sorted([t.strip() for t in value.split(',') if t.strip()])
+                tags = sorted([t.strip() for t in value.split(",") if t.strip()])
 
-        widget_id_raw = attrs.get('id', name) if attrs else name
+        widget_id_raw = attrs.get("id", name) if attrs else name
         widget_id = self._normalize_id(widget_id_raw)
 
         # Build pills HTML
-        pills_html = ''
+        pills_html = ""
         for tag in tags:
             pills_html += f'''
                 <span class="tag-pill" data-tag="{self._escape(tag)}" style="{self._tag_style(tag)}">
@@ -113,11 +115,11 @@ class TagEditorWidget(forms.Widget):
                    placeholder="Add tag..."
                    autocomplete="off"
                    onkeydown="handleTagKeydown_{widget_id}(event)"
-                   onkeypress="if(event.key==='Enter' || event.keyCode===13){{event.preventDefault(); event.stopPropagation();}}"
+                   onkeypress="if(event.key==='Enter' || event.keyCode===13 || event.key===' ' || event.code==='Space' || event.key==='Spacebar'){{event.preventDefault(); event.stopPropagation();}}"
                    oninput="fetchTagAutocomplete_{widget_id}(this.value)"
             >
             <datalist id="{widget_id}_datalist"></datalist>
-            <input type="hidden" name="{name}" id="{widget_id}" value="{self._escape(','.join(tags))}">
+            <input type="hidden" name="{name}" id="{widget_id}" value="{self._escape(",".join(tags))}">
         </div>
 
         <script>
@@ -300,13 +302,16 @@ class TagEditorWidget(forms.Widget):
             window.handleTagKeydown_{widget_id} = function(event) {{
                 var input = event.target;
                 var value = input.value.trim();
+                var isSpace = event.key === ' ' || event.code === 'Space' || event.key === 'Spacebar';
+                var isEnter = event.key === 'Enter' || event.keyCode === 13;
+                var isComma = event.key === ',';
 
-                if (event.key === 'Enter' || event.keyCode === 13 || event.key === ' ' || event.key === ',') {{
+                if (isEnter || isSpace || isComma) {{
                     event.preventDefault();
                     event.stopPropagation();
                     if (value) {{
-                        // Handle comma-separated values
-                        value.split(',').forEach(function(tag) {{
+                        // Treat commas and whitespace as tag boundaries.
+                        value.split(/[\s,]+/).forEach(function(tag) {{
                             addTag_{widget_id}(tag.trim());
                         }});
                     }}
@@ -385,10 +390,10 @@ class URLFiltersWidget(forms.Widget):
 
     def render(self, name, value, attrs=None, renderer=None):
         value = value if isinstance(value, dict) else {}
-        widget_id_raw = attrs.get('id', name) if attrs else name
-        widget_id = re.sub(r'[^A-Za-z0-9_]', '_', str(widget_id_raw)) or name
-        allowlist = escape(value.get('allowlist', '') or '')
-        denylist = escape(value.get('denylist', '') or '')
+        widget_id_raw = attrs.get("id", name) if attrs else name
+        widget_id = re.sub(r"[^A-Za-z0-9_]", "_", str(widget_id_raw)) or name
+        allowlist = escape(value.get("allowlist", "") or "")
+        denylist = escape(value.get("denylist", "") or "")
 
         return mark_safe(f'''
         <div id="{widget_id}_container" class="url-filters-widget">
@@ -584,9 +589,9 @@ class URLFiltersWidget(forms.Widget):
 
     def value_from_datadict(self, data, files, name):
         return {
-            'allowlist': data.get(f'{name}_allowlist', ''),
-            'denylist': data.get(f'{name}_denylist', ''),
-            'same_domain_only': data.get(f'{name}_same_domain_only') in ('1', 'on', 'true'),
+            "allowlist": data.get(f"{name}_allowlist", ""),
+            "denylist": data.get(f"{name}_denylist", ""),
+            "same_domain_only": data.get(f"{name}_same_domain_only") in ("1", "on", "true"),
         }
 
 
@@ -609,38 +614,38 @@ class InlineTagEditorWidget(TagEditorWidget):
         # Parse value to get list of tag dicts with id and name
         tag_data = []
         if value:
-            if hasattr(value, 'all'):  # QuerySet
+            if hasattr(value, "all"):  # QuerySet
                 for tag in value.all():
-                    tag_data.append({'id': tag.pk, 'name': tag.name})
-                tag_data.sort(key=lambda x: x['name'].lower())
+                    tag_data.append({"id": tag.pk, "name": tag.name})
+                tag_data.sort(key=lambda x: x["name"].lower())
             elif isinstance(value, (list, tuple)):
-                if value and hasattr(value[0], 'name'):
+                if value and hasattr(value[0], "name"):
                     for tag in value:
-                        tag_data.append({'id': tag.pk, 'name': tag.name})
-                    tag_data.sort(key=lambda x: x['name'].lower())
+                        tag_data.append({"id": tag.pk, "name": tag.name})
+                    tag_data.sort(key=lambda x: x["name"].lower())
 
-        widget_id_raw = f"inline_tags_{snapshot_id}" if snapshot_id else (attrs.get('id', name) if attrs else name)
+        widget_id_raw = f"inline_tags_{snapshot_id}" if snapshot_id else (attrs.get("id", name) if attrs else name)
         widget_id = self._normalize_id(widget_id_raw)
 
         # Build pills HTML with filter links
-        pills_html = ''
+        pills_html = ""
         for td in tag_data:
-            remove_button = ''
+            remove_button = ""
             if self.editable:
                 remove_button = (
                     f'<button type="button" class="tag-remove-btn" '
                     f'data-tag-id="{td["id"]}" data-tag-name="{self._escape(td["name"])}">&times;</button>'
                 )
             pills_html += f'''
-                <span class="tag-pill" data-tag="{self._escape(td['name'])}" data-tag-id="{td['id']}" style="{self._tag_style(td['name'])}">
-                    <a href="/admin/core/snapshot/?tags__id__exact={td['id']}" class="tag-link">{self._escape(td['name'])}</a>
+                <span class="tag-pill" data-tag="{self._escape(td["name"])}" data-tag-id="{td["id"]}" style="{self._tag_style(td["name"])}">
+                    <a href="/admin/core/snapshot/?tags__id__exact={td["id"]}" class="tag-link">{self._escape(td["name"])}</a>
                     {remove_button}
                 </span>
             '''
 
         tags_json = escape(json.dumps(tag_data))
-        input_html = ''
-        readonly_class = ' readonly' if not self.editable else ''
+        input_html = ""
+        readonly_class = " readonly" if not self.editable else ""
         if self.editable:
             input_html = f'''
             <input type="text"

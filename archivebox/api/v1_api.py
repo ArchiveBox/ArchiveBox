@@ -1,4 +1,4 @@
-__package__ = 'archivebox.api'
+__package__ = "archivebox.api"
 
 
 from io import StringIO
@@ -20,9 +20,9 @@ from archivebox.api.auth import API_AUTH_METHODS
 from archivebox.api.models import APIToken
 
 
-COMMIT_HASH = get_COMMIT_HASH() or 'unknown'
+COMMIT_HASH = get_COMMIT_HASH() or "unknown"
 
-html_description=f'''
+html_description = f"""
 <h3>Welcome to your ArchiveBox server's REST API <code>[v1 ALPHA]</code> homepage!</h3>
 <br/>
 <i><b>WARNING: This API is still in an early development stage and may change!</b></i>
@@ -35,47 +35,47 @@ html_description=f'''
 <li>📜 See the API source code: <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/api"><code>archivebox/api/</code></a></li>
 </ul>
 <small>Served by ArchiveBox v{VERSION} (<a href="https://github.com/ArchiveBox/ArchiveBox/commit/{COMMIT_HASH}"><code>{COMMIT_HASH[:8]}</code></a>), API powered by <a href="https://django-ninja.dev/"><code>django-ninja</code></a>.</small>
-'''
+"""
 
 
 def register_urls(api: NinjaAPI) -> NinjaAPI:
-    api.add_router('/auth/',     'archivebox.api.v1_auth.router')
-    api.add_router('/core/',     'archivebox.api.v1_core.router')
-    api.add_router('/crawls/',   'archivebox.api.v1_crawls.router')
-    api.add_router('/cli/',      'archivebox.api.v1_cli.router')
-    api.add_router('/machine/',  'archivebox.api.v1_machine.router')
+    api.add_router("/auth/", "archivebox.api.v1_auth.router")
+    api.add_router("/core/", "archivebox.api.v1_core.router")
+    api.add_router("/crawls/", "archivebox.api.v1_crawls.router")
+    api.add_router("/cli/", "archivebox.api.v1_cli.router")
+    api.add_router("/machine/", "archivebox.api.v1_machine.router")
     return api
 
 
-class NinjaAPIWithIOCapture(NinjaAPI):    
+class NinjaAPIWithIOCapture(NinjaAPI):
     def create_temporal_response(self, request: HttpRequest) -> HttpResponse:
         stdout, stderr = StringIO(), StringIO()
 
         with redirect_stderr(stderr):
             with redirect_stdout(stdout):
-                setattr(request, 'stdout', stdout)
-                setattr(request, 'stderr', stderr)
+                setattr(request, "stdout", stdout)
+                setattr(request, "stderr", stderr)
 
                 response = super().create_temporal_response(request)
 
-        # Diable caching of API responses entirely
-        response['Cache-Control'] = 'no-store'
+        # Disable caching of API responses entirely
+        response["Cache-Control"] = "no-store"
 
         # Add debug stdout and stderr headers to response
-        response['X-ArchiveBox-Stdout'] = stdout.getvalue().replace('\n', '\\n')[:200]
-        response['X-ArchiveBox-Stderr'] = stderr.getvalue().replace('\n', '\\n')[:200]
+        response["X-ArchiveBox-Stdout"] = stdout.getvalue().replace("\n", "\\n")[:200]
+        response["X-ArchiveBox-Stderr"] = stderr.getvalue().replace("\n", "\\n")[:200]
         # response['X-ArchiveBox-View'] = self.get_openapi_operation_id(request) or 'Unknown'
 
         # Add Auth Headers to response
-        api_token_attr = getattr(request, '_api_token', None)
+        api_token_attr = getattr(request, "_api_token", None)
         api_token = api_token_attr if isinstance(api_token_attr, APIToken) else None
-        token_expiry = api_token.expires.isoformat() if api_token and api_token.expires else 'Never'
+        token_expiry = api_token.expires.isoformat() if api_token and api_token.expires else "Never"
 
-        response['X-ArchiveBox-Auth-Method'] = str(getattr(request, '_api_auth_method', 'None'))
-        response['X-ArchiveBox-Auth-Expires'] = token_expiry
-        response['X-ArchiveBox-Auth-Token-Id'] = str(api_token.id) if api_token else 'None'
-        response['X-ArchiveBox-Auth-User-Id'] = str(request.user.pk) if getattr(request.user, 'pk', None) else 'None'
-        response['X-ArchiveBox-Auth-User-Username'] = request.user.username if isinstance(request.user, User) else 'None'
+        response["X-ArchiveBox-Auth-Method"] = str(getattr(request, "_api_auth_method", "None"))
+        response["X-ArchiveBox-Auth-Expires"] = token_expiry
+        response["X-ArchiveBox-Auth-Token-Id"] = str(api_token.id) if api_token else "None"
+        response["X-ArchiveBox-Auth-User-Id"] = str(request.user.pk) if getattr(request.user, "pk", None) else "None"
+        response["X-ArchiveBox-Auth-User-Username"] = request.user.username if isinstance(request.user, User) else "None"
 
         # import ipdb; ipdb.set_trace()
         # print('RESPONDING NOW', response)
@@ -84,7 +84,7 @@ class NinjaAPIWithIOCapture(NinjaAPI):
 
 
 api = NinjaAPIWithIOCapture(
-    title='ArchiveBox API',
+    title="ArchiveBox API",
     description=html_description,
     version=VERSION,
     auth=API_AUTH_METHODS,
@@ -103,22 +103,21 @@ def generic_exception_handler(request, err):
     if isinstance(err, (ObjectDoesNotExist, EmptyResultSet, PermissionDenied)):
         status = 404
 
-    print(''.join(format_exception(err)))
+    print("".join(format_exception(err)))
 
     return api.create_response(
         request,
         {
             "succeeded": False,
-            "message": f'{err.__class__.__name__}: {err}',
+            "message": f"{err.__class__.__name__}: {err}",
             "errors": [
-                ''.join(format_exception(err)),
+                "".join(format_exception(err)),
                 # or send simpler parent-only traceback:
                 # *([str(err.__context__)] if getattr(err, '__context__', None) else []),
             ],
         },
         status=status,
     )
-
 
 
 # import orjson

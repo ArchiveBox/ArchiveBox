@@ -17,10 +17,10 @@ from archivebox.tests.conftest import (
 )
 
 PROJECTOR_TEST_ENV = {
-    'PLUGINS': 'favicon',
-    'SAVE_FAVICON': 'True',
-    'USE_COLOR': 'False',
-    'SHOW_PROGRESS': 'False',
+    "PLUGINS": "favicon",
+    "SAVE_FAVICON": "True",
+    "USE_COLOR": "False",
+    "SHOW_PROGRESS": "False",
 }
 
 
@@ -32,12 +32,12 @@ class TestArchiveResultCreate:
         url = create_test_url()
 
         # Create a snapshot first
-        stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive)
+        stdout1, _, _ = run_archivebox_cmd(["snapshot", "create", url], data_dir=initialized_archive)
         snapshot = parse_jsonl_output(stdout1)[0]
 
         # Pipe snapshot to archiveresult create
         stdout2, stderr, code = run_archivebox_cmd(
-            ['archiveresult', 'create', '--plugin=title'],
+            ["archiveresult", "create", "--plugin=title"],
             stdin=json.dumps(snapshot),
             data_dir=initialized_archive,
         )
@@ -46,49 +46,49 @@ class TestArchiveResultCreate:
 
         records = parse_jsonl_output(stdout2)
         # Should have the Snapshot passed through and an ArchiveResult request emitted
-        types = [r.get('type') for r in records]
-        assert 'Snapshot' in types
-        assert 'ArchiveResult' in types
+        types = [r.get("type") for r in records]
+        assert "Snapshot" in types
+        assert "ArchiveResult" in types
 
-        ar = next(r for r in records if r['type'] == 'ArchiveResult')
-        assert ar['plugin'] == 'title'
-        assert 'id' not in ar
+        ar = next(r for r in records if r["type"] == "ArchiveResult")
+        assert ar["plugin"] == "title"
+        assert "id" not in ar
 
     def test_create_with_specific_plugin(self, initialized_archive):
         """Create archive result for specific plugin."""
         url = create_test_url()
-        stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive)
+        stdout1, _, _ = run_archivebox_cmd(["snapshot", "create", url], data_dir=initialized_archive)
         snapshot = parse_jsonl_output(stdout1)[0]
 
         stdout2, stderr, code = run_archivebox_cmd(
-            ['archiveresult', 'create', '--plugin=screenshot'],
+            ["archiveresult", "create", "--plugin=screenshot"],
             stdin=json.dumps(snapshot),
             data_dir=initialized_archive,
         )
 
         assert code == 0
         records = parse_jsonl_output(stdout2)
-        ar_records = [r for r in records if r.get('type') == 'ArchiveResult']
+        ar_records = [r for r in records if r.get("type") == "ArchiveResult"]
         assert len(ar_records) >= 1
-        assert ar_records[0]['plugin'] == 'screenshot'
+        assert ar_records[0]["plugin"] == "screenshot"
 
     def test_create_pass_through_crawl(self, initialized_archive):
         """Pass-through Crawl records unchanged."""
         url = create_test_url()
 
         # Create crawl and snapshot
-        stdout1, _, _ = run_archivebox_cmd(['crawl', 'create', url], data_dir=initialized_archive)
+        stdout1, _, _ = run_archivebox_cmd(["crawl", "create", url], data_dir=initialized_archive)
         crawl = parse_jsonl_output(stdout1)[0]
 
         stdout2, _, _ = run_archivebox_cmd(
-            ['snapshot', 'create'],
+            ["snapshot", "create"],
             stdin=json.dumps(crawl),
             data_dir=initialized_archive,
         )
 
         # Now pipe all to archiveresult create
         stdout3, stderr, code = run_archivebox_cmd(
-            ['archiveresult', 'create', '--plugin=title'],
+            ["archiveresult", "create", "--plugin=title"],
             stdin=stdout2,
             data_dir=initialized_archive,
         )
@@ -96,23 +96,23 @@ class TestArchiveResultCreate:
         assert code == 0
         records = parse_jsonl_output(stdout3)
 
-        types = [r.get('type') for r in records]
-        assert 'Crawl' in types
-        assert 'Snapshot' in types
-        assert 'ArchiveResult' in types
+        types = [r.get("type") for r in records]
+        assert "Crawl" in types
+        assert "Snapshot" in types
+        assert "ArchiveResult" in types
 
     def test_create_pass_through_only_when_no_snapshots(self, initialized_archive):
         """Only pass-through records but no new snapshots returns success."""
-        crawl_record = {'type': 'Crawl', 'id': 'fake-id', 'urls': 'https://example.com'}
+        crawl_record = {"type": "Crawl", "id": "fake-id", "urls": "https://example.com"}
 
         stdout, stderr, code = run_archivebox_cmd(
-            ['archiveresult', 'create'],
+            ["archiveresult", "create"],
             stdin=json.dumps(crawl_record),
             data_dir=initialized_archive,
         )
 
         assert code == 0
-        assert 'Passed through' in stderr
+        assert "Passed through" in stderr
 
 
 class TestArchiveResultList:
@@ -121,26 +121,26 @@ class TestArchiveResultList:
     def test_list_empty(self, initialized_archive):
         """List with no archive results returns empty."""
         stdout, stderr, code = run_archivebox_cmd(
-            ['archiveresult', 'list'],
+            ["archiveresult", "list"],
             data_dir=initialized_archive,
         )
 
         assert code == 0
-        assert 'Listed 0 archive results' in stderr
+        assert "Listed 0 archive results" in stderr
 
     def test_list_filter_by_status(self, initialized_archive):
         """Filter archive results by status."""
         # Create snapshot and materialize an archive result via the runner
         url = create_test_url()
-        stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive)
+        stdout1, _, _ = run_archivebox_cmd(["snapshot", "create", url], data_dir=initialized_archive)
         snapshot = parse_jsonl_output(stdout1)[0]
         stdout2, _, _ = run_archivebox_cmd(
-            ['archiveresult', 'create', '--plugin=favicon'],
+            ["archiveresult", "create", "--plugin=favicon"],
             stdin=json.dumps(snapshot),
             data_dir=initialized_archive,
         )
         run_archivebox_cmd(
-            ['run'],
+            ["run"],
             stdin=stdout2,
             data_dir=initialized_archive,
             timeout=120,
@@ -148,38 +148,38 @@ class TestArchiveResultList:
         )
         created = parse_jsonl_output(
             run_archivebox_cmd(
-                ['archiveresult', 'list', '--plugin=favicon'],
+                ["archiveresult", "list", "--plugin=favicon"],
                 data_dir=initialized_archive,
-            )[0]
+            )[0],
         )[0]
         run_archivebox_cmd(
-            ['archiveresult', 'update', '--status=queued'],
+            ["archiveresult", "update", "--status=queued"],
             stdin=json.dumps(created),
             data_dir=initialized_archive,
         )
 
         stdout, stderr, code = run_archivebox_cmd(
-            ['archiveresult', 'list', '--status=queued'],
+            ["archiveresult", "list", "--status=queued"],
             data_dir=initialized_archive,
         )
 
         assert code == 0
         records = parse_jsonl_output(stdout)
         for r in records:
-            assert r['status'] == 'queued'
+            assert r["status"] == "queued"
 
     def test_list_filter_by_plugin(self, initialized_archive):
         """Filter archive results by plugin."""
         url = create_test_url()
-        stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive)
+        stdout1, _, _ = run_archivebox_cmd(["snapshot", "create", url], data_dir=initialized_archive)
         snapshot = parse_jsonl_output(stdout1)[0]
         stdout2, _, _ = run_archivebox_cmd(
-            ['archiveresult', 'create', '--plugin=favicon'],
+            ["archiveresult", "create", "--plugin=favicon"],
             stdin=json.dumps(snapshot),
             data_dir=initialized_archive,
         )
         run_archivebox_cmd(
-            ['run'],
+            ["run"],
             stdin=stdout2,
             data_dir=initialized_archive,
             timeout=120,
@@ -187,29 +187,29 @@ class TestArchiveResultList:
         )
 
         stdout, stderr, code = run_archivebox_cmd(
-            ['archiveresult', 'list', '--plugin=favicon'],
+            ["archiveresult", "list", "--plugin=favicon"],
             data_dir=initialized_archive,
         )
 
         assert code == 0
         records = parse_jsonl_output(stdout)
         for r in records:
-            assert r['plugin'] == 'favicon'
+            assert r["plugin"] == "favicon"
 
     def test_list_with_limit(self, initialized_archive):
         """Limit number of results."""
         # Create multiple archive results
         for _ in range(3):
             url = create_test_url()
-            stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive)
+            stdout1, _, _ = run_archivebox_cmd(["snapshot", "create", url], data_dir=initialized_archive)
             snapshot = parse_jsonl_output(stdout1)[0]
             stdout2, _, _ = run_archivebox_cmd(
-                ['archiveresult', 'create', '--plugin=favicon'],
+                ["archiveresult", "create", "--plugin=favicon"],
                 stdin=json.dumps(snapshot),
                 data_dir=initialized_archive,
             )
             run_archivebox_cmd(
-                ['run'],
+                ["run"],
                 stdin=stdout2,
                 data_dir=initialized_archive,
                 timeout=120,
@@ -217,7 +217,7 @@ class TestArchiveResultList:
             )
 
         stdout, stderr, code = run_archivebox_cmd(
-            ['archiveresult', 'list', '--limit=2'],
+            ["archiveresult", "list", "--limit=2"],
             data_dir=initialized_archive,
         )
 
@@ -232,38 +232,38 @@ class TestArchiveResultUpdate:
     def test_update_status(self, initialized_archive):
         """Update archive result status."""
         url = create_test_url()
-        stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive)
+        stdout1, _, _ = run_archivebox_cmd(["snapshot", "create", url], data_dir=initialized_archive)
         snapshot = parse_jsonl_output(stdout1)[0]
 
         stdout2, _, _ = run_archivebox_cmd(
-            ['archiveresult', 'create', '--plugin=favicon'],
+            ["archiveresult", "create", "--plugin=favicon"],
             stdin=json.dumps(snapshot),
             data_dir=initialized_archive,
         )
         stdout_run, _, _ = run_archivebox_cmd(
-            ['run'],
+            ["run"],
             stdin=stdout2,
             data_dir=initialized_archive,
             timeout=120,
             env=PROJECTOR_TEST_ENV,
         )
         stdout_list, _, _ = run_archivebox_cmd(
-            ['archiveresult', 'list', '--plugin=favicon'],
+            ["archiveresult", "list", "--plugin=favicon"],
             data_dir=initialized_archive,
         )
         ar = parse_jsonl_output(stdout_list)[0]
 
         stdout3, stderr, code = run_archivebox_cmd(
-            ['archiveresult', 'update', '--status=failed'],
+            ["archiveresult", "update", "--status=failed"],
             stdin=json.dumps(ar),
             data_dir=initialized_archive,
         )
 
         assert code == 0
-        assert 'Updated 1 archive results' in stderr
+        assert "Updated 1 archive results" in stderr
 
         records = parse_jsonl_output(stdout3)
-        assert records[0]['status'] == 'failed'
+        assert records[0]["status"] == "failed"
 
 
 class TestArchiveResultDelete:
@@ -272,65 +272,65 @@ class TestArchiveResultDelete:
     def test_delete_requires_yes(self, initialized_archive):
         """Delete requires --yes flag."""
         url = create_test_url()
-        stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive)
+        stdout1, _, _ = run_archivebox_cmd(["snapshot", "create", url], data_dir=initialized_archive)
         snapshot = parse_jsonl_output(stdout1)[0]
 
         stdout2, _, _ = run_archivebox_cmd(
-            ['archiveresult', 'create', '--plugin=favicon'],
+            ["archiveresult", "create", "--plugin=favicon"],
             stdin=json.dumps(snapshot),
             data_dir=initialized_archive,
         )
         stdout_run, _, _ = run_archivebox_cmd(
-            ['run'],
+            ["run"],
             stdin=stdout2,
             data_dir=initialized_archive,
             timeout=120,
             env=PROJECTOR_TEST_ENV,
         )
         stdout_list, _, _ = run_archivebox_cmd(
-            ['archiveresult', 'list', '--plugin=favicon'],
+            ["archiveresult", "list", "--plugin=favicon"],
             data_dir=initialized_archive,
         )
         ar = parse_jsonl_output(stdout_list)[0]
 
         stdout, stderr, code = run_archivebox_cmd(
-            ['archiveresult', 'delete'],
+            ["archiveresult", "delete"],
             stdin=json.dumps(ar),
             data_dir=initialized_archive,
         )
 
         assert code == 1
-        assert '--yes' in stderr
+        assert "--yes" in stderr
 
     def test_delete_with_yes(self, initialized_archive):
         """Delete with --yes flag works."""
         url = create_test_url()
-        stdout1, _, _ = run_archivebox_cmd(['snapshot', 'create', url], data_dir=initialized_archive)
+        stdout1, _, _ = run_archivebox_cmd(["snapshot", "create", url], data_dir=initialized_archive)
         snapshot = parse_jsonl_output(stdout1)[0]
 
         stdout2, _, _ = run_archivebox_cmd(
-            ['archiveresult', 'create', '--plugin=favicon'],
+            ["archiveresult", "create", "--plugin=favicon"],
             stdin=json.dumps(snapshot),
             data_dir=initialized_archive,
         )
         stdout_run, _, _ = run_archivebox_cmd(
-            ['run'],
+            ["run"],
             stdin=stdout2,
             data_dir=initialized_archive,
             timeout=120,
             env=PROJECTOR_TEST_ENV,
         )
         stdout_list, _, _ = run_archivebox_cmd(
-            ['archiveresult', 'list', '--plugin=favicon'],
+            ["archiveresult", "list", "--plugin=favicon"],
             data_dir=initialized_archive,
         )
         ar = parse_jsonl_output(stdout_list)[0]
 
         stdout, stderr, code = run_archivebox_cmd(
-            ['archiveresult', 'delete', '--yes'],
+            ["archiveresult", "delete", "--yes"],
             stdin=json.dumps(ar),
             data_dir=initialized_archive,
         )
 
         assert code == 0
-        assert 'Deleted 1 archive results' in stderr
+        assert "Deleted 1 archive results" in stderr

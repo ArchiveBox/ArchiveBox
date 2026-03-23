@@ -1,12 +1,14 @@
-__package__ = 'archivebox.misc'
+__package__ = "archivebox.misc"
 
 import re
 import requests
 import json as pyjson
 import http.cookiejar
+from decimal import Decimal, InvalidOperation
 from dateparser import parse as dateparser
 
-from typing import List, Optional, Any, Callable
+from typing import Any
+from collections.abc import Callable
 from pathlib import Path
 from inspect import signature
 from functools import wraps
@@ -18,8 +20,10 @@ from requests.exceptions import RequestException, ReadTimeout
 
 from base32_crockford import encode as base32_encode
 from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
+
 try:
-    import chardet    # type:ignore
+    import chardet  # type:ignore
+
     detect_encoding = lambda rawdata: chardet.detect(rawdata)["encoding"]
 except ImportError:
     detect_encoding = lambda rawdata: "utf-8"
@@ -35,57 +39,135 @@ from .logging import COLOR_DICT
 # All of these are (str) -> str
 # shortcuts to: https://docs.python.org/3/library/urllib.parse.html#url-parsing
 scheme = lambda url: urlparse(url).scheme.lower()
-without_scheme = lambda url: urlparse(url)._replace(scheme='').geturl().strip('//')
-without_query = lambda url: urlparse(url)._replace(query='').geturl().strip('//')
-without_fragment = lambda url: urlparse(url)._replace(fragment='').geturl().strip('//')
-without_path = lambda url: urlparse(url)._replace(path='', fragment='', query='').geturl().strip('//')
+without_scheme = lambda url: urlparse(url)._replace(scheme="").geturl().strip("//")
+without_query = lambda url: urlparse(url)._replace(query="").geturl().strip("//")
+without_fragment = lambda url: urlparse(url)._replace(fragment="").geturl().strip("//")
+without_path = lambda url: urlparse(url)._replace(path="", fragment="", query="").geturl().strip("//")
 path = lambda url: urlparse(url).path
-basename = lambda url: urlparse(url).path.rsplit('/', 1)[-1]
+basename = lambda url: urlparse(url).path.rsplit("/", 1)[-1]
 domain = lambda url: urlparse(url).netloc
 query = lambda url: urlparse(url).query
 fragment = lambda url: urlparse(url).fragment
-extension = lambda url: basename(url).rsplit('.', 1)[-1].lower() if '.' in basename(url) else ''
+extension = lambda url: basename(url).rsplit(".", 1)[-1].lower() if "." in basename(url) else ""
 base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 
-without_www = lambda url: url.replace('://www.', '://', 1)
-without_trailing_slash = lambda url: url[:-1] if url[-1] == '/' else url.replace('/?', '?')
-hashurl = lambda url: base32_encode(int(sha256(base_url(url).encode('utf-8')).hexdigest(), 16))[:20]
+without_www = lambda url: url.replace("://www.", "://", 1)
+without_trailing_slash = lambda url: url[:-1] if url[-1] == "/" else url.replace("/?", "?")
+hashurl = lambda url: base32_encode(int(sha256(base_url(url).encode("utf-8")).hexdigest(), 16))[:20]
 
-urlencode = lambda s: s and quote(s, encoding='utf-8', errors='replace')
+urlencode = lambda s: s and quote(s, encoding="utf-8", errors="replace")
 urldecode = lambda s: s and unquote(s)
 htmlencode = lambda s: s and escape(s, quote=True)
 htmldecode = lambda s: s and unescape(s)
 
+
 def short_ts(ts: Any) -> str | None:
     parsed = parse_date(ts)
-    return None if parsed is None else str(parsed.timestamp()).split('.')[0]
+    return None if parsed is None else str(parsed.timestamp()).split(".")[0]
 
 
 def ts_to_date_str(ts: Any) -> str | None:
     parsed = parse_date(ts)
-    return None if parsed is None else parsed.strftime('%Y-%m-%d %H:%M')
+    return None if parsed is None else parsed.strftime("%Y-%m-%d %H:%M")
 
 
 def ts_to_iso(ts: Any) -> str | None:
     parsed = parse_date(ts)
     return None if parsed is None else parsed.isoformat()
 
-COLOR_REGEX = re.compile(r'\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m')
+
+COLOR_REGEX = re.compile(r"\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m")
 
 
 # https://mathiasbynens.be/demo/url-regex
 URL_REGEX = re.compile(
-    r'(?=('                          
-    r'http[s]?://'                     # start matching from allowed schemes
-    r'(?:[a-zA-Z]|[0-9]'               # followed by allowed alphanum characters
-    r'|[-_$@.&+!*\(\),]'               #   or allowed symbols (keep hyphen first to match literal hyphen)
-    r'|[^\u0000-\u007F])+'             #   or allowed unicode bytes
-    r'[^\]\[<>"\'\s]+'                 # stop parsing at these symbols
-    r'))',
+    r"(?=("
+    r"http[s]?://"  # start matching from allowed schemes
+    r"(?:[a-zA-Z]|[0-9]"  # followed by allowed alphanum characters
+    r"|[-_$@.&+!*\(\),]"  #   or allowed symbols (keep hyphen first to match literal hyphen)
+    r"|[^\u0000-\u007F])+"  #   or allowed unicode bytes
+    r'[^\]\[<>"\'\s]+'  # stop parsing at these symbols
+    r"))",
     re.IGNORECASE | re.UNICODE,
 )
 
-def parens_are_matched(string: str, open_char='(', close_char=')'):
+QUOTE_DELIMITERS = (
+    '"',
+    "'",
+    "`",
+    "“",
+    "”",
+    "‘",
+    "’",
+)
+QUOTE_ENTITY_DELIMITERS = (
+    "&quot;",
+    "&#34;",
+    "&#x22;",
+    "&apos;",
+    "&#39;",
+    "&#x27;",
+)
+URL_ENTITY_REPLACEMENTS = (
+    ("&amp;", "&"),
+    ("&#38;", "&"),
+    ("&#x26;", "&"),
+)
+
+FILESIZE_UNITS: dict[str, int] = {
+    "": 1,
+    "b": 1,
+    "byte": 1,
+    "bytes": 1,
+    "k": 1024,
+    "kb": 1024,
+    "kib": 1024,
+    "m": 1024**2,
+    "mb": 1024**2,
+    "mib": 1024**2,
+    "g": 1024**3,
+    "gb": 1024**3,
+    "gib": 1024**3,
+    "t": 1024**4,
+    "tb": 1024**4,
+    "tib": 1024**4,
+}
+
+
+def sanitize_extracted_url(url: str) -> str:
+    """Trim quote garbage and dangling prose punctuation from an extracted URL candidate."""
+    cleaned = (url or "").strip()
+    if not cleaned:
+        return cleaned
+
+    lower_cleaned = cleaned.lower()
+    cut_index = len(cleaned)
+
+    for delimiter in QUOTE_DELIMITERS:
+        found_index = cleaned.find(delimiter)
+        if found_index != -1:
+            cut_index = min(cut_index, found_index)
+
+    for delimiter in QUOTE_ENTITY_DELIMITERS:
+        found_index = lower_cleaned.find(delimiter)
+        if found_index != -1:
+            cut_index = min(cut_index, found_index)
+
+    cleaned = cleaned[:cut_index].strip()
+    lower_cleaned = cleaned.lower()
+    for entity, replacement in URL_ENTITY_REPLACEMENTS:
+        while entity in lower_cleaned:
+            entity_index = lower_cleaned.find(entity)
+            cleaned = cleaned[:entity_index] + replacement + cleaned[entity_index + len(entity) :]
+            lower_cleaned = cleaned.lower()
+
+    cleaned = cleaned.rstrip(".,;:!?\\'\"")
+    cleaned = cleaned.rstrip('"')
+
+    return cleaned
+
+
+def parens_are_matched(string: str, open_char="(", close_char=")"):
     """check that all parentheses in a string are balanced and nested properly"""
     count = 0
     for c in string:
@@ -96,6 +178,7 @@ def parens_are_matched(string: str, open_char='(', close_char=')'):
         if count < 0:
             return False
     return count == 0
+
 
 def fix_url_from_markdown(url_str: str) -> str:
     """
@@ -113,33 +196,35 @@ def fix_url_from_markdown(url_str: str) -> str:
 
     # cut off one trailing character at a time
     # until parens are balanced e.g. /a(b)c).x(y)z -> /a(b)c
-    while not parens_are_matched(trimmed_url):
+    while trimmed_url and not parens_are_matched(trimmed_url):
         trimmed_url = trimmed_url[:-1]
-    
+
     # make sure trimmed url is still valid
-    if re.findall(URL_REGEX, trimmed_url):
+    if any(match == trimmed_url for match in re.findall(URL_REGEX, trimmed_url)):
         return trimmed_url
-    
+
     return url_str
+
 
 def split_comma_separated_urls(url: str):
     offset = 0
     while True:
-        http_index = url.find('http://', 1)
-        https_index = url.find('https://', 1)
+        http_index = url.find("http://", 1)
+        https_index = url.find("https://", 1)
         next_indices = [idx for idx in (http_index, https_index) if idx != -1]
         if not next_indices:
             yield offset, url
             return
 
         next_index = min(next_indices)
-        if url[next_index - 1] != ',':
+        if url[next_index - 1] != ",":
             yield offset, url
             return
 
-        yield offset, url[:next_index - 1]
+        yield offset, url[: next_index - 1]
         offset += next_index
         url = url[next_index:]
+
 
 def find_all_urls(urls_str: str):
     skipped_starts = set()
@@ -147,10 +232,53 @@ def find_all_urls(urls_str: str):
         if match.start() in skipped_starts:
             continue
 
-        for offset, url in split_comma_separated_urls(fix_url_from_markdown(match.group(1))):
+        cleaned_match = sanitize_extracted_url(fix_url_from_markdown(match.group(1)))
+        for offset, url in split_comma_separated_urls(cleaned_match):
             if offset:
                 skipped_starts.add(match.start() + offset)
             yield url
+
+
+def parse_filesize_to_bytes(value: str | int | float | None) -> int:
+    """
+    Parse a byte count from an integer or human-readable string like 45mb or 2 GB.
+    """
+    if value is None:
+        return 0
+
+    if isinstance(value, bool):
+        raise ValueError("Size value must be an integer or size string.")
+
+    if isinstance(value, int):
+        return value
+
+    if isinstance(value, float):
+        if not value.is_integer():
+            raise ValueError("Size value must resolve to a whole number of bytes.")
+        return int(value)
+
+    raw_value = str(value).strip()
+    if not raw_value:
+        return 0
+
+    if raw_value.isdigit():
+        return int(raw_value)
+
+    match = re.fullmatch(r"(?i)(\d+(?:\.\d+)?)\s*([a-z]+)", raw_value)
+    if not match:
+        raise ValueError(f"Invalid size value: {value}")
+
+    amount_str, unit_str = match.groups()
+    multiplier = FILESIZE_UNITS.get(unit_str.lower())
+    if multiplier is None:
+        raise ValueError(f"Unknown size unit: {unit_str}")
+
+    try:
+        amount = Decimal(amount_str)
+    except InvalidOperation as err:
+        raise ValueError(f"Invalid size value: {value}") from err
+
+    return int(amount * multiplier)
 
 
 def is_static_file(url: str):
@@ -178,14 +306,14 @@ def enforce_types(func):
             if annotation is not None and annotation.__class__ is type:
                 if not isinstance(arg_val, annotation):
                     raise TypeError(
-                        '{}(..., {}: {}) got unexpected {} argument {}={}'.format(
+                        "{}(..., {}: {}) got unexpected {} argument {}={}".format(
                             func.__name__,
                             arg_key,
                             annotation.__name__,
                             type(arg_val).__name__,
                             arg_key,
                             str(arg_val)[:64],
-                        )
+                        ),
                     )
 
         # check args
@@ -201,12 +329,14 @@ def enforce_types(func):
     return typechecked_function
 
 
-def docstring(text: Optional[str]):
+def docstring(text: str | None):
     """attach the given docstring to the decorated function"""
+
     def decorator(func):
         if text:
             func.__doc__ = text
         return func
+
     return decorator
 
 
@@ -224,7 +354,7 @@ def str_between(string: str, start: str, end: str | None = None) -> str:
 @enforce_types
 def parse_date(date: Any) -> datetime | None:
     """Parse unix timestamps, iso format, and human-readable strings"""
-    
+
     if date is None:
         return None
 
@@ -233,16 +363,16 @@ def parse_date(date: Any) -> datetime | None:
             return date.replace(tzinfo=timezone.utc)
 
         offset = date.utcoffset()
-        assert offset == datetime.now(timezone.utc).utcoffset(), 'Refusing to load a non-UTC date!'
+        assert offset == datetime.now(timezone.utc).utcoffset(), "Refusing to load a non-UTC date!"
         return date
-    
+
     if isinstance(date, (float, int)):
         date = str(date)
 
     if isinstance(date, str):
         normalized = date.strip()
         if not normalized:
-            raise ValueError(f'Tried to parse invalid date string! {date}')
+            raise ValueError(f"Tried to parse invalid date string! {date}")
 
         try:
             return datetime.fromtimestamp(float(normalized), tz=timezone.utc)
@@ -250,7 +380,7 @@ def parse_date(date: Any) -> datetime | None:
             pass
 
         try:
-            iso_date = normalized.replace('Z', '+00:00')
+            iso_date = normalized.replace("Z", "+00:00")
             parsed_date = datetime.fromisoformat(iso_date)
             if parsed_date.tzinfo is None:
                 return parsed_date.replace(tzinfo=timezone.utc)
@@ -258,12 +388,12 @@ def parse_date(date: Any) -> datetime | None:
         except ValueError:
             pass
 
-        parsed_date = dateparser(normalized, settings={'TIMEZONE': 'UTC'})
+        parsed_date = dateparser(normalized, settings={"TIMEZONE": "UTC"})
         if parsed_date is None:
-            raise ValueError(f'Tried to parse invalid date string! {date}')
+            raise ValueError(f"Tried to parse invalid date string! {date}")
         return parsed_date.astimezone(timezone.utc)
 
-    raise ValueError('Tried to parse invalid date! {}'.format(date))
+    raise ValueError(f"Tried to parse invalid date! {date}")
 
 
 @enforce_types
@@ -284,12 +414,12 @@ def download_url(url: str, timeout: int | None = None) -> str:
 
     response = session.get(
         url,
-        headers={'User-Agent': ARCHIVING_CONFIG.USER_AGENT},
+        headers={"User-Agent": ARCHIVING_CONFIG.USER_AGENT},
         verify=ARCHIVING_CONFIG.CHECK_SSL_VALIDITY,
         timeout=timeout,
     )
 
-    content_type = response.headers.get('Content-Type', '')
+    content_type = response.headers.get("Content-Type", "")
     encoding = http_content_type_encoding(content_type) or html_body_declared_encoding(response.text)
 
     if encoding is not None:
@@ -299,21 +429,22 @@ def download_url(url: str, timeout: int | None = None) -> str:
         return response.text
     except UnicodeDecodeError:
         # if response is non-test (e.g. image or other binary files), just return the filename instead
-        return url.rsplit('/', 1)[-1]
+        return url.rsplit("/", 1)[-1]
+
 
 @enforce_types
-def get_headers(url: str, timeout: int | None=None) -> str:
+def get_headers(url: str, timeout: int | None = None) -> str:
     """Download the contents of a remote url and return the headers"""
     # TODO: get rid of this and use an abx pluggy hook instead
-    
+
     from archivebox.config.common import ARCHIVING_CONFIG
-    
+
     timeout = timeout or ARCHIVING_CONFIG.TIMEOUT
 
     try:
         response = requests.head(
             url,
-            headers={'User-Agent': ARCHIVING_CONFIG.USER_AGENT},
+            headers={"User-Agent": ARCHIVING_CONFIG.USER_AGENT},
             verify=ARCHIVING_CONFIG.CHECK_SSL_VALIDITY,
             timeout=timeout,
             allow_redirects=True,
@@ -325,19 +456,19 @@ def get_headers(url: str, timeout: int | None=None) -> str:
     except RequestException:
         response = requests.get(
             url,
-            headers={'User-Agent': ARCHIVING_CONFIG.USER_AGENT},
+            headers={"User-Agent": ARCHIVING_CONFIG.USER_AGENT},
             verify=ARCHIVING_CONFIG.CHECK_SSL_VALIDITY,
             timeout=timeout,
-            stream=True
+            stream=True,
         )
-    
+
     return pyjson.dumps(
         {
-            'URL': url,
-            'Status-Code': response.status_code,
-            'Elapsed': response.elapsed.total_seconds()*1000,
-            'Encoding': str(response.encoding),
-            'Apparent-Encoding': response.apparent_encoding,
+            "URL": url,
+            "Status-Code": response.status_code,
+            "Elapsed": response.elapsed.total_seconds() * 1000,
+            "Encoding": str(response.encoding),
+            "Apparent-Encoding": response.apparent_encoding,
             **dict(response.headers),
         },
         indent=4,
@@ -352,17 +483,17 @@ def ansi_to_html(text: str) -> str:
     """
 
     TEMPLATE = '<span style="color: rgb{}"><br>'
-    text = text.replace('[m', '</span>')
+    text = text.replace("[m", "</span>")
 
     def single_sub(match):
         argsdict = match.groupdict()
-        if argsdict['arg_3'] is None:
-            if argsdict['arg_2'] is None:
-                _, color = 0, argsdict['arg_1']
+        if argsdict["arg_3"] is None:
+            if argsdict["arg_2"] is None:
+                _, color = 0, argsdict["arg_1"]
             else:
-                _, color = argsdict['arg_1'], argsdict['arg_2']
+                _, color = argsdict["arg_1"], argsdict["arg_2"]
         else:
-            _, color = argsdict['arg_3'], argsdict['arg_2']
+            _, color = argsdict["arg_3"], argsdict["arg_2"]
 
         return TEMPLATE.format(COLOR_DICT[color][0])
 
@@ -370,18 +501,17 @@ def ansi_to_html(text: str) -> str:
 
 
 @enforce_types
-def dedupe(options: List[str]) -> List[str]:
+def dedupe(options: list[str]) -> list[str]:
     """
     Deduplicates the given CLI args by key=value. Options that come later override earlier.
     """
     deduped = {}
 
     for option in options:
-        key = option.split('=')[0]
+        key = option.split("=")[0]
         deduped[key] = option
 
     return list(deduped.values())
-
 
 
 class ExtendedEncoder(pyjson.JSONEncoder):
@@ -393,7 +523,7 @@ class ExtendedEncoder(pyjson.JSONEncoder):
     def default(self, o):
         cls_name = o.__class__.__name__
 
-        if hasattr(o, '_asdict'):
+        if hasattr(o, "_asdict"):
             return o._asdict()
 
         elif isinstance(o, bytes):
@@ -403,12 +533,12 @@ class ExtendedEncoder(pyjson.JSONEncoder):
             return o.isoformat()
 
         elif isinstance(o, Exception):
-            return '{}: {}'.format(o.__class__.__name__, o)
+            return f"{o.__class__.__name__}: {o}"
 
         elif isinstance(o, Path):
             return str(o)
 
-        elif cls_name in ('dict_items', 'dict_keys', 'dict_values'):
+        elif cls_name in ("dict_items", "dict_keys", "dict_values"):
             return list(o)
 
         elif isinstance(o, Callable):
@@ -434,7 +564,7 @@ class ExtendedEncoder(pyjson.JSONEncoder):
 
 
 @enforce_types
-def to_json(obj: Any, indent: Optional[int]=4, sort_keys: bool=True) -> str:
+def to_json(obj: Any, indent: int | None = 4, sort_keys: bool = True) -> str:
     """Serialize object to JSON string with extended type support"""
     return pyjson.dumps(obj, indent=indent, sort_keys=sort_keys, cls=ExtendedEncoder)
 
@@ -447,96 +577,113 @@ def to_json(obj: Any, indent: Optional[int]=4, sort_keys: bool=True) -> str:
 #   the consequences of bad URL parsing could be disastrous and lead to many
 #   incorrect/badly parsed links being added to the archive, so this is worth the cost of checking
 
-assert fix_url_from_markdown('http://example.com/a(b)c).x(y)z') == 'http://example.com/a(b)c'
-assert fix_url_from_markdown('https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def).link(with)_trailingtext') == 'https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def'
+assert fix_url_from_markdown("http://example.com/a(b)c).x(y)z") == "http://example.com/a(b)c"
+assert (
+    fix_url_from_markdown("https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def).link(with)_trailingtext")
+    == "https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def"
+)
 
 URL_REGEX_TESTS = [
-    ('https://example.com', ['https://example.com']),
-    ('https://sweeting.me,https://google.com', ['https://sweeting.me', 'https://google.com']),
-    ('http://abc-file234example.com/abc?def=abc&23423=sdfsdf#abc=234&234=a234', ['http://abc-file234example.com/abc?def=abc&23423=sdfsdf#abc=234&234=a234']),
-
-    ('https://twitter.com/share?url=https://akaao.success-corp.co.jp&text=ア@サ!ト&hashtags=ア%オ,元+ア.ア-オ_イ*シ$ロ abc', ['https://twitter.com/share?url=https://akaao.success-corp.co.jp&text=ア@サ!ト&hashtags=ア%オ,元+ア.ア-オ_イ*シ$ロ', 'https://akaao.success-corp.co.jp&text=ア@サ!ト&hashtags=ア%オ,元+ア.ア-オ_イ*シ$ロ']),
-    ('<a href="https://twitter.com/share#url=https://akaao.success-corp.co.jp&text=ア@サ!ト?hashtags=ア%オ,元+ア&abc=.ア-オ_イ*シ$ロ"> abc', ['https://twitter.com/share#url=https://akaao.success-corp.co.jp&text=ア@サ!ト?hashtags=ア%オ,元+ア&abc=.ア-オ_イ*シ$ロ', 'https://akaao.success-corp.co.jp&text=ア@サ!ト?hashtags=ア%オ,元+ア&abc=.ア-オ_イ*シ$ロ']),
-
-    ('///a',                                                []),
-    ('http://',                                             []),
-    ('http://../',                                          ['http://../']),
-    ('http://-error-.invalid/',                             ['http://-error-.invalid/']),
-    ('https://a(b)c+1#2?3&4/',                              ['https://a(b)c+1#2?3&4/']),
-    ('http://उदाहरण.परीक्षा',                                   ['http://उदाहरण.परीक्षा']),
-    ('http://例子.测试',                                     ['http://例子.测试']),
-    ('http://➡.ws/䨹 htps://abc.1243?234',                  ['http://➡.ws/䨹']),
-    ('http://⌘.ws">https://exa+mple.com//:abc ',            ['http://⌘.ws', 'https://exa+mple.com//:abc']),
-    ('http://مثال.إختبار/abc?def=ت&ب=abc#abc=234',          ['http://مثال.إختبار/abc?def=ت&ب=abc#abc=234']),
-    ('http://-.~_!$&()*+,;=:%40:80%2f::::::@example.c\'om', ['http://-.~_!$&()*+,;=:%40:80%2f::::::@example.c']),
-    
-    ('http://us:pa@ex.co:42/http://ex.co:19/a?_d=4#-a=2.3', ['http://us:pa@ex.co:42/http://ex.co:19/a?_d=4#-a=2.3', 'http://ex.co:19/a?_d=4#-a=2.3']),
-    ('http://code.google.com/events/#&product=browser',     ['http://code.google.com/events/#&product=browser']),
-    ('http://foo.bar?q=Spaces should be encoded',           ['http://foo.bar?q=Spaces']),
-    ('http://foo.com/blah_(wikipedia)#c(i)t[e]-1',          ['http://foo.com/blah_(wikipedia)#c(i)t']),
-    ('http://foo.com/(something)?after=parens',             ['http://foo.com/(something)?after=parens']),
-    ('http://foo.com/unicode_(✪)_in_parens) abc',           ['http://foo.com/unicode_(✪)_in_parens']),
-    ('http://foo.bar/?q=Test%20URL-encoded%20stuff',        ['http://foo.bar/?q=Test%20URL-encoded%20stuff']),
-
-    ('[xyz](http://a.b/?q=(Test)%20U)RL-encoded%20stuff',   ['http://a.b/?q=(Test)%20U']),
-    ('[xyz](http://a.b/?q=(Test)%20U)-ab https://abc+123',  ['http://a.b/?q=(Test)%20U', 'https://abc+123']),
-    ('[xyz](http://a.b/?q=(Test)%20U) https://a(b)c+12)3',  ['http://a.b/?q=(Test)%20U', 'https://a(b)c+12']),
-    ('[xyz](http://a.b/?q=(Test)a\nabchttps://a(b)c+12)3',  ['http://a.b/?q=(Test)a', 'https://a(b)c+12']),
-    ('http://foo.bar/?q=Test%20URL-encoded%20stuff',        ['http://foo.bar/?q=Test%20URL-encoded%20stuff']),
+    ("https://example.com", ["https://example.com"]),
+    ("https://sweeting.me,https://google.com", ["https://sweeting.me", "https://google.com"]),
+    (
+        "http://abc-file234example.com/abc?def=abc&23423=sdfsdf#abc=234&234=a234",
+        ["http://abc-file234example.com/abc?def=abc&23423=sdfsdf#abc=234&234=a234"],
+    ),
+    (
+        "https://twitter.com/share?url=https://akaao.success-corp.co.jp&text=ア@サ!ト&hashtags=ア%オ,元+ア.ア-オ_イ*シ$ロ abc",
+        [
+            "https://twitter.com/share?url=https://akaao.success-corp.co.jp&text=ア@サ!ト&hashtags=ア%オ,元+ア.ア-オ_イ*シ$ロ",
+            "https://akaao.success-corp.co.jp&text=ア@サ!ト&hashtags=ア%オ,元+ア.ア-オ_イ*シ$ロ",
+        ],
+    ),
+    (
+        '<a href="https://twitter.com/share#url=https://akaao.success-corp.co.jp&text=ア@サ!ト?hashtags=ア%オ,元+ア&abc=.ア-オ_イ*シ$ロ"> abc',
+        [
+            "https://twitter.com/share#url=https://akaao.success-corp.co.jp&text=ア@サ!ト?hashtags=ア%オ,元+ア&abc=.ア-オ_イ*シ$ロ",
+            "https://akaao.success-corp.co.jp&text=ア@サ!ト?hashtags=ア%オ,元+ア&abc=.ア-オ_イ*シ$ロ",
+        ],
+    ),
+    ("///a", []),
+    ("http://", []),
+    ("http://../", ["http://../"]),
+    ("http://-error-.invalid/", ["http://-error-.invalid/"]),
+    ("https://a(b)c+1#2?3&4/", ["https://a(b)c+1#2?3&4/"]),
+    ("http://उदाहरण.परीक्षा", ["http://उदाहरण.परीक्षा"]),
+    ("http://例子.测试", ["http://例子.测试"]),
+    ("http://➡.ws/䨹 htps://abc.1243?234", ["http://➡.ws/䨹"]),
+    ('http://⌘.ws">https://exa+mple.com//:abc ', ["http://⌘.ws", "https://exa+mple.com//:abc"]),
+    ("http://مثال.إختبار/abc?def=ت&ب=abc#abc=234", ["http://مثال.إختبار/abc?def=ت&ب=abc#abc=234"]),
+    ("http://-.~_!$&()*+,;=:%40:80%2f::::::@example.c'om", ["http://-.~_!$&()*+,;=:%40:80%2f::::::@example.c"]),
+    (
+        "http://us:pa@ex.co:42/http://ex.co:19/a?_d=4#-a=2.3",
+        ["http://us:pa@ex.co:42/http://ex.co:19/a?_d=4#-a=2.3", "http://ex.co:19/a?_d=4#-a=2.3"],
+    ),
+    ("http://code.google.com/events/#&product=browser", ["http://code.google.com/events/#&product=browser"]),
+    ("http://foo.bar?q=Spaces should be encoded", ["http://foo.bar?q=Spaces"]),
+    ("http://foo.com/blah_(wikipedia)#c(i)t[e]-1", ["http://foo.com/blah_(wikipedia)#c(i)t"]),
+    ("http://foo.com/(something)?after=parens", ["http://foo.com/(something)?after=parens"]),
+    ("http://foo.com/unicode_(✪)_in_parens) abc", ["http://foo.com/unicode_(✪)_in_parens"]),
+    ("http://foo.bar/?q=Test%20URL-encoded%20stuff", ["http://foo.bar/?q=Test%20URL-encoded%20stuff"]),
+    ("[xyz](http://a.b/?q=(Test)%20U)RL-encoded%20stuff", ["http://a.b/?q=(Test)%20U"]),
+    ("[xyz](http://a.b/?q=(Test)%20U)-ab https://abc+123", ["http://a.b/?q=(Test)%20U", "https://abc+123"]),
+    ("[xyz](http://a.b/?q=(Test)%20U) https://a(b)c+12)3", ["http://a.b/?q=(Test)%20U", "https://a(b)c+12"]),
+    ("[xyz](http://a.b/?q=(Test)a\nabchttps://a(b)c+12)3", ["http://a.b/?q=(Test)a", "https://a(b)c+12"]),
+    ("http://foo.bar/?q=Test%20URL-encoded%20stuff", ["http://foo.bar/?q=Test%20URL-encoded%20stuff"]),
 ]
 for urls_str, expected_url_matches in URL_REGEX_TESTS:
     url_matches = list(find_all_urls(urls_str))
-    assert url_matches == expected_url_matches, 'FAILED URL_REGEX CHECK!'
+    assert url_matches == expected_url_matches, "FAILED URL_REGEX CHECK!"
 
 
 # More test cases
 _test_url_strs = {
-    'example.com': 0,
-    '/example.com': 0,
-    '//example.com': 0,
-    ':/example.com': 0,
-    '://example.com': 0,
-    'htt://example8.com': 0,
-    '/htt://example.com': 0,
-    'https://example': 1,
-    'https://localhost/2345': 1,
-    'https://localhost:1234/123': 1,
-    '://': 0,
-    'https://': 0,
-    'http://': 0,
-    'ftp://': 0,
-    'ftp://example.com': 0,
-    'https://example.com': 1,
-    'https://example.com/': 1,
-    'https://a.example.com': 1,
-    'https://a.example.com/': 1,
-    'https://a.example.com/what/is/happening.html': 1,
-    'https://a.example.com/what/ís/happening.html': 1,
-    'https://a.example.com/what/is/happening.html?what=1&2%20b#höw-about-this=1a': 1,
-    'https://a.example.com/what/is/happéning/?what=1&2%20b#how-aboüt-this=1a': 1,
-    'HTtpS://a.example.com/what/is/happening/?what=1&2%20b#how-about-this=1af&2f%20b': 1,
-    'https://example.com/?what=1#how-about-this=1&2%20baf': 1,
-    'https://example.com?what=1#how-about-this=1&2%20baf': 1,
-    '<test>http://example7.com</test>': 1,
-    'https://<test>': 0,
-    'https://[test]': 0,
+    "example.com": 0,
+    "/example.com": 0,
+    "//example.com": 0,
+    ":/example.com": 0,
+    "://example.com": 0,
+    "htt://example8.com": 0,
+    "/htt://example.com": 0,
+    "https://example": 1,
+    "https://localhost/2345": 1,
+    "https://localhost:1234/123": 1,
+    "://": 0,
+    "https://": 0,
+    "http://": 0,
+    "ftp://": 0,
+    "ftp://example.com": 0,
+    "https://example.com": 1,
+    "https://example.com/": 1,
+    "https://a.example.com": 1,
+    "https://a.example.com/": 1,
+    "https://a.example.com/what/is/happening.html": 1,
+    "https://a.example.com/what/ís/happening.html": 1,
+    "https://a.example.com/what/is/happening.html?what=1&2%20b#höw-about-this=1a": 1,
+    "https://a.example.com/what/is/happéning/?what=1&2%20b#how-aboüt-this=1a": 1,
+    "HTtpS://a.example.com/what/is/happening/?what=1&2%20b#how-about-this=1af&2f%20b": 1,
+    "https://example.com/?what=1#how-about-this=1&2%20baf": 1,
+    "https://example.com?what=1#how-about-this=1&2%20baf": 1,
+    "<test>http://example7.com</test>": 1,
+    "https://<test>": 0,
+    "https://[test]": 0,
     'http://"test"': 0,
-    'http://\'test\'': 0,
-    '[https://example8.com/what/is/this.php?what=1]': 1,
-    '[and http://example9.com?what=1&other=3#and-thing=2]': 1,
+    "http://'test'": 0,
+    "[https://example8.com/what/is/this.php?what=1]": 1,
+    "[and http://example9.com?what=1&other=3#and-thing=2]": 1,
     '<what>https://example10.com#and-thing=2 "</about>': 1,
     'abc<this["https://example11.com/what/is#and-thing=2?whoami=23&where=1"]that>def': 1,
-    'sdflkf[what](https://example12.com/who/what.php?whoami=1#whatami=2)?am=hi': 1,
-    '<or>http://examplehttp://15.badc</that>': 2,
-    'https://a.example.com/one.html?url=http://example.com/inside/of/another?=http://': 2,
-    '[https://a.example.com/one.html?url=http://example.com/inside/of/another?=](http://a.example.com)': 3,
+    "sdflkf[what](https://example12.com/who/what.php?whoami=1#whatami=2)?am=hi": 1,
+    "<or>http://examplehttp://15.badc</that>": 2,
+    "https://a.example.com/one.html?url=http://example.com/inside/of/another?=http://": 2,
+    "[https://a.example.com/one.html?url=http://example.com/inside/of/another?=](http://a.example.com)": 3,
 }
 for url_str, num_urls in _test_url_strs.items():
-    assert len(list(find_all_urls(url_str))) == num_urls, (
-        f'{url_str} does not contain {num_urls} urls')
+    assert len(list(find_all_urls(url_str))) == num_urls, f"{url_str} does not contain {num_urls} urls"
 
 
 ### Chrome Helpers
+
 
 def chrome_cleanup():
     """
@@ -560,10 +707,11 @@ def chrome_cleanup():
         # Also clean up the active persona's explicit CHROME_USER_DATA_DIR if set
         # (in case it's a custom path not under PERSONAS_DIR)
         from archivebox.config.configset import get_config
+
         config = get_config()
-        chrome_user_data_dir = config.get('CHROME_USER_DATA_DIR')
+        chrome_user_data_dir = config.get("CHROME_USER_DATA_DIR")
         if chrome_user_data_dir:
-            singleton_lock = Path(chrome_user_data_dir) / 'SingletonLock'
+            singleton_lock = Path(chrome_user_data_dir) / "SingletonLock"
             if os.path.lexists(singleton_lock):
                 try:
                     singleton_lock.unlink()

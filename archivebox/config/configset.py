@@ -11,7 +11,7 @@ __package__ = "archivebox.config"
 import os
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Type, Tuple
+from typing import Any
 from configparser import ConfigParser
 
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
@@ -28,17 +28,18 @@ class IniConfigSettingsSource(PydanticBaseSettingsSource):
     Flattens all sections into a single namespace.
     """
 
-    def get_field_value(self, field: Any, field_name: str) -> Tuple[Any, str, bool]:
+    def get_field_value(self, field: Any, field_name: str) -> tuple[Any, str, bool]:
         config_vals = self._load_config_file()
         field_value = config_vals.get(field_name.upper())
         return field_value, field_name, False
 
-    def __call__(self) -> Dict[str, Any]:
+    def __call__(self) -> dict[str, Any]:
         return self._load_config_file()
 
-    def _load_config_file(self) -> Dict[str, Any]:
+    def _load_config_file(self) -> dict[str, Any]:
         try:
             from archivebox.config.constants import CONSTANTS
+
             config_path = CONSTANTS.CONFIG_FILE
         except ImportError:
             return {}
@@ -78,25 +79,25 @@ class BaseConfigSet(BaseSettings):
     @classmethod
     def settings_customise_sources(
         cls,
-        settings_cls: Type[BaseSettings],
+        settings_cls: type[BaseSettings],
         init_settings: PydanticBaseSettingsSource,
         env_settings: PydanticBaseSettingsSource,
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
-    ) -> Tuple[PydanticBaseSettingsSource, ...]:
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
         """
         Define the order of settings sources (first = highest priority).
         """
         return (
-            init_settings,           # 1. Passed to __init__
-            env_settings,            # 2. Environment variables
+            init_settings,  # 1. Passed to __init__
+            env_settings,  # 2. Environment variables
             IniConfigSettingsSource(settings_cls),  # 3. ArchiveBox.conf file
             # dotenv_settings,       # Skip .env files
             # file_secret_settings,  # Skip secrets files
         )
 
     @classmethod
-    def load_from_file(cls, config_path: Path) -> Dict[str, str]:
+    def load_from_file(cls, config_path: Path) -> dict[str, str]:
         """Load config values from INI file."""
         if not config_path.exists():
             return {}
@@ -120,14 +121,14 @@ class BaseConfigSet(BaseSettings):
 
 
 def get_config(
-    defaults: Optional[Dict] = None,
+    defaults: dict | None = None,
     persona: Any = None,
     user: Any = None,
     crawl: Any = None,
     snapshot: Any = None,
     archiveresult: Any = None,
     machine: Any = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get merged config from all sources.
 
@@ -176,7 +177,7 @@ def get_config(
         if persona_id:
             persona = Persona.objects.filter(id=persona_id).first()
             if persona is None:
-                raise Persona.DoesNotExist(f'Crawl {getattr(crawl, "id", None)} references missing Persona {persona_id}')
+                raise Persona.DoesNotExist(f"Crawl {getattr(crawl, 'id', None)} references missing Persona {persona_id}")
 
         if persona is None:
             crawl_config = getattr(crawl, "config", None) or {}
@@ -200,6 +201,7 @@ def get_config(
     # Add plugin config defaults from JSONSchema config.json files
     try:
         from archivebox.hooks import get_config_defaults_from_plugins
+
         plugin_defaults = get_config_defaults_from_plugins()
         config.update(plugin_defaults)
     except ImportError:
@@ -224,6 +226,7 @@ def get_config(
         # Default to current machine if not provided
         try:
             from archivebox.machine.models import Machine
+
             machine = Machine.current()
         except Exception:
             pass  # Machine might not be available during early init
@@ -246,16 +249,17 @@ def get_config(
     # Also check plugin config aliases in environment
     try:
         from archivebox.hooks import discover_plugin_configs
+
         plugin_configs = discover_plugin_configs()
         for plugin_name, schema in plugin_configs.items():
-            for key, prop_schema in schema.get('properties', {}).items():
+            for key, prop_schema in schema.get("properties", {}).items():
                 # Check x-aliases
-                for alias in prop_schema.get('x-aliases', []):
+                for alias in prop_schema.get("x-aliases", []):
                     if alias in os.environ and key not in os.environ:
                         config[key] = _parse_env_value(os.environ[alias], config.get(key))
                         break
                 # Check x-fallback
-                fallback = prop_schema.get('x-fallback')
+                fallback = prop_schema.get("x-fallback")
                 if fallback and fallback in config and key not in config:
                     config[key] = config[fallback]
     except ImportError:
@@ -275,33 +279,34 @@ def get_config(
 
     # Add crawl path aliases for hooks that need shared crawl state.
     if crawl and hasattr(crawl, "output_dir"):
-        config['CRAWL_OUTPUT_DIR'] = str(crawl.output_dir)
-        config['CRAWL_DIR'] = str(crawl.output_dir)
-        config['CRAWL_ID'] = str(getattr(crawl, "id", "")) if getattr(crawl, "id", None) else config.get('CRAWL_ID')
+        config["CRAWL_OUTPUT_DIR"] = str(crawl.output_dir)
+        config["CRAWL_DIR"] = str(crawl.output_dir)
+        config["CRAWL_ID"] = str(getattr(crawl, "id", "")) if getattr(crawl, "id", None) else config.get("CRAWL_ID")
 
     # Apply snapshot config overrides (highest priority)
     if snapshot and hasattr(snapshot, "config") and snapshot.config:
         config.update(snapshot.config)
 
     if snapshot:
-        config['SNAPSHOT_ID'] = str(getattr(snapshot, "id", "")) if getattr(snapshot, "id", None) else config.get('SNAPSHOT_ID')
-        config['SNAPSHOT_DEPTH'] = int(getattr(snapshot, "depth", 0) or 0)
+        config["SNAPSHOT_ID"] = str(getattr(snapshot, "id", "")) if getattr(snapshot, "id", None) else config.get("SNAPSHOT_ID")
+        config["SNAPSHOT_DEPTH"] = int(getattr(snapshot, "depth", 0) or 0)
         if hasattr(snapshot, "output_dir"):
-            config['SNAP_DIR'] = str(snapshot.output_dir)
+            config["SNAP_DIR"] = str(snapshot.output_dir)
         if getattr(snapshot, "crawl_id", None):
-            config['CRAWL_ID'] = str(snapshot.crawl_id)
+            config["CRAWL_ID"] = str(snapshot.crawl_id)
 
     # Normalize all aliases to canonical names (after all sources merged)
     # This handles aliases that came from user/crawl/snapshot configs, not just env
     try:
         from archivebox.hooks import discover_plugin_configs
+
         plugin_configs = discover_plugin_configs()
         aliases_to_normalize = {}  # {alias_key: canonical_key}
 
         # Build alias mapping from all plugin schemas
         for plugin_name, schema in plugin_configs.items():
-            for canonical_key, prop_schema in schema.get('properties', {}).items():
-                for alias in prop_schema.get('x-aliases', []):
+            for canonical_key, prop_schema in schema.get("properties", {}).items():
+                for alias in prop_schema.get("x-aliases", []):
                     aliases_to_normalize[alias] = canonical_key
 
         # Normalize: copy alias values to canonical keys (aliases take precedence)
@@ -314,10 +319,14 @@ def get_config(
     except ImportError:
         pass
 
+    if not config.get("DATA_DIR"):
+        config["DATA_DIR"] = str(CONSTANTS.DATA_DIR)
+    config["ABX_RUNTIME"] = "archivebox"
+
     return config
 
 
-def get_flat_config() -> Dict[str, Any]:
+def get_flat_config() -> dict[str, Any]:
     """
     Get a flat dictionary of all config values.
 
@@ -326,20 +335,24 @@ def get_flat_config() -> Dict[str, Any]:
     return get_config()
 
 
-def get_all_configs() -> Dict[str, BaseConfigSet]:
+def get_all_configs() -> dict[str, BaseConfigSet]:
     """
     Get all config section objects as a dictionary.
 
     Replaces abx.pm.hook.get_CONFIGS()
     """
     from archivebox.config.common import (
-        SHELL_CONFIG, SERVER_CONFIG, ARCHIVING_CONFIG, SEARCH_BACKEND_CONFIG
+        SHELL_CONFIG,
+        SERVER_CONFIG,
+        ARCHIVING_CONFIG,
+        SEARCH_BACKEND_CONFIG,
     )
+
     return {
-        'SHELL_CONFIG': SHELL_CONFIG,
-        'SERVER_CONFIG': SERVER_CONFIG,
-        'ARCHIVING_CONFIG': ARCHIVING_CONFIG,
-        'SEARCH_BACKEND_CONFIG': SEARCH_BACKEND_CONFIG,
+        "SHELL_CONFIG": SHELL_CONFIG,
+        "SERVER_CONFIG": SERVER_CONFIG,
+        "ARCHIVING_CONFIG": ARCHIVING_CONFIG,
+        "SEARCH_BACKEND_CONFIG": SEARCH_BACKEND_CONFIG,
     }
 
 
@@ -394,7 +407,7 @@ DEFAULT_WORKER_CONCURRENCY = {
 }
 
 
-def get_worker_concurrency() -> Dict[str, int]:
+def get_worker_concurrency() -> dict[str, int]:
     """
     Get worker concurrency settings.
 

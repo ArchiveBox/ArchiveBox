@@ -4,14 +4,13 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0030_alter_archiveresult_id'),
+        ("core", "0030_alter_archiveresult_id"),
     ]
 
     operations = [
         migrations.AddIndex(
-            model_name='archiveresult',
-            index=models.Index(fields=['snapshot', 'status'], name='archiveresult_snap_status_idx'),
+            model_name="archiveresult",
+            index=models.Index(fields=["snapshot", "status"], name="archiveresult_snap_status_idx"),
         ),
     ]

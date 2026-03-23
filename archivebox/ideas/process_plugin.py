@@ -1,4 +1,4 @@
-__package__ = 'archivebox.ideas'
+__package__ = "archivebox.ideas"
 
 import asyncio
 import importlib
@@ -9,7 +9,8 @@ import signal
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping, MutableMapping, Optional
+from typing import Any, Optional
+from collections.abc import Callable, Mapping, MutableMapping
 
 from pydantic import BaseModel, Field
 
@@ -18,7 +19,7 @@ try:
     BaseEvent = bubus.BaseEvent
     EventBus = bubus.EventBus
 except Exception as exc:  # pragma: no cover - optional dependency
-    raise ImportError('ProcessPlugin requires bubus to be installed') from exc
+    raise ImportError("ProcessPlugin requires bubus to be installed") from exc
 
 try:
     uuid7str = importlib.import_module("bubus.service").uuid7str
@@ -118,10 +119,10 @@ class ProcessPlugin:
         env = {**self.env, **(event.env or {})}
 
         log_prefix = event.log_prefix or proc_id
-        stdout_path = output_dir / f'{log_prefix}.stdout.log'
-        stderr_path = output_dir / f'{log_prefix}.stderr.log'
-        cmd_path = output_dir / f'{log_prefix}.sh'
-        pid_path = output_dir / f'{log_prefix}.pid'
+        stdout_path = output_dir / f"{log_prefix}.stdout.log"
+        stderr_path = output_dir / f"{log_prefix}.stderr.log"
+        cmd_path = output_dir / f"{log_prefix}.sh"
+        pid_path = output_dir / f"{log_prefix}.pid"
 
         self._write_cmd_file(cmd_path, event.cmd)
 
@@ -152,16 +153,19 @@ class ProcessPlugin:
         )
 
         await event.event_bus.dispatch(
-            ProcessStarted(process=record, event_parent_id=parent_event_id)
+            ProcessStarted(process=record, event_parent_id=parent_event_id),
         )
 
         stdout_task = asyncio.create_task(
             self._consume_stream(
-                proc.stdout, stdout_path, parent_event_id, event.parse_stdout_events
-            )
+                proc.stdout,
+                stdout_path,
+                parent_event_id,
+                event.parse_stdout_events,
+            ),
         )
         stderr_task = asyncio.create_task(
-            self._consume_stream(proc.stderr, stderr_path, parent_event_id, False)
+            self._consume_stream(proc.stderr, stderr_path, parent_event_id, False),
         )
 
         running = _RunningProcess(
@@ -176,7 +180,7 @@ class ProcessPlugin:
 
         if event.is_background:
             running.watcher_task = asyncio.create_task(
-                self._watch_process(proc_id, event.timeout)
+                self._watch_process(proc_id, event.timeout),
             )
             return record
 
@@ -186,7 +190,7 @@ class ProcessPlugin:
     async def on_ProcessKill(self, event: ProcessKill) -> ProcessRecord:
         running = self._running.get(event.process_id)
         if not running:
-            raise RuntimeError(f'Process not found: {event.process_id}')
+            raise RuntimeError(f"Process not found: {event.process_id}")
 
         proc = running.process
         self._terminate_process(proc, event.signal)
@@ -194,7 +198,7 @@ class ProcessPlugin:
         if event.timeout is not None:
             try:
                 await asyncio.wait_for(proc.wait(), timeout=event.timeout)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self._terminate_process(proc, signal.SIGKILL)
         else:
             await proc.wait()
@@ -212,7 +216,7 @@ class ProcessPlugin:
                 await asyncio.wait_for(proc.wait(), timeout=timeout)
             else:
                 await proc.wait()
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._terminate_process(proc, signal.SIGTERM)
             await asyncio.sleep(2)
             if proc.returncode is None:
@@ -237,7 +241,7 @@ class ProcessPlugin:
         record.ended_at = _utcnow()
 
         await self.bus.dispatch(
-            ProcessExited(process=record, event_parent_id=running.parent_event_id)
+            ProcessExited(process=record, event_parent_id=running.parent_event_id),
         )
 
         self._running.pop(process_id, None)
@@ -251,12 +255,12 @@ class ProcessPlugin:
     ) -> None:
         if stream is None:
             return
-        with path.open('w', encoding='utf-8') as fh:
+        with path.open("w", encoding="utf-8") as fh:
             while True:
                 line = await stream.readline()
                 if not line:
                     break
-                text = line.decode('utf-8', errors='replace')
+                text = line.decode("utf-8", errors="replace")
                 fh.write(text)
                 fh.flush()
                 if parse_events:
@@ -264,7 +268,7 @@ class ProcessPlugin:
 
     async def _maybe_dispatch_json_event(self, line: str, parent_event_id: str | None) -> None:
         text = line.strip()
-        if not text.startswith('{') or not text.endswith('}'):
+        if not text.startswith("{") or not text.endswith("}"):
             return
         try:
             data = json.loads(text)
@@ -274,7 +278,7 @@ class ProcessPlugin:
         event = None
         if self.json_event_adapter:
             event = self.json_event_adapter(data, parent_event_id)
-        elif isinstance(data, dict) and 'event_type' in data:
+        elif isinstance(data, dict) and "event_type" in data:
             try:
                 event = BaseEvent.model_validate(data)
             except Exception:
@@ -283,18 +287,18 @@ class ProcessPlugin:
         if event is None:
             return
 
-        if not getattr(event, 'event_parent_id', None) and parent_event_id:
+        if not getattr(event, "event_parent_id", None) and parent_event_id:
             event.event_parent_id = parent_event_id
         await self.bus.dispatch(event)
 
     @staticmethod
     def _write_cmd_file(path: Path, cmd: list[str]) -> None:
-        cmd_line = ' '.join(shlex.quote(part) for part in cmd)
-        path.write_text(cmd_line + '\n', encoding='utf-8')
+        cmd_line = shlex.join(cmd)
+        path.write_text(cmd_line + "\n", encoding="utf-8")
 
     @staticmethod
     def _write_pid_file(path: Path, pid: int) -> None:
-        path.write_text(str(pid), encoding='utf-8')
+        path.write_text(str(pid), encoding="utf-8")
         ts = datetime.now().timestamp()
         os.utime(path, (ts, ts))
 
@@ -312,10 +316,10 @@ class ProcessPlugin:
 
 
 __all__ = [
-    'ProcessRecord',
-    'ProcessLaunch',
-    'ProcessStarted',
-    'ProcessExited',
-    'ProcessKill',
-    'ProcessPlugin',
+    "ProcessRecord",
+    "ProcessLaunch",
+    "ProcessStarted",
+    "ProcessExited",
+    "ProcessKill",
+    "ProcessPlugin",
 ]

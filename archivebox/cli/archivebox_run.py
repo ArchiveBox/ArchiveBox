@@ -37,8 +37,8 @@ Examples:
     archivebox run --binary-id=019b7e90-5a8e-712c-9877-2c70eebe80ad
 """
 
-__package__ = 'archivebox.cli'
-__command__ = 'archivebox run'
+__package__ = "archivebox.cli"
+__command__ = "archivebox run"
 
 import sys
 from collections import defaultdict
@@ -87,8 +87,8 @@ def process_stdin_records() -> int:
     binary_ids: list[str] = []
 
     for record in records:
-        record_type = record.get('type', '')
-        record_id = record.get('id')
+        record_type = record.get("type", "")
+        record_id = record.get("id")
 
         try:
             if record_type == TYPE_CRAWL:
@@ -97,10 +97,10 @@ def process_stdin_records() -> int:
                     try:
                         crawl = Crawl.objects.get(id=record_id)
                     except Crawl.DoesNotExist:
-                        crawl = Crawl.from_json(record, overrides={'created_by_id': created_by_id})
+                        crawl = Crawl.from_json(record, overrides={"created_by_id": created_by_id})
                 else:
                     # New crawl - create it
-                    crawl = Crawl.from_json(record, overrides={'created_by_id': created_by_id})
+                    crawl = Crawl.from_json(record, overrides={"created_by_id": created_by_id})
 
                 if crawl:
                     crawl.retry_at = timezone.now()
@@ -112,16 +112,16 @@ def process_stdin_records() -> int:
                     output_records.append(crawl.to_json())
                     queued_count += 1
 
-            elif record_type == TYPE_SNAPSHOT or (record.get('url') and not record_type):
+            elif record_type == TYPE_SNAPSHOT or (record.get("url") and not record_type):
                 if record_id:
                     # Existing snapshot - re-queue
                     try:
                         snapshot = Snapshot.objects.get(id=record_id)
                     except Snapshot.DoesNotExist:
-                        snapshot = Snapshot.from_json(record, overrides={'created_by_id': created_by_id})
+                        snapshot = Snapshot.from_json(record, overrides={"created_by_id": created_by_id})
                 else:
                     # New snapshot - create it
-                    snapshot = Snapshot.from_json(record, overrides={'created_by_id': created_by_id})
+                    snapshot = Snapshot.from_json(record, overrides={"created_by_id": created_by_id})
 
                 if snapshot:
                     snapshot.retry_at = timezone.now()
@@ -132,7 +132,7 @@ def process_stdin_records() -> int:
                     crawl.retry_at = timezone.now()
                     if crawl.status != Crawl.StatusChoices.STARTED:
                         crawl.status = Crawl.StatusChoices.QUEUED
-                    crawl.save(update_fields=['status', 'retry_at', 'modified_at'])
+                    crawl.save(update_fields=["status", "retry_at", "modified_at"])
                     crawl_id = str(snapshot.crawl_id)
                     snapshot_ids_by_crawl[crawl_id].add(str(snapshot.id))
                     run_all_plugins_for_crawl.add(crawl_id)
@@ -149,11 +149,16 @@ def process_stdin_records() -> int:
                 else:
                     archiveresult = None
 
-                snapshot_id = record.get('snapshot_id')
-                plugin_name = record.get('plugin')
+                snapshot_id = record.get("snapshot_id")
+                plugin_name = record.get("plugin")
                 snapshot = None
                 if archiveresult:
-                    if archiveresult.status in [ArchiveResult.StatusChoices.FAILED, ArchiveResult.StatusChoices.SKIPPED, ArchiveResult.StatusChoices.NORESULTS, ArchiveResult.StatusChoices.BACKOFF]:
+                    if archiveresult.status in [
+                        ArchiveResult.StatusChoices.FAILED,
+                        ArchiveResult.StatusChoices.SKIPPED,
+                        ArchiveResult.StatusChoices.NORESULTS,
+                        ArchiveResult.StatusChoices.BACKOFF,
+                    ]:
                         archiveresult.reset_for_retry()
                     snapshot = archiveresult.snapshot
                     plugin_name = plugin_name or archiveresult.plugin
@@ -167,12 +172,12 @@ def process_stdin_records() -> int:
                     snapshot.retry_at = timezone.now()
                     if snapshot.status != Snapshot.StatusChoices.STARTED:
                         snapshot.status = Snapshot.StatusChoices.QUEUED
-                    snapshot.save(update_fields=['status', 'retry_at', 'modified_at'])
+                    snapshot.save(update_fields=["status", "retry_at", "modified_at"])
                     crawl = snapshot.crawl
                     crawl.retry_at = timezone.now()
                     if crawl.status != Crawl.StatusChoices.STARTED:
                         crawl.status = Crawl.StatusChoices.QUEUED
-                    crawl.save(update_fields=['status', 'retry_at', 'modified_at'])
+                    crawl.save(update_fields=["status", "retry_at", "modified_at"])
                     crawl_id = str(snapshot.crawl_id)
                     snapshot_ids_by_crawl[crawl_id].add(str(snapshot.id))
                     if plugin_name:
@@ -203,7 +208,7 @@ def process_stdin_records() -> int:
                 output_records.append(record)
 
         except Exception as e:
-            rprint(f'[yellow]Error processing record: {e}[/yellow]', file=sys.stderr)
+            rprint(f"[yellow]Error processing record: {e}[/yellow]", file=sys.stderr)
             continue
 
     # Output all processed records (for chaining)
@@ -212,10 +217,10 @@ def process_stdin_records() -> int:
             write_record(rec)
 
     if queued_count == 0:
-        rprint('[yellow]No records to process[/yellow]', file=sys.stderr)
+        rprint("[yellow]No records to process[/yellow]", file=sys.stderr)
         return 0
 
-    rprint(f'[blue]Processing {queued_count} records...[/blue]', file=sys.stderr)
+    rprint(f"[blue]Processing {queued_count} records...[/blue]", file=sys.stderr)
 
     for binary_id in binary_ids:
         run_binary(binary_id)
@@ -245,13 +250,14 @@ def run_runner(daemon: bool = False) -> int:
     from archivebox.services.runner import recover_orphaned_crawls, recover_orphaned_snapshots, run_pending_crawls
 
     Process.cleanup_stale_running()
+    Process.cleanup_orphaned_workers()
     recover_orphaned_snapshots()
     recover_orphaned_crawls()
     Machine.current()
     current = Process.current()
     if current.process_type != Process.TypeChoices.ORCHESTRATOR:
         current.process_type = Process.TypeChoices.ORCHESTRATOR
-        current.save(update_fields=['process_type', 'modified_at'])
+        current.save(update_fields=["process_type", "modified_at"])
 
     try:
         run_pending_crawls(daemon=daemon)
@@ -259,21 +265,21 @@ def run_runner(daemon: bool = False) -> int:
     except KeyboardInterrupt:
         return 0
     except Exception as e:
-        rprint(f'[red]Runner error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
+        rprint(f"[red]Runner error: {type(e).__name__}: {e}[/red]", file=sys.stderr)
         return 1
     finally:
         current.refresh_from_db()
         if current.status != Process.StatusChoices.EXITED:
             current.status = Process.StatusChoices.EXITED
             current.ended_at = current.ended_at or timezone.now()
-            current.save(update_fields=['status', 'ended_at', 'modified_at'])
+            current.save(update_fields=["status", "ended_at", "modified_at"])
 
 
 @click.command()
-@click.option('--daemon', '-d', is_flag=True, help="Run forever (don't exit on idle)")
-@click.option('--crawl-id', help="Run the crawl runner for a specific crawl only")
-@click.option('--snapshot-id', help="Run one snapshot through its crawl")
-@click.option('--binary-id', help="Run one queued binary install directly on the bus")
+@click.option("--daemon", "-d", is_flag=True, help="Run forever (don't exit on idle)")
+@click.option("--crawl-id", help="Run the crawl runner for a specific crawl only")
+@click.option("--snapshot-id", help="Run one snapshot through its crawl")
+@click.option("--binary-id", help="Run one queued binary install directly on the bus")
 def main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str):
     """
     Process queued work.
@@ -297,21 +303,24 @@ def main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str):
         except KeyboardInterrupt:
             sys.exit(0)
         except Exception as e:
-            rprint(f'[red]Runner error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
+            rprint(f"[red]Runner error: {type(e).__name__}: {e}[/red]", file=sys.stderr)
             import traceback
+
             traceback.print_exc()
             sys.exit(1)
 
     if crawl_id:
         try:
             from archivebox.services.runner import run_crawl
+
             run_crawl(crawl_id)
             sys.exit(0)
         except KeyboardInterrupt:
             sys.exit(0)
         except Exception as e:
-            rprint(f'[red]Runner error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
+            rprint(f"[red]Runner error: {type(e).__name__}: {e}[/red]", file=sys.stderr)
             import traceback
+
             traceback.print_exc()
             sys.exit(1)
 
@@ -333,17 +342,18 @@ def run_snapshot_worker(snapshot_id: str) -> int:
     from archivebox.services.runner import run_crawl
 
     try:
-        snapshot = Snapshot.objects.select_related('crawl').get(id=snapshot_id)
+        snapshot = Snapshot.objects.select_related("crawl").get(id=snapshot_id)
         run_crawl(str(snapshot.crawl_id), snapshot_ids=[str(snapshot.id)])
         return 0
     except KeyboardInterrupt:
         return 0
     except Exception as e:
-        rprint(f'[red]Runner error: {type(e).__name__}: {e}[/red]', file=sys.stderr)
+        rprint(f"[red]Runner error: {type(e).__name__}: {e}[/red]", file=sys.stderr)
         import traceback
+
         traceback.print_exc()
         return 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

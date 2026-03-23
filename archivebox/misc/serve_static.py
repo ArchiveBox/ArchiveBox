@@ -3,26 +3,35 @@ import json
 import re
 import os
 import stat
+import asyncio
 import posixpath
 import mimetypes
 import importlib
+import queue
+import threading
+import time
+import zipfile
+from datetime import datetime
 from collections.abc import Callable
 from pathlib import Path
+from urllib.parse import urlencode
 
 from django.contrib.staticfiles import finders
+from django.template import TemplateDoesNotExist, loader
 from django.views import static
 from django.http import StreamingHttpResponse, Http404, HttpResponse, HttpResponseNotModified
 from django.utils._os import safe_join
 from django.utils.http import http_date
 from django.utils.translation import gettext as _
 from archivebox.config.common import SERVER_CONFIG
+from archivebox.misc.logging_util import printable_filesize
 
 
 _HASHES_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
 
 
 def _load_hash_map(snapshot_dir: Path) -> dict[str, str] | None:
-    hashes_path = snapshot_dir / 'hashes' / 'hashes.json'
+    hashes_path = snapshot_dir / "hashes" / "hashes.json"
     if not hashes_path.exists():
         return None
     try:
@@ -35,11 +44,11 @@ def _load_hash_map(snapshot_dir: Path) -> dict[str, str] | None:
         return cached[1]
 
     try:
-        data = json.loads(hashes_path.read_text(encoding='utf-8'))
+        data = json.loads(hashes_path.read_text(encoding="utf-8"))
     except Exception:
         return None
 
-    file_map = {str(entry.get('path')): entry.get('hash') for entry in data.get('files', []) if entry.get('path')}
+    file_map = {str(entry.get("path")): entry.get("hash") for entry in data.get("files", []) if entry.get("path")}
     _HASHES_CACHE[hashes_path] = (mtime, file_map)
     return file_map
 
@@ -52,7 +61,192 @@ def _hash_for_path(document_root: Path, rel_path: str) -> str | None:
 
 
 def _cache_policy() -> str:
-    return 'public' if SERVER_CONFIG.PUBLIC_SNAPSHOTS else 'private'
+    return "public" if SERVER_CONFIG.PUBLIC_SNAPSHOTS else "private"
+
+
+def _format_direntry_timestamp(stat_result: os.stat_result) -> str:
+    timestamp = getattr(stat_result, "st_birthtime", None) or stat_result.st_mtime
+    return datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M")
+
+
+def _safe_zip_stem(name: str) -> str:
+    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("._-")
+    return safe_name or "archivebox"
+
+
+class _StreamingQueueWriter:
+    """Expose a write-only file-like object so zipfile can stream into a queue."""
+
+    def __init__(self, output_queue: queue.Queue[bytes | BaseException | object]) -> None:
+        self.output_queue = output_queue
+        self.position = 0
+
+    def write(self, data: bytes) -> int:
+        if data:
+            self.output_queue.put(data)
+            self.position += len(data)
+        return len(data)
+
+    def tell(self) -> int:
+        return self.position
+
+    def flush(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+    def writable(self) -> bool:
+        return True
+
+    def seekable(self) -> bool:
+        return False
+
+
+def _iter_visible_files(root: Path):
+    """Yield non-hidden files in a stable order so ZIP output is deterministic."""
+
+    for current_root, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(dirname for dirname in dirnames if not dirname.startswith("."))
+        for filename in sorted(name for name in filenames if not name.startswith(".")):
+            yield Path(current_root) / filename
+
+
+def _build_directory_zip_response(
+    fullpath: Path,
+    path: str,
+    *,
+    is_archive_replay: bool,
+    use_async_stream: bool,
+) -> StreamingHttpResponse:
+    root_name = _safe_zip_stem(fullpath.name or Path(path).name or "archivebox")
+    sentinel = object()
+    output_queue: queue.Queue[bytes | BaseException | object] = queue.Queue(maxsize=8)
+    initial_chunk_target = 64 * 1024
+    initial_chunk_wait = 0.05
+
+    def build_zip() -> None:
+        # zipfile wants a write-only file object. Feed those bytes straight into
+        # a queue so the response can stream them out as soon as they are ready.
+        writer = _StreamingQueueWriter(output_queue)
+        try:
+            with zipfile.ZipFile(writer, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zip_file:
+                for entry in _iter_visible_files(fullpath):
+                    rel_parts = entry.relative_to(fullpath).parts
+                    arcname = Path(root_name, *rel_parts).as_posix()
+                    zip_file.write(entry, arcname)
+        except BaseException as err:
+            output_queue.put(err)
+        finally:
+            output_queue.put(sentinel)
+
+    threading.Thread(target=build_zip, name=f"zip-stream-{root_name}", daemon=True).start()
+
+    def iter_zip_chunks():
+        # Emit a meaningful first chunk quickly so browsers show the download
+        # immediately instead of waiting on dozens of tiny ZIP header writes.
+        first_chunk = bytearray()
+        initial_deadline = time.monotonic() + initial_chunk_wait
+
+        while True:
+            timeout = max(initial_deadline - time.monotonic(), 0) if len(first_chunk) < initial_chunk_target else None
+            try:
+                chunk = output_queue.get(timeout=timeout) if timeout is not None else output_queue.get()
+            except queue.Empty:
+                if first_chunk:
+                    yield bytes(first_chunk)
+                    first_chunk.clear()
+                    continue
+                chunk = output_queue.get()
+
+            if chunk is sentinel:
+                if first_chunk:
+                    yield bytes(first_chunk)
+                break
+            if isinstance(chunk, BaseException):
+                raise chunk
+            if len(first_chunk) < initial_chunk_target:
+                first_chunk.extend(chunk)
+                if len(first_chunk) >= initial_chunk_target or time.monotonic() >= initial_deadline:
+                    yield bytes(first_chunk)
+                    first_chunk.clear()
+                continue
+            yield chunk
+
+    async def stream_zip_async():
+        # Django ASGI buffers sync StreamingHttpResponse iterators by consuming
+        # them into a list. Drive the same sync iterator from a worker thread so
+        # Daphne can send each chunk as it arrives instead of buffering the ZIP.
+        iterator = iter(iter_zip_chunks())
+        while True:
+            chunk = await asyncio.to_thread(next, iterator, None)
+            if chunk is None:
+                break
+            yield chunk
+
+    response = StreamingHttpResponse(
+        stream_zip_async() if use_async_stream else iter_zip_chunks(),
+        content_type="application/zip",
+    )
+    response.headers["Content-Disposition"] = f'attachment; filename="{root_name}.zip"'
+    response.headers["Cache-Control"] = f"{_cache_policy()}, max-age=60, stale-while-revalidate=300"
+    response.headers["Last-Modified"] = http_date(fullpath.stat().st_mtime)
+    response.headers["X-Accel-Buffering"] = "no"
+    return _apply_archive_replay_headers(
+        response,
+        fullpath=fullpath,
+        content_type="application/zip",
+        is_archive_replay=is_archive_replay,
+    )
+
+
+def _render_directory_index(request, path: str, fullpath: Path) -> HttpResponse:
+    try:
+        template = loader.select_template(
+            [
+                "static/directory_index.html",
+                "static/directory_index",
+            ],
+        )
+    except TemplateDoesNotExist:
+        return static.directory_index(path, fullpath)
+
+    entries = []
+    file_list = []
+    visible_entries = sorted(
+        (entry for entry in fullpath.iterdir() if not entry.name.startswith(".")),
+        key=lambda entry: (not entry.is_dir(), entry.name.lower()),
+    )
+    for entry in visible_entries:
+        url = str(entry.relative_to(fullpath))
+        if entry.is_dir():
+            url += "/"
+        file_list.append(url)
+
+        stat_result = entry.stat()
+        entries.append(
+            {
+                "name": url,
+                "url": url,
+                "is_dir": entry.is_dir(),
+                "size": "—" if entry.is_dir() else printable_filesize(stat_result.st_size),
+                "timestamp": _format_direntry_timestamp(stat_result),
+            },
+        )
+
+    zip_query = request.GET.copy()
+    zip_query["download"] = "zip"
+    zip_url = request.path
+    if zip_query:
+        zip_url = f"{zip_url}?{zip_query.urlencode()}"
+
+    context = {
+        "directory": f"{path}/",
+        "file_list": file_list,
+        "entries": entries,
+        "zip_url": zip_url,
+    }
+    return HttpResponse(template.render(context))
 
 
 # Ensure common web types are mapped consistently across platforms.
@@ -71,16 +265,16 @@ mimetypes.add_type("application/xml", ".xml")
 mimetypes.add_type("image/svg+xml", ".svg")
 
 try:
-    _markdown = getattr(importlib.import_module('markdown'), 'markdown')
+    _markdown = getattr(importlib.import_module("markdown"), "markdown")
 except ImportError:
     _markdown: Callable[..., str] | None = None
 
-MARKDOWN_INLINE_LINK_RE = re.compile(r'\[([^\]]+)\]\(([^)\s]+(?:\([^)]*\)[^)\s]*)*)\)')
-MARKDOWN_INLINE_IMAGE_RE = re.compile(r'!\[([^\]]*)\]\(([^)]+)\)')
-MARKDOWN_BOLD_RE = re.compile(r'\*\*([^*]+)\*\*')
-MARKDOWN_ITALIC_RE = re.compile(r'(?<!\*)\*([^*]+)\*(?!\*)')
-HTML_TAG_RE = re.compile(r'<[A-Za-z][^>]*>')
-HTML_BODY_RE = re.compile(r'<body[^>]*>(.*)</body>', flags=re.IGNORECASE | re.DOTALL)
+MARKDOWN_INLINE_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)\s]+(?:\([^)]*\)[^)\s]*)*)\)")
+MARKDOWN_INLINE_IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
+MARKDOWN_BOLD_RE = re.compile(r"\*\*([^*]+)\*\*")
+MARKDOWN_ITALIC_RE = re.compile(r"(?<!\*)\*([^*]+)\*(?!\*)")
+HTML_TAG_RE = re.compile(r"<[A-Za-z][^>]*>")
+HTML_BODY_RE = re.compile(r"<body[^>]*>(.*)</body>", flags=re.IGNORECASE | re.DOTALL)
 RISKY_REPLAY_MIMETYPES = {
     "text/html",
     "application/xhtml+xml",
@@ -99,8 +293,8 @@ def _extract_markdown_candidate(text: str) -> str:
     body_match = HTML_BODY_RE.search(candidate)
     if body_match:
         candidate = body_match.group(1)
-    candidate = re.sub(r'^\s*<p[^>]*>', '', candidate, flags=re.IGNORECASE)
-    candidate = re.sub(r'</p>\s*$', '', candidate, flags=re.IGNORECASE)
+    candidate = re.sub(r"^\s*<p[^>]*>", "", candidate, flags=re.IGNORECASE)
+    candidate = re.sub(r"</p>\s*$", "", candidate, flags=re.IGNORECASE)
     return candidate.strip()
 
 
@@ -109,13 +303,113 @@ def _looks_like_markdown(text: str) -> bool:
     if "<html" in lower and "<head" in lower and "</body>" in lower:
         return False
     md_markers = 0
-    md_markers += len(re.findall(r'^\s{0,3}#{1,6}\s+\S', text, flags=re.MULTILINE))
-    md_markers += len(re.findall(r'^\s*[-*+]\s+\S', text, flags=re.MULTILINE))
-    md_markers += len(re.findall(r'^\s*\d+\.\s+\S', text, flags=re.MULTILINE))
-    md_markers += text.count('[TOC]')
+    md_markers += len(re.findall(r"^\s{0,3}#{1,6}\s+\S", text, flags=re.MULTILINE))
+    md_markers += len(re.findall(r"^\s*[-*+]\s+\S", text, flags=re.MULTILINE))
+    md_markers += len(re.findall(r"^\s*\d+\.\s+\S", text, flags=re.MULTILINE))
+    md_markers += text.count("[TOC]")
     md_markers += len(MARKDOWN_INLINE_LINK_RE.findall(text))
-    md_markers += text.count('\n---') + text.count('\n***')
+    md_markers += text.count("\n---") + text.count("\n***")
     return md_markers >= 6
+
+
+def _render_text_preview_document(text: str, title: str) -> str:
+    escaped_title = html.escape(title)
+    escaped_text = html.escape(text)
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{escaped_title}</title>
+    <style>
+        :root {{
+            color-scheme: dark;
+        }}
+        html, body {{
+            margin: 0;
+            padding: 0;
+            background: #111;
+            color: #f3f3f3;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        }}
+        .archivebox-text-preview-header {{
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            padding: 10px 14px;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #bbb;
+            background: rgba(17, 17, 17, 0.96);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(8px);
+        }}
+        .archivebox-text-preview {{
+            margin: 0;
+            padding: 14px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            tab-size: 2;
+            line-height: 1.45;
+            font-size: 13px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="archivebox-text-preview-header">{escaped_title}</div>
+    <pre class="archivebox-text-preview">{escaped_text}</pre>
+</body>
+</html>"""
+
+
+def _render_image_preview_document(image_url: str, title: str) -> str:
+    escaped_title = html.escape(title)
+    escaped_url = html.escape(image_url, quote=True)
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{escaped_title}</title>
+    <style>
+        :root {{
+            color-scheme: dark;
+        }}
+        html, body {{
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            min-height: 100%;
+            background: #fff;
+        }}
+        body {{
+            overflow: auto;
+        }}
+        .archivebox-image-preview {{
+            width: 100%;
+            min-width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            box-sizing: border-box;
+        }}
+        .archivebox-image-preview img {{
+            display: block;
+            width: auto;
+            max-width: 100%;
+            height: auto;
+            margin: 0 auto;
+        }}
+    </style>
+</head>
+<body>
+    <div class="archivebox-image-preview">
+        <img src="{escaped_url}" alt="{escaped_title}">
+    </div>
+</body>
+</html>"""
 
 
 def _render_markdown_fallback(text: str) -> str:
@@ -133,11 +427,11 @@ def _render_markdown_fallback(text: str) -> str:
     headings = []
 
     def slugify(value: str) -> str:
-        slug = re.sub(r'[^A-Za-z0-9]+', '-', value).strip('-')
+        slug = re.sub(r"[^A-Za-z0-9]+", "-", value).strip("-")
         return slug or "section"
 
     for raw_line in lines:
-        heading_match = re.match(r'^\s{0,3}(#{1,6})\s+(.*)$', raw_line)
+        heading_match = re.match(r"^\s{0,3}(#{1,6})\s+(.*)$", raw_line)
         if heading_match:
             level = len(heading_match.group(1))
             content = heading_match.group(2).strip()
@@ -152,8 +446,8 @@ def _render_markdown_fallback(text: str) -> str:
     def render_inline(markup: str) -> str:
         content = MARKDOWN_INLINE_IMAGE_RE.sub(r'<img alt="\1" src="\2">', markup)
         content = MARKDOWN_INLINE_LINK_RE.sub(r'<a href="\2">\1</a>', content)
-        content = MARKDOWN_BOLD_RE.sub(r'<strong>\1</strong>', content)
-        content = MARKDOWN_ITALIC_RE.sub(r'<em>\1</em>', content)
+        content = MARKDOWN_BOLD_RE.sub(r"<strong>\1</strong>", content)
+        content = MARKDOWN_ITALIC_RE.sub(r"<em>\1</em>", content)
         return content
 
     def close_lists():
@@ -194,7 +488,7 @@ def _render_markdown_fallback(text: str) -> str:
             html_lines.append("<br/>")
             continue
 
-        heading_match = re.match(r'^\s*((?:<[^>]+>\s*)*)(#{1,6})\s+(.*)$', line)
+        heading_match = re.match(r"^\s*((?:<[^>]+>\s*)*)(#{1,6})\s+(.*)$", line)
         if heading_match:
             close_lists()
             if in_blockquote:
@@ -205,7 +499,7 @@ def _render_markdown_fallback(text: str) -> str:
             content = heading_match.group(3).strip()
             if leading_tags:
                 html_lines.append(leading_tags)
-            html_lines.append(f"<h{level} id=\"{slugify(content)}\">{render_inline(content)}</h{level}>")
+            html_lines.append(f'<h{level} id="{slugify(content)}">{render_inline(content)}</h{level}>')
             continue
 
         if stripped in ("---", "***"):
@@ -226,7 +520,7 @@ def _render_markdown_fallback(text: str) -> str:
                 html_lines.append("</blockquote>")
                 in_blockquote = False
 
-        ul_match = re.match(r'^\s*[-*+]\s+(.*)$', line)
+        ul_match = re.match(r"^\s*[-*+]\s+(.*)$", line)
         if ul_match:
             if in_ol:
                 html_lines.append("</ol>")
@@ -237,7 +531,7 @@ def _render_markdown_fallback(text: str) -> str:
             html_lines.append(f"<li>{render_inline(ul_match.group(1))}</li>")
             continue
 
-        ol_match = re.match(r'^\s*\d+\.\s+(.*)$', line)
+        ol_match = re.match(r"^\s*\d+\.\s+(.*)$", line)
         if ol_match:
             if in_ul:
                 html_lines.append("</ul>")
@@ -255,10 +549,10 @@ def _render_markdown_fallback(text: str) -> str:
             toc_items = []
             for level, title, slug in headings:
                 toc_items.append(
-                    f'<li class="toc-level-{level}"><a href="#{slug}">{title}</a></li>'
+                    f'<li class="toc-level-{level}"><a href="#{slug}">{title}</a></li>',
                 )
             html_lines.append(
-                '<nav class="toc"><ul>' + "".join(toc_items) + '</ul></nav>'
+                '<nav class="toc"><ul>' + "".join(toc_items) + "</ul></nav>",
             )
             continue
 
@@ -276,8 +570,8 @@ def _render_markdown_fallback(text: str) -> str:
 def _render_markdown_document(markdown_text: str) -> str:
     body = _render_markdown_fallback(markdown_text)
     wrapped = (
-        "<!doctype html><html><head><meta charset=\"utf-8\">"
-        "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+        '<!doctype html><html><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
         "<style>body{max-width:900px;margin:24px auto;padding:0 16px;"
         "font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;"
         "line-height:1.55;} img{max-width:100%;} pre{background:#f6f6f6;padding:12px;overflow:auto;}"
@@ -338,7 +632,7 @@ def _apply_archive_replay_headers(response: HttpResponse, *, fullpath: Path, con
     return response
 
 
-def serve_static_with_byterange_support(request, path, document_root=None, show_indexes=False, is_archive_replay: bool=False):
+def serve_static_with_byterange_support(request, path, document_root=None, show_indexes=False, is_archive_replay: bool = False):
     """
     Overrides Django's built-in django.views.static.serve function to support byte range requests.
     This allows you to do things like seek into the middle of a huge mp4 or WACZ without downloading the whole file.
@@ -348,13 +642,20 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     path = posixpath.normpath(path).lstrip("/")
     fullpath = Path(safe_join(document_root, path))
     if os.access(fullpath, os.R_OK) and fullpath.is_dir():
+        if request.GET.get("download") == "zip" and show_indexes:
+            return _build_directory_zip_response(
+                fullpath,
+                path,
+                is_archive_replay=is_archive_replay,
+                use_async_stream=hasattr(request, "scope"),
+            )
         if show_indexes:
-            response = static.directory_index(path, fullpath)
+            response = _render_directory_index(request, path, fullpath)
             return _apply_archive_replay_headers(response, fullpath=fullpath, content_type="text/html", is_archive_replay=is_archive_replay)
         raise Http404(_("Directory indexes are not allowed here."))
     if not os.access(fullpath, os.R_OK):
         raise Http404(_("“%(path)s” does not exist") % {"path": fullpath})
-    
+
     statobj = fullpath.stat()
     document_root = Path(document_root) if document_root else None
     rel_path = path
@@ -374,27 +675,91 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 not_modified.headers["Cache-Control"] = f"{_cache_policy()}, max-age=31536000, immutable"
                 not_modified.headers["Last-Modified"] = http_date(statobj.st_mtime)
                 return _apply_archive_replay_headers(not_modified, fullpath=fullpath, content_type="", is_archive_replay=is_archive_replay)
-    
+
     content_type, encoding = mimetypes.guess_type(str(fullpath))
     content_type = content_type or "application/octet-stream"
     # Add charset for text-like types (best guess), but don't override the type.
-    is_text_like = (
-        content_type.startswith("text/")
-        or content_type in {
-            "application/json",
-            "application/javascript",
-            "application/xml",
-            "application/x-ndjson",
-            "image/svg+xml",
-        }
-    )
+    is_text_like = content_type.startswith("text/") or content_type in {
+        "application/json",
+        "application/javascript",
+        "application/xml",
+        "application/x-ndjson",
+        "image/svg+xml",
+    }
     if is_text_like and "charset=" not in content_type:
         content_type = f"{content_type}; charset=utf-8"
+    preview_as_text_html = (
+        bool(request.GET.get("preview"))
+        and is_text_like
+        and not content_type.startswith("text/html")
+        and not content_type.startswith("image/svg+xml")
+    )
+    preview_as_image_html = (
+        bool(request.GET.get("preview")) and content_type.startswith("image/") and not content_type.startswith("image/svg+xml")
+    )
 
     # Respect the If-Modified-Since header for non-markdown responses.
     if not (content_type.startswith("text/plain") or content_type.startswith("text/html")):
         if not static.was_modified_since(request.META.get("HTTP_IF_MODIFIED_SINCE"), statobj.st_mtime):
-            return _apply_archive_replay_headers(HttpResponseNotModified(), fullpath=fullpath, content_type=content_type, is_archive_replay=is_archive_replay)
+            return _apply_archive_replay_headers(
+                HttpResponseNotModified(),
+                fullpath=fullpath,
+                content_type=content_type,
+                is_archive_replay=is_archive_replay,
+            )
+
+    # Wrap text-like outputs in HTML when explicitly requested for iframe previewing.
+    if preview_as_text_html:
+        try:
+            max_preview_size = 10 * 1024 * 1024
+            if statobj.st_size <= max_preview_size:
+                decoded = fullpath.read_text(encoding="utf-8", errors="replace")
+                wrapped = _render_text_preview_document(decoded, fullpath.name)
+                response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
+                response.headers["Last-Modified"] = http_date(statobj.st_mtime)
+                if etag:
+                    response.headers["ETag"] = etag
+                    response.headers["Cache-Control"] = f"{_cache_policy()}, max-age=31536000, immutable"
+                else:
+                    response.headers["Cache-Control"] = f"{_cache_policy()}, max-age=60, stale-while-revalidate=300"
+                response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
+                if encoding:
+                    response.headers["Content-Encoding"] = encoding
+                return _apply_archive_replay_headers(
+                    response,
+                    fullpath=fullpath,
+                    content_type="text/html; charset=utf-8",
+                    is_archive_replay=is_archive_replay,
+                )
+        except Exception:
+            pass
+
+    if preview_as_image_html:
+        try:
+            preview_query = request.GET.copy()
+            preview_query.pop("preview", None)
+            raw_image_url = request.path
+            if preview_query:
+                raw_image_url = f"{raw_image_url}?{urlencode(list(preview_query.lists()), doseq=True)}"
+            wrapped = _render_image_preview_document(raw_image_url, fullpath.name)
+            response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
+            response.headers["Last-Modified"] = http_date(statobj.st_mtime)
+            if etag:
+                response.headers["ETag"] = etag
+                response.headers["Cache-Control"] = f"{_cache_policy()}, max-age=31536000, immutable"
+            else:
+                response.headers["Cache-Control"] = f"{_cache_policy()}, max-age=60, stale-while-revalidate=300"
+            response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
+            if encoding:
+                response.headers["Content-Encoding"] = encoding
+            return _apply_archive_replay_headers(
+                response,
+                fullpath=fullpath,
+                content_type="text/html; charset=utf-8",
+                is_archive_replay=is_archive_replay,
+            )
+        except Exception:
+            pass
 
     # Heuristic fix: some archived HTML outputs (e.g. mercury content.html)
     # are stored with HTML-escaped markup or markdown sources. If so, render sensibly.
@@ -421,7 +786,12 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
                     if encoding:
                         response.headers["Content-Encoding"] = encoding
-                    return _apply_archive_replay_headers(response, fullpath=fullpath, content_type="text/html; charset=utf-8", is_archive_replay=is_archive_replay)
+                    return _apply_archive_replay_headers(
+                        response,
+                        fullpath=fullpath,
+                        content_type="text/html; charset=utf-8",
+                        is_archive_replay=is_archive_replay,
+                    )
                 if escaped_count and escaped_count > tag_count * 2:
                     response = HttpResponse(decoded, content_type=content_type)
                     response.headers["Last-Modified"] = http_date(statobj.st_mtime)
@@ -433,11 +803,16 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
                     if encoding:
                         response.headers["Content-Encoding"] = encoding
-                    return _apply_archive_replay_headers(response, fullpath=fullpath, content_type=content_type, is_archive_replay=is_archive_replay)
+                    return _apply_archive_replay_headers(
+                        response,
+                        fullpath=fullpath,
+                        content_type=content_type,
+                        is_archive_replay=is_archive_replay,
+                    )
         except Exception:
             pass
 
-    # setup resposne object
+    # setup response object
     ranged_file = RangedFileReader(open(fullpath, "rb"))
     response = StreamingHttpResponse(ranged_file, content_type=content_type)
     response.headers["Last-Modified"] = http_date(statobj.st_mtime)
@@ -451,7 +826,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     if content_type.startswith("image/"):
         response.headers["Cache-Control"] = "public, max-age=604800, immutable"
 
-    # handle byte-range requests by serving chunk of file    
+    # handle byte-range requests by serving chunk of file
     if stat.S_ISREG(statobj.st_mode):
         size = statobj.st_size
         response["Content-Length"] = size
@@ -460,7 +835,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         # Respect the Range header.
         if "HTTP_RANGE" in request.META:
             try:
-                ranges = parse_range_header(request.META['HTTP_RANGE'], size)
+                ranges = parse_range_header(request.META["HTTP_RANGE"], size)
             except ValueError:
                 ranges = None
             # only handle syntactically valid headers, that are simple (no
@@ -511,7 +886,7 @@ def parse_range_header(header, resource_size):
     Parses a range header into a list of two-tuples (start, stop) where `start`
     is the starting byte of the range (inclusive) and `stop` is the ending byte
     position of the range (exclusive).
-    Returns None if the value of the header is not syntatically valid.
+    Returns None if the value of the header is not syntactically valid.
     https://github.com/satchamo/django/commit/2ce75c5c4bee2a858c0214d136bfcd351fcde11d
     """
     if not header or "=" not in header:

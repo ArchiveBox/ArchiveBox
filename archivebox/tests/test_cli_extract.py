@@ -15,14 +15,14 @@ def test_extract_runs_on_existing_snapshots(tmp_path, process, disable_extractor
 
     # Add a snapshot first
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
 
     # Run extract
     result = subprocess.run(
-        ['archivebox', 'extract'],
+        ["archivebox", "extract"],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=30,
@@ -38,7 +38,7 @@ def test_extract_preserves_snapshot_count(tmp_path, process, disable_extractors_
 
     # Add snapshot
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
@@ -50,7 +50,7 @@ def test_extract_preserves_snapshot_count(tmp_path, process, disable_extractors_
 
     # Run extract
     subprocess.run(
-        ['archivebox', 'extract', '--overwrite'],
+        ["archivebox", "extract", "--overwrite"],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=30,

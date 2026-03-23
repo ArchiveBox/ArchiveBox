@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-__package__ = 'archivebox.cli'
+__package__ = "archivebox.cli"
 
 import os
 
@@ -11,7 +11,7 @@ from archivebox.misc.util import docstring, enforce_types
 
 
 @enforce_types
-def install(binaries: tuple[str, ...] = (), binproviders: str = '*', dry_run: bool = False) -> None:
+def install(binaries: tuple[str, ...] = (), binproviders: str = "*", dry_run: bool = False) -> None:
     """Detect and install ArchiveBox dependencies by running the abx-dl install flow
 
     Examples:
@@ -31,33 +31,34 @@ def install(binaries: tuple[str, ...] = (), binproviders: str = '*', dry_run: bo
 
     # Show what we're installing
     if binaries:
-        print(f'\n[green][+] Installing specific binaries: {", ".join(binaries)}[/green]')
+        print(f"\n[green][+] Installing specific binaries: {', '.join(binaries)}[/green]")
     else:
-        print('\n[green][+] Detecting and installing all ArchiveBox dependencies...[/green]')
+        print("\n[green][+] Detecting and installing all ArchiveBox dependencies...[/green]")
 
-    if binproviders != '*':
-        print(f'[green][+] Using providers: {binproviders}[/green]')
+    if binproviders != "*":
+        print(f"[green][+] Using providers: {binproviders}[/green]")
 
     if IS_ROOT:
         EUID = os.geteuid()
         print()
-        print(f'[yellow]:warning:  Running as UID=[blue]{EUID}[/blue].[/yellow]')
-        print(f'    DATA_DIR will be owned by [blue]{ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}[/blue].')
+        print(f"[yellow]:warning:  Running as UID=[blue]{EUID}[/blue].[/yellow]")
+        print(f"    DATA_DIR will be owned by [blue]{ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}[/blue].")
         print()
 
     if dry_run:
-        print('[dim]Dry run - would run the abx-dl install flow[/dim]')
+        print("[dim]Dry run - would run the abx-dl install flow[/dim]")
         return
 
     # Set up Django
     from archivebox.config.django import setup_django
+
     setup_django()
 
     plugin_names = list(binaries)
-    if binproviders != '*':
-        plugin_names.extend(provider.strip() for provider in binproviders.split(',') if provider.strip())
+    if binproviders != "*":
+        plugin_names.extend(provider.strip() for provider in binproviders.split(",") if provider.strip())
 
-    print('[+] Running installer via abx-dl bus...')
+    print("[+] Running installer via abx-dl bus...")
     print()
 
     from archivebox.services.runner import run_install
@@ -68,28 +69,36 @@ def install(binaries: tuple[str, ...] = (), binproviders: str = '*', dry_run: bo
 
     # Check for superuser
     from django.contrib.auth import get_user_model
+
     User = get_user_model()
 
-    if not User.objects.filter(is_superuser=True).exclude(username='system').exists():
-        stderr('\n[+] Don\'t forget to create a new admin user for the Web UI...', color='green')
-        stderr('    archivebox manage createsuperuser')
+    if not User.objects.filter(is_superuser=True).exclude(username="system").exists():
+        stderr("\n[+] Don't forget to create a new admin user for the Web UI...", color="green")
+        stderr("    archivebox manage createsuperuser")
 
     print()
 
     # Show version to display full status including installed binaries
     # Django is already loaded, so just import and call the function directly
     from archivebox.cli.archivebox_version import version as show_version
+
     show_version(quiet=False)
 
 
 @click.command()
-@click.argument('binaries', nargs=-1, type=str, required=False)
-@click.option('--binproviders', '-p', default='*', help='Comma-separated list of providers to use (pip,npm,brew,apt,env,custom) or * for all', show_default=True)
-@click.option('--dry-run', '-d', is_flag=True, help='Show what would happen without actually running', default=False)
+@click.argument("binaries", nargs=-1, type=str, required=False)
+@click.option(
+    "--binproviders",
+    "-p",
+    default="*",
+    help="Comma-separated list of providers to use (pip,npm,brew,apt,env,custom) or * for all",
+    show_default=True,
+)
+@click.option("--dry-run", "-d", is_flag=True, help="Show what would happen without actually running", default=False)
 @docstring(install.__doc__)
 def main(**kwargs) -> None:
     install(**kwargs)
-    
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

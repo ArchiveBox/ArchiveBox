@@ -1,4 +1,4 @@
-__package__ = 'archivebox.crawls'
+__package__ = "archivebox.crawls"
 
 from typing import TYPE_CHECKING
 import uuid
@@ -17,7 +17,14 @@ from django.utils import timezone
 from statemachine import State, registry
 from rich import print
 
-from archivebox.base_models.models import ModelWithUUID, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, get_or_create_system_user_pk
+from archivebox.base_models.models import (
+    ModelWithUUID,
+    ModelWithOutputDir,
+    ModelWithConfig,
+    ModelWithNotes,
+    ModelWithHealthStats,
+    get_or_create_system_user_pk,
+)
 from archivebox.workers.models import ModelWithStateMachine, BaseStateMachine
 from archivebox.crawls.schedule_utils import next_run_for_schedule, validate_schedule
 
@@ -31,31 +38,31 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
     modified_at = models.DateTimeField(auto_now=True)
 
-    template: 'Crawl' = models.ForeignKey('Crawl', on_delete=models.CASCADE, null=False, blank=False)  # type: ignore
+    template: "Crawl" = models.ForeignKey("Crawl", on_delete=models.CASCADE, null=False, blank=False)  # type: ignore
     schedule = models.CharField(max_length=64, blank=False, null=False)
     is_enabled = models.BooleanField(default=True)
-    label = models.CharField(max_length=64, blank=True, null=False, default='')
-    notes = models.TextField(blank=True, null=False, default='')
+    label = models.CharField(max_length=64, blank=True, null=False, default="")
+    notes = models.TextField(blank=True, null=False, default="")
 
-    crawl_set: models.Manager['Crawl']
+    crawl_set: models.Manager["Crawl"]
 
     class Meta(ModelWithUUID.Meta, ModelWithNotes.Meta):
-        app_label = 'crawls'
-        verbose_name = 'Scheduled Crawl'
-        verbose_name_plural = 'Scheduled Crawls'
+        app_label = "crawls"
+        verbose_name = "Scheduled Crawl"
+        verbose_name_plural = "Scheduled Crawls"
 
     def __str__(self) -> str:
         urls_preview = self.template.urls[:64] if self.template and self.template.urls else ""
-        return f'[{self.id}] {urls_preview} @ {self.schedule}'
+        return f"[{self.id}] {urls_preview} @ {self.schedule}"
 
     @property
     def api_url(self) -> str:
-        return str(reverse_lazy('api-1:get_any', args=[self.id]))
+        return str(reverse_lazy("api-1:get_any", args=[self.id]))
 
     def save(self, *args, **kwargs):
-        self.schedule = (self.schedule or '').strip()
+        self.schedule = (self.schedule or "").strip()
         validate_schedule(self.schedule)
-        self.label = self.label or (self.template.label if self.template else '')
+        self.label = self.label or (self.template.label if self.template else "")
         super().save(*args, **kwargs)
         if self.template:
             self.template.schedule = self
@@ -63,7 +70,7 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
 
     @property
     def last_run_at(self):
-        latest_crawl = self.crawl_set.order_by('-created_at').first()
+        latest_crawl = self.crawl_set.order_by("-created_at").first()
         if latest_crawl:
             return latest_crawl.created_at
         if self.template:
@@ -78,7 +85,7 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
         now = now or timezone.now()
         return self.is_enabled and self.next_run_at <= now
 
-    def enqueue(self, queued_at=None) -> 'Crawl':
+    def enqueue(self, queued_at=None) -> "Crawl":
         queued_at = queued_at or timezone.now()
         template = self.template
         label = template.label or self.label
@@ -87,6 +94,8 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
             urls=template.urls,
             config=template.config or {},
             max_depth=template.max_depth,
+            max_urls=template.max_urls,
+            max_size=template.max_size,
             tags_str=template.tags_str,
             persona_id=template.persona_id,
             label=label,
@@ -104,28 +113,41 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
     modified_at = models.DateTimeField(auto_now=True)
 
-    urls = models.TextField(blank=False, null=False, help_text='Newline-separated list of URLs to crawl')
+    urls = models.TextField(blank=False, null=False, help_text="Newline-separated list of URLs to crawl")
     config = models.JSONField(default=dict, null=True, blank=True)
     max_depth = models.PositiveSmallIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(4)])
-    tags_str = models.CharField(max_length=1024, blank=True, null=False, default='')
+    max_urls = models.IntegerField(
+        default=0,
+        validators=[MinValueValidator(0)],
+        help_text="Maximum number of URLs to snapshot for this crawl (0 = unlimited).",
+    )
+    max_size = models.BigIntegerField(
+        default=0,
+        validators=[MinValueValidator(0)],
+        help_text="Maximum total archived output size in bytes for this crawl (0 = unlimited).",
+    )
+    tags_str = models.CharField(max_length=1024, blank=True, null=False, default="")
     persona_id = models.UUIDField(null=True, blank=True)
-    label = models.CharField(max_length=64, blank=True, null=False, default='')
-    notes = models.TextField(blank=True, null=False, default='')
+    label = models.CharField(max_length=64, blank=True, null=False, default="")
+    notes = models.TextField(blank=True, null=False, default="")
     schedule = models.ForeignKey(CrawlSchedule, on_delete=models.SET_NULL, null=True, blank=True, editable=True)
 
-    status = ModelWithStateMachine.StatusField(choices=ModelWithStateMachine.StatusChoices, default=ModelWithStateMachine.StatusChoices.QUEUED)
+    status = ModelWithStateMachine.StatusField(
+        choices=ModelWithStateMachine.StatusChoices,
+        default=ModelWithStateMachine.StatusChoices.QUEUED,
+    )
     retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
 
-    state_machine_name = 'archivebox.crawls.models.CrawlMachine'
-    retry_at_field_name = 'retry_at'
-    state_field_name = 'status'
+    state_machine_name = "archivebox.crawls.models.CrawlMachine"
+    retry_at_field_name = "retry_at"
+    state_field_name = "status"
     StatusChoices = ModelWithStateMachine.StatusChoices
     active_state = StatusChoices.STARTED
 
     schedule_id: uuid.UUID | None
-    sm: 'CrawlMachine'
+    sm: "CrawlMachine"
 
-    snapshot_set: models.Manager['Snapshot']
+    snapshot_set: models.Manager["Snapshot"]
 
     class Meta(
         ModelWithOutputDir.Meta,
@@ -133,17 +155,34 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         ModelWithHealthStats.Meta,
         ModelWithStateMachine.Meta,
     ):
-        app_label = 'crawls'
-        verbose_name = 'Crawl'
-        verbose_name_plural = 'Crawls'
+        app_label = "crawls"
+        verbose_name = "Crawl"
+        verbose_name_plural = "Crawls"
 
     def __str__(self):
-        first_url = self.get_urls_list()[0] if self.get_urls_list() else ''
+        first_url = self.get_urls_list()[0] if self.get_urls_list() else ""
         # Show last 8 digits of UUID and more of the URL
         short_id = str(self.id)[-8:]
-        return f'[...{short_id}] {first_url[:120]}'
+        return f"[...{short_id}] {first_url[:120]}"
 
     def save(self, *args, **kwargs):
+        config = dict(self.config or {})
+        if self.max_urls > 0:
+            config["MAX_URLS"] = self.max_urls
+        else:
+            config.pop("MAX_URLS", None)
+
+        if self.max_size > 0:
+            config["MAX_SIZE"] = self.max_size
+        else:
+            config.pop("MAX_SIZE", None)
+
+        if config != (self.config or {}):
+            self.config = config
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = tuple(dict.fromkeys([*update_fields, "config"]))
+
         super().save(*args, **kwargs)
         # if is_new:
         #     from archivebox.misc.logging_util import log_worker_event
@@ -162,23 +201,26 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
     @property
     def api_url(self) -> str:
-        return str(reverse_lazy('api-1:get_crawl', args=[self.id]))
+        return str(reverse_lazy("api-1:get_crawl", args=[self.id]))
 
     def to_json(self) -> dict:
         """
         Convert Crawl model instance to a JSON-serializable dict.
         """
         from archivebox.config import VERSION
+
         return {
-            'type': 'Crawl',
-            'schema_version': VERSION,
-            'id': str(self.id),
-            'urls': self.urls,
-            'status': self.status,
-            'max_depth': self.max_depth,
-            'tags_str': self.tags_str,
-            'label': self.label,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            "type": "Crawl",
+            "schema_version": VERSION,
+            "id": str(self.id),
+            "urls": self.urls,
+            "status": self.status,
+            "max_depth": self.max_depth,
+            "max_urls": self.max_urls,
+            "max_size": self.max_size,
+            "tags_str": self.tags_str,
+            "label": self.label,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
     @staticmethod
@@ -198,7 +240,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         overrides = overrides or {}
 
         # Check if crawl already exists by ID
-        crawl_id = record.get('id')
+        crawl_id = record.get("id")
         if crawl_id:
             try:
                 return Crawl.objects.get(id=crawl_id)
@@ -206,9 +248,9 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 pass
 
         # Get URLs - can be string (newline-separated) or from 'url' field
-        urls = record.get('urls', '')
-        if not urls and record.get('url'):
-            urls = record['url']
+        urls = record.get("urls", "")
+        if not urls and record.get("url"):
+            urls = record["url"]
 
         if not urls:
             return None
@@ -216,9 +258,11 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         # Create new crawl (status stays QUEUED, not started)
         crawl = Crawl.objects.create(
             urls=urls,
-            max_depth=record.get('max_depth', record.get('depth', 0)),
-            tags_str=record.get('tags_str', record.get('tags', '')),
-            label=record.get('label', ''),
+            max_depth=record.get("max_depth", record.get("depth", 0)),
+            max_urls=record.get("max_urls", 0),
+            max_size=record.get("max_size", 0),
+            tags_str=record.get("tags_str", record.get("tags", "")),
+            label=record.get("label", ""),
             status=Crawl.StatusChoices.QUEUED,
             retry_at=timezone.now(),
             **overrides,
@@ -234,39 +278,35 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         from archivebox import DATA_DIR
         from archivebox.core.models import Snapshot
 
-        date_str = self.created_at.strftime('%Y%m%d')
+        date_str = self.created_at.strftime("%Y%m%d")
         urls = self.get_urls_list()
-        domain = Snapshot.extract_domain_from_url(urls[0]) if urls else 'unknown'
+        domain = Snapshot.extract_domain_from_url(urls[0]) if urls else "unknown"
 
-        return DATA_DIR / 'users' / self.created_by.username / 'crawls' / date_str / domain / str(self.id)
+        return DATA_DIR / "users" / self.created_by.username / "crawls" / date_str / domain / str(self.id)
 
     def get_urls_list(self) -> list[str]:
         """Get list of URLs from urls field, filtering out comments and empty lines."""
         if not self.urls:
             return []
-        return [
-            url.strip()
-            for url in self.urls.split('\n')
-            if url.strip() and not url.strip().startswith('#')
-        ]
+        return [url.strip() for url in self.urls.split("\n") if url.strip() and not url.strip().startswith("#")]
 
     @staticmethod
     def normalize_domain(value: str) -> str:
-        candidate = (value or '').strip().lower()
+        candidate = (value or "").strip().lower()
         if not candidate:
-            return ''
-        if '://' not in candidate and '/' not in candidate:
-            candidate = f'https://{candidate.lstrip(".")}'
+            return ""
+        if "://" not in candidate and "/" not in candidate:
+            candidate = f"https://{candidate.lstrip('.')}"
         try:
             parsed = urlparse(candidate)
-            hostname = parsed.hostname or ''
+            hostname = parsed.hostname or ""
             if not hostname:
-                return ''
+                return ""
             if parsed.port:
-                return f'{hostname}_{parsed.port}'
+                return f"{hostname}_{parsed.port}"
             return hostname
         except Exception:
-            return ''
+            return ""
 
     @staticmethod
     def split_filter_patterns(value) -> list[str]:
@@ -280,7 +320,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             raw_values = []
 
         for raw_value in raw_values:
-            pattern = str(raw_value or '').strip()
+            pattern = str(raw_value or "").strip()
             if not pattern or pattern in seen:
                 continue
             seen.add(pattern)
@@ -289,28 +329,28 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
     @classmethod
     def _pattern_matches_url(cls, url: str, pattern: str) -> bool:
-        normalized_pattern = str(pattern or '').strip()
+        normalized_pattern = str(pattern or "").strip()
         if not normalized_pattern:
             return False
 
-        if re.fullmatch(r'[\w.*:-]+', normalized_pattern):
-            wildcard_only_subdomains = normalized_pattern.startswith('*.')
+        if re.fullmatch(r"[\w.*:-]+", normalized_pattern):
+            wildcard_only_subdomains = normalized_pattern.startswith("*.")
             normalized_domain = cls.normalize_domain(
-                normalized_pattern[2:] if wildcard_only_subdomains else normalized_pattern
+                normalized_pattern[2:] if wildcard_only_subdomains else normalized_pattern,
             )
             normalized_url_domain = cls.normalize_domain(url)
             if not normalized_domain or not normalized_url_domain:
                 return False
 
-            pattern_host = normalized_domain.split('_', 1)[0]
-            url_host = normalized_url_domain.split('_', 1)[0]
+            pattern_host = normalized_domain.split("_", 1)[0]
+            url_host = normalized_url_domain.split("_", 1)[0]
 
             if wildcard_only_subdomains:
-                return url_host.endswith(f'.{pattern_host}')
+                return url_host.endswith(f".{pattern_host}")
 
             if normalized_url_domain == normalized_domain:
                 return True
-            return url_host == pattern_host or url_host.endswith(f'.{pattern_host}')
+            return url_host == pattern_host or url_host.endswith(f".{pattern_host}")
 
         try:
             return bool(re.search(normalized_pattern, url))
@@ -324,7 +364,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             config = get_config(crawl=self, snapshot=snapshot)
         else:
             config = self.config or {}
-        return self.split_filter_patterns(config.get('URL_ALLOWLIST', ''))
+        return self.split_filter_patterns(config.get("URL_ALLOWLIST", ""))
 
     def get_url_denylist(self, *, use_effective_config: bool = False, snapshot=None) -> list[str]:
         if use_effective_config:
@@ -333,7 +373,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             config = get_config(crawl=self, snapshot=snapshot)
         else:
             config = self.config or {}
-        return self.split_filter_patterns(config.get('URL_DENYLIST', ''))
+        return self.split_filter_patterns(config.get("URL_DENYLIST", ""))
 
     def url_passes_filters(self, url: str, *, snapshot=None, use_effective_config: bool = True) -> bool:
         denylist = self.get_url_denylist(use_effective_config=use_effective_config, snapshot=snapshot)
@@ -354,14 +394,14 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         deny_patterns = self.split_filter_patterns(denylist)
 
         if allow_patterns:
-            config['URL_ALLOWLIST'] = '\n'.join(allow_patterns)
+            config["URL_ALLOWLIST"] = "\n".join(allow_patterns)
         else:
-            config.pop('URL_ALLOWLIST', None)
+            config.pop("URL_ALLOWLIST", None)
 
         if deny_patterns:
-            config['URL_DENYLIST'] = '\n'.join(deny_patterns)
+            config["URL_DENYLIST"] = "\n".join(deny_patterns)
         else:
-            config.pop('URL_DENYLIST', None)
+            config.pop("URL_DENYLIST", None)
 
         self.config = config
 
@@ -369,23 +409,20 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         from archivebox.core.models import Snapshot
 
         removed_urls = self.prune_urls(
-            lambda url: not self.url_passes_filters(url, use_effective_config=False)
+            lambda url: not self.url_passes_filters(url, use_effective_config=False),
         )
 
         filtered_snapshots = [
             snapshot
             for snapshot in self.snapshot_set.filter(
                 status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED],
-            ).only('pk', 'url', 'status')
+            ).only("pk", "url", "status")
             if not self.url_passes_filters(snapshot.url, snapshot=snapshot, use_effective_config=False)
         ]
 
         deleted_snapshots = 0
         if filtered_snapshots:
-            started_snapshots = [
-                snapshot for snapshot in filtered_snapshots
-                if snapshot.status == Snapshot.StatusChoices.STARTED
-            ]
+            started_snapshots = [snapshot for snapshot in filtered_snapshots if snapshot.status == Snapshot.StatusChoices.STARTED]
             for snapshot in started_snapshots:
                 snapshot.cancel_running_hooks()
 
@@ -393,22 +430,22 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             deleted_snapshots, _ = self.snapshot_set.filter(pk__in=filtered_snapshot_ids).delete()
 
         return {
-            'removed_urls': len(removed_urls),
-            'deleted_snapshots': deleted_snapshots,
+            "removed_urls": len(removed_urls),
+            "deleted_snapshots": deleted_snapshots,
         }
 
     def _iter_url_lines(self) -> list[tuple[str, str]]:
         entries: list[tuple[str, str]] = []
-        for raw_line in (self.urls or '').splitlines():
+        for raw_line in (self.urls or "").splitlines():
             stripped = raw_line.strip()
             if not stripped:
                 continue
-            if stripped.startswith('#'):
-                entries.append((raw_line.rstrip(), ''))
+            if stripped.startswith("#"):
+                entries.append((raw_line.rstrip(), ""))
                 continue
             try:
                 entry = json.loads(stripped)
-                entries.append((raw_line.rstrip(), str(entry.get('url', '') or '').strip()))
+                entries.append((raw_line.rstrip(), str(entry.get("url", "") or "").strip()))
             except json.JSONDecodeError:
                 entries.append((raw_line.rstrip(), stripped))
         return entries
@@ -426,14 +463,14 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 continue
             kept_lines.append(raw_line)
 
-        next_urls = '\n'.join(kept_lines)
-        if next_urls != (self.urls or ''):
+        next_urls = "\n".join(kept_lines)
+        if next_urls != (self.urls or ""):
             self.urls = next_urls
-            self.save(update_fields=['urls', 'modified_at'])
+            self.save(update_fields=["urls", "modified_at"])
         return removed_urls
 
     def prune_url(self, url: str) -> int:
-        target = (url or '').strip()
+        target = (url or "").strip()
         removed = self.prune_urls(lambda candidate: candidate == target)
         return len(removed)
 
@@ -441,10 +478,10 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         normalized_domain = self.normalize_domain(domain)
         if not normalized_domain:
             return {
-                'domain': '',
-                'created': False,
-                'removed_urls': 0,
-                'deleted_snapshots': 0,
+                "domain": "",
+                "created": False,
+                "removed_urls": 0,
+                "deleted_snapshots": 0,
             }
 
         domains = self.get_url_denylist(use_effective_config=False)
@@ -455,15 +492,15 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 self.get_url_allowlist(use_effective_config=False),
                 domains,
             )
-            self.save(update_fields=['config', 'modified_at'])
+            self.save(update_fields=["config", "modified_at"])
 
         filter_result = self.apply_crawl_config_filters()
 
         return {
-            'domain': normalized_domain,
-            'created': created,
-            'removed_urls': filter_result['removed_urls'],
-            'deleted_snapshots': filter_result['deleted_snapshots'],
+            "domain": normalized_domain,
+            "created": created,
+            "removed_urls": filter_result["removed_urls"],
+            "deleted_snapshots": filter_result["deleted_snapshots"],
         }
 
     def get_system_task(self) -> str | None:
@@ -471,7 +508,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         if len(urls) != 1:
             return None
         system_url = urls[0].strip().lower()
-        if system_url.startswith('archivebox://'):
+        if system_url.startswith("archivebox://"):
             return system_url
         return None
 
@@ -481,16 +518,15 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         if self.persona_id:
             persona = Persona.objects.filter(id=self.persona_id).first()
             if persona is None:
-                raise Persona.DoesNotExist(f'Crawl {self.id} references missing Persona {self.persona_id}')
+                raise Persona.DoesNotExist(f"Crawl {self.id} references missing Persona {self.persona_id}")
             return persona
 
-        default_persona_name = str((self.config or {}).get('DEFAULT_PERSONA') or '').strip()
+        default_persona_name = str((self.config or {}).get("DEFAULT_PERSONA") or "").strip()
         if default_persona_name:
-            persona, _ = Persona.objects.get_or_create(name=default_persona_name or 'Default')
+            persona, _ = Persona.objects.get_or_create(name=default_persona_name or "Default")
             return persona
 
         return None
-
 
     def add_url(self, entry: dict) -> bool:
         """
@@ -502,15 +538,15 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         Returns:
             True if URL was added, False if skipped (duplicate or depth exceeded)
         """
-        from archivebox.misc.util import fix_url_from_markdown
+        from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
 
-        url = fix_url_from_markdown(str(entry.get('url', '') or '').strip())
+        url = sanitize_extracted_url(fix_url_from_markdown(str(entry.get("url", "") or "").strip()))
         if not url:
             return False
         if not self.url_passes_filters(url):
             return False
 
-        depth = entry.get('depth', 1)
+        depth = entry.get("depth", 1)
 
         # Skip if depth exceeds max_depth
         if depth > self.max_depth:
@@ -527,13 +563,13 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             return False
 
         # Append as JSONL
-        entry = {**entry, 'url': url}
+        entry = {**entry, "url": url}
         jsonl_entry = json.dumps(entry)
-        self.urls = (self.urls.rstrip() + '\n' + jsonl_entry).lstrip('\n')
-        self.save(update_fields=['urls', 'modified_at'])
+        self.urls = (self.urls.rstrip() + "\n" + jsonl_entry).lstrip("\n")
+        self.save(update_fields=["urls", "modified_at"])
         return True
 
-    def create_snapshots_from_urls(self) -> list['Snapshot']:
+    def create_snapshots_from_urls(self) -> list["Snapshot"]:
         """
         Create Snapshot objects for each URL in self.urls that doesn't already exist.
 
@@ -541,7 +577,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             List of newly created Snapshot objects
         """
         from archivebox.core.models import Snapshot
-        from archivebox.misc.util import fix_url_from_markdown
+        from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
 
         created_snapshots = []
 
@@ -552,13 +588,13 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             # Parse JSONL or plain URL
             try:
                 entry = json.loads(line)
-                url = fix_url_from_markdown(str(entry.get('url', '') or '').strip())
-                depth = entry.get('depth', 0)
-                title = entry.get('title')
-                timestamp = entry.get('timestamp')
-                tags = entry.get('tags', '')
+                url = sanitize_extracted_url(fix_url_from_markdown(str(entry.get("url", "") or "").strip()))
+                depth = entry.get("depth", 0)
+                title = entry.get("title")
+                timestamp = entry.get("timestamp")
+                tags = entry.get("tags", "")
             except json.JSONDecodeError:
-                url = fix_url_from_markdown(line.strip())
+                url = sanitize_extracted_url(fix_url_from_markdown(line.strip()))
                 depth = 0
                 title = None
                 timestamp = None
@@ -578,20 +614,20 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 url=url,
                 crawl=self,
                 defaults={
-                    'depth': depth,
-                    'title': title,
-                    'timestamp': timestamp or str(timezone.now().timestamp()),
-                    'status': Snapshot.INITIAL_STATE,
-                    'retry_at': timezone.now(),
+                    "depth": depth,
+                    "title": title,
+                    "timestamp": timestamp or str(timezone.now().timestamp()),
+                    "status": Snapshot.INITIAL_STATE,
+                    "retry_at": timezone.now(),
                     # Note: created_by removed in 0.9.0 - Snapshot inherits from Crawl
-                }
+                },
             )
 
             if created:
                 created_snapshots.append(snapshot)
                 # Save tags if present
                 if tags:
-                    snapshot.save_tags(tags.split(','))
+                    snapshot.save_tags(tags.split(","))
 
             # Ensure crawl -> snapshot symlink exists for both new and existing snapshots
             try:
@@ -632,9 +668,11 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 Binary.objects.filter(
                     machine=machine,
                     name__in=binary_names,
-                ).exclude(
+                )
+                .exclude(
                     status=Binary.StatusChoices.INSTALLED,
-                ).order_by('name')
+                )
+                .order_by("name"),
             )
             if not unresolved_binaries:
                 return
@@ -670,20 +708,21 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             Binary.objects.filter(
                 machine=machine,
                 name__in=binary_names,
-            ).exclude(
+            )
+            .exclude(
                 status=Binary.StatusChoices.INSTALLED,
-            ).order_by('name')
+            )
+            .order_by("name"),
         )
         if unresolved_binaries:
-            binary_details = ', '.join(
-                f'{binary.name} (status={binary.status}, retry_at={binary.retry_at})'
-                for binary in unresolved_binaries
+            binary_details = ", ".join(
+                f"{binary.name} (status={binary.status}, retry_at={binary.retry_at})" for binary in unresolved_binaries
             )
             raise RuntimeError(
-                f'Crawl dependencies failed to install before continuing: {binary_details}'
+                f"Crawl dependencies failed to install before continuing: {binary_details}",
             )
 
-    def run(self) -> 'Snapshot | None':
+    def run(self) -> "Snapshot | None":
         """
         Execute this Crawl: run hooks, process JSONL, create snapshots.
 
@@ -699,9 +738,9 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         from archivebox.machine.models import Binary, Machine
 
         # Debug logging to file (since stdout/stderr redirected to /dev/null in progress mode)
-        debug_log = Path('/tmp/archivebox_crawl_debug.log')
-        with open(debug_log, 'a') as f:
-            f.write(f'\n=== Crawl.run() starting for {self.id} at {time.time()} ===\n')
+        debug_log = Path("/tmp/archivebox_crawl_debug.log")
+        with open(debug_log, "a") as f:
+            f.write(f"\n=== Crawl.run() starting for {self.id} at {time.time()} ===\n")
             f.flush()
 
         def get_runtime_config():
@@ -711,7 +750,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             return config
 
         system_task = self.get_system_task()
-        if system_task == 'archivebox://update':
+        if system_task == "archivebox://update":
             from archivebox.cli.archivebox_update import process_all_db_snapshots
 
             process_all_db_snapshots()
@@ -723,7 +762,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         persona = self.resolve_persona()
         if persona:
             base_runtime_config = get_config(crawl=self, persona=persona)
-            chrome_binary = str(base_runtime_config.get('CHROME_BINARY') or '')
+            chrome_binary = str(base_runtime_config.get("CHROME_BINARY") or "")
             persona_runtime_overrides = persona.prepare_runtime_for_crawl(
                 crawl=self,
                 chrome_binary=chrome_binary,
@@ -738,8 +777,8 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 self.urls.strip(),
             )
 
-            with open(debug_log, 'a') as f:
-                f.write(f'Running hook: {hook.name}\n')
+            with open(debug_log, "a") as f:
+                f.write(f"Running hook: {hook.name}\n")
                 f.flush()
             hook_start = time.time()
             plugin_name = hook.parent.name
@@ -755,13 +794,13 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 url=primary_url,
                 snapshot_id=str(self.id),
             )
-            with open(debug_log, 'a') as f:
-                f.write(f'Hook {hook.name} completed with status={process.status}\n')
+            with open(debug_log, "a") as f:
+                f.write(f"Hook {hook.name} completed with status={process.status}\n")
                 f.flush()
 
             hook_elapsed = time.time() - hook_start
             if hook_elapsed > 0.5:
-                print(f'[yellow]⏱️  Hook {hook.name} took {hook_elapsed:.2f}s[/yellow]')
+                print(f"[yellow]⏱️  Hook {hook.name} took {hook_elapsed:.2f}s[/yellow]")
 
             if process.status == process.StatusChoices.RUNNING:
                 if not is_finite_background_hook(hook.name):
@@ -772,6 +811,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                     return set()
 
             from archivebox.hooks import extract_records_from_process
+
             records = []
             # Finite background hooks can exit before their stdout log is fully
             # visible to our polling loop. Give successful hooks a brief chance
@@ -783,26 +823,20 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 if records:
                     break
             if records:
-                print(f'[cyan]📝 Processing {len(records)} records from {hook.name}[/cyan]')
+                print(f"[cyan]📝 Processing {len(records)} records from {hook.name}[/cyan]")
                 for record in records[:3]:
-                    print(f'   Record: type={record.get("type")}, keys={list(record.keys())[:5]}')
+                    print(f"   Record: type={record.get('type')}, keys={list(record.keys())[:5]}")
             if system_task:
-                records = [
-                    record
-                    for record in records
-                    if record.get('type') in ('Binary', 'Machine')
-                ]
-            overrides = {'crawl': self}
+                records = [record for record in records if record.get("type") in ("Binary", "Machine")]
+            overrides = {"crawl": self}
             stats = process_hook_records(records, overrides=overrides)
             if stats:
-                print(f'[green]✓ Created: {stats}[/green]')
+                print(f"[green]✓ Created: {stats}[/green]")
 
             hook_binary_names = {
-                str(record.get('name')).strip()
-                for record in records
-                if record.get('type') == 'Binary' and record.get('name')
+                str(record.get("name")).strip() for record in records if record.get("type") == "Binary" and record.get("name")
             }
-            hook_binary_names.discard('')
+            hook_binary_names.discard("")
             if hook_binary_names:
                 declared_binary_names.update(hook_binary_names)
             return hook_binary_names
@@ -818,9 +852,11 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                     Binary.objects.filter(
                         machine=machine,
                         name__in=resolved_binary_names,
-                    ).exclude(
+                    )
+                    .exclude(
                         status=Binary.StatusChoices.INSTALLED,
-                    ).order_by('name')
+                    )
+                    .order_by("name"),
                 )
                 if not unresolved_binaries:
                     return resolved_binary_names
@@ -837,7 +873,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
                 provider_hooks = [
                     hook
-                    for hook in discover_hooks('Crawl', filter_disabled=False, config=get_runtime_config())
+                    for hook in discover_hooks("Crawl", filter_disabled=False, config=get_runtime_config())
                     if hook.parent.name in needed_provider_names and str(hook) not in executed_crawl_hooks
                 ]
                 if not provider_hooks:
@@ -847,12 +883,12 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                     resolved_binary_names.update(run_crawl_hook(hook))
 
         # Discover and run on_Crawl hooks
-        with open(debug_log, 'a') as f:
-            f.write('Discovering Crawl hooks...\n')
+        with open(debug_log, "a") as f:
+            f.write("Discovering Crawl hooks...\n")
             f.flush()
-        hooks = discover_hooks('Crawl', config=get_runtime_config())
-        with open(debug_log, 'a') as f:
-            f.write(f'Found {len(hooks)} hooks\n')
+        hooks = discover_hooks("Crawl", config=get_runtime_config())
+        with open(debug_log, "a") as f:
+            f.write(f"Found {len(hooks)} hooks\n")
             f.flush()
 
         for hook in hooks:
@@ -870,20 +906,20 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             if leaked_snapshots.exists():
                 leaked_count = leaked_snapshots.count()
                 leaked_snapshots.delete()
-                print(f'[yellow]⚠️  Removed {leaked_count} leaked snapshot(s) created during system crawl {system_task}[/yellow]')
-            with open(debug_log, 'a') as f:
-                f.write(f'Skipping snapshot creation for system crawl: {system_task}\n')
-                f.write('=== Crawl.run() complete ===\n\n')
+                print(f"[yellow]⚠️  Removed {leaked_count} leaked snapshot(s) created during system crawl {system_task}[/yellow]")
+            with open(debug_log, "a") as f:
+                f.write(f"Skipping snapshot creation for system crawl: {system_task}\n")
+                f.write("=== Crawl.run() complete ===\n\n")
                 f.flush()
             return None
 
-        with open(debug_log, 'a') as f:
-            f.write('Creating snapshots from URLs...\n')
+        with open(debug_log, "a") as f:
+            f.write("Creating snapshots from URLs...\n")
             f.flush()
         created_snapshots = self.create_snapshots_from_urls()
-        with open(debug_log, 'a') as f:
-            f.write(f'Created {len(created_snapshots)} snapshots\n')
-            f.write('=== Crawl.run() complete ===\n\n')
+        with open(debug_log, "a") as f:
+            f.write(f"Created {len(created_snapshots)} snapshots\n")
+            f.write("=== Crawl.run() complete ===\n\n")
             f.flush()
 
         # Return first snapshot for this crawl (newly created or existing)
@@ -922,11 +958,11 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             # Use Process.kill_tree() to gracefully kill parent + children
             killed_count = process.kill_tree(graceful_timeout=2.0)
             if killed_count > 0:
-                print(f'[yellow]🔪 Killed {killed_count} orphaned crawl hook process(es)[/yellow]')
+                print(f"[yellow]🔪 Killed {killed_count} orphaned crawl hook process(es)[/yellow]")
 
         # Clean up .pid files from output directory
         if self.output_dir.exists():
-            for pid_file in self.output_dir.glob('**/*.pid'):
+            for pid_file in self.output_dir.glob("**/*.pid"):
                 pid_file.unlink(missing_ok=True)
 
         persona = self.resolve_persona()
@@ -935,9 +971,10 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
         # Run on_CrawlEnd hooks
         from archivebox.config.configset import get_config
+
         config = get_config(crawl=self)
 
-        hooks = discover_hooks('CrawlEnd', config=config)
+        hooks = discover_hooks("CrawlEnd", config=config)
 
         for hook in hooks:
             plugin_name = hook.parent.name
@@ -954,12 +991,13 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
             # Log failures but don't block
             if process.exit_code != 0:
-                print(f'[yellow]⚠️ CrawlEnd hook failed: {hook.name}[/yellow]')
+                print(f"[yellow]⚠️ CrawlEnd hook failed: {hook.name}[/yellow]")
 
 
 # =============================================================================
 # State Machines
 # =============================================================================
+
 
 class CrawlMachine(BaseStateMachine):
     crawl: Crawl
@@ -994,7 +1032,7 @@ class CrawlMachine(BaseStateMachine):
     └─────────────────────────────────────────────────────────────┘
     """
 
-    model_attr_name = 'crawl'
+    model_attr_name = "crawl"
 
     # States
     queued = State(value=Crawl.StatusChoices.QUEUED, initial=True)
@@ -1002,22 +1040,18 @@ class CrawlMachine(BaseStateMachine):
     sealed = State(value=Crawl.StatusChoices.SEALED, final=True)
 
     # Tick Event (polled by workers)
-    tick = (
-        queued.to.itself(unless='can_start')
-        | queued.to(started, cond='can_start')
-        | started.to(sealed, cond='is_finished')
-    )
+    tick = queued.to.itself(unless="can_start") | queued.to(started, cond="can_start") | started.to(sealed, cond="is_finished")
 
     # Manual event (triggered by last Snapshot sealing)
     seal = started.to(sealed)
 
     def can_start(self) -> bool:
         if not self.crawl.urls:
-            print(f'[red]⚠️ Crawl {self.crawl.id} cannot start: no URLs[/red]')
+            print(f"[red]⚠️ Crawl {self.crawl.id} cannot start: no URLs[/red]")
             return False
         urls_list = self.crawl.get_urls_list()
         if not urls_list:
-            print(f'[red]⚠️ Crawl {self.crawl.id} cannot start: no valid URLs in urls field[/red]')
+            print(f"[red]⚠️ Crawl {self.crawl.id} cannot start: no valid URLs in urls field[/red]")
             return False
         return True
 
@@ -1029,14 +1063,17 @@ class CrawlMachine(BaseStateMachine):
     def enter_started(self):
         import sys
 
-        print(f'[cyan]🔄 CrawlMachine.enter_started() - creating snapshots for {self.crawl.id}[/cyan]', file=sys.stderr)
+        print(f"[cyan]🔄 CrawlMachine.enter_started() - creating snapshots for {self.crawl.id}[/cyan]", file=sys.stderr)
 
         try:
             # Run the crawl - runs hooks, processes JSONL, creates snapshots
             first_snapshot = self.crawl.run()
 
             if first_snapshot:
-                print(f'[cyan]🔄 Created {self.crawl.snapshot_set.count()} snapshot(s), first: {first_snapshot.url}[/cyan]', file=sys.stderr)
+                print(
+                    f"[cyan]🔄 Created {self.crawl.snapshot_set.count()} snapshot(s), first: {first_snapshot.url}[/cyan]",
+                    file=sys.stderr,
+                )
                 # Update status to STARTED
                 # Set retry_at to near future so tick() can poll and check is_finished()
                 self.crawl.update_and_requeue(
@@ -1045,13 +1082,14 @@ class CrawlMachine(BaseStateMachine):
                 )
             else:
                 # No snapshots (system crawl like archivebox://install)
-                print('[cyan]🔄 No snapshots created, sealing crawl immediately[/cyan]', file=sys.stderr)
+                print("[cyan]🔄 No snapshots created, sealing crawl immediately[/cyan]", file=sys.stderr)
                 # Seal immediately since there's no work to do
                 self.seal()
 
         except Exception as e:
-            print(f'[red]⚠️ Crawl {self.crawl.id} failed to start: {e}[/red]')
+            print(f"[red]⚠️ Crawl {self.crawl.id} failed to start: {e}[/red]")
             import traceback
+
             traceback.print_exc()
             raise
 

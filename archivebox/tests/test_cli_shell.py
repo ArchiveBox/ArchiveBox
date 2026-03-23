@@ -14,7 +14,7 @@ def test_shell_command_exists(tmp_path, process):
 
     # Test that the command exists (will fail without input but should recognize command)
     result = subprocess.run(
-        ['archivebox', 'shell', '--help'],
+        ["archivebox", "shell", "--help"],
         capture_output=True,
         text=True,
         timeout=10,
@@ -29,11 +29,11 @@ def test_shell_c_executes_python(tmp_path, process):
     os.chdir(tmp_path)
 
     result = subprocess.run(
-        ['archivebox', 'shell', '-c', 'print("shell-ok")'],
+        ["archivebox", "shell", "-c", 'print("shell-ok")'],
         capture_output=True,
         text=True,
         timeout=30,
     )
 
     assert result.returncode == 0, result.stderr
-    assert 'shell-ok' in result.stdout
+    assert "shell-ok" in result.stdout

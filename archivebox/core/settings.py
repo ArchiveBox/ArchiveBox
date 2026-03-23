@@ -117,6 +117,7 @@ try:
         is_valid, error_msg = LDAP_CONFIG.validate_ldap_config()
         if not is_valid:
             from rich import print
+
             print(f"[red][X] Error: {error_msg}[/red]")
             raise ValueError(error_msg)
 
@@ -154,6 +155,7 @@ try:
 
         except ImportError as e:
             from rich import print
+
             print("[red][X] Error: LDAP_ENABLED=True but required LDAP libraries are not installed![/red]")
             print(f"[red]    {e}[/red]")
             print("[yellow]    To install LDAP support, run:[/yellow]")
@@ -269,7 +271,6 @@ MIGRATION_MODULES = {"signal_webhooks": None}
 # For now: manually add `id = models.UUIDField(primary_key=True, default=uuid7, ...)` to all models
 # OR inherit from ModelWithUUID base class which provides UUID primary key
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
 
 
 # class FilestoreDBRouter:
@@ -560,7 +561,7 @@ if DEBUG:
     AUTOTYPING = {
         "STUBS_GENERATION": {
             "LOCAL_STUBS_DIR": PACKAGE_DIR / "typings",
-        }
+        },
     }
 
 # https://github.com/bensi94/Django-Requests-Tracker (improved version of django-debug-toolbar)

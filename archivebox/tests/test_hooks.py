@@ -19,7 +19,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 # Set up Django before importing any Django-dependent modules
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "archivebox.settings")
 
 
 class TestBackgroundHookDetection(unittest.TestCase):
@@ -28,32 +28,38 @@ class TestBackgroundHookDetection(unittest.TestCase):
     def test_bg_js_suffix_detected(self):
         """Hooks with .bg.js suffix should be detected as background."""
         from archivebox.hooks import is_background_hook
-        self.assertTrue(is_background_hook('on_Snapshot__21_consolelog.daemon.bg.js'))
+
+        self.assertTrue(is_background_hook("on_Snapshot__21_consolelog.daemon.bg.js"))
 
     def test_bg_py_suffix_detected(self):
         """Hooks with .bg.py suffix should be detected as background."""
         from archivebox.hooks import is_background_hook
-        self.assertTrue(is_background_hook('on_Snapshot__24_responses.finite.bg.py'))
+
+        self.assertTrue(is_background_hook("on_Snapshot__24_responses.finite.bg.py"))
 
     def test_bg_sh_suffix_detected(self):
         """Hooks with .bg.sh suffix should be detected as background."""
         from archivebox.hooks import is_background_hook
-        self.assertTrue(is_background_hook('on_Snapshot__23_ssl.daemon.bg.sh'))
+
+        self.assertTrue(is_background_hook("on_Snapshot__23_ssl.daemon.bg.sh"))
 
     def test_legacy_background_suffix_detected(self):
         """Hooks with __background in stem should be detected (backwards compat)."""
         from archivebox.hooks import is_background_hook
-        self.assertTrue(is_background_hook('on_Snapshot__21_consolelog__background.js'))
+
+        self.assertTrue(is_background_hook("on_Snapshot__21_consolelog__background.js"))
 
     def test_foreground_hook_not_detected(self):
         """Hooks without .bg. or __background should NOT be detected as background."""
         from archivebox.hooks import is_background_hook
-        self.assertFalse(is_background_hook('on_Snapshot__11_favicon.js'))
+
+        self.assertFalse(is_background_hook("on_Snapshot__11_favicon.js"))
 
     def test_foreground_py_hook_not_detected(self):
         """Python hooks without .bg. should NOT be detected as background."""
         from archivebox.hooks import is_background_hook
-        self.assertFalse(is_background_hook('on_Snapshot__50_wget.py'))
+
+        self.assertFalse(is_background_hook("on_Snapshot__50_wget.py"))
 
 
 class TestJSONLParsing(unittest.TestCase):
@@ -63,56 +69,61 @@ class TestJSONLParsing(unittest.TestCase):
         """Clean JSONL format should be parsed correctly."""
         stdout = '{"type": "ArchiveResult", "status": "succeeded", "output_str": "Done"}'
         from archivebox.machine.models import Process
+
         records = Process.parse_records_from_text(stdout)
 
         self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]['type'], 'ArchiveResult')
-        self.assertEqual(records[0]['status'], 'succeeded')
-        self.assertEqual(records[0]['output_str'], 'Done')
+        self.assertEqual(records[0]["type"], "ArchiveResult")
+        self.assertEqual(records[0]["status"], "succeeded")
+        self.assertEqual(records[0]["output_str"], "Done")
 
     def test_parse_multiple_jsonl_records(self):
         """Multiple JSONL records should all be parsed."""
-        stdout = '''{"type": "ArchiveResult", "status": "succeeded", "output_str": "Done"}
-{"type": "Binary", "name": "wget", "abspath": "/usr/bin/wget"}'''
+        stdout = """{"type": "ArchiveResult", "status": "succeeded", "output_str": "Done"}
+{"type": "Binary", "name": "wget", "abspath": "/usr/bin/wget"}"""
         from archivebox.machine.models import Process
+
         records = Process.parse_records_from_text(stdout)
 
         self.assertEqual(len(records), 2)
-        self.assertEqual(records[0]['type'], 'ArchiveResult')
-        self.assertEqual(records[1]['type'], 'Binary')
+        self.assertEqual(records[0]["type"], "ArchiveResult")
+        self.assertEqual(records[1]["type"], "Binary")
 
     def test_parse_jsonl_with_log_output(self):
         """JSONL should be extracted from mixed stdout with log lines."""
-        stdout = '''Starting hook execution...
+        stdout = """Starting hook execution...
 Processing URL: https://example.com
 {"type": "ArchiveResult", "status": "succeeded", "output_str": "Downloaded"}
-Hook completed successfully'''
+Hook completed successfully"""
         from archivebox.machine.models import Process
+
         records = Process.parse_records_from_text(stdout)
 
         self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]['status'], 'succeeded')
+        self.assertEqual(records[0]["status"], "succeeded")
 
     def test_ignore_invalid_json(self):
         """Invalid JSON should be silently ignored."""
-        stdout = '''{"type": "ArchiveResult", "status": "succeeded"}
+        stdout = """{"type": "ArchiveResult", "status": "succeeded"}
 {invalid json here}
 not json at all
-{"type": "Binary", "name": "wget"}'''
+{"type": "Binary", "name": "wget"}"""
         from archivebox.machine.models import Process
+
         records = Process.parse_records_from_text(stdout)
 
         self.assertEqual(len(records), 2)
 
     def test_json_without_type_ignored(self):
         """JSON objects without 'type' field should be ignored."""
-        stdout = '''{"status": "succeeded", "output_str": "Done"}
-{"type": "ArchiveResult", "status": "succeeded"}'''
+        stdout = """{"status": "succeeded", "output_str": "Done"}
+{"type": "ArchiveResult", "status": "succeeded"}"""
         from archivebox.machine.models import Process
+
         records = Process.parse_records_from_text(stdout)
 
         self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]['type'], 'ArchiveResult')
+        self.assertEqual(records[0]["type"], "ArchiveResult")
 
 
 class TestInstallHookEnvVarHandling(unittest.TestCase):
@@ -121,7 +132,7 @@ class TestInstallHookEnvVarHandling(unittest.TestCase):
     def setUp(self):
         """Set up test environment."""
         self.work_dir = Path(tempfile.mkdtemp())
-        self.test_hook = self.work_dir / 'test_hook.py'
+        self.test_hook = self.work_dir / "test_hook.py"
 
     def tearDown(self):
         """Clean up test environment."""
@@ -130,37 +141,37 @@ class TestInstallHookEnvVarHandling(unittest.TestCase):
     def test_binary_env_var_absolute_path_handling(self):
         """Install hooks should handle absolute paths in XYZ_BINARY."""
         # Test the logic that install hooks use
-        configured_binary = '/custom/path/to/wget2'
-        if '/' in configured_binary:
+        configured_binary = "/custom/path/to/wget2"
+        if "/" in configured_binary:
             bin_name = Path(configured_binary).name
         else:
             bin_name = configured_binary
 
-        self.assertEqual(bin_name, 'wget2')
+        self.assertEqual(bin_name, "wget2")
 
     def test_binary_env_var_name_only_handling(self):
         """Install hooks should handle binary names in XYZ_BINARY."""
         # Test the logic that install hooks use
-        configured_binary = 'wget2'
-        if '/' in configured_binary:
+        configured_binary = "wget2"
+        if "/" in configured_binary:
             bin_name = Path(configured_binary).name
         else:
             bin_name = configured_binary
 
-        self.assertEqual(bin_name, 'wget2')
+        self.assertEqual(bin_name, "wget2")
 
     def test_binary_env_var_empty_default(self):
         """Install hooks should use default when XYZ_BINARY is empty."""
-        configured_binary = ''
+        configured_binary = ""
         if configured_binary:
-            if '/' in configured_binary:
+            if "/" in configured_binary:
                 bin_name = Path(configured_binary).name
             else:
                 bin_name = configured_binary
         else:
-            bin_name = 'wget'  # default
+            bin_name = "wget"  # default
 
-        self.assertEqual(bin_name, 'wget')
+        self.assertEqual(bin_name, "wget")
 
 
 class TestHookDiscovery(unittest.TestCase):
@@ -169,22 +180,22 @@ class TestHookDiscovery(unittest.TestCase):
     def setUp(self):
         """Set up test plugin directory."""
         self.test_dir = Path(tempfile.mkdtemp())
-        self.plugins_dir = self.test_dir / 'plugins'
+        self.plugins_dir = self.test_dir / "plugins"
         self.plugins_dir.mkdir()
 
         # Create test plugin structure
-        wget_dir = self.plugins_dir / 'wget'
+        wget_dir = self.plugins_dir / "wget"
         wget_dir.mkdir()
-        (wget_dir / 'on_Snapshot__50_wget.py').write_text('# test hook')
-        (wget_dir / 'on_Crawl__10_wget_install.finite.bg.py').write_text('# install hook')
+        (wget_dir / "on_Snapshot__50_wget.py").write_text("# test hook")
+        (wget_dir / "on_Crawl__10_wget_install.finite.bg.py").write_text("# install hook")
 
-        chrome_dir = self.plugins_dir / 'chrome'
+        chrome_dir = self.plugins_dir / "chrome"
         chrome_dir.mkdir(exist_ok=True)
-        (chrome_dir / 'on_Snapshot__20_chrome_tab.daemon.bg.js').write_text('// background hook')
+        (chrome_dir / "on_Snapshot__20_chrome_tab.daemon.bg.js").write_text("// background hook")
 
-        consolelog_dir = self.plugins_dir / 'consolelog'
+        consolelog_dir = self.plugins_dir / "consolelog"
         consolelog_dir.mkdir()
-        (consolelog_dir / 'on_Snapshot__21_consolelog.daemon.bg.js').write_text('// background hook')
+        (consolelog_dir / "on_Snapshot__21_consolelog.daemon.bg.js").write_text("// background hook")
 
     def tearDown(self):
         """Clean up test directory."""
@@ -194,109 +205,118 @@ class TestHookDiscovery(unittest.TestCase):
         """discover_hooks() should find all hooks for an event."""
         # Use the local implementation since we can't easily mock BUILTIN_PLUGINS_DIR
         hooks = []
-        for ext in ('sh', 'py', 'js'):
-            pattern = f'*/on_Snapshot__*.{ext}'
+        for ext in ("sh", "py", "js"):
+            pattern = f"*/on_Snapshot__*.{ext}"
             hooks.extend(self.plugins_dir.glob(pattern))
 
         hooks = sorted(set(hooks), key=lambda p: p.name)
 
         self.assertEqual(len(hooks), 3)
         hook_names = [h.name for h in hooks]
-        self.assertIn('on_Snapshot__20_chrome_tab.daemon.bg.js', hook_names)
-        self.assertIn('on_Snapshot__21_consolelog.daemon.bg.js', hook_names)
-        self.assertIn('on_Snapshot__50_wget.py', hook_names)
+        self.assertIn("on_Snapshot__20_chrome_tab.daemon.bg.js", hook_names)
+        self.assertIn("on_Snapshot__21_consolelog.daemon.bg.js", hook_names)
+        self.assertIn("on_Snapshot__50_wget.py", hook_names)
 
     def test_discover_hooks_sorted_by_name(self):
         """Hooks should be sorted by filename (numeric prefix ordering)."""
         hooks = []
-        for ext in ('sh', 'py', 'js'):
-            pattern = f'*/on_Snapshot__*.{ext}'
+        for ext in ("sh", "py", "js"):
+            pattern = f"*/on_Snapshot__*.{ext}"
             hooks.extend(self.plugins_dir.glob(pattern))
 
         hooks = sorted(set(hooks), key=lambda p: p.name)
 
         # Check numeric ordering
-        self.assertEqual(hooks[0].name, 'on_Snapshot__20_chrome_tab.daemon.bg.js')
-        self.assertEqual(hooks[1].name, 'on_Snapshot__21_consolelog.daemon.bg.js')
-        self.assertEqual(hooks[2].name, 'on_Snapshot__50_wget.py')
+        self.assertEqual(hooks[0].name, "on_Snapshot__20_chrome_tab.daemon.bg.js")
+        self.assertEqual(hooks[1].name, "on_Snapshot__21_consolelog.daemon.bg.js")
+        self.assertEqual(hooks[2].name, "on_Snapshot__50_wget.py")
 
     def test_get_plugins_includes_non_snapshot_plugin_dirs(self):
         """get_plugins() should include binary-only plugins with standardized metadata."""
-        env_dir = self.plugins_dir / 'env'
+        env_dir = self.plugins_dir / "env"
         env_dir.mkdir()
-        (env_dir / 'on_Binary__15_env_discover.py').write_text('# binary hook')
-        (env_dir / 'config.json').write_text('{"type": "object", "properties": {}}')
+        (env_dir / "on_Binary__15_env_discover.py").write_text("# binary hook")
+        (env_dir / "config.json").write_text('{"type": "object", "properties": {}}')
 
         from archivebox import hooks as hooks_module
 
         hooks_module.get_plugins.cache_clear()
-        with patch.object(hooks_module, 'BUILTIN_PLUGINS_DIR', self.plugins_dir), patch.object(hooks_module, 'USER_PLUGINS_DIR', self.test_dir / 'user_plugins'):
+        with (
+            patch.object(hooks_module, "BUILTIN_PLUGINS_DIR", self.plugins_dir),
+            patch.object(hooks_module, "USER_PLUGINS_DIR", self.test_dir / "user_plugins"),
+        ):
             plugins = hooks_module.get_plugins()
 
-        self.assertIn('env', plugins)
+        self.assertIn("env", plugins)
 
     def test_discover_binary_hooks_ignores_plugins_whitelist(self):
         """Binary provider hooks should remain discoverable under --plugins filtering."""
-        singlefile_dir = self.plugins_dir / 'singlefile'
+        singlefile_dir = self.plugins_dir / "singlefile"
         singlefile_dir.mkdir()
-        (singlefile_dir / 'config.json').write_text(
+        (singlefile_dir / "config.json").write_text(
             json.dumps(
                 {
                     "type": "object",
                     "required_plugins": ["chrome"],
                     "properties": {},
-                }
-            )
+                },
+            ),
         )
 
-        npm_dir = self.plugins_dir / 'npm'
+        npm_dir = self.plugins_dir / "npm"
         npm_dir.mkdir()
-        (npm_dir / 'on_Binary__10_npm_install.py').write_text('# npm binary hook')
-        (npm_dir / 'config.json').write_text('{"type": "object", "properties": {}}')
+        (npm_dir / "on_Binary__10_npm_install.py").write_text("# npm binary hook")
+        (npm_dir / "config.json").write_text('{"type": "object", "properties": {}}')
 
         from archivebox import hooks as hooks_module
 
         hooks_module.get_plugins.cache_clear()
-        with patch.object(hooks_module, 'BUILTIN_PLUGINS_DIR', self.plugins_dir), patch.object(hooks_module, 'USER_PLUGINS_DIR', self.test_dir / 'user_plugins'):
-            hooks = hooks_module.discover_hooks('Binary', config={'PLUGINS': 'singlefile'})
+        with (
+            patch.object(hooks_module, "BUILTIN_PLUGINS_DIR", self.plugins_dir),
+            patch.object(hooks_module, "USER_PLUGINS_DIR", self.test_dir / "user_plugins"),
+        ):
+            hooks = hooks_module.discover_hooks("Binary", config={"PLUGINS": "singlefile"})
 
         hook_names = [hook.name for hook in hooks]
-        self.assertIn('on_Binary__10_npm_install.py', hook_names)
+        self.assertIn("on_Binary__10_npm_install.py", hook_names)
 
     def test_discover_crawl_hooks_only_include_declared_plugin_dependencies(self):
         """Crawl hook discovery should include required_plugins without broadening to provider plugins."""
-        responses_dir = self.plugins_dir / 'responses'
+        responses_dir = self.plugins_dir / "responses"
         responses_dir.mkdir()
-        (responses_dir / 'config.json').write_text(
+        (responses_dir / "config.json").write_text(
             json.dumps(
                 {
                     "type": "object",
                     "required_plugins": ["chrome"],
                     "properties": {},
-                }
-            )
+                },
+            ),
         )
 
-        chrome_dir = self.plugins_dir / 'chrome'
+        chrome_dir = self.plugins_dir / "chrome"
         chrome_dir.mkdir(exist_ok=True)
-        (chrome_dir / 'config.json').write_text('{"type": "object", "properties": {}}')
-        (chrome_dir / 'on_Crawl__70_chrome_install.finite.bg.py').write_text('# chrome crawl hook')
+        (chrome_dir / "config.json").write_text('{"type": "object", "properties": {}}')
+        (chrome_dir / "on_Crawl__70_chrome_install.finite.bg.py").write_text("# chrome crawl hook")
 
-        npm_dir = self.plugins_dir / 'npm'
+        npm_dir = self.plugins_dir / "npm"
         npm_dir.mkdir()
-        (npm_dir / 'on_Binary__10_npm_install.py').write_text('# npm binary hook')
-        (npm_dir / 'on_Crawl__00_npm_install.py').write_text('# npm crawl hook')
-        (npm_dir / 'config.json').write_text('{"type": "object", "properties": {}}')
+        (npm_dir / "on_Binary__10_npm_install.py").write_text("# npm binary hook")
+        (npm_dir / "on_Crawl__00_npm_install.py").write_text("# npm crawl hook")
+        (npm_dir / "config.json").write_text('{"type": "object", "properties": {}}')
 
         from archivebox import hooks as hooks_module
 
         hooks_module.get_plugins.cache_clear()
-        with patch.object(hooks_module, 'BUILTIN_PLUGINS_DIR', self.plugins_dir), patch.object(hooks_module, 'USER_PLUGINS_DIR', self.test_dir / 'user_plugins'):
-            hooks = hooks_module.discover_hooks('Crawl', config={'PLUGINS': 'responses'})
+        with (
+            patch.object(hooks_module, "BUILTIN_PLUGINS_DIR", self.plugins_dir),
+            patch.object(hooks_module, "USER_PLUGINS_DIR", self.test_dir / "user_plugins"),
+        ):
+            hooks = hooks_module.discover_hooks("Crawl", config={"PLUGINS": "responses"})
 
         hook_names = [hook.name for hook in hooks]
-        self.assertIn('on_Crawl__70_chrome_install.finite.bg.py', hook_names)
-        self.assertNotIn('on_Crawl__00_npm_install.py', hook_names)
+        self.assertIn("on_Crawl__70_chrome_install.finite.bg.py", hook_names)
+        self.assertNotIn("on_Crawl__00_npm_install.py", hook_names)
 
 
 class TestGetExtractorName(unittest.TestCase):
@@ -304,27 +324,29 @@ class TestGetExtractorName(unittest.TestCase):
 
     def test_strip_numeric_prefix(self):
         """Numeric prefix should be stripped from extractor name."""
+
         # Inline implementation of get_extractor_name
         def get_extractor_name(extractor: str) -> str:
-            parts = extractor.split('_', 1)
+            parts = extractor.split("_", 1)
             if len(parts) == 2 and parts[0].isdigit():
                 return parts[1]
             return extractor
 
-        self.assertEqual(get_extractor_name('10_title'), 'title')
-        self.assertEqual(get_extractor_name('26_readability'), 'readability')
-        self.assertEqual(get_extractor_name('50_parse_html_urls'), 'parse_html_urls')
+        self.assertEqual(get_extractor_name("10_title"), "title")
+        self.assertEqual(get_extractor_name("26_readability"), "readability")
+        self.assertEqual(get_extractor_name("50_parse_html_urls"), "parse_html_urls")
 
     def test_no_prefix_unchanged(self):
         """Extractor without numeric prefix should be unchanged."""
+
         def get_extractor_name(extractor: str) -> str:
-            parts = extractor.split('_', 1)
+            parts = extractor.split("_", 1)
             if len(parts) == 2 and parts[0].isdigit():
                 return parts[1]
             return extractor
 
-        self.assertEqual(get_extractor_name('title'), 'title')
-        self.assertEqual(get_extractor_name('readability'), 'readability')
+        self.assertEqual(get_extractor_name("title"), "title")
+        self.assertEqual(get_extractor_name("readability"), "readability")
 
 
 class TestHookExecution(unittest.TestCase):
@@ -340,14 +362,14 @@ class TestHookExecution(unittest.TestCase):
 
     def test_python_hook_execution(self):
         """Python hook should execute and output JSONL."""
-        hook_path = self.work_dir / 'test_hook.py'
-        hook_path.write_text('''#!/usr/bin/env python3
+        hook_path = self.work_dir / "test_hook.py"
+        hook_path.write_text("""#!/usr/bin/env python3
 import json
 print(json.dumps({"type": "ArchiveResult", "status": "succeeded", "output_str": "Test passed"}))
-''')
+""")
 
         result = subprocess.run(
-            ['python3', str(hook_path)],
+            ["python3", str(hook_path)],
             cwd=str(self.work_dir),
             capture_output=True,
             text=True,
@@ -355,24 +377,25 @@ print(json.dumps({"type": "ArchiveResult", "status": "succeeded", "output_str": 
 
         self.assertEqual(result.returncode, 0)
         from archivebox.machine.models import Process
+
         records = Process.parse_records_from_text(result.stdout)
         self.assertTrue(records)
-        self.assertEqual(records[0]['type'], 'ArchiveResult')
-        self.assertEqual(records[0]['status'], 'succeeded')
+        self.assertEqual(records[0]["type"], "ArchiveResult")
+        self.assertEqual(records[0]["status"], "succeeded")
 
     def test_js_hook_execution(self):
         """JavaScript hook should execute and output JSONL."""
         # Skip if node not available
-        if shutil.which('node') is None:
-            self.skipTest('Node.js not available')
+        if shutil.which("node") is None:
+            self.skipTest("Node.js not available")
 
-        hook_path = self.work_dir / 'test_hook.js'
-        hook_path.write_text('''#!/usr/bin/env node
+        hook_path = self.work_dir / "test_hook.js"
+        hook_path.write_text("""#!/usr/bin/env node
 console.log(JSON.stringify({type: 'ArchiveResult', status: 'succeeded', output_str: 'JS test'}));
-''')
+""")
 
         result = subprocess.run(
-            ['node', str(hook_path)],
+            ["node", str(hook_path)],
             cwd=str(self.work_dir),
             capture_output=True,
             text=True,
@@ -380,15 +403,16 @@ console.log(JSON.stringify({type: 'ArchiveResult', status: 'succeeded', output_s
 
         self.assertEqual(result.returncode, 0)
         from archivebox.machine.models import Process
+
         records = Process.parse_records_from_text(result.stdout)
         self.assertTrue(records)
-        self.assertEqual(records[0]['type'], 'ArchiveResult')
-        self.assertEqual(records[0]['status'], 'succeeded')
+        self.assertEqual(records[0]["type"], "ArchiveResult")
+        self.assertEqual(records[0]["status"], "succeeded")
 
     def test_hook_receives_cli_args(self):
         """Hook should receive CLI arguments."""
-        hook_path = self.work_dir / 'test_hook.py'
-        hook_path.write_text('''#!/usr/bin/env python3
+        hook_path = self.work_dir / "test_hook.py"
+        hook_path.write_text("""#!/usr/bin/env python3
 import sys
 import json
 # Simple arg parsing
@@ -398,10 +422,10 @@ for arg in sys.argv[1:]:
         key, val = arg[2:].split('=', 1)
         args[key.replace('-', '_')] = val
 print(json.dumps({"type": "ArchiveResult", "status": "succeeded", "url": args.get("url", "")}))
-''')
+""")
 
         result = subprocess.run(
-            ['python3', str(hook_path), '--url=https://example.com'],
+            ["python3", str(hook_path), "--url=https://example.com"],
             cwd=str(self.work_dir),
             capture_output=True,
             text=True,
@@ -409,9 +433,10 @@ print(json.dumps({"type": "ArchiveResult", "status": "succeeded", "url": args.ge
 
         self.assertEqual(result.returncode, 0)
         from archivebox.machine.models import Process
+
         records = Process.parse_records_from_text(result.stdout)
         self.assertTrue(records)
-        self.assertEqual(records[0]['url'], 'https://example.com')
+        self.assertEqual(records[0]["url"], "https://example.com")
 
 
 class TestInstallHookOutput(unittest.TestCase):
@@ -427,35 +452,41 @@ class TestInstallHookOutput(unittest.TestCase):
 
     def test_install_hook_outputs_binary(self):
         """Install hook should output Binary JSONL when binary found."""
-        hook_output = json.dumps({
-            'type': 'Binary',
-            'name': 'wget',
-            'abspath': '/usr/bin/wget',
-            'version': '1.21.3',
-            'sha256': None,
-            'binprovider': 'apt',
-        })
+        hook_output = json.dumps(
+            {
+                "type": "Binary",
+                "name": "wget",
+                "abspath": "/usr/bin/wget",
+                "version": "1.21.3",
+                "sha256": None,
+                "binprovider": "apt",
+            },
+        )
 
         from archivebox.machine.models import Process
+
         data = Process.parse_records_from_text(hook_output)[0]
-        self.assertEqual(data['type'], 'Binary')
-        self.assertEqual(data['name'], 'wget')
-        self.assertTrue(data['abspath'].startswith('/'))
+        self.assertEqual(data["type"], "Binary")
+        self.assertEqual(data["name"], "wget")
+        self.assertTrue(data["abspath"].startswith("/"))
 
     def test_install_hook_outputs_machine_config(self):
         """Install hook should output Machine config update JSONL."""
-        hook_output = json.dumps({
-            'type': 'Machine',
-            'config': {
-                'WGET_BINARY': '/usr/bin/wget',
+        hook_output = json.dumps(
+            {
+                "type": "Machine",
+                "config": {
+                    "WGET_BINARY": "/usr/bin/wget",
+                },
             },
-        })
+        )
 
         from archivebox.machine.models import Process
+
         data = Process.parse_records_from_text(hook_output)[0]
-        self.assertEqual(data['type'], 'Machine')
-        self.assertIn('config', data)
-        self.assertEqual(data['config']['WGET_BINARY'], '/usr/bin/wget')
+        self.assertEqual(data["type"], "Machine")
+        self.assertIn("config", data)
+        self.assertEqual(data["config"]["WGET_BINARY"], "/usr/bin/wget")
 
 
 class TestSnapshotHookOutput(unittest.TestCase):
@@ -463,75 +494,90 @@ class TestSnapshotHookOutput(unittest.TestCase):
 
     def test_snapshot_hook_basic_output(self):
         """Snapshot hook should output clean ArchiveResult JSONL."""
-        hook_output = json.dumps({
-            'type': 'ArchiveResult',
-            'status': 'succeeded',
-            'output_str': 'Downloaded 5 files',
-        })
+        hook_output = json.dumps(
+            {
+                "type": "ArchiveResult",
+                "status": "succeeded",
+                "output_str": "Downloaded 5 files",
+            },
+        )
 
         from archivebox.machine.models import Process
+
         data = Process.parse_records_from_text(hook_output)[0]
-        self.assertEqual(data['type'], 'ArchiveResult')
-        self.assertEqual(data['status'], 'succeeded')
-        self.assertIn('output_str', data)
+        self.assertEqual(data["type"], "ArchiveResult")
+        self.assertEqual(data["status"], "succeeded")
+        self.assertIn("output_str", data)
 
     def test_snapshot_hook_with_cmd(self):
         """Snapshot hook should include cmd for binary FK lookup."""
-        hook_output = json.dumps({
-            'type': 'ArchiveResult',
-            'status': 'succeeded',
-            'output_str': 'Archived with wget',
-            'cmd': ['/usr/bin/wget', '-p', '-k', 'https://example.com'],
-        })
+        hook_output = json.dumps(
+            {
+                "type": "ArchiveResult",
+                "status": "succeeded",
+                "output_str": "Archived with wget",
+                "cmd": ["/usr/bin/wget", "-p", "-k", "https://example.com"],
+            },
+        )
 
         from archivebox.machine.models import Process
+
         data = Process.parse_records_from_text(hook_output)[0]
-        self.assertEqual(data['type'], 'ArchiveResult')
-        self.assertIsInstance(data['cmd'], list)
-        self.assertEqual(data['cmd'][0], '/usr/bin/wget')
+        self.assertEqual(data["type"], "ArchiveResult")
+        self.assertIsInstance(data["cmd"], list)
+        self.assertEqual(data["cmd"][0], "/usr/bin/wget")
 
     def test_snapshot_hook_with_output_json(self):
         """Snapshot hook can include structured metadata in output_json."""
-        hook_output = json.dumps({
-            'type': 'ArchiveResult',
-            'status': 'succeeded',
-            'output_str': 'Got headers',
-            'output_json': {
-                'content-type': 'text/html',
-                'server': 'nginx',
-                'status-code': 200,
+        hook_output = json.dumps(
+            {
+                "type": "ArchiveResult",
+                "status": "succeeded",
+                "output_str": "Got headers",
+                "output_json": {
+                    "content-type": "text/html",
+                    "server": "nginx",
+                    "status-code": 200,
+                },
             },
-        })
+        )
 
         from archivebox.machine.models import Process
+
         data = Process.parse_records_from_text(hook_output)[0]
-        self.assertEqual(data['type'], 'ArchiveResult')
-        self.assertIsInstance(data['output_json'], dict)
-        self.assertEqual(data['output_json']['status-code'], 200)
+        self.assertEqual(data["type"], "ArchiveResult")
+        self.assertIsInstance(data["output_json"], dict)
+        self.assertEqual(data["output_json"]["status-code"], 200)
 
     def test_snapshot_hook_skipped_status(self):
         """Snapshot hook should support skipped status."""
-        hook_output = json.dumps({
-            'type': 'ArchiveResult',
-            'status': 'skipped',
-            'output_str': 'SAVE_WGET=False',
-        })
+        hook_output = json.dumps(
+            {
+                "type": "ArchiveResult",
+                "status": "skipped",
+                "output_str": "SAVE_WGET=False",
+            },
+        )
 
         from archivebox.machine.models import Process
+
         data = Process.parse_records_from_text(hook_output)[0]
-        self.assertEqual(data['status'], 'skipped')
+        self.assertEqual(data["status"], "skipped")
 
     def test_snapshot_hook_failed_status(self):
         """Snapshot hook should support failed status."""
-        hook_output = json.dumps({
-            'type': 'ArchiveResult',
-            'status': 'failed',
-            'output_str': '404 Not Found',
-        })
+        hook_output = json.dumps(
+            {
+                "type": "ArchiveResult",
+                "status": "failed",
+                "output_str": "404 Not Found",
+            },
+        )
 
         from archivebox.machine.models import Process
+
         data = Process.parse_records_from_text(hook_output)[0]
-        self.assertEqual(data['status'], 'failed')
+        self.assertEqual(data["status"], "failed")
 
 
 class TestPluginMetadata(unittest.TestCase):
@@ -540,16 +586,16 @@ class TestPluginMetadata(unittest.TestCase):
     def test_plugin_name_added(self):
         """run_hook() should add plugin name to records."""
         # Simulate what run_hook() does
-        script = Path('/abx_plugins/plugins/wget/on_Snapshot__50_wget.py')
+        script = Path("/abx_plugins/plugins/wget/on_Snapshot__50_wget.py")
         plugin_name = script.parent.name
 
-        record = {'type': 'ArchiveResult', 'status': 'succeeded'}
-        record['plugin'] = plugin_name
-        record['plugin_hook'] = str(script)
+        record = {"type": "ArchiveResult", "status": "succeeded"}
+        record["plugin"] = plugin_name
+        record["plugin_hook"] = str(script)
 
-        self.assertEqual(record['plugin'], 'wget')
-        self.assertIn('on_Snapshot__50_wget.py', record['plugin_hook'])
+        self.assertEqual(record["plugin"], "wget")
+        self.assertIn("on_Snapshot__50_wget.py", record["plugin_hook"])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

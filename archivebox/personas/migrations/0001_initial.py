@@ -9,7 +9,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -18,13 +17,20 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Persona',
+            name="Persona",
             fields=[
-                ('id', models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)),
-                ('config', models.JSONField(blank=True, default=dict, null=True)),
-                ('name', models.CharField(max_length=64, unique=True)),
-                ('created_at', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
-                ('created_by', models.ForeignKey(default=archivebox.base_models.models.get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                ("id", models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)),
+                ("config", models.JSONField(blank=True, default=dict, null=True)),
+                ("name", models.CharField(max_length=64, unique=True)),
+                ("created_at", models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        default=archivebox.base_models.models.get_or_create_system_user_pk,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
     ]

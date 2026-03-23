@@ -4,6 +4,7 @@ from asgiref.sync import sync_to_async
 from django.utils import timezone
 
 from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
+from abx_dl.limits import CrawlLimitState
 from abx_dl.services.base import BaseService
 
 from .db import run_db_op
@@ -47,6 +48,8 @@ class SnapshotService(BaseService):
 
         if event.depth > crawl.max_depth:
             return None
+        if self._crawl_limit_stop_reason(crawl) == "max_size":
+            return None
 
         parent_snapshot = Snapshot.objects.filter(id=event.parent_snapshot_id, crawl=crawl).first()
         if parent_snapshot is None:
@@ -84,14 +87,37 @@ class SnapshotService(BaseService):
     def _seal_snapshot(self, snapshot_id: str) -> str | None:
         from archivebox.core.models import Snapshot
 
-        snapshot = Snapshot.objects.filter(id=snapshot_id).first()
+        snapshot = Snapshot.objects.select_related("crawl").filter(id=snapshot_id).first()
         if snapshot is None:
             return None
         snapshot.status = Snapshot.StatusChoices.SEALED
         snapshot.retry_at = None
         snapshot.downloaded_at = snapshot.downloaded_at or timezone.now()
         snapshot.save(update_fields=["status", "retry_at", "downloaded_at", "modified_at"])
+        if snapshot.crawl_id and self._crawl_limit_stop_reason(snapshot.crawl) == "max_size":
+            self._cancel_pending_snapshots(snapshot.crawl_id, exclude_snapshot_id=snapshot.id)
         return str(snapshot.id)
+
+    def _crawl_limit_stop_reason(self, crawl) -> str:
+        config = dict(crawl.config or {})
+        config["CRAWL_DIR"] = str(crawl.output_dir)
+        return CrawlLimitState.from_config(config).get_stop_reason()
+
+    def _cancel_pending_snapshots(self, crawl_id: str, *, exclude_snapshot_id) -> int:
+        from archivebox.core.models import Snapshot
+
+        return (
+            Snapshot.objects.filter(
+                crawl_id=crawl_id,
+                status=Snapshot.StatusChoices.QUEUED,
+            )
+            .exclude(id=exclude_snapshot_id)
+            .update(
+                status=Snapshot.StatusChoices.SEALED,
+                retry_at=None,
+                modified_at=timezone.now(),
+            )
+        )
 
     def _ensure_crawl_symlink(self, snapshot_id: str) -> None:
         from archivebox.core.models import Snapshot

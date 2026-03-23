@@ -5,24 +5,30 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0025_alter_archiveresult_options_alter_snapshot_options_and_more'),
-        ('machine', '0007_add_process_type_and_parent'),
+        ("core", "0025_alter_archiveresult_options_alter_snapshot_options_and_more"),
+        ("machine", "0007_add_process_type_and_parent"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='archiveresult',
-            name='num_uses_failed',
+            model_name="archiveresult",
+            name="num_uses_failed",
         ),
         migrations.RemoveField(
-            model_name='archiveresult',
-            name='num_uses_succeeded',
+            model_name="archiveresult",
+            name="num_uses_succeeded",
         ),
         migrations.AddField(
-            model_name='archiveresult',
-            name='process',
-            field=models.OneToOneField(blank=True, help_text='Process execution details for this archive result', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='archiveresult', to='machine.process'),
+            model_name="archiveresult",
+            name="process",
+            field=models.OneToOneField(
+                blank=True,
+                help_text="Process execution details for this archive result",
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="archiveresult",
+                to="machine.process",
+            ),
         ),
     ]

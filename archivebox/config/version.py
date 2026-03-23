@@ -1,4 +1,4 @@
-__package__ = 'archivebox.config'
+__package__ = "archivebox.config"
 
 import os
 import importlib.metadata
@@ -6,71 +6,71 @@ import importlib.metadata
 from pathlib import Path
 from functools import cache
 from datetime import datetime
-from typing import Optional
 
 #############################################################################################
 
-IN_DOCKER = os.environ.get('IN_DOCKER', False) in ('1', 'true', 'True', 'TRUE', 'yes')
+IN_DOCKER = os.environ.get("IN_DOCKER", False) in ("1", "true", "True", "TRUE", "yes")
 
-PACKAGE_DIR: Path = Path(__file__).resolve().parent.parent    # archivebox source code dir
-DATA_DIR: Path = Path(os.environ.get('DATA_DIR', os.getcwd())).resolve()  # archivebox user data dir
-ARCHIVE_DIR: Path = DATA_DIR / 'archive'                      # archivebox snapshot data dir
+PACKAGE_DIR: Path = Path(__file__).resolve().parent.parent  # archivebox source code dir
+DATA_DIR: Path = Path(os.environ.get("DATA_DIR", os.getcwd())).resolve()  # archivebox user data dir
+ARCHIVE_DIR: Path = DATA_DIR / "archive"  # archivebox snapshot data dir
 
 #############################################################################################
 
 
 @cache
-def detect_installed_version(PACKAGE_DIR: Path=PACKAGE_DIR):
+def detect_installed_version(PACKAGE_DIR: Path = PACKAGE_DIR):
     """Autodetect the installed archivebox version by using pip package metadata, pyproject.toml file, or package.json file"""
     try:
         # if in production install, use pip-installed package metadata
-        return importlib.metadata.version('archivebox').strip()
+        return importlib.metadata.version("archivebox").strip()
     except importlib.metadata.PackageNotFoundError:
         pass
 
     try:
         # if in dev Git repo dir, use pyproject.toml file
-        pyproject_config = (PACKAGE_DIR.parent / 'pyproject.toml').read_text().split('\n')
+        pyproject_config = (PACKAGE_DIR.parent / "pyproject.toml").read_text().split("\n")
         for line in pyproject_config:
-            if line.startswith('version = '):
-                return line.split(' = ', 1)[-1].strip('"').strip()
+            if line.startswith("version = "):
+                return line.split(" = ", 1)[-1].strip('"').strip()
     except FileNotFoundError:
         # building docs, pyproject.toml is not available
         pass
 
     # raise Exception('Failed to detect installed archivebox version!')
-    return 'dev'
+    return "dev"
 
 
 @cache
-def get_COMMIT_HASH() -> Optional[str]:
+def get_COMMIT_HASH() -> str | None:
     try:
-        git_dir = PACKAGE_DIR.parent / '.git'
-        ref = (git_dir / 'HEAD').read_text().strip().split(' ')[-1]
+        git_dir = PACKAGE_DIR.parent / ".git"
+        ref = (git_dir / "HEAD").read_text().strip().split(" ")[-1]
         commit_hash = git_dir.joinpath(ref).read_text().strip()
         return commit_hash
     except Exception:
         pass
 
     try:
-        return list((PACKAGE_DIR.parent / '.git/refs/heads/').glob('*'))[0].read_text().strip()
+        return list((PACKAGE_DIR.parent / ".git/refs/heads/").glob("*"))[0].read_text().strip()
     except Exception:
         pass
-    
+
     return None
-    
+
+
 @cache
 def get_BUILD_TIME() -> str:
     if IN_DOCKER:
         try:
             # if we're in the archivebox official docker image, /VERSION.txt will contain the build time
-            docker_build_end_time = Path('/VERSION.txt').read_text().rsplit('BUILD_END_TIME=')[-1].split('\n', 1)[0]
+            docker_build_end_time = Path("/VERSION.txt").read_text().rsplit("BUILD_END_TIME=")[-1].split("\n", 1)[0]
             return docker_build_end_time
         except Exception:
             pass
 
-    src_last_modified_unix_timestamp = (PACKAGE_DIR / 'README.md').stat().st_mtime
-    return datetime.fromtimestamp(src_last_modified_unix_timestamp).strftime('%Y-%m-%d %H:%M:%S %s')
+    src_last_modified_unix_timestamp = (PACKAGE_DIR / "README.md").stat().st_mtime
+    return datetime.fromtimestamp(src_last_modified_unix_timestamp).strftime("%Y-%m-%d %H:%M:%S %s")
 
 
 # def get_versions_available_on_github(config):
@@ -78,14 +78,14 @@ def get_BUILD_TIME() -> str:
 #     returns a dictionary containing the ArchiveBox GitHub release info for
 #     the recommended upgrade version and the currently installed version
 #     """
-    
+
 #     # we only want to perform the (relatively expensive) check for new versions
 #     # when its most relevant, e.g. when the user runs a long-running command
 #     subcommand_run_by_user = sys.argv[3] if len(sys.argv) > 3 else 'help'
 #     long_running_commands = ('add', 'schedule', 'update', 'status', 'server')
 #     if subcommand_run_by_user not in long_running_commands:
 #         return None
-    
+
 #     github_releases_api = "https://api.github.com/repos/ArchiveBox/ArchiveBox/releases"
 #     response = requests.get(github_releases_api)
 #     if response.status_code != 200:
@@ -104,7 +104,7 @@ def get_BUILD_TIME() -> str:
 #             break
 
 #     current_version = current_version or all_releases[-1]
-    
+
 #     # recommended version is whatever comes after current_version in the release list
 #     # (perhaps too conservative to only recommend upgrading one version at a time, but it's safest)
 #     try:

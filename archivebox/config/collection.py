@@ -1,8 +1,8 @@
-__package__ = 'archivebox.config'
+__package__ = "archivebox.config"
 
 import os
 import json
-from typing import Any, Optional, Type, Tuple, Dict
+from typing import Any
 
 from pathlib import Path
 from configparser import ConfigParser
@@ -27,13 +27,15 @@ def get_real_name(key: str) -> str:
     return key
 
 
-def load_config_val(key: str,
-                    default: Any=None,
-                    type: Optional[Type]=None,
-                    aliases: Optional[Tuple[str, ...]]=None,
-                    config: Optional[benedict]=None,
-                    env_vars: Optional[os._Environ]=None,
-                    config_file_vars: Optional[Dict[str, str]]=None) -> Any:
+def load_config_val(
+    key: str,
+    default: Any = None,
+    type: type | None = None,
+    aliases: tuple[str, ...] | None = None,
+    config: benedict | None = None,
+    env_vars: os._Environ | None = None,
+    config_file_vars: dict[str, str] | None = None,
+) -> Any:
     """parse bool, int, and str key=value pairs from env"""
 
     assert isinstance(config, dict)
@@ -67,8 +69,8 @@ def load_config_val(key: str,
     assert isinstance(val, str)
 
     # calculate value based on expected type
-    BOOL_TRUEIES = ('true', 'yes', '1')
-    BOOL_FALSEIES = ('false', 'no', '0')
+    BOOL_TRUEIES = ("true", "yes", "1")
+    BOOL_FALSEIES = ("false", "no", "0")
 
     if type is bool:
         if val.lower() in BOOL_TRUEIES:
@@ -76,28 +78,28 @@ def load_config_val(key: str,
         elif val.lower() in BOOL_FALSEIES:
             return False
         else:
-            raise ValueError(f'Invalid configuration option {key}={val} (expected a boolean: True/False)')
+            raise ValueError(f"Invalid configuration option {key}={val} (expected a boolean: True/False)")
 
     elif type is str:
         if val.lower() in (*BOOL_TRUEIES, *BOOL_FALSEIES):
-            raise ValueError(f'Invalid configuration option {key}={val} (expected a string, but value looks like a boolean)')
+            raise ValueError(f"Invalid configuration option {key}={val} (expected a string, but value looks like a boolean)")
         return val.strip()
 
     elif type is int:
         if not val.strip().isdigit():
-            raise ValueError(f'Invalid configuration option {key}={val} (expected an integer)')
+            raise ValueError(f"Invalid configuration option {key}={val} (expected an integer)")
         return int(val.strip())
 
     elif type is list or type is dict:
         return json.loads(val)
-    
+
     elif type is Path:
         return Path(val)
 
-    raise Exception('Config values can only be str, bool, int, or json')
+    raise Exception("Config values can only be str, bool, int, or json")
 
 
-def load_config_file() -> Optional[benedict]:
+def load_config_file() -> benedict | None:
     """load the ini-formatted config file from DATA_DIR/Archivebox.conf"""
 
     config_path = CONSTANTS.CONFIG_FILE
@@ -105,17 +107,16 @@ def load_config_file() -> Optional[benedict]:
         config_file = CaseConfigParser()
         config_file.read(config_path)
         # flatten into one namespace
-        config_file_vars = benedict({
-            key.upper(): val
-            for section, options in config_file.items()
-                for key, val in options.items()
-        })
+        config_file_vars = benedict({key.upper(): val for section, options in config_file.items() for key, val in options.items()})
         # print('[i] Loaded config file', os.path.abspath(config_path))
         # print(config_file_vars)
         return config_file_vars
     return None
+
+
 class PluginConfigSection:
     """Pseudo-section for all plugin config keys written to [PLUGINS] section in ArchiveBox.conf"""
+
     toml_section_header = "PLUGINS"
 
     def __init__(self, key: str):
@@ -144,8 +145,14 @@ def section_for_key(key: str) -> Any:
     )
 
     # First check core config sections
-    for section in [SHELL_CONFIG, STORAGE_CONFIG, GENERAL_CONFIG,
-                    SERVER_CONFIG, ARCHIVING_CONFIG, SEARCH_BACKEND_CONFIG]:
+    for section in [
+        SHELL_CONFIG,
+        STORAGE_CONFIG,
+        GENERAL_CONFIG,
+        SERVER_CONFIG,
+        ARCHIVING_CONFIG,
+        SEARCH_BACKEND_CONFIG,
+    ]:
         if hasattr(section, key):
             return section
 
@@ -154,20 +161,19 @@ def section_for_key(key: str) -> Any:
 
     plugin_configs = discover_plugin_configs()
     for plugin_name, schema in plugin_configs.items():
-        if 'properties' in schema and key in schema['properties']:
+        if "properties" in schema and key in schema["properties"]:
             # All plugin config goes to [PLUGINS] section
             return PluginConfigSection(key)
 
-    raise ValueError(f'No config section found for key: {key}')
+    raise ValueError(f"No config section found for key: {key}")
 
 
-def write_config_file(config: Dict[str, str]) -> benedict:
+def write_config_file(config: dict[str, str]) -> benedict:
     """load the ini-formatted config file from DATA_DIR/Archivebox.conf"""
 
     from archivebox.misc.system import atomic_write
 
-    CONFIG_HEADER = (
-    """# This is the config file for your ArchiveBox collection.
+    CONFIG_HEADER = """# This is the config file for your ArchiveBox collection.
     #
     # You can add options here manually in INI format, or automatically by running:
     #    archivebox config --set KEY=VALUE
@@ -178,7 +184,7 @@ def write_config_file(config: Dict[str, str]) -> benedict:
     # A list of all possible config with documentation and examples can be found here:
     #    https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration
 
-    """)
+    """
 
     config_path = CONSTANTS.CONFIG_FILE
 
@@ -188,57 +194,56 @@ def write_config_file(config: Dict[str, str]) -> benedict:
     config_file = CaseConfigParser()
     config_file.read(config_path)
 
-    with open(config_path, 'r', encoding='utf-8') as old:
-        atomic_write(f'{config_path}.bak', old.read())
+    with open(config_path, encoding="utf-8") as old:
+        atomic_write(f"{config_path}.bak", old.read())
 
     # Set up sections in empty config file
     for key, val in config.items():
         section = section_for_key(key)
         assert section is not None
-        
-        if not hasattr(section, 'toml_section_header'):
-            raise ValueError(f'{key} is read-only (defined in {type(section).__module__}.{type(section).__name__}). Refusing to set.')
-        
+
+        if not hasattr(section, "toml_section_header"):
+            raise ValueError(f"{key} is read-only (defined in {type(section).__module__}.{type(section).__name__}). Refusing to set.")
+
         section_name = section.toml_section_header
-        
+
         if section_name in config_file:
             existing_config = dict(config_file[section_name])
         else:
             existing_config = {}
-        
+
         config_file[section_name] = benedict({**existing_config, key: val})
         section.update_in_place(warn=False, persist=False, **{key: val})
 
-    with open(config_path, 'w+', encoding='utf-8') as new:
+    with open(config_path, "w+", encoding="utf-8") as new:
         config_file.write(new)
 
     updated_config = {}
     try:
         # validate the updated_config by attempting to re-parse it
         from archivebox.config.configset import get_flat_config
+
         updated_config = {**load_all_config(), **get_flat_config()}
-    except BaseException:                                                       # lgtm [py/catch-base-exception]
+    except BaseException:  # lgtm [py/catch-base-exception]
         # something went horribly wrong, revert to the previous version
-        with open(f'{config_path}.bak', 'r', encoding='utf-8') as old:
+        with open(f"{config_path}.bak", encoding="utf-8") as old:
             atomic_write(config_path, old.read())
 
         raise
 
-    if os.access(f'{config_path}.bak', os.F_OK):
-        os.remove(f'{config_path}.bak')
+    if os.access(f"{config_path}.bak", os.F_OK):
+        os.remove(f"{config_path}.bak")
 
-    return benedict({
-        key.upper(): updated_config.get(key.upper())
-        for key in config.keys()
-    })
+    return benedict({key.upper(): updated_config.get(key.upper()) for key in config.keys()})
 
 
-
-def load_config(defaults: Dict[str, Any],
-                config: Optional[benedict]=None,
-                out_dir: Optional[str]=None,
-                env_vars: Optional[os._Environ]=None,
-                config_file_vars: Optional[Dict[str, str]]=None) -> benedict:
+def load_config(
+    defaults: dict[str, Any],
+    config: benedict | None = None,
+    out_dir: str | None = None,
+    env_vars: os._Environ | None = None,
+    config_file_vars: dict[str, str] | None = None,
+) -> benedict:
 
     env_vars = env_vars or os.environ
     config_file_vars = config_file_vars or load_config_file()
@@ -249,9 +254,9 @@ def load_config(defaults: Dict[str, Any],
             # print('LOADING CONFIG KEY:', key, 'DEFAULT=', default)
             extended_config[key] = load_config_val(
                 key,
-                default=default['default'],
-                type=default.get('type'),
-                aliases=default.get('aliases'),
+                default=default["default"],
+                type=default.get("type"),
+                aliases=default.get("aliases"),
                 config=extended_config,
                 env_vars=env_vars,
                 config_file_vars=config_file_vars,
@@ -260,18 +265,19 @@ def load_config(defaults: Dict[str, Any],
             raise SystemExit(0)
         except Exception as e:
             stderr()
-            stderr(f'[X] Error while loading configuration value: {key}', color='red', config=extended_config)
-            stderr('    {}: {}'.format(e.__class__.__name__, e))
+            stderr(f"[X] Error while loading configuration value: {key}", color="red", config=extended_config)
+            stderr(f"    {e.__class__.__name__}: {e}")
             stderr()
-            stderr('    Check your config for mistakes and try again (your archive data is unaffected).')
+            stderr("    Check your config for mistakes and try again (your archive data is unaffected).")
             stderr()
-            stderr('    For config documentation and examples see:')
-            stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration')
+            stderr("    For config documentation and examples see:")
+            stderr("        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration")
             stderr()
             # raise
             # raise SystemExit(2)
 
     return benedict(extended_config)
+
 
 def load_all_config():
     """Load all config sections and return as a flat dict."""
@@ -283,11 +289,17 @@ def load_all_config():
         ARCHIVING_CONFIG,
         SEARCH_BACKEND_CONFIG,
     )
-    
+
     flat_config = benedict()
-    
-    for config_section in [SHELL_CONFIG, STORAGE_CONFIG, GENERAL_CONFIG, 
-                           SERVER_CONFIG, ARCHIVING_CONFIG, SEARCH_BACKEND_CONFIG]:
+
+    for config_section in [
+        SHELL_CONFIG,
+        STORAGE_CONFIG,
+        GENERAL_CONFIG,
+        SERVER_CONFIG,
+        ARCHIVING_CONFIG,
+        SEARCH_BACKEND_CONFIG,
+    ]:
         flat_config.update(dict(config_section))
-        
+
     return flat_config

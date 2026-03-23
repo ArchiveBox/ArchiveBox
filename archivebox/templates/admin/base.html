@@ -177,6 +177,13 @@
                 min-width: 0;
             }
 
+            #content-main form fieldset > .description,
+            #content form fieldset > .description {
+                flex: 0 0 auto;
+                padding: 6px 16px 0;
+                margin: 0;
+            }
+
             /* Form rows inside cards */
             #content-main form fieldset .form-row,
             #content form fieldset .form-row {
@@ -279,8 +286,66 @@
             #content-main form .field-admin_actions > label,
             #content form .field-admin_actions > label,
             #content-main form .field-admin_actions label,
-            #content form .field-admin_actions label {
+            #content form .field-admin_actions label,
+            #content-main form .field-snapshot_summary > label,
+            #content form .field-snapshot_summary > label,
+            #content-main form .field-snapshot_summary label,
+            #content form .field-snapshot_summary label,
+            #content-main form .field-url_favicon > label,
+            #content form .field-url_favicon > label,
+            #content-main form .field-url_favicon label,
+            #content form .field-url_favicon label,
+            #content-main form .field-archiveresults_list > label,
+            #content form .field-archiveresults_list > label,
+            #content-main form .field-archiveresults_list label,
+            #content form .field-archiveresults_list label {
                 display: none !important;
+            }
+
+            #content-main form .field-url_favicon .readonly,
+            #content form .field-url_favicon .readonly {
+                background: transparent;
+                border: none;
+                padding: 0;
+                border-radius: 0;
+                font-family: inherit;
+                font-size: inherit;
+                line-height: 1;
+            }
+
+            #content-main form .form-row.field-url_favicon.field-url .form-multiline,
+            #content form .form-row.field-url_favicon.field-url .form-multiline {
+                display: flex !important;
+                align-items: flex-end;
+                gap: 12px;
+                flex-wrap: nowrap;
+                width: 100%;
+            }
+
+            #content-main form .form-row.field-url_favicon.field-url .form-multiline > div:first-child,
+            #content form .form-row.field-url_favicon.field-url .form-multiline > div:first-child {
+                flex: 0 0 32px;
+                width: 32px;
+                margin: 0 !important;
+            }
+
+            #content-main form .form-row.field-url_favicon.field-url .form-multiline > div:last-child,
+            #content form .form-row.field-url_favicon.field-url .form-multiline > div:last-child {
+                flex: 1 1 auto;
+                min-width: 0;
+                margin: 0 !important;
+            }
+
+            #content-main form .form-row.field-url_favicon.field-url .field-url_favicon,
+            #content form .form-row.field-url_favicon.field-url .field-url_favicon {
+                width: 32px !important;
+                max-width: 32px !important;
+            }
+
+            #content-main form .form-row.field-url_favicon.field-url .field-url,
+            #content form .form-row.field-url_favicon.field-url .field-url {
+                width: 100% !important;
+                max-width: none !important;
             }
 
             #content-main form fieldset.actions-card,
@@ -942,8 +1007,9 @@
                 display: flex;
                 align-items: center;
                 gap: 8px;
-                flex: 0 1 auto;
-                max-width: 500px;
+                flex: 1 1 auto;
+                max-width: none;
+                min-width: 0;
             }
             body.change-list #toolbar form > div {
                 display: flex !important;
@@ -951,6 +1017,8 @@
                 gap: 8px;
                 flex-wrap: nowrap !important;
                 white-space: nowrap;
+                width: 100%;
+                min-width: 0;
             }
             body.change-list #toolbar label {
                 margin: 0;
@@ -962,8 +1030,10 @@
             }
 
             #searchbar {
-                flex: 1;
-                max-width: 400px;
+                flex: 0 1 420px;
+                width: 100%;
+                min-width: 180px;
+                max-width: none;
                 padding: 10px 14px;
                 border: 1px solid #d1d5db;
                 border-radius: 8px;
@@ -1001,7 +1071,7 @@
                 gap: 8px;
             }
 
-            #changelist-filter .filter-toggle {
+            .filter-toggle {
                 border: 1px solid #e2e8f0;
                 background: #ffffff;
                 color: #64748b;
@@ -1013,18 +1083,14 @@
                 letter-spacing: normal;
             }
 
-            #changelist-filter .filter-toggle:hover {
+            .filter-toggle:hover {
                 background: #f1f5f9;
                 color: #334155;
             }
 
-            .filter-toggle-floating {
-                position: static;
-                box-shadow: none;
-                padding: 2px 6px;
-                font-size: 11px;
-                line-height: 1.2;
-                height: 20px;
+            #changelist-toolbar-filter-toggle {
+                margin-left: auto;
+                flex: 0 0 auto;
             }
 
             #changelist-filter h3 {
@@ -1072,24 +1138,6 @@
                 display: none !important;
             }
 
-            body.filters-collapsed.change-list .results,
-            body.filters-collapsed.change-list .paginator,
-            body.filters-collapsed.change-list #toolbar,
-            body.filters-collapsed.change-list div.xfull,
-            body.filters-collapsed.change-list #changelist .changelist-form-container,
-            body.filters-collapsed.change-list #changelist-form,
-            body.filters-collapsed.change-list #result_list {
-                margin-right: 0 !important;
-                width: 100% !important;
-            }
-
-            body.filters-collapsed.change-list #changelist .changelist-form-container > div,
-            body.filters-collapsed.change-list #changelist .changelist-form-container > form {
-                max-width: 100% !important;
-                width: 100% !important;
-                flex: 1 1 100% !important;
-            }
-
             /* Actions bar */
             body.change-list #changelist .actions {
                 padding: 12px 16px;
@@ -1101,16 +1149,19 @@
                 flex-wrap: nowrap !important;
                 overflow-x: auto;
             }
+            body.change-list #content-main {
+                clear: both;
+                float: none;
+                width: auto;
+            }
             body.change-list #changelist {
                 border: 0 !important;
             }
             body.change-list #changelist .actions .button,
-            body.change-list #changelist .actions select,
-            body.change-list #changelist .actions label {
-                line-height: 1.5rem;
-                height: 1.5rem;
+            body.change-list #changelist .actions select {
                 display: inline-flex;
                 align-items: center;
+                box-sizing: border-box;
             }
             body.change-list #changelist .actions-left {
                 display: flex;
@@ -1130,6 +1181,8 @@
             }
 
             .actions label {
+                display: inline-flex;
+                align-items: center;
                 font-size: 14px;
                 color: #475569;
             }
@@ -1359,28 +1412,35 @@
                 align-items: center;
             }
 
-            /* Ensure changelist filter sidebar is visible */
-            body.change-list #changelist .changelist-form-container {
-                display: flex;
+            /* Changelist layout */
+            body.change-list #changelist {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) 320px;
                 align-items: flex-start;
-                width: 100%;
-                gap: 20px;
-                flex-wrap: nowrap;
+                gap: 0;
+                clear: both;
+            }
+            body.change-list #changelist .changelist-form-container {
+                display: block;
+                min-width: 0;
+                width: auto;
             }
             body.change-list #changelist-filter {
-                flex: 0 0 260px;
-                max-width: 260px;
+                width: 320px;
+                min-width: 320px;
+                max-width: 320px;
                 display: block;
-                margin: 0;
-                order: 2;
+                margin: 0 !important;
                 align-self: flex-start;
             }
             body.change-list #changelist .changelist-form-container > div,
             body.change-list #changelist .changelist-form-container > form {
-                flex: 1 1 auto;
                 min-width: 0;
-                order: 1;
-                max-width: calc(100% - 280px);
+                width: auto;
+                max-width: none;
+            }
+            body.filters-collapsed.change-list #changelist {
+                grid-template-columns: minmax(0, 1fr);
             }
 
             .actions .tag-pills {
@@ -1526,18 +1586,6 @@
             {% endblock messages %}
 
             <div id="content" class="{% block coltype %}colM{% endblock %}">
-                {% if opts.model_name == 'snapshot' and cl %}
-                    <div id="snapshot-view-mode">
-                        <a href="#list" title="List view" id="snapshot-view-list">
-                            <span class="view-icon">☰</span>
-                            <span class="view-label">List</span>
-                        </a>
-                        <a href="#grid" title="Grid view" id="snapshot-view-grid">
-                            <span class="view-icon">⊞</span>
-                            <span class="view-label">Grid</span>
-                        </a>
-                    </div>
-                {% endif %}
                 {% block pretitle %}{% endblock %}
                 {% block content_title %}{# {% if title %}<h1>{{ title }}</h1>{% endif %} #}{% endblock %}
                 {% block content %}
@@ -1721,6 +1769,88 @@
                     }
                 }
             }
+            window.archiveboxHandleZipClick = function(link, event) {
+                if (!link || link.dataset.loading === '1') {
+                    if (event) event.preventDefault()
+                    return false
+                }
+
+                const resetZipButton = function(target) {
+                    if (!target) return
+                    target.dataset.loading = ''
+                    target.classList.remove('is-loading')
+                    target.removeAttribute('aria-busy')
+                    const targetLabel = target.querySelector('.archivebox-zip-label')
+                    const targetSpinner = target.querySelector('.archivebox-zip-spinner')
+                    if (targetLabel) {
+                        targetLabel.textContent = target.dataset.originalLabel || targetLabel.textContent
+                        targetLabel.style.opacity = ''
+                        targetLabel.style.display = ''
+                        targetLabel.style.visibility = ''
+                    }
+                    if (targetSpinner) {
+                        targetSpinner.style.display = ''
+                    }
+                    target.style.pointerEvents = ''
+                    target.style.opacity = ''
+                    target.style.width = target.dataset.originalWidth || ''
+                    target.style.minWidth = target.dataset.originalMinWidth || ''
+                    if (target._zipResetTimer) {
+                        window.clearTimeout(target._zipResetTimer)
+                        target._zipResetTimer = null
+                    }
+                }
+
+                if (event) event.preventDefault()
+                const lockedWidth = Math.ceil(link.getBoundingClientRect().width)
+                link.dataset.originalWidth = link.style.width || ""
+                link.dataset.originalMinWidth = link.style.minWidth || ""
+                link.style.width = lockedWidth + "px"
+                link.style.minWidth = lockedWidth + "px"
+                link.dataset.loading = '1'
+                link.classList.add('is-loading')
+                link.setAttribute('aria-busy', 'true')
+                const label = link.querySelector('.archivebox-zip-label')
+                const spinner = link.querySelector('.archivebox-zip-spinner')
+                const loadingMode = link.dataset.loadingMode || 'label'
+                if (label) {
+                    link.dataset.originalLabel = label.textContent || ''
+                    if (loadingMode !== 'spinner-only') {
+                        label.textContent = link.dataset.loadingLabel || 'Preparing...'
+                        label.style.opacity = '0.92'
+                    }
+                }
+                if (spinner) {
+                    spinner.style.display = 'inline-block'
+                }
+                link.style.pointerEvents = 'none'
+                link.style.opacity = '0.96'
+                const destination = link.href
+                let iframe = document.getElementById('archivebox-zip-download-frame')
+                if (!iframe) {
+                    iframe = document.createElement('iframe')
+                    iframe.id = 'archivebox-zip-download-frame'
+                    iframe.name = 'archivebox-zip-download-frame'
+                    iframe.hidden = true
+                    iframe.style.display = 'none'
+                    document.body.appendChild(iframe)
+                }
+                iframe.onload = function() {
+                    window.setTimeout(function() {
+                        resetZipButton(link)
+                    }, 250)
+                }
+                link._zipResetTimer = window.setTimeout(function() {
+                    resetZipButton(link)
+                }, 12000)
+                void link.offsetWidth
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(function() {
+                        iframe.src = destination
+                    })
+                })
+                return false
+            }
             $(document).ready(function() {
                 fix_actions()
                 updateTagWidgetVisibility()
@@ -1733,76 +1863,6 @@
                 setTimeOffset()
                 selectSnapshotIfHotlinked()
             })
-        </script>
-        <script>
-            (function() {
-                if (!document.body.classList.contains('change-list')) return;
-                var filter = document.getElementById('changelist-filter');
-                if (!filter) return;
-                var header = filter.querySelector('h2');
-                if (!header) return;
-
-                var toggle = document.getElementById('changelist-filter-toggle');
-                if (!toggle) {
-                    toggle = document.createElement('button');
-                    toggle.type = 'button';
-                    toggle.id = 'changelist-filter-toggle';
-                    toggle.className = 'filter-toggle';
-                    toggle.setAttribute('aria-expanded', 'true');
-                    toggle.dataset.showLabel = '{% translate "Filters" %}';
-                    toggle.dataset.hideLabel = '{% translate "Hide" %}';
-                    toggle.textContent = toggle.dataset.hideLabel;
-                    header.appendChild(toggle);
-                }
-
-                var storageKey = 'admin-filters-collapsed';
-                var changelist = document.getElementById('changelist');
-                var hadFiltered = changelist && changelist.classList.contains('filtered');
-
-                var floating = document.getElementById('changelist-filter-float-toggle');
-                if (!floating) {
-                    floating = document.createElement('button');
-                    floating.type = 'button';
-                    floating.id = 'changelist-filter-float-toggle';
-                    floating.className = 'filter-toggle filter-toggle-floating';
-                    floating.textContent = toggle.dataset.showLabel;
-                }
-
-                var actionsRight = document.querySelector('#changelist .actions .actions-right');
-                var actionsBar = document.querySelector('#changelist .actions');
-                if (actionsRight) {
-                    actionsRight.appendChild(floating);
-                } else if (actionsBar) {
-                    actionsBar.appendChild(floating);
-                }
-
-                function applyState() {
-                    var collapsed = localStorage.getItem(storageKey) === 'true';
-                    document.body.classList.toggle('filters-collapsed', collapsed);
-                    filter.style.display = collapsed ? 'none' : '';
-                    toggle.textContent = collapsed ? toggle.dataset.showLabel : toggle.dataset.hideLabel;
-                    toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-                    floating.style.display = collapsed ? 'inline-flex' : 'none';
-                    if (changelist) {
-                        if (collapsed) {
-                            changelist.classList.remove('filtered');
-                        } else if (hadFiltered) {
-                            changelist.classList.add('filtered');
-                        }
-                    }
-                }
-
-                function toggleFilters() {
-                    var collapsed = !document.body.classList.contains('filters-collapsed');
-                    localStorage.setItem(storageKey, collapsed ? 'true' : 'false');
-                    applyState();
-                }
-
-                toggle.addEventListener('click', toggleFilters);
-                floating.addEventListener('click', toggleFilters);
-
-                applyState();
-            })();
         </script>
         <script src="{% static 'admin-inline-tags.js' %}"></script>
     </body>

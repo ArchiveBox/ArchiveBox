@@ -4,7 +4,7 @@ import re
 import secrets
 import sys
 import shutil
-from typing import ClassVar, Dict, Optional, List
+from typing import ClassVar
 from pathlib import Path
 
 from rich.console import Console
@@ -39,8 +39,8 @@ class ShellConfig(BaseConfigSet):
     IN_DOCKER: bool = Field(default=IN_DOCKER)
     IN_QEMU: bool = Field(default=False)
 
-    ANSI: Dict[str, str] = Field(
-        default_factory=lambda: CONSTANTS.DEFAULT_CLI_COLORS if sys.stdout.isatty() else CONSTANTS.DISABLED_CLI_COLORS
+    ANSI: dict[str, str] = Field(
+        default_factory=lambda: CONSTANTS.DEFAULT_CLI_COLORS if sys.stdout.isatty() else CONSTANTS.DISABLED_CLI_COLORS,
     )
 
     @property
@@ -50,7 +50,7 @@ class ShellConfig(BaseConfigSet):
         return shutil.get_terminal_size((140, 10)).columns
 
     @property
-    def COMMIT_HASH(self) -> Optional[str]:
+    def COMMIT_HASH(self) -> str | None:
         return get_COMMIT_HASH()
 
     @property
@@ -112,7 +112,7 @@ class ServerConfig(BaseConfigSet):
         "danger-onedomain-fullreplay",
     )
 
-    SECRET_KEY: str = Field(default_factory=lambda: ''.join(secrets.choice("abcdefghijklmnopqrstuvwxyz0123456789_") for _ in range(50)))
+    SECRET_KEY: str = Field(default_factory=lambda: "".join(secrets.choice("abcdefghijklmnopqrstuvwxyz0123456789_") for _ in range(50)))
     BIND_ADDR: str = Field(default="127.0.0.1:8000")
     LISTEN_HOST: str = Field(default="archivebox.localhost:8000")
     ADMIN_BASE_URL: str = Field(default="")
@@ -124,7 +124,7 @@ class ServerConfig(BaseConfigSet):
     SNAPSHOTS_PER_PAGE: int = Field(default=40)
     PREVIEW_ORIGINALS: bool = Field(default=True)
     FOOTER_INFO: str = Field(
-        default="Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests."
+        default="Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.",
     )
     # CUSTOM_TEMPLATES_DIR: Path          = Field(default=None)  # this is now a constant
 
@@ -132,8 +132,8 @@ class ServerConfig(BaseConfigSet):
     PUBLIC_SNAPSHOTS: bool = Field(default=True)
     PUBLIC_ADD_VIEW: bool = Field(default=False)
 
-    ADMIN_USERNAME: Optional[str] = Field(default=None)
-    ADMIN_PASSWORD: Optional[str] = Field(default=None)
+    ADMIN_USERNAME: str | None = Field(default=None)
+    ADMIN_PASSWORD: str | None = Field(default=None)
 
     REVERSE_PROXY_USER_HEADER: str = Field(default="Remote-User")
     REVERSE_PROXY_WHITELIST: str = Field(default="")
@@ -234,22 +234,22 @@ class ArchivingConfig(BaseConfigSet):
     RESOLUTION: str = Field(default="1440,2000")
     CHECK_SSL_VALIDITY: bool = Field(default=True)
     USER_AGENT: str = Field(
-        default=f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)"
+        default=f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)",
     )
     COOKIES_FILE: Path | None = Field(default=None)
 
     URL_DENYLIST: str = Field(default=r"\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$", alias="URL_BLACKLIST")
     URL_ALLOWLIST: str | None = Field(default=None, alias="URL_WHITELIST")
 
-    SAVE_ALLOWLIST: Dict[str, List[str]] = Field(default={})  # mapping of regex patterns to list of archive methods
-    SAVE_DENYLIST: Dict[str, List[str]] = Field(default={})
+    SAVE_ALLOWLIST: dict[str, list[str]] = Field(default={})  # mapping of regex patterns to list of archive methods
+    SAVE_DENYLIST: dict[str, list[str]] = Field(default={})
 
     DEFAULT_PERSONA: str = Field(default="Default")
 
     def warn_if_invalid(self) -> None:
         if int(self.TIMEOUT) < 5:
             rprint(f"[red][!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={self.TIMEOUT} seconds)[/red]", file=sys.stderr)
-            rprint("    You must allow *at least* 5 seconds for indexing and archive methods to run succesfully.", file=sys.stderr)
+            rprint("    You must allow *at least* 5 seconds for indexing and archive methods to run successfully.", file=sys.stderr)
             rprint("    (Setting it to somewhere between 30 and 3000 seconds is recommended)", file=sys.stderr)
             rprint(file=sys.stderr)
             rprint("    If you want to make ArchiveBox run faster, disable specific archive methods instead:", file=sys.stderr)
@@ -274,7 +274,7 @@ class ArchivingConfig(BaseConfigSet):
         return re.compile(self.URL_DENYLIST, CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS)
 
     @property
-    def SAVE_ALLOWLIST_PTNS(self) -> Dict[re.Pattern, List[str]]:
+    def SAVE_ALLOWLIST_PTNS(self) -> dict[re.Pattern, list[str]]:
         return (
             {
                 # regexp: methods list
@@ -286,7 +286,7 @@ class ArchivingConfig(BaseConfigSet):
         )
 
     @property
-    def SAVE_DENYLIST_PTNS(self) -> Dict[re.Pattern, List[str]]:
+    def SAVE_DENYLIST_PTNS(self) -> dict[re.Pattern, list[str]]:
         return (
             {
                 # regexp: methods list

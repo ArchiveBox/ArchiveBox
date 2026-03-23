@@ -43,7 +43,7 @@ class ProcessService(BaseService):
     def get_db_process_id(self, process_id: str) -> str | None:
         return self.process_ids.get(process_id)
 
-    def _get_or_create_process(self, event: ProcessStartedEvent | ProcessCompletedEvent) -> "Process":
+    def _get_or_create_process(self, event: ProcessStartedEvent | ProcessCompletedEvent) -> Process:
         from archivebox.machine.models import NetworkInterface, Process
 
         db_process_id = self.process_ids.get(event.process_id)
@@ -57,11 +57,28 @@ class ProcessService(BaseService):
                     process.save(update_fields=["iface", "machine", "modified_at"])
                 return process
 
-        process_type = Process.TypeChoices.BINARY if event.hook_name.startswith("on_Binary") else Process.TypeChoices.HOOK
+        process_type = getattr(event, "process_type", "") or (
+            Process.TypeChoices.BINARY if event.hook_name.startswith("on_Binary") else Process.TypeChoices.HOOK
+        )
+        worker_type = getattr(event, "worker_type", "") or ""
+        if process_type == Process.TypeChoices.WORKER and worker_type:
+            existing = (
+                Process.objects.filter(
+                    process_type=Process.TypeChoices.WORKER,
+                    worker_type=worker_type,
+                    pwd=event.output_dir,
+                )
+                .order_by("-modified_at")
+                .first()
+            )
+            if existing is not None:
+                self.process_ids[event.process_id] = str(existing.id)
+                return existing
         process = Process.objects.create(
             machine=iface.machine,
             iface=iface,
             process_type=process_type,
+            worker_type=worker_type,
             pwd=event.output_dir,
             cmd=[event.hook_path, *event.hook_args],
             env=event.env,
@@ -81,6 +98,8 @@ class ProcessService(BaseService):
         process.env = event.env
         process.timeout = event.timeout
         process.pid = event.pid or None
+        process.process_type = getattr(event, "process_type", "") or process.process_type
+        process.worker_type = getattr(event, "worker_type", "") or process.worker_type
         process.started_at = parse_event_datetime(event.start_ts) or process.started_at or timezone.now()
         process.status = process.StatusChoices.RUNNING
         process.retry_at = None
@@ -94,6 +113,8 @@ class ProcessService(BaseService):
             process.cmd = [event.hook_path, *event.hook_args]
         process.env = event.env
         process.pid = event.pid or process.pid
+        process.process_type = getattr(event, "process_type", "") or process.process_type
+        process.worker_type = getattr(event, "worker_type", "") or process.worker_type
         process.started_at = parse_event_datetime(event.start_ts) or process.started_at
         process.ended_at = parse_event_datetime(event.end_ts) or timezone.now()
         process.stdout = event.stdout

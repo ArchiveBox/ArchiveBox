@@ -25,7 +25,7 @@ def parse_cmd_field(cmd_raw):
         return []
 
     # Try to parse as JSON first
-    if cmd_raw.startswith('['):
+    if cmd_raw.startswith("["):
         try:
             parsed = json.loads(cmd_raw)
             if isinstance(parsed, list):
@@ -45,7 +45,7 @@ def get_or_create_current_machine(cursor):
 
     # Simple machine detection - get hostname as guid
     hostname = socket.gethostname()
-    guid = f'host_{hostname}'  # Simple but stable identifier
+    guid = f"host_{hostname}"  # Simple but stable identifier
 
     # Check if machine exists
     cursor.execute("SELECT id FROM machine_machine WHERE guid = ?", [guid])
@@ -64,9 +64,10 @@ def get_or_create_current_machine(cursor):
     machine_cols = {row[1] for row in cursor.fetchall()}
 
     # Build INSERT statement based on available columns
-    if 'config' in machine_cols:
+    if "config" in machine_cols:
         # 0.9.x schema with config column
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO machine_machine (
                 id, created_at, modified_at, guid, hostname,
                 hw_in_docker, hw_in_vm, hw_manufacturer, hw_product, hw_uuid,
@@ -74,10 +75,13 @@ def get_or_create_current_machine(cursor):
                 stats, config, num_uses_failed, num_uses_succeeded
             ) VALUES (?, ?, ?, ?, ?, 0, 0, '', '', '',
                       '', '', '', '', '', '{}', '{}', 0, 0)
-        """, [machine_id, now, now, guid, hostname])
+        """,
+            [machine_id, now, now, guid, hostname],
+        )
     else:
         # 0.8.x schema without config column
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO machine_machine (
                 id, created_at, modified_at, guid, hostname,
                 hw_in_docker, hw_in_vm, hw_manufacturer, hw_product, hw_uuid,
@@ -85,7 +89,9 @@ def get_or_create_current_machine(cursor):
                 stats, num_uses_failed, num_uses_succeeded
             ) VALUES (?, ?, ?, ?, ?, 0, 0, '', '', '',
                       '', '', '', '', '', '{}', 0, 0)
-        """, [machine_id, now, now, guid, hostname])
+        """,
+            [machine_id, now, now, guid, hostname],
+        )
 
     return machine_id
 
@@ -108,15 +114,18 @@ def get_or_create_binary(cursor, machine_id, name, abspath, version):
 
     # If abspath is just a name without slashes, it's not a full path
     # Store it in both fields for simplicity
-    if '/' not in abspath:
+    if "/" not in abspath:
         # Not a full path - store as-is
         pass
 
     # Check if binary exists with same machine, name, abspath, version
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id FROM machine_binary
         WHERE machine_id = ? AND name = ? AND abspath = ? AND version = ?
-    """, [machine_id, name, abspath, version])
+    """,
+        [machine_id, name, abspath, version],
+    )
 
     row = cursor.fetchone()
     if row:
@@ -134,9 +143,10 @@ def get_or_create_binary(cursor, machine_id, name, abspath, version):
     # Use only columns that exist in current schema
     # 0.8.x schema: id, created_at, modified_at, machine_id, name, binprovider, abspath, version, sha256, num_uses_failed, num_uses_succeeded
     # 0.9.x schema adds: binproviders, overrides, status, retry_at, output_dir
-    if 'binproviders' in binary_cols:
+    if "binproviders" in binary_cols:
         # 0.9.x schema
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO machine_binary (
                 id, created_at, modified_at, machine_id,
                 name, binproviders, overrides, binprovider, abspath, version, sha256,
@@ -144,16 +154,21 @@ def get_or_create_binary(cursor, machine_id, name, abspath, version):
                 num_uses_failed, num_uses_succeeded
             ) VALUES (?, ?, ?, ?, ?, 'env', '{}', 'env', ?, ?, '',
                       'succeeded', NULL, '', 0, 0)
-        """, [binary_id, now, now, machine_id, name, abspath, version])
+        """,
+            [binary_id, now, now, machine_id, name, abspath, version],
+        )
     else:
         # 0.8.x schema (simpler)
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO machine_binary (
                 id, created_at, modified_at, machine_id,
                 name, binprovider, abspath, version, sha256,
                 num_uses_failed, num_uses_succeeded
             ) VALUES (?, ?, ?, ?, ?, 'env', ?, ?, '', 0, 0)
-        """, [binary_id, now, now, machine_id, name, abspath, version])
+        """,
+            [binary_id, now, now, machine_id, name, abspath, version],
+        )
 
     return binary_id
 
@@ -169,15 +184,15 @@ def map_status(old_status):
         (process_status, exit_code) tuple
     """
     status_map = {
-        'queued': ('queued', None),
-        'started': ('running', None),
-        'backoff': ('queued', None),
-        'succeeded': ('exited', 0),
-        'failed': ('exited', 1),
-        'skipped': ('exited', None),  # Skipped = exited without error
+        "queued": ("queued", None),
+        "started": ("running", None),
+        "backoff": ("queued", None),
+        "succeeded": ("exited", 0),
+        "failed": ("exited", 1),
+        "skipped": ("exited", None),  # Skipped = exited without error
     }
 
-    return status_map.get(old_status, ('queued', None))
+    return status_map.get(old_status, ("queued", None))
 
 
 def create_process(cursor, machine_id, pwd, cmd, status, exit_code, started_at, ended_at, binary_id):
@@ -197,9 +212,10 @@ def create_process(cursor, machine_id, pwd, cmd, status, exit_code, started_at, 
     cmd_json = json.dumps(cmd)
 
     # Set retry_at to now for queued processes, NULL otherwise
-    retry_at = now if status == 'queued' else None
+    retry_at = now if status == "queued" else None
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO machine_process (
             id, created_at, modified_at, machine_id, parent_id, process_type,
             pwd, cmd, env, timeout,
@@ -213,14 +229,22 @@ def create_process(cursor, machine_id, pwd, cmd, status, exit_code, started_at, 
                   ?, ?,
                   ?, NULL, NULL,
                   ?, ?)
-    """, [
-        process_id, now, now, machine_id,
-        pwd, cmd_json,
-        exit_code,
-        started_at, ended_at,
-        binary_id,
-        status, retry_at
-    ])
+    """,
+        [
+            process_id,
+            now,
+            now,
+            machine_id,
+            pwd,
+            cmd_json,
+            exit_code,
+            started_at,
+            ended_at,
+            binary_id,
+            status,
+            retry_at,
+        ],
+    )
 
     return process_id
 
@@ -250,16 +274,18 @@ def copy_archiveresult_data_to_process(apps, schema_editor):
     cursor.execute("PRAGMA table_info(core_archiveresult)")
     cols = {row[1] for row in cursor.fetchall()}
 
-    print(f'DEBUG 0027: Columns found: {sorted(cols)}')
-    print(f'DEBUG 0027: Has cmd={("cmd" in cols)}, pwd={("pwd" in cols)}, cmd_version={("cmd_version" in cols)}, process_id={("process_id" in cols)}')
+    print(f"DEBUG 0027: Columns found: {sorted(cols)}")
+    print(
+        f"DEBUG 0027: Has cmd={('cmd' in cols)}, pwd={('pwd' in cols)}, cmd_version={('cmd_version' in cols)}, process_id={('process_id' in cols)}",
+    )
 
-    if 'cmd' not in cols or 'pwd' not in cols or 'cmd_version' not in cols:
-        print('✓ Fresh install or fields already removed - skipping data copy')
+    if "cmd" not in cols or "pwd" not in cols or "cmd_version" not in cols:
+        print("✓ Fresh install or fields already removed - skipping data copy")
         return
 
     # Check if process_id field exists (should exist from 0026)
-    if 'process_id' not in cols:
-        print('✗ ERROR: process_id field not found. Migration 0026 must run first.')
+    if "process_id" not in cols:
+        print("✗ ERROR: process_id field not found. Migration 0026 must run first.")
         return
 
     # Get or create Machine.current()
@@ -278,10 +304,10 @@ def copy_archiveresult_data_to_process(apps, schema_editor):
     results = cursor.fetchall()
 
     if not results:
-        print('✓ No ArchiveResults need Process migration')
+        print("✓ No ArchiveResults need Process migration")
         return
 
-    print(f'Migrating {len(results)} ArchiveResults to Process records...')
+    print(f"Migrating {len(results)} ArchiveResults to Process records...")
 
     migrated_count = 0
     skipped_count = 0
@@ -291,42 +317,46 @@ def copy_archiveresult_data_to_process(apps, schema_editor):
         ar_id, snapshot_id, plugin, cmd_raw, pwd, cmd_version, status, start_ts, end_ts, created_at = row
 
         if i == 0:
-            print(f'DEBUG 0027: First row: ar_id={ar_id}, plugin={plugin}, cmd={cmd_raw[:50] if cmd_raw else None}, status={status}')
+            print(f"DEBUG 0027: First row: ar_id={ar_id}, plugin={plugin}, cmd={cmd_raw[:50] if cmd_raw else None}, status={status}")
 
         try:
             # Parse cmd field
             cmd_array = parse_cmd_field(cmd_raw)
 
             if i == 0:
-                print(f'DEBUG 0027: Parsed cmd: {cmd_array}')
+                print(f"DEBUG 0027: Parsed cmd: {cmd_array}")
 
             # Extract binary info from cmd[0] if available
             binary_id = None
             if cmd_array and cmd_array[0]:
                 binary_name = Path(cmd_array[0]).name or plugin  # Fallback to plugin name
                 binary_abspath = cmd_array[0]
-                binary_version = cmd_version or ''
+                binary_version = cmd_version or ""
 
                 # Get or create Binary record
                 binary_id = get_or_create_binary(
-                    cursor, machine_id, binary_name, binary_abspath, binary_version
+                    cursor,
+                    machine_id,
+                    binary_name,
+                    binary_abspath,
+                    binary_version,
                 )
 
                 if i == 0:
-                    print(f'DEBUG 0027: Created Binary: id={binary_id}, name={binary_name}')
+                    print(f"DEBUG 0027: Created Binary: id={binary_id}, name={binary_name}")
 
             # Map status
             process_status, exit_code = map_status(status)
 
             # Set timestamps
             started_at = start_ts or created_at
-            ended_at = end_ts if process_status == 'exited' else None
+            ended_at = end_ts if process_status == "exited" else None
 
             # Create Process record
             process_id = create_process(
                 cursor=cursor,
                 machine_id=machine_id,
-                pwd=pwd or '',
+                pwd=pwd or "",
                 cmd=cmd_array,
                 status=process_status,
                 exit_code=exit_code,
@@ -336,34 +366,34 @@ def copy_archiveresult_data_to_process(apps, schema_editor):
             )
 
             if i == 0:
-                print(f'DEBUG 0027: Created Process: id={process_id}')
+                print(f"DEBUG 0027: Created Process: id={process_id}")
 
             # Link ArchiveResult to Process
             cursor.execute(
                 "UPDATE core_archiveresult SET process_id = ? WHERE id = ?",
-                [process_id, ar_id]
+                [process_id, ar_id],
             )
 
             migrated_count += 1
 
             if i == 0:
-                print('DEBUG 0027: Linked ArchiveResult to Process')
+                print("DEBUG 0027: Linked ArchiveResult to Process")
 
         except Exception as e:
-            print(f'✗ Error migrating ArchiveResult {ar_id}: {e}')
+            print(f"✗ Error migrating ArchiveResult {ar_id}: {e}")
             import traceback
+
             traceback.print_exc()
             error_count += 1
             continue
 
-    print(f'✓ Migration complete: {migrated_count} migrated, {skipped_count} skipped, {error_count} errors')
+    print(f"✓ Migration complete: {migrated_count} migrated, {skipped_count} skipped, {error_count} errors")
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0026_add_process_to_archiveresult'),
-        ('machine', '0007_add_process_type_and_parent'),
+        ("core", "0026_add_process_to_archiveresult"),
+        ("machine", "0007_add_process_type_and_parent"),
     ]
 
     operations = [
@@ -372,18 +402,17 @@ class Migration(migrations.Migration):
             copy_archiveresult_data_to_process,
             reverse_code=migrations.RunPython.noop,
         ),
-
         # Now safe to remove old fields (moved from 0025)
         migrations.RemoveField(
-            model_name='archiveresult',
-            name='cmd',
+            model_name="archiveresult",
+            name="cmd",
         ),
         migrations.RemoveField(
-            model_name='archiveresult',
-            name='cmd_version',
+            model_name="archiveresult",
+            name="cmd_version",
         ),
         migrations.RemoveField(
-            model_name='archiveresult',
-            name='pwd',
+            model_name="archiveresult",
+            name="pwd",
         ),
     ]

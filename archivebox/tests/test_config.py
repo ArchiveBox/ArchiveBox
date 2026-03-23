@@ -7,19 +7,18 @@ import subprocess
 import pytest
 
 
-
 def test_config_shows_all_config_values(tmp_path, process):
     """Test that config without args shows all config values."""
     os.chdir(tmp_path)
 
     result = subprocess.run(
-        ['archivebox', 'config'],
+        ["archivebox", "config"],
         capture_output=True,
         text=True,
     )
 
     # Should show various config sections
-    assert 'TIMEOUT' in result.stdout or 'timeout' in result.stdout.lower()
+    assert "TIMEOUT" in result.stdout or "timeout" in result.stdout.lower()
     # Config should show some output
     assert len(result.stdout) > 100
 
@@ -29,13 +28,13 @@ def test_config_get_specific_key(tmp_path, process):
     os.chdir(tmp_path)
 
     result = subprocess.run(
-        ['archivebox', 'config', '--get', 'TIMEOUT'],
+        ["archivebox", "config", "--get", "TIMEOUT"],
         capture_output=True,
         text=True,
     )
 
     # Should show the TIMEOUT value
-    assert 'TIMEOUT' in result.stdout or result.returncode == 0
+    assert "TIMEOUT" in result.stdout or result.returncode == 0
 
 
 def test_config_set_value_writes_to_config_file(tmp_path, process):
@@ -44,18 +43,18 @@ def test_config_set_value_writes_to_config_file(tmp_path, process):
 
     # Set a config value
     result = subprocess.run(
-        ['archivebox', 'config', '--set', 'TIMEOUT=120'],
+        ["archivebox", "config", "--set", "TIMEOUT=120"],
         capture_output=True,
         text=True,
     )
     assert result.returncode == 0, result.stderr
 
     # Read the config file directly to verify it was written
-    config_file = tmp_path / 'ArchiveBox.conf'
+    config_file = tmp_path / "ArchiveBox.conf"
     if config_file.exists():
         config_content = config_file.read_text()
         # Config should contain the set value
-        assert 'TIMEOUT' in config_content or 'timeout' in config_content.lower()
+        assert "TIMEOUT" in config_content or "timeout" in config_content.lower()
 
 
 def test_config_set_and_get_roundtrip(tmp_path, process):
@@ -64,19 +63,19 @@ def test_config_set_and_get_roundtrip(tmp_path, process):
 
     # Set a value
     set_result = subprocess.run(
-        ['archivebox', 'config', '--set', 'TIMEOUT=999'],
+        ["archivebox", "config", "--set", "TIMEOUT=999"],
         capture_output=True,
         text=True,
     )
 
     # Verify set was successful
-    assert set_result.returncode == 0 or '999' in set_result.stdout
+    assert set_result.returncode == 0 or "999" in set_result.stdout
 
     # Read the config file directly to verify
-    config_file = tmp_path / 'ArchiveBox.conf'
+    config_file = tmp_path / "ArchiveBox.conf"
     if config_file.exists():
         config_content = config_file.read_text()
-        assert '999' in config_content or 'TIMEOUT' in config_content
+        assert "999" in config_content or "TIMEOUT" in config_content
 
 
 def test_config_search_finds_matching_keys(tmp_path, process):
@@ -84,13 +83,13 @@ def test_config_search_finds_matching_keys(tmp_path, process):
     os.chdir(tmp_path)
 
     result = subprocess.run(
-        ['archivebox', 'config', '--search', 'TIMEOUT'],
+        ["archivebox", "config", "--search", "TIMEOUT"],
         capture_output=True,
         text=True,
     )
 
     # Should find TIMEOUT-related config
-    assert 'TIMEOUT' in result.stdout or result.returncode == 0
+    assert "TIMEOUT" in result.stdout or result.returncode == 0
 
 
 def test_config_invalid_key_fails(tmp_path, process):
@@ -98,13 +97,13 @@ def test_config_invalid_key_fails(tmp_path, process):
     os.chdir(tmp_path)
 
     result = subprocess.run(
-        ['archivebox', 'config', '--set', 'INVALID_KEY_THAT_DOES_NOT_EXIST=value'],
+        ["archivebox", "config", "--set", "INVALID_KEY_THAT_DOES_NOT_EXIST=value"],
         capture_output=True,
         text=True,
     )
 
     # Should fail
-    assert result.returncode != 0 or 'failed' in result.stdout.lower()
+    assert result.returncode != 0 or "failed" in result.stdout.lower()
 
 
 def test_config_set_requires_equals_sign(tmp_path, process):
@@ -112,7 +111,7 @@ def test_config_set_requires_equals_sign(tmp_path, process):
     os.chdir(tmp_path)
 
     result = subprocess.run(
-        ['archivebox', 'config', '--set', 'TIMEOUT'],
+        ["archivebox", "config", "--set", "TIMEOUT"],
         capture_output=True,
         text=True,
     )
@@ -129,15 +128,15 @@ class TestConfigCLI:
         os.chdir(tmp_path)
 
         result = subprocess.run(
-            ['archivebox', 'config', '--help'],
+            ["archivebox", "config", "--help"],
             capture_output=True,
             text=True,
         )
 
         assert result.returncode == 0
-        assert '--get' in result.stdout
-        assert '--set' in result.stdout
+        assert "--get" in result.stdout
+        assert "--set" in result.stdout
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

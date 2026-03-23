@@ -1,1 +1,1 @@
-__package__ = 'archivebox.base_models'
+__package__ = "archivebox.base_models"

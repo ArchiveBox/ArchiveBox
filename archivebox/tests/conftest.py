@@ -8,7 +8,7 @@ import textwrap
 import time
 import shutil
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any
 
 import pytest
 
@@ -24,13 +24,14 @@ os.environ.setdefault("DATA_DIR", str(SESSION_DATA_DIR))
 # CLI Helpers (defined before fixtures that use them)
 # =============================================================================
 
+
 def run_archivebox_cmd(
-    args: List[str],
+    args: list[str],
     data_dir: Path,
-    stdin: Optional[str] = None,
+    stdin: str | None = None,
     timeout: int = 60,
-    env: Optional[Dict[str, str]] = None,
-) -> Tuple[str, str, int]:
+    env: dict[str, str] | None = None,
+) -> tuple[str, str, int]:
     """
     Run archivebox command via subprocess, return (stdout, stderr, returncode).
 
@@ -44,28 +45,28 @@ def run_archivebox_cmd(
     Returns:
         Tuple of (stdout, stderr, returncode)
     """
-    cmd = [sys.executable, '-m', 'archivebox'] + args
+    cmd = [sys.executable, "-m", "archivebox"] + args
 
     base_env = os.environ.copy()
-    base_env['DATA_DIR'] = str(data_dir)
-    base_env['USE_COLOR'] = 'False'
-    base_env['SHOW_PROGRESS'] = 'False'
+    base_env["DATA_DIR"] = str(data_dir)
+    base_env["USE_COLOR"] = "False"
+    base_env["SHOW_PROGRESS"] = "False"
     # Disable slow extractors for faster tests
-    base_env['SAVE_ARCHIVEDOTORG'] = 'False'
-    base_env['SAVE_TITLE'] = 'False'
-    base_env['SAVE_FAVICON'] = 'False'
-    base_env['SAVE_WGET'] = 'False'
-    base_env['SAVE_WARC'] = 'False'
-    base_env['SAVE_PDF'] = 'False'
-    base_env['SAVE_SCREENSHOT'] = 'False'
-    base_env['SAVE_DOM'] = 'False'
-    base_env['SAVE_SINGLEFILE'] = 'False'
-    base_env['SAVE_READABILITY'] = 'False'
-    base_env['SAVE_MERCURY'] = 'False'
-    base_env['SAVE_GIT'] = 'False'
-    base_env['SAVE_YTDLP'] = 'False'
-    base_env['SAVE_HEADERS'] = 'False'
-    base_env['SAVE_HTMLTOTEXT'] = 'False'
+    base_env["SAVE_ARCHIVEDOTORG"] = "False"
+    base_env["SAVE_TITLE"] = "False"
+    base_env["SAVE_FAVICON"] = "False"
+    base_env["SAVE_WGET"] = "False"
+    base_env["SAVE_WARC"] = "False"
+    base_env["SAVE_PDF"] = "False"
+    base_env["SAVE_SCREENSHOT"] = "False"
+    base_env["SAVE_DOM"] = "False"
+    base_env["SAVE_SINGLEFILE"] = "False"
+    base_env["SAVE_READABILITY"] = "False"
+    base_env["SAVE_MERCURY"] = "False"
+    base_env["SAVE_GIT"] = "False"
+    base_env["SAVE_YTDLP"] = "False"
+    base_env["SAVE_HEADERS"] = "False"
+    base_env["SAVE_HTMLTOTEXT"] = "False"
 
     if env:
         base_env.update(env)
@@ -86,6 +87,7 @@ def run_archivebox_cmd(
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture(autouse=True)
 def isolate_test_runtime(tmp_path):
@@ -117,6 +119,7 @@ def isolate_test_runtime(tmp_path):
 def pytest_sessionfinish(session, exitstatus):
     shutil.rmtree(SESSION_DATA_DIR, ignore_errors=True)
 
+
 @pytest.fixture
 def isolated_data_dir(tmp_path):
     """
@@ -124,7 +127,7 @@ def isolated_data_dir(tmp_path):
 
     Uses tmp_path for complete isolation.
     """
-    data_dir = tmp_path / 'archivebox_data'
+    data_dir = tmp_path / "archivebox_data"
     data_dir.mkdir()
     return data_dir
 
@@ -137,7 +140,7 @@ def initialized_archive(isolated_data_dir):
     Runs `archivebox init` via subprocess to set up database and directories.
     """
     stdout, stderr, returncode = run_archivebox_cmd(
-        ['init', '--quick'],
+        ["init", "--quick"],
         data_dir=isolated_data_dir,
         timeout=60,
     )
@@ -149,23 +152,24 @@ def initialized_archive(isolated_data_dir):
 # CWD-based CLI Helpers (no DATA_DIR env)
 # =============================================================================
 
+
 def run_archivebox_cmd_cwd(
-    args: List[str],
+    args: list[str],
     cwd: Path,
-    stdin: Optional[str] = None,
+    stdin: str | None = None,
     timeout: int = 60,
-    env: Optional[Dict[str, str]] = None,
-) -> Tuple[str, str, int]:
+    env: dict[str, str] | None = None,
+) -> tuple[str, str, int]:
     """
     Run archivebox command via subprocess using cwd as DATA_DIR (no DATA_DIR env).
     Returns (stdout, stderr, returncode).
     """
-    cmd = [sys.executable, '-m', 'archivebox'] + args
+    cmd = [sys.executable, "-m", "archivebox"] + args
 
     base_env = os.environ.copy()
-    base_env.pop('DATA_DIR', None)
-    base_env['USE_COLOR'] = 'False'
-    base_env['SHOW_PROGRESS'] = 'False'
+    base_env.pop("DATA_DIR", None)
+    base_env["USE_COLOR"] = "False"
+    base_env["SHOW_PROGRESS"] = "False"
 
     if env:
         base_env.update(env)
@@ -183,7 +187,7 @@ def run_archivebox_cmd_cwd(
     return result.stdout, result.stderr, result.returncode
 
 
-def stop_process(proc: subprocess.Popen[str]) -> Tuple[str, str]:
+def stop_process(proc: subprocess.Popen[str]) -> tuple[str, str]:
     if proc.poll() is None:
         proc.terminate()
         try:
@@ -197,11 +201,11 @@ def run_python_cwd(
     script: str,
     cwd: Path,
     timeout: int = 60,
-) -> Tuple[str, str, int]:
+) -> tuple[str, str, int]:
     base_env = os.environ.copy()
-    base_env.pop('DATA_DIR', None)
+    base_env.pop("DATA_DIR", None)
     result = subprocess.run(
-        [sys.executable, '-'],
+        [sys.executable, "-"],
         input=script,
         capture_output=True,
         text=True,
@@ -253,7 +257,7 @@ def wait_for_archive_outputs(
                 rel_path = candidate.relative_to(snapshot_dir)
                 if rel_path.parts and rel_path.parts[0] == 'responses':
                     continue
-                if rel_path.name in {'stdout.log', 'stderr.log', 'cmd.sh'}:
+                if rel_path.name in {"stdout.log", "stderr.log", "cmd.sh"}:
                     continue
                 output_rel = str(rel_path)
                 break
@@ -267,64 +271,68 @@ def wait_for_archive_outputs(
             raise SystemExit(1)
 
         print('READY')
-        """
+        """,
     )
 
     deadline = time.time() + timeout
     while time.time() < deadline:
         stdout, _stderr, returncode = run_python_cwd(script, cwd=cwd, timeout=30)
-        if returncode == 0 and 'READY' in stdout:
+        if returncode == 0 and "READY" in stdout:
             return True
         time.sleep(interval)
     return False
+
 
 def _get_machine_type() -> str:
     import platform
 
     os_name = platform.system().lower()
     arch = platform.machine().lower()
-    in_docker = os.environ.get('IN_DOCKER', '').lower() in ('1', 'true', 'yes')
-    suffix = '-docker' if in_docker else ''
-    return f'{arch}-{os_name}{suffix}'
+    in_docker = os.environ.get("IN_DOCKER", "").lower() in ("1", "true", "yes")
+    suffix = "-docker" if in_docker else ""
+    return f"{arch}-{os_name}{suffix}"
 
-def _find_cached_chromium(lib_dir: Path) -> Optional[Path]:
+
+def _find_cached_chromium(lib_dir: Path) -> Path | None:
     candidates = [
-        lib_dir / 'puppeteer',
-        lib_dir / 'npm' / 'node_modules' / 'puppeteer' / '.local-chromium',
+        lib_dir / "puppeteer",
+        lib_dir / "npm" / "node_modules" / "puppeteer" / ".local-chromium",
     ]
     for base in candidates:
         if not base.exists():
             continue
-        for path in base.rglob('Chromium.app/Contents/MacOS/Chromium'):
+        for path in base.rglob("Chromium.app/Contents/MacOS/Chromium"):
             return path
-        for path in base.rglob('chrome-linux/chrome'):
+        for path in base.rglob("chrome-linux/chrome"):
             return path
-        for path in base.rglob('chrome-linux64/chrome'):
+        for path in base.rglob("chrome-linux64/chrome"):
             return path
     return None
 
-def _find_system_browser() -> Optional[Path]:
+
+def _find_system_browser() -> Path | None:
     candidates = [
-        Path('/Applications/Chromium.app/Contents/MacOS/Chromium'),
-        Path('/usr/bin/chromium'),
-        Path('/usr/bin/chromium-browser'),
+        Path("/Applications/Chromium.app/Contents/MacOS/Chromium"),
+        Path("/usr/bin/chromium"),
+        Path("/usr/bin/chromium-browser"),
     ]
     for candidate in candidates:
         if candidate.exists():
             return candidate
     return None
 
+
 def _ensure_puppeteer(shared_lib: Path) -> None:
-    npm_prefix = shared_lib / 'npm'
-    node_modules = npm_prefix / 'node_modules'
-    puppeteer_dir = node_modules / 'puppeteer'
+    npm_prefix = shared_lib / "npm"
+    node_modules = npm_prefix / "node_modules"
+    puppeteer_dir = node_modules / "puppeteer"
     if puppeteer_dir.exists():
         return
     npm_prefix.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
-    env['PUPPETEER_SKIP_DOWNLOAD'] = '1'
+    env["PUPPETEER_SKIP_DOWNLOAD"] = "1"
     subprocess.run(
-        ['npm', 'install', 'puppeteer'],
+        ["npm", "install", "puppeteer"],
         cwd=str(npm_prefix),
         env=env,
         check=True,
@@ -345,7 +353,7 @@ def real_archive_with_example(tmp_path_factory, request):
         request.cls.data_dir = tmp_path
 
     stdout, stderr, returncode = run_archivebox_cmd_cwd(
-        ['init', '--quick'],
+        ["init", "--quick"],
         cwd=tmp_path,
         timeout=120,
     )
@@ -353,28 +361,28 @@ def real_archive_with_example(tmp_path_factory, request):
 
     stdout, stderr, returncode = run_archivebox_cmd_cwd(
         [
-            'config',
-            '--set',
-            'LISTEN_HOST=archivebox.localhost:8000',
-            'PUBLIC_INDEX=True',
-            'PUBLIC_SNAPSHOTS=True',
-            'PUBLIC_ADD_VIEW=True',
+            "config",
+            "--set",
+            "LISTEN_HOST=archivebox.localhost:8000",
+            "PUBLIC_INDEX=True",
+            "PUBLIC_SNAPSHOTS=True",
+            "PUBLIC_ADD_VIEW=True",
         ],
         cwd=tmp_path,
     )
     assert returncode == 0, f"archivebox config failed: {stderr}"
 
     add_env = {
-        'RESPONSES_ENABLED': 'True',
-        'SHOW_PROGRESS': 'False',
-        'USE_COLOR': 'False',
-        'RESPONSES_TIMEOUT': '30',
+        "RESPONSES_ENABLED": "True",
+        "SHOW_PROGRESS": "False",
+        "USE_COLOR": "False",
+        "RESPONSES_TIMEOUT": "30",
     }
-    cmd = [sys.executable, '-m', 'archivebox', 'add', '--depth=0', '--plugins=responses', 'https://example.com']
+    cmd = [sys.executable, "-m", "archivebox", "add", "--depth=0", "--plugins=responses", "https://example.com"]
     base_env = os.environ.copy()
-    base_env.pop('DATA_DIR', None)
-    base_env['USE_COLOR'] = 'False'
-    base_env['SHOW_PROGRESS'] = 'False'
+    base_env.pop("DATA_DIR", None)
+    base_env["USE_COLOR"] = "False"
+    base_env["SHOW_PROGRESS"] = "False"
     base_env.update(add_env)
 
     proc = subprocess.Popen(
@@ -386,7 +394,7 @@ def real_archive_with_example(tmp_path_factory, request):
         env=base_env,
     )
 
-    ready = wait_for_archive_outputs(tmp_path, 'https://example.com', timeout=600)
+    ready = wait_for_archive_outputs(tmp_path, "https://example.com", timeout=600)
     stdout, stderr = stop_process(proc)
     assert ready, f"archivebox add did not produce required outputs within timeout:\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
 
@@ -397,34 +405,34 @@ def real_archive_with_example(tmp_path_factory, request):
 # Output Assertions
 # =============================================================================
 
-def parse_jsonl_output(stdout: str) -> List[Dict[str, Any]]:
+
+def parse_jsonl_output(stdout: str) -> list[dict[str, Any]]:
     """Parse JSONL output into list of dicts via Process parser."""
     from archivebox.machine.models import Process
-    return Process.parse_records_from_text(stdout or '')
+
+    return Process.parse_records_from_text(stdout or "")
 
 
 def assert_jsonl_contains_type(stdout: str, record_type: str, min_count: int = 1):
     """Assert output contains at least min_count records of type."""
     records = parse_jsonl_output(stdout)
-    matching = [r for r in records if r.get('type') == record_type]
-    assert len(matching) >= min_count, \
-        f"Expected >= {min_count} {record_type}, got {len(matching)}"
+    matching = [r for r in records if r.get("type") == record_type]
+    assert len(matching) >= min_count, f"Expected >= {min_count} {record_type}, got {len(matching)}"
     return matching
 
 
-def assert_jsonl_pass_through(stdout: str, input_records: List[Dict[str, Any]]):
+def assert_jsonl_pass_through(stdout: str, input_records: list[dict[str, Any]]):
     """Assert that input records appear in output (pass-through behavior)."""
     output_records = parse_jsonl_output(stdout)
-    output_ids = {r.get('id') for r in output_records if r.get('id')}
+    output_ids = {r.get("id") for r in output_records if r.get("id")}
 
     for input_rec in input_records:
-        input_id = input_rec.get('id')
+        input_id = input_rec.get("id")
         if input_id:
-            assert input_id in output_ids, \
-                f"Input record {input_id} not found in output (pass-through failed)"
+            assert input_id in output_ids, f"Input record {input_id} not found in output (pass-through failed)"
 
 
-def assert_record_has_fields(record: Dict[str, Any], required_fields: List[str]):
+def assert_record_has_fields(record: dict[str, Any], required_fields: list[str]):
     """Assert record has all required fields with non-None values."""
     for field in required_fields:
         assert field in record, f"Record missing field: {field}"
@@ -435,31 +443,32 @@ def assert_record_has_fields(record: Dict[str, Any], required_fields: List[str])
 # Test Data Factories
 # =============================================================================
 
-def create_test_url(domain: str = 'example.com', path: str | None = None) -> str:
+
+def create_test_url(domain: str = "example.com", path: str | None = None) -> str:
     """Generate unique test URL."""
     path = path or uuid7().hex[:8]
-    return f'https://{domain}/{path}'
+    return f"https://{domain}/{path}"
 
 
-def create_test_crawl_json(urls: List[str] | None = None, **kwargs) -> Dict[str, Any]:
+def create_test_crawl_json(urls: list[str] | None = None, **kwargs) -> dict[str, Any]:
     """Create Crawl JSONL record for testing."""
     urls = urls or [create_test_url()]
     return {
-        'type': 'Crawl',
-        'urls': '\n'.join(urls),
-        'max_depth': kwargs.get('max_depth', 0),
-        'tags_str': kwargs.get('tags_str', ''),
-        'status': kwargs.get('status', 'queued'),
-        **{k: v for k, v in kwargs.items() if k not in ('max_depth', 'tags_str', 'status')},
+        "type": "Crawl",
+        "urls": "\n".join(urls),
+        "max_depth": kwargs.get("max_depth", 0),
+        "tags_str": kwargs.get("tags_str", ""),
+        "status": kwargs.get("status", "queued"),
+        **{k: v for k, v in kwargs.items() if k not in ("max_depth", "tags_str", "status")},
     }
 
 
-def create_test_snapshot_json(url: str | None = None, **kwargs) -> Dict[str, Any]:
+def create_test_snapshot_json(url: str | None = None, **kwargs) -> dict[str, Any]:
     """Create Snapshot JSONL record for testing."""
     return {
-        'type': 'Snapshot',
-        'url': url or create_test_url(),
-        'tags_str': kwargs.get('tags_str', ''),
-        'status': kwargs.get('status', 'queued'),
-        **{k: v for k, v in kwargs.items() if k not in ('tags_str', 'status')},
+        "type": "Snapshot",
+        "url": url or create_test_url(),
+        "tags_str": kwargs.get("tags_str", ""),
+        "status": kwargs.get("status", "queued"),
+        **{k: v for k, v in kwargs.items() if k not in ("tags_str", "status")},
     }

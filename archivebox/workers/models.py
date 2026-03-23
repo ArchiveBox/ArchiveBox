@@ -1,6 +1,7 @@
-__package__ = 'archivebox.workers'
+__package__ = "archivebox.workers"
 
-from typing import ClassVar, Type, Iterable
+from typing import ClassVar
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 from statemachine.mixins import MachineMixin
 
@@ -14,12 +15,19 @@ from statemachine import registry, StateMachine, State
 
 
 class DefaultStatusChoices(models.TextChoices):
-    QUEUED = 'queued', 'Queued'
-    STARTED = 'started', 'Started'
-    SEALED = 'sealed', 'Sealed'
+    QUEUED = "queued", "Queued"
+    STARTED = "started", "Started"
+    SEALED = "sealed", "Sealed"
 
 
-default_status_field: models.CharField = models.CharField(choices=DefaultStatusChoices.choices, max_length=15, default=DefaultStatusChoices.QUEUED, null=False, blank=False, db_index=True)
+default_status_field: models.CharField = models.CharField(
+    choices=DefaultStatusChoices.choices,
+    max_length=15,
+    default=DefaultStatusChoices.QUEUED,
+    null=False,
+    blank=False,
+    db_index=True,
+)
 default_retry_at_field: models.DateTimeField = models.DateTimeField(default=timezone.now, null=True, blank=True, db_index=True)
 
 ObjectState = State | str
@@ -27,21 +35,21 @@ ObjectStateList = Iterable[ObjectState]
 
 
 class BaseModelWithStateMachine(models.Model, MachineMixin):
-    StatusChoices: ClassVar[Type[DefaultStatusChoices]]
+    StatusChoices: ClassVar[type[DefaultStatusChoices]]
 
     # status: models.CharField
     # retry_at: models.DateTimeField
 
     state_machine_name: str | None = None
     state_field_name: str
-    state_machine_attr: str = 'sm'
+    state_machine_attr: str = "sm"
     bind_events_as_methods: bool = True
 
     active_state: ObjectState
     retry_at_field_name: str
 
     class Meta(TypedModelMeta):
-        app_label = 'workers'
+        app_label = "workers"
         abstract = True
 
     @classmethod
@@ -49,7 +57,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
         import sys
 
         # Skip state machine checks during makemigrations to avoid premature registry access
-        if 'makemigrations' in sys.argv:
+        if "makemigrations" in sys.argv:
             return super().check(**kwargs)
 
         errors = super().check(**kwargs)
@@ -59,88 +67,105 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
         found_retry_at_field = False
 
         for field in cls._meta.get_fields():
-            if getattr(field, '_is_state_field', False):
+            if getattr(field, "_is_state_field", False):
                 if cls.state_field_name == field.name:
                     found_status_field = True
-                    if getattr(field, 'choices', None) != cls.StatusChoices.choices:
-                        errors.append(checks.Error(
-                            f'{cls.__name__}.{field.name} must have choices set to {cls.__name__}.StatusChoices.choices',
-                            hint=f'{cls.__name__}.{field.name}.choices = {getattr(field, "choices", None)!r}',
-                            obj=cls,
-                            id='workers.E011',
-                        ))
-            if getattr(field, '_is_retry_at_field', False):
+                    if getattr(field, "choices", None) != cls.StatusChoices.choices:
+                        errors.append(
+                            checks.Error(
+                                f"{cls.__name__}.{field.name} must have choices set to {cls.__name__}.StatusChoices.choices",
+                                hint=f"{cls.__name__}.{field.name}.choices = {getattr(field, 'choices', None)!r}",
+                                obj=cls,
+                                id="workers.E011",
+                            ),
+                        )
+            if getattr(field, "_is_retry_at_field", False):
                 if cls.retry_at_field_name == field.name:
                     found_retry_at_field = True
-            if field.name == 'id' and getattr(field, 'primary_key', False):
+            if field.name == "id" and getattr(field, "primary_key", False):
                 found_id_field = True
 
         if not found_status_field:
-            errors.append(checks.Error(
-                f'{cls.__name__}.state_field_name must be defined and point to a StatusField()',
-                hint=f'{cls.__name__}.state_field_name = {cls.state_field_name!r} but {cls.__name__}.{cls.state_field_name!r} was not found or does not refer to StatusField',
-                obj=cls,
-                id='workers.E012',
-            ))
+            errors.append(
+                checks.Error(
+                    f"{cls.__name__}.state_field_name must be defined and point to a StatusField()",
+                    hint=f"{cls.__name__}.state_field_name = {cls.state_field_name!r} but {cls.__name__}.{cls.state_field_name!r} was not found or does not refer to StatusField",
+                    obj=cls,
+                    id="workers.E012",
+                ),
+            )
         if not found_retry_at_field:
-            errors.append(checks.Error(
-                f'{cls.__name__}.retry_at_field_name must be defined and point to a RetryAtField()',
-                hint=f'{cls.__name__}.retry_at_field_name = {cls.retry_at_field_name!r} but {cls.__name__}.{cls.retry_at_field_name!r} was not found or does not refer to RetryAtField',
-                obj=cls,
-                id='workers.E013',
-            ))
+            errors.append(
+                checks.Error(
+                    f"{cls.__name__}.retry_at_field_name must be defined and point to a RetryAtField()",
+                    hint=f"{cls.__name__}.retry_at_field_name = {cls.retry_at_field_name!r} but {cls.__name__}.{cls.retry_at_field_name!r} was not found or does not refer to RetryAtField",
+                    obj=cls,
+                    id="workers.E013",
+                ),
+            )
 
         if not found_id_field:
-            errors.append(checks.Error(
-                f'{cls.__name__} must have an id field that is a primary key',
-                hint=f'{cls.__name__}.id field missing or not configured as primary key',
-                obj=cls,
-                id='workers.E014',
-            ))
+            errors.append(
+                checks.Error(
+                    f"{cls.__name__} must have an id field that is a primary key",
+                    hint=f"{cls.__name__}.id field missing or not configured as primary key",
+                    obj=cls,
+                    id="workers.E014",
+                ),
+            )
 
         if not isinstance(cls.state_machine_name, str):
-            errors.append(checks.Error(
-                f'{cls.__name__}.state_machine_name must be a dotted-import path to a StateMachine class',
-                hint=f'{cls.__name__}.state_machine_name = {cls.state_machine_name!r}',
-                obj=cls,
-                id='workers.E015',
-            ))
+            errors.append(
+                checks.Error(
+                    f"{cls.__name__}.state_machine_name must be a dotted-import path to a StateMachine class",
+                    hint=f"{cls.__name__}.state_machine_name = {cls.state_machine_name!r}",
+                    obj=cls,
+                    id="workers.E015",
+                ),
+            )
 
         try:
             cls.StateMachineClass
         except Exception as err:
-            errors.append(checks.Error(
-                f'{cls.__name__}.state_machine_name must point to a valid StateMachine class, but got {type(err).__name__} {err} when trying to access {cls.__name__}.StateMachineClass',
-                hint=f'{cls.__name__}.state_machine_name = {cls.state_machine_name!r}',
-                obj=cls,
-                id='workers.E016',
-            ))
+            errors.append(
+                checks.Error(
+                    f"{cls.__name__}.state_machine_name must point to a valid StateMachine class, but got {type(err).__name__} {err} when trying to access {cls.__name__}.StateMachineClass",
+                    hint=f"{cls.__name__}.state_machine_name = {cls.state_machine_name!r}",
+                    obj=cls,
+                    id="workers.E016",
+                ),
+            )
 
         if cls.INITIAL_STATE not in cls.StatusChoices.values:
-            errors.append(checks.Error(
-                f'{cls.__name__}.StateMachineClass.initial_state must be present within {cls.__name__}.StatusChoices',
-                hint=f'{cls.__name__}.StateMachineClass.initial_state = {cls.StateMachineClass.initial_state!r}',
-                obj=cls,
-                id='workers.E017',
-            ))
+            errors.append(
+                checks.Error(
+                    f"{cls.__name__}.StateMachineClass.initial_state must be present within {cls.__name__}.StatusChoices",
+                    hint=f"{cls.__name__}.StateMachineClass.initial_state = {cls.StateMachineClass.initial_state!r}",
+                    obj=cls,
+                    id="workers.E017",
+                ),
+            )
 
         if cls.ACTIVE_STATE not in cls.StatusChoices.values:
-            errors.append(checks.Error(
-                f'{cls.__name__}.active_state must be set to a valid State present within {cls.__name__}.StatusChoices',
-                hint=f'{cls.__name__}.active_state = {cls.active_state!r}',
-                obj=cls,
-                id='workers.E018',
-            ))
-
+            errors.append(
+                checks.Error(
+                    f"{cls.__name__}.active_state must be set to a valid State present within {cls.__name__}.StatusChoices",
+                    hint=f"{cls.__name__}.active_state = {cls.active_state!r}",
+                    obj=cls,
+                    id="workers.E018",
+                ),
+            )
 
         for state in cls.FINAL_STATES:
             if state not in cls.StatusChoices.values:
-                errors.append(checks.Error(
-                    f'{cls.__name__}.StateMachineClass.final_states must all be present within {cls.__name__}.StatusChoices',
-                    hint=f'{cls.__name__}.StateMachineClass.final_states = {cls.StateMachineClass.final_states!r}',
-                    obj=cls,
-                    id='workers.E019',
-                ))
+                errors.append(
+                    checks.Error(
+                        f"{cls.__name__}.StateMachineClass.final_states must all be present within {cls.__name__}.StatusChoices",
+                        hint=f"{cls.__name__}.StateMachineClass.final_states = {cls.StateMachineClass.final_states!r}",
+                        obj=cls,
+                        id="workers.E019",
+                    ),
+                )
                 break
         return errors
 
@@ -148,7 +173,6 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
     def _state_to_str(state: ObjectState) -> str:
         """Convert a statemachine.State, models.TextChoices.choices value, or Enum value to a str"""
         return str(state.value) if isinstance(state, State) else str(state)
-
 
     @property
     def RETRY_AT(self) -> datetime:
@@ -182,10 +206,14 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
             setattr(self, key, value)
 
         # Try to save with optimistic locking
-        updated = type(self).objects.filter(
-            pk=self.pk,
-            retry_at=current_retry_at,
-        ).update(**{k: getattr(self, k) for k in kwargs})
+        updated = (
+            type(self)
+            .objects.filter(
+                pk=self.pk,
+                retry_at=current_retry_at,
+            )
+            .update(**{k: getattr(self, k) for k in kwargs})
+        )
 
         if updated == 1:
             self.refresh_from_db()
@@ -200,14 +228,18 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
         - status is not in FINAL_STATES
         - retry_at is in the past (or now)
         """
-        return cls.objects.filter(
-            retry_at__lte=timezone.now()
-        ).exclude(
-            status__in=cls.FINAL_STATES
-        ).order_by('retry_at')
+        return (
+            cls.objects.filter(
+                retry_at__lte=timezone.now(),
+            )
+            .exclude(
+                status__in=cls.FINAL_STATES,
+            )
+            .order_by("retry_at")
+        )
 
     @classmethod
-    def claim_for_worker(cls, obj: 'BaseModelWithStateMachine', lock_seconds: int = 60) -> bool:
+    def claim_for_worker(cls, obj: "BaseModelWithStateMachine", lock_seconds: int = 60) -> bool:
         """
         Atomically claim a due object for processing using retry_at as the lock.
 
@@ -231,7 +263,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
             retry_at=obj.RETRY_AT,
             retry_at__lte=timezone.now(),
         ).update(
-            retry_at=timezone.now() + timedelta(seconds=lock_seconds)
+            retry_at=timezone.now() + timedelta(seconds=lock_seconds),
         )
         return updated == 1
 
@@ -270,9 +302,9 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
         if not self.claim_processing_lock(lock_seconds=lock_seconds):
             return False
 
-        tick = getattr(getattr(self, self.state_machine_attr, None), 'tick', None)
+        tick = getattr(getattr(self, self.state_machine_attr, None), "tick", None)
         if not callable(tick):
-            raise TypeError(f'{type(self).__name__}.{self.state_machine_attr}.tick() must be callable')
+            raise TypeError(f"{type(self).__name__}.{self.state_machine_attr}.tick() must be callable")
         tick()
         self.refresh_from_db()
         return True
@@ -285,7 +317,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
     def INITIAL_STATE(cls) -> str:
         initial_state = cls.StateMachineClass.initial_state
         if initial_state is None:
-            raise ValueError('StateMachineClass.initial_state must not be None')
+            raise ValueError("StateMachineClass.initial_state must not be None")
         return cls._state_to_str(initial_state)
 
     @classproperty
@@ -297,7 +329,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
         return [*cls.FINAL_STATES, cls.ACTIVE_STATE]
 
     @classmethod
-    def extend_choices(cls, base_choices: Type[models.TextChoices]):
+    def extend_choices(cls, base_choices: type[models.TextChoices]):
         """
         Decorator to extend the base choices with extra choices, e.g.:
 
@@ -309,16 +341,20 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
                 FAILED = 'failed'
                 SKIPPED = 'skipped'
         """
-        assert issubclass(base_choices, models.TextChoices), f'@extend_choices(base_choices) must be a TextChoices class, not {base_choices.__name__}'
-        def wrapper(extra_choices: Type[models.TextChoices]) -> Type[models.TextChoices]:
+        assert issubclass(base_choices, models.TextChoices), (
+            f"@extend_choices(base_choices) must be a TextChoices class, not {base_choices.__name__}"
+        )
+
+        def wrapper(extra_choices: type[models.TextChoices]) -> type[models.TextChoices]:
             joined = {}
             for item in base_choices.choices:
                 joined[item[0]] = item[1]
             for item in extra_choices.choices:
                 joined[item[0]] = item[1]
-            joined_choices = models.TextChoices('StatusChoices', joined)
+            joined_choices = models.TextChoices("StatusChoices", joined)
             assert isinstance(joined_choices, type)
             return joined_choices
+
         return wrapper
 
     @classmethod
@@ -340,7 +376,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
         default_kwargs = default_status_field.deconstruct()[3]
         updated_kwargs = {**default_kwargs, **kwargs}
         field = models.CharField(**updated_kwargs)
-        field._is_state_field = True                    # type: ignore
+        field._is_state_field = True  # type: ignore
         return field
 
     @classmethod
@@ -354,19 +390,19 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
         default_kwargs = default_retry_at_field.deconstruct()[3]
         updated_kwargs = {**default_kwargs, **kwargs}
         field = models.DateTimeField(**updated_kwargs)
-        field._is_retry_at_field = True                 # type: ignore
+        field._is_retry_at_field = True  # type: ignore
         return field
 
     @classproperty
-    def StateMachineClass(cls) -> Type[StateMachine]:
+    def StateMachineClass(cls) -> type[StateMachine]:
         """Get the StateMachine class for the given django Model that inherits from MachineMixin"""
 
-        model_state_machine_name = getattr(cls, 'state_machine_name', None)
+        model_state_machine_name = getattr(cls, "state_machine_name", None)
         if model_state_machine_name:
             StateMachineCls = registry.get_machine_cls(model_state_machine_name)
             assert issubclass(StateMachineCls, StateMachine)
             return StateMachineCls
-        raise NotImplementedError('ActorType must define .state_machine_name that points to a valid StateMachine')
+        raise NotImplementedError("ActorType must define .state_machine_name that points to a valid StateMachine")
 
 
 class ModelWithStateMachine(BaseModelWithStateMachine):
@@ -375,16 +411,17 @@ class ModelWithStateMachine(BaseModelWithStateMachine):
     status: models.CharField = BaseModelWithStateMachine.StatusField()
     retry_at: models.DateTimeField = BaseModelWithStateMachine.RetryAtField()
 
-    state_machine_name: str | None         # e.g. 'core.models.ArchiveResultMachine'
-    state_field_name: str                  = 'status'
-    state_machine_attr: str                = 'sm'
-    bind_events_as_methods: bool           = True
+    state_machine_name: str | None  # e.g. 'core.models.ArchiveResultMachine'
+    state_field_name: str = "status"
+    state_machine_attr: str = "sm"
+    bind_events_as_methods: bool = True
 
     active_state = StatusChoices.STARTED
-    retry_at_field_name: str               = 'retry_at'
+    retry_at_field_name: str = "retry_at"
 
     class Meta(BaseModelWithStateMachine.Meta):
         abstract = True
+
 
 class BaseStateMachine(StateMachine):
     """
@@ -408,7 +445,7 @@ class BaseStateMachine(StateMachine):
     (e.g., self.snapshot, self.archiveresult, etc.)
     """
 
-    model_attr_name: str = 'obj'  # Override in subclasses
+    model_attr_name: str = "obj"  # Override in subclasses
 
     def __init__(self, obj, *args, **kwargs):
         setattr(self, self.model_attr_name, obj)
@@ -416,7 +453,7 @@ class BaseStateMachine(StateMachine):
 
     def __repr__(self) -> str:
         obj = getattr(self, self.model_attr_name)
-        return f'{self.__class__.__name__}[{obj.id}]'
+        return f"{self.__class__.__name__}[{obj.id}]"
 
     def __str__(self) -> str:
         return self.__repr__()

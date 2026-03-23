@@ -11,5 +11,5 @@ class CrawlsConfig(AppConfig):
         import sys
 
         # Skip during makemigrations to avoid premature state machine access
-        if 'makemigrations' not in sys.argv:
+        if "makemigrations" not in sys.argv:
             from archivebox.crawls.models import CrawlMachine  # noqa: F401

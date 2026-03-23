@@ -21,7 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 def init_archive(cwd: Path) -> None:
     result = subprocess.run(
-        [sys.executable, '-m', 'archivebox', 'init', '--quick'],
+        [sys.executable, "-m", "archivebox", "init", "--quick"],
         cwd=cwd,
         capture_output=True,
         text=True,
@@ -32,46 +32,48 @@ def init_archive(cwd: Path) -> None:
 
 def build_test_env(port: int, **extra: str) -> dict[str, str]:
     env = os.environ.copy()
-    env.pop('DATA_DIR', None)
-    env.update({
-        'LISTEN_HOST': f'archivebox.localhost:{port}',
-        'ALLOWED_HOSTS': '*',
-        'CSRF_TRUSTED_ORIGINS': f'http://admin.archivebox.localhost:{port}',
-        'PUBLIC_ADD_VIEW': 'True',
-        'USE_COLOR': 'False',
-        'SHOW_PROGRESS': 'False',
-        'TIMEOUT': '20',
-        'URL_ALLOWLIST': r'127\.0\.0\.1[:/].*',
-        'SAVE_ARCHIVEDOTORG': 'False',
-        'SAVE_TITLE': 'False',
-        'SAVE_FAVICON': 'False',
-        'SAVE_WARC': 'False',
-        'SAVE_PDF': 'False',
-        'SAVE_SCREENSHOT': 'False',
-        'SAVE_DOM': 'False',
-        'SAVE_SINGLEFILE': 'False',
-        'SAVE_READABILITY': 'False',
-        'SAVE_MERCURY': 'False',
-        'SAVE_GIT': 'False',
-        'SAVE_YTDLP': 'False',
-        'SAVE_HEADERS': 'False',
-        'SAVE_HTMLTOTEXT': 'False',
-        'SAVE_WGET': 'True',
-        'USE_CHROME': 'False',
-    })
+    env.pop("DATA_DIR", None)
+    env.update(
+        {
+            "LISTEN_HOST": f"archivebox.localhost:{port}",
+            "ALLOWED_HOSTS": "*",
+            "CSRF_TRUSTED_ORIGINS": f"http://admin.archivebox.localhost:{port}",
+            "PUBLIC_ADD_VIEW": "True",
+            "USE_COLOR": "False",
+            "SHOW_PROGRESS": "False",
+            "TIMEOUT": "20",
+            "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*",
+            "SAVE_ARCHIVEDOTORG": "False",
+            "SAVE_TITLE": "False",
+            "SAVE_FAVICON": "False",
+            "SAVE_WARC": "False",
+            "SAVE_PDF": "False",
+            "SAVE_SCREENSHOT": "False",
+            "SAVE_DOM": "False",
+            "SAVE_SINGLEFILE": "False",
+            "SAVE_READABILITY": "False",
+            "SAVE_MERCURY": "False",
+            "SAVE_GIT": "False",
+            "SAVE_YTDLP": "False",
+            "SAVE_HEADERS": "False",
+            "SAVE_HTMLTOTEXT": "False",
+            "SAVE_WGET": "True",
+            "USE_CHROME": "False",
+        },
+    )
     env.update(extra)
     return env
 
 
 def get_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(('127.0.0.1', 0))
+        sock.bind(("127.0.0.1", 0))
         return sock.getsockname()[1]
 
 
 def start_server(cwd: Path, env: dict[str, str], port: int) -> None:
     result = subprocess.run(
-        [sys.executable, '-m', 'archivebox', 'server', '--daemonize', f'127.0.0.1:{port}'],
+        [sys.executable, "-m", "archivebox", "server", "--daemonize", f"127.0.0.1:{port}"],
         cwd=cwd,
         capture_output=True,
         text=True,
@@ -91,19 +93,19 @@ def stop_server(cwd: Path) -> None:
         from archivebox.workers.supervisord_util import stop_existing_supervisord_process
         stop_existing_supervisord_process()
         print('stopped')
-        """
+        """,
     )
     run_python_cwd(script, cwd=cwd, timeout=30)
 
 
-def wait_for_http(port: int, host: str, path: str = '/', timeout: int = 30) -> requests.Response:
+def wait_for_http(port: int, host: str, path: str = "/", timeout: int = 30) -> requests.Response:
     deadline = time.time() + timeout
     last_exc = None
     while time.time() < deadline:
         try:
             response = requests.get(
-                f'http://127.0.0.1:{port}{path}',
-                headers={'Host': host},
+                f"http://127.0.0.1:{port}{path}",
+                headers={"Host": host},
                 timeout=2,
                 allow_redirects=False,
             )
@@ -112,11 +114,11 @@ def wait_for_http(port: int, host: str, path: str = '/', timeout: int = 30) -> r
         except requests.RequestException as exc:
             last_exc = exc
         time.sleep(0.5)
-    raise AssertionError(f'Timed out waiting for HTTP on {host}: {last_exc}')
+    raise AssertionError(f"Timed out waiting for HTTP on {host}: {last_exc}")
 
 
 def make_latest_schedule_due(cwd: Path) -> None:
-    conn = sqlite3.connect(cwd / 'index.sqlite3')
+    conn = sqlite3.connect(cwd / "index.sqlite3")
     try:
         conn.execute(
             """
@@ -129,7 +131,7 @@ def make_latest_schedule_due(cwd: Path) -> None:
                 ORDER BY created_at DESC
                 LIMIT 1
             )
-            """
+            """,
         )
         conn.commit()
     finally:
@@ -182,7 +184,7 @@ def get_snapshot_file_text(cwd: Path, url: str) -> str:
 
         assert candidates, f'no captured html/txt files found in {{snapshot_dir}}'
         print(candidates[0].read_text(errors='ignore'))
-        """
+        """,
     )
     stdout, stderr, code = run_python_cwd(script, cwd=cwd, timeout=60)
     assert code == 0, stderr
@@ -198,11 +200,11 @@ def wait_for_snapshot_capture(cwd: Path, url: str, timeout: int = 180) -> str:
         except AssertionError as err:
             last_error = err
             time.sleep(2)
-    raise AssertionError(f'timed out waiting for captured content for {url}: {last_error}')
+    raise AssertionError(f"timed out waiting for captured content for {url}: {last_error}")
 
 
 def get_counts(cwd: Path, scheduled_url: str, one_shot_url: str) -> tuple[int, int, int]:
-    conn = sqlite3.connect(cwd / 'index.sqlite3')
+    conn = sqlite3.connect(cwd / "index.sqlite3")
     try:
         scheduled_snapshots = conn.execute(
             "SELECT COUNT(*) FROM core_snapshot WHERE url = ?",
@@ -259,7 +261,7 @@ def create_admin_and_token(cwd: Path) -> str:
             expires=timezone.now() + timedelta(days=1),
         )
         print(token.token)
-        """
+        """,
     )
     stdout, stderr, code = run_python_cwd(script, cwd=cwd, timeout=60)
     assert code == 0, stderr
@@ -275,7 +277,7 @@ def test_server_processes_due_cli_schedule_and_saves_real_content(tmp_path, recu
     env = build_test_env(port)
 
     schedule_result = subprocess.run(
-        [sys.executable, '-m', 'archivebox', 'schedule', '--every=daily', '--depth=0', recursive_test_site['root_url']],
+        [sys.executable, "-m", "archivebox", "schedule", "--every=daily", "--depth=0", recursive_test_site["root_url"]],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -283,16 +285,16 @@ def test_server_processes_due_cli_schedule_and_saves_real_content(tmp_path, recu
         timeout=60,
     )
     assert schedule_result.returncode == 0, schedule_result.stderr
-    assert 'Created scheduled crawl' in schedule_result.stdout
+    assert "Created scheduled crawl" in schedule_result.stdout
 
     make_latest_schedule_due(tmp_path)
 
     try:
         start_server(tmp_path, env=env, port=port)
-        wait_for_http(port, host=f'web.archivebox.localhost:{port}')
-        captured_text = wait_for_snapshot_capture(tmp_path, recursive_test_site['root_url'], timeout=180)
-        assert 'Root' in captured_text
-        assert 'About' in captured_text
+        wait_for_http(port, host=f"web.archivebox.localhost:{port}")
+        captured_text = wait_for_snapshot_capture(tmp_path, recursive_test_site["root_url"], timeout=180)
+        assert "Root" in captured_text
+        assert "About" in captured_text
     finally:
         stop_server(tmp_path)
 
@@ -304,11 +306,11 @@ def test_archivebox_add_remains_one_shot_even_when_schedule_is_due(tmp_path, rec
 
     port = get_free_port()
     env = build_test_env(port)
-    scheduled_url = recursive_test_site['root_url']
-    one_shot_url = recursive_test_site['child_urls'][0]
+    scheduled_url = recursive_test_site["root_url"]
+    one_shot_url = recursive_test_site["child_urls"][0]
 
     schedule_result = subprocess.run(
-        [sys.executable, '-m', 'archivebox', 'schedule', '--every=daily', '--depth=0', scheduled_url],
+        [sys.executable, "-m", "archivebox", "schedule", "--every=daily", "--depth=0", scheduled_url],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -320,7 +322,7 @@ def test_archivebox_add_remains_one_shot_even_when_schedule_is_due(tmp_path, rec
     make_latest_schedule_due(tmp_path)
 
     add_result = subprocess.run(
-        [sys.executable, '-m', 'archivebox', 'add', '--depth=0', '--plugins=wget', one_shot_url],
+        [sys.executable, "-m", "archivebox", "add", "--depth=0", "--plugins=wget", one_shot_url],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -329,7 +331,7 @@ def test_archivebox_add_remains_one_shot_even_when_schedule_is_due(tmp_path, rec
     )
     assert add_result.returncode == 0, add_result.stderr
     captured_text = wait_for_snapshot_capture(tmp_path, one_shot_url, timeout=120)
-    assert 'Deep About' in captured_text or 'About' in captured_text
+    assert "Deep About" in captured_text or "About" in captured_text
 
     scheduled_snapshots, one_shot_snapshots, scheduled_crawls = get_counts(tmp_path, scheduled_url, one_shot_url)
     assert one_shot_snapshots >= 1
@@ -348,27 +350,27 @@ def test_schedule_rest_api_works_over_running_server(tmp_path, recursive_test_si
 
     try:
         start_server(tmp_path, env=env, port=port)
-        wait_for_http(port, host=f'api.archivebox.localhost:{port}', path='/api/v1/docs')
+        wait_for_http(port, host=f"api.archivebox.localhost:{port}", path="/api/v1/docs")
 
         response = requests.post(
-            f'http://127.0.0.1:{port}/api/v1/cli/schedule',
+            f"http://127.0.0.1:{port}/api/v1/cli/schedule",
             headers={
-                'Host': f'api.archivebox.localhost:{port}',
-                'X-ArchiveBox-API-Key': api_token,
+                "Host": f"api.archivebox.localhost:{port}",
+                "X-ArchiveBox-API-Key": api_token,
             },
             json={
-                'every': 'daily',
-                'import_path': recursive_test_site['root_url'],
-                'quiet': True,
+                "every": "daily",
+                "import_path": recursive_test_site["root_url"],
+                "quiet": True,
             },
             timeout=10,
         )
 
         assert response.status_code == 200, response.text
         payload = response.json()
-        assert payload['success'] is True
-        assert payload['result_format'] == 'json'
-        assert len(payload['result']['created_schedule_ids']) == 1
+        assert payload["success"] is True
+        assert payload["result_format"] == "json"
+        assert len(payload["result"]["created_schedule_ids"]) == 1
     finally:
         stop_server(tmp_path)
 
@@ -379,21 +381,21 @@ def test_schedule_web_ui_post_works_over_running_server(tmp_path, recursive_test
     init_archive(tmp_path)
 
     port = get_free_port()
-    env = build_test_env(port, PUBLIC_ADD_VIEW='True')
+    env = build_test_env(port, PUBLIC_ADD_VIEW="True")
 
     try:
         start_server(tmp_path, env=env, port=port)
-        wait_for_http(port, host=f'web.archivebox.localhost:{port}', path='/add/')
+        wait_for_http(port, host=f"web.archivebox.localhost:{port}", path="/add/")
 
         response = requests.post(
-            f'http://127.0.0.1:{port}/add/',
-            headers={'Host': f'web.archivebox.localhost:{port}'},
+            f"http://127.0.0.1:{port}/add/",
+            headers={"Host": f"web.archivebox.localhost:{port}"},
             data={
-                'url': recursive_test_site['root_url'],
-                'depth': '0',
-                'schedule': 'daily',
-                'tag': 'web-ui',
-                'notes': 'created from web ui',
+                "url": recursive_test_site["root_url"],
+                "depth": "0",
+                "schedule": "daily",
+                "tag": "web-ui",
+                "notes": "created from web ui",
             },
             timeout=10,
             allow_redirects=False,
@@ -401,7 +403,7 @@ def test_schedule_web_ui_post_works_over_running_server(tmp_path, recursive_test
 
         assert response.status_code in (302, 303), response.text
 
-        conn = sqlite3.connect(tmp_path / 'index.sqlite3')
+        conn = sqlite3.connect(tmp_path / "index.sqlite3")
         try:
             row = conn.execute(
                 """
@@ -410,11 +412,11 @@ def test_schedule_web_ui_post_works_over_running_server(tmp_path, recursive_test
                 JOIN crawls_crawl c ON c.schedule_id = cs.id
                 ORDER BY cs.created_at DESC
                 LIMIT 1
-                """
+                """,
             ).fetchone()
         finally:
             conn.close()
 
-        assert row == ('daily', recursive_test_site['root_url'], 'web-ui')
+        assert row == ("daily", recursive_test_site["root_url"], "web-ui")
     finally:
         stop_server(tmp_path)

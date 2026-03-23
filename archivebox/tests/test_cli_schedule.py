@@ -6,26 +6,25 @@ import sqlite3
 import subprocess
 
 
-
 def test_schedule_run_all_enqueues_scheduled_crawl(tmp_path, process, disable_extractors_dict):
     os.chdir(tmp_path)
 
     subprocess.run(
-        ['archivebox', 'schedule', '--every=daily', '--depth=0', 'https://example.com'],
+        ["archivebox", "schedule", "--every=daily", "--depth=0", "https://example.com"],
         capture_output=True,
         text=True,
         check=True,
     )
 
     result = subprocess.run(
-        ['archivebox', 'schedule', '--run-all'],
+        ["archivebox", "schedule", "--run-all"],
         capture_output=True,
         text=True,
         env=disable_extractors_dict,
     )
 
     assert result.returncode == 0
-    assert 'Enqueued 1 scheduled crawl' in result.stdout
+    assert "Enqueued 1 scheduled crawl" in result.stdout
 
     conn = sqlite3.connect(tmp_path / "index.sqlite3")
     try:
@@ -42,20 +41,20 @@ def test_schedule_without_import_path_creates_maintenance_schedule(tmp_path, pro
     os.chdir(tmp_path)
 
     result = subprocess.run(
-        ['archivebox', 'schedule', '--every=day'],
+        ["archivebox", "schedule", "--every=day"],
         capture_output=True,
         text=True,
     )
 
     assert result.returncode == 0
-    assert 'Created scheduled maintenance update' in result.stdout
+    assert "Created scheduled maintenance update" in result.stdout
 
     conn = sqlite3.connect(tmp_path / "index.sqlite3")
     try:
         row = conn.execute(
-            "SELECT urls, status FROM crawls_crawl ORDER BY created_at DESC LIMIT 1"
+            "SELECT urls, status FROM crawls_crawl ORDER BY created_at DESC LIMIT 1",
         ).fetchone()
     finally:
         conn.close()
 
-    assert row == ('archivebox://update', 'sealed')
+    assert row == ("archivebox://update", "sealed")

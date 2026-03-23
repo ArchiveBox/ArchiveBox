@@ -1,0 +1,67 @@
+default_language_version:
+  python: python3.13
+
+repos:
+  - repo: https://github.com/asottile/yesqa
+    rev: v1.5.0
+    hooks:
+      - id: yesqa
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+        additional_dependencies:
+          - tomli
+
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.20.0
+    hooks:
+      - id: pyupgrade
+        args: [--py313-plus]
+
+  - repo: https://github.com/asottile/add-trailing-comma
+    rev: v3.1.0
+    hooks:
+      - id: add-trailing-comma
+
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: ruff-format
+        entry: uv run --active ruff format
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-check
+        name: ruff-check
+        entry: uv run --active ruff check --fix
+        language: system
+        types_or: [python, pyi]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-ast
+      - id: check-toml
+      - id: check-yaml
+        exclude: ^\.github/workflows/homebrew\.yml$
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: destroyed-symlinks
+      - id: check-case-conflict
+      - id: check-illegal-windows-names
+      - id: check-shebang-scripts-are-executable
+        exclude: ^(archivebox/.*\.py|archivebox/tests/.*\.py|archivebox/personas/export_browser_state\.js)$
+      - id: mixed-line-ending
+      - id: fix-byte-order-marker
+      - id: end-of-file-fixer
+      - id: detect-private-key
+      - id: debug-statements
+      - id: forbid-submodules
+        exclude: ^docs$
+      - id: check-added-large-files
+        args: ["--maxkb=600"]
+      - id: name-tests-test
+        args: ["--pytest-test-first"]
+        exclude: ^archivebox/tests/(data/|fixtures\.py$|migrations_helpers\.py$)

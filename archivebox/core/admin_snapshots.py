@@ -1,32 +1,30 @@
+__package__ = "archivebox.core"
 
-__package__ = 'archivebox.core'
-
-import os
-from pathlib import Path
+import json
+from functools import lru_cache
 
 from django.contrib import admin, messages
 from django.urls import path
 from django.shortcuts import get_object_or_404, redirect
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
-from django.utils import timezone
 from django.db.models import Q, Sum, Count, Prefetch
 from django.db.models.functions import Coalesce
 from django import forms
 from django.template import Template, RequestContext
 from django.contrib.admin.helpers import ActionForm
-from django.middleware.csrf import get_token
 
 from archivebox.config import DATA_DIR
 from archivebox.config.common import SERVER_CONFIG
 from archivebox.misc.util import htmldecode, urldecode
-from archivebox.misc.paginators import AccelleratedPaginator
+from archivebox.misc.paginators import AcceleratedPaginator
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.search.admin import SearchResultsAdminMixin
 from archivebox.core.host_utils import build_snapshot_url, build_web_url
+from archivebox.hooks import get_plugin_icon, get_plugin_name, get_plugins
 
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
-from archivebox.workers.tasks import bg_archive_snapshot, bg_archive_snapshots, bg_add
+from archivebox.workers.tasks import bg_archive_snapshots, bg_add
 
 from archivebox.core.models import Tag, Snapshot, ArchiveResult
 from archivebox.core.admin_archiveresults import render_archiveresults_list
@@ -37,28 +35,45 @@ from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
 GLOBAL_CONTEXT = {}
 
 
+@lru_cache(maxsize=1)
+def _plugin_sort_order() -> dict[str, int]:
+    return {get_plugin_name(plugin): idx for idx, plugin in enumerate(get_plugins())}
+
+
+@lru_cache(maxsize=256)
+def _expected_snapshot_hook_total(config_json: str) -> int:
+    from archivebox.hooks import discover_hooks
+
+    try:
+        config = json.loads(config_json) if config_json else {}
+    except Exception:
+        return 0
+
+    return len(discover_hooks("Snapshot", config=config))
+
+
 class SnapshotActionForm(ActionForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Define tags field in __init__ to avoid database access during app initialization
-        self.fields['tags'] = forms.CharField(
-            label='',
+        self.fields["tags"] = forms.CharField(
+            label="",
             required=False,
             widget=TagEditorWidget(),
         )
 
     def clean_tags(self):
         """Parse comma-separated tag names into Tag objects."""
-        tags_str = self.cleaned_data.get('tags', '')
+        tags_str = self.cleaned_data.get("tags", "")
         if not tags_str:
             return []
 
-        tag_names = [name.strip() for name in tags_str.split(',') if name.strip()]
+        tag_names = [name.strip() for name in tags_str.split(",") if name.strip()]
         tags = []
         for name in tag_names:
             tag, _ = Tag.objects.get_or_create(
                 name__iexact=name,
-                defaults={'name': name}
+                defaults={"name": name},
             )
             # Use the existing tag if found by case-insensitive match
             tag = Tag.objects.filter(name__iexact=name).first() or tag
@@ -74,11 +89,11 @@ class SnapshotActionForm(ActionForm):
 
 
 class TagNameListFilter(admin.SimpleListFilter):
-    title = 'By tag name'
-    parameter_name = 'tag'
+    title = "By tag name"
+    parameter_name = "tag"
 
     def lookups(self, request, model_admin):
-        return [(str(tag.pk), tag.name) for tag in Tag.objects.order_by('name')]
+        return [(str(tag.pk), tag.name) for tag in Tag.objects.order_by("name")]
 
     def queryset(self, request, queryset):
         if self.value():
@@ -88,23 +103,24 @@ class TagNameListFilter(admin.SimpleListFilter):
 
 class SnapshotAdminForm(forms.ModelForm):
     """Custom form for Snapshot admin with tag editor widget."""
+
     tags_editor = forms.CharField(
-        label='Tags',
+        label="Tags",
         required=False,
         widget=TagEditorWidget(),
-        help_text='Type tag names and press Enter or Space to add. Click × to remove.',
+        help_text="Type tag names and press Enter or Space to add. Click × to remove.",
     )
 
     class Meta:
         model = Snapshot
-        fields = '__all__'
+        fields = "__all__"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Initialize tags_editor with current tags
         if self.instance and self.instance.pk:
-            self.initial['tags_editor'] = ','.join(
-                sorted(tag.name for tag in self.instance.tags.all())
+            self.initial["tags_editor"] = ",".join(
+                sorted(tag.name for tag in self.instance.tags.all()),
             )
 
     def save(self, commit=True):
@@ -113,19 +129,19 @@ class SnapshotAdminForm(forms.ModelForm):
         # Handle tags_editor field
         if commit:
             instance.save()
-            save_m2m = getattr(self, '_save_m2m', None)
+            save_m2m = getattr(self, "_save_m2m", None)
             if callable(save_m2m):
                 save_m2m()
 
             # Parse and save tags from tags_editor
-            tags_str = self.cleaned_data.get('tags_editor', '')
+            tags_str = self.cleaned_data.get("tags_editor", "")
             if tags_str:
-                tag_names = [name.strip() for name in tags_str.split(',') if name.strip()]
+                tag_names = [name.strip() for name in tags_str.split(",") if name.strip()]
                 tags = []
                 for name in tag_names:
                     tag, _ = Tag.objects.get_or_create(
                         name__iexact=name,
-                        defaults={'name': name}
+                        defaults={"name": name},
                     )
                     tag = Tag.objects.filter(name__iexact=name).first() or tag
                     tags.append(tag)
@@ -138,58 +154,104 @@ class SnapshotAdminForm(forms.ModelForm):
 
 class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     form = SnapshotAdminForm
-    list_display = ('created_at', 'preview_icon', 'title_str', 'tags_inline', 'status_with_progress', 'files', 'size_with_stats')
-    sort_fields = ('title_str', 'created_at', 'status', 'crawl')
-    readonly_fields = ('admin_actions', 'status_info', 'imported_timestamp', 'created_at', 'modified_at', 'downloaded_at', 'output_dir', 'archiveresults_list')
-    search_fields = ('id', 'url', 'timestamp', 'title', 'tags__name')
-    list_filter = ('created_at', 'downloaded_at', 'archiveresult__status', 'crawl__created_by', TagNameListFilter)
+    list_display = ("created_at", "preview_icon", "title_str", "tags_inline", "status_with_progress", "files", "size_with_stats")
+    sort_fields = ("title_str", "created_at", "status", "crawl")
+    readonly_fields = (
+        "admin_actions",
+        "snapshot_summary",
+        "url_favicon",
+        "tags_badges",
+        "imported_timestamp",
+        "created_at",
+        "modified_at",
+        "downloaded_at",
+        "output_dir",
+        "archiveresults_list",
+    )
+    search_fields = ("id", "url", "timestamp", "title", "tags__name")
+    list_filter = ("created_at", "downloaded_at", "archiveresult__status", "crawl__created_by", TagNameListFilter)
 
     fieldsets = (
-        ('Actions', {
-            'fields': ('admin_actions',),
-            'classes': ('card', 'wide', 'actions-card'),
-        }),
-        ('URL', {
-            'fields': ('url', 'title'),
-            'classes': ('card', 'wide'),
-        }),
-        ('Tags', {
-            'fields': ('tags_editor',),
-            'classes': ('card',),
-        }),
-        ('Status', {
-            'fields': ('status', 'retry_at', 'status_info'),
-            'classes': ('card',),
-        }),
-        ('Timestamps', {
-            'fields': ('bookmarked_at', 'created_at', 'modified_at', 'downloaded_at'),
-            'classes': ('card',),
-        }),
-        ('Relations', {
-            'fields': ('crawl',),
-            'classes': ('card',),
-        }),
-        ('Config', {
-            'fields': ('config',),
-            'classes': ('card',),
-        }),
-        ('Files', {
-            'fields': ('output_dir',),
-            'classes': ('card',),
-        }),
-        ('Archive Results', {
-            'fields': ('archiveresults_list',),
-            'classes': ('card', 'wide'),
-        }),
+        (
+            "Actions",
+            {
+                "fields": ("admin_actions",),
+                "classes": ("card", "actions-card"),
+            },
+        ),
+        (
+            "Snapshot",
+            {
+                "fields": ("snapshot_summary",),
+                "classes": ("card",),
+            },
+        ),
+        (
+            "URL",
+            {
+                "fields": (("url_favicon", "url"), ("title", "tags_badges")),
+                "classes": ("card", "wide"),
+            },
+        ),
+        (
+            "Tags",
+            {
+                "fields": ("tags_editor",),
+                "classes": ("card",),
+            },
+        ),
+        (
+            "Status",
+            {
+                "fields": ("status", "retry_at"),
+                "classes": ("card",),
+            },
+        ),
+        (
+            "Timestamps",
+            {
+                "fields": ("bookmarked_at", "created_at", "modified_at", "downloaded_at"),
+                "classes": ("card",),
+            },
+        ),
+        (
+            "Relations",
+            {
+                "fields": ("crawl",),
+                "classes": ("card",),
+            },
+        ),
+        (
+            "Config",
+            {
+                "fields": ("config",),
+                "description": '<span style="display:block; margin:-4px 0 6px; font-size:11px; line-height:1.35; color:#94a3b8;">Uses <code>Crawl.config</code> by default. Only set per-snapshot overrides here when needed.</span>',
+                "classes": ("card",),
+            },
+        ),
+        (
+            "Files",
+            {
+                "fields": ("output_dir",),
+                "classes": ("card",),
+            },
+        ),
+        (
+            "Archive Results",
+            {
+                "fields": ("archiveresults_list",),
+                "classes": ("card", "wide"),
+            },
+        ),
     )
 
-    ordering = ['-created_at']
-    actions = ['add_tags', 'remove_tags', 'resnapshot_snapshot', 'update_snapshots', 'overwrite_snapshots', 'delete_snapshots']
+    ordering = ["-created_at"]
+    actions = ["add_tags", "remove_tags", "resnapshot_snapshot", "update_snapshots", "overwrite_snapshots", "delete_snapshots"]
     inlines = []  # Removed TagInline, using TagEditorWidget instead
     list_per_page = min(max(5, SERVER_CONFIG.SNAPSHOTS_PER_PAGE), 5000)
 
     action_form = SnapshotActionForm
-    paginator = AccelleratedPaginator
+    paginator = AcceleratedPaginator
 
     save_on_top = True
     show_full_result_count = False
@@ -200,37 +262,48 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         try:
             return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
         except Exception as e:
-            self.message_user(request, f'Error occurred while loading the page: {str(e)} {request.GET} {request.POST}')
+            self.message_user(request, f"Error occurred while loading the page: {str(e)} {request.GET} {request.POST}")
             return super().changelist_view(request, GLOBAL_CONTEXT)
 
     def get_actions(self, request):
         actions = super().get_actions(request)
         if not actions:
             return {}
-        delete_selected = actions.get('delete_selected')
-        if delete_selected:
-            func, name, _desc = delete_selected
-            actions['delete_selected'] = (func, name, 'Delete')
+        actions.pop("delete_selected", None)
         return actions
 
+    def get_snapshot_view_url(self, obj: Snapshot) -> str:
+        return build_snapshot_url(str(obj.id), request=getattr(self, "request", None))
+
+    def get_snapshot_files_url(self, obj: Snapshot) -> str:
+        return f"{build_snapshot_url(str(obj.id), request=getattr(self, 'request', None))}/?files=1"
+
+    def get_snapshot_zip_url(self, obj: Snapshot) -> str:
+        return f"{self.get_snapshot_files_url(obj)}&download=zip"
 
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path('grid/', self.admin_site.admin_view(self.grid_view), name='grid'),
-            path('<path:object_id>/redo-failed/', self.admin_site.admin_view(self.redo_failed_view), name='core_snapshot_redo_failed'),
+            path("grid/", self.admin_site.admin_view(self.grid_view), name="grid"),
+            path("<path:object_id>/redo-failed/", self.admin_site.admin_view(self.redo_failed_view), name="core_snapshot_redo_failed"),
         ]
         return custom_urls + urls
 
     def redo_failed_view(self, request, object_id):
         snapshot = get_object_or_404(Snapshot, pk=object_id)
 
-        if request.method == 'POST':
-            queued = bg_archive_snapshot(snapshot, overwrite=False)
-            messages.success(
-                request,
-                f"Queued {queued} snapshot for re-archiving. The background runner will process it.",
-            )
+        if request.method == "POST":
+            retried = snapshot.retry_failed_archiveresults()
+            if retried:
+                messages.success(
+                    request,
+                    f"Queued {retried} failed/skipped extractors for retry on this snapshot.",
+                )
+            else:
+                messages.info(
+                    request,
+                    "No failed/skipped extractors were found on this snapshot.",
+                )
 
         return redirect(snapshot.admin_change_url)
 
@@ -243,61 +316,65 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def get_queryset(self, request):
         self.request = request
         ordering_fields = self._get_ordering_fields(request)
-        needs_size_sort = 'size_with_stats' in ordering_fields
-        needs_files_sort = 'files' in ordering_fields
-        needs_tags_sort = 'tags_inline' in ordering_fields
+        needs_size_sort = "size_with_stats" in ordering_fields
+        needs_files_sort = "files" in ordering_fields
+        needs_tags_sort = "tags_inline" in ordering_fields
+        is_change_view = getattr(getattr(request, "resolver_match", None), "url_name", "") == "core_snapshot_change"
 
-        prefetch_qs = ArchiveResult.objects.filter(
-            Q(status='succeeded')
-        ).only(
-            'id',
-            'snapshot_id',
-            'plugin',
-            'status',
-            'output_size',
-            'output_files',
-            'output_str',
+        prefetch_qs = ArchiveResult.objects.only(
+            "id",
+            "snapshot_id",
+            "plugin",
+            "status",
+            "output_size",
+            "output_files",
+            "output_str",
         )
+        if not is_change_view:
+            prefetch_qs = prefetch_qs.filter(Q(status="succeeded"))
 
         qs = (
             super()
             .get_queryset(request)
-            .select_related('crawl__created_by')
-            .defer('config', 'notes')
-            .prefetch_related('tags')
-            .prefetch_related(Prefetch('archiveresult_set', queryset=prefetch_qs))
+            .select_related("crawl__created_by")
+            .defer("config", "notes")
+            .prefetch_related("tags")
+            .prefetch_related(Prefetch("archiveresult_set", queryset=prefetch_qs))
         )
 
         if needs_size_sort:
             qs = qs.annotate(
-                output_size_sum=Coalesce(Sum(
-                    'archiveresult__output_size',
-                    filter=Q(archiveresult__status='succeeded'),
-                ), 0),
+                output_size_sum=Coalesce(
+                    Sum("archiveresult__output_size"),
+                    0,
+                ),
             )
 
         if needs_files_sort:
             qs = qs.annotate(
                 ar_succeeded_count=Count(
-                    'archiveresult',
-                    filter=Q(archiveresult__status='succeeded'),
+                    "archiveresult",
+                    filter=Q(archiveresult__status="succeeded"),
                 ),
             )
         if needs_tags_sort:
-            qs = qs.annotate(tag_count=Count('tags', distinct=True))
+            qs = qs.annotate(tag_count=Count("tags", distinct=True))
 
         return qs
 
     @admin.display(description="Imported Timestamp")
     def imported_timestamp(self, obj):
-        context = RequestContext(self.request, {
-            'bookmarked_date': obj.bookmarked_at,
-            'timestamp': obj.timestamp,
-        })
+        context = RequestContext(
+            self.request,
+            {
+                "bookmarked_date": obj.bookmarked_at,
+                "timestamp": obj.timestamp,
+            },
+        )
 
         html = Template("""{{bookmarked_date}} (<code>{{timestamp}}</code>)""")
         return mark_safe(html.render(context))
-    
+
         # pretty_time = obj.bookmarked.strftime('%Y-%m-%d %H:%M:%S')
         # return f'{pretty_time} ({obj.timestamp})'
 
@@ -323,14 +400,14 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     #         obj.pk,
     #     )
 
-    @admin.display(description='')
+    @admin.display(description="")
     def admin_actions(self, obj):
-        summary_url = build_web_url(f'/{obj.archive_path}')
-        results_url = build_web_url(f'/{obj.archive_path}/index.html#all')
-        redo_failed_url = f'/admin/core/snapshot/{obj.pk}/redo-failed/'
-        csrf_token = get_token(self.request)
+        summary_url = self.get_snapshot_view_url(obj)
+        files_url = self.get_snapshot_files_url(obj)
+        zip_url = self.get_snapshot_zip_url(obj)
+        redo_failed_url = f"/admin/core/snapshot/{obj.pk}/redo-failed/"
         return format_html(
-            '''
+            """
             <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
                    href="{}"
@@ -343,6 +420,15 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                    onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';"
                    onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
                     📁 All files
+                </a>
+                <a class="btn archivebox-zip-button" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
+                   href="{}"
+                   data-loading-label="Preparing..."
+                   onclick="return window.archiveboxHandleZipClick(this, event);"
+                   onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd';"
+                   onmouseout="this.style.background='#eff6ff'; this.style.borderColor='#bfdbfe';">
+                    <span class="archivebox-zip-spinner" aria-hidden="true"></span>
+                    <span class="archivebox-zip-label">⬇ Download Zip</span>
                 </a>
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
                    href="{}"
@@ -359,23 +445,25 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                    title="Create a fresh new snapshot of this URL"
                    onmouseover="this.style.background='#dbeafe';"
                    onmouseout="this.style.background='#eff6ff';">
-                    🆕 Archive Now
+                    🆕 Snapshot Again
                 </a>
-                <form action="{}" method="post" style="display: inline-flex; margin: 0;">
-                    <input type="hidden" name="csrfmiddlewaretoken" value="{}">
-                    <button type="submit" class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; color: #065f46; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s; cursor: pointer;"
-                       title="Redo failed extractors (missing outputs)"
-                       onmouseover="this.style.background='#d1fae5';"
-                       onmouseout="this.style.background='#ecfdf5';">
-                        🔁 Redo Failed
-                    </button>
-                </form>
+                <button type="submit"
+                        formaction="{}"
+                        formmethod="post"
+                        formnovalidate
+                        class="btn"
+                        style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; color: #065f46; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s; cursor: pointer;"
+                        title="Redo failed extractors (missing outputs)"
+                        onmouseover="this.style.background='#d1fae5';"
+                        onmouseout="this.style.background='#ecfdf5';">
+                    🔁 Retry Failed Extractors
+                </button>
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; color: #92400e; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
                    href="/admin/core/snapshot/?id__exact={}"
                    title="Re-run all extractors (overwrite existing)"
                    onmouseover="this.style.background='#fef3c7';"
                    onmouseout="this.style.background='#fffbeb';">
-                    🔄 Redo All
+                    🔄 Reset &amp; Retry All Extractors
                 </a>
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #991b1b; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
                    href="/admin/core/snapshot/?id__exact={}"
@@ -385,114 +473,123 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                     ☠️ Delete
                 </a>
             </div>
-            <p style="margin-top: 12px; font-size: 12px; color: #64748b;">
-                <b>Tip:</b> Redo Failed runs immediately. The other action buttons link to the list view with this snapshot pre-selected.
-            </p>
-            ''',
+            """,
             summary_url,
-            results_url,
+            files_url,
+            zip_url,
             obj.url,
             obj.pk,
             redo_failed_url,
-            csrf_token,
             obj.pk,
             obj.pk,
         )
 
     def status_info(self, obj):
-        favicon_url = build_snapshot_url(str(obj.id), 'favicon.ico')
+        favicon_url = build_snapshot_url(str(obj.id), "favicon.ico")
         return format_html(
-            '''
+            """
             Archived: {} ({} files {}) &nbsp; &nbsp;
             Favicon: <img src="{}" style="height: 20px"/> &nbsp; &nbsp;
             Extension: {} &nbsp; &nbsp;
-            ''',
-            '✅' if obj.is_archived else '❌',
+            """,
+            "✅" if obj.is_archived else "❌",
             obj.num_outputs,
-            self.size(obj) or '0kb',
+            self.size(obj) or "0kb",
             favicon_url,
-            obj.extension or '-',
+            obj.extension or "-",
         )
 
-    @admin.display(description='Archive Results')
+    @admin.display(description="Archive Results")
     def archiveresults_list(self, obj):
         return render_archiveresults_list(obj.archiveresult_set.all())
 
     @admin.display(
-        description='Title',
-        ordering='title',
+        description="Title",
+        ordering="title",
     )
     def title_str(self, obj):
-        title_raw = (obj.title or '').strip()
-        url_raw = (obj.url or '').strip()
+        title_raw = (obj.title or "").strip()
+        url_raw = (obj.url or "").strip()
         title_normalized = title_raw.lower()
         url_normalized = url_raw.lower()
-        show_title = bool(title_raw) and title_normalized != 'pending...' and title_normalized != url_normalized
-        css_class = 'fetched' if show_title else 'pending'
+        show_title = bool(title_raw) and title_normalized != "pending..." and title_normalized != url_normalized
+        css_class = "fetched" if show_title else "pending"
 
-        detail_url = build_web_url(f'/{obj.archive_path_from_db}/index.html')
-        title_html = ''
+        detail_url = build_web_url(f"/{obj.archive_path_from_db}/index.html")
+        title_html = ""
         if show_title:
             title_html = format_html(
-                '<a href="{}">'
-                    '<b class="status-{}">{}</b>'
-                '</a>',
+                '<a href="{}"><b class="status-{}">{}</b></a>',
                 detail_url,
                 css_class,
                 urldecode(htmldecode(title_raw))[:128],
             )
 
         return format_html(
-            '{}'
+            "{}"
             '<div style="font-size: 11px; color: #64748b; margin-top: 2px;">'
-                '<a href="{}"><code style="user-select: all;">{}</code></a>'
-            '</div>',
+            '<a href="{}"><code style="user-select: all;">{}</code></a>'
+            "</div>",
             title_html,
             url_raw or obj.url,
             (url_raw or obj.url)[:128],
         )
 
-    @admin.display(description='Tags', ordering='tag_count')
+    @admin.display(description="Tags", ordering="tag_count")
     def tags_inline(self, obj):
         widget = InlineTagEditorWidget(snapshot_id=str(obj.pk))
+        tags = self._get_prefetched_tags(obj)
         tags_html = widget.render(
-            name=f'tags_{obj.pk}',
-            value=obj.tags.all(),
-            attrs={'id': f'tags_{obj.pk}'},
+            name=f"tags_{obj.pk}",
+            value=tags if tags is not None else obj.tags.all(),
+            attrs={"id": f"tags_{obj.pk}"},
             snapshot_id=str(obj.pk),
         )
         return mark_safe(f'<span class="tags-inline-editor">{tags_html}</span>')
 
-    @admin.display(description='Preview', empty_value='')
-    def preview_icon(self, obj):
+    @admin.display(description="Tags")
+    def tags_badges(self, obj):
+        widget = InlineTagEditorWidget(snapshot_id=str(obj.pk), editable=False)
+        tags = self._get_prefetched_tags(obj)
+        tags_html = widget.render(
+            name=f"tags_readonly_{obj.pk}",
+            value=tags if tags is not None else obj.tags.all(),
+            attrs={"id": f"tags_readonly_{obj.pk}"},
+            snapshot_id=str(obj.pk),
+        )
+        return mark_safe(f'<span class="tags-inline-editor">{tags_html}</span>')
+
+    def _get_preview_data(self, obj):
         results = self._get_prefetched_results(obj)
-        has_screenshot = False
-        has_favicon = False
         if results is not None:
-            has_screenshot = any(r.plugin == 'screenshot' for r in results)
-            has_favicon = any(r.plugin == 'favicon' for r in results)
+            has_screenshot = any(r.plugin == "screenshot" for r in results)
+            has_favicon = any(r.plugin == "favicon" for r in results)
+        else:
+            available_plugins = set(obj.archiveresult_set.filter(plugin__in=("screenshot", "favicon")).values_list("plugin", flat=True))
+            has_screenshot = "screenshot" in available_plugins
+            has_favicon = "favicon" in available_plugins
 
         if not has_screenshot and not has_favicon:
             return None
 
         if has_screenshot:
-            img_url = build_snapshot_url(str(obj.id), 'screenshot/screenshot.png')
+            img_url = build_snapshot_url(str(obj.id), "screenshot/screenshot.png")
             fallbacks = [
-                build_snapshot_url(str(obj.id), 'screenshot.png'),
-                build_snapshot_url(str(obj.id), 'favicon/favicon.ico'),
-                build_snapshot_url(str(obj.id), 'favicon.ico'),
+                build_snapshot_url(str(obj.id), "screenshot.png"),
+                build_snapshot_url(str(obj.id), "favicon/favicon.ico"),
+                build_snapshot_url(str(obj.id), "favicon.ico"),
             ]
-            img_alt = 'Screenshot'
-            preview_class = 'screenshot'
+            img_alt = "Screenshot"
+            preview_class = "screenshot"
         else:
-            img_url = build_snapshot_url(str(obj.id), 'favicon/favicon.ico')
+            img_url = build_snapshot_url(str(obj.id), "favicon/favicon.ico")
             fallbacks = [
-                build_snapshot_url(str(obj.id), 'favicon.ico'),
+                build_snapshot_url(str(obj.id), "favicon.ico"),
             ]
-            img_alt = 'Favicon'
-            preview_class = 'favicon'
+            img_alt = "Favicon"
+            preview_class = "favicon"
 
-        fallback_list = ','.join(fallbacks)
+        fallback_list = ",".join(fallbacks)
         onerror_js = (
             "this.dataset.fallbacks && this.dataset.fallbacks.length ? "
             "(this.src=this.dataset.fallbacks.split(',').shift(), "
@@ -500,45 +597,153 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             "this.remove()"
         )
 
+        return {
+            "img_url": img_url,
+            "img_alt": img_alt,
+            "preview_class": preview_class,
+            "onerror_js": onerror_js,
+            "fallback_list": fallback_list,
+        }
+
+    @admin.display(description="", empty_value="")
+    def url_favicon(self, obj):
+        preview = self._get_preview_data(obj)
+        if not preview:
+            return ""
+
+        favicon_url = build_snapshot_url(str(obj.id), "favicon/favicon.ico")
+        fallback_list = ",".join([build_snapshot_url(str(obj.id), "favicon.ico")])
+        onerror_js = (
+            "this.dataset.fallbacks && this.dataset.fallbacks.length ? "
+            "(this.src=this.dataset.fallbacks.split(',').shift(), "
+            "this.dataset.fallbacks=this.dataset.fallbacks.split(',').slice(1).join(',')) : "
+            "this.closest('a') && this.closest('a').remove()"
+        )
+
         return format_html(
-            '<img src="{}" alt="{}" class="snapshot-preview {}" decoding="async" loading="lazy" '
-            'onerror="{}" data-fallbacks="{}">',
-            img_url,
-            img_alt,
-            preview_class,
+            '<a href="{}" title="Open favicon" style="display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px;">'
+            '<img src="{}" alt="Favicon" decoding="async" loading="lazy" onerror="{}" data-fallbacks="{}" '
+            'style="display:block; width:24px; height:24px; border-radius:6px; border:1px solid #e2e8f0; background:#fff; object-fit:contain; padding:2px;">'
+            "</a>",
+            favicon_url,
+            favicon_url,
             onerror_js,
             fallback_list,
         )
 
+    @admin.display(description="Preview", empty_value="")
+    def preview_icon(self, obj):
+        preview = self._get_preview_data(obj)
+        if not preview:
+            return None
+
+        return format_html(
+            '<img src="{}" alt="{}" class="snapshot-preview {}" decoding="async" loading="lazy" onerror="{}" data-fallbacks="{}">',
+            preview["img_url"],
+            preview["img_alt"],
+            preview["preview_class"],
+            preview["onerror_js"],
+            preview["fallback_list"],
+        )
+
+    @admin.display(description=" ", empty_value="")
+    def snapshot_summary(self, obj):
+        preview = self._get_preview_data(obj)
+        stats = self._get_progress_stats(obj)
+        archive_size = stats["output_size"] or 0
+        size_txt = printable_filesize(archive_size) if archive_size else "pending"
+        screenshot_html = ""
+
+        if preview:
+            screenshot_html = format_html(
+                '<a href="{href}" title="Open snapshot live view" style="display:block; flex:0 0 220px; width:220px;">'
+                '<img src="{src}" alt="{alt}" decoding="async" loading="lazy" onerror="{onerror}" data-fallbacks="{fallbacks}" '
+                'style="display:block; width:100%; max-width:220px; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; '
+                'border-radius: 10px; border: 1px solid #e2e8f0; background: #f8fafc;">'
+                "</a>",
+                href=build_web_url(f"/{obj.archive_path}"),
+                src=preview["img_url"],
+                alt=preview["img_alt"],
+                onerror=preview["onerror_js"],
+                fallbacks=preview["fallback_list"],
+            )
+
+        return format_html(
+            '<div style="display:flex; gap:16px; align-items:flex-start;">'
+            "{}"
+            '<div style="min-width:0; flex:1;">'
+            '<div style="font: 600 12px/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:4px;">snap_dir size</div>'
+            '<div style="font: 700 28px/1.1 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif; color:#0f172a; margin-bottom:8px;">{}</div>'
+            '<div style="font-size:13px; line-height:1.5; color:#64748b;">'
+            'Open <a href="{}"><code>{}</code></a> to inspect files.'
+            "</div>"
+            "</div>"
+            "</div>",
+            screenshot_html,
+            size_txt,
+            build_web_url(f"/{obj.archive_path}"),
+            obj.archive_path,
+        )
+
     @admin.display(
-        description='Files Saved',
-        ordering='ar_succeeded_count',
+        description="Files Saved",
+        ordering="ar_succeeded_count",
     )
     def files(self, obj):
-        # return '-'
-        return obj.icons(path=obj.archive_path_from_db)
+        results = self._get_prefetched_results(obj)
+        if results is None:
+            results = obj.archiveresult_set.only("plugin", "status", "output_files", "output_str")
 
+        plugins_with_output: dict[str, ArchiveResult] = {}
+        for result in results:
+            if result.status != ArchiveResult.StatusChoices.SUCCEEDED:
+                continue
+            if not (result.output_files or str(result.output_str or "").strip()):
+                continue
+            plugins_with_output.setdefault(result.plugin, result)
+
+        if not plugins_with_output:
+            return mark_safe('<span style="opacity: 0.35;">...</span>')
+
+        sorted_results = sorted(
+            plugins_with_output.values(),
+            key=lambda result: (_plugin_sort_order().get(result.plugin, 9999), result.plugin),
+        )
+        output = [
+            format_html(
+                '<a href="{}" class="exists-True" title="{}">{}</a>',
+                self._result_output_href(obj, result),
+                result.plugin,
+                get_plugin_icon(result.plugin),
+            )
+            for result in sorted_results
+        ]
+
+        return format_html(
+            '<span class="files-icons files-icons--compact" style="font-size: 1em; opacity: 0.8;">{}</span>',
+            mark_safe("".join(output)),
+        )
 
     @admin.display(
         # ordering='archiveresult_count'
     )
     def size(self, obj):
-        archive_size = os.access(Path(obj.output_dir) / 'index.html', os.F_OK) and obj.archive_size
+        archive_size = self._get_progress_stats(obj)["output_size"] or 0
         if archive_size:
             size_txt = printable_filesize(archive_size)
             if archive_size > 52428800:
-                size_txt = mark_safe(f'<b>{size_txt}</b>')
+                size_txt = mark_safe(f"<b>{size_txt}</b>")
         else:
             size_txt = mark_safe('<span style="opacity: 0.3">...</span>')
         return format_html(
             '<a href="{}" title="View all files">{}</a>',
-            build_web_url(f'/{obj.archive_path}'),
+            build_web_url(f"/{obj.archive_path}"),
             size_txt,
         )
 
     @admin.display(
-        description='Status',
-        ordering='status',
+        description="Status",
+        ordering="status",
     )
     def status_with_progress(self, obj):
         """Show status with progress bar for in-progress snapshots."""
@@ -546,25 +751,25 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         # Status badge colors
         status_colors = {
-            'queued': ('#f59e0b', '#fef3c7'),      # amber
-            'started': ('#3b82f6', '#dbeafe'),     # blue
-            'sealed': ('#10b981', '#d1fae5'),      # green
-            'succeeded': ('#10b981', '#d1fae5'),   # green
-            'failed': ('#ef4444', '#fee2e2'),      # red
-            'backoff': ('#f59e0b', '#fef3c7'),     # amber
-            'skipped': ('#6b7280', '#f3f4f6'),     # gray
+            "queued": ("#f59e0b", "#fef3c7"),  # amber
+            "started": ("#3b82f6", "#dbeafe"),  # blue
+            "sealed": ("#10b981", "#d1fae5"),  # green
+            "succeeded": ("#10b981", "#d1fae5"),  # green
+            "failed": ("#ef4444", "#fee2e2"),  # red
+            "backoff": ("#f59e0b", "#fef3c7"),  # amber
+            "skipped": ("#6b7280", "#f3f4f6"),  # gray
         }
-        fg_color, bg_color = status_colors.get(obj.status, ('#6b7280', '#f3f4f6'))
+        fg_color, bg_color = status_colors.get(obj.status, ("#6b7280", "#f3f4f6"))
 
         # For started snapshots, show progress bar
-        if obj.status == 'started' and stats['total'] > 0:
-            percent = stats['percent']
-            running = stats['running']
-            succeeded = stats['succeeded']
-            failed = stats['failed']
+        if obj.status == "started" and stats["total"] > 0:
+            percent = stats["percent"]
+            running = stats["running"]
+            succeeded = stats["succeeded"]
+            failed = stats["failed"]
 
             return format_html(
-                '''<div style="min-width: 120px;">
+                """<div style="min-width: 90px;">
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
                         <span class="snapshot-progress-spinner"></span>
                         <span style="font-size: 11px; color: #64748b;">{}/{} hooks</span>
@@ -576,13 +781,13 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                     <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">
                         ✓{} ✗{} ⏳{}
                     </div>
-                </div>''',
-                succeeded + failed + stats['skipped'],
-                stats['total'],
-                int(succeeded / stats['total'] * 100) if stats['total'] else 0,
-                int(succeeded / stats['total'] * 100) if stats['total'] else 0,
-                int((succeeded + failed) / stats['total'] * 100) if stats['total'] else 0,
-                int((succeeded + failed) / stats['total'] * 100) if stats['total'] else 0,
+                </div>""",
+                succeeded + failed + stats["skipped"],
+                stats["total"],
+                int(succeeded / stats["total"] * 100) if stats["total"] else 0,
+                int(succeeded / stats["total"] * 100) if stats["total"] else 0,
+                int((succeeded + failed) / stats["total"] * 100) if stats["total"] else 0,
+                int((succeeded + failed) / stats["total"] * 100) if stats["total"] else 0,
                 percent,
                 succeeded,
                 failed,
@@ -599,85 +804,139 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         )
 
     @admin.display(
-        description='Size',
-        ordering='output_size_sum',
+        description="Size",
+        ordering="output_size_sum",
     )
     def size_with_stats(self, obj):
         """Show archive size with output size from archive results."""
         stats = self._get_progress_stats(obj)
-        output_size = stats['output_size']
+        output_size = stats["output_size"]
         size_bytes = output_size or 0
+        zip_url = self.get_snapshot_zip_url(obj)
+        zip_link = format_html(
+            '<a href="{}" class="archivebox-zip-button" data-loading-mode="spinner-only" onclick="return window.archiveboxHandleZipClick(this, event);" style="display:inline-flex; align-items:center; justify-content:center; gap:4px; width:48px; min-width:48px; height:22px; margin-top:4px; padding:0; box-sizing:border-box; border-radius:999px; border:1px solid #cbd5e1; background:#f8fafc; color:#64748b; font-size:10px; font-weight:600; line-height:1; text-decoration:none; transition:all 0.15s;" onmouseover="this.style.color=\'#1d4ed8\'; this.style.borderColor=\'#93c5fd\'; this.style.background=\'#eff6ff\';" onmouseout="this.style.color=\'#64748b\'; this.style.borderColor=\'#cbd5e1\'; this.style.background=\'#f8fafc\';"><span class="archivebox-zip-spinner" aria-hidden="true"></span><span class="archivebox-zip-label">⬇ ZIP</span></a>',
+            zip_url,
+        )
 
         if size_bytes:
             size_txt = printable_filesize(size_bytes)
             if size_bytes > 52428800:  # 50MB
-                size_txt = mark_safe(f'<b>{size_txt}</b>')
+                size_txt = mark_safe(f"<b>{size_txt}</b>")
         else:
             size_txt = mark_safe('<span style="opacity: 0.3">...</span>')
 
         # Show hook statistics
-        if stats['total'] > 0:
+        if stats["total"] > 0:
             return format_html(
                 '<a href="{}" title="View all files" style="white-space: nowrap;">'
-                '{}</a>'
+                "{}</a>"
                 '<div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">'
-                '{}/{} hooks</div>',
-                build_web_url(f'/{obj.archive_path_from_db}'),
+                "{}/{} hooks</div>"
+                "{}",
+                build_web_url(f"/{obj.archive_path_from_db}"),
                 size_txt,
-                stats['succeeded'],
-                stats['total'],
+                stats["succeeded"],
+                stats["total"],
+                zip_link,
             )
 
         return format_html(
-            '<a href="{}" title="View all files">{}</a>',
-            build_web_url(f'/{obj.archive_path_from_db}'),
+            '<a href="{}" title="View all files">{}</a>{}',
+            build_web_url(f"/{obj.archive_path_from_db}"),
             size_txt,
+            zip_link,
         )
 
     def _get_progress_stats(self, obj):
         results = self._get_prefetched_results(obj)
         if results is None:
-            return obj.get_progress_stats()
+            stats = obj.get_progress_stats()
+            expected_total = self._get_expected_hook_total(obj)
+            total = max(stats["total"], expected_total)
+            completed = stats["succeeded"] + stats["failed"] + stats.get("skipped", 0) + stats.get("noresults", 0)
+            stats["total"] = total
+            stats["pending"] = max(total - completed - stats["running"], 0)
+            stats["percent"] = int((completed / total * 100) if total > 0 else 0)
+            return stats
 
-        total = len(results)
-        succeeded = sum(1 for r in results if r.status == 'succeeded')
-        failed = sum(1 for r in results if r.status == 'failed')
-        running = sum(1 for r in results if r.status == 'started')
-        skipped = sum(1 for r in results if r.status == 'skipped')
-        pending = max(total - succeeded - failed - running - skipped, 0)
-        completed = succeeded + failed + skipped
+        expected_total = self._get_expected_hook_total(obj)
+        observed_total = len(results)
+        total = max(observed_total, expected_total)
+        succeeded = sum(1 for r in results if r.status == "succeeded")
+        failed = sum(1 for r in results if r.status == "failed")
+        running = sum(1 for r in results if r.status == "started")
+        skipped = sum(1 for r in results if r.status == "skipped")
+        noresults = sum(1 for r in results if r.status == "noresults")
+        pending = max(total - succeeded - failed - running - skipped - noresults, 0)
+        completed = succeeded + failed + skipped + noresults
         percent = int((completed / total * 100) if total > 0 else 0)
         is_sealed = obj.status not in (obj.StatusChoices.QUEUED, obj.StatusChoices.STARTED)
         output_size = None
 
-        if hasattr(obj, 'output_size_sum'):
+        if hasattr(obj, "output_size_sum"):
             output_size = obj.output_size_sum or 0
         else:
-            output_size = sum(r.output_size or 0 for r in results if r.status == 'succeeded')
+            output_size = sum(r.output_size or 0 for r in results)
 
         return {
-            'total': total,
-            'succeeded': succeeded,
-            'failed': failed,
-            'running': running,
-            'pending': pending,
-            'skipped': skipped,
-            'percent': percent,
-            'output_size': output_size or 0,
-            'is_sealed': is_sealed,
+            "total": total,
+            "succeeded": succeeded,
+            "failed": failed,
+            "running": running,
+            "pending": pending,
+            "skipped": skipped,
+            "noresults": noresults,
+            "percent": percent,
+            "output_size": output_size or 0,
+            "is_sealed": is_sealed,
         }
 
     def _get_prefetched_results(self, obj):
-        if hasattr(obj, '_prefetched_objects_cache') and 'archiveresult_set' in obj._prefetched_objects_cache:
+        if hasattr(obj, "_prefetched_objects_cache") and "archiveresult_set" in obj._prefetched_objects_cache:
             return obj.archiveresult_set.all()
         return None
 
+    def _get_expected_hook_total(self, obj) -> int:
+        from archivebox.config.configset import get_config
+
+        try:
+            config = get_config(crawl=obj.crawl, snapshot=obj)
+            config_json = json.dumps(config, sort_keys=True, default=str, separators=(",", ":"))
+            return _expected_snapshot_hook_total(config_json)
+        except Exception:
+            return 0
+
+    def _get_prefetched_tags(self, obj):
+        if hasattr(obj, "_prefetched_objects_cache") and "tags" in obj._prefetched_objects_cache:
+            return list(obj._prefetched_objects_cache["tags"])
+        return None
+
+    def _result_output_href(self, obj, result: ArchiveResult) -> str:
+        ignored = {"stdout.log", "stderr.log", "hook.pid", "listener.pid", "cmd.sh"}
+
+        for rel_path in result.output_file_paths():
+            raw_path = str(rel_path or "").strip().lstrip("/")
+            if not raw_path:
+                continue
+            basename = raw_path.rsplit("/", 1)[-1]
+            if basename in ignored or raw_path.endswith((".pid", ".log", ".sh")):
+                continue
+            relative_path = raw_path if raw_path.startswith(f"{result.plugin}/") else f"{result.plugin}/{raw_path}"
+            return f"/{obj.archive_path_from_db}/{relative_path}"
+
+        raw_output = str(result.output_str or "").strip().lstrip("/")
+        if raw_output and raw_output not in {".", "./"} and "://" not in raw_output and not raw_output.startswith("/"):
+            relative_path = raw_output if raw_output.startswith(f"{result.plugin}/") else f"{result.plugin}/{raw_output}"
+            return f"/{obj.archive_path_from_db}/{relative_path}"
+
+        return f"/{obj.archive_path_from_db}/{result.plugin}/"
+
     def _get_ordering_fields(self, request):
-        ordering = request.GET.get('o')
+        ordering = request.GET.get("o")
         if not ordering:
             return set()
         fields = set()
-        for part in ordering.split('.'):
+        for part in ordering.split("."):
             if not part:
                 continue
             try:
@@ -689,8 +948,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return fields
 
     @admin.display(
-        description='Original URL',
-        ordering='url',
+        description="Original URL",
+        ordering="url",
     )
     def url_str(self, obj):
         return format_html(
@@ -699,10 +958,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             obj.url[:128],
         )
 
-    @admin.display(description='Health', ordering='health')
+    @admin.display(description="Health", ordering="health")
     def health_display(self, obj):
         h = obj.health
-        color = 'green' if h >= 80 else 'orange' if h >= 50 else 'red'
+        color = "green" if h >= 80 else "orange" if h >= 50 else "red"
         return format_html('<span style="color: {};">{}</span>', color, h)
 
     def grid_view(self, request, extra_context=None):
@@ -716,7 +975,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         saved_list_max_show_all = admin_cls.list_max_show_all
 
         # Monkey patch here plus core_tags.py
-        admin_cls.change_list_template = 'private_index_grid.html'
+        admin_cls.change_list_template = "private_index_grid.html"
         admin_cls.list_per_page = SERVER_CONFIG.SNAPSHOTS_PER_PAGE
         admin_cls.list_max_show_all = admin_cls.list_per_page
 
@@ -736,7 +995,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     #     return super().changelist_view(request, extra_context=None)
 
     @admin.action(
-        description="🔁 Redo Failed"
+        description="🔁 Redo Failed",
     )
     def update_snapshots(self, request, queryset):
         queued = bg_archive_snapshots(queryset, kwargs={"overwrite": False, "out_dir": DATA_DIR})
@@ -746,24 +1005,29 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             f"Queued {queued} snapshots for re-archiving. The background runner will process them.",
         )
 
-
     @admin.action(
-        description="🆕 Archive Now"
+        description="🆕 Archive Now",
     )
     def resnapshot_snapshot(self, request, queryset):
-        for snapshot in queryset:
-            timestamp = timezone.now().isoformat('T', 'seconds')
-            new_url = snapshot.url.split('#')[0] + f'#{timestamp}'
+        snapshots = list(queryset)
+        if not snapshots:
+            messages.info(request, "No snapshots selected.")
+            return
 
-            bg_add({'urls': new_url, 'tag': snapshot.tags_str()})
+        urls = "\n".join(snapshot.url for snapshot in snapshots if snapshot.url)
+        if not urls:
+            messages.info(request, "No valid snapshot URLs were found to archive.")
+            return
+
+        bg_add({"urls": urls})
 
         messages.success(
             request,
-            f"Creating {queryset.count()} new fresh snapshots. The background runner will process them.",
+            f"Creating 1 new crawl with {len(snapshots)} fresh snapshots. The background runner will process them.",
         )
 
     @admin.action(
-        description="🔄 Redo"
+        description="🔄 Redo",
     )
     def overwrite_snapshots(self, request, queryset):
         queued = bg_archive_snapshots(queryset, kwargs={"overwrite": True, "out_dir": DATA_DIR})
@@ -774,7 +1038,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         )
 
     @admin.action(
-        description="🗑️ Delete"
+        description="🗑️ Delete",
     )
     def delete_snapshots(self, request, queryset):
         """Delete snapshots in a single transaction to avoid SQLite concurrency issues."""
@@ -783,7 +1047,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         total = queryset.count()
 
         # Get list of IDs to delete first (outside transaction)
-        ids_to_delete = list(queryset.values_list('pk', flat=True))
+        ids_to_delete = list(queryset.values_list("pk", flat=True))
 
         # Delete everything in a single atomic transaction
         with transaction.atomic():
@@ -791,44 +1055,45 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         messages.success(
             request,
-            mark_safe(f"Successfully deleted {total} Snapshots ({deleted_count} total objects including related records). Don't forget to scrub URLs from import logs (data/sources) and error logs (data/logs) if needed."),
+            mark_safe(
+                f"Successfully deleted {total} Snapshots ({deleted_count} total objects including related records). Don't forget to scrub URLs from import logs (data/sources) and error logs (data/logs) if needed.",
+            ),
         )
 
-
     @admin.action(
-        description="+"
+        description="+",
     )
     def add_tags(self, request, queryset):
         from archivebox.core.models import SnapshotTag
 
         # Get tags from the form - now comma-separated string
-        tags_str = request.POST.get('tags', '')
+        tags_str = request.POST.get("tags", "")
         if not tags_str:
             messages.warning(request, "No tags specified.")
             return
 
         # Parse comma-separated tag names and get/create Tag objects
-        tag_names = [name.strip() for name in tags_str.split(',') if name.strip()]
+        tag_names = [name.strip() for name in tags_str.split(",") if name.strip()]
         tags = []
         for name in tag_names:
             tag, _ = Tag.objects.get_or_create(
                 name__iexact=name,
-                defaults={'name': name}
+                defaults={"name": name},
             )
             tag = Tag.objects.filter(name__iexact=name).first() or tag
             tags.append(tag)
 
         # Get snapshot IDs efficiently (works with select_across for all pages)
-        snapshot_ids = list(queryset.values_list('id', flat=True))
+        snapshot_ids = list(queryset.values_list("id", flat=True))
         num_snapshots = len(snapshot_ids)
 
-        print('[+] Adding tags', [t.name for t in tags], 'to', num_snapshots, 'Snapshots')
+        print("[+] Adding tags", [t.name for t in tags], "to", num_snapshots, "Snapshots")
 
         # Bulk create M2M relationships (1 query per tag, not per snapshot)
         for tag in tags:
             SnapshotTag.objects.bulk_create(
                 [SnapshotTag(snapshot_id=sid, tag=tag) for sid in snapshot_ids],
-                ignore_conflicts=True  # Skip if relationship already exists
+                ignore_conflicts=True,  # Skip if relationship already exists
             )
 
         messages.success(
@@ -836,21 +1101,20 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             f"Added {len(tags)} tag(s) to {num_snapshots} Snapshot(s).",
         )
 
-
     @admin.action(
-        description="–"
+        description="–",
     )
     def remove_tags(self, request, queryset):
         from archivebox.core.models import SnapshotTag
 
         # Get tags from the form - now comma-separated string
-        tags_str = request.POST.get('tags', '')
+        tags_str = request.POST.get("tags", "")
         if not tags_str:
             messages.warning(request, "No tags specified.")
             return
 
         # Parse comma-separated tag names and find matching Tag objects (case-insensitive)
-        tag_names = [name.strip() for name in tags_str.split(',') if name.strip()]
+        tag_names = [name.strip() for name in tags_str.split(",") if name.strip()]
         tags = []
         for name in tag_names:
             tag = Tag.objects.filter(name__iexact=name).first()
@@ -862,16 +1126,16 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             return
 
         # Get snapshot IDs efficiently (works with select_across for all pages)
-        snapshot_ids = list(queryset.values_list('id', flat=True))
+        snapshot_ids = list(queryset.values_list("id", flat=True))
         num_snapshots = len(snapshot_ids)
         tag_ids = [t.pk for t in tags]
 
-        print('[-] Removing tags', [t.name for t in tags], 'from', num_snapshots, 'Snapshots')
+        print("[-] Removing tags", [t.name for t in tags], "from", num_snapshots, "Snapshots")
 
         # Bulk delete M2M relationships (1 query total, not per snapshot)
         deleted_count, _ = SnapshotTag.objects.filter(
             snapshot_id__in=snapshot_ids,
-            tag_id__in=tag_ids
+            tag_id__in=tag_ids,
         ).delete()
 
         messages.success(

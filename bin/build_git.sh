@@ -32,4 +32,3 @@ function bump_semver {
 
 # OLD_VERSION="$(grep '^version = ' "${REPO_DIR}/pyproject.toml" | awk -F'"' '{print $2}')"
 # NEW_VERSION="$(bump_semver "$OLD_VERSION")"
-

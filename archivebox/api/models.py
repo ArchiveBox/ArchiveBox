@@ -1,4 +1,4 @@
-__package__ = 'archivebox.api'
+__package__ = "archivebox.api"
 
 import secrets
 from archivebox.uuid_compat import uuid7
@@ -25,7 +25,7 @@ class APIToken(models.Model):
     expires = models.DateTimeField(null=True, blank=True)
 
     class Meta(TypedModelMeta):
-        app_label = 'api'
+        app_label = "api"
         verbose_name = "API Key"
         verbose_name_plural = "API Keys"
 
@@ -34,7 +34,7 @@ class APIToken(models.Model):
 
     @property
     def token_redacted(self):
-        return f'************{self.token[-4:]}'
+        return f"************{self.token[-4:]}"
 
     def is_valid(self, for_date=None):
         return not self.expires or self.expires >= (for_date or timezone.now())
@@ -47,8 +47,8 @@ class OutboundWebhook(WebhookBase):
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta(WebhookBase.Meta):
-        app_label = 'api'
-        verbose_name = 'API Outbound Webhook'
+        app_label = "api"
+        verbose_name = "API Outbound Webhook"
 
     def __str__(self) -> str:
-        return f'[{self.id}] {self.ref} -> {self.endpoint}'
+        return f"[{self.id}] {self.ref} -> {self.endpoint}"

@@ -15,7 +15,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from django.utils.html import format_html
@@ -109,18 +109,14 @@ class PersonaImportSource:
         path_str = str(self.profile_path or self.user_data_dir or self.cdp_url or "")
         binary_suffix = f"Using {self.browser_binary}" if self.browser_binary else "Will auto-detect a Chromium binary"
         return format_html(
-            '<span class="abx-profile-option">'
-            '<strong>{}</strong>'
-            '<span class="abx-profile-option__meta">{}</span>'
-            '<code>{}</code>'
-            "</span>",
+            '<span class="abx-profile-option"><strong>{}</strong><span class="abx-profile-option__meta">{}</span><code>{}</code></span>',
             self.display_label,
             binary_suffix,
             path_str,
         )
 
     @classmethod
-    def from_choice_value(cls, value: str) -> "PersonaImportSource":
+    def from_choice_value(cls, value: str) -> PersonaImportSource:
         try:
             payload = json.loads(value)
         except json.JSONDecodeError as err:
@@ -158,7 +154,7 @@ class PersonaImportResult:
         return self.profile_copied or self.cookies_imported or self.storage_captured or self.user_agent_imported
 
 
-def get_chrome_user_data_dir() -> Optional[Path]:
+def get_chrome_user_data_dir() -> Path | None:
     """Get the default Chrome user data directory for the current platform."""
     system = platform.system()
     home = Path.home()
@@ -191,7 +187,7 @@ def get_chrome_user_data_dir() -> Optional[Path]:
     return None
 
 
-def get_brave_user_data_dir() -> Optional[Path]:
+def get_brave_user_data_dir() -> Path | None:
     """Get the default Brave user data directory for the current platform."""
     system = platform.system()
     home = Path.home()
@@ -219,7 +215,7 @@ def get_brave_user_data_dir() -> Optional[Path]:
     return None
 
 
-def get_edge_user_data_dir() -> Optional[Path]:
+def get_edge_user_data_dir() -> Path | None:
     """Get the default Edge user data directory for the current platform."""
     system = platform.system()
     home = Path.home()
@@ -249,7 +245,7 @@ def get_edge_user_data_dir() -> Optional[Path]:
     return None
 
 
-def get_browser_binary(browser: str) -> Optional[str]:
+def get_browser_binary(browser: str) -> str | None:
     system = platform.system()
     home = Path.home()
     browser = browser.lower()
@@ -263,10 +259,20 @@ def get_browser_binary(browser: str) -> Optional[str]:
         }.get(browser, [])
     elif system == "Linux":
         candidates = {
-            "chrome": ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/google-chrome-beta", "/usr/bin/google-chrome-unstable"],
+            "chrome": [
+                "/usr/bin/google-chrome",
+                "/usr/bin/google-chrome-stable",
+                "/usr/bin/google-chrome-beta",
+                "/usr/bin/google-chrome-unstable",
+            ],
             "chromium": ["/usr/bin/chromium", "/usr/bin/chromium-browser"],
             "brave": ["/usr/bin/brave-browser", "/usr/bin/brave-browser-beta", "/usr/bin/brave-browser-nightly"],
-            "edge": ["/usr/bin/microsoft-edge", "/usr/bin/microsoft-edge-stable", "/usr/bin/microsoft-edge-beta", "/usr/bin/microsoft-edge-dev"],
+            "edge": [
+                "/usr/bin/microsoft-edge",
+                "/usr/bin/microsoft-edge-stable",
+                "/usr/bin/microsoft-edge-beta",
+                "/usr/bin/microsoft-edge-dev",
+            ],
         }.get(browser, [])
     elif system == "Windows":
         local_app_data = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
@@ -350,7 +356,7 @@ def discover_local_browser_profiles() -> list[PersonaImportSource]:
                         user_data_dir=user_data_dir,
                         profile_dir=profile_dir,
                         browser_binary=browser_binary,
-                    )
+                    ),
                 )
             except ValueError:
                 continue
@@ -373,7 +379,7 @@ def discover_persona_template_profiles(personas_dir: Path | None = None) -> list
             [
                 CONSTANTS.PERSONAS_DIR.expanduser(),
                 Path.home() / ".config" / "abx" / "personas",
-            ]
+            ],
         )
 
     seen_roots: set[Path] = set()
@@ -401,7 +407,7 @@ def discover_persona_template_profiles(personas_dir: Path | None = None) -> list
                                 user_data_dir=user_data_dir,
                                 profile_dir=profile_dir,
                                 browser_binary=get_browser_binary("chrome"),
-                            )
+                            ),
                         )
                     except ValueError:
                         continue
@@ -488,7 +494,7 @@ def resolve_custom_import_source(raw_value: str, profile_dir: str | None = None)
     if not chosen_profile:
         raise ValueError(
             "Could not find a Chromium profile in that directory. "
-            "Provide an exact profile directory path or fill in the profile name field."
+            "Provide an exact profile directory path or fill in the profile name field.",
         )
 
     return resolve_browser_profile_source(
@@ -508,7 +514,7 @@ def pick_default_profile_dir(user_data_dir: Path) -> str | None:
 
 
 def import_persona_from_source(
-    persona: "Persona",
+    persona: Persona,
     source: PersonaImportSource,
     *,
     copy_profile: bool = True,
@@ -529,7 +535,9 @@ def import_persona_from_source(
             resolved_source_root = source.user_data_dir.resolve()
             resolved_persona_root = persona_chrome_dir.resolve()
             if resolved_source_root == resolved_persona_root:
-                result.warnings.append("Skipped profile copy because the selected source is already this persona's chrome_user_data directory.")
+                result.warnings.append(
+                    "Skipped profile copy because the selected source is already this persona's chrome_user_data directory.",
+                )
             else:
                 copy_browser_user_data_dir(resolved_source_root, resolved_persona_root)
                 persona.cleanup_chrome_profile(resolved_persona_root)
@@ -538,7 +546,9 @@ def import_persona_from_source(
         else:
             launch_user_data_dir = source.user_data_dir
     elif copy_profile:
-        result.warnings.append("Profile copying is only available for local Chromium profile paths. CDP imports can only pull cookies and open-tab storage.")
+        result.warnings.append(
+            "Profile copying is only available for local Chromium profile paths. CDP imports can only pull cookies and open-tab storage.",
+        )
 
     if source.kind == "cdp":
         export_success, auth_payload, export_message = export_browser_state(
@@ -827,7 +837,7 @@ def _merge_cookie_dicts(existing: list[dict], new: list[dict]) -> list[dict]:
     return list(merged.values())
 
 
-def _apply_imported_user_agent(persona: "Persona", auth_payload: dict | None) -> bool:
+def _apply_imported_user_agent(persona: Persona, auth_payload: dict | None) -> bool:
     if not auth_payload:
         return False
 

@@ -52,19 +52,19 @@ API (all hook logic lives here):
     is_background_hook(name)  -> bool           Check if hook is background (.bg suffix)
 """
 
-__package__ = 'archivebox'
+__package__ = "archivebox"
 
 import os
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Dict, Any, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Optional, TypedDict
 
 from abx_plugins import get_plugins_dir
 from django.conf import settings
 from django.utils.safestring import mark_safe
 from archivebox.config.constants import CONSTANTS
-from archivebox.misc.util import fix_url_from_markdown
+from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
 
 if TYPE_CHECKING:
     from archivebox.machine.models import Process
@@ -73,9 +73,7 @@ if TYPE_CHECKING:
 # Plugin directories
 BUILTIN_PLUGINS_DIR = Path(get_plugins_dir()).resolve()
 USER_PLUGINS_DIR = Path(
-    os.environ.get('ARCHIVEBOX_USER_PLUGINS_DIR')
-    or getattr(settings, 'USER_PLUGINS_DIR', '')
-    or str(CONSTANTS.USER_PLUGINS_DIR)
+    os.environ.get("ARCHIVEBOX_USER_PLUGINS_DIR") or getattr(settings, "USER_PLUGINS_DIR", "") or str(CONSTANTS.USER_PLUGINS_DIR),
 ).expanduser()
 
 
@@ -101,24 +99,24 @@ def is_background_hook(hook_name: str) -> bool:
         is_background_hook('on_Snapshot__50_wget.py') -> False
         is_background_hook('on_Snapshot__63_media.finite.bg.py') -> True
     """
-    return '.bg.' in hook_name or '__background' in hook_name
+    return ".bg." in hook_name or "__background" in hook_name
 
 
 def is_finite_background_hook(hook_name: str) -> bool:
     """Check if a background hook is finite-lived and should be awaited."""
-    return '.finite.bg.' in hook_name
+    return ".finite.bg." in hook_name
 
 
-def iter_plugin_dirs() -> List[Path]:
+def iter_plugin_dirs() -> list[Path]:
     """Iterate over all built-in and user plugin directories."""
-    plugin_dirs: List[Path] = []
+    plugin_dirs: list[Path] = []
 
     for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
         if not base_dir.exists():
             continue
 
         for plugin_dir in base_dir.iterdir():
-            if plugin_dir.is_dir() and not plugin_dir.name.startswith('_'):
+            if plugin_dir.is_dir() and not plugin_dir.name.startswith("_"):
                 plugin_dirs.append(plugin_dir)
 
     return plugin_dirs
@@ -126,24 +124,25 @@ def iter_plugin_dirs() -> List[Path]:
 
 class HookResult(TypedDict, total=False):
     """Raw result from run_hook()."""
+
     returncode: int
     stdout: str
     stderr: str
-    output_json: Optional[Dict[str, Any]]
-    output_files: List[str]
+    output_json: dict[str, Any] | None
+    output_files: list[dict[str, Any]]
     duration_ms: int
     hook: str
     plugin: str  # Plugin name (directory name, e.g., 'wget', 'screenshot')
     hook_name: str  # Full hook filename (e.g., 'on_Snapshot__50_wget.py')
     # New fields for JSONL parsing
-    records: List[Dict[str, Any]]  # Parsed JSONL records with 'type' field
+    records: list[dict[str, Any]]  # Parsed JSONL records with 'type' field
 
 
 def discover_hooks(
     event_name: str,
     filter_disabled: bool = True,
-    config: Optional[Dict[str, Any]] = None
-) -> List[Path]:
+    config: dict[str, Any] | None = None,
+) -> list[Path]:
     """
     Find all hook scripts matching on_{event_name}__*.{sh,py,js} pattern.
 
@@ -187,22 +186,23 @@ def discover_hooks(
             continue
 
         # Search for hook scripts in all subdirectories
-        for ext in ('sh', 'py', 'js'):
-            pattern = f'*/on_{event_name}__*.{ext}'
+        for ext in ("sh", "py", "js"):
+            pattern = f"*/on_{event_name}__*.{ext}"
             hooks.extend(base_dir.glob(pattern))
 
             # Also check for hooks directly in the plugins directory
-            pattern_direct = f'on_{event_name}__*.{ext}'
+            pattern_direct = f"on_{event_name}__*.{ext}"
             hooks.extend(base_dir.glob(pattern_direct))
 
     # Binary install hooks are provider hooks, not end-user extractors. They
     # self-filter via `binproviders`, so applying the PLUGINS whitelist here
     # can hide the very installer needed by a selected plugin (e.g.
     # `--plugins=singlefile` still needs the `npm` Binary hook).
-    if filter_disabled and event_name != 'Binary':
+    if filter_disabled and event_name != "Binary":
         # Get merged config if not provided (lazy import to avoid circular dependency)
         if config is None:
             from archivebox.config.configset import get_config
+
             config = get_config()
 
         enabled_hooks = []
@@ -221,7 +221,7 @@ def discover_hooks(
 
             # Check if plugin is enabled
             plugin_config = get_plugin_special_config(plugin_name, config)
-            if plugin_config['enabled']:
+            if plugin_config["enabled"]:
                 enabled_hooks.append(hook)
 
         hooks = enabled_hooks
@@ -234,11 +234,11 @@ def discover_hooks(
 def run_hook(
     script: Path,
     output_dir: Path,
-    config: Dict[str, Any],
-    timeout: Optional[int] = None,
-    parent: Optional['Process'] = None,
-    **kwargs: Any
-) -> 'Process':
+    config: dict[str, Any],
+    timeout: int | None = None,
+    parent: Optional["Process"] = None,
+    **kwargs: Any,
+) -> "Process":
     """
     Execute a hook script with the given arguments using Process model.
 
@@ -275,7 +275,7 @@ def run_hook(
     if timeout is None:
         plugin_name = script.parent.name
         plugin_config = get_plugin_special_config(plugin_name, config)
-        timeout = plugin_config['timeout']
+        timeout = plugin_config["timeout"]
     if timeout:
         timeout = min(int(timeout), int(CONSTANTS.MAX_HOOK_RUNTIME_SECONDS))
 
@@ -301,22 +301,22 @@ def run_hook(
             parent=parent,
             process_type=Process.TypeChoices.HOOK,
             pwd=str(output_dir),
-            cmd=['echo', f'Hook script not found: {script}'],
+            cmd=["echo", f"Hook script not found: {script}"],
             timeout=timeout,
             status=Process.StatusChoices.EXITED,
             exit_code=1,
-            stderr=f'Hook script not found: {script}',
+            stderr=f"Hook script not found: {script}",
         )
         return process
 
     # Determine the interpreter based on file extension
     ext = script.suffix.lower()
-    if ext == '.sh':
-        cmd = ['bash', str(script)]
-    elif ext == '.py':
+    if ext == ".sh":
+        cmd = ["bash", str(script)]
+    elif ext == ".py":
         cmd = [sys.executable, str(script)]
-    elif ext == '.js':
-        cmd = ['node', str(script)]
+    elif ext == ".js":
+        cmd = ["node", str(script)]
     else:
         # Try to execute directly (assumes shebang)
         cmd = [str(script)]
@@ -324,56 +324,57 @@ def run_hook(
     # Build CLI arguments from kwargs
     for key, value in kwargs.items():
         # Skip keys that start with underscore (internal parameters)
-        if key.startswith('_'):
+        if key.startswith("_"):
             continue
 
-        arg_key = f'--{key.replace("_", "-")}'
+        arg_key = f"--{key.replace('_', '-')}"
         if isinstance(value, bool):
             if value:
                 cmd.append(arg_key)
-        elif value is not None and value != '':
+        elif value is not None and value != "":
             # JSON-encode complex values, use str for simple ones
             # Skip empty strings to avoid --key= which breaks argument parsers
             if isinstance(value, (dict, list)):
-                cmd.append(f'{arg_key}={json.dumps(value)}')
+                cmd.append(f"{arg_key}={json.dumps(value)}")
             else:
                 # Ensure value is converted to string and strip whitespace
                 str_value = str(value).strip()
                 if str_value:  # Only add if non-empty after stripping
-                    cmd.append(f'{arg_key}={str_value}')
+                    cmd.append(f"{arg_key}={str_value}")
 
     # Set up environment with base paths
     env = os.environ.copy()
-    env['DATA_DIR'] = str(getattr(settings, 'DATA_DIR', Path.cwd()))
-    env['ARCHIVE_DIR'] = str(getattr(settings, 'ARCHIVE_DIR', Path.cwd() / 'archive'))
-    env.setdefault('MACHINE_ID', getattr(settings, 'MACHINE_ID', '') or os.environ.get('MACHINE_ID', ''))
+    env["DATA_DIR"] = str(getattr(settings, "DATA_DIR", Path.cwd()))
+    env["ARCHIVE_DIR"] = str(getattr(settings, "ARCHIVE_DIR", Path.cwd() / "archive"))
+    env["ABX_RUNTIME"] = "archivebox"
+    env.setdefault("MACHINE_ID", getattr(settings, "MACHINE_ID", "") or os.environ.get("MACHINE_ID", ""))
 
     resolved_output_dir = output_dir.resolve()
     output_parts = set(resolved_output_dir.parts)
-    if 'snapshots' in output_parts:
-        env['SNAP_DIR'] = str(resolved_output_dir.parent)
-    if 'crawls' in output_parts:
-        env['CRAWL_DIR'] = str(resolved_output_dir.parent)
+    if "snapshots" in output_parts:
+        env["SNAP_DIR"] = str(resolved_output_dir.parent)
+    if "crawls" in output_parts:
+        env["CRAWL_DIR"] = str(resolved_output_dir.parent)
 
-    crawl_id = kwargs.get('_crawl_id') or kwargs.get('crawl_id')
+    crawl_id = kwargs.get("_crawl_id") or kwargs.get("crawl_id")
     if crawl_id:
         try:
             from archivebox.crawls.models import Crawl
 
             crawl = Crawl.objects.filter(id=crawl_id).first()
             if crawl:
-                env['CRAWL_DIR'] = str(crawl.output_dir)
+                env["CRAWL_DIR"] = str(crawl.output_dir)
         except Exception:
             pass
 
     # Get LIB_DIR and LIB_BIN_DIR from config
-    lib_dir = config.get('LIB_DIR', getattr(settings, 'LIB_DIR', None))
-    lib_bin_dir = config.get('LIB_BIN_DIR', getattr(settings, 'LIB_BIN_DIR', None))
+    lib_dir = config.get("LIB_DIR", getattr(settings, "LIB_DIR", None))
+    lib_bin_dir = config.get("LIB_BIN_DIR", getattr(settings, "LIB_BIN_DIR", None))
     if lib_dir:
-        env['LIB_DIR'] = str(lib_dir)
+        env["LIB_DIR"] = str(lib_dir)
     if not lib_bin_dir and lib_dir:
         # Derive LIB_BIN_DIR from LIB_DIR if not set
-        lib_bin_dir = Path(lib_dir) / 'bin'
+        lib_bin_dir = Path(lib_dir) / "bin"
 
     # Build PATH with proper precedence:
     # 1. LIB_BIN_DIR (highest priority - local symlinked binaries)
@@ -382,60 +383,72 @@ def run_hook(
 
     if lib_bin_dir:
         lib_bin_dir = str(lib_bin_dir)
-        env['LIB_BIN_DIR'] = lib_bin_dir
+        env["LIB_BIN_DIR"] = lib_bin_dir
 
     # Start with base PATH
-    current_path = env.get('PATH', '')
+    current_path = env.get("PATH", "")
 
     # Prepend Machine.config.PATH if it exists (treat as extra entries, not replacement)
     try:
         from archivebox.machine.models import Machine
+
         machine = Machine.current()
         if machine and machine.config:
-            machine_path = machine.config.get('PATH')
+            machine_path = machine.config.get("PATH")
             if machine_path:
                 # Prepend machine_path to current PATH
-                current_path = f'{machine_path}:{current_path}' if current_path else machine_path
+                current_path = f"{machine_path}:{current_path}" if current_path else machine_path
     except Exception:
         pass
 
     # Finally prepend LIB_BIN_DIR to the front (highest priority)
     if lib_bin_dir:
-        if not current_path.startswith(f'{lib_bin_dir}:'):
-            env['PATH'] = f'{lib_bin_dir}:{current_path}' if current_path else lib_bin_dir
+        if not current_path.startswith(f"{lib_bin_dir}:"):
+            env["PATH"] = f"{lib_bin_dir}:{current_path}" if current_path else lib_bin_dir
         else:
-            env['PATH'] = current_path
+            env["PATH"] = current_path
     else:
-        env['PATH'] = current_path
+        env["PATH"] = current_path
 
     # Set NODE_PATH for Node.js module resolution
     # Priority: config dict > Machine.config > derive from LIB_DIR
-    node_path = config.get('NODE_PATH')
+    node_path = config.get("NODE_PATH")
     if not node_path and lib_dir:
         # Derive from LIB_DIR/npm/node_modules (create if needed)
-        node_modules_dir = Path(lib_dir) / 'npm' / 'node_modules'
+        node_modules_dir = Path(lib_dir) / "npm" / "node_modules"
         node_modules_dir.mkdir(parents=True, exist_ok=True)
         node_path = str(node_modules_dir)
     if not node_path:
         try:
             # Fallback to Machine.config
-            node_path = machine.config.get('NODE_MODULES_DIR')
+            node_path = machine.config.get("NODE_MODULES_DIR")
         except Exception:
             pass
     if node_path:
-        env['NODE_PATH'] = node_path
-        env['NODE_MODULES_DIR'] = node_path  # For backwards compatibility
+        env["NODE_PATH"] = node_path
+        env["NODE_MODULES_DIR"] = node_path  # For backwards compatibility
 
     # Export all config values to environment (already merged by get_config())
     # Skip keys we've already handled specially above (PATH, LIB_DIR, LIB_BIN_DIR, NODE_PATH, etc.)
-    SKIP_KEYS = {'PATH', 'LIB_DIR', 'LIB_BIN_DIR', 'NODE_PATH', 'NODE_MODULES_DIR', 'DATA_DIR', 'ARCHIVE_DIR', 'MACHINE_ID', 'SNAP_DIR', 'CRAWL_DIR'}
+    SKIP_KEYS = {
+        "PATH",
+        "LIB_DIR",
+        "LIB_BIN_DIR",
+        "NODE_PATH",
+        "NODE_MODULES_DIR",
+        "DATA_DIR",
+        "ARCHIVE_DIR",
+        "MACHINE_ID",
+        "SNAP_DIR",
+        "CRAWL_DIR",
+    }
     for key, value in config.items():
         if key in SKIP_KEYS:
             continue  # Already handled specially above, don't overwrite
         if value is None:
             continue
         elif isinstance(value, bool):
-            env[key] = 'true' if value else 'false'
+            env[key] = "true" if value else "false"
         elif isinstance(value, (list, dict)):
             env[key] = json.dumps(value)
         else:
@@ -447,7 +460,7 @@ def run_hook(
     # Detect if this is a background hook (long-running daemon)
     # Background hooks use the .daemon.bg. or .finite.bg. filename convention.
     # Old convention: __background in stem (for backwards compatibility)
-    is_background = '.bg.' in script.name or '__background' in script.stem
+    is_background = ".bg." in script.name or "__background" in script.stem
 
     try:
         # Create Process record
@@ -485,12 +498,12 @@ def run_hook(
             timeout=timeout,
             status=Process.StatusChoices.EXITED,
             exit_code=1,
-            stderr=f'Failed to run hook: {type(e).__name__}: {e}',
+            stderr=f"Failed to run hook: {type(e).__name__}: {e}",
         )
         return process
 
 
-def extract_records_from_process(process: 'Process') -> List[Dict[str, Any]]:
+def extract_records_from_process(process: "Process") -> list[dict[str, Any]]:
     """
     Extract JSONL records from a Process's stdout.
 
@@ -507,20 +520,20 @@ def extract_records_from_process(process: 'Process') -> List[Dict[str, Any]]:
         return []
 
     # Extract plugin metadata from process.pwd and process.cmd
-    plugin_name = Path(process.pwd).name if process.pwd else 'unknown'
-    hook_name = Path(process.cmd[1]).name if len(process.cmd) > 1 else 'unknown'
-    plugin_hook = process.cmd[1] if len(process.cmd) > 1 else ''
+    plugin_name = Path(process.pwd).name if process.pwd else "unknown"
+    hook_name = Path(process.cmd[1]).name if len(process.cmd) > 1 else "unknown"
+    plugin_hook = process.cmd[1] if len(process.cmd) > 1 else ""
 
     for record in records:
         # Add plugin metadata to record
-        record.setdefault('plugin', plugin_name)
-        record.setdefault('hook_name', hook_name)
-        record.setdefault('plugin_hook', plugin_hook)
+        record.setdefault("plugin", plugin_name)
+        record.setdefault("hook_name", hook_name)
+        record.setdefault("plugin_hook", plugin_hook)
 
     return records
 
 
-def collect_urls_from_plugins(snapshot_dir: Path) -> List[Dict[str, Any]]:
+def collect_urls_from_plugins(snapshot_dir: Path) -> list[dict[str, Any]]:
     """
     Collect all urls.jsonl entries from parser plugin output subdirectories.
 
@@ -542,20 +555,21 @@ def collect_urls_from_plugins(snapshot_dir: Path) -> List[Dict[str, Any]]:
         if not subdir.is_dir():
             continue
 
-        urls_file = subdir / 'urls.jsonl'
+        urls_file = subdir / "urls.jsonl"
         if not urls_file.exists():
             continue
 
         try:
             from archivebox.machine.models import Process
+
             text = urls_file.read_text()
             for entry in Process.parse_records_from_text(text):
-                if entry.get('url'):
-                    entry['url'] = fix_url_from_markdown(str(entry['url']).strip())
-                    if not entry['url']:
+                if entry.get("url"):
+                    entry["url"] = sanitize_extracted_url(fix_url_from_markdown(str(entry["url"]).strip()))
+                    if not entry["url"]:
                         continue
                     # Track which parser plugin found this URL
-                    entry['plugin'] = subdir.name
+                    entry["plugin"] = subdir.name
                     urls.append(entry)
         except Exception:
             pass
@@ -563,9 +577,8 @@ def collect_urls_from_plugins(snapshot_dir: Path) -> List[Dict[str, Any]]:
     return urls
 
 
-
 @lru_cache(maxsize=1)
-def get_plugins() -> List[str]:
+def get_plugins() -> list[str]:
     """
     Get list of available plugins by discovering plugin directories.
 
@@ -576,14 +589,13 @@ def get_plugins() -> List[str]:
     plugins = []
 
     for plugin_dir in iter_plugin_dirs():
-        has_hooks = any(plugin_dir.glob('on_*__*.*'))
-        has_config = (plugin_dir / 'config.json').exists()
-        has_icon = (plugin_dir / 'templates' / 'icon.html').exists()
+        has_hooks = any(plugin_dir.glob("on_*__*.*"))
+        has_config = (plugin_dir / "config.json").exists()
+        has_icon = (plugin_dir / "templates" / "icon.html").exists()
         if has_hooks or has_config or has_icon:
             plugins.append(plugin_dir.name)
 
     return sorted(set(plugins))
-
 
 
 def get_plugin_name(plugin: str) -> str:
@@ -596,14 +608,13 @@ def get_plugin_name(plugin: str) -> str:
         '50_parse_html_urls' -> 'parse_html_urls'
     """
     # Split on first underscore after any leading digits
-    parts = plugin.split('_', 1)
+    parts = plugin.split("_", 1)
     if len(parts) == 2 and parts[0].isdigit():
         return parts[1]
     return plugin
 
 
-
-def get_enabled_plugins(config: Optional[Dict[str, Any]] = None) -> List[str]:
+def get_enabled_plugins(config: dict[str, Any] | None = None) -> list[str]:
     """
     Get the list of enabled plugins based on config and available hooks.
 
@@ -623,32 +634,33 @@ def get_enabled_plugins(config: Optional[Dict[str, Any]] = None) -> List[str]:
     # Get merged config if not provided
     if config is None:
         from archivebox.config.configset import get_config
+
         config = get_config()
 
-    def normalize_enabled_plugins(value: Any) -> List[str]:
+    def normalize_enabled_plugins(value: Any) -> list[str]:
         if value is None:
             return []
         if isinstance(value, str):
             raw = value.strip()
             if not raw:
                 return []
-            if raw.startswith('['):
+            if raw.startswith("["):
                 try:
                     parsed = json.loads(raw)
                 except json.JSONDecodeError:
                     parsed = None
                 if isinstance(parsed, list):
                     return [str(plugin).strip() for plugin in parsed if str(plugin).strip()]
-            return [plugin.strip() for plugin in raw.split(',') if plugin.strip()]
+            return [plugin.strip() for plugin in raw.split(",") if plugin.strip()]
         if isinstance(value, (list, tuple, set)):
             return [str(plugin).strip() for plugin in value if str(plugin).strip()]
         return [str(value).strip()] if str(value).strip() else []
 
     # Support explicit ENABLED_PLUGINS override (legacy)
-    if 'ENABLED_PLUGINS' in config:
-        return normalize_enabled_plugins(config['ENABLED_PLUGINS'])
-    if 'ENABLED_EXTRACTORS' in config:
-        return normalize_enabled_plugins(config['ENABLED_EXTRACTORS'])
+    if "ENABLED_PLUGINS" in config:
+        return normalize_enabled_plugins(config["ENABLED_PLUGINS"])
+    if "ENABLED_EXTRACTORS" in config:
+        return normalize_enabled_plugins(config["ENABLED_EXTRACTORS"])
 
     # Filter all plugins by enabled status
     all_plugins = get_plugins()
@@ -656,7 +668,7 @@ def get_enabled_plugins(config: Optional[Dict[str, Any]] = None) -> List[str]:
 
     for plugin in all_plugins:
         plugin_config = get_plugin_special_config(plugin, config)
-        if plugin_config['enabled']:
+        if plugin_config["enabled"]:
             enabled.append(plugin)
 
     return enabled
@@ -664,9 +676,9 @@ def get_enabled_plugins(config: Optional[Dict[str, Any]] = None) -> List[str]:
 
 def discover_plugins_that_provide_interface(
     module_name: str,
-    required_attrs: List[str],
-    plugin_prefix: Optional[str] = None,
-) -> Dict[str, Any]:
+    required_attrs: list[str],
+    plugin_prefix: str | None = None,
+) -> dict[str, Any]:
     """
     Discover plugins that provide a specific Python module with required interface.
 
@@ -710,15 +722,15 @@ def discover_plugins_that_provide_interface(
                 continue
 
             # Look for the module file
-            module_path = plugin_dir / f'{module_name}.py'
+            module_path = plugin_dir / f"{module_name}.py"
             if not module_path.exists():
                 continue
 
             try:
                 # Import the module dynamically
                 spec = importlib.util.spec_from_file_location(
-                    f'archivebox.dynamic_plugins.{plugin_name}.{module_name}',
-                    module_path
+                    f"archivebox.dynamic_plugins.{plugin_name}.{module_name}",
+                    module_path,
                 )
                 if spec is None or spec.loader is None:
                     continue
@@ -732,7 +744,7 @@ def discover_plugins_that_provide_interface(
 
                 # Derive backend name from plugin directory name
                 if plugin_prefix:
-                    backend_name = plugin_name[len(plugin_prefix):]
+                    backend_name = plugin_name[len(plugin_prefix) :]
                 else:
                     backend_name = plugin_name
 
@@ -745,7 +757,7 @@ def discover_plugins_that_provide_interface(
     return backends
 
 
-def get_search_backends() -> Dict[str, Any]:
+def get_search_backends() -> dict[str, Any]:
     """
     Discover all available search backend plugins.
 
@@ -758,13 +770,13 @@ def get_search_backends() -> Dict[str, Any]:
         e.g., {'sqlite': <module>, 'sonic': <module>, 'ripgrep': <module>}
     """
     return discover_plugins_that_provide_interface(
-        module_name='search',
-        required_attrs=['search', 'flush'],
-        plugin_prefix='search_backend_',
+        module_name="search",
+        required_attrs=["search", "flush"],
+        plugin_prefix="search_backend_",
     )
 
 
-def discover_plugin_configs() -> Dict[str, Dict[str, Any]]:
+def discover_plugin_configs() -> dict[str, dict[str, Any]]:
     """
     Discover all plugin config.json schemas.
 
@@ -792,21 +804,20 @@ def discover_plugin_configs() -> Dict[str, Dict[str, Any]]:
     configs = {}
 
     for plugin_dir in iter_plugin_dirs():
-
-        config_path = plugin_dir / 'config.json'
+        config_path = plugin_dir / "config.json"
         if not config_path.exists():
             continue
 
         try:
-            with open(config_path, 'r') as f:
+            with open(config_path) as f:
                 schema = json.load(f)
 
             # Basic validation: must be an object with properties
             if not isinstance(schema, dict):
                 continue
-            if schema.get('type') != 'object':
+            if schema.get("type") != "object":
                 continue
-            if 'properties' not in schema:
+            if "properties" not in schema:
                 continue
 
             configs[plugin_dir.name] = schema
@@ -814,13 +825,14 @@ def discover_plugin_configs() -> Dict[str, Dict[str, Any]]:
         except (json.JSONDecodeError, OSError) as e:
             # Log warning but continue - malformed config shouldn't break discovery
             import sys
+
             print(f"Warning: Failed to load config.json from {plugin_dir.name}: {e}", file=sys.stderr)
             continue
 
     return configs
 
 
-def get_config_defaults_from_plugins() -> Dict[str, Any]:
+def get_config_defaults_from_plugins() -> dict[str, Any]:
     """
     Get default values for all plugin config options.
 
@@ -832,15 +844,15 @@ def get_config_defaults_from_plugins() -> Dict[str, Any]:
     defaults = {}
 
     for plugin_name, schema in plugin_configs.items():
-        properties = schema.get('properties', {})
+        properties = schema.get("properties", {})
         for key, prop_schema in properties.items():
-            if 'default' in prop_schema:
-                defaults[key] = prop_schema['default']
+            if "default" in prop_schema:
+                defaults[key] = prop_schema["default"]
 
     return defaults
 
 
-def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[str, Any]:
+def get_plugin_special_config(plugin_name: str, config: dict[str, Any]) -> dict[str, Any]:
     """
     Extract special config keys for a plugin following naming conventions.
 
@@ -878,19 +890,19 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
     # Old names (USE_*, SAVE_*) are aliased in config.json via x-aliases
 
     # Check if PLUGINS whitelist is specified (e.g., --plugins=wget,favicon)
-    plugins_whitelist = config.get('PLUGINS', '')
+    plugins_whitelist = config.get("PLUGINS", "")
     if plugins_whitelist:
         # PLUGINS whitelist is specified - include transitive required_plugins from
         # config.json so selecting a plugin also enables its declared plugin-level
         # dependencies (e.g. singlefile -> chrome).
         plugin_configs = discover_plugin_configs()
-        plugin_names = {p.strip().lower() for p in plugins_whitelist.split(',') if p.strip()}
+        plugin_names = {p.strip().lower() for p in plugins_whitelist.split(",") if p.strip()}
         pending = list(plugin_names)
 
         while pending:
             current = pending.pop()
             schema = plugin_configs.get(current, {})
-            required_plugins = schema.get('required_plugins', [])
+            required_plugins = schema.get("required_plugins", [])
             if not isinstance(required_plugins, list):
                 continue
 
@@ -906,34 +918,34 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
             enabled = False
         else:
             # Plugin is in whitelist - check if explicitly disabled by PLUGINNAME_ENABLED
-            enabled_key = f'{plugin_upper}_ENABLED'
+            enabled_key = f"{plugin_upper}_ENABLED"
             enabled = config.get(enabled_key)
             if enabled is None:
                 enabled = True  # Default to enabled if in whitelist
             elif isinstance(enabled, str):
-                enabled = enabled.lower() not in ('false', '0', 'no', '')
+                enabled = enabled.lower() not in ("false", "0", "no", "")
     else:
         # No PLUGINS whitelist - use PLUGINNAME_ENABLED (default True)
-        enabled_key = f'{plugin_upper}_ENABLED'
+        enabled_key = f"{plugin_upper}_ENABLED"
         enabled = config.get(enabled_key)
         if enabled is None:
             enabled = True
         elif isinstance(enabled, str):
             # Handle string values from config file ("true"/"false")
-            enabled = enabled.lower() not in ('false', '0', 'no', '')
+            enabled = enabled.lower() not in ("false", "0", "no", "")
 
     # 2. Timeout: PLUGINNAME_TIMEOUT (fallback to TIMEOUT, default 300)
-    timeout_key = f'{plugin_upper}_TIMEOUT'
-    timeout = config.get(timeout_key) or config.get('TIMEOUT', 300)
+    timeout_key = f"{plugin_upper}_TIMEOUT"
+    timeout = config.get(timeout_key) or config.get("TIMEOUT", 300)
 
     # 3. Binary: PLUGINNAME_BINARY (default to plugin_name)
-    binary_key = f'{plugin_upper}_BINARY'
+    binary_key = f"{plugin_upper}_BINARY"
     binary = config.get(binary_key, plugin_name)
 
     return {
-        'enabled': bool(enabled),
-        'timeout': int(timeout),
-        'binary': str(binary),
+        "enabled": bool(enabled),
+        "timeout": int(timeout),
+        "binary": str(binary),
     }
 
 
@@ -959,30 +971,30 @@ def get_plugin_special_config(plugin_name: str, config: Dict[str, Any]) -> Dict[
 
 # Default templates used when plugin doesn't provide one
 DEFAULT_TEMPLATES = {
-    'icon': '''
+    "icon": """
         <span title="{{ plugin }}" style="display:inline-flex; width:20px; height:20px; align-items:center; justify-content:center;">
             {{ icon }}
         </span>
-    ''',
-    'card': '''
+    """,
+    "card": """
         <iframe src="{{ output_path }}"
                 class="card-img-top"
                 style="width: 100%; height: 100%; border: none;"
                 sandbox="allow-same-origin allow-scripts allow-forms"
                 loading="lazy">
         </iframe>
-    ''',
-    'full': '''
+    """,
+    "full": """
         <iframe src="{{ output_path }}"
                 class="full-page-iframe"
                 style="width: 100%; height: 100vh; border: none;"
                 sandbox="allow-same-origin allow-scripts allow-forms">
         </iframe>
-    ''',
+    """,
 }
 
 
-def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) -> Optional[str]:
+def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) -> str | None:
     """
     Get a plugin template by plugin name and template type.
 
@@ -995,20 +1007,19 @@ def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) 
         Template content as string, or None if not found and fallback=False.
     """
     base_name = get_plugin_name(plugin)
-    if base_name in ('yt-dlp', 'youtube-dl'):
-        base_name = 'ytdlp'
+    if base_name in ("yt-dlp", "youtube-dl"):
+        base_name = "ytdlp"
 
     for plugin_dir in iter_plugin_dirs():
-
         # Match by directory name (exact or partial)
-        if plugin_dir.name == base_name or plugin_dir.name.endswith(f'_{base_name}'):
-            template_path = plugin_dir / 'templates' / f'{template_name}.html'
+        if plugin_dir.name == base_name or plugin_dir.name.endswith(f"_{base_name}"):
+            template_path = plugin_dir / "templates" / f"{template_name}.html"
             if template_path.exists():
                 return template_path.read_text()
 
     # Fall back to default template if requested
     if fallback:
-        return DEFAULT_TEMPLATES.get(template_name, '')
+        return DEFAULT_TEMPLATES.get(template_name, "")
 
     return None
 
@@ -1025,14 +1036,12 @@ def get_plugin_icon(plugin: str) -> str:
         Icon HTML/emoji string.
     """
     # Try plugin-provided icon template
-    icon_template = get_plugin_template(plugin, 'icon', fallback=False)
+    icon_template = get_plugin_template(plugin, "icon", fallback=False)
     if icon_template:
         return mark_safe(icon_template.strip())
 
     # Fall back to generic folder icon
-    return mark_safe('📁')
-
-
+    return mark_safe("📁")
 
 
 # =============================================================================
@@ -1040,9 +1049,7 @@ def get_plugin_icon(plugin: str) -> str:
 # =============================================================================
 
 
-
-
-def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any] | None = None) -> Dict[str, int]:
+def process_hook_records(records: list[dict[str, Any]], overrides: dict[str, Any] | None = None) -> dict[str, int]:
     """
     Process JSONL records from hook output.
     Dispatches to Model.from_json() for each record type.
@@ -1058,62 +1065,67 @@ def process_hook_records(records: List[Dict[str, Any]], overrides: Dict[str, Any
     overrides = overrides or {}
 
     for record in records:
-        record_type = record.get('type')
+        record_type = record.get("type")
         if not record_type:
             continue
 
         # Skip ArchiveResult records (they update the calling ArchiveResult, not create new ones)
-        if record_type == 'ArchiveResult':
+        if record_type == "ArchiveResult":
             continue
 
         try:
             # Dispatch to appropriate model's from_json() method
-            if record_type == 'Snapshot':
+            if record_type == "Snapshot":
                 from archivebox.core.models import Snapshot
 
-                if record.get('url'):
+                if record.get("url"):
                     record = {
                         **record,
-                        'url': fix_url_from_markdown(str(record['url']).strip()),
+                        "url": sanitize_extracted_url(fix_url_from_markdown(str(record["url"]).strip())),
                     }
-                    if not record['url']:
+                    if not record["url"]:
                         continue
 
                 # Check if discovered snapshot exceeds crawl max_depth
-                snapshot_depth = record.get('depth', 0)
-                crawl = overrides.get('crawl')
+                snapshot_depth = record.get("depth", 0)
+                crawl = overrides.get("crawl")
                 if crawl and snapshot_depth > crawl.max_depth:
                     # Skip - this URL was discovered but exceeds max crawl depth
                     continue
 
                 obj = Snapshot.from_json(record.copy(), overrides)
                 if obj:
-                    stats['Snapshot'] = stats.get('Snapshot', 0) + 1
+                    stats["Snapshot"] = stats.get("Snapshot", 0) + 1
 
-            elif record_type == 'Tag':
+            elif record_type == "Tag":
                 from archivebox.core.models import Tag
+
                 obj = Tag.from_json(record.copy(), overrides)
                 if obj:
-                    stats['Tag'] = stats.get('Tag', 0) + 1
+                    stats["Tag"] = stats.get("Tag", 0) + 1
 
-            elif record_type == 'Binary':
+            elif record_type == "Binary":
                 from archivebox.machine.models import Binary
+
                 obj = Binary.from_json(record.copy(), overrides)
                 if obj:
-                    stats['Binary'] = stats.get('Binary', 0) + 1
+                    stats["Binary"] = stats.get("Binary", 0) + 1
 
-            elif record_type == 'Machine':
+            elif record_type == "Machine":
                 from archivebox.machine.models import Machine
+
                 obj = Machine.from_json(record.copy(), overrides)
                 if obj:
-                    stats['Machine'] = stats.get('Machine', 0) + 1
+                    stats["Machine"] = stats.get("Machine", 0) + 1
 
             else:
                 import sys
+
                 print(f"Warning: Unknown record type '{record_type}' from hook output", file=sys.stderr)
 
         except Exception as e:
             import sys
+
             print(f"Warning: Failed to create {record_type}: {e}", file=sys.stderr)
             continue
 

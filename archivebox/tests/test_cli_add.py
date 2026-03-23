@@ -14,8 +14,8 @@ def _find_snapshot_dir(data_dir: Path, snapshot_id: str) -> Path | None:
     candidates = {snapshot_id}
     if len(snapshot_id) == 32:
         candidates.add(f"{snapshot_id[:8]}-{snapshot_id[8:12]}-{snapshot_id[12:16]}-{snapshot_id[16:20]}-{snapshot_id[20:]}")
-    elif len(snapshot_id) == 36 and '-' in snapshot_id:
-        candidates.add(snapshot_id.replace('-', ''))
+    elif len(snapshot_id) == 36 and "-" in snapshot_id:
+        candidates.add(snapshot_id.replace("-", ""))
 
     for needle in candidates:
         for path in data_dir.rglob(needle):
@@ -28,7 +28,7 @@ def test_add_single_url_creates_snapshot_in_db(tmp_path, process, disable_extrac
     """Test that adding a single URL creates a snapshot in the database."""
     os.chdir(tmp_path)
     result = subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
@@ -41,14 +41,14 @@ def test_add_single_url_creates_snapshot_in_db(tmp_path, process, disable_extrac
     conn.close()
 
     assert len(snapshots) == 1
-    assert snapshots[0][0] == 'https://example.com'
+    assert snapshots[0][0] == "https://example.com"
 
 
 def test_add_bg_creates_root_snapshot_rows_immediately(tmp_path, process, disable_extractors_dict):
     """Background add should create root snapshots immediately so the queue is visible in the DB."""
     os.chdir(tmp_path)
     result = subprocess.run(
-        ['archivebox', 'add', '--bg', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--bg", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
@@ -61,15 +61,15 @@ def test_add_bg_creates_root_snapshot_rows_immediately(tmp_path, process, disabl
     conn.close()
 
     assert len(snapshots) == 1
-    assert snapshots[0][0] == 'https://example.com'
-    assert snapshots[0][1] == 'queued'
+    assert snapshots[0][0] == "https://example.com"
+    assert snapshots[0][1] == "queued"
 
 
 def test_add_creates_crawl_record(tmp_path, process, disable_extractors_dict):
     """Test that add command creates a Crawl record in the database."""
     os.chdir(tmp_path)
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
@@ -86,7 +86,7 @@ def test_add_creates_source_file(tmp_path, process, disable_extractors_dict):
     """Test that add creates a source file with the URL."""
     os.chdir(tmp_path)
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
@@ -105,7 +105,7 @@ def test_add_multiple_urls_single_command(tmp_path, process, disable_extractors_
     """Test adding multiple URLs in a single command."""
     os.chdir(tmp_path)
     result = subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com', 'https://example.org'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com", "https://example.org"],
         capture_output=True,
         env=disable_extractors_dict,
     )
@@ -119,8 +119,8 @@ def test_add_multiple_urls_single_command(tmp_path, process, disable_extractors_
     conn.close()
 
     assert snapshot_count == 2
-    assert urls[0][0] == 'https://example.com'
-    assert urls[1][0] == 'https://example.org'
+    assert urls[0][0] == "https://example.com"
+    assert urls[1][0] == "https://example.org"
 
 
 def test_add_from_file(tmp_path, process, disable_extractors_dict):
@@ -136,7 +136,7 @@ def test_add_from_file(tmp_path, process, disable_extractors_dict):
     urls_file.write_text("https://example.com\nhttps://example.org\n")
 
     result = subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', str(urls_file)],
+        ["archivebox", "add", "--index-only", "--depth=0", str(urls_file)],
         capture_output=True,
         env=disable_extractors_dict,
     )
@@ -158,41 +158,41 @@ def test_add_with_depth_0_flag(tmp_path, process, disable_extractors_dict):
     """Test that --depth=0 flag is accepted and works."""
     os.chdir(tmp_path)
     result = subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
 
     assert result.returncode == 0
-    assert 'unrecognized arguments: --depth' not in result.stderr.decode('utf-8')
+    assert "unrecognized arguments: --depth" not in result.stderr.decode("utf-8")
 
 
 def test_add_with_depth_1_flag(tmp_path, process, disable_extractors_dict):
     """Test that --depth=1 flag is accepted."""
     os.chdir(tmp_path)
     result = subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=1', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=1", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
 
     assert result.returncode == 0
-    assert 'unrecognized arguments: --depth' not in result.stderr.decode('utf-8')
+    assert "unrecognized arguments: --depth" not in result.stderr.decode("utf-8")
 
 
 def test_add_rejects_invalid_depth_values(tmp_path, process, disable_extractors_dict):
     """Test that add rejects depth values outside the supported range."""
     os.chdir(tmp_path)
 
-    for depth in ('5', '-1'):
+    for depth in ("5", "-1"):
         result = subprocess.run(
-            ['archivebox', 'add', '--index-only', f'--depth={depth}', 'https://example.com'],
+            ["archivebox", "add", "--index-only", f"--depth={depth}", "https://example.com"],
             capture_output=True,
             env=disable_extractors_dict,
         )
-        stderr = result.stderr.decode('utf-8').lower()
+        stderr = result.stderr.decode("utf-8").lower()
         assert result.returncode != 0
-        assert 'invalid' in stderr or 'not one of' in stderr
+        assert "invalid" in stderr or "not one of" in stderr
 
 
 def test_add_with_tags(tmp_path, process, disable_extractors_dict):
@@ -203,7 +203,7 @@ def test_add_with_tags(tmp_path, process, disable_extractors_dict):
     """
     os.chdir(tmp_path)
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', '--tag=test,example', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "--tag=test,example", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
@@ -214,14 +214,14 @@ def test_add_with_tags(tmp_path, process, disable_extractors_dict):
     conn.close()
 
     # Tags are stored as a comma-separated string in crawl
-    assert 'test' in tags_str or 'example' in tags_str
+    assert "test" in tags_str or "example" in tags_str
 
 
 def test_add_records_selected_persona_on_crawl(tmp_path, process, disable_extractors_dict):
     """Test add persists the selected persona so browser config derives from it later."""
     os.chdir(tmp_path)
     result = subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', '--persona=Default', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "--persona=Default", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
@@ -231,12 +231,12 @@ def test_add_records_selected_persona_on_crawl(tmp_path, process, disable_extrac
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
     persona_id, default_persona = c.execute(
-        "SELECT persona_id, json_extract(config, '$.DEFAULT_PERSONA') FROM crawls_crawl LIMIT 1"
+        "SELECT persona_id, json_extract(config, '$.DEFAULT_PERSONA') FROM crawls_crawl LIMIT 1",
     ).fetchone()
     conn.close()
 
     assert persona_id
-    assert default_persona == 'Default'
+    assert default_persona == "Default"
     assert (tmp_path / "personas" / "Default" / "chrome_user_data").is_dir()
 
 
@@ -244,10 +244,13 @@ def test_add_records_url_filter_overrides_on_crawl(tmp_path, process, disable_ex
     os.chdir(tmp_path)
     result = subprocess.run(
         [
-            'archivebox', 'add', '--index-only', '--depth=0',
-            '--domain-allowlist=example.com,*.example.com',
-            '--domain-denylist=static.example.com',
-            'https://example.com',
+            "archivebox",
+            "add",
+            "--index-only",
+            "--depth=0",
+            "--domain-allowlist=example.com,*.example.com",
+            "--domain-denylist=static.example.com",
+            "https://example.com",
         ],
         capture_output=True,
         env=disable_extractors_dict,
@@ -258,12 +261,12 @@ def test_add_records_url_filter_overrides_on_crawl(tmp_path, process, disable_ex
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
     allowlist, denylist = c.execute(
-        "SELECT json_extract(config, '$.URL_ALLOWLIST'), json_extract(config, '$.URL_DENYLIST') FROM crawls_crawl LIMIT 1"
+        "SELECT json_extract(config, '$.URL_ALLOWLIST'), json_extract(config, '$.URL_DENYLIST') FROM crawls_crawl LIMIT 1",
     ).fetchone()
     conn.close()
 
-    assert allowlist == 'example.com,*.example.com'
-    assert denylist == 'static.example.com'
+    assert allowlist == "example.com,*.example.com"
+    assert denylist == "static.example.com"
     assert (tmp_path / "personas" / "Default" / "chrome_extensions").is_dir()
 
 
@@ -277,14 +280,14 @@ def test_add_duplicate_url_creates_separate_crawls(tmp_path, process, disable_ex
 
     # Add URL first time
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
 
     # Add same URL second time
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
@@ -306,27 +309,27 @@ def test_add_with_overwrite_flag(tmp_path, process, disable_extractors_dict):
 
     # Add URL first time
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
 
     # Add with overwrite
     result = subprocess.run(
-        ['archivebox', 'add', '--index-only', '--overwrite', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--overwrite", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
 
     assert result.returncode == 0
-    assert 'unrecognized arguments: --overwrite' not in result.stderr.decode('utf-8')
+    assert "unrecognized arguments: --overwrite" not in result.stderr.decode("utf-8")
 
 
 def test_add_creates_snapshot_output_directory(tmp_path, process, disable_extractors_dict):
     """Test that add creates the current snapshot output directory on disk."""
     os.chdir(tmp_path)
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
@@ -346,14 +349,39 @@ def test_add_help_shows_depth_and_tag_options(tmp_path, process):
     os.chdir(tmp_path)
 
     result = subprocess.run(
-        ['archivebox', 'add', '--help'],
+        ["archivebox", "add", "--help"],
         capture_output=True,
         text=True,
     )
 
     assert result.returncode == 0
-    assert '--depth' in result.stdout
-    assert '--tag' in result.stdout
+    assert "--depth" in result.stdout
+    assert "--max-urls" in result.stdout
+    assert "--max-size" in result.stdout
+    assert "--tag" in result.stdout
+
+
+def test_add_records_max_url_and_size_limits_on_crawl(tmp_path, process, disable_extractors_dict):
+    os.chdir(tmp_path)
+    result = subprocess.run(
+        ["archivebox", "add", "--index-only", "--depth=1", "--max-urls=3", "--max-size=45mb", "https://example.com"],
+        capture_output=True,
+        env=disable_extractors_dict,
+    )
+
+    assert result.returncode == 0
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    max_urls, max_size, config_max_urls, config_max_size = c.execute(
+        "SELECT max_urls, max_size, json_extract(config, '$.MAX_URLS'), json_extract(config, '$.MAX_SIZE') FROM crawls_crawl LIMIT 1",
+    ).fetchone()
+    conn.close()
+
+    assert max_urls == 3
+    assert max_size == 45 * 1024 * 1024
+    assert config_max_urls == 3
+    assert config_max_size == 45 * 1024 * 1024
 
 
 def test_add_without_args_shows_usage(tmp_path, process):
@@ -361,21 +389,21 @@ def test_add_without_args_shows_usage(tmp_path, process):
     os.chdir(tmp_path)
 
     result = subprocess.run(
-        ['archivebox', 'add'],
+        ["archivebox", "add"],
         capture_output=True,
         text=True,
     )
 
     combined = result.stdout + result.stderr
     assert result.returncode != 0
-    assert 'usage' in combined.lower() or 'url' in combined.lower()
+    assert "usage" in combined.lower() or "url" in combined.lower()
 
 
 def test_add_index_only_skips_extraction(tmp_path, process, disable_extractors_dict):
     """Test that --index-only flag skips extraction (fast)."""
     os.chdir(tmp_path)
     result = subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=30,  # Should be fast
@@ -396,7 +424,7 @@ def test_add_links_snapshot_to_crawl(tmp_path, process, disable_extractors_dict)
     """Test that add links the snapshot to the crawl via crawl_id."""
     os.chdir(tmp_path)
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
@@ -419,7 +447,7 @@ def test_add_sets_snapshot_timestamp(tmp_path, process, disable_extractors_dict)
     """Test that add sets a timestamp on the snapshot."""
     os.chdir(tmp_path)
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )

@@ -4,14 +4,14 @@
 # It takes a CMD as $* shell arguments and runs it following these setup steps:
 
 # - Set the archivebox user to use the correct PUID & PGID
-#     1. highest precedence is for valid PUID and PGID env vars passsed in explicitly
+#     1. highest precedence is for valid PUID and PGID env vars passed in explicitly
 #     2. fall back to DETECTED_PUID of files found within existing data dir
 #     3. fall back to DEFAULT_PUID if no data dir or its owned by root
 # - Create a new /data dir if necessary and set the correct ownership on it
 # - Create a new /browsers dir if necessary and set the correct ownership on it
 # - Check whether we're running inside QEMU emulation and show a warning if so.
 # - Check that enough free space is available on / and /data
-# - Drop down to archivebox user permisisons and execute passed CMD command.
+# - Drop down to archivebox user permissions and execute passed CMD command.
 
 # Bash Environment Setup
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/
@@ -72,7 +72,7 @@ if [[ -d "$DATA_DIR/archive" ]]; then
         rm -f "$DATA_DIR/archive/.permissions_test_safe_to_delete"
         # echo "[√] Permissions are correct"
     else
-     # the only time this fails is if the host filesystem doesn't allow us to write as root (e.g. some NFS mapall/maproot problems, connection issues, drive dissapeared, etc.)
+     # the only time this fails is if the host filesystem doesn't allow us to write as root (e.g. some NFS mapall/maproot problems, connection issues, drive disappeared, etc.)
         echo -e "\n[X] Error: archivebox user (PUID=$PUID) is not able to write to your ./data/archive dir (currently owned by $(stat -c '%u' "$DATA_DIR/archive"):$(stat -c '%g' "$DATA_DIR/archive")." > /dev/stderr
         echo -e "    Change ./data to be owned by PUID=$PUID PGID=$PGID on the host and retry:" > /dev/stderr
         echo -e "       \$ chown -R $PUID:$PGID ./data\n" > /dev/stderr

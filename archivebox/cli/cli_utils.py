@@ -5,12 +5,10 @@ This module contains common utilities used across multiple CLI commands,
 extracted to avoid code duplication.
 """
 
-__package__ = 'archivebox.cli'
-
-from typing import Optional
+__package__ = "archivebox.cli"
 
 
-def apply_filters(queryset, filter_kwargs: dict, limit: Optional[int] = None):
+def apply_filters(queryset, filter_kwargs: dict, limit: int | None = None):
     """
     Apply Django-style filters from CLI kwargs to a QuerySet.
 
@@ -31,11 +29,11 @@ def apply_filters(queryset, filter_kwargs: dict, limit: Optional[int] = None):
     """
     filters = {}
     for key, value in filter_kwargs.items():
-        if value is None or key in ('limit', 'offset'):
+        if value is None or key in ("limit", "offset"):
             continue
         # Handle CSV lists for __in filters
-        if key.endswith('__in') and isinstance(value, str):
-            value = [v.strip() for v in value.split(',')]
+        if key.endswith("__in") and isinstance(value, str):
+            value = [v.strip() for v in value.split(",")]
         filters[key] = value
 
     if filters:

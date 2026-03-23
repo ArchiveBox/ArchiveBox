@@ -1,4 +1,4 @@
-__package__ = 'archivebox.misc'
+__package__ = "archivebox.misc"
 
 
 import os
@@ -8,7 +8,6 @@ import sys
 
 from json import dump
 from pathlib import Path
-from typing import Optional, Union, Tuple
 from subprocess import PIPE, Popen, CalledProcessError, CompletedProcess, TimeoutExpired
 
 from atomicwrites import atomic_write as lib_atomic_write
@@ -16,29 +15,30 @@ from atomicwrites import atomic_write as lib_atomic_write
 from archivebox.config.common import STORAGE_CONFIG
 from archivebox.misc.util import enforce_types, ExtendedEncoder
 
-IS_WINDOWS = os.name == 'nt'
+IS_WINDOWS = os.name == "nt"
+
 
 def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, text=False, start_new_session=True, **kwargs):
     """Patched of subprocess.run to kill forked child subprocesses and fix blocking io making timeout=innefective
-        Mostly copied from https://github.com/python/cpython/blob/master/Lib/subprocess.py
+    Mostly copied from https://github.com/python/cpython/blob/master/Lib/subprocess.py
     """
 
     cmd = [str(arg) for arg in cmd]
 
     if input is not None:
-        if kwargs.get('stdin') is not None:
-            raise ValueError('stdin and input arguments may not both be used.')
-        kwargs['stdin'] = PIPE
+        if kwargs.get("stdin") is not None:
+            raise ValueError("stdin and input arguments may not both be used.")
+        kwargs["stdin"] = PIPE
 
     if capture_output:
-        if ('stdout' in kwargs) or ('stderr' in kwargs):
-            raise ValueError('stdout and stderr arguments may not be used with capture_output.')
-        kwargs['stdout'] = PIPE
-        kwargs['stderr'] = PIPE
+        if ("stdout" in kwargs) or ("stderr" in kwargs):
+            raise ValueError("stdout and stderr arguments may not be used with capture_output.")
+        kwargs["stdout"] = PIPE
+        kwargs["stderr"] = PIPE
 
     pgid = None
     try:
-        if isinstance(cmd, (list, tuple)) and cmd[0].endswith('.py'):
+        if isinstance(cmd, (list, tuple)) and cmd[0].endswith(".py"):
             PYTHON_BINARY = sys.executable
             cmd = (PYTHON_BINARY, *cmd)
 
@@ -69,8 +69,12 @@ def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, 
 
             retcode = process.poll()
             if check and retcode:
-                raise CalledProcessError(retcode, process.args,
-                                         output=stdout, stderr=stderr)
+                raise CalledProcessError(
+                    retcode,
+                    process.args,
+                    output=stdout,
+                    stderr=stderr,
+                )
     finally:
         # force kill any straggler subprocesses that were forked from the main proc
         try:
@@ -83,11 +87,11 @@ def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, 
 
 
 @enforce_types
-def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], overwrite: bool=True) -> None:
+def atomic_write(path: Path | str, contents: dict | str | bytes, overwrite: bool = True) -> None:
     """Safe atomic write to filesystem by writing to temp file + atomic rename"""
 
-    mode = 'wb+' if isinstance(contents, bytes) else 'w'
-    encoding = None if isinstance(contents, bytes) else 'utf-8'  # enforce utf-8 on all text writes
+    mode = "wb+" if isinstance(contents, bytes) else "w"
+    encoding = None if isinstance(contents, bytes) else "utf-8"  # enforce utf-8 on all text writes
 
     # print('\n> Atomic Write:', mode, path, len(contents), f'overwrite={overwrite}')
     try:
@@ -99,8 +103,12 @@ def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], over
     except OSError as e:
         if STORAGE_CONFIG.ENFORCE_ATOMIC_WRITES:
             print(f"[X] OSError: Failed to write {path} with fcntl.F_FULLFSYNC. ({e})")
-            print("    You can store the archive/ subfolder on a hard drive or network share that doesn't support support syncronous writes,")
-            print("    but the main folder containing the index.sqlite3 and ArchiveBox.conf files must be on a filesystem that supports FSYNC.")
+            print(
+                "    You can store the archive/ subfolder on a hard drive or network share that doesn't support support synchronous writes,",
+            )
+            print(
+                "    but the main folder containing the index.sqlite3 and ArchiveBox.conf files must be on a filesystem that supports FSYNC.",
+            )
             raise SystemExit(1)
 
         # retry the write without forcing FSYNC (aka atomic mode)
@@ -113,19 +121,20 @@ def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], over
     # set file permissions
     os.chmod(path, int(STORAGE_CONFIG.OUTPUT_PERMISSIONS, base=8))
 
+
 @enforce_types
-def chmod_file(path: str, cwd: str='') -> None:
+def chmod_file(path: str, cwd: str = "") -> None:
     """chmod -R <permissions> <cwd>/<path>"""
 
     root = Path(cwd or os.getcwd()) / path
     if not os.access(root, os.R_OK):
-        raise Exception('Failed to chmod: {} does not exist (did the previous step fail?)'.format(path))
+        raise Exception(f"Failed to chmod: {path} does not exist (did the previous step fail?)")
 
     if not root.is_dir():
         # path is just a plain file
         os.chmod(root, int(STORAGE_CONFIG.OUTPUT_PERMISSIONS, base=8))
     else:
-        for subpath in Path(path).glob('**/*'):
+        for subpath in Path(path).glob("**/*"):
             if subpath.is_dir():
                 # directories need execute permissions to be able to list contents
                 os.chmod(subpath, int(STORAGE_CONFIG.DIR_OUTPUT_PERMISSIONS, base=8))
@@ -134,24 +143,24 @@ def chmod_file(path: str, cwd: str='') -> None:
 
 
 @enforce_types
-def copy_and_overwrite(from_path: Union[str, Path], to_path: Union[str, Path]):
+def copy_and_overwrite(from_path: str | Path, to_path: str | Path):
     """copy a given file or directory to a given path, overwriting the destination"""
-    
+
     assert os.access(from_path, os.R_OK)
-    
+
     if Path(from_path).is_dir():
         shutil.rmtree(to_path, ignore_errors=True)
         shutil.copytree(from_path, to_path)
     else:
-        with open(from_path, 'rb') as src:
+        with open(from_path, "rb") as src:
             contents = src.read()
         atomic_write(to_path, contents)
 
 
 @enforce_types
-def get_dir_size(path: Union[str, Path], recursive: bool=True, pattern: Optional[str]=None) -> Tuple[int, int, int]:
-    """get the total disk size of a given directory, optionally summing up 
-       recursively and limiting to a given filter list
+def get_dir_size(path: str | Path, recursive: bool = True, pattern: str | None = None) -> tuple[int, int, int]:
+    """get the total disk size of a given directory, optionally summing up
+    recursively and limiting to a given filter list
     """
     num_bytes, num_dirs, num_files = 0, 0, 0
     try:
@@ -174,20 +183,21 @@ def get_dir_size(path: Union[str, Path], recursive: bool=True, pattern: Optional
         pass
     return num_bytes, num_dirs, num_files
 
-class suppress_output(object):
+
+class suppress_output:
     """
-    A context manager for doing a "deep suppression" of stdout and stderr in 
-    Python, i.e. will suppress all print, even if the print originates in a 
+    A context manager for doing a "deep suppression" of stdout and stderr in
+    Python, i.e. will suppress all print, even if the print originates in a
     compiled C/Fortran sub-function.
-    
+
     This will not suppress raised exceptions, since exceptions are printed
     to stderr just before a script exits, and after the context manager has
-    exited (at least, I think that is why it lets exceptions through).      
+    exited (at least, I think that is why it lets exceptions through).
 
     with suppress_stdout_stderr():
         rogue_function()
     """
-    
+
     def __init__(self, stdout=True, stderr=True):
         # Open a pair of null files
         # Save the actual stdout (1) and stderr (2) file descriptors.

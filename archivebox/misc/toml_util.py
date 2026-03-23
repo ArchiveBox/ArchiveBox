@@ -1,4 +1,5 @@
-from typing import Any, List, Callable, cast
+from typing import Any, cast
+from collections.abc import Callable
 
 import json
 import ast
@@ -12,15 +13,16 @@ from pathlib import Path, PosixPath
 from pydantic.json_schema import GenerateJsonSchema
 from pydantic_core import to_jsonable_python
 
-JSONValue = str | bool | int | None | List['JSONValue']
+JSONValue = str | bool | int | None | list["JSONValue"]
 
 TOML_HEADER = "# Converted from INI to TOML format: https://toml.io/en/\n\n"
 
+
 def load_ini_value(val: str) -> JSONValue:
     """Convert lax INI values into strict TOML-compliant (JSON) values"""
-    if val.lower() in ('true', 'yes', '1'):
+    if val.lower() in ("true", "yes", "1"):
         return True
-    if val.lower() in ('false', 'no', '0'):
+    if val.lower() in ("false", "no", "0"):
         return False
     if val.isdigit():
         return int(val)
@@ -34,7 +36,7 @@ def load_ini_value(val: str) -> JSONValue:
         return json.loads(val)
     except Exception:
         pass
-    
+
     return val
 
 
@@ -42,7 +44,7 @@ def convert(ini_str: str) -> str:
     """Convert a string of INI config into its TOML equivalent (warning: strips comments)"""
 
     config = configparser.ConfigParser()
-    setattr(config, 'optionxform', str)  # capitalize key names
+    setattr(config, "optionxform", str)  # capitalize key names
     config.read_string(ini_str)
 
     # Initialize an empty dictionary to store the TOML representation
@@ -70,22 +72,22 @@ def convert(ini_str: str) -> str:
     return toml_str.strip()
 
 
-
 class JSONSchemaWithLambdas(GenerateJsonSchema):
     """
     Encode lambda functions in default values properly.
     Usage:
     >>> json.dumps(value, encoder=JSONSchemaWithLambdas())
     """
+
     def encode_default(self, dft: Any) -> Any:
         config = self._config
         if isinstance(dft, Callable):
-            return '{{lambda ' + inspect.getsource(dft).split('=lambda ')[-1].strip()[:-1] + '}}'
+            return "{{lambda " + inspect.getsource(dft).split("=lambda ")[-1].strip()[:-1] + "}}"
         return to_jsonable_python(
             dft,
             timedelta_mode=config.ser_json_timedelta,
             bytes_mode=config.ser_json_bytes,
-            serialize_unknown=True
+            serialize_unknown=True,
         )
 
     # for computed_field properties render them like this instead:
@@ -94,12 +96,13 @@ class JSONSchemaWithLambdas(GenerateJsonSchema):
 
 def better_toml_dump_str(val: Any) -> str:
     try:
-        dump_str = cast(Callable[[Any], str], getattr(toml.encoder, '_dump_str'))
+        dump_str = cast(Callable[[Any], str], getattr(toml.encoder, "_dump_str"))
         return dump_str(val)
     except Exception:
         # if we hit any of toml's numerous encoding bugs,
         # fall back to using json representation of string
         return json.dumps(str(val))
+
 
 class CustomTOMLEncoder(toml.encoder.TomlEncoder):
     """
@@ -107,6 +110,7 @@ class CustomTOMLEncoder(toml.encoder.TomlEncoder):
     More info: https://github.com/fabiocaccamo/python-benedict/issues/439
     >>> toml.dumps(value, encoder=CustomTOMLEncoder())
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         dump_funcs = cast(dict[Any, Callable[[Any], str]], self.dump_funcs)

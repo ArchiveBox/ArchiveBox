@@ -1,4 +1,4 @@
-__package__ = 'archivebox.workers'
+__package__ = "archivebox.workers"
 
 import sys
 import time
@@ -8,7 +8,8 @@ import shutil
 import subprocess
 import shlex
 
-from typing import Dict, cast, Iterator
+from typing import cast
+from collections.abc import Iterator
 from pathlib import Path
 from functools import cache
 
@@ -34,6 +35,7 @@ _supervisord_proc = None
 def _shell_join(args: list[str]) -> str:
     return shlex.join(args)
 
+
 RUNNER_WORKER = {
     "name": "worker_runner",
     "command": _shell_join([sys.executable, "-m", "archivebox", "run", "--daemon"]),
@@ -54,7 +56,17 @@ RUNNER_WATCH_WORKER = lambda pidfile: {
 
 SERVER_WORKER = lambda host, port: {
     "name": "worker_daphne",
-    "command": _shell_join([sys.executable, "-m", "daphne", f"--bind={host}", f"--port={port}", "--application-close-timeout=600", "archivebox.core.asgi:application"]),
+    "command": _shell_join(
+        [
+            sys.executable,
+            "-m",
+            "daphne",
+            f"--bind={host}",
+            f"--port={port}",
+            "--application-close-timeout=600",
+            "archivebox.core.asgi:application",
+        ],
+    ),
     "autostart": "false",
     "autorestart": "true",
     "stdout_logfile": "logs/worker_daphne.log",
@@ -72,10 +84,12 @@ def RUNSERVER_WORKER(host: str, port: str, *, reload: bool, pidfile: str | None 
     environment = ['ARCHIVEBOX_RUNSERVER="1"']
     if reload:
         assert pidfile, "RUNSERVER_WORKER requires a pidfile when reload=True"
-        environment.extend([
-            'ARCHIVEBOX_AUTORELOAD="1"',
-            f'ARCHIVEBOX_RUNSERVER_PIDFILE="{pidfile}"',
-        ])
+        environment.extend(
+            [
+                'ARCHIVEBOX_AUTORELOAD="1"',
+                f'ARCHIVEBOX_RUNSERVER_PIDFILE="{pidfile}"',
+            ],
+        )
 
     return {
         "name": "worker_runserver",
@@ -87,6 +101,7 @@ def RUNSERVER_WORKER(host: str, port: str, *, reload: bool, pidfile: str | None 
         "redirect_stderr": "true",
     }
 
+
 def is_port_in_use(host: str, port: int) -> bool:
     """Check if a port is already in use."""
     try:
@@ -97,6 +112,7 @@ def is_port_in_use(host: str, port: int) -> bool:
     except OSError:
         return True
 
+
 @cache
 def get_sock_file():
     """Get the path to the supervisord socket file, symlinking to a shorter path if needed due to unix path length limits"""
@@ -106,17 +122,18 @@ def get_sock_file():
 
     return socket_file
 
+
 def follow(file, sleep_sec=0.1) -> Iterator[str]:
-    """ Yield each line from a file as they are written.
-    `sleep_sec` is the time to sleep after empty reads. """
-    line = ''
+    """Yield each line from a file as they are written.
+    `sleep_sec` is the time to sleep after empty reads."""
+    line = ""
     while True:
         tmp = file.readline()
         if tmp is not None and tmp != "":
             line += tmp
             if line.endswith("\n"):
                 yield line
-                line = ''
+                line = ""
         elif sleep_sec:
             time.sleep(sleep_sec)
 
@@ -127,7 +144,7 @@ def create_supervisord_config():
     CONFIG_FILE = SOCK_FILE.parent / CONFIG_FILE_NAME
     PID_FILE = SOCK_FILE.parent / PID_FILE_NAME
     LOG_FILE = CONSTANTS.LOGS_DIR / LOG_FILE_NAME
-    
+
     config_content = f"""
 [supervisord]
 nodaemon = true
@@ -156,22 +173,23 @@ files = {WORKERS_DIR}/*.conf
 """
     CONFIG_FILE.write_text(config_content)
     Path.mkdir(WORKERS_DIR, exist_ok=True, parents=True)
-    
-    (WORKERS_DIR / 'initial_startup.conf').write_text('')   # hides error about "no files found to include" when supervisord starts
+
+    (WORKERS_DIR / "initial_startup.conf").write_text("")  # hides error about "no files found to include" when supervisord starts
+
 
 def create_worker_config(daemon):
     """Create a supervisord worker config file for a given daemon"""
     SOCK_FILE = get_sock_file()
     WORKERS_DIR = SOCK_FILE.parent / WORKERS_DIR_NAME
-    
+
     Path.mkdir(WORKERS_DIR, exist_ok=True, parents=True)
-    
-    name = daemon['name']
+
+    name = daemon["name"]
     worker_conf = WORKERS_DIR / f"{name}.conf"
 
     worker_str = f"[program:{name}]\n"
     for key, value in daemon.items():
-        if key == 'name':
+        if key == "name":
             continue
         worker_str += f"{key}={value}\n"
     worker_str += "\n"
@@ -183,8 +201,11 @@ def get_existing_supervisord_process():
     SOCK_FILE = get_sock_file()
     try:
         transport = SupervisorTransport(None, None, f"unix://{SOCK_FILE}")
-        server = ServerProxy("http://localhost", transport=transport)       # user:pass@localhost doesn't work for some reason with unix://.sock, cant seem to silence CRIT no-auth warning
-        current_state = cast(Dict[str, int | str], server.supervisor.getState())
+        server = ServerProxy(
+            "http://localhost",
+            transport=transport,
+        )  # user:pass@localhost doesn't work for some reason with unix://.sock, cant seem to silence CRIT no-auth warning
+        current_state = cast(dict[str, int | str], server.supervisor.getState())
         if current_state["statename"] == "RUNNING":
             pid = server.supervisor.getPID()
             print(f"[🦸‍♂️] Supervisord connected (pid={pid}) via unix://{pretty_path(SOCK_FILE)}.")
@@ -194,6 +215,7 @@ def get_existing_supervisord_process():
     except Exception as e:
         print(f"Error connecting to existing supervisord: {str(e)}")
         return None
+
 
 def stop_existing_supervisord_process():
     global _supervisord_proc
@@ -211,7 +233,7 @@ def stop_existing_supervisord_process():
                 except subprocess.TimeoutExpired:
                     _supervisord_proc.kill()
                     _supervisord_proc.wait(timeout=2)
-            except (BrokenPipeError, IOError):
+            except (BrokenPipeError, OSError):
                 pass
             finally:
                 _supervisord_proc = None
@@ -245,7 +267,7 @@ def stop_existing_supervisord_process():
                     pass
         except psutil.NoSuchProcess:
             pass
-        except (BrokenPipeError, IOError):
+        except (BrokenPipeError, OSError):
             pass
     finally:
         try:
@@ -254,6 +276,7 @@ def stop_existing_supervisord_process():
             get_sock_file().unlink(missing_ok=True)
         except BaseException:
             pass
+
 
 def start_new_supervisord_process(daemonize=False):
     SOCK_FILE = get_sock_file()
@@ -266,7 +289,7 @@ def start_new_supervisord_process(daemonize=False):
     pretty_log_path = pretty_path(LOG_FILE)
     print(f"    > Writing supervisord logs to: {pretty_log_path}")
     print(f"    > Writing task worker logs to: {pretty_log_path.replace('supervisord.log', 'worker_*.log')}")
-    print(f'    > Using supervisord config file: {pretty_path(CONFIG_FILE)}')
+    print(f"    > Using supervisord config file: {pretty_path(CONFIG_FILE)}")
     print(f"    > Using supervisord UNIX socket: {pretty_path(SOCK_FILE)}")
     print()
 
@@ -281,7 +304,7 @@ def start_new_supervisord_process(daemonize=False):
 
     # Open log file for supervisord output
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    log_handle = open(LOG_FILE, 'a')
+    log_handle = open(LOG_FILE, "a")
 
     if daemonize:
         # Start supervisord in background (daemon mode)
@@ -329,7 +352,7 @@ def wait_for_supervisord_ready(max_wait_sec: float = 5.0, interval_sec: float = 
 def get_or_create_supervisord_process(daemonize=False):
     SOCK_FILE = get_sock_file()
     WORKERS_DIR = SOCK_FILE.parent / WORKERS_DIR_NAME
-    
+
     supervisor = get_existing_supervisord_process()
     if supervisor is None:
         stop_existing_supervisord_process()
@@ -341,7 +364,7 @@ def get_or_create_supervisord_process(daemonize=False):
             if supervisor is not None:
                 print()
                 break
-            sys.stdout.write('.')
+            sys.stdout.write(".")
             sys.stdout.flush()
             time.sleep(0.1)
             supervisor = get_existing_supervisord_process()
@@ -351,9 +374,10 @@ def get_or_create_supervisord_process(daemonize=False):
     assert supervisor, "Failed to start supervisord or connect to it!"
     supervisor.getPID()  # make sure it doesn't throw an exception
 
-    (WORKERS_DIR / 'initial_startup.conf').unlink(missing_ok=True)
-    
+    (WORKERS_DIR / "initial_startup.conf").unlink(missing_ok=True)
+
     return supervisor
+
 
 def start_worker(supervisor, daemon, lazy=False):
     assert supervisor.getPID()
@@ -378,9 +402,9 @@ def start_worker(supervisor, daemon, lazy=False):
     for _ in range(25):
         procs = supervisor.getAllProcessInfo()
         for proc in procs:
-            if proc['name'] == daemon["name"]:
+            if proc["name"] == daemon["name"]:
                 # See process state diagram here: http://supervisord.org/subprocess.html
-                if proc['statename'] == 'RUNNING':
+                if proc["statename"] == "RUNNING":
                     print(f"     - Worker {daemon['name']}: already {proc['statename']} ({proc['description']})")
                     return proc
                 else:
@@ -403,6 +427,7 @@ def get_worker(supervisor, daemon_name):
         pass
     return None
 
+
 def stop_worker(supervisor, daemon_name):
     proc = get_worker(supervisor, daemon_name)
 
@@ -410,9 +435,9 @@ def stop_worker(supervisor, daemon_name):
         if not proc:
             # worker does not exist (was never running or configured in the first place)
             return True
-        
+
         # See process state diagram here: http://supervisord.org/subprocess.html
-        if proc['statename'] == 'STOPPED':
+        if proc["statename"] == "STOPPED":
             # worker was configured but has already stopped for some reason
             supervisor.removeProcessGroup(daemon_name)
             return True
@@ -439,12 +464,12 @@ def tail_worker_logs(log_path: str):
 
     try:
         with Live(table, refresh_per_second=1) as live:  # update 4 times a second to feel fluid
-            with open(log_path, 'r') as f:
+            with open(log_path) as f:
                 for line in follow(f):
-                    if '://' in line:
+                    if "://" in line:
                         live.console.print(f"Working on: {line.strip()}")
                     # table.add_row("123124234", line.strip())
-    except (KeyboardInterrupt, BrokenPipeError, IOError):
+    except (KeyboardInterrupt, BrokenPipeError, OSError):
         STDERR.print("\n[🛑] Got Ctrl+C, stopping gracefully...")
     except SystemExit:
         pass
@@ -479,7 +504,7 @@ def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None):
     file_handles = []
     for log_path in log_paths:
         try:
-            f = open(log_path, 'r')
+            f = open(log_path)
             # Seek to end - only show NEW logs from now on, not old logs
             f.seek(0, 2)  # Go to end
 
@@ -510,7 +535,7 @@ def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None):
                         break  # No more lines available in this file
                     had_output = True
                     # Strip ANSI codes if present (supervisord does this but just in case)
-                    line_clean = re.sub(r'\x1b\[[0-9;]*m', '', line.rstrip())
+                    line_clean = re.sub(r"\x1b\[[0-9;]*m", "", line.rstrip())
                     if line_clean:
                         print(line_clean)
 
@@ -518,7 +543,7 @@ def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None):
             if not had_output:
                 time.sleep(0.05)
 
-    except (KeyboardInterrupt, BrokenPipeError, IOError):
+    except (KeyboardInterrupt, BrokenPipeError, OSError):
         pass  # Let the caller handle the cleanup message
     except SystemExit:
         pass
@@ -530,45 +555,45 @@ def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None):
             except Exception:
                 pass
 
+
 def watch_worker(supervisor, daemon_name, interval=5):
     """loop continuously and monitor worker's health"""
     while True:
         proc = get_worker(supervisor, daemon_name)
         if not proc:
-            raise Exception("Worker dissapeared while running! " + daemon_name)
+            raise Exception("Worker disappeared while running! " + daemon_name)
 
-        if proc['statename'] == 'STOPPED':
+        if proc["statename"] == "STOPPED":
             return proc
 
-        if proc['statename'] == 'RUNNING':
+        if proc["statename"] == "RUNNING":
             time.sleep(1)
             continue
 
-        if proc['statename'] in ('STARTING', 'BACKOFF', 'FATAL', 'EXITED', 'STOPPING'):
-            print(f'[🦸‍♂️] WARNING: Worker {daemon_name} {proc["statename"]} {proc["description"]}')
+        if proc["statename"] in ("STARTING", "BACKOFF", "FATAL", "EXITED", "STOPPING"):
+            print(f"[🦸‍♂️] WARNING: Worker {daemon_name} {proc['statename']} {proc['description']}")
             time.sleep(interval)
             continue
 
 
-
-def start_server_workers(host='0.0.0.0', port='8000', daemonize=False, debug=False, reload=False, nothreading=False):
+def start_server_workers(host="0.0.0.0", port="8000", daemonize=False, debug=False, reload=False, nothreading=False):
     from archivebox.config.common import STORAGE_CONFIG
 
     supervisor = get_or_create_supervisord_process(daemonize=daemonize)
 
     if debug:
-        pidfile = str(STORAGE_CONFIG.TMP_DIR / 'runserver.pid') if reload else None
+        pidfile = str(STORAGE_CONFIG.TMP_DIR / "runserver.pid") if reload else None
         server_worker = RUNSERVER_WORKER(host=host, port=port, reload=reload, pidfile=pidfile, nothreading=nothreading)
         bg_workers: list[tuple[dict[str, str], bool]] = (
             [(RUNNER_WORKER, True), (RUNNER_WATCH_WORKER(pidfile), False)] if reload else [(RUNNER_WORKER, False)]
         )
-        log_files = ['logs/worker_runserver.log', 'logs/worker_runner.log']
+        log_files = ["logs/worker_runserver.log", "logs/worker_runner.log"]
         if reload:
-            log_files.insert(1, 'logs/worker_runner_watch.log')
+            log_files.insert(1, "logs/worker_runner_watch.log")
     else:
         server_worker = SERVER_WORKER(host=host, port=port)
         bg_workers = [(RUNNER_WORKER, False)]
-        log_files = ['logs/worker_daphne.log', 'logs/worker_runner.log']
+        log_files = ["logs/worker_daphne.log", "logs/worker_runner.log"]
 
     print()
     start_worker(supervisor, server_worker)
@@ -580,14 +605,14 @@ def start_server_workers(host='0.0.0.0', port='8000', daemonize=False, debug=Fal
     if not daemonize:
         try:
             # Tail worker logs while supervisord runs
-            sys.stdout.write('Tailing worker logs (Ctrl+C to stop)...\n\n')
+            sys.stdout.write("Tailing worker logs (Ctrl+C to stop)...\n\n")
             sys.stdout.flush()
             tail_multiple_worker_logs(
                 log_files=log_files,
                 follow=True,
                 proc=_supervisord_proc,  # Stop tailing when supervisord exits
             )
-        except (KeyboardInterrupt, BrokenPipeError, IOError):
+        except (KeyboardInterrupt, BrokenPipeError, OSError):
             STDERR.print("\n[🛑] Got Ctrl+C, stopping gracefully...")
         except SystemExit:
             pass
@@ -611,8 +636,8 @@ def start_cli_workers(watch=False):
                 _supervisord_proc.wait()
             else:
                 # Fallback to watching worker if no proc reference
-                watch_worker(supervisor, RUNNER_WORKER['name'])
-        except (KeyboardInterrupt, BrokenPipeError, IOError):
+                watch_worker(supervisor, RUNNER_WORKER["name"])
+        except (KeyboardInterrupt, BrokenPipeError, OSError):
             STDERR.print("\n[🛑] Got Ctrl+C, stopping gracefully...")
         except SystemExit:
             pass
@@ -632,14 +657,14 @@ def start_cli_workers(watch=False):
 #     pprint(worker)
 
 #     print("All processes started in background.")
-    
-    # Optionally you can block the main thread until an exit signal is received:
-    # try:
-    #     signal.pause()
-    # except KeyboardInterrupt:
-    #     pass
-    # finally:
-    #     stop_existing_supervisord_process()
+
+# Optionally you can block the main thread until an exit signal is received:
+# try:
+#     signal.pause()
+# except KeyboardInterrupt:
+#     pass
+# finally:
+#     stop_existing_supervisord_process()
 
 # if __name__ == "__main__":
 

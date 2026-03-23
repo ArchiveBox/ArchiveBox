@@ -1,4 +1,4 @@
-__package__ = 'archivebox.mcp'
+__package__ = "archivebox.mcp"
 
 """
 Model Context Protocol (MCP) server for ArchiveBox.

@@ -33,7 +33,7 @@ def validate_schedule(schedule: str) -> str:
     normalized = normalize_schedule(schedule)
     if not croniter.is_valid(normalized):
         raise ValueError(
-            "Invalid schedule. Use an alias like daily/weekly/monthly or a cron expression such as '0 */6 * * *'."
+            "Invalid schedule. Use an alias like daily/weekly/monthly or a cron expression such as '0 */6 * * *'.",
         )
     return normalized
 

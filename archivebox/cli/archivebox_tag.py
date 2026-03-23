@@ -27,11 +27,11 @@ Examples:
     archivebox tag list --name=unused | archivebox tag delete --yes
 """
 
-__package__ = 'archivebox.cli'
-__command__ = 'archivebox tag'
+__package__ = "archivebox.cli"
+__command__ = "archivebox tag"
 
 import sys
-from typing import Optional, Iterable
+from collections.abc import Iterable
 
 import rich_click as click
 from rich import print as rprint
@@ -42,6 +42,7 @@ from archivebox.cli.cli_utils import apply_filters
 # =============================================================================
 # CREATE
 # =============================================================================
+
 
 def create_tags(names: Iterable[str]) -> int:
     """
@@ -60,7 +61,7 @@ def create_tags(names: Iterable[str]) -> int:
     name_list = list(names) if names else []
 
     if not name_list:
-        rprint('[yellow]No tag names provided. Pass names as arguments.[/yellow]', file=sys.stderr)
+        rprint("[yellow]No tag names provided. Pass names as arguments.[/yellow]", file=sys.stderr)
         return 1
 
     created_count = 0
@@ -76,11 +77,11 @@ def create_tags(names: Iterable[str]) -> int:
 
         if created:
             created_count += 1
-            rprint(f'[green]Created tag: {name}[/green]', file=sys.stderr)
+            rprint(f"[green]Created tag: {name}[/green]", file=sys.stderr)
         else:
-            rprint(f'[dim]Tag already exists: {name}[/dim]', file=sys.stderr)
+            rprint(f"[dim]Tag already exists: {name}[/dim]", file=sys.stderr)
 
-    rprint(f'[green]Created {created_count} new tags[/green]', file=sys.stderr)
+    rprint(f"[green]Created {created_count} new tags[/green]", file=sys.stderr)
     return 0
 
 
@@ -88,10 +89,11 @@ def create_tags(names: Iterable[str]) -> int:
 # LIST
 # =============================================================================
 
+
 def list_tags(
-    name: Optional[str] = None,
-    name__icontains: Optional[str] = None,
-    limit: Optional[int] = None,
+    name: str | None = None,
+    name__icontains: str | None = None,
+    limit: int | None = None,
 ) -> int:
     """
     List Tags as JSONL with optional filters.
@@ -104,12 +106,12 @@ def list_tags(
 
     is_tty = sys.stdout.isatty()
 
-    queryset = Tag.objects.all().order_by('name')
+    queryset = Tag.objects.all().order_by("name")
 
     # Apply filters
     filter_kwargs = {
-        'name': name,
-        'name__icontains': name__icontains,
+        "name": name,
+        "name__icontains": name__icontains,
     }
     queryset = apply_filters(queryset, filter_kwargs, limit=limit)
 
@@ -117,12 +119,12 @@ def list_tags(
     for tag in queryset:
         snapshot_count = tag.snapshot_set.count()
         if is_tty:
-            rprint(f'[cyan]{tag.name:30}[/cyan] [dim]({snapshot_count} snapshots)[/dim]')
+            rprint(f"[cyan]{tag.name:30}[/cyan] [dim]({snapshot_count} snapshots)[/dim]")
         else:
             write_record(tag.to_json())
         count += 1
 
-    rprint(f'[dim]Listed {count} tags[/dim]', file=sys.stderr)
+    rprint(f"[dim]Listed {count} tags[/dim]", file=sys.stderr)
     return 0
 
 
@@ -130,7 +132,8 @@ def list_tags(
 # UPDATE
 # =============================================================================
 
-def update_tags(name: Optional[str] = None) -> int:
+
+def update_tags(name: str | None = None) -> int:
     """
     Update Tags from stdin JSONL.
 
@@ -148,13 +151,13 @@ def update_tags(name: Optional[str] = None) -> int:
 
     records = list(read_stdin())
     if not records:
-        rprint('[yellow]No records provided via stdin[/yellow]', file=sys.stderr)
+        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
         return 1
 
     updated_count = 0
     for record in records:
-        tag_id = record.get('id')
-        old_name = record.get('name')
+        tag_id = record.get("id")
+        old_name = record.get("name")
 
         if not tag_id and not old_name:
             continue
@@ -176,16 +179,17 @@ def update_tags(name: Optional[str] = None) -> int:
                 write_record(tag.to_json())
 
         except Tag.DoesNotExist:
-            rprint(f'[yellow]Tag not found: {tag_id or old_name}[/yellow]', file=sys.stderr)
+            rprint(f"[yellow]Tag not found: {tag_id or old_name}[/yellow]", file=sys.stderr)
             continue
 
-    rprint(f'[green]Updated {updated_count} tags[/green]', file=sys.stderr)
+    rprint(f"[green]Updated {updated_count} tags[/green]", file=sys.stderr)
     return 0
 
 
 # =============================================================================
 # DELETE
 # =============================================================================
+
 
 def delete_tags(yes: bool = False, dry_run: bool = False) -> int:
     """
@@ -202,23 +206,24 @@ def delete_tags(yes: bool = False, dry_run: bool = False) -> int:
 
     records = list(read_stdin())
     if not records:
-        rprint('[yellow]No records provided via stdin[/yellow]', file=sys.stderr)
+        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
         return 1
 
     # Collect tag IDs or names
     tag_ids = []
     tag_names = []
     for r in records:
-        if r.get('id'):
-            tag_ids.append(r['id'])
-        elif r.get('name'):
-            tag_names.append(r['name'])
+        if r.get("id"):
+            tag_ids.append(r["id"])
+        elif r.get("name"):
+            tag_names.append(r["name"])
 
     if not tag_ids and not tag_names:
-        rprint('[yellow]No valid tag IDs or names in input[/yellow]', file=sys.stderr)
+        rprint("[yellow]No valid tag IDs or names in input[/yellow]", file=sys.stderr)
         return 1
 
     from django.db.models import Q
+
     query = Q()
     if tag_ids:
         query |= Q(id__in=tag_ids)
@@ -229,22 +234,22 @@ def delete_tags(yes: bool = False, dry_run: bool = False) -> int:
     count = tags.count()
 
     if count == 0:
-        rprint('[yellow]No matching tags found[/yellow]', file=sys.stderr)
+        rprint("[yellow]No matching tags found[/yellow]", file=sys.stderr)
         return 0
 
     if dry_run:
-        rprint(f'[yellow]Would delete {count} tags (dry run)[/yellow]', file=sys.stderr)
+        rprint(f"[yellow]Would delete {count} tags (dry run)[/yellow]", file=sys.stderr)
         for tag in tags:
-            rprint(f'  {tag.name}', file=sys.stderr)
+            rprint(f"  {tag.name}", file=sys.stderr)
         return 0
 
     if not yes:
-        rprint('[red]Use --yes to confirm deletion[/red]', file=sys.stderr)
+        rprint("[red]Use --yes to confirm deletion[/red]", file=sys.stderr)
         return 1
 
     # Perform deletion
     deleted_count, _ = tags.delete()
-    rprint(f'[green]Deleted {deleted_count} tags[/green]', file=sys.stderr)
+    rprint(f"[green]Deleted {deleted_count} tags[/green]", file=sys.stderr)
     return 0
 
 
@@ -252,42 +257,43 @@ def delete_tags(yes: bool = False, dry_run: bool = False) -> int:
 # CLI Commands
 # =============================================================================
 
+
 @click.group()
 def main():
     """Manage Tag records."""
     pass
 
 
-@main.command('create')
-@click.argument('names', nargs=-1)
+@main.command("create")
+@click.argument("names", nargs=-1)
 def create_cmd(names: tuple):
     """Create Tags from names."""
     sys.exit(create_tags(names))
 
 
-@main.command('list')
-@click.option('--name', help='Filter by exact name')
-@click.option('--name__icontains', help='Filter by name contains')
-@click.option('--limit', '-n', type=int, help='Limit number of results')
-def list_cmd(name: Optional[str], name__icontains: Optional[str], limit: Optional[int]):
+@main.command("list")
+@click.option("--name", help="Filter by exact name")
+@click.option("--name__icontains", help="Filter by name contains")
+@click.option("--limit", "-n", type=int, help="Limit number of results")
+def list_cmd(name: str | None, name__icontains: str | None, limit: int | None):
     """List Tags as JSONL."""
     sys.exit(list_tags(name=name, name__icontains=name__icontains, limit=limit))
 
 
-@main.command('update')
-@click.option('--name', '-n', help='Set new name')
-def update_cmd(name: Optional[str]):
+@main.command("update")
+@click.option("--name", "-n", help="Set new name")
+def update_cmd(name: str | None):
     """Update Tags from stdin JSONL."""
     sys.exit(update_tags(name=name))
 
 
-@main.command('delete')
-@click.option('--yes', '-y', is_flag=True, help='Confirm deletion')
-@click.option('--dry-run', is_flag=True, help='Show what would be deleted')
+@main.command("delete")
+@click.option("--yes", "-y", is_flag=True, help="Confirm deletion")
+@click.option("--dry-run", is_flag=True, help="Show what would be deleted")
 def delete_cmd(yes: bool, dry_run: bool):
     """Delete Tags from stdin JSONL."""
     sys.exit(delete_tags(yes=yes, dry_run=dry_run))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

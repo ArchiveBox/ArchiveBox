@@ -78,8 +78,8 @@ class TestLDAPConfig(unittest.TestCase):
         from archivebox.config import get_CONFIG
 
         all_config = get_CONFIG()
-        self.assertIn('LDAP_CONFIG', all_config)
-        self.assertEqual(all_config['LDAP_CONFIG'].__class__.__name__, 'LDAPConfig')
+        self.assertIn("LDAP_CONFIG", all_config)
+        self.assertEqual(all_config["LDAP_CONFIG"].__class__.__name__, "LDAPConfig")
 
 
 class TestLDAPIntegration(unittest.TestCase):
@@ -95,7 +95,7 @@ class TestLDAPIntegration(unittest.TestCase):
         self.assertIn("django.contrib.auth.backends.ModelBackend", settings.AUTHENTICATION_BACKENDS)
 
         # LDAP backend should not be present when disabled
-        ldap_backends = [b for b in settings.AUTHENTICATION_BACKENDS if 'ldap' in b.lower()]
+        ldap_backends = [b for b in settings.AUTHENTICATION_BACKENDS if "ldap" in b.lower()]
         self.assertEqual(len(ldap_backends), 0, "LDAP backend should not be present when LDAP_ENABLED=False")
 
     def test_django_settings_with_ldap_library_check(self):
@@ -106,7 +106,8 @@ class TestLDAPIntegration(unittest.TestCase):
         if not ldap_available:
             # Settings should have loaded without LDAP backend
             from django.conf import settings
-            ldap_backends = [b for b in settings.AUTHENTICATION_BACKENDS if 'ldap' in b.lower()]
+
+            ldap_backends = [b for b in settings.AUTHENTICATION_BACKENDS if "ldap" in b.lower()]
             self.assertEqual(len(ldap_backends), 0, "LDAP backend should not be present when libraries unavailable")
 
 
@@ -117,14 +118,14 @@ class TestLDAPAuthBackend(unittest.TestCase):
         """Test that ArchiveBoxLDAPBackend class is defined."""
         from archivebox.ldap.auth import ArchiveBoxLDAPBackend
 
-        self.assertTrue(hasattr(ArchiveBoxLDAPBackend, 'authenticate_ldap_user'))
+        self.assertTrue(hasattr(ArchiveBoxLDAPBackend, "authenticate_ldap_user"))
 
     def test_ldap_backend_inherits_correctly(self):
         """Test that ArchiveBoxLDAPBackend has correct inheritance."""
         from archivebox.ldap.auth import ArchiveBoxLDAPBackend
 
         # Should have authenticate_ldap_user method (from base or overridden)
-        self.assertTrue(callable(getattr(ArchiveBoxLDAPBackend, 'authenticate_ldap_user', None)))
+        self.assertTrue(callable(getattr(ArchiveBoxLDAPBackend, "authenticate_ldap_user", None)))
 
 
 class TestArchiveBoxWithLDAP(unittest.TestCase):
@@ -132,7 +133,7 @@ class TestArchiveBoxWithLDAP(unittest.TestCase):
 
     def setUp(self):
         """Set up test environment."""
-        self.work_dir = tempfile.mkdtemp(prefix='archivebox-ldap-test-')
+        self.work_dir = tempfile.mkdtemp(prefix="archivebox-ldap-test-")
 
     def test_archivebox_init_without_ldap(self):
         """Test that archivebox init works without LDAP enabled."""
@@ -140,15 +141,15 @@ class TestArchiveBoxWithLDAP(unittest.TestCase):
 
         # Run archivebox init
         result = subprocess.run(
-            [sys.executable, '-m', 'archivebox', 'init'],
+            [sys.executable, "-m", "archivebox", "init"],
             cwd=self.work_dir,
             capture_output=True,
             timeout=45,
             env={
                 **os.environ,
-                'DATA_DIR': self.work_dir,
-                'LDAP_ENABLED': 'False',
-            }
+                "DATA_DIR": self.work_dir,
+                "LDAP_ENABLED": "False",
+            },
         )
 
         # Should succeed
@@ -160,16 +161,16 @@ class TestArchiveBoxWithLDAP(unittest.TestCase):
 
         # Run archivebox version with LDAP config env vars
         result = subprocess.run(
-            [sys.executable, '-m', 'archivebox', 'version'],
+            [sys.executable, "-m", "archivebox", "version"],
             cwd=self.work_dir,
             capture_output=True,
             timeout=10,
             env={
                 **os.environ,
-                'DATA_DIR': self.work_dir,
-                'LDAP_ENABLED': 'False',
-                'LDAP_SERVER_URI': 'ldap://ldap-test.localhost:389',
-            }
+                "DATA_DIR": self.work_dir,
+                "LDAP_ENABLED": "False",
+                "LDAP_SERVER_URI": "ldap://ldap-test.localhost:389",
+            },
         )
 
         # Should succeed
@@ -181,7 +182,7 @@ class TestLDAPConfigValidationInArchiveBox(unittest.TestCase):
 
     def setUp(self):
         """Set up test environment."""
-        self.work_dir = tempfile.mkdtemp(prefix='archivebox-ldap-validation-')
+        self.work_dir = tempfile.mkdtemp(prefix="archivebox-ldap-validation-")
 
     def test_archivebox_init_with_incomplete_ldap_config(self):
         """Test that archivebox init fails with helpful error when LDAP config is incomplete."""
@@ -189,16 +190,16 @@ class TestLDAPConfigValidationInArchiveBox(unittest.TestCase):
 
         # Run archivebox init with LDAP enabled but missing required fields
         result = subprocess.run(
-            [sys.executable, '-m', 'archivebox', 'init'],
+            [sys.executable, "-m", "archivebox", "init"],
             cwd=self.work_dir,
             capture_output=True,
             timeout=45,
             env={
                 **os.environ,
-                'DATA_DIR': self.work_dir,
-                'LDAP_ENABLED': 'True',
+                "DATA_DIR": self.work_dir,
+                "LDAP_ENABLED": "True",
                 # Missing: LDAP_SERVER_URI, LDAP_BIND_DN, etc.
-            }
+            },
         )
 
         # Should fail with validation error
@@ -206,9 +207,12 @@ class TestLDAPConfigValidationInArchiveBox(unittest.TestCase):
 
         # Check error message
         stderr = result.stderr.decode()
-        self.assertIn("LDAP_* config options must all be set", stderr,
-                     f"Expected validation error message in: {stderr}")
+        self.assertIn(
+            "LDAP_* config options must all be set",
+            stderr,
+            f"Expected validation error message in: {stderr}",
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

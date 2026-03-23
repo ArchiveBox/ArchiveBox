@@ -100,6 +100,26 @@
                                 <div class="error">{{ form.depth.errors }}</div>
                             {% endif %}
                             <div class="help-text">Controls how many links deep the crawl will follow from the starting URLs.</div>
+
+                            <div class="crawl-limit-grid">
+                                <div class="crawl-limit-field">
+                                    {{ form.max_urls.label_tag }}
+                                    {{ form.max_urls }}
+                                    {% if form.max_urls.errors %}
+                                        <div class="error">{{ form.max_urls.errors }}</div>
+                                    {% endif %}
+                                    <div class="help-text">0 means unlimited. When set, only the first N filtered URLs will be snapshotted.</div>
+                                </div>
+
+                                <div class="crawl-limit-field">
+                                    {{ form.max_size.label_tag }}
+                                    {{ form.max_size }}
+                                    {% if form.max_size.errors %}
+                                        <div class="error">{{ form.max_size.errors }}</div>
+                                    {% endif %}
+                                    <div class="help-text">0 means unlimited. Accepts bytes or units like <code>45mb</code> and <code>1gb</code>.</div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="form-field url-filters-field">
@@ -275,6 +295,7 @@
                 const detectedURLsPanel = document.querySelector('.detected-urls-panel');
                 const detectedURLsSummary = document.getElementById('detected-urls-summary');
                 const detectedURLsList = document.getElementById('detected-urls-list');
+                const maxURLsInput = document.querySelector('input[name="max_urls"]');
                 const sharedURLPattern = urlTextarea.dataset.urlRegex || '(?=(http[s]?://(?:[a-zA-Z]|[0-9]|[-_$@.&+!*\\(\\),]|[^\\u0000-\\u007F])+[^\\]\\[<>"\\\'\\s]+))';
                 const previewURLPattern = (
                     sharedURLPattern && sharedURLPattern.startsWith('(?=(') && sharedURLPattern.endsWith('))')
@@ -673,6 +694,43 @@
                     return getEffectiveFilterPatterns('URL_DENYLIST', 'textarea[name="url_filters_denylist"]');
                 }
 
+                function getMaxURLsLimit() {
+                    if (!maxURLsInput) {
+                        return 0;
+                    }
+                    const rawValue = String(maxURLsInput.value || '').trim();
+                    if (!rawValue) {
+                        return 0;
+                    }
+                    const parsed = parseInt(rawValue, 10);
+                    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+                }
+
+                function applyMaxURLsLimit(matches) {
+                    const limit = getMaxURLsLimit();
+                    if (!limit) {
+                        return matches;
+                    }
+
+                    let allowedCount = 0;
+                    return matches.map(match => {
+                        if (match.filter.status === 'denied' || match.filter.status === 'filtered') {
+                            return match;
+                        }
+                        if (allowedCount < limit) {
+                            allowedCount += 1;
+                            return match;
+                        }
+                        return {
+                            ...match,
+                            filter: {
+                                status: 'limited',
+                                message: `Excluded by max_urls limit (${limit})`,
+                            },
+                        };
+                    });
+                }
+
                 function hasDenyPattern(pattern) {
                     return !!pattern && getCurrentDenyPatterns().includes(pattern);
                 }
@@ -806,11 +864,13 @@
                         allowlisted: matches.filter(match => match.filter.status === 'allowlisted').length,
                         denied: matches.filter(match => match.filter.status === 'denied').length,
                         filtered: matches.filter(match => match.filter.status === 'filtered').length,
+                        limited: matches.filter(match => match.filter.status === 'limited').length,
                     };
-                    summary.total = matches.length - summary.denied - summary.filtered;
+                    summary.total = matches.length - summary.denied - summary.filtered - summary.limited;
                     const summaryParts = [];
                     if (summary.allowlisted) summaryParts.push(`${summary.allowlisted} allowed`);
                     if (summary.denied) summaryParts.push(`${summary.denied} denied`);
+                    if (summary.limited) summaryParts.push(`${summary.limited} over limit`);
                     summaryParts.push(`${summary.total} total`);
                     detectedURLsSummary.textContent = summaryParts.join(' • ');
 
@@ -945,11 +1005,12 @@
                         filter: getFilterState(match.url),
                     }));
                     const uniqueMatches = dedupeMatchesForFilterView(matches);
+                    const limitedMatches = applyMaxURLsLimit(uniqueMatches);
                     const count = matches.length;
                     urlCounter.textContent = `${count} URL${count !== 1 ? 's' : ''} detected`;
                     urlCounter.className = count > 0 ? 'url-counter url-counter-positive' : 'url-counter';
                     renderHighlightLayer(urlTextarea.value, matches);
-                    renderDetectedURLs(uniqueMatches);
+                    renderDetectedURLs(limitedMatches);
                     syncHighlightScroll();
                 }
 
@@ -968,6 +1029,7 @@
                 document.getElementById('add-form').addEventListener('input', function(event) {
                     if (
                         event.target === urlTextarea ||
+                        event.target === maxURLsInput ||
                         event.target.matches('textarea[name="url_filters_allowlist"]') ||
                         event.target.matches('textarea[name="url_filters_denylist"]') ||
                         event.target.matches('#id_config_rows .kv-key') ||
@@ -981,6 +1043,7 @@
                     if (
                         event.target.matches('textarea[name="url_filters_allowlist"]') ||
                         event.target.matches('textarea[name="url_filters_denylist"]') ||
+                        event.target.matches('input[name="max_urls"]') ||
                         event.target.matches('input[name="url_filters_same_domain_only"]') ||
                         event.target.matches('#id_config_rows .kv-key') ||
                         event.target.matches('#id_config_rows .kv-value')

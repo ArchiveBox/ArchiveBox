@@ -20,23 +20,27 @@ def create_default_crawl_and_assign_snapshots(apps, schema_editor):
     snapshots_without_crawl = cursor.fetchone()[0]
 
     if snapshots_without_crawl == 0:
-        print('✓ Fresh install or all snapshots already have crawls')
+        print("✓ Fresh install or all snapshots already have crawls")
         return
 
     # Get or create system user (pk=1)
     cursor.execute("SELECT id FROM auth_user WHERE id = 1")
     if not cursor.fetchone():
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO auth_user (id, password, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined)
             VALUES (1, '!', 1, 'system', '', '', '', 1, 1, ?)
-        """, [datetime.now().isoformat()])
+        """,
+            [datetime.now().isoformat()],
+        )
 
     # Create a default crawl for migrated snapshots
     # At this point crawls_crawl is guaranteed to have v0.9.0 schema (crawls/0002 ran first)
     crawl_id = str(uuid_lib.uuid4())
     now = datetime.now().isoformat()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO crawls_crawl (
             id, created_at, modified_at, num_uses_succeeded, num_uses_failed,
             urls, max_depth, tags_str, label, notes, output_dir,
@@ -44,20 +48,21 @@ def create_default_crawl_and_assign_snapshots(apps, schema_editor):
         ) VALUES (?, ?, ?, 0, 0, '', 0, '', 'Migrated from v0.7.2/v0.8.6',
                   'Auto-created crawl for migrated snapshots', '',
                   'sealed', ?, 1, NULL, '{}', NULL)
-    """, [crawl_id, now, now, now])
+    """,
+        [crawl_id, now, now, now],
+    )
 
     # Assign all snapshots without a crawl to the default crawl
     cursor.execute("UPDATE core_snapshot SET crawl_id = ? WHERE crawl_id IS NULL", [crawl_id])
 
-    print(f'✓ Assigned {snapshots_without_crawl} snapshots to default crawl {crawl_id}')
+    print(f"✓ Assigned {snapshots_without_crawl} snapshots to default crawl {crawl_id}")
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0023_upgrade_to_0_9_0'),
-        ('crawls', '0002_upgrade_from_0_8_6'),
-        ('auth', '0012_alter_user_first_name_max_length'),
+        ("core", "0023_upgrade_to_0_9_0"),
+        ("crawls", "0002_upgrade_from_0_8_6"),
+        ("auth", "0012_alter_user_first_name_max_length"),
     ]
 
     operations = [
@@ -137,12 +142,12 @@ class Migration(migrations.Migration):
             ],
             state_operations=[
                 migrations.AddField(
-                    model_name='snapshot',
-                    name='crawl',
+                    model_name="snapshot",
+                    name="crawl",
                     field=models.ForeignKey(
                         on_delete=models.deletion.CASCADE,
-                        to='crawls.crawl',
-                        help_text='Crawl that created this snapshot'
+                        to="crawls.crawl",
+                        help_text="Crawl that created this snapshot",
                     ),
                 ),
             ],

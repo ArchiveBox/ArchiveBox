@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
-__package__ = 'archivebox.cli'
+__package__ = "archivebox.cli"
 
-from typing import Optional
 
 import rich_click as click
 
@@ -137,7 +136,7 @@ BINARY_MACHINE_DIAGRAM = """
 @enforce_types
 def pluginmap(
     show_disabled: bool = False,
-    model: Optional[str] = None,
+    model: str | None = None,
     quiet: bool = False,
 ) -> dict:
     """
@@ -164,25 +163,25 @@ def pluginmap(
 
     # Model event types that can have hooks
     model_events = {
-        'Crawl': {
-            'description': 'Hooks run when a Crawl starts (QUEUED→STARTED)',
-            'machine': 'CrawlMachine',
-            'diagram': CRAWL_MACHINE_DIAGRAM,
+        "Crawl": {
+            "description": "Hooks run when a Crawl starts (QUEUED→STARTED)",
+            "machine": "CrawlMachine",
+            "diagram": CRAWL_MACHINE_DIAGRAM,
         },
-        'CrawlEnd': {
-            'description': 'Hooks run when a Crawl finishes (STARTED→SEALED)',
-            'machine': 'CrawlMachine',
-            'diagram': None,  # Part of CrawlMachine
+        "CrawlEnd": {
+            "description": "Hooks run when a Crawl finishes (STARTED→SEALED)",
+            "machine": "CrawlMachine",
+            "diagram": None,  # Part of CrawlMachine
         },
-        'Snapshot': {
-            'description': 'Hooks run for each Snapshot (creates ArchiveResults)',
-            'machine': 'SnapshotMachine',
-            'diagram': SNAPSHOT_MACHINE_DIAGRAM,
+        "Snapshot": {
+            "description": "Hooks run for each Snapshot (creates ArchiveResults)",
+            "machine": "SnapshotMachine",
+            "diagram": SNAPSHOT_MACHINE_DIAGRAM,
         },
-        'Binary': {
-            'description': 'Hooks for installing binary dependencies (providers)',
-            'machine': 'BinaryMachine',
-            'diagram': BINARY_MACHINE_DIAGRAM,
+        "Binary": {
+            "description": "Hooks for installing binary dependencies (providers)",
+            "machine": "BinaryMachine",
+            "diagram": BINARY_MACHINE_DIAGRAM,
         },
     }
 
@@ -195,16 +194,16 @@ def pluginmap(
         model_events = {model: model_events[model]}
 
     result = {
-        'models': {},
-        'plugins_dir': str(BUILTIN_PLUGINS_DIR),
-        'user_plugins_dir': str(USER_PLUGINS_DIR),
+        "models": {},
+        "plugins_dir": str(BUILTIN_PLUGINS_DIR),
+        "user_plugins_dir": str(USER_PLUGINS_DIR),
     }
 
     if not quiet:
         prnt()
-        prnt('[bold cyan]ArchiveBox Plugin Map[/bold cyan]')
-        prnt(f'[dim]Built-in plugins: {BUILTIN_PLUGINS_DIR}[/dim]')
-        prnt(f'[dim]User plugins: {USER_PLUGINS_DIR}[/dim]')
+        prnt("[bold cyan]ArchiveBox Plugin Map[/bold cyan]")
+        prnt(f"[dim]Built-in plugins: {BUILTIN_PLUGINS_DIR}[/dim]")
+        prnt(f"[dim]User plugins: {USER_PLUGINS_DIR}[/dim]")
         prnt()
 
     for event_name, info in model_events.items():
@@ -218,88 +217,93 @@ def pluginmap(
             plugin_name = hook_path.parent.name
             is_bg = is_background_hook(hook_path.name)
 
-            hook_infos.append({
-                'path': str(hook_path),
-                'name': hook_path.name,
-                'plugin': plugin_name,
-                'is_background': is_bg,
-                'extension': hook_path.suffix,
-            })
+            hook_infos.append(
+                {
+                    "path": str(hook_path),
+                    "name": hook_path.name,
+                    "plugin": plugin_name,
+                    "is_background": is_bg,
+                    "extension": hook_path.suffix,
+                },
+            )
 
-        result['models'][event_name] = {
-            'description': info['description'],
-            'machine': info['machine'],
-            'hooks': hook_infos,
-            'hook_count': len(hook_infos),
+        result["models"][event_name] = {
+            "description": info["description"],
+            "machine": info["machine"],
+            "hooks": hook_infos,
+            "hook_count": len(hook_infos),
         }
 
         if not quiet:
             # Show diagram if this model has one
-            if info.get('diagram'):
-                assert info['diagram'] is not None
-                prnt(Panel(
-                    info['diagram'],
-                    title=f'[bold green]{info["machine"]}[/bold green]',
-                    border_style='green',
-                    expand=False,
-                ))
+            if info.get("diagram"):
+                assert info["diagram"] is not None
+                prnt(
+                    Panel(
+                        info["diagram"],
+                        title=f"[bold green]{info['machine']}[/bold green]",
+                        border_style="green",
+                        expand=False,
+                    ),
+                )
                 prnt()
 
             # Create hooks table
             table = Table(
-                title=f'[bold yellow]on_{event_name}__* Hooks[/bold yellow] ({len(hooks)} found)',
+                title=f"[bold yellow]on_{event_name}__* Hooks[/bold yellow] ({len(hooks)} found)",
                 box=box.ROUNDED,
                 show_header=True,
-                header_style='bold magenta',
+                header_style="bold magenta",
             )
-            table.add_column('Plugin', style='cyan', width=20)
-            table.add_column('Hook Name', style='green')
-            table.add_column('BG', justify='center', width=4)
-            table.add_column('Type', justify='center', width=5)
+            table.add_column("Plugin", style="cyan", width=20)
+            table.add_column("Hook Name", style="green")
+            table.add_column("BG", justify="center", width=4)
+            table.add_column("Type", justify="center", width=5)
 
             # Sort lexicographically by hook name
-            sorted_hooks = sorted(hook_infos, key=lambda h: h['name'])
+            sorted_hooks = sorted(hook_infos, key=lambda h: h["name"])
 
             for hook in sorted_hooks:
-                bg_marker = '[yellow]bg[/yellow]' if hook['is_background'] else ''
-                ext = hook['extension'].lstrip('.')
+                bg_marker = "[yellow]bg[/yellow]" if hook["is_background"] else ""
+                ext = hook["extension"].lstrip(".")
                 table.add_row(
-                    hook['plugin'],
-                    hook['name'],
+                    hook["plugin"],
+                    hook["name"],
                     bg_marker,
                     ext,
                 )
 
             prnt(table)
             prnt()
-            prnt(f'[dim]{info["description"]}[/dim]')
+            prnt(f"[dim]{info['description']}[/dim]")
             prnt()
 
     # Summary
     if not quiet:
-        total_hooks = sum(m['hook_count'] for m in result['models'].values())
-        prnt(f'[bold]Total hooks discovered: {total_hooks}[/bold]')
+        total_hooks = sum(m["hook_count"] for m in result["models"].values())
+        prnt(f"[bold]Total hooks discovered: {total_hooks}[/bold]")
         prnt()
-        prnt('[dim]Hook naming convention: on_{Model}__{XX}_{description}[.bg].{ext}[/dim]')
-        prnt('[dim]  - XX: Two-digit lexicographic order (00-99)[/dim]')
-        prnt('[dim]  - .bg: Background hook (non-blocking)[/dim]')
-        prnt('[dim]  - ext: py, sh, or js[/dim]')
+        prnt("[dim]Hook naming convention: on_{Model}__{XX}_{description}[.bg].{ext}[/dim]")
+        prnt("[dim]  - XX: Two-digit lexicographic order (00-99)[/dim]")
+        prnt("[dim]  - .bg: Background hook (non-blocking)[/dim]")
+        prnt("[dim]  - ext: py, sh, or js[/dim]")
         prnt()
 
     return result
 
 
 @click.command()
-@click.option('--show-disabled', '-a', is_flag=True, help='Show hooks from disabled plugins too')
-@click.option('--model', '-m', type=str, default=None, help='Filter to specific model (Crawl, Snapshot, Binary, CrawlEnd)')
-@click.option('--quiet', '-q', is_flag=True, help='Output JSON only, no ASCII diagrams')
+@click.option("--show-disabled", "-a", is_flag=True, help="Show hooks from disabled plugins too")
+@click.option("--model", "-m", type=str, default=None, help="Filter to specific model (Crawl, Snapshot, Binary, CrawlEnd)")
+@click.option("--quiet", "-q", is_flag=True, help="Output JSON only, no ASCII diagrams")
 @docstring(pluginmap.__doc__)
 def main(**kwargs):
     import json
+
     result = pluginmap(**kwargs)
-    if kwargs.get('quiet'):
+    if kwargs.get("quiet"):
         print(json.dumps(result, indent=2))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

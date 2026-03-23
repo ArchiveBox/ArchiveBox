@@ -8,7 +8,7 @@ Click command metadata. Handles JSON-RPC 2.0 requests over stdio transport.
 import sys
 import json
 import traceback
-from typing import Any, Optional
+from typing import Any
 
 import click
 from click.testing import CliRunner
@@ -21,9 +21,9 @@ class MCPJSONEncoder(json.JSONEncoder):
 
     def default(self, o):
         # Handle Click's sentinel values
-        sentinel_type = getattr(click.core, '_SentinelClass', None)
+        sentinel_type = getattr(click.core, "_SentinelClass", None)
         if isinstance(sentinel_type, type) and isinstance(o, sentinel_type):
-                return None
+            return None
 
         # Handle tuples (convert to lists)
         if isinstance(o, tuple):
@@ -76,13 +76,13 @@ def click_command_to_mcp_tool(cmd_name: str, click_command: click.Command) -> di
     # Extract parameters from Click command
     for param in click_command.params:
         # Skip internal parameters
-        if param.name is None or param.name in ('help', 'version'):
+        if param.name is None or param.name in ("help", "version"):
             continue
 
         param_schema = click_type_to_json_schema_type(param.type)
 
         # Add description from Click help text
-        help_text = getattr(param, 'help', None)
+        help_text = getattr(param, "help", None)
         if help_text:
             param_schema["description"] = help_text
 
@@ -95,7 +95,7 @@ def click_command_to_mcp_tool(cmd_name: str, click_command: click.Command) -> di
             properties[param.name] = {
                 "type": "array",
                 "items": param_schema,
-                "description": param_schema.get("description", f"Multiple {param.name} values")
+                "description": param_schema.get("description", f"Multiple {param.name} values"),
             }
         else:
             properties[param.name] = param_schema
@@ -110,8 +110,8 @@ def click_command_to_mcp_tool(cmd_name: str, click_command: click.Command) -> di
         "inputSchema": {
             "type": "object",
             "properties": properties,
-            "required": required
-        }
+            "required": required,
+        },
     }
 
 
@@ -124,21 +124,25 @@ def execute_click_command(cmd_name: str, click_command: click.Command, arguments
 
     # Setup Django for archive commands (commands that need database access)
     from archivebox.cli import ArchiveBoxGroup
+
     if cmd_name in ArchiveBoxGroup.archive_commands:
         try:
             from archivebox.config.django import setup_django
             from archivebox.misc.checks import check_data_folder
+
             setup_django()
             check_data_folder()
         except Exception as e:
             # If Django setup fails, return error (unless it's manage/shell which handle this themselves)
-            if cmd_name not in ('manage', 'shell'):
+            if cmd_name not in ("manage", "shell"):
                 return {
-                    "content": [{
-                        "type": "text",
-                        "text": f"Error setting up Django: {str(e)}\n\nMake sure you're running the MCP server from inside an ArchiveBox data directory."
-                    }],
-                    "isError": True
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"Error setting up Django: {str(e)}\n\nMake sure you're running the MCP server from inside an ArchiveBox data directory.",
+                        },
+                    ],
+                    "isError": True,
                 }
 
     # Use Click's test runner to invoke command programmatically
@@ -152,7 +156,7 @@ def execute_click_command(cmd_name: str, click_command: click.Command, arguments
     positional_args = []
 
     for key, value in arguments.items():
-        param_name = key.replace('_', '-')  # Click uses dashes
+        param_name = key.replace("_", "-")  # Click uses dashes
         param = param_map.get(key)
 
         # Check if this is a positional Argument (not an Option)
@@ -168,14 +172,14 @@ def execute_click_command(cmd_name: str, click_command: click.Command, arguments
             # Options - add with dashes
             if isinstance(value, bool):
                 if value:
-                    args.append(f'--{param_name}')
+                    args.append(f"--{param_name}")
             elif isinstance(value, list):
                 # Multiple values for an option (rare)
                 for item in value:
-                    args.append(f'--{param_name}')
+                    args.append(f"--{param_name}")
                     args.append(str(item))
             elif value is not None:
-                args.append(f'--{param_name}')
+                args.append(f"--{param_name}")
                 args.append(str(value))
 
     # Add positional arguments at the end
@@ -189,42 +193,50 @@ def execute_click_command(cmd_name: str, click_command: click.Command, arguments
         content = []
 
         if result.output:
-            content.append({
-                "type": "text",
-                "text": result.output
-            })
+            content.append(
+                {
+                    "type": "text",
+                    "text": result.output,
+                },
+            )
 
         if result.stderr_bytes:
-            stderr_text = result.stderr_bytes.decode('utf-8', errors='replace')
+            stderr_text = result.stderr_bytes.decode("utf-8", errors="replace")
             if stderr_text.strip():
-                content.append({
-                    "type": "text",
-                    "text": f"[stderr]\n{stderr_text}"
-                })
+                content.append(
+                    {
+                        "type": "text",
+                        "text": f"[stderr]\n{stderr_text}",
+                    },
+                )
 
         # Check exit code
         is_error = result.exit_code != 0
 
         if is_error and not content:
-            content.append({
-                "type": "text",
-                "text": f"Command failed with exit code {result.exit_code}"
-            })
+            content.append(
+                {
+                    "type": "text",
+                    "text": f"Command failed with exit code {result.exit_code}",
+                },
+            )
 
         return {
             "content": content or [{"type": "text", "text": "(no output)"}],
-            "isError": is_error
+            "isError": is_error,
         }
 
     except Exception as e:
         # Capture any exceptions during execution
         error_trace = traceback.format_exc()
         return {
-            "content": [{
-                "type": "text",
-                "text": f"Error executing {cmd_name}: {str(e)}\n\n{error_trace}"
-            }],
-            "isError": True
+            "content": [
+                {
+                    "type": "text",
+                    "text": f"Error executing {cmd_name}: {str(e)}\n\n{error_trace}",
+                },
+            ],
+            "isError": True,
         }
 
 
@@ -244,7 +256,7 @@ class MCPServer:
         self.protocol_version = "2025-11-25"
         self._tool_cache = {}  # Cache loaded Click commands
 
-    def get_click_command(self, cmd_name: str) -> Optional[click.Command]:
+    def get_click_command(self, cmd_name: str) -> click.Command | None:
         """Get a Click command by name, with caching"""
         if cmd_name not in self._tool_cache:
             if cmd_name not in self.cli_group.all_subcommands:
@@ -257,12 +269,12 @@ class MCPServer:
         return {
             "protocolVersion": self.protocol_version,
             "capabilities": {
-                "tools": {}
+                "tools": {},
             },
             "serverInfo": {
                 "name": "archivebox-mcp",
-                "version": VERSION
-            }
+                "version": VERSION,
+            },
         }
 
     def handle_tools_list(self, params: dict) -> dict:
@@ -283,8 +295,8 @@ class MCPServer:
 
     def handle_tools_call(self, params: dict) -> dict:
         """Handle MCP tools/call request - executes a CLI command"""
-        tool_name = params.get('name')
-        arguments = params.get('arguments', {})
+        tool_name = params.get("name")
+        arguments = params.get("arguments", {})
 
         if not tool_name:
             raise ValueError("Missing required parameter: name")
@@ -303,17 +315,17 @@ class MCPServer:
         Supports MCP methods: initialize, tools/list, tools/call
         """
 
-        method = request.get('method')
-        params = request.get('params', {})
-        request_id = request.get('id')
+        method = request.get("method")
+        params = request.get("params", {})
+        request_id = request.get("id")
 
         try:
             # Route to appropriate handler
-            if method == 'initialize':
+            if method == "initialize":
                 result = self.handle_initialize(params)
-            elif method == 'tools/list':
+            elif method == "tools/list":
                 result = self.handle_tools_list(params)
-            elif method == 'tools/call':
+            elif method == "tools/call":
                 result = self.handle_tools_call(params)
             else:
                 # Method not found
@@ -322,15 +334,15 @@ class MCPServer:
                     "id": request_id,
                     "error": {
                         "code": -32601,
-                        "message": f"Method not found: {method}"
-                    }
+                        "message": f"Method not found: {method}",
+                    },
                 }
 
             # Success response
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,
-                "result": result
+                "result": result,
             }
 
         except Exception as e:
@@ -342,8 +354,8 @@ class MCPServer:
                 "error": {
                     "code": -32603,
                     "message": str(e),
-                    "data": error_trace
-                }
+                    "data": error_trace,
+                },
             }
 
     def run_stdio_server(self):
@@ -378,8 +390,8 @@ class MCPServer:
                     "error": {
                         "code": -32700,
                         "message": "Parse error",
-                        "data": str(e)
-                    }
+                        "data": str(e),
+                    },
                 }
                 print(json.dumps(error_response, cls=MCPJSONEncoder), flush=True)
 

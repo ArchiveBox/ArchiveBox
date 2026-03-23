@@ -4,14 +4,13 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('crawls', '0003_remove_crawlschedule_num_uses_failed_and_more'),
+        ("crawls", "0003_remove_crawlschedule_num_uses_failed_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='crawl',
-            name='output_dir',
+            model_name="crawl",
+            name="output_dir",
         ),
     ]

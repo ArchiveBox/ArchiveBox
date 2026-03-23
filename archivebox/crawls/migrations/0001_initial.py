@@ -11,11 +11,10 @@ from archivebox.base_models.models import get_or_create_system_user_pk
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('auth', '0012_alter_user_first_name_max_length'),
+        ("auth", "0012_alter_user_first_name_max_length"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -80,61 +79,98 @@ class Migration(migrations.Migration):
                     reverse_sql="""
                 DROP TABLE IF EXISTS crawls_crawl;
                 DROP TABLE IF EXISTS crawls_crawlschedule;
-                    """
+                    """,
                 ),
             ],
             state_operations=[
                 migrations.CreateModel(
-                    name='CrawlSchedule',
+                    name="CrawlSchedule",
                     fields=[
-                        ('id', models.UUIDField(default=uuid7, editable=False, primary_key=True, serialize=False, unique=True)),
-                        ('created_at', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
-                        ('modified_at', models.DateTimeField(auto_now=True)),
-                        ('num_uses_succeeded', models.PositiveIntegerField(default=0)),
-                        ('num_uses_failed', models.PositiveIntegerField(default=0)),
-                        ('schedule', models.CharField(max_length=64)),
-                        ('is_enabled', models.BooleanField(default=True)),
-                        ('label', models.CharField(blank=True, default='', max_length=64)),
-                        ('notes', models.TextField(blank=True, default='')),
-                        ('created_by', models.ForeignKey(default=get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                        ("id", models.UUIDField(default=uuid7, editable=False, primary_key=True, serialize=False, unique=True)),
+                        ("created_at", models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
+                        ("modified_at", models.DateTimeField(auto_now=True)),
+                        ("num_uses_succeeded", models.PositiveIntegerField(default=0)),
+                        ("num_uses_failed", models.PositiveIntegerField(default=0)),
+                        ("schedule", models.CharField(max_length=64)),
+                        ("is_enabled", models.BooleanField(default=True)),
+                        ("label", models.CharField(blank=True, default="", max_length=64)),
+                        ("notes", models.TextField(blank=True, default="")),
+                        (
+                            "created_by",
+                            models.ForeignKey(
+                                default=get_or_create_system_user_pk,
+                                on_delete=django.db.models.deletion.CASCADE,
+                                to=settings.AUTH_USER_MODEL,
+                            ),
+                        ),
                     ],
                     options={
-                        'verbose_name': 'Scheduled Crawl',
-                        'verbose_name_plural': 'Scheduled Crawls',
-                        'app_label': 'crawls',
+                        "verbose_name": "Scheduled Crawl",
+                        "verbose_name_plural": "Scheduled Crawls",
+                        "app_label": "crawls",
                     },
                 ),
                 migrations.CreateModel(
-                    name='Crawl',
+                    name="Crawl",
                     fields=[
-                        ('id', models.UUIDField(default=uuid7, editable=False, primary_key=True, serialize=False, unique=True)),
-                        ('created_at', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
-                        ('modified_at', models.DateTimeField(auto_now=True)),
-                        ('num_uses_succeeded', models.PositiveIntegerField(default=0)),
-                        ('num_uses_failed', models.PositiveIntegerField(default=0)),
-                        ('urls', models.TextField(help_text='Newline-separated list of URLs to crawl')),
-                        ('config', models.JSONField(blank=True, default=dict, null=True)),
-                        ('max_depth', models.PositiveSmallIntegerField(default=0, validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(4)])),
-                        ('tags_str', models.CharField(blank=True, default='', max_length=1024)),
-                        ('persona_id', models.UUIDField(blank=True, null=True)),
-                        ('label', models.CharField(blank=True, default='', max_length=64)),
-                        ('notes', models.TextField(blank=True, default='')),
-                        ('output_dir', models.CharField(blank=True, default='', max_length=512)),
-                        ('status', models.CharField(choices=[('queued', 'Queued'), ('started', 'Started'), ('sealed', 'Sealed')], db_index=True, default='queued', max_length=15)),
-                        ('retry_at', models.DateTimeField(blank=True, db_index=True, default=django.utils.timezone.now, null=True)),
-                        ('created_by', models.ForeignKey(default=get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
-                        ('schedule', models.ForeignKey(blank=True, editable=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='crawls.crawlschedule')),
+                        ("id", models.UUIDField(default=uuid7, editable=False, primary_key=True, serialize=False, unique=True)),
+                        ("created_at", models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
+                        ("modified_at", models.DateTimeField(auto_now=True)),
+                        ("num_uses_succeeded", models.PositiveIntegerField(default=0)),
+                        ("num_uses_failed", models.PositiveIntegerField(default=0)),
+                        ("urls", models.TextField(help_text="Newline-separated list of URLs to crawl")),
+                        ("config", models.JSONField(blank=True, default=dict, null=True)),
+                        (
+                            "max_depth",
+                            models.PositiveSmallIntegerField(
+                                default=0,
+                                validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(4)],
+                            ),
+                        ),
+                        ("tags_str", models.CharField(blank=True, default="", max_length=1024)),
+                        ("persona_id", models.UUIDField(blank=True, null=True)),
+                        ("label", models.CharField(blank=True, default="", max_length=64)),
+                        ("notes", models.TextField(blank=True, default="")),
+                        ("output_dir", models.CharField(blank=True, default="", max_length=512)),
+                        (
+                            "status",
+                            models.CharField(
+                                choices=[("queued", "Queued"), ("started", "Started"), ("sealed", "Sealed")],
+                                db_index=True,
+                                default="queued",
+                                max_length=15,
+                            ),
+                        ),
+                        ("retry_at", models.DateTimeField(blank=True, db_index=True, default=django.utils.timezone.now, null=True)),
+                        (
+                            "created_by",
+                            models.ForeignKey(
+                                default=get_or_create_system_user_pk,
+                                on_delete=django.db.models.deletion.CASCADE,
+                                to=settings.AUTH_USER_MODEL,
+                            ),
+                        ),
+                        (
+                            "schedule",
+                            models.ForeignKey(
+                                blank=True,
+                                editable=True,
+                                null=True,
+                                on_delete=django.db.models.deletion.SET_NULL,
+                                to="crawls.crawlschedule",
+                            ),
+                        ),
                     ],
                     options={
-                        'verbose_name': 'Crawl',
-                        'verbose_name_plural': 'Crawls',
-                        'app_label': 'crawls',
+                        "verbose_name": "Crawl",
+                        "verbose_name_plural": "Crawls",
+                        "app_label": "crawls",
                     },
                 ),
                 migrations.AddField(
-                    model_name='crawlschedule',
-                    name='template',
-                    field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='crawls.crawl'),
+                    model_name="crawlschedule",
+                    name="template",
+                    field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="crawls.crawl"),
                 ),
             ],
         ),

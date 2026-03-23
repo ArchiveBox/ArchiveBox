@@ -4,7 +4,7 @@
 
 {% block body %}
     <div id="toolbar">
-        <form id="changelist-search" action="{{ request.get_full_path }}" method="get">
+        <form id="changelist-search" action="{{ request.path }}" method="get">
             <div>
                 <label for="searchbar"><img src="/static/admin/img/search.svg" alt="Search"></label>
                 <select name="query_type" id="query_type">
@@ -18,6 +18,11 @@
                 </select>
                 <input type="text" size="40" name="q" value="{{ request.GET.q }}" id="searchbar" autofocus placeholder="Title, URL, tags, timestamp, or content...".>
                 <input type="submit" value="Search" style="height: 36px; padding-top: 6px; margin: 8px"/>
+                <span style="display:inline-flex; flex-wrap:wrap; gap:8px; align-items:center; margin-left:4px; font-size:12px;">
+                    <label><input type="radio" name="search_mode" value="meta"{% if search_mode == "meta" %} checked{% endif %}> meta (db-only)</label>
+                    <label><input type="radio" name="search_mode" value="contents"{% if search_mode == "contents" %} checked{% endif %}> contents (ripgrep/sonic/etc.)</label>
+                    <label><input type="radio" name="search_mode" value="deep"{% if search_mode == "deep" %} checked{% endif %}> deep</label>
+                </span>
                 <input type="button"
                        value="♺"
                        title="Refresh..."

@@ -18,7 +18,7 @@ from archivebox.personas.models import Persona
 
 def _mode_label(title: str, description: str) -> str:
     return mark_safe(
-        f'<span class="abx-import-mode-option"><strong>{title}</strong><span>{description}</span></span>'
+        f'<span class="abx-import-mode-option"><strong>{title}</strong><span>{description}</span></span>',
     )
 
 
@@ -31,7 +31,13 @@ class PersonaAdminForm(forms.ModelForm):
         choices=(
             ("none", _mode_label("Blank Persona", "Create the persona without importing browser state yet.")),
             ("discovered", _mode_label("Use a detected profile", "Pick from Chromium profiles auto-discovered on this host.")),
-            ("custom", _mode_label("Use a custom path or CDP URL", "Paste an absolute Chromium path or attach to a live browser debugging endpoint.")),
+            (
+                "custom",
+                _mode_label(
+                    "Use a custom path or CDP URL",
+                    "Paste an absolute Chromium path or attach to a live browser debugging endpoint.",
+                ),
+            ),
         ),
         help_text="These options run after the Persona row is saved, using the same backend import helpers as the CLI.",
     )
@@ -49,7 +55,7 @@ class PersonaAdminForm(forms.ModelForm):
             attrs={
                 "placeholder": "/Users/alice/Library/Application Support/Google/Chrome  or  ws://127.0.0.1:9222/devtools/browser/...",
                 "style": "width: 100%; font-family: monospace;",
-            }
+            },
         ),
         help_text="Accepts an absolute Chromium user-data dir, an exact profile dir, or a live HTTP/WS CDP endpoint.",
     )
@@ -60,7 +66,7 @@ class PersonaAdminForm(forms.ModelForm):
             attrs={
                 "placeholder": "Default or Profile 1",
                 "style": "width: 100%; font-family: monospace;",
-            }
+            },
         ),
         help_text="Only used when the custom path points at a browser root containing multiple profiles.",
     )

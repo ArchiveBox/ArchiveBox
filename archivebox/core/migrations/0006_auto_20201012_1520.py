@@ -3,19 +3,18 @@
 from django.db import migrations, models
 from django.utils.text import slugify
 
+
 def forwards_func(apps, schema_editor):
     SnapshotModel = apps.get_model("core", "Snapshot")
     TagModel = apps.get_model("core", "Tag")
 
     snapshots = SnapshotModel.objects.all()
     for snapshot in snapshots:
-        tag_set = (
-            set(tag.strip() for tag in (snapshot.tags_old or '').split(','))
-        )
+        tag_set = {tag.strip() for tag in (snapshot.tags_old or "").split(",")}
         tag_set.discard("")
 
         for tag in tag_set:
-            to_add, _ = TagModel.objects.get_or_create(name=tag, defaults={'slug': slugify(tag)})
+            to_add, _ = TagModel.objects.get_or_create(name=tag, defaults={"slug": slugify(tag)})
             snapshot.tags.add(to_add)
 
 
@@ -30,37 +29,36 @@ def reverse_func(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0005_auto_20200728_0326'),
+        ("core", "0005_auto_20200728_0326"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='snapshot',
-            old_name='tags',
-            new_name='tags_old',
+            model_name="snapshot",
+            old_name="tags",
+            new_name="tags_old",
         ),
         migrations.CreateModel(
-            name='Tag',
+            name="Tag",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100, unique=True, verbose_name='name')),
-                ('slug', models.SlugField(max_length=100, unique=True, verbose_name='slug')),
+                ("id", models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("name", models.CharField(max_length=100, unique=True, verbose_name="name")),
+                ("slug", models.SlugField(max_length=100, unique=True, verbose_name="slug")),
             ],
             options={
-                'verbose_name': 'Tag',
-                'verbose_name_plural': 'Tags',
+                "verbose_name": "Tag",
+                "verbose_name_plural": "Tags",
             },
         ),
         migrations.AddField(
-            model_name='snapshot',
-            name='tags',
-            field=models.ManyToManyField(to='core.Tag'),
+            model_name="snapshot",
+            name="tags",
+            field=models.ManyToManyField(to="core.Tag"),
         ),
         migrations.RunPython(forwards_func, reverse_func),
         migrations.RemoveField(
-            model_name='snapshot',
-            name='tags_old',
+            model_name="snapshot",
+            name="tags_old",
         ),
     ]

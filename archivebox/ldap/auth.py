@@ -11,6 +11,7 @@ import importlib
 try:
     BaseLDAPBackend = importlib.import_module("django_auth_ldap.backend").LDAPBackend
 except ImportError:
+
     class BaseLDAPBackend:
         """Dummy LDAP backend when django-auth-ldap is not installed."""
 

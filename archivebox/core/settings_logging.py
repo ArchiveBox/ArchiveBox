@@ -1,4 +1,4 @@
-__package__ = 'archivebox.core'
+__package__ = "archivebox.core"
 
 import re
 import os
@@ -19,6 +19,7 @@ IGNORABLE_URL_PATTERNS = [
     re.compile(r"/admin/jsi18n/"),
 ]
 
+
 class NoisyRequestsFilter(logging.Filter):
     def filter(self, record) -> bool:
         logline = record.getMessage()
@@ -34,7 +35,7 @@ class NoisyRequestsFilter(logging.Filter):
             if ignorable_GET_request.match(logline):
                 return False
 
-            ignorable_404_pattern = re.compile(f'Not Found: {pattern.pattern}', re.I | re.M)
+            ignorable_404_pattern = re.compile(f"Not Found: {pattern.pattern}", re.I | re.M)
             if ignorable_404_pattern.match(logline):
                 return False
 
@@ -44,17 +45,18 @@ class NoisyRequestsFilter(logging.Filter):
 class CustomOutboundWebhookLogFormatter(logging.Formatter):
     def format(self, record):
         result = super().format(record)
-        return result.replace('HTTP Request: ', 'OutboundWebhook: ')
+        return result.replace("HTTP Request: ", "OutboundWebhook: ")
+
 
 class StripANSIColorCodesFilter(logging.Filter):
-    _ansi_re = re.compile(r'\x1b\[[0-9;]*m')
-    _bare_re = re.compile(r'\[[0-9;]*m')
+    _ansi_re = re.compile(r"\x1b\[[0-9;]*m")
+    _bare_re = re.compile(r"\[[0-9;]*m")
 
     def filter(self, record) -> bool:
         msg = record.getMessage()
-        if isinstance(msg, str) and ('\x1b[' in msg or '[m' in msg):
-            msg = self._ansi_re.sub('', msg)
-            msg = self._bare_re.sub('', msg)
+        if isinstance(msg, str) and ("\x1b[" in msg or "[m" in msg):
+            msg = self._ansi_re.sub("", msg)
+            msg = self._bare_re.sub("", msg)
             record.msg = msg
             record.args = ()
         return True
@@ -65,18 +67,18 @@ ERROR_LOG = tempfile.NamedTemporaryFile().name
 LOGS_DIR = CONSTANTS.LOGS_DIR
 
 if os.access(LOGS_DIR, os.W_OK) and LOGS_DIR.is_dir():
-    ERROR_LOG = (LOGS_DIR / 'errors.log')
+    ERROR_LOG = LOGS_DIR / "errors.log"
 else:
     # historically too many edge cases here around creating log dir w/ correct permissions early on
     # if there's an issue on startup, we trash the log and let user figure it out via stdout/stderr
     # print(f'[!] WARNING: data/logs dir does not exist. Logging to temp file: {ERROR_LOG}')
     pass
 
-LOG_LEVEL_DATABASE = 'WARNING'  # change to DEBUG to log all SQL queries
-LOG_LEVEL_REQUEST = 'WARNING'   # if DEBUG else 'WARNING'
+LOG_LEVEL_DATABASE = "WARNING"  # change to DEBUG to log all SQL queries
+LOG_LEVEL_REQUEST = "WARNING"  # if DEBUG else 'WARNING'
 
-if LOG_LEVEL_DATABASE == 'DEBUG':
-    db_logger = logging.getLogger('django.db.backends')
+if LOG_LEVEL_DATABASE == "DEBUG":
+    db_logger = logging.getLogger("django.db.backends")
     db_logger.setLevel(logging.DEBUG)
     db_logger.addHandler(logging.StreamHandler())
 

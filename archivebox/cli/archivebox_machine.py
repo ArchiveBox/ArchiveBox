@@ -19,11 +19,10 @@ Examples:
     archivebox machine list --hostname__icontains=myserver
 """
 
-__package__ = 'archivebox.cli'
-__command__ = 'archivebox machine'
+__package__ = "archivebox.cli"
+__command__ = "archivebox machine"
 
 import sys
-from typing import Optional
 
 import rich_click as click
 from rich import print as rprint
@@ -35,10 +34,11 @@ from archivebox.cli.cli_utils import apply_filters
 # LIST
 # =============================================================================
 
+
 def list_machines(
-    hostname__icontains: Optional[str] = None,
-    os_platform: Optional[str] = None,
-    limit: Optional[int] = None,
+    hostname__icontains: str | None = None,
+    os_platform: str | None = None,
+    limit: int | None = None,
 ) -> int:
     """
     List Machines as JSONL with optional filters.
@@ -51,24 +51,24 @@ def list_machines(
 
     is_tty = sys.stdout.isatty()
 
-    queryset = Machine.objects.all().order_by('-created_at')
+    queryset = Machine.objects.all().order_by("-created_at")
 
     # Apply filters
     filter_kwargs = {
-        'hostname__icontains': hostname__icontains,
-        'os_platform': os_platform,
+        "hostname__icontains": hostname__icontains,
+        "os_platform": os_platform,
     }
     queryset = apply_filters(queryset, filter_kwargs, limit=limit)
 
     count = 0
     for machine in queryset:
         if is_tty:
-            rprint(f'[cyan]{machine.hostname:30}[/cyan] [dim]{machine.os_platform:10}[/dim] {machine.id}')
+            rprint(f"[cyan]{machine.hostname:30}[/cyan] [dim]{machine.os_platform:10}[/dim] {machine.id}")
         else:
             write_record(machine.to_json())
         count += 1
 
-    rprint(f'[dim]Listed {count} machines[/dim]', file=sys.stderr)
+    rprint(f"[dim]Listed {count} machines[/dim]", file=sys.stderr)
     return 0
 
 
@@ -76,24 +76,27 @@ def list_machines(
 # CLI Commands
 # =============================================================================
 
+
 @click.group()
 def main():
     """Manage Machine records (read-only, system-managed)."""
     pass
 
 
-@main.command('list')
-@click.option('--hostname__icontains', help='Filter by hostname contains')
-@click.option('--os-platform', help='Filter by OS platform')
-@click.option('--limit', '-n', type=int, help='Limit number of results')
-def list_cmd(hostname__icontains: Optional[str], os_platform: Optional[str], limit: Optional[int]):
+@main.command("list")
+@click.option("--hostname__icontains", help="Filter by hostname contains")
+@click.option("--os-platform", help="Filter by OS platform")
+@click.option("--limit", "-n", type=int, help="Limit number of results")
+def list_cmd(hostname__icontains: str | None, os_platform: str | None, limit: int | None):
     """List Machines as JSONL."""
-    sys.exit(list_machines(
-        hostname__icontains=hostname__icontains,
-        os_platform=os_platform,
-        limit=limit,
-    ))
+    sys.exit(
+        list_machines(
+            hostname__icontains=hostname__icontains,
+            os_platform=os_platform,
+            limit=limit,
+        ),
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

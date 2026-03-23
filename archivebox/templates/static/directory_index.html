@@ -1,0 +1,396 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="Content-Language" content="en-us">
+    <meta name="robots" content="NONE,NOARCHIVE">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% blocktranslate %}Index of {{ directory }}{% endblocktranslate %}</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f3f5f8;
+        --panel: #ffffff;
+        --panel-border: #d9e0e8;
+        --text: #16202a;
+        --muted: #5e6b78;
+        --accent: #0f5cc0;
+        --accent-soft: #e7f0ff;
+        --folder-bg: #f6f9ff;
+        --folder-border: #d6e5ff;
+        --shadow: 0 10px 30px rgba(20, 32, 52, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(180deg, #eef3f9 0%, var(--bg) 100%);
+        color: var(--text);
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      body {
+        min-height: 100vh;
+        padding: 24px;
+      }
+
+      .directory-shell {
+        width: min(980px, 100%);
+        margin: 0 auto;
+      }
+
+      .directory-toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 14px;
+        padding: 12px;
+        border: 1px solid var(--panel-border);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+
+      .toolbar-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 40px;
+        padding: 0 14px;
+        border: 1px solid var(--panel-border);
+        border-radius: 999px;
+        background: #fff;
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        transition:
+          background-color 0.15s ease,
+          border-color 0.15s ease,
+          transform 0.15s ease;
+      }
+
+      .toolbar-link:hover {
+        background: #f8fbff;
+        border-color: #c5d2e0;
+        transform: translateY(-1px);
+      }
+
+      .toolbar-link.primary {
+        background: var(--accent-soft);
+        border-color: var(--folder-border);
+        color: var(--accent);
+      }
+
+      .archivebox-zip-spinner {
+        display: none;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #2563eb;
+        border-right-color: transparent;
+        border-radius: 999px;
+        animation: archivebox-zip-spin 0.75s linear infinite;
+        flex: 0 0 auto;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
+      }
+
+      .archivebox-zip-button.is-loading {
+        pointer-events: none;
+        opacity: 0.96;
+      }
+
+      .archivebox-zip-button.is-loading .archivebox-zip-spinner {
+        display: inline-block;
+      }
+
+      .archivebox-zip-button.is-loading .archivebox-zip-label {
+        opacity: 0.72;
+      }
+
+      @keyframes archivebox-zip-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .directory-card {
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .directory-header {
+        padding: 22px 24px 18px;
+        border-bottom: 1px solid var(--panel-border);
+        background:
+          radial-gradient(circle at top right, rgba(15, 92, 192, 0.08), transparent 28%),
+          linear-gradient(180deg, #ffffff, #f8fbff);
+      }
+
+      .directory-kicker {
+        margin: 0 0 8px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .directory-title {
+        margin: 0;
+        font-size: clamp(22px, 4vw, 34px);
+        line-height: 1.1;
+        word-break: break-word;
+      }
+
+      .directory-meta {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .directory-path {
+        display: inline-block;
+        margin-top: 12px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: #f4f7fb;
+        border: 1px solid var(--panel-border);
+        color: #304152;
+        font-family:
+          ui-monospace,
+          "SFMono-Regular",
+          Menlo,
+          Consolas,
+          monospace;
+        font-size: 13px;
+      }
+
+      .directory-list {
+        list-style: none;
+        margin: 0;
+        padding: 12px;
+      }
+
+      .directory-entry + .directory-entry {
+        margin-top: 6px;
+      }
+
+      .directory-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        color: inherit;
+        text-decoration: none;
+        transition:
+          background-color 0.15s ease,
+          border-color 0.15s ease,
+          transform 0.15s ease,
+          box-shadow 0.15s ease;
+      }
+
+      .directory-link:hover {
+        background: #f8fbff;
+        border-color: var(--panel-border);
+        transform: translateY(-1px);
+      }
+
+      .directory-link:focus-visible {
+        outline: 3px solid rgba(15, 92, 192, 0.2);
+        outline-offset: 1px;
+      }
+
+      .directory-entry.folder .directory-link {
+        background: var(--folder-bg);
+        border-color: var(--folder-border);
+      }
+
+      .entry-icon {
+        flex: 0 0 auto;
+        width: 34px;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        background: #edf2f8;
+        font-size: 18px;
+      }
+
+      .directory-entry.folder .entry-icon {
+        background: var(--accent-soft);
+      }
+
+      .entry-label {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .entry-name {
+        font-size: 15px;
+        font-weight: 600;
+        line-height: 1.35;
+        word-break: break-word;
+      }
+
+      .entry-kind {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.2;
+      }
+
+      .directory-entry.parent .entry-kind {
+        color: var(--accent);
+      }
+
+      .empty-state {
+        padding: 28px 24px 32px;
+        text-align: center;
+        color: var(--muted);
+      }
+
+      @media (max-width: 640px) {
+        body {
+          padding: 14px;
+        }
+
+        .directory-header {
+          padding: 18px 18px 16px;
+        }
+
+        .directory-list {
+          padding: 10px;
+        }
+
+        .directory-link {
+          padding: 11px 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="directory-shell">
+      <nav class="directory-toolbar" aria-label="Directory navigation">
+        {% if directory != "/" %}
+          <a class="toolbar-link" href="../">↩ Up One Level</a>
+        {% endif %}
+        <a class="toolbar-link primary" href="/">⌂ Snapshot Page</a>
+        <a
+          class="toolbar-link archivebox-zip-button"
+          href="{{ zip_url }}"
+          data-loading-label="Preparing..."
+          onclick="return window.archiveboxHandleZipClick(this, event);"
+        >
+          <span class="archivebox-zip-spinner" aria-hidden="true"></span>
+          <span class="archivebox-zip-label">⬇ Download Zip</span>
+        </a>
+      </nav>
+
+      <section class="directory-card">
+        <header class="directory-header">
+          <p class="directory-kicker">ArchiveBox File Index</p>
+          <h1 class="directory-title">{% blocktranslate %}Index of {{ directory }}{% endblocktranslate %}</h1>
+          <div class="directory-meta">
+            {{ file_list|length }} item{{ file_list|length|pluralize }}
+          </div>
+          <div class="directory-path">{{ directory }}</div>
+        </header>
+
+        {% if file_list or directory != "/" %}
+          <ul class="directory-list">
+            {% if directory != "/" %}
+              <li class="directory-entry parent">
+                <a class="directory-link" href="../">
+                  <span class="entry-icon" aria-hidden="true">↩</span>
+                  <span class="entry-label">
+                    <span class="entry-name">../</span>
+                    <span class="entry-kind">Parent directory</span>
+                  </span>
+                </a>
+              </li>
+            {% endif %}
+
+            {% for f in file_list %}
+              <li class="directory-entry{% if f|slice:'-1:' == '/' %} folder{% endif %}">
+                <a class="directory-link" href="{{ f|urlencode }}">
+                  <span class="entry-icon" aria-hidden="true">{% if f|slice:'-1:' == '/' %}📁{% else %}📄{% endif %}</span>
+                  <span class="entry-label">
+                    <span class="entry-name">{{ f }}</span>
+                    <span class="entry-kind">{% if f|slice:'-1:' == '/' %}Directory{% else %}File{% endif %}</span>
+                  </span>
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="empty-state">This directory is empty.</div>
+        {% endif %}
+      </section>
+    </main>
+    <script>
+      window.archiveboxHandleZipClick = function(link, event) {
+        if (!link || link.dataset.loading === "1") {
+          if (event) event.preventDefault();
+          return false;
+        }
+        if (event) event.preventDefault();
+        link.dataset.loading = "1";
+        link.classList.add("is-loading");
+        link.setAttribute("aria-busy", "true");
+        const label = link.querySelector(".archivebox-zip-label");
+        const spinner = link.querySelector(".archivebox-zip-spinner");
+        if (label) {
+          link.dataset.originalLabel = label.textContent || "";
+          label.textContent = link.dataset.loadingLabel || "Preparing...";
+          label.style.opacity = "0.92";
+        }
+        if (spinner) {
+          spinner.style.display = "inline-block";
+        }
+        link.style.pointerEvents = "none";
+        link.style.opacity = "0.96";
+        const destination = link.href;
+        let iframe = document.getElementById("archivebox-zip-download-frame");
+        if (!iframe) {
+          iframe = document.createElement("iframe");
+          iframe.id = "archivebox-zip-download-frame";
+          iframe.name = "archivebox-zip-download-frame";
+          iframe.hidden = true;
+          iframe.style.display = "none";
+          document.body.appendChild(iframe);
+        }
+        void link.offsetWidth;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            iframe.src = destination;
+          });
+        });
+        return false;
+      };
+    </script>
+  </body>
+</html>

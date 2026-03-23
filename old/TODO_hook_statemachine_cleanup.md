@@ -662,4 +662,3 @@ Binary(queued) → BinaryMachine → Binary.run() → succeeded/failed
 - [ ] Hook bin_providers filtering works correctly
 - [ ] Binary.from_jsonl() handles both dependencies.jsonl and hook output
 - [ ] Binary OUTPUT_DIR structure: data/machines/{machine_id}/binaries/{name}/{id}/
-

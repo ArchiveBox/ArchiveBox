@@ -172,6 +172,17 @@ select {
   margin-bottom: 8px;
 }
 
+.crawl-limit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.crawl-limit-field {
+  margin-bottom: 0;
+}
+
 .field-header {
   display: flex;
   align-items: center;
@@ -252,6 +263,11 @@ select {
   border: 1px solid #d7e2eb;
   border-radius: 8px;
   overflow: hidden;
+}
+
+.detected-url-limited .detected-url-value {
+  text-decoration: line-through;
+  opacity: 0.72;
 }
 
 .detected-urls-header {
@@ -844,6 +860,10 @@ input:focus, select:focus, textarea:focus, button:focus {
 
 /* Responsive layout */
 @media (max-width: 768px) {
+  .crawl-limit-grid {
+    grid-template-columns: 1fr;
+  }
+
   .plugin-checkboxes {
     grid-template-columns: 1fr;
   }

@@ -13,7 +13,7 @@ def test_update_runs_successfully_on_empty_archive(tmp_path, process):
     """Test that update runs without error on empty archive."""
     os.chdir(tmp_path)
     result = subprocess.run(
-        ['archivebox', 'update'],
+        ["archivebox", "update"],
         capture_output=True,
         text=True,
         timeout=30,
@@ -29,14 +29,14 @@ def test_update_reconciles_existing_snapshots(tmp_path, process, disable_extract
 
     # Add a snapshot (index-only for faster test)
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
     )
 
     # Run update - should reconcile and queue
     result = subprocess.run(
-        ['archivebox', 'update'],
+        ["archivebox", "update"],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=30,
@@ -51,13 +51,13 @@ def test_update_specific_snapshot_by_filter(tmp_path, process, disable_extractor
 
     # Add multiple snapshots
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=90,
     )
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.org'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.org"],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=90,
@@ -65,7 +65,7 @@ def test_update_specific_snapshot_by_filter(tmp_path, process, disable_extractor
 
     # Update with filter pattern (uses filter_patterns argument)
     result = subprocess.run(
-        ['archivebox', 'update', '--filter-type=substring', 'example.com'],
+        ["archivebox", "update", "--filter-type=substring", "example.com"],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=30,
@@ -81,7 +81,7 @@ def test_update_preserves_snapshot_count(tmp_path, process, disable_extractors_d
 
     # Add snapshots
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=90,
@@ -97,7 +97,7 @@ def test_update_preserves_snapshot_count(tmp_path, process, disable_extractors_d
 
     # Run update (should reconcile + queue, not create new snapshots)
     subprocess.run(
-        ['archivebox', 'update'],
+        ["archivebox", "update"],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=30,
@@ -118,7 +118,7 @@ def test_update_queues_snapshots_for_archiving(tmp_path, process, disable_extrac
     os.chdir(tmp_path)
 
     subprocess.run(
-        ['archivebox', 'add', '--index-only', '--depth=0', 'https://example.com'],
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=90,
@@ -126,7 +126,7 @@ def test_update_queues_snapshots_for_archiving(tmp_path, process, disable_extrac
 
     # Run update
     result = subprocess.run(
-        ['archivebox', 'update'],
+        ["archivebox", "update"],
         capture_output=True,
         env=disable_extractors_dict,
         timeout=30,
@@ -140,4 +140,4 @@ def test_update_queues_snapshots_for_archiving(tmp_path, process, disable_extrac
     status = c.execute("SELECT status FROM core_snapshot").fetchone()[0]
     conn.close()
 
-    assert status == 'queued'
+    assert status == "queued"

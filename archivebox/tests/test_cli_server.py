@@ -24,14 +24,14 @@ def test_server_shows_usage_info(tmp_path, process):
     # Just check that the command is recognized
     # We won't actually start a full server in tests
     result = subprocess.run(
-        ['archivebox', 'server', '--help'],
+        ["archivebox", "server", "--help"],
         capture_output=True,
         text=True,
         timeout=10,
     )
 
     assert result.returncode == 0
-    assert 'server' in result.stdout.lower() or 'http' in result.stdout.lower()
+    assert "server" in result.stdout.lower() or "http" in result.stdout.lower()
 
 
 def test_server_init_flag(tmp_path, process):
@@ -40,14 +40,14 @@ def test_server_init_flag(tmp_path, process):
 
     # Check init flag is recognized
     result = subprocess.run(
-        ['archivebox', 'server', '--help'],
+        ["archivebox", "server", "--help"],
         capture_output=True,
         text=True,
         timeout=10,
     )
 
     assert result.returncode == 0
-    assert '--init' in result.stdout or 'init' in result.stdout.lower()
+    assert "--init" in result.stdout or "init" in result.stdout.lower()
 
 
 def test_runner_worker_uses_current_interpreter():
@@ -109,3 +109,61 @@ def test_stop_existing_background_runner_cleans_up_and_stops_orchestrators():
     runner_a.kill_tree.assert_called_once_with(graceful_timeout=2.0)
     runner_b.terminate.assert_called_once_with(graceful_timeout=2.0)
     log.assert_called_once()
+
+
+def test_stop_existing_server_workers_takes_over_same_runserver_port(monkeypatch):
+    from archivebox.cli.archivebox_server import stop_existing_server_workers
+
+    supervisor = Mock()
+    supervisor.getProcessInfo.side_effect = lambda name: {
+        "worker_runserver": {"statename": "RUNNING"},
+        "worker_daphne": {"statename": "STOPPED"},
+    }.get(name, None)
+    stop_worker = Mock()
+    log = Mock()
+
+    monkeypatch.setattr(
+        "archivebox.cli.archivebox_server._read_supervisor_worker_command",
+        lambda worker_name: f"{sys.executable} -m archivebox manage runserver 0.0.0.0:8000" if worker_name == "worker_runserver" else "",
+    )
+
+    stopped = stop_existing_server_workers(
+        supervisor=supervisor,
+        stop_worker_fn=stop_worker,
+        host="0.0.0.0",
+        port="8000",
+        log=log,
+    )
+
+    assert stopped == 1
+    stop_worker.assert_called_once_with(supervisor, "worker_runserver")
+    log.assert_called_once()
+
+
+def test_stop_existing_server_workers_leaves_different_port_running(monkeypatch):
+    from archivebox.cli.archivebox_server import stop_existing_server_workers
+
+    supervisor = Mock()
+    supervisor.getProcessInfo.side_effect = lambda name: {
+        "worker_runserver": {"statename": "RUNNING"},
+        "worker_daphne": {"statename": "STOPPED"},
+    }.get(name, None)
+    stop_worker = Mock()
+    log = Mock()
+
+    monkeypatch.setattr(
+        "archivebox.cli.archivebox_server._read_supervisor_worker_command",
+        lambda worker_name: f"{sys.executable} -m archivebox manage runserver 127.0.0.1:9000" if worker_name == "worker_runserver" else "",
+    )
+
+    stopped = stop_existing_server_workers(
+        supervisor=supervisor,
+        stop_worker_fn=stop_worker,
+        host="0.0.0.0",
+        port="8000",
+        log=log,
+    )
+
+    assert stopped == 0
+    stop_worker.assert_not_called()
+    log.assert_not_called()

@@ -16,8 +16,8 @@ def upgrade_crawl_table_from_v086(apps, schema_editor):
     # Detect schema version
     cursor.execute("PRAGMA table_info(crawls_crawl)")
     crawl_cols = {row[1] for row in cursor.fetchall()}
-    has_seed_id = 'seed_id' in crawl_cols
-    has_urls = 'urls' in crawl_cols
+    has_seed_id = "seed_id" in crawl_cols
+    has_urls = "urls" in crawl_cols
 
     # Only upgrade if we have v0.8.6rc0 schema
     if not (has_seed_id and not has_urls):
@@ -29,7 +29,7 @@ def upgrade_crawl_table_from_v086(apps, schema_editor):
 
     # v0.8.6rc0 schema - upgrade to v0.9.0
     if has_data:
-        print('Upgrading crawls_crawl from v0.8.6rc0 to v0.9.0...')
+        print("Upgrading crawls_crawl from v0.8.6rc0 to v0.9.0...")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS crawls_crawl_new (
@@ -82,13 +82,12 @@ def upgrade_crawl_table_from_v086(apps, schema_editor):
     cursor.execute("CREATE INDEX IF NOT EXISTS crawls_crawl_schedule_id_idx ON crawls_crawl(schedule_id);")
 
     if has_data:
-        print('✓ crawls_crawl upgraded to v0.9.0')
+        print("✓ crawls_crawl upgraded to v0.9.0")
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('crawls', '0001_initial'),
+        ("crawls", "0001_initial"),
     ]
 
     operations = [

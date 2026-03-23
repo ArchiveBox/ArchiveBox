@@ -20,72 +20,73 @@ Plain URLs (also supported):
     https://foo.com
 """
 
-__package__ = 'archivebox.misc'
+__package__ = "archivebox.misc"
 
 import sys
 import json
 import select
-from typing import Iterable, Iterator, Dict, Any, Optional, TextIO
+from typing import Any, TextIO
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 
 # Type constants for JSONL records
-TYPE_SNAPSHOT = 'Snapshot'
-TYPE_ARCHIVERESULT = 'ArchiveResult'
-TYPE_TAG = 'Tag'
-TYPE_CRAWL = 'Crawl'
-TYPE_BINARY = 'Binary'
-TYPE_PROCESS = 'Process'
-TYPE_MACHINE = 'Machine'
+TYPE_SNAPSHOT = "Snapshot"
+TYPE_ARCHIVERESULT = "ArchiveResult"
+TYPE_TAG = "Tag"
+TYPE_CRAWL = "Crawl"
+TYPE_BINARY = "Binary"
+TYPE_PROCESS = "Process"
+TYPE_MACHINE = "Machine"
 
 VALID_TYPES = {TYPE_SNAPSHOT, TYPE_ARCHIVERESULT, TYPE_TAG, TYPE_CRAWL, TYPE_BINARY, TYPE_PROCESS, TYPE_MACHINE}
 
 
-def parse_line(line: str) -> Optional[Dict[str, Any]]:
+def parse_line(line: str) -> dict[str, Any] | None:
     """
     Parse a single line of input as either JSONL or plain URL.
 
     Returns a dict with at minimum {'type': '...', 'url': '...'} or None if invalid.
     """
     line = line.strip()
-    if not line or line.startswith('#'):
+    if not line or line.startswith("#"):
         return None
 
     # Try to parse as JSON first
-    if line.startswith('{'):
+    if line.startswith("{"):
         try:
             record = json.loads(line)
             # If it has a type, validate it
-            if 'type' in record and record['type'] not in VALID_TYPES:
+            if "type" in record and record["type"] not in VALID_TYPES:
                 # Unknown type, treat as raw data
                 pass
             # If it has url but no type, assume Snapshot
-            if 'url' in record and 'type' not in record:
-                record['type'] = TYPE_SNAPSHOT
+            if "url" in record and "type" not in record:
+                record["type"] = TYPE_SNAPSHOT
             return record
         except json.JSONDecodeError:
             pass
 
     # Treat as plain URL if it looks like one
-    if line.startswith('http://') or line.startswith('https://') or line.startswith('file://'):
-        return {'type': TYPE_SNAPSHOT, 'url': line}
+    if line.startswith("http://") or line.startswith("https://") or line.startswith("file://"):
+        return {"type": TYPE_SNAPSHOT, "url": line}
 
     # Could be a snapshot ID (UUID with dashes or compact 32-char hex)
-    if len(line) == 36 and line.count('-') == 4:
-        return {'type': TYPE_SNAPSHOT, 'id': line}
+    if len(line) == 36 and line.count("-") == 4:
+        return {"type": TYPE_SNAPSHOT, "id": line}
     if len(line) == 32:
         try:
             int(line, 16)
         except ValueError:
             pass
         else:
-            return {'type': TYPE_SNAPSHOT, 'id': line}
+            return {"type": TYPE_SNAPSHOT, "id": line}
 
     # Unknown format, skip
     return None
 
 
-def read_stdin(stream: Optional[TextIO] = None) -> Iterator[Dict[str, Any]]:
+def read_stdin(stream: TextIO | None = None) -> Iterator[dict[str, Any]]:
     """
     Read JSONL or plain URLs from stdin.
 
@@ -112,20 +113,20 @@ def read_stdin(stream: Optional[TextIO] = None) -> Iterator[Dict[str, Any]]:
             yield record
 
 
-def read_file(path: Path) -> Iterator[Dict[str, Any]]:
+def read_file(path: Path) -> Iterator[dict[str, Any]]:
     """
     Read JSONL or plain URLs from a file.
 
     Yields parsed records as dicts.
     """
-    with open(path, 'r') as f:
+    with open(path) as f:
         for line in f:
             record = parse_line(line)
             if record:
                 yield record
 
 
-def read_args_or_stdin(args: Iterable[str], stream: Optional[TextIO] = None) -> Iterator[Dict[str, Any]]:
+def read_args_or_stdin(args: Iterable[str], stream: TextIO | None = None) -> Iterator[dict[str, Any]]:
     """
     Read from CLI arguments if provided, otherwise from stdin.
 
@@ -145,16 +146,16 @@ def read_args_or_stdin(args: Iterable[str], stream: Optional[TextIO] = None) -> 
         yield from read_stdin(stream)
 
 
-def write_record(record: Dict[str, Any], stream: Optional[TextIO] = None) -> None:
+def write_record(record: dict[str, Any], stream: TextIO | None = None) -> None:
     """
     Write a single JSONL record to stdout (or provided stream).
     """
     active_stream: TextIO = sys.stdout if stream is None else stream
-    active_stream.write(json.dumps(record) + '\n')
+    active_stream.write(json.dumps(record) + "\n")
     active_stream.flush()
 
 
-def write_records(records: Iterator[Dict[str, Any]], stream: Optional[TextIO] = None) -> int:
+def write_records(records: Iterator[dict[str, Any]], stream: TextIO | None = None) -> int:
     """
     Write multiple JSONL records to stdout (or provided stream).
 

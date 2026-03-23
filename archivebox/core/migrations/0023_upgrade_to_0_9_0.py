@@ -16,6 +16,7 @@ def get_table_columns(table_name):
 def upgrade_core_tables(apps, schema_editor):
     """Upgrade core tables from v0.7.2 or v0.8.6rc0 to v0.9.0."""
     from archivebox.uuid_compat import uuid7
+
     cursor = connection.cursor()
 
     # Check if core_archiveresult table exists
@@ -30,11 +31,11 @@ def upgrade_core_tables(apps, schema_editor):
     has_data = row_count > 0
 
     # Detect which version we're migrating from
-    archiveresult_cols = get_table_columns('core_archiveresult')
-    has_uuid = 'uuid' in archiveresult_cols
-    has_abid = 'abid' in archiveresult_cols
+    archiveresult_cols = get_table_columns("core_archiveresult")
+    has_uuid = "uuid" in archiveresult_cols
+    has_abid = "abid" in archiveresult_cols
 
-    print(f'DEBUG: ArchiveResult row_count={row_count}, has_data={has_data}, has_uuid={has_uuid}, has_abid={has_abid}')
+    print(f"DEBUG: ArchiveResult row_count={row_count}, has_data={has_data}, has_uuid={has_uuid}, has_abid={has_abid}")
 
     # ============================================================================
     # PART 1: Upgrade core_archiveresult table
@@ -62,7 +63,7 @@ def upgrade_core_tables(apps, schema_editor):
     if has_data:
         if has_uuid and not has_abid:
             # Migrating from v0.7.2+ (has uuid column)
-            print('Migrating ArchiveResult from v0.7.2+ schema (with uuid)...')
+            print("Migrating ArchiveResult from v0.7.2+ schema (with uuid)...")
             cursor.execute("""
                 INSERT OR IGNORE INTO core_archiveresult_new (
                     id, uuid, snapshot_id, cmd, pwd, cmd_version,
@@ -75,7 +76,7 @@ def upgrade_core_tables(apps, schema_editor):
             """)
         elif has_abid and not has_uuid:
             # Migrating from v0.8.6rc0 (has abid instead of uuid)
-            print('Migrating ArchiveResult from v0.8.6rc0 schema...')
+            print("Migrating ArchiveResult from v0.8.6rc0 schema...")
             cursor.execute("""
                 INSERT OR IGNORE INTO core_archiveresult_new (
                     id, uuid, snapshot_id, cmd, pwd, cmd_version,
@@ -88,17 +89,34 @@ def upgrade_core_tables(apps, schema_editor):
             """)
         else:
             # Migrating from v0.7.2 (no uuid or abid column - generate fresh UUIDs)
-            print('Migrating ArchiveResult from v0.7.2 schema (no uuid - generating UUIDs)...')
-            cursor.execute("SELECT id, snapshot_id, cmd, pwd, cmd_version, start_ts, end_ts, status, extractor, output FROM core_archiveresult")
+            print("Migrating ArchiveResult from v0.7.2 schema (no uuid - generating UUIDs)...")
+            cursor.execute(
+                "SELECT id, snapshot_id, cmd, pwd, cmd_version, start_ts, end_ts, status, extractor, output FROM core_archiveresult",
+            )
             old_records = cursor.fetchall()
             for record in old_records:
                 new_uuid = uuid7().hex
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR IGNORE INTO core_archiveresult_new (
                         id, uuid, snapshot_id, cmd, pwd, cmd_version,
                         start_ts, end_ts, status, extractor, output
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (record[0], new_uuid, record[1], record[2], record[3], record[4], record[5], record[6], record[7], record[8], record[9]))
+                """,
+                    (
+                        record[0],
+                        new_uuid,
+                        record[1],
+                        record[2],
+                        record[3],
+                        record[4],
+                        record[5],
+                        record[6],
+                        record[7],
+                        record[8],
+                        record[9],
+                    ),
+                )
 
     cursor.execute("DROP TABLE IF EXISTS core_archiveresult;")
     cursor.execute("ALTER TABLE core_archiveresult_new RENAME TO core_archiveresult;")
@@ -149,13 +167,13 @@ def upgrade_core_tables(apps, schema_editor):
 
         if snapshot_has_data:
             # Detect which version we're migrating from
-            snapshot_cols = get_table_columns('core_snapshot')
-            has_added = 'added' in snapshot_cols
-            has_bookmarked_at = 'bookmarked_at' in snapshot_cols
+            snapshot_cols = get_table_columns("core_snapshot")
+            has_added = "added" in snapshot_cols
+            has_bookmarked_at = "bookmarked_at" in snapshot_cols
 
             if has_added and not has_bookmarked_at:
                 # Migrating from v0.7.2 (has added/updated fields)
-                print('Migrating Snapshot from v0.7.2 schema...')
+                print("Migrating Snapshot from v0.7.2 schema...")
                 # Transform added→bookmarked_at/created_at and updated→modified_at
                 cursor.execute("""
                     INSERT OR IGNORE INTO core_snapshot_new (
@@ -173,28 +191,28 @@ def upgrade_core_tables(apps, schema_editor):
                 """)
             elif has_bookmarked_at and not has_added:
                 # Migrating from v0.8.6rc0 (already has bookmarked_at/created_at/modified_at)
-                print('Migrating Snapshot from v0.8.6rc0 schema...')
+                print("Migrating Snapshot from v0.8.6rc0 schema...")
                 # Check what fields exist
-                has_status = 'status' in snapshot_cols
-                has_retry_at = 'retry_at' in snapshot_cols
-                has_crawl_id = 'crawl_id' in snapshot_cols
+                has_status = "status" in snapshot_cols
+                has_retry_at = "retry_at" in snapshot_cols
+                has_crawl_id = "crawl_id" in snapshot_cols
 
                 # Build column list based on what exists
-                cols = ['id', 'url', 'timestamp', 'title', 'bookmarked_at', 'created_at', 'modified_at', 'downloaded_at']
+                cols = ["id", "url", "timestamp", "title", "bookmarked_at", "created_at", "modified_at", "downloaded_at"]
                 if has_crawl_id:
-                    cols.append('crawl_id')
+                    cols.append("crawl_id")
                 if has_status:
-                    cols.append('status')
+                    cols.append("status")
                 if has_retry_at:
-                    cols.append('retry_at')
+                    cols.append("retry_at")
 
                 cursor.execute(f"""
-                    INSERT OR IGNORE INTO core_snapshot_new ({', '.join(cols)})
-                    SELECT {', '.join(cols)}
+                    INSERT OR IGNORE INTO core_snapshot_new ({", ".join(cols)})
+                    SELECT {", ".join(cols)}
                     FROM core_snapshot;
                 """)
             else:
-                print(f'Warning: Unexpected Snapshot schema - has_added={has_added}, has_bookmarked_at={has_bookmarked_at}')
+                print(f"Warning: Unexpected Snapshot schema - has_added={has_added}, has_bookmarked_at={has_bookmarked_at}")
 
     cursor.execute("DROP TABLE IF EXISTS core_snapshot;")
     cursor.execute("ALTER TABLE core_snapshot_new RENAME TO core_snapshot;")
@@ -237,13 +255,13 @@ def upgrade_core_tables(apps, schema_editor):
             cursor.execute("PRAGMA table_info(core_tag)")
             tag_id_type = None
             for row in cursor.fetchall():
-                if row[1] == 'id':  # row[1] is column name
+                if row[1] == "id":  # row[1] is column name
                     tag_id_type = row[2]  # row[2] is type
                     break
 
-            if tag_id_type and 'char' in tag_id_type.lower():
+            if tag_id_type and "char" in tag_id_type.lower():
                 # v0.8.6rc0: Tag IDs are UUIDs, need to convert to INTEGER
-                print('Converting Tag IDs from UUID to INTEGER...')
+                print("Converting Tag IDs from UUID to INTEGER...")
 
                 # Get all tags with their UUIDs
                 cursor.execute("SELECT id, name, slug, created_at, modified_at, created_by_id FROM core_tag ORDER BY name")
@@ -255,10 +273,13 @@ def upgrade_core_tables(apps, schema_editor):
                     old_id, name, slug, created_at, modified_at, created_by_id = tag
                     uuid_to_int_map[old_id] = i
                     # Insert with new INTEGER ID
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         INSERT OR IGNORE INTO core_tag_new (id, name, slug, created_at, modified_at, created_by_id)
                         VALUES (?, ?, ?, ?, ?, ?)
-                    """, (i, name, slug, created_at, modified_at, created_by_id))
+                    """,
+                        (i, name, slug, created_at, modified_at, created_by_id),
+                    )
 
                 # Update snapshot_tags to use new INTEGER IDs
                 cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='core_snapshot_tags'")
@@ -273,13 +294,16 @@ def upgrade_core_tables(apps, schema_editor):
                     for st_id, snapshot_id, old_tag_id in snapshot_tags:
                         new_tag_id = uuid_to_int_map.get(old_tag_id)
                         if new_tag_id:
-                            cursor.execute("""
+                            cursor.execute(
+                                """
                                 INSERT OR IGNORE INTO core_snapshot_tags (id, snapshot_id, tag_id)
                                 VALUES (?, ?, ?)
-                            """, (st_id, snapshot_id, new_tag_id))
+                            """,
+                                (st_id, snapshot_id, new_tag_id),
+                            )
             else:
                 # v0.7.2: Tag IDs are already INTEGER
-                print('Migrating Tag from v0.7.2 schema...')
+                print("Migrating Tag from v0.7.2 schema...")
                 cursor.execute("""
                     INSERT OR IGNORE INTO core_tag_new (id, name, slug)
                     SELECT id, name, slug
@@ -294,15 +318,14 @@ def upgrade_core_tables(apps, schema_editor):
     cursor.execute("CREATE INDEX IF NOT EXISTS core_tag_created_by_id_idx ON core_tag(created_by_id);")
 
     if has_data:
-        print('✓ Core tables upgraded to v0.9.0')
+        print("✓ Core tables upgraded to v0.9.0")
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0022_auto_20231023_2008'),
-        ('crawls', '0001_initial'),
-        ('auth', '0012_alter_user_first_name_max_length'),
+        ("core", "0022_auto_20231023_2008"),
+        ("crawls", "0001_initial"),
+        ("auth", "0012_alter_user_first_name_max_length"),
     ]
 
     operations = [
@@ -317,60 +340,58 @@ class Migration(migrations.Migration):
                 # NOTE: We do NOT remove extractor/output for ArchiveResult!
                 # They are still in the database and will be removed by migration 0025
                 # after copying their data to plugin/output_str.
-
                 # However, for Snapshot, we DO remove added/updated and ADD the new timestamp fields
                 # because the SQL above already transformed them.
-                migrations.RemoveField(model_name='snapshot', name='added'),
-                migrations.RemoveField(model_name='snapshot', name='updated'),
+                migrations.RemoveField(model_name="snapshot", name="added"),
+                migrations.RemoveField(model_name="snapshot", name="updated"),
                 migrations.AddField(
-                    model_name='snapshot',
-                    name='bookmarked_at',
+                    model_name="snapshot",
+                    name="bookmarked_at",
                     field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
                 ),
                 migrations.AddField(
-                    model_name='snapshot',
-                    name='created_at',
+                    model_name="snapshot",
+                    name="created_at",
                     field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
                 ),
                 migrations.AddField(
-                    model_name='snapshot',
-                    name='modified_at',
+                    model_name="snapshot",
+                    name="modified_at",
                     field=models.DateTimeField(auto_now=True),
                 ),
                 # Declare fs_version (already created in database with DEFAULT '0.8.0')
                 migrations.AddField(
-                    model_name='snapshot',
-                    name='fs_version',
+                    model_name="snapshot",
+                    name="fs_version",
                     field=models.CharField(
                         max_length=10,
-                        default='0.8.0',
-                        help_text='Filesystem version of this snapshot (e.g., "0.7.0", "0.8.0", "0.9.0"). Used to trigger lazy migration on save().'
+                        default="0.8.0",
+                        help_text='Filesystem version of this snapshot (e.g., "0.7.0", "0.8.0", "0.9.0"). Used to trigger lazy migration on save().',
                     ),
                 ),
-
                 # SnapshotTag table already exists from v0.7.2, just declare it in state
                 migrations.CreateModel(
-                    name='SnapshotTag',
+                    name="SnapshotTag",
                     fields=[
-                        ('id', models.AutoField(primary_key=True, serialize=False)),
-                        ('snapshot', models.ForeignKey(to='core.Snapshot', db_column='snapshot_id', on_delete=models.CASCADE)),
-                        ('tag', models.ForeignKey(to='core.Tag', db_column='tag_id', on_delete=models.CASCADE)),
+                        ("id", models.AutoField(primary_key=True, serialize=False)),
+                        ("snapshot", models.ForeignKey(to="core.Snapshot", db_column="snapshot_id", on_delete=models.CASCADE)),
+                        ("tag", models.ForeignKey(to="core.Tag", db_column="tag_id", on_delete=models.CASCADE)),
                     ],
                     options={
-                        'db_table': 'core_snapshot_tags',
-                        'unique_together': {('snapshot', 'tag')},
+                        "db_table": "core_snapshot_tags",
+                        "unique_together": {("snapshot", "tag")},
                     },
                 ),
                 # Declare that Snapshot.tags M2M already uses through=SnapshotTag (from v0.7.2)
                 migrations.AlterField(
-                    model_name='snapshot',
-                    name='tags',
+                    model_name="snapshot",
+                    name="tags",
                     field=models.ManyToManyField(
-                        'Tag',
+                        "Tag",
                         blank=True,
-                        related_name='snapshot_set',
-                        through='SnapshotTag',
-                        through_fields=('snapshot', 'tag'),
+                        related_name="snapshot_set",
+                        through="SnapshotTag",
+                        through_fields=("snapshot", "tag"),
                     ),
                 ),
             ],

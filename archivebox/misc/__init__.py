@@ -1,1 +1,1 @@
-__package__ = 'archivebox.misc'
+__package__ = "archivebox.misc"

@@ -7,7 +7,7 @@ For more information on this file, see
 https://docs.djangoproject.com/en/2.1/howto/deployment/wsgi/
 """
 
-import archivebox                                       # noqa
+import archivebox  # noqa
 from archivebox.config.django import setup_django
 from django.core.wsgi import get_wsgi_application
 

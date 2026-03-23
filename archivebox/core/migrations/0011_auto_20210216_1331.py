@@ -5,20 +5,36 @@ import uuid
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0010_auto_20210216_1055'),
+        ("core", "0010_auto_20210216_1055"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='archiveresult',
-            name='uuid',
+            model_name="archiveresult",
+            name="uuid",
             field=models.UUIDField(default=uuid.uuid4, editable=False),
         ),
         migrations.AlterField(
-            model_name='archiveresult',
-            name='extractor',
-            field=models.CharField(choices=[('title', 'title'), ('favicon', 'favicon'), ('headers', 'headers'), ('singlefile', 'singlefile'), ('pdf', 'pdf'), ('screenshot', 'screenshot'), ('dom', 'dom'), ('wget', 'wget'), ('readability', 'readability'), ('mercury', 'mercury'), ('git', 'git'), ('media', 'media'), ('archivedotorg', 'archivedotorg')], max_length=32),
+            model_name="archiveresult",
+            name="extractor",
+            field=models.CharField(
+                choices=[
+                    ("title", "title"),
+                    ("favicon", "favicon"),
+                    ("headers", "headers"),
+                    ("singlefile", "singlefile"),
+                    ("pdf", "pdf"),
+                    ("screenshot", "screenshot"),
+                    ("dom", "dom"),
+                    ("wget", "wget"),
+                    ("readability", "readability"),
+                    ("mercury", "mercury"),
+                    ("git", "git"),
+                    ("media", "media"),
+                    ("archivedotorg", "archivedotorg"),
+                ],
+                max_length=32,
+            ),
         ),
     ]

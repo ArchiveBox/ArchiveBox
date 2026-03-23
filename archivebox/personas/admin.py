@@ -23,37 +23,52 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
     readonly_fields = ("id", "created_at", "persona_paths", "import_artifact_status")
 
     add_fieldsets = (
-        ("Persona", {
-            "fields": ("name", "created_by"),
-            "classes": ("card",),
-        }),
-        ("Browser Import", {
-            "fields": (
-                "import_mode",
-                "import_discovered_profile",
-                "import_source",
-                "import_profile_name",
-                "import_copy_profile",
-                "import_extract_cookies",
-                "import_capture_storage",
-            ),
-            "classes": ("card", "wide"),
-        }),
-        ("Advanced", {
-            "fields": ("config",),
-            "classes": ("card", "wide"),
-        }),
+        (
+            "Persona",
+            {
+                "fields": ("name", "created_by"),
+                "classes": ("card",),
+            },
+        ),
+        (
+            "Browser Import",
+            {
+                "fields": (
+                    "import_mode",
+                    "import_discovered_profile",
+                    "import_source",
+                    "import_profile_name",
+                    "import_copy_profile",
+                    "import_extract_cookies",
+                    "import_capture_storage",
+                ),
+                "classes": ("card", "wide"),
+            },
+        ),
+        (
+            "Advanced",
+            {
+                "fields": ("config",),
+                "classes": ("card", "wide"),
+            },
+        ),
     )
 
     change_fieldsets = add_fieldsets + (
-        ("Artifacts", {
-            "fields": ("persona_paths", "import_artifact_status"),
-            "classes": ("card", "wide"),
-        }),
-        ("Timestamps", {
-            "fields": ("id", "created_at"),
-            "classes": ("card",),
-        }),
+        (
+            "Artifacts",
+            {
+                "fields": ("persona_paths", "import_artifact_status"),
+                "classes": ("card", "wide"),
+            },
+        ),
+        (
+            "Timestamps",
+            {
+                "fields": ("id", "created_at"),
+                "classes": ("card",),
+            },
+        ),
     )
 
     @admin.display(description="Chrome Profile")
@@ -153,7 +168,7 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
         if completed_actions:
             messages.success(
                 request,
-                f'Imported {", ".join(completed_actions)} from {import_result.source.display_label}.',
+                f"Imported {', '.join(completed_actions)} from {import_result.source.display_label}.",
             )
         else:
             messages.warning(

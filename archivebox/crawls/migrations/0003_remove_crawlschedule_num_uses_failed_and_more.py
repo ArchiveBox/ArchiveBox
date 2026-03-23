@@ -4,18 +4,17 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('crawls', '0002_upgrade_from_0_8_6'),
+        ("crawls", "0002_upgrade_from_0_8_6"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='crawlschedule',
-            name='num_uses_failed',
+            model_name="crawlschedule",
+            name="num_uses_failed",
         ),
         migrations.RemoveField(
-            model_name='crawlschedule',
-            name='num_uses_succeeded',
+            model_name="crawlschedule",
+            name="num_uses_succeeded",
         ),
     ]

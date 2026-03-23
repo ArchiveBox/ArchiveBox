@@ -178,7 +178,7 @@
     .tag-grid {
         display: grid;
         gap: 12px;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     }
 
     .tag-card {
@@ -202,17 +202,27 @@
     }
 
     .tag-card__header {
-        display: flex;
-        justify-content: space-between;
+        display: grid;
         gap: 10px;
-        align-items: flex-start;
     }
 
     .tag-card__title {
-        flex: 1 1 auto;
-        min-width: 0;
         display: grid;
         gap: 4px;
+        min-width: 0;
+    }
+
+    .tag-card__display {
+        min-width: 0;
+    }
+
+    .tag-card__display a {
+        display: block;
+        color: inherit;
+        overflow: hidden;
+        text-decoration: none;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .tag-card__title strong,
@@ -221,7 +231,10 @@
         font-size: 17px;
         line-height: 1.1;
         color: #111827;
-        word-break: break-word;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        word-break: normal;
     }
 
     .tag-card__count {
@@ -237,10 +250,9 @@
     }
 
     .tag-card__actions {
-        flex: 0 0 auto;
         display: flex;
         flex-wrap: wrap;
-        justify-content: flex-end;
+        justify-content: flex-start;
         align-items: center;
         gap: 6px;
     }
