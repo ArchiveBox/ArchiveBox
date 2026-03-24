@@ -9,8 +9,9 @@ from archivebox.tests import conftest as test_harness
 def test_session_data_dir_is_outside_repo_root():
     assert test_harness.SESSION_DATA_DIR != test_harness.REPO_ROOT
     assert test_harness.REPO_ROOT not in test_harness.SESSION_DATA_DIR.parents
-    assert test_harness.REPO_ROOT not in Path.cwd().parents
     assert Path.cwd() != test_harness.REPO_ROOT
+    if test_harness.REPO_ROOT in Path.cwd().parents:
+        assert test_harness.PYTEST_BASETEMP_ROOT in (Path.cwd(), *Path.cwd().parents)
 
 
 def test_cli_helpers_reject_repo_root_runtime_paths():

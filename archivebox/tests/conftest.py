@@ -16,16 +16,18 @@ import pytest
 pytest_plugins = ["archivebox.tests.fixtures"]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+PYTEST_BASETEMP_ROOT = (REPO_ROOT / "tests" / "out").resolve()
 SESSION_DATA_DIR = Path(tempfile.mkdtemp(prefix="archivebox-pytest-session-")).resolve()
-# Force ArchiveBox imports to see a temp DATA_DIR and cwd during test collection.
+# Force ArchiveBox imports to see a temp DATA_DIR during test collection.
 os.environ["DATA_DIR"] = str(SESSION_DATA_DIR)
 os.environ.pop("CRAWL_DIR", None)
 os.environ.pop("SNAP_DIR", None)
-os.chdir(SESSION_DATA_DIR)
 
 
 def _is_repo_path(path: Path) -> bool:
     resolved = path.expanduser().resolve(strict=False)
+    if resolved == PYTEST_BASETEMP_ROOT or PYTEST_BASETEMP_ROOT in resolved.parents:
+        return False
     return resolved == REPO_ROOT or REPO_ROOT in resolved.parents
 
 
