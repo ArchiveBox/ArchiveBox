@@ -740,7 +740,7 @@ class TestUrlRouting:
             assert "doc.body.style.flexDirection = 'column'" in live_html
             assert "doc.body.style.alignItems = 'center'" in live_html
             assert "img.style.margin = '0 auto'" in live_html
-            assert "window.location.hash = getPreviewHashValue(link)" in live_html
+            assert "window.location.hash = getPreviewHashValueFromHref(rawTarget)" in live_html
             assert "const selectedPreviewHash = decodeURIComponent(window.location.hash.slice(1)).toLowerCase()" in live_html
             assert "pointer-events: none;" in live_html
             assert "pointer-events: auto;" in live_html
@@ -759,14 +759,14 @@ class TestUrlRouting:
             assert "ensureMainFrame(true)" in static_html
             assert "previousFrame.parentNode.replaceChild(frame, previousFrame)" in static_html
             assert "previousFrame.src = 'about:blank'" in static_html
-            assert "e.stopImmediatePropagation()" in static_html
+            assert "event.stopImmediatePropagation()" in static_html
             assert "const matchingLink = [...document.querySelectorAll('a[target=preview]')].find" in static_html
             assert "jQuery(link).click()" not in static_html
             assert "searchParams.delete('preview')" in static_html
             assert "doc.body.style.flexDirection = 'column'" in static_html
             assert "doc.body.style.alignItems = 'center'" in static_html
             assert "img.style.margin = '0 auto'" in static_html
-            assert "window.location.hash = getPreviewHashValue(link)" in static_html
+            assert "window.location.hash = getPreviewHashValueFromHref(rawTarget)" in static_html
             assert "const selectedPreviewHash = decodeURIComponent(window.location.hash.slice(1)).toLowerCase()" in static_html
             assert "pointer-events: none;" in static_html
             assert "pointer-events: auto;" in static_html

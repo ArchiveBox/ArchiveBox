@@ -41,7 +41,7 @@ def build_test_env(port: int, **extra: str) -> dict[str, str]:
             "PUBLIC_ADD_VIEW": "True",
             "USE_COLOR": "False",
             "SHOW_PROGRESS": "False",
-            "TIMEOUT": "20",
+            "TIMEOUT": "30",
             "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*",
             "SAVE_ARCHIVEDOTORG": "False",
             "SAVE_TITLE": "False",

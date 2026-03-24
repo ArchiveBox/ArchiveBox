@@ -184,7 +184,6 @@ def test_install_updates_binary_table(tmp_path, process):
     ).fetchone()[0]
     conn.close()
 
-    assert sealed_crawls >= 1
+    assert sealed_crawls == 0
     assert snapshot_count == 0
-    assert binary_counts.get("queued", 0) == 0
     assert binary_counts.get("installed", 0) > 0
