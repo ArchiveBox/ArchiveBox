@@ -99,7 +99,7 @@ def get_installed_binary_change_url(name: str, binary: Binary | None) -> str | N
     if binary is None or not binary.id:
         return None
 
-    base_url = binary.admin_change_url or f"{INSTALLED_BINARIES_BASE_URL}{binary.id}/change/"
+    base_url = getattr(binary, "admin_change_url", None) or f"{INSTALLED_BINARIES_BASE_URL}{binary.id}/change/"
     changelist_filters = urlencode({"q": name})
     return f"{base_url}?{urlencode({'_changelist_filters': changelist_filters})}"
 
@@ -360,8 +360,12 @@ def _binary_sort_key(binary: Binary) -> tuple[int, int, int, Any]:
 
 def get_db_binaries_by_name() -> dict[str, Binary]:
     grouped: dict[str, list[Binary]] = {}
+    binary_name_aliases = {
+        "youtube-dl": "yt-dlp",
+    }
     for binary in Binary.objects.all():
-        grouped.setdefault(binary.name, []).append(binary)
+        canonical_name = binary_name_aliases.get(binary.name, binary.name)
+        grouped.setdefault(canonical_name, []).append(binary)
 
     return {name: max(records, key=_binary_sort_key) for name, records in grouped.items()}
 
@@ -424,10 +428,11 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
     for name in all_binary_names:
         binary = db_binaries.get(name)
+        binary_is_valid = bool(binary and getattr(binary, "is_valid", getattr(binary, "abspath", None)))
 
         rows["Binary Name"].append(ItemLink(name, key=name))
 
-        if binary and binary.is_valid:
+        if binary_is_valid:
             rows["Found Version"].append(f"✅ {binary.version}" if binary.version else "✅ found")
             rows["Provided By"].append(binary.binprovider or "-")
             rows["Found Abspath"].append(binary.abspath or "-")
@@ -446,9 +451,13 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
 def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     assert is_superuser(request), "Must be a superuser to view configuration settings."
 
+    key = {
+        "youtube-dl": "yt-dlp",
+    }.get(key, key)
     db_binary = get_db_binaries_by_name().get(key)
-    if db_binary and db_binary.is_valid:
-        binary_data = db_binary.to_json()
+    binary_is_valid = bool(db_binary and getattr(db_binary, "is_valid", getattr(db_binary, "abspath", None)))
+    if binary_is_valid:
+        binary_data = db_binary.to_json() if hasattr(db_binary, "to_json") else db_binary.__dict__
         section: SectionData = {
             "name": key,
             "description": mark_safe(render_binary_detail_description(key, binary_data, db_binary)),

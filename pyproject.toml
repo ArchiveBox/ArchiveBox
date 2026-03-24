@@ -144,6 +144,7 @@ dev = [
     "pytest-django>=4.11.1",
     "pytest>=8.3.3",
     "pytest-cov>=6.0.0",
+    "pytest-httpserver>=1.1.0",
     "coverage[toml]>=7.6.0",
     "bottle>=0.13.1",
     ### LINTING
@@ -157,12 +158,6 @@ dev = [
 environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
 package = true
 # compile-bytecode = true
-
-[tool.uv.sources]
-abxbus = { path = "../abxbus", editable = true }
-abx-pkg = { path = "../abx-pkg", editable = true }
-abx-plugins = { path = "../abx-plugins", editable = true }
-abx-dl = { path = "../abx-dl", editable = true }
 
 [build-system]
 requires = ["pdm-backend"]

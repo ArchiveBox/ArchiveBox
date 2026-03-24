@@ -29,12 +29,12 @@ repos:
     hooks:
       - id: ruff-format
         name: ruff-format
-        entry: uv run --active ruff format
+        entry: uv run --active --no-sources ruff format
         language: system
         types_or: [python, pyi]
       - id: ruff-check
         name: ruff-check
-        entry: uv run --active ruff check --fix
+        entry: uv run --active --no-sources ruff check --fix
         language: system
         types_or: [python, pyi]
 

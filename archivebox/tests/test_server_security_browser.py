@@ -174,15 +174,14 @@ def _resolve_browser(shared_lib: Path) -> Path | None:
 
 @pytest.fixture(scope="session")
 def browser_runtime(tmp_path_factory):
-    if shutil.which("node") is None or shutil.which("npm") is None:
-        pytest.skip("Node.js and npm are required for browser security tests")
+    assert shutil.which("node") is not None, "Node.js is required for browser security tests"
+    assert shutil.which("npm") is not None, "npm is required for browser security tests"
 
     shared_lib = tmp_path_factory.mktemp("archivebox_browser_lib")
     _ensure_puppeteer(shared_lib)
 
     browser = _resolve_browser(shared_lib)
-    if not browser:
-        pytest.skip("No Chrome/Chromium binary available for browser security tests")
+    assert browser, "No Chrome/Chromium binary available for browser security tests"
 
     return {
         "node_modules_dir": shared_lib / "npm" / "node_modules",

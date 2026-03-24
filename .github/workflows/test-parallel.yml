@@ -10,6 +10,7 @@ env:
   PYTHONIOENCODING: utf-8
   PYTHONLEGACYWINDOWSSTDIO: utf-8
   USE_COLOR: False
+  UV_NO_SOURCES: "1"
 
 jobs:
   discover-tests:
@@ -55,6 +56,8 @@ jobs:
     name: ${{ matrix.test.name }}
     runs-on: ubuntu-22.04
     needs: discover-tests
+    env:
+      PYTHONPATH: ${{ github.workspace }}/abx-pkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
 
     strategy:
       fail-fast: false
@@ -67,6 +70,15 @@ jobs:
         with:
           submodules: true
           fetch-depth: 1
+
+      - name: Clone abx-pkg
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git abx-pkg
+
+      - name: Clone abx-plugins
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-plugins.git abx-plugins
+
+      - name: Clone abx-dl
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-dl.git abx-dl
 
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v4
@@ -100,21 +112,33 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv sync --dev --all-extras --no-sources
+          uv pip install -e ./abx-pkg -e ./abx-plugins[dev] -e ./abx-dl
 
       - name: Run test - ${{ matrix.test.name }}
         run: |
           mkdir -p tests/out
-          uv run --no-sync pytest -xvs "${{ matrix.test.path }}" --basetemp=tests/out --ignore=archivebox/pkgs
+          uv run --no-sync --no-sources pytest -xvs "${{ matrix.test.path }}" --basetemp=tests/out --ignore=archivebox/pkgs
 
   plugin-tests:
     name: Plugin tests
     runs-on: ubuntu-22.04
+    env:
+      PYTHONPATH: ${{ github.workspace }}/abx-pkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
 
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 1
+
+      - name: Clone abx-pkg
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git abx-pkg
+
+      - name: Clone abx-plugins
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-plugins.git abx-plugins
+
+      - name: Clone abx-dl
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-dl.git abx-dl
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v4
@@ -148,6 +172,7 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv sync --dev --all-extras --no-sources
+          uv pip install -e ./abx-pkg -e ./abx-plugins[dev] -e ./abx-dl
 
       - name: Run plugin tests
         env:
@@ -155,4 +180,4 @@ jobs:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           API_KEY_2CAPTCHA: ${{ secrets.TWOCAPTCHA_API_KEY }}
         run: |
-          uv run --no-sync bash ./bin/test_plugins.sh --no-coverage
+          uv run --no-sync --no-sources bash ./bin/test_plugins.sh --no-coverage

@@ -14,11 +14,14 @@ import shutil
 import sqlite3
 import tempfile
 import unittest
+import json
 from pathlib import Path
 
 from .migrations_helpers import (
+    SCHEMA_0_7,
     SCHEMA_0_8,
     seed_0_8_data,
+    seed_0_7_data,
     run_archivebox,
     create_data_dir_structure,
     verify_snapshot_count,
@@ -525,19 +528,47 @@ class TestFilesystemMigration08to09(unittest.TestCase):
         4. All files are moved (no data loss)
         5. Old archive/timestamp/ directories are cleaned up
         """
-        # Use the real 0.7.2 database which has actual ArchiveResults with files
-        gold_db = Path("/Users/squash/Local/Code/archiveboxes/archivebox-migration-path/archivebox-v0.7.2/data")
-        if not gold_db.exists():
-            self.skipTest(f"Gold standard database not found at {gold_db}")
+        create_data_dir_structure(self.work_dir)
+        conn = sqlite3.connect(str(self.db_path))
+        conn.executescript(SCHEMA_0_7)
+        conn.close()
+        original_data = seed_0_7_data(self.db_path)
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        for i, snapshot in enumerate(original_data["snapshots"]):
+            legacy_timestamp = str(1704110400 + (i * 86400))
+            cursor.execute(
+                "UPDATE core_snapshot SET timestamp = ? WHERE id = ?",
+                (legacy_timestamp, snapshot["id"]),
+            )
+            cursor.execute(
+                "UPDATE core_archiveresult SET pwd = ? WHERE snapshot_id = ?",
+                (f"/data/archive/{legacy_timestamp}", snapshot["id"]),
+            )
+            snapshot["timestamp"] = legacy_timestamp
+        conn.commit()
+        conn.close()
 
-        # Copy gold database to test directory
-        import shutil
-
-        for item in gold_db.iterdir():
-            if item.is_dir():
-                shutil.copytree(item, self.work_dir / item.name, dirs_exist_ok=True)
-            else:
-                shutil.copy2(item, self.work_dir / item.name)
+        sample_files = [
+            "favicon.ico",
+            "screenshot.png",
+            "singlefile.html",
+            "headers.json",
+        ]
+        for snapshot in original_data["snapshots"]:
+            snapshot_dir = self.work_dir / "archive" / snapshot["timestamp"]
+            snapshot_dir.mkdir(parents=True, exist_ok=True)
+            (snapshot_dir / "index.json").write_text(
+                json.dumps(
+                    {
+                        "url": snapshot["url"],
+                        "timestamp": snapshot["timestamp"],
+                        "title": snapshot["title"],
+                    },
+                ),
+            )
+            for sample_file in sample_files:
+                (snapshot_dir / sample_file).write_text(f"{snapshot['url']}::{sample_file}")
 
         # Count archive directories and files BEFORE migration
         archive_dir = self.work_dir / "archive"
@@ -552,12 +583,6 @@ class TestFilesystemMigration08to09(unittest.TestCase):
         files_before_count = len(files_before)
 
         # Sample some specific files to check they're preserved
-        sample_files = [
-            "favicon.ico",
-            "screenshot.png",
-            "singlefile.html",
-            "headers.json",
-        ]
         sample_paths_before = {}
         for d in dirs_before:
             if d.is_dir():
@@ -742,32 +767,30 @@ class TestFilesystemMigration08to09(unittest.TestCase):
         print(f"[*] ArchiveResults linked to Process: {linked_count}")
 
         # Verify data migration happened correctly
-        # The 0.7.2 gold database has 44 ArchiveResults
         self.assertEqual(
             archiveresult_count,
-            44,
-            f"Expected 44 ArchiveResults from 0.7.2 database, got {archiveresult_count}",
+            len(original_data["archiveresults"]),
+            f"Expected {len(original_data['archiveresults'])} ArchiveResults after migration, got {archiveresult_count}",
         )
 
         # Each ArchiveResult should create one Process record
         self.assertEqual(
             process_count,
-            44,
-            f"Expected 44 Process records (1 per ArchiveResult), got {process_count}",
+            len(original_data["archiveresults"]),
+            f"Expected {len(original_data['archiveresults'])} Process records (1 per ArchiveResult), got {process_count}",
         )
 
-        # The 44 ArchiveResults use 7 unique binaries (curl, wget, etc.)
         self.assertEqual(
             binary_count,
-            7,
-            f"Expected 7 unique Binary records, got {binary_count}",
+            5,
+            f"Expected 5 unique Binary records, got {binary_count}",
         )
 
         # ALL ArchiveResults should be linked to Process records
         self.assertEqual(
             linked_count,
-            44,
-            f"Expected all 44 ArchiveResults linked to Process, got {linked_count}",
+            len(original_data["archiveresults"]),
+            f"Expected all {len(original_data['archiveresults'])} ArchiveResults linked to Process, got {linked_count}",
         )
 
 

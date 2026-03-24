@@ -381,9 +381,7 @@ print(json.dumps({"type": "ArchiveResult", "status": "succeeded", "output_str": 
 
     def test_js_hook_execution(self):
         """JavaScript hook should execute and output JSONL."""
-        # Skip if node not available
-        if shutil.which("node") is None:
-            self.skipTest("Node.js not available")
+        self.assertIsNotNone(shutil.which("node"), "Node.js not available")
 
         hook_path = self.work_dir / "test_hook.js"
         hook_path.write_text("""#!/usr/bin/env node

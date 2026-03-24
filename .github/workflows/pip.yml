@@ -39,7 +39,7 @@ jobs:
           version: 1.0
 
       - name: UV install archivebox dev + run sub-dependencies
-        run: uv sync --frozen --all-extras --no-install-project --no-install-workspace --no-sources
+        run: uv sync --locked --all-extras --no-install-project --no-install-workspace --no-sources
 
       - name: UV build archivebox and archivebox/pkgs/* packages
         run: |
@@ -53,13 +53,13 @@ jobs:
           password: ${{ secrets.PYPI_PAT_SECRET }}
 
       - name: UV install archivebox and archivebox/pkgs/* locally for tests
-        run: uv sync --frozen --all-extras --no-sources
+        run: uv sync --locked --all-extras --no-sources
 
       - name: UV run archivebox init + archivebox version
         run: |
           mkdir -p data && cd data
-          uv run --no-sync archivebox init \
-          && uv run --no-sync archivebox version
+          uv run --no-sync --no-sources archivebox init \
+          && uv run --no-sync --no-sources archivebox version
           # && uv run archivebox add 'https://example.com' \
           # && uv run archivebox status \
           # || (echo "UV Failed to run archivebox!" && exit 1)

@@ -77,7 +77,6 @@ def test_run_snapshot_reuses_crawl_bus_for_all_snapshots(monkeypatch):
     monkeypatch.setattr(runner_module, "create_bus", fake_create_bus)
     monkeypatch.setattr(runner_module, "discover_plugins", lambda: {})
     monkeypatch.setattr(runner_module, "ProcessService", _DummyService)
-    monkeypatch.setattr(runner_module, "MachineService", _DummyService)
     monkeypatch.setattr(runner_module, "BinaryService", _DummyService)
     monkeypatch.setattr(runner_module, "TagService", _DummyService)
     monkeypatch.setattr(runner_module, "CrawlService", _DummyService)
@@ -232,7 +231,6 @@ def test_runner_prepare_refreshes_network_interface_and_attaches_current_process
     monkeypatch.setattr(runner_module, "discover_plugins", lambda: {})
     monkeypatch.setattr(runner_module, "create_bus", lambda **kwargs: _DummyBus(kwargs["name"]))
     monkeypatch.setattr(runner_module, "ProcessService", _DummyService)
-    monkeypatch.setattr(runner_module, "MachineService", _DummyService)
     monkeypatch.setattr(runner_module, "BinaryService", _DummyService)
     monkeypatch.setattr(runner_module, "TagService", _DummyService)
     monkeypatch.setattr(runner_module, "CrawlService", _DummyService)
@@ -405,8 +403,8 @@ def test_installed_binary_config_overrides_do_not_map_hardcoded_artifacts_to_con
     )
 
     assert "SINGLEFILE_BINARY" not in overrides
-    assert overrides["LIB_DIR"] == "/tmp/shared-lib"
-    assert overrides["LIB_BIN_DIR"] == "/tmp/shared-lib/bin"
+    assert "LIB_DIR" not in overrides
+    assert "LIB_BIN_DIR" not in overrides
 
 
 def test_run_snapshot_skips_descendant_when_max_size_already_reached(monkeypatch):
@@ -425,7 +423,6 @@ def test_run_snapshot_skips_descendant_when_max_size_already_reached(monkeypatch
     monkeypatch.setattr(runner_module, "discover_plugins", lambda: {})
     monkeypatch.setattr(runner_module, "create_bus", lambda **kwargs: _DummyBus(kwargs["name"]))
     monkeypatch.setattr(runner_module, "ProcessService", _DummyService)
-    monkeypatch.setattr(runner_module, "MachineService", _DummyService)
     monkeypatch.setattr(runner_module, "BinaryService", _DummyService)
     monkeypatch.setattr(runner_module, "TagService", _DummyService)
     monkeypatch.setattr(runner_module, "CrawlService", _DummyService)
@@ -616,7 +613,6 @@ def test_crawl_runner_finalizes_with_sync_to_async_for_is_finished(monkeypatch):
     monkeypatch.setattr(runner_module, "create_bus", lambda *args, **kwargs: _DummyBus("runner"))
     monkeypatch.setattr(runner_module, "discover_plugins", lambda: {})
     monkeypatch.setattr(runner_module, "ProcessService", _DummyService)
-    monkeypatch.setattr(runner_module, "MachineService", _DummyService)
     monkeypatch.setattr(runner_module, "BinaryService", _DummyService)
     monkeypatch.setattr(runner_module, "TagService", _DummyService)
     monkeypatch.setattr(runner_module, "CrawlService", _DummyService)

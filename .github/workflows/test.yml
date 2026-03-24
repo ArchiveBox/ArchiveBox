@@ -6,10 +6,13 @@ env:
   PYTHONIOENCODING: utf-8
   PYTHONLEGACYWINDOWSSTDIO: utf-8
   USE_COLOR: False
+  UV_NO_SOURCES: "1"
 
 jobs:
   python_tests:
     runs-on: ${{ matrix.os }}
+    env:
+      PYTHONPATH: ${{ github.workspace }}/abx-pkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
 
     strategy:
       matrix:
@@ -22,6 +25,15 @@ jobs:
         with:
           submodules: true
           fetch-depth: 1
+
+      - name: Clone abx-pkg
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git abx-pkg
+
+      - name: Clone abx-plugins
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-plugins.git abx-plugins
+
+      - name: Clone abx-dl
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-dl.git abx-dl
 
       ### Setup Python & JS Languages
       - name: Set up Python ${{ matrix.python }}
@@ -57,6 +69,7 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv sync --dev --all-extras --no-sources
+          uv pip install -e ./abx-pkg -e ./abx-plugins[dev] -e ./abx-dl
 
       ### Run the tests
       - name: Directory listing for debugging
@@ -67,14 +80,14 @@ jobs:
       - name: Archivebox version
         run: |
           mkdir -p tests/out/data
-          DATA_DIR="$PWD/tests/out/data" uv run --no-sync archivebox version
+          DATA_DIR="$PWD/tests/out/data" uv run --no-sync --no-sources archivebox version
 
       - name: Test built package with pytest
         # TODO: remove this exception for windows once we get tests passing on that platform
         if: ${{ !contains(matrix.os, 'windows') }}
         run: |
           mkdir -p tests/out
-          uv run --no-sync pytest -s archivebox/tests --basetemp=tests/out --ignore=archivebox/pkgs
+          uv run --no-sync --no-sources pytest -s archivebox/tests --basetemp=tests/out --ignore=archivebox/pkgs
 
       - name: Run plugin tests
         if: ${{ !contains(matrix.os, 'windows') }}
@@ -83,7 +96,7 @@ jobs:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           API_KEY_2CAPTCHA: ${{ secrets.TWOCAPTCHA_API_KEY }}
         run: |
-          uv run --no-sync bash ./bin/test_plugins.sh --no-coverage
+          uv run --no-sync --no-sources bash ./bin/test_plugins.sh --no-coverage
 
   docker_tests:
     runs-on: ubuntu-latest
