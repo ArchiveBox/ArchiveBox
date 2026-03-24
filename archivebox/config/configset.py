@@ -138,10 +138,9 @@ def get_config(
     3. Per-user config (user.config JSON field)
     4. Per-persona config (persona.get_derived_config() - includes CHROME_USER_DATA_DIR etc.)
     5. Environment variables
-    6. Per-machine config (machine.config JSON field - resolved binary paths)
-    7. Config file (ArchiveBox.conf)
-    8. Plugin schema defaults (config.json)
-    9. Core config defaults
+    6. Config file (ArchiveBox.conf)
+    7. Plugin schema defaults (config.json)
+    8. Core config defaults
 
     Args:
         defaults: Default values to start with
@@ -150,7 +149,7 @@ def get_config(
         crawl: Crawl object with config JSON field
         snapshot: Snapshot object with config JSON field
         archiveresult: ArchiveResult object (auto-fetches snapshot)
-        machine: Machine object with config JSON field (defaults to Machine.current())
+        machine: Unused legacy argument kept for call compatibility
 
     Note: Objects are auto-fetched from relationships if not provided:
         - snapshot auto-fetched from archiveresult.snapshot
@@ -220,19 +219,6 @@ def get_config(
     if config_file.exists():
         file_config = BaseConfigSet.load_from_file(config_file)
         config.update(file_config)
-
-    # Apply machine config overrides (cached binary paths, etc.)
-    if machine is None:
-        # Default to current machine if not provided
-        try:
-            from archivebox.machine.models import Machine
-
-            machine = Machine.current()
-        except Exception:
-            pass  # Machine might not be available during early init
-
-    if machine and hasattr(machine, "config") and machine.config:
-        config.update(machine.config)
 
     # Override with environment variables (for keys that exist in config)
     for key in config:

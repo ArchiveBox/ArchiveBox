@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -28,8 +29,6 @@ from abx_dl.orchestrator import (
 from .archive_result_service import ArchiveResultService
 from .binary_service import BinaryService
 from .crawl_service import CrawlService
-from .machine_service import MachineService
-from .process_request_service import ProcessRequestService
 from .process_service import ProcessService
 from .snapshot_service import SnapshotService
 from .tag_service import TagService
@@ -58,28 +57,34 @@ def _count_selected_hooks(plugins: dict[str, Plugin], selected_plugins: list[str
     )
 
 
-def _binary_env_key(name: str) -> str:
-    normalized = "".join(ch if ch.isalnum() else "_" for ch in name).upper()
-    return f"{normalized}_BINARY"
+_TEMPLATE_NAME_RE = re.compile(r"^\{([A-Z0-9_]+)\}$")
 
 
-def _binary_config_keys_for_plugins(plugins: dict[str, Plugin], binary_name: str) -> list[str]:
+def _binary_config_keys_for_plugins(plugins: dict[str, Plugin], binary_name: str, config: dict[str, Any]) -> list[str]:
     keys: list[str] = []
-    if binary_name != "postlight-parser":
-        keys.append(_binary_env_key(binary_name))
 
     for plugin in plugins.values():
+        for spec in plugin.binaries:
+            template_name = str(spec.get("name") or "").strip()
+            match = _TEMPLATE_NAME_RE.fullmatch(template_name)
+            if match is None:
+                continue
+            key = match.group(1)
+            configured_value = config.get(key)
+            if configured_value is not None and str(configured_value).strip() == binary_name:
+                keys.append(key)
         for key, prop in plugin.config_schema.items():
             if key.endswith("_BINARY") and prop.get("default") == binary_name:
-                keys.insert(0, key)
+                keys.append(key)
 
     return list(dict.fromkeys(keys))
 
 
-def _installed_binary_config_overrides(plugins: dict[str, Plugin]) -> dict[str, str]:
+def _installed_binary_config_overrides(plugins: dict[str, Plugin], config: dict[str, Any] | None = None) -> dict[str, str]:
     from archivebox.machine.models import Binary, Machine
 
     machine = Machine.current()
+    active_config = dict(config or {})
     overrides: dict[str, str] = {}
     shared_lib_dir: Path | None = None
     pip_home: Path | None = None
@@ -98,7 +103,7 @@ def _installed_binary_config_overrides(plugins: dict[str, Plugin]) -> dict[str, 
             continue
         if not resolved_path.is_file() or not os.access(resolved_path, os.X_OK):
             continue
-        for key in _binary_config_keys_for_plugins(plugins, binary.name):
+        for key in _binary_config_keys_for_plugins(plugins, binary.name, active_config):
             overrides[key] = binary.abspath
 
         if resolved_path.parent.name == ".bin" and resolved_path.parent.parent.name == "node_modules":
@@ -231,10 +236,8 @@ class CrawlRunner:
         self.bus = create_bus(name=_bus_name("ArchiveBox", str(crawl.id)), total_timeout=3600.0)
         self.plugins = discover_plugins()
         self.process_service = ProcessService(self.bus)
-        self.machine_service = MachineService(self.bus)
         self.binary_service = BinaryService(self.bus)
         self.tag_service = TagService(self.bus)
-        self.process_request_service = ProcessRequestService(self.bus)
         self.crawl_service = CrawlService(self.bus, crawl_id=str(crawl.id))
         self.process_discovered_snapshots_inline = process_discovered_snapshots_inline
         self.snapshot_service = SnapshotService(
@@ -250,31 +253,9 @@ class CrawlRunner:
         self.abx_services = None
         self.persona = None
         self.base_config: dict[str, Any] = {}
+        self.derived_config: dict[str, Any] = {}
         self.primary_url = ""
         self._live_stream = None
-
-    def _create_projector_bus(self, *, identifier: str, config_overrides: dict[str, Any]):
-        bus = create_bus(name=_bus_name("ArchiveBox", identifier), total_timeout=3600.0)
-        process_service = ProcessService(bus)
-        MachineService(bus)
-        BinaryService(bus)
-        TagService(bus)
-        ProcessRequestService(bus)
-        CrawlService(bus, crawl_id=str(self.crawl.id))
-        SnapshotService(
-            bus,
-            crawl_id=str(self.crawl.id),
-            schedule_snapshot=self.enqueue_snapshot if self.process_discovered_snapshots_inline else self.leave_snapshot_queued,
-        )
-        ArchiveResultService(bus, process_service=process_service)
-        abx_services = setup_abx_services(
-            bus,
-            plugins=self.plugins,
-            config_overrides=config_overrides,
-            auto_install=True,
-            emit_jsonl=False,
-        )
-        return bus, abx_services
 
     async def run(self) -> None:
         from asgiref.sync import sync_to_async
@@ -292,6 +273,8 @@ class CrawlRunner:
                         **self.base_config,
                         "ABX_RUNTIME": "archivebox",
                     },
+                    derived_config_overrides=self.derived_config,
+                    persist_derived=False,
                     auto_install=True,
                     emit_jsonl=False,
                 )
@@ -369,7 +352,7 @@ class CrawlRunner:
             current_process.save(update_fields=["iface", "machine", "modified_at"])
         self.persona = self.crawl.resolve_persona()
         self.base_config = get_config(crawl=self.crawl)
-        self.base_config.update(_installed_binary_config_overrides(self.plugins))
+        self.derived_config = _installed_binary_config_overrides(self.plugins, self.base_config)
         self.base_config["ABX_RUNTIME"] = "archivebox"
         if self.selected_plugins is None:
             self.selected_plugins = _selected_plugins_from_config(self.base_config)
@@ -473,7 +456,6 @@ class CrawlRunner:
             plugins=self.plugins,
             output_dir=Path(snapshot["output_dir"]),
             selected_plugins=self.selected_plugins,
-            config_overrides=snapshot["config"],
             bus=self.bus,
             emit_jsonl=False,
             snapshot=setup_snapshot,
@@ -501,7 +483,6 @@ class CrawlRunner:
             plugins=self.plugins,
             output_dir=Path(snapshot["output_dir"]),
             selected_plugins=self.selected_plugins,
-            config_overrides=snapshot["config"],
             bus=self.bus,
             emit_jsonl=False,
             snapshot=cleanup_snapshot,
@@ -530,31 +511,22 @@ class CrawlRunner:
                 parent_snapshot_id=snapshot["parent_snapshot_id"],
                 crawl_id=str(self.crawl.id),
             )
-            snapshot_bus, snapshot_services = self._create_projector_bus(
-                identifier=f"{self.crawl.id}_{snapshot['id']}",
-                config_overrides=snapshot["config"],
-            )
             try:
-                _attach_bus_trace(snapshot_bus)
                 await download(
                     url=snapshot["url"],
                     plugins=self.plugins,
                     output_dir=Path(snapshot["output_dir"]),
                     selected_plugins=self.selected_plugins,
-                    config_overrides=snapshot["config"],
-                    bus=snapshot_bus,
+                    bus=self.bus,
                     emit_jsonl=False,
                     snapshot=abx_snapshot,
                     skip_crawl_setup=True,
                     skip_crawl_cleanup=True,
                 )
-                await snapshot_services.process.wait_for_background_monitors()
             finally:
                 current_task = asyncio.current_task()
                 if current_task is not None and self.snapshot_tasks.get(snapshot_id) is current_task:
                     self.snapshot_tasks.pop(snapshot_id, None)
-                await _stop_bus_trace(snapshot_bus)
-                await snapshot_bus.stop()
 
     def _load_snapshot_run_data(self, snapshot_id: str):
         from archivebox.core.models import Snapshot
@@ -615,19 +587,19 @@ async def _run_binary(binary_id: str) -> None:
     binary = await sync_to_async(Binary.objects.get, thread_sensitive=True)(id=binary_id)
     plugins = discover_plugins()
     config = get_config()
-    config.update(await sync_to_async(_installed_binary_config_overrides, thread_sensitive=True)(plugins))
+    derived_config = await sync_to_async(_installed_binary_config_overrides, thread_sensitive=True)(plugins, config)
     config["ABX_RUNTIME"] = "archivebox"
     bus = create_bus(name=_bus_name("ArchiveBox_binary", str(binary.id)), total_timeout=1800.0)
     process_service = ProcessService(bus)
-    MachineService(bus)
     BinaryService(bus)
     TagService(bus)
-    ProcessRequestService(bus)
     ArchiveResultService(bus, process_service=process_service)
     setup_abx_services(
         bus,
         plugins=plugins,
         config_overrides=config,
+        derived_config_overrides=derived_config,
+        persist_derived=False,
         auto_install=True,
         emit_jsonl=False,
     )
@@ -662,19 +634,19 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
 
     plugins = discover_plugins()
     config = get_config()
-    config.update(await sync_to_async(_installed_binary_config_overrides, thread_sensitive=True)(plugins))
+    derived_config = await sync_to_async(_installed_binary_config_overrides, thread_sensitive=True)(plugins, config)
     config["ABX_RUNTIME"] = "archivebox"
     bus = create_bus(name="ArchiveBox_install", total_timeout=3600.0)
     process_service = ProcessService(bus)
-    MachineService(bus)
     BinaryService(bus)
     TagService(bus)
-    ProcessRequestService(bus)
     ArchiveResultService(bus, process_service=process_service)
     abx_services = setup_abx_services(
         bus,
         plugins=plugins,
         config_overrides=config,
+        derived_config_overrides=derived_config,
+        persist_derived=False,
         auto_install=True,
         emit_jsonl=False,
     )

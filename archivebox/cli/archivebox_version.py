@@ -5,7 +5,6 @@ __package__ = "archivebox.cli"
 import sys
 import os
 import platform
-import logging
 from pathlib import Path
 from collections.abc import Iterable
 
@@ -124,17 +123,19 @@ def version(
         setup_django()
 
         from archivebox.machine.models import Machine, Binary
-        from archivebox.config.views import KNOWN_BINARIES, canonical_binary_name
-        from abx_dl.dependencies import load_binary
 
         machine = Machine.current()
 
-        requested_names = {canonical_binary_name(name) for name in binaries} if binaries else set()
+        if isinstance(binaries, str):
+            requested_names = {name.strip() for name in binaries.split(",") if name.strip()}
+        else:
+            requested_names = {name for name in (binaries or ()) if name}
 
-        db_binaries = {
-            canonical_binary_name(binary.name): binary for binary in Binary.objects.filter(machine=machine).order_by("name", "-modified_at")
-        }
-        all_binary_names = sorted(set(KNOWN_BINARIES) | set(db_binaries.keys()))
+        db_binaries: dict[str, Binary] = {}
+        for binary in Binary.objects.filter(machine=machine).order_by("name", "-modified_at"):
+            db_binaries.setdefault(binary.name, binary)
+
+        all_binary_names = sorted(requested_names or set(db_binaries.keys()))
 
         if not all_binary_names:
             prnt("", "[grey53]No binaries detected. Run [green]archivebox install[/green] to detect dependencies.[/grey53]")
@@ -163,37 +164,10 @@ def version(
                     any_available = True
                     continue
 
-                loaded = None
-                try:
-                    abx_pkg_logger = logging.getLogger("abx_pkg")
-                    previous_level = abx_pkg_logger.level
-                    abx_pkg_logger.setLevel(logging.CRITICAL)
-                    try:
-                        loaded = load_binary({"name": name, "binproviders": "env,pip,npm,brew,apt"})
-                    finally:
-                        abx_pkg_logger.setLevel(previous_level)
-                except Exception:
-                    loaded = None
-
-                if loaded and loaded.is_valid and loaded.loaded_abspath:
-                    display_path = str(loaded.loaded_abspath).replace(str(DATA_DIR), ".").replace(str(Path("~").expanduser()), "~")
-                    version_str = str(loaded.loaded_version or "unknown")[:15]
-                    provider = str(getattr(getattr(loaded, "loaded_binprovider", None), "name", "") or "env")[:8]
-                    prnt(
-                        "",
-                        "[green]√[/green]",
-                        "",
-                        name.ljust(18),
-                        version_str.ljust(16),
-                        provider.ljust(8),
-                        display_path,
-                        overflow="ignore",
-                        crop=False,
-                    )
-                    any_available = True
-                    continue
-
-                prnt("", "[red]X[/red]", "", name.ljust(18), "[grey53]not installed[/grey53]", overflow="ignore", crop=False)
+                status = (
+                    "[grey53]not recorded[/grey53]" if name in requested_names and installed is None else "[grey53]not installed[/grey53]"
+                )
+                prnt("", "[red]X[/red]", "", name.ljust(18), status, overflow="ignore", crop=False)
                 failures.append(name)
 
             if not any_available:

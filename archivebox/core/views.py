@@ -1226,7 +1226,7 @@ def live_progress_view(request):
                 return (plugin, plugin, "unknown", "")
 
             phase = "unknown"
-            if normalized_hook_name.startswith("on_Install__"):
+            if normalized_hook_name == "InstallEvent":
                 phase = "install"
             elif normalized_hook_name.startswith("on_CrawlSetup__"):
                 phase = "crawl"
@@ -1966,7 +1966,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                 Priority order (highest to lowest):
                 <ol>
                     <li><b style="color: blue">Environment</b> - Environment variables</li>
-                    <li><b style="color: purple">Machine</b> - Machine-specific overrides (e.g., resolved binary paths)
+                    <li><b style="color: purple">Machine</b> - Machine-specific overrides
                         {f'<br/><a href="{machine_admin_url}">→ Edit <code>{key}</code> in Machine.config for this server</a>' if machine_admin_url else ""}
                     </li>
                     <li><b style="color: green">Config File</b> - data/ArchiveBox.conf</li>

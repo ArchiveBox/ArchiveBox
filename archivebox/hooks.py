@@ -9,10 +9,13 @@ ArchiveBox no longer drives plugin execution itself during normal crawls.
 - parses hook stdout JSONL records into ArchiveBox models when needed
 
 Hook-backed event families are discovered from filenames like:
-    on_Install__*
     on_BinaryRequest__*
     on_CrawlSetup__*
     on_Snapshot__*
+
+InstallEvent itself is still part of the runtime lifecycle, but it has no
+corresponding hook family. Its dependency declarations come directly from each
+plugin's `config.json > required_binaries`.
 
 Lifecycle event names like `InstallEvent` or `SnapshotCleanupEvent` are
 normalized to the corresponding `on_{EventFamily}__*` prefix by a simple
@@ -212,7 +215,7 @@ def discover_hooks(
             pattern_direct = f"on_{hook_event_name}__*.{ext}"
             hooks.extend(base_dir.glob(pattern_direct))
 
-    # Binary install hooks are provider hooks, not end-user extractors. They
+    # Binary provider hooks are not end-user extractors. They
     # self-filter via `binproviders`, so applying the PLUGINS whitelist here
     # can hide the very installer needed by a selected plugin (e.g.
     # `--plugins=singlefile` still needs the `npm` BinaryRequest hook).
@@ -394,54 +397,14 @@ def run_hook(
         # Derive LIB_BIN_DIR from LIB_DIR if not set
         lib_bin_dir = Path(lib_dir) / "bin"
 
-    # Build PATH with proper precedence:
-    # 1. LIB_BIN_DIR (highest priority - local symlinked binaries)
-    # 2. Machine.config.PATH (pip/npm bin dirs from providers)
-    # 3. os.environ['PATH'] (system PATH)
-
-    if lib_bin_dir:
-        lib_bin_dir = str(lib_bin_dir)
-        env["LIB_BIN_DIR"] = lib_bin_dir
-
-    # Start with base PATH
-    current_path = env.get("PATH", "")
-
-    # Prepend Machine.config.PATH if it exists (treat as extra entries, not replacement)
-    try:
-        from archivebox.machine.models import Machine
-
-        machine = Machine.current()
-        if machine and machine.config:
-            machine_path = machine.config.get("PATH")
-            if machine_path:
-                # Prepend machine_path to current PATH
-                current_path = f"{machine_path}:{current_path}" if current_path else machine_path
-    except Exception:
-        pass
-
-    # Finally prepend LIB_BIN_DIR to the front (highest priority)
-    if lib_bin_dir:
-        if not current_path.startswith(f"{lib_bin_dir}:"):
-            env["PATH"] = f"{lib_bin_dir}:{current_path}" if current_path else lib_bin_dir
-        else:
-            env["PATH"] = current_path
-    else:
-        env["PATH"] = current_path
-
-    # Set NODE_PATH for Node.js module resolution
-    # Priority: config dict > Machine.config > derive from LIB_DIR
+    # Set NODE_PATH for Node.js module resolution.
+    # Priority: config dict > derive from LIB_DIR
     node_path = config.get("NODE_PATH")
     if not node_path and lib_dir:
         # Derive from LIB_DIR/npm/node_modules (create if needed)
         node_modules_dir = Path(lib_dir) / "npm" / "node_modules"
         node_modules_dir.mkdir(parents=True, exist_ok=True)
         node_path = str(node_modules_dir)
-    if not node_path:
-        try:
-            # Fallback to Machine.config
-            node_path = machine.config.get("NODE_MODULES_DIR")
-        except Exception:
-            pass
     if node_path:
         env["NODE_PATH"] = node_path
         env["NODE_MODULES_DIR"] = node_path  # For backwards compatibility
@@ -471,6 +434,41 @@ def run_hook(
             env[key] = json.dumps(value)
         else:
             env[key] = str(value)
+
+    # Build PATH with proper precedence:
+    # 1. path-like *_BINARY parents (explicit binary overrides / cached abspaths)
+    # 2. LIB_BIN_DIR (local symlinked binaries)
+    # 3. existing PATH
+    runtime_bin_dirs: list[str] = []
+    if lib_bin_dir:
+        lib_bin_dir = str(lib_bin_dir)
+        env["LIB_BIN_DIR"] = lib_bin_dir
+    for key, raw_value in env.items():
+        if not key.endswith("_BINARY"):
+            continue
+        value = str(raw_value or "").strip()
+        if not value:
+            continue
+        path_value = Path(value).expanduser()
+        if not (path_value.is_absolute() or "/" in value or "\\" in value):
+            continue
+        binary_dir = str(path_value.resolve(strict=False).parent)
+        if binary_dir and binary_dir not in runtime_bin_dirs:
+            runtime_bin_dirs.append(binary_dir)
+    if lib_bin_dir and lib_bin_dir not in runtime_bin_dirs:
+        runtime_bin_dirs.append(lib_bin_dir)
+    uv_value = str(env.get("UV") or "").strip()
+    if uv_value:
+        uv_bin_dir = str(Path(uv_value).expanduser().resolve(strict=False).parent)
+        if uv_bin_dir and uv_bin_dir not in runtime_bin_dirs:
+            runtime_bin_dirs.append(uv_bin_dir)
+
+    current_path = env.get("PATH", "")
+    path_parts = [part for part in current_path.split(os.pathsep) if part]
+    for extra_dir in reversed(runtime_bin_dirs):
+        if extra_dir not in path_parts:
+            path_parts.insert(0, extra_dir)
+    env["PATH"] = os.pathsep.join(path_parts)
 
     # Create output directory if needed
     output_dir.mkdir(parents=True, exist_ok=True)

@@ -14,11 +14,10 @@ EVENT_FLOW_DIAGRAM = """
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  InstallEvent                                                               │
-│    └─ on_Install__*                                                         │
-│         └─ BinaryRequest records                                            │
-│              └─ BinaryRequestEvent                                          │
-│                   └─ on_BinaryRequest__*                                    │
-│                        └─ BinaryEvent / MachineEvent                        │
+│    └─ config.json > required_binaries                                       │
+│         └─ BinaryRequestEvent                                               │
+│              └─ on_BinaryRequest__*                                         │
+│                   └─ BinaryEvent                                            │
 │                                                                             │
 │  CrawlEvent                                                                 │
 │    └─ CrawlSetupEvent                                                       │
@@ -70,15 +69,15 @@ def pluginmap(
 
     event_phases = {
         "InstallEvent": {
-            "description": "Pre-run dependency phase. on_Install hooks request binaries and update machine config.",
-            "emits": ["BinaryRequestEvent", "BinaryEvent", "MachineEvent", "ProcessEvent"],
+            "description": "Pre-run dependency phase. Enabled plugins emit BinaryRequest events from config.json required_binaries.",
+            "emits": ["BinaryRequestEvent", "BinaryEvent", "ProcessEvent"],
         },
         "BinaryRequestEvent": {
             "description": "Provider phase. on_BinaryRequest hooks resolve or install requested binaries.",
-            "emits": ["BinaryEvent", "MachineEvent", "ProcessEvent"],
+            "emits": ["BinaryEvent", "ProcessEvent"],
         },
         "BinaryEvent": {
-            "description": "Resolved binary metadata event. Projected into the DB/runtime config.",
+            "description": "Resolved binary metadata event. Projected into the DB binary cache.",
             "emits": [],
         },
         "CrawlEvent": {
@@ -87,11 +86,11 @@ def pluginmap(
         },
         "CrawlSetupEvent": {
             "description": "Crawl-scoped setup phase. on_CrawlSetup hooks launch/configure shared daemons and runtime state.",
-            "emits": ["MachineEvent", "ProcessEvent"],
+            "emits": ["ProcessEvent"],
         },
         "SnapshotEvent": {
-            "description": "Per-snapshot extraction phase. on_Snapshot hooks emit ArchiveResult, Snapshot, Tag, Machine, and BinaryRequest records.",
-            "emits": ["ArchiveResultEvent", "SnapshotEvent", "TagEvent", "MachineEvent", "BinaryRequestEvent", "ProcessEvent"],
+            "description": "Per-snapshot extraction phase. on_Snapshot hooks emit ArchiveResult, Snapshot, Tag, and BinaryRequest records.",
+            "emits": ["ArchiveResultEvent", "SnapshotEvent", "TagEvent", "BinaryRequestEvent", "ProcessEvent"],
         },
         "SnapshotCleanupEvent": {
             "description": "Internal snapshot cleanup phase.",

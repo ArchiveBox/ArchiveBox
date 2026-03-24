@@ -133,7 +133,13 @@ def test_plugin_detail_view_renders_config_in_dedicated_sections(monkeypatch):
         "description": "Example config used to verify plugin metadata rendering.",
         "type": "object",
         "required_plugins": ["chrome"],
-        "required_binaries": ["example-cli"],
+        "required_binaries": [
+            {
+                "name": "example-cli",
+                "binproviders": "env,apt,brew",
+                "min_version": None,
+            },
+        ],
         "output_mimetypes": ["text/plain", "application/json"],
         "properties": {
             "EXAMPLE_ENABLED": {

@@ -101,8 +101,6 @@ def _get_process_binary_env_keys(plugin_name: str, hook_path: str, env: dict[str
     schema_keys.sort(
         key=lambda key: (
             key != f"{plugin_key}_BINARY",
-            key.endswith("_NODE_BINARY"),
-            key.endswith("_CHROME_BINARY"),
             key,
         ),
     )
@@ -117,8 +115,6 @@ def _get_process_binary_env_keys(plugin_name: str, hook_path: str, env: dict[str
 
     hook_suffix = Path(hook_path).suffix.lower()
     if hook_suffix == ".js":
-        if plugin_key:
-            add(f"{plugin_key}_NODE_BINARY")
         add("NODE_BINARY")
 
     return keys
@@ -160,7 +156,7 @@ class Machine(ModelWithHealthStats):
         default=dict,
         null=True,
         blank=True,
-        help_text="Machine-specific config overrides (e.g., resolved binary paths like WGET_BINARY)",
+        help_text="Machine-specific config overrides.",
     )
     num_uses_failed = models.PositiveIntegerField(default=0)
     num_uses_succeeded = models.PositiveIntegerField(default=0)
@@ -176,24 +172,13 @@ class Machine(ModelWithHealthStats):
         global _CURRENT_MACHINE
         if _CURRENT_MACHINE:
             if timezone.now() < _CURRENT_MACHINE.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL):
-                return cls._sanitize_config(cls._hydrate_config_from_sibling(_CURRENT_MACHINE))
+                return cls._sanitize_config(_CURRENT_MACHINE)
             _CURRENT_MACHINE = None
         _CURRENT_MACHINE, _ = cls.objects.update_or_create(
             guid=get_host_guid(),
             defaults={"hostname": socket.gethostname(), **get_os_info(), **get_vm_info(), "stats": get_host_stats()},
         )
-        return cls._sanitize_config(cls._hydrate_config_from_sibling(_CURRENT_MACHINE))
-
-    @classmethod
-    def _hydrate_config_from_sibling(cls, machine: Machine) -> Machine:
-        if machine.config:
-            return machine
-
-        sibling = cls.objects.exclude(pk=machine.pk).filter(hostname=machine.hostname).exclude(config={}).order_by("-modified_at").first()
-        if sibling and sibling.config:
-            machine.config = dict(sibling.config)
-            machine.save(update_fields=["config", "modified_at"])
-        return machine
+        return cls._sanitize_config(_CURRENT_MACHINE)
 
     @classmethod
     def _sanitize_config(cls, machine: Machine) -> Machine:
@@ -622,12 +607,7 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         from archivebox.config.configset import get_config
 
         # Get merged config (Binary doesn't have crawl/snapshot context).
-        # Binary workers can install several dependencies in one process, so
-        # refresh from the latest persisted machine config before each hook run.
         config = get_config()
-        current_machine = Machine.current()
-        if current_machine.config:
-            config.update(current_machine.config)
 
         # ArchiveBox installs the puppeteer package and Chromium in separate
         # hook phases. Suppress puppeteer's bundled browser download during the
@@ -760,6 +740,11 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
 
         binary_abspath = Path(self.abspath).resolve()
         lib_bin_dir = Path(lib_bin_dir).resolve()
+        binary_parts = binary_abspath.parts
+        try:
+            app_index = next(index for index, part in enumerate(binary_parts) if part.endswith(".app"))
+        except StopIteration:
+            app_index = -1
 
         # Create LIB_BIN_DIR if it doesn't exist
         try:
@@ -771,6 +756,15 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         # Get binary name (last component of path)
         binary_name = binary_abspath.name
         symlink_path = lib_bin_dir / binary_name
+
+        if app_index != -1 and len(binary_parts) > app_index + 2 and binary_parts[app_index + 1 : app_index + 3] == ("Contents", "MacOS"):
+            if symlink_path.exists() or symlink_path.is_symlink():
+                try:
+                    symlink_path.unlink()
+                except (OSError, PermissionError) as e:
+                    print(f"Failed to remove existing file at {symlink_path}: {e}", file=sys.stderr)
+                    return None
+            return binary_abspath
 
         # Remove existing symlink/file if it exists
         if symlink_path.exists() or symlink_path.is_symlink():

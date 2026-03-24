@@ -29,42 +29,6 @@ ENVIRONMENT_BINARIES_BASE_URL = "/admin/environment/binaries/"
 INSTALLED_BINARIES_BASE_URL = "/admin/machine/binary/"
 
 
-# Common binaries to check for
-KNOWN_BINARIES = [
-    "wget",
-    "curl",
-    "chromium",
-    "chrome",
-    "google-chrome",
-    "google-chrome-stable",
-    "node",
-    "npm",
-    "npx",
-    "yt-dlp",
-    "git",
-    "singlefile",
-    "readability-extractor",
-    "mercury-parser",
-    "python3",
-    "python",
-    "bash",
-    "zsh",
-    "ffmpeg",
-    "ripgrep",
-    "rg",
-    "sonic",
-    "archivebox",
-]
-
-CANONICAL_BINARY_ALIASES = {
-    "youtube-dl": "yt-dlp",
-    "ytdlp": "yt-dlp",
-    "ripgrep": "rg",
-    "singlefile": "single-file",
-    "mercury-parser": "postlight-parser",
-}
-
-
 def is_superuser(request: HttpRequest) -> bool:
     return bool(getattr(request.user, "is_superuser", False))
 
@@ -131,13 +95,12 @@ def get_environment_binary_url(name: str) -> str:
     return f"{ENVIRONMENT_BINARIES_BASE_URL}{quote(name)}/"
 
 
-def get_installed_binary_change_url(name: str, binary: Any) -> str | None:
-    binary_id = getattr(binary, "id", None)
-    if not binary_id:
+def get_installed_binary_change_url(name: str, binary: Binary | None) -> str | None:
+    if binary is None or not binary.id:
         return None
 
-    base_url = getattr(binary, "admin_change_url", None) or f"{INSTALLED_BINARIES_BASE_URL}{binary_id}/change/"
-    changelist_filters = urlencode({"q": canonical_binary_name(name)})
+    base_url = binary.admin_change_url or f"{INSTALLED_BINARIES_BASE_URL}{binary.id}/change/"
+    changelist_filters = urlencode({"q": name})
     return f"{base_url}?{urlencode({'_changelist_filters': changelist_filters})}"
 
 
@@ -168,11 +131,14 @@ def render_code_tag_list(values: list[str]) -> str:
 
 
 def render_plugin_metadata_html(config: dict[str, Any]) -> str:
+    required_binaries = [
+        str(item.get("name")) for item in (config.get("required_binaries") or []) if isinstance(item, dict) and item.get("name")
+    ]
     rows = (
         ("Title", config.get("title") or "(none)"),
         ("Description", config.get("description") or "(none)"),
         ("Required Plugins", mark_safe(render_link_tag_list(config.get("required_plugins") or [], get_plugin_docs_url))),
-        ("Required Binaries", mark_safe(render_link_tag_list(config.get("required_binaries") or [], get_environment_binary_url))),
+        ("Required Binaries", mark_safe(render_link_tag_list(required_binaries, get_environment_binary_url))),
         ("Output MIME Types", mark_safe(render_code_tag_list(config.get("output_mimetypes") or []))),
     )
 
@@ -383,10 +349,6 @@ def obj_to_yaml(obj: Any, indent: int = 0) -> str:
         return f" {str(obj)}"
 
 
-def canonical_binary_name(name: str) -> str:
-    return CANONICAL_BINARY_ALIASES.get(name, name)
-
-
 def _binary_sort_key(binary: Binary) -> tuple[int, int, int, Any]:
     return (
         int(binary.status == Binary.StatusChoices.INSTALLED),
@@ -399,22 +361,9 @@ def _binary_sort_key(binary: Binary) -> tuple[int, int, int, Any]:
 def get_db_binaries_by_name() -> dict[str, Binary]:
     grouped: dict[str, list[Binary]] = {}
     for binary in Binary.objects.all():
-        grouped.setdefault(canonical_binary_name(binary.name), []).append(binary)
+        grouped.setdefault(binary.name, []).append(binary)
 
     return {name: max(records, key=_binary_sort_key) for name, records in grouped.items()}
-
-
-def serialize_binary_record(name: str, binary: Binary | None) -> dict[str, Any]:
-    is_installed = bool(binary and binary.status == Binary.StatusChoices.INSTALLED)
-    return {
-        "name": canonical_binary_name(name),
-        "version": str(getattr(binary, "version", "") or ""),
-        "binprovider": str(getattr(binary, "binprovider", "") or ""),
-        "abspath": str(getattr(binary, "abspath", "") or ""),
-        "sha256": str(getattr(binary, "sha256", "") or ""),
-        "status": str(getattr(binary, "status", "") or ""),
-        "is_available": is_installed and bool(getattr(binary, "abspath", "") or ""),
-    }
 
 
 def get_filesystem_plugins() -> dict[str, dict[str, Any]]:
@@ -474,14 +423,14 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
     all_binary_names = sorted(db_binaries.keys())
 
     for name in all_binary_names:
-        merged = serialize_binary_record(name, db_binaries.get(name))
+        binary = db_binaries.get(name)
 
         rows["Binary Name"].append(ItemLink(name, key=name))
 
-        if merged["is_available"]:
-            rows["Found Version"].append(f"✅ {merged['version']}" if merged["version"] else "✅ found")
-            rows["Provided By"].append(merged["binprovider"] or "-")
-            rows["Found Abspath"].append(merged["abspath"] or "-")
+        if binary and binary.is_valid:
+            rows["Found Version"].append(f"✅ {binary.version}" if binary.version else "✅ found")
+            rows["Provided By"].append(binary.binprovider or "-")
+            rows["Found Abspath"].append(binary.abspath or "-")
         else:
             rows["Found Version"].append("❌ missing")
             rows["Provided By"].append("-")
@@ -496,22 +445,20 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
 @render_with_item_view
 def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     assert is_superuser(request), "Must be a superuser to view configuration settings."
-    key = canonical_binary_name(key)
 
     db_binary = get_db_binaries_by_name().get(key)
-    merged = serialize_binary_record(key, db_binary)
-
-    if merged["is_available"]:
+    if db_binary and db_binary.is_valid:
+        binary_data = db_binary.to_json()
         section: SectionData = {
             "name": key,
-            "description": mark_safe(render_binary_detail_description(key, merged, db_binary)),
+            "description": mark_safe(render_binary_detail_description(key, binary_data, db_binary)),
             "fields": {
                 "name": key,
-                "binprovider": merged["binprovider"] or "-",
-                "abspath": merged["abspath"] or "not found",
-                "version": merged["version"] or "unknown",
-                "sha256": merged["sha256"],
-                "status": merged["status"],
+                "binprovider": db_binary.binprovider or "-",
+                "abspath": db_binary.abspath or "not found",
+                "version": db_binary.version or "unknown",
+                "sha256": db_binary.sha256,
+                "status": db_binary.status,
             },
             "help_texts": {},
         }
@@ -526,10 +473,10 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
         "description": "No persisted Binary record found",
         "fields": {
             "name": key,
-            "binprovider": merged["binprovider"] or "not recorded",
-            "abspath": merged["abspath"] or "not recorded",
-            "version": merged["version"] or "N/A",
-            "status": merged["status"] or "unrecorded",
+            "binprovider": db_binary.binprovider if db_binary else "not recorded",
+            "abspath": db_binary.abspath if db_binary else "not recorded",
+            "version": db_binary.version if db_binary else "N/A",
+            "status": db_binary.status if db_binary else "unrecorded",
         },
         "help_texts": {},
     }

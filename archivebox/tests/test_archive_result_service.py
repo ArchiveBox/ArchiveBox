@@ -518,7 +518,6 @@ def test_binary_event_reuses_existing_installed_binary_row(monkeypatch):
     event = BinaryRequestEvent(
         name="wget",
         plugin_name="wget",
-        hook_name="on_Install__10_wget.finite.bg",
         output_dir="/tmp/wget",
         binproviders="provider",
     )

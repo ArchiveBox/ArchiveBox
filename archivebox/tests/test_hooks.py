@@ -3,7 +3,7 @@
 Unit tests for the ArchiveBox hook architecture.
 
 Tests hook discovery, execution, JSONL parsing, background hook detection,
-binary lookup, and install hook XYZ_BINARY env var handling.
+binary lookup, and required_binaries XYZ_BINARY passthrough handling.
 
 Run with:
     sudo -u testuser bash -c 'source .venv/bin/activate && python -m pytest archivebox/tests/test_hooks.py -v'
@@ -126,8 +126,8 @@ not json at all
         self.assertEqual(records[0]["type"], "ArchiveResult")
 
 
-class TestInstallHookEnvVarHandling(unittest.TestCase):
-    """Test that install hooks respect XYZ_BINARY env vars."""
+class TestRequiredBinaryConfigHandling(unittest.TestCase):
+    """Test that required_binaries keep configured XYZ_BINARY values intact."""
 
     def setUp(self):
         """Set up test environment."""
@@ -139,39 +139,28 @@ class TestInstallHookEnvVarHandling(unittest.TestCase):
         shutil.rmtree(self.work_dir, ignore_errors=True)
 
     def test_binary_env_var_absolute_path_handling(self):
-        """Install hooks should handle absolute paths in XYZ_BINARY."""
-        # Test the logic that install hooks use
+        """Absolute binary paths should pass through unchanged."""
         configured_binary = "/custom/path/to/wget2"
-        if "/" in configured_binary:
-            bin_name = Path(configured_binary).name
-        else:
-            bin_name = configured_binary
+        binary_name = configured_binary
 
-        self.assertEqual(bin_name, "wget2")
+        self.assertEqual(binary_name, "/custom/path/to/wget2")
 
     def test_binary_env_var_name_only_handling(self):
-        """Install hooks should handle binary names in XYZ_BINARY."""
-        # Test the logic that install hooks use
+        """Binary command names should pass through unchanged."""
         configured_binary = "wget2"
-        if "/" in configured_binary:
-            bin_name = Path(configured_binary).name
-        else:
-            bin_name = configured_binary
+        binary_name = configured_binary
 
-        self.assertEqual(bin_name, "wget2")
+        self.assertEqual(binary_name, "wget2")
 
     def test_binary_env_var_empty_default(self):
-        """Install hooks should use default when XYZ_BINARY is empty."""
+        """Empty configured values should fall back to config defaults."""
         configured_binary = ""
         if configured_binary:
-            if "/" in configured_binary:
-                bin_name = Path(configured_binary).name
-            else:
-                bin_name = configured_binary
+            binary_name = configured_binary
         else:
-            bin_name = "wget"  # default
+            binary_name = "wget"
 
-        self.assertEqual(bin_name, "wget")
+        self.assertEqual(binary_name, "wget")
 
 
 class TestHookDiscovery(unittest.TestCase):
@@ -187,7 +176,7 @@ class TestHookDiscovery(unittest.TestCase):
         wget_dir = self.plugins_dir / "wget"
         wget_dir.mkdir()
         (wget_dir / "on_Snapshot__50_wget.py").write_text("# test hook")
-        (wget_dir / "on_Install__10_wget.finite.bg.py").write_text("# install hook")
+        (wget_dir / "on_BinaryRequest__10_wget.py").write_text("# binary request hook")
 
         chrome_dir = self.plugins_dir / "chrome"
         chrome_dir.mkdir(exist_ok=True)
@@ -299,7 +288,7 @@ class TestHookDiscovery(unittest.TestCase):
         self.assertIn("on_BinaryRequest__10_npm.py", hook_names)
 
     def test_discover_hooks_accepts_event_class_names(self):
-        """discover_hooks should accept InstallEvent / SnapshotEvent class names."""
+        """discover_hooks should accept BinaryRequestEvent / SnapshotEvent class names."""
         from archivebox import hooks as hooks_module
 
         hooks_module.get_plugins.cache_clear()
@@ -307,10 +296,10 @@ class TestHookDiscovery(unittest.TestCase):
             patch.object(hooks_module, "BUILTIN_PLUGINS_DIR", self.plugins_dir),
             patch.object(hooks_module, "USER_PLUGINS_DIR", self.test_dir / "user_plugins"),
         ):
-            install_hooks = hooks_module.discover_hooks("InstallEvent", filter_disabled=False)
+            binary_hooks = hooks_module.discover_hooks("BinaryRequestEvent", filter_disabled=False)
             snapshot_hooks = hooks_module.discover_hooks("SnapshotEvent", filter_disabled=False)
 
-        self.assertIn("on_Install__10_wget.finite.bg.py", [hook.name for hook in install_hooks])
+        self.assertIn("on_BinaryRequest__10_wget.py", [hook.name for hook in binary_hooks])
         self.assertIn("on_Snapshot__50_wget.py", [hook.name for hook in snapshot_hooks])
 
     def test_discover_hooks_returns_empty_for_non_hook_lifecycle_events(self):
@@ -324,44 +313,6 @@ class TestHookDiscovery(unittest.TestCase):
         ):
             self.assertEqual(hooks_module.discover_hooks("BinaryEvent", filter_disabled=False), [])
             self.assertEqual(hooks_module.discover_hooks("CrawlCleanupEvent", filter_disabled=False), [])
-
-    def test_discover_install_hooks_only_include_declared_plugin_dependencies(self):
-        """Install hook discovery should include required_plugins without broadening to provider plugins."""
-        responses_dir = self.plugins_dir / "responses"
-        responses_dir.mkdir()
-        (responses_dir / "config.json").write_text(
-            json.dumps(
-                {
-                    "type": "object",
-                    "required_plugins": ["chrome"],
-                    "properties": {},
-                },
-            ),
-        )
-
-        chrome_dir = self.plugins_dir / "chrome"
-        chrome_dir.mkdir(exist_ok=True)
-        (chrome_dir / "config.json").write_text('{"type": "object", "properties": {}}')
-        (chrome_dir / "on_Install__70_chrome.finite.bg.py").write_text("# chrome install hook")
-
-        npm_dir = self.plugins_dir / "npm"
-        npm_dir.mkdir()
-        (npm_dir / "on_BinaryRequest__10_npm.py").write_text("# npm binary hook")
-        (npm_dir / "on_Install__00_npm.py").write_text("# npm install hook")
-        (npm_dir / "config.json").write_text('{"type": "object", "properties": {}}')
-
-        from archivebox import hooks as hooks_module
-
-        hooks_module.get_plugins.cache_clear()
-        with (
-            patch.object(hooks_module, "BUILTIN_PLUGINS_DIR", self.plugins_dir),
-            patch.object(hooks_module, "USER_PLUGINS_DIR", self.test_dir / "user_plugins"),
-        ):
-            hooks = hooks_module.discover_hooks("Install", config={"PLUGINS": "responses"})
-
-        hook_names = [hook.name for hook in hooks]
-        self.assertIn("on_Install__70_chrome.finite.bg.py", hook_names)
-        self.assertNotIn("on_Install__00_npm.py", hook_names)
 
 
 class TestGetExtractorName(unittest.TestCase):
@@ -484,8 +435,8 @@ print(json.dumps({"type": "ArchiveResult", "status": "succeeded", "url": args.ge
         self.assertEqual(records[0]["url"], "https://example.com")
 
 
-class TestInstallHookOutput(unittest.TestCase):
-    """Test install hook output format compliance."""
+class TestDependencyRecordOutput(unittest.TestCase):
+    """Test dependency record output format compliance."""
 
     def setUp(self):
         """Set up test environment."""
@@ -495,8 +446,8 @@ class TestInstallHookOutput(unittest.TestCase):
         """Clean up test environment."""
         shutil.rmtree(self.work_dir, ignore_errors=True)
 
-    def test_install_hook_outputs_binary(self):
-        """Install hook should output Binary JSONL when binary found."""
+    def test_dependency_record_outputs_binary(self):
+        """Dependency resolution should output Binary JSONL when binary is found."""
         hook_output = json.dumps(
             {
                 "type": "Binary",
@@ -515,8 +466,8 @@ class TestInstallHookOutput(unittest.TestCase):
         self.assertEqual(data["name"], "wget")
         self.assertTrue(data["abspath"].startswith("/"))
 
-    def test_install_hook_outputs_machine_config(self):
-        """Install hook should output Machine config update JSONL."""
+    def test_dependency_record_outputs_machine_config(self):
+        """Dependency resolution should output Machine config update JSONL."""
         hook_output = json.dumps(
             {
                 "type": "Machine",

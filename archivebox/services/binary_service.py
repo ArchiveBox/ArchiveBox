@@ -14,6 +14,23 @@ class BinaryService(BaseService):
 
     async def on_BinaryRequestEvent__Outer(self, event: BinaryRequestEvent) -> None:
         await run_db_op(self._project_binary, event)
+        cached = await run_db_op(self._load_cached_binary, event)
+        if cached is not None:
+            await self.bus.emit(
+                BinaryEvent(
+                    name=event.name,
+                    plugin_name=event.plugin_name,
+                    hook_name=event.hook_name,
+                    abspath=cached["abspath"],
+                    version=cached["version"],
+                    sha256=cached["sha256"],
+                    binproviders=event.binproviders or cached["binproviders"],
+                    binprovider=cached["binprovider"],
+                    overrides=event.overrides or cached["overrides"],
+                    binary_id=event.binary_id,
+                    machine_id=event.machine_id or cached["machine_id"],
+                ),
+            )
 
     async def on_BinaryEvent__Outer(self, event: BinaryEvent) -> None:
         resolved = await asyncio.to_thread(self._resolve_installed_binary_metadata, event)
@@ -43,6 +60,29 @@ class BinaryService(BaseService):
                 "overrides": event.overrides or {},
             },
         )
+
+    def _load_cached_binary(self, event: BinaryRequestEvent) -> dict[str, str] | None:
+        from archivebox.machine.models import Binary, Machine
+
+        machine = Machine.current()
+        installed = (
+            Binary.objects.filter(machine=machine, name=event.name, status=Binary.StatusChoices.INSTALLED)
+            .exclude(abspath="")
+            .exclude(abspath__isnull=True)
+            .order_by("-modified_at")
+            .first()
+        )
+        if installed is None:
+            return None
+        return {
+            "abspath": installed.abspath,
+            "version": installed.version or "",
+            "sha256": installed.sha256 or "",
+            "binproviders": installed.binproviders or "",
+            "binprovider": installed.binprovider or "",
+            "machine_id": str(installed.machine_id),
+            "overrides": installed.overrides or {},
+        }
 
     def _resolve_installed_binary_metadata(self, event: BinaryEvent) -> dict[str, str]:
         resolved = {
@@ -77,12 +117,11 @@ class BinaryService(BaseService):
                 "overrides": event.overrides or {},
             }
             binary = load_binary(spec)
-            resolved["abspath"] = str(getattr(binary, "abspath", None) or resolved["abspath"] or "")
-            resolved["version"] = str(getattr(binary, "version", None) or resolved["version"] or "")
-            resolved["sha256"] = str(getattr(binary, "sha256", None) or resolved["sha256"] or "")
-            provider_name = getattr(getattr(binary, "loaded_binprovider", None), "name", None)
-            if provider_name:
-                resolved["binprovider"] = str(provider_name)
+            resolved["abspath"] = str(binary.abspath or resolved["abspath"] or "")
+            resolved["version"] = str(binary.version or resolved["version"] or "")
+            resolved["sha256"] = str(binary.sha256 or resolved["sha256"] or "")
+            if binary.loaded_binprovider is not None and binary.loaded_binprovider.name:
+                resolved["binprovider"] = str(binary.loaded_binprovider.name)
         except Exception:
             pass
 

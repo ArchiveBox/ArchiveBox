@@ -46,7 +46,7 @@ async def _call_sync(func, *args, **kwargs):
     return func(*args, **kwargs)
 
 
-def test_run_snapshot_uses_isolated_bus_per_snapshot(monkeypatch):
+def test_run_snapshot_reuses_crawl_bus_for_all_snapshots(monkeypatch):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
@@ -87,13 +87,13 @@ def test_run_snapshot_uses_isolated_bus_per_snapshot(monkeypatch):
 
     download_calls = []
 
-    async def fake_download(*, url, bus, config_overrides, snapshot, **kwargs):
+    async def fake_download(*, url, bus, snapshot, **kwargs):
         download_calls.append(
             {
                 "url": url,
                 "bus": bus,
-                "snapshot_id": config_overrides["SNAPSHOT_ID"],
-                "source_url": config_overrides["SOURCE_URL"],
+                "snapshot_id": snapshot.id,
+                "source_url": snapshot.url,
                 "abx_snapshot_id": snapshot.id,
             },
         )
@@ -146,8 +146,8 @@ def test_run_snapshot_uses_isolated_bus_per_snapshot(monkeypatch):
     assert len(download_calls) == 2
     assert {call["snapshot_id"] for call in download_calls} == {str(snapshot_a.id), str(snapshot_b.id)}
     assert {call["source_url"] for call in download_calls} == {snapshot_a.url, snapshot_b.url}
-    assert len({id(call["bus"]) for call in download_calls}) == 2
-    assert len(created_buses) == 3  # 1 crawl bus + 2 isolated snapshot buses
+    assert len({id(call["bus"]) for call in download_calls}) == 1
+    assert len(created_buses) == 1
 
 
 def test_ensure_background_runner_starts_when_none_running(monkeypatch):
@@ -351,6 +351,62 @@ def test_installed_binary_config_overrides_include_valid_installed_binaries(monk
     assert overrides["NODE_MODULES_DIR"] == "/tmp/shared-lib/npm/node_modules"
     assert overrides["NODE_MODULE_DIR"] == "/tmp/shared-lib/npm/node_modules"
     assert overrides["NODE_PATH"] == "/tmp/shared-lib/npm/node_modules"
+
+
+def test_installed_binary_config_overrides_do_not_map_hardcoded_artifacts_to_configurable_binary_keys(monkeypatch):
+    from archivebox.machine.models import Binary, Machine
+    from archivebox.services import runner as runner_module
+    from abx_dl.models import Plugin
+
+    machine = Machine.objects.create(
+        guid="test-guid-runner-singlefile-cache",
+        hostname="runner-host-singlefile",
+        hw_in_docker=False,
+        hw_in_vm=False,
+        hw_manufacturer="Test",
+        hw_product="Test Product",
+        hw_uuid="test-hw-runner-singlefile-cache",
+        os_arch="arm64",
+        os_family="darwin",
+        os_platform="macOS",
+        os_release="14.0",
+        os_kernel="Darwin",
+        stats={},
+        config={},
+    )
+    singlefile_extension = Binary.objects.create(
+        machine=machine,
+        name="singlefile",
+        abspath="/tmp/shared-lib/bin/singlefile",
+        version="1.0.0",
+        binprovider="chromewebstore",
+        binproviders="chromewebstore",
+        status=Binary.StatusChoices.INSTALLED,
+    )
+
+    monkeypatch.setattr(Machine, "current", classmethod(lambda cls: machine))
+    monkeypatch.setattr(Path, "is_file", lambda self: str(self) == singlefile_extension.abspath)
+    monkeypatch.setattr(runner_module.os, "access", lambda path, mode: str(path) == singlefile_extension.abspath)
+
+    overrides = runner_module._installed_binary_config_overrides(
+        {
+            "singlefile": Plugin(
+                name="singlefile",
+                path=Path("."),
+                hooks=[],
+                config_schema={"SINGLEFILE_BINARY": {"type": "string", "default": "single-file"}},
+                binaries=[
+                    {"name": "{SINGLEFILE_BINARY}", "binproviders": "env,npm"},
+                    {"name": "singlefile", "binproviders": "chromewebstore"},
+                ],
+            ),
+        },
+        config={"SINGLEFILE_BINARY": "single-file"},
+    )
+
+    assert "SINGLEFILE_BINARY" not in overrides
+    assert overrides["LIB_DIR"] == "/tmp/shared-lib"
+    assert overrides["LIB_BIN_DIR"] == "/tmp/shared-lib/bin"
 
 
 def test_run_snapshot_skips_descendant_when_max_size_already_reached(monkeypatch):
@@ -700,11 +756,9 @@ def test_crawl_runner_calls_crawl_cleanup_after_snapshot_phase(monkeypatch):
         "_run_crawl_cleanup",
         lambda self, snapshot_id: cleanup_calls.append("abx_cleanup") or asyncio.sleep(0),
     )
-    monkeypatch.setattr(crawl, "cleanup", lambda: cleanup_calls.append("crawl_cleanup"))
-
     asyncio.run(runner_module.CrawlRunner(crawl, snapshot_ids=[str(snapshot.id)]).run())
 
-    assert cleanup_calls == ["crawl_cleanup", "abx_cleanup"]
+    assert cleanup_calls == ["abx_cleanup"]
 
 
 def test_abx_process_service_background_monitor_finishes_after_process_exit(monkeypatch, tmp_path):
@@ -765,6 +819,9 @@ def test_abx_process_service_background_monitor_finishes_after_process_exit(monk
         timeout=60,
         snapshot_id="snap-1",
         is_background=True,
+        url="https://example.org/",
+        process_type="hook",
+        worker_type="hook",
     )
 
     async def run_test():
