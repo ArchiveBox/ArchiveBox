@@ -13,13 +13,9 @@ Hook-backed event families are discovered from filenames like:
     on_CrawlSetup__*
     on_Snapshot__*
 
-InstallEvent itself is still part of the runtime lifecycle, but it has no
-corresponding hook family. Its dependency declarations come directly from each
-plugin's `config.json > required_binaries`.
-
-Lifecycle event names like `InstallEvent` or `SnapshotCleanupEvent` are
-normalized to the corresponding `on_{EventFamily}__*` prefix by a simple
-string transform. If no scripts exist for that prefix, discovery returns `[]`.
+Internal bus event names are normalized to the corresponding
+`on_{EventFamily}__*` prefix by a simple string transform. If no scripts exist
+for that prefix, discovery returns `[]`.
 
 Directory structure:
     abx_plugins/plugins/<plugin_name>/on_<Event>__<hook_name>.<ext>     (built-in package)
@@ -120,7 +116,6 @@ def normalize_hook_event_name(event_name: str) -> str | None:
     Normalize a hook event family or event class name to its on_* prefix.
 
     Examples:
-        InstallEvent -> Install
         BinaryRequestEvent -> BinaryRequest
         CrawlSetupEvent -> CrawlSetup
         SnapshotEvent -> Snapshot
@@ -171,7 +166,7 @@ def discover_hooks(
 
     Args:
         event_name: Hook event family or event class name.
-            Examples: 'Install', 'InstallEvent', 'BinaryRequestEvent', 'Snapshot'.
+            Examples: 'BinaryRequestEvent', 'Snapshot'.
             Event names are normalized by stripping a trailing `Event`.
             If no matching `on_{EventFamily}__*` scripts exist, returns [].
         filter_disabled: If True, skip hooks from disabled plugins (default: True)
@@ -1070,9 +1065,8 @@ def process_hook_records(records: list[dict[str, Any]], overrides: dict[str, Any
     Process JSONL records emitted by hook stdout.
 
     This handles hook-emitted record types such as Snapshot, Tag, BinaryRequest,
-    Binary, and Machine. It does not process bus lifecycle events like
-    InstallEvent, CrawlEvent, CrawlCleanupEvent, or SnapshotCleanupEvent, since
-    those are not emitted as JSONL records by hook subprocesses.
+    and Binary. It does not process internal bus lifecycle events, since those
+    are not emitted as JSONL records by hook subprocesses.
 
     Args:
         records: List of JSONL record dicts from result['records']
@@ -1130,13 +1124,6 @@ def process_hook_records(records: list[dict[str, Any]], overrides: dict[str, Any
                 obj = Binary.from_json(record.copy(), overrides)
                 if obj:
                     stats[record_type] = stats.get(record_type, 0) + 1
-
-            elif record_type == "Machine":
-                from archivebox.machine.models import Machine
-
-                obj = Machine.from_json(record.copy(), overrides)
-                if obj:
-                    stats["Machine"] = stats.get("Machine", 0) + 1
 
             else:
                 import sys

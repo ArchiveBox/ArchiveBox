@@ -269,12 +269,12 @@ class TestBinaryModel(TestCase):
         self.assertEqual(binary.status, Binary.StatusChoices.QUEUED)
         self.assertGreater(binary.modified_at, old_modified)
 
-    def test_binary_from_json_preserves_install_args_overrides(self):
-        """Binary.from_json() should persist canonical install_args overrides unchanged."""
+    def test_binary_from_json_preserves_provider_overrides(self):
+        """Binary.from_json() should persist provider overrides unchanged."""
         overrides = {
             "apt": {"install_args": ["chromium"]},
             "npm": {"install_args": "puppeteer"},
-            "custom": {"install_args": ["bash", "-lc", "echo ok"]},
+            "custom": {"install": "bash -lc 'echo ok'"},
         }
 
         binary = Binary.from_json(

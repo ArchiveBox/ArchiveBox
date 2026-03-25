@@ -378,11 +378,8 @@ class TestRecoverOrphanedCrawls:
             machine=machine,
             process_type=Process.TypeChoices.HOOK,
             status=Process.StatusChoices.RUNNING,
+            pwd=str(snapshot.output_dir / "chrome"),
             cmd=["/plugins/chrome/on_CrawlSetup__91_chrome_wait.js"],
-            env={
-                "CRAWL_ID": str(crawl.id),
-                "SNAPSHOT_ID": str(snapshot.id),
-            },
             started_at=timezone.now(),
         )
 

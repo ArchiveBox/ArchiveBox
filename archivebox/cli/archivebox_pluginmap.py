@@ -26,7 +26,7 @@ EVENT_FLOW_DIAGRAM = """
 │  CrawlStartEvent                                                            │
 │    └─ SnapshotEvent                                                         │
 │         └─ on_Snapshot__*                                                   │
-│              └─ Snapshot / ArchiveResult / Tag / Machine / BinaryRequest    │
+│              └─ ArchiveResult / Snapshot / Tag                              │
 │                                                                             │
 │  SnapshotCleanupEvent  -> internal cleanup, no direct hook family           │
 │  CrawlCleanupEvent     -> internal cleanup, no direct hook family           │
@@ -89,8 +89,8 @@ def pluginmap(
             "emits": ["ProcessEvent"],
         },
         "SnapshotEvent": {
-            "description": "Per-snapshot extraction phase. on_Snapshot hooks emit ArchiveResult, Snapshot, Tag, and BinaryRequest records.",
-            "emits": ["ArchiveResultEvent", "SnapshotEvent", "TagEvent", "BinaryRequestEvent", "ProcessEvent"],
+            "description": "Per-snapshot extraction phase. on_Snapshot hooks emit ArchiveResult, Snapshot, and Tag records.",
+            "emits": ["ArchiveResultEvent", "SnapshotEvent", "TagEvent", "ProcessEvent"],
         },
         "SnapshotCleanupEvent": {
             "description": "Internal snapshot cleanup phase.",

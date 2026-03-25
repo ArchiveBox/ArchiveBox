@@ -144,13 +144,13 @@ def test_archiveresult_admin_copy_command_redacts_sensitive_env_keys():
         pwd=str(snapshot.output_dir / "wget"),
         cmd=["/tmp/on_Snapshot__06_wget.finite.bg.py", "--url=https://example.com"],
         env={
-            "SOURCE_URL": "https://example.com",
             "SAFE_FLAG": "1",
             "API_KEY": "super-secret-key",
             "ACCESS_TOKEN": "super-secret-token",
             "SHARED_SECRET": "super-secret-secret",
         },
         status=Process.StatusChoices.EXITED,
+        url="https://example.com",
     )
     result = ArchiveResult.objects.create(
         snapshot=snapshot,
@@ -164,7 +164,7 @@ def test_archiveresult_admin_copy_command_redacts_sensitive_env_keys():
     cmd_html = str(admin.cmd_str(result))
 
     assert "SAFE_FLAG=1" in cmd_html
-    assert "SOURCE_URL=https://example.com" in cmd_html
+    assert "https://example.com" in cmd_html
     assert "API_KEY" not in cmd_html
     assert "ACCESS_TOKEN" not in cmd_html
     assert "SHARED_SECRET" not in cmd_html

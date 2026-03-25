@@ -312,7 +312,7 @@ CREATE TABLE IF NOT EXISTS machine_dependency (
     modified_at DATETIME,
     bin_name VARCHAR(63) NOT NULL UNIQUE,
     bin_providers VARCHAR(127) NOT NULL DEFAULT '*',
-    custom_cmds TEXT DEFAULT '{}',
+    overrides TEXT DEFAULT '{}',
     config TEXT DEFAULT '{}'
 );
 
@@ -973,7 +973,6 @@ def seed_0_8_data(db_path: Path) -> dict[str, list[dict]]:
         ("machine", "0003_alter_installedbinary_options_and_more"),
         ("machine", "0004_alter_installedbinary_abspath_and_more"),
         # Then the new migrations after squashing
-        ("machine", "0002_rename_custom_cmds_to_overrides"),
         ("machine", "0003_alter_dependency_id_alter_installedbinary_dependency_and_more"),
         ("machine", "0004_drop_dependency_table"),
         # Crawls must come before core.0024 because 0024_b depends on it

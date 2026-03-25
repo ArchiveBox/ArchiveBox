@@ -464,23 +464,24 @@ class TestDependencyRecordOutput(unittest.TestCase):
         self.assertEqual(data["name"], "wget")
         self.assertTrue(data["abspath"].startswith("/"))
 
-    def test_dependency_record_outputs_machine_config(self):
-        """Dependency resolution should output Machine config update JSONL."""
+    def test_dependency_record_outputs_binary_jsonl(self):
+        """Dependency resolution should output Binary JSONL."""
         hook_output = json.dumps(
             {
-                "type": "Machine",
-                "config": {
-                    "WGET_BINARY": "/usr/bin/wget",
-                },
+                "type": "Binary",
+                "name": "wget",
+                "abspath": "/usr/bin/wget",
+                "version": "1.21.3",
+                "binprovider": "env",
             },
         )
 
         from archivebox.machine.models import Process
 
         data = Process.parse_records_from_text(hook_output)[0]
-        self.assertEqual(data["type"], "Machine")
-        self.assertIn("config", data)
-        self.assertEqual(data["config"]["WGET_BINARY"], "/usr/bin/wget")
+        self.assertEqual(data["type"], "Binary")
+        self.assertEqual(data["name"], "wget")
+        self.assertEqual(data["abspath"], "/usr/bin/wget")
 
 
 class TestSnapshotHookOutput(unittest.TestCase):

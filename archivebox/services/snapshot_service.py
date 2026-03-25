@@ -7,8 +7,6 @@ from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
 from abx_dl.limits import CrawlLimitState
 from abx_dl.services.base import BaseService
 
-from .db import run_db_op
-
 
 class SnapshotService(BaseService):
     LISTENS_TO = [SnapshotEvent, SnapshotCompletedEvent]
@@ -18,120 +16,96 @@ class SnapshotService(BaseService):
         self.crawl_id = crawl_id
         self.schedule_snapshot = schedule_snapshot
         super().__init__(bus)
+        self.bus.on(SnapshotEvent, self.on_SnapshotEvent)
+        self.bus.on(SnapshotCompletedEvent, self.on_SnapshotCompletedEvent)
 
-    async def on_SnapshotEvent__Outer(self, event: SnapshotEvent) -> None:
-        snapshot_id = await run_db_op(self._project_snapshot, event)
-        if snapshot_id:
-            await sync_to_async(self._ensure_crawl_symlink)(snapshot_id)
-        if snapshot_id and event.depth > 0:
-            await self.schedule_snapshot(snapshot_id)
-
-    async def on_SnapshotCompletedEvent__Outer(self, event: SnapshotCompletedEvent) -> None:
-        snapshot_id = await run_db_op(self._seal_snapshot, event.snapshot_id)
-        if snapshot_id:
-            await sync_to_async(self._write_snapshot_details)(snapshot_id)
-
-    def _project_snapshot(self, event: SnapshotEvent) -> str | None:
+    async def on_SnapshotEvent(self, event: SnapshotEvent) -> None:
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
 
-        crawl = Crawl.objects.get(id=self.crawl_id)
+        crawl = await Crawl.objects.aget(id=self.crawl_id)
+        snapshot_id: str | None = None
+        snapshot = await Snapshot.objects.filter(id=event.snapshot_id, crawl=crawl).afirst()
 
-        if event.depth == 0:
-            snapshot = Snapshot.objects.filter(id=event.snapshot_id, crawl=crawl).first()
-            if snapshot is None:
-                return None
+        if snapshot is not None:
             snapshot.status = Snapshot.StatusChoices.STARTED
             snapshot.retry_at = None
-            snapshot.save(update_fields=["status", "retry_at", "modified_at"])
-            return str(snapshot.id)
+            await snapshot.asave(update_fields=["status", "retry_at", "modified_at"])
+            snapshot_id = str(snapshot.id)
+        elif event.depth > 0:
+            if event.depth <= crawl.max_depth and self._crawl_limit_stop_reason(crawl) != "max_size":
+                parent_event = await self.bus.find(
+                    SnapshotEvent,
+                    past=True,
+                    future=False,
+                    where=lambda candidate: candidate.depth == event.depth - 1 and self.bus.event_is_child_of(event, candidate),
+                )
+                parent_snapshot = None
+                if parent_event is not None:
+                    parent_snapshot = await Snapshot.objects.filter(id=parent_event.snapshot_id, crawl=crawl).afirst()
+                if parent_snapshot is not None and self._url_passes_filters(crawl, parent_snapshot, event.url):
+                    snapshot = await sync_to_async(Snapshot.from_json, thread_sensitive=True)(
+                        {
+                            "url": event.url,
+                            "depth": event.depth,
+                            "parent_snapshot_id": str(parent_snapshot.id),
+                            "crawl_id": str(crawl.id),
+                        },
+                        overrides={
+                            "crawl": crawl,
+                            "snapshot": parent_snapshot,
+                            "created_by_id": crawl.created_by_id,
+                        },
+                        queue_for_extraction=False,
+                    )
+                    if snapshot is not None and snapshot.status != Snapshot.StatusChoices.SEALED:
+                        snapshot.retry_at = None
+                        snapshot.status = Snapshot.StatusChoices.QUEUED
+                        await snapshot.asave(update_fields=["status", "retry_at", "modified_at"])
+                        snapshot_id = str(snapshot.id)
 
-        if event.depth > crawl.max_depth:
-            return None
-        if self._crawl_limit_stop_reason(crawl) == "max_size":
-            return None
+        if snapshot_id:
+            snapshot = await Snapshot.objects.filter(id=snapshot_id).select_related("crawl", "crawl__created_by").afirst()
+            if snapshot is not None:
+                await sync_to_async(snapshot.ensure_crawl_symlink, thread_sensitive=True)()
+        if snapshot_id and event.depth > 0:
+            await self.schedule_snapshot(snapshot_id)
 
-        parent_snapshot = Snapshot.objects.filter(id=event.parent_snapshot_id, crawl=crawl).first()
-        if parent_snapshot is None:
-            return None
-        if not self._url_passes_filters(crawl, parent_snapshot, event.url):
-            return None
+    async def on_SnapshotCompletedEvent(self, event: SnapshotCompletedEvent) -> None:
+        from archivebox.core.models import Snapshot
 
-        snapshot = Snapshot.from_json(
-            {
-                "url": event.url,
-                "depth": event.depth,
-                "parent_snapshot_id": str(parent_snapshot.id),
-                "crawl_id": str(crawl.id),
-            },
-            overrides={
-                "crawl": crawl,
-                "snapshot": parent_snapshot,
-                "created_by_id": crawl.created_by_id,
-            },
-            queue_for_extraction=False,
-        )
-        if snapshot is None:
-            return None
-        if snapshot.status == Snapshot.StatusChoices.SEALED:
-            return None
-        snapshot.retry_at = None
-        if snapshot.status != Snapshot.StatusChoices.SEALED:
-            snapshot.status = Snapshot.StatusChoices.QUEUED
-        snapshot.save(update_fields=["status", "retry_at", "modified_at"])
-        return str(snapshot.id)
+        snapshot = await Snapshot.objects.select_related("crawl").filter(id=event.snapshot_id).afirst()
+        snapshot_id: str | None = None
+        if snapshot is not None:
+            snapshot.status = Snapshot.StatusChoices.SEALED
+            snapshot.retry_at = None
+            snapshot.downloaded_at = snapshot.downloaded_at or timezone.now()
+            await snapshot.asave(update_fields=["status", "retry_at", "downloaded_at", "modified_at"])
+            if snapshot.crawl_id and self._crawl_limit_stop_reason(snapshot.crawl) == "max_size":
+                await (
+                    Snapshot.objects.filter(
+                        crawl_id=snapshot.crawl_id,
+                        status=Snapshot.StatusChoices.QUEUED,
+                    )
+                    .exclude(id=snapshot.id)
+                    .aupdate(
+                        status=Snapshot.StatusChoices.SEALED,
+                        retry_at=None,
+                        modified_at=timezone.now(),
+                    )
+                )
+            snapshot_id = str(snapshot.id)
+        if snapshot_id:
+            snapshot = await Snapshot.objects.filter(id=snapshot_id).select_related("crawl", "crawl__created_by").afirst()
+            if snapshot is not None:
+                await sync_to_async(snapshot.write_index_jsonl, thread_sensitive=True)()
+                await sync_to_async(snapshot.write_json_details, thread_sensitive=True)()
+                await sync_to_async(snapshot.write_html_details, thread_sensitive=True)()
 
     def _url_passes_filters(self, crawl, parent_snapshot, url: str) -> bool:
         return crawl.url_passes_filters(url, snapshot=parent_snapshot)
-
-    def _seal_snapshot(self, snapshot_id: str) -> str | None:
-        from archivebox.core.models import Snapshot
-
-        snapshot = Snapshot.objects.select_related("crawl").filter(id=snapshot_id).first()
-        if snapshot is None:
-            return None
-        snapshot.status = Snapshot.StatusChoices.SEALED
-        snapshot.retry_at = None
-        snapshot.downloaded_at = snapshot.downloaded_at or timezone.now()
-        snapshot.save(update_fields=["status", "retry_at", "downloaded_at", "modified_at"])
-        if snapshot.crawl_id and self._crawl_limit_stop_reason(snapshot.crawl) == "max_size":
-            self._cancel_pending_snapshots(snapshot.crawl_id, exclude_snapshot_id=snapshot.id)
-        return str(snapshot.id)
 
     def _crawl_limit_stop_reason(self, crawl) -> str:
         config = dict(crawl.config or {})
         config["CRAWL_DIR"] = str(crawl.output_dir)
         return CrawlLimitState.from_config(config).get_stop_reason()
-
-    def _cancel_pending_snapshots(self, crawl_id: str, *, exclude_snapshot_id) -> int:
-        from archivebox.core.models import Snapshot
-
-        return (
-            Snapshot.objects.filter(
-                crawl_id=crawl_id,
-                status=Snapshot.StatusChoices.QUEUED,
-            )
-            .exclude(id=exclude_snapshot_id)
-            .update(
-                status=Snapshot.StatusChoices.SEALED,
-                retry_at=None,
-                modified_at=timezone.now(),
-            )
-        )
-
-    def _ensure_crawl_symlink(self, snapshot_id: str) -> None:
-        from archivebox.core.models import Snapshot
-
-        snapshot = Snapshot.objects.filter(id=snapshot_id).select_related("crawl", "crawl__created_by").first()
-        if snapshot is not None:
-            snapshot.ensure_crawl_symlink()
-
-    def _write_snapshot_details(self, snapshot_id: str) -> None:
-        from archivebox.core.models import Snapshot
-
-        snapshot = Snapshot.objects.filter(id=snapshot_id).select_related("crawl", "crawl__created_by").first()
-        if snapshot is None:
-            return
-        snapshot.write_index_jsonl()
-        snapshot.write_json_details()
-        snapshot.write_html_details()

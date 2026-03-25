@@ -38,8 +38,8 @@ def _quote_shell_string(value: str) -> str:
 
 
 def _get_replay_source_url(result: ArchiveResult) -> str:
-    process_env = getattr(getattr(result, "process", None), "env", None) or {}
-    return str(process_env.get("SOURCE_URL") or result.snapshot.url or "")
+    process = getattr(result, "process", None)
+    return str(getattr(process, "url", None) or result.snapshot.url or "")
 
 
 def build_abx_dl_display_command(result: ArchiveResult) -> str:

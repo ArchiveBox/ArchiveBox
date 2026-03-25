@@ -3,20 +3,20 @@ from __future__ import annotations
 from abx_dl.events import TagEvent
 from abx_dl.services.base import BaseService
 
-from .db import run_db_op
-
 
 class TagService(BaseService):
     LISTENS_TO = [TagEvent]
     EMITS = []
 
-    async def on_TagEvent__Outer(self, event: TagEvent) -> None:
-        await run_db_op(self._project, event)
+    def __init__(self, bus):
+        super().__init__(bus)
+        self.bus.on(TagEvent, self.on_TagEvent__save_to_db)
 
-    def _project(self, event: TagEvent) -> None:
-        from archivebox.core.models import Snapshot, Tag
+    async def on_TagEvent__save_to_db(self, event: TagEvent) -> None:
+        from archivebox.core.models import Snapshot, SnapshotTag, Tag
 
-        snapshot = Snapshot.objects.filter(id=event.snapshot_id).first()
+        snapshot = await Snapshot.objects.filter(id=event.snapshot_id).afirst()
         if snapshot is None:
             return
-        Tag.from_json({"name": event.name}, overrides={"snapshot": snapshot})
+        tag, _ = await Tag.objects.aget_or_create(name=event.name)
+        await SnapshotTag.objects.aget_or_create(snapshot=snapshot, tag=tag)

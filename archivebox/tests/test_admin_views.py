@@ -8,6 +8,7 @@ Tests cover:
 - Snapshot progress statistics
 """
 
+import json
 import pytest
 import uuid
 from pathlib import Path
@@ -822,7 +823,6 @@ class TestAdminSnapshotListView:
             pwd="/tmp/archivebox",
             cmd=["python", "/tmp/job.py", "--url=https://example.com"],
             env={
-                "SNAPSHOT_ID": "abc123",
                 "ENABLED": True,
                 "API_KEY": "super-secret-key",
                 "ACCESS_TOKEN": "super-secret-token",
@@ -843,7 +843,6 @@ class TestAdminSnapshotListView:
         assert response.status_code == 200
         assert b"Kill" in response.content
         assert b"python /tmp/job.py --url=https://example.com" in response.content
-        assert b"SNAPSHOT_ID=abc123" in response.content
         assert b"ENABLED=True" in response.content
         assert b"52s" in response.content
         assert b"API_KEY=" not in response.content
@@ -1065,7 +1064,7 @@ class TestAdminSnapshotListView:
             pid=54321,
             exit_code=0,
             cmd=["/plugins/title/on_Snapshot__54_title.js", "--url=https://example.com"],
-            env={"SNAPSHOT_ID": str(snapshot.id)},
+            env={"EXTRA_CONTEXT": json.dumps({"snapshot_id": str(snapshot.id)})},
             started_at=timezone.now(),
             ended_at=timezone.now(),
         )
@@ -1252,11 +1251,8 @@ class TestLiveProgressView:
             process_type=Process.TypeChoices.HOOK,
             status=Process.StatusChoices.RUNNING,
             pid=pid,
+            pwd=str(snapshot.output_dir / "chrome"),
             cmd=["/plugins/chrome/on_CrawlSetup__91_chrome_wait.js", "--url=https://example.com"],
-            env={
-                "CRAWL_ID": str(snapshot.crawl_id),
-                "SNAPSHOT_ID": str(snapshot.id),
-            },
             started_at=timezone.now(),
         )
 
@@ -1290,11 +1286,8 @@ class TestLiveProgressView:
             process_type=Process.TypeChoices.HOOK,
             status=Process.StatusChoices.RUNNING,
             pid=pid,
+            pwd=str(snapshot.output_dir / "title"),
             cmd=["/plugins/title/on_Snapshot__10_title.py", "--url=https://example.com"],
-            env={
-                "CRAWL_ID": str(snapshot.crawl_id),
-                "SNAPSHOT_ID": str(snapshot.id),
-            },
             started_at=timezone.now(),
         )
 
@@ -1327,11 +1320,8 @@ class TestLiveProgressView:
             process_type=Process.TypeChoices.HOOK,
             status=Process.StatusChoices.RUNNING,
             pid=os.getpid(),
+            pwd=str(snapshot.output_dir / "chrome"),
             cmd=["/plugins/chrome/on_Snapshot__11_chrome_wait.js", "--url=https://example.com"],
-            env={
-                "CRAWL_ID": str(snapshot.crawl_id),
-                "SNAPSHOT_ID": str(snapshot.id),
-            },
             started_at=timezone.now(),
         )
         ArchiveResult.objects.create(
@@ -1369,11 +1359,8 @@ class TestLiveProgressView:
             status=Process.StatusChoices.EXITED,
             exit_code=0,
             pid=99999,
+            pwd=str(snapshot.output_dir / "title"),
             cmd=["/plugins/title/on_Snapshot__10_title.py", "--url=https://example.com"],
-            env={
-                "CRAWL_ID": str(snapshot.crawl_id),
-                "SNAPSHOT_ID": str(snapshot.id),
-            },
             started_at=timezone.now(),
             ended_at=timezone.now(),
         )

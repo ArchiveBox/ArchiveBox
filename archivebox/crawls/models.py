@@ -827,7 +827,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 for record in records[:3]:
                     print(f"   Record: type={record.get('type')}, keys={list(record.keys())[:5]}")
             if system_task:
-                records = [record for record in records if record.get("type") in ("BinaryRequest", "Binary", "Machine")]
+                records = [record for record in records if record.get("type") in ("BinaryRequest", "Binary")]
             overrides = {"crawl": self}
             stats = process_hook_records(records, overrides=overrides)
             if stats:

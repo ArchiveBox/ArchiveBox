@@ -1322,6 +1322,17 @@ def live_progress_view(request):
 
         # Build hierarchical active crawls with nested snapshots and archive results
 
+        active_crawls_qs = (
+            Crawl.objects.filter(status__in=[Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED])
+            .prefetch_related(
+                "snapshot_set",
+                "snapshot_set__archiveresult_set",
+                "snapshot_set__archiveresult_set__process",
+            )
+            .distinct()
+            .order_by("-modified_at")[:10]
+        )
+
         running_processes = Process.objects.filter(
             machine=machine,
             status=Process.StatusChoices.RUNNING,
@@ -1343,28 +1354,45 @@ def live_progress_view(request):
         process_records_by_crawl: dict[str, list[tuple[dict[str, object], object | None]]] = {}
         process_records_by_snapshot: dict[str, list[tuple[dict[str, object], object | None]]] = {}
         seen_process_records: set[str] = set()
+        snapshots = [snapshot for crawl in active_crawls_qs for snapshot in crawl.snapshot_set.all()]
         for proc in running_processes:
-            env = proc.env or {}
-            if not isinstance(env, dict):
-                env = {}
-
-            crawl_id = env.get("CRAWL_ID")
-            snapshot_id = env.get("SNAPSHOT_ID")
+            if not proc.pwd:
+                continue
+            proc_pwd = Path(proc.pwd)
+            matched_snapshot = None
+            for snapshot in snapshots:
+                try:
+                    proc_pwd.relative_to(snapshot.output_dir)
+                    matched_snapshot = snapshot
+                    break
+                except ValueError:
+                    continue
+            if matched_snapshot is None:
+                continue
+            crawl_id = str(matched_snapshot.crawl_id)
+            snapshot_id = str(matched_snapshot.id)
             _plugin, _label, phase, _hook_name = process_label(proc.cmd)
             if crawl_id and proc.pid:
-                crawl_process_pids.setdefault(str(crawl_id), proc.pid)
+                crawl_process_pids.setdefault(crawl_id, proc.pid)
             if phase == "snapshot" and snapshot_id and proc.pid:
-                snapshot_process_pids.setdefault(str(snapshot_id), proc.pid)
+                snapshot_process_pids.setdefault(snapshot_id, proc.pid)
 
         for proc in recent_processes:
-            env = proc.env or {}
-            if not isinstance(env, dict):
-                env = {}
-
-            crawl_id = env.get("CRAWL_ID")
-            snapshot_id = env.get("SNAPSHOT_ID")
-            if not crawl_id and not snapshot_id:
+            if not proc.pwd:
                 continue
+            proc_pwd = Path(proc.pwd)
+            matched_snapshot = None
+            for snapshot in snapshots:
+                try:
+                    proc_pwd.relative_to(snapshot.output_dir)
+                    matched_snapshot = snapshot
+                    break
+                except ValueError:
+                    continue
+            if matched_snapshot is None:
+                continue
+            crawl_id = str(matched_snapshot.crawl_id)
+            snapshot_id = str(matched_snapshot.id)
 
             plugin, label, phase, hook_name = process_label(proc.cmd)
 
@@ -1393,20 +1421,9 @@ def live_progress_view(request):
                 payload["pid"] = proc.pid
             proc_started_at = proc.started_at or proc.modified_at
             if phase == "snapshot" and snapshot_id:
-                process_records_by_snapshot.setdefault(str(snapshot_id), []).append((payload, proc_started_at))
+                process_records_by_snapshot.setdefault(snapshot_id, []).append((payload, proc_started_at))
             elif crawl_id:
-                process_records_by_crawl.setdefault(str(crawl_id), []).append((payload, proc_started_at))
-
-        active_crawls_qs = (
-            Crawl.objects.filter(status__in=[Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED])
-            .prefetch_related(
-                "snapshot_set",
-                "snapshot_set__archiveresult_set",
-                "snapshot_set__archiveresult_set__process",
-            )
-            .distinct()
-            .order_by("-modified_at")[:10]
-        )
+                process_records_by_crawl.setdefault(crawl_id, []).append((payload, proc_started_at))
 
         active_crawls = []
         total_workers = 0

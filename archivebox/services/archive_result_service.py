@@ -9,12 +9,11 @@ from typing import Any
 from asgiref.sync import sync_to_async
 from django.utils import timezone
 
-from abx_dl.events import ArchiveResultEvent, ProcessCompletedEvent
+from abx_dl.events import ArchiveResultEvent, ProcessCompletedEvent, ProcessStartedEvent, SnapshotEvent
 from abx_dl.output_files import guess_mimetype
 from abx_dl.services.base import BaseService
 
-from .db import run_db_op
-from .process_service import ProcessService, parse_event_datetime
+from .process_service import parse_event_datetime
 
 
 def _collect_output_metadata(plugin_dir: Path) -> tuple[dict[str, dict], int, str]:
@@ -209,79 +208,41 @@ class ArchiveResultService(BaseService):
     LISTENS_TO = [ArchiveResultEvent, ProcessCompletedEvent]
     EMITS = []
 
-    def __init__(self, bus, *, process_service: ProcessService):
-        self.process_service = process_service
+    def __init__(self, bus):
         super().__init__(bus)
+        self.bus.on(ArchiveResultEvent, self.on_ArchiveResultEvent__save_to_db)
+        self.bus.on(ProcessCompletedEvent, self.on_ProcessCompletedEvent__save_to_db)
 
-    async def on_ArchiveResultEvent__Outer(self, event: ArchiveResultEvent) -> None:
-        snapshot_output_dir = await run_db_op(self._get_snapshot_output_dir, event.snapshot_id)
-        if snapshot_output_dir is None:
-            return
-        plugin_dir = Path(snapshot_output_dir) / event.plugin
-        output_files, output_size, output_mimetypes = await sync_to_async(_resolve_output_metadata)(event.output_files, plugin_dir)
-        await run_db_op(self._project, event, output_files, output_size, output_mimetypes)
-
-    async def on_ProcessCompletedEvent__Outer(self, event: ProcessCompletedEvent) -> None:
-        if not event.snapshot_id or not event.hook_name.startswith("on_Snapshot"):
-            return
-
-        plugin_dir = Path(event.output_dir)
-        output_files, output_size, output_mimetypes = await sync_to_async(_resolve_output_metadata)(event.output_files, plugin_dir)
-        records = _iter_archiveresult_records(event.stdout)
-        if records:
-            for record in records:
-                await run_db_op(
-                    self._project_from_process_completed,
-                    event,
-                    record,
-                    output_files,
-                    output_size,
-                    output_mimetypes,
-                )
-            return
-
-        synthetic_record = {
-            "plugin": event.plugin_name,
-            "hook_name": event.hook_name,
-            "status": "failed" if event.exit_code != 0 else ("succeeded" if _has_content_files(event.output_files) else "skipped"),
-            "output_str": event.stderr if event.exit_code != 0 else "",
-            "error": event.stderr if event.exit_code != 0 else "",
-        }
-        await run_db_op(
-            self._project_from_process_completed,
-            event,
-            synthetic_record,
-            output_files,
-            output_size,
-            output_mimetypes,
-        )
-
-    def _get_snapshot_output_dir(self, snapshot_id: str) -> str | None:
-        from archivebox.core.models import Snapshot
-
-        snapshot = Snapshot.objects.filter(id=snapshot_id).only("output_dir").first()
-        return str(snapshot.output_dir) if snapshot is not None else None
-
-    def _project(
-        self,
-        event: ArchiveResultEvent,
-        output_files: dict[str, dict],
-        output_size: int,
-        output_mimetypes: str,
-    ) -> None:
+    async def on_ArchiveResultEvent__save_to_db(self, event: ArchiveResultEvent) -> None:
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.machine.models import Process
 
-        snapshot = Snapshot.objects.filter(id=event.snapshot_id).first()
+        snapshot = await Snapshot.objects.filter(id=event.snapshot_id).select_related("crawl", "crawl__created_by").afirst()
         if snapshot is None:
             return
-
+        plugin_dir = Path(snapshot.output_dir) / event.plugin
+        output_files, output_size, output_mimetypes = await sync_to_async(_resolve_output_metadata)(event.output_files, plugin_dir)
+        process_started = await self.bus.find(
+            ProcessStartedEvent,
+            past=True,
+            future=False,
+            where=lambda candidate: self.bus.event_is_child_of(event, candidate),
+        )
         process = None
-        db_process_id = self.process_service.get_db_process_id(event.process_id)
-        if db_process_id:
-            process = Process.objects.filter(id=db_process_id).first()
+        if process_started is not None:
+            started_at = parse_event_datetime(process_started.start_ts)
+            if started_at is None:
+                raise ValueError("ProcessStartedEvent.start_ts is required")
+            process_query = Process.objects.filter(
+                pwd=process_started.output_dir,
+                cmd=[process_started.hook_path, *process_started.hook_args],
+                started_at=started_at,
+            )
+            if process_started.pid:
+                process_query = process_query.filter(pid=process_started.pid)
+            process = await process_query.order_by("-modified_at").afirst()
 
-        result, _created = ArchiveResult.objects.get_or_create(
+        result, _created = await ArchiveResult.objects.aget_or_create(
             snapshot=snapshot,
             plugin=event.plugin,
             hook_name=event.hook_name,
@@ -302,32 +263,54 @@ class ArchiveResultService(BaseService):
         result.end_ts = parse_event_datetime(event.end_ts) or timezone.now()
         if event.error:
             result.notes = event.error
-        result.save()
+        await result.asave()
 
         next_title = _extract_snapshot_title(str(snapshot.output_dir), event.plugin, result.output_str, snapshot_url=snapshot.url)
         if next_title and _should_update_snapshot_title(snapshot.title or "", next_title, snapshot_url=snapshot.url):
             snapshot.title = next_title
-            snapshot.save(update_fields=["title", "modified_at"])
+            await snapshot.asave(update_fields=["title", "modified_at"])
 
-    def _project_from_process_completed(
-        self,
-        event: ProcessCompletedEvent,
-        record: dict,
-        output_files: dict[str, dict],
-        output_size: int,
-        output_mimetypes: str,
-    ) -> None:
-        archive_result_event = ArchiveResultEvent(
-            snapshot_id=record.get("snapshot_id") or event.snapshot_id,
-            plugin=record.get("plugin") or event.plugin_name,
-            hook_name=record.get("hook_name") or event.hook_name,
-            status=record.get("status") or "",
-            process_id=event.process_id,
-            output_str=record.get("output_str") or "",
-            output_json=record.get("output_json") if isinstance(record.get("output_json"), dict) else None,
-            output_files=event.output_files,
-            start_ts=event.start_ts,
-            end_ts=event.end_ts,
-            error=record.get("error") or (event.stderr if event.exit_code != 0 else ""),
+    async def on_ProcessCompletedEvent__save_to_db(self, event: ProcessCompletedEvent) -> None:
+        if not event.hook_name.startswith("on_Snapshot"):
+            return
+        snapshot_event = await self.bus.find(
+            SnapshotEvent,
+            past=True,
+            future=False,
+            where=lambda candidate: self.bus.event_is_child_of(event, candidate),
         )
-        self._project(archive_result_event, output_files, output_size, output_mimetypes)
+        if snapshot_event is None:
+            return
+
+        records = _iter_archiveresult_records(event.stdout)
+        if records:
+            for record in records:
+                await self.bus.emit(
+                    ArchiveResultEvent(
+                        snapshot_id=record.get("snapshot_id") or snapshot_event.snapshot_id,
+                        plugin=record.get("plugin") or event.plugin_name,
+                        hook_name=record.get("hook_name") or event.hook_name,
+                        status=record.get("status") or "",
+                        output_str=record.get("output_str") or "",
+                        output_json=record.get("output_json") if isinstance(record.get("output_json"), dict) else None,
+                        output_files=event.output_files,
+                        start_ts=event.start_ts,
+                        end_ts=event.end_ts,
+                        error=record.get("error") or (event.stderr if event.exit_code != 0 else ""),
+                    ),
+                )
+            return
+
+        await self.bus.emit(
+            ArchiveResultEvent(
+                snapshot_id=snapshot_event.snapshot_id,
+                plugin=event.plugin_name,
+                hook_name=event.hook_name,
+                status="failed" if event.exit_code != 0 else ("succeeded" if _has_content_files(event.output_files) else "skipped"),
+                output_str=event.stderr if event.exit_code != 0 else "",
+                output_files=event.output_files,
+                start_ts=event.start_ts,
+                end_ts=event.end_ts,
+                error=event.stderr if event.exit_code != 0 else "",
+            ),
+        )

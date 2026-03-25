@@ -5,12 +5,12 @@ import pytest
 from django.db import connection
 
 
-from abx_dl.events import BinaryRequestEvent, ProcessCompletedEvent, ProcessStartedEvent
+from abx_dl.events import ArchiveResultEvent, BinaryRequestEvent, ProcessEvent, ProcessStartedEvent
 from abx_dl.orchestrator import create_bus
 from abx_dl.output_files import OutputFile
 
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(transaction=True)
 
 
 def _cleanup_machine_process_rows() -> None:
@@ -75,8 +75,8 @@ def _create_iface(machine):
 
 def test_process_completed_projects_inline_archiveresult():
     from archivebox.core.models import ArchiveResult
-    from archivebox.services.archive_result_service import ArchiveResultService, _collect_output_metadata
-    from archivebox.services.process_service import ProcessService
+    from archivebox.services.archive_result_service import ArchiveResultService
+    import asyncio
 
     snapshot = _create_snapshot()
     plugin_dir = Path(snapshot.output_dir) / "wget"
@@ -84,37 +84,23 @@ def test_process_completed_projects_inline_archiveresult():
     (plugin_dir / "index.html").write_text("<html>ok</html>")
 
     bus = create_bus(name="test_inline_archiveresult")
-    process_service = ProcessService(bus)
-    service = ArchiveResultService(bus, process_service=process_service)
+    service = ArchiveResultService(bus)
 
-    event = ProcessCompletedEvent(
-        plugin_name="wget",
-        hook_name="on_Snapshot__06_wget.finite.bg",
-        stdout='{"snapshot_id":"%s","type":"ArchiveResult","status":"succeeded","output_str":"wget/index.html"}\n' % snapshot.id,
-        stderr="",
-        exit_code=0,
-        output_dir=str(plugin_dir),
-        output_files=[OutputFile(path="index.html", extension="html", mimetype="text/html", size=15)],
-        process_id="proc-inline",
+    event = ArchiveResultEvent(
         snapshot_id=str(snapshot.id),
+        plugin="wget",
+        hook_name="on_Snapshot__06_wget.finite.bg",
+        status="succeeded",
+        output_str="wget/index.html",
+        output_files=[OutputFile(path="index.html", extension="html", mimetype="text/html", size=15)],
         start_ts="2026-03-22T12:00:00+00:00",
         end_ts="2026-03-22T12:00:01+00:00",
     )
 
-    output_files, output_size, output_mimetypes = _collect_output_metadata(plugin_dir)
-    service._project_from_process_completed(
-        event,
-        {
-            "snapshot_id": str(snapshot.id),
-            "plugin": "wget",
-            "hook_name": "on_Snapshot__06_wget.finite.bg",
-            "status": "succeeded",
-            "output_str": "wget/index.html",
-        },
-        output_files,
-        output_size,
-        output_mimetypes,
-    )
+    async def emit_event() -> None:
+        await service.on_ArchiveResultEvent__save_to_db(event)
+
+    asyncio.run(emit_event())
 
     result = ArchiveResult.objects.get(snapshot=snapshot, plugin="wget", hook_name="on_Snapshot__06_wget.finite.bg")
     assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
@@ -127,45 +113,31 @@ def test_process_completed_projects_inline_archiveresult():
 
 def test_process_completed_projects_synthetic_failed_archiveresult():
     from archivebox.core.models import ArchiveResult
-    from archivebox.services.archive_result_service import ArchiveResultService, _collect_output_metadata
-    from archivebox.services.process_service import ProcessService
+    from archivebox.services.archive_result_service import ArchiveResultService
+    import asyncio
 
     snapshot = _create_snapshot()
     plugin_dir = Path(snapshot.output_dir) / "chrome"
     plugin_dir.mkdir(parents=True, exist_ok=True)
 
     bus = create_bus(name="test_synthetic_archiveresult")
-    process_service = ProcessService(bus)
-    service = ArchiveResultService(bus, process_service=process_service)
+    service = ArchiveResultService(bus)
 
-    event = ProcessCompletedEvent(
-        plugin_name="chrome",
-        hook_name="on_Snapshot__11_chrome_wait",
-        stdout="",
-        stderr="Hook timed out after 60 seconds",
-        exit_code=-1,
-        output_dir=str(plugin_dir),
-        output_files=[],
-        process_id="proc-failed",
+    event = ArchiveResultEvent(
         snapshot_id=str(snapshot.id),
+        plugin="chrome",
+        hook_name="on_Snapshot__11_chrome_wait",
+        status="failed",
+        output_str="Hook timed out after 60 seconds",
+        error="Hook timed out after 60 seconds",
         start_ts="2026-03-22T12:00:00+00:00",
         end_ts="2026-03-22T12:01:00+00:00",
     )
 
-    output_files, output_size, output_mimetypes = _collect_output_metadata(plugin_dir)
-    service._project_from_process_completed(
-        event,
-        {
-            "plugin": "chrome",
-            "hook_name": "on_Snapshot__11_chrome_wait",
-            "status": "failed",
-            "output_str": "Hook timed out after 60 seconds",
-            "error": "Hook timed out after 60 seconds",
-        },
-        output_files,
-        output_size,
-        output_mimetypes,
-    )
+    async def emit_event() -> None:
+        await service.on_ArchiveResultEvent__save_to_db(event)
+
+    asyncio.run(emit_event())
 
     result = ArchiveResult.objects.get(snapshot=snapshot, plugin="chrome", hook_name="on_Snapshot__11_chrome_wait")
     assert result.status == ArchiveResult.StatusChoices.FAILED
@@ -176,45 +148,30 @@ def test_process_completed_projects_synthetic_failed_archiveresult():
 
 def test_process_completed_projects_noresults_archiveresult():
     from archivebox.core.models import ArchiveResult
-    from archivebox.services.archive_result_service import ArchiveResultService, _collect_output_metadata
-    from archivebox.services.process_service import ProcessService
+    from archivebox.services.archive_result_service import ArchiveResultService
+    import asyncio
 
     snapshot = _create_snapshot()
     plugin_dir = Path(snapshot.output_dir) / "title"
     plugin_dir.mkdir(parents=True, exist_ok=True)
 
     bus = create_bus(name="test_noresults_archiveresult")
-    process_service = ProcessService(bus)
-    service = ArchiveResultService(bus, process_service=process_service)
+    service = ArchiveResultService(bus)
 
-    event = ProcessCompletedEvent(
-        plugin_name="title",
-        hook_name="on_Snapshot__54_title.js",
-        stdout='{"snapshot_id":"%s","type":"ArchiveResult","status":"noresults","output_str":"No title found"}\n' % snapshot.id,
-        stderr="",
-        exit_code=0,
-        output_dir=str(plugin_dir),
-        output_files=[],
-        process_id="proc-noresults",
+    event = ArchiveResultEvent(
         snapshot_id=str(snapshot.id),
+        plugin="title",
+        hook_name="on_Snapshot__54_title.js",
+        status="noresults",
+        output_str="No title found",
         start_ts="2026-03-22T12:00:00+00:00",
         end_ts="2026-03-22T12:00:01+00:00",
     )
 
-    output_files, output_size, output_mimetypes = _collect_output_metadata(plugin_dir)
-    service._project_from_process_completed(
-        event,
-        {
-            "snapshot_id": str(snapshot.id),
-            "plugin": "title",
-            "hook_name": "on_Snapshot__54_title.js",
-            "status": "noresults",
-            "output_str": "No title found",
-        },
-        output_files,
-        output_size,
-        output_mimetypes,
-    )
+    async def emit_event() -> None:
+        await service.on_ArchiveResultEvent__save_to_db(event)
+
+    asyncio.run(emit_event())
 
     result = ArchiveResult.objects.get(snapshot=snapshot, plugin="title", hook_name="on_Snapshot__54_title.js")
     assert result.status == ArchiveResult.StatusChoices.NORESULTS
@@ -258,45 +215,30 @@ def test_retry_failed_archiveresults_requeues_snapshot_in_queued_state():
 
 
 def test_process_completed_projects_snapshot_title_from_output_str():
-    from archivebox.services.archive_result_service import ArchiveResultService, _collect_output_metadata
-    from archivebox.services.process_service import ProcessService
+    from archivebox.services.archive_result_service import ArchiveResultService
+    import asyncio
 
     snapshot = _create_snapshot()
     plugin_dir = Path(snapshot.output_dir) / "title"
     plugin_dir.mkdir(parents=True, exist_ok=True)
 
     bus = create_bus(name="test_snapshot_title_output_str")
-    process_service = ProcessService(bus)
-    service = ArchiveResultService(bus, process_service=process_service)
+    service = ArchiveResultService(bus)
 
-    event = ProcessCompletedEvent(
-        plugin_name="title",
-        hook_name="on_Snapshot__54_title.js",
-        stdout='{"snapshot_id":"%s","type":"ArchiveResult","status":"succeeded","output_str":"Example Domain"}\n' % snapshot.id,
-        stderr="",
-        exit_code=0,
-        output_dir=str(plugin_dir),
-        output_files=[],
-        process_id="proc-title-output-str",
+    event = ArchiveResultEvent(
         snapshot_id=str(snapshot.id),
+        plugin="title",
+        hook_name="on_Snapshot__54_title.js",
+        status="succeeded",
+        output_str="Example Domain",
         start_ts="2026-03-22T12:00:00+00:00",
         end_ts="2026-03-22T12:00:01+00:00",
     )
 
-    output_files, output_size, output_mimetypes = _collect_output_metadata(plugin_dir)
-    service._project_from_process_completed(
-        event,
-        {
-            "snapshot_id": str(snapshot.id),
-            "plugin": "title",
-            "hook_name": "on_Snapshot__54_title.js",
-            "status": "succeeded",
-            "output_str": "Example Domain",
-        },
-        output_files,
-        output_size,
-        output_mimetypes,
-    )
+    async def emit_event() -> None:
+        await service.on_ArchiveResultEvent__save_to_db(event)
+
+    asyncio.run(emit_event())
 
     snapshot.refresh_from_db()
     assert snapshot.title == "Example Domain"
@@ -304,8 +246,8 @@ def test_process_completed_projects_snapshot_title_from_output_str():
 
 
 def test_process_completed_projects_snapshot_title_from_title_file():
-    from archivebox.services.archive_result_service import ArchiveResultService, _collect_output_metadata
-    from archivebox.services.process_service import ProcessService
+    from archivebox.services.archive_result_service import ArchiveResultService
+    import asyncio
 
     snapshot = _create_snapshot()
     plugin_dir = Path(snapshot.output_dir) / "title"
@@ -313,37 +255,23 @@ def test_process_completed_projects_snapshot_title_from_title_file():
     (plugin_dir / "title.txt").write_text("Example Domain")
 
     bus = create_bus(name="test_snapshot_title_file")
-    process_service = ProcessService(bus)
-    service = ArchiveResultService(bus, process_service=process_service)
+    service = ArchiveResultService(bus)
 
-    event = ProcessCompletedEvent(
-        plugin_name="title",
-        hook_name="on_Snapshot__54_title.js",
-        stdout='{"snapshot_id":"%s","type":"ArchiveResult","status":"noresults","output_str":"No title found"}\n' % snapshot.id,
-        stderr="",
-        exit_code=0,
-        output_dir=str(plugin_dir),
-        output_files=[OutputFile(path="title.txt", extension="txt", mimetype="text/plain", size=14)],
-        process_id="proc-title-file",
+    event = ArchiveResultEvent(
         snapshot_id=str(snapshot.id),
+        plugin="title",
+        hook_name="on_Snapshot__54_title.js",
+        status="noresults",
+        output_str="No title found",
+        output_files=[OutputFile(path="title.txt", extension="txt", mimetype="text/plain", size=14)],
         start_ts="2026-03-22T12:00:00+00:00",
         end_ts="2026-03-22T12:00:01+00:00",
     )
 
-    output_files, output_size, output_mimetypes = _collect_output_metadata(plugin_dir)
-    service._project_from_process_completed(
-        event,
-        {
-            "snapshot_id": str(snapshot.id),
-            "plugin": "title",
-            "hook_name": "on_Snapshot__54_title.js",
-            "status": "noresults",
-            "output_str": "No title found",
-        },
-        output_files,
-        output_size,
-        output_mimetypes,
-    )
+    async def emit_event() -> None:
+        await service.on_ArchiveResultEvent__save_to_db(event)
+
+    asyncio.run(emit_event())
 
     snapshot.refresh_from_db()
     assert snapshot.title == "Example Domain"
@@ -410,9 +338,12 @@ def test_collect_output_metadata_detects_warc_gz_mimetype(tmp_path):
     assert output_mimetypes == "application/warc"
 
 
-def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(monkeypatch):
+@pytest.mark.django_db(transaction=True)
+def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(monkeypatch, tmp_path):
     from archivebox.machine.models import Binary, NetworkInterface
-    from archivebox.services.process_service import ProcessService
+    from archivebox.machine.models import Process as MachineProcess
+    from archivebox.services.process_service import ProcessService as ArchiveBoxProcessService
+    from abx_dl.services.process_service import ProcessService as DlProcessService
 
     machine = _create_machine()
     iface = _create_iface(machine)
@@ -428,35 +359,60 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
         status=Binary.StatusChoices.INSTALLED,
     )
 
+    hook_path = tmp_path / "on_Snapshot__57_mercury.py"
+    hook_path.write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
+    hook_path.chmod(0o755)
+    output_dir = tmp_path / "mercury"
+    output_dir.mkdir()
+
     bus = create_bus(name="test_process_started_binary_hydration")
-    service = ProcessService(bus)
-    event = ProcessStartedEvent(
-        plugin_name="mercury",
-        hook_name="on_Snapshot__57_mercury.py",
-        hook_path="/plugins/mercury/on_Snapshot__57_mercury.py",
-        hook_args=["--url=https://example.com"],
-        output_dir="/tmp/mercury",
-        env={
-            "MERCURY_BINARY": binary.abspath,
-            "NODE_BINARY": "/tmp/node",
-        },
-        timeout=60,
-        pid=4321,
-        process_id="proc-mercury",
-        snapshot_id="",
-        start_ts="2026-03-22T12:00:00+00:00",
+    DlProcessService(bus, emit_jsonl=False, stderr_is_tty=False)
+    ArchiveBoxProcessService(bus)
+
+    async def run_test() -> None:
+        await bus.emit(
+            ProcessEvent(
+                plugin_name="mercury",
+                hook_name="on_Snapshot__57_mercury.py",
+                hook_path=str(hook_path),
+                hook_args=["--url=https://example.com"],
+                is_background=False,
+                output_dir=str(output_dir),
+                env={
+                    "MERCURY_BINARY": binary.abspath,
+                    "NODE_BINARY": "/tmp/node",
+                },
+                timeout=60,
+                url="https://example.com",
+            ),
+        )
+        started = await bus.find(
+            ProcessStartedEvent,
+            past=True,
+            future=False,
+            hook_name="on_Snapshot__57_mercury.py",
+            output_dir=str(output_dir),
+        )
+        assert started is not None
+
+    import asyncio
+
+    asyncio.run(run_test())
+
+    process = MachineProcess.objects.get(
+        pwd=str(output_dir),
+        cmd=[str(hook_path), "--url=https://example.com"],
     )
-
-    service._project_started(event)
-
-    process = service._get_or_create_process(event)
     assert process.binary_id == binary.id
     assert process.iface_id == iface.id
 
 
-def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(monkeypatch):
+@pytest.mark.django_db(transaction=True)
+def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(monkeypatch, tmp_path):
     from archivebox.machine.models import Binary, NetworkInterface
-    from archivebox.services.process_service import ProcessService
+    from archivebox.machine.models import Process as MachineProcess
+    from archivebox.services.process_service import ProcessService as ArchiveBoxProcessService
+    from abx_dl.services.process_service import ProcessService as DlProcessService
 
     machine = _create_machine()
     iface = _create_iface(machine)
@@ -472,27 +428,47 @@ def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(mon
         status=Binary.StatusChoices.INSTALLED,
     )
 
+    hook_path = tmp_path / "on_Snapshot__75_parse_dom_outlinks.js"
+    hook_path.write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
+    hook_path.chmod(0o755)
+    output_dir = tmp_path / "parse-dom-outlinks"
+    output_dir.mkdir()
+
     bus = create_bus(name="test_process_started_node_fallback")
-    service = ProcessService(bus)
-    event = ProcessStartedEvent(
-        plugin_name="parse_dom_outlinks",
-        hook_name="on_Snapshot__75_parse_dom_outlinks.js",
-        hook_path="/plugins/parse_dom_outlinks/on_Snapshot__75_parse_dom_outlinks.js",
-        hook_args=["--url=https://example.com"],
-        output_dir="/tmp/parse-dom-outlinks",
-        env={
-            "NODE_BINARY": node.abspath,
-        },
-        timeout=60,
-        pid=9876,
-        process_id="proc-parse-dom-outlinks",
-        snapshot_id="",
-        start_ts="2026-03-22T12:00:00+00:00",
+    DlProcessService(bus, emit_jsonl=False, stderr_is_tty=False)
+    ArchiveBoxProcessService(bus)
+
+    async def run_test() -> None:
+        await bus.emit(
+            ProcessEvent(
+                plugin_name="parse_dom_outlinks",
+                hook_name="on_Snapshot__75_parse_dom_outlinks.js",
+                hook_path=str(hook_path),
+                hook_args=["--url=https://example.com"],
+                is_background=False,
+                output_dir=str(output_dir),
+                env={"NODE_BINARY": node.abspath},
+                timeout=60,
+                url="https://example.com",
+            ),
+        )
+        started = await bus.find(
+            ProcessStartedEvent,
+            past=True,
+            future=False,
+            hook_name="on_Snapshot__75_parse_dom_outlinks.js",
+            output_dir=str(output_dir),
+        )
+        assert started is not None
+
+    import asyncio
+
+    asyncio.run(run_test())
+
+    process = MachineProcess.objects.get(
+        pwd=str(output_dir),
+        cmd=[str(hook_path), "--url=https://example.com"],
     )
-
-    service._project_started(event)
-
-    process = service._get_or_create_process(event)
     assert process.binary_id == node.id
     assert process.iface_id == iface.id
 
@@ -500,6 +476,7 @@ def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(mon
 def test_binary_event_reuses_existing_installed_binary_row(monkeypatch):
     from archivebox.machine.models import Binary, Machine
     from archivebox.services.binary_service import BinaryService as ArchiveBoxBinaryService
+    import asyncio
 
     machine = _create_machine()
     monkeypatch.setattr(Machine, "current", classmethod(lambda cls: machine))
@@ -522,7 +499,7 @@ def test_binary_event_reuses_existing_installed_binary_row(monkeypatch):
         binproviders="provider",
     )
 
-    service._project_binary(event)
+    asyncio.run(service.on_BinaryRequestEvent(event))
 
     binary.refresh_from_db()
     assert Binary.objects.filter(machine=machine, name="wget").count() == 1

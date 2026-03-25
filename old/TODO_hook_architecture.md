@@ -42,7 +42,7 @@ Crawl.run()
    {'type': 'Dependency', 'bin_name': 'wget', 'bin_providers': 'apt,brew', 'overrides': {...}}
 
    # ❌ WRONG - uses different field names
-   {'type': 'Dependency', 'name': 'wget', 'providers': 'apt,brew', 'custom_cmds': {...}}
+   {'type': 'Dependency', 'name': 'wget', 'providers': 'apt,brew', 'overrides': {...}}
    ```
 
 4. **No hardcoding** - Never hardcode binary names, provider names, or anything else. Use discovery.
@@ -84,7 +84,7 @@ Crawl.run()
    # ❌ WRONG - complex transformation logic
    if obj.get('type') == 'Dependency':
        dep = Dependency.objects.create(name=obj['bin_name'])  # renaming fields
-       dep.custom_commands = transform_overrides(obj['overrides'])  # transforming data
+       dep.overrides = transform_overrides(obj['overrides'])  # transforming data
    ```
 
 ### Pattern Consistency

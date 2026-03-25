@@ -566,33 +566,6 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
             return None
         return {provider.strip() for provider in providers.split(",") if provider.strip()}
 
-    def _get_custom_install_command(self) -> str | None:
-        """Extract a custom install command from overrides when the custom provider is used."""
-        import shlex
-
-        if not isinstance(self.overrides, dict):
-            return None
-
-        for key in ("custom_cmd", "cmd", "command"):
-            value = self.overrides.get(key)
-            if isinstance(value, str) and value.strip():
-                return value.strip()
-
-        custom_overrides = self.overrides.get("custom")
-        if isinstance(custom_overrides, dict):
-            for key in ("custom_cmd", "cmd", "command"):
-                value = custom_overrides.get(key)
-                if isinstance(value, str) and value.strip():
-                    return value.strip()
-
-            install_args = custom_overrides.get("install_args")
-            if isinstance(install_args, str) and install_args.strip():
-                return install_args.strip()
-            if isinstance(install_args, list) and install_args:
-                return " ".join(shlex.quote(str(arg)) for arg in install_args if str(arg).strip())
-
-        return None
-
     def run(self):
         """
         Execute binary installation by running on_BinaryRequest__* hooks.
@@ -637,13 +610,8 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
             plugin_output_dir = output_dir / plugin_name
             plugin_output_dir.mkdir(parents=True, exist_ok=True)
 
-            custom_cmd = None
             overrides_json = None
-            if plugin_name == "custom":
-                custom_cmd = self._get_custom_install_command()
-                if not custom_cmd:
-                    continue
-            elif self.overrides:
+            if self.overrides:
                 overrides_json = json.dumps(self.overrides)
 
             # Run the hook
@@ -656,7 +624,6 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
                 machine_id=str(self.machine_id),
                 name=self.name,
                 binproviders=self.binproviders,
-                custom_cmd=custom_cmd,
                 overrides=overrides_json,
             )
 
