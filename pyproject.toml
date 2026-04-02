@@ -157,12 +157,9 @@ dev = [
 [tool.uv]
 environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
 package = true
+exclude-newer = "14 days"
+exclude-newer-package = { abx-dl = "1 second", abx-pkg = "1 second", abxbus = "1 second" }
 # compile-bytecode = true
-
-[tool.uv.sources]
-abx-pkg = { path = "../abx-pkg", editable = true }
-abx-plugins = { path = "../abx-plugins", editable = true }
-abx-dl = { path = "../abx-dl", editable = true }
 
 [build-system]
 requires = ["pdm-backend"]
