@@ -79,9 +79,9 @@ dependencies = [
     ### Extractor dependencies (optional binaries detected at runtime via shutil.which)
     ### Binary/Package Management
     "abxbus>=2.4.9",          # explicit direct dep so local dev env resolves sibling abxbus repo, matching abx-dl EventBus API
-    "abx-pkg>=1.9.19",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
-    "abx-plugins>=1.10.19",   # shared ArchiveBox plugin package with install_args-only overrides
-    "abx-dl>=1.10.19",        # shared ArchiveBox downloader package with install_args-only overrides
+    "abx-pkg>=1.9.23",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
+    "abx-plugins>=1.10.22",   # shared ArchiveBox plugin package with install_args-only overrides
+    "abx-dl>=1.10.21",        # shared ArchiveBox downloader package with install_args-only overrides
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
 ]
