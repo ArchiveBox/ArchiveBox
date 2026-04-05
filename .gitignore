@@ -35,6 +35,7 @@ dist/
 
 # Data folders
 lib/
+out/
 tmp/
 data/
 data*/
