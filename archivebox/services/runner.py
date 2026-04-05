@@ -17,6 +17,7 @@ from django.utils import timezone
 from rich.console import Console
 
 from abx_dl.events import BinaryRequestEvent
+from abx_dl.heartbeat import CrawlHeartbeat
 from abx_dl.limits import CrawlLimitState
 from abx_dl.models import Plugin, discover_plugins, filter_plugins
 from abx_dl.orchestrator import (
@@ -120,10 +121,16 @@ class CrawlRunner:
         self._live_stream = None
 
     async def run(self) -> None:
+        heartbeat = CrawlHeartbeat(
+            Path(self.crawl.output_dir),
+            runtime="archivebox",
+            crawl_id=str(self.crawl.id),
+        )
         try:
             snapshot_ids = await sync_to_async(self.load_run_state, thread_sensitive=True)()
             live_ui = self._create_live_ui()
             with live_ui if live_ui is not None else nullcontext():
+                await heartbeat.start()
                 setup_abx_services(
                     self.bus,
                     plugins=self.plugins,
@@ -144,6 +151,7 @@ class CrawlRunner:
                     await self.wait_for_snapshot_tasks()
                     await self.run_crawl_cleanup(root_snapshot_id)
         finally:
+            await heartbeat.stop()
             await self.bus.stop()
             if self._live_stream is not None:
                 try:

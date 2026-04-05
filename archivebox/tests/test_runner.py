@@ -608,17 +608,20 @@ def test_crawl_runner_calls_crawl_cleanup_after_snapshot_phase(monkeypatch):
 
 
 def test_abx_process_service_background_process_finishes_after_process_exit(monkeypatch, tmp_path):
-    from abx_dl.models import Process as AbxProcess, now_iso
+    from abx_dl.events import ProcessCompletedEvent, ProcessEvent
     from abx_dl.services.process_service import ProcessService
-    from abx_dl.events import ProcessCompletedEvent, ProcessStartedEvent
 
     service = object.__new__(ProcessService)
     service.emit_jsonl = False
+    service.interactive_tty = False
+    service.pause_requested = asyncio.Event()
+    service.abort_requested = False
     emitted_events = []
 
     class FakeBus:
         async def emit(self, event):
             emitted_events.append(event)
+            return event
 
     service.bus = FakeBus()
 
@@ -632,52 +635,28 @@ def test_abx_process_service_background_process_finishes_after_process_exit(monk
 
     plugin_output_dir = tmp_path / "chrome"
     plugin_output_dir.mkdir()
-    stdout_file = plugin_output_dir / "on_CrawlSetup__90_chrome_launch.daemon.bg.stdout.log"
+    # stdout_file = plugin_output_dir / "on_CrawlSetup__90_chrome_launch.daemon.bg.stdout.log"
     stderr_file = plugin_output_dir / "on_CrawlSetup__90_chrome_launch.daemon.bg.stderr.log"
     stderr_file.write_text("")
     pid_file = plugin_output_dir / "on_CrawlSetup__90_chrome_launch.daemon.bg.pid"
     pid_file.write_text("12345")
 
-    proc = AbxProcess(
-        cmd=["hook"],
-        pwd=str(plugin_output_dir),
-        timeout=60,
-        started_at=now_iso(),
-        plugin="chrome",
-        hook_name="on_CrawlSetup__90_chrome_launch.daemon.bg",
-    )
-
     async def run_test():
-        process = await asyncio.create_subprocess_exec(
-            sys.executable,
-            "-c",
-            "pass",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        event = ProcessStartedEvent(
+        event = ProcessEvent(
             plugin_name="chrome",
             hook_name="on_CrawlSetup__90_chrome_launch.daemon.bg",
-            hook_path="hook",
-            hook_args=["--url=https://example.org/"],
+            hook_path=sys.executable,
+            hook_args=["-c", "pass"],
             env={},
             output_dir=str(plugin_output_dir),
             timeout=60,
-            pid=process.pid,
             is_background=True,
             url="https://example.org/",
             process_type="hook",
             worker_type="hook",
-            start_ts=proc.started_at or "",
-            subprocess=process,
-            stdout_file=stdout_file,
-            stderr_file=stderr_file,
-            pid_file=pid_file,
-            cmd_file=plugin_output_dir / "on_CrawlSetup__90_chrome_launch.daemon.bg.sh",
-            files_before=set(),
         )
         await asyncio.wait_for(
-            service.on_ProcessStartedEvent(event),
+            service.on_ProcessEvent(event),
             timeout=0.5,
         )
 

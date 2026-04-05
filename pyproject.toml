@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.9.12rc1"
+version = "0.9.29rc1"
 requires-python = ">=3.13"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
@@ -79,9 +79,9 @@ dependencies = [
     ### Extractor dependencies (optional binaries detected at runtime via shutil.which)
     ### Binary/Package Management
     "abxbus>=2.4.9",          # explicit direct dep so local dev env resolves sibling abxbus repo, matching abx-dl EventBus API
-    "abx-pkg>=1.9.23",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
-    "abx-plugins>=1.10.22",   # shared ArchiveBox plugin package with install_args-only overrides
-    "abx-dl>=1.10.21",        # shared ArchiveBox downloader package with install_args-only overrides
+    "abx-pkg>=1.9.27",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
+    "abx-plugins>=1.10.29",   # shared ArchiveBox plugin package with install_args-only overrides
+    "abx-dl>=1.10.29",        # shared ArchiveBox downloader package with install_args-only overrides
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
 ]
@@ -117,10 +117,7 @@ all = [
 [dependency-groups]
 dev = [
     ### BUILD
-    "uv>=0.4.26",
-    "pip>=24.2",
-    "setuptools>=75.1.0",
-    "wheel>=0.44.0",
+    "uv>=0.11.3",
     "bumpver>=2023.1129",
     #"homebrew-pypi-poet>=0.10.0", # for: generating archivebox.rb brewfile list of python packages
     ### DOCS
@@ -157,8 +154,8 @@ dev = [
 [tool.uv]
 environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
 package = true
-exclude-newer = "14 days"
-exclude-newer-package = { abx-dl = "1 second", abx-pkg = "1 second", abxbus = "1 second" }
+exclude-newer = "5 days"
+exclude-newer-package = { abx-plugins = "1 second", abx-dl = "1 second", abx-pkg = "1 second", abxbus = "1 second" }
 # compile-bytecode = true
 
 [build-system]
