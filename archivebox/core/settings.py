@@ -557,12 +557,17 @@ if DEBUG_TOOLBAR:
     MIDDLEWARE = [*MIDDLEWARE, "debug_toolbar.middleware.DebugToolbarMiddleware"]
 
 if DEBUG:
-    INSTALLED_APPS += ["django_autotyping"]
-    AUTOTYPING = {
-        "STUBS_GENERATION": {
-            "LOCAL_STUBS_DIR": PACKAGE_DIR / "typings",
-        },
-    }
+    try:
+        import django_autotyping  # noqa
+    except ImportError:
+        pass
+    else:
+        INSTALLED_APPS += ["django_autotyping"]
+        AUTOTYPING = {
+            "STUBS_GENERATION": {
+                "LOCAL_STUBS_DIR": PACKAGE_DIR / "typings",
+            },
+        }
 
 # https://github.com/bensi94/Django-Requests-Tracker (improved version of django-debug-toolbar)
 # Must delete archivebox/templates/admin to use because it relies on some things we override

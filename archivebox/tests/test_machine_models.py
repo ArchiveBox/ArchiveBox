@@ -76,6 +76,22 @@ class TestMachineModel(TestCase):
         # Should have fetched/updated the machine (same GUID)
         self.assertEqual(machine1.guid, machine2.guid)
 
+    def test_machine_current_recreates_stale_cached_row(self):
+        """Machine.current() should recreate the cached machine if the row was deleted."""
+        import archivebox.machine.models as models
+
+        machine1 = Machine.current()
+        machine1_id = machine1.id
+        machine1_guid = machine1.guid
+
+        machine1.delete()
+        models._CURRENT_MACHINE = machine1
+
+        machine2 = Machine.current()
+
+        self.assertNotEqual(machine1_id, machine2.id)
+        self.assertEqual(machine1_guid, machine2.guid)
+
     def test_machine_from_jsonl_update(self):
         """Machine.from_json() should update machine config."""
         Machine.current()  # Ensure machine exists

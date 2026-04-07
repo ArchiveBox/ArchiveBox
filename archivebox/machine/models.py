@@ -172,8 +172,12 @@ class Machine(ModelWithHealthStats):
         global _CURRENT_MACHINE
         if _CURRENT_MACHINE:
             if timezone.now() < _CURRENT_MACHINE.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL):
-                return cls._sanitize_config(_CURRENT_MACHINE)
-            _CURRENT_MACHINE = None
+                if not cls.objects.filter(id=_CURRENT_MACHINE.id).exists():
+                    _CURRENT_MACHINE = None
+                else:
+                    return cls._sanitize_config(_CURRENT_MACHINE)
+            else:
+                _CURRENT_MACHINE = None
         _CURRENT_MACHINE, _ = cls.objects.update_or_create(
             guid=get_host_guid(),
             defaults={"hostname": socket.gethostname(), **get_os_info(), **get_vm_info(), "stats": get_host_stats()},

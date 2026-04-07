@@ -238,6 +238,75 @@ class TestHookDiscovery(unittest.TestCase):
         self.assertEqual(hooks_module.normalize_hook_event_name("SnapshotCleanupEvent"), "SnapshotCleanup")
         self.assertEqual(hooks_module.normalize_hook_event_name("CrawlCleanupEvent"), "CrawlCleanup")
 
+    def test_discover_hooks_skips_plugins_with_disabled_required_dependencies(self):
+        """Plugins whose required_plugins are disabled should not run."""
+        from archivebox import hooks as hooks_module
+
+        chrome_dir = self.plugins_dir / "chrome"
+        chrome_dir.mkdir(exist_ok=True)
+        (chrome_dir / "config.json").write_text(
+            json.dumps(
+                {
+                    "type": "object",
+                    "required_plugins": [],
+                    "properties": {
+                        "CHROME_ENABLED": {
+                            "type": "boolean",
+                            "default": True,
+                            "x-aliases": ["USE_CHROME"],
+                        },
+                    },
+                },
+            ),
+        )
+        (chrome_dir / "on_Snapshot__20_chrome.js").write_text("// chrome hook")
+
+        accessibility_dir = self.plugins_dir / "accessibility"
+        accessibility_dir.mkdir(exist_ok=True)
+        (accessibility_dir / "config.json").write_text(
+            json.dumps(
+                {
+                    "type": "object",
+                    "required_plugins": ["chrome"],
+                    "properties": {
+                        "ACCESSIBILITY_ENABLED": {
+                            "type": "boolean",
+                            "default": True,
+                        },
+                    },
+                },
+            ),
+        )
+        (accessibility_dir / "on_Snapshot__10_accessibility.js").write_text("// accessibility hook")
+
+        wget_dir = self.plugins_dir / "wget"
+        (wget_dir / "config.json").write_text(
+            json.dumps(
+                {
+                    "type": "object",
+                    "required_plugins": [],
+                    "properties": {
+                        "WGET_ENABLED": {
+                            "type": "boolean",
+                            "default": True,
+                            "x-aliases": ["SAVE_WGET"],
+                        },
+                    },
+                },
+            ),
+        )
+
+        with (
+            patch.object(hooks_module, "BUILTIN_PLUGINS_DIR", self.plugins_dir),
+            patch.object(hooks_module, "USER_PLUGINS_DIR", self.test_dir / "user_plugins"),
+        ):
+            hooks = hooks_module.discover_hooks("Snapshot", config={"CHROME_ENABLED": False, "WGET_ENABLED": True})
+
+        hook_names = [hook.parent.name for hook in hooks]
+        self.assertIn("wget", hook_names)
+        self.assertNotIn("chrome", hook_names)
+        self.assertNotIn("accessibility", hook_names)
+
     def test_get_plugins_includes_non_snapshot_plugin_dirs(self):
         """get_plugins() should include binary-only plugins with standardized metadata."""
         env_dir = self.plugins_dir / "env"

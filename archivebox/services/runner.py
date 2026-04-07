@@ -16,10 +16,10 @@ from asgiref.sync import sync_to_async
 from django.utils import timezone
 from rich.console import Console
 
-from abx_dl.events import BinaryRequestEvent
+from abx_dl.events import BinaryRequestEvent, MachineEvent
 from abx_dl.heartbeat import CrawlHeartbeat
 from abx_dl.limits import CrawlLimitState
-from abx_dl.models import Plugin, discover_plugins, filter_plugins
+from abx_dl.models import Plugin, Snapshot as AbxSnapshot, discover_plugins, filter_plugins
 from abx_dl.orchestrator import (
     create_bus,
     download,
@@ -30,6 +30,7 @@ from abx_dl.orchestrator import (
 from .archive_result_service import ArchiveResultService
 from .binary_service import BinaryService
 from .crawl_service import CrawlService
+from .machine_service import MachineService
 from .process_service import ProcessService
 from .snapshot_service import SnapshotService
 from .tag_service import TagService
@@ -44,6 +45,33 @@ def _bus_name(prefix: str, identifier: str) -> str:
 def _count_selected_hooks(plugins: dict[str, Plugin], selected_plugins: list[str] | None) -> int:
     selected = filter_plugins(plugins, selected_plugins) if selected_plugins else plugins
     return sum(1 for plugin in selected.values() for hook in plugin.hooks if "CrawlSetup" in hook.name or "Snapshot" in hook.name)
+
+
+def _normalize_runtime_config(config: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in json.loads(json.dumps(config, default=str)).items() if value is not None}
+
+
+async def _emit_machine_config(
+    bus,
+    *,
+    config: dict[str, Any],
+    derived_config: dict[str, Any],
+) -> None:
+    user_config = _normalize_runtime_config(config)
+    derived_machine_config = _normalize_runtime_config(derived_config)
+    await bus.emit(
+        MachineEvent(
+            config=user_config,
+            config_type="user",
+        ),
+    )
+    if derived_machine_config:
+        await bus.emit(
+            MachineEvent(
+                config=derived_machine_config,
+                config_type="derived",
+            ),
+        )
 
 
 def ensure_background_runner(*, allow_under_pytest: bool = False) -> bool:
@@ -99,6 +127,7 @@ class CrawlRunner:
         BinaryService(self.bus)
         TagService(self.bus)
         CrawlService(self.bus, crawl_id=str(crawl.id))
+        MachineService(self.bus)
         self.process_discovered_snapshots_inline = process_discovered_snapshots_inline
 
         async def ignore_snapshot(_snapshot_id: str) -> None:
@@ -118,11 +147,12 @@ class CrawlRunner:
         self.base_config: dict[str, Any] = {}
         self.derived_config: dict[str, Any] = {}
         self.primary_url = ""
+        self.crawl_output_dir = ""
         self._live_stream = None
 
     async def run(self) -> None:
         heartbeat = CrawlHeartbeat(
-            Path(self.crawl.output_dir),
+            Path(self.crawl_output_dir),
             runtime="archivebox",
             crawl_id=str(self.crawl.id),
         )
@@ -131,17 +161,35 @@ class CrawlRunner:
             live_ui = self._create_live_ui()
             with live_ui if live_ui is not None else nullcontext():
                 await heartbeat.start()
-                setup_abx_services(
+                if snapshot_ids:
+                    root_snapshot = await sync_to_async(self.load_snapshot_payload, thread_sensitive=True)(snapshot_ids[0])
+                    setup_abx_services(
+                        self.bus,
+                        plugins=self.plugins,
+                        url=root_snapshot["url"],
+                        snapshot=AbxSnapshot(
+                            id=root_snapshot["id"],
+                            url=root_snapshot["url"],
+                            depth=int(root_snapshot["depth"]),
+                            crawl_id=str(self.crawl.id),
+                        ),
+                        output_dir=Path(root_snapshot["output_dir"]),
+                        install_enabled=False,
+                        crawl_setup_enabled=False,
+                        crawl_start_enabled=False,
+                        snapshot_cleanup_enabled=False,
+                        crawl_cleanup_enabled=False,
+                        persist_derived=False,
+                        auto_install=True,
+                        emit_jsonl=False,
+                    )
+                await _emit_machine_config(
                     self.bus,
-                    plugins=self.plugins,
-                    config_overrides={
+                    config={
                         **self.base_config,
                         "ABX_RUNTIME": "archivebox",
                     },
-                    derived_config_overrides=self.derived_config,
-                    persist_derived=False,
-                    auto_install=True,
-                    emit_jsonl=False,
+                    derived_config=self.derived_config,
                 )
                 if snapshot_ids:
                     root_snapshot_id = snapshot_ids[0]
@@ -186,6 +234,7 @@ class CrawlRunner:
 
     def load_run_state(self) -> list[str]:
         from archivebox.config.configset import get_config
+        from archivebox.hooks import discover_hooks
         from archivebox.machine.models import Machine, NetworkInterface, Process
 
         self.primary_url = self.crawl.get_urls_list()[0] if self.crawl.get_urls_list() else ""
@@ -198,10 +247,18 @@ class CrawlRunner:
         self.persona = self.crawl.resolve_persona()
         self.base_config = get_config(crawl=self.crawl)
         self.derived_config = dict(Machine.current().config)
+        self.crawl_output_dir = str(self.crawl.output_dir)
         self.base_config["ABX_RUNTIME"] = "archivebox"
         if self.selected_plugins is None:
-            raw_plugins = self.base_config["PLUGINS"].strip()
-            self.selected_plugins = [name.strip() for name in raw_plugins.split(",") if name.strip()] if raw_plugins else None
+            raw_plugins = str(self.base_config.get("PLUGINS") or "").strip()
+            if raw_plugins:
+                self.selected_plugins = [name.strip() for name in raw_plugins.split(",") if name.strip()]
+            else:
+                runtime_events = ("CrawlSetup", "CrawlCleanup", "Snapshot", "SnapshotCleanup")
+                runtime_plugins = {
+                    hook.parent.name for event_name in runtime_events for hook in discover_hooks(event_name, config=self.base_config)
+                }
+                self.selected_plugins = sorted(runtime_plugins) or None
         if self.persona:
             self.base_config.update(
                 self.persona.prepare_runtime_for_crawl(
@@ -275,7 +332,7 @@ class CrawlRunner:
         )
         live_ui.print_intro(
             url=self.primary_url or "crawl",
-            output_dir=Path(self.crawl.output_dir),
+            output_dir=Path(self.crawl_output_dir),
             plugins_label=plugins_label,
         )
         return live_ui
@@ -287,7 +344,7 @@ class CrawlRunner:
         snapshot = Snapshot.objects.select_related("crawl").get(id=snapshot_id)
         config = get_config(crawl=self.crawl, snapshot=snapshot)
         config.update(self.base_config)
-        config["CRAWL_DIR"] = str(self.crawl.output_dir)
+        config["CRAWL_DIR"] = self.crawl_output_dir
         config["SNAP_DIR"] = str(snapshot.output_dir)
         extra_context: dict[str, Any] = {}
         if config.get("EXTRA_CONTEXT"):
@@ -310,7 +367,61 @@ class CrawlRunner:
             "status": snapshot.status,
             "output_dir": str(snapshot.output_dir),
             "config": config,
+            "_snapshot": snapshot,
         }
+
+    async def enqueue_discovered_snapshots_from_outputs(self, snapshot_payload: dict[str, Any]) -> None:
+        from archivebox.core.models import Snapshot
+        from archivebox.hooks import collect_urls_from_plugins
+
+        if int(snapshot_payload["depth"]) >= self.crawl.max_depth:
+            return
+        if CrawlLimitState.from_config(snapshot_payload["config"]).get_stop_reason() == "max_size":
+            return
+
+        discovered_urls = await sync_to_async(collect_urls_from_plugins, thread_sensitive=True)(Path(snapshot_payload["output_dir"]))
+        if not discovered_urls:
+            return
+
+        parent_snapshot = snapshot_payload.get("_snapshot")
+        if parent_snapshot is None:
+            parent_snapshot = await sync_to_async(
+                lambda: Snapshot.objects.select_related("crawl", "crawl__created_by").filter(id=snapshot_payload["id"]).first(),
+                thread_sensitive=True,
+            )()
+        if parent_snapshot is None:
+            return
+
+        for record in discovered_urls:
+            url = str(record.get("url") or "").strip()
+            if not url:
+                continue
+            passes_filters = await sync_to_async(self.crawl.url_passes_filters, thread_sensitive=True)(url, snapshot=parent_snapshot)
+            if not passes_filters:
+                continue
+            child_snapshot = await sync_to_async(Snapshot.from_json, thread_sensitive=True)(
+                {
+                    "url": url,
+                    "depth": parent_snapshot.depth + 1,
+                    "title": str(record.get("title") or "").strip(),
+                    "tags": str(record.get("tags") or "").strip(),
+                    "parent_snapshot_id": str(parent_snapshot.id),
+                    "crawl_id": str(self.crawl.id),
+                },
+                overrides={
+                    "crawl": self.crawl,
+                    "snapshot": parent_snapshot,
+                    "created_by_id": self.crawl.created_by_id,
+                },
+                queue_for_extraction=False,
+            )
+            if child_snapshot is None or child_snapshot.status == child_snapshot.StatusChoices.SEALED:
+                continue
+            child_snapshot.status = child_snapshot.StatusChoices.QUEUED
+            child_snapshot.retry_at = timezone.now()
+            await child_snapshot.asave(update_fields=["status", "retry_at", "modified_at"])
+            if self.process_discovered_snapshots_inline:
+                await self.enqueue_snapshot(str(child_snapshot.id))
 
     async def run_crawl_setup(self, snapshot_id: str) -> None:
         snapshot = await sync_to_async(self.load_snapshot_payload, thread_sensitive=True)(snapshot_id)
@@ -319,8 +430,8 @@ class CrawlRunner:
             plugins=self.plugins,
             output_dir=Path(snapshot["output_dir"]),
             selected_plugins=self.selected_plugins,
-            config_overrides=snapshot["config"],
-            derived_config_overrides=self.derived_config,
+            config_overrides=_normalize_runtime_config(snapshot["config"]),
+            derived_config_overrides=_normalize_runtime_config(self.derived_config),
             bus=self.bus,
             emit_jsonl=False,
             install_enabled=True,
@@ -328,11 +439,11 @@ class CrawlRunner:
             crawl_start_enabled=False,
             snapshot_cleanup_enabled=False,
             crawl_cleanup_enabled=False,
-            machine_service=None,
-            binary_service=None,
-            process_service=None,
-            archive_result_service=None,
-            tag_service=None,
+            MachineService=None,
+            BinaryService=None,
+            ProcessService=None,
+            ArchiveResultService=None,
+            TagService=None,
         )
 
     async def run_crawl_cleanup(self, snapshot_id: str) -> None:
@@ -343,19 +454,19 @@ class CrawlRunner:
             output_dir=Path(snapshot["output_dir"]),
             plugins=self.plugins,
             selected_plugins=self.selected_plugins,
-            config_overrides=snapshot["config"],
-            derived_config_overrides=self.derived_config,
+            config_overrides=_normalize_runtime_config(snapshot["config"]),
+            derived_config_overrides=_normalize_runtime_config(self.derived_config),
             emit_jsonl=False,
             install_enabled=False,
             crawl_setup_enabled=False,
             crawl_start_enabled=False,
             snapshot_cleanup_enabled=False,
             crawl_cleanup_enabled=True,
-            machine_service=None,
-            binary_service=None,
-            process_service=None,
-            archive_result_service=None,
-            tag_service=None,
+            MachineService=None,
+            BinaryService=None,
+            ProcessService=None,
+            ArchiveResultService=None,
+            TagService=None,
         )
 
     async def run_snapshot(self, snapshot_id: str) -> None:
@@ -372,8 +483,8 @@ class CrawlRunner:
                     plugins=self.plugins,
                     output_dir=Path(snapshot["output_dir"]),
                     selected_plugins=self.selected_plugins,
-                    config_overrides=snapshot["config"],
-                    derived_config_overrides=self.derived_config,
+                    config_overrides=_normalize_runtime_config(snapshot["config"]),
+                    derived_config_overrides=_normalize_runtime_config(self.derived_config),
                     bus=self.bus,
                     emit_jsonl=False,
                     install_enabled=False,
@@ -381,12 +492,13 @@ class CrawlRunner:
                     crawl_start_enabled=True,
                     snapshot_cleanup_enabled=True,
                     crawl_cleanup_enabled=False,
-                    machine_service=None,
-                    binary_service=None,
-                    process_service=None,
-                    archive_result_service=None,
-                    tag_service=None,
+                    MachineService=None,
+                    BinaryService=None,
+                    ProcessService=None,
+                    ArchiveResultService=None,
+                    TagService=None,
                 )
+                await self.enqueue_discovered_snapshots_from_outputs(snapshot)
             finally:
                 current_task = asyncio.current_task()
                 if current_task is not None and self.snapshot_tasks.get(snapshot_id) is current_task:
@@ -431,22 +543,28 @@ async def _run_binary(binary_id: str) -> None:
     plugins = discover_plugins()
     config = get_config()
     machine = await sync_to_async(Machine.current, thread_sensitive=True)()
-    derived_config = dict(machine.config)
+    derived_config = _normalize_runtime_config(dict(machine.config))
     config["ABX_RUNTIME"] = "archivebox"
+    config = _normalize_runtime_config(config)
     bus = create_bus(name=_bus_name("ArchiveBox_binary", str(binary.id)), total_timeout=1800.0)
     ProcessService(bus)
     BinaryService(bus)
     TagService(bus)
     ArchiveResultService(bus)
+    MachineService(bus)
     setup_abx_services(
         bus,
         plugins=plugins,
-        config_overrides=config,
-        derived_config_overrides=derived_config,
+        install_enabled=False,
+        crawl_setup_enabled=False,
+        crawl_start_enabled=False,
+        snapshot_cleanup_enabled=False,
+        crawl_cleanup_enabled=False,
         persist_derived=False,
         auto_install=True,
         emit_jsonl=False,
     )
+    await _emit_machine_config(bus, config=config, derived_config=derived_config)
 
     try:
         await bus.emit(
@@ -476,22 +594,16 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
     plugins = discover_plugins()
     config = get_config()
     machine = await sync_to_async(Machine.current, thread_sensitive=True)()
-    derived_config = dict(machine.config)
+    derived_config = _normalize_runtime_config(dict(machine.config))
     config["ABX_RUNTIME"] = "archivebox"
+    config = _normalize_runtime_config(config)
     bus = create_bus(name="ArchiveBox_install", total_timeout=3600.0)
     ProcessService(bus)
     BinaryService(bus)
     TagService(bus)
     ArchiveResultService(bus)
-    setup_abx_services(
-        bus,
-        plugins=plugins,
-        config_overrides=config,
-        derived_config_overrides=derived_config,
-        persist_derived=False,
-        auto_install=True,
-        emit_jsonl=False,
-    )
+    MachineService(bus)
+    await _emit_machine_config(bus, config=config, derived_config=derived_config)
     live_stream = None
 
     try:
@@ -549,7 +661,7 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
                     plugins_label=plugins_label,
                 )
             with live_ui if live_ui is not None else nullcontext():
-                results = await abx_install_plugins(
+                await abx_install_plugins(
                     plugin_names=plugin_names,
                     plugins=plugins,
                     output_dir=output_dir,
@@ -557,12 +669,10 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
                     derived_config_overrides=derived_config,
                     emit_jsonl=False,
                     bus=bus,
-                    machine_service=None,
-                    binary_service=None,
-                    process_service=None,
+                    MachineService=None,
                 )
             if live_ui is not None:
-                live_ui.print_summary(results, output_dir=output_dir)
+                live_ui.print_summary(output_dir=output_dir)
     finally:
         await bus.stop()
         try:
@@ -713,19 +823,6 @@ def run_pending_crawls(*, daemon: bool = False, crawl_id: str | None = None) -> 
                 if schedule.is_due(now):
                     schedule.enqueue(queued_at=now)
 
-        if crawl_id is None:
-            binary = (
-                Binary.objects.filter(retry_at__lte=timezone.now())
-                .exclude(status=Binary.StatusChoices.INSTALLED)
-                .order_by("retry_at", "created_at")
-                .first()
-            )
-            if binary is not None:
-                if not binary.claim_processing_lock(lock_seconds=60):
-                    continue
-                run_binary(str(binary.id))
-                continue
-
         queued_crawls = Crawl.objects.filter(
             retry_at__lte=timezone.now(),
             status=Crawl.StatusChoices.QUEUED,
@@ -757,6 +854,21 @@ def run_pending_crawls(*, daemon: bool = False, crawl_id: str | None = None) -> 
                     snapshot_ids=[str(snapshot.id)],
                     process_discovered_snapshots_inline=False,
                 )
+                continue
+
+        if crawl_id is None:
+            # Standalone binary backlog should not starve queued crawls or snapshots.
+            # Crawl.run() already claims and installs crawl-declared Binary rows as needed.
+            binary = (
+                Binary.objects.filter(retry_at__lte=timezone.now())
+                .exclude(status=Binary.StatusChoices.INSTALLED)
+                .order_by("retry_at", "created_at")
+                .first()
+            )
+            if binary is not None:
+                if not binary.claim_processing_lock(lock_seconds=60):
+                    continue
+                run_binary(str(binary.id))
                 continue
 
         pending = Crawl.objects.filter(

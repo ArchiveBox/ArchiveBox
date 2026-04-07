@@ -366,7 +366,7 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
     output_dir.mkdir()
 
     bus = create_bus(name="test_process_started_binary_hydration")
-    DlProcessService(bus, emit_jsonl=False, stderr_is_tty=False)
+    DlProcessService(bus, emit_jsonl=False, interactive_tty=False)
     ArchiveBoxProcessService(bus)
 
     async def run_test() -> None:
@@ -435,7 +435,7 @@ def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(mon
     output_dir.mkdir()
 
     bus = create_bus(name="test_process_started_node_fallback")
-    DlProcessService(bus, emit_jsonl=False, stderr_is_tty=False)
+    DlProcessService(bus, emit_jsonl=False, interactive_tty=False)
     ArchiveBoxProcessService(bus)
 
     async def run_test() -> None:

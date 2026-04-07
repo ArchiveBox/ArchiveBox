@@ -863,7 +863,7 @@ def get_config_defaults_from_plugins() -> dict[str, Any]:
     return defaults
 
 
-def get_plugin_special_config(plugin_name: str, config: dict[str, Any]) -> dict[str, Any]:
+def get_plugin_special_config(plugin_name: str, config: dict[str, Any], _visited: set[str] | None = None) -> dict[str, Any]:
     """
     Extract special config keys for a plugin following naming conventions.
 
@@ -944,6 +944,25 @@ def get_plugin_special_config(plugin_name: str, config: dict[str, Any]) -> dict[
         elif isinstance(enabled, str):
             # Handle string values from config file ("true"/"false")
             enabled = enabled.lower() not in ("false", "0", "no", "")
+
+    plugin_configs = discover_plugin_configs()
+    plugin_name_lower = plugin_name.lower()
+
+    if enabled:
+        visited = _visited or set()
+        if plugin_name_lower not in visited:
+            next_visited = visited | {plugin_name_lower}
+            schema = plugin_configs.get(plugin_name_lower, {})
+            required_plugins = schema.get("required_plugins", [])
+            if isinstance(required_plugins, list):
+                for required_plugin in required_plugins:
+                    required_plugin_name = str(required_plugin).strip()
+                    if not required_plugin_name:
+                        continue
+                    required_config = get_plugin_special_config(required_plugin_name, config, _visited=next_visited)
+                    if not required_config["enabled"]:
+                        enabled = False
+                        break
 
     # 2. Timeout: PLUGINNAME_TIMEOUT (fallback to TIMEOUT, default 300)
     timeout_key = f"{plugin_upper}_TIMEOUT"

@@ -35,6 +35,7 @@ def build_test_env(port: int, **extra: str) -> dict[str, str]:
     env.pop("DATA_DIR", None)
     env.update(
         {
+            "PLUGINS": "wget",
             "LISTEN_HOST": f"archivebox.localhost:{port}",
             "ALLOWED_HOSTS": "*",
             "CSRF_TRUSTED_ORIGINS": f"http://admin.archivebox.localhost:{port}",

@@ -70,6 +70,7 @@ def test_run_snapshot_reuses_crawl_bus_for_all_snapshots(monkeypatch):
     monkeypatch.setattr(runner_module, "CrawlService", _DummyService)
     monkeypatch.setattr(runner_module, "SnapshotService", _DummyService)
     monkeypatch.setattr(runner_module, "ArchiveResultService", _DummyService)
+    monkeypatch.setattr(runner_module, "_emit_machine_config", lambda *args, **kwargs: asyncio.sleep(0))
     monkeypatch.setattr(runner_module, "setup_abx_services", lambda *args, **kwargs: None)
 
     download_calls = []
@@ -284,6 +285,65 @@ def test_load_run_state_uses_machine_config_as_derived_config(monkeypatch):
     assert crawl_runner.derived_config == machine.config
 
 
+def test_load_run_state_uses_enabled_plugins_when_plugins_key_missing(monkeypatch):
+    from archivebox.machine.models import Machine, NetworkInterface, Process
+    from archivebox.services import runner as runner_module
+    from archivebox.config import configset as configset_module
+    from archivebox import hooks as hooks_module
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from pathlib import Path
+
+    machine = Machine.objects.create(
+        guid="test-guid-runner-missing-plugins",
+        hostname="runner-host-missing-plugins",
+        hw_in_docker=False,
+        hw_in_vm=False,
+        hw_manufacturer="Test",
+        hw_product="Test Product",
+        hw_uuid="test-hw-runner-missing-plugins",
+        os_arch="arm64",
+        os_family="darwin",
+        os_platform="macOS",
+        os_release="14.0",
+        os_kernel="Darwin",
+        stats={},
+        config={},
+    )
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    proc = SimpleNamespace(iface_id=str(machine.id), machine_id=str(machine.id), iface=None, machine=machine, save=lambda **kwargs: None)
+
+    monkeypatch.setattr(
+        NetworkInterface,
+        "current",
+        classmethod(lambda cls, refresh=False: SimpleNamespace(id=machine.id, machine=machine)),
+    )
+    monkeypatch.setattr(Process, "current", classmethod(lambda cls: proc))
+    monkeypatch.setattr(Machine, "current", classmethod(lambda cls: machine))
+    monkeypatch.setattr(configset_module, "get_config", lambda **kwargs: {"CHROME_BINARY": "", "TIMEOUT": 60})
+    monkeypatch.setattr(
+        hooks_module,
+        "discover_hooks",
+        lambda event_name, config=None: (
+            [
+                Path(f"/tmp/{event_name.lower()}/wget/on_{event_name}__test.py"),
+                Path(f"/tmp/{event_name.lower()}/favicon/on_{event_name}__test.py"),
+            ]
+            if event_name in {"CrawlSetup", "Snapshot"}
+            else []
+        ),
+    )
+
+    crawl_runner = runner_module.CrawlRunner(crawl)
+    snapshot_ids = crawl_runner.load_run_state()
+
+    assert crawl_runner.selected_plugins == ["favicon", "wget"]
+    assert len(snapshot_ids) == 1
+
+
 def test_run_snapshot_skips_descendant_when_max_size_already_reached(monkeypatch, tmp_path):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
@@ -456,8 +516,19 @@ def test_crawl_runner_does_not_seal_unfinished_crawl(monkeypatch):
         status=Snapshot.StatusChoices.STARTED,
     )
 
+    monkeypatch.setattr(runner_module, "_emit_machine_config", lambda *args, **kwargs: asyncio.sleep(0))
     monkeypatch.setattr(runner_module, "setup_abx_services", lambda *args, **kwargs: None)
     monkeypatch.setattr(runner_module.CrawlRunner, "load_run_state", lambda self: [str(snapshot.id)])
+    monkeypatch.setattr(
+        runner_module.CrawlRunner,
+        "load_snapshot_payload",
+        lambda self, _snapshot_id: {
+            "id": str(snapshot.id),
+            "url": snapshot.url,
+            "depth": snapshot.depth,
+            "output_dir": str(snapshot.output_dir),
+        },
+    )
     monkeypatch.setattr(runner_module.CrawlRunner, "_create_live_ui", lambda self: None)
     monkeypatch.setattr(runner_module.CrawlRunner, "run_crawl_setup", lambda self, snapshot_id: asyncio.sleep(0))
     monkeypatch.setattr(runner_module.CrawlRunner, "enqueue_snapshot", lambda self, snapshot_id: asyncio.sleep(0))
@@ -497,8 +568,19 @@ def test_crawl_runner_calls_load_and_finalize_run_state(monkeypatch):
     monkeypatch.setattr(runner_module, "CrawlService", _DummyService)
     monkeypatch.setattr(runner_module, "SnapshotService", _DummyService)
     monkeypatch.setattr(runner_module, "ArchiveResultService", _DummyService)
+    monkeypatch.setattr(runner_module, "_emit_machine_config", lambda *args, **kwargs: asyncio.sleep(0))
     monkeypatch.setattr(runner_module, "setup_abx_services", lambda *args, **kwargs: None)
     monkeypatch.setattr(runner_module.CrawlRunner, "load_run_state", lambda self: [str(snapshot.id)])
+    monkeypatch.setattr(
+        runner_module.CrawlRunner,
+        "load_snapshot_payload",
+        lambda self, _snapshot_id: {
+            "id": str(snapshot.id),
+            "url": snapshot.url,
+            "depth": snapshot.depth,
+            "output_dir": str(snapshot.output_dir),
+        },
+    )
     monkeypatch.setattr(runner_module.CrawlRunner, "_create_live_ui", lambda self: None)
     monkeypatch.setattr(runner_module.CrawlRunner, "run_crawl_setup", lambda self, snapshot_id: asyncio.sleep(0))
     monkeypatch.setattr(runner_module.CrawlRunner, "enqueue_snapshot", lambda self, snapshot_id: asyncio.sleep(0))
@@ -588,8 +670,19 @@ def test_crawl_runner_calls_crawl_cleanup_after_snapshot_phase(monkeypatch):
         status=Snapshot.StatusChoices.STARTED,
     )
 
+    monkeypatch.setattr(runner_module, "_emit_machine_config", lambda *args, **kwargs: asyncio.sleep(0))
     monkeypatch.setattr(runner_module, "setup_abx_services", lambda *args, **kwargs: None)
     monkeypatch.setattr(runner_module.CrawlRunner, "load_run_state", lambda self: [str(snapshot.id)])
+    monkeypatch.setattr(
+        runner_module.CrawlRunner,
+        "load_snapshot_payload",
+        lambda self, _snapshot_id: {
+            "id": str(snapshot.id),
+            "url": snapshot.url,
+            "depth": snapshot.depth,
+            "output_dir": str(snapshot.output_dir),
+        },
+    )
     monkeypatch.setattr(runner_module.CrawlRunner, "_create_live_ui", lambda self: None)
     monkeypatch.setattr(runner_module.CrawlRunner, "run_crawl_setup", lambda self, snapshot_id: asyncio.sleep(0))
     monkeypatch.setattr(runner_module.CrawlRunner, "enqueue_snapshot", lambda self, snapshot_id: asyncio.sleep(0))
@@ -746,3 +839,48 @@ def test_run_pending_crawls_prioritizes_new_queued_crawl_before_snapshot_backlog
         runner_module.run_pending_crawls(daemon=False)
 
     assert run_calls == [(str(newer_crawl.id), None, False)]
+
+
+def test_run_pending_crawls_prioritizes_queued_crawl_before_unrelated_binary_backlog(monkeypatch):
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Binary, Machine
+    from archivebox.services import runner as runner_module
+
+    queued_crawl = Crawl.objects.create(
+        urls="https://scheduled.example.com",
+        created_by_id=get_or_create_system_user_pk(),
+        status=Crawl.StatusChoices.QUEUED,
+        retry_at=runner_module.timezone.now(),
+    )
+    unrelated_binary = Binary.objects.create(
+        machine=Machine.current(),
+        name="papers-dl",
+        status=Binary.StatusChoices.QUEUED,
+        retry_at=runner_module.timezone.now(),
+    )
+
+    monkeypatch.setattr(type(queued_crawl), "claim_processing_lock", lambda self, lock_seconds=60: True)
+    monkeypatch.setattr(type(unrelated_binary), "claim_processing_lock", lambda self, lock_seconds=60: True)
+
+    run_calls: list[tuple[str, list[str] | None, bool]] = []
+    binary_calls: list[str] = []
+
+    class _StopScheduling(Exception):
+        pass
+
+    def fake_run_crawl(crawl_id, snapshot_ids=None, selected_plugins=None, process_discovered_snapshots_inline=True):
+        run_calls.append((crawl_id, snapshot_ids, process_discovered_snapshots_inline))
+        raise _StopScheduling
+
+    def fake_run_binary(binary_id):
+        binary_calls.append(binary_id)
+
+    monkeypatch.setattr(runner_module, "run_crawl", fake_run_crawl)
+    monkeypatch.setattr(runner_module, "run_binary", fake_run_binary)
+
+    with pytest.raises(_StopScheduling):
+        runner_module.run_pending_crawls(daemon=False)
+
+    assert run_calls == [(str(queued_crawl.id), None, False)]
+    assert binary_calls == []
