@@ -1342,26 +1342,35 @@ For low hanging fruit / easy first tickets, see: <a href="https://github.com/Arc
 
 <details><summary><i>Click to expand...</i></summary>
 
-#### 1. Clone the main code repo (making sure to pull the submodules as well)
+#### 1. Setup the monorepo
+
+First make sure you have `uv` installed: https://docs.astral.sh/uv/getting-started/installation/
 
 ```bash
-git clone --recurse-submodules https://github.com/ArchiveBox/ArchiveBox
-cd ArchiveBox
-git checkout dev  # or the branch you want to test
-git submodule update --init --recursive
-git pull --recurse-submodules
+git clone https://github.com/ArchiveBox/monorepo
+cd monorepo
+./bin/setup.sh
+
+# activate the monorepo venv, then cd into archivebox
+source .venv/bin/activate
+cd archivebox
 ```
+
+Repos included in monorepo setup:
+
+- https://github.com/ArchiveBox/abxbus
+- https://github.com/ArchiveBox/abx-pkg
+- https://github.com/ArchiveBox/abx-plugins
+- https://github.com/ArchiveBox/abx-dl
+- https://github.com/ArchiveBox/ArchiveBox
+
 
 #### 2. Option A: Install the Python, JS, and system dependencies directly on your machine
 
 ```bash
-# Install ArchiveBox + python dependencies
-pip install uv
-./bin/lock_pkgs.sh         # (aka `uv venv; uv sync;` + generate requirements.txt)
-source .venv/bin/activate  # activate the venv
-
 # Install ArchiveBox runtime dependencies
 mkdir -p data && cd data
+archivebox init
 archivebox install         # detect and install all extractor dependencies
 
 # Run the development server w/ autoreloading (but no bg workers)
@@ -1508,13 +1517,9 @@ archivebox manage runscript testdata
 archivebox manage reset_db
 
 # use django-tui to interactively explore commands
-pip install django-tui
+uv pip install django-tui
 # ensure django-tui is in INSTALLED_APPS: core/settings.py
 archivebox manage tui
-
-# show python and JS package dependency trees
-pdm list --tree
-npm ls --all
 ```
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/dc3e9f8c-9544-46e0-a7f0-30f571b72022" width="600px" alt="ArchiveBox ORM models relatinoship graph"/>
@@ -1530,40 +1535,11 @@ npm ls --all
 
 #### Contributing a new extractor
 
-<details><summary><i>Click to expand...</i></summary>
 
-<br/><br/>
+Extractors are maintained in a separate repo here: https://github.com/ArchiveBox/abx-plugins (included in monorepo setup).
 
-ArchiveBox [`extractors`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/extractors/media.py) are external binaries or Python/Node scripts that ArchiveBox runs to archive content on a page.
+Copy a similar plugin as a template to modify, then open a new PR to add it in that repo.
 
-Extractors take the URL of a page to archive, write their output to the filesystem `data/archive/TIMESTAMP/EXTRACTOR/...`, and return an [`ArchiveResult`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/models.py#:~:text=return%20qs-,class%20ArchiveResult,-(models.Model)%3A) entry which is saved to the database (visible on the `Log` page in the UI).
-
-*Check out how we added **[`archivebox/extractors/singlefile.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/extractors/singlefile.py)** as an example of the process: [Issue #399](https://github.com/ArchiveBox/ArchiveBox/issues/399) + [PR #403](https://github.com/ArchiveBox/ArchiveBox/pull/403).*
-
-<br/>
-
-
-**The process to contribute a new extractor is like this:**
-
-> [!IMPORTANT]
-> This process is getting much easier after v0.8.x, there is a new plugin system under development: https://github.com/ArchiveBox/ArchiveBox/releases/tag/v0.8.4-rc
-
-1. [Open an issue](https://github.com/ArchiveBox/ArchiveBox/issues/new?assignees=&labels=changes%3A+behavior%2Cstatus%3A+idea+phase&template=feature_request.md&title=Feature+Request%3A+...) with your propsoed implementation (please link to the pages of any new external dependencies you plan on using)
-2. Ensure any dependencies needed are easily installable via a package managers like `apt`, `brew`, `pip3`, `npm`
-   (Ideally, prefer to use external programs available via `pip3` or `npm`, however we do support using any binary installable via package manager that exposes a CLI/Python API and writes output to stdout or the filesystem.)
-3. Create a new file in [`archivebox/extractors/EXTRACTOR.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/extractors) (copy an existing extractor like [`singlefile.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/extractors/singlefile.py) as a template)
-4. Add config settings to enable/disable any new dependencies and the extractor as a whole, e.g. `USE_DEPENDENCYNAME`, `SAVE_EXTRACTORNAME`, `EXTRACTORNAME_SOMEOTHEROPTION` in [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config.py)
-5. Add a preview section to [`archivebox/templates/core/snapshot.html`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html) to view the output, and a column to [`archivebox/templates/core/index_row.html`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/index_row.html) with an icon for your extractor
-6. Add an integration test for your extractor in [`tests/test_extractors.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/tests/test_extractors.py)
-7. [Submit your PR for review!](https://github.com/ArchiveBox/ArchiveBox/blob/dev/.github/CONTRIBUTING.md) 🎉
-8. Once merged, please document it in these places and anywhere else you see info about other extractors:
-  - https://github.com/ArchiveBox/ArchiveBox#output-formats
-  - https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#archive-method-toggles
-  - https://github.com/ArchiveBox/ArchiveBox/wiki/Install#dependencies
-
-<br/><br/>
-
-</details>
 
 #### Build the docs, pip package, and docker image
 
