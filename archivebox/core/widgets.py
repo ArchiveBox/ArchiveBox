@@ -311,7 +311,7 @@ class TagEditorWidget(forms.Widget):
                     event.stopPropagation();
                     if (value) {{
                         // Treat commas and whitespace as tag boundaries.
-                        value.split(/[\s,]+/).forEach(function(tag) {{
+                        value.split(/[\\s,]+/).forEach(function(tag) {{
                             addTag_{widget_id}(tag.trim());
                         }});
                     }}
