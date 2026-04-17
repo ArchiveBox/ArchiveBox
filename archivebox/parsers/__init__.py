@@ -155,6 +155,9 @@ def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: 
     referenced_texts = ''
 
     for entry in raw_text.split():
+        # Skip URLs - Path() can't handle them and they aren't local files
+        if any(entry.startswith(s) for s in ('http://', 'https://', 'ftp://')):
+            continue
         try:
             if Path(entry).exists():
                 referenced_texts += Path(entry).read_text()
