@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 GITHUB_BASE="${GITHUB_BASE:-https://github.com/ArchiveBox}"
 MONOREPO_REMOTE="${MONOREPO_REMOTE:-$GITHUB_BASE/monorepo.git}"
-REPO_NAMES=(abxbus abx-pkg abx-plugins abx-dl archivebox)
+REPO_NAMES=(abxbus abxpkg abx-plugins abx-dl archivebox)
 
 is_member_repo() {
     local repo_root="$1"
