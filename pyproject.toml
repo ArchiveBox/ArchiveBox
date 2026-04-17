@@ -79,7 +79,7 @@ dependencies = [
     ### Extractor dependencies (optional binaries detected at runtime via shutil.which)
     ### Binary/Package Management
     "abxbus>=2.4.9",          # explicit direct dep so local dev env resolves sibling abxbus repo, matching abx-dl EventBus API
-    "abx-pkg>=1.9.27",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
+    "abxpkg>=1.10.4",         # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
     "abx-plugins>=1.10.29",   # shared ArchiveBox plugin package with install_args-only overrides
     "abx-dl>=1.10.29",        # shared ArchiveBox downloader package with install_args-only overrides
     ### UUID7 backport for Python <3.14
@@ -155,7 +155,7 @@ dev = [
 environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
 package = true
 exclude-newer = "5 days"
-exclude-newer-package = { abx-plugins = "1 second", abx-dl = "1 second", abx-pkg = "1 second", abxbus = "1 second" }
+exclude-newer-package = { abx-plugins = "1 second", abx-dl = "1 second", abxpkg = "1 second", abxbus = "1 second" }
 # compile-bytecode = true
 
 [build-system]

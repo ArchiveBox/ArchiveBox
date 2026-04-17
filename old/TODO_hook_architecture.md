@@ -58,7 +58,7 @@ Crawl.run()
 5. **Trust abx-pkg** - Never use `shutil.which()`, `subprocess.run([bin, '--version'])`, or manual hash calculation.
    ```python
    # ✅ CORRECT - abx-pkg handles everything
-   from abx_pkg import Binary, PipProvider, EnvProvider
+   from abxpkg import Binary, PipProvider, EnvProvider
    binary = Binary(name='wget', binproviders=[PipProvider(), EnvProvider()]).load()
    # binary.abspath, binary.version, binary.sha256 are all populated automatically
 
@@ -130,7 +130,7 @@ import json
 def find_wget() -> dict | None:
     """Find wget binary using abx-pkg."""
     try:
-        from abx_pkg import Binary, AptProvider, BrewProvider, EnvProvider
+        from abxpkg import Binary, AptProvider, BrewProvider, EnvProvider
 
         binary = Binary(name='wget', binproviders=[AptProvider(), BrewProvider(), EnvProvider()])
         loaded = binary.load()
@@ -201,7 +201,7 @@ if __name__ == '__main__':
 import json
 import sys
 import rich_click as click
-from abx_pkg import Binary, PipProvider
+from abxpkg import Binary, PipProvider
 
 @click.command()
 @click.option('--dependency-id', required=True)

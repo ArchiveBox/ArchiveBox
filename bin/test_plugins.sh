@@ -191,7 +191,7 @@ if [ "$COVERAGE_REPORT_ONLY" = true ]; then
     exit 0
 fi
 
-# Set DATA_DIR for tests (required by abx_pkg and plugins)
+# Set DATA_DIR for tests (required by abxpkg and plugins)
 # Use temp dir to isolate tests from project files
 if [ -z "${DATA_DIR:-}" ]; then
     export DATA_DIR=$(mktemp -d -t archivebox_plugin_tests.XXXXXX)
