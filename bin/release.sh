@@ -150,7 +150,7 @@ update_internal_dependencies() {
     local abxbus_version abxpkg_version abx_plugins_version abx_dl_version
 
     abxbus_version="$(read_repo_version "${WORKSPACE_DIR}/abxbus" || true)"
-    abxpkg_version="$(read_repo_version "${WORKSPACE_DIR}/abx-pkg" || true)"
+    abxpkg_version="$(read_repo_version "${WORKSPACE_DIR}/abxpkg" || true)"
     abx_plugins_version="$(read_repo_version "${WORKSPACE_DIR}/abx-plugins" || true)"
     abx_dl_version="$(read_repo_version "${WORKSPACE_DIR}/abx-dl" || true)"
 
@@ -163,7 +163,7 @@ path = Path('pyproject.toml')
 text = path.read_text()
 for name, version in (
     ('abxbus', sys.argv[1]),
-    ('abx-pkg', sys.argv[2]),
+    ('abxpkg', sys.argv[2]),
     ('abx-plugins', sys.argv[3]),
     ('abx-dl', sys.argv[4]),
 ):

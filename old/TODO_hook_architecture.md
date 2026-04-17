@@ -55,9 +55,9 @@ Crawl.run()
        run_hooks(event_name=f'Dependency__install_using_{provider}_provider', ...)
    ```
 
-5. **Trust abx-pkg** - Never use `shutil.which()`, `subprocess.run([bin, '--version'])`, or manual hash calculation.
+5. **Trust abxpkg** - Never use `shutil.which()`, `subprocess.run([bin, '--version'])`, or manual hash calculation.
    ```python
-   # ✅ CORRECT - abx-pkg handles everything
+   # ✅ CORRECT - abxpkg handles everything
    from abxpkg import Binary, PipProvider, EnvProvider
    binary = Binary(name='wget', binproviders=[PipProvider(), EnvProvider()]).load()
    # binary.abspath, binary.version, binary.sha256 are all populated automatically
@@ -128,7 +128,7 @@ import sys
 import json
 
 def find_wget() -> dict | None:
-    """Find wget binary using abx-pkg."""
+    """Find wget binary using abxpkg."""
     try:
         from abxpkg import Binary, AptProvider, BrewProvider, EnvProvider
 
@@ -185,10 +185,10 @@ if __name__ == '__main__':
 ```
 
 **Rules:**
-- ✅ Use `Binary(...).load()` from abx-pkg - handles finding binary, version, hash automatically
+- ✅ Use `Binary(...).load()` from abxpkg - handles finding binary, version, hash automatically
 - ✅ Emit `Binary` JSONL if found
 - ✅ Emit `Dependency` JSONL if not found
-- ✅ Use `overrides` field matching abx-pkg format: `{'pip': {'packages': ['pkg']}, 'apt': {'packages': ['pkg']}}`
+- ✅ Use `overrides` field matching abxpkg format: `{'pip': {'packages': ['pkg']}, 'apt': {'packages': ['pkg']}}`
 - ❌ NEVER use `shutil.which()`, `subprocess.run()`, manual version detection, or hash calculation
 - ❌ NEVER call package managers (apt, brew, pip, npm) directly
 
@@ -225,7 +225,7 @@ def main(dependency_id: str, bin_name: str, bin_providers: str, overrides: str |
         except json.JSONDecodeError:
             pass
 
-    # Install using abx-pkg
+    # Install using abxpkg
     provider = PipProvider()
     try:
         binary = Binary(name=bin_name, binproviders=[provider], overrides=overrides_dict or {}).install()
@@ -256,7 +256,7 @@ if __name__ == '__main__':
 **Rules:**
 - ✅ Check `bin_providers` parameter - exit cleanly (code 0) if can't handle
 - ✅ Parse `overrides` parameter as full dict, extract your provider's section
-- ✅ Use `Binary(...).install()` from abx-pkg - handles actual installation
+- ✅ Use `Binary(...).install()` from abxpkg - handles actual installation
 - ✅ Emit `Binary` JSONL on success
 - ❌ NEVER hardcode provider names in Model.run() or anywhere else
 - ❌ NEVER skip the bin_providers check

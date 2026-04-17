@@ -12,7 +12,7 @@ jobs:
   python_tests:
     runs-on: ${{ matrix.os }}
     env:
-      PYTHONPATH: ${{ github.workspace }}/abx-pkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
+      PYTHONPATH: ${{ github.workspace }}/abxpkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
 
     strategy:
       matrix:
@@ -26,8 +26,8 @@ jobs:
           submodules: true
           fetch-depth: 1
 
-      - name: Clone abx-pkg
-        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git abx-pkg
+      - name: Clone abxpkg
+        run: git clone --depth=1 https://github.com/ArchiveBox/abxpkg.git abxpkg
 
       - name: Clone abx-plugins
         run: git clone --depth=1 https://github.com/ArchiveBox/abx-plugins.git abx-plugins
@@ -69,7 +69,7 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv sync --dev --all-extras --no-sources
-          uv pip install -e ./abx-pkg -e ./abx-plugins[dev] -e ./abx-dl
+          uv pip install -e ./abxpkg -e ./abx-plugins[dev] -e ./abx-dl
 
       ### Run the tests
       - name: Directory listing for debugging

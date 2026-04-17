@@ -17,7 +17,7 @@ name = "abx-dl"
 version = "1.10.20"
 source = { editable = "../abx-dl" }
 dependencies = [
-    { name = "abx-pkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "abxpkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "jambo", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -32,7 +32,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-pkg", editable = "../abx-pkg" },
+    { name = "abxpkg", editable = "../abxpkg" },
     { name = "abx-plugins", editable = "../abx-plugins" },
     { name = "abxbus", specifier = ">=2.4.9" },
     { name = "flake8", marker = "extra == 'dev'", specifier = ">=7.1.1" },
@@ -63,9 +63,9 @@ dev = [
 ]
 
 [[package]]
-name = "abx-pkg"
+name = "abxpkg"
 version = "1.9.19"
-source = { editable = "../abx-pkg" }
+source = { editable = "../abxpkg" }
 dependencies = [
     { name = "pip", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "platformdirs", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -75,7 +75,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-pkg", extras = ["rich", "pyinfra", "ansible"], marker = "extra == 'all'" },
+    { name = "abxpkg", extras = ["rich", "pyinfra", "ansible"], marker = "extra == 'all'" },
     { name = "ansible", marker = "extra == 'ansible'", specifier = ">=12.3.0" },
     { name = "ansible-core", marker = "extra == 'ansible'", specifier = ">=2.0.0" },
     { name = "ansible-runner", marker = "extra == 'ansible'", specifier = ">=2.4.2" },
@@ -109,7 +109,7 @@ name = "abx-plugins"
 version = "1.10.20"
 source = { editable = "../abx-plugins" }
 dependencies = [
-    { name = "abx-pkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "abxpkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "jambo", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -117,7 +117,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-pkg", specifier = ">=1.9.19" },
+    { name = "abxpkg", specifier = ">=1.9.19" },
     { name = "abxbus", specifier = ">=2.4.9" },
     { name = "feedparser", marker = "extra == 'dev'", specifier = ">=6.0.0" },
     { name = "jambo", specifier = ">=0.1.7" },
@@ -197,7 +197,7 @@ version = "0.9.12rc1"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "abx-pkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "abxpkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "atomicwrites", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -291,7 +291,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "abx-dl", editable = "../abx-dl" },
-    { name = "abx-pkg", editable = "../abx-pkg" },
+    { name = "abxpkg", editable = "../abxpkg" },
     { name = "abx-plugins", editable = "../abx-plugins" },
     { name = "abxbus", specifier = ">=2.4.9" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },

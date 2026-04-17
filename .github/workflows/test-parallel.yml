@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: discover-tests
     env:
-      PYTHONPATH: ${{ github.workspace }}/abx-pkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
+      PYTHONPATH: ${{ github.workspace }}/abxpkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
 
     strategy:
       fail-fast: false
@@ -71,8 +71,8 @@ jobs:
           submodules: true
           fetch-depth: 1
 
-      - name: Clone abx-pkg
-        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git abx-pkg
+      - name: Clone abxpkg
+        run: git clone --depth=1 https://github.com/ArchiveBox/abxpkg.git abxpkg
 
       - name: Clone abx-plugins
         run: git clone --depth=1 https://github.com/ArchiveBox/abx-plugins.git abx-plugins
@@ -112,7 +112,7 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv sync --dev --all-extras --no-sources
-          uv pip install -e ./abx-pkg -e ./abx-plugins[dev] -e ./abx-dl
+          uv pip install -e ./abxpkg -e ./abx-plugins[dev] -e ./abx-dl
 
       - name: Run test - ${{ matrix.test.name }}
         run: |
@@ -123,7 +123,7 @@ jobs:
     name: Plugin tests
     runs-on: ubuntu-22.04
     env:
-      PYTHONPATH: ${{ github.workspace }}/abx-pkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
+      PYTHONPATH: ${{ github.workspace }}/abxpkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
 
     steps:
       - uses: actions/checkout@v4
@@ -131,8 +131,8 @@ jobs:
           submodules: true
           fetch-depth: 1
 
-      - name: Clone abx-pkg
-        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git abx-pkg
+      - name: Clone abxpkg
+        run: git clone --depth=1 https://github.com/ArchiveBox/abxpkg.git abxpkg
 
       - name: Clone abx-plugins
         run: git clone --depth=1 https://github.com/ArchiveBox/abx-plugins.git abx-plugins
@@ -172,7 +172,7 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv sync --dev --all-extras --no-sources
-          uv pip install -e ./abx-pkg -e ./abx-plugins[dev] -e ./abx-dl
+          uv pip install -e ./abxpkg -e ./abx-plugins[dev] -e ./abx-dl
 
       - name: Run plugin tests
         env:
