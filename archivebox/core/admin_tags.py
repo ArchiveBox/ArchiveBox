@@ -62,8 +62,8 @@ class TagAdmin(BaseModelAdmin):
     change_form_template = "admin/core/tag/change_form.html"
     list_display = ("name", "num_snapshots", "created_at", "created_by")
     list_filter = ("created_at", "created_by")
-    search_fields = ("id", "name", "slug")
-    readonly_fields = ("slug", "id", "created_at", "modified_at", "snapshots")
+    search_fields = ("id", "name")
+    readonly_fields = ("id", "created_at", "modified_at", "snapshots")
     actions = ["delete_selected"]
     ordering = ["name", "id"]
 
@@ -71,7 +71,7 @@ class TagAdmin(BaseModelAdmin):
         (
             "Tag",
             {
-                "fields": ("name", "slug"),
+                "fields": ("name",),
                 "classes": ("card",),
             },
         ),

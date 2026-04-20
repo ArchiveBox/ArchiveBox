@@ -551,14 +551,6 @@ document.addEventListener('DOMContentLoaded', function () {
         return div.innerHTML;
     }
 
-    function slugify(value) {
-        return String(value || '')
-            .toLowerCase()
-            .trim()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '') || 'tag';
-    }
-
     function getCSRFToken() {
         const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
         if (input) return input.value;
@@ -983,7 +975,7 @@ document.addEventListener('DOMContentLoaded', function () {
             actionButton.disabled = true;
             try {
                 const tagName = cardEl.querySelector('.tag-card__display strong')?.textContent || 'tag';
-                await downloadFileFromUrl(cardEl.dataset.exportJsonlUrl, 'tag-' + slugify(tagName) + '-snapshots.jsonl');
+                await downloadFileFromUrl(cardEl.dataset.exportJsonlUrl, 'tag-' + encodeURIComponent(tagName) + '-snapshots.jsonl');
             } catch (error) {
                 setToast(error.message || 'Failed to download JSONL.', 'error');
             } finally {

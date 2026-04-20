@@ -15,7 +15,6 @@ from statemachine import State, registry
 from django.db import models
 from django.db.models import QuerySet
 from django.utils.functional import cached_property
-from django.utils.text import slugify
 from django.utils import timezone
 from django.core.cache import cache
 from django.urls import reverse_lazy
@@ -59,7 +58,6 @@ class Tag(ModelWithUUID):
     created_at = models.DateTimeField(default=timezone.now, db_index=True, null=True)
     modified_at = models.DateTimeField(auto_now=True)
     name = models.CharField(unique=True, blank=False, max_length=100)
-    slug = models.SlugField(unique=True, blank=False, max_length=100, editable=False)
 
     snapshot_set: models.Manager["Snapshot"]
 
@@ -70,42 +68,6 @@ class Tag(ModelWithUUID):
 
     def __str__(self):
         return self.name
-
-    def _generate_unique_slug(self) -> str:
-        base_slug = slugify(self.name) or "tag"
-        existing = Tag.objects.filter(slug__startswith=base_slug)
-        if self.pk:
-            existing = existing.exclude(pk=self.pk)
-        existing_slugs = set(existing.values_list("slug", flat=True))
-
-        slug = base_slug
-        i = 1
-        while slug in existing_slugs:
-            slug = f"{base_slug}_{i}"
-            i += 1
-        return slug
-
-    def save(self, *args, **kwargs):
-        existing_name = None
-        if self.pk:
-            existing_name = Tag.objects.filter(pk=self.pk).values_list("name", flat=True).first()
-
-        if not self.slug or existing_name != self.name:
-            self.slug = self._generate_unique_slug()
-        super().save(*args, **kwargs)
-
-        # if is_new:
-        #     from archivebox.misc.logging_util import log_worker_event
-        #     log_worker_event(
-        #         worker_type='DB',
-        #         event='Created Tag',
-        #         indent_level=0,
-        #         metadata={
-        #             'id': self.id,
-        #             'name': self.name,
-        #             'slug': self.slug,
-        #         },
-        #     )
 
     @property
     def api_url(self) -> str:
@@ -122,7 +84,6 @@ class Tag(ModelWithUUID):
             "schema_version": VERSION,
             "id": str(self.id),
             "name": self.name,
-            "slug": self.slug,
         }
 
     @staticmethod

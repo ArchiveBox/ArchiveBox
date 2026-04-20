@@ -154,7 +154,7 @@ def test_tag_search_api_respects_sort_and_filters(client, api_token, admin_user,
     assert [tag["name"] for tag in payload["tags"]] == ["Zulu Empty"]
 
 
-def test_tag_rename_api_updates_slug(client, api_token, tagged_data):
+def test_tag_rename_api_updates_name(client, api_token, tagged_data):
     tag, _ = tagged_data
 
     response = client.post(
@@ -168,7 +168,6 @@ def test_tag_rename_api_updates_slug(client, api_token, tagged_data):
 
     tag.refresh_from_db()
     assert tag.name == "Alpha Archive"
-    assert tag.slug == "alpha-archive"
 
 
 def test_tag_snapshots_export_returns_jsonl(client, api_token, tagged_data):
@@ -180,9 +179,11 @@ def test_tag_snapshots_export_returns_jsonl(client, api_token, tagged_data):
         HTTP_HOST=ADMIN_HOST,
     )
 
+    from urllib.parse import quote
+
     assert response.status_code == 200
     assert response["Content-Type"].startswith("application/x-ndjson")
-    assert f"tag-{tag.slug}-snapshots.jsonl" in response["Content-Disposition"]
+    assert f"tag-{quote(tag.name, safe='')}-snapshots.jsonl" in response["Content-Disposition"]
     body = response.content.decode()
     assert '"type": "Snapshot"' in body
     assert '"tags": "Alpha Research"' in body
@@ -197,8 +198,10 @@ def test_tag_urls_export_returns_plain_text_urls(client, api_token, tagged_data)
         HTTP_HOST=ADMIN_HOST,
     )
 
+    from urllib.parse import quote
+
     assert response.status_code == 200
     assert response["Content-Type"].startswith("text/plain")
-    assert f"tag-{tag.slug}-urls.txt" in response["Content-Disposition"]
+    assert f"tag-{quote(tag.name, safe='')}-urls.txt" in response["Content-Disposition"]
     exported_urls = set(filter(None, response.content.decode().splitlines()))
     assert exported_urls == {snapshot.url for snapshot in snapshots}

@@ -2,6 +2,7 @@ __package__ = "archivebox.api"
 
 import math
 from collections import defaultdict
+from urllib.parse import quote
 from uuid import UUID
 from typing import Union, Any, Annotated
 from datetime import datetime
@@ -447,7 +448,6 @@ class TagSchema(Schema):
     created_by_id: str
     created_by_username: str
     name: str
-    slug: str
     num_snapshots: int
     snapshots: list[SnapshotSchema]
 
@@ -555,7 +555,6 @@ class TagSearchSnapshotSchema(Schema):
 class TagSearchCardSchema(Schema):
     id: int
     name: str
-    slug: str
     num_snapshots: int
     filter_url: str
     edit_url: str
@@ -582,7 +581,6 @@ class TagUpdateResponseSchema(Schema):
     success: bool
     tag_id: int
     tag_name: str
-    slug: str
 
 
 class TagDeleteResponseSchema(Schema):
@@ -665,7 +663,7 @@ def tags_autocomplete(request: HttpRequest, q: str = ""):
     tags = get_matching_tags(q)[: 50 if not q else 20]
 
     return {
-        "tags": [{"id": tag.pk, "name": tag.name, "slug": tag.slug, "num_snapshots": getattr(tag, "num_snapshots", 0)} for tag in tags],
+        "tags": [{"id": tag.pk, "name": tag.name, "num_snapshots": getattr(tag, "num_snapshots", 0)} for tag in tags],
     }
 
 
@@ -701,7 +699,6 @@ def rename_tag(request: HttpRequest, tag_id: int, data: TagUpdateSchema):
         "success": True,
         "tag_id": tag.pk,
         "tag_name": tag.name,
-        "slug": tag.slug,
     }
 
 
@@ -728,7 +725,7 @@ def tag_urls_export(request: HttpRequest, tag_id: int):
         raise HttpError(404, "Tag not found") from err
 
     response = HttpResponse(export_tag_urls(tag), content_type="text/plain; charset=utf-8")
-    response["Content-Disposition"] = f'attachment; filename="tag-{tag.slug}-urls.txt"'
+    response["Content-Disposition"] = f'attachment; filename="tag-{quote(tag.name, safe="")}-urls.txt"'
     return response
 
 
@@ -740,7 +737,7 @@ def tag_snapshots_export(request: HttpRequest, tag_id: int):
         raise HttpError(404, "Tag not found") from err
 
     response = HttpResponse(export_tag_snapshots_jsonl(tag), content_type="application/x-ndjson; charset=utf-8")
-    response["Content-Disposition"] = f'attachment; filename="tag-{tag.slug}-snapshots.jsonl"'
+    response["Content-Disposition"] = f'attachment; filename="tag-{quote(tag.name, safe="")}-snapshots.jsonl"'
     return response
 
 
