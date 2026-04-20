@@ -86,26 +86,61 @@ class Tag(ModelWithUUID):
         return slug
 
     def save(self, *args, **kwargs):
+        from archivebox.misc.logging_util import log_worker_event
+
+        is_new = self._state.adding
         existing_name = None
+        old_slug = None
+
         if self.pk:
-            existing_name = Tag.objects.filter(pk=self.pk).values_list("name", flat=True).first()
+            try:
+                existing = Tag.objects.get(pk=self.pk)
+                existing_name = existing.name
+                old_slug = existing.slug
+            except Tag.DoesNotExist:
+                pass
+
+        if is_new:
+            log_worker_event(
+                worker_type='DB',
+                event='Creating Tag',
+                indent_level=0,
+                metadata={
+                    'id': str(self.id),
+                    'name': self.name,
+                    'slug': self.slug,
+                },
+            )
 
         if not self.slug or existing_name != self.name:
-            self.slug = self._generate_unique_slug()
+            new_slug = self._generate_unique_slug()
+            if old_slug and old_slug != new_slug:
+                log_worker_event(
+                    worker_type='DB',
+                    event='Updating Tag Slug',
+                    indent_level=0,
+                    metadata={
+                        'id': str(self.id),
+                        'name': self.name,
+                        'old_slug': old_slug,
+                        'new_slug': new_slug,
+                    },
+                )
+            self.slug = new_slug
+
         super().save(*args, **kwargs)
 
-        # if is_new:
-        #     from archivebox.misc.logging_util import log_worker_event
-        #     log_worker_event(
-        #         worker_type='DB',
-        #         event='Created Tag',
-        #         indent_level=0,
-        #         metadata={
-        #             'id': self.id,
-        #             'name': self.name,
-        #             'slug': self.slug,
-        #         },
-        #     )
+        if is_new:
+            log_worker_event(
+                worker_type='DB',
+                event='Created Tag',
+                indent_level=0,
+                metadata={
+                    'id': str(self.id),
+                    'name': self.name,
+                    'slug': self.slug,
+                },
+            )
 
     @property
     def api_url(self) -> str:
@@ -418,15 +453,62 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         return Binary.objects.filter(process_set__archiveresult__snapshot_id=self.id).distinct()
 
     def save(self, *args, **kwargs):
+        from archivebox.misc.logging_util import log_worker_event
+
         if not self.bookmarked_at:
             self.bookmarked_at = self.created_at or timezone.now()
         if not self.timestamp:
             self.timestamp = str(self.bookmarked_at.timestamp())
 
+        is_new = self._state.adding
+
+        if is_new:
+            log_worker_event(
+                worker_type='DB',
+                event='Creating Snapshot',
+                indent_level=2,
+                url=self.url,
+                metadata={
+                    'id': str(self.id),
+                    'crawl_id': str(self.crawl_id),
+                    'depth': self.depth,
+                    'status': self.status,
+                },
+            )
+        else:
+            original_status = None
+            try:
+                original = Snapshot.objects.get(pk=self.pk)
+                original_status = original.status
+            except Snapshot.DoesNotExist:
+                pass
+
+            if original_status and original_status != self.status:
+                log_worker_event(
+                    worker_type='DB',
+                    event='Updating Snapshot Status',
+                    indent_level=2,
+                    url=self.url,
+                    metadata={
+                        'id': str(self.id),
+                        'crawl_id': str(self.crawl_id),
+                        'old_status': original_status,
+                        'new_status': self.status,
+                    },
+                )
+
         # Migrate filesystem if needed (happens automatically on save)
         if self.pk and self.fs_migration_needed:
-            print(
-                f"[DEBUG save()] Triggering filesystem migration for {str(self.id)[:8]}: {self.fs_version} → {self._fs_current_version()}",
+            log_worker_event(
+                worker_type='DB',
+                event='Triggering Filesystem Migration',
+                indent_level=2,
+                url=self.url,
+                metadata={
+                    'id': str(self.id),
+                    'from_version': self.fs_version,
+                    'to_version': self._fs_current_version(),
+                },
             )
             # Walk through migration chain automatically
             current = self.fs_version
@@ -438,7 +520,17 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
                 # Only run if method exists (most are no-ops)
                 if hasattr(self, method):
-                    print(f"[DEBUG save()] Running {method}()")
+                    log_worker_event(
+                        worker_type='DB',
+                        event=f'Running Migration Step',
+                        indent_level=3,
+                        url=self.url,
+                        metadata={
+                            'method': method,
+                            'from_version': current,
+                            'to_version': next_ver,
+                        },
+                    )
                     getattr(self, method)()
 
                 current = next_ver
@@ -453,20 +545,20 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             self.crawl.urls += f"\n{self.url}"
             self.crawl.save()
 
-        # if is_new:
-        #     from archivebox.misc.logging_util import log_worker_event
-        #     log_worker_event(
-        #         worker_type='DB',
-        #         event='Created Snapshot',
-        #         indent_level=2,
-        #         url=self.url,
-        #         metadata={
-        #             'id': str(self.id),
-        #             'crawl_id': str(self.crawl_id),
-        #             'depth': self.depth,
-        #             'status': self.status,
-        #         },
-        #     )
+        if is_new:
+            log_worker_event(
+                worker_type='DB',
+                event='Created Snapshot',
+                indent_level=2,
+                url=self.url,
+                metadata={
+                    'id': str(self.id),
+                    'crawl_id': str(self.crawl_id),
+                    'depth': self.depth,
+                    'status': self.status,
+                    'timestamp': self.timestamp,
+                },
+            )
 
     # =========================================================================
     # Filesystem Migration Methods
@@ -2799,24 +2891,103 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes):
             return None
 
     def save(self, *args, **kwargs):
+        from archivebox.misc.logging_util import log_worker_event
+
+        is_new = self._state.adding
+        original_status = None
+        original_output_str = None
+
+        if not is_new:
+            try:
+                original = ArchiveResult.objects.get(pk=self.pk)
+                original_status = original.status
+                original_output_str = original.output_str
+            except ArchiveResult.DoesNotExist:
+                pass
+
+        if is_new:
+            log_worker_event(
+                worker_type='DB',
+                event='Creating ArchiveResult',
+                indent_level=3,
+                url=self.snapshot.url,
+                plugin=self.plugin,
+                metadata={
+                    'id': str(self.id),
+                    'snapshot_id': str(self.snapshot_id),
+                    'hook_name': self.hook_name,
+                    'status': self.status,
+                },
+            )
+        else:
+            if original_status and original_status != self.status:
+                metadata = {
+                    'id': str(self.id),
+                    'snapshot_id': str(self.snapshot_id),
+                    'hook_name': self.hook_name,
+                    'old_status': original_status,
+                    'new_status': self.status,
+                }
+
+                if self.status == self.StatusChoices.FAILED:
+                    event = 'ArchiveResult Failed'
+                    if self.output_str:
+                        metadata['error_message'] = self.output_str[:200]
+                    if self.output_size:
+                        metadata['output_size'] = self.output_size
+                    if self.output_files:
+                        metadata['output_file_count'] = len(self.output_files)
+                    log_worker_event(
+                        worker_type='DB',
+                        event=event,
+                        indent_level=3,
+                        url=self.snapshot.url,
+                        plugin=self.plugin,
+                        metadata=metadata,
+                    )
+                elif self.status == self.StatusChoices.SUCCEEDED:
+                    event = 'ArchiveResult Succeeded'
+                    if self.output_size:
+                        metadata['output_size'] = self.output_size
+                    if self.output_files:
+                        metadata['output_file_count'] = len(self.output_files)
+                    log_worker_event(
+                        worker_type='DB',
+                        event=event,
+                        indent_level=3,
+                        url=self.snapshot.url,
+                        plugin=self.plugin,
+                        metadata=metadata,
+                    )
+                else:
+                    log_worker_event(
+                        worker_type='DB',
+                        event='Updating ArchiveResult Status',
+                        indent_level=3,
+                        url=self.snapshot.url,
+                        plugin=self.plugin,
+                        metadata=metadata,
+                    )
+
         # Skip ModelWithOutputDir.save() to avoid creating index.json in plugin directories
         # Call the Django Model.save() directly instead
         models.Model.save(self, *args, **kwargs)
 
-        # if is_new:
-        #     from archivebox.misc.logging_util import log_worker_event
-        #     log_worker_event(
-        #         worker_type='DB',
-        #         event='Created ArchiveResult',
-        #         indent_level=3,
-        #         plugin=self.plugin,
-        #         metadata={
-        #             'id': str(self.id),
-        #             'snapshot_id': str(self.snapshot_id),
-        #             'snapshot_url': str(self.snapshot.url)[:64],
-        #             'status': self.status,
-        #         },
-        #     )
+        if is_new:
+            log_worker_event(
+                worker_type='DB',
+                event='Created ArchiveResult',
+                indent_level=3,
+                url=self.snapshot.url,
+                plugin=self.plugin,
+                metadata={
+                    'id': str(self.id),
+                    'snapshot_id': str(self.snapshot_id),
+                    'hook_name': self.hook_name,
+                    'status': self.status,
+                    'snapshot_url': str(self.snapshot.url)[:80],
+                },
+            )
 
     @cached_property
     def snapshot_dir(self):
@@ -3170,9 +3341,43 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes):
         from abx_dl.output_files import guess_mimetype
         from archivebox.hooks import process_hook_records, extract_records_from_process
         from archivebox.machine.models import Process
+        from archivebox.misc.logging_util import log_worker_event
+
+        log_worker_event(
+            worker_type='DB',
+            event='Updating ArchiveResult from Output',
+            indent_level=3,
+            url=self.snapshot.url,
+            plugin=self.plugin,
+            metadata={
+                'id': str(self.id),
+                'snapshot_id': str(self.snapshot_id),
+                'hook_name': self.hook_name,
+                'current_status': self.status,
+                'pwd': self.pwd,
+            },
+        )
 
         plugin_dir = Path(self.pwd) if self.pwd else None
         if not plugin_dir or not plugin_dir.exists():
+            error_metadata = {
+                'id': str(self.id),
+                'snapshot_id': str(self.snapshot_id),
+                'hook_name': self.hook_name,
+                'pwd_provided': bool(self.pwd),
+                'plugin_dir': str(plugin_dir) if plugin_dir else None,
+                'plugin_dir_exists': plugin_dir.exists() if plugin_dir else False,
+            }
+
+            log_worker_event(
+                worker_type='DB',
+                event='ArchiveResult Update Failed: Output Directory Not Found',
+                indent_level=3,
+                url=self.snapshot.url,
+                plugin=self.plugin,
+                metadata=error_metadata,
+            )
+
             self.status = self.StatusChoices.FAILED
             self.output_str = "Output directory not found"
             self.end_ts = timezone.now()
@@ -3181,6 +3386,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes):
 
         # Read and parse JSONL output from stdout.log
         stdout_file = plugin_dir / "stdout.log"
+        stderr_file = plugin_dir / "stderr.log"
         records = []
         if self.process_id and self.process:
             records = extract_records_from_process(self.process)
@@ -3188,6 +3394,20 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes):
         if not records:
             stdout = stdout_file.read_text() if stdout_file.exists() else ""
             records = Process.parse_records_from_text(stdout)
+
+        log_worker_event(
+            worker_type='DB',
+            event='Read Output Records',
+            indent_level=3,
+            url=self.snapshot.url,
+            plugin=self.plugin,
+            metadata={
+                'id': str(self.id),
+                'total_records': len(records),
+                'stdout_file_exists': stdout_file.exists(),
+                'stderr_file_exists': stderr_file.exists(),
+            },
+        )
 
         # Find ArchiveResult record and update status/output from it
         ar_records = [r for r in records if r.get("type") == "ArchiveResult"]
@@ -3201,7 +3421,26 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes):
                 "skipped": self.StatusChoices.SKIPPED,
                 "noresults": self.StatusChoices.NORESULTS,
             }
-            self.status = status_map.get(hook_data.get("status", "failed"), self.StatusChoices.FAILED)
+            raw_status = hook_data.get("status", "failed")
+            mapped_status = status_map.get(raw_status, self.StatusChoices.FAILED)
+
+            log_worker_event(
+                worker_type='DB',
+                event='Found ArchiveResult Record',
+                indent_level=3,
+                url=self.snapshot.url,
+                plugin=self.plugin,
+                metadata={
+                    'id': str(self.id),
+                    'raw_status': raw_status,
+                    'mapped_status': mapped_status,
+                    'has_output_str': bool(hook_data.get("output_str") or hook_data.get("output")),
+                    'has_output_json': bool(hook_data.get("output_json")),
+                    'has_cmd': bool(hook_data.get("cmd")),
+                },
+            )
+
+            self.status = mapped_status
 
             # Update output fields
             self.output_str = hook_data.get("output_str") or hook_data.get("output") or ""
@@ -3224,10 +3463,41 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes):
             except Exception:
                 pass
 
+            process_exit_code = self.process.exit_code if self.process_id and self.process else None
+            process_status = 'running' if self.process_id and self.process and self.process.end_ts is None else 'completed'
+
+            no_record_metadata = {
+                'id': str(self.id),
+                'snapshot_id': str(self.snapshot_id),
+                'hook_name': self.hook_name,
+                'is_background': is_background,
+                'process_id': str(self.process_id) if self.process_id else None,
+                'process_exit_code': process_exit_code,
+                'process_status': process_status,
+                'stdout_file_exists': stdout_file.exists(),
+                'stderr_file_exists': stderr_file.exists(),
+            }
+
             if is_background or (self.process_id and self.process and self.process.exit_code == 0):
+                log_worker_event(
+                    worker_type='DB',
+                    event='No ArchiveResult Record: Marking as Skipped',
+                    indent_level=3,
+                    url=self.snapshot.url,
+                    plugin=self.plugin,
+                    metadata=no_record_metadata,
+                )
                 self.status = self.StatusChoices.SKIPPED
                 self.output_str = "Hook did not output ArchiveResult record"
             else:
+                log_worker_event(
+                    worker_type='DB',
+                    event='ArchiveResult Update Failed: No Result Record',
+                    indent_level=3,
+                    url=self.snapshot.url,
+                    plugin=self.plugin,
+                    metadata=no_record_metadata,
+                )
                 self.status = self.StatusChoices.FAILED
                 self.output_str = "Hook did not output ArchiveResult record"
 
