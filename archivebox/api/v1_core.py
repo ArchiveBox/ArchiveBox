@@ -725,6 +725,7 @@ def tag_urls_export(request: HttpRequest, tag_id: int):
         raise HttpError(404, "Tag not found") from err
 
     response = HttpResponse(export_tag_urls(tag), content_type="text/plain; charset=utf-8")
+    # TODO: potentially harden this more, e.g. replace all special characters with ANSII equivalents / strip punctuation / etc.
     response["Content-Disposition"] = f'attachment; filename="tag-{quote(tag.name, safe="")}-urls.txt"'
     return response
 
@@ -737,6 +738,7 @@ def tag_snapshots_export(request: HttpRequest, tag_id: int):
         raise HttpError(404, "Tag not found") from err
 
     response = HttpResponse(export_tag_snapshots_jsonl(tag), content_type="application/x-ndjson; charset=utf-8")
+    # TODO: potentially harden this more, e.g. replace all special characters with ANSII equivalents / strip punctuation / etc.
     response["Content-Disposition"] = f'attachment; filename="tag-{quote(tag.name, safe="")}-snapshots.jsonl"'
     return response
 
