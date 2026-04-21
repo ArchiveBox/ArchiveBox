@@ -154,7 +154,7 @@ def test_tag_search_api_respects_sort_and_filters(client, api_token, admin_user,
     assert [tag["name"] for tag in payload["tags"]] == ["Zulu Empty"]
 
 
-def test_tag_rename_api_updates_slug(client, api_token, tagged_data):
+def test_tag_rename_api_updates_name(client, api_token, tagged_data):
     tag, _ = tagged_data
 
     response = client.post(
@@ -168,7 +168,6 @@ def test_tag_rename_api_updates_slug(client, api_token, tagged_data):
 
     tag.refresh_from_db()
     assert tag.name == "Alpha Archive"
-    assert tag.slug == "alpha-archive"
 
 
 def test_tag_snapshots_export_returns_jsonl(client, api_token, tagged_data):

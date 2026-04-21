@@ -197,7 +197,7 @@ class TestSchemaIntegrity(unittest.TestCase):
             columns = {row[1] for row in cursor.fetchall()}
             conn.close()
 
-            required = {"id", "name", "slug"}
+            required = {"id", "name"}
             for col in required:
                 self.assertIn(col, columns, f"Missing column: {col}")
 

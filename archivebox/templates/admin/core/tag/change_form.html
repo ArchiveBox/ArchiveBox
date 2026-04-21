@@ -238,7 +238,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return '' +
                 '<a class="tag-similar-card" href="' + escapeHtml(card.filter_url) + '">' +
                     '<strong>' + escapeHtml(card.name) + '</strong>' +
-                    '<span>' + escapeHtml(card.num_snapshots) + ' snapshots · slug: ' + escapeHtml(card.slug) + '</span>' +
+                    '<span>' + escapeHtml(card.num_snapshots) + ' snapshots</span>' +
                     '<div class="tag-similar-card__snapshots">' + (snapshots || '<span class="tag-similar-snapshot">No snapshots</span>') + '</div>' +
                 '</a>';
         }).join('');

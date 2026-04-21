@@ -476,6 +476,7 @@
                     <article
                         class="tag-card"
                         data-id="{{ card.id }}"
+                        data-slug="{{ card.slug }}"
                         data-filter-url="{{ card.filter_url }}"
                         data-rename-url="{{ card.rename_url }}"
                         data-delete-url="{{ card.delete_url }}"
@@ -549,14 +550,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const div = document.createElement('div');
         div.textContent = value == null ? '' : String(value);
         return div.innerHTML;
-    }
-
-    function slugify(value) {
-        return String(value || '')
-            .toLowerCase()
-            .trim()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '') || 'tag';
     }
 
     function getCSRFToken() {
@@ -674,7 +667,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 : '<div class="tag-card__empty">No snapshots attached yet.</div>';
 
             return '' +
-                '<article class="tag-card" data-id="' + escapeHtml(card.id) + '" data-filter-url="' + escapeHtml(card.filter_url) + '" data-rename-url="' + escapeHtml(card.rename_url) + '" data-delete-url="' + escapeHtml(card.delete_url) + '" data-export-urls-url="' + escapeHtml(card.export_urls_url) + '" data-export-jsonl-url="' + escapeHtml(card.export_jsonl_url) + '">' +
+                '<article class="tag-card" data-id="' + escapeHtml(card.id) + '" data-slug="' + escapeHtml(card.slug) + '" data-filter-url="' + escapeHtml(card.filter_url) + '" data-rename-url="' + escapeHtml(card.rename_url) + '" data-delete-url="' + escapeHtml(card.delete_url) + '" data-export-urls-url="' + escapeHtml(card.export_urls_url) + '" data-export-jsonl-url="' + escapeHtml(card.export_jsonl_url) + '">' +
                     '<div class="tag-card__header">' +
                         '<div class="tag-card__title">' +
                             '<div class="tag-card__display">' +
@@ -982,8 +975,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (action === 'download-jsonl') {
             actionButton.disabled = true;
             try {
-                const tagName = cardEl.querySelector('.tag-card__display strong')?.textContent || 'tag';
-                await downloadFileFromUrl(cardEl.dataset.exportJsonlUrl, 'tag-' + slugify(tagName) + '-snapshots.jsonl');
+                const tagSlug = cardEl.dataset.slug || 'tag';
+                await downloadFileFromUrl(cardEl.dataset.exportJsonlUrl, 'tag-' + tagSlug + '-snapshots.jsonl');
             } catch (error) {
                 setToast(error.message || 'Failed to download JSONL.', 'error');
             } finally {

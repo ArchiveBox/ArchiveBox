@@ -447,7 +447,6 @@ class TagSchema(Schema):
     created_by_id: str
     created_by_username: str
     name: str
-    slug: str
     num_snapshots: int
     snapshots: list[SnapshotSchema]
 
@@ -582,7 +581,6 @@ class TagUpdateResponseSchema(Schema):
     success: bool
     tag_id: int
     tag_name: str
-    slug: str
 
 
 class TagDeleteResponseSchema(Schema):
@@ -665,7 +663,7 @@ def tags_autocomplete(request: HttpRequest, q: str = ""):
     tags = get_matching_tags(q)[: 50 if not q else 20]
 
     return {
-        "tags": [{"id": tag.pk, "name": tag.name, "slug": tag.slug, "num_snapshots": getattr(tag, "num_snapshots", 0)} for tag in tags],
+        "tags": [{"id": tag.pk, "name": tag.name, "num_snapshots": getattr(tag, "num_snapshots", 0)} for tag in tags],
     }
 
 
@@ -701,7 +699,6 @@ def rename_tag(request: HttpRequest, tag_id: int, data: TagUpdateSchema):
         "success": True,
         "tag_id": tag.pk,
         "tag_name": tag.name,
-        "slug": tag.slug,
     }
 
 
