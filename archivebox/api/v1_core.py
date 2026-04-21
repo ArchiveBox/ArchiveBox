@@ -554,6 +554,7 @@ class TagSearchSnapshotSchema(Schema):
 class TagSearchCardSchema(Schema):
     id: int
     name: str
+    slug: str
     num_snapshots: int
     filter_url: str
     edit_url: str

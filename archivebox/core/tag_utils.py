@@ -230,6 +230,7 @@ def build_tag_card(tag: Tag, snapshot_previews: list[dict[str, Any]] | None = No
     return {
         "id": tag.pk,
         "name": tag.name,
+        "slug": tag.slug,
         "num_snapshots": count,
         "filter_url": f"{reverse('admin:core_snapshot_changelist')}?tags__id__exact={tag.pk}",
         "edit_url": reverse("admin:core_tag_change", args=[tag.pk]),
