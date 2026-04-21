@@ -2,7 +2,6 @@ __package__ = "archivebox.api"
 
 import math
 from collections import defaultdict
-from urllib.parse import quote
 from uuid import UUID
 from typing import Union, Any, Annotated
 from datetime import datetime
@@ -37,6 +36,7 @@ from archivebox.core.tag_utils import (
     normalize_has_snapshots_filter,
     normalize_tag_sort,
     rename_tag as rename_tag_record,
+    tag_filename_safe,
 )
 from archivebox.crawls.models import Crawl
 from archivebox.api.v1_crawls import CrawlSchema
@@ -725,8 +725,7 @@ def tag_urls_export(request: HttpRequest, tag_id: int):
         raise HttpError(404, "Tag not found") from err
 
     response = HttpResponse(export_tag_urls(tag), content_type="text/plain; charset=utf-8")
-    # TODO: potentially harden this more, e.g. replace all special characters with ANSII equivalents / strip punctuation / etc.
-    response["Content-Disposition"] = f'attachment; filename="tag-{quote(tag.name, safe="")}-urls.txt"'
+    response["Content-Disposition"] = f'attachment; filename="tag-{tag_filename_safe(tag.name)}-urls.txt"'
     return response
 
 
@@ -738,8 +737,7 @@ def tag_snapshots_export(request: HttpRequest, tag_id: int):
         raise HttpError(404, "Tag not found") from err
 
     response = HttpResponse(export_tag_snapshots_jsonl(tag), content_type="application/x-ndjson; charset=utf-8")
-    # TODO: potentially harden this more, e.g. replace all special characters with ANSII equivalents / strip punctuation / etc.
-    response["Content-Disposition"] = f'attachment; filename="tag-{quote(tag.name, safe="")}-snapshots.jsonl"'
+    response["Content-Disposition"] = f'attachment; filename="tag-{tag_filename_safe(tag.name)}-snapshots.jsonl"'
     return response
 
 

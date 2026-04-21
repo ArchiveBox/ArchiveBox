@@ -974,8 +974,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (action === 'download-jsonl') {
             actionButton.disabled = true;
             try {
-                const tagName = cardEl.querySelector('.tag-card__display strong')?.textContent || 'tag';
-                await downloadFileFromUrl(cardEl.dataset.exportJsonlUrl, 'tag-' + encodeURIComponent(tagName) + '-snapshots.jsonl');
+                await downloadFileFromUrl(cardEl.dataset.exportJsonlUrl, 'tag-snapshots.jsonl');
             } catch (error) {
                 setToast(error.message || 'Failed to download JSONL.', 'error');
             } finally {

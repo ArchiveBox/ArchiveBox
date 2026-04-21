@@ -179,11 +179,11 @@ def test_tag_snapshots_export_returns_jsonl(client, api_token, tagged_data):
         HTTP_HOST=ADMIN_HOST,
     )
 
-    from urllib.parse import quote
+    from archivebox.core.tag_utils import tag_filename_safe
 
     assert response.status_code == 200
     assert response["Content-Type"].startswith("application/x-ndjson")
-    assert f"tag-{quote(tag.name, safe='')}-snapshots.jsonl" in response["Content-Disposition"]
+    assert f"tag-{tag_filename_safe(tag.name)}-snapshots.jsonl" in response["Content-Disposition"]
     body = response.content.decode()
     assert '"type": "Snapshot"' in body
     assert '"tags": "Alpha Research"' in body
@@ -198,10 +198,10 @@ def test_tag_urls_export_returns_plain_text_urls(client, api_token, tagged_data)
         HTTP_HOST=ADMIN_HOST,
     )
 
-    from urllib.parse import quote
+    from archivebox.core.tag_utils import tag_filename_safe
 
     assert response.status_code == 200
     assert response["Content-Type"].startswith("text/plain")
-    assert f"tag-{quote(tag.name, safe='')}-urls.txt" in response["Content-Disposition"]
+    assert f"tag-{tag_filename_safe(tag.name)}-urls.txt" in response["Content-Disposition"]
     exported_urls = set(filter(None, response.content.decode().splitlines()))
     assert exported_urls == {snapshot.url for snapshot in snapshots}
