@@ -10,7 +10,6 @@ from django.db.models import Count, F, QuerySet
 from django.db.models.functions import Lower
 from django.http import HttpRequest
 from django.urls import reverse
-from django.utils.text import slugify
 
 from archivebox.core.host_utils import build_snapshot_url, build_web_url
 from archivebox.core.models import Snapshot, SnapshotTag, Tag
@@ -34,11 +33,6 @@ TAG_HAS_SNAPSHOTS_CHOICES = (
 
 def normalize_tag_name(name: str) -> str:
     return (name or "").strip()
-
-
-def tag_filename_safe(name: str) -> str:
-    """ASCII-safe filename fragment for a tag name (via django.utils.text.slugify)."""
-    return slugify(name or "") or "tag"
 
 
 def normalize_tag_sort(sort: str = "created_desc") -> str:

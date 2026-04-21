@@ -15,6 +15,7 @@ from statemachine import State, registry
 from django.db import models
 from django.db.models import QuerySet
 from django.utils.functional import cached_property
+from django.utils.text import slugify
 from django.utils import timezone
 from django.core.cache import cache
 from django.urls import reverse_lazy
@@ -68,6 +69,11 @@ class Tag(ModelWithUUID):
 
     def __str__(self):
         return self.name
+
+    @property
+    def slug(self) -> str:
+        """ASCII-safe slugified form of the tag name (derived, not stored)."""
+        return slugify(self.name or "") or "tag"
 
     @property
     def api_url(self) -> str:

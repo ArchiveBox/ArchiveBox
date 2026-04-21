@@ -36,7 +36,6 @@ from archivebox.core.tag_utils import (
     normalize_has_snapshots_filter,
     normalize_tag_sort,
     rename_tag as rename_tag_record,
-    tag_filename_safe,
 )
 from archivebox.crawls.models import Crawl
 from archivebox.api.v1_crawls import CrawlSchema
@@ -725,7 +724,7 @@ def tag_urls_export(request: HttpRequest, tag_id: int):
         raise HttpError(404, "Tag not found") from err
 
     response = HttpResponse(export_tag_urls(tag), content_type="text/plain; charset=utf-8")
-    response["Content-Disposition"] = f'attachment; filename="tag-{tag_filename_safe(tag.name)}-urls.txt"'
+    response["Content-Disposition"] = f'attachment; filename="tag-{tag.slug}-urls.txt"'
     return response
 
 
@@ -737,7 +736,7 @@ def tag_snapshots_export(request: HttpRequest, tag_id: int):
         raise HttpError(404, "Tag not found") from err
 
     response = HttpResponse(export_tag_snapshots_jsonl(tag), content_type="application/x-ndjson; charset=utf-8")
-    response["Content-Disposition"] = f'attachment; filename="tag-{tag_filename_safe(tag.name)}-snapshots.jsonl"'
+    response["Content-Disposition"] = f'attachment; filename="tag-{tag.slug}-snapshots.jsonl"'
     return response
 
 
