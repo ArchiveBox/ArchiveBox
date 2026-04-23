@@ -282,6 +282,23 @@ class SnapshotDeleteResponseSchema(Schema):
     deleted_count: int
 
 
+class DeleteAllFailedSnapshotsResponseSchema(Schema):
+    success: bool
+    failed_snapshots_count: int
+    deleted_count: int
+
+
+def get_failed_snapshots():
+    """Get all snapshots that have at least one failed ArchiveResult."""
+    from archivebox.core.models import ArchiveResult
+
+    failed_snapshot_ids = ArchiveResult.objects.filter(
+        status=ArchiveResult.StatusChoices.FAILED
+    ).values_list("snapshot_id", flat=True).distinct()
+
+    return Snapshot.objects.filter(id__in=failed_snapshot_ids)
+
+
 def normalize_tag_list(tags: list[str] | None = None) -> list[str]:
     return [tag.strip() for tag in (tags or []) if tag and tag.strip()]
 
@@ -433,6 +450,42 @@ def delete_snapshot(request: HttpRequest, snapshot_id: str):
         "snapshot_id": snapshot_id_str,
         "crawl_id": crawl_id_str,
         "deleted_count": deleted_count,
+    }
+
+
+@router.delete("/snapshots/delete-all-failed", response=DeleteAllFailedSnapshotsResponseSchema, url_name="delete_all_failed_snapshots")
+def delete_all_failed_snapshots(request: HttpRequest):
+    """Delete all snapshots that have at least one failed ArchiveResult."""
+    from django.db import transaction
+
+    failed_snapshots = get_failed_snapshots()
+    total = failed_snapshots.count()
+
+    if total == 0:
+        return {
+            "success": True,
+            "failed_snapshots_count": 0,
+            "deleted_count": 0,
+        }
+
+    ids_to_delete = list(failed_snapshots.values_list("pk", flat=True))
+
+    with transaction.atomic():
+        deleted_count, _ = Snapshot.objects.filter(pk__in=ids_to_delete).delete()
+
+    return {
+        "success": True,
+        "failed_snapshots_count": total,
+        "deleted_count": deleted_count,
+    }
+
+
+@router.get("/snapshots/failed-count", response=dict, url_name="get_failed_snapshots_count")
+def get_failed_snapshots_count(request: HttpRequest):
+    """Get the count of snapshots that have at least one failed ArchiveResult."""
+    failed_snapshots = get_failed_snapshots()
+    return {
+        "failed_snapshots_count": failed_snapshots.count(),
     }
 
 
