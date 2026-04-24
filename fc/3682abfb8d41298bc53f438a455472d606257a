@@ -1,0 +1,23 @@
+publicsite/index.html
+  bc43cf33d252a7e6 68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "fc3682abfb8d41298bc53f438a455472d606257a",
+  "prompts": {
+    "bc43cf33d252a7e6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dbdab-ec7d-7a00-9945-e0396df51542",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 44,
+      "overriden_lines": 0
+    }
+  }
+}
