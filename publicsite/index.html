@@ -3,12 +3,45 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="ArchiveBox is open-source self-hosted web archiving for preserving websites, media, evidence, research sources, and institutional records in durable formats.">
+  <meta name="description" content="ArchiveBox is open-source self-hosted web archiving for preserving websites, bookmarks, RSS feeds, social posts, media, evidence, research sources, and institutional records in durable HTML, PDF, PNG, WARC, JSON, SQLite, and filesystem formats.">
+  <meta name="keywords" content="ArchiveBox, self-hosted web archiving, open source web archive, website preservation, archive bookmarks, RSS archiving, WARC, SingleFile, yt-dlp, Chrome headless, Docker Compose archive, digital preservation">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://archivebox.io/">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://archivebox.io/">
+  <meta property="og:title" content="ArchiveBox - Open-source self-hosted web archiving">
+  <meta property="og:description" content="Preserve websites, media, bookmarks, feeds, source code, evidence, and research material in durable files you control.">
+  <meta property="og:image" content="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e8e0b6f8-8fdf-4b7f-8124-c10d8699bdb2">
+  <meta name="twitter:card" content="summary_large_image">
   <title>ArchiveBox - Open-source self-hosted web archiving</title>
   <link rel="icon" href="./icon.png">
   <link rel="apple-touch-icon" href="./icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./shadcn-theme.css">
   <link rel="stylesheet" href="./styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "ArchiveBox",
+    "applicationCategory": "WebApplication",
+    "operatingSystem": "Linux, macOS, BSD, Windows with Docker",
+    "description": "Open-source self-hosted web archiving for saving websites, bookmarks, RSS feeds, social media, media files, source code, and research material in durable formats.",
+    "url": "https://archivebox.io/",
+    "codeRepository": "https://github.com/ArchiveBox/ArchiveBox",
+    "license": "https://github.com/ArchiveBox/ArchiveBox/blob/dev/LICENSE",
+    "softwareHelp": "https://github.com/ArchiveBox/ArchiveBox/wiki",
+    "downloadUrl": "https://github.com/ArchiveBox/ArchiveBox/releases",
+    "programmingLanguage": "Python",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
+  }
+  </script>
 </head>
 <body>
   <header class="site-header">
@@ -19,6 +52,9 @@
     <nav aria-label="Primary navigation">
       <a href="#install">Install</a>
       <a href="#use-cases">Use cases</a>
+      <a href="#configuration">Configuration</a>
+      <a href="#layout-security">Layout &amp; security</a>
+      <a href="#background">Backstory</a>
       <a href="#ecosystem">Ecosystem</a>
       <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Docs</a>
       <a href="https://github.com/ArchiveBox/ArchiveBox">GitHub</a>
@@ -42,14 +78,21 @@
         </div>
       </div>
       <div class="hero-panel" aria-label="ArchiveBox setup preview">
-        <div class="terminal">
-          <div class="terminal-bar">
-            <span></span><span></span><span></span>
+        <div class="ab-terminal">
+          <div class="ab-terminal__bar">
+            <div class="ab-terminal__dots"><span class="ab-terminal__dot" aria-hidden="true">&nbsp;</span><span class="ab-terminal__dot" aria-hidden="true">&nbsp;</span><span class="ab-terminal__dot" aria-hidden="true">&nbsp;</span></div>
+            <span>zsh · ~/archivebox · docker-compose</span>
           </div>
-          <pre><code>mkdir -p ~/archivebox/data &amp;&amp; cd ~/archivebox
-curl -fsSL 'https://docker-compose.archivebox.io' &gt; docker-compose.yml
-docker compose run archivebox init --install
-docker compose up</code></pre>
+          <div class="ab-terminal__body">
+<pre><span class="ab-dim"># Docker Compose is the recommended setup</span>
+<span class="ab-prompt">$</span> <span class="ab-cmd">mkdir -p ~/archivebox/data &amp;&amp; cd ~/archivebox</span>
+<span class="ab-prompt">$</span> <span class="ab-cmd">curl -fsSL 'https://docker-compose.archivebox.io' &gt; docker-compose.yml</span>
+<span class="ab-prompt">$</span> <span class="ab-cmd">docker compose run archivebox init --install</span>
+<span class="ab-out">-> created ./data/index.sqlite3</span>
+<span class="ab-out">-> installed Chrome, wget, yt-dlp, SingleFile, readability</span>
+<span class="ab-ok">ok listening on http://127.0.0.1:8000</span>
+<span class="ab-prompt">$</span> <span class="ab-cursor" aria-hidden="true">&nbsp;</span></pre>
+          </div>
         </div>
         <img class="product-shot" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e8e0b6f8-8fdf-4b7f-8124-c10d8699bdb2" alt="ArchiveBox snapshot list in the admin web interface">
       </div>
@@ -141,29 +184,29 @@ docker compose up</code></pre>
           <span>1</span>
           <div>
             <h3>Create a data directory</h3>
-            <pre><code>mkdir -p ~/archivebox/data &amp;&amp; cd ~/archivebox</code></pre>
+            <div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><span class="ab-prompt">$</span> <span class="ab-cmd">mkdir -p ~/archivebox/data &amp;&amp; cd ~/archivebox</span></pre></div></div>
           </div>
         </div>
         <div class="step">
           <span>2</span>
           <div>
             <h3>Download Docker Compose config</h3>
-            <pre><code>curl -fsSL 'https://docker-compose.archivebox.io' &gt; docker-compose.yml</code></pre>
+            <div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><span class="ab-prompt">$</span> <span class="ab-cmd">curl -fsSL 'https://docker-compose.archivebox.io' &gt; docker-compose.yml</span></pre></div></div>
           </div>
         </div>
         <div class="step">
           <span>3</span>
           <div>
             <h3>Initialize and start</h3>
-            <pre><code>docker compose run archivebox init --install
-docker compose up</code></pre>
+            <div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><span class="ab-prompt">$</span> <span class="ab-cmd">docker compose run archivebox init --install</span>
+<span class="ab-prompt">$</span> <span class="ab-cmd">docker compose up</span></pre></div></div>
           </div>
         </div>
         <div class="step">
           <span>4</span>
           <div>
             <h3>Add your first URL</h3>
-            <pre><code>docker compose run archivebox add 'https://example.com'</code></pre>
+            <div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><span class="ab-prompt">$</span> <span class="ab-cmd">docker compose run archivebox add 'https://example.com'</span></pre></div></div>
           </div>
         </div>
       </div>
@@ -177,6 +220,46 @@ docker compose up</code></pre>
         <a href="https://github.com/ArchiveBox/ArchiveBox#quickstart">README quickstart</a>
         <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage">CLI usage</a>
         <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a>
+      </div>
+    </section>
+
+    <section id="configuration" class="section deep-section">
+      <div class="section-heading">
+        <p class="eyebrow">Configuration</p>
+        <h2>Run ArchiveBox the way your archive needs to run.</h2>
+        <p>ArchiveBox can be configured with environment variables, the <code>archivebox config</code> CLI, or by editing <code>./ArchiveBox.conf</code>. The same configuration model works in Docker, Docker Compose, bare-metal installs, scheduled jobs, and one-off CLI runs.</p>
+      </div>
+      <div class="prose-grid">
+        <article>
+          <h3>Common settings people search for</h3>
+          <p>Use <code>TIMEOUT</code> for slow networks, <code>CHECK_SSL_VALIDITY</code> for sites with broken certificates, <code>PUBLIC_INDEX</code>, <code>PUBLIC_SNAPSHOTS</code>, and <code>PUBLIC_ADD_VIEW</code> for publishing policy, and browser user-agent settings for sites that block obvious bots.</p>
+          <p>For authenticated or difficult sites, review <code>CHROME_USER_DATA_DIR</code>, <code>COOKIES_FILE</code>, <code>CHROME_USER_AGENT</code>, <code>WGET_USER_AGENT</code>, and <code>CURL_USER_AGENT</code>. Public archive operators should also configure instance branding and contact details with settings like <code>FOOTER_INFO</code> and <code>CUSTOM_TEMPLATES_DIR</code>.</p>
+          <div class="ab-terminal">
+            <div class="ab-terminal__bar">
+              <div class="ab-terminal__dots"><span class="ab-terminal__dot" aria-hidden="true">&nbsp;</span><span class="ab-terminal__dot" aria-hidden="true">&nbsp;</span><span class="ab-terminal__dot" aria-hidden="true">&nbsp;</span></div>
+              <span>archivebox config</span>
+            </div>
+            <div class="ab-terminal__body">
+<pre><span class="ab-prompt">$</span> <span class="ab-cmd">archivebox config</span>                         <span class="ab-dim"># view full config</span>
+<span class="ab-prompt">$</span> <span class="ab-cmd">archivebox config --get CHROME_BINARY</span>
+<span class="ab-prompt">$</span> <span class="ab-cmd">archivebox config --set TIMEOUT=240</span>
+<span class="ab-prompt">$</span> <span class="ab-cmd">archivebox config --set PUBLIC_INDEX=False</span>
+<span class="ab-prompt">$</span> <span class="ab-cmd">env CHROME_BINARY=chromium archivebox add 'https://example.com'</span></pre>
+            </div>
+          </div>
+        </article>
+        <article>
+          <h3>Dependencies and extractors</h3>
+          <p>ArchiveBox uses standard tools like Chrome or Chromium, wget, curl, yt-dlp, git, SingleFile, Readability, and article parsers. Docker bundles these dependencies for easier upgrades and better isolation; non-Docker installs can run <code>archivebox install</code> and <code>archivebox --version</code> to check what is available.</p>
+          <ul class="readme-list">
+            <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration wiki</a></li>
+            <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#configuration">Docker configuration</a></li>
+            <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#dependencies">Install dependencies</a></li>
+            <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install">Chromium install options</a></li>
+            <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile">Cookies and logged-in browser profiles</a></li>
+            <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#installing">Troubleshooting installs</a></li>
+          </ul>
+        </article>
       </div>
     </section>
 
@@ -197,6 +280,74 @@ docker compose up</code></pre>
         <article>
           <h3>Access</h3>
           <p>Manage the same collection through the Web UI, CLI, REST API, Python API, SQLite, or the data folder itself. The tools are complementary, not separate products.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="layout-security" class="section deep-section">
+      <div class="section-heading">
+        <p class="eyebrow">Disk layout, exporting, and security</p>
+        <h2>A normal folder, a SQLite index, and files you can inspect without ArchiveBox.</h2>
+        <p>All ArchiveBox state for a collection lives in one data folder: the SQLite database, configuration, logs, and archived content. Snapshots are organized on disk as ordinary files and folders so they can be backed up, searched, published carefully, or browsed by hand.</p>
+      </div>
+      <div class="prose-grid prose-grid--wide">
+        <article>
+          <h3>Archive layout</h3>
+          <div class="ab-terminal">
+            <div class="ab-terminal__bar">
+              <div class="ab-terminal__dots"><span class="ab-terminal__dot" aria-hidden="true">&nbsp;</span><span class="ab-terminal__dot" aria-hidden="true">&nbsp;</span><span class="ab-terminal__dot" aria-hidden="true">&nbsp;</span></div>
+              <span>~/archivebox/data</span>
+            </div>
+            <div class="ab-terminal__body">
+<pre><span class="ab-out">data/</span>
+<span class="ab-out">  index.sqlite3</span>          <span class="ab-dim"># main metadata database</span>
+<span class="ab-out">  ArchiveBox.conf</span>        <span class="ab-dim"># collection configuration</span>
+<span class="ab-out">  archive/</span>
+<span class="ab-out">    1617687755/</span>
+<span class="ab-out">      index.html</span>
+<span class="ab-out">      index.json</span>
+<span class="ab-out">      screenshot.png</span>
+<span class="ab-out">      output.pdf</span>
+<span class="ab-out">      warc/1617687755.warc.gz</span>
+<span class="ab-out">      media/some_video.mp4</span>
+<span class="ab-out">      git/somerepo.git</span></pre>
+            </div>
+          </div>
+          <p>Each snapshot folder includes static <code>index.html</code> and <code>index.json</code> metadata plus extractor outputs such as HTML, PDFs, screenshots, WARC files, media, subtitles, headers, favicons, article text, and git repositories.</p>
+        </article>
+        <article>
+          <h3>Static exports and publishing</h3>
+          <p>You can export the archive index as static HTML, JSON, or CSV with <code>archivebox list</code> so collections can be reviewed without running the web server. Keep generated exports next to the <code>archive/</code> folder so relative snapshot paths continue to work.</p>
+          <div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><span class="ab-prompt">$</span> <span class="ab-cmd">archivebox list --html --with-headers &gt; index.html</span>
+<span class="ab-prompt">$</span> <span class="ab-cmd">archivebox list --json --with-headers &gt; index.json</span>
+<span class="ab-prompt">$</span> <span class="ab-cmd">archivebox list --csv=timestamp,url,title &gt; index.csv</span></pre></div></div>
+          <ul class="readme-list">
+            <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Disk-Layout">Disk layout docs</a></li>
+            <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-Up-Storage">Storage backends: SMB, NFS, S3, B2, Google Drive</a></li>
+            <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive">Publishing your archive</a></li>
+            <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives">Upgrading or merging archives</a></li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="notice-grid">
+        <article>
+          <h3>Private content</h3>
+          <p>If you archive private URLs, paywalled pages, unlisted media, Google Docs, or browser sessions, assume snapshot viewers may see private URLs, cookies, session tokens, headers, and page content unless you configure access carefully.</p>
+          <p>Restrict public access with <code>PUBLIC_INDEX=False</code>, <code>PUBLIC_SNAPSHOTS=False</code>, and <code>PUBLIC_ADD_VIEW=False</code>, then create authenticated users with <code>archivebox manage createsuperuser</code>.</p>
+          <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview">Read the security overview</a>
+        </article>
+        <article>
+          <h3>Archived JavaScript</h3>
+          <p>Archived pages that execute JavaScript can make requests from the same domain as the web UI when viewed. If this risk matters for your collection, review the publishing guidance and consider disabling extractor outputs that execute archived JS when opened.</p>
+          <p><code>archivebox config --set SAVE_WGET=False SAVE_DOM=False</code></p>
+          <a href="https://github.com/ArchiveBox/ArchiveBox/issues/239">Read Issue #239</a>
+        </article>
+        <article>
+          <h3>Storage requirements</h3>
+          <p>ArchiveBox can use roughly 1 GB to 50 GB per 1,000 snapshots depending on media, video, audio, and extractor settings. Tune <code>YTDLP_ENABLED</code> and <code>YTDLP_MAX_SIZE</code> for media-heavy collections.</p>
+          <p>Keep <code>index.sqlite3</code> on local storage or SSD when possible. Large <code>archive/</code> folders can live on NFS, SMB, FUSE, S3-backed, or HDD storage, but Docker and fileshare setups may need <code>PUID</code>, <code>PGID</code>, and root-squash adjustments. Avoid older filesystems like EXT3 or FAT for very large archives.</p>
+          <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#large-archives">Plan for large archives</a>
         </article>
       </div>
     </section>
@@ -241,19 +392,63 @@ docker compose up</code></pre>
       </div>
     </section>
 
+    <section id="background" class="section deep-section">
+      <div class="section-heading">
+        <p class="eyebrow">Background and motivation</p>
+        <h2>Built for decentralized preservation.</h2>
+        <p>ArchiveBox exists because link rot, platform churn, censorship, and disappearing media routinely erase useful knowledge. The project aims to make the web content you care about viewable with common software in 50 to 100 years, without requiring ArchiveBox or a hosted replay service to understand your files.</p>
+      </div>
+      <div class="prose-grid">
+        <article>
+          <h3>Why self-host?</h3>
+          <p>Centralized public archives are essential, but not every page belongs in a global public service. ArchiveBox lets individuals and organizations save public or private material they can access, keep it locally or within their institution, and decide what to publish case by case.</p>
+          <p>The project differentiates itself by combining a comprehensive CLI, a self-hosted web UI, API surfaces, scheduled imports, standard output formats, and a simple on-disk data layout that remains useful without the app running.</p>
+        </article>
+        <article>
+          <h3>Ethical and legal context</h3>
+          <p>Responsible archiving depends on your jurisdiction, your use case, and your publishing policy. ArchiveBox is a tool; operators remain responsible for handling private data, copyright, DMCA or GDPR requests, and local legal requirements.</p>
+          <p>Public instances should publish contact and removal information, avoid monetizing copied content, and review the security and publishing documentation before exposing snapshots to anonymous viewers.</p>
+        </article>
+      </div>
+      <div class="alternatives-band">
+        <h3>Related web archiving tools and communities</h3>
+        <p>ArchiveBox is a broad, self-hosted archive manager. For specialized crawling, replay, bookmark management, or research workflows, the wider web archiving ecosystem is worth knowing.</p>
+        <div class="doc-link-grid">
+          <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#web-archiving-projects">Web archiving projects</a>
+          <a href="https://archiveweb.page">ArchiveWeb.page</a>
+          <a href="https://replayweb.page">ReplayWeb.page</a>
+          <a href="https://github.com/webrecorder/browsertrix-crawler">Browsertrix</a>
+          <a href="https://scrapy.org/">Scrapy</a>
+          <a href="https://github.com/hoarder-app/hoarder">Hoarder</a>
+          <a href="https://github.com/linkwarden/linkwarden">Linkwarden</a>
+          <a href="https://github.com/iipc/awesome-web-archiving">Awesome Web Archiving</a>
+        </div>
+      </div>
+    </section>
+
     <section class="section docs-band">
       <div>
         <p class="eyebrow">Documentation</p>
         <h2>Go deeper when you need production details.</h2>
-        <p>The README and wiki cover supported sources, outputs, scheduled archiving, storage backends, authentication, security, publishing, Chrome setup, upgrades, and troubleshooting.</p>
+        <p>The README and wiki cover supported sources, outputs, scheduled archiving, storage backends, authentication, security, publishing, Chrome setup, upgrades, troubleshooting, API usage, development, and the broader web archiving community.</p>
       </div>
       <div class="doc-link-grid">
         <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install">Install</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker">Docker</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki#can-save-these-things-for-each-site">Supported outputs</a>
         <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving">Scheduled archiving</a>
         <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Storage">Storage backends</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Authentication">Authentication</a>
         <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview">Security overview</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install">Chromium setup</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting">Troubleshooting</a>
         <a href="https://docs.archivebox.io">API docs</a>
         <a href="https://github.com/ArchiveBox/ArchiveBox/issues">Issue tracker</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap">Roadmap</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/releases">Changelog</a>
       </div>
     </section>
   </main>
