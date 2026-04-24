@@ -60,6 +60,7 @@ def add(
     update: bool | None = None,
     index_only: bool = False,
     bg: bool = False,
+    dry_run: bool = False,
     created_by_id: int | None = None,
 ) -> tuple["Crawl", QuerySet["Snapshot"]]:
     """Add a new URL or list of URLs to your archive.
@@ -86,6 +87,36 @@ def add(
         raise ValueError("max_urls must be >= 0")
     if max_size < 0:
         raise ValueError("max_size must be >= 0")
+
+    if dry_run:
+        urls_list = urls.splitlines() if isinstance(urls, str) else urls
+        print(f"[yellow][bold]\\[*] Dry run mode - would archive {len(urls_list)} URL(s):[/bold][/yellow]")
+        for i, url in enumerate(urls_list, 1):
+            url = url.strip()
+            if url and not url.startswith("#"):
+                print(f"  [dim]{i}.[/dim] {url}")
+        print(f"\n[yellow]\\[*] Configuration for this crawl:[/yellow]")
+        print(f"  [dim]depth:[/dim] {depth}")
+        print(f"  [dim]max_urls:[/dim] {max_urls or 'unlimited'}")
+        print(f"  [dim]max_size:[/dim] {max_size or 'unlimited'}")
+        if tag:
+            print(f"  [dim]tags:[/dim] {tag}")
+        if url_allowlist:
+            print(f"  [dim]url_allowlist:[/dim] {url_allowlist}")
+        if url_denylist:
+            print(f"  [dim]url_denylist:[/dim] {url_denylist}")
+        if parser and parser != "auto":
+            print(f"  [dim]parser:[/dim] {parser}")
+        if plugins:
+            print(f"  [dim]plugins:[/dim] {plugins}")
+        if persona and persona != "Default":
+            print(f"  [dim]persona:[/dim] {persona}")
+        print(f"  [dim]overwrite:[/dim] {overwrite}")
+        print(f"  [dim]update:[/dim] {update}")
+        print(f"  [dim]index_only:[/dim] {index_only}")
+        print(f"  [dim]bg:[/dim] {bg}")
+        print(f"\n[yellow]\\[*] No changes made - this was a dry run.[/yellow]")
+        return (None, None)
 
     # import models once django is set up
     from archivebox.core.models import Snapshot
@@ -263,6 +294,7 @@ def add(
 @click.option("--update", is_flag=True, default=None, help="Retry any previously skipped/failed URLs when re-adding them")
 @click.option("--index-only", is_flag=True, help="Just add the URLs to the index without archiving them now")
 @click.option("--bg", is_flag=True, help="Run archiving in background (queue work and return immediately)")
+@click.option("--dry-run", is_flag=True, help="Show what URLs would be archived without actually running")
 @click.argument("urls", nargs=-1, type=click.Path())
 @docstring(add.__doc__)
 def main(**kwargs):
