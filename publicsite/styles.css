@@ -242,6 +242,27 @@ h3 {
   margin: 32px 0 20px;
 }
 
+.hero-shields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin: 0 0 20px;
+}
+
+.hero-shields a {
+  display: inline-flex;
+  align-items: center;
+}
+
+.hero-shields a:hover {
+  text-decoration: none;
+}
+
+.hero-shields img {
+  display: block;
+  height: 20px;
+}
+
 .button {
   display: inline-flex;
   min-height: 46px;
