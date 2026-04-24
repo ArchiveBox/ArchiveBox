@@ -1,9 +1,12 @@
-name: Deploy GitHub Pages
+name: Deploy Publicsite to GitHub Pages
 
 on:
   push:
     branches:
       - dev
+    paths:
+      - publicsite/**
+      - .github/workflows/deploy-publicsite.yml
   workflow_dispatch:
 
 permissions:
@@ -12,7 +15,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: github-pages-publicsite
   cancel-in-progress: true
 
 jobs:
