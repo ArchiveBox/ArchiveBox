@@ -449,7 +449,7 @@ h3 {
   border-radius: var(--radius);
 }
 
-.trust-strip span {
+.trust-strip a {
   display: inline-flex;
   min-height: 34px;
   align-items: center;
@@ -459,6 +459,12 @@ h3 {
   color: var(--muted-text);
   font-size: 0.9rem;
   font-weight: 720;
+}
+
+.trust-strip a:hover {
+  color: var(--text);
+  text-decoration: none;
+  background: hsl(var(--background));
 }
 
 .split {
