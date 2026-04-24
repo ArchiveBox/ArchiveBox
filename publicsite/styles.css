@@ -164,11 +164,27 @@ p {
 }
 
 h1 {
-  max-width: 850px;
+  max-width: 980px;
   margin-bottom: 22px;
   font-size: clamp(3.1rem, 7.4vw, 5.9rem);
   line-height: 0.95;
   letter-spacing: 0;
+}
+
+.hero-mainline,
+.hero-subline {
+  display: block;
+}
+
+.hero-mainline {
+  white-space: nowrap;
+}
+
+.hero-subline {
+  margin-top: 0.18em;
+  color: var(--muted-text);
+  font-size: 0.68em;
+  line-height: 1.02;
 }
 
 h2 {
