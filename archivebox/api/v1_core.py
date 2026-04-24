@@ -39,6 +39,7 @@ from archivebox.core.tag_utils import (
 )
 from archivebox.crawls.models import Crawl
 from archivebox.api.v1_crawls import CrawlSchema
+from archivebox.misc.util import validate_url_strict
 
 
 router = Router(tags=["Core Models"])
@@ -335,6 +336,11 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
         raise HttpError(400, f"Invalid status: {data.status}")
     if not data.url.strip():
         raise HttpError(400, "URL is required")
+    
+    is_valid, error = validate_url_strict(data.url)
+    if not is_valid:
+        raise HttpError(400, f"Invalid URL: {error}")
+    
     if data.depth not in (0, 1, 2, 3, 4):
         raise HttpError(400, "depth must be between 0 and 4")
 

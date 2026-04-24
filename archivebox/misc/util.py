@@ -79,7 +79,30 @@ def ts_to_iso(ts: Any) -> str | None:
 COLOR_REGEX = re.compile(r"\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m")
 
 
-# https://mathiasbynens.be/demo/url-regex
+MAX_URL_LENGTH = 8192
+
+INVISIBLE_CONTROL_CHARS = re.compile(
+    r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]"
+    r"|\u200B|\u200C|\u200D|\u200E|\u200F"
+    r"|\u202A|\u202B|\u202C|\u202D|\u202E"
+    r"|\u2066|\u2067|\u2068|\u2069"
+    r"|\uFEFF|\uFFF9|\uFFFA|\uFFFB"
+)
+
+URL_STRICT_VALIDATION_REGEX = re.compile(
+    r"^https?://"
+    r"(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}"
+    r"|(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}"
+    r"(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
+    r"|localhost"
+    r"|\[[0-9a-fA-F:]+\])"
+    r"(?::\d+)?"
+    r"(?:/[^\s]*)?"
+    r"(?:\?[^\s]*)?"
+    r"(?:#[^\s]*)?$",
+    re.IGNORECASE,
+)
+
 URL_REGEX = re.compile(
     r"(?=("
     r"http[s]?://"  # start matching from allowed schemes
@@ -237,6 +260,56 @@ def find_all_urls(urls_str: str):
             if offset:
                 skipped_starts.add(match.start() + offset)
             yield url
+
+
+def contains_invisible_chars(url: str) -> bool:
+    if not url or not isinstance(url, str):
+        return False
+    return bool(INVISIBLE_CONTROL_CHARS.search(url))
+
+
+def safe_urlparse(url: str):
+    try:
+        return urlparse(url)
+    except Exception:
+        return None
+
+
+def validate_url_strict(url: str) -> tuple[bool, str | None]:
+    if not url or not isinstance(url, str):
+        return False, "URL cannot be empty"
+
+    url = url.strip()
+    if not url:
+        return False, "URL cannot be empty"
+
+    if len(url) > MAX_URL_LENGTH:
+        return False, f"URL is too long (max {MAX_URL_LENGTH} characters)"
+
+    if contains_invisible_chars(url):
+        return False, "URL contains invalid control characters"
+
+    if not url.lower().startswith(("http://", "https://")):
+        return False, "URL must start with http:// or https://"
+
+    parsed = safe_urlparse(url)
+    if parsed is None:
+        return False, "URL format is invalid"
+
+    if not parsed.netloc:
+        return False, "URL must contain a valid domain or IP address"
+
+    return True, None
+
+
+def validate_urls_list(urls: list[str]) -> tuple[bool, str | None, list[str]]:
+    valid_urls = []
+    for url in urls:
+        is_valid, error = validate_url_strict(url)
+        if not is_valid:
+            return False, error, valid_urls
+        valid_urls.append(url)
+    return True, None, valid_urls
 
 
 def parse_filesize_to_bytes(value: str | int | float | None) -> int:

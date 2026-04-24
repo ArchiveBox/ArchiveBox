@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.db.models import QuerySet
 
 from archivebox.misc.util import enforce_types, docstring
-from archivebox.misc.util import parse_filesize_to_bytes
+from archivebox.misc.util import parse_filesize_to_bytes, validate_urls_list
 from archivebox import CONSTANTS
 from archivebox.config.common import ARCHIVING_CONFIG, SERVER_CONFIG
 from archivebox.config.permissions import USER, HOSTNAME
@@ -272,6 +272,11 @@ def main(**kwargs):
     urls = _collect_input_urls(raw_urls)
     if not urls:
         raise click.UsageError("No URLs provided. Pass URLs as arguments or via stdin.")
+    
+    is_valid, error, valid_urls = validate_urls_list(urls)
+    if not is_valid:
+        raise click.BadParameter(f"Invalid URL: {error}", param_hint="URLs")
+    
     if int(kwargs.get("max_urls") or 0) < 0:
         raise click.BadParameter("max_urls must be 0 or a positive integer.", param_hint="--max-urls")
     try:
@@ -279,7 +284,7 @@ def main(**kwargs):
     except ValueError as err:
         raise click.BadParameter(str(err), param_hint="--max-size") from err
 
-    add(urls=urls, **kwargs)
+    add(urls=valid_urls, **kwargs)
 
 
 if __name__ == "__main__":

@@ -90,6 +90,7 @@ MIDDLEWARE = [
     "archivebox.core.middleware.HostRoutingMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "archivebox.core.middleware.CacheControlMiddleware",
+    "archivebox.core.exception_middleware.GlobalExceptionMiddleware",
     # Additional middlewares from plugins (if any)
 ]
 
