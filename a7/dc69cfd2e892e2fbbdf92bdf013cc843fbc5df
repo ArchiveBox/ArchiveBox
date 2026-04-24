@@ -1,0 +1,25 @@
+bin/setup.sh
+  93b6815d1104957b 4-5,7,9-82,84,86-92,96-97,102,106
+README.md
+  93b6815d1104957b 21,27-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "a7dc69cfd2e892e2fbbdf92bdf013cc843fbc5df",
+  "prompts": {
+    "93b6815d1104957b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d5039-2abb-7712-bdfc-f602d7d31f92",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting",
+      "messages": [],
+      "total_additions": 102,
+      "total_deletions": 13,
+      "accepted_lines": 99,
+      "overriden_lines": 0
+    }
+  }
+}
