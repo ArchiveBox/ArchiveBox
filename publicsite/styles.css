@@ -82,12 +82,12 @@ code {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  width: min(var(--content), calc(100vw - 32px));
-  margin: 0 auto;
-  padding: 16px 0;
+  width: 100%;
+  padding: 14px clamp(18px, 3vw, 34px);
   background: hsl(var(--background) / 0.88);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid hsl(var(--border) / 0.72);
+  box-shadow: 0 10px 30px hsl(339 48% 41% / 0.06);
 }
 
 .brand {
@@ -96,7 +96,9 @@ code {
   gap: 10px;
   color: var(--text);
   font-weight: 760;
+  font-size: 1.02rem;
   letter-spacing: 0;
+  flex: 0 0 auto;
 }
 
 .brand:hover {
@@ -117,14 +119,42 @@ code {
   gap: 10px 18px;
 }
 
+.site-header nav {
+  margin-left: auto;
+  justify-content: flex-end;
+  gap: 8px 18px;
+}
+
 .site-header nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 4px 0;
+  border-bottom: 1px solid transparent;
   color: var(--muted-text);
-  font-size: 0.94rem;
-  font-weight: 650;
+  font-size: 0.8rem;
+  font-weight: 680;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: border-color 160ms ease, color 160ms ease;
 }
 
 .site-header nav a:hover {
-  color: var(--brand);
+  color: var(--text);
+  text-decoration: none;
+  border-color: hsl(var(--primary) / 0.42);
+}
+
+.site-header nav svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  stroke: currentColor;
+  stroke-width: 1.85;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .section {
@@ -145,6 +175,7 @@ code {
 
 .hero-copy {
   min-width: 0;
+  max-width: 760px;
 }
 
 .eyebrow {
@@ -164,11 +195,11 @@ p {
 }
 
 h1 {
-  max-width: 980px;
+  max-width: 820px;
   margin-bottom: 22px;
-  font-size: clamp(3.1rem, 7.4vw, 5.9rem);
-  line-height: 0.95;
-  letter-spacing: 0;
+  font-size: clamp(2.85rem, 6.4vw, 5.25rem);
+  line-height: 0.94;
+  letter-spacing: -0.025em;
 }
 
 .hero-mainline,
@@ -176,15 +207,12 @@ h1 {
   display: block;
 }
 
-.hero-mainline {
-  white-space: nowrap;
-}
-
 .hero-subline {
-  margin-top: 0.18em;
+  margin-top: 0.24em;
   color: var(--muted-text);
-  font-size: 0.68em;
-  line-height: 1.02;
+  font-size: 0.48em;
+  line-height: 1.06;
+  white-space: nowrap;
 }
 
 h2 {
@@ -711,6 +739,10 @@ h3 {
     flex-direction: column;
   }
 
+  .site-header nav {
+    justify-content: flex-start;
+  }
+
   .hero {
     min-height: auto;
   }
@@ -734,7 +766,6 @@ h3 {
 }
 
 @media (max-width: 680px) {
-  .site-header,
   .section,
   .trust-strip,
   .site-footer {
@@ -749,10 +780,23 @@ h3 {
 
   .site-header {
     position: static;
+    width: 100%;
+    margin: 0;
+    padding: 14px 16px;
   }
 
   .site-header nav {
     width: 100%;
+  }
+
+  .site-header nav a {
+    font-size: 0.74rem;
+    letter-spacing: 0.1em;
+  }
+
+  .hero-subline {
+    white-space: normal;
+    font-size: 0.56em;
   }
 
   h1 {
