@@ -40,6 +40,19 @@
             {% translate "Filters" %}
           </button>
         {% endif %}
+        {% if opts.model_name == 'snapshot' and failed_snapshots_count > 0 %}
+          <form method="post" action="{% url 'admin:core_snapshot_delete_all_failed' %}" style="display: inline; margin: 0; padding: 0;">
+            {% csrf_token %}
+            <button
+              type="submit"
+              class="button"
+              style="background: #fef2f2; border-color: #fecaca; color: #991b1b;"
+              onclick="return confirm('确定要删除所有 {{ failed_snapshots_count }} 个失败的归档任务吗？此操作不可撤销！');"
+            >
+              🗑️ 清除所有失败任务 ({{ failed_snapshots_count }})
+            </button>
+          </form>
+        {% endif %}
         {% if request.resolver_match.url_name == 'grid' %}
           <button
             type="button"

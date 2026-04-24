@@ -1,7 +1,10 @@
 __package__ = "archivebox.core"
 
 import json
+import re
 from functools import lru_cache
+from pathlib import Path
+from datetime import datetime
 
 from django.contrib import admin, messages
 from django.urls import path
@@ -13,6 +16,7 @@ from django.db.models.functions import Coalesce
 from django import forms
 from django.template import Template, RequestContext
 from django.contrib.admin.helpers import ActionForm
+from django.http import HttpResponse
 
 from archivebox.config import DATA_DIR
 from archivebox.config.common import SERVER_CONFIG
@@ -259,6 +263,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def changelist_view(self, request, extra_context=None):
         self.request = request
         extra_context = extra_context or {}
+        
+        failed_snapshots = self.get_failed_snapshots()
+        extra_context["failed_snapshots_count"] = failed_snapshots.count()
+        
         try:
             return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
         except Exception as e:
@@ -285,9 +293,52 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         urls = super().get_urls()
         custom_urls = [
             path("grid/", self.admin_site.admin_view(self.grid_view), name="grid"),
+            path("delete-all-failed/", self.admin_site.admin_view(self.delete_all_failed_view), name="core_snapshot_delete_all_failed"),
             path("<path:object_id>/redo-failed/", self.admin_site.admin_view(self.redo_failed_view), name="core_snapshot_redo_failed"),
+            path("<path:object_id>/export-markdown/", self.admin_site.admin_view(self.export_markdown_view), name="core_snapshot_export_markdown"),
         ]
         return custom_urls + urls
+
+    def get_failed_snapshots(self):
+        """Get all snapshots that have at least one failed ArchiveResult."""
+        from archivebox.core.models import ArchiveResult
+        
+        failed_snapshot_ids = ArchiveResult.objects.filter(
+            status=ArchiveResult.StatusChoices.FAILED
+        ).values_list("snapshot_id", flat=True).distinct()
+        
+        return Snapshot.objects.filter(id__in=failed_snapshot_ids)
+
+    def delete_all_failed_view(self, request):
+        """Delete all snapshots that have failed ArchiveResults."""
+        from django.db import transaction
+        from django.shortcuts import redirect
+        
+        if request.method != "POST":
+            messages.warning(request, "Please use POST method to delete failed snapshots.")
+            return redirect("admin:core_snapshot_changelist")
+        
+        failed_snapshots = self.get_failed_snapshots()
+        total = failed_snapshots.count()
+        
+        if total == 0:
+            messages.info(request, "No failed snapshots found.")
+            return redirect("admin:core_snapshot_changelist")
+        
+        ids_to_delete = list(failed_snapshots.values_list("pk", flat=True))
+        
+        with transaction.atomic():
+            deleted_count, _ = Snapshot.objects.filter(pk__in=ids_to_delete).delete()
+        
+        messages.success(
+            request,
+            mark_safe(
+                f"Successfully deleted {total} failed Snapshots ({deleted_count} total objects including related records). "
+                f"Don't forget to scrub URLs from import logs (data/sources) and error logs (data/logs) if needed."
+            ),
+        )
+        
+        return redirect("admin:core_snapshot_changelist")
 
     def redo_failed_view(self, request, object_id):
         snapshot = get_object_or_404(Snapshot, pk=object_id)
@@ -306,6 +357,242 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 )
 
         return redirect(snapshot.admin_change_url)
+
+    def _html_to_markdown(self, html_content: str) -> str:
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            return self._simple_html_to_markdown(html_content)
+        
+        soup = BeautifulSoup(html_content, "html.parser")
+        
+        for script in soup(["script", "style", "nav", "footer", "header"]):
+            script.decompose()
+        
+        text_parts = []
+        
+        for element in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "ul", "ol", "li", "a", "img", "blockquote", "pre", "code", "strong", "em", "b", "i", "br"]):
+            if element.name in ["h1", "h2", "h3", "h4", "h5", "h6"]:
+                level = int(element.name[1])
+                text_parts.append(f"\n{'#' * level} {element.get_text().strip()}\n")
+            elif element.name == "p":
+                text = element.get_text().strip()
+                if text:
+                    text_parts.append(f"{text}\n\n")
+            elif element.name in ["ul", "ol"]:
+                items = element.find_all("li", recursive=False)
+                for i, item in enumerate(items, 1):
+                    prefix = "- " if element.name == "ul" else f"{i}. "
+                    text_parts.append(f"{prefix}{item.get_text().strip()}\n")
+                text_parts.append("\n")
+            elif element.name == "a":
+                href = element.get("href", "")
+                text = element.get_text().strip() or href
+                if href and text:
+                    text_parts.append(f"[{text}]({href})")
+            elif element.name == "img":
+                src = element.get("src", "")
+                alt = element.get("alt", "") or "image"
+                if src:
+                    text_parts.append(f"![{alt}]({src})\n\n")
+            elif element.name == "blockquote":
+                text = element.get_text().strip()
+                if text:
+                    for line in text.split("\n"):
+                        text_parts.append(f"> {line.strip()}\n")
+                    text_parts.append("\n")
+            elif element.name == "pre":
+                code = element.get_text()
+                text_parts.append(f"\n```\n{code}\n```\n\n")
+            elif element.name == "code":
+                if element.parent and element.parent.name != "pre":
+                    text_parts.append(f"`{element.get_text()}`")
+            elif element.name in ["strong", "b"]:
+                text = element.get_text().strip()
+                if text:
+                    text_parts.append(f"**{text}**")
+            elif element.name in ["em", "i"]:
+                text = element.get_text().strip()
+                if text:
+                    text_parts.append(f"*{text}*")
+            elif element.name == "br":
+                text_parts.append("\n")
+        
+        return "".join(text_parts).strip()
+
+    def _simple_html_to_markdown(self, html_content: str) -> str:
+        text = html_content
+        
+        text = re.sub(r'<h1[^>]*>(.*?)</h1>', r'\n# \1\n', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'<h2[^>]*>(.*?)</h2>', r'\n## \1\n', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'<h3[^>]*>(.*?)</h3>', r'\n### \1\n', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'<h[4-6][^>]*>(.*?)</h[4-6]>', r'\n#### \1\n', text, flags=re.IGNORECASE | re.DOTALL)
+        
+        text = re.sub(r'<p[^>]*>(.*?)</p>', r'\1\n\n', text, flags=re.IGNORECASE | re.DOTALL)
+        
+        text = re.sub(r'<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>', r'[\2](\1)', text, flags=re.IGNORECASE | re.DOTALL)
+        
+        text = re.sub(r'<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>', r'![\2](\1)', text, flags=re.IGNORECASE)
+        text = re.sub(r'<img[^>]*src="([^"]*)"[^>]*>', r'![image](\1)', text, flags=re.IGNORECASE)
+        
+        text = re.sub(r'<strong[^>]*>(.*?)</strong>', r'**\1**', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'<b[^>]*>(.*?)</b>', r'**\1**', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'<em[^>]*>(.*?)</em>', r'*\1*', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'<i[^>]*>(.*?)</i>', r'*\1*', text, flags=re.IGNORECASE | re.DOTALL)
+        
+        text = re.sub(r'<blockquote[^>]*>(.*?)</blockquote>', r'> \1\n', text, flags=re.IGNORECASE | re.DOTALL)
+        
+        text = re.sub(r'<pre[^>]*><code[^>]*>(.*?)</code></pre>', r'\n```\n\1\n```\n', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'<code[^>]*>(.*?)</code>', r'`\1`', text, flags=re.IGNORECASE | re.DOTALL)
+        
+        text = re.sub(r'<li[^>]*>(.*?)</li>', r'- \1\n', text, flags=re.IGNORECASE | re.DOTALL)
+        
+        text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+        
+        text = re.sub(r'<[^>]+>', ' ', text)
+        
+        text = re.sub(r' {2,}', ' ', text)
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        
+        return text.strip()
+
+    def _read_file_from_snapshot(self, snapshot: Snapshot, relative_path: str) -> str | None:
+        try:
+            file_path = Path(snapshot.output_dir) / relative_path
+            if file_path.exists() and file_path.is_file():
+                return file_path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+        return None
+
+    def _get_article_content_from_snapshot(self, snapshot: Snapshot) -> tuple[str | None, str]:
+        readability_result = snapshot.archiveresult_set.filter(
+            plugin="readability",
+            status="succeeded"
+        ).first()
+        
+        if readability_result:
+            readability_html = self._read_file_from_snapshot(snapshot, "readability/content.html")
+            if readability_html:
+                return self._html_to_markdown(readability_html), "readability"
+        
+        singlefile_result = snapshot.archiveresult_set.filter(
+            plugin="singlefile",
+            status="succeeded"
+        ).first()
+        
+        if singlefile_result:
+            singlefile_html = self._read_file_from_snapshot(snapshot, "singlefile.html")
+            if singlefile_html:
+                return self._html_to_markdown(singlefile_html), "singlefile"
+        
+        dom_result = snapshot.archiveresult_set.filter(
+            plugin="dom",
+            status="succeeded"
+        ).first()
+        
+        if dom_result:
+            dom_html = self._read_file_from_snapshot(snapshot, "dom.html")
+            if dom_html:
+                return self._html_to_markdown(dom_html), "dom"
+        
+        wget_result = snapshot.archiveresult_set.filter(
+            plugin="wget",
+            status="succeeded"
+        ).first()
+        
+        if wget_result:
+            output_files = wget_result.output_file_map()
+            for file_path in output_files.keys():
+                if file_path.endswith(".html") or file_path.endswith(".htm"):
+                    html_content = self._read_file_from_snapshot(snapshot, file_path)
+                    if html_content:
+                        return self._html_to_markdown(html_content), "wget"
+        
+        return None, "none"
+
+    def _generate_markdown_from_snapshot(self, snapshot: Snapshot) -> str:
+        title = snapshot.title or snapshot.url
+        url = snapshot.url
+        tags = ", ".join(tag.name for tag in snapshot.tags.all()) if snapshot.tags.exists() else "无标签"
+        bookmarked_at = snapshot.bookmarked_at.strftime("%Y-%m-%d %H:%M:%S") if snapshot.bookmarked_at else "未知"
+        downloaded_at = snapshot.downloaded_at.strftime("%Y-%m-%d %H:%M:%S") if snapshot.downloaded_at else "未知"
+        timestamp = snapshot.timestamp
+        snapshot_id = str(snapshot.id)
+        
+        article_content, source = self._get_article_content_from_snapshot(snapshot)
+        
+        archive_results = snapshot.archiveresult_set.filter(status="succeeded").order_by("start_ts")
+        archive_files_info = []
+        for result in archive_results:
+            files = result.output_file_paths()
+            if files:
+                for file_path in files:
+                    file_size = result.output_size or 0
+                    archive_files_info.append(f"- `{file_path}` ({result.plugin})")
+        
+        md_parts = []
+        
+        md_parts.append(f"# {title}")
+        md_parts.append(f"\n")
+        
+        md_parts.append(f"**原始URL**: [{url}]({url})")
+        md_parts.append(f"\n")
+        md_parts.append(f"**标签**: {tags}")
+        md_parts.append(f"\n")
+        md_parts.append(f"**收藏时间**: {bookmarked_at}")
+        md_parts.append(f"\n")
+        md_parts.append(f"**下载时间**: {downloaded_at}")
+        md_parts.append(f"\n")
+        md_parts.append(f"**快照ID**: {snapshot_id}")
+        md_parts.append(f"\n")
+        md_parts.append(f"**时间戳**: {timestamp}")
+        md_parts.append(f"\n")
+        
+        if article_content:
+            md_parts.append(f"\n---\n")
+            md_parts.append(f"## 文章内容 (来源: {source})")
+            md_parts.append(f"\n")
+            md_parts.append(article_content)
+        else:
+            md_parts.append(f"\n---\n")
+            md_parts.append(f"## 文章内容")
+            md_parts.append(f"\n")
+            md_parts.append(f"*未提取到可读的文章内容。可以通过以下方式查看原始归档：*")
+            md_parts.append(f"\n")
+            md_parts.append(f"- 查看 SingleFile 保存的完整页面")
+            md_parts.append(f"\n")
+            md_parts.append(f"- 查看截图或PDF文件")
+            md_parts.append(f"\n")
+        
+        if archive_files_info:
+            md_parts.append(f"\n---\n")
+            md_parts.append(f"## 归档文件")
+            md_parts.append(f"\n")
+            md_parts.append("\n".join(archive_files_info))
+            md_parts.append(f"\n")
+        
+        md_parts.append(f"\n---\n")
+        md_parts.append(f"*由 ArchiveBox 于 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} 导出*")
+        
+        return "\n".join(md_parts)
+
+    def export_markdown_view(self, request, object_id):
+        snapshot = get_object_or_404(Snapshot, pk=object_id)
+        
+        markdown_content = self._generate_markdown_from_snapshot(snapshot)
+        
+        safe_title = re.sub(r'[^\w\s-]', '', snapshot.title or 'untitled')
+        safe_title = re.sub(r'[-\s]+', '-', safe_title).strip('-_')
+        filename = f"{safe_title or 'archive'}_{snapshot.timestamp}.md"
+        
+        response = HttpResponse(
+            markdown_content.encode('utf-8'),
+            content_type='text/markdown; charset=utf-8'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        return response
 
     # def get_queryset(self, request):
     #     # tags_qs = SnapshotTag.objects.all().select_related('tag')
@@ -405,6 +692,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         summary_url = self.get_snapshot_view_url(obj)
         files_url = self.get_snapshot_files_url(obj)
         zip_url = self.get_snapshot_zip_url(obj)
+        export_md_url = f"/admin/core/snapshot/{obj.pk}/export-markdown/"
         redo_failed_url = f"/admin/core/snapshot/{obj.pk}/redo-failed/"
         return format_html(
             """
@@ -429,6 +717,12 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                    onmouseout="this.style.background='#eff6ff'; this.style.borderColor='#bfdbfe';">
                     <span class="archivebox-zip-spinner" aria-hidden="true"></span>
                     <span class="archivebox-zip-label">⬇ Download Zip</span>
+                </a>
+                <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; color: #166534; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
+                   href="{}"
+                   onmouseover="this.style.background='#dcfce7'; this.style.borderColor='#4ade80';"
+                   onmouseout="this.style.background='#f0fdf4'; this.style.borderColor='#86efac';">
+                    📝 Export Markdown
                 </a>
                 <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s;"
                    href="{}"
@@ -477,6 +771,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             summary_url,
             files_url,
             zip_url,
+            export_md_url,
             obj.url,
             obj.pk,
             redo_failed_url,
