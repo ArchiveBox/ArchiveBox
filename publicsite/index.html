@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ArchiveBox is open-source self-hosted web archiving for preserving websites, media, evidence, research sources, and institutional records in durable formats.">
+  <title>ArchiveBox - Open-source self-hosted web archiving</title>
+  <link rel="icon" href="./icon.png">
+  <link rel="apple-touch-icon" href="./icon.png">
+  <link rel="stylesheet" href="./shadcn-theme.css">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="ArchiveBox home">
+      <img src="./icon.png" alt="" width="42" height="42">
+      <span>ArchiveBox</span>
+    </a>
+    <nav aria-label="Primary navigation">
+      <a href="#install">Install</a>
+      <a href="#use-cases">Use cases</a>
+      <a href="#ecosystem">Ecosystem</a>
+      <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Docs</a>
+      <a href="https://github.com/ArchiveBox/ArchiveBox">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero section">
+      <div class="hero-copy">
+        <p class="eyebrow">Open-source self-hosted web archiving</p>
+        <h1>Preserve the web content you care about, on infrastructure you control.</h1>
+        <p class="lede">ArchiveBox saves websites, bookmarks, RSS feeds, social posts, media, source code, and research material in durable files like HTML, PDF, PNG, TXT, JSON, WARC, MP4, and SQLite.</p>
+        <div class="hero-actions" aria-label="Primary actions">
+          <a class="button primary" href="#install">Run with Docker Compose</a>
+          <a class="button secondary" href="https://demo.archivebox.io">View demo</a>
+        </div>
+        <div class="hero-links" aria-label="Project links">
+          <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a>
+          <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Documentation</a>
+          <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community</a>
+        </div>
+      </div>
+      <div class="hero-panel" aria-label="ArchiveBox setup preview">
+        <div class="terminal">
+          <div class="terminal-bar">
+            <span></span><span></span><span></span>
+          </div>
+          <pre><code>mkdir -p ~/archivebox/data &amp;&amp; cd ~/archivebox
+curl -fsSL 'https://docker-compose.archivebox.io' &gt; docker-compose.yml
+docker compose run archivebox init --install
+docker compose up</code></pre>
+        </div>
+        <img class="product-shot" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e8e0b6f8-8fdf-4b7f-8124-c10d8699bdb2" alt="ArchiveBox snapshot list in the admin web interface">
+      </div>
+    </section>
+
+    <section class="trust-strip" aria-label="ArchiveBox capabilities">
+      <span>CLI</span>
+      <span>Web UI</span>
+      <span>REST API</span>
+      <span>Webhooks</span>
+      <span>Browser extension</span>
+      <span>Filesystem access</span>
+    </section>
+
+    <section class="section split">
+      <div>
+        <p class="eyebrow">Why ArchiveBox</p>
+        <h2>Designed for useful archives, not proprietary silos.</h2>
+      </div>
+      <div class="feature-grid">
+        <article>
+          <h3>Readable for decades</h3>
+          <p>Snapshots are stored as ordinary files and folders, with metadata in SQLite and JSON. You can browse the collection without depending on a hosted service.</p>
+        </article>
+        <article>
+          <h3>Multiple captures per URL</h3>
+          <p>ArchiveBox can save rendered HTML, screenshots, PDFs, WARC files, article text, headers, favicons, media, subtitles, and source repositories.</p>
+        </article>
+        <article>
+          <h3>Bring your sources</h3>
+          <p>Import one URL, pipe text into the CLI, upload exported bookmarks, or schedule recurring pulls from RSS feeds and other text-based source lists.</p>
+        </article>
+        <article>
+          <h3>Self-hosted by default</h3>
+          <p>Run it as a Docker web app, use one-off CLI commands, or automate with APIs while keeping private and public material under your own policy.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="use-cases" class="section">
+      <div class="section-heading">
+        <p class="eyebrow">Who it is for</p>
+        <h2>Archiving workflows for individuals, professionals, and institutions.</h2>
+      </div>
+      <div class="audience-grid">
+        <article class="audience-card">
+          <h3>Personal archivists and self-hosters</h3>
+          <p>Save bookmarks, browser history, RSS feeds, social media, form content, videos, podcasts, music, photos, and personal knowledge collections.</p>
+          <ul>
+            <li>Own your data and keep it on local or remote storage you control.</li>
+            <li>Use the browser extension, CLI, Web UI, and scheduled imports together.</li>
+            <li>Export static HTML or browse the filesystem directly.</li>
+          </ul>
+        </article>
+        <article class="audience-card">
+          <h3>Lawyers and journalists</h3>
+          <p>Capture web pages, articles, source material, and public records while preserving reviewable copies outside of volatile platforms.</p>
+          <ul>
+            <li>Store screenshots, PDFs, headers, WARC files, and text extraction.</li>
+            <li>Tag and review sources through the self-hosted web interface.</li>
+            <li>Tune privacy, authentication, and publishing settings for casework.</li>
+          </ul>
+        </article>
+        <article class="audience-card">
+          <h3>Researchers and institutions</h3>
+          <p>Support OSINT, social media research, AI-powered research agents, libraries, governments, and collection-building teams.</p>
+          <ul>
+            <li>Automate imports through the CLI, REST API, webhooks, and schedules.</li>
+            <li>Keep machine-readable metadata in JSON and SQLite.</li>
+            <li>Extend extraction pipelines through the ArchiveBox ecosystem.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="install" class="section install-section">
+      <div class="install-copy">
+        <p class="eyebrow">Recommended install</p>
+        <h2>Start with Docker Compose.</h2>
+        <p>Docker Compose is the recommended ArchiveBox setup for the easiest install and update path, better isolation, and bundled archiving dependencies like Chrome, wget, yt-dlp, SingleFile, and readability tools.</p>
+        <div class="mini-links">
+          <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-a-docker--docker-compose-setup-%EF%B8%8F">Docker install guide</a>
+          <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker">Docker usage wiki</a>
+          <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml">docker-compose.yml</a>
+        </div>
+      </div>
+      <div class="command-card">
+        <div class="step">
+          <span>1</span>
+          <div>
+            <h3>Create a data directory</h3>
+            <pre><code>mkdir -p ~/archivebox/data &amp;&amp; cd ~/archivebox</code></pre>
+          </div>
+        </div>
+        <div class="step">
+          <span>2</span>
+          <div>
+            <h3>Download Docker Compose config</h3>
+            <pre><code>curl -fsSL 'https://docker-compose.archivebox.io' &gt; docker-compose.yml</code></pre>
+          </div>
+        </div>
+        <div class="step">
+          <span>3</span>
+          <div>
+            <h3>Initialize and start</h3>
+            <pre><code>docker compose run archivebox init --install
+docker compose up</code></pre>
+          </div>
+        </div>
+        <div class="step">
+          <span>4</span>
+          <div>
+            <h3>Add your first URL</h3>
+            <pre><code>docker compose run archivebox add 'https://example.com'</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section compact-docs" aria-labelledby="other-installs-title">
+      <h2 id="other-installs-title">Other install paths</h2>
+      <p>ArchiveBox can also run with plain Docker, pip, brew, deb packages, or the optional setup script. Docker Compose remains the default recommendation, especially when you want bundled dependencies and clean upgrades.</p>
+      <div class="doc-link-grid">
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install">Bare metal install</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox#quickstart">README quickstart</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage">CLI usage</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a>
+      </div>
+    </section>
+
+    <section class="section data-section">
+      <div class="section-heading">
+        <p class="eyebrow">Inputs and outputs</p>
+        <h2>Feed it almost any source list. Keep redundant, portable captures.</h2>
+      </div>
+      <div class="data-grid">
+        <article>
+          <h3>Inputs</h3>
+          <p>Archive one URL at a time or schedule imports from bookmarks, browser history, RSS, JSON, CSV, TXT, SQL, HTML, Markdown, Pocket, Pinboard, Instapaper, Shaarli, Wallabag, and more.</p>
+        </article>
+        <article>
+          <h3>Outputs</h3>
+          <p>Each snapshot can include original HTML, rendered single-file HTML, PDF, screenshot PNG, WARC, title, article text, favicon, headers, media, subtitles, metadata, thumbnails, and git clones.</p>
+        </article>
+        <article>
+          <h3>Access</h3>
+          <p>Manage the same collection through the Web UI, CLI, REST API, Python API, SQLite, or the data folder itself. The tools are complementary, not separate products.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="ecosystem" class="section ecosystem">
+      <div class="section-heading">
+        <p class="eyebrow">Ecosystem</p>
+        <h2>Core projects that make ArchiveBox extensible.</h2>
+      </div>
+      <div class="project-grid">
+        <article>
+          <h3>abx-plugins</h3>
+          <p>Extractor and plugin packages used to preserve more types of content.</p>
+          <div>
+            <a href="https://github.com/ArchiveBox/abx-plugins">GitHub</a>
+            <a href="https://archivebox.github.io/abx-plugins/">Docs</a>
+          </div>
+        </article>
+        <article>
+          <h3>abx-dl</h3>
+          <p>Download and extraction tooling for saving web content and media.</p>
+          <div>
+            <a href="https://github.com/ArchiveBox/abx-dl">GitHub</a>
+          </div>
+        </article>
+        <article>
+          <h3>abxpkg</h3>
+          <p>Runtime package management for dependencies used by ArchiveBox and plugins.</p>
+          <div>
+            <a href="https://github.com/ArchiveBox/abxpkg">GitHub</a>
+            <a href="https://archivebox.github.io/abxpkg/">Docs</a>
+          </div>
+        </article>
+        <article>
+          <h3>abxbus</h3>
+          <p>Event bus infrastructure for ArchiveBox automation and integrations.</p>
+          <div>
+            <a href="https://github.com/ArchiveBox/abxbus">GitHub</a>
+            <a href="https://abxbus.archivebox.io">Site</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section docs-band">
+      <div>
+        <p class="eyebrow">Documentation</p>
+        <h2>Go deeper when you need production details.</h2>
+        <p>The README and wiki cover supported sources, outputs, scheduled archiving, storage backends, authentication, security, publishing, Chrome setup, upgrades, and troubleshooting.</p>
+      </div>
+      <div class="doc-link-grid">
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving">Scheduled archiving</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Storage">Storage backends</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview">Security overview</a>
+        <a href="https://docs.archivebox.io">API docs</a>
+        <a href="https://github.com/ArchiveBox/ArchiveBox/issues">Issue tracker</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="brand">
+      <img src="./icon.png" alt="" width="34" height="34">
+      <span>ArchiveBox</span>
+    </div>
+    <p>Open-source self-hosted web archiving. MIT licensed, nonprofit-supported, and built for durable collections.</p>
+    <div>
+      <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/LICENSE">License</a>
+      <a href="https://github.com/ArchiveBox/ArchiveBox/releases">Changelog</a>
+      <a href="https://zulip.archivebox.io">Community chat</a>
+      <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Donations">Donations</a>
+    </div>
+  </footer>
+</body>
+</html>
