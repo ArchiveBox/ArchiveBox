@@ -4,7 +4,8 @@ from django.urls import path, re_path, include
 from django.views import static
 from django.conf import settings
 from django.views.generic.base import RedirectView
-from django.http import HttpRequest
+from django.http import HttpRequest, JsonResponse
+from django.shortcuts import render
 
 from archivebox.misc.serve_static import serve_static
 
@@ -21,6 +22,77 @@ from archivebox.core.views import (
     HealthCheckView,
     live_progress_view,
 )
+
+
+def is_api_request(request: HttpRequest) -> bool:
+    return request.path.startswith('/api/')
+
+
+def bad_request(request: HttpRequest, exception=None):
+    if is_api_request(request):
+        return JsonResponse({
+            "error": "Bad Request",
+            "status_code": 400,
+            "message": str(exception) if exception else "The request could not be understood.",
+            "detail": "Please check your request parameters and try again.",
+        }, status=400)
+    
+    context = {
+        "error_message": str(exception) if exception else "The request could not be understood.",
+        "title": "400 - Bad Request",
+    }
+    return render(request, 'core/400.html', context=context, status=400)
+
+
+def permission_denied(request: HttpRequest, exception=None):
+    if is_api_request(request):
+        return JsonResponse({
+            "error": "Permission Denied",
+            "status_code": 403,
+            "message": str(exception) if exception else "You do not have permission to access this resource.",
+        }, status=403)
+    
+    context = {
+        "error_message": str(exception) if exception else "You do not have permission to access this resource.",
+        "title": "403 - Forbidden",
+    }
+    return render(request, 'core/400.html', context=context, status=403)
+
+
+def page_not_found(request: HttpRequest, exception=None):
+    if is_api_request(request):
+        return JsonResponse({
+            "error": "Not Found",
+            "status_code": 404,
+            "message": str(exception) if exception else "The requested resource could not be found.",
+        }, status=404)
+    
+    context = {
+        "error_message": str(exception) if exception else "The requested page could not be found.",
+        "title": "404 - Not Found",
+    }
+    return render(request, 'core/400.html', context=context, status=404)
+
+
+def server_error(request: HttpRequest):
+    if is_api_request(request):
+        return JsonResponse({
+            "error": "Server Error",
+            "status_code": 500,
+            "message": "An unexpected error occurred on the server.",
+        }, status=500)
+    
+    context = {
+        "error_message": "An unexpected error occurred on the server. Please try again later.",
+        "title": "500 - Server Error",
+    }
+    return render(request, 'core/400.html', context=context, status=500)
+
+
+handler400 = 'archivebox.core.urls.bad_request'
+handler403 = 'archivebox.core.urls.permission_denied'
+handler404 = 'archivebox.core.urls.page_not_found'
+handler500 = 'archivebox.core.urls.server_error'
 
 
 # GLOBAL_CONTEXT doesn't work as-is, disabled for now: https://github.com/ArchiveBox/ArchiveBox/discussions/1306
