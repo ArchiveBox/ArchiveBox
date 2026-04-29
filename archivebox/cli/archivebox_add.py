@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.db.models import QuerySet
 
 from archivebox.misc.util import enforce_types, docstring
-from archivebox.misc.util import parse_filesize_to_bytes
+from archivebox.misc.util import parse_filesize_to_bytes, normalize_url
 from archivebox import CONSTANTS
 from archivebox.config.common import ARCHIVING_CONFIG, SERVER_CONFIG
 from archivebox.config.permissions import USER, HOSTNAME
@@ -29,19 +29,83 @@ def _collect_input_urls(args: tuple[str, ...]) -> list[str]:
     from archivebox.misc.jsonl import read_args_or_stdin
 
     urls: list[str] = []
+    seen_normalized: set[str] = set()
+
     for record in read_args_or_stdin(args):
         url = record.get("url")
         if isinstance(url, str) and url:
-            urls.append(url)
+            normalized = normalize_url(url)
+            if normalized not in seen_normalized:
+                seen_normalized.add(normalized)
+                urls.append(url)
 
         urls_field = record.get("urls")
         if isinstance(urls_field, str):
             for line in urls_field.splitlines():
                 line = line.strip()
                 if line and not line.startswith("#"):
-                    urls.append(line)
+                    normalized = normalize_url(line)
+                    if normalized not in seen_normalized:
+                        seen_normalized.add(normalized)
+                        urls.append(line)
 
     return urls
+
+
+def _deduplicate_urls(urls: list[str], overwrite: bool = False) -> tuple[list[str], list[str]]:
+    """
+    Deduplicate URLs by checking against the database.
+    
+    Args:
+        urls: List of URLs to deduplicate
+        overwrite: If True, skip deduplication (force re-archive)
+        
+    Returns:
+        Tuple of (urls_to_add, skipped_urls)
+    """
+    from rich import print
+    from archivebox.core.models import Snapshot
+
+    if overwrite:
+        return urls, []
+
+    if not urls:
+        return [], []
+
+    normalized_urls = {normalize_url(url): url for url in urls}
+
+    existing_normalized_urls = set()
+    if normalized_urls:
+        from django.db.models import Q
+
+        normalized_list = list(normalized_urls.keys())
+        batch_size = 100
+
+        for i in range(0, len(normalized_list), batch_size):
+            batch = normalized_list[i : i + batch_size]
+
+            q_filter = Q()
+            for normalized_url in batch:
+                q_filter |= Q(url__iexact=normalized_url) | Q(url__iexact=normalized_url + "/")
+
+            existing_snapshots = Snapshot.objects.filter(q_filter).only("url").iterator()
+
+            for snapshot in existing_snapshots:
+                existing_normalized_urls.add(normalize_url(snapshot.url))
+
+    urls_to_add: list[str] = []
+    skipped_urls: list[str] = []
+
+    for url in urls:
+        normalized = normalize_url(url)
+        if normalized in existing_normalized_urls:
+            skipped_urls.append(url)
+            print(f"[yellow]\\[!] 跳过重复：{url}[/yellow]")
+        else:
+            urls_to_add.append(url)
+            existing_normalized_urls.add(normalized)
+
+    return urls_to_add, skipped_urls
 
 
 @enforce_types
@@ -102,10 +166,21 @@ def add(
     if update is None:
         update = not ARCHIVING_CONFIG.ONLY_NEW
 
+    # Convert urls to list if it's a string
+    urls_list: list[str] = urls if isinstance(urls, list) else [u.strip() for u in urls.split("\n") if u.strip()]
+
+    # Deduplicate URLs against database
+    urls_to_add, skipped_urls = _deduplicate_urls(urls_list, overwrite=overwrite)
+
+    # Handle case where all URLs are duplicates
+    if not urls_to_add and skipped_urls:
+        print(f"[yellow]\[*] All {len(skipped_urls)} URLs were duplicates, nothing to add.[/yellow]")
+        raise SystemExit(0)
+
     # 1. Save the provided URLs to sources/2024-11-05__23-59-59__cli_add.txt
     sources_file = CONSTANTS.SOURCES_DIR / f"{timezone.now().strftime('%Y-%m-%d__%H-%M-%S')}__cli_add.txt"
     sources_file.parent.mkdir(parents=True, exist_ok=True)
-    sources_file.write_text(urls if isinstance(urls, str) else "\n".join(urls))
+    sources_file.write_text("\n".join(urls_to_add))
 
     # 2. Create a new Crawl with inline URLs
     cli_args = [*sys.argv]

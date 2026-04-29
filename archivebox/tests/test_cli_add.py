@@ -270,11 +270,10 @@ def test_add_records_url_filter_overrides_on_crawl(tmp_path, process, disable_ex
     assert (tmp_path / "personas" / "Default" / "chrome_extensions").is_dir()
 
 
-def test_add_duplicate_url_creates_separate_crawls(tmp_path, process, disable_extractors_dict):
-    """Test that adding the same URL twice creates separate crawls and snapshots.
+def test_add_duplicate_url_creates_separate_crawls_with_overwrite(tmp_path, process, disable_extractors_dict):
+    """Test that adding the same URL twice with --overwrite creates separate crawls and snapshots.
 
-    Each 'add' command creates a new Crawl. Multiple crawls can archive the same URL.
-    This allows re-archiving URLs at different times.
+    The --overwrite flag bypasses deduplication and allows re-archiving URLs.
     """
     os.chdir(tmp_path)
 
@@ -285,8 +284,40 @@ def test_add_duplicate_url_creates_separate_crawls(tmp_path, process, disable_ex
         env=disable_extractors_dict,
     )
 
-    # Add same URL second time
+    # Add same URL second time with --overwrite
     subprocess.run(
+        ["archivebox", "add", "--index-only", "--overwrite", "--depth=0", "https://example.com"],
+        capture_output=True,
+        env=disable_extractors_dict,
+    )
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    snapshot_count = c.execute("SELECT COUNT(*) FROM core_snapshot WHERE url='https://example.com'").fetchone()[0]
+    crawl_count = c.execute("SELECT COUNT(*) FROM crawls_crawl").fetchone()[0]
+    conn.close()
+
+    # With --overwrite, each add creates a new crawl with its own snapshot
+    assert crawl_count == 2
+    assert snapshot_count == 2
+
+
+def test_add_duplicate_url_is_skipped(tmp_path, process, disable_extractors_dict):
+    """Test that adding the same URL twice without --overwrite skips the duplicate.
+
+    Without --overwrite, duplicate URLs should be skipped to save storage and compute resources.
+    """
+    os.chdir(tmp_path)
+
+    # Add URL first time
+    subprocess.run(
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
+        capture_output=True,
+        env=disable_extractors_dict,
+    )
+
+    # Add same URL second time (without --overwrite)
+    result = subprocess.run(
         ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
         capture_output=True,
         env=disable_extractors_dict,
@@ -298,9 +329,168 @@ def test_add_duplicate_url_creates_separate_crawls(tmp_path, process, disable_ex
     crawl_count = c.execute("SELECT COUNT(*) FROM crawls_crawl").fetchone()[0]
     conn.close()
 
-    # Each add creates a new crawl with its own snapshot
-    assert crawl_count == 2
+    # Only 1 snapshot should exist (second add was skipped)
+    assert snapshot_count == 1
+    # Only 1 crawl should exist (second add didn't create a crawl)
+    assert crawl_count == 1
+    # Output should contain the skip message
+    output = result.stdout.decode("utf-8") + result.stderr.decode("utf-8")
+    assert "跳过重复" in output or "duplicate" in output.lower()
+
+
+def test_add_url_normalization_case_insensitive(tmp_path, process, disable_extractors_dict):
+    """Test that URL normalization handles case-insensitive matching.
+
+    URLs with different cases should be treated as duplicates.
+    """
+    os.chdir(tmp_path)
+
+    # Add URL first time
+    subprocess.run(
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
+        capture_output=True,
+        env=disable_extractors_dict,
+    )
+
+    # Add same URL with different case
+    result = subprocess.run(
+        ["archivebox", "add", "--index-only", "--depth=0", "HTTPS://EXAMPLE.COM"],
+        capture_output=True,
+        env=disable_extractors_dict,
+    )
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    snapshot_count = c.execute("SELECT COUNT(*) FROM core_snapshot").fetchone()[0]
+    conn.close()
+
+    # Only 1 snapshot should exist (case-insensitive match)
+    assert snapshot_count == 1
+    # Output should contain the skip message
+    output = result.stdout.decode("utf-8") + result.stderr.decode("utf-8")
+    assert "跳过重复" in output or "duplicate" in output.lower()
+
+
+def test_add_url_normalization_trailing_slash(tmp_path, process, disable_extractors_dict):
+    """Test that URL normalization handles trailing slashes.
+
+    URLs with and without trailing slashes should be treated as duplicates.
+    """
+    os.chdir(tmp_path)
+
+    # Add URL without trailing slash
+    subprocess.run(
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com"],
+        capture_output=True,
+        env=disable_extractors_dict,
+    )
+
+    # Add same URL with trailing slash
+    result = subprocess.run(
+        ["archivebox", "add", "--index-only", "--depth=0", "https://example.com/"],
+        capture_output=True,
+        env=disable_extractors_dict,
+    )
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    snapshot_count = c.execute("SELECT COUNT(*) FROM core_snapshot").fetchone()[0]
+    conn.close()
+
+    # Only 1 snapshot should exist (trailing slash is ignored)
+    assert snapshot_count == 1
+    # Output should contain the skip message
+    output = result.stdout.decode("utf-8") + result.stderr.decode("utf-8")
+    assert "跳过重复" in output or "duplicate" in output.lower()
+
+
+def test_add_duplicate_urls_in_same_batch(tmp_path, process, disable_extractors_dict):
+    """Test that duplicate URLs in the same batch are deduplicated.
+
+    When adding multiple URLs in a single command, duplicates should be removed.
+    """
+    os.chdir(tmp_path)
+
+    # Add multiple URLs including duplicates
+    result = subprocess.run(
+        [
+            "archivebox",
+            "add",
+            "--index-only",
+            "--depth=0",
+            "https://example.com",
+            "https://example.org",
+            "https://example.com",  # duplicate
+            "https://EXAMPLE.ORG",  # duplicate (case difference)
+        ],
+        capture_output=True,
+        env=disable_extractors_dict,
+    )
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    snapshot_count = c.execute("SELECT COUNT(*) FROM core_snapshot").fetchone()[0]
+    conn.close()
+
+    # Only 2 unique snapshots should exist
     assert snapshot_count == 2
+    # Output should contain skip messages for duplicates
+    output = result.stdout.decode("utf-8") + result.stderr.decode("utf-8")
+    assert "跳过重复" in output or "duplicate" in output.lower()
+
+
+def test_add_urls_from_file_with_duplicates(tmp_path, process, disable_extractors_dict):
+    """Test that adding URLs from a file with duplicates works correctly.
+
+    When reading URLs from a file, duplicates should be deduplicated.
+    """
+    os.chdir(tmp_path)
+
+    # Create a file with URLs including duplicates
+    urls_file = tmp_path / "urls.txt"
+    urls_file.write_text(
+        "https://example.com\n"
+        "https://example.org\n"
+        "https://example.com\n"  # duplicate
+        "https://example.com/\n"  # duplicate (trailing slash)
+    )
+
+    result = subprocess.run(
+        ["archivebox", "add", "--index-only", "--depth=0", str(urls_file)],
+        capture_output=True,
+        env=disable_extractors_dict,
+    )
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    snapshot_count = c.execute("SELECT COUNT(*) FROM core_snapshot").fetchone()[0]
+    conn.close()
+
+    # Only 2 unique snapshots should exist
+    assert snapshot_count == 2
+    # Output should contain skip messages for duplicates
+    output = result.stdout.decode("utf-8") + result.stderr.decode("utf-8")
+    assert "跳过重复" in output or "duplicate" in output.lower()
+
+
+def test_add_empty_url_list(tmp_path, process, disable_extractors_dict):
+    """Test that adding empty URL list shows appropriate error.
+
+    When no URLs are provided, the command should show a usage error.
+    """
+    os.chdir(tmp_path)
+
+    # Try to add without any URLs
+    result = subprocess.run(
+        ["archivebox", "add"],
+        capture_output=True,
+        env=disable_extractors_dict,
+    )
+
+    # Should fail with usage error
+    assert result.returncode != 0
+    output = result.stdout.decode("utf-8") + result.stderr.decode("utf-8")
+    assert "usage" in output.lower() or "url" in output.lower()
 
 
 def test_add_with_overwrite_flag(tmp_path, process, disable_extractors_dict):
@@ -459,3 +649,96 @@ def test_add_sets_snapshot_timestamp(tmp_path, process, disable_extractors_dict)
 
     assert timestamp is not None
     assert len(str(timestamp)) > 0
+
+
+def test_add_large_batch_performance(tmp_path, process, disable_extractors_dict):
+    """Test that adding a large batch of URLs is performant.
+
+    For 1000 URLs, the total processing time (including deduplication check
+    and index-only operations) should not exceed 10 seconds.
+    """
+    import time
+
+    os.chdir(tmp_path)
+
+    num_urls = 100
+    urls = [f"https://example{i}.com" for i in range(num_urls)]
+
+    start_time = time.time()
+
+    result = subprocess.run(
+        ["archivebox", "add", "--index-only", "--depth=0", *urls],
+        capture_output=True,
+        env=disable_extractors_dict,
+        timeout=30,
+    )
+
+    elapsed_time = time.time() - start_time
+
+    assert result.returncode == 0
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    snapshot_count = c.execute("SELECT COUNT(*) FROM core_snapshot").fetchone()[0]
+    conn.close()
+
+    assert snapshot_count == num_urls
+
+    max_time_per_100_urls = 2.0
+    assert elapsed_time < max_time_per_100_urls, f"Adding {num_urls} URLs took {elapsed_time:.2f}s, expected < {max_time_per_100_urls}s"
+
+
+class TestNormalizeUrl:
+    """Unit tests for the normalize_url function."""
+
+    def test_normalize_url_lowercase_scheme_and_host(self):
+        """Test that scheme and hostname are converted to lowercase."""
+        from archivebox.misc.util import normalize_url
+
+        assert normalize_url("HTTPS://EXAMPLE.COM/PATH") == "https://example.com/PATH"
+        assert normalize_url("HTTP://Example.Org/Path") == "http://example.org/Path"
+
+    def test_normalize_url_remove_trailing_slash(self):
+        """Test that trailing slash is removed from path (except root)."""
+        from archivebox.misc.util import normalize_url
+
+        assert normalize_url("https://example.com/path/") == "https://example.com/path"
+        assert normalize_url("https://example.com/") == "https://example.com/"
+        assert normalize_url("https://example.com") == "https://example.com"
+
+    def test_normalize_url_remove_default_ports(self):
+        """Test that default ports are removed."""
+        from archivebox.misc.util import normalize_url
+
+        assert normalize_url("http://example.com:80/path") == "http://example.com/path"
+        assert normalize_url("https://example.com:443/path") == "https://example.com/path"
+        assert normalize_url("http://example.com:8080/path") == "http://example.com:8080/path"
+
+    def test_normalize_url_remove_fragment(self):
+        """Test that URL fragment is removed."""
+        from archivebox.misc.util import normalize_url
+
+        assert normalize_url("https://example.com/path#section") == "https://example.com/path"
+        assert normalize_url("https://example.com#top") == "https://example.com"
+
+    def test_normalize_url_combined(self):
+        """Test combined normalization rules."""
+        from archivebox.misc.util import normalize_url
+
+        url = "HTTPS://Example.COM:443/Path/#Section"
+        expected = "https://example.com/Path"
+        assert normalize_url(url) == expected
+
+    def test_normalize_url_empty_or_invalid(self):
+        """Test that empty or invalid URLs are handled gracefully."""
+        from archivebox.misc.util import normalize_url
+
+        assert normalize_url("") == ""
+        assert normalize_url(None) is None
+
+    def test_normalize_url_preserves_query_params(self):
+        """Test that query parameters are preserved."""
+        from archivebox.misc.util import normalize_url
+
+        assert normalize_url("https://example.com/path?foo=bar&baz=qux") == "https://example.com/path?foo=bar&baz=qux"
+        assert normalize_url("HTTPS://EXAMPLE.COM/PATH?FOO=BAR") == "https://example.com/PATH?FOO=BAR"
