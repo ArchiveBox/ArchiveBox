@@ -39,6 +39,7 @@ out/
 tmp/
 data/
 data*/
+users/
 archivebox/tests/data/
 archive/
 output/

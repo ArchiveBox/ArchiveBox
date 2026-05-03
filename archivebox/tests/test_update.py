@@ -1,4 +1,6 @@
+import errno
 import json
+import os
 import sqlite3
 import subprocess
 from datetime import datetime, timedelta
@@ -193,3 +195,163 @@ def test_reconcile_with_index_json_tolerates_null_title(tmp_path):
     snapshot.refresh_from_db()
 
     assert snapshot.title == "Example Domain"
+
+
+@pytest.mark.django_db
+def test_reindex_snapshots_batches_run_plugins(monkeypatch):
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.cli.archivebox_update import reindex_snapshots
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+    import archivebox.cli.archivebox_extract as extract_mod
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com\nhttps://example.org",
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    snapshots = [
+        Snapshot.objects.create(url=f"https://example.com/{i}", crawl=crawl, status=Snapshot.StatusChoices.SEALED)
+        for i in range(3)
+    ]
+
+    captured_batches: list[list[dict[str, str]]] = []
+
+    def fake_run_plugins(*, args, records, wait, emit_results, plugins=""):
+        captured_batches.append(list(records))
+        return 0
+
+    monkeypatch.setattr(extract_mod, "run_plugins", fake_run_plugins)
+
+    stats = reindex_snapshots(
+        Snapshot.objects.filter(id__in=[snapshot.id for snapshot in snapshots]),
+        search_plugins=["search_backend_sqlite"],
+        batch_size=2,
+    )
+
+    assert stats["processed"] == 3
+    assert stats["queued"] == 3
+    assert stats["reindexed"] == 3
+    assert len(captured_batches) == 2
+    assert len(captured_batches[0]) == 2
+    assert len(captured_batches[1]) == 1
+
+
+@pytest.mark.django_db
+def test_process_filtered_snapshots_preserve_save_hooks_toggles_save_signals():
+    from django.db.models.signals import post_save
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.cli.archivebox_update import process_filtered_snapshots
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    snapshot = Snapshot.objects.create(
+        url="https://example.com",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.SEALED,
+    )
+
+    save_signals = {"count": 0}
+
+    def handler(sender, **kwargs):
+        save_signals["count"] += 1
+
+    post_save.connect(handler, sender=Snapshot, weak=False)
+    try:
+        stats = process_filtered_snapshots(
+            filter_patterns=[snapshot.url],
+            filter_type="exact",
+            before=None,
+            after=None,
+            resume=None,
+            batch_size=1,
+            preserve_save_hooks=False,
+        )
+
+        assert stats["queued"] == 1
+        assert save_signals["count"] == 0
+
+        save_signals["count"] = 0
+
+        stats = process_filtered_snapshots(
+            filter_patterns=[snapshot.url],
+            filter_type="exact",
+            before=None,
+            after=None,
+            resume=None,
+            batch_size=1,
+            preserve_save_hooks=True,
+        )
+
+        assert stats["queued"] == 1
+        assert save_signals["count"] >= 1
+    finally:
+        post_save.disconnect(handler, sender=Snapshot)
+
+
+@pytest.mark.django_db
+def test_build_filtered_snapshots_queryset_respects_resume_cutoff_with_timestamp_order_mismatch():
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.cli.archivebox_update import _build_filtered_snapshots_queryset
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com\nhttps://example.org\nhttps://example.net",
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    base = timezone.make_aware(datetime(2026, 3, 23, 12, 0, 0))
+    older = Snapshot.objects.create(
+        url="https://example.net",
+        crawl=crawl,
+        bookmarked_at=base - timedelta(hours=2),
+        timestamp=str((base + timedelta(hours=3)).timestamp()),
+    )
+    middle = Snapshot.objects.create(
+        url="https://example.org",
+        crawl=crawl,
+        bookmarked_at=base - timedelta(hours=1),
+        timestamp=str((base - timedelta(hours=1)).timestamp()),
+    )
+    newer = Snapshot.objects.create(
+        url="https://example.com",
+        crawl=crawl,
+        bookmarked_at=base,
+        timestamp=str((base + timedelta(hours=1)).timestamp()),
+    )
+
+    snapshots = list(
+        _build_filtered_snapshots_queryset(
+            filter_patterns=(),
+            filter_type="exact",
+            before=None,
+            after=None,
+            resume=middle.timestamp,
+        ).values_list("id", flat=True),
+    )
+
+    assert set(map(str, snapshots)) == {str(middle.id), str(older.id)}
+    assert str(newer.id) not in {str(snapshot_id) for snapshot_id in snapshots}
+
+
+def test_move_tree_fast_falls_back_on_exdev(monkeypatch, tmp_path):
+    from archivebox.cli.archivebox_update import _move_tree_fast
+
+    src = tmp_path / "old"
+    dst = tmp_path / "new"
+    src.mkdir()
+    (src / "file.txt").write_text("hello")
+
+    def fake_rename(src_path, dst_path):
+        raise OSError(errno.EXDEV, "Cross-device link")
+
+    monkeypatch.setattr(os, "rename", fake_rename)
+
+    succeeded = _move_tree_fast(src, dst)
+
+    assert succeeded is False
+    assert src.exists()
+    assert not dst.exists()

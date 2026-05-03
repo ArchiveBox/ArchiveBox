@@ -12,14 +12,24 @@ supported-markers = [
     "sys_platform == 'linux'",
 ]
 
+[options]
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
+exclude-newer-span = "P5D"
+
+[options.exclude-newer-package]
+abxbus = { timestamp = "0001-01-01T00:00:00Z", span = "PT1S" }
+abx-plugins = { timestamp = "0001-01-01T00:00:00Z", span = "PT1S" }
+abx-dl = { timestamp = "0001-01-01T00:00:00Z", span = "PT1S" }
+abxpkg = { timestamp = "0001-01-01T00:00:00Z", span = "PT1S" }
+
 [[package]]
 name = "abx-dl"
-version = "1.10.20"
-source = { editable = "../abx-dl" }
+version = "1.10.30"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "abxpkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "abxpkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "jambo", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "platformdirs", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "psutil", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -29,111 +39,25 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "abxpkg", editable = "../abxpkg" },
-    { name = "abx-plugins", editable = "../abx-plugins" },
-    { name = "abxbus", specifier = ">=2.4.9" },
-    { name = "flake8", marker = "extra == 'dev'", specifier = ">=7.1.1" },
-    { name = "flask", marker = "extra == 'dev'", specifier = ">=3.0" },
-    { name = "jambo", specifier = ">=0.1.7" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11.2" },
-    { name = "platformdirs", specifier = ">=4.0.0" },
-    { name = "psutil", specifier = ">=7.2.1" },
-    { name = "pydantic", specifier = ">=2.0.0" },
-    { name = "pydantic-settings", specifier = ">=2.0.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-    { name = "pytest-httpserver", marker = "extra == 'dev'", specifier = ">=1.1.0" },
-    { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.5.0" },
-    { name = "requests", specifier = ">=2.28.0" },
-    { name = "rich", specifier = ">=13.0.0" },
-    { name = "rich-click", specifier = ">=1.8.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.6" },
-]
-provides-extras = ["dev"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "flask", specifier = ">=3.0" },
-    { name = "prek", specifier = ">=0.3.6" },
-    { name = "pyright", specifier = ">=1.1.408" },
-    { name = "ruff", specifier = ">=0.15.7" },
-    { name = "ty", specifier = ">=0.0.24" },
-]
-
-[[package]]
-name = "abxpkg"
-version = "1.9.19"
-source = { editable = "../abxpkg" }
-dependencies = [
-    { name = "pip", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "platformdirs", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "pydantic", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "typing-extensions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "abxpkg", extras = ["rich", "pyinfra", "ansible"], marker = "extra == 'all'" },
-    { name = "ansible", marker = "extra == 'ansible'", specifier = ">=12.3.0" },
-    { name = "ansible-core", marker = "extra == 'ansible'", specifier = ">=2.0.0" },
-    { name = "ansible-runner", marker = "extra == 'ansible'", specifier = ">=2.4.2" },
-    { name = "pip", specifier = ">=26.0.1" },
-    { name = "platformdirs", specifier = ">=4.9.2" },
-    { name = "pydantic", specifier = ">=2.12.5" },
-    { name = "pyinfra", marker = "extra == 'pyinfra'", specifier = ">=3.6.1" },
-    { name = "rich", marker = "extra == 'rich'", specifier = ">=14.0.0" },
-    { name = "typing-extensions", specifier = ">=4.15.0" },
-]
-provides-extras = ["rich", "pyinfra", "ansible", "all"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "django", specifier = ">=4.0" },
-    { name = "django-admin-data-views", specifier = ">=0.3.1" },
-    { name = "django-jsonform", specifier = ">=2.22.0" },
-    { name = "django-pydantic-field", specifier = ">=0.3.9" },
-    { name = "django-stubs", specifier = ">=5.0.0" },
-    { name = "mypy", specifier = ">=1.19.1" },
-    { name = "prek", specifier = ">=0.3.6" },
-    { name = "pyright" },
-    { name = "pytest", specifier = ">=9.0.2" },
-    { name = "rich", specifier = ">=14.0.0" },
-    { name = "ruff", specifier = ">=0.15.7" },
-    { name = "ty", specifier = ">=0.0.24" },
+sdist = { url = "https://files.pythonhosted.org/packages/d9/b0/6be04018cd28ede3dacac09dd16272d5cfc3d4821aae0531650ac6682e42/abx_dl-1.10.30.tar.gz", hash = "sha256:e54eff72679e98061c81def015bc6282d04980eacb84252a23c8cf08b8941618", size = 73894, upload-time = "2026-04-17T17:47:22.378Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/18/5b/f56097b2594ada823966361b1b35bf399904df5c913e0d9b662e6a49b0ca/abx_dl-1.10.30-py3-none-any.whl", hash = "sha256:980d04c90809bd6743346225ce70d0153f9342dae4d29087e018febec3fcb18c", size = 78402, upload-time = "2026-04-17T17:47:24.118Z" },
 ]
 
 [[package]]
 name = "abx-plugins"
-version = "1.10.20"
-source = { editable = "../abx-plugins" }
+version = "1.10.30"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abxpkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "jambo", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "uv", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "abxpkg", specifier = ">=1.9.19" },
-    { name = "abxbus", specifier = ">=2.4.9" },
-    { name = "feedparser", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-    { name = "jambo", specifier = ">=0.1.7" },
-    { name = "jinja2", marker = "extra == 'dev'", specifier = ">=3.1.0" },
-    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.408" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.2" },
-    { name = "pytest-httpserver", marker = "extra == 'dev'", specifier = ">=1.1.0" },
-    { name = "requests", marker = "extra == 'dev'", specifier = ">=2.28.0" },
-    { name = "rich-click", specifier = ">=1.9.7" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.2" },
-    { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.18" },
+sdist = { url = "https://files.pythonhosted.org/packages/02/a9/17a58d68888ac5795262eb0a5f7321e2e52311cdc9b803bd99a259a091a7/abx_plugins-1.10.30.tar.gz", hash = "sha256:e6fa2f74a3c6ea38d6f536e4af12da756756b8598bf74369f7320ec85b310c2f", size = 554053, upload-time = "2026-04-17T17:45:22.051Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/14/d7/9a076beb52b33566af3c4f55155f2ff8413b8ca589eb553dc0e3acb95808/abx_plugins-1.10.30-py3-none-any.whl", hash = "sha256:d8a99fae45f4f3edf453738298d982c2513da23cb1c9efdccd97056654054855", size = 758782, upload-time = "2026-04-17T17:45:23.333Z" },
 ]
-provides-extras = ["dev"]
-
-[package.metadata.requires-dev]
-dev = [{ name = "prek", specifier = ">=0.3.6" }]
 
 [[package]]
 name = "abxbus"
@@ -150,6 +74,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/56/bf/3341d60838432dd391b812b557b1e1d5f5d367fab87fbbd16d0ecc268b76/abxbus-2.4.9.tar.gz", hash = "sha256:af2942c972d8f828346579d647a5466990d8469a3bb3727047d01d84c250879e", size = 116437, upload-time = "2026-03-23T19:34:46.556Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/41/d7/29a3823e93c8eaaca62a00cdb985c873cba7553e2b45870a1828f69908ed/abxbus-2.4.9-py3-none-any.whl", hash = "sha256:b46098e86a49cf195963cbff8be182e834368a20868c11ad4bd3c70a4e00b257", size = 111562, upload-time = "2026-03-23T19:34:45.465Z" },
+]
+
+[[package]]
+name = "abxpkg"
+version = "1.10.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pip", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "platformdirs", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "pydantic", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "typing-extensions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/28/6f/f97bd4f0a3da6f4167f1ef855f9ca41aaccc9a184cffb74d1f17c92bdb40/abxpkg-1.10.6.tar.gz", hash = "sha256:c4dc61fae2ec74cea434fbbca213a8d634b21bf44086d08bc702129b790962b5", size = 187769, upload-time = "2026-04-15T03:12:00.827Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/12/92/9bb3e2c9d16d4385a181e439fb53a2ccfa7ae04e765740e7d7445724acc3/abxpkg-1.10.6-py3-none-any.whl", hash = "sha256:6f0239a8eba1c51c953d1abb7ed0351f06382928d26b8c8ddb1a9716b22487c9", size = 205413, upload-time = "2026-04-15T03:11:59.462Z" },
 ]
 
 [[package]]
@@ -193,13 +133,13 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.12rc1"
+version = "0.9.30rc1"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "abxpkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "abxpkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "atomicwrites", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "base32-crockford", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -268,7 +208,6 @@ dev = [
     { name = "myst-parser", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "opentelemetry-instrumentation-django", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "opentelemetry-instrumentation-sqlite3", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "pip", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "prek", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "pyright", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "pytest", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -278,22 +217,20 @@ dev = [
     { name = "recommonmark", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "requests-tracker", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "ruff", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "setuptools", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "sphinx", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "sphinx-autodoc2", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "sphinx-rtd-theme", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "ty", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "uv", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "viztracer", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "wheel", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-dl", editable = "../abx-dl" },
-    { name = "abxpkg", editable = "../abxpkg" },
-    { name = "abx-plugins", editable = "../abx-plugins" },
+    { name = "abx-dl", specifier = ">=1.10.30" },
+    { name = "abx-plugins", specifier = ">=1.10.30" },
     { name = "abxbus", specifier = ">=2.4.9" },
+    { name = "abxpkg", specifier = ">=1.10.5" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
     { name = "atomicwrites", specifier = "==1.4.1" },
     { name = "base32-crockford", specifier = ">=0.3.0" },
@@ -349,7 +286,6 @@ dev = [
     { name = "myst-parser", specifier = ">=4.0.0" },
     { name = "opentelemetry-instrumentation-django", specifier = ">=0.47b0" },
     { name = "opentelemetry-instrumentation-sqlite3", specifier = ">=0.47b0" },
-    { name = "pip", specifier = ">=24.2" },
     { name = "prek", specifier = ">=0.3.6" },
     { name = "pyright", specifier = ">=1.1.406" },
     { name = "pytest", specifier = ">=8.3.3" },
@@ -359,14 +295,12 @@ dev = [
     { name = "recommonmark", specifier = ">=0.7.1" },
     { name = "requests-tracker", specifier = ">=0.3.3" },
     { name = "ruff", specifier = ">=0.6.6" },
-    { name = "setuptools", specifier = ">=75.1.0" },
     { name = "sphinx", specifier = ">=8.1.3" },
     { name = "sphinx-autodoc2", specifier = ">=0.5.0" },
     { name = "sphinx-rtd-theme", specifier = ">=2.0.0" },
     { name = "ty", specifier = ">=0.0.1a19" },
-    { name = "uv", specifier = ">=0.4.26" },
+    { name = "uv", specifier = ">=0.11.3" },
     { name = "viztracer", specifier = ">=0.17.0" },
-    { name = "wheel", specifier = ">=0.44.0" },
 ]
 
 [[package]]
@@ -2858,25 +2792,25 @@ wheels = [
 
 [[package]]
 name = "uv"
-version = "0.10.12"
+version = "0.11.8"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/8d/b7/6a27678654caa7f2240d9c5be9bd032bfff90a58858f0078575e7a9b6d9f/uv-0.10.12.tar.gz", hash = "sha256:fa722691c7ae5c023778ad0b040ab8619367bcfe44fd0d9e05a58751af86cdf8", size = 3988720, upload-time = "2026-03-19T21:50:41.015Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c1/cd/4393fecb083897e956f016d4e66d0b8a496a08fe2e03cbda32a1e91da7ee/uv-0.11.8.tar.gz", hash = "sha256:bb2cf302b8503629aab6f0090a05551e6f8cfc2d687ca059cad7ec9e11214335", size = 4098020, upload-time = "2026-04-27T13:15:31.625Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fe/aa/dde1b7300f8e924606ab0fe192aa25ca79736c5883ee40310ba8a5b34042/uv-0.10.12-py3-none-linux_armv6l.whl", hash = "sha256:7099bdefffbe2df81accad52579657b8f9f870170caa779049c9fd82d645c9b3", size = 22662810, upload-time = "2026-03-19T21:50:43.108Z" },
-    { url = "https://files.pythonhosted.org/packages/5c/90/4fd10d7337a084847403cdbff288395a6a12adbaaac975943df4f46c2d31/uv-0.10.12-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:e0f0ef58f0ba6fbfaf5f91b67aad6852252c49b8f78015a2a5800cf74c7538d5", size = 21852701, upload-time = "2026-03-19T21:51:06.216Z" },
-    { url = "https://files.pythonhosted.org/packages/ce/db/c41ace81b8ef5d5952433df38e321c0b6e5f88ce210c508b14f84817963f/uv-0.10.12-py3-none-macosx_11_0_arm64.whl", hash = "sha256:551f799d53e397843b6cde7e3c61de716fb487da512a21a954b7d0cbc06967e0", size = 20454594, upload-time = "2026-03-19T21:50:53.693Z" },
-    { url = "https://files.pythonhosted.org/packages/5d/07/a990708c5ba064b4eb1a289f1e9c484ebf5c1a0ea8cad049c86625f3b467/uv-0.10.12-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl", hash = "sha256:a5afe619e8a861fe4d49df8e10d2c6963de0dac6b79350c4832bf3366c8496cf", size = 22212546, upload-time = "2026-03-19T21:51:08.76Z" },
-    { url = "https://files.pythonhosted.org/packages/b7/26/7f5ac4af027846c24bd7bf0edbd48b805f9e7daec145c62c632b5ce94e5f/uv-0.10.12-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.musllinux_1_1_armv7l.whl", hash = "sha256:8dc352c93a47a4760cf824c31c55ce26511af780481e8f67c796d2779acaa928", size = 22278457, upload-time = "2026-03-19T21:51:19.895Z" },
-    { url = "https://files.pythonhosted.org/packages/02/00/c9043c73fb958482c9b42ad39ba81d1bd1ceffef11c4757412cb17f12316/uv-0.10.12-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:bd84379292e3c1a1bf0a05847c7c72b66bb581dccf8da1ef94cc82bf517efa7c", size = 22239751, upload-time = "2026-03-19T21:50:51.25Z" },
-    { url = "https://files.pythonhosted.org/packages/5c/d1/31fe74bf2a049446dd95213890ffed98f733d0f5e3badafec59164951608/uv-0.10.12-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:2ace05115bd9ee1b30d341728257fe051817c4c0a652c085c90d4bd4fb0bc8f2", size = 23697005, upload-time = "2026-03-19T21:50:48.767Z" },
-    { url = "https://files.pythonhosted.org/packages/8b/9a/dd58ef59e622a1651e181ec5b7d304ae482e591f28a864c474d09ea00aff/uv-0.10.12-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:be85acae8f31c68311505cd96202bad43165cbd7be110c59222f918677e93248", size = 24453680, upload-time = "2026-03-19T21:51:11.443Z" },
-    { url = "https://files.pythonhosted.org/packages/09/26/b5920b43d7c91e720b72feaf81ea8575fa6188b626607695199fb9a0b683/uv-0.10.12-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:2bb5893d79179727253e4a283871a693d7773c662a534fb897aa65496aa35765", size = 23570067, upload-time = "2026-03-19T21:51:13.976Z" },
-    { url = "https://files.pythonhosted.org/packages/8d/42/139e68d7d92bb90a33b5e269dbe474acb00b6c9797541032f859c5bf4c4d/uv-0.10.12-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:101481a1f48db6becf219914a591a588c0b3bfd05bef90768a5d04972bd6455e", size = 23498314, upload-time = "2026-03-19T21:50:36.104Z" },
-    { url = "https://files.pythonhosted.org/packages/0c/75/40b237d005e4cdef9f960c215d3e2c0ab4f459ca009c3800cdcb07fbaa1d/uv-0.10.12-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:384b7f36a1ae50efe5f50fe299f276a83bf7acc8b7147517f34e27103270f016", size = 22314017, upload-time = "2026-03-19T21:50:56.45Z" },
-    { url = "https://files.pythonhosted.org/packages/d0/c3/e65a6d795d5baf6fc113ff764650cc6dd792d745ff23f657e4c302877365/uv-0.10.12-py3-none-manylinux_2_31_riscv64.musllinux_1_1_riscv64.whl", hash = "sha256:2c21e1b36c384f75dd3fd4a818b04871158ce115efff0bb4fdcd18ba2df7bd48", size = 23321597, upload-time = "2026-03-19T21:50:39.012Z" },
-    { url = "https://files.pythonhosted.org/packages/65/ad/00f561b90b0ddfd1d591a78299fdeae68566e9cf82a4913548e4b700afef/uv-0.10.12-py3-none-manylinux_2_31_riscv64.whl", hash = "sha256:006812a086fce03d230fc987299f7295c7a73d17a1f1c17de1d1f327826f8481", size = 23336447, upload-time = "2026-03-19T21:50:58.764Z" },
-    { url = "https://files.pythonhosted.org/packages/f1/6e/ddf50c9ad12cffa99dbb6d1ab920da8ba95e510982cf53df3424e8cbc228/uv-0.10.12-py3-none-musllinux_1_1_i686.whl", hash = "sha256:2c5dfc7560453186e911c8c2e4ce95cd1c91e1c5926c3b34c5a825a307217be9", size = 22855873, upload-time = "2026-03-19T21:51:01.13Z" },
-    { url = "https://files.pythonhosted.org/packages/7a/9a/31a9c2f939849e56039bbe962aef6fb960df68c31bebd834d956876decfc/uv-0.10.12-py3-none-musllinux_1_1_x86_64.whl", hash = "sha256:b9ca1d264059cb016c853ebbc4f21c72d983e0f347c927ca29e283aec2f596cf", size = 23675276, upload-time = "2026-03-19T21:51:17.262Z" },
+    { url = "https://files.pythonhosted.org/packages/99/84/dcb676a3e36a3a2b44dc2e4dfea471b8cd709025e27cce3e588b176fd899/uv-0.11.8-py3-none-linux_armv6l.whl", hash = "sha256:a53e704a780a9e78a50f5a880e99a690f84e6fb9e82610903ce26f47c271d74c", size = 23664296, upload-time = "2026-04-27T13:15:15.644Z" },
+    { url = "https://files.pythonhosted.org/packages/86/05/557aa070fda7b8460bbbe1e867e8e5b80602c5b30ed77d1d94fc5acae518/uv-0.11.8-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:d414fc3795b6f56fb6b1fa359537930924fdfe857750a144d2aedf3077be3f1d", size = 23087321, upload-time = "2026-04-27T13:15:36.193Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/62/82953018801a250e16b091ef4b5e95e939b2f01224363d6fc80f600b7eff/uv-0.11.8-py3-none-macosx_11_0_arm64.whl", hash = "sha256:f0d402e182ab581e934c159cc9edf25ec6e08d32f29aa797980e949afefc87cd", size = 21747142, upload-time = "2026-04-27T13:15:20.4Z" },
+    { url = "https://files.pythonhosted.org/packages/af/4c/477f2abe16f9a3d3c73077f15615878a303eef3760115ec946be58ecb9b2/uv-0.11.8-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl", hash = "sha256:877c9af3b3955a35ef739e5b2ba79c56dae5c4d50420a7ed908c0901e1c8c807", size = 23425861, upload-time = "2026-04-27T13:15:10.374Z" },
+    { url = "https://files.pythonhosted.org/packages/2a/63/19f46193e49f0c9bf33346a4d726313871864db16e7cdd1c0a63bc112000/uv-0.11.8-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.musllinux_1_1_armv7l.whl", hash = "sha256:8278144df8d80a83f770c264a5e79ea50791316d2a0dda869e53b3c1174142a8", size = 23215551, upload-time = "2026-04-27T13:15:38.706Z" },
+    { url = "https://files.pythonhosted.org/packages/72/3e/5595b265df848a33cd060b10e8f763a46d67521ac9f6c314e8a4ad5329d7/uv-0.11.8-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:b3494ad32465f4e02259cfb104d24efe5bb8f7a782351f0354de9385415fb310", size = 23224170, upload-time = "2026-04-27T13:15:18.083Z" },
+    { url = "https://files.pythonhosted.org/packages/a6/b3/6ca95e690b52542caa1dae10ede57732f90c629946ab5f027ff746f87deb/uv-0.11.8-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:a4421e27e81f85bce3bdb75986c38b5f9bfab9cdccaf3d977cf124b3f0f0b989", size = 24730048, upload-time = "2026-04-27T13:15:13.254Z" },
+    { url = "https://files.pythonhosted.org/packages/ea/49/71b7322067c85a3736a22a300072b0566991fe3f95b81bed793508ff5315/uv-0.11.8-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:91943e77fc962752d4f64ad5739219858395981078051c740b28b52963b366aa", size = 25585906, upload-time = "2026-04-27T13:15:41.455Z" },
+    { url = "https://files.pythonhosted.org/packages/37/16/4e84cd5131327fe86d4784ebfc8a983149f4e6b811476ef271fc548b29e6/uv-0.11.8-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:41fbba287efcc9bc9505a60549b3a223220da720eacd03be8c23d9daaafa44f4", size = 24795740, upload-time = "2026-04-27T13:15:49.842Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/01/df175979018743cc5ba6e2fb9dcec916868271e8d88cf0b9df8fd805a0df/uv-0.11.8-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d97bb2920d6cddc07faa475013461294cc09b77ec8139278416c6e54b938d037", size = 24824980, upload-time = "2026-04-27T13:15:53.506Z" },
+    { url = "https://files.pythonhosted.org/packages/1c/95/93c7f595f7136fb32807442860c55d0faed2cd3d7da4b7105ed3c2535d5f/uv-0.11.8-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:fb6a755305eb1e081dfe6a8bc007dbae2d26fe75e551656ca7c9cd08fba21d26", size = 23526790, upload-time = "2026-04-27T13:15:04.955Z" },
+    { url = "https://files.pythonhosted.org/packages/04/02/77430b89e172c20cc549b07a5b1dfda0c882c161b6d82781d3150a7063ac/uv-0.11.8-py3-none-manylinux_2_31_riscv64.musllinux_1_1_riscv64.whl", hash = "sha256:841ecbb38532698f73b14b49dc5f0c5e756194c7fcf6e5c6b7ed3859200fe91b", size = 24280498, upload-time = "2026-04-27T13:15:43.978Z" },
+    { url = "https://files.pythonhosted.org/packages/8a/e3/23e4a2bb91e3880e017e6116886e2d0bde14ba6aa95ddc458160ee630e7c/uv-0.11.8-py3-none-manylinux_2_31_riscv64.whl", hash = "sha256:b3ff2b20c1897105ebe7ed7f9b1b331c7171da029bc1e35970ce31dc086141c1", size = 24375233, upload-time = "2026-04-27T13:15:25.753Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/67/fb7dc17cea816a667d1be2632525aa1687566bfafd17bdac561a7a6c9484/uv-0.11.8-py3-none-musllinux_1_1_i686.whl", hash = "sha256:ad381228b0170ef9646902c7e908d4a10a7ecc3da8139450506cf70c7e7f3e80", size = 23904818, upload-time = "2026-04-27T13:15:23.21Z" },
+    { url = "https://files.pythonhosted.org/packages/4b/91/b920e35f54f8c6b51f2c639e8170bb80a47a739a1442fea33a479bc93a3d/uv-0.11.8-py3-none-musllinux_1_1_x86_64.whl", hash = "sha256:0172b5215544844cd3db0fa3c73a2eb74999b3f00cd2527dde578725076d7b65", size = 25015448, upload-time = "2026-04-27T13:15:46.666Z" },
 ]
 
 [[package]]
@@ -2934,18 +2868,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b5/43/76ded108b296a49f52de6bac5192ca1c4be84e886f9b5c9ba8427d9694fd/werkzeug-3.1.7.tar.gz", hash = "sha256:fb8c01fe6ab13b9b7cdb46892b99b1d66754e1d7ab8e542e865ec13f526b5351", size = 875700, upload-time = "2026-03-24T01:08:07.687Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7f/b2/0bba9bbb4596d2d2f285a16c2ab04118f6b957d8441566e1abb892e6a6b2/werkzeug-3.1.7-py3-none-any.whl", hash = "sha256:4b314d81163a3e1a169b6a0be2a000a0e204e8873c5de6586f453c55688d422f", size = 226295, upload-time = "2026-03-24T01:08:06.133Z" },
-]
-
-[[package]]
-name = "wheel"
-version = "0.46.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "packaging", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/89/24/a2eb353a6edac9a0303977c4cb048134959dd2a51b48a269dfc9dde00c8a/wheel-0.46.3.tar.gz", hash = "sha256:e3e79874b07d776c40bd6033f8ddf76a7dad46a7b8aa1b2787a83083519a1803", size = 60605, upload-time = "2026-01-22T12:39:49.136Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/87/22/b76d483683216dde3d67cba61fb2444be8d5be289bf628c13fc0fd90e5f9/wheel-0.46.3-py3-none-any.whl", hash = "sha256:4b399d56c9d9338230118d705d9737a2a468ccca63d5e813e2a4fc7815d8bc4d", size = 30557, upload-time = "2026-01-22T12:39:48.099Z" },
 ]
 
 [[package]]
