@@ -2,9 +2,11 @@
 
 __package__ = "archivebox.cli"
 
+import errno
 import os
 import time
 
+from itertools import islice
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable, Iterable
 from pathlib import Path
@@ -45,6 +47,38 @@ def _apply_pattern_filters(
     for pattern in filter_patterns:
         query |= filter_builder(pattern)
     return snapshots.filter(query)
+
+
+def _iter_batches(iterator, batch_size: int):
+    while True:
+        batch = list(islice(iterator, batch_size))
+        if not batch:
+            break
+        yield batch
+
+
+def _apply_resume_filter(
+    snapshots: QuerySet["Snapshot", "Snapshot"],
+    resume: str,
+) -> QuerySet["Snapshot", "Snapshot"]:
+    from datetime import datetime
+
+    try:
+        resume_ts = float(resume)
+        resume_dt = datetime.fromtimestamp(resume_ts)
+        return snapshots.filter(bookmarked_at__lte=resume_dt)
+    except (TypeError, ValueError, OverflowError, OSError):
+        return snapshots.filter(timestamp__lte=resume)
+
+
+def _move_tree_fast(old_dir: Path, new_dir: Path) -> bool:
+    try:
+        os.rename(old_dir, new_dir)
+        return True
+    except OSError as e:
+        if getattr(e, "errno", None) == errno.EXDEV:
+            return False
+        raise
 
 
 def _get_snapshot_crawl(snapshot: "Snapshot") -> "Crawl | None":
@@ -90,7 +124,7 @@ def _build_filtered_snapshots_queryset(
     if after:
         snapshots = snapshots.filter(bookmarked_at__gt=datetime.fromtimestamp(after))
     if resume:
-        snapshots = snapshots.filter(timestamp__lte=resume)
+        snapshots = _apply_resume_filter(snapshots, resume)
 
     return snapshots.select_related("crawl").order_by("-bookmarked_at")
 
@@ -102,51 +136,64 @@ def reindex_snapshots(
     batch_size: int,
 ) -> dict[str, int]:
     from archivebox.cli.archivebox_extract import run_plugins
+    from archivebox.core.models import ArchiveResult
 
     stats = {"processed": 0, "reconciled": 0, "queued": 0, "reindexed": 0}
-    records: list[dict[str, str]] = []
 
-    total = snapshots.count()
-    print(f"[*] Reindexing {total} snapshots with search plugins: {', '.join(search_plugins)}")
+    print(f"[*] Reindexing snapshots with search plugins: {', '.join(search_plugins)}")
 
-    for snapshot in snapshots.iterator(chunk_size=batch_size):
-        stats["processed"] += 1
+    snapshot_iterator = snapshots.iterator(chunk_size=batch_size)
+    for batch in _iter_batches(snapshot_iterator, batch_size):
+        batch_ids = [snapshot.id for snapshot in batch]
+        latest_results: dict[tuple[str, str], ArchiveResult] = {}
 
-        if _get_snapshot_crawl(snapshot) is None:
-            continue
+        existing_results = ArchiveResult.objects.filter(
+            snapshot_id__in=batch_ids,
+            plugin__in=search_plugins,
+        ).order_by("snapshot_id", "plugin", "-created_at")
 
-        output_dir = Path(snapshot.output_dir)
-        has_directory = output_dir.exists() and output_dir.is_dir()
-        if has_directory:
-            snapshot.reconcile_with_index_json()
-            stats["reconciled"] += 1
+        for result in existing_results:
+            key = (str(result.snapshot_id), result.plugin)
+            if key not in latest_results:
+                latest_results[key] = result
 
-        for plugin_name in search_plugins:
-            existing_result = snapshot.archiveresult_set.filter(plugin=plugin_name).order_by("-created_at").first()
-            if existing_result:
-                existing_result.reset_for_retry()
-            records.append(
-                {
-                    "type": "ArchiveResult",
-                    "snapshot_id": str(snapshot.id),
-                    "plugin": plugin_name,
-                },
+        records: list[dict[str, str]] = []
+        for snapshot in batch:
+            stats["processed"] += 1
+
+            if _get_snapshot_crawl(snapshot) is None:
+                continue
+
+            output_dir = Path(snapshot.output_dir)
+            has_directory = output_dir.exists() and output_dir.is_dir()
+            if has_directory:
+                snapshot.reconcile_with_index_json()
+                stats["reconciled"] += 1
+
+            for plugin_name in search_plugins:
+                existing_result = latest_results.get((str(snapshot.id), plugin_name))
+                if existing_result:
+                    existing_result.reset_for_retry()
+                records.append(
+                    {
+                        "type": "ArchiveResult",
+                        "snapshot_id": str(snapshot.id),
+                        "plugin": plugin_name,
+                    },
+                )
+                stats["queued"] += 1
+
+        if records:
+            exit_code = run_plugins(
+                args=(),
+                records=records,
+                wait=True,
+                emit_results=False,
             )
-            stats["queued"] += 1
+            if exit_code != 0:
+                raise SystemExit(exit_code)
+            stats["reindexed"] += len(records)
 
-    if not records:
-        return stats
-
-    exit_code = run_plugins(
-        args=(),
-        records=records,
-        wait=True,
-        emit_results=False,
-    )
-    if exit_code != 0:
-        raise SystemExit(exit_code)
-
-    stats["reindexed"] = len(records)
     return stats
 
 
@@ -160,6 +207,7 @@ def update(
     batch_size: int = 100,
     continuous: bool = False,
     index_only: bool = False,
+    preserve_save_hooks: bool = False,
 ) -> None:
     """
     Update snapshots: migrate old dirs, reconcile DB, and re-queue for archiving.
@@ -171,6 +219,7 @@ def update(
 
     With filters: Only phase 2 (DB query), no filesystem operations.
     Without filters: All phases (full update).
+    Use --preserve-save-hooks to retain per-row Snapshot.save() semantics when needed.
     """
 
     from rich import print
@@ -224,6 +273,7 @@ def update(
                 after=after,
                 resume=resume,
                 batch_size=batch_size,
+                preserve_save_hooks=preserve_save_hooks,
             )
             print_stats(stats)
         else:
@@ -237,7 +287,11 @@ def update(
             )
 
             print("[*] Phase 2: Processing all database snapshots (most recent first)...")
-            stats_combined["phase2"] = process_all_db_snapshots(batch_size=batch_size, resume=resume)
+            stats_combined["phase2"] = process_all_db_snapshots(
+                batch_size=batch_size,
+                resume=resume,
+                preserve_save_hooks=preserve_save_hooks,
+            )
 
             # Phase 3: Deduplication (disabled for now)
             # print('[*] Phase 3: Deduplicating...')
@@ -294,8 +348,13 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 100
         entry_path = Path(entry_path)
 
         # Resume from timestamp if specified
-        if resume_from and entry_path.name > resume_from:
-            continue
+        if resume_from:
+            try:
+                if int(entry_path.name) > int(resume_from):
+                    continue
+            except ValueError:
+                if entry_path.name > resume_from:
+                    continue
 
         stats["processed"] += 1
 
@@ -351,19 +410,21 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 100
 
                 # Manually migrate files
                 if not new_dir.exists() and old_dir.exists():
-                    new_dir.mkdir(parents=True, exist_ok=True)
-                    import shutil
+                    new_dir.parent.mkdir(parents=True, exist_ok=True)
+                    if not _move_tree_fast(old_dir, new_dir):
+                        import shutil
 
-                    file_count = 0
-                    for old_file in old_dir.rglob("*"):
-                        if old_file.is_file():
-                            rel_path = old_file.relative_to(old_dir)
-                            new_file = new_dir / rel_path
-                            if not new_file.exists():
-                                new_file.parent.mkdir(parents=True, exist_ok=True)
-                                shutil.copy2(old_file, new_file)
-                                file_count += 1
-                    print(f"[DEBUG Phase1] Copied {file_count} files")
+                        file_count = 0
+                        new_dir.mkdir(parents=True, exist_ok=True)
+                        for old_file in old_dir.rglob("*"):
+                            if old_file.is_file():
+                                rel_path = old_file.relative_to(old_dir)
+                                new_file = new_dir / rel_path
+                                if not new_file.exists():
+                                    new_file.parent.mkdir(parents=True, exist_ok=True)
+                                    shutil.copy2(old_file, new_file)
+                                    file_count += 1
+                        print(f"[DEBUG Phase1] Copied {file_count} files")
 
                 # Update only fs_version field using queryset update (bypasses validation)
                 from archivebox.core.models import Snapshot as SnapshotModel
@@ -374,7 +435,7 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 100
                 transaction.commit()
 
                 # Cleanup: delete old dir and create symlink
-                if old_dir.exists() and old_dir != new_dir:
+                if old_dir != new_dir:
                     snapshot._cleanup_old_migration_dir(old_dir, new_dir)
 
                 stats["migrated"] += 1
@@ -392,7 +453,7 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 100
     return stats
 
 
-def process_all_db_snapshots(batch_size: int = 100, resume: str | None = None) -> dict[str, int]:
+def process_all_db_snapshots(batch_size: int = 100, resume: str | None = None, preserve_save_hooks: bool = False) -> dict[str, int]:
     """
     O(n) scan over entire DB from most recent to least recent.
 
@@ -409,69 +470,83 @@ def process_all_db_snapshots(batch_size: int = 100, resume: str | None = None) -
 
     stats = {"processed": 0, "reconciled": 0, "queued": 0}
 
-    queryset = Snapshot.objects.all()
-    if resume:
-        queryset = queryset.filter(timestamp__lte=resume)
+    queryset = _build_filtered_snapshots_queryset(
+        filter_patterns=(),
+        filter_type="exact",
+        before=None,
+        after=None,
+        resume=resume,
+    )
     total = queryset.count()
     print(f"[*] Processing {total} snapshots from database (most recent first)...")
 
     # Process from most recent to least recent
-    for snapshot in queryset.select_related("crawl").order_by("-bookmarked_at").iterator(chunk_size=batch_size):
-        stats["processed"] += 1
+    snapshot_iterator = queryset.select_related("crawl").iterator(chunk_size=batch_size)
+    for batch in _iter_batches(snapshot_iterator, batch_size):
+        with transaction.atomic():
+            for snapshot in batch:
+                stats["processed"] += 1
 
-        # Skip snapshots with missing crawl references (orphaned by migration errors)
-        if _get_snapshot_crawl(snapshot) is None:
-            continue
+                # Skip snapshots with missing crawl references (orphaned by migration errors)
+                if _get_snapshot_crawl(snapshot) is None:
+                    continue
 
-        try:
-            print(
-                f"[DEBUG Phase2] Snapshot {str(snapshot.id)[:8]}: fs_version={snapshot.fs_version}, needs_migration={snapshot.fs_migration_needed}",
-            )
+                try:
+                    print(
+                        f"[DEBUG Phase2] Snapshot {str(snapshot.id)[:8]}: fs_version={snapshot.fs_version}, needs_migration={snapshot.fs_migration_needed}",
+                    )
 
-            # Check if snapshot has a directory on disk
-            from pathlib import Path
+                    from pathlib import Path
 
-            output_dir = Path(snapshot.output_dir)
-            has_directory = output_dir.exists() and output_dir.is_dir()
+                    output_dir = Path(snapshot.output_dir)
+                    has_directory = output_dir.exists() and output_dir.is_dir()
 
-            # Only reconcile if directory exists (don't create empty directories for orphans)
-            if has_directory:
-                snapshot.reconcile_with_index_json()
+                    if has_directory:
+                        original_title = snapshot.title
+                        snapshot.reconcile_with_index_json()
+                    else:
+                        original_title = snapshot.title
 
-            # Clean up invalid field values from old migrations
-            if not isinstance(snapshot.current_step, int):
-                snapshot.current_step = 0
+                    invalid_step = not isinstance(snapshot.current_step, int)
+                    if invalid_step:
+                        snapshot.current_step = 0
 
-            # If still needs migration, it's an orphan (no directory on disk)
-            # Mark it as migrated to prevent save() from triggering filesystem migration
-            if snapshot.fs_migration_needed:
-                if has_directory:
-                    print(f"[DEBUG Phase2] WARNING: Snapshot {str(snapshot.id)[:8]} has directory but still needs migration")
-                else:
-                    print(f"[DEBUG Phase2] Orphan snapshot {str(snapshot.id)[:8]} - marking as migrated without filesystem operation")
-                # Use queryset update to set fs_version without triggering save() hooks
-                from archivebox.core.models import Snapshot as SnapshotModel
+                    if snapshot.fs_migration_needed:
+                        if has_directory:
+                            print(f"[DEBUG Phase2] WARNING: Snapshot {str(snapshot.id)[:8]} has directory but still needs migration")
+                        else:
+                            print(f"[DEBUG Phase2] Orphan snapshot {str(snapshot.id)[:8]} - marking as migrated without filesystem operation")
+                        from archivebox.core.models import Snapshot as SnapshotModel
 
-                SnapshotModel.objects.filter(pk=snapshot.pk).update(fs_version="0.9.0")
-                snapshot.fs_version = "0.9.0"
+                        SnapshotModel.objects.filter(pk=snapshot.pk).update(fs_version="0.9.0")
+                        snapshot.fs_version = "0.9.0"
 
-            # Queue for archiving (state machine will handle it)
-            snapshot.status = Snapshot.StatusChoices.QUEUED
-            snapshot.retry_at = timezone.now()
-            snapshot.save()
+                    if preserve_save_hooks:
+                        snapshot.status = Snapshot.StatusChoices.QUEUED
+                        snapshot.retry_at = timezone.now()
+                        snapshot.save()
+                    else:
+                        update_kwargs = {
+                            "status": Snapshot.StatusChoices.QUEUED,
+                            "retry_at": timezone.now(),
+                            "modified_at": timezone.now(),
+                        }
+                        if snapshot.title != original_title:
+                            update_kwargs["title"] = snapshot.title
+                        if invalid_step:
+                            update_kwargs["current_step"] = 0
 
-            stats["reconciled"] += 1 if has_directory else 0
-            stats["queued"] += 1
-        except Exception as e:
-            # Skip snapshots that can't be processed (e.g., missing crawl)
-            print(f"    [!] Skipping snapshot {snapshot.id}: {e}")
-            continue
+                        Snapshot.objects.filter(pk=snapshot.pk).update(**update_kwargs)
 
-        if stats["processed"] % batch_size == 0:
-            transaction.commit()
-            print(f"    [{stats['processed']}/{total}] Processed...")
+                    stats["reconciled"] += 1 if has_directory else 0
+                    stats["queued"] += 1
+                except Exception as e:
+                    print(f"    [!] Skipping snapshot {snapshot.id}: {e}")
+                    continue
 
-    transaction.commit()
+            if stats["processed"] % batch_size == 0:
+                print(f"    [{stats['processed']}/{total}] Processed...")
+
     return stats
 
 
@@ -482,8 +557,10 @@ def process_filtered_snapshots(
     after: float | None,
     resume: str | None,
     batch_size: int,
+    preserve_save_hooks: bool = False,
 ) -> dict[str, int]:
     """Process snapshots matching filters (DB query only)."""
+    from archivebox.core.models import Snapshot
     from django.db import transaction
     from django.utils import timezone
 
@@ -500,38 +577,57 @@ def process_filtered_snapshots(
     total = snapshots.count()
     print(f"[*] Found {total} matching snapshots")
 
-    for snapshot in snapshots.select_related("crawl").iterator(chunk_size=batch_size):
-        stats["processed"] += 1
+    snapshot_iterator = snapshots.select_related("crawl").iterator(chunk_size=batch_size)
+    for batch in _iter_batches(snapshot_iterator, batch_size):
+        with transaction.atomic():
+            for snapshot in batch:
+                stats["processed"] += 1
 
-        # Skip snapshots with missing crawl references
-        if _get_snapshot_crawl(snapshot) is None:
-            continue
+                if _get_snapshot_crawl(snapshot) is None:
+                    continue
 
-        try:
-            # Reconcile index.json with DB
-            snapshot.reconcile_with_index_json()
+                try:
+                    from pathlib import Path
 
-            # Clean up invalid field values from old migrations
-            if not isinstance(snapshot.current_step, int):
-                snapshot.current_step = 0
+                    output_dir = Path(snapshot.output_dir)
+                    has_directory = output_dir.exists() and output_dir.is_dir()
+                    if has_directory:
+                        original_title = snapshot.title
+                        snapshot.reconcile_with_index_json()
+                    else:
+                        original_title = snapshot.title
 
-            # Queue for archiving
-            snapshot.status = Snapshot.StatusChoices.QUEUED
-            snapshot.retry_at = timezone.now()
-            snapshot.save()
+                    invalid_step = not isinstance(snapshot.current_step, int)
+                    if invalid_step:
+                        snapshot.current_step = 0
 
-            stats["reconciled"] += 1
-            stats["queued"] += 1
-        except Exception as e:
-            # Skip snapshots that can't be processed
-            print(f"    [!] Skipping snapshot {snapshot.id}: {e}")
-            continue
+                    if preserve_save_hooks:
+                        snapshot.status = Snapshot.StatusChoices.QUEUED
+                        snapshot.retry_at = timezone.now()
+                        snapshot.save()
+                    else:
+                        update_kwargs = {
+                            "status": Snapshot.StatusChoices.QUEUED,
+                            "retry_at": timezone.now(),
+                            "modified_at": timezone.now(),
+                        }
+                        if snapshot.title != original_title:
+                            update_kwargs["title"] = snapshot.title
+                        if invalid_step:
+                            update_kwargs["current_step"] = 0
 
-        if stats["processed"] % batch_size == 0:
-            transaction.commit()
-            print(f"    [{stats['processed']}/{total}] Processed...")
+                        from archivebox.core.models import Snapshot as SnapshotModel
+                        SnapshotModel.objects.filter(pk=snapshot.pk).update(**update_kwargs)
 
-    transaction.commit()
+                    stats["reconciled"] += 1 if has_directory else 0
+                    stats["queued"] += 1
+                except Exception as e:
+                    print(f"    [!] Skipping snapshot {snapshot.id}: {e}")
+                    continue
+
+            if stats["processed"] % batch_size == 0:
+                print(f"    [{stats['processed']}/{total}] Processed...")
+
     return stats
 
 
@@ -589,6 +685,7 @@ def print_index_stats(stats: dict[str, Any]) -> None:
 @click.option("--filter-type", "-t", type=click.Choice(["exact", "substring", "regex", "domain", "tag", "timestamp"]), default="exact")
 @click.option("--batch-size", type=int, default=100, help="Commit every N snapshots")
 @click.option("--continuous", is_flag=True, help="Run continuously as background worker")
+@click.option("--preserve-save-hooks", is_flag=True, help="Preserve model save() hooks when queueing snapshots")
 @click.option("--index-only", is_flag=True, help="Backfill available search indexes from existing archived content")
 @click.argument("filter_patterns", nargs=-1)
 @docstring(update.__doc__)
