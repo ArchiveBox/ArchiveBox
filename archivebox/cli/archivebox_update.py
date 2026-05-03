@@ -435,7 +435,7 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 100
                 transaction.commit()
 
                 # Cleanup: delete old dir and create symlink
-                if old_dir.exists() and old_dir != new_dir:
+                if old_dir != new_dir:
                     snapshot._cleanup_old_migration_dir(old_dir, new_dir)
 
                 stats["migrated"] += 1

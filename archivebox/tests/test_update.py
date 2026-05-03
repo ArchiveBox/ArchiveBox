@@ -355,3 +355,51 @@ def test_move_tree_fast_falls_back_on_exdev(monkeypatch, tmp_path):
     assert succeeded is False
     assert src.exists()
     assert not dst.exists()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_drain_old_archive_dirs_recreates_legacy_symlink_after_rename(monkeypatch, tmp_path):
+    from django.utils import timezone
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.cli.archivebox_update import drain_old_archive_dirs
+    from archivebox.config.constants import CONSTANTS
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+
+    # Use a temporary data directory for archive/ and users/ resolution.
+    monkeypatch.setattr(CONSTANTS, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(CONSTANTS, "ARCHIVE_DIR", tmp_path / "archive")
+    (CONSTANTS.ARCHIVE_DIR).mkdir(parents=True, exist_ok=True)
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    snapshot = Snapshot(
+        url="https://example.com",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.SEALED,
+        fs_version="0.8.0",
+        timestamp="1710000000",
+        bookmarked_at=timezone.now(),
+    )
+    Snapshot.objects.bulk_create([snapshot])
+
+    old_dir = CONSTANTS.ARCHIVE_DIR / snapshot.timestamp
+    old_dir.mkdir(parents=True, exist_ok=True)
+    (old_dir / "index.json").write_text(
+        json.dumps(
+            {
+                "url": snapshot.url,
+                "timestamp": snapshot.timestamp,
+                "title": "Example Domain",
+            },
+        ),
+    )
+    (old_dir / "singlefile.html").write_text("hello")
+
+    stats = drain_old_archive_dirs()
+
+    assert stats["migrated"] == 1
+    assert old_dir.is_symlink()
+    assert old_dir.resolve() == snapshot.get_storage_path_for_version("0.9.0").resolve()
