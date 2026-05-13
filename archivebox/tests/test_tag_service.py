@@ -39,7 +39,7 @@ def test_tag_event_projects_tag_to_snapshot():
                 name="example",
                 snapshot_id=str(snapshot.id),
             ),
-        )
+        ).now()
 
     asyncio.run(emit_tag_event())
 

@@ -19,6 +19,10 @@ venv/
 .docker_venv/
 .docker-venv/
 node_modules/
+abx-dl/
+abxpkg/
+abx-plugins/
+abxbus/
 chrome/
 chromeprofile/
 chrome_profile/

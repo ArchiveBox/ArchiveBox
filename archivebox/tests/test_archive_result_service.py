@@ -385,7 +385,7 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
                 timeout=60,
                 url="https://example.com",
             ),
-        )
+        ).now()
         started = await bus.find(
             ProcessStartedEvent,
             past=True,
@@ -451,7 +451,7 @@ def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(mon
                 timeout=60,
                 url="https://example.com",
             ),
-        )
+        ).now()
         started = await bus.find(
             ProcessStartedEvent,
             past=True,
@@ -499,7 +499,11 @@ def test_binary_event_reuses_existing_installed_binary_row(monkeypatch):
         binproviders="provider",
     )
 
-    asyncio.run(service.on_BinaryRequestEvent(event))
+    async def run_event():
+        await service.bus.emit(event).now()
+        await service.bus.wait_until_idle()
+
+    asyncio.run(run_event())
 
     binary.refresh_from_db()
     assert Binary.objects.filter(machine=machine, name="wget").count() == 1

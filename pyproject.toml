@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.9.30rc1"
+version = "0.9.30rc2"
 requires-python = ">=3.13"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
@@ -78,10 +78,10 @@ dependencies = [
     "w3lib>=2.2.1",          # used for parsing content-type encoding from http response headers & html tags
     ### Extractor dependencies (optional binaries detected at runtime via shutil.which)
     ### Binary/Package Management
-    "abxbus>=2.4.9",          # explicit direct dep so local dev env resolves sibling abxbus repo, matching abx-dl EventBus API
+    "abxbus @ git+https://github.com/ArchiveBox/abxbus.git@event-wait-now-results",  # PR #22 EventBus API
     "abxpkg>=1.10.5",         # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
-    "abx-plugins>=1.10.30",   # shared ArchiveBox plugin package with install_args-only overrides
-    "abx-dl>=1.10.30",        # shared ArchiveBox downloader package with install_args-only overrides
+    "abx-plugins>=1.10.31",   # shared ArchiveBox plugin package with install_args-only overrides
+    "abx-dl>=1.10.31",        # shared ArchiveBox downloader package with install_args-only overrides
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
 ]
@@ -157,6 +157,10 @@ package = true
 exclude-newer = "5 days"
 exclude-newer-package = { abx-plugins = "1 second", abx-dl = "1 second", abxpkg = "1 second", abxbus = "1 second" }
 # compile-bytecode = true
+
+[tool.uv.sources]
+abx-plugins = { git = "https://github.com/ArchiveBox/abx-plugins.git", branch = "main" }
+abx-dl = { git = "https://github.com/ArchiveBox/abx-dl.git", branch = "main" }
 
 [build-system]
 requires = ["pdm-backend"]

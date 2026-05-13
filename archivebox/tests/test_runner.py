@@ -16,6 +16,7 @@ class _DummyBus:
     def __init__(self, name: str):
         self.name = name
         self.registrations = []
+        self.emitted = []
 
     def on(self, event_pattern, handler):
         registration = SimpleNamespace(event_pattern=event_pattern, handler=handler)
@@ -25,7 +26,19 @@ class _DummyBus:
     def off(self, event_pattern, registration):
         self.registrations = [existing for existing in self.registrations if existing is not registration]
 
+    def emit(self, event):
+        self.emitted.append(event)
+
+        class _Pending:
+            async def now(self, *args, **kwargs):
+                return event
+
+        return _Pending()
+
     async def stop(self):
+        return None
+
+    async def wait_until_idle(self):
         return None
 
 
@@ -64,7 +77,8 @@ def test_run_snapshot_reuses_crawl_bus_for_all_snapshots(monkeypatch):
 
     monkeypatch.setattr(runner_module, "create_bus", fake_create_bus)
     monkeypatch.setattr(runner_module, "discover_plugins", lambda: {})
-    monkeypatch.setattr(runner_module, "ProcessService", _DummyService)
+    monkeypatch.setattr(runner_module, "HookProcessService", _DummyService)
+    monkeypatch.setattr(runner_module, "PersistedProcessService", _DummyService)
     monkeypatch.setattr(runner_module, "BinaryService", _DummyService)
     monkeypatch.setattr(runner_module, "TagService", _DummyService)
     monkeypatch.setattr(runner_module, "CrawlService", _DummyService)
@@ -72,23 +86,6 @@ def test_run_snapshot_reuses_crawl_bus_for_all_snapshots(monkeypatch):
     monkeypatch.setattr(runner_module, "ArchiveResultService", _DummyService)
     monkeypatch.setattr(runner_module, "_emit_machine_config", lambda *args, **kwargs: asyncio.sleep(0))
     monkeypatch.setattr(runner_module, "setup_abx_services", lambda *args, **kwargs: None)
-
-    download_calls = []
-
-    async def fake_download(*, url, bus, config_overrides, **kwargs):
-        extra_context = json.loads(config_overrides["EXTRA_CONTEXT"])
-        download_calls.append(
-            {
-                "url": url,
-                "bus": bus,
-                "snapshot_id": extra_context["snapshot_id"],
-                "source_url": url,
-            },
-        )
-        await asyncio.sleep(0)
-        return []
-
-    monkeypatch.setattr(runner_module, "download", fake_download)
 
     crawl_runner = runner_module.CrawlRunner(crawl)
     snapshot_data = {
@@ -129,10 +126,13 @@ def test_run_snapshot_reuses_crawl_bus_for_all_snapshots(monkeypatch):
 
     asyncio.run(run_both())
 
-    assert len(download_calls) == 2
-    assert {call["snapshot_id"] for call in download_calls} == {str(snapshot_a.id), str(snapshot_b.id)}
-    assert {call["source_url"] for call in download_calls} == {snapshot_a.url, snapshot_b.url}
-    assert len({id(call["bus"]) for call in download_calls}) == 1
+    from abx_dl.events import SnapshotEvent
+
+    snapshot_events = [event for event in crawl_runner.bus.emitted if isinstance(event, SnapshotEvent)]
+    assert len(snapshot_events) == 2
+    assert {event.snapshot_id for event in snapshot_events} == {str(snapshot_a.id), str(snapshot_b.id)}
+    assert {event.url for event in snapshot_events} == {snapshot_a.url, snapshot_b.url}
+    assert crawl_runner.bus is created_buses[0]
     assert len(created_buses) == 1
 
 
@@ -217,7 +217,8 @@ def test_runner_prepare_refreshes_network_interface_and_attaches_current_process
 
     monkeypatch.setattr(runner_module, "discover_plugins", lambda: {})
     monkeypatch.setattr(runner_module, "create_bus", lambda **kwargs: _DummyBus(kwargs["name"]))
-    monkeypatch.setattr(runner_module, "ProcessService", _DummyService)
+    monkeypatch.setattr(runner_module, "HookProcessService", _DummyService)
+    monkeypatch.setattr(runner_module, "PersistedProcessService", _DummyService)
     monkeypatch.setattr(runner_module, "BinaryService", _DummyService)
     monkeypatch.setattr(runner_module, "TagService", _DummyService)
     monkeypatch.setattr(runner_module, "CrawlService", _DummyService)
@@ -357,18 +358,13 @@ def test_run_snapshot_skips_descendant_when_max_size_already_reached(monkeypatch
 
     monkeypatch.setattr(runner_module, "discover_plugins", lambda: {})
     monkeypatch.setattr(runner_module, "create_bus", lambda **kwargs: _DummyBus(kwargs["name"]))
-    monkeypatch.setattr(runner_module, "ProcessService", _DummyService)
+    monkeypatch.setattr(runner_module, "HookProcessService", _DummyService)
+    monkeypatch.setattr(runner_module, "PersistedProcessService", _DummyService)
     monkeypatch.setattr(runner_module, "BinaryService", _DummyService)
     monkeypatch.setattr(runner_module, "TagService", _DummyService)
     monkeypatch.setattr(runner_module, "CrawlService", _DummyService)
     monkeypatch.setattr(runner_module, "SnapshotService", _DummyService)
     monkeypatch.setattr(runner_module, "ArchiveResultService", _DummyService)
-    monkeypatch.setattr(
-        runner_module,
-        "download",
-        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("snapshot download should have been skipped")),
-    )
-
     crawl_runner = runner_module.CrawlRunner(crawl)
     state_dir = tmp_path / ".abx-dl"
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -460,7 +456,7 @@ def test_seal_snapshot_cancels_queued_descendants_after_max_size():
 
         asyncio.run(emit_event())
     finally:
-        asyncio.run(bus.stop())
+        asyncio.run(bus.wait_until_idle())
 
     root.refresh_from_db()
     child.refresh_from_db()
@@ -562,7 +558,8 @@ def test_crawl_runner_calls_load_and_finalize_run_state(monkeypatch):
 
     monkeypatch.setattr(runner_module, "create_bus", lambda *args, **kwargs: _DummyBus("runner"))
     monkeypatch.setattr(runner_module, "discover_plugins", lambda: {})
-    monkeypatch.setattr(runner_module, "ProcessService", _DummyService)
+    monkeypatch.setattr(runner_module, "HookProcessService", _DummyService)
+    monkeypatch.setattr(runner_module, "PersistedProcessService", _DummyService)
     monkeypatch.setattr(runner_module, "BinaryService", _DummyService)
     monkeypatch.setattr(runner_module, "TagService", _DummyService)
     monkeypatch.setattr(runner_module, "CrawlService", _DummyService)
@@ -702,27 +699,20 @@ def test_crawl_runner_calls_crawl_cleanup_after_snapshot_phase(monkeypatch):
 
 def test_abx_process_service_background_process_finishes_after_process_exit(monkeypatch, tmp_path):
     from abx_dl.events import ProcessCompletedEvent, ProcessEvent
+    from abx_dl.orchestrator import create_bus
     from abx_dl.services.process_service import ProcessService
 
-    service = object.__new__(ProcessService)
-    service.emit_jsonl = False
-    service.interactive_tty = False
-    service.pause_requested = asyncio.Event()
-    service.abort_requested = False
+    bus = create_bus(name="test_abx_process_service_background_process_finishes_after_process_exit")
+    service = ProcessService(bus, emit_jsonl=False, interactive_tty=False)
     emitted_events = []
 
-    class FakeBus:
-        async def emit(self, event):
-            emitted_events.append(event)
-            return event
+    async def collect_completed(event):
+        emitted_events.append(event)
 
-    service.bus = FakeBus()
+    bus.on(ProcessCompletedEvent, collect_completed)
 
     async def fake_stream_stdout(**kwargs):
-        try:
-            await asyncio.Event().wait()
-        except asyncio.CancelledError:
-            return ["daemon output\n"]
+        return ["daemon output\n"]
 
     monkeypatch.setattr(service, "_stream_stdout", fake_stream_stdout)
 
@@ -748,10 +738,8 @@ def test_abx_process_service_background_process_finishes_after_process_exit(monk
             process_type="hook",
             worker_type="hook",
         )
-        await asyncio.wait_for(
-            service.on_ProcessEvent(event),
-            timeout=0.5,
-        )
+        await asyncio.wait_for(bus.emit(event).now(), timeout=0.5)
+        await bus.wait_until_idle()
 
     asyncio.run(run_test())
 

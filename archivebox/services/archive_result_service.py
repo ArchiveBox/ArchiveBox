@@ -285,7 +285,7 @@ class ArchiveResultService(BaseService):
         records = _iter_archiveresult_records(event.stdout)
         if records:
             for record in records:
-                await self.bus.emit(
+                await event.emit(
                     ArchiveResultEvent(
                         snapshot_id=record.get("snapshot_id") or snapshot_event.snapshot_id,
                         plugin=record.get("plugin") or event.plugin_name,
@@ -298,10 +298,10 @@ class ArchiveResultService(BaseService):
                         end_ts=event.end_ts,
                         error=record.get("error") or (event.stderr if event.exit_code != 0 else ""),
                     ),
-                )
+                ).now()
             return
 
-        await self.bus.emit(
+        await event.emit(
             ArchiveResultEvent(
                 snapshot_id=snapshot_event.snapshot_id,
                 plugin=event.plugin_name,
@@ -313,4 +313,4 @@ class ArchiveResultService(BaseService):
                 end_ts=event.end_ts,
                 error=event.stderr if event.exit_code != 0 else "",
             ),
-        )
+        ).now()

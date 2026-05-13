@@ -26,6 +26,8 @@ set -o pipefail
 
 # Load global invariants (set by Dockerfile during image build time, not intended to be customized by users at runtime)
 export DATA_DIR="${DATA_DIR:-/data}"
+export TMP_DIR="${TMP_DIR:-/tmp/archivebox}"
+export LIB_DIR="${LIB_DIR:-/usr/share/archivebox/lib}"
 export ARCHIVEBOX_USER="${ARCHIVEBOX_USER:-archivebox}"
 
 # Global default PUID and PGID if data dir is empty and no intended PUID+PGID is set manually by user
@@ -104,6 +106,18 @@ if ! chown $PUID:$PGID "$DATA_DIR"/* > /dev/null 2>&1; then
     find "$DATA_DIR" -type d -not -path "$DATA_DIR/archive*" -exec chown $PUID:$PGID {} \; > /dev/null 2>&1
     find "$DATA_DIR" -type f -not -path "$DATA_DIR/archive/*" -exec chown $PUID:$PGID {} \; > /dev/null 2>&1
 fi
+
+# Active browser processes do not survive container restarts, but their lock
+# files can. Clear stale browser state before dropping privileges.
+find "$DATA_DIR/personas" -type f \( \
+    -name "SingletonLock" \
+    -o -name "SingletonSocket" \
+    -o -name "SingletonCookie" \
+    -o -name "DevToolsActivePort" \
+    -o -name ".launch.lock" \
+    -o -name ".target.lock" \
+\) -delete >/dev/null 2>&1 || true
+find /tmp "$TMP_DIR" -maxdepth 1 -type d -name "archivebox-chrome-profile.*" -mmin +30 -exec rm -rf {} + >/dev/null 2>&1 || true
     
 
 # also chown BROWSERS_DIR because otherwise 'archivebox setup' wont be able to 'playwright install chromium' at runtime

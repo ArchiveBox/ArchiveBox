@@ -314,6 +314,140 @@ def test_recursive_crawl_respects_depth_limit(tmp_path, process, disable_extract
     assert max_depth_found <= 1, f"Max depth should not exceed 1, got {max_depth_found}. Depth distribution: {depth_counts}"
 
 
+def test_recursive_crawl_depth_two_writes_real_outputs_and_process_records(tmp_path, process, recursive_test_site):
+    """Run a real depth=2 crawl and verify DB, output files, and process side effects."""
+    os.chdir(tmp_path)
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*",
+            "SAVE_WGET": "true",
+            "SAVE_READABILITY": "false",
+            "SAVE_SINGLEFILE": "false",
+            "SAVE_MERCURY": "false",
+            "SAVE_SCREENSHOT": "false",
+            "SAVE_PDF": "false",
+            "SAVE_HEADERS": "false",
+            "SAVE_ARCHIVEDOTORG": "false",
+            "SAVE_GIT": "false",
+            "SAVE_YTDLP": "false",
+            "SAVE_TITLE": "false",
+            "SAVE_FAVICON": "false",
+            "USE_CHROME": "false",
+            "USE_COLOR": "false",
+            "SHOW_PROGRESS": "false",
+        },
+    )
+
+    stdout, stderr = run_add_until(
+        ["archivebox", "add", "--depth=2", "--plugins=wget,parse_html_urls", recursive_test_site["root_url"]],
+        env=env,
+        timeout=180,
+        condition=lambda c: (
+            c.execute("SELECT COUNT(*) FROM core_snapshot WHERE depth = 0").fetchone()[0] >= 1
+            and c.execute("SELECT COUNT(*) FROM core_snapshot WHERE depth = 1").fetchone()[0] >= len(recursive_test_site["child_urls"])
+            and c.execute("SELECT COUNT(*) FROM core_snapshot WHERE depth = 2").fetchone()[0] >= len(recursive_test_site["deep_urls"])
+            and c.execute(
+                "SELECT COUNT(*) "
+                "FROM core_archiveresult ar "
+                "JOIN core_snapshot s ON s.id = ar.snapshot_id "
+                "WHERE ar.plugin LIKE 'parse_%_urls' "
+                "AND s.depth IN (0, 1) "
+                "AND ar.status IN ('started', 'succeeded', 'failed', 'skipped', 'noresults')",
+            ).fetchone()[0]
+            >= 2
+        ),
+    )
+
+    if stderr:
+        print(f"\n=== STDERR ===\n{stderr}\n=== END STDERR ===\n")
+    if stdout:
+        print(f"\n=== STDOUT (last 2000 chars) ===\n{stdout[-2000:]}\n=== END STDOUT ===\n")
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+
+    depth_counts = dict(c.execute("SELECT depth, COUNT(*) FROM core_snapshot GROUP BY depth ORDER BY depth").fetchall())
+    crawl = c.execute("SELECT id, max_depth FROM crawls_crawl ORDER BY created_at DESC LIMIT 1").fetchone()
+    root_snapshot = c.execute(
+        "SELECT id, url, depth, parent_snapshot_id FROM core_snapshot WHERE depth = 0 ORDER BY created_at LIMIT 1",
+    ).fetchone()
+    child_rows = c.execute(
+        "SELECT id, url, parent_snapshot_id FROM core_snapshot WHERE depth = 1",
+    ).fetchall()
+    deep_rows = c.execute(
+        "SELECT id, url, parent_snapshot_id FROM core_snapshot WHERE depth = 2",
+    ).fetchall()
+    parser_results = c.execute(
+        "SELECT s.url, s.depth, ar.plugin, ar.status, ar.output_files, ar.output_size "
+        "FROM core_archiveresult ar "
+        "JOIN core_snapshot s ON s.id = ar.snapshot_id "
+        "WHERE ar.plugin LIKE 'parse_%_urls' "
+        "ORDER BY s.depth, s.url",
+    ).fetchall()
+    wget_results = c.execute(
+        "SELECT s.url, s.depth, ar.status, ar.output_files, ar.output_size "
+        "FROM core_archiveresult ar "
+        "JOIN core_snapshot s ON s.id = ar.snapshot_id "
+        "WHERE ar.plugin = 'wget' "
+        "ORDER BY s.depth, s.url",
+    ).fetchall()
+    process_rows = c.execute(
+        "SELECT process_type, worker_type, status, exit_code, pwd, cmd "
+        "FROM machine_process "
+        "WHERE process_type = 'hook' "
+        "ORDER BY created_at",
+    ).fetchall()
+    conn.close()
+
+    assert crawl is not None
+    assert crawl[1] == 2
+    assert root_snapshot is not None
+    assert root_snapshot[2] == 0
+    assert root_snapshot[3] is None
+    assert depth_counts.get(0, 0) >= 1
+    assert depth_counts.get(1, 0) >= len(recursive_test_site["child_urls"])
+    assert depth_counts.get(2, 0) >= len(recursive_test_site["deep_urls"])
+    assert max(depth_counts) <= 2
+
+    child_urls = {row[1] for row in child_rows}
+    deep_urls = {row[1] for row in deep_rows}
+    child_ids = {row[0] for row in child_rows}
+    assert set(recursive_test_site["child_urls"]).issubset(child_urls)
+    assert set(recursive_test_site["deep_urls"]).issubset(deep_urls)
+    assert all(parent_id == root_snapshot[0] for _id, _url, parent_id in child_rows)
+    assert all(parent_id in child_ids for _id, _url, parent_id in deep_rows)
+
+    parser_statuses = {status for _url, _depth, _plugin, status, _files, _size in parser_results}
+    wget_statuses = {status for _url, _depth, status, _files, _size in wget_results}
+    assert parser_results
+    assert wget_results
+    assert "succeeded" in parser_statuses
+    assert "succeeded" in wget_statuses
+    assert len([row for row in parser_results if row[3] == "failed"]) <= 2
+    assert len([row for row in wget_results if row[2] == "failed"]) <= 2
+
+    urls_jsonl_files = list(Path("users/system/snapshots").rglob("parse_html_urls/**/urls.jsonl"))
+    assert urls_jsonl_files, "parse_html_urls should write urls.jsonl files"
+    parsed_urls = set()
+    for path in urls_jsonl_files:
+        for line in path.read_text().splitlines():
+            if line.strip():
+                parsed_urls.add(json.loads(line)["url"])
+    assert set(recursive_test_site["child_urls"]).issubset(parsed_urls)
+    assert set(recursive_test_site["deep_urls"]).issubset(parsed_urls)
+
+    snapshot_dirs = [path.parent for path in Path("users/system/snapshots").rglob("index.jsonl")]
+    assert snapshot_dirs
+    for snapshot_dir in snapshot_dirs:
+        assert (snapshot_dir / "index.jsonl").exists()
+
+    assert process_rows
+    assert any("parse_html_urls" in (pwd or "") or "parse_html_urls" in (cmd or "") for *_rest, pwd, cmd in process_rows)
+    assert any("wget" in (pwd or "") or "wget" in (cmd or "") for *_rest, pwd, cmd in process_rows)
+
+
 def test_crawl_snapshot_has_parent_snapshot_field(tmp_path, process, disable_extractors_dict):
     """Test that Snapshot model has parent_snapshot field."""
     os.chdir(tmp_path)

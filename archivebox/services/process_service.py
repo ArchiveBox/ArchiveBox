@@ -23,6 +23,13 @@ def parse_event_datetime(value: str | None):
     return dt
 
 
+def current_network_interface_with_machine():
+    from archivebox.machine.models import NetworkInterface
+
+    current_iface = NetworkInterface.current(refresh=True)
+    return NetworkInterface.objects.select_related("machine").get(id=current_iface.id)
+
+
 class ProcessService(BaseService):
     LISTENS_TO: ClassVar[list[type[BaseEvent]]] = [ProcessStartedEvent, ProcessCompletedEvent]
     EMITS: ClassVar[list[type[BaseEvent]]] = []
@@ -33,9 +40,9 @@ class ProcessService(BaseService):
         self.bus.on(ProcessCompletedEvent, self.on_ProcessCompletedEvent__save_to_db)
 
     async def on_ProcessStartedEvent__save_to_db(self, event: ProcessStartedEvent) -> None:
-        from archivebox.machine.models import NetworkInterface, Process
+        from archivebox.machine.models import Process
 
-        iface = await sync_to_async(NetworkInterface.current, thread_sensitive=True)(refresh=True)
+        iface = await sync_to_async(current_network_interface_with_machine, thread_sensitive=True)()
         process_type = event.process_type or (
             Process.TypeChoices.BINARY if event.hook_name.startswith("on_BinaryRequest") else Process.TypeChoices.HOOK
         )
@@ -92,9 +99,9 @@ class ProcessService(BaseService):
         await process.asave()
 
     async def on_ProcessCompletedEvent__save_to_db(self, event: ProcessCompletedEvent) -> None:
-        from archivebox.machine.models import NetworkInterface, Process
+        from archivebox.machine.models import Process
 
-        iface = await sync_to_async(NetworkInterface.current, thread_sensitive=True)(refresh=True)
+        iface = await sync_to_async(current_network_interface_with_machine, thread_sensitive=True)()
         process_type = event.process_type or (
             Process.TypeChoices.BINARY if event.hook_name.startswith("on_BinaryRequest") else Process.TypeChoices.HOOK
         )

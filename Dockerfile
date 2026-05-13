@@ -145,7 +145,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     echo "[+] APT Installing extractor dependencies for $TARGETPLATFORM..." \
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
-        git ripgrep \
+        git ripgrep default-jre \
         # Packages we have also needed in the past:
         # youtube-dl wget2 aria2 python3-pyxattr rtmpdump libfribidi-bin mpv \
         # curl wget (already installed above)
@@ -205,8 +205,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     && apt-get install -y --no-upgrade \
         nodejs \
     && rm -rf /var/lib/apt/lists/* \
-    # Update NPM to latest version
-    && npm i -g npm --cache /root/.npm \
     # Save version info
     && ( \
         which node && node --version \
@@ -282,8 +280,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     && uv pip install "playwright>=1.49.1" \
     && uv run playwright install chromium --no-shell --with-deps \
     && export CHROME_BINARY="$(uv run python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" \
-    && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
-    && ln -s /browsers/ffmpeg-*/ffmpeg-linux /usr/bin/ffmpeg \
+    && ln -sf "$CHROME_BINARY" /usr/bin/chromium-browser \
+    && ln -sf "$CHROME_BINARY" /usr/bin/chromium \
+    && ln -sf /browsers/ffmpeg-*/ffmpeg-linux /usr/bin/ffmpeg \
     && mkdir -p "/home/${ARCHIVEBOX_USER}/.config/chromium/Crash Reports/pending/" \
     && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/home/${ARCHIVEBOX_USER}/.config" \
     && mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" \
@@ -294,13 +293,25 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     && rm -rf /var/lib/apt/lists/* \
     && ( \
         uv pip show playwright \
+        && which chromium && chromium --version \
         && which chromium-browser && /usr/bin/chromium-browser --version || /usr/lib/chromium/chromium --version \
         && which ffmpeg && ffmpeg -version \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
 
 # Install Node extractor dependencies
-ENV PATH="/home/$ARCHIVEBOX_USER/.npm/bin:$PATH"
+ENV PATH="/home/$ARCHIVEBOX_USER/.npm/bin:$PATH" \
+    PERSONAS_DIR=/data/personas \
+    NODE_PATH="/home/$ARCHIVEBOX_USER/.npm/lib/node_modules:/usr/lib/node_modules:/usr/share/archivebox/lib/npm/node_modules:/data/personas/Default/node_modules" \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    CHROME_BIN=/usr/bin/chromium-browser \
+    CHROME_BINARY=/usr/bin/chromium-browser \
+    CHROMIUM_BINARY=/usr/bin/chromium-browser \
+    CHROME_USER_DATA_DIR=/data/personas/Default/chrome_profile \
+    CHROME_HEADLESS=true \
+    CHROME_SANDBOX=false \
+    CHROME_ISOLATION=snapshot \
+    CHROME_ARGS_EXTRA='["--disable-gpu","--disable-features=Translate,OptimizationGuideModelDownloading,MediaRouter"]'
 USER $ARCHIVEBOX_USER
 WORKDIR "/home/$ARCHIVEBOX_USER/.npm"
 RUN --mount=type=cache,target=/home/archivebox/.npm_cache,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT,uid=$DEFAULT_PUID,gid=$DEFAULT_PGID \
@@ -310,6 +321,7 @@ RUN --mount=type=cache,target=/home/archivebox/.npm_cache,sharing=locked,id=npm-
         "@postlight/parser@^2.2.3" \
         "readability-extractor@github:ArchiveBox/readability-extractor" \
         "single-file-cli@^1.1.54" \
+        "puppeteer-core@^23.5.0" \
         "puppeteer@^23.5.0" \
         "@puppeteer/browsers@^2.4.0" \
     && rm -Rf "/home/$ARCHIVEBOX_USER/.cache/puppeteer"
@@ -331,17 +343,24 @@ RUN ( \
 # Install ArchiveBox Python venv dependencies from uv.lock
 RUN --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
     --mount=type=bind,source=uv.lock,target=/app/uv.lock \
+    --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
     --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
     echo "[+] PIP Installing ArchiveBox dependencies from pyproject.toml and uv.lock..." \
+    && apt-get update -qq \
+    && apt-get install -qq -y --no-install-recommends build-essential gcc python3-dev \
     && uv sync \
         --frozen \
         --inexact \
         --all-extras \
         --no-install-project \
-        --no-install-workspace
+        --no-install-workspace \
+    && apt-get purge -y python3-dev build-essential gcc \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
     # installs the pip packages that archivebox depends on, defined in pyproject.toml and uv.lock dependencies
 
-# Install ArchiveBox Python package + workspace dependencies from source
+# Install ArchiveBox Python package from the checked-out source.
+# Sibling abx-* packages are installed from uv.lock inside the container, not copied from the local checkout.
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
     echo "[*] Installing ArchiveBox Python source code from $CODE_DIR..." \

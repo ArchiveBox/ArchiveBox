@@ -15,7 +15,7 @@ class BinaryService(BaseService):
         self.bus.on(BinaryRequestEvent, self.on_BinaryRequestEvent)
         self.bus.on(BinaryEvent, self.on_BinaryEvent)
 
-    async def on_BinaryRequestEvent(self, event: BinaryRequestEvent) -> None:
+    async def on_BinaryRequestEvent(self, event: BinaryRequestEvent) -> str | None:
         from archivebox.machine.models import Binary, Machine
 
         machine = await sync_to_async(Machine.current, thread_sensitive=True)()
@@ -58,21 +58,22 @@ class BinaryService(BaseService):
                 "overrides": installed.overrides or {},
             }
         if cached is not None:
-            await self.bus.emit(
-                BinaryEvent(
-                    name=event.name,
-                    plugin_name=event.plugin_name,
-                    hook_name=event.hook_name,
-                    abspath=cached["abspath"],
-                    version=cached["version"],
-                    sha256=cached["sha256"],
-                    binproviders=event.binproviders or cached["binproviders"],
-                    binprovider=cached["binprovider"],
-                    overrides=event.overrides or cached["overrides"],
-                    binary_id=event.binary_id,
-                    machine_id=cached["machine_id"],
-                ),
+            binary_event = BinaryEvent(
+                name=event.name,
+                plugin_name=event.plugin_name,
+                hook_name=event.hook_name,
+                abspath=cached["abspath"],
+                version=cached["version"],
+                sha256=cached["sha256"],
+                binproviders=event.binproviders or cached["binproviders"],
+                binprovider=cached["binprovider"],
+                overrides=event.overrides or cached["overrides"],
+                binary_id=event.binary_id,
+                machine_id=cached["machine_id"],
             )
+            await event.emit(binary_event).now()
+            return binary_event.abspath
+        return None
 
     async def on_BinaryEvent(self, event: BinaryEvent) -> None:
         from archivebox.machine.models import Binary, Machine
