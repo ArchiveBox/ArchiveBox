@@ -360,8 +360,8 @@ def run_hook(
 
     # Set up environment with base paths
     env = os.environ.copy()
-    env["DATA_DIR"] = str(getattr(settings, "DATA_DIR", Path.cwd()))
-    env["ARCHIVE_DIR"] = str(getattr(settings, "ARCHIVE_DIR", Path.cwd() / "archive"))
+    env["DATA_DIR"] = str(config.get("DATA_DIR") or getattr(settings, "DATA_DIR", Path.cwd()))
+    env["ARCHIVE_DIR"] = str(config.get("ARCHIVE_DIR") or getattr(settings, "ARCHIVE_DIR", Path.cwd() / "archive"))
     env["ABX_RUNTIME"] = "archivebox"
     env.setdefault("MACHINE_ID", getattr(settings, "MACHINE_ID", "") or os.environ.get("MACHINE_ID", ""))
 
@@ -392,17 +392,23 @@ def run_hook(
         # Derive LIB_BIN_DIR from LIB_DIR if not set
         lib_bin_dir = Path(lib_dir) / "bin"
 
-    # Set NODE_PATH for Node.js module resolution.
-    # Priority: config dict > derive from LIB_DIR
-    node_path = config.get("NODE_PATH")
-    if not node_path and lib_dir:
-        # Derive from LIB_DIR/npm/node_modules (create if needed)
+    # Set Node.js module resolution paths.
+    # NODE_PATH may be a path list, but NODE_MODULES_DIR is a single canonical directory.
+    node_modules_dir = config.get("NODE_MODULES_DIR")
+    if not node_modules_dir and lib_dir:
         node_modules_dir = Path(lib_dir) / "npm" / "node_modules"
+
+    node_path_parts = [part for part in str(config.get("NODE_PATH") or "").split(os.pathsep) if part]
+    if node_modules_dir:
+        node_modules_dir = Path(node_modules_dir)
         node_modules_dir.mkdir(parents=True, exist_ok=True)
-        node_path = str(node_modules_dir)
-    if node_path:
-        env["NODE_PATH"] = node_path
-        env["NODE_MODULES_DIR"] = node_path  # For backwards compatibility
+        node_modules_dir_str = str(node_modules_dir)
+        env["NODE_MODULES_DIR"] = node_modules_dir_str
+        env["NODE_MODULE_DIR"] = node_modules_dir_str
+        if node_modules_dir_str not in node_path_parts:
+            node_path_parts.append(node_modules_dir_str)
+    if node_path_parts:
+        env["NODE_PATH"] = os.pathsep.join(node_path_parts)
 
     # Export all config values to environment (already merged by get_config())
     # Skip keys we've already handled specially above (PATH, LIB_DIR, LIB_BIN_DIR, NODE_PATH, etc.)
@@ -412,6 +418,7 @@ def run_hook(
         "LIB_BIN_DIR",
         "NODE_PATH",
         "NODE_MODULES_DIR",
+        "NODE_MODULE_DIR",
         "DATA_DIR",
         "ARCHIVE_DIR",
         "MACHINE_ID",

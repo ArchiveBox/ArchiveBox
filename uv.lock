@@ -24,8 +24,8 @@ abxpkg = { timestamp = "2026-05-13T11:17:00.494317Z", span = "PT1S" }
 
 [[package]]
 name = "abx-dl"
-version = "1.10.34"
-source = { git = "https://github.com/ArchiveBox/abx-dl.git?branch=main#c184cc89895d472ec84e2d46e92e6cc8ec779f8b" }
+version = "1.10.35"
+source = { git = "https://github.com/ArchiveBox/abx-dl.git?branch=main#bb925c9d1151b72ab453274f9dd826647eb795fc" }
 dependencies = [
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -116,7 +116,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.30rc3"
+version = "0.9.30rc5"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },

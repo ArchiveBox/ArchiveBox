@@ -18,6 +18,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 # Set up Django before importing any Django-dependent modules
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "archivebox.settings")
 
@@ -659,6 +661,61 @@ class TestPluginMetadata(unittest.TestCase):
 
         self.assertEqual(record["plugin"], "wget")
         self.assertIn("on_Snapshot__50_wget.py", record["plugin_hook"])
+
+
+@pytest.mark.django_db(transaction=True)
+def test_run_hook_exports_singular_node_modules_dir_with_colon_node_path(tmp_path):
+    """Hook subprocesses must get a real NODE_MODULES_DIR even when NODE_PATH has multiple entries."""
+    from archivebox.hooks import run_hook
+
+    lib_dir = tmp_path / "lib"
+    node_modules_dir = lib_dir / "npm" / "node_modules"
+    configured_node_path = os.pathsep.join(
+        [
+            "/home/archivebox/.npm/lib/node_modules",
+            "/usr/lib/node_modules",
+            str(node_modules_dir),
+            "/usr/share/archivebox/lib/npm/node_modules",
+        ]
+    )
+
+    plugin_dir = tmp_path / "plugins" / "envprobe"
+    plugin_dir.mkdir(parents=True)
+    hook_path = plugin_dir / "on_Snapshot__99_envprobe.py"
+    hook_path.write_text(
+        """#!/usr/bin/env python3
+import json
+import os
+
+print(json.dumps({
+    "NODE_PATH": os.environ.get("NODE_PATH"),
+    "NODE_MODULES_DIR": os.environ.get("NODE_MODULES_DIR"),
+    "NODE_MODULE_DIR": os.environ.get("NODE_MODULE_DIR"),
+}))
+""",
+        encoding="utf-8",
+    )
+    hook_path.chmod(0o755)
+
+    output_dir = tmp_path / "users" / "system" / "snapshots" / "20260513" / "example.com" / "test" / "envprobe"
+    process = run_hook(
+        hook_path,
+        output_dir,
+        config={
+            "DATA_DIR": str(tmp_path),
+            "LIB_DIR": str(lib_dir),
+            "NODE_PATH": configured_node_path,
+        },
+        timeout=10,
+    )
+    process.refresh_from_db()
+
+    assert process.exit_code == 0, process.stderr
+    payload = json.loads(process.stdout.strip())
+    assert payload["NODE_MODULES_DIR"] == str(node_modules_dir)
+    assert payload["NODE_MODULE_DIR"] == str(node_modules_dir)
+    assert payload["NODE_PATH"].split(os.pathsep) == configured_node_path.split(os.pathsep)
+    assert process.env["NODE_MODULES_DIR"] == str(node_modules_dir)
 
 
 if __name__ == "__main__":
