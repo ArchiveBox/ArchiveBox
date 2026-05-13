@@ -226,6 +226,8 @@ TEMPLATES = [
 # CACHE_DB_TABLE = 'django_cache'
 
 DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", str(CONSTANTS.DATABASE_FILE))
+SQLITE_JOURNAL_MODE = os.environ.get("ARCHIVEBOX_SQLITE_JOURNAL_MODE", "TRUNCATE" if CONSTANTS.IN_DOCKER else "WAL")
+SQLITE_MMAP_SIZE = os.environ.get("ARCHIVEBOX_SQLITE_MMAP_SIZE", "0" if CONSTANTS.IN_DOCKER else "134217728")
 
 SQLITE_CONNECTION_OPTIONS = {
     "ENGINE": "django.db.backends.sqlite3",
@@ -240,10 +242,10 @@ SQLITE_CONNECTION_OPTIONS = {
         "init_command": (
             "PRAGMA foreign_keys=ON;"
             "PRAGMA busy_timeout = 30000;"
-            "PRAGMA journal_mode = WAL;"
+            f"PRAGMA journal_mode = {SQLITE_JOURNAL_MODE};"
             "PRAGMA synchronous = NORMAL;"
             "PRAGMA temp_store = MEMORY;"
-            "PRAGMA mmap_size = 134217728;"
+            f"PRAGMA mmap_size = {SQLITE_MMAP_SIZE};"
             "PRAGMA journal_size_limit = 67108864;"
             "PRAGMA cache_size = 2000;"
         ),

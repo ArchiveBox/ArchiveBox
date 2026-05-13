@@ -4,7 +4,6 @@ from pathlib import Path
 
 from asgiref.sync import sync_to_async
 from django.utils import timezone
-
 from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
 from abx_dl.limits import CrawlLimitState
 from abx_dl.services.base import BaseService
@@ -22,40 +21,21 @@ class SnapshotService(BaseService):
         self.bus.on(SnapshotCompletedEvent, self.on_SnapshotCompletedEvent)
 
     async def _upsert_discovered_snapshot(self, parent_snapshot, *, url: str, depth: int, title: str = "", tags: str = "") -> str | None:
-        from archivebox.core.models import Snapshot
-
         crawl = parent_snapshot.crawl
         if depth > crawl.max_depth:
             return None
         stop_reason = await sync_to_async(self._crawl_limit_stop_reason, thread_sensitive=True)(crawl)
         if stop_reason == "max_size":
             return None
-        passes_filters = await sync_to_async(crawl.url_passes_filters, thread_sensitive=True)(url, snapshot=parent_snapshot)
-        if not passes_filters:
-            return None
-
-        snapshot = await sync_to_async(Snapshot.from_json, thread_sensitive=True)(
-            {
-                "url": url,
-                "depth": depth,
-                "title": title,
-                "tags": tags,
-                "parent_snapshot_id": str(parent_snapshot.id),
-                "crawl_id": str(crawl.id),
-            },
-            overrides={
-                "crawl": crawl,
-                "snapshot": parent_snapshot,
-                "created_by_id": crawl.created_by_id,
-            },
-            queue_for_extraction=False,
+        snapshot = await sync_to_async(crawl.create_discovered_snapshot, thread_sensitive=True)(
+            parent_snapshot,
+            url=url,
+            depth=depth,
+            title=title,
+            tags=tags,
         )
-        if snapshot is None or snapshot.status == Snapshot.StatusChoices.SEALED:
+        if snapshot is None:
             return None
-
-        snapshot.status = Snapshot.StatusChoices.QUEUED
-        snapshot.retry_at = timezone.now()
-        await snapshot.asave(update_fields=["status", "retry_at", "modified_at"])
         return str(snapshot.id)
 
     async def on_SnapshotEvent(self, event: SnapshotEvent) -> None:

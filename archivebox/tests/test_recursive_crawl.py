@@ -314,6 +314,63 @@ def test_recursive_crawl_respects_depth_limit(tmp_path, process, disable_extract
     assert max_depth_found <= 1, f"Max depth should not exceed 1, got {max_depth_found}. Depth distribution: {depth_counts}"
 
 
+def test_recursive_crawl_respects_max_urls(tmp_path, process, disable_extractors_dict, recursive_test_site):
+    """Test that recursive discovery stops creating snapshots at max_urls."""
+    os.chdir(tmp_path)
+
+    env = disable_extractors_dict.copy()
+    env.update(
+        {
+            "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*",
+            "SAVE_WGET": "true",
+            "USE_CHROME": "false",
+            "USE_COLOR": "false",
+            "SHOW_PROGRESS": "false",
+        },
+    )
+
+    result = subprocess.run(
+        [
+            "archivebox",
+            "add",
+            "--depth=2",
+            "--max-urls=4",
+            "--plugins=wget,parse_html_urls",
+            recursive_test_site["root_url"],
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=120,
+    )
+    stdout, stderr = result.stdout, result.stderr
+
+    if stderr:
+        print(f"\n=== STDERR ===\n{stderr}\n=== END STDERR ===\n")
+    if stdout:
+        print(f"\n=== STDOUT (last 2000 chars) ===\n{stdout[-2000:]}\n=== END STDOUT ===\n")
+
+    assert result.returncode == 0, result.stderr
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+
+    crawl = c.execute(
+        "SELECT max_depth, max_urls, json_extract(config, '$.MAX_URLS') FROM crawls_crawl ORDER BY created_at DESC LIMIT 1",
+    ).fetchone()
+    snapshot_rows = c.execute("SELECT url, depth, parent_snapshot_id FROM core_snapshot ORDER BY depth, url").fetchall()
+    depth_counts = dict(c.execute("SELECT depth, COUNT(*) FROM core_snapshot GROUP BY depth ORDER BY depth").fetchall())
+
+    conn.close()
+
+    assert crawl == (2, 4, 4)
+    assert len(snapshot_rows) == 4
+    assert depth_counts.get(0, 0) == 1
+    assert depth_counts.get(1, 0) == 3
+    assert depth_counts.get(2, 0) == 0
+    assert set(recursive_test_site["child_urls"]).issubset({url for url, depth, _parent in snapshot_rows if depth == 1})
+
+
 def test_recursive_crawl_depth_two_writes_real_outputs_and_process_records(tmp_path, process, recursive_test_site):
     """Run a real depth=2 crawl and verify DB, output files, and process side effects."""
     os.chdir(tmp_path)

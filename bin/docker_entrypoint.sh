@@ -27,7 +27,7 @@ set -o pipefail
 # Load global invariants (set by Dockerfile during image build time, not intended to be customized by users at runtime)
 export DATA_DIR="${DATA_DIR:-/data}"
 export TMP_DIR="${TMP_DIR:-/tmp/archivebox}"
-export LIB_DIR="${LIB_DIR:-/usr/share/archivebox/lib}"
+export LIB_DIR="${LIB_DIR:-$DATA_DIR/lib}"
 export ARCHIVEBOX_USER="${ARCHIVEBOX_USER:-archivebox}"
 
 # Global default PUID and PGID if data dir is empty and no intended PUID+PGID is set manually by user
@@ -49,7 +49,7 @@ export DETECTED_PGID="$(stat -c '%g' "$DATA_DIR/logs/errors.log" 2>/dev/null || 
 
 # If data directory exists but is owned by root, use defaults instead of root because root is not allowed
 [[ "$DETECTED_PUID" == "0" ]] && export DETECTED_PUID="$DEFAULT_PUID"
-# (GUID / DETECTED_GUID is allowed to be 0 though)
+[[ "$DETECTED_PGID" == "0" ]] && export DETECTED_PGID="$DEFAULT_PGID"
 
 # Set archivebox user and group ids to desired PUID/PGID
 usermod -o -u "${PUID:-$DETECTED_PUID}" "$ARCHIVEBOX_USER" > /dev/null 2>&1
@@ -106,6 +106,17 @@ if ! chown $PUID:$PGID "$DATA_DIR"/* > /dev/null 2>&1; then
     find "$DATA_DIR" -type d -not -path "$DATA_DIR/archive*" -exec chown $PUID:$PGID {} \; > /dev/null 2>&1
     find "$DATA_DIR" -type f -not -path "$DATA_DIR/archive/*" -exec chown $PUID:$PGID {} \; > /dev/null 2>&1
 fi
+chmod -R a+rwX \
+    "$DATA_DIR" \
+    "$DATA_DIR"/logs \
+    "$DATA_DIR"/users \
+    "$DATA_DIR"/sources \
+    "$DATA_DIR"/archive \
+    "$DATA_DIR"/personas \
+    "$DATA_DIR"/lib \
+    "$DATA_DIR"/index.sqlite3 \
+    "$DATA_DIR"/ArchiveBox.conf \
+    2>/dev/null || true
 
 # Active browser processes do not survive container restarts, but their lock
 # files can. Clear stale browser state before dropping privileges.
@@ -134,6 +145,7 @@ fi
 # also create and chown tmp dir and lib dir (and their default equivalents inside data/)
 # mkdir -p "$DATA_DIR"/lib/bin
 # chown $PUID:$PGID "$DATA_DIR"/lib "$DATA_DIR"/lib/*
+mkdir -p "$LIB_DIR"
 chown $PUID:$PGID "$LIB_DIR" 2>/dev/null
 chown $PUID:$PGID "$LIB_DIR/*" 2>/dev/null &
 

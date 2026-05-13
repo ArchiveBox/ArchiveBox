@@ -400,30 +400,18 @@ class CrawlRunner:
             url = str(record.get("url") or "").strip()
             if not url:
                 continue
-            passes_filters = await sync_to_async(self.crawl.url_passes_filters, thread_sensitive=True)(url, snapshot=parent_snapshot)
-            if not passes_filters:
-                continue
-            child_snapshot = await sync_to_async(Snapshot.from_json, thread_sensitive=True)(
-                {
-                    "url": url,
-                    "depth": parent_snapshot.depth + 1,
-                    "title": str(record.get("title") or "").strip(),
-                    "tags": str(record.get("tags") or "").strip(),
-                    "parent_snapshot_id": str(parent_snapshot.id),
-                    "crawl_id": str(self.crawl.id),
-                },
-                overrides={
-                    "crawl": self.crawl,
-                    "snapshot": parent_snapshot,
-                    "created_by_id": self.crawl.created_by_id,
-                },
-                queue_for_extraction=False,
+            child_snapshot = await sync_to_async(self.crawl.create_discovered_snapshot, thread_sensitive=True)(
+                parent_snapshot,
+                url=url,
+                depth=parent_snapshot.depth + 1,
+                title=str(record.get("title") or "").strip(),
+                tags=str(record.get("tags") or "").strip(),
             )
-            if child_snapshot is None or child_snapshot.status == child_snapshot.StatusChoices.SEALED:
-                continue
-            child_snapshot.status = child_snapshot.StatusChoices.QUEUED
-            child_snapshot.retry_at = timezone.now()
-            await child_snapshot.asave(update_fields=["status", "retry_at", "modified_at"])
+            if child_snapshot is None:
+                has_capacity = await sync_to_async(self.crawl.has_remaining_snapshot_capacity, thread_sensitive=True)()
+                if has_capacity:
+                    continue
+                break
             if self.process_discovered_snapshots_inline:
                 await self.enqueue_snapshot(str(child_snapshot.id))
 
@@ -584,6 +572,7 @@ class CrawlRunner:
                         event_handler_slow_timeout=slow_warning_timeout(snapshot_phase_timeout),
                     ),
                 ).now()
+                await self.bus.wait_until_idle()
                 await self.enqueue_discovered_snapshots_from_outputs(snapshot)
             finally:
                 current_task = asyncio.current_task()
@@ -921,7 +910,7 @@ def run_pending_crawls(*, daemon: bool = False, crawl_id: str | None = None) -> 
         if queued_crawl is not None:
             if not queued_crawl.claim_processing_lock(lock_seconds=60):
                 continue
-            run_crawl(str(queued_crawl.id), process_discovered_snapshots_inline=False)
+            run_crawl(str(queued_crawl.id), process_discovered_snapshots_inline=True)
             continue
 
         if crawl_id is None:
@@ -938,7 +927,7 @@ def run_pending_crawls(*, daemon: bool = False, crawl_id: str | None = None) -> 
                 run_crawl(
                     str(snapshot.crawl_id),
                     snapshot_ids=[str(snapshot.id)],
-                    process_discovered_snapshots_inline=False,
+                    process_discovered_snapshots_inline=True,
                 )
                 continue
 
@@ -975,4 +964,4 @@ def run_pending_crawls(*, daemon: bool = False, crawl_id: str | None = None) -> 
         if not crawl.claim_processing_lock(lock_seconds=60):
             continue
 
-        run_crawl(str(crawl.id), process_discovered_snapshots_inline=False)
+        run_crawl(str(crawl.id), process_discovered_snapshots_inline=True)

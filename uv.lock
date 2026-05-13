@@ -12,10 +12,20 @@ supported-markers = [
     "sys_platform == 'linux'",
 ]
 
+[options]
+exclude-newer = "2026-05-08T11:17:01.494298Z"
+exclude-newer-span = "P5D"
+
+[options.exclude-newer-package]
+abxbus = { timestamp = "2026-05-13T11:17:00.494317Z", span = "PT1S" }
+abx-plugins = { timestamp = "2026-05-13T11:17:00.494305Z", span = "PT1S" }
+abx-dl = { timestamp = "2026-05-13T11:17:00.494316Z", span = "PT1S" }
+abxpkg = { timestamp = "2026-05-13T11:17:00.494317Z", span = "PT1S" }
+
 [[package]]
 name = "abx-dl"
-version = "1.10.31"
-source = { git = "https://github.com/ArchiveBox/abx-dl.git?branch=main#a0748a58b8d40be8c61fb745791480e29600fa17" }
+version = "1.10.34"
+source = { git = "https://github.com/ArchiveBox/abx-dl.git?branch=main#c184cc89895d472ec84e2d46e92e6cc8ec779f8b" }
 dependencies = [
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -32,8 +42,8 @@ dependencies = [
 
 [[package]]
 name = "abx-plugins"
-version = "1.10.31"
-source = { git = "https://github.com/ArchiveBox/abx-plugins.git?branch=main#6adb9736f9bd6ec5ba7f7c0d22d29227e1cae4f8" }
+version = "1.10.32"
+source = { git = "https://github.com/ArchiveBox/abx-plugins.git?branch=main#7cbb2acf618a22d1cb0d8bcab6656fec2862151e" }
 dependencies = [
     { name = "abxpkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "jambo", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -55,18 +65,14 @@ dependencies = [
 
 [[package]]
 name = "abxpkg"
-version = "1.10.6"
-source = { registry = "https://pypi.org/simple" }
+version = "1.10.7"
+source = { git = "https://github.com/ArchiveBox/abxpkg.git?branch=main#9be0672e2a835e2fc2292f91d0ebf744849e72ef" }
 dependencies = [
     { name = "pip", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "platformdirs", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "pydantic", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "typing-extensions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/28/6f/f97bd4f0a3da6f4167f1ef855f9ca41aaccc9a184cffb74d1f17c92bdb40/abxpkg-1.10.6.tar.gz", hash = "sha256:c4dc61fae2ec74cea434fbbca213a8d634b21bf44086d08bc702129b790962b5", size = 187769, upload-time = "2026-04-15T03:12:00.827Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/12/92/9bb3e2c9d16d4385a181e439fb53a2ccfa7ae04e765740e7d7445724acc3/abxpkg-1.10.6-py3-none-any.whl", hash = "sha256:6f0239a8eba1c51c953d1abb7ed0351f06382928d26b8c8ddb1a9716b22487c9", size = 205413, upload-time = "2026-04-15T03:11:59.462Z" },
 ]
 
 [[package]]
@@ -110,7 +116,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.30rc2"
+version = "0.9.30rc3"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -207,7 +213,7 @@ requires-dist = [
     { name = "abx-dl", git = "https://github.com/ArchiveBox/abx-dl.git?branch=main" },
     { name = "abx-plugins", git = "https://github.com/ArchiveBox/abx-plugins.git?branch=main" },
     { name = "abxbus", git = "https://github.com/ArchiveBox/abxbus.git?rev=event-wait-now-results" },
-    { name = "abxpkg", specifier = ">=1.10.5" },
+    { name = "abxpkg", git = "https://github.com/ArchiveBox/abxpkg.git?branch=main" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
     { name = "atomicwrites", specifier = "==1.4.1" },
     { name = "base32-crockford", specifier = ">=0.3.0" },

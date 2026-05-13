@@ -30,7 +30,8 @@ services:
             # - SEARCH_BACKEND_HOST_NAME=127.0.0.1
             - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
             - PERSONAS_DIR=/data/personas
-            - NODE_PATH=/home/archivebox/.npm/lib/node_modules:/usr/lib/node_modules:/usr/share/archivebox/lib/npm/node_modules:/data/personas/Default/node_modules
+            - LIB_DIR=/data/lib
+            - NODE_PATH=/home/archivebox/.npm/lib/node_modules:/usr/lib/node_modules:/data/lib/npm/node_modules:/usr/share/archivebox/lib/npm/node_modules:/data/personas/Default/node_modules
             - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
             - CHROME_BIN=/usr/bin/chromium-browser
             - CHROME_BINARY=/usr/bin/chromium-browser

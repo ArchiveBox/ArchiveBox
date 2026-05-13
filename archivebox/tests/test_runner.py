@@ -781,7 +781,7 @@ def test_run_pending_crawls_runs_due_snapshot_in_place(monkeypatch):
     result = runner_module.run_pending_crawls(daemon=False)
 
     assert result == 0
-    assert run_calls == [(str(crawl.id), [str(snapshot.id)], False)]
+    assert run_calls == [(str(crawl.id), [str(snapshot.id)], True)]
 
 
 def test_run_pending_crawls_prioritizes_new_queued_crawl_before_snapshot_backlog(monkeypatch):
@@ -826,7 +826,7 @@ def test_run_pending_crawls_prioritizes_new_queued_crawl_before_snapshot_backlog
     with pytest.raises(_StopScheduling):
         runner_module.run_pending_crawls(daemon=False)
 
-    assert run_calls == [(str(newer_crawl.id), None, False)]
+    assert run_calls == [(str(newer_crawl.id), None, True)]
 
 
 def test_run_pending_crawls_prioritizes_queued_crawl_before_unrelated_binary_backlog(monkeypatch):
@@ -870,5 +870,5 @@ def test_run_pending_crawls_prioritizes_queued_crawl_before_unrelated_binary_bac
     with pytest.raises(_StopScheduling):
         runner_module.run_pending_crawls(daemon=False)
 
-    assert run_calls == [(str(queued_crawl.id), None, False)]
+    assert run_calls == [(str(queued_crawl.id), None, True)]
     assert binary_calls == []

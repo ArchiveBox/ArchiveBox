@@ -200,6 +200,30 @@ def test_create_snapshots_from_urls_respects_url_allowlist_and_denylist(admin_us
     assert [snapshot.url for snapshot in created] == ["https://example.com/root"]
 
 
+def test_create_snapshots_from_urls_respects_max_urls(admin_user):
+    crawl = Crawl.objects.create(
+        urls="\n".join(
+            [
+                "https://example.com/root",
+                "https://example.com/about",
+                "https://example.com/contact",
+            ],
+        ),
+        max_urls=2,
+        created_by=admin_user,
+    )
+
+    created = crawl.create_snapshots_from_urls()
+
+    assert [snapshot.url for snapshot in created] == [
+        "https://example.com/root",
+        "https://example.com/about",
+    ]
+    assert crawl.snapshot_set.count() == 2
+    assert crawl.remaining_snapshot_capacity() == 0
+    assert crawl.add_url({"url": "https://example.com/extra", "depth": 1}) is False
+
+
 def test_url_filter_regex_lists_preserve_commas_and_split_on_newlines_only(admin_user):
     crawl = Crawl.objects.create(
         urls="\n".join(

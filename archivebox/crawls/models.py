@@ -450,6 +450,40 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 entries.append((raw_line.rstrip(), stripped))
         return entries
 
+    def count_urls_for_limit(self) -> int:
+        """
+        Count unique URLs already queued or snapshotted for this crawl.
+
+        max_urls is a crawl-wide cap on snapshots, so direct URL entries and
+        recursively discovered snapshots both have to consume the same budget.
+        """
+        from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
+
+        urls = set(self.snapshot_set.values_list("url", flat=True))
+        for _raw_line, raw_url in self._iter_url_lines():
+            url = sanitize_extracted_url(fix_url_from_markdown(str(raw_url or "").strip()))
+            if url:
+                urls.add(url)
+        return len(urls)
+
+    def remaining_url_capacity(self) -> int | None:
+        if self.max_urls <= 0:
+            return None
+        return max(self.max_urls - self.count_urls_for_limit(), 0)
+
+    def has_remaining_url_capacity(self) -> bool:
+        remaining = self.remaining_url_capacity()
+        return remaining is None or remaining > 0
+
+    def remaining_snapshot_capacity(self) -> int | None:
+        if self.max_urls <= 0:
+            return None
+        return max(self.max_urls - self.snapshot_set.count(), 0)
+
+    def has_remaining_snapshot_capacity(self) -> bool:
+        remaining = self.remaining_snapshot_capacity()
+        return remaining is None or remaining > 0
+
     def prune_urls(self, predicate) -> list[str]:
         kept_lines: list[str] = []
         removed_urls: list[str] = []
@@ -562,6 +596,9 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         if url in existing_urls:
             return False
 
+        if not self.has_remaining_url_capacity():
+            return False
+
         # Append as JSONL
         entry = {**entry, "url": url}
         jsonl_entry = json.dumps(entry)
@@ -609,6 +646,10 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             if depth > self.max_depth:
                 continue
 
+            # Stop creating new snapshots once the crawl-wide URL cap is reached.
+            if not self.has_remaining_snapshot_capacity():
+                break
+
             # Create snapshot if doesn't exist
             snapshot, created = Snapshot.objects.get_or_create(
                 url=url,
@@ -636,6 +677,56 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
                 pass
 
         return created_snapshots
+
+    def create_discovered_snapshot(
+        self,
+        parent_snapshot,
+        *,
+        url: str,
+        depth: int,
+        title: str = "",
+        tags: str = "",
+        created_by_id: int | None = None,
+    ):
+        """Create one child snapshot if it passes crawl filters and limits."""
+        from archivebox.core.models import Snapshot
+        from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
+
+        url = sanitize_extracted_url(fix_url_from_markdown(str(url or "").strip()))
+        if not url:
+            return None
+        if depth > self.max_depth:
+            return None
+        if not self.url_passes_filters(url, snapshot=parent_snapshot):
+            return None
+        if self.snapshot_set.filter(url=url).exists():
+            return None
+        if not self.has_remaining_snapshot_capacity():
+            return None
+
+        snapshot = Snapshot.from_json(
+            {
+                "url": url,
+                "depth": depth,
+                "title": title,
+                "tags": tags,
+                "parent_snapshot_id": str(parent_snapshot.id),
+                "crawl_id": str(self.id),
+            },
+            overrides={
+                "crawl": self,
+                "snapshot": parent_snapshot,
+                "created_by_id": created_by_id or self.created_by_id,
+            },
+            queue_for_extraction=False,
+        )
+        if snapshot is None or snapshot.status == Snapshot.StatusChoices.SEALED:
+            return None
+
+        snapshot.status = Snapshot.StatusChoices.QUEUED
+        snapshot.retry_at = timezone.now()
+        snapshot.save(update_fields=["status", "retry_at", "modified_at"])
+        return snapshot
 
     def install_declared_binaries(self, binary_names: set[str], machine=None) -> None:
         """

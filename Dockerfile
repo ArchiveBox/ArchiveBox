@@ -133,7 +133,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         # 1. packaging dependencies
         apt-transport-https ca-certificates apt-utils gnupg2 curl wget \
         # 2. docker and init system dependencies
-        zlib1g-dev dumb-init gosu cron unzip grep dnsutils \
+        zlib1g-dev dumb-init gosu cron unzip grep dnsutils python3.12-venv \
         # 3. frivolous CLI helpers to make debugging failed archiving easier
         tree nano iputils-ping \
         # nano iputils-ping dnsutils htop procps jq yq
@@ -302,7 +302,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 # Install Node extractor dependencies
 ENV PATH="/home/$ARCHIVEBOX_USER/.npm/bin:$PATH" \
     PERSONAS_DIR=/data/personas \
-    NODE_PATH="/home/$ARCHIVEBOX_USER/.npm/lib/node_modules:/usr/lib/node_modules:/usr/share/archivebox/lib/npm/node_modules:/data/personas/Default/node_modules" \
+    NODE_PATH="/home/$ARCHIVEBOX_USER/.npm/lib/node_modules:/usr/lib/node_modules:/data/lib/npm/node_modules:/usr/share/archivebox/lib/npm/node_modules:/data/personas/Default/node_modules" \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
     CHROME_BIN=/usr/bin/chromium-browser \
     CHROME_BINARY=/usr/bin/chromium-browser \
@@ -378,7 +378,8 @@ RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$T
 
 # Setup ArchiveBox runtime config
 ENV TMP_DIR=/tmp/archivebox \
-    LIB_DIR=/usr/share/archivebox/lib \
+    LIB_DIR=/data/lib \
+    PIP_VENV_PYTHON=/usr/bin/python3.12 \
     GOOGLE_API_KEY=no \
     GOOGLE_DEFAULT_CLIENT_ID=no \
     GOOGLE_DEFAULT_CLIENT_SECRET=no
