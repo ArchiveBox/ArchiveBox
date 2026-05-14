@@ -13,14 +13,14 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-05-08T11:17:01.494298Z"
+exclude-newer = "2026-05-09T20:33:52.441946Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-05-13T11:17:00.494317Z", span = "PT1S" }
-abx-plugins = { timestamp = "2026-05-13T11:17:00.494305Z", span = "PT1S" }
-abx-dl = { timestamp = "2026-05-13T11:17:00.494316Z", span = "PT1S" }
-abxpkg = { timestamp = "2026-05-13T11:17:00.494317Z", span = "PT1S" }
+abxbus = { timestamp = "2026-05-14T20:33:51.442059Z", span = "PT1S" }
+abx-plugins = { timestamp = "2026-05-14T20:33:51.441968Z", span = "PT1S" }
+abx-dl = { timestamp = "2026-05-14T20:33:51.442058Z", span = "PT1S" }
+abxpkg = { timestamp = "2026-05-14T20:33:51.442059Z", span = "PT1S" }
 
 [[package]]
 name = "abx-dl"
@@ -53,14 +53,18 @@ dependencies = [
 
 [[package]]
 name = "abxbus"
-version = "2.4.32"
-source = { git = "https://github.com/ArchiveBox/abxbus.git?rev=event-wait-now-results#2a82203cb4cc9f9b288e593087bda5116fda106a" }
+version = "2.5.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "anyio", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "pydantic", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "typing-extensions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "uuid7", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5f/41/9729a8dd75d215f5f45956be2cfa4eadbe49a5a052831f275a0b3af5341b/abxbus-2.5.0.tar.gz", hash = "sha256:5a10583ad1cad06b467c3535818ce908e4a4460409faf5c447398a35a3516113", size = 125262, upload-time = "2026-05-13T10:00:18.381Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/12/2c/25497ea5124d22ecb3cd3640b587266a381ced0b8b28d86cc791fd4311ff/abxbus-2.5.0-py3-none-any.whl", hash = "sha256:2c37ff9bf176f52dcde55ffa38369a3823ea69113785a1ee2d747bd4476eb851", size = 120401, upload-time = "2026-05-13T10:00:19.722Z" },
 ]
 
 [[package]]
@@ -116,7 +120,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.30rc5"
+version = "0.9.30rc6"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -212,7 +216,7 @@ dev = [
 requires-dist = [
     { name = "abx-dl", git = "https://github.com/ArchiveBox/abx-dl.git?branch=main" },
     { name = "abx-plugins", git = "https://github.com/ArchiveBox/abx-plugins.git?branch=main" },
-    { name = "abxbus", git = "https://github.com/ArchiveBox/abxbus.git?rev=event-wait-now-results" },
+    { name = "abxbus", specifier = ">=2.5.0" },
     { name = "abxpkg", git = "https://github.com/ArchiveBox/abxpkg.git?branch=main" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
     { name = "atomicwrites", specifier = "==1.4.1" },

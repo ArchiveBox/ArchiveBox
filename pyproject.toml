@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.9.30rc5"
+version = "0.9.30rc6"
 requires-python = ">=3.13"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
@@ -78,7 +78,7 @@ dependencies = [
     "w3lib>=2.2.1",          # used for parsing content-type encoding from http response headers & html tags
     ### Extractor dependencies (optional binaries detected at runtime via shutil.which)
     ### Binary/Package Management
-    "abxbus @ git+https://github.com/ArchiveBox/abxbus.git@event-wait-now-results",  # PR #22 EventBus API
+    "abxbus>=2.5.0",          # EventBus API
     "abxpkg>=1.10.7",         # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
     "abx-plugins>=1.10.32",   # shared ArchiveBox plugin package with install_args-only overrides
     "abx-dl>=1.10.35",        # shared ArchiveBox downloader package with install_args-only overrides
