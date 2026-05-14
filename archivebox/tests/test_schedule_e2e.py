@@ -178,6 +178,8 @@ def get_snapshot_file_text(cwd: Path, url: str) -> str:
                 rel = candidate.relative_to(snapshot_dir)
                 if rel.parts and rel.parts[0] == 'responses':
                     continue
+                if len(rel.parts) == 1 and rel.name == 'index.html':
+                    continue
                 if candidate.suffix not in ('.html', '.htm', '.txt'):
                     continue
                 if candidate.name in ('stdout.log', 'stderr.log', 'cmd.sh'):

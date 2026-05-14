@@ -394,6 +394,8 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
             output_dir=str(output_dir),
         )
         assert started is not None
+        await started.wait()
+        await started.event_results_list()
 
     import asyncio
 
@@ -460,6 +462,8 @@ def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(mon
             output_dir=str(output_dir),
         )
         assert started is not None
+        await started.wait()
+        await started.event_results_list()
 
     import asyncio
 
