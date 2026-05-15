@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.9.30rc20"
+version = "0.9.30rc21"
 requires-python = ">=3.13"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
@@ -80,7 +80,7 @@ dependencies = [
     ### Binary/Package Management
     "abxbus>=2.5.0",          # EventBus API
     "abxpkg>=1.10.7",         # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
-    "abx-plugins>=1.10.40",   # shared ArchiveBox plugin package with Chrome/Puppeteer dependency wiring
+    "abx-plugins>=1.10.41",   # shared ArchiveBox plugin package with Chrome/Puppeteer dependency wiring
     "abx-dl>=1.10.46",        # shared ArchiveBox downloader package with background hook lifecycle fixes
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
