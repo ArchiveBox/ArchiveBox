@@ -34,12 +34,15 @@ def test_tag_event_projects_tag_to_snapshot():
     TagService(bus)
 
     async def emit_tag_event() -> None:
-        await bus.emit(
+        event = bus.emit(
             TagEvent(
                 name="example",
                 snapshot_id=str(snapshot.id),
             ),
-        ).now()
+        )
+        await event.now()
+        await event.wait()
+        await event.event_results_list()
 
     asyncio.run(emit_tag_event())
 
