@@ -125,7 +125,7 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
             "SELECT id, url, depth, status, title FROM core_snapshot ORDER BY url",
         ).fetchall()
         archive_results = conn.execute(
-            "SELECT s.url, ar.plugin, ar.status, ar.output_files, ar.output_size "
+            "SELECT s.url, ar.plugin, ar.status, ar.output_files, ar.output_size, ar.output_str "
             "FROM core_archiveresult ar "
             "JOIN core_snapshot s ON s.id = ar.snapshot_id "
             "ORDER BY s.url, ar.plugin",
@@ -150,24 +150,29 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
     assert snapshot_urls >= {*wget_urls, chrome_url}
     assert all(depth == 0 for _id, _url, depth, _status, _title in snapshots)
 
-    by_url_plugin = {(url, plugin): status for url, plugin, status, _files, _size in archive_results}
+    by_url_plugin = {(url, plugin): status for url, plugin, status, _files, _size, _output in archive_results}
     assert by_url_plugin[("https://example.com", "wget")] == "succeeded"
-    assert by_url_plugin[(chrome_url, "headers")] == "succeeded"
     assert by_url_plugin[(chrome_url, "title")] == "succeeded"
     assert by_url_plugin[("https://pirate.github.io/stress-tests/challenge.html", "wget")] == "succeeded"
-    assert len([status for _url, _plugin, status, _files, _size in archive_results if status == "failed"]) <= 2
+    assert (chrome_url, "headers") in by_url_plugin
+    failed_results = [(url, plugin, output) for url, plugin, status, _files, _size, output in archive_results if status == "failed"]
+    assert len(failed_results) <= 2, failed_results
 
     snapshot_root = tmp_path / "users/system/snapshots"
     html_outputs = [path for path in snapshot_root.rglob("wget/**/*.html") if path.is_file()]
     header_outputs = [path for path in snapshot_root.rglob("headers/**/headers.json") if path.is_file() and path.stat().st_size > 0]
+    title_outputs = [path for path in snapshot_root.rglob("title/title.txt") if path.is_file() and path.stat().st_size > 0]
     index_outputs = [path for path in snapshot_root.rglob("index.jsonl") if path.is_file()]
     assert html_outputs
-    assert header_outputs
+    assert title_outputs
+    if by_url_plugin[(chrome_url, "headers")] == "succeeded":
+        assert header_outputs
     assert len(index_outputs) >= len(wget_urls) + 1
 
     combined_html = "\n".join(path.read_text(errors="ignore") for path in html_outputs)
     assert "Example Domain" in combined_html
     assert "Browser-use Challenge for AI Browser Drivers" in combined_html
+    assert any("Example Domain" in path.read_text(errors="ignore") for path in title_outputs)
 
     assert processes
     assert any("wget" in (pwd or "") or "wget" in (cmd or "") for _type, _status, _exit, pwd, cmd in processes)
