@@ -42,6 +42,7 @@ from abx_dl.orchestrator import (
     setup_services as setup_abx_services,
 )
 from abx_dl.services.process_service import ProcessService as HookProcessService
+from abx_dl.services.binary_service import BinaryService as HookBinaryService
 from abx_dl.services.snapshot_service import SnapshotService as HookSnapshotService
 from abxbus.event_bus import EventBus
 
@@ -461,13 +462,13 @@ class CrawlRunner:
             auto_install=True,
             emit_jsonl=False,
             MachineService=None,
-            BinaryService=None,
+            BinaryService=HookBinaryService,
             ProcessService=None,
             ArchiveResultService=None,
             TagService=None,
             SnapshotService=None,
         )
-        await self.bus.emit(
+        install_event = self.bus.emit(
             InstallEvent(
                 url=snapshot["url"],
                 snapshot_id=snapshot["id"],
@@ -475,7 +476,9 @@ class CrawlRunner:
                 event_timeout=install_phase_timeout,
                 event_handler_slow_timeout=slow_warning_timeout(install_phase_timeout),
             ),
-        ).now()
+        )
+        await install_event.now()
+        await install_event.wait()
         crawl_event = CrawlEvent(
             url=snapshot["url"],
             snapshot_id=snapshot["id"],
