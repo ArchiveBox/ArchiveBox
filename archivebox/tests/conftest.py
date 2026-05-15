@@ -438,24 +438,15 @@ def real_archive_with_example(tmp_path_factory, request):
         "USE_COLOR": "False",
         "RESPONSES_TIMEOUT": "30",
     }
-    cmd = [sys.executable, "-m", "archivebox", "add", "--depth=0", "--plugins=responses", "https://example.com"]
-    base_env = os.environ.copy()
-    base_env.pop("DATA_DIR", None)
-    base_env["USE_COLOR"] = "False"
-    base_env["SHOW_PROGRESS"] = "False"
-    base_env.update(add_env)
-
-    proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+    stdout, stderr, returncode = run_archivebox_cmd_cwd(
+        ["add", "--depth=0", "--plugins=responses", "https://example.com"],
         cwd=tmp_path,
-        env=base_env,
+        timeout=600,
+        env=add_env,
     )
+    assert returncode == 0, f"archivebox add failed:\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
 
-    ready = wait_for_archive_outputs(tmp_path, "https://example.com", timeout=600)
-    stdout, stderr = stop_process(proc)
+    ready = wait_for_archive_outputs(tmp_path, "https://example.com", timeout=60)
     assert ready, f"archivebox add did not produce required outputs within timeout:\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
 
     return tmp_path
