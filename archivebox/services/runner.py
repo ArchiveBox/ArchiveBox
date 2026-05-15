@@ -26,6 +26,7 @@ from abx_dl.events import (
     MachineEvent,
     ProcessCompletedEvent,
     ProcessEvent,
+    SnapshotCompletedEvent,
     SnapshotEvent,
     slow_warning_timeout,
 )
@@ -257,6 +258,7 @@ class CrawlRunner:
         self.derived_config = dict(Machine.current().config)
         self.crawl_output_dir = str(self.crawl.output_dir)
         self.base_config["ABX_RUNTIME"] = "archivebox"
+        self.base_config["CHROME_ISOLATION"] = "snapshot"
         if self.selected_plugins is None:
             raw_plugins = str(self.base_config.get("PLUGINS") or "").strip()
             if raw_plugins:
@@ -581,8 +583,16 @@ class CrawlRunner:
                         event_handler_slow_timeout=slow_warning_timeout(snapshot_phase_timeout),
                     ),
                 )
-                await snapshot_event.wait()
+                await snapshot_event.now()
                 await snapshot_event.event_results_list()
+                completed_snapshot = await self.bus.find(
+                    SnapshotCompletedEvent,
+                    child_of=snapshot_event,
+                    past=True,
+                    future=snapshot_phase_timeout,
+                )
+                if completed_snapshot is None:
+                    raise RuntimeError(f"Snapshot {snapshot_id} did not complete")
                 await self.enqueue_discovered_snapshots_from_outputs(snapshot)
             finally:
                 current_task = asyncio.current_task()

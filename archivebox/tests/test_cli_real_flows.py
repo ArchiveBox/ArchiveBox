@@ -3,11 +3,9 @@
 
 import json
 import os
-import shutil
 import sqlite3
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -17,10 +15,11 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
     os.chdir(tmp_path)
     assert process.returncode == 0, process.stderr
 
-    urls = [
+    wget_urls = [
         "https://example.com",
         "https://pirate.github.io/stress-tests/challenge.html",
     ]
+    chrome_url = "https://example.com/?archivebox-chrome-flow=1"
     env = os.environ.copy()
     env.update(
         {
@@ -28,8 +27,8 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
             "SHOW_PROGRESS": "false",
             "TIMEOUT": "60",
             "SAVE_WGET": "true",
-            "SAVE_HEADERS": "true",
-            "SAVE_TITLE": "true",
+            "SAVE_HEADERS": "false",
+            "SAVE_TITLE": "false",
             "SAVE_READABILITY": "false",
             "SAVE_SINGLEFILE": "false",
             "SAVE_MERCURY": "false",
@@ -40,21 +39,8 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
             "SAVE_GIT": "false",
             "SAVE_YTDLP": "false",
             "SAVE_FAVICON": "false",
-            "CHROME_HEADLESS": "true",
-            "CHROME_SANDBOX": "false",
         },
     )
-    node_binary = shutil.which("node")
-    canary_binary = Path("/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary")
-    chrome_binary = str(canary_binary) if canary_binary.exists() else shutil.which("chromium") or shutil.which("chromium-browser")
-    if node_binary:
-        env["NODE_BINARY"] = node_binary
-    chromium_binary = Path("/usr/bin/chromium")
-    if chromium_binary.exists():
-        env["CHROME_BINARY"] = str(chromium_binary)
-    elif chrome_binary:
-        env["CHROME_BINARY"] = chrome_binary
-
     result = subprocess.run(
         [
             sys.executable,
@@ -66,8 +52,8 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
             "--max-size=10mb",
             "--tag=real-flow,challenge",
             "--parser=url_list",
-            "--plugins=wget,headers,title",
-            *urls,
+            "--plugins=wget",
+            *wget_urls,
         ],
         cwd=tmp_path,
         capture_output=True,
@@ -76,6 +62,44 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
         timeout=180,
     )
     assert result.returncode == 0, result.stderr or result.stdout
+
+    chrome_env = env | {
+        "SAVE_WGET": "false",
+        "SAVE_HEADERS": "true",
+        "SAVE_TITLE": "true",
+        "CHROME_HEADLESS": "true",
+        "CHROME_SANDBOX": "false",
+    }
+    install_result = subprocess.run(
+        [sys.executable, "-m", "archivebox", "install", "puppeteer"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=chrome_env,
+        timeout=180,
+    )
+    assert install_result.returncode == 0, install_result.stderr or install_result.stdout
+    chrome_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "archivebox",
+            "add",
+            "--depth=0",
+            "--max-urls=1",
+            "--max-size=10mb",
+            "--tag=chrome-flow",
+            "--parser=url_list",
+            "--plugins=wget,headers,title",
+            chrome_url,
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=chrome_env,
+        timeout=180,
+    )
+    assert chrome_result.returncode == 0, chrome_result.stderr or chrome_result.stdout
 
     list_result = subprocess.run(
         [sys.executable, "-m", "archivebox", "list", "--tag=real-flow"],
@@ -87,12 +111,15 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
     )
     assert list_result.returncode == 0, list_result.stderr or list_result.stdout
     listed = [json.loads(line) for line in list_result.stdout.splitlines() if line.strip()]
-    assert {item["url"] for item in listed} >= set(urls)
+    assert {item["url"] for item in listed} >= set(wget_urls)
 
     conn = sqlite3.connect(tmp_path / "index.sqlite3")
     try:
         crawl = conn.execute(
             "SELECT max_depth, max_urls, max_size, tags_str, config FROM crawls_crawl ORDER BY created_at DESC LIMIT 1",
+        ).fetchone()
+        real_flow_crawl = conn.execute(
+            "SELECT max_depth, max_urls, max_size, tags_str, config FROM crawls_crawl WHERE tags_str = 'real-flow,challenge'",
         ).fetchone()
         snapshots = conn.execute(
             "SELECT id, url, depth, status, title FROM core_snapshot ORDER BY url",
@@ -109,25 +136,25 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
     finally:
         conn.close()
 
+    assert real_flow_crawl is not None
+    assert real_flow_crawl[0] == 0
+    assert real_flow_crawl[1] == 2
+    assert real_flow_crawl[2] == 10 * 1024 * 1024
+    assert real_flow_crawl[3] == "real-flow,challenge"
+    assert "wget" in real_flow_crawl[4]
     assert crawl is not None
-    assert crawl[0] == 0
-    assert crawl[1] == 2
-    assert crawl[2] == 10 * 1024 * 1024
-    assert crawl[3] == "real-flow,challenge"
+    assert crawl[3] == "chrome-flow"
     assert "wget,headers,title" in crawl[4]
 
     snapshot_urls = {url for _id, url, _depth, _status, _title in snapshots}
-    assert snapshot_urls >= set(urls)
+    assert snapshot_urls >= {*wget_urls, chrome_url}
     assert all(depth == 0 for _id, _url, depth, _status, _title in snapshots)
 
     by_url_plugin = {(url, plugin): status for url, plugin, status, _files, _size in archive_results}
     assert by_url_plugin[("https://example.com", "wget")] == "succeeded"
-    assert by_url_plugin[("https://example.com", "headers")] == "succeeded"
-    assert by_url_plugin[("https://example.com", "title")] == "succeeded"
+    assert by_url_plugin[(chrome_url, "headers")] == "succeeded"
+    assert by_url_plugin[(chrome_url, "title")] == "succeeded"
     assert by_url_plugin[("https://pirate.github.io/stress-tests/challenge.html", "wget")] == "succeeded"
-    assert any(
-        by_url_plugin[("https://pirate.github.io/stress-tests/challenge.html", plugin)] == "succeeded" for plugin in ("headers", "title")
-    )
     assert len([status for _url, _plugin, status, _files, _size in archive_results if status == "failed"]) <= 2
 
     snapshot_root = tmp_path / "users/system/snapshots"
@@ -136,7 +163,7 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
     index_outputs = [path for path in snapshot_root.rglob("index.jsonl") if path.is_file()]
     assert html_outputs
     assert header_outputs
-    assert len(index_outputs) >= len(urls)
+    assert len(index_outputs) >= len(wget_urls) + 1
 
     combined_html = "\n".join(path.read_text(errors="ignore") for path in html_outputs)
     assert "Example Domain" in combined_html

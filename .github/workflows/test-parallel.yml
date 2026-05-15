@@ -58,6 +58,11 @@ jobs:
     needs: discover-tests
     env:
       PYTHONPATH: ${{ github.workspace }}/abxpkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
+      CHROME_BINARY: /usr/bin/chromium
+      CHROME_HEADLESS: "true"
+      CHROME_SANDBOX: "false"
+      PERSONAS_DIR: ${{ runner.temp }}/abx-personas
+      CHROME_USER_DATA_DIR: ${{ runner.temp }}/abx-personas/Default/chrome_profile
 
     strategy:
       fail-fast: false
@@ -124,6 +129,11 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       PYTHONPATH: ${{ github.workspace }}/abxpkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
+      CHROME_BINARY: /usr/bin/chromium
+      CHROME_HEADLESS: "true"
+      CHROME_SANDBOX: "false"
+      PERSONAS_DIR: ${{ runner.temp }}/abx-personas
+      CHROME_USER_DATA_DIR: ${{ runner.temp }}/abx-personas/Default/chrome_profile
 
     steps:
       - uses: actions/checkout@v4
