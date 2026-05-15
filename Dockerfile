@@ -2,7 +2,7 @@
 #     python3.13, uv, python3-ldap
 #     curl, wget, git, dig, ping, tree, nano
 #     node, npm, single-file, readability-extractor, postlight-parser
-#     ArchiveBox, yt-dlp, playwright, chromium
+#     ArchiveBox, yt-dlp, Google Chrome, ffmpeg
 # Usage:
 #     git clone https://github.com/ArchiveBox/ArchiveBox && cd ArchiveBox
 #     docker build . -t archivebox
@@ -10,9 +10,8 @@
 #     docker run -v "$PWD/data":/data archivebox add 'https://example.com'
 #     docker run -v "$PWD/data":/data -it archivebox manage createsuperuser
 #     docker run -v "$PWD/data":/data -p 8000:8000 archivebox server
-# Multi-arch build:
-#     docker buildx create --use
-#     docker buildx build . --platform=linux/amd64,linux/arm64 --push -t archivebox/archivebox:dev -t archivebox/archivebox:sha-abc123
+# Chrome for Linux is only distributed for amd64, so the Docker image targets linux/amd64.
+#     docker buildx build . --platform=linux/amd64 --push -t archivebox/archivebox:dev -t archivebox/archivebox:sha-abc123
 # Read more here: https://github.com/ArchiveBox/ArchiveBox#archivebox-development
 
 
@@ -28,7 +27,7 @@
 
 #########################################################################################
 
-FROM ubuntu:24.04
+FROM --platform=linux/amd64 ubuntu:24.04
 
 LABEL name="archivebox" \
     maintainer="Nick Sweeting <dockerfile@archivebox.io>" \
@@ -70,7 +69,7 @@ ENV TZ=UTC \
 
 # Language Version config
 ENV PYTHON_VERSION=3.13 \
-    NODE_VERSION=22
+    NODE_VERSION=22.22.3
 
 # Non-root User config
 ENV ARCHIVEBOX_USER="archivebox" \
@@ -107,9 +106,9 @@ RUN (echo "[i] Docker build for ArchiveBox starting..." \
     && echo "CODE_DIR=${CODE_DIR} DATA_DIR=${DATA_DIR}" \
     && echo \
     && uname -a \
-    && cat /etc/os-release | head -n7 \
-    && which bash && bash --version | head -n1 \
-    && which dpkg && dpkg --version | head -n1 \
+    && sed -n '1,7p' /etc/os-release \
+    && which bash && bash --version | sed -n '1p' \
+    && which dpkg && dpkg --version | sed -n '1p' \
     && echo -e '\n\n' && env && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
 
@@ -152,11 +151,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     && rm -rf /var/lib/apt/lists/* \
     # Save version info
     && ( \
-        which curl && curl --version | head -n1 \
-        && which wget && wget --version 2>&1 | head -n1 \
-        && which git && git --version 2>&1 | head -n1 \
-        # && which ffmpeg && (ffmpeg --version 2>&1 | head -n1) || true \
-        && which rg && rg --version 2>&1 | head -n1 \
+        which curl && curl --version | sed -n '1p' \
+        && which wget && wget --version 2>&1 | sed -n '1p' \
+        && which git && git --version 2>&1 | sed -n '1p' \
+        # && which ffmpeg && (ffmpeg --version 2>&1 | sed -n '1p') || true \
+        && which rg && rg --version 2>&1 | sed -n '1p' \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
 
@@ -194,17 +193,15 @@ RUN (which sonic && sonic --version) | tee -a /VERSION.txt
     # ) | tee -a /VERSION.txt
 
 
-# Set up Node environment
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
-    --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
-    echo "[+] APT Installing NODE $NODE_VERSION for $TARGETPLATFORM..." \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" >> /etc/apt/sources.list.d/nodejs.list \
-    && curl -fsSL "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key" | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && apt-get update -qq \
-    && apt-get install -qq -y --no-upgrade libatomic1 \
-    && apt-get install -y --no-upgrade \
-        nodejs \
-    && rm -rf /var/lib/apt/lists/* \
+# Set up Node environment from the official linux-x64 tarball. This avoids
+# NodeSource apt dependencies pulling Ubuntu's python3-minimal postinst into
+# emulated linux/amd64 Docker builds.
+RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
+    echo "[+] Installing NODE $NODE_VERSION for linux/amd64..." \
+    && curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" \
+    && echo "c7a10d6816da8eaaa7534dd73c71c6e2b2c391dbbf845e364902d156615dd1b8  node-v${NODE_VERSION}-linux-x64.tar.gz" | sha256sum -c - \
+    && tar -xzf "node-v${NODE_VERSION}-linux-x64.tar.gz" -C /usr/local --strip-components=1 --no-same-owner \
+    && rm "node-v${NODE_VERSION}-linux-x64.tar.gz" \
     # Save version info
     && ( \
         which node && node --version \
@@ -256,46 +253,39 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     && rm -rf /var/lib/apt/lists/*
 
 
-# Install apt font & rendering dependencies for chromium browser
-# TODO: figure out how much of this overlaps with `playwright install-deps chromium`
+# Install apt font & rendering dependencies for Google Chrome
 # RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
 
-# Install chromium browser binary using playwright
+# Install Google Chrome inside the container. Docker must use the package pulled
+# during the image build, never a browser from the host checkout.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
-    --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=browsers-$TARGETARCH$TARGETVARIANT \
     --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
-    echo "[+] APT Installing CHROMIUM dependencies, fonts, and display libraries for $TARGETPLATFORM..." \
+    echo "[+] APT Installing Google Chrome, fonts, and display libraries for $TARGETPLATFORM..." \
+    && curl -fsSL "https://dl.google.com/linux/linux_signing_key.pub" | gpg --dearmor -o /etc/apt/keyrings/google-linux.gpg \
+    && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-linux.gpg] https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update -qq \
     && apt-get install -qq -y \
         #fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-khmeros fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
         #at-spi2-common fonts-liberation fonts-noto-color-emoji fonts-tlwg-loma-otf fonts-unifont libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 libavahi-client3 \
         #libavahi-common-data libavahi-common3 libcups2 libfontenc1 libice6 libnspr4 libnss3 libsm6 libunwind8 \
         #libxaw7 libxcomposite1 libxdamage1 libxfont2 \
+        google-chrome-stable ffmpeg \
         libxkbfile1 libxmu6 libxpm4 libxt6 x11-xkb-utils x11-utils xfonts-encodings \
         # xfonts-scalable xfonts-utils xserver-common xvfb \
         # chrome can run without dbus/upower technically, it complains about missing dbus but should run ok anyway
         # libxss1 dbus dbus-x11 upower \
     # && service dbus start \
-    && echo "[+] PIP Installing playwright into /venv and CHROMIUM binary into $PLAYWRIGHT_BROWSERS_PATH..." \
-    && uv pip install "playwright>=1.49.1" \
-    && uv run playwright install chromium --no-shell --with-deps \
-    && export CHROME_BINARY="$(uv run python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" \
-    && ln -sf "$CHROME_BINARY" /usr/bin/chromium-browser \
-    && ln -sf "$CHROME_BINARY" /usr/bin/chromium \
-    && ln -sf /browsers/ffmpeg-*/ffmpeg-linux /usr/bin/ffmpeg \
-    && mkdir -p "/home/${ARCHIVEBOX_USER}/.config/chromium/Crash Reports/pending/" \
+    && ln -sf /usr/bin/google-chrome-stable /usr/bin/chrome \
+    && mkdir -p "/home/${ARCHIVEBOX_USER}/.config/google-chrome/Crash Reports/pending/" \
     && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/home/${ARCHIVEBOX_USER}/.config" \
     && mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" \
     && chown -R $ARCHIVEBOX_USER "$PLAYWRIGHT_BROWSERS_PATH" \
-    # delete extra full copy of node that playwright installs (saves >100mb)
-    && rm -f /venv/lib/python$PYTHON_VERSION/site-packages/playwright/driver/node \
     # Save version info
     && rm -rf /var/lib/apt/lists/* \
     && ( \
-        uv pip show playwright \
-        && which chromium && chromium --version \
-        && which chromium-browser && /usr/bin/chromium-browser --version || /usr/lib/chromium/chromium --version \
-        && which ffmpeg && ffmpeg -version \
+        which google-chrome-stable && google-chrome-stable --version \
+        && which chrome && chrome --version \
+        && which ffmpeg && ffmpeg -version | sed -n '1p' \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
 
@@ -303,10 +293,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 ENV PATH="/home/$ARCHIVEBOX_USER/.npm/bin:$PATH" \
     PERSONAS_DIR=/data/personas \
     NODE_PATH="/home/$ARCHIVEBOX_USER/.npm/lib/node_modules:/usr/lib/node_modules:/data/lib/npm/node_modules:/usr/share/archivebox/lib/npm/node_modules:/data/personas/Default/node_modules" \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
-    CHROME_BIN=/usr/bin/chromium-browser \
-    CHROME_BINARY=/usr/bin/chromium-browser \
-    CHROMIUM_BINARY=/usr/bin/chromium-browser \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable \
+    CHROME_BIN=/usr/bin/google-chrome-stable \
+    CHROME_BINARY=/usr/bin/google-chrome-stable \
     CHROME_USER_DATA_DIR=/data/personas/Default/chrome_profile \
     CHROME_HEADLESS=true \
     CHROME_SANDBOX=false \

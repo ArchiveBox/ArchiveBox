@@ -33,6 +33,12 @@ class _DummyBus:
             async def now(self, *args, **kwargs):
                 return event
 
+            async def wait(self, *args, **kwargs):
+                return event
+
+            async def event_results_list(self):
+                return []
+
         return _Pending()
 
     async def stop(self):
@@ -40,6 +46,11 @@ class _DummyBus:
 
     async def wait_until_idle(self):
         return None
+
+
+class _NoIdleBus(_DummyBus):
+    async def wait_until_idle(self):
+        raise AssertionError("run_snapshot should not wait on the whole crawl bus")
 
 
 class _DummyService:
@@ -134,6 +145,42 @@ def test_run_snapshot_reuses_crawl_bus_for_all_snapshots(monkeypatch):
     assert {event.url for event in snapshot_events} == {snapshot_a.url, snapshot_b.url}
     assert crawl_runner.bus is created_buses[0]
     assert len(created_buses) == 1
+
+
+def test_run_snapshot_does_not_wait_for_crawl_background_daemons(monkeypatch):
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.services import runner as runner_module
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    snapshot = Snapshot.objects.create(
+        url="https://example.com",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.QUEUED,
+    )
+
+    monkeypatch.setattr(runner_module, "create_bus", lambda **kwargs: _NoIdleBus(kwargs["name"]))
+    monkeypatch.setattr(runner_module, "discover_plugins", lambda: {})
+    monkeypatch.setattr(runner_module, "HookProcessService", _DummyService)
+    monkeypatch.setattr(runner_module, "PersistedProcessService", _DummyService)
+    monkeypatch.setattr(runner_module, "BinaryService", _DummyService)
+    monkeypatch.setattr(runner_module, "TagService", _DummyService)
+    monkeypatch.setattr(runner_module, "CrawlService", _DummyService)
+    monkeypatch.setattr(runner_module, "SnapshotService", _DummyService)
+    monkeypatch.setattr(runner_module, "ArchiveResultService", _DummyService)
+    monkeypatch.setattr(runner_module, "_emit_machine_config", lambda *args, **kwargs: asyncio.sleep(0))
+    monkeypatch.setattr(runner_module, "setup_abx_services", lambda *args, **kwargs: None)
+
+    crawl_runner = runner_module.CrawlRunner(crawl)
+    snapshot_payload = crawl_runner.load_snapshot_payload(str(snapshot.id))
+    monkeypatch.setattr(crawl_runner, "load_snapshot_payload", lambda snapshot_id: snapshot_payload)
+    monkeypatch.setattr(crawl_runner, "enqueue_discovered_snapshots_from_outputs", lambda snapshot: asyncio.sleep(0))
+
+    asyncio.run(crawl_runner.run_snapshot(str(snapshot.id)))
 
 
 def test_ensure_background_runner_starts_when_none_running(monkeypatch):
@@ -324,6 +371,50 @@ def test_load_run_state_uses_machine_config_as_derived_config(monkeypatch):
     crawl_runner.load_run_state()
 
     assert crawl_runner.derived_config == machine.config
+
+
+def test_load_run_state_does_not_force_chrome_keepalive(monkeypatch):
+    from archivebox.machine.models import Machine, NetworkInterface, Process
+    from archivebox.services import runner as runner_module
+    from archivebox.config import configset as configset_module
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+
+    machine = Machine.objects.create(
+        guid="test-guid-runner-chrome-keepalive",
+        hostname="runner-host-chrome-keepalive",
+        hw_in_docker=False,
+        hw_in_vm=False,
+        hw_manufacturer="Test",
+        hw_product="Test Product",
+        hw_uuid="test-hw-runner-chrome-keepalive",
+        os_arch="arm64",
+        os_family="darwin",
+        os_platform="macOS",
+        os_release="14.0",
+        os_kernel="Darwin",
+        stats={},
+        config={},
+    )
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    proc = SimpleNamespace(iface_id=str(machine.id), machine_id=str(machine.id), iface=None, machine=machine, save=lambda **kwargs: None)
+
+    monkeypatch.setattr(
+        NetworkInterface,
+        "current",
+        classmethod(lambda cls, refresh=False: SimpleNamespace(id=machine.id, machine=machine)),
+    )
+    monkeypatch.setattr(Process, "current", classmethod(lambda cls: proc))
+    monkeypatch.setattr(Machine, "current", classmethod(lambda cls: machine))
+    monkeypatch.setattr(configset_module, "get_config", lambda **kwargs: {"PLUGINS": "", "CHROME_BINARY": "", "TIMEOUT": 60})
+
+    crawl_runner = runner_module.CrawlRunner(crawl)
+    crawl_runner.load_run_state()
+
+    assert "CHROME_KEEPALIVE" not in crawl_runner.base_config
 
 
 def test_load_run_state_uses_enabled_plugins_when_plugins_key_missing(monkeypatch):

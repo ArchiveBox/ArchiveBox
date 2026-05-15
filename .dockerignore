@@ -26,6 +26,11 @@ abxbus/
 chrome/
 chromeprofile/
 chrome_profile/
+users/
+archivebox-docker-smoke*/
+archivebox-compose-smoke*/
+core
+*.core
 
 pdm.dev.lock
 pdm.lock

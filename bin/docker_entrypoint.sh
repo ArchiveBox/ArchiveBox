@@ -24,6 +24,9 @@ set -o errtrace
 set -o pipefail
 # IFS=$'\n'
 
+# Prevent crashed browser/subprocess core dumps from filling snapshot folders.
+ulimit -c 0 >/dev/null 2>&1 || true
+
 # Load global invariants (set by Dockerfile during image build time, not intended to be customized by users at runtime)
 export DATA_DIR="${DATA_DIR:-/data}"
 export TMP_DIR="${TMP_DIR:-/tmp/archivebox}"

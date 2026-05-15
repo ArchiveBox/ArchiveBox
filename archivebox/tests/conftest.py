@@ -350,9 +350,11 @@ def _get_machine_type() -> str:
     return f"{arch}-{os_name}{suffix}"
 
 
-def _find_cached_chromium(lib_dir: Path) -> Path | None:
+def _find_cached_chrome(lib_dir: Path) -> Path | None:
     candidates = [
+        lib_dir / "puppeteer" / "chromium",
         lib_dir / "puppeteer",
+        lib_dir / "ms-playwright",
         lib_dir / "npm" / "node_modules" / "puppeteer" / ".local-chromium",
     ]
     for base in candidates:
@@ -369,8 +371,9 @@ def _find_cached_chromium(lib_dir: Path) -> Path | None:
 
 def _find_system_browser() -> Path | None:
     candidates = [
-        Path("/Applications/Chromium.app/Contents/MacOS/Chromium"),
         Path("/usr/bin/chromium"),
+        Path("/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary"),
+        Path("/Applications/Chromium.app/Contents/MacOS/Chromium"),
         Path("/usr/bin/chromium-browser"),
     ]
     for candidate in candidates:

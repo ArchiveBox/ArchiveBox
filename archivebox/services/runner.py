@@ -257,7 +257,6 @@ class CrawlRunner:
         self.derived_config = dict(Machine.current().config)
         self.crawl_output_dir = str(self.crawl.output_dir)
         self.base_config["ABX_RUNTIME"] = "archivebox"
-        self.base_config["CHROME_KEEPALIVE"] = True
         if self.selected_plugins is None:
             raw_plugins = str(self.base_config.get("PLUGINS") or "").strip()
             if raw_plugins:
@@ -571,7 +570,7 @@ class CrawlRunner:
                     event_handler_slow_timeout=slow_warning_timeout(snapshot_phase_timeout),
                 )
                 await self.bus.emit(crawl_start_event).now()
-                await self.bus.emit(
+                snapshot_event = self.bus.emit(
                     SnapshotEvent(
                         url=snapshot["url"],
                         snapshot_id=snapshot["id"],
@@ -581,8 +580,9 @@ class CrawlRunner:
                         event_timeout=snapshot_phase_timeout,
                         event_handler_slow_timeout=slow_warning_timeout(snapshot_phase_timeout),
                     ),
-                ).now()
-                await self.bus.wait_until_idle()
+                )
+                await snapshot_event.wait()
+                await snapshot_event.event_results_list()
                 await self.enqueue_discovered_snapshots_from_outputs(snapshot)
             finally:
                 current_task = asyncio.current_task()

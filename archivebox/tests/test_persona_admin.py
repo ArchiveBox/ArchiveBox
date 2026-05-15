@@ -38,7 +38,7 @@ def _make_profile_source(tmp_path):
         browser="chrome",
         user_data_dir=user_data_dir,
         profile_dir="Default",
-        browser_binary="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        browser_binary="/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
     )
 
 

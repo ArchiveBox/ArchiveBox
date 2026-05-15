@@ -18,7 +18,7 @@ from urllib.parse import urlencode
 import pytest
 import requests
 
-from .conftest import _ensure_puppeteer, _find_cached_chromium, _find_system_browser, run_python_cwd
+from .conftest import _ensure_puppeteer, _find_cached_chrome, _find_system_browser, run_python_cwd
 
 
 PUPPETEER_PROBE_SCRIPT = """\
@@ -147,22 +147,22 @@ def _resolve_browser(shared_lib: Path) -> Path | None:
         if candidate.exists():
             return candidate
 
-    cached = _find_cached_chromium(shared_lib)
-    if cached and cached.exists():
-        return cached
-
     system = _find_system_browser()
     if system and system.exists():
         return system
 
-    which_candidates = ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "chrome")
+    cached = _find_cached_chrome(shared_lib)
+    if cached and cached.exists():
+        return cached
+
+    which_candidates = ("chromium", "chromium-browser")
     for binary in which_candidates:
         resolved = shutil.which(binary)
         if resolved:
             return Path(resolved)
 
     mac_candidates = (
-        Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+        Path("/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary"),
         Path("/Applications/Chromium.app/Contents/MacOS/Chromium"),
     )
     for candidate in mac_candidates:

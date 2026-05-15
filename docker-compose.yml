@@ -12,6 +12,7 @@
 services:
     archivebox:
         image: ${ARCHIVEBOX_IMAGE:-archivebox/archivebox:latest}
+        platform: linux/amd64
         ports:
             - 8000:8000
         volumes:
@@ -32,10 +33,9 @@ services:
             - PERSONAS_DIR=/data/personas
             - LIB_DIR=/data/lib
             - NODE_PATH=/home/archivebox/.npm/lib/node_modules:/usr/lib/node_modules:/data/lib/npm/node_modules:/usr/share/archivebox/lib/npm/node_modules:/data/personas/Default/node_modules
-            - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
-            - CHROME_BIN=/usr/bin/chromium-browser
-            - CHROME_BINARY=/usr/bin/chromium-browser
-            - CHROMIUM_BINARY=/usr/bin/chromium-browser
+            - PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+            - CHROME_BIN=/usr/bin/google-chrome-stable
+            - CHROME_BINARY=/usr/bin/google-chrome-stable
             - CHROME_USER_DATA_DIR=/data/personas/Default/chrome_profile
             - CHROME_HEADLESS=true
             - CHROME_SANDBOX=false

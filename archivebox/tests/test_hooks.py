@@ -676,7 +676,7 @@ def test_run_hook_exports_singular_node_modules_dir_with_colon_node_path(tmp_pat
             "/usr/lib/node_modules",
             str(node_modules_dir),
             "/usr/share/archivebox/lib/npm/node_modules",
-        ]
+        ],
     )
 
     plugin_dir = tmp_path / "plugins" / "envprobe"
