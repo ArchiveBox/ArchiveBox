@@ -3,12 +3,16 @@
 __package__ = "archivebox.cli"
 
 import sys
+import toml
 import rich_click as click
 from rich import print
-from benedict import benedict
 
 from archivebox.misc.util import docstring, enforce_types
 from archivebox.misc.toml_util import CustomTOMLEncoder
+
+
+def _format_toml(config: dict) -> str:
+    return toml.dumps(config, encoder=CustomTOMLEncoder()).strip().replace("\n\n", "\n")
 
 
 @enforce_types
@@ -78,7 +82,7 @@ def config(
                 print("[grey53]\\[CONSTANTS]                                        # (read-only)[/grey53]")
 
             kv_in_section = {key: val for key, val in dict(config_section).items() if key in matching_config}
-            print(benedict(kv_in_section).to_toml(encoder=CustomTOMLEncoder()).strip().replace("\n\n", "\n"))
+            print(_format_toml(kv_in_section))
             print("[grey53]################################################################[/grey53]")
 
         # Display plugin config section
@@ -98,7 +102,7 @@ def config(
         # Display all plugin config in single [PLUGINS] section
         if plugin_keys:
             print("[grey53]\\[PLUGINS][/grey53]")
-            print(benedict(plugin_keys).to_toml(encoder=CustomTOMLEncoder()).strip().replace("\n\n", "\n"))
+            print(_format_toml(plugin_keys))
             print("[grey53]################################################################[/grey53]")
 
         raise SystemExit(not matching_config)
