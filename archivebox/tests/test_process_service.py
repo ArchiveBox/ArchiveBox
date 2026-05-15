@@ -76,6 +76,7 @@ def test_process_completed_persists_with_uncached_network_interface(monkeypatch,
             ),
         )
         await event.now()
+        await event.wait()
         await event.event_results_list()
 
     asyncio.run(run_event())
