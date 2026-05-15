@@ -61,8 +61,8 @@ jobs:
       CHROME_BINARY: /usr/bin/chromium
       CHROME_HEADLESS: "true"
       CHROME_SANDBOX: "false"
-      PERSONAS_DIR: ${{ runner.temp }}/abx-personas
-      CHROME_USER_DATA_DIR: ${{ runner.temp }}/abx-personas/Default/chrome_profile
+      PERSONAS_DIR: /tmp/abx-personas
+      CHROME_USER_DATA_DIR: /tmp/abx-personas/Default/chrome_profile
 
     strategy:
       fail-fast: false
@@ -132,8 +132,8 @@ jobs:
       CHROME_BINARY: /usr/bin/chromium
       CHROME_HEADLESS: "true"
       CHROME_SANDBOX: "false"
-      PERSONAS_DIR: ${{ runner.temp }}/abx-personas
-      CHROME_USER_DATA_DIR: ${{ runner.temp }}/abx-personas/Default/chrome_profile
+      PERSONAS_DIR: /tmp/abx-personas
+      CHROME_USER_DATA_DIR: /tmp/abx-personas/Default/chrome_profile
 
     steps:
       - uses: actions/checkout@v4
