@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       test-files: ${{ steps.set-matrix.outputs.test-files }}
+      plugin-tests: ${{ steps.set-plugin-matrix.outputs.plugin-tests }}
 
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +51,31 @@ jobs:
 
           echo "test-files=$json_array" >> $GITHUB_OUTPUT
           echo "Found $(echo $all_tests | wc -w) test files"
+          echo "$json_array" | jq '.'
+
+      - name: Clone abx-plugins
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-plugins.git abx-plugins
+
+      - name: Discover plugin tests
+        id: set-plugin-matrix
+        run: |
+          plugin_tests=$(find abx-plugins/abx_plugins/plugins -maxdepth 2 -type d -name tests | sed 's#abx-plugins/abx_plugins/plugins/##; s#/tests##' | sort)
+
+          json_array="["
+          first=true
+          for plugin_name in $plugin_tests; do
+            if [ "$first" = true ]; then
+              first=false
+            else
+              json_array+=","
+            fi
+
+            json_array+="{\"plugin\":\"$plugin_name\",\"name\":\"plugin/$plugin_name\"}"
+          done
+          json_array+="]"
+
+          echo "plugin-tests=$json_array" >> $GITHUB_OUTPUT
+          echo "Found $(echo $plugin_tests | wc -w) plugin test suites"
           echo "$json_array" | jq '.'
 
   run-tests:
@@ -125,8 +151,9 @@ jobs:
           uv run --no-sync --no-sources pytest -xvs "${{ matrix.test.path }}" --basetemp=tests/out --ignore=archivebox/pkgs
 
   plugin-tests:
-    name: Plugin tests
+    name: ${{ matrix.plugin.name }}
     runs-on: ubuntu-22.04
+    needs: discover-tests
     env:
       PYTHONPATH: ${{ github.workspace }}/abxpkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
       CHROME_BINARY: /usr/bin/chromium
@@ -134,6 +161,11 @@ jobs:
       CHROME_SANDBOX: "false"
       PERSONAS_DIR: /tmp/abx-personas
       CHROME_USER_DATA_DIR: /tmp/abx-personas/Default/chrome_profile
+
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: ${{ fromJson(needs.discover-tests.outputs.plugin-tests) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -184,10 +216,10 @@ jobs:
           uv sync --dev --all-extras --no-sources --no-cache
           uv pip install -e ./abxpkg -e ./abx-plugins[dev] -e ./abx-dl
 
-      - name: Run plugin tests
+      - name: Run plugin tests - ${{ matrix.plugin.name }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           API_KEY_2CAPTCHA: ${{ secrets.TWOCAPTCHA_API_KEY }}
         run: |
-          uv run --no-sync --no-sources bash ./bin/test_plugins.sh --no-coverage
+          uv run --no-sync --no-sources bash ./bin/test_plugins.sh "${{ matrix.plugin.plugin }}" --no-coverage
