@@ -146,6 +146,42 @@ def test_process_completed_projects_synthetic_failed_archiveresult():
     _cleanup_machine_process_rows()
 
 
+def test_failed_title_archiveresult_does_not_overwrite_snapshot_title():
+    from archivebox.core.models import ArchiveResult
+    from archivebox.services.archive_result_service import ArchiveResultService
+    import asyncio
+
+    snapshot = _create_snapshot()
+    plugin_dir = Path(snapshot.output_dir) / "title"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+
+    bus = create_bus(name="test_failed_title_does_not_update_snapshot")
+    service = ArchiveResultService(bus)
+
+    event = ArchiveResultEvent(
+        snapshot_id=str(snapshot.id),
+        plugin="title",
+        hook_name="on_Snapshot__54_title.js",
+        status="failed",
+        output_str="Missing puppeteer dependency (need puppeteer-core or puppeteer)",
+        error="Missing puppeteer dependency (need puppeteer-core or puppeteer)",
+        start_ts="2026-03-22T12:00:00+00:00",
+        end_ts="2026-03-22T12:00:01+00:00",
+    )
+
+    async def emit_event() -> None:
+        await service.on_ArchiveResultEvent__save_to_db(event)
+
+    asyncio.run(emit_event())
+
+    result = ArchiveResult.objects.get(snapshot=snapshot, plugin="title", hook_name="on_Snapshot__54_title.js")
+    assert result.status == ArchiveResult.StatusChoices.FAILED
+    assert result.output_str == "Missing puppeteer dependency (need puppeteer-core or puppeteer)"
+    snapshot.refresh_from_db()
+    assert snapshot.title in (None, "")
+    _cleanup_machine_process_rows()
+
+
 def test_process_completed_projects_noresults_archiveresult():
     from archivebox.core.models import ArchiveResult
     from archivebox.services.archive_result_service import ArchiveResultService

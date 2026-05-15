@@ -265,10 +265,11 @@ class ArchiveResultService(BaseService):
             result.notes = event.error
         await result.asave()
 
-        next_title = _extract_snapshot_title(str(snapshot.output_dir), event.plugin, result.output_str, snapshot_url=snapshot.url)
-        if next_title and _should_update_snapshot_title(snapshot.title or "", next_title, snapshot_url=snapshot.url):
-            snapshot.title = next_title
-            await snapshot.asave(update_fields=["title", "modified_at"])
+        if result.status in (ArchiveResult.StatusChoices.SUCCEEDED, ArchiveResult.StatusChoices.NORESULTS):
+            next_title = _extract_snapshot_title(str(snapshot.output_dir), event.plugin, result.output_str, snapshot_url=snapshot.url)
+            if next_title and _should_update_snapshot_title(snapshot.title or "", next_title, snapshot_url=snapshot.url):
+                snapshot.title = next_title
+                await snapshot.asave(update_fields=["title", "modified_at"])
 
     async def on_ProcessCompletedEvent__save_to_db(self, event: ProcessCompletedEvent) -> None:
         if not event.hook_name.startswith("on_Snapshot"):

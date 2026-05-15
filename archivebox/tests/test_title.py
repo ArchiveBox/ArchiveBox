@@ -1,15 +1,29 @@
 import os
 import sqlite3
 import subprocess
+import sys
 
 from .fixtures import disable_extractors_dict, process
 
 FIXTURES = (disable_extractors_dict, process)
 
 
+def _install_puppeteer(tmp_path, env):
+    install_process = subprocess.run(
+        [sys.executable, "-m", "archivebox", "install", "puppeteer"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=180,
+    )
+    assert install_process.returncode == 0, install_process.stderr or install_process.stdout
+
+
 def test_title_is_extracted(tmp_path, process, disable_extractors_dict):
     """Test that title is extracted from the page."""
     disable_extractors_dict.update({"SAVE_TITLE": "true"})
+    _install_puppeteer(tmp_path, disable_extractors_dict)
     add_process = subprocess.run(
         ["archivebox", "add", "--plugins=wget,title", "https://example.com"],
         capture_output=True,
@@ -37,6 +51,7 @@ def test_title_is_htmlencoded_in_index_html(tmp_path, process, disable_extractor
     and breaks the layout.
     """
     disable_extractors_dict.update({"SAVE_TITLE": "true"})
+    _install_puppeteer(tmp_path, disable_extractors_dict)
     add_process = subprocess.run(
         ["archivebox", "add", "--plugins=wget,title", "https://example.com"],
         capture_output=True,
