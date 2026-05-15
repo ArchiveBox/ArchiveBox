@@ -68,7 +68,7 @@ jobs:
 
       - name: Install dependencies with uv
         run: |
-          uv sync --dev --all-extras --no-sources
+          uv sync --dev --all-extras --no-sources --no-cache
           uv pip install -e ./abxpkg -e ./abx-plugins[dev] -e ./abx-dl
 
       ### Run the tests

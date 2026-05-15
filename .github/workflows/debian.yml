@@ -97,7 +97,7 @@ jobs:
 
       - name: Build local wheel
         run: |
-          uv sync --all-extras --no-install-project --no-install-workspace --no-sources
+          uv sync --all-extras --no-install-project --no-install-workspace --no-sources --no-cache
           uv build --wheel --out-dir /tmp/wheels/
 
       - name: Download .deb artifact
