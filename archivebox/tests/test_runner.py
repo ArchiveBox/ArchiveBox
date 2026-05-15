@@ -28,9 +28,24 @@ class _DummyBus:
 
     def emit(self, event):
         self.emitted.append(event)
+        bus = self
 
         class _Pending:
+            def __getattr__(self, name):
+                return getattr(event, name)
+
             async def now(self, *args, **kwargs):
+                from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
+
+                if isinstance(event, SnapshotEvent):
+                    bus.emitted.append(
+                        SnapshotCompletedEvent(
+                            url=event.url,
+                            snapshot_id=event.snapshot_id,
+                            output_dir=event.output_dir,
+                            event_parent_id=event.event_id,
+                        ),
+                    )
                 return event
 
             async def wait(self, *args, **kwargs):
@@ -40,6 +55,17 @@ class _DummyBus:
                 return []
 
         return _Pending()
+
+    async def find(self, event_type, where=None, child_of=None, **kwargs):
+        for event in reversed(self.emitted):
+            if not isinstance(event, event_type):
+                continue
+            if child_of is not None and event.event_parent_id != child_of.event_id:
+                continue
+            if where is not None and not where(event):
+                continue
+            return event
+        return None
 
     async def stop(self):
         return None

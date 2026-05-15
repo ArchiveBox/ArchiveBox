@@ -583,14 +583,13 @@ class CrawlRunner:
                 )
                 emitted_snapshot_event = self.bus.emit(snapshot_event)
                 await emitted_snapshot_event.now()
-                await emitted_snapshot_event.event_results_list()
-                snapshot_event_results = getattr(snapshot_event, "event_results", {})
-                snapshot_event_children = getattr(snapshot_event, "event_children", [])
-                completed_snapshot = next(
-                    (child for child in snapshot_event_children if isinstance(child, SnapshotCompletedEvent)),
-                    None,
+                completed_snapshot = await self.bus.find(
+                    SnapshotCompletedEvent,
+                    child_of=emitted_snapshot_event,
+                    past=True,
+                    future=snapshot_phase_timeout,
                 )
-                if snapshot_event_results and completed_snapshot is None:
+                if completed_snapshot is None:
                     raise RuntimeError(f"Snapshot {snapshot_id} did not complete")
                 await self.enqueue_discovered_snapshots_from_outputs(snapshot)
             finally:
