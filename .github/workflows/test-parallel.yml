@@ -100,7 +100,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/uv
-          key: ${{ runner.os }}-${{ matrix.python }}-uv-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: ${{ runner.os }}-${{ matrix.python }}-uv-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python }}-uv-
 
@@ -160,7 +160,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/uv
-          key: ${{ runner.os }}-3.13-uv-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          key: ${{ runner.os }}-3.13-uv-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-3.13-uv-
 

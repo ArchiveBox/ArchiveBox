@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import json
 import os
 import shutil
@@ -41,6 +42,7 @@ from abx_dl.orchestrator import (
 )
 from abx_dl.services.process_service import ProcessService as HookProcessService
 from abx_dl.services.snapshot_service import SnapshotService as HookSnapshotService
+from abxbus.event_bus import EventBus
 
 from .archive_result_service import ArchiveResultService
 from .binary_service import BinaryService
@@ -64,6 +66,14 @@ def _count_selected_hooks(plugins: dict[str, Plugin], selected_plugins: list[str
 
 def _normalize_runtime_config(config: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in json.loads(json.dumps(config, default=str)).items() if value is not None}
+
+
+def _runner_task_context() -> contextvars.Context:
+    context = contextvars.copy_context()
+    context.run(EventBus.current_event_context.set, None)
+    context.run(EventBus.current_handler_id_context.set, None)
+    context.run(EventBus.current_eventbus_context.set, None)
+    return context
 
 
 async def _emit_machine_config(
@@ -211,7 +221,7 @@ class CrawlRunner:
         task = self.snapshot_tasks.get(snapshot_id)
         if task is not None and not task.done():
             return
-        task = asyncio.create_task(self.run_snapshot(snapshot_id))
+        task = asyncio.create_task(self.run_snapshot(snapshot_id), context=_runner_task_context())
         self.snapshot_tasks[snapshot_id] = task
 
     async def wait_for_snapshot_tasks(self) -> None:

@@ -340,27 +340,26 @@ RUN ( \
 ######### Build Dependencies ####################################
 
 
-# Install ArchiveBox Python venv dependencies from uv.lock
+# Install ArchiveBox Python venv dependencies from pyproject.toml.
 RUN --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
-    --mount=type=bind,source=uv.lock,target=/app/uv.lock \
     --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
     --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
-    echo "[+] PIP Installing ArchiveBox dependencies from pyproject.toml and uv.lock..." \
+    echo "[+] PIP Installing ArchiveBox dependencies from pyproject.toml..." \
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends build-essential gcc python3-dev \
     && uv sync \
-        --frozen \
         --inexact \
         --all-extras \
         --no-install-project \
         --no-install-workspace \
+        --no-sources \
     && apt-get purge -y python3-dev build-essential gcc \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
-    # installs the pip packages that archivebox depends on, defined in pyproject.toml and uv.lock dependencies
+    # installs the pip packages that archivebox depends on, defined in pyproject.toml dependencies
 
 # Install ArchiveBox Python package from the checked-out source.
-# Sibling abx-* packages are installed from uv.lock inside the container, not copied from the local checkout.
+# Sibling abx-* packages are installed from PyPI inside the container, not copied from the local checkout.
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
     echo "[*] Installing ArchiveBox Python source code from $CODE_DIR..." \

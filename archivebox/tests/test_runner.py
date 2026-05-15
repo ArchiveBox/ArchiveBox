@@ -187,6 +187,46 @@ def test_ensure_background_runner_skips_when_orchestrator_running(monkeypatch):
     assert started is False
 
 
+def test_runner_task_context_clears_inherited_abxbus_handler_context(tmp_path):
+    from abx_dl.events import CrawlEvent, MachineEvent
+    from abx_dl.orchestrator import create_bus
+    from abxbus.event_bus import in_handler_context
+    from archivebox.services import runner as runner_module
+
+    bus = create_bus(name="test_runner_task_context_clears_inherited_abxbus_handler_context")
+    observations = []
+
+    async def emit_from_runner_task():
+        observations.append(("in_handler_context", in_handler_context()))
+        machine_event = bus.emit(MachineEvent(config={"ABX_RUNTIME": "archivebox"}, config_type="user"))
+        await machine_event.now()
+        observations.append(("machine_event_path", bool(machine_event.event_path)))
+
+    async def on_crawl(event):
+        assert in_handler_context() is True
+        task = asyncio.create_task(emit_from_runner_task(), context=runner_module._runner_task_context())
+        await task
+
+    bus.on(CrawlEvent, on_crawl)
+
+    async def run_test():
+        await bus.emit(
+            CrawlEvent(
+                url="https://example.com",
+                snapshot_id="snapshot-1",
+                output_dir=str(tmp_path),
+            ),
+        ).now()
+        await bus.wait_until_idle()
+
+    asyncio.run(run_test())
+
+    assert observations == [
+        ("in_handler_context", False),
+        ("machine_event_path", True),
+    ]
+
+
 def test_runner_prepare_refreshes_network_interface_and_attaches_current_process(monkeypatch):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
