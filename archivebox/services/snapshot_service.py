@@ -80,6 +80,7 @@ class SnapshotService(BaseService):
             await self.schedule_snapshot(snapshot_id)
 
     async def on_SnapshotCompletedEvent(self, event: SnapshotCompletedEvent) -> None:
+        from archivebox.crawls.models import Crawl
         from archivebox.core.models import Snapshot
 
         snapshot = await Snapshot.objects.select_related("crawl", "crawl__created_by").filter(id=event.snapshot_id).afirst()
@@ -107,24 +108,31 @@ class SnapshotService(BaseService):
         if snapshot_id:
             snapshot = await Snapshot.objects.filter(id=snapshot_id).select_related("crawl", "crawl__created_by").afirst()
             if snapshot is not None:
-                await sync_to_async(snapshot.write_index_jsonl, thread_sensitive=True)()
-                await sync_to_async(snapshot.write_json_details, thread_sensitive=True)()
-                await sync_to_async(snapshot.write_html_details, thread_sensitive=True)()
-                stop_reason = await sync_to_async(self._crawl_limit_stop_reason, thread_sensitive=True)(snapshot.crawl)
-                if snapshot.depth < snapshot.crawl.max_depth and stop_reason != "max_size":
-                    from archivebox.hooks import collect_urls_from_plugins
+                try:
+                    await sync_to_async(snapshot.write_index_jsonl, thread_sensitive=True)()
+                    await sync_to_async(snapshot.write_json_details, thread_sensitive=True)()
+                    await sync_to_async(snapshot.write_html_details, thread_sensitive=True)()
+                    stop_reason = await sync_to_async(self._crawl_limit_stop_reason, thread_sensitive=True)(snapshot.crawl)
+                    if snapshot.depth < snapshot.crawl.max_depth and stop_reason != "max_size":
+                        from archivebox.hooks import collect_urls_from_plugins
 
-                    discovered_urls = await sync_to_async(collect_urls_from_plugins, thread_sensitive=True)(Path(snapshot.output_dir))
-                    for record in discovered_urls:
-                        discovered_snapshot_id = await self._upsert_discovered_snapshot(
-                            snapshot,
-                            url=str(record.get("url") or "").strip(),
-                            depth=snapshot.depth + 1,
-                            title=str(record.get("title") or "").strip(),
-                            tags=str(record.get("tags") or "").strip(),
-                        )
-                        if discovered_snapshot_id:
-                            await self.schedule_snapshot(discovered_snapshot_id)
+                        discovered_urls = await sync_to_async(collect_urls_from_plugins, thread_sensitive=True)(Path(snapshot.output_dir))
+                        for record in discovered_urls:
+                            discovered_snapshot_id = await self._upsert_discovered_snapshot(
+                                snapshot,
+                                url=str(record.get("url") or "").strip(),
+                                depth=snapshot.depth + 1,
+                                title=str(record.get("title") or "").strip(),
+                                tags=str(record.get("tags") or "").strip(),
+                            )
+                            if discovered_snapshot_id:
+                                await self.schedule_snapshot(discovered_snapshot_id)
+                finally:
+                    is_finished = await sync_to_async(snapshot.crawl.is_finished, thread_sensitive=True)()
+                    if is_finished and snapshot.crawl.status != Crawl.StatusChoices.SEALED:
+                        snapshot.crawl.status = Crawl.StatusChoices.SEALED
+                        snapshot.crawl.retry_at = None
+                        await snapshot.crawl.asave(update_fields=["status", "retry_at", "modified_at"])
 
     def _crawl_limit_stop_reason(self, crawl) -> str:
         config = dict(crawl.config or {})

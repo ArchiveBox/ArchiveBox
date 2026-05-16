@@ -129,13 +129,17 @@ class TestMachineModel(TestCase):
         result = Machine.from_json({"invalid": "record"})
         self.assertIsNone(result)
 
-    def test_machine_current_strips_legacy_chromium_version(self):
-        """Machine.current() should clean legacy browser version keys from persisted config."""
+    def test_machine_current_keeps_only_derived_runtime_cache(self):
+        """Machine.current() should keep derived cache entries, not runtime config."""
         import archivebox.machine.models as models
 
         machine = Machine.current()
         machine.config = {
             "CHROME_BINARY": "/tmp/chromium",
+            "NODE_BINARY": "/tmp/node",
+            "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
+            "CHROME_ISOLATION": "snapshot",
+            "CHROME_USER_DATA_DIR": "/tmp/profile",
             "CHROMIUM_VERSION": "123.4.5",
         }
         machine.save(update_fields=["config"])
@@ -144,6 +148,10 @@ class TestMachineModel(TestCase):
         refreshed = Machine.current()
 
         self.assertEqual(refreshed.config.get("CHROME_BINARY"), "/tmp/chromium")
+        self.assertEqual(refreshed.config.get("NODE_BINARY"), "/tmp/node")
+        self.assertEqual(refreshed.config.get("ABX_INSTALL_CACHE"), {"wget": "2026-03-24T00:00:00+00:00"})
+        self.assertNotIn("CHROME_ISOLATION", refreshed.config)
+        self.assertNotIn("CHROME_USER_DATA_DIR", refreshed.config)
         self.assertNotIn("CHROMIUM_VERSION", refreshed.config)
 
     def test_machine_manager_current(self):

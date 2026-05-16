@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from asgiref.sync import sync_to_async
 from abx_dl.events import CrawlCleanupEvent, CrawlCompletedEvent, CrawlSetupEvent, CrawlStartEvent
 from abx_dl.services.base import BaseService
 
@@ -38,7 +39,10 @@ class CrawlService(BaseService):
         from archivebox.crawls.models import Crawl
 
         crawl = await Crawl.objects.aget(id=self.crawl_id)
-        if crawl.status != Crawl.StatusChoices.SEALED:
+        is_finished = await sync_to_async(crawl.is_finished, thread_sensitive=True)()
+        if is_finished:
+            crawl.status = Crawl.StatusChoices.SEALED
+        elif crawl.status != Crawl.StatusChoices.SEALED:
             crawl.status = Crawl.StatusChoices.STARTED
         crawl.retry_at = None
         await crawl.asave(update_fields=["status", "retry_at", "modified_at"])
@@ -47,6 +51,14 @@ class CrawlService(BaseService):
         from archivebox.crawls.models import Crawl
 
         crawl = await Crawl.objects.aget(id=self.crawl_id)
+        is_finished = await sync_to_async(crawl.is_finished, thread_sensitive=True)()
+        if not is_finished:
+            if crawl.status != Crawl.StatusChoices.SEALED:
+                crawl.status = Crawl.StatusChoices.STARTED
+            crawl.retry_at = None
+            await crawl.asave(update_fields=["status", "retry_at", "modified_at"])
+            return
+
         crawl.status = Crawl.StatusChoices.SEALED
         crawl.retry_at = None
         await crawl.asave(update_fields=["status", "retry_at", "modified_at"])

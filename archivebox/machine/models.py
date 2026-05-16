@@ -52,6 +52,7 @@ PID_REUSE_WINDOW = timedelta(hours=24)  # Max age for considering a PID match va
 PROCESS_TIMEOUT_GRACE = timedelta(seconds=30)  # Extra margin before force-cleaning timed-out RUNNING rows
 START_TIME_TOLERANCE = 5.0  # Seconds tolerance for start time matching
 LEGACY_MACHINE_CONFIG_KEYS = frozenset({"CHROMIUM_VERSION"})
+MACHINE_CONFIG_ALWAYS_ALLOWED_KEYS = frozenset({"ABX_INSTALL_CACHE"})
 
 
 def _find_existing_binary_for_reference(machine: Machine, reference: str) -> Binary | None:
@@ -124,7 +125,7 @@ def _sanitize_machine_config(config: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(config, dict):
         return {}
 
-    sanitized = dict(config)
+    sanitized = {key: value for key, value in config.items() if key in MACHINE_CONFIG_ALWAYS_ALLOWED_KEYS or str(key).endswith("_BINARY")}
     for key in LEGACY_MACHINE_CONFIG_KEYS:
         sanitized.pop(key, None)
     return sanitized

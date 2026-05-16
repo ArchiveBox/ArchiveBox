@@ -38,14 +38,14 @@ class _DummyBus:
                 from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
 
                 if isinstance(event, SnapshotEvent):
-                    bus.emitted.append(
-                        SnapshotCompletedEvent(
-                            url=event.url,
-                            snapshot_id=event.snapshot_id,
-                            output_dir=event.output_dir,
-                            event_parent_id=event.event_id,
-                        ),
+                    completed = SnapshotCompletedEvent(
+                        url=event.url,
+                        snapshot_id=event.snapshot_id,
+                        output_dir=event.output_dir,
+                        event_parent_id=event.event_id,
                     )
+                    completed._mark_completed()
+                    bus.emitted.append(completed)
                 return event
 
             async def wait(self, *args, **kwargs):
@@ -154,6 +154,7 @@ def test_run_snapshot_reuses_crawl_bus_for_all_snapshots(monkeypatch):
         },
     }
     monkeypatch.setattr(crawl_runner, "load_snapshot_payload", lambda snapshot_id: snapshot_data[snapshot_id])
+    monkeypatch.setattr(crawl_runner, "enqueue_discovered_snapshots_from_outputs", lambda snapshot: asyncio.sleep(0))
 
     async def run_both():
         await asyncio.gather(
@@ -207,6 +208,50 @@ def test_run_snapshot_does_not_wait_for_crawl_background_daemons(monkeypatch):
     monkeypatch.setattr(crawl_runner, "enqueue_discovered_snapshots_from_outputs", lambda snapshot: asyncio.sleep(0))
 
     asyncio.run(crawl_runner.run_snapshot(str(snapshot.id)))
+
+
+@pytest.mark.django_db(transaction=True)
+def test_enqueue_discovered_snapshots_refreshes_crawl_limits(tmp_path):
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.services.runner import CrawlRunner
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        max_depth=0,
+        max_urls=5,
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    snapshot = Snapshot.objects.create(
+        url="https://example.com",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.SEALED,
+        depth=0,
+    )
+    parser_dir = Path(snapshot.output_dir) / "parse_html_urls"
+    parser_dir.mkdir(parents=True, exist_ok=True)
+    (parser_dir / "urls.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps({"type": "Snapshot", "url": "https://example.com/child-a", "depth": 1}),
+                json.dumps({"type": "Snapshot", "url": "https://example.com/child-b", "depth": 1}),
+                "",
+            ],
+        ),
+    )
+
+    runner = CrawlRunner(crawl)
+    Crawl.objects.filter(id=crawl.id).update(max_depth=1)
+    payload = runner.load_snapshot_payload(str(snapshot.id))
+
+    asyncio.run(runner.enqueue_discovered_snapshots_from_outputs(payload))
+
+    child_snapshots = list(crawl.snapshot_set.filter(depth=1).order_by("url").values_list("url", "status"))
+    assert child_snapshots == [
+        ("https://example.com/child-a", Snapshot.StatusChoices.QUEUED),
+        ("https://example.com/child-b", Snapshot.StatusChoices.QUEUED),
+    ]
 
 
 def test_ensure_background_runner_starts_when_none_running(monkeypatch):
@@ -283,14 +328,17 @@ def test_runner_task_context_clears_inherited_abxbus_handler_context(tmp_path):
     bus.on(CrawlEvent, on_crawl)
 
     async def run_test():
-        await bus.emit(
-            CrawlEvent(
-                url="https://example.com",
-                snapshot_id="snapshot-1",
-                output_dir=str(tmp_path),
-            ),
-        ).now()
-        await bus.wait_until_idle()
+        try:
+            await bus.emit(
+                CrawlEvent(
+                    url="https://example.com",
+                    snapshot_id="snapshot-1",
+                    output_dir=str(tmp_path),
+                ),
+            ).now()
+            await bus.wait_until_idle()
+        finally:
+            await bus.destroy()
 
     asyncio.run(run_test())
 
@@ -298,6 +346,58 @@ def test_runner_task_context_clears_inherited_abxbus_handler_context(tmp_path):
         ("in_handler_context", False),
         ("machine_event_path", True),
     ]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_machine_service_persists_only_derived_config_events():
+    from abx_dl.events import MachineEvent
+    from abx_dl.orchestrator import create_bus
+    from archivebox.machine.models import Machine
+    from archivebox.services.machine_service import MachineService
+
+    machine = Machine.current()
+    machine.config = {}
+    machine.save(update_fields=["config"])
+
+    async def run_test():
+        bus = create_bus(name="test_machine_service_persists_only_derived_config_events")
+        try:
+            MachineService(bus)
+            user_event = bus.emit(
+                MachineEvent(
+                    config={
+                        "CHROME_ISOLATION": "snapshot",
+                        "CHROME_USER_DATA_DIR": "/tmp/stale-profile",
+                        "ABX_RUNTIME": "archivebox",
+                    },
+                    config_type="user",
+                ),
+            )
+            await user_event.now()
+            await user_event.event_results_list()
+            derived_event = bus.emit(
+                MachineEvent(
+                    config={
+                        "WGET_BINARY": "/tmp/wget",
+                        "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
+                        "CHROME_USER_DATA_DIR": "/tmp/stale-derived-profile",
+                    },
+                    config_type="derived",
+                ),
+            )
+            await derived_event.now()
+            await derived_event.event_results_list()
+            await bus.wait_until_idle()
+        finally:
+            await bus.destroy()
+
+    asyncio.run(run_test())
+
+    machine.refresh_from_db()
+    assert machine.config == {
+        "WGET_BINARY": "/tmp/wget",
+        "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
+    }
 
 
 def test_runner_prepare_refreshes_network_interface_and_attaches_current_process(monkeypatch):
@@ -376,7 +476,12 @@ def test_load_run_state_uses_machine_config_as_derived_config(monkeypatch):
         os_release="14.0",
         os_kernel="Darwin",
         stats={},
-        config={"WGET_BINARY": "/tmp/wget", "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"}},
+        config={
+            "WGET_BINARY": "/tmp/wget",
+            "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
+            "CHROME_ISOLATION": "snapshot",
+            "CHROME_USER_DATA_DIR": "/tmp/stale-profile",
+        },
     )
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -396,7 +501,10 @@ def test_load_run_state_uses_machine_config_as_derived_config(monkeypatch):
     crawl_runner = runner_module.CrawlRunner(crawl)
     crawl_runner.load_run_state()
 
-    assert crawl_runner.derived_config == machine.config
+    assert crawl_runner.derived_config == {
+        "WGET_BINARY": "/tmp/wget",
+        "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
+    }
 
 
 def test_load_run_state_does_not_force_chrome_keepalive(monkeypatch):
@@ -598,7 +706,7 @@ def test_seal_snapshot_cancels_queued_descendants_after_max_size():
         encoding="utf-8",
     )
 
-    bus = create_bus(name="test_snapshot_limit_cancel")
+    bus = create_bus(name=f"test_snapshot_limit_cancel_{str(crawl.id).replace('-', '_')}")
     service = SnapshotService(bus, crawl_id=str(crawl.id), schedule_snapshot=lambda snapshot_id: None)
     try:
 
@@ -614,6 +722,7 @@ def test_seal_snapshot_cancels_queued_descendants_after_max_size():
         asyncio.run(emit_event())
     finally:
         asyncio.run(bus.wait_until_idle())
+        asyncio.run(bus.destroy())
 
     root.refresh_from_db()
     child.refresh_from_db()
@@ -882,21 +991,24 @@ def test_abx_process_service_background_process_finishes_after_process_exit(monk
     pid_file.write_text("12345")
 
     async def run_test():
-        event = ProcessEvent(
-            plugin_name="chrome",
-            hook_name="on_CrawlSetup__90_chrome_launch.daemon.bg",
-            hook_path=sys.executable,
-            hook_args=["-c", "pass"],
-            env={},
-            output_dir=str(plugin_output_dir),
-            timeout=60,
-            is_background=True,
-            url="https://example.org/",
-            process_type="hook",
-            worker_type="hook",
-        )
-        await asyncio.wait_for(bus.emit(event).now(), timeout=0.5)
-        await bus.wait_until_idle()
+        try:
+            event = ProcessEvent(
+                plugin_name="chrome",
+                hook_name="on_CrawlSetup__90_chrome_launch.daemon.bg",
+                hook_path=sys.executable,
+                hook_args=["-c", "pass"],
+                env={},
+                output_dir=str(plugin_output_dir),
+                timeout=60,
+                is_background=True,
+                url="https://example.org/",
+                process_type="hook",
+                worker_type="hook",
+            )
+            await asyncio.wait_for(bus.emit(event).now(), timeout=0.5)
+            await bus.wait_until_idle()
+        finally:
+            await bus.destroy()
 
     asyncio.run(run_test())
 
@@ -1029,3 +1141,193 @@ def test_run_pending_crawls_prioritizes_queued_crawl_before_unrelated_binary_bac
 
     assert run_calls == [(str(queued_crawl.id), None, True)]
     assert binary_calls == []
+
+
+@pytest.mark.django_db(transaction=True)
+def test_crawl_completed_event_does_not_seal_active_snapshots():
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.services.crawl_service import CrawlService
+    from abx_dl.events import CrawlCompletedEvent
+    from abx_dl.orchestrator import create_bus
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by_id=get_or_create_system_user_pk(),
+        status=Crawl.StatusChoices.STARTED,
+        retry_at=None,
+    )
+    Snapshot.objects.create(
+        url="https://example.com",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.STARTED,
+        retry_at=None,
+    )
+
+    bus = create_bus(name=f"test_crawl_completed_active_snapshots_{str(crawl.id).replace('-', '_')}")
+    CrawlService(bus, crawl_id=str(crawl.id))
+    try:
+
+        async def emit_completed() -> None:
+            event = CrawlCompletedEvent(
+                url="https://example.com",
+                snapshot_id="",
+                output_dir=str(crawl.output_dir),
+            )
+            emitted = bus.emit(event)
+            await emitted.now()
+            await emitted.event_results_list()
+
+        asyncio.run(emit_completed())
+    finally:
+        asyncio.run(bus.wait_until_idle())
+        asyncio.run(bus.destroy())
+
+    crawl.refresh_from_db()
+    assert crawl.status == Crawl.StatusChoices.STARTED
+    assert crawl.retry_at is None
+
+
+@pytest.mark.django_db(transaction=True)
+def test_crawl_cleanup_event_seals_finished_crawl():
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.services.crawl_service import CrawlService
+    from abx_dl.events import CrawlCleanupEvent
+    from abx_dl.orchestrator import create_bus
+    from django.utils import timezone
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by_id=get_or_create_system_user_pk(),
+        status=Crawl.StatusChoices.STARTED,
+        retry_at=timezone.now(),
+    )
+    snapshot = Snapshot.objects.create(
+        url="https://example.com",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.SEALED,
+        retry_at=None,
+    )
+
+    bus = create_bus(name=f"test_crawl_cleanup_finished_crawl_{str(crawl.id).replace('-', '_')}")
+    CrawlService(bus, crawl_id=str(crawl.id))
+    try:
+
+        async def emit_cleanup() -> None:
+            event = CrawlCleanupEvent(
+                url="https://example.com",
+                snapshot_id=str(snapshot.id),
+                output_dir=str(crawl.output_dir),
+            )
+            emitted = bus.emit(event)
+            await emitted.now()
+            await emitted.event_results_list()
+
+        asyncio.run(emit_cleanup())
+    finally:
+        asyncio.run(bus.wait_until_idle())
+        asyncio.run(bus.destroy())
+
+    crawl.refresh_from_db()
+    assert crawl.status == Crawl.StatusChoices.SEALED
+    assert crawl.retry_at is None
+
+
+@pytest.mark.django_db(transaction=True)
+def test_snapshot_completed_event_seals_finished_crawl():
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.services.snapshot_service import SnapshotService
+    from abx_dl.events import SnapshotCompletedEvent
+    from abx_dl.orchestrator import create_bus
+    from django.utils import timezone
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by_id=get_or_create_system_user_pk(),
+        status=Crawl.StatusChoices.STARTED,
+        retry_at=timezone.now(),
+    )
+    snapshot = Snapshot.objects.create(
+        url="https://example.com",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.STARTED,
+        retry_at=None,
+    )
+
+    bus = create_bus(name=f"test_snapshot_completed_finished_crawl_{str(crawl.id).replace('-', '_')}")
+    service = SnapshotService(bus, crawl_id=str(crawl.id), schedule_snapshot=lambda snapshot_id: asyncio.sleep(0))
+    try:
+
+        async def emit_completed() -> None:
+            await service.on_SnapshotCompletedEvent(
+                SnapshotCompletedEvent(
+                    url="https://example.com",
+                    snapshot_id=str(snapshot.id),
+                    output_dir=str(snapshot.output_dir),
+                ),
+            )
+
+        asyncio.run(emit_completed())
+    finally:
+        asyncio.run(bus.destroy())
+
+    snapshot.refresh_from_db()
+    crawl.refresh_from_db()
+    assert snapshot.status == Snapshot.StatusChoices.SEALED
+    assert crawl.status == Crawl.StatusChoices.SEALED
+    assert crawl.retry_at is None
+
+
+@pytest.mark.django_db(transaction=True)
+def test_snapshot_completed_event_bus_seals_finished_crawl():
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.services.snapshot_service import SnapshotService
+    from abx_dl.events import SnapshotCompletedEvent
+    from abx_dl.orchestrator import create_bus
+    from django.utils import timezone
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by_id=get_or_create_system_user_pk(),
+        status=Crawl.StatusChoices.STARTED,
+        retry_at=timezone.now(),
+    )
+    snapshot = Snapshot.objects.create(
+        url="https://example.com",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.STARTED,
+        retry_at=None,
+    )
+
+    bus = create_bus(name=f"test_snapshot_completed_bus_finished_crawl_{str(crawl.id).replace('-', '_')}")
+    SnapshotService(bus, crawl_id=str(crawl.id), schedule_snapshot=lambda snapshot_id: asyncio.sleep(0))
+    try:
+
+        async def emit_completed() -> None:
+            emitted = bus.emit(
+                SnapshotCompletedEvent(
+                    url="https://example.com",
+                    snapshot_id=str(snapshot.id),
+                    output_dir=str(snapshot.output_dir),
+                ),
+            )
+            await emitted.now()
+            await emitted.event_results_list()
+
+        asyncio.run(emit_completed())
+    finally:
+        asyncio.run(bus.wait_until_idle())
+        asyncio.run(bus.destroy())
+
+    snapshot.refresh_from_db()
+    crawl.refresh_from_db()
+    assert snapshot.status == Snapshot.StatusChoices.SEALED
+    assert crawl.status == Crawl.StatusChoices.SEALED
+    assert crawl.retry_at is None

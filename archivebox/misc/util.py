@@ -193,11 +193,18 @@ def fix_url_from_markdown(url_str: str) -> str:
     This assumption is true 99.9999% of the time, and for the rare edge case the user can use url_list parser.
     """
     trimmed_url = url_str
+    if len(trimmed_url) > 2048:
+        return trimmed_url
 
     # cut off one trailing character at a time
     # until parens are balanced e.g. /a(b)c).x(y)z -> /a(b)c
-    while trimmed_url and not parens_are_matched(trimmed_url):
+    trim_attempts = 0
+    while trimmed_url and not parens_are_matched(trimmed_url) and trim_attempts < 256:
         trimmed_url = trimmed_url[:-1]
+        trim_attempts += 1
+
+    if not trimmed_url or not parens_are_matched(trimmed_url):
+        return url_str
 
     # make sure trimmed url is still valid
     if any(match == trimmed_url for match in re.findall(URL_REGEX, trimmed_url)):
@@ -689,7 +696,7 @@ def chrome_cleanup():
     """
     Cleans up any state or runtime files that Chrome leaves behind when killed by
     a timeout or other error. Handles:
-    - All persona chrome_user_data directories (via Persona.cleanup_chrome_all())
+    - All persona chrome_profile directories (via Persona.cleanup_chrome_all())
     - Explicit CHROME_USER_DATA_DIR from config
     - Legacy Docker chromium path
     """

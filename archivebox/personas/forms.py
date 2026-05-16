@@ -74,7 +74,7 @@ class PersonaAdminForm(forms.ModelForm):
         required=False,
         initial=True,
         label="Copy browser profile into this persona",
-        help_text="Copies the chosen Chromium user-data tree into `chrome_user_data` for future archiving runs.",
+        help_text="Copies the chosen Chromium user-data tree into `chrome_profile` for future archiving runs.",
     )
     import_extract_cookies = forms.BooleanField(
         required=False,

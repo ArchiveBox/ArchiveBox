@@ -17,6 +17,9 @@ class MachineService(BaseService):
     async def on_MachineEvent__save_to_db(self, event: MachineEvent) -> None:
         from archivebox.machine.models import Machine, _sanitize_machine_config
 
+        if event.config_type != "derived":
+            return
+
         machine = await sync_to_async(Machine.current, thread_sensitive=True)()
         config = dict(machine.config or {})
 

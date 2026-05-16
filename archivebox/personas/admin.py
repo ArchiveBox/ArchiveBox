@@ -73,7 +73,7 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
 
     @admin.display(description="Chrome Profile")
     def chrome_profile_state(self, obj: Persona) -> str:
-        return "yes" if (obj.path / "chrome_user_data").exists() else "no"
+        return "yes" if (obj.path / "chrome_profile").exists() else "no"
 
     @admin.display(description="cookies.txt")
     def cookies_state(self, obj: Persona) -> str:
@@ -88,7 +88,7 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
         return format_html(
             "<div class='abx-persona-path-list'>"
             "<div><strong>Persona root</strong><code>{}</code></div>"
-            "<div><strong>chrome_user_data</strong><code>{}</code></div>"
+            "<div><strong>chrome_profile</strong><code>{}</code></div>"
             "<div><strong>chrome_extensions</strong><code>{}</code></div>"
             "<div><strong>chrome_downloads</strong><code>{}</code></div>"
             "<div><strong>cookies.txt</strong><code>{}</code></div>"
@@ -105,7 +105,7 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
     @admin.display(description="Import Artifacts")
     def import_artifact_status(self, obj: Persona) -> str:
         entries = [
-            ("Browser profile", (obj.path / "chrome_user_data").exists(), obj.CHROME_USER_DATA_DIR),
+            ("Browser profile", (obj.path / "chrome_profile").exists(), obj.CHROME_USER_DATA_DIR),
             ("cookies.txt", bool(obj.COOKIES_FILE), obj.COOKIES_FILE or (obj.path / "cookies.txt")),
             ("auth.json", bool(obj.AUTH_STORAGE_FILE), obj.AUTH_STORAGE_FILE or (obj.path / "auth.json")),
         ]

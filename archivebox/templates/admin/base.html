@@ -1639,8 +1639,12 @@
         {% endcomment %}
         
         <script>
-            $ = django.jQuery;
-            $.fn.reverse = [].reverse;
+            const archiveboxAdminJQuery = (window.django && window.django.jQuery) || window.jQuery;
+            const $ = archiveboxAdminJQuery;
+            if ($) {
+                window.$ = $;
+                $.fn.reverse = [].reverse;
+            }
 
             // hide images that fail to load
             document.querySelector('body').addEventListener('error', function (e) {
@@ -1724,7 +1728,9 @@
                         .appendTo(buttons)
                 })
                 console.log('Converted', buttons.children().length, 'admin actions from dropdown to buttons')
-                jQuery('select[multiple]').select2();
+                if (window.jQuery && window.jQuery.fn.select2) {
+                    window.jQuery('select[multiple]').select2();
+                }
             }
             function updateTagWidgetVisibility() {
                 const tagContainer = document.querySelector('.actions-tags');
@@ -1851,18 +1857,30 @@
                 })
                 return false
             }
-            $(document).ready(function() {
-                fix_actions()
-                updateTagWidgetVisibility()
-                const form = document.querySelector('#changelist-form')
-                if (form) {
-                    form.addEventListener('change', updateTagWidgetVisibility)
-                }
-                fixInlineAddRow()
-                setupSnapshotGridListToggle()
-                setTimeOffset()
-                selectSnapshotIfHotlinked()
-            })
+            if ($) {
+                $(document).ready(function() {
+                    fix_actions()
+                    updateTagWidgetVisibility()
+                    const form = document.querySelector('#changelist-form')
+                    if (form) {
+                        form.addEventListener('change', updateTagWidgetVisibility)
+                    }
+                    fixInlineAddRow()
+                    setupSnapshotGridListToggle()
+                    setTimeOffset()
+                    selectSnapshotIfHotlinked()
+                })
+            } else {
+                document.addEventListener('DOMContentLoaded', function() {
+                    updateTagWidgetVisibility()
+                    const form = document.querySelector('#changelist-form')
+                    if (form) {
+                        form.addEventListener('change', updateTagWidgetVisibility)
+                    }
+                    setTimeOffset()
+                    selectSnapshotIfHotlinked()
+                })
+            }
         </script>
         <script src="{% static 'admin-inline-tags.js' %}"></script>
     </body>

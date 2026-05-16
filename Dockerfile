@@ -299,7 +299,7 @@ ENV PATH="/home/$ARCHIVEBOX_USER/.npm/bin:$PATH" \
     CHROME_USER_DATA_DIR=/data/personas/Default/chrome_profile \
     CHROME_HEADLESS=true \
     CHROME_SANDBOX=false \
-    CHROME_ISOLATION=snapshot \
+    CHROME_ISOLATION=crawl \
     CHROME_ARGS_EXTRA='["--disable-gpu","--disable-features=Translate,OptimizationGuideModelDownloading,MediaRouter"]'
 USER $ARCHIVEBOX_USER
 WORKDIR "/home/$ARCHIVEBOX_USER/.npm"

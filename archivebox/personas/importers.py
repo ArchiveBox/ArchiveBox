@@ -536,7 +536,7 @@ def import_persona_from_source(
             resolved_persona_root = persona_chrome_dir.resolve()
             if resolved_source_root == resolved_persona_root:
                 result.warnings.append(
-                    "Skipped profile copy because the selected source is already this persona's chrome_user_data directory.",
+                    "Skipped profile copy because the selected source is already this persona's chrome_profile directory.",
                 )
             else:
                 copy_browser_user_data_dir(resolved_source_root, resolved_persona_root)

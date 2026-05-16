@@ -76,7 +76,7 @@ class Persona(ModelWithConfig):
 
         # Or access directly from persona
         persona = Persona.objects.get(name='Default')
-        persona.CHROME_USER_DATA_DIR  # -> Path to chrome_user_data
+        persona.CHROME_USER_DATA_DIR  # -> Path to chrome_profile
     """
 
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
@@ -100,7 +100,7 @@ class Persona(ModelWithConfig):
     @property
     def CHROME_USER_DATA_DIR(self) -> str:
         """Derived path to Chrome user data directory for this persona."""
-        return str(self.path / "chrome_user_data")
+        return str(self.path / "chrome_profile")
 
     @property
     def CHROME_EXTENSIONS_DIR(self) -> str:
@@ -159,7 +159,7 @@ class Persona(ModelWithConfig):
     def ensure_dirs(self) -> None:
         """Create persona directories if they don't exist."""
         self.path.mkdir(parents=True, exist_ok=True)
-        (self.path / "chrome_user_data").mkdir(parents=True, exist_ok=True)
+        (self.path / "chrome_profile").mkdir(parents=True, exist_ok=True)
         (self.path / "chrome_extensions").mkdir(parents=True, exist_ok=True)
         (self.path / "chrome_downloads").mkdir(parents=True, exist_ok=True)
 
@@ -196,7 +196,7 @@ class Persona(ModelWithConfig):
 
     def cleanup_chrome(self) -> bool:
         """Clean up volatile Chrome state for this persona's base profile."""
-        return self.cleanup_chrome_profile(self.path / "chrome_user_data")
+        return self.cleanup_chrome_profile(self.path / "chrome_profile")
 
     @contextmanager
     def lock_runtime_for_crawl(self):
@@ -216,7 +216,7 @@ class Persona(ModelWithConfig):
         return Path(crawl.output_dir) / ".persona" / self.name
 
     def runtime_profile_dir_for_crawl(self, crawl) -> Path:
-        return self.runtime_root_for_crawl(crawl) / "chrome_user_data"
+        return self.runtime_root_for_crawl(crawl) / "chrome_profile"
 
     def runtime_downloads_dir_for_crawl(self, crawl) -> Path:
         return self.runtime_root_for_crawl(crawl) / "chrome_downloads"

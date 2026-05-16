@@ -68,7 +68,7 @@ def test_persona_prepare_runtime_for_crawl_clones_and_cleans_profile(initialized
     assert payload["cache_removed"] is True
     assert payload["log_removed"] is True
     assert payload["persona_name_recorded"] == "Default"
-    assert payload["template_dir_recorded"].endswith("/personas/Default/chrome_user_data")
+    assert payload["template_dir_recorded"].endswith("/personas/Default/chrome_profile")
     assert payload["chrome_binary_recorded"] == "/Applications/Chromium.app/Contents/MacOS/Chromium"
 
 
@@ -111,6 +111,45 @@ def test_persona_cleanup_runtime_for_crawl_removes_only_runtime_copy(initialized
     payload = json.loads(stdout.strip().splitlines()[-1])
     assert payload["runtime_removed"] is True
     assert payload["template_still_exists"] is True
+
+
+def test_crawl_runner_respects_chrome_isolation_config(initialized_archive):
+    script = textwrap.dedent(
+        """
+        import json
+        import os
+
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
+        import django
+        django.setup()
+
+        from archivebox.crawls.models import Crawl
+        from archivebox.services.runner import CrawlRunner
+
+        crawl_default = Crawl.objects.create(urls='https://example.com')
+        runner_default = CrawlRunner(crawl_default)
+        runner_default.load_run_state()
+
+        crawl_snapshot = Crawl.objects.create(
+            urls='https://example.com/explicit',
+            config={'CHROME_ISOLATION': 'snapshot'},
+        )
+        runner_snapshot = CrawlRunner(crawl_snapshot)
+        runner_snapshot.load_run_state()
+
+        print(json.dumps({
+            'default_isolation': runner_default.base_config.get('CHROME_ISOLATION'),
+            'explicit_isolation': runner_snapshot.base_config.get('CHROME_ISOLATION'),
+        }))
+        """,
+    )
+
+    stdout, stderr, code = run_python_cwd(script, cwd=initialized_archive, timeout=60)
+    assert code == 0, stderr
+
+    payload = json.loads(stdout.strip().splitlines()[-1])
+    assert payload["default_isolation"] == "crawl"
+    assert payload["explicit_isolation"] == "snapshot"
 
 
 def test_crawl_resolve_persona_raises_for_missing_persona_id(initialized_archive):
