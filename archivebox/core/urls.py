@@ -3,6 +3,7 @@ __package__ = "archivebox.core"
 import sys
 from importlib.util import find_spec
 
+from django.conf import settings
 from django.urls import path, re_path, include
 from django.views import static
 from django.views.generic.base import RedirectView
@@ -83,10 +84,10 @@ def _raise_test_error(_request: HttpRequest):
     raise ZeroDivisionError("Intentional test error route")
 
 
-if DEBUG and ("--nothreading" in sys.argv) and ("--reload" not in sys.argv) and find_spec("debug_toolbar"):
+if getattr(settings, "DEBUG_TOOLBAR", False):
     urlpatterns += [path("__debug__/", include("debug_toolbar.urls"))]
 
-if DEBUG and find_spec("requests_tracker"):
+if getattr(settings, "DEBUG_REQUESTS_TRACKER", False) and find_spec("requests_tracker"):
     urlpatterns += [path("__requests_tracker__/", include("requests_tracker.urls"))]
 
 
