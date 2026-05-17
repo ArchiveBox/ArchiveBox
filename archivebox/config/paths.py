@@ -8,16 +8,30 @@ import platform
 from pathlib import Path
 from functools import cache
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from benedict import benedict
 
 from .permissions import SudoPermission, IS_ROOT, ARCHIVEBOX_USER
 
+if TYPE_CHECKING:
+    from archivebox.config.common import ArchiveBoxConfig
+
 #############################################################################################
 
 PACKAGE_DIR: Path = Path(__file__).resolve().parent.parent  # archivebox source code dir
 DATA_DIR: Path = Path(os.environ.get("DATA_DIR", os.getcwd())).resolve()  # archivebox user data dir
-ARCHIVE_DIR: Path = DATA_DIR / "archive"  # archivebox snapshot data dir
+
+
+def _env_path(key: str, default: Path) -> Path:
+    path = Path(os.environ.get(key) or default).expanduser()
+    if not path.is_absolute():
+        path = DATA_DIR / path
+    return path.resolve()
+
+
+ARCHIVE_DIR: Path = _env_path("ARCHIVE_DIR", DATA_DIR / "archive")  # archivebox snapshot data dir
+USERS_DIR: Path = _env_path("USERS_DIR", ARCHIVE_DIR / "users")  # archivebox user-scoped crawl/snapshot data dir
 
 IN_DOCKER = os.environ.get("IN_DOCKER", False) in ("1", "true", "True", "TRUE", "yes")
 
@@ -154,15 +168,15 @@ def tmp_dir_socket_path_is_short_enough(dir_path: Path) -> bool:
     return len(f"file://{socket_file}") <= 96
 
 
-@cache
-def get_or_create_working_tmp_dir(autofix=True, quiet=True):
-    from archivebox import CONSTANTS
-    from archivebox.config.common import STORAGE_CONFIG
+def get_or_create_working_tmp_dir(autofix=True, quiet=True, config: "ArchiveBoxConfig | None" = None, **config_kwargs):
+    from archivebox.config.constants import CONSTANTS
+    from archivebox.config.common import get_config
     from archivebox.misc.checks import check_tmp_dir
 
+    config = config or get_config(**config_kwargs)
     # try a few potential directories in order of preference
     CANDIDATES = [
-        STORAGE_CONFIG.TMP_DIR,  # <user-specified>
+        config.TMP_DIR,  # <user-specified>
         CONSTANTS.DEFAULT_TMP_DIR,  # ./data/tmp/<machine_id>
         Path("/var/run/archivebox") / get_collection_id(),  # /var/run/archivebox/abc5d8512
         Path("/tmp") / "archivebox" / get_collection_id(),  # /tmp/archivebox/abc5d8512
@@ -182,8 +196,8 @@ def get_or_create_working_tmp_dir(autofix=True, quiet=True):
         except Exception:
             pass
         if check_tmp_dir(candidate, throw=False, quiet=True, must_exist=True):
-            if autofix and STORAGE_CONFIG.TMP_DIR != candidate:
-                STORAGE_CONFIG.update_in_place(TMP_DIR=candidate)
+            if autofix and config.TMP_DIR != candidate:
+                os.environ["TMP_DIR"] = str(candidate)
             return candidate
         try:
             if (
@@ -200,23 +214,23 @@ def get_or_create_working_tmp_dir(autofix=True, quiet=True):
     # Fall back to the shortest writable path so read-only CLI commands can still run,
     # and let later permission checks surface the missing socket support if needed.
     if fallback_candidate:
-        if autofix and STORAGE_CONFIG.TMP_DIR != fallback_candidate:
-            STORAGE_CONFIG.update_in_place(TMP_DIR=fallback_candidate)
+        if autofix and config.TMP_DIR != fallback_candidate:
+            os.environ["TMP_DIR"] = str(fallback_candidate)
         return fallback_candidate
 
     if not quiet:
         raise OSError(f"ArchiveBox is unable to find a writable TMP_DIR, tried {CANDIDATES}!")
 
 
-@cache
-def get_or_create_working_lib_dir(autofix=True, quiet=False):
-    from archivebox import CONSTANTS
-    from archivebox.config.common import STORAGE_CONFIG
+def get_or_create_working_lib_dir(autofix=True, quiet=False, config: "ArchiveBoxConfig | None" = None, **config_kwargs):
+    from archivebox.config.constants import CONSTANTS
+    from archivebox.config.common import get_config
     from archivebox.misc.checks import check_lib_dir
 
+    config = config or get_config(**config_kwargs)
     # try a few potential directories in order of preference
     CANDIDATES = [
-        STORAGE_CONFIG.LIB_DIR,  # <user-specified>
+        config.LIB_DIR,  # <user-specified>
         CONSTANTS.DEFAULT_LIB_DIR,  # ./data/lib/arm64-linux-docker
         Path("/usr/local/share/archivebox") / get_collection_id(),  # /usr/local/share/archivebox/abc5
         *(
@@ -231,23 +245,23 @@ def get_or_create_working_lib_dir(autofix=True, quiet=False):
         except Exception:
             pass
         if check_lib_dir(candidate, throw=False, quiet=True, must_exist=True):
-            if autofix and STORAGE_CONFIG.LIB_DIR != candidate:
-                STORAGE_CONFIG.update_in_place(LIB_DIR=candidate)
+            if autofix and config.LIB_DIR != candidate:
+                os.environ["LIB_DIR"] = str(candidate)
             return candidate
 
     if not quiet:
         raise OSError(f"ArchiveBox is unable to find a writable LIB_DIR, tried {CANDIDATES}!")
 
 
-@cache
-def get_data_locations():
-    from archivebox.config import CONSTANTS
-    from archivebox.config.common import STORAGE_CONFIG
+def get_data_locations(config: "ArchiveBoxConfig | None" = None, **config_kwargs):
+    from archivebox.config.constants import CONSTANTS
+    from archivebox.config.common import get_config
 
+    config = config or get_config(**config_kwargs)
     try:
-        tmp_dir = get_or_create_working_tmp_dir(autofix=True, quiet=True) or STORAGE_CONFIG.TMP_DIR
+        tmp_dir = get_or_create_working_tmp_dir(autofix=True, quiet=True, config=config) or config.TMP_DIR
     except Exception:
-        tmp_dir = STORAGE_CONFIG.TMP_DIR
+        tmp_dir = config.TMP_DIR
 
     return benedict(
         {
@@ -271,10 +285,20 @@ def get_data_locations():
                 "is_mount": os.path.ismount(DATABASE_FILE.resolve()),
             },
             "ARCHIVE_DIR": {
-                "path": ARCHIVE_DIR.resolve(),
+                "path": config.ARCHIVE_DIR.resolve(),
                 "enabled": True,
-                "is_valid": os.path.isdir(ARCHIVE_DIR) and os.access(ARCHIVE_DIR, os.R_OK) and os.access(ARCHIVE_DIR, os.W_OK),
-                "is_mount": os.path.ismount(ARCHIVE_DIR.resolve()),
+                "is_valid": os.path.isdir(config.ARCHIVE_DIR)
+                and os.access(config.ARCHIVE_DIR, os.R_OK)
+                and os.access(config.ARCHIVE_DIR, os.W_OK),
+                "is_mount": os.path.ismount(config.ARCHIVE_DIR.resolve()),
+            },
+            "USERS_DIR": {
+                "path": config.USERS_DIR.resolve(),
+                "enabled": os.path.isdir(config.USERS_DIR),
+                "is_valid": os.path.isdir(config.USERS_DIR)
+                and os.access(config.USERS_DIR, os.R_OK)
+                and os.access(config.USERS_DIR, os.W_OK),
+                "is_mount": os.path.ismount(config.USERS_DIR.resolve()),
             },
             "SOURCES_DIR": {
                 "path": CONSTANTS.SOURCES_DIR.resolve(),
@@ -311,15 +335,15 @@ def get_data_locations():
     )
 
 
-@cache
-def get_code_locations():
-    from archivebox.config import CONSTANTS
-    from archivebox.config.common import STORAGE_CONFIG
+def get_code_locations(config: "ArchiveBoxConfig | None" = None, **config_kwargs):
+    from archivebox.config.constants import CONSTANTS
+    from archivebox.config.common import get_config
 
+    config = config or get_config(**config_kwargs)
     try:
-        lib_dir = get_or_create_working_lib_dir(autofix=True, quiet=True) or STORAGE_CONFIG.LIB_DIR
+        lib_dir = get_or_create_working_lib_dir(autofix=True, quiet=True, config=config) or config.LIB_DIR
     except Exception:
-        lib_dir = STORAGE_CONFIG.LIB_DIR
+        lib_dir = config.LIB_DIR
 
     lib_bin_dir = lib_dir / "bin"
 
@@ -336,10 +360,9 @@ def get_code_locations():
                 "is_valid": os.access(CONSTANTS.STATIC_DIR, os.R_OK) and os.access(CONSTANTS.STATIC_DIR, os.X_OK),  # read + list
             },
             "CUSTOM_TEMPLATES_DIR": {
-                "path": STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR.resolve(),
-                "enabled": os.path.isdir(STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR),
-                "is_valid": os.path.isdir(STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR)
-                and os.access(STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR, os.R_OK),  # read
+                "path": config.CUSTOM_TEMPLATES_DIR.resolve(),
+                "enabled": os.path.isdir(config.CUSTOM_TEMPLATES_DIR),
+                "is_valid": os.path.isdir(config.CUSTOM_TEMPLATES_DIR) and os.access(config.CUSTOM_TEMPLATES_DIR, os.R_OK),  # read
             },
             "USER_PLUGINS_DIR": {
                 "path": CONSTANTS.USER_PLUGINS_DIR.resolve(),

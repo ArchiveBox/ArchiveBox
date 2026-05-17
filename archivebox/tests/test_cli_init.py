@@ -8,10 +8,10 @@ import os
 import sqlite3
 import subprocess
 
-from archivebox.config.common import STORAGE_CONFIG
+from archivebox.config.common import get_config
 
 
-DIR_PERMISSIONS = STORAGE_CONFIG.OUTPUT_PERMISSIONS.replace("6", "7").replace("4", "5")
+DIR_PERMISSIONS = get_config().OUTPUT_PERMISSIONS.replace("6", "7").replace("4", "5")
 
 
 def test_init_creates_database_file(tmp_path):
@@ -33,6 +33,23 @@ def test_init_creates_archive_directory(tmp_path):
     archive_dir = tmp_path / "archive"
     assert archive_dir.exists()
     assert archive_dir.is_dir()
+
+
+def test_init_respects_configured_archive_and_users_dirs(tmp_path):
+    """Test that init creates configured archive/users storage roots."""
+    os.chdir(tmp_path)
+    archive_dir = tmp_path / "mounted_archive"
+    users_dir = archive_dir / "custom_users"
+    env = os.environ.copy()
+    env["ARCHIVE_DIR"] = str(archive_dir)
+    env["USERS_DIR"] = str(users_dir)
+
+    result = subprocess.run(["archivebox", "init"], env=env, capture_output=True)
+
+    assert result.returncode == 0
+    assert archive_dir.is_dir()
+    assert users_dir.is_dir()
+    assert not (tmp_path / "archive").exists()
 
 
 def test_init_creates_sources_directory(tmp_path):
@@ -145,11 +162,11 @@ def test_init_sets_correct_file_permissions(tmp_path):
 
     # Check database permissions
     db_path = tmp_path / "index.sqlite3"
-    assert oct(db_path.stat().st_mode)[-3:] in (STORAGE_CONFIG.OUTPUT_PERMISSIONS, DIR_PERMISSIONS)
+    assert oct(db_path.stat().st_mode)[-3:] in (get_config().OUTPUT_PERMISSIONS, DIR_PERMISSIONS)
 
     # Check directory permissions
     archive_dir = tmp_path / "archive"
-    assert oct(archive_dir.stat().st_mode)[-3:] in (STORAGE_CONFIG.OUTPUT_PERMISSIONS, DIR_PERMISSIONS)
+    assert oct(archive_dir.stat().st_mode)[-3:] in (get_config().OUTPUT_PERMISSIONS, DIR_PERMISSIONS)
 
 
 def test_init_is_idempotent(tmp_path):

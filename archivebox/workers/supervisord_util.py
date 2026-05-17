@@ -577,12 +577,12 @@ def watch_worker(supervisor, daemon_name, interval=5):
 
 
 def start_server_workers(host="0.0.0.0", port="8000", daemonize=False, debug=False, reload=False, nothreading=False):
-    from archivebox.config.common import STORAGE_CONFIG
+    from archivebox.config.common import get_config
 
     supervisor = get_or_create_supervisord_process(daemonize=daemonize)
 
     if debug:
-        pidfile = str(STORAGE_CONFIG.TMP_DIR / "runserver.pid") if reload else None
+        pidfile = str(get_config().TMP_DIR / "runserver.pid") if reload else None
         server_worker = RUNSERVER_WORKER(host=host, port=port, reload=reload, pidfile=pidfile, nothreading=nothreading)
         bg_workers: list[tuple[dict[str, str], bool]] = (
             [(RUNNER_WORKER, True), (RUNNER_WATCH_WORKER(pidfile), False)] if reload else [(RUNNER_WORKER, False)]

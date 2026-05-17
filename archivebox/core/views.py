@@ -6,7 +6,7 @@ import posixpath
 from glob import glob, escape
 from django.utils import timezone
 import inspect
-from typing import cast, get_type_hints
+from typing import cast
 from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import quote, urlparse
@@ -27,9 +27,9 @@ from django.utils.decorators import method_decorator
 from admin_data_views.typing import TableContext, ItemContext, SectionData
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
-from archivebox.config import CONSTANTS, CONSTANTS_CONFIG, DATA_DIR, VERSION
-from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG, SEARCH_BACKEND_CONFIG
-from archivebox.config.configset import get_flat_config, get_config, get_all_configs
+from archivebox.config import CONSTANTS, CONSTANTS_CONFIG, VERSION
+from archivebox.config.common import get_config, get_all_configs
+from archivebox.config.configset import BaseConfigSet
 from archivebox.misc.util import base_url, htmlencode, ts_to_date_str, urldecode, without_fragment
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.misc.logging_util import printable_filesize
@@ -94,17 +94,17 @@ def _find_snapshot_by_ref(snapshot_ref: str) -> Snapshot | None:
 
 
 def _admin_login_redirect_or_forbidden(request: HttpRequest):
-    if SERVER_CONFIG.CONTROL_PLANE_ENABLED:
+    if get_config().CONTROL_PLANE_ENABLED:
         return redirect(f"/admin/login/?next={request.path}")
     return HttpResponseForbidden("ArchiveBox is running with the control plane disabled in this security mode.")
 
 
 class HomepageView(View):
     def get(self, request):
-        if request.user.is_authenticated and SERVER_CONFIG.CONTROL_PLANE_ENABLED:
+        if request.user.is_authenticated and get_config().CONTROL_PLANE_ENABLED:
             return redirect("/admin/core/snapshot/")
 
-        if SERVER_CONFIG.PUBLIC_INDEX:
+        if get_config().PUBLIC_INDEX:
             return redirect("/public")
 
         return _admin_login_redirect_or_forbidden(request)
@@ -251,7 +251,7 @@ class SnapshotView(View):
             "num_failures": snapshot.num_failures,
             "oldest_archive_date": ts_to_date_str(snapshot.oldest_archive_date),
             "warc_path": warc_path,
-            "PREVIEW_ORIGINALS": SERVER_CONFIG.PREVIEW_ORIGINALS,
+            "PREVIEW_ORIGINALS": get_config().PREVIEW_ORIGINALS,
             "archiveresults": [*non_compact_outputs, *compact_outputs],
             "best_result": best_result,
             "snapshot": snapshot,  # Pass the snapshot object for template tags
@@ -264,7 +264,7 @@ class SnapshotView(View):
         return render(template_name="core/snapshot.html", request=request, context=context)
 
     def get(self, request, path):
-        if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
+        if not request.user.is_authenticated and not get_config().PUBLIC_SNAPSHOTS:
             return _admin_login_redirect_or_forbidden(request)
 
         snapshot = None
@@ -466,7 +466,7 @@ class SnapshotPathView(View):
         path: str = "",
         url: str | None = None,
     ):
-        if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
+        if not request.user.is_authenticated and not get_config().PUBLIC_SNAPSHOTS:
             return _admin_login_redirect_or_forbidden(request)
 
         if username == "system":
@@ -501,20 +501,20 @@ class SnapshotPathView(View):
             if date:
                 try:
                     if len(date) == 4:
-                        qs = qs.filter(created_at__year=int(date))
+                        qs = qs.filter(bookmarked_at__year=int(date))
                     elif len(date) == 6:
-                        qs = qs.filter(created_at__year=int(date[:4]), created_at__month=int(date[4:6]))
+                        qs = qs.filter(bookmarked_at__year=int(date[:4]), bookmarked_at__month=int(date[4:6]))
                     elif len(date) == 8:
                         qs = qs.filter(
-                            created_at__year=int(date[:4]),
-                            created_at__month=int(date[4:6]),
-                            created_at__day=int(date[6:8]),
+                            bookmarked_at__year=int(date[:4]),
+                            bookmarked_at__month=int(date[4:6]),
+                            bookmarked_at__day=int(date[6:8]),
                         )
                 except ValueError:
                     pass
 
             if requested_url:
-                snapshot = qs.order_by("-created_at", "-bookmarked_at", "-timestamp").first()
+                snapshot = qs.order_by("-bookmarked_at", "-created_at", "-timestamp").first()
             else:
                 requested_domain = domain or ""
                 if requested_domain.startswith(("http://", "https://")):
@@ -524,9 +524,9 @@ class SnapshotPathView(View):
 
                 # Prefer exact domain matches
                 matches = [
-                    s for s in qs.order_by("-created_at", "-bookmarked_at") if Snapshot.extract_domain_from_url(s.url) == requested_domain
+                    s for s in qs.order_by("-bookmarked_at", "-created_at") if Snapshot.extract_domain_from_url(s.url) == requested_domain
                 ]
-                snapshot = matches[0] if matches else qs.order_by("-created_at", "-bookmarked_at", "-timestamp").first()
+                snapshot = matches[0] if matches else qs.order_by("-bookmarked_at", "-created_at", "-timestamp").first()
 
         if not snapshot:
             return HttpResponse(
@@ -633,7 +633,7 @@ def _latest_response_match(domain: str, rel_path: str) -> tuple[Path, Path] | No
         return None
     domain = domain.split(":", 1)[0].lower()
     # TODO: optimize by querying output_files in DB instead of globbing filesystem
-    data_root = DATA_DIR / "users"
+    data_root = get_config().USERS_DIR
     escaped_domain = escape(domain)
     escaped_path = escape(rel_path)
     pattern = str(data_root / "*" / "snapshots" / "*" / escaped_domain / "*" / "responses" / escaped_domain / escaped_path)
@@ -658,7 +658,7 @@ def _latest_responses_root(domain: str) -> Path | None:
     if not domain:
         return None
     domain = domain.split(":", 1)[0].lower()
-    data_root = DATA_DIR / "users"
+    data_root = get_config().USERS_DIR
     escaped_domain = escape(domain)
     pattern = str(data_root / "*" / "snapshots" / "*" / escaped_domain / "*" / "responses" / escaped_domain)
     matches = glob(pattern)
@@ -675,7 +675,7 @@ def _latest_snapshot_for_domain(domain: str) -> Snapshot | None:
         return None
 
     requested_domain = domain.split(":", 1)[0].lower()
-    snapshots = SnapshotView.find_snapshots_for_url(f"https://{requested_domain}").order_by("-created_at", "-bookmarked_at", "-timestamp")
+    snapshots = SnapshotView.find_snapshots_for_url(f"https://{requested_domain}").order_by("-bookmarked_at", "-created_at", "-timestamp")
     for snapshot in snapshots:
         if Snapshot.extract_domain_from_url(snapshot.url).lower() == requested_domain:
             return snapshot
@@ -734,7 +734,7 @@ def _serve_responses_path(request, responses_root: Path, rel_path: str, show_ind
 def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str = ""):
     rel_path = path or ""
     is_directory_request = bool(path) and path.endswith("/")
-    show_indexes = bool(request.GET.get("files")) or (SERVER_CONFIG.USES_SUBDOMAIN_ROUTING and is_directory_request)
+    show_indexes = bool(request.GET.get("files")) or (get_config().USES_SUBDOMAIN_ROUTING and is_directory_request)
     if not show_indexes and (not rel_path or rel_path == "index.html"):
         return SnapshotView.render_live_index(request, snapshot)
 
@@ -804,7 +804,7 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
         if snapshot:
             return SnapshotView.render_live_index(request, snapshot)
 
-    if SERVER_CONFIG.PUBLIC_ADD_VIEW or request.user.is_authenticated:
+    if get_config().PUBLIC_ADD_VIEW or request.user.is_authenticated:
         target_url = _original_request_url(domain, path, request.META.get("QUERY_STRING", ""))
         return redirect(build_web_url(f"/web/{quote(target_url, safe=':/')}"))
 
@@ -815,7 +815,7 @@ class SnapshotHostView(View):
     """Serve snapshot directory contents on <snapshot-subdomain>.<listen_host>/<path>."""
 
     def get(self, request, snapshot_id: str, path: str = ""):
-        if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
+        if not request.user.is_authenticated and not get_config().PUBLIC_SNAPSHOTS:
             return _admin_login_redirect_or_forbidden(request)
         snapshot = _find_snapshot_by_ref(snapshot_id)
 
@@ -836,7 +836,7 @@ class SnapshotReplayView(View):
     """Serve snapshot directory contents on a one-domain replay path."""
 
     def get(self, request, snapshot_id: str, path: str = ""):
-        if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
+        if not request.user.is_authenticated and not get_config().PUBLIC_SNAPSHOTS:
             return _admin_login_redirect_or_forbidden(request)
 
         snapshot = _find_snapshot_by_ref(snapshot_id)
@@ -850,7 +850,7 @@ class OriginalDomainHostView(View):
     """Serve responses from the most recent snapshot when using <domain>.<listen_host>/<path>."""
 
     def get(self, request, domain: str, path: str = ""):
-        if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
+        if not request.user.is_authenticated and not get_config().PUBLIC_SNAPSHOTS:
             return _admin_login_redirect_or_forbidden(request)
         return _serve_original_domain_replay(request, domain, path)
 
@@ -859,7 +859,7 @@ class OriginalDomainReplayView(View):
     """Serve original-domain replay content on a one-domain replay path."""
 
     def get(self, request, domain: str, path: str = ""):
-        if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
+        if not request.user.is_authenticated and not get_config().PUBLIC_SNAPSHOTS:
             return _admin_login_redirect_or_forbidden(request)
         return _serve_original_domain_replay(request, domain, path)
 
@@ -867,15 +867,15 @@ class OriginalDomainReplayView(View):
 class PublicIndexView(ListView):
     template_name = "public_index.html"
     model = Snapshot
-    paginate_by = SERVER_CONFIG.SNAPSHOTS_PER_PAGE
+    paginate_by = get_config().SNAPSHOTS_PER_PAGE
     ordering = ["-bookmarked_at", "-created_at"]
 
     def get_context_data(self, **kwargs):
         return {
             **super().get_context_data(**kwargs),
             "VERSION": VERSION,
-            "COMMIT_HASH": SHELL_CONFIG.COMMIT_HASH,
-            "FOOTER_INFO": SERVER_CONFIG.FOOTER_INFO,
+            "COMMIT_HASH": get_config().COMMIT_HASH,
+            "FOOTER_INFO": get_config().FOOTER_INFO,
             "search_mode": get_search_mode(self.request.GET.get("search_mode")),
         }
 
@@ -935,7 +935,7 @@ class PublicIndexView(ListView):
     def get(self, *args, **kwargs):
         if self.request.user.is_authenticated:
             return redirect("/admin/core/snapshot/")
-        if SERVER_CONFIG.PUBLIC_INDEX:
+        if get_config().PUBLIC_INDEX:
             response = super().get(*args, **kwargs)
             return response
         else:
@@ -957,7 +957,7 @@ class AddView(UserPassesTestMixin, FormView):
         return super().get_initial()
 
     def test_func(self):
-        return SERVER_CONFIG.PUBLIC_ADD_VIEW or self.request.user.is_authenticated
+        return get_config().PUBLIC_ADD_VIEW or self.request.user.is_authenticated
 
     def _can_override_crawl_config(self) -> bool:
         user = self.request.user
@@ -975,7 +975,7 @@ class AddView(UserPassesTestMixin, FormView):
         return custom_config
 
     def get_context_data(self, **kwargs):
-        required_search_plugin = f"search_backend_{SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE}".strip()
+        required_search_plugin = f"search_backend_{get_config().SEARCH_BACKEND_ENGINE}".strip()
         plugin_configs = discover_plugin_configs()
         plugin_dependency_map = {
             plugin_name: [
@@ -990,7 +990,7 @@ class AddView(UserPassesTestMixin, FormView):
             # We can't just call request.build_absolute_uri in the template, because it would include query parameters
             "absolute_add_path": self.request.build_absolute_uri(self.request.path),
             "VERSION": VERSION,
-            "FOOTER_INFO": SERVER_CONFIG.FOOTER_INFO,
+            "FOOTER_INFO": get_config().FOOTER_INFO,
             "required_search_plugin": required_search_plugin,
             "plugin_dependency_map_json": json.dumps(plugin_dependency_map, sort_keys=True),
             "stdout": "",
@@ -1112,7 +1112,7 @@ class AddView(UserPassesTestMixin, FormView):
 
 class WebAddView(AddView):
     def _latest_snapshot_for_url(self, requested_url: str):
-        return SnapshotView.find_snapshots_for_url(requested_url).order_by("-created_at", "-bookmarked_at", "-timestamp").first()
+        return SnapshotView.find_snapshots_for_url(requested_url).order_by("-bookmarked_at", "-created_at", "-timestamp").first()
 
     def _normalize_add_url(self, requested_url: str) -> str:
         if requested_url.startswith(("http://", "https://")):
@@ -1671,8 +1671,7 @@ def find_config_default(key: str) -> str:
 
     for config in CONFIGS.values():
         if key in dict(config):
-            default_field = getattr(config, "model_fields", dict(config))[key]
-            default_val = default_field.default if hasattr(default_field, "default") else default_field
+            default_val = type(config).model_fields[key].default
             break
 
     if isinstance(default_val, Callable):
@@ -1686,41 +1685,12 @@ def find_config_default(key: str) -> str:
 
 
 def find_config_type(key: str) -> str:
-    from typing import ClassVar
-
     CONFIGS = get_all_configs()
 
     for config in CONFIGS.values():
-        if hasattr(config, key):
-            # Try to get from pydantic model_fields first (more reliable)
-            if hasattr(config, "model_fields") and key in config.model_fields:
-                field = config.model_fields[key]
-                if hasattr(field, "annotation") and field.annotation is not None:
-                    try:
-                        return str(field.annotation.__name__)
-                    except AttributeError:
-                        return str(field.annotation)
-
-            # Fallback to get_type_hints with proper namespace
-            try:
-                import typing
-
-                namespace = {
-                    "ClassVar": ClassVar,
-                    "Optional": typing.Optional,
-                    "Union": typing.Union,
-                    "List": list,
-                    "Dict": dict,
-                    "Path": Path,
-                }
-                type_hints = get_type_hints(config, globalns=namespace, localns=namespace)
-                try:
-                    return str(type_hints[key].__name__)
-                except AttributeError:
-                    return str(type_hints[key])
-            except Exception:
-                # If all else fails, return str
-                pass
+        if key in type(config).model_fields:
+            annotation = type(config).model_fields[key].annotation
+            return getattr(annotation, "__name__", str(annotation))
     return "str"
 
 
@@ -1748,8 +1718,6 @@ def find_config_source(key: str, merged_config: dict) -> str:
         pass
 
     # Check if it's from archivebox.config.file
-    from archivebox.config.configset import BaseConfigSet
-
     file_config = BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
     if key in file_config:
         return "Config File"
@@ -1869,10 +1837,8 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
 @render_with_item_view
 def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     from archivebox.machine.models import Machine
-    from archivebox.config.configset import BaseConfigSet
 
     CONFIGS = get_all_configs()
-    FLAT_CONFIG = get_flat_config()
 
     assert getattr(request.user, "is_superuser", False), "Must be a superuser to view configuration settings."
 
@@ -1909,7 +1875,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
         sources_info.append(("Default", default_val, "gray"))
 
     # Final computed value
-    final_value = merged_config.get(key, FLAT_CONFIG.get(key, CONFIGS.get(key, None)))
+    final_value = merged_config.get(key, CONFIGS.get(key, None))
     if not key_is_safe(key):
         final_value = "********"
 
@@ -1923,7 +1889,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
         section_header = mark_safe(
             f'[CONSTANTS]   &nbsp; <b><code style="color: lightgray">{key}</code></b> &nbsp; <small>(read-only, hardcoded by ArchiveBox)</small>',
         )
-    elif key in FLAT_CONFIG:
+    elif key in merged_config:
         section_header = mark_safe(
             f'data / ArchiveBox.conf &nbsp; [{find_config_section(key)}]  &nbsp; <b><code style="color: lightgray">{key}</code></b>',
         )
@@ -1967,13 +1933,13 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                 <b>Configuration Sources (highest priority first):</b><br/><br/>
                 {sources_html}
                 <br/><br/>
-                <p style="display: {"block" if key in FLAT_CONFIG and key not in CONSTANTS_CONFIG else "none"}">
+                <p style="display: {"block" if key in merged_config and key not in CONSTANTS_CONFIG else "none"}">
                     <i>To change this value, edit <code>data/ArchiveBox.conf</code> or run:</i>
                     <br/><br/>
                     <code>archivebox config --set {key}="{
                     val.strip("'")
                     if (val := find_config_default(key))
-                    else (str(FLAT_CONFIG[key] if key_is_safe(key) else "********")).strip("'")
+                    else (str(final_value if key_is_safe(key) else "********")).strip("'")
                 }"</code>
                 </p>
             '''),

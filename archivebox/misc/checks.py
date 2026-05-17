@@ -19,12 +19,15 @@ from rich.panel import Panel
 # that the check is called after django.setup() has been called
 
 
-def check_data_folder() -> None:
-    from archivebox import DATA_DIR, ARCHIVE_DIR
+def check_data_folder(config=None, **config_kwargs) -> None:
+    from archivebox import DATA_DIR
     from archivebox.config import CONSTANTS
+    from archivebox.config.common import get_config
     from archivebox.config.paths import create_and_chown_dir, get_or_create_working_tmp_dir, get_or_create_working_lib_dir
 
-    archive_dir_exists = os.path.isdir(ARCHIVE_DIR)
+    config = config or get_config(**config_kwargs)
+    archive_dir = config.ARCHIVE_DIR
+    archive_dir_exists = os.path.isdir(archive_dir)
     if not archive_dir_exists:
         print("[red][X] No archivebox index found in the current directory.[/red]", file=sys.stderr)
         print(f"    {DATA_DIR}", file=sys.stderr)
@@ -39,16 +42,17 @@ def check_data_folder() -> None:
 
     # Create data dir subdirs
     create_and_chown_dir(CONSTANTS.SOURCES_DIR)
+    create_and_chown_dir(config.USERS_DIR)
     create_and_chown_dir(CONSTANTS.PERSONAS_DIR / "Default")
     create_and_chown_dir(CONSTANTS.LOGS_DIR)
     # create_and_chown_dir(CONSTANTS.CACHE_DIR)
 
     # Create /tmp and /lib dirs if they don't exist
-    get_or_create_working_tmp_dir(autofix=True, quiet=False)
-    get_or_create_working_lib_dir(autofix=True, quiet=False)
+    get_or_create_working_tmp_dir(autofix=True, quiet=False, config=config)
+    get_or_create_working_lib_dir(autofix=True, quiet=False, config=config)
 
     # Check data dir permissions, /tmp, and /lib permissions
-    check_data_dir_permissions()
+    check_data_dir_permissions(config=config)
 
 
 def check_migrations():
@@ -141,7 +145,7 @@ def check_not_inside_source_dir():
         raise SystemExit("[!] Cannot run from source dir, set DATA_DIR or cd to a data folder first")
 
 
-def check_data_dir_permissions():
+def check_data_dir_permissions(config=None, **config_kwargs):
     from archivebox import DATA_DIR
     from archivebox.misc.logging import STDERR
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, DEFAULT_PUID, DEFAULT_PGID, IS_ROOT, USER
@@ -183,35 +187,37 @@ def check_data_dir_permissions():
             "    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#filesystem-doesnt-support-fsync-eg-network-mounts]https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#filesystem-doesnt-support-fsync-eg-network-mounts[/link]",
         )
 
-    from archivebox.config.common import STORAGE_CONFIG
+    from archivebox.config.common import get_config
+
+    config = config or get_config(**config_kwargs)
+    try:
+        tmp_dir = get_or_create_working_tmp_dir(autofix=True, quiet=True, config=config) or config.TMP_DIR
+    except Exception:
+        tmp_dir = config.TMP_DIR
 
     try:
-        tmp_dir = get_or_create_working_tmp_dir(autofix=True, quiet=True) or STORAGE_CONFIG.TMP_DIR
+        lib_dir = get_or_create_working_lib_dir(autofix=True, quiet=True, config=config) or config.LIB_DIR
     except Exception:
-        tmp_dir = STORAGE_CONFIG.TMP_DIR
-
-    try:
-        lib_dir = get_or_create_working_lib_dir(autofix=True, quiet=True) or STORAGE_CONFIG.LIB_DIR
-    except Exception:
-        lib_dir = STORAGE_CONFIG.LIB_DIR
+        lib_dir = config.LIB_DIR
 
     # Check /tmp dir permissions
-    check_tmp_dir(tmp_dir, throw=False, must_exist=True)
+    check_tmp_dir(tmp_dir, throw=False, must_exist=True, config=config)
 
     # Check /lib dir permissions
-    check_lib_dir(lib_dir, throw=False, must_exist=True)
+    check_lib_dir(lib_dir, throw=False, must_exist=True, config=config)
 
-    os.umask(0o777 - int(STORAGE_CONFIG.DIR_OUTPUT_PERMISSIONS, base=8))
+    os.umask(0o777 - int(config.DIR_OUTPUT_PERMISSIONS, base=8))
 
 
-def check_tmp_dir(tmp_dir=None, throw=False, quiet=False, must_exist=True):
+def check_tmp_dir(tmp_dir=None, throw=False, quiet=False, must_exist=True, config=None, **config_kwargs):
     from archivebox.config.paths import assert_dir_can_contain_unix_sockets, dir_is_writable, get_or_create_working_tmp_dir
     from archivebox.misc.logging import STDERR
     from archivebox.misc.logging_util import pretty_path
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
-    from archivebox.config.common import STORAGE_CONFIG
+    from archivebox.config.common import get_config
 
-    tmp_dir = tmp_dir or STORAGE_CONFIG.TMP_DIR
+    config = config or get_config(**config_kwargs)
+    tmp_dir = tmp_dir or config.TMP_DIR
     socket_file = tmp_dir.absolute().resolve() / "supervisord.sock"
 
     if not must_exist and not os.path.isdir(tmp_dir):
@@ -264,16 +270,15 @@ def check_tmp_dir(tmp_dir=None, throw=False, quiet=False, must_exist=True):
     return False
 
 
-def check_lib_dir(lib_dir: Path | None = None, throw=False, quiet=False, must_exist=True):
+def check_lib_dir(lib_dir: Path | None = None, throw=False, quiet=False, must_exist=True, config=None, **config_kwargs):
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
     from archivebox.misc.logging import STDERR
     from archivebox.misc.logging_util import pretty_path
     from archivebox.config.paths import dir_is_writable, get_or_create_working_lib_dir
-    from archivebox.config.common import STORAGE_CONFIG
+    from archivebox.config.common import get_config
 
-    lib_dir = lib_dir or STORAGE_CONFIG.LIB_DIR
-
-    # assert lib_dir == STORAGE_CONFIG.LIB_DIR, "lib_dir is not the same as the one in the flat config"
+    config = config or get_config(**config_kwargs)
+    lib_dir = lib_dir or config.LIB_DIR
 
     if not must_exist and not os.path.isdir(lib_dir):
         return True

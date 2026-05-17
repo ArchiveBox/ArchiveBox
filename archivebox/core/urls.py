@@ -1,11 +1,15 @@
 __package__ = "archivebox.core"
 
+import sys
+from importlib.util import find_spec
+
 from django.urls import path, re_path, include
 from django.views import static
-from django.conf import settings
 from django.views.generic.base import RedirectView
 from django.http import HttpRequest
 
+from archivebox.config.constants import CONSTANTS
+from archivebox.config.common import get_config
 from archivebox.misc.serve_static import serve_static
 
 from archivebox.core.admin_site import archivebox_admin
@@ -28,13 +32,13 @@ from archivebox.core.views import (
 # GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': VERSIONS_AVAILABLE, 'CAN_UPGRADE': CAN_UPGRADE}
 
 
-# print('DEBUG', settings.DEBUG)
+CONFIG = get_config()
+DEBUG = CONFIG.DEBUG or ("--debug" in sys.argv)
 
 urlpatterns = [
     re_path(r"^static/(?P<path>.*)$", serve_static),
-    # re_path(r"^media/(?P<path>.*)$", static.serve, {"document_root": settings.MEDIA_ROOT}),
-    path("robots.txt", static.serve, {"document_root": settings.STATICFILES_DIRS[0], "path": "robots.txt"}),
-    path("favicon.ico", static.serve, {"document_root": settings.STATICFILES_DIRS[0], "path": "favicon.ico"}),
+    path("robots.txt", static.serve, {"document_root": CONSTANTS.STATIC_DIR, "path": "robots.txt"}),
+    path("favicon.ico", static.serve, {"document_root": CONSTANTS.STATIC_DIR, "path": "favicon.ico"}),
     path("docs/", RedirectView.as_view(url="https://github.com/ArchiveBox/ArchiveBox/wiki"), name="Docs"),
     path("public/", PublicIndexView.as_view(), name="public-index"),
     path("public.html", RedirectView.as_view(url="/public/"), name="public-index-html"),
@@ -79,10 +83,10 @@ def _raise_test_error(_request: HttpRequest):
     raise ZeroDivisionError("Intentional test error route")
 
 
-if settings.DEBUG_TOOLBAR:
+if DEBUG and ("--nothreading" in sys.argv) and ("--reload" not in sys.argv) and find_spec("debug_toolbar"):
     urlpatterns += [path("__debug__/", include("debug_toolbar.urls"))]
 
-if settings.DEBUG_REQUESTS_TRACKER:
+if DEBUG and find_spec("requests_tracker"):
     urlpatterns += [path("__requests_tracker__/", include("requests_tracker.urls"))]
 
 

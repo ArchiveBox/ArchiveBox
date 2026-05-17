@@ -185,7 +185,7 @@ def test_parser_extractors_emit_snapshot_jsonl(tmp_path, process, recursive_test
         if status == "succeeded" and output:
             assert "parsed" in output.lower(), "Parser summary should report parsed URLs"
 
-    urls_jsonl_files = list(Path("users/system/snapshots").rglob("parse_html_urls/**/urls.jsonl"))
+    urls_jsonl_files = list(Path("archive/users/system/snapshots").rglob("parse_html_urls/**/urls.jsonl"))
     assert urls_jsonl_files, "parse_html_urls should write urls.jsonl output"
 
     records = []
@@ -485,7 +485,7 @@ def test_recursive_crawl_depth_two_writes_real_outputs_and_process_records(tmp_p
     assert len([row for row in parser_results if row[3] == "failed"]) <= 2
     assert len([row for row in wget_results if row[2] == "failed"]) <= 2
 
-    urls_jsonl_files = list(Path("users/system/snapshots").rglob("parse_html_urls/**/urls.jsonl"))
+    urls_jsonl_files = list(Path("archive/users/system/snapshots").rglob("parse_html_urls/**/urls.jsonl"))
     assert urls_jsonl_files, "parse_html_urls should write urls.jsonl files"
     parsed_urls = set()
     for path in urls_jsonl_files:
@@ -495,7 +495,7 @@ def test_recursive_crawl_depth_two_writes_real_outputs_and_process_records(tmp_p
     assert set(recursive_test_site["child_urls"]).issubset(parsed_urls)
     assert set(recursive_test_site["deep_urls"]).issubset(parsed_urls)
 
-    snapshot_dirs = [path.parent for path in Path("users/system/snapshots").rglob("index.jsonl")]
+    snapshot_dirs = [path.parent for path in Path("archive/users/system/snapshots").rglob("index.jsonl")]
     assert snapshot_dirs
     for snapshot_dir in snapshot_dirs:
         assert (snapshot_dir / "index.jsonl").exists()

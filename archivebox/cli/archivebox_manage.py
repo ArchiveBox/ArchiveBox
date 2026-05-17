@@ -10,10 +10,11 @@ from archivebox.misc.util import docstring, enforce_types
 def manage(args: list[str] | None = None) -> None:
     """Run an ArchiveBox Django management command"""
 
-    from archivebox.config.common import SHELL_CONFIG
+    from archivebox.config.common import get_config
     from archivebox.misc.logging import stderr
 
-    if (args and "createsuperuser" in args) and (SHELL_CONFIG.IN_DOCKER and not SHELL_CONFIG.IS_TTY):
+    config = get_config()
+    if (args and "createsuperuser" in args) and (config.IN_DOCKER and not config.IS_TTY):
         stderr("[!] Warning: you need to pass -it to use interactive commands in docker", color="lightyellow")
         stderr("    docker run -it archivebox manage {}".format(" ".join(args or ["..."])), color="lightyellow")
         stderr("")

@@ -12,7 +12,7 @@ import rich_click as click
 from django.db.models import QuerySet
 
 from archivebox.config import DATA_DIR
-from archivebox.config.constants import CONSTANTS
+from archivebox.config.common import get_config
 from archivebox.config.django import setup_django
 from archivebox.misc.util import enforce_types, docstring
 from archivebox.misc.checks import check_data_folder
@@ -70,7 +70,7 @@ def remove(
         for snapshot in snapshots:
             if delete:
                 shutil.rmtree(snapshot.output_dir, ignore_errors=True)
-                legacy_path = CONSTANTS.ARCHIVE_DIR / snapshot.timestamp
+                legacy_path = get_config().ARCHIVE_DIR / snapshot.timestamp
                 if legacy_path.is_symlink():
                     legacy_path.unlink(missing_ok=True)
     finally:

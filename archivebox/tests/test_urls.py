@@ -49,7 +49,8 @@ def _build_script(body: str) -> str:
     from django.contrib.auth import get_user_model
 
     from archivebox.core.models import Snapshot, ArchiveResult
-    from archivebox.config.common import SERVER_CONFIG
+    from archivebox.config.common import get_config
+    SERVER_CONFIG = get_config()
     from archivebox.core.host_utils import (
         get_admin_host,
         get_admin_base_url,

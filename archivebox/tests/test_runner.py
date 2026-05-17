@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from asgiref.sync import sync_to_async
 from django.test import RequestFactory
 
 
@@ -84,6 +85,7 @@ class _DummyService:
         pass
 
 
+@pytest.mark.django_db(transaction=True)
 def test_run_snapshot_reuses_crawl_bus_for_all_snapshots(monkeypatch):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
@@ -107,8 +109,10 @@ def test_run_snapshot_reuses_crawl_bus_for_all_snapshots(monkeypatch):
 
     created_buses: list[_DummyBus] = []
 
+    original_create_bus = runner_module.create_bus
+
     def fake_create_bus(*, name, total_timeout=3600.0, **kwargs):
-        bus = _DummyBus(name)
+        bus = original_create_bus(name=name, total_timeout=total_timeout, **kwargs)
         created_buses.append(bus)
         return bus
 
@@ -119,7 +123,6 @@ def test_run_snapshot_reuses_crawl_bus_for_all_snapshots(monkeypatch):
     monkeypatch.setattr(runner_module, "BinaryService", _DummyService)
     monkeypatch.setattr(runner_module, "TagService", _DummyService)
     monkeypatch.setattr(runner_module, "CrawlService", _DummyService)
-    monkeypatch.setattr(runner_module, "SnapshotService", _DummyService)
     monkeypatch.setattr(runner_module, "ArchiveResultService", _DummyService)
     monkeypatch.setattr(runner_module, "_emit_machine_config", lambda *args, **kwargs: asyncio.sleep(0))
     monkeypatch.setattr(runner_module, "setup_abx_services", lambda *args, **kwargs: None)
@@ -156,17 +159,11 @@ def test_run_snapshot_reuses_crawl_bus_for_all_snapshots(monkeypatch):
     monkeypatch.setattr(crawl_runner, "load_snapshot_payload", lambda snapshot_id: snapshot_data[snapshot_id])
     monkeypatch.setattr(crawl_runner, "enqueue_discovered_snapshots_from_outputs", lambda snapshot: asyncio.sleep(0))
 
-    async def run_both():
-        await asyncio.gather(
-            crawl_runner.run_snapshot(str(snapshot_a.id)),
-            crawl_runner.run_snapshot(str(snapshot_b.id)),
-        )
-
-    asyncio.run(run_both())
+    asyncio.run(crawl_runner.run_crawl(str(snapshot_a.id), [str(snapshot_a.id), str(snapshot_b.id)]))
 
     from abx_dl.events import SnapshotEvent
 
-    snapshot_events = [event for event in crawl_runner.bus.emitted if isinstance(event, SnapshotEvent)]
+    snapshot_events = asyncio.run(crawl_runner.bus.filter(SnapshotEvent, past=True))
     assert len(snapshot_events) == 2
     assert {event.snapshot_id for event in snapshot_events} == {str(snapshot_a.id), str(snapshot_b.id)}
     assert {event.url for event in snapshot_events} == {snapshot_a.url, snapshot_b.url}
@@ -174,6 +171,7 @@ def test_run_snapshot_reuses_crawl_bus_for_all_snapshots(monkeypatch):
     assert len(created_buses) == 1
 
 
+@pytest.mark.django_db(transaction=True)
 def test_run_snapshot_does_not_wait_for_crawl_background_daemons(monkeypatch):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
@@ -190,14 +188,12 @@ def test_run_snapshot_does_not_wait_for_crawl_background_daemons(monkeypatch):
         status=Snapshot.StatusChoices.QUEUED,
     )
 
-    monkeypatch.setattr(runner_module, "create_bus", lambda **kwargs: _NoIdleBus(kwargs["name"]))
     monkeypatch.setattr(runner_module, "discover_plugins", lambda: {})
     monkeypatch.setattr(runner_module, "HookProcessService", _DummyService)
     monkeypatch.setattr(runner_module, "PersistedProcessService", _DummyService)
     monkeypatch.setattr(runner_module, "BinaryService", _DummyService)
     monkeypatch.setattr(runner_module, "TagService", _DummyService)
     monkeypatch.setattr(runner_module, "CrawlService", _DummyService)
-    monkeypatch.setattr(runner_module, "SnapshotService", _DummyService)
     monkeypatch.setattr(runner_module, "ArchiveResultService", _DummyService)
     monkeypatch.setattr(runner_module, "_emit_machine_config", lambda *args, **kwargs: asyncio.sleep(0))
     monkeypatch.setattr(runner_module, "setup_abx_services", lambda *args, **kwargs: None)
@@ -207,7 +203,57 @@ def test_run_snapshot_does_not_wait_for_crawl_background_daemons(monkeypatch):
     monkeypatch.setattr(crawl_runner, "load_snapshot_payload", lambda snapshot_id: snapshot_payload)
     monkeypatch.setattr(crawl_runner, "enqueue_discovered_snapshots_from_outputs", lambda snapshot: asyncio.sleep(0))
 
-    asyncio.run(crawl_runner.run_snapshot(str(snapshot.id)))
+    crawl_runner.bus.wait_until_idle = _NoIdleBus("unused").wait_until_idle
+    asyncio.run(crawl_runner.run_crawl(str(snapshot.id), [str(snapshot.id)]))
+
+
+@pytest.mark.django_db(transaction=True)
+def test_cancelled_crawl_projection_emits_abort_event_from_runner_bus():
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.services.runner import CrawlRunner
+    from abx_dl.events import CrawlAbortEvent, CrawlEvent
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    snapshot = Snapshot.objects.create(
+        url="https://example.com",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.STARTED,
+    )
+    runner = CrawlRunner(crawl)
+
+    async def run() -> CrawlAbortEvent | None:
+        abort_event_holder: dict[str, CrawlAbortEvent | None] = {"event": None}
+
+        async def on_CrawlEvent(event: CrawlEvent) -> None:
+            watcher = asyncio.create_task(runner.watch_for_cancelled_crawl(event, poll_interval=0.01))
+            await asyncio.sleep(0.02)
+            await sync_to_async(Crawl.objects.filter(id=crawl.id).update, thread_sensitive=True)(
+                status=Crawl.StatusChoices.SEALED,
+                retry_at=None,
+            )
+            abort_event = await runner.bus.find(CrawlAbortEvent, child_of=event, past=True, future=1.0)
+            abort_event_holder["event"] = abort_event if isinstance(abort_event, CrawlAbortEvent) else None
+            await watcher
+
+        runner.bus.on(CrawlEvent, on_CrawlEvent)
+        await runner.bus.emit(
+            CrawlEvent(
+                url=snapshot.url,
+                snapshot_id=str(snapshot.id),
+                output_dir=str(crawl.output_dir),
+            ),
+        ).now()
+        await runner.bus.wait_until_idle()
+        return abort_event_holder["event"]
+
+    abort_event = asyncio.run(run())
+
+    assert abort_event is not None
 
 
 @pytest.mark.django_db(transaction=True)
@@ -429,7 +475,6 @@ def test_runner_prepare_refreshes_network_interface_and_attaches_current_process
     proc = _Proc()
 
     monkeypatch.setattr(runner_module, "discover_plugins", lambda: {})
-    monkeypatch.setattr(runner_module, "create_bus", lambda **kwargs: _DummyBus(kwargs["name"]))
     monkeypatch.setattr(runner_module, "HookProcessService", _DummyService)
     monkeypatch.setattr(runner_module, "PersistedProcessService", _DummyService)
     monkeypatch.setattr(runner_module, "BinaryService", _DummyService)
@@ -439,12 +484,20 @@ def test_runner_prepare_refreshes_network_interface_and_attaches_current_process
     monkeypatch.setattr(runner_module, "ArchiveResultService", _DummyService)
 
     from archivebox.machine.models import NetworkInterface, Process
-    from archivebox.config import configset as configset_module
+    from archivebox.config import common as config_common
 
     refresh_calls = []
     monkeypatch.setattr(NetworkInterface, "current", classmethod(lambda cls, refresh=False: refresh_calls.append(refresh) or _Iface()))
     monkeypatch.setattr(Process, "current", classmethod(lambda cls: proc))
-    monkeypatch.setattr(configset_module, "get_config", lambda **kwargs: {"PLUGINS": "", "CHROME_BINARY": "", "TIMEOUT": 60})
+    original_get_config = config_common.get_config
+    monkeypatch.setattr(
+        config_common,
+        "get_config",
+        lambda **kwargs: original_get_config(
+            overrides={"PLUGINS": "", "CHROME_BINARY": "", "CHROME_KEEPALIVE": False, "TIMEOUT": 60},
+            **kwargs,
+        ),
+    )
 
     crawl_runner = runner_module.CrawlRunner(crawl)
     crawl_runner.load_run_state()
@@ -458,7 +511,7 @@ def test_runner_prepare_refreshes_network_interface_and_attaches_current_process
 def test_load_run_state_uses_machine_config_as_derived_config(monkeypatch):
     from archivebox.machine.models import Machine, NetworkInterface, Process
     from archivebox.services import runner as runner_module
-    from archivebox.config import configset as configset_module
+    from archivebox.config import common as config_common
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
 
@@ -496,7 +549,12 @@ def test_load_run_state_uses_machine_config_as_derived_config(monkeypatch):
     )
     monkeypatch.setattr(Process, "current", classmethod(lambda cls: proc))
     monkeypatch.setattr(Machine, "current", classmethod(lambda cls: machine))
-    monkeypatch.setattr(configset_module, "get_config", lambda **kwargs: {"PLUGINS": "", "CHROME_BINARY": "", "TIMEOUT": 60})
+    original_get_config = config_common.get_config
+    monkeypatch.setattr(
+        config_common,
+        "get_config",
+        lambda **kwargs: original_get_config(overrides={"PLUGINS": "", "CHROME_BINARY": "", "TIMEOUT": 60}, **kwargs),
+    )
 
     crawl_runner = runner_module.CrawlRunner(crawl)
     crawl_runner.load_run_state()
@@ -510,7 +568,7 @@ def test_load_run_state_uses_machine_config_as_derived_config(monkeypatch):
 def test_load_run_state_does_not_force_chrome_keepalive(monkeypatch):
     from archivebox.machine.models import Machine, NetworkInterface, Process
     from archivebox.services import runner as runner_module
-    from archivebox.config import configset as configset_module
+    from archivebox.config import common as config_common
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
 
@@ -543,18 +601,23 @@ def test_load_run_state_does_not_force_chrome_keepalive(monkeypatch):
     )
     monkeypatch.setattr(Process, "current", classmethod(lambda cls: proc))
     monkeypatch.setattr(Machine, "current", classmethod(lambda cls: machine))
-    monkeypatch.setattr(configset_module, "get_config", lambda **kwargs: {"PLUGINS": "", "CHROME_BINARY": "", "TIMEOUT": 60})
+    original_get_config = config_common.get_config
+    monkeypatch.setattr(
+        config_common,
+        "get_config",
+        lambda **kwargs: original_get_config(overrides={"PLUGINS": "", "CHROME_BINARY": "", "TIMEOUT": 60}, **kwargs),
+    )
 
     crawl_runner = runner_module.CrawlRunner(crawl)
     crawl_runner.load_run_state()
 
-    assert "CHROME_KEEPALIVE" not in crawl_runner.base_config
+    assert crawl_runner.base_config["CHROME_KEEPALIVE"] is False
 
 
 def test_load_run_state_uses_enabled_plugins_when_plugins_key_missing(monkeypatch):
     from archivebox.machine.models import Machine, NetworkInterface, Process
     from archivebox.services import runner as runner_module
-    from archivebox.config import configset as configset_module
+    from archivebox.config import common as config_common
     from archivebox import hooks as hooks_module
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
@@ -589,7 +652,12 @@ def test_load_run_state_uses_enabled_plugins_when_plugins_key_missing(monkeypatc
     )
     monkeypatch.setattr(Process, "current", classmethod(lambda cls: proc))
     monkeypatch.setattr(Machine, "current", classmethod(lambda cls: machine))
-    monkeypatch.setattr(configset_module, "get_config", lambda **kwargs: {"CHROME_BINARY": "", "TIMEOUT": 60})
+    original_get_config = config_common.get_config
+    monkeypatch.setattr(
+        config_common,
+        "get_config",
+        lambda **kwargs: original_get_config(overrides={"CHROME_BINARY": "", "TIMEOUT": 60}, **kwargs),
+    )
     monkeypatch.setattr(
         hooks_module,
         "discover_hooks",
@@ -610,6 +678,7 @@ def test_load_run_state_uses_enabled_plugins_when_plugins_key_missing(monkeypatc
     assert len(snapshot_ids) == 1
 
 
+@pytest.mark.django_db(transaction=True)
 def test_run_snapshot_skips_descendant_when_max_size_already_reached(monkeypatch, tmp_path):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
@@ -622,7 +691,6 @@ def test_run_snapshot_skips_descendant_when_max_size_already_reached(monkeypatch
     )
 
     monkeypatch.setattr(runner_module, "discover_plugins", lambda: {})
-    monkeypatch.setattr(runner_module, "create_bus", lambda **kwargs: _DummyBus(kwargs["name"]))
     monkeypatch.setattr(runner_module, "HookProcessService", _DummyService)
     monkeypatch.setattr(runner_module, "PersistedProcessService", _DummyService)
     monkeypatch.setattr(runner_module, "BinaryService", _DummyService)
@@ -660,7 +728,24 @@ def test_run_snapshot_skips_descendant_when_max_size_already_reached(monkeypatch
     }
     crawl_runner.seal_snapshot_due_to_limit = lambda snapshot_id: cancelled.append(snapshot_id)
 
-    asyncio.run(crawl_runner.run_snapshot("child-1"))
+    async def run_in_crawl_start_context() -> None:
+        from abx_dl.events import CrawlStartEvent
+
+        async def run_child_snapshot(event: CrawlStartEvent) -> None:
+            await crawl_runner.run_snapshot("child-1")
+
+        crawl_runner.bus.on(CrawlStartEvent, run_child_snapshot)
+        await crawl_runner.bus.emit(
+            CrawlStartEvent(
+                url="https://example.com",
+                snapshot_id="child-1",
+                output_dir=str(tmp_path),
+                event_timeout=0,
+                event_handler_timeout=0,
+            ),
+        ).now()
+
+    asyncio.run(run_in_crawl_start_context())
 
     assert cancelled == ["child-1"]
 
@@ -731,6 +816,30 @@ def test_seal_snapshot_cancels_queued_descendants_after_max_size():
     assert child.retry_at is None
 
 
+def test_sealed_crawl_does_not_create_discovered_snapshots():
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by_id=get_or_create_system_user_pk(),
+        status=Crawl.StatusChoices.SEALED,
+        retry_at=None,
+        max_depth=3,
+    )
+    root = Snapshot.objects.create(
+        url="https://example.com",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.SEALED,
+        retry_at=None,
+    )
+
+    assert crawl.create_snapshots_from_urls() == []
+    assert crawl.create_discovered_snapshot(root, url="https://example.com/child", depth=1) is None
+    assert crawl.snapshot_set.count() == 1
+
+
 def test_create_crawl_api_queues_crawl_without_spawning_runner(monkeypatch):
     from django.contrib.auth import get_user_model
     from archivebox.api.v1_crawls import CrawlCreateSchema, create_crawl
@@ -792,10 +901,7 @@ def test_crawl_runner_does_not_seal_unfinished_crawl(monkeypatch):
         },
     )
     monkeypatch.setattr(runner_module.CrawlRunner, "_create_live_ui", lambda self: None)
-    monkeypatch.setattr(runner_module.CrawlRunner, "run_crawl_setup", lambda self, snapshot_id: asyncio.sleep(0))
-    monkeypatch.setattr(runner_module.CrawlRunner, "enqueue_snapshot", lambda self, snapshot_id: asyncio.sleep(0))
-    monkeypatch.setattr(runner_module.CrawlRunner, "wait_for_snapshot_tasks", lambda self: asyncio.sleep(0))
-    monkeypatch.setattr(runner_module.CrawlRunner, "run_crawl_cleanup", lambda self, snapshot_id: asyncio.sleep(0))
+    monkeypatch.setattr(runner_module.CrawlRunner, "run_crawl", lambda self, root_snapshot_id, snapshot_ids: asyncio.sleep(0))
     monkeypatch.setattr(runner_module.CrawlRunner, "finalize_run_state", lambda self: None)
 
     asyncio.run(runner_module.CrawlRunner(crawl, snapshot_ids=[str(snapshot.id)]).run())
@@ -845,10 +951,7 @@ def test_crawl_runner_calls_load_and_finalize_run_state(monkeypatch):
         },
     )
     monkeypatch.setattr(runner_module.CrawlRunner, "_create_live_ui", lambda self: None)
-    monkeypatch.setattr(runner_module.CrawlRunner, "run_crawl_setup", lambda self, snapshot_id: asyncio.sleep(0))
-    monkeypatch.setattr(runner_module.CrawlRunner, "enqueue_snapshot", lambda self, snapshot_id: asyncio.sleep(0))
-    monkeypatch.setattr(runner_module.CrawlRunner, "wait_for_snapshot_tasks", lambda self: asyncio.sleep(0))
-    monkeypatch.setattr(runner_module.CrawlRunner, "run_crawl_cleanup", lambda self, snapshot_id: asyncio.sleep(0))
+    monkeypatch.setattr(runner_module.CrawlRunner, "run_crawl", lambda self, root_snapshot_id, snapshot_ids: asyncio.sleep(0))
     monkeypatch.setenv("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
 
     method_calls: list[str] = []
@@ -916,7 +1019,7 @@ def test_wait_for_snapshot_tasks_returns_after_completed_tasks_are_pruned():
     asyncio.run(run_test())
 
 
-def test_crawl_runner_calls_crawl_cleanup_after_snapshot_phase(monkeypatch):
+def test_crawl_runner_calls_crawl_lifecycle(monkeypatch):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
@@ -947,20 +1050,18 @@ def test_crawl_runner_calls_crawl_cleanup_after_snapshot_phase(monkeypatch):
         },
     )
     monkeypatch.setattr(runner_module.CrawlRunner, "_create_live_ui", lambda self: None)
-    monkeypatch.setattr(runner_module.CrawlRunner, "run_crawl_setup", lambda self, snapshot_id: asyncio.sleep(0))
-    monkeypatch.setattr(runner_module.CrawlRunner, "enqueue_snapshot", lambda self, snapshot_id: asyncio.sleep(0))
-    monkeypatch.setattr(runner_module.CrawlRunner, "wait_for_snapshot_tasks", lambda self: asyncio.sleep(0))
+
     monkeypatch.setattr(runner_module.CrawlRunner, "finalize_run_state", lambda self: None)
 
-    cleanup_calls = []
+    lifecycle_calls = []
     monkeypatch.setattr(
         runner_module.CrawlRunner,
-        "run_crawl_cleanup",
-        lambda self, snapshot_id: cleanup_calls.append("abx_cleanup") or asyncio.sleep(0),
+        "run_crawl",
+        lambda self, root_snapshot_id, snapshot_ids: lifecycle_calls.append((root_snapshot_id, snapshot_ids)) or asyncio.sleep(0),
     )
     asyncio.run(runner_module.CrawlRunner(crawl, snapshot_ids=[str(snapshot.id)]).run())
 
-    assert cleanup_calls == ["abx_cleanup"]
+    assert lifecycle_calls == [(str(snapshot.id), [str(snapshot.id)])]
 
 
 def test_abx_process_service_background_process_finishes_after_process_exit(monkeypatch, tmp_path):
@@ -1144,7 +1245,7 @@ def test_run_pending_crawls_prioritizes_queued_crawl_before_unrelated_binary_bac
 
 
 @pytest.mark.django_db(transaction=True)
-def test_crawl_completed_event_does_not_seal_active_snapshots():
+def test_crawl_completed_event_requeues_active_snapshots():
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
@@ -1186,7 +1287,53 @@ def test_crawl_completed_event_does_not_seal_active_snapshots():
 
     crawl.refresh_from_db()
     assert crawl.status == Crawl.StatusChoices.STARTED
-    assert crawl.retry_at is None
+    assert crawl.retry_at is not None
+
+
+@pytest.mark.django_db(transaction=True)
+def test_crawl_cleanup_event_requeues_unfinished_crawl():
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.services.crawl_service import CrawlService
+    from abx_dl.events import CrawlCleanupEvent
+    from abx_dl.orchestrator import create_bus
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by_id=get_or_create_system_user_pk(),
+        status=Crawl.StatusChoices.STARTED,
+        retry_at=None,
+    )
+    snapshot = Snapshot.objects.create(
+        url="https://example.com",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.QUEUED,
+        retry_at=None,
+    )
+
+    bus = create_bus(name=f"test_crawl_cleanup_requeues_unfinished_{str(crawl.id).replace('-', '_')}")
+    CrawlService(bus, crawl_id=str(crawl.id))
+    try:
+
+        async def emit_cleanup() -> None:
+            event = CrawlCleanupEvent(
+                url="https://example.com",
+                snapshot_id=str(snapshot.id),
+                output_dir=str(crawl.output_dir),
+            )
+            emitted = bus.emit(event)
+            await emitted.now()
+            await emitted.event_results_list()
+
+        asyncio.run(emit_cleanup())
+    finally:
+        asyncio.run(bus.wait_until_idle())
+        asyncio.run(bus.destroy())
+
+    crawl.refresh_from_db()
+    assert crawl.status == Crawl.StatusChoices.STARTED
+    assert crawl.retry_at is not None
 
 
 @pytest.mark.django_db(transaction=True)
@@ -1307,7 +1454,8 @@ def test_snapshot_completed_event_bus_seals_finished_crawl():
     )
 
     bus = create_bus(name=f"test_snapshot_completed_bus_finished_crawl_{str(crawl.id).replace('-', '_')}")
-    SnapshotService(bus, crawl_id=str(crawl.id), schedule_snapshot=lambda snapshot_id: asyncio.sleep(0))
+    service = SnapshotService(bus, crawl_id=str(crawl.id), schedule_snapshot=lambda snapshot_id: asyncio.sleep(0))
+    assert service is not None
     try:
 
         async def emit_completed() -> None:
@@ -1318,7 +1466,7 @@ def test_snapshot_completed_event_bus_seals_finished_crawl():
                     output_dir=str(snapshot.output_dir),
                 ),
             )
-            await emitted.now()
+            await emitted.wait()
             await emitted.event_results_list()
 
         asyncio.run(emit_completed())

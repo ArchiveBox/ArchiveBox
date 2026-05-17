@@ -267,7 +267,7 @@ def extract_cookies_via_cdp(
 
     Returns True if successful, False otherwise.
     """
-    from archivebox.config.common import STORAGE_CONFIG
+    from archivebox.config.common import get_config
 
     # Find the cookie extraction script
     chrome_plugin_dir = Path(__file__).parent.parent / "plugins" / "chrome"
@@ -278,7 +278,7 @@ def extract_cookies_via_cdp(
         return False
 
     # Get node modules dir
-    node_modules_dir = STORAGE_CONFIG.LIB_DIR / "npm" / "node_modules"
+    node_modules_dir = get_config().LIB_DIR / "npm" / "node_modules"
 
     # Set up environment
     env = os.environ.copy()

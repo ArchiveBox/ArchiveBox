@@ -4,7 +4,6 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 
-from archivebox.config.common import SERVER_CONFIG, SEARCH_BACKEND_CONFIG
 from archivebox.core.models import Tag
 from archivebox.crawls.models import Crawl
 
@@ -26,7 +25,7 @@ def admin_user(db):
 
 
 def test_add_view_renders_tag_editor_and_url_filter_fields(client, admin_user, monkeypatch):
-    monkeypatch.setattr(SERVER_CONFIG, "PUBLIC_ADD_VIEW", True)
+    monkeypatch.setenv("PUBLIC_ADD_VIEW", "true")
 
     response = client.get(reverse("add"), HTTP_HOST=WEB_HOST)
     body = response.content.decode()
@@ -52,8 +51,8 @@ def test_add_view_renders_tag_editor_and_url_filter_fields(client, admin_user, m
 
 
 def test_add_view_checks_configured_search_backend_by_default(client, monkeypatch):
-    monkeypatch.setattr(SERVER_CONFIG, "PUBLIC_ADD_VIEW", True)
-    monkeypatch.setattr(SEARCH_BACKEND_CONFIG, "SEARCH_BACKEND_ENGINE", "sqlite")
+    monkeypatch.setenv("PUBLIC_ADD_VIEW", "true")
+    monkeypatch.setenv("SEARCH_BACKEND_ENGINE", "sqlite")
 
     response = client.get(reverse("add"), HTTP_HOST=WEB_HOST)
     body = response.content.decode()
@@ -67,7 +66,7 @@ def test_add_view_checks_configured_search_backend_by_default(client, monkeypatc
 
 
 def test_add_view_creates_crawl_with_tag_and_url_filter_overrides(client, admin_user, monkeypatch):
-    monkeypatch.setattr(SERVER_CONFIG, "PUBLIC_ADD_VIEW", True)
+    monkeypatch.setenv("PUBLIC_ADD_VIEW", "true")
     client.force_login(admin_user)
 
     response = client.post(
@@ -107,7 +106,7 @@ def test_add_view_creates_crawl_with_tag_and_url_filter_overrides(client, admin_
 
 
 def test_add_view_starts_background_runner_after_creating_crawl(client, admin_user, monkeypatch):
-    monkeypatch.setattr(SERVER_CONFIG, "PUBLIC_ADD_VIEW", True)
+    monkeypatch.setenv("PUBLIC_ADD_VIEW", "true")
     client.force_login(admin_user)
 
     runner_calls = []
@@ -137,7 +136,7 @@ def test_add_view_starts_background_runner_after_creating_crawl(client, admin_us
 
 
 def test_add_view_extracts_urls_from_mixed_text_input(client, admin_user, monkeypatch):
-    monkeypatch.setattr(SERVER_CONFIG, "PUBLIC_ADD_VIEW", True)
+    monkeypatch.setenv("PUBLIC_ADD_VIEW", "true")
     client.force_login(admin_user)
 
     response = client.post(
@@ -185,7 +184,7 @@ def test_add_view_extracts_urls_from_mixed_text_input(client, admin_user, monkey
 
 
 def test_add_view_trims_trailing_punctuation_from_markdown_urls(client, admin_user, monkeypatch):
-    monkeypatch.setattr(SERVER_CONFIG, "PUBLIC_ADD_VIEW", True)
+    monkeypatch.setenv("PUBLIC_ADD_VIEW", "true")
     client.force_login(admin_user)
 
     response = client.post(
@@ -225,7 +224,7 @@ def test_add_view_trims_trailing_punctuation_from_markdown_urls(client, admin_us
 
 
 def test_add_view_exposes_api_token_for_tag_widget_autocomplete(client, admin_user, monkeypatch):
-    monkeypatch.setattr(SERVER_CONFIG, "PUBLIC_ADD_VIEW", True)
+    monkeypatch.setenv("PUBLIC_ADD_VIEW", "true")
     client.force_login(admin_user)
 
     response = client.get(reverse("add"), HTTP_HOST=WEB_HOST)
@@ -234,9 +233,9 @@ def test_add_view_exposes_api_token_for_tag_widget_autocomplete(client, admin_us
     assert b"window.ARCHIVEBOX_API_KEY" in response.content
 
 
-def test_tags_autocomplete_requires_auth_when_public_snapshots_list_disabled(client, settings):
-    settings.PUBLIC_SNAPSHOTS_LIST = False
-    settings.PUBLIC_INDEX = False
+def test_tags_autocomplete_requires_auth_when_public_snapshots_list_disabled(client, monkeypatch):
+    monkeypatch.setenv("PUBLIC_SNAPSHOTS_LIST", "false")
+    monkeypatch.setenv("PUBLIC_INDEX", "false")
     Tag.objects.create(name="archive")
 
     response = client.get(
@@ -248,9 +247,9 @@ def test_tags_autocomplete_requires_auth_when_public_snapshots_list_disabled(cli
     assert response.status_code == 401
 
 
-def test_tags_autocomplete_allows_public_access_when_public_snapshots_list_enabled(client, settings):
-    settings.PUBLIC_SNAPSHOTS_LIST = True
-    settings.PUBLIC_INDEX = False
+def test_tags_autocomplete_allows_public_access_when_public_snapshots_list_enabled(client, monkeypatch):
+    monkeypatch.setenv("PUBLIC_SNAPSHOTS_LIST", "true")
+    monkeypatch.setenv("PUBLIC_INDEX", "false")
     Tag.objects.create(name="archive")
 
     response = client.get(
@@ -263,9 +262,9 @@ def test_tags_autocomplete_allows_public_access_when_public_snapshots_list_enabl
     assert response.json()["tags"][0]["name"] == "archive"
 
 
-def test_tags_autocomplete_allows_authenticated_user_when_public_snapshots_list_disabled(client, admin_user, settings):
-    settings.PUBLIC_SNAPSHOTS_LIST = False
-    settings.PUBLIC_INDEX = False
+def test_tags_autocomplete_allows_authenticated_user_when_public_snapshots_list_disabled(client, admin_user, monkeypatch):
+    monkeypatch.setenv("PUBLIC_SNAPSHOTS_LIST", "false")
+    monkeypatch.setenv("PUBLIC_INDEX", "false")
     Tag.objects.create(name="archive")
     client.force_login(admin_user)
 

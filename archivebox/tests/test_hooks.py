@@ -697,7 +697,7 @@ print(json.dumps({
     )
     hook_path.chmod(0o755)
 
-    output_dir = tmp_path / "users" / "system" / "snapshots" / "20260513" / "example.com" / "test" / "envprobe"
+    output_dir = tmp_path / "archive" / "users" / "system" / "snapshots" / "20260513" / "example.com" / "test" / "envprobe"
     process = run_hook(
         hook_path,
         output_dir,

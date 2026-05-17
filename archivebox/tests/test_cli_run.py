@@ -274,7 +274,7 @@ class TestRunEmpty:
 
 
 class TestRunDaemonMode:
-    def test_run_daemon_processes_stdin_before_runner(self, monkeypatch):
+    def test_run_daemon_starts_runner_without_reading_stdin(self, monkeypatch):
         from archivebox.cli import archivebox_run
 
         class FakeStdin:
@@ -286,7 +286,7 @@ class TestRunDaemonMode:
         monkeypatch.setattr(
             archivebox_run,
             "process_stdin_records",
-            lambda: calls.append("stdin") or 0,
+            lambda: (_ for _ in ()).throw(AssertionError("daemon mode must not block on stdin")),
         )
         monkeypatch.setattr(
             archivebox_run,
@@ -298,27 +298,7 @@ class TestRunDaemonMode:
             archivebox_run.main.callback(daemon=True, crawl_id=None, snapshot_id=None, binary_id=None)
 
         assert exit_info.value.code == 0
-        assert calls == ["stdin", "runner:True"]
-
-    def test_run_daemon_skips_runner_if_stdin_processing_fails(self, monkeypatch):
-        from archivebox.cli import archivebox_run
-
-        class FakeStdin:
-            def isatty(self):
-                return False
-
-        monkeypatch.setattr(sys, "stdin", FakeStdin())
-        monkeypatch.setattr(archivebox_run, "process_stdin_records", lambda: 1)
-        monkeypatch.setattr(
-            archivebox_run,
-            "run_runner",
-            lambda daemon=False: (_ for _ in ()).throw(AssertionError("runner should not start after stdin failure")),
-        )
-
-        with pytest.raises(SystemExit) as exit_info:
-            archivebox_run.main.callback(daemon=True, crawl_id=None, snapshot_id=None, binary_id=None)
-
-        assert exit_info.value.code == 1
+        assert calls == ["runner:True"]
 
 
 @pytest.mark.django_db

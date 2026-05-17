@@ -1,6 +1,7 @@
 __package__ = "archivebox.crawls"
 
 from typing import TYPE_CHECKING
+from io import StringIO
 import uuid
 import json
 import re
@@ -272,17 +273,23 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
     @property
     def output_dir(self) -> Path:
         """
-        Construct output directory: users/{username}/crawls/{YYYYMMDD}/{domain}/{crawl-id}
+        Construct output directory: archive/users/{username}/crawls/{YYYYMMDD}/{domain}/{crawl-id}
         Domain is extracted from the first URL in the crawl.
         """
-        from archivebox import DATA_DIR
+        from archivebox.config import CONSTANTS
+        from archivebox.config.common import get_config
         from archivebox.core.models import Snapshot
 
         date_str = self.created_at.strftime("%Y%m%d")
-        urls = self.get_urls_list()
-        domain = Snapshot.extract_domain_from_url(urls[0]) if urls else "unknown"
+        first_url = ""
+        for raw_line in StringIO(self.urls or ""):
+            candidate = raw_line.strip()
+            if candidate and not candidate.startswith("#"):
+                first_url = candidate
+                break
+        domain = Snapshot.extract_domain_from_url(first_url) if first_url else "unknown"
 
-        return DATA_DIR / "users" / self.created_by.username / "crawls" / date_str / domain / str(self.id)
+        return get_config().USERS_DIR / self.created_by.username / CONSTANTS.CRAWLS_DIR_NAME / date_str / domain / str(self.id)
 
     def get_urls_list(self) -> list[str]:
         """Get list of URLs from urls field, filtering out comments and empty lines."""
@@ -359,7 +366,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
     def get_url_allowlist(self, *, use_effective_config: bool = False, snapshot=None) -> list[str]:
         if use_effective_config:
-            from archivebox.config.configset import get_config
+            from archivebox.config.common import get_config
 
             config = get_config(crawl=self, snapshot=snapshot)
         else:
@@ -368,7 +375,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
 
     def get_url_denylist(self, *, use_effective_config: bool = False, snapshot=None) -> list[str]:
         if use_effective_config:
-            from archivebox.config.configset import get_config
+            from archivebox.config.common import get_config
 
             config = get_config(crawl=self, snapshot=snapshot)
         else:
@@ -616,6 +623,9 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         from archivebox.core.models import Snapshot
         from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
 
+        if self.status == self.StatusChoices.SEALED:
+            return []
+
         created_snapshots = []
 
         for line in self.urls.splitlines():
@@ -691,6 +701,9 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         """Create one child snapshot if it passes crawl filters and limits."""
         from archivebox.core.models import Snapshot
         from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
+
+        if self.status == self.StatusChoices.SEALED:
+            return None
 
         url = sanitize_extracted_url(fix_url_from_markdown(str(url or "").strip()))
         if not url:
@@ -825,7 +838,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
         import time
         from pathlib import Path
         from archivebox.hooks import run_hook, discover_hooks, process_hook_records, is_finite_background_hook
-        from archivebox.config.configset import get_config
+        from archivebox.config.common import get_config
         from archivebox.machine.models import Binary, Machine
 
         # Debug logging to file (since stdout/stderr redirected to /dev/null in progress mode)
@@ -1050,7 +1063,7 @@ class Crawl(ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWith
             persona.cleanup_runtime_for_crawl(self)
 
         # Run on_CrawlEnd hooks
-        from archivebox.config.configset import get_config
+        from archivebox.config.common import get_config
 
         config = get_config(crawl=self)
 

@@ -50,7 +50,3 @@ class LDAPConfig(BaseConfigSet):
             return False, f"LDAP_* config options must all be set if LDAP_ENABLED=True\nMissing: {', '.join(missing)}"
 
         return True, ""
-
-
-# Singleton instance
-LDAP_CONFIG = LDAPConfig()

@@ -310,6 +310,7 @@ RUN --mount=type=cache,target=/home/archivebox/.npm_cache,sharing=locked,id=npm-
         "@postlight/parser@^2.2.3" \
         "readability-extractor@github:ArchiveBox/readability-extractor" \
         "single-file-cli@^1.1.54" \
+        "abxbus@^2.5.4" \
         "puppeteer-core@^23.5.0" \
         "puppeteer@^23.5.0" \
         "@puppeteer/browsers@^2.4.0" \

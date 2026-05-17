@@ -22,11 +22,13 @@ def install(binaries: tuple[str, ...] = (), binproviders: str = "*", dry_run: bo
     """
 
     from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
-    from archivebox.config.paths import ARCHIVE_DIR
+    from archivebox.config.common import get_config
     from archivebox.misc.logging import stderr
     from archivebox.cli.archivebox_init import init
 
-    if not (os.access(ARCHIVE_DIR, os.R_OK) and ARCHIVE_DIR.is_dir()):
+    config = get_config()
+    archive_dir = config.ARCHIVE_DIR
+    if not (os.access(archive_dir, os.R_OK) and archive_dir.is_dir()):
         init()  # must init full index because we need a db to store Binary entries in
 
     # Show what we're installing

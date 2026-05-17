@@ -154,6 +154,26 @@ class TestMachineModel(TestCase):
         self.assertNotIn("CHROME_USER_DATA_DIR", refreshed.config)
         self.assertNotIn("CHROMIUM_VERSION", refreshed.config)
 
+    def test_get_config_auto_applies_current_machine_config(self):
+        """get_config() should include sanitized Machine.current() config by default."""
+        import archivebox.machine.models as models
+        from archivebox.config.common import get_config
+
+        machine = Machine.current()
+        machine.config = {
+            "CHROME_BINARY": "/tmp/chromium",
+            "ABX_INSTALL_CACHE": {"chrome": "2026-03-24T00:00:00+00:00"},
+            "CHROME_ISOLATION": "snapshot",
+        }
+        machine.save(update_fields=["config"])
+        models._CURRENT_MACHINE = machine
+
+        config = get_config()
+
+        self.assertEqual(config.CHROME_BINARY, "/tmp/chromium")
+        self.assertEqual(config["ABX_INSTALL_CACHE"], {"chrome": "2026-03-24T00:00:00+00:00"})
+        self.assertEqual(config.CHROME_ISOLATION, "crawl")
+
     def test_machine_manager_current(self):
         """Machine.objects.current() should return current machine."""
         machine = Machine.current()

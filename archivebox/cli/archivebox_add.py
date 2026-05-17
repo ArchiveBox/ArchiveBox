@@ -16,8 +16,8 @@ from django.db.models import QuerySet
 from archivebox.misc.util import enforce_types, docstring
 from archivebox.misc.util import parse_filesize_to_bytes
 from archivebox import CONSTANTS
-from archivebox.config.common import ARCHIVING_CONFIG, SERVER_CONFIG
 from archivebox.config.permissions import USER, HOSTNAME
+from archivebox.config.common import get_config
 
 
 if TYPE_CHECKING:
@@ -94,13 +94,13 @@ def add(
     from archivebox.personas.models import Persona
     from archivebox.misc.logging_util import printable_filesize
     from archivebox.misc.system import get_dir_size
-    from archivebox.config.configset import get_config
     from archivebox.services.runner import run_crawl
 
+    config = get_config()
     created_by_id = created_by_id or get_or_create_system_user_pk()
     started_at = timezone.now()
     if update is None:
-        update = not ARCHIVING_CONFIG.ONLY_NEW
+        update = not config.ONLY_NEW
 
     # 1. Save the provided URLs to sources/2024-11-05__23-59-59__cli_add.txt
     sources_file = CONSTANTS.SOURCES_DIR / f"{timezone.now().strftime('%Y-%m-%d__%H-%M-%S')}__cli_add.txt"
@@ -118,7 +118,7 @@ def add(
     # Read URLs directly into crawl
     urls_content = sources_file.read_text()
     persona_name = (persona or "Default").strip() or "Default"
-    plugins = plugins or str(get_config().get("PLUGINS") or "")
+    plugins = plugins or str(config.get("PLUGINS") or "")
     persona_obj, _ = Persona.objects.get_or_create(name=persona_name)
     persona_obj.ensure_dirs()
 
@@ -221,7 +221,7 @@ def add(
             except Exception:
                 rel_output_str = str(crawl.output_dir)
 
-            bind_addr = SERVER_CONFIG.BIND_ADDR or "127.0.0.1:8000"
+            bind_addr = config.BIND_ADDR or "127.0.0.1:8000"
             if bind_addr.startswith("http://") or bind_addr.startswith("https://"):
                 base_url = bind_addr
             else:

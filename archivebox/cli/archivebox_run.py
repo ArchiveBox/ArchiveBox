@@ -333,10 +333,6 @@ def main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str):
             sys.exit(1)
 
     if daemon:
-        if not sys.stdin.isatty():
-            exit_code = process_stdin_records()
-            if exit_code != 0:
-                sys.exit(exit_code)
         sys.exit(run_runner(daemon=True))
 
     if not sys.stdin.isatty():

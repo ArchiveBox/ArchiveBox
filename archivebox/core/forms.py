@@ -7,7 +7,7 @@ from archivebox.misc.util import URL_REGEX, find_all_urls, parse_filesize_to_byt
 from taggit.utils import edit_string_for_tags, parse_tags
 from archivebox.base_models.admin import KeyValueWidget
 from archivebox.crawls.schedule_utils import validate_schedule
-from archivebox.config.common import SEARCH_BACKEND_CONFIG
+from archivebox.config.common import get_config
 from archivebox.core.widgets import TagEditorWidget, URLFiltersWidget
 from archivebox.hooks import get_plugins, discover_plugin_configs, get_plugin_icon
 from archivebox.personas.models import Persona
@@ -259,7 +259,7 @@ class AddLinkForm(forms.Form):
             (p, get_plugin_choice_label(p, plugin_configs)) for p in sorted(all_plugins) if p in extensions
         ]
 
-        required_search_plugin = f"search_backend_{SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE}".strip()
+        required_search_plugin = f"search_backend_{get_config().SEARCH_BACKEND_ENGINE}".strip()
         search_choices = [choice[0] for choice in get_choice_field(self, "search_plugins").choices]
         if required_search_plugin in search_choices:
             get_choice_field(self, "search_plugins").initial = [required_search_plugin]

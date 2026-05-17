@@ -12,7 +12,7 @@ from django.contrib.staticfiles import finders
 from django.utils.http import http_date
 from django.http import HttpResponseForbidden, HttpResponseNotModified
 
-from archivebox.config.common import SERVER_CONFIG
+from archivebox.config.common import get_config
 from archivebox.config import VERSION
 from archivebox.config.version import get_COMMIT_HASH
 from archivebox.core.host_utils import (
@@ -85,7 +85,7 @@ def CacheControlMiddleware(get_response):
 
         if "/archive/" in request.path or "/static/" in request.path or snapshot_path_re.match(request.path):
             if not response.get("Cache-Control"):
-                policy = "public" if SERVER_CONFIG.PUBLIC_SNAPSHOTS else "private"
+                policy = "public" if get_config().PUBLIC_SNAPSHOTS else "private"
                 response["Cache-Control"] = f"{policy}, max-age=60, stale-while-revalidate=300"
                 # print('Set Cache-Control header to', response['Cache-Control'])
         return response
@@ -98,7 +98,7 @@ def ServerSecurityModeMiddleware(get_response):
     allowed_methods = {"GET", "HEAD", "OPTIONS"}
 
     def middleware(request):
-        if SERVER_CONFIG.CONTROL_PLANE_ENABLED:
+        if get_config().CONTROL_PLANE_ENABLED:
             return get_response(request)
 
         request.user = AnonymousUser()
@@ -123,19 +123,20 @@ def HostRoutingMiddleware(get_response):
 
     def middleware(request):
         request_host = (request.get_host() or "").lower()
-        admin_host = get_admin_host()
-        web_host = get_web_host()
-        api_host = get_api_host()
-        public_host = get_public_host()
-        listen_host = get_listen_host()
-        subdomain = get_listen_subdomain(request_host)
+        config = get_config()
+        admin_host = get_admin_host(config=config)
+        web_host = get_web_host(config=config)
+        api_host = get_api_host(config=config)
+        public_host = get_public_host(config=config)
+        listen_host = get_listen_host(config=config)
+        subdomain = get_listen_subdomain(request_host, config=config)
 
         # Framework-owned assets must bypass snapshot/original-domain replay routing.
         # Otherwise pages on snapshot subdomains can receive HTML for JS/CSS requests.
         if request.path.startswith("/static/") or request.path in {"/favicon.ico", "/robots.txt"}:
             return get_response(request)
 
-        if SERVER_CONFIG.USES_SUBDOMAIN_ROUTING and not host_matches(request_host, admin_host):
+        if config.USES_SUBDOMAIN_ROUTING and not host_matches(request_host, admin_host):
             if (
                 request.path == "/admin"
                 or request.path.startswith("/admin/")
@@ -147,7 +148,7 @@ def HostRoutingMiddleware(get_response):
                     target = f"{target}?{request.META['QUERY_STRING']}"
                 return redirect(target)
 
-        if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+        if not config.USES_SUBDOMAIN_ROUTING:
             if host_matches(request_host, listen_host):
                 return get_response(request)
 
@@ -164,7 +165,7 @@ def HostRoutingMiddleware(get_response):
 
         if host_matches(request_host, admin_host):
             snapshot_match = snapshot_path_re.match(request.path)
-            if SERVER_CONFIG.USES_SUBDOMAIN_ROUTING and snapshot_match:
+            if config.USES_SUBDOMAIN_ROUTING and snapshot_match:
                 snapshot_id = snapshot_match.group("snapshot_id")
                 replay_path = (snapshot_match.group("path") or "").strip("/")
                 if replay_path == "index.html":
@@ -224,17 +225,19 @@ def HostRoutingMiddleware(get_response):
 
 
 class ReverseProxyAuthMiddleware(RemoteUserMiddleware):
-    header = "HTTP_{normalized}".format(normalized=SERVER_CONFIG.REVERSE_PROXY_USER_HEADER.replace("-", "_").upper())
+    header = "HTTP_REMOTE_USER"
 
     def process_request(self, request):
-        if SERVER_CONFIG.REVERSE_PROXY_WHITELIST == "":
+        config = get_config()
+        self.header = "HTTP_{normalized}".format(normalized=config.REVERSE_PROXY_USER_HEADER.replace("-", "_").upper())
+        if config.REVERSE_PROXY_WHITELIST == "":
             return
 
         ip = request.META.get("REMOTE_ADDR")
         if not isinstance(ip, str):
             return
 
-        for cidr in SERVER_CONFIG.REVERSE_PROXY_WHITELIST.split(","):
+        for cidr in config.REVERSE_PROXY_WHITELIST.split(","):
             try:
                 network = ipaddress.ip_network(cidr)
             except ValueError:

@@ -4,6 +4,9 @@
 
 from django.db import migrations, models, connection
 import django.utils.timezone
+from uuid import UUID
+from datetime import datetime
+import json
 
 
 def get_table_columns(table_name):
@@ -11,6 +14,18 @@ def get_table_columns(table_name):
     cursor = connection.cursor()
     cursor.execute(f"PRAGMA table_info({table_name})")
     return {row[1] for row in cursor.fetchall()}
+
+
+def normalize_cmd(cmd):
+    if not cmd:
+        return "[]"
+    try:
+        parsed = json.loads(cmd)
+        if isinstance(parsed, list):
+            return json.dumps([str(part) for part in parsed])
+    except (TypeError, json.JSONDecodeError):
+        pass
+    return json.dumps(str(cmd).split())
 
 
 def upgrade_core_tables(apps, schema_editor):
@@ -64,29 +79,72 @@ def upgrade_core_tables(apps, schema_editor):
         if has_uuid and not has_abid:
             # Migrating from v0.7.2+ (has uuid column)
             print("Migrating ArchiveResult from v0.7.2+ schema (with uuid)...")
-            cursor.execute("""
-                INSERT OR IGNORE INTO core_archiveresult_new (
-                    id, uuid, snapshot_id, cmd, pwd, cmd_version,
-                    start_ts, end_ts, status, extractor, output
+            cursor.execute(
+                "SELECT id, uuid, snapshot_id, cmd, pwd, cmd_version, start_ts, end_ts, status, extractor, output FROM core_archiveresult",
+            )
+            old_records = cursor.fetchall()
+            for record in old_records:
+                try:
+                    new_uuid = UUID(str(record[1])).hex
+                except (TypeError, ValueError):
+                    new_uuid = uuid7().hex
+                start_ts = record[6] or datetime.now().isoformat()
+                end_ts = record[7] or start_ts
+                cursor.execute(
+                    """
+                    INSERT OR IGNORE INTO core_archiveresult_new (
+                        id, uuid, snapshot_id, cmd, pwd, cmd_version,
+                        start_ts, end_ts, status, extractor, output
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        record[0],
+                        new_uuid,
+                        record[2],
+                        normalize_cmd(record[3]),
+                        record[4] or "",
+                        record[5] or "",
+                        start_ts,
+                        end_ts,
+                        "succeeded" if record[8] == "success" else (record[8] or "queued"),
+                        record[9] or "",
+                        record[10] or "",
+                    ),
                 )
-                SELECT
-                    id, uuid, snapshot_id, cmd, pwd, cmd_version,
-                    start_ts, end_ts, status, extractor, output
-                FROM core_archiveresult;
-            """)
         elif has_abid and not has_uuid:
             # Migrating from v0.8.6rc0 (has abid instead of uuid)
             print("Migrating ArchiveResult from v0.8.6rc0 schema...")
-            cursor.execute("""
-                INSERT OR IGNORE INTO core_archiveresult_new (
-                    id, uuid, snapshot_id, cmd, pwd, cmd_version,
-                    start_ts, end_ts, status, extractor, output
+            cursor.execute(
+                "SELECT id, snapshot_id, cmd, pwd, cmd_version, start_ts, end_ts, status, extractor, output FROM core_archiveresult",
+            )
+            old_records = cursor.fetchall()
+            for record in old_records:
+                try:
+                    new_uuid = UUID(str(record[0])).hex
+                except (TypeError, ValueError):
+                    new_uuid = uuid7().hex
+                start_ts = record[5] or datetime.now().isoformat()
+                end_ts = record[6] or start_ts
+                cursor.execute(
+                    """
+                    INSERT OR IGNORE INTO core_archiveresult_new (
+                        uuid, snapshot_id, cmd, pwd, cmd_version,
+                        start_ts, end_ts, status, extractor, output
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        new_uuid,
+                        record[1],
+                        normalize_cmd(record[2]),
+                        record[3] or "",
+                        record[4] or "",
+                        start_ts,
+                        end_ts,
+                        "succeeded" if record[7] == "success" else (record[7] or "queued"),
+                        record[8] or "",
+                        record[9] or "",
+                    ),
                 )
-                SELECT
-                    id, abid as uuid, snapshot_id, cmd, pwd, cmd_version,
-                    start_ts, end_ts, status, extractor, output
-                FROM core_archiveresult;
-            """)
         else:
             # Migrating from v0.7.2 (no uuid or abid column - generate fresh UUIDs)
             print("Migrating ArchiveResult from v0.7.2 schema (no uuid - generating UUIDs)...")
@@ -96,6 +154,8 @@ def upgrade_core_tables(apps, schema_editor):
             old_records = cursor.fetchall()
             for record in old_records:
                 new_uuid = uuid7().hex
+                start_ts = record[5] or datetime.now().isoformat()
+                end_ts = record[6] or start_ts
                 cursor.execute(
                     """
                     INSERT OR IGNORE INTO core_archiveresult_new (
@@ -107,14 +167,14 @@ def upgrade_core_tables(apps, schema_editor):
                         record[0],
                         new_uuid,
                         record[1],
-                        record[2],
-                        record[3],
-                        record[4],
-                        record[5],
-                        record[6],
-                        record[7],
-                        record[8],
-                        record[9],
+                        normalize_cmd(record[2]),
+                        record[3] or "",
+                        record[4] or "",
+                        start_ts,
+                        end_ts,
+                        "succeeded" if record[7] == "success" else (record[7] or "queued"),
+                        record[8] or "",
+                        record[9] or "",
                     ),
                 )
 
@@ -174,18 +234,27 @@ def upgrade_core_tables(apps, schema_editor):
             if has_added and not has_bookmarked_at:
                 # Migrating from v0.7.2 (has added/updated fields)
                 print("Migrating Snapshot from v0.7.2 schema...")
-                # Transform added→bookmarked_at/created_at and updated→modified_at
+                # timestamp is the legacy bookmark/import timestamp and archive/{timestamp} identity.
+                # added is the DB row creation/import time, and updated was renamed to downloaded_at in 0.8.x.
                 cursor.execute("""
                     INSERT OR IGNORE INTO core_snapshot_new (
                         id, url, timestamp, title,
-                        bookmarked_at, created_at, modified_at,
+                        bookmarked_at, created_at, modified_at, downloaded_at,
                         status
                     )
                     SELECT
                         id, url, timestamp, title,
-                        COALESCE(added, CURRENT_TIMESTAMP) as bookmarked_at,
+                        COALESCE(
+                            CASE
+                                WHEN CAST(timestamp AS REAL) BETWEEN 788918400 AND 2082758400
+                                THEN datetime(CAST(timestamp AS REAL), 'unixepoch')
+                            END,
+                            added,
+                            CURRENT_TIMESTAMP
+                        ) as bookmarked_at,
                         COALESCE(added, CURRENT_TIMESTAMP) as created_at,
                         COALESCE(updated, added, CURRENT_TIMESTAMP) as modified_at,
+                        updated as downloaded_at,
                         'queued' as status
                     FROM core_snapshot;
                 """)
@@ -198,17 +267,21 @@ def upgrade_core_tables(apps, schema_editor):
                 has_crawl_id = "crawl_id" in snapshot_cols
 
                 # Build column list based on what exists
-                cols = ["id", "url", "timestamp", "title", "bookmarked_at", "created_at", "modified_at", "downloaded_at"]
+                insert_cols = ["id", "url", "timestamp", "title", "bookmarked_at", "created_at", "modified_at", "downloaded_at"]
+                select_cols = ["id", "url", "timestamp", "title", "bookmarked_at", "created_at", "modified_at", "downloaded_at"]
                 if has_crawl_id:
-                    cols.append("crawl_id")
+                    insert_cols.append("crawl_id")
+                    select_cols.append("REPLACE(crawl_id, '-', '')")
                 if has_status:
-                    cols.append("status")
+                    insert_cols.append("status")
+                    select_cols.append("status")
                 if has_retry_at:
-                    cols.append("retry_at")
+                    insert_cols.append("retry_at")
+                    select_cols.append("retry_at")
 
                 cursor.execute(f"""
-                    INSERT OR IGNORE INTO core_snapshot_new ({", ".join(cols)})
-                    SELECT {", ".join(cols)}
+                    INSERT OR IGNORE INTO core_snapshot_new ({", ".join(insert_cols)})
+                    SELECT {", ".join(select_cols)}
                     FROM core_snapshot;
                 """)
             else:
@@ -324,7 +397,7 @@ def upgrade_core_tables(apps, schema_editor):
 class Migration(migrations.Migration):
     dependencies = [
         ("core", "0022_auto_20231023_2008"),
-        ("crawls", "0001_initial"),
+        ("crawls", "0002_upgrade_from_0_8_6"),
         ("auth", "0012_alter_user_first_name_max_length"),
     ]
 
@@ -358,6 +431,11 @@ class Migration(migrations.Migration):
                     model_name="snapshot",
                     name="modified_at",
                     field=models.DateTimeField(auto_now=True),
+                ),
+                migrations.AddField(
+                    model_name="snapshot",
+                    name="downloaded_at",
+                    field=models.DateTimeField(blank=True, db_index=True, default=None, editable=False, null=True),
                 ),
                 # Declare fs_version (already created in database with DEFAULT '0.8.0')
                 migrations.AddField(

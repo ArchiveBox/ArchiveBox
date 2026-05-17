@@ -20,6 +20,8 @@ PYTEST_BASETEMP_ROOT = (REPO_ROOT / "tests" / "out").resolve()
 SESSION_DATA_DIR = Path(tempfile.mkdtemp(prefix="archivebox-pytest-session-")).resolve()
 # Force ArchiveBox imports to see a temp DATA_DIR during test collection.
 os.environ["DATA_DIR"] = str(SESSION_DATA_DIR)
+os.environ.pop("ARCHIVE_DIR", None)
+os.environ.pop("USERS_DIR", None)
 os.environ.pop("CRAWL_DIR", None)
 os.environ.pop("SNAP_DIR", None)
 
@@ -40,7 +42,7 @@ def _assert_safe_runtime_paths(*, cwd: Path | None = None, env: dict[str, str] |
     if cwd is not None:
         _assert_not_repo_path(cwd, label="cwd")
 
-    for key in ("DATA_DIR", "CRAWL_DIR", "SNAP_DIR"):
+    for key in ("DATA_DIR", "ARCHIVE_DIR", "USERS_DIR", "CRAWL_DIR", "SNAP_DIR"):
         value = (env or {}).get(key)
         if value:
             _assert_not_repo_path(Path(value), label=key)
@@ -139,6 +141,8 @@ def isolate_test_runtime(tmp_path, monkeypatch):
     original_popen = subprocess.Popen
     os.chdir(tmp_path)
     os.environ.pop("DATA_DIR", None)
+    os.environ.pop("ARCHIVE_DIR", None)
+    os.environ.pop("USERS_DIR", None)
     os.environ.pop("CRAWL_DIR", None)
     os.environ.pop("SNAP_DIR", None)
 
@@ -218,6 +222,8 @@ def run_archivebox_cmd_cwd(
     _assert_not_repo_path(cwd, label="cwd")
     base_env = os.environ.copy()
     base_env.pop("DATA_DIR", None)
+    base_env.pop("ARCHIVE_DIR", None)
+    base_env.pop("USERS_DIR", None)
     base_env.pop("CRAWL_DIR", None)
     base_env.pop("SNAP_DIR", None)
     base_env["USE_COLOR"] = "False"
@@ -258,6 +264,8 @@ def run_python_cwd(
     _assert_not_repo_path(cwd, label="cwd")
     base_env = os.environ.copy()
     base_env.pop("DATA_DIR", None)
+    base_env.pop("ARCHIVE_DIR", None)
+    base_env.pop("USERS_DIR", None)
     base_env.pop("CRAWL_DIR", None)
     base_env.pop("SNAP_DIR", None)
     _assert_safe_runtime_paths(cwd=cwd, env=base_env)

@@ -1,10 +1,10 @@
 __package__ = "archivebox.core"
 
-from typing import Optional, Any, cast
+from typing import TYPE_CHECKING, Optional, Any, cast
 from collections.abc import Iterable, Sequence
 import uuid
 from archivebox.uuid_compat import uuid7
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import os
 import json
@@ -21,9 +21,11 @@ from django.core.cache import cache
 from django.urls import reverse_lazy
 from django.contrib import admin
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.utils.safestring import mark_safe
 
 from archivebox.config import CONSTANTS
+from archivebox.config.common import get_config
 from archivebox.misc.system import get_dir_size, atomic_write
 from archivebox.misc.util import parse_date, domain as url_domain, to_json, ts_to_date_str, urlencode, htmlencode, urldecode
 from archivebox.hooks import (
@@ -43,6 +45,9 @@ from archivebox.workers.models import ModelWithStateMachine, BaseStateMachine
 from archivebox.workers.tasks import bg_archive_snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.machine.models import Binary
+
+if TYPE_CHECKING:
+    from archivebox.config.common import ArchiveBoxBaseConfig
 
 
 class Tag(ModelWithUUID):
@@ -165,11 +170,10 @@ class SnapshotQuerySet(models.QuerySet):
 
     def search(self, patterns: list[str]) -> "SnapshotQuerySet":
         """Search snapshots using the configured search backend"""
-        from archivebox.config.common import SEARCH_BACKEND_CONFIG
         from archivebox.search import query_search_index
         from archivebox.misc.logging import stderr
 
-        if not SEARCH_BACKEND_CONFIG.USE_SEARCHING_BACKEND:
+        if not get_config().USE_SEARCHING_BACKEND:
             stderr()
             stderr("[X] The search backend is not enabled, set config.USE_SEARCHING_BACKEND = True", color="red")
             raise SystemExit(2)
@@ -191,13 +195,14 @@ class SnapshotQuerySet(models.QuerySet):
         import sys
         from datetime import datetime, timezone as tz
         from archivebox.config import VERSION
-        from archivebox.config.common import SERVER_CONFIG
+
+        config = get_config()
 
         MAIN_INDEX_HEADER = (
             {
                 "info": "This is an index of site data archived by ArchiveBox: The self-hosted web archive.",
                 "schema": "archivebox.index.json",
-                "copyright_info": SERVER_CONFIG.FOOTER_INFO,
+                "copyright_info": config.FOOTER_INFO,
                 "meta": {
                     "project": "ArchiveBox",
                     "version": VERSION,
@@ -239,8 +244,9 @@ class SnapshotQuerySet(models.QuerySet):
         from datetime import datetime, timezone as tz
         from django.template.loader import render_to_string
         from archivebox.config import VERSION
-        from archivebox.config.common import SERVER_CONFIG
         from archivebox.config.version import get_COMMIT_HASH
+
+        config = get_config()
 
         template = "static_index.html" if with_headers else "minimal_index.html"
         snapshot_list = list(self.iterator(chunk_size=500))
@@ -254,7 +260,7 @@ class SnapshotQuerySet(models.QuerySet):
                 "date_updated": datetime.now(tz.utc).strftime("%Y-%m-%d"),
                 "time_updated": datetime.now(tz.utc).strftime("%Y-%m-%d %H:%M"),
                 "links": snapshot_list,
-                "FOOTER_INFO": SERVER_CONFIG.FOOTER_INFO,
+                "FOOTER_INFO": config.FOOTER_INFO,
             },
         )
 
@@ -392,29 +398,28 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         # Migrate filesystem if needed (happens automatically on save)
         if self.pk and self.fs_migration_needed:
-            print(
-                f"[DEBUG save()] Triggering filesystem migration for {str(self.id)[:8]}: {self.fs_version} → {self._fs_current_version()}",
-            )
-            # Walk through migration chain automatically
-            current = self.fs_version
-            target = self._fs_current_version()
-
-            while current != target:
-                next_ver = self._fs_next_version(current)
-                method = f"_fs_migrate_from_{current.replace('.', '_')}_to_{next_ver.replace('.', '_')}"
-
-                # Only run if method exists (most are no-ops)
-                if hasattr(self, method):
-                    print(f"[DEBUG save()] Running {method}()")
-                    getattr(self, method)()
-
-                current = next_ver
-
-            # Update version
-            self.fs_version = target
+            self.migrate_filesystem_to_current_version()
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = tuple(dict.fromkeys([*update_fields, "fs_version", "modified_at"]))
+        elif self.pk:
+            legacy_dir = get_config().ARCHIVE_DIR / self.timestamp
+            current_dir = self.get_storage_path_for_version(self._fs_current_version())
+            if legacy_dir.exists() and not legacy_dir.is_symlink() and current_dir.exists() and legacy_dir != current_dir:
+                self.migrate_filesystem_to_current_version(source_dir=legacy_dir)
 
         super().save(*args, **kwargs)
+
+        migration_cleanup = getattr(self, "_pending_fs_migration_cleanup", None)
+        if migration_cleanup:
+            from django.db import transaction
+
+            old_dir, new_dir = migration_cleanup
+            transaction.on_commit(lambda: self._cleanup_old_migration_dir(old_dir, new_dir))
+            delattr(self, "_pending_fs_migration_cleanup")
+
         self.ensure_legacy_archive_symlink()
+        self.ensure_crawl_symlink()
         existing_urls = {url for _raw_line, url in self.crawl._iter_url_lines() if url}
         if self.crawl.url_passes_filters(self.url, snapshot=self) and self.url not in existing_urls:
             self.crawl.urls += f"\n{self.url}"
@@ -465,45 +470,109 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             return "0.9.0"
         return self._fs_current_version()
 
-    def _fs_migrate_from_0_8_0_to_0_9_0(self):
+    @staticmethod
+    def is_legacy_archive_dir(path: Path) -> bool:
+        """Return True for old-style archive/{timestamp} snapshot directories."""
+        if path.name in CONSTANTS.RESERVED_ARCHIVE_DIR_NAMES or path.name.startswith("."):
+            return False
+        try:
+            ts_int = int(float(path.name))
+        except (TypeError, ValueError, OverflowError):
+            return False
+        return 788918400 <= ts_int <= 2082758400
+
+    def migrate_filesystem_to_current_version(self, source_dir: Path | None = None, config: "ArchiveBoxBaseConfig | None" = None) -> None:
+        """
+        Copy legacy snapshot output into the current layout and defer old-dir cleanup.
+
+        The ordering is intentionally crash-safe:
+        1. Copy from the legacy directory into the new directory idempotently.
+        2. Verify the new directory has every old file.
+        3. Convert metadata in the new directory.
+        4. Update fs_version in memory for the caller to save.
+        5. Cleanup is scheduled only after the DB commit succeeds.
+        """
+        current = self.fs_version
+        target = self._fs_current_version()
+        cleanup: tuple[Path, Path] | None = None
+        runtime_config = config or get_config()
+
+        if source_dir and current == target:
+            current_dir = self.get_storage_path_for_version(target, config=runtime_config)
+            cleanup = self._fs_migrate_legacy_to_0_9_0(source_dir=source_dir, target_dir=current_dir)
+            if cleanup:
+                self._pending_fs_migration_cleanup = cleanup
+            return
+
+        while current != target:
+            next_ver = self._fs_next_version(current)
+            migrations = {
+                ("0.7.0", "0.9.0"): self._fs_migrate_from_0_7_0_to_0_9_0,
+                ("0.8.0", "0.9.0"): self._fs_migrate_from_0_8_0_to_0_9_0,
+            }
+
+            migration = migrations.get((current, next_ver))
+            if migration is None:
+                raise ValueError(f"No filesystem migration path from {current} to {next_ver}")
+            cleanup = migration(source_dir=source_dir, config=runtime_config)
+
+            current = next_ver
+            source_dir = None
+
+        self.fs_version = target
+        if cleanup:
+            self._pending_fs_migration_cleanup = cleanup
+
+    def _fs_migrate_from_0_7_0_to_0_9_0(self, source_dir: Path | None = None, config: "ArchiveBoxBaseConfig | None" = None):
+        return self._fs_migrate_legacy_to_0_9_0(source_dir=source_dir, config=config)
+
+    def _fs_migrate_from_0_8_0_to_0_9_0(self, source_dir: Path | None = None, config: "ArchiveBoxBaseConfig | None" = None):
+        return self._fs_migrate_legacy_to_0_9_0(source_dir=source_dir, config=config)
+
+    def _fs_migrate_legacy_to_0_9_0(
+        self,
+        source_dir: Path | None = None,
+        target_dir: Path | None = None,
+        config: "ArchiveBoxBaseConfig | None" = None,
+    ):
         """
         Migrate from flat to nested structure.
 
         0.8.x: archive/{timestamp}/
-        0.9.x: users/{user}/snapshots/YYYYMMDD/{domain}/{uuid}/
-
-        Transaction handling:
-        1. Copy files INSIDE transaction
-        2. Convert index.json to index.jsonl INSIDE transaction
-        3. Create symlink INSIDE transaction
-        4. Update fs_version INSIDE transaction (done by save())
-        5. Exit transaction (DB commit)
-        6. Delete old files OUTSIDE transaction (after commit)
+        0.9.x: archive/users/{user}/snapshots/YYYYMMDD/{domain}/{uuid}/
         """
+        import filecmp
         import shutil
-        from django.db import transaction
 
-        old_dir = self.get_storage_path_for_version("0.8.0")
-        new_dir = self.get_storage_path_for_version("0.9.0")
+        old_dir = Path(source_dir) if source_dir else self.get_storage_path_for_version("0.8.0", config=config)
+        new_dir = Path(target_dir) if target_dir else self.get_storage_path_for_version("0.9.0", config=config)
 
-        print(
-            f"[DEBUG _fs_migrate] {self.timestamp}: old_exists={old_dir.exists()}, same={old_dir == new_dir}, new_exists={new_dir.exists()}",
-        )
-
-        if not old_dir.exists() or old_dir == new_dir:
-            # No migration needed
-            print("[DEBUG _fs_migrate] Returning None (early return)")
+        if old_dir == new_dir:
             return None
 
-        if new_dir.exists():
-            # New directory already exists (files already copied), but we still need cleanup
-            # Return cleanup info so old directory can be cleaned up
-            print("[DEBUG _fs_migrate] Returning cleanup info (new_dir exists)")
-            return (old_dir, new_dir)
+        if old_dir.is_symlink():
+            return None
+
+        if not old_dir.exists():
+            if new_dir.exists():
+                self.convert_index_json_to_jsonl(output_dir=new_dir)
+                return None
+            return None
+
+        if not new_dir.exists():
+            new_dir.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                old_dir.rename(new_dir)
+                self.convert_index_json_to_jsonl(output_dir=new_dir)
+                return (old_dir, new_dir)
+            except OSError:
+                pass
 
         new_dir.mkdir(parents=True, exist_ok=True)
 
-        # Copy all files (idempotent), skipping index.json (will be converted to jsonl)
+        # Copy all files idempotently. If a previous attempt already converted
+        # index.json to index.jsonl, recopying index.json is harmless; conversion
+        # below removes it again after ensuring index.jsonl exists.
         for old_file in old_dir.rglob("*"):
             if not old_file.is_file():
                 continue
@@ -512,8 +581,9 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             new_file = new_dir / rel_path
 
             # Skip if already copied
-            if new_file.exists() and new_file.stat().st_size == old_file.stat().st_size:
-                continue
+            if new_file.exists():
+                if new_file.stat().st_size == old_file.stat().st_size and filecmp.cmp(old_file, new_file, shallow=False):
+                    continue
 
             new_file.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(old_file, new_file)
@@ -524,16 +594,21 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         if old_files.keys() != new_files.keys():
             missing = old_files.keys() - new_files.keys()
-            raise Exception(f"Migration incomplete: missing {missing}")
+            missing.discard(Path(CONSTANTS.JSON_INDEX_FILENAME))
+            if missing:
+                raise Exception(f"Migration incomplete: missing {missing}")
 
-        # Convert index.json to index.jsonl in the new directory
-        self.convert_index_json_to_jsonl()
+        for rel_path, old_size in old_files.items():
+            if rel_path == Path(CONSTANTS.JSON_INDEX_FILENAME):
+                continue
+            if new_files.get(rel_path) != old_size:
+                raise Exception(f"Migration incomplete: size mismatch for {rel_path}")
+            if not filecmp.cmp(old_dir / rel_path, new_dir / rel_path, shallow=False):
+                raise Exception(f"Migration incomplete: content mismatch for {rel_path}")
 
-        # Schedule cleanup AFTER transaction commits successfully
-        # This ensures DB changes are committed before we delete old files
-        transaction.on_commit(lambda: self._cleanup_old_migration_dir(old_dir, new_dir))
+        # Convert index.json to index.jsonl in the new directory.
+        self.convert_index_json_to_jsonl(output_dir=new_dir)
 
-        # Return cleanup info for manual cleanup if needed (when called directly)
         return (old_dir, new_dir)
 
     def _cleanup_old_migration_dir(self, old_dir: Path, new_dir: Path):
@@ -600,34 +675,31 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         except Exception:
             return "unknown"
 
-    def get_storage_path_for_version(self, version: str) -> Path:
+    def get_storage_path_for_version(self, version: str, config: "ArchiveBoxBaseConfig | None" = None) -> Path:
         """
         Calculate storage path for specific filesystem version.
         Centralizes path logic so it's reusable.
 
         0.7.x/0.8.x: archive/{timestamp}
-        0.9.x: users/{username}/snapshots/YYYYMMDD/{domain}/{uuid}/
+        0.9.x: archive/users/{username}/snapshots/YYYYMMDD/{domain}/{uuid}/
         """
-        from datetime import datetime
+        runtime_config = config or get_config()
 
         if version in ("0.7.0", "0.8.0"):
-            return CONSTANTS.ARCHIVE_DIR / self.timestamp
+            return runtime_config.ARCHIVE_DIR / self.timestamp
 
         elif version in ("0.9.0", "1.0.0"):
             username = self.created_by.username
 
-            # Use created_at for date grouping (fallback to timestamp)
-            if self.created_at:
-                date_str = self.created_at.strftime("%Y%m%d")
-            else:
-                date_str = datetime.fromtimestamp(float(self.timestamp)).strftime("%Y%m%d")
+            date_base = self.bookmarked_at or self.created_at
+            date_str = date_base.strftime("%Y%m%d") if date_base else "unknown"
 
             domain = self.extract_domain_from_url(self.url)
 
-            return CONSTANTS.DATA_DIR / "users" / username / "snapshots" / date_str / domain / str(self.id)
+            return runtime_config.USERS_DIR / username / CONSTANTS.SNAPSHOTS_DIR_NAME / date_str / domain / str(self.id)
         else:
             # Unknown version - use current
-            return self.get_storage_path_for_version(self._fs_current_version())
+            return self.get_storage_path_for_version(self._fs_current_version(), config=runtime_config)
 
     # =========================================================================
     # Loading and Creation from Filesystem (Used by archivebox update ONLY)
@@ -668,15 +740,41 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 pass
 
         if not data:
-            return None
+            timestamp = cls._select_best_timestamp(
+                index_timestamp=None,
+                folder_name=snapshot_dir.name,
+            )
+            if not timestamp:
+                return None
+            try:
+                return cls.objects.select_related("crawl__created_by").get(timestamp=timestamp)
+            except cls.DoesNotExist:
+                return None
+            except cls.MultipleObjectsReturned:
+                return cls.objects.select_related("crawl__created_by").filter(timestamp=timestamp).first()
 
         url = data.get("url")
         if not url:
-            return None
+            timestamp = cls._select_best_timestamp(
+                index_timestamp=data.get("timestamp"),
+                folder_name=snapshot_dir.name,
+            )
+            if not timestamp:
+                return None
+            try:
+                return cls.objects.select_related("crawl__created_by").get(timestamp=timestamp)
+            except cls.DoesNotExist:
+                return None
+            except cls.MultipleObjectsReturned:
+                return cls.objects.select_related("crawl__created_by").filter(timestamp=timestamp).first()
 
         # Get timestamp - prefer index file, fallback to folder name
         timestamp = cls._select_best_timestamp(
             index_timestamp=data.get("timestamp"),
+            folder_name=snapshot_dir.name,
+        )
+        folder_timestamp = cls._select_best_timestamp(
+            index_timestamp=None,
             folder_name=snapshot_dir.name,
         )
 
@@ -685,29 +783,27 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         # Look up existing (try exact match first, then fuzzy match for truncated timestamps)
         try:
-            snapshot = cls.objects.get(url=url, timestamp=timestamp)
-            print(f"[DEBUG load_from_directory] Found existing snapshot for {url} @ {timestamp}: {str(snapshot.id)[:8]}")
+            snapshot = cls.objects.select_related("crawl__created_by").get(url=url, timestamp=timestamp)
             return snapshot
         except cls.DoesNotExist:
-            print(f"[DEBUG load_from_directory] NOT FOUND (exact): {url} @ {timestamp}")
             # Try fuzzy match - index.json may have truncated timestamp
             # e.g., index has "1767000340" but DB has "1767000340.624737"
-            candidates = cls.objects.filter(url=url, timestamp__startswith=timestamp)
-            if candidates.count() == 1:
-                snapshot = candidates.first()
-                if snapshot is None:
-                    return None
-                print(f"[DEBUG load_from_directory] Found via fuzzy match: {snapshot.timestamp}")
-                return snapshot
-            elif candidates.count() > 1:
-                print("[DEBUG load_from_directory] Multiple fuzzy matches, using first")
-                return candidates.first()
-            print(f"[DEBUG load_from_directory] NOT FOUND (fuzzy): {url} @ {timestamp}")
+            # Do not fuzzy-match when the legacy folder name itself is a valid
+            # timestamp; distinct dirs like 1508259732 and 1508259732.0 must
+            # remain distinct snapshots.
+            if not folder_timestamp or timestamp != folder_timestamp:
+                candidates = cls.objects.select_related("crawl__created_by").filter(url=url, timestamp__startswith=timestamp)
+                if candidates.count() == 1:
+                    snapshot = candidates.first()
+                    if snapshot is None:
+                        return None
+                    return snapshot
+                elif candidates.count() > 1:
+                    return candidates.first()
             return None
         except cls.MultipleObjectsReturned:
             # Should not happen with unique constraint
-            print(f"[DEBUG load_from_directory] Multiple snapshots found for {url} @ {timestamp}")
-            return cls.objects.filter(url=url, timestamp=timestamp).first()
+            return cls.objects.select_related("crawl__created_by").filter(url=url, timestamp=timestamp).first()
 
     @classmethod
     def create_from_directory(cls, snapshot_dir: Path) -> Optional["Snapshot"]:
@@ -742,6 +838,29 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             except (json.JSONDecodeError, OSError):
                 pass
 
+        if not data or not data.get("url"):
+            archive_org_path = snapshot_dir / "archive.org.txt"
+            try:
+                archived_url = archive_org_path.read_text(encoding="utf-8", errors="replace").strip().splitlines()[0].strip()
+            except (IndexError, OSError):
+                archived_url = ""
+
+            if archived_url.startswith(("http://", "https://")):
+                if "://web.archive.org/web/" in archived_url and "/web/" in archived_url:
+                    archive_target = archived_url.split("/web/", 1)[1].split("/", 1)
+                    if len(archive_target) == 2:
+                        candidate = archive_target[1]
+                        if not candidate.startswith(("http://", "https://")) and "/" in candidate:
+                            candidate = candidate.split("/", 1)[1]
+                        if candidate.startswith(("http://", "https://")):
+                            archived_url = candidate
+
+                data = {
+                    "url": archived_url,
+                    "timestamp": snapshot_dir.name,
+                    "title": "",
+                }
+
         if not data:
             return None
 
@@ -764,9 +883,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         # Detect version
         fs_version = cls._detect_fs_version_from_index(data)
 
-        # Get or create catchall crawl for orphaned snapshots
-        from archivebox.crawls.models import Crawl
-
         system_user_id = get_or_create_system_user_pk()
         catchall_crawl, _ = Crawl.objects.get_or_create(
             label="[migration] orphaned snapshots",
@@ -776,13 +892,36 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 "created_by_id": system_user_id,
             },
         )
+        if cls.objects.filter(crawl=catchall_crawl, url=url).exists():
+            catchall_crawl = Crawl.objects.create(
+                label=f"[migration] orphaned snapshot {timestamp}",
+                urls=url,
+                max_depth=0,
+                created_by_id=system_user_id,
+            )
+
+        snapshot_kwargs = {
+            "url": url,
+            "timestamp": timestamp,
+            "title": data.get("title", ""),
+            "fs_version": fs_version,
+            "crawl": catchall_crawl,
+        }
+        try:
+            bookmarked_at = parse_date(data.get("bookmarked_at") or timestamp)
+        except (TypeError, ValueError, OSError):
+            bookmarked_at = None
+        try:
+            created_at = parse_date(data.get("created_at"))
+        except (TypeError, ValueError, OSError):
+            created_at = None
+        if bookmarked_at:
+            snapshot_kwargs["bookmarked_at"] = bookmarked_at
+        if created_at:
+            snapshot_kwargs["created_at"] = created_at
 
         return cls(
-            url=url,
-            timestamp=timestamp,
-            title=data.get("title", ""),
-            fs_version=fs_version,
-            crawl=catchall_crawl,
+            **snapshot_kwargs,
         )
 
     @staticmethod
@@ -790,8 +929,9 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         """
         Select best timestamp from index.json vs folder name.
 
-        Validates range (1995-2035).
-        Prefers index.json if valid.
+        Validates range (1995-2035). When a valid legacy folder name is
+        available it is the stable filesystem identity, so preserve it over
+        normalized variants like "1508259732.0" found in old index files.
         """
 
         def is_valid_timestamp(ts: object | None) -> bool:
@@ -807,24 +947,25 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         index_valid = is_valid_timestamp(index_timestamp) if index_timestamp else False
         folder_valid = is_valid_timestamp(folder_name)
 
-        if index_valid and index_timestamp is not None:
-            return str(int(float(str(index_timestamp))))
         if folder_valid:
-            return str(int(float(str(folder_name))))
+            return str(folder_name).strip()
+        if index_valid and index_timestamp is not None:
+            return str(index_timestamp).strip()
         return None
 
     @classmethod
     def _ensure_unique_timestamp(cls, url: str, timestamp: str) -> str:
         """
         Ensure timestamp is globally unique.
-        If collision with different URL, increment by 1 until unique.
-
-        NOTE: Logic already exists in create_or_update_from_dict (line 266-267)
-        This is just an extracted, reusable version.
+        If there is a collision, add a tiny fractional suffix until unique.
         """
-        while cls.objects.filter(timestamp=timestamp).exclude(url=url).exists():
-            timestamp = str(int(float(timestamp)) + 1)
-        return timestamp
+        candidate = str(timestamp)
+        base = float(timestamp)
+        suffix = 0
+        while cls.objects.filter(timestamp=candidate).exists():
+            suffix += 1
+            candidate = f"{base + (suffix / 1_000_000):.6f}".rstrip("0").rstrip(".")
+        return candidate
 
     @staticmethod
     def _detect_fs_version_from_index(data: dict) -> str:
@@ -848,7 +989,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     # Index.json Reconciliation
     # =========================================================================
 
-    def reconcile_with_index(self):
+    def reconcile_with_index(self, output_dir: Path | None = None):
         """
         Merge index.json/index.jsonl with DB. DB is source of truth.
 
@@ -863,17 +1004,18 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         import json
 
         # Try to convert index.json to index.jsonl first
-        self.convert_index_json_to_jsonl()
+        output_dir = Path(output_dir) if output_dir is not None else Path(self.output_dir)
+        self.convert_index_json_to_jsonl(output_dir=output_dir)
 
         # Check for index.jsonl (preferred) or index.json (legacy)
-        jsonl_path = Path(self.output_dir) / CONSTANTS.JSONL_INDEX_FILENAME
-        json_path = Path(self.output_dir) / CONSTANTS.JSON_INDEX_FILENAME
+        jsonl_path = output_dir / CONSTANTS.JSONL_INDEX_FILENAME
+        json_path = output_dir / CONSTANTS.JSON_INDEX_FILENAME
 
         index_data = {}
 
         if jsonl_path.exists():
             # Read from JSONL format
-            jsonl_data = self.read_index_jsonl()
+            jsonl_data = self.read_index_jsonl(output_dir=output_dir)
             if jsonl_data["snapshot"]:
                 index_data = jsonl_data["snapshot"]
                 # Convert archive_results list to expected format
@@ -896,11 +1038,11 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         self._merge_archive_results_from_index(index_data)
 
         # Write back in JSONL format
-        self.write_index_jsonl()
+        self.write_index_jsonl(output_dir=output_dir)
 
-    def reconcile_with_index_json(self):
+    def reconcile_with_index_json(self, output_dir: Path | None = None):
         """Deprecated: use reconcile_with_index() instead."""
-        return self.reconcile_with_index()
+        return self.reconcile_with_index(output_dir=output_dir)
 
     def _merge_title_from_index(self, index_data: dict):
         """Merge title - prefer longest non-URL title."""
@@ -1022,7 +1164,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         with open(index_path, "w") as f:
             json.dump(data, f, indent=2, sort_keys=True)
 
-    def write_index_jsonl(self):
+    def write_index_jsonl(self, output_dir: Path | None = None):
         """
         Write index.jsonl in flat JSONL format.
 
@@ -1034,7 +1176,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         """
         import json
 
-        index_path = Path(self.output_dir) / CONSTANTS.JSONL_INDEX_FILENAME
+        output_dir = Path(output_dir) if output_dir is not None else Path(self.output_dir)
+        index_path = output_dir / CONSTANTS.JSONL_INDEX_FILENAME
         index_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Track unique binaries and processes to avoid duplicates
@@ -1061,7 +1204,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 # Write ArchiveResult record
                 f.write(json.dumps(ar.to_json()) + "\n")
 
-    def read_index_jsonl(self) -> dict:
+    def read_index_jsonl(self, output_dir: Path | None = None) -> dict:
         """
         Read index.jsonl and return parsed records grouped by type.
 
@@ -1076,7 +1219,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             TYPE_PROCESS,
         )
 
-        index_path = Path(self.output_dir) / CONSTANTS.JSONL_INDEX_FILENAME
+        output_dir = Path(output_dir) if output_dir is not None else Path(self.output_dir)
+        index_path = output_dir / CONSTANTS.JSONL_INDEX_FILENAME
         result: dict[str, Any] = {
             "snapshot": None,
             "archive_results": [],
@@ -1101,7 +1245,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         return result
 
-    def convert_index_json_to_jsonl(self) -> bool:
+    def convert_index_json_to_jsonl(self, output_dir: Path | None = None) -> bool:
         """
         Convert index.json to index.jsonl format.
 
@@ -1110,11 +1254,15 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         """
         import json
 
-        json_path = Path(self.output_dir) / CONSTANTS.JSON_INDEX_FILENAME
-        jsonl_path = Path(self.output_dir) / CONSTANTS.JSONL_INDEX_FILENAME
+        output_dir = Path(output_dir) if output_dir is not None else Path(self.output_dir)
+        json_path = output_dir / CONSTANTS.JSON_INDEX_FILENAME
+        jsonl_path = output_dir / CONSTANTS.JSONL_INDEX_FILENAME
 
         # Skip if already converted or no json file exists
-        if jsonl_path.exists() or not json_path.exists():
+        if jsonl_path.exists():
+            json_path.unlink(missing_ok=True)
+            return False
+        if not json_path.exists():
             return False
 
         try:
@@ -1126,56 +1274,60 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         # Detect format version and extract records
         fs_version = data.get("fs_version", "0.7.0")
 
-        jsonl_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(jsonl_path, "w") as f:
-            # Write Snapshot record
-            snapshot_record = {
-                "type": "Snapshot",
-                "id": str(self.id),
-                "crawl_id": str(self.crawl_id) if self.crawl_id else None,
-                "url": data.get("url", self.url),
-                "timestamp": data.get("timestamp", self.timestamp),
-                "title": data.get("title", self.title or ""),
-                "tags": data.get("tags", ""),
-                "fs_version": fs_version,
-                "bookmarked_at": data.get("bookmarked_at"),
-                "created_at": data.get("created_at"),
+        records = []
+        snapshot_record = {
+            "type": "Snapshot",
+            "id": str(self.id),
+            "crawl_id": str(self.crawl_id) if self.crawl_id else None,
+            "url": data.get("url", self.url),
+            "timestamp": data.get("timestamp", self.timestamp),
+            "title": data.get("title", self.title or ""),
+            "tags": data.get("tags", ""),
+            "fs_version": fs_version,
+            "bookmarked_at": data.get("bookmarked_at"),
+            "created_at": data.get("created_at"),
+        }
+        records.append(snapshot_record)
+
+        # Handle 0.8.x/0.9.x format (archive_results list)
+        for result_data in data.get("archive_results", []):
+            ar_record = {
+                "type": "ArchiveResult",
+                "snapshot_id": str(self.id),
+                "plugin": result_data.get("plugin", ""),
+                "status": result_data.get("status", ""),
+                "output_str": result_data.get("output", ""),
+                "start_ts": result_data.get("start_ts"),
+                "end_ts": result_data.get("end_ts"),
             }
-            f.write(json.dumps(snapshot_record) + "\n")
+            if result_data.get("cmd"):
+                ar_record["cmd"] = result_data["cmd"]
+            records.append(ar_record)
 
-            # Handle 0.8.x/0.9.x format (archive_results list)
-            for result_data in data.get("archive_results", []):
-                ar_record = {
-                    "type": "ArchiveResult",
-                    "snapshot_id": str(self.id),
-                    "plugin": result_data.get("plugin", ""),
-                    "status": result_data.get("status", ""),
-                    "output_str": result_data.get("output", ""),
-                    "start_ts": result_data.get("start_ts"),
-                    "end_ts": result_data.get("end_ts"),
-                }
-                if result_data.get("cmd"):
-                    ar_record["cmd"] = result_data["cmd"]
-                f.write(json.dumps(ar_record) + "\n")
+        # Handle 0.7.x format (history dict)
+        if "history" in data and isinstance(data["history"], dict):
+            for plugin, result_list in data["history"].items():
+                if not isinstance(result_list, list):
+                    continue
+                for result_data in result_list:
+                    ar_record = {
+                        "type": "ArchiveResult",
+                        "snapshot_id": str(self.id),
+                        "plugin": result_data.get("plugin") or result_data.get("extractor") or plugin,
+                        "status": result_data.get("status", ""),
+                        "output_str": result_data.get("output", ""),
+                        "start_ts": result_data.get("start_ts"),
+                        "end_ts": result_data.get("end_ts"),
+                    }
+                    if result_data.get("cmd"):
+                        ar_record["cmd"] = result_data["cmd"]
+                    records.append(ar_record)
 
-            # Handle 0.7.x format (history dict)
-            if "history" in data and isinstance(data["history"], dict):
-                for plugin, result_list in data["history"].items():
-                    if not isinstance(result_list, list):
-                        continue
-                    for result_data in result_list:
-                        ar_record = {
-                            "type": "ArchiveResult",
-                            "snapshot_id": str(self.id),
-                            "plugin": result_data.get("plugin") or result_data.get("extractor") or plugin,
-                            "status": result_data.get("status", ""),
-                            "output_str": result_data.get("output", ""),
-                            "start_ts": result_data.get("start_ts"),
-                            "end_ts": result_data.get("end_ts"),
-                        }
-                        if result_data.get("cmd"):
-                            ar_record["cmd"] = result_data["cmd"]
-                        f.write(json.dumps(ar_record) + "\n")
+        jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_jsonl_path = jsonl_path.with_name(f".{jsonl_path.name}.tmp")
+        with open(tmp_jsonl_path, "w", encoding="utf-8") as f:
+            f.write("".join(json.dumps(record) + "\n" for record in records))
+        os.replace(tmp_jsonl_path, jsonl_path)
 
         # Remove old index.json after successful conversion
         try:
@@ -1477,7 +1629,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             return current_path
 
         # Check for backwards-compat symlink
-        old_path = CONSTANTS.ARCHIVE_DIR / self.timestamp
+        old_path = get_config().ARCHIVE_DIR / self.timestamp
         if old_path.is_symlink():
             link_target = Path(os.readlink(old_path))
             return (old_path.parent / link_target).resolve() if not link_target.is_absolute() else link_target.resolve()
@@ -1490,7 +1642,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         """Ensure the legacy archive/<timestamp> path resolves to this snapshot."""
         import os
 
-        legacy_path = CONSTANTS.ARCHIVE_DIR / self.timestamp
+        legacy_path = get_config().ARCHIVE_DIR / self.timestamp
         target = Path(self.get_storage_path_for_version(self._fs_current_version()))
 
         if target == legacy_path:
@@ -1515,31 +1667,31 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         except OSError:
             return
 
-    def ensure_crawl_symlink(self) -> None:
+    def ensure_crawl_symlink(self, *, crawl_dir: Path | None = None, snapshot_dir: Path | None = None) -> None:
         """Ensure snapshot is symlinked under its crawl output directory."""
         import os
         from pathlib import Path
-        from django.utils import timezone
-        from archivebox import DATA_DIR
-        from archivebox.crawls.models import Crawl
 
-        if not self.crawl_id:
-            return
-        crawl = Crawl.objects.filter(id=self.crawl_id).select_related("created_by").first()
-        if not crawl:
-            return
+        if crawl_dir is None:
+            if not self.crawl_id:
+                return
+            try:
+                crawl = self.crawl
+            except ObjectDoesNotExist:
+                crawl = None
+            if crawl is None:
+                crawl = Crawl.objects.filter(id=self.crawl_id).select_related("created_by").first()
+            if not crawl:
+                return
+            crawl_dir = Path(crawl.output_dir)
 
-        date_base = crawl.created_at or self.created_at or timezone.now()
-        date_str = date_base.strftime("%Y%m%d")
         domain = self.extract_domain_from_url(self.url)
-        username = crawl.created_by.username if getattr(crawl, "created_by_id", None) else "system"
 
-        crawl_dir = DATA_DIR / "users" / username / "crawls" / date_str / domain / str(crawl.id)
-        link_path = crawl_dir / "snapshots" / domain / str(self.id)
+        link_path = Path(crawl_dir) / CONSTANTS.SNAPSHOTS_DIR_NAME / domain / str(self.id)
         link_parent = link_path.parent
         link_parent.mkdir(parents=True, exist_ok=True)
 
-        target = Path(self.output_dir)
+        target = Path(snapshot_dir) if snapshot_dir is not None else Path(self.output_dir)
         if link_path.exists() or link_path.is_symlink():
             if link_path.is_symlink():
                 if link_path.resolve() == target.resolve():
@@ -1572,14 +1724,11 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             if username == "system":
                 username = "web"
 
-            date_base = self.created_at or self.bookmarked_at
+            date_base = self.bookmarked_at or self.created_at
             if date_base:
                 date_str = date_base.strftime("%Y%m%d")
             else:
-                try:
-                    date_str = datetime.fromtimestamp(float(self.timestamp)).strftime("%Y%m%d")
-                except (TypeError, ValueError, OSError):
-                    return self.legacy_archive_path
+                return self.legacy_archive_path
 
             domain = self.extract_domain_from_url(self.url)
             return f"{username}/{date_str}/{domain}/{self.id}"
@@ -1589,13 +1738,46 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     @cached_property
     def url_path(self) -> str:
         """URL path matching the current snapshot output_dir layout."""
+        output_dir = Path(self.output_dir).resolve()
         try:
-            rel_path = Path(self.output_dir).resolve().relative_to(CONSTANTS.DATA_DIR)
+            rel_users_path = output_dir.relative_to(get_config().USERS_DIR)
+        except Exception:
+            rel_users_path = None
+
+        if rel_users_path:
+            parts = rel_users_path.parts
+            # Configured users root: <username>/snapshots/<YYYYMMDD>/<domain>/<uuid>/
+            if len(parts) >= 5 and parts[1] == CONSTANTS.SNAPSHOTS_DIR_NAME:
+                username = parts[0]
+                if username == "system":
+                    username = "web"
+                date_str = parts[2]
+                domain = parts[3]
+                snapshot_id = parts[4]
+                return f"{username}/{date_str}/{domain}/{snapshot_id}"
+
+        try:
+            rel_path = output_dir.relative_to(CONSTANTS.DATA_DIR)
         except Exception:
             return self.legacy_archive_path
 
         parts = rel_path.parts
-        # New layout: users/<username>/snapshots/<YYYYMMDD>/<domain>/<uuid>/
+        # New layout: archive/users/<username>/snapshots/<YYYYMMDD>/<domain>/<uuid>/
+        if (
+            len(parts) >= 7
+            and parts[0] == CONSTANTS.ARCHIVE_DIR_NAME
+            and parts[1] == CONSTANTS.USERS_DIR_NAME
+            and parts[3] == CONSTANTS.SNAPSHOTS_DIR_NAME
+        ):
+            username = parts[2]
+            if username == "system":
+                username = "web"
+            date_str = parts[4]
+            domain = parts[5]
+            snapshot_id = parts[6]
+            return f"{username}/{date_str}/{domain}/{snapshot_id}"
+
+        # Previous dev layout: users/<username>/snapshots/<YYYYMMDD>/<domain>/<uuid>/
         if len(parts) >= 6 and parts[0] == "users" and parts[2] == "snapshots":
             username = parts[1]
             if username == "system":
@@ -1729,7 +1911,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         import re
         from django.utils import timezone
         from archivebox.base_models.models import get_or_create_system_user_pk
-        from archivebox.config.common import GENERAL_CONFIG
+
+        config = get_config()
 
         overrides = overrides or {}
 
@@ -1781,7 +1964,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             parent_snapshot.created_by.pk if parent_snapshot else get_or_create_system_user_pk()
         )
 
-        # DEBUG: Check if crawl_id in record matches overrides crawl
         import sys
 
         record_crawl_id = record.get("crawl_id")
@@ -1821,7 +2003,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             tag_list = list(dict.fromkeys(tag.strip() for tag in tags_raw if tag.strip()))
         elif tags_raw:
             tag_list = list(
-                dict.fromkeys(tag.strip() for tag in re.split(GENERAL_CONFIG.TAG_SEPARATOR_PATTERN, tags_raw) if tag.strip()),
+                dict.fromkeys(tag.strip() for tag in re.split(config.TAG_SEPARATOR_PATTERN, tags_raw) if tag.strip()),
             )
 
         # Check for existing snapshot with same URL in same crawl
@@ -1830,6 +2012,15 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         title = record.get("title")
         timestamp = record.get("timestamp")
+        timestamp_for_bookmark = Snapshot._select_best_timestamp(index_timestamp=timestamp, folder_name="")
+        try:
+            bookmarked_at = parse_date(record.get("bookmarked_at") or timestamp_for_bookmark)
+        except (TypeError, ValueError, OSError):
+            bookmarked_at = None
+        try:
+            created_at = parse_date(record.get("created_at"))
+        except (TypeError, ValueError, OSError):
+            created_at = None
 
         if snapshot:
             # Update existing snapshot
@@ -1842,12 +2033,17 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 while Snapshot.objects.filter(timestamp=timestamp).exists():
                     timestamp = str(float(timestamp) + 1.0)
 
-            snapshot = Snapshot.objects.create(
-                url=url,
-                timestamp=timestamp,
-                title=title,
-                crawl=crawl,
-            )
+            create_kwargs = {
+                "url": url,
+                "timestamp": timestamp,
+                "title": title,
+                "crawl": crawl,
+            }
+            if bookmarked_at:
+                create_kwargs["bookmarked_at"] = bookmarked_at
+            if created_at:
+                create_kwargs["created_at"] = created_at
+            snapshot = Snapshot.objects.create(**create_kwargs)
 
         # Update tags
         if tag_list:
@@ -1864,8 +2060,10 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             update_fields.extend(["status", "retry_at"])
 
         # Update additional fields if provided
-        for field_name in ("depth", "parent_snapshot_id", "crawl_id", "bookmarked_at"):
+        for field_name in ("depth", "parent_snapshot_id", "crawl_id", "bookmarked_at", "created_at", "downloaded_at"):
             value = record.get(field_name)
+            if field_name in ("bookmarked_at", "created_at", "downloaded_at") and value and isinstance(value, str):
+                value = parse_date(value)
             if value is not None and getattr(snapshot, field_name) != value:
                 setattr(snapshot, field_name, value)
                 update_fields.append(field_name)
@@ -1889,7 +2087,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         This enables step-based execution where all hooks in a step can run in parallel.
         """
         from archivebox.hooks import discover_hooks
-        from archivebox.config.configset import get_config
+        from archivebox.config.common import get_config
 
         # Get merged config with crawl-specific PLUGINS filter
         config = get_config(crawl=self.crawl, snapshot=self)
@@ -2074,10 +2272,9 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
     @cached_property
     def bookmarked_date(self) -> str | None:
-        max_ts = (timezone.now() + timedelta(days=30)).timestamp()
-        if self.timestamp and self.timestamp.replace(".", "").isdigit():
-            if 0 < float(self.timestamp) < max_ts:
-                return self._ts_to_date_str(datetime.fromtimestamp(float(self.timestamp)))
+        if self.bookmarked_at:
+            return self._ts_to_date_str(self.bookmarked_at)
+        if self.timestamp:
             return str(self.timestamp)
         return None
 
@@ -2360,8 +2557,6 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     def write_html_details(self, out_dir: Path | str | None = None) -> None:
         """Write HTML detail page for this snapshot to its output directory"""
         from django.template.loader import render_to_string
-        from archivebox.config.common import SERVER_CONFIG
-        from archivebox.config.configset import get_config
         from archivebox.core.widgets import TagEditorWidget
         from archivebox.misc.logging_util import printable_filesize
 
@@ -2411,7 +2606,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             "status_color": "success" if is_archived else "danger",
             "oldest_archive_date": ts_to_date_str(self.oldest_archive_date),
             "SAVE_ARCHIVE_DOT_ORG": SAVE_ARCHIVE_DOT_ORG,
-            "PREVIEW_ORIGINALS": SERVER_CONFIG.PREVIEW_ORIGINALS,
+            "PREVIEW_ORIGINALS": config.PREVIEW_ORIGINALS,
             "best_preview_path": best_preview_path,
             "best_result": best_result,
             "archiveresults": outputs,

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 from urllib.parse import urlparse
 
-from archivebox.config.common import SERVER_CONFIG
+from archivebox.config.common import get_config
 
 
 _SNAPSHOT_ID_RE = re.compile(r"^[0-9a-fA-F-]{8,36}$")
@@ -35,16 +36,19 @@ def normalize_base_url(value: str | None) -> str:
     return _normalize_base_url(value)
 
 
-def get_listen_host() -> str:
-    return (SERVER_CONFIG.LISTEN_HOST or "").strip()
+def get_listen_host(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    return (config.LISTEN_HOST or "").strip()
 
 
-def get_listen_parts() -> tuple[str, str | None]:
-    return split_host_port(get_listen_host())
+def get_listen_parts(config: dict[str, Any] | None = None, **config_kwargs: Any) -> tuple[str, str | None]:
+    config = config or get_config(**config_kwargs)
+    return split_host_port(get_listen_host(config=config))
 
 
-def _build_listen_host(subdomain: str | None) -> str:
-    host, port = get_listen_parts()
+def _build_listen_host(subdomain: str | None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    host, port = get_listen_parts(config=config)
     if not host:
         return ""
     full_host = f"{subdomain}.{host}" if subdomain else host
@@ -53,34 +57,38 @@ def _build_listen_host(subdomain: str | None) -> str:
     return full_host
 
 
-def get_admin_host() -> str:
-    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
-        return get_listen_host().lower()
-    override = _normalize_base_url(SERVER_CONFIG.ADMIN_BASE_URL)
+def get_admin_host(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    if not config.USES_SUBDOMAIN_ROUTING:
+        return get_listen_host(config=config).lower()
+    override = _normalize_base_url(config.ADMIN_BASE_URL)
     if override:
         return urlparse(override).netloc.lower()
-    return _build_listen_host("admin")
+    return _build_listen_host("admin", config=config)
 
 
-def get_web_host() -> str:
-    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
-        return get_listen_host().lower()
-    override = _normalize_base_url(SERVER_CONFIG.ARCHIVE_BASE_URL)
+def get_web_host(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    if not config.USES_SUBDOMAIN_ROUTING:
+        return get_listen_host(config=config).lower()
+    override = _normalize_base_url(config.ARCHIVE_BASE_URL)
     if override:
         return urlparse(override).netloc.lower()
-    return _build_listen_host("web")
+    return _build_listen_host("web", config=config)
 
 
-def get_api_host() -> str:
-    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
-        return get_listen_host().lower()
-    return _build_listen_host("api")
+def get_api_host(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    if not config.USES_SUBDOMAIN_ROUTING:
+        return get_listen_host(config=config).lower()
+    return _build_listen_host("api", config=config)
 
 
-def get_public_host() -> str:
-    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
-        return get_listen_host().lower()
-    return _build_listen_host("public")
+def get_public_host(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    if not config.USES_SUBDOMAIN_ROUTING:
+        return get_listen_host(config=config).lower()
+    return _build_listen_host("public", config=config)
 
 
 def get_snapshot_subdomain(snapshot_id: str) -> str:
@@ -89,16 +97,18 @@ def get_snapshot_subdomain(snapshot_id: str) -> str:
     return f"snap-{suffix}"
 
 
-def get_snapshot_host(snapshot_id: str) -> str:
-    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
-        return get_listen_host().lower()
-    return _build_listen_host(get_snapshot_subdomain(snapshot_id))
+def get_snapshot_host(snapshot_id: str, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    if not config.USES_SUBDOMAIN_ROUTING:
+        return get_listen_host(config=config).lower()
+    return _build_listen_host(get_snapshot_subdomain(snapshot_id), config=config)
 
 
-def get_original_host(domain: str) -> str:
-    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
-        return get_listen_host().lower()
-    return _build_listen_host(domain)
+def get_original_host(domain: str, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    if not config.USES_SUBDOMAIN_ROUTING:
+        return get_listen_host(config=config).lower()
+    return _build_listen_host(domain, config=config)
 
 
 def is_snapshot_subdomain(subdomain: str) -> bool:
@@ -114,11 +124,12 @@ def get_snapshot_lookup_key(snapshot_ref: str) -> str:
     return value
 
 
-def get_listen_subdomain(request_host: str) -> str:
-    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
+def get_listen_subdomain(request_host: str, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    if not config.USES_SUBDOMAIN_ROUTING:
         return ""
     req_host, req_port = split_host_port(request_host)
-    listen_host, listen_port = get_listen_parts()
+    listen_host, listen_port = get_listen_parts(config=config)
     if not listen_host:
         return ""
     if listen_port and req_port and listen_port != req_port:
@@ -156,73 +167,79 @@ def _build_base_url_for_host(host: str, request=None) -> str:
     return f"{scheme}://{host}"
 
 
-def get_admin_base_url(request=None) -> str:
-    override = _normalize_base_url(SERVER_CONFIG.ADMIN_BASE_URL)
+def get_admin_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    override = _normalize_base_url(config.ADMIN_BASE_URL)
     if override:
         return override
-    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
-        return _build_base_url_for_host(get_listen_host(), request=request)
-    return _build_base_url_for_host(get_admin_host(), request=request)
+    if not config.USES_SUBDOMAIN_ROUTING:
+        return _build_base_url_for_host(get_listen_host(config=config), request=request)
+    return _build_base_url_for_host(get_admin_host(config=config), request=request)
 
 
-def get_web_base_url(request=None) -> str:
-    override = _normalize_base_url(SERVER_CONFIG.ARCHIVE_BASE_URL)
+def get_web_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    override = _normalize_base_url(config.ARCHIVE_BASE_URL)
     if override:
         return override
-    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
-        return _build_base_url_for_host(get_listen_host(), request=request)
-    return _build_base_url_for_host(get_web_host(), request=request)
+    if not config.USES_SUBDOMAIN_ROUTING:
+        return _build_base_url_for_host(get_listen_host(config=config), request=request)
+    return _build_base_url_for_host(get_web_host(config=config), request=request)
 
 
-def get_api_base_url(request=None) -> str:
-    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
-        return _build_base_url_for_host(get_listen_host(), request=request)
-    return _build_base_url_for_host(get_api_host(), request=request)
+def get_api_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    if not config.USES_SUBDOMAIN_ROUTING:
+        return _build_base_url_for_host(get_listen_host(config=config), request=request)
+    return _build_base_url_for_host(get_api_host(config=config), request=request)
 
 
-def get_public_base_url(request=None) -> str:
-    return _build_base_url_for_host(get_public_host(), request=request)
+def get_public_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    return _build_base_url_for_host(get_public_host(config=config), request=request)
 
 
 # Backwards-compat aliases (archive == web)
-def get_archive_base_url(request=None) -> str:
-    return get_web_base_url(request=request)
+def get_archive_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    return get_web_base_url(request=request, config=config, **config_kwargs)
 
 
-def get_snapshot_base_url(snapshot_id: str, request=None) -> str:
-    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
-        return _build_url(get_web_base_url(request=request), f"/snapshot/{snapshot_id}")
-    return _build_base_url_for_host(get_snapshot_host(snapshot_id), request=request)
+def get_snapshot_base_url(snapshot_id: str, request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    if not config.USES_SUBDOMAIN_ROUTING:
+        return _build_url(get_web_base_url(request=request, config=config), f"/snapshot/{snapshot_id}")
+    return _build_base_url_for_host(get_snapshot_host(snapshot_id, config=config), request=request)
 
 
-def get_original_base_url(domain: str, request=None) -> str:
-    if not SERVER_CONFIG.USES_SUBDOMAIN_ROUTING:
-        return _build_url(get_web_base_url(request=request), f"/original/{domain}")
-    return _build_base_url_for_host(get_original_host(domain), request=request)
+def get_original_base_url(domain: str, request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    if not config.USES_SUBDOMAIN_ROUTING:
+        return _build_url(get_web_base_url(request=request, config=config), f"/original/{domain}")
+    return _build_base_url_for_host(get_original_host(domain, config=config), request=request)
 
 
-def build_admin_url(path: str = "", request=None) -> str:
-    return _build_url(get_admin_base_url(request), path)
+def build_admin_url(path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    return _build_url(get_admin_base_url(request, config=config, **config_kwargs), path)
 
 
-def build_web_url(path: str = "", request=None) -> str:
-    return _build_url(get_web_base_url(request), path)
+def build_web_url(path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    return _build_url(get_web_base_url(request, config=config, **config_kwargs), path)
 
 
-def build_api_url(path: str = "", request=None) -> str:
-    return _build_url(get_api_base_url(request), path)
+def build_api_url(path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    return _build_url(get_api_base_url(request, config=config, **config_kwargs), path)
 
 
-def build_archive_url(path: str = "", request=None) -> str:
-    return _build_url(get_archive_base_url(request), path)
+def build_archive_url(path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    return _build_url(get_archive_base_url(request, config=config, **config_kwargs), path)
 
 
-def build_snapshot_url(snapshot_id: str, path: str = "", request=None) -> str:
-    return _build_url(get_snapshot_base_url(snapshot_id, request=request), path)
+def build_snapshot_url(snapshot_id: str, path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    return _build_url(get_snapshot_base_url(snapshot_id, request=request, config=config, **config_kwargs), path)
 
 
-def build_original_url(domain: str, path: str = "", request=None) -> str:
-    return _build_url(get_original_base_url(domain, request=request), path)
+def build_original_url(domain: str, path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    return _build_url(get_original_base_url(domain, request=request, config=config, **config_kwargs), path)
 
 
 def _build_url(base_url: str, path: str) -> str:

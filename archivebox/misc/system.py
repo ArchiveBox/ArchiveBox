@@ -12,7 +12,7 @@ from subprocess import PIPE, Popen, CalledProcessError, CompletedProcess, Timeou
 
 from atomicwrites import atomic_write as lib_atomic_write
 
-from archivebox.config.common import STORAGE_CONFIG
+from archivebox.config.common import get_config
 from archivebox.misc.util import enforce_types, ExtendedEncoder
 
 IS_WINDOWS = os.name == "nt"
@@ -87,7 +87,7 @@ def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, 
 
 
 @enforce_types
-def atomic_write(path: Path | str, contents: dict | str | bytes, overwrite: bool = True) -> None:
+def atomic_write(path: Path | str, contents: dict | str | bytes, overwrite: bool = True, config=None, **config_kwargs) -> None:
     """Safe atomic write to filesystem by writing to temp file + atomic rename"""
 
     mode = "wb+" if isinstance(contents, bytes) else "w"
@@ -101,7 +101,8 @@ def atomic_write(path: Path | str, contents: dict | str | bytes, overwrite: bool
             elif isinstance(contents, (bytes, str)):
                 f.write(contents)
     except OSError as e:
-        if STORAGE_CONFIG.ENFORCE_ATOMIC_WRITES:
+        config = config or get_config(**config_kwargs)
+        if config.ENFORCE_ATOMIC_WRITES:
             print(f"[X] OSError: Failed to write {path} with fcntl.F_FULLFSYNC. ({e})")
             print(
                 "    You can store the archive/ subfolder on a hard drive or network share that doesn't support support synchronous writes,",
@@ -119,11 +120,12 @@ def atomic_write(path: Path | str, contents: dict | str | bytes, overwrite: bool
                 f.write(contents)
 
     # set file permissions
-    os.chmod(path, int(STORAGE_CONFIG.OUTPUT_PERMISSIONS, base=8))
+    config = config or get_config(**config_kwargs)
+    os.chmod(path, int(config.OUTPUT_PERMISSIONS, base=8))
 
 
 @enforce_types
-def chmod_file(path: str, cwd: str = "") -> None:
+def chmod_file(path: str, cwd: str = "", config=None, **config_kwargs) -> None:
     """chmod -R <permissions> <cwd>/<path>"""
 
     root = Path(cwd or os.getcwd()) / path
@@ -132,14 +134,16 @@ def chmod_file(path: str, cwd: str = "") -> None:
 
     if not root.is_dir():
         # path is just a plain file
-        os.chmod(root, int(STORAGE_CONFIG.OUTPUT_PERMISSIONS, base=8))
+        config = config or get_config(**config_kwargs)
+        os.chmod(root, int(config.OUTPUT_PERMISSIONS, base=8))
     else:
+        config = config or get_config(**config_kwargs)
         for subpath in Path(path).glob("**/*"):
             if subpath.is_dir():
                 # directories need execute permissions to be able to list contents
-                os.chmod(subpath, int(STORAGE_CONFIG.DIR_OUTPUT_PERMISSIONS, base=8))
+                os.chmod(subpath, int(config.DIR_OUTPUT_PERMISSIONS, base=8))
             else:
-                os.chmod(subpath, int(STORAGE_CONFIG.OUTPUT_PERMISSIONS, base=8))
+                os.chmod(subpath, int(config.OUTPUT_PERMISSIONS, base=8))
 
 
 @enforce_types

@@ -8,9 +8,10 @@ from enum import Enum
 from django.http import HttpRequest
 
 from ninja import Router, Schema
+from pydantic import Field
 
 from archivebox.misc.util import ansi_to_html
-from archivebox.config.common import ARCHIVING_CONFIG
+from archivebox.config.common import get_config
 
 
 # from .auth import API_AUTH_METHODS
@@ -61,7 +62,7 @@ class AddCommandSchema(Schema):
     depth: int = 0
     parser: str = "auto"
     plugins: str = ""
-    update: bool = not ARCHIVING_CONFIG.ONLY_NEW  # Default to the opposite of ARCHIVING_CONFIG.ONLY_NEW
+    update: bool = Field(default_factory=lambda: not get_config().ONLY_NEW)
     overwrite: bool = False
     index_only: bool = False
 
@@ -87,7 +88,7 @@ class ScheduleCommandSchema(Schema):
     tag: str = ""
     depth: int = 0
     overwrite: bool = False
-    update: bool = not ARCHIVING_CONFIG.ONLY_NEW
+    update: bool = Field(default_factory=lambda: not get_config().ONLY_NEW)
     clear: bool = False
 
 

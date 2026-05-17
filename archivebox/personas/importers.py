@@ -603,13 +603,13 @@ def export_browser_state(
         return False, None, "Missing browser source."
 
     from abx_plugins import get_plugins_dir
-    from archivebox.config.common import STORAGE_CONFIG
+    from archivebox.config.common import get_config
 
     state_script = Path(__file__).with_name("export_browser_state.js")
     if not state_script.exists():
         return False, None, f"Browser state export script not found at {state_script}"
 
-    node_modules_dir = STORAGE_CONFIG.LIB_DIR / "npm" / "node_modules"
+    node_modules_dir = get_config().LIB_DIR / "npm" / "node_modules"
     chrome_plugin_dir = Path(get_plugins_dir()).resolve()
 
     env = os.environ.copy()

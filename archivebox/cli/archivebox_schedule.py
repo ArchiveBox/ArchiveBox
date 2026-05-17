@@ -6,7 +6,7 @@ import rich_click as click
 from rich import print
 
 from archivebox.misc.util import enforce_types, docstring
-from archivebox.config.common import ARCHIVING_CONFIG
+from archivebox.config.common import get_config
 
 
 @enforce_types
@@ -21,7 +21,7 @@ def schedule(
     tag: str = "",
     depth: int | str = 0,
     overwrite: bool = False,
-    update: bool = not ARCHIVING_CONFIG.ONLY_NEW,
+    update: bool | None = None,
     import_path: str | None = None,
 ):
     """Manage database-backed scheduled crawls processed by the crawl runner."""
@@ -32,6 +32,9 @@ def schedule(
     from archivebox.crawls.models import Crawl, CrawlSchedule
     from archivebox.crawls.schedule_utils import validate_schedule
     from archivebox.services.runner import run_pending_crawls
+
+    if update is None:
+        update = not get_config().ONLY_NEW
 
     depth = int(depth)
     result: dict[str, object] = {

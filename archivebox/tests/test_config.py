@@ -106,6 +106,30 @@ def test_config_invalid_key_fails(tmp_path, process):
     assert result.returncode != 0 or "failed" in result.stdout.lower()
 
 
+def test_config_ignores_legacy_unknown_keys(tmp_path, process):
+    """Old ArchiveBox.conf keys should not prevent startup during upgrades."""
+    os.chdir(tmp_path)
+    (tmp_path / "ArchiveBox.conf").write_text(
+        """
+[ARCHIVING_CONFIG]
+MAX_MEDIA_SIZE = "750m"
+
+[SEARCH_BACKEND_CONFIG]
+SEARCH_BACKEND_HOST_NAME = "sonic"
+SEARCH_BACKEND_PASSWORD = "SecretPassword"
+""",
+    )
+
+    result = subprocess.run(
+        ["archivebox", "version"],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Extra inputs are not permitted" not in result.stderr
+
+
 def test_config_set_requires_equals_sign(tmp_path, process):
     """Test that --set requires KEY=VALUE format."""
     os.chdir(tmp_path)

@@ -252,7 +252,6 @@ def test_live_config_value_view_renames_source_field_and_uses_plugin_definition_
     request.user = SimpleNamespace(is_superuser=True)
 
     monkeypatch.setattr(core_views, "get_all_configs", lambda: {})
-    monkeypatch.setattr(core_views, "get_flat_config", lambda: {})
     monkeypatch.setattr(core_views, "get_config", lambda: {"PARSE_DOM_OUTLINKS_ENABLED": True})
     monkeypatch.setattr(core_views, "find_config_default", lambda key: "True")
     monkeypatch.setattr(core_views, "find_config_type", lambda key: "bool")
@@ -308,7 +307,6 @@ def test_live_config_value_view_priority_text_matches_runtime_precedence(monkeyp
     request.user = SimpleNamespace(is_superuser=True)
 
     monkeypatch.setattr(core_views, "get_all_configs", lambda: {})
-    monkeypatch.setattr(core_views, "get_flat_config", lambda: {"CHECK_SSL_VALIDITY": True})
     monkeypatch.setattr(core_views, "get_config", lambda: {"CHECK_SSL_VALIDITY": False})
     monkeypatch.setattr(core_views, "find_config_default", lambda key: "True")
     monkeypatch.setattr(core_views, "find_config_type", lambda key: "bool")

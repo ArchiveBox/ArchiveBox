@@ -28,13 +28,24 @@ def config(
 
     from archivebox.misc.checks import check_data_folder
     from archivebox.misc.logging_util import printable_config
-    from archivebox.config.collection import load_all_config, write_config_file, get_real_name
-    from archivebox.config.configset import get_flat_config, get_all_configs
+    from abx_plugins.plugins.base.utils import resolve_alias
+    from archivebox.config.collection import write_config_file
+    from archivebox.config.common import ArchiveBoxConfig, get_config, get_all_configs
+    from archivebox.hooks import discover_plugin_configs
 
     check_data_folder()
 
-    FLAT_CONFIG = get_flat_config()
+    FLAT_CONFIG = get_config().as_dict()
     CONFIGS = get_all_configs()
+    plugin_schemas = {
+        plugin_name: schema.get("properties", {}) for plugin_name, schema in discover_plugin_configs().items() if isinstance(schema, dict)
+    }
+    core_config_aliases = {
+        alias.upper(): field_name
+        for field_name, field in ArchiveBoxConfig.model_fields.items()
+        for alias in (field_name, str(field.alias or ""))
+        if alias
+    }
 
     config_options: list[str] = list(kwargs.pop("key=value", []) or keys or [f"{key}={val}" for key, val in kwargs.items()])
     no_args = not (get or set or reset or config_options)
@@ -42,7 +53,9 @@ def config(
     matching_config = {}
     if search:
         if config_options:
-            config_options = [get_real_name(key) for key in config_options]
+            config_options = [
+                core_config_aliases.get(key.upper().strip()) or resolve_alias(key.upper().strip(), plugin_schemas) for key in config_options
+            ]
             matching_config = {key: FLAT_CONFIG[key] for key in config_options if key in FLAT_CONFIG}
             for config_section in CONFIGS.values():
                 aliases = getattr(config_section, "aliases", {})
@@ -63,7 +76,9 @@ def config(
 
     elif get or no_args:
         if config_options:
-            config_options = [get_real_name(key) for key in config_options]
+            config_options = [
+                core_config_aliases.get(key.upper().strip()) or resolve_alias(key.upper().strip(), plugin_schemas) for key in config_options
+            ]
             matching_config = {key: FLAT_CONFIG[key] for key in config_options if key in FLAT_CONFIG}
             failed_config = [key for key in config_options if key not in FLAT_CONFIG]
             if failed_config:
@@ -85,17 +100,11 @@ def config(
             print(_format_toml(kv_in_section))
             print("[grey53]################################################################[/grey53]")
 
-        # Display plugin config section
-        from archivebox.hooks import discover_plugin_configs
-
-        plugin_configs = discover_plugin_configs()
         plugin_keys = {}
 
         # Collect all plugin config keys
-        for plugin_name, schema in plugin_configs.items():
-            if "properties" not in schema:
-                continue
-            for key in schema["properties"].keys():
+        for schema in plugin_schemas.values():
+            for key in schema.keys():
                 if key in matching_config:
                     plugin_keys[key] = matching_config[key]
 
@@ -120,7 +129,7 @@ def config(
 
             raw_key, val = line.split("=", 1)
             raw_key = raw_key.upper().strip()
-            key = get_real_name(raw_key)
+            key = core_config_aliases.get(raw_key) or resolve_alias(raw_key, plugin_schemas)
             if key != raw_key:
                 print(
                     f"[yellow][i] Note: The config option {raw_key} has been renamed to {key}, please use the new name going forwards.[/yellow]",
@@ -134,7 +143,7 @@ def config(
         if new_config:
             before = FLAT_CONFIG
             matching_config = write_config_file(new_config)
-            after = {**load_all_config(), **get_flat_config()}
+            after = get_config().as_dict()
             print(printable_config(matching_config))
 
             side_effect_changes = {}

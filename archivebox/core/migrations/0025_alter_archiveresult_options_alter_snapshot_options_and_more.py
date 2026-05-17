@@ -140,7 +140,7 @@ class Migration(migrations.Migration):
             name="retry_at",
             field=models.DateTimeField(blank=True, db_index=True, default=django.utils.timezone.now, null=True),
         ),
-        # NOTE: bookmarked_at and created_at already added by migration 0023
+        # NOTE: bookmarked_at, created_at, and downloaded_at already added by migration 0023
         migrations.AddField(
             model_name="snapshot",
             name="config",
@@ -160,11 +160,8 @@ class Migration(migrations.Migration):
             name="depth",
             field=models.PositiveSmallIntegerField(db_index=True, default=0),
         ),
-        migrations.AddField(
-            model_name="snapshot",
-            name="downloaded_at",
-            field=models.DateTimeField(blank=True, db_index=True, default=None, editable=False, null=True),
-        ),
+        # NOTE: downloaded_at already added by migration 0023 so it can preserve
+        # v0.7.x updated / v0.8.x downloaded_at values without a duplicate table rebuild.
         # NOTE: fs_version already added by migration 0023 with default='0.8.0'
         # NOTE: modified_at already added by migration 0023
         migrations.AddField(

@@ -158,7 +158,7 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
     failed_results = [(url, plugin, output) for url, plugin, status, _files, _size, output in archive_results if status == "failed"]
     assert len(failed_results) <= 2, failed_results
 
-    snapshot_root = tmp_path / "users/system/snapshots"
+    snapshot_root = tmp_path / "archive/users/system/snapshots"
     html_outputs = [path for path in snapshot_root.rglob("wget/**/*.html") if path.is_file()]
     header_outputs = [path for path in snapshot_root.rglob("headers/**/headers.json") if path.is_file() and path.stat().st_size > 0]
     title_outputs = [path for path in snapshot_root.rglob("title/title.txt") if path.is_file() and path.stat().st_size > 0]
@@ -257,6 +257,6 @@ def test_cli_recursive_crawl_processes_discovered_html_urls(tmp_path, process):
     assert by_url_plugin[("https://example.com", "parse_html_urls")] == "succeeded"
     assert by_url_plugin[("https://iana.org/domains/example", "wget")] == "succeeded"
 
-    urls_outputs = list((tmp_path / "users/system/snapshots").rglob("parse_html_urls/urls.jsonl"))
+    urls_outputs = list((tmp_path / "archive/users/system/snapshots").rglob("parse_html_urls/urls.jsonl"))
     assert urls_outputs
     assert any("https://iana.org/domains/example" in path.read_text() for path in urls_outputs)

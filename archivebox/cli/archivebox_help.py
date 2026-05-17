@@ -15,6 +15,7 @@ def help() -> None:
 
     from archivebox.cli import ArchiveBoxGroup
     from archivebox.config import CONSTANTS
+    from archivebox.config.common import get_config
     from archivebox.config.permissions import IN_DOCKER
     from archivebox.misc.logging_util import log_cli_command
 
@@ -67,7 +68,8 @@ def help() -> None:
     [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration]https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration[/link]
 """)
 
-    if os.access(CONSTANTS.ARCHIVE_DIR, os.R_OK) and CONSTANTS.ARCHIVE_DIR.is_dir():
+    config = get_config()
+    if os.access(config.ARCHIVE_DIR, os.R_OK) and config.ARCHIVE_DIR.is_dir():
         pretty_out_dir = str(CONSTANTS.DATA_DIR).replace(str(Path("~").expanduser()), "~")
         EXAMPLE_USAGE = f"""
 [light_slate_blue]DATA DIR[/light_slate_blue]: [yellow]{pretty_out_dir}[/yellow]

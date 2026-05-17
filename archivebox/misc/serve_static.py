@@ -23,7 +23,7 @@ from django.http import StreamingHttpResponse, Http404, HttpResponse, HttpRespon
 from django.utils._os import safe_join
 from django.utils.http import http_date
 from django.utils.translation import gettext as _
-from archivebox.config.common import SERVER_CONFIG
+from archivebox.config.common import get_config
 from archivebox.misc.logging_util import printable_filesize
 
 
@@ -60,8 +60,9 @@ def _hash_for_path(document_root: Path, rel_path: str) -> str | None:
     return file_map.get(rel_path)
 
 
-def _cache_policy() -> str:
-    return "public" if SERVER_CONFIG.PUBLIC_SNAPSHOTS else "private"
+def _cache_policy(config=None, **config_kwargs) -> str:
+    config = config or get_config(**config_kwargs)
+    return "public" if config.PUBLIC_SNAPSHOTS else "private"
 
 
 def _format_direntry_timestamp(stat_result: os.stat_result) -> str:
@@ -604,14 +605,23 @@ def _is_risky_replay_document(fullpath: Path, content_type: str) -> bool:
     return any(marker in head for marker in RISKY_REPLAY_MARKERS)
 
 
-def _apply_archive_replay_headers(response: HttpResponse, *, fullpath: Path, content_type: str, is_archive_replay: bool) -> HttpResponse:
+def _apply_archive_replay_headers(
+    response: HttpResponse,
+    *,
+    fullpath: Path,
+    content_type: str,
+    is_archive_replay: bool,
+    config=None,
+    **config_kwargs,
+) -> HttpResponse:
     if not is_archive_replay:
         return response
 
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-ArchiveBox-Security-Mode", SERVER_CONFIG.SERVER_SECURITY_MODE)
+    config = config or get_config(**config_kwargs)
+    response.headers.setdefault("X-ArchiveBox-Security-Mode", config.SERVER_SECURITY_MODE)
 
-    if SERVER_CONFIG.SHOULD_NEUTER_RISKY_REPLAY and _is_risky_replay_document(fullpath, content_type):
+    if config.SHOULD_NEUTER_RISKY_REPLAY and _is_risky_replay_document(fullpath, content_type):
         response.headers["Content-Security-Policy"] = (
             "sandbox; "
             "default-src 'self' data: blob:; "

@@ -49,6 +49,9 @@ typings/
 tmp/
 data/
 data*/
+-
+personas/
+sources/
 output/
 index.sqlite3
 index.sqlite3-wal

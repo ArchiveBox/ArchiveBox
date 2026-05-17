@@ -5,7 +5,6 @@ __package__ = "archivebox.cli"
 import os
 import sys
 from pathlib import Path
-from collections.abc import Mapping
 
 from rich import print
 import rich_click as click
@@ -13,17 +12,13 @@ import rich_click as click
 from archivebox.misc.util import docstring, enforce_types
 
 
-def _normalize_snapshot_record(link_dict: Mapping[str, object]) -> tuple[str, dict[str, object]] | None:
-    url = link_dict.get("url")
-    if not isinstance(url, str) or not url:
-        return None
-
-    record: dict[str, object] = {"url": url}
-    for key in ("timestamp", "title", "tags", "sources"):
-        value = link_dict.get(key)
-        if value is not None:
-            record[key] = value
-    return url, record
+def _display_data_path(path: Path, data_dir: Path) -> str:
+    path = Path(path).resolve()
+    data_dir = Path(data_dir).resolve()
+    try:
+        return f"./{path.relative_to(data_dir)}"
+    except ValueError:
+        return str(path)
 
 
 @enforce_types
@@ -31,10 +26,11 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
     """Initialize a new ArchiveBox collection in the current directory"""
 
     from archivebox.config import CONSTANTS, VERSION, DATA_DIR
-    from archivebox.config.common import SERVER_CONFIG
+    from archivebox.config.common import get_config
     from archivebox.config.collection import write_config_file
-    from archivebox.misc.legacy import parse_json_main_index, parse_json_links_details
     from archivebox.misc.db import apply_migrations
+
+    config = get_config()
 
     # if os.access(out_dir / CONSTANTS.JSON_INDEX_FILENAME, os.F_OK):
     #     print("[red]:warning: This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.[/red]", file=sys.stderr)
@@ -68,14 +64,16 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
     else:
         print("\n[green][+] Building archive folder structure...[/green]")
 
-    print(
-        f"    + ./{CONSTANTS.ARCHIVE_DIR.relative_to(DATA_DIR)}, ./{CONSTANTS.SOURCES_DIR.relative_to(DATA_DIR)}, ./{CONSTANTS.LOGS_DIR.relative_to(DATA_DIR)}...",
-    )
+    archive_path = _display_data_path(config.ARCHIVE_DIR, DATA_DIR)
+    sources_path = _display_data_path(CONSTANTS.SOURCES_DIR, DATA_DIR)
+    logs_path = _display_data_path(CONSTANTS.LOGS_DIR, DATA_DIR)
+    print(f"    + {archive_path}, {sources_path}, {logs_path}...")
     Path(CONSTANTS.SOURCES_DIR).mkdir(exist_ok=True)
-    Path(CONSTANTS.ARCHIVE_DIR).mkdir(exist_ok=True)
+    config.ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+    config.USERS_DIR.mkdir(parents=True, exist_ok=True)
     Path(CONSTANTS.LOGS_DIR).mkdir(exist_ok=True)
 
-    print(f"    + ./{CONSTANTS.CONFIG_FILE.relative_to(DATA_DIR)}...")
+    print(f"    + {_display_data_path(CONSTANTS.CONFIG_FILE, DATA_DIR)}...")
 
     # create the .archivebox_id file with a unique ID for this collection
     from archivebox.config.paths import _get_collection_id
@@ -83,7 +81,7 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
     _get_collection_id(DATA_DIR, force_create=True)
 
     # create the ArchiveBox.conf file
-    write_config_file({"SECRET_KEY": SERVER_CONFIG.SECRET_KEY})
+    write_config_file({"SECRET_KEY": config.SECRET_KEY})
 
     if os.access(CONSTANTS.DATABASE_FILE, os.F_OK):
         print("\n[green][*] Verifying main SQL index and running any migrations needed...[/green]")
@@ -99,11 +97,9 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
 
     assert os.path.isfile(CONSTANTS.DATABASE_FILE) and os.access(CONSTANTS.DATABASE_FILE, os.R_OK)
     print()
-    print(f"    √ ./{CONSTANTS.DATABASE_FILE.relative_to(DATA_DIR)}")
+    print(f"    √ {_display_data_path(CONSTANTS.DATABASE_FILE, DATA_DIR)}")
 
     # from django.contrib.auth.models import User
-    # if SHELL_CONFIG.IS_TTY and not User.objects.filter(is_superuser=True).exclude(username='system').exists():
-    #     print('{green}[+] Creating admin user account...{reset}'.format(**SHELL_CONFIG.ANSI))
     #     call_command("createsuperuser", interactive=True)
 
     print()
@@ -111,86 +107,44 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
 
     from archivebox.core.models import Snapshot
 
-    all_links = Snapshot.objects.none()
-    pending_links: dict[str, dict[str, object]] = {}
+    snapshot_count = 0
 
     if existing_index:
-        all_links = Snapshot.objects.all()
-        print(f"    √ Loaded {all_links.count()} links from existing main index.")
+        snapshot_count = Snapshot.objects.count()
+        print(f"    √ Loaded {snapshot_count} links from existing main index.")
 
-    if quick:
-        print("    > Skipping orphan snapshot import (quick mode)")
-    else:
-        try:
-            # Import orphaned links from legacy JSON indexes
-            orphaned_json_links: dict[str, dict[str, object]] = {}
-            for link_dict in parse_json_main_index(DATA_DIR):
-                normalized = _normalize_snapshot_record(link_dict)
-                if normalized is None:
-                    continue
-                url, record = normalized
-                if not all_links.filter(url=url).exists():
-                    orphaned_json_links[url] = record
-            if orphaned_json_links:
-                pending_links.update(orphaned_json_links)
-                print(f"    [yellow]√ Added {len(orphaned_json_links)} orphaned links from existing JSON index...[/yellow]")
-
-            orphaned_data_dir_links: dict[str, dict[str, object]] = {}
-            for link_dict in parse_json_links_details(DATA_DIR):
-                normalized = _normalize_snapshot_record(link_dict)
-                if normalized is None:
-                    continue
-                url, record = normalized
-                if not all_links.filter(url=url).exists():
-                    orphaned_data_dir_links[url] = record
-            if orphaned_data_dir_links:
-                pending_links.update(orphaned_data_dir_links)
-                print(f"    [yellow]√ Added {len(orphaned_data_dir_links)} orphaned links from existing archive directories.[/yellow]")
-
-            if pending_links:
-                for link_dict in pending_links.values():
-                    Snapshot.from_json(link_dict)
-
-            # Hint for orphaned snapshot directories
-            print()
-            print("    [violet]Hint:[/violet] To import orphaned snapshot directories and reconcile filesystem state, run:")
-            print("        archivebox update")
-
-        except (KeyboardInterrupt, SystemExit):
-            print(file=sys.stderr)
-            print("[yellow]:stop_sign: Stopped checking archive directories due to Ctrl-C/SIGTERM[/yellow]", file=sys.stderr)
-            print("    Your archive data is safe, but you should re-run `archivebox init` to finish the process later.", file=sys.stderr)
-            print(file=sys.stderr)
-            print("    [violet]Hint:[/violet] In the future you can run a quick init without checking dirs like so:", file=sys.stderr)
-            print("        archivebox init --quick", file=sys.stderr)
-            raise SystemExit(1)
+    print("    > Skipping orphan snapshot import during init.")
+    print()
+    print("    [violet]Hint:[/violet] To import orphaned snapshot directories and reconcile filesystem state, run:")
+    print("        archivebox update")
 
     print("\n[green]----------------------------------------------------------------------[/green]")
 
     from django.contrib.auth.models import User
 
-    if (SERVER_CONFIG.ADMIN_USERNAME and SERVER_CONFIG.ADMIN_PASSWORD) and not User.objects.filter(
-        username=SERVER_CONFIG.ADMIN_USERNAME,
+    config = get_config()
+    if (config.ADMIN_USERNAME and config.ADMIN_PASSWORD) and not User.objects.filter(
+        username=config.ADMIN_USERNAME,
     ).exists():
         print("[green][+] Found ADMIN_USERNAME and ADMIN_PASSWORD configuration options, creating new admin user.[/green]")
-        User.objects.create_superuser(username=SERVER_CONFIG.ADMIN_USERNAME, password=SERVER_CONFIG.ADMIN_PASSWORD)
+        User.objects.create_superuser(username=config.ADMIN_USERNAME, password=config.ADMIN_PASSWORD)
 
     if existing_index:
         print("[green][√] Done. Verified and updated the existing ArchiveBox collection.[/green]")
     else:
-        print(f"[green][√] Done. A new ArchiveBox collection was initialized ({len(all_links) + len(pending_links)} links).[/green]")
+        print(f"[green][√] Done. A new ArchiveBox collection was initialized ({snapshot_count} links).[/green]")
 
     CONSTANTS.PERSONAS_DIR.mkdir(parents=True, exist_ok=True)
     CONSTANTS.DEFAULT_TMP_DIR.mkdir(parents=True, exist_ok=True)
     CONSTANTS.DEFAULT_LIB_DIR.mkdir(parents=True, exist_ok=True)
     (CONSTANTS.DEFAULT_LIB_DIR / "bin").mkdir(parents=True, exist_ok=True)
 
-    from archivebox.config.common import STORAGE_CONFIG
     from archivebox.config.paths import get_or_create_working_tmp_dir, get_or_create_working_lib_dir
 
-    STORAGE_CONFIG.TMP_DIR.mkdir(parents=True, exist_ok=True)
-    STORAGE_CONFIG.LIB_DIR.mkdir(parents=True, exist_ok=True)
-    (STORAGE_CONFIG.LIB_DIR / "bin").mkdir(parents=True, exist_ok=True)
+    config = get_config()
+    config.TMP_DIR.mkdir(parents=True, exist_ok=True)
+    config.LIB_DIR.mkdir(parents=True, exist_ok=True)
+    (config.LIB_DIR / "bin").mkdir(parents=True, exist_ok=True)
 
     working_tmp_dir = get_or_create_working_tmp_dir(autofix=True, quiet=True)
     if working_tmp_dir:

@@ -81,7 +81,7 @@ LOADED_PLUGINS = ALL_PLUGINS
 
 # Setup basic config, constants, paths, and version
 from .config.constants import CONSTANTS  # noqa
-from .config.paths import PACKAGE_DIR, DATA_DIR, ARCHIVE_DIR  # noqa
+from .config.paths import PACKAGE_DIR, DATA_DIR  # noqa
 from .config.version import VERSION  # noqa
 
 # Set MACHINE_ID env var so hook scripts can use it

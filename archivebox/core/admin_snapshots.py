@@ -15,7 +15,7 @@ from django.template import Template, RequestContext
 from django.contrib.admin.helpers import ActionForm
 
 from archivebox.config import DATA_DIR
-from archivebox.config.common import SERVER_CONFIG
+from archivebox.config.common import get_config
 from archivebox.misc.util import htmldecode, urldecode
 from archivebox.misc.paginators import AcceleratedPaginator
 from archivebox.misc.logging_util import printable_filesize
@@ -248,7 +248,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     ordering = ["-created_at"]
     actions = ["add_tags", "remove_tags", "resnapshot_snapshot", "update_snapshots", "overwrite_snapshots", "delete_snapshots"]
     inlines = []  # Removed TagInline, using TagEditorWidget instead
-    list_per_page = min(max(5, SERVER_CONFIG.SNAPSHOTS_PER_PAGE), 5000)
+    list_per_page = min(max(5, get_config().SNAPSHOTS_PER_PAGE), 5000)
 
     action_form = SnapshotActionForm
     paginator = AcceleratedPaginator
@@ -897,7 +897,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return None
 
     def _get_expected_hook_total(self, obj) -> int:
-        from archivebox.config.configset import get_config
+        from archivebox.config.common import get_config
 
         try:
             config = get_config(crawl=obj.crawl, snapshot=obj)
@@ -976,7 +976,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         # Monkey patch here plus core_tags.py
         admin_cls.change_list_template = "private_index_grid.html"
-        admin_cls.list_per_page = SERVER_CONFIG.SNAPSHOTS_PER_PAGE
+        admin_cls.list_per_page = get_config().SNAPSHOTS_PER_PAGE
         admin_cls.list_max_show_all = admin_cls.list_per_page
 
         # Call monkey patched view

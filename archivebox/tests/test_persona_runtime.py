@@ -196,7 +196,7 @@ def test_get_config_raises_for_missing_persona_id(initialized_archive):
         import django
         django.setup()
 
-        from archivebox.config.configset import get_config
+        from archivebox.config.common import get_config
         from archivebox.crawls.models import Crawl
         from archivebox.personas.models import Persona
 

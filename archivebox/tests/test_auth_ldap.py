@@ -17,20 +17,21 @@ class TestLDAPConfig(unittest.TestCase):
 
     def test_ldap_config_defaults(self):
         """Test that LDAP config loads with correct defaults."""
-        from archivebox.config.ldap import LDAP_CONFIG
+        from archivebox.config.common import get_config
 
         # Check default values
-        self.assertFalse(LDAP_CONFIG.LDAP_ENABLED)
-        self.assertIsNone(LDAP_CONFIG.LDAP_SERVER_URI)
-        self.assertIsNone(LDAP_CONFIG.LDAP_BIND_DN)
-        self.assertIsNone(LDAP_CONFIG.LDAP_BIND_PASSWORD)
-        self.assertIsNone(LDAP_CONFIG.LDAP_USER_BASE)
-        self.assertEqual(LDAP_CONFIG.LDAP_USER_FILTER, "(uid=%(user)s)")
-        self.assertEqual(LDAP_CONFIG.LDAP_USERNAME_ATTR, "username")
-        self.assertEqual(LDAP_CONFIG.LDAP_FIRSTNAME_ATTR, "givenName")
-        self.assertEqual(LDAP_CONFIG.LDAP_LASTNAME_ATTR, "sn")
-        self.assertEqual(LDAP_CONFIG.LDAP_EMAIL_ATTR, "mail")
-        self.assertFalse(LDAP_CONFIG.LDAP_CREATE_SUPERUSER)
+        config = get_config()
+        self.assertFalse(config.LDAP_ENABLED)
+        self.assertIsNone(config.LDAP_SERVER_URI)
+        self.assertIsNone(config.LDAP_BIND_DN)
+        self.assertIsNone(config.LDAP_BIND_PASSWORD)
+        self.assertIsNone(config.LDAP_USER_BASE)
+        self.assertEqual(config.LDAP_USER_FILTER, "(uid=%(user)s)")
+        self.assertEqual(config.LDAP_USERNAME_ATTR, "username")
+        self.assertEqual(config.LDAP_FIRSTNAME_ATTR, "givenName")
+        self.assertEqual(config.LDAP_LASTNAME_ATTR, "sn")
+        self.assertEqual(config.LDAP_EMAIL_ATTR, "mail")
+        self.assertFalse(config.LDAP_CREATE_SUPERUSER)
 
     def test_ldap_config_validation_disabled(self):
         """Test that validation passes when LDAP is disabled."""
@@ -74,10 +75,10 @@ class TestLDAPConfig(unittest.TestCase):
         self.assertEqual(error_msg, "")
 
     def test_ldap_config_in_get_config(self):
-        """Test that LDAP_CONFIG is included in get_CONFIG()."""
-        from archivebox.config import get_CONFIG
+        """Test that LDAP_CONFIG is included in the typed config sections."""
+        from archivebox.config.common import get_all_configs
 
-        all_config = get_CONFIG()
+        all_config = get_all_configs()
         self.assertIn("LDAP_CONFIG", all_config)
         self.assertEqual(all_config["LDAP_CONFIG"].__class__.__name__, "LDAPConfig")
 

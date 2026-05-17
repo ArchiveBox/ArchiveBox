@@ -45,12 +45,12 @@ __package__ = "archivebox"
 
 import os
 import json
+from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Optional, Protocol, TypeGuard, TypedDict
 
 from abx_plugins import get_plugins_dir
-from django.conf import settings
 from django.utils.safestring import mark_safe
 from archivebox.config.constants import CONSTANTS
 from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
@@ -59,10 +59,38 @@ if TYPE_CHECKING:
     from archivebox.machine.models import Process
 
 
+class ConfigLookup(Protocol):
+    def get(self, key: str, default: Any = None) -> Any: ...
+
+    def items(self) -> Iterable[tuple[str, Any]]: ...
+
+
+class PluginSpecialConfig(TypedDict):
+    enabled: bool
+    timeout: int
+    binary: str
+
+
+class ConfigDump(Protocol):
+    def as_dict(self) -> dict[str, Any]: ...
+
+
+def _has_config_dump(config: object) -> TypeGuard[ConfigDump]:
+    return callable(getattr(config, "as_dict", None))
+
+
+def _config_to_overrides(config: ConfigLookup | Mapping[str, Any] | None) -> dict[str, Any]:
+    if config is None:
+        return {}
+    if _has_config_dump(config):
+        return dict(config.as_dict())
+    return dict(config.items())
+
+
 # Plugin directories
 BUILTIN_PLUGINS_DIR = Path(get_plugins_dir()).resolve()
 USER_PLUGINS_DIR = Path(
-    os.environ.get("ARCHIVEBOX_USER_PLUGINS_DIR") or getattr(settings, "USER_PLUGINS_DIR", "") or str(CONSTANTS.USER_PLUGINS_DIR),
+    os.environ.get("ARCHIVEBOX_USER_PLUGINS_DIR") or str(CONSTANTS.USER_PLUGINS_DIR),
 ).expanduser()
 
 
@@ -147,10 +175,30 @@ class HookResult(TypedDict, total=False):
     records: list[dict[str, Any]]  # Parsed JSONL records with 'type' field
 
 
+def _model_output_dir_from_child_path(path: Path, marker: str) -> Path | None:
+    """
+    Infer the model output dir from a model dir or one of its plugin subdirs.
+
+    Current ArchiveBox snapshot/crawl dirs are:
+        .../{snapshots,crawls}/YYYYMMDD/domain/uuid[/plugin]
+    """
+    parts = path.resolve().parts
+    try:
+        marker_index = parts.index(marker)
+    except ValueError:
+        return None
+
+    model_end_index = marker_index + 4
+    if len(parts) < model_end_index:
+        return None
+    return Path(*parts[:model_end_index])
+
+
 def discover_hooks(
     event_name: str,
     filter_disabled: bool = True,
-    config: dict[str, Any] | None = None,
+    config: ConfigLookup | None = None,
+    **config_kwargs: Any,
 ) -> list[Path]:
     """
     Find all hook scripts for an event family.
@@ -170,15 +218,15 @@ def discover_hooks(
             Event names are normalized by stripping a trailing `Event`.
             If no matching `on_{EventFamily}__*` scripts exist, returns [].
         filter_disabled: If True, skip hooks from disabled plugins (default: True)
-        config: Optional config dict from get_config() (merges file, env, machine, crawl, snapshot)
-                If None, will call get_config() with global scope
+        config: Optional pre-merged config dict from get_config().
+        **config_kwargs: Scope/override args forwarded to get_config() when config is not supplied.
 
     Returns:
         Sorted list of hook script paths from enabled plugins only.
 
     Examples:
         # With proper config context (recommended):
-        from archivebox.config.configset import get_config
+        from archivebox.config.common import get_config
         config = get_config(crawl=my_crawl, snapshot=my_snapshot)
         discover_hooks('Snapshot', config=config)
         # Returns: [Path('.../on_Snapshot__10_title.py'), ...] (wget excluded if SAVE_WGET=False)
@@ -217,9 +265,9 @@ def discover_hooks(
     if filter_disabled and hook_event_name != "BinaryRequest":
         # Get merged config if not provided (lazy import to avoid circular dependency)
         if config is None:
-            from archivebox.config.configset import get_config
+            from archivebox.config.common import get_config
 
-            config = get_config()
+            config = get_config(**config_kwargs)
 
         enabled_hooks = []
 
@@ -250,7 +298,7 @@ def discover_hooks(
 def run_hook(
     script: Path,
     output_dir: Path,
-    config: dict[str, Any],
+    config: ConfigLookup | Mapping[str, Any] | None = None,
     timeout: int | None = None,
     parent: Optional["Process"] = None,
     **kwargs: Any,
@@ -267,7 +315,8 @@ def run_hook(
     Args:
         script: Path to the hook script (.sh, .py, or .js)
         output_dir: Working directory for the script (where output files go)
-        config: Merged config dict from get_config(crawl=..., snapshot=...) - REQUIRED
+        config: Optional pre-merged config dict from get_config(crawl=..., snapshot=...).
+                If omitted, pass scope/override args using kwargs prefixed with config_.
         timeout: Maximum execution time in seconds
                  If None, auto-detects from PLUGINNAME_TIMEOUT config (fallback to TIMEOUT, default 300)
         parent: Optional parent Process (for tracking worker->hook hierarchy)
@@ -277,20 +326,24 @@ def run_hook(
         Process model instance (use process.exit_code, process.stdout, process.get_records())
 
     Example:
-        from archivebox.config.configset import get_config
+        from archivebox.config.common import get_config
         config = get_config(crawl=my_crawl, snapshot=my_snapshot)
         process = run_hook(hook_path, output_dir, config=config, url=url, snapshot_id=id)
         if process.status == 'exited':
             records = process.get_records()  # Get parsed JSONL output
     """
     from archivebox.machine.models import Process, Machine, NetworkInterface
+    from archivebox.config.common import get_config
     from archivebox.config.constants import CONSTANTS
     import sys
+
+    config_scope = {key.removeprefix("config_"): kwargs.pop(key) for key in list(kwargs) if key.startswith("config_")}
+    resolved_config = get_config(overrides=_config_to_overrides(config), **config_scope)
 
     # Auto-detect timeout from plugin config if not explicitly provided
     if timeout is None:
         plugin_name = script.parent.name
-        plugin_config = get_plugin_special_config(plugin_name, config)
+        plugin_config = get_plugin_special_config(plugin_name, resolved_config)
         timeout = plugin_config["timeout"]
     if timeout:
         timeout = min(int(timeout), int(CONSTANTS.MAX_HOOK_RUNTIME_SECONDS))
@@ -360,17 +413,18 @@ def run_hook(
 
     # Set up environment with base paths
     env = os.environ.copy()
-    env["DATA_DIR"] = str(config.get("DATA_DIR") or getattr(settings, "DATA_DIR", Path.cwd()))
-    env["ARCHIVE_DIR"] = str(config.get("ARCHIVE_DIR") or getattr(settings, "ARCHIVE_DIR", Path.cwd() / "archive"))
+    env["DATA_DIR"] = str(resolved_config.DATA_DIR)
+    env["ARCHIVE_DIR"] = str(resolved_config.ARCHIVE_DIR)
     env["ABX_RUNTIME"] = "archivebox"
-    env.setdefault("MACHINE_ID", getattr(settings, "MACHINE_ID", "") or os.environ.get("MACHINE_ID", ""))
+    env.setdefault("MACHINE_ID", os.environ.get("MACHINE_ID", CONSTANTS.MACHINE_ID))
 
     resolved_output_dir = output_dir.resolve()
-    output_parts = set(resolved_output_dir.parts)
-    if "snapshots" in output_parts:
-        env["SNAP_DIR"] = str(resolved_output_dir.parent)
-    if "crawls" in output_parts:
-        env["CRAWL_DIR"] = str(resolved_output_dir.parent)
+    snap_dir = _model_output_dir_from_child_path(resolved_output_dir, CONSTANTS.SNAPSHOTS_DIR_NAME)
+    crawl_dir = _model_output_dir_from_child_path(resolved_output_dir, CONSTANTS.CRAWLS_DIR_NAME)
+    if snap_dir:
+        env["SNAP_DIR"] = str(snap_dir)
+    if crawl_dir:
+        env["CRAWL_DIR"] = str(crawl_dir)
 
     crawl_id = kwargs.get("_crawl_id") or kwargs.get("crawl_id")
     if crawl_id:
@@ -384,8 +438,8 @@ def run_hook(
             pass
 
     # Get LIB_DIR and LIB_BIN_DIR from config
-    lib_dir = config.get("LIB_DIR", getattr(settings, "LIB_DIR", None))
-    lib_bin_dir = config.get("LIB_BIN_DIR", getattr(settings, "LIB_BIN_DIR", None))
+    lib_dir = resolved_config.LIB_DIR
+    lib_bin_dir = resolved_config.LIB_BIN_DIR
     if lib_dir:
         env["LIB_DIR"] = str(lib_dir)
     if not lib_bin_dir and lib_dir:
@@ -394,11 +448,11 @@ def run_hook(
 
     # Set Node.js module resolution paths.
     # NODE_PATH may be a path list, but NODE_MODULES_DIR is a single canonical directory.
-    node_modules_dir = config.get("NODE_MODULES_DIR")
+    node_modules_dir = resolved_config.get("NODE_MODULES_DIR")
     if not node_modules_dir and lib_dir:
         node_modules_dir = Path(lib_dir) / "npm" / "node_modules"
 
-    node_path_parts = [part for part in str(config.get("NODE_PATH") or "").split(os.pathsep) if part]
+    node_path_parts = [part for part in str(resolved_config.get("NODE_PATH") or "").split(os.pathsep) if part]
     if node_modules_dir:
         node_modules_dir = Path(node_modules_dir)
         node_modules_dir.mkdir(parents=True, exist_ok=True)
@@ -425,7 +479,7 @@ def run_hook(
         "SNAP_DIR",
         "CRAWL_DIR",
     }
-    for key, value in config.items():
+    for key, value in resolved_config.items():
         if key in SKIP_KEYS:
             continue  # Already handled specially above, don't overwrite
         if value is None:
@@ -632,28 +686,29 @@ def get_plugin_name(plugin: str) -> str:
     return plugin
 
 
-def get_enabled_plugins(config: dict[str, Any] | None = None) -> list[str]:
+def get_enabled_plugins(config: ConfigLookup | None = None, **config_kwargs: Any) -> list[str]:
     """
     Get the list of enabled plugins based on config and available hooks.
 
     Filters plugins by USE_/SAVE_ flags. Only returns plugins that are enabled.
 
     Args:
-        config: Merged config dict from get_config() - if None, uses global config
+        config: Optional pre-merged config dict from get_config().
+        **config_kwargs: Scope/override args forwarded to get_config() when config is not supplied.
 
     Returns:
         Plugin names sorted alphabetically (numeric prefix controls order).
 
     Example:
-        from archivebox.config.configset import get_config
+        from archivebox.config.common import get_config
         config = get_config(crawl=my_crawl, snapshot=my_snapshot)
         enabled = get_enabled_plugins(config)  # ['wget', 'media', 'chrome', ...]
     """
     # Get merged config if not provided
     if config is None:
-        from archivebox.config.configset import get_config
+        from archivebox.config.common import get_config
 
-        config = get_config()
+        config = get_config(**config_kwargs)
 
     def normalize_enabled_plugins(value: Any) -> list[str]:
         if value is None:
@@ -675,10 +730,12 @@ def get_enabled_plugins(config: dict[str, Any] | None = None) -> list[str]:
         return [str(value).strip()] if str(value).strip() else []
 
     # Support explicit ENABLED_PLUGINS override (legacy)
-    if "ENABLED_PLUGINS" in config:
-        return normalize_enabled_plugins(config["ENABLED_PLUGINS"])
-    if "ENABLED_EXTRACTORS" in config:
-        return normalize_enabled_plugins(config["ENABLED_EXTRACTORS"])
+    enabled_plugins = config.get("ENABLED_PLUGINS")
+    if enabled_plugins:
+        return normalize_enabled_plugins(enabled_plugins)
+    enabled_extractors = config.get("ENABLED_EXTRACTORS")
+    if enabled_extractors:
+        return normalize_enabled_plugins(enabled_extractors)
 
     # Filter all plugins by enabled status
     all_plugins = get_plugins()
@@ -870,7 +927,7 @@ def get_config_defaults_from_plugins() -> dict[str, Any]:
     return defaults
 
 
-def get_plugin_special_config(plugin_name: str, config: dict[str, Any], _visited: set[str] | None = None) -> dict[str, Any]:
+def get_plugin_special_config(plugin_name: str, config: ConfigLookup, _visited: set[str] | None = None) -> PluginSpecialConfig:
     """
     Extract special config keys for a plugin following naming conventions.
 
@@ -897,7 +954,7 @@ def get_plugin_special_config(plugin_name: str, config: dict[str, Any], _visited
             }
 
     Examples:
-        >>> from archivebox.config.configset import get_config
+        >>> from archivebox.config.common import get_config
         >>> config = get_config(crawl=my_crawl, snapshot=my_snapshot)
         >>> get_plugin_special_config('wget', config)
         {'enabled': True, 'timeout': 120, 'binary': '/usr/bin/wget'}

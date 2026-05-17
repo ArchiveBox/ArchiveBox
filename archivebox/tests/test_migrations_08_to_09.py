@@ -15,6 +15,7 @@ import sqlite3
 import tempfile
 import unittest
 import json
+import uuid
 from pathlib import Path
 
 from .migrations_helpers import (
@@ -134,14 +135,33 @@ class TestMigrationFrom08x(unittest.TestCase):
         self.assertTrue(ok, msg)
 
     def test_migration_preserves_archiveresults(self):
-        """Migration should preserve all archive results."""
+        """Migration should preserve ArchiveResult rows and link each one to a Process."""
         expected_count = len(self.original_data["archiveresults"])
+        expected_counts = {}
+        for result in self.original_data["archiveresults"]:
+            status = "succeeded" if result["status"] == "success" else result["status"]
+            key = (result["extractor"], status)
+            expected_counts[key] = expected_counts.get(key, 0) + 1
 
         result = run_archivebox(self.work_dir, ["init"], timeout=45)
         self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
         ok, msg = verify_archiveresult_count(self.db_path, expected_count)
         self.assertTrue(ok, msg)
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT plugin, status, COUNT(*) FROM core_archiveresult GROUP BY plugin, status")
+        migrated_counts = {(plugin, status): count for plugin, status, count in cursor.fetchall()}
+        cursor.execute("SELECT COUNT(*) FROM core_archiveresult WHERE process_id IS NULL")
+        missing_process_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM machine_process")
+        process_count = cursor.fetchone()[0]
+        conn.close()
+
+        self.assertEqual(migrated_counts, expected_counts)
+        self.assertEqual(missing_process_count, 0)
+        self.assertEqual(process_count, expected_count)
 
     def test_migration_preserves_archiveresult_status(self):
         """Migration should preserve archive result status values."""
@@ -212,6 +232,77 @@ class TestMigrationFrom08x(unittest.TestCase):
 
         ok, msg = verify_foreign_keys(self.db_path)
         self.assertTrue(ok, msg)
+
+    def test_migration_preserves_08_timestamp_meanings(self):
+        """0.8.x already has separated timestamp/bookmarked_at/created_at/downloaded_at fields."""
+        snapshot = self.original_data["snapshots"][0]
+        legacy_timestamp = "1609459200.123456"
+        bookmarked_at = "2021-01-01 00:00:00"
+        created_at = "2024-08-28 09:40:00"
+        modified_at = "2024-08-29 10:41:00"
+        downloaded_at = "2024-08-30 11:42:00"
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE core_snapshot
+            SET timestamp = ?, bookmarked_at = ?, created_at = ?, modified_at = ?, downloaded_at = ?
+            WHERE id = ?
+            """,
+            (legacy_timestamp, bookmarked_at, created_at, modified_at, downloaded_at, snapshot["id"]),
+        )
+        conn.commit()
+        conn.close()
+
+        result = run_archivebox(self.work_dir, ["init"], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT timestamp, bookmarked_at, created_at, modified_at, downloaded_at FROM core_snapshot WHERE id = ?",
+            (snapshot["id"],),
+        )
+        migrated = cursor.fetchone()
+        conn.close()
+
+        self.assertEqual(migrated[0], legacy_timestamp)
+        self.assertTrue(migrated[1].startswith("2021-01-01"), migrated[1])
+        self.assertTrue(migrated[2].startswith("2024-08-28"), migrated[2])
+        self.assertTrue(migrated[3].startswith("2024-08-29"), migrated[3])
+        self.assertTrue(migrated[4].startswith("2024-08-30"), migrated[4])
+
+    def test_hyphenated_crawl_ids_are_normalized_before_snapshot_saves(self):
+        """0.8.x crawl UUIDs with dashes should migrate to Django's SQLite UUID format."""
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        for crawl in self.original_data["crawls"]:
+            hyphenated = str(uuid.UUID(hex=crawl["id"]))
+            cursor.execute("UPDATE crawls_crawl SET id = ? WHERE id = ?", (hyphenated, crawl["id"]))
+            cursor.execute("UPDATE core_snapshot SET crawl_id = ? WHERE crawl_id = ?", (hyphenated, crawl["id"]))
+            crawl["id"] = hyphenated
+        conn.commit()
+        conn.close()
+
+        result = run_archivebox(self.work_dir, ["init"], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM crawls_crawl WHERE id LIKE '%-%'")
+        hyphenated_crawls = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM core_snapshot WHERE crawl_id LIKE '%-%'")
+        hyphenated_snapshot_refs = cursor.fetchone()[0]
+        conn.close()
+
+        self.assertEqual(hyphenated_crawls, 0)
+        self.assertEqual(hyphenated_snapshot_refs, 0)
+
+        result = run_archivebox(self.work_dir, ["update"], timeout=60)
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 0, f"Update failed after migration: {result.stderr}")
+        self.assertNotIn("FOREIGN KEY constraint failed", output)
 
     def test_migration_removes_seed_id_column(self):
         """Migration should remove seed_id column from archivebox.crawls.crawl."""
@@ -517,6 +608,140 @@ class TestFilesystemMigration08to09(unittest.TestCase):
         """Clean up temporary directory."""
         shutil.rmtree(self.work_dir, ignore_errors=True)
 
+    def test_update_migrates_db_snapshot_when_legacy_index_missing(self):
+        """A legacy folder with no index file should still migrate if its timestamp exists in DB."""
+        create_data_dir_structure(self.work_dir)
+        conn = sqlite3.connect(str(self.db_path))
+        conn.executescript(SCHEMA_0_7)
+        conn.close()
+        original_data = seed_0_7_data(self.db_path)
+        snapshot = original_data["snapshots"][0]
+
+        snapshot_dir = self.work_dir / "archive" / snapshot["timestamp"]
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        (snapshot_dir / "screenshot.png").write_text("existing-db-snapshot")
+
+        result = run_archivebox(self.work_dir, ["init"], timeout=60)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+        result = run_archivebox(self.work_dir, ["update"], timeout=120)
+        self.assertEqual(result.returncode, 0, f"Update failed: {result.stderr}")
+
+        migrated_files = list((self.work_dir / "archive" / "users").glob("*/snapshots/*/*/*/screenshot.png"))
+        self.assertEqual(len(migrated_files), 1)
+        self.assertEqual(migrated_files[0].read_text(), "existing-db-snapshot")
+        self.assertFalse((self.work_dir / "invalid").exists())
+
+    def test_update_recovers_orphan_with_corrupt_index_from_archive_org_url(self):
+        """A corrupt legacy index can be imported when archive.org.txt has the original URL."""
+        create_data_dir_structure(self.work_dir)
+        conn = sqlite3.connect(str(self.db_path))
+        conn.executescript(SCHEMA_0_7)
+        conn.close()
+        seed_0_7_data(self.db_path)
+
+        timestamp = "1339747993"
+        original_url = "http://www.wired.com/wiredenterprise/2012/01/seamicro-and-google/all/1"
+        snapshot_dir = self.work_dir / "archive" / timestamp
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        (snapshot_dir / "index.json").write_text("")
+        (snapshot_dir / "archive.org.txt").write_text(f"https://web.archive.org/web/20170531210128/{original_url}\n")
+        (snapshot_dir / "output.pdf").write_text("orphan-output")
+
+        result = run_archivebox(self.work_dir, ["init"], timeout=60)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+        result = run_archivebox(self.work_dir, ["update"], timeout=120)
+        self.assertEqual(result.returncode, 0, f"Update failed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT url, timestamp FROM core_snapshot WHERE timestamp = ?", (timestamp,))
+        row = cursor.fetchone()
+        conn.close()
+
+        self.assertEqual(row, (original_url, timestamp))
+        migrated_files = list((self.work_dir / "archive" / "users").glob("*/snapshots/*/*/*/output.pdf"))
+        self.assertEqual(len(migrated_files), 1)
+        self.assertEqual(migrated_files[0].read_text(), "orphan-output")
+        self.assertFalse((self.work_dir / "invalid").exists())
+
+    def test_update_preserves_legacy_folder_timestamp_over_index_float_variant(self):
+        """Legacy folder timestamp is the on-disk identity even if index.json has a .0 variant."""
+        create_data_dir_structure(self.work_dir)
+        conn = sqlite3.connect(str(self.db_path))
+        conn.executescript(SCHEMA_0_7)
+        conn.close()
+        seed_0_7_data(self.db_path)
+
+        timestamp = "1508259732"
+        url = "https://example.com/folder-timestamp"
+        snapshot_dir = self.work_dir / "archive" / timestamp
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        (snapshot_dir / "index.json").write_text(
+            json.dumps(
+                {
+                    "url": url,
+                    "timestamp": "1508259732.0",
+                    "title": "Folder Timestamp",
+                },
+            ),
+        )
+        (snapshot_dir / "output.html").write_text("folder timestamp output")
+
+        result = run_archivebox(self.work_dir, ["init"], timeout=60)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+        result = run_archivebox(self.work_dir, ["update"], timeout=120)
+        self.assertEqual(result.returncode, 0, f"Update failed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT timestamp FROM core_snapshot WHERE url = ?", (url,))
+        row = cursor.fetchone()
+        conn.close()
+
+        self.assertEqual(row, (timestamp,))
+        self.assertTrue((self.work_dir / "archive" / timestamp).is_symlink())
+        self.assertFalse((self.work_dir / "archive" / f"{timestamp}.0").exists())
+        self.assertFalse((self.work_dir / "invalid").exists())
+
+    def test_update_preserves_distinct_legacy_dirs_with_integer_and_float_timestamps(self):
+        """Sibling legacy dirs like 1508259732 and 1508259732.0 must not fuzzy-merge."""
+        create_data_dir_structure(self.work_dir)
+        conn = sqlite3.connect(str(self.db_path))
+        conn.executescript(SCHEMA_0_7)
+        conn.close()
+        seed_0_7_data(self.db_path)
+
+        url = "https://example.com/duplicate-timestamp"
+        for timestamp, payload in [("1508259732.0", "float-dir"), ("1508259732", "int-dir")]:
+            snapshot_dir = self.work_dir / "archive" / timestamp
+            snapshot_dir.mkdir(parents=True, exist_ok=True)
+            (snapshot_dir / "index.json").write_text(
+                json.dumps(
+                    {
+                        "url": url,
+                        "timestamp": timestamp,
+                        "title": payload,
+                    },
+                ),
+            )
+            (snapshot_dir / f"{payload}.txt").write_text(payload)
+
+        result = run_archivebox(self.work_dir, ["init"], timeout=60)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+        result = run_archivebox(self.work_dir, ["update"], timeout=120)
+        self.assertEqual(result.returncode, 0, f"Update failed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT timestamp FROM core_snapshot WHERE url = ? ORDER BY timestamp", (url,))
+        rows = cursor.fetchall()
+        conn.close()
+
+        self.assertEqual(rows, [("1508259732",), ("1508259732.0",)])
+        self.assertTrue((self.work_dir / "archive" / "1508259732").is_symlink())
+        self.assertTrue((self.work_dir / "archive" / "1508259732.0").is_symlink())
+        self.assertFalse((self.work_dir / "invalid").exists())
+
     def test_archiveresult_files_preserved_after_migration(self):
         """
         Test that ArchiveResult output files are reorganized into new structure.
@@ -524,7 +749,7 @@ class TestFilesystemMigration08to09(unittest.TestCase):
         This test verifies that:
         1. Migration preserves ArchiveResult data in Process/Binary records
         2. Running `archivebox update` reorganizes files into new structure
-        3. New structure: users/username/snapshots/YYYYMMDD/example.com/snap-uuid-here/output.ext
+        3. New structure: archive/users/username/snapshots/YYYYMMDD/example.com/snap-uuid-here/output.ext
         4. All files are moved (no data loss)
         5. Old archive/timestamp/ directories are cleaned up
         """
@@ -536,7 +761,7 @@ class TestFilesystemMigration08to09(unittest.TestCase):
         conn = sqlite3.connect(str(self.db_path))
         cursor = conn.cursor()
         for i, snapshot in enumerate(original_data["snapshots"]):
-            legacy_timestamp = str(1704110400 + (i * 86400))
+            legacy_timestamp = "1609459200.123456" if i == 0 else str(1704110400 + (i * 86400))
             cursor.execute(
                 "UPDATE core_snapshot SET timestamp = ? WHERE id = ?",
                 (legacy_timestamp, snapshot["id"]),
@@ -572,7 +797,7 @@ class TestFilesystemMigration08to09(unittest.TestCase):
 
         # Count archive directories and files BEFORE migration
         archive_dir = self.work_dir / "archive"
-        dirs_before = list(archive_dir.glob("*")) if archive_dir.exists() else []
+        dirs_before = [d for d in archive_dir.glob("*") if d.name.replace(".", "").isdigit()] if archive_dir.exists() else []
         dirs_before_count = len([d for d in dirs_before if d.is_dir()])
 
         # Count total files in all archive directories
@@ -600,7 +825,7 @@ class TestFilesystemMigration08to09(unittest.TestCase):
         self.assertEqual(result.returncode, 0, f"Init (migration) failed: {result.stderr}")
 
         # Count archive directories and files AFTER migration
-        dirs_after = list(archive_dir.glob("*")) if archive_dir.exists() else []
+        dirs_after = [d for d in archive_dir.glob("*") if d.name.replace(".", "").isdigit()] if archive_dir.exists() else []
         dirs_after_count = len([d for d in dirs_after if d.is_dir()])
 
         files_after = []
@@ -640,8 +865,8 @@ class TestFilesystemMigration08to09(unittest.TestCase):
         self.assertEqual(result.returncode, 0, f"Update failed: {result.stderr}")
 
         # Check new filesystem structure
-        # New structure: users/username/snapshots/YYYYMMDD/example.com/snap-uuid-here/output.ext
-        users_dir = self.work_dir / "users"
+        # New structure: archive/users/username/snapshots/YYYYMMDD/example.com/snap-uuid-here/output.ext
+        users_dir = self.work_dir / "archive" / "users"
         snapshots_base = None
 
         if users_dir.exists():
@@ -656,7 +881,7 @@ class TestFilesystemMigration08to09(unittest.TestCase):
         print(f"[*] New structure base: {snapshots_base}")
 
         # Count files in new structure
-        # Structure: users/{username}/snapshots/YYYYMMDD/{domain}/{uuid}/files...
+        # Structure: archive/users/{username}/snapshots/YYYYMMDD/{domain}/{uuid}/files...
         files_new_structure = []
         new_sample_files = {}
 
@@ -678,6 +903,18 @@ class TestFilesystemMigration08to09(unittest.TestCase):
         files_new_count = len(files_new_structure)
         print(f"[*] Files in new structure: {files_new_count}")
         print(f"[*] Sample files in new structure: {len(new_sample_files)}")
+
+        migrated_2021_files = list(users_dir.glob("*/snapshots/20210101/*/*/favicon.ico"))
+        self.assertGreater(
+            len(migrated_2021_files),
+            0,
+            "Legacy snapshot should be bucketed by normalized bookmarked_at, not created_at/import time",
+        )
+
+        crawl_snapshot_links = list(users_dir.glob("*/crawls/*/*/*/snapshots/*/*"))
+        crawl_snapshot_symlinks = [path for path in crawl_snapshot_links if path.is_symlink()]
+        crawl_dirs = list(users_dir.glob("*/crawls/*/*/*"))
+        print(f"[*] Crawl snapshot symlinks: {len(crawl_snapshot_symlinks)}")
 
         # Check old structure (should be gone or empty)
         old_archive_dir = self.work_dir / "archive"
@@ -703,6 +940,17 @@ class TestFilesystemMigration08to09(unittest.TestCase):
             files_new_count,
             0,
             "No files found in new structure after update",
+        )
+
+        self.assertGreater(
+            len(crawl_snapshot_symlinks),
+            0,
+            "No crawl snapshot symlinks created for migrated snapshots",
+        )
+
+        self.assertFalse(
+            any((crawl_dir / "index.jsonl").exists() for crawl_dir in crawl_dirs),
+            "Migrated crawl dirs should match normal 0.9 crawl dirs and not add crawl index.jsonl files",
         )
 
         # CRITICAL: Verify old structure is cleaned up

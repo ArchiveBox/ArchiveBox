@@ -1,20 +1,30 @@
-"""
-Simplified config system for ArchiveBox.
-
-This replaces the complex abx_spec_config/base_configset.py with a simpler
-approach that still supports environment variables, config files, and
-per-object overrides.
-"""
+"""Pydantic-backed config loading for ArchiveBox."""
 
 __package__ = "archivebox.config"
 
-import os
-import json
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 from configparser import ConfigParser
 
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
+
+COMPUTED_CONFIG_KEYS = (
+    "TERM_WIDTH",
+    "COMMIT_HASH",
+    "BUILD_TIME",
+    "USES_SUBDOMAIN_ROUTING",
+    "ENABLES_FULL_JS_REPLAY",
+    "CONTROL_PLANE_ENABLED",
+    "BLOCK_UNSAFE_METHODS",
+    "SHOULD_NEUTER_RISKY_REPLAY",
+    "IS_UNSAFE_MODE",
+    "IS_DANGEROUS_MODE",
+    "IS_LOWER_SECURITY_MODE",
+    "URL_ALLOWLIST_PTN",
+    "URL_DENYLIST_PTN",
+    "SAVE_ALLOWLIST_PTNS",
+    "SAVE_DENYLIST_PTNS",
+)
 
 
 class CaseConfigParser(ConfigParser):
@@ -74,7 +84,9 @@ class BaseConfigSet(BaseSettings):
         env_prefix="",
         extra="ignore",
         validate_default=True,
+        populate_by_name=True,
     )
+    computed_config_keys: ClassVar[tuple[str, ...]] = ()
 
     @classmethod
     def settings_customise_sources(
@@ -108,301 +120,57 @@ class BaseConfigSet(BaseSettings):
         # Flatten all sections into single namespace
         return {key.upper(): value for section in parser.sections() for key, value in parser.items(section)}
 
-    def update_in_place(self, warn: bool = True, persist: bool = False, **kwargs) -> None:
-        """
-        Update config values in place.
+    def __getitem__(self, key: str) -> Any:
+        if key in type(self).model_fields:
+            return getattr(self, key)
+        if self.__pydantic_extra__ and key in self.__pydantic_extra__:
+            return self.__pydantic_extra__[key]
+        if key in self.computed_config_keys:
+            return getattr(self, key)
+        raise KeyError(key)
 
-        This allows runtime updates to config without reloading.
-        """
-        for key, value in kwargs.items():
-            if hasattr(self, key):
-                # Use object.__setattr__ to bypass pydantic's frozen model
-                object.__setattr__(self, key, value)
+    def __setitem__(self, key: str, value: Any) -> None:
+        if key in type(self).model_fields:
+            object.__setattr__(self, key, value)
+            return
+        if key in self.computed_config_keys:
+            raise KeyError(f"{key} is computed and cannot be set")
+        if self.model_config.get("extra") != "allow":
+            raise KeyError(f"Unknown config key: {key}")
+        extra = self.__pydantic_extra__
+        if extra is None:
+            extra = {}
+            object.__setattr__(self, "__pydantic_extra__", extra)
+        extra[key] = value
 
+    def update(self, *args, **kwargs) -> None:
+        values = dict(*args, **kwargs)
+        for key, value in values.items():
+            if key in self.computed_config_keys:
+                continue
+            self[key] = value
 
-def get_config(
-    defaults: dict | None = None,
-    persona: Any = None,
-    user: Any = None,
-    crawl: Any = None,
-    snapshot: Any = None,
-    archiveresult: Any = None,
-    machine: Any = None,
-) -> dict[str, Any]:
-    """
-    Get merged config from all sources.
+    def __contains__(self, key: str) -> bool:
+        return (
+            key in type(self).model_fields
+            or bool(self.__pydantic_extra__ and key in self.__pydantic_extra__)
+            or key in self.computed_config_keys
+        )
 
-    Priority (highest to lowest):
-    1. Per-snapshot config (snapshot.config JSON field)
-    2. Per-crawl config (crawl.config JSON field)
-    3. Per-user config (user.config JSON field)
-    4. Per-persona config (persona.get_derived_config() - includes CHROME_USER_DATA_DIR etc.)
-    5. Environment variables
-    6. Config file (ArchiveBox.conf)
-    7. Plugin schema defaults (config.json)
-    8. Core config defaults
+    def get(self, key: str, default: Any = None) -> Any:
+        return self[key] if key in self else default
 
-    Args:
-        defaults: Default values to start with
-        persona: Persona object (provides derived paths like CHROME_USER_DATA_DIR)
-        user: User object with config JSON field
-        crawl: Crawl object with config JSON field
-        snapshot: Snapshot object with config JSON field
-        archiveresult: ArchiveResult object (auto-fetches snapshot)
-        machine: Unused legacy argument kept for call compatibility
+    def as_dict(self) -> dict[str, Any]:
+        data = self.model_dump()
+        for key in self.computed_config_keys:
+            data[key] = getattr(self, key)
+        return data
 
-    Note: Objects are auto-fetched from relationships if not provided:
-        - snapshot auto-fetched from archiveresult.snapshot
-        - crawl auto-fetched from snapshot.crawl
-        - user auto-fetched from crawl.created_by
+    def items(self):
+        return self.as_dict().items()
 
-    Returns:
-        Merged config dict
-    """
-    # Auto-fetch related objects from relationships
-    if snapshot is None and archiveresult and hasattr(archiveresult, "snapshot"):
-        snapshot = archiveresult.snapshot
+    def keys(self):
+        return self.as_dict().keys()
 
-    if crawl is None and snapshot and hasattr(snapshot, "crawl"):
-        crawl = snapshot.crawl
-
-    if user is None and crawl and hasattr(crawl, "created_by"):
-        user = crawl.created_by
-
-    if persona is None and crawl is not None:
-        from archivebox.personas.models import Persona
-
-        persona_id = getattr(crawl, "persona_id", None)
-        if persona_id:
-            persona = Persona.objects.filter(id=persona_id).first()
-            if persona is None:
-                raise Persona.DoesNotExist(f"Crawl {getattr(crawl, 'id', None)} references missing Persona {persona_id}")
-
-        if persona is None:
-            crawl_config = getattr(crawl, "config", None) or {}
-            default_persona_name = str(crawl_config.get("DEFAULT_PERSONA") or "").strip()
-            if default_persona_name:
-                persona, _ = Persona.objects.get_or_create(name=default_persona_name or "Default")
-                persona.ensure_dirs()
-    from archivebox.config.constants import CONSTANTS
-    from archivebox.config.common import (
-        SHELL_CONFIG,
-        STORAGE_CONFIG,
-        GENERAL_CONFIG,
-        SERVER_CONFIG,
-        ARCHIVING_CONFIG,
-        SEARCH_BACKEND_CONFIG,
-    )
-
-    # Start with defaults
-    config = dict(defaults or {})
-
-    # Add plugin config defaults from JSONSchema config.json files
-    try:
-        from archivebox.hooks import get_config_defaults_from_plugins
-
-        plugin_defaults = get_config_defaults_from_plugins()
-        config.update(plugin_defaults)
-    except ImportError:
-        pass  # hooks not available yet during early startup
-
-    # Add all core config sections
-    config.update(dict(SHELL_CONFIG))
-    config.update(dict(STORAGE_CONFIG))
-    config.update(dict(GENERAL_CONFIG))
-    config.update(dict(SERVER_CONFIG))
-    config.update(dict(ARCHIVING_CONFIG))
-    config.update(dict(SEARCH_BACKEND_CONFIG))
-
-    # Load from archivebox.config.file
-    config_file = CONSTANTS.CONFIG_FILE
-    if config_file.exists():
-        file_config = BaseConfigSet.load_from_file(config_file)
-        config.update(file_config)
-
-    # Override with environment variables (for keys that exist in config)
-    for key in config:
-        env_val = os.environ.get(key)
-        if env_val is not None:
-            config[key] = _parse_env_value(env_val, config.get(key))
-
-    # Also add NEW environment variables (not yet in config)
-    # This is important for worker subprocesses that receive config via Process.env
-    for key, value in os.environ.items():
-        if key.isupper() and key not in config:  # Only uppercase keys (config convention)
-            config[key] = _parse_env_value(value, None)
-
-    # Also check plugin config aliases in environment
-    try:
-        from archivebox.hooks import discover_plugin_configs
-
-        plugin_configs = discover_plugin_configs()
-        for plugin_name, schema in plugin_configs.items():
-            for key, prop_schema in schema.get("properties", {}).items():
-                # Check x-aliases
-                for alias in prop_schema.get("x-aliases", []):
-                    if alias in os.environ and key not in os.environ:
-                        config[key] = _parse_env_value(os.environ[alias], config.get(key))
-                        break
-                # Check x-fallback
-                fallback = prop_schema.get("x-fallback")
-                if fallback and fallback in config and key not in config:
-                    config[key] = config[fallback]
-    except ImportError:
-        pass
-
-    # Apply persona config overrides (includes derived paths like CHROME_USER_DATA_DIR)
-    if persona and hasattr(persona, "get_derived_config"):
-        config.update(persona.get_derived_config())
-
-    # Apply user config overrides
-    if user and hasattr(user, "config") and user.config:
-        config.update(user.config)
-
-    # Apply crawl config overrides
-    if crawl and hasattr(crawl, "config") and crawl.config:
-        config.update(crawl.config)
-
-    # Add crawl path aliases for hooks that need shared crawl state.
-    if crawl and hasattr(crawl, "output_dir"):
-        config["CRAWL_OUTPUT_DIR"] = str(crawl.output_dir)
-        config["CRAWL_DIR"] = str(crawl.output_dir)
-
-    # Apply snapshot config overrides (highest priority)
-    if snapshot and hasattr(snapshot, "config") and snapshot.config:
-        config.update(snapshot.config)
-
-    if snapshot and hasattr(snapshot, "output_dir"):
-        config["SNAP_DIR"] = str(snapshot.output_dir)
-
-    # Normalize all aliases to canonical names (after all sources merged)
-    # This handles aliases that came from user/crawl/snapshot configs, not just env
-    try:
-        from archivebox.hooks import discover_plugin_configs
-
-        plugin_configs = discover_plugin_configs()
-        aliases_to_normalize = {}  # {alias_key: canonical_key}
-
-        # Build alias mapping from all plugin schemas
-        for plugin_name, schema in plugin_configs.items():
-            for canonical_key, prop_schema in schema.get("properties", {}).items():
-                for alias in prop_schema.get("x-aliases", []):
-                    aliases_to_normalize[alias] = canonical_key
-
-        # Normalize: copy alias values to canonical keys (aliases take precedence)
-        for alias_key, canonical_key in aliases_to_normalize.items():
-            if alias_key in config:
-                # Alias exists - copy to canonical key (overwriting any default)
-                config[canonical_key] = config[alias_key]
-                # Remove alias from config to keep it clean
-                del config[alias_key]
-    except ImportError:
-        pass
-
-    if not config.get("DATA_DIR"):
-        config["DATA_DIR"] = str(CONSTANTS.DATA_DIR)
-    config["ABX_RUNTIME"] = "archivebox"
-
-    return config
-
-
-def get_flat_config() -> dict[str, Any]:
-    """
-    Get a flat dictionary of all config values.
-
-    Replaces abx.pm.hook.get_FLAT_CONFIG()
-    """
-    return get_config()
-
-
-def get_all_configs() -> dict[str, BaseConfigSet]:
-    """
-    Get all config section objects as a dictionary.
-
-    Replaces abx.pm.hook.get_CONFIGS()
-    """
-    from archivebox.config.common import (
-        SHELL_CONFIG,
-        SERVER_CONFIG,
-        ARCHIVING_CONFIG,
-        SEARCH_BACKEND_CONFIG,
-    )
-
-    return {
-        "SHELL_CONFIG": SHELL_CONFIG,
-        "SERVER_CONFIG": SERVER_CONFIG,
-        "ARCHIVING_CONFIG": ARCHIVING_CONFIG,
-        "SEARCH_BACKEND_CONFIG": SEARCH_BACKEND_CONFIG,
-    }
-
-
-def _parse_env_value(value: str, default: Any = None) -> Any:
-    """Parse an environment variable value based on expected type."""
-    if default is None:
-        # Try to guess the type
-        if value.lower() in ("true", "false", "yes", "no", "1", "0"):
-            return value.lower() in ("true", "yes", "1")
-        try:
-            return int(value)
-        except ValueError:
-            pass
-        try:
-            return json.loads(value)
-        except (json.JSONDecodeError, ValueError):
-            pass
-        return value
-
-    # Parse based on default's type
-    if isinstance(default, bool):
-        return value.lower() in ("true", "yes", "1")
-    elif isinstance(default, int):
-        return int(value)
-    elif isinstance(default, float):
-        return float(value)
-    elif isinstance(default, (list, dict)):
-        return json.loads(value)
-    elif isinstance(default, Path):
-        return Path(value)
-    else:
-        return value
-
-
-# Default worker concurrency settings
-DEFAULT_WORKER_CONCURRENCY = {
-    "crawl": 2,
-    "snapshot": 3,
-    "wget": 2,
-    "ytdlp": 2,
-    "screenshot": 3,
-    "singlefile": 2,
-    "title": 5,
-    "favicon": 5,
-    "headers": 5,
-    "archivedotorg": 2,
-    "readability": 3,
-    "mercury": 3,
-    "git": 2,
-    "pdf": 2,
-    "dom": 3,
-}
-
-
-def get_worker_concurrency() -> dict[str, int]:
-    """
-    Get worker concurrency settings.
-
-    Can be configured via WORKER_CONCURRENCY env var as JSON dict.
-    """
-    config = get_config()
-
-    # Start with defaults
-    concurrency = DEFAULT_WORKER_CONCURRENCY.copy()
-
-    # Override with config
-    if "WORKER_CONCURRENCY" in config:
-        custom = config["WORKER_CONCURRENCY"]
-        if isinstance(custom, str):
-            custom = json.loads(custom)
-        concurrency.update(custom)
-
-    return concurrency
+    def values(self):
+        return self.as_dict().values()

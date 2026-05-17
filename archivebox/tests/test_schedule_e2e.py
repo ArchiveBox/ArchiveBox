@@ -519,8 +519,8 @@ def test_web_ui_add_depth_two_crawls_and_renders_real_outputs_over_running_serve
         assert ("wget", "succeeded") in result_statuses
         assert any(plugin.endswith("parse_html_urls") and status == "succeeded" for plugin, status in result_statuses)
         assert len([status for _plugin, status, _files, _size in archive_results if status == "failed"]) <= 2
-        assert list((tmp_path / "users/system/snapshots").rglob("parse_html_urls/**/urls.jsonl"))
-        assert list((tmp_path / "users/system/snapshots").rglob("wget/**/*.html"))
+        assert list((tmp_path / "archive/users/system/snapshots").rglob("parse_html_urls/**/urls.jsonl"))
+        assert list((tmp_path / "archive/users/system/snapshots").rglob("wget/**/*.html"))
 
         progress = requests.get(
             f"http://127.0.0.1:{port}/admin/live-progress/",

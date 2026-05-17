@@ -24,7 +24,7 @@ from rich import print
 from rich.panel import Panel
 
 from archivebox.config import CONSTANTS, DATA_DIR, VERSION
-from archivebox.config.common import SHELL_CONFIG
+from archivebox.config.common import get_config
 from archivebox.misc.system import get_dir_size
 from archivebox.misc.util import enforce_types
 from archivebox.misc.logging import ANSI
@@ -55,10 +55,12 @@ _LAST_RUN_STATS = RuntimeStats()
 class TimedProgress:
     """Show a progress bar and measure elapsed time until .end() is called"""
 
-    def __init__(self, seconds, prefix=""):
+    def __init__(self, seconds, prefix="", config=None, **config_kwargs):
 
-        self.SHOW_PROGRESS = SHELL_CONFIG.SHOW_PROGRESS
-        self.ANSI = SHELL_CONFIG.ANSI
+        config = config or get_config(**config_kwargs)
+        self.SHOW_PROGRESS = config.SHOW_PROGRESS
+        self.ANSI = config.ANSI
+        self.TERM_WIDTH = config.TERM_WIDTH
 
         if self.SHOW_PROGRESS:
             self.p = Process(target=progress_bar, args=(seconds, prefix, self.ANSI))
@@ -94,7 +96,7 @@ class TimedProgress:
 
                 # clear whole terminal line
                 try:
-                    sys.stdout.write("\r{}{}\r".format((" " * SHELL_CONFIG.TERM_WIDTH), self.ANSI["reset"]))
+                    sys.stdout.write("\r{}{}\r".format((" " * self.TERM_WIDTH), self.ANSI["reset"]))
                 except (OSError, BrokenPipeError):
                     # ignore when the parent proc has stopped listening to our stdout
                     pass
@@ -103,15 +105,16 @@ class TimedProgress:
 
 
 @enforce_types
-def progress_bar(seconds: int, prefix: str = "", ANSI: dict[str, str] = ANSI) -> None:
+def progress_bar(seconds: int, prefix: str = "", ANSI: dict[str, str] = ANSI, config=None, **config_kwargs) -> None:
     """show timer in the form of progress bar, with percentage and seconds remaining"""
     output_buf = sys.stdout or sys.__stdout__ or sys.stderr or sys.__stderr__
     chunk = "█" if output_buf and output_buf.encoding.upper() == "UTF-8" else "#"
-    last_width = SHELL_CONFIG.TERM_WIDTH
+    config = config or get_config(**config_kwargs)
+    last_width = config.TERM_WIDTH
     chunks = last_width - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
     try:
         for s in range(seconds * chunks):
-            max_width = SHELL_CONFIG.TERM_WIDTH
+            max_width = config.TERM_WIDTH
             if max_width < last_width:
                 # when the terminal size is shrunk, we have to write a newline
                 # otherwise the progress bar will keep wrapping incorrectly
@@ -153,7 +156,7 @@ def progress_bar(seconds: int, prefix: str = "", ANSI: dict[str, str] = ANSI) ->
         sys.stdout.flush()
         # uncomment to have it disappear when it hits 100% instead of staying full red:
         # time.sleep(0.5)
-        # sys.stdout.write('\r{}{}\r'.format((' ' * SHELL_CONFIG.TERM_WIDTH), ANSI['reset']))
+        # sys.stdout.write('\r{}{}\r'.format((' ' * get_config().TERM_WIDTH), ANSI['reset']))
         # sys.stdout.flush()
     except (KeyboardInterrupt, BrokenPipeError):
         print()
@@ -226,13 +229,22 @@ def log_indexing_process_finished():
     _LAST_RUN_STATS.index_end_ts = end_ts
 
 
-def log_indexing_started(out_path: str):
-    if SHELL_CONFIG.IS_TTY:
-        sys.stdout.write(f"    > ./{Path(out_path).relative_to(DATA_DIR)}")
+def _display_data_path(out_path: str) -> str:
+    path = Path(out_path).resolve()
+    try:
+        return f"./{path.relative_to(DATA_DIR)}"
+    except ValueError:
+        return str(path)
+
+
+def log_indexing_started(out_path: str, config=None, **config_kwargs):
+    config = config or get_config(**config_kwargs)
+    if config.IS_TTY:
+        sys.stdout.write(f"    > {_display_data_path(out_path)}")
 
 
 def log_indexing_finished(out_path: str):
-    print(f"\r    √ ./{Path(out_path).relative_to(DATA_DIR)}")
+    print(f"\r    √ {_display_data_path(out_path)}")
 
 
 ### Archiving Stage

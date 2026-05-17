@@ -1,25 +1,37 @@
 __package__ = "archivebox.config"
 
+import json
 import re
 import secrets
 import sys
 import shutil
-from typing import ClassVar
+from collections.abc import Mapping
+from typing import Any, ClassVar, cast
 from pathlib import Path
 
 from rich.console import Console
-from pydantic import Field, field_validator
+from pydantic import BaseModel, Field, create_model, field_validator, model_validator
+from pydantic_settings import SettingsConfigDict
+from abx_plugins.plugins.base.utils import BASE_CONFIG_PATH, build_config_model, resolve_plugin_configs
 
 from archivebox.config.configset import BaseConfigSet
+from archivebox.config.configset import COMPUTED_CONFIG_KEYS
 
 from .constants import CONSTANTS
+from .ldap import LDAPConfig
 from .version import get_COMMIT_HASH, get_BUILD_TIME, VERSION
 from .permissions import IN_DOCKER
+
+ConfigOverrides = Mapping[str, object]
+ConfigPayload = dict[str, object]
+PluginSchemaDocuments = dict[str, dict[str, Any]]
 
 ###################### Config ##########################
 
 _STDOUT_CONSOLE = Console()
 _STDERR_CONSOLE = Console(stderr=True)
+_WARNED_SERVER_SECURITY_MODES: set[str] = set()
+_WARNED_ARCHIVING_CONFIGS: set[tuple[int, bool]] = set()
 
 
 def rprint(*args, file=None, **kwargs):
@@ -58,11 +70,12 @@ class ShellConfig(BaseConfigSet):
         return get_BUILD_TIME()
 
 
-SHELL_CONFIG = ShellConfig()
-
-
 class StorageConfig(BaseConfigSet):
     toml_section_header: str = "STORAGE_CONFIG"
+
+    # ARCHIVE_DIR / USERS_DIR are resolved dynamically via get_config().
+    ARCHIVE_DIR: Path = Field(default=CONSTANTS.ARCHIVE_DIR)
+    USERS_DIR: Path = Field(default=CONSTANTS.USERS_DIR)
 
     # TMP_DIR must be a local, fast, readable/writable dir by archivebox user,
     # must be a short path due to unix path length restrictions for socket files (<100 chars)
@@ -90,16 +103,10 @@ class StorageConfig(BaseConfigSet):
     DIR_OUTPUT_PERMISSIONS: str = Field(default="755")  # computed from OUTPUT_PERMISSIONS
 
 
-STORAGE_CONFIG = StorageConfig()
-
-
 class GeneralConfig(BaseConfigSet):
     toml_section_header: str = "GENERAL_CONFIG"
 
     TAG_SEPARATOR_PATTERN: str = Field(default=r"[,]")
-
-
-GENERAL_CONFIG = GeneralConfig()
 
 
 class ServerConfig(BaseConfigSet):
@@ -130,6 +137,7 @@ class ServerConfig(BaseConfigSet):
 
     PUBLIC_INDEX: bool = Field(default=True)
     PUBLIC_SNAPSHOTS: bool = Field(default=True)
+    PUBLIC_SNAPSHOTS_LIST: bool | None = Field(default=None)
     PUBLIC_ADD_VIEW: bool = Field(default=False)
 
     ADMIN_USERNAME: str | None = Field(default=None)
@@ -186,15 +194,14 @@ class ServerConfig(BaseConfigSet):
         )
 
 
-SERVER_CONFIG = ServerConfig()
-
-
-def _print_server_security_mode_warning() -> None:
-    if not SERVER_CONFIG.IS_LOWER_SECURITY_MODE:
+def _print_server_security_mode_warning(config: ServerConfig) -> None:
+    if not config.IS_LOWER_SECURITY_MODE:
+        return
+    if config.SERVER_SECURITY_MODE in _WARNED_SERVER_SECURITY_MODES:
         return
 
     rprint(
-        f"[yellow][!] WARNING: ArchiveBox is running with SERVER_SECURITY_MODE={SERVER_CONFIG.SERVER_SECURITY_MODE}[/yellow]",
+        f"[yellow][!] WARNING: ArchiveBox is running with SERVER_SECURITY_MODE={config.SERVER_SECURITY_MODE}[/yellow]",
         file=sys.stderr,
     )
     rprint(
@@ -217,19 +224,33 @@ def _print_server_security_mode_warning() -> None:
         "[yellow]    3. Configure wildcard DNS/TLS or your reverse proxy so admin., web., api., and snapshot subdomains resolve[/yellow]",
         file=sys.stderr,
     )
-
-
-_print_server_security_mode_warning()
+    _WARNED_SERVER_SECURITY_MODES.add(config.SERVER_SECURITY_MODE)
 
 
 class ArchivingConfig(BaseConfigSet):
     toml_section_header: str = "ARCHIVING_CONFIG"
+
+    PLUGINS: str = Field(
+        default="",
+        description="Comma-separated plugin selection for this run. Empty means use enabled plugin defaults.",
+    )
+    ENABLED_PLUGINS: str = Field(
+        default="",
+        description="Comma-separated plugin selection override used by the UI and API.",
+    )
+    ENABLED_EXTRACTORS: str = Field(
+        default="",
+        description="Legacy comma-separated plugin selection override.",
+    )
 
     ONLY_NEW: bool = Field(default=True)
     OVERWRITE: bool = Field(default=False)
 
     TIMEOUT: int = Field(default=60)
     MAX_URL_ATTEMPTS: int = Field(default=50)
+    MAX_DEPTH: int = Field(default=0)
+    MAX_URLS: int = Field(default=0)
+    MAX_SIZE: int = Field(default=0)
 
     RESOLUTION: str = Field(default="1440,2000")
     CHECK_SSL_VALIDITY: bool = Field(default=True)
@@ -298,10 +319,6 @@ class ArchivingConfig(BaseConfigSet):
         )
 
 
-ARCHIVING_CONFIG = ArchivingConfig()
-ARCHIVING_CONFIG.warn_if_invalid()
-
-
 class SearchBackendConfig(BaseConfigSet):
     toml_section_header: str = "SEARCH_BACKEND_CONFIG"
 
@@ -312,4 +329,250 @@ class SearchBackendConfig(BaseConfigSet):
     SEARCH_PROCESS_HTML: bool = Field(default=True)
 
 
-SEARCH_BACKEND_CONFIG = SearchBackendConfig()
+def _plugin_user_config_value(value: Any) -> str:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, (dict, list, bool, int, float)) or value is None:
+        return json.dumps(value)
+    return str(value)
+
+
+def _plugin_user_config(config: Mapping[str, object]) -> dict[str, str]:
+    return {key: _plugin_user_config_value(value) for key, value in config.items()}
+
+
+def _discover_plugin_config_schemas() -> PluginSchemaDocuments:
+    from archivebox.hooks import discover_plugin_configs
+
+    schemas: PluginSchemaDocuments = {}
+    if BASE_CONFIG_PATH.exists():
+        schemas["base"] = {
+            "properties": json.loads(BASE_CONFIG_PATH.read_text()).get("properties", {}),
+        }
+    schemas.update(discover_plugin_configs())
+    return schemas
+
+
+def _plugin_config_properties(plugin_schemas: PluginSchemaDocuments) -> dict[str, dict[str, Any]]:
+    properties: dict[str, dict[str, Any]] = {}
+    for schema in plugin_schemas.values():
+        schema_properties = schema.get("properties") or {}
+        if isinstance(schema_properties, dict):
+            properties.update(schema_properties)
+    return properties
+
+
+def _plugin_config_model(plugin_schemas: PluginSchemaDocuments) -> type[BaseModel]:
+    return build_config_model("ArchiveBoxPluginConfig", _plugin_config_properties(plugin_schemas))
+
+
+def _archivebox_config_input_names() -> set[str]:
+    names = set(ArchiveBoxConfig.model_fields)
+    for field in ArchiveBoxConfig.model_fields.values():
+        if isinstance(field.alias, str):
+            names.add(field.alias)
+    return names
+
+
+class ArchiveBoxBaseConfig(
+    ShellConfig,
+    StorageConfig,
+    GeneralConfig,
+    ServerConfig,
+    ArchivingConfig,
+    SearchBackendConfig,
+    LDAPConfig,
+):
+    """Merged, typed ArchiveBox config.
+
+    Core ArchiveBox fields are declared above. Plugin-owned fields are added to
+    the concrete ArchiveBoxConfig model from plugin JSONSchema below, so
+    ArchiveBox does not hardcode any individual plugin config names.
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="",
+        extra="ignore",
+        validate_default=True,
+        use_enum_values=True,
+        arbitrary_types_allowed=True,
+        populate_by_name=True,
+    )
+
+    DATA_DIR: Path = Field(default=CONSTANTS.DATA_DIR)
+    ABX_RUNTIME: str = Field(default="archivebox")
+    CRAWL_DIR: Path | None = Field(default=None)
+    CRAWL_OUTPUT_DIR: Path | None = Field(default=None)
+    SNAP_DIR: Path | None = Field(default=None)
+    computed_config_keys: ClassVar[tuple[str, ...]] = COMPUTED_CONFIG_KEYS
+
+    @model_validator(mode="after")
+    def resolve_runtime_paths(self):
+        self.DATA_DIR = self.DATA_DIR.expanduser().resolve()
+
+        archive_dir = self.ARCHIVE_DIR.expanduser()
+        if archive_dir == (CONSTANTS.DATA_DIR / CONSTANTS.ARCHIVE_DIR_NAME) and self.DATA_DIR != CONSTANTS.DATA_DIR:
+            archive_dir = self.DATA_DIR / CONSTANTS.ARCHIVE_DIR_NAME
+        if not archive_dir.is_absolute():
+            archive_dir = self.DATA_DIR / archive_dir
+        self.ARCHIVE_DIR = archive_dir.resolve()
+
+        users_dir = self.USERS_DIR.expanduser()
+        if users_dir == (CONSTANTS.ARCHIVE_DIR / CONSTANTS.USERS_DIR_NAME):
+            users_dir = self.ARCHIVE_DIR / CONSTANTS.USERS_DIR_NAME
+        if not users_dir.is_absolute():
+            users_dir = self.ARCHIVE_DIR / users_dir
+        self.USERS_DIR = users_dir.resolve()
+
+        return self
+
+
+def _build_archivebox_config_model(plugin_schemas: PluginSchemaDocuments) -> type[ArchiveBoxBaseConfig]:
+    core_fields = set(ArchiveBoxBaseConfig.model_fields)
+    plugin_fields: dict[str, Any] = {
+        key: (field.annotation, field) for key, field in _plugin_config_model(plugin_schemas).model_fields.items() if key not in core_fields
+    }
+    return cast(
+        type[ArchiveBoxBaseConfig],
+        create_model(
+            "ArchiveBoxConfig",
+            __base__=ArchiveBoxBaseConfig,
+            __module__=__name__,
+            **plugin_fields,
+        ),
+    )
+
+
+PLUGIN_CONFIG_SCHEMAS = _discover_plugin_config_schemas()
+ArchiveBoxConfig = _build_archivebox_config_model(PLUGIN_CONFIG_SCHEMAS)
+
+
+def get_config(
+    defaults: ConfigOverrides | None = None,
+    overrides: ConfigOverrides | None = None,
+    persona: Any = None,
+    user: Any = None,
+    crawl: Any = None,
+    snapshot: Any = None,
+    archiveresult: Any = None,
+    machine: Any = None,
+) -> ArchiveBoxBaseConfig:
+    """
+    Get merged config from all sources.
+
+    Priority (highest to lowest):
+    1. Explicit overrides
+    2. Per-snapshot config and output path
+    3. Per-crawl config and output path
+    4. Per-user config
+    5. Per-persona derived config
+    6. Current machine derived config
+    7. Environment variables
+    8. Config file (ArchiveBox.conf)
+    9. Plugin schema defaults
+    10. Core config defaults
+    """
+    if snapshot is None and archiveresult is not None:
+        snapshot = archiveresult.snapshot
+
+    if crawl is None and snapshot is not None:
+        crawl = snapshot.crawl
+
+    if machine is None:
+        try:
+            from django.apps import apps
+
+            if apps.ready:
+                from archivebox.machine.models import Machine
+
+                machine = Machine.current()
+        except Exception:
+            machine = None
+
+    if persona is None and crawl is not None:
+        from archivebox.personas.models import Persona
+
+        persona_id = crawl.persona_id
+        if persona_id:
+            persona = Persona.objects.filter(id=persona_id).first()
+            if persona is None:
+                raise Persona.DoesNotExist(f"Crawl {crawl.id} references missing Persona {persona_id}")
+
+        if persona is None:
+            crawl_config = crawl.config or {}
+            default_persona_name = str(crawl_config.get("DEFAULT_PERSONA") or "").strip()
+            if default_persona_name:
+                persona, _ = Persona.objects.get_or_create(name=default_persona_name or "Default")
+                persona.ensure_dirs()
+
+    config_data: ConfigPayload = dict(defaults or {})
+    config_data.update(ArchiveBoxConfig().model_dump(mode="json"))
+
+    plugin_schemas = {
+        plugin_name: schema.get("properties", {}) for plugin_name, schema in PLUGIN_CONFIG_SCHEMAS.items() if isinstance(schema, dict)
+    }
+
+    scope_overrides: ConfigPayload = {}
+
+    if machine is not None and machine.config:
+        from archivebox.machine.models import _sanitize_machine_config
+
+        scope_overrides.update(_sanitize_machine_config(machine.config))
+
+    if persona is not None:
+        scope_overrides.update(persona.get_derived_config())
+
+    if user is not None and user.config:
+        scope_overrides.update(user.config)
+
+    if crawl is not None and crawl.config:
+        scope_overrides.update(crawl.config)
+
+    if crawl is not None:
+        scope_overrides["CRAWL_OUTPUT_DIR"] = crawl.output_dir
+        scope_overrides["CRAWL_DIR"] = crawl.output_dir
+
+    if snapshot is not None and snapshot.config:
+        scope_overrides.update(snapshot.config)
+
+    if snapshot is not None:
+        scope_overrides["SNAP_DIR"] = snapshot.output_dir
+
+    if overrides:
+        scope_overrides.update(overrides)
+
+    archivebox_scope_overrides = {key: value for key, value in scope_overrides.items() if key in _archivebox_config_input_names()}
+    config_data.update(archivebox_scope_overrides)
+
+    plugin_global_config = {key: str(value) if isinstance(value, Path) else value for key, value in config_data.items()}
+    plugin_sections = resolve_plugin_configs(
+        plugin_schemas,
+        global_config=plugin_global_config,
+        user_config={**BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE), **_plugin_user_config(scope_overrides)},
+    )
+    for plugin_config in plugin_sections.values():
+        config_data.update(plugin_config)
+    config_data.update(archivebox_scope_overrides)
+
+    config_data["ABX_RUNTIME"] = "archivebox"
+
+    config = ArchiveBoxConfig.model_validate(config_data)
+    archiving_warning_key = (config.TIMEOUT, config.USE_COLOR)
+    if archiving_warning_key not in _WARNED_ARCHIVING_CONFIGS:
+        config.warn_if_invalid()
+        _WARNED_ARCHIVING_CONFIGS.add(archiving_warning_key)
+    _print_server_security_mode_warning(config)
+    return config
+
+
+def get_all_configs() -> dict[str, BaseConfigSet]:
+    """Get all config section objects as a dictionary."""
+    return {
+        "SHELL_CONFIG": ShellConfig(),
+        "STORAGE_CONFIG": StorageConfig(),
+        "GENERAL_CONFIG": GeneralConfig(),
+        "SERVER_CONFIG": ServerConfig(),
+        "ARCHIVING_CONFIG": ArchivingConfig(),
+        "SEARCH_BACKEND_CONFIG": SearchBackendConfig(),
+        "LDAP_CONFIG": LDAPConfig(),
+    }

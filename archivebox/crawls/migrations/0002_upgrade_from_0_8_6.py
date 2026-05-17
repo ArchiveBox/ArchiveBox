@@ -19,6 +19,64 @@ def upgrade_crawl_table_from_v086(apps, schema_editor):
     has_seed_id = "seed_id" in crawl_cols
     has_urls = "urls" in crawl_cols
 
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='crawls_crawlschedule'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(crawls_crawlschedule)")
+        schedule_cols = {row[1] for row in cursor.fetchall()}
+        schedule_sets = []
+        if "id" in schedule_cols:
+            schedule_sets.append("id = REPLACE(id, '-', '')")
+        if "template_id" in schedule_cols:
+            schedule_sets.append(
+                "template_id = CASE "
+                "WHEN template_id IS NOT NULL "
+                "AND LENGTH(REPLACE(template_id, '-', '')) = 32 "
+                "AND REPLACE(template_id, '-', '') NOT GLOB '*[^0-9A-Fa-f]*' "
+                "THEN REPLACE(template_id, '-', '') ELSE NULL END",
+            )
+        if schedule_sets:
+            cursor.execute(f"UPDATE crawls_crawlschedule SET {', '.join(schedule_sets)}")
+
+    crawl_sets = []
+    if "id" in crawl_cols:
+        crawl_sets.append("id = REPLACE(id, '-', '')")
+    if "persona_id" in crawl_cols:
+        crawl_sets.append(
+            "persona_id = CASE "
+            "WHEN persona_id IS NOT NULL "
+            "AND LENGTH(REPLACE(persona_id, '-', '')) = 32 "
+            "AND REPLACE(persona_id, '-', '') NOT GLOB '*[^0-9A-Fa-f]*' "
+            "THEN REPLACE(persona_id, '-', '') ELSE NULL END",
+        )
+    if "schedule_id" in crawl_cols:
+        crawl_sets.append(
+            "schedule_id = CASE "
+            "WHEN schedule_id IS NOT NULL "
+            "AND LENGTH(REPLACE(schedule_id, '-', '')) = 32 "
+            "AND REPLACE(schedule_id, '-', '') NOT GLOB '*[^0-9A-Fa-f]*' "
+            "THEN REPLACE(schedule_id, '-', '') ELSE NULL END",
+        )
+    if crawl_sets:
+        cursor.execute(f"UPDATE crawls_crawl SET {', '.join(crawl_sets)}")
+
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='core_snapshot'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(core_snapshot)")
+        snapshot_cols = {row[1] for row in cursor.fetchall()}
+        if "crawl_id" in snapshot_cols:
+            cursor.execute(
+                """
+                UPDATE core_snapshot
+                SET crawl_id = CASE
+                    WHEN crawl_id IS NOT NULL
+                    AND LENGTH(REPLACE(crawl_id, '-', '')) = 32
+                    AND REPLACE(crawl_id, '-', '') NOT GLOB '*[^0-9A-Fa-f]*'
+                    THEN REPLACE(crawl_id, '-', '')
+                    ELSE NULL
+                END
+                """,
+            )
+
     # Only upgrade if we have v0.8.6rc0 schema
     if not (has_seed_id and not has_urls):
         return
@@ -66,9 +124,9 @@ def upgrade_crawl_table_from_v086(apps, schema_editor):
                 status, retry_at, created_by_id, schedule_id
             )
             SELECT
-                id, created_at, modified_at, num_uses_succeeded, num_uses_failed,
-                '', config, max_depth, tags_str, NULL, '', '', '',
-                status, retry_at, created_by_id, schedule_id
+                REPLACE(id, '-', ''), created_at, modified_at, num_uses_succeeded, num_uses_failed,
+                '', config, max_depth, tags_str, REPLACE(persona_id, '-', ''), '', '', '',
+                status, retry_at, created_by_id, REPLACE(schedule_id, '-', '')
             FROM crawls_crawl;
         """)
 

@@ -260,34 +260,50 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 100
     Only processes real directories (skips symlinks - those are already migrated).
     For each old dir found in archive/:
       1. Load or create DB snapshot
-      2. Trigger fs migration on save() to move to data/users/{user}/...
+      2. Trigger fs migration on save() to move to data/archive/users/{user}/...
       3. Leave symlink in archive/ pointing to new location
 
     After this drains, archive/ should only contain symlinks and we can trust
     1:1 mapping between DB and filesystem.
     """
     from archivebox.core.models import Snapshot
-    from archivebox.config import CONSTANTS
+    from archivebox.config.common import get_config
+    from archivebox.crawls.models import Crawl
     from django.db import transaction
+    from django.utils import timezone
 
     stats = {"processed": 0, "migrated": 0, "skipped": 0, "invalid": 0}
+    crawl_output_dirs: dict[str, Path] = {}
+    crawl_url_lines: dict[str, list[str]] = {}
+    crawl_url_sets: dict[str, set[str]] = {}
+    dirty_crawl_ids: set[str] = set()
 
-    archive_dir = CONSTANTS.ARCHIVE_DIR
+    runtime_config = get_config()
+    archive_dir = runtime_config.ARCHIVE_DIR
     if not archive_dir.exists():
         return stats
 
-    print("[DEBUG Phase1] Scanning for old directories in archive/...")
+    for crawl in Crawl.objects.filter(label__startswith="[migration] orphaned").iterator():
+        url_entries = crawl._iter_url_lines()
+        existing_urls = {url for _raw_line, url in url_entries if url}
+        lines = (crawl.urls or "").splitlines()
+        changed = False
+        for url in crawl.snapshot_set.order_by("timestamp").values_list("url", flat=True):
+            if url not in existing_urls:
+                lines.append(url)
+                existing_urls.add(url)
+                changed = True
+        if changed:
+            Crawl.objects.filter(pk=crawl.pk).update(urls="\n".join(lines), modified_at=timezone.now())
 
     # Scan for real directories only (skip symlinks - they're already migrated)
     all_entries = list(os.scandir(archive_dir))
-    print(f"[DEBUG Phase1] Total entries in archive/: {len(all_entries)}")
     entries = [
         (e.stat().st_mtime, e.path)
         for e in all_entries
-        if e.is_dir(follow_symlinks=False)  # Skip symlinks
+        if e.is_dir(follow_symlinks=False) and Snapshot.is_legacy_archive_dir(Path(e.path))  # Skip symlinks and 0.9.x roots
     ]
     entries.sort(reverse=True)  # Newest first
-    print(f"[DEBUG Phase1] Real directories (not symlinks): {len(entries)}")
     print(f"[*] Found {len(entries)} old directories to drain")
 
     for mtime, entry_path in entries:
@@ -313,7 +329,42 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 100
                 continue
 
             try:
-                snapshot.save()
+                Snapshot.objects.bulk_create([snapshot])
+                snapshot.migrate_filesystem_to_current_version(source_dir=entry_path, config=runtime_config)
+                Snapshot.objects.filter(pk=snapshot.pk).update(
+                    fs_version=snapshot.fs_version,
+                    modified_at=timezone.now(),
+                )
+                migration_cleanup = getattr(snapshot, "_pending_fs_migration_cleanup", None)
+                new_dir = None
+                if migration_cleanup:
+                    old_dir, new_dir = migration_cleanup
+                    transaction.on_commit(
+                        lambda old_dir=old_dir, new_dir=new_dir, snapshot=snapshot: snapshot._cleanup_old_migration_dir(old_dir, new_dir),
+                    )
+                    delattr(snapshot, "_pending_fs_migration_cleanup")
+
+                crawl = _get_snapshot_crawl(snapshot)
+                crawl_dir = None
+                if crawl is not None:
+                    crawl_cache_key = str(crawl.id)
+                    crawl_dir = crawl_output_dirs.get(crawl_cache_key)
+                    if crawl_dir is None:
+                        crawl_dir = Path(crawl.output_dir)
+                        crawl_output_dirs[crawl_cache_key] = crawl_dir
+
+                    existing_urls = crawl_url_sets.get(crawl_cache_key)
+                    if existing_urls is None:
+                        url_entries = crawl._iter_url_lines()
+                        existing_urls = {url for _raw_line, url in url_entries if url}
+                        crawl_url_sets[crawl_cache_key] = existing_urls
+                        crawl_url_lines[crawl_cache_key] = (crawl.urls or "").splitlines()
+                    if snapshot.url not in existing_urls:
+                        crawl_url_lines[crawl_cache_key].append(snapshot.url)
+                        existing_urls.add(snapshot.url)
+                        dirty_crawl_ids.add(crawl_cache_key)
+
+                snapshot.ensure_crawl_symlink(crawl_dir=crawl_dir, snapshot_dir=new_dir)
                 stats["migrated"] += 1
                 print(f"    [{stats['processed']}] Imported orphaned snapshot: {entry_path.name}")
             except Exception as e:
@@ -326,8 +377,6 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 100
 
         if not has_valid_crawl:
             # Create a new crawl (created_by will default to system user)
-            from archivebox.crawls.models import Crawl
-
             crawl = Crawl.objects.create(urls=snapshot.url)
             # Use queryset update to avoid triggering save() hooks
             from archivebox.core.models import Snapshot as SnapshotModel
@@ -335,59 +384,57 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 100
             SnapshotModel.objects.filter(pk=snapshot.pk).update(crawl=crawl)
             # Refresh the instance
             snapshot.crawl = crawl
-            print(f"[DEBUG Phase1] Created missing crawl for snapshot {str(snapshot.id)[:8]}")
 
         # Check if needs migration (0.8.x → 0.9.x)
-        print(
-            f"[DEBUG Phase1] Snapshot {str(snapshot.id)[:8]}: fs_version={snapshot.fs_version}, needs_migration={snapshot.fs_migration_needed}",
-        )
-        if snapshot.fs_migration_needed:
-            try:
-                # Calculate paths using actual directory (entry_path), not snapshot.timestamp
-                # because snapshot.timestamp might be truncated
-                old_dir = entry_path
-                new_dir = snapshot.get_storage_path_for_version("0.9.0")
-                print(f"[DEBUG Phase1] Migrating {old_dir.name} → {new_dir}")
-
-                # Manually migrate files
-                if not new_dir.exists() and old_dir.exists():
-                    new_dir.mkdir(parents=True, exist_ok=True)
-                    import shutil
-
-                    file_count = 0
-                    for old_file in old_dir.rglob("*"):
-                        if old_file.is_file():
-                            rel_path = old_file.relative_to(old_dir)
-                            new_file = new_dir / rel_path
-                            if not new_file.exists():
-                                new_file.parent.mkdir(parents=True, exist_ok=True)
-                                shutil.copy2(old_file, new_file)
-                                file_count += 1
-                    print(f"[DEBUG Phase1] Copied {file_count} files")
-
-                # Update only fs_version field using queryset update (bypasses validation)
-                from archivebox.core.models import Snapshot as SnapshotModel
-
-                SnapshotModel.objects.filter(pk=snapshot.pk).update(fs_version="0.9.0")
-
-                # Commit the transaction
-                transaction.commit()
-
-                # Cleanup: delete old dir and create symlink
-                if old_dir.exists() and old_dir != new_dir:
-                    snapshot._cleanup_old_migration_dir(old_dir, new_dir)
-
+        try:
+            old_version = snapshot.fs_version
+            snapshot.migrate_filesystem_to_current_version(source_dir=entry_path, config=runtime_config)
+            if snapshot.fs_version != old_version or getattr(snapshot, "_pending_fs_migration_cleanup", None):
+                Snapshot.objects.filter(pk=snapshot.pk).update(
+                    fs_version=snapshot.fs_version,
+                    modified_at=timezone.now(),
+                )
+                migration_cleanup = getattr(snapshot, "_pending_fs_migration_cleanup", None)
+                new_dir = None
+                if migration_cleanup:
+                    old_dir, new_dir = migration_cleanup
+                    transaction.on_commit(
+                        lambda old_dir=old_dir, new_dir=new_dir, snapshot=snapshot: snapshot._cleanup_old_migration_dir(old_dir, new_dir),
+                    )
+                    delattr(snapshot, "_pending_fs_migration_cleanup")
+                crawl_dir = None
+                if snapshot.crawl_id:
+                    crawl_cache_key = str(snapshot.crawl_id)
+                    crawl_dir = crawl_output_dirs.get(crawl_cache_key)
+                    if crawl_dir is None:
+                        crawl = _get_snapshot_crawl(snapshot)
+                        if crawl is not None:
+                            crawl_dir = Path(crawl.output_dir)
+                            crawl_output_dirs[crawl_cache_key] = crawl_dir
+                snapshot.ensure_crawl_symlink(crawl_dir=crawl_dir, snapshot_dir=new_dir)
                 stats["migrated"] += 1
                 print(f"    [{stats['processed']}] Migrated: {entry_path.name}")
-            except Exception as e:
+            else:
                 stats["skipped"] += 1
-                print(f"    [{stats['processed']}] Skipped (error: {e}): {entry_path.name}")
-        else:
+        except Exception as e:
             stats["skipped"] += 1
+            print(f"    [{stats['processed']}] Skipped (error: {e}): {entry_path.name}")
 
         if stats["processed"] % batch_size == 0:
+            for crawl_id in tuple(dirty_crawl_ids):
+                Crawl.objects.filter(pk=crawl_id).update(
+                    urls="\n".join(crawl_url_lines[crawl_id]),
+                    modified_at=timezone.now(),
+                )
+            dirty_crawl_ids.clear()
             transaction.commit()
 
+    for crawl_id in tuple(dirty_crawl_ids):
+        Crawl.objects.filter(pk=crawl_id).update(
+            urls="\n".join(crawl_url_lines[crawl_id]),
+            modified_at=timezone.now(),
+        )
+    dirty_crawl_ids.clear()
     transaction.commit()
     return stats
 
@@ -404,10 +451,12 @@ def process_all_db_snapshots(batch_size: int = 100, resume: str | None = None) -
     after Phase 1 has drained all old archive/ directories.
     """
     from archivebox.core.models import Snapshot
+    from archivebox.config.common import get_config
     from django.db import transaction
     from django.utils import timezone
 
     stats = {"processed": 0, "reconciled": 0, "queued": 0}
+    runtime_config = get_config()
 
     queryset = Snapshot.objects.all()
     if resume:
@@ -416,7 +465,7 @@ def process_all_db_snapshots(batch_size: int = 100, resume: str | None = None) -
     print(f"[*] Processing {total} snapshots from database (most recent first)...")
 
     # Process from most recent to least recent
-    for snapshot in queryset.select_related("crawl").order_by("-bookmarked_at").iterator(chunk_size=batch_size):
+    for snapshot in queryset.select_related("crawl__created_by").order_by("-bookmarked_at").iterator(chunk_size=batch_size):
         stats["processed"] += 1
 
         # Skip snapshots with missing crawl references (orphaned by migration errors)
@@ -424,41 +473,47 @@ def process_all_db_snapshots(batch_size: int = 100, resume: str | None = None) -
             continue
 
         try:
-            print(
-                f"[DEBUG Phase2] Snapshot {str(snapshot.id)[:8]}: fs_version={snapshot.fs_version}, needs_migration={snapshot.fs_migration_needed}",
-            )
-
             # Check if snapshot has a directory on disk
             from pathlib import Path
 
-            output_dir = Path(snapshot.output_dir)
+            output_dir = Path(snapshot.get_storage_path_for_version(snapshot.fs_version, config=runtime_config))
             has_directory = output_dir.exists() and output_dir.is_dir()
+            current_fs_version = Snapshot._fs_current_version()
+            update_values = {
+                "status": Snapshot.StatusChoices.QUEUED,
+                "retry_at": timezone.now(),
+                "modified_at": timezone.now(),
+            }
 
             # Only reconcile if directory exists (don't create empty directories for orphans)
             if has_directory:
-                snapshot.reconcile_with_index_json()
+                json_path = output_dir / "index.json"
+                jsonl_path = output_dir / "index.jsonl"
+                if json_path.exists() or not jsonl_path.exists():
+                    old_title = snapshot.title
+                    snapshot.reconcile_with_index_json(output_dir=output_dir)
+                    if snapshot.title != old_title:
+                        update_values["title"] = snapshot.title
 
             # Clean up invalid field values from old migrations
             if not isinstance(snapshot.current_step, int):
-                snapshot.current_step = 0
+                update_values["current_step"] = 0
 
-            # If still needs migration, it's an orphan (no directory on disk)
-            # Mark it as migrated to prevent save() from triggering filesystem migration
             if snapshot.fs_migration_needed:
-                if has_directory:
-                    print(f"[DEBUG Phase2] WARNING: Snapshot {str(snapshot.id)[:8]} has directory but still needs migration")
+                legacy_dir = snapshot.get_storage_path_for_version("0.8.0", config=runtime_config)
+                current_dir = snapshot.get_storage_path_for_version(current_fs_version, config=runtime_config)
+                if legacy_dir.exists() or current_dir.exists():
+                    snapshot.migrate_filesystem_to_current_version(config=runtime_config)
+                    snapshot.status = update_values["status"]
+                    snapshot.retry_at = update_values["retry_at"]
+                    if "current_step" in update_values:
+                        snapshot.current_step = update_values["current_step"]
+                    snapshot.save(update_fields=tuple([*update_values.keys(), "fs_version"]))
                 else:
-                    print(f"[DEBUG Phase2] Orphan snapshot {str(snapshot.id)[:8]} - marking as migrated without filesystem operation")
-                # Use queryset update to set fs_version without triggering save() hooks
-                from archivebox.core.models import Snapshot as SnapshotModel
-
-                SnapshotModel.objects.filter(pk=snapshot.pk).update(fs_version="0.9.0")
-                snapshot.fs_version = "0.9.0"
-
-            # Queue for archiving (state machine will handle it)
-            snapshot.status = Snapshot.StatusChoices.QUEUED
-            snapshot.retry_at = timezone.now()
-            snapshot.save()
+                    update_values["fs_version"] = current_fs_version
+                    Snapshot.objects.filter(pk=snapshot.pk).update(**update_values)
+            else:
+                Snapshot.objects.filter(pk=snapshot.pk).update(**update_values)
 
             stats["reconciled"] += 1 if has_directory else 0
             stats["queued"] += 1

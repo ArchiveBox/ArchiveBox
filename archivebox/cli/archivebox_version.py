@@ -107,9 +107,8 @@ def version(
     from archivebox.config.version import get_COMMIT_HASH, get_BUILD_TIME
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, RUNNING_AS_UID, RUNNING_AS_GID, IN_DOCKER
     from archivebox.config.paths import get_data_locations, get_code_locations
-    from archivebox.config.common import SHELL_CONFIG, STORAGE_CONFIG, SEARCH_BACKEND_CONFIG
     from archivebox.misc.logging_util import printable_folder_status
-    from archivebox.config.configset import get_config
+    from archivebox.config.common import get_config
 
     console = Console()
     prnt = console.print
@@ -127,7 +126,7 @@ def version(
     )
     prnt(
         f"IN_DOCKER={IN_DOCKER}",
-        f"IN_QEMU={SHELL_CONFIG.IN_QEMU}",
+        f"IN_QEMU={config.IN_QEMU}",
         f"ARCH={p.machine}",
         f"OS={p.system}",
         f"PLATFORM={platform.platform()}",
@@ -144,8 +143,8 @@ def version(
         prnt(
             f"EUID={os.geteuid()}:{os.getegid()} UID={RUNNING_AS_UID}:{RUNNING_AS_GID} PUID={ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}",
             f"FS_UID={DATA_DIR_STAT.st_uid}:{DATA_DIR_STAT.st_gid}",
-            f"FS_PERMS={STORAGE_CONFIG.OUTPUT_PERMISSIONS}",
-            f"FS_ATOMIC={STORAGE_CONFIG.ENFORCE_ATOMIC_WRITES}",
+            f"FS_PERMS={config.OUTPUT_PERMISSIONS}",
+            f"FS_ATOMIC={config.ENFORCE_ATOMIC_WRITES}",
             f"FS_REMOTE={OUTPUT_IS_REMOTE_FS}",
         )
     except Exception:
@@ -154,16 +153,16 @@ def version(
         )
 
     prnt(
-        f"DEBUG={SHELL_CONFIG.DEBUG}",
-        f"IS_TTY={SHELL_CONFIG.IS_TTY}",
+        f"DEBUG={config.DEBUG}",
+        f"IS_TTY={config.IS_TTY}",
         f"SUDO={CONSTANTS.IS_ROOT}",
         f"ID={CONSTANTS.MACHINE_ID}:{CONSTANTS.COLLECTION_ID}",
-        f"SEARCH_BACKEND={SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE}",
+        f"SEARCH_BACKEND={config.SEARCH_BACKEND_ENGINE}",
         f"LDAP={LDAP_ENABLED}",
     )
     prnt()
 
-    if not (os.access(CONSTANTS.ARCHIVE_DIR, os.R_OK) and os.access(CONSTANTS.CONFIG_FILE, os.R_OK)):
+    if not (os.access(config.ARCHIVE_DIR, os.R_OK) and os.access(CONSTANTS.CONFIG_FILE, os.R_OK)):
         PANEL_TEXT = "\n".join(
             (
                 "",
@@ -226,7 +225,7 @@ def version(
                         _format_binary_abspath(
                             installed.abspath,
                             pwd=Path.cwd(),
-                            lib_dir=STORAGE_CONFIG.LIB_DIR,
+                            lib_dir=config.LIB_DIR,
                             personas_dir=Path.home() / ".config" / "abx" / "personas",
                             home=Path.home(),
                         )
@@ -283,7 +282,7 @@ def version(
             prnt(f"  [red]Error getting code locations: {e}[/red]")
 
         prnt()
-        if os.access(CONSTANTS.ARCHIVE_DIR, os.R_OK) or os.access(CONSTANTS.CONFIG_FILE, os.R_OK):
+        if os.access(config.ARCHIVE_DIR, os.R_OK) or os.access(CONSTANTS.CONFIG_FILE, os.R_OK):
             prnt("[bright_yellow][i] Data locations:[/bright_yellow]")
             try:
                 for name, path in get_data_locations().items():

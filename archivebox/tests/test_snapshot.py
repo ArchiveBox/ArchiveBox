@@ -48,7 +48,7 @@ def test_snapshot_creates_snapshot_with_correct_url(tmp_path, process, disable_e
     domain = urlparse(snapshot_url).hostname or "unknown"
 
     # Verify crawl symlink exists and is relative
-    target_path = tmp_path / "users" / username / "snapshots" / snapshot_date_str / domain / snapshot_id
+    target_path = tmp_path / "archive" / "users" / username / "snapshots" / snapshot_date_str / domain / snapshot_id
     symlinks = [p for p in tmp_path.rglob(str(snapshot_id)) if p.is_symlink()]
     assert symlinks, "Snapshot symlink should exist under crawl dir"
     link_path = symlinks[0]

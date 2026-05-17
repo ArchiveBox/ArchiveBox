@@ -404,16 +404,17 @@ def parse_date(date: Any) -> datetime | None:
 
 
 @enforce_types
-def download_url(url: str, timeout: int | None = None) -> str:
+def download_url(url: str, timeout: int | None = None, config=None, **config_kwargs) -> str:
     """Download the contents of a remote url and return the text"""
 
-    from archivebox.config.common import ARCHIVING_CONFIG
+    from archivebox.config.common import get_config
 
-    timeout = timeout or ARCHIVING_CONFIG.TIMEOUT
+    config = config or get_config(**config_kwargs)
+    timeout = timeout or config.TIMEOUT
     session = requests.Session()
 
-    if ARCHIVING_CONFIG.COOKIES_FILE and Path(ARCHIVING_CONFIG.COOKIES_FILE).is_file():
-        cookie_jar = http.cookiejar.MozillaCookieJar(ARCHIVING_CONFIG.COOKIES_FILE)
+    if config.COOKIES_FILE and Path(config.COOKIES_FILE).is_file():
+        cookie_jar = http.cookiejar.MozillaCookieJar(config.COOKIES_FILE)
         cookie_jar.load(ignore_discard=True, ignore_expires=True)
         for cookie in cookie_jar:
             if cookie.value is not None:
@@ -421,8 +422,8 @@ def download_url(url: str, timeout: int | None = None) -> str:
 
     response = session.get(
         url,
-        headers={"User-Agent": ARCHIVING_CONFIG.USER_AGENT},
-        verify=ARCHIVING_CONFIG.CHECK_SSL_VALIDITY,
+        headers={"User-Agent": config.USER_AGENT},
+        verify=config.CHECK_SSL_VALIDITY,
         timeout=timeout,
     )
 
@@ -440,19 +441,20 @@ def download_url(url: str, timeout: int | None = None) -> str:
 
 
 @enforce_types
-def get_headers(url: str, timeout: int | None = None) -> str:
+def get_headers(url: str, timeout: int | None = None, config=None, **config_kwargs) -> str:
     """Download the contents of a remote url and return the headers"""
     # TODO: get rid of this and use an abx pluggy hook instead
 
-    from archivebox.config.common import ARCHIVING_CONFIG
+    from archivebox.config.common import get_config
 
-    timeout = timeout or ARCHIVING_CONFIG.TIMEOUT
+    config = config or get_config(**config_kwargs)
+    timeout = timeout or config.TIMEOUT
 
     try:
         response = requests.head(
             url,
-            headers={"User-Agent": ARCHIVING_CONFIG.USER_AGENT},
-            verify=ARCHIVING_CONFIG.CHECK_SSL_VALIDITY,
+            headers={"User-Agent": config.USER_AGENT},
+            verify=config.CHECK_SSL_VALIDITY,
             timeout=timeout,
             allow_redirects=True,
         )
@@ -463,8 +465,8 @@ def get_headers(url: str, timeout: int | None = None) -> str:
     except RequestException:
         response = requests.get(
             url,
-            headers={"User-Agent": ARCHIVING_CONFIG.USER_AGENT},
-            verify=ARCHIVING_CONFIG.CHECK_SSL_VALIDITY,
+            headers={"User-Agent": config.USER_AGENT},
+            verify=config.CHECK_SSL_VALIDITY,
             timeout=timeout,
             stream=True,
         )
@@ -692,7 +694,7 @@ for url_str, num_urls in _test_url_strs.items():
 ### Chrome Helpers
 
 
-def chrome_cleanup():
+def chrome_cleanup(config=None, **config_kwargs):
     """
     Cleans up any state or runtime files that Chrome leaves behind when killed by
     a timeout or other error. Handles:
@@ -713,9 +715,9 @@ def chrome_cleanup():
 
         # Also clean up the active persona's explicit CHROME_USER_DATA_DIR if set
         # (in case it's a custom path not under PERSONAS_DIR)
-        from archivebox.config.configset import get_config
+        from archivebox.config.common import get_config
 
-        config = get_config()
+        config = config or get_config(**config_kwargs)
         chrome_user_data_dir = config.get("CHROME_USER_DATA_DIR")
         if chrome_user_data_dir:
             singleton_lock = Path(chrome_user_data_dir) / "SingletonLock"

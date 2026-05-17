@@ -8,7 +8,6 @@ from datetime import datetime
 
 from django.db.models import Model, Q, Sum
 from django.db.models.functions import Coalesce
-from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
@@ -22,7 +21,7 @@ from ninja.errors import HttpError
 
 from archivebox.core.models import Snapshot, ArchiveResult, Tag
 from archivebox.api.auth import auth_using_token
-from archivebox.config.common import SERVER_CONFIG
+from archivebox.config.common import get_config
 from archivebox.core.tag_utils import (
     build_tag_cards,
     delete_tag as delete_tag_record,
@@ -632,10 +631,10 @@ def search_tags(
 
 
 def _public_tag_listing_enabled() -> bool:
-    explicit = getattr(settings, "PUBLIC_SNAPSHOTS_LIST", None)
-    if explicit is not None:
-        return bool(explicit)
-    return bool(getattr(settings, "PUBLIC_INDEX", SERVER_CONFIG.PUBLIC_INDEX))
+    config = get_config()
+    if config.PUBLIC_SNAPSHOTS_LIST is not None:
+        return config.PUBLIC_SNAPSHOTS_LIST
+    return config.PUBLIC_INDEX
 
 
 def _request_has_tag_autocomplete_access(request: HttpRequest) -> bool:

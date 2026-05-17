@@ -43,6 +43,9 @@ archivebox/tests/data/
 archive/
 output/
 logs/
+/-
+/personas/
+/sources/
 index.sqlite3
 queue.sqlite3
 *.sqlite*

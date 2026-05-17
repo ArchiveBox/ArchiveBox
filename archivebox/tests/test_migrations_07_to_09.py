@@ -93,14 +93,32 @@ class TestMigrationFrom07x(unittest.TestCase):
         self.assertTrue(ok, msg)
 
     def test_migration_preserves_archiveresults(self):
-        """Migration should preserve all archive results."""
+        """Migration should preserve ArchiveResult rows and link each one to a Process."""
         expected_count = len(self.original_data["archiveresults"])
+        expected_counts = {}
+        for result in self.original_data["archiveresults"]:
+            key = (result["extractor"], result["status"])
+            expected_counts[key] = expected_counts.get(key, 0) + 1
 
         result = run_archivebox(self.work_dir, ["init"], timeout=45)
         self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
 
         ok, msg = verify_archiveresult_count(self.db_path, expected_count)
         self.assertTrue(ok, msg)
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute("SELECT plugin, status, COUNT(*) FROM core_archiveresult GROUP BY plugin, status")
+        migrated_counts = {(plugin, status): count for plugin, status, count in cursor.fetchall()}
+        cursor.execute("SELECT COUNT(*) FROM core_archiveresult WHERE process_id IS NULL")
+        missing_process_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM machine_process")
+        process_count = cursor.fetchone()[0]
+        conn.close()
+
+        self.assertEqual(migrated_counts, expected_counts)
+        self.assertEqual(missing_process_count, 0)
+        self.assertEqual(process_count, expected_count)
 
     def test_migration_preserves_foreign_keys(self):
         """Migration should maintain foreign key relationships."""
@@ -109,6 +127,55 @@ class TestMigrationFrom07x(unittest.TestCase):
 
         ok, msg = verify_foreign_keys(self.db_path)
         self.assertTrue(ok, msg)
+
+    def test_migration_preserves_legacy_timestamp_meanings(self):
+        """0.7.x timestamp is bookmark identity; added is row creation; updated is downloaded."""
+        snapshot = self.original_data["snapshots"][0]
+        legacy_bookmark_ts = "1609459200.123456"
+        legacy_added = "2024-08-28 09:40:00"
+        legacy_updated = "2024-08-29 10:41:00"
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE core_snapshot
+            SET timestamp = ?, added = ?, updated = ?
+            WHERE id = ?
+            """,
+            (legacy_bookmark_ts, legacy_added, legacy_updated, snapshot["id"]),
+        )
+        conn.commit()
+        conn.close()
+
+        result = run_archivebox(self.work_dir, ["init"], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT timestamp, bookmarked_at, created_at, modified_at, downloaded_at FROM core_snapshot WHERE id = ?",
+            (snapshot["id"],),
+        )
+        timestamp, bookmarked_at, created_at, modified_at, downloaded_at = cursor.fetchone()
+        conn.close()
+
+        self.assertEqual(timestamp, legacy_bookmark_ts)
+        self.assertTrue(bookmarked_at.startswith("2021-01-01"), bookmarked_at)
+        self.assertTrue(created_at.startswith("2024-08-28"), created_at)
+        self.assertTrue(modified_at.startswith("2024-08-29"), modified_at)
+        self.assertTrue(downloaded_at.startswith("2024-08-29"), downloaded_at)
+
+    def test_update_saves_migrated_snapshots_without_foreign_key_errors(self):
+        """Migrated 0.7.x snapshots should be writable through the current ORM."""
+        result = run_archivebox(self.work_dir, ["init"], timeout=45)
+        self.assertEqual(result.returncode, 0, f"Init failed: {result.stderr}")
+
+        result = run_archivebox(self.work_dir, ["update"], timeout=60)
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 0, f"Update failed after migration: {result.stderr}")
+        self.assertNotIn("FOREIGN KEY constraint failed", output)
+        self.assertNotIn("Skipping snapshot", output)
 
     def test_status_works_after_migration(self):
         """Status command should work after migration."""

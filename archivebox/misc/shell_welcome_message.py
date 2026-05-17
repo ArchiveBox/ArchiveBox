@@ -16,15 +16,15 @@ import archivebox
 from benedict import benedict  # noqa
 from django.utils import timezone  # noqa
 from datetime import datetime, timedelta  # noqa
-from django.conf import settings  # noqa
 
 from archivebox import CONSTANTS  # noqa
 from archivebox.cli import *  # noqa
-from archivebox.config.configset import get_config
+from archivebox.config.common import get_config
 
-CONFIG = get_config()
 
 if __name__ == "__main__":
+    CONFIG = get_config()
+
     # load the rich extension for ipython for pretty printing
     # https://rich.readthedocs.io/en/stable/introduction.html#ipython-extension
     get_ipython().run_line_magic("load_ext", "rich")  # type: ignore # noqa

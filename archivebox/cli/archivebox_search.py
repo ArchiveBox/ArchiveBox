@@ -13,6 +13,7 @@ import rich_click as click
 from django.db.models import Q, QuerySet
 
 from archivebox.config import DATA_DIR
+from archivebox.config.common import get_config
 from archivebox.misc.logging import stderr
 from archivebox.misc.util import enforce_types, docstring
 
@@ -59,14 +60,14 @@ def _snapshots_to_json(
     from datetime import datetime, timezone as tz
 
     from archivebox.config import VERSION
-    from archivebox.config.common import SERVER_CONFIG
     from archivebox.misc.util import to_json
 
+    config = get_config()
     main_index_header = (
         {
             "info": "This is an index of site data archived by ArchiveBox: The self-hosted web archive.",
             "schema": "archivebox.index.json",
-            "copyright_info": SERVER_CONFIG.FOOTER_INFO,
+            "copyright_info": config.FOOTER_INFO,
             "meta": {
                 "project": "ArchiveBox",
                 "version": VERSION,
@@ -119,9 +120,9 @@ def _snapshots_to_html(
     from django.template.loader import render_to_string
 
     from archivebox.config import VERSION
-    from archivebox.config.common import SERVER_CONFIG
     from archivebox.config.version import get_COMMIT_HASH
 
+    config = get_config()
     template = "static_index.html" if with_headers else "minimal_index.html"
     snapshot_list = list(snapshots.iterator(chunk_size=500))
 
@@ -134,7 +135,7 @@ def _snapshots_to_html(
             "date_updated": datetime.now(tz.utc).strftime("%Y-%m-%d"),
             "time_updated": datetime.now(tz.utc).strftime("%Y-%m-%d %H:%M"),
             "links": snapshot_list,
-            "FOOTER_INFO": SERVER_CONFIG.FOOTER_INFO,
+            "FOOTER_INFO": config.FOOTER_INFO,
         },
     )
 

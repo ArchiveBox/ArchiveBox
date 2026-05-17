@@ -2,14 +2,15 @@
 
 __package__ = "archivebox.cli"
 
-from collections.abc import Iterable
 import sys
+import os
+from collections.abc import Iterable
 
 import rich_click as click
 from rich import print
 
 from archivebox.misc.util import docstring, enforce_types
-from archivebox.config.common import SERVER_CONFIG
+from archivebox.config.common import get_config
 
 
 def stop_existing_background_runner(*, machine, process_model, supervisor=None, stop_worker_fn=None, log=print) -> int:
@@ -95,7 +96,7 @@ def stop_existing_server_workers(*, supervisor, stop_worker_fn, host: str, port:
 
 @enforce_types
 def server(
-    runserver_args: Iterable[str] = (SERVER_CONFIG.BIND_ADDR,),
+    runserver_args: Iterable[str] | None = None,
     reload: bool = False,
     init: bool = False,
     debug: bool = False,
@@ -104,7 +105,8 @@ def server(
 ) -> None:
     """Run the ArchiveBox HTTP server"""
 
-    runserver_args = list(runserver_args)
+    config = get_config()
+    runserver_args = list(runserver_args or (config.BIND_ADDR,))
 
     if init:
         from archivebox.cli.archivebox_init import init as archivebox_init
@@ -116,11 +118,9 @@ def server(
 
     check_data_folder()
 
-    from archivebox.config.common import SHELL_CONFIG
-
-    run_in_debug = SHELL_CONFIG.DEBUG or debug or reload
+    run_in_debug = config.DEBUG or debug or reload
     if debug or reload:
-        SHELL_CONFIG.DEBUG = True
+        os.environ["DEBUG"] = "True"
 
     from django.contrib.auth.models import User
 

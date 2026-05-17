@@ -13,8 +13,8 @@ from django.utils.crypto import get_random_string
 
 import archivebox
 
-from archivebox.config import DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS  # noqa
-from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG, STORAGE_CONFIG  # noqa
+from archivebox.config.constants import CONSTANTS
+from archivebox.config.common import get_config
 from archivebox.core.host_utils import normalize_base_url, get_admin_base_url, get_api_base_url
 from .settings_logging import SETTINGS_LOGGING
 
@@ -23,6 +23,8 @@ IS_MIGRATING = "makemigrations" in sys.argv[:3] or "migrate" in sys.argv[:3]
 IS_TESTING = "test" in sys.argv[:3] or "PYTEST_CURRENT_TEST" in os.environ
 IS_SHELL = "shell" in sys.argv[:3] or "shell_plus" in sys.argv[:3]
 IS_GETTING_VERSION_OR_HELP = "version" in sys.argv or "help" in sys.argv or "--version" in sys.argv or "--help" in sys.argv
+CONFIG = get_config()
+PACKAGE_DIR = CONSTANTS.PACKAGE_DIR
 
 ################################################################################
 ### ArchiveBox Plugin Settings
@@ -45,7 +47,7 @@ LOGOUT_REDIRECT_URL = os.environ.get("LOGOUT_REDIRECT_URL", "/")
 PASSWORD_RESET_URL = "/accounts/password_reset/"
 APPEND_SLASH = True
 
-DEBUG = SHELL_CONFIG.DEBUG or ("--debug" in sys.argv)
+DEBUG = CONFIG.DEBUG or ("--debug" in sys.argv)
 
 
 INSTALLED_APPS = [
@@ -110,11 +112,9 @@ AUTHENTICATION_BACKENDS = [
 # LDAP Authentication Configuration
 # Conditionally loaded if LDAP_ENABLED=True and django-auth-ldap is installed
 try:
-    from archivebox.config.ldap import LDAP_CONFIG
-
-    if LDAP_CONFIG.LDAP_ENABLED:
+    if CONFIG.LDAP_ENABLED:
         # Validate LDAP configuration
-        is_valid, error_msg = LDAP_CONFIG.validate_ldap_config()
+        is_valid, error_msg = CONFIG.validate_ldap_config()
         if not is_valid:
             from rich import print
 
@@ -127,23 +127,23 @@ try:
             ldap = importlib.import_module("ldap")
 
             # Configure LDAP authentication
-            AUTH_LDAP_SERVER_URI = LDAP_CONFIG.LDAP_SERVER_URI
-            AUTH_LDAP_BIND_DN = LDAP_CONFIG.LDAP_BIND_DN
-            AUTH_LDAP_BIND_PASSWORD = LDAP_CONFIG.LDAP_BIND_PASSWORD
+            AUTH_LDAP_SERVER_URI = CONFIG.LDAP_SERVER_URI
+            AUTH_LDAP_BIND_DN = CONFIG.LDAP_BIND_DN
+            AUTH_LDAP_BIND_PASSWORD = CONFIG.LDAP_BIND_PASSWORD
 
             # Configure user search
             AUTH_LDAP_USER_SEARCH = LDAPSearch(
-                LDAP_CONFIG.LDAP_USER_BASE,
+                CONFIG.LDAP_USER_BASE,
                 getattr(ldap, "SCOPE_SUBTREE", 2),
-                LDAP_CONFIG.LDAP_USER_FILTER,
+                CONFIG.LDAP_USER_FILTER,
             )
 
             # Map LDAP attributes to Django user model fields
             AUTH_LDAP_USER_ATTR_MAP = {
-                "username": LDAP_CONFIG.LDAP_USERNAME_ATTR,
-                "first_name": LDAP_CONFIG.LDAP_FIRSTNAME_ATTR,
-                "last_name": LDAP_CONFIG.LDAP_LASTNAME_ATTR,
-                "email": LDAP_CONFIG.LDAP_EMAIL_ATTR,
+                "username": CONFIG.LDAP_USERNAME_ATTR,
+                "first_name": CONFIG.LDAP_FIRSTNAME_ATTR,
+                "last_name": CONFIG.LDAP_LASTNAME_ATTR,
+                "email": CONFIG.LDAP_EMAIL_ATTR,
             }
 
             # Use custom LDAP backend that supports LDAP_CREATE_SUPERUSER
@@ -175,9 +175,9 @@ except ImportError:
 
 STATIC_URL = "/static/"
 TEMPLATES_DIR_NAME = "templates"
-CUSTOM_TEMPLATES_ENABLED = os.path.isdir(STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR) and os.access(STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR, os.R_OK)
+CUSTOM_TEMPLATES_ENABLED = os.path.isdir(CONFIG.CUSTOM_TEMPLATES_DIR) and os.access(CONFIG.CUSTOM_TEMPLATES_DIR, os.R_OK)
 STATICFILES_DIRS = [
-    *([str(STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR / "static")] if CUSTOM_TEMPLATES_ENABLED else []),
+    *([str(CONFIG.CUSTOM_TEMPLATES_DIR / "static")] if CUSTOM_TEMPLATES_ENABLED else []),
     # *[
     #     str(plugin_dir / 'static')
     #     for plugin_dir in PLUGIN_DIRS.values()
@@ -188,7 +188,7 @@ STATICFILES_DIRS = [
 ]
 
 TEMPLATE_DIRS = [
-    *([str(STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR)] if CUSTOM_TEMPLATES_ENABLED else []),
+    *([str(CONFIG.CUSTOM_TEMPLATES_DIR)] if CUSTOM_TEMPLATES_ENABLED else []),
     # *[
     #     str(plugin_dir / 'templates')
     #     for plugin_dir in PLUGIN_DIRS.values()
@@ -328,14 +328,14 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
         "OPTIONS": {
             "base_url": "/archive/",
-            "location": ARCHIVE_DIR,
+            "location": CONFIG.ARCHIVE_DIR,
         },
     },
     # "snapshots": {
     #     "BACKEND": "django.core.files.storage.FileSystemStorage",
     #     "OPTIONS": {
     #         "base_url": "/snapshots/",
-    #         "location": CONSTANTS.SNAPSHOTS_DIR,
+    #         "location": CONSTANTS.USERS_DIR,
     #     },
     # },
     # "personas": {
@@ -353,10 +353,10 @@ CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}
 ### Security Settings
 ################################################################################
 
-SECRET_KEY = SERVER_CONFIG.SECRET_KEY or get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789_")
+SECRET_KEY = CONFIG.SECRET_KEY or get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789_")
 
-ALLOWED_HOSTS = SERVER_CONFIG.ALLOWED_HOSTS.split(",")
-CSRF_TRUSTED_ORIGINS = list(set(SERVER_CONFIG.CSRF_TRUSTED_ORIGINS.split(",")))
+ALLOWED_HOSTS = CONFIG.ALLOWED_HOSTS.split(",")
+CSRF_TRUSTED_ORIGINS = list(set(CONFIG.CSRF_TRUSTED_ORIGINS.split(",")))
 
 admin_base_url = normalize_base_url(get_admin_base_url())
 if admin_base_url and admin_base_url not in CSRF_TRUSTED_ORIGINS:

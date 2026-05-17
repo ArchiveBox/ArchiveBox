@@ -22,7 +22,6 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import UserManager
 from django.utils import timezone
 
-from archivebox.config.common import SEARCH_BACKEND_CONFIG
 
 pytestmark = pytest.mark.django_db
 
@@ -924,16 +923,15 @@ class TestAdminSnapshotListView:
         assert f"/admin/core/snapshot/{snapshot.pk}/redo-failed/".encode() in response.content
 
     def test_snapshot_view_url_uses_canonical_replay_url_for_mode(self, snapshot, monkeypatch):
-        from archivebox.config.common import SERVER_CONFIG
         from archivebox.core.admin_site import archivebox_admin
         from archivebox.core.admin_snapshots import SnapshotAdmin
 
         admin = SnapshotAdmin(snapshot.__class__, archivebox_admin)
 
-        monkeypatch.setattr(SERVER_CONFIG, "SERVER_SECURITY_MODE", "safe-subdomains-fullreplay")
+        monkeypatch.setenv("SERVER_SECURITY_MODE", "safe-subdomains-fullreplay")
         assert admin.get_snapshot_view_url(snapshot) == f"http://snap-{str(snapshot.pk).replace('-', '')[-12:]}.archivebox.localhost:8000"
 
-        monkeypatch.setattr(SERVER_CONFIG, "SERVER_SECURITY_MODE", "safe-onedomain-nojsreplay")
+        monkeypatch.setenv("SERVER_SECURITY_MODE", "safe-onedomain-nojsreplay")
         assert admin.get_snapshot_view_url(snapshot) == f"http://archivebox.localhost:8000/snapshot/{snapshot.pk}"
 
     def test_find_snapshots_for_url_matches_fragment_suffixed_variants(self, crawl, db):
@@ -1381,7 +1379,7 @@ class TestAdminSnapshotSearch:
     """Tests for admin snapshot search functionality."""
 
     def test_admin_search_mode_selector_defaults_to_meta_for_ripgrep(self, client, admin_user, monkeypatch):
-        monkeypatch.setattr(SEARCH_BACKEND_CONFIG, "SEARCH_BACKEND_ENGINE", "ripgrep")
+        monkeypatch.setenv("SEARCH_BACKEND_ENGINE", "ripgrep")
 
         client.login(username="testadmin", password="testpassword")
         response = client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_HOST)
@@ -1392,7 +1390,7 @@ class TestAdminSnapshotSearch:
         assert b'name="search_mode" value="deep"' in response.content
 
     def test_admin_search_mode_selector_defaults_to_contents_for_non_ripgrep(self, client, admin_user, monkeypatch):
-        monkeypatch.setattr(SEARCH_BACKEND_CONFIG, "SEARCH_BACKEND_ENGINE", "sqlite")
+        monkeypatch.setenv("SEARCH_BACKEND_ENGINE", "sqlite")
 
         client.login(username="testadmin", password="testpassword")
         response = client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_HOST)
@@ -1632,7 +1630,7 @@ class TestPublicIndexSearch:
 
     @override_settings(PUBLIC_INDEX=True)
     def test_public_search_mode_selector_defaults_to_meta_for_ripgrep(self, client, monkeypatch):
-        monkeypatch.setattr(SEARCH_BACKEND_CONFIG, "SEARCH_BACKEND_ENGINE", "ripgrep")
+        monkeypatch.setenv("SEARCH_BACKEND_ENGINE", "ripgrep")
 
         response = client.get("/public/", HTTP_HOST=PUBLIC_HOST)
 

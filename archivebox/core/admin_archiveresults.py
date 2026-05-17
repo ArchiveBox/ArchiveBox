@@ -20,7 +20,7 @@ from django.utils import timezone
 from django.utils.text import smart_split
 
 from archivebox.config import DATA_DIR
-from archivebox.config.common import SERVER_CONFIG
+from archivebox.config.common import get_config
 from archivebox.misc.paginators import AcceleratedPaginator
 from archivebox.base_models.admin import BaseModelAdmin
 from archivebox.hooks import get_plugin_icon
@@ -469,7 +469,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
 
     list_filter = ("status", "plugin", "start_ts")
     ordering = ["-start_ts"]
-    list_per_page = SERVER_CONFIG.SNAPSHOTS_PER_PAGE
+    list_per_page = get_config().SNAPSHOTS_PER_PAGE
 
     paginator = AcceleratedPaginator
     save_on_top = True

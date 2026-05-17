@@ -179,10 +179,44 @@ class Machine(ModelWithHealthStats):
                     return cls._sanitize_config(_CURRENT_MACHINE)
             else:
                 _CURRENT_MACHINE = None
-        _CURRENT_MACHINE, _ = cls.objects.update_or_create(
-            guid=get_host_guid(),
-            defaults={"hostname": socket.gethostname(), **get_os_info(), **get_vm_info(), "stats": get_host_stats()},
-        )
+
+        host_guid = get_host_guid()
+        try:
+            _CURRENT_MACHINE = cls.objects.get(guid=host_guid)
+        except cls.DoesNotExist:
+            _CURRENT_MACHINE = cls.objects.create(
+                guid=host_guid,
+                hostname=socket.gethostname(),
+                **get_os_info(),
+                **get_vm_info(),
+                stats=get_host_stats(),
+            )
+        else:
+            if timezone.now() >= _CURRENT_MACHINE.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL):
+                for key, value in {
+                    "hostname": socket.gethostname(),
+                    **get_os_info(),
+                    **get_vm_info(),
+                    "stats": get_host_stats(),
+                }.items():
+                    setattr(_CURRENT_MACHINE, key, value)
+                _CURRENT_MACHINE.save(
+                    update_fields=[
+                        "hostname",
+                        "hw_in_docker",
+                        "hw_in_vm",
+                        "hw_manufacturer",
+                        "hw_product",
+                        "hw_uuid",
+                        "os_arch",
+                        "os_family",
+                        "os_platform",
+                        "os_release",
+                        "os_kernel",
+                        "stats",
+                        "modified_at",
+                    ],
+                )
         return cls._sanitize_config(_CURRENT_MACHINE)
 
     @classmethod
@@ -427,9 +461,9 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         Get output directory for this binary's hook logs.
         Path: data/machines/{machine_uuid}/binaries/{binary_name}/{binary_uuid}
         """
-        from django.conf import settings
+        from archivebox.config.common import get_config
 
-        return Path(settings.DATA_DIR) / "machines" / str(self.machine_id) / "binaries" / self.name / str(self.id)
+        return get_config().DATA_DIR / "machines" / str(self.machine_id) / "binaries" / self.name / str(self.id)
 
     def to_json(self) -> dict:
         """
@@ -582,7 +616,7 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
         """
         import json
         from archivebox.hooks import discover_hooks, run_hook
-        from archivebox.config.configset import get_config
+        from archivebox.config.common import get_config
 
         # Get merged config (Binary doesn't have crawl/snapshot context).
         config = get_config()
@@ -658,9 +692,9 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
                 self.save()
 
                 # Symlink binary into LIB_BIN_DIR if configured
-                from django.conf import settings
+                from archivebox.config.common import get_config
 
-                lib_bin_dir = getattr(settings, "LIB_BIN_DIR", None)
+                lib_bin_dir = get_config().LIB_BIN_DIR
                 if lib_bin_dir:
                     self.symlink_to_lib_bin(lib_bin_dir)
 
@@ -2303,7 +2337,7 @@ class Process(models.Model):
         """
         import subprocess
         from pathlib import Path
-        from django.conf import settings
+        from archivebox.config.common import get_config
 
         chrome_utils = Path(__file__).parent.parent / "plugins" / "chrome" / "chrome_utils.js"
         if not chrome_utils.exists():
@@ -2311,7 +2345,7 @@ class Process(models.Model):
 
         try:
             result = subprocess.run(
-                ["node", str(chrome_utils), "killZombieChrome", str(settings.DATA_DIR)],
+                ["node", str(chrome_utils), "killZombieChrome", str(get_config().DATA_DIR)],
                 capture_output=True,
                 timeout=30,
                 text=True,

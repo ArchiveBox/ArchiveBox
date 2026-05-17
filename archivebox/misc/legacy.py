@@ -58,7 +58,7 @@ def parse_json_main_index(out_dir: Path) -> Iterator[SnapshotDict]:
         return
 
 
-def parse_json_links_details(out_dir: Path) -> Iterator[SnapshotDict]:
+def parse_json_links_details(out_dir: Path, config=None, **config_kwargs) -> Iterator[SnapshotDict]:
     """
     Parse links from individual snapshot index.jsonl/index.json files in archive directories.
 
@@ -66,18 +66,29 @@ def parse_json_links_details(out_dir: Path) -> Iterator[SnapshotDict]:
     Prefers index.jsonl (new format) over index.json (legacy format).
     """
     from archivebox.config import CONSTANTS
+    from archivebox.config.common import get_config
 
-    archive_dir = out_dir / CONSTANTS.ARCHIVE_DIR_NAME
+    config = config or get_config(**config_kwargs)
+    archive_dir = config.ARCHIVE_DIR if Path(out_dir).resolve() == CONSTANTS.DATA_DIR.resolve() else out_dir / CONSTANTS.ARCHIVE_DIR_NAME
     if not archive_dir.exists():
         return
 
     for entry in os.scandir(archive_dir):
         if not entry.is_dir():
             continue
+        entry_path = Path(entry.path)
+        if entry_path.name in CONSTANTS.RESERVED_ARCHIVE_DIR_NAMES or entry_path.name.startswith("."):
+            continue
+        try:
+            ts_int = int(float(entry_path.name))
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if not 788918400 <= ts_int <= 2082758400:
+            continue
 
         # Try index.jsonl first (new format)
-        jsonl_file = Path(entry.path) / CONSTANTS.JSONL_INDEX_FILENAME
-        json_file = Path(entry.path) / CONSTANTS.JSON_INDEX_FILENAME
+        jsonl_file = entry_path / CONSTANTS.JSONL_INDEX_FILENAME
+        json_file = entry_path / CONSTANTS.JSON_INDEX_FILENAME
 
         link = None
 

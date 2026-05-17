@@ -32,7 +32,7 @@ class ArchiveBoxLDAPBackend(BaseLDAPBackend):
 
         This method is called by django-auth-ldap after successful LDAP authentication.
         """
-        from archivebox.config.ldap import LDAP_CONFIG
+        from archivebox.config.common import get_config
 
         base_authenticate = getattr(super(), "authenticate_ldap_user", None)
         if base_authenticate is None:
@@ -40,7 +40,7 @@ class ArchiveBoxLDAPBackend(BaseLDAPBackend):
 
         user = base_authenticate(ldap_user, password)
 
-        if user and LDAP_CONFIG.LDAP_CREATE_SUPERUSER:
+        if user and get_config().LDAP_CREATE_SUPERUSER:
             # Grant superuser privileges to all LDAP-authenticated users
             if not user.is_superuser:
                 user.is_superuser = True

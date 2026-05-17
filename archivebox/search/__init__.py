@@ -14,13 +14,15 @@ Search backends must provide a search.py module with:
 
 __package__ = "archivebox.search"
 
+import os
+from contextlib import contextmanager
 from typing import Any
 
 from django.db.models import Case, IntegerField, QuerySet, Value, When
 
 from archivebox.misc.util import enforce_types
 from archivebox.misc.logging import stderr
-from archivebox.config.common import SEARCH_BACKEND_CONFIG
+from archivebox.config.common import get_config
 
 
 # Cache discovered backends to avoid repeated filesystem scans
@@ -28,13 +30,34 @@ _search_backends_cache: dict | None = None
 SEARCH_MODES = ("meta", "contents", "deep")
 
 
-def get_default_search_mode() -> str:
-    return "meta" if SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE == "ripgrep" else "contents"
+@contextmanager
+def search_backend_env(config: dict[str, Any] | None = None, **config_kwargs: Any):
+    """Expose ArchiveBox collection roots to in-process search backends."""
+    config = config or get_config(**config_kwargs)
+    updates = {
+        "DATA_DIR": str(config.DATA_DIR),
+        "SNAP_DIR": str(config.USERS_DIR),
+    }
+    previous = {key: os.environ.get(key) for key in updates}
+    os.environ.update(updates)
+    try:
+        yield
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
-def get_search_mode(search_mode: str | None) -> str:
+def get_default_search_mode(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+    config = config or get_config(**config_kwargs)
+    return "meta" if config.SEARCH_BACKEND_ENGINE == "ripgrep" else "contents"
+
+
+def get_search_mode(search_mode: str | None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
     normalized = (search_mode or "").strip().lower()
-    return normalized if normalized in SEARCH_MODES else get_default_search_mode()
+    return normalized if normalized in SEARCH_MODES else get_default_search_mode(config=config, **config_kwargs)
 
 
 def prioritize_metadata_matches(
@@ -90,7 +113,7 @@ def get_available_backends() -> dict:
     return _search_backends_cache
 
 
-def get_backend() -> Any:
+def get_backend(config: dict[str, Any] | None = None, **config_kwargs: Any) -> Any:
     """
     Get the configured search backend module.
 
@@ -99,7 +122,8 @@ def get_backend() -> Any:
 
     Falls back to 'ripgrep' if configured backend is not found.
     """
-    backend_name = SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE
+    config = config or get_config(**config_kwargs)
+    backend_name = config.SEARCH_BACKEND_ENGINE
     backends = get_available_backends()
 
     if backend_name in backends:
@@ -117,7 +141,7 @@ def get_backend() -> Any:
 
 
 @enforce_types
-def query_search_index(query: str, search_mode: str | None = None) -> QuerySet:
+def query_search_index(query: str, search_mode: str | None = None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> QuerySet:
     """
     Search for snapshots matching the query.
 
@@ -125,16 +149,17 @@ def query_search_index(query: str, search_mode: str | None = None) -> QuerySet:
     """
     from archivebox.core.models import Snapshot
 
-    if not SEARCH_BACKEND_CONFIG.USE_SEARCHING_BACKEND:
+    config = config or get_config(**config_kwargs)
+    if not config.USE_SEARCHING_BACKEND:
         return Snapshot.objects.none()
 
-    search_mode = "contents" if search_mode is None else get_search_mode(search_mode)
+    search_mode = "contents" if search_mode is None else get_search_mode(search_mode, config=config)
     if search_mode == "meta":
         return Snapshot.objects.none()
 
     backends = get_available_backends()
     backend_names: list[str] = []
-    configured_backend = SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE
+    configured_backend = config.SEARCH_BACKEND_ENGINE
     if search_mode == "deep":
         if "ripgrep" in backends:
             backend_names.append("ripgrep")
@@ -154,10 +179,11 @@ def query_search_index(query: str, search_mode: str | None = None) -> QuerySet:
         for backend_name in backend_names:
             backend = backends[backend_name]
             try:
-                if backend_name == "ripgrep":
-                    snapshot_pks.extend(backend.search(query, search_mode=search_mode))
-                else:
-                    snapshot_pks.extend(backend.search(query))
+                with search_backend_env(config=config):
+                    if backend_name == "ripgrep":
+                        snapshot_pks.extend(backend.search(query, search_mode=search_mode))
+                    else:
+                        snapshot_pks.extend(backend.search(query))
                 successful_backends += 1
             except Exception as err:
                 errors.append(err)
@@ -177,18 +203,20 @@ def query_search_index(query: str, search_mode: str | None = None) -> QuerySet:
 
 
 @enforce_types
-def flush_search_index(snapshots: QuerySet) -> None:
+def flush_search_index(snapshots: QuerySet, config: dict[str, Any] | None = None, **config_kwargs: Any) -> None:
     """
     Remove snapshots from the search index.
     """
-    if not SEARCH_BACKEND_CONFIG.USE_INDEXING_BACKEND or not snapshots:
+    config = config or get_config(**config_kwargs)
+    if not config.USE_INDEXING_BACKEND or not snapshots:
         return
 
-    backend = get_backend()
+    backend = get_backend(config=config)
     snapshot_pks = [str(pk) for pk in snapshots.values_list("pk", flat=True)]
 
     try:
-        backend.flush(snapshot_pks)
+        with search_backend_env(config=config):
+            backend.flush(snapshot_pks)
     except Exception as err:
         stderr()
         stderr(

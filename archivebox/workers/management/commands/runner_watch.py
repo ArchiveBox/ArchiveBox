@@ -23,7 +23,7 @@ class Command(BaseCommand):
 
         import psutil
 
-        from archivebox.config.common import STORAGE_CONFIG
+        from archivebox.config.common import get_config
         from archivebox.machine.models import Machine, Process
         from archivebox.workers.supervisord_util import (
             RUNNER_WORKER,
@@ -35,7 +35,7 @@ class Command(BaseCommand):
 
         pidfile = kwargs.get("pidfile") or os.environ.get("ARCHIVEBOX_RUNSERVER_PIDFILE")
         if not pidfile:
-            pidfile = str(STORAGE_CONFIG.TMP_DIR / "runserver.pid")
+            pidfile = str(get_config().TMP_DIR / "runserver.pid")
 
         interval = max(0.2, float(kwargs.get("interval", 1.0)))
         last_pid = None

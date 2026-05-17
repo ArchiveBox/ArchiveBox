@@ -173,17 +173,22 @@ def patch_crawl(request: HttpRequest, crawl_id: str, data: CrawlUpdateSchema):
         crawl.retry_at = payload["retry_at"]
         update_fields.append("retry_at")
 
-    crawl.save(update_fields=update_fields)
-
     if payload.get("status") == Crawl.StatusChoices.SEALED:
+        cancelled_at = timezone.now()
+        crawl.retry_at = None
+        if "retry_at" not in update_fields:
+            update_fields.append("retry_at")
+        crawl.save(update_fields=update_fields)
         Snapshot.objects.filter(
             crawl=crawl,
             status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED],
         ).update(
             status=Snapshot.StatusChoices.SEALED,
             retry_at=None,
-            modified_at=timezone.now(),
+            modified_at=cancelled_at,
         )
+    else:
+        crawl.save(update_fields=update_fields)
     return crawl
 
 

@@ -25,6 +25,7 @@ from .paths import (
     PACKAGE_DIR,
     DATA_DIR,
     ARCHIVE_DIR,
+    USERS_DIR,
     get_collection_id,
     get_machine_id,
     get_machine_type,
@@ -48,6 +49,7 @@ class ConstantsDict:
     PACKAGE_DIR: Path = PACKAGE_DIR
     DATA_DIR: Path = DATA_DIR
     ARCHIVE_DIR: Path = ARCHIVE_DIR
+    USERS_DIR: Path = USERS_DIR
 
     MACHINE_TYPE: str = get_machine_type()
     MACHINE_ID: str = get_machine_id()
@@ -76,13 +78,17 @@ class ConstantsDict:
 
     # Data dirs
     ARCHIVE_DIR_NAME: str = "archive"
+    USERS_DIR_NAME: str = "users"
+    SNAPSHOTS_DIR_NAME: str = "snapshots"
+    CRAWLS_DIR_NAME: str = "crawls"
     SOURCES_DIR_NAME: str = "sources"
     PERSONAS_DIR_NAME: str = "personas"
     CACHE_DIR_NAME: str = "cache"
     LOGS_DIR_NAME: str = "logs"
     CUSTOM_PLUGINS_DIR_NAME: str = "custom_plugins"
     CUSTOM_TEMPLATES_DIR_NAME: str = "custom_templates"
-    ARCHIVE_DIR: Path = DATA_DIR / ARCHIVE_DIR_NAME
+    ARCHIVE_DIR: Path = ARCHIVE_DIR
+    USERS_DIR: Path = USERS_DIR
     SOURCES_DIR: Path = DATA_DIR / SOURCES_DIR_NAME
     PERSONAS_DIR: Path = DATA_DIR / PERSONAS_DIR_NAME
     LOGS_DIR: Path = DATA_DIR / LOGS_DIR_NAME
@@ -109,6 +115,16 @@ class ConstantsDict:
     LIB_DIR_NAME: str = "lib"
     DEFAULT_LIB_DIR: Path = DATA_DIR / LIB_DIR_NAME / MACHINE_TYPE  # ./data/lib/arm64-linux-docker
     DEFAULT_LIB_BIN_DIR: Path = DEFAULT_LIB_DIR / "bin"  # ./data/lib/arm64-linux-docker/bin
+
+    RESERVED_ARCHIVE_DIR_NAMES: frozenset[str] = frozenset(
+        (
+            USERS_DIR_NAME,
+            SNAPSHOTS_DIR_NAME,
+            CRAWLS_DIR_NAME,
+            "invalid",
+            ".DS_Store",
+        ),
+    )
 
     # Config constants
     TIMEZONE: str = "UTC"

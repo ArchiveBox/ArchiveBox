@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from asgiref.sync import sync_to_async
+from django.utils import timezone
+
 from abx_dl.events import CrawlCleanupEvent, CrawlCompletedEvent, CrawlSetupEvent, CrawlStartEvent
 from abx_dl.services.base import BaseService
 
@@ -42,9 +44,12 @@ class CrawlService(BaseService):
         is_finished = await sync_to_async(crawl.is_finished, thread_sensitive=True)()
         if is_finished:
             crawl.status = Crawl.StatusChoices.SEALED
+            crawl.retry_at = None
         elif crawl.status != Crawl.StatusChoices.SEALED:
             crawl.status = Crawl.StatusChoices.STARTED
-        crawl.retry_at = None
+            crawl.retry_at = timezone.now()
+        else:
+            crawl.retry_at = None
         await crawl.asave(update_fields=["status", "retry_at", "modified_at"])
 
     async def on_CrawlCompletedEvent__save_to_db(self, event: CrawlCompletedEvent) -> None:
@@ -55,7 +60,9 @@ class CrawlService(BaseService):
         if not is_finished:
             if crawl.status != Crawl.StatusChoices.SEALED:
                 crawl.status = Crawl.StatusChoices.STARTED
-            crawl.retry_at = None
+                crawl.retry_at = timezone.now()
+            else:
+                crawl.retry_at = None
             await crawl.asave(update_fields=["status", "retry_at", "modified_at"])
             return
 

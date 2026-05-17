@@ -1,176 +1,18 @@
 __package__ = "archivebox.config"
 
 import os
-import json
-from typing import Any
-
-from pathlib import Path
-from configparser import ConfigParser
 
 from benedict import benedict
 
-
 from archivebox.config.constants import CONSTANTS
-
-from archivebox.misc.logging import stderr
-
-
-class CaseConfigParser(ConfigParser):
-    def optionxform(self, optionstr: str) -> str:
-        return optionstr
-
-
-def get_real_name(key: str) -> str:
-    """get the up-to-date canonical name for a given old alias or current key"""
-    # Config aliases are no longer used with the simplified config system
-    # Just return the key as-is since we no longer have a complex alias mapping
-    return key
-
-
-def load_config_val(
-    key: str,
-    default: Any = None,
-    type: type | None = None,
-    aliases: tuple[str, ...] | None = None,
-    config: benedict | None = None,
-    env_vars: os._Environ | None = None,
-    config_file_vars: dict[str, str] | None = None,
-) -> Any:
-    """parse bool, int, and str key=value pairs from env"""
-
-    assert isinstance(config, dict)
-
-    is_read_only = type is None
-    if is_read_only:
-        if callable(default):
-            return default(config)
-        return default
-
-    # get value from environment variables or config files
-    config_keys_to_check = (key, *(aliases or ()))
-    val = None
-    for key in config_keys_to_check:
-        if env_vars:
-            val = env_vars.get(key)
-            if val:
-                break
-
-        if config_file_vars:
-            val = config_file_vars.get(key)
-            if val:
-                break
-
-    is_unset = val is None
-    if is_unset:
-        if callable(default):
-            return default(config)
-        return default
-
-    assert isinstance(val, str)
-
-    # calculate value based on expected type
-    BOOL_TRUEIES = ("true", "yes", "1")
-    BOOL_FALSEIES = ("false", "no", "0")
-
-    if type is bool:
-        if val.lower() in BOOL_TRUEIES:
-            return True
-        elif val.lower() in BOOL_FALSEIES:
-            return False
-        else:
-            raise ValueError(f"Invalid configuration option {key}={val} (expected a boolean: True/False)")
-
-    elif type is str:
-        if val.lower() in (*BOOL_TRUEIES, *BOOL_FALSEIES):
-            raise ValueError(f"Invalid configuration option {key}={val} (expected a string, but value looks like a boolean)")
-        return val.strip()
-
-    elif type is int:
-        if not val.strip().isdigit():
-            raise ValueError(f"Invalid configuration option {key}={val} (expected an integer)")
-        return int(val.strip())
-
-    elif type is list or type is dict:
-        return json.loads(val)
-
-    elif type is Path:
-        return Path(val)
-
-    raise Exception("Config values can only be str, bool, int, or json")
-
-
-def load_config_file() -> benedict | None:
-    """load the ini-formatted config file from DATA_DIR/Archivebox.conf"""
-
-    config_path = CONSTANTS.CONFIG_FILE
-    if os.access(config_path, os.R_OK):
-        config_file = CaseConfigParser()
-        config_file.read(config_path)
-        # flatten into one namespace
-        config_file_vars = benedict({key.upper(): val for section, options in config_file.items() for key, val in options.items()})
-        # print('[i] Loaded config file', os.path.abspath(config_path))
-        # print(config_file_vars)
-        return config_file_vars
-    return None
-
-
-class PluginConfigSection:
-    """Pseudo-section for all plugin config keys written to [PLUGINS] section in ArchiveBox.conf"""
-
-    toml_section_header = "PLUGINS"
-
-    def __init__(self, key: str):
-        self._key = key
-
-    def __getattr__(self, name: str) -> Any:
-        # Allow hasattr checks to pass for the key
-        if name == self._key:
-            return None
-        raise AttributeError(f"PluginConfigSection has no attribute '{name}'")
-
-    def update_in_place(self, warn: bool = True, persist: bool = False, **kwargs):
-        """No-op update since plugins read config dynamically via get_config()."""
-        pass
-
-
-def section_for_key(key: str) -> Any:
-    """Find the config section containing a given key."""
-    from archivebox.config.common import (
-        SHELL_CONFIG,
-        STORAGE_CONFIG,
-        GENERAL_CONFIG,
-        SERVER_CONFIG,
-        ARCHIVING_CONFIG,
-        SEARCH_BACKEND_CONFIG,
-    )
-
-    # First check core config sections
-    for section in [
-        SHELL_CONFIG,
-        STORAGE_CONFIG,
-        GENERAL_CONFIG,
-        SERVER_CONFIG,
-        ARCHIVING_CONFIG,
-        SEARCH_BACKEND_CONFIG,
-    ]:
-        if hasattr(section, key):
-            return section
-
-    # Check if this is a plugin config key
-    from archivebox.hooks import discover_plugin_configs
-
-    plugin_configs = discover_plugin_configs()
-    for plugin_name, schema in plugin_configs.items():
-        if "properties" in schema and key in schema["properties"]:
-            # All plugin config goes to [PLUGINS] section
-            return PluginConfigSection(key)
-
-    raise ValueError(f"No config section found for key: {key}")
+from archivebox.config.configset import CaseConfigParser
 
 
 def write_config_file(config: dict[str, str]) -> benedict:
     """load the ini-formatted config file from DATA_DIR/Archivebox.conf"""
 
+    from archivebox.config.common import get_all_configs
+    from archivebox.hooks import discover_plugin_configs
     from archivebox.misc.system import atomic_write
 
     CONFIG_HEADER = """# This is the config file for your ArchiveBox collection.
@@ -197,15 +39,25 @@ def write_config_file(config: dict[str, str]) -> benedict:
     with open(config_path, encoding="utf-8") as old:
         atomic_write(f"{config_path}.bak", old.read())
 
+    config_sections = get_all_configs()
+    plugin_configs = discover_plugin_configs()
+
     # Set up sections in empty config file
     for key, val in config.items():
-        section = section_for_key(key)
-        assert section is not None
+        section_name = None
+        for section in config_sections.values():
+            if key in type(section).model_fields:
+                section_name = section.toml_section_header
+                break
 
-        if not hasattr(section, "toml_section_header"):
-            raise ValueError(f"{key} is read-only (defined in {type(section).__module__}.{type(section).__name__}). Refusing to set.")
+        if section_name is None:
+            for schema in plugin_configs.values():
+                if "properties" in schema and key in schema["properties"]:
+                    section_name = "PLUGINS"
+                    break
 
-        section_name = section.toml_section_header
+        if section_name is None:
+            raise ValueError(f"No config section found for key: {key}")
 
         if section_name in config_file:
             existing_config = dict(config_file[section_name])
@@ -213,7 +65,6 @@ def write_config_file(config: dict[str, str]) -> benedict:
             existing_config = {}
 
         config_file[section_name] = benedict({**existing_config, key: val})
-        section.update_in_place(warn=False, persist=False, **{key: val})
 
     with open(config_path, "w+", encoding="utf-8") as new:
         config_file.write(new)
@@ -221,9 +72,9 @@ def write_config_file(config: dict[str, str]) -> benedict:
     updated_config = {}
     try:
         # validate the updated_config by attempting to re-parse it
-        from archivebox.config.configset import get_flat_config
+        from archivebox.config.common import get_config
 
-        updated_config = {**load_all_config(), **get_flat_config()}
+        updated_config = get_config().as_dict()
     except BaseException:  # lgtm [py/catch-base-exception]
         # something went horribly wrong, revert to the previous version
         with open(f"{config_path}.bak", encoding="utf-8") as old:
@@ -235,71 +86,3 @@ def write_config_file(config: dict[str, str]) -> benedict:
         os.remove(f"{config_path}.bak")
 
     return benedict({key.upper(): updated_config.get(key.upper()) for key in config.keys()})
-
-
-def load_config(
-    defaults: dict[str, Any],
-    config: benedict | None = None,
-    out_dir: str | None = None,
-    env_vars: os._Environ | None = None,
-    config_file_vars: dict[str, str] | None = None,
-) -> benedict:
-
-    env_vars = env_vars or os.environ
-    config_file_vars = config_file_vars or load_config_file()
-
-    extended_config = benedict(config.copy() if config else {})
-    for key, default in defaults.items():
-        try:
-            # print('LOADING CONFIG KEY:', key, 'DEFAULT=', default)
-            extended_config[key] = load_config_val(
-                key,
-                default=default["default"],
-                type=default.get("type"),
-                aliases=default.get("aliases"),
-                config=extended_config,
-                env_vars=env_vars,
-                config_file_vars=config_file_vars,
-            )
-        except KeyboardInterrupt:
-            raise SystemExit(0)
-        except Exception as e:
-            stderr()
-            stderr(f"[X] Error while loading configuration value: {key}", color="red", config=extended_config)
-            stderr(f"    {e.__class__.__name__}: {e}")
-            stderr()
-            stderr("    Check your config for mistakes and try again (your archive data is unaffected).")
-            stderr()
-            stderr("    For config documentation and examples see:")
-            stderr("        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration")
-            stderr()
-            # raise
-            # raise SystemExit(2)
-
-    return benedict(extended_config)
-
-
-def load_all_config():
-    """Load all config sections and return as a flat dict."""
-    from archivebox.config.common import (
-        SHELL_CONFIG,
-        STORAGE_CONFIG,
-        GENERAL_CONFIG,
-        SERVER_CONFIG,
-        ARCHIVING_CONFIG,
-        SEARCH_BACKEND_CONFIG,
-    )
-
-    flat_config = benedict()
-
-    for config_section in [
-        SHELL_CONFIG,
-        STORAGE_CONFIG,
-        GENERAL_CONFIG,
-        SERVER_CONFIG,
-        ARCHIVING_CONFIG,
-        SEARCH_BACKEND_CONFIG,
-    ]:
-        flat_config.update(dict(config_section))
-
-    return flat_config

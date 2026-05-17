@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import time
+from collections.abc import Mapping
 from contextlib import nullcontext
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -19,8 +20,11 @@ from rich.console import Console
 
 from abx_dl.events import (
     BinaryRequestEvent,
+    CrawlAbortEvent,
     CrawlCleanupEvent,
+    CrawlCompletedEvent,
     CrawlEvent,
+    CrawlSetupEvent,
     CrawlStartEvent,
     InstallEvent,
     MachineEvent,
@@ -44,7 +48,11 @@ from abx_dl.orchestrator import (
 from abx_dl.services.process_service import ProcessService as HookProcessService
 from abx_dl.services.binary_service import BinaryService as HookBinaryService
 from abx_dl.services.snapshot_service import SnapshotService as HookSnapshotService
-from abxbus.event_bus import EventBus
+from abxbus import BaseEvent
+from abxbus.event_bus import EventBus, get_current_event, in_handler_context
+from abxbus.event_handler import EventHandlerAbortedError, EventHandlerCancelledError
+
+from archivebox.config.configset import BaseConfigSet
 
 from .archive_result_service import ArchiveResultService
 from .binary_service import BinaryService
@@ -66,7 +74,15 @@ def _count_selected_hooks(plugins: dict[str, Plugin], selected_plugins: list[str
     return sum(1 for plugin in selected.values() for hook in plugin.hooks if "CrawlSetup" in hook.name or "Snapshot" in hook.name)
 
 
-def _normalize_runtime_config(config: dict[str, Any]) -> dict[str, Any]:
+def _normalize_runtime_config(config: BaseConfigSet | Mapping[str, Any] | str | None) -> dict[str, Any]:
+    if config is None:
+        return {}
+    if isinstance(config, BaseConfigSet):
+        config = config.model_dump(mode="json")
+    elif isinstance(config, str):
+        config = json.loads(config)
+    else:
+        config = dict(config)
     return {key: value for key, value in json.loads(json.dumps(config, default=str)).items() if value is not None}
 
 
@@ -78,22 +94,28 @@ def _runner_task_context() -> contextvars.Context:
     return context
 
 
+def _is_external_task_cancelled(error: asyncio.CancelledError) -> bool:
+    return not isinstance(error, (EventHandlerAbortedError, EventHandlerCancelledError))
+
+
 async def _emit_machine_config(
     bus,
     *,
     config: dict[str, Any],
     derived_config: dict[str, Any],
+    parent_event=None,
 ) -> None:
     user_config = _normalize_runtime_config(config)
     derived_machine_config = _normalize_runtime_config(derived_config)
-    await bus.emit(
+    emitter = parent_event.emit if parent_event is not None else bus.emit
+    await emitter(
         MachineEvent(
             config=user_config,
             config_type="user",
         ),
     ).now()
     if derived_machine_config:
-        await bus.emit(
+        await emitter(
             MachineEvent(
                 config=derived_machine_config,
                 config_type="derived",
@@ -185,6 +207,22 @@ class CrawlRunner:
         self.crawl_output_dir = ""
         self._live_stream = None
         self.root_crawl_event_id: str | None = None
+        self.root_crawl_start_event_id: str | None = None
+        self._skip_wait_until_idle = False
+
+    async def crawl_is_cancelled(self) -> bool:
+        from archivebox.crawls.models import Crawl
+
+        return await Crawl.objects.filter(id=self.crawl.id, status=Crawl.StatusChoices.SEALED).aexists()
+
+    async def watch_for_cancelled_crawl(self, parent_event: BaseEvent, *, poll_interval: float = 1.0) -> None:
+        while True:
+            await asyncio.sleep(poll_interval)
+            if not await self.crawl_is_cancelled():
+                continue
+            abort_event = parent_event.emit(CrawlAbortEvent())
+            await _run_event_now(abort_event, abort_event.event_timeout)
+            return
 
     def runtime_plugins(self) -> dict[str, Plugin]:
         return filter_plugins(self.plugins, self.selected_plugins, include_providers=True) if self.selected_plugins else self.plugins
@@ -195,6 +233,7 @@ class CrawlRunner:
             runtime="archivebox",
             crawl_id=str(self.crawl.id),
         )
+        root_snapshot_id: str | None = None
         try:
             snapshot_ids = await sync_to_async(self.load_run_state, thread_sensitive=True)()
             live_ui = self._create_live_ui()
@@ -210,14 +249,11 @@ class CrawlRunner:
                 )
                 if snapshot_ids:
                     root_snapshot_id = snapshot_ids[0]
-                    await self.run_crawl_setup(root_snapshot_id)
-                    for snapshot_id in snapshot_ids:
-                        await self.enqueue_snapshot(snapshot_id)
-                    await self.wait_for_snapshot_tasks()
-                    await self.run_crawl_cleanup(root_snapshot_id)
+                    await self.run_crawl(root_snapshot_id, snapshot_ids)
         finally:
             await heartbeat.stop()
-            await self.bus.wait_until_idle()
+            if not self._skip_wait_until_idle:
+                await self.bus.wait_until_idle()
             if self._live_stream is not None:
                 try:
                     self._live_stream.close()
@@ -230,27 +266,82 @@ class CrawlRunner:
         task = self.snapshot_tasks.get(snapshot_id)
         if task is not None and not task.done():
             return
-        task = asyncio.create_task(self.run_snapshot(snapshot_id), context=_runner_task_context())
+        current_event = get_current_event()
+        if isinstance(current_event, CrawlStartEvent):
+            task = asyncio.create_task(self.run_snapshot(snapshot_id))
+        elif in_handler_context():
+            return
+        else:
+            task = asyncio.create_task(self.run_snapshot(snapshot_id), context=_runner_task_context())
         self.snapshot_tasks[snapshot_id] = task
 
     async def wait_for_snapshot_tasks(self) -> None:
+        task_errors: list[Exception] = []
         while True:
             pending_tasks: list[asyncio.Task[None]] = []
             for snapshot_id, task in list(self.snapshot_tasks.items()):
                 if task.done():
                     if self.snapshot_tasks.get(snapshot_id) is task:
                         self.snapshot_tasks.pop(snapshot_id, None)
-                    task.result()
+                    try:
+                        task.result()
+                    except asyncio.CancelledError as err:
+                        if _is_external_task_cancelled(err):
+                            raise
+                        await sync_to_async(recover_orphaned_snapshots, thread_sensitive=True)()
+                        await sync_to_async(recover_orphaned_crawls, thread_sensitive=True)()
+                    except Exception as err:
+                        task_errors.append(err)
                     continue
                 pending_tasks.append(task)
             if not pending_tasks:
-                return
+                await self.enqueue_pending_snapshots_from_projection()
+                if not self.snapshot_tasks:
+                    if task_errors:
+                        if len(task_errors) == 1:
+                            raise task_errors[0]
+                        raise ExceptionGroup("One or more snapshot tasks failed", task_errors)
+                    return
+                continue
             done, _pending = await asyncio.wait(pending_tasks, return_when=asyncio.FIRST_COMPLETED)
             for task in done:
-                task.result()
+                for snapshot_id, tracked_task in list(self.snapshot_tasks.items()):
+                    if tracked_task is task:
+                        self.snapshot_tasks.pop(snapshot_id, None)
+                        break
+                try:
+                    task.result()
+                except asyncio.CancelledError as err:
+                    if _is_external_task_cancelled(err):
+                        raise
+                    await sync_to_async(recover_orphaned_snapshots, thread_sensitive=True)()
+                    await sync_to_async(recover_orphaned_crawls, thread_sensitive=True)()
+                except Exception as err:
+                    task_errors.append(err)
+            await self.enqueue_pending_snapshots_from_projection()
+
+    async def enqueue_pending_snapshots_from_projection(self) -> None:
+        from archivebox.core.models import Snapshot
+
+        if not isinstance(get_current_event(), CrawlStartEvent):
+            return
+
+        pending_snapshot_ids = await sync_to_async(
+            lambda: [
+                str(snapshot_id)
+                for snapshot_id in self.crawl.snapshot_set.exclude(status=Snapshot.StatusChoices.SEALED)
+                .filter(retry_at__lte=timezone.now())
+                .order_by("depth", "created_at")
+                .values_list("id", flat=True)
+            ],
+            thread_sensitive=True,
+        )()
+        for snapshot_id in pending_snapshot_ids:
+            if snapshot_id not in self.snapshot_tasks:
+                await self.enqueue_snapshot(snapshot_id)
 
     def load_run_state(self) -> list[str]:
-        from archivebox.config.configset import get_config
+        from archivebox.config.common import get_config
         from archivebox.hooks import discover_hooks
         from archivebox.machine.models import Machine, NetworkInterface, Process, _sanitize_machine_config
 
@@ -361,7 +452,7 @@ class CrawlRunner:
 
     def load_snapshot_payload(self, snapshot_id: str) -> dict[str, Any]:
         from archivebox.core.models import Snapshot
-        from archivebox.config.configset import get_config
+        from archivebox.config.common import get_config
 
         snapshot = Snapshot.objects.select_related("crawl").get(id=snapshot_id)
         config = get_config(crawl=self.crawl, snapshot=snapshot)
@@ -388,7 +479,7 @@ class CrawlRunner:
             "depth": snapshot.depth,
             "status": snapshot.status,
             "output_dir": str(snapshot.output_dir),
-            "config": config,
+            "config": _normalize_runtime_config(config),
             "_snapshot": snapshot,
         }
 
@@ -431,11 +522,11 @@ class CrawlRunner:
                 if has_capacity:
                     continue
                 break
-            if self.process_discovered_snapshots_inline:
+            if self.process_discovered_snapshots_inline and isinstance(get_current_event(), CrawlStartEvent):
                 await self.enqueue_snapshot(str(child_snapshot.id))
 
-    async def run_crawl_setup(self, snapshot_id: str) -> None:
-        snapshot = await sync_to_async(self.load_snapshot_payload, thread_sensitive=True)(snapshot_id)
+    async def run_crawl(self, root_snapshot_id: str, snapshot_ids: list[str]) -> None:
+        snapshot = await sync_to_async(self.load_snapshot_payload, thread_sensitive=True)(root_snapshot_id)
         config = _normalize_runtime_config(snapshot["config"])
         derived_config = _normalize_runtime_config(self.derived_config)
         output_dir = Path(self.crawl_output_dir)
@@ -449,32 +540,19 @@ class CrawlRunner:
         setup_hooks = [(plugin, hook) for plugin in plugins.values() for hook in plugin.filter_hooks("CrawlSetup")]
         crawl_setup_phase_timeout = compute_phase_timeout(setup_hooks, config)
         install_phase_timeout = compute_install_phase_timeout(get_install_plugins(plugins), config)
-        await _emit_machine_config(self.bus, config=config, derived_config=derived_config)
-        setup_abx_services(
-            self.bus,
-            plugins=plugins,
-            url=snapshot["url"],
-            snapshot=abx_snapshot,
-            output_dir=output_dir,
-            install_enabled=False,
-            crawl_setup_enabled=True,
-            crawl_start_enabled=False,
-            snapshot_cleanup_enabled=False,
-            crawl_cleanup_enabled=False,
-            crawl_setup_phase_timeout=crawl_setup_phase_timeout,
-            snapshot_phase_timeout=0.0,
-            snapshot_cleanup_phase_timeout=0.0,
-            crawl_cleanup_phase_timeout=crawl_setup_phase_timeout,
-            persist_derived=False,
-            auto_install=True,
-            emit_jsonl=False,
-            MachineService=None,
-            BinaryService=HookBinaryService,
-            ProcessService=None,
-            ArchiveResultService=None,
-            TagService=None,
-            SnapshotService=None,
+        snapshot_hooks = [(plugin, hook) for plugin in plugins.values() for hook in plugin.filter_hooks("Snapshot")]
+        max_snapshot_count = max(1, int(self.crawl.max_urls or len(snapshot_ids) or 1))
+        snapshot_phase_timeout = compute_phase_timeout(snapshot_hooks, config) * max_snapshot_count
+        crawl_cleanup_phase_timeout = crawl_setup_phase_timeout
+        crawl_lifecycle_timeout = (
+            crawl_setup_phase_timeout
+            + snapshot_phase_timeout
+            + crawl_cleanup_phase_timeout
+            + CrawlCompletedEvent.model_fields["event_timeout"].default
+            + 30.0
         )
+        await _emit_machine_config(self.bus, config=config, derived_config=derived_config)
+        install_cancel_watcher: asyncio.Task[None] | None = None
         install_event = self.bus.emit(
             InstallEvent(
                 url=snapshot["url"],
@@ -484,16 +562,135 @@ class CrawlRunner:
                 event_handler_slow_timeout=slow_warning_timeout(install_phase_timeout),
             ),
         )
-        await _run_event_now(install_event, install_phase_timeout)
+
+        async def on_archivebox_InstallEvent(event: InstallEvent) -> None:
+            nonlocal install_cancel_watcher
+            if event.event_id != install_event.event_id:
+                return
+            install_cancel_watcher = asyncio.create_task(self.watch_for_cancelled_crawl(event))
+
+        on_archivebox_InstallEvent.__name__ = "on_archivebox_InstallEvent__cancel_watcher"
+        self.bus.on(InstallEvent, on_archivebox_InstallEvent)
+        setup_abx_services(
+            self.bus,
+            plugins=plugins,
+            url=snapshot["url"],
+            snapshot=abx_snapshot,
+            output_dir=output_dir,
+            install_enabled=False,
+            crawl_setup_enabled=True,
+            crawl_event_enabled=False,
+            crawl_start_enabled=False,
+            snapshot_cleanup_enabled=False,
+            crawl_cleanup_enabled=True,
+            crawl_completed_enabled=False,
+            crawl_setup_phase_timeout=crawl_setup_phase_timeout,
+            snapshot_phase_timeout=0.0,
+            snapshot_cleanup_phase_timeout=0.0,
+            crawl_cleanup_phase_timeout=crawl_setup_phase_timeout,
+            persist_derived=False,
+            auto_install=True,
+            emit_jsonl=False,
+            abort_requested=self.crawl_is_cancelled,
+            MachineService=None,
+            BinaryService=HookBinaryService,
+            ProcessService=None,
+            ArchiveResultService=None,
+            TagService=None,
+            SnapshotService=None,
+        )
+        try:
+            await _run_event_now(install_event, install_phase_timeout)
+        finally:
+            if install_cancel_watcher is not None:
+                install_cancel_watcher.cancel()
+                await asyncio.gather(install_cancel_watcher, return_exceptions=True)
+
+        async def on_archivebox_CrawlStartEvent(event: CrawlStartEvent) -> None:
+            if event.event_id != self.root_crawl_start_event_id:
+                return
+            for snapshot_id in snapshot_ids:
+                await self.enqueue_snapshot(snapshot_id)
+            await self.wait_for_snapshot_tasks()
+
+        async def on_archivebox_CrawlEvent(event: CrawlEvent) -> None:
+            if event.event_id != self.root_crawl_event_id:
+                return
+            cancel_watcher = asyncio.create_task(self.watch_for_cancelled_crawl(event))
+            try:
+                try:
+                    if not await self.crawl_is_cancelled():
+                        await _run_event_now(
+                            event.emit(
+                                CrawlSetupEvent(
+                                    url=snapshot["url"],
+                                    snapshot_id=snapshot["id"],
+                                    output_dir=str(output_dir),
+                                    event_timeout=crawl_setup_phase_timeout,
+                                    event_handler_slow_timeout=slow_warning_timeout(crawl_setup_phase_timeout),
+                                ),
+                            ),
+                            crawl_setup_phase_timeout,
+                        )
+                    if not await self.crawl_is_cancelled():
+                        crawl_start_event = event.emit(
+                            CrawlStartEvent(
+                                url=snapshot["url"],
+                                snapshot_id=snapshot["id"],
+                                output_dir=str(output_dir),
+                                event_timeout=0,
+                                event_handler_timeout=0,
+                                event_handler_slow_timeout=slow_warning_timeout(snapshot_phase_timeout),
+                            ),
+                        )
+                        self.root_crawl_start_event_id = crawl_start_event.event_id
+                        await _run_event_now(crawl_start_event, None)
+                finally:
+                    await _run_event_now(
+                        event.emit(
+                            CrawlCleanupEvent(
+                                url=snapshot["url"],
+                                snapshot_id=snapshot["id"],
+                                output_dir=str(output_dir),
+                                event_timeout=crawl_setup_phase_timeout,
+                                event_handler_slow_timeout=slow_warning_timeout(crawl_setup_phase_timeout),
+                            ),
+                        ),
+                        crawl_setup_phase_timeout,
+                    )
+            finally:
+                cancel_watcher.cancel()
+                await asyncio.gather(cancel_watcher, return_exceptions=True)
+            await _run_event_now(
+                event.emit(
+                    CrawlCompletedEvent(
+                        url=snapshot["url"],
+                        snapshot_id=snapshot["id"],
+                        output_dir=str(output_dir),
+                    ),
+                ),
+                CrawlCompletedEvent.model_fields["event_timeout"].default,
+            )
+
+        on_archivebox_CrawlStartEvent.__name__ = "on_archivebox_CrawlStartEvent__run_snapshots"
+        on_archivebox_CrawlEvent.__name__ = "on_archivebox_CrawlEvent__run_recursive_crawl"
+        self.bus.on(CrawlStartEvent, on_archivebox_CrawlStartEvent)
+        self.bus.on(CrawlEvent, on_archivebox_CrawlEvent)
+
         crawl_event = CrawlEvent(
             url=snapshot["url"],
             snapshot_id=snapshot["id"],
             output_dir=str(output_dir),
-            event_timeout=crawl_setup_phase_timeout,
-            event_handler_slow_timeout=slow_warning_timeout(crawl_setup_phase_timeout),
+            event_timeout=0,
+            event_handler_timeout=0,
+            event_handler_slow_timeout=slow_warning_timeout(crawl_lifecycle_timeout),
         )
         self.root_crawl_event_id = crawl_event.event_id
-        await _run_event_now(self.bus.emit(crawl_event), crawl_setup_phase_timeout)
+        emitted_crawl_event = self.bus.emit(crawl_event)
+        await _run_event_now(emitted_crawl_event, None)
+        if await self.crawl_is_cancelled():
+            self._skip_wait_until_idle = True
+            return
         for plugin, hook in setup_hooks:
             if hook.is_background:
                 continue
@@ -523,96 +720,62 @@ class CrawlRunner:
             if completed_process.status == "failed":
                 raise RuntimeError(f"Crawl setup hook {plugin.name}:{hook.name} failed")
 
-    async def run_crawl_cleanup(self, snapshot_id: str) -> None:
-        snapshot = await sync_to_async(self.load_snapshot_payload, thread_sensitive=True)(snapshot_id)
-        if self.root_crawl_event_id is None:
-            return
-        config = _normalize_runtime_config(snapshot["config"])
-        output_dir = Path(self.crawl_output_dir)
-        plugins = self.runtime_plugins()
-        setup_hooks = [(plugin, hook) for plugin in plugins.values() for hook in plugin.filter_hooks("CrawlSetup")]
-        crawl_cleanup_phase_timeout = compute_phase_timeout(setup_hooks, config)
-        await _run_event_now(
-            self.bus.emit(
-                CrawlCleanupEvent(
-                    url=snapshot["url"],
-                    snapshot_id=snapshot["id"],
-                    output_dir=str(output_dir),
-                    event_parent_id=self.root_crawl_event_id,
-                    event_timeout=crawl_cleanup_phase_timeout,
-                    event_handler_slow_timeout=slow_warning_timeout(crawl_cleanup_phase_timeout),
-                ),
-            ),
-            crawl_cleanup_phase_timeout,
-        )
-
     async def run_snapshot(self, snapshot_id: str) -> None:
         async with self.snapshot_semaphore:
+            crawl_start_event = get_current_event()
+            if not isinstance(crawl_start_event, CrawlStartEvent):
+                raise RuntimeError("Snapshot events must be emitted from a CrawlStartEvent handler")
             snapshot = await sync_to_async(self.load_snapshot_payload, thread_sensitive=True)(snapshot_id)
             if snapshot["status"] == "sealed":
                 return
             if snapshot["depth"] > 0 and CrawlLimitState.from_config(snapshot["config"]).get_stop_reason() == "max_size":
                 await sync_to_async(self.seal_snapshot_due_to_limit, thread_sensitive=True)(snapshot_id)
                 return
-            try:
-                config = _normalize_runtime_config(snapshot["config"])
-                derived_config = _normalize_runtime_config(self.derived_config)
-                output_dir = Path(snapshot["output_dir"])
-                plugins = self.runtime_plugins()
-                abx_snapshot = AbxSnapshot(
-                    id=snapshot["id"],
-                    url=snapshot["url"],
-                    depth=int(snapshot["depth"]),
-                    crawl_id=str(self.crawl.id),
-                )
-                snapshot_hooks = [(plugin, hook) for plugin in plugins.values() for hook in plugin.filter_hooks("Snapshot")]
-                snapshot_phase_timeout = compute_phase_timeout(snapshot_hooks, config)
-                await _emit_machine_config(self.bus, config=config, derived_config=derived_config)
-                HookSnapshotService(
-                    self.bus,
-                    url=snapshot["url"],
-                    snapshot=abx_snapshot,
-                    output_dir=output_dir,
-                    plugins=plugins,
-                    snapshot_phase_timeout=snapshot_phase_timeout,
-                    snapshot_cleanup_enabled=True,
-                    snapshot_cleanup_phase_timeout=snapshot_phase_timeout,
-                )
-                crawl_start_event = CrawlStartEvent(
-                    url=snapshot["url"],
-                    snapshot_id=snapshot["id"],
-                    output_dir=str(output_dir),
-                    event_timeout=snapshot_phase_timeout,
-                    event_handler_slow_timeout=slow_warning_timeout(snapshot_phase_timeout),
-                )
-                await _run_event_now(self.bus.emit(crawl_start_event), snapshot_phase_timeout)
-                snapshot_event = SnapshotEvent(
-                    url=snapshot["url"],
-                    snapshot_id=snapshot["id"],
-                    output_dir=str(output_dir),
-                    depth=int(snapshot["depth"]),
-                    event_parent_id=crawl_start_event.event_id,
-                    event_timeout=snapshot_phase_timeout,
-                    event_handler_slow_timeout=slow_warning_timeout(snapshot_phase_timeout),
-                )
-                emitted_snapshot_event = self.bus.emit(snapshot_event)
-                await _run_event_now(emitted_snapshot_event, snapshot_phase_timeout)
-                completed_snapshot = await self.bus.find(
-                    SnapshotCompletedEvent,
-                    child_of=emitted_snapshot_event,
-                    past=True,
-                    future=snapshot_phase_timeout,
-                )
-                if completed_snapshot is None:
-                    raise RuntimeError(f"Snapshot {snapshot_id} did not complete")
-                await completed_snapshot.now(timeout=snapshot_phase_timeout)
-                await completed_snapshot.wait(timeout=snapshot_phase_timeout)
-                await completed_snapshot.event_results_list()
-                await self.enqueue_discovered_snapshots_from_outputs(snapshot)
-            finally:
-                current_task = asyncio.current_task()
-                if current_task is not None and self.snapshot_tasks.get(snapshot_id) is current_task:
-                    self.snapshot_tasks.pop(snapshot_id, None)
+            config = _normalize_runtime_config(snapshot["config"])
+            derived_config = _normalize_runtime_config(self.derived_config)
+            output_dir = Path(snapshot["output_dir"])
+            plugins = self.runtime_plugins()
+            abx_snapshot = AbxSnapshot(
+                id=snapshot["id"],
+                url=snapshot["url"],
+                depth=int(snapshot["depth"]),
+                crawl_id=str(self.crawl.id),
+            )
+            snapshot_hooks = [(plugin, hook) for plugin in plugins.values() for hook in plugin.filter_hooks("Snapshot")]
+            snapshot_phase_timeout = compute_phase_timeout(snapshot_hooks, config)
+            await _emit_machine_config(self.bus, config=config, derived_config=derived_config, parent_event=crawl_start_event)
+            HookSnapshotService(
+                self.bus,
+                url=snapshot["url"],
+                snapshot=abx_snapshot,
+                output_dir=output_dir,
+                plugins=plugins,
+                snapshot_phase_timeout=snapshot_phase_timeout,
+                snapshot_cleanup_enabled=True,
+                snapshot_cleanup_phase_timeout=snapshot_phase_timeout,
+                abort_requested=self.crawl_is_cancelled,
+            )
+            snapshot_event = SnapshotEvent(
+                url=snapshot["url"],
+                snapshot_id=snapshot["id"],
+                output_dir=str(output_dir),
+                depth=int(snapshot["depth"]),
+                event_timeout=snapshot_phase_timeout,
+                event_handler_slow_timeout=slow_warning_timeout(snapshot_phase_timeout),
+            )
+            emitted_snapshot_event = crawl_start_event.emit(snapshot_event)
+            await _run_event_now(emitted_snapshot_event, snapshot_phase_timeout)
+            completed_snapshot = await self.bus.find(
+                SnapshotCompletedEvent,
+                child_of=emitted_snapshot_event,
+                past=True,
+                future=snapshot_phase_timeout,
+            )
+            if completed_snapshot is None:
+                raise RuntimeError(f"Snapshot {snapshot_id} did not complete")
+            await completed_snapshot.wait(timeout=snapshot_phase_timeout)
+            await completed_snapshot.event_results_list()
+            await self.enqueue_discovered_snapshots_from_outputs(snapshot)
 
     def seal_snapshot_due_to_limit(self, snapshot_id: str) -> None:
         from archivebox.core.models import Snapshot
@@ -646,7 +809,7 @@ def run_crawl(
 
 
 async def _run_binary(binary_id: str) -> None:
-    from archivebox.config.configset import get_config
+    from archivebox.config.common import get_config
     from archivebox.machine.models import Binary, Machine
 
     binary = await Binary.objects.aget(id=binary_id)
@@ -698,7 +861,7 @@ def run_binary(binary_id: str) -> None:
 
 
 async def _run_install(plugin_names: list[str] | None = None) -> None:
-    from archivebox.config.configset import get_config
+    from archivebox.config.common import get_config
     from archivebox.machine.models import Machine
 
     plugins = discover_plugins()
@@ -948,10 +1111,26 @@ def run_pending_crawls(*, daemon: bool = False, crawl_id: str | None = None) -> 
             run_crawl(str(queued_crawl.id), process_discovered_snapshots_inline=True)
             continue
 
+        pending = Crawl.objects.filter(
+            retry_at__lte=timezone.now(),
+            status=Crawl.StatusChoices.STARTED,
+        )
+        if crawl_id:
+            pending = pending.filter(id=crawl_id)
+        pending = pending.order_by("retry_at", "created_at")
+
+        crawl = pending.first()
+        if crawl is not None:
+            if not crawl.claim_processing_lock(lock_seconds=60):
+                continue
+            run_crawl(str(crawl.id), process_discovered_snapshots_inline=True)
+            continue
+
         if crawl_id is None:
             snapshot = (
                 Snapshot.objects.filter(retry_at__lte=timezone.now())
                 .exclude(status=Snapshot.StatusChoices.SEALED)
+                .exclude(crawl__status__in=[Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED])
                 .select_related("crawl")
                 .order_by("retry_at", "created_at")
                 .first()
@@ -981,22 +1160,7 @@ def run_pending_crawls(*, daemon: bool = False, crawl_id: str | None = None) -> 
                 run_binary(str(binary.id))
                 continue
 
-        pending = Crawl.objects.filter(
-            retry_at__lte=timezone.now(),
-            status=Crawl.StatusChoices.STARTED,
-        )
-        if crawl_id:
-            pending = pending.filter(id=crawl_id)
-        pending = pending.order_by("retry_at", "created_at")
-
-        crawl = pending.first()
-        if crawl is None:
-            if daemon:
-                time.sleep(2.0)
-                continue
-            return 0
-
-        if not crawl.claim_processing_lock(lock_seconds=60):
+        if daemon:
+            time.sleep(2.0)
             continue
-
-        run_crawl(str(crawl.id), process_discovered_snapshots_inline=True)
+        return 0

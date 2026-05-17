@@ -8,8 +8,8 @@ import rich_click as click
 from rich import print
 
 from archivebox.misc.util import enforce_types, docstring
-from archivebox.config import DATA_DIR, CONSTANTS, ARCHIVE_DIR
-from archivebox.config.common import SHELL_CONFIG
+from archivebox.config import DATA_DIR, CONSTANTS
+from archivebox.config.common import get_config
 from archivebox.misc.legacy import parse_json_links_details
 from archivebox.misc.system import get_dir_size
 from archivebox.misc.logging_util import printable_filesize
@@ -24,6 +24,7 @@ def status(out_dir: Path = DATA_DIR) -> None:
     from django.db.models.functions import Coalesce
     from archivebox.core.models import Snapshot
 
+    config = get_config()
     User = get_user_model()
 
     print("[green]\\[*] Scanning archive main index...[/green]")
@@ -36,13 +37,14 @@ def status(out_dir: Path = DATA_DIR) -> None:
     links = list(Snapshot.objects.annotate(output_size_sum=Coalesce(Sum("archiveresult__output_size"), 0)))
     num_sql_links = len(links)
     num_link_details = sum(1 for link in parse_json_links_details(out_dir=out_dir))
+    archive_dir = config.ARCHIVE_DIR
     print(f"    > SQL Main Index: {num_sql_links} links".ljust(36), f"(found in {CONSTANTS.SQL_INDEX_FILENAME})")
-    print(f"    > JSON Link Details: {num_link_details} links".ljust(36), f"(found in {ARCHIVE_DIR.name}/*/index.json)")
+    print(f"    > JSON Link Details: {num_link_details} links".ljust(36), f"(found in {archive_dir.name}/*/index.json)")
     print()
     print("[green]\\[*] Scanning archive data directories...[/green]")
-    users_dir = out_dir / "users"
-    scan_roots = [root for root in (ARCHIVE_DIR, users_dir) if root.exists()]
-    scan_roots_display = ", ".join(str(root) for root in scan_roots) if scan_roots else str(ARCHIVE_DIR)
+    users_dir = config.USERS_DIR
+    scan_roots = [root for root in (archive_dir, users_dir) if root.exists()]
+    scan_roots_display = ", ".join(str(root) for root in scan_roots) if scan_roots else str(archive_dir)
     print(f"[yellow]   {scan_roots_display}[/yellow]")
     num_bytes = num_dirs = num_files = 0
     for root in scan_roots:
@@ -65,11 +67,17 @@ def status(out_dir: Path = DATA_DIR) -> None:
     expected_snapshot_dirs = {str(Path(snapshot.output_dir).resolve()) for snapshot in links if Path(snapshot.output_dir).exists()}
     discovered_snapshot_dirs = set()
 
-    if ARCHIVE_DIR.exists():
-        discovered_snapshot_dirs.update(str(entry.resolve()) for entry in ARCHIVE_DIR.iterdir() if entry.is_dir())
+    if archive_dir.exists():
+        discovered_snapshot_dirs.update(
+            str(entry.resolve())
+            for entry in archive_dir.iterdir()
+            if entry.is_dir() and not entry.is_symlink() and Snapshot.is_legacy_archive_dir(entry)
+        )
 
     if users_dir.exists():
-        discovered_snapshot_dirs.update(str(entry.resolve()) for entry in users_dir.glob("*/snapshots/*/*/*") if entry.is_dir())
+        discovered_snapshot_dirs.update(
+            str(entry.resolve()) for entry in users_dir.glob(f"*/{CONSTANTS.SNAPSHOTS_DIR_NAME}/*/*/*") if entry.is_dir()
+        )
 
     orphaned_dirs = sorted(discovered_snapshot_dirs - expected_snapshot_dirs)
     num_present = len(discovered_snapshot_dirs)
@@ -123,7 +131,7 @@ def status(out_dir: Path = DATA_DIR) -> None:
                 f"[{snapshot.num_outputs} {('X', '√')[snapshot.is_archived]} {printable_filesize(snapshot.archive_size)}] "
                 f'"{snapshot.title}": {snapshot.url}'
                 "[/grey53]"
-            )[: SHELL_CONFIG.TERM_WIDTH],
+            )[: config.TERM_WIDTH],
         )
     print("[grey53]   ...")
 

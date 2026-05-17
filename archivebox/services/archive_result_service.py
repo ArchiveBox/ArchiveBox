@@ -242,28 +242,29 @@ class ArchiveResultService(BaseService):
                 process_query = process_query.filter(pid=process_started.pid)
             process = await process_query.order_by("-modified_at").afirst()
 
-        result, _created = await ArchiveResult.objects.aget_or_create(
+        start_ts = parse_event_datetime(event.start_ts)
+        end_ts = parse_event_datetime(event.end_ts) or timezone.now()
+        defaults = {
+            "status": _normalize_status(event.status),
+            "output_str": event.output_str,
+            "output_json": event.output_json,
+            "output_files": output_files,
+            "output_size": output_size,
+            "output_mimetypes": output_mimetypes,
+            "start_ts": start_ts or timezone.now(),
+            "end_ts": end_ts,
+        }
+        if process is not None:
+            defaults["process"] = process
+        if event.error:
+            defaults["notes"] = event.error
+
+        result, _created = await ArchiveResult.objects.aupdate_or_create(
             snapshot=snapshot,
             plugin=event.plugin,
             hook_name=event.hook_name,
-            defaults={
-                "status": ArchiveResult.StatusChoices.STARTED,
-                "process": process,
-            },
+            defaults=defaults,
         )
-
-        result.process = process or result.process
-        result.status = _normalize_status(event.status)
-        result.output_str = event.output_str
-        result.output_json = event.output_json
-        result.output_files = output_files
-        result.output_size = output_size
-        result.output_mimetypes = output_mimetypes
-        result.start_ts = parse_event_datetime(event.start_ts) or result.start_ts or timezone.now()
-        result.end_ts = parse_event_datetime(event.end_ts) or timezone.now()
-        if event.error:
-            result.notes = event.error
-        await result.asave()
 
         if result.status in (ArchiveResult.StatusChoices.SUCCEEDED, ArchiveResult.StatusChoices.NORESULTS):
             next_title = _extract_snapshot_title(str(snapshot.output_dir), event.plugin, result.output_str, snapshot_url=snapshot.url)

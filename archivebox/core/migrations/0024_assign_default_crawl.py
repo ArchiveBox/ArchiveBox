@@ -23,6 +23,9 @@ def create_default_crawl_and_assign_snapshots(apps, schema_editor):
         print("✓ Fresh install or all snapshots already have crawls")
         return
 
+    cursor.execute("SELECT url FROM core_snapshot WHERE crawl_id IS NULL ORDER BY bookmarked_at, timestamp")
+    crawl_urls = "\n".join(url for (url,) in cursor.fetchall() if url)
+
     # Get or create system user (pk=1)
     cursor.execute("SELECT id FROM auth_user WHERE id = 1")
     if not cursor.fetchone():
@@ -36,7 +39,7 @@ def create_default_crawl_and_assign_snapshots(apps, schema_editor):
 
     # Create a default crawl for migrated snapshots
     # At this point crawls_crawl is guaranteed to have v0.9.0 schema (crawls/0002 ran first)
-    crawl_id = str(uuid_lib.uuid4())
+    crawl_id = uuid_lib.uuid4().hex
     now = datetime.now().isoformat()
 
     cursor.execute(
@@ -45,11 +48,11 @@ def create_default_crawl_and_assign_snapshots(apps, schema_editor):
             id, created_at, modified_at, num_uses_succeeded, num_uses_failed,
             urls, max_depth, tags_str, label, notes, output_dir,
             status, retry_at, created_by_id, schedule_id, config, persona_id
-        ) VALUES (?, ?, ?, 0, 0, '', 0, '', 'Migrated from v0.7.2/v0.8.6',
+        ) VALUES (?, ?, ?, 0, 0, ?, 0, '', 'Migrated from v0.7.2/v0.8.6',
                   'Auto-created crawl for migrated snapshots', '',
                   'sealed', ?, 1, NULL, '{}', NULL)
     """,
-        [crawl_id, now, now, now],
+        [crawl_id, now, now, crawl_urls, now],
     )
 
     # Assign all snapshots without a crawl to the default crawl
@@ -118,7 +121,7 @@ class Migration(migrations.Migration):
                         SELECT
                             id, url, timestamp, title,
                             bookmarked_at, created_at, modified_at,
-                            crawl_id, parent_snapshot_id,
+                            REPLACE(crawl_id, '-', ''), REPLACE(parent_snapshot_id, '-', ''),
                             downloaded_at, depth, fs_version,
                             COALESCE(config, '{}'), COALESCE(notes, ''),
                             num_uses_succeeded, num_uses_failed,

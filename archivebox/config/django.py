@@ -12,16 +12,16 @@ import django.db
 
 from archivebox.misc import logging
 
-from . import CONSTANTS
-from .common import SHELL_CONFIG
+from .constants import CONSTANTS
+from .common import get_config
 
+CONFIG = get_config()
 
-if not SHELL_CONFIG.USE_COLOR:
+if not CONFIG.USE_COLOR:
     os.environ["NO_COLOR"] = "1"
-if not SHELL_CONFIG.SHOW_PROGRESS:
+if not CONFIG.SHOW_PROGRESS:
     os.environ["TERM"] = "dumb"
 
-# recreate rich console obj based on new config values
 STDOUT = CONSOLE = Console()
 STDERR = Console(stderr=True)
 logging.CONSOLE = CONSOLE
@@ -107,15 +107,15 @@ def setup_django(check_db=False, in_memory_db=False) -> None:
                     traceback.print_exc()
                 return
 
-        from django.conf import settings
         from archivebox.core.settings_logging import ERROR_LOG as DEFAULT_ERROR_LOG
 
         # log startup message to the error log
-        error_log = getattr(settings, "ERROR_LOG", DEFAULT_ERROR_LOG)
+        error_log = DEFAULT_ERROR_LOG
         with open(error_log, "a", encoding="utf-8") as f:
             command = " ".join(sys.argv)
             ts = datetime.now(timezone.utc).strftime("%Y-%m-%d__%H:%M:%S")
-            f.write(f"\n> {command}; TS={ts} VERSION={CONSTANTS.VERSION} IN_DOCKER={SHELL_CONFIG.IN_DOCKER} IS_TTY={SHELL_CONFIG.IS_TTY}\n")
+            config = get_config()
+            f.write(f"\n> {command}; TS={ts} VERSION={CONSTANTS.VERSION} IN_DOCKER={config.IN_DOCKER} IS_TTY={config.IS_TTY}\n")
 
         if check_db:
             # make sure the data dir is owned by a non-root user
