@@ -45,9 +45,10 @@ ENV TZ=UTC \
 
 # Version config
 ENV PYTHON_VERSION=3.11 \
-    NODE_VERSION=20 \
+    NODE_VERSION=24 \
     PLAYWRIGHT_VERSION=1.59.0 \
-    YTDLP_VERSION=2026.3.17
+    YTDLP_VERSION=2026.3.17 \
+    GOSU_VERSION=1.19
 
 # User config
 ENV ARCHIVEBOX_USER="archivebox" \
@@ -115,10 +116,20 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         # 1. packaging dependencies
         apt-transport-https ca-certificates apt-utils gnupg2 curl wget \
         # 2. docker and init system dependencies
-        zlib1g-dev dumb-init gosu cron unzip grep \
+        zlib1g-dev dumb-init cron unzip grep \
         # 3. frivolous CLI helpers to make debugging failed archiving easier
         # nano iputils-ping dnsutils htop procps jq yq
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && case "$TARGETARCH/$TARGETVARIANT" in \
+        amd64/) GOSU_ARCH=amd64; GOSU_SHA256=52c8749d0142edd234e9d6bd5237dff2d81e71f43537e2f4f66f75dd4b243dd0 ;; \
+        arm64/) GOSU_ARCH=arm64; GOSU_SHA256=3a8ef022d82c0bc4a98bcb144e77da714c25fcfa64dccc57f6aba7ae47ff1a44 ;; \
+        arm/v7) GOSU_ARCH=armhf; GOSU_SHA256=8457a0bfd28e016c2c7d8ea6e5f7eed1376033ffbd36491bb455094c8b1dc9fd ;; \
+        *) echo "Unsupported gosu platform: $TARGETARCH/$TARGETVARIANT"; exit 1 ;; \
+    esac \
+    && curl -fsSL -o /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$GOSU_ARCH" \
+    && echo "$GOSU_SHA256  /usr/local/bin/gosu" | sha256sum -c - \
+    && chmod +x /usr/local/bin/gosu \
+    && gosu --version | head -n1 | tee -a /VERSION.txt
 
 ######### Language Environments ####################################
 
