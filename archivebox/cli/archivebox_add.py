@@ -131,6 +131,8 @@ def add(
         persona_id=persona_obj.id,
         label=f"{USER}@{HOSTNAME} $ {cmd_str} [{timestamp}]",
         created_by_id=created_by_id,
+        status=Crawl.StatusChoices.QUEUED if bg or index_only else Crawl.StatusChoices.STARTED,
+        retry_at=timezone.now() if bg else None,
         config={
             "ONLY_NEW": not update,
             "INDEX_ONLY": index_only,

@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.9.30rc86"
+version = "0.9.31rc1"
 requires-python = ">=3.13"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
