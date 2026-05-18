@@ -1307,8 +1307,19 @@ def live_progress_view(request):
             .order_by("-started_at")
             .first()
         )
-        orchestrator_running = orchestrator_proc is not None
-        orchestrator_pid = orchestrator_proc.pid if orchestrator_proc else None
+        runner_worker = None
+        try:
+            from archivebox.workers.supervisord_util import get_existing_supervisord_process, get_worker
+
+            supervisor = get_existing_supervisord_process()
+            runner_worker = get_worker(supervisor, "worker_runner") if supervisor else None
+        except Exception:
+            runner_worker = None
+
+        runner_worker_running = bool(runner_worker and runner_worker.get("statename") in ("STARTING", "RUNNING"))
+        runner_worker_pid = runner_worker.get("pid") if runner_worker else None
+        orchestrator_running = orchestrator_proc is not None or runner_worker_running
+        orchestrator_pid = orchestrator_proc.pid if orchestrator_proc else runner_worker_pid
         # Get model counts by status
         crawls_pending = Crawl.objects.filter(status=Crawl.StatusChoices.QUEUED).count()
         crawls_started = Crawl.objects.filter(status=Crawl.StatusChoices.STARTED).count()

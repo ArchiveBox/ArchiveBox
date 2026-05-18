@@ -53,6 +53,8 @@ ARG TARGETPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT
+ARG ABX_PLUGINS_REF=f576a7c81a17b0e49adf4789ac7f7143ece1282f
+ARG ABX_DL_REF=3cddb1bf4d8a37c49f2a70810e0da840acc96c17
 ######### Environment Variables #################################
 
 # Global build-time and runtime environment constants + default pkg manager config
@@ -337,6 +339,7 @@ RUN --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
     echo "[+] PIP Installing ArchiveBox dependencies from pyproject.toml..." \
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends build-essential gcc python3-dev \
+    && printf '\n[tool.uv.sources]\n"abx-plugins" = { git = "https://github.com/ArchiveBox/abx-plugins.git", rev = "%s" }\n"abx-dl" = { git = "https://github.com/ArchiveBox/abx-dl.git", rev = "%s" }\n' "$ABX_PLUGINS_REF" "$ABX_DL_REF" >> pyproject.toml \
     && uv sync \
         --inexact \
         --all-extras \

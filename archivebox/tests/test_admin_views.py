@@ -1236,6 +1236,26 @@ class TestArchiveResultAdminListView:
 
 
 class TestLiveProgressView:
+    def test_live_progress_reports_supervisord_runner_running(self, client, admin_user, db, monkeypatch):
+        import archivebox.machine.models as machine_models
+        import archivebox.workers.supervisord_util as supervisord_util
+
+        machine_models._CURRENT_MACHINE = None
+        monkeypatch.setattr(supervisord_util, "get_existing_supervisord_process", lambda: object())
+        monkeypatch.setattr(
+            supervisord_util,
+            "get_worker",
+            lambda supervisor, name: {"statename": "RUNNING", "pid": 12345} if name == "worker_runner" else None,
+        )
+
+        client.login(username="testadmin", password="testpassword")
+        response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_HOST)
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["orchestrator_running"] is True
+        assert payload["orchestrator_pid"] == 12345
+
     def test_live_progress_ignores_unscoped_running_processes_when_no_crawls(self, client, admin_user, db):
         import os
         import archivebox.machine.models as machine_models
