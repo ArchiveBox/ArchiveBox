@@ -18,7 +18,7 @@ from django.utils.safestring import mark_safe
 from django.views import View
 from django.views.generic.list import ListView
 from django.views.generic import FormView
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.views.decorators.csrf import csrf_exempt
@@ -35,7 +35,7 @@ from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.search import get_search_mode, prioritize_metadata_matches, query_search_index
 
-from archivebox.core.models import Snapshot
+from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.core.host_utils import (
     build_admin_url,
     build_snapshot_url,
@@ -154,6 +154,8 @@ class SnapshotView(View):
         TITLE_LOADING_MSG = "Not yet archived..."
         from archivebox.core.widgets import TagEditorWidget
 
+        runtime_config = get_config(snapshot=snapshot)
+        snapshot._runtime_config = runtime_config
         hidden_card_plugins = {"archivedotorg", "favicon", "title"}
         outputs = [
             out
@@ -251,10 +253,11 @@ class SnapshotView(View):
             "num_failures": snapshot.num_failures,
             "oldest_archive_date": ts_to_date_str(snapshot.oldest_archive_date),
             "warc_path": warc_path,
-            "PREVIEW_ORIGINALS": get_config().PREVIEW_ORIGINALS,
+            "PREVIEW_ORIGINALS": runtime_config.PREVIEW_ORIGINALS,
             "archiveresults": [*non_compact_outputs, *compact_outputs],
             "best_result": best_result,
             "snapshot": snapshot,  # Pass the snapshot object for template tags
+            "CONFIG": runtime_config,
             "related_snapshots": related_snapshots,
             "related_years": related_years,
             "loose_items": loose_items,
@@ -867,24 +870,53 @@ class OriginalDomainReplayView(View):
 class PublicIndexView(ListView):
     template_name = "public_index.html"
     model = Snapshot
-    paginate_by = get_config().SNAPSHOTS_PER_PAGE
     ordering = ["-bookmarked_at", "-created_at"]
 
+    def get_paginate_by(self, queryset):
+        runtime_config = getattr(self, "runtime_config", None)
+        if runtime_config is None:
+            self.runtime_config = runtime_config = get_config()
+        return runtime_config.SNAPSHOTS_PER_PAGE
+
     def get_context_data(self, **kwargs):
-        return {
+        runtime_config = getattr(self, "runtime_config", None)
+        if runtime_config is None:
+            self.runtime_config = runtime_config = get_config()
+        context = {
             **super().get_context_data(**kwargs),
             "VERSION": VERSION,
-            "COMMIT_HASH": get_config().COMMIT_HASH,
-            "FOOTER_INFO": get_config().FOOTER_INFO,
+            "CONFIG": runtime_config,
+            "COMMIT_HASH": runtime_config.COMMIT_HASH,
+            "FOOTER_INFO": runtime_config.FOOTER_INFO,
+            "WEB_BASE_URL": build_web_url(request=self.request, config=runtime_config),
             "search_mode": get_search_mode(self.request.GET.get("search_mode")),
         }
+        for snapshot in context.get("object_list") or ():
+            snapshot._icons_compact = True
+        return context
 
     def get_queryset(self, **kwargs):
-        qs = super().get_queryset(**kwargs)
+        qs = (
+            super()
+            .get_queryset(**kwargs)
+            .select_related("crawl__created_by")
+            .prefetch_related(
+                "tags",
+                Prefetch(
+                    "archiveresult_set",
+                    queryset=ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.SUCCEEDED).only(
+                        "id",
+                        "snapshot_id",
+                        "plugin",
+                        "status",
+                    ),
+                ),
+            )
+        )
         query = self.request.GET.get("q", default="").strip()
 
         if not query:
-            return qs.distinct()
+            return qs
 
         query_type = self.request.GET.get("query_type")
         search_mode = get_search_mode(self.request.GET.get("search_mode"))

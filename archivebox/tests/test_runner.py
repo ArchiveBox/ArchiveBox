@@ -1085,11 +1085,6 @@ def test_abx_process_service_background_process_finishes_after_process_exit(monk
 
     plugin_output_dir = tmp_path / "chrome"
     plugin_output_dir.mkdir()
-    # stdout_file = plugin_output_dir / "on_CrawlSetup__90_chrome_launch.daemon.bg.stdout.log"
-    stderr_file = plugin_output_dir / "on_CrawlSetup__90_chrome_launch.daemon.bg.stderr.log"
-    stderr_file.write_text("")
-    pid_file = plugin_output_dir / "on_CrawlSetup__90_chrome_launch.daemon.bg.pid"
-    pid_file.write_text("12345")
 
     async def run_test():
         try:
@@ -1113,7 +1108,7 @@ def test_abx_process_service_background_process_finishes_after_process_exit(monk
 
     asyncio.run(run_test())
 
-    assert pid_file.exists() is False
+    assert not list(plugin_output_dir.glob("on_CrawlSetup__90_chrome_launch.daemon.bg.*.pid"))
     assert any(isinstance(event, ProcessCompletedEvent) for event in emitted_events)
 
 

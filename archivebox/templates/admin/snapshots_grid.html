@@ -181,10 +181,14 @@
             </label>
           </div>
           <a href="{% snapshot_base_url obj %}/index.html" class="card-thumbnail">
+            {% snapshot_url obj 'screenshot/screenshot.png' as screenshot_plugin_url %}
+            {% snapshot_url obj 'screenshot.png' as screenshot_root_url %}
+            {% snapshot_url obj 'favicon.ico' as favicon_root_url %}
             <img
-              src="{% snapshot_url obj 'screenshot/screenshot.png' %}"
+              src="{{ screenshot_plugin_url }}"
               alt="{{obj.title|default:'Not yet archived...'}}"
-              onerror="this.onerror=null; this.closest('.card-thumbnail').classList.add('missing'); this.src='/static/spinner.gif';"
+              data-fallbacks="{{ screenshot_root_url }},{{ favicon_root_url }}"
+              onerror="const fallbacks=(this.dataset.fallbacks || '').split(',').filter(Boolean); if (fallbacks.length) { this.dataset.fallbacks=fallbacks.slice(1).join(','); this.src=fallbacks[0]; } else { this.onerror=null; this.closest('.card-thumbnail').classList.add('missing'); this.src='/static/spinner.gif'; }"
             />
           </a>
           <div class="card-footer">

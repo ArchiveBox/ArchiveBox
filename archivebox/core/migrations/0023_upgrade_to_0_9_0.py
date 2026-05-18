@@ -28,6 +28,20 @@ def normalize_cmd(cmd):
     return json.dumps(str(cmd).split())
 
 
+def normalize_status(status):
+    return {
+        "success": "succeeded",
+        "succeded": "succeeded",
+        "succeeded": "succeeded",
+        "failed": "failed",
+        "skipped": "skipped",
+        "noresults": "noresults",
+        "queued": "queued",
+        "started": "started",
+        "backoff": "backoff",
+    }.get(str(status or "").strip().lower(), "failed")
+
+
 def upgrade_core_tables(apps, schema_editor):
     """Upgrade core tables from v0.7.2 or v0.8.6rc0 to v0.9.0."""
     from archivebox.uuid_compat import uuid7
@@ -70,111 +84,143 @@ def upgrade_core_tables(apps, schema_editor):
             status VARCHAR(15) NOT NULL DEFAULT 'queued',
             extractor VARCHAR(32),
             output VARCHAR(1024),
+            created_at DATETIME,
+            modified_at DATETIME,
 
             FOREIGN KEY (snapshot_id) REFERENCES core_snapshot(id) ON DELETE CASCADE
         );
     """)
 
     if has_data:
+        has_archiveresult_created_at = "created_at" in archiveresult_cols
+        has_archiveresult_modified_at = "modified_at" in archiveresult_cols
+        archiveresult_select_cols = [
+            "id",
+            "snapshot_id",
+            "cmd",
+            "pwd",
+            "cmd_version",
+            "start_ts",
+            "end_ts",
+            "status",
+            "extractor",
+            "output",
+        ]
+        if has_archiveresult_created_at:
+            archiveresult_select_cols.append("created_at")
+        if has_archiveresult_modified_at:
+            archiveresult_select_cols.append("modified_at")
+
         if has_uuid and not has_abid:
             # Migrating from v0.7.2+ (has uuid column)
             print("Migrating ArchiveResult from v0.7.2+ schema (with uuid)...")
-            cursor.execute(
-                "SELECT id, uuid, snapshot_id, cmd, pwd, cmd_version, start_ts, end_ts, status, extractor, output FROM core_archiveresult",
-            )
+            select_cols = ["id", "uuid", "snapshot_id", "cmd", "pwd", "cmd_version", "start_ts", "end_ts", "status", "extractor", "output"]
+            if has_archiveresult_created_at:
+                select_cols.append("created_at")
+            if has_archiveresult_modified_at:
+                select_cols.append("modified_at")
+            cursor.execute(f"SELECT {', '.join(select_cols)} FROM core_archiveresult")
             old_records = cursor.fetchall()
             for record in old_records:
+                values = dict(zip(select_cols, record))
                 try:
-                    new_uuid = UUID(str(record[1])).hex
+                    new_uuid = UUID(str(values["uuid"])).hex
                 except (TypeError, ValueError):
                     new_uuid = uuid7().hex
-                start_ts = record[6] or datetime.now().isoformat()
-                end_ts = record[7] or start_ts
+                start_ts = values["start_ts"] or datetime.now().isoformat()
+                end_ts = values["end_ts"] or start_ts
                 cursor.execute(
                     """
                     INSERT OR IGNORE INTO core_archiveresult_new (
                         id, uuid, snapshot_id, cmd, pwd, cmd_version,
-                        start_ts, end_ts, status, extractor, output
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        start_ts, end_ts, status, extractor, output,
+                        created_at, modified_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
-                        record[0],
+                        values["id"],
                         new_uuid,
-                        record[2],
-                        normalize_cmd(record[3]),
-                        record[4] or "",
-                        record[5] or "",
+                        values["snapshot_id"],
+                        normalize_cmd(values["cmd"]),
+                        values["pwd"] or "",
+                        values["cmd_version"] or "",
                         start_ts,
                         end_ts,
-                        "succeeded" if record[8] == "success" else (record[8] or "queued"),
-                        record[9] or "",
-                        record[10] or "",
+                        normalize_status(values["status"] or "queued"),
+                        values["extractor"] or "",
+                        values["output"] or "",
+                        values.get("created_at") or start_ts,
+                        values.get("modified_at") or end_ts,
                     ),
                 )
         elif has_abid and not has_uuid:
             # Migrating from v0.8.6rc0 (has abid instead of uuid)
             print("Migrating ArchiveResult from v0.8.6rc0 schema...")
-            cursor.execute(
-                "SELECT id, snapshot_id, cmd, pwd, cmd_version, start_ts, end_ts, status, extractor, output FROM core_archiveresult",
-            )
+            cursor.execute(f"SELECT {', '.join(archiveresult_select_cols)} FROM core_archiveresult")
             old_records = cursor.fetchall()
             for record in old_records:
+                values = dict(zip(archiveresult_select_cols, record))
                 try:
-                    new_uuid = UUID(str(record[0])).hex
+                    new_uuid = UUID(str(values["id"])).hex
                 except (TypeError, ValueError):
                     new_uuid = uuid7().hex
-                start_ts = record[5] or datetime.now().isoformat()
-                end_ts = record[6] or start_ts
+                start_ts = values["start_ts"] or datetime.now().isoformat()
+                end_ts = values["end_ts"] or start_ts
                 cursor.execute(
                     """
                     INSERT OR IGNORE INTO core_archiveresult_new (
                         uuid, snapshot_id, cmd, pwd, cmd_version,
-                        start_ts, end_ts, status, extractor, output
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        start_ts, end_ts, status, extractor, output,
+                        created_at, modified_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
                         new_uuid,
-                        record[1],
-                        normalize_cmd(record[2]),
-                        record[3] or "",
-                        record[4] or "",
+                        values["snapshot_id"],
+                        normalize_cmd(values["cmd"]),
+                        values["pwd"] or "",
+                        values["cmd_version"] or "",
                         start_ts,
                         end_ts,
-                        "succeeded" if record[7] == "success" else (record[7] or "queued"),
-                        record[8] or "",
-                        record[9] or "",
+                        normalize_status(values["status"] or "queued"),
+                        values["extractor"] or "",
+                        values["output"] or "",
+                        values.get("created_at") or start_ts,
+                        values.get("modified_at") or end_ts,
                     ),
                 )
         else:
             # Migrating from v0.7.2 (no uuid or abid column - generate fresh UUIDs)
             print("Migrating ArchiveResult from v0.7.2 schema (no uuid - generating UUIDs)...")
-            cursor.execute(
-                "SELECT id, snapshot_id, cmd, pwd, cmd_version, start_ts, end_ts, status, extractor, output FROM core_archiveresult",
-            )
+            cursor.execute(f"SELECT {', '.join(archiveresult_select_cols)} FROM core_archiveresult")
             old_records = cursor.fetchall()
             for record in old_records:
+                values = dict(zip(archiveresult_select_cols, record))
                 new_uuid = uuid7().hex
-                start_ts = record[5] or datetime.now().isoformat()
-                end_ts = record[6] or start_ts
+                start_ts = values["start_ts"] or datetime.now().isoformat()
+                end_ts = values["end_ts"] or start_ts
                 cursor.execute(
                     """
                     INSERT OR IGNORE INTO core_archiveresult_new (
                         id, uuid, snapshot_id, cmd, pwd, cmd_version,
-                        start_ts, end_ts, status, extractor, output
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        start_ts, end_ts, status, extractor, output,
+                        created_at, modified_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
-                        record[0],
+                        values["id"],
                         new_uuid,
-                        record[1],
-                        normalize_cmd(record[2]),
-                        record[3] or "",
-                        record[4] or "",
+                        values["snapshot_id"],
+                        normalize_cmd(values["cmd"]),
+                        values["pwd"] or "",
+                        values["cmd_version"] or "",
                         start_ts,
                         end_ts,
-                        "succeeded" if record[7] == "success" else (record[7] or "queued"),
-                        record[8] or "",
-                        record[9] or "",
+                        normalize_status(values["status"] or "queued"),
+                        values["extractor"] or "",
+                        values["output"] or "",
+                        values.get("created_at") or start_ts,
+                        values.get("modified_at") or end_ts,
                     ),
                 )
 

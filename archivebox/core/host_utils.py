@@ -154,16 +154,23 @@ def host_matches(request_host: str, target_host: str) -> bool:
     return True
 
 
-def _scheme_from_request(request=None) -> str:
+def _scheme_from_request(request=None, config: dict[str, Any] | None = None) -> str:
+    if request and request.scheme != "http":
+        return request.scheme
+    config = config or get_config()
+    for base_url in (config.ARCHIVE_BASE_URL, config.ADMIN_BASE_URL):
+        override = _normalize_base_url(base_url)
+        if override:
+            return urlparse(override).scheme
     if request:
         return request.scheme
     return "http"
 
 
-def _build_base_url_for_host(host: str, request=None) -> str:
+def _build_base_url_for_host(host: str, request=None, config: dict[str, Any] | None = None) -> str:
     if not host:
         return ""
-    scheme = _scheme_from_request(request)
+    scheme = _scheme_from_request(request, config=config)
     return f"{scheme}://{host}"
 
 
@@ -173,8 +180,8 @@ def get_admin_base_url(request=None, config: dict[str, Any] | None = None, **con
     if override:
         return override
     if not config.USES_SUBDOMAIN_ROUTING:
-        return _build_base_url_for_host(get_listen_host(config=config), request=request)
-    return _build_base_url_for_host(get_admin_host(config=config), request=request)
+        return _build_base_url_for_host(get_listen_host(config=config), request=request, config=config)
+    return _build_base_url_for_host(get_admin_host(config=config), request=request, config=config)
 
 
 def get_web_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
@@ -183,20 +190,20 @@ def get_web_base_url(request=None, config: dict[str, Any] | None = None, **confi
     if override:
         return override
     if not config.USES_SUBDOMAIN_ROUTING:
-        return _build_base_url_for_host(get_listen_host(config=config), request=request)
-    return _build_base_url_for_host(get_web_host(config=config), request=request)
+        return _build_base_url_for_host(get_listen_host(config=config), request=request, config=config)
+    return _build_base_url_for_host(get_web_host(config=config), request=request, config=config)
 
 
 def get_api_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
     config = config or get_config(**config_kwargs)
     if not config.USES_SUBDOMAIN_ROUTING:
-        return _build_base_url_for_host(get_listen_host(config=config), request=request)
-    return _build_base_url_for_host(get_api_host(config=config), request=request)
+        return _build_base_url_for_host(get_listen_host(config=config), request=request, config=config)
+    return _build_base_url_for_host(get_api_host(config=config), request=request, config=config)
 
 
 def get_public_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
     config = config or get_config(**config_kwargs)
-    return _build_base_url_for_host(get_public_host(config=config), request=request)
+    return _build_base_url_for_host(get_public_host(config=config), request=request, config=config)
 
 
 # Backwards-compat aliases (archive == web)
@@ -208,14 +215,14 @@ def get_snapshot_base_url(snapshot_id: str, request=None, config: dict[str, Any]
     config = config or get_config(**config_kwargs)
     if not config.USES_SUBDOMAIN_ROUTING:
         return _build_url(get_web_base_url(request=request, config=config), f"/snapshot/{snapshot_id}")
-    return _build_base_url_for_host(get_snapshot_host(snapshot_id, config=config), request=request)
+    return _build_base_url_for_host(get_snapshot_host(snapshot_id, config=config), request=request, config=config)
 
 
 def get_original_base_url(domain: str, request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
     config = config or get_config(**config_kwargs)
     if not config.USES_SUBDOMAIN_ROUTING:
         return _build_url(get_web_base_url(request=request, config=config), f"/original/{domain}")
-    return _build_base_url_for_host(get_original_host(domain, config=config), request=request)
+    return _build_base_url_for_host(get_original_host(domain, config=config), request=request, config=config)
 
 
 def build_admin_url(path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:

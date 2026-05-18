@@ -989,7 +989,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     # Index.json Reconciliation
     # =========================================================================
 
-    def reconcile_with_index(self, output_dir: Path | None = None):
+    def reconcile_with_index(self, output_dir: Path | None = None, update_existing_archive_results: bool = True):
         """
         Merge index.json/index.jsonl with DB. DB is source of truth.
 
@@ -1035,14 +1035,22 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         self._merge_tags_from_index(index_data)
 
         # Merge ArchiveResults
-        self._merge_archive_results_from_index(index_data)
+        self._merge_archive_results_from_index(index_data, update_existing=update_existing_archive_results)
+        if not self._normalize_title_candidate(self.title, snapshot_url=self.url):
+            title_result = (
+                self.archiveresult_set.filter(plugin="title").exclude(output_str="").order_by("-start_ts", "-end_ts", "-created_at").first()
+            )
+            if title_result:
+                result_title = self._normalize_title_candidate(title_result.output_str, snapshot_url=self.url)
+                if result_title:
+                    self.title = result_title
 
         # Write back in JSONL format
         self.write_index_jsonl(output_dir=output_dir)
 
-    def reconcile_with_index_json(self, output_dir: Path | None = None):
+    def reconcile_with_index_json(self, output_dir: Path | None = None, update_existing_archive_results: bool = True):
         """Deprecated: use reconcile_with_index() instead."""
-        return self.reconcile_with_index(output_dir=output_dir)
+        return self.reconcile_with_index(output_dir=output_dir, update_existing_archive_results=update_existing_archive_results)
 
     def _merge_title_from_index(self, index_data: dict):
         """Merge title - prefer longest non-URL title."""
@@ -1071,13 +1079,19 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                     tag, _ = Tag.objects.get_or_create(name=tag_name)
                     self.tags.add(tag)
 
-    def _merge_archive_results_from_index(self, index_data: dict):
+    def _merge_archive_results_from_index(self, index_data: dict, update_existing: bool = True):
         """Merge ArchiveResults - keep both (by plugin+start_ts)."""
         existing = {(ar.plugin, ar.start_ts): ar for ar in ArchiveResult.objects.filter(snapshot=self)}
+        if update_existing:
+            for archiveresult in existing.values():
+                normalized_status = ArchiveResult.normalize_status(archiveresult.status)
+                if archiveresult.status != normalized_status:
+                    archiveresult.status = normalized_status
+                    archiveresult.save(update_fields=["status", "modified_at"])
 
         # Handle 0.8.x format (archive_results list)
         for result_data in index_data.get("archive_results", []):
-            self._create_archive_result_if_missing(result_data, existing)
+            self._create_archive_result_if_missing(result_data, existing, update_existing=update_existing)
 
         # Handle 0.7.x format (history dict)
         if "history" in index_data and isinstance(index_data["history"], dict):
@@ -1086,14 +1100,16 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                     for result_data in result_list:
                         # Support both old 'extractor' and new 'plugin' keys for backwards compat
                         result_data["plugin"] = result_data.get("plugin") or result_data.get("extractor") or plugin
-                        self._create_archive_result_if_missing(result_data, existing)
+                        self._create_archive_result_if_missing(result_data, existing, update_existing=update_existing)
 
-    def _create_archive_result_if_missing(self, result_data: dict, existing: dict):
+    def _create_archive_result_if_missing(self, result_data: dict, existing: dict, update_existing: bool = True):
         """Create ArchiveResult if not already in DB."""
         from dateutil import parser
+        from django.db import transaction
+        from archivebox.machine.models import Machine, Process
 
         # Support both old 'extractor' and new 'plugin' keys for backwards compat
-        plugin = result_data.get("plugin") or result_data.get("extractor", "")
+        plugin = (result_data.get("plugin") or result_data.get("extractor", ""))[:32]
         if not plugin:
             return
 
@@ -1101,36 +1117,91 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         if result_data.get("start_ts"):
             try:
                 start_ts = parser.parse(result_data["start_ts"])
+                if start_ts and timezone.is_naive(start_ts):
+                    start_ts = timezone.make_aware(start_ts, timezone.get_current_timezone())
             except (TypeError, ValueError, OverflowError):
                 pass
 
-        if (plugin, start_ts) in existing:
+        end_ts = None
+        if result_data.get("end_ts"):
+            try:
+                end_ts = parser.parse(result_data["end_ts"])
+                if end_ts and timezone.is_naive(end_ts):
+                    end_ts = timezone.make_aware(end_ts, timezone.get_current_timezone())
+            except (TypeError, ValueError, OverflowError):
+                pass
+
+        # Support both 'output' (legacy) and 'output_str' (new JSONL) field names
+        output_str = result_data.get("output_str") or result_data.get("output", "")
+        status = ArchiveResult.normalize_status(result_data.get("status") or ArchiveResult.StatusChoices.FAILED)
+        process = None
+        cmd = result_data.get("cmd") or []
+        pwd = result_data.get("pwd") or ""
+        output_files = ArchiveResult._normalize_output_files(result_data.get("output_files"))
+        output_size = ArchiveResult._coerce_output_file_size(result_data.get("output_size"))
+        output_json = result_data.get("output_json")
+        output_mimetypes = result_data.get("output_mimetypes", "")
+
+        existing_result = existing.get((plugin, start_ts))
+        if existing_result:
+            if not update_existing:
+                return
+
+            update_fields = []
+            if existing_result.status != status:
+                existing_result.status = status
+                update_fields.append("status")
+            if output_str and not existing_result.output_str:
+                existing_result.output_str = output_str
+                update_fields.append("output_str")
+            if output_json and not existing_result.output_json:
+                existing_result.output_json = output_json
+                update_fields.append("output_json")
+            if output_files and not existing_result.output_files:
+                existing_result.output_files = output_files
+                update_fields.append("output_files")
+            if output_size and not existing_result.output_size:
+                existing_result.output_size = output_size
+                update_fields.append("output_size")
+            if output_mimetypes and not existing_result.output_mimetypes:
+                existing_result.output_mimetypes = output_mimetypes
+                update_fields.append("output_mimetypes")
+            if end_ts and not existing_result.end_ts:
+                existing_result.end_ts = end_ts
+                update_fields.append("end_ts")
+            if update_fields:
+                existing_result.save(update_fields=[*update_fields, "modified_at"])
             return
 
-        try:
-            end_ts = None
-            if result_data.get("end_ts"):
-                try:
-                    end_ts = parser.parse(result_data["end_ts"])
-                except (TypeError, ValueError, OverflowError):
-                    pass
+        with transaction.atomic():
+            if cmd or pwd:
+                process = Process.objects.create(
+                    machine=Machine.current(),
+                    process_type=Process.TypeChoices.HOOK,
+                    worker_type="archiveresult",
+                    cmd=cmd,
+                    pwd=pwd,
+                    status=Process.StatusChoices.EXITED,
+                    exit_code=0 if status in ("succeeded", "skipped", "noresults") else 1,
+                    started_at=start_ts,
+                    ended_at=end_ts,
+                )
 
-            # Support both 'output' (legacy) and 'output_str' (new JSONL) field names
-            output_str = result_data.get("output_str") or result_data.get("output", "")
-
-            ArchiveResult.objects.create(
+            archiveresult = ArchiveResult.objects.create(
                 snapshot=self,
                 plugin=plugin,
                 hook_name=result_data.get("hook_name", ""),
-                status=result_data.get("status", "failed"),
+                status=status,
                 output_str=output_str,
-                cmd=result_data.get("cmd", []),
-                pwd=result_data.get("pwd", str(self.output_dir)),
+                output_json=output_json,
+                output_files=output_files,
+                output_size=output_size,
+                output_mimetypes=output_mimetypes,
                 start_ts=start_ts,
                 end_ts=end_ts,
+                process=process,
             )
-        except Exception:
-            pass
+        existing[(plugin, start_ts)] = archiveresult
 
     def write_index_json(self):
         """Write index.json in 0.9.x format (deprecated, use write_index_jsonl)."""
@@ -1184,7 +1255,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         binaries_seen = set()
         processes_seen = set()
 
-        with open(index_path, "w") as f:
+        tmp_index_path = index_path.with_name(f".{index_path.name}.tmp")
+        with open(tmp_index_path, "w") as f:
             # Write Snapshot record first (to_json includes crawl_id, fs_version)
             f.write(json.dumps(self.to_json()) + "\n")
 
@@ -1203,6 +1275,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
                 # Write ArchiveResult record
                 f.write(json.dumps(ar.to_json()) + "\n")
+        os.replace(tmp_index_path, index_path)
 
     def read_index_jsonl(self, output_dir: Path | None = None) -> dict:
         """
@@ -1295,13 +1368,20 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                 "type": "ArchiveResult",
                 "snapshot_id": str(self.id),
                 "plugin": result_data.get("plugin", ""),
-                "status": result_data.get("status", ""),
-                "output_str": result_data.get("output", ""),
+                "hook_name": result_data.get("hook_name", ""),
+                "status": result_data.get("status") or ArchiveResult.StatusChoices.FAILED,
+                "output_str": result_data.get("output_str") or result_data.get("output", ""),
+                "output_json": result_data.get("output_json"),
+                "output_files": result_data.get("output_files"),
+                "output_size": result_data.get("output_size"),
+                "output_mimetypes": result_data.get("output_mimetypes", ""),
                 "start_ts": result_data.get("start_ts"),
                 "end_ts": result_data.get("end_ts"),
             }
             if result_data.get("cmd"):
                 ar_record["cmd"] = result_data["cmd"]
+            if result_data.get("pwd"):
+                ar_record["pwd"] = result_data["pwd"]
             records.append(ar_record)
 
         # Handle 0.7.x format (history dict)
@@ -1314,13 +1394,20 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
                         "type": "ArchiveResult",
                         "snapshot_id": str(self.id),
                         "plugin": result_data.get("plugin") or result_data.get("extractor") or plugin,
-                        "status": result_data.get("status", ""),
-                        "output_str": result_data.get("output", ""),
+                        "hook_name": result_data.get("hook_name", ""),
+                        "status": result_data.get("status") or ArchiveResult.StatusChoices.FAILED,
+                        "output_str": result_data.get("output_str") or result_data.get("output", ""),
+                        "output_json": result_data.get("output_json"),
+                        "output_files": result_data.get("output_files"),
+                        "output_size": result_data.get("output_size"),
+                        "output_mimetypes": result_data.get("output_mimetypes", ""),
                         "start_ts": result_data.get("start_ts"),
                         "end_ts": result_data.get("end_ts"),
                     }
                     if result_data.get("cmd"):
                         ar_record["cmd"] = result_data["cmd"]
+                    if result_data.get("pwd"):
+                        ar_record["pwd"] = result_data["pwd"]
                     records.append(ar_record)
 
         jsonl_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1464,45 +1551,52 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         """Generate HTML icons showing which extractor plugins have succeeded for this snapshot"""
         from django.utils.html import format_html
 
-        cache_key = (
-            f"result_icons:{self.pk}:{(self.downloaded_at or self.modified_at or self.created_at or self.bookmarked_at).timestamp()}"
-        )
+        compact_icons = getattr(self, "_icons_compact", False)
+        cache_key = f"result_icons:{self.pk}:{'compact' if compact_icons else 'full'}:{(self.downloaded_at or self.modified_at or self.created_at or self.bookmarked_at).timestamp()}"
 
         def calc_icons():
             prefetched_cache = getattr(self, "_prefetched_objects_cache", {})
             if "archiveresult_set" in prefetched_cache:
                 archive_results = {
-                    r.plugin: r for r in self.archiveresult_set.all() if r.status == "succeeded" and (r.output_files or r.output_str)
+                    r.plugin: r
+                    for r in self.archiveresult_set.all()
+                    if r.status == "succeeded" and (compact_icons or r.output_files or r.output_str)
                 }
             else:
                 # Filter for results that have either output_files or output_str
                 from django.db.models import Q
 
-                archive_results = {
-                    r.plugin: r
-                    for r in self.archiveresult_set.filter(
-                        Q(status="succeeded") & (Q(output_files__isnull=False) | ~Q(output_str="")),
-                    )
-                }
+                archive_results_qs = self.archiveresult_set.filter(status="succeeded")
+                if not compact_icons:
+                    archive_results_qs = archive_results_qs.filter(Q(output_files__isnull=False) | ~Q(output_str=""))
+                archive_results = {r.plugin: r for r in archive_results_qs}
 
             archive_path = path or self.archive_path
             output = ""
             output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{}</a>'
 
             # Get all plugins from hooks system (sorted by numeric prefix)
-            all_plugins = [get_plugin_name(e) for e in get_plugins()]
+            all_plugins = getattr(self, "_icons_plugin_names", None)
+            if all_plugins is None and not compact_icons:
+                all_plugins = [get_plugin_name(e) for e in get_plugins()]
+            elif all_plugins is None:
+                all_plugins = []
+            ordered_plugins = [plugin for plugin in all_plugins if plugin in archive_results]
+            ordered_plugins.extend(sorted(set(archive_results) - set(ordered_plugins)))
 
-            for plugin in all_plugins:
+            for plugin in ordered_plugins:
                 result = archive_results.get(plugin)
-                existing = result and result.status == "succeeded" and (result.output_files or result.output_str)
+                existing = bool(result and result.status == "succeeded" and (compact_icons or result.output_files or result.output_str))
+                if not existing:
+                    continue
                 icon = mark_safe(get_plugin_icon(plugin))
 
                 # Skip plugins with empty icons that have no output
                 # (e.g., staticfile only shows when there's actual output)
-                if not icon.strip() and not existing:
+                if not icon.strip():
                     continue
 
-                embed_path = result.embed_path() if result else f"{plugin}/"
+                embed_path = f"{plugin}/" if compact_icons else result.embed_path()
                 output += format_html(
                     output_template,
                     archive_path,
@@ -1623,13 +1717,14 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         """The filesystem path to the snapshot's output directory."""
         import os
 
-        current_path = self.get_storage_path_for_version(self.fs_version)
+        runtime_config = getattr(self, "_runtime_config", None) or get_config()
+        current_path = self.get_storage_path_for_version(self.fs_version, config=runtime_config)
 
         if current_path.exists():
             return current_path
 
         # Check for backwards-compat symlink
-        old_path = get_config().ARCHIVE_DIR / self.timestamp
+        old_path = runtime_config.ARCHIVE_DIR / self.timestamp
         if old_path.is_symlink():
             link_target = Path(os.readlink(old_path))
             return (old_path.parent / link_target).resolve() if not link_target.is_absolute() else link_target.resolve()
@@ -1738,6 +1833,9 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
     @cached_property
     def url_path(self) -> str:
         """URL path matching the current snapshot output_dir layout."""
+        if self.fs_version in ("0.9.0", "1.0.0"):
+            return self.archive_path_from_db
+
         output_dir = Path(self.output_dir).resolve()
         try:
             rel_users_path = output_dir.relative_to(get_config().USERS_DIR)
@@ -1805,7 +1903,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         prefetched_results = None
         if hasattr(self, "_prefetched_objects_cache"):
             prefetched_results = self._prefetched_objects_cache.get("archiveresult_set")
-        if prefetched_results is not None:
+        if prefetched_results:
             return sum(result.output_size or result.output_size_from_files() for result in prefetched_results)
 
         stats = self.archiveresult_set.aggregate(result_count=models.Count("id"), total_size=models.Sum("output_size"))
@@ -2298,10 +2396,24 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
     @cached_property
     def num_outputs(self) -> int:
+        if hasattr(self, "num_outputs_cached"):
+            return int(self.num_outputs_cached or 0)
+
+        prefetched_cache = getattr(self, "_prefetched_objects_cache", {})
+        if "archiveresult_set" in prefetched_cache:
+            return sum(1 for result in self.archiveresult_set.all() if result.status == "succeeded")
+
         return self.archiveresult_set.filter(status="succeeded").count()
 
     @cached_property
     def num_failures(self) -> int:
+        if hasattr(self, "num_failures_cached"):
+            return int(self.num_failures_cached or 0)
+
+        prefetched_cache = getattr(self, "_prefetched_objects_cache", {})
+        if "archiveresult_set" in prefetched_cache:
+            return sum(1 for result in self.archiveresult_set.all() if result.status == "failed")
+
         return self.archiveresult_set.filter(status="failed").count()
 
     # =========================================================================
@@ -2813,6 +2925,20 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes):
     FINAL_OR_ACTIVE_STATES = (*FINAL_STATES, ACTIVE_STATE)
 
     @classmethod
+    def normalize_status(cls, status: str | None) -> str:
+        return {
+            "success": cls.StatusChoices.SUCCEEDED,
+            "succeded": cls.StatusChoices.SUCCEEDED,
+            "succeeded": cls.StatusChoices.SUCCEEDED,
+            "failed": cls.StatusChoices.FAILED,
+            "skipped": cls.StatusChoices.SKIPPED,
+            "noresults": cls.StatusChoices.NORESULTS,
+            "queued": cls.StatusChoices.QUEUED,
+            "started": cls.StatusChoices.STARTED,
+            "backoff": cls.StatusChoices.BACKOFF,
+        }.get(str(status or "").strip().lower(), cls.StatusChoices.FAILED)
+
+    @classmethod
     def get_plugin_choices(cls):
         """Get plugin choices from discovered hooks (for forms/admin)."""
         plugins = [get_plugin_name(e) for e in get_plugins()]
@@ -3235,17 +3361,45 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes):
     def embed_path_db(self) -> str | None:
         output_file_map = self.output_file_map()
 
+        def is_root_relative(path: str) -> bool:
+            metadata = output_file_map.get(path) or {}
+            return bool(isinstance(metadata, dict) and metadata.get("root_relative"))
+
         if self.output_str:
             raw_output = str(self.output_str).strip()
             if self._looks_like_output_path(raw_output, self.plugin):
-                existing_output = self._existing_output_path(raw_output)
-                if existing_output:
-                    return existing_output
+                output_path = Path(raw_output)
+                if output_path.is_absolute():
+                    return None
+
+                candidates: list[str] = []
+                if raw_output.startswith(f"{self.plugin}/"):
+                    candidates.append(raw_output)
+                elif len(output_path.parts) == 1:
+                    candidates.append(f"{self.plugin}/{raw_output}")
+                    candidates.append(raw_output)
+                else:
+                    candidates.append(raw_output)
+
+                if not output_file_map:
+                    return self._existing_output_path(raw_output)
+
+                if raw_output in output_file_map and is_root_relative(raw_output):
+                    return raw_output
+
+                for relative_path in candidates:
+                    plugin_relative = relative_path.removeprefix(f"{self.plugin}/")
+                    if relative_path in output_file_map:
+                        return f"{self.plugin}/{relative_path}" if not relative_path.startswith(f"{self.plugin}/") else relative_path
+                    if plugin_relative in output_file_map:
+                        return f"{self.plugin}/{plugin_relative}"
 
         output_file_paths = list(output_file_map.keys())
         if output_file_paths:
             fallback_path = self._fallback_output_file_path(output_file_paths, self.plugin, output_file_map)
             if fallback_path:
+                if is_root_relative(fallback_path):
+                    return fallback_path
                 return f"{self.plugin}/{fallback_path}"
 
         return None

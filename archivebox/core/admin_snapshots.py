@@ -1,6 +1,5 @@
 __package__ = "archivebox.core"
 
-import json
 from functools import lru_cache
 
 from django.contrib import admin, messages
@@ -21,7 +20,7 @@ from archivebox.misc.paginators import AcceleratedPaginator
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.search.admin import SearchResultsAdminMixin
 from archivebox.core.host_utils import build_snapshot_url, build_web_url
-from archivebox.hooks import get_plugin_icon, get_plugin_name, get_plugins
+from archivebox.hooks import discover_hooks, get_plugin_icon, get_plugin_name, get_plugins
 
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 from archivebox.workers.tasks import bg_archive_snapshots, bg_add
@@ -38,18 +37,6 @@ GLOBAL_CONTEXT = {}
 @lru_cache(maxsize=1)
 def _plugin_sort_order() -> dict[str, int]:
     return {get_plugin_name(plugin): idx for idx, plugin in enumerate(get_plugins())}
-
-
-@lru_cache(maxsize=256)
-def _expected_snapshot_hook_total(config_json: str) -> int:
-    from archivebox.hooks import discover_hooks
-
-    try:
-        config = json.loads(config_json) if config_json else {}
-    except Exception:
-        return 0
-
-    return len(discover_hooks("Snapshot", config=config))
 
 
 class SnapshotActionForm(ActionForm):
@@ -245,10 +232,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         ),
     )
 
-    ordering = ["-created_at"]
+    ordering = ["-timestamp"]
     actions = ["add_tags", "remove_tags", "resnapshot_snapshot", "update_snapshots", "overwrite_snapshots", "delete_snapshots"]
     inlines = []  # Removed TagInline, using TagEditorWidget instead
-    list_per_page = min(max(5, get_config().SNAPSHOTS_PER_PAGE), 5000)
+    list_per_page = 40
 
     action_form = SnapshotActionForm
     paginator = AcceleratedPaginator
@@ -258,12 +245,19 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     def changelist_view(self, request, extra_context=None):
         self.request = request
+        request.archivebox_config = get_config()
+        saved_list_per_page = self.list_per_page
+        self.list_per_page = min(max(5, request.archivebox_config.SNAPSHOTS_PER_PAGE), 5000)
         extra_context = extra_context or {}
+        extra_context["CONFIG"] = request.archivebox_config
         try:
-            return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
-        except Exception as e:
-            self.message_user(request, f"Error occurred while loading the page: {str(e)} {request.GET} {request.POST}")
-            return super().changelist_view(request, GLOBAL_CONTEXT)
+            try:
+                return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
+            except Exception as e:
+                self.message_user(request, f"Error occurred while loading the page: {str(e)} {request.GET} {request.POST}")
+                return super().changelist_view(request, GLOBAL_CONTEXT)
+        finally:
+            self.list_per_page = saved_list_per_page
 
     def get_actions(self, request):
         actions = super().get_actions(request)
@@ -273,10 +267,12 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return actions
 
     def get_snapshot_view_url(self, obj: Snapshot) -> str:
-        return build_snapshot_url(str(obj.id), request=getattr(self, "request", None))
+        request = getattr(self, "request", None)
+        return build_snapshot_url(str(obj.id), request=request, config=getattr(request, "archivebox_config", None))
 
     def get_snapshot_files_url(self, obj: Snapshot) -> str:
-        return f"{build_snapshot_url(str(obj.id), request=getattr(self, 'request', None))}/?files=1"
+        request = getattr(self, "request", None)
+        return f"{build_snapshot_url(str(obj.id), request=request, config=getattr(request, 'archivebox_config', None))}/?files=1"
 
     def get_snapshot_zip_url(self, obj: Snapshot) -> str:
         return f"{self.get_snapshot_files_url(obj)}&download=zip"
@@ -485,7 +481,9 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         )
 
     def status_info(self, obj):
-        favicon_url = build_snapshot_url(str(obj.id), "favicon.ico")
+        request = getattr(self, "request", None)
+        config = getattr(request, "archivebox_config", None)
+        favicon_url = build_snapshot_url(str(obj.id), "favicon.ico", request=request, config=config)
         return format_html(
             """
             Archived: {} ({} files {}) &nbsp; &nbsp;
@@ -508,6 +506,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         ordering="title",
     )
     def title_str(self, obj):
+        request = getattr(self, "request", None)
+        config = getattr(request, "archivebox_config", None)
         title_raw = (obj.title or "").strip()
         url_raw = (obj.url or "").strip()
         title_normalized = title_raw.lower()
@@ -515,7 +515,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         show_title = bool(title_raw) and title_normalized != "pending..." and title_normalized != url_normalized
         css_class = "fetched" if show_title else "pending"
 
-        detail_url = build_web_url(f"/{obj.archive_path_from_db}/index.html")
+        detail_url = build_web_url(f"/{obj.archive_path_from_db}/index.html", request=request, config=config)
         title_html = ""
         if show_title:
             title_html = format_html(
@@ -560,6 +560,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return mark_safe(f'<span class="tags-inline-editor">{tags_html}</span>')
 
     def _get_preview_data(self, obj):
+        request = getattr(self, "request", None)
+        config = getattr(request, "archivebox_config", None)
         results = self._get_prefetched_results(obj)
         if results is not None:
             has_screenshot = any(r.plugin == "screenshot" for r in results)
@@ -573,18 +575,18 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             return None
 
         if has_screenshot:
-            img_url = build_snapshot_url(str(obj.id), "screenshot/screenshot.png")
+            img_url = build_snapshot_url(str(obj.id), "screenshot/screenshot.png", request=request, config=config)
             fallbacks = [
-                build_snapshot_url(str(obj.id), "screenshot.png"),
-                build_snapshot_url(str(obj.id), "favicon/favicon.ico"),
-                build_snapshot_url(str(obj.id), "favicon.ico"),
+                build_snapshot_url(str(obj.id), "screenshot.png", request=request, config=config),
+                build_snapshot_url(str(obj.id), "favicon/favicon.ico", request=request, config=config),
+                build_snapshot_url(str(obj.id), "favicon.ico", request=request, config=config),
             ]
             img_alt = "Screenshot"
             preview_class = "screenshot"
         else:
-            img_url = build_snapshot_url(str(obj.id), "favicon/favicon.ico")
+            img_url = build_snapshot_url(str(obj.id), "favicon/favicon.ico", request=request, config=config)
             fallbacks = [
-                build_snapshot_url(str(obj.id), "favicon.ico"),
+                build_snapshot_url(str(obj.id), "favicon.ico", request=request, config=config),
             ]
             img_alt = "Favicon"
             preview_class = "favicon"
@@ -611,8 +613,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         if not preview:
             return ""
 
-        favicon_url = build_snapshot_url(str(obj.id), "favicon/favicon.ico")
-        fallback_list = ",".join([build_snapshot_url(str(obj.id), "favicon.ico")])
+        request = getattr(self, "request", None)
+        config = getattr(request, "archivebox_config", None)
+        favicon_url = build_snapshot_url(str(obj.id), "favicon/favicon.ico", request=request, config=config)
+        fallback_list = ",".join([build_snapshot_url(str(obj.id), "favicon.ico", request=request, config=config)])
         onerror_js = (
             "this.dataset.fallbacks && this.dataset.fallbacks.length ? "
             "(this.src=this.dataset.fallbacks.split(',').shift(), "
@@ -648,6 +652,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     @admin.display(description=" ", empty_value="")
     def snapshot_summary(self, obj):
+        request = getattr(self, "request", None)
+        config = getattr(request, "archivebox_config", None)
         preview = self._get_preview_data(obj)
         stats = self._get_progress_stats(obj)
         archive_size = stats["output_size"] or 0
@@ -661,7 +667,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 'style="display:block; width:100%; max-width:220px; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; '
                 'border-radius: 10px; border: 1px solid #e2e8f0; background: #f8fafc;">'
                 "</a>",
-                href=build_web_url(f"/{obj.archive_path}"),
+                href=build_web_url(f"/{obj.archive_path}", request=request, config=config),
                 src=preview["img_url"],
                 alt=preview["img_alt"],
                 onerror=preview["onerror_js"],
@@ -681,7 +687,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             "</div>",
             screenshot_html,
             size_txt,
-            build_web_url(f"/{obj.archive_path}"),
+            build_web_url(f"/{obj.archive_path}", request=request, config=config),
             obj.archive_path,
         )
 
@@ -728,6 +734,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         # ordering='archiveresult_count'
     )
     def size(self, obj):
+        request = getattr(self, "request", None)
+        config = getattr(request, "archivebox_config", None)
         archive_size = self._get_progress_stats(obj)["output_size"] or 0
         if archive_size:
             size_txt = printable_filesize(archive_size)
@@ -737,7 +745,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             size_txt = mark_safe('<span style="opacity: 0.3">...</span>')
         return format_html(
             '<a href="{}" title="View all files">{}</a>',
-            build_web_url(f"/{obj.archive_path}"),
+            build_web_url(f"/{obj.archive_path}", request=request, config=config),
             size_txt,
         )
 
@@ -809,6 +817,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     )
     def size_with_stats(self, obj):
         """Show archive size with output size from archive results."""
+        request = getattr(self, "request", None)
+        config = getattr(request, "archivebox_config", None)
         stats = self._get_progress_stats(obj)
         output_size = stats["output_size"]
         size_bytes = output_size or 0
@@ -833,7 +843,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 '<div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">'
                 "{}/{} hooks</div>"
                 "{}",
-                build_web_url(f"/{obj.archive_path_from_db}"),
+                build_web_url(f"/{obj.archive_path_from_db}", request=request, config=config),
                 size_txt,
                 stats["succeeded"],
                 stats["total"],
@@ -842,12 +852,16 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         return format_html(
             '<a href="{}" title="View all files">{}</a>{}',
-            build_web_url(f"/{obj.archive_path_from_db}"),
+            build_web_url(f"/{obj.archive_path_from_db}", request=request, config=config),
             size_txt,
             zip_link,
         )
 
     def _get_progress_stats(self, obj):
+        cached_stats = getattr(obj, "_admin_progress_stats", None)
+        if cached_stats is not None:
+            return cached_stats
+
         results = self._get_prefetched_results(obj)
         if results is None:
             stats = obj.get_progress_stats()
@@ -857,6 +871,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             stats["total"] = total
             stats["pending"] = max(total - completed - stats["running"], 0)
             stats["percent"] = int((completed / total * 100) if total > 0 else 0)
+            obj._admin_progress_stats = stats
             return stats
 
         expected_total = self._get_expected_hook_total(obj)
@@ -878,7 +893,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         else:
             output_size = sum(r.output_size or 0 for r in results)
 
-        return {
+        stats = {
             "total": total,
             "succeeded": succeeded,
             "failed": failed,
@@ -890,6 +905,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             "output_size": output_size or 0,
             "is_sealed": is_sealed,
         }
+        obj._admin_progress_stats = stats
+        return stats
 
     def _get_prefetched_results(self, obj):
         if hasattr(obj, "_prefetched_objects_cache") and "archiveresult_set" in obj._prefetched_objects_cache:
@@ -897,12 +914,20 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return None
 
     def _get_expected_hook_total(self, obj) -> int:
-        from archivebox.config.common import get_config
-
         try:
-            config = get_config(crawl=obj.crawl, snapshot=obj)
-            config_json = json.dumps(config, sort_keys=True, default=str, separators=(",", ":"))
-            return _expected_snapshot_hook_total(config_json)
+            request = getattr(self, "request", None)
+            crawl = getattr(obj, "crawl", None)
+            has_scoped_config = bool(getattr(obj, "config", None) or getattr(crawl, "config", None) or getattr(crawl, "persona_id", None))
+
+            if request is not None and not has_scoped_config:
+                cached_total = getattr(request, "archivebox_expected_snapshot_hook_total", None)
+                if cached_total is None:
+                    config = getattr(request, "archivebox_config", None) or get_config()
+                    cached_total = len(discover_hooks("Snapshot", config=config))
+                    request.archivebox_expected_snapshot_hook_total = cached_total
+                return cached_total
+
+            return len(discover_hooks("Snapshot", config=get_config(crawl=crawl, snapshot=obj)))
         except Exception:
             return 0
 
@@ -913,19 +938,33 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     def _result_output_href(self, obj, result: ArchiveResult) -> str:
         ignored = {"stdout.log", "stderr.log", "hook.pid", "listener.pid", "cmd.sh"}
+        output_file_map = result.output_file_map()
+        fallback_path = ArchiveResult._fallback_output_file_path(list(output_file_map.keys()), result.plugin, output_file_map)
+        if fallback_path:
+            metadata = output_file_map.get(fallback_path) or {}
+            if isinstance(metadata, dict) and metadata.get("root_relative"):
+                return f"/{obj.archive_path_from_db}/{fallback_path}"
+            relative_path = fallback_path if fallback_path.startswith(f"{result.plugin}/") else f"{result.plugin}/{fallback_path}"
+            return f"/{obj.archive_path_from_db}/{relative_path}"
 
-        for rel_path in result.output_file_paths():
+        for rel_path in output_file_map:
             raw_path = str(rel_path or "").strip().lstrip("/")
             if not raw_path:
                 continue
             basename = raw_path.rsplit("/", 1)[-1]
             if basename in ignored or raw_path.endswith((".pid", ".log", ".sh")):
                 continue
+            metadata = output_file_map.get(raw_path) or {}
+            if isinstance(metadata, dict) and metadata.get("root_relative"):
+                return f"/{obj.archive_path_from_db}/{raw_path}"
             relative_path = raw_path if raw_path.startswith(f"{result.plugin}/") else f"{result.plugin}/{raw_path}"
             return f"/{obj.archive_path_from_db}/{relative_path}"
 
         raw_output = str(result.output_str or "").strip().lstrip("/")
         if raw_output and raw_output not in {".", "./"} and "://" not in raw_output and not raw_output.startswith("/"):
+            metadata = output_file_map.get(raw_output) or {}
+            if isinstance(metadata, dict) and metadata.get("root_relative"):
+                return f"/{obj.archive_path_from_db}/{raw_output}"
             relative_path = raw_output if raw_output.startswith(f"{result.plugin}/") else f"{result.plugin}/{raw_output}"
             return f"/{obj.archive_path_from_db}/{relative_path}"
 
@@ -976,7 +1015,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         # Monkey patch here plus core_tags.py
         admin_cls.change_list_template = "private_index_grid.html"
-        admin_cls.list_per_page = get_config().SNAPSHOTS_PER_PAGE
+        config = get_config()
+        admin_cls.list_per_page = config.SNAPSHOTS_PER_PAGE
         admin_cls.list_max_show_all = admin_cls.list_per_page
 
         # Call monkey patched view

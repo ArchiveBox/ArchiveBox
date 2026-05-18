@@ -5,8 +5,11 @@ Verify server can start (basic smoke tests only, no full server testing).
 """
 
 import os
+import asyncio
+import json
 import subprocess
 import sys
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 
@@ -71,6 +74,78 @@ def test_reload_workers_use_current_interpreter_and_supervisord_managed_runner()
 
     assert watcher["name"] == "worker_runner_watch"
     assert watcher["command"] == f"{sys.executable} -m archivebox manage runner_watch --pidfile=/tmp/runserver.pid"
+
+
+def test_start_server_workers_starts_plugin_owned_sonic_worker(monkeypatch):
+    from archivebox.workers import supervisord_util
+
+    supervisor = Mock()
+    supervisor.getPID.return_value = 123
+    started_workers = []
+
+    monkeypatch.setattr(supervisord_util, "get_or_create_supervisord_process", lambda daemonize=False: supervisor)
+    monkeypatch.setattr(supervisord_util, "tail_multiple_worker_logs", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        supervisord_util,
+        "get_sonic_supervisord_worker_from_plugin",
+        lambda config: {
+            "name": "worker_sonic",
+            "command": "sonic -c /data/sonic/config.cfg",
+            "stdout_logfile": "logs/worker_sonic.log",
+        },
+    )
+    monkeypatch.setattr(
+        supervisord_util,
+        "start_worker",
+        lambda _supervisor, worker, lazy=False: started_workers.append((worker["name"], lazy)) or {"name": worker["name"]},
+    )
+    monkeypatch.setattr("archivebox.config.common.get_config", lambda: SimpleNamespace(TMP_DIR="/tmp"))
+
+    supervisord_util.start_server_workers(daemonize=True, debug=False)
+
+    assert started_workers == [
+        ("worker_daphne", False),
+        ("worker_sonic", False),
+        ("worker_runner", False),
+    ]
+
+
+def test_sonic_daemon_event_handler_requires_running_supervised_worker(monkeypatch):
+    from abx_dl.events import ProcessStdoutEvent
+    from abx_dl.orchestrator import create_bus
+    from archivebox.search.sonic_daemon import register_sonic_daemon_event_handler
+
+    supervisor = Mock()
+    monkeypatch.setattr("archivebox.workers.supervisord_util.get_existing_supervisord_process", lambda: supervisor)
+    monkeypatch.setattr(
+        "archivebox.workers.supervisord_util.get_worker",
+        lambda _supervisor, name: {"name": name, "statename": "RUNNING", "description": "pid 123"},
+    )
+    monkeypatch.setattr("abx_plugins.plugins.search_backend_sonic.daemon.is_port_listening", lambda host, port: True)
+
+    async def run_test():
+        bus = create_bus(name="test_sonic_daemon_event_handler_requires_running_supervised_worker")
+        try:
+            register_sonic_daemon_event_handler(bus)
+            await bus.emit(
+                ProcessStdoutEvent(
+                    line=json.dumps(
+                        {
+                            "type": "SonicDaemonStartEvent",
+                            "worker_name": "worker_sonic",
+                            "url": "tcp://127.0.0.1:1491",
+                            "host": "127.0.0.1",
+                            "port": 1491,
+                            "config_path": "/data/sonic/config.cfg",
+                            "output_dir": "/data/sonic",
+                        },
+                    ),
+                ),
+            ).now()
+        finally:
+            await bus.destroy()
+
+    asyncio.run(run_test())
 
 
 def test_stop_existing_background_runner_cleans_up_and_stops_orchestrators():

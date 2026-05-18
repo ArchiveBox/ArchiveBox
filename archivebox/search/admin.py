@@ -30,10 +30,10 @@ class SearchResultsAdminMixin(admin.ModelAdmin):
 
         search_term = search_term.strip()
         if not search_term:
-            return qs.distinct(), use_distinct
+            return qs, use_distinct
         search_mode = get_search_mode(request.GET.get("search_mode"))
         if search_mode == "meta":
-            return qs.distinct(), use_distinct
+            return qs, use_distinct
         try:
             deep_qsearch = None
             if search_mode == "deep":
@@ -56,4 +56,4 @@ class SearchResultsAdminMixin(admin.ModelAdmin):
                 f"Error from the search backend, only showing results from default admin search fields - Error: {err}",
             )
 
-        return qs.distinct(), use_distinct
+        return qs, True

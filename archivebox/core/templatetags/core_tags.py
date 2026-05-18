@@ -193,16 +193,16 @@ def _is_root_snapshot_output_path(raw_output_path: str | None) -> bool:
     return normalized in ("", ".", "./", "/", "index.html", "index.json")
 
 
-def _build_snapshot_files_url(snapshot_id: str, request=None) -> str:
-    return build_snapshot_url(str(snapshot_id), "/?files=1", request=request)
+def _build_snapshot_files_url(snapshot_id: str, request=None, config=None) -> str:
+    return build_snapshot_url(str(snapshot_id), "/?files=1", request=request, config=config)
 
 
-def _build_snapshot_preview_url(snapshot_id: str, path: str = "", request=None) -> str:
+def _build_snapshot_preview_url(snapshot_id: str, path: str = "", request=None, config=None) -> str:
     if path == "about:blank":
         return path
     if _is_root_snapshot_output_path(path):
-        return _build_snapshot_files_url(snapshot_id, request=request)
-    url = build_snapshot_url(str(snapshot_id), path, request=request)
+        return _build_snapshot_files_url(snapshot_id, request=request, config=config)
+    url = build_snapshot_url(str(snapshot_id), path, request=request, config=config)
     if not (_is_text_preview_path(path) or _is_image_preview_path(path)):
         return url
     separator = "&" if "?" in url else "?"
@@ -277,15 +277,23 @@ def file_size(num_bytes: int | float) -> str:
     return "{:3.1f} {}".format(num_bytes, "TB")
 
 
-def result_list(cl):
+def result_list(context, cl):
     """
     Monkey patched result
     """
     num_sorted_fields = 0
+    request = context.get("request")
+    config = getattr(request, "archivebox_config", None) or context.get("CONFIG")
+    results = cl.result_list
+    if config is not None:
+        for obj in results:
+            obj._runtime_config = config
     return {
         "cl": cl,
         "num_sorted_fields": num_sorted_fields,
-        "results": cl.result_list,
+        "results": results,
+        "request": request,
+        "CONFIG": config,
     }
 
 
@@ -296,7 +304,7 @@ def result_list_tag(parser, token):
         token,
         func=result_list,
         template_name="snapshots_grid.html",
-        takes_context=False,
+        takes_context=True,
     )
 
 
@@ -309,35 +317,35 @@ def url_replace(context, **kwargs):
 
 @register.simple_tag(takes_context=True)
 def admin_base_url(context) -> str:
-    return get_admin_base_url(request=context.get("request"))
+    return get_admin_base_url(request=context.get("request"), config=context.get("CONFIG"))
 
 
 @register.simple_tag(takes_context=True)
 def web_base_url(context) -> str:
-    return get_web_base_url(request=context.get("request"))
+    return get_web_base_url(request=context.get("request"), config=context.get("CONFIG"))
 
 
 @register.simple_tag(takes_context=True)
 def public_base_url(context) -> str:
-    return get_public_base_url(request=context.get("request"))
+    return get_public_base_url(request=context.get("request"), config=context.get("CONFIG"))
 
 
 @register.simple_tag(takes_context=True)
 def snapshot_base_url(context, snapshot) -> str:
     snapshot_id = getattr(snapshot, "id", snapshot)
-    return get_snapshot_base_url(str(snapshot_id), request=context.get("request"))
+    return get_snapshot_base_url(str(snapshot_id), request=context.get("request"), config=context.get("CONFIG"))
 
 
 @register.simple_tag(takes_context=True)
 def snapshot_url(context, snapshot, path: str = "") -> str:
     snapshot_id = getattr(snapshot, "id", snapshot)
-    return build_snapshot_url(str(snapshot_id), path, request=context.get("request"))
+    return build_snapshot_url(str(snapshot_id), path, request=context.get("request"), config=context.get("CONFIG"))
 
 
 @register.simple_tag(takes_context=True)
 def snapshot_preview_url(context, snapshot, path: str = "") -> str:
     snapshot_id = getattr(snapshot, "id", snapshot)
-    return _build_snapshot_preview_url(str(snapshot_id), path, request=context.get("request"))
+    return _build_snapshot_preview_url(str(snapshot_id), path, request=context.get("request"), config=context.get("CONFIG"))
 
 
 @register.simple_tag
@@ -378,6 +386,7 @@ def plugin_card(context, result) -> str:
         str(getattr(result, "snapshot_id", "")),
         raw_output_path or "",
         request=context.get("request"),
+        config=context.get("CONFIG"),
     )
 
     icon_html = get_plugin_icon(plugin)
@@ -387,9 +396,10 @@ def plugin_card(context, result) -> str:
     if media_files:
         snapshot_id = str(getattr(result, "snapshot_id", ""))
         request = context.get("request")
+        config = context.get("CONFIG")
         for item in media_files:
             path = item.get("path") or ""
-            item["url"] = build_snapshot_url(snapshot_id, path, request=request) if path else ""
+            item["url"] = build_snapshot_url(snapshot_id, path, request=request, config=config) if path else ""
 
     output_lower = (raw_output_path or "").lower()
     force_text_preview = output_lower.endswith(_TEXT_PREVIEW_EXTS)
@@ -470,6 +480,7 @@ def plugin_full(context, result) -> str:
         str(getattr(result, "snapshot_id", "")),
         raw_output_path,
         request=context.get("request"),
+        config=context.get("CONFIG"),
     )
 
     try:

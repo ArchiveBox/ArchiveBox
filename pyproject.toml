@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.9.30rc39"
+version = "0.9.30rc57"
 requires-python = ">=3.13"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
@@ -80,8 +80,8 @@ dependencies = [
     ### Binary/Package Management
     "abxbus>=2.5.4",          # EventBus API
     "abxpkg>=1.10.7",         # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
-    "abx-plugins>=1.10.55",   # shared ArchiveBox plugin package with Chrome/Puppeteer dependency wiring
-    "abx-dl>=1.10.50",        # shared ArchiveBox downloader package with blocking install preflight
+    "abx-plugins>=1.10.56",   # shared ArchiveBox plugin package with Chrome/Puppeteer dependency wiring
+    "abx-dl>=1.10.51",        # shared ArchiveBox downloader package with blocking install preflight
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
 ]
@@ -178,7 +178,7 @@ exclude = ["*.pyi", "typings/", "migrations/", "archivebox/tests/data/"]
 ignore = ["E731", "E303", "E266", "E241", "E222"]
 
 [tool.codespell]
-ignore-words-list = "abx,archivebox,adminsnapshots,bu,wit,dont,cant,wont,havent,thats,shouldnt,doesnt,doenst,re-use,re-used,re-using,re-usable"
+ignore-words-list = "abx,archivebox,adminsnapshots,bu,wit,dont,cant,wont,havent,thats,shouldnt,doesnt,doenst,succeded,re-use,re-used,re-using,re-usable"
 skip = "*.json,*.min.js,*.min.css,uv.lock,old/*,publicsite/*"
 
 [tool.pytest.ini_options]

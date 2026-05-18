@@ -333,7 +333,6 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 100
                 snapshot.migrate_filesystem_to_current_version(source_dir=entry_path, config=runtime_config)
                 Snapshot.objects.filter(pk=snapshot.pk).update(
                     fs_version=snapshot.fs_version,
-                    modified_at=timezone.now(),
                 )
                 migration_cleanup = getattr(snapshot, "_pending_fs_migration_cleanup", None)
                 new_dir = None
@@ -392,7 +391,6 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 100
             if snapshot.fs_version != old_version or getattr(snapshot, "_pending_fs_migration_cleanup", None):
                 Snapshot.objects.filter(pk=snapshot.pk).update(
                     fs_version=snapshot.fs_version,
-                    modified_at=timezone.now(),
                 )
                 migration_cleanup = getattr(snapshot, "_pending_fs_migration_cleanup", None)
                 new_dir = None
@@ -445,17 +443,18 @@ def process_all_db_snapshots(batch_size: int = 100, resume: str | None = None) -
 
     For each snapshot:
       1. Reconcile index.json with DB (merge titles, tags, archive results)
-      2. Queue for archiving (state machine will handle it)
+      2. Mark migrated snapshots sealed unless explicitly re-queued elsewhere
 
     No orphan detection needed - we trust 1:1 mapping between DB and filesystem
     after Phase 1 has drained all old archive/ directories.
     """
     from archivebox.core.models import Snapshot
     from archivebox.config.common import get_config
+    from archivebox.crawls.models import Crawl
     from django.db import transaction
     from django.utils import timezone
 
-    stats = {"processed": 0, "reconciled": 0, "queued": 0}
+    stats = {"processed": 0, "reconciled": 0, "sealed": 0, "crawls_sealed": 0}
     runtime_config = get_config()
 
     queryset = Snapshot.objects.all()
@@ -480,20 +479,17 @@ def process_all_db_snapshots(batch_size: int = 100, resume: str | None = None) -
             has_directory = output_dir.exists() and output_dir.is_dir()
             current_fs_version = Snapshot._fs_current_version()
             update_values = {
-                "status": Snapshot.StatusChoices.QUEUED,
-                "retry_at": timezone.now(),
-                "modified_at": timezone.now(),
+                "status": Snapshot.StatusChoices.SEALED,
+                "retry_at": None,
             }
 
             # Only reconcile if directory exists (don't create empty directories for orphans)
             if has_directory:
-                json_path = output_dir / "index.json"
-                jsonl_path = output_dir / "index.jsonl"
-                if json_path.exists() or not jsonl_path.exists():
-                    old_title = snapshot.title
-                    snapshot.reconcile_with_index_json(output_dir=output_dir)
-                    if snapshot.title != old_title:
-                        update_values["title"] = snapshot.title
+                old_title = snapshot.title
+                snapshot.reconcile_with_index_json(output_dir=output_dir, update_existing_archive_results=False)
+                if snapshot.title != old_title:
+                    update_values["title"] = snapshot.title
+                    update_values["modified_at"] = timezone.now()
 
             # Clean up invalid field values from old migrations
             if not isinstance(snapshot.current_step, int):
@@ -504,11 +500,8 @@ def process_all_db_snapshots(batch_size: int = 100, resume: str | None = None) -
                 current_dir = snapshot.get_storage_path_for_version(current_fs_version, config=runtime_config)
                 if legacy_dir.exists() or current_dir.exists():
                     snapshot.migrate_filesystem_to_current_version(config=runtime_config)
-                    snapshot.status = update_values["status"]
-                    snapshot.retry_at = update_values["retry_at"]
-                    if "current_step" in update_values:
-                        snapshot.current_step = update_values["current_step"]
-                    snapshot.save(update_fields=tuple([*update_values.keys(), "fs_version"]))
+                    update_values["fs_version"] = snapshot.fs_version
+                    Snapshot.objects.filter(pk=snapshot.pk).update(**update_values)
                 else:
                     update_values["fs_version"] = current_fs_version
                     Snapshot.objects.filter(pk=snapshot.pk).update(**update_values)
@@ -516,7 +509,7 @@ def process_all_db_snapshots(batch_size: int = 100, resume: str | None = None) -
                 Snapshot.objects.filter(pk=snapshot.pk).update(**update_values)
 
             stats["reconciled"] += 1 if has_directory else 0
-            stats["queued"] += 1
+            stats["sealed"] += 1
         except Exception as e:
             # Skip snapshots that can't be processed (e.g., missing crawl)
             print(f"    [!] Skipping snapshot {snapshot.id}: {e}")
@@ -527,6 +520,20 @@ def process_all_db_snapshots(batch_size: int = 100, resume: str | None = None) -
             print(f"    [{stats['processed']}/{total}] Processed...")
 
     transaction.commit()
+    now = timezone.now()
+    stats["crawls_sealed"] = (
+        Crawl.objects.filter(
+            status__in=[Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED],
+        )
+        .exclude(
+            snapshot_set__status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED],
+        )
+        .update(
+            status=Crawl.StatusChoices.SEALED,
+            retry_at=None,
+            modified_at=now,
+        )
+    )
     return stats
 
 
@@ -621,7 +628,8 @@ Phase 1 (Drain Old Dirs):
 Phase 2 (Process DB):
   Processed:   {s2.get("processed", 0)}
   Reconciled:  {s2.get("reconciled", 0)}
-  Queued:      {s2.get("queued", 0)}
+  Sealed:      {s2.get("sealed", 0)}
+  Crawls:      {s2.get("crawls_sealed", 0)} sealed
 """)
 
 

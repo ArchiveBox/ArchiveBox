@@ -67,6 +67,7 @@ def _build_script(body: str) -> str:
         is_snapshot_subdomain,
         build_admin_url,
         build_snapshot_url,
+        build_original_url,
     )
 
     def response_body(resp):
@@ -701,6 +702,26 @@ class TestUrlRouting:
             env_overrides={
                 "ADMIN_BASE_URL": "https://admin.archivebox.example",
                 "ARCHIVE_BASE_URL": "https://archivebox.example",
+            },
+        )
+
+    def test_subdomain_snapshot_urls_inherit_https_archive_base_url(self) -> None:
+        self._run(
+            """
+            snapshot = get_snapshot()
+            snapshot_id = str(snapshot.id)
+            snapshot_host = get_snapshot_host(snapshot_id)
+
+            assert SERVER_CONFIG.SERVER_SECURITY_MODE == "safe-subdomains-fullreplay"
+            assert get_web_base_url() == "https://web.archivebox.example"
+            assert build_snapshot_url(snapshot_id, "index.html") == f"https://{snapshot_host}/index.html"
+            assert build_original_url("example.com", "index.html") == f"https://{get_original_host('example.com')}/index.html"
+
+            print("OK")
+            """,
+            mode="safe-subdomains-fullreplay",
+            env_overrides={
+                "ARCHIVE_BASE_URL": "https://web.archivebox.example",
             },
         )
 

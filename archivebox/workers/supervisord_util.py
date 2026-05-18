@@ -576,13 +576,21 @@ def watch_worker(supervisor, daemon_name, interval=5):
             continue
 
 
+def get_sonic_supervisord_worker_from_plugin(config) -> dict[str, str] | None:
+    from abx_plugins.plugins.search_backend_sonic.daemon import get_sonic_supervisord_worker
+
+    worker = get_sonic_supervisord_worker(config)
+    return cast(dict[str, str] | None, worker)
+
+
 def start_server_workers(host="0.0.0.0", port="8000", daemonize=False, debug=False, reload=False, nothreading=False):
     from archivebox.config.common import get_config
 
+    config = get_config()
     supervisor = get_or_create_supervisord_process(daemonize=daemonize)
 
     if debug:
-        pidfile = str(get_config().TMP_DIR / "runserver.pid") if reload else None
+        pidfile = str(config.TMP_DIR / "runserver.pid") if reload else None
         server_worker = RUNSERVER_WORKER(host=host, port=port, reload=reload, pidfile=pidfile, nothreading=nothreading)
         bg_workers: list[tuple[dict[str, str], bool]] = (
             [(RUNNER_WORKER, True), (RUNNER_WATCH_WORKER(pidfile), False)] if reload else [(RUNNER_WORKER, False)]
@@ -594,6 +602,11 @@ def start_server_workers(host="0.0.0.0", port="8000", daemonize=False, debug=Fal
         server_worker = SERVER_WORKER(host=host, port=port)
         bg_workers = [(RUNNER_WORKER, False)]
         log_files = ["logs/worker_daphne.log", "logs/worker_runner.log"]
+
+    sonic_worker = get_sonic_supervisord_worker_from_plugin(config)
+    if sonic_worker is not None:
+        bg_workers.insert(0, (sonic_worker, False))
+        log_files.append(str(sonic_worker["stdout_logfile"]))
 
     print()
     start_worker(supervisor, server_worker)
@@ -625,7 +638,13 @@ def start_server_workers(host="0.0.0.0", port="8000", daemonize=False, debug=Fal
 
 
 def start_cli_workers(watch=False):
+    from archivebox.config.common import get_config
+
     supervisor = get_or_create_supervisord_process(daemonize=False)
+
+    sonic_worker = get_sonic_supervisord_worker_from_plugin(get_config())
+    if sonic_worker is not None:
+        start_worker(supervisor, sonic_worker)
 
     start_worker(supervisor, RUNNER_WORKER)
 

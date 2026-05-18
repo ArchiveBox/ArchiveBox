@@ -25,7 +25,9 @@ def copy_old_fields_to_new(apps, schema_editor):
         # Copy output -> output_str
         cursor.execute("UPDATE core_archiveresult SET output_str = COALESCE(output, '') WHERE output_str = '' OR output_str IS NULL")
 
-    # Copy timestamps to new timestamp fields if they don't have values yet
+    # Fill missing row metadata for older schemas that did not have it.
+    # 0023 creates/preserves created_at + modified_at before any SQLite table
+    # rebuilds in this migration, so never overwrite existing non-empty values.
     if "start_ts" in cols and "created_at" in cols:
         cursor.execute(
             "UPDATE core_archiveresult SET created_at = COALESCE(start_ts, CURRENT_TIMESTAMP) WHERE created_at IS NULL OR created_at = ''",
@@ -33,7 +35,7 @@ def copy_old_fields_to_new(apps, schema_editor):
 
     if "end_ts" in cols and "modified_at" in cols:
         cursor.execute(
-            "UPDATE core_archiveresult SET modified_at = COALESCE(end_ts, start_ts, CURRENT_TIMESTAMP) WHERE modified_at IS NULL OR modified_at = ''",
+            "UPDATE core_archiveresult SET modified_at = COALESCE(end_ts, start_ts, created_at, CURRENT_TIMESTAMP) WHERE modified_at IS NULL OR modified_at = ''",
         )
 
     # NOTE: Snapshot timestamps (added→bookmarked_at, updated→modified_at) were already
@@ -64,15 +66,28 @@ class Migration(migrations.Migration):
         ),
         # NOTE: RemoveField for cmd, cmd_version, pwd moved to migration 0027
         # to allow data migration to Process records first
+        # NOTE: created_at/modified_at are created by migration 0023 so they can
+        # preserve old ArchiveResult row metadata before SQLite table rebuilds.
+        # Update Django's state here before the AddField operations below.
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[
+                migrations.AddField(
+                    model_name="archiveresult",
+                    name="created_at",
+                    field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
+                ),
+                migrations.AddField(
+                    model_name="archiveresult",
+                    name="modified_at",
+                    field=models.DateTimeField(auto_now=True),
+                ),
+            ],
+        ),
         migrations.AddField(
             model_name="archiveresult",
             name="config",
             field=models.JSONField(blank=True, default=dict, null=True),
-        ),
-        migrations.AddField(
-            model_name="archiveresult",
-            name="created_at",
-            field=models.DateTimeField(db_index=True, default=django.utils.timezone.now),
         ),
         migrations.AddField(
             model_name="archiveresult",
@@ -84,11 +99,6 @@ class Migration(migrations.Migration):
                 help_text="Full filename of the hook that executed (e.g., on_Snapshot__50_wget.py)",
                 max_length=255,
             ),
-        ),
-        migrations.AddField(
-            model_name="archiveresult",
-            name="modified_at",
-            field=models.DateTimeField(auto_now=True),
         ),
         migrations.AddField(
             model_name="archiveresult",

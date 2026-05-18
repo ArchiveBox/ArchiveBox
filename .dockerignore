@@ -27,6 +27,10 @@ chrome/
 chromeprofile/
 chrome_profile/
 users/
+archive/
+crawls/
+snapshots/
+logs/
 archivebox-docker-smoke*/
 archivebox-compose-smoke*/
 core

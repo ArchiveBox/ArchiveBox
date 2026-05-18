@@ -113,8 +113,8 @@ def test_update_preserves_snapshot_count(tmp_path, process, disable_extractors_d
     assert count_after == count_before
 
 
-def test_update_queues_snapshots_for_archiving(tmp_path, process, disable_extractors_dict):
-    """Test that update queues snapshots for archiving."""
+def test_update_seals_migrated_snapshots(tmp_path, process, disable_extractors_dict):
+    """Test that full update reconciles migrated snapshots without re-queuing them."""
     os.chdir(tmp_path)
 
     subprocess.run(
@@ -134,10 +134,11 @@ def test_update_queues_snapshots_for_archiving(tmp_path, process, disable_extrac
 
     assert result.returncode == 0
 
-    # Check that snapshot is queued
+    # Check that snapshot remains archived instead of being queued for a full re-crawl.
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
-    status = c.execute("SELECT status FROM core_snapshot").fetchone()[0]
+    status, retry_at = c.execute("SELECT status, retry_at FROM core_snapshot").fetchone()
     conn.close()
 
-    assert status == "queued"
+    assert status == "sealed"
+    assert retry_at is None

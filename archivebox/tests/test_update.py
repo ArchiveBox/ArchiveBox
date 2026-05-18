@@ -193,3 +193,118 @@ def test_reconcile_with_index_json_tolerates_null_title(tmp_path):
     snapshot.refresh_from_db()
 
     assert snapshot.title == "Example Domain"
+
+
+@pytest.mark.django_db
+def test_reconcile_with_index_json_imports_legacy_archive_results_and_process(tmp_path):
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    snapshot = Snapshot.objects.create(
+        url="https://example.com",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.SEALED,
+    )
+    output_dir = snapshot.output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "index.json").write_text(
+        json.dumps(
+            {
+                "url": snapshot.url,
+                "timestamp": snapshot.timestamp,
+                "title": "Example Domain",
+                "archive_results": [
+                    {
+                        "plugin": "screenshot",
+                        "status": "succeeded",
+                        "output": "screenshot.png",
+                        "output_files": {"screenshot.png": {"size": 3}},
+                        "output_size": 3,
+                        "start_ts": "2024-01-01T00:00:00+00:00",
+                        "end_ts": "2024-01-01T00:00:01+00:00",
+                        "cmd": ["screenshot", snapshot.url],
+                        "pwd": str(output_dir / "screenshot"),
+                    },
+                ],
+            },
+        ),
+    )
+
+    snapshot.reconcile_with_index_json()
+
+    result = ArchiveResult.objects.get(snapshot=snapshot, plugin="screenshot")
+    assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
+    assert result.output_str == "screenshot.png"
+    assert result.output_files == {"screenshot.png": {"extension": "png", "mimetype": "image/png", "size": 3}}
+    assert result.process is not None
+    assert result.cmd == ["screenshot", snapshot.url]
+    assert result.pwd == str(output_dir / "screenshot")
+    assert (output_dir / "index.json").exists() is False
+    jsonl_text = (output_dir / "index.jsonl").read_text()
+    assert '"type": "ArchiveResult"' in jsonl_text
+    assert '"type": "Process"' in jsonl_text
+
+
+@pytest.mark.django_db
+def test_reconcile_with_index_json_trusts_legacy_archive_results(tmp_path):
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com/page",
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    snapshot = Snapshot.objects.create(
+        url="https://example.com/page",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.SEALED,
+    )
+    output_dir = snapshot.output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "screenshot.png").write_bytes(b"png")
+    (output_dir / "output.html").write_text("<html>root wget output</html>")
+    (output_dir / "example.com").mkdir()
+    (output_dir / "example.com" / "page.html").write_text("<html>mirror output</html>")
+    (output_dir / "cdn.example.com").mkdir()
+    (output_dir / "cdn.example.com" / "asset.js").write_text("console.log('asset')")
+    (output_dir / "index.json").write_text(
+        json.dumps(
+            {
+                "url": snapshot.url,
+                "timestamp": snapshot.timestamp,
+                "title": "Example Domain",
+                "archive_results": [
+                    {
+                        "plugin": "screenshot",
+                        "status": "succeded",
+                        "output": "screenshot.png",
+                        "start_ts": "2024-01-01T00:00:00+00:00",
+                        "end_ts": "2024-01-01T00:00:01+00:00",
+                    },
+                    {
+                        "plugin": "wget",
+                        "status": "succeeded",
+                        "output": "example.com/page.html",
+                        "start_ts": "2024-01-01T00:00:02+00:00",
+                        "end_ts": "2024-01-01T00:00:03+00:00",
+                    },
+                ],
+            },
+        ),
+    )
+
+    snapshot.reconcile_with_index_json()
+
+    results = {result.plugin: result for result in ArchiveResult.objects.filter(snapshot=snapshot)}
+    assert set(results) == {"screenshot", "wget"}
+    assert results["screenshot"].status == ArchiveResult.StatusChoices.SUCCEEDED
+    assert results["screenshot"].output_str == "screenshot.png"
+    assert results["screenshot"].output_files == {}
+    assert results["wget"].output_str == "example.com/page.html"
+    assert results["wget"].output_files == {}

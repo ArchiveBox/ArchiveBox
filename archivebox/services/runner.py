@@ -53,6 +53,7 @@ from abxbus.event_bus import EventBus, get_current_event, in_handler_context
 from abxbus.event_handler import EventHandlerAbortedError, EventHandlerCancelledError
 
 from archivebox.config.configset import BaseConfigSet
+from archivebox.search.sonic_daemon import register_sonic_daemon_event_handler
 
 from .archive_result_service import ArchiveResultService
 from .binary_service import BinaryService
@@ -180,6 +181,7 @@ class CrawlRunner:
         self.bus = create_bus(name=_bus_name("ArchiveBox", str(crawl.id)), total_timeout=3600.0)
         self.plugins = discover_plugins()
         HookProcessService(self.bus, emit_jsonl=False, interactive_tty=False)
+        register_sonic_daemon_event_handler(self.bus)
         PersistedProcessService(self.bus)
         BinaryService(self.bus)
         TagService(self.bus)
