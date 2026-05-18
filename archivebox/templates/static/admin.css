@@ -145,6 +145,26 @@ body.change-list #content .object-tools {
     margin-bottom: 10px;
     border-top: 0px; 
     border-bottom: 0px;
+    display: inline-flex;
+    width: auto;
+    max-width: 100%;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 1;
+}
+
+#content #changelist #toolbar #changelist-search,
+#content #changelist #toolbar #changelist-search > div {
+    width: auto;
+    max-width: 100%;
+    flex: 0 1 auto;
+    box-sizing: border-box;
+}
+
+#content #changelist #toolbar #searchbar {
+    width: clamp(180px, 32vw, 420px);
+    max-width: 100%;
+    flex: 0 1 auto;
 }
 
 #content #changelist #toolbar form input[type="submit"] {
@@ -170,6 +190,8 @@ body.change-list #content .object-tools {
     width: auto;
     max-height: 40px;
     display: block;
+    position: relative;
+    z-index: 2;
 }
 @media (max-width: 1000px) {
     #content #changelist .actions {

@@ -6,6 +6,7 @@ Verify server can start (basic smoke tests only, no full server testing).
 
 import os
 import asyncio
+import builtins
 import json
 import subprocess
 import sys
@@ -18,6 +19,7 @@ def test_sqlite_connections_use_explicit_30_second_busy_timeout():
 
     assert SQLITE_CONNECTION_OPTIONS["OPTIONS"]["timeout"] == 30
     assert "PRAGMA busy_timeout = 30000;" in SQLITE_CONNECTION_OPTIONS["OPTIONS"]["init_command"]
+    assert "PRAGMA journal_mode = WAL;" in SQLITE_CONNECTION_OPTIONS["OPTIONS"]["init_command"]
 
 
 def test_server_shows_usage_info(tmp_path, process):
@@ -108,6 +110,21 @@ def test_start_server_workers_starts_plugin_owned_sonic_worker(monkeypatch):
         ("worker_sonic", False),
         ("worker_runner", False),
     ]
+
+
+def test_missing_plugin_owned_sonic_worker_is_optional(monkeypatch):
+    from archivebox.workers.supervisord_util import get_sonic_supervisord_worker_from_plugin
+
+    original_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "abx_plugins.plugins.search_backend_sonic.daemon":
+            raise ModuleNotFoundError("No module named 'abx_plugins.plugins.search_backend_sonic.daemon'", name=name)
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    assert get_sonic_supervisord_worker_from_plugin(SimpleNamespace()) is None
 
 
 def test_sonic_daemon_event_handler_requires_running_supervised_worker(monkeypatch):

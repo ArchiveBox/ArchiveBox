@@ -1037,13 +1037,14 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         # Merge ArchiveResults
         self._merge_archive_results_from_index(index_data, update_existing=update_existing_archive_results)
         if not self._normalize_title_candidate(self.title, snapshot_url=self.url):
-            title_result = (
-                self.archiveresult_set.filter(plugin="title").exclude(output_str="").order_by("-start_ts", "-end_ts", "-created_at").first()
+            title_results = (
+                self.archiveresult_set.filter(plugin="title").exclude(output_str="").order_by("-start_ts", "-end_ts", "-created_at")
             )
-            if title_result:
+            for title_result in title_results.only("output_str"):
                 result_title = self._normalize_title_candidate(title_result.output_str, snapshot_url=self.url)
                 if result_title:
                     self.title = result_title
+                    break
 
         # Write back in JSONL format
         self.write_index_jsonl(output_dir=output_dir)
@@ -1054,14 +1055,16 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
     def _merge_title_from_index(self, index_data: dict):
         """Merge title - prefer longest non-URL title."""
-        index_title = (index_data.get("title") or "").strip()
-        db_title = self.title or ""
+        index_title = self._normalize_title_candidate(index_data.get("title"), snapshot_url=self.url)
+        db_title = self._normalize_title_candidate(self.title, snapshot_url=self.url)
 
-        candidates = [t for t in [index_title, db_title] if t and t != self.url]
+        candidates = [t for t in [index_title, db_title] if t]
         if candidates:
             best_title = max(candidates, key=len)
             if self.title != best_title:
                 self.title = best_title
+        elif self.title:
+            self.title = ""
 
     def _merge_tags_from_index(self, index_data: dict):
         """Merge tags - union of both sources."""
@@ -1639,7 +1642,7 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         title = " ".join(line.strip() for line in str(candidate or "").splitlines() if line.strip()).strip()
         if not title:
             return ""
-        if title.lower() in {"pending...", "no title found"}:
+        if title.lower() in {"pending...", "no title found", "unable to detect page title"}:
             return ""
         if title == snapshot_url:
             return ""
@@ -1655,10 +1658,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
         if stored_title:
             return stored_title
 
-        title_result = (
-            self.archiveresult_set.filter(plugin="title").exclude(output_str="").order_by("-start_ts", "-end_ts", "-created_at").first()
-        )
-        if title_result:
+        title_results = self.archiveresult_set.filter(plugin="title").exclude(output_str="").order_by("-start_ts", "-end_ts", "-created_at")
+        for title_result in title_results.only("output_str"):
             result_title = self._normalize_title_candidate(title_result.output_str, snapshot_url=self.url)
             if result_title:
                 return result_title
@@ -2283,13 +2284,16 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
         Returns count of ArchiveResults reset.
         """
-        count = self.archiveresult_set.filter(
+        retryable_results = ArchiveResult.objects.filter(
+            snapshot=self,
             status__in=[
                 ArchiveResult.StatusChoices.FAILED,
                 ArchiveResult.StatusChoices.SKIPPED,
                 ArchiveResult.StatusChoices.NORESULTS,
             ],
-        ).update(
+        )
+        legacy_result_count = retryable_results.filter(hook_name="").count()
+        count = retryable_results.exclude(hook_name="").update(
             status=ArchiveResult.StatusChoices.QUEUED,
             output_str="",
             output_json=None,
@@ -2300,13 +2304,19 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             end_ts=None,
         )
 
-        if count > 0:
+        if count + legacy_result_count > 0:
             self.status = self.StatusChoices.QUEUED
             self.retry_at = timezone.now()
             self.current_step = 0  # Reset to step 0 for retry
             self.save(update_fields=["status", "retry_at", "current_step", "modified_at"])
 
-        return count
+            crawl = self.crawl
+            if crawl.status != crawl.StatusChoices.STARTED:
+                crawl.status = crawl.StatusChoices.QUEUED
+            crawl.retry_at = timezone.now()
+            crawl.save(update_fields=["status", "retry_at", "modified_at"])
+
+        return count + legacy_result_count
 
     # =========================================================================
     # URL Helper Properties (migrated from Link schema)
@@ -2347,6 +2357,10 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
 
     @cached_property
     def is_archived(self) -> bool:
+        cached_is_archived = getattr(self, "_is_archived_cached", None)
+        if cached_is_archived is not None:
+            return bool(cached_is_archived)
+
         if self.downloaded_at or self.status == self.StatusChoices.SEALED:
             return True
 
@@ -2362,7 +2376,8 @@ class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHea
             "media",
             "git",
         )
-        return any((Path(self.output_dir) / path).exists() for path in output_paths)
+        output_dir = Path(self.output_dir)
+        return any((output_dir / path).exists() for path in output_paths)
 
     # =========================================================================
     # Date/Time Properties (migrated from Link schema)
@@ -3217,6 +3232,80 @@ class ArchiveResult(ModelWithOutputDir, ModelWithConfig, ModelWithNotes):
 
     def output_size_from_files(self) -> int:
         return sum(self._coerce_output_file_size(metadata.get("size")) for metadata in self.output_file_map().values())
+
+    def update_output_metadata_from_filesystem(self, snapshot_dir: Path | None = None, save: bool = True) -> bool:
+        from collections import defaultdict
+        from abx_dl.output_files import guess_mimetype
+
+        if self.plugin == "title":
+            return False
+
+        snapshot_dir = Path(snapshot_dir or self.snapshot.output_dir)
+        exclude_names = {"stdout.log", "stderr.log", "process.pid", "hook.pid", "listener.pid", "cmd.sh"}
+        output_files: dict[str, dict[str, Any]] = {}
+        mime_sizes: dict[str, int] = defaultdict(int)
+        total_size = 0
+
+        def add_file(file_path: Path, rel_path: str, *, root_relative: bool = False) -> None:
+            nonlocal total_size
+            try:
+                if not file_path.is_file() or file_path.name in exclude_names:
+                    return
+                stat = file_path.stat()
+            except OSError:
+                return
+            mime_type = guess_mimetype(file_path) or "application/octet-stream"
+            metadata = {
+                "extension": file_path.suffix.lower().lstrip("."),
+                "mimetype": mime_type,
+                "size": stat.st_size,
+            }
+            if root_relative:
+                metadata["root_relative"] = True
+            output_files[rel_path] = metadata
+            mime_sizes[mime_type] += stat.st_size
+            total_size += stat.st_size
+
+        for raw_line in str(self.output_str or "").splitlines():
+            raw_output = raw_line.strip().lstrip("/")
+            if not raw_output or raw_output in {".", "./", "/"} or "://" in raw_output or raw_output.startswith("/"):
+                continue
+            if not self._looks_like_output_path(raw_output, self.plugin):
+                continue
+
+            raw_path = Path(raw_output)
+            if raw_output.startswith(f"{self.plugin}/"):
+                plugin_relative = raw_output.removeprefix(f"{self.plugin}/")
+                add_file(snapshot_dir / raw_output, plugin_relative)
+            elif len(raw_path.parts) == 1:
+                add_file(snapshot_dir / self.plugin / raw_output, raw_output)
+                add_file(snapshot_dir / raw_output, raw_output, root_relative=True)
+            else:
+                add_file(snapshot_dir / self.plugin / raw_output, raw_output)
+                add_file(snapshot_dir / raw_output, raw_output, root_relative=True)
+
+        plugin_dir = snapshot_dir / self.plugin
+        if not output_files and plugin_dir.is_dir():
+            for file_path in plugin_dir.rglob("*"):
+                if not file_path.is_file() or ".hooks" in file_path.parts:
+                    continue
+                add_file(file_path, str(file_path.relative_to(plugin_dir)))
+
+        if not output_files:
+            return False
+
+        sorted_mimes = sorted(mime_sizes.items(), key=lambda item: item[1], reverse=True)
+        output_mimetypes = ",".join(mime for mime, _ in sorted_mimes)
+        if self.output_files == output_files and self.output_size == total_size and self.output_mimetypes == output_mimetypes:
+            return False
+
+        self.output_files = output_files
+        self.output_size = total_size
+        self.output_mimetypes = output_mimetypes
+        self.modified_at = timezone.now()
+        if save:
+            self.save(update_fields=["output_files", "output_size", "output_mimetypes", "modified_at"])
+        return True
 
     def output_exists(self) -> bool:
         return os.path.exists(Path(self.snapshot_dir) / self.plugin)

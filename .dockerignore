@@ -51,6 +51,7 @@ website/
 typings/
 
 tmp/
+.tmp/
 data/
 data*/
 -

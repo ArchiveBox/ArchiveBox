@@ -577,7 +577,12 @@ def watch_worker(supervisor, daemon_name, interval=5):
 
 
 def get_sonic_supervisord_worker_from_plugin(config) -> dict[str, str] | None:
-    from abx_plugins.plugins.search_backend_sonic.daemon import get_sonic_supervisord_worker
+    try:
+        from abx_plugins.plugins.search_backend_sonic.daemon import get_sonic_supervisord_worker
+    except ModuleNotFoundError as err:
+        if err.name != "abx_plugins.plugins.search_backend_sonic.daemon":
+            raise
+        return None
 
     worker = get_sonic_supervisord_worker(config)
     return cast(dict[str, str] | None, worker)

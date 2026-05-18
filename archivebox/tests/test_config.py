@@ -130,6 +130,12 @@ SEARCH_BACKEND_PASSWORD = "SecretPassword"
     assert "Extra inputs are not permitted" not in result.stderr
 
 
+def test_sonic_dir_is_allowed_inside_data_dir():
+    from archivebox.config import CONSTANTS
+
+    assert "sonic" in CONSTANTS.ALLOWED_IN_DATA_DIR
+
+
 def test_config_set_requires_equals_sign(tmp_path, process):
     """Test that --set requires KEY=VALUE format."""
     os.chdir(tmp_path)

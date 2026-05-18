@@ -1684,7 +1684,7 @@
                 const buttons = $('<div></div>')
                     .insertAfter('div.actions button[type=submit]')
                     .css('display', 'inline')
-                    .addClass('class', 'action-buttons');
+                    .addClass('action-buttons');
 
                 // for each action in the dropdown, turn it into a button instead
                 container.find('select[name=action] option:gt(0)').each(function () {
@@ -1715,10 +1715,10 @@
                                 if (!window.confirm(message)) return false
                             }
 
-                            // select the action button from the dropdown
+                            // select the action from the original Django admin dropdown
                             container.find('select[name=action]')
-                                .find('[selected]').removeAttr('selected').end()
-                                .find('[value=' + action_type + ']').attr('selected', 'selected').click()
+                                .val(action_type)
+                                .trigger('change')
                             
                             // click submit & replace the archivebox logo with a spinner
                             $('#changelist-form button[name="index"]').click()

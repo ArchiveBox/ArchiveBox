@@ -1,6 +1,7 @@
 __package__ = "archivebox.core"
 
 from functools import lru_cache
+import json
 
 from django.contrib import admin, messages
 from django.urls import path
@@ -13,7 +14,6 @@ from django import forms
 from django.template import Template, RequestContext
 from django.contrib.admin.helpers import ActionForm
 
-from archivebox.config import DATA_DIR
 from archivebox.config.common import get_config
 from archivebox.misc.util import htmldecode, urldecode
 from archivebox.misc.paginators import AcceleratedPaginator
@@ -333,7 +333,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             super()
             .get_queryset(request)
             .select_related("crawl__created_by")
-            .defer("config", "notes")
+            .defer("notes")
             .prefetch_related("tags")
             .prefetch_related(Prefetch("archiveresult_set", queryset=prefetch_qs))
         )
@@ -499,7 +499,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     @admin.display(description="Archive Results")
     def archiveresults_list(self, obj):
-        return render_archiveresults_list(obj.archiveresult_set.all())
+        request = getattr(self, "request", None)
+        return render_archiveresults_list(obj.archiveresult_set.all(), config=getattr(request, "archivebox_config", None))
 
     @admin.display(
         description="Title",
@@ -916,8 +917,14 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def _get_expected_hook_total(self, obj) -> int:
         try:
             request = getattr(self, "request", None)
+            if getattr(getattr(request, "resolver_match", None), "url_name", "") == "core_snapshot_changelist":
+                return 0
+
             crawl = getattr(obj, "crawl", None)
-            has_scoped_config = bool(getattr(obj, "config", None) or getattr(crawl, "config", None) or getattr(crawl, "persona_id", None))
+            snapshot_config = getattr(obj, "config", None) or {}
+            crawl_config = getattr(crawl, "config", None) or {}
+            crawl_persona_id = getattr(crawl, "persona_id", None)
+            has_scoped_config = bool(snapshot_config or crawl_config or crawl_persona_id)
 
             if request is not None and not has_scoped_config:
                 cached_total = getattr(request, "archivebox_expected_snapshot_hook_total", None)
@@ -927,7 +934,23 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                     request.archivebox_expected_snapshot_hook_total = cached_total
                 return cached_total
 
-            return len(discover_hooks("Snapshot", config=get_config(crawl=crawl, snapshot=obj)))
+            if request is not None:
+                scoped_cache = getattr(request, "archivebox_expected_snapshot_hook_totals_by_scope", None)
+                if scoped_cache is None:
+                    scoped_cache = {}
+                    request.archivebox_expected_snapshot_hook_totals_by_scope = scoped_cache
+                if snapshot_config:
+                    cache_key = ("snapshot", json.dumps(snapshot_config, sort_keys=True, default=str))
+                else:
+                    cache_key = ("crawl", json.dumps(crawl_config, sort_keys=True, default=str), crawl_persona_id)
+                cached_total = scoped_cache.get(cache_key)
+                if cached_total is None:
+                    config = get_config(crawl=crawl, snapshot=obj if snapshot_config else None)
+                    cached_total = len(discover_hooks("Snapshot", config=config))
+                    scoped_cache[cache_key] = cached_total
+                return cached_total
+
+            return len(discover_hooks("Snapshot", config=get_config(crawl=crawl, snapshot=obj if snapshot_config else None)))
         except Exception:
             return 0
 
@@ -1038,12 +1061,17 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         description="🔁 Redo Failed",
     )
     def update_snapshots(self, request, queryset):
-        queued = bg_archive_snapshots(queryset, kwargs={"overwrite": False, "out_dir": DATA_DIR})
+        queued = 0
+        for snapshot in queryset:
+            queued += snapshot.retry_failed_archiveresults()
 
-        messages.success(
-            request,
-            f"Queued {queued} snapshots for re-archiving. The background runner will process them.",
-        )
+        if queued:
+            messages.success(
+                request,
+                f"Queued {queued} failed/skipped extractors for retry. The background runner will process them.",
+            )
+        else:
+            messages.info(request, "No failed/skipped extractors were found in the selected snapshots.")
 
     @admin.action(
         description="🆕 Archive Now",
@@ -1070,7 +1098,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         description="🔄 Redo",
     )
     def overwrite_snapshots(self, request, queryset):
-        queued = bg_archive_snapshots(queryset, kwargs={"overwrite": True, "out_dir": DATA_DIR})
+        queued = bg_archive_snapshots(queryset, kwargs={"overwrite": True})
 
         messages.success(
             request,

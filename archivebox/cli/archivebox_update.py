@@ -448,7 +448,7 @@ def process_all_db_snapshots(batch_size: int = 100, resume: str | None = None) -
     No orphan detection needed - we trust 1:1 mapping between DB and filesystem
     after Phase 1 has drained all old archive/ directories.
     """
-    from archivebox.core.models import Snapshot
+    from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.config.common import get_config
     from archivebox.crawls.models import Crawl
     from django.db import transaction
@@ -487,6 +487,25 @@ def process_all_db_snapshots(batch_size: int = 100, resume: str | None = None) -
             if has_directory:
                 old_title = snapshot.title
                 snapshot.reconcile_with_index_json(output_dir=output_dir, update_existing_archive_results=False)
+                metadata_updates = []
+                for archiveresult in ArchiveResult.objects.filter(snapshot=snapshot).only(
+                    "id",
+                    "snapshot_id",
+                    "plugin",
+                    "output_str",
+                    "output_files",
+                    "output_size",
+                    "output_mimetypes",
+                    "modified_at",
+                ):
+                    if archiveresult.update_output_metadata_from_filesystem(snapshot_dir=output_dir, save=False):
+                        metadata_updates.append(archiveresult)
+                if metadata_updates:
+                    ArchiveResult.objects.bulk_update(
+                        metadata_updates,
+                        ["output_files", "output_size", "output_mimetypes", "modified_at"],
+                        batch_size=batch_size,
+                    )
                 if snapshot.title != old_title:
                     update_values["title"] = snapshot.title
                     update_values["modified_at"] = timezone.now()

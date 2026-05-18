@@ -44,6 +44,7 @@ def register_urls(api: NinjaAPI) -> NinjaAPI:
     api.add_router("/crawls/", "archivebox.api.v1_crawls.router")
     api.add_router("/cli/", "archivebox.api.v1_cli.router")
     api.add_router("/machine/", "archivebox.api.v1_machine.router")
+    api.add_router("/personas/", "archivebox.api.v1_personas.router")
     return api
 
 

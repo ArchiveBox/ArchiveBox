@@ -4,8 +4,10 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 
+from archivebox.config.common import get_config
 from archivebox.core.models import Tag
 from archivebox.crawls.models import Crawl
+from archivebox.personas.models import Persona
 
 
 pytestmark = pytest.mark.django_db
@@ -103,6 +105,45 @@ def test_add_view_creates_crawl_with_tag_and_url_filter_overrides(client, admin_
     assert crawl.config["URL_DENYLIST"] == "cdn.example.com"
     assert "OVERWRITE" not in crawl.config
     assert "ONLY_NEW" not in crawl.config
+
+
+def test_add_view_selected_persona_wins_over_stale_config_override(client, admin_user, monkeypatch):
+    monkeypatch.setenv("PUBLIC_ADD_VIEW", "true")
+    client.force_login(admin_user)
+    private_persona = Persona.objects.create(name="Private", created_by=admin_user)
+    private_persona.ensure_dirs()
+    private_cookies_file = private_persona.path / "cookies.txt"
+    private_cookies_file.write_text("# Private cookies\n", encoding="utf-8")
+
+    response = client.post(
+        reverse("add"),
+        data={
+            "url": "https://example.com/private",
+            "tag": "",
+            "depth": "0",
+            "max_urls": "0",
+            "max_size": "0",
+            "url_filters_allowlist": "",
+            "url_filters_denylist": "",
+            "notes": "",
+            "schedule": "",
+            "persona": "Private",
+            "index_only": "",
+            "config": '{"DEFAULT_PERSONA": "Default"}',
+        },
+        HTTP_HOST=WEB_HOST,
+    )
+
+    assert response.status_code == 302
+
+    crawl = Crawl.objects.order_by("-created_at").first()
+    assert crawl is not None
+    assert crawl.persona_id == private_persona.id
+    assert crawl.config.get("DEFAULT_PERSONA") == "Private"
+    assert crawl.resolve_persona() == private_persona
+    runtime_config = get_config(crawl=crawl)
+    assert runtime_config.ACTIVE_PERSONA == "Private"
+    assert runtime_config.COOKIES_FILE == private_cookies_file
 
 
 def test_add_view_starts_background_runner_after_creating_crawl(client, admin_user, monkeypatch):

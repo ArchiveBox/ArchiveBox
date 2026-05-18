@@ -250,6 +250,54 @@ def test_retry_failed_archiveresults_requeues_snapshot_in_queued_state():
     _cleanup_machine_process_rows()
 
 
+def test_retry_failed_archiveresults_preserves_legacy_plugin_rows_without_hook_name():
+    from archivebox.core.models import ArchiveResult, Snapshot
+
+    snapshot = _create_snapshot()
+    legacy_result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="wget",
+        hook_name="",
+        status=ArchiveResult.StatusChoices.FAILED,
+        output_str="legacy failure",
+        output_files={"index.html": {"size": 123}},
+        output_size=123,
+        output_mimetypes="text/html",
+    )
+    hook_result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="wget",
+        hook_name="on_Snapshot__06_wget.finite.bg",
+        status=ArchiveResult.StatusChoices.FAILED,
+        output_str="hook failure",
+        output_files={"stderr.log": {}},
+        output_size=10,
+        output_mimetypes="text/plain",
+    )
+
+    reset_count = snapshot.retry_failed_archiveresults()
+
+    snapshot.refresh_from_db()
+    snapshot.crawl.refresh_from_db()
+    legacy_result.refresh_from_db()
+    hook_result.refresh_from_db()
+
+    assert reset_count == 2
+    assert snapshot.status == Snapshot.StatusChoices.QUEUED
+    assert snapshot.retry_at is not None
+    assert snapshot.crawl.status == snapshot.crawl.StatusChoices.QUEUED
+    assert snapshot.crawl.retry_at is not None
+    assert legacy_result.status == ArchiveResult.StatusChoices.FAILED
+    assert legacy_result.output_str == "legacy failure"
+    assert legacy_result.output_files == {"index.html": {"size": 123}}
+    assert legacy_result.output_size == 123
+    assert hook_result.status == ArchiveResult.StatusChoices.QUEUED
+    assert hook_result.output_str == ""
+    assert hook_result.output_files == {}
+    assert hook_result.output_size == 0
+    _cleanup_machine_process_rows()
+
+
 def test_process_completed_projects_snapshot_title_from_output_str():
     from archivebox.services.archive_result_service import ArchiveResultService
     import asyncio

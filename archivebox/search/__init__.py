@@ -34,10 +34,14 @@ SEARCH_MODES = ("meta", "contents", "deep")
 def search_backend_env(config: dict[str, Any] | None = None, **config_kwargs: Any):
     """Expose ArchiveBox collection roots to in-process search backends."""
     config = config or get_config(**config_kwargs)
-    updates = {
-        "DATA_DIR": str(config.DATA_DIR),
-        "SNAP_DIR": str(config.USERS_DIR),
-    }
+    updates = {}
+    for key, value in config.items():
+        if value is None:
+            continue
+        if isinstance(value, (str, int, float, bool, os.PathLike)):
+            updates[str(key)] = str(value)
+    updates["DATA_DIR"] = str(config.DATA_DIR)
+    updates["SNAP_DIR"] = str(config.USERS_DIR)
     previous = {key: os.environ.get(key) for key in updates}
     os.environ.update(updates)
     try:

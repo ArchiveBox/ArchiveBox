@@ -128,6 +128,21 @@ def _sanitize_machine_config(config: dict[str, Any] | None) -> dict[str, Any]:
     sanitized = {key: value for key, value in config.items() if key in MACHINE_CONFIG_ALWAYS_ALLOWED_KEYS or str(key).endswith("_BINARY")}
     for key in LEGACY_MACHINE_CONFIG_KEYS:
         sanitized.pop(key, None)
+    for key, value in list(sanitized.items()):
+        if not str(key).endswith("_BINARY"):
+            continue
+        if not isinstance(value, str):
+            continue
+        value = value.strip()
+        if not value:
+            sanitized.pop(key, None)
+            continue
+        if "/" in value or value.startswith("~"):
+            try:
+                if not Path(value).expanduser().exists():
+                    sanitized.pop(key, None)
+            except OSError:
+                sanitized.pop(key, None)
     return sanitized
 
 
@@ -2380,6 +2395,11 @@ class Process(models.Model):
 
         for proc in running_children:
             if not proc.is_running:
+                proc.status = cls.StatusChoices.EXITED
+                proc.ended_at = proc.ended_at or timezone.now()
+                proc.exit_code = proc.exit_code if proc.exit_code is not None else 0
+                proc.save(update_fields=["status", "ended_at", "exit_code"])
+                cleaned += 1
                 continue
 
             root = proc.root

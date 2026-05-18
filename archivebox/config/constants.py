@@ -249,7 +249,7 @@ class ConstantsDict:
             "user_plugins",  # old name for USER_PLUGINS_DIR (now 'plugins')
             "user_templates",  # old name for CUSTOM_TEMPLATES_DIR (now 'templates')
             "static",  # created by old static exports <v0.6.0
-            "sonic",  # created by docker bind mount / sonic FTS process
+            "sonic",  # created by plugin-managed Sonic FTS worker
             ".git",
             ".svn",
             ### Files:

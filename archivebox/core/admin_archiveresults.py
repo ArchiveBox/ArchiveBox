@@ -52,11 +52,13 @@ def build_abx_dl_display_command(result: ArchiveResult) -> str:
     return f"abx-dl --plugins={plugin_name} {_quote_shell_string(source_url)}"
 
 
-def build_abx_dl_replay_command(result: ArchiveResult) -> str:
+def build_abx_dl_replay_command(result: ArchiveResult, config=None) -> str:
     display_command = build_abx_dl_display_command(result)
     process = getattr(result, "process", None)
     env_items = env_to_shell_exports(getattr(process, "env", None) or {})
-    snapshot_dir = shlex.quote(str(result.snapshot_dir))
+    if config is not None:
+        result.snapshot._runtime_config = config
+    snapshot_dir = shlex.quote(str(result.pwd or result.snapshot_dir))
     if env_items:
         return f"cd {snapshot_dir}; env {env_items} {display_command}"
     return f"cd {snapshot_dir}; {display_command}"
@@ -78,7 +80,7 @@ def get_plugin_admin_url(plugin_name: str) -> str:
     return f"{LIVE_PLUGIN_BASE_URL}builtin.{quote(plugin_name)}/"
 
 
-def render_archiveresults_list(archiveresults_qs, limit=50):
+def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
     """Render a nice inline list view of archive results with status, plugin, output, and actions."""
 
     result_ids = list(archiveresults_qs.order_by("plugin").values_list("pk", flat=True)[:limit])
@@ -87,7 +89,13 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
 
     results_by_id = {
         result.pk: result
-        for result in ArchiveResult.objects.filter(pk__in=result_ids).select_related("snapshot", "process", "process__machine")
+        for result in ArchiveResult.objects.filter(pk__in=result_ids).select_related(
+            "snapshot",
+            "snapshot__crawl",
+            "snapshot__crawl__created_by",
+            "process",
+            "process__machine",
+        )
     }
     results = [results_by_id[result_id] for result_id in result_ids if result_id in results_by_id]
 
@@ -152,7 +160,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
             output_display += "..."
 
         display_cmd = build_abx_dl_display_command(result)
-        replay_cmd = build_abx_dl_replay_command(result)
+        replay_cmd = build_abx_dl_replay_command(result, config=config)
         cmd_str_escaped = html.escape(display_cmd)
         cmd_attr = html.escape(replay_cmd, quote=True)
 
@@ -160,9 +168,9 @@ def render_archiveresults_list(archiveresults_qs, limit=50):
         embed_path = result.embed_path() if hasattr(result, "embed_path") else None
         snapshot_id = str(getattr(result, "snapshot_id", ""))
         if embed_path and result.status == "succeeded":
-            output_link = build_snapshot_url(snapshot_id, embed_path)
+            output_link = build_snapshot_url(snapshot_id, embed_path, config=config)
         else:
-            output_link = build_snapshot_url(snapshot_id, "")
+            output_link = build_snapshot_url(snapshot_id, "", config=config)
 
         # Get version - try cmd_version field
         version = result.cmd_version if result.cmd_version else "-"
@@ -469,7 +477,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
 
     list_filter = ("status", "plugin", "start_ts")
     ordering = ["-start_ts"]
-    list_per_page = get_config().SNAPSHOTS_PER_PAGE
+    list_per_page = 50
 
     paginator = AcceleratedPaginator
     save_on_top = True
@@ -482,20 +490,54 @@ class ArchiveResultAdmin(BaseModelAdmin):
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
         self.request = request
+        request.archivebox_config = get_config()
         return super().change_view(request, object_id, form_url, extra_context)
 
     def changelist_view(self, request, extra_context=None):
         self.request = request
-        return super().changelist_view(request, extra_context)
+        request.archivebox_config = get_config()
+        saved_list_per_page = self.list_per_page
+        self.list_per_page = min(max(5, request.archivebox_config.SNAPSHOTS_PER_PAGE), 5000)
+        try:
+            return super().changelist_view(request, extra_context)
+        finally:
+            self.list_per_page = saved_list_per_page
 
     def get_queryset(self, request):
-        return (
+        ordering = request.GET.get("o")
+        ordering_fields = set()
+        if ordering:
+            for part in ordering.split("."):
+                if not part:
+                    continue
+                try:
+                    idx = abs(int(part)) - 1
+                except ValueError:
+                    continue
+                if 0 <= idx < len(self.list_display):
+                    ordering_fields.add(self.list_display[idx])
+
+        qs = (
             super()
             .get_queryset(request)
-            .select_related("snapshot", "process")
+            .select_related("snapshot", "snapshot__crawl", "snapshot__crawl__created_by", "process", "process__machine")
+            .defer(
+                "config",
+                "notes",
+                "output_json",
+                "process__stdout",
+                "process__stderr",
+                "snapshot__config",
+                "snapshot__notes",
+                "snapshot__crawl__config",
+                "snapshot__crawl__notes",
+                "snapshot__crawl__urls",
+            )
             .prefetch_related("snapshot__tags")
-            .annotate(snapshot_first_tag=Min("snapshot__tags__name"))
         )
+        if "tags_inline" in ordering_fields:
+            qs = qs.annotate(snapshot_first_tag=Min("snapshot__tags__name"))
+        return qs
 
     def get_search_results(self, request, queryset, search_term):
         if not search_term:
@@ -532,16 +574,20 @@ class ArchiveResultAdmin(BaseModelAdmin):
         return queryset.filter(reduce(and_, filters)).distinct(), True
 
     def get_snapshot_view_url(self, result: ArchiveResult) -> str:
-        return build_snapshot_url(str(result.snapshot_id), request=getattr(self, "request", None))
+        request = getattr(self, "request", None)
+        return build_snapshot_url(str(result.snapshot_id), request=request, config=getattr(request, "archivebox_config", None))
 
     def get_output_view_url(self, result: ArchiveResult) -> str:
+        request = getattr(self, "request", None)
+        config = getattr(request, "archivebox_config", None)
         output_path = result.embed_path() if hasattr(result, "embed_path") else None
         if not output_path:
             output_path = result.plugin or ""
-        return build_snapshot_url(str(result.snapshot_id), output_path, request=getattr(self, "request", None))
+        return build_snapshot_url(str(result.snapshot_id), output_path, request=request, config=config)
 
     def get_output_files_url(self, result: ArchiveResult) -> str:
-        return f"{build_snapshot_url(str(result.snapshot_id), result.plugin, request=getattr(self, 'request', None))}/?files=1"
+        request = getattr(self, "request", None)
+        return f"{build_snapshot_url(str(result.snapshot_id), result.plugin, request=request, config=getattr(request, 'archivebox_config', None))}/?files=1"
 
     def get_output_zip_url(self, result: ArchiveResult) -> str:
         return f"{self.get_output_files_url(result)}&download=zip"
@@ -567,9 +613,10 @@ class ArchiveResultAdmin(BaseModelAdmin):
     )
     def snapshot_info(self, result):
         snapshot_id = str(result.snapshot_id)
+        request = getattr(self, "request", None)
         return format_html(
             '<a href="{}"><b><code>[{}]</code></b> &nbsp; {} &nbsp; {}</a><br/>',
-            build_snapshot_url(snapshot_id, "index.html"),
+            build_snapshot_url(snapshot_id, "index.html", request=request, config=getattr(request, "archivebox_config", None)),
             snapshot_id[:8],
             result.snapshot.bookmarked_at.strftime("%Y-%m-%d %H:%M"),
             result.snapshot.url[:128],
@@ -639,8 +686,9 @@ class ArchiveResultAdmin(BaseModelAdmin):
 
     @admin.display(description="Command")
     def cmd_str(self, result):
+        request = getattr(self, "request", None)
         display_cmd = build_abx_dl_display_command(result)
-        replay_cmd = build_abx_dl_replay_command(result)
+        replay_cmd = build_abx_dl_replay_command(result, config=getattr(request, "archivebox_config", None))
         return format_html(
             """
             <div style="position: relative; width: 100%; max-width: 100%; overflow: hidden; box-sizing: border-box;">
@@ -661,13 +709,15 @@ class ArchiveResultAdmin(BaseModelAdmin):
         )
 
     def output_display(self, result):
+        request = getattr(self, "request", None)
+        config = getattr(request, "archivebox_config", None)
         # Determine output link path - use embed_path() which checks output_files
         embed_path = result.embed_path() if hasattr(result, "embed_path") else None
         output_path = embed_path if (result.status == "succeeded" and embed_path) else "index.html"
         snapshot_id = str(result.snapshot_id)
         return format_html(
             '<a href="{}" class="output-link">↗️</a><pre>{}</pre>',
-            build_snapshot_url(snapshot_id, output_path),
+            build_snapshot_url(snapshot_id, output_path, request=request, config=config),
             result.output_str,
         )
 
@@ -677,11 +727,12 @@ class ArchiveResultAdmin(BaseModelAdmin):
         if not output_text:
             return "-"
 
+        request = getattr(self, "request", None)
         live_path = result.embed_path() if hasattr(result, "embed_path") else None
         if live_path:
             return format_html(
                 '<a href="{}" title="{}"><code>{}</code></a>',
-                build_snapshot_url(str(result.snapshot_id), live_path),
+                build_snapshot_url(str(result.snapshot_id), live_path, request=request, config=getattr(request, "archivebox_config", None)),
                 output_text,
                 output_text,
             )
@@ -739,9 +790,10 @@ class ArchiveResultAdmin(BaseModelAdmin):
             result.output_str,
         )
         snapshot_id = str(result.snapshot_id)
+        request = getattr(self, "request", None)
         output_html += format_html(
             '<a href="{}#all">See result files ...</a><br/><pre><code>',
-            build_snapshot_url(snapshot_id, "index.html"),
+            build_snapshot_url(snapshot_id, "index.html", request=request, config=getattr(request, "archivebox_config", None)),
         )
         embed_path = result.embed_path() if hasattr(result, "embed_path") else ""
         path_from_embed = snapshot_dir / (embed_path or "")

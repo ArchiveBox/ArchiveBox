@@ -235,8 +235,34 @@ class TestUrlRouting:
             assert resp.status_code in (301, 302)
             assert resp["Location"].startswith("/api/")
 
+            resp = client.get("/api/archive/https://example.com/", HTTP_HOST=api_host)
+            assert resp.status_code in (301, 302)
+            assert resp["Location"] == f"http://{web_host}/web/https://example.com/"
+
             print("OK")
             """,
+        )
+
+    def test_api_archive_redirect_uses_public_web_base_url(self) -> None:
+        self._run(
+            """
+            client = Client()
+
+            resp = client.get(
+                "/api/archive/https://example.com/",
+                HTTP_HOST="api.archivebox.io",
+                secure=True,
+            )
+
+            assert resp.status_code in (301, 302)
+            assert resp["Location"] == "https://web.archivebox.io/web/https://example.com/"
+
+            print("OK")
+            """,
+            mode="safe-subdomains-fullreplay",
+            env_overrides={
+                "LISTEN_HOST": "archivebox.io",
+            },
         )
 
     def test_web_admin_routing(self) -> None:

@@ -137,6 +137,12 @@ def ensure_background_runner(*, allow_under_pytest: bool = False) -> bool:
 
     from archivebox.config import CONSTANTS
     from archivebox.machine.models import Machine, Process
+    from archivebox.workers.supervisord_util import get_existing_supervisord_process, get_worker
+
+    supervisor = get_existing_supervisord_process()
+    runner_worker = get_worker(supervisor, "worker_runner") if supervisor else None
+    if runner_worker and runner_worker.get("statename") in ("STARTING", "RUNNING"):
+        return False
 
     Process.cleanup_stale_running()
     Process.cleanup_orphaned_workers()
@@ -1024,12 +1030,17 @@ def recover_orphaned_snapshots() -> int:
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.machine.models import Process
+    from django.db.models import Q
 
     active_snapshot_ids: set[str] = set()
     orphaned_snapshots = list(
-        Snapshot.objects.filter(status=Snapshot.StatusChoices.STARTED, retry_at__isnull=True)
+        Snapshot.objects.filter(
+            Q(status=Snapshot.StatusChoices.STARTED, retry_at__isnull=True)
+            | Q(status=Snapshot.StatusChoices.SEALED, archiveresult__status=ArchiveResult.StatusChoices.QUEUED),
+        )
         .select_related("crawl")
-        .prefetch_related("archiveresult_set"),
+        .prefetch_related("archiveresult_set")
+        .distinct(),
     )
     running_processes = Process.objects.filter(
         status=Process.StatusChoices.RUNNING,
@@ -1157,6 +1168,12 @@ def run_pending_crawls(*, daemon: bool = False, crawl_id: str | None = None) -> 
                 .first()
             )
             if binary is not None:
+                binary_name = str(binary.name or "")
+                binary_path = Path(binary_name).expanduser()
+                if (binary_path.is_absolute() or binary_name.startswith("~")) and not binary_path.exists():
+                    binary.retry_at = None
+                    binary.save(update_fields=["retry_at", "modified_at"])
+                    continue
                 if not binary.claim_processing_lock(lock_seconds=60):
                     continue
                 run_binary(str(binary.id))

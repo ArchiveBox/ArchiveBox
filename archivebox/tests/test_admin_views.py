@@ -987,6 +987,57 @@ class TestAdminSnapshotListView:
         assert response["Location"].endswith(f"/admin/core/snapshot/{snapshot.pk}/change/")
         assert snapshot.archiveresult_set.get(plugin="title").status == ArchiveResult.StatusChoices.QUEUED
 
+    def test_list_redo_failed_action_requeues_failed_archiveresults_only(self, client, admin_user, snapshot, monkeypatch):
+        import archivebox.core.admin_snapshots as admin_snapshots
+        from archivebox.core.models import ArchiveResult
+
+        def bg_archive_snapshots_should_not_run(*args, **kwargs):
+            raise AssertionError("Redo Failed should reset failed ArchiveResults directly")
+
+        monkeypatch.setattr(admin_snapshots, "bg_archive_snapshots", bg_archive_snapshots_should_not_run)
+
+        failed = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="wget",
+            hook_name="on_Snapshot__50_wget",
+            status=ArchiveResult.StatusChoices.FAILED,
+            output_str="boom",
+            output_files={"index.html": {"path": "index.html", "size": 123}},
+            output_size=123,
+            output_mimetypes="text/html",
+        )
+        succeeded = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="title",
+            hook_name="on_Snapshot__54_title",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str="Example Domain",
+        )
+
+        client.login(username="testadmin", password="testpassword")
+        response = client.post(
+            reverse("admin:core_snapshot_changelist"),
+            {
+                "action": "update_snapshots",
+                "_selected_action": [str(snapshot.pk)],
+                "index": "0",
+            },
+            HTTP_HOST=ADMIN_HOST,
+        )
+
+        assert response.status_code == 302
+        failed.refresh_from_db()
+        succeeded.refresh_from_db()
+        snapshot.refresh_from_db()
+        assert failed.status == ArchiveResult.StatusChoices.QUEUED
+        assert failed.output_str == ""
+        assert failed.output_files == {}
+        assert failed.output_size == 0
+        assert failed.output_mimetypes == ""
+        assert succeeded.status == ArchiveResult.StatusChoices.SUCCEEDED
+        assert succeeded.output_str == "Example Domain"
+        assert snapshot.status == snapshot.StatusChoices.QUEUED
+
     def test_archive_now_action_uses_original_snapshot_url_without_timestamp_suffix(self, client, admin_user, snapshot, monkeypatch):
         import archivebox.core.admin_snapshots as admin_snapshots
 

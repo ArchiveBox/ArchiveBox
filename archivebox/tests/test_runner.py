@@ -302,6 +302,7 @@ def test_enqueue_discovered_snapshots_refreshes_crawl_limits(tmp_path):
 
 def test_ensure_background_runner_starts_when_none_running(monkeypatch):
     import archivebox.machine.models as machine_models
+    import archivebox.workers.supervisord_util as supervisord_util
     from archivebox.services import runner as runner_module
 
     popen_calls = []
@@ -310,6 +311,7 @@ def test_ensure_background_runner_starts_when_none_running(monkeypatch):
         def __init__(self, args, **kwargs):
             popen_calls.append((args, kwargs))
 
+    monkeypatch.setattr(supervisord_util, "get_existing_supervisord_process", lambda: None)
     monkeypatch.setattr(machine_models.Process, "cleanup_stale_running", classmethod(lambda cls, machine=None: 0))
     monkeypatch.setattr(machine_models.Process, "cleanup_orphaned_workers", classmethod(lambda cls: 0))
     monkeypatch.setattr(machine_models.Machine, "current", classmethod(lambda cls: SimpleNamespace(id="machine-1")))
@@ -330,8 +332,10 @@ def test_ensure_background_runner_starts_when_none_running(monkeypatch):
 
 def test_ensure_background_runner_skips_when_orchestrator_running(monkeypatch):
     import archivebox.machine.models as machine_models
+    import archivebox.workers.supervisord_util as supervisord_util
     from archivebox.services import runner as runner_module
 
+    monkeypatch.setattr(supervisord_util, "get_existing_supervisord_process", lambda: None)
     monkeypatch.setattr(machine_models.Process, "cleanup_stale_running", classmethod(lambda cls, machine=None: 0))
     monkeypatch.setattr(machine_models.Process, "cleanup_orphaned_workers", classmethod(lambda cls: 0))
     monkeypatch.setattr(machine_models.Machine, "current", classmethod(lambda cls: SimpleNamespace(id="machine-1")))
@@ -339,6 +343,31 @@ def test_ensure_background_runner_skips_when_orchestrator_running(monkeypatch):
         machine_models.Process.objects,
         "filter",
         lambda **kwargs: SimpleNamespace(exists=lambda: True),
+    )
+    monkeypatch.setattr(
+        runner_module.subprocess,
+        "Popen",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("runner should not be spawned")),
+    )
+
+    started = runner_module.ensure_background_runner(allow_under_pytest=True)
+
+    assert started is False
+
+
+def test_ensure_background_runner_skips_when_supervisord_runner_running(monkeypatch):
+    import archivebox.machine.models as machine_models
+    import archivebox.workers.supervisord_util as supervisord_util
+    from archivebox.services import runner as runner_module
+
+    supervisor = object()
+
+    monkeypatch.setattr(supervisord_util, "get_existing_supervisord_process", lambda: supervisor)
+    monkeypatch.setattr(supervisord_util, "get_worker", lambda supervisor_arg, name: {"statename": "RUNNING"})
+    monkeypatch.setattr(
+        machine_models.Process,
+        "cleanup_stale_running",
+        classmethod(lambda cls, machine=None: (_ for _ in ()).throw(AssertionError("db process cleanup should not run"))),
     )
     monkeypatch.setattr(
         runner_module.subprocess,
@@ -395,7 +424,7 @@ def test_runner_task_context_clears_inherited_abxbus_handler_context(tmp_path):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_machine_service_persists_only_derived_config_events():
+def test_machine_service_persists_only_derived_config_events(tmp_path):
     from abx_dl.events import MachineEvent
     from abx_dl.orchestrator import create_bus
     from archivebox.machine.models import Machine
@@ -404,6 +433,9 @@ def test_machine_service_persists_only_derived_config_events():
     machine = Machine.current()
     machine.config = {}
     machine.save(update_fields=["config"])
+    wget_binary = tmp_path / "wget"
+    wget_binary.write_text("#!/bin/sh\n")
+    wget_binary.chmod(0o755)
 
     async def run_test():
         bus = create_bus(name="test_machine_service_persists_only_derived_config_events")
@@ -424,7 +456,7 @@ def test_machine_service_persists_only_derived_config_events():
             derived_event = bus.emit(
                 MachineEvent(
                     config={
-                        "WGET_BINARY": "/tmp/wget",
+                        "WGET_BINARY": str(wget_binary),
                         "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
                         "CHROME_USER_DATA_DIR": "/tmp/stale-derived-profile",
                     },
@@ -441,7 +473,7 @@ def test_machine_service_persists_only_derived_config_events():
 
     machine.refresh_from_db()
     assert machine.config == {
-        "WGET_BINARY": "/tmp/wget",
+        "WGET_BINARY": str(wget_binary),
         "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
     }
 
@@ -508,13 +540,16 @@ def test_runner_prepare_refreshes_network_interface_and_attaches_current_process
     assert saved_updates == [("iface", "machine", "modified_at")]
 
 
-def test_load_run_state_uses_machine_config_as_derived_config(monkeypatch):
+def test_load_run_state_uses_machine_config_as_derived_config(monkeypatch, tmp_path):
     from archivebox.machine.models import Machine, NetworkInterface, Process
     from archivebox.services import runner as runner_module
     from archivebox.config import common as config_common
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
 
+    wget_binary = tmp_path / "wget"
+    wget_binary.write_text("#!/bin/sh\n")
+    wget_binary.chmod(0o755)
     machine = Machine.objects.create(
         guid="test-guid-runner-overrides",
         hostname="runner-host",
@@ -530,7 +565,7 @@ def test_load_run_state_uses_machine_config_as_derived_config(monkeypatch):
         os_kernel="Darwin",
         stats={},
         config={
-            "WGET_BINARY": "/tmp/wget",
+            "WGET_BINARY": str(wget_binary),
             "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
             "CHROME_ISOLATION": "snapshot",
             "CHROME_USER_DATA_DIR": "/tmp/stale-profile",
@@ -560,7 +595,7 @@ def test_load_run_state_uses_machine_config_as_derived_config(monkeypatch):
     crawl_runner.load_run_state()
 
     assert crawl_runner.derived_config == {
-        "WGET_BINARY": "/tmp/wget",
+        "WGET_BINARY": str(wget_binary),
         "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
     }
 
@@ -1237,6 +1272,34 @@ def test_run_pending_crawls_prioritizes_queued_crawl_before_unrelated_binary_bac
 
     assert run_calls == [(str(queued_crawl.id), None, True)]
     assert binary_calls == []
+
+
+def test_run_pending_crawls_disables_missing_absolute_binary_backlog(monkeypatch, tmp_path):
+    from archivebox.machine.models import Binary, Machine
+    from archivebox.services import runner as runner_module
+
+    missing_binary = tmp_path / "missing-node"
+    binary = Binary.objects.create(
+        machine=Machine.current(),
+        name=str(missing_binary),
+        status=Binary.StatusChoices.QUEUED,
+        retry_at=runner_module.timezone.now(),
+        binproviders="env,apt",
+        overrides={"apt": {"install_args": ["nodejs"]}},
+    )
+
+    monkeypatch.setattr(
+        runner_module,
+        "run_binary",
+        lambda binary_id: (_ for _ in ()).throw(AssertionError("missing absolute binary should not be retried")),
+    )
+
+    result = runner_module.run_pending_crawls(daemon=False)
+
+    binary.refresh_from_db()
+    assert result == 0
+    assert binary.status == Binary.StatusChoices.QUEUED
+    assert binary.retry_at is None
 
 
 @pytest.mark.django_db(transaction=True)

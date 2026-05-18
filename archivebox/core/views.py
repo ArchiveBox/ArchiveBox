@@ -893,6 +893,7 @@ class PublicIndexView(ListView):
         }
         for snapshot in context.get("object_list") or ():
             snapshot._icons_compact = True
+            snapshot._is_archived_cached = bool(snapshot.downloaded_at or snapshot.status == Snapshot.StatusChoices.SEALED)
         return context
 
     def get_queryset(self, **kwargs):
@@ -1044,6 +1045,9 @@ class AddView(UserPassesTestMixin, FormView):
         notes = form.cleaned_data.get("notes", "")
         url_filters = form.cleaned_data.get("url_filters") or {}
         custom_config = self._get_custom_config_overrides(form)
+        persona_name = persona.name if persona else "Default"
+        if persona:
+            persona.ensure_dirs()
 
         from archivebox.config.permissions import HOSTNAME
 
@@ -1070,11 +1074,12 @@ class AddView(UserPassesTestMixin, FormView):
             "INDEX_ONLY": index_only,
             "DEPTH": depth,
             "PLUGINS": plugins or "",
-            "DEFAULT_PERSONA": (persona.name if persona else "Default"),
+            "DEFAULT_PERSONA": persona_name,
         }
 
         # Merge custom config overrides
         config.update(custom_config)
+        config["DEFAULT_PERSONA"] = persona_name
         if url_filters.get("allowlist"):
             config["URL_ALLOWLIST"] = url_filters["allowlist"]
         if url_filters.get("denylist"):
@@ -1090,6 +1095,7 @@ class AddView(UserPassesTestMixin, FormView):
             label=f"{created_by_name}@{HOSTNAME}{self.request.path} {timestamp}",
             created_by_id=created_by_id,
             config=config,
+            persona_id=persona.id if persona else None,
         )
 
         # 3. create a CrawlSchedule if schedule is provided
@@ -1321,46 +1327,11 @@ def live_progress_view(request):
         archiveresults_succeeded = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.SUCCEEDED).count()
         archiveresults_failed = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.FAILED).count()
 
-        # Get recently completed ArchiveResults with thumbnails (last 20 succeeded results)
-        recent_thumbnails = []
-        recent_results = (
-            ArchiveResult.objects.filter(
-                status=ArchiveResult.StatusChoices.SUCCEEDED,
-            )
-            .select_related("snapshot")
-            .order_by("-end_ts")[:20]
-        )
-
-        for ar in recent_results:
-            embed = ar.embed_path()
-            if embed:
-                # Only include results with embeddable image/media files
-                ext = embed.lower().split(".")[-1] if "." in embed else ""
-                is_embeddable = ext in ("png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "pdf", "html")
-                if is_embeddable or ar.plugin in ("screenshot", "favicon", "dom"):
-                    archive_path = embed or ""
-                    recent_thumbnails.append(
-                        {
-                            "id": str(ar.id),
-                            "plugin": ar.plugin,
-                            "snapshot_id": str(ar.snapshot_id),
-                            "snapshot_url": ar.snapshot.url[:60] if ar.snapshot else "",
-                            "embed_path": embed,
-                            "archive_path": archive_path,
-                            "archive_url": build_snapshot_url(str(ar.snapshot_id), archive_path, request=request) if archive_path else "",
-                            "end_ts": ar.end_ts.isoformat() if ar.end_ts else None,
-                        },
-                    )
-
         # Build hierarchical active crawls with nested snapshots and archive results
 
         active_crawls_qs = (
             Crawl.objects.filter(status__in=[Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED])
-            .prefetch_related(
-                "snapshot_set",
-                "snapshot_set__archiveresult_set",
-                "snapshot_set__archiveresult_set__process",
-            )
+            .prefetch_related("snapshot_set")
             .distinct()
             .order_by("-modified_at")[:10]
         )
@@ -1386,19 +1357,23 @@ def live_progress_view(request):
         process_records_by_crawl: dict[str, list[tuple[dict[str, object], object | None]]] = {}
         process_records_by_snapshot: dict[str, list[tuple[dict[str, object], object | None]]] = {}
         seen_process_records: set[str] = set()
-        snapshots = [snapshot for crawl in active_crawls_qs for snapshot in crawl.snapshot_set.all()]
+        active_snapshot_statuses = {Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED}
+        snapshots = [
+            snapshot for crawl in active_crawls_qs for snapshot in crawl.snapshot_set.all() if snapshot.status in active_snapshot_statuses
+        ]
+        snapshots_by_id = {str(snapshot.id): snapshot for snapshot in snapshots}
+
+        def find_snapshot_for_process(proc_pwd: Path) -> Snapshot | None:
+            for path_part in reversed(proc_pwd.parts):
+                snapshot = snapshots_by_id.get(path_part)
+                if snapshot:
+                    return snapshot
+            return None
+
         for proc in running_processes:
             if not proc.pwd:
                 continue
-            proc_pwd = Path(proc.pwd)
-            matched_snapshot = None
-            for snapshot in snapshots:
-                try:
-                    proc_pwd.relative_to(snapshot.output_dir)
-                    matched_snapshot = snapshot
-                    break
-                except ValueError:
-                    continue
+            matched_snapshot = find_snapshot_for_process(Path(proc.pwd))
             if matched_snapshot is None:
                 continue
             crawl_id = str(matched_snapshot.crawl_id)
@@ -1412,15 +1387,7 @@ def live_progress_view(request):
         for proc in recent_processes:
             if not proc.pwd:
                 continue
-            proc_pwd = Path(proc.pwd)
-            matched_snapshot = None
-            for snapshot in snapshots:
-                try:
-                    proc_pwd.relative_to(snapshot.output_dir)
-                    matched_snapshot = snapshot
-                    break
-                except ValueError:
-                    continue
+            matched_snapshot = find_snapshot_for_process(Path(proc.pwd))
             if matched_snapshot is None:
                 continue
             crawl_id = str(matched_snapshot.crawl_id)
@@ -1470,9 +1437,7 @@ def live_progress_view(request):
             pending_snapshots = sum(1 for s in all_crawl_snapshots if s.status == Snapshot.StatusChoices.QUEUED)
 
             # Get only ACTIVE snapshots to display (limit to 5 most recent)
-            active_crawl_snapshots = [
-                s for s in all_crawl_snapshots if s.status in [Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED]
-            ][:5]
+            active_crawl_snapshots = [s for s in all_crawl_snapshots if s.status in active_snapshot_statuses][:5]
 
             # Count URLs in the crawl (for when snapshots haven't been created yet)
             urls_count = 0
@@ -1497,9 +1462,13 @@ def live_progress_view(request):
             active_snapshots_for_crawl = []
             for snapshot in active_crawl_snapshots:
                 snapshot_run_started_at = snapshot.downloaded_at or snapshot.created_at
-                # Get archive results for this snapshot (already prefetched)
+                # Get archive results only for displayed active snapshots. Large crawls can
+                # contain thousands of sealed snapshots, and prefetching all their results
+                # makes the progress endpoint compete with the runner.
                 snapshot_results = [
-                    ar for ar in snapshot.archiveresult_set.all() if archiveresult_matches_current_run(ar, snapshot_run_started_at)
+                    ar
+                    for ar in snapshot.archiveresult_set.select_related("process").all()
+                    if archiveresult_matches_current_run(ar, snapshot_run_started_at)
                 ]
 
                 now = timezone.now()
@@ -1653,7 +1622,7 @@ def live_progress_view(request):
                 "archiveresults_succeeded": archiveresults_succeeded,
                 "archiveresults_failed": archiveresults_failed,
                 "active_crawls": active_crawls,
-                "recent_thumbnails": recent_thumbnails,
+                "recent_thumbnails": [],
                 "server_time": timezone.now().isoformat(),
             },
         )

@@ -427,3 +427,39 @@ class TestRecoverOrphanedSnapshots:
         assert snapshot.retry_at is not None
         assert crawl.status == Crawl.StatusChoices.QUEUED
         assert crawl.retry_at is not None
+
+    def test_recover_orphaned_snapshot_requeues_sealed_snapshot_with_queued_results(self):
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.crawls.models import Crawl
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.services.runner import recover_orphaned_snapshots
+
+        crawl = Crawl.objects.create(
+            urls="https://example.com",
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.SEALED,
+            retry_at=None,
+        )
+        snapshot = Snapshot.objects.create(
+            url="https://example.com",
+            crawl=crawl,
+            status=Snapshot.StatusChoices.SEALED,
+            retry_at=None,
+        )
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="title",
+            hook_name="on_Snapshot__01_title",
+            status=ArchiveResult.StatusChoices.QUEUED,
+        )
+
+        recovered = recover_orphaned_snapshots()
+
+        snapshot.refresh_from_db()
+        crawl.refresh_from_db()
+
+        assert recovered == 1
+        assert snapshot.status == Snapshot.StatusChoices.QUEUED
+        assert snapshot.retry_at is not None
+        assert crawl.status == Crawl.StatusChoices.QUEUED
+        assert crawl.retry_at is not None

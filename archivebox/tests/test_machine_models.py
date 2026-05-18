@@ -133,35 +133,46 @@ class TestMachineModel(TestCase):
         """Machine.current() should keep derived cache entries, not runtime config."""
         import archivebox.machine.models as models
 
+        chrome_path = "/tmp/archivebox-test-chromium"
+        node_path = "/tmp/archivebox-test-node"
+        open(chrome_path, "a").close()
+        open(node_path, "a").close()
+        self.addCleanup(lambda: os.path.exists(chrome_path) and os.remove(chrome_path))
+        self.addCleanup(lambda: os.path.exists(node_path) and os.remove(node_path))
         machine = Machine.current()
         machine.config = {
-            "CHROME_BINARY": "/tmp/chromium",
-            "NODE_BINARY": "/tmp/node",
+            "CHROME_BINARY": chrome_path,
+            "NODE_BINARY": node_path,
             "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
             "CHROME_ISOLATION": "snapshot",
             "CHROME_USER_DATA_DIR": "/tmp/profile",
             "CHROMIUM_VERSION": "123.4.5",
+            "WGET_BINARY": "/tmp/archivebox-test-missing-wget",
         }
         machine.save(update_fields=["config"])
         models._CURRENT_MACHINE = machine
 
         refreshed = Machine.current()
 
-        self.assertEqual(refreshed.config.get("CHROME_BINARY"), "/tmp/chromium")
-        self.assertEqual(refreshed.config.get("NODE_BINARY"), "/tmp/node")
+        self.assertEqual(refreshed.config.get("CHROME_BINARY"), chrome_path)
+        self.assertEqual(refreshed.config.get("NODE_BINARY"), node_path)
         self.assertEqual(refreshed.config.get("ABX_INSTALL_CACHE"), {"wget": "2026-03-24T00:00:00+00:00"})
         self.assertNotIn("CHROME_ISOLATION", refreshed.config)
         self.assertNotIn("CHROME_USER_DATA_DIR", refreshed.config)
         self.assertNotIn("CHROMIUM_VERSION", refreshed.config)
+        self.assertNotIn("WGET_BINARY", refreshed.config)
 
     def test_get_config_auto_applies_current_machine_config(self):
         """get_config() should include sanitized Machine.current() config by default."""
         import archivebox.machine.models as models
         from archivebox.config.common import get_config
 
+        chrome_path = "/tmp/archivebox-test-chromium"
+        open(chrome_path, "a").close()
+        self.addCleanup(lambda: os.path.exists(chrome_path) and os.remove(chrome_path))
         machine = Machine.current()
         machine.config = {
-            "CHROME_BINARY": "/tmp/chromium",
+            "CHROME_BINARY": chrome_path,
             "ABX_INSTALL_CACHE": {"chrome": "2026-03-24T00:00:00+00:00"},
             "CHROME_ISOLATION": "snapshot",
         }
@@ -170,7 +181,7 @@ class TestMachineModel(TestCase):
 
         config = get_config()
 
-        self.assertEqual(config.CHROME_BINARY, "/tmp/chromium")
+        self.assertEqual(config.CHROME_BINARY, chrome_path)
         self.assertEqual(config["ABX_INSTALL_CACHE"], {"chrome": "2026-03-24T00:00:00+00:00"})
         self.assertEqual(config.CHROME_ISOLATION, "crawl")
 
@@ -821,6 +832,24 @@ class TestProcessClassMethods(TestCase):
         self.assertEqual(child.status, Process.StatusChoices.EXITED)
         kill_tree.assert_not_called()
         terminate.assert_not_called()
+
+    def test_cleanup_orphaned_workers_marks_non_running_children_exited(self):
+        """cleanup_orphaned_workers should retire child rows whose OS process is already gone."""
+        child = Process.objects.create(
+            machine=self.machine,
+            process_type=Process.TypeChoices.HOOK,
+            status=Process.StatusChoices.RUNNING,
+            pid=999997,
+            started_at=timezone.now() - timedelta(minutes=5),
+        )
+
+        cleaned = Process.cleanup_orphaned_workers()
+
+        self.assertEqual(cleaned, 1)
+        child.refresh_from_db()
+        self.assertEqual(child.status, Process.StatusChoices.EXITED)
+        self.assertIsNotNone(child.ended_at)
+        self.assertEqual(child.exit_code, 0)
 
 
 class TestProcessStateMachine(TestCase):
