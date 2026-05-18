@@ -1,0 +1,23 @@
+archivebox/core/views.py
+  cfa69fa8f8bfbdc6 859-873,902,1149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.0",
+  "base_commit_sha": "ecb17645907a73cf11960ac07d79fb219030cd8e",
+  "prompts": {
+    "cfa69fa8f8bfbdc6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019c992d-9c3b-7f20-b518-ca7a1dd7fd2a",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 261,
+      "total_deletions": 31270,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}

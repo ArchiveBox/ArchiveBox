@@ -1,0 +1,39 @@
+archivebox/api/v1_machine.py
+  8646c7b27427feb4 114-115,136,143,150
+archivebox/api/v1_cli.py
+  697dcca49a0892d8 78-80,179-181,194
+  8646c7b27427feb4 77,241-250,255,261-266,271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.11",
+  "base_commit_sha": "70c9358cf9723f6c9010e56d64fcef314d0f0cc4",
+  "prompts": {
+    "697dcca49a0892d8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf420-de18-7b33-a97e-66080261f8b9",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 7,
+      "total_deletions": 0,
+      "accepted_lines": 7,
+      "overriden_lines": 0
+    },
+    "8646c7b27427feb4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf41d-03c4-7ef3-a3a0-316078dc3b6c",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 30,
+      "total_deletions": 11,
+      "accepted_lines": 24,
+      "overriden_lines": 0
+    }
+  }
+}

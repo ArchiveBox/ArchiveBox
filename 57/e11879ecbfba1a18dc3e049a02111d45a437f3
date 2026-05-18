@@ -1,0 +1,34 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.12",
+  "base_commit_sha": "57e11879ecbfba1a18dc3e049a02111d45a437f3",
+  "prompts": {
+    "a5df5e777f61de1f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf423-b4c6-7112-adfe-51c283fb8952",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    },
+    "e74ee8aebc9d811a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf3ac-ae19-7961-ba04-03a1171420ca",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}

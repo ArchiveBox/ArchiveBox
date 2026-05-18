@@ -1,0 +1,35 @@
+archivebox/config/collection.py
+  a5df5e777f61de1f 18-22,67,105,188
+archivebox/api/admin.py
+  a5df5e777f61de1f 3-4,67-69,71-72
+archivebox/config/configset.py
+  a5df5e777f61de1f 17,20-22,49,72,104
+archivebox/base_models/admin.py
+  a5df5e777f61de1f 6-7,11-14,18-24,31,39,44,57,60-61,63,65-78,209,223,231-234,236,239,248-251,264-267,269
+archivebox/base_models/models.py
+  a5df5e777f61de1f 51,60,104
+archivebox/cli/__init__.py
+  a5df5e777f61de1f 126-128
+pyproject.toml
+  a5df5e777f61de1f 86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.11",
+  "base_commit_sha": "49436af8697005b3b8a03f008484ce5bf9b8af0e",
+  "prompts": {
+    "a5df5e777f61de1f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf423-b4c6-7112-adfe-51c283fb8952",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 94,
+      "total_deletions": 46,
+      "accepted_lines": 87,
+      "overriden_lines": 0
+    }
+  }
+}
