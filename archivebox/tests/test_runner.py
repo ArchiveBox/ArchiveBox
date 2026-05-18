@@ -1137,7 +1137,9 @@ def test_abx_process_service_background_process_finishes_after_process_exit(monk
                 worker_type="hook",
             )
             await asyncio.wait_for(bus.emit(event).now(), timeout=0.5)
-            await bus.wait_until_idle()
+            completed = await bus.find(ProcessCompletedEvent, past=True, future=5.0)
+            assert isinstance(completed, ProcessCompletedEvent)
+            await completed.event_results_list()
         finally:
             await bus.destroy()
 
