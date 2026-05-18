@@ -338,6 +338,7 @@ RUN --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends build-essential gcc python3-dev \
     && uv sync \
+        --no-cache \
         --inexact \
         --all-extras \
         --no-install-project \
