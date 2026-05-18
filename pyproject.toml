@@ -158,6 +158,10 @@ exclude-newer = "5 days"
 exclude-newer-package = { abx-plugins = "1 second", abx-dl = "1 second", abxpkg = "1 second", abxbus = "1 second" }
 # compile-bytecode = true
 
+[tool.uv.sources]
+"abx-plugins" = { git = "https://github.com/ArchiveBox/abx-plugins.git", rev = "f576a7c81a17b0e49adf4789ac7f7143ece1282f" }
+"abx-dl" = { git = "https://github.com/ArchiveBox/abx-dl.git", rev = "3cddb1bf4d8a37c49f2a70810e0da840acc96c17" }
+
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"

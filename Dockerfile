@@ -53,8 +53,6 @@ ARG TARGETPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT
-ARG ABX_PLUGINS_REF=f576a7c81a17b0e49adf4789ac7f7143ece1282f
-ARG ABX_DL_REF=3cddb1bf4d8a37c49f2a70810e0da840acc96c17
 ######### Environment Variables #################################
 
 # Global build-time and runtime environment constants + default pkg manager config
@@ -344,20 +342,15 @@ RUN --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
         --all-extras \
         --no-install-project \
         --no-install-workspace \
-        --no-sources \
     && apt-get purge -y python3-dev build-essential gcc \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
     # installs the pip packages that archivebox depends on, defined in pyproject.toml dependencies
 
-# Install unreleased dev abx package revisions used by the ArchiveBox dev branch.
-RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing dev abx package revisions..." \
-    && uv pip install --reinstall --no-deps \
-        "git+https://github.com/ArchiveBox/abx-plugins.git@${ABX_PLUGINS_REF}" \
-        "git+https://github.com/ArchiveBox/abx-dl.git@${ABX_DL_REF}" \
-    && ( \
-        pip show abx-plugins \
+# Verify unreleased dev abx package revisions installed by uv sources above.
+RUN ( \
+        echo "[+] Verifying dev abx package revisions..." \
+        && pip show abx-plugins \
         && pip show abx-dl \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
