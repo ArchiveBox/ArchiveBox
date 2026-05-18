@@ -333,30 +333,31 @@ RUN ( \
 
 
 # Install ArchiveBox Python venv dependencies from pyproject.toml.
-RUN --mount=type=bind,source=pyproject.toml,target=/tmp/archivebox-pyproject.toml \
+RUN --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
     --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
     --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
     echo "[+] PIP Installing ArchiveBox dependencies from pyproject.toml..." \
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends build-essential gcc python3-dev \
-    && mkdir -p /tmp/archivebox-deps \
-    && cp /tmp/archivebox-pyproject.toml /tmp/archivebox-deps/pyproject.toml \
-    && printf '\n[tool.uv.sources]\n"abx-plugins" = { git = "https://github.com/ArchiveBox/abx-plugins.git", rev = "%s" }\n"abx-dl" = { git = "https://github.com/ArchiveBox/abx-dl.git", rev = "%s" }\n' "$ABX_PLUGINS_REF" "$ABX_DL_REF" >> /tmp/archivebox-deps/pyproject.toml \
     && uv sync \
-        --project /tmp/archivebox-deps \
         --inexact \
         --all-extras \
         --no-install-project \
         --no-install-workspace \
+        --no-sources \
     && apt-get purge -y python3-dev build-essential gcc \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
     # installs the pip packages that archivebox depends on, defined in pyproject.toml dependencies
 
-# Verify unreleased dev abx package revisions installed by uv sources above.
-RUN ( \
-        echo "[+] Verifying dev abx package revisions..." \
-        && pip show abx-plugins \
+# Install unreleased dev abx package revisions used by the ArchiveBox dev branch.
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
+    echo "[+] Installing dev abx package revisions..." \
+    && uv pip install --reinstall --no-deps \
+        "git+https://github.com/ArchiveBox/abx-plugins.git@${ABX_PLUGINS_REF}" \
+        "git+https://github.com/ArchiveBox/abx-dl.git@${ABX_DL_REF}" \
+    && ( \
+        pip show abx-plugins \
         && pip show abx-dl \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
