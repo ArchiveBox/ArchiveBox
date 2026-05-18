@@ -45,7 +45,9 @@ ENV TZ=UTC \
 
 # Version config
 ENV PYTHON_VERSION=3.11 \
-    NODE_VERSION=20
+    NODE_VERSION=20 \
+    PLAYWRIGHT_VERSION=1.59.0 \
+    YTDLP_VERSION=2026.3.17
 
 # User config
 ENV ARCHIVEBOX_USER="archivebox" \
@@ -164,7 +166,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     echo "[+] Installing APT extractor dependencies globally using apt..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        curl wget git yt-dlp ffmpeg ripgrep \
+        curl wget git ffmpeg ripgrep \
         # Packages we have also needed in the past:
         # youtube-dl wget2 aria2 python3-pyxattr rtmpdump libfribidi-bin mpv \
         # fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
@@ -173,7 +175,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     && ( \
         which curl && curl --version | head -n1 \
         && which wget && wget --version 2>&1 | head -n1 \
-        && which yt-dlp && yt-dlp --version 2>&1 | head -n1 \
         && which git && git --version 2>&1 | head -n1 \
         && which rg && rg --version 2>&1 | head -n1 \
         && echo -e '\n\n' \
@@ -185,7 +186,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     && apt-get update -qq \
     && if [[ "$TARGETPLATFORM" == *amd64* || "$TARGETPLATFORM" == *arm64* ]]; then \
         # install Chromium using playwright
-        pip install playwright \
+        pip install "playwright==$PLAYWRIGHT_VERSION" \
         && cp -r /root/.cache/ms-playwright "$PLAYWRIGHT_BROWSERS_PATH" \
         && playwright install --with-deps chromium \
         && export CHROME_BINARY="$(python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')"; \
@@ -238,6 +239,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     # && pdm export -o requirements.txt --without-hashes \
     # && source $GLOBAL_VENV/bin/activate \
     && pip install -r requirements.txt \
+    && pip install --upgrade "yt-dlp==$YTDLP_VERSION" \
     && apt-get purge -y \
         build-essential \
     && apt-get autoremove -y \

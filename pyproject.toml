@@ -1,21 +1,21 @@
 [project]
 name = "archivebox"
-version = "0.7.3"
+version = "0.7.4"
 description = "Self-hosted internet archiving solution."
 authors = [
     {name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"},
 ]
 dependencies = [
-    "croniter>=0.3.34",
-    "dateparser>=1.0.0",
+    "croniter>=6.2.2",
+    "dateparser>=1.2.2",
     "django-extensions>=3.0.3",
     "django>=3.1.3,<3.2",
     "ipython>5.0.0",
-    "mypy-extensions>=0.4.3",
-    "python-crontab>=2.5.1",
-    "requests>=2.24.0",
-    "w3lib>=1.22.0",
-    "yt-dlp>=2023.10.13",
+    "mypy-extensions>=1.1.0",
+    "python-crontab>=3.3.0",
+    "requests>=2.32.5",
+    "w3lib>=2.3.1",
+    "yt-dlp>=2025.10.14",
     # "playwright>=1.39.0; platform_machine != 'armv7l'",
 ]
 requires-python = ">=3.9,<3.12"
@@ -92,7 +92,7 @@ sonic = [
 ]
 ldap = [
     # apt install libldap2-dev libsasl2-dev
-    "python-ldap>=3.4.3",
+    "python-ldap>=3.4.6",
     "django-auth-ldap>=4.1.0",
 ]
 # playwright = [
@@ -118,5 +118,4 @@ Roadmap = "https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap"
 Community = "https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community"
 Demo = "https://demo.archivebox.io"
 Donate = "https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"
-
 
