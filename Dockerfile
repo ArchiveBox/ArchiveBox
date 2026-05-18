@@ -333,14 +333,17 @@ RUN ( \
 
 
 # Install ArchiveBox Python venv dependencies from pyproject.toml.
-RUN --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
+RUN --mount=type=bind,source=pyproject.toml,target=/tmp/archivebox-pyproject.toml \
     --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
     --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
     echo "[+] PIP Installing ArchiveBox dependencies from pyproject.toml..." \
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends build-essential gcc python3-dev \
-    && printf '\n[tool.uv.sources]\n"abx-plugins" = { git = "https://github.com/ArchiveBox/abx-plugins.git", rev = "%s" }\n"abx-dl" = { git = "https://github.com/ArchiveBox/abx-dl.git", rev = "%s" }\n' "$ABX_PLUGINS_REF" "$ABX_DL_REF" >> pyproject.toml \
+    && mkdir -p /tmp/archivebox-deps \
+    && cp /tmp/archivebox-pyproject.toml /tmp/archivebox-deps/pyproject.toml \
+    && printf '\n[tool.uv.sources]\n"abx-plugins" = { git = "https://github.com/ArchiveBox/abx-plugins.git", rev = "%s" }\n"abx-dl" = { git = "https://github.com/ArchiveBox/abx-dl.git", rev = "%s" }\n' "$ABX_PLUGINS_REF" "$ABX_DL_REF" >> /tmp/archivebox-deps/pyproject.toml \
     && uv sync \
+        --project /tmp/archivebox-deps \
         --inexact \
         --all-extras \
         --no-install-project \
