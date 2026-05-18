@@ -253,11 +253,12 @@ class Persona(ModelWithConfig):
         runtime_downloads_dir = self.runtime_downloads_dir_for_crawl(crawl)
 
         with self.lock_runtime_for_crawl():
-            if not runtime_profile_dir.exists():
-                if template_dir.exists() and any(template_dir.iterdir()):
-                    self.copy_chrome_profile(template_dir, runtime_profile_dir)
-                else:
-                    runtime_profile_dir.mkdir(parents=True, exist_ok=True)
+            if runtime_root.exists():
+                shutil.rmtree(runtime_root, ignore_errors=True)
+            if template_dir.exists() and any(template_dir.iterdir()):
+                self.copy_chrome_profile(template_dir, runtime_profile_dir)
+            else:
+                runtime_profile_dir.mkdir(parents=True, exist_ok=True)
 
             runtime_downloads_dir.mkdir(parents=True, exist_ok=True)
             self.cleanup_chrome_profile(runtime_profile_dir)
