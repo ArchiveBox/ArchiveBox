@@ -29,6 +29,10 @@ class MachineService(BaseService):
             key = event.key.replace("config/", "", 1).strip()
             if key:
                 config[key] = event.value
+        elif event.method == "unset":
+            key = event.key.replace("config/", "", 1).strip()
+            if key:
+                config.pop(key, None)
         else:
             return
 

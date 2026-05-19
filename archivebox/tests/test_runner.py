@@ -466,6 +466,15 @@ def test_machine_service_persists_only_derived_config_events(tmp_path):
             )
             await derived_event.now()
             await derived_event.event_results_list()
+            unset_event = bus.emit(
+                MachineEvent(
+                    method="unset",
+                    key="config/WGET_BINARY",
+                    config_type="derived",
+                ),
+            )
+            await unset_event.now()
+            await unset_event.event_results_list()
             await bus.wait_until_idle()
         finally:
             await bus.destroy()
@@ -474,7 +483,6 @@ def test_machine_service_persists_only_derived_config_events(tmp_path):
 
     machine.refresh_from_db()
     assert machine.config == {
-        "WGET_BINARY": str(wget_binary),
         "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
     }
 
