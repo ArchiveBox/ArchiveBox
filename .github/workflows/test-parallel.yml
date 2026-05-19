@@ -84,7 +84,6 @@ jobs:
     needs: discover-tests
     env:
       PYTHONPATH: ${{ github.workspace }}/abxpkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
-      CHROME_BINARY: /usr/bin/chromium
       CHROME_HEADLESS: "true"
       CHROME_SANDBOX: "false"
       PERSONAS_DIR: /tmp/abx-personas
@@ -156,7 +155,6 @@ jobs:
     needs: discover-tests
     env:
       PYTHONPATH: ${{ github.workspace }}/abxpkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
-      CHROME_BINARY: /usr/bin/chromium
       CHROME_HEADLESS: "true"
       CHROME_SANDBOX: "false"
       PERSONAS_DIR: /tmp/abx-personas

@@ -71,7 +71,7 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
         "CHROME_SANDBOX": "false",
     }
     install_result = subprocess.run(
-        [sys.executable, "-m", "archivebox", "install", "puppeteer"],
+        [sys.executable, "-m", "archivebox", "install", "chrome"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
