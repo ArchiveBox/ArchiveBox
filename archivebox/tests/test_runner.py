@@ -1341,9 +1341,9 @@ def test_crawl_completed_event_requeues_active_snapshots():
 
     bus = create_bus(name=f"test_crawl_completed_active_snapshots_{str(crawl.id).replace('-', '_')}")
     CrawlService(bus, crawl_id=str(crawl.id))
-    try:
 
-        async def emit_completed() -> None:
+    async def emit_completed() -> None:
+        try:
             event = CrawlCompletedEvent(
                 url="https://example.com",
                 snapshot_id="",
@@ -1352,11 +1352,11 @@ def test_crawl_completed_event_requeues_active_snapshots():
             emitted = bus.emit(event)
             await emitted.now()
             await emitted.event_results_list()
+            await bus.wait_until_idle()
+        finally:
+            await bus.destroy()
 
-        asyncio.run(emit_completed())
-    finally:
-        asyncio.run(bus.wait_until_idle())
-        asyncio.run(bus.destroy())
+    asyncio.run(emit_completed())
 
     crawl.refresh_from_db()
     assert crawl.status == Crawl.StatusChoices.STARTED
@@ -1387,9 +1387,9 @@ def test_crawl_cleanup_event_requeues_unfinished_crawl():
 
     bus = create_bus(name=f"test_crawl_cleanup_requeues_unfinished_{str(crawl.id).replace('-', '_')}")
     CrawlService(bus, crawl_id=str(crawl.id))
-    try:
 
-        async def emit_cleanup() -> None:
+    async def emit_cleanup() -> None:
+        try:
             event = CrawlCleanupEvent(
                 url="https://example.com",
                 snapshot_id=str(snapshot.id),
@@ -1398,11 +1398,11 @@ def test_crawl_cleanup_event_requeues_unfinished_crawl():
             emitted = bus.emit(event)
             await emitted.now()
             await emitted.event_results_list()
+            await bus.wait_until_idle()
+        finally:
+            await bus.destroy()
 
-        asyncio.run(emit_cleanup())
-    finally:
-        asyncio.run(bus.wait_until_idle())
-        asyncio.run(bus.destroy())
+    asyncio.run(emit_cleanup())
 
     crawl.refresh_from_db()
     assert crawl.status == Crawl.StatusChoices.STARTED
@@ -1434,9 +1434,9 @@ def test_crawl_cleanup_event_seals_finished_crawl():
 
     bus = create_bus(name=f"test_crawl_cleanup_finished_crawl_{str(crawl.id).replace('-', '_')}")
     CrawlService(bus, crawl_id=str(crawl.id))
-    try:
 
-        async def emit_cleanup() -> None:
+    async def emit_cleanup() -> None:
+        try:
             event = CrawlCleanupEvent(
                 url="https://example.com",
                 snapshot_id=str(snapshot.id),
@@ -1445,11 +1445,11 @@ def test_crawl_cleanup_event_seals_finished_crawl():
             emitted = bus.emit(event)
             await emitted.now()
             await emitted.event_results_list()
+            await bus.wait_until_idle()
+        finally:
+            await bus.destroy()
 
-        asyncio.run(emit_cleanup())
-    finally:
-        asyncio.run(bus.wait_until_idle())
-        asyncio.run(bus.destroy())
+    asyncio.run(emit_cleanup())
 
     crawl.refresh_from_db()
     assert crawl.status == Crawl.StatusChoices.SEALED
