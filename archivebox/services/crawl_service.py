@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from asgiref.sync import sync_to_async
 from django.utils import timezone
 
 from abx_dl.events import CrawlCleanupEvent, CrawlCompletedEvent, CrawlSetupEvent, CrawlStartEvent
@@ -39,9 +38,12 @@ class CrawlService(BaseService):
 
     async def on_CrawlCleanupEvent__save_to_db(self, event: CrawlCleanupEvent) -> None:
         from archivebox.crawls.models import Crawl
+        from archivebox.core.models import Snapshot
 
         crawl = await Crawl.objects.aget(id=self.crawl_id)
-        is_finished = await sync_to_async(crawl.is_finished, thread_sensitive=True)()
+        is_finished = not await crawl.snapshot_set.filter(
+            status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED],
+        ).aexists()
         if is_finished:
             crawl.status = Crawl.StatusChoices.SEALED
             crawl.retry_at = None
@@ -54,9 +56,12 @@ class CrawlService(BaseService):
 
     async def on_CrawlCompletedEvent__save_to_db(self, event: CrawlCompletedEvent) -> None:
         from archivebox.crawls.models import Crawl
+        from archivebox.core.models import Snapshot
 
         crawl = await Crawl.objects.aget(id=self.crawl_id)
-        is_finished = await sync_to_async(crawl.is_finished, thread_sensitive=True)()
+        is_finished = not await crawl.snapshot_set.filter(
+            status__in=[Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED],
+        ).aexists()
         if not is_finished:
             if crawl.status != Crawl.StatusChoices.SEALED:
                 crawl.status = Crawl.StatusChoices.STARTED
