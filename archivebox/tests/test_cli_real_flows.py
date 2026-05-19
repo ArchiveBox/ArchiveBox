@@ -9,6 +9,8 @@ import sys
 
 import pytest
 
+from .conftest import _find_system_browser
+
 
 @pytest.mark.timeout(180)
 def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, process):
@@ -70,15 +72,19 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
         "CHROME_HEADLESS": "true",
         "CHROME_SANDBOX": "false",
     }
-    install_result = subprocess.run(
-        [sys.executable, "-m", "archivebox", "install", "chrome"],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        env=chrome_env,
-        timeout=180,
-    )
-    assert install_result.returncode == 0, install_result.stderr or install_result.stdout
+    system_browser = _find_system_browser()
+    if system_browser:
+        chrome_env["CHROME_BINARY"] = str(system_browser)
+    else:
+        install_result = subprocess.run(
+            [sys.executable, "-m", "archivebox", "install", "chrome"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            env=chrome_env,
+            timeout=600,
+        )
+        assert install_result.returncode == 0, install_result.stderr or install_result.stdout
     chrome_result = subprocess.run(
         [
             sys.executable,

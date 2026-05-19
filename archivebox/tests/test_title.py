@@ -3,19 +3,25 @@ import sqlite3
 import subprocess
 import sys
 
+from .conftest import _find_system_browser
 from .fixtures import disable_extractors_dict, process
 
 FIXTURES = (disable_extractors_dict, process)
 
 
 def _install_chrome(tmp_path, env):
+    system_browser = _find_system_browser()
+    if system_browser:
+        env["CHROME_BINARY"] = str(system_browser)
+        return
+
     install_process = subprocess.run(
         [sys.executable, "-m", "archivebox", "install", "chrome"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
         env=env,
-        timeout=180,
+        timeout=600,
     )
     assert install_process.returncode == 0, install_process.stderr or install_process.stdout
 

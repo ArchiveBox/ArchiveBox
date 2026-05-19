@@ -379,8 +379,11 @@ def _find_cached_chrome(lib_dir: Path) -> Path | None:
 
 def _find_system_browser() -> Path | None:
     candidates = [
+        Path("/usr/bin/google-chrome-stable"),
+        Path("/usr/bin/google-chrome"),
         Path("/usr/bin/chromium"),
         Path("/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary"),
+        Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
         Path("/Applications/Chromium.app/Contents/MacOS/Chromium"),
         Path("/usr/bin/chromium-browser"),
     ]
