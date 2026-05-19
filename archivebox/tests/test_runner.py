@@ -775,8 +775,8 @@ def test_run_snapshot_skips_descendant_when_max_size_already_reached(monkeypatch
                 url="https://example.com",
                 snapshot_id="child-1",
                 output_dir=str(tmp_path),
-                event_timeout=0,
-                event_handler_timeout=0,
+                event_timeout=30,
+                event_handler_timeout=30,
             ),
         ).now()
 

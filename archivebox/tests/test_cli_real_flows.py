@@ -96,7 +96,7 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
             "--max-size=10mb",
             "--tag=chrome-flow",
             "--parser=url_list",
-            "--plugins=wget,headers,title",
+            "--plugins=chrome,wget,headers,title",
             chrome_url,
         ],
         cwd=tmp_path,

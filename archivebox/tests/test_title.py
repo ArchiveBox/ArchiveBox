@@ -31,7 +31,7 @@ def test_title_is_extracted(tmp_path, process, disable_extractors_dict):
     disable_extractors_dict.update({"SAVE_TITLE": "true"})
     _install_chrome(tmp_path, disable_extractors_dict)
     add_process = subprocess.run(
-        ["archivebox", "add", "--plugins=wget,title", "https://example.com"],
+        ["archivebox", "add", "--plugins=chrome,wget,title", "https://example.com"],
         capture_output=True,
         text=True,
         env=disable_extractors_dict,
@@ -59,7 +59,7 @@ def test_title_is_htmlencoded_in_index_html(tmp_path, process, disable_extractor
     disable_extractors_dict.update({"SAVE_TITLE": "true"})
     _install_chrome(tmp_path, disable_extractors_dict)
     add_process = subprocess.run(
-        ["archivebox", "add", "--plugins=wget,title", "https://example.com"],
+        ["archivebox", "add", "--plugins=chrome,wget,title", "https://example.com"],
         capture_output=True,
         text=True,
         env=disable_extractors_dict,
