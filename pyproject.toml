@@ -80,8 +80,8 @@ dependencies = [
     ### Binary/Package Management
     "abxbus>=2.5.4",          # EventBus API
     "abxpkg>=1.10.7",         # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
-    "abx-plugins>=1.10.67",   # shared ArchiveBox plugin package with Chrome/Puppeteer dependency wiring
-    "abx-dl>=1.10.67",        # shared ArchiveBox downloader package with blocking install preflight
+    "abx-plugins>=1.10.68",   # shared ArchiveBox plugin package with Chrome/Puppeteer dependency wiring
+    "abx-dl>=1.10.68",        # shared ArchiveBox downloader package with blocking install preflight
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
 ]
