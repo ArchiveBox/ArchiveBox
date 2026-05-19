@@ -449,6 +449,9 @@ def real_archive_with_example(tmp_path_factory, request):
         "USE_COLOR": "False",
         "RESPONSES_TIMEOUT": "30",
     }
+    system_browser = _find_system_browser()
+    if system_browser:
+        add_env["CHROME_BINARY"] = str(system_browser)
     stdout, stderr, returncode = run_archivebox_cmd_cwd(
         ["add", "--depth=0", "--plugins=responses", "https://example.com"],
         cwd=tmp_path,

@@ -160,10 +160,10 @@ def test_install_updates_binary_table(tmp_path, process):
     )
 
     result = subprocess.run(
-        ["archivebox", "install"],
+        ["archivebox", "install", "pip"],
         capture_output=True,
         text=True,
-        timeout=420,
+        timeout=120,
         env=env,
     )
 
@@ -182,8 +182,12 @@ def test_install_updates_binary_table(tmp_path, process):
     sealed_crawls = c.execute(
         "SELECT COUNT(*) FROM crawls_crawl WHERE status='sealed'",
     ).fetchone()[0]
+    installed_python = c.execute(
+        "SELECT COUNT(*) FROM machine_binary WHERE status='installed' AND name='python'",
+    ).fetchone()[0]
     conn.close()
 
     assert sealed_crawls == 0
     assert snapshot_count == 0
     assert binary_counts.get("installed", 0) > 0
+    assert installed_python == 1
