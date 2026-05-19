@@ -77,7 +77,7 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 <pre lang="bash"><code style="white-space: pre-line"># Option A: Get ArchiveBox with Docker Compose (recommended):
 mkdir -p ~/archivebox/data && cd ~/archivebox
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml   # edit options in this file as-needed
-docker compose run archivebox init --install
+docker compose run archivebox init
 # docker compose run archivebox add 'https://example.com'
 # docker compose run archivebox help
 # docker compose up
@@ -85,7 +85,7 @@ docker compose run archivebox init --install
 <br/>
 # Option B: Or use it as a plain Docker container:
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
-docker run -it -v $PWD:/data archivebox/archivebox init --install
+docker run -it -v $PWD:/data archivebox/archivebox init
 # docker run -it -v $PWD:/data archivebox/archivebox add 'https://example.com'
 # docker run -it -v $PWD:/data archivebox/archivebox help
 # docker run -it -v $PWD:/data -p 8000:8000 archivebox/archivebox
@@ -94,7 +94,8 @@ docker run -it -v $PWD:/data archivebox/archivebox init --install
 # Option C: Or install it with your preferred pkg manager (see Quickstart below for apt, brew, and more)
 pip install archivebox
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
-archivebox init --install
+archivebox init
+archivebox install
 # archivebox add 'https://example.com'
 # archivebox help
 # archivebox server 0.0.0.0:8000
@@ -189,9 +190,9 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 </code></pre></li>
 <li>Run the initial setup to create an admin user (or set ADMIN_USER/PASS in docker-compose.yml)
-<pre lang="bash"><code style="white-space: pre-line">docker compose run archivebox init --install
+<pre lang="bash"><code style="white-space: pre-line">docker compose run archivebox init
 </code></pre></li>
-<li>Next steps: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
+<li>Next steps: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">docker compose up
 # completely optional, CLI can always be used without running a server
 # docker compose run [-T] archivebox [subcommand] [--help]
@@ -213,10 +214,10 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
-docker run -v $PWD:/data -it archivebox/archivebox init --install
+docker run -v $PWD:/data -it archivebox/archivebox init
 </code></pre>
 </li>
-<li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
+<li>Optional: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox
 # completely optional, CLI can always be used without running a server
 # docker run -v $PWD:/data -it [subcommand] [--help]
@@ -270,11 +271,11 @@ archivebox version
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data   # for example
-archivebox init --install   # instantialize a new collection
-# (--setup auto-installs and link JS dependencies: singlefile, readability, mercury, etc.)
+archivebox init     # instantialize a new collection
+archivebox install  # install all the runtime dependencies (e.g. chrome, single-file, yt-dlp, etc.)
 </code></pre>
 </li>
-<li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
+<li>Optional: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
@@ -309,7 +310,7 @@ archivebox init --install
 </code></pre>
 <br/>
 </li>
-<li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
+<li>Optional: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
@@ -336,10 +337,11 @@ archivebox version                         # make sure all dependencies are inst
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
-archivebox init --install
+archivebox init
+archivebox install
 </code></pre>
 </li>
-<li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
+<li>Optional: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
