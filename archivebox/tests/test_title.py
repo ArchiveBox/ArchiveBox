@@ -10,6 +10,7 @@ FIXTURES = (disable_extractors_dict, process)
 
 
 def _install_chrome(tmp_path, env):
+    env["CHROME_ISOLATION"] = "snapshot"
     system_browser = _find_system_browser()
     if system_browser:
         env["CHROME_BINARY"] = str(system_browser)

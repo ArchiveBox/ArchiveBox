@@ -71,6 +71,7 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
         "SAVE_TITLE": "true",
         "CHROME_HEADLESS": "true",
         "CHROME_SANDBOX": "false",
+        "CHROME_ISOLATION": "snapshot",
     }
     system_browser = _find_system_browser()
     if system_browser:

@@ -2,6 +2,7 @@ import asyncio
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1004,7 +1005,11 @@ def test_crawl_runner_calls_load_and_finalize_run_state(monkeypatch):
 
     asyncio.run(runner_module.CrawlRunner(crawl, snapshot_ids=[str(snapshot.id)]).run())
 
-    crawl.refresh_from_db()
+    for _ in range(20):
+        crawl.refresh_from_db()
+        if crawl.retry_at is not None:
+            break
+        time.sleep(0.1)
     assert crawl.status == Crawl.StatusChoices.STARTED
     assert crawl.retry_at is not None
     assert method_calls == ["load_run_state", "finalize_run_state"]
