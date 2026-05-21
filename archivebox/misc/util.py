@@ -61,6 +61,56 @@ htmlencode = lambda s: s and escape(s, quote=True)
 htmldecode = lambda s: s and unescape(s)
 
 
+def normalize_url(url: str | None) -> str | None:
+    """
+    Normalize URL for deduplication purposes.
+    
+    Normalization rules:
+    1. Convert scheme and hostname to lowercase (case-insensitive parts)
+    2. Remove trailing slash from path (if present and not just "/")
+    3. Remove default ports (80 for http, 443 for https)
+    4. Remove fragment (#section) as it's not sent to server
+    
+    Args:
+        url: The URL to normalize
+        
+    Returns:
+        Normalized URL string, or None if input was None/empty
+    """
+    if url is None:
+        return None
+    
+    url_str = str(url)
+    if not url_str.strip():
+        return url_str
+    
+    try:
+        parsed = urlparse(url_str)
+        
+        scheme = parsed.scheme.lower()
+        netloc = parsed.netloc.lower()
+        
+        if scheme == "http" and netloc.endswith(":80"):
+            netloc = netloc[:-3]
+        elif scheme == "https" and netloc.endswith(":443"):
+            netloc = netloc[:-4]
+        
+        path = parsed.path
+        if path and path != "/" and path.endswith("/"):
+            path = path[:-1]
+        
+        normalized = parsed._replace(
+            scheme=scheme,
+            netloc=netloc,
+            path=path,
+            fragment=""
+        )
+        
+        return normalized.geturl()
+    except Exception:
+        return url_str
+
+
 def short_ts(ts: Any) -> str | None:
     parsed = parse_date(ts)
     return None if parsed is None else str(parsed.timestamp()).split(".")[0]
