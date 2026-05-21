@@ -1,0 +1,54 @@
+{% extends "core/base.html" %}
+
+{% load static %}
+
+{% block breadcrumbs %}
+    <div class="breadcrumbs">
+        <a href="{% url 'Home' %}">Home</a>
+        {% if title %} &rsaquo; {{ title }}{% endif %}
+    </div>
+{% endblock %}
+
+{% block body %}
+    <div style="max-width: 800px; margin: 60px auto; float: none; text-align: center;">
+        <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 40px; margin-bottom: 30px;">
+            <h1 style="color: #856404; font-size: 48px; margin-bottom: 20px;">400 - Bad Request</h1>
+            <h2 style="color: #856404; font-size: 24px; margin-bottom: 30px;">Invalid URL</h2>
+            
+            <div style="background: white; border-radius: 6px; padding: 20px; margin: 20px 0; text-align: left;">
+                <p style="color: #666; font-size: 16px; line-height: 1.6;">
+                    <strong>Error:</strong> The URL you entered is not valid.
+                </p>
+                {% if error_message %}
+                <p style="color: #666; font-size: 16px; line-height: 1.6; margin-top: 10px;">
+                    <strong>Details:</strong> {{ error_message }}
+                </p>
+                {% endif %}
+                {% if invalid_url %}
+                <p style="color: #666; font-size: 16px; line-height: 1.6; margin-top: 10px;">
+                    <strong>Invalid URL:</strong> <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">{{ invalid_url }}</code>
+                </p>
+                {% endif %}
+            </div>
+            
+            <div style="text-align: left; margin: 20px 0;">
+                <h3 style="color: #856404; font-size: 18px; margin-bottom: 15px;">How to Fix This:</h3>
+                <ul style="color: #666; font-size: 15px; line-height: 1.8; text-align: left; list-style-position: inside;">
+                    <li>Make sure the URL starts with <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">http://</code> or <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">https://</code></li>
+                    <li>Check for typos in the domain name</li>
+                    <li>Ensure the URL format is correct</li>
+                    <li>Valid URL example: <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">https://example.com/path?query=value</code></li>
+                </ul>
+            </div>
+        </div>
+        
+        <div style="margin-top: 30px;">
+            <a href="{% url 'Home' %}" style="display: inline-block; background: #007bff; color: white; padding: 12px 30px; border-radius: 4px; text-decoration: none; font-size: 16px; margin-right: 15px;">
+                ← Return to Home
+            </a>
+            <a href="/add/" style="display: inline-block; background: #28a745; color: white; padding: 12px 30px; border-radius: 4px; text-decoration: none; font-size: 16px;">
+                Try Adding a URL →
+            </a>
+        </div>
+    </div>
+{% endblock %}

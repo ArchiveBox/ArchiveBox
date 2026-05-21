@@ -3,7 +3,7 @@ __package__ = "archivebox.core"
 from django import forms
 from django.utils.html import format_html
 
-from archivebox.misc.util import URL_REGEX, find_all_urls, parse_filesize_to_bytes
+from archivebox.misc.util import URL_REGEX, find_all_urls, parse_filesize_to_bytes, validate_url_strict
 from taggit.utils import edit_string_for_tags, parse_tags
 from archivebox.base_models.admin import KeyValueWidget
 from archivebox.crawls.schedule_utils import validate_schedule
@@ -288,10 +288,17 @@ class AddLinkForm(forms.Form):
 
     def clean_url(self):
         value = self.cleaned_data.get("url") or ""
-        urls = "\n".join(find_all_urls(value))
-        if not urls:
+        extracted_urls = list(find_all_urls(value))
+        
+        if not extracted_urls:
             raise forms.ValidationError("Enter at least one valid URL.")
-        return urls
+        
+        for url in extracted_urls:
+            is_valid, error = validate_url_strict(url)
+            if not is_valid:
+                raise forms.ValidationError(f"Invalid URL: {error}")
+        
+        return "\n".join(extracted_urls)
 
     def clean_url_filters(self):
         from archivebox.crawls.models import Crawl
