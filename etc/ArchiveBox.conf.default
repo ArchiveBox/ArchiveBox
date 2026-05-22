@@ -40,9 +40,14 @@
 # SAVE_ARCHIVE_DOT_ORG = True
 
 
-# CURL_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.3683.75 Safari/537.36"
-# WGET_USER_AGENT = Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.3683.75 Safari/537.36
-# CHROME_USER_AGENT = Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.3683.75 Safari/537.36
+# Leave USER_AGENT (and CURL_/WGET_/CHROME_USER_AGENT) unset to let ArchiveBox
+# build a fresh User-Agent from the installed Chrome version at runtime. Only
+# override if you have a specific reason to pin a UA — ArchiveBox will warn if
+# a configured Chrome UA falls more than a few major versions behind installed.
+# USER_AGENT = <your-custom-user-agent>
+# CURL_USER_AGENT = <your-custom-user-agent>
+# WGET_USER_AGENT = <your-custom-user-agent>
+# CHROME_USER_AGENT = <your-custom-user-agent>
 
 
 [DEPENDENCY_CONFIG]

@@ -39,6 +39,23 @@ def rprint(*args, file=None, **kwargs):
     console.print(*args, **kwargs)
 
 
+def _default_user_agent() -> str:
+    """Default USER_AGENT built from the cached chrome Binary.version
+    populated by the chrome on_BinaryRequest hook (via abxpkg). Used only
+    when no scope (persona/env/conf/machine/crawl/snapshot) supplies one —
+    see get_config(). Reads cached version, never subprocesses."""
+    try:
+        from abxpkg import SemVer
+        from archivebox.machine.models import Binary
+        installed = SemVer((Binary.objects.get_valid_binary("chrome") or Binary()).version)
+    except Exception:
+        installed = None
+    suffix = f"ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)"
+    if installed:
+        return f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{installed.major}.0.0.0 Safari/537.36 {suffix}"
+    return f"Mozilla/5.0 (compatible; {suffix})"
+
+
 class ShellConfig(BaseConfigSet):
     toml_section_header: str = "SHELL_CONFIG"
 
@@ -254,9 +271,7 @@ class ArchivingConfig(BaseConfigSet):
 
     RESOLUTION: str = Field(default="1440,2000")
     CHECK_SSL_VALIDITY: bool = Field(default=True)
-    USER_AGENT: str = Field(
-        default=f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)",
-    )
+    USER_AGENT: str = Field(default_factory=lambda: _default_user_agent())
     COOKIES_FILE: Path | None = Field(default=None)
 
     URL_DENYLIST: str = Field(default=r"\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$", alias="URL_BLACKLIST")
