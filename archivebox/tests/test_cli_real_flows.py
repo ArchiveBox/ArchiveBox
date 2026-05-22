@@ -180,7 +180,13 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(tmp_path, pro
 
     combined_html = "\n".join(path.read_text(errors="ignore") for path in html_outputs)
     assert "Example Domain" in combined_html
-    assert "Browser-use Challenge for AI Browser Drivers" in combined_html
+    # Don't pin to exact page text — pirate.github.io/stress-tests/challenge.html
+    # can be edited at any time. Verify the URL was fetched into its own wget
+    # snapshot with non-trivial HTML content instead.
+    challenge_html_files = [p for p in html_outputs if "pirate.github.io" in str(p)]
+    assert challenge_html_files, f"No wget html output for challenge.html in {[str(p) for p in html_outputs]}"
+    assert any(p.stat().st_size > 1024 for p in challenge_html_files), \
+        f"challenge.html wget output is empty/trivial: {[(str(p), p.stat().st_size) for p in challenge_html_files]}"
 
     assert processes
     assert any("wget" in (pwd or "") or "wget" in (cmd or "") for _type, _status, _exit, pwd, cmd in processes)
