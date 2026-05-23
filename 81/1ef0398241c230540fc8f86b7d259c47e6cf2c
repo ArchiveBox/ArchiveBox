@@ -1,0 +1,23 @@
+etc/package.json
+  s_074e76a4b61abc::t_298f78100dc6db 3
+bin/deploy_dev_demo.sh
+  s_074e76a4b61abc::t_298f78100dc6db 47-52,58-62,64-66
+pyproject.toml
+  s_074e76a4b61abc::t_298f78100dc6db 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "811ef0398241c230540fc8f86b7d259c47e6cf2c",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
