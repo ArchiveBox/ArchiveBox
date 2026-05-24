@@ -1,0 +1,45 @@
+Dockerfile
+  s_b989805ae95d6a::t_ee389263502492 334
+archivebox/config/paths.py
+  s_b989805ae95d6a::t_10fa91df7be2b3 235,411-412
+bin/docker_entrypoint.sh
+  s_b989805ae95d6a::t_7ecdec4483e945 147,172-173,182-183,286,300
+bin/release_dev_stack.sh
+  s_074e76a4b61abc::t_6d1b65ae2ed593 124-125,127,149
+bin/validate_docker_uid_gid.sh
+  s_b989805ae95d6a::t_98e97950557492 446,448,470,472,490-496
+  s_b989805ae95d6a::t_10fa91df7be2b3 106-108
+  s_b989805ae95d6a::t_bedef7c6536b13 92,99-105,109-139,244-350,353-366
+  s_b989805ae95d6a::t_0f16ce5c78324a 90-91,93-98,212,215-216
+  s_b989805ae95d6a::t_03e9bce1460517 213-214,351-352
+archivebox/misc/checks.py
+  s_b989805ae95d6a::t_10fa91df7be2b3 291
+etc/package.json
+  ai_agent 3
+pyproject.toml
+  ai_agent 3,82-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "3b8ce3f467dcbd09b79820965857ed485d978bb2",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
