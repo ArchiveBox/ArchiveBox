@@ -1,0 +1,36 @@
+pyproject.toml
+  s_074e76a4b61abc::t_78b03fdb7b9aff 3,83-84
+archivebox/templates/admin/personas/persona/change_form.html
+  s_b989805ae95d6a::t_97d5488aef6c0e 203,206-208,212-228,230-235,239,243,248-249
+  s_b989805ae95d6a::t_769746c6fd94bc 204-205,209-211,229
+archivebox/personas/admin.py
+  s_b989805ae95d6a::t_8bcf11fbb34d36 30,57-58,60,62-63,66-67,69,71-72
+archivebox/crawls/admin.py
+  s_b989805ae95d6a::t_f234b7254d8cd6 11-12,593-596,604-608
+etc/package.json
+  s_074e76a4b61abc::t_78b03fdb7b9aff 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "b006c353b8148a2efc59ea06818fc9e0bac40059",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
