@@ -1,0 +1,21 @@
+archivebox/templates/admin/core/tag/change_list.html
+  s_b989805ae95d6a::t_e5d53b8290b83e 356-362,619,628-630
+archivebox/core/admin_tags.py
+  s_b989805ae95d6a::t_66b895e42cce22 120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "629c4ba46884ec9901e98cbd5c3531bfcd1f747d",
+  "prompts": {},
+  "sessions": {
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
