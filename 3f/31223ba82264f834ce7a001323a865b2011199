@@ -1,0 +1,44 @@
+archivebox/templates/admin/progress_monitor.html
+  s_0519be8d8ec8fd::t_59a3afbdb51284 1091
+  s_0519be8d8ec8fd::t_1f941a4576f78b 906
+  s_0519be8d8ec8fd::t_505c121ea54762 1083
+bin/build_docker.sh
+  s_b989805ae95d6a::t_8f6cb95252afba 99,108-110,112
+  s_b989805ae95d6a::t_56e9898a8f2578 111
+Dockerfile
+  s_b989805ae95d6a::t_00b5453e735a57 254
+  s_b989805ae95d6a::t_07f4ccf65f76ff 331-334
+  s_b989805ae95d6a::t_25d09762da1398 313,315-318,325-329
+etc/package.json
+  ai_agent 3
+archivebox/core/views.py
+  s_0519be8d8ec8fd::t_90114d6a5dddcd 21,1564-1584,2007
+  s_0519be8d8ec8fd::t_ed2fef96c59692 26,1298,1443,1956-1962
+  s_0519be8d8ec8fd::t_cf93a698a462c0 1441-1442,1444,1967
+pyproject.toml
+  ai_agent 3,83-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3f31223ba82264f834ce7a001323a865b2011199",
+  "prompts": {},
+  "sessions": {
+    "s_0519be8d8ec8fd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6897-fd2e-7901-959d-ad7ef7f9e7c4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
