@@ -28,3 +28,15 @@ def test_cli_helpers_reject_repo_root_runtime_paths():
 def test_runtime_guard_rejects_chdir_into_repo_root():
     with pytest.raises(AssertionError, match="repo root"):
         os.chdir(test_harness.REPO_ROOT)
+
+
+def test_cli_helpers_reject_non_string_env_values():
+    with pytest.raises(AssertionError, match="env value for 'SAVE_WGET' must be a str"):
+        test_harness.run_archivebox_cmd(
+            ["version"], data_dir=test_harness.SESSION_DATA_DIR, env={"SAVE_WGET": True}
+        )
+
+    with pytest.raises(AssertionError, match="env value for 'SAVE_WGET' must be a str"):
+        test_harness.run_archivebox_cmd_cwd(
+            ["version"], cwd=test_harness.SESSION_DATA_DIR, env={"SAVE_WGET": True}
+        )

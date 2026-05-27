@@ -98,6 +98,10 @@ def run_archivebox_cmd(
     base_env["SAVE_HTMLTOTEXT"] = "False"
 
     if env:
+        for key, value in env.items():
+            assert isinstance(value, str), (
+                f"env value for {key!r} must be a str, got {type(value).__name__}"
+            )
         base_env.update(env)
 
     _assert_safe_runtime_paths(cwd=data_dir, env=base_env)
@@ -230,6 +234,10 @@ def run_archivebox_cmd_cwd(
     base_env["SHOW_PROGRESS"] = "False"
 
     if env:
+        for key, value in env.items():
+            assert isinstance(value, str), (
+                f"env value for {key!r} must be a str, got {type(value).__name__}"
+            )
         base_env.update(env)
 
     _assert_safe_runtime_paths(cwd=cwd, env=base_env)
