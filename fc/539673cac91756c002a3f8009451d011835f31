@@ -1,0 +1,39 @@
+Dockerfile
+  s_0519be8d8ec8fd::t_938162bca1b3ba 89
+  s_0519be8d8ec8fd::t_364abccde3f206 347,363
+  s_0519be8d8ec8fd::t_889076934c66aa 348-353
+  s_0519be8d8ec8fd::t_46563288c8e6ee 365
+  s_0519be8d8ec8fd::t_0488b981706b90 270
+archivebox/cli/archivebox_version.py
+  s_0519be8d8ec8fd::t_3820548b30a2f3 222
+pyproject.toml
+  s_0519be8d8ec8fd::t_adfa7d6f9a2847 58
+  s_0519be8d8ec8fd::t_c50bda130346c5 84
+archivebox/config/common.py
+  s_0519be8d8ec8fd::t_adfa7d6f9a2847 582-583
+  s_0519be8d8ec8fd::t_aa46c2902b3351 434-445
+archivebox/misc/checks.py
+  s_0519be8d8ec8fd::t_a309118039dba0 291
+archivebox/config/paths.py
+  s_0519be8d8ec8fd::t_10682f3640aa9d 244,246
+  s_0519be8d8ec8fd::t_f696309753661b 245
+archivebox/config/constants.py
+  s_0519be8d8ec8fd::t_481d53fe7771b9 21,120
+  s_0519be8d8ec8fd::t_4c7f938a552999 30,118-119,121-122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "fc539673cac91756c002a3f8009451d011835f31",
+  "prompts": {},
+  "sessions": {
+    "s_0519be8d8ec8fd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6897-fd2e-7901-959d-ad7ef7f9e7c4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
