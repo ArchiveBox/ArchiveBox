@@ -1,0 +1,86 @@
+archivebox/core/views.py
+  s_5f83317b520670::t_85541f4092f7fb 194
+archivebox/services/runner.py
+  s_a5df2e7b7b6c12::t_710a62aa05654e 1288-1289
+  s_a5df2e7b7b6c12::t_f094264bae4b95 1470,1491-1498,1502-1503,1512
+archivebox/tests/test_cli_run.py
+  s_a5df2e7b7b6c12::t_f3bf055f1e51aa 740-761
+  s_e0084e31d181ac::t_8bc666da8709c6 281-282,284,287-293,318,339-341
+archivebox/cli/archivebox_server.py
+  s_5f83317b520670::t_69aecb6652f083 28,65-69,91
+archivebox/tests/test_urls.py
+  s_5f83317b520670::t_808e9f198f8ca1 57,205-206,208-210,270,338,582,643,678,718,724,726,735,755
+  s_5f83317b520670::t_dc22e3e4359857 776,846,873
+archivebox/core/host_utils.py
+  s_b989805ae95d6a::t_8a6494d20b8c2f 236-238
+  s_b989805ae95d6a::t_efc6dc5041310a 235,239
+  s_5f83317b520670::t_2aa8e822eea978 49-56,59-88,90,92,98-99,105-106,112-113,119-120,132-133,139-140,161-162,164,166,168,188-190,206-207,213-214,220-221,226-228,246
+  s_5f83317b520670::t_3a9e69eb396131 57
+docker-compose.yml
+  s_5f83317b520670::t_d4d22a79e54f36 23-24
+archivebox/core/migrations/0023_upgrade_to_0_9_0.py
+  s_179bfe34e24cf3::t_9e141bda662b7f 304-317,336-354
+archivebox/cli/archivebox_add.py
+  s_5f83317b520670::t_5ddfe23a8db93c 261-263
+  s_a5df2e7b7b6c12::t_75504a954a8eee 183-184
+archivebox/tests/test_server_security_browser.py
+  s_5f83317b520670::t_27891a8c60cc8e 348-349
+archivebox/config/common.py
+  s_5f83317b520670::t_11408d77a4b850 126-127,129
+archivebox/cli/archivebox_update.py
+  s_a5df2e7b7b6c12::t_a2a6b1a7646d53 344
+archivebox/core/settings.py
+  s_5f83317b520670::t_c21f8fd6ded0c5 363-364
+archivebox/cli/archivebox_run.py
+  s_a5df2e7b7b6c12::t_08492ce12876fe 241,267
+archivebox/tests/conftest.py
+  s_5f83317b520670::t_504408cb5af0b7 422-423,833-834
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "cef1bafb6a6f76aaa56a5ec6a11becfa6ea28a5d",
+  "prompts": {},
+  "sessions": {
+    "s_179bfe34e24cf3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6d98-7b43-7341-af49-07085afa5e1b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_5f83317b520670": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6cc1-bf3e-78d1-8285-d6a184c74581",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_a5df2e7b7b6c12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6ccb-c861-7e33-b618-89ec1e58d9ad",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_e0084e31d181ac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6d66-b926-7951-8389-e3d43423bd38",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
