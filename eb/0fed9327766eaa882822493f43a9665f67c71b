@@ -1,0 +1,30 @@
+pyproject.toml
+  s_acd6d49487f262::t_037cc68fd64bf4 3,82
+archivebox/core/recovery_util.py
+  s_acd6d49487f262::t_da416ad91b03d4 57-75,79-82
+archivebox/services/runner.py
+  s_acd6d49487f262::t_c9a761cff51c5a 1251-1263,1418-1423
+archivebox/tests/test_cli_run.py
+  s_acd6d49487f262::t_57b041d6fa7d4f 664
+etc/package.json
+  s_acd6d49487f262::t_037cc68fd64bf4 3
+archivebox/cli/archivebox_run.py
+  s_acd6d49487f262::t_d910a1f687f7a9 313,319
+  s_acd6d49487f262::t_ca0d09200d99e4 314-318
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "eb0fed9327766eaa882822493f43a9665f67c71b",
+  "prompts": {},
+  "sessions": {
+    "s_acd6d49487f262": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6ee4-f15b-7c42-a566-4ddff41473a8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
