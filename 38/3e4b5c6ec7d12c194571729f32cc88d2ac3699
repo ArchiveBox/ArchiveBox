@@ -1,0 +1,65 @@
+archivebox/machine/admin.py
+  s_25d421ba4ddd4e::t_cc76f6f8faa71f 141
+  s_25d421ba4ddd4e::t_51e3d429f7a5d0 12
+  s_25d421ba4ddd4e::t_79bc1ae8762ef7 142-151
+  s_25d421ba4ddd4e::t_db38b688f8f537 182-211
+  s_25d421ba4ddd4e::t_0ef761704b4698 74
+archivebox/core/views.py
+  s_25d421ba4ddd4e::t_43974a410493a5 1205-1206
+  s_25d421ba4ddd4e::t_db631a4aa63338 1176-1177,1184-1189
+archivebox/crawls/models.py
+  s_25d421ba4ddd4e::t_691038ad74c1ec 410,419
+archivebox/api/v1_personas.py
+  s_25d421ba4ddd4e::t_cd65f3865a09d3 54-61
+archivebox/machine/models.py
+  s_25d421ba4ddd4e::t_782facf6ab2456 221
+  s_25d421ba4ddd4e::t_1f91ac0a9813b7 214-220,222-223
+  s_25d421ba4ddd4e::t_888607b682a94d 265-271,273-275
+  s_25d421ba4ddd4e::t_ed96339906c188 272
+  s_25d421ba4ddd4e::t_312ef5b99e227a 344,350-364
+  s_25d421ba4ddd4e::t_68207f93f80bbf 293,312
+archivebox/cli/archivebox_server.py
+  s_2189eefacd1433::t_e073a0bb2e6e14 301,303-304
+  s_2189eefacd1433::t_f0a2d95417d0b7 327,330
+  s_25d421ba4ddd4e::t_14887ab82d0e0c 338
+  s_25d421ba4ddd4e::t_7b60a8e40d0f70 114,133-158
+archivebox/config/common.py
+  s_25d421ba4ddd4e::t_80db6488b314d0 66,82-103
+  s_25d421ba4ddd4e::t_42f84bff94af60 65,73-78
+  s_25d421ba4ddd4e::t_c7d9e91fc38077 67-72,79-81,104-105
+archivebox/core/forms.py
+  s_25d421ba4ddd4e::t_c1d077e8336377 452-454
+  s_25d421ba4ddd4e::t_313d023cb756b3 376-384
+archivebox/config/collection.py
+  s_25d421ba4ddd4e::t_83e634204f468f 3,5,12-52,54-82,85-107,110-119,121-125,127-152,154-155,166-175,178,187-227,232,245,272-284
+  s_25d421ba4ddd4e::t_ff1e457213cf4b 153,156-165,176-177,179-186
+archivebox/api/v1_crawls.py
+  s_25d421ba4ddd4e::t_99f0803211206e 65-71
+archivebox/base_models/admin.py
+  s_25d421ba4ddd4e::t_7cfe260fc06c1f 725-737,739-746,752
+  s_25d421ba4ddd4e::t_eb982843236c5d 796-826
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "383e4b5c6ec7d12c194571729f32cc88d2ac3699",
+  "prompts": {},
+  "sessions": {
+    "s_2189eefacd1433": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2757b3c5-5301-4ba8-9583-9adc01717085",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_25d421ba4ddd4e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8480efe-86fa-401e-8cd1-d3c740ccc33a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
