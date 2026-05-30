@@ -107,6 +107,7 @@
                             </div>
                         </div>
 
+                        {% if can_select_permissions %}
                         <div class="form-field permissions-field">
                             <div class="field-label-with-icon">
                                 <span class="field-label-icon" aria-hidden="true">🔒</span>
@@ -116,8 +117,9 @@
                             {% if form.permissions.errors %}
                                 <div class="error">{{ form.permissions.errors }}</div>
                             {% endif %}
-                            <div class="help-text">Public lists it. Unlisted only serves direct links. Private requires admin login.</div>
+                            <div class="help-text">Public lists it. Unlisted only serves direct links.{% if can_override_crawl_config %} Private requires admin login.{% endif %}</div>
                         </div>
+                        {% endif %}
                     </div>
 
                     <div class="settings-row">
@@ -139,6 +141,7 @@
                         </div>
                     </div>
 
+                    {% if can_override_crawl_config %}
                     <div class="crawl-limit-grid">
                         <div class="crawl-limit-field">
                             <div class="field-label-with-icon">
@@ -224,6 +227,7 @@
                             <div class="help-text">Whole numbers, e.g. 1, 4, 12.</div>
                         </div>
                     </div>
+                    {% endif %}
 
                     <div class="form-field">
                         {{ form.notes.label_tag }}

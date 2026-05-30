@@ -325,22 +325,187 @@ def test_add_view_public_submission_ignores_plugin_and_custom_config(client, adm
     assert response.status_code == 302, response.context["form"].errors if response.context else response.content.decode()
     crawl = Crawl.objects.order_by("-created_at").first()
     assert crawl is not None
-    assert crawl.config["CRAWL_MAX_URLS"] == 10
-    assert crawl.config["CRAWL_MAX_SIZE"] == 45 * 1024 * 1024
-    assert crawl.config["CRAWL_TIMEOUT"] == 120
-    assert crawl.config["TIMEOUT"] == 90
-    assert crawl.config["SNAPSHOT_MAX_SIZE"] == 5 * 1024 * 1024
-    assert crawl.config["DELETE_AFTER"] == "2h"
-    assert crawl.config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] == 2
+    # Resource limits are crawl config and may only be set by staff. Anonymous/non-staff
+    # submissions inherit them from persona/server defaults instead of writing overrides.
+    assert "CRAWL_MAX_URLS" not in crawl.config
+    assert "CRAWL_MAX_SIZE" not in crawl.config
+    assert "CRAWL_TIMEOUT" not in crawl.config
+    assert "TIMEOUT" not in crawl.config
+    assert "SNAPSHOT_MAX_SIZE" not in crawl.config
+    assert "DELETE_AFTER" not in crawl.config
+    assert "CRAWL_MAX_CONCURRENT_SNAPSHOTS" not in crawl.config
+    # URL allow/deny filters and permissions remain available to public submissions.
     assert crawl.config["URL_ALLOWLIST"] == "example.com"
     assert crawl.config["URL_DENYLIST"] == "cdn.example.com"
+    assert crawl.config["PERMISSIONS"] == "public"
+    assert crawl.max_depth == 0
+    # Plugins, plugin config, and custom KEY=VALUE overrides are all rejected.
     assert "PLUGINS" not in crawl.config
     assert "WGET_TIMEOUT" not in crawl.config
     assert "NODE_BINARY" not in crawl.config
     assert "TWOCAPTCHA_API_KEY" not in crawl.config
     assert "INDEX_ONLY" not in crawl.config
+    # schedule + start_paused are staff-only too, so the crawl queues immediately.
     assert crawl.status == Crawl.StatusChoices.QUEUED
     assert crawl.schedule is None
+
+
+# Help text that is rendered only when the matching field is actually drawn. We key the
+# render assertions off these (not name="..."), because the page's JavaScript references
+# the field names in querySelector() strings even when the inputs themselves are hidden.
+LIMIT_GRID_MARKER = b"Whole numbers, e.g. 1, 4, 12."
+DELETE_AFTER_MARKER = b"0 = keep forever. Durations: 1hr, 30d, 3mo."
+PERMISSIONS_MARKER = b"only serves direct links"
+ADVANCED_MARKER = b"Advanced Crawl Options"
+CUSTOM_CONFIG_MARKER = b"Custom config overrides"
+
+
+def test_add_view_anonymous_hides_limit_and_permission_fields(client, monkeypatch):
+    monkeypatch.setenv("PUBLIC_ADD_VIEW", "true")
+
+    response = client.get(reverse("add"), HTTP_HOST=WEB_HOST)
+
+    assert response.status_code == 200
+    assert response.context["can_override_crawl_config"] is False
+    assert response.context["can_select_permissions"] is False
+    # Limit grid, permissions selector, and the advanced/custom-config section are all hidden.
+    assert LIMIT_GRID_MARKER not in response.content
+    assert DELETE_AFTER_MARKER not in response.content
+    assert PERMISSIONS_MARKER not in response.content
+    assert ADVANCED_MARKER not in response.content
+    assert CUSTOM_CONFIG_MARKER not in response.content
+    # The allowed public fields stay intact.
+    assert b"archive just these URLs" in response.content  # depth radios
+    assert b"Optional description for this crawl" in response.content  # notes
+    assert b'name="persona"' in response.content
+    assert b'name="url_filters_only_new"' in response.content
+
+
+def test_add_view_authenticated_non_staff_shows_permissions_without_private(client, monkeypatch):
+    monkeypatch.setenv("PUBLIC_ADD_VIEW", "true")
+    user = User.objects.create_user(username="plainuser", email="plain@test.com", password="testpassword")
+    client.force_login(user)
+
+    response = client.get(reverse("add"), HTTP_HOST=WEB_HOST)
+    form = response.context["form"]
+
+    assert response.status_code == 200
+    assert response.context["can_override_crawl_config"] is False
+    assert response.context["can_select_permissions"] is True
+    assert [value for value, _label in form.fields["permissions"].choices] == ["public", "unlisted"]
+    # Permissions selector renders, but only with public/unlisted options (no private).
+    assert PERMISSIONS_MARKER in response.content
+    assert b'value="public"' in response.content
+    assert b'value="unlisted"' in response.content
+    assert b'value="private"' not in response.content
+    # Limit grid, advanced section, and plugin config still hidden for non-staff.
+    assert LIMIT_GRID_MARKER not in response.content
+    assert ADVANCED_MARKER not in response.content
+    assert form.plugin_groups == []
+
+
+def test_add_view_anonymous_cannot_choose_unlisted(client, monkeypatch):
+    monkeypatch.setenv("PUBLIC_ADD_VIEW", "true")
+
+    response = client.post(
+        reverse("add"),
+        data={
+            "url": "https://example.com/anon-unlisted",
+            "depth": "0",
+            "persona": "Default",
+            "permissions": "unlisted",
+        },
+        HTTP_HOST=WEB_HOST,
+    )
+
+    assert response.status_code == 302, response.context["form"].errors if response.context else response.content.decode()
+    crawl = Crawl.objects.order_by("-created_at").first()
+    assert crawl is not None
+    # Anonymous users have no say over permissions — always forced to public.
+    assert crawl.config["PERMISSIONS"] == "public"
+
+
+def test_add_view_authenticated_non_staff_can_set_unlisted(client, monkeypatch):
+    monkeypatch.setenv("PUBLIC_ADD_VIEW", "true")
+    user = User.objects.create_user(username="unlisteduser", email="unlisted@test.com", password="testpassword")
+    client.force_login(user)
+
+    response = client.post(
+        reverse("add"),
+        data={
+            "url": "https://example.com/user-unlisted",
+            "depth": "0",
+            "persona": "Default",
+            "permissions": "unlisted",
+        },
+        HTTP_HOST=WEB_HOST,
+    )
+
+    assert response.status_code == 302, response.context["form"].errors if response.context else response.content.decode()
+    crawl = Crawl.objects.order_by("-created_at").first()
+    assert crawl is not None
+    assert crawl.config["PERMISSIONS"] == "unlisted"
+
+
+def test_add_view_non_staff_cannot_set_private(client, monkeypatch):
+    monkeypatch.setenv("PUBLIC_ADD_VIEW", "true")
+    user = User.objects.create_user(username="privuser", email="priv@test.com", password="testpassword")
+    client.force_login(user)
+    crawl_count_before = Crawl.objects.count()
+
+    response = client.post(
+        reverse("add"),
+        data={
+            "url": "https://example.com/user-private",
+            "depth": "0",
+            "persona": "Default",
+            "permissions": "private",
+        },
+        HTTP_HOST=WEB_HOST,
+    )
+
+    # 'private' is not a valid choice for non-staff, so the submission is rejected outright.
+    assert response.status_code == 200
+    assert "permissions" in response.context["form"].errors
+    assert Crawl.objects.count() == crawl_count_before
+
+
+def test_add_view_non_staff_limit_overrides_are_rejected(client, monkeypatch):
+    monkeypatch.setenv("PUBLIC_ADD_VIEW", "true")
+    user = User.objects.create_user(username="limituser", email="limit@test.com", password="testpassword")
+    client.force_login(user)
+
+    response = client.post(
+        reverse("add"),
+        data={
+            "url": "https://example.com/user-limits",
+            "depth": "0",
+            "persona": "Default",
+            "permissions": "public",
+            # Even an authenticated non-staff user cannot write crawl resource limits.
+            "max_urls": "999",
+            "crawl_max_size": "45mb",
+            "timeout": "1.5m",
+            "crawl_max_concurrent_snapshots": "9",
+            "delete_after": "2h",
+            "config": '{"TIMEOUT": 99}',
+            "plugin_config__wget__WGET_TIMEOUT": "77",
+        },
+        HTTP_HOST=WEB_HOST,
+    )
+
+    assert response.status_code == 302, response.context["form"].errors if response.context else response.content.decode()
+    crawl = Crawl.objects.order_by("-created_at").first()
+    assert crawl is not None
+    for key in (
+        "CRAWL_MAX_URLS",
+        "CRAWL_MAX_SIZE",
+        "TIMEOUT",
+        "CRAWL_MAX_CONCURRENT_SNAPSHOTS",
+        "DELETE_AFTER",
+        "WGET_TIMEOUT",
+    ):
+        assert key not in crawl.config, key
 
 
 def test_add_view_queues_crawl_for_background_runner(client, admin_user, monkeypatch):

@@ -1157,6 +1157,7 @@ class AddView(UserPassesTestMixin, FormView):
             "persona_config_map_json": json.dumps(persona_config_map, sort_keys=True, default=str),
             "recent_personas": recent_personas,
             "can_override_crawl_config": can_override_crawl_config,
+            "can_select_permissions": self.request.user.is_authenticated,
             "stdout": "",
         }
 
@@ -1176,6 +1177,11 @@ class AddView(UserPassesTestMixin, FormView):
         crawl_max_concurrent_snapshots = int(form.cleaned_data["crawl_max_concurrent_snapshots"])
         permissions = str(form.cleaned_data.get("permissions") or "public").strip().lower()
         can_override_crawl_config = self._can_override_crawl_config()
+        if not can_override_crawl_config:
+            # Authenticated non-staff users may only choose public/unlisted; anonymous users
+            # are always forced to public. Never honor a non-staff request for private.
+            if not self.request.user.is_authenticated or permissions not in {"public", "unlisted"}:
+                permissions = "public"
         plugins = ",".join(form.cleaned_data.get("plugins", [])) if can_override_crawl_config else ""
         schedule = form.cleaned_data.get("schedule", "").strip() if can_override_crawl_config else ""
         persona = form.cleaned_data.get("persona")
@@ -1219,21 +1225,24 @@ class AddView(UserPassesTestMixin, FormView):
         if plugins:
             config["PLUGINS"] = plugins
         effective_config = get_config(persona=persona, user=self.request.user) if persona else get_config(user=self.request.user)
-        if crawl_max_concurrent_snapshots != int(effective_config.CRAWL_MAX_CONCURRENT_SNAPSHOTS):
-            config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] = crawl_max_concurrent_snapshots
-        if delete_after != str(effective_config.DELETE_AFTER):
-            config["DELETE_AFTER"] = delete_after
+        if can_override_crawl_config:
+            # Resource limits are crawl config and are only honored for staff. Non-staff
+            # users inherit these from the (public) persona / server defaults at hook runtime.
+            if crawl_max_concurrent_snapshots != int(effective_config.CRAWL_MAX_CONCURRENT_SNAPSHOTS):
+                config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] = crawl_max_concurrent_snapshots
+            if delete_after != str(effective_config.DELETE_AFTER):
+                config["DELETE_AFTER"] = delete_after
+            if max_urls:
+                config["CRAWL_MAX_URLS"] = max_urls
+            if crawl_max_size:
+                config["CRAWL_MAX_SIZE"] = crawl_max_size
+            if crawl_timeout:
+                config["CRAWL_TIMEOUT"] = crawl_timeout
+            if timeout is not None and int(timeout) != int(effective_config.TIMEOUT):
+                config["TIMEOUT"] = int(timeout)
+            if snapshot_max_size:
+                config["SNAPSHOT_MAX_SIZE"] = snapshot_max_size
         config["PERMISSIONS"] = permissions
-        if max_urls:
-            config["CRAWL_MAX_URLS"] = max_urls
-        if crawl_max_size:
-            config["CRAWL_MAX_SIZE"] = crawl_max_size
-        if crawl_timeout:
-            config["CRAWL_TIMEOUT"] = crawl_timeout
-        if timeout is not None and int(timeout) != int(effective_config.TIMEOUT):
-            config["TIMEOUT"] = int(timeout)
-        if snapshot_max_size:
-            config["SNAPSHOT_MAX_SIZE"] = snapshot_max_size
 
         # Merge custom config overrides
         config.update(plugin_config)

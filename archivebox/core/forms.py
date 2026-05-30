@@ -15,7 +15,13 @@ from taggit.utils import edit_string_for_tags, parse_tags
 from archivebox.base_models.admin import KeyValueWidget
 from archivebox.crawls.schedule_utils import validate_schedule
 from archivebox.config.common import get_config, parse_delete_after
-from archivebox.core.permissions import PERMISSIONS_CHOICES, PERMISSIONS_PUBLIC, filter_personas_by_permissions, is_admin_user
+from archivebox.core.permissions import (
+    PERMISSIONS_CHOICES,
+    PERMISSIONS_PUBLIC,
+    PERMISSIONS_UNLISTED,
+    filter_personas_by_permissions,
+    is_admin_user,
+)
 from archivebox.core.widgets import TagEditorWidget, URLFiltersWidget
 from archivebox.hooks import get_plugins, discover_plugin_configs, get_plugin_icon
 from archivebox.personas.models import Persona
@@ -715,6 +721,7 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop("request", None)
         self.can_override_crawl_config = bool(self.request and is_admin_user(self.request))
+        self.is_authenticated_user = bool(self.request and self.request.user.is_authenticated)
         super().__init__(*args, **kwargs)
 
         default_persona = Persona.get_or_create_default()
@@ -728,6 +735,16 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         if selected_persona:
             self.fields["persona"].initial = selected_persona.name
         self.fields["permissions"].initial = default_config.PERMISSIONS
+        if not self.can_override_crawl_config:
+            # Non-staff users may only mark their own crawl public/unlisted (never private),
+            # and anonymous users have no say at all (forced public, see clean()).
+            self.fields["permissions"].choices = [
+                (PERMISSIONS_PUBLIC, "Public"),
+                (PERMISSIONS_UNLISTED, "Unlisted"),
+            ]
+            self.fields["permissions"].required = self.is_authenticated_user
+            if str(self.fields["permissions"].initial or "").strip().lower() not in {PERMISSIONS_PUBLIC, PERMISSIONS_UNLISTED}:
+                self.fields["permissions"].initial = PERMISSIONS_PUBLIC
         self.fields["timeout"].initial = default_config.TIMEOUT
         self.fields["crawl_max_concurrent_snapshots"].initial = default_config.CRAWL_MAX_CONCURRENT_SNAPSHOTS
         self.fields["delete_after"].initial = default_config.DELETE_AFTER
@@ -756,9 +773,16 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         cleaned_data = super().clean() or {}
 
         if not self.can_override_crawl_config:
+            # Non-staff users cannot set any crawl config (plugins, plugin_config, custom
+            # KEY=VALUE overrides, or resource limits). Those values are dropped here and
+            # the limit fields are re-derived from persona/server defaults in the view.
             cleaned_data["plugins"] = []
             cleaned_data["plugin_config"] = {}
             cleaned_data["config"] = {}
+            permission = str(cleaned_data.get("permissions") or "").strip().lower()
+            if not self.is_authenticated_user or permission not in {PERMISSIONS_PUBLIC, PERMISSIONS_UNLISTED}:
+                permission = PERMISSIONS_PUBLIC
+            cleaned_data["permissions"] = permission
             return cleaned_data
 
         # Combine all plugin groups into single list
