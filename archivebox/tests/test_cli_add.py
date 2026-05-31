@@ -269,7 +269,7 @@ def test_add_records_selected_persona_on_crawl(tmp_path, process, disable_extrac
         crawl = Crawl.objects.get()
 
     assert crawl.persona_id
-    assert crawl.config.get("DEFAULT_PERSONA") is None
+    assert crawl.config["ACTIVE_PERSONA"] == "Default"
     assert (tmp_path / "personas" / "Default" / "chrome_profile").is_dir()
 
 

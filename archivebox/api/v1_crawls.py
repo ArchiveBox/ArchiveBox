@@ -122,7 +122,8 @@ def create_crawl(request: HttpRequest, data: CrawlCreateSchema):
 
     tags = normalize_tag_list(data.tags, data.tags_str)
     config = dict(data.config or {})
-    config.setdefault("PERMISSIONS", str(get_config(user=request.user).PERMISSIONS))
+    request_user = request.user if request.user.is_authenticated else None
+    config.setdefault("PERMISSIONS", str(get_config(user=request_user).PERMISSIONS))
     crawl = Crawl.objects.create(
         urls="\n".join(urls),
         max_depth=data.max_depth,

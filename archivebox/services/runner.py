@@ -58,7 +58,7 @@ from abxbus import BaseEvent
 from abxbus.event_bus import EventBus, get_current_event, in_handler_context
 from abxbus.event_handler import EventHandlerAbortedError, EventHandlerCancelledError
 
-from archivebox.config.configset import BaseConfigSet
+from archivebox.config.common import ArchiveBoxBaseConfig
 from archivebox.core.recovery_util import recover_orchestrator_state
 from archivebox.misc.db import run_db_analyze_batch
 from archivebox.core.shutdown_util import foreground_shutdown_signals
@@ -122,16 +122,12 @@ def _count_selected_hooks(plugins: dict[str, Plugin], selected_plugins: list[str
     return sum(1 for plugin in selected.values() for hook in plugin.hooks if "CrawlSetup" in hook.name or "Snapshot" in hook.name)
 
 
-def _normalize_runtime_config(config: BaseConfigSet | Mapping[str, Any] | str | None) -> dict[str, Any]:
-    if config is None:
-        return {}
-    if isinstance(config, BaseConfigSet):
-        config = config.model_dump(mode="json")
-    elif isinstance(config, str):
-        config = json.loads(config)
-    else:
-        config = dict(config)
-    return {key: value for key, value in json.loads(json.dumps(config, default=str)).items() if value is not None}
+def _normalize_runtime_config(config: ArchiveBoxBaseConfig | Mapping[str, Any] | str | None) -> dict[str, Any]:
+    from archivebox.config.common import normalize_runtime_config
+
+    if isinstance(config, ArchiveBoxBaseConfig):
+        return config.for_crawl_execution()
+    return normalize_runtime_config(config)
 
 
 def _runner_task_context() -> contextvars.Context:

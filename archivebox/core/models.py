@@ -636,12 +636,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     @classmethod
     def missing_delete_at_candidates(cls):
-        from archivebox.personas.models import Persona
-
-        persona_ids = Persona.objects.filter(config__has_key="DELETE_AFTER").values_list("id", flat=True)
-        return cls.objects.filter(delete_at__isnull=True).filter(
-            Q(config__has_key="DELETE_AFTER") | Q(crawl__config__has_key="DELETE_AFTER") | Q(crawl__persona_id__in=persona_ids),
-        )
+        return cls.objects.filter(delete_at__isnull=True).filter(Q(config__has_key="DELETE_AFTER") | Q(crawl__config__has_key="DELETE_AFTER"))
 
     @classmethod
     def is_archivebox_internal_url(cls, url: str) -> bool:
@@ -3498,14 +3493,10 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, M
 
     @classmethod
     def missing_delete_at_candidates(cls):
-        from archivebox.personas.models import Persona
-
-        persona_ids = Persona.objects.filter(config__has_key="DELETE_AFTER").values_list("id", flat=True)
         return cls.objects.filter(delete_at__isnull=True).filter(
             Q(config__has_key="DELETE_AFTER")
             | Q(snapshot__config__has_key="DELETE_AFTER")
-            | Q(snapshot__crawl__config__has_key="DELETE_AFTER")
-            | Q(snapshot__crawl__persona_id__in=persona_ids),
+            | Q(snapshot__crawl__config__has_key="DELETE_AFTER"),
         )
 
     @property

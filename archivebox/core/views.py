@@ -33,7 +33,7 @@ from admin_data_views.utils import render_with_table_view, render_with_item_view
 from abx_dl.events import PROCESS_EXIT_SKIPPED
 
 from archivebox.config import CONSTANTS, CONSTANTS_CONFIG, VERSION
-from archivebox.config.common import get_config, get_all_configs
+from archivebox.config.common import get_config, get_all_configs, is_sensitive_config_key
 from archivebox.config.configset import BaseConfigSet
 from archivebox.misc.paginators import CountlessPaginator
 from archivebox.misc.util import (
@@ -1177,8 +1177,6 @@ class AddView(UserPassesTestMixin, FormView):
         required_search_plugin = f"search_backend_{request_config.SEARCH_BACKEND_ENGINE}".strip()
         can_override_crawl_config = self._can_override_crawl_config()
         plugin_configs = discover_plugin_configs() if can_override_crawl_config else {}
-        from archivebox.config.common import is_sensitive_config_key
-
         sensitive_keys = {
             str(config_key)
             for schema in plugin_configs.values()
@@ -1304,7 +1302,8 @@ class AddView(UserPassesTestMixin, FormView):
         config = {}
         if plugins:
             config["PLUGINS"] = plugins
-        effective_config = get_config(persona=persona, user=self.request.user) if persona else get_config(user=self.request.user)
+        request_user = self.request.user if self.request.user.is_authenticated else None
+        effective_config = get_config(persona=persona, user=request_user) if persona else get_config(user=request_user)
         if crawl_max_concurrent_snapshots != int(effective_config.CRAWL_MAX_CONCURRENT_SNAPSHOTS):
             config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] = crawl_max_concurrent_snapshots
         if delete_after != str(effective_config.DELETE_AFTER):
@@ -1352,6 +1351,7 @@ class AddView(UserPassesTestMixin, FormView):
                 template=crawl,
                 schedule=schedule,
                 is_enabled=True,
+                config=config,
                 label=crawl.label,
                 notes=f"Auto-created from add page. {notes}".strip(),
                 created_by_id=created_by_id,
@@ -2508,13 +2508,6 @@ def find_config_type(key: str) -> str:
     return "str"
 
 
-def key_is_safe(key: str) -> bool:
-    for term in ("key", "password", "secret", "token"):
-        if term in key.lower():
-            return False
-    return True
-
-
 def find_config_source(key: str, merged_config: dict) -> str:
     """Determine where a config value comes from."""
     from archivebox.machine.models import Machine
@@ -2604,7 +2597,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
             # Use merged config value (includes machine overrides)
             actual_value = merged_config.get(key, getattr(section, key, None))
-            rows["Value"].append(mark_safe(f"<code>{actual_value}</code>") if key_is_safe(key) else "******** (redacted)")
+            rows["Value"].append(mark_safe(f"<code>{actual_value}</code>") if not is_sensitive_config_key(key) else "******** (redacted)")
 
             # Show where the value comes from
             source = find_config_source(key, merged_config)
@@ -2624,7 +2617,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
         rows["Section"].append(section)  # section.replace('_', ' ').title().replace(' Config', '')
         rows["Key"].append(ItemLink(key, key=key))
         rows["Type"].append(format_html("<code>{}</code>", getattr(type(CONSTANTS_CONFIG[key]), "__name__", str(CONSTANTS_CONFIG[key]))))
-        rows["Value"].append(format_html("<code>{}</code>", CONSTANTS_CONFIG[key]) if key_is_safe(key) else "******** (redacted)")
+        rows["Value"].append(format_html("<code>{}</code>", CONSTANTS_CONFIG[key]) if not is_sensitive_config_key(key) else "******** (redacted)")
         rows["Source"].append(mark_safe('<code style="color: gray">Constant</code>'))
         rows["Default"].append(
             mark_safe(
@@ -2655,7 +2648,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
 
     # Environment variable
     if key in os.environ:
-        sources_info.append(("Environment", os.environ[key] if key_is_safe(key) else "********", "blue"))
+        sources_info.append(("Environment", os.environ[key] if not is_sensitive_config_key(key) else "********", "blue"))
 
     # Machine config
     machine = None
@@ -2664,7 +2657,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
         machine = Machine.current()
         machine_admin_url = f"/admin/machine/machine/{machine.id.hex}/change/"
         if machine.config and key in machine.config:
-            sources_info.append(("Machine", machine.config[key] if key_is_safe(key) else "********", "purple"))
+            sources_info.append(("Machine", machine.config[key] if not is_sensitive_config_key(key) else "********", "purple"))
     except Exception:
         pass
 
@@ -2681,7 +2674,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
 
     # Final computed value
     final_value = merged_config.get(key, CONFIGS.get(key, None))
-    if not key_is_safe(key):
+    if is_sensitive_config_key(key):
         final_value = "********"
 
     # Build sources display
@@ -2731,7 +2724,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                 "Value": mark_safe(f'''
                 {
                     '<b style="color: red">Value is redacted for your security. (Passwords, secrets, API tokens, etc. cannot be viewed in the Web UI)</b><br/><br/>'
-                    if not key_is_safe(key)
+                    if is_sensitive_config_key(key)
                     else ""
                 }
                 <br/><hr/><br/>
@@ -2744,7 +2737,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                     <code>archivebox config --set {key}="{
                     val.strip("'")
                     if (val := find_config_default(key))
-                    else (str(final_value if key_is_safe(key) else "********")).strip("'")
+                    else (str(final_value if not is_sensitive_config_key(key) else "********")).strip("'")
                 }"</code>
                 </p>
             '''),
