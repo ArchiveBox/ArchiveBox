@@ -59,6 +59,10 @@ def test_crawl_save_freezes_full_raw_persona_config_and_redacts_public_serializa
     assert crawl.config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] == 3
     assert "CRAWL_DIR" not in crawl.config
     assert "SNAP_DIR" not in crawl.config
+    assert "DEBUG" not in crawl.config
+    assert "SECRET_KEY" not in crawl.config
+    assert "PUBLIC_ADD_VIEW" not in crawl.config
+    assert "DATABASE_NAME" not in crawl.config
 
     persona.config["USER_AGENT"] = "Mutated UA"
     persona.config["TWOCAPTCHA_API_KEY"] = UPDATED_SECRET
@@ -67,6 +71,12 @@ def test_crawl_save_freezes_full_raw_persona_config_and_redacts_public_serializa
     runtime_config = get_config(crawl=crawl)
     assert runtime_config.USER_AGENT == "Frozen UA"
     assert runtime_config.TWOCAPTCHA_API_KEY == SENSITIVE_SECRET
+    execution_config = runtime_config.for_crawl()
+    assert execution_config["DEBUG"] is False
+    assert execution_config["CRAWL_DIR"] == str(crawl.output_dir)
+    assert "SECRET_KEY" not in execution_config
+    assert "PUBLIC_ADD_VIEW" not in execution_config
+    assert "DATABASE_NAME" not in execution_config
 
     public_json = crawl.to_json()
     assert public_json["config"]["TWOCAPTCHA_API_KEY"] == SENSITIVE_CONFIG_VALUE_REDACTED
@@ -115,12 +125,14 @@ def test_api_create_and_cli_add_store_full_frozen_config():
             tags_str="",
             label="API frozen config",
             notes="",
-            config={"TWOCAPTCHA_API_KEY": SENSITIVE_SECRET, "TIMEOUT": 33},
+            config={"TWOCAPTCHA_API_KEY": SENSITIVE_SECRET, "TIMEOUT": 33, "SECRET_KEY": "must-not-freeze", "PUBLIC_ADD_VIEW": True},
         ),
     )
     assert "CHECK_SSL_VALIDITY" in api_crawl.config
     assert api_crawl.config["TIMEOUT"] == 33
     assert api_crawl.config["TWOCAPTCHA_API_KEY"] == SENSITIVE_SECRET
+    assert "SECRET_KEY" not in api_crawl.config
+    assert "PUBLIC_ADD_VIEW" not in api_crawl.config
     assert CrawlSchema.resolve_config(api_crawl)["TWOCAPTCHA_API_KEY"] == SENSITIVE_CONFIG_VALUE_REDACTED
 
     cli_crawl, _snapshots = add(

@@ -125,6 +125,8 @@ def _count_selected_hooks(plugins: dict[str, Plugin], selected_plugins: list[str
 def _normalize_runtime_config(config: BaseConfigSet | Mapping[str, Any] | str | None) -> dict[str, Any]:
     from archivebox.config.common import normalize_runtime_config
 
+    if isinstance(config, BaseConfigSet) and hasattr(config, "for_crawl"):
+        return config.for_crawl()
     return normalize_runtime_config(config)
 
 

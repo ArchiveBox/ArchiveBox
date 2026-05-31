@@ -324,6 +324,7 @@ def run_hook(
 
     config_scope = {key.removeprefix("config_"): kwargs.pop(key) for key in list(kwargs) if key.startswith("config_")}
     resolved_config = get_config(overrides=_config_to_overrides(config), **config_scope)
+    hook_config = resolved_config.for_crawl() if hasattr(resolved_config, "for_crawl") else _config_to_overrides(resolved_config)
 
     # Auto-detect timeout from plugin config if not explicitly provided
     if timeout is None:
@@ -463,7 +464,7 @@ def run_hook(
         "SNAP_DIR",
         "CRAWL_DIR",
     }
-    for key, value in resolved_config.items():
+    for key, value in hook_config.items():
         if key in SKIP_KEYS:
             continue  # Already handled specially above, don't overwrite
         if value is None:

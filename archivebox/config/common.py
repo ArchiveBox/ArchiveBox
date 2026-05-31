@@ -67,6 +67,15 @@ def permissions_from_legacy_public_flags(raw_config: Mapping[str, object]) -> st
 _SENSITIVE_CONFIG_KEY_NEEDLES = ("TOKEN", "SECRET", "API_KEY", "APIKEY", "PASSWORD")
 SENSITIVE_CONFIG_VALUE_REDACTED = "********"
 _RUNTIME_CONFIG_KEYS = {"CRAWL_DIR", "SNAP_DIR"}
+_CRAWL_SCOPE_FROZEN = "frozen"
+_CRAWL_SCOPE_RUNTIME = "runtime"
+_CRAWL_SCOPE_INTERNAL = "internal"
+
+
+def _crawl_scope(extra: dict[str, Any] | None, default: str) -> str:
+    if isinstance(extra, dict):
+        return str(extra.get("crawl_scope") or default)
+    return default
 
 
 def _plugin_sensitive_config_keys() -> set[str]:
@@ -141,9 +150,10 @@ def build_crawl_config_snapshot(
     base_config: ArchiveBoxBaseConfig | Mapping[str, object] | None = None,
 ) -> dict[str, Any]:
     """Build the frozen runtime config stored on Crawl.config at creation time."""
-    effective = get_config(user=user, persona=persona, base_config=base_config)
-    frozen = normalize_runtime_config(effective, exclude_runtime_paths=True)
-    frozen.update(normalize_runtime_config(overrides or {}, exclude_runtime_paths=True))
+    effective = get_config(user=user, persona=persona, base_config=base_config, include_machine=False)
+    frozen = effective.for_crawl_frozen_config()
+    if overrides:
+        frozen = get_config(base_config=frozen, overrides=overrides, include_machine=False).for_crawl_frozen_config()
     return frozen
 
 def rprint(*args, file=None, **kwargs):
@@ -153,6 +163,7 @@ def rprint(*args, file=None, **kwargs):
 
 class ShellConfig(BaseConfigSet):
     toml_section_header: str = "SHELL_CONFIG"
+    crawl_config_scope: ClassVar[str] = _CRAWL_SCOPE_RUNTIME
 
     DEBUG: bool = Field(default="--debug" in sys.argv)
 
@@ -184,6 +195,7 @@ class ShellConfig(BaseConfigSet):
 
 class StorageConfig(BaseConfigSet):
     toml_section_header: str = "STORAGE_CONFIG"
+    crawl_config_scope: ClassVar[str] = _CRAWL_SCOPE_INTERNAL
 
     # ARCHIVE_DIR / USERS_DIR are resolved dynamically via get_config().
     ARCHIVE_DIR: Path = Field(default=CONSTANTS.ARCHIVE_DIR)
@@ -193,34 +205,36 @@ class StorageConfig(BaseConfigSet):
     # TMP_DIR must be a local, fast, readable/writable dir by archivebox user,
     # must be a short path due to unix path length restrictions for socket files (<100 chars)
     # must be a local SSD/tmpfs for speed and because bind mounts/network mounts/FUSE dont support unix sockets
-    TMP_DIR: Path = Field(default=CONSTANTS.DEFAULT_TMP_DIR)
+    TMP_DIR: Path = Field(default=CONSTANTS.DEFAULT_TMP_DIR, json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
 
     # LIB_DIR must be a local, fast, readable/writable dir by archivebox user,
     # must be able to contain executable binaries (up to 5GB size)
     # should not be a remote/network/FUSE mount for speed reasons, otherwise extractors will be slow
-    LIB_DIR: Path = Field(default=CONSTANTS.DEFAULT_LIB_DIR)
+    LIB_DIR: Path = Field(default=CONSTANTS.DEFAULT_LIB_DIR, json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
 
     # LIB_BIN_DIR is an optional human-facing symlink convenience directory.
     # Runtime lookup must use provider-specific paths under LIB_DIR instead.
-    LIB_BIN_DIR: Path = Field(default=CONSTANTS.DEFAULT_LIB_BIN_DIR)
+    LIB_BIN_DIR: Path = Field(default=CONSTANTS.DEFAULT_LIB_BIN_DIR, json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
 
     # CUSTOM_TEMPLATES_DIR allows users to override default templates
     # defaults to DATA_DIR / 'user_templates' but can be configured
     CUSTOM_TEMPLATES_DIR: Path = Field(default=CONSTANTS.CUSTOM_TEMPLATES_DIR)
 
-    OUTPUT_PERMISSIONS: str = Field(default="644")
+    OUTPUT_PERMISSIONS: str = Field(default="644", json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
     ENFORCE_ATOMIC_WRITES: bool = Field(default=True)
     ALLOW_NO_UNIX_SOCKETS: bool = Field(default=False, alias="ARCHIVEBOX_ALLOW_NO_UNIX_SOCKETS")
 
 
 class GeneralConfig(BaseConfigSet):
     toml_section_header: str = "GENERAL_CONFIG"
+    crawl_config_scope: ClassVar[str] = _CRAWL_SCOPE_INTERNAL
 
     TAG_SEPARATOR_PATTERN: str = Field(default=r"[,]")
 
 
 class ServerConfig(BaseConfigSet):
     toml_section_header: str = "SERVER_CONFIG"
+    crawl_config_scope: ClassVar[str] = _CRAWL_SCOPE_INTERNAL
 
     SERVER_SECURITY_MODES: ClassVar[tuple[str, ...]] = (
         "safe-subdomains-fullreplay",
@@ -301,6 +315,7 @@ class ServerConfig(BaseConfigSet):
 
 class DatabaseConfig(BaseConfigSet):
     toml_section_header: str = "DATABASE_CONFIG"
+    crawl_config_scope: ClassVar[str] = _CRAWL_SCOPE_INTERNAL
 
     DATABASE_NAME: str = Field(default=str(CONSTANTS.DATABASE_FILE), alias="ARCHIVEBOX_DATABASE_NAME")
     SQLITE_JOURNAL_MODE: str = Field(
@@ -320,6 +335,7 @@ class DatabaseConfig(BaseConfigSet):
 
 class ArchivingConfig(BaseConfigSet):
     toml_section_header: str = "ARCHIVING_CONFIG"
+    crawl_config_scope: ClassVar[str] = _CRAWL_SCOPE_FROZEN
 
     PLUGINS: str = Field(
         default="",
@@ -440,6 +456,7 @@ def parse_delete_after(value) -> timedelta | None:
 
 class SearchBackendConfig(BaseConfigSet):
     toml_section_header: str = "SEARCH_BACKEND_CONFIG"
+    crawl_config_scope: ClassVar[str] = _CRAWL_SCOPE_INTERNAL
 
     SEARCH_BACKEND_ENGINE: str = Field(default="ripgrep")
 
@@ -516,11 +533,86 @@ class ArchiveBoxBaseConfig(
         populate_by_name=True,
     )
 
-    DATA_DIR: Path = Field(default=CONSTANTS.DATA_DIR)
-    ABX_RUNTIME: str = Field(default="archivebox")
-    CRAWL_DIR: Path | None = Field(default=None)
-    SNAP_DIR: Path | None = Field(default=None)
+    DATA_DIR: Path = Field(default=CONSTANTS.DATA_DIR, json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
+    ABX_RUNTIME: str = Field(default="archivebox", json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
+    CRAWL_DIR: Path | None = Field(default=None, json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
+    SNAP_DIR: Path | None = Field(default=None, json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
     computed_config_keys: ClassVar[tuple[str, ...]] = COMPUTED_CONFIG_KEYS
+
+    @classmethod
+    def _core_config_classes(cls) -> tuple[type[BaseConfigSet], ...]:
+        return (
+            ShellConfig,
+            StorageConfig,
+            GeneralConfig,
+            ServerConfig,
+            DatabaseConfig,
+            ArchivingConfig,
+            SearchBackendConfig,
+            LDAPConfig,
+        )
+
+    @classmethod
+    def _core_field_crawl_scope(cls, key: str) -> str | None:
+        if key == "toml_section_header":
+            return _CRAWL_SCOPE_INTERNAL
+        for config_cls in cls._core_config_classes():
+            field = config_cls.model_fields.get(key)
+            if field is None:
+                continue
+            default_scope = getattr(config_cls, "crawl_config_scope", _CRAWL_SCOPE_INTERNAL)
+            return _crawl_scope(field.json_schema_extra, default_scope)
+        if key in ArchiveBoxBaseConfig.model_fields:
+            field = ArchiveBoxBaseConfig.model_fields[key]
+            return _crawl_scope(field.json_schema_extra, _CRAWL_SCOPE_INTERNAL)
+        return None
+
+    @classmethod
+    def _plugin_field_crawl_scope(cls, key: str) -> str | None:
+        for plugin_name, schema in PLUGIN_CONFIG_SCHEMAS.items():
+            properties = schema.get("properties") if isinstance(schema, dict) else None
+            if not isinstance(properties, dict) or key not in properties:
+                continue
+            prop_schema = properties.get(key) or {}
+            if isinstance(prop_schema, Mapping) and prop_schema.get("x-crawl-scope"):
+                return str(prop_schema["x-crawl-scope"])
+            if str(plugin_name).startswith("search_backend_"):
+                return _CRAWL_SCOPE_INTERNAL
+            upper = key.upper()
+            if (
+                upper == "PATH"
+                or upper.endswith("_PATH")
+                or upper.endswith("_DIR")
+                or upper.endswith("_BINARY")
+                or upper.endswith("_CACHE")
+                or upper.endswith("_COVERAGE")
+                or upper.endswith("_PYTHON")
+            ):
+                return _CRAWL_SCOPE_RUNTIME
+            return _CRAWL_SCOPE_FROZEN
+        return None
+
+    @classmethod
+    def crawl_config_scope_for_key(cls, key: str) -> str:
+        return cls._core_field_crawl_scope(key) or cls._plugin_field_crawl_scope(key) or _CRAWL_SCOPE_INTERNAL
+
+    def _crawl_scoped_config(self, *, include_runtime: bool) -> dict[str, Any]:
+        allowed_scopes = {_CRAWL_SCOPE_FROZEN}
+        if include_runtime:
+            allowed_scopes.add(_CRAWL_SCOPE_RUNTIME)
+        return {
+            key: value
+            for key, value in normalize_runtime_config(self).items()
+            if type(self).crawl_config_scope_for_key(key) in allowed_scopes
+        }
+
+    def for_crawl(self) -> dict[str, Any]:
+        """Config safe to pass to crawl/snapshot hook execution."""
+        return self._crawl_scoped_config(include_runtime=True)
+
+    def for_crawl_frozen_config(self) -> dict[str, Any]:
+        """Config safe to persist permanently on Crawl.config."""
+        return self._crawl_scoped_config(include_runtime=False)
 
     @model_validator(mode="after")
     def resolve_runtime_paths(self):
@@ -627,13 +719,15 @@ def get_config(
         persona = crawl.resolve_persona()
 
     config_data: ConfigPayload = dict(defaults or {})
+    base_config_payload: ConfigPayload = {}
     if crawl_config_base:
         config_data.update(dict(getattr(crawl, "config", None) or {}))
     elif base_config is not None:
         if isinstance(base_config, ArchiveBoxBaseConfig):
-            config_data.update(base_config.model_dump(mode="json"))
+            base_config_payload.update(base_config.model_dump(mode="json"))
         else:
-            config_data.update(dict(base_config))
+            base_config_payload.update(dict(base_config))
+        config_data.update(base_config_payload)
     else:
         config_data.update(ArchiveBoxConfig().model_dump(mode="json"))
         legacy_permissions = permissions_from_legacy_public_flags({**BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE), **os.environ})
@@ -696,6 +790,8 @@ def get_config(
         )
         for plugin_config in plugin_sections.values():
             config_data.update(plugin_config)
+        if base_config_payload:
+            config_data.update({key: value for key, value in base_config_payload.items() if key in _archivebox_config_input_names()})
         if crawl_config_base:
             config_data.update(dict(getattr(crawl, "config", None) or {}))
         config_data.update(archivebox_scope_overrides)
