@@ -123,15 +123,9 @@ def _count_selected_hooks(plugins: dict[str, Plugin], selected_plugins: list[str
 
 
 def _normalize_runtime_config(config: BaseConfigSet | Mapping[str, Any] | str | None) -> dict[str, Any]:
-    if config is None:
-        return {}
-    if isinstance(config, BaseConfigSet):
-        config = config.model_dump(mode="json")
-    elif isinstance(config, str):
-        config = json.loads(config)
-    else:
-        config = dict(config)
-    return {key: value for key, value in json.loads(json.dumps(config, default=str)).items() if value is not None}
+    from archivebox.config.common import normalize_runtime_config
+
+    return normalize_runtime_config(config)
 
 
 def _runner_task_context() -> contextvars.Context:

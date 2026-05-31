@@ -453,9 +453,9 @@ class PluginConfigFormMixin:
                 if "array" in _schema_types(prop_schema) and isinstance(prop_schema.get("enum"), list):
                     raw_value = self.data.getlist(input_name)
 
-                from archivebox.config.common import is_sensitive_config_key
+                from archivebox.config.common import SENSITIVE_CONFIG_VALUE_REDACTED, is_sensitive_config_key
 
-                if (prop_schema.get("x-sensitive") or is_sensitive_config_key(config_key)) and raw_value == "":
+                if (prop_schema.get("x-sensitive") or is_sensitive_config_key(config_key)) and raw_value in ("", SENSITIVE_CONFIG_VALUE_REDACTED):
                     continue
 
                 try:

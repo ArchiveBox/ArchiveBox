@@ -184,7 +184,7 @@ def test_add_view_creates_crawl_with_tag_and_url_filter_overrides(client, admin_
     assert crawl.config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] == 5
     assert crawl.config["URL_ALLOWLIST"] == "example.com\n*.example.com"
     assert crawl.config["URL_DENYLIST"] == "cdn.example.com"
-    assert "ONLY_NEW" not in crawl.config
+    assert crawl.config["ONLY_NEW"] is True
 
 
 def test_add_view_unchecked_only_new_sets_crawl_override(client, admin_user, monkeypatch):
@@ -253,7 +253,7 @@ def test_add_view_selected_persona_wins_over_stale_config_override(client, admin
     crawl = Crawl.objects.order_by("-created_at").first()
     assert crawl is not None
     assert crawl.persona_id == private_persona.id
-    assert "DEFAULT_PERSONA" not in crawl.config
+    assert crawl.config["ACTIVE_PERSONA"] == "Private"
     assert crawl.resolve_persona() == private_persona
     runtime_config = get_config(crawl=crawl)
     assert runtime_config.ACTIVE_PERSONA == "Private"
@@ -342,11 +342,11 @@ def test_add_view_public_submission_ignores_plugin_and_custom_config(client, adm
     assert crawl.config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] == 2
     assert crawl.config["URL_ALLOWLIST"] == "example.com"
     assert crawl.config["URL_DENYLIST"] == "cdn.example.com"
-    assert "PLUGINS" not in crawl.config
-    assert "WGET_TIMEOUT" not in crawl.config
-    assert "NODE_BINARY" not in crawl.config
-    assert "TWOCAPTCHA_API_KEY" not in crawl.config
-    assert "INDEX_ONLY" not in crawl.config
+    assert crawl.config.get("PLUGINS", "") == ""
+    assert crawl.config.get("WGET_TIMEOUT") != 77
+    assert crawl.config.get("NODE_BINARY") != "/tmp/node"
+    assert crawl.config.get("TWOCAPTCHA_API_KEY") != "posted-token"
+    assert crawl.config.get("INDEX_ONLY") is not True
     assert crawl.status == Crawl.StatusChoices.QUEUED
     assert crawl.schedule is None
 
@@ -417,7 +417,7 @@ def test_add_view_start_paused_creates_paused_crawl_without_snapshots(client, ad
     assert crawl.status == Crawl.StatusChoices.PAUSED
     assert crawl.retry_at == RETRY_AT_MAX
     assert crawl.snapshot_set.count() == 0
-    assert "INDEX_ONLY" not in crawl.config
+    assert crawl.config.get("INDEX_ONLY") is not True
 
 
 def test_add_view_extracts_urls_from_mixed_text_input(client, admin_user, monkeypatch):

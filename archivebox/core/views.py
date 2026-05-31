@@ -2509,10 +2509,9 @@ def find_config_type(key: str) -> str:
 
 
 def key_is_safe(key: str) -> bool:
-    for term in ("key", "password", "secret", "token"):
-        if term in key.lower():
-            return False
-    return True
+    from archivebox.config.common import is_sensitive_config_key
+
+    return not is_sensitive_config_key(key)
 
 
 def find_config_source(key: str, merged_config: dict) -> str:
