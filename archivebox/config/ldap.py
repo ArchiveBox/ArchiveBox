@@ -1,8 +1,6 @@
 __package__ = "archivebox.config"
 
-from typing import ClassVar
-
-from pydantic import Field
+from pydantic import Field, PrivateAttr
 
 from archivebox.config.configset import BaseConfigSet
 
@@ -16,7 +14,7 @@ class LDAPConfig(BaseConfigSet):
     """
 
     toml_section_header: str = "LDAP_CONFIG"
-    crawl_config_scope: ClassVar[str] = "internal"
+    _scope: str = PrivateAttr(default="system")
 
     LDAP_ENABLED: bool = Field(default=False)
     LDAP_SERVER_URI: str | None = Field(default=None)

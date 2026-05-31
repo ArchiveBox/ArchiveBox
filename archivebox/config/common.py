@@ -15,7 +15,7 @@ from typing import Any, ClassVar, cast
 from pathlib import Path
 
 from rich.console import Console
-from pydantic import BaseModel, Field, create_model, field_validator, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, create_model, field_validator, model_validator
 from pydantic_settings import SettingsConfigDict
 from abx_plugins.plugins.base.utils import BASE_CONFIG_PATH, build_config_model, resolve_plugin_configs
 
@@ -66,16 +66,21 @@ def permissions_from_legacy_public_flags(raw_config: Mapping[str, object]) -> st
 
 _SENSITIVE_CONFIG_KEY_NEEDLES = ("TOKEN", "SECRET", "API_KEY", "APIKEY", "PASSWORD")
 SENSITIVE_CONFIG_VALUE_REDACTED = "********"
-_RUNTIME_CONFIG_KEYS = {"CRAWL_DIR", "SNAP_DIR"}
-_CRAWL_SCOPE_FROZEN = "frozen"
-_CRAWL_SCOPE_RUNTIME = "runtime"
-_CRAWL_SCOPE_INTERNAL = "internal"
+_SCOPE_CRAWL = "crawl"
+_SCOPE_RUNTIME = "runtime"
+_SCOPE_SYSTEM = "system"
 
 
-def _crawl_scope(extra: dict[str, Any] | None, default: str) -> str:
+def _scope(extra: dict[str, Any] | None, default: str) -> str:
     if isinstance(extra, dict):
-        return str(extra.get("crawl_scope") or default)
+        return str(extra.get("scope") or default)
     return default
+
+
+def _config_class_scope(config_cls: type[BaseConfigSet]) -> str:
+    private_attrs = getattr(config_cls, "__private_attributes__", {}) or {}
+    private_attr = private_attrs.get("_scope")
+    return str(getattr(private_attr, "default", None) or _SCOPE_SYSTEM)
 
 
 def _plugin_sensitive_config_keys() -> set[str]:
@@ -125,7 +130,7 @@ def redact_sensitive_config(config: Mapping[str, Any] | None) -> dict[str, Any]:
 
 
 
-def normalize_runtime_config(config: BaseConfigSet | Mapping[str, Any] | str | None, *, exclude_runtime_paths: bool = False) -> dict[str, Any]:
+def normalize_runtime_config(config: BaseConfigSet | Mapping[str, Any] | str | None) -> dict[str, Any]:
     """Return a JSON-safe config dict suitable for storage or event payloads."""
     if config is None:
         return {}
@@ -135,11 +140,7 @@ def normalize_runtime_config(config: BaseConfigSet | Mapping[str, Any] | str | N
         config = json.loads(config)
     else:
         config = dict(config)
-    normalized = {key: value for key, value in json.loads(json.dumps(config, default=str)).items() if value is not None}
-    if exclude_runtime_paths:
-        for key in _RUNTIME_CONFIG_KEYS:
-            normalized.pop(key, None)
-    return normalized
+    return {key: value for key, value in json.loads(json.dumps(config, default=str)).items() if value is not None}
 
 
 def build_crawl_config_snapshot(
@@ -163,7 +164,7 @@ def rprint(*args, file=None, **kwargs):
 
 class ShellConfig(BaseConfigSet):
     toml_section_header: str = "SHELL_CONFIG"
-    crawl_config_scope: ClassVar[str] = _CRAWL_SCOPE_RUNTIME
+    _scope: str = PrivateAttr(default=_SCOPE_RUNTIME)
 
     DEBUG: bool = Field(default="--debug" in sys.argv)
 
@@ -195,7 +196,7 @@ class ShellConfig(BaseConfigSet):
 
 class StorageConfig(BaseConfigSet):
     toml_section_header: str = "STORAGE_CONFIG"
-    crawl_config_scope: ClassVar[str] = _CRAWL_SCOPE_INTERNAL
+    _scope: str = PrivateAttr(default=_SCOPE_SYSTEM)
 
     # ARCHIVE_DIR / USERS_DIR are resolved dynamically via get_config().
     ARCHIVE_DIR: Path = Field(default=CONSTANTS.ARCHIVE_DIR)
@@ -205,36 +206,36 @@ class StorageConfig(BaseConfigSet):
     # TMP_DIR must be a local, fast, readable/writable dir by archivebox user,
     # must be a short path due to unix path length restrictions for socket files (<100 chars)
     # must be a local SSD/tmpfs for speed and because bind mounts/network mounts/FUSE dont support unix sockets
-    TMP_DIR: Path = Field(default=CONSTANTS.DEFAULT_TMP_DIR, json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
+    TMP_DIR: Path = Field(default=CONSTANTS.DEFAULT_TMP_DIR, json_schema_extra={"scope": _SCOPE_RUNTIME})
 
     # LIB_DIR must be a local, fast, readable/writable dir by archivebox user,
     # must be able to contain executable binaries (up to 5GB size)
     # should not be a remote/network/FUSE mount for speed reasons, otherwise extractors will be slow
-    LIB_DIR: Path = Field(default=CONSTANTS.DEFAULT_LIB_DIR, json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
+    LIB_DIR: Path = Field(default=CONSTANTS.DEFAULT_LIB_DIR, json_schema_extra={"scope": _SCOPE_RUNTIME})
 
     # LIB_BIN_DIR is an optional human-facing symlink convenience directory.
     # Runtime lookup must use provider-specific paths under LIB_DIR instead.
-    LIB_BIN_DIR: Path = Field(default=CONSTANTS.DEFAULT_LIB_BIN_DIR, json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
+    LIB_BIN_DIR: Path = Field(default=CONSTANTS.DEFAULT_LIB_BIN_DIR, json_schema_extra={"scope": _SCOPE_RUNTIME})
 
     # CUSTOM_TEMPLATES_DIR allows users to override default templates
     # defaults to DATA_DIR / 'user_templates' but can be configured
     CUSTOM_TEMPLATES_DIR: Path = Field(default=CONSTANTS.CUSTOM_TEMPLATES_DIR)
 
-    OUTPUT_PERMISSIONS: str = Field(default="644", json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
+    OUTPUT_PERMISSIONS: str = Field(default="644", json_schema_extra={"scope": _SCOPE_RUNTIME})
     ENFORCE_ATOMIC_WRITES: bool = Field(default=True)
     ALLOW_NO_UNIX_SOCKETS: bool = Field(default=False, alias="ARCHIVEBOX_ALLOW_NO_UNIX_SOCKETS")
 
 
 class GeneralConfig(BaseConfigSet):
     toml_section_header: str = "GENERAL_CONFIG"
-    crawl_config_scope: ClassVar[str] = _CRAWL_SCOPE_INTERNAL
+    _scope: str = PrivateAttr(default=_SCOPE_SYSTEM)
 
     TAG_SEPARATOR_PATTERN: str = Field(default=r"[,]")
 
 
 class ServerConfig(BaseConfigSet):
     toml_section_header: str = "SERVER_CONFIG"
-    crawl_config_scope: ClassVar[str] = _CRAWL_SCOPE_INTERNAL
+    _scope: str = PrivateAttr(default=_SCOPE_SYSTEM)
 
     SERVER_SECURITY_MODES: ClassVar[tuple[str, ...]] = (
         "safe-subdomains-fullreplay",
@@ -315,7 +316,7 @@ class ServerConfig(BaseConfigSet):
 
 class DatabaseConfig(BaseConfigSet):
     toml_section_header: str = "DATABASE_CONFIG"
-    crawl_config_scope: ClassVar[str] = _CRAWL_SCOPE_INTERNAL
+    _scope: str = PrivateAttr(default=_SCOPE_SYSTEM)
 
     DATABASE_NAME: str = Field(default=str(CONSTANTS.DATABASE_FILE), alias="ARCHIVEBOX_DATABASE_NAME")
     SQLITE_JOURNAL_MODE: str = Field(
@@ -335,7 +336,7 @@ class DatabaseConfig(BaseConfigSet):
 
 class ArchivingConfig(BaseConfigSet):
     toml_section_header: str = "ARCHIVING_CONFIG"
-    crawl_config_scope: ClassVar[str] = _CRAWL_SCOPE_FROZEN
+    _scope: str = PrivateAttr(default=_SCOPE_CRAWL)
 
     PLUGINS: str = Field(
         default="",
@@ -456,7 +457,7 @@ def parse_delete_after(value) -> timedelta | None:
 
 class SearchBackendConfig(BaseConfigSet):
     toml_section_header: str = "SEARCH_BACKEND_CONFIG"
-    crawl_config_scope: ClassVar[str] = _CRAWL_SCOPE_INTERNAL
+    _scope: str = PrivateAttr(default=_SCOPE_SYSTEM)
 
     SEARCH_BACKEND_ENGINE: str = Field(default="ripgrep")
 
@@ -533,10 +534,10 @@ class ArchiveBoxBaseConfig(
         populate_by_name=True,
     )
 
-    DATA_DIR: Path = Field(default=CONSTANTS.DATA_DIR, json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
-    ABX_RUNTIME: str = Field(default="archivebox", json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
-    CRAWL_DIR: Path | None = Field(default=None, json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
-    SNAP_DIR: Path | None = Field(default=None, json_schema_extra={"crawl_scope": _CRAWL_SCOPE_RUNTIME})
+    DATA_DIR: Path = Field(default=CONSTANTS.DATA_DIR, json_schema_extra={"scope": _SCOPE_RUNTIME})
+    ABX_RUNTIME: str = Field(default="archivebox", json_schema_extra={"scope": _SCOPE_RUNTIME})
+    CRAWL_DIR: Path | None = Field(default=None, json_schema_extra={"scope": _SCOPE_RUNTIME})
+    SNAP_DIR: Path | None = Field(default=None, json_schema_extra={"scope": _SCOPE_RUNTIME})
     computed_config_keys: ClassVar[tuple[str, ...]] = COMPUTED_CONFIG_KEYS
 
     @classmethod
@@ -553,31 +554,31 @@ class ArchiveBoxBaseConfig(
         )
 
     @classmethod
-    def _core_field_crawl_scope(cls, key: str) -> str | None:
+    def _core_field_scope(cls, key: str) -> str | None:
         if key == "toml_section_header":
-            return _CRAWL_SCOPE_INTERNAL
+            return _SCOPE_SYSTEM
         for config_cls in cls._core_config_classes():
             field = config_cls.model_fields.get(key)
             if field is None:
                 continue
-            default_scope = getattr(config_cls, "crawl_config_scope", _CRAWL_SCOPE_INTERNAL)
-            return _crawl_scope(field.json_schema_extra, default_scope)
+            default_scope = _config_class_scope(config_cls)
+            return _scope(field.json_schema_extra, default_scope)
         if key in ArchiveBoxBaseConfig.model_fields:
             field = ArchiveBoxBaseConfig.model_fields[key]
-            return _crawl_scope(field.json_schema_extra, _CRAWL_SCOPE_INTERNAL)
+            return _scope(field.json_schema_extra, _SCOPE_SYSTEM)
         return None
 
     @classmethod
-    def _plugin_field_crawl_scope(cls, key: str) -> str | None:
+    def _plugin_field_scope(cls, key: str) -> str | None:
         for plugin_name, schema in PLUGIN_CONFIG_SCHEMAS.items():
             properties = schema.get("properties") if isinstance(schema, dict) else None
             if not isinstance(properties, dict) or key not in properties:
                 continue
             prop_schema = properties.get(key) or {}
-            if isinstance(prop_schema, Mapping) and prop_schema.get("x-crawl-scope"):
-                return str(prop_schema["x-crawl-scope"])
+            if isinstance(prop_schema, Mapping) and prop_schema.get("x-scope"):
+                return str(prop_schema["x-scope"])
             if str(plugin_name).startswith("search_backend_"):
-                return _CRAWL_SCOPE_INTERNAL
+                return _SCOPE_SYSTEM
             upper = key.upper()
             if (
                 upper == "PATH"
@@ -588,31 +589,31 @@ class ArchiveBoxBaseConfig(
                 or upper.endswith("_COVERAGE")
                 or upper.endswith("_PYTHON")
             ):
-                return _CRAWL_SCOPE_RUNTIME
-            return _CRAWL_SCOPE_FROZEN
+                return _SCOPE_RUNTIME
+            return _SCOPE_CRAWL
         return None
 
     @classmethod
-    def crawl_config_scope_for_key(cls, key: str) -> str:
-        return cls._core_field_crawl_scope(key) or cls._plugin_field_crawl_scope(key) or _CRAWL_SCOPE_INTERNAL
+    def scope_for_key(cls, key: str) -> str:
+        return cls._core_field_scope(key) or cls._plugin_field_scope(key) or _SCOPE_SYSTEM
 
-    def _crawl_scoped_config(self, *, include_runtime: bool) -> dict[str, Any]:
-        allowed_scopes = {_CRAWL_SCOPE_FROZEN}
+    def _scoped_config(self, *, include_runtime: bool) -> dict[str, Any]:
+        allowed_scopes = {_SCOPE_CRAWL}
         if include_runtime:
-            allowed_scopes.add(_CRAWL_SCOPE_RUNTIME)
+            allowed_scopes.add(_SCOPE_RUNTIME)
         return {
             key: value
             for key, value in normalize_runtime_config(self).items()
-            if type(self).crawl_config_scope_for_key(key) in allowed_scopes
+            if type(self).scope_for_key(key) in allowed_scopes
         }
 
     def for_crawl(self) -> dict[str, Any]:
         """Config safe to pass to crawl/snapshot hook execution."""
-        return self._crawl_scoped_config(include_runtime=True)
+        return self._scoped_config(include_runtime=True)
 
     def for_crawl_frozen_config(self) -> dict[str, Any]:
         """Config safe to persist permanently on Crawl.config."""
-        return self._crawl_scoped_config(include_runtime=False)
+        return self._scoped_config(include_runtime=False)
 
     @model_validator(mode="after")
     def resolve_runtime_paths(self):

@@ -9,6 +9,14 @@ SENSITIVE_SECRET = "raw-twocaptcha-secret-for-frozen-crawl-test"
 UPDATED_SECRET = "updated-secret-that-must-not-affect-old-crawl"
 
 
+@pytest.fixture
+def archivebox_db(initialized_archive):
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    with use_archivebox_db(initialized_archive):
+        yield initialized_archive
+
+
 def _user(username="frozen-config-admin"):
     from django.contrib.auth import get_user_model
 
@@ -36,7 +44,7 @@ def _persona(user, *, name="Frozen Persona", secret=SENSITIVE_SECRET, user_agent
     return persona
 
 
-def test_crawl_save_freezes_full_raw_persona_config_and_redacts_public_serialization():
+def test_crawl_save_freezes_full_raw_persona_config_and_redacts_public_serialization(archivebox_db):
     from archivebox.config.common import SENSITIVE_CONFIG_VALUE_REDACTED, get_config
     from archivebox.crawls.models import Crawl
 
@@ -83,7 +91,7 @@ def test_crawl_save_freezes_full_raw_persona_config_and_redacts_public_serializa
     assert SENSITIVE_SECRET not in str(public_json)
 
 
-def test_snapshot_config_overlays_frozen_crawl_without_re_reading_persona():
+def test_snapshot_config_overlays_frozen_crawl_without_re_reading_persona(archivebox_db):
     from archivebox.config.common import get_config
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
@@ -107,7 +115,17 @@ def test_snapshot_config_overlays_frozen_crawl_without_re_reading_persona():
     assert snapshot.config == {"TIMEOUT": 22, "ANTHROPIC_API_KEY": "snapshot-secret"}
 
 
-def test_api_create_and_cli_add_store_full_frozen_config():
+def test_config_scopes_are_derived_from_section_and_field_metadata():
+    from archivebox.config.common import ArchiveBoxConfig
+
+    assert ArchiveBoxConfig.scope_for_key("TIMEOUT") == "crawl"
+    assert ArchiveBoxConfig.scope_for_key("DEBUG") == "runtime"
+    assert ArchiveBoxConfig.scope_for_key("CRAWL_DIR") == "runtime"
+    assert ArchiveBoxConfig.scope_for_key("SECRET_KEY") == "system"
+    assert ArchiveBoxConfig.scope_for_key("DATABASE_NAME") == "system"
+
+
+def test_api_create_and_cli_add_store_full_frozen_config(archivebox_db):
     from archivebox.api.v1_crawls import CrawlCreateSchema, CrawlSchema, create_crawl
     from archivebox.cli.archivebox_add import add
     from archivebox.config.common import SENSITIVE_CONFIG_VALUE_REDACTED
@@ -146,7 +164,7 @@ def test_api_create_and_cli_add_store_full_frozen_config():
     assert cli_crawl.config["TWOCAPTCHA_API_KEY"] == SENSITIVE_SECRET
 
 
-def test_schedule_enqueue_refreezes_using_current_template_persona_defaults():
+def test_schedule_enqueue_refreezes_using_current_template_persona_defaults(archivebox_db):
     from archivebox.crawls.models import Crawl, CrawlSchedule
 
     user = _user("frozen-config-schedule-admin")
@@ -155,7 +173,7 @@ def test_schedule_enqueue_refreezes_using_current_template_persona_defaults():
         urls="https://example.com/scheduled",
         persona=persona,
         created_by=user,
-        config={"TIMEOUT": 55},
+        config={"TIMEOUT": 55, "SECRET_KEY": "template-secret-must-not-freeze", "PUBLIC_ADD_VIEW": True},
         status=Crawl.StatusChoices.PAUSED,
     )
     schedule = CrawlSchedule.objects.create(template=template, schedule="daily", created_by=user)
@@ -168,5 +186,7 @@ def test_schedule_enqueue_refreezes_using_current_template_persona_defaults():
     assert child.config["TIMEOUT"] == 55
     assert child.config["USER_AGENT"] == "Current schedule UA"
     assert child.config["TWOCAPTCHA_API_KEY"] == UPDATED_SECRET
+    assert "SECRET_KEY" not in child.config
+    assert "PUBLIC_ADD_VIEW" not in child.config
     assert template.config["USER_AGENT"] == "Initial schedule UA"
     assert template.config["TWOCAPTCHA_API_KEY"] == SENSITIVE_SECRET

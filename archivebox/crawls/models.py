@@ -110,31 +110,17 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
         persona = template.persona if template.persona_id else None
         user = template.created_by if template.created_by_id else None
 
-        schedule_overrides = {
-            key: value
-            for key, value in dict(template.config or {}).items()
-            if key
-            in {
-                "PERMISSIONS",
-                "PLUGINS",
-                "INDEX_ONLY",
-                "ONLY_NEW",
-                "TIMEOUT",
-                "CRAWL_MAX_URLS",
-                "CRAWL_MAX_SIZE",
-                "CRAWL_TIMEOUT",
-                "CRAWL_MAX_CONCURRENT_SNAPSHOTS",
-                "SNAPSHOT_MAX_SIZE",
-                "PARSER",
-                "URL_ALLOWLIST",
-                "URL_DENYLIST",
-                "DELETE_AFTER",
-            }
-        }
+        template_config = dict(template.config or {})
+        inherited_keys = set()
+        if persona is not None:
+            inherited_keys.update(persona.get_derived_config())
+        if user is not None and getattr(user, "config", None):
+            inherited_keys.update(user.config)
+        template_overrides = {key: value for key, value in template_config.items() if key not in inherited_keys}
 
         return Crawl.objects.create(
             urls=template.urls,
-            config=build_crawl_config_snapshot(user=user, persona=persona, overrides=schedule_overrides),
+            config=build_crawl_config_snapshot(user=user, persona=persona, overrides=template_overrides),
             max_depth=template.max_depth,
             tags_str=template.tags_str,
             persona_id=template.persona_id,
