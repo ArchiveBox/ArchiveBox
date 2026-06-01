@@ -73,6 +73,8 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
     config.ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
     config.USERS_DIR.mkdir(parents=True, exist_ok=True)
     Path(CONSTANTS.LOGS_DIR).mkdir(exist_ok=True)
+    for path in (Path(CONSTANTS.SOURCES_DIR), config.ARCHIVE_DIR, config.USERS_DIR, Path(CONSTANTS.LOGS_DIR)):
+        path.chmod(int(config.OUTPUT_PERMISSIONS, base=8) | 0o111)
 
     print(f"    + {_display_data_path(CONSTANTS.CONFIG_FILE, DATA_DIR)}...")
 

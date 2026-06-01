@@ -185,7 +185,7 @@ def add(
         label=f"{USER}@{HOSTNAME} $ {cmd_str} [{timestamp}]",
         created_by_id=created_by_id,
         status=Crawl.StatusChoices.QUEUED,
-        retry_at=None if index_only else timezone.now(),
+        retry_at=None if (index_only or bg) else timezone.now(),
         config=crawl_config,
     )
 
@@ -198,15 +198,8 @@ def add(
     #    Discovered URLs become child Snapshots (depth+1)
 
     if index_only:
-        # ``--index-only`` means "add the URLs to the index without archiving
-        # them now". That only holds if we actually materialize the Snapshot
-        # rows here — otherwise the CLI returns success with nothing in the
-        # index, which broke ``test_add_url_after_init`` & friends. Create
-        # the Snapshots synchronously (the same step the runner would do)
-        # but skip starting any worker so extractors don't run.
-        crawl.create_snapshots_from_urls()
-        print("[yellow]\\[*] Index-only mode - URLs indexed, runner not started[/yellow]")
-        return crawl, crawl.snapshot_set.all()
+        print("[yellow]\\[*] Index-only mode - URLs queued, runner not started[/yellow]")
+        return crawl, crawl.snapshot_set.none()
 
     # 5. Start the crawl runner to process the queue
     #    The runner will:
@@ -330,6 +323,8 @@ def add(
     "Pass --no-only-new to force re-archive of URLs that already exist.",
 )
 @click.option("--index-only", is_flag=True, help="Just add the URLs to the index without archiving them now")
+@click.option("--overwrite", is_flag=True, help="Re-archive URLs even if they already exist (alias for --no-only-new)")
+@click.option("--update", is_flag=True, help="Re-archive URLs even if they already exist (alias for --no-only-new)")
 @click.option("--bg", is_flag=True, help="Run archiving in background (queue work and return immediately)")
 @click.argument("urls", nargs=-1, type=click.Path())
 @docstring(add.__doc__)
@@ -360,7 +355,11 @@ def main(**kwargs):
 
         # Translate --only-new/--no-only-new into a crawl config override.
         # add() takes config overrides as a dict; no per-flag kwargs.
+        overwrite = kwargs.pop("overwrite", False)
+        update = kwargs.pop("update", False)
         only_new = kwargs.pop("only_new", None)
+        if overwrite or update:
+            only_new = False
         if only_new is not None:
             kwargs["config"] = {"ONLY_NEW": bool(only_new)}
 

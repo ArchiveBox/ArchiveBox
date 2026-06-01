@@ -199,6 +199,7 @@ def test_crawl_create_stdout_pipes_into_run(initialized_archive):
     create_stdout, create_stderr, create_code = run_archivebox_cmd(
         ["crawl", "create", url],
         data_dir=initialized_archive,
+        env=PIPE_TEST_ENV,
     )
     assert create_code == 0, create_stderr
     _assert_stdout_is_jsonl_only(create_stdout)
@@ -231,6 +232,7 @@ def test_snapshot_list_stdout_pipes_into_run(initialized_archive):
     create_stdout, create_stderr, create_code = run_archivebox_cmd(
         ["snapshot", "create", url],
         data_dir=initialized_archive,
+        env=PIPE_TEST_ENV,
     )
     assert create_code == 0, create_stderr
     snapshot = next(record for record in parse_jsonl_output(create_stdout) if record.get("type") == "Snapshot")
@@ -238,11 +240,13 @@ def test_snapshot_list_stdout_pipes_into_run(initialized_archive):
     list_stdout, list_stderr, list_code = run_archivebox_cmd(
         ["snapshot", "list", "--status=queued", f"--url__icontains={snapshot['id']}"],
         data_dir=initialized_archive,
+        env=PIPE_TEST_ENV,
     )
     if list_code != 0 or not parse_jsonl_output(list_stdout):
         list_stdout, list_stderr, list_code = run_archivebox_cmd(
             ["snapshot", "list", f"--url__icontains={url}"],
             data_dir=initialized_archive,
+            env=PIPE_TEST_ENV,
         )
     assert list_code == 0, list_stderr
     _assert_stdout_is_jsonl_only(list_stdout)
@@ -272,6 +276,7 @@ def test_archiveresult_list_stdout_pipes_into_run(initialized_archive):
     snapshot_stdout, snapshot_stderr, snapshot_code = run_archivebox_cmd(
         ["snapshot", "create", url],
         data_dir=initialized_archive,
+        env=PIPE_TEST_ENV,
     )
     assert snapshot_code == 0, snapshot_stderr
 
@@ -279,6 +284,7 @@ def test_archiveresult_list_stdout_pipes_into_run(initialized_archive):
         ["archiveresult", "create", "--plugin=favicon"],
         stdin=snapshot_stdout,
         data_dir=initialized_archive,
+        env=PIPE_TEST_ENV,
     )
     assert ar_create_code == 0, ar_create_stderr
 
@@ -293,6 +299,7 @@ def test_archiveresult_list_stdout_pipes_into_run(initialized_archive):
     list_stdout, list_stderr, list_code = run_archivebox_cmd(
         ["archiveresult", "list", "--plugin=favicon"],
         data_dir=initialized_archive,
+        env=PIPE_TEST_ENV,
     )
     assert list_code == 0, list_stderr
     _assert_stdout_is_jsonl_only(list_stdout)
@@ -348,6 +355,7 @@ def test_multi_stage_pipeline_into_run(initialized_archive):
     crawl_stdout, crawl_stderr, crawl_code = run_archivebox_cmd(
         ["crawl", "create", url],
         data_dir=initialized_archive,
+        env=PIPE_TEST_ENV,
     )
     assert crawl_code == 0, crawl_stderr
     _assert_stdout_is_jsonl_only(crawl_stdout)
@@ -356,6 +364,7 @@ def test_multi_stage_pipeline_into_run(initialized_archive):
         ["snapshot", "create"],
         stdin=crawl_stdout,
         data_dir=initialized_archive,
+        env=PIPE_TEST_ENV,
     )
     assert snapshot_code == 0, snapshot_stderr
     _assert_stdout_is_jsonl_only(snapshot_stdout)
@@ -364,6 +373,7 @@ def test_multi_stage_pipeline_into_run(initialized_archive):
         ["archiveresult", "create", "--plugin=favicon"],
         stdin=snapshot_stdout,
         data_dir=initialized_archive,
+        env=PIPE_TEST_ENV,
     )
     assert archiveresult_code == 0, archiveresult_stderr
     _assert_stdout_is_jsonl_only(archiveresult_stdout)

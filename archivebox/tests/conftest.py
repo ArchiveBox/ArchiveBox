@@ -484,7 +484,7 @@ def build_test_env(port: int, **extra: str) -> dict[str, str]:
             "USE_COLOR": "False",
             "SHOW_PROGRESS": "False",
             "TIMEOUT": "30",
-            "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*",
+            "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*|example\.com",
             "SAVE_ARCHIVEDOTORG": "False",
             "SAVE_TITLE": "False",
             "SAVE_FAVICON": "False",

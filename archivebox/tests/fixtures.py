@@ -35,6 +35,7 @@ def disable_extractors_dict():
             "SAVE_ARCHIVEDOTORG": "false",
             "SAVE_TITLE": "false",
             "SAVE_FAVICON": "false",
+            "PLUGINS": "__archivebox_test_no_plugins__",
         },
     )
     return env

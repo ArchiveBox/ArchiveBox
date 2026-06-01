@@ -7,6 +7,7 @@ import logging
 
 
 from archivebox.config import CONSTANTS
+from archivebox.misc.logging import STDERR
 
 
 IGNORABLE_URL_PATTERNS = [
@@ -182,6 +183,7 @@ SETTINGS_LOGGING = {
             "level": "DEBUG",
             "markup": False,
             "rich_tracebacks": False,  # Use standard Python tracebacks (no frame/box)
+            "console": STDERR,
             "filters": ["noisyrequestsfilter", "daphneclosetimeout", "asynciocancelledshield", "stripansi"],
         },
         "logfile": {

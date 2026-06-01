@@ -28,6 +28,11 @@ def install(binaries: tuple[str, ...] = (), binproviders: str = "*", dry_run: bo
 
     config = get_config()
     archive_dir = config.ARCHIVE_DIR
+
+    if dry_run:
+        print("[dim]Dry run - would detect ArchiveBox dependencies and run the abx-dl install flow[/dim]")
+        return
+
     if not (os.access(archive_dir, os.R_OK) and archive_dir.is_dir()):
         init()  # must init full index because we need a db to store Binary entries in
 
@@ -46,10 +51,6 @@ def install(binaries: tuple[str, ...] = (), binproviders: str = "*", dry_run: bo
         print(f"[yellow]:warning:  Running as UID=[blue]{EUID}[/blue].[/yellow]")
         print(f"    DATA_DIR will be owned by [blue]{ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}[/blue].")
         print()
-
-    if dry_run:
-        print("[dim]Dry run - would run the abx-dl install flow[/dim]")
-        return
 
     # Set up Django
     from archivebox.config.django import setup_django

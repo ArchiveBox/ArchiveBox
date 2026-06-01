@@ -14,5 +14,6 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 
 source "$DIR/.venv/bin/activate"
 
-pytest -s --basetemp=archivebox/tests/data "$@"
+mkdir -p "$DIR/tests/out"
+pytest -s --basetemp="$DIR/tests/out" "$@"
 exec ./bin/test_plugins.sh

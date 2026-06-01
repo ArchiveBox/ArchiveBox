@@ -66,6 +66,8 @@ class AddCommandSchema(Schema):
     parser: str = "auto"
     plugins: str = ""
     only_new: bool | None = None
+    update: bool = False
+    overwrite: bool = False
     index_only: bool = False
 
 
@@ -90,6 +92,8 @@ class ScheduleCommandSchema(Schema):
     tag: str = ""
     depth: int = 0
     only_new: bool | None = None
+    update: bool = False
+    overwrite: bool = False
     clear: bool = False
 
 
@@ -120,6 +124,8 @@ def cli_add(request: HttpRequest, args: AddCommandSchema):
     config_overrides: dict[str, object] = {}
     if args.only_new is not None:
         config_overrides["ONLY_NEW"] = bool(args.only_new)
+    if args.update or args.overwrite:
+        config_overrides["ONLY_NEW"] = False
     crawl, snapshots = add(
         urls=args.urls,
         snapshot_ids=args.snapshot_ids,
@@ -189,6 +195,8 @@ def cli_schedule(request: HttpRequest, args: ScheduleCommandSchema):
     config_overrides: dict[str, object] = {}
     if args.only_new is not None:
         config_overrides["ONLY_NEW"] = bool(args.only_new)
+    if args.update or args.overwrite:
+        config_overrides["ONLY_NEW"] = False
     result = schedule(
         import_path=args.import_path,
         add=args.add,
