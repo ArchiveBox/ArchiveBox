@@ -1164,7 +1164,7 @@ async def _run_binary(binary_id: str) -> None:
     config["ABX_RUNTIME"] = "archivebox"
     config = _normalize_runtime_config(config)
     bus = create_bus(name=_bus_name("ArchiveBox_binary", str(binary.id)), total_timeout=1800.0)
-    PersistedProcessService(bus)
+    process_service = PersistedProcessService(bus)
     BinaryService(bus)
     TagService(bus)
     ArchiveResultService(bus)
@@ -1198,6 +1198,7 @@ async def _run_binary(binary_id: str) -> None:
         ).now(first_result=True)
     finally:
         await bus.wait_until_idle()
+        await process_service.flush_completed()
 
 
 def run_binary(binary_id: str) -> None:

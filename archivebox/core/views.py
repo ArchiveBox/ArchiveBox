@@ -2655,7 +2655,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
     machine_admin_url = None
     try:
         machine = Machine.current()
-        machine_admin_url = f"/admin/machine/machine/{machine.id.hex}/change/"
+        machine_admin_url = f"/admin/machine/machine/{machine.id}/change/"
         if machine.config and key in machine.config:
             sources_info.append(("Machine", machine.config[key] if not is_sensitive_config_key(key) else "********", "purple"))
     except Exception:
@@ -2673,7 +2673,11 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
         sources_info.append(("Default", default_val, "gray"))
 
     # Final computed value
-    final_value = merged_config.get(key, CONFIGS.get(key, None))
+    config_source = find_config_source(key, merged_config)
+    if config_source == "Environment":
+        final_value = get_config(include_machine=False).model_dump(mode="json").get(key, CONFIGS.get(key, None))
+    else:
+        final_value = merged_config.get(key, CONFIGS.get(key, None))
     if is_sensitive_config_key(key):
         final_value = "********"
 
@@ -2707,7 +2711,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                 "Key": key,
                 "Type": find_config_type(key),
                 "Value": final_value,
-                "Currently read from": find_config_source(key, merged_config),
+                "Currently read from": config_source,
             },
             "help_texts": {
                 "Key": mark_safe(f"""
@@ -2742,7 +2746,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                 </p>
             '''),
                 "Currently read from": mark_safe(f"""
-                The value shown in the "Value" field comes from the <b>{find_config_source(key, merged_config)}</b> source.
+                The value shown in the "Value" field comes from the <b>{config_source}</b> source.
                 <br/><br/>
                 Priority order (highest to lowest):
                 <ol>

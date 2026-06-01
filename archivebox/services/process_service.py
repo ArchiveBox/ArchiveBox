@@ -146,11 +146,14 @@ class ProcessService(BaseService):
         self._ensure_completed_worker()
         await self._completed_queue.put(event)
 
-    async def on_CrawlCleanupEvent__flush_completed(self, event: CrawlCleanupEvent) -> None:
+    async def flush_completed(self) -> None:
         await self._completed_queue.join()
 
+    async def on_CrawlCleanupEvent__flush_completed(self, event: CrawlCleanupEvent) -> None:
+        await self.flush_completed()
+
     async def on_CrawlCompletedEvent__flush_completed(self, event: CrawlCompletedEvent) -> None:
-        await self._completed_queue.join()
+        await self.flush_completed()
 
     async def _save_completed_process_to_db(self, event: ProcessCompletedEvent) -> None:
         from archivebox.machine.models import Process
