@@ -1,0 +1,19 @@
+archivebox/tests/test_api_v1_crawls_crawl_crawl_id.py
+  s_ccefc8ac08198c::t_17f4000b21ba65 110,122-128,130,518,522-529
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "69619dbea44de0a8c5518c2debf6aebc8d2e83b3",
+  "prompts": {},
+  "sessions": {
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
