@@ -20,8 +20,13 @@ services:
         environment:
             # - ADMIN_USERNAME=admin                             # creates an admin user on first run with the given user/pass combo
             # - ADMIN_PASSWORD=SomeSecretPassword
-            # - SERVER_SECURITY_MODE=safe-subdomains-fullreplay  # set to safe-onedomain-nojsreplay if you can't do wildcard DNS *.your.archivebox.domain
-            - BASE_URL=http://archivebox.localhost:8000          # public URL used to build admin/web/api/snapshot links
+            - BASE_URL=${BASE_URL:-http://archivebox.localhost:8000}                  # public URL used to build admin/web/api/snapshot links
+            - SERVER_SECURITY_MODE=${SERVER_SECURITY_MODE:-safe-subdomains-fullreplay} # safe-onedomain-nojsreplay if you can't do wildcard DNS *.your.domain
+            # Trust the bundled ingress (caddy/cloudflared below) for the request scheme
+            # so https links + secure cookies work end-to-end. Leave False unless you put
+            # an ingress in front (and don't also expose :8000 publicly), or the scheme
+            # could be spoofed by a client hitting :8000 directly.
+            - REVERSE_PROXY_TRUST_FORWARDED_PROTO=${REVERSE_PROXY_TRUST_FORWARDED_PROTO:-False}
             - PUBLIC_ADD_VIEW=False                              # set to True to allow anonymous users to submit new URLs to archive
             # - PUID=911                                         # set to your host user's UID & GID if you encounter permissions issues
             # - PGID=911                                         # UID/GIDs lower than 500 may clash with system uids and are not recommended
@@ -72,23 +77,104 @@ services:
     #         - 127.0.0.1:8080:8080
 
 
-    ### TLS / HTTPS: ArchiveBox serves the admin/web/api/public control plane and every
-    # archived snapshot on its own subdomain for security isolation, so a public deployment
-    # needs wildcard DNS + a wildcard TLS cert for *.your.archivebox.domain.
+    ### TLS / HTTPS ingress (opt-in, everything below is driven by env vars only).
     #
-    # The bundled, opt-in proxy overlay sets this up for you (Caddy + a go-acme/lego
-    # DNS-01 sidecar that fetches one *.<domain> wildcard cert covering unlimited
-    # snap-* subdomains). The heavy proxy/cert deps stay out of the archivebox image:
-    #
-    #     # local *.archivebox.localhost (Caddy internal CA):
-    #     docker compose -f docker-compose.yml -f docker-compose.proxy.yml up -d
-    #
-    #     # public, automatic wildcard TLS (edit .env from .env.proxy.example first):
-    #     docker compose -f docker-compose.yml -f docker-compose.proxy.yml --profile proxy-public up -d
-    #
-    # Already run your own caddy/traefik/nginx or a Cloudflare/Tailscale ingress? Just set
-    # BASE_URL to your https URL and REVERSE_PROXY_TRUST_FORWARDED_PROTO=True, point the
-    # wildcard upstream at this container, and skip the overlay.
+    # ArchiveBox serves the admin/web/api/public control plane AND every archived
+    # snapshot on its own subdomain for security isolation, so a public deployment
+    # needs wildcard DNS + TLS for *.your.domain. Pick ONE of the two ingress options
+    # below by activating its profile (e.g. put COMPOSE_PROFILES=https or =tunnel in a
+    # .env file next to this one, then `docker compose up -d`). Both want:
+    #     BASE_URL=https://archive.example.com
+    #     SERVER_SECURITY_MODE=safe-subdomains-fullreplay
+    #     REVERSE_PROXY_TRUST_FORWARDED_PROTO=True
+
+    ### Option A — Cloudflare Tunnel (no public IP / behind NAT, e.g. home/NAS).
+    # Cloudflare's edge terminates TLS and resolves *.your.domain to a SINGLE tunnel;
+    # every snapshot/control subdomain rides one connection to archivebox:8000, which
+    # routes by Host header — so the tunnel itself needs no wildcard cert or per-host
+    # config. In Cloudflare Zero Trust create a tunnel with a public hostname
+    # `*.your.domain` (and `your.domain`) -> http://archivebox:8000, then paste its
+    # token below. (A DNS API token alone can't create tunnels; this token is separate.)
+    cloudflared:
+        image: cloudflare/cloudflared
+        profiles: ["tunnel"]
+        restart: unless-stopped
+        depends_on: [archivebox]
+        command: tunnel --no-autoupdate --protocol http2 run
+        environment:
+            - TUNNEL_TOKEN=${TUNNEL_TOKEN:-}
+
+    ### Option B — Caddy + automatic Let's Encrypt wildcard cert (you have a public IP).
+    # The lego sidecar fetches ONE *.your.domain wildcard cert via DNS-01 (≈150
+    # providers; cloudflare shown) using CLOUDFLARE_DNS_API_TOKEN, and Caddy serves it
+    # for unlimited snap-* subdomains. If no cert is available (no token / DNS-01
+    # failed / first boot) Caddy GRACEFULLY DEGRADES to a self-signed internal cert so
+    # the site always comes up on https. All config is inlined here — no extra files.
+    caddy:
+        image: caddy:2-alpine
+        profiles: ["https"]
+        restart: unless-stopped
+        depends_on: [archivebox, lego]
+        ports:
+            - "80:80"
+            - "443:443"
+            - "443:443/udp"   # HTTP/3
+        environment:
+            - BASE_URL=${BASE_URL:-https://archive.example.com}
+            - ARCHIVEBOX_ACME_EMAIL=${ARCHIVEBOX_ACME_EMAIL:-admin@example.com}
+        volumes:
+            - ./data/proxy/caddy:/data
+            - ./data/proxy/certs:/certs:ro
+        command:
+            - sh
+            - -c
+            - |
+              set -eu
+              DOMAIN=$$(printf '%s' "$$BASE_URL" | sed -E 's#^[a-z]+://##; s#[:/].*##')
+              CRT="/certs/lego/certificates/_.$$DOMAIN.crt"; KEY="/certs/lego/certificates/_.$$DOMAIN.key"
+              # wait briefly for the lego sidecar to mint the wildcard cert on first boot
+              i=0; while [ ! -s "$$CRT" ] && [ $$i -lt 20 ]; do sleep 3; i=$$((i+1)); done
+              if [ -s "$$CRT" ] && [ -s "$$KEY" ]; then
+                TLS="$$CRT $$KEY"; echo "[caddy] serving real wildcard cert for *.$$DOMAIN"
+              else
+                TLS=internal; echo "[caddy] no wildcard cert yet -> self-signed internal CA for *.$$DOMAIN"
+              fi
+              printf '{\n\temail %s\n\tauto_https disable_redirects\n}\n*.%s, %s {\n\ttls %s\n\tencode zstd gzip\n\treverse_proxy archivebox:8000\n}\n' \
+                "$$ARCHIVEBOX_ACME_EMAIL" "$$DOMAIN" "$$DOMAIN" "$$TLS" > /tmp/Caddyfile
+              exec caddy run --config /tmp/Caddyfile --adapter caddyfile
+
+    # DNS-01 wildcard cert sidecar for the `https` profile (go-acme/lego). Issues then
+    # auto-renews ONE *.your.domain cert. Swap --dns / creds for any lego provider:
+    #   route53 -> AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY; digitalocean -> DO_AUTH_TOKEN; ...
+    lego:
+        image: goacme/lego
+        profiles: ["https"]
+        restart: unless-stopped
+        environment:
+            - BASE_URL=${BASE_URL:-https://archive.example.com}
+            - ARCHIVEBOX_ACME_EMAIL=${ARCHIVEBOX_ACME_EMAIL:-admin@example.com}
+            - CLOUDFLARE_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN:-}
+        volumes:
+            - ./data/proxy/certs:/certs
+        entrypoint:
+            - sh
+            - -c
+            - |
+              set -u
+              DOMAIN=$$(printf '%s' "$$BASE_URL" | sed -E 's#^[a-z]+://##; s#[:/].*##')
+              if [ -z "$${CLOUDFLARE_DNS_API_TOKEN:-}" ]; then
+                echo "[lego] no CLOUDFLARE_DNS_API_TOKEN -> skipping; caddy will self-sign for $$DOMAIN"
+                exec sleep infinity
+              fi
+              ACTION=run; EXTRA=""
+              while :; do
+                echo "[lego] $$ACTION *.$$DOMAIN + $$DOMAIN via cloudflare DNS-01"
+                /lego $$ACTION --accept-tos --email "$$ARCHIVEBOX_ACME_EMAIL" --dns cloudflare \
+                  -d "*.$$DOMAIN" -d "$$DOMAIN" --path /certs/lego $$EXTRA \
+                  || echo "[lego] $$ACTION failed; will retry next cycle"
+                ACTION=renew; EXTRA="--days 30"
+                sleep 43200   # 12h; renew is a no-op until within 30 days of expiry
+              done
 
     ### Example: run all your ArchiveBox traffic through a WireGuard VPN tunnel to avoid IP blocks.
     # You can also use any other VPN that works at the docker/IP level, e.g. Tailscale, OpenVPN, etc.
