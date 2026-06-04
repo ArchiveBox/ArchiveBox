@@ -76,3 +76,36 @@ services:
         volumes:
             - ./bin/proxy_lego.sh:/proxy_lego.sh:ro
             - ./data/proxy/certs:/certs
+
+    # Wildcard DNS resolver (opt-in: `--profile proxy-resolver`).
+    #
+    # Browsers and curl already resolve *.localhost themselves, and hosts running
+    # systemd-resolved resolve *.localhost for every client — so most setups need
+    # nothing here. This service is for the gap: non-browser clients (wget, python,
+    # go, ...) on hosts WITHOUT systemd-resolved, or a LAN/NAS box serving an
+    # internal domain (e.g. archive.home.lan) where you want every device to
+    # resolve the dynamically-generated snapshot subdomains.
+    #
+    # It answers the whole base domain with ONE suffix-wildcard rule (no
+    # enumeration of the millions of snap-*/role subdomains):
+    #   address=/<base>/<target-ip>
+    #
+    # Point your host/router/Pi-hole resolver at 127.0.0.1:5353 for <base>. NOTE:
+    # systemd-resolved hard-codes `.localhost` and will not forward it to this
+    # resolver — but such hosts already resolve *.localhost natively, so that's
+    # fine; use a real internal domain here if you need a custom resolver.
+    resolver:
+        image: 4km3/dnsmasq:latest   # any dnsmasq image works; rule is validated via `dnsmasq --test`
+        profiles: ["proxy-resolver"]
+        restart: unless-stopped
+        cap_add:
+            - NET_ADMIN
+        command:
+            - --keep-in-foreground
+            - --log-facility=-
+            - --no-resolv
+            - --no-hosts
+            - --address=/${ARCHIVEBOX_PROXY_BASE:-archivebox.localhost}/${ARCHIVEBOX_PROXY_DNS_TARGET:-127.0.0.1}
+        ports:
+            - "127.0.0.1:5353:53/udp"
+            - "127.0.0.1:5353:53/tcp"
