@@ -12,6 +12,7 @@ import pytest
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.machine.models import Process
+from archivebox.workers.models import RETRY_AT_MAX
 from archivebox.tests.conftest import _find_system_browser, find_snapshot_dir, run_archivebox_cmd, run_queued_crawls, cli_env
 
 from archivebox.tests.test_orm_helpers import use_archivebox_db
@@ -468,6 +469,38 @@ def test_add_index_only_leaves_snapshot_creation_to_runner(initialized_archive):
         snapshot_count = Snapshot.objects.count()
 
     assert crawl_id
+    assert snapshot_count == 0
+
+
+@pytest.mark.parametrize("bg", [False, True], ids=["foreground", "bg"])
+def test_add_paused_creates_paused_crawl_without_running_runner(initialized_archive, bg):
+    """--paused should create a PAUSED crawl and return immediately without the
+    orchestrator running, in both foreground and --bg mode."""
+    env = cli_env(disable_extractors=True)
+    cmd = ["add", "--paused", "--depth=0", "https://example.com"]
+    if bg:
+        cmd.insert(1, "--bg")
+
+    result = run_archivebox_cmd(
+        cmd,
+        cwd=initialized_archive,
+        env=env,
+        timeout=30,  # Must return immediately - the runner never starts
+    )
+
+    assert result.returncode == 0
+
+    with use_archivebox_db(initialized_archive):
+        crawl = Crawl.objects.get()
+        snapshot_count = Snapshot.objects.count()
+
+    # Crawl is parked in the PAUSED state with a far-future retry_at, exactly
+    # like the /add/ web form's start_paused option, so no worker claims it.
+    assert crawl.status == Crawl.StatusChoices.PAUSED
+    assert crawl.retry_at == RETRY_AT_MAX
+    assert crawl.get_urls_list() == ["https://example.com"]
+
+    # The orchestrator never ran: no snapshots were created from the crawl URLs.
     assert snapshot_count == 0
 
 

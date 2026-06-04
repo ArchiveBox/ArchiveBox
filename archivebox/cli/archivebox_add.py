@@ -59,6 +59,7 @@ def add(
     plugins: str = "",
     persona: str = "Default",
     index_only: bool = False,
+    start_paused: bool = False,
     bg: bool = False,
     created_by_id: int | None = None,
     config: dict[str, Any] | None = None,
@@ -114,6 +115,7 @@ def add(
     from archivebox.misc.logging_util import printable_filesize
     from archivebox.misc.system import get_dir_size
     from archivebox.core.shutdown_util import foreground_parent_watchdog, foreground_shutdown_signals
+    from archivebox.workers.models import RETRY_AT_MAX
     from django.utils import timezone
 
     created_by_id = created_by_id or get_or_create_system_user_pk()
@@ -193,8 +195,8 @@ def add(
         persona_id=persona_obj.id,
         label=f"{USER}@{HOSTNAME} $ {cmd_str} [{timestamp}]",
         created_by_id=created_by_id,
-        status=Crawl.StatusChoices.QUEUED,
-        retry_at=None if index_only else timezone.now(),
+        status=Crawl.StatusChoices.PAUSED if start_paused else Crawl.StatusChoices.QUEUED,
+        retry_at=RETRY_AT_MAX if start_paused else (None if index_only else timezone.now()),
         config=crawl_config,
     )
 
@@ -205,6 +207,10 @@ def add(
     # 3. The CrawlMachine will create Snapshots from all URLs when started
     #    Parser extractors run on snapshots and discover more URLs
     #    Discovered URLs become child Snapshots (depth+1)
+
+    if start_paused:
+        print("[yellow]\\[*] Paused mode - crawl created paused, runner not started. Resume it later to begin archiving.[/yellow]")
+        return crawl, crawl.snapshot_set.none()
 
     if index_only:
         print("[yellow]\\[*] Index-only mode - URLs queued, runner not started[/yellow]")
@@ -345,6 +351,7 @@ def add(
     "Pass --no-only-new to force re-archive of URLs that already exist.",
 )
 @click.option("--index-only", is_flag=True, help="Just add the URLs to the index without archiving them now")
+@click.option("--paused", "start_paused", is_flag=True, help="Create the crawl in a paused state without starting the runner (resume it later to begin archiving)")
 @click.option("--overwrite", is_flag=True, help="Re-archive URLs even if they already exist (alias for --no-only-new)")
 @click.option("--update", is_flag=True, help="Re-archive URLs even if they already exist (alias for --no-only-new)")
 @click.option("--bg", is_flag=True, help="Run archiving in background (queue work and return immediately)")
