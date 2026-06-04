@@ -1,0 +1,43 @@
+docs/Troubleshooting.md
+  s_7cc75db5230061::t_309f8ef7158d2b 37,39-41,45-46
+README.md
+  s_02a3d148722916::t_e9a2877f970fdb 298-301
+.github/workflows/update-homebrew-tap.yml
+  s_7cc75db5230061::t_f709592252c77d 1,5-6,9,12,16-17,20,22,24-25,28-35
+.github/workflows/release.yml
+  s_02a3d148722916::t_e9a2877f970fdb 5-6
+archivebox/tests/test_opencode_agent.py
+  s_6b96473078dfa1::t_271bcab92ec042 3,101-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "caf0acdec85bdc0bdb13b05b76cea47038b75932",
+  "prompts": {},
+  "sessions": {
+    "s_02a3d148722916": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9187-0c96-7de0-b9e0-4506eec815e2",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_6b96473078dfa1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8e71-a862-71c3-9b0c-d2bc975f2d0f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_7cc75db5230061": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9181-9d0e-7f61-a8dc-95dc82bc59e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
