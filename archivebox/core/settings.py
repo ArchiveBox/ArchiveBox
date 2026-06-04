@@ -419,6 +419,19 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
+# When ArchiveBox sits behind a TLS-terminating reverse proxy (the bundled
+# Caddy profile, the user's own caddy/traefik/nginx, or an ingress like
+# Cloudflare), the hop from proxy → archivebox is plain HTTP, so
+# request.is_secure() / request.scheme would report http. That makes the
+# cross-subdomain login-hint cookie (core/middleware.py) lose its Secure flag
+# and request-derived schemes fall back to http. Honour the proxy's
+# X-Forwarded-Proto header so request.is_secure() reflects the real
+# client-facing scheme. Gated behind a config flag (default off) because
+# trusting a forwarded header is only safe when a proxy you control always
+# sets it — the bundled proxy profile turns it on via env.
+if CONFIG.REVERSE_PROXY_TRUST_FORWARDED_PROTO:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_HTTPONLY = True

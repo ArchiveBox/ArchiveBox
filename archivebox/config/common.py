@@ -293,6 +293,7 @@ class ServerConfig(BaseConfigSet):
 
     REVERSE_PROXY_USER_HEADER: str = Field(default="Remote-User")
     REVERSE_PROXY_WHITELIST: str = Field(default="")
+    REVERSE_PROXY_TRUST_FORWARDED_PROTO: bool = Field(default=False)
     LOGOUT_REDIRECT_URL: str = Field(default="/")
 
     @field_validator("SERVER_SECURITY_MODE", mode="after")
