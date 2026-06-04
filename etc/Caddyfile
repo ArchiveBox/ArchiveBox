@@ -1,0 +1,46 @@
+# ArchiveBox bundled reverse-proxy config (opt-in, used by docker-compose.proxy.yml).
+#
+# Why a wildcard catch-all and not a list of hosts?
+#   ArchiveBox serves the admin/web/api/public control plane AND every archived
+#   snapshot on its OWN hostname for security isolation:
+#       admin.<base>  web.<base>  api.<base>  public.<base>     (control plane)
+#       snap-<12hex>.<base>                                     (snapshot replay)
+#       <original-domain>.<base>                                (original-domain replay)
+#   These are generated dynamically from the snapshots present + the active
+#   SERVER_SECURITY_MODE, so there can be millions of them and they can NEVER be
+#   enumerated. The proxy therefore matches by SUFFIX WILDCARD only.
+#
+# TLS at that scale:
+#   On-demand / per-host cert issuance does not scale to millions of subdomains
+#   (and would blow ACME rate limits), so for public deployments we serve a
+#   SINGLE `*.<base>` wildcard cert obtained once via DNS-01 by the lego sidecar
+#   (see bin/proxy_lego.sh). One cert covers unlimited snap-* subdomains.
+#
+# Configure via env (see .env.proxy.example):
+#   Local (default):  serves *.archivebox.localhost via Caddy's internal CA.
+#   Public:           ARCHIVEBOX_PROXY_SITE="*.archive.example.com archive.example.com"
+#                     ARCHIVEBOX_PROXY_TLS="/certs/wildcard.crt /certs/wildcard.key"
+#
+# NOTE: a single-label wildcard (`*.<base>`) does not cover multi-label
+# original-domain replay hosts like `www.example.com.<base>`; those are a
+# secondary feature and are reachable via their single-label `snap-<id>.<base>`
+# host instead. The primary snapshot replay host IS single-label and fully covered.
+{
+	# ACME contact email (only used if Caddy itself ever manages a cert; the
+	# internal CA and mounted-cert paths ignore it).
+	email {$ARCHIVEBOX_PROXY_ACME_EMAIL:archivebox@localhost}
+}
+
+{$ARCHIVEBOX_PROXY_SITE:*.archivebox.localhost archivebox.localhost} {
+	# internal           -> Caddy's local CA (good for *.archivebox.localhost dev)
+	# /certs/c /certs/k  -> the *.<base> wildcard cert from the lego sidecar
+	tls {$ARCHIVEBOX_PROXY_TLS:internal}
+
+	encode zstd gzip
+
+	# reverse_proxy preserves the inbound Host header and automatically sets
+	# X-Forwarded-Proto / -For / -Host upstream. ArchiveBox's HostRoutingMiddleware
+	# routes by Host, and REVERSE_PROXY_TRUST_FORWARDED_PROTO=True makes it honor
+	# the forwarded scheme so secure cookies + https links work end-to-end.
+	reverse_proxy archivebox:8000
+}
