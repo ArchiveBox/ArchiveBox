@@ -432,8 +432,11 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 if CONFIG.REVERSE_PROXY_TRUST_FORWARDED_PROTO:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
+# When the proxy is trusted the deployment is HTTPS end-to-end, so also mark the
+# admin session + CSRF cookies Secure (never sent over plain HTTP). Scoped to the
+# same flag so the default http://localhost:8000 setup keeps working unchanged.
+CSRF_COOKIE_SECURE = CONFIG.REVERSE_PROXY_TRUST_FORWARDED_PROTO
+SESSION_COOKIE_SECURE = CONFIG.REVERSE_PROXY_TRUST_FORWARDED_PROTO
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_NAME = f"archivebox_sessionid_{CONSTANTS.COLLECTION_ID}"
 CSRF_COOKIE_NAME = f"archivebox_csrftoken_{CONSTANTS.COLLECTION_ID}"

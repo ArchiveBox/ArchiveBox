@@ -127,7 +127,11 @@ services:
                   except urllib.error.HTTPError as e: return json.load(e)
               assert DOMAIN and TOKEN, "set BASE_URL (https://archive.example.com) + CLOUDFLARE_DNS_API_TOKEN"
               acct = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "").strip() or call("GET", "/accounts")["result"][0]["id"]
-              zone = call("GET", f"/zones?name={DOMAIN}")["result"][0]["id"]
+              labels = DOMAIN.split("."); zone = None   # DOMAIN may be a subdomain; find its registrable zone
+              for i in range(len(labels) - 1):
+                  res = call("GET", f"/zones?name={'.'.join(labels[i:])}")["result"]
+                  if res: zone = res[0]["id"]; break
+              assert zone, f"no Cloudflare zone found for {DOMAIN}"
               NAME = "archivebox-" + DOMAIN.replace(".", "-")
               ts = call("GET", f"/accounts/{acct}/cfd_tunnel?name={NAME}&is_deleted=false")["result"]
               tid = ts[0]["id"] if ts else call("POST", f"/accounts/{acct}/cfd_tunnel", {"name": NAME,
@@ -144,7 +148,7 @@ services:
                   desired = {"type": "CNAME", "name": name, "content": target, "proxied": True, "ttl": 1}
                   call("PUT", f"/zones/{zone}/dns_records/{cname[0]['id']}", desired) if cname else call("POST", f"/zones/{zone}/dns_records", desired)
               tok = call("GET", f"/accounts/{acct}/cfd_tunnel/{tid}/token")["result"]
-              os.makedirs(os.path.dirname(OUT) or ".", exist_ok=True); open(OUT, "w").write(tok)
+              os.makedirs(os.path.dirname(OUT) or ".", exist_ok=True); open(OUT, "w").write(tok); os.chmod(OUT, 0o600)
               print(f"[tunnel-init] {NAME} ({tid}): *.{DOMAIN} + {DOMAIN} -> {SERVICE}; connector token -> {OUT}")
 
     cloudflared:

@@ -6,7 +6,8 @@ E.g. see `nginx.conf` for an example nginx config to serve your archive with SSL
 
 For the recommended, batteries-included reverse proxy and TLS, you don't need a file
 here at all — it's built into the main `../docker-compose.yml` as two opt-in, env-var
-driven profiles (no extra files, Dockerfiles, or scripts). See `../.env.example`:
+driven profiles (no extra files, Dockerfiles, or scripts) — set the documented env
+vars in a `.env` next to `../docker-compose.yml`:
 
 - `https` — Caddy + a `goacme/lego` DNS-01 sidecar fetch a single `*.<your-domain>`
   wildcard cert (covering unlimited `snap-*` subdomains, ~150 DNS providers, no
