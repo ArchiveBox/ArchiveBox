@@ -35,7 +35,7 @@ def test_remove_deletes_snapshot_from_db(initialized_archive):
 
     # Add a snapshot
     run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", "https://example.com"],
+        ["add", "--bg", "--depth=0", "https://example.com"],
         env=env,
     )
     run_queued_crawls(initialized_archive, env)
@@ -62,7 +62,7 @@ def test_remove_deletes_archive_directory(initialized_archive):
 
     # Add a snapshot
     run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", "https://example.com"],
+        ["add", "--bg", "--depth=0", "https://example.com"],
         env=env,
     )
     run_queued_crawls(initialized_archive, env)
@@ -87,7 +87,7 @@ def test_remove_yes_flag_skips_confirmation(initialized_archive):
     env = cli_env(disable_extractors=True)
 
     run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", "https://example.com"],
+        ["add", "--bg", "--depth=0", "https://example.com"],
         env=env,
     )
     run_queued_crawls(initialized_archive, env)
@@ -109,7 +109,7 @@ def test_remove_without_yes_prompts_and_keeps_snapshot(initialized_archive):
     env = cli_env(disable_extractors=True)
 
     run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", "https://example.com"],
+        ["add", "--bg", "--depth=0", "https://example.com"],
         env=env,
         check=True,
     )
@@ -141,7 +141,7 @@ def test_remove_multiple_snapshots(initialized_archive):
     # Add multiple snapshots
     for url in ["https://example.com", "https://example.org"]:
         run_archivebox_cmd(
-            ["add", "--index-only", "--depth=0", url],
+            ["add", "--bg", "--depth=0", url],
             env=env,
         )
     run_queued_crawls(initialized_archive, env)
@@ -163,7 +163,7 @@ def test_remove_with_regex_filter_deletes_all_matches(initialized_archive):
 
     for url in ["https://example.com", "https://iana.org"]:
         run_archivebox_cmd(
-            ["add", "--index-only", "--depth=0", url],
+            ["add", "--bg", "--depth=0", url],
             env=env,
             check=True,
         )
@@ -200,7 +200,7 @@ def test_remove_reports_remaining_link_count_correctly(initialized_archive):
 
     for url in ["https://example.com", "https://example.org"]:
         run_archivebox_cmd(
-            ["add", "--index-only", "--depth=0", url],
+            ["add", "--bg", "--depth=0", url],
             env=env,
             check=True,
         )
@@ -222,7 +222,7 @@ def test_remove_after_flag(initialized_archive):
     env = cli_env()
 
     run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", "https://example.com"],
+        ["add", "--bg", "--depth=0", "https://example.com"],
         env=env,
         check=True,
     )

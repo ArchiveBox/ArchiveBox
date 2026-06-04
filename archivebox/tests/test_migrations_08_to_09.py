@@ -363,8 +363,8 @@ def test_add_works_after_migration(migration_08_data):
     initial_crawl_count = cursor.fetchone()[0]
     conn.close()
 
-    # Try to add a new URL after migration (use --index-only for speed)
-    result = run_archivebox_migration_cmd(work_dir, ["add", "--index-only", "https://example.com/new-page"], timeout=45)
+    # Try to add a new URL after migration (use --bg for speed)
+    result = run_archivebox_migration_cmd(work_dir, ["add", "--bg", "https://example.com/new-page"], timeout=45)
     assert result.returncode == 0, f"Add failed after migration: {result.stderr}"
 
     # Verify a new Crawl was created

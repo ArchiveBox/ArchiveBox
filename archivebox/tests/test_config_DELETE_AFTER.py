@@ -28,7 +28,7 @@ def test_delete_after_real_cli_and_orchestrator_paths_cover_all_retained_models(
     }
     url = "https://example.com/delete-after-cli"
     _cmd_result = run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", url],
+        ["add", "--bg", "--depth=0", url],
         cwd=tmp_path,
         timeout=120,
         env=run_env,
@@ -216,7 +216,6 @@ def test_delete_after_real_add_page_and_rest_create_paths(client):
             "schedule": "",
             "persona": "Default",
             "permissions": "public",
-            "index_only": "on",
             "config": "{}",
         },
         HTTP_HOST=ADMIN_HOST,

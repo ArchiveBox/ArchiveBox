@@ -57,7 +57,7 @@ class AddCommandSchema(Schema):
     only_new: bool | None = None
     update: bool = False
     overwrite: bool = False
-    index_only: bool = False
+    start_paused: bool = False
 
 
 class SnapshotFilterCommandSchema(Schema):
@@ -136,7 +136,7 @@ def cli_add(request: HttpRequest, args: AddCommandSchema):
         crawl_max_size=args.crawl_max_size,
         crawl_timeout=args.crawl_timeout,
         snapshot_max_size=args.snapshot_max_size,
-        index_only=args.index_only,
+        start_paused=args.start_paused,
         plugins=args.plugins,
         parser=args.parser,
         bg=True,  # Always run in background for API calls

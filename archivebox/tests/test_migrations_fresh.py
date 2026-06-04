@@ -39,13 +39,13 @@ def test_status_after_init(tmp_path):
 
 
 def test_add_url_after_init(tmp_path):
-    """Should be able to add URLs after init with --index-only."""
+    """Should be able to add URLs after init with --bg."""
     env = cli_env(disable_extractors=True)
     result = run_archivebox_migration_cmd(tmp_path, ["init"])
     assert result.returncode == 0, f"Init failed: {result.stderr}"
 
-    # Add a URL with --index-only for speed
-    result = run_archivebox_migration_cmd(tmp_path, ["add", "--index-only", "https://example.com"])
+    # Add a URL with --bg for speed
+    result = run_archivebox_migration_cmd(tmp_path, ["add", "--bg", "https://example.com"])
     assert result.returncode == 0, f"Add command failed: {result.stderr}"
     run_queued_crawls(tmp_path, env)
 
@@ -60,7 +60,7 @@ def test_list_after_add(tmp_path):
     result = run_archivebox_migration_cmd(tmp_path, ["init"])
     assert result.returncode == 0, f"Init failed: {result.stderr}"
 
-    result = run_archivebox_migration_cmd(tmp_path, ["add", "--index-only", "https://example.com"])
+    result = run_archivebox_migration_cmd(tmp_path, ["add", "--bg", "https://example.com"])
     assert result.returncode == 0, f"Add failed: {result.stderr}"
     run_queued_crawls(tmp_path, env)
 
@@ -155,10 +155,10 @@ def test_add_urls_separately(tmp_path):
     assert result.returncode == 0, f"Init failed: {result.stderr}"
 
     # Add URLs one at a time
-    result = run_archivebox_migration_cmd(tmp_path, ["add", "--index-only", "https://example.com"])
+    result = run_archivebox_migration_cmd(tmp_path, ["add", "--bg", "https://example.com"])
     assert result.returncode == 0, f"Add 1 failed: {result.stderr}"
 
-    result = run_archivebox_migration_cmd(tmp_path, ["add", "--index-only", "https://example.org"])
+    result = run_archivebox_migration_cmd(tmp_path, ["add", "--bg", "https://example.org"])
     assert result.returncode == 0, f"Add 2 failed: {result.stderr}"
     run_queued_crawls(tmp_path, env)
 
@@ -175,7 +175,7 @@ def test_snapshots_linked_to_crawls(tmp_path):
     result = run_archivebox_migration_cmd(tmp_path, ["init"])
     assert result.returncode == 0, f"Init failed: {result.stderr}"
 
-    result = run_archivebox_migration_cmd(tmp_path, ["add", "--index-only", "https://example.com"])
+    result = run_archivebox_migration_cmd(tmp_path, ["add", "--bg", "https://example.com"])
     assert result.returncode == 0, f"Add failed: {result.stderr}"
     run_queued_crawls(tmp_path, env)
 

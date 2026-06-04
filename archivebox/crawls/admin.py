@@ -877,11 +877,27 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         # Keep resume symmetrical with pause: one tight scheduler UPDATE, no
         # save() hooks and no child fanout in the request path. Paused child
         # rows become runnable through their own resume/maintenance paths.
+        now = timezone.now()
         resumed = queryset.filter(status__in=Crawl.INACTIVE_STATES).update(
             status=Crawl.StatusChoices.QUEUED,
-            retry_at=timezone.now(),
-            modified_at=timezone.now(),
+            retry_at=now,
+            modified_at=now,
         )
+        # A manual resume clears the frozen START_PAUSED flag so it sticks. Only
+        # the (small) subset of selected rows that were start-paused needs a
+        # per-row config rewrite; everything else stays a single set-based UPDATE.
+        batch = []
+        for crawl in queryset.filter(config__START_PAUSED=True).only("id", "config").iterator(chunk_size=500):
+            config = dict(crawl.config or {})
+            config.pop("START_PAUSED", None)
+            crawl.config = config
+            crawl.modified_at = now
+            batch.append(crawl)
+            if len(batch) >= 500:
+                Crawl.objects.bulk_update(batch, ["config", "modified_at"], batch_size=500)
+                batch.clear()
+        if batch:
+            Crawl.objects.bulk_update(batch, ["config", "modified_at"], batch_size=500)
         if resumed:
             messages.success(request, f"Resumed {resumed} crawl(s). The runner will pick them up on the next sweep.")
         else:

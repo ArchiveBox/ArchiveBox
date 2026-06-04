@@ -122,7 +122,7 @@ def test_list_outputs_existing_snapshots_as_jsonl(initialized_archive):
     env = cli_env(disable_extractors=True)
     for url in ["https://example.com", "https://iana.org"]:
         run_archivebox_cmd(
-            ["add", "--index-only", "--depth=0", url],
+            ["add", "--bg", "--depth=0", url],
             env=env,
             check=True,
         )
@@ -146,7 +146,7 @@ def test_list_filters_by_url_icontains(initialized_archive):
     env = cli_env(disable_extractors=True)
     for url in ["https://example.com", "https://iana.org"]:
         run_archivebox_cmd(
-            ["add", "--index-only", "--depth=0", url],
+            ["add", "--bg", "--depth=0", url],
             env=env,
             check=True,
         )
@@ -168,7 +168,7 @@ def test_list_filters_by_crawl_id_and_limit(initialized_archive):
     env = cli_env(disable_extractors=True)
     for url in ["https://example.com", "https://iana.org"]:
         run_archivebox_cmd(
-            ["add", "--index-only", "--depth=0", url],
+            ["add", "--bg", "--depth=0", url],
             env=env,
             check=True,
         )
@@ -193,7 +193,7 @@ def test_list_filters_by_status(initialized_archive):
     """Test that list can filter using the current snapshot status."""
     env = cli_env(disable_extractors=True)
     run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", "https://example.com"],
+        ["add", "--bg", "--depth=0", "https://example.com"],
         env=env,
         check=True,
     )
@@ -236,7 +236,7 @@ def test_list_allows_sort_with_limit(initialized_archive):
     env = cli_env(disable_extractors=True)
     for url in ["https://example.com", "https://iana.org", "https://example.net"]:
         run_archivebox_cmd(
-            ["add", "--index-only", "--depth=0", url],
+            ["add", "--bg", "--depth=0", url],
             env=env,
             check=True,
         )

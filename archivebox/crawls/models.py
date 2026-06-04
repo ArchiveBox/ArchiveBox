@@ -212,6 +212,15 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if resumed and self.pk:
             from archivebox.core.models import ArchiveResult, Snapshot
 
+            # A manual resume clears the frozen START_PAUSED flag so the crawl is
+            # no longer treated as "start paused": one tight scheduler UPDATE, no
+            # save() hooks, then the runner does the real work.
+            if (self.config or {}).get("START_PAUSED"):
+                config = dict(self.config or {})
+                config.pop("START_PAUSED", None)
+                self.config = config
+                self.safe_update({"config": config}, refresh=False)
+
             resume_at = when or timezone.now()
             active_snapshots = self.snapshot_set.filter(
                 status=Snapshot.StatusChoices.PAUSED,
@@ -792,6 +801,14 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
             persona = Persona.objects.filter(pk=kwargs["persona_id"]).first()
         kwargs["config"] = build_crawl_config_snapshot(persona=persona, overrides=config)
+        # START_PAUSED is resolved + frozen through the normal config layering
+        # (env -> Machine.config/ArchiveBox.conf -> Persona -> Crawl.config), so
+        # the CLI --start-paused flag, the START_PAUSED env var, and the /add/
+        # form's start_paused checkbox all converge here. It decides the initial
+        # scheduler state unless the caller pinned status itself (e.g. recrawl).
+        if "status" not in kwargs and kwargs["config"].get("START_PAUSED"):
+            kwargs["status"] = cls.StatusChoices.PAUSED
+            kwargs.setdefault("retry_at", RETRY_AT_MAX)
         crawl = cls(**kwargs)
         if crawl.delete_at is None:
             crawl.set_delete_at_from_config()
@@ -1568,7 +1585,7 @@ class CrawlMachine(BaseStateMachine):
     )
 
     # Manual event (triggered by last Snapshot sealing, or by direct
-    # index-only/bg creation when every requested URL is rejected before any
+    # bg creation when every requested URL is rejected before any
     # Snapshot rows exist).
     seal = queued.to(sealed) | started.to(sealed) | paused.to(sealed)
     pause_requested = queued.to(paused) | started.to(paused)

@@ -20,7 +20,7 @@ def test_basic_success_case_request(client, tmp_path, api_headers):
             "depth": 0,
             "parser": "url_list",
             "plugins": "__archivebox_test_no_plugins__",
-            "index_only": True,
+            "start_paused": True,
         },
         headers=api_headers,
     )

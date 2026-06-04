@@ -382,7 +382,7 @@ def test_add_view_public_submission_ignores_plugin_and_custom_config(client, adm
     assert crawl.config.get("WGET_TIMEOUT") != 77
     assert crawl.config.get("NODE_BINARY") != "/tmp/node"
     assert crawl.config.get("TWOCAPTCHA_API_KEY") != "posted-token"
-    assert crawl.config.get("INDEX_ONLY") is not True
+    assert crawl.config.get("START_PAUSED") is not True
     assert crawl.status == Crawl.StatusChoices.QUEUED
     assert crawl.schedule is None
 
@@ -453,7 +453,8 @@ def test_add_view_start_paused_creates_paused_crawl_without_snapshots(client, ad
     assert crawl.status == Crawl.StatusChoices.PAUSED
     assert crawl.retry_at == RETRY_AT_MAX
     assert crawl.snapshot_set.count() == 0
-    assert crawl.config.get("INDEX_ONLY") is not True
+    # The start_paused checkbox is a shortcut for the frozen START_PAUSED config.
+    assert crawl.config.get("START_PAUSED") is True
 
 
 def test_add_view_extracts_urls_from_mixed_text_input(client, admin_user, monkeypatch):

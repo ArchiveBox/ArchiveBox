@@ -372,7 +372,7 @@ class ArchivingConfig(BaseConfigSet):
     )
 
     ONLY_NEW: bool = Field(default=True)
-    INDEX_ONLY: bool = Field(default=False)
+    START_PAUSED: bool = Field(default=False, description="Create new crawls in the PAUSED state instead of starting them immediately.")
 
     TIMEOUT: int = Field(default=60)
     CRAWL_MAX_URLS: int = Field(default=0)

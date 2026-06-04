@@ -200,7 +200,7 @@ def test_init_with_existing_data_preserves_snapshots(initialized_archive):
 
     # Add a snapshot
     run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", "https://example.com"],
+        ["add", "--bg", "--depth=0", "https://example.com"],
         cwd=initialized_archive,
         env=env,
     )
@@ -254,7 +254,7 @@ def test_init_ignores_unrecognized_archive_directories(initialized_archive):
     """Test that init upgrades existing dirs without choking on extra folders."""
     env = cli_env(disable_extractors=True)
     run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", "https://example.com"],
+        ["add", "--bg", "--depth=0", "https://example.com"],
         env=env,
         check=True,
     )

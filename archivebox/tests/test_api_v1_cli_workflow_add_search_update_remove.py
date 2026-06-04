@@ -45,7 +45,6 @@ def test_cli_api_add_search_update_remove_over_server(tmp_path):
                 "plugins": "wget",
                 "update": True,
                 "overwrite": False,
-                "index_only": True,
             },
             timeout=10,
         )
@@ -131,7 +130,6 @@ def test_cli_api_add_search_update_remove_over_server(tmp_path):
         assert crawl is not None
         assert crawl[0] == 0
         assert crawl[1] == "api-cli"
-        assert crawl[2]["INDEX_ONLY"] is True
 
         remove_response = live_api_request(
             port,

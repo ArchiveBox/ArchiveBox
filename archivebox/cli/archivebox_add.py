@@ -58,7 +58,6 @@ def add(
     parser: str = "auto",
     plugins: str = "",
     persona: str = "Default",
-    index_only: bool = False,
     start_paused: bool = False,
     bg: bool = False,
     created_by_id: int | None = None,
@@ -115,7 +114,6 @@ def add(
     from archivebox.misc.logging_util import printable_filesize
     from archivebox.misc.system import get_dir_size
     from archivebox.core.shutdown_util import foreground_parent_watchdog, foreground_shutdown_signals
-    from archivebox.workers.models import RETRY_AT_MAX
     from django.utils import timezone
 
     created_by_id = created_by_id or get_or_create_system_user_pk()
@@ -167,7 +165,9 @@ def add(
 
     crawl_config = {
         "PERMISSIONS": str(effective_persona_config.PERMISSIONS),
-        **({"INDEX_ONLY": True} if index_only else {}),
+        # --start-paused is just an alias for setting START_PAUSED=True; the
+        # frozen value makes create_scheduler_row() create the crawl PAUSED.
+        **({"START_PAUSED": True} if start_paused else {}),
         **({"PLUGINS": plugins} if plugins else {}),
         **(
             {"CRAWL_MAX_CONCURRENT_SNAPSHOTS": crawl_max_concurrent_snapshots}
@@ -185,18 +185,18 @@ def add(
     }
     # Caller-supplied overrides (e.g. {"ONLY_NEW": False}) are the highest
     # priority for crawl-frozen keys. Runtime-derived execution keys are
-    # stripped by Crawl.save() and rederived when hooks run.
+    # stripped when the snapshot is frozen and rederived when hooks run.
     crawl_config.update(config_overrides)
 
-    crawl = Crawl.objects.create(
+    # create_scheduler_row() freezes crawl_config (resolving env/Machine/Persona
+    # layers) and derives the initial PAUSED state when START_PAUSED is set.
+    crawl = Crawl.create_scheduler_row(
         urls=urls_content,
         max_depth=depth,
         tags_str=tag,
         persona_id=persona_obj.id,
         label=f"{USER}@{HOSTNAME} $ {cmd_str} [{timestamp}]",
         created_by_id=created_by_id,
-        status=Crawl.StatusChoices.PAUSED if start_paused else Crawl.StatusChoices.QUEUED,
-        retry_at=RETRY_AT_MAX if start_paused else (None if index_only else timezone.now()),
         config=crawl_config,
     )
 
@@ -208,12 +208,8 @@ def add(
     #    Parser extractors run on snapshots and discover more URLs
     #    Discovered URLs become child Snapshots (depth+1)
 
-    if start_paused:
+    if (crawl.config or {}).get("START_PAUSED"):
         print("[yellow]\\[*] Paused mode - crawl created paused, runner not started. Resume it later to begin archiving.[/yellow]")
-        return crawl, crawl.snapshot_set.none()
-
-    if index_only:
-        print("[yellow]\\[*] Index-only mode - URLs queued, runner not started[/yellow]")
         return crawl, crawl.snapshot_set.none()
 
     # 5. Start the crawl runner to process the queue
@@ -350,8 +346,7 @@ def add(
     help="Skip URLs that already have a snapshot (default: inherit from ONLY_NEW config). "
     "Pass --no-only-new to force re-archive of URLs that already exist.",
 )
-@click.option("--index-only", is_flag=True, help="Just add the URLs to the index without archiving them now")
-@click.option("--paused", "start_paused", is_flag=True, help="Create the crawl in a paused state without starting the runner (resume it later to begin archiving)")
+@click.option("--start-paused", "start_paused", is_flag=True, help="Create the crawl PAUSED without starting the runner (alias for START_PAUSED=True; resume it later to begin archiving)")
 @click.option("--overwrite", is_flag=True, help="Re-archive URLs even if they already exist (alias for --no-only-new)")
 @click.option("--update", is_flag=True, help="Re-archive URLs even if they already exist (alias for --no-only-new)")
 @click.option("--bg", is_flag=True, help="Run archiving in background (queue work and return immediately)")

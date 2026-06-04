@@ -88,7 +88,6 @@ from archivebox.core.routes_util import (
 from archivebox.core.forms import AddLinkForm
 from archivebox.plugins.forms import get_plugin_config_binary_urls
 from archivebox.crawls.models import Crawl
-from archivebox.workers.models import RETRY_AT_MAX
 from archivebox.plugins.discovery import discover_plugin_configs
 from archivebox.plugins.views import get_config_definition_link
 from archivebox.progressmonitor.views import live_progress_view, progress_endpoint
@@ -1424,6 +1423,10 @@ class AddView(UserPassesTestMixin, FormView):
             config["URL_ALLOWLIST"] = url_filters["allowlist"]
         if url_filters.get("denylist"):
             config["URL_DENYLIST"] = url_filters["denylist"]
+        # The start_paused checkbox is just a shortcut for START_PAUSED=True;
+        # create_scheduler_row freezes it and derives the PAUSED initial state.
+        if start_paused:
+            config["START_PAUSED"] = True
 
         crawl = Crawl.create_scheduler_row(
             urls=urls_content,
@@ -1434,8 +1437,6 @@ class AddView(UserPassesTestMixin, FormView):
             created_by_id=created_by_id,
             config=config,
             persona_id=persona.id if persona else None,
-            status=Crawl.StatusChoices.PAUSED if start_paused else Crawl.StatusChoices.QUEUED,
-            retry_at=RETRY_AT_MAX if start_paused else timezone.now(),
         )
 
         # 3. create a CrawlSchedule if schedule is provided
@@ -1454,7 +1455,7 @@ class AddView(UserPassesTestMixin, FormView):
             crawl.schedule = crawl_schedule
             crawl.safe_update({"schedule": crawl_schedule}, refresh=False)
 
-        if not start_paused:
+        if not (crawl.config or {}).get("START_PAUSED"):
             from archivebox.services.runner import ensure_background_runner
 
             ensure_background_runner()

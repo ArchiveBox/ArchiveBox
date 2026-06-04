@@ -36,9 +36,9 @@ def test_update_reconciles_existing_snapshots(initialized_archive):
     """Test that update command reconciles existing snapshots."""
     env = cli_env(disable_extractors=True)
 
-    # Add a snapshot (index-only for faster test)
+    # Add a snapshot (--bg for faster test)
     run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", "https://example.com"],
+        ["add", "--bg", "--depth=0", "https://example.com"],
         env=env,
     )
     run_queued_crawls(initialized_archive, env)
@@ -65,12 +65,12 @@ def test_update_specific_snapshot_by_filter(initialized_archive):
 
     # Add multiple snapshots
     run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", "https://example.com"],
+        ["add", "--bg", "--depth=0", "https://example.com"],
         env=env,
         timeout=90,
     )
     run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", "https://example.org"],
+        ["add", "--bg", "--depth=0", "https://example.org"],
         env=env,
         timeout=90,
     )
@@ -99,7 +99,7 @@ def test_update_preserves_snapshot_count(initialized_archive):
 
     # Add snapshots
     run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", "https://example.com"],
+        ["add", "--bg", "--depth=0", "https://example.com"],
         env=env,
         timeout=90,
     )
@@ -132,7 +132,7 @@ def test_update_seals_migrated_snapshots(initialized_archive):
     env = cli_env(disable_extractors=True)
 
     run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", "https://example.com"],
+        ["add", "--bg", "--depth=0", "https://example.com"],
         env=env,
         timeout=90,
     )

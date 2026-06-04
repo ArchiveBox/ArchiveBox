@@ -137,7 +137,7 @@ def test_add_works_after_migration(archive_04):
     assert result.returncode == 0, f"Init failed: {result.stderr}"
 
     # Try to add a new URL after migration
-    result = run_archivebox_migration_cmd(work_dir, ["add", "--index-only", "https://example.com/new-page"], timeout=45)
+    result = run_archivebox_migration_cmd(work_dir, ["add", "--bg", "https://example.com/new-page"], timeout=45)
     assert result.returncode == 0, f"Add failed after migration: {result.stderr}"
     result = run_archivebox_migration_cmd(work_dir, ["run"], timeout=90)
     assert result.returncode == 0, f"Run failed after migration: {result.stderr}"
