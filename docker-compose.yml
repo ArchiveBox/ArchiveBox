@@ -92,17 +92,73 @@ services:
     # Cloudflare's edge terminates TLS and resolves *.your.domain to a SINGLE tunnel;
     # every snapshot/control subdomain rides one connection to archivebox:8000, which
     # routes by Host header — so the tunnel itself needs no wildcard cert or per-host
-    # config. In Cloudflare Zero Trust create a tunnel with a public hostname
-    # `*.your.domain` (and `your.domain`) -> http://archivebox:8000, then paste its
-    # token below. (A DNS API token alone can't create tunnels; this token is separate.)
+    # config. ZERO manual setup: the one-shot tunnel-init below uses your
+    # CLOUDFLARE_DNS_API_TOKEN (give it Account:Cloudflare Tunnel:Edit + Zone:DNS:Edit
+    # + Zone:Read) to create/reuse the tunnel, point *.your.domain and your.domain at
+    # it, and write its connector token — then cloudflared just runs it.
+    tunnel-init:
+        image: ${ARCHIVEBOX_IMAGE:-archivebox/archivebox:dev}   # reuse the image (its python); no extra image
+        profiles: ["tunnel"]
+        restart: "no"
+        environment:
+            - BASE_URL=${BASE_URL:-https://archive.example.com}
+            - CLOUDFLARE_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN:-}
+            - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID:-}   # optional; first account used if unset
+            - TUNNEL_SERVICE=http://archivebox:8000
+            - TUNNEL_TOKEN_OUT=/shared/token
+        volumes:
+            - ./data/proxy/tunnel:/shared
+        entrypoint:
+            - python3
+            - -c
+            - |
+              import os, json, base64, secrets, urllib.request, urllib.error
+              API = "https://api.cloudflare.com/client/v4"
+              TOKEN = os.environ["CLOUDFLARE_DNS_API_TOKEN"]
+              DOMAIN = os.environ.get("BASE_URL", "").split("://")[-1].split("/")[0].split(":")[0]
+              SERVICE = os.environ.get("TUNNEL_SERVICE", "http://archivebox:8000")
+              OUT = os.environ.get("TUNNEL_TOKEN_OUT", "/shared/token")
+              H = {"Authorization": "Bearer " + TOKEN, "Content-Type": "application/json"}
+              def call(method, path, data=None):
+                  body = json.dumps(data).encode() if data is not None else None
+                  req = urllib.request.Request(API + path, data=body, headers=H, method=method)
+                  try:
+                      with urllib.request.urlopen(req, timeout=30) as r: return json.load(r)
+                  except urllib.error.HTTPError as e: return json.load(e)
+              assert DOMAIN and TOKEN, "set BASE_URL (https://archive.example.com) + CLOUDFLARE_DNS_API_TOKEN"
+              acct = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "").strip() or call("GET", "/accounts")["result"][0]["id"]
+              zone = call("GET", f"/zones?name={DOMAIN}")["result"][0]["id"]
+              NAME = "archivebox-" + DOMAIN.replace(".", "-")
+              ts = call("GET", f"/accounts/{acct}/cfd_tunnel?name={NAME}&is_deleted=false")["result"]
+              tid = ts[0]["id"] if ts else call("POST", f"/accounts/{acct}/cfd_tunnel", {"name": NAME,
+                      "tunnel_secret": base64.b64encode(secrets.token_bytes(32)).decode(), "config_src": "cloudflare"})["result"]["id"]
+              target = f"{tid}.cfargotunnel.com"
+              call("PUT", f"/accounts/{acct}/cfd_tunnel/{tid}/configurations", {"config": {"ingress": [
+                  {"hostname": f"*.{DOMAIN}", "service": SERVICE}, {"hostname": DOMAIN, "service": SERVICE},
+                  {"service": "http_status:404"}]}})
+              for name in (DOMAIN, f"*.{DOMAIN}"):
+                  recs = call("GET", f"/zones/{zone}/dns_records?name={name}")["result"]
+                  cname = [r for r in recs if r["type"] == "CNAME"]
+                  for r in [r for r in recs if r["type"] in ("A", "AAAA")] + cname[1:]:
+                      call("DELETE", f"/zones/{zone}/dns_records/{r['id']}")
+                  desired = {"type": "CNAME", "name": name, "content": target, "proxied": True, "ttl": 1}
+                  call("PUT", f"/zones/{zone}/dns_records/{cname[0]['id']}", desired) if cname else call("POST", f"/zones/{zone}/dns_records", desired)
+              tok = call("GET", f"/accounts/{acct}/cfd_tunnel/{tid}/token")["result"]
+              os.makedirs(os.path.dirname(OUT) or ".", exist_ok=True); open(OUT, "w").write(tok)
+              print(f"[tunnel-init] {NAME} ({tid}): *.{DOMAIN} + {DOMAIN} -> {SERVICE}; connector token -> {OUT}")
+
     cloudflared:
         image: cloudflare/cloudflared
         profiles: ["tunnel"]
         restart: unless-stopped
-        depends_on: [archivebox]
-        command: tunnel --no-autoupdate --protocol http2 run
-        environment:
-            - TUNNEL_TOKEN=${TUNNEL_TOKEN:-}
+        depends_on:
+            archivebox:
+                condition: service_started
+            tunnel-init:
+                condition: service_completed_successfully
+        command: tunnel --no-autoupdate --protocol http2 run --token-file /shared/token
+        volumes:
+            - ./data/proxy/tunnel:/shared:ro
 
     ### Option B — Caddy + automatic Let's Encrypt wildcard cert (you have a public IP).
     # The lego sidecar fetches ONE *.your.domain wildcard cert via DNS-01 (≈150
