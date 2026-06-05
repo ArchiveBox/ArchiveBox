@@ -1,0 +1,42 @@
+Dockerfile
+  s_7cc75db5230061::t_559504f6bcee58 196
+  s_7cc75db5230061::t_b5152647379d9d 197
+  s_7cc75db5230061::t_cc7441003a19e9 123-124,163
+  s_7cc75db5230061::t_50415ce7401c60 71,198-200
+  s_7cc75db5230061::t_e60769fd5c98c2 175
+  s_7cc75db5230061::t_d7c9908db5c213 22-24
+  s_7cc75db5230061::t_9df65c4d675a9d 176,209
+Dockerfile.multistage
+  s_7cc75db5230061::t_9df65c4d675a9d 176,209
+  s_7cc75db5230061::t_e60769fd5c98c2 175
+  s_7cc75db5230061::t_d7c9908db5c213 22-24
+  s_7cc75db5230061::t_50415ce7401c60 71,198-200
+  s_7cc75db5230061::t_559504f6bcee58 196
+  s_7cc75db5230061::t_b5152647379d9d 197
+  s_7cc75db5230061::t_cc7441003a19e9 123-124,163
+archivebox/tests/test_dockerfiles.py
+  s_7cc75db5230061::t_854b4fb80530d0 161-167
+  s_7cc75db5230061::t_c27f069290694a 152-158
+  s_7cc75db5230061::t_061180fd2838a0 118-119
+  s_7cc75db5230061::t_fbef797d0be377 136-143
+  s_7cc75db5230061::t_b077c90909c456 144-151
+  s_7cc75db5230061::t_ad59662d34c673 111-117,120,122-124
+  s_7cc75db5230061::t_4c25ccc2a8d6b8 121
+  s_7cc75db5230061::t_e10a060d7c97f3 159-160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "4f890cbd2dfcfcc40ea13682b0f1dda968d64da7",
+  "prompts": {},
+  "sessions": {
+    "s_7cc75db5230061": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9181-9d0e-7f61-a8dc-95dc82bc59e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}
