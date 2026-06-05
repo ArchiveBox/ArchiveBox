@@ -22,11 +22,9 @@ services:
             # - ADMIN_PASSWORD=SomeSecretPassword
             - BASE_URL=${BASE_URL:-http://archivebox.localhost:8000}                  # public URL used to build admin/web/api/snapshot links
             - SERVER_SECURITY_MODE=${SERVER_SECURITY_MODE:-safe-subdomains-fullreplay} # safe-onedomain-nojsreplay if you can't do wildcard DNS *.your.domain
-            # Trust the bundled ingress (caddy/cloudflared below) for the request scheme
-            # so https links + secure cookies work end-to-end. Leave False unless you put
-            # an ingress in front (and don't also expose :8000 publicly), or the scheme
-            # could be spoofed by a client hitting :8000 directly.
-            - REVERSE_PROXY_TRUST_FORWARDED_PROTO=${REVERSE_PROXY_TRUST_FORWARDED_PROTO:-False}
+            # An https:// BASE_URL means HTTPS end-to-end (behind the ingress below or
+            # your own proxy): ArchiveBox then trusts X-Forwarded-Proto and marks auth
+            # cookies Secure automatically — no extra flag.
             - PUBLIC_ADD_VIEW=False                              # set to True to allow anonymous users to submit new URLs to archive
             # - PUID=911                                         # set to your host user's UID & GID if you encounter permissions issues
             # - PGID=911                                         # UID/GIDs lower than 500 may clash with system uids and are not recommended
@@ -84,25 +82,24 @@ services:
     # needs wildcard DNS + TLS for *.your.domain. Pick ONE of the two ingress options
     # below by activating its profile (e.g. put COMPOSE_PROFILES=https or =tunnel in a
     # .env file next to this one, then `docker compose up -d`). Both want:
-    #     BASE_URL=https://archive.example.com
-    #     SERVER_SECURITY_MODE=safe-subdomains-fullreplay
-    #     REVERSE_PROXY_TRUST_FORWARDED_PROTO=True
+    #     BASE_URL=https://archive.example.com   (the https:// scheme is what flips on
+    #     SERVER_SECURITY_MODE=safe-subdomains-fullreplay   proxy-scheme trust + Secure cookies)
 
     ### Option A — Cloudflare Tunnel (no public IP / behind NAT, e.g. home/NAS).
     # Cloudflare's edge terminates TLS and resolves *.your.domain to a SINGLE tunnel;
     # every snapshot/control subdomain rides one connection to archivebox:8000, which
     # routes by Host header — so the tunnel itself needs no wildcard cert or per-host
     # config. ZERO manual setup: the one-shot tunnel-init below uses your
-    # CLOUDFLARE_DNS_API_TOKEN (give it Account:Cloudflare Tunnel:Edit + Zone:DNS:Edit
+    # CLOUDFLARE_API_KEY (give it Account:Cloudflare Tunnel:Edit + Zone:DNS:Edit
     # + Zone:Read) to create/reuse the tunnel, point *.your.domain and your.domain at
     # it, and write its connector token — then cloudflared just runs it.
     tunnel-init:
-        image: ${ARCHIVEBOX_IMAGE:-archivebox/archivebox:dev}   # reuse the image (its python); no extra image
+        image: python:3-alpine   # tiny stdlib-only provisioner; runs as root so it can chown the token
         profiles: ["tunnel"]
         restart: "no"
         environment:
             - BASE_URL=${BASE_URL:-https://archive.example.com}
-            - CLOUDFLARE_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN:-}
+            - CLOUDFLARE_API_KEY=${CLOUDFLARE_API_KEY:-}
             - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID:-}   # optional; first account used if unset
             - TUNNEL_SERVICE=http://archivebox:8000
             - TUNNEL_TOKEN_OUT=/shared/token
@@ -114,7 +111,7 @@ services:
             - |
               import os, json, base64, secrets, urllib.request, urllib.error
               API = "https://api.cloudflare.com/client/v4"
-              TOKEN = os.environ["CLOUDFLARE_DNS_API_TOKEN"]
+              TOKEN = os.environ["CLOUDFLARE_API_KEY"]
               DOMAIN = os.environ.get("BASE_URL", "").split("://")[-1].split("/")[0].split(":")[0]
               SERVICE = os.environ.get("TUNNEL_SERVICE", "http://archivebox:8000")
               OUT = os.environ.get("TUNNEL_TOKEN_OUT", "/shared/token")
@@ -125,7 +122,7 @@ services:
                   try:
                       with urllib.request.urlopen(req, timeout=30) as r: return json.load(r)
                   except urllib.error.HTTPError as e: return json.load(e)
-              assert DOMAIN and TOKEN, "set BASE_URL (https://archive.example.com) + CLOUDFLARE_DNS_API_TOKEN"
+              assert DOMAIN and TOKEN, "set BASE_URL (https://archive.example.com) + CLOUDFLARE_API_KEY"
               acct = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "").strip() or call("GET", "/accounts")["result"][0]["id"]
               labels = DOMAIN.split("."); zone = None   # DOMAIN may be a subdomain; find its registrable zone
               for i in range(len(labels) - 1):
@@ -168,12 +165,16 @@ services:
         volumes:
             - ./data/proxy/tunnel:/shared:ro
 
-    ### Option B — Caddy + automatic Let's Encrypt wildcard cert (you have a public IP).
-    # The lego sidecar fetches ONE *.your.domain wildcard cert via DNS-01 (≈150
-    # providers; cloudflare shown) using CLOUDFLARE_DNS_API_TOKEN, and Caddy serves it
-    # for unlimited snap-* subdomains. If no cert is available (no token / DNS-01
-    # failed / first boot) Caddy GRACEFULLY DEGRADES to a self-signed internal cert so
-    # the site always comes up on https. All config is inlined here — no extra files.
+    ### Option B — Caddy reverse proxy + automatic TLS (you have a public IP, ports 80/443).
+    # Caddy terminates TLS for the apex + every snapshot subdomain, picking the best
+    # source automatically:
+    #   1. *.your.domain WILDCARD cert from the lego sidecar (any of ~150 DNS providers,
+    #      see ARCHIVEBOX_ACME_DNS below) — one cert, unlimited snap-* subdomains.
+    #   2. else, if BASE_URL is https://, plain Let's Encrypt with NO DNS provider:
+    #      on-demand per-host certs over HTTP-01 (needs no credentials; subject to LE
+    #      rate limits if you have very many distinct subdomains).
+    #   3. else (local http:// BASE_URL) a self-signed internal cert.
+    # All config is generated inline — no extra files.
     caddy:
         image: caddy:2-alpine
         profiles: ["https"]
@@ -196,20 +197,28 @@ services:
               set -eu
               DOMAIN=$$(printf '%s' "$$BASE_URL" | sed -E 's#^[a-z]+://##; s#[:/].*##')
               CRT="/certs/lego/certificates/_.$$DOMAIN.crt"; KEY="/certs/lego/certificates/_.$$DOMAIN.key"
-              # wait briefly for the lego sidecar to mint the wildcard cert on first boot
+              # give a DNS-01 sidecar (if configured) a moment to mint the wildcard cert on first boot
               i=0; while [ ! -s "$$CRT" ] && [ $$i -lt 20 ]; do sleep 3; i=$$((i+1)); done
               if [ -s "$$CRT" ] && [ -s "$$KEY" ]; then
-                TLS="$$CRT $$KEY"; echo "[caddy] serving real wildcard cert for *.$$DOMAIN"
+                TLS="tls $$CRT $$KEY"; echo "[caddy] wildcard cert for *.$$DOMAIN"
+              elif printf '%s' "$$BASE_URL" | grep -q '^https://'; then
+                TLS=$$(printf 'tls {\n\t\ton_demand\n\t}'); echo "[caddy] on-demand Let's Encrypt per host for *.$$DOMAIN"
               else
-                TLS=internal; echo "[caddy] no wildcard cert yet -> self-signed internal CA for *.$$DOMAIN"
+                TLS="tls internal"; echo "[caddy] self-signed internal CA for *.$$DOMAIN"
               fi
-              printf '{\n\temail %s\n\tauto_https disable_redirects\n}\n*.%s, %s {\n\ttls %s\n\tencode zstd gzip\n\treverse_proxy archivebox:8000\n}\n' \
+              printf '{\n\temail %s\n\tauto_https disable_redirects\n\ton_demand_tls {\n\t\task http://localhost:7000/check\n\t}\n}\n:7000 {\n\trespond /check 200\n}\n*.%s, %s {\n\t%s\n\tencode zstd gzip\n\treverse_proxy archivebox:8000\n}\n' \
                 "$$ARCHIVEBOX_ACME_EMAIL" "$$DOMAIN" "$$DOMAIN" "$$TLS" > /tmp/Caddyfile
               exec caddy run --config /tmp/Caddyfile --adapter caddyfile
 
-    # DNS-01 wildcard cert sidecar for the `https` profile (go-acme/lego). Issues then
-    # auto-renews ONE *.your.domain cert. Swap --dns / creds for any lego provider:
-    #   route53 -> AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY; digitalocean -> DO_AUTH_TOKEN; ...
+    # Optional DNS-01 WILDCARD cert sidecar for the `https` profile (go-acme/lego,
+    # ~150 DNS providers). Pick one with ARCHIVEBOX_ACME_DNS and put that provider's
+    # native credentials in a .env next to this file — they're passed straight to lego:
+    #   cloudflare   -> ARCHIVEBOX_ACME_DNS=cloudflare   + CLOUDFLARE_DNS_API_TOKEN=...
+    #   route53      -> ARCHIVEBOX_ACME_DNS=route53      + AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_REGION
+    #   digitalocean -> ARCHIVEBOX_ACME_DNS=digitalocean + DO_AUTH_TOKEN
+    #   ... full list + var names: https://go-acme.github.io/lego/dns/
+    # Leave ARCHIVEBOX_ACME_DNS unset to skip DNS-01 entirely — Caddy then does plain
+    # Let's Encrypt on-demand (HTTP-01), so no DNS provider/credentials are required.
     lego:
         image: goacme/lego
         profiles: ["https"]
@@ -217,7 +226,10 @@ services:
         environment:
             - BASE_URL=${BASE_URL:-https://archive.example.com}
             - ARCHIVEBOX_ACME_EMAIL=${ARCHIVEBOX_ACME_EMAIL:-admin@example.com}
-            - CLOUDFLARE_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN:-}
+            - ARCHIVEBOX_ACME_DNS=${ARCHIVEBOX_ACME_DNS:-}
+        env_file:
+            - path: .env       # passes your provider's native creds (CLOUDFLARE_DNS_API_TOKEN, AWS_*, DO_AUTH_TOKEN, ...) to lego
+              required: false
         volumes:
             - ./data/proxy/certs:/certs
         entrypoint:
@@ -226,14 +238,14 @@ services:
             - |
               set -u
               DOMAIN=$$(printf '%s' "$$BASE_URL" | sed -E 's#^[a-z]+://##; s#[:/].*##')
-              if [ -z "$${CLOUDFLARE_DNS_API_TOKEN:-}" ]; then
-                echo "[lego] no CLOUDFLARE_DNS_API_TOKEN -> skipping; caddy will self-sign for $$DOMAIN"
+              if [ -z "$${ARCHIVEBOX_ACME_DNS:-}" ]; then
+                echo "[lego] no ARCHIVEBOX_ACME_DNS set -> skipping DNS-01; caddy will use on-demand Let's Encrypt for $$DOMAIN"
                 exec sleep infinity
               fi
               ACTION=run; EXTRA=""
               while :; do
-                echo "[lego] $$ACTION *.$$DOMAIN + $$DOMAIN via cloudflare DNS-01"
-                /lego $$ACTION --accept-tos --email "$$ARCHIVEBOX_ACME_EMAIL" --dns cloudflare \
+                echo "[lego] $$ACTION *.$$DOMAIN + $$DOMAIN via $$ARCHIVEBOX_ACME_DNS DNS-01"
+                /lego $$ACTION --accept-tos --email "$$ARCHIVEBOX_ACME_EMAIL" --dns "$$ARCHIVEBOX_ACME_DNS" \
                   -d "*.$$DOMAIN" -d "$$DOMAIN" --path /certs/lego $$EXTRA \
                   || echo "[lego] $$ACTION failed; will retry next cycle"
                 ACTION=renew; EXTRA="--days 30"

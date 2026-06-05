@@ -419,24 +419,20 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
-# When ArchiveBox sits behind a TLS-terminating reverse proxy (the bundled
-# Caddy profile, the user's own caddy/traefik/nginx, or an ingress like
-# Cloudflare), the hop from proxy → archivebox is plain HTTP, so
-# request.is_secure() / request.scheme would report http. That makes the
-# cross-subdomain login-hint cookie (core/middleware.py) lose its Secure flag
-# and request-derived schemes fall back to http. Honour the proxy's
-# X-Forwarded-Proto header so request.is_secure() reflects the real
-# client-facing scheme. Gated behind a config flag (default off) because
-# trusting a forwarded header is only safe when a proxy you control always
-# sets it — the bundled proxy profile turns it on via env.
-if CONFIG.REVERSE_PROXY_TRUST_FORWARDED_PROTO:
+# When BASE_URL is an https:// URL the deployment is HTTPS end-to-end — typically
+# behind a TLS-terminating proxy/tunnel (the bundled caddy/cloudflared profiles, or
+# your own caddy/traefik/nginx) where the proxy → archivebox hop is plain HTTP, so
+# request.is_secure() / request.scheme would otherwise report http. Honour the
+# proxy's X-Forwarded-Proto so request-derived schemes are correct, and mark the
+# admin session + CSRF cookies Secure so auth cookies are never sent in cleartext.
+# Derived straight from BASE_URL's scheme — no separate flag to keep in sync. A
+# plain-http BASE_URL (e.g. local http://archivebox.localhost:8000) keeps defaults.
+BASE_URL_IS_HTTPS = CONFIG.BASE_URL.strip().lower().startswith("https://")
+if BASE_URL_IS_HTTPS:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-# When the proxy is trusted the deployment is HTTPS end-to-end, so also mark the
-# admin session + CSRF cookies Secure (never sent over plain HTTP). Scoped to the
-# same flag so the default http://localhost:8000 setup keeps working unchanged.
-CSRF_COOKIE_SECURE = CONFIG.REVERSE_PROXY_TRUST_FORWARDED_PROTO
-SESSION_COOKIE_SECURE = CONFIG.REVERSE_PROXY_TRUST_FORWARDED_PROTO
+CSRF_COOKIE_SECURE = BASE_URL_IS_HTTPS
+SESSION_COOKIE_SECURE = BASE_URL_IS_HTTPS
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_NAME = f"archivebox_sessionid_{CONSTANTS.COLLECTION_ID}"
 CSRF_COOKIE_NAME = f"archivebox_csrftoken_{CONSTANTS.COLLECTION_ID}"
