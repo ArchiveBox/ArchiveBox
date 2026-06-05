@@ -148,7 +148,10 @@ services:
                   desired = {"type": "CNAME", "name": name, "content": target, "proxied": True, "ttl": 1}
                   call("PUT", f"/zones/{zone}/dns_records/{cname[0]['id']}", desired) if cname else call("POST", f"/zones/{zone}/dns_records", desired)
               tok = call("GET", f"/accounts/{acct}/cfd_tunnel/{tid}/token")["result"]
-              os.makedirs(os.path.dirname(OUT) or ".", exist_ok=True); open(OUT, "w").write(tok); os.chmod(OUT, 0o600)
+              os.makedirs(os.path.dirname(OUT) or ".", exist_ok=True)
+              with open(OUT, "w") as f: f.write(tok)
+              try: os.chown(OUT, 65532, 65532); os.chmod(OUT, 0o600)  # own it by the cloudflared (uid 65532) reader, keep private
+              except PermissionError: os.chmod(OUT, 0o644)            # tunnel-init not root: stay readable to the connector
               print(f"[tunnel-init] {NAME} ({tid}): *.{DOMAIN} + {DOMAIN} -> {SERVICE}; connector token -> {OUT}")
 
     cloudflared:
