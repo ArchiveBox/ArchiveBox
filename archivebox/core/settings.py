@@ -13,7 +13,7 @@ import archivebox
 
 from archivebox.config.constants import CONSTANTS
 from archivebox.config.common import get_config
-from archivebox.core.routes_util import normalize_base_url, get_admin_base_url, get_api_base_url
+from archivebox.core.routes_util import normalize_base_url, get_admin_base_url, get_api_base_url, get_base_url
 from .settings_logging import SETTINGS_LOGGING
 
 
@@ -425,9 +425,12 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 # request.is_secure() / request.scheme would otherwise report http. Honour the
 # proxy's X-Forwarded-Proto so request-derived schemes are correct, and mark the
 # admin session + CSRF cookies Secure so auth cookies are never sent in cleartext.
-# Derived straight from BASE_URL's scheme — no separate flag to keep in sync. A
-# plain-http BASE_URL (e.g. local http://archivebox.localhost:8000) keeps defaults.
-BASE_URL_IS_HTTPS = CONFIG.BASE_URL.strip().lower().startswith("https://")
+# Derived from the RESOLVED base URL's scheme — no separate flag to keep in sync.
+# get_base_url() also covers deployments that only set CSRF_TRUSTED_ORIGINS (the
+# implicit-BASE_URL fallback used on 0.7.x->0.9.x upgrades), so HTTPS hardening
+# isn't lost until BASE_URL is migrated. A plain-http base (e.g. local
+# http://archivebox.localhost:8000) keeps the defaults below.
+BASE_URL_IS_HTTPS = get_base_url().strip().lower().startswith("https://")
 if BASE_URL_IS_HTTPS:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
