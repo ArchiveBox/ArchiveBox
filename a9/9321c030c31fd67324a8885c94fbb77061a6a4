@@ -1,0 +1,20 @@
+archivebox/tests/test_cli_update.py
+  s_6b96473078dfa1::t_22780567201bbe 29
+  s_6b96473078dfa1::t_4c48675bf6d6b2 89,150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "a99321c030c31fd67324a8885c94fbb77061a6a4",
+  "prompts": {},
+  "sessions": {
+    "s_6b96473078dfa1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8e71-a862-71c3-9b0c-d2bc975f2d0f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
