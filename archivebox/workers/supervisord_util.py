@@ -170,7 +170,7 @@ RUNNER_WORKER = {
 RUNNER_ONCE_WORKER = lambda args, name="worker_runner_once": {
     **RUNNER_WORKER,
     "name": name,
-    "command": _shell_join([sys.executable, "-m", "archivebox", "run", *args]),
+    "command": _shell_join([sys.executable, "-m", "archivebox", "run", "--no-stdin", *args]),
     "environment": 'PYTHONUNBUFFERED="1",COLUMNS="200"',
     "autorestart": "false",
     "stopwaitsecs": "1",

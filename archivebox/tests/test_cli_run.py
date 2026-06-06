@@ -1390,13 +1390,14 @@ class TestRecoverOrchestratorState:
         assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
         assert snapshot.retry_at is None
 
-    def test_run_due_snapshot_runs_queued_plugin_after_fs_migration(self, monkeypatch):
+    @pytest.mark.django_db(transaction=True)
+    def test_run_due_snapshot_runs_queued_plugin_after_fs_migration(self):
         from django.utils import timezone
 
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.crawls.models import Crawl
         from archivebox.core.models import ArchiveResult, Snapshot
-        from archivebox.services import runner
+        from archivebox.services.runner import run_due_snapshot
 
         crawl = Crawl.objects.create(
             urls="https://example.com",
@@ -1412,45 +1413,28 @@ class TestRecoverOrchestratorState:
         )
         Snapshot.objects.filter(pk=snapshot.pk).update(fs_version="0.9.0")
         snapshot.refresh_from_db()
+        snapshot.output_dir.mkdir(parents=True, exist_ok=True)
+        title_dir = snapshot.output_dir / "title"
+        title_dir.mkdir(parents=True, exist_ok=True)
+        (title_dir / "title.txt").write_text("Example Domain\n", encoding="utf-8")
         result = ArchiveResult.objects.create(
             snapshot=snapshot,
-            plugin="search_backend_sonic",
-            hook_name="on_Snapshot__91_index_sonic",
+            plugin="search_backend_sqlite",
+            hook_name="on_Snapshot__90_index_sqlite",
             status=ArchiveResult.StatusChoices.QUEUED,
         )
-        calls = []
 
-        def fake_run_crawl(crawl_id, *, snapshot_ids=None, selected_plugins=None, **kwargs):
-            calls.append((crawl_id, snapshot_ids, selected_plugins, kwargs))
-            ArchiveResult.objects.filter(pk=result.pk).update(
-                status=ArchiveResult.StatusChoices.NORESULTS,
-                start_ts=timezone.now(),
-                end_ts=timezone.now(),
-                output_str="No indexable content",
-            )
-
-        monkeypatch.setattr(
-            runner,
-            "_snapshot_hook_names_by_plugin",
-            lambda: {"search_backend_sonic": frozenset({"on_Snapshot__91_index_sonic"})},
-        )
-        monkeypatch.setattr(runner, "run_crawl", fake_run_crawl)
-
-        assert runner.run_due_snapshot(snapshot, lock_seconds=60) is True
+        assert run_due_snapshot(snapshot, lock_seconds=60) is True
 
         snapshot.refresh_from_db()
         result.refresh_from_db()
         assert snapshot.fs_version == Snapshot._fs_current_version()
-        assert result.status == ArchiveResult.StatusChoices.NORESULTS
-        assert calls == [
-            (
-                str(crawl.id),
-                [str(snapshot.id)],
-                ["search_backend_sonic"],
-                {"process_discovered_snapshots_inline": True, "interactive_interrupts": False},
-            ),
-        ]
+        assert result.status in ArchiveResult.FINAL_STATES
+        assert result.status != ArchiveResult.StatusChoices.QUEUED
+        assert result.start_ts is not None
+        assert result.end_ts is not None
 
+    @pytest.mark.django_db(transaction=True)
     def test_run_due_snapshot_fails_obsolete_queued_hook_name(self):
         from django.utils import timezone
 

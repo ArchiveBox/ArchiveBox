@@ -193,6 +193,7 @@ class ArchiveBoxBinaryService(BaseService):
     def __init__(self, bus: EventBus):
         super().__init__(bus)
         self.process_ids_by_request_id: dict[str, str] = {}
+        self._missing_finalize_tasks: set[asyncio.Task] = set()
         self.bus.on(BinaryRequestEvent, self.on_BinaryRequestEvent__project_process)
         self.bus.on(BinaryRequestEvent, self.on_BinaryRequestEvent__schedule_missing_finalize)
         self.bus.on(BinaryEvent, self.on_BinaryEvent__finalize_process)
@@ -353,7 +354,12 @@ class ArchiveBoxBinaryService(BaseService):
 
     def _schedule_missing_finalize(self, request: BinaryRequestEvent) -> None:
         task = asyncio.create_task(self._finalize_request_when_done(request))
-        task.add_done_callback(lambda done: None if done.cancelled() else done.exception())
+        self._missing_finalize_tasks.add(task)
+        task.add_done_callback(lambda done: self._missing_finalize_tasks.discard(done) or (None if done.cancelled() else done.exception()))
+
+    async def flush_missing_finalizers(self) -> None:
+        if self._missing_finalize_tasks:
+            await asyncio.gather(*tuple(self._missing_finalize_tasks), return_exceptions=False)
 
     async def on_BinaryRequestEvent__schedule_missing_finalize(self, request: BinaryRequestEvent) -> None:
         self._schedule_missing_finalize(request)

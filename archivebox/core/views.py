@@ -329,7 +329,7 @@ class SnapshotView(View):
         hidden_card_plugins = {"archivedotorg", "favicon", "title"}
         outputs = [
             out
-            for out in snapshot.discover_outputs(include_filesystem_fallback=False)
+            for out in snapshot.discover_outputs(include_filesystem_fallback=True)
             if (out.get("size") or 0) > 0 and out.get("name") not in hidden_card_plugins
         ]
         archiveresults = {out["name"]: out for out in outputs}

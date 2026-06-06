@@ -243,6 +243,7 @@ def process_stdin_records() -> int:
                     crawl_id,
                     snapshot_ids=None if crawl_id in full_crawl_ids else sorted(snapshot_ids_by_crawl[crawl_id]),
                     selected_plugins=None if crawl_id in run_all_plugins_for_crawl else sorted(plugin_names_by_crawl[crawl_id]),
+                    selected_plugins_are_explicit=False,
                 )
     return 0
 
@@ -342,7 +343,8 @@ def run_runner(daemon: bool = False, crawl_id: str | None = None, maintenance_on
 @click.option("--snapshot-id", help="Run one snapshot through its crawl")
 @click.option("--binary-id", help="Run one queued binary install directly on the bus")
 @click.option("--maintenance-only", is_flag=True, help="Only process due maintenance ticks on sealed/paused snapshots")
-def main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str, maintenance_only: bool):
+@click.option("--no-stdin", is_flag=True, hidden=True, help="Run the scheduler even when stdin is not a TTY")
+def main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str, maintenance_only: bool, no_stdin: bool):
     """
     Process queued work.
 
@@ -394,7 +396,7 @@ def main(daemon: bool, crawl_id: str, snapshot_id: str, binary_id: str, maintena
         if maintenance_only:
             sys.exit(run_runner(daemon=daemon, maintenance_only=True))
 
-        if not sys.stdin.isatty():
+        if not no_stdin and not sys.stdin.isatty():
             sys.exit(process_stdin_records())
         else:
             sys.exit(run_runner(daemon=daemon, maintenance_only=maintenance_only))
@@ -409,10 +411,14 @@ def run_snapshot_worker(snapshot_id: str) -> int:
     snapshot = None
     try:
         with foreground_shutdown_signals(), foreground_parent_watchdog():
-            snapshot = Snapshot.objects.select_related("crawl").get(id=snapshot_id)
-            if snapshot.retry_at is None:
-                snapshot.update_and_requeue(retry_at=timezone.now())
-            run_due_snapshot(snapshot, lock_seconds=60)
+            for _ in range(10):
+                snapshot = Snapshot.objects.select_related("crawl").get(id=snapshot_id)
+                if snapshot.retry_at is None:
+                    snapshot.update_and_requeue(retry_at=timezone.now())
+                elif snapshot.retry_at > timezone.now():
+                    break
+                if not run_due_snapshot(snapshot, lock_seconds=60):
+                    break
         return 0
     except KeyboardInterrupt:
         try:

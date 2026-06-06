@@ -59,9 +59,10 @@ def _assert_safe_runtime_paths(*, cwd: Path | None = None, env: dict[str, str] |
 def _test_source_pythonpath() -> str:
     entries: list[str] = []
     for repo_name in ("abxpkg", "abx-plugins", "abx-dl"):
-        repo_path = WORKSPACE_ROOT / repo_name
-        if repo_path.exists():
-            entries.append(str(repo_path.resolve(strict=False)))
+        for repo_path in (WORKSPACE_ROOT / repo_name, REPO_ROOT / repo_name):
+            if repo_path.exists():
+                entries.append(str(repo_path.resolve(strict=False)))
+                break
     return os.pathsep.join(entries)
 
 
@@ -592,9 +593,11 @@ def cli_env(
     if disable_extractors or live or server:
         env.update(
             {
+                "PLUGINS": "__archivebox_test_no_plugins__",
                 "SAVE_ARCHIVEDOTORG": "False",
                 "SAVE_TITLE": "False",
                 "SAVE_FAVICON": "False",
+                "SAVE_WGET": "False",
                 "SAVE_WARC": "False",
                 "SAVE_PDF": "False",
                 "SAVE_SCREENSHOT": "False",
@@ -1423,26 +1426,6 @@ def _find_system_browser() -> Path | None:
         if candidate.exists():
             return candidate
     return None
-
-
-def _ensure_puppeteer(shared_lib: Path) -> None:
-    pnpm_prefix = shared_lib / "pnpm" / "packages" / "chrome"
-    node_modules = pnpm_prefix / "node_modules"
-    puppeteer_dir = node_modules / "puppeteer"
-    if puppeteer_dir.exists():
-        return
-    pnpm_prefix.mkdir(parents=True, exist_ok=True)
-    env = os.environ.copy()
-    env["PUPPETEER_SKIP_DOWNLOAD"] = "1"
-    subprocess.run(
-        ["pnpm", "add", "--dir", str(pnpm_prefix), "puppeteer"],
-        cwd=str(pnpm_prefix),
-        env=env,
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=600,
-    )
 
 
 @pytest.fixture(scope="class")

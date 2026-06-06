@@ -219,7 +219,7 @@ def test_remove_reports_remaining_link_count_correctly(initialized_archive):
 
 def test_remove_after_flag(initialized_archive):
     """Test remove --after flag removes snapshots after date."""
-    env = cli_env()
+    env = cli_env(disable_extractors=True)
 
     run_archivebox_cmd(
         ["add", "--index-only", "--depth=0", "https://example.com"],

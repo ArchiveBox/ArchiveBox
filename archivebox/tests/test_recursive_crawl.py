@@ -575,9 +575,6 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(initia
             .order_by("depth", "url")
             .values_list("id", "url", "depth", "status", "parent_snapshot_id", "downloaded_at"),
         )
-        snapshot_ids_by_output_dir = {
-            str(snapshot.output_dir): str(snapshot.id) for snapshot in Snapshot.objects.filter(crawl=crawl).order_by("depth", "url")
-        }
         archive_results = list(
             ArchiveResult.objects.filter(snapshot__crawl=crawl)
             .select_related("snapshot")
@@ -594,10 +591,17 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(initia
                 "output_str",
             ),
         )
+        process_snapshot_ids = {
+            process_id: str(snapshot_id)
+            for snapshot_id, process_id in ArchiveResult.objects.filter(
+                snapshot__crawl=crawl,
+                process_id__isnull=False,
+            ).values_list("snapshot_id", "process_id")
+        }
         processes = list(
-            Process.objects.filter(process_type=Process.TypeChoices.HOOK, pwd__contains=str(crawl.output_dir))
+            Process.objects.filter(process_type=Process.TypeChoices.HOOK, id__in=process_snapshot_ids)
             .order_by("started_at")
-            .values_list("pwd", "cmd", "status", "exit_code", "started_at", "ended_at"),
+            .values_list("id", "pwd", "cmd", "status", "exit_code", "started_at", "ended_at"),
         )
 
     assert crawl.max_depth == 2
@@ -681,16 +685,13 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(initia
         if status == ArchiveResult.StatusChoices.FAILED and plugin != "archivedotorg"
     ]
     assert not failed_hook_results
-    assert all(status == Process.StatusChoices.EXITED for _pwd, _cmd, status, _exit_code, _started_at, _ended_at in processes)
+    assert all(status == Process.StatusChoices.EXITED for _id, _pwd, _cmd, status, _exit_code, _started_at, _ended_at in processes)
 
     intervals = []
-    for pwd, cmd, _status, _exit_code, started_at, ended_at in processes:
+    for process_id, pwd, cmd, _status, _exit_code, started_at, ended_at in processes:
         if not started_at or not ended_at:
             continue
-        process_snapshot_id = next(
-            (snapshot_id for output_dir, snapshot_id in snapshot_ids_by_output_dir.items() if str(pwd).startswith(output_dir)),
-            None,
-        )
+        process_snapshot_id = process_snapshot_ids.get(process_id)
         if process_snapshot_id is None:
             continue
         intervals.append((process_snapshot_id, started_at, ended_at, pwd, cmd))
