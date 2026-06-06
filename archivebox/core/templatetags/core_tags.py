@@ -3,7 +3,7 @@ from typing import Any
 from django import template
 from django.contrib.admin.templatetags.base import InclusionAdminNode
 from django.utils.safestring import mark_safe
-from django.utils.html import escape
+from django.utils.html import escape, format_html, format_html_join
 
 from pathlib import Path
 
@@ -30,7 +30,7 @@ _TEXT_PREVIEW_EXTS = (".json", ".jsonl", ".txt", ".csv", ".tsv", ".xml", ".yml",
 _IMAGE_PREVIEW_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".avif")
 _MHTML_PREVIEW_EXTS = (".mhtml", ".mht")
 
-_MEDIA_FILE_EXTS = {
+_VIDEO_FILE_EXTS = {
     ".mp4",
     ".webm",
     ".mkv",
@@ -47,6 +47,9 @@ _MEDIA_FILE_EXTS = {
     ".3gp",
     ".3g2",
     ".ogv",
+}
+
+_AUDIO_FILE_EXTS = {
     ".mp3",
     ".m4a",
     ".aac",
@@ -63,6 +66,10 @@ _MEDIA_FILE_EXTS = {
     ".eac3",
     ".dts",
 }
+
+_MEDIA_FILE_EXTS = _VIDEO_FILE_EXTS | _AUDIO_FILE_EXTS
+_BROWSER_VIDEO_FILE_EXTS = {".mp4", ".webm", ".m4v", ".ogv"}
+_BROWSER_AUDIO_FILE_EXTS = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac"}
 
 
 def _normalize_output_files(output_files: Any) -> dict[str, dict[str, Any]]:
@@ -157,16 +164,87 @@ def _list_media_files(result) -> list[dict]:
 
     for rel_path, size in candidates:
         href = str(Path(result.plugin) / rel_path)
+        suffix = rel_path.suffix.lower()
+        media_type = "video" if suffix in _VIDEO_FILE_EXTS else "audio"
+        is_browser_playable = suffix in _BROWSER_VIDEO_FILE_EXTS or suffix in _BROWSER_AUDIO_FILE_EXTS
         media_files.append(
             {
                 "name": rel_path.name,
                 "path": href,
                 "size": size,
+                "media_type": media_type,
+                "is_video": media_type == "video",
+                "is_audio": media_type == "audio",
+                "is_browser_playable": is_browser_playable,
             },
         )
 
-    media_files.sort(key=lambda item: item["name"].lower())
+    media_files.sort(
+        key=lambda item: (
+            0
+            if item["is_video"] and item["is_browser_playable"]
+            else 1
+            if item["is_audio"] and item["is_browser_playable"]
+            else 2,
+            -int(item.get("size") or 0),
+            item["name"].lower(),
+        ),
+    )
     return media_files
+
+
+def _render_ytdlp_media_card(media_files: list[dict], icon_html: str) -> str | None:
+    if not media_files:
+        return None
+
+    primary = next((item for item in media_files if item.get("is_video") and item.get("is_browser_playable")), None)
+    primary = primary or next((item for item in media_files if item.get("is_audio") and item.get("is_browser_playable")), None)
+    primary_url = (primary.get("url") or primary.get("path") or "") if primary else ""
+
+    if primary and primary_url and primary.get("is_video"):
+        player = format_html(
+            '<video class="card-img-top" data-no-preview="1" controls preload="metadata" src="{}" '
+            'style="width:100%; max-height:220px; background:#000; display:block;"></video>',
+            primary_url,
+        )
+    elif primary and primary_url and primary.get("is_audio"):
+        player = format_html(
+            '<div class="thumbnail-compact" data-plugin="ytdlp" style="pointer-events:auto;">'
+            '<span class="thumbnail-compact-icon">🎧</span>'
+            '<span class="thumbnail-compact-label">YT-DLP</span>'
+            '<audio data-no-preview="1" controls preload="metadata" src="{}" style="width:100%; margin-top:8px;"></audio>'
+            "</div>",
+            primary_url,
+        )
+    else:
+        player = mark_safe(
+            '<div class="thumbnail-compact" data-plugin="ytdlp" style="pointer-events:auto;">'
+            '<span class="thumbnail-compact-icon">🎬</span>'
+            '<span class="thumbnail-compact-label">YT-DLP</span>'
+            "</div>",
+        )
+
+    links = format_html_join(
+        "",
+        '<a href="{}" target="preview" title="{}">{} {}</a>',
+        (
+            (
+                item.get("url") or item.get("path") or "",
+                item.get("name") or "",
+                "🎬" if item.get("is_video") else "🎧",
+                item.get("name") or "",
+            )
+            for item in media_files
+            if item.get("url") or item.get("path")
+        ),
+    )
+
+    return format_html(
+        '<div class="ytdlp-media-card" style="pointer-events:auto;">{}'
+        '<div class="loose-items" style="pointer-events:auto;">{}</div></div>',
+        player,
+        links,
+    )
 
 
 def _resolve_snapshot_output_file(snapshot_dir: str | Path | None, raw_output_path: str | None) -> Path | None:
@@ -572,6 +650,9 @@ def plugin_card(context, result) -> str:
         for item in media_files:
             path = item.get("path") or ""
             item["url"] = build_snapshot_url(snapshot_id, path, request=request, config=config) if path else ""
+        ytdlp_card = _render_ytdlp_media_card(media_files, icon_html)
+        if ytdlp_card:
+            return mark_safe(ytdlp_card)
 
     output_lower = (raw_output_path or "").lower()
     force_text_preview = output_lower.endswith(_TEXT_PREVIEW_EXTS)
