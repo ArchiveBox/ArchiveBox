@@ -602,7 +602,44 @@ class TestRunDaemonMode:
         from archivebox.core.takeover_util import RUNNER_ACTIVE_WORKER_TYPE
         from archivebox.tests.test_orm_helpers import use_archivebox_db
 
-        env = cli_env()
+        plugins_root = initialized_archive / "runtime_plugins"
+        plugin_dir = plugins_root / "runner_gate"
+        gate_dir = initialized_archive / "runner-gate"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        gate_dir.mkdir(parents=True, exist_ok=True)
+        hook = plugin_dir / "on_Snapshot__99_runner_gate.sh"
+        hook.write_text(
+            "\n".join(
+                [
+                    "#!/usr/bin/env bash",
+                    "set -euo pipefail",
+                    'gate_dir="${RUNNER_GATE_DIR:?}"',
+                    'mkdir -p "$gate_dir"',
+                    'echo $$ >> "$gate_dir/hook-pids.txt"',
+                    'touch "$gate_dir/hook-started"',
+                    "trap 'exit 143' TERM INT HUP",
+                    'while [[ ! -f "$gate_dir/release" ]]; do sleep 0.1; done',
+                    "",
+                ],
+            ),
+            encoding="utf-8",
+        )
+        hook.chmod(0o755)
+
+        env = cli_env(
+            plugins_root=plugins_root,
+            PLUGINS="runner_gate",
+            RUNNER_GATE_DIR=str(gate_dir),
+            TIMEOUT="60",
+            CRAWL_MAX_CONCURRENT_SNAPSHOTS="1",
+        )
+        create = run_archivebox_cmd(
+            ["crawl", "create", "https://example.com/runner-gate"],
+            cwd=initialized_archive,
+            env=env,
+            timeout=60,
+        )
+        assert create.returncode == 0, create.stderr or create.stdout
 
         def active_runners():
             with use_archivebox_db(initialized_archive):
@@ -616,26 +653,6 @@ class TestRunDaemonMode:
                     )
                     if proc.is_running
                 ]
-
-        def wait_for_stable_single_active(*, timeout: float, stable_seconds: float = 1.0, exclude_pid: int | None = None):
-            deadline = time.monotonic() + timeout
-            stable_pid = None
-            stable_since = None
-            while time.monotonic() < deadline:
-                active = active_runners()
-                assert len(active) <= 1
-                if len(active) == 1 and active[0].pid != exclude_pid:
-                    pid = active[0].pid
-                    if pid != stable_pid:
-                        stable_pid = pid
-                        stable_since = time.monotonic()
-                    elif stable_since is not None and time.monotonic() - stable_since >= stable_seconds:
-                        return pid
-                else:
-                    stable_pid = None
-                    stable_since = None
-                time.sleep(0.25)
-            return None
 
         procs = [
             run_archivebox_cmd(
@@ -651,10 +668,40 @@ class TestRunDaemonMode:
             for _ in range(2)
         ]
         try:
-            active_pid = wait_for_stable_single_active(timeout=30)
-            assert active_pid is not None
+            deadline = time.monotonic() + 30
+            active_pid = None
+            while time.monotonic() < deadline:
+                active = active_runners()
+                assert len(active) <= 1
+                if len(active) == 1:
+                    active_pid = active[0].pid
+                    break
+                time.sleep(0.25)
 
-            os.killpg(active_pid, signal.SIGKILL)
+            assert active_pid is not None
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                active = active_runners()
+                assert len(active) <= 1
+                if (gate_dir / "hook-started").exists() and len(active) == 1:
+                    break
+                time.sleep(0.25)
+            assert (gate_dir / "hook-started").exists()
+            active = active_runners()
+            assert len(active) == 1
+
+            try:
+                os.killpg(active_pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            (gate_dir / "hook-started").unlink(missing_ok=True)
+            create = run_archivebox_cmd(
+                ["crawl", "create", "https://example.com/runner-gate-replacement"],
+                cwd=initialized_archive,
+                env=env,
+                timeout=60,
+            )
+            assert create.returncode == 0, create.stderr or create.stdout
             replacement = run_archivebox_cmd(
                 ["run", "--daemon"],
                 cwd=initialized_archive,
@@ -666,7 +713,15 @@ class TestRunDaemonMode:
                 wait=False,
             )
             procs.append(replacement)
-            recovered_pid = wait_for_stable_single_active(timeout=30, exclude_pid=active_pid)
+            deadline = time.monotonic() + 30
+            recovered_pid = None
+            while time.monotonic() < deadline:
+                active = active_runners()
+                assert len(active) <= 1
+                if len(active) == 1 and active[0].pid != active_pid:
+                    recovered_pid = active[0].pid
+                    break
+                time.sleep(0.25)
             assert recovered_pid is not None
         finally:
             for proc in procs:

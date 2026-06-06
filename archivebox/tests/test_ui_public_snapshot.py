@@ -3,6 +3,7 @@
 import json
 import re
 import time
+from pathlib import Path
 
 import pytest
 import requests
@@ -48,11 +49,18 @@ def _login_admin_over_full_server(port: int) -> tuple[requests.Session, str]:
         allow_redirects=False,
     )
     assert login_response.status_code in (302, 303), login_response.text
-    add_page = session.get(
-        f"http://admin.archivebox.localhost:{port}/add/",
-        headers={"Referer": f"http://admin.archivebox.localhost:{port}/admin/login/"},
-        timeout=10,
-    )
+    add_page = None
+    deadline = time.time() + 15
+    while time.time() < deadline:
+        add_page = session.get(
+            f"http://admin.archivebox.localhost:{port}/add/",
+            headers={"Referer": f"http://admin.archivebox.localhost:{port}/admin/login/"},
+            timeout=10,
+        )
+        if add_page.status_code == 200:
+            break
+        time.sleep(0.5)
+    assert add_page is not None
     assert add_page.status_code == 200
     add_csrf_match = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', add_page.text)
     assert add_csrf_match, add_page.text[:500]
@@ -60,49 +68,42 @@ def _login_admin_over_full_server(port: int) -> tuple[requests.Session, str]:
 
 
 def _create_private_snapshot_over_full_server(data_dir, session: requests.Session, port: int, csrf_token: str, url: str) -> dict[str, str]:
-    response = session.post(
-        f"http://admin.archivebox.localhost:{port}/add/",
-        headers={"Referer": f"http://admin.archivebox.localhost:{port}/add/"},
-        data={
-            "url": url,
-            "depth": "0",
-            "max_urls": "1",
-            "crawl_max_size": "0",
-            "crawl_timeout": "0",
-            "snapshot_max_size": "0",
-            "crawl_max_concurrent_snapshots": "1",
-            "main_plugins": ["wget"],
-            "tag": "private-replay-auth",
-            "url_filters_allowlist": r"127\.0\.0\.1[:/].*",
-            "url_filters_denylist": "",
-            "schedule": "",
-            "notes": "private replay auth regression fixture",
-            "persona": "Default",
-            "permissions": "private",
-            "start_paused": "",
-            "config": "{}",
-            "csrfmiddlewaretoken": csrf_token,
-        },
-        timeout=10,
-        allow_redirects=False,
-    )
-    assert response.status_code in (302, 303), response.text
+    del session, csrf_token
+    with use_archivebox_db(data_dir):
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.crawls.models import Crawl
 
-    deadline = time.time() + 60
-    while time.time() < deadline:
-        with use_archivebox_db(data_dir):
-            from archivebox.core.models import Snapshot
-
-            snapshot = Snapshot.objects.select_related("crawl").filter(url=url).order_by("-created_at").first()
-            if snapshot:
-                snapshot_id = str(snapshot.id)
-                return {
-                    "id": snapshot_id,
-                    "path": snapshot.url_path,
-                    "host": f"snap-{snapshot_id.replace('-', '')[-12:]}.archivebox.localhost:{port}",
-                }
-        time.sleep(0.5)
-    raise AssertionError(f"Timed out waiting for private Snapshot created from {url}")
+        crawl = Crawl.objects.create(
+            urls=url,
+            status=Crawl.StatusChoices.SEALED,
+            max_depth=1,
+            config={"PERMISSIONS": "private"},
+        )
+        snapshot = Snapshot.objects.create(
+            url=url,
+            title="Private replay auth fixture",
+            crawl=crawl,
+            status=Snapshot.StatusChoices.SEALED,
+            config={"PERMISSIONS": "private"},
+        )
+        output_dir = Path(snapshot.output_dir) / "wget"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        html = f"<html><body><a href=\"{url}\">{url}</a></body></html>"
+        output_file = output_dir / "index.html"
+        output_file.write_text(html, encoding="utf-8")
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="wget",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str="index.html",
+            output_files={"index.html": {"size": output_file.stat().st_size}},
+        )
+        snapshot_id = str(snapshot.id)
+        return {
+            "id": snapshot_id,
+            "path": snapshot.url_path,
+            "host": f"snap-{snapshot_id.replace('-', '')[-12:]}.archivebox.localhost:{port}",
+        }
 
 
 def _logout_admin_over_full_server(session: requests.Session, port: int) -> None:

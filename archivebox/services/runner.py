@@ -1232,7 +1232,6 @@ class CrawlRunner:
                 snapshot_cleanup_enabled=True,
                 snapshot_cleanup_phase_timeout=snapshot_phase_timeout,
                 abort_requested=self.crawl_is_cancelled,
-                selected_hooks_by_plugin=selected_hooks_by_plugin,
             )
             try:
                 snapshot_event = SnapshotEvent(

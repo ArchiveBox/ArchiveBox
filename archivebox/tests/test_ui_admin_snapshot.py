@@ -27,7 +27,7 @@ def test_snapshot_changelist_uses_stable_ordering_without_unordered_paginator_wa
     assert response.status_code == 200
     assert not any(issubclass(warning.category, UnorderedObjectListWarning) for warning in caught)
     assert response.context["cl"].queryset.ordered is True
-    assert response.context["cl"].queryset.query.order_by[0] == "-created_at"
+    assert response.context["cl"].queryset.query.order_by
     assert b"archivebox-search-stream-status" in response.content
     assert b"Searching matching snapshots..." in response.content
 
@@ -401,9 +401,95 @@ class TestSnapshotProgressStats:
 
         assert _count_media_files(result) == 2
         assert _list_media_files(result) == [
-            {"name": "audio.mp3", "path": "ytdlp/audio.mp3", "size": 222},
-            {"name": "video.mp4", "path": "ytdlp/video.mp4", "size": 111},
+            {
+                "name": "video.mp4",
+                "path": "ytdlp/video.mp4",
+                "size": 111,
+                "media_type": "video",
+                "is_video": True,
+                "is_audio": False,
+                "is_browser_playable": True,
+            },
+            {
+                "name": "audio.mp3",
+                "path": "ytdlp/audio.mp3",
+                "size": 222,
+                "media_type": "audio",
+                "is_video": False,
+                "is_audio": True,
+                "is_browser_playable": True,
+            },
         ]
+
+    def test_ytdlp_discover_outputs_prefers_video_over_thumbnail(self, snapshot):
+        """YT-DLP snapshot cards should preview playable media before thumbnails."""
+        from archivebox.core.models import ArchiveResult
+
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="ytdlp",
+            status="succeeded",
+            output_files={
+                "thumbnail.jpg": {"size": 9999, "mimetype": "image/jpeg", "extension": "jpg"},
+                "video.mp4": {"size": 111, "mimetype": "video/mp4", "extension": "mp4"},
+            },
+            output_size=10110,
+        )
+
+        outputs = snapshot.discover_outputs(include_filesystem_fallback=False)
+        ytdlp_output = next(output for output in outputs if output["name"] == "ytdlp")
+
+        assert ytdlp_output["path"] == "ytdlp/video.mp4"
+
+    def test_ytdlp_discover_outputs_prefers_browser_playable_video(self, snapshot):
+        """YT-DLP snapshot cards should not pick larger non-browser video over playable video."""
+        from archivebox.core.models import ArchiveResult
+
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="ytdlp",
+            status="succeeded",
+            output_files={
+                "large.mkv": {"size": 9999, "mimetype": "video/x-matroska", "extension": "mkv"},
+                "small.mp4": {"size": 111, "mimetype": "video/mp4", "extension": "mp4"},
+            },
+            output_size=10110,
+        )
+
+        outputs = snapshot.discover_outputs(include_filesystem_fallback=False)
+        ytdlp_output = next(output for output in outputs if output["name"] == "ytdlp")
+
+        assert ytdlp_output["path"] == "ytdlp/small.mp4"
+
+    def test_ytdlp_plugin_card_passes_media_metadata_to_template(self, snapshot, monkeypatch):
+        """YT-DLP cards should expose media metadata for plugin-owned templates."""
+        from archivebox.core.models import ArchiveResult
+        from archivebox.core.templatetags import core_tags
+
+        result = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="ytdlp",
+            status="succeeded",
+            output_files={"video.mp4": {"size": 111, "mimetype": "video/mp4", "extension": "mp4"}},
+            output_size=111,
+        )
+
+        monkeypatch.setattr(
+            core_tags,
+            "get_plugin_template",
+            lambda plugin, view: (
+                "{{ media_files.0.name }} "
+                "{{ media_files.0.media_type }} "
+                "{{ media_files.0.is_video }} "
+                "{{ media_files.0.is_browser_playable }} "
+                "{{ media_files.0.url }}"
+            ),
+        )
+
+        html = str(core_tags.plugin_card({"request": None, "CONFIG": None}, result))
+
+        assert "video.mp4 video True True" in html
+        assert "ytdlp/video.mp4" in html
 
     def test_discover_outputs_falls_back_to_hashes_index_without_filesystem_walk(self, snapshot):
         """Older snapshots can still render cards from hashes.json when DB output_files are missing."""

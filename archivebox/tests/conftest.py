@@ -787,6 +787,7 @@ def assert_no_processes_for_data_dir(data_dir: Path, *, timeout: float = 10.0) -
 
 
 def kill_processes_for_data_dir(data_dir: Path) -> None:
+    killed_pids: list[int] = []
     for line in pgrep_data_dir(data_dir):
         try:
             pid = int(line.split(None, 1)[0])
@@ -795,8 +796,11 @@ def kill_processes_for_data_dir(data_dir: Path) -> None:
         if pid != os.getpid():
             try:
                 os.kill(pid, signal.SIGKILL)
+                killed_pids.append(pid)
             except ProcessLookupError:
                 pass
+    for pid in killed_pids:
+        wait_for_pid_to_disappear(pid, timeout=5)
 
 
 def start_archivebox_server(

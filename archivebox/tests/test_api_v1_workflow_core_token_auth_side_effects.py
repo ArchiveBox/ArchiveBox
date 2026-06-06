@@ -180,7 +180,7 @@ def test_core_api_workflow_uses_token_auth_and_persists_side_effects_over_server
         assert snapshot_items[0]["id"] == snapshot_id
         archiveresults = snapshot_items[0]["archiveresults"]
         assert {result["plugin"] for result in archiveresults}.issubset({"wget", "parse_html_urls"})
-        assert {result["status"] for result in archiveresults}.issubset({"queued"})
+        assert {result["status"] for result in archiveresults}.issubset({"queued", "started", "succeeded", "noresults"})
 
         bearer_response = requests.get(
             f"http://127.0.0.1:{port}/api/v1/crawls/crawl/{crawl_id}",

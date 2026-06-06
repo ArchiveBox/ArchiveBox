@@ -36,13 +36,26 @@ def _get_search_indexing_plugins() -> list[str]:
     from archivebox.config.common import get_config
     from archivebox.plugins.hooks import discover_hooks
     from archivebox.plugins.discovery import get_search_backends
+    from archivebox.search.backends import normalize_search_backend_name
+
+    config = get_config()
+    discovery_config = config
+    configured_backend = normalize_search_backend_name(config.SEARCH_BACKEND_ENGINE)
+    configured_plugin = f"search_backend_{configured_backend}" if configured_backend else ""
+    plugins_whitelist = str(config.PLUGINS or "").strip()
+    if configured_plugin and plugins_whitelist:
+        plugin_names = [plugin.strip() for plugin in plugins_whitelist.split(",") if plugin.strip()]
+        if configured_plugin not in {plugin.lower() for plugin in plugin_names}:
+            config_overrides = config.as_dict()
+            config_overrides["PLUGINS"] = ",".join([*plugin_names, configured_plugin])
+            discovery_config = config_overrides
 
     available_backends = set(get_search_backends())
     return sorted(
         plugin_name
         for plugin_name in {
             hook.parent.name
-            for hook in discover_hooks("Snapshot", config=get_config())
+            for hook in discover_hooks("Snapshot", config=discovery_config)
             if hook.parent.name.startswith("search_backend_") and "index" in hook.name.lower()
         }
         if plugin_name.startswith("search_backend_") and plugin_name.removeprefix("search_backend_") in available_backends

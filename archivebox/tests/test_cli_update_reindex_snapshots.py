@@ -12,6 +12,15 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+def test_get_search_indexing_plugins_keeps_configured_backend_with_plugin_whitelist(monkeypatch, tmp_path, initialized_archive):
+    from archivebox.cli.archivebox_update import _get_search_indexing_plugins
+
+    monkeypatch.setenv("PLUGINS", "__archivebox_test_no_plugins__")
+    monkeypatch.setenv("SEARCH_BACKEND_ENGINE", "sqlite")
+
+    assert _get_search_indexing_plugins() == ["search_backend_sqlite"]
+
+
 def test_update_imports_orphaned_snapshots(tmp_path, initialized_archive):
     """Test that archivebox update imports real legacy archive directories."""
     env = cli_env(disable_extractors=True)

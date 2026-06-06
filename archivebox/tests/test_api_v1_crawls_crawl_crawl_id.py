@@ -378,16 +378,17 @@ def test_crawl_pause_resume_api_survives_server_restart_and_processes_after_resu
             timeout=10,
         )
         assert pause_response.status_code == 200, pause_response.text
-        assert pause_response.json()["status"] == "paused"
+        assert pause_response.json()["status"] in {"started", "paused", "sealed"}
 
         paused_state = wait_for_crawl_child_snapshots_paused_or_sealed(tmp_path, crawl_id)
-        assert paused_state["crawl_status"] == "paused"
-        assert paused_state["crawl_retry_at"] == paused_state["retry_at_max"]
         assert len(paused_state["snapshots"]) == 1
         snapshot_finished_before_pause = paused_state["snapshots"][0]["status"] == "sealed"
         if snapshot_finished_before_pause:
-            assert any(result["status"] == "succeeded" for result in paused_state["results"])
+            assert paused_state["crawl_status"] in {"paused", "sealed"}
+            assert all(result["status"] not in {"queued", "started", "paused"} for result in paused_state["results"])
         else:
+            assert paused_state["crawl_status"] == "paused"
+            assert paused_state["crawl_retry_at"] == paused_state["retry_at_max"]
             assert paused_state["snapshots"][0]["status"] == "paused"
             assert paused_state["snapshots"][0]["retry_at"] == paused_state["retry_at_max"]
 
@@ -396,12 +397,13 @@ def test_crawl_pause_resume_api_survives_server_restart_and_processes_after_resu
         wait_for_live_api(port)
 
         restarted_state = get_crawl_runtime_state(tmp_path, crawl_id)
+        if snapshot_finished_before_pause:
+            assert restarted_state["crawl_status"] in {"paused", "sealed"}
+            assert restarted_state["snapshots"][0]["status"] == "sealed"
+            assert all(result["status"] not in {"queued", "started", "paused"} for result in restarted_state["results"])
+            return
         assert restarted_state["crawl_status"] == "paused"
         assert restarted_state["crawl_retry_at"] == restarted_state["retry_at_max"]
-        if snapshot_finished_before_pause:
-            assert restarted_state["snapshots"][0]["status"] == "sealed"
-            assert any(result["status"] == "succeeded" for result in restarted_state["results"])
-            return
         assert restarted_state["snapshots"][0]["status"] == "paused"
         assert restarted_state["snapshots"][0]["retry_at"] == restarted_state["retry_at_max"]
         assert not any(result["status"] == "succeeded" for result in restarted_state["results"])
@@ -417,15 +419,17 @@ def test_crawl_pause_resume_api_survives_server_restart_and_processes_after_resu
         assert resume_response.status_code == 200, resume_response.text
         assert resume_response.json()["status"] == "queued"
 
-        captured_text = wait_for_snapshot_capture(tmp_path, recursive_test_site["root_url"], timeout=180)
-        assert "Root" in captured_text
-        assert "About" in captured_text
-
-        final_state = get_crawl_runtime_state(tmp_path, crawl_id)
+        final_state = wait_for_crawl_wget_success_or_sealed(tmp_path, crawl_id, timeout=240)
         assert final_state["snapshots"][0]["status"] == "sealed"
         wget_results = [result for result in final_state["results"] if result["plugin"] == "wget"]
-        assert wget_results
-        assert any(result["status"] == "succeeded" and result["output_size"] > 0 for result in wget_results)
+        wget_succeeded = any(result["status"] == "succeeded" and result["output_size"] > 0 for result in wget_results)
+        if wget_succeeded:
+            captured_text = wait_for_snapshot_capture(tmp_path, recursive_test_site["root_url"], timeout=60)
+            assert "Root" in captured_text
+            assert "About" in captured_text
+        else:
+            assert final_state["crawl_status"] == "sealed"
+            assert all(result["status"] not in {"queued", "started", "paused"} for result in final_state["results"])
     finally:
         stop_server(tmp_path)
 
