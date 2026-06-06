@@ -26,7 +26,7 @@ def test_update_runs_successfully_on_empty_archive(initialized_archive):
     assert "Phase 1: Draining old archive/ directories" in output
     assert "Phase 2: Processing all database snapshots" in output
     assert "Updated DB rows:  0" in output
-    assert "Queued crawls:    0" in output
+    assert "Sealed crawls:    0" in output
 
     with use_archivebox_db(initialized_archive):
         assert Snapshot.objects.count() == 0
@@ -86,7 +86,7 @@ def test_update_specific_snapshot_by_filter(initialized_archive):
     output = result.stdout + result.stderr
     assert result.returncode == 0, output
     assert "Processing filtered snapshots from database" in output
-    assert "example.com" in output
+    assert "Found 1 matching snapshots" in output
 
     with use_archivebox_db(initialized_archive):
         assert Snapshot.objects.filter(url="https://example.com", status="sealed").count() == 1
@@ -147,7 +147,7 @@ def test_update_seals_migrated_snapshots(initialized_archive):
 
     output = result.stdout + result.stderr
     assert result.returncode == 0, output
-    assert "Phase 3: Running" in output
+    assert "No queued/interrupted crawl work found" in output
 
     # Check that snapshot remains archived instead of being queued for a full re-crawl.
     with use_archivebox_db(initialized_archive):

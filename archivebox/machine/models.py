@@ -3,6 +3,7 @@ from __future__ import annotations
 __package__ = "archivebox.machine"
 
 import os
+import signal
 import sys
 import uuid
 import socket
@@ -53,6 +54,13 @@ PROCESS_RECHECK_INTERVAL = 60  # Re-validate every 60 seconds
 PID_REUSE_WINDOW = timedelta(hours=24)  # Max age for considering a PID match valid
 PROCESS_TIMEOUT_GRACE = timedelta(seconds=30)  # Extra margin before force-cleaning timed-out RUNNING rows
 START_TIME_TOLERANCE = 5.0  # Seconds tolerance for start time matching
+
+
+def _default_exit_code_for_unowned_process(process_type: str) -> int:
+    # Hooks are externally visible work items. If their owning runner disappeared
+    # before recording the real exit code, retrying is safer than converting an
+    # unknown interrupted extraction into a durable success/no-result row.
+    return 128 + signal.SIGTERM if process_type == Process.TypeChoices.HOOK else 0
 
 
 def _find_existing_binary_for_reference(machine: Machine, reference: str) -> Binary | None:
@@ -1608,7 +1616,9 @@ class Process(ModelWithDeleteAfter, models.Model):
                     is_stale = True  # Process no longer exists
 
             if is_stale:
-                proc.mark_exited(exit_code=proc.exit_code if proc.exit_code is not None else 0)
+                proc.mark_exited(
+                    exit_code=proc.exit_code if proc.exit_code is not None else _default_exit_code_for_unowned_process(proc.process_type),
+                )
                 cleaned += 1
 
         return cleaned
@@ -2138,8 +2148,7 @@ class Process(ModelWithDeleteAfter, models.Model):
                 # TODO: Uncomment to cleanup (keeping for debugging for now)
                 # self.stderr_file.unlink(missing_ok=True)
 
-            # Try to get exit code from proc or default to unknown
-            self.exit_code = self.exit_code if self.exit_code is not None else 0
+            self.exit_code = self.exit_code if self.exit_code is not None else _default_exit_code_for_unowned_process(self.process_type)
             if self.exit_code == -1:
                 self.exit_code = 137
             self.ended_at = timezone.now()
@@ -2503,7 +2512,9 @@ class Process(ModelWithDeleteAfter, models.Model):
         # orphaned Process backlog cannot be materialized in memory at once.
         for proc in running_children.iterator(chunk_size=100):
             if not proc.is_running:
-                proc.mark_exited(exit_code=proc.exit_code if proc.exit_code is not None else 0)
+                proc.mark_exited(
+                    exit_code=proc.exit_code if proc.exit_code is not None else _default_exit_code_for_unowned_process(proc.process_type),
+                )
                 cleaned += 1
                 continue
 
@@ -2527,7 +2538,9 @@ class Process(ModelWithDeleteAfter, models.Model):
             ):
                 continue
 
-            proc.mark_exited(exit_code=proc.exit_code if proc.exit_code is not None else 0)
+            proc.mark_exited(
+                exit_code=proc.exit_code if proc.exit_code is not None else _default_exit_code_for_unowned_process(proc.process_type),
+            )
             cleaned += 1
 
         if cleaned:

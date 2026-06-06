@@ -106,9 +106,9 @@ def test_cli_env_does_not_emit_relative_pythonpath_entries():
             os.environ["PYTHONPATH"] = old_pythonpath
 
     pythonpath_entries = env["PYTHONPATH"].split(os.pathsep)
-    assert str((WORKSPACE_ROOT / "abxpkg").resolve(strict=False)) in pythonpath_entries
-    assert str((WORKSPACE_ROOT / "abx-plugins").resolve(strict=False)) in pythonpath_entries
-    assert str((WORKSPACE_ROOT / "abx-dl").resolve(strict=False)) in pythonpath_entries
+    for repo_name in ("abxpkg", "abx-plugins", "abx-dl"):
+        repo_path = next(path for path in (WORKSPACE_ROOT / repo_name, REPO_ROOT / repo_name) if path.exists())
+        assert str(repo_path.resolve(strict=False)) in pythonpath_entries
     assert all(Path(entry).is_absolute() for entry in pythonpath_entries)
     assert not any(entry.startswith("..") for entry in pythonpath_entries)
 

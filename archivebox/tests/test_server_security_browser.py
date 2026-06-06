@@ -14,7 +14,7 @@ from urllib.parse import urlencode
 
 import pytest
 
-from .conftest import _ensure_puppeteer, _find_cached_chrome, _find_system_browser, run_python_cwd
+from .conftest import _find_cached_chrome, _find_system_browser, run_python_cwd
 from .conftest import (
     cli_env,
     get_free_port,
@@ -289,13 +289,28 @@ def _resolve_browser(shared_lib: Path) -> Path | None:
     return None
 
 
-@pytest.fixture(scope="session")
-def browser_runtime(tmp_path_factory):
+@pytest.fixture
+def browser_runtime(initialized_archive: Path):
     assert shutil.which("node") is not None, "Node.js is required for browser security tests"
-    assert shutil.which("pnpm") is not None, "pnpm is required for browser security tests"
 
-    shared_lib = tmp_path_factory.mktemp("archivebox_browser_lib")
-    _ensure_puppeteer(shared_lib)
+    shared_lib = initialized_archive / "lib"
+    env = cli_env(
+        ABXPKG_INSTALL_TIMEOUT="900",
+        ABXPKG_MIN_RELEASE_AGE="0",
+        LIB_DIR=str(shared_lib),
+        ABXPKG_LIB_DIR=str(shared_lib),
+        CHROME_HEADLESS="True",
+        CHROME_SANDBOX="False",
+        CHROME_ISOLATION="snapshot",
+    )
+    env.pop("CHROME_BINARY", None)
+    install_result = run_archivebox_cmd(
+        ["install", "chrome"],
+        cwd=initialized_archive,
+        env=env,
+        timeout=900,
+    )
+    assert install_result.returncode == 0, install_result.stderr or install_result.stdout
 
     browser = _resolve_browser(shared_lib)
     assert browser, "No Chrome/Chromium binary available for browser security tests"

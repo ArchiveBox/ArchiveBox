@@ -48,7 +48,6 @@ def _set_archivebox_config(data_dir: Path, *values: str, env: dict[str, str] | N
 @pytest.fixture
 def opencode_archive_config(initialized_archive):
     port = _free_port()
-    lib_dir = initialized_archive / "lib"
     state_dir = initialized_archive / "opencode"
     env = os.environ.copy()
     env.update(
@@ -57,8 +56,6 @@ def opencode_archive_config(initialized_archive):
             "ABXPKG_MIN_RELEASE_AGE": "0",
             "ABX_RUNTIME": "archivebox",
             "ARCHIVEBOX_ALLOW_NO_UNIX_SOCKETS": "true",
-            "LIB_DIR": str(lib_dir),
-            "ABXPKG_LIB_DIR": str(lib_dir),
             "OPENCODE_ENABLED": "True",
             "OPENCODE_HOST": "127.0.0.1",
             "OPENCODE_PORT": str(port),
@@ -75,10 +72,9 @@ def opencode_archive_config(initialized_archive):
         f"OPENCODE_WORKDIR={initialized_archive}",
         f"OPENCODE_STATE_DIR={state_dir}",
         "OPENCODE_TIMEOUT=60",
-        f"LIB_DIR={lib_dir}",
         env=env,
     )
-    return SimpleNamespace(data_dir=initialized_archive, lib_dir=lib_dir, port=port, state_dir=state_dir, env=env)
+    return SimpleNamespace(data_dir=initialized_archive, port=port, state_dir=state_dir, env=env)
 
 
 @pytest.fixture
@@ -242,7 +238,7 @@ def test_opencode_starts_with_data_dir_cwd_and_isolated_state(live_opencode):
     assert env["XDG_STATE_HOME"] == str(live_opencode.config.state_dir / "state")
     assert env["XDG_CACHE_HOME"] == str(live_opencode.config.state_dir / "cache")
     assert env["OPENCODE_DISABLE_PROJECT_CONFIG"] == "true"
-    assert env["GIT_CEILING_DIRECTORIES"] == f"{workdir}{os.pathsep}{live_opencode.config.data_dir.parent.resolve()}"
+    assert env["GIT_CEILING_DIRECTORIES"] == workdir
 
 
 def test_opencode_state_dir_is_separate_from_workdir(tmp_path):

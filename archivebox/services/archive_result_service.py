@@ -240,6 +240,10 @@ def _has_content_files(output_files: Any) -> bool:
     return any(Path(path).suffix not in {".log", ".pid", ".sh"} for path in _normalize_output_files(output_files))
 
 
+def _is_signal_interrupted_exit(exit_code: int) -> bool:
+    return exit_code < 0 or (exit_code >= 128 and exit_code != PROCESS_EXIT_SKIPPED)
+
+
 def _iter_archiveresult_records(stdout: str) -> list[dict]:
     records: list[dict] = []
     for raw_line in stdout.splitlines():
@@ -352,6 +356,13 @@ def _save_archiveresult_event_to_db(
         with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.result_update"):
             result.save(update_fields=[*update_fields, "modified_at"])
 
+    if result.status == ArchiveResult.StatusChoices.QUEUED:
+        # ArchiveResult has no retry_at column. If a shutdown/takeover projects
+        # a killed hook back to QUEUED, wake the parent Snapshot/Crawl so the
+        # next runner retries that exact hook instead of waiting on a stale
+        # active-state lease.
+        snapshot.update_and_requeue(retry_at=timezone.now())
+
     if result.status in (ArchiveResult.StatusChoices.SUCCEEDED, ArchiveResult.StatusChoices.NORESULTS):
         with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.title_update"):
             title_output_str = result.output_str if result.status == ArchiveResult.StatusChoices.SUCCEEDED else ""
@@ -435,14 +446,21 @@ class ArchiveResultService(BaseService):
         # TODO: consider moving this fallback derivation into abx-dl itself.
         # First try both patterns: if the whole abx-dl process crashes, restarting
         # the snapshot may be enough, but don't guess before validating it.
-        process_failed = event.exit_code not in (0, PROCESS_EXIT_SKIPPED)
+        process_interrupted = _is_signal_interrupted_exit(event.exit_code)
+        process_failed = event.exit_code not in (0, PROCESS_EXIT_SKIPPED) and not process_interrupted
         with _perf_span("archivebox.ArchiveResultService.on_ProcessCompletedEvent.emit_archive_result_fallback"):
             await event.emit(
                 ArchiveResultEvent(
                     snapshot_id=snapshot_event.snapshot_id,
                     plugin=event.plugin_name,
                     hook_name=event.hook_name,
-                    status="failed" if process_failed else ("succeeded" if _has_content_files(event.output_files) else "noresult"),
+                    status=(
+                        "queued"
+                        if process_interrupted
+                        else "failed"
+                        if process_failed
+                        else ("succeeded" if _has_content_files(event.output_files) else "noresult")
+                    ),
                     output_str=event.stderr if process_failed else "",
                     output_files=event.output_files,
                     start_ts=event.start_ts,

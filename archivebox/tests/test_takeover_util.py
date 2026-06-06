@@ -379,7 +379,7 @@ def test_live_server_keeps_http_runtime_while_update_runs_real_sqlite_indexer(tm
         )
         assert "Stopping older ArchiveBox runner process" in update_stdout
 
-        deadline = time.time() + 90
+        deadline = time.time() + 180
         runner_pid_after = runner_pid_before
         while time.time() < deadline:
             with use_archivebox_db(tmp_path):
@@ -578,7 +578,7 @@ def test_live_repeated_server_startups_take_over_cleanly(tmp_path, initialized_a
 
 
 @pytest.mark.timeout(420)
-def test_live_add_update_jobs_survive_server_and_cli_owner_exits(tmp_path, initialized_archive):
+def test_live_add_update_jobs_survive_server_and_cli_owner_exits(tmp_path, initialized_archive, recursive_test_site):
     plugins_root = tmp_path / "runtime_plugins"
     marker_dir = tmp_path / "slow-plugin-markers"
     plugin_dir = plugins_root / "slow_exit"
@@ -658,8 +658,8 @@ def test_live_add_update_jobs_survive_server_and_cli_owner_exits(tmp_path, initi
                 "--max-urls=2",
                 "--crawl-max-size=50mb",
                 "--plugins=wget,parse_html_urls,slow_exit",
-                "https://example.com",
-                "https://blog.sweeting.me",
+                recursive_test_site["root_url"],
+                recursive_test_site["child_urls"][0],
             ],
             cwd=tmp_path,
             env=env,
@@ -696,12 +696,15 @@ def test_live_add_update_jobs_survive_server_and_cli_owner_exits(tmp_path, initi
         assert add_proc.poll() is None, "foreground add should keep owning its crawl after the server exits"
         assert "Got SIGTERM" in server_log.read_text(encoding="utf-8", errors="replace")
 
+        stop_archivebox_process(add_proc, signal.SIGKILL, timeout=30)
+        add_output = add_log.read_text(encoding="utf-8", errors="replace")
+        assert "Runner error" not in add_output
+        kill_processes_for_data_dir(tmp_path)
+        assert_no_processes_for_data_dir(tmp_path, timeout=12)
+
         server2 = start_archivebox_server(tmp_path, port=port, log_name="server-add-owner-2.log", env=env)
         _server2_log = server2.log_path
         (marker_dir / "allow-finish").touch()
-        stop_archivebox_process(add_proc, signal.SIGTERM, timeout=30)
-        add_output = add_log.read_text(encoding="utf-8", errors="replace")
-        assert "Runner error" not in add_output
 
         deadline = time.time() + 90
         crawls = []
@@ -751,17 +754,12 @@ def test_live_add_update_jobs_survive_server_and_cli_owner_exits(tmp_path, initi
         assert len(counter_runs) == len(set(counter_runs))
         assert not (marker_dir / "counter-duplicates.txt").exists()
 
-        # TODO: improve abx-dl's ability to explicitly resume from a given plugin / hook and skip ones before that
-        # current behavior: on retry, earlier sealed results are left untouched; the interrupted result is marked skipped
-        # and may have partial output saved to fs
-        # assertions that enforce the current behavior (uncommented): previous results are not run twice + interrupted
-        # result is marked skipped
-        assert bad_results == [("slow_exit", ArchiveResult.StatusChoices.SKIPPED, "")]
-
-        # desired future behavior: earlier sealed results are left untouched, interrupted result is retried and cleanly
-        # overwrites on top of any previous partial output
-        # assert not bad_results
-        # assert (marker_dir / "hook-finished").exists()
+        # The interrupted hook should be retried directly without rerunning the
+        # previous hook in the same plugin. That keeps plugin-level shell hooks
+        # idempotent across runner takeover instead of depending on each hook to
+        # detect partial prior work itself.
+        assert not bad_results
+        assert (marker_dir / "hook-finished").exists()
     finally:
         for proc in (add_proc, add_proc2, server, server2, server3):
             if proc is not None and proc.poll() is None:

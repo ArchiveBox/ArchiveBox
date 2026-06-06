@@ -33,17 +33,19 @@ def _get_snapshot_crawl(snapshot: Snapshot) -> Crawl | None:
 
 
 def _get_search_indexing_plugins() -> list[str]:
-    from abx_dl.models import discover_plugins
+    from archivebox.config.common import get_config
+    from archivebox.plugins.hooks import discover_hooks
     from archivebox.plugins.discovery import get_search_backends
 
     available_backends = set(get_search_backends())
-    plugins = discover_plugins()
     return sorted(
         plugin_name
-        for plugin_name, plugin in plugins.items()
-        if plugin_name.startswith("search_backend_")
-        and plugin_name.removeprefix("search_backend_") in available_backends
-        and any("Snapshot" in hook.name and "index" in hook.name.lower() for hook in plugin.hooks)
+        for plugin_name in {
+            hook.parent.name
+            for hook in discover_hooks("Snapshot", config=get_config())
+            if hook.parent.name.startswith("search_backend_") and "index" in hook.name.lower()
+        }
+        if plugin_name.startswith("search_backend_") and plugin_name.removeprefix("search_backend_") in available_backends
     )
 
 
@@ -79,7 +81,7 @@ def reindex_snapshots(
 
     stats: dict[str, Any] = {"processed": 0, "requested": 0, "queued": 0, "skipped_queued": 0, "reindexed": 0, "snapshot_ids": []}
     records: list[dict[str, str]] = []
-    plugins_by_name = discover_plugins()
+    plugins_by_name = discover_plugins(runtime="archivebox")
     required_hooks_by_plugin = {
         plugin_name: frozenset(hook.name for hook in plugins_by_name[plugin_name].filter_hooks("Snapshot"))
         for plugin_name in search_plugins
@@ -340,7 +342,7 @@ def update(
                             (
                                 stats_combined["phase1"].get("queued", 0),
                                 stats_combined["phase2"].get("queued", 0),
-                                stats_combined["phase2"].get("crawls_queued", 0),
+                                stats_combined["phase2"].get("crawls_sealed", 0),
                             ),
                         )
                         runner_work_queued = runner_work_queued or maintenance_work_queued
@@ -724,7 +726,7 @@ def process_all_db_snapshots(batch_size: int = 500, resume: str | None = None, w
         "updated_db": 0,
         "queued": 0,
         "sealed": 0,
-        "crawls_queued": 0,
+        "crawls_sealed": 0,
     }
     current_fs_version = Snapshot._fs_current_version()
 
@@ -831,7 +833,10 @@ def process_all_db_snapshots(batch_size: int = 500, resume: str | None = None, w
     queue_stale_fs_batch()
 
     now = timezone.now()
-    stats["crawls_queued"] = (
+    # Crawls with no open child snapshots are already finished. Seal them here
+    # instead of waking the foreground runner; otherwise migration/update can
+    # accidentally re-enter full crawl execution for historical rows.
+    stats["crawls_sealed"] = (
         Crawl.objects.filter(
             status__in=Crawl.RUNNABLE_STATES,
         )
@@ -839,11 +844,12 @@ def process_all_db_snapshots(batch_size: int = 500, resume: str | None = None, w
             snapshot_set__status__in=Snapshot.OPEN_STATES,
         )
         .update(
-            retry_at=now,
+            status=Crawl.StatusChoices.SEALED,
+            retry_at=None,
             modified_at=now,
         )
     )
-    stats["updated_db"] += stats["crawls_queued"]
+    stats["updated_db"] += stats["crawls_sealed"]
     return stats
 
 
@@ -981,7 +987,7 @@ Phase 2 (Process DB):
   Updated JSON:     {s2.get("updated_json", 0)}
   Updated DB rows:  {s2.get("updated_db", 0)}
   Sealed snapshots: {s2.get("sealed", 0)}
-  Queued crawls:    {s2.get("crawls_queued", 0)}
+  Sealed crawls:    {s2.get("crawls_sealed", 0)}
 """)
 
 

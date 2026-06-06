@@ -211,7 +211,7 @@ def run_plugins(
             if snapshot_id in existing_snapshot_ids
             for plugin_name in plugin_names
         )
-    plugins_by_name = discover_plugins()
+    plugins_by_name = discover_plugins(runtime="archivebox")
     requested_rows: set[tuple[str, str, str]] = set()
     for snapshot_id, plugin_name in requested_pairs:
         plugin = plugins_by_name.get(plugin_name)

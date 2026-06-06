@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from django.utils import timezone
 from rich.console import Console
+
+
+def _is_signal_interrupted_exit(exit_code: int | None) -> bool:
+    return exit_code is not None and (exit_code < 0 or exit_code >= 128)
 
 
 def recover_orchestrator_state(*, include_chrome: bool = False) -> dict[str, int]:
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.services.archive_result_service import _collect_output_metadata
     from archivebox.machine.models import Process
+    from django.core.exceptions import ValidationError
     from django.db.models import Exists, OuterRef, Q, Subquery, Value
     from django.db.models.functions import Coalesce
 
@@ -22,6 +30,7 @@ def recover_orchestrator_state(*, include_chrome: bool = False) -> dict[str, int
         "archiveresults_backoff": 0,
         "snapshots_queued_plugin_rows_waiting_on_stale_lease": 0,
         "archiveresults_started_without_running_process": 0,
+        "archiveresults_missing_for_orphaned_hook_processes": 0,
         "snapshots_started_without_running_results": 0,
         "crawls_started_with_due_snapshots": 0,
         "crawls_started_waiting_on_future_snapshots": 0,
@@ -100,6 +109,76 @@ def recover_orchestrator_state(*, include_chrome: bool = False) -> dict[str, int
         process=None,
         modified_at=now,
     )
+    orphaned_hook_processes = Process.objects.filter(
+        process_type=Process.TypeChoices.HOOK,
+        archiveresult__isnull=True,
+    ).exclude(status=Process.StatusChoices.RUNNING)
+    for process in orphaned_hook_processes.only("id", "pwd", "cmd", "process_type", "status"):
+        hook_script_name = process.hook_script_name
+        if not hook_script_name or not process.pwd:
+            continue
+        plugin_dir = Path(process.pwd)
+        try:
+            # Old or synthetic hook Process rows can point at arbitrary paths.
+            # Only paths whose parent directory is a valid Snapshot id can be
+            # reconstructed into ArchiveResult rows.
+            snapshot = Snapshot.objects.filter(id=plugin_dir.parent.name).first()
+        except ValidationError:
+            continue
+        if snapshot is None:
+            continue
+        result, created = ArchiveResult.objects.get_or_create(
+            snapshot=snapshot,
+            plugin=plugin_dir.name,
+            hook_name=Path(hook_script_name).stem,
+            defaults={
+                "status": ArchiveResult.StatusChoices.QUEUED,
+            },
+        )
+        if result.status == ArchiveResult.StatusChoices.QUEUED:
+            requeue_snapshot = False
+            # A runner can die after the hook Process exits but before the
+            # ProcessCompletedEvent projector links/finalizes ArchiveResult.
+            # Reconstruct only that exact hook row from the durable Process row.
+            output_files, output_size, output_mimetypes = _collect_output_metadata(plugin_dir)
+            result.process = process
+            if _is_signal_interrupted_exit(process.exit_code):
+                # The owning runner died or was asked to stop while the hook was
+                # still active. Keep the work item queued so takeover retries the
+                # same hook; treating an unknown signal exit as success would
+                # silently skip unfinished side effects.
+                result.output_files = {}
+                result.output_size = 0
+                result.output_mimetypes = ""
+                result.output_str = ""
+                result.status = ArchiveResult.StatusChoices.QUEUED
+                requeue_snapshot = True
+            else:
+                result.output_files = output_files
+                result.output_size = output_size
+                result.output_mimetypes = output_mimetypes
+                result.output_str = process.stderr if process.exit_code not in (0, None) else ""
+                result.status = (
+                    ArchiveResult.StatusChoices.FAILED
+                    if process.exit_code not in (0, None)
+                    else (ArchiveResult.StatusChoices.SUCCEEDED if output_files else ArchiveResult.StatusChoices.NORESULTS)
+                )
+            result.save(
+                update_fields=[
+                    "process",
+                    "output_files",
+                    "output_size",
+                    "output_mimetypes",
+                    "output_str",
+                    "status",
+                    "modified_at",
+                ],
+            )
+            if requeue_snapshot:
+                Snapshot.objects.filter(id=snapshot.id).update(retry_at=now, modified_at=now)
+        if created:
+            cleaned["archiveresults_missing_for_orphaned_hook_processes"] += 1
+            Snapshot.objects.filter(id=snapshot.id).update(retry_at=now, modified_at=now)
     started_snapshots = Snapshot.objects.filter(status=Snapshot.StatusChoices.STARTED).filter(
         Q(retry_at__isnull=True) | Q(retry_at__gt=now),
     )

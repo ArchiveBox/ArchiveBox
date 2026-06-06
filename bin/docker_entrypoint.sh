@@ -144,7 +144,7 @@ ensure_runtime_tree() {
 
 run_as_archivebox() {
     if [[ "$(id -u)" == "0" ]]; then
-        gosu "$ARCHIVEBOX_USER" "$@"
+        setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups "$@"
     else
         "$@"
     fi
@@ -283,12 +283,12 @@ if [[ "$1" == /* || "$1" == "bash" || "$1" == "sh" || "$1" == "echo" || "$1" == 
     #      "docker run archivebox /bin/bash -c '...'"
     #      "docker run archivebox cat /VERSION.txt"
     if [[ "$(id -u)" == "0" ]]; then
-        exec gosu "$ARCHIVEBOX_USER" /bin/bash -c "exec $(printf ' %q' "$@")"
+        exec setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups /bin/bash -c "exec $(printf ' %q' "$@")"
     else
         exec /bin/bash -c "exec $(printf ' %q' "$@")"
     fi
     # printf requotes shell parameters properly https://stackoverflow.com/a/39463371/2156113
-    # gosu spawns an ephemeral bash process owned by archivebox user (bash wrapper is needed to load env vars, PATH, and setup terminal TTY)
+    # setpriv spawns an ephemeral bash process owned by archivebox user (bash wrapper is needed to load env vars, PATH, and setup terminal TTY)
     # outermost exec hands over current process ID to inner bash process, inner exec hands over inner bash PID to user's command
 else
     # handle "docker run archivebox add some subcommand --with=args abc" by calling archivebox to run as args as CLI subcommand
@@ -297,7 +297,7 @@ else
     #      "docker run archivebox manage createsupseruser"
     #      "docker run archivebox server 0.0.0.0:8000"
     if [[ "$(id -u)" == "0" ]]; then
-        exec gosu "$ARCHIVEBOX_USER" "$ARCHIVEBOX_BIN_PATH" "$@"
+        exec setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups "$ARCHIVEBOX_BIN_PATH" "$@"
     else
         exec "$ARCHIVEBOX_BIN_PATH" "$@"
     fi

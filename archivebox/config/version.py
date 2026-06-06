@@ -6,6 +6,7 @@ import importlib.metadata
 from pathlib import Path
 from functools import cache
 from datetime import datetime
+import re
 
 #############################################################################################
 
@@ -41,11 +42,57 @@ def detect_installed_version(PACKAGE_DIR: Path = PACKAGE_DIR):
 
 @cache
 def get_COMMIT_HASH() -> str | None:
+    for env_var in ("ARCHIVEBOX_COMMIT_HASH", "COMMIT_HASH"):
+        env_commit_hash = os.environ.get(env_var, "").strip()
+        if re.fullmatch(r"[0-9a-fA-F]{40}", env_commit_hash):
+            return env_commit_hash
+
+    if IN_DOCKER:
+        try:
+            version_txt = Path("/VERSION.txt").read_text()
+            docker_commit_hashes = re.findall(r"COMMIT_HASH=([0-9a-fA-F]{40})", version_txt)
+            if docker_commit_hashes:
+                return docker_commit_hashes[-1]
+        except Exception:
+            pass
+
+    def _read_git_file(git_dir: Path, ref: str) -> str | None:
+        try:
+            return git_dir.joinpath(ref).read_text().strip()
+        except Exception:
+            pass
+
+        try:
+            packed_refs = git_dir.joinpath("packed-refs").read_text().splitlines()
+        except Exception:
+            return None
+
+        for line in packed_refs:
+            if line.startswith("#") or line.startswith("^") or not line.strip():
+                continue
+            commit_hash, packed_ref = line.split(" ", 1)
+            if packed_ref == ref:
+                return commit_hash.strip()
+
+        return None
+
     try:
         git_dir = PACKAGE_DIR.parent / ".git"
-        ref = (git_dir / "HEAD").read_text().strip().split(" ")[-1]
-        commit_hash = git_dir.joinpath(ref).read_text().strip()
-        return commit_hash
+        if git_dir.is_file():
+            gitdir_line = git_dir.read_text().strip()
+            gitdir_path = gitdir_line.removeprefix("gitdir:").strip()
+            git_dir = Path(gitdir_path)
+            if not git_dir.is_absolute():
+                git_dir = PACKAGE_DIR.parent / git_dir
+
+        head = (git_dir / "HEAD").read_text().strip()
+        if re.fullmatch(r"[0-9a-fA-F]{40}", head):
+            return head
+
+        ref = head.removeprefix("ref:").strip()
+        commit_hash = _read_git_file(git_dir, ref)
+        if commit_hash:
+            return commit_hash
     except Exception:
         pass
 

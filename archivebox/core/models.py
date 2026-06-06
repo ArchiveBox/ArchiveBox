@@ -2737,7 +2737,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         return snapshot
 
-    def create_pending_archiveresults(self) -> list["ArchiveResult"]:
+    def create_pending_archiveresults(self, hooks: Iterable[tuple[str, str]] | None = None) -> list["ArchiveResult"]:
         """
         Create ArchiveResult records for all enabled hooks.
 
@@ -2748,18 +2748,17 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         Creates one ArchiveResult per hook (not per plugin), with hook_name set.
         This enables step-based execution where all hooks in a step can run in parallel.
         """
-        from archivebox.plugins.hooks import discover_hooks
-        from archivebox.config.common import get_config
+        if hooks is None:
+            from archivebox.plugins.hooks import discover_hooks
+            from archivebox.config.common import get_config
 
-        # Get merged config with crawl-specific PLUGINS filter
-        config = get_config(crawl=self.crawl, snapshot=self)
-        hooks = discover_hooks("Snapshot", config=config)
+            # Compatibility path for direct model callers. The runner passes its
+            # abx-dl hook inventory explicitly so queued rows match execution.
+            config = get_config(crawl=self.crawl, snapshot=self)
+            hooks = ((hook_path.parent.name, hook_path.stem) for hook_path in discover_hooks("Snapshot", config=config))
         archiveresults = []
 
-        for hook_path in hooks:
-            hook_name = hook_path.stem  # e.g., 'on_Snapshot__50_wget'
-            plugin = hook_path.parent.name  # e.g., 'wget'
-
+        for plugin, hook_name in hooks:
             # ArchiveResult output is one filesystem directory per plugin hook, so
             # retries must update this row in place instead of creating siblings.
             archiveresult, _created = ArchiveResult.objects.get_or_create(

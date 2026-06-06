@@ -72,6 +72,16 @@ def test_cli_update_api_supports_all_snapshot_list_filters_with_real_rows(tmp_pa
     ]
     stdin = "\n".join(json.dumps(record) for record in records) + "\n"
     run_archivebox_cmd(["snapshot", "create"], cwd=tmp_path, stdin=stdin, env=env, check=True)
+    list_result = run_archivebox_cmd(["snapshot", "list", "--sort", "timestamp"], cwd=tmp_path, env=env, check=True)
+    initial_snapshots = {record["url"]: record for record in parse_jsonl_output(list_result.stdout) if record.get("type") == "Snapshot"}
+    alpha = initial_snapshots["https://alpha.example.com/articles/needle"]
+    run_archivebox_cmd(
+        ["snapshot", "update", "--status=paused"],
+        cwd=tmp_path,
+        stdin=json.dumps(alpha),
+        env=env,
+        check=True,
+    )
 
     port = get_free_port()
     env = {

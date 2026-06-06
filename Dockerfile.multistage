@@ -9,24 +9,19 @@
 #       --build-context abxpkg=../abxpkg \
 #       --build-context abx-plugins=../abx-plugins \
 #       -t archivebox/abx-dl:dev
-#   docker buildx build . -f Dockerfile.multistage \
-#       --build-context abx-dl=docker-image://archivebox/abx-dl:dev \
-#       --build-arg ABX_DL_IMAGE=abx-dl \
+#   docker buildx build . -f Dockerfile \
+#       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:latest \
 #       -t archivebox:multistage
 
-ARG TARGETPLATFORM=linux/amd64
-ARG TARGETOS=linux
-ARG TARGETARCH=amd64
-ARG TARGETVARIANT=
-ARG ABX_DL_IMAGE=abx-dl
+ARG ABX_DL_IMAGE=archivebox/abx-dl:latest
 
 FROM ${ABX_DL_IMAGE} AS abx-dl
 FROM archivebox/sonic:1.4.9 AS sonic
 FROM ubuntu:24.04 AS archivebox-runtime-base
 
-ARG TARGETPLATFORM=linux/amd64
-ARG TARGETOS=linux
-ARG TARGETARCH=amd64
+ARG TARGETPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV TZ=UTC \
@@ -73,7 +68,7 @@ ENV UV_COMPILE_BYTECODE=0 \
     UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/venv \
     VIRTUAL_ENV=/venv \
-    PATH="/venv/bin:/opt/node/bin:$PATH"
+    PATH="/venv/bin:/opt/node/bin:/opt/archivebox/lib/bin:$PATH"
 
 SHELL ["/bin/bash", "-o", "pipefail", "-o", "errexit", "-o", "errtrace", "-o", "nounset", "-c"]
 WORKDIR "$CODE_DIR"
@@ -88,7 +83,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     && apt-get update -qq \
     && apt-get install -qq -y \
         apt-transport-https apt-utils ca-certificates curl wget gnupg2 \
-        dumb-init gosu unzip git grep ripgrep dnsutils iputils-ping procps tree nano \
+        dumb-init util-linux unzip git grep ripgrep dnsutils iputils-ping procps tree nano \
         cron openssl xz-utils zlib1g libldap2 libsasl2-2 libssl3 libsqlite3-0 \
         libasound2t64 libatk-bridge2.0-0 libatk1.0-0 libcairo2 libcups2 \
         libdbus-1-3 libdrm2 libgbm1 libglib2.0-0 libgtk-3-0 libnspr4 libnss3 \
@@ -102,7 +97,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 COPY --from=abx-dl /bin/uv /bin/uv
 COPY --from=abx-dl /opt/uv/python /opt/uv/python
 COPY --from=abx-dl /opt/node /opt/node
-COPY --from=abx-dl /venv /venv
 COPY --from=abx-dl /VERSION.txt /ABX-DL-VERSION.txt
 
 RUN (echo "[i] Docker build for ArchiveBox multistage starting..." \
@@ -110,7 +104,6 @@ RUN (echo "[i] Docker build for ArchiveBox multistage starting..." \
     && echo "BUILD_START_TIME=$(date +"%Y-%m-%d %H:%M:%S %s") TZ=${TZ} LANG=${LANG}" \
     && uname -a \
     && sed -n '1,7p' /etc/os-release \
-    && which python3 && python3 --version \
     && which node && node --version \
     && which uv && uv self version \
     ) | tee -a /VERSION.txt
@@ -127,6 +120,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
         build-essential gcc libldap2-dev libsasl2-dev libssl-dev \
+    && uv venv /venv --python "${PYTHON_VERSION}" \
+    && uv pip install setuptools pip wheel \
     && uv sync \
         --refresh \
         --no-dev \
@@ -144,10 +139,22 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
     echo "[*] Installing ArchiveBox Python source code from $CODE_DIR..." \
+    && COMMIT_HASH="$( \
+        if [[ -f "$CODE_DIR/.git/HEAD" ]]; then \
+            HEAD_REF="$(cat "$CODE_DIR/.git/HEAD")"; \
+            if [[ "$HEAD_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then \
+                echo "$HEAD_REF"; \
+            elif [[ "$HEAD_REF" == ref:\ * ]]; then \
+                REF_PATH="${HEAD_REF#ref: }"; \
+                cat "$CODE_DIR/.git/$REF_PATH" 2>/dev/null || awk -v ref="$REF_PATH" '$2 == ref {print $1}' "$CODE_DIR/.git/packed-refs" 2>/dev/null || true; \
+            fi; \
+        fi)" \
+    && if [[ "$COMMIT_HASH" =~ ^[0-9a-fA-F]{40}$ ]]; then echo "COMMIT_HASH=$COMMIT_HASH" | tee -a /VERSION.txt; fi \
     && uv pip install --no-deps "$CODE_DIR" \
     && (uv pip show archivebox && which archivebox) | tee -a /VERSION.txt \
     && find /venv "$CODE_DIR" -type d -name __pycache__ -prune -exec rm -rf {} + \
-    && find /venv "$CODE_DIR" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+    && find /venv "$CODE_DIR" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete \
+    && rm -rf "$CODE_DIR/.git"
 
 FROM archivebox-runtime-base
 
@@ -160,11 +167,12 @@ LABEL name="archivebox" \
     org.opencontainers.image.vendor="ArchiveBox" \
     org.opencontainers.image.description="All-in-one self-hosted internet archiving solution" \
     org.opencontainers.image.source="https://github.com/ArchiveBox/ArchiveBox" \
-    com.docker.image.source.entrypoint="Dockerfile.multistage"
+    com.docker.image.source.entrypoint="Dockerfile"
 
 COPY --from=sonic /usr/local/bin/sonic /usr/local/bin/sonic
 COPY --chown=root:root --chmod=755 "etc/sonic.cfg" /etc/sonic.cfg
 
+COPY --from=archivebox-builder /opt/uv/python /opt/uv/python
 COPY --from=archivebox-builder /venv /venv
 COPY --from=archivebox-builder /app /app
 COPY --from=archivebox-builder /VERSION.txt /VERSION.txt
@@ -176,8 +184,9 @@ RUN echo "[*] Setting up $ARCHIVEBOX_USER user uid=${DEFAULT_PUID}..." \
     && usermod -u "$DEFAULT_PUID" "$ARCHIVEBOX_USER" \
     && groupmod -g "$DEFAULT_PGID" "$ARCHIVEBOX_USER" \
     && (which sonic && sonic --version) | tee -a /VERSION.txt \
-    && mkdir -p "$DATA_DIR" "$TMP_DIR" "$LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH" \
-    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "$DATA_DIR" "$TMP_DIR" "$LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH" \
+    && install -d -o "$DEFAULT_PUID" -g "$DEFAULT_PGID" "$DATA_DIR" "$TMP_DIR" "$LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH" \
+    && chown "$DEFAULT_PUID:$DEFAULT_PGID" "$LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH" \
+    && install -d -o "$DEFAULT_PUID" -g "$DEFAULT_PGID" "/home/$ARCHIVEBOX_USER/.config/abx" "/home/$ARCHIVEBOX_USER/.cache/abxbus" "/home/$ARCHIVEBOX_USER/.cache/uv" \
     && openssl rand -hex 16 > /etc/machine-id \
     && echo -e "\nARCHIVEBOX_USER=$ARCHIVEBOX_USER PUID=$(id -u "$ARCHIVEBOX_USER") PGID=$(id -g "$ARCHIVEBOX_USER")" | tee -a /VERSION.txt \
     && echo -e "TMP_DIR=$TMP_DIR\nLIB_DIR=$LIB_DIR\nPLAYWRIGHT_BROWSERS_PATH=$PLAYWRIGHT_BROWSERS_PATH\nMACHINE_ID=$(cat /etc/machine-id)\n" | tee -a /VERSION.txt
@@ -188,7 +197,6 @@ RUN echo "[+] Initializing image collection..." \
     && PUID=0 PGID=0 archivebox init \
     && find "$DATA_DIR" -type d -name __pycache__ -prune -exec rm -rf {} + \
     && find "$DATA_DIR" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete \
-    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "$LIB_DIR" \
     && (chown "$DEFAULT_PUID:$DEFAULT_PGID" \
         "$DATA_DIR" "$DATA_DIR"/.archivebox_id "$DATA_DIR"/ArchiveBox.conf "$DATA_DIR"/index.sqlite3 \
         "$DATA_DIR"/logs "$DATA_DIR"/logs/* "$DATA_DIR"/sources \
@@ -197,18 +205,25 @@ RUN echo "[+] Initializing image collection..." \
         2>/dev/null || true)
 
 RUN chmod +x "$CODE_DIR"/bin/*.sh \
-    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "$LIB_DIR" \
     && chmod g+w "$TMP_DIR" "$LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH" \
-    && GIT_BINARY="$LIB_DIR/env/bin/git" GALLERYDL_BINARY="$LIB_DIR/env/bin/gallery-dl" FORUMDL_BINARY="$LIB_DIR/env/bin/forum-dl" ABXPKG_INSTALL_TIMEOUT=600 ABXPKG_POSTINSTALL_SCRIPTS=True ABXPKG_MIN_RELEASE_AGE=0 TIMEOUT=600 gosu "$ARCHIVEBOX_USER" archivebox install archivewebpage defuddle forumdl gallerydl git istilldontcareaboutcookies liteparse mercury opendataloader papersdl parse_rss_urls readability search_backend_ripgrep search_backend_sonic 2>&1 | tee -a /VERSION.txt \
+    && install -d -o "$DEFAULT_PUID" -g "$DEFAULT_PGID" "$LIB_DIR/pnpm/packages/opencode" \
+    && env -u PNPM_HOME PATH="/opt/node/bin:$PATH" /opt/node/bin/corepack pnpm add --loglevel=error --store-dir="$TMP_DIR/pnpm-store" --config.dangerouslyAllowAllBuilds=true --dir="$LIB_DIR/pnpm/packages/opencode" opencode-ai 2>&1 | tee -a /VERSION.txt \
+    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "$LIB_DIR/pnpm/packages/opencode" \
+    && rm -rf "$TMP_DIR/pnpm-store" /root/.cache/node \
+    && ln -sf "$LIB_DIR/pnpm/packages/opencode/node_modules/.bin/opencode" "$LIB_DIR/bin/opencode" \
+    && ln -sf "$LIB_DIR/pnpm/packages/opencode/node_modules/.bin/opencode" "$LIB_DIR/env/bin/opencode" \
+    && chown "$DEFAULT_PUID:$DEFAULT_PGID" "$LIB_DIR" \
+    && chown -h "$DEFAULT_PUID:$DEFAULT_PGID" "$LIB_DIR/bin/opencode" "$LIB_DIR/env/bin/opencode" \
+    && GIT_BINARY="$LIB_DIR/env/bin/git" GALLERYDL_BINARY="$LIB_DIR/env/bin/gallery-dl" FORUMDL_BINARY="$LIB_DIR/env/bin/forum-dl" OPENCODE_BINARY="$LIB_DIR/env/bin/opencode" HOME="/home/$ARCHIVEBOX_USER" XDG_CONFIG_HOME="/home/$ARCHIVEBOX_USER/.config" XDG_CACHE_HOME="/home/$ARCHIVEBOX_USER/.cache" ABXPKG_INSTALL_TIMEOUT=600 ABXPKG_POSTINSTALL_SCRIPTS=True ABXPKG_MIN_RELEASE_AGE=0 TIMEOUT=600 setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups archivebox install archivewebpage defuddle forumdl gallerydl git istilldontcareaboutcookies liteparse mercury opencode opendataloader papersdl parse_rss_urls readability search_backend_ripgrep search_backend_sonic 2>&1 | tee -a /VERSION.txt \
     && "$LIB_DIR/env/bin/chromium" --version | tee -a /VERSION.txt \
-    && "$LIB_DIR/pip/packages/papers-dl/venv/bin/papers-dl" --version | tee -a /VERSION.txt \
+    && "$LIB_DIR/uv/packages/papers-dl/venv/bin/papers-dl" --version | tee -a /VERSION.txt \
     && /usr/bin/rg --version | head -1 | tee -a /VERSION.txt \
     && /usr/local/bin/sonic --version | tee -a /VERSION.txt \
     && /venv/bin/supervisord --version | tee -a /VERSION.txt \
     && ! command -v gcc \
     && ! command -v g++ \
     && ! command -v make \
-    && gosu "$ARCHIVEBOX_USER" archivebox version 2>&1 | tee -a /VERSION.txt \
+    && HOME="/home/$ARCHIVEBOX_USER" XDG_CONFIG_HOME="/home/$ARCHIVEBOX_USER/.config" XDG_CACHE_HOME="/home/$ARCHIVEBOX_USER/.cache" setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups archivebox version 2>&1 | tee -a /VERSION.txt \
     && find /venv "$CODE_DIR" "$LIB_DIR" "$DATA_DIR" -type d -name __pycache__ -prune -exec rm -rf {} + \
     && find /venv "$CODE_DIR" "$LIB_DIR" "$DATA_DIR" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete \
     && rm -rf /root/.cache /var/cache/apt/* /var/lib/apt/lists/*

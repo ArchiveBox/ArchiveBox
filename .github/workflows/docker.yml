@@ -5,7 +5,7 @@ on:
   workflow_call:
   push:
     branches:
-      - dev
+      - "**"
     tags:
       - 'v*'
   # pull_request:
@@ -13,13 +13,14 @@ on:
 env:
   DOCKERHUB_IMAGE: archivebox/archivebox
   GHCR_IMAGE: ghcr.io/archivebox/archivebox
+  ABX_DL_IMAGE: archivebox/abx-dl:latest
 
 permissions:
   contents: read
   packages: write
 
 concurrency:
-  group: docker-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -96,6 +97,24 @@ jobs:
       - name: Available platforms
         run: echo ${{ steps.buildx.outputs.platforms }}
 
+      - name: Wait for published abx-dl image
+        id: abx_dl_image
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          deadline=$((SECONDS + 1800))
+          until docker buildx imagetools inspect "${ABX_DL_IMAGE}" >/tmp/abx-dl-image.json; do
+            if (( SECONDS >= deadline )); then
+              echo "Timed out waiting for published ${ABX_DL_IMAGE}" >&2
+              exit 1
+            fi
+            echo "${ABX_DL_IMAGE} is not published yet; waiting..."
+            sleep 30
+          done
+
+          echo "image=${ABX_DL_IMAGE}" >> "$GITHUB_OUTPUT"
+          docker buildx imagetools inspect "${ABX_DL_IMAGE}"
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         if: github.event_name != 'pull_request'
@@ -116,13 +135,10 @@ jobs:
         run: |
           set -Eeuo pipefail
           VERSION="$(python3 - <<'PY'
-          from pathlib import Path
-          import re
+          import tomllib
 
-          match = re.search(r'^version = "([^"]+)"$', Path("pyproject.toml").read_text(), re.MULTILINE)
-          if not match:
-              raise SystemExit("Failed to read version from pyproject.toml")
-          print(match.group(1))
+          with open("pyproject.toml", "rb") as f:
+              print(tomllib.load(f)["project"]["version"])
           PY
           )"
 
@@ -131,11 +147,12 @@ jobs:
             echo "org.opencontainers.image.version=${VERSION}"
             echo "org.opencontainers.image.revision=${GITHUB_SHA}"
             echo 'org.opencontainers.image.source=https://github.com/ArchiveBox/ArchiveBox'
+            echo "io.archivebox.abx-dl.image=${{ steps.abx_dl_image.outputs.image }}"
             echo 'EOF'
             echo "version=${VERSION}"
           } >> "$GITHUB_OUTPUT"
 
-          echo "[+] Building ${{ matrix.platform }} for ${VERSION}"
+          echo "[+] Building ${{ matrix.platform }} for ${VERSION} using ${{ steps.abx_dl_image.outputs.image }}"
 
       - name: Build and push digest
         id: docker_build
@@ -149,6 +166,8 @@ jobs:
             ${{ env.DOCKERHUB_IMAGE }}
             ${{ env.GHCR_IMAGE }}
           labels: ${{ steps.docker_meta.outputs.labels }}
+          build-args: |
+            ABX_DL_IMAGE=${{ steps.abx_dl_image.outputs.image }}
           cache-from: type=gha,scope=${{ matrix.cache_scope }}
           cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
           platforms: ${{ matrix.platform }}
@@ -215,36 +234,49 @@ jobs:
         run: |
           set -Eeuo pipefail
           VERSION="$(python3 - <<'PY'
-          from pathlib import Path
-          import re
+          import tomllib
 
-          match = re.search(r'^version = "([^"]+)"$', Path("pyproject.toml").read_text(), re.MULTILINE)
-          if not match:
-              raise SystemExit("Failed to read version from pyproject.toml")
-          print(match.group(1))
+          with open("pyproject.toml", "rb") as f:
+              print(tomllib.load(f)["project"]["version"])
           PY
           )"
-          SHORT_SHA="${GITHUB_SHA::8}"
+          BRANCH_TAG="$(printf '%s' "${GITHUB_REF_NAME}" | tr -c 'A-Za-z0-9_.-' '-' | sed -E 's/^-+//; s/-+$//; s/-+/-/g' | cut -c1-128)"
+          SHORT_SHA="${GITHUB_SHA::12}"
+          test -n "$BRANCH_TAG"
+          test -n "$SHORT_SHA"
 
           {
             echo 'dockerhub_tags<<EOF'
-            echo "${DOCKERHUB_IMAGE}:dev"
+            if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+              echo "${DOCKERHUB_IMAGE}:latest"
+            fi
+            echo "${DOCKERHUB_IMAGE}:${BRANCH_TAG}"
             echo "${DOCKERHUB_IMAGE}:${VERSION}"
             echo "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"
             echo 'EOF'
             echo 'ghcr_tags<<EOF'
-            echo "${GHCR_IMAGE}:dev"
+            if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+              echo "${GHCR_IMAGE}:latest"
+            fi
+            echo "${GHCR_IMAGE}:${BRANCH_TAG}"
             echo "${GHCR_IMAGE}:${VERSION}"
             echo "${GHCR_IMAGE}:sha-${SHORT_SHA}"
             echo 'EOF'
             echo "version=${VERSION}"
+            echo "branch_tag=${BRANCH_TAG}"
             echo "short_sha=${SHORT_SHA}"
           } >> "$GITHUB_OUTPUT"
 
           echo "[+] Publishing Docker Hub tags:"
-          printf '%s\n' "${DOCKERHUB_IMAGE}:dev" "${DOCKERHUB_IMAGE}:${VERSION}" "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            printf '%s\n' "${DOCKERHUB_IMAGE}:latest"
+          fi
+          printf '%s\n' "${DOCKERHUB_IMAGE}:${BRANCH_TAG}" "${DOCKERHUB_IMAGE}:${VERSION}" "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"
           echo "[+] Publishing GHCR tags:"
-          printf '%s\n' "${GHCR_IMAGE}:dev" "${GHCR_IMAGE}:${VERSION}" "${GHCR_IMAGE}:sha-${SHORT_SHA}"
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            printf '%s\n' "${GHCR_IMAGE}:latest"
+          fi
+          printf '%s\n' "${GHCR_IMAGE}:${BRANCH_TAG}" "${GHCR_IMAGE}:${VERSION}" "${GHCR_IMAGE}:sha-${SHORT_SHA}"
 
       - name: Create Docker Hub manifest
         shell: bash

@@ -12,9 +12,14 @@ __pycache__/
 .pdm-python
 .eggs/
 .git/
+!.git/
+.git/*
 .vscode/
 !.git/HEAD
-!.git/refs/heads/*
+!.git/packed-refs
+!.git/refs/
+!.git/refs/heads/
+!.git/refs/heads/**
 
 venv/
 .venv/

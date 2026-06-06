@@ -929,7 +929,7 @@ class TestProcessClassMethods:
         child.refresh_from_db()
         assert child.status == Process.StatusChoices.EXITED
         assert child.ended_at is not None
-        assert child.exit_code == 0
+        assert child.exit_code == 143
 
 
 class TestProcessStateMachine:
