@@ -1,0 +1,21 @@
+archivebox/tests/test_takeover_util.py
+  s_ccefc8ac08198c::t_0946604dfb3b26 121,348,438
+archivebox/tests/conftest.py
+  s_ccefc8ac08198c::t_dd8791a86579aa 492-496,499
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "0816435b6894faa8d043fff960fddb13ebb341dd",
+  "prompts": {},
+  "sessions": {
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
