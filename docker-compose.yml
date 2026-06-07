@@ -22,9 +22,6 @@ services:
             # - ADMIN_PASSWORD=SomeSecretPassword
             - BASE_URL=${BASE_URL:-http://archivebox.localhost:8000}                  # public URL used to build admin/web/api/snapshot links
             - SERVER_SECURITY_MODE=${SERVER_SECURITY_MODE:-safe-subdomains-fullreplay} # safe-onedomain-nojsreplay if you can't do wildcard DNS *.your.domain
-            # An https:// BASE_URL means HTTPS end-to-end (behind the ingress below or
-            # your own proxy): ArchiveBox then trusts X-Forwarded-Proto and marks auth
-            # cookies Secure automatically — no extra flag.
             - PUBLIC_ADD_VIEW=False                              # set to True to allow anonymous users to submit new URLs to archive
             # - PUID=911                                         # set to your host user's UID & GID if you encounter permissions issues
             # - PGID=911                                         # UID/GIDs lower than 500 may clash with system uids and are not recommended
@@ -82,8 +79,8 @@ services:
     # needs wildcard DNS + TLS for *.your.domain. Pick ONE of the two ingress options
     # below by activating its profile (e.g. put COMPOSE_PROFILES=https or =tunnel in a
     # .env file next to this one, then `docker compose up -d`). Both want:
-    #     BASE_URL=https://archive.example.com   (the https:// scheme is what flips on
-    #     SERVER_SECURITY_MODE=safe-subdomains-fullreplay   proxy-scheme trust + Secure cookies)
+    #     BASE_URL=https://archive.example.com
+    #     SERVER_SECURITY_MODE=safe-subdomains-fullreplay
 
     ### Option A — Cloudflare Tunnel (no public IP / behind NAT, e.g. home/NAS).
     # Cloudflare's edge terminates TLS and resolves *.your.domain to a SINGLE tunnel;
