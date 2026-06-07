@@ -1,0 +1,23 @@
+Dockerfile.multistage
+  s_7cc75db5230061::t_e22dd2ace72c17 34,36,74
+Dockerfile
+  s_7cc75db5230061::t_fc5ca40597b0b3 34,36,74
+.dockerignore
+  s_7cc75db5230061::t_cd935601c1978a 6-7,9-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "1e8a2e99ea910e1a1ff591d6b2e53ca1fb96ae1f",
+  "prompts": {},
+  "sessions": {
+    "s_7cc75db5230061": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9181-9d0e-7f61-a8dc-95dc82bc59e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
