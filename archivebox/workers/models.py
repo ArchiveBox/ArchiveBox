@@ -34,7 +34,7 @@ default_status_field: models.CharField = models.CharField(
     db_index=True,
 )
 default_retry_at_field: models.DateTimeField = models.DateTimeField(default=timezone.now, null=True, blank=True, db_index=True)
-RETRY_AT_MAX = datetime.max.replace(tzinfo=UTC)
+RETRY_AT_MAX = datetime(9999, 1, 1, tzinfo=UTC)
 ACTIVE_STATE_LEASE_SECONDS = 60
 logger = logging.getLogger(__name__)
 MODULE_PATH = Path(__file__).resolve()
