@@ -1,0 +1,32 @@
+Dockerfile
+  s_15f59ac80abb8e::t_b0b9c8824030fc 213-214
+  s_15f59ac80abb8e::t_b03e0fb821bf48 194
+archivebox/config/permissions.py
+  s_15f59ac80abb8e::t_eb7240f2b5264e 27-28,45-58,94,96-97
+archivebox/config/constants.py
+  s_15f59ac80abb8e::t_eb7240f2b5264e 39-40,69-70
+archivebox/config/paths.py
+  s_15f59ac80abb8e::t_eb7240f2b5264e 125
+bin/docker_entrypoint.sh
+  s_15f59ac80abb8e::t_b0b9c8824030fc 190,201-202
+archivebox/cli/archivebox_version.py
+  s_15f59ac80abb8e::t_eb7240f2b5264e 136,144
+archivebox/misc/checks.py
+  s_15f59ac80abb8e::t_eb7240f2b5264e 223,230,248,250,318,336,376,388
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "98aecfaf918b1444fb78ce9fdb1c737c6221b72f",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
