@@ -1,0 +1,38 @@
+.github/ISSUE_TEMPLATE/2-feature_request.yml
+  s_15f59ac80abb8e::t_a94621da7666ad 74
+docs/Troubleshooting.md
+  s_15f59ac80abb8e::t_b397a34bceb293 173
+docs/Configuration.md
+  s_15f59ac80abb8e::t_a94621da7666ad 600
+docs/Security-Overview.md
+  s_15f59ac80abb8e::t_a94621da7666ad 182
+bin/docker_entrypoint.sh
+  s_15f59ac80abb8e::t_9424ca6efe9644 6-8,42-44,50-51,58,62-63,66-70,73-74,78-79,81-82,96-97,124-125,134,144,159,161-162
+bin/validate_docker_uid_gid.sh
+  s_15f59ac80abb8e::t_b4b14fb30191cb 388,406,408,410,412,416,420,424,428,432,440
+  s_15f59ac80abb8e::t_939046d2a33b3d 106-108
+publicsite/index.html
+  s_15f59ac80abb8e::t_a94621da7666ad 361
+README.md
+  s_15f59ac80abb8e::t_a94621da7666ad 1147
+.github/ISSUE_TEMPLATE/1-bug_report.yml
+  s_15f59ac80abb8e::t_a94621da7666ad 72
+docs/Docker.md
+  s_15f59ac80abb8e::t_a94621da7666ad 212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "303e99258c62a39b5782e0e786720213675972c7",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
