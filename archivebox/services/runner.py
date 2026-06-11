@@ -1609,7 +1609,11 @@ def snapshot_hooks_for_pending_archiveresults(snapshot) -> list[tuple[str, str]]
     snapshot_plugin_names = [name.strip() for name in str((snapshot.config or {}).get("PLUGINS") or "").split(",") if name.strip()]
     crawl_plugin_names = [name.strip() for name in str((snapshot.crawl.config or {}).get("PLUGINS") or "").split(",") if name.strip()]
     config_plugin_names = [name.strip() for name in str(config.PLUGINS or "").split(",") if name.strip()]
-    plugin_names = snapshot_plugin_names or crawl_plugin_names or config_plugin_names or get_enabled_plugins(config=config)
+    plugin_names = (
+        _selected_plugins_for_internal_input(normalize_runtime_config(config))
+        if snapshot.url == Snapshot.INTERNAL_INPUT_URL
+        else snapshot_plugin_names or crawl_plugin_names or config_plugin_names or get_enabled_plugins(config=config)
+    )
     plugins = (
         filter_plugins(_discover_archivebox_plugins(), plugin_names, include_providers=True)
         if plugin_names
