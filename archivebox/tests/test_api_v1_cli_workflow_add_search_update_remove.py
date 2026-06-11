@@ -26,7 +26,7 @@ def test_cli_api_add_search_update_remove_over_server(tmp_path):
     port = get_free_port()
     env = cli_env(port=port, server=True, PUBLIC_INDEX="True")
     api_token = create_admin_and_token(tmp_path)
-    target_url = "https://example.com/"
+    target_url = "https://example.com"
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
