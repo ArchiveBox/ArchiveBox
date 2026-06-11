@@ -2176,17 +2176,16 @@ def _run_due_queued_plugin_result(
         if search_only_plugins
         else (Snapshot.StatusChoices.SEALED,)
     )
-    first_due_query = (
-        ArchiveResult.objects.filter(
-            status=ArchiveResult.StatusChoices.QUEUED,
-            plugin__in=plugin_names,
-            snapshot__status__in=runnable_statuses,
-        )
-        .filter(**({"snapshot__crawl_id": crawl_id} if crawl_id else {}))
-        .values("snapshot_id", "snapshot__crawl_id")[:1]
+    first_due_query = ArchiveResult.objects.filter(
+        status=ArchiveResult.StatusChoices.QUEUED,
+        plugin__in=plugin_names,
+        snapshot__status__in=runnable_statuses,
     )
+    if crawl_id:
+        first_due_query = first_due_query.filter(snapshot__crawl_id=crawl_id)
     if not search_only_plugins:
         first_due_query = first_due_query.filter(snapshot__retry_at__lte=now)
+    first_due_query = first_due_query.values("snapshot_id", "snapshot__crawl_id")[:1]
     first_due_results = list(first_due_query)
     if not first_due_results:
         return False
