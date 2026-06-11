@@ -200,10 +200,10 @@ def test_list_filters_by_status(initialized_archive):
     run_queued_crawls(initialized_archive, env)
 
     with use_archivebox_db(initialized_archive):
-        status = Snapshot.objects.values_list("status", flat=True).get()
+        status = Snapshot.objects.exclude(url="archivebox://internal").values_list("status", flat=True).get()
 
     result = run_archivebox_cmd(
-        ["list", "--status", status],
+        ["list", "--status", status, "--url__icontains", "example.com"],
         timeout=30,
     )
 

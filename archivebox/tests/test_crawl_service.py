@@ -96,18 +96,20 @@ def test_crawl_service_run_processes_queued_crawl_and_applies_crawl_config(tmp_p
 
     state = _crawl_state(tmp_path, crawl_id)
     snapshots = state["snapshots"]
+    real_snapshots = [row for row in snapshots if row["url"] != "archivebox://internal"]
     results = state["results"]
-    snapshotted_urls = {row["url"] for row in snapshots if row["url"] != "archivebox://internal"}
+    snapshotted_urls = {row["url"] for row in real_snapshots}
 
     assert state["status"] == Crawl.StatusChoices.SEALED
     assert state["retry_at"] is None
     assert snapshotted_urls == {root_url, about_url}
     assert contact_url not in snapshotted_urls
-    assert {row["depth"] for row in snapshots} == {0}
+    assert {row["depth"] for row in real_snapshots} == {0}
     assert all(row["status"] == Snapshot.StatusChoices.SEALED for row in snapshots)
     assert all(row["downloaded_at"] is not None for row in snapshots)
     assert all("/contact" not in row["url"] for row in snapshots)
-    assert all(row["parent_snapshot_id"] is None for row in snapshots)
+    assert all(row["parent_snapshot_id"] is None for row in snapshots if row["url"] == "archivebox://internal")
+    assert all(row["parent_snapshot_id"] is None for row in real_snapshots)
 
     result_statuses = {(row["plugin"], row["status"]) for row in results}
     assert ("wget", ArchiveResult.StatusChoices.SUCCEEDED) in result_statuses

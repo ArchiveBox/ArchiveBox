@@ -63,7 +63,7 @@ from archivebox.config.common import (
 from archivebox.misc.db import run_db_analyze_batch
 from archivebox.core.shutdown_util import foreground_shutdown_signals, raise_if_shutdown_requested
 from archivebox.search.sonic_daemon import register_sonic_daemon_event_handler
-from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS
+from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS, RETRY_AT_MAX
 
 from .archive_result_service import ArchiveResultService
 from .binary_service import ArchiveBoxBinaryService, ArchiveBoxDBBinaryCacheBackend
@@ -1704,6 +1704,13 @@ def run_due_crawl(crawl, *, lock_seconds: int, interactive_interrupts: bool = Fa
             retry_at__lte=now,
         ).exists()
         if snapshot_count and due_active_snapshots:
+            if crawl.status == crawl.StatusChoices.QUEUED:
+                if not crawl.claim_processing_lock(lock_seconds=lock_seconds):
+                    return False
+                crawl.refresh_from_db()
+                _runner_console_line(crawl=crawl)
+                run_crawl(str(crawl.id), process_discovered_snapshots_inline=True, interactive_interrupts=interactive_interrupts)
+                return True
             # Child Snapshot rows own active work. Do not rewrite the parent
             # row unless it is still the same STARTED row we selected; this
             # avoids hot-looping on the parent while child work is ready without
@@ -2163,16 +2170,23 @@ def _run_due_queued_plugin_result(
         status=ArchiveResult.StatusChoices.QUEUED,
         plugin__in=plugin_names,
     )
+    search_only_plugins = all(plugin.startswith("search_backend_") for plugin in plugin_names)
+    runnable_statuses = (
+        (Snapshot.StatusChoices.SEALED, Snapshot.StatusChoices.PAUSED)
+        if search_only_plugins
+        else (Snapshot.StatusChoices.SEALED,)
+    )
     first_due_query = (
         ArchiveResult.objects.filter(
             status=ArchiveResult.StatusChoices.QUEUED,
             plugin__in=plugin_names,
-            snapshot__retry_at__lte=now,
-            snapshot__status__in=(Snapshot.StatusChoices.SEALED, Snapshot.StatusChoices.PAUSED),
+            snapshot__status__in=runnable_statuses,
         )
         .filter(**({"snapshot__crawl_id": crawl_id} if crawl_id else {}))
         .values("snapshot_id", "snapshot__crawl_id")[:1]
     )
+    if not search_only_plugins:
+        first_due_query = first_due_query.filter(snapshot__retry_at__lte=now)
     first_due_results = list(first_due_query)
     if not first_due_results:
         return False
@@ -2188,9 +2202,10 @@ def _run_due_queued_plugin_result(
         )
 
     due_snapshots = Snapshot.objects.filter(
-        retry_at__lte=now,
-        status=Snapshot.StatusChoices.SEALED,
+        status__in=runnable_statuses,
     ).filter(Exists(queued_results))
+    if not search_only_plugins:
+        due_snapshots = due_snapshots.filter(retry_at__lte=now)
     if crawl_id:
         due_snapshots = due_snapshots.filter(crawl_id=crawl_id)
     batch_candidates = list(
@@ -2226,7 +2241,7 @@ def _run_due_queued_plugin_result(
         if snapshot.fs_migration_needed:
             run_snapshot_maintenance(str(snapshot.id))
             snapshot.refresh_from_db()
-        if snapshot.status != Snapshot.StatusChoices.SEALED:
+        if snapshot.status not in runnable_statuses:
             continue
         claimed_snapshot_ids.append(str(snapshot.id))
         _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
@@ -2258,6 +2273,17 @@ def _run_due_queued_plugin_result(
             has_queued_results=False,
         ).update(
             retry_at=None,
+            modified_at=timezone.now(),
+        )
+        Snapshot.objects.filter(
+            id__in=claimed_snapshot_ids,
+            status=Snapshot.StatusChoices.PAUSED,
+        ).annotate(
+            has_queued_results=Exists(queued_results),
+        ).filter(
+            has_queued_results=False,
+        ).update(
+            retry_at=RETRY_AT_MAX,
             modified_at=timezone.now(),
         )
     return True

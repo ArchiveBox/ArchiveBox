@@ -38,7 +38,7 @@ def _wait_for_snapshot_title(data_dir, *, timeout=60):
     title = None
     while time.time() < deadline:
         with use_archivebox_db(data_dir):
-            title = Snapshot.objects.get().resolved_title
+            title = Snapshot.objects.exclude(url="archivebox://internal").get().resolved_title
         if title:
             return title
         time.sleep(0.5)

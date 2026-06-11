@@ -16,7 +16,7 @@ import json
 from archivebox.core.models import Snapshot
 print(json.dumps([
     {"id": str(snapshot.id), "url": snapshot.url}
-    for snapshot in Snapshot.objects.order_by("url")
+    for snapshot in Snapshot.objects.exclude(url="archivebox://internal").order_by("url")
 ]))
 """
     result = run_archivebox_cmd(

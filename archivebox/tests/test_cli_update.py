@@ -107,7 +107,7 @@ def test_update_preserves_snapshot_count(initialized_archive):
 
     # Count before update
     with use_archivebox_db(initialized_archive):
-        count_before = Snapshot.objects.count()
+        count_before = Snapshot.objects.exclude(url="archivebox://internal").count()
 
     assert count_before == 1
 
@@ -121,7 +121,7 @@ def test_update_preserves_snapshot_count(initialized_archive):
 
     # Count after update
     with use_archivebox_db(initialized_archive):
-        count_after = Snapshot.objects.count()
+        count_after = Snapshot.objects.exclude(url="archivebox://internal").count()
 
     # Snapshot count should remain the same
     assert count_after == count_before
@@ -151,6 +151,6 @@ def test_update_seals_migrated_snapshots(initialized_archive):
 
     # Check that snapshot remains archived instead of being queued for a full re-crawl.
     with use_archivebox_db(initialized_archive):
-        status = Snapshot.objects.values_list("status", flat=True).get()
+        status = Snapshot.objects.exclude(url="archivebox://internal").values_list("status", flat=True).get()
 
     assert status == "sealed"
