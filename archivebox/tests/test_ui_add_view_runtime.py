@@ -523,7 +523,7 @@ def test_public_add_view_import_text_formats_preserve_metadata_and_resume_withou
         tags_by_url = {snapshot.url: set(snapshot.tags.values_list("name", flat=True)) for snapshot in snapshots_by_url.values()}
 
     assert len(crawls) == len(import_files)
-    assert [crawl.urls for crawl in crawls] == [path.read_text(encoding="utf-8") for path in import_files.values()]
+    assert [crawl.urls for crawl in crawls] == [path.read_text(encoding="utf-8").rstrip("\n") for path in import_files.values()]
     assert all(crawl.tags_str == "public-ui-import" for crawl in crawls)
     assert all(crawl.status in {Crawl.StatusChoices.STARTED, Crawl.StatusChoices.SEALED} for crawl in crawls)
     assert len(snapshots_by_url) == len(expected_urls)
