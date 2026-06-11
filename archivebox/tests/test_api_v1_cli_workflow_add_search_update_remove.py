@@ -87,7 +87,6 @@ def test_cli_api_add_search_update_remove_over_server(tmp_path):
             json={
                 "filter_patterns": [url_filter],
                 "filter_type": "substring",
-                "status": snapshot_status,
                 "sort": "bookmarked_at",
                 "as_json": True,
                 "as_html": False,
