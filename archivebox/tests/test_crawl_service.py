@@ -97,7 +97,7 @@ def test_crawl_service_run_processes_queued_crawl_and_applies_crawl_config(tmp_p
     state = _crawl_state(tmp_path, crawl_id)
     snapshots = state["snapshots"]
     results = state["results"]
-    snapshotted_urls = {row["url"] for row in snapshots}
+    snapshotted_urls = {row["url"] for row in snapshots if row["url"] != "archivebox://internal"}
 
     assert state["status"] == Crawl.StatusChoices.SEALED
     assert state["retry_at"] is None

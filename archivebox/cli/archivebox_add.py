@@ -50,31 +50,6 @@ def _collect_input_urls(args: tuple[str, ...], *, parser: str = "auto") -> list[
     return urls
 
 
-def _plugins_with_input_parser(plugins: str, parser: str) -> str:
-    plugin_names = [name.strip() for name in (plugins or "").split(",") if name.strip()]
-    if not plugin_names:
-        return ""
-
-    parser_name = (parser or "auto").strip().lower().replace("-", "_")
-    parser_plugin = {
-        "auto": "parse_txt_urls",
-        "txt": "parse_txt_urls",
-        "text": "parse_txt_urls",
-        "url_list": "parse_txt_urls",
-        "urls": "parse_txt_urls",
-        "json": "parse_jsonl_urls",
-        "jsonl": "parse_jsonl_urls",
-        "html": "parse_html_urls",
-        "rss": "parse_rss_urls",
-        "xml": "parse_rss_urls",
-        "netscape": "parse_netscape_urls",
-        "cookies": "parse_netscape_urls",
-    }.get(parser_name, "parse_txt_urls")
-    if parser_plugin in plugin_names:
-        return ",".join(plugin_names)
-    return ",".join([parser_plugin, *plugin_names])
-
-
 @enforce_types
 def add(
     urls: str | list[str],

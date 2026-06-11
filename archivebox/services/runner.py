@@ -75,6 +75,7 @@ from .tag_service import TagService
 
 
 QUEUED_PLUGIN_RESULT_BATCH_SIZE = 100
+INTERNAL_INPUT_URL = "archivebox://internal"
 
 
 def _bus_name(prefix: str, identifier: str) -> str:
@@ -127,6 +128,28 @@ def _count_selected_hooks(plugins: dict[str, Plugin], selected_plugins: list[str
 
 def _is_nonfatal_setup_hook(plugin_name: str, hook_name: str) -> bool:
     return plugin_name == "chrome" and hook_name.endswith("_chrome_kill_zombies")
+
+
+def _input_parser_plugin_name(config: dict[str, Any]) -> str:
+    parser_name = str(config.get("PARSER") or "auto").strip().lower().replace("-", "_")
+    return {
+        "auto": "parse_txt_urls",
+        "txt": "parse_txt_urls",
+        "text": "parse_txt_urls",
+        "url_list": "parse_txt_urls",
+        "urls": "parse_txt_urls",
+        "json": "parse_jsonl_urls",
+        "jsonl": "parse_jsonl_urls",
+        "html": "parse_html_urls",
+        "rss": "parse_rss_urls",
+        "xml": "parse_rss_urls",
+        "netscape": "parse_netscape_urls",
+        "cookies": "parse_netscape_urls",
+    }.get(parser_name, "parse_txt_urls")
+
+
+def _selected_plugins_for_internal_input(config: dict[str, Any]) -> list[str]:
+    return [_input_parser_plugin_name(config)]
 
 
 def _discover_archivebox_plugins() -> dict[str, Plugin]:
@@ -1112,6 +1135,9 @@ class CrawlRunner:
             snapshot_selected_plugins = (
                 self.selected_plugins if self.selected_plugins_from_args else (snapshot_config_plugins or self.selected_plugins)
             )
+            internal_input = snapshot["url"] == INTERNAL_INPUT_URL
+            if internal_input:
+                snapshot_selected_plugins = _selected_plugins_for_internal_input(config)
 
             def queued_plugins_selected_by_config(queued_plugins: list[str]) -> list[str]:
                 if not snapshot_selected_plugins:
@@ -1189,6 +1215,8 @@ class CrawlRunner:
                 if snapshot_selected_plugins
                 else self.plugins
             )
+            if internal_input:
+                plugins = {name: plugin for name, plugin in plugins.items() if plugin_accepts_internal_input(plugin)}
             if selected_hooks_by_plugin is not None:
                 await sync_to_async(fail_unavailable_queued_hooks, thread_sensitive=True)(
                     snapshot["id"],
@@ -1212,6 +1240,8 @@ class CrawlRunner:
                     return
                 snapshot_selected_plugins = remaining_queued_plugins
                 plugins = filter_plugins(self.plugins, snapshot_selected_plugins, include_providers=True)
+                if internal_input:
+                    plugins = {name: plugin for name, plugin in plugins.items() if plugin_accepts_internal_input(plugin)}
                 selected_hooks_by_plugin = include_background_prerequisite_hooks(selected_hooks_by_plugin, plugins)
             abx_snapshot = AbxSnapshot(
                 id=snapshot["id"],
