@@ -2206,7 +2206,14 @@ def _run_due_queued_plugin_result(
     due_snapshots = Snapshot.objects.filter(
         status__in=runnable_statuses,
     ).filter(Exists(queued_results))
-    if not search_only_plugins:
+    if search_only_plugins:
+        from django.db.models import Q
+
+        due_snapshots = due_snapshots.filter(
+            Q(status=Snapshot.StatusChoices.SEALED, retry_at__lte=now)
+            | Q(status=Snapshot.StatusChoices.PAUSED, retry_at=RETRY_AT_MAX)
+        )
+    else:
         due_snapshots = due_snapshots.filter(retry_at__lte=now)
     if crawl_id:
         due_snapshots = due_snapshots.filter(crawl_id=crawl_id)
@@ -2262,7 +2269,7 @@ def _run_due_queued_plugin_result(
         _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
 
     if not claimed_snapshot_ids or selected_plugins is None:
-        return True
+        return False
 
     run_crawl(
         root_crawl_id,

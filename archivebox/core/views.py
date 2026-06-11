@@ -1598,6 +1598,11 @@ class AddView(UserPassesTestMixin, FormView):
             ),
         )
 
+        if not crawl.is_paused:
+            from archivebox.services.runner import ensure_background_runner
+
+            ensure_background_runner(allow_under_pytest=True)
+
         # Orchestrator (managed by supervisord) will pick up the queued crawl
         return redirect(crawl.admin_change_url)
 

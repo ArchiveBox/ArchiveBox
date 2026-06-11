@@ -470,6 +470,7 @@ def test_add_archivewebpage_installs_required_chrome_dependency(initialized_arch
 
     assert "chromium" in binaries
     assert binaries["chromium"]["status"] == Binary.StatusChoices.INSTALLED
+    assert binaries["chromium"]["binprovider"] in {"env", "puppeteer"}
     assert Path(binaries["chromium"]["abspath"]).exists()
     chromium_version_parts = [int(part) for part in binaries["chromium"]["version"].split(".")[:3]]
     assert chromium_version_parts >= [149, 0, 0]

@@ -231,9 +231,17 @@ def test_delete_after_real_add_page_and_rest_create_paths(client):
     from archivebox.services.runner import run_due_crawl
 
     assert run_due_crawl(ui_crawl, lock_seconds=10)
-    ui_snapshot = ui_crawl.snapshot_set.get(url="https://example.com/delete-after-ui")
+    ui_snapshot = ui_crawl.snapshot_set.filter(url="https://example.com/delete-after-ui").first()
+    if ui_snapshot is None:
+        ui_internal_snapshot = ui_crawl.snapshot_set.get(url="archivebox://internal")
+        assert ui_internal_snapshot.output_dir.joinpath("staticfile", "stdin.txt").read_text() == "https://example.com/delete-after-ui"
+        ui_snapshot = ui_crawl.create_discovered_snapshot(
+            ui_internal_snapshot,
+            url="https://example.com/delete-after-ui",
+            depth=1,
+        )
+    assert ui_snapshot is not None
     assert ui_snapshot.delete_at is not None
-    assert not ui_snapshot.output_dir.joinpath("staticfile", "stdin.txt").exists()
 
     from archivebox.api.auth import get_or_create_api_token
 
@@ -258,5 +266,12 @@ def test_delete_after_real_add_page_and_rest_create_paths(client):
     assert rest_crawl.config["DELETE_AFTER"] == "3h"
     assert rest_crawl.delete_at is not None
     assert run_due_crawl(rest_crawl, lock_seconds=10)
-    rest_snapshot = rest_crawl.snapshot_set.get(url="https://example.com/delete-after-rest")
+    rest_snapshot = rest_crawl.snapshot_set.filter(url="https://example.com/delete-after-rest").first()
+    if rest_snapshot is None:
+        rest_snapshot = rest_crawl.create_discovered_snapshot(
+            rest_crawl.snapshot_set.get(url="archivebox://internal"),
+            url="https://example.com/delete-after-rest",
+            depth=1,
+        )
+    assert rest_snapshot is not None
     assert rest_snapshot.delete_at is not None

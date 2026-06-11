@@ -725,9 +725,10 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         max_urls is a crawl-wide cap on snapshots, so direct URL entries and
         recursively discovered snapshots both have to consume the same budget.
         """
+        from archivebox.core.models import Snapshot
         from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
 
-        urls = set(self.snapshot_set.values_list("url", flat=True))
+        urls = set(self.snapshot_set.exclude(url=Snapshot.INTERNAL_INPUT_URL).values_list("url", flat=True))
         for _raw_line, raw_url in self._iter_url_lines():
             url = sanitize_extracted_url(fix_url_from_markdown(str(raw_url or "").strip()))
             if url:
@@ -745,10 +746,12 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         return remaining is None or remaining > 0
 
     def remaining_snapshot_capacity(self) -> int | None:
+        from archivebox.core.models import Snapshot
+
         max_urls = int(self._config_value(self.get_current_config(refresh=True), "CRAWL_MAX_URLS", 0) or 0)
         if max_urls <= 0:
             return None
-        return max(max_urls - self.snapshot_set.count(), 0)
+        return max(max_urls - self.snapshot_set.exclude(url=Snapshot.INTERNAL_INPUT_URL).count(), 0)
 
     def has_remaining_snapshot_capacity(self) -> bool:
         remaining = self.remaining_snapshot_capacity()
@@ -879,7 +882,9 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
         max_urls = int(self._config_value(config, "CRAWL_MAX_URLS", 0) or 0)
         if num_snapshots is None:
-            num_snapshots = self.snapshot_set.count()
+            from archivebox.core.models import Snapshot
+
+            num_snapshots = self.snapshot_set.exclude(url=Snapshot.INTERNAL_INPUT_URL).count()
         if max_urls > 0 and num_snapshots >= max_urls and self.count_urls_for_limit() >= max_urls:
             return "crawl_max_urls"
 
