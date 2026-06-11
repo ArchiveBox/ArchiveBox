@@ -731,7 +731,7 @@ class CrawlRunner:
             crawl=snapshot.crawl,
             snapshot=snapshot,
             persona=self.persona,
-            runtime_overrides=runtime_chrome_overrides,
+            runtime_overrides={**runtime_chrome_overrides, **self.config_overrides},
             extra_context={
                 "snapshot_id": str(snapshot.id),
                 "snapshot_depth": snapshot.depth,
@@ -1334,6 +1334,16 @@ def queued_plugins_for_snapshot(snapshot_id: str) -> list[str] | None:
     return queued_plugins
 
 
+def _selected_plugin_config_overrides(selected_plugins: list[str] | None) -> dict[str, Any]:
+    config_overrides: dict[str, Any] = {}
+    if selected_plugins:
+        config_overrides["PLUGINS"] = ",".join(selected_plugins)
+    for plugin_name in selected_plugins or []:
+        if plugin_name.startswith("search_backend_"):
+            config_overrides[f"{plugin_name.upper()}_ENABLED"] = True
+    return config_overrides
+
+
 def fail_unavailable_queued_hooks(
     snapshot_id: str,
     selected_hooks_by_plugin: dict[str, set[str] | None],
@@ -1588,13 +1598,26 @@ def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: boo
                 selected_plugins=selected_plugins,
                 process_discovered_snapshots_inline=True,
                 interactive_interrupts=interactive_interrupts,
+                config_overrides=_selected_plugin_config_overrides(selected_plugins),
                 selected_plugins_are_explicit=False,
             )
         finally:
             # Targeted plugin rows can complete while the Snapshot remains
-            # paused. Put retry_at back at MAX so the orchestrator leaves the
-            # paused lifecycle alone until an explicit resume transition.
-            snapshot.restore_paused_scheduler_marker()
+            # paused. Put retry_at back at MAX only after the queued rows are
+            # gone; if a hook was interrupted before projection, keep the
+            # paused row due so the next runner can retry that targeted work
+            # without a user-visible resume transition.
+            if queued_plugins_for_snapshot(str(snapshot.id)):
+                now = timezone.now()
+                type(snapshot).objects.filter(
+                    pk=snapshot.pk,
+                    status=snapshot.StatusChoices.PAUSED,
+                ).update(
+                    retry_at=now,
+                    modified_at=now,
+                )
+            else:
+                snapshot.restore_paused_scheduler_marker()
         return True
     if snapshot.status == Snapshot.StatusChoices.SEALED:
         if not Snapshot.claim_for_worker(snapshot, lock_seconds=lock_seconds):
@@ -1620,6 +1643,7 @@ def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: boo
                 selected_plugins=selected_plugins,
                 process_discovered_snapshots_inline=True,
                 interactive_interrupts=interactive_interrupts,
+                config_overrides=_selected_plugin_config_overrides(selected_plugins),
                 selected_plugins_are_explicit=False,
             )
             if search_only_plugins:
@@ -1635,6 +1659,14 @@ def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: boo
                         status=snapshot.StatusChoices.SEALED,
                     ).update(
                         retry_at=None,
+                        modified_at=timezone.now(),
+                    )
+                else:
+                    type(snapshot).objects.filter(
+                        pk=snapshot.pk,
+                        status=snapshot.StatusChoices.SEALED,
+                    ).update(
+                        retry_at=timezone.now(),
                         modified_at=timezone.now(),
                     )
             return True
@@ -1675,12 +1707,14 @@ def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: boo
             _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot, status="SEALED")
             return True
     _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
+    selected_plugins = queued_plugins_for_snapshot(str(snapshot.id))
     run_crawl(
         str(snapshot.crawl_id),
         snapshot_ids=[str(snapshot.id)],
-        selected_plugins=queued_plugins_for_snapshot(str(snapshot.id)),
+        selected_plugins=selected_plugins,
         process_discovered_snapshots_inline=True,
         interactive_interrupts=interactive_interrupts,
+        config_overrides=_selected_plugin_config_overrides(selected_plugins),
         selected_plugins_are_explicit=False,
     )
     snapshot.refresh_from_db()
@@ -1955,12 +1989,8 @@ def _run_due_queued_plugin_result(
     if not claimed_snapshot_ids or selected_plugins is None:
         return True
 
-    config_overrides = {
-        "CRAWL_MAX_CONCURRENT_SNAPSHOTS": batch_size,
-    }
-    for plugin_name in selected_plugins:
-        if plugin_name.startswith("search_backend_"):
-            config_overrides[f"{plugin_name.upper()}_ENABLED"] = True
+    config_overrides = _selected_plugin_config_overrides(selected_plugins)
+    config_overrides["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] = batch_size
 
     run_crawl(
         root_crawl_id,

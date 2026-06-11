@@ -1503,6 +1503,10 @@ class AddView(UserPassesTestMixin, FormView):
 
     def form_valid(self, form):
         crawl = self._create_crawl_from_form(form)
+        if crawl.status in crawl.RUNNABLE_STATES:
+            from archivebox.services.runner import ensure_background_runner
+
+            ensure_background_runner(allow_under_pytest=True)
 
         urls = form.cleaned_data["url"]
         schedule = form.cleaned_data.get("schedule", "").strip()

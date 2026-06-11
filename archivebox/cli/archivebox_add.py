@@ -137,7 +137,7 @@ def add(
 
     persona_name = (persona or "Default").strip() or "Default"
     plugins = plugins or ""
-    persona_obj, _ = Persona.objects.get_or_create(name=persona_name)
+    persona_obj = Persona.get_or_create_named(persona_name)
     persona_obj.ensure_dirs()
     effective_persona_config = get_config(persona=persona_obj)
 

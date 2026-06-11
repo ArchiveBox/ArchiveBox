@@ -417,27 +417,41 @@ def test_crawl_multiple_urls_creates_multiple_snapshots(initialized_archive):
     assert "https://iana.org" in urls
 
 
-def test_crawl_from_file_creates_snapshot(initialized_archive):
-    """Test that crawl can create snapshots from a file of URLs."""
+def test_crawl_path_argument_is_rejected_but_stdin_file_contents_create_snapshot(initialized_archive):
+    """Local file paths are not URL args; users must pipe file contents through stdin."""
     env = cli_env(disable_extractors=True)
 
-    # Write URLs to a file
     urls_file = initialized_archive / "urls.txt"
-    urls_file.write_text("https://example.com\n")
+    urls_file.write_text("https://example.com\nhttps://iana.org\n", encoding="utf-8")
 
-    run_archivebox_cmd(
+    path_result = run_archivebox_cmd(
         ["crawl", "create", str(urls_file)],
+        cwd=initialized_archive,
+        env=env,
+    )
+    assert path_result.returncode == 1
+    assert "No URLs provided" in path_result.stderr
+
+    with use_archivebox_db(initialized_archive):
+        assert Crawl.objects.count() == 0
+        assert Snapshot.objects.count() == 0
+
+    stdin_result = run_archivebox_cmd(
+        ["crawl", "create"],
+        stdin=urls_file.read_text(encoding="utf-8"),
         cwd=initialized_archive,
         env=env,
         check=True,
     )
+    assert stdin_result.returncode == 0
     run_queued_crawls(initialized_archive, env)
 
     with use_archivebox_db(initialized_archive):
-        snapshot = Snapshot.objects.first()
+        urls = set(Snapshot.objects.values_list("url", flat=True))
 
-    # Should create at least one snapshot (the source file or the URL)
-    assert snapshot is not None, "Should create at least one snapshot"
+    assert "https://example.com" in urls
+    assert "https://iana.org" in urls
+    assert str(urls_file) not in urls
 
 
 def test_crawl_persists_input_urls_on_crawl(initialized_archive):

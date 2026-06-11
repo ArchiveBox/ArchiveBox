@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from collections.abc import Mapping
 
-from django.db import models
+from django.db import IntegrityError, models
 from django.db.models.fields.json import KT
 from django.conf import settings
 from django.utils import timezone
@@ -228,6 +228,18 @@ class Persona(ModelWithConfig):
                 if fcntl is not None:
                     fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
+    @classmethod
+    def get_or_create_named(cls, name: str) -> "Persona":
+        persona_name = (name or "Default").strip() or "Default"
+        persona = cls.objects.filter(name=persona_name).first()
+        if persona is not None:
+            return persona
+
+        try:
+            return cls.objects.create(name=persona_name)
+        except IntegrityError:
+            return cls.objects.get(name=persona_name)
+
     def runtime_root_for_crawl(self, crawl) -> Path:
         return Path(crawl.output_dir) / ".persona" / self.name
 
@@ -331,8 +343,7 @@ class Persona(ModelWithConfig):
     @classmethod
     def get_or_create_default(cls) -> "Persona":
         """Get or create the Default persona."""
-        persona, _ = cls.objects.get_or_create(name="Default")
-        return persona
+        return cls.get_or_create_named("Default")
 
     @classmethod
     def cleanup_chrome_all(cls) -> int:
