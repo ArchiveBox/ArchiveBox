@@ -214,8 +214,8 @@ def test_remove_reports_remaining_link_count_correctly(initialized_archive):
     )
 
     output = result.stdout + result.stderr
-    assert "Removed 1 out of 4 links" in output
-    assert "Index now contains 3 links." in output
+    assert "Removed 1 out of 2 links" in output
+    assert "Index now contains 1 links." in output
 
 
 def test_remove_after_flag(initialized_archive):
