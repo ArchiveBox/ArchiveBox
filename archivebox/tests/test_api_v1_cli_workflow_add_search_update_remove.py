@@ -27,6 +27,7 @@ def test_cli_api_add_search_update_remove_over_server(tmp_path):
     env = cli_env(port=port, server=True, PUBLIC_INDEX="True")
     api_token = create_admin_and_token(tmp_path)
     target_url = "https://example.com"
+    url_filter = "example.com"
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
@@ -84,8 +85,8 @@ def test_cli_api_add_search_update_remove_over_server(tmp_path):
             "/api/v1/cli/search",
             api_token=api_token,
             json={
-                "filter_patterns": [target_url],
-                "filter_type": "exact",
+                "filter_patterns": [url_filter],
+                "filter_type": "substring",
                 "status": snapshot_status,
                 "sort": "bookmarked_at",
                 "as_json": True,
@@ -110,8 +111,8 @@ def test_cli_api_add_search_update_remove_over_server(tmp_path):
                 "resume": None,
                 "after": 0,
                 "before": 4102444800,
-                "filter_type": "exact",
-                "filter_patterns": [target_url],
+                "filter_type": "substring",
+                "filter_patterns": [url_filter],
                 "batch_size": 1,
                 "continuous": False,
                 "migrate_only": True,
@@ -142,8 +143,8 @@ def test_cli_api_add_search_update_remove_over_server(tmp_path):
                 "delete": True,
                 "after": 0,
                 "before": 4102444800,
-                "filter_type": "exact",
-                "filter_patterns": [target_url],
+                "filter_type": "substring",
+                "filter_patterns": [url_filter],
             },
             timeout=20,
         )
