@@ -1146,9 +1146,12 @@ class CrawlRunner:
                 return
             config = normalize_runtime_config(snapshot["config"])
             snapshot_config_plugins = [name.strip() for name in str(config.get("PLUGINS") or "").split(",") if name.strip()]
-            snapshot_selected_plugins = (
-                self.selected_plugins if self.selected_plugins_from_args else (snapshot_config_plugins or self.selected_plugins)
-            )
+            if self.initial_snapshot_ids and self.selected_plugins:
+                snapshot_selected_plugins = self.selected_plugins
+            else:
+                snapshot_selected_plugins = (
+                    self.selected_plugins if self.selected_plugins_from_args else (snapshot_config_plugins or self.selected_plugins)
+                )
             internal_input = snapshot["url"] == INTERNAL_INPUT_URL
             if internal_input:
                 snapshot_selected_plugins = _selected_plugins_for_internal_input(config, snapshot_selected_plugins)
