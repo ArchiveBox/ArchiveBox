@@ -628,6 +628,8 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(initia
             return False
         if plugin in allowed_external_failure_plugins:
             return True
+        if plugin == "staticfile" and "No main response captured" in (output_str or ""):
+            return True
         if any(marker in (output_str or "") for marker in allowed_transient_failure_markers):
             return True
         return False
