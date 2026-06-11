@@ -6,9 +6,36 @@ from asgiref.sync import sync_to_async
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from rich import print as rprint
+from statemachine.exceptions import TransitionNotAllowed
 from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
 from abx_dl.limits import CrawlLimitState
 from abx_dl.services.base import BaseService
+
+
+def seal_snapshot_if_finished(snapshot, *, require_finished: bool = True) -> None:
+    from archivebox.core.models import Snapshot
+
+    if snapshot.status == Snapshot.StatusChoices.SEALED:
+        return
+    if snapshot.status == Snapshot.StatusChoices.QUEUED:
+        snapshot.sm.tick()
+        snapshot.refresh_from_db()
+    if snapshot.status == Snapshot.StatusChoices.STARTED and (not require_finished or snapshot.is_finished_processing()):
+        try:
+            snapshot.sm.seal()
+        except TransitionNotAllowed:
+            Snapshot.objects.filter(
+                pk=snapshot.pk,
+                status=Snapshot.StatusChoices.STARTED,
+            ).update(
+                status=Snapshot.StatusChoices.SEALED,
+                retry_at=None,
+                modified_at=timezone.now(),
+            )
+            snapshot.refresh_from_db()
+            snapshot.cleanup()
+        else:
+            snapshot.refresh_from_db()
 
 
 def finalize_completed_snapshot(
@@ -38,12 +65,7 @@ def finalize_completed_snapshot(
             modified_at=timezone.now(),
         )
 
-    if snapshot.status == Snapshot.StatusChoices.QUEUED:
-        snapshot.sm.tick()
-        snapshot.refresh_from_db()
-    if snapshot.status == Snapshot.StatusChoices.STARTED and snapshot.is_finished_processing():
-        snapshot.sm.seal()
-        snapshot.refresh_from_db()
+    seal_snapshot_if_finished(snapshot)
 
     snapshot.write_index_jsonl(output_dir=output_dir)
 

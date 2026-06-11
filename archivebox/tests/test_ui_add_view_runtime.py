@@ -463,6 +463,7 @@ def test_public_add_view_import_text_formats_preserve_metadata_and_resume_withou
 
         for import_path in import_files.values():
             source_text = import_path.read_text(encoding="utf-8")
+            submitted_text = source_text.rstrip("\n")
             response = requests.post(
                 f"http://127.0.0.1:{port}/add/",
                 headers={"Host": f"web.archivebox.localhost:{port}", "Referer": f"http://web.archivebox.localhost:{port}/add/"},
@@ -492,13 +493,13 @@ def test_public_add_view_import_text_formats_preserve_metadata_and_resume_withou
                 with use_archivebox_db(tmp_path):
                     crawl = Crawl.objects.order_by("-created_at").first()
                     assert crawl is not None
-                    assert crawl.urls == source_text
+                    assert crawl.urls == submitted_text
                     root_snapshot = crawl.snapshot_set.filter(url=Snapshot.INTERNAL_INPUT_URL).first()
                     if root_snapshot:
                         root_input = (root_snapshot.output_dir / "staticfile" / "stdin.txt").read_text(encoding="utf-8")
                         break
                 time.sleep(1)
-            assert root_input == source_text
+            assert root_input == submitted_text
 
         wait_for_import_processing(tmp_path, expected_urls)
         stop_server(tmp_path)

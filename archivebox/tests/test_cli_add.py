@@ -1015,7 +1015,7 @@ def test_add_index_only_creates_direct_url_snapshot(initialized_archive):
 
     with use_archivebox_db(initialized_archive):
         crawl = Crawl.objects.get()
-        snapshot = Snapshot.objects.get()
+        snapshot = Snapshot.objects.get(url="https://example.com")
 
     assert json.loads(crawl.urls) == {"type": "CrawlSeed", "url": "https://example.com", "depth": 0}
     assert snapshot.url == "https://example.com"

@@ -70,7 +70,7 @@ from .binary_service import ArchiveBoxBinaryService, ArchiveBoxDBBinaryCacheBack
 from .crawl_service import CrawlService
 from .machine_service import MachineService
 from .process_service import ProcessService as PersistedProcessService
-from .snapshot_service import SnapshotService, finalize_completed_snapshot
+from .snapshot_service import SnapshotService, finalize_completed_snapshot, seal_snapshot_if_finished
 from .tag_service import TagService
 
 
@@ -845,11 +845,16 @@ class CrawlRunner:
             },
         )
         normalized_config = normalize_runtime_config(config)
+        normalized_config.update(self.config_overrides)
         configured_plugins = [name.strip().lower() for name in str(normalized_config.get("PLUGINS") or "").split(",") if name.strip()]
         if configured_plugins:
             selected_plugin_names = set(filter_plugins(self.plugins, configured_plugins, include_providers=True))
             for plugin_name, enabled_key in _plugin_enabled_config_keys().items():
                 normalized_config.setdefault(enabled_key, plugin_name in selected_plugin_names)
+        # ArchiveBox enforces CRAWL_MAX_URLS when creating direct and discovered
+        # Snapshot rows. Once a Snapshot is already queued, the hook runner must
+        # not deny it just because the crawl has reached that enqueue cap.
+        normalized_config["CRAWL_MAX_URLS"] = 0
         return {
             "id": str(snapshot.id),
             "url": snapshot.url,
@@ -1356,6 +1361,9 @@ class CrawlRunner:
 
         snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by").filter(id=snapshot_id).first()
         if snapshot is None or snapshot.status == Snapshot.StatusChoices.SEALED:
+            return
+        if snapshot.status == Snapshot.StatusChoices.STARTED:
+            seal_snapshot_if_finished(snapshot, require_finished=False)
             return
         # Limit stops are runner-owned cancellation decisions, not normal
         # "all ArchiveResults finished" lifecycle seals. Updating the row
