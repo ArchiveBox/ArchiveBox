@@ -2232,7 +2232,20 @@ def _run_due_queued_plugin_result(
             selected_plugins = snapshot_selected_plugins
         if snapshot_selected_plugins != selected_plugins:
             continue
-        claimed = Snapshot.claim_for_worker(snapshot, lock_seconds=lock_seconds)
+        if search_only_plugins and snapshot.status == Snapshot.StatusChoices.PAUSED:
+            claimed = snapshot.safe_update(
+                {
+                    "retry_at": now + timedelta(seconds=lock_seconds),
+                    "modified_at": now,
+                },
+                refresh=False,
+                extra_filter={
+                    "status": Snapshot.StatusChoices.PAUSED,
+                    "retry_at": snapshot.retry_at,
+                },
+            )
+        else:
+            claimed = Snapshot.claim_for_worker(snapshot, lock_seconds=lock_seconds)
         if not claimed:
             continue
         snapshot.refresh_from_db()
