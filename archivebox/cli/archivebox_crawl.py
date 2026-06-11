@@ -35,24 +35,11 @@ __command__ = "archivebox crawl"
 
 import sys
 from collections.abc import Iterable
-from pathlib import Path
 
 import rich_click as click
 from rich import print as rprint
 
 from archivebox.cli.cli_util import apply_filters
-
-
-def _expand_file_args(args: Iterable[str]) -> list[str]:
-    expanded: list[str] = []
-    for arg in args:
-        arg_text = str(arg)
-        arg_path = Path(arg_text).expanduser()
-        if arg_path.is_file():
-            expanded.extend(arg_path.read_text(encoding="utf-8").splitlines())
-        else:
-            expanded.append(arg_text)
-    return expanded
 
 
 # =============================================================================
@@ -86,7 +73,7 @@ def create_crawl(
     is_tty = sys.stdout.isatty()
 
     # Collect all input records
-    records = list(read_args_or_stdin(_expand_file_args(urls)))
+    records = list(read_args_or_stdin(urls))
 
     if not records:
         rprint("[yellow]No URLs provided. Pass URLs as arguments or via stdin.[/yellow]", file=sys.stderr)
