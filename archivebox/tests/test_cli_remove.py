@@ -101,7 +101,8 @@ def test_remove_yes_flag_skips_confirmation(initialized_archive):
 
     assert result.returncode == 0
     output = result.stdout + result.stderr
-    assert "Index now contains 0 links." in output
+    assert "Removed 1 out of 2 links from the archive index." in output
+    assert "Index now contains 1 links." in output
 
 
 def test_remove_without_yes_prompts_and_keeps_snapshot(initialized_archive):

@@ -163,7 +163,7 @@ def test_add_urls_separately(tmp_path):
     run_queued_crawls(tmp_path, env)
 
     with use_archivebox_db(tmp_path):
-        snapshot_count = Snapshot.objects.count()
+        snapshot_count = Snapshot.objects.exclude(url="archivebox://internal").count()
         crawl_count = Crawl.objects.count()
     assert snapshot_count == 2, f"Expected 2 snapshots, got {snapshot_count}"
     assert crawl_count == 2, f"Expected 2 Crawls, got {crawl_count}"
