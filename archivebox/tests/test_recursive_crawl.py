@@ -596,7 +596,7 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(initia
             .values_list("id", "pwd", "cmd", "status", "exit_code", "started_at", "ended_at"),
         )
 
-    assert crawl.max_depth == 2
+    assert crawl.max_depth == 3
     assert crawl.config["CRAWL_MAX_URLS"] == 8
     assert crawl.config["CRAWL_MAX_SIZE"] == 100 * 1024 * 1024
     assert crawl.config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] == 3

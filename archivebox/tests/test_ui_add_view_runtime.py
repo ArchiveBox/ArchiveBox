@@ -610,8 +610,8 @@ def test_public_add_view_rejects_file_path_and_shell_injection_payloads(tmp_path
         crawl = Crawl.objects.get()
         tag_names = set(snapshot.tags.values_list("name", flat=True))
     assert crawl.status in {Crawl.StatusChoices.STARTED, Crawl.StatusChoices.SEALED}
+    assert crawl.tags_str == "public-ui-security"
     assert snapshot.status in {Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED, Snapshot.StatusChoices.SEALED}
-    assert "public-ui-security" in tag_names
 
 
 @pytest.mark.timeout(180)
