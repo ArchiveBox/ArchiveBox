@@ -2502,25 +2502,6 @@ def run_pending_crawls(
             ):
                 continue
 
-        # Final active-state fallback uses only the retry_at scheduler index and
-        # selects an id first. Keep final SEALED rows out of this broad path so
-        # large filesystem/index backfills cannot starve newly queued crawls.
-        due_snapshots = Snapshot.objects.filter(
-            retry_at__lte=timezone.now(),
-            status__in=Snapshot.OPEN_STATES,
-        )
-        if maintenance_only:
-            due_snapshots = due_snapshots.filter(status=Snapshot.StatusChoices.PAUSED)
-        if crawl_id:
-            due_snapshots = due_snapshots.filter(crawl_id=crawl_id)
-        if _run_due_snapshot_query(
-            due_snapshots,
-            lock_seconds=60,
-            interactive_interrupts=interactive_interrupts,
-            runtime_config=runtime_config,
-        ):
-            continue
-
         # Search backend selection is live crawl-execution config, not an
         # installed-plugin list. Old queued rows for a backend that is disabled
         # by the current Machine/Crawl/Snapshot config must remain queued so
@@ -2539,6 +2520,27 @@ def run_pending_crawls(
             interactive_interrupts=interactive_interrupts,
             runtime_config=runtime_config,
             batch_size=maintenance_batch_size,
+        ):
+            continue
+
+        # Final active-state fallback uses only the retry_at scheduler index and
+        # selects an id first. Keep final SEALED rows out of this broad path so
+        # large filesystem/index backfills cannot starve newly queued crawls.
+        # Search backfills run before this broad PAUSED branch so they can use
+        # the targeted maintenance path that preserves paused lifecycle state.
+        due_snapshots = Snapshot.objects.filter(
+            retry_at__lte=timezone.now(),
+            status__in=Snapshot.OPEN_STATES,
+        )
+        if maintenance_only:
+            due_snapshots = due_snapshots.filter(status=Snapshot.StatusChoices.PAUSED)
+        if crawl_id:
+            due_snapshots = due_snapshots.filter(crawl_id=crawl_id)
+        if _run_due_snapshot_query(
+            due_snapshots,
+            lock_seconds=60,
+            interactive_interrupts=interactive_interrupts,
+            runtime_config=runtime_config,
         ):
             continue
 
