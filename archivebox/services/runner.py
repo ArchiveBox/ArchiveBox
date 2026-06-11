@@ -1232,6 +1232,7 @@ class CrawlRunner:
                 snapshot_cleanup_enabled=True,
                 snapshot_cleanup_phase_timeout=snapshot_phase_timeout,
                 abort_requested=self.crawl_is_cancelled,
+                selected_hooks_by_plugin=selected_hooks_by_plugin,
             )
             try:
                 snapshot_event = SnapshotEvent(
@@ -1585,8 +1586,18 @@ def snapshot_hooks_for_pending_archiveresults(snapshot) -> list[tuple[str, str]]
         else _discover_archivebox_plugins()
     )
     if snapshot.url == Snapshot.INTERNAL_INPUT_URL:
-        plugins = {name: plugin for name, plugin in plugins.items() if getattr(plugin.config, "x_accepts_internal_input", False)}
+        plugins = {name: plugin for name, plugin in plugins.items() if plugin_accepts_internal_input(plugin)}
     return sorted((plugin.name, hook.name) for plugin in plugins.values() for hook in plugin.filter_hooks("Snapshot"))
+
+
+def plugin_accepts_internal_input(plugin: Plugin) -> bool:
+    if getattr(plugin.config, "x_accepts_internal_input", False):
+        return True
+    try:
+        config_data = json.loads((plugin.path / "config.json").read_text())
+    except (OSError, TypeError, json.JSONDecodeError):
+        return False
+    return bool(config_data.get("x-accepts-internal-input"))
 
 
 def run_snapshot_maintenance(snapshot_id: str, *, output_dir: Path | None = None) -> bool:

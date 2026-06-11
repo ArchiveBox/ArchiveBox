@@ -1073,11 +1073,11 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(initialized_a
         [
             "add",
             "--depth=0",
-            "--max-urls=2",
+            "--max-urls=3",
             "--crawl-max-size=10mb",
             "--tag=real-flow,challenge",
             "--parser=url_list",
-            "--plugins=wget",
+            "--plugins=parse_txt_urls,wget",
             *wget_urls,
         ],
         cwd=initialized_archive,
@@ -1110,11 +1110,11 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(initialized_a
         [
             "add",
             "--depth=0",
-            "--max-urls=1",
+            "--max-urls=2",
             "--crawl-max-size=10mb",
             "--tag=chrome-flow",
             "--parser=url_list",
-            "--plugins=chrome,wget,headers,title",
+            "--plugins=parse_txt_urls,chrome,wget,headers,title",
             chrome_url,
         ],
         cwd=initialized_archive,
@@ -1150,7 +1150,7 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(initialized_a
     assert real_flow_crawl[0] == 0
     assert real_flow_crawl[1] == "real-flow,challenge"
     real_flow_config = real_flow_crawl[2] or {}
-    assert real_flow_config["CRAWL_MAX_URLS"] == 2
+    assert real_flow_config["CRAWL_MAX_URLS"] == 3
     assert real_flow_config["CRAWL_MAX_SIZE"] == 10 * 1024 * 1024
     assert real_flow_config.get("SNAPSHOT_MAX_SIZE", 0) == 0
     assert "wget" in real_flow_config["PLUGINS"]
@@ -1227,11 +1227,11 @@ def test_cli_recursive_crawl_processes_discovered_html_urls(initialized_archive,
         [
             "add",
             "--depth=2",
-            "--max-urls=2",
+            "--max-urls=3",
             "--crawl-max-size=50mb",
             "--tag=recursive-flow",
             "--parser=url_list",
-            "--plugins=wget,parse_html_urls",
+            "--plugins=parse_txt_urls,wget,parse_html_urls",
             root_url,
         ],
         cwd=initialized_archive,
@@ -1253,7 +1253,7 @@ def test_cli_recursive_crawl_processes_discovered_html_urls(initialized_archive,
     assert crawl[0] == 2
     assert crawl[1] == "recursive-flow"
     crawl_config = crawl[2] or {}
-    assert crawl_config["CRAWL_MAX_URLS"] == 2
+    assert crawl_config["CRAWL_MAX_URLS"] == 3
     assert crawl_config["CRAWL_MAX_SIZE"] == 50 * 1024 * 1024
     assert crawl_config.get("SNAPSHOT_MAX_SIZE", 0) == 0
     assert (root_url, 0, "sealed") in snapshots

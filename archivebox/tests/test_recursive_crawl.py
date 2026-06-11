@@ -84,7 +84,7 @@ def test_background_hooks_dont_block_parser_extractors(tmp_path, initialized_arc
     )
 
     proc = run_archivebox_cmd(
-        ["add", "--depth=1", "--plugins=favicon,parse_html_urls", recursive_test_site["root_url"]],
+        ["add", "--depth=1", "--plugins=parse_txt_urls,favicon,parse_html_urls", recursive_test_site["root_url"]],
         cwd=tmp_path,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -162,7 +162,7 @@ def test_parser_extractors_emit_snapshot_jsonl(tmp_path, initialized_archive, re
     )
 
     result = run_archivebox_cmd(
-        ["add", "--depth=0", "--plugins=wget,parse_html_urls", recursive_test_site["root_url"]],
+        ["add", "--depth=0", "--plugins=parse_txt_urls,wget,parse_html_urls", recursive_test_site["root_url"]],
         env=env,
         timeout=60,
     )
@@ -218,7 +218,7 @@ def test_recursive_crawl_creates_child_snapshots(tmp_path, initialized_archive, 
     )
 
     stdout, stderr = run_add_until(
-        ["archivebox", "add", "--depth=1", "--plugins=wget,parse_html_urls", recursive_test_site["root_url"]],
+        ["archivebox", "add", "--depth=1", "--plugins=parse_txt_urls,wget,parse_html_urls", recursive_test_site["root_url"]],
         env=env,
         timeout=120,
         condition=lambda: (
@@ -276,7 +276,7 @@ def test_recursive_crawl_respects_depth_limit(tmp_path, initialized_archive, rec
     env["URL_ALLOWLIST"] = r"127\.0\.0\.1[:/].*"
 
     stdout, stderr = run_add_until(
-        ["archivebox", "add", "--depth=1", "--plugins=wget,parse_html_urls", recursive_test_site["root_url"]],
+        ["archivebox", "add", "--depth=1", "--plugins=parse_txt_urls,wget,parse_html_urls", recursive_test_site["root_url"]],
         env=env,
         timeout=120,
         condition=lambda: (
@@ -704,25 +704,25 @@ def test_snapshot_depth_field_exists(tmp_path, initialized_archive):
     assert "depth" in column_names, f"Snapshot table should have depth column. Columns: {column_names}"
 
 
-def test_root_snapshot_has_depth_zero(tmp_path, initialized_archive, recursive_test_site):
-    """Test that root snapshots are created with depth=0."""
+def test_submitted_root_url_has_depth_one(tmp_path, initialized_archive, recursive_test_site):
+    """Test that submitted root URLs are created under the internal input snapshot."""
     env = cli_env(disable_extractors=True)
 
     env = env.copy()
     env["URL_ALLOWLIST"] = r"127\.0\.0\.1[:/].*"
 
     stdout, stderr = run_add_until(
-        ["archivebox", "add", "--depth=1", "--plugins=wget,parse_html_urls", recursive_test_site["root_url"]],
+        ["archivebox", "add", "--depth=1", "--plugins=parse_txt_urls,wget,parse_html_urls", recursive_test_site["root_url"]],
         env=env,
         timeout=120,
-        condition=lambda: Snapshot.objects.filter(url=recursive_test_site["root_url"]).count() >= 1,
+        condition=lambda: Snapshot.objects.filter(url=recursive_test_site["root_url"], depth=1).exists(),
     )
 
     with use_archivebox_db(tmp_path):
         snapshot = Snapshot.objects.filter(url=recursive_test_site["root_url"]).order_by("created_at").values_list("id", "depth").first()
 
     assert snapshot is not None, "Root snapshot should be created"
-    assert snapshot[1] == 0, f"Root snapshot should have depth=0, got {snapshot[1]}"
+    assert snapshot[1] == 1, f"Submitted root URL snapshot should have depth=1, got {snapshot[1]}"
 
 
 def test_archiveresult_worker_queue_filters_by_foreground_extractors(tmp_path, initialized_archive, recursive_test_site):
@@ -740,7 +740,7 @@ def test_archiveresult_worker_queue_filters_by_foreground_extractors(tmp_path, i
     )
 
     stdout, stderr = run_add_until(
-        ["archivebox", "add", "--plugins=favicon,wget,parse_html_urls", recursive_test_site["root_url"]],
+        ["archivebox", "add", "--plugins=parse_txt_urls,favicon,wget,parse_html_urls", recursive_test_site["root_url"]],
         env=env,
         timeout=120,
         condition=lambda: ArchiveResult.objects.filter(
