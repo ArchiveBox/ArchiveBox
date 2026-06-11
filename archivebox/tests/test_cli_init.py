@@ -228,7 +228,8 @@ def test_init_with_existing_data_preserves_snapshots(initialized_archive):
     # Check snapshot was created
     with use_archivebox_db(initialized_archive):
         count_before = Snapshot.objects.count()
-    assert count_before == 1
+        real_count_before = Snapshot.objects.exclude(url=Snapshot.INTERNAL_INPUT_URL).count()
+    assert real_count_before == 1
 
     # Run init again
     result = run_archivebox_cmd(["init"], cwd=initialized_archive)
@@ -237,7 +238,9 @@ def test_init_with_existing_data_preserves_snapshots(initialized_archive):
     # Snapshot should still exist
     with use_archivebox_db(initialized_archive):
         count_after = Snapshot.objects.count()
+        real_count_after = Snapshot.objects.exclude(url=Snapshot.INTERNAL_INPUT_URL).count()
     assert count_after == count_before
+    assert real_count_after == real_count_before
 
 
 def test_init_quick_flag_skips_checks(tmp_path):

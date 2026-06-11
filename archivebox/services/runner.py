@@ -76,6 +76,13 @@ from .tag_service import TagService
 
 QUEUED_PLUGIN_RESULT_BATCH_SIZE = 100
 INTERNAL_INPUT_URL = "archivebox://internal"
+PARSER_PLUGIN_NAMES = {
+    "parse_html_urls",
+    "parse_jsonl_urls",
+    "parse_netscape_urls",
+    "parse_rss_urls",
+    "parse_txt_urls",
+}
 
 
 def _bus_name(prefix: str, identifier: str) -> str:
@@ -148,8 +155,15 @@ def _input_parser_plugin_name(config: dict[str, Any]) -> str:
     }.get(parser_name, "parse_txt_urls")
 
 
-def _selected_plugins_for_internal_input(config: dict[str, Any]) -> list[str]:
-    return [_input_parser_plugin_name(config)]
+def _selected_plugins_for_internal_input(config: dict[str, Any], selected_plugins: list[str] | None = None) -> list[str]:
+    parser_name = str(config.get("PARSER") or "auto").strip().lower().replace("-", "_")
+    parser_plugin = _input_parser_plugin_name(config)
+    if parser_name != "auto":
+        return [parser_plugin]
+    plugin_names = [plugin for plugin in (selected_plugins or []) if plugin in PARSER_PLUGIN_NAMES]
+    if "parse_txt_urls" not in plugin_names:
+        plugin_names.insert(0, "parse_txt_urls")
+    return plugin_names
 
 
 def _discover_archivebox_plugins() -> dict[str, Plugin]:
@@ -1137,7 +1151,7 @@ class CrawlRunner:
             )
             internal_input = snapshot["url"] == INTERNAL_INPUT_URL
             if internal_input:
-                snapshot_selected_plugins = _selected_plugins_for_internal_input(config)
+                snapshot_selected_plugins = _selected_plugins_for_internal_input(config, snapshot_selected_plugins)
 
             def queued_plugins_selected_by_config(queued_plugins: list[str]) -> list[str]:
                 if not snapshot_selected_plugins:
@@ -1609,11 +1623,11 @@ def snapshot_hooks_for_pending_archiveresults(snapshot) -> list[tuple[str, str]]
     snapshot_plugin_names = [name.strip() for name in str((snapshot.config or {}).get("PLUGINS") or "").split(",") if name.strip()]
     crawl_plugin_names = [name.strip() for name in str((snapshot.crawl.config or {}).get("PLUGINS") or "").split(",") if name.strip()]
     config_plugin_names = [name.strip() for name in str(config.PLUGINS or "").split(",") if name.strip()]
-    plugin_names = (
-        _selected_plugins_for_internal_input(normalize_runtime_config(config))
-        if snapshot.url == Snapshot.INTERNAL_INPUT_URL
-        else snapshot_plugin_names or crawl_plugin_names or config_plugin_names or get_enabled_plugins(config=config)
-    )
+    plugin_names = snapshot_plugin_names or crawl_plugin_names or config_plugin_names
+    if snapshot.url == Snapshot.INTERNAL_INPUT_URL:
+        plugin_names = _selected_plugins_for_internal_input(normalize_runtime_config(config), plugin_names)
+    else:
+        plugin_names = plugin_names or get_enabled_plugins(config=config)
     plugins = (
         filter_plugins(_discover_archivebox_plugins(), plugin_names, include_providers=True)
         if plugin_names
