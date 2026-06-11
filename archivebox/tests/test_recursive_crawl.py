@@ -604,9 +604,9 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(initia
     assert crawl.retry_at is None
 
     assert len(snapshots) == 8
-    assert any(url == root_url and depth == 0 for _id, url, depth, _status, _parent, _downloaded_at in snapshots)
-    assert any("iana.org" in url and depth == 1 for _id, url, depth, _status, _parent, _downloaded_at in snapshots)
-    assert any(depth == 2 for _id, _url, depth, _status, _parent, _downloaded_at in snapshots)
+    assert any(url == root_url and depth == 1 for _id, url, depth, _status, _parent, _downloaded_at in snapshots)
+    assert any("iana.org" in url and depth == 2 for _id, url, depth, _status, _parent, _downloaded_at in snapshots)
+    assert any(depth == 3 for _id, _url, depth, _status, _parent, _downloaded_at in snapshots)
     assert all(status == Snapshot.StatusChoices.SEALED for _id, _url, _depth, status, _parent, _downloaded_at in snapshots)
     assert all(downloaded_at is not None for _id, _url, _depth, _status, _parent, downloaded_at in snapshots)
 

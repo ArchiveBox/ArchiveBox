@@ -757,9 +757,9 @@ def test_add_view_depth_two_crawl_renders_outputs_over_server(tmp_path, recursiv
         while time.time() < deadline:
             depth_counts = get_depth_counts(tmp_path)
             if (
-                depth_counts.get(0, 0) >= 1
-                and depth_counts.get(1, 0) >= len(recursive_test_site["child_urls"])
-                and depth_counts.get(2, 0) >= len(recursive_test_site["deep_urls"])
+                depth_counts.get(1, 0) >= 1
+                and depth_counts.get(2, 0) >= len(recursive_test_site["child_urls"])
+                and depth_counts.get(3, 0) >= len(recursive_test_site["deep_urls"])
             ):
                 break
             time.sleep(2)
@@ -775,14 +775,14 @@ def test_add_view_depth_two_crawl_renders_outputs_over_server(tmp_path, recursiv
                 ArchiveResult.objects.order_by("plugin", "status").values_list("plugin", "status", "output_files", "output_size"),
             )
 
-        assert crawl[:3] == (2, "web-depth-two", "created from running-server web ui")
+        assert crawl[:3] == (3, "web-depth-two", "created from running-server web ui")
         assert (crawl[3] or {})["CRAWL_MAX_URLS"] == 20
-        assert depth_counts.get(0, 0) >= 1
-        assert depth_counts.get(1, 0) >= len(recursive_test_site["child_urls"])
-        assert depth_counts.get(2, 0) >= len(recursive_test_site["deep_urls"])
-        assert max(depth_counts) <= 2
-        assert set(recursive_test_site["child_urls"]).issubset({url for url, depth, _status, _parent in snapshot_rows if depth == 1})
-        assert set(recursive_test_site["deep_urls"]).issubset({url for url, depth, _status, _parent in snapshot_rows if depth == 2})
+        assert depth_counts.get(1, 0) >= 1
+        assert depth_counts.get(2, 0) >= len(recursive_test_site["child_urls"])
+        assert depth_counts.get(3, 0) >= len(recursive_test_site["deep_urls"])
+        assert max(depth_counts) <= 3
+        assert set(recursive_test_site["child_urls"]).issubset({url for url, depth, _status, _parent in snapshot_rows if depth == 2})
+        assert set(recursive_test_site["deep_urls"]).issubset({url for url, depth, _status, _parent in snapshot_rows if depth == 3})
 
         result_statuses = [(plugin, status) for plugin, status, _files, _size in archive_results]
         assert ("wget", "succeeded") in result_statuses
