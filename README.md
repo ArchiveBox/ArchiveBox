@@ -92,10 +92,10 @@ docker run -it -v $PWD:/data archivebox/archivebox init
 <br/>
 <br/>
 # Option C: Or install it with your preferred pkg manager (see Quickstart below for apt, brew, and more)
-pip install archivebox
+pip install archivebox legacy-cgi # cgi not part of python3.13 and above
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
 archivebox init
-archivebox install
+archivebox setup
 # archivebox add 'https://example.com'
 # archivebox help
 # archivebox server 0.0.0.0:8000
