@@ -1,0 +1,53 @@
+archivebox/tests/test_ui_add_view.py
+  s_15f59ac80abb8e::t_f9853d385801c1 287-288,422,457,509,554
+  s_15f59ac80abb8e::t_da44dd10e5d141 421,456
+archivebox/services/runner.py
+  s_15f59ac80abb8e::t_66ca6f71deeb26 626
+  s_15f59ac80abb8e::t_82143f40c25e76 616-625,627-629,631-632,640-642,650-658
+  s_15f59ac80abb8e::t_03ecb89ac3eb49 633-639
+  s_15f59ac80abb8e::t_90517ba80f3497 606-607,610-615,630
+  s_15f59ac80abb8e::t_5fa3cb88f83170 5,643-649,659-663
+archivebox/tests/test_ui_add_view_runtime.py
+  s_15f59ac80abb8e::t_f59d6ac7220f18 394-399,401-405
+  s_15f59ac80abb8e::t_9dbb30b2a4512a 400
+archivebox/api/v1_crawls.py
+  s_15f59ac80abb8e::t_051cb2bfb35d83 128
+  s_15f59ac80abb8e::t_168300ef05742b 3
+archivebox/tests/test_api_v1_cli_add.py
+  s_15f59ac80abb8e::t_30409eb63c1c47 3,305-314
+  s_15f59ac80abb8e::t_47bf8f9ae85319 265
+  s_15f59ac80abb8e::t_9e85ae75abb9c9 266
+  s_15f59ac80abb8e::t_48434e881b7a14 304
+  s_15f59ac80abb8e::t_d2b79741c352f3 316-320
+archivebox/tests/test_cli_add.py
+  s_15f59ac80abb8e::t_0f1e2cd8e4283f 251,255,490,495,634,641,665,668-669,941,946,950,957
+  s_15f59ac80abb8e::t_3ae92de05e3ae6 9,284-294
+  s_15f59ac80abb8e::t_24f1225466392b 295-299
+  s_15f59ac80abb8e::t_a1a47bf39367cb 253,393,494,574,585,610-612,667,945,963
+  s_15f59ac80abb8e::t_a647390a331bd5 666
+  s_15f59ac80abb8e::t_1dea8580cd7132 279
+archivebox/cli/archivebox_add.py
+  s_15f59ac80abb8e::t_4509da5f3e04be 9,129-131,133
+  s_15f59ac80abb8e::t_b51761a43a439d 132
+archivebox/core/forms.py
+  s_15f59ac80abb8e::t_824e31def2a9ac 39
+archivebox/crawls/models.py
+  s_15f59ac80abb8e::t_fa4449e8b09d33 505,516
+  s_15f59ac80abb8e::t_8a635bfa153a4c 521-523
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "c9e63ccffd706ae36a51a814a4f2f76a2127ccb1",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
