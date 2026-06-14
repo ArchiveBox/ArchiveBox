@@ -1,0 +1,30 @@
+archivebox/cli/archivebox_version.py
+  s_cdb7ab28cd51df::t_01ec0c0d29c940 199,208-209,211-213,233,237-260,262-265,267-282,286-311,313-314,316-331,333-344,347
+  s_cdb7ab28cd51df::t_ecb6cf51fdf0e5 171-172,197-198,200-207,210,214-216,218,220,222,224-226,228-232,235-236,283-285,345,348
+.github/workflows/update-homebrew-tap.yml
+  s_70b3b8284ef391::t_d88938c0b5fad4 1,12,20,22,24-25,29-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "88a92b6548acbb33b829faa2c08e101ddaee3eb8",
+  "prompts": {},
+  "sessions": {
+    "s_70b3b8284ef391": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec4bb-38fe-7723-b66e-d0af77a36fd0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_cdb7ab28cd51df": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa76-c893-7193-bd47-d91b6111304f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
