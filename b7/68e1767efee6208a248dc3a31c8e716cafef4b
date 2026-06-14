@@ -1,0 +1,33 @@
+bin/watch_dev_image.sh
+  s_70b3b8284ef391::t_252d2d57df5700 1-73
+Dockerfile
+  s_cdb7ab28cd51df::t_0e950782bf99df 5,252-256,258
+.github/workflows/release-runner.yml
+  s_70b3b8284ef391::t_c900b3ae0bf384 10,54-60
+  s_70b3b8284ef391::t_02bd720ca1e77a 20
+  s_70b3b8284ef391::t_da38ca6c1a42c8 6,16,28,50-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "b768e1767efee6208a248dc3a31c8e716cafef4b",
+  "prompts": {},
+  "sessions": {
+    "s_70b3b8284ef391": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec4bb-38fe-7723-b66e-d0af77a36fd0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_cdb7ab28cd51df": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa76-c893-7193-bd47-d91b6111304f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
