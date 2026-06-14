@@ -1,0 +1,21 @@
+bin/release.sh
+  s_70b3b8284ef391::t_1dc9f4650990fd 412
+.github/workflows/release-runner.yml
+  s_70b3b8284ef391::t_b1d83508fd5c15 22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "cb5c822eb4ff8aa84222e582dba5d25bccbb9145",
+  "prompts": {},
+  "sessions": {
+    "s_70b3b8284ef391": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec4bb-38fe-7723-b66e-d0af77a36fd0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
