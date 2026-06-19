@@ -1,0 +1,63 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static allauth account socialaccount %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static "admin/css/login.css" %}">
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} login{% endblock %}
+
+<a href="{% url 'Home' %}">
+{% block branding %}<h1>ArchiveBox</h1>{% endblock %}
+</a>
+{% block usertools %}{% endblock %}
+{% block nav-global %}{% endblock %}
+
+{% block content_title %}
+  <center>Log in to your archive.</center><br/><br/>
+  <img src="{% static 'archive.png' %}" style="width: 80px; display: block; margin: auto"/><br/>
+{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+
+{% if form.errors %}
+<p class="errornote">{% trans "Please correct the error below." %}</p>
+{% endif %}
+
+<form method="POST" action="{% url 'account_login' %}">
+  {% csrf_token %}
+  {% for field in form %}
+  <div class="form-row">
+    {{ field.errors }}
+    {{ field.label_tag }}{{ field }}
+  </div>
+  {% endfor %}
+  {% if redirect_field_value %}
+  <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+  {% endif %}
+  <div class="submit-row" style="border: none;">
+    <label>&nbsp;</label><input type="submit" value="{% trans 'Log in' %}">
+  </div>
+</form>
+
+{% get_providers as socialaccount_providers %}
+{% if socialaccount_providers %}
+<hr/>
+<center><strong>{% trans "Or sign in with:" %}</strong></center><br/>
+{% include "socialaccount/snippets/provider_list.html" with process="login" %}
+{% endif %}
+
+{% if ACCOUNT_ALLOW_REGISTRATION %}
+<hr/>
+<center>
+  <a href="{% url 'account_signup' %}">{% trans "Create an account" %}</a>
+  &nbsp;|&nbsp;
+  <a href="{% url 'account_reset_password' %}">{% trans "Forgot your password?" %}</a>
+</center>
+{% endif %}
+
+</div>
+{% endblock %}

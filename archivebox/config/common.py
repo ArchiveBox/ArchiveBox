@@ -26,6 +26,8 @@ from archivebox.config.configset import COMPUTED_CONFIG_KEYS, BaseConfigSet, Ini
 
 from .constants import CONSTANTS
 from .ldap import LDAPConfig
+from .allauth import AllauthConfig
+from .version import get_COMMIT_HASH, get_BUILD_TIME, VERSION
 from .permissions import IN_DOCKER
 from .version import VERSION, get_BUILD_TIME, get_COMMIT_HASH
 
@@ -632,6 +634,7 @@ class ArchiveBoxBaseConfig(
     ArchivingConfig,
     SearchBackendConfig,
     LDAPConfig,
+    AllauthConfig,
 ):
     """Merged, typed ArchiveBox config.
 
@@ -662,6 +665,7 @@ class ArchiveBoxBaseConfig(
             ArchivingConfig,
             SearchBackendConfig,
             LDAPConfig,
+            AllauthConfig,
         )
 
     @classmethod
@@ -1280,4 +1284,5 @@ def get_all_configs() -> dict[str, BaseConfigSet]:
         "ARCHIVING_CONFIG": ArchivingConfig(),
         "SEARCH_BACKEND_CONFIG": SearchBackendConfig(),
         "LDAP_CONFIG": LDAPConfig(),
+        "ALLAUTH_CONFIG": AllauthConfig(),
     }

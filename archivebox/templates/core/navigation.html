@@ -34,10 +34,7 @@
                 <a href="{% url 'admin:password_change' %}" class="navbar-item navbar-account" title="Change your account password">Account</a>
                 <span class="navbar-separator navbar-account-separator" aria-hidden="true">/</span>
             {% endif %}
-            <form method="post" action="{% url 'admin:logout' %}" class="navbar-logout-form">
-                {% csrf_token %}
-                <button type="submit" class="navbar-item navbar-logout">{% trans 'Log out' %}</button>
-            </form>
+            <form id="logout-form" method="post" action="{% url 'admin:logout' %}" style="display:inline">{% csrf_token %}<button type="submit" style="background:none;border:none;padding:0;color:inherit;cursor:pointer;font:inherit">{% trans 'Log out' %}</button></form>
         {% endblock %}
     {% elif request.COOKIES.archivebox_admin_logged_in == "1" %}
         {% comment %}
@@ -46,7 +43,8 @@
         The hint cookie is the only signal that crosses, so link back to the
         admin host where the session and CSRF cookie are available.
         {% endcomment %}
-        <a href="/admin/" class="navbar-item navbar-account">Account</a>
+        <a href="/admin/password_change/" title="Change your account password">Account</a> /
+        <form id="logout-form-hint" method="post" action="/admin/logout/" style="display:inline">{% csrf_token %}<button type="submit" style="background:none;border:none;padding:0;color:inherit;cursor:pointer;font:inherit">{% trans 'Log out' %}</button></form>
     {% else %}
         <a href="{% url 'admin:login' %}" class="navbar-item navbar-login">{% trans 'Log in' %}</a>
     {% endif %}

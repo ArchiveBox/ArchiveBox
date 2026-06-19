@@ -72,9 +72,7 @@ urlpatterns = [
     # an unauthenticated ``/add`` visitor to ``/accounts/login/?next=/add/``
     # carries the ``next`` through to ``/admin/login/`` and lands them at
     # ``/add/`` after login instead of the admin homepage.
-    path("accounts/login/", RedirectView.as_view(url="/admin/login/", query_string=True)),
-    path("accounts/logout/", RedirectView.as_view(url="/admin/logout/", query_string=True)),
-    path("accounts/", include("django.contrib.auth.urls")),
+    path("accounts/", include("allauth.urls")),
     path("progress.json", live_progress_view, name="live_progress"),
     path("admin/", archivebox_admin.urls),
     path("api/", include("archivebox.api.urls"), name="api"),

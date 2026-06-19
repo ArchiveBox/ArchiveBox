@@ -1,0 +1,39 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static "admin/css/login.css" %}">
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} login{% endblock %}
+
+<a href="{% url 'Home' %}">{% block branding %}<h1>ArchiveBox</h1>{% endblock %}</a>
+{% block usertools %}{% endblock %}
+{% block nav-global %}{% endblock %}
+{% block content_title %}<center>Create an account.</center><br/>{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+{% if form.errors %}
+<p class="errornote">{% trans "Please correct the error below." %}</p>
+{% endif %}
+<form method="POST" action="{% url 'account_signup' %}">
+  {% csrf_token %}
+  {% for field in form %}
+  <div class="form-row">
+    {{ field.errors }}
+    {{ field.label_tag }}{{ field }}
+  </div>
+  {% endfor %}
+  {% if redirect_field_value %}
+  <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+  {% endif %}
+  <div class="submit-row" style="border: none;">
+    <label>&nbsp;</label><input type="submit" value="{% trans 'Sign up' %}">
+  </div>
+</form>
+<hr/>
+<center><a href="{% url 'account_login' %}">{% trans "Already have an account? Log in" %}</a></center>
+</div>
+{% endblock %}

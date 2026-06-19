@@ -1,0 +1,26 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block content_title %}<center>Connected accounts.</center><br/>{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block content %}
+<div id="content-main">
+{% if socialaccounts %}
+<p>{% trans "The following social accounts are connected to your account:" %}</p>
+<ul>
+{% for account in socialaccounts %}
+<li>{{ account.get_provider_display }}: {{ account.uid }}
+  <form method="POST" action="{% url 'socialaccount_disconnect' %}">
+    {% csrf_token %}
+    <input type="hidden" name="account" value="{{ account.id }}">
+    <button type="submit">{% trans "Disconnect" %}</button>
+  </form>
+</li>
+{% endfor %}
+</ul>
+{% else %}
+<p>{% trans "No social accounts connected." %}</p>
+{% endif %}
+<hr/>
+<a href="{% url 'account_login' %}">{% trans "Back" %}</a>
+</div>
+{% endblock %}

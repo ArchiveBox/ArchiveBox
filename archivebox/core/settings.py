@@ -44,7 +44,6 @@ WSGI_APPLICATION = "archivebox.core.wsgi.application"
 ASGI_APPLICATION = "archivebox.core.asgi.application"
 ROOT_URLCONF = "archivebox.core.urls"
 
-LOGIN_URL = "/accounts/login/"
 LOGOUT_REDIRECT_URL = CONFIG.LOGOUT_REDIRECT_URL
 
 PASSWORD_RESET_URL = "/accounts/password_reset/"
@@ -112,7 +111,7 @@ MIDDLEWARE = [
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.RemoteUserBackend",
     "django.contrib.auth.backends.ModelBackend",
-    # Additional auth backends (e.g., LDAP) configured via settings
+    # Additional auth backends (e.g., LDAP, allauth) configured via settings below
 ]
 
 
@@ -154,7 +153,15 @@ try:
             }
 
             # Use custom LDAP backend that supports LDAP_CREATE_SUPERUSER
-            AUTHENTICATION_BACKENDS = [
+            # Include allauth backend first if allauth is installed
+            try:
+                import allauth as _allauth_check  # noqa: F401
+
+                _allauth_backend = ["allauth.account.auth_backends.AuthenticationBackend"]
+            except ImportError:
+                _allauth_backend = []
+
+            AUTHENTICATION_BACKENDS = _allauth_backend + [
                 "archivebox.ldap.auth.ArchiveBoxLDAPBackend",
                 "django.contrib.auth.backends.RemoteUserBackend",
                 "django.contrib.auth.backends.ModelBackend",
@@ -174,6 +181,66 @@ try:
 
 except ImportError:
     # archivebox.config.ldap not available (shouldn't happen but handle gracefully)
+    pass
+
+################################################################################
+### django-allauth Configuration
+# Conditionally loaded if django-allauth is installed
+################################################################################
+try:
+    import allauth  # noqa: F401
+
+    INSTALLED_APPS += [
+        "archivebox.auth",
+        "allauth",
+        "allauth.account",
+        "allauth.socialaccount",
+        # All known providers installed; only activatable via SOCIALACCOUNT_PROVIDERS credentials
+        "allauth.socialaccount.providers.amazon",
+        "allauth.socialaccount.providers.apple",
+        "allauth.socialaccount.providers.discord",
+        "allauth.socialaccount.providers.facebook",
+        "allauth.socialaccount.providers.github",
+        "allauth.socialaccount.providers.gitlab",
+        "allauth.socialaccount.providers.google",
+        "allauth.socialaccount.providers.instagram",
+        "allauth.socialaccount.providers.linkedin_oauth2",
+        "allauth.socialaccount.providers.microsoft",
+        "allauth.socialaccount.providers.twitter_oauth2",
+        "allauth.socialaccount.providers.openid_connect",
+
+    ]
+
+    MIDDLEWARE += [
+        "allauth.account.middleware.AccountMiddleware",
+    ]
+
+    # Prepend allauth backend to the list (only if not already present, e.g., from LDAP block)
+    _allauth_auth_backend = "allauth.account.auth_backends.AuthenticationBackend"
+    if _allauth_auth_backend not in AUTHENTICATION_BACKENDS:
+        AUTHENTICATION_BACKENDS = [_allauth_auth_backend] + AUTHENTICATION_BACKENDS
+
+    ACCOUNT_ADAPTER = "archivebox.auth.adapters.ArchiveBoxAccountAdapter"
+    SOCIALACCOUNT_ADAPTER = "archivebox.auth.adapters.ArchiveBoxSocialAccountAdapter"
+
+    ACCOUNT_LOGIN_METHODS = {"email"}  # replaces deprecated ACCOUNT_AUTHENTICATION_METHOD
+    ACCOUNT_EMAIL_REQUIRED = True
+    ACCOUNT_UNIQUE_EMAIL = True
+    EMAIL_VERIFICATION = CONFIG.EMAIL_VERIFICATION
+    ACCOUNT_EMAIL_VERIFICATION = CONFIG.EMAIL_VERIFICATION  # "none" | "optional" | "mandatory"
+    ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
+    ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+    SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = False  # handled by pre_social_login
+
+    # Provider-specific config — instances set this via SOCIALACCOUNT_PROVIDERS env var (JSON dict)
+    # e.g. SOCIALACCOUNT_PROVIDERS='{"google": {"APP": {"client_id": "...", "secret": "..."}}}'
+    SOCIALACCOUNT_PROVIDERS = CONFIG.SOCIALACCOUNT_PROVIDERS
+
+    LOGIN_URL = "/accounts/login/"
+    LOGIN_REDIRECT_URL = "/admin/"
+    ACCOUNT_LOGOUT_REDIRECT_URL = LOGOUT_REDIRECT_URL or "/"
+
+except ImportError:
     pass
 
 ################################################################################

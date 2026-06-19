@@ -1,0 +1,27 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static "admin/css/login.css" %}">
+{% endblock %}
+{% block bodyclass %}{{ block.super }} login{% endblock %}
+<a href="{% url 'Home' %}">{% block branding %}<h1>ArchiveBox</h1>{% endblock %}</a>
+{% block usertools %}{% endblock %}
+{% block nav-global %}{% endblock %}
+{% block content_title %}<center>Complete your sign-up.</center><br/>{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+<p>{% blocktrans with provider=sociallogin.account.get_provider.name %}You are signing in with <strong>{{ provider }}</strong>. Please confirm your details below.{% endblocktrans %}</p>
+<form method="POST" action="{% url 'socialaccount_signup' %}">
+  {% csrf_token %}
+  {% for field in form %}
+  <div class="form-row">{{ field.errors }}{{ field.label_tag }}{{ field }}</div>
+  {% endfor %}
+  <div class="submit-row" style="border: none;">
+    <label>&nbsp;</label><input type="submit" value="{% trans 'Continue' %}">
+  </div>
+</form>
+</div>
+{% endblock %}
