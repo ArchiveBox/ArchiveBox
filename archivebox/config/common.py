@@ -114,6 +114,7 @@ def resolve_delete_after_config_value(*configs: Mapping[str, Any] | None) -> str
 
 
 _SENSITIVE_CONFIG_KEY_NEEDLES = ("TOKEN", "SECRET", "API_KEY", "APIKEY", "PASSWORD")
+_SENSITIVE_CONFIG_KEY_EXACT = frozenset({"SOCIALACCOUNT_PROVIDERS"})
 SENSITIVE_CONFIG_VALUE_REDACTED = "********"
 _SCOPE_CRAWL_FROZEN = "crawl_frozen"
 _SCOPE_CRAWL_EXECUTION = "crawl_execution"
@@ -142,7 +143,11 @@ def is_sensitive_config_key(key: str) -> bool:
     """
     key = str(key or "")
     upper = key.upper()
-    return key in _plugin_sensitive_config_keys() or any(needle in upper for needle in _SENSITIVE_CONFIG_KEY_NEEDLES)
+    return (
+        key in _plugin_sensitive_config_keys()
+        or key in _SENSITIVE_CONFIG_KEY_EXACT
+        or any(needle in upper for needle in _SENSITIVE_CONFIG_KEY_NEEDLES)
+    )
 
 
 def redact_sensitive_config(config: Mapping[str, Any] | None) -> dict[str, Any]:

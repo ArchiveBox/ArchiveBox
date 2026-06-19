@@ -40,11 +40,19 @@
         {% comment %}
         Authenticated on the admin host but the session cookie is admin-host-
         scoped (security boundary — web.* must NEVER see the session).
-        The hint cookie is the only signal that crosses, so link back to the
-        admin host where the session and CSRF cookie are available.
+        The hint cookie is the only signal that crosses, so we render the
+        logged-out state's `Account` / `Log out` links pointing at admin host
+        so the user can still reach those pages from web.*.
+
+        NOTE: A cross-host POST+CSRF logout form cannot work here — the CSRF
+        token generated in the web.* context will never match the admin-host-
+        scoped CSRF cookie, causing a 403.  Django's LogoutView also rejects
+        GET requests (Django 6+), so we cannot simply link to /admin/logout/.
+        Instead, redirect the user to the admin host where their session lives;
+        they can log out from there using the real, same-host logout form.
         {% endcomment %}
         <a href="/admin/password_change/" title="Change your account password">Account</a> /
-        <form id="logout-form-hint" method="post" action="/admin/logout/" style="display:inline">{% csrf_token %}<button type="submit" style="background:none;border:none;padding:0;color:inherit;cursor:pointer;font:inherit">{% trans 'Log out' %}</button></form>
+        <a href="/admin/" title="Go to admin to log out">{% trans 'Log out' %}</a>
     {% else %}
         <a href="{% url 'admin:login' %}" class="navbar-item navbar-login">{% trans 'Log in' %}</a>
     {% endif %}

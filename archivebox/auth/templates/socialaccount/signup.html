@@ -16,6 +16,7 @@
 <p>{% blocktrans with provider=sociallogin.account.get_provider.name %}You are signing in with <strong>{{ provider }}</strong>. Please confirm your details below.{% endblocktrans %}</p>
 <form method="POST" action="{% url 'socialaccount_signup' %}">
   {% csrf_token %}
+  {{ redirect_field }}
   {% for field in form %}
   <div class="form-row">{{ field.errors }}{{ field.label_tag }}{{ field }}</div>
   {% endfor %}

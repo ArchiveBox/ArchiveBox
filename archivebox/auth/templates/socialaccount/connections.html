@@ -1,6 +1,6 @@
 {% extends "admin/base_site.html" %}
 {% load i18n %}
-{% block content_title %}<center>Connected accounts.</center><br/>{% endblock %}
+{% block content_title %}<div style="text-align: center;">{% trans "Connected accounts." %}</div><br/>{% endblock %}
 {% block breadcrumbs %}{% endblock %}
 {% block content %}
 <div id="content-main">
@@ -9,7 +9,7 @@
 <ul>
 {% for account in socialaccounts %}
 <li>{{ account.get_provider_display }}: {{ account.uid }}
-  <form method="POST" action="{% url 'socialaccount_disconnect' %}">
+  <form method="POST" action="{% url 'socialaccount_connections' %}">
     {% csrf_token %}
     <input type="hidden" name="account" value="{{ account.id }}">
     <button type="submit">{% trans "Disconnect" %}</button>

@@ -56,9 +56,13 @@ class ArchiveBoxAccountAdapter(DefaultAccountAdapter):
 
 class ArchiveBoxSocialAccountAdapter(DefaultSocialAccountAdapter):
     """
-    Custom social account adapter that:
-    - Enforces the same registration policy as ArchiveBoxAccountAdapter
-    - Auto-connects social accounts whose email matches an existing local user
+    Custom social account adapter that enforces the same registration policy
+    as ArchiveBoxAccountAdapter for social logins.
+
+    Auto-connecting social accounts by verified email is controlled by the
+    django-allauth setting SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT,
+    which ArchiveBox exposes as SOCIALACCOUNT_EMAIL_AUTO_CONNECT (default: False).
+    See archivebox/config/allauth.py for the security rationale.
     """
 
     def is_open_for_signup(self, request, sociallogin):
@@ -67,24 +71,3 @@ class ArchiveBoxSocialAccountAdapter(DefaultSocialAccountAdapter):
         if _get_registration_mode() == "invite":
             return False
         return True
-
-    def pre_social_login(self, request, sociallogin):
-        """
-        If the social account's verified email matches an existing user,
-        connect the social account to that user rather than creating a duplicate.
-        """
-        from django.contrib.auth import get_user_model
-
-        User = get_user_model()
-
-        if sociallogin.is_existing:
-            return
-
-        emails = [ea.email for ea in sociallogin.email_addresses if ea.verified]
-        for email in emails:
-            try:
-                existing_user = User.objects.get(email__iexact=email)
-                sociallogin.connect(request, existing_user)
-                return
-            except User.DoesNotExist:
-                continue

@@ -208,7 +208,6 @@ try:
         "allauth.socialaccount.providers.microsoft",
         "allauth.socialaccount.providers.twitter_oauth2",
         "allauth.socialaccount.providers.openid_connect",
-
     ]
 
     MIDDLEWARE += [
@@ -230,7 +229,12 @@ try:
     ACCOUNT_EMAIL_VERIFICATION = CONFIG.EMAIL_VERIFICATION  # "none" | "optional" | "mandatory"
     ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
     ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
-    SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = False  # handled by pre_social_login
+    # SECURITY: Auto-connecting social accounts by verified email is a known account-takeover
+    # vector when provider email verification is weak or the provider itself is compromised.
+    # django-allauth defaults this to False. ArchiveBox exposes it as an explicit opt-in via
+    # SOCIALACCOUNT_EMAIL_AUTO_CONNECT (default: False). Only enable in trusted, controlled
+    # deployments where all social providers enforce mandatory email verification.
+    SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = CONFIG.SOCIALACCOUNT_EMAIL_AUTO_CONNECT
 
     # Provider-specific config — instances set this via SOCIALACCOUNT_PROVIDERS env var (JSON dict)
     # e.g. SOCIALACCOUNT_PROVIDERS='{"google": {"APP": {"client_id": "...", "secret": "..."}}}'

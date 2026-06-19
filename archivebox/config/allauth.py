@@ -23,6 +23,16 @@ class AllauthConfig(BaseConfigSet):
     DEFAULT_USER_PERMISSIONS: str = Field(default="readonly")
     SOCIALACCOUNT_PROVIDERS: dict = Field(default_factory=dict)
 
+    # SECURITY: Auto-connecting social accounts by verified email is disabled by default.
+    # When True, a social login whose provider-reported email matches an existing local
+    # account will be silently linked to that account without user confirmation.
+    # This creates an account-takeover risk if the OIDC/OAuth provider's email
+    # verification is weak or if the provider itself is compromised.
+    # Only enable this if you fully trust all configured social providers AND require
+    # mandatory email verification (EMAIL_VERIFICATION=mandatory) in your setup.
+    # See: https://docs.allauth.org/en/latest/socialaccount/configuration.html
+    SOCIALACCOUNT_EMAIL_AUTO_CONNECT: bool = Field(default=False)
+
     @field_validator("REGISTRATION_MODE", mode="after")
     @classmethod
     def validate_registration_mode(cls, v: str) -> str:

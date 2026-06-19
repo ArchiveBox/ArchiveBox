@@ -18,6 +18,7 @@
 {% if form.errors %}
 <p class="errornote">{% trans "Please correct the error below." %}</p>
 {% endif %}
+{{ form.non_field_errors }}
 <form method="POST" action="{% url 'account_signup' %}">
   {% csrf_token %}
   {% for field in form %}

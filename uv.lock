@@ -240,7 +240,7 @@ requires-dist = [
     { name = "dateparser", specifier = ">=1.2.0" },
     { name = "django", specifier = ">=6.0" },
     { name = "django-admin-data-views", specifier = ">=0.4.1" },
-    { name = "django-allauth", extras = ["socialaccount"], marker = "extra == 'allauth'", specifier = ">=65.0" },
+    { name = "django-allauth", extras = ["socialaccount"], marker = "extra == 'allauth'", specifier = ">=65.5.0" },
     { name = "django-auth-ldap", marker = "extra == 'ldap'", specifier = ">=4.1.0" },
     { name = "django-autotyping", marker = "extra == 'debug'", specifier = ">=0.5.1" },
     { name = "django-debug-toolbar", marker = "extra == 'debug'", specifier = ">=4.4.6" },
