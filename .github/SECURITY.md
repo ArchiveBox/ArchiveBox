@@ -67,3 +67,5 @@ Non-logged in users should be tightly limited to prevent attacks like SQL/shell 
 `< v0.9.x` versions do not include any XSS/CSRF protections at all, as documented in the [readme](https://github.com/ArchiveBox/ArchiveBox/tree/v0.7.4#security-risks-of-viewing-archived-js), [wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive#security-concerns), [issue #239](https://github.com/ArchiveBox/ArchiveBox/issues/239), and [existing advisory](https://github.com/ArchiveBox/ArchiveBox/security/advisories/GHSA-cr45-98w9-gwqx). Do not open advisories related to XSS or CSRF for those versions, as they are missing fundamental architectural changes added in `v0.9.0` needed to support per-snapshot replay isolation.
 
 [`SERVER_SECURITY_MODE`](https://github.com/archiveBox/archiveBox/wiki/configuration#server_security_mode) + CSRF/XSS defenses were only added in the new 0.9.0 `dev` work and are planned to land in `main` in mid-2026.
+
+Note archivebox is designed to be able to archive any URL the server can reach, including internal intranet URLs. The only URLs that are blocked are URLs hosted by the archivebox server itself.
