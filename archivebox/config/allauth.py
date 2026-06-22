@@ -20,7 +20,7 @@ class AllauthConfig(BaseConfigSet):
     REGISTRATION_ENABLED: bool = Field(default=True)
     REGISTRATION_MODE: str = Field(default="open")
     EMAIL_VERIFICATION: str = Field(default="none")
-    DEFAULT_USER_PERMISSIONS: str = Field(default="readonly")
+    DEFAULT_USER_PERMISSIONS: str = Field(default="none")
     SOCIALACCOUNT_PROVIDERS: dict = Field(default_factory=dict)
 
     # SECURITY: Auto-connecting social accounts by verified email is disabled by default.
@@ -52,7 +52,7 @@ class AllauthConfig(BaseConfigSet):
     @field_validator("DEFAULT_USER_PERMISSIONS", mode="after")
     @classmethod
     def validate_default_user_permissions(cls, v: str) -> str:
-        allowed = {"none", "readonly", "readwrite", "admin"}
+        allowed = {"none", "admin"}
         if v not in allowed:
             raise ValueError(f"DEFAULT_USER_PERMISSIONS must be one of: {', '.join(sorted(allowed))}")
         return v

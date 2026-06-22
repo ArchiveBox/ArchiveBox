@@ -123,25 +123,6 @@ def test_account_adapter_open_by_default(monkeypatch):
 
 
 @pytest.mark.django_db
-def test_signal_assigns_readonly_permissions_by_default(monkeypatch):
-    from django.contrib.auth import get_user_model
-    from archivebox.auth.signals import _apply_default_permissions
-    import archivebox.auth.signals as s
-
-    User = get_user_model()
-    user = User.objects.create_user(username="testuser99", password="pass")
-    monkeypatch.setattr(s, "_get_default_permissions", lambda: "readonly")
-    _apply_default_permissions(user)
-    from django.contrib.auth.models import Group
-
-    assert Group.objects.filter(name="readonly", user=user).exists()
-    # Django admin requires is_staff=True for any access; readonly users need it
-    # so they can log in and reach the admin without a redirect loop.
-    user.refresh_from_db()
-    assert user.is_staff is True
-
-
-@pytest.mark.django_db
 def test_signal_assigns_admin_permissions(monkeypatch):
     from django.contrib.auth import get_user_model
     from archivebox.auth.signals import _apply_default_permissions

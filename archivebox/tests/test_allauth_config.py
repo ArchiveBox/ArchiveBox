@@ -10,7 +10,7 @@ def test_allauth_config_defaults():
     assert cfg.REGISTRATION_ENABLED is True
     assert cfg.REGISTRATION_MODE == "open"
     assert cfg.EMAIL_VERIFICATION == "none"
-    assert cfg.DEFAULT_USER_PERMISSIONS == "readonly"
+    assert cfg.DEFAULT_USER_PERMISSIONS == "none"
 
 
 def test_allauth_config_from_env(monkeypatch):
