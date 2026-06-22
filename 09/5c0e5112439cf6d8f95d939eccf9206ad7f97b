@@ -1,0 +1,37 @@
+archivebox/tests/test_ui_admin_snapshot.py
+  s_70b3b8284ef391::t_47f4dae404215c 35-53
+.github/scripts/clone_abx_repo.sh
+  s_960fbddc5f7033::t_9897e18bc82182 12
+archivebox/tests/test_recursive_crawl.py
+  s_960fbddc5f7033::t_5b886df4a70d4c 519,524,644,660
+archivebox/core/admin_snapshots.py
+  s_70b3b8284ef391::t_c0dbb293619671 263,265,269,271
+bin/deploy_dev_demo.sh
+  s_70b3b8284ef391::t_584dddd0317908 63-65
+bin/watch_dev_image.sh
+  s_70b3b8284ef391::t_b5a99bb40ec67c 30-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "095c0e5112439cf6d8f95d939eccf9206ad7f97b",
+  "prompts": {},
+  "sessions": {
+    "s_70b3b8284ef391": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec4bb-38fe-7723-b66e-d0af77a36fd0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_960fbddc5f7033": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ee904-94b6-7740-ab58-08665a9b96ff",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
