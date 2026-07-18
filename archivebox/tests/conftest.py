@@ -577,12 +577,11 @@ def wait_for_process(predicate: Callable[[psutil.Process, str], bool], *, timeou
 
 def pid_is_alive(pid: int) -> bool:
     try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
+        return psutil.Process(pid).status() != psutil.STATUS_ZOMBIE
+    except (psutil.NoSuchProcess, psutil.ZombieProcess):
         return False
-    except PermissionError:
+    except psutil.AccessDenied:
         return True
-    return True
 
 
 def wait_for_pid_to_disappear(pid: int, *, timeout: float = 20.0) -> None:

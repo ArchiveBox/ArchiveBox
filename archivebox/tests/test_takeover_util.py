@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 import pytest
+import psutil
 
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl
@@ -36,6 +37,19 @@ from archivebox.tests.conftest import (
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+def test_pid_is_alive_treats_unreaped_zombie_as_exited():
+    proc = subprocess.Popen([sys.executable, "-c", "pass"])
+    try:
+        deadline = time.time() + 5
+        while time.time() < deadline and psutil.Process(proc.pid).status() != psutil.STATUS_ZOMBIE:
+            time.sleep(0.01)
+
+        assert psutil.Process(proc.pid).status() == psutil.STATUS_ZOMBIE
+        assert not pid_is_alive(proc.pid)
+    finally:
+        proc.wait(timeout=5)
 
 
 def _require_sonic_binary() -> None:
