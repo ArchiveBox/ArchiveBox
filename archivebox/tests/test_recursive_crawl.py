@@ -527,12 +527,23 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(initia
     root_url = "https://example.com/"
     plugin_selection = ",".join(sorted(plugin for plugin in discover_plugins().keys() if not plugin.startswith("claude")))
     env = os.environ.copy()
-    env.pop("CHROME_BINARY", None)
+    for preinstalled_path_key in (
+        "CHROME_BINARY",
+        "LIB_DIR",
+        "DATA_DIR",
+        "NODE_MODULES_DIR",
+        "NODE_PATH",
+        "PNPM_BIN_DIR",
+        "NPM_BIN_DIR",
+        "CHROMEWEBSTORE_EXTENSIONS_DIR",
+    ):
+        env.pop(preinstalled_path_key, None)
     env.update(
         {
             "USE_COLOR": "false",
             "SHOW_PROGRESS": "false",
             "ABXPKG_LIB_DIR": str(initialized_archive / "lib"),
+            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(initialized_archive / "lib/chromewebstore/extensions"),
             "TIMEOUT": "90",
             "ABXPKG_INSTALL_TIMEOUT": "900",
             "CRAWL_MAX_CONCURRENT_SNAPSHOTS": "3",
