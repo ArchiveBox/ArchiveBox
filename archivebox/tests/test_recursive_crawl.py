@@ -519,12 +519,16 @@ def test_add_archivewebpage_installs_required_chrome_dependency(initialized_arch
 
 
 @pytest.mark.timeout(1200)
-def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(initialized_archive, free_tcp_port_factory):
+def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(
+    initialized_archive,
+    free_tcp_port_factory,
+    recursive_test_site,
+):
     """Run a bounded real depth=2 crawl with all plugins enabled and verify parallel snapshot execution."""
 
     from abx_dl.models import discover_plugins
 
-    root_url = "https://example.com/"
+    root_url = recursive_test_site["root_url"]
     plugin_selection = ",".join(sorted(plugin for plugin in discover_plugins().keys() if not plugin.startswith("claude")))
     env = os.environ.copy()
     for preinstalled_path_key in (
@@ -542,6 +546,7 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(initia
         {
             "USE_COLOR": "false",
             "SHOW_PROGRESS": "false",
+            "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*",
             "ABXPKG_LIB_DIR": str(initialized_archive / "lib"),
             "CHROMEWEBSTORE_EXTENSIONS_DIR": str(initialized_archive / "lib/chromewebstore/extensions"),
             "TIMEOUT": "90",
@@ -621,10 +626,26 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(initia
     assert crawl.status == Crawl.StatusChoices.SEALED
     assert crawl.retry_at is None
 
-    assert len(snapshots) == 8
-    assert any(url == root_url and depth == 0 for _id, url, depth, _status, _parent, _downloaded_at in snapshots)
-    assert any("iana.org" in url and depth == 1 for _id, url, depth, _status, _parent, _downloaded_at in snapshots)
-    assert any(depth == 2 for _id, _url, depth, _status, _parent, _downloaded_at in snapshots)
+    expected_urls = {
+        root_url,
+        *recursive_test_site["child_urls"],
+        *recursive_test_site["deep_urls"],
+    }
+    snapshots_by_url = {url: (snapshot_id, depth, parent_id) for snapshot_id, url, depth, _status, parent_id, _downloaded_at in snapshots}
+    assert set(snapshots_by_url) == expected_urls
+    root_id, root_depth, root_parent_id = snapshots_by_url[root_url]
+    assert root_depth == 0
+    assert root_parent_id is None
+    child_ids_by_url = {}
+    for child_url in recursive_test_site["child_urls"]:
+        child_id, child_depth, child_parent_id = snapshots_by_url[child_url]
+        assert child_depth == 1
+        assert child_parent_id == root_id
+        child_ids_by_url[child_url] = child_id
+    for child_url, deep_url in zip(recursive_test_site["child_urls"], recursive_test_site["deep_urls"], strict=True):
+        _deep_id, deep_depth, deep_parent_id = snapshots_by_url[deep_url]
+        assert deep_depth == 2
+        assert deep_parent_id == child_ids_by_url[child_url]
     assert all(status == Snapshot.StatusChoices.SEALED for _id, _url, _depth, status, _parent, _downloaded_at in snapshots)
     assert all(downloaded_at is not None for _id, _url, _depth, _status, _parent, downloaded_at in snapshots)
 
@@ -647,6 +668,13 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(initia
         if not (status in allowed_statuses or (plugin == "archivedotorg" and status == ArchiveResult.StatusChoices.FAILED))
     ]
     assert not unexpected_results
+    ytdlp_results = [
+        (url, status, output_str)
+        for _snapshot_id, url, _depth, plugin, _hook_name, status, _files, _size, output_str in archive_results
+        if plugin == "ytdlp"
+    ]
+    assert ytdlp_results
+    assert all(status != ArchiveResult.StatusChoices.FAILED for _url, status, _output_str in ytdlp_results), ytdlp_results
 
     plugins_seen = {plugin for _snapshot_id, _url, _depth, plugin, _hook_name, _status, _files, _size, _output in archive_results}
     assert {
@@ -679,7 +707,11 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(initia
     assert list(snapshot_root.rglob("favicon/**/*"))
     urls_jsonl_files = list(snapshot_root.rglob("parse_html_urls/urls.jsonl"))
     assert urls_jsonl_files
-    assert any("iana.org" in path.read_text(errors="ignore") for path in urls_jsonl_files)
+    parsed_urls = {
+        json.loads(line)["url"] for path in urls_jsonl_files for line in path.read_text(errors="ignore").splitlines() if line.strip()
+    }
+    assert set(recursive_test_site["child_urls"]).issubset(parsed_urls)
+    assert set(recursive_test_site["deep_urls"]).issubset(parsed_urls)
 
     assert processes
     failed_hook_results = [

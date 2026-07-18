@@ -436,27 +436,45 @@ def recursive_test_site():
         "/about": """
             <html>
               <body>
-                <a href="/deep/about">Deep About</a>
+                <main>
+                  <article>
+                    <h1>About</h1>
+                    <p>This local article describes the ArchiveBox recursive crawl fixture with enough semantic content for real article extractors.</p>
+                    <a href="/deep/about">Deep About</a>
+                  </article>
+                </main>
               </body>
             </html>
         """.strip().encode("utf-8"),
         "/blog": """
             <html>
               <body>
-                <a href="/deep/blog">Deep Blog</a>
+                <main>
+                  <article>
+                    <h1>Blog</h1>
+                    <p>This local article exercises real browser, text extraction, and recursive discovery behavior without depending on a public website.</p>
+                    <a href="/deep/blog">Deep Blog</a>
+                  </article>
+                </main>
               </body>
             </html>
         """.strip().encode("utf-8"),
         "/contact": """
             <html>
               <body>
-                <a href="/deep/contact">Deep Contact</a>
+                <main>
+                  <article>
+                    <h1>Contact</h1>
+                    <p>This local article keeps the deterministic crawl graph content-rich while preserving the original contact and deep-contact URLs.</p>
+                    <a href="/deep/contact">Deep Contact</a>
+                  </article>
+                </main>
               </body>
             </html>
         """.strip().encode("utf-8"),
-        "/deep/about": b"<html><body><h1>Deep About</h1></body></html>",
-        "/deep/blog": b"<html><body><h1>Deep Blog</h1></body></html>",
-        "/deep/contact": b"<html><body><h1>Deep Contact</h1></body></html>",
+        "/deep/about": b"<html><body><main><article><h1>Deep About</h1><p>This depth-two article verifies that recursive snapshots retain extractable semantic content and their exact parent relationship.</p></article></main></body></html>",
+        "/deep/blog": b"<html><body><main><article><h1>Deep Blog</h1><p>This depth-two article provides deterministic local content for every real extraction plugin in the recursive crawl.</p></article></main></body></html>",
+        "/deep/contact": b"<html><body><main><article><h1>Deep Contact</h1><p>This depth-two article completes the fixed local graph without relying on mutable third-party pages or network policy.</p></article></main></body></html>",
         "/favicon.ico": b"test-icon",
     }
 
