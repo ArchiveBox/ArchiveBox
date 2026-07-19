@@ -78,7 +78,7 @@ dependencies = [
     "w3lib>=2.2.1",          # used for parsing content-type encoding from http response headers & html tags
     ### Extractor dependencies (optional binaries detected at runtime via shutil.which)
     ### Binary/Package Management
-    "abxbus==2.5.10",         # EventBus API
+    "abxbus==2.5.18",         # EventBus API
     "abxpkg>=1.11.247",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
     "abx-plugins>=1.11.258",  # shared ArchiveBox plugin package with Chrome/Puppeteer dependency wiring
     "abx-dl>=1.11.237",       # shared ArchiveBox downloader package with blocking install preflight
@@ -138,7 +138,7 @@ dev = [
     # "snakeviz",                                      # usage: python -m cProfile -o flamegraph.prof ../.venv/bin/archivebox manage check
     ### TESTING
     "pytest-django>=4.11.1",
-    "pytest>=8.3.3,<9",                               # pytest-codeblocks 0.17.0 still uses the pre-pytest-9 collect hook signature.
+    "pytest>=8.3.3,<10",                               # pytest-codeblocks 0.17.0 still uses the pre-pytest-9 collect hook signature.
     "pytest-codeblocks>=0.17.0",
     "pytest-cov>=6.0.0",
     "pytest-github-actions-annotate-failures>=0.4.0",
