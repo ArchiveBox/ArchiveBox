@@ -76,8 +76,13 @@ def reindex_snapshots(
     wait_for_turn=None,
 ) -> dict[str, Any]:
     from archivebox.cli.archivebox_extract import run_plugins
-    from archivebox.core.models import ArchiveResult
+    from archivebox.core.models import ArchiveResult, Snapshot
     from abx_dl.models import discover_plugins
+
+    # Search backfill is the one maintenance hook allowed to execute without
+    # reopening a Snapshot. Restrict that exception to already-sealed rows;
+    # every open lifecycle state remains owned by the normal state machine.
+    snapshots = snapshots.filter(status=Snapshot.StatusChoices.SEALED)
 
     stats: dict[str, Any] = {"processed": 0, "requested": 0, "queued": 0, "skipped_queued": 0, "reindexed": 0, "snapshot_ids": []}
     records: list[dict[str, str]] = []
@@ -365,7 +370,7 @@ def update(
                         # Snapshot rows: Snapshot.save() moves archive/<ts> to
                         # the current output_dir and preserves the lifecycle
                         # status. Drain those retry_at ticks before queuing
-                        # search backfill below. Otherwise the sealed/paused
+                        # search backfill below. Otherwise the sealed search
                         # runner branch correctly sees queued ArchiveResult
                         # rows first, runs the targeted plugins, and may leave
                         # the fs_version maintenance tick hidden behind that
@@ -430,9 +435,7 @@ def update(
                                 now = timezone.now()
                                 queued_result_for_snapshot = queued_index_results.filter(snapshot_id=OuterRef("pk"))
                                 snapshots_to_wake = (
-                                    Snapshot.objects.filter(
-                                        status__in=(Snapshot.StatusChoices.SEALED, Snapshot.StatusChoices.PAUSED),
-                                    )
+                                    Snapshot.objects.filter(status=Snapshot.StatusChoices.SEALED)
                                     .annotate(
                                         has_queued_index_result=Exists(queued_result_for_snapshot),
                                     )
@@ -475,8 +478,8 @@ def update(
 
                 if do_run_until_idle and (do_index or not ran_post_migrate_runner):
                     # Search/index backfill intentionally queues targeted
-                    # ArchiveResult rows without reopening sealed/paused
-                    # snapshots. This second runner pass drains those plugin
+                    # ArchiveResult rows without reopening sealed snapshots.
+                    # This second runner pass drains those plugin
                     # rows after filesystem maintenance has had its own turn.
                     # For a normal unfiltered `archivebox update`, keep the
                     # historical final pass broad enough to resume genuinely

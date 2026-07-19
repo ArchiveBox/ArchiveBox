@@ -695,12 +695,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     def restore_paused_scheduler_marker(self) -> None:
         """
-        Keep explicit maintenance from accidentally resuming paused snapshots.
-
-        Targeted jobs such as `archivebox update --index-only` may bump
-        retry_at so the orchestrator can run only queued search ArchiveResult
-        rows. After that maintenance pass, the lifecycle must remain PAUSED and
-        retry_at must go back to MAX until a real resume transition happens.
+        Restore the indefinite scheduler marker owned by the PAUSED lifecycle.
         """
         type(self).objects.filter(
             pk=self.pk,

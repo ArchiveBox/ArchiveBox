@@ -317,16 +317,17 @@ class CrawlRunner:
 
     @property
     def allow_maintenance_on_inactive_crawl(self) -> bool:
-        """Run the requested hooks on a snapshot whose parent crawl is paused or sealed.
+        """Run targeted search indexing on an already-sealed snapshot.
 
-        Maintenance entry paths — direct ``snapshot_ids + selected_plugins`` invocations
-        for search backend backfill, fs migration, plugin-targeted updates — are
-        legitimately allowed to operate on finished/paused crawls. Without this gate,
-        ``crawl_is_cancelled`` would treat a SEALED parent as a cancellation signal
-        and short-circuit every guard before any hook ran, leaving the queued
-        ArchiveResult rows stuck and the orchestrator looping on them.
+        This is the singular hook-execution exception to the unified lifecycle.
+        All other work must queue the Snapshot and Crawl normally.
         """
-        return bool(self.initial_snapshot_ids and self.selected_plugins)
+        return bool(
+            self.initial_snapshot_ids
+            and self.selected_plugins
+            and self.crawl.status == self.crawl.StatusChoices.SEALED
+            and all(plugin.startswith("search_backend_") for plugin in self.selected_plugins),
+        )
 
     async def run(self) -> None:
         heartbeat = CrawlHeartbeat(
@@ -594,13 +595,12 @@ class CrawlRunner:
                     hook.parent.name for event_name in runtime_events for hook in discover_hooks(event_name, config=self.base_config)
                 }
                 self.selected_plugins = sorted(runtime_plugins) or None
-        if self.initial_snapshot_ids:
-            # Direct snapshot maintenance paths are allowed to name paused
-            # snapshots explicitly. The runner still requires selected_plugins
-            # later, so this does not restart the crawl lifecycle.
-            return [str(snapshot_id) for snapshot_id in self.initial_snapshot_ids]
         if self.crawl.is_paused:
             return []
+        if self.initial_snapshot_ids:
+            # Explicit ids select normal runnable work, except for the one
+            # sealed-search backfill admitted by allow_maintenance_on_inactive_crawl.
+            return [str(snapshot_id) for snapshot_id in self.initial_snapshot_ids]
         pending_snapshots = list(
             self.crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES)
             .filter(retry_at__lte=timezone.now())
@@ -1603,10 +1603,8 @@ def run_snapshot_maintenance(snapshot_id: str, *, output_dir: Path | None = None
     # queued ArchiveResult rows, so run it whenever this helper is called.
     # The only thing queued rows change is the next scheduler value:
     # - no queued rows left: clear retry_at because maintenance is done
-    # - queued rows remain: leave the Snapshot due so the sealed/paused runner
-    #   branch can process those targeted plugin rows on the next tick
-    # This avoids reopening final/paused snapshots while also avoiding stranded
-    # queued ArchiveResults that have no independent scheduler.
+    # - queued rows remain on a sealed Snapshot: leave it due so the search
+    #   backfill exception can process them on the next tick
     current_retry_at = snapshot.retry_at
     next_retry_at = timezone.now() if has_queued_results else None
     snapshot.retry_at = next_retry_at
@@ -1731,62 +1729,12 @@ def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: boo
         return parent_reconciled
 
     if snapshot.is_paused:
-        selected_plugins = queued_plugins_for_snapshot(str(snapshot.id))
-        if snapshot.fs_migration_needed and Snapshot.claim_for_worker(snapshot, lock_seconds=lock_seconds):
-            _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
-            run_snapshot_maintenance(str(snapshot.id))
-            if not selected_plugins:
-                # No targeted plugin rows remain, so put paused snapshots back
-                # behind the indefinite retry_at marker. If queued plugin rows
-                # remain, continue into the targeted plugin path below and let
-                # its finally block restore the paused marker after completion.
-                snapshot.restore_paused_scheduler_marker()
-                return True
-            snapshot.refresh_from_db()
-        if not selected_plugins:
-            # Paused is a real lifecycle state; retry_at=MAX is only the
-            # orchestrator selection marker. If a direct maintenance/update
-            # command bumps retry_at on a paused snapshot but there are no
-            # targeted ArchiveResult rows to run, restore the scheduler marker
-            # without changing status.
-            snapshot.restore_paused_scheduler_marker()
-            return True
-        if not Snapshot.claim_for_worker(snapshot, lock_seconds=lock_seconds):
-            return False
-        try:
-            _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
-            # Explicit maintenance, e.g. `archivebox update --index-only`, may
-            # need to run search/index hooks for a paused snapshot. That should
-            # not resume the crawl or make unrelated queued work runnable. The
-            # queued ArchiveResult rows are the durable maintenance request, so
-            # run that exact plugin set even when the paused crawl's normal
-            # PLUGINS config names a different extractor surface.
-            run_crawl(
-                str(snapshot.crawl_id),
-                snapshot_ids=[str(snapshot.id)],
-                selected_plugins=selected_plugins,
-                process_discovered_snapshots_inline=True,
-                interactive_interrupts=interactive_interrupts,
-                config_overrides=config_overrides_for_queued_plugins(selected_plugins),
-                selected_plugins_are_explicit=False,
-            )
-        finally:
-            # Targeted plugin rows can complete while the Snapshot remains
-            # paused. Put retry_at back at MAX only after the queued rows are
-            # gone; if a hook was interrupted before projection, keep the
-            # paused row due so the next runner can retry that targeted work
-            # without a user-visible resume transition.
-            if queued_plugins_for_snapshot(str(snapshot.id)):
-                now = timezone.now()
-                type(snapshot).objects.filter(
-                    pk=snapshot.pk,
-                    status=snapshot.StatusChoices.PAUSED,
-                ).update(
-                    retry_at=now,
-                    modified_at=now,
-                )
-            else:
-                snapshot.restore_paused_scheduler_marker()
+        # Paused work never executes out of band. Preserve the lifecycle marker
+        # until an explicit resume moves it through the normal state machine.
+        from archivebox.core.models import ArchiveResult
+
+        ArchiveResult.pause_queryset(snapshot.archiveresult_set.all())
+        snapshot.restore_paused_scheduler_marker()
         return True
     if snapshot.status == Snapshot.StatusChoices.SEALED:
         if not Snapshot.claim_for_worker(snapshot, lock_seconds=lock_seconds):
@@ -1805,6 +1753,13 @@ def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: boo
         selected_plugins = queued_plugins_for_snapshot(str(snapshot.id))
         if selected_plugins:
             search_only_plugins = all(plugin.startswith("search_backend_") for plugin in selected_plugins)
+            if not search_only_plugins:
+                snapshot.update_and_requeue(
+                    status=Snapshot.StatusChoices.QUEUED,
+                    retry_at=timezone.now(),
+                    current_step=0,
+                )
+                return True
             _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
             run_crawl(
                 str(snapshot.crawl_id),
@@ -1853,18 +1808,14 @@ def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: boo
         return False
     snapshot.refresh_from_db()
     if snapshot.status == Snapshot.StatusChoices.QUEUED:
-        has_results = snapshot.archiveresult_set.exists()
-        has_extraction_results = snapshot.archiveresult_set.exclude(plugin__startswith="search_backend_").exists()
-        if has_results and has_extraction_results and snapshot.is_finished_processing():
+        if snapshot.archiveresult_set.exists() and snapshot.is_finished_processing():
             snapshot.sm.tick()
             snapshot.refresh_from_db()
             if snapshot.status == Snapshot.StatusChoices.SEALED:
                 _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot, status="SEALED")
                 return True
         # The runner owns queued Snapshot setup. Create missing enabled hook
-        # rows before ticking when the only existing rows are search
-        # maintenance. Otherwise a search backfill on a paused Snapshot can
-        # make queued -> sealed skip the real extraction work after resume.
+        # rows before ticking so queued lifecycle work has a durable hook set.
         snapshot.create_pending_archiveresults(hooks=snapshot_hooks_for_pending_archiveresults(snapshot))
         snapshot.sm.tick()
         snapshot.refresh_from_db()
@@ -2112,7 +2063,7 @@ def _run_due_queued_plugin_result(
             status=ArchiveResult.StatusChoices.QUEUED,
             plugin__in=plugin_names,
             snapshot__retry_at__lte=now,
-            snapshot__status__in=(Snapshot.StatusChoices.SEALED, Snapshot.StatusChoices.PAUSED),
+            snapshot__status=Snapshot.StatusChoices.SEALED,
         )
         .filter(**({"snapshot__crawl_id": crawl_id} if crawl_id else {}))
         .values("snapshot_id", "snapshot__crawl_id")[:1]
@@ -2121,15 +2072,6 @@ def _run_due_queued_plugin_result(
     if not first_due_results:
         return False
     root_crawl_id = str(first_due_results[0]["snapshot__crawl_id"])
-
-    first_due_snapshot = Snapshot.objects.filter(pk=first_due_results[0]["snapshot_id"]).first()
-    if first_due_snapshot and first_due_snapshot.status == Snapshot.StatusChoices.PAUSED:
-        return run_due_snapshot(
-            first_due_snapshot,
-            lock_seconds=lock_seconds,
-            interactive_interrupts=interactive_interrupts,
-            runtime_config=runtime_config,
-        )
 
     due_snapshots = Snapshot.objects.filter(
         retry_at__lte=now,
@@ -2284,18 +2226,11 @@ def run_pending_crawls(
     from archivebox.config.common import get_config
     from archivebox.crawls.models import Crawl, CrawlSchedule
     from archivebox.core.models import ArchiveResult, Snapshot
-    from archivebox.plugins.discovery import discover_plugin_configs
     from archivebox.plugins.hooks import discover_hooks
     from archivebox.machine.models import Process
 
     crawl_claim_lock_seconds = 10
     runtime_config = get_config()
-    plugin_configs = discover_plugin_configs()
-    download_plugin_names = frozenset(
-        plugin_name
-        for plugin_name, plugin_config in plugin_configs.items()
-        if plugin_config.get("output_mimetypes") and not plugin_name.startswith("search_backend_")
-    )
     last_recovery_at = 0.0
     last_retention_at = 0.0
     last_retention_repair_at = 0.0
@@ -2322,19 +2257,6 @@ def run_pending_crawls(
             for schedule in CrawlSchedule.objects.filter(is_enabled=True).select_related("template", "template__created_by"):
                 if schedule.is_due(now):
                     schedule.enqueue(queued_at=now)
-
-        # Final-state download rows are always first: they have no parent crawl
-        # scheduler of their own, and leaving them behind makes the global
-        # counters report stale queued work while new crawls continue.
-        if _run_due_queued_plugin_result(
-            download_plugin_names,
-            crawl_id=crawl_id,
-            lock_seconds=60,
-            interactive_interrupts=interactive_interrupts,
-            runtime_config=runtime_config,
-            batch_size=maintenance_batch_size,
-        ):
-            continue
 
         if _fast_forward_same_path_snapshot_fs_versions():
             continue
@@ -2411,21 +2333,20 @@ def run_pending_crawls(
         # Final active-state fallback uses only the retry_at scheduler index and
         # selects an id first. Keep final SEALED rows out of this broad path so
         # large filesystem/index backfills cannot starve newly queued crawls.
-        due_snapshots = Snapshot.objects.filter(
-            retry_at__lte=timezone.now(),
-            status__in=Snapshot.OPEN_STATES,
-        )
-        if maintenance_only:
-            due_snapshots = due_snapshots.filter(status=Snapshot.StatusChoices.PAUSED)
-        if crawl_id:
-            due_snapshots = due_snapshots.filter(crawl_id=crawl_id)
-        if _run_due_snapshot_query(
-            due_snapshots,
-            lock_seconds=60,
-            interactive_interrupts=interactive_interrupts,
-            runtime_config=runtime_config,
-        ):
-            continue
+        if not maintenance_only:
+            due_snapshots = Snapshot.objects.filter(
+                retry_at__lte=timezone.now(),
+                status__in=Snapshot.OPEN_STATES,
+            )
+            if crawl_id:
+                due_snapshots = due_snapshots.filter(crawl_id=crawl_id)
+            if _run_due_snapshot_query(
+                due_snapshots,
+                lock_seconds=60,
+                interactive_interrupts=interactive_interrupts,
+                runtime_config=runtime_config,
+            ):
+                continue
 
         # Search backend selection is live crawl-execution config, not an
         # installed-plugin list. Old queued rows for a backend that is disabled

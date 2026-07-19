@@ -46,7 +46,6 @@ def process_archiveresult_by_id(archiveresult_id: str) -> int:
     through the shared crawl runner with the corresponding plugin selected.
     """
     from rich import print as rprint
-    from django.utils import timezone
     from archivebox.core.models import ArchiveResult
     from archivebox.api.v1_core import _uuid_ref_query
     from archivebox.services.runner import run_crawl
@@ -60,22 +59,9 @@ def process_archiveresult_by_id(archiveresult_id: str) -> int:
     rprint(f"[blue]Extracting {archiveresult.plugin} for {archiveresult.snapshot.url}[/blue]", file=sys.stderr)
 
     try:
-        was_paused = archiveresult.snapshot.is_paused
         archiveresult.reset_for_retry()
         snapshot = archiveresult.snapshot
-        if not was_paused:
-            snapshot.queue_for_extraction()
-        else:
-            # A paused snapshot may still accept explicit maintenance for one
-            # ArchiveResult, but this path must not transition it back to
-            # queued/startable work. Guard: only set retry_at while the row is
-            # still paused — concurrent resume would otherwise see a stale
-            # retry_at marker.
-            snapshot.safe_update(
-                {"retry_at": timezone.now()},
-                refresh=False,
-                extra_filter={"status": snapshot.StatusChoices.PAUSED},
-            )
+        snapshot.queue_for_extraction()
         crawl = snapshot.crawl
         if not crawl.claim_processing_lock(lock_seconds=10):
             rprint(
@@ -84,11 +70,7 @@ def process_archiveresult_by_id(archiveresult_id: str) -> int:
             )
             return 1
 
-        try:
-            run_crawl(str(snapshot.crawl_id), snapshot_ids=[str(snapshot.id)], selected_plugins=[archiveresult.plugin])
-        finally:
-            if was_paused:
-                snapshot.restore_paused_scheduler_marker()
+        run_crawl(str(snapshot.crawl_id), snapshot_ids=[str(snapshot.id)], selected_plugins=[archiveresult.plugin])
         archiveresult.refresh_from_db()
 
         if archiveresult.status == ArchiveResult.StatusChoices.SUCCEEDED:
@@ -290,12 +272,9 @@ def run_plugins(
     queue_at = timezone.now()
     if existing_snapshot_ids:
         if requested_rows:
-            # Targeted ArchiveResult retries use retry_at as the scheduling
-            # signal and keep sealed snapshots sealed so extractors are not
-            # re-run outside the explicitly queued plugin rows. Paused snapshots
-            # also keep status=paused here: `retry_at` only asks the orchestrator
-            # to process the queued plugin rows, and run_due_snapshot restores
-            # retry_at=MAX afterward instead of resuming the snapshot lifecycle.
+            # Search indexing on a sealed Snapshot is the only targeted hook
+            # allowed to bypass the normal lifecycle. Every other requested
+            # plugin requeues its Snapshot through the unified state machine.
             affected_snapshot_ids = {snapshot_id for snapshot_id, _plugin_name, _hook_name in rows_to_queue}
             if preserve_queued and queued_rows:
                 queued_snapshot_ids = {snapshot_id for snapshot_id, _plugin_name, _hook_name in queued_rows}
@@ -312,14 +291,30 @@ def run_plugins(
                         flat=True,
                     )
                 )
+            requested_plugins_by_id: dict[str, set[str]] = defaultdict(set)
+            for snapshot_id, plugin_name, _hook_name in requested_rows:
+                requested_plugins_by_id[snapshot_id].add(plugin_name)
             for snapshot in Snapshot.objects.filter(id__in=affected_snapshot_ids).only("id", "status", "modified_at"):
                 # Guard the read-time status so we never bump retry_at on a
                 # row that's been re-queued / started by a concurrent runner.
-                snapshot.safe_update(
-                    {"retry_at": queue_at, "modified_at": queue_at},
-                    refresh=False,
-                    extra_filter={"status": snapshot.status},
+                plugin_names = requested_plugins_by_id.get(str(snapshot.id), set())
+                sealed_search_backfill = (
+                    snapshot.status == Snapshot.StatusChoices.SEALED
+                    and plugin_names
+                    and all(plugin_name.startswith("search_backend_") for plugin_name in plugin_names)
                 )
+                if sealed_search_backfill:
+                    snapshot.safe_update(
+                        {"retry_at": queue_at, "modified_at": queue_at},
+                        refresh=False,
+                        extra_filter={"status": snapshot.status},
+                    )
+                else:
+                    snapshot.update_and_requeue(
+                        status=Snapshot.StatusChoices.QUEUED,
+                        retry_at=queue_at,
+                        current_step=0,
+                    )
         else:
             # No plugin rows were requested, so this is a full snapshot retry.
             for snapshot in Snapshot.objects.filter(id__in=existing_snapshot_ids).only("id", "status", "retry_at", "modified_at"):

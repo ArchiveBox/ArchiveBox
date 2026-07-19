@@ -348,7 +348,7 @@ def run_runner(
 @click.option("--crawl-id", help="Run the crawl runner for a specific crawl only")
 @click.option("--snapshot-id", help="Run one snapshot through its crawl")
 @click.option("--binary-id", help="Run one queued binary install directly on the bus")
-@click.option("--maintenance-only", is_flag=True, help="Only process due maintenance ticks on sealed/paused snapshots")
+@click.option("--maintenance-only", is_flag=True, help="Only process sealed Snapshot maintenance and search-index backfills")
 @click.option(
     "--maintenance-batch-size",
     type=int,

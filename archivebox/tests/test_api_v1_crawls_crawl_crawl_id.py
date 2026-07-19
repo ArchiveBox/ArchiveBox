@@ -130,22 +130,6 @@ def wait_for_crawl_wget_success_or_sealed(cwd, crawl_id, timeout=240):
     raise AssertionError(f"timed out waiting for crawl resume completion for crawl {crawl_id}: {latest_state}")
 
 
-def wait_for_sqlite_index_result(cwd, crawl_id, timeout=45):
-    deadline = time.time() + timeout
-    latest_state = None
-    while time.time() < deadline:
-        latest_state = get_crawl_runtime_state(cwd, crawl_id)
-        final_results = [
-            result
-            for result in latest_state["results"]
-            if result["plugin"] == "search_backend_sqlite" and result["status"] not in {"queued", "started", "paused"}
-        ]
-        if final_results:
-            return latest_state
-        time.sleep(0.2)
-    raise AssertionError(f"timed out waiting for sqlite index result for crawl {crawl_id}: {latest_state}")
-
-
 def seed_paused_crawl(client, cwd: Path, api_token: str, url: str, tag: str) -> tuple[str, str]:
     from archivebox.services.runner import run_due_snapshot
 
@@ -434,7 +418,7 @@ def test_crawl_pause_resume_api_survives_server_restart_and_processes_after_resu
 
 
 @pytest.mark.timeout(420)
-def test_update_index_only_runs_paused_search_rows_and_resume_later_runs_crawl(client, tmp_path, recursive_test_site):
+def test_update_index_only_leaves_paused_snapshot_on_normal_lifecycle_path(client, tmp_path, recursive_test_site):
     init_archive(tmp_path)
 
     port = get_free_port()
@@ -464,14 +448,13 @@ def test_update_index_only_runs_paused_search_rows_and_resume_later_runs_crawl(c
     )
     assert update_process.returncode == 0, update_process.stderr
 
-    indexed_state = wait_for_sqlite_index_result(tmp_path, crawl_id)
+    indexed_state = get_crawl_runtime_state(tmp_path, crawl_id)
     assert indexed_state["crawl_status"] == "paused"
     assert indexed_state["crawl_retry_at"] == indexed_state["retry_at_max"]
     assert indexed_state["snapshots"][0]["status"] == "paused"
     assert indexed_state["snapshots"][0]["retry_at"] == indexed_state["retry_at_max"]
     search_results = [result for result in indexed_state["results"] if result["plugin"] == "search_backend_sqlite"]
-    assert search_results
-    assert any(result["status"] not in {"queued", "started", "paused"} for result in search_results)
+    assert search_results == []
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
