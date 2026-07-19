@@ -234,15 +234,7 @@ jobs:
       - name: Run test - ${{ matrix.test.name }}
         run: |
           mkdir -p tests/out
-          set +e
-          uv run --no-sync --no-sources pytest -xvs "${{ matrix.test.path }}" --basetemp=tests/out --ignore=archivebox/pkgs
-          status=$?
-          set -e
-          if [ "$status" -eq 5 ]; then
-            echo "No tests collected from ${{ matrix.test.path }}; treating as an empty test module."
-            exit 0
-          fi
-          exit "$status"
+          uv run --no-sync --no-sources pytest -xvs "${{ matrix.test.path }}" --basetemp=tests/out
 
   plugin-tests:
     name: ${{ matrix.plugin.name }}

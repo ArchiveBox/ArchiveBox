@@ -11,6 +11,12 @@ def archivebox_db_path(path: str | Path = ".") -> Path:
     return path if path.name == "index.sqlite3" else path / "index.sqlite3"
 
 
+def test_archivebox_db_path_accepts_collection_or_database_path(tmp_path: Path) -> None:
+    database_path = tmp_path / "index.sqlite3"
+    assert archivebox_db_path(tmp_path) == database_path
+    assert archivebox_db_path(database_path) == database_path
+
+
 @contextmanager
 def use_archivebox_db(path: str | Path = ".") -> Iterator[None]:
     connection = connections["default"]

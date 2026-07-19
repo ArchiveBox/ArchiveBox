@@ -26,10 +26,3 @@ def test_tag_admin_add_view_renders_similar_tag_reference(admin_client):
     assert response.status_code == 200
     assert b"Similar Tags" in response.content
     assert b'data-tag-name-input="1"' in response.content
-
-
-# test_tag_search_api_returns_card_payload moved to test_api_v1_core_tags_search.py.
-# test_tag_search_api_respects_sort_and_filters moved to test_api_v1_core_tags_search.py.
-# test_tag_rename_api_updates_name moved to test_api_v1_core_tag_tag_id_rename.py.
-# test_tag_snapshots_export_returns_jsonl moved to test_api_v1_core_tag_tag_id_snapshots_jsonl.py.
-# test_tag_urls_export_returns_plain_text_urls moved to test_api_v1_core_tag_tag_id_urls_txt.py.

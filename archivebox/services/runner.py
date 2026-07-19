@@ -1853,16 +1853,18 @@ def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: boo
         return False
     snapshot.refresh_from_db()
     if snapshot.status == Snapshot.StatusChoices.QUEUED:
-        if snapshot.archiveresult_set.exists() and snapshot.is_finished_processing():
+        has_results = snapshot.archiveresult_set.exists()
+        has_extraction_results = snapshot.archiveresult_set.exclude(plugin__startswith="search_backend_").exists()
+        if has_results and has_extraction_results and snapshot.is_finished_processing():
             snapshot.sm.tick()
             snapshot.refresh_from_db()
             if snapshot.status == Snapshot.StatusChoices.SEALED:
                 _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot, status="SEALED")
                 return True
         # The runner owns queued Snapshot setup. Create missing enabled hook
-        # rows before ticking so maintenance-only final rows, e.g. search
-        # backfill on a paused snapshot, cannot make queued -> sealed skip the
-        # real extraction work after resume.
+        # rows before ticking when the only existing rows are search
+        # maintenance. Otherwise a search backfill on a paused Snapshot can
+        # make queued -> sealed skip the real extraction work after resume.
         snapshot.create_pending_archiveresults(hooks=snapshot_hooks_for_pending_archiveresults(snapshot))
         snapshot.sm.tick()
         snapshot.refresh_from_db()

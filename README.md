@@ -491,8 +491,7 @@ test -d archive
 rm -rf "$__archivebox_docs_home"
 ```
 -->
-<!--pytest.mark.skip(reason='Mixed host/Docker alternatives include interactive Docker commands')-->
-```bash
+```console
 mkdir -p ~/archivebox/data   # create a new data dir anywhere
 cd ~/archivebox/data         # IMPORTANT: cd into the directory
 
@@ -1404,8 +1403,7 @@ For low hanging fruit / easy first tickets, see: <a href="https://github.com/Arc
 
 First make sure you have `uv` installed: https://docs.astral.sh/uv/getting-started/installation/
 
-<!--pytest.mark.skip(reason='Development workflow snippets are not part of docs codeblock tests')-->
-```bash
+```console
 git clone https://github.com/ArchiveBox/monorepo
 cd monorepo
 ./bin/setup.sh
@@ -1426,8 +1424,7 @@ Repos included in monorepo setup:
 
 #### 2. Option A: Install the Python, JS, and system dependencies directly on your machine
 
-<!--pytest.mark.skip(reason='Development workflow snippets are not part of docs codeblock tests')-->
-```bash
+```console
 # Install ArchiveBox runtime dependencies
 mkdir -p data && cd data
 archivebox init
@@ -1442,8 +1439,7 @@ archivebox server 0.0.0.0:8000
 
 #### 2. Option B: Build the docker container and use that for development instead
 
-<!--pytest.mark.skip(reason='Development workflow snippets are not part of docs codeblock tests')-->
-```bash
+```console
 # Optional: develop via docker by mounting the code dir into the container
 # if you edit e.g. ./archivebox/core/models.py on the docker host, runserver
 # inside the container will reload and pick up your changes
@@ -1473,8 +1469,7 @@ You can also run all these in Docker. For more examples see the GitHub Actions C
 
 <details><summary><i>Click to expand...</i></summary>
 
-<!--pytest.mark.skip(reason='Development workflow snippets are not part of docs codeblock tests')-->
-```bash
+```console
 # set up persistent DEBUG=True for all runs
 archivebox config --set DEBUG=True
 
@@ -1498,8 +1493,7 @@ https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-dj
 
 If you're looking for the latest `dev` Docker image, it's often available pre-built on Docker Hub, simply pull and use `archivebox/archivebox:dev`.
 
-<!--pytest.mark.skip(reason='Development workflow snippets are not part of docs codeblock tests')-->
-```bash
+```console
 docker pull archivebox/archivebox:dev
 docker run archivebox/archivebox:dev version
 # verify the BUILD_TIME and COMMIT_HASH in the output are recent
@@ -1509,8 +1503,7 @@ docker run archivebox/archivebox:dev version
 
 You can also build and run any branch yourself from source, for example to build & use `dev` locally:
 
-<!--pytest.mark.skip(reason='Development workflow snippets are not part of docs codeblock tests')-->
-```bash
+```console
 # docker-compose.yml:
 services:
     archivebox:
@@ -1534,8 +1527,7 @@ archivebox install
 
 <details><summary><i>Click to expand...</i></summary>
 
-<!--pytest.mark.skip(reason='Development workflow snippets are not part of docs codeblock tests')-->
-```bash
+```console
 ./bin/lint.sh
 ./bin/test.sh
 ```
@@ -1548,8 +1540,7 @@ archivebox install
 
 <details><summary><i>Click to expand...</i></summary>
 
-<!--pytest.mark.skip(reason='Development workflow snippets are not part of docs codeblock tests')-->
-```bash
+```console
 # generate the database migrations after changes to models.py
 cd archivebox/
 ./manage.py makemigrations
@@ -1613,8 +1604,7 @@ Copy a similar plugin as a template to modify, then open a new PR to add it in t
 <details><summary><i>Click to expand...</i></summary>
 
 (Normally CI takes care of this, but these scripts can be run to do it manually)
-<!--pytest.mark.skip(reason='Development workflow snippets are not part of docs codeblock tests')-->
-```bash
+```console
 ./bin/build.sh
 
 # or individually:
@@ -1630,8 +1620,7 @@ Copy a similar plugin as a template to modify, then open a new PR to add it in t
 <details><summary><i>Click to expand...</i></summary>
 
 (Normally CI takes care of this, but these scripts can be run to do it manually)
-<!--pytest.mark.skip(reason='Development workflow snippets are not part of docs codeblock tests')-->
-```bash
+```console
 ./bin/release.sh
 
 # or individually:

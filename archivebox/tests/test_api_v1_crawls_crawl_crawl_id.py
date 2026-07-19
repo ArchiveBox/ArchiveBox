@@ -146,6 +146,44 @@ def wait_for_sqlite_index_result(cwd, crawl_id, timeout=45):
     raise AssertionError(f"timed out waiting for sqlite index result for crawl {crawl_id}: {latest_state}")
 
 
+def seed_paused_crawl(client, cwd: Path, api_token: str, url: str, tag: str) -> tuple[str, str]:
+    from archivebox.services.runner import run_due_snapshot
+
+    with use_archivebox_db(cwd):
+        response = api_client_request(
+            client,
+            "post",
+            "/api/v1/crawls/crawls",
+            api_token=api_token,
+            payload={
+                "urls": [url],
+                "max_depth": 0,
+                "tags": [tag],
+                "config": {"PLUGINS": "wget", "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*"},
+            },
+        )
+        assert response.status_code == 200, response.content.decode()
+        crawl_id = json.loads(response.content.decode())["id"]
+        crawl = Crawl.objects.get(id=crawl_id)
+        snapshot = Snapshot.objects.create(url=url, crawl=crawl, status=Snapshot.StatusChoices.QUEUED, retry_at=timezone.now())
+        pause_response = api_client_request(
+            client,
+            "patch",
+            f"/api/v1/crawls/crawl/{crawl_id}",
+            api_token=api_token,
+            payload={"action": "pause"},
+        )
+        assert pause_response.status_code == 200, pause_response.content.decode()
+        assert run_due_snapshot(snapshot, lock_seconds=60)
+        crawl.refresh_from_db()
+        snapshot.refresh_from_db()
+        assert crawl.status == Crawl.StatusChoices.PAUSED
+        assert crawl.retry_at == RETRY_AT_MAX
+        assert snapshot.status == Snapshot.StatusChoices.PAUSED
+        assert snapshot.retry_at == RETRY_AT_MAX
+        return str(crawl_id), str(snapshot.id)
+
+
 def make_snapshot(*, user, url: str, title: str, bookmarked_at: datetime):
     crawl = Crawl.objects.create(urls=url, created_by=user)
     snapshot = Snapshot.objects.create(
@@ -341,55 +379,24 @@ def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snap
 
 
 @pytest.mark.timeout(240)
-def test_crawl_pause_resume_api_survives_server_restart_and_processes_after_resume(tmp_path, recursive_test_site):
+def test_crawl_pause_resume_api_survives_server_restart_and_processes_after_resume(client, tmp_path, recursive_test_site):
     init_archive(tmp_path)
 
     port = get_free_port()
     env = cli_env(port=port, server=True, PLUGINS="wget", SAVE_WGET="True")
     api_token = create_admin_and_token(tmp_path)
+    crawl_id, _snapshot_id = seed_paused_crawl(client, tmp_path, api_token, recursive_test_site["root_url"], "pause-resume-e2e")
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
         wait_for_live_api(port)
 
-        crawl_response = live_api_request(
-            port,
-            "post",
-            "/api/v1/crawls/crawls",
-            api_token=api_token,
-            json={
-                "urls": [recursive_test_site["root_url"]],
-                "max_depth": 0,
-                "tags": ["pause-resume-e2e"],
-                "config": {"PLUGINS": "wget", "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*"},
-            },
-            timeout=10,
-        )
-        assert crawl_response.status_code == 200, crawl_response.text
-        crawl_id = crawl_response.json()["id"]
-        wait_for_crawl_snapshot_rows(tmp_path, crawl_id)
-
-        pause_response = live_api_request(
-            port,
-            "patch",
-            f"/api/v1/crawls/crawl/{crawl_id}",
-            api_token=api_token,
-            json={"action": "pause"},
-            timeout=10,
-        )
-        assert pause_response.status_code == 200, pause_response.text
-        assert pause_response.json()["status"] == "paused"
-
         paused_state = wait_for_crawl_child_snapshots_paused_or_sealed(tmp_path, crawl_id)
         assert paused_state["crawl_status"] == "paused"
         assert paused_state["crawl_retry_at"] == paused_state["retry_at_max"]
         assert len(paused_state["snapshots"]) == 1
-        snapshot_finished_before_pause = paused_state["snapshots"][0]["status"] == "sealed"
-        if snapshot_finished_before_pause:
-            assert any(result["status"] == "succeeded" for result in paused_state["results"])
-        else:
-            assert paused_state["snapshots"][0]["status"] == "paused"
-            assert paused_state["snapshots"][0]["retry_at"] == paused_state["retry_at_max"]
+        assert paused_state["snapshots"][0]["status"] == "paused"
+        assert paused_state["snapshots"][0]["retry_at"] == paused_state["retry_at_max"]
 
         stop_server(tmp_path)
         start_archivebox_server(tmp_path, env=env, port=port)
@@ -398,10 +405,6 @@ def test_crawl_pause_resume_api_survives_server_restart_and_processes_after_resu
         restarted_state = get_crawl_runtime_state(tmp_path, crawl_id)
         assert restarted_state["crawl_status"] == "paused"
         assert restarted_state["crawl_retry_at"] == restarted_state["retry_at_max"]
-        if snapshot_finished_before_pause:
-            assert restarted_state["snapshots"][0]["status"] == "sealed"
-            assert any(result["status"] == "succeeded" for result in restarted_state["results"])
-            return
         assert restarted_state["snapshots"][0]["status"] == "paused"
         assert restarted_state["snapshots"][0]["retry_at"] == restarted_state["retry_at_max"]
         assert not any(result["status"] == "succeeded" for result in restarted_state["results"])
@@ -431,62 +434,13 @@ def test_crawl_pause_resume_api_survives_server_restart_and_processes_after_resu
 
 
 @pytest.mark.timeout(420)
-def test_update_index_only_runs_paused_search_rows_and_resume_later_runs_crawl(tmp_path, recursive_test_site):
+def test_update_index_only_runs_paused_search_rows_and_resume_later_runs_crawl(client, tmp_path, recursive_test_site):
     init_archive(tmp_path)
 
     port = get_free_port()
     env = cli_env(port=port, server=True, PLUGINS="wget", SAVE_WGET="True")
     api_token = create_admin_and_token(tmp_path)
-
-    try:
-        start_archivebox_server(tmp_path, env=env, port=port)
-        wait_for_live_api(port)
-
-        crawl_response = live_api_request(
-            port,
-            "post",
-            "/api/v1/crawls/crawls",
-            api_token=api_token,
-            json={
-                "urls": [recursive_test_site["root_url"]],
-                "max_depth": 0,
-                "tags": ["paused-index-e2e"],
-                "config": {"PLUGINS": "wget", "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*"},
-            },
-            timeout=10,
-        )
-        assert crawl_response.status_code == 200, crawl_response.text
-        crawl_id = crawl_response.json()["id"]
-        wait_for_crawl_snapshot_rows(tmp_path, crawl_id)
-
-        pause_response = live_api_request(
-            port,
-            "patch",
-            f"/api/v1/crawls/crawl/{crawl_id}",
-            api_token=api_token,
-            json={"action": "pause"},
-            timeout=10,
-        )
-        assert pause_response.status_code == 200, pause_response.text
-        paused_state = wait_for_crawl_child_snapshots_paused_or_sealed(tmp_path, crawl_id)
-        snapshot_finished_before_pause = paused_state["snapshots"][0]["status"] == "sealed"
-    finally:
-        stop_server(tmp_path)
-
-    if snapshot_finished_before_pause:
-        indexed_state = get_crawl_runtime_state(tmp_path, crawl_id)
-        assert indexed_state["snapshots"][0]["status"] == "sealed"
-        wget_results = [result for result in indexed_state["results"] if result["plugin"] == "wget"]
-        assert any(result["status"] == "succeeded" and result["output_size"] > 0 for result in wget_results)
-        if indexed_state["crawl_status"] == "paused":
-            assert indexed_state["crawl_retry_at"] == indexed_state["retry_at_max"]
-        else:
-            assert indexed_state["crawl_status"] == "sealed"
-            assert all(result["status"] not in {"queued", "started", "paused"} for result in indexed_state["results"])
-        captured_text = wait_for_snapshot_capture(tmp_path, recursive_test_site["root_url"], timeout=60)
-        assert "Root" in captured_text
-        assert "About" in captured_text
-        return
+    crawl_id, _snapshot_id = seed_paused_crawl(client, tmp_path, api_token, recursive_test_site["root_url"], "paused-index-e2e")
 
     update_env = cli_env(
         port=port,
@@ -543,14 +497,10 @@ def test_update_index_only_runs_paused_search_rows_and_resume_later_runs_crawl(t
 
         assert resumed_state["snapshots"][0]["status"] == "sealed"
         wget_results = [result for result in resumed_state["results"] if result["plugin"] == "wget"]
-        wget_succeeded = any(result["status"] == "succeeded" and result["output_size"] > 0 for result in wget_results)
-        if wget_succeeded:
-            captured_text = wait_for_snapshot_capture(tmp_path, recursive_test_site["root_url"], timeout=60)
-            assert "Root" in captured_text
-            assert "About" in captured_text
-        else:
-            assert resumed_state["crawl_status"] == "sealed"
-            assert all(result["status"] not in {"queued", "started", "paused"} for result in resumed_state["results"])
+        assert any(result["status"] == "succeeded" and result["output_size"] > 0 for result in wget_results)
+        captured_text = wait_for_snapshot_capture(tmp_path, recursive_test_site["root_url"], timeout=60)
+        assert "Root" in captured_text
+        assert "About" in captured_text
     finally:
         stop_server(tmp_path)
 

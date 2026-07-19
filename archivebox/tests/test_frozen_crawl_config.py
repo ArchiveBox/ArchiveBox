@@ -269,9 +269,6 @@ def test_crawl_config_projections_stay_under_hot_path_budget():
         assert average_seconds < max_average_seconds, f"{name} averaged {average_seconds * 1000:.3f}ms"
 
 
-# test_api_create_and_cli_add_store_full_frozen_config moved to test_api_v1_workflow_frozen_crawl_config_sources.py.
-
-
 def test_schedule_enqueue_refreezes_using_current_template_persona_defaults(archivebox_db):
     from archivebox.crawls.models import Crawl, CrawlSchedule
 

@@ -389,54 +389,51 @@ def test_targeted_extract_retries_one_failed_archiveresult_while_snapshot_stays_
 
 
 @pytest.mark.timeout(240)
-def test_paused_snapshot_survives_server_restart_and_resumes_via_api(tmp_path, recursive_test_site):
+def test_paused_snapshot_survives_server_restart_and_resumes_via_api(client, tmp_path, recursive_test_site):
     init_archive(tmp_path)
 
     port = get_free_port()
     env = cli_env(port=port, server=True, PLUGINS="wget", SAVE_WGET="True")
     api_token = create_admin_and_token(tmp_path)
 
-    try:
-        start_archivebox_server(tmp_path, env=env, port=port)
-        wait_for_live_api(port)
-
-        crawl_response = live_api_request(
-            port,
+    with use_archivebox_db(tmp_path):
+        crawl_response = api_client_request(
+            client,
             "post",
             "/api/v1/crawls/crawls",
             api_token=api_token,
-            json={
+            payload={
                 "urls": [recursive_test_site["root_url"]],
                 "max_depth": 0,
                 "tags": ["snapshot-pause-restart-e2e"],
                 "config": {"PLUGINS": "wget", "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*"},
             },
-            timeout=10,
         )
-        assert crawl_response.status_code == 200, crawl_response.text
-        crawl_id = crawl_response.json()["id"]
-        crawl_state = _wait_for_crawl_snapshot_rows(tmp_path, crawl_id)
-        snapshot_id = crawl_state["snapshots"][0]["id"]
-
-        pause_response = live_api_request(
-            port,
+        assert crawl_response.status_code == 200, crawl_response.content.decode()
+        crawl_id = json.loads(crawl_response.content.decode())["id"]
+        crawl = Crawl.objects.get(id=crawl_id)
+        snapshot = Snapshot.objects.create(
+            url=recursive_test_site["root_url"],
+            crawl=crawl,
+            status=Snapshot.StatusChoices.QUEUED,
+            retry_at=timezone.now(),
+        )
+        snapshot_id = str(snapshot.id)
+        pause_response = api_client_request(
+            client,
             "patch",
-            f"/api/v1/crawls/crawl/{crawl_id}",
+            f"/api/v1/core/snapshot/{snapshot_id}",
             api_token=api_token,
-            json={"action": "pause"},
-            timeout=10,
+            payload={"action": "pause"},
         )
-        assert pause_response.status_code == 200, pause_response.text
+        assert pause_response.status_code == 200, pause_response.content.decode()
 
-        current_state = _paused_snapshot_state(tmp_path, snapshot_id)
-        if current_state["status"] == Snapshot.StatusChoices.SEALED:
-            assert current_state["succeeded_results"] > 0
-            return
+    try:
+        start_archivebox_server(tmp_path, env=env, port=port)
+        wait_for_live_api(port)
 
         paused_state = _wait_for_paused_scheduler_marker(tmp_path, snapshot_id)
-        if paused_state["status"] == Snapshot.StatusChoices.SEALED:
-            assert paused_state["succeeded_results"] > 0
-            return
+        assert paused_state["status"] == Snapshot.StatusChoices.PAUSED
         assert paused_state["succeeded_results"] == 0
         assert not list((paused_state["snapshot_dir"] / "wget").rglob("*.html"))
 

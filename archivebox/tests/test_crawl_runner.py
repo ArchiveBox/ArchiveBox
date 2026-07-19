@@ -752,9 +752,6 @@ def test_sealed_crawl_does_not_create_discovered_snapshots():
     assert crawl.snapshot_set.count() == 1
 
 
-# test_create_crawl_api_queues_crawl_without_spawning_runner moved to test_api_v1_crawls_crawls.py.
-
-
 def test_wait_for_snapshot_tasks_surfaces_already_failed_task():
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl

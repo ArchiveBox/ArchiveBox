@@ -21,7 +21,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-22.04]
-        # os: [ubuntu-22.04, macos-latest, windows-latest]
         python: ["3.13"]
 
     steps:
@@ -92,14 +91,14 @@ jobs:
           uv run --directory "$DATA_DIR" --no-sync --no-sources archivebox status
 
       - name: Test built package with pytest
-        # TODO: remove this exception for windows once we get tests passing on that platform
-        if: ${{ !contains(matrix.os, 'windows') }}
         run: |
           mkdir -p tests/out
-          uv run --no-sync --no-sources pytest -s archivebox/tests --basetemp=tests/out --ignore=archivebox/pkgs
+          uv run --no-sync --no-sources pytest -s archivebox/tests --basetemp=tests/out
+
+      - name: Run documentation code blocks
+        run: uv run --no-sync --no-sources pytest -vv --tb=long README.md AGENTS.md skills docs
 
       - name: Run plugin tests
-        if: ${{ !contains(matrix.os, 'windows') }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
@@ -115,9 +114,6 @@ jobs:
         with:
           submodules: true
           fetch-depth: 1
-
-      # TODO: as of 2020-11 this helper layer broke, upgrade and re-enable this once it's usable again
-      # - uses: satackey/action-docker-layer-caching@v0.0.8
 
       - name: Build image
         run: |

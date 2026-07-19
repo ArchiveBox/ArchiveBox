@@ -80,6 +80,3 @@ def test_snapshot_service_cli_add_seals_snapshot_and_writes_indexes(tmp_path, re
     assert wget_files
     assert any("Root" in path.read_text(encoding="utf-8", errors="ignore") for path in wget_files if path.suffix in (".html", ".txt"))
     assert any(result["plugin"] == "wget" and result["status"] == ArchiveResult.StatusChoices.SUCCEEDED for result in state["results"])
-
-
-# test_paused_snapshot_survives_server_restart_and_resumes_via_api moved to test_api_v1_core_snapshot_snapshot_id.py.

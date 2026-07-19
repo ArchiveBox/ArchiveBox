@@ -67,15 +67,13 @@ archivebox run
 
 ## Verification
 
-<!--pytest.mark.skip(reason="pytest invocation")-->
-```bash
+```console
 uv run pytest archivebox/tests/test_cli_add.py -q
 uv run prek run --all-files
 ```
 
 Use the full release/deploy loop only when requested:
 
-<!--pytest.mark.skip(reason="release/deploy script")-->
-```bash
+```console
 ./bin/release_dev_stack.sh
 ```
