@@ -13,18 +13,18 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-07-14T04:23:26.038037893Z"
+exclude-newer = "2026-07-14T15:54:58.961970436Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-07-19T04:23:25.038053366Z", span = "PT1S" }
+abxbus = { timestamp = "2026-07-19T15:54:57.961983564Z", span = "PT1S" }
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
 
 [[package]]
 name = "abx-dl"
-version = "1.11.237"
+version = "1.11.238"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -39,14 +39,14 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6c/c2/50d3444c2e4251c73ae30b72778ebaafb62d5ae7965024d6b0cf61f34c2e/abx_dl-1.11.237.tar.gz", hash = "sha256:26c45262ac4d119b6bf52d91a9f8902cc880ec347e7e6a9b7dcae4a2c1ef5c72", size = 86551, upload-time = "2026-07-18T19:41:45.912Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6b/2a/43252c8bdb237457b1c632e1e6733348be8ae2d5b2a71723b2189816c0a6/abx_dl-1.11.238.tar.gz", hash = "sha256:fbaf257fa7629b08c62ce3ec9bf8458a0a5c92f7f28f27ac07e613c980080f78", size = 86479, upload-time = "2026-07-19T04:24:33.124Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8e/c2/deaa3242aa9ec5b24249c9e920be5108154bfe7c791526f0f8e0652c61a7/abx_dl-1.11.237-py3-none-any.whl", hash = "sha256:aabc3fe7cd7f365489bd2f748c1e65f497c6d0e3eb0ef315318e3f274ab4808b", size = 90431, upload-time = "2026-07-18T19:41:44.783Z" },
+    { url = "https://files.pythonhosted.org/packages/d8/e0/b7d3f8c789fefae0b7732176b09cd3c5cc13764dc066e808991b4255ffec/abx_dl-1.11.238-py3-none-any.whl", hash = "sha256:c9182df050a42c56fdffaadc97e4f63f9445c820afd540cbadc6923ddb1c6461", size = 90405, upload-time = "2026-07-19T04:24:32.01Z" },
 ]
 
 [[package]]
 name = "abx-plugins"
-version = "1.11.258"
+version = "1.11.259"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -57,9 +57,9 @@ dependencies = [
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "uv", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8a/8d/f7f18a96dc3a1f6e0331002e4587dbc4e2c388489a4d0520f60d0d06a976/abx_plugins-1.11.258.tar.gz", hash = "sha256:b2879f97c815931056a990585bb6efb28ce1d598cb82112e2cbe4105e7a454be", size = 259382, upload-time = "2026-07-19T00:11:11.018Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/84/47/2d63075b919c5b1f23ea06a53c200299290a5f68aeed70380b440b46f0ff/abx_plugins-1.11.259.tar.gz", hash = "sha256:8b09a713200ea3d817af3ed68207742ea5c4d33cd38eac39464842eca5f2a552", size = 259378, upload-time = "2026-07-19T04:24:07.444Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9d/d2/9dc6c1cb0c3295ca3c4f10e4226deb3c3baa7375f8464e8da49f04904efe/abx_plugins-1.11.258-py3-none-any.whl", hash = "sha256:3d25542fb012c6785f3607a10426d082ccbaa96d8e3deefcea42dd36776bca4f", size = 408298, upload-time = "2026-07-19T00:11:09.642Z" },
+    { url = "https://files.pythonhosted.org/packages/67/b6/3b35edad0243bd6b531e1883db7df10ba60b9899f3b9455a1cd9f1dd4aea/abx_plugins-1.11.259-py3-none-any.whl", hash = "sha256:ccf1c7d262bee00329a396ae775c5d0bf7c5b37cedfb0d6d08402ba7d0f21287", size = 408299, upload-time = "2026-07-19T04:24:06.171Z" },
 ]
 
 [[package]]
@@ -78,7 +78,7 @@ wheels = [
 
 [[package]]
 name = "abxpkg"
-version = "1.11.250"
+version = "1.11.251"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pip", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -87,9 +87,9 @@ dependencies = [
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "typing-extensions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/92/70/a8a46ca95605aa1a37d9636fd57a711b05f2be96cd027dd96546e9703c4a/abxpkg-1.11.250.tar.gz", hash = "sha256:a7e8b127495fd159631b9d2e35842ffc56c8aa6a73dcbd8bdbc75c0e17df0a26", size = 206522, upload-time = "2026-07-19T00:36:15.546Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/98/ff/96ecae6bdbf936a489108937f8c8a7cf0c1c8e7dd2bf9850ce335800e21c/abxpkg-1.11.251.tar.gz", hash = "sha256:f28142c57da644a42ba3aa35a8c753fb8855769fd1b77c833db990d480c791ca", size = 206439, upload-time = "2026-07-19T04:23:51.275Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b9/b7/fd10206facdc5631944346b05116365cb6045ffae4d2e0fcc46aa2cadf53/abxpkg-1.11.250-py3-none-any.whl", hash = "sha256:045e58a88dec8d3fc1c5b9afc478366d8d433bacee7547b6b720aba3d2e8768f", size = 222548, upload-time = "2026-07-19T00:36:14.074Z" },
+    { url = "https://files.pythonhosted.org/packages/c6/9e/0dd06a0b5d18e12e6efbd4ded0ee6365d3126ff766cdf7486178314b5b96/abxpkg-1.11.251-py3-none-any.whl", hash = "sha256:a300d5e0137ec90c63fa3ee3adaaa867b781f59a5227971e2ea2dd4d97b3bf1a", size = 222507, upload-time = "2026-07-19T04:23:49.79Z" },
 ]
 
 [[package]]
@@ -124,7 +124,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.35rc112"
+version = "0.9.35rc113"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -304,11 +304,11 @@ dev = [
 
 [[package]]
 name = "asgiref"
-version = "3.11.1"
+version = "3.12.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/63/40/f03da1264ae8f7cfdbf9146542e5e7e8100a4c66ab48e791df9a03d3f6c0/asgiref-3.11.1.tar.gz", hash = "sha256:5f184dc43b7e763efe848065441eac62229c9f7b0475f41f80e207a114eda4ce", size = 38550, upload-time = "2026-02-03T13:30:14.33Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e6/26/3b59f2bdae5f640389becb1f673cded775287f5fc4f816309d9ca9a3f93d/asgiref-3.12.1.tar.gz", hash = "sha256:59dcb51c272ad209d59bed5708a64a333083e86017d7fcdd67498eeab7784340", size = 42378, upload-time = "2026-07-14T09:56:18.087Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5c/0a/a72d10ed65068e115044937873362e6e32fab1b7dce0046aeb224682c989/asgiref-3.11.1-py3-none-any.whl", hash = "sha256:e8667a091e69529631969fd45dc268fa79b99c92c5fcdda727757e52146ec133", size = 24345, upload-time = "2026-02-03T13:30:13.039Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/1b/54f4ad77cd8a584fa70746c47df988e002cf1ee1eba43364d46f87803647/asgiref-3.12.1-py3-none-any.whl", hash = "sha256:fe386d1c2bff7259ea95929266d12a8cf9a8b5a1c2598402967d8792e7a7c094", size = 25478, upload-time = "2026-07-14T09:56:16.926Z" },
 ]
 
 [[package]]
@@ -867,7 +867,7 @@ wheels = [
 
 [[package]]
 name = "django-stubs"
-version = "6.0.6"
+version = "6.0.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "django", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -875,22 +875,22 @@ dependencies = [
     { name = "types-pyyaml", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "typing-extensions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/91/de/1b8ccb0909970fb4a8b48426f67132164110304875abdb4e4912c55480f4/django_stubs-6.0.6.tar.gz", hash = "sha256:dfc01e052e33c7f8f0c30c3ff8eda0903ee29ac710d1e46d9effd773744a69b0", size = 281381, upload-time = "2026-06-23T08:22:54.098Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8a/90/087c6e424e705e05182e543ef6b366a59eb5c92ab008b0dbbba55f357a40/django_stubs-6.0.7.tar.gz", hash = "sha256:bc55431c0af745a64e39cf33a8d36c87dccbedeae2fe26fab47dd355270e8538", size = 282293, upload-time = "2026-07-14T10:08:27.122Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d0/b0/b73855fb9cf381fa1d754ea33c25f14f5b11c297f48dc3a4e0359dc3adc2/django_stubs-6.0.6-py3-none-any.whl", hash = "sha256:c488fea05a9eac40ddbdc69887f63a5c0922cb13df285291ee99c9bbc89bc4f1", size = 546491, upload-time = "2026-06-23T08:22:52.466Z" },
+    { url = "https://files.pythonhosted.org/packages/02/86/230ae6056221b543d63f7710d73967fe1c6840693540e99ea3c54f45859c/django_stubs-6.0.7-py3-none-any.whl", hash = "sha256:7ed9a14c438e589272ca04e966dee82a4d1ff7ca5c2171bc986c50a0d03ec35b", size = 547460, upload-time = "2026-07-14T10:08:25.626Z" },
 ]
 
 [[package]]
 name = "django-stubs-ext"
-version = "6.0.6"
+version = "6.0.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "django", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "typing-extensions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/51/8b/dc3c37cf994836ee09bc07f6a0c0ea840b975449940bd7ff77cc97a732f3/django_stubs_ext-6.0.6.tar.gz", hash = "sha256:e6f09884e48d7c5b250a373dfa22aa3e83bb91b8babbd8d05187f6b92247f232", size = 6674, upload-time = "2026-06-23T08:21:38.355Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/36/50/917f7224ea470e89cdcdc93d3dfe75b8391adf976cf12f2ecdb5f5d122be/django_stubs_ext-6.0.7.tar.gz", hash = "sha256:c3172c5126614fd2a44d0196b313b44c21f717cb09477ba52b447d41f4ce613e", size = 6665, upload-time = "2026-07-14T10:07:56.933Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f1/e4/7d60a1bdb092807318af34a809dc6674b95cc78ec4d3aaa6027174e7201c/django_stubs_ext-6.0.6-py3-none-any.whl", hash = "sha256:5470c970f61a3ccf5aae7633feef1a097f944f417b955da200c9ac26ecd9134b", size = 10361, upload-time = "2026-06-23T08:21:37.228Z" },
+    { url = "https://files.pythonhosted.org/packages/83/65/4d73fce956b5ebf26449259664360e539fbe95f0e86be396c28b636ba72a/django_stubs_ext-6.0.7-py3-none-any.whl", hash = "sha256:53a9c7c5a7c7e718cc6308cfce1e7470f2cac0b9d38dbcd60fbfa82704f1d592", size = 10362, upload-time = "2026-07-14T10:07:55.653Z" },
 ]
 
 [[package]]
