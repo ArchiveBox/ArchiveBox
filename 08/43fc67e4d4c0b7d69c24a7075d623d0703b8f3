@@ -1,0 +1,42 @@
+README.md
+  s_f8414d52051f83::t_722dfcf2ad42f3 494,1406,1427,1442,1472,1496,1506,1530,1543,1607,1623
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_b929e72a59dea3 237
+archivebox/tests/test_api_v1_workflow_core_token_auth_side_effects.py
+  s_f8414d52051f83::t_f551f6d7532ae7 103,115,126,135,145
+.github/workflows/test.yml
+  s_f8414d52051f83::t_b929e72a59dea3 96
+  s_f8414d52051f83::t_c6da7353ed1777 98-99
+  s_f8414d52051f83::t_1a833dd5363ca3 97
+archivebox/services/runner.py
+  s_f8414d52051f83::t_2d91273edbf090 1856-1858,1865-1867
+archivebox/tests/test_api_v1_crawls_crawl_crawl_id.py
+  s_f8414d52051f83::t_ab9ab9653a9ee9 150-151,177-183,500-503
+  s_f8414d52051f83::t_8b5466afeda8fe 398-399
+  s_f8414d52051f83::t_551d9a6adc07fb 149,152-176,184-186,382,388,437,443
+archivebox/tests/test_api_v1_core_snapshot_snapshot_id.py
+  s_f8414d52051f83::t_289dc7e2697e6c 392,399-401,405,412-423,425,427,429,431-433
+  s_f8414d52051f83::t_8b5466afeda8fe 436
+AGENTS.md
+  s_f8414d52051f83::t_722dfcf2ad42f3 76,83
+skills/archivebox/SKILL.md
+  s_f8414d52051f83::t_722dfcf2ad42f3 70,77
+archivebox/tests/test_orm_helpers.py
+  s_f8414d52051f83::t_14d1c06c660ce4 14-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "0843fc67e4d4c0b7d69c24a7075d623d0703b8f3",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
