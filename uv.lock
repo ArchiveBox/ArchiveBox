@@ -13,11 +13,11 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-07-15T19:53:17.689945432Z"
+exclude-newer = "2026-07-15T20:07:41.087919Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-07-20T19:53:16.689959318Z", span = "PT1S" }
+abxbus = { timestamp = "2026-07-20T20:07:40.087935Z", span = "PT1S" }
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
@@ -222,10 +222,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-dl", specifier = ">=1.11.237" },
-    { name = "abx-plugins", specifier = ">=1.11.258" },
+    { name = "abx-dl", specifier = ">=1.11.258" },
+    { name = "abx-plugins", specifier = ">=1.11.283" },
     { name = "abxbus", specifier = "==2.5.10" },
-    { name = "abxpkg", specifier = ">=1.11.247" },
+    { name = "abxpkg", specifier = ">=1.11.266" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
     { name = "atomicwrites", specifier = "==1.4.1" },
     { name = "base32-crockford", specifier = ">=0.3.0" },
