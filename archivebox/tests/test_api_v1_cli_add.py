@@ -141,9 +141,7 @@ def write_import_format_files(base_dir: Path) -> dict[str, Path]:
 IMPORT_FORMAT_ENV = {
     "USE_COLOR": "False",
     "SHOW_PROGRESS": "False",
-    "PLUGINS": "parse_html_urls,parse_jsonl_urls,parse_netscape_urls,parse_rss_urls,parse_txt_urls,wget,headers",
-    "SAVE_WGET": "True",
-    "SAVE_HEADERS": "True",
+    "PLUGINS": "parse_html_urls,parse_jsonl_urls,parse_netscape_urls,parse_rss_urls,parse_txt_urls",
     "USE_CHROME": "False",
     "URL_ALLOWLIST": r"example\.com|example\.org|iana\.org|www\.iana\.org",
 }
