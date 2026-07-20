@@ -73,8 +73,8 @@ archivebox run
 
 Use targeted tests for focused work:
 
-```console
-uv run pytest archivebox/tests/test_cli_add.py -q
+```bash
+uv run pytest archivebox/tests/test_cli_add.py::test_add_help_shows_depth_and_tag_options -q
 uv run prek run --all-files
 ```
 
