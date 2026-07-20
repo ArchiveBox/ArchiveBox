@@ -66,7 +66,6 @@ def test_cli_run_signal_cleans_background_hook_process_group(initialized_archive
                 'echo $$ > "$test_dir/daemon.pid"',
                 'echo $! > "$test_dir/daemon-child.pid"',
                 'echo ready > "$test_dir/daemon.ready"',
-                "printf '%s\\n' '{\"type\":\"ProcessReady\"}'",
                 "trap 'echo cleaned > \"$test_dir/daemon.cleaned\"; exit 0' TERM INT",
                 "wait",
                 "",
