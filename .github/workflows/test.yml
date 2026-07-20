@@ -7,6 +7,7 @@ concurrency:
 
 env:
   DOCKER_IMAGE: archivebox-ci
+  ARCHIVEBOX_IMAGE: archivebox-ci
   PYTHONIOENCODING: utf-8
   PYTHONLEGACYWINDOWSSTDIO: utf-8
   USE_COLOR: False
@@ -151,6 +152,6 @@ jobs:
 
       - name: Check added urls show up in index
         run: |
-          docker compose run --rm archivebox add 'http://example.com/#test_docker' --index-only
+          docker compose run --rm archivebox add --plugins=parse_txt_urls 'http://example.com/#test_docker'
           curl --silent --location 'http://127.0.0.1:8000' | grep 'http://example.com/#test_docker'
           docker compose down
