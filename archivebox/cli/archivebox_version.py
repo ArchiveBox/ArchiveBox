@@ -235,6 +235,9 @@ def version(
     else:
         requested_names = {name for name in (binaries or ()) if name}
 
+    def binary_is_requested(logical_name: str, actual_name: str, display_name: str) -> bool:
+        return not requested_names or bool({logical_name, actual_name, display_name} & requested_names)
+
     if not in_data_dir:
         PANEL_TEXT = "\n".join(
             (
@@ -333,9 +336,9 @@ def version(
             logical_name = str(logical_record["name"])
             actual_name = str(actual_record["name"])
             display_name = Path(actual_name).expanduser().name if ("/" in actual_name or actual_name.startswith("~")) else logical_name
-            if not plugin_enabled and not (
-                requested_names and (logical_name in requested_names or actual_name in requested_names or display_name in requested_names)
-            ):
+            if not binary_is_requested(logical_name, actual_name, display_name):
+                continue
+            if not plugin_enabled and not requested_names:
                 continue
             signature = json.dumps(actual_record, sort_keys=True, default=str)
             declared_binary_specs.setdefault(signature, actual_record)
@@ -394,12 +397,7 @@ def version(
                 logical_name = str(logical_record["name"])
                 actual_name = str(actual_record["name"])
                 display_name = Path(actual_name).expanduser().name if ("/" in actual_name or actual_name.startswith("~")) else logical_name
-                if (
-                    requested_names
-                    and logical_name not in requested_names
-                    and actual_name not in requested_names
-                    and display_name not in requested_names
-                ):
+                if not binary_is_requested(logical_name, actual_name, display_name):
                     continue
 
                 installed = db_binaries.get(logical_name) if db_available else None
