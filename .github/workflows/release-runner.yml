@@ -7,7 +7,6 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: write
   contents: write
   id-token: write
 
@@ -51,10 +50,3 @@ jobs:
           DEFAULT_BRANCH: dev
           GH_TOKEN: ${{ secrets.RELEASE_GH_TOKEN || github.token }}
         run: ./bin/release.sh
-
-      - name: Dispatch image and tap updates
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_GH_TOKEN || github.token }}
-        run: |
-          gh workflow run docker.yml --ref dev
-          gh workflow run update-homebrew-tap.yml --ref dev

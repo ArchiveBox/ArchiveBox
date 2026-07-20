@@ -2,12 +2,9 @@ name: Build Pip package
 
 on:
   workflow_dispatch:
-  workflow_call:
   push:
     branches:
       - '**'
-    tags:
-      - 'v*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -18,11 +15,7 @@ env:
 
 jobs:
   build:
-    permissions:
-      id-token: write
-
     runs-on: ubuntu-24.04
-    environment: pypi
     steps:
       - uses: actions/checkout@v4
 
@@ -44,89 +37,10 @@ jobs:
           packages: ripgrep build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 gnupg2 curl wget python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
           version: 1.0
 
-      - name: Wait for released ArchiveBox deps on PyPI
-        run: |
-          python - <<'PY'
-          import re
-          import sys
-          import time
-          import tomllib
-          import urllib.request
-
-          watched = {"abxbus", "abxpkg", "abx-plugins", "abx-dl"}
-          deps = tomllib.loads(open("pyproject.toml", "rb").read().decode())["project"]["dependencies"]
-          required = {}
-          for dep in deps:
-              for name in watched:
-                  match = re.match(rf"{re.escape(name)}\s*(==|>=)\s*([^,;\s]+)", dep)
-                  if match:
-                      required[name] = match.group(2)
-
-          deadline = time.monotonic() + 300
-          missing = required.copy()
-          while missing and time.monotonic() < deadline:
-              for name, version in list(missing.items()):
-                  try:
-                      with urllib.request.urlopen(f"https://pypi.org/pypi/{name}/{version}/json", timeout=20):
-                          available = True
-                  except Exception:
-                      available = False
-                  if available:
-                      print(f"{name} {version} is available on PyPI")
-                      missing.pop(name)
-                  else:
-                      print(f"{name} {version} is not available on PyPI yet")
-              if missing:
-                  time.sleep(10)
-
-          if missing:
-              print(f"Missing PyPI releases after wait: {missing}", file=sys.stderr)
-              sys.exit(1)
-          PY
-
-      - name: Prepare released dependency sync project
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import json
-          import re
-          import urllib.request
-
-          source = Path("pyproject.toml")
-          target_dir = Path(".ci-uv-project")
-          target_dir.mkdir(exist_ok=True)
-          text = source.read_text()
-          text = text.replace(
-              'environments = ["sys_platform == \'darwin\'", "sys_platform == \'linux\'"]',
-              'environments = ["sys_platform == \'linux\'"]',
-          )
-
-          # CI runs immediately after publishing internal abx packages. PyPI's
-          # simple index can lag the version JSON endpoint, so sync against the
-          # exact wheel URLs from the version endpoint while leaving package
-          # metadata in pyproject.toml unchanged for the actual build.
-          for package in ("abxpkg", "abx-plugins", "abx-dl"):
-              match = re.search(rf'"{re.escape(package)}>=(?P<version>[^"]+)"', text)
-              if not match:
-                  continue
-              version = match.group("version")
-              with urllib.request.urlopen(f"https://pypi.org/pypi/{package}/{version}/json", timeout=20) as response:
-                  data = json.load(response)
-              wheel_url = next(url["url"] for url in data["urls"] if url["filename"].endswith(".whl"))
-              text = re.sub(
-                  rf'"{re.escape(package)}>=[^"]+"',
-                  f'"{package} @ {wheel_url}"',
-                  text,
-                  count=1,
-              )
-
-          (target_dir / "pyproject.toml").write_text(text)
-          PY
-
       - name: UV install archivebox dev + run sub-dependencies
         env:
           UV_PROJECT_ENVIRONMENT: ${{ github.workspace }}/.venv
-        run: uv sync --project .ci-uv-project --all-extras --no-install-project --no-install-workspace --no-sources --no-cache
+        run: uv sync --all-extras --no-install-project --no-install-workspace --no-sources --no-cache
 
       - name: UV build archivebox and archivebox/pkgs/* packages
         run: |
@@ -136,7 +50,7 @@ jobs:
         env:
           UV_PROJECT_ENVIRONMENT: ${{ github.workspace }}/.venv
         run: |
-          uv sync --project .ci-uv-project --all-extras --no-install-project --no-install-workspace --no-sources --no-cache
+          uv sync --all-extras --no-install-project --no-install-workspace --no-sources --no-cache
           uv pip install --python .venv/bin/python --no-deps dist/archivebox-*.whl
 
       - name: Verify built package full install
@@ -146,7 +60,7 @@ jobs:
           set -Eeuo pipefail
           DATA_DIR="$(mktemp -d)"
           cd "$DATA_DIR"
-          uv run --project "$GITHUB_WORKSPACE/.ci-uv-project" --no-sync --no-sources archivebox init
-          timeout 30m uv run --project "$GITHUB_WORKSPACE/.ci-uv-project" --no-sync --no-sources archivebox install
-          uv run --project "$GITHUB_WORKSPACE/.ci-uv-project" --no-sync --no-sources archivebox version
-          uv run --project "$GITHUB_WORKSPACE/.ci-uv-project" --no-sync --no-sources archivebox status
+          uv run --project "$GITHUB_WORKSPACE" --no-sync --no-sources archivebox init
+          timeout 30m uv run --project "$GITHUB_WORKSPACE" --no-sync --no-sources archivebox install
+          uv run --project "$GITHUB_WORKSPACE" --no-sync --no-sources archivebox version
+          uv run --project "$GITHUB_WORKSPACE" --no-sync --no-sources archivebox status

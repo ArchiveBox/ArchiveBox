@@ -266,87 +266,6 @@ create_git_tag() {
     git push origin "refs/tags/${tag}"
 }
 
-wait_for_runs() {
-    local slug="$1"
-    local event="$2"
-    local sha="$3"
-    local label="$4"
-    local runs_json
-    local attempts=0
-
-    while :; do
-        runs_json="$(GH_FORCE_TTY=0 GH_PAGER=cat gh run list --repo "${slug}" --event "${event}" --commit "${sha}" --limit 20 --json databaseId,status,conclusion,workflowName)"
-        if [[ "$(jq 'length' <<<"${runs_json}")" -gt 0 ]]; then
-            break
-        fi
-        attempts=$((attempts + 1))
-        if [[ "${attempts}" -ge 30 ]]; then
-            echo "Timed out waiting for ${label} workflows to start" >&2
-            return 1
-        fi
-        sleep 10
-    done
-
-    while IFS=$'\t' read -r run_id workflow_name; do
-        workflow_name_lower="${workflow_name,,}"
-        if [[ "${workflow_name_lower}" == *"release state"* ]]; then
-            gh run watch "${run_id}" --repo "${slug}" --exit-status
-            continue
-        fi
-        if [[ "${workflow_name_lower}" != *"test"* ]]; then
-            echo "Skipping non-gating workflow: ${workflow_name}"
-            continue
-        fi
-
-        attempts=0
-        while :; do
-            precheck_state="$(
-                gh run view "${run_id}" --repo "${slug}" --json jobs --jq '
-                    [.jobs[] | select((.name | ascii_downcase) | test("precheck|pre-commit|prek"))][0]
-                    | if . == null then "missing:" else ((.status // "") + ":" + (.conclusion // "")) end
-                '
-            )"
-            case "${precheck_state}" in
-                missing:*)
-                    echo "Skipping test workflow without precheck job: ${workflow_name}"
-                    break
-                    ;;
-                completed:success|completed:skipped)
-                    break
-                    ;;
-                completed:failure|completed:cancelled|completed:timed_out)
-                    gh run view "${run_id}" --repo "${slug}"
-                    return 1
-                    ;;
-            esac
-            attempts=$((attempts + 1))
-            if [[ "${attempts}" -ge 120 ]]; then
-                echo "Timed out waiting for ${workflow_name} precheck job" >&2
-                return 1
-            fi
-            sleep 5
-        done
-    done < <(jq -r '.[] | [.databaseId, .workflowName] | @tsv' <<<"${runs_json}")
-}
-
-wait_for_pypi() {
-    local package_name="$1"
-    local expected_version="$2"
-    local attempts=0
-
-    while :; do
-        if curl -fsSL "https://pypi.org/pypi/${package_name}/json" | jq -e --arg version "${expected_version}" '.releases[$version] | length > 0' >/dev/null; then
-            return 0
-        fi
-        attempts=$((attempts + 1))
-        if [[ "${attempts}" -ge 30 ]]; then
-            echo "Timed out waiting for ${package_name}==${expected_version} on PyPI" >&2
-            return 1
-        fi
-        sleep 10
-    done
-}
-
 run_checks() {
     uv sync --extra sonic --extra debug --all-groups --no-cache --upgrade
     uv build --all
@@ -428,7 +347,6 @@ publish_artifacts() {
         uv publish --trusted-publishing always "${artifacts[@]}"
     fi
 
-    wait_for_pypi "${PYPI_PACKAGE}" "${version}"
 }
 
 main() {

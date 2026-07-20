@@ -2,12 +2,9 @@ name: Build Docker image
 
 on:
   workflow_dispatch:
-  workflow_call:
   push:
     branches:
-      - "**"
-    tags:
-      - 'v*'
+      - '**'
   # pull_request:
 
 env:
@@ -45,47 +42,6 @@ jobs:
         #   submodules: true
         #   fetch-depth: 1
 
-      - name: Wait for released ArchiveBox deps on PyPI
-        run: |
-          python3 - <<'PY'
-          import json
-          import re
-          import sys
-          import time
-          import tomllib
-          import urllib.request
-
-          watched = {"abxbus", "abxpkg", "abx-plugins", "abx-dl"}
-          deps = tomllib.loads(open("pyproject.toml", "rb").read().decode())["project"]["dependencies"]
-          required = {}
-          for dep in deps:
-              for name in watched:
-                  match = re.match(rf"{re.escape(name)}\s*(==|>=)\s*([^,;\s]+)", dep)
-                  if match:
-                      required[name] = match.group(2)
-
-          deadline = time.monotonic() + 300
-          missing = required.copy()
-          while missing and time.monotonic() < deadline:
-              for name, version in list(missing.items()):
-                  try:
-                      with urllib.request.urlopen(f"https://pypi.org/pypi/{name}/{version}/json", timeout=20):
-                          available = True
-                  except Exception:
-                      available = False
-                  if available:
-                      print(f"{name} {version} is available on PyPI")
-                      missing.pop(name)
-                  else:
-                      print(f"{name} {version} is not available on PyPI yet")
-              if missing:
-                  time.sleep(10)
-
-          if missing:
-              print(f"Missing PyPI releases after wait: {missing}", file=sys.stderr)
-              sys.exit(1)
-          PY
-
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v3
@@ -99,7 +55,7 @@ jobs:
       - name: Available platforms
         run: echo ${{ steps.buildx.outputs.platforms }}
 
-      - name: Wait for published abx-dl image
+      - name: Verify published abx-dl image
         id: abx_dl_image
         shell: bash
         run: |
@@ -121,16 +77,6 @@ jobs:
           PY
           )"
           ABX_DL_IMAGE="${ABX_DL_IMAGE:-archivebox/abx-dl:${ABX_DL_VERSION}}"
-          deadline=$((SECONDS + 1800))
-          until docker buildx imagetools inspect "${ABX_DL_IMAGE}" >/tmp/abx-dl-image.json; do
-            if (( SECONDS >= deadline )); then
-              echo "Timed out waiting for published ${ABX_DL_IMAGE}" >&2
-              exit 1
-            fi
-            echo "${ABX_DL_IMAGE} is not published yet; waiting..."
-            sleep 30
-          done
-
           echo "image=${ABX_DL_IMAGE}" >> "$GITHUB_OUTPUT"
           docker buildx imagetools inspect "${ABX_DL_IMAGE}"
 
