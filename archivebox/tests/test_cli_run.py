@@ -1501,6 +1501,7 @@ class TestRecoverOrchestratorState:
         result.refresh_from_db()
         snapshot.refresh_from_db()
         assert result.status == ArchiveResult.StatusChoices.FAILED
+        assert result.output_str == "Queued hook is no longer available in the installed plugin"
         assert snapshot.retry_at is None
 
     @pytest.mark.django_db(transaction=True)

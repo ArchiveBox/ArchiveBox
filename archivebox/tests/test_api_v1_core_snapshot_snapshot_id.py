@@ -286,7 +286,7 @@ def test_snapshot_pause_resume_api_cascades_active_archiveresults_and_preserves_
         assert output_path.read_text() == "finished result should stay finished"
 
 
-def test_targeted_extract_retries_one_failed_archiveresult_while_snapshot_stays_paused(
+def test_targeted_extract_retries_one_failed_archiveresult_through_normal_snapshot_lifecycle(
     tmp_path,
     client,
     recursive_test_site,
@@ -370,8 +370,10 @@ def test_targeted_extract_retries_one_failed_archiveresult_while_snapshot_stays_
 
     with use_archivebox_db(tmp_path):
         snapshot = Snapshot.objects.get(id=snapshot_id)
-        assert snapshot.status == Snapshot.StatusChoices.PAUSED
-        assert snapshot.retry_at == RETRY_AT_MAX
+        assert snapshot.status == Snapshot.StatusChoices.STARTED
+        assert snapshot.retry_at is not None
+        assert snapshot.retry_at != RETRY_AT_MAX
+        assert snapshot.crawl.status == snapshot.crawl.StatusChoices.STARTED
 
         retried_wget = ArchiveResult.objects.get(id=wget_result.id)
         assert retried_wget.status == ArchiveResult.StatusChoices.SUCCEEDED

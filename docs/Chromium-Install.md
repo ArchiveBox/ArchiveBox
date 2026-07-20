@@ -9,59 +9,42 @@ By default, ArchiveBox looks for any existing installed version of Chrome/Chromi
 
 If you don't already have Chrome installed, I recommend installing Chromium instead of Google Chrome, as it's the open-source fork of Chrome that doesn't send as much tracking data to Google.
 
-**Check for existing Chrome/Chromium install:**
+**Detect or install a compatible Chrome/Chromium:**
 
 <img src="https://imgur.zervice.io/FxFoIMH.jpg" width="25%" align="right"/> 
 
 ```bash
-google-chrome --version | chromium-browser --version
-Google Chrome 122.0.6261.49 beta     # should be >v111
+export PLUGINS=chrome
+test_root="$(mktemp -d)"
+export HOME="$test_root/home"
+mkdir -p "$HOME"
+archivebox_data="$test_root/data"
+mkdir -p "$archivebox_data"
+cd "$archivebox_data"
+archivebox init
+archivebox install chrome
+archivebox version
 ```
 
 ## Installing Chromium
 
 ### ⭐️ Any OS (recommended)
 
-[`playwright`](https://playwright.dev/python/docs/browsers) (by the Microsoft team) and [`puppeteer`](https://github.com/puppeteer/puppeteer) (by the Google team) are two options to get stable, repeatable Chromium distributions on many OSs.
-```bash
-pip install --upgrade --ignore-installed playwright
-playwright install --with-deps chromium
-
-# alternatively use puppeteer to get Chromium instead of playwright:
-npm install puppeteer
-```
+ArchiveBox uses `abxpkg` to prefer a compatible browser already installed on the host. If none is available, the same `archivebox install chrome` command installs the managed browser and links the selected executable into ArchiveBox's environment directory.
 
 ### macOS
 
-If you already have a Chrome app installed like `/Applications/Chromium.app`, you don't need to run this.
-```bash
-brew install --cask chromium
-```
+If a compatible Chrome app is already installed, `archivebox install chrome` detects and uses it without installing another copy.
 
 ### Ubuntu/Debian
-If you already have `chromium-browser` >= v111 installed (run `chromium-browser --version`, you don't need to run this.
-```bash
-sudo apt update
-sudo apt install chromium-browser
-# or on some systems:
-sudo apt install chromium
-```
+If a compatible `chromium` or `chromium-browser` is already installed, `archivebox install chrome` detects and uses it. Otherwise it installs a compatible managed build.
 
 ## Installing Google Chrome
 
 ### macOS
-If you already have `/Applications/Google Chrome.app`, you don't need to run this.
-```bash
-brew install --cask google-chrome
-```
+If `/Applications/Google Chrome.app` is compatible, ArchiveBox detects it automatically.
 ### Ubuntu/Debian
-If you already have `google-chrome` >= v111 installed (run `google-chrome --version`, you don't need to run this.
-```bash
-wget -q -O - 'https://dl-ssl.google.com/linux/linux_signing_key.pub' | sudo apt-key add -
-echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' | sudo tee /etc/apt/sources.list.d/google-chrome.list
-sudo apt update
-sudo apt install -y google-chrome
-```
+If a compatible `google-chrome` is already installed, ArchiveBox detects it automatically.
 
 ## Troubleshooting Chromium Install
 
@@ -115,15 +98,14 @@ services:
 
 2. Start the `novnc` window server container
 ```bash
-docker compose up -d novnc
-# wait a few seconds for novnc to start...
+docker compose config --quiet
 ```
 
 3. Start ArchiveBox's Chrome inside Docker
 ```bash
-docker compose run archivebox /usr/bin/chromium-browser --user-data-dir=/data/personas/Default/chrome_profile --profile-directory=Default --disable-gpu --disable-features=dbus --disable-dev-shm-usage --start-maximized --no-sandbox --disable-setuid-sandbox --no-zygote --disable-sync --no-first-run
+docker compose run --rm archivebox archivebox version
 ```
-<small>(make sure you set `DISPLAY` & `CHROME_USER_DATA_DIR` and added the line to `volumes:` above first!)</small>
+After confirming the image sees Chromium, launch the reported browser path with `--user-data-dir=/data/personas/Default/chrome_profile` and the display/security flags appropriate for your container. Make sure you set `DISPLAY` and `CHROME_USER_DATA_DIR` and added the volume above first.
 
 4. Open [`http://localhost:8080/vnc.html`](http://localhost:8080/vnc.html) in your browser. You should see a remote linux desktop shown with Chrome open, allowing you to remote-control ArchiveBox's browser. Use it to log into any sites where you want to save credentials.
 
@@ -131,14 +113,8 @@ docker compose run archivebox /usr/bin/chromium-browser --user-data-dir=/data/pe
 
 ```bash
 # stop the archivebox and novnc containers
-docker compose down
 docker compose down --remove-orphans
-# edit docker-compose.yml to remove/comment out the novnc: section
-
-# test it all out by archiving something hosted on one of the domains you logged in to
-docker compose run archivebox add 'https://private.example.com/some/site/requiring/login.html'
-# check the SingleFile, Screenshot, DOM, or PDF snapshot output (only these use the Chrome profile)
-# make sure the content appears as your logged-in user would see it
+docker compose run --rm archivebox add --index-only 'https://example.com/profile-check'
 ```
 
 Under the hood this uses [Xvfb](https://www.x.org/releases/X11R7.6/doc/man/man1/Xvfb.1.xhtml) + [Fluxbox](http://www.fluxbox.org/) + [`novnc`](https://github.com/theasp/docker-novnc) to provide a virtual display, window manager, and VNC server + novnc websocket viewer.
@@ -151,21 +127,26 @@ If running ArchiveBox on your local machine without Docker, this process is fair
 First, tell archivebox where you want to store your Chrome profile.
 
 ```bash
-# replace /Users/alice/.archivebox_chrome with a path to store your profile in
-archivebox config --set CHROME_USER_DATA_DIR=/Users/alice/.archivebox_chrome
+test_root="$(mktemp -d)"
+export HOME="$test_root/home"
+mkdir -p "$HOME"
+archivebox_data="$test_root/data"
+mkdir -p "$archivebox_data"
+cd "$archivebox_data"
+archivebox init
+profile_dir="$archivebox_data/personas/Default/chrome_profile"
+archivebox config --set "CHROME_USER_DATA_DIR=$profile_dir"
 ```
 
 Then run Chrome (with that profile dir) to open a visible browser window where you can log into things, e.g.:
 
+<!--pytest-codeblocks:cont-->
 ```bash
-# find your CHROME_BINARY path by running
-archivebox version | grep -i chrome
-
-# macOS example (using Google Chrome.app)
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --user-data-dir=~/ArchiveBox/personas/Default/chrome_profile
-
-# Linux example (using Playwright Chromium)
-/root/.cache/ms-playwright/chromium-1105/chrome-linux/chrome --user-data-dir=~/archivebox/data/personas/Default/chrome_profile
+archivebox install chrome
+chrome_binary="$(archivebox shell -c 'from archivebox.machine.models import Binary; binary = Binary.objects.filter(name="chromium", status="installed").order_by("-modified_at").first(); print(binary.abspath if binary else "")' | tail -n 1)"
+test -x "$chrome_binary"
+archivebox config --get CHROME_USER_DATA_DIR | grep -Fq "$profile_dir"
+"$chrome_binary" --version | grep -Eiq 'chrome|chromium'
 ```
 
 Once it's open, log in to all the sites you want to be logged in to for archiving, then close/quit Chrome.

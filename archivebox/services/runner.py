@@ -1759,18 +1759,18 @@ def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: boo
                     retry_at=timezone.now(),
                     current_step=0,
                 )
-                return True
-            _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
-            run_crawl(
-                str(snapshot.crawl_id),
-                snapshot_ids=[str(snapshot.id)],
-                selected_plugins=selected_plugins,
-                process_discovered_snapshots_inline=True,
-                interactive_interrupts=interactive_interrupts,
-                config_overrides=config_overrides_for_queued_plugins(selected_plugins),
-                selected_plugins_are_explicit=False,
-            )
-            if search_only_plugins:
+                snapshot.refresh_from_db()
+            else:
+                _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
+                run_crawl(
+                    str(snapshot.crawl_id),
+                    snapshot_ids=[str(snapshot.id)],
+                    selected_plugins=selected_plugins,
+                    process_discovered_snapshots_inline=True,
+                    interactive_interrupts=interactive_interrupts,
+                    config_overrides=config_overrides_for_queued_plugins(selected_plugins),
+                    selected_plugins_are_explicit=False,
+                )
                 from archivebox.core.models import ArchiveResult
 
                 has_queued_results = ArchiveResult.objects.filter(
@@ -1793,10 +1793,11 @@ def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: boo
                         retry_at=timezone.now(),
                         modified_at=timezone.now(),
                     )
-            return True
-        if maintenance_ran:
-            return True
-        return run_snapshot_maintenance(str(snapshot.id))
+                return True
+        if snapshot.status == Snapshot.StatusChoices.SEALED:
+            if maintenance_ran:
+                return True
+            return run_snapshot_maintenance(str(snapshot.id))
 
     if snapshot.status == Snapshot.StatusChoices.STARTED:
         _reset_count, running_count = snapshot.reset_abandoned_results()
@@ -1808,15 +1809,18 @@ def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: boo
         return False
     snapshot.refresh_from_db()
     if snapshot.status == Snapshot.StatusChoices.QUEUED:
-        if snapshot.archiveresult_set.exists() and snapshot.is_finished_processing():
+        has_archiveresults = snapshot.archiveresult_set.exists()
+        if has_archiveresults and snapshot.is_finished_processing():
             snapshot.sm.tick()
             snapshot.refresh_from_db()
             if snapshot.status == Snapshot.StatusChoices.SEALED:
                 _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot, status="SEALED")
                 return True
-        # The runner owns queued Snapshot setup. Create missing enabled hook
-        # rows before ticking so queued lifecycle work has a durable hook set.
-        snapshot.create_pending_archiveresults(hooks=snapshot_hooks_for_pending_archiveresults(snapshot))
+        # A Snapshot with no hook rows is fresh lifecycle work; materialize its
+        # configured hook set. Existing rows are already the durable requested
+        # work set and must not be broadened during retry/recovery.
+        if not has_archiveresults:
+            snapshot.create_pending_archiveresults(hooks=snapshot_hooks_for_pending_archiveresults(snapshot))
         snapshot.sm.tick()
         snapshot.refresh_from_db()
         if snapshot.status == Snapshot.StatusChoices.SEALED:
@@ -1828,6 +1832,17 @@ def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: boo
         if snapshot.status == Snapshot.StatusChoices.SEALED:
             _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot, status="SEALED")
             return True
+    if snapshot.status == Snapshot.StatusChoices.STARTED:
+        queued_plugins, selected_hooks_by_plugin = queued_plugins_and_hooks_for_snapshot(str(snapshot.id))
+        if queued_plugins and selected_hooks_by_plugin:
+            fail_unavailable_queued_hooks(
+                str(snapshot.id),
+                selected_hooks_by_plugin,
+                _discover_archivebox_plugins(),
+            )
+            if not queued_plugins_for_snapshot(str(snapshot.id)):
+                finalize_completed_snapshot(str(snapshot.id), output_dir=Path(snapshot.output_dir))
+                return True
     _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
     run_crawl(
         str(snapshot.crawl_id),

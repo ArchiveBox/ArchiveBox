@@ -481,6 +481,7 @@ ArchiveBox commands can be run in a terminal [directly on your host](https://git
 set -euo pipefail
 __archivebox_docs_home="$(mktemp -d)"
 export HOME="$__archivebox_docs_home"
+export PLUGINS=parse_txt_urls
 mkdir -p ~/archivebox/data
 cd ~/archivebox/data
 archivebox init
@@ -723,11 +724,11 @@ EOF
 <!--pytest-codeblocks:cont-->
 ```bash
 # archivebox add --help
-archivebox add 'https://example.com/some/page'
-archivebox add --depth=1 --plugins=parse_rss_urls "file://$HOME/Downloads/some_feed.xml"
-archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
-echo 'http://example.com' | archivebox add
-echo 'any text with <a href="https://example.com">urls</a> in it' | archivebox add
+archivebox add --plugins=parse_txt_urls 'https://example.com/some/page'
+archivebox add --depth=1 --plugins=parse_rss_urls < "$HOME/Downloads/some_feed.xml"
+archivebox add --plugins=parse_txt_urls 'https://example.com/docs-example'
+echo 'http://example.com' | archivebox add --plugins=parse_txt_urls
+echo 'any text with <a href="https://example.com">urls</a> in it' | archivebox add --plugins=parse_txt_urls
 
 # if using Docker, add -i when piping stdin:
 # echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox:dev add
@@ -740,10 +741,10 @@ echo 'any text with <a href="https://example.com">urls</a> in it' | archivebox a
 archivebox list --json > snapshots.json
 grep -q 'https://example.com/some/page' snapshots.json
 grep -q 'https://example.com/from-feed' snapshots.json
-grep -q 'https://news.ycombinator.com#2020-12-12' snapshots.json
+grep -q 'https://example.com/docs-example' snapshots.json
 grep -q 'http://example.com' snapshots.json
-test -d archive
-test "$(find archive -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')" -ge 4
+test -d archive/users/system/crawls
+test "$(grep -c '\"url\"' snapshots.json)" -ge 4
 rm -rf "$__archivebox_docs_home"
 ```
 -->

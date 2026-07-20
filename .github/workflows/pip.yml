@@ -134,8 +134,6 @@ jobs:
 
       - name: Publish new package wheels and sdists to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        # ignore when publish to PyPI fails due to duplicate tag
-        continue-on-error: true
 
       - name: UV install archivebox and archivebox/pkgs/* locally for tests
         env:

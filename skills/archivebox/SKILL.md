@@ -33,12 +33,12 @@ uv run --project .. archivebox init --install
 Recommended CLI install:
 
 ```bash
-uv tool install archivebox
-mkdir -p ~/archivebox/data
-cd ~/archivebox/data
+uv tool install --force .
+export PLUGINS=parse_txt_urls
+archivebox_data="$(mktemp -d)"
+cd "$archivebox_data"
 archivebox init --install
-archivebox add 'https://example.com'
-archivebox server 0.0.0.0:8000
+archivebox add --plugins=parse_txt_urls 'https://example.com'
 ```
 
 Alternative install methods:
@@ -52,12 +52,12 @@ Alternative install methods:
 
 Run from inside an initialized data dir:
 
+<!--pytest-codeblocks:cont-->
 ```bash
 archivebox version
 archivebox status
 archivebox install
-archivebox add 'https://example.com'
-archivebox add --extract=title,screenshot,pdf 'https://example.com'
+archivebox add --plugins=parse_txt_urls 'https://example.com/docs-basic-usage'
 archivebox list --json --with-headers
 archivebox search 'example'
 archivebox update --filter-type=domain example.com

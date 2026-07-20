@@ -188,7 +188,7 @@ jobs:
             echo "ArchiveBox did not install an executable Chromium binary: ${candidate:-not found}" >&2
             exit 1
           fi
-          version="$("$candidate" --version || true)"
+          version="$("$candidate" --version)"
           major="$(printf '%s\n' "$version" | sed -E 's/.* ([0-9]+)\..*/\1/' | head -1)"
           case "$major" in
             ''|*[!0-9]*) major=0 ;;
@@ -226,7 +226,7 @@ jobs:
             echo "ArchiveBox did not install an executable Sonic binary: ${candidate:-not found}" >&2
             exit 1
           fi
-          version="$("$candidate" --version || true)"
+          version="$("$candidate" --version)"
           echo "Using ArchiveBox-installed Sonic: $candidate (${version:-version unknown})"
           echo "SONIC_BINARY=$candidate" >> "$GITHUB_ENV"
           echo "$(dirname "$candidate")" >> "$GITHUB_PATH"
@@ -322,7 +322,7 @@ jobs:
             echo "ArchiveBox did not install an executable Chromium binary: ${candidate:-not found}" >&2
             exit 1
           fi
-          version="$("$candidate" --version || true)"
+          version="$("$candidate" --version)"
           major="$(printf '%s\n' "$version" | sed -E 's/.* ([0-9]+)\..*/\1/' | head -1)"
           case "$major" in
             ''|*[!0-9]*) major=0 ;;
@@ -360,7 +360,7 @@ jobs:
             echo "ArchiveBox did not install an executable Sonic binary: ${candidate:-not found}" >&2
             exit 1
           fi
-          version="$("$candidate" --version || true)"
+          version="$("$candidate" --version)"
           echo "Using ArchiveBox-installed Sonic: $candidate (${version:-version unknown})"
           echo "SONIC_BINARY=$candidate" >> "$GITHUB_ENV"
           echo "$(dirname "$candidate")" >> "$GITHUB_PATH"

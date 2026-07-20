@@ -2634,10 +2634,16 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             return
 
         # Delete ArchiveResults that produced no output files
-        empty_ars = self.archiveresult_set.filter(
-            output_files={},  # No output files
-        ).filter(
-            status__in=ArchiveResult.FINAL_STATES,  # Only delete finished ones
+        empty_ars = (
+            self.archiveresult_set.filter(
+                output_files={},  # No output files
+            )
+            .filter(
+                status__in=ArchiveResult.FINAL_STATES,  # Only delete finished ones
+            )
+            .exclude(
+                status=ArchiveResult.StatusChoices.FAILED,
+            )
         )
 
         if empty_ars.exists():
