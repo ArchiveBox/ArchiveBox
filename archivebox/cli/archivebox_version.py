@@ -340,17 +340,19 @@ def version(
             signature = json.dumps(actual_record, sort_keys=True, default=str)
             declared_binary_specs.setdefault(signature, actual_record)
 
-    binary_bus = create_bus(name="ArchiveBoxVersionBinaryCheck")
-    BinaryService(binary_bus, auto_install=False, lib_dir=config.ABXPKG_LIB_DIR)
+    loaded_binaries: dict[str, BinaryEvent | None] = {}
+    if declared_binary_specs:
+        binary_bus = create_bus(name="ArchiveBoxVersionBinaryCheck")
+        BinaryService(binary_bus, auto_install=False, lib_dir=config.ABXPKG_LIB_DIR)
 
-    async def resolve_declared_binaries() -> dict[str, BinaryEvent | None]:
-        try:
-            return await resolve_binary_requests(binary_bus, declared_binary_specs)
-        finally:
-            await binary_bus.wait_until_idle()
-            await binary_bus.destroy(clear=False)
+        async def resolve_declared_binaries() -> dict[str, BinaryEvent | None]:
+            try:
+                return await resolve_binary_requests(binary_bus, declared_binary_specs)
+            finally:
+                await binary_bus.wait_until_idle()
+                await binary_bus.destroy(clear=False)
 
-    loaded_binaries = asyncio.run(resolve_declared_binaries())
+        loaded_binaries = asyncio.run(resolve_declared_binaries())
 
     rows: list[dict[str, object]] = []
     any_rows = False
