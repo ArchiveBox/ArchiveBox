@@ -123,7 +123,7 @@ def install(binaries: tuple[str, ...] = (), binproviders: str = "*", dry_run: bo
     # Django is already loaded, so just import and call the function directly
     from archivebox.cli.archivebox_version import version as show_version
 
-    show_version(quiet=False)
+    show_version(quiet=False, binaries=binaries)
 
 
 @click.command()
