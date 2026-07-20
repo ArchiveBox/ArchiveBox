@@ -403,10 +403,15 @@ def test_public_add_view_depth_one_crawl_skips_unreadable_persona_profile_entrie
                 crawl = Crawl.objects.order_by("-created_at").first()
                 depth_counts = get_depth_counts(tmp_path)
                 child_urls = set(Snapshot.objects.filter(depth=1).values_list("url", flat=True))
+                root_status = Snapshot.objects.filter(url=recursive_test_site["root_url"], depth=0).values_list("status", flat=True).first()
                 failed_results = list(
                     ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.FAILED).values_list("plugin", "output_str"),
                 )
-            if depth_counts.get(0, 0) >= 1 and set(recursive_test_site["child_urls"]).issubset(child_urls):
+            if (
+                depth_counts.get(0, 0) >= 1
+                and set(recursive_test_site["child_urls"]).issubset(child_urls)
+                and root_status == Snapshot.StatusChoices.SEALED
+            ):
                 break
             assert not failed_results
             time.sleep(2)
