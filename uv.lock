@@ -13,18 +13,18 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-07-15T08:32:20.111875863Z"
+exclude-newer = "2026-07-15T08:43:16.616337Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-07-20T08:32:19.111887515Z", span = "PT1S" }
+abxbus = { timestamp = "2026-07-20T08:43:15.616357Z", span = "PT1S" }
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
 
 [[package]]
 name = "abx-dl"
-version = "1.11.247"
+version = "1.11.248"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -39,9 +39,9 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0a/89/fa18d2abff5be5ca238238df86887d3b69d320f6d2eb74bf2b57ddb708f6/abx_dl-1.11.247.tar.gz", hash = "sha256:64763497fb6139b0bc6d583d25d9463ec878a8ee96a6b18501613063b087182e", size = 87093, upload-time = "2026-07-20T07:36:08.875Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/63/6c/3f7771933e0bda87a987e4484055eab2b230e3b60aea0b14f049ca2e6a77/abx_dl-1.11.248.tar.gz", hash = "sha256:0d023750a54f6ea48bf2c54bcb41384a89f92e0cc83f748d02c473221680e666", size = 87259, upload-time = "2026-07-20T08:40:44.5Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/31/ad6cb94fffc6cb5bb99f3c24ec6ce47727797a14ef2f74006489bdab8403/abx_dl-1.11.247-py3-none-any.whl", hash = "sha256:89d88602fd57f2bd99a19f64e003fb7b564802868587af57c578e28c7f3dc2c0", size = 90978, upload-time = "2026-07-20T07:36:07.476Z" },
+    { url = "https://files.pythonhosted.org/packages/96/46/ba380c8d5a43bce82be8f6de4e1faacfb8ffb7c6ef42d14a55a14a040177/abx_dl-1.11.248-py3-none-any.whl", hash = "sha256:22883588eb93ad718f08db5185e57045993fd2dc69deb22dab8dd17414065c7c", size = 91107, upload-time = "2026-07-20T08:40:43.363Z" },
 ]
 
 [[package]]
