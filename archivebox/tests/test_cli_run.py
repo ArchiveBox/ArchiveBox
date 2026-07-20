@@ -963,7 +963,7 @@ class TestRecoverOrchestratorState:
         snapshot.refresh_from_db()
         assert snapshot.status == Snapshot.StatusChoices.SEALED
         assert snapshot.retry_at is None
-        assert snapshot.downloaded_at is None
+        assert snapshot.downloaded_at is not None
 
     def test_create_pending_archiveresults_uses_canonical_hook_names(self):
         from django.utils import timezone
