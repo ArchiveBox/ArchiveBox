@@ -132,11 +132,6 @@ jobs:
         run: |
           uv build --all
 
-      - name: Publish new package wheels and sdists to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_PAT_SECRET }}
-
       - name: UV install archivebox and archivebox/pkgs/* locally for tests
         env:
           UV_PROJECT_ENVIRONMENT: ${{ github.workspace }}/.venv
