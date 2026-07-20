@@ -13,18 +13,18 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-07-15T03:36:12.885387007Z"
+exclude-newer = "2026-07-15T03:59:04.935948374Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-07-20T03:36:11.885397737Z", span = "PT1S" }
+abxbus = { timestamp = "2026-07-20T03:59:03.935969074Z", span = "PT1S" }
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
 
 [[package]]
 name = "abx-dl"
-version = "1.11.240"
+version = "1.11.241"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -39,14 +39,14 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/28/40/60a2e2c652fd2d2c23596e56bcccd0dc51f64f1ade1af7ef5d18ed220cad/abx_dl-1.11.240.tar.gz", hash = "sha256:c0296c15656613126896bf974bbf1a8ff642a2d11f70bf605d48f3d6668c94d2", size = 86512, upload-time = "2026-07-20T03:10:39.669Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/67/8f/e55d69bb7da3279ebe67d8217d69e55c70c1f80ca6b44a0a9dc5cde30909/abx_dl-1.11.241.tar.gz", hash = "sha256:44d4ee6adb2e9efeb83c92ffa34364cd07d05cdf794b5e5120acd3a9b5b4b087", size = 86506, upload-time = "2026-07-20T03:36:52.593Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/2b/e67f11493a76ab9769355b42e10a82e1d978867fa0ebe2305205b2d8556d/abx_dl-1.11.240-py3-none-any.whl", hash = "sha256:cc99ed739aa75e0b4bcab0b1e1372d7ec9caa3000941576ab4ac3849151eae65", size = 90404, upload-time = "2026-07-20T03:10:38.591Z" },
+    { url = "https://files.pythonhosted.org/packages/f5/20/60e929f38e799934a2e5ead263b36194af9a8c28d32ed070d5032879d341/abx_dl-1.11.241-py3-none-any.whl", hash = "sha256:68162ee5bcae63daf6903222c5ecd8b9ec62d67f500944230983e8bc572d972c", size = 90414, upload-time = "2026-07-20T03:36:51.468Z" },
 ]
 
 [[package]]
 name = "abx-plugins"
-version = "1.11.261"
+version = "1.11.262"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -57,9 +57,9 @@ dependencies = [
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "uv", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a2/59/0ab518a77fcbdd4975feb6ef8186fa9b1797015100f0f48985d933fbcf8a/abx_plugins-1.11.261.tar.gz", hash = "sha256:dd9b21a205fc40a7c65f31c3b8d17a284941908fe593da291ff479631474d250", size = 259379, upload-time = "2026-07-20T03:10:47.703Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d2/fa/01565f162eaab06f4417009d462b02c80d5a2eb1c2ba179b822b3560ca2d/abx_plugins-1.11.262.tar.gz", hash = "sha256:9b739ef43cd93a3af83fe20cf54da94dfe6a3d6d918f03223e4869ecd4b059f0", size = 259378, upload-time = "2026-07-20T03:42:08.11Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9d/bf/f301b5e197b61688abb4a294805e8c778c2fcb27e906b9f9498c79fa307f/abx_plugins-1.11.261-py3-none-any.whl", hash = "sha256:18d5d0b78c35a99fa897b51ca75a67cd02ee4d39966d7994e293046134acae1f", size = 408299, upload-time = "2026-07-20T03:10:46.39Z" },
+    { url = "https://files.pythonhosted.org/packages/5f/28/8aa6c58b3e69c033b814641dd35c0378d4a5ad03bc2e712e51a3bc0208f0/abx_plugins-1.11.262-py3-none-any.whl", hash = "sha256:3112e1dee03fb1c88b304b04da5318f9fcc34baea498c581ba7a739edd222d68", size = 408298, upload-time = "2026-07-20T03:42:06.331Z" },
 ]
 
 [[package]]
@@ -124,7 +124,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.35rc115"
+version = "0.9.35rc116"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
