@@ -706,7 +706,7 @@ def test_run_pending_crawls_processes_queued_crawl_and_real_binary(tmp_path):
     )
     binary = Binary.objects.create(
         machine=Machine.current(),
-        name="sh",
+        name="bash",
         status=Binary.StatusChoices.QUEUED,
         retry_at=timezone.now(),
         binproviders="env",
@@ -851,7 +851,7 @@ def test_run_pending_crawls_resolves_real_binary_through_abxpkg(tmp_path):
 
     binary = Binary.objects.create(
         machine=Machine.current(),
-        name="sh",
+        name="bash",
         status=Binary.StatusChoices.QUEUED,
         retry_at=runner_module.timezone.now(),
         binproviders="env",
