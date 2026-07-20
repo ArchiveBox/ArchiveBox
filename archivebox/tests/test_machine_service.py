@@ -1,5 +1,3 @@
-import os
-import shutil
 import textwrap
 from pathlib import Path
 
@@ -12,51 +10,22 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def _link_real_tool(bin_dir: Path, name: str) -> Path:
-    bin_dir.mkdir(parents=True, exist_ok=True)
-    source_path = shutil.which(name)
-    assert source_path, f"{name} must be installed for this integration test"
-    link = bin_dir / name
-    link.unlink(missing_ok=True)
-    link.symlink_to(source_path)
-    return link
-
-
-def _write_tool_shim(bin_dir: Path, name: str, version: str) -> Path:
-    bin_dir.mkdir(parents=True, exist_ok=True)
-    shim = bin_dir / name
-    shim.write_text(f"#!/bin/sh\nprintf '%s\\n' '{name} {version}'\n", encoding="utf-8")
-    shim.chmod(0o755)
-    return shim
-
-
-def _runtime_env(data_dir: Path, bin_dir: Path) -> dict[str, str]:
-    path_entries = [
-        str(bin_dir),
-        str(data_dir / "lib" / "env" / "bin"),
-        os.environ.get("PATH", ""),
-    ]
+def _runtime_env(data_dir: Path, **extra: str) -> dict[str, str]:
     return {
         "ABXPKG_LIB_DIR": str(data_dir / "lib"),
         "LITEPARSE_ENABLED": "True",
         "TIMEOUT": "180",
         "ABXPKG_INSTALL_TIMEOUT": "180",
-        "PATH": os.pathsep.join(entry for entry in path_entries if entry),
+        **extra,
     }
 
 
 def test_install_persists_machine_binary_config_and_recovers_stale_path(initialized_archive, tmp_path):
-    bootstrap_bin_dir = tmp_path / "realbin"
-    provider_bin_dir = initialized_archive / "lib" / "env" / "bin"
-    _link_real_tool(bootstrap_bin_dir, "uv")
-    _write_tool_shim(provider_bin_dir, "lit", "2.5.9")
-    _link_real_tool(provider_bin_dir, "node")
-
     _cmd_result = run_archivebox_cmd(
-        ["install", "--binproviders=env", "liteparse"],
+        ["install", "liteparse"],
         cwd=initialized_archive,
         timeout=240,
-        env=_runtime_env(initialized_archive, bootstrap_bin_dir),
+        env=_runtime_env(initialized_archive),
     )
     stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
@@ -79,8 +48,10 @@ def test_install_persists_machine_binary_config_and_recovers_stale_path(initiali
     assert process.status == Process.StatusChoices.EXITED
     assert process.exit_code == 0
 
-    external_tool = Path(shutil.which("node") or "")
-    assert external_tool.exists()
+    tesseract_binary = next(binary for binary in binaries if binary.name == "tesseract")
+    external_tool = Path(tesseract_binary.abspath)
+    assert external_tool.is_file()
+    assert external_tool.is_relative_to(initialized_archive / "lib")
     machine_event_script = textwrap.dedent(
         f"""
         import asyncio
@@ -99,7 +70,7 @@ def test_install_persists_machine_binary_config_and_recovers_stale_path(initiali
                 }}, config_type="user")).now()
                 await bus.emit(MachineEvent(config={{
                     "LITEPARSE_BINARY": {str(installed_liteparse_path)!r},
-                    "NODE_BINARY": {str(external_tool)!r},
+                    "LITEPARSE_TESSERACT_BINARY": {str(external_tool)!r},
                     "ABX_INSTALL_CACHE": {{"lit": "cached"}},
                     "ABX_UV_CACHE": "/tmp/uv-cache",
                     "CHROME_USER_DATA_DIR": "/tmp/derived-profile",
@@ -123,7 +94,7 @@ def test_install_persists_machine_binary_config_and_recovers_stale_path(initiali
         ["shell", "-c", machine_event_script],
         cwd=initialized_archive,
         timeout=60,
-        env=_runtime_env(initialized_archive, bootstrap_bin_dir),
+        env=_runtime_env(initialized_archive),
     )
     shell_stdout, shell_stderr, shell_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert shell_code == 0, shell_stdout + shell_stderr
@@ -133,6 +104,7 @@ def test_install_persists_machine_binary_config_and_recovers_stale_path(initiali
         machine = Machine.objects.get(pk=machine_id)
 
     assert machine.config["LITEPARSE_BINARY"] == str(installed_liteparse_path)
+    assert machine.config["LITEPARSE_TESSERACT_BINARY"] == str(external_tool)
     assert machine.config["LITEPARSE_BINARY"] != "/tmp/user-config-must-not-persist"
     assert machine.config["ABX_INSTALL_CACHE"] == {"lit": "cached"}
     assert machine.config["ABX_UV_CACHE"] == "/tmp/uv-cache"
@@ -141,7 +113,7 @@ def test_install_persists_machine_binary_config_and_recovers_stale_path(initiali
         ["version"],
         cwd=initialized_archive,
         timeout=60,
-        env=_runtime_env(initialized_archive, bootstrap_bin_dir),
+        env=_runtime_env(initialized_archive),
     )
     version_stdout, version_stderr, version_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert version_code == 0, version_stderr
@@ -153,7 +125,7 @@ def test_install_persists_machine_binary_config_and_recovers_stale_path(initiali
         ["version"],
         cwd=initialized_archive,
         timeout=60,
-        env=_runtime_env(initialized_archive, bootstrap_bin_dir),
+        env=_runtime_env(initialized_archive),
     )
     cleanup_stdout, cleanup_stderr, cleanup_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert cleanup_code == 0, cleanup_stdout + cleanup_stderr

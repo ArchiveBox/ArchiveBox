@@ -380,18 +380,16 @@ def isolated_data_dir(tmp_path):
 @pytest.fixture
 def hermetic_lib_dir(tmp_path, monkeypatch):
     """
-    Point ABXPKG_LIB_DIR at a tmp directory so the test can write fake binaries
-    without touching the real ``~/Library/Application Support/abx/lib`` (which
-    can contain symlinks to SIP-protected system binaries on macOS).
+    Point ABXPKG_LIB_DIR at a temporary directory for isolated abxpkg resolution.
 
     Opt-in only: most tests should reuse the cached real ABXPKG_LIB_DIR for speed —
     rebuilding from scratch per-test adds ~10× overhead. Use this only when
-    the test synthesizes binary paths or validates ABXPKG_LIB_DIR-relative behavior.
+    validating ABXPKG_LIB_DIR-relative behavior.
     """
     import archivebox.machine.models as machine_models
 
     lib_dir = tmp_path / "lib"
-    (lib_dir / "bin").mkdir(parents=True, exist_ok=True)
+    lib_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("ABXPKG_LIB_DIR", str(lib_dir))
     machine_models._CURRENT_MACHINE = None
     machine_models._CURRENT_PROCESS = None
@@ -1433,36 +1431,54 @@ def _get_machine_type() -> str:
     return f"{arch}-{os_name}{suffix}"
 
 
-def _find_cached_chrome(lib_dir: Path) -> Path | None:
-    candidates = [
-        lib_dir / "puppeteer" / "chromium",
-        lib_dir / "puppeteer",
-        lib_dir / "ms-playwright",
-        lib_dir / "pnpm" / "packages" / "chrome" / "node_modules" / "puppeteer" / ".local-chromium",
+def resolve_abxpkg_binary_env(
+    lib_dir: Path,
+    *binary_names: str,
+    env: dict[str, str] | None = None,
+    deps_from: Path | list[Path] | tuple[Path, ...] | None = None,
+    install: bool = True,
+) -> dict[str, str]:
+    """Resolve real test dependencies through abxpkg and return its exported env."""
+    command_env = os.environ.copy()
+    command_env.update(env or {})
+    command_env["ABXPKG_LIB_DIR"] = str(lib_dir)
+    command = [
+        str(Path(sys.executable).with_name("abxpkg")),
+        "env",
+        "--json",
+        f"--lib={lib_dir}",
     ]
-    for base in candidates:
-        if not base.exists():
-            continue
-        for path in base.rglob("Chromium.app/Contents/MacOS/Chromium"):
-            return path
-        for path in base.rglob("chrome-linux/chrome"):
-            return path
-        for path in base.rglob("chrome-linux64/chrome"):
-            return path
-    return None
+    if install:
+        command.append("--install")
+    deps_configs = [deps_from] if isinstance(deps_from, Path) else list(deps_from or ())
+    command.extend(f"--deps-from={config}:required_binaries" for config in deps_configs)
+    command.extend(binary_names)
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        env=command_env,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    payload = json.loads(result.stdout)
+    return {str(key): str(value) for key, value in payload.items()}
 
 
-def _find_system_browser() -> Path | None:
-    candidates = [
-        Path("/usr/bin/chromium"),
-        Path("/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary"),
-        Path("/Applications/Chromium.app/Contents/MacOS/Chromium"),
-        Path("/usr/bin/chromium-browser"),
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return None
+def resolve_abxpkg_chrome_env(lib_dir: Path, env: dict[str, str] | None = None) -> dict[str, str]:
+    from abx_plugins import get_plugins_dir
+
+    chrome_config = Path(get_plugins_dir()) / "chrome" / "config.json"
+    payload = resolve_abxpkg_binary_env(
+        lib_dir,
+        env=env,
+        deps_from=chrome_config,
+        install=False,
+    )
+    chrome_binary = Path(payload["CHROME_BINARY"])
+    node_binary = Path(payload["NODE_BINARY"])
+    assert chrome_binary.is_file()
+    assert node_binary.is_file()
+    return payload
 
 
 @pytest.fixture(scope="class")
@@ -1503,9 +1519,6 @@ def real_archive_with_example(tmp_path_factory, request):
         "USE_COLOR": "False",
         "RESPONSES_TIMEOUT": "30",
     }
-    system_browser = _find_system_browser()
-    if system_browser:
-        add_env["CHROME_BINARY"] = str(system_browser)
     _cmd_result = run_archivebox_cmd(
         ["add", "--depth=0", "--plugins=responses", "https://example.com"],
         cwd=tmp_path,

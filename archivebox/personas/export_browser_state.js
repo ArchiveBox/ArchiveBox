@@ -8,8 +8,8 @@
  *   CHROME_CDP_URL              Existing browser CDP URL to attach to
  *   COOKIES_OUTPUT_FILE         Optional output path for Netscape cookies.txt
  *   AUTH_STORAGE_OUTPUT_FILE    Optional output path for auth.json
- *   CHROME_BINARY               Optional browser binary override
- *   NODE_MODULES_DIR            Optional node_modules path for puppeteer-core
+ *   CHROME_BINARY               Absolute browser path resolved by abxpkg
+ *   NODE_MODULES_DIR            node_modules path resolved by abxpkg
  */
 
 const fs = require('fs');
@@ -116,9 +116,9 @@ async function openBrowser() {
     }
 
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'abx-browser-state-'));
-    const binary = process.env.CHROME_BINARY || chromeUtils.findAnyChromiumBinary();
-    if (!binary) {
-        throw new Error('Could not find a Chromium binary for browser state export');
+    const binary = process.env.CHROME_BINARY;
+    if (!binary || !path.isAbsolute(binary) || !fs.existsSync(binary)) {
+        throw new Error('CHROME_BINARY must be an absolute executable path resolved by abxpkg');
     }
 
     const launched = await chromeUtils.launchChromium({

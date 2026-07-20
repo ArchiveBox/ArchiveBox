@@ -7,7 +7,7 @@ import pytest
 
 from archivebox.core.models import Snapshot
 from archivebox.tests.test_orm_helpers import use_archivebox_db
-from .conftest import _find_cached_chrome, _find_system_browser
+from .conftest import resolve_abxpkg_chrome_env
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -22,15 +22,7 @@ def _install_chrome(tmp_path, env):
         timeout=600,
     )
     assert install_process.returncode == 0, install_process.stderr or install_process.stdout
-    cached_browser = _find_cached_chrome(Path(env["ABXPKG_LIB_DIR"]))
-    if cached_browser is not None:
-        env["CHROME_BINARY"] = str(cached_browser)
-        return
-    system_browser = _find_system_browser()
-    if system_browser:
-        env["CHROME_BINARY"] = str(system_browser)
-        return
-    raise AssertionError(install_process.stderr or install_process.stdout)
+    env.update(resolve_abxpkg_chrome_env(Path(env["ABXPKG_LIB_DIR"]), env))
 
 
 def _wait_for_snapshot_title(data_dir, *, timeout=60):

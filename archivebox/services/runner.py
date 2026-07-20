@@ -64,6 +64,7 @@ from archivebox.misc.db import run_db_analyze_batch
 from archivebox.core.shutdown_util import foreground_shutdown_signals, raise_if_shutdown_requested
 from archivebox.search.sonic_daemon import register_sonic_daemon_event_handler
 from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS
+from archivebox.crawls.locks import crawl_lifecycle_lock
 
 from .archive_result_service import ArchiveResultService
 from .binary_service import ArchiveBoxBinaryService, ArchiveBoxDBBinaryCacheBackend
@@ -330,11 +331,7 @@ class CrawlRunner:
         )
 
     async def run(self) -> None:
-        heartbeat = CrawlHeartbeat(
-            Path(self.crawl_output_dir),
-            runtime="archivebox",
-            crawl_id=str(self.crawl.id),
-        )
+        heartbeat: CrawlHeartbeat | None = None
         root_snapshot_id: str | None = None
         bus_destroyed = False
         try:
@@ -357,6 +354,11 @@ class CrawlRunner:
                 raise_on_first_signal=False,
             ):
                 snapshot_ids = await sync_to_async(self.load_run_state, thread_sensitive=True)()
+                heartbeat = CrawlHeartbeat(
+                    Path(self.crawl_output_dir),
+                    runtime="archivebox",
+                    crawl_id=str(self.crawl.id),
+                )
                 max_concurrent_snapshots = max(1, int(self.base_config.get("CRAWL_MAX_CONCURRENT_SNAPSHOTS", 1)))
                 self.max_concurrent_snapshots = max_concurrent_snapshots
                 self.snapshot_semaphore = asyncio.Semaphore(max_concurrent_snapshots)
@@ -374,7 +376,8 @@ class CrawlRunner:
                             await self.run_crawl(root_snapshot_id, snapshot_ids)
                     finally:
                         self._run_task = None
-                        await heartbeat.stop()
+                        if heartbeat is not None:
+                            await heartbeat.stop()
                         await self.stop_snapshot_tasks()
                         try:
                             await self.bus.wait_until_idle(timeout=1.0 if self._skip_wait_until_idle else 30.0)
@@ -386,7 +389,8 @@ class CrawlRunner:
         finally:
             if not bus_destroyed:
                 self._run_task = None
-                await heartbeat.stop()
+                if heartbeat is not None:
+                    await heartbeat.stop()
                 await self.stop_snapshot_tasks()
                 await self.bus.destroy(clear=False)
             if self._live_stream is not None:
@@ -1284,6 +1288,30 @@ def run_crawl(
     config_overrides: dict[str, Any] | None = None,
     selected_plugins_are_explicit: bool = True,
 ) -> None:
+    with crawl_lifecycle_lock(crawl_id):
+        _run_crawl_locked(
+            crawl_id,
+            snapshot_ids=snapshot_ids,
+            selected_plugins=selected_plugins,
+            process_discovered_snapshots_inline=process_discovered_snapshots_inline,
+            show_progress=show_progress,
+            interactive_interrupts=interactive_interrupts,
+            config_overrides=config_overrides,
+            selected_plugins_are_explicit=selected_plugins_are_explicit,
+        )
+
+
+def _run_crawl_locked(
+    crawl_id: str,
+    *,
+    snapshot_ids: list[str] | None = None,
+    selected_plugins: list[str] | None = None,
+    process_discovered_snapshots_inline: bool = True,
+    show_progress: bool = True,
+    interactive_interrupts: bool = False,
+    config_overrides: dict[str, Any] | None = None,
+    selected_plugins_are_explicit: bool = True,
+) -> None:
     from archivebox.crawls.models import Crawl
     from django.db import close_old_connections
 
@@ -1578,6 +1606,15 @@ def run_snapshot_maintenance(snapshot_id: str, *, output_dir: Path | None = None
 
 
 def run_due_crawl(crawl, *, lock_seconds: int, interactive_interrupts: bool = False) -> bool:
+    with crawl_lifecycle_lock(str(crawl.id)):
+        return _run_due_crawl_locked(
+            crawl,
+            lock_seconds=lock_seconds,
+            interactive_interrupts=interactive_interrupts,
+        )
+
+
+def _run_due_crawl_locked(crawl, *, lock_seconds: int, interactive_interrupts: bool = False) -> bool:
     try:
         crawl.refresh_from_db(fields=["status", "retry_at", "modified_at"])
     except type(crawl).DoesNotExist:
@@ -1670,6 +1707,16 @@ def run_due_crawl(crawl, *, lock_seconds: int, interactive_interrupts: bool = Fa
 
 
 def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: bool = False, runtime_config=None) -> bool:
+    with crawl_lifecycle_lock(str(snapshot.crawl_id)):
+        return _run_due_snapshot_locked(
+            snapshot,
+            lock_seconds=lock_seconds,
+            interactive_interrupts=interactive_interrupts,
+            runtime_config=runtime_config,
+        )
+
+
+def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interrupts: bool = False, runtime_config=None) -> bool:
     from archivebox.core.models import Snapshot
 
     try:
@@ -1822,15 +1869,15 @@ def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: boo
 
 
 def run_due_binary(binary, *, lock_seconds: int) -> bool:
-    binary_name = str(binary.name or "")
-    binary_path = Path(binary_name).expanduser()
-    if (binary_path.is_absolute() or binary_name.startswith("~")) and not binary_path.exists():
-        binary.retry_at = None
-        binary.save(update_fields=["retry_at", "modified_at"])
-        return True
-    if not binary.claim_processing_lock(lock_seconds=lock_seconds):
-        return False
-    run_binary(str(binary.id))
+    from archivebox.crawls.locks import binary_lifecycle_lock
+
+    with binary_lifecycle_lock(str(binary.id)):
+        binary.refresh_from_db()
+        if binary.status == binary.StatusChoices.INSTALLED:
+            return True
+        if not binary.claim_processing_lock(lock_seconds=lock_seconds):
+            return False
+        run_binary(str(binary.id))
     return True
 
 

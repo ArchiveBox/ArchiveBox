@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from asgiref.sync import sync_to_async
 
+from archivebox.tests.conftest import resolve_abxpkg_binary_env
 
 pytestmark = pytest.mark.django_db
 
@@ -416,9 +417,9 @@ def test_machine_service_persists_only_derived_config_events(tmp_path, hermetic_
     machine = Machine.current()
     machine.config = {}
     machine.save(update_fields=["config"])
-    wget_binary = hermetic_lib_dir / "bin" / "wget"
-    wget_binary.write_text("#!/bin/sh\n")
-    wget_binary.chmod(0o755)
+    resolve_abxpkg_binary_env(hermetic_lib_dir, "wget")
+    wget_binary = hermetic_lib_dir / "env" / "bin" / "wget"
+    assert wget_binary.is_symlink()
 
     async def run_test():
         bus = create_bus(name="test_machine_service_persists_only_derived_config_events")
@@ -491,13 +492,10 @@ def test_load_run_state_uses_real_lib_dir_for_machine_binary_config(tmp_path, he
     resolved_lib_dir = get_config(include_machine=False).ABXPKG_LIB_DIR
     assert resolved_lib_dir == hermetic_lib_dir, f"ABXPKG_LIB_DIR override not applied: {resolved_lib_dir!r} != {hermetic_lib_dir!r}"
 
-    wget_binary = resolved_lib_dir / "bin" / "wget"
-    wget_binary.write_text("#!/bin/sh\n", encoding="utf-8")
-    wget_binary.chmod(0o755)
-    external_binary = tmp_path / "external" / "yt-dlp"
-    external_binary.parent.mkdir(parents=True)
-    external_binary.write_text("#!/bin/sh\n", encoding="utf-8")
-    external_binary.chmod(0o755)
+    resolve_abxpkg_binary_env(resolved_lib_dir, "wget")
+    wget_binary = resolved_lib_dir / "env" / "bin" / "wget"
+    assert wget_binary.is_symlink()
+    external_binary = Path(sys.executable)
 
     machine = Machine.current()
     machine.config = {
@@ -687,8 +685,7 @@ def test_crawl_runner_resolves_persona_and_crawl_config_for_each_live_snapshot()
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.django_db(transaction=True)
-def test_run_pending_crawls_processes_queued_crawl_before_missing_binary_backlog(tmp_path):
+def test_run_pending_crawls_processes_queued_crawl_and_real_binary(tmp_path):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
@@ -709,11 +706,10 @@ def test_run_pending_crawls_processes_queued_crawl_before_missing_binary_backlog
     )
     binary = Binary.objects.create(
         machine=Machine.current(),
-        name=str(tmp_path / "missing-node"),
+        name="sh",
         status=Binary.StatusChoices.QUEUED,
         retry_at=timezone.now(),
-        binproviders="env,apt",
-        overrides={"apt": {"install_args": ["nodejs"]}},
+        binproviders="env",
     )
 
     result = run_pending_crawls(daemon=False)
@@ -724,8 +720,10 @@ def test_run_pending_crawls_processes_queued_crawl_before_missing_binary_backlog
     assert crawl.status == Crawl.StatusChoices.SEALED
     assert crawl.retry_at is None
     assert Snapshot.objects.filter(crawl=crawl, status=Snapshot.StatusChoices.SEALED).count() == 1
-    assert binary.status == Binary.StatusChoices.QUEUED
+    assert binary.status == Binary.StatusChoices.INSTALLED
     assert binary.retry_at is None
+    assert Path(binary.abspath).is_symlink()
+    assert binary.binprovider == "env"
 
 
 @pytest.mark.django_db(transaction=True)
@@ -846,26 +844,27 @@ def test_abx_process_service_background_process_finishes_after_process_exit(tmp_
     assert any(isinstance(event, ProcessCompletedEvent) for event in emitted_events)
 
 
-def test_run_pending_crawls_disables_missing_absolute_binary_backlog(tmp_path):
+@pytest.mark.django_db(transaction=True)
+def test_run_pending_crawls_resolves_real_binary_through_abxpkg(tmp_path):
     from archivebox.machine.models import Binary, Machine
     from archivebox.services import runner as runner_module
 
-    missing_binary = tmp_path / "missing-node"
     binary = Binary.objects.create(
         machine=Machine.current(),
-        name=str(missing_binary),
+        name="sh",
         status=Binary.StatusChoices.QUEUED,
         retry_at=runner_module.timezone.now(),
-        binproviders="env,apt",
-        overrides={"apt": {"install_args": ["nodejs"]}},
+        binproviders="env",
     )
 
     result = runner_module.run_pending_crawls(daemon=False)
 
     binary.refresh_from_db()
     assert result == 0
-    assert binary.status == Binary.StatusChoices.QUEUED
+    assert binary.status == Binary.StatusChoices.INSTALLED
     assert binary.retry_at is None
+    assert Path(binary.abspath).is_symlink()
+    assert binary.binprovider == "env"
 
 
 @pytest.mark.django_db(transaction=True)

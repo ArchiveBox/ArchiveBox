@@ -54,10 +54,6 @@ class ArchiveBoxDBBinaryCacheBackend:
                 continue
 
             provider = _provider_for_name(provider_name, installed.name, native_overrides)
-            if await sync_to_async(_cached_provider_path_is_stale, thread_sensitive=True)(installed_path, provider, installed.name):
-                await _mark_binary_queued(installed)
-                continue
-
             binary_env = BinProvider.build_exec_env(providers=[provider], base_env={}) if provider is not None else {}
             provider_names = _provider_names(installed.binproviders or request.binproviders or "env")
             return AbxBinary.model_validate(
@@ -403,15 +399,6 @@ async def _mark_binary_queued(binary) -> None:
     binary.status = Binary.StatusChoices.QUEUED
     binary.retry_at = None
     await binary.asave(update_fields=["status", "retry_at", "modified_at"])
-
-
-def _cached_provider_path_is_stale(installed_path: Path, provider: BinProvider | None, binary_name: str) -> bool:
-    if provider is None:
-        return False
-    current_abspath = provider.get_abspath(binary_name, quiet=True, no_cache=True)
-    if not current_abspath:
-        return True
-    return Path(current_abspath).expanduser().resolve(strict=False) != installed_path
 
 
 def _persisted_overrides_for_request(request: BinaryRequestEvent | None) -> dict[str, Any]:

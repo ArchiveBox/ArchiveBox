@@ -20,6 +20,8 @@ from pathlib import Path
 import pytest
 import rich_click as click
 
+from archivebox.tests.conftest import resolve_abxpkg_binary_env
+
 # Set up Django before importing any Django-dependent modules
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "archivebox.settings")
 
@@ -524,7 +526,10 @@ print(json.dumps({"type": "ArchiveResult", "status": "succeeded", "output_str": 
 
     def test_js_hook_execution(self, tmp_path):
         """JavaScript hook should execute and output JSONL."""
-        assert shutil.which("node") is not None, "Node.js not available"
+        lib_dir = tmp_path / "lib"
+        node_env = resolve_abxpkg_binary_env(lib_dir, "node")
+        node_binary = lib_dir / "env" / "bin" / "node"
+        assert node_binary.is_symlink()
 
         hook_path = tmp_path / "test_hook.js"
         hook_path.write_text("""#!/usr/bin/env node
@@ -532,10 +537,11 @@ console.log(JSON.stringify({type: 'ArchiveResult', status: 'succeeded', output_s
 """)
 
         result = subprocess.run(
-            ["node", str(hook_path)],
+            [str(node_binary), str(hook_path)],
             cwd=tmp_path,
             capture_output=True,
             text=True,
+            env={**os.environ, **node_env},
         )
 
         assert result.returncode == 0

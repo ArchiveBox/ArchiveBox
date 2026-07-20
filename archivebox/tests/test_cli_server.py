@@ -8,7 +8,6 @@ import os
 import asyncio
 import json
 import signal
-import shutil
 import socket
 import subprocess
 import sys
@@ -30,7 +29,17 @@ from archivebox.tests.conftest import (
     wait_for_port_open,
     wait_for_process,
     run_archivebox_cmd,
+    resolve_abxpkg_binary_env,
 )
+
+
+def _resolve_sonic_env(data_dir: Path) -> dict[str, str]:
+    from abx_plugins import get_plugins_dir
+
+    config = Path(get_plugins_dir()) / "search_backend_sonic" / "config.json"
+    resolved = resolve_abxpkg_binary_env(data_dir / "lib", deps_from=config)
+    assert Path(resolved["SONIC_BINARY"]).is_file()
+    return resolved
 
 
 def test_server_auth_secret_and_cookie_settings_are_restart_stable(tmp_path, monkeypatch):
@@ -206,11 +215,11 @@ def test_reload_workers_use_current_interpreter_and_supervisord_managed_runner()
     assert watcher["command"] == f"{sys.executable} -m archivebox manage runner_watch --bind-url=http://127.0.0.1:8000"
 
 
-def test_server_daemon_starts_real_plugin_owned_sonic_worker(archivebox_daemon_server):
-    assert shutil.which("sonic") is not None, "sonic server binary is required for Sonic worker integration tests"
-
+def test_server_daemon_starts_real_plugin_owned_sonic_worker(initialized_archive, archivebox_daemon_server):
+    sonic_env = _resolve_sonic_env(initialized_archive)
     server = archivebox_daemon_server(
         SEARCH_BACKEND_ENGINE="sonic",
+        **sonic_env,
     )
     state = server.wait_for_workers(("worker_daphne", "worker_sonic", "worker_runner"))
 
@@ -330,18 +339,18 @@ def test_sonic_worker_is_disabled_when_sonic_disabled(tmp_path):
     assert worker is None
 
 
-def test_sonic_daemon_event_handler_accepts_real_running_worker(archivebox_daemon_server):
-    assert shutil.which("sonic") is not None, "sonic server binary is required for Sonic worker integration tests"
-
+def test_sonic_daemon_event_handler_accepts_real_running_worker(initialized_archive, archivebox_daemon_server):
     from abx_dl.events import ProcessStdoutEvent
     from abx_dl.orchestrator import create_bus
     from archivebox.search.sonic_daemon import register_sonic_daemon_event_handler
     from abx_plugins.plugins.search_backend_sonic.daemon import prepare_sonic_daemon
 
     sonic_port = get_free_port()
+    sonic_env = _resolve_sonic_env(initialized_archive)
     server = archivebox_daemon_server(
         SEARCH_BACKEND_ENGINE="sonic",
         SEARCH_BACKEND_SONIC_PORT=str(sonic_port),
+        **sonic_env,
     )
     state = server.wait_for_workers(("worker_sonic",))
     assert state["worker_sonic"]["statename"] == "RUNNING", state
@@ -353,7 +362,7 @@ def test_sonic_daemon_event_handler_accepts_real_running_worker(archivebox_daemo
             SEARCH_BACKEND_SONIC_HOST_NAME="127.0.0.1",
             SEARCH_BACKEND_SONIC_PORT=sonic_port,
             SEARCH_BACKEND_SONIC_PASSWORD="SecretPassword",
-            SONIC_BINARY="sonic",
+            SONIC_BINARY=sonic_env["SONIC_BINARY"],
         ),
     )
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import textwrap
 import time
@@ -14,7 +13,7 @@ from urllib.parse import urlencode
 
 import pytest
 
-from .conftest import _find_cached_chrome, _find_system_browser, run_python_cwd
+from .conftest import resolve_abxpkg_chrome_env, run_python_cwd
 from .conftest import (
     cli_env,
     get_free_port,
@@ -257,42 +256,8 @@ main().catch((error) => {
 """
 
 
-def _resolve_browser(shared_lib: Path) -> Path | None:
-    env_browser = os.environ.get("CHROME_BINARY") or os.environ.get("CHROME_BIN")
-    if env_browser:
-        candidate = Path(env_browser).expanduser()
-        if candidate.exists():
-            return candidate
-
-    system = _find_system_browser()
-    if system and system.exists():
-        return system
-
-    cached = _find_cached_chrome(shared_lib)
-    if cached and cached.exists():
-        return cached
-
-    which_candidates = ("chromium", "chromium-browser")
-    for binary in which_candidates:
-        resolved = shutil.which(binary)
-        if resolved:
-            return Path(resolved)
-
-    mac_candidates = (
-        Path("/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary"),
-        Path("/Applications/Chromium.app/Contents/MacOS/Chromium"),
-    )
-    for candidate in mac_candidates:
-        if candidate.exists():
-            return candidate
-
-    return None
-
-
 @pytest.fixture
 def browser_runtime(initialized_archive: Path):
-    assert shutil.which("node") is not None, "Node.js is required for browser security tests"
-
     shared_lib = initialized_archive / "lib"
     env = cli_env(
         ABXPKG_INSTALL_TIMEOUT="900",
@@ -311,13 +276,14 @@ def browser_runtime(initialized_archive: Path):
     )
     assert install_result.returncode == 0, install_result.stderr or install_result.stdout
 
-    browser = _resolve_browser(shared_lib)
-    assert browser, "No Chrome/Chromium binary available for browser security tests"
+    resolved_env = resolve_abxpkg_chrome_env(shared_lib, env)
 
     return {
         "lib_dir": shared_lib,
-        "node_modules_dir": shared_lib / "pnpm" / "packages" / "chrome" / "node_modules",
-        "chrome_binary": browser,
+        "node_modules_dir": Path(resolved_env["NODE_MODULES_DIR"]),
+        "node_path": resolved_env["NODE_PATH"],
+        "node_binary": Path(resolved_env["NODE_BINARY"]),
+        "chrome_binary": Path(resolved_env["CHROME_BINARY"]),
     }
 
 
@@ -438,7 +404,12 @@ def _seed_archive(data_dir: Path) -> dict[str, object]:
     return json.loads(stdout.strip())
 
 
-def _build_probe_config(mode: str, port: int, fixture: dict[str, object], runtime: dict[str, Path]) -> dict[str, str]:
+def _build_probe_config(
+    mode: str,
+    port: int,
+    fixture: dict[str, object],
+    runtime: dict[str, Path | str],
+) -> dict[str, str]:
     snapshots = fixture["snapshots"]
     attacker = snapshots["attacker"]
     victim = snapshots["victim"]
@@ -478,7 +449,7 @@ def _build_probe_config(mode: str, port: int, fixture: dict[str, object], runtim
 
 def _run_browser_probe(
     data_dir: Path,
-    runtime: dict[str, Path],
+    runtime: dict[str, Path | str],
     mode: str,
     fixture: dict[str, object],
     tmp_path: Path,
@@ -533,14 +504,14 @@ def _run_browser_probe(
     probe_config = _build_probe_config(mode, port, fixture, runtime)
 
     env = os.environ.copy()
-    env["NODE_PATH"] = str(runtime["node_modules_dir"])
+    env["NODE_PATH"] = str(runtime["node_path"])
     env["NODE_MODULES_DIR"] = str(runtime["node_modules_dir"])
     env["CHROME_BINARY"] = str(runtime["chrome_binary"])
     env["USE_COLOR"] = "False"
 
     try:
         result = subprocess.run(
-            ["node", str(probe_path)],
+            [str(runtime["node_binary"]), str(probe_path)],
             cwd=data_dir,
             env=env,
             input=json.dumps(probe_config),
@@ -595,18 +566,23 @@ def _wait_for_archivewebpage_capture(data_dir: Path, url: str, timeout: float = 
     raise AssertionError(f"timed out waiting for archivewebpage capture: {last_state}")
 
 
-def _run_wacz_preview_probe(data_dir: Path, runtime: dict[str, Path], detail_url: str, tmp_path: Path) -> dict[str, object]:
+def _run_wacz_preview_probe(
+    data_dir: Path,
+    runtime: dict[str, Path | str],
+    detail_url: str,
+    tmp_path: Path,
+) -> dict[str, object]:
     probe_path = tmp_path / "wacz_preview_probe.js"
     probe_path.write_text(PUPPETEER_WACZ_PREVIEW_SCRIPT, encoding="utf-8")
 
     env = os.environ.copy()
-    env["NODE_PATH"] = str(runtime["node_modules_dir"])
+    env["NODE_PATH"] = str(runtime["node_path"])
     env["NODE_MODULES_DIR"] = str(runtime["node_modules_dir"])
     env["CHROME_BINARY"] = str(runtime["chrome_binary"])
     env["USE_COLOR"] = "False"
 
     result = subprocess.run(
-        ["node", str(probe_path)],
+        [str(runtime["node_binary"]), str(probe_path)],
         cwd=data_dir,
         env=env,
         input=json.dumps(
@@ -776,7 +752,7 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archi
         TIMEOUT="90",
     )
     env["ABXPKG_LIB_DIR"] = str(browser_runtime["lib_dir"])
-    env["NODE_PATH"] = str(browser_runtime["node_modules_dir"])
+    env["NODE_PATH"] = str(browser_runtime["node_path"])
     env["NODE_MODULES_DIR"] = str(browser_runtime["node_modules_dir"])
     env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(
         browser_runtime["lib_dir"] / "chromewebstore" / "extensions",

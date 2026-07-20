@@ -1052,7 +1052,15 @@ def delete_snapshot(request: HttpRequest, snapshot_id: str):
     snapshot = get_snapshot(request, snapshot_id, with_archiveresults=False)
     snapshot_id_str = str(snapshot.id)
     crawl_id_str = str(snapshot.crawl.pk)
-    deleted_count, _ = snapshot.delete()
+    snapshot.cancel()
+
+    from archivebox.crawls.locks import crawl_lifecycle_lock
+    from archivebox.services.runner import run_pending_crawls
+
+    with crawl_lifecycle_lock(crawl_id_str):
+        run_pending_crawls(crawl_id=crawl_id_str, daemon=False)
+        snapshot = get_snapshot(request, snapshot_id_str, with_archiveresults=False)
+        deleted_count, _ = snapshot.delete()
     return {
         "success": True,
         "snapshot_id": snapshot_id_str,

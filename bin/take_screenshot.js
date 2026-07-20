@@ -6,7 +6,6 @@ const puppeteer = require('puppeteer');
 
 const DEFAULT_URL = 'http://web.archivebox.localhost:8000/add/';
 const DEFAULT_OUTPUT = 'tmp/add-page.png';
-const DEFAULT_CHROME = '/Users/squash/Library/Application Support/abx/lib/puppeteer/bin/chromium';
 
 function usage() {
   console.log(`
@@ -18,7 +17,6 @@ Environment:
   SCREENSHOT_COOKIE_NAME     Cookie name, defaults to sessionid
   SCREENSHOT_COOKIE_DOMAIN   Cookie domain, defaults to admin.archivebox.localhost
   CHROME_BINARY              Chromium/Chrome executable path
-  PUPPETEER_EXECUTABLE_PATH  Chromium/Chrome executable path
   SCREENSHOT_WIDTH           Viewport width, defaults to 1600
   SCREENSHOT_HEIGHT          Viewport height, defaults to 1400
   SCREENSHOT_FULL_PAGE       Set to 1 to capture the full page, defaults to viewport only
@@ -42,8 +40,11 @@ function firstPositionalArg(index) {
 }
 
 function chromePath() {
-  const configured = process.env.CHROME_BINARY || process.env.PUPPETEER_EXECUTABLE_PATH || DEFAULT_CHROME;
-  return fs.existsSync(configured) ? configured : undefined;
+  const configured = process.env.CHROME_BINARY;
+  if (!configured || !path.isAbsolute(configured) || !fs.existsSync(configured)) {
+    throw new Error('CHROME_BINARY must be an absolute executable path resolved by abxpkg');
+  }
+  return configured;
 }
 
 async function main() {
@@ -63,20 +64,11 @@ async function main() {
   const launchOptions = {
     headless: true,
     defaultViewport: { width, height },
-    // Default protocolTimeout is 30s; admin pages with many DB-backed
-    // partials (snapshot grid, progress monitor, etc.) routinely take
-    // longer to capture on a busy server. Lift to 5min — failures should
-    // be the server actually being slow, not the CDP heartbeat.
-    protocolTimeout: 300_000,
+    executablePath: chromePath(),
   };
   if (process.env.SCREENSHOT_HOST_RESOLVER_RULES) {
     launchOptions.args = [`--host-resolver-rules=${process.env.SCREENSHOT_HOST_RESOLVER_RULES}`];
   }
-  const executablePath = chromePath();
-  if (executablePath) {
-    launchOptions.executablePath = executablePath;
-  }
-
   const browser = await puppeteer.launch(launchOptions);
   try {
     const page = await browser.newPage();

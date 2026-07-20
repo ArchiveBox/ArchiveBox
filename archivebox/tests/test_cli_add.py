@@ -16,7 +16,6 @@ from archivebox.core.models import ArchiveResult, Snapshot, SnapshotTag
 from archivebox.crawls.models import Crawl
 from archivebox.machine.models import Process
 from archivebox.tests.conftest import (
-    _find_system_browser,
     cli_env,
     find_snapshot_dir,
     get_free_port,
@@ -24,6 +23,7 @@ from archivebox.tests.conftest import (
     run_queued_crawls,
     start_archivebox_server,
     stop_server,
+    resolve_abxpkg_chrome_env,
 )
 
 from archivebox.tests.test_orm_helpers import use_archivebox_db
@@ -1095,9 +1095,6 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(initialized_a
         "CHROME_SANDBOX": "false",
         "CHROME_ISOLATION": "snapshot",
     }
-    system_browser = _find_system_browser()
-    if system_browser:
-        chrome_env["CHROME_BINARY"] = str(system_browser)
     _cmd_result = run_archivebox_cmd(
         ["install", "chrome"],
         cwd=initialized_archive,
@@ -1106,6 +1103,7 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(initialized_a
     )
     install_stdout, install_stderr, install_returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert install_returncode == 0, install_stderr or install_stdout
+    chrome_env.update(resolve_abxpkg_chrome_env(Path(chrome_env["ABXPKG_LIB_DIR"]), chrome_env))
     _cmd_result = run_archivebox_cmd(
         [
             "add",

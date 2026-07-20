@@ -1305,71 +1305,23 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         return created_snapshots
 
     def install_declared_binaries(self, binary_names: set[str], machine=None) -> None:
-        """
-        Install crawl-declared Binary rows without violating the retry_at lock lifecycle.
-
-        Correct calling pattern:
-        1. Crawl hooks declare Binary records and queue them with retry_at <= now
-        2. Exactly one actor claims each Binary by moving retry_at into the future
-        3. Only that owner executes `.sm.tick()` and performs install side effects
-        4. Everyone else waits for the claimed owner to finish instead of launching
-           a second install against shared state such as the pip or npm trees
-
-        This helper follows that contract by claiming each Binary before ticking
-        it, and by waiting when another worker already owns the row. That keeps
-        synchronous crawl execution compatible with the shared background runner and
-        avoids duplicate installs of the same dependency.
-        """
-        import time
+        """Install crawl-declared binaries through their unified state machine."""
+        from archivebox.crawls.locks import binary_lifecycle_lock
         from archivebox.machine.models import Binary, Machine
 
         if not binary_names:
             return
 
         machine = machine or Machine.current()
-        lock_seconds = 600
-        deadline = time.monotonic() + max(lock_seconds, len(binary_names) * lock_seconds)
-
-        while time.monotonic() < deadline:
-            unresolved_binaries = list(
-                Binary.objects.filter(
-                    machine=machine,
-                    name__in=binary_names,
-                )
-                .exclude(
-                    status=Binary.StatusChoices.INSTALLED,
-                )
-                .order_by("name"),
-            )
-            if not unresolved_binaries:
-                return
-
-            claimed_any = False
-            waiting_on_existing_owner = False
-            now = timezone.now()
-
-            for binary in unresolved_binaries:
-                try:
-                    if binary.tick_claimed(lock_seconds=lock_seconds):
-                        claimed_any = True
-                        continue
-                except Exception:
-                    claimed_any = True
-                    continue
-
+        binaries = Binary.objects.filter(machine=machine, name__in=binary_names).order_by("name")
+        for binary in binaries:
+            with binary_lifecycle_lock(str(binary.id)):
                 binary.refresh_from_db()
                 if binary.status == Binary.StatusChoices.INSTALLED:
-                    claimed_any = True
                     continue
-                if binary.retry_at and binary.retry_at > now:
-                    waiting_on_existing_owner = True
-
-            if claimed_any:
-                continue
-            if waiting_on_existing_owner:
-                time.sleep(0.5)
-                continue
-            break
+                binary.update_and_requeue(retry_at=timezone.now())
+                binary.refresh_from_db()
+                binary.tick_claimed(lock_seconds=600)
 
         unresolved_binaries = list(
             Binary.objects.filter(
@@ -1401,7 +1353,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         import time
         from archivebox.plugins.hooks import run_hook, discover_hooks, process_hook_records
         from archivebox.config.common import get_config
-        from archivebox.machine.models import Binary, Machine
+        from archivebox.machine.models import Machine
 
         def get_runtime_config():
             return get_config(crawl=self).for_crawl_runtime(
@@ -1429,10 +1381,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 chrome_binary=chrome_binary,
             )
 
-        executed_crawl_hooks: set[str] = set()
-
         def run_crawl_hook(hook: Path) -> set[str]:
-            executed_crawl_hooks.add(str(hook))
             primary_url = next(
                 (line.strip() for line in self.urls.splitlines() if line.strip()),
                 self.urls.strip(),
@@ -1493,53 +1442,12 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 declared_binary_names.update(hook_binary_names)
             return hook_binary_names
 
-        def resolve_provider_binaries(binary_names: set[str]) -> set[str]:
-            if not binary_names:
-                return set()
-
-            resolved_binary_names = set(binary_names)
-
-            while True:
-                unresolved_binaries = list(
-                    Binary.objects.filter(
-                        machine=machine,
-                        name__in=resolved_binary_names,
-                    )
-                    .exclude(
-                        status=Binary.StatusChoices.INSTALLED,
-                    )
-                    .order_by("name"),
-                )
-                if not unresolved_binaries:
-                    return resolved_binary_names
-
-                needed_provider_names: set[str] = set()
-                for binary in unresolved_binaries:
-                    allowed_binproviders = binary._allowed_binproviders()
-                    if allowed_binproviders is None:
-                        continue
-                    needed_provider_names.update(allowed_binproviders)
-
-                if not needed_provider_names:
-                    return resolved_binary_names
-
-                provider_hooks = [
-                    hook
-                    for hook in discover_hooks("Crawl", filter_disabled=False, config=get_runtime_config())
-                    if hook.parent.name in needed_provider_names and str(hook) not in executed_crawl_hooks
-                ]
-                if not provider_hooks:
-                    return resolved_binary_names
-
-                for hook in provider_hooks:
-                    resolved_binary_names.update(run_crawl_hook(hook))
-
         hooks = discover_hooks("Crawl", config=get_runtime_config())
 
         for hook in hooks:
             hook_binary_names = run_crawl_hook(hook)
             if hook_binary_names:
-                self.install_declared_binaries(resolve_provider_binaries(hook_binary_names), machine=machine)
+                self.install_declared_binaries(hook_binary_names, machine=machine)
 
         # Safety check: don't create snapshots if any crawl-declared dependency
         # is still unresolved after all crawl hooks have run.

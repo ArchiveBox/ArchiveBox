@@ -137,65 +137,6 @@ def get_edge_user_data_dir() -> Path | None:
     return None
 
 
-def get_browser_binary(browser: str) -> str | None:
-    system = platform.system()
-    home = Path.home()
-    browser = browser.lower()
-
-    if system == "Darwin":
-        candidates = {
-            "chrome": ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"],
-            "chromium": ["/Applications/Chromium.app/Contents/MacOS/Chromium"],
-            "brave": ["/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"],
-            "edge": ["/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"],
-        }.get(browser, [])
-    elif system == "Linux":
-        candidates = {
-            "chrome": [
-                "/usr/bin/google-chrome",
-                "/usr/bin/google-chrome-stable",
-                "/usr/bin/google-chrome-beta",
-                "/usr/bin/google-chrome-unstable",
-            ],
-            "chromium": ["/usr/bin/chromium", "/usr/bin/chromium-browser"],
-            "brave": ["/usr/bin/brave-browser", "/usr/bin/brave-browser-beta", "/usr/bin/brave-browser-nightly"],
-            "edge": [
-                "/usr/bin/microsoft-edge",
-                "/usr/bin/microsoft-edge-stable",
-                "/usr/bin/microsoft-edge-beta",
-                "/usr/bin/microsoft-edge-dev",
-            ],
-        }.get(browser, [])
-    elif system == "Windows":
-        local_app_data = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
-        candidates = {
-            "chrome": [
-                str(local_app_data / "Google" / "Chrome" / "Application" / "chrome.exe"),
-                "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-                "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-            ],
-            "chromium": [str(local_app_data / "Chromium" / "Application" / "chrome.exe")],
-            "brave": [
-                str(local_app_data / "BraveSoftware" / "Brave-Browser" / "Application" / "brave.exe"),
-                "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
-                "C:\\Program Files (x86)\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
-            ],
-            "edge": [
-                str(local_app_data / "Microsoft" / "Edge" / "Application" / "msedge.exe"),
-                "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-                "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-            ],
-        }.get(browser, [])
-    else:
-        candidates = []
-
-    for candidate in candidates:
-        if candidate and Path(candidate).exists():
-            return candidate
-
-    return None
-
-
 BROWSER_PROFILE_FINDERS = {
     "chrome": get_chrome_user_data_dir,
     "chromium": get_chrome_user_data_dir,  # Same locations
@@ -316,10 +257,6 @@ def create_personas(
 
         if profile is None and (source_profile_dir / "Default").exists():
             profile = "Default"
-
-        browser_binary = get_browser_binary(import_from)
-        if browser_binary:
-            rprint(f"[dim]Using {import_from} binary: {browser_binary}[/dim]", file=sys.stderr)
 
     created_count = 0
     for name in name_list:

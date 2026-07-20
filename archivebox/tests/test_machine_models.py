@@ -36,6 +36,7 @@ from archivebox.machine.models import (
     PROCESS_TIMEOUT_GRACE,
 )
 from archivebox.machine.detect import unknown_if_blank
+from archivebox.tests.conftest import resolve_abxpkg_binary_env
 
 pytestmark = pytest.mark.django_db
 
@@ -151,15 +152,12 @@ class TestMachineModel:
         assert machine1_id != machine2.id
         assert machine1_guid == machine2.guid
 
-    def test_machine_from_jsonl_update(self, cleanup_paths):
+    def test_machine_from_jsonl_update(self, hermetic_lib_dir):
         """Machine.from_json() should update machine config."""
-        from archivebox.config.constants import CONSTANTS
-
         Machine.current()  # Ensure machine exists
-        wget_path = CONSTANTS.DEFAULT_ABXPKG_LIB_DIR / "wget"
-        wget_path.parent.mkdir(parents=True, exist_ok=True)
-        wget_path.write_text("#!/bin/sh\n")
-        cleanup_paths.append(wget_path)
+        resolve_abxpkg_binary_env(hermetic_lib_dir, "wget")
+        wget_path = hermetic_lib_dir / "env" / "bin" / "wget"
+        assert wget_path.is_symlink()
         record = {
             "config": {
                 "WGET_BINARY": str(wget_path),
@@ -171,20 +169,17 @@ class TestMachineModel:
         assert result is not None
         assert result.config.get("WGET_BINARY") == str(wget_path)
 
-    def test_machine_from_jsonl_drops_invalid_binary_paths_keeps_mirror(self, cleanup_paths):
+    def test_machine_from_jsonl_drops_invalid_binary_paths_keeps_mirror(self, hermetic_lib_dir):
         """Machine.from_json() drops invalid binary paths but mirrors other keys.
 
         ``Machine.config`` mirrors ``ArchiveBox.conf`` (non-binary user config
         keys live alongside derived binary state), so non-binary keys in the
         import survive. Only ``_BINARY`` paths get validated/dropped on import.
         """
-        from archivebox.config.constants import CONSTANTS
-
         Machine.current()  # Ensure machine exists
-        wget_path = CONSTANTS.DEFAULT_ABXPKG_LIB_DIR / "wget"
-        wget_path.parent.mkdir(parents=True, exist_ok=True)
-        wget_path.write_text("#!/bin/sh\n")
-        cleanup_paths.append(wget_path)
+        resolve_abxpkg_binary_env(hermetic_lib_dir, "wget")
+        wget_path = hermetic_lib_dir / "env" / "bin" / "wget"
+        assert wget_path.is_symlink()
         record = {
             "config": {
                 "WGET_BINARY": str(wget_path),
@@ -205,7 +200,7 @@ class TestMachineModel:
         result = Machine.from_json({"invalid": "record"})
         assert result is None
 
-    def test_machine_current_drops_invalid_binary_paths_keeps_mirror(self, cleanup_paths):
+    def test_machine_current_drops_invalid_binary_paths_keeps_mirror(self, hermetic_lib_dir):
         """Machine.current() mirrors ArchiveBox.conf, only drops invalid binaries.
 
         ``Machine.config`` is the file ↔ DB mirror of ``ArchiveBox.conf``, so
@@ -214,17 +209,11 @@ class TestMachineModel:
         ``ABXPKG_LIB_DIR`` and dropped when stale/missing.
         """
         import archivebox.machine.models as models
-        from archivebox.config.constants import CONSTANTS
 
-        active_lib_dir = CONSTANTS.DEFAULT_ABXPKG_LIB_DIR
-        active_lib_dir.mkdir(parents=True, exist_ok=True)
-        chrome_path = active_lib_dir / "chromium"
-        node_path = active_lib_dir / "node"
-        chrome_path.write_text("#!/bin/sh\n")
-        node_path.write_text("#!/bin/sh\n")
-        external_path = Path("/tmp/archivebox-test-external-node")
-        external_path.touch()
-        cleanup_paths.extend([chrome_path, node_path, external_path])
+        resolve_abxpkg_binary_env(hermetic_lib_dir, "node", "wget")
+        chrome_path = hermetic_lib_dir / "env" / "bin" / "node"
+        node_path = hermetic_lib_dir / "env" / "bin" / "wget"
+        external_path = Path(sys.executable)
         machine = Machine.current()
         machine.config = {
             "CHROME_BINARY": str(chrome_path),
@@ -254,7 +243,7 @@ class TestMachineModel:
         assert "YTDLP_BINARY" not in refreshed.config
         assert "WGET_BINARY" not in refreshed.config
 
-    def test_get_config_auto_applies_current_machine_config(self, cleanup_paths):
+    def test_get_config_auto_applies_current_machine_config(self, hermetic_lib_dir):
         """get_config() applies the full Machine.config mirror as scope overrides.
 
         ``Machine.config`` mirrors ``ArchiveBox.conf``, so non-binary user keys
@@ -265,10 +254,9 @@ class TestMachineModel:
         from archivebox.config.common import get_config
 
         lib_dir = get_config(include_machine=False).ABXPKG_LIB_DIR
-        chrome_path = lib_dir / "chromium"
-        chrome_path.parent.mkdir(parents=True, exist_ok=True)
-        chrome_path.write_text("#!/bin/sh\n")
-        cleanup_paths.append(chrome_path)
+        assert lib_dir == hermetic_lib_dir
+        resolve_abxpkg_binary_env(lib_dir, "node")
+        chrome_path = lib_dir / "env" / "bin" / "node"
         machine = Machine.current()
         machine.config = {
             "CHROME_BINARY": str(chrome_path),
@@ -494,10 +482,9 @@ class TestBinaryModel:
     @pytest.mark.django_db(transaction=True)
     def test_binary_lib_bin_symlink_waits_for_outer_transaction_commit(self, tmp_path):
         """Binary DB projection writes can be direct, but convenience symlinks must run after commit."""
-        source = tmp_path / "provider" / "bin" / "abx-test-binary"
-        source.parent.mkdir(parents=True)
-        source.write_text("#!/bin/sh\nexit 0\n")
-        source.chmod(0o755)
+        provider_lib = tmp_path / "provider"
+        resolve_abxpkg_binary_env(provider_lib, "node")
+        source = provider_lib / "env" / "bin" / "node"
         lib_bin_dir = tmp_path / "lib" / "bin"
         symlink = lib_bin_dir / "abx-test-binary"
 
@@ -513,7 +500,7 @@ class TestBinaryModel:
             assert not symlink.exists()
 
         assert symlink.is_symlink()
-        assert symlink.resolve() == source
+        assert symlink.resolve() == source.resolve()
 
 
 class TestBinaryStateMachine:

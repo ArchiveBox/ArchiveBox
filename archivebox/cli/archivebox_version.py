@@ -4,6 +4,8 @@ __package__ = "archivebox.cli"
 
 import sys
 import os
+import json
+import asyncio
 import platform
 from pathlib import Path
 from collections.abc import Iterable
@@ -278,8 +280,10 @@ def version(
 
     from archivebox.plugins.discovery import get_enabled_plugins
     from abx_dl.config import get_required_binary_requests
-    from abx_dl.dependencies import load_binary
+    from abx_dl.dependencies import resolve_binary_requests
     from abx_dl.models import discover_plugins, filter_plugins
+    from abx_dl.orchestrator import create_bus
+    from abxpkg.binary_service import BinaryEvent, BinaryService
 
     plugins = discover_plugins(runtime="archivebox")
     enabled_plugins = filter_plugins(plugins, get_enabled_plugins(config=config), include_providers=True)
@@ -305,7 +309,48 @@ def version(
 
         except Exception as e:
             prnt()
-            prnt("", f"[yellow]Warning: Could not query collection binary records, falling back to abxpkg state: {e}[/yellow]")
+            prnt("", f"[yellow]Warning: Could not query collection binary records; resolving through abxpkg: {e}[/yellow]")
+
+    declared_binary_specs: dict[str, dict[str, object]] = {}
+    for plugin_name, plugin in plugins.items():
+        plugin_enabled = plugin_name in enabled_plugin_names
+        logical_records = get_required_binary_requests(
+            plugin,
+            plugin.config.required_binaries,
+            overrides=runtime_config,
+            derived_overrides=derived_config,
+            run_output_dir=CONSTANTS.DATA_DIR,
+        )
+        actual_records = get_required_binary_requests(
+            plugin,
+            plugin.config.required_binaries,
+            overrides=runtime_config,
+            derived_overrides=derived_config,
+            run_output_dir=CONSTANTS.DATA_DIR,
+            logical_names=False,
+        )
+        for logical_record, actual_record in zip(logical_records, actual_records, strict=False):
+            logical_name = str(logical_record["name"])
+            actual_name = str(actual_record["name"])
+            display_name = Path(actual_name).expanduser().name if ("/" in actual_name or actual_name.startswith("~")) else logical_name
+            if not plugin_enabled and not (
+                requested_names and (logical_name in requested_names or actual_name in requested_names or display_name in requested_names)
+            ):
+                continue
+            signature = json.dumps(actual_record, sort_keys=True, default=str)
+            declared_binary_specs.setdefault(signature, actual_record)
+
+    binary_bus = create_bus(name="ArchiveBoxVersionBinaryCheck")
+    BinaryService(binary_bus, auto_install=False, lib_dir=config.ABXPKG_LIB_DIR)
+
+    async def resolve_declared_binaries() -> dict[str, BinaryEvent | None]:
+        try:
+            return await resolve_binary_requests(binary_bus, declared_binary_specs)
+        finally:
+            await binary_bus.wait_until_idle()
+            await binary_bus.destroy(clear=False)
+
+    loaded_binaries = asyncio.run(resolve_declared_binaries())
 
     rows: list[dict[str, object]] = []
     any_rows = False
@@ -369,11 +414,11 @@ def version(
                     # providers the current collection will never execute.
                     continue
                 else:
-                    loaded = load_binary(actual_record)
-                    abspath = str(loaded.loaded_abspath or "")
-                    version_str = str(loaded.loaded_version or "unknown")[:15]
-                    provider = (loaded.loaded_binprovider.name if loaded.loaded_binprovider else "env")[:8]
-                    valid = loaded.is_valid
+                    loaded = loaded_binaries[json.dumps(actual_record, sort_keys=True, default=str)]
+                    abspath = loaded.abspath if loaded is not None else ""
+                    version_str = str(loaded.version or "unknown")[:15] if loaded is not None else "unknown"
+                    provider = str(loaded.binprovider or "env")[:8] if loaded is not None else "env"
+                    valid = loaded is not None
 
                 any_rows = True
                 if valid:

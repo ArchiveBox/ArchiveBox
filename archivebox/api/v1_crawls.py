@@ -251,8 +251,16 @@ def patch_crawl(request: HttpRequest, crawl_id: str, data: CrawlUpdateSchema):
 def delete_crawl(request: HttpRequest, crawl_id: str):
     crawl = get_crawl_by_ref(crawl_id)
     crawl_id_str = str(crawl.id)
-    snapshot_count = crawl.snapshot_set.count()
-    deleted_count, _ = crawl.delete()
+    crawl.cancel()
+
+    from archivebox.crawls.locks import crawl_lifecycle_lock
+    from archivebox.services.runner import run_pending_crawls
+
+    with crawl_lifecycle_lock(crawl_id_str):
+        run_pending_crawls(crawl_id=crawl_id_str, daemon=False)
+        crawl = get_crawl_by_ref(crawl_id_str)
+        snapshot_count = crawl.snapshot_set.count()
+        deleted_count, _ = crawl.delete()
     return {
         "success": True,
         "crawl_id": crawl_id_str,

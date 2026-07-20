@@ -108,7 +108,6 @@ jobs:
     env:
       PYTHONPATH: ${{ github.workspace }}/abxpkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
       CHROME_HEADLESS: "true"
-      CHROME_SANDBOX: "false"
       PERSONAS_DIR: /tmp/abx-personas
       CHROME_USER_DATA_DIR: /tmp/abx-personas/Default/chrome_profile
 
@@ -159,7 +158,7 @@ jobs:
 
       - uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: git ripgrep build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 python3-minimal gnupg2 curl wget python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
+          packages: build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 python3-minimal gnupg2 curl python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
           version: 1.1
 
       - name: Install dependencies with uv
@@ -167,69 +166,59 @@ jobs:
           uv venv
           uv pip install --group dev -e ./abxpkg -e ./abx-plugins -e ./abx-dl -e ".[all]"
 
-      - name: Install Chrome through ArchiveBox
-        if: ${{ matrix.test.needs_chromium }}
+      - name: Resolve core test binaries through abxpkg
         env:
-          MIN_CHROMIUM_MAJOR: "149"
           LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_INSTALL_TIMEOUT: "900"
-          ABX_CI_DATA_DIR: ${{ runner.temp }}/archivebox-ci-data
         run: |
           set -euo pipefail
-          mkdir -p "$LIB_DIR" "$ABX_CI_DATA_DIR"
+          mkdir -p "$LIB_DIR"
+          echo "LIB_DIR=$LIB_DIR" >> "$GITHUB_ENV"
+          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
+          uv run --no-sync --no-sources abxpkg env \
+            --install \
+            --lib="$LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/wget/config.json:required_binaries" \
+            --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/git/config.json:required_binaries" \
+            --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/search_backend_ripgrep/config.json:required_binaries" \
+            >> "$GITHUB_ENV"
+
+      - name: Resolve Chrome through abxpkg
+        if: ${{ matrix.test.needs_chromium }}
+        env:
+          LIB_DIR: ${{ runner.temp }}/abx-lib
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+          ABXPKG_INSTALL_TIMEOUT: "900"
+        run: |
+          set -euo pipefail
+          mkdir -p "$LIB_DIR"
           echo "LIB_DIR=$LIB_DIR" >> "$GITHUB_ENV"
           echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
 
-          uv run --project "$GITHUB_WORKSPACE" --directory "$ABX_CI_DATA_DIR" --no-sync --no-sources archivebox install chrome
+          uv run --no-sync --no-sources abxpkg env \
+            --install \
+            --lib="$LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/chrome/config.json:required_binaries" \
+            >> "$GITHUB_ENV"
 
-          candidate="$(uv run --project "$GITHUB_WORKSPACE" --directory "$ABX_CI_DATA_DIR" --no-sync --no-sources archivebox shell -c 'from archivebox.machine.models import Binary; binary = Binary.objects.filter(name="chromium", status="installed").order_by("-modified_at").first(); print(binary.abspath if binary else "")' | tail -n 1)"
-          if [ ! -x "$candidate" ]; then
-            echo "ArchiveBox did not install an executable Chromium binary: ${candidate:-not found}" >&2
-            exit 1
-          fi
-          version="$("$candidate" --version)"
-          major="$(printf '%s\n' "$version" | sed -E 's/.* ([0-9]+)\..*/\1/' | head -1)"
-          case "$major" in
-            ''|*[!0-9]*) major=0 ;;
-          esac
-          if [ "$major" -lt "$MIN_CHROMIUM_MAJOR" ]; then
-            echo "ArchiveBox installed Chromium is too old: ${version:-unknown}" >&2
-            exit 1
-          fi
-          echo "Using ArchiveBox-installed Chromium: $candidate ($version)"
-          echo "CHROME_BINARY=$candidate" >> "$GITHUB_ENV"
-          echo "DATA_DIR=$ABX_CI_DATA_DIR" >> "$GITHUB_ENV"
-          echo "NODE_MODULES_DIR=$LIB_DIR/pnpm/packages/chrome/node_modules" >> "$GITHUB_ENV"
-          echo "NODE_PATH=$LIB_DIR/pnpm/packages/chrome/node_modules" >> "$GITHUB_ENV"
-          echo "PNPM_BIN_DIR=$LIB_DIR/pnpm/packages/chrome/node_modules/.bin" >> "$GITHUB_ENV"
-          echo "NPM_BIN_DIR=$LIB_DIR/pnpm/packages/chrome/node_modules/.bin" >> "$GITHUB_ENV"
-          echo "CHROMEWEBSTORE_EXTENSIONS_DIR=$LIB_DIR/chromewebstore/extensions" >> "$GITHUB_ENV"
-
-      - name: Install Sonic through ArchiveBox
+      - name: Resolve Sonic through abxpkg
         if: ${{ matrix.test.needs_sonic }}
         env:
           LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_INSTALL_TIMEOUT: "900"
-          ABX_CI_DATA_DIR: ${{ runner.temp }}/archivebox-ci-data
         run: |
           set -euo pipefail
-          mkdir -p "$LIB_DIR" "$ABX_CI_DATA_DIR"
+          mkdir -p "$LIB_DIR"
           echo "LIB_DIR=$LIB_DIR" >> "$GITHUB_ENV"
           echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
 
-          uv run --project "$GITHUB_WORKSPACE" --directory "$ABX_CI_DATA_DIR" --no-sync --no-sources archivebox install search_backend_sonic
-
-          candidate="$(uv run --project "$GITHUB_WORKSPACE" --directory "$ABX_CI_DATA_DIR" --no-sync --no-sources archivebox shell -c 'from archivebox.machine.models import Binary; binary = Binary.objects.filter(name="sonic", status="installed").order_by("-modified_at").first(); print(binary.abspath if binary else "")' | tail -n 1)"
-          if [ ! -x "$candidate" ]; then
-            echo "ArchiveBox did not install an executable Sonic binary: ${candidate:-not found}" >&2
-            exit 1
-          fi
-          version="$("$candidate" --version)"
-          echo "Using ArchiveBox-installed Sonic: $candidate (${version:-version unknown})"
-          echo "SONIC_BINARY=$candidate" >> "$GITHUB_ENV"
-          echo "$(dirname "$candidate")" >> "$GITHUB_PATH"
+          uv run --no-sync --no-sources abxpkg env \
+            --install \
+            --lib="$LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/search_backend_sonic/config.json:required_binaries" \
+            >> "$GITHUB_ENV"
 
       - name: Run test - ${{ matrix.test.name }}
         run: |
@@ -243,7 +232,6 @@ jobs:
     env:
       PYTHONPATH: ${{ github.workspace }}/abxpkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
       CHROME_HEADLESS: "true"
-      CHROME_SANDBOX: "false"
       PERSONAS_DIR: /tmp/abx-personas
       CHROME_USER_DATA_DIR: /tmp/abx-personas/Default/chrome_profile
 
@@ -293,7 +281,7 @@ jobs:
 
       - uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: git ripgrep build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 python3-minimal gnupg2 curl wget python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
+          packages: build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 python3-minimal gnupg2 curl python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
           version: 1.1
 
       - name: Install dependencies with uv
@@ -301,69 +289,57 @@ jobs:
           uv venv
           uv pip install --group dev -e ./abxpkg -e ./abx-plugins -e ./abx-dl -e ".[all]"
 
-      - name: Install Chrome through ArchiveBox
-        if: ${{ matrix.plugin.needs_chromium }}
+      - name: Resolve plugin dependencies through abxpkg
         env:
-          MIN_CHROMIUM_MAJOR: "149"
           LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_INSTALL_TIMEOUT: "900"
-          ABX_CI_DATA_DIR: ${{ runner.temp }}/archivebox-ci-data
         run: |
           set -euo pipefail
-          mkdir -p "$LIB_DIR" "$ABX_CI_DATA_DIR"
+          mkdir -p "$LIB_DIR"
+          echo "LIB_DIR=$LIB_DIR" >> "$GITHUB_ENV"
+          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
+          uv run --no-sync --no-sources abxpkg env \
+            --install \
+            --lib="$LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/${{ matrix.plugin.plugin }}/config.json:required_binaries" \
+            >> "$GITHUB_ENV"
+
+      - name: Resolve Chrome through abxpkg
+        if: ${{ matrix.plugin.needs_chromium }}
+        env:
+          LIB_DIR: ${{ runner.temp }}/abx-lib
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+          ABXPKG_INSTALL_TIMEOUT: "900"
+        run: |
+          set -euo pipefail
+          mkdir -p "$LIB_DIR"
           echo "LIB_DIR=$LIB_DIR" >> "$GITHUB_ENV"
           echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
 
-          uv run --project "$GITHUB_WORKSPACE" --directory "$ABX_CI_DATA_DIR" --no-sync --no-sources archivebox install chrome
+          uv run --no-sync --no-sources abxpkg env \
+            --install \
+            --lib="$LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/chrome/config.json:required_binaries" \
+            >> "$GITHUB_ENV"
 
-          candidate="$(uv run --project "$GITHUB_WORKSPACE" --directory "$ABX_CI_DATA_DIR" --no-sync --no-sources archivebox shell -c 'from archivebox.machine.models import Binary; binary = Binary.objects.filter(name="chromium", status="installed").order_by("-modified_at").first(); print(binary.abspath if binary else "")' | tail -n 1)"
-          if [ ! -x "$candidate" ]; then
-            echo "ArchiveBox did not install an executable Chromium binary: ${candidate:-not found}" >&2
-            exit 1
-          fi
-          version="$("$candidate" --version)"
-          major="$(printf '%s\n' "$version" | sed -E 's/.* ([0-9]+)\..*/\1/' | head -1)"
-          case "$major" in
-            ''|*[!0-9]*) major=0 ;;
-          esac
-          if [ "$major" -lt "$MIN_CHROMIUM_MAJOR" ]; then
-            echo "ArchiveBox installed Chromium is too old: ${version:-unknown}" >&2
-            exit 1
-          fi
-          echo "Using ArchiveBox-installed Chromium: $candidate ($version)"
-          echo "CHROME_BINARY=$candidate" >> "$GITHUB_ENV"
-          echo "DATA_DIR=$ABX_CI_DATA_DIR" >> "$GITHUB_ENV"
-          echo "NODE_MODULES_DIR=$LIB_DIR/pnpm/packages/chrome/node_modules" >> "$GITHUB_ENV"
-          echo "NODE_PATH=$LIB_DIR/pnpm/packages/chrome/node_modules" >> "$GITHUB_ENV"
-          echo "PNPM_BIN_DIR=$LIB_DIR/pnpm/packages/chrome/node_modules/.bin" >> "$GITHUB_ENV"
-          echo "NPM_BIN_DIR=$LIB_DIR/pnpm/packages/chrome/node_modules/.bin" >> "$GITHUB_ENV"
-          echo "CHROMEWEBSTORE_EXTENSIONS_DIR=$LIB_DIR/chromewebstore/extensions" >> "$GITHUB_ENV"
-
-      - name: Install Sonic through ArchiveBox
+      - name: Resolve Sonic through abxpkg
         if: ${{ matrix.plugin.needs_sonic }}
         env:
           LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_INSTALL_TIMEOUT: "900"
-          ABX_CI_DATA_DIR: ${{ runner.temp }}/archivebox-ci-data
         run: |
           set -euo pipefail
-          mkdir -p "$LIB_DIR" "$ABX_CI_DATA_DIR"
+          mkdir -p "$LIB_DIR"
           echo "LIB_DIR=$LIB_DIR" >> "$GITHUB_ENV"
           echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
 
-          uv run --project "$GITHUB_WORKSPACE" --directory "$ABX_CI_DATA_DIR" --no-sync --no-sources archivebox install search_backend_sonic
-
-          candidate="$(uv run --project "$GITHUB_WORKSPACE" --directory "$ABX_CI_DATA_DIR" --no-sync --no-sources archivebox shell -c 'from archivebox.machine.models import Binary; binary = Binary.objects.filter(name="sonic", status="installed").order_by("-modified_at").first(); print(binary.abspath if binary else "")' | tail -n 1)"
-          if [ ! -x "$candidate" ]; then
-            echo "ArchiveBox did not install an executable Sonic binary: ${candidate:-not found}" >&2
-            exit 1
-          fi
-          version="$("$candidate" --version)"
-          echo "Using ArchiveBox-installed Sonic: $candidate (${version:-version unknown})"
-          echo "SONIC_BINARY=$candidate" >> "$GITHUB_ENV"
-          echo "$(dirname "$candidate")" >> "$GITHUB_PATH"
+          uv run --no-sync --no-sources abxpkg env \
+            --install \
+            --lib="$LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/search_backend_sonic/config.json:required_binaries" \
+            >> "$GITHUB_ENV"
 
       - name: Run plugin tests - ${{ matrix.plugin.name }}
         env:

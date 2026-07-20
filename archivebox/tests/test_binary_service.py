@@ -1,11 +1,11 @@
 import json
-import os
-import shutil
+import sys
 import uuid
 import asyncio
 from pathlib import Path
 
 import pytest
+from django.utils import timezone
 
 from archivebox.machine.models import Binary, Machine, Process
 from archivebox.tests.conftest import parse_jsonl_output, run_archivebox_cmd
@@ -14,27 +14,15 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def _link_real_binary(bin_dir: Path, name: str, *, source: str | None = None) -> Path:
-    bin_dir.mkdir(parents=True, exist_ok=True)
-    source_path = shutil.which(source or name)
-    assert source_path, f"{source or name} must be installed for this integration test"
-    link = bin_dir / name
-    link.unlink(missing_ok=True)
-    link.symlink_to(source_path)
-    return link
-
-
-def _runtime_env(data_dir: Path, bin_dir: Path, *, lib_dir: Path | None = None) -> dict[str, str]:
-    archivebox_bin = shutil.which("archivebox")
-    assert archivebox_bin, "archivebox console script must be available for CLI tests"
+def _runtime_env(data_dir: Path, *, lib_dir: Path | None = None, **extra: str) -> dict[str, str]:
     lib_dir = lib_dir or data_dir / "lib"
     return {
         "ABXPKG_LIB_DIR": str(lib_dir),
-        "PATH": os.pathsep.join([str(bin_dir), str(Path(archivebox_bin).parent), "/usr/bin", "/bin", "/usr/sbin", "/sbin"]),
+        **extra,
     }
 
 
-def test_binary_request_preserves_raw_overrides_in_db_while_using_native_event():
+def test_binary_request_preserves_raw_overrides_in_db_while_using_native_event(monkeypatch):
     from abxpkg.binary_service import BinaryCacheService, BinaryEvent, BinaryRequestEvent, BinaryService
     from abx_dl.orchestrator import create_bus
     from archivebox.services.binary_service import ArchiveBoxDBBinaryCacheBackend
@@ -46,16 +34,19 @@ def test_binary_request_preserves_raw_overrides_in_db_while_using_native_event()
             "module_name": "imagesize",
         },
     }
+    monkeypatch.setenv("PYTHON3_BINARY", sys.executable)
     binary = Binary.objects.create(
         machine=machine,
-        name="sh",
-        abspath="/bin/sh",
-        version="1.0.0",
-        binprovider="env",
+        name="python3",
         binproviders="env,pip",
         overrides=raw_overrides,
-        status=Binary.StatusChoices.INSTALLED,
+        status=Binary.StatusChoices.QUEUED,
+        retry_at=timezone.now(),
     )
+    assert binary.tick_claimed(lock_seconds=600)
+    binary.refresh_from_db()
+    assert binary.status == Binary.StatusChoices.INSTALLED
+    assert Path(binary.abspath).resolve() == Path(sys.executable).resolve()
     bus = create_bus(name=f"test_binary_raw_overrides_{uuid.uuid4().hex[:8]}")
     BinaryCacheService(bus, backend=ArchiveBoxDBBinaryCacheBackend())
     BinaryService(bus)
@@ -69,7 +60,7 @@ def test_binary_request_preserves_raw_overrides_in_db_while_using_native_event()
     async def run_event() -> None:
         await bus.emit(
             BinaryRequestEvent(
-                name="sh",
+                name="python3",
                 binproviders="env,pip",
                 overrides={"pip": {"install_args": ["imagesize>=2.0.0"]}},
                 extra_context={
@@ -91,18 +82,21 @@ def test_binary_request_preserves_raw_overrides_in_db_while_using_native_event()
 
 
 def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized_archive, tmp_path):
-    name = f"abx-e2e-rg-{uuid.uuid4().hex[:8]}"
-    bootstrap_bin_dir = tmp_path / "realbin"
+    name = "python"
     provider_bin_dir = initialized_archive / "lib" / "env" / "bin"
-    _link_real_binary(bootstrap_bin_dir, "uv")
-    _link_real_binary(provider_bin_dir, name, source="rg")
+    runtime_env = _runtime_env(initialized_archive)
+    request_record = {
+        "type": "BinaryRequest",
+        "name": name,
+        "binproviders": "env",
+    }
 
     _cmd_result = run_archivebox_cmd(
         ["run"],
         cwd=initialized_archive,
-        stdin=json.dumps({"type": "BinaryRequest", "name": name, "binproviders": "env"}) + "\n",
+        stdin=json.dumps(request_record) + "\n",
         timeout=120,
-        env=_runtime_env(initialized_archive, bootstrap_bin_dir),
+        env=runtime_env,
         default_cli_env=True,
         disable_extractors=True,
     )
@@ -125,7 +119,7 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
     assert binary.binproviders == "env"
     assert first_abspath.exists()
     assert first_abspath == provider_bin_dir / name
-    assert first_abspath.resolve() == Path(shutil.which("rg") or "").resolve()
+    assert first_abspath.resolve() == Path(sys.executable).resolve()
     assert first_abspath.is_relative_to(initialized_archive / "lib")
     assert (initialized_archive / "lib" / "env" / "bin" / name).exists()
     assert (initialized_archive / "machines" / machine_id / "binaries" / name / "index.jsonl").exists()
@@ -140,7 +134,7 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
         ["version"],
         cwd=initialized_archive,
         timeout=60,
-        env=_runtime_env(initialized_archive, bootstrap_bin_dir),
+        env=runtime_env,
         default_cli_env=True,
         disable_extractors=True,
     )
@@ -150,13 +144,12 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
     assert binary.version in version_stdout
 
     first_abspath.unlink()
-    _link_real_binary(bootstrap_bin_dir, name, source="rg")
 
     _cmd_result = run_archivebox_cmd(
         ["run", f"--binary-id={first_binary_id}"],
         cwd=initialized_archive,
         timeout=120,
-        env=_runtime_env(initialized_archive, bootstrap_bin_dir),
+        env=runtime_env,
         default_cli_env=True,
         disable_extractors=True,
     )
@@ -170,19 +163,22 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
     assert recovered.status == Binary.StatusChoices.INSTALLED
     assert recovered.version == binary.version
     assert Path(recovered.abspath).exists()
-    assert Path(recovered.abspath).resolve() == Path(shutil.which("rg") or "").resolve()
+    assert Path(recovered.abspath).resolve() == Path(sys.executable).resolve()
     assert process_count >= 2
 
     changed_lib_dir = tmp_path / "changed-lib"
     changed_provider_bin_dir = changed_lib_dir / "env" / "bin"
-    _link_real_binary(changed_provider_bin_dir, name, source="rg")
+    changed_runtime_env = _runtime_env(
+        initialized_archive,
+        lib_dir=changed_lib_dir,
+    )
 
     _cmd_result = run_archivebox_cmd(
         ["run"],
         cwd=initialized_archive,
-        stdin=json.dumps({"type": "BinaryRequest", "name": name, "binproviders": "env"}) + "\n",
+        stdin=json.dumps(request_record) + "\n",
         timeout=120,
-        env=_runtime_env(initialized_archive, bootstrap_bin_dir, lib_dir=changed_lib_dir),
+        env=changed_runtime_env,
         default_cli_env=True,
         disable_extractors=True,
     )
@@ -196,28 +192,27 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
     assert relibbed.version == binary.version
     assert Path(relibbed.abspath) == changed_provider_bin_dir / name
     assert Path(relibbed.abspath).exists()
-    assert Path(relibbed.abspath).resolve() == Path(shutil.which("rg") or "").resolve()
+    assert Path(relibbed.abspath).resolve() == Path(sys.executable).resolve()
 
 
 def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_resolve(initialized_archive, tmp_path):
-    name = f"abx-missing-rg-{uuid.uuid4().hex[:8]}"
-    bootstrap_bin_dir = tmp_path / "realbin"
-    provider_bin_dir = initialized_archive / "lib" / "env" / "bin"
-    _link_real_binary(bootstrap_bin_dir, "uv")
+    name = "http"
+    provider_bin_dir = initialized_archive / "lib" / "pip" / "venv" / "bin"
+    runtime_env = _runtime_env(initialized_archive)
 
     _cmd_result = run_archivebox_cmd(
         ["run"],
         cwd=initialized_archive,
         stdin=json.dumps({"type": "BinaryRequest", "name": name, "binproviders": "env"}) + "\n",
         timeout=120,
-        env=_runtime_env(initialized_archive, bootstrap_bin_dir),
+        env=runtime_env,
         default_cli_env=True,
         disable_extractors=True,
     )
     stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
     assert returncode == 0, stderr
-    assert any(record["type"] == "BinaryRequest" and record["name"] == name for record in parse_jsonl_output(stdout))
+    assert any(record["type"] == "BinaryRequest" and record["name"] == name for record in parse_jsonl_output(stdout)), stdout + stderr
 
     with use_archivebox_db(initialized_archive):
         queued = Binary.objects.get(name=name)
@@ -233,13 +228,18 @@ def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_res
     assert f"{name.upper().replace('-', '_')}_BINARY" not in machine_config
     assert not (provider_bin_dir / name).exists()
 
-    _link_real_binary(provider_bin_dir, name, source="rg")
+    with use_archivebox_db(initialized_archive):
+        queued = Binary.objects.get(pk=queued_id)
+        queued.binproviders = "pip"
+        queued.overrides = {"pip": {"install_args": ["httpie>=3.2.4"]}}
+        queued.save(update_fields=["binproviders", "overrides", "modified_at"])
+    recovered_runtime_env = _runtime_env(initialized_archive)
 
     _cmd_result = run_archivebox_cmd(
         ["run", f"--binary-id={queued_id}"],
         cwd=initialized_archive,
         timeout=120,
-        env=_runtime_env(initialized_archive, bootstrap_bin_dir),
+        env=recovered_runtime_env,
         default_cli_env=True,
         disable_extractors=True,
     )
@@ -256,4 +256,6 @@ def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_res
     assert recovered.version
     assert Path(recovered.abspath).exists()
     assert Path(recovered.abspath) == provider_bin_dir / name
+    assert recovered.binprovider == "pip"
+    assert Path(recovered.abspath).is_file()
     assert process_exit_codes[-2:] == [1, 0]

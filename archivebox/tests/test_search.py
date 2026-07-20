@@ -1,9 +1,9 @@
 import json
 import os
 import re
-import shutil
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from threading import Thread
 from datetime import timedelta
 from urllib.parse import urlencode
@@ -22,6 +22,7 @@ from archivebox.tests.conftest import (
     create_admin_and_token,
     get_free_port,
     run_archivebox_cmd,
+    resolve_abxpkg_binary_env,
     start_archivebox_server,
     stop_archivebox_process,
     wait_for_http,
@@ -698,8 +699,18 @@ class TestPublicIndexSearch:
 class TestSearchBackendsE2E:
     @pytest.mark.timeout(360)
     def test_live_public_and_admin_search_matrix_uses_real_cli_indexing_and_streaming(self, initialized_archive):
-        assert shutil.which("rg"), "ripgrep is required for the live search matrix"
-        assert shutil.which("sonic"), "sonic is required for the live search matrix"
+        from abx_plugins import get_plugins_dir
+
+        plugins_dir = Path(get_plugins_dir())
+        binary_env = resolve_abxpkg_binary_env(
+            initialized_archive / "lib",
+            deps_from=[
+                plugins_dir / "search_backend_ripgrep" / "config.json",
+                plugins_dir / "search_backend_sonic" / "config.json",
+            ],
+        )
+        assert Path(binary_env["RIPGREP_BINARY"]).is_file()
+        assert Path(binary_env["SONIC_BINARY"]).is_file()
 
         page_count = 93
         total_snapshot_count = 100
@@ -830,6 +841,7 @@ class TestSearchBackendsE2E:
                 SEARCH_BACKEND_SONIC_ENABLED="True",
                 SEARCH_BACKEND_SONIC_PORT=str(sonic_port),
             )
+            env.update(binary_env)
             create_admin_and_token(initialized_archive)
 
             mercury_capture_urls = [*matrix_urls]

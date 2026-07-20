@@ -2,8 +2,8 @@
 """Takeover utility tests and live command handoff flows."""
 
 import os
+import json
 import signal
-import shutil
 import subprocess
 import sys
 import time
@@ -52,8 +52,27 @@ def test_pid_is_alive_treats_unreaped_zombie_as_exited():
         proc.wait(timeout=5)
 
 
-def _require_sonic_binary() -> None:
-    assert shutil.which("sonic") is not None, "sonic server binary is required for Sonic worker takeover tests"
+def _resolve_sonic_env(env: dict[str, str]) -> dict[str, str]:
+    from abx_plugins import get_plugins_dir
+
+    config = Path(get_plugins_dir()) / "search_backend_sonic" / "config.json"
+    result = subprocess.run(
+        [
+            str(Path(sys.executable).with_name("abxpkg")),
+            "env",
+            "--install",
+            "--json",
+            f"--lib={env['ABXPKG_LIB_DIR']}",
+            f"--deps-from={config}:required_binaries",
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    payload = {str(key): str(value) for key, value in json.loads(result.stdout).items()}
+    assert Path(payload["SONIC_BINARY"]).is_file()
+    return payload
 
 
 def _archive_pages_for_sqlite_reindexing(data_dir: Path, env: dict[str, str], root_url: str) -> None:
@@ -82,14 +101,13 @@ def _archive_pages_for_sqlite_reindexing(data_dir: Path, env: dict[str, str], ro
 
 @pytest.mark.timeout(360)
 def test_behavior_update_index_only_keeps_server_http_and_search_visible(tmp_path, initialized_archive, recursive_test_site):
-    _require_sonic_binary()
-
     env = cli_env(
         live=True,
         PLUGINS="wget,parse_html_urls,search_backend_sqlite",
         SEARCH_BACKEND_ENGINE="sqlite",
         SEARCH_BACKEND_SONIC_PORT=str(get_free_port()),
     )
+    env.update(_resolve_sonic_env(env))
     root_url = recursive_test_site["root_url"]
     _archive_pages_for_sqlite_reindexing(tmp_path, env, root_url)
 
@@ -127,14 +145,13 @@ def test_behavior_update_index_only_keeps_server_http_and_search_visible(tmp_pat
 
 @pytest.mark.timeout(420)
 def test_behavior_update_yields_to_server_then_finishes_visible_indexing(tmp_path, initialized_archive, recursive_test_site):
-    _require_sonic_binary()
-
     env = cli_env(
         live=True,
         PLUGINS="wget,parse_html_urls,search_backend_sqlite",
         SEARCH_BACKEND_ENGINE="sqlite",
         SEARCH_BACKEND_SONIC_PORT=str(get_free_port()),
     )
+    env.update(_resolve_sonic_env(env))
     root_url = recursive_test_site["root_url"]
     _archive_pages_for_sqlite_reindexing(tmp_path, env, root_url)
 
@@ -354,14 +371,13 @@ def test_live_update_index_only_does_not_take_over_server_runtime(tmp_path, init
 
 @pytest.mark.timeout(360)
 def test_live_server_keeps_http_runtime_while_update_runs_real_sqlite_indexer(tmp_path, initialized_archive, recursive_test_site):
-    _require_sonic_binary()
-
     env = cli_env(
         live=True,
         PLUGINS="wget,parse_html_urls,search_backend_sqlite,search_backend_sonic",
         SEARCH_BACKEND_ENGINE="sqlite",
         SEARCH_BACKEND_SONIC_PORT=str(get_free_port()),
     )
+    env.update(_resolve_sonic_env(env))
     _archive_pages_for_sqlite_reindexing(tmp_path, env, recursive_test_site["root_url"])
 
     port = get_free_port()
@@ -444,14 +460,13 @@ def test_live_server_keeps_http_runtime_while_update_runs_real_sqlite_indexer(tm
 
 @pytest.mark.timeout(420)
 def test_live_update_yields_to_server_then_reclaims_real_sqlite_indexing(tmp_path, initialized_archive, recursive_test_site):
-    _require_sonic_binary()
-
     env = cli_env(
         live=True,
         PLUGINS="wget,parse_html_urls,search_backend_sqlite,search_backend_sonic",
         SEARCH_BACKEND_ENGINE="sqlite",
         SEARCH_BACKEND_SONIC_PORT=str(get_free_port()),
     )
+    env.update(_resolve_sonic_env(env))
     _archive_pages_for_sqlite_reindexing(tmp_path, env, recursive_test_site["root_url"])
 
     port = get_free_port()

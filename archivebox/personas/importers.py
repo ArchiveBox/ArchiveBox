@@ -12,6 +12,7 @@ import os
 import platform
 import shutil
 import subprocess
+import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -162,7 +163,7 @@ class PersonaImportSource:
 
     def as_choice_label(self) -> SafeString:
         path_str = str(self.profile_path or self.user_data_dir or self.cdp_url or "")
-        binary_suffix = f"Using {self.browser_binary}" if self.browser_binary else "Will auto-detect a Chromium binary"
+        binary_suffix = f"Using {self.browser_binary}" if self.browser_binary else "Chromium resolved by abxpkg"
         return format_html(
             '<span class="abx-profile-option"><strong>{}</strong><span class="abx-profile-option__meta">{}</span><code>{}</code></span>',
             self.display_label,
@@ -300,65 +301,6 @@ def get_edge_user_data_dir() -> Path | None:
     return None
 
 
-def get_browser_binary(browser: str) -> str | None:
-    system = platform.system()
-    home = Path.home()
-    browser = browser.lower()
-
-    if system == "Darwin":
-        candidates = {
-            "chrome": ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"],
-            "chromium": ["/Applications/Chromium.app/Contents/MacOS/Chromium"],
-            "brave": ["/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"],
-            "edge": ["/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"],
-        }.get(browser, [])
-    elif system == "Linux":
-        candidates = {
-            "chrome": [
-                "/usr/bin/google-chrome",
-                "/usr/bin/google-chrome-stable",
-                "/usr/bin/google-chrome-beta",
-                "/usr/bin/google-chrome-unstable",
-            ],
-            "chromium": ["/usr/bin/chromium", "/usr/bin/chromium-browser"],
-            "brave": ["/usr/bin/brave-browser", "/usr/bin/brave-browser-beta", "/usr/bin/brave-browser-nightly"],
-            "edge": [
-                "/usr/bin/microsoft-edge",
-                "/usr/bin/microsoft-edge-stable",
-                "/usr/bin/microsoft-edge-beta",
-                "/usr/bin/microsoft-edge-dev",
-            ],
-        }.get(browser, [])
-    elif system == "Windows":
-        local_app_data = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
-        candidates = {
-            "chrome": [
-                str(local_app_data / "Google" / "Chrome" / "Application" / "chrome.exe"),
-                "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-                "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-            ],
-            "chromium": [str(local_app_data / "Chromium" / "Application" / "chrome.exe")],
-            "brave": [
-                str(local_app_data / "BraveSoftware" / "Brave-Browser" / "Application" / "brave.exe"),
-                "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
-                "C:\\Program Files (x86)\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
-            ],
-            "edge": [
-                str(local_app_data / "Microsoft" / "Edge" / "Application" / "msedge.exe"),
-                "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-                "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-            ],
-        }.get(browser, [])
-    else:
-        candidates = []
-
-    for candidate in candidates:
-        if candidate and Path(candidate).exists():
-            return candidate
-
-    return None
-
-
 BROWSER_PROFILE_FINDERS = {
     "chrome": get_chrome_user_data_dir,
     "chromium": get_chrome_user_data_dir,
@@ -402,7 +344,6 @@ def discover_local_browser_profiles() -> list[PersonaImportSource]:
         if not user_data_dir:
             continue
 
-        browser_binary = get_browser_binary(browser)
         for profile_dir in _list_profile_names(user_data_dir):
             try:
                 discovered.append(
@@ -410,7 +351,6 @@ def discover_local_browser_profiles() -> list[PersonaImportSource]:
                         browser=browser,
                         user_data_dir=user_data_dir,
                         profile_dir=profile_dir,
-                        browser_binary=browser_binary,
                     ),
                 )
             except ValueError:
@@ -463,7 +403,6 @@ def discover_persona_template_profiles(personas_dir: Path | None = None) -> list
                                 source_name=persona_dir.name,
                                 user_data_dir=user_data_dir,
                                 profile_dir=profile_dir,
-                                browser_binary=get_browser_binary("chrome"),
                             ),
                         )
                     except ValueError:
@@ -490,7 +429,6 @@ def resolve_browser_import_source(browser: str, profile_dir: str | None = None) 
         browser=browser,
         user_data_dir=user_data_dir,
         profile_dir=chosen_profile,
-        browser_binary=get_browser_binary(browser),
     )
 
 
@@ -669,11 +607,34 @@ def export_browser_state(
     if not state_script.exists():
         return False, None, f"Browser state export script not found at {state_script}"
 
-    node_modules_dir = get_config().ABXPKG_LIB_DIR / "pnpm" / "packages" / "chrome" / "node_modules"
     chrome_plugin_dir = Path(get_plugins_dir()).resolve()
+    chrome_config = chrome_plugin_dir / "chrome" / "config.json"
 
     env = os.environ.copy()
-    env["NODE_MODULES_DIR"] = str(node_modules_dir)
+    if chrome_binary:
+        env["CHROME_BINARY"] = str(chrome_binary)
+    dependency_env = subprocess.run(
+        [
+            str(Path(sys.executable).with_name("abxpkg")),
+            "env",
+            "--install",
+            "--json",
+            f"--lib={get_config().ABXPKG_LIB_DIR}",
+            f"--deps-from={chrome_config}:required_binaries",
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    if dependency_env.returncode != 0:
+        return False, None, dependency_env.stderr.strip() or "abxpkg could not resolve browser export dependencies."
+    try:
+        resolved_env = json.loads(dependency_env.stdout)
+    except json.JSONDecodeError:
+        return False, None, "abxpkg returned an invalid browser dependency environment."
+    if not isinstance(resolved_env, dict):
+        return False, None, "abxpkg returned an invalid browser dependency environment."
+    env.update({str(key): str(value) for key, value in resolved_env.items()})
     env["ARCHIVEBOX_ABX_PLUGINS_DIR"] = str(chrome_plugin_dir)
 
     if user_data_dir:
@@ -681,8 +642,6 @@ def export_browser_state(
     if cdp_url:
         env["CHROME_CDP_URL"] = cdp_url
         env["CHROME_IS_LOCAL"] = "false"
-    if chrome_binary:
-        env["CHROME_BINARY"] = str(chrome_binary)
     if profile_dir:
         extra_arg = f"--profile-directory={profile_dir}"
         existing_extra = env.get("CHROME_ARGS_EXTRA", "").strip()
