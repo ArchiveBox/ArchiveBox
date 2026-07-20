@@ -145,8 +145,7 @@ jobs:
       - name: Start docker-compose stack
         run: |
           docker compose run --rm archivebox init
-          docker compose up -d
-          sleep 5
+          docker compose up -d --wait
           curl --silent --location 'http://127.0.0.1:8000' | grep 'ArchiveBox'
           curl --silent --location 'http://127.0.0.1:8000/static/admin/js/jquery.init.js' | grep 'window.django'
 
