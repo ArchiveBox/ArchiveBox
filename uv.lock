@@ -13,11 +13,11 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-07-15T21:18:57.684751Z"
+exclude-newer = "2026-07-15T21:26:32.858459761Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-07-20T21:18:56.684765Z", span = "PT1S" }
+abxbus = { timestamp = "2026-07-20T21:26:31.858471671Z", span = "PT1S" }
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
@@ -78,7 +78,7 @@ wheels = [
 
 [[package]]
 name = "abxpkg"
-version = "1.11.269"
+version = "1.11.270"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pip", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -87,9 +87,9 @@ dependencies = [
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "typing-extensions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d5/b0/8825147b2264d034e8e7d237ae7b38a7dbe3b0068cad33815a43d79bb44d/abxpkg-1.11.269.tar.gz", hash = "sha256:6d6b2063c16fa70c6795d6f91be97a1e988cc56db87025a1ab0de7f43f832be3", size = 209372, upload-time = "2026-07-20T21:17:54.572Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f3/bc/22823d8ea6fd5b94ea22c309473db6d53233792ae4bc4a3b16efcb2cc8e3/abxpkg-1.11.270.tar.gz", hash = "sha256:c611a8eae8d13b830713daf4a591038ef5af67cef112963637a54b31ab7ec677", size = 209364, upload-time = "2026-07-20T21:18:56.344Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5d/fe/cb27a4591391437a45859b9b9126dbeea3bc8e044ea088aa5605fc8a760c/abxpkg-1.11.269-py3-none-any.whl", hash = "sha256:300a5b2033f30eddf66de6d6bf85f34f2e549b5277bc11791559e9f574a95274", size = 224901, upload-time = "2026-07-20T21:17:53.433Z" },
+    { url = "https://files.pythonhosted.org/packages/70/2d/0db4f1e838e449519adecce4b7616a936a9f88918d194ad00c4e2ca227c7/abxpkg-1.11.270-py3-none-any.whl", hash = "sha256:04e49d93ae02629405596e4a488bceaa10ddb8efcd78f09706e005a1df535c03", size = 224899, upload-time = "2026-07-20T21:18:55.127Z" },
 ]
 
 [[package]]
@@ -124,7 +124,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.35rc128"
+version = "0.9.35rc129"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
