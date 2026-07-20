@@ -147,19 +147,6 @@ IMPORT_FORMAT_ENV = {
 }
 
 
-def wait_for_import_processing(cwd: Path, expected_urls: set[str], *, timeout: float = 120.0) -> None:
-    import time
-
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        with use_archivebox_db(cwd):
-            snapshot_started = Snapshot.objects.filter(url__in=expected_urls).exists()
-        if snapshot_started:
-            return
-        time.sleep(1)
-    raise AssertionError("timed out waiting for import crawl processing to start")
-
-
 def wait_for_expected_import_snapshots(
     cwd: Path,
     expected_urls: set[str],
@@ -372,7 +359,6 @@ def test_api_cli_add_import_text_formats_preserve_metadata_and_crawl_inner_urls(
                 break
             time.sleep(1)
         assert root_counts and all(count == 1 for count in root_counts.values()), root_counts
-        wait_for_import_processing(tmp_path, expected_urls)
         with use_archivebox_db(tmp_path):
             for crawl in Crawl.objects.all():
                 root_snapshot = crawl.snapshot_set.get(url=Snapshot.INTERNAL_INPUT_URL)

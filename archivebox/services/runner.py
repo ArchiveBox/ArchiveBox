@@ -70,7 +70,7 @@ from .binary_service import ArchiveBoxBinaryService, ArchiveBoxDBBinaryCacheBack
 from .crawl_service import CrawlService
 from .machine_service import MachineService
 from .process_service import ProcessService as PersistedProcessService
-from .snapshot_service import SnapshotService, finalize_completed_snapshot
+from .snapshot_service import SnapshotService, finalize_completed_snapshot, project_discovered_snapshots
 from .tag_service import TagService
 
 
@@ -829,55 +829,7 @@ class CrawlRunner:
         }
 
     async def enqueue_discovered_snapshots_from_outputs(self, snapshot_payload: dict[str, Any]) -> None:
-        from archivebox.core.models import Snapshot
-        from archivebox.config.common import get_config
-        from archivebox.plugins.hooks import collect_urls_from_plugins
-
-        await sync_to_async(self.crawl.refresh_from_db, thread_sensitive=True)()
-        if self.crawl.is_paused and not self.allow_maintenance_on_inactive_crawl:
-            return
-        if int(snapshot_payload["depth"]) >= self.crawl.max_depth:
-            return
-
-        discovered_urls = await sync_to_async(collect_urls_from_plugins, thread_sensitive=True)(Path(snapshot_payload["output_dir"]))
-        if not discovered_urls:
-            return
-
-        if self.crawl.status == self.crawl.StatusChoices.SEALED:
-            # Snapshot completion projectors can observe the root snapshot seal
-            # before the runner has consumed parser urls.jsonl output. A sealed
-            # crawl must not block those freshly discovered child snapshots; the
-            # runner is still inside the same crawl lifecycle and will seal it
-            # again after the discovered queue is empty.
-            await sync_to_async(self.crawl.update_and_requeue, thread_sensitive=True)(
-                status=self.crawl.StatusChoices.STARTED,
-                retry_at=timezone.now(),
-            )
-
-        parent_snapshot = await sync_to_async(
-            lambda: Snapshot.objects.select_related("crawl", "crawl__created_by").filter(id=snapshot_payload["id"]).first(),
-            thread_sensitive=True,
-        )()
-        if parent_snapshot is None:
-            return
-        config = await sync_to_async(
-            lambda: get_config(crawl=self.crawl, snapshot=parent_snapshot).for_crawl_runtime(
-                crawl=self.crawl,
-                snapshot=parent_snapshot,
-                persona=self.crawl.resolve_persona(),
-                crawl_output_dir=self.crawl.output_dir,
-                snapshot_output_dir=parent_snapshot.output_dir,
-            ),
-            thread_sensitive=True,
-        )()
-        if CrawlLimitState.from_config(config).get_stop_reason() in ("crawl_max_size", "crawl_timeout"):
-            return
-
-        await sync_to_async(self.crawl.create_discovered_snapshots, thread_sensitive=True)(
-            parent_snapshot,
-            discovered_urls,
-            depth=parent_snapshot.depth + 1,
-        )
+        await sync_to_async(project_discovered_snapshots, thread_sensitive=True)(snapshot_payload["id"])
         if self.process_discovered_snapshots_inline and isinstance(get_current_event(), CrawlStartEvent):
             await self.enqueue_pending_snapshots_from_projection()
 
@@ -1811,7 +1763,7 @@ def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: boo
     if snapshot.status == Snapshot.StatusChoices.QUEUED:
         has_archiveresults = snapshot.archiveresult_set.exists()
         if has_archiveresults and snapshot.is_finished_processing():
-            snapshot.sm.tick()
+            finalize_completed_snapshot(str(snapshot.id), output_dir=Path(snapshot.output_dir))
             snapshot.refresh_from_db()
             if snapshot.status == Snapshot.StatusChoices.SEALED:
                 _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot, status="SEALED")
@@ -1827,7 +1779,7 @@ def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: boo
             _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot, status="SEALED")
             return True
     if snapshot.status == Snapshot.StatusChoices.STARTED and snapshot.archiveresult_set.exists() and snapshot.is_finished_processing():
-        snapshot.sm.tick()
+        finalize_completed_snapshot(str(snapshot.id), output_dir=Path(snapshot.output_dir))
         snapshot.refresh_from_db()
         if snapshot.status == Snapshot.StatusChoices.SEALED:
             _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot, status="SEALED")

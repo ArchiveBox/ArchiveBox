@@ -898,6 +898,7 @@ class TestProcessClassMethods:
         """cleanup_stale_running should retire RUNNING rows that exceed timeout + grace."""
         stale = Process.objects.create(
             machine=self.machine,
+            process_type=Process.TypeChoices.HOOK,
             status=Process.StatusChoices.RUNNING,
             pid=999998,
             timeout=5,

@@ -1911,6 +1911,52 @@ class TestRunDueCrawlState:
         assert finished.output_str == "keep me"
         assert finished.output_files == {"favicon.ico": {"size": 1}}
 
+    def test_finished_parser_result_projects_children_before_resume_seals_snapshot(self):
+        import json
+
+        from django.utils import timezone
+
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.crawls.models import Crawl
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.services.runner import run_due_snapshot
+
+        crawl = Crawl.objects.create(
+            urls="Plain text import containing https://example.org/\n",
+            max_depth=1,
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.STARTED,
+            retry_at=timezone.now(),
+        )
+        root = Snapshot.objects.create(
+            url=Snapshot.INTERNAL_INPUT_URL,
+            crawl=crawl,
+            depth=0,
+            status=Snapshot.StatusChoices.STARTED,
+            retry_at=timezone.now(),
+        )
+        parser_dir = root.output_dir / "parse_txt_urls"
+        parser_dir.mkdir(parents=True, exist_ok=True)
+        (parser_dir / "urls.jsonl").write_text(
+            json.dumps({"type": "Snapshot", "url": "https://example.org/"}) + "\n",
+            encoding="utf-8",
+        )
+        ArchiveResult.objects.create(
+            snapshot=root,
+            plugin="parse_txt_urls",
+            hook_name="on_Snapshot__71_parse_txt_urls",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_files={"urls.jsonl": {"size": (parser_dir / "urls.jsonl").stat().st_size}},
+        )
+
+        assert run_due_snapshot(root, lock_seconds=60)
+
+        root.refresh_from_db()
+        child = Snapshot.objects.get(crawl=crawl, url="https://example.org/")
+        assert root.status == Snapshot.StatusChoices.SEALED
+        assert child.parent_snapshot_id == root.id
+        assert child.status == Snapshot.StatusChoices.QUEUED
+
     def test_due_started_snapshot_with_live_child_extends_lease_without_reset(self):
         import os
         from datetime import datetime

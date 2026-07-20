@@ -1575,7 +1575,7 @@ class Process(ModelWithDeleteAfter, models.Model):
 
         Processes are stale if:
         - Status is RUNNING but OS process no longer exists
-        - Status is RUNNING but exceeded its timeout plus a small grace margin
+        - A bounded HOOK or BINARY process exceeded its timeout plus a small grace margin
         - Status is RUNNING but started_at is older than PID_REUSE_WINDOW
 
         Returns count of processes cleaned up.
@@ -1595,7 +1595,7 @@ class Process(ModelWithDeleteAfter, models.Model):
 
             is_stale = False
 
-            if proc.started_at:
+            if proc.started_at and proc.process_type in (cls.TypeChoices.HOOK, cls.TypeChoices.BINARY):
                 timeout_seconds = max(int(proc.timeout or 0), 0)
                 timeout_deadline = proc.started_at + timedelta(seconds=timeout_seconds) + PROCESS_TIMEOUT_GRACE
                 if timeout_seconds > 0 and timezone.now() >= timeout_deadline:

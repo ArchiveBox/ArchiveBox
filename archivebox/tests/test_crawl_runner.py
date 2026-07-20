@@ -167,6 +167,7 @@ def test_ensure_background_runner_skips_with_real_running_orchestrator_record():
         status=Process.StatusChoices.RUNNING,
         pid=os.getpid(),
         started_at=datetime.fromtimestamp(os_proc.create_time(), tz=timezone.get_current_timezone()),
+        timeout=1,
     )
 
     assert ensure_background_runner(allow_under_pytest=True) is False
