@@ -1609,22 +1609,6 @@ Copy a similar plugin as a template to modify, then open a new PR to add it in t
 
 </details>
 
-#### Roll a release
-
-<details><summary><i>Click to expand...</i></summary>
-
-(Normally CI takes care of this, but these scripts can be run to do it manually)
-```console
-./bin/release.sh
-
-# or individually:
-./bin/release_docs.sh
-./bin/release_pip.sh
-./bin/release_docker.sh
-```
-
-</details>
-
 ---
 
 ## Further Reading

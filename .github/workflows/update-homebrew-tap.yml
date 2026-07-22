@@ -48,7 +48,7 @@ jobs:
         with:
           version: "0.11.3"
 
-      - name: Resolve release and Docker binaries through abxpkg
+      - name: Resolve release binaries through abxpkg
         env:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
         shell: bash
@@ -73,27 +73,23 @@ jobs:
             --install \
             --lib="$ABXPKG_LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:release_binaries" \
-            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:docker_binaries" \
             >/dev/null
 
-          for binary_name in uv gh git jq curl docker; do
+          for binary_name in uv git jq curl; do
             binary="$ABXPKG_LIB_DIR/env/bin/$binary_name"
             test -L "$binary"
             test -x "$binary"
           done
           {
             echo "UV_BINARY=$ABXPKG_LIB_DIR/env/bin/uv"
-            echo "GH_BINARY=$ABXPKG_LIB_DIR/env/bin/gh"
             echo "GIT_BINARY=$ABXPKG_LIB_DIR/env/bin/git"
             echo "JQ_BINARY=$ABXPKG_LIB_DIR/env/bin/jq"
             echo "CURL_BINARY=$ABXPKG_LIB_DIR/env/bin/curl"
-            echo "DOCKER_BINARY=$ABXPKG_LIB_DIR/env/bin/docker"
           } >> "$GITHUB_ENV"
 
       - name: Verify the exact release and dispatch downstream builds
         env:
           DOWNSTREAM_TOKEN: ${{ secrets.RELEASE_GH_TOKEN || secrets.HOMEBREW_TAP_TOKEN }}
-          GH_TOKEN: ${{ github.token }}
           INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
           INPUT_RELEASE_SHA: ${{ inputs.release_sha }}
         shell: bash
@@ -112,10 +108,6 @@ jobs:
           RELEASE_SHA="${INPUT_RELEASE_SHA:-${TAG_TARGET}}"
           [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$TAG_TARGET" == "$RELEASE_SHA" ]] || { echo "${RELEASE_TAG} points to ${TAG_TARGET}, not ${RELEASE_SHA}" >&2; exit 1; }
-
-          "$CURL_BINARY" -fsSL "https://pypi.org/pypi/archivebox/${VERSION}/json" >/dev/null
-          "$DOCKER_BINARY" manifest inspect "archivebox/archivebox:${VERSION}" >/dev/null
-          "$DOCKER_BINARY" manifest inspect "ghcr.io/archivebox/archivebox:${VERSION}" >/dev/null
 
           PAYLOAD_FILTER="{event_type: \"archivebox-dev-updated\", client_payload: {ref: \$ref, sha: \$sha, version: \$version}}"
           PAYLOAD="$("$JQ_BINARY" -nc --arg ref "$RELEASE_TAG" --arg sha "$RELEASE_SHA" --arg version "$VERSION" "$PAYLOAD_FILTER")"

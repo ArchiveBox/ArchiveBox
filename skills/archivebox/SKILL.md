@@ -73,8 +73,4 @@ uv run --project "$project_dir" --no-sync pytest "$project_dir/archivebox/tests/
 (cd "$project_dir" && uv run --no-sync prek run --all-files)
 ```
 
-Use the full release/deploy loop only when requested:
-
-```console
-./bin/release_dev_stack.sh
-```
+Releases are published only by `.github/workflows/release.yml` after the complete `dev` CI workflow succeeds. Local development and deployment commands must not publish packages, images, tags, or GitHub releases.

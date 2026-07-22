@@ -40,14 +40,9 @@ uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
     >/dev/null
 export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
 GIT_BINARY="$ABXPKG_LIB_DIR/env/bin/git"
-PYTHON_BINARY="$ABXPKG_LIB_DIR/env/bin/python"
 SSH_BINARY="$ABXPKG_LIB_DIR/env/bin/ssh"
 test -x "$GIT_BINARY"
-test -x "$PYTHON_BINARY"
 test -x "$SSH_BINARY"
-
-VERSION="$("$PYTHON_BINARY" -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
-GIT_SHA="sha-$("$GIT_BINARY" rev-parse --short HEAD)"
 
 if [[ "$("$GIT_BINARY" branch --show-current)" != "dev" ]]; then
     echo "[X] Run this from the dev branch." >&2
@@ -62,11 +57,6 @@ fi
 
 echo "[+] Pushing dev to GitHub..."
 "$GIT_BINARY" push origin dev
-
-if [[ "${SKIP_DOCKER:-0}" != "1" ]]; then
-    echo "[+] Publishing Docker image tags: dev ${VERSION} ${GIT_SHA}"
-    ./bin/release_docker.sh dev "$VERSION" "$GIT_SHA"
-fi
 
 if [[ "${SKIP_DEMO:-0}" == "1" ]]; then
     echo "[√] Skipped demo deploy."

@@ -125,15 +125,20 @@ if [[ ( "$PYPI_EXISTS" == true || "$GITHUB_EXISTS" == true ) && "$TAG_TARGET" !=
     exit 1
 fi
 
-if [[ "$GITHUB_EXISTS" == false ]]; then
-    RELEASE_ARGS=()
-    [[ "$VERSION" == *rc* ]] && RELEASE_ARGS+=(--prerelease)
-    $GH_BINARY release create "$TAG" --repo "$SLUG" --target "$RELEASE_SHA" \
-        --title "$TAG" --generate-notes "${RELEASE_ARGS[@]}"
+if [[ -z "$TAG_TARGET" ]]; then
+    $GIT_BINARY tag "$TAG" "$RELEASE_SHA"
+    $GIT_BINARY push origin "refs/tags/${TAG}"
 fi
 
 if [[ "$PYPI_EXISTS" == false ]]; then
     $UV_BINARY publish --trusted-publishing always "${WHEELS[@]}" "${SDISTS[@]}"
+fi
+
+if [[ "$GITHUB_EXISTS" == false ]]; then
+    RELEASE_ARGS=()
+    [[ "$VERSION" == *rc* ]] && RELEASE_ARGS+=(--prerelease)
+    $GH_BINARY release create "$TAG" --repo "$SLUG" --verify-tag \
+        --title "$TAG" --generate-notes "${RELEASE_ARGS[@]}"
 fi
 
 echo "Released ${PYPI_PACKAGE} ${VERSION} from ${RELEASE_SHA} using CI run ${CI_RUN_ID:-unknown}"

@@ -217,13 +217,6 @@ jobs:
           for digest in "${DIGESTS[@]}"; do REFS+=("${GHCR_IMAGE}@sha256:${digest}"); done
           $DOCKER_BINARY buildx imagetools create "${TAG_ARGS[@]}" "${REFS[@]}"
 
-      - name: Inspect published images
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          while IFS= read -r tag; do [[ -n "$tag" ]] && $DOCKER_BINARY buildx imagetools inspect "$tag"; done <<< '${{ steps.docker_meta.outputs.dockerhub_tags }}'
-          while IFS= read -r tag; do [[ -n "$tag" ]] && $DOCKER_BINARY buildx imagetools inspect "$tag"; done <<< '${{ steps.docker_meta.outputs.ghcr_tags }}'
-
       - name: Update Docker Hub README
         uses: peter-evans/dockerhub-description@432a30c9e07499fd01da9f8a49f0faf9e0ca5b77 # v4
         with:

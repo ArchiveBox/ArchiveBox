@@ -204,7 +204,10 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
           pull: true
           platforms: ${{ matrix.platform }}
-          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          outputs: |
+            type=docker,name=${{ matrix.local_tag }}
+            type=oci,dest=${{ runner.temp }}/archivebox-image.tar
+            type=image,push-by-digest=true,name-canonical=true,push=true
 
       - name: Build pull request image
         if: ${{ !inputs.push_digests }}
@@ -228,15 +231,11 @@ jobs:
         if: inputs.push_digests
         run: echo ${{ steps.docker_build.outputs.digest }}
 
-      - name: Validate pushed image version, commit, and size
+      - name: Validate exact built image version and commit
         shell: bash
         run: |
           set -Eeuo pipefail
-          if [[ "${{ inputs.push_digests }}" != "true" ]]; then
-            IMAGE="${{ matrix.local_tag }}"
-          else
-            IMAGE="${DOCKERHUB_IMAGE}@${{ steps.docker_build.outputs.digest }}"
-          fi
+          IMAGE="${{ matrix.local_tag }}"
           SHORT_SHA="${GITHUB_SHA::7}"
 
           DATA_DIR="$(mktemp -d)"
@@ -265,15 +264,87 @@ jobs:
 
       - name: Validate compressed image size
         if: inputs.push_digests
+        env:
+          BUILD_METADATA: ${{ steps.docker_build.outputs.metadata }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          IMAGE="${DOCKERHUB_IMAGE}@${{ steps.docker_build.outputs.digest }}"
-          LIMIT=$((780 * 1024 * 1024))
-          TOTAL="$("$DOCKER_BINARY" manifest inspect "$IMAGE" | "$JQ_BINARY" '[.config.size, (.layers[]?.size)] | add')"
-          printf '%s compressed_size=%s MiB limit=%s MiB\n' \
-            "$IMAGE" "$((TOTAL / 1024 / 1024))" "$((LIMIT / 1024 / 1024))"
-          [[ "$TOTAL" -le "$LIMIT" ]] || { echo "$IMAGE is over the compressed size limit" >&2; exit 1; }
+          LOCAL_IMAGE_ID="$("$DOCKER_BINARY" image inspect '${{ matrix.local_tag }}' --format '{{.Id}}')"
+          "$UV_BINARY" run --no-project python - \
+            '${{ runner.temp }}/archivebox-image.tar' \
+            '${{ steps.docker_build.outputs.digest }}' \
+            "$LOCAL_IMAGE_ID" \
+            "$((780 * 1024 * 1024))" <<'PY'
+          from hashlib import sha256
+          import json
+          import os
+          import sys
+          import tarfile
+
+          archive_path, pushed_digest, local_image_id, limit_text = sys.argv[1:]
+          limit = int(limit_text)
+          metadata = json.loads(os.environ["BUILD_METADATA"])
+          if metadata["containerimage.digest"] != pushed_digest:
+              raise SystemExit("Build push transaction digest does not match the action output")
+          if not pushed_digest.startswith("sha256:") or len(pushed_digest) != 71:
+              raise SystemExit(f"Invalid pushed digest: {pushed_digest}")
+
+          with tarfile.open(archive_path) as archive:
+              def read_blob(descriptor):
+                  algorithm, digest = descriptor["digest"].split(":", 1)
+                  if algorithm != "sha256":
+                      raise SystemExit(f"Unsupported OCI digest: {descriptor['digest']}")
+                  member = archive.extractfile(f"blobs/sha256/{digest}")
+                  if member is None:
+                      raise SystemExit(f"Missing OCI blob: {descriptor['digest']}")
+                  blob = member.read()
+                  if len(blob) != descriptor["size"]:
+                      raise SystemExit(f"OCI size mismatch: {descriptor['digest']}")
+                  if sha256(blob).hexdigest() != digest:
+                      raise SystemExit(f"OCI digest mismatch: {descriptor['digest']}")
+                  return blob
+
+              index_member = archive.extractfile("index.json")
+              if index_member is None:
+                  raise SystemExit("OCI export is missing index.json")
+              index = json.load(index_member)
+
+              manifests = []
+
+              def collect(descriptor):
+                  document = json.loads(read_blob(descriptor))
+                  media_type = descriptor["mediaType"]
+                  if "image.index" in media_type or "manifest.list" in media_type:
+                      for child in document["manifests"]:
+                          collect(child)
+                  elif "image.manifest" in media_type:
+                      config_type = document["config"]["mediaType"]
+                      if "image.config" in config_type or "container.image" in config_type:
+                          manifests.append(document)
+
+              for root in index["manifests"]:
+                  collect(root)
+              if len(manifests) != 1:
+                  raise SystemExit(f"Expected one runnable image manifest, found {len(manifests)}")
+
+              manifest = manifests[0]
+              config_digest = manifest["config"]["digest"]
+              if metadata["containerimage.config.digest"] != config_digest:
+                  raise SystemExit("OCI config digest does not match the pushed build result")
+              if local_image_id != config_digest:
+                  raise SystemExit("Locally tested image does not match the OCI build result")
+              descriptors = [manifest["config"], *manifest["layers"]]
+              for descriptor in descriptors:
+                  read_blob(descriptor)
+              total = sum(descriptor["size"] for descriptor in descriptors)
+
+          print(
+              f"{pushed_digest} compressed_size={total // 1024 // 1024} MiB "
+              f"limit={limit // 1024 // 1024} MiB",
+          )
+          if total > limit:
+              raise SystemExit(f"{pushed_digest} is over the compressed size limit")
+          PY
 
       - name: Export digest
         if: inputs.push_digests

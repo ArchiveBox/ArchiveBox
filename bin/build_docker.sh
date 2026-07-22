@@ -131,7 +131,7 @@ echo "[+] Building archivebox:$VERSION docker image..."
 mkdir -p "$HOME/.cache/docker/archivebox"
 "$DOCKER_BINARY" buildx imagetools inspect "$ABX_DL_IMAGE"
 if [[ "$SELECTED_PLATFORMS" == *,* ]]; then
-    echo "[X] --load only supports a single platform. Use bin/release_docker.sh or set DOCKER_PLATFORMS to one platform." >&2
+    echo "[X] --load only supports a single platform. Set DOCKER_PLATFORMS to one platform." >&2
     exit 1
 fi
 "$DOCKER_BINARY" buildx build \
