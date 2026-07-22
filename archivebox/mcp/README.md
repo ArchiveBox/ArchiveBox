@@ -19,7 +19,9 @@ This is a lightweight, stateless MCP server that dynamically introspects Archive
 ### Start the MCP Server
 
 ```bash
-archivebox mcp
+request='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
+response="$(printf '%s\n' "$request" | "$UV_BINARY" run --project "$ARCHIVEBOX_PROJECT_DIR" --no-sync archivebox mcp)"
+"$JQ_BINARY" -e '.id == 1 and .result.serverInfo.name == "archivebox-mcp"' <<< "$response"
 ```
 
 The server runs in stdio mode, reading JSON-RPC 2.0 requests from stdin and writing responses to stdout.
@@ -27,25 +29,30 @@ The server runs in stdio mode, reading JSON-RPC 2.0 requests from stdin and writ
 ### Example Client
 
 ```python
-import subprocess
 import json
+import os
+import subprocess
 
-# Start MCP server
-proc = subprocess.Popen(
-    ['archivebox', 'mcp'],
-    stdin=subprocess.PIPE,
-    stdout=subprocess.PIPE,
-    text=True
-)
-
-# Send initialize request
 request = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
-proc.stdin.write(json.dumps(request) + '\n')
-proc.stdin.flush()
-
-# Read response
-response = json.loads(proc.stdout.readline())
-print(response)
+completed = subprocess.run(
+    [
+        os.environ["UV_BINARY"],
+        "run",
+        "--project",
+        os.environ["ARCHIVEBOX_PROJECT_DIR"],
+        "--no-sync",
+        "archivebox",
+        "mcp",
+    ],
+    input=json.dumps(request) + "\n",
+    capture_output=True,
+    text=True,
+    check=True,
+    timeout=30,
+)
+response = json.loads(completed.stdout)
+assert response["id"] == 1
+assert response["result"]["serverInfo"]["name"] == "archivebox-mcp"
 ```
 
 ### Example Requests
@@ -98,16 +105,21 @@ The server exposes all ArchiveBox CLI commands:
 Instead of manually defining schemas, the server uses Click's introspection API to automatically generate MCP tool definitions:
 
 ```python
-# Auto-discover commands
-from archivebox.cli import ArchiveBoxGroup
-cli_group = ArchiveBoxGroup()
-all_commands = cli_group.all_subcommands
+import click
 
-# Auto-generate schemas from Click metadata
-for cmd_name in all_commands:
-    click_cmd = cli_group.get_command(None, cmd_name)
-    # Extract params, types, help text, etc.
-    tool_schema = click_command_to_mcp_tool(cmd_name, click_cmd)
+from archivebox.cli import ArchiveBoxGroup
+from archivebox.mcp.server import click_command_to_mcp_tool
+
+cli_group = ArchiveBoxGroup()
+context = click.Context(cli_group)
+
+tools = []
+for command_name in cli_group.all_subcommands:
+    command = cli_group.get_command(context, command_name)
+    assert command is not None
+    tools.append(click_command_to_mcp_tool(command_name, command))
+
+assert {tool["name"] for tool in tools} == set(cli_group.all_subcommands)
 ```
 
 ### Tool Execution
@@ -115,10 +127,14 @@ for cmd_name in all_commands:
 Commands are executed using Click's `CliRunner`:
 
 ```python
-from click.testing import CliRunner
+from archivebox.mcp.server import MCPServer
 
-runner = CliRunner()
-result = runner.invoke(click_command, args)
+response = MCPServer().handle_request(
+    {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+)
+assert response["id"] == 2
+assert response["result"]["tools"]
+assert all("name" in tool and "inputSchema" in tool for tool in response["result"]["tools"])
 ```
 
 ## Files

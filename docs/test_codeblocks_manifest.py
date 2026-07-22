@@ -1,5 +1,6 @@
 import configparser
 from collections import Counter
+import json
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -15,7 +16,11 @@ WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "docs.yml"
 
 
 def markdown_paths() -> tuple[Path, ...]:
-    candidates = [REPO_ROOT / "README.md", REPO_ROOT / "AGENTS.md"]
+    candidates = [
+        REPO_ROOT / "README.md",
+        REPO_ROOT / "AGENTS.md",
+        REPO_ROOT / "archivebox" / "mcp" / "README.md",
+    ]
     candidates.extend(sorted((REPO_ROOT / "skills").rglob("*.md")))
     candidates.extend(sorted((REPO_ROOT / "docs").rglob("*.md")))
 
@@ -106,7 +111,9 @@ def test_structured_data_fences_parse() -> None:
     )
 
     for nodeid, block in blocks.items():
-        if block.syntax == "yaml":
+        if block.syntax == "json":
+            json.loads(block.code)
+        elif block.syntax == "yaml":
             list(yaml.safe_load_all(block.code))
         elif block.syntax == "ini":
             parser = configparser.ConfigParser()

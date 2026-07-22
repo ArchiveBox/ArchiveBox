@@ -206,7 +206,7 @@ jobs:
           uv run --directory "$DATA_DIR" --no-sync --no-sources archivebox status
 
       - name: Run consolidated core suite
-        if: matrix.os_name == 'macOS' || matrix.python == '3.14.6'
+        if: matrix.os_name == 'macOS' || matrix.python == '3.14'
         run: |
           mkdir -p tests/out
           uv run --no-sync --no-sources pytest -q archivebox/tests --basetemp="tests/out/${{ matrix.os_name }}-python-${{ matrix.python }}"
