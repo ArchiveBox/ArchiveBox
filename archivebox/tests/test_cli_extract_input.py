@@ -1,7 +1,6 @@
 """Tests for archivebox extract input handling and pipelines."""
 
 import subprocess
-import json
 
 import pytest
 
@@ -219,15 +218,19 @@ def test_extract_stdin_jsonl_input(initialized_archive):
     env = cli_env(PLUGINS="wget,title")
     create_extract_snapshot(initialized_archive, env)
 
-    with use_archivebox_db(initialized_archive):
-        snapshot_id = Snapshot.objects.values_list("id", flat=True).first()
-
-    jsonl_input = json.dumps({"type": "Snapshot", "id": str(snapshot_id)}) + "\n"
+    list_result = run_archivebox_cmd(
+        ["snapshot", "list", "--url__icontains=example.com"],
+        cwd=initialized_archive,
+        env=env,
+        check=True,
+    )
+    snapshot_record = next(record for record in parse_jsonl_output(list_result.stdout) if record.get("type") == "Snapshot")
+    snapshot_id = snapshot_record["id"]
 
     result = run_archivebox_cmd(
         ["extract", "--plugins=wget,title"],
         cwd=initialized_archive,
-        input=jsonl_input,
+        input=list_result.stdout,
         env=env,
         timeout=90,
     )

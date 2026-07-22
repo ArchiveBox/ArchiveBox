@@ -1032,21 +1032,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             transaction.on_commit(lambda: self._cleanup_old_migration_dir(old_dir, new_dir))
             delattr(self, "_pending_fs_migration_cleanup")
 
-        # if is_new:
-        #     from archivebox.misc.logging_util import log_worker_event
-        #     log_worker_event(
-        #         worker_type='DB',
-        #         event='Created Snapshot',
-        #         indent_level=2,
-        #         url=self.url,
-        #         metadata={
-        #             'id': str(self.id),
-        #             'crawl_id': str(self.crawl_id),
-        #             'depth': self.depth,
-        #             'status': self.status,
-        #         },
-        #     )
-
     # =========================================================================
     # Filesystem Migration Methods
     # =========================================================================
@@ -4062,21 +4047,6 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                     )
         if is_new or update_fields is None or "status" in update_fields or "snapshot" in update_fields or "snapshot_id" in update_fields:
             transaction.on_commit(type(self).clear_majority_status_cache)
-
-        # if is_new:
-        #     from archivebox.misc.logging_util import log_worker_event
-        #     log_worker_event(
-        #         worker_type='DB',
-        #         event='Created ArchiveResult',
-        #         indent_level=3,
-        #         plugin=self.plugin,
-        #         metadata={
-        #             'id': str(self.id),
-        #             'snapshot_id': str(self.snapshot_id),
-        #             'snapshot_url': str(self.snapshot.url)[:64],
-        #             'status': self.status,
-        #         },
-        #     )
 
     def delete(self, *args, **kwargs):
         snapshot_id = self.snapshot_id

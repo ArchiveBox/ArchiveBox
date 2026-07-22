@@ -210,6 +210,87 @@ Bases: {py:obj}`django.forms.ModelForm`
 
 `````
 
+````{py:method} extract_url_line(line)
+:canonical: archivebox.crawls.admin.CrawlAdminForm.extract_url_line
+:staticmethod:
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdminForm.extract_url_line
+```
+
+````
+
+````{py:method} regex_escape(text)
+:canonical: archivebox.crawls.admin.CrawlAdminForm.regex_escape
+:staticmethod:
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdminForm.regex_escape
+```
+
+````
+
+````{py:method} generated_host_allowlist(urls)
+:canonical: archivebox.crawls.admin.CrawlAdminForm.generated_host_allowlist
+:classmethod:
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdminForm.generated_host_allowlist
+```
+
+````
+
+````{py:method} subpath_prefix(pathname)
+:canonical: archivebox.crawls.admin.CrawlAdminForm.subpath_prefix
+:staticmethod:
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdminForm.subpath_prefix
+```
+
+````
+
+````{py:method} parsed_host_and_port(parsed)
+:canonical: archivebox.crawls.admin.CrawlAdminForm.parsed_host_and_port
+:staticmethod:
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdminForm.parsed_host_and_port
+```
+
+````
+
+````{py:method} generated_subpath_allowlist(urls)
+:canonical: archivebox.crawls.admin.CrawlAdminForm.generated_subpath_allowlist
+:classmethod:
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdminForm.generated_subpath_allowlist
+```
+
+````
+
+````{py:method} derive_filter_toggles(urls, allowlist)
+:canonical: archivebox.crawls.admin.CrawlAdminForm.derive_filter_toggles
+:classmethod:
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdminForm.derive_filter_toggles
+```
+
+````
+
+````{py:method} effective_only_new(crawl=None)
+:canonical: archivebox.crawls.admin.CrawlAdminForm.effective_only_new
+:staticmethod:
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdminForm.effective_only_new
+```
+
+````
+
+````{py:method} inherited_only_new(crawl)
+:canonical: archivebox.crawls.admin.CrawlAdminForm.inherited_only_new
+:staticmethod:
+
+```{autodoc2-docstring} archivebox.crawls.admin.CrawlAdminForm.inherited_only_new
+```
+
+````
+
 ````{py:method} clean_tags_editor()
 :canonical: archivebox.crawls.admin.CrawlAdminForm.clean_tags_editor
 

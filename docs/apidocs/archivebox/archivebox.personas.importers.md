@@ -31,6 +31,26 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`_path_exists <archivebox.personas.importers._path_exists>`
+  - ```{autodoc2-docstring} archivebox.personas.importers._path_exists
+    :summary:
+    ```
+* - {py:obj}`_path_is_dir <archivebox.personas.importers._path_is_dir>`
+  - ```{autodoc2-docstring} archivebox.personas.importers._path_is_dir
+    :summary:
+    ```
+* - {py:obj}`_iter_children <archivebox.personas.importers._iter_children>`
+  - ```{autodoc2-docstring} archivebox.personas.importers._iter_children
+    :summary:
+    ```
+* - {py:obj}`_is_copyable_profile_entry <archivebox.personas.importers._is_copyable_profile_entry>`
+  - ```{autodoc2-docstring} archivebox.personas.importers._is_copyable_profile_entry
+    :summary:
+    ```
+* - {py:obj}`profile_copy_ignore <archivebox.personas.importers.profile_copy_ignore>`
+  - ```{autodoc2-docstring} archivebox.personas.importers.profile_copy_ignore
+    :summary:
+    ```
 * - {py:obj}`get_chrome_user_data_dir <archivebox.personas.importers.get_chrome_user_data_dir>`
   - ```{autodoc2-docstring} archivebox.personas.importers.get_chrome_user_data_dir
     :summary:
@@ -41,10 +61,6 @@
     ```
 * - {py:obj}`get_edge_user_data_dir <archivebox.personas.importers.get_edge_user_data_dir>`
   - ```{autodoc2-docstring} archivebox.personas.importers.get_edge_user_data_dir
-    :summary:
-    ```
-* - {py:obj}`get_browser_binary <archivebox.personas.importers.get_browser_binary>`
-  - ```{autodoc2-docstring} archivebox.personas.importers.get_browser_binary
     :summary:
     ```
 * - {py:obj}`validate_persona_name <archivebox.personas.importers.validate_persona_name>`
@@ -190,7 +206,7 @@
 ````{py:data} VOLATILE_PROFILE_COPY_PATTERNS
 :canonical: archivebox.personas.importers.VOLATILE_PROFILE_COPY_PATTERNS
 :value: >
-   ('Cache', 'Code Cache', 'GPUCache', 'ShaderCache', 'Service Worker', 'GCM Store', '*.log', 'Crashpad...
+   ('Cache', 'Code Cache', 'GPUCache', 'ShaderCache', 'Service Worker', 'GCM Store', 'chrome-extension_...
 
 ```{autodoc2-docstring} archivebox.personas.importers.VOLATILE_PROFILE_COPY_PATTERNS
 ```
@@ -205,6 +221,41 @@
 ```{autodoc2-docstring} archivebox.personas.importers.PERSONA_PROFILE_DIR_CANDIDATES
 ```
 
+````
+
+````{py:function} _path_exists(path: pathlib.Path) -> bool
+:canonical: archivebox.personas.importers._path_exists
+
+```{autodoc2-docstring} archivebox.personas.importers._path_exists
+```
+````
+
+````{py:function} _path_is_dir(path: pathlib.Path) -> bool
+:canonical: archivebox.personas.importers._path_is_dir
+
+```{autodoc2-docstring} archivebox.personas.importers._path_is_dir
+```
+````
+
+````{py:function} _iter_children(path: pathlib.Path) -> list[pathlib.Path]
+:canonical: archivebox.personas.importers._iter_children
+
+```{autodoc2-docstring} archivebox.personas.importers._iter_children
+```
+````
+
+````{py:function} _is_copyable_profile_entry(path: pathlib.Path) -> bool
+:canonical: archivebox.personas.importers._is_copyable_profile_entry
+
+```{autodoc2-docstring} archivebox.personas.importers._is_copyable_profile_entry
+```
+````
+
+````{py:function} profile_copy_ignore(src: str, names: list[str]) -> set[str]
+:canonical: archivebox.personas.importers.profile_copy_ignore
+
+```{autodoc2-docstring} archivebox.personas.importers.profile_copy_ignore
+```
 ````
 
 `````{py:class} PersonaImportSource
@@ -446,13 +497,6 @@
 :canonical: archivebox.personas.importers.get_edge_user_data_dir
 
 ```{autodoc2-docstring} archivebox.personas.importers.get_edge_user_data_dir
-```
-````
-
-````{py:function} get_browser_binary(browser: str) -> str | None
-:canonical: archivebox.personas.importers.get_browser_binary
-
-```{autodoc2-docstring} archivebox.personas.importers.get_browser_binary
 ```
 ````
 

@@ -209,7 +209,13 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         return resolve_delete_after_config_value(self.config)
 
     def pause(self, *, save: bool = True) -> bool:
-        return super().pause(save=save)
+        paused = super().pause(save=save)
+        if paused and save and self.pk:
+            from archivebox.core.models import Snapshot
+
+            for snapshot in self.snapshot_set.exclude(status__in=Snapshot.FINAL_STATES).iterator():
+                snapshot.pause()
+        return paused
 
     def resume(self, *, when=None, save: bool = True) -> bool:
         resumed = super().resume(when=when, save=save)
@@ -338,20 +344,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                         removed_tag_names=removed_tag_names,
                     ),
                 )
-        # if is_new:
-        #     from archivebox.misc.logging_util import log_worker_event
-        #     first_url = self.get_urls_list()[0] if self.get_urls_list() else ''
-        #     log_worker_event(
-        #         worker_type='DB',
-        #         event='Created Crawl',
-        #         indent_level=1,
-        #         metadata={
-        #             'id': str(self.id),
-        #             'first_url': first_url[:64],
-        #             'max_depth': self.max_depth,
-        #             'status': self.status,
-        #         },
-        #     )
 
     def update_child_snapshot_permissions(self, old_permissions: str | None, new_permissions: str | None) -> int:
         from archivebox.core.models import Snapshot

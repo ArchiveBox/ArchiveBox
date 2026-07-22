@@ -1,0 +1,106 @@
+version = 1
+environments = ["core", "merge", "publishing", "docker", "root", "macos", "freebsd", "openbsd"]
+
+[syntax]
+executed = ["bash", "sh", "python"]
+shell_syntax_only = ["console"]
+structured = ["yaml", "ini", "sql", "nginx", "mermaid"]
+prose = ["text"]
+directive_prefixes = ["{"]
+console_blocks = [
+    "README.md::line 489",
+    "README.md::line 1400",
+    "README.md::line 1421",
+    "README.md::line 1436",
+    "README.md::line 1466",
+    "README.md::line 1490",
+    "README.md::line 1500",
+    "README.md::line 1524",
+    "README.md::line 1537",
+    "README.md::line 1601",
+    "README.md::line 1617",
+    "AGENTS.md::line 84",
+    "skills/archivebox/SKILL.md::line 78",
+]
+
+[ci.standard]
+core = "ubuntu-24.04"
+merge = "ubuntu-24.04"
+publishing = "ubuntu-24.04"
+docker = "ubuntu-24.04"
+root = "ubuntu-24.04"
+macos = "macos-15"
+
+[ci.core_shards]
+metadata = [
+    "README.md",
+    "docs/Changelog.md",
+    "docs/Chromium-Install.md",
+]
+agents = [
+    "AGENTS.md",
+    "skills/archivebox/SKILL.md",
+]
+guides = [
+    "docs/Quickstart.md",
+    "docs/Scheduled-Archiving.md",
+    "docs/Security-Overview.md",
+    "docs/Setting-Up-Storage.md",
+]
+configuration = ["docs/Configuration.md"]
+install = ["docs/Install.md"]
+authentication = ["docs/Setting-up-Authentication.md"]
+search = ["docs/Setting-up-Search.md"]
+troubleshooting = ["docs/Troubleshooting.md"]
+usage = [
+    "docs/Upgrading.md",
+    "docs/Usage.md",
+]
+
+[ci.bsd]
+freebsd = "vmactions/freebsd-vm@v1.5.2"
+openbsd = "vmactions/openbsd-vm@v1.4.5"
+
+[files]
+"README.md" = "core"
+"AGENTS.md" = "core"
+"skills/archivebox/SKILL.md" = "core"
+"docs/Changelog.md" = "core"
+"docs/Chromium-Install.md" = "core"
+"docs/Configuration.md" = "core"
+"docs/Docker.md" = "docker"
+"docs/Install.md" = "core"
+"docs/Merging-Collections.md" = "merge"
+"docs/Publishing-Your-Archive.md" = "publishing"
+"docs/Quickstart.md" = "core"
+"docs/Scheduled-Archiving.md" = "core"
+"docs/Security-Overview.md" = "core"
+"docs/Setting-Up-Storage.md" = "core"
+"docs/Setting-up-Authentication.md" = "core"
+"docs/Setting-up-Search.md" = "core"
+"docs/Troubleshooting.md" = "core"
+"docs/Upgrading.md" = "core"
+"docs/Usage.md" = "core"
+
+[blocks]
+"docs/Chromium-Install.md::line 100" = "docker"
+"docs/Chromium-Install.md::line 105" = "docker"
+"docs/Chromium-Install.md::line 114" = "docker"
+"docs/Configuration.md::line 137" = "macos"
+"docs/Install.md::line 126" = "macos"
+"docs/Install.md::line 146" = "root"
+"docs/Install.md::line 168" = "freebsd"
+"docs/Install.md::line 178" = "openbsd"
+"docs/Quickstart.md::line 64" = "docker"
+"docs/Scheduled-Archiving.md::line 53" = "docker"
+"docs/Security-Overview.md::line 140" = "root"
+"docs/Setting-Up-Storage.md::line 62" = "root"
+"docs/Setting-Up-Storage.md::line 174" = "root"
+"docs/Setting-Up-Storage.md::line 258" = "docker"
+"docs/Setting-Up-Storage.md::line 289" = "docker"
+"docs/Setting-up-Search.md::line 95" = "macos"
+"docs/Setting-up-Search.md::line 149" = "docker"
+"docs/Troubleshooting.md::line 37" = "macos"
+"docs/Troubleshooting.md::line 88" = "root"
+"docs/Upgrading.md::line 60" = "docker"
+"docs/Upgrading.md::line 77" = "docker"

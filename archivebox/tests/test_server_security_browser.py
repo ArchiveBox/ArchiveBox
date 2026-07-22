@@ -7,7 +7,6 @@ import json
 import os
 import subprocess
 import textwrap
-import time
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -21,7 +20,8 @@ from .conftest import (
     start_archivebox_server as start_daemon_server,
     stop_archivebox_process,
     stop_server as stop_daemon_server,
-    wait_for_http,
+    get_http_response,
+    wait_for_log,
 )
 
 
@@ -169,39 +169,34 @@ async function frameText(frame) {
   }
 }
 
-async function findPreviewText(page, expectedText, timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  let lastState = [];
-  while (Date.now() < deadline) {
-    const frames = page.frames();
-    const previewFrame = frames.find((frame) => {
-      const url = frame.url();
-      return url.includes("/archivewebpage/archivewebpage.wacz") && url.includes("preview=1");
-    });
+async function readPreviewText(page, expectedText) {
+  const frames = page.frames();
+  const previewFrame = frames.find((frame) => {
+    const url = frame.url();
+    return url.includes("/archivewebpage/archivewebpage.wacz") && url.includes("preview=1");
+  });
 
-    lastState = [];
-    for (const frame of frames) {
-      const text = await frameText(frame);
-      lastState.push({
-        name: frame.name(),
-        url: frame.url(),
-        isPreview: frame === previewFrame,
-        underPreview: previewFrame ? isDescendantOf(frame, previewFrame) : false,
-        textSample: text.slice(0, 240),
-      });
-      if (previewFrame && (frame === previewFrame || isDescendantOf(frame, previewFrame)) && text.includes(expectedText)) {
-        return {
-          matched: true,
-          previewUrl: previewFrame.url(),
-          matchedFrameUrl: frame.url(),
-          matchedFrameName: frame.name(),
-          textSample: text.slice(0, 400),
-        };
-      }
+  const frameState = [];
+  for (const frame of frames) {
+    const text = await frameText(frame);
+    frameState.push({
+      name: frame.name(),
+      url: frame.url(),
+      isPreview: frame === previewFrame,
+      underPreview: previewFrame ? isDescendantOf(frame, previewFrame) : false,
+      textSample: text.slice(0, 240),
+    });
+    if (previewFrame && (frame === previewFrame || isDescendantOf(frame, previewFrame)) && text.includes(expectedText)) {
+      return {
+        matched: true,
+        previewUrl: previewFrame.url(),
+        matchedFrameUrl: frame.url(),
+        matchedFrameName: frame.name(),
+        textSample: text.slice(0, 400),
+      };
     }
-    await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  return {matched: false, frames: lastState};
+  return {matched: false, frames: frameState};
 }
 
 async function main() {
@@ -236,7 +231,8 @@ async function main() {
     waitUntil: "domcontentloaded",
     timeout: 30000,
   });
-  const previewResult = await findPreviewText(page, config.expectedText, 60000);
+  await page.waitForNetworkIdle({idleTime: 500, timeout: 60000});
+  const previewResult = await readPreviewText(page, config.expectedText);
 
   console.log(JSON.stringify({
     detailUrl: config.detailUrl,
@@ -260,8 +256,6 @@ main().catch((error) => {
 def browser_runtime(initialized_archive: Path):
     shared_lib = initialized_archive / "lib"
     env = cli_env(
-        ABXPKG_INSTALL_TIMEOUT="900",
-        ABXPKG_MIN_RELEASE_AGE="0",
         ABXPKG_LIB_DIR=str(shared_lib),
         CHROME_HEADLESS="True",
         CHROME_SANDBOX="False",
@@ -484,19 +478,23 @@ def _run_browser_probe(
             "USE_CHROME": "False",
         },
     )
-    process = run_archivebox_cmd(
-        ["server", "--debug", "--nothreading", f"127.0.0.1:{port}"],
-        cwd=data_dir,
-        env=server_env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
-        wait=False,
-    )
+    server_log_path = tmp_path / f"{mode}_server.log"
+    with server_log_path.open("w", encoding="utf-8") as server_log_file:
+        process = run_archivebox_cmd(
+            ["server", "--debug", "--nothreading", f"127.0.0.1:{port}"],
+            cwd=data_dir,
+            env=server_env,
+            stdout=server_log_file,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            wait=False,
+        )
     try:
-        wait_for_http(port, f"archivebox.localhost:{port}", process=process)
+        wait_for_log(server_log_path, "Listening on TCP", timeout=30)
+        get_http_response(port, f"archivebox.localhost:{port}", process=process)
     except AssertionError as exc:
-        server_log = stop_archivebox_process(process)
+        stop_archivebox_process(process)
+        server_log = server_log_path.read_text(encoding="utf-8", errors="replace")
         raise AssertionError(f"{exc}\n\nSERVER LOG:\n{server_log}") from exc
 
     probe_path = tmp_path / "server_security_probe.js"
@@ -520,50 +518,32 @@ def _run_browser_probe(
             timeout=120,
         )
     finally:
-        server_log = stop_archivebox_process(process)
+        stop_archivebox_process(process)
+        server_log = server_log_path.read_text(encoding="utf-8", errors="replace")
 
     assert result.returncode == 0, f"{result.stderr}\n\nSERVER LOG:\n{server_log}"
     return json.loads(result.stdout.strip())
 
 
-def _wait_for_archivewebpage_capture(data_dir: Path, url: str, timeout: float = 300.0) -> dict[str, str]:
+def _get_archivewebpage_capture(data_dir: Path, url: str) -> dict[str, str]:
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.tests.test_orm_helpers import use_archivebox_db
 
-    deadline = time.time() + timeout
-    last_state = {}
-    while time.time() < deadline:
-        with use_archivebox_db(data_dir):
-            snapshot = Snapshot.objects.filter(url=url).order_by("-created_at").first()
-            if snapshot is None:
-                last_state = {"snapshot": "missing"}
-            else:
-                result = (
-                    ArchiveResult.objects.filter(snapshot=snapshot, plugin="archivewebpage")
-                    .order_by("-created_at")
-                    .values("status", "output_files", "output_str")
-                    .first()
-                )
-                wacz_path = Path(snapshot.output_dir) / "archivewebpage" / "archivewebpage.wacz"
-                last_state = {
-                    "snapshot_id": str(snapshot.id),
-                    "snapshot_status": str(snapshot.status),
-                    "result": str(result),
-                    "wacz_path": str(wacz_path),
-                    "wacz_exists": str(wacz_path.is_file()),
-                }
-                if (
-                    snapshot.status == Snapshot.StatusChoices.SEALED
-                    and result is not None
-                    and result["status"] == ArchiveResult.StatusChoices.SUCCEEDED
-                    and wacz_path.is_file()
-                ):
-                    return {
-                        "snapshot_id": str(snapshot.id),
-                        "wacz_path": str(wacz_path),
-                    }
-        time.sleep(2)
-    raise AssertionError(f"timed out waiting for archivewebpage capture: {last_state}")
+    with use_archivebox_db(data_dir):
+        snapshot = Snapshot.objects.get(url=url)
+        result = ArchiveResult.objects.get(
+            snapshot=snapshot,
+            plugin="archivewebpage",
+            hook_name="on_Snapshot__65_archivewebpage_stop",
+        )
+        wacz_path = Path(snapshot.output_dir) / "archivewebpage" / "archivewebpage.wacz"
+        assert snapshot.status == Snapshot.StatusChoices.SEALED
+        assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
+        assert wacz_path.is_file()
+        return {
+            "snapshot_id": str(snapshot.id),
+            "wacz_path": str(wacz_path),
+        }
 
 
 def _run_wacz_preview_probe(
@@ -700,31 +680,28 @@ def test_server_security_modes_in_chrome(
         assert probe_results["admin"]["ok"] is expected["admin_ok"]
         assert probe_results["api"]["ok"] is expected["api_ok"]
         assert any("CORS policy" in text for text in console_texts)
-        return
-
-    if mode == "safe-onedomain-nojsreplay":
+    elif mode == "safe-onedomain-nojsreplay":
         assert probe_results == {}
         assert "Dangerous Replay Fixture" in page_state["bodyText"]
         assert any("Blocked script execution" in text for text in console_texts)
-        return
+    else:
+        assert probe_results["own"]["ok"] is True
+        assert probe_results["own"]["status"] == 200
+        assert "ATTACKER_SECRET" in probe_results["own"]["sample"]
+        assert probe_results["victim"]["ok"] is expected["victim_ok"]
+        assert probe_results["victim"]["status"] == expected["victim_status"]
+        assert "VICTIM_SECRET" in probe_results["victim"]["sample"]
+        assert probe_results["admin"]["ok"] is expected["admin_ok"]
+        assert probe_results["admin"]["status"] == expected["admin_status"]
+        assert probe_results["api"]["ok"] is expected["api_ok"]
+        assert probe_results["api"]["status"] == expected["api_status"]
 
-    assert probe_results["own"]["ok"] is True
-    assert probe_results["own"]["status"] == 200
-    assert "ATTACKER_SECRET" in probe_results["own"]["sample"]
-    assert probe_results["victim"]["ok"] is expected["victim_ok"]
-    assert probe_results["victim"]["status"] == expected["victim_status"]
-    assert "VICTIM_SECRET" in probe_results["victim"]["sample"]
-    assert probe_results["admin"]["ok"] is expected["admin_ok"]
-    assert probe_results["admin"]["status"] == expected["admin_status"]
-    assert probe_results["api"]["ok"] is expected["api_ok"]
-    assert probe_results["api"]["status"] == expected["api_status"]
-
-    if mode == "unsafe-onedomain-noadmin":
-        assert "control plane disabled" in probe_results["admin"]["sample"].lower()
-        assert "control plane disabled" in probe_results["api"]["sample"].lower()
-    elif mode == "danger-onedomain-fullreplay":
-        assert "ArchiveBox" in probe_results["admin"]["sample"]
-        assert "swagger" in probe_results["api"]["sample"].lower()
+        if mode == "unsafe-onedomain-noadmin":
+            assert "control plane disabled" in probe_results["admin"]["sample"].lower()
+            assert "control plane disabled" in probe_results["api"]["sample"].lower()
+        elif mode == "danger-onedomain-fullreplay":
+            assert "ArchiveBox" in probe_results["admin"]["sample"]
+            assert "swagger" in probe_results["api"]["sample"].lower()
 
 
 @pytest.mark.django_db(transaction=True)
@@ -770,17 +747,17 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archi
         )
 
         start_daemon_server(initialized_archive, env=env, port=port)
-        wait_for_http(port, host=f"archivebox.localhost:{port}", path="/")
+        get_http_response(port, host=f"archivebox.localhost:{port}", path="/")
         _cmd_result = run_archivebox_cmd(
-            ["add", "--bg", "--depth=0", "--max-urls=1", "--plugins=archivewebpage", url],
+            ["add", "--depth=0", "--max-urls=1", "--plugins=archivewebpage", url],
             cwd=initialized_archive,
             env=env,
             timeout=120,
         )
         stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        assert returncode == 0, f"archivebox add --bg failed:\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+        assert returncode == 0, f"archivebox add failed:\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
 
-        capture = _wait_for_archivewebpage_capture(initialized_archive, url, timeout=360)
+        capture = _get_archivewebpage_capture(initialized_archive, url)
         snapshot_host = f"{get_snapshot_subdomain(capture['snapshot_id'])}.archivebox.localhost:{port}"
         detail_url = f"http://{snapshot_host}/#archivewebpage/archivewebpage.wacz"
         result = _run_wacz_preview_probe(initialized_archive, browser_runtime, detail_url, tmp_path)

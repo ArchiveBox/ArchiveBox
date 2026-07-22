@@ -6,7 +6,7 @@ IMAGE="${IMAGE:-archivebox/archivebox:dev}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 ENTRYPOINT_PATH="${ENTRYPOINT_PATH:-$REPO_DIR/bin/docker_entrypoint.sh}"
-RUN_ID="${RUN_ID:-$(date +%Y%m%d-%H%M%S)-$$}"
+RUN_ID="${RUN_ID:-${EPOCHSECONDS:-0}-$$}"
 VALIDATION_ROOT="${VALIDATION_ROOT:-$REPO_DIR/tmp/docker-uid-gid-validation/$RUN_ID}"
 KEEP_VALIDATION_ROOT="${KEEP_VALIDATION_ROOT:-0}"
 
@@ -37,22 +37,57 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-${LIB_DIR:-$HOME/.config/archivebox/lib}}"
+locked_abxpkg_version() {
+    local line package=""
+    while IFS= read -r line; do
+        case "$line" in
+            '[[package]]') package="" ;;
+            'name = "abxpkg"') package="abxpkg" ;;
+            'version = "'*'"')
+                [[ "$package" == "abxpkg" ]] || continue
+                line="${line#version = \"}"
+                printf '%s\n' "${line%\"}"
+                return 0
+                ;;
+        esac
+    done < "$REPO_DIR/uv.lock"
+    return 1
+}
+ABXPKG_VERSION="$(locked_abxpkg_version)"
+mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+    --install \
+    --lib="$ABXPKG_LIB_DIR" \
+    --deps-from="$REPO_DIR/.github/configs/ci-tooling.json:docker_validation_binaries" \
+    >/dev/null
+export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
+DOCKER_BINARY="$ABXPKG_LIB_DIR/env/bin/docker"
+SSH_BINARY="$ABXPKG_LIB_DIR/env/bin/ssh"
+UNAME_BINARY="$ABXPKG_LIB_DIR/env/bin/uname"
+test -x "$DOCKER_BINARY"
+test -x "$SSH_BINARY"
+test -x "$UNAME_BINARY"
+
 if [[ -n "$REMOTE_HOST" && "$LOCAL_ONLY" != "1" ]]; then
     remote_dir="/tmp/archivebox-uid-gid-validation-$RUN_ID"
-    ssh "$REMOTE_HOST" "mkdir -p '$remote_dir'"
-    scp "$0" "$ENTRYPOINT_PATH" "$REMOTE_HOST:$remote_dir/" >/dev/null
-    ssh "$REMOTE_HOST" "cd '$remote_dir' && IMAGE='$IMAGE' ENTRYPOINT_PATH='$remote_dir/$(basename "$ENTRYPOINT_PATH")' bash './$(basename "$0")' --local-only --entrypoint '$remote_dir/$(basename "$ENTRYPOINT_PATH")' --workdir '$remote_dir/work'"
+    entrypoint_name="${ENTRYPOINT_PATH##*/}"
+    script_name="${0##*/}"
+    "$SSH_BINARY" "$REMOTE_HOST" "mkdir -p '$remote_dir'"
+    "$SSH_BINARY" "$REMOTE_HOST" "cat > '$remote_dir/$script_name'" < "$0"
+    "$SSH_BINARY" "$REMOTE_HOST" "cat > '$remote_dir/$entrypoint_name'" < "$ENTRYPOINT_PATH"
+    "$SSH_BINARY" "$REMOTE_HOST" "cd '$remote_dir' && IMAGE='$IMAGE' ENTRYPOINT_PATH='$remote_dir/$entrypoint_name' bash './$script_name' --local-only --entrypoint '$remote_dir/$entrypoint_name' --workdir '$remote_dir/work'"
     exit $?
 fi
 
 DOCKER_PLATFORM="${DOCKER_PLATFORM:-}"
 if [[ -z "$DOCKER_PLATFORM" ]]; then
-    case "$(uname -m)" in
+    case "$("$UNAME_BINARY" -m)" in
         arm64|aarch64) DOCKER_PLATFORM="linux/amd64" ;;
     esac
 fi
 
-docker_base=(docker run --rm)
+docker_base=("$DOCKER_BINARY" run --rm)
 if [[ -n "$DOCKER_PLATFORM" ]]; then
     docker_base+=(--platform "$DOCKER_PLATFORM")
 fi
@@ -87,8 +122,10 @@ docker_setup() {
             $setup_script"
 }
 
+# These command strings intentionally expand only inside the validation container.
+# shellcheck disable=SC2016
 default_cmd='printf "ABX_UID=%s\nABX_GID=%s\nABX_USER=%s\nABX_GROUPS=%s\n" "$(id -u)" "$(id -g)" "$(whoami 2>/dev/null || true)" "$(id -Gn)"; touch /data/logs/probe /data/archive/probe "$ABXPKG_LIB_DIR/probe" "$PERSONAS_DIR/Default/chrome_profile/probe"; stat -c "ABX_STAT %u:%g:%a %n" /data /data/logs /data/archive "$ABXPKG_LIB_DIR" "$PERSONAS_DIR" "$PERSONAS_DIR/Default" "$PERSONAS_DIR/Default/chrome_profile"; echo ABX_PERSONA_PROFILE_OK; echo ABX_OK'
-version_cmd='printf "ABX_UID=%s\nABX_GID=%s\nABX_USER=%s\nABX_GROUPS=%s\n" "$(id -u)" "$(id -g)" "$(whoami 2>/dev/null || true)" "$(id -Gn)"; archivebox version >/tmp/archivebox-version.out; tail -n 12 /tmp/archivebox-version.out; echo ABX_OK'
+# shellcheck disable=SC2016
 full_flow_cmd='set -Eeuo pipefail
 printf "ABX_UID=%s\nABX_GID=%s\nABX_USER=%s\nABX_GROUPS=%s\n" "$(id -u)" "$(id -g)" "$(whoami 2>/dev/null || true)" "$(id -Gn)"
 id -Gn | grep -qw audio
@@ -369,14 +406,9 @@ run_mount_case() {
     local fs_name="$1"
     local mount_dir="$2"
 
-    if [[ -z "$mount_dir" || ! -d "$mount_dir" ]]; then
-        log "SKIP $fs_name mount case: mount dir not provided"
-        return
-    fi
-    if [[ ! -w "$mount_dir" ]]; then
-        log "SKIP $fs_name mount case: $mount_dir is not writable by host user"
-        return
-    fi
+    [[ -n "$mount_dir" ]] || { log "FAIL $fs_name mount case: mount dir not provided"; exit 1; }
+    [[ -d "$mount_dir" ]] || { log "FAIL $fs_name mount case: $mount_dir does not exist"; exit 1; }
+    [[ -w "$mount_dir" ]] || { log "FAIL $fs_name mount case: $mount_dir is not writable by host user"; exit 1; }
 
     local previous_root case_root
     previous_root="$VALIDATION_ROOT"
@@ -387,7 +419,7 @@ run_mount_case() {
     VALIDATION_ROOT="$previous_root"
 }
 
-log "Running UID/GID validation on $(hostname) using image=$IMAGE entrypoint=$ENTRYPOINT_PATH root=$VALIDATION_ROOT platform=${DOCKER_PLATFORM:-native}"
+log "Running UID/GID validation on ${HOSTNAME:-unknown-host} using image=$IMAGE entrypoint=$ENTRYPOINT_PATH root=$VALIDATION_ROOT platform=${DOCKER_PLATFORM:-native}"
 
 run_case "root-owned empty data auto-detect default" \
     "chown 0:0 /case/data && chmod 755 /case/data" \

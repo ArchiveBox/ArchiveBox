@@ -2,7 +2,6 @@
 
 import json
 import re
-import time
 
 import pytest
 import requests
@@ -18,7 +17,7 @@ from archivebox.tests.conftest import (
     run_archivebox_cmd,
     start_archivebox_server,
     stop_server,
-    wait_for_http,
+    get_http_response,
 )
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
@@ -27,7 +26,7 @@ pytestmark = pytest.mark.django_db
 
 def _login_admin_over_full_server(port: int) -> tuple[requests.Session, str]:
     session = requests.Session()
-    wait_for_http(port, host=f"admin.archivebox.localhost:{port}", path="/admin/login/")
+    get_http_response(port, host=f"admin.archivebox.localhost:{port}", path="/admin/login/")
     login_page = session.get(
         f"http://admin.archivebox.localhost:{port}/admin/login/",
         timeout=10,
@@ -59,7 +58,27 @@ def _login_admin_over_full_server(port: int) -> tuple[requests.Session, str]:
     return session, add_csrf_match.group(1)
 
 
-def _create_private_snapshot_over_full_server(data_dir, session: requests.Session, port: int, csrf_token: str, url: str) -> dict[str, str]:
+def _stop_runner_worker(data_dir) -> None:
+    script = """
+from archivebox.workers.supervisord_util import get_existing_supervisord_process, stop_worker
+supervisor = get_existing_supervisord_process()
+assert supervisor is not None
+stop_worker(supervisor, "worker_runner")
+print("stopped")
+"""
+    result = run_archivebox_cmd(["manage", "shell", "-c", script], cwd=data_dir, timeout=60)
+    assert result.returncode == 0, result.stderr or result.stdout
+
+
+def _create_private_snapshot_over_full_server(
+    data_dir,
+    session: requests.Session,
+    port: int,
+    csrf_token: str,
+    url: str,
+    env: dict[str, str],
+) -> dict[str, str]:
+    _stop_runner_worker(data_dir)
     response = session.post(
         f"http://admin.archivebox.localhost:{port}/add/",
         headers={"Referer": f"http://admin.archivebox.localhost:{port}/add/"},
@@ -88,21 +107,26 @@ def _create_private_snapshot_over_full_server(data_dir, session: requests.Sessio
     )
     assert response.status_code in (302, 303), response.text
 
-    deadline = time.time() + 60
-    while time.time() < deadline:
-        with use_archivebox_db(data_dir):
-            from archivebox.core.models import Snapshot
+    with use_archivebox_db(data_dir):
+        from archivebox.crawls.models import Crawl
 
-            snapshot = Snapshot.objects.select_related("crawl").filter(url=url).order_by("-created_at").first()
-            if snapshot:
-                snapshot_id = str(snapshot.id)
-                return {
-                    "id": snapshot_id,
-                    "path": snapshot.url_path,
-                    "host": f"snap-{snapshot_id.replace('-', '')[-12:]}.archivebox.localhost:{port}",
-                }
-        time.sleep(0.5)
-    raise AssertionError(f"Timed out waiting for private Snapshot created from {url}")
+        crawl = Crawl.objects.order_by("-created_at").get()
+
+    stop_server(data_dir)
+    run_result = run_archivebox_cmd(["run", f"--crawl-id={crawl.id}"], cwd=data_dir, timeout=120, env=env)
+    assert run_result.returncode == 0, run_result.stderr or run_result.stdout
+    start_archivebox_server(data_dir, env=env, port=port)
+
+    with use_archivebox_db(data_dir):
+        from archivebox.core.models import Snapshot
+
+        snapshot = Snapshot.objects.select_related("crawl").get(url=url)
+        snapshot_id = str(snapshot.id)
+        return {
+            "id": snapshot_id,
+            "path": snapshot.url_path,
+            "host": f"snap-{snapshot_id.replace('-', '')[-12:]}.archivebox.localhost:{port}",
+        }
 
 
 def _logout_admin_over_full_server(session: requests.Session, port: int) -> None:
@@ -368,7 +392,14 @@ class TestPublicIndex:
         try:
             start_archivebox_server(tmp_path, env=env, port=port)
             session, csrf_token = _login_admin_over_full_server(port)
-            snapshot = _create_private_snapshot_over_full_server(tmp_path, session, port, csrf_token, recursive_test_site["root_url"])
+            snapshot = _create_private_snapshot_over_full_server(
+                tmp_path,
+                session,
+                port,
+                csrf_token,
+                recursive_test_site["root_url"],
+                env,
+            )
             snap_url = f"http://{snapshot['host']}/index.html"
 
             response = session.get(snap_url, timeout=10, allow_redirects=True)
@@ -407,7 +438,14 @@ class TestPublicIndex:
         try:
             start_archivebox_server(tmp_path, env=env, port=port)
             session, csrf_token = _login_admin_over_full_server(port)
-            snapshot = _create_private_snapshot_over_full_server(tmp_path, session, port, csrf_token, recursive_test_site["root_url"])
+            snapshot = _create_private_snapshot_over_full_server(
+                tmp_path,
+                session,
+                port,
+                csrf_token,
+                recursive_test_site["root_url"],
+                env,
+            )
             snap_url = f"http://{snapshot['host']}/index.html"
 
             authorized = session.get(snap_url, timeout=10, allow_redirects=True)
@@ -471,7 +509,7 @@ def test_public_web_routing_and_auth_cookie_behavior_over_real_server_in_all_sec
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
-        wait_for_http(port, host=web_host, path="/public/")
+        get_http_response(port, host=web_host, path="/public/")
 
         public_page = requests.get(
             f"http://127.0.0.1:{port}/public/",
@@ -521,38 +559,37 @@ def test_public_web_routing_and_auth_cookie_behavior_over_real_server_in_all_sec
                 allow_redirects=False,
             )
             assert api_docs.status_code == 403
-            return
+        else:
+            assert admin_login.status_code == 200, admin_login.text[:500]
+            session = _login_admin_session_over_http(port, admin_host)
+            assert any(cookie.name.startswith("archivebox_sessionid_") for cookie in session.cookies)
+            for cookie in list(session.cookies):
+                if cookie.name == ADMIN_LOGIN_HINT_COOKIE:
+                    session.cookies.clear(domain=cookie.domain, path=cookie.path, name=cookie.name)
 
-        assert admin_login.status_code == 200, admin_login.text[:500]
-        session = _login_admin_session_over_http(port, admin_host)
-        assert any(cookie.name.startswith("archivebox_sessionid_") for cookie in session.cookies)
-        for cookie in list(session.cookies):
-            if cookie.name == ADMIN_LOGIN_HINT_COOKIE:
-                session.cookies.clear(domain=cookie.domain, path=cookie.path, name=cookie.name)
-
-        logged_in_public_page = session.get(
-            f"http://127.0.0.1:{port}/public/",
-            headers={"Host": web_host},
-            timeout=10,
-            allow_redirects=False,
-        )
-        if mode == "safe-subdomains-fullreplay":
-            assert logged_in_public_page.status_code == 200, logged_in_public_page.headers.get("Location")
-            assert public_url in logged_in_public_page.text
-            _assert_only_hint_cookie_set(logged_in_public_page)
-
-            session.cookies.set(ADMIN_LOGIN_HINT_COOKIE, "1", path="/")
-            hinted_public_page = session.get(
+            logged_in_public_page = session.get(
                 f"http://127.0.0.1:{port}/public/",
                 headers={"Host": web_host},
                 timeout=10,
                 allow_redirects=False,
             )
-            assert hinted_public_page.status_code in (301, 302)
-            assert hinted_public_page.headers["Location"] == f"http://{admin_host}/admin/core/snapshot/"
-            _assert_only_hint_cookie_set(hinted_public_page)
-        else:
-            assert logged_in_public_page.status_code in (301, 302)
-            assert logged_in_public_page.headers["Location"] == "/admin/core/snapshot/"
+            if mode == "safe-subdomains-fullreplay":
+                assert logged_in_public_page.status_code == 200, logged_in_public_page.headers.get("Location")
+                assert public_url in logged_in_public_page.text
+                _assert_only_hint_cookie_set(logged_in_public_page)
+
+                session.cookies.set(ADMIN_LOGIN_HINT_COOKIE, "1", path="/")
+                hinted_public_page = session.get(
+                    f"http://127.0.0.1:{port}/public/",
+                    headers={"Host": web_host},
+                    timeout=10,
+                    allow_redirects=False,
+                )
+                assert hinted_public_page.status_code in (301, 302)
+                assert hinted_public_page.headers["Location"] == f"http://{admin_host}/admin/core/snapshot/"
+                _assert_only_hint_cookie_set(hinted_public_page)
+            else:
+                assert logged_in_public_page.status_code in (301, 302)
+                assert logged_in_public_page.headers["Location"] == "/admin/core/snapshot/"
     finally:
         stop_server(tmp_path)

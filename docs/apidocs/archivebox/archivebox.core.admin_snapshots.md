@@ -29,14 +29,6 @@
   - ```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotStatusListFilter
     :summary:
     ```
-* - {py:obj}`SnapshotDepthListFilter <archivebox.core.admin_snapshots.SnapshotDepthListFilter>`
-  - ```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotDepthListFilter
-    :summary:
-    ```
-* - {py:obj}`SnapshotRelationListFilter <archivebox.core.admin_snapshots.SnapshotRelationListFilter>`
-  - ```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotRelationListFilter
-    :summary:
-    ```
 * - {py:obj}`SnapshotArchiveStateListFilter <archivebox.core.admin_snapshots.SnapshotArchiveStateListFilter>`
   - ```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotArchiveStateListFilter
     :summary:
@@ -45,18 +37,12 @@
   - ```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotSizeListFilter
     :summary:
     ```
-* - {py:obj}`SnapshotRetryListFilter <archivebox.core.admin_snapshots.SnapshotRetryListFilter>`
-  - ```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotRetryListFilter
-    :summary:
-    ```
 * - {py:obj}`SnapshotResultHealthListFilter <archivebox.core.admin_snapshots.SnapshotResultHealthListFilter>`
   - ```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotResultHealthListFilter
     :summary:
     ```
 * - {py:obj}`SnapshotChangeList <archivebox.core.admin_snapshots.SnapshotChangeList>`
-  - ```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotChangeList
-    :summary:
-    ```
+  -
 * - {py:obj}`SnapshotAdminForm <archivebox.core.admin_snapshots.SnapshotAdminForm>`
   - ```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotAdminForm
     :summary:
@@ -275,98 +261,6 @@ Bases: {py:obj}`django.contrib.admin.SimpleListFilter`
 
 `````
 
-`````{py:class} SnapshotDepthListFilter(request, params, model, model_admin)
-:canonical: archivebox.core.admin_snapshots.SnapshotDepthListFilter
-
-Bases: {py:obj}`django.contrib.admin.SimpleListFilter`
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotDepthListFilter
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotDepthListFilter.__init__
-```
-
-````{py:attribute} title
-:canonical: archivebox.core.admin_snapshots.SnapshotDepthListFilter.title
-:value: >
-   'depth'
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotDepthListFilter.title
-```
-
-````
-
-````{py:attribute} parameter_name
-:canonical: archivebox.core.admin_snapshots.SnapshotDepthListFilter.parameter_name
-:value: >
-   'depth_bucket'
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotDepthListFilter.parameter_name
-```
-
-````
-
-````{py:method} lookups(request, model_admin)
-:canonical: archivebox.core.admin_snapshots.SnapshotDepthListFilter.lookups
-
-````
-
-````{py:method} queryset(request, queryset)
-:canonical: archivebox.core.admin_snapshots.SnapshotDepthListFilter.queryset
-
-````
-
-`````
-
-`````{py:class} SnapshotRelationListFilter(request, params, model, model_admin)
-:canonical: archivebox.core.admin_snapshots.SnapshotRelationListFilter
-
-Bases: {py:obj}`django.contrib.admin.SimpleListFilter`
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotRelationListFilter
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotRelationListFilter.__init__
-```
-
-````{py:attribute} title
-:canonical: archivebox.core.admin_snapshots.SnapshotRelationListFilter.title
-:value: >
-   'crawl position'
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotRelationListFilter.title
-```
-
-````
-
-````{py:attribute} parameter_name
-:canonical: archivebox.core.admin_snapshots.SnapshotRelationListFilter.parameter_name
-:value: >
-   'position'
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotRelationListFilter.parameter_name
-```
-
-````
-
-````{py:method} lookups(request, model_admin)
-:canonical: archivebox.core.admin_snapshots.SnapshotRelationListFilter.lookups
-
-````
-
-````{py:method} queryset(request, queryset)
-:canonical: archivebox.core.admin_snapshots.SnapshotRelationListFilter.queryset
-
-````
-
-`````
-
 `````{py:class} SnapshotArchiveStateListFilter(request, params, model, model_admin)
 :canonical: archivebox.core.admin_snapshots.SnapshotArchiveStateListFilter
 
@@ -459,52 +353,6 @@ Bases: {py:obj}`django.contrib.admin.SimpleListFilter`
 
 `````
 
-`````{py:class} SnapshotRetryListFilter(request, params, model, model_admin)
-:canonical: archivebox.core.admin_snapshots.SnapshotRetryListFilter
-
-Bases: {py:obj}`django.contrib.admin.SimpleListFilter`
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotRetryListFilter
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotRetryListFilter.__init__
-```
-
-````{py:attribute} title
-:canonical: archivebox.core.admin_snapshots.SnapshotRetryListFilter.title
-:value: >
-   'retry'
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotRetryListFilter.title
-```
-
-````
-
-````{py:attribute} parameter_name
-:canonical: archivebox.core.admin_snapshots.SnapshotRetryListFilter.parameter_name
-:value: >
-   'retry'
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotRetryListFilter.parameter_name
-```
-
-````
-
-````{py:method} lookups(request, model_admin)
-:canonical: archivebox.core.admin_snapshots.SnapshotRetryListFilter.lookups
-
-````
-
-````{py:method} queryset(request, queryset)
-:canonical: archivebox.core.admin_snapshots.SnapshotRetryListFilter.queryset
-
-````
-
-`````
-
 `````{py:class} SnapshotResultHealthListFilter(request, params, model, model_admin)
 :canonical: archivebox.core.admin_snapshots.SnapshotResultHealthListFilter
 
@@ -539,6 +387,16 @@ Bases: {py:obj}`django.contrib.admin.SimpleListFilter`
 
 ````
 
+````{py:attribute} SNAPSHOT_FIRST_VALUES
+:canonical: archivebox.core.admin_snapshots.SnapshotResultHealthListFilter.SNAPSHOT_FIRST_VALUES
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotResultHealthListFilter.SNAPSHOT_FIRST_VALUES
+```
+
+````
+
 ````{py:method} lookups(request, model_admin)
 :canonical: archivebox.core.admin_snapshots.SnapshotResultHealthListFilter.lookups
 
@@ -556,20 +414,16 @@ Bases: {py:obj}`django.contrib.admin.SimpleListFilter`
 
 Bases: {py:obj}`archivebox.search.admin.SearchResultsChangeList`
 
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotChangeList
+````{py:method} _attach_archiveresult_summaries()
+:canonical: archivebox.core.admin_snapshots.SnapshotChangeList._attach_archiveresult_summaries
+
+```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotChangeList._attach_archiveresult_summaries
 ```
 
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotChangeList.__init__
-```
+````
 
 ````{py:method} get_results(request)
 :canonical: archivebox.core.admin_snapshots.SnapshotChangeList.get_results
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotChangeList.get_results
-```
 
 ````
 
@@ -752,7 +606,7 @@ Bases: {py:obj}`archivebox.search.admin.SearchResultsAdminMixin`, {py:obj}`archi
 ````{py:attribute} ordering
 :canonical: archivebox.core.admin_snapshots.SnapshotAdmin.ordering
 :value: >
-   ['-timestamp']
+   ['-created_at']
 
 ```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotAdmin.ordering
 ```
@@ -762,7 +616,7 @@ Bases: {py:obj}`archivebox.search.admin.SearchResultsAdminMixin`, {py:obj}`archi
 ````{py:attribute} actions
 :canonical: archivebox.core.admin_snapshots.SnapshotAdmin.actions
 :value: >
-   ['add_tags', 'remove_tags', 'resnapshot_snapshot', 'update_snapshots', 'overwrite_snapshots', 'delet...
+   ['add_tags', 'remove_tags', 'resnapshot_snapshot', 'update_snapshots', 'overwrite_snapshots', 'set_s...
 
 ```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotAdmin.actions
 ```
@@ -822,7 +676,7 @@ Bases: {py:obj}`archivebox.search.admin.SearchResultsAdminMixin`, {py:obj}`archi
 ````{py:attribute} show_full_result_count
 :canonical: archivebox.core.admin_snapshots.SnapshotAdmin.show_full_result_count
 :value: >
-   False
+   True
 
 ```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotAdmin.show_full_result_count
 ```
@@ -902,26 +756,26 @@ Bases: {py:obj}`archivebox.search.admin.SearchResultsAdminMixin`, {py:obj}`archi
 
 ````
 
-````{py:method} iter_meta_search_ids(query, queryset)
-:canonical: archivebox.core.admin_snapshots.SnapshotAdmin.iter_meta_search_ids
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotAdmin.iter_meta_search_ids
-```
-
-````
-
-````{py:method} iter_backend_search_ids(iterator, queryset)
-:canonical: archivebox.core.admin_snapshots.SnapshotAdmin.iter_backend_search_ids
-
-```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotAdmin.iter_backend_search_ids
-```
-
-````
-
 ````{py:method} set_permissions_view(request, object_id)
 :canonical: archivebox.core.admin_snapshots.SnapshotAdmin.set_permissions_view
 
 ```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotAdmin.set_permissions_view
+```
+
+````
+
+````{py:method} set_snapshot_permissions(request, queryset)
+:canonical: archivebox.core.admin_snapshots.SnapshotAdmin.set_snapshot_permissions
+
+```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotAdmin.set_snapshot_permissions
+```
+
+````
+
+````{py:method} update_snapshot_permissions(queryset, permissions)
+:canonical: archivebox.core.admin_snapshots.SnapshotAdmin.update_snapshot_permissions
+
+```{autodoc2-docstring} archivebox.core.admin_snapshots.SnapshotAdmin.update_snapshot_permissions
 ```
 
 ````

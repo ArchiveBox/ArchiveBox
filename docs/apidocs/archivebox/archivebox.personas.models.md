@@ -21,6 +21,18 @@
     ```
 ````
 
+### Functions
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`derive_persona_config <archivebox.personas.models.derive_persona_config>`
+  - ```{autodoc2-docstring} archivebox.personas.models.derive_persona_config
+    :summary:
+    ```
+````
+
 ### Data
 
 ````{list-table}
@@ -74,6 +86,13 @@
 
 ````
 
+````{py:function} derive_persona_config(*, name: str, config: collections.abc.Mapping[str, typing.Any] | None, persona_dir: pathlib.Path) -> dict[str, typing.Any]
+:canonical: archivebox.personas.models.derive_persona_config
+
+```{autodoc2-docstring} archivebox.personas.models.derive_persona_config
+```
+````
+
 ``````{py:class} Persona(*args, **kwargs)
 :canonical: archivebox.personas.models.Persona
 
@@ -91,7 +110,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithConfig`
 ````{py:attribute} id
 :canonical: archivebox.personas.models.Persona.id
 :value: >
-   'UUIDField(...)'
+   'CompactUUIDField(...)'
 
 ```{autodoc2-docstring} archivebox.personas.models.Persona.id
 ```
@@ -250,6 +269,15 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`
 
 ````
 
+````{py:method} get_or_create_named(name: str) -> archivebox.personas.models.Persona
+:canonical: archivebox.personas.models.Persona.get_or_create_named
+:classmethod:
+
+```{autodoc2-docstring} archivebox.personas.models.Persona.get_or_create_named
+```
+
+````
+
 ````{py:method} runtime_root_for_crawl(crawl) -> pathlib.Path
 :canonical: archivebox.personas.models.Persona.runtime_root_for_crawl
 
@@ -274,6 +302,30 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`
 
 ````
 
+````{py:method} runtime_root_for_snapshot(snapshot) -> pathlib.Path
+:canonical: archivebox.personas.models.Persona.runtime_root_for_snapshot
+
+```{autodoc2-docstring} archivebox.personas.models.Persona.runtime_root_for_snapshot
+```
+
+````
+
+````{py:method} runtime_profile_dir_for_snapshot(snapshot) -> pathlib.Path
+:canonical: archivebox.personas.models.Persona.runtime_profile_dir_for_snapshot
+
+```{autodoc2-docstring} archivebox.personas.models.Persona.runtime_profile_dir_for_snapshot
+```
+
+````
+
+````{py:method} runtime_downloads_dir_for_snapshot(snapshot) -> pathlib.Path
+:canonical: archivebox.personas.models.Persona.runtime_downloads_dir_for_snapshot
+
+```{autodoc2-docstring} archivebox.personas.models.Persona.runtime_downloads_dir_for_snapshot
+```
+
+````
+
 ````{py:method} copy_chrome_profile(source_dir: pathlib.Path, destination_dir: pathlib.Path) -> None
 :canonical: archivebox.personas.models.Persona.copy_chrome_profile
 
@@ -286,6 +338,14 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`
 :canonical: archivebox.personas.models.Persona.prepare_runtime_for_crawl
 
 ```{autodoc2-docstring} archivebox.personas.models.Persona.prepare_runtime_for_crawl
+```
+
+````
+
+````{py:method} prepare_runtime_for_snapshot(snapshot, chrome_binary: str = '') -> dict[str, str]
+:canonical: archivebox.personas.models.Persona.prepare_runtime_for_snapshot
+
+```{autodoc2-docstring} archivebox.personas.models.Persona.prepare_runtime_for_snapshot
 ```
 
 ````

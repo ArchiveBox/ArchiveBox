@@ -35,8 +35,6 @@ for path in sorted((packages_dir / "archivebox").rglob("*.py")):
 
     full_doc_path = full_doc_path.relative_to(packages_dir)
 
-    # import ipdb; ipdb.set_trace()
-
     nav_parts = [f"{mod_symbol} {part}" for part in parts]
     nav[tuple(nav_parts)] = doc_path.as_posix()
 

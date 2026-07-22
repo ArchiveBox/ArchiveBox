@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
 Tests for archivebox mcp command.
-
-TODO: expand beyond command discovery into JSON-RPC stdio behavior.
 """
 
 from archivebox.tests.conftest import run_archivebox_cmd

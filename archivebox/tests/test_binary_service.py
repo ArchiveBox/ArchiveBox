@@ -1,4 +1,3 @@
-import json
 import sys
 import uuid
 import asyncio
@@ -8,7 +7,7 @@ import pytest
 from django.utils import timezone
 
 from archivebox.machine.models import Binary, Machine, Process
-from archivebox.tests.conftest import parse_jsonl_output, run_archivebox_cmd
+from archivebox.tests.conftest import run_archivebox_cmd
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -22,7 +21,25 @@ def _runtime_env(data_dir: Path, *, lib_dir: Path | None = None, **extra: str) -
     }
 
 
-def test_binary_request_preserves_raw_overrides_in_db_while_using_native_event(monkeypatch):
+def _run_real_binary_state_machine(data_dir: Path, *, name: str, binproviders: str, env: dict[str, str]):
+    """Run a real Binary model through its abxpkg-backed state machine."""
+    script = (
+        "from archivebox.machine.models import Binary, Machine; "
+        f"binary = Binary.objects.create(machine=Machine.current(), name={name!r}, binproviders={binproviders!r}, status=Binary.StatusChoices.QUEUED); "
+        "assert binary.tick_claimed(lock_seconds=600); "
+        "print('BINARY_STATE_MACHINE_E2E_DONE')"
+    )
+    return run_archivebox_cmd(
+        ["shell", "-c", script],
+        cwd=data_dir,
+        timeout=120,
+        env=env,
+        default_cli_env=True,
+        disable_extractors=True,
+    )
+
+
+def test_binary_request_preserves_raw_overrides_in_db_while_using_native_event():
     from abxpkg.binary_service import BinaryCacheService, BinaryEvent, BinaryRequestEvent, BinaryService
     from abx_dl.orchestrator import create_bus
     from archivebox.services.binary_service import ArchiveBoxDBBinaryCacheBackend
@@ -34,7 +51,6 @@ def test_binary_request_preserves_raw_overrides_in_db_while_using_native_event(m
             "module_name": "imagesize",
         },
     }
-    monkeypatch.setenv("PYTHON3_BINARY", sys.executable)
     binary = Binary.objects.create(
         machine=machine,
         name="python3",
@@ -85,26 +101,11 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
     name = "python"
     provider_bin_dir = initialized_archive / "lib" / "env" / "bin"
     runtime_env = _runtime_env(initialized_archive)
-    request_record = {
-        "type": "BinaryRequest",
-        "name": name,
-        "binproviders": "env",
-    }
-
-    _cmd_result = run_archivebox_cmd(
-        ["run"],
-        cwd=initialized_archive,
-        stdin=json.dumps(request_record) + "\n",
-        timeout=120,
-        env=runtime_env,
-        default_cli_env=True,
-        disable_extractors=True,
-    )
+    _cmd_result = _run_real_binary_state_machine(initialized_archive, name=name, binproviders="env", env=runtime_env)
     stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
     assert returncode == 0, stderr
-    output_records = parse_jsonl_output(stdout)
-    assert any(record["type"] == "BinaryRequest" and record["name"] == name for record in output_records)
+    assert "BINARY_STATE_MACHINE_E2E_DONE" in stdout
 
     with use_archivebox_db(initialized_archive):
         binary = Binary.objects.get(name=name)
@@ -173,10 +174,15 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
         lib_dir=changed_lib_dir,
     )
 
+    with use_archivebox_db(initialized_archive):
+        Binary.objects.get(pk=first_binary_id).update_and_requeue(
+            status=Binary.StatusChoices.QUEUED,
+            retry_at=None,
+        )
+
     _cmd_result = run_archivebox_cmd(
-        ["run"],
+        ["run", f"--binary-id={first_binary_id}"],
         cwd=initialized_archive,
-        stdin=json.dumps(request_record) + "\n",
         timeout=120,
         env=changed_runtime_env,
         default_cli_env=True,
@@ -200,19 +206,11 @@ def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_res
     provider_bin_dir = initialized_archive / "lib" / "pip" / "venv" / "bin"
     runtime_env = _runtime_env(initialized_archive)
 
-    _cmd_result = run_archivebox_cmd(
-        ["run"],
-        cwd=initialized_archive,
-        stdin=json.dumps({"type": "BinaryRequest", "name": name, "binproviders": "env"}) + "\n",
-        timeout=120,
-        env=runtime_env,
-        default_cli_env=True,
-        disable_extractors=True,
-    )
+    _cmd_result = _run_real_binary_state_machine(initialized_archive, name=name, binproviders="env", env=runtime_env)
     stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-    assert returncode == 0, stderr
-    assert any(record["type"] == "BinaryRequest" and record["name"] == name for record in parse_jsonl_output(stdout)), stdout + stderr
+    assert returncode != 0, stdout + stderr
+    assert "Binary http installation failed" in stderr
 
     with use_archivebox_db(initialized_archive):
         queued = Binary.objects.get(name=name)

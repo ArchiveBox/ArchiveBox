@@ -43,17 +43,17 @@ Follow the links here to find instructions for exporting a list of URLs from eac
 
 Pass in URLs directly, import a list of links from a file, or import from a feed URL. All via stdin:
 ```bash
-archivebox add < your_urls.txt
-
-# or if using plain Docker
-docker run -v $PWD:/data -it archivebox/archivebox add < your_urls.txt
-
-# or if using Docker Compose
-docker compose run -T archivebox add < your_urls.txt
-
-# any text containing URLs can ingested via stdin or as args
-curl -fsSL 'https://getpocket.com/users/YOURUSERNAME/feed/all' | archivebox add
-archivebox add 'https://example.com'
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
+archivebox_data="$(mktemp -d)"
+cd "$archivebox_data"
+uv run --project "$project_dir" --no-sync archivebox init
+printf '%s\n' "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/one}" > your_urls.txt
+uv run --project "$project_dir" --no-sync archivebox add --plugins=parse_txt_urls < your_urls.txt
+curl -fsSL "${ARCHIVEBOX_DOCS_URL_TWO:-https://example.com/two}" | uv run --project "$project_dir" --no-sync archivebox add --plugins=parse_txt_urls
+uv run --project "$project_dir" --no-sync archivebox add --plugins=parse_txt_urls "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
+uv run --project "$project_dir" --no-sync archivebox list --json
+uv run --project "$project_dir" --no-sync archivebox status
+uv run --project "$project_dir" --no-sync archivebox search example
 ```
 
 ## ✅ Done!
@@ -62,16 +62,16 @@ Open `./archive` to view your archive data in the filesystem.
 
 You can also use the interactive Web UI to view/manage/add links to your archive:
 ```bash
-# with plain Docker:
-docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
-
-# with Docker Compose:
-docker compose up -d
-
-# or without Docker:
-archivebox server
-
-open http://127.0.0.1:8000
+docker_data="$(mktemp -d)"
+docker run --rm -v "$docker_data:/data" archivebox-docs-ci init
+docker run --rm -v "$docker_data:/data" archivebox-docs-ci add --plugins=parse_txt_urls 'https://example.com/'
+docker run --rm -v "$docker_data:/data" archivebox-docs-ci list --json
+compose_file="$(mktemp)"
+printf 'services:\n  archivebox:\n    image: archivebox-docs-ci\n    volumes:\n      - %s:/data\n' "$docker_data" > "$compose_file"
+docker compose -f "$compose_file" run --rm archivebox status
+docker compose -f "$compose_file" run --rm archivebox server --help
+docker run --rm -v "$docker_data:/data" archivebox-docs-ci server --help
+docker version
 ```
 
 ---
@@ -79,7 +79,7 @@ open http://127.0.0.1:8000
 **Next Steps:**
 
 ```bash
-archivebox help   # see info about all the available commands
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox help
 ```
 
  - Read [[Usage]] to learn about the various CLI and web UI functions

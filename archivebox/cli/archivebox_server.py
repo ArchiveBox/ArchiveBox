@@ -267,11 +267,13 @@ def server(
     host, port = _parse_and_validate_bind_spec(bind_spec)
 
     if daemonize and os.environ.get("ARCHIVEBOX_SERVER_DAEMON_CHILD") != "1":
+        from archivebox.workers.supervisord_util import resolve_env_binary
+
         log_path = CONSTANTS.LOGS_DIR / "server.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
         daemon_env = os.environ.copy()
         daemon_env["ARCHIVEBOX_SERVER_DAEMON_CHILD"] = "1"
-        daemon_cmd = [sys.executable, "-m", "archivebox", "server"]
+        daemon_cmd = [str(resolve_env_binary("archivebox")), "server"]
         if debug:
             daemon_cmd.append("--debug")
         if reload:

@@ -15,8 +15,6 @@ from archivebox.misc.util import ansi_to_html
 from archivebox.core.models import SnapshotQuerySet
 
 
-# from .auth import API_AUTH_METHODS
-
 # router for API that exposes archivebox cli subcommands as REST endpoints
 router = Router(tags=["ArchiveBox CLI Sub-Commands"])
 

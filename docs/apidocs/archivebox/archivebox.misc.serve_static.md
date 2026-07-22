@@ -111,6 +111,10 @@
   - ```{autodoc2-docstring} archivebox.misc.serve_static._apply_archive_replay_headers
     :summary:
     ```
+* - {py:obj}`_is_asgi_request <archivebox.misc.serve_static._is_asgi_request>`
+  - ```{autodoc2-docstring} archivebox.misc.serve_static._is_asgi_request
+    :summary:
+    ```
 * - {py:obj}`serve_static_with_byterange_support <archivebox.misc.serve_static.serve_static_with_byterange_support>`
   - ```{autodoc2-docstring} archivebox.misc.serve_static.serve_static_with_byterange_support
     :summary:
@@ -476,6 +480,13 @@
 :canonical: archivebox.misc.serve_static._apply_archive_replay_headers
 
 ```{autodoc2-docstring} archivebox.misc.serve_static._apply_archive_replay_headers
+```
+````
+
+````{py:function} _is_asgi_request(request) -> bool
+:canonical: archivebox.misc.serve_static._is_asgi_request
+
+```{autodoc2-docstring} archivebox.misc.serve_static._is_asgi_request
 ```
 ````
 

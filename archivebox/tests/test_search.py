@@ -1,4 +1,3 @@
-import json
 import os
 import re
 import time
@@ -13,10 +12,10 @@ import requests
 from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.test import override_settings
 from django.urls import reverse
 
 from archivebox.misc.logging import AttrDict
+from archivebox.machine.models import Machine
 from archivebox.tests.conftest import (
     cli_env,
     create_admin_and_token,
@@ -25,7 +24,7 @@ from archivebox.tests.conftest import (
     resolve_abxpkg_binary_env,
     start_archivebox_server,
     stop_archivebox_process,
-    wait_for_http,
+    get_http_response,
 )
 
 
@@ -131,10 +130,10 @@ def test_search_backend_env_exposes_resolved_runtime_config(tmp_path):
             os.environ["SEARCH_BACKEND_SONIC_HOST_NAME"] = old_env
 
 
-def test_search_mode_options_use_canonical_backend_names(monkeypatch):
+def test_search_mode_options_use_canonical_backend_names():
     from archivebox.search.config import get_search_mode_options
 
-    monkeypatch.setenv("SEARCH_BACKEND_ENGINE", "ripgrep")
+    Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "ripgrep"}})
 
     options = get_search_mode_options()
 
@@ -178,8 +177,8 @@ def test_snapshot_metadata_search_includes_notes_crawl_fields_username_and_confi
 
 
 class TestAdminSnapshotSearch:
-    def test_admin_search_mode_selector_defaults_to_configured_deep_backend_for_ripgrep(self, client, admin_user, monkeypatch):
-        monkeypatch.setenv("SEARCH_BACKEND_ENGINE", "ripgrep")
+    def test_admin_search_mode_selector_defaults_to_configured_deep_backend_for_ripgrep(self, client, admin_user):
+        Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "ripgrep"}})
 
         client.login(username="testadmin", password="testpassword")
         response = client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_HOST)
@@ -192,8 +191,8 @@ class TestAdminSnapshotSearch:
         assert b'value="deep:ripgrep"' in response.content
         assert b">deep:ripgrep<" in response.content
 
-    def test_admin_search_mode_selector_defaults_to_configured_deep_backend_for_sqlite(self, client, admin_user, monkeypatch):
-        monkeypatch.setenv("SEARCH_BACKEND_ENGINE", "sqlite")
+    def test_admin_search_mode_selector_defaults_to_configured_deep_backend_for_sqlite(self, client, admin_user):
+        Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "sqlite"}})
 
         client.login(username="testadmin", password="testpassword")
         response = client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_HOST)
@@ -222,10 +221,10 @@ class TestAdminSnapshotSearch:
         assert b'id="changelist"' in response.content
         assert b"search-mode-contents" in response.content
 
-    def test_admin_search_stream_uses_real_ripgrep_backend_for_deep_results(self, client, admin_user, crawl, monkeypatch):
+    def test_admin_search_stream_uses_real_ripgrep_backend_for_deep_results(self, client, admin_user, crawl):
         from archivebox.core.models import Snapshot
 
-        monkeypatch.setenv("SEARCH_BACKEND_ENGINE", "ripgrep")
+        Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "ripgrep"}})
         fulltext_snapshot = Snapshot.objects.create(
             url="https://example.com/fulltext-only",
             title="Unrelated Title",
@@ -279,10 +278,10 @@ class TestAdminSnapshotSearch:
         assert result_ids[:3] == [prefix_snapshot.pk, title_snapshot.pk, contains_snapshot.pk]
         assert {title_snapshot.pk, contains_snapshot.pk, prefix_snapshot.pk}.issubset(result_ids)
 
-    def test_admin_contents_search_stream_uses_real_backend_results(self, client, admin_user, crawl, monkeypatch):
+    def test_admin_contents_search_stream_uses_real_backend_results(self, client, admin_user, crawl):
         from archivebox.core.models import Snapshot
 
-        monkeypatch.setenv("SEARCH_BACKEND_ENGINE", "ripgrep")
+        Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "ripgrep"}})
         metadata_snapshot = Snapshot.objects.create(
             url="https://example.com/google-meta",
             title="Google Metadata Match",
@@ -382,7 +381,10 @@ class TestAdminSnapshotSearch:
 
 
 class TestPublicIndexSearch:
-    @override_settings(PUBLIC_INDEX=True)
+    @pytest.fixture(autouse=True)
+    def public_index_enabled(self):
+        Machine.from_json({"config": {"PUBLIC_INDEX": True}})
+
     def test_public_search_by_url(self, client, public_snapshot):
         cache.clear()
         response = client.get("/public/", {"q": "public-example.com"}, HTTP_HOST=WEB_HOST)
@@ -391,9 +393,8 @@ class TestPublicIndexSearch:
         assert b"matching snapshots..." in response.content
         assert b"No snapshots found." not in response.content
 
-    @override_settings(PUBLIC_INDEX=True)
-    def test_public_search_mode_selector_defaults_to_configured_deep_backend_for_ripgrep(self, client, monkeypatch):
-        monkeypatch.setenv("SEARCH_BACKEND_ENGINE", "ripgrep")
+    def test_public_search_mode_selector_defaults_to_configured_deep_backend_for_ripgrep(self, client):
+        Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "ripgrep"}})
 
         response = client.get("/public/", HTTP_HOST=WEB_HOST)
 
@@ -405,11 +406,10 @@ class TestPublicIndexSearch:
         assert b'value="deep:ripgrep"' in response.content
         assert b">deep:ripgrep<" in response.content
 
-    @override_settings(PUBLIC_INDEX=True)
-    def test_public_search_uses_streamed_metadata_order(self, client, crawl, monkeypatch):
+    def test_public_search_uses_streamed_metadata_order(self, client, crawl):
         from archivebox.core.models import Snapshot
 
-        monkeypatch.setenv("SEARCH_BACKEND_ENGINE", "ripgrep")
+        Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "ripgrep"}})
         metadata_snapshot = Snapshot.objects.create(
             url="https://public-example.com/google-meta",
             title="Google Metadata Match",
@@ -441,7 +441,6 @@ class TestPublicIndexSearch:
         content = response.content.decode()
         assert content.index(str(metadata_snapshot.url)) < content.index(str(fulltext_snapshot.url))
 
-    @override_settings(PUBLIC_INDEX=True)
     def test_public_metadata_search_prioritizes_common_url_prefixes(self, client, crawl):
         from archivebox.core.models import Snapshot
 
@@ -473,14 +472,12 @@ class TestPublicIndexSearch:
 
         assert content.index(str(prefix_match.url)) < content.index(str(broad_match.url))
 
-    @override_settings(PUBLIC_INDEX=True)
     def test_public_search_by_title(self, client, public_snapshot):
         response = client.get("/public/", {"q": "Public Example"}, HTTP_HOST=WEB_HOST)
 
         assert response.status_code == 200
         assert b"archivebox-search-stream-status" in response.content
 
-    @override_settings(PUBLIC_INDEX=True)
     def test_public_search_stream_preserves_search_form_dom(self, client, public_snapshot):
         response = client.get("/public/", {"q": "Public Example"}, HTTP_HOST=WEB_HOST)
 
@@ -489,7 +486,6 @@ class TestPublicIndexSearch:
         assert b"replaceRegionFromDocument(doc, '#table-bookmarks tbody')" in response.content
         assert b"currentList.replaceWith(nextList)" not in response.content
 
-    @override_settings(PUBLIC_INDEX=True)
     def test_public_search_stream_populates_public_results_cache(self, client, public_snapshot):
         search_params = {"q": "Public Example", "search_mode": "meta"}
         search_url = f"/public/?{urlencode(search_params)}"
@@ -510,7 +506,6 @@ class TestPublicIndexSearch:
         assert b"Public Example Website" in response.content
         assert b"No snapshots found." not in response.content
 
-    @override_settings(PUBLIC_INDEX=True)
     def test_public_index_shows_exact_total_count_and_page_count_for_100_plus_snapshots(self, client, crawl, public_snapshot):
         from archivebox.core.models import Snapshot
 
@@ -572,7 +567,6 @@ class TestPublicIndexSearch:
         assert "last &raquo;" not in last_content
         assert "private-page-test" not in last_content
 
-    @override_settings(PUBLIC_INDEX=True)
     def test_public_index_preview_respects_root_relative_screenshot_output(self, client, public_snapshot):
         from archivebox.core.models import ArchiveResult
 
@@ -593,7 +587,6 @@ class TestPublicIndexSearch:
         assert "/screenshot.png" in content
         assert "/screenshot/screenshot.png" not in content
 
-    @override_settings(PUBLIC_INDEX=True)
     def test_public_index_preview_respects_plugin_relative_screenshot_output(self, client, public_snapshot):
         from archivebox.core.models import ArchiveResult
 
@@ -613,7 +606,6 @@ class TestPublicIndexSearch:
         content = response.content.decode()
         assert "screenshot/screenshot.png" in content
 
-    @override_settings(PUBLIC_INDEX=True)
     def test_public_index_preview_falls_back_to_extension_screenshots(self, client, public_snapshot):
         from archivebox.core.models import ArchiveResult
 
@@ -638,7 +630,6 @@ class TestPublicIndexSearch:
         assert "/screenshot/screenshot.png" not in content
         assert "chrome_extension_screenshot/screenshot-2.png" not in content
 
-    @override_settings(PUBLIC_INDEX=True)
     def test_public_index_snapshot_without_preview_renders_placeholder(self, client, public_snapshot):
         response = client.get("/public/", HTTP_HOST=WEB_HOST)
 
@@ -647,7 +638,6 @@ class TestPublicIndexSearch:
         assert "snapshot-preview-empty" in content
         assert "screenshot/screenshot.png" not in content
 
-    @override_settings(PUBLIC_INDEX=True)
     def test_public_index_pending_snapshot_uses_small_preview_spinner(self, client, crawl):
         from archivebox.core.models import Snapshot
 
@@ -665,7 +655,6 @@ class TestPublicIndexSearch:
         assert "snapshot-preview-spinner" in content
         assert "spinner.gif" in content
 
-    @override_settings(PUBLIC_INDEX=True)
     def test_public_index_finished_snapshot_without_title_falls_back_to_url(self, client, public_snapshot):
         public_snapshot.title = ""
         public_snapshot.save(update_fields=["title"])
@@ -677,19 +666,16 @@ class TestPublicIndexSearch:
         assert "https://public-example.com" in content
         assert "Loading..." not in content
 
-    @override_settings(PUBLIC_INDEX=True)
     def test_public_search_query_type_meta(self, client, public_snapshot):
         response = client.get("/public/", {"q": "example", "query_type": "meta"}, HTTP_HOST=WEB_HOST)
 
         assert response.status_code == 200
 
-    @override_settings(PUBLIC_INDEX=True)
     def test_public_search_query_type_url(self, client, public_snapshot):
         response = client.get("/public/", {"q": "public-example.com", "query_type": "url"}, HTTP_HOST=WEB_HOST)
 
         assert response.status_code == 200
 
-    @override_settings(PUBLIC_INDEX=True)
     def test_public_search_query_type_title(self, client, public_snapshot):
         response = client.get("/public/", {"q": "Website", "query_type": "title"}, HTTP_HOST=WEB_HOST)
 
@@ -784,16 +770,15 @@ class TestSearchBackendsE2E:
                 if body is None:
                     self.send_response(404)
                     self.end_headers()
-                    return
-
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+                else:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
 
             def log_message(self, _format, *args):
-                return
+                pass
 
         fixture_server = ThreadingHTTPServer(("127.0.0.1", 0), SearchMatrixHandler)
         fixture_thread = Thread(target=fixture_server.serve_forever, daemon=True)
@@ -885,70 +870,36 @@ class TestSearchBackendsE2E:
             )
             assert second_add_result.returncode == 0, second_add_result.stderr or second_add_result.stdout
 
-            metadata_snapshot_records = [
-                {
-                    "type": "Snapshot",
-                    "url": url_only_url,
-                    "title": "URL Only Precision Page",
-                    "tags": "search-matrix",
-                    "depth": 0,
-                },
-                {
-                    "type": "Snapshot",
-                    "url": title_only_url,
-                    "title": title_only_needle,
-                    "tags": "search-matrix",
-                    "depth": 0,
-                },
-                {
-                    "type": "Snapshot",
-                    "url": tag_only_url,
-                    "title": "Tag Only Precision Page",
-                    "tags": f"search-matrix,{tag_only_needle}",
-                    "depth": 0,
-                },
-                {
-                    "type": "Snapshot",
-                    "url": title_prefix_order_url,
-                    "title": title_prefix_order_title,
-                    "tags": "search-matrix",
-                    "depth": 0,
-                },
-                {
-                    "type": "Snapshot",
-                    "url": url_contains_order_url,
-                    "title": "URL Contains Ordering Page",
-                    "tags": "search-matrix",
-                    "depth": 0,
-                },
-                {
-                    "type": "Snapshot",
-                    "url": title_contains_order_url,
-                    "title": title_contains_order_title,
-                    "tags": "search-matrix",
-                    "depth": 0,
-                },
-                {
-                    "type": "Snapshot",
-                    "url": tag_order_url,
-                    "title": "Tag Ordering Page",
-                    "tags": f"search-matrix,{order_needle}",
-                    "depth": 0,
-                },
+            metadata_snapshots = [
+                (url_only_url, "URL Only Precision Page", "search-matrix"),
+                (title_only_url, title_only_needle, "search-matrix"),
+                (tag_only_url, "Tag Only Precision Page", f"search-matrix,{tag_only_needle}"),
+                (title_prefix_order_url, title_prefix_order_title, "search-matrix"),
+                (url_contains_order_url, "URL Contains Ordering Page", "search-matrix"),
+                (title_contains_order_url, title_contains_order_title, "search-matrix"),
+                (tag_order_url, "Tag Ordering Page", f"search-matrix,{order_needle}"),
             ]
-            metadata_create_result = run_archivebox_cmd(
-                ["snapshot", "create"],
-                cwd=initialized_archive,
-                env=env,
-                input="\n".join(json.dumps(record) for record in metadata_snapshot_records) + "\n",
-                timeout=60,
-            )
-            assert metadata_create_result.returncode == 0, metadata_create_result.stderr or metadata_create_result.stdout
+            metadata_create_outputs = []
+            for url, _title, tags in metadata_snapshots:
+                create_result = run_archivebox_cmd(
+                    ["snapshot", "create", f"--tag={tags}", url],
+                    cwd=initialized_archive,
+                    env=env,
+                    timeout=60,
+                )
+                assert create_result.returncode == 0, create_result.stderr or create_result.stdout
+                metadata_create_outputs.append(create_result.stdout)
+            from archivebox.core.models import Snapshot
+            from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+            with use_archivebox_db(initialized_archive):
+                for url, title, _tags in metadata_snapshots:
+                    Snapshot.objects.filter(url=url).update(title=title)
             metadata_seal_result = run_archivebox_cmd(
                 ["snapshot", "update", "--status=sealed"],
                 cwd=initialized_archive,
                 env=env,
-                input=metadata_create_result.stdout,
+                input="".join(metadata_create_outputs),
                 timeout=60,
             )
             assert metadata_seal_result.returncode == 0, metadata_seal_result.stderr or metadata_seal_result.stdout
@@ -978,13 +929,13 @@ class TestSearchBackendsE2E:
                 log_name="search-matrix-server.log",
                 env=env,
             )
-            wait_for_http(
+            get_http_response(
                 archivebox_port,
                 host=f"web.archivebox.localhost:{archivebox_port}",
                 path="/public/",
                 process=archivebox_server,
             )
-            wait_for_http(
+            get_http_response(
                 archivebox_port,
                 host=f"admin.archivebox.localhost:{archivebox_port}",
                 path="/admin/login/",

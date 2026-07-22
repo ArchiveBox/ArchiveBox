@@ -180,10 +180,7 @@ async def _run_event_now(event, timeout: float | None = None):
     return event
 
 
-def ensure_background_runner(*, allow_under_pytest: bool = False) -> bool:
-    if os.environ.get("PYTEST_CURRENT_TEST") and not allow_under_pytest:
-        return False
-
+def ensure_background_runner() -> bool:
     from archivebox.machine.models import Machine, Process
     from archivebox.workers.supervisord_util import RUNNER_WORKER, get_existing_supervisord_process, get_worker, start_worker
 
@@ -192,7 +189,7 @@ def ensure_background_runner(*, allow_under_pytest: bool = False) -> bool:
     if runner_worker and runner_worker.get("statename") in ("STARTING", "RUNNING"):
         return False
     if supervisor is not None:
-        start_worker(supervisor, RUNNER_WORKER)
+        start_worker(supervisor, RUNNER_WORKER())
         return True
 
     machine = Machine.current()
@@ -238,13 +235,9 @@ class CrawlRunner:
         self.interactive_interrupts = interactive_interrupts
         self.config_overrides = dict(config_overrides or {})
 
-        async def ignore_snapshot(_snapshot_id: str) -> None:
-            return None
-
         SnapshotService(
             self.bus,
             crawl_id=str(crawl.id),
-            schedule_snapshot=self.enqueue_snapshot if process_discovered_snapshots_inline else ignore_snapshot,
         )
         ArchiveResultService(self.bus)
         self.selected_plugins = selected_plugins

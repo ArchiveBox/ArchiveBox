@@ -49,8 +49,6 @@ class CrawlSchema(Schema):
     tags_str: str
     config: dict
 
-    # snapshots: List[SnapshotSchema]
-
     @staticmethod
     def resolve_created_by_id(obj):
         return str(obj.created_by_id)

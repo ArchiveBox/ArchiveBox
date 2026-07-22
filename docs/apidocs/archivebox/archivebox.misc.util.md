@@ -31,6 +31,10 @@
   - ```{autodoc2-docstring} archivebox.misc.util.filter_queryset_by_uuid_substring
     :summary:
     ```
+* - {py:obj}`sanitize_html_text <archivebox.misc.util.sanitize_html_text>`
+  - ```{autodoc2-docstring} archivebox.misc.util.sanitize_html_text
+    :summary:
+    ```
 * - {py:obj}`ts_to_date_str <archivebox.misc.util.ts_to_date_str>`
   - ```{autodoc2-docstring} archivebox.misc.util.ts_to_date_str
     :summary:
@@ -360,6 +364,13 @@
 ```{autodoc2-docstring} archivebox.misc.util.htmldecode
 ```
 
+````
+
+````{py:function} sanitize_html_text(value: typing.Any) -> str
+:canonical: archivebox.misc.util.sanitize_html_text
+
+```{autodoc2-docstring} archivebox.misc.util.sanitize_html_text
+```
 ````
 
 ````{py:function} ts_to_date_str(ts: typing.Any) -> str | None

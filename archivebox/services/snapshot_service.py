@@ -98,9 +98,8 @@ class SnapshotService(BaseService):
     LISTENS_TO = [SnapshotEvent, SnapshotCompletedEvent]
     EMITS = []
 
-    def __init__(self, bus, *, crawl_id: str, schedule_snapshot):
+    def __init__(self, bus, *, crawl_id: str):
         self.crawl_id = crawl_id
-        self.schedule_snapshot = schedule_snapshot
         super().__init__(bus)
         self.bus.on(SnapshotEvent, self.on_SnapshotEvent)
         self.bus.on(SnapshotCompletedEvent, self.on_SnapshotCompletedEvent)

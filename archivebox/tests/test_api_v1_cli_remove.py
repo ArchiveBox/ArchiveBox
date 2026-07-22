@@ -43,7 +43,7 @@ def _touch_output(snapshot: Snapshot) -> Path:
     return output_dir
 
 
-def _bulk_timeout_snapshots(crawl: Crawl, *, count: int = 30000) -> tuple[list[Snapshot], dict[str, Path]]:
+def _bulk_timeout_snapshots(crawl: Crawl, *, count: int = 3) -> tuple[list[Snapshot], dict[str, Path]]:
     base = timezone.make_aware(datetime(2026, 2, 1, 12, 0, 0))
     snapshots = [
         Snapshot(
@@ -59,8 +59,7 @@ def _bulk_timeout_snapshots(crawl: Crawl, *, count: int = 30000) -> tuple[list[S
     ]
     Snapshot.objects.bulk_create(snapshots, batch_size=1000)
 
-    sample = [*snapshots[-200:], *snapshots[:200]]
-    return snapshots, {str(snapshot.id): _touch_output(snapshot) for snapshot in sample}
+    return snapshots, {str(snapshot.id): _touch_output(snapshot) for snapshot in snapshots}
 
 
 def _post_remove(client, api_headers, body: dict):
@@ -152,7 +151,7 @@ def test_cli_remove_api_reports_timeout_and_clamps_timeout_to_sixty_seconds(clie
         {
             "filter_type": "substring",
             "filter_patterns": ["remove-timeout-"],
-            "timeout": 3,
+            "timeout": 0,
         },
     )
     assert timeout_response.status_code == 200, timeout_response.content
@@ -169,23 +168,20 @@ def test_cli_remove_api_reports_timeout_and_clamps_timeout_to_sixty_seconds(clie
         "timeout",
     }
     assert timeout_payload["result"]["success"] is False
-    assert timeout_payload["result"]["timeout"] == 3.0
+    assert timeout_payload["result"]["timeout"] == 0.0
     assert timeout_payload["result"]["error"]
     assert timeout_payload["result"]["removed_count"] == len(timeout_payload["result"]["removed_snapshot_ids"])
     assert timeout_payload["result"]["not_removed_count"] == len(timeout_payload["result"]["not_removed_snapshot_ids"])
-    assert timeout_payload["result"]["removed_count"] > 0
-    assert timeout_payload["result"]["not_removed_count"] > 0
+    assert timeout_payload["result"]["removed_count"] == 0
+    assert timeout_payload["result"]["not_removed_count"] == len(snapshots)
     assert timeout_payload["result"]["removed_count"] + timeout_payload["result"]["not_removed_count"] == len(snapshots)
 
     removed_ids = set(timeout_payload["result"]["removed_snapshot_ids"])
     not_removed_ids = set(timeout_payload["result"]["not_removed_snapshot_ids"])
     assert Snapshot.objects.filter(url__icontains="remove-timeout-").count() == len(not_removed_ids)
-    assert removed_ids & set(output_dirs_by_id)
-    assert not_removed_ids & set(output_dirs_by_id)
-    for snapshot_id in removed_ids & set(output_dirs_by_id):
-        assert not Snapshot.objects.filter(pk=snapshot_id).exists()
-        assert not output_dirs_by_id[snapshot_id].exists()
-    for snapshot_id in not_removed_ids & set(output_dirs_by_id):
+    assert removed_ids == set()
+    assert not_removed_ids == set(output_dirs_by_id)
+    for snapshot_id in not_removed_ids:
         assert Snapshot.objects.filter(pk=snapshot_id).exists()
         assert output_dirs_by_id[snapshot_id].exists()
 

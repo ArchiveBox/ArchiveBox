@@ -1,22 +1,15 @@
 name: Parallel Tests
 
 on:
-  workflow_dispatch:
-  pull_request:
-    branches: [dev, main, master]
-  push:
-    branches: [dev]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_call:
 
 env:
   PYTHONIOENCODING: utf-8
   PYTHONLEGACYWINDOWSSTDIO: utf-8
   USE_COLOR: False
   UV_NO_SOURCES: "1"
-  ABXPKG_MIN_RELEASE_AGE: "0"
+  CI_PYTHON_VERSION: "3.13.14"
+  UV_CACHE_DIR: ${{ github.workspace }}/.uv-cache
 
 jobs:
   discover-tests:
@@ -27,84 +20,150 @@ jobs:
       plugin-tests: ${{ steps.set-plugin-matrix.outputs.plugin-tests }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           submodules: true
           fetch-depth: 1
 
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.CI_PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+          enable-cache: false
+
+      - name: Resolve matrix tools through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ABXPKG_VERSION="$(uv run --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
+          test -n "$ABXPKG_VERSION"
+          mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+          uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+            --install \
+            --lib="$ABXPKG_LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:ci_binaries" \
+            >/dev/null
+          JQ_BINARY="$ABXPKG_LIB_DIR/env/bin/jq"
+          PYTHON_BINARY="$ABXPKG_LIB_DIR/env/bin/python"
+          test -L "$JQ_BINARY"
+          test -x "$JQ_BINARY"
+          test -L "$PYTHON_BINARY"
+          test -x "$PYTHON_BINARY"
+          {
+            echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
+            echo "JQ_BINARY=$JQ_BINARY"
+            echo "PYTHON_BINARY=$PYTHON_BINARY"
+          } >> "$GITHUB_ENV"
+          echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
+
       - name: Discover test files
         id: set-matrix
+        shell: bash
         run: |
-          # Find all main test files
-          all_tests=$(find archivebox/tests -maxdepth 1 -name "test_*.py" -type f | sort)
-
-          # Create JSON array with test file info
-          json_array="["
-          first=true
-          for test_file in $all_tests; do
-            if [ "$first" = true ]; then
-              first=false
-            else
-              json_array+=","
-            fi
-
-            # Extract a display name for the test
-            name="main/$(basename $test_file .py | sed 's/^test_//')"
-            needs_chromium=false
-            if grep -Eiq '(chrom|archivewebpage|PLUGINS=.*title|--plugins=.*title|SAVE_TITLE.*[Tt]rue)' "$test_file"; then
-              needs_chromium=true
-            fi
-            needs_sonic=false
-            if grep -Eiq "shutil\\.which\\([\"']sonic|SEARCH_BACKEND_ENGINE=.*sonic|worker_sonic" "$test_file"; then
-              needs_sonic=true
-            fi
-
-            json_array+="{\"path\":\"$test_file\",\"name\":\"$name\",\"needs_chromium\":$needs_chromium,\"needs_sonic\":$needs_sonic}"
-          done
-          json_array+="]"
-
-          echo "test-files=$json_array" >> $GITHUB_OUTPUT
-          echo "Found $(echo $all_tests | wc -w) test files"
-          echo "$json_array" | jq '.'
+          set -Eeuo pipefail
+          mapfile -t output < <("$PYTHON_BINARY" .github/scripts/discover_test_matrix.py archivebox)
+          test "${#output[@]}" -eq 2
+          json_array="${output[1]}"
+          echo "test-files=$json_array" >> "$GITHUB_OUTPUT"
+          echo "${output[0]}"
+          echo "$json_array" | "$JQ_BINARY" '.'
 
       - name: Clone abx-plugins
         run: bash .github/scripts/clone_abx_repo.sh abx-plugins
 
       - name: Discover plugin tests
         id: set-plugin-matrix
+        shell: bash
         run: |
-          plugin_tests=$(find abx-plugins/abx_plugins/plugins -maxdepth 2 -type d -name tests | sed 's#abx-plugins/abx_plugins/plugins/##; s#/tests##' | sort)
+          set -Eeuo pipefail
+          mapfile -t output < <("$PYTHON_BINARY" .github/scripts/discover_test_matrix.py plugins)
+          test "${#output[@]}" -eq 2
+          json_array="${output[1]}"
+          echo "plugin-tests=$json_array" >> "$GITHUB_OUTPUT"
+          echo "${output[0]}"
+          echo "$json_array" | "$JQ_BINARY" '.'
 
-          json_array="["
-          first=true
-          for plugin_name in $plugin_tests; do
-            if [ "$first" = true ]; then
-              first=false
-            else
-              json_array+=","
-            fi
+  prepare-python-dependencies:
+    name: Prepare Python 3.13.14 dependency cache
+    runs-on: ubuntu-24.04
+    env:
+      PYTHONPATH: ${{ github.workspace }}/abxpkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
+      LIB_DIR: /tmp/abx-lib
+      ABXPKG_LIB_DIR: /tmp/abx-lib
 
-            needs_chromium=false
-            if grep -Riq "chrom" "abx-plugins/abx_plugins/plugins/$plugin_name"; then
-              needs_chromium=true
-            fi
-            needs_sonic=false
-            if [ "$plugin_name" = "search_backend_sonic" ]; then
-              needs_sonic=true
-            fi
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: true
+          fetch-depth: 1
 
-            json_array+="{\"plugin\":\"$plugin_name\",\"name\":\"plugin/$plugin_name\",\"needs_chromium\":$needs_chromium,\"needs_sonic\":$needs_sonic}"
-          done
-          json_array+="]"
+      - name: Set up Python ${{ env.CI_PYTHON_VERSION }}
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.CI_PYTHON_VERSION }}
+          architecture: x64
 
-          echo "plugin-tests=$json_array" >> $GITHUB_OUTPUT
-          echo "Found $(echo $plugin_tests | wc -w) plugin test suites"
-          echo "$json_array" | jq '.'
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+          enable-cache: false
+
+      - name: Clone abxpkg
+        run: bash .github/scripts/clone_abx_repo.sh abxpkg
+
+      - name: Clone abx-plugins
+        run: bash .github/scripts/clone_abx_repo.sh abx-plugins
+
+      - name: Clone abx-dl
+        run: bash .github/scripts/clone_abx_repo.sh abx-dl
+
+      - name: Restore or create the SHA-specific uv cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: ${{ runner.os }}-python-${{ env.CI_PYTHON_VERSION }}-uv-${{ github.sha }}
+
+      - name: Bootstrap local abxpkg
+        run: |
+          set -Eeuo pipefail
+          uv venv
+          uv pip install -e ./abxpkg
+
+      - name: Resolve Linux build dependencies through abxpkg
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$LIB_DIR/env/bin"
+          echo "$LIB_DIR/env/bin" >> "$GITHUB_PATH"
+          uv run --no-sync --no-sources abxpkg env \
+            --install \
+            --no-cache \
+            --json \
+            --lib="$ABXPKG_LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-linux-build.json:required_binaries"
+          uv run --no-sync --no-sources abxpkg env \
+            --install \
+            --json \
+            --lib="$ABXPKG_LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-linux-env.json:required_binaries"
+
+      - name: Populate the full editable dependency cache
+        run: |
+          set -Eeuo pipefail
+          uv pip install --group dev -e ./abxpkg -e ./abx-plugins -e ./abx-dl -e ".[all]"
+          uv run --no-sync --no-sources python -c 'import ldap; print(ldap.__version__)'
 
   run-tests:
     name: ${{ matrix.test.name }}
     runs-on: ubuntu-24.04
-    needs: discover-tests
+    needs: [discover-tests, prepare-python-dependencies]
     env:
       PYTHONPATH: ${{ github.workspace }}/abxpkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
       CHROME_HEADLESS: "true"
@@ -118,10 +177,22 @@ jobs:
         python: ["3.13"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           submodules: true
           fetch-depth: 1
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ matrix.python }}
+          architecture: x64
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+          enable-cache: false
 
       - name: Clone abxpkg
         run: bash .github/scripts/clone_abx_repo.sh abxpkg
@@ -132,56 +203,76 @@ jobs:
       - name: Clone abx-dl
         run: bash .github/scripts/clone_abx_repo.sh abx-dl
 
-      - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python }}
-          architecture: x64
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          version: "0.10.6"
-
-      - name: Set up Node JS
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
       - name: Cache uv
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          path: ~/.cache/uv
-          key: ${{ runner.os }}-${{ matrix.python }}-uv-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.python }}-uv-
-
-      - uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 python3-minimal gnupg2 curl python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
-          version: 1.1
+          path: ${{ env.UV_CACHE_DIR }}
+          key: ${{ runner.os }}-python-${{ env.CI_PYTHON_VERSION }}-uv-${{ github.sha }}
+          fail-on-cache-miss: true
 
       - name: Install dependencies with uv
         run: |
+          set -Eeuo pipefail
           uv venv
-          uv pip install --group dev -e ./abxpkg -e ./abx-plugins -e ./abx-dl -e ".[all]"
+          uv pip install --offline --group dev -e ./abxpkg -e ./abx-plugins -e ./abx-dl -e ".[all]"
+
+      - name: Resolve Node.js through abxpkg
+        env:
+          LIB_DIR: ${{ runner.temp }}/abx-lib
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$LIB_DIR/env/bin"
+          export PATH="$LIB_DIR/env/bin:$PATH"
+          {
+            echo "LIB_DIR=$LIB_DIR"
+            echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
+          } >> "$GITHUB_ENV"
+          echo "$LIB_DIR/env/bin" >> "$GITHUB_PATH"
+
+          tooling_env="$(
+            uv run --no-sync --no-sources abxpkg env \
+              --install \
+              --json \
+              --lib="$LIB_DIR" \
+              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:ci_binaries" \
+              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:node_binaries"
+          )"
+          JQ_BINARY="$LIB_DIR/env/bin/jq"
+          "$JQ_BINARY" -r 'to_entries[] | "\(.key)=\(.value)"' \
+            <<< "$tooling_env" >> "$GITHUB_ENV"
+
+          node_binary="$LIB_DIR/env/bin/node"
+          {
+            echo "JQ_BINARY=$JQ_BINARY"
+            echo "NODE_BINARY=$node_binary"
+          } >> "$GITHUB_ENV"
+          test -L "$JQ_BINARY"
+          test -x "$JQ_BINARY"
+          test -L "$node_binary"
+          test -x "$node_binary"
+          "$node_binary" --version
 
       - name: Resolve core test binaries through abxpkg
         env:
           LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
-          ABXPKG_INSTALL_TIMEOUT: "900"
         run: |
           set -euo pipefail
-          mkdir -p "$LIB_DIR"
-          echo "LIB_DIR=$LIB_DIR" >> "$GITHUB_ENV"
-          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
+          mkdir -p "$LIB_DIR/env/bin"
+          {
+            echo "LIB_DIR=$LIB_DIR"
+            echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
+          } >> "$GITHUB_ENV"
+          echo "$LIB_DIR/env/bin" >> "$GITHUB_PATH"
           uv run --no-sync --no-sources abxpkg env \
             --install \
+            --json \
             --lib="$LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/wget/config.json:required_binaries" \
             --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/git/config.json:required_binaries" \
             --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/search_backend_ripgrep/config.json:required_binaries" \
+            | "$JQ_BINARY" -r 'to_entries[] | "\(.key)=\(.value)"' \
             >> "$GITHUB_ENV"
 
       - name: Resolve Chrome through abxpkg
@@ -189,17 +280,20 @@ jobs:
         env:
           LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
-          ABXPKG_INSTALL_TIMEOUT: "900"
         run: |
           set -euo pipefail
           mkdir -p "$LIB_DIR"
-          echo "LIB_DIR=$LIB_DIR" >> "$GITHUB_ENV"
-          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
+          {
+            echo "LIB_DIR=$LIB_DIR"
+            echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
+          } >> "$GITHUB_ENV"
 
           uv run --no-sync --no-sources abxpkg env \
             --install \
+            --json \
             --lib="$LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/chrome/config.json:required_binaries" \
+            | "$JQ_BINARY" -r 'to_entries[] | "\(.key)=\(.value)"' \
             >> "$GITHUB_ENV"
 
       - name: Resolve Sonic through abxpkg
@@ -207,28 +301,36 @@ jobs:
         env:
           LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
-          ABXPKG_INSTALL_TIMEOUT: "900"
         run: |
           set -euo pipefail
           mkdir -p "$LIB_DIR"
-          echo "LIB_DIR=$LIB_DIR" >> "$GITHUB_ENV"
-          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
+          {
+            echo "LIB_DIR=$LIB_DIR"
+            echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
+          } >> "$GITHUB_ENV"
 
           uv run --no-sync --no-sources abxpkg env \
             --install \
+            --json \
             --lib="$LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/search_backend_sonic/config.json:required_binaries" \
+            | "$JQ_BINARY" -r 'to_entries[] | "\(.key)=\(.value)"' \
             >> "$GITHUB_ENV"
 
       - name: Run test - ${{ matrix.test.name }}
+        env:
+          TEST_PATHS_JSON: ${{ toJson(matrix.test.paths) }}
         run: |
+          set -Eeuo pipefail
+          mapfile -t test_paths < <("$JQ_BINARY" -r '.[]' <<<"$TEST_PATHS_JSON")
+          [[ "${#test_paths[@]}" -gt 0 ]]
           mkdir -p tests/out
-          uv run --no-sync --no-sources pytest -xvs "${{ matrix.test.path }}" --basetemp=tests/out
+          uv run --no-sync --no-sources pytest -vs "${test_paths[@]}" --basetemp=tests/out
 
   plugin-tests:
     name: ${{ matrix.plugin.name }}
     runs-on: ubuntu-24.04
-    needs: discover-tests
+    needs: [discover-tests, prepare-python-dependencies]
     env:
       PYTHONPATH: ${{ github.workspace }}/abxpkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
       CHROME_HEADLESS: "true"
@@ -241,10 +343,22 @@ jobs:
         plugin: ${{ fromJson(needs.discover-tests.outputs.plugin-tests) }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           submodules: true
           fetch-depth: 1
+
+      - name: Set up Python ${{ env.CI_PYTHON_VERSION }}
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.CI_PYTHON_VERSION }}
+          architecture: x64
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+          enable-cache: false
 
       - name: Clone abxpkg
         run: bash .github/scripts/clone_abx_repo.sh abxpkg
@@ -255,54 +369,74 @@ jobs:
       - name: Clone abx-dl
         run: bash .github/scripts/clone_abx_repo.sh abx-dl
 
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          architecture: x64
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          version: "0.10.6"
-
-      - name: Set up Node JS
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
       - name: Cache uv
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          path: ~/.cache/uv
-          key: ${{ runner.os }}-3.13-uv-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-3.13-uv-
-
-      - uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 python3-minimal gnupg2 curl python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
-          version: 1.1
+          path: ${{ env.UV_CACHE_DIR }}
+          key: ${{ runner.os }}-python-${{ env.CI_PYTHON_VERSION }}-uv-${{ github.sha }}
+          fail-on-cache-miss: true
 
       - name: Install dependencies with uv
         run: |
+          set -Eeuo pipefail
           uv venv
-          uv pip install --group dev -e ./abxpkg -e ./abx-plugins -e ./abx-dl -e ".[all]"
+          uv pip install --offline --group dev -e ./abxpkg -e ./abx-plugins -e ./abx-dl -e ".[all]"
+
+      - name: Resolve Node.js through abxpkg
+        env:
+          LIB_DIR: ${{ runner.temp }}/abx-lib
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$LIB_DIR/env/bin"
+          export PATH="$LIB_DIR/env/bin:$PATH"
+          {
+            echo "LIB_DIR=$LIB_DIR"
+            echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
+          } >> "$GITHUB_ENV"
+          echo "$LIB_DIR/env/bin" >> "$GITHUB_PATH"
+
+          tooling_env="$(
+            uv run --no-sync --no-sources abxpkg env \
+              --install \
+              --json \
+              --lib="$LIB_DIR" \
+              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:ci_binaries" \
+              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:node_binaries"
+          )"
+          JQ_BINARY="$LIB_DIR/env/bin/jq"
+          "$JQ_BINARY" -r 'to_entries[] | "\(.key)=\(.value)"' \
+            <<< "$tooling_env" >> "$GITHUB_ENV"
+
+          node_binary="$LIB_DIR/env/bin/node"
+          {
+            echo "JQ_BINARY=$JQ_BINARY"
+            echo "NODE_BINARY=$node_binary"
+          } >> "$GITHUB_ENV"
+          test -L "$JQ_BINARY"
+          test -x "$JQ_BINARY"
+          test -L "$node_binary"
+          test -x "$node_binary"
+          "$node_binary" --version
 
       - name: Resolve plugin dependencies through abxpkg
         env:
           LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
-          ABXPKG_INSTALL_TIMEOUT: "900"
         run: |
           set -euo pipefail
-          mkdir -p "$LIB_DIR"
-          echo "LIB_DIR=$LIB_DIR" >> "$GITHUB_ENV"
-          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
+          mkdir -p "$LIB_DIR/env/bin"
+          {
+            echo "LIB_DIR=$LIB_DIR"
+            echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
+          } >> "$GITHUB_ENV"
+          echo "$LIB_DIR/env/bin" >> "$GITHUB_PATH"
           uv run --no-sync --no-sources abxpkg env \
             --install \
+            --json \
             --lib="$LIB_DIR" \
-            --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/${{ matrix.plugin.plugin }}/config.json:required_binaries" \
+            --deps-from="$GITHUB_WORKSPACE/${{ matrix.plugin.config_path }}:required_binaries" \
+            | "$JQ_BINARY" -r 'to_entries[] | "\(.key)=\(.value)"' \
             >> "$GITHUB_ENV"
 
       - name: Resolve Chrome through abxpkg
@@ -310,17 +444,20 @@ jobs:
         env:
           LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
-          ABXPKG_INSTALL_TIMEOUT: "900"
         run: |
           set -euo pipefail
           mkdir -p "$LIB_DIR"
-          echo "LIB_DIR=$LIB_DIR" >> "$GITHUB_ENV"
-          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
+          {
+            echo "LIB_DIR=$LIB_DIR"
+            echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
+          } >> "$GITHUB_ENV"
 
           uv run --no-sync --no-sources abxpkg env \
             --install \
+            --json \
             --lib="$LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/chrome/config.json:required_binaries" \
+            | "$JQ_BINARY" -r 'to_entries[] | "\(.key)=\(.value)"' \
             >> "$GITHUB_ENV"
 
       - name: Resolve Sonic through abxpkg
@@ -328,23 +465,37 @@ jobs:
         env:
           LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
-          ABXPKG_INSTALL_TIMEOUT: "900"
         run: |
           set -euo pipefail
           mkdir -p "$LIB_DIR"
-          echo "LIB_DIR=$LIB_DIR" >> "$GITHUB_ENV"
-          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
+          {
+            echo "LIB_DIR=$LIB_DIR"
+            echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
+          } >> "$GITHUB_ENV"
 
           uv run --no-sync --no-sources abxpkg env \
             --install \
+            --json \
             --lib="$LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/abx-plugins/abx_plugins/plugins/search_backend_sonic/config.json:required_binaries" \
+            | "$JQ_BINARY" -r 'to_entries[] | "\(.key)=\(.value)"' \
             >> "$GITHUB_ENV"
 
       - name: Run plugin tests - ${{ matrix.plugin.name }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           API_KEY_2CAPTCHA: ${{ secrets.TWOCAPTCHA_API_KEY }}
         run: |
-          uv run --no-sync --no-sources bash ./bin/test_plugins.sh "${{ matrix.plugin.plugin }}" --no-coverage
+          set -Eeuo pipefail
+          test_path="$GITHUB_WORKSPACE/${{ matrix.plugin.test_path }}"
+          test -d "$test_path"
+          test_count="$("$LIB_DIR/env/bin/python" -c 'import pathlib, sys; print(sum(1 for _ in pathlib.Path(sys.argv[1]).rglob("test_*.py")))' "$test_path")"
+          test "$test_count" -gt 0
+          DATA_DIR="$(mktemp -d -t archivebox_plugin_tests.XXXXXX)"
+          export DATA_DIR
+          plugin_tmpdir="$(mktemp -d -t archivebox_plugin_run.XXXXXX)"
+          cd "$plugin_tmpdir"
+          uv run --project "$GITHUB_WORKSPACE" --no-sync --no-sources python -m pytest \
+            "$test_path" -p no:django -v --tb=short

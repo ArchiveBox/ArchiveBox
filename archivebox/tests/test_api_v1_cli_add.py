@@ -1,6 +1,6 @@
 import pytest
 import json
-import time
+import subprocess
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
@@ -12,8 +12,13 @@ from .conftest import (
     get_free_port,
     init_archive,
     live_api_request,
+    run_archivebox_cmd,
+    run_queued_crawls,
     start_archivebox_server,
+    stop_archivebox_process,
     stop_server,
+    get_http_response,
+    wait_for_log,
 )
 from archivebox.core.models import Snapshot, SnapshotTag
 from archivebox.crawls.models import Crawl
@@ -147,44 +152,54 @@ IMPORT_FORMAT_ENV = {
 }
 
 
-def wait_for_expected_import_snapshots(
+def start_api_server_without_runner(cwd: Path, env: dict[str, str], port: int):
+    log_path = cwd / "api-server.log"
+    log = log_path.open("w", encoding="utf-8")
+    process = run_archivebox_cmd(
+        ["manage", "runserver", f"127.0.0.1:{port}", "--noreload"],
+        cwd=cwd,
+        env=env,
+        stdout=log,
+        stderr=subprocess.STDOUT,
+        wait=False,
+        start_new_session=True,
+    )
+    log.close()
+    wait_for_log(log_path, "Listening on TCP", timeout=30)
+    get_http_response(port, host=f"api.archivebox.localhost:{port}", path="/api/v1/docs")
+    return process
+
+
+def assert_expected_import_snapshots(
     cwd: Path,
     expected_urls: set[str],
     *,
-    timeout: float = 180.0,
     expected_tags: set[str] | None = None,
 ) -> None:
-    import time
-
     allowed_statuses = {Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED, Snapshot.StatusChoices.SEALED}
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        with use_archivebox_db(cwd):
-            snapshots = list(Snapshot.objects.filter(url__in=expected_urls).values("id", "url", "status"))
-            tag_names_by_snapshot_id = {}
-            if expected_tags and snapshots:
-                for snapshot_id, tag_name in SnapshotTag.objects.filter(
-                    snapshot_id__in=[snapshot["id"] for snapshot in snapshots],
-                ).values_list("snapshot_id", "tag__name"):
-                    tag_names_by_snapshot_id.setdefault(snapshot_id, set()).add(tag_name)
-        counts = {url: 0 for url in expected_urls}
-        bad_statuses = []
-        missing_tags = {}
-        for snapshot in snapshots:
-            counts[snapshot["url"]] += 1
-            if snapshot["status"] not in allowed_statuses:
-                bad_statuses.append((snapshot["url"], snapshot["status"]))
-            if expected_tags:
-                tag_names = tag_names_by_snapshot_id.get(snapshot["id"], set())
-                missing = expected_tags - tag_names
-                if missing:
-                    missing_tags[snapshot["url"]] = missing
-        if all(count == 1 for count in counts.values()) and not bad_statuses and not missing_tags:
-            return
-        time.sleep(1)
-    raise AssertionError(
-        f"timed out waiting for one queued/started/sealed snapshot per URL, got counts={counts}, bad_statuses={bad_statuses}, missing_tags={missing_tags}",
-    )
+    with use_archivebox_db(cwd):
+        snapshots = list(Snapshot.objects.filter(url__in=expected_urls).values("id", "url", "status"))
+        tag_names_by_snapshot_id = {}
+        if expected_tags and snapshots:
+            for snapshot_id, tag_name in SnapshotTag.objects.filter(
+                snapshot_id__in=[snapshot["id"] for snapshot in snapshots],
+            ).values_list("snapshot_id", "tag__name"):
+                tag_names_by_snapshot_id.setdefault(snapshot_id, set()).add(tag_name)
+    counts = {url: 0 for url in expected_urls}
+    bad_statuses = []
+    missing_tags = {}
+    for snapshot in snapshots:
+        counts[snapshot["url"]] += 1
+        if snapshot["status"] not in allowed_statuses:
+            bad_statuses.append((snapshot["url"], snapshot["status"]))
+        if expected_tags:
+            tag_names = tag_names_by_snapshot_id.get(snapshot["id"], set())
+            missing = expected_tags - tag_names
+            if missing:
+                missing_tags[snapshot["url"]] = missing
+    assert all(count == 1 for count in counts.values()), counts
+    assert not bad_statuses, bad_statuses
+    assert not missing_tags, missing_tags
 
 
 def malicious_add_inputs(tmp_path: Path, *, safe_url: str) -> tuple[list[str], Path]:
@@ -323,8 +338,8 @@ def test_api_cli_add_import_text_formats_preserve_metadata_and_crawl_inner_urls(
     env = cli_env(port=port, server=True, **IMPORT_FORMAT_ENV)
     api_token = create_admin_and_token(tmp_path)
 
+    api_server = start_api_server_without_runner(tmp_path, env, port)
     try:
-        start_archivebox_server(tmp_path, env=env, port=port)
         for import_name, import_path in import_files.items():
             response = live_api_request(
                 port,
@@ -348,25 +363,21 @@ def test_api_cli_add_import_text_formats_preserve_metadata_and_crawl_inner_urls(
             source_text = import_path.read_text(encoding="utf-8")
             assert crawl.urls == source_text
 
-        deadline = time.time() + 240
-        root_counts = {}
-        while time.time() < deadline:
-            with use_archivebox_db(tmp_path):
-                root_counts = {
-                    str(crawl.id): crawl.snapshot_set.filter(url=Snapshot.INTERNAL_INPUT_URL).count() for crawl in Crawl.objects.all()
-                }
-            if root_counts and all(count == 1 for count in root_counts.values()):
-                break
-            time.sleep(1)
+        stop_archivebox_process(api_server)
+        api_server = None
+        run_queued_crawls(tmp_path, env=env, timeout=240)
+        with use_archivebox_db(tmp_path):
+            root_counts = {
+                str(crawl.id): crawl.snapshot_set.filter(url=Snapshot.INTERNAL_INPUT_URL).count() for crawl in Crawl.objects.all()
+            }
         assert root_counts and all(count == 1 for count in root_counts.values()), root_counts
         with use_archivebox_db(tmp_path):
             for crawl in Crawl.objects.all():
                 root_snapshot = crawl.snapshot_set.get(url=Snapshot.INTERNAL_INPUT_URL)
                 root_input = (root_snapshot.output_dir / "staticfile" / "stdin.txt").read_text(encoding="utf-8")
                 assert root_input == crawl.urls
-        stop_server(tmp_path)
-        start_archivebox_server(tmp_path, env=env, port=port)
-        wait_for_expected_import_snapshots(tmp_path, expected_urls)
+        api_server = start_api_server_without_runner(tmp_path, env, port)
+        assert_expected_import_snapshots(tmp_path, expected_urls)
 
         for import_name, expected in IMPORT_FORMAT_EXPECTATIONS.items():
             with use_archivebox_db(tmp_path):
@@ -383,7 +394,8 @@ def test_api_cli_add_import_text_formats_preserve_metadata_and_crawl_inner_urls(
             assert snapshot_response.status_code == 200, snapshot_response.text
             assert snapshot_response.json()["url"] == expected["url"]
     finally:
-        stop_server(tmp_path)
+        if api_server is not None:
+            stop_archivebox_process(api_server)
 
     with use_archivebox_db(tmp_path):
         crawls = list(Crawl.objects.order_by("created_at"))
@@ -418,8 +430,8 @@ def test_api_cli_add_rejects_file_path_and_shell_injection_payloads(tmp_path):
     env = cli_env(port=port, server=True, **IMPORT_FORMAT_ENV)
     api_token = create_admin_and_token(tmp_path)
 
+    api_server = start_api_server_without_runner(tmp_path, env, port)
     try:
-        start_archivebox_server(tmp_path, env=env, port=port)
         response = live_api_request(
             port,
             "post",
@@ -436,11 +448,14 @@ def test_api_cli_add_rejects_file_path_and_shell_injection_payloads(tmp_path):
         assert response.status_code == 200, response.text
         assert response.json()["success"] is True
 
-        wait_for_expected_import_snapshots(tmp_path, {safe_url}, timeout=120)
+        stop_archivebox_process(api_server)
+        api_server = None
+        run_queued_crawls(tmp_path, env=env, timeout=120)
     finally:
-        stop_server(tmp_path)
+        if api_server is not None:
+            stop_archivebox_process(api_server)
 
-    wait_for_expected_import_snapshots(tmp_path, {safe_url}, timeout=30, expected_tags={"api-security"})
+    assert_expected_import_snapshots(tmp_path, {safe_url}, expected_tags={"api-security"})
     assert_no_file_or_shell_payload_snapshots(tmp_path, canary=canary)
     with use_archivebox_db(tmp_path):
         snapshot = Snapshot.objects.get(url=safe_url)

@@ -13,7 +13,7 @@
 #   ./bin/test_plugins.sh --coverage-report   # Just show coverage report without running tests
 #
 # For running individual hooks with coverage:
-#   NODE_V8_COVERAGE=./coverage/js node <hook>.js [args]  # JS hooks
+#   NODE_V8_COVERAGE=./coverage/js "$ABXPKG_LIB_DIR/env/bin/node" <hook>.js [args]  # JS hooks
 #   coverage run --parallel-mode <hook>.py [args]         # Python hooks
 #
 # Coverage results are saved to .coverage (Python) and coverage/js (JavaScript):
@@ -31,7 +31,20 @@ NC='\033[0m' # No Color
 
 # Save root directory first
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-PLUGINS_DIR="${ABX_PLUGINS_DIR:-$(python3 -c 'from abx_plugins import get_plugins_dir; print(get_plugins_dir())')}"
+PLUGINS_DIR="${ABX_PLUGINS_DIR:-$(uv run --project "$ROOT_DIR" --no-sync --no-sources python -c 'from abx_plugins import get_plugins_dir; print(get_plugins_dir())')}"
+
+resolve_node_binary() {
+    export ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-$ROOT_DIR/.venv/abxpkg}"
+    mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+    uv run --no-sync --no-sources abxpkg env \
+        --install \
+        --lib="$ABXPKG_LIB_DIR" \
+        --deps-from="$ROOT_DIR/.github/configs/ci-tooling.json:node_binaries" \
+        >/dev/null
+    NODE_BINARY="$ABXPKG_LIB_DIR/env/bin/node"
+    test -L "$NODE_BINARY"
+    test -x "$NODE_BINARY"
+}
 
 # Parse arguments
 PLUGIN_FILTER=""
@@ -48,51 +61,25 @@ for arg in "$@"; do
     fi
 done
 
-# Read secret-like config properties from a plugin's standardized config.json.
-# Each output line is a pipe-delimited env alias group where any populated alias
-# satisfies the requirement, e.g. TWOCAPTCHA_API_KEY|API_KEY_2CAPTCHA.
-get_plugin_secret_groups() {
-    local plugin_dir="$1"
-    local config_json="$plugin_dir/config.json"
-
-    if [ ! -f "$config_json" ]; then
-        return 0
-    fi
-
-    python3 - "$config_json" <<'PY'
-import json
-import re
-import sys
-from pathlib import Path
-
-config_path = Path(sys.argv[1])
-try:
-    config = json.loads(config_path.read_text())
-except Exception:
-    sys.exit(0)
-
-properties = config.get("properties", {})
-for env_name, schema in properties.items():
-    default = schema.get("default")
-    aliases = [alias for alias in schema.get("x-aliases", []) if alias]
-    looks_secret = bool(schema.get("x-sensitive")) or bool(re.search(r"(API_KEY|TOKEN|SECRET)", env_name))
-    if schema.get("type") == "string" and looks_secret and default in ("", None):
-        print("|".join([env_name, *aliases]))
-PY
-}
-
 # Function to show JS coverage report (inlined from convert_v8_coverage.js)
 show_js_coverage() {
     local plugin_root="$1"
     local coverage_dir="$2"
 
-    if [ ! -d "$coverage_dir" ] || [ -z "$(ls -A "$coverage_dir" 2>/dev/null)" ]; then
+    if [ ! -d "$coverage_dir" ] || ! uv run --no-sync --no-sources python - "$coverage_dir" <<'PY'
+import os
+import sys
+
+raise SystemExit(0 if any(os.scandir(sys.argv[1])) else 1)
+PY
+    then
         echo "No JavaScript coverage data collected"
         echo "(JS hooks may not have been executed during tests)"
         return
     fi
 
-    node - "$plugin_root" "$coverage_dir" << 'ENDJS'
+    resolve_node_binary
+    "$NODE_BINARY" - "$plugin_root" "$coverage_dir" << 'ENDJS'
 const fs = require('fs');
 const path = require('path');
 const pluginRoot = path.resolve(process.argv[2]).replace(/\\/g, '/');
@@ -168,14 +155,36 @@ console.log('Total: ' + overallPct + '% (' + totalExecuted + '/' + totalRanges +
 ENDJS
 }
 
+show_pytest_log() {
+    uv run --no-sync --no-sources python - "$1" <<'PY'
+from collections import deque
+from pathlib import Path
+import sys
+
+ignored_prefixes = ("platform", "cachedir", "rootdir", "configfile", "plugins:")
+lines = (
+    line
+    for line in Path(sys.argv[1]).read_text(errors="replace").splitlines()
+    if not line.startswith(ignored_prefixes)
+)
+print(*deque(lines, maxlen=100), sep="\n")
+PY
+}
+
+combine_parallel_coverage() {
+    if compgen -G "$ROOT_DIR/.coverage.*" >/dev/null; then
+        uv run --no-sync --no-sources coverage combine
+    fi
+}
+
 # If --coverage-report only, just show the report and exit
 if [ "$COVERAGE_REPORT_ONLY" = true ]; then
     cd "$ROOT_DIR" || exit 1
     echo "=========================================="
     echo "Python Coverage Summary"
     echo "=========================================="
-    coverage combine 2>/dev/null || true
-    coverage report --include="*/abx_plugins/plugins/*" --omit="*/tests/*"
+    combine_parallel_coverage
+    uv run --no-sync --no-sources coverage report --include="*/abx_plugins/plugins/*" --omit="*/tests/*"
     echo ""
 
     echo "=========================================="
@@ -194,16 +203,17 @@ fi
 # Set DATA_DIR for tests (required by abxpkg and plugins)
 # Use temp dir to isolate tests from project files
 if [ -z "${DATA_DIR:-}" ]; then
-    export DATA_DIR=$(mktemp -d -t archivebox_plugin_tests.XXXXXX)
+    DATA_DIR="$(mktemp -d -t archivebox_plugin_tests.XXXXXX)"
+    export DATA_DIR
     # Clean up on exit
-    trap "rm -rf '$DATA_DIR'" EXIT
+    trap 'rm -rf "$DATA_DIR"' EXIT
 fi
 
 # Reset coverage data if collecting coverage
 if [ "$ENABLE_COVERAGE" = true ]; then
     echo "Resetting coverage data..."
     cd "$ROOT_DIR" || exit 1
-    coverage erase
+    uv run --no-sync --no-sources coverage erase
     rm -rf "$ROOT_DIR/coverage/js" 2>/dev/null
     mkdir -p "$ROOT_DIR/coverage/js"
 
@@ -243,70 +253,46 @@ echo ""
 TOTAL_PLUGINS=0
 PASSED_PLUGINS=0
 FAILED_PLUGINS=0
-UNAVAILABLE_PLUGINS=0
 
 # Find and run plugin tests
-if [ -n "$PLUGIN_FILTER" ]; then
-    # Run tests for specific plugin(s) matching pattern
-    TEST_DIRS=$(find "$PLUGINS_DIR" -maxdepth 2 -type d -path "$PLUGINS_DIR/${PLUGIN_FILTER}*/tests" 2>/dev/null | sort)
-else
-    # Run all plugin tests
-    TEST_DIRS=$(find "$PLUGINS_DIR" -maxdepth 2 -type d -name "tests" -path "$PLUGINS_DIR/*/tests" 2>/dev/null | sort)
-fi
+mapfile -t TEST_DIRS < <(
+    uv run --no-sync --no-sources python - "$PLUGINS_DIR" "$PLUGIN_FILTER" <<'PY'
+from pathlib import Path
+import sys
 
-if [ -z "$TEST_DIRS" ]; then
-    echo -e "${YELLOW}No plugin tests found${NC}"
+plugins_dir = Path(sys.argv[1])
+plugin_filter = sys.argv[2] or "*"
+test_dirs = [path for path in sorted(plugins_dir.glob(f"{plugin_filter}*/tests")) if path.is_dir()]
+if test_dirs:
+    print(*(str(path) for path in test_dirs), sep="\n")
+PY
+)
+
+if [ "${#TEST_DIRS[@]}" -eq 0 ]; then
+    echo -e "${RED}No plugin tests found${NC}" >&2
     [ -n "$PLUGIN_FILTER" ] && echo "Pattern: $PLUGIN_FILTER"
-    exit 0
+    exit 1
 fi
 
-for test_dir in $TEST_DIRS; do
+for test_dir in "${TEST_DIRS[@]}"; do
     # Check if there are any Python test files
     if ! compgen -G "${test_dir}/test_*.py" > /dev/null 2>&1; then
-        continue
+        echo -e "${RED}No test_*.py files found in ${test_dir}${NC}" >&2
+        exit 1
     fi
 
-    plugin_name=$(basename "$(dirname "$test_dir")")
-    plugin_dir=$(dirname "$test_dir")
+    plugin_dir="${test_dir%/tests}"
+    plugin_name="${plugin_dir##*/}"
     TOTAL_PLUGINS=$((TOTAL_PLUGINS + 1))
-
-    # New plugin packages can include live integration suites that require API
-    # credentials. Only run those suites when the standardized config.json
-    # secrets are actually available in the current environment.
-    missing_secret_groups=()
-    while IFS= read -r secret_group; do
-        [ -z "$secret_group" ] && continue
-
-        secret_available=false
-        IFS='|' read -r -a secret_names <<< "$secret_group"
-        for secret_name in "${secret_names[@]}"; do
-            if [ -n "${!secret_name:-}" ]; then
-                secret_available=true
-                break
-            fi
-        done
-
-        if [ "$secret_available" = false ]; then
-            missing_secret_groups+=("$secret_group")
-        fi
-    done < <(get_plugin_secret_groups "$plugin_dir")
-
-    if [ ${#missing_secret_groups[@]} -gt 0 ]; then
-        echo -e "${YELLOW}[UNAVAILABLE]${NC} $plugin_name"
-        printf 'Missing secret env for full suite: %s\n' "${missing_secret_groups[*]}"
-        UNAVAILABLE_PLUGINS=$((UNAVAILABLE_PLUGINS + 1))
-        echo ""
-        continue
-    fi
 
     echo -e "${YELLOW}[RUNNING]${NC} $plugin_name"
 
     # Build pytest command with optional coverage
-    PYTEST_CMD=(python -m pytest "$test_dir" -p no:django -v --tb=short)
+    PYTEST_CMD=(uv run --project "$ROOT_DIR" --no-sync --no-sources python -m pytest "$test_dir" -p no:django -v --tb=short)
     if [ "$ENABLE_COVERAGE" = true ]; then
-        PYTEST_CMD+=(--cov="$(dirname "$test_dir")" --cov-append --cov-branch)
+        PYTEST_CMD+=(--cov="$plugin_dir" --cov-append --cov-branch)
         echo "[DEBUG] NODE_V8_COVERAGE before pytest: $NODE_V8_COVERAGE"
-        python -c "import os; print('[DEBUG BASH->PYTHON] NODE_V8_COVERAGE:', os.environ.get('NODE_V8_COVERAGE', 'NOT_SET'))"
+        uv run --no-sync --no-sources python -c "import os; print('[DEBUG BASH->PYTHON] NODE_V8_COVERAGE:', os.environ.get('NODE_V8_COVERAGE', 'NOT_SET'))"
     fi
 
     LOG_FILE=$(mktemp -t "archivebox_plugin_${plugin_name}.XXXXXX.log")
@@ -315,11 +301,11 @@ for test_dir in $TEST_DIRS; do
         cd "$PLUGIN_TMPDIR"
         TMPDIR="$PLUGIN_TMPDIR" "${PYTEST_CMD[@]}"
     ) >"$LOG_FILE" 2>&1; then
-        grep -v "^platform\|^cachedir\|^rootdir\|^configfile\|^plugins:" "$LOG_FILE" | tail -100
+        show_pytest_log "$LOG_FILE"
         echo -e "${GREEN}[PASSED]${NC} $plugin_name"
         PASSED_PLUGINS=$((PASSED_PLUGINS + 1))
     else
-        grep -v "^platform\|^cachedir\|^rootdir\|^configfile\|^plugins:" "$LOG_FILE" | tail -100
+        show_pytest_log "$LOG_FILE"
         echo -e "${RED}[FAILED]${NC} $plugin_name"
         FAILED_PLUGINS=$((FAILED_PLUGINS + 1))
     fi
@@ -335,19 +321,13 @@ echo "=========================================="
 echo -e "Total plugins tested: $TOTAL_PLUGINS"
 echo -e "${GREEN}Passed:${NC}              $PASSED_PLUGINS"
 echo -e "${RED}Failed:${NC}              $FAILED_PLUGINS"
-echo -e "${YELLOW}Unavailable:${NC}         $UNAVAILABLE_PLUGINS"
 echo ""
 
 if [ $TOTAL_PLUGINS -eq 0 ]; then
-    echo -e "${YELLOW}⚠ No tests found${NC}"
-    exit 0
+    echo -e "${RED}No tests ran${NC}" >&2
+    exit 1
 elif [ $FAILED_PLUGINS -eq 0 ]; then
-    if [ $UNAVAILABLE_PLUGINS -eq 0 ]; then
-        echo -e "${GREEN}✓ All plugin tests passed!${NC}"
-    else
-        echo -e "${GREEN}✓ All runnable plugin tests passed!${NC}"
-        echo -e "${YELLOW}⚠ Some plugin suites were unavailable in this environment${NC}"
-    fi
+    echo -e "${GREEN}✓ All plugin tests passed!${NC}"
 
     # Show coverage summary if enabled
     if [ "$ENABLE_COVERAGE" = true ]; then
@@ -358,8 +338,8 @@ elif [ $FAILED_PLUGINS -eq 0 ]; then
         # Coverage data is in ROOT_DIR, combine and report from there
         cd "$ROOT_DIR" || exit 1
         # Copy coverage data from plugins dir if it exists
-        coverage combine 2>/dev/null || true
-        coverage report --include="*/abx_plugins/plugins/*" --omit="*/tests/*" 2>&1 | head -50
+        combine_parallel_coverage
+        uv run --no-sync --no-sources coverage report --include="*/abx_plugins/plugins/*" --omit="*/tests/*"
         echo ""
 
         echo "=========================================="

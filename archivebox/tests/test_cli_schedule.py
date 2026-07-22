@@ -15,7 +15,7 @@ from .conftest import (
     make_latest_schedule_due,
     start_archivebox_server,
     stop_server,
-    wait_for_http,
+    get_http_response,
     wait_for_snapshot_capture,
 )
 
@@ -162,7 +162,7 @@ def test_schedule_due_crawl_runs_over_server_and_saves_real_content(tmp_path, re
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
-        wait_for_http(port, host=f"web.archivebox.localhost:{port}")
+        get_http_response(port, host=f"web.archivebox.localhost:{port}")
         captured_text = wait_for_snapshot_capture(tmp_path, recursive_test_site["root_url"], timeout=180)
         assert "Root" in captured_text
         assert "About" in captured_text

@@ -328,15 +328,12 @@ class ArchiveResultInline(admin.TabularInline):
     name = "Archive Results Log"
     model = ArchiveResult
     parent_model = Snapshot
-    # fk_name = 'snapshot'
     extra = 0
     sort_fields = ("end_ts", "plugin", "output_str", "status", "cmd_version")
     readonly_fields = ("id", "result_id", "completed", "command", "version")
     fields = ("start_ts", "end_ts", *readonly_fields, "plugin", "cmd", "cmd_version", "pwd", "status", "output_str")
-    # exclude = ('id',)
     ordering = ("end_ts",)
     show_change_link = True
-    # # classes = ['collapse']
 
     def get_parent_object_from_request(self, request):
         resolved = resolve(request.path_info)
@@ -371,7 +368,6 @@ class ArchiveResultInline(admin.TabularInline):
         base_fields = formset.form.base_fields
         snapshot_output_dir = str(snapshot.output_dir) if snapshot else ""
 
-        # import ipdb; ipdb.set_trace()
         # formset.form.base_fields['id'].widget = formset.form.base_fields['id'].hidden_widget()
 
         # default values for new entries
@@ -816,8 +812,6 @@ class ArchiveResultAdmin(BaseModelAdmin):
             root_dir = str(path_from_embed)
         else:
             root_dir = str(snapshot_dir)
-
-        # print(root_dir, str(list(os.walk(root_dir))))
 
         for root, dirs, files in os.walk(root_dir):
             depth = root.replace(root_dir, "").count(os.sep) + 1

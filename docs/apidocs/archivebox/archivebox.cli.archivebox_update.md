@@ -81,7 +81,7 @@
 ```
 ````
 
-````{py:function} _build_filtered_snapshots_queryset(*, filter_patterns: collections.abc.Iterable[str], filter_type: str, status: str | None = None, url__icontains: str | None = None, url__istartswith: str | None = None, tag: str | None = None, crawl_id: str | None = None, limit: int | None = None, sort: str | None = None, search: str | None = None, before: float | None = None, after: float | None = None, resume: str | None = None)
+````{py:function} _build_filtered_snapshots_queryset(**kwargs)
 :canonical: archivebox.cli.archivebox_update._build_filtered_snapshots_queryset
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_update._build_filtered_snapshots_queryset

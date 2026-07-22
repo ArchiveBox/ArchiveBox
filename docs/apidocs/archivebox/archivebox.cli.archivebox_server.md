@@ -143,7 +143,7 @@
 ```
 ````
 
-````{py:function} server(runserver_args: collections.abc.Iterable[str] | None = None, reload: bool = False, debug: bool = False, daemonize: bool = False, nothreading: bool = False) -> None
+````{py:function} server(runserver_args: collections.abc.Iterable[str] | None = None, reload: bool = False, debug: bool = False, daemonize: bool = False, nothreading: bool = False, createsuperuser: bool = False) -> None
 :canonical: archivebox.cli.archivebox_server.server
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_server.server

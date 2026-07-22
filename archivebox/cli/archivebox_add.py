@@ -216,7 +216,7 @@ def add(
         )
         from archivebox.services.runner import ensure_background_runner
 
-        ensure_background_runner(allow_under_pytest=True)
+        ensure_background_runner()
     else:
         # Foreground mode: run full crawl runner until all work is done
         print("[green]\\[*] Starting crawl runner to process crawl...[/green]")

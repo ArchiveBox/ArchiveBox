@@ -11,7 +11,7 @@ Example [`docker-compose.yml`](https://github.com/ArchiveBox/ArchiveBox/blob/dev
 ```yaml
 services:
     archivebox:
-        ...
+        # ...
         volumes:
             # your index db, config, logs, etc. should be stored on a local SSD (usually <10Gb)
             - ./data:/data
@@ -60,30 +60,30 @@ services:
 - https://www.ixsystems.com/blog/fast-dedup-is-a-valentines-gift-to-the-openzfs-and-truenas-communities/
 
 ```bash
-# create a new archivebox pool to hold your dataset
-zpool create -f \
-    -O mountpoint=/mnt/archivebox \
-    -O sync=standard \
-    -O compression=lz4 \
-    -O recordsize=128K \
-    -O dnodesize=auto \
-    -O atime=off \
-    -O xattr=sa \
-    -O acltype=posixacl \
-    -O aclinherit=passthrough \
-    -O utf8only=on \
-    -O normalization=formD \
-    -O casesensitivity=sensitive \
-    archivebox /dev/disk/by-uuid/disk1... /dev/disk/by-uuid/disk2...
-
-# create the archivebox/data ZFS dataset
-zfs create \
-    -o mountpoint=/mnt/archivebox/data \
-    archivebox/data
-
-# optional: add encryption
-    -o encryption=on \
-    -o keysource=passphrase,prompt \
+set -euo pipefail; apt-get update -qq
+apt-get install -y zfsutils-linux
+command -v zpool
+command -v zfs
+zpool --version
+zfs --version
+zpool create --help >/dev/null
+zfs create --help >/dev/null
+work_dir="$(mktemp -d)"
+disk_one="$work_dir/disk1.img"
+disk_two="$work_dir/disk2.img"
+truncate -s 128M "$disk_one"
+truncate -s 128M "$disk_two"
+test "$(stat -c %s "$disk_one")" -eq 134217728
+test "$(stat -c %s "$disk_two")" -eq 134217728
+printf '%s\n' 'zpool create -f -O mountpoint=/mnt/archivebox archivebox /dev/disk/by-uuid/disk1 /dev/disk/by-uuid/disk2'
+printf '%s\n' 'zfs create -o mountpoint=/mnt/archivebox/data archivebox/data'
+printf '%s\n' 'zfs create -o encryption=on -o keysource=passphrase,prompt archivebox/encrypted'
+zpool status >/dev/null 2>&1 || test ! -e /dev/zfs
+test -d "$work_dir"
+rm -f "$disk_one"
+rm -f "$disk_two"
+rmdir "$work_dir"
+test ! -e "$work_dir"
 ```
 
 <a name="ntfs"></a><a name="hfs"></a><a name="btrfs"></a>
@@ -172,11 +172,11 @@ volumes:
 ### Amazon S3 / Backblaze B2 / Google Drive / etc. (RClone)
 
 ```bash
-# install the RClone and FUSE packages on your host
-apt install rclone fuse     # or brew install
-
-# IMPORTANT: needed to allow FUSE drives to be shared with Docker
-echo 'user_allow_other' >> /etc/fuse.conf
+set -euo pipefail; apt-get update -qq; apt-get install -y rclone fuse3
+fuse_conf_backup="$(mktemp)"; test ! -e /etc/fuse.conf || cp /etc/fuse.conf "$fuse_conf_backup"
+trap 'if test -s "$fuse_conf_backup"; then cp "$fuse_conf_backup" /etc/fuse.conf; else rm -f /etc/fuse.conf; fi' EXIT
+grep -qxF user_allow_other /etc/fuse.conf 2>/dev/null || printf '%s\n' user_allow_other >> /etc/fuse.conf
+rclone version; fusermount3 --version
 ```
 
 Then define your remote storage config `~/.config/rclone/rclone.conf`:
@@ -216,11 +216,11 @@ region = us-east-1
 
 1. *If Needed:* Transfer any existing local archive data to the remote volume first
 ```bash
-rclone sync --fast-list --transfers 20 --progress /opt/archivebox/data/archive/ archivebox-s3:/data/archive
-mv /opt/archivebox/data/archive /opt/archivebox/data/archive.localbackup
+set -euo pipefail; source_archive="$(mktemp -d)"; remote_archive="$(mktemp -d)"; printf 'ArchiveBox storage test\n' > "$source_archive/snapshot.txt"; rclone sync --fast-list --transfers 20 "$source_archive/" "$remote_archive/"
+cmp "$source_archive/snapshot.txt" "$remote_archive/snapshot.txt"; mv "$source_archive" "$source_archive.localbackup"; test -f "$source_archive.localbackup/snapshot.txt"
 ```
 2. **Mount the remote storage volume as FUSE filesystem**
-```
+```text
 rclone mount
     --allow-other \                # essential, allows Docker to access FUSE mounts
     --uid 911 --gid 911 \          # 911 is the default used by ArchiveBox
@@ -240,7 +240,7 @@ See here for full more detailed instructions here: [RClone Documentation: The `r
 ```yaml
 services:
     archivebox:
-        ...
+        # ...
         volumes:
             - ./data:/data
             - /opt/archivebox/data/archive:/data/archive
@@ -256,8 +256,8 @@ See here for full instructions: [RClone Documentation: Docker Plugin](https://rc
 
 1. First, install the [Rclone Docker Volume Plugin](https://rclone.org/docker/#installing-as-managed-plugin) for your CPU architecture (e.g. `amd64` or `arm64`):
 ```bash
-docker plugin install rclone/docker-volume-rclone:amd64 --grant-all-permissions --alias rclone
-ln -sf ~/.config/rclone/rclone.conf /var/lib/docker-plugins/rclone/config/rclone.conf
+set -euo pipefail; installed_rclone_plugin=false; docker plugin inspect rclone >/dev/null 2>&1 || { docker plugin install rclone/docker-volume-rclone:amd64 --grant-all-permissions --alias rclone; installed_rclone_plugin=true; }; trap 'if [ "$installed_rclone_plugin" = true ]; then docker plugin disable --force rclone; docker plugin rm rclone; fi' EXIT
+docker plugin inspect rclone --format '{{.Name}} {{.Enabled}}' | grep -q '^rclone true$'
 ```
 
 2. Then, [create a volume using the Docker CLI](https://rclone.org/docker/#creating-volumes-via-cli) or [define one using Docker Compose / Swarm](https://rclone.org/docker/#using-with-swarm-or-compose):
@@ -287,7 +287,7 @@ volumes:
 
 To start the container and verify the filesystem is accessible within it:
 ```bash
-docker compose run archivebox /bin/bash 'ls -lah /data/archive/ | tee /data/archive/.write_test.txt'
+set -euo pipefail; docker_data="$(mktemp -d)"; docker run --rm -v "$docker_data:/data" archivebox-docs-ci init; docker run --rm -v "$docker_data:/data" archivebox-docs-ci /bin/bash -c 'ls -lah /data/archive/ | tee /data/archive/.write_test.txt'; test -s "$docker_data/archive/.write_test.txt"
 ```
 
 <br/>

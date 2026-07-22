@@ -1,7 +1,6 @@
-import time
 from pathlib import Path
 
-from archivebox.tests.conftest import run_archivebox_cmd, cli_env
+from archivebox.tests.conftest import cli_env, run_archivebox_cmd, run_queued_crawls
 
 import pytest
 
@@ -25,18 +24,6 @@ def _install_chrome(tmp_path, env):
     env.update(resolve_abxpkg_chrome_env(Path(env["ABXPKG_LIB_DIR"]), env))
 
 
-def _wait_for_snapshot_title(data_dir, *, timeout=60):
-    deadline = time.time() + timeout
-    title = None
-    while time.time() < deadline:
-        with use_archivebox_db(data_dir):
-            title = Snapshot.objects.get().resolved_title
-        if title:
-            return title
-        time.sleep(0.5)
-    return title
-
-
 def test_title_is_extracted(tmp_path, initialized_archive, recursive_test_site):
     """Test that title is extracted from the page."""
     env = cli_env(disable_extractors=True)
@@ -48,8 +35,10 @@ def test_title_is_extracted(tmp_path, initialized_archive, recursive_test_site):
         env=env,
     )
     assert add_process.returncode == 0, add_process.stderr or add_process.stdout
+    run_queued_crawls(tmp_path, env=env)
 
-    title = _wait_for_snapshot_title(tmp_path)
+    with use_archivebox_db(tmp_path):
+        title = Snapshot.objects.get().resolved_title
     assert title is not None
     assert "Root" in title
 

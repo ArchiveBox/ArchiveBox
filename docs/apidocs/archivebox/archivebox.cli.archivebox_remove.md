@@ -49,7 +49,7 @@
 
 ````
 
-````{py:function} remove(filter_patterns: collections.abc.Iterable[str] = (), filter_type: str = 'exact', snapshots: django.db.models.QuerySet | None = None, after: float | None = None, before: float | None = None, yes: bool = False, out_dir: pathlib.Path = DATA_DIR) -> django.db.models.QuerySet
+````{py:function} remove(filter_patterns: collections.abc.Iterable[str] = (), filter_type: str = 'exact', snapshots: django.db.models.QuerySet | None = None, after: float | None = None, before: float | None = None, yes: bool = False, delete: bool = False, out_dir: pathlib.Path = CONSTANTS.DATA_DIR, timeout: float | None = None, **kwargs) -> dict[str, object]
 :canonical: archivebox.cli.archivebox_remove.remove
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_remove.remove

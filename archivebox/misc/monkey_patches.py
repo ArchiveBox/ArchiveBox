@@ -15,17 +15,6 @@ django_stubs_ext.monkeypatch()
 # monkey patch django timezone to add back utc (it was removed in Django 5.0)
 setattr(timezone, "utc", datetime.UTC)
 
-# monkey patch django-signals-webhooks to change how it shows up in Admin UI
-# from signal_webhooks.apps import DjangoSignalWebhooksConfig
-# DjangoSignalWebhooksConfig.verbose_name = 'API'
-
-
-# Rich traceback handler disabled - it adds frames/boxes that wrap weirdly in log files
-# Standard Python tracebacks are used instead (full width, no frames)
-# from rich.traceback import install
-# install(show_locals=True, word_wrap=False, ...)
-
-
 # Hide site-packages/sonic/client.py:115: SyntaxWarning
 # https://github.com/xmonader/python-sonic-client/pull/18
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="sonic")

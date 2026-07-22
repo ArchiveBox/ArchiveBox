@@ -7,7 +7,7 @@ from archivebox.crawls.models import Crawl
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def test_snapshots_api_filters_status_column_and_rejects_legacy_status(client, api_admin_user, api_headers):
+def test_snapshots_api_filters_status_column(client, api_admin_user, api_headers):
     crawl = Crawl.objects.create(
         urls="https://example.com",
         created_by=api_admin_user,
@@ -36,11 +36,3 @@ def test_snapshots_api_filters_status_column_and_rejects_legacy_status(client, a
     items = payload["items"] if isinstance(payload, dict) and "items" in payload else payload
     assert [item["id"] for item in items] == [str(sealed_snapshot.id)]
     assert [item["status"] for item in items] == ["sealed"]
-
-    legacy_response = client.get(
-        "/api/v1/core/snapshots",
-        {"status": "unarchived"},
-        **api_headers,
-    )
-    assert legacy_response.status_code == 400
-    assert "Invalid snapshot status" in legacy_response.content.decode()

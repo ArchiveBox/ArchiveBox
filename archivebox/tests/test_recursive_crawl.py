@@ -3,8 +3,6 @@
 
 import json
 import os
-import subprocess
-import time
 from pathlib import Path
 
 import pytest
@@ -18,40 +16,18 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def wait_for_db_condition(timeout, condition, interval=0.5):
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        if os.path.exists("index.sqlite3"):
-            with use_archivebox_db("."):
-                if condition():
-                    return True
-        time.sleep(interval)
-    return False
-
-
-def stop_process(proc):
-    if proc.poll() is None:
-        proc.terminate()
-        try:
-            return proc.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-    return proc.communicate()
-
-
 def run_add_until(args, env, condition, timeout=120):
     assert args[0] == "archivebox"
-    proc = run_archivebox_cmd(
+    result = run_archivebox_cmd(
         args[1:],
         cwd=Path.cwd(),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
         env=env,
-        wait=False,
+        timeout=timeout,
     )
-
-    assert wait_for_db_condition(timeout=timeout, condition=condition), f"Timed out waiting for condition while running: {' '.join(args)}"
-    return stop_process(proc)
+    assert result.returncode == 0, result.stderr or result.stdout
+    with use_archivebox_db("."):
+        assert condition(), f"Condition was false after command completed: {' '.join(args)}"
+    return result.stdout, result.stderr
 
 
 def test_background_hooks_dont_block_parser_extractors(tmp_path, initialized_archive, recursive_test_site):
@@ -83,24 +59,16 @@ def test_background_hooks_dont_block_parser_extractors(tmp_path, initialized_arc
         },
     )
 
-    proc = run_archivebox_cmd(
-        ["add", "--depth=1", "--plugins=favicon,parse_html_urls", recursive_test_site["root_url"]],
-        cwd=tmp_path,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+    stdout, stderr = run_add_until(
+        ["archivebox", "add", "--depth=1", "--plugins=favicon,parse_html_urls", recursive_test_site["root_url"]],
         env=env,
-        wait=False,
-    )
-
-    assert wait_for_db_condition(
         timeout=120,
         condition=lambda: ArchiveResult.objects.filter(
             plugin__startswith="parse_",
             plugin__endswith="_urls",
             status__in=("started", "succeeded", "failed"),
         ).exists(),
-    ), "Parser extractors never progressed beyond queued status"
-    stdout, stderr = stop_process(proc)
+    )
 
     if stderr:
         print(f"\n=== STDERR ===\n{stderr}\n=== END STDERR ===\n")
@@ -426,7 +394,6 @@ def test_add_archivewebpage_installs_required_chrome_dependency(initialized_arch
             "USE_COLOR": "false",
             "SHOW_PROGRESS": "false",
             "TIMEOUT": "120",
-            "ABXPKG_INSTALL_TIMEOUT": "900",
             "ABXPKG_LIB_DIR": str(initialized_archive / "lib"),
             "CHROME_HEADLESS": "true",
             "CHROME_SANDBOX": "false",
@@ -550,7 +517,6 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(
             "ABXPKG_LIB_DIR": str(initialized_archive / "lib"),
             "CHROMEWEBSTORE_EXTENSIONS_DIR": str(initialized_archive / "lib/chromewebstore/extensions"),
             "TIMEOUT": "90",
-            "ABXPKG_INSTALL_TIMEOUT": "900",
             "CRAWL_MAX_CONCURRENT_SNAPSHOTS": "3",
             "SEARCH_BACKEND_SONIC_HOST_NAME": "127.0.0.1",
             "SEARCH_BACKEND_SONIC_PORT": str(free_tcp_port_factory()),

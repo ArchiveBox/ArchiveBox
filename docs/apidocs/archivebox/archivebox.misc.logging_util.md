@@ -155,7 +155,7 @@
 ```
 ````
 
-````{py:function} pretty_path(path: pathlib.Path | str, pwd: pathlib.Path | str = DATA_DIR, color: bool = True) -> str
+````{py:function} pretty_path(path: pathlib.Path | str, pwd: pathlib.Path | str = CONSTANTS.DATA_DIR, color: bool = True) -> str
 :canonical: archivebox.misc.logging_util.pretty_path
 
 ```{autodoc2-docstring} archivebox.misc.logging_util.pretty_path

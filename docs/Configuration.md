@@ -4,11 +4,23 @@ Configuration of ArchiveBox is done by using the `archivebox config` command, mo
 
 *Some equivalent examples of setting some configuration options:*
 ```bash
+set -euo pipefail
+examples_root="$(mktemp -d)"
+trap 'rm -rf "$examples_root"' EXIT
+
+# Persist a value through the CLI.
+mkdir -p "$examples_root/cli" && cd "$examples_root/cli"
+archivebox init
 archivebox config --set TIMEOUT=120
-# OR
-echo "TIMEOUT=120" >> ArchiveBox.conf
-# OR
-env TIMEOUT=120 archivebox add ~/Downloads/bookmarks_export.html
+
+# Or write the same value in a different collection's config file.
+mkdir -p "$examples_root/file" && cd "$examples_root/file"
+archivebox init
+printf '\n[ARCHIVING_CONFIG]\nTIMEOUT=120\n' >> ArchiveBox.conf
+archivebox config --get TIMEOUT
+
+# Or override the value for one command without persisting it.
+env TIMEOUT=120 archivebox add --index-only "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
 ```
 
 Environment variables seed process-level defaults. Persisted Machine, Persona, Crawl, and Snapshot settings can override them depending on scope, and existing Crawl config is not silently overwritten by later environment changes. Runtime-derived values like crawl/snapshot output dirs are resolved fresh for each run instead of being stored in frozen crawl config. For more examples see [Usage: Configuration](Usage#run-archivebox-with-configuration-options)...
@@ -50,8 +62,9 @@ Controls what happens when you `add` a URL that **already has a Snapshot** in yo
 Equivalent to the `--only-new` / `--no-only-new` flag on `archivebox add`:
 
 ```bash
-archivebox add https://example.com                    # honors ONLY_NEW (default True)
-archivebox add --no-only-new https://example.com      # force a re-archive even if already in the index
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
+example_url="${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"; uv run --project "$project_dir" --no-sync archivebox add --plugins=wget "$example_url"
+uv run --project "$project_dir" --no-sync archivebox add --plugins=wget --no-only-new "$example_url"
 ```
 
 > [!NOTE]
@@ -122,8 +135,8 @@ You can generate a `cookies.txt` using a [browser extension](https://chromewebst
 The recommended path is to create a persona and let it manage cookies + Chrome profile state for you:
 
 ```bash
-archivebox persona create --import=chrome personal
-archivebox add --persona=personal https://members.example.com/feed
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox persona create personal
+uv run --project "$project_dir" --no-sync archivebox add --plugins=parse_txt_urls --persona=personal "${ARCHIVEBOX_DOCS_URL_ONE:-https://members.example.com/feed}"
 ```
 
 > [!WARNING]
@@ -249,9 +262,9 @@ Retention policy: automatically delete Crawls, Snapshots, ArchiveResults, and Pr
 Accepted units: `h`/`hr`/`hour`, `d`/`day`, `w`/`week`, `mo`/`month`, `y`/`yr`/`year`. The minimum non-zero duration is `1h`. Examples:
 
 ```bash
-archivebox config --set DELETE_AFTER=24h     # daily rolling buffer
-archivebox config --set DELETE_AFTER=30d     # 30-day retention
-archivebox config --set DELETE_AFTER=6mo     # 6 months
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox config --set DELETE_AFTER=24h
+uv run --project "$project_dir" --no-sync archivebox config --set DELETE_AFTER=30d
+uv run --project "$project_dir" --no-sync archivebox config --set DELETE_AFTER=6mo
 ```
 
 `DELETE_AFTER` can be set globally, per-persona, per-crawl, or per-snapshot — the most-specific value wins. When a Snapshot is created, its `delete_at` timestamp is computed from the effective `DELETE_AFTER` and persisted; the retention sweeper then deletes rows whose `delete_at` is in the past.
@@ -290,7 +303,7 @@ Comma-separated **whitelist** of plugins to load and run for this archiving run.
 When set, only the listed plugins (plus any plugins they declare as `required_plugins` in their `config.json` — e.g. picking `singlefile` automatically pulls in `chrome`) participate in the run. Equivalent to the CLI flag:
 
 ```bash
-archivebox add --plugins=wget,favicon,screenshot https://example.com
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox add --plugins=wget,favicon,screenshot "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
 ```
 
 The admin "Add" form and REST API both write to `PLUGINS` when you select extractors — there is no separate "enabled set" config knob; `PLUGINS` is the single source of truth for which plugins run on any given Crawl, Snapshot, or Persona scope.
@@ -329,8 +342,8 @@ More info:
 Server-wide toggles for whether login is required to use each public area of ArchiveBox.
 
 ```bash
-archivebox config --set PUBLIC_INDEX=True        # allow viewing the snapshot index without login
-archivebox config --set PUBLIC_ADD_VIEW=False    # require login to submit new URLs via the web UI
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox config --set PUBLIC_INDEX=True
+uv run --project "$project_dir" --no-sync archivebox config --set PUBLIC_ADD_VIEW=False
 ```
 
 - `PUBLIC_INDEX` (default `True`) — when on, anonymous visitors can browse the snapshot list page. Individual snapshot visibility is still gated by each Snapshot's own [`PERMISSIONS`](#permissions) field.
@@ -487,7 +500,7 @@ URL users are redirected to after logging out. The default `/` keeps users on Ar
 Master switch for LDAP authentication. When `True`, ArchiveBox loads the `django-auth-ldap` backend and validates that `LDAP_SERVER_URI`, `LDAP_BIND_DN`, `LDAP_BIND_PASSWORD`, and `LDAP_USER_BASE` are all set — startup fails fast otherwise.
 
 ```bash
-uv tool install --python 3.13 --upgrade 'archivebox[ldap] @ git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+archivebox_spec="${ARCHIVEBOX_PROJECT_DIR:+$ARCHIVEBOX_PROJECT_DIR[ldap]}"; archivebox_spec="${archivebox_spec:-archivebox[ldap] @ git+https://github.com/ArchiveBox/ArchiveBox.git@dev}"; tool_root="$(mktemp -d)"; UV_TOOL_DIR="$tool_root/tools" UV_TOOL_BIN_DIR="$tool_root/bin" uv tool install --python 3.13 --upgrade "$archivebox_spec"
 ```
 
 Then set these configuration values:
@@ -776,7 +789,7 @@ Whether to colorize console output with ANSI escape codes. Defaults to `True` wh
 Override to **force-off** when piping `archivebox` output into a log file or cron-mail wrapper that doesn't strip ANSI codes (otherwise you'll see `^[[31m...^[[0m` litter throughout your logs). Override to **force-on** for tools like `script(1)` or some CI runners that don't report as a TTY but *do* render ANSI correctly.
 
 ```bash
-USE_COLOR=False archivebox add https://example.com >> archive.log
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; USE_COLOR=False uv run --project "$project_dir" --no-sync archivebox add --plugins=wget "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}" >> archive.log; test -s archive.log
 ```
 
 *Related options:* [`SHOW_PROGRESS`](#show_progress), [`DEBUG`](#debug)
@@ -790,7 +803,12 @@ Whether to render live progress bars during long-running operations (archiving, 
 Override to **force-off** in environments where the auto-detection is fooled into thinking it has a TTY (some Docker setups, Kubernetes log collectors, `tmux`/`screen` pipes) but the redrawing carriage-return output ends up as garbage in your logs.
 
 ```bash
-SHOW_PROGRESS=False archivebox add < urls.txt
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
+archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
+printf '%s\n' \
+    "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/one}" \
+    "${ARCHIVEBOX_DOCS_URL_TWO:-https://example.com/two}" > urls.txt
+SHOW_PROGRESS=False uv run --project "$project_dir" --no-sync archivebox add --plugins=wget < urls.txt
 ```
 
 *Related options:* [`USE_COLOR`](#use_color)
@@ -1063,10 +1081,10 @@ A handful of *core* options (documented above on this page) act as the **fallbac
 All plugin options can be set via the same three mechanisms as core options — env var, `ArchiveBox.conf`, or `archivebox config --set` — and inspected with `archivebox config`:
 
 ```bash
-archivebox config                                  # show every option (core + every installed plugin)
-archivebox config --get SCREENSHOT_RESOLUTION      # read one value
-archivebox config --set SCREENSHOT_RESOLUTION=1920,1080
-archivebox config --search wget                    # search options by name/description
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox config
+uv run --project "$project_dir" --no-sync archivebox config --get SCREENSHOT_RESOLUTION
+uv run --project "$project_dir" --no-sync archivebox config --set SCREENSHOT_RESOLUTION=1920,1080
+uv run --project "$project_dir" --no-sync archivebox config --search wget
 ```
 
 ### Why is plugin config documented separately?

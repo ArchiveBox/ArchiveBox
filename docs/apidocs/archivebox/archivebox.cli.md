@@ -24,7 +24,6 @@ archivebox.cli.archivebox_server
 archivebox.cli.archivebox_binary
 archivebox.cli.archivebox_snapshot
 archivebox.cli.archivebox_pluginmap
-archivebox.cli.archivebox_crawl_compat
 archivebox.cli.archivebox_machine
 archivebox.cli.archivebox_update
 archivebox.cli.archivebox_extract
@@ -35,12 +34,12 @@ archivebox.cli.archivebox_mcp
 archivebox.cli.archivebox_search
 archivebox.cli.archivebox_version
 archivebox.cli.archivebox_persona
-archivebox.cli.archivebox_snapshot_compat
 archivebox.cli.archivebox_add
 archivebox.cli.archivebox_status
 archivebox.cli.cli_util
 archivebox.cli.archivebox_run
 archivebox.cli.archivebox_init
+archivebox.cli.archivebox_oneshot
 archivebox.cli.archivebox_help
 archivebox.cli.archivebox_manage
 ```
@@ -167,16 +166,6 @@ Bases: {py:obj}`rich_click.Group`
 
 ````
 
-````{py:attribute} legacy_model_commands
-:canonical: archivebox.cli.ArchiveBoxGroup.legacy_model_commands
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.cli.ArchiveBoxGroup.legacy_model_commands
-```
-
-````
-
 ````{py:attribute} all_subcommands
 :canonical: archivebox.cli.ArchiveBoxGroup.all_subcommands
 :value: >
@@ -197,16 +186,6 @@ Bases: {py:obj}`rich_click.Group`
 
 ````
 
-````{py:attribute} legacy_model_subcommands
-:canonical: archivebox.cli.ArchiveBoxGroup.legacy_model_subcommands
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.cli.ArchiveBoxGroup.legacy_model_subcommands
-```
-
-````
-
 ````{py:method} get_canonical_name(cmd_name)
 :canonical: archivebox.cli.ArchiveBoxGroup.get_canonical_name
 :classmethod:
@@ -216,11 +195,20 @@ Bases: {py:obj}`rich_click.Group`
 
 ````
 
-````{py:method} _should_use_legacy_model_command(cmd_name: str) -> bool
-:canonical: archivebox.cli.ArchiveBoxGroup._should_use_legacy_model_command
+````{py:method} _needs_django_for_lazy_import(cmd_name: str) -> bool
+:canonical: archivebox.cli.ArchiveBoxGroup._needs_django_for_lazy_import
 :classmethod:
 
-```{autodoc2-docstring} archivebox.cli.ArchiveBoxGroup._should_use_legacy_model_command
+```{autodoc2-docstring} archivebox.cli.ArchiveBoxGroup._needs_django_for_lazy_import
+```
+
+````
+
+````{py:method} _setup_django_for_lazy_import(cmd_name: str) -> None
+:canonical: archivebox.cli.ArchiveBoxGroup._setup_django_for_lazy_import
+:classmethod:
+
+```{autodoc2-docstring} archivebox.cli.ArchiveBoxGroup._setup_django_for_lazy_import
 ```
 
 ````
@@ -248,7 +236,7 @@ Bases: {py:obj}`rich_click.Group`
 ```
 ````
 
-````{py:function} main(args=None, prog_name=None, stdin=None)
+````{py:function} main(args=None, prog_name=None)
 :canonical: archivebox.cli.main
 
 ```{autodoc2-docstring} archivebox.cli.main

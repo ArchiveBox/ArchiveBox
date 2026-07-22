@@ -17,6 +17,8 @@
 
 * - {py:obj}`DefaultStatusChoices <archivebox.workers.models.DefaultStatusChoices>`
   -
+* - {py:obj}`ModelStateMachine <archivebox.workers.models.ModelStateMachine>`
+  -
 * - {py:obj}`BaseModelWithStateMachine <archivebox.workers.models.BaseModelWithStateMachine>`
   -
 * - {py:obj}`ModelWithStateMachine <archivebox.workers.models.ModelWithStateMachine>`
@@ -77,7 +79,7 @@
 
 ### API
 
-`````{py:class} DefaultStatusChoices()
+`````{py:class} DefaultStatusChoices(*args, **kwds)
 :canonical: archivebox.workers.models.DefaultStatusChoices
 
 Bases: {py:obj}`django.db.models.TextChoices`
@@ -149,7 +151,7 @@ Bases: {py:obj}`django.db.models.TextChoices`
 ````{py:data} RETRY_AT_MAX
 :canonical: archivebox.workers.models.RETRY_AT_MAX
 :value: >
-   'replace(...)'
+   'datetime(...)'
 
 ```{autodoc2-docstring} archivebox.workers.models.RETRY_AT_MAX
 ```
@@ -226,10 +228,41 @@ Bases: {py:obj}`django.db.models.TextChoices`
 
 ````
 
+`````{py:class} ModelStateMachine
+:canonical: archivebox.workers.models.ModelStateMachine
+
+Bases: {py:obj}`typing.Protocol`
+
+````{py:method} tick() -> typing.Any
+:canonical: archivebox.workers.models.ModelStateMachine.tick
+
+```{autodoc2-docstring} archivebox.workers.models.ModelStateMachine.tick
+```
+
+````
+
+````{py:method} pause_requested() -> typing.Any
+:canonical: archivebox.workers.models.ModelStateMachine.pause_requested
+
+```{autodoc2-docstring} archivebox.workers.models.ModelStateMachine.pause_requested
+```
+
+````
+
+````{py:method} resume_requested() -> typing.Any
+:canonical: archivebox.workers.models.ModelStateMachine.resume_requested
+
+```{autodoc2-docstring} archivebox.workers.models.ModelStateMachine.resume_requested
+```
+
+````
+
+`````
+
 ``````{py:class} BaseModelWithStateMachine(*args, **kwargs)
 :canonical: archivebox.workers.models.BaseModelWithStateMachine
 
-Bases: {py:obj}`django.db.models.Model`, {py:obj}`statemachine.mixins.MachineMixin`
+Bases: {py:obj}`django.db.models.Model`
 
 ````{py:attribute} StatusChoices
 :canonical: archivebox.workers.models.BaseModelWithStateMachine.StatusChoices
@@ -279,9 +312,20 @@ Bases: {py:obj}`django.db.models.Model`, {py:obj}`statemachine.mixins.MachineMix
 :canonical: archivebox.workers.models.BaseModelWithStateMachine.bind_events_as_methods
 :type: bool
 :value: >
-   True
+   False
 
 ```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.bind_events_as_methods
+```
+
+````
+
+````{py:attribute} warn_on_save_outside_runner
+:canonical: archivebox.workers.models.BaseModelWithStateMachine.warn_on_save_outside_runner
+:type: typing.ClassVar[bool]
+:value: >
+   True
+
+```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.warn_on_save_outside_runner
 ```
 
 ````
@@ -334,6 +378,24 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 ````
 
 `````
+
+````{py:property} sm
+:canonical: archivebox.workers.models.BaseModelWithStateMachine.sm
+:type: statemachine.StateMachine
+
+```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.sm
+```
+
+````
+
+````{py:method} status_counts(queryset: django.db.models.QuerySet | None = None, statuses: collections.abc.Iterable[str] | None = None) -> dict[str, int]
+:canonical: archivebox.workers.models.BaseModelWithStateMachine.status_counts
+:classmethod:
+
+```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.status_counts
+```
+
+````
 
 ````{py:method} check(sender=None, **kwargs)
 :canonical: archivebox.workers.models.BaseModelWithStateMachine.check
@@ -602,7 +664,7 @@ Bases: {py:obj}`archivebox.workers.models.BaseModelWithStateMachine`
 :canonical: archivebox.workers.models.ModelWithStateMachine.bind_events_as_methods
 :type: bool
 :value: >
-   True
+   False
 
 ```{autodoc2-docstring} archivebox.workers.models.ModelWithStateMachine.bind_events_as_methods
 ```
@@ -670,6 +732,14 @@ Bases: {py:obj}`statemachine.StateMachine`
    'obj'
 
 ```{autodoc2-docstring} archivebox.workers.models.BaseStateMachine.model_attr_name
+```
+
+````
+
+````{py:method} _register_callbacks(listeners: list[object])
+:canonical: archivebox.workers.models.BaseStateMachine._register_callbacks
+
+```{autodoc2-docstring} archivebox.workers.models.BaseStateMachine._register_callbacks
 ```
 
 ````

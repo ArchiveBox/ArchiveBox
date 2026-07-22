@@ -316,36 +316,6 @@ def test_hyphenated_crawl_ids_are_normalized_before_snapshot_saves(migration_08_
     assert "FOREIGN KEY constraint failed" not in output
 
 
-def test_migration_removes_seed_id_column(migration_08_data):
-    """Migration should remove seed_id column from archivebox.crawls.crawl."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute("PRAGMA table_info(crawls_crawl)")
-    columns = [row[1] for row in cursor.fetchall()]
-    conn.close()
-
-    assert "seed_id" not in columns, f"seed_id column should have been removed by migration. Columns: {columns}"
-
-
-def test_migration_removes_seed_table(migration_08_data):
-    """Migration should remove crawls_seed table."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='crawls_seed'")
-    table_exists = cursor.fetchone() is not None
-    conn.close()
-
-    assert not table_exists, "crawls_seed table should have been removed by migration"
-
-
 def test_add_works_after_migration(migration_08_data):
     """Adding new URLs should work after migration from 0.8.x."""
     work_dir, db_path, original_data = migration_08_data

@@ -83,6 +83,10 @@
   - ```{autodoc2-docstring} archivebox.core.settings.INSTALLED_APPS
     :summary:
     ```
+* - {py:obj}`DJANGO_OBJECT_ACTIONS_DEFAULT_HTTP_METHOD <archivebox.core.settings.DJANGO_OBJECT_ACTIONS_DEFAULT_HTTP_METHOD>`
+  - ```{autodoc2-docstring} archivebox.core.settings.DJANGO_OBJECT_ACTIONS_DEFAULT_HTTP_METHOD
+    :summary:
+    ```
 * - {py:obj}`MIDDLEWARE <archivebox.core.settings.MIDDLEWARE>`
   - ```{autodoc2-docstring} archivebox.core.settings.MIDDLEWARE
     :summary:
@@ -195,6 +199,10 @@
   - ```{autodoc2-docstring} archivebox.core.settings.SECURE_REFERRER_POLICY
     :summary:
     ```
+* - {py:obj}`BASE_URL_IS_HTTPS <archivebox.core.settings.BASE_URL_IS_HTTPS>`
+  - ```{autodoc2-docstring} archivebox.core.settings.BASE_URL_IS_HTTPS
+    :summary:
+    ```
 * - {py:obj}`CSRF_COOKIE_SECURE <archivebox.core.settings.CSRF_COOKIE_SECURE>`
   - ```{autodoc2-docstring} archivebox.core.settings.CSRF_COOKIE_SECURE
     :summary:
@@ -205,6 +213,14 @@
     ```
 * - {py:obj}`SESSION_COOKIE_HTTPONLY <archivebox.core.settings.SESSION_COOKIE_HTTPONLY>`
   - ```{autodoc2-docstring} archivebox.core.settings.SESSION_COOKIE_HTTPONLY
+    :summary:
+    ```
+* - {py:obj}`SESSION_COOKIE_NAME <archivebox.core.settings.SESSION_COOKIE_NAME>`
+  - ```{autodoc2-docstring} archivebox.core.settings.SESSION_COOKIE_NAME
+    :summary:
+    ```
+* - {py:obj}`CSRF_COOKIE_NAME <archivebox.core.settings.CSRF_COOKIE_NAME>`
+  - ```{autodoc2-docstring} archivebox.core.settings.CSRF_COOKIE_NAME
     :summary:
     ```
 * - {py:obj}`SESSION_COOKIE_DOMAIN <archivebox.core.settings.SESSION_COOKIE_DOMAIN>`
@@ -477,6 +493,16 @@
    ['daphne', 'django.contrib.auth', 'django.contrib.contenttypes', 'django.contrib.sessions', 'django....
 
 ```{autodoc2-docstring} archivebox.core.settings.INSTALLED_APPS
+```
+
+````
+
+````{py:data} DJANGO_OBJECT_ACTIONS_DEFAULT_HTTP_METHOD
+:canonical: archivebox.core.settings.DJANGO_OBJECT_ACTIONS_DEFAULT_HTTP_METHOD
+:value: >
+   'POST'
+
+```{autodoc2-docstring} archivebox.core.settings.DJANGO_OBJECT_ACTIONS_DEFAULT_HTTP_METHOD
 ```
 
 ````
@@ -761,10 +787,20 @@
 
 ````
 
+````{py:data} BASE_URL_IS_HTTPS
+:canonical: archivebox.core.settings.BASE_URL_IS_HTTPS
+:value: >
+   'startswith(...)'
+
+```{autodoc2-docstring} archivebox.core.settings.BASE_URL_IS_HTTPS
+```
+
+````
+
 ````{py:data} CSRF_COOKIE_SECURE
 :canonical: archivebox.core.settings.CSRF_COOKIE_SECURE
 :value: >
-   False
+   None
 
 ```{autodoc2-docstring} archivebox.core.settings.CSRF_COOKIE_SECURE
 ```
@@ -774,7 +810,7 @@
 ````{py:data} SESSION_COOKIE_SECURE
 :canonical: archivebox.core.settings.SESSION_COOKIE_SECURE
 :value: >
-   False
+   None
 
 ```{autodoc2-docstring} archivebox.core.settings.SESSION_COOKIE_SECURE
 ```
@@ -787,6 +823,26 @@
    True
 
 ```{autodoc2-docstring} archivebox.core.settings.SESSION_COOKIE_HTTPONLY
+```
+
+````
+
+````{py:data} SESSION_COOKIE_NAME
+:canonical: archivebox.core.settings.SESSION_COOKIE_NAME
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.settings.SESSION_COOKIE_NAME
+```
+
+````
+
+````{py:data} CSRF_COOKIE_NAME
+:canonical: archivebox.core.settings.CSRF_COOKIE_NAME
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.settings.CSRF_COOKIE_NAME
 ```
 
 ````

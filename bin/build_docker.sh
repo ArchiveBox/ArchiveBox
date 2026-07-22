@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
-# ./bin/build_docker.sh dev 'linux/arm/v7'
 
 ### Bash Environment Setup
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/
 # https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
-# set -o xtrace
 set -o errexit
 set -o errtrace
 set -o nounset
@@ -14,32 +12,47 @@ IFS=$' '
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 cd "$REPO_DIR"
 
-which docker > /dev/null || exit 1
-which jq > /dev/null || exit 1
-# which pdm > /dev/null || exit 1
+ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-${LIB_DIR:-$HOME/.config/archivebox/lib}}"
+locked_abxpkg_version() {
+    local line package=""
+    while IFS= read -r line; do
+        case "$line" in
+            '[[package]]') package="" ;;
+            'name = "abxpkg"') package="abxpkg" ;;
+            'version = "'*'"')
+                [[ "$package" == "abxpkg" ]] || continue
+                line="${line#version = \"}"
+                printf '%s\n' "${line%\"}"
+                return 0
+                ;;
+        esac
+    done < "$REPO_DIR/uv.lock"
+    return 1
+}
+ABXPKG_VERSION="$(locked_abxpkg_version)"
+mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+    --install \
+    --lib="$ABXPKG_LIB_DIR" \
+    --deps-from="$REPO_DIR/.github/configs/ci-tooling.json:docker_binaries" \
+    >/dev/null
+DOCKER_BINARY="$ABXPKG_LIB_DIR/env/bin/docker"
+GIT_BINARY="$ABXPKG_LIB_DIR/env/bin/git"
+PYTHON_BINARY="$ABXPKG_LIB_DIR/env/bin/python"
+UNAME_BINARY="$ABXPKG_LIB_DIR/env/bin/uname"
+test -x "$DOCKER_BINARY"
+test -x "$GIT_BINARY"
+test -x "$PYTHON_BINARY"
+test -x "$UNAME_BINARY"
 
 declare -a TAG_NAMES=("$@")
-BRANCH_NAME="${1:-$(git rev-parse --abbrev-ref HEAD)}"
-VERSION="$(grep '^version = ' "${REPO_DIR}/pyproject.toml" | awk -F'"' '{print $2}')"
-GIT_SHA=sha-"$(git rev-parse --short HEAD)"
-ABX_DL_VERSION="$(python3 - <<'PY'
-import re
-import tomllib
-
-with open("pyproject.toml", "rb") as f:
-    deps = tomllib.load(f)["project"]["dependencies"]
-
-for dep in deps:
-    match = re.match(r"abx-dl\s*(?:==|>=)\s*([^,;\s]+)", dep)
-    if match:
-        print(match.group(1))
-        break
-else:
-    raise SystemExit("Missing abx-dl dependency in pyproject.toml")
-PY
-)"
+BRANCH_NAME="${1:-$("$GIT_BINARY" rev-parse --abbrev-ref HEAD)}"
+VERSION="$("$PYTHON_BINARY" -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+GIT_SHA=sha-"$("$GIT_BINARY" rev-parse --short HEAD)"
+ABX_DL_VERSION="$("$PYTHON_BINARY" -c 'import tomllib; lock=tomllib.load(open("uv.lock", "rb")); print(next(pkg["version"] for pkg in lock["package"] if pkg["name"] == "abx-dl"))')"
+test -n "$ABX_DL_VERSION"
 ABX_DL_IMAGE="${ABX_DL_IMAGE:-archivebox/abx-dl:${ABX_DL_VERSION}}"
-NATIVE_ARCH="$(docker info --format '{{.Architecture}}' 2>/dev/null || uname -m)"
+NATIVE_ARCH="$("$DOCKER_BINARY" info --format '{{.Architecture}}' 2>/dev/null || "$UNAME_BINARY" -m)"
 case "$NATIVE_ARCH" in
     x86_64|amd64) NATIVE_PLATFORM="linux/amd64" ;;
     aarch64|arm64) NATIVE_PLATFORM="linux/arm64" ;;
@@ -47,34 +60,40 @@ case "$NATIVE_ARCH" in
 esac
 SELECTED_PLATFORMS="${DOCKER_PLATFORMS:-${SELECTED_PLATFORMS:-$NATIVE_PLATFORM}}"
 
-# if not already in TAG_NAMES, add GIT_SHA and BRANCH_NAME  
-if ! echo "${TAG_NAMES[@]}" | grep -q "$GIT_SHA"; then
+contains_tag() {
+    local candidate="$1" tag
+    for tag in "${TAG_NAMES[@]}"; do
+        [[ "$tag" == "$candidate" ]] && return 0
+    done
+    return 1
+}
+
+if ! contains_tag "$GIT_SHA"; then
     TAG_NAMES+=("$GIT_SHA")
 fi
-if ! echo "${TAG_NAMES[@]}" | grep -q "$BRANCH_NAME"; then
+if ! contains_tag "$BRANCH_NAME"; then
     TAG_NAMES+=("$BRANCH_NAME")
 fi
-if ! echo "${TAG_NAMES[@]}" | grep -q "$VERSION"; then
+if ! contains_tag "$VERSION"; then
     TAG_NAMES+=("$VERSION")
 fi
 
 echo "[+] Building Docker image for $SELECTED_PLATFORMS: branch=$BRANCH_NAME version=$VERSION abx_dl_image=$ABX_DL_IMAGE tags=${TAG_NAMES[*]}"
 
 declare -a FULL_TAG_NAMES
-# for each tag in TAG_NAMES, add archivebox/archivebox:tag and its mirrors to FULL_TAG_NAMES
 for TAG_NAME in "${TAG_NAMES[@]}"; do
     [[ "$TAG_NAME" == "" ]] && continue
-    FULL_TAG_NAMES+=("-t archivebox/archivebox:$TAG_NAME")              # ArchiveBox official Docker repo
-    FULL_TAG_NAMES+=("-t ghcr.io/archivebox/archivebox:$TAG_NAME")      # Github Container Repo mirror
+    FULL_TAG_NAMES+=("-t" "archivebox/archivebox:$TAG_NAME")
+    FULL_TAG_NAMES+=("-t" "ghcr.io/archivebox/archivebox:$TAG_NAME")
 done
 echo "${FULL_TAG_NAMES[@]}"
 
 function check_platforms() {
-    INSTALLED_PLATFORMS="$(docker buildx inspect | grep 'Platforms:' )"
+    INSTALLED_PLATFORMS="$("$DOCKER_BINARY" buildx inspect)"
 
     for REQUIRED_PLATFORM in ${SELECTED_PLATFORMS//,/$IFS}; do
         echo "[+] Checking for: $REQUIRED_PLATFORM..."
-        if ! (echo "$INSTALLED_PLATFORMS" | grep -q "$REQUIRED_PLATFORM"); then
+        if [[ "$INSTALLED_PLATFORMS" != *"$REQUIRED_PLATFORM"* ]]; then
             return 1
         fi
     done
@@ -83,50 +102,42 @@ function check_platforms() {
 }
 
 function remove_builder() {
-    # remove existing xbuilder
-    docker buildx stop xbuilder || true
-    docker buildx rm xbuilder || true
+    "$DOCKER_BINARY" buildx stop xbuilder
+    "$DOCKER_BINARY" buildx rm xbuilder
 }
 
 function create_builder() {
-    docker buildx use xbuilder && return 0
+    "$DOCKER_BINARY" buildx use xbuilder && return 0
     echo "[+] Creating new xbuilder for: $SELECTED_PLATFORMS"
     echo
-    docker pull 'moby/buildkit:buildx-stable-1'
+    "$DOCKER_BINARY" pull 'moby/buildkit:buildx-stable-1'
 
-    # Switch to buildx builder if already present / previously created
-    docker buildx create --name xbuilder --driver docker-container --bootstrap --use --platform "$SELECTED_PLATFORMS" || true
-    docker buildx inspect --bootstrap || true
+    "$DOCKER_BINARY" buildx create --name xbuilder --driver docker-container --bootstrap --use --platform "$SELECTED_PLATFORMS"
+    "$DOCKER_BINARY" buildx inspect --bootstrap
 }
 
 function recreate_builder() {
-    # Install QEMU binaries for cross-platform building if not installed
-    docker run --privileged --rm 'tonistiigi/binfmt' --install all
+    "$DOCKER_BINARY" run --privileged --rm 'tonistiigi/binfmt' --install all
 
     remove_builder
     create_builder
 }
 
-# Check if docker is ready for cross-plaform builds, if not, recreate builder
-docker buildx use xbuilder >/dev/null 2>&1 || create_builder
+"$DOCKER_BINARY" buildx use xbuilder >/dev/null 2>&1 || create_builder
 check_platforms || (recreate_builder && check_platforms) || exit 1
 
 
 echo "[+] Building archivebox:$VERSION docker image..."
 mkdir -p "$HOME/.cache/docker/archivebox"
-docker buildx imagetools inspect "$ABX_DL_IMAGE"
-# docker builder prune
-# docker build . --no-cache -t archivebox-dev \
-# replace --load with --push to deploy
-# shellcheck disable=SC2068
+"$DOCKER_BINARY" buildx imagetools inspect "$ABX_DL_IMAGE"
 if [[ "$SELECTED_PLATFORMS" == *,* ]]; then
     echo "[X] --load only supports a single platform. Use bin/release_docker.sh or set DOCKER_PLATFORMS to one platform." >&2
     exit 1
 fi
-docker buildx build \
+"$DOCKER_BINARY" buildx build \
     --platform "$SELECTED_PLATFORMS" \
     --pull \
     --build-arg "ABX_DL_IMAGE=$ABX_DL_IMAGE" \
     --cache-from type=local,src="$HOME/.cache/docker/archivebox" \
     --cache-to type=local,compression=zstd,mode=min,oci-mediatypes=true,dest="$HOME/.cache/docker/archivebox" \
-    --load . ${FULL_TAG_NAMES[@]}
+    --load . "${FULL_TAG_NAMES[@]}"

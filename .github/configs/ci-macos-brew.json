@@ -1,0 +1,13 @@
+{
+  "properties": {
+    "BREW_BINARY": {
+      "default": "brew"
+    }
+  },
+  "required_binaries": [
+    {
+      "name": "{BREW_BINARY}",
+      "binproviders": "env"
+    }
+  ]
+}

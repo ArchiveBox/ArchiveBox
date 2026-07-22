@@ -18,7 +18,7 @@ from .settings_logging import SETTINGS_LOGGING
 
 
 IS_MIGRATING = "makemigrations" in sys.argv[:3] or "migrate" in sys.argv[:3]
-IS_TESTING = "test" in sys.argv[:3] or "PYTEST_CURRENT_TEST" in os.environ
+IS_TESTING = "test" in sys.argv[:3]
 IS_SHELL = "shell" in sys.argv[:3] or "shell_plus" in sys.argv[:3]
 IS_GETTING_VERSION_OR_HELP = "version" in sys.argv or "help" in sys.argv or "--version" in sys.argv or "--help" in sys.argv
 CONFIG = get_config()
@@ -103,7 +103,6 @@ MIDDLEWARE = [
 ### Authentication Settings
 ################################################################################
 
-# AUTH_USER_MODEL = 'auth.User'   # cannot be easily changed unfortunately
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.RemoteUserBackend",
@@ -181,23 +180,11 @@ TEMPLATES_DIR_NAME = "templates"
 CUSTOM_TEMPLATES_ENABLED = os.path.isdir(CONSTANTS.CUSTOM_TEMPLATES_DIR) and os.access(CONSTANTS.CUSTOM_TEMPLATES_DIR, os.R_OK)
 STATICFILES_DIRS = [
     *([str(CONSTANTS.CUSTOM_TEMPLATES_DIR / "static")] if CUSTOM_TEMPLATES_ENABLED else []),
-    # *[
-    #     str(plugin_dir / 'static')
-    #     for plugin_dir in PLUGIN_DIRS.values()
-    #     if (plugin_dir / 'static').is_dir()
-    # ],
-    # Additional static file dirs from plugins
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME / "static"),
 ]
 
 TEMPLATE_DIRS = [
     *([str(CONSTANTS.CUSTOM_TEMPLATES_DIR)] if CUSTOM_TEMPLATES_ENABLED else []),
-    # *[
-    #     str(plugin_dir / 'templates')
-    #     for plugin_dir in PLUGIN_DIRS.values()
-    #     if (plugin_dir / 'templates').is_dir()
-    # ],
-    # Additional template dirs from plugins
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME / "core"),
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME / "admin"),
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME),
@@ -224,10 +211,6 @@ TEMPLATES = [
 ################################################################################
 ### External Service Settings
 ################################################################################
-
-# CACHE_DB_FILENAME = 'cache.sqlite3'
-# CACHE_DB_PATH = CONSTANTS.CACHE_DIR / CACHE_DB_FILENAME
-# CACHE_DB_TABLE = 'django_cache'
 
 DATABASE_NAME = CONFIG.DATABASE_NAME
 SQLITE_JOURNAL_MODE = CONFIG.SQLITE_JOURNAL_MODE
@@ -267,14 +250,6 @@ DATABASES = {
         "NAME": DATABASE_NAME,
         **SQLITE_CONNECTION_OPTIONS,
     },
-    # "filestore": {
-    #     "NAME": CONSTANTS.FILESTORE_DATABASE_FILE,
-    #     **SQLITE_CONNECTION_OPTIONS,
-    # },
-    # 'cache': {
-    #     'NAME': CACHE_DB_PATH,
-    #     **SQLITE_CONNECTION_OPTIONS,
-    # },
 }
 MIGRATION_MODULES = {"signal_webhooks": None}
 
@@ -285,43 +260,10 @@ MIGRATION_MODULES = {"signal_webhooks": None}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
-# class FilestoreDBRouter:
-#     """
-#     A router to store all the File models in the filestore.sqlite3 database.
-#     This data just mirrors what is in the file system, so we want to keep it in a separate database
-#     from the main index database to avoid contention.
-#     """
-
-#     route_app_labels = {"filestore"}
-#     db_name = "filestore"
-
-#     def db_for_read(self, model, **hints):
-#         if model._meta.app_label in self.route_app_labels:
-#             return self.db_name
-#         return 'default'
-
-#     def db_for_write(self, model, **hints):
-#         if model._meta.app_label in self.route_app_labels:
-#             return self.db_name
-#         return 'default'
-
-#     def allow_relation(self, obj1, obj2, **hints):
-#         if obj1._meta.app_label in self.route_app_labels or obj2._meta.app_label in self.route_app_labels:
-#             return obj1._meta.app_label == obj2._meta.app_label
-#         return None
-
-#     def allow_migrate(self, db, app_label, model_name=None, **hints):
-#         if app_label in self.route_app_labels:
-#             return db == self.db_name
-#         return db == "default"
-
 DATABASE_ROUTERS = []
 
 CACHES = {
     "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
-    # 'sqlite': {'BACKEND': 'django.core.cache.backends.db.DatabaseCache', 'LOCATION': 'cache'},
-    # 'dummy': {'BACKEND': 'django.core.cache.backends.dummy.DummyCache'},
-    # 'filebased': {"BACKEND": "django.core.cache.backends.filebased.FileBasedCache", "LOCATION": CACHE_DIR / 'cache_filebased'},
 }
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
@@ -666,16 +608,3 @@ if DEBUG_REQUESTS_TRACKER:
             r"^SELECT .* FROM django_migrations WHERE app = 'auth'",
         ),
     }
-
-# # https://docs.pydantic.dev/logfire/integrations/django/ (similar to DataDog / NewRelic / etc.)
-# DEBUG_LOGFIRE = False
-# DEBUG_LOGFIRE = DEBUG_LOGFIRE and os.access(DATA_DIR / '.logfire', os.W_OK) and (DATA_DIR / '.logfire').is_dir()
-
-
-# For usage with https://www.jetadmin.io/integrations/django
-# INSTALLED_APPS += ['jet_django']
-# JET_PROJECT = 'archivebox'
-# JET_TOKEN = 'some-api-token-here'
-
-
-# import ipdb; ipdb.set_trace()

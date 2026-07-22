@@ -48,7 +48,27 @@ def _shell_join(args: list[str]) -> str:
     return shlex.join(args)
 
 
-def _record_supervisord_process(proc: subprocess.Popen, config_file: Path) -> None:
+def resolve_env_binary(name: str) -> Path:
+    from abxpkg import EnvProvider
+    from archivebox.config.common import get_config
+
+    env_root = get_config().ABXPKG_LIB_DIR / "env"
+    provider = EnvProvider(install_root=env_root, PATH=os.environ["PATH"])
+    if name == "daphne":
+        from importlib.metadata import version
+
+        provider = provider.get_provider_with_overrides(overrides={name: {"version": version("daphne")}})
+    loaded = provider.load(name)
+    if loaded is None or loaded.loaded_abspath is None:
+        raise RuntimeError(f"abxpkg could not resolve {name}")
+    projection = Path(loaded.loaded_abspath)
+    expected_projection = env_root / "bin" / name
+    if projection != expected_projection or not projection.is_symlink() or not os.access(projection, os.X_OK):
+        raise RuntimeError(f"abxpkg did not project {name} into {expected_projection}")
+    return projection
+
+
+def _record_supervisord_process(proc: subprocess.Popen, config_file: Path, supervisord_binary: Path) -> None:
     try:
         from datetime import datetime
         from django.utils import timezone
@@ -65,7 +85,7 @@ def _record_supervisord_process(proc: subprocess.Popen, config_file: Path) -> No
             process_type=Process.TypeChoices.SUPERVISORD,
             worker_type="supervisord",
             pwd=str(CONSTANTS.DATA_DIR),
-            cmd=["supervisord", f"--configuration={config_file}"],
+            cmd=[str(supervisord_binary), f"--configuration={config_file}"],
             pid=proc.pid,
             started_at=started_at,
             status=Process.StatusChoices.RUNNING,
@@ -156,23 +176,25 @@ def _stop_older_supervisord_processes(*, current_pid: int, current_started_at: f
             pass
 
 
-RUNNER_WORKER = {
-    "name": "worker_runner",
-    "command": _shell_join([sys.executable, "-m", "archivebox", "run", "--daemon"]),
-    "autostart": "false",
-    "autorestart": "true",
-    "environment": 'PYTHONUNBUFFERED="1",COLUMNS="200",ARCHIVEBOX_RUNNER_DAEMON="1"',
-    "stopasgroup": "true",
-    "killasgroup": "true",
-    "stopwaitsecs": "30",
-    "stdout_logfile": "logs/worker_runner.log",
-    "redirect_stderr": "true",
-}
+def RUNNER_WORKER():
+    return {
+        "name": "worker_runner",
+        "command": _shell_join([str(resolve_env_binary("archivebox")), "run", "--daemon"]),
+        "autostart": "false",
+        "autorestart": "true",
+        "environment": 'PYTHONUNBUFFERED="1",COLUMNS="200",ARCHIVEBOX_RUNNER_DAEMON="1"',
+        "stopasgroup": "true",
+        "killasgroup": "true",
+        "stopwaitsecs": "30",
+        "stdout_logfile": "logs/worker_runner.log",
+        "redirect_stderr": "true",
+    }
+
 
 RUNNER_ONCE_WORKER = lambda args, name="worker_runner_once": {
-    **RUNNER_WORKER,
+    **RUNNER_WORKER(),
     "name": name,
-    "command": _shell_join([sys.executable, "-m", "archivebox", "run", "--no-stdin", *args]),
+    "command": _shell_join([str(resolve_env_binary("archivebox")), "run", "--no-stdin", *args]),
     "environment": 'PYTHONUNBUFFERED="1",COLUMNS="200"',
     "autorestart": "false",
     "stopwaitsecs": "1",
@@ -181,7 +203,7 @@ RUNNER_ONCE_WORKER = lambda args, name="worker_runner_once": {
 
 RUNNER_WATCH_WORKER = lambda bind_url: {
     "name": "worker_runner_watch",
-    "command": _shell_join([sys.executable, "-m", "archivebox", "manage", "runner_watch", f"--bind-url={bind_url}"]),
+    "command": _shell_join([str(resolve_env_binary("archivebox")), "manage", "runner_watch", f"--bind-url={bind_url}"]),
     "autostart": "false",
     "autorestart": "true",
     "stdout_logfile": "logs/worker_runner_watch.log",
@@ -192,9 +214,7 @@ SUPERVISORD_PARENT_WATCHDOG_WORKER = lambda supervisord_process_id: {
     "name": "worker_supervisord_parent_watchdog",
     "command": _shell_join(
         [
-            sys.executable,
-            "-m",
-            "archivebox",
+            str(resolve_env_binary("archivebox")),
             "manage",
             "supervisord_watchdog",
             f"--supervisord-process-id={supervisord_process_id}",
@@ -213,9 +233,7 @@ SERVER_WORKER = lambda host, port: {
     "name": "worker_daphne",
     "command": _shell_join(
         [
-            sys.executable,
-            "-m",
-            "daphne",
+            str(resolve_env_binary("daphne")),
             f"--bind={host}",
             f"--port={port}",
             "archivebox.core.asgi:application",
@@ -232,7 +250,7 @@ SERVER_WORKER = lambda host, port: {
 
 
 def RUNSERVER_WORKER(host: str, port: str, *, reload: bool, nothreading: bool = False):
-    command = [sys.executable, "-m", "archivebox", "manage", "runserver", f"{host}:{port}"]
+    command = [str(resolve_env_binary("archivebox")), "manage", "runserver", f"{host}:{port}"]
     if not reload:
         command.append("--noreload")
     if nothreading:
@@ -815,18 +833,19 @@ def start_new_supervisord_process(daemonize=False):
     # Open log file for supervisord output
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     log_handle = open(LOG_FILE, "a")
+    supervisord_binary = resolve_env_binary("supervisord")
 
     if daemonize:
         # Start supervisord in background (daemon mode)
         proc = subprocess.Popen(
-            ["supervisord", f"--configuration={CONFIG_FILE}"],
+            [str(supervisord_binary), f"--configuration={CONFIG_FILE}"],
             stdin=None,
             stdout=log_handle,
             stderr=log_handle,
             start_new_session=True,
         )
         current_started_at = psutil.Process(proc.pid).create_time()
-        _record_supervisord_process(proc, CONFIG_FILE)
+        _record_supervisord_process(proc, CONFIG_FILE, supervisord_binary)
         supervisor = wait_for_supervisord_ready()
         _stop_older_supervisord_processes(current_pid=proc.pid, current_started_at=current_started_at, timeout=stop_grace_seconds)
         return supervisor
@@ -836,7 +855,7 @@ def start_new_supervisord_process(daemonize=False):
         # signals and stops supervisord explicitly, so Ctrl+C does not also
         # hit crawl workers and trigger the crawl-interactive abort flow.
         proc = subprocess.Popen(
-            ["supervisord", f"--configuration={CONFIG_FILE}"],
+            [str(supervisord_binary), f"--configuration={CONFIG_FILE}"],
             stdin=None,
             stdout=log_handle,
             stderr=log_handle,
@@ -847,7 +866,7 @@ def start_new_supervisord_process(daemonize=False):
         global _supervisord_proc
         _supervisord_proc = proc
         current_started_at = psutil.Process(proc.pid).create_time()
-        _record_supervisord_process(proc, CONFIG_FILE)
+        _record_supervisord_process(proc, CONFIG_FILE, supervisord_binary)
 
         supervisor = wait_for_supervisord_ready()
         _stop_older_supervisord_processes(current_pid=proc.pid, current_started_at=current_started_at, timeout=stop_grace_seconds)
@@ -877,20 +896,8 @@ def get_or_create_supervisord_process(daemonize=False):
         stop_existing_supervisord_process()
         supervisor = start_new_supervisord_process(daemonize=daemonize)
 
-    # wait up to 5s in case supervisord is slow to start
-    if not supervisor:
-        for _ in range(50):
-            if supervisor is not None:
-                print()
-                break
-            sys.stdout.write(".")
-            sys.stdout.flush()
-            time.sleep(0.1)
-            supervisor = get_existing_supervisord_process()
-        else:
-            print()
-
-    assert supervisor, "Failed to start supervisord or connect to it!"
+    if supervisor is None:
+        raise RuntimeError("Failed to start supervisord or connect to it")
     supervisor.getPID()  # make sure it doesn't throw an exception
 
     (WORKERS_DIR / "initial_startup.conf").unlink(missing_ok=True)
@@ -989,9 +996,9 @@ def format_runtime_components(components: list[str] | tuple[str, ...]) -> str:
 
 
 def worker_runtime_component(worker_name: str, *, config=None) -> str | None:
-    if worker_name in {RUNNER_WORKER["name"], RUNNER_WATCH_WORKER("")["name"]} or worker_name.startswith("worker_runner_"):
+    if worker_name in {"worker_runner", "worker_runner_watch"} or worker_name.startswith("worker_runner_"):
         return "orchestrator"
-    if worker_name in {SERVER_WORKER("", "")["name"], RUNSERVER_WORKER("", "", reload=False)["name"]}:
+    if worker_name in {"worker_daphne", "worker_runserver"}:
         return "server"
     if config is not None:
         sonic_worker = get_sonic_supervisord_worker_from_plugin(config)
@@ -1022,14 +1029,14 @@ def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reloa
     if debug:
         server_worker = RUNSERVER_WORKER(host=host, port=port, reload=reload, nothreading=nothreading)
         bg_workers: list[tuple[dict[str, str], bool]] = (
-            [(RUNNER_WORKER, True), (RUNNER_WATCH_WORKER(bind_url), False)] if reload else [(RUNNER_WORKER, False)]
+            [(RUNNER_WORKER(), True), (RUNNER_WATCH_WORKER(bind_url), False)] if reload else [(RUNNER_WORKER(), False)]
         )
         log_files = ["logs/worker_runserver.log", "logs/worker_runner.log"]
         if reload:
             log_files.insert(1, "logs/worker_runner_watch.log")
     else:
         server_worker = SERVER_WORKER(host=host, port=port)
-        bg_workers = [(RUNNER_WORKER, False)]
+        bg_workers = [(RUNNER_WORKER(), False)]
         log_files = ["logs/worker_daphne.log", "logs/worker_runner.log"]
 
     sonic_worker = get_sonic_supervisord_worker_from_plugin(config)
@@ -1384,35 +1391,3 @@ def start_server_workers(
             # does not target supervisord processes owned by other parents.
             stop_own_supervisord_process(record_exit=not signal_shutdown_requested)
     return tail_result
-
-
-# def main(daemons):
-#     supervisor = get_or_create_supervisord_process(daemonize=False)
-
-#     worker = start_worker(supervisor, daemons["webworker"])
-#     pprint(worker)
-
-#     print("All processes started in background.")
-
-# Optionally you can block the main thread until an exit signal is received:
-# try:
-#     signal.pause()
-# except KeyboardInterrupt:
-#     pass
-# finally:
-#     stop_existing_supervisord_process()
-
-# if __name__ == "__main__":
-
-#     DAEMONS = {
-#         "webworker": {
-#             "name": "webworker",
-#             "command": "python3 -m http.server 9000",
-#             "directory": str(cwd),
-#             "autostart": "true",
-#             "autorestart": "true",
-#             "stdout_logfile": cwd / "webworker.log",
-#             "stderr_logfile": cwd / "webworker_error.log",
-#         },
-#     }
-#     main(DAEMONS, cwd)

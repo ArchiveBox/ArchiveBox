@@ -35,29 +35,7 @@
     ```
 ````
 
-### Data
-
-````{list-table}
-:class: autosummary longtable
-:align: left
-
-* - {py:obj}`_BINARY_EVENT_ALLOWED_KEYS <archivebox.services.machine_service._BINARY_EVENT_ALLOWED_KEYS>`
-  - ```{autodoc2-docstring} archivebox.services.machine_service._BINARY_EVENT_ALLOWED_KEYS
-    :summary:
-    ```
-````
-
 ### API
-
-````{py:data} _BINARY_EVENT_ALLOWED_KEYS
-:canonical: archivebox.services.machine_service._BINARY_EVENT_ALLOWED_KEYS
-:value: >
-   'frozenset(...)'
-
-```{autodoc2-docstring} archivebox.services.machine_service._BINARY_EVENT_ALLOWED_KEYS
-```
-
-````
 
 ````{py:function} _is_binary_event_key(key: str) -> bool
 :canonical: archivebox.services.machine_service._is_binary_event_key

@@ -128,15 +128,11 @@ class ArchiveBoxGroup(click.Group):
             import_path = cmd_name_or_path
         modname, funcname = import_path.rsplit(".", 1)
 
-        # print(f'LAZY LOADING {import_path}')
         mod = import_module(modname)
         func = vars(mod)[funcname]
 
         if func.__doc__ is None:
             raise ValueError(f"lazy loading of {import_path} failed - no docstring found on method")
-
-        # if not isinstance(cmd, click.BaseCommand):
-        # raise ValueError(f'lazy loading of {import_path} failed - not a click command')
 
         return func
 
@@ -158,7 +154,6 @@ def cli(ctx, help=False):
     # then we need to set up the django environment and check that we're in a valid data folder
     wants_help = any(arg in ("-h", "--help", "--version") for arg in sys.argv[1:])
     if not wants_help and (subcommand in ArchiveBoxGroup.archive_commands or subcommand in ArchiveBoxGroup.model_commands):
-        # print('SETUP DJANGO AND CHECK DATA FOLDER')
         try:
             if subcommand == "server":
                 run_in_debug = "--reload" in sys.argv or os.environ.get("DEBUG") in ("1", "true", "True", "TRUE", "yes")

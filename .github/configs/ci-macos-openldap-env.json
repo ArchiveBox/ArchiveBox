@@ -1,0 +1,21 @@
+{
+  "properties": {
+    "LDAPVC_BINARY": {
+      "default": "ldapvc"
+    }
+  },
+  "required_binaries": [
+    {
+      "name": "{LDAPVC_BINARY}",
+      "binproviders": "env",
+      "overrides": {
+        "env": {
+          "version": [
+            "ldapvc",
+            "-VV"
+          ]
+        }
+      }
+    }
+  ]
+}

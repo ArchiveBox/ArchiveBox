@@ -1,0 +1,28 @@
+{
+  "properties": {
+    "CC_BINARY": {
+      "default": "cc"
+    },
+    "LDAPSEARCH_BINARY": {
+      "default": "ldapsearch"
+    }
+  },
+  "required_binaries": [
+    {
+      "name": "{CC_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{LDAPSEARCH_BINARY}",
+      "binproviders": "env",
+      "overrides": {
+        "env": {
+          "version": [
+            "ldapsearch",
+            "-VV"
+          ]
+        }
+      }
+    }
+  ]
+}

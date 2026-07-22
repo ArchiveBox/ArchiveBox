@@ -33,6 +33,10 @@
   - ```{autodoc2-docstring} archivebox.services.process_service.current_network_interface_with_machine
     :summary:
     ```
+* - {py:obj}`normalize_process_env <archivebox.services.process_service.normalize_process_env>`
+  - ```{autodoc2-docstring} archivebox.services.process_service.normalize_process_env
+    :summary:
+    ```
 ````
 
 ### API
@@ -48,6 +52,13 @@
 :canonical: archivebox.services.process_service.current_network_interface_with_machine
 
 ```{autodoc2-docstring} archivebox.services.process_service.current_network_interface_with_machine
+```
+````
+
+````{py:function} normalize_process_env(env: dict) -> dict
+:canonical: archivebox.services.process_service.normalize_process_env
+
+```{autodoc2-docstring} archivebox.services.process_service.normalize_process_env
 ```
 ````
 
@@ -118,6 +129,15 @@ Bases: {py:obj}`abx_dl.services.base.BaseService`
 :async:
 
 ```{autodoc2-docstring} archivebox.services.process_service.ProcessService.on_ProcessCompletedEvent__save_to_db
+```
+
+````
+
+````{py:method} flush_completed() -> None
+:canonical: archivebox.services.process_service.ProcessService.flush_completed
+:async:
+
+```{autodoc2-docstring} archivebox.services.process_service.ProcessService.flush_completed
 ```
 
 ````

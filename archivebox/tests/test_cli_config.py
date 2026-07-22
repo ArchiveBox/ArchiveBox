@@ -158,6 +158,28 @@ def test_config_search_finds_keys(initialized_archive):
     assert "TIMEOUT" in result.stdout
 
 
+def test_config_search_finds_plugin_options(initialized_archive):
+    """Test that config --search finds plugin keys and descriptions."""
+
+    result = run_archivebox_cmd(
+        ["config", "--search", "wget"],
+    )
+
+    assert result.returncode == 0
+    assert "WGET_BINARY" in result.stdout
+
+
+def test_config_search_finds_core_aliases(initialized_archive):
+    """Test that config --search finds core options by partial alias."""
+
+    result = run_archivebox_cmd(
+        ["config", "--search", "URL_BLACK"],
+    )
+
+    assert result.returncode == 0
+    assert "URL_DENYLIST" in result.stdout
+
+
 def test_config_preserves_existing_values(initialized_archive):
     """Test that setting new values preserves existing ones."""
 

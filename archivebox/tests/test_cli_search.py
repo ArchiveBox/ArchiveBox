@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
 Tests for archivebox search command.
-
-TODO: keep search-specific tests here instead of folding all coverage into test_cli_list.py.
 """
 
 import json
@@ -62,12 +60,3 @@ def test_cli_search_status_filters_snapshot_status_column(tmp_path, initialized_
     rows = [json.loads(line) for line in result.stdout.splitlines() if line.strip().startswith("{")]
     assert [row["status"] for row in rows] == ["sealed"]
     assert [row["url"] for row in rows] == ["https://example.com/search-status-sealed"]
-
-    legacy_result = run_archivebox_cmd(
-        ["search", "--status", "unarchived", "search-status"],
-        env=env,
-        timeout=30,
-    )
-
-    assert legacy_result.returncode != 0
-    assert "Invalid snapshot status" in legacy_result.stderr

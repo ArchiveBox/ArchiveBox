@@ -1,6 +1,7 @@
 import asyncio
-import sys
+from importlib.resources import files
 from pathlib import Path
+import sys
 
 import pytest
 from asgiref.sync import sync_to_async
@@ -33,15 +34,13 @@ def test_cancelled_crawl_projection_emits_abort_event_from_runner_bus():
         abort_event_holder: dict[str, CrawlAbortEvent | None] = {"event": None}
 
         async def on_CrawlEvent(event: CrawlEvent) -> None:
-            watcher = asyncio.create_task(runner.watch_for_cancelled_crawl(event, poll_interval=0.01))
-            await asyncio.sleep(0.02)
             await sync_to_async(Crawl.objects.filter(id=crawl.id).update, thread_sensitive=True)(
                 status=Crawl.StatusChoices.SEALED,
                 retry_at=None,
             )
+            await runner.watch_for_cancelled_crawl(event, poll_interval=0)
             abort_event = await runner.bus.find(CrawlAbortEvent, child_of=event, past=True, future=1.0)
             abort_event_holder["event"] = abort_event if isinstance(abort_event, CrawlAbortEvent) else None
-            await watcher
 
         runner.bus.on(CrawlEvent, on_CrawlEvent)
         await runner.bus.emit(
@@ -59,7 +58,6 @@ def test_cancelled_crawl_projection_emits_abort_event_from_runner_bus():
     assert abort_event is not None
 
 
-@pytest.mark.django_db(transaction=True)
 @pytest.mark.django_db(transaction=True)
 def test_snapshot_payload_uses_crawl_chrome_dirs_by_default():
     from archivebox.base_models.models import get_or_create_system_user_pk
@@ -145,22 +143,19 @@ def test_snapshot_payload_uses_snapshot_chrome_dirs_when_snapshot_isolated():
     assert Path(config["SNAP_DIR"]) == snapshot.output_dir
 
 
-def test_ensure_background_runner_skips_under_pytest_guard():
-    from archivebox.services.runner import ensure_background_runner
-
-    assert ensure_background_runner() is False
-
-
 @pytest.mark.django_db(transaction=True)
-def test_ensure_background_runner_skips_with_real_running_orchestrator_record():
+def test_ensure_background_runner_does_not_start_duplicate_orchestrator():
     import os
     from datetime import datetime
 
     import psutil
     from archivebox.machine.models import Machine, Process
     from archivebox.services.runner import ensure_background_runner
+    from archivebox.workers.supervisord_util import get_existing_supervisord_process, stop_existing_supervisord_process
     from django.utils import timezone
 
+    stop_existing_supervisord_process()
+    assert get_existing_supervisord_process(quiet=True) is None
     os_proc = psutil.Process(os.getpid())
     process = Process.objects.create(
         machine=Machine.current(),
@@ -171,7 +166,7 @@ def test_ensure_background_runner_skips_with_real_running_orchestrator_record():
         timeout=1,
     )
 
-    assert ensure_background_runner(allow_under_pytest=True) is False
+    assert ensure_background_runner() is False
     process.refresh_from_db()
     assert process.status == Process.StatusChoices.RUNNING
 
@@ -184,7 +179,7 @@ def test_ensure_background_runner_does_not_spawn_runner_without_supervisord():
     stop_existing_supervisord_process()
     assert get_existing_supervisord_process(quiet=True) is None
 
-    assert ensure_background_runner(allow_under_pytest=True) is False
+    assert ensure_background_runner() is False
     assert get_existing_supervisord_process(quiet=True) is None
 
 
@@ -783,11 +778,9 @@ def test_wait_for_snapshot_tasks_returns_after_completed_tasks_are_pruned():
     )
     crawl_runner = runner_module.CrawlRunner(crawl)
 
-    async def finish_snapshot() -> None:
-        await asyncio.sleep(0)
-
     async def run_test():
-        task = asyncio.create_task(finish_snapshot())
+        task = asyncio.get_running_loop().create_future()
+        task.set_result(None)
         crawl_runner.snapshot_tasks["snap-1"] = task
         await asyncio.wait_for(crawl_runner.wait_for_snapshot_tasks(), timeout=0.5)
         assert crawl_runner.snapshot_tasks == {}
@@ -795,10 +788,11 @@ def test_wait_for_snapshot_tasks_returns_after_completed_tasks_are_pruned():
     asyncio.run(run_test())
 
 
-def test_abx_process_service_background_process_finishes_after_process_exit(tmp_path):
+def test_abx_process_service_background_process_finishes_after_process_exit(tmp_path, recursive_test_site, hermetic_lib_dir):
     from abx_dl.events import ProcessCompletedEvent, ProcessEvent
     from abx_dl.orchestrator import create_bus
     from abx_dl.services.process_service import ProcessService
+    from archivebox.machine.models import Process
 
     bus = create_bus(name="test_abx_process_service_background_process_finishes_after_process_exit")
     ProcessService(bus, emit_jsonl=False, interactive_tty=False)
@@ -809,21 +803,29 @@ def test_abx_process_service_background_process_finishes_after_process_exit(tmp_
 
     bus.on(ProcessCompletedEvent, collect_completed)
 
-    plugin_output_dir = tmp_path / "chrome"
-    plugin_output_dir.mkdir()
+    snap_dir = tmp_path / "snapshot"
+    plugin_output_dir = snap_dir / "wget"
+    plugin_output_dir.mkdir(parents=True)
+    hook_path = Path(str(files("abx_plugins.plugins.wget").joinpath("on_Snapshot__06_wget.finite.bg.py")))
+    wget_config = Path(str(files("abx_plugins.plugins.wget").joinpath("config.json")))
+    hook_env = resolve_abxpkg_binary_env(hermetic_lib_dir, deps_from=wget_config)
 
     async def run_test():
         try:
             event = ProcessEvent(
-                plugin_name="chrome",
-                hook_name="on_CrawlSetup__90_chrome_launch.daemon.bg",
-                hook_path=sys.executable,
-                hook_args=["-c", "print('daemon output')"],
-                env={},
+                plugin_name="wget",
+                hook_name=hook_path.name,
+                hook_path=str(hook_path),
+                hook_args=[f"--url={recursive_test_site['root_url']}"],
+                env={
+                    **hook_env,
+                    "ABXPKG_LIB_DIR": str(hermetic_lib_dir),
+                    "SNAP_DIR": str(snap_dir),
+                },
                 output_dir=str(plugin_output_dir),
                 timeout=60,
                 is_background=True,
-                url="https://example.org/",
+                url=recursive_test_site["root_url"],
                 process_type="hook",
                 worker_type="hook",
             )
@@ -832,7 +834,14 @@ def test_abx_process_service_background_process_finishes_after_process_exit(tmp_
             assert isinstance(completed, ProcessCompletedEvent)
             await completed.event_results_list()
             assert completed.status == "succeeded"
-            assert completed.stdout.strip() == "daemon output"
+            records = [record for record in Process.parse_records_from_text(completed.stdout) if record.get("type") == "ArchiveResult"]
+            assert records == [
+                {
+                    "type": "ArchiveResult",
+                    "status": "succeeded",
+                    "output_str": f"wget/127.0.0.1+{recursive_test_site['base_url'].rsplit(':', 1)[-1]}/index.html",
+                },
+            ]
             assert completed.output_dir == str(plugin_output_dir)
             assert bus.event_is_child_of(completed, event)
         finally:
@@ -840,7 +849,8 @@ def test_abx_process_service_background_process_finishes_after_process_exit(tmp_
 
     asyncio.run(run_test())
 
-    assert not list(plugin_output_dir.glob("on_CrawlSetup__90_chrome_launch.daemon.bg.*.pid"))
+    assert list(plugin_output_dir.rglob("index.html"))
+    assert not list(plugin_output_dir.glob(f"{hook_path.name}.*.pid"))
     assert any(isinstance(event, ProcessCompletedEvent) for event in emitted_events)
 
 
@@ -1076,7 +1086,7 @@ def test_snapshot_completed_event_defers_finished_crawl_seal():
     )
 
     bus = create_bus(name=f"test_snapshot_completed_finished_crawl_{str(crawl.id).replace('-', '_')}")
-    service = SnapshotService(bus, crawl_id=str(crawl.id), schedule_snapshot=lambda snapshot_id: asyncio.sleep(0))
+    service = SnapshotService(bus, crawl_id=str(crawl.id))
     try:
 
         async def emit_completed() -> None:
@@ -1123,7 +1133,7 @@ def test_snapshot_completed_event_bus_defers_finished_crawl_seal():
     )
 
     bus = create_bus(name=f"test_snapshot_completed_bus_finished_crawl_{str(crawl.id).replace('-', '_')}")
-    service = SnapshotService(bus, crawl_id=str(crawl.id), schedule_snapshot=lambda snapshot_id: asyncio.sleep(0))
+    service = SnapshotService(bus, crawl_id=str(crawl.id))
     assert service is not None
     try:
 

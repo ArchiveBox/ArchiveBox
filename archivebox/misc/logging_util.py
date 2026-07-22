@@ -132,10 +132,6 @@ def progress_bar(seconds: int, prefix: str = "", ANSI: dict[str, str] = ANSI, co
             ),
         )
         sys.stdout.flush()
-        # uncomment to have it disappear when it hits 100% instead of staying full red:
-        # time.sleep(0.5)
-        # sys.stdout.write('\r{}{}\r'.format((' ' * get_config().TERM_WIDTH), ANSI['reset']))
-        # sys.stdout.flush()
     except (KeyboardInterrupt, BrokenPipeError):
         print()
 
@@ -148,9 +144,6 @@ def log_cli_command(subcommand: str, subcommand_args: Iterable[str] = (), stdin:
         subcommand=subcommand,
         args=args,
     )
-    # stderr()
-    # stderr('[bright_black]    > {pwd}[/]'.format(pwd=pwd, **ANSI))
-    # stderr()
     print(Panel(version_msg), file=sys.stderr)
 
 

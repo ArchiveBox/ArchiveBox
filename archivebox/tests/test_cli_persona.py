@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
 Tests for archivebox persona command.
-
-TODO: expand beyond command discovery into create/list/update/delete behavior.
 """
 
 from archivebox.tests.conftest import run_archivebox_cmd

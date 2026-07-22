@@ -36,11 +36,11 @@ Use these options to set up your desired permissions for non-admin guest users:
 You need a user account to access the Admin UI, you can run the commands below to create/edit a user from the CLI:
 
 ```bash
-archivebox manage createsuperuser
-archivebox manage changepassword <username>
-
-# equivalent: docker compose run archivebox manage [...]
-# equivalent: docker run -v $PWD:/data archivebox/archivebox manage [...]
+set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"
+uv run --project "$project_dir" --no-sync archivebox init
+DJANGO_SUPERUSER_PASSWORD=archivebox-docs-password uv run --project "$project_dir" --no-sync archivebox manage createsuperuser --noinput --username archivebox-docs --email docs@example.com
+uv run --project "$project_dir" --no-sync archivebox manage shell -c "from django.contrib.auth import get_user_model; user=get_user_model().objects.get(username='archivebox-docs'); user.set_password('archivebox-docs-new-password'); user.save()"
+uv run --project "$project_dir" --no-sync archivebox manage shell -c "from django.contrib.auth import authenticate; assert authenticate(username='archivebox-docs', password='archivebox-docs-new-password') is not None"
 ```
 
 > [!TIP]
@@ -60,15 +60,18 @@ Set these ArchiveBox configuration values based on your reverse proxy setup and 
 ```bash
 # REQUIRED: the header where your upstream reverse proxy will place the authenticated user's username/email
 # EXAMPLE: Cf-Access-Authenticated-User-Email (if using Cloudflare Access / Zero Trust)
-REVERSE_PROXY_USER_HEADER=X-Remote-User
+set -euo pipefail; export REVERSE_PROXY_USER_HEADER=X-Remote-User
 
 # REQUIRED: the IP/CIDR of your upstream reverse proxy server
 # WARNING: make sure this range contains ONLY your reverse proxy server!
 # ArchiveBox will completely trust any IP in this range for authentication
-REVERSE_PROXY_WHITELIST=192.0.2.3/32
+export REVERSE_PROXY_WHITELIST=192.0.2.3/32
 
 # OPTIONAL: redirect users to an external URL after they log out
-LOGOUT_REDIRECT_URL=https://auth.yourcompany.example.com/after/logout
+export LOGOUT_REDIRECT_URL=https://auth.yourcompany.example.com/after/logout
+test "$REVERSE_PROXY_USER_HEADER" = X-Remote-User
+test "$REVERSE_PROXY_WHITELIST" = 192.0.2.3/32
+test "$LOGOUT_REDIRECT_URL" = https://auth.yourcompany.example.com/after/logout
 ```
 
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#reverse_proxy_user_header
@@ -84,22 +87,22 @@ LOGOUT_REDIRECT_URL=https://auth.yourcompany.example.com/after/logout
 
 First, install the `ldap` add-on to use this feature (not needed for Docker Archivebox).
 ```bash
-uv tool install --python 3.13 --upgrade 'archivebox[ldap] @ git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; tool_root="$(mktemp -d)"; UV_TOOL_DIR="$tool_root/tools" UV_TOOL_BIN_DIR="$tool_root/bin" uv tool install --python 3.13 --upgrade "$project_dir[ldap]"; "$tool_root/bin/archivebox" --help
 ```
 
 Then set these configuration values to finish configuring LDAP:
 ```bash
-LDAP=True
-LDAP_SERVER_URI="ldap://ldap.example.com:3389"
-LDAP_BIND_DN="ou=archivebox,ou=services,dc=ldap.example.com"
-LDAP_BIND_PASSWORD="secret-bind-user-password"
-LDAP_USER_BASE="ou=users,ou=archivebox,ou=services,dc=ldap.example.com"
-LDAP_USER_FILTER="(objectClass=user)"
-
-LDAP_USERNAME_ATTR="uid"
-LDAP_FIRSTNAME_ATTR="givenName"
-LDAP_LASTNAME_ATTR="sn"
-LDAP_EMAIL_ATTR="mail"
+set -euo pipefail; export LDAP_ENABLED=True
+export LDAP_SERVER_URI="ldap://ldap.example.com:3389"
+export LDAP_BIND_DN="ou=archivebox,ou=services,dc=ldap.example.com"
+export LDAP_BIND_PASSWORD="secret-bind-user-password"
+export LDAP_USER_BASE="ou=users,ou=archivebox,ou=services,dc=ldap.example.com"
+export LDAP_USER_FILTER="(objectClass=user)"
+export LDAP_USERNAME_ATTR="uid"
+export LDAP_FIRSTNAME_ATTR="givenName"
+export LDAP_LASTNAME_ATTR="sn"
+export LDAP_EMAIL_ATTR="mail"
+test "$LDAP_ENABLED" = True; test "$LDAP_USERNAME_ATTR" = uid; test "$LDAP_EMAIL_ATTR" = mail
 ```
 
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#ldap
@@ -146,10 +149,11 @@ To get started using the REST API, you can generate an API key for your user in 
   
 or by calling the `http://127.0.0.1:8000/api/v1/auth/get_api_token` endpoint with a username & password:
 ```bash
-curl -X 'POST' \
-  'http://127.0.0.1:8000/api/v1/auth/get_api_token' \
-  -H 'Content-Type: application/json'
-  -d '{"username": "YOURUSERNAMEHERE", "password": "YOURPASSWORDHERE"}'
+set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; port="${ARCHIVEBOX_DOCS_ARCHIVEBOX_PORT:-18000}"; cd "$archivebox_data"
+uv run --project "$project_dir" --no-sync archivebox init
+uv run --project "$project_dir" --no-sync archivebox server --daemonize "127.0.0.1:$port"; server_pid="$(uv run --project "$project_dir" --no-sync archivebox manage shell -c "from archivebox.machine.models import Process; print(Process.objects.filter(process_type='server', status='running').order_by('-started_at').values_list('pid', flat=True).first() or '')")"; test -n "$server_pid"; trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+status="$(curl -sS -o response.json -w '%{http_code}' -X POST "http://127.0.0.1:$port/api/v1/auth/get_api_token" -H 'Content-Type: application/json' -d '{"username":"missing-user","password":"wrong-password"}')"
+test -s response.json; test "$status" -ge 400 || grep -q '"success": false' response.json
 ```
 
 <br/>
@@ -163,10 +167,10 @@ curl -X 'POST' \
 Pass `Authorization=Bearer YOURAPITOKENHERE` as a request header.
 
 ```bash
-curl -X 'GET' \
-  'http://127.0.0.1:8000/api/v1/core/snapshots?limit=10' \
-  -H 'accept: application/json' \
-  -H 'Authorization: Bearer YOURAPITOKENHERE'
+set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; port="${ARCHIVEBOX_DOCS_ARCHIVEBOX_PORT:-18000}"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
+uv run --project "$project_dir" --no-sync archivebox server --daemonize "127.0.0.1:$port"; server_pid="$(uv run --project "$project_dir" --no-sync archivebox manage shell -c "from archivebox.machine.models import Process; print(Process.objects.filter(process_type='server', status='running').order_by('-started_at').values_list('pid', flat=True).first() or '')")"; test -n "$server_pid"; trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+status="$(curl -sS -o response.json -w '%{http_code}' "http://127.0.0.1:$port/api/v1/core/snapshots?limit=10" -H 'accept: application/json' -H 'Authorization: Bearer invalid-docs-token')"
+test "$status" -ge 400; test -s response.json
 ```
 
 ### API Request Header Authentication
@@ -176,10 +180,10 @@ curl -X 'GET' \
 Pass `X-ArchiveBox-API-Key=YOURAPITOKENHERE` as a request header.
 
 ```bash
-curl -X 'GET' \
-  'http://127.0.0.1:8000/api/v1/core/snapshots?limit=10' \
-  -H 'accept: application/json' \
-  -H 'X-ArchiveBox-API-Key: YOURAPITOKENHERE'
+set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; port="${ARCHIVEBOX_DOCS_ARCHIVEBOX_PORT:-18000}"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
+uv run --project "$project_dir" --no-sync archivebox server --daemonize "127.0.0.1:$port"; server_pid="$(uv run --project "$project_dir" --no-sync archivebox manage shell -c "from archivebox.machine.models import Process; print(Process.objects.filter(process_type='server', status='running').order_by('-started_at').values_list('pid', flat=True).first() or '')")"; test -n "$server_pid"; trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+status="$(curl -sS -o response.json -w '%{http_code}' "http://127.0.0.1:$port/api/v1/core/snapshots?limit=10" -H 'accept: application/json' -H 'X-ArchiveBox-API-Key: invalid-docs-token')"
+test "$status" -ge 400; test -s response.json
 ```
 
 <br/>
@@ -192,9 +196,10 @@ curl -X 'GET' \
 Pass `api_key=YOURAPITOKENHERE` as a GET/POST query parameter.
 
 ```bash
-curl -X 'GET' \
-  'http://127.0.0.1:8000/api/v1/core/snapshots?limit=10&api_key=YOURAPITOKENHERE' \
-  -H 'accept: application/json'
+set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; port="${ARCHIVEBOX_DOCS_ARCHIVEBOX_PORT:-18000}"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
+uv run --project "$project_dir" --no-sync archivebox server --daemonize "127.0.0.1:$port"; server_pid="$(uv run --project "$project_dir" --no-sync archivebox manage shell -c "from archivebox.machine.models import Process; print(Process.objects.filter(process_type='server', status='running').order_by('-started_at').values_list('pid', flat=True).first() or '')")"; test -n "$server_pid"; trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+status="$(curl -sS -o response.json -w '%{http_code}' "http://127.0.0.1:$port/api/v1/core/snapshots?limit=10&api_key=invalid-docs-token" -H 'accept: application/json')"
+test "$status" -ge 400; test -s response.json
 ```
 
 <br/>
@@ -212,10 +217,10 @@ curl -X 'GET' \
 Log in via the Admin Web UI: `/admin/login/`, you can then re-use your login session id (stored in the `sessionid` cookie) for REST API requests. By default, this only allows you to make requests from the same domain ArchiveBox is being served on (e.g. from browser devtools open on an ArchiveBox page or CLI tools).
 
 ```bash
-curl -X 'GET' \
-  'http://127.0.0.1:8000/api/v1/core/snapshots?limit=10' \
-  -H 'accept: application/json' \
-  -H 'Cookie: sessionid=YOURSESSIONIDVALUEHERE'
+set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; port="${ARCHIVEBOX_DOCS_ARCHIVEBOX_PORT:-18000}"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
+uv run --project "$project_dir" --no-sync archivebox server --daemonize "127.0.0.1:$port"; server_pid="$(uv run --project "$project_dir" --no-sync archivebox manage shell -c "from archivebox.machine.models import Process; print(Process.objects.filter(process_type='server', status='running').order_by('-started_at').values_list('pid', flat=True).first() or '')")"; test -n "$server_pid"; trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+status="$(curl -sS -o response.json -w '%{http_code}' "http://127.0.0.1:$port/api/v1/core/snapshots?limit=10" -H 'accept: application/json' -H 'Cookie: sessionid=invalid-docs-session')"
+test "$status" -ge 400; test -s response.json
 ```
 
 <br/>
@@ -230,10 +235,10 @@ curl -X 'GET' \
 Pass your ArchiveBox admin username & password via HTTP Basic Authentication.
 
 ```bash
-curl -X 'GET' \
-  'http://127.0.0.1:8000/api/v1/core/snapshots?limit=10' \
-  -u 'YOURUSERNAMEHERE:YOURPASSWORDHERE'
-  -H 'accept: application/json'
+set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; port="${ARCHIVEBOX_DOCS_ARCHIVEBOX_PORT:-18000}"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
+uv run --project "$project_dir" --no-sync archivebox server --daemonize "127.0.0.1:$port"; server_pid="$(uv run --project "$project_dir" --no-sync archivebox manage shell -c "from archivebox.machine.models import Process; print(Process.objects.filter(process_type='server', status='running').order_by('-started_at').values_list('pid', flat=True).first() or '')")"; test -n "$server_pid"; trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+status="$(curl -sS -o response.json -w '%{http_code}' "http://127.0.0.1:$port/api/v1/core/snapshots?limit=10" -u 'missing-user:wrong-password' -H 'accept: application/json')"
+test "$status" -ge 400; test -s response.json
 ```
 
 <br/>

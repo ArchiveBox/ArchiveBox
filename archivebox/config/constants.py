@@ -293,5 +293,3 @@ CONSTANTS = ConstantsDict
 CONSTANTS_CONFIG = AttrDict({key: value for key, value in CONSTANTS.__dict__.items() if key.isupper() and not key.startswith("_")})
 
 # add all key: values to globals() for easier importing, e.g.:
-# from archivebox.config.constants import IS_ROOT, PERSONAS_DIR, ...
-# globals().update(CONSTANTS)

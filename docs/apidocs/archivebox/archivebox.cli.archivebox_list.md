@@ -45,7 +45,7 @@
 
 ````
 
-````{py:function} main(status: str | None, url__icontains: str | None, url__istartswith: str | None, tag: str | None, crawl_id: str | None, limit: int | None, sort: str | None, csv: str | None, with_headers: bool, search: str | None, query: tuple[str, ...]) -> None
+````{py:function} main(**kwargs) -> None
 :canonical: archivebox.cli.archivebox_list.main
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_list.main

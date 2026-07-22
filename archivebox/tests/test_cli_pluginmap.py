@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
 Tests for archivebox pluginmap command.
-
-TODO: expand beyond command discovery into quiet/event output behavior.
 """
 
 from archivebox.tests.conftest import run_archivebox_cmd

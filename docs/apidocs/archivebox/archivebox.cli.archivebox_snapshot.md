@@ -15,8 +15,20 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`iter_snapshot_json <archivebox.cli.archivebox_snapshot.iter_snapshot_json>`
+  - ```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.iter_snapshot_json
+    :summary:
+    ```
 * - {py:obj}`create_snapshots <archivebox.cli.archivebox_snapshot.create_snapshots>`
   - ```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.create_snapshots
+    :summary:
+    ```
+* - {py:obj}`snapshot_filter_options <archivebox.cli.archivebox_snapshot.snapshot_filter_options>`
+  - ```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.snapshot_filter_options
+    :summary:
+    ```
+* - {py:obj}`snapshot_output_options <archivebox.cli.archivebox_snapshot.snapshot_output_options>`
+  - ```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.snapshot_output_options
     :summary:
     ```
 * - {py:obj}`build_snapshot_queryset <archivebox.cli.archivebox_snapshot.build_snapshot_queryset>`
@@ -67,6 +79,14 @@
   - ```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.__command__
     :summary:
     ```
+* - {py:obj}`SNAPSHOT_FILTER_TYPE_CHOICES <archivebox.cli.archivebox_snapshot.SNAPSHOT_FILTER_TYPE_CHOICES>`
+  - ```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.SNAPSHOT_FILTER_TYPE_CHOICES
+    :summary:
+    ```
+* - {py:obj}`SNAPSHOT_LIST_CHUNK_SIZE <archivebox.cli.archivebox_snapshot.SNAPSHOT_LIST_CHUNK_SIZE>`
+  - ```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.SNAPSHOT_LIST_CHUNK_SIZE
+    :summary:
+    ```
 ````
 
 ### API
@@ -81,6 +101,33 @@
 
 ````
 
+````{py:data} SNAPSHOT_FILTER_TYPE_CHOICES
+:canonical: archivebox.cli.archivebox_snapshot.SNAPSHOT_FILTER_TYPE_CHOICES
+:value: >
+   ('exact', 'substring', 'regex', 'domain', 'tag', 'timestamp')
+
+```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.SNAPSHOT_FILTER_TYPE_CHOICES
+```
+
+````
+
+````{py:data} SNAPSHOT_LIST_CHUNK_SIZE
+:canonical: archivebox.cli.archivebox_snapshot.SNAPSHOT_LIST_CHUNK_SIZE
+:value: >
+   5000
+
+```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.SNAPSHOT_LIST_CHUNK_SIZE
+```
+
+````
+
+````{py:function} iter_snapshot_json(queryset: django.db.models.QuerySet) -> collections.abc.Iterator[dict[str, object]]
+:canonical: archivebox.cli.archivebox_snapshot.iter_snapshot_json
+
+```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.iter_snapshot_json
+```
+````
+
 ````{py:function} create_snapshots(urls: collections.abc.Iterable[str], tag: str = '', status: str = 'queued', depth: int = 0, created_by_id: int | None = None) -> int
 :canonical: archivebox.cli.archivebox_snapshot.create_snapshots
 
@@ -88,14 +135,28 @@
 ```
 ````
 
-````{py:function} build_snapshot_queryset(*, status: str | None = None, url__icontains: str | None = None, url__istartswith: str | None = None, tag: str | None = None, crawl_id: str | None = None, sort: str | None = None, search: str | None = None, query: str | None = None, limit: int | None = None) -> django.db.models.QuerySet
+````{py:function} snapshot_filter_options(*, default_filter_type: str)
+:canonical: archivebox.cli.archivebox_snapshot.snapshot_filter_options
+
+```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.snapshot_filter_options
+```
+````
+
+````{py:function} snapshot_output_options(func)
+:canonical: archivebox.cli.archivebox_snapshot.snapshot_output_options
+
+```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.snapshot_output_options
+```
+````
+
+````{py:function} build_snapshot_queryset(**kwargs) -> django.db.models.QuerySet
 :canonical: archivebox.cli.archivebox_snapshot.build_snapshot_queryset
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.build_snapshot_queryset
 ```
 ````
 
-````{py:function} list_snapshots(status: str | None = None, url__icontains: str | None = None, url__istartswith: str | None = None, tag: str | None = None, crawl_id: str | None = None, limit: int | None = None, sort: str | None = None, csv: str | None = None, with_headers: bool = False, search: str | None = None, query: str | None = None) -> int
+````{py:function} list_snapshots(csv: str | None = None, as_json: bool = False, as_html: bool = False, with_headers: bool = False, **kwargs) -> int
 :canonical: archivebox.cli.archivebox_snapshot.list_snapshots
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.list_snapshots
@@ -130,7 +191,7 @@
 ```
 ````
 
-````{py:function} list_cmd(status: str | None, url__icontains: str | None, url__istartswith: str | None, tag: str | None, crawl_id: str | None, limit: int | None, sort: str | None, csv: str | None, with_headers: bool, search: str | None, query: tuple[str, ...])
+````{py:function} list_cmd(**kwargs)
 :canonical: archivebox.cli.archivebox_snapshot.list_cmd
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_snapshot.list_cmd

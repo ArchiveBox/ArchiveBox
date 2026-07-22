@@ -3,7 +3,6 @@
 ### Bash Environment Setup
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/
 # https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
-# set -o xtrace
 set -o errexit
 set -o errtrace
 set -o nounset
@@ -11,24 +10,44 @@ set -o pipefail
 IFS=$'\n'
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
-
 cd "$REPO_DIR"
-source "./.venv/bin/activate"
 
+ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-${LIB_DIR:-$HOME/.config/archivebox/lib}}"
+locked_abxpkg_version() {
+    local line package=""
+    while IFS= read -r line; do
+        case "$line" in
+            '[[package]]') package="" ;;
+            'name = "abxpkg"') package="abxpkg" ;;
+            'version = "'*'"')
+                [[ "$package" == "abxpkg" ]] || continue
+                line="${line#version = \"}"
+                printf '%s\n' "${line%\"}"
+                return 0
+                ;;
+        esac
+    done < "$REPO_DIR/uv.lock"
+    return 1
+}
+ABXPKG_VERSION="$(locked_abxpkg_version)"
+mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+    --install \
+    --lib="$ABXPKG_LIB_DIR" \
+    --deps-from="$REPO_DIR/.github/configs/ci-tooling.json:git_binaries" \
+    >/dev/null
+GIT_BINARY="$ABXPKG_LIB_DIR/env/bin/git"
+test -x "$GIT_BINARY"
 
-# Make sure git is clean
-if [ -z "$(git status --porcelain)" ] && [[ "$(git branch --show-current)" == "master" ]]; then 
-    git pull
-else
-    echo "[!] Warning: git status is dirty!"
-    echo "    Press Ctrl-C to cancel, or wait 10sec to continue..."
-    sleep 10
+if [[ "$("$GIT_BINARY" branch --show-current)" != "dev" ]]; then
+    echo "[X] Run this from the dev branch." >&2
+    exit 1
 fi
 
-# Bump version number in source
-function bump_semver {
-    echo "$1" | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g'
-}
+if [[ -n "$("$GIT_BINARY" status --porcelain)" ]]; then
+    echo "[X] Refusing to update a dirty worktree." >&2
+    "$GIT_BINARY" status --short >&2
+    exit 1
+fi
 
-# OLD_VERSION="$(grep '^version = ' "${REPO_DIR}/pyproject.toml" | awk -F'"' '{print $2}')"
-# NEW_VERSION="$(bump_semver "$OLD_VERSION")"
+"$GIT_BINARY" pull --ff-only

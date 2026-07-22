@@ -27,10 +27,6 @@
   - ```{autodoc2-docstring} archivebox.cli.archivebox_persona.get_edge_user_data_dir
     :summary:
     ```
-* - {py:obj}`get_browser_binary <archivebox.cli.archivebox_persona.get_browser_binary>`
-  - ```{autodoc2-docstring} archivebox.cli.archivebox_persona.get_browser_binary
-    :summary:
-    ```
 * - {py:obj}`validate_persona_name <archivebox.cli.archivebox_persona.validate_persona_name>`
   - ```{autodoc2-docstring} archivebox.cli.archivebox_persona.validate_persona_name
     :summary:
@@ -127,13 +123,6 @@
 :canonical: archivebox.cli.archivebox_persona.get_edge_user_data_dir
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_persona.get_edge_user_data_dir
-```
-````
-
-````{py:function} get_browser_binary(browser: str) -> str | None
-:canonical: archivebox.cli.archivebox_persona.get_browser_binary
-
-```{autodoc2-docstring} archivebox.cli.archivebox_persona.get_browser_binary
 ```
 ````
 

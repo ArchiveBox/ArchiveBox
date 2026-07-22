@@ -14,14 +14,14 @@ One-shot foreground flows such as `archivebox add ...` continue to process only 
 ## CLI Usage
 
 ```bash
-cd ~/archivebox/data
-
-archivebox schedule --every=daily --depth=1 https://example.com/feed.xml
-archivebox schedule --every='0 */6 * * *' https://example.com/feed.xml
-archivebox schedule --show
-archivebox schedule --clear
-archivebox schedule --run-all
-archivebox schedule --foreground
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
+archivebox_data="$(mktemp -d)"
+cd "$archivebox_data" && uv run --project "$project_dir" --no-sync archivebox init
+PLUGINS=parse_txt_urls uv run --project "$project_dir" --no-sync archivebox schedule --every=daily --depth=1 "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/feed.xml}"
+PLUGINS=parse_txt_urls uv run --project "$project_dir" --no-sync archivebox schedule --every='0 */6 * * *' "${ARCHIVEBOX_DOCS_URL_TWO:-https://example.com/feed.xml}"
+uv run --project "$project_dir" --no-sync archivebox schedule --show
+uv run --project "$project_dir" --no-sync archivebox schedule --run-all && uv run --project "$project_dir" --no-sync archivebox schedule --clear
+uv run --project "$project_dir" --no-sync archivebox schedule --foreground --help
 ```
 
 Accepted schedule formats:
@@ -51,8 +51,8 @@ services:
 Create schedules with:
 
 ```bash
-docker compose run --rm archivebox schedule --every=weekly --depth=1 https://example.com/feed.xml
-docker compose run --rm archivebox schedule --show
+compose_file="$(mktemp)"; docker_data="$(mktemp -d)"; printf 'services:\n  archivebox:\n    image: archivebox-docs-ci\n    volumes:\n      - %s:/data\n' "$docker_data" > "$compose_file"; docker compose -f "$compose_file" run --rm archivebox init
+docker compose -f "$compose_file" run --rm archivebox schedule --every=weekly --depth=1 https://example.com/feed.xml && docker compose -f "$compose_file" run --rm archivebox schedule --show
 ```
 
 If the main `archivebox server` container is already running, its orchestrator will pick up future scheduled runs automatically. There is no scheduler sidecar to restart.
@@ -62,25 +62,25 @@ If the main `archivebox server` container is already running, its orchestrator w
 Archive a Twitter mirror once a week:
 
 ```bash
-archivebox schedule --every=weekly --depth=1 'https://nitter.net/ArchiveBoxApp'
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox schedule --every=weekly --depth=1 'https://nitter.net/ArchiveBoxApp'
 ```
 
 Archive a subreddit and linked discussions once a week:
 
 ```bash
-archivebox config --set URL_ALLOWLIST='^http(s)?:\/\/(.+)?teddit\.net\/?.*$'
-archivebox schedule --every=weekly --depth=1 'https://teddit.net/r/DataHoarder/'
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox config --set URL_ALLOWLIST='^http(s)?:\/\/(.+)?teddit\.net\/?.*$'
+uv run --project "$project_dir" --no-sync archivebox schedule --every=weekly --depth=1 'https://teddit.net/r/DataHoarder/'
 ```
 
 Archive Hacker News every day:
 
 ```bash
-archivebox config --set URL_DENYLIST='^http(s)?:\/\/(.+\.)?(youtube\.com)|(amazon\.com)\/.*$'
-archivebox schedule --every=daily --depth=1 'https://news.ycombinator.com'
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox config --set URL_DENYLIST='^http(s)?:\/\/(.+\.)?(youtube\.com)|(amazon\.com)\/.*$'
+uv run --project "$project_dir" --no-sync archivebox schedule --every=daily --depth=1 'https://news.ycombinator.com'
 ```
 
 Queue a daily maintenance update:
 
 ```bash
-archivebox schedule --every=day
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox schedule --every=day
 ```

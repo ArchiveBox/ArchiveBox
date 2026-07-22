@@ -1,37 +1,130 @@
 name: Update downstream packages
 
 on:
-  push:
-    tags: ['v*']
+  workflow_call:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+      release_sha:
+        required: true
+        type: string
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Exact ArchiveBox release tag
+        required: true
+        type: string
+      release_sha:
+        description: Full commit SHA owned by the release tag
+        required: true
+        type: string
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
-  group: update-downstream-packages-${{ github.ref }}
-  cancel-in-progress: true
+  group: update-downstream-packages-${{ inputs.release_tag || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   dispatch:
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-24.04
     steps:
-      - name: Dispatch downstream package updates
+      - name: Checkout release source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+
+      - name: Resolve release and Docker binaries through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ABXPKG_VERSION="$(uv run --no-project python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          packages = tomllib.loads(Path("uv.lock").read_text())["package"]
+          matches = [package["version"] for package in packages if package["name"] == "abxpkg"]
+          if len(matches) != 1:
+              raise SystemExit(f"Expected one locked abxpkg package, found {len(matches)}")
+          print(matches[0])
+          PY
+          )"
+          test -n "$ABXPKG_VERSION"
+          mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
+
+          uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+            --install \
+            --lib="$ABXPKG_LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:release_binaries" \
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:docker_binaries" \
+            >/dev/null
+
+          for binary_name in uv gh git jq curl docker; do
+            binary="$ABXPKG_LIB_DIR/env/bin/$binary_name"
+            test -L "$binary"
+            test -x "$binary"
+          done
+          {
+            echo "UV_BINARY=$ABXPKG_LIB_DIR/env/bin/uv"
+            echo "GH_BINARY=$ABXPKG_LIB_DIR/env/bin/gh"
+            echo "GIT_BINARY=$ABXPKG_LIB_DIR/env/bin/git"
+            echo "JQ_BINARY=$ABXPKG_LIB_DIR/env/bin/jq"
+            echo "CURL_BINARY=$ABXPKG_LIB_DIR/env/bin/curl"
+            echo "DOCKER_BINARY=$ABXPKG_LIB_DIR/env/bin/docker"
+          } >> "$GITHUB_ENV"
+
+      - name: Verify the exact release and dispatch downstream builds
         env:
           DOWNSTREAM_TOKEN: ${{ secrets.RELEASE_GH_TOKEN || secrets.HOMEBREW_TAP_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+          INPUT_RELEASE_SHA: ${{ inputs.release_sha }}
+        shell: bash
         run: |
-          if [ -z "$DOWNSTREAM_TOKEN" ]; then
-            echo "RELEASE_GH_TOKEN/HOMEBREW_TAP_TOKEN is not configured; downstream schedules will update packages."
-            exit 0
-          fi
+          set -Eeuo pipefail
+          [[ -n "$DOWNSTREAM_TOKEN" ]] || { echo "RELEASE_GH_TOKEN/HOMEBREW_TAP_TOKEN is not configured" >&2; exit 1; }
 
+          RELEASE_TAG="${INPUT_RELEASE_TAG:-${GITHUB_REF_NAME}}"
+          [[ "$RELEASE_TAG" == v* ]]
+          VERSION="${RELEASE_TAG#v}"
+
+          TAG_TARGET="$("$GIT_BINARY" ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${RELEASE_TAG}^{}" | "$UV_BINARY" run --no-project python -c 'import sys; print(next((line.split()[0] for line in sys.stdin if line.strip()), ""))')"
+          if [[ -z "$TAG_TARGET" ]]; then
+            TAG_TARGET="$("$GIT_BINARY" ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${RELEASE_TAG}" | "$UV_BINARY" run --no-project python -c 'import sys; print(next((line.split()[0] for line in sys.stdin if line.strip()), ""))')"
+          fi
+          RELEASE_SHA="${INPUT_RELEASE_SHA:-${TAG_TARGET}}"
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TAG_TARGET" == "$RELEASE_SHA" ]] || { echo "${RELEASE_TAG} points to ${TAG_TARGET}, not ${RELEASE_SHA}" >&2; exit 1; }
+
+          "$CURL_BINARY" -fsSL "https://pypi.org/pypi/archivebox/${VERSION}/json" >/dev/null
+          "$DOCKER_BINARY" manifest inspect "archivebox/archivebox:${VERSION}" >/dev/null
+          "$DOCKER_BINARY" manifest inspect "ghcr.io/archivebox/archivebox:${VERSION}" >/dev/null
+
+          PAYLOAD_FILTER="{event_type: \"archivebox-dev-updated\", client_payload: {ref: \$ref, sha: \$sha, version: \$version}}"
+          PAYLOAD="$("$JQ_BINARY" -nc --arg ref "$RELEASE_TAG" --arg sha "$RELEASE_SHA" --arg version "$VERSION" "$PAYLOAD_FILTER")"
           for repo in homebrew-archivebox debian-archivebox; do
-            curl --fail-with-body \
+            "$CURL_BINARY" --fail-with-body \
               -X POST \
               -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer ${DOWNSTREAM_TOKEN}" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "https://api.github.com/repos/ArchiveBox/${repo}/dispatches" \
-              -d '{"event_type":"archivebox-dev-updated","client_payload":{"ref":"dev"}}'
+              --data "$PAYLOAD"
           done

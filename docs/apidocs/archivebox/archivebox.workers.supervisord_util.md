@@ -67,6 +67,14 @@
   - ```{autodoc2-docstring} archivebox.workers.supervisord_util.create_supervisord_config
     :summary:
     ```
+* - {py:obj}`_worker_environment_value <archivebox.workers.supervisord_util._worker_environment_value>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util._worker_environment_value
+    :summary:
+    ```
+* - {py:obj}`_worker_log_base_dir <archivebox.workers.supervisord_util._worker_log_base_dir>`
+  - ```{autodoc2-docstring} archivebox.workers.supervisord_util._worker_log_base_dir
+    :summary:
+    ```
 * - {py:obj}`create_worker_config <archivebox.workers.supervisord_util.create_worker_config>`
   - ```{autodoc2-docstring} archivebox.workers.supervisord_util.create_worker_config
     :summary:
@@ -448,6 +456,20 @@
 ```
 ````
 
+````{py:function} _worker_environment_value(daemon: dict[str, str], key: str) -> str | None
+:canonical: archivebox.workers.supervisord_util._worker_environment_value
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util._worker_environment_value
+```
+````
+
+````{py:function} _worker_log_base_dir(daemon: dict[str, str]) -> pathlib.Path
+:canonical: archivebox.workers.supervisord_util._worker_log_base_dir
+
+```{autodoc2-docstring} archivebox.workers.supervisord_util._worker_log_base_dir
+```
+````
+
 ````{py:function} create_worker_config(daemon)
 :canonical: archivebox.workers.supervisord_util.create_worker_config
 
@@ -513,7 +535,7 @@
 ```
 ````
 
-````{py:function} stop_own_supervisord_process()
+````{py:function} stop_own_supervisord_process(*, record_exit: bool = True)
 :canonical: archivebox.workers.supervisord_util.stop_own_supervisord_process
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util.stop_own_supervisord_process
@@ -555,7 +577,7 @@
 ```
 ````
 
-````{py:function} run_runner_worker(args: list[str], *, name: str = 'worker_runner_once', interactive_interrupts: bool = False) -> int
+````{py:function} run_runner_worker(args: list[str], *, name: str = 'worker_runner_once', interactive_interrupts: bool = False, keep_running=None) -> int
 :canonical: archivebox.workers.supervisord_util.run_runner_worker
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util.run_runner_worker

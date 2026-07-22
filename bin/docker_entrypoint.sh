@@ -15,14 +15,10 @@
 # Bash Environment Setup
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/
 # https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
-# set -o xtrace
-# set -o nounset
 shopt -s nullglob
 set -o errexit
 set -o errtrace
 set -o pipefail
-# IFS=$'\n'
-
 # Prevent crashed browser/subprocess core dumps from filling snapshot folders.
 ulimit -c 0 >/dev/null 2>&1 || true
 
@@ -278,13 +274,7 @@ else
     fi
 fi
 
-# set DBUS_SYSTEM_BUS_ADDRESS & DBUS_SESSION_BUS_ADDRESS
-# (dbus is not actually needed, it makes chrome log fewer warnings but isn't worth making our docker images bigger)
-# service dbus start >/dev/null 2>&1 &
-# export $(dbus-launch --close-stderr)
-
-
-export ARCHIVEBOX_BIN_PATH="$(which archivebox)"
+export ARCHIVEBOX_BIN_PATH="$(command -v archivebox)"
 
 # Drop permissions to run commands as the archivebox user
 if [[ "$1" == /* || "$1" == "bash" || "$1" == "sh" || "$1" == "echo" || "$1" == "cat" || "$1" == "whoami" || "$1" == "archivebox" ]]; then

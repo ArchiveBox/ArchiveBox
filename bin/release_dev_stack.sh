@@ -5,7 +5,6 @@ IFS=$'\n\t'
 
 ARCHIVEBOX_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE_DIR="$(cd "${ARCHIVEBOX_REPO}/.." && pwd)"
-PYPI_WAIT_ATTEMPTS="${PYPI_WAIT_ATTEMPTS:-90}"
 DOCKER_IMAGE_REPOS="${DOCKER_IMAGE_REPOS:-archivebox/archivebox ghcr.io/archivebox/archivebox}"
 
 cd "${WORKSPACE_DIR}"
@@ -15,9 +14,40 @@ repo_dir() {
     printf '%s/%s\n' "${WORKSPACE_DIR}" "${repo}"
 }
 
+ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-${LIB_DIR:-$HOME/.config/archivebox/lib}}"
+locked_archivebox_abxpkg_version() {
+    local line package=""
+    while IFS= read -r line; do
+        case "$line" in
+            '[[package]]') package="" ;;
+            'name = "abxpkg"') package="abxpkg" ;;
+            'version = "'*'"')
+                [[ "$package" == "abxpkg" ]] || continue
+                line="${line#version = \"}"
+                printf '%s\n' "${line%\"}"
+                return 0
+                ;;
+        esac
+    done < "$ARCHIVEBOX_REPO/uv.lock"
+    return 1
+}
+BOOTSTRAP_ABXPKG_VERSION="$(locked_archivebox_abxpkg_version)"
+mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+uv run --no-project --with "abxpkg==$BOOTSTRAP_ABXPKG_VERSION" abxpkg env \
+    --install \
+    --lib="$ABXPKG_LIB_DIR" \
+    --deps-from="$ARCHIVEBOX_REPO/.github/configs/ci-tooling.json:release_binaries" \
+    >/dev/null
+GIT_BINARY="$ABXPKG_LIB_DIR/env/bin/git"
+PYTHON_BINARY="$ABXPKG_LIB_DIR/env/bin/python"
+UV_BINARY="$ABXPKG_LIB_DIR/env/bin/uv"
+test -x "$GIT_BINARY"
+test -x "$PYTHON_BINARY"
+test -x "$UV_BINARY"
+
 current_version() {
     local repo="$1"
-    uv run python - "$repo" <<'PY'
+    "$PYTHON_BINARY" - "$repo" <<'PY'
 from pathlib import Path
 import re
 import sys
@@ -33,7 +63,7 @@ PY
 bump_patch_to() {
     local repo="$1"
     local version="$2"
-    uv run python - "$repo" "$version" <<'PY'
+    "$PYTHON_BINARY" - "$repo" "$version" <<'PY'
 from pathlib import Path
 import re
 import sys
@@ -46,7 +76,7 @@ PY
 }
 
 next_patch_version() {
-    uv run python - "$@" <<'PY'
+    "$PYTHON_BINARY" - "$@" <<'PY'
 import re
 import sys
 
@@ -63,7 +93,7 @@ PY
 }
 
 bump_archivebox_rc() {
-    uv run python - "${ARCHIVEBOX_REPO}" <<'PY'
+    "$PYTHON_BINARY" - "${ARCHIVEBOX_REPO}" <<'PY'
 from pathlib import Path
 import json
 import re
@@ -92,7 +122,7 @@ set_dependency_version() {
     local repo="$1"
     local package="$2"
     local version="$3"
-    uv run python - "$repo" "$package" "$version" <<'PY'
+    "$PYTHON_BINARY" - "$repo" "$package" "$version" <<'PY'
 from pathlib import Path
 import re
 import sys
@@ -110,7 +140,7 @@ assert_branch() {
     local repo="$1"
     local branch="$2"
     local actual
-    actual="$(git -C "$repo" branch --show-current)"
+    actual="$("$GIT_BINARY" -C "$repo" branch --show-current)"
     if [[ "$actual" != "$branch" ]]; then
         echo "[X] Expected $(basename "$repo") on ${branch}, found ${actual}" >&2
         exit 1
@@ -122,24 +152,10 @@ build_and_prek() {
     (
         cd "$repo"
         rm -rf dist .pdm-build
-        uv --no-cache build --out-dir dist
-        # prek auto-fixes (ruff-format, add-trailing-comma, end-of-file-fixer,
-        # …) exit with status 1 whenever they modify files. Some hooks expose
-        # edits that trigger later hooks on the next pass, so keep re-running
-        # until the tree is stable. A real lint failure still fails every pass
-        # and kills the script after a bounded number of attempts.
-        for attempt in 1 2 3 4 5; do
-            if uv --no-cache run prek run --all-files; then
-                break
-            fi
-            if [[ "$attempt" -eq 5 ]]; then
-                echo "[X] prek did not converge in $(basename "$repo")" >&2
-                exit 1
-            fi
-            echo "[*] prek auto-fixed files in $(basename "$repo"); re-running to verify clean…"
-        done
+        "$UV_BINARY" --no-cache build --out-dir dist
+        "$UV_BINARY" --no-cache run prek run --all-files
         rm -rf dist .pdm-build
-        uv --no-cache build --out-dir dist
+        "$UV_BINARY" --no-cache build --out-dir dist
     )
 }
 
@@ -152,29 +168,29 @@ commit_push_publish() {
 
     (
         cd "$repo"
-        git add -u
+        "$GIT_BINARY" add -u
         while IFS= read -r path; do
-            git add -- "$path"
-        done < <(git ls-files --others --exclude-standard)
-        if ! git diff --cached --quiet; then
-            git commit -m "release: ${package} ${version}"
+            "$GIT_BINARY" add -- "$path"
+        done < <("$GIT_BINARY" ls-files --others --exclude-standard)
+        if ! "$GIT_BINARY" diff --cached --quiet; then
+            "$GIT_BINARY" commit -m "release: ${package} ${version}"
         else
             echo "[*] No staged changes in ${package}; reusing existing commit."
         fi
-        git push origin "$branch"
-        if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
-            if [[ "$(git rev-list -n1 "${tag}")" != "$(git rev-parse HEAD)" ]]; then
+        "$GIT_BINARY" push origin "$branch"
+        if "$GIT_BINARY" rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            if [[ "$("$GIT_BINARY" rev-list -n1 "${tag}")" != "$("$GIT_BINARY" rev-parse HEAD)" ]]; then
                 echo "[X] Tag ${tag} already exists but does not point at HEAD in ${package}" >&2
                 exit 1
             fi
         else
-            git tag -a "${tag}" -m "release: ${package} ${version}"
+            "$GIT_BINARY" tag -a "${tag}" -m "release: ${package} ${version}"
         fi
-        git push origin "refs/tags/${tag}"
+        "$GIT_BINARY" push origin "refs/tags/${tag}"
         if pypi_has_release "$package" "$version"; then
             echo "[*] ${package}==${version} is already on PyPI; skipping upload."
         else
-            uv --no-cache publish --trusted-publishing always dist/*
+            "$UV_BINARY" --no-cache publish --trusted-publishing always dist/*
         fi
     )
 }
@@ -183,7 +199,7 @@ pypi_has_release() {
     local package="$1"
     local version="$2"
 
-    uv run python - "$package" "$version" <<'PY'
+    "$PYTHON_BINARY" - "$package" "$version" <<'PY'
 import sys
 import urllib.error
 import urllib.request
@@ -195,39 +211,6 @@ try:
 except urllib.error.HTTPError as err:
     raise SystemExit(1 if err.code == 404 else 2)
 PY
-}
-
-wait_for_pypi() {
-    local package="$1"
-    local version="$2"
-    local attempts=0
-
-    until pypi_has_release "$package" "$version"
-    do
-        attempts=$((attempts + 1))
-        if [[ "$attempts" -ge "$PYPI_WAIT_ATTEMPTS" ]]; then
-            echo "[X] Timed out waiting for ${package}==${version} on PyPI" >&2
-            exit 1
-        fi
-        sleep 10
-    done
-}
-
-wait_for_docker_image() {
-    local image="$1"
-    local attempts=0
-    local max_attempts="${DOCKER_IMAGE_WAIT_ATTEMPTS:-60}"
-
-    until docker buildx imagetools inspect "$image" >/dev/null
-    do
-        attempts=$((attempts + 1))
-        if [[ "$attempts" -ge "$max_attempts" ]]; then
-            echo "[X] Timed out waiting for ${image}" >&2
-            exit 1
-        fi
-        echo "[*] ${image} is not published yet; waiting..."
-        sleep 30
-    done
 }
 
 release_python_repo() {
@@ -242,7 +225,6 @@ release_python_repo() {
     assert_branch "$repo" "$branch"
     build_and_prek "$repo"
     commit_push_publish "$repo" "$branch" "$package" "$version"
-    wait_for_pypi "$package" "$version"
 }
 
 ABXPKG_VERSION="${ABXPKG_VERSION:-$(next_patch_version "$(current_version "$(repo_dir abxpkg)")")}"
@@ -272,8 +254,16 @@ commit_push_publish "$ARCHIVEBOX_REPO" dev archivebox "$ARCHIVEBOX_VERSION"
 
 (
     cd "$ARCHIVEBOX_REPO"
-    wait_for_docker_image "archivebox/abx-dl:${ABX_SHARED_VERSION}"
-    ./bin/release_docker.sh dev "$ARCHIVEBOX_VERSION" "sha-$(git rev-parse --short HEAD)"
+    ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-${LIB_DIR:-$HOME/.config/archivebox/lib}}"
+    mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+    "$UV_BINARY" run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+        --install \
+        --lib="$ABXPKG_LIB_DIR" \
+        --deps-from="$ARCHIVEBOX_REPO/.github/configs/ci-tooling.json:docker_binaries" \
+        >/dev/null
+    DOCKER_BINARY="$ABXPKG_LIB_DIR/env/bin/docker"
+    test -x "$DOCKER_BINARY"
+    ./bin/release_docker.sh dev "$ARCHIVEBOX_VERSION" "sha-$("$GIT_BINARY" rev-parse --short HEAD)"
     DEPLOY_IMAGE="${DOCKER_IMAGE_REPOS%% *}:dev" DEPLOY_EXPECT_VERSION="$ARCHIVEBOX_VERSION" SKIP_DOCKER=1 ./bin/deploy_dev_demo.sh
 )
 

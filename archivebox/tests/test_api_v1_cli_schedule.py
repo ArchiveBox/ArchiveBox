@@ -14,7 +14,7 @@ from .conftest import (
     init_archive,
     start_archivebox_server,
     stop_server,
-    wait_for_http,
+    get_http_response,
 )
 
 
@@ -49,7 +49,7 @@ def test_api_v1_cli_schedule_creates_schedule_over_server(tmp_path, recursive_te
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
-        wait_for_http(port, host=f"api.archivebox.localhost:{port}", path="/api/v1/docs")
+        get_http_response(port, host=f"api.archivebox.localhost:{port}", path="/api/v1/docs")
 
         response = requests.post(
             f"http://127.0.0.1:{port}/api/v1/cli/schedule",

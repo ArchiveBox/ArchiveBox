@@ -33,7 +33,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithUUID`, {py:obj}`archivebo
 ````{py:attribute} id
 :canonical: archivebox.crawls.models.CrawlSchedule.id
 :value: >
-   'UUIDField(...)'
+   'CompactUUIDField(...)'
 
 ```{autodoc2-docstring} archivebox.crawls.models.CrawlSchedule.id
 ```
@@ -97,6 +97,16 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithUUID`, {py:obj}`archivebo
    'BooleanField(...)'
 
 ```{autodoc2-docstring} archivebox.crawls.models.CrawlSchedule.is_enabled
+```
+
+````
+
+````{py:attribute} config
+:canonical: archivebox.crawls.models.CrawlSchedule.config
+:value: >
+   'JSONField(...)'
+
+```{autodoc2-docstring} archivebox.crawls.models.CrawlSchedule.config
 ```
 
 ````
@@ -230,7 +240,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`ar
 ````{py:attribute} id
 :canonical: archivebox.crawls.models.Crawl.id
 :value: >
-   'UUIDField(...)'
+   'CompactUUIDField(...)'
 
 ```{autodoc2-docstring} archivebox.crawls.models.Crawl.id
 ```
@@ -437,6 +447,26 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`ar
 
 ````
 
+````{py:attribute} RUNNABLE_STATES
+:canonical: archivebox.crawls.models.Crawl.RUNNABLE_STATES
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.RUNNABLE_STATES
+```
+
+````
+
+````{py:attribute} INACTIVE_STATES
+:canonical: archivebox.crawls.models.Crawl.INACTIVE_STATES
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.INACTIVE_STATES
+```
+
+````
+
 ````{py:attribute} schedule_id
 :canonical: archivebox.crawls.models.Crawl.schedule_id
 :type: uuid.UUID | None
@@ -444,17 +474,6 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`ar
    None
 
 ```{autodoc2-docstring} archivebox.crawls.models.Crawl.schedule_id
-```
-
-````
-
-````{py:attribute} sm
-:canonical: archivebox.crawls.models.Crawl.sm
-:type: CrawlMachine
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.crawls.models.Crawl.sm
 ```
 
 ````
@@ -584,6 +603,14 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
+````{py:method} update_child_snapshot_permissions(old_permissions: str | None, new_permissions: str | None) -> int
+:canonical: archivebox.crawls.models.Crawl.update_child_snapshot_permissions
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.update_child_snapshot_permissions
+```
+
+````
+
 ````{py:property} api_url
 :canonical: archivebox.crawls.models.Crawl.api_url
 :type: str
@@ -635,14 +662,6 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} output_dir_for_config(runtime_config: collections.abc.Mapping[str, typing.Any] | typing.Any) -> pathlib.Path
-:canonical: archivebox.crawls.models.Crawl.output_dir_for_config
-
-```{autodoc2-docstring} archivebox.crawls.models.Crawl.output_dir_for_config
-```
-
-````
-
 ````{py:property} output_dir
 :canonical: archivebox.crawls.models.Crawl.output_dir
 :type: pathlib.Path
@@ -656,6 +675,14 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 :canonical: archivebox.crawls.models.Crawl.get_urls_list
 
 ```{autodoc2-docstring} archivebox.crawls.models.Crawl.get_urls_list
+```
+
+````
+
+````{py:method} has_internal_input_root() -> bool
+:canonical: archivebox.crawls.models.Crawl.has_internal_input_root
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.has_internal_input_root
 ```
 
 ````
@@ -683,6 +710,14 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 :classmethod:
 
 ```{autodoc2-docstring} archivebox.crawls.models.Crawl._pattern_matches_url
+```
+
+````
+
+````{py:method} get_current_config(*, refresh: bool = False) -> dict[str, typing.Any]
+:canonical: archivebox.crawls.models.Crawl.get_current_config
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.get_current_config
 ```
 
 ````
@@ -823,10 +858,44 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} limit_stop_reason() -> str
+````{py:method} _config_value(config: collections.abc.Mapping[str, typing.Any] | typing.Any, key: str, default: typing.Any = None) -> typing.Any
+:canonical: archivebox.crawls.models.Crawl._config_value
+:staticmethod:
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl._config_value
+```
+
+````
+
+````{py:method} create_scheduler_row(**kwargs) -> archivebox.crawls.models.Crawl
+:canonical: archivebox.crawls.models.Crawl.create_scheduler_row
+:classmethod:
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.create_scheduler_row
+```
+
+````
+
+````{py:method} limit_stop_reason(*, config: collections.abc.Mapping[str, typing.Any] | typing.Any | None = None, output_dir: pathlib.Path | None = None, num_snapshots: int | None = None) -> str
 :canonical: archivebox.crawls.models.Crawl.limit_stop_reason
 
 ```{autodoc2-docstring} archivebox.crawls.models.Crawl.limit_stop_reason
+```
+
+````
+
+````{py:method} lifecycle_stop_reason(*, num_snapshots: int | None = None, num_sealed_snapshots: int | None = None) -> str
+:canonical: archivebox.crawls.models.Crawl.lifecycle_stop_reason
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.lifecycle_stop_reason
+```
+
+````
+
+````{py:method} stop_reason(*, config: collections.abc.Mapping[str, typing.Any] | typing.Any | None = None, output_dir: pathlib.Path | None = None, num_snapshots: int | None = None, num_sealed_snapshots: int | None = None) -> str
+:canonical: archivebox.crawls.models.Crawl.stop_reason
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.stop_reason
 ```
 
 ````

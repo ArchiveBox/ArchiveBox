@@ -37,6 +37,10 @@
   - ```{autodoc2-docstring} archivebox.core.middleware.TimezoneMiddleware
     :summary:
     ```
+* - {py:obj}`AdminCookieIsolationMiddleware <archivebox.core.middleware.AdminCookieIsolationMiddleware>`
+  - ```{autodoc2-docstring} archivebox.core.middleware.AdminCookieIsolationMiddleware
+    :summary:
+    ```
 * - {py:obj}`CacheControlMiddleware <archivebox.core.middleware.CacheControlMiddleware>`
   - ```{autodoc2-docstring} archivebox.core.middleware.CacheControlMiddleware
     :summary:
@@ -93,6 +97,13 @@
 :canonical: archivebox.core.middleware.TimezoneMiddleware
 
 ```{autodoc2-docstring} archivebox.core.middleware.TimezoneMiddleware
+```
+````
+
+````{py:function} AdminCookieIsolationMiddleware(get_response)
+:canonical: archivebox.core.middleware.AdminCookieIsolationMiddleware
+
+```{autodoc2-docstring} archivebox.core.middleware.AdminCookieIsolationMiddleware
 ```
 ````
 

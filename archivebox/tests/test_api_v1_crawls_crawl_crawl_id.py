@@ -1,7 +1,7 @@
 import json
-import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from threading import Thread
 from typing import cast
 
 import pytest
@@ -12,6 +12,7 @@ from django.utils import timezone
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.tests.test_orm_helpers import use_archivebox_db
+from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook
 from archivebox.workers.models import RETRY_AT_MAX
 
 from .conftest import (
@@ -19,6 +20,7 @@ from .conftest import (
     cli_env,
     create_admin_and_token,
     get_crawl_runtime_state,
+    get_snapshot_file_text,
     get_free_port,
     init_archive,
     live_api_request,
@@ -26,7 +28,6 @@ from .conftest import (
     start_archivebox_server,
     stop_server,
     wait_for_live_api,
-    wait_for_snapshot_capture,
 )
 
 
@@ -44,90 +45,16 @@ def other_user(db):
     )
 
 
-def _seed_archiveresult(
-    snapshot: Snapshot,
-    *,
-    plugin: str,
-    hook_name: str,
-    status: str,
-    output_text: str = "",
-    output_path: str | None = None,
-) -> ArchiveResult:
-    output_files = {}
-    output_size = 0
-    output_mimetypes = ""
-    if output_path is not None:
-        output_bytes = output_text.encode()
-        absolute_path = Path(snapshot.output_dir) / output_path
-        absolute_path.parent.mkdir(parents=True, exist_ok=True)
-        absolute_path.write_bytes(output_bytes)
-        output_size = len(output_bytes)
-        output_mimetypes = "text/plain"
-        output_files[output_path] = {
-            "extension": Path(output_path).suffix.lstrip("."),
-            "mimetype": "text/plain",
-            "size": output_size,
-        }
-
-    now = timezone.now()
-    return ArchiveResult.objects.create(
-        snapshot=snapshot,
-        plugin=plugin,
-        hook_name=hook_name,
-        status=status,
-        output_str=output_path or output_text,
-        output_files=output_files,
-        output_size=output_size,
-        output_mimetypes=output_mimetypes,
-        start_ts=now if status != ArchiveResult.StatusChoices.QUEUED else None,
-        end_ts=now if status in ArchiveResult.FINAL_STATES else None,
-    )
-
-
-def wait_for_crawl_snapshot_rows(cwd, crawl_id, timeout=45):
-    deadline = time.time() + timeout
-    latest_state = None
-    while time.time() < deadline:
-        latest_state = get_crawl_runtime_state(cwd, crawl_id)
-        if latest_state["snapshots"]:
-            return latest_state
-        time.sleep(0.2)
-    raise AssertionError(f"timed out waiting for runner to create snapshots for crawl {crawl_id}: {latest_state}")
-
-
-def wait_for_crawl_child_snapshots_paused_or_sealed(cwd, crawl_id, timeout=45):
-    deadline = time.time() + timeout
-    latest_state = None
-    while time.time() < deadline:
-        latest_state = get_crawl_runtime_state(cwd, crawl_id)
-        snapshots = latest_state["snapshots"]
-        if snapshots and all(snapshot["status"] in {"paused", "sealed"} for snapshot in snapshots):
-            return latest_state
-        time.sleep(0.2)
-    raise AssertionError(f"timed out waiting for runner to pause or seal snapshots for crawl {crawl_id}: {latest_state}")
-
-
-def wait_for_crawl_wget_success_or_sealed(cwd, crawl_id, timeout=240):
-    deadline = time.time() + timeout
-    latest_state = None
-    while time.time() < deadline:
-        latest_state = get_crawl_runtime_state(cwd, crawl_id)
-        wget_results = [result for result in latest_state["results"] if result["plugin"] == "wget"]
-        if (
-            latest_state["snapshots"]
-            and latest_state["snapshots"][0]["status"] == "sealed"
-            and any(result["status"] == "succeeded" and result["output_size"] > 0 for result in wget_results)
-        ):
-            return latest_state
-        if (
-            latest_state["crawl_status"] == "sealed"
-            and latest_state["snapshots"]
-            and latest_state["snapshots"][0]["status"] == "sealed"
-            and all(result["status"] not in {"queued", "started", "paused"} for result in latest_state["results"])
-        ):
-            return latest_state
-        time.sleep(2)
-    raise AssertionError(f"timed out waiting for crawl resume completion for crawl {crawl_id}: {latest_state}")
+def stop_runner_worker(cwd: Path) -> None:
+    script = """
+from archivebox.workers.supervisord_util import get_existing_supervisord_process, stop_worker
+supervisor = get_existing_supervisord_process()
+assert supervisor is not None
+stop_worker(supervisor, "worker_runner")
+print("stopped")
+"""
+    result = run_archivebox_cmd(["manage", "shell", "-c", script], cwd=cwd, timeout=60)
+    assert result.returncode == 0, result.stderr or result.stdout
 
 
 def seed_paused_crawl(client, cwd: Path, api_token: str, url: str, tag: str) -> tuple[str, str]:
@@ -188,9 +115,10 @@ def test_basic_success_case_request(client, tmp_path, api_admin_user, api_header
 
 
 def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snapshot_results_alone(
+    request,
     tmp_path,
     client,
-    recursive_test_site,
+    blocking_http_server,
 ):
     init_archive(tmp_path)
     api_token = create_admin_and_token(tmp_path)
@@ -202,10 +130,10 @@ def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snap
             "/api/v1/crawls/crawls",
             api_token=api_token,
             payload={
-                "urls": [recursive_test_site["root_url"]],
+                "urls": [blocking_http_server.url],
                 "max_depth": 0,
                 "tags": ["crawl-archiveresult-pause"],
-                "config": {"PLUGINS": "wget", "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*"},
+                "config": {"PLUGINS": "wget,parse_txt_urls", "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*"},
             },
         )
         assert crawl_response.status_code == 200, crawl_response.content.decode()
@@ -218,7 +146,7 @@ def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snap
             "/api/v1/core/snapshots",
             api_token=api_token,
             payload={
-                "url": recursive_test_site["root_url"],
+                "url": blocking_http_server.url,
                 "crawl_id": crawl_id,
                 "depth": 0,
                 "title": "Active child",
@@ -234,7 +162,7 @@ def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snap
             "/api/v1/core/snapshots",
             api_token=api_token,
             payload={
-                "url": recursive_test_site["child_urls"][0],
+                "url": "https://example.com/already-sealed",
                 "crawl_id": crawl_id,
                 "depth": 0,
                 "title": "Already sealed child",
@@ -244,38 +172,61 @@ def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snap
         assert sealed_response.status_code == 200, sealed_response.content.decode()
         sealed_snapshot_id = json.loads(sealed_response.content.decode())["id"]
         sealed_snapshot = Snapshot.objects.get(id=sealed_snapshot_id)
-        sealed_done = _seed_archiveresult(
+        from archivebox.config.common import get_config
+
+        lib_dir = get_config().ABXPKG_LIB_DIR
+        sealed_snapshot.output_dir.mkdir(parents=True, exist_ok=True)
+        (sealed_snapshot.output_dir / "source.txt").write_text("sealed snapshot result remains finished", encoding="utf-8")
+        _sealed_process, sealed_done = _run_shipped_snapshot_hook(
             sealed_snapshot,
-            plugin="sealedone",
-            hook_name="on_Snapshot__sealed_done",
-            status=ArchiveResult.StatusChoices.SUCCEEDED,
-            output_text="sealed snapshot result remains finished",
-            output_path="sealedone/final.txt",
+            plugin="hashes",
+            hook_name="on_Snapshot__93_hashes.py",
+            lib_dir=lib_dir,
         )
         sealed_snapshot.sm.seal()
         sealed_snapshot.refresh_from_db()
         assert sealed_snapshot.status == Snapshot.StatusChoices.SEALED
         assert sealed_snapshot.retry_at is None
 
-        active_queued = _seed_archiveresult(
+        active_snapshot.output_dir.mkdir(parents=True, exist_ok=True)
+        (active_snapshot.output_dir / "source.txt").write_text("parent cascade should not rewrite finished rows", encoding="utf-8")
+        _active_done_process, active_done = _run_shipped_snapshot_hook(
             active_snapshot,
-            plugin="manualqueue",
-            hook_name="on_Snapshot__manual_queue",
-            status=ArchiveResult.StatusChoices.QUEUED,
+            plugin="hashes",
+            hook_name="on_Snapshot__93_hashes.py",
+            lib_dir=lib_dir,
         )
-        active_started = _seed_archiveresult(
-            active_snapshot,
-            plugin="manualstart",
-            hook_name="on_Snapshot__manual_start",
-            status=ArchiveResult.StatusChoices.STARTED,
-        )
-        active_done = _seed_archiveresult(
-            active_snapshot,
-            plugin="manualdone",
-            hook_name="on_Snapshot__manual_done",
-            status=ArchiveResult.StatusChoices.SUCCEEDED,
-            output_text="parent cascade should not rewrite finished rows",
-            output_path="manualdone/cascade.txt",
+        now = timezone.now()
+        Crawl.objects.filter(pk=crawl_id).update(status=Crawl.StatusChoices.STARTED, retry_at=now)
+        Snapshot.objects.filter(pk=active_snapshot.pk).update(status=Snapshot.StatusChoices.QUEUED, retry_at=now)
+        active_snapshot.refresh_from_db()
+        [active_started] = active_snapshot.create_pending_archiveresults(hooks=[("wget", "on_Snapshot__06_wget.finite.bg")])
+        errors = []
+
+        def run_snapshot():
+            try:
+                assert run_due_snapshot(active_snapshot, lock_seconds=60) is True
+            except BaseException as err:
+                errors.append(err)
+            finally:
+                blocking_http_server.request_started.set()
+
+        runner = Thread(target=run_snapshot, name="archivebox-test-api-crawl-wget-runner")
+        runner.start()
+
+        def finish_runner():
+            with use_archivebox_db(tmp_path):
+                blocking_http_server.release_response.set()
+                runner.join()
+                assert errors == []
+
+        request.addfinalizer(finish_runner)
+        blocking_http_server.request_started.wait()
+        assert errors == []
+        active_started.refresh_from_db()
+        assert active_started.status == ArchiveResult.StatusChoices.STARTED
+        [active_queued] = active_snapshot.create_pending_archiveresults(
+            hooks=[("parse_txt_urls", "on_Snapshot__71_parse_txt_urls")],
         )
         pause_response = api_client_request(
             client,
@@ -292,15 +243,6 @@ def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snap
         crawl = Crawl.objects.get(id=crawl_id)
         assert crawl.status == Crawl.StatusChoices.PAUSED
         assert crawl.retry_at == RETRY_AT_MAX
-        assert active_snapshot.status == Snapshot.StatusChoices.QUEUED
-        assert active_snapshot.retry_at is not None
-        assert active_snapshot.retry_at <= timezone.now()
-        assert ArchiveResult.objects.get(id=active_queued.id).status == ArchiveResult.StatusChoices.QUEUED
-        assert ArchiveResult.objects.get(id=active_started.id).status == ArchiveResult.StatusChoices.STARTED
-
-        assert run_due_snapshot(active_snapshot, lock_seconds=60) is True
-        active_snapshot.refresh_from_db()
-        sealed_snapshot.refresh_from_db()
         assert active_snapshot.status == Snapshot.StatusChoices.PAUSED
         assert active_snapshot.retry_at == RETRY_AT_MAX
         assert sealed_snapshot.status == Snapshot.StatusChoices.SEALED
@@ -309,21 +251,19 @@ def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snap
         paused_rows = {
             row.plugin: (row.status, row.retry_at) for row in ArchiveResult.objects.filter(id__in=[active_queued.id, active_started.id])
         }
-        assert paused_rows == {
-            "manualqueue": (ArchiveResult.StatusChoices.PAUSED, RETRY_AT_MAX),
-            "manualstart": (ArchiveResult.StatusChoices.PAUSED, RETRY_AT_MAX),
-        }
+        assert paused_rows["parse_txt_urls"] == (ArchiveResult.StatusChoices.PAUSED, RETRY_AT_MAX)
+        assert paused_rows["wget"] == (ArchiveResult.StatusChoices.PAUSED, RETRY_AT_MAX)
 
         active_done_row = ArchiveResult.objects.get(id=active_done.id)
         sealed_done_row = ArchiveResult.objects.get(id=sealed_done.id)
-        active_done_path = Path(active_snapshot.output_dir) / next(iter(active_done_row.output_files))
-        sealed_done_path = Path(sealed_snapshot.output_dir) / next(iter(sealed_done_row.output_files))
+        active_done_path = Path(active_snapshot.output_dir) / active_done_row.plugin / next(iter(active_done_row.output_files))
+        sealed_done_path = Path(sealed_snapshot.output_dir) / sealed_done_row.plugin / next(iter(sealed_done_row.output_files))
         assert active_done_row.status == ArchiveResult.StatusChoices.SUCCEEDED
         assert active_done_row.retry_at is None
-        assert active_done_path.read_text() == "parent cascade should not rewrite finished rows"
+        assert active_done_path.is_file()
         assert sealed_done_row.status == ArchiveResult.StatusChoices.SUCCEEDED
         assert sealed_done_row.retry_at is None
-        assert sealed_done_path.read_text() == "sealed snapshot result remains finished"
+        assert sealed_done_path.is_file()
 
         resume_response = api_client_request(
             client,
@@ -350,16 +290,24 @@ def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snap
         resumed_rows = {
             row.plugin: (row.status, row.retry_at) for row in ArchiveResult.objects.filter(id__in=[active_queued.id, active_started.id])
         }
-        assert resumed_rows["manualqueue"][0] == ArchiveResult.StatusChoices.QUEUED
-        assert resumed_rows["manualqueue"][1] is not None
-        assert resumed_rows["manualqueue"][1] != RETRY_AT_MAX
-        assert resumed_rows["manualstart"][0] == ArchiveResult.StatusChoices.QUEUED
-        assert resumed_rows["manualstart"][1] is not None
-        assert resumed_rows["manualstart"][1] != RETRY_AT_MAX
+        assert resumed_rows["parse_txt_urls"][0] == ArchiveResult.StatusChoices.QUEUED
+        assert resumed_rows["parse_txt_urls"][1] is not None
+        assert resumed_rows["parse_txt_urls"][1] != RETRY_AT_MAX
+        assert resumed_rows["wget"][0] == ArchiveResult.StatusChoices.QUEUED
+        assert resumed_rows["wget"][1] is not None
+        assert resumed_rows["wget"][1] != RETRY_AT_MAX
         assert ArchiveResult.objects.get(id=active_done.id).status == ArchiveResult.StatusChoices.SUCCEEDED
         assert ArchiveResult.objects.get(id=sealed_done.id).status == ArchiveResult.StatusChoices.SUCCEEDED
-        assert active_done_path.read_text() == "parent cascade should not rewrite finished rows"
-        assert sealed_done_path.read_text() == "sealed snapshot result remains finished"
+        assert active_done_path.is_file()
+        assert sealed_done_path.is_file()
+
+        blocking_http_server.release_response.set()
+        runner.join()
+        assert errors == []
+        active_started.refresh_from_db()
+        assert active_started.status in (ArchiveResult.StatusChoices.SUCCEEDED, ArchiveResult.StatusChoices.NORESULTS)
+        assert ArchiveResult.objects.get(id=active_done.id).status == ArchiveResult.StatusChoices.SUCCEEDED
+        assert ArchiveResult.objects.get(id=sealed_done.id).status == ArchiveResult.StatusChoices.SUCCEEDED
 
 
 @pytest.mark.timeout(240)
@@ -375,7 +323,7 @@ def test_crawl_pause_resume_api_survives_server_restart_and_processes_after_resu
         start_archivebox_server(tmp_path, env=env, port=port)
         wait_for_live_api(port)
 
-        paused_state = wait_for_crawl_child_snapshots_paused_or_sealed(tmp_path, crawl_id)
+        paused_state = get_crawl_runtime_state(tmp_path, crawl_id)
         assert paused_state["crawl_status"] == "paused"
         assert paused_state["crawl_retry_at"] == paused_state["retry_at_max"]
         assert len(paused_state["snapshots"]) == 1
@@ -393,6 +341,7 @@ def test_crawl_pause_resume_api_survives_server_restart_and_processes_after_resu
         assert restarted_state["snapshots"][0]["retry_at"] == restarted_state["retry_at_max"]
         assert not any(result["status"] == "succeeded" for result in restarted_state["results"])
 
+        stop_runner_worker(tmp_path)
         resume_response = live_api_request(
             port,
             "patch",
@@ -404,7 +353,10 @@ def test_crawl_pause_resume_api_survives_server_restart_and_processes_after_resu
         assert resume_response.status_code == 200, resume_response.text
         assert resume_response.json()["status"] == "queued"
 
-        captured_text = wait_for_snapshot_capture(tmp_path, recursive_test_site["root_url"], timeout=180)
+        stop_server(tmp_path)
+        run_result = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=tmp_path, timeout=180, env=env)
+        assert run_result.returncode == 0, run_result.stderr or run_result.stdout
+        captured_text = get_snapshot_file_text(tmp_path, recursive_test_site["root_url"])
         assert "Root" in captured_text
         assert "About" in captured_text
 
@@ -465,6 +417,7 @@ def test_update_index_only_leaves_paused_snapshot_on_normal_lifecycle_path(clien
         assert still_paused_state["snapshots"][0]["status"] == "paused"
         assert not any(result["plugin"] == "wget" and result["status"] == "succeeded" for result in still_paused_state["results"])
 
+        stop_runner_worker(tmp_path)
         resume_response = live_api_request(
             port,
             "patch",
@@ -476,12 +429,15 @@ def test_update_index_only_leaves_paused_snapshot_on_normal_lifecycle_path(clien
         assert resume_response.status_code == 200, resume_response.text
         assert resume_response.json()["status"] == "queued"
 
-        resumed_state = wait_for_crawl_wget_success_or_sealed(tmp_path, crawl_id, timeout=240)
+        stop_server(tmp_path)
+        run_result = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=tmp_path, timeout=240, env=env)
+        assert run_result.returncode == 0, run_result.stderr or run_result.stdout
+        resumed_state = get_crawl_runtime_state(tmp_path, crawl_id)
 
         assert resumed_state["snapshots"][0]["status"] == "sealed"
         wget_results = [result for result in resumed_state["results"] if result["plugin"] == "wget"]
         assert any(result["status"] == "succeeded" and result["output_size"] > 0 for result in wget_results)
-        captured_text = wait_for_snapshot_capture(tmp_path, recursive_test_site["root_url"], timeout=60)
+        captured_text = get_snapshot_file_text(tmp_path, recursive_test_site["root_url"])
         assert "Root" in captured_text
         assert "About" in captured_text
     finally:

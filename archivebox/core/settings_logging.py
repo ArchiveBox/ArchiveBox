@@ -130,8 +130,6 @@ if os.access(LOGS_DIR, os.W_OK) and LOGS_DIR.is_dir():
     ERROR_LOG = LOGS_DIR / "errors.log"
 else:
     # historically too many edge cases here around creating log dir w/ correct permissions early on
-    # if there's an issue on startup, we trash the log and let user figure it out via stdout/stderr
-    # print(f'[!] WARNING: data/logs dir does not exist. Logging to temp file: {ERROR_LOG}')
     pass
 
 LOG_LEVEL_DATABASE = "WARNING"  # change to DEBUG to log all SQL queries

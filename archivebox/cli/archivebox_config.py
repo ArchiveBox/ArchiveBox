@@ -59,28 +59,20 @@ def config(
     matching_config = {}
     if search:
         if config_options:
-            config_options = [
-                core_config_aliases.get(key.upper().strip()) or resolve_alias(key.upper().strip(), plugin_schemas) for key in config_options
-            ]
-            matching_config = {key: readable_config[key] for key in config_options if key in readable_config}
-            for config_section in CONFIGS.values():
-                aliases = {str(field.alias): field_name for field_name, field in type(config_section).model_fields.items() if field.alias}
+            search_terms = [key.strip().lower() for key in config_options]
 
-                for search_key in config_options:
-                    # search all aliases in the section
-                    for alias_key, key in aliases.items():
-                        if key in readable_config and search_key.lower() in alias_key.lower():
-                            matching_config[key] = dict(config_section)[key]
+            for existing_key, value in readable_config.items():
+                if any(term in existing_key.lower() or term in str(value).lower() for term in search_terms):
+                    matching_config[existing_key] = value
 
-                    # search all keys and values in the section
-                    for existing_key, value in dict(config_section).items():
-                        if existing_key in readable_config and (
-                            search_key.lower() in existing_key.lower() or search_key.lower() in str(value).lower()
-                        ):
-                            matching_config[existing_key] = value
-                    for existing_key, value in readonly_config.items():
-                        if search_key.lower() in existing_key.lower() or search_key.lower() in str(value).lower():
-                            matching_config[existing_key] = value
+            for alias, key in core_config_aliases.items():
+                if key in readable_config and any(term in alias.lower() for term in search_terms):
+                    matching_config[key] = readable_config[key]
+
+            for schema in plugin_schemas.values():
+                for key, metadata in schema.items():
+                    if key in readable_config and any(term in key.lower() or term in str(metadata).lower() for term in search_terms):
+                        matching_config[key] = readable_config[key]
 
         print(printable_config(matching_config))
         raise SystemExit(not matching_config)

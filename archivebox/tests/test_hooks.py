@@ -10,15 +10,13 @@ Run with:
 """
 
 import json
+import hashlib
 import os
-import shutil
 import subprocess
-import sys
-import textwrap
+from importlib.resources import files
 from pathlib import Path
 
 import pytest
-import rich_click as click
 
 from archivebox.tests.conftest import resolve_abxpkg_binary_env
 
@@ -27,70 +25,8 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "archivebox.settings")
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE_ROOT = REPO_ROOT.parent
-RESULT_PREFIX = "__ARCHIVEBOX_TEST_RESULT__="
-
-
-def create_test_plugin_structure(plugins_dir: Path) -> None:
-    """Create a minimal plugin tree for hook discovery tests."""
-    plugins_dir.mkdir()
-
-    wget_dir = plugins_dir / "wget"
-    wget_dir.mkdir()
-    (wget_dir / "on_Snapshot__50_wget.py").write_text("# test hook")
-
-    chrome_dir = plugins_dir / "chrome"
-    chrome_dir.mkdir(exist_ok=True)
-    (chrome_dir / "on_Snapshot__20_chrome_tab.daemon.bg.js").write_text("// background hook")
-
-    consolelog_dir = plugins_dir / "consolelog"
-    consolelog_dir.mkdir()
-    (consolelog_dir / "on_Snapshot__21_consolelog.daemon.bg.js").write_text("// background hook")
-
-
-def run_plugin_discovery_subprocess(tmp_path: Path, plugins_dir: Path, script: str):
-    env = os.environ.copy()
-    data_dir = tmp_path / "data"
-    data_dir.mkdir()
-    cwd_plugins_dir = data_dir / "custom_plugins"
-    if plugins_dir != cwd_plugins_dir:
-        shutil.copytree(plugins_dir, cwd_plugins_dir)
-    existing_pythonpath = [
-        str(Path(entry).expanduser().resolve(strict=False))
-        for entry in env.get("PYTHONPATH", "").split(os.pathsep)
-        if entry and Path(entry).expanduser().is_absolute()
-    ]
-    env["PYTHONPATH"] = os.pathsep.join(dict.fromkeys([str(REPO_ROOT), *existing_pythonpath]))
-    subprocess_script = "\n".join(
-        [
-            "import json",
-            f"RESULT_PREFIX = {RESULT_PREFIX!r}",
-            "",
-            "def emit(value):",
-            "    print(RESULT_PREFIX + json.dumps(value))",
-            "",
-            textwrap.dedent(script),
-        ],
-    )
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            subprocess_script,
-        ],
-        cwd=data_dir,
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    assert result.returncode == 0, result.stderr
-
-    for line in reversed(result.stdout.splitlines()):
-        if line.startswith(RESULT_PREFIX):
-            return json.loads(line.removeprefix(RESULT_PREFIX))
-
-    raise AssertionError(f"Subprocess did not emit a result line.\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}")
+WGET_CONFIG = Path(str(files("abx_plugins.plugins.wget").joinpath("config.json")))
+CHROME_CONFIG = Path(str(files("abx_plugins.plugins.chrome").joinpath("config.json")))
 
 
 def test_cli_env_does_not_emit_relative_pythonpath_entries():
@@ -116,104 +52,129 @@ def test_cli_env_does_not_emit_relative_pythonpath_entries():
 
 
 class TestBackgroundHookDetection:
-    """Test that background hooks are detected by .bg. suffix."""
+    """Test background classification against the shipped hook suite."""
 
-    def test_bg_js_suffix_detected(self):
-        """Hooks with .bg.js suffix should be detected as background."""
-        from archivebox.plugins.hooks import is_background_hook
+    def test_shipped_hooks_are_classified_by_bg_marker(self):
+        from archivebox.plugins.hooks import discover_hooks, is_background_hook
 
-        assert is_background_hook("on_Snapshot__21_consolelog.daemon.bg.js")
+        hooks = discover_hooks("Snapshot", filter_disabled=False)
+        background_hooks = [hook for hook in hooks if is_background_hook(hook.name)]
+        foreground_hooks = [hook for hook in hooks if not is_background_hook(hook.name)]
 
-    def test_bg_py_suffix_detected(self):
-        """Hooks with .bg.py suffix should be detected as background."""
-        from archivebox.plugins.hooks import is_background_hook
-
-        assert is_background_hook("on_Snapshot__24_responses.finite.bg.py")
-
-    def test_bg_sh_suffix_detected(self):
-        """Hooks with .bg.sh suffix should be detected as background."""
-        from archivebox.plugins.hooks import is_background_hook
-
-        assert is_background_hook("on_Snapshot__23_ssl.daemon.bg.sh")
-
-    def test_legacy_background_suffix_detected(self):
-        """Hooks with __background in stem should be detected (backwards compat)."""
-        from archivebox.plugins.hooks import is_background_hook
-
-        assert is_background_hook("on_Snapshot__21_consolelog__background.js")
-
-    def test_foreground_hook_not_detected(self):
-        """Hooks without .bg. or __background should NOT be detected as background."""
-        from archivebox.plugins.hooks import is_background_hook
-
-        assert not is_background_hook("on_Snapshot__11_favicon.js")
-
-    def test_foreground_py_hook_not_detected(self):
-        """Python hooks without .bg. should NOT be detected as background."""
-        from archivebox.plugins.hooks import is_background_hook
-
-        assert not is_background_hook("on_Snapshot__50_wget.py")
+        assert hooks
+        assert background_hooks
+        assert foreground_hooks
+        assert all(".bg." in hook.name for hook in background_hooks)
+        assert all(".bg." not in hook.name for hook in foreground_hooks)
+        assert any(hook.name == "on_Snapshot__10_chrome_tab.daemon.bg.js" for hook in background_hooks)
+        assert any(hook.name == "on_Snapshot__06_wget.finite.bg.py" for hook in background_hooks)
+        assert any(hook.name == "on_Snapshot__93_hashes.py" for hook in foreground_hooks)
 
 
+@pytest.mark.django_db(transaction=True)
 class TestJSONLParsing:
-    """Test JSONL parsing in run_hook() output processing."""
+    """Test JSONL parsing against output from shipped hooks."""
 
-    def test_parse_clean_jsonl(self):
-        """Clean JSONL format should be parsed correctly."""
-        stdout = '{"type": "ArchiveResult", "status": "succeeded", "output_str": "Done"}'
+    @staticmethod
+    def run_hashes_hook(tmp_path):
+        from archivebox.plugins.hooks import run_hook
+
+        snap_dir = tmp_path / "hash-snapshot"
+        output_dir = snap_dir / "hashes"
+        output_dir.mkdir(parents=True)
+        (snap_dir / "source.txt").write_text("real parser input", encoding="utf-8")
+        hook_path = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
+        process = run_hook(
+            hook_path,
+            output_dir,
+            config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},
+            timeout=30,
+            url="https://example.com/hash-parser",
+        )
+        process.refresh_from_db()
+        assert process.exit_code == 0, process.stderr
+        return process
+
+    @staticmethod
+    def run_parser_hook(tmp_path):
+        from archivebox.plugins.hooks import run_hook
+
+        snap_dir = tmp_path / "parser-snapshot"
+        staticfile_dir = snap_dir / "staticfile"
+        output_dir = snap_dir / "parse_txt_urls"
+        staticfile_dir.mkdir(parents=True)
+        output_dir.mkdir(parents=True)
+        (staticfile_dir / "input.txt").write_text(
+            "links: https://one.example/path and https://two.example/path",
+            encoding="utf-8",
+        )
+        hook_path = Path(str(files("abx_plugins.plugins.parse_txt_urls").joinpath("on_Snapshot__71_parse_txt_urls.py")))
+        process = run_hook(
+            hook_path,
+            output_dir,
+            config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},
+            timeout=30,
+            url="file:///input.txt",
+        )
+        process.refresh_from_db()
+        assert process.exit_code == 0, process.stderr
+        return process
+
+    def test_parse_clean_jsonl(self, tmp_path):
+        """Clean JSONL emitted by a shipped hook should be parsed correctly."""
         from archivebox.machine.models import Process
 
-        records = Process.parse_records_from_text(stdout)
+        process = self.run_hashes_hook(tmp_path)
+        records = Process.parse_records_from_text(process.stdout)
 
         assert len(records) == 1
         assert records[0]["type"] == "ArchiveResult"
         assert records[0]["status"] == "succeeded"
-        assert records[0]["output_str"] == "Done"
+        assert records[0]["output_str"].endswith(hashlib.sha256(b"real parser input").hexdigest()[:12])
 
-    def test_parse_multiple_jsonl_records(self):
-        """Multiple JSONL records should all be parsed."""
-        stdout = """{"type": "ArchiveResult", "status": "succeeded", "output_str": "Done"}
-{"type": "Binary", "name": "wget", "abspath": "/usr/bin/wget"}"""
+    def test_parse_multiple_jsonl_records(self, tmp_path):
+        """Every record emitted by a shipped parser hook should be parsed."""
         from archivebox.machine.models import Process
 
-        records = Process.parse_records_from_text(stdout)
+        process = self.run_parser_hook(tmp_path)
+        records = Process.parse_records_from_text(process.stdout)
 
-        assert len(records) == 2
-        assert records[0]["type"] == "ArchiveResult"
-        assert records[1]["type"] == "Binary"
+        assert [record["type"] for record in records] == ["Snapshot", "Snapshot", "ArchiveResult"]
+        assert {record["url"] for record in records[:-1]} == {
+            "https://one.example/path",
+            "https://two.example/path",
+        }
+        assert records[-1]["status"] == "succeeded"
 
-    def test_parse_jsonl_with_log_output(self):
-        """JSONL should be extracted from mixed stdout with log lines."""
-        stdout = """Starting hook execution...
-Processing URL: https://example.com
-{"type": "ArchiveResult", "status": "succeeded", "output_str": "Downloaded"}
-Hook completed successfully"""
+    def test_parse_jsonl_with_log_output(self, tmp_path):
+        """JSONL should be extracted from a shipped hook's mixed stdout."""
         from archivebox.machine.models import Process
 
+        process = self.run_parser_hook(tmp_path)
+        assert "parsing 1 files for urls..." in process.stdout
+        assert "2 URLs parsed" in process.stdout
+        records = Process.parse_records_from_text(process.stdout)
+
+        assert len(records) == 3
+        assert records[-1]["status"] == "succeeded"
+
+    def test_ignore_invalid_json(self, tmp_path):
+        """Malformed non-record lines must not hide real hook records."""
+        from archivebox.machine.models import Process
+
+        process = self.run_hashes_hook(tmp_path)
+        stdout = f"{process.stdout}\n{{invalid json here}}\nnot json at all\n"
         records = Process.parse_records_from_text(stdout)
 
         assert len(records) == 1
-        assert records[0]["status"] == "succeeded"
+        assert records[0]["type"] == "ArchiveResult"
 
-    def test_ignore_invalid_json(self):
-        """Invalid JSON should be silently ignored."""
-        stdout = """{"type": "ArchiveResult", "status": "succeeded"}
-{invalid json here}
-not json at all
-{"type": "BinaryRequest", "name": "wget"}"""
+    def test_json_without_type_ignored(self, tmp_path):
+        """A non-record object must not hide the shipped hook's real record."""
         from archivebox.machine.models import Process
 
-        records = Process.parse_records_from_text(stdout)
-
-        assert len(records) == 2
-
-    def test_json_without_type_ignored(self):
-        """JSON objects without 'type' field should be ignored."""
-        stdout = """{"status": "succeeded", "output_str": "Done"}
-{"type": "ArchiveResult", "status": "succeeded"}"""
-        from archivebox.machine.models import Process
-
-        records = Process.parse_records_from_text(stdout)
+        process = self.run_hashes_hook(tmp_path)
+        records = Process.parse_records_from_text(f'{process.stdout}\n{{"status":"succeeded"}}\n')
 
         assert len(records) == 1
         assert records[0]["type"] == "ArchiveResult"
@@ -222,68 +183,53 @@ not json at all
 class TestRequiredBinaryConfigHandling:
     """Test that required_binaries keep configured XYZ_BINARY values intact."""
 
-    def test_binary_env_var_absolute_path_handling(self):
-        """Absolute binary paths should pass through unchanged."""
-        configured_binary = "/custom/path/to/wget2"
-        binary_name = configured_binary
+    def test_binary_env_var_absolute_path_handling(self, tmp_path):
+        """abxpkg should expose the resolved binary as an absolute path."""
+        resolved = resolve_abxpkg_binary_env(tmp_path / "lib", deps_from=WGET_CONFIG)
 
-        assert binary_name == "/custom/path/to/wget2"
+        assert Path(resolved["WGET_BINARY"]).is_absolute()
+        assert Path(resolved["WGET_BINARY"]).is_file()
 
-    def test_binary_env_var_name_only_handling(self):
-        """Binary command names should pass through unchanged."""
-        configured_binary = "wget2"
-        binary_name = configured_binary
+    def test_binary_env_var_name_only_handling(self, tmp_path):
+        """The projected command name should execute the resolved host binary."""
+        lib_dir = tmp_path / "lib"
+        resolve_abxpkg_binary_env(lib_dir, deps_from=WGET_CONFIG)
+        projection = lib_dir / "env" / "bin" / "wget"
+        result = subprocess.run([projection, "--version"], capture_output=True, text=True)
 
-        assert binary_name == "wget2"
+        assert projection.is_symlink()
+        assert result.returncode == 0, result.stderr
+        assert "Wget" in result.stdout
 
     def test_binary_env_var_empty_default(self):
-        """Empty configured binary values should keep the schema default."""
-        configured_binary = ""
-        if configured_binary:
-            binary_name = configured_binary
-        else:
-            binary_name = "wget"
+        """The shipped wget schema should retain wget as its required binary."""
+        config = json.loads(files("abx_plugins.plugins.wget").joinpath("config.json").read_text())
 
-        assert binary_name == "wget"
+        assert config["required_binaries"][0]["name"] == "{WGET_BINARY}"
+        assert config["properties"]["WGET_BINARY"]["default"] == "wget"
 
 
 class TestHookDiscovery:
     """Test hook discovery functions."""
 
-    def test_discover_hooks_by_event(self, tmp_path):
+    def test_discover_hooks_by_event(self):
         """discover_hooks() should find all hooks for an event."""
-        plugins_dir = tmp_path / "plugins"
-        create_test_plugin_structure(plugins_dir)
+        from archivebox.plugins.hooks import discover_hooks
 
-        hooks = []
-        for ext in ("sh", "py", "js"):
-            pattern = f"*/on_Snapshot__*.{ext}"
-            hooks.extend(plugins_dir.glob(pattern))
+        hooks = discover_hooks("Snapshot", filter_disabled=False)
 
-        hooks = sorted(set(hooks), key=lambda p: p.name)
-
-        assert len(hooks) == 3
         hook_names = [h.name for h in hooks]
-        assert "on_Snapshot__20_chrome_tab.daemon.bg.js" in hook_names
+        assert "on_Snapshot__10_chrome_tab.daemon.bg.js" in hook_names
         assert "on_Snapshot__21_consolelog.daemon.bg.js" in hook_names
-        assert "on_Snapshot__50_wget.py" in hook_names
+        assert "on_Snapshot__06_wget.finite.bg.py" in hook_names
+        assert all(hook.is_file() for hook in hooks)
 
-    def test_discover_hooks_sorted_by_name(self, tmp_path):
+    def test_discover_hooks_sorted_by_name(self):
         """Hooks should be sorted by filename (numeric prefix ordering)."""
-        plugins_dir = tmp_path / "plugins"
-        create_test_plugin_structure(plugins_dir)
+        from archivebox.plugins.hooks import discover_hooks
 
-        hooks = []
-        for ext in ("sh", "py", "js"):
-            pattern = f"*/on_Snapshot__*.{ext}"
-            hooks.extend(plugins_dir.glob(pattern))
-
-        hooks = sorted(set(hooks), key=lambda p: p.name)
-
-        # Check numeric ordering
-        assert hooks[0].name == "on_Snapshot__20_chrome_tab.daemon.bg.js"
-        assert hooks[1].name == "on_Snapshot__21_consolelog.daemon.bg.js"
-        assert hooks[2].name == "on_Snapshot__50_wget.py"
+        hook_names = [hook.name for hook in discover_hooks("Snapshot", filter_disabled=False)]
+        assert hook_names == sorted(hook_names)
 
     def test_normalize_hook_event_name_accepts_event_classes(self):
         """Hook discovery should normalize bus event class names to hook families."""
@@ -303,167 +249,51 @@ class TestHookDiscovery:
         assert hooks_module.normalize_hook_event_name("SnapshotCleanupEvent") == "SnapshotCleanup"
         assert hooks_module.normalize_hook_event_name("CrawlCleanupEvent") == "CrawlCleanup"
 
-    def test_discover_hooks_skips_plugins_with_disabled_required_dependencies(self, tmp_path):
+    def test_discover_hooks_skips_plugins_with_disabled_required_dependencies(self):
         """Plugins whose required_plugins are disabled should not run."""
-        plugins_dir = tmp_path / "plugins"
-        create_test_plugin_structure(plugins_dir)
+        from archivebox.plugins.hooks import discover_hooks
 
-        chrome_dir = plugins_dir / "chrome"
-        chrome_dir.mkdir(exist_ok=True)
-        (chrome_dir / "config.json").write_text(
-            json.dumps(
-                {
-                    "type": "object",
-                    "required_plugins": [],
-                    "properties": {
-                        "CHROME_ENABLED": {
-                            "type": "boolean",
-                            "default": True,
-                            "x-aliases": ["USE_CHROME"],
-                        },
-                    },
-                },
-            ),
-        )
-        (chrome_dir / "on_Snapshot__20_chrome.js").write_text("// chrome hook")
-
-        accessibility_dir = plugins_dir / "accessibility"
-        accessibility_dir.mkdir(exist_ok=True)
-        (accessibility_dir / "config.json").write_text(
-            json.dumps(
-                {
-                    "type": "object",
-                    "required_plugins": ["chrome"],
-                    "properties": {
-                        "ACCESSIBILITY_ENABLED": {
-                            "type": "boolean",
-                            "default": True,
-                        },
-                    },
-                },
-            ),
-        )
-        (accessibility_dir / "on_Snapshot__10_accessibility.js").write_text("// accessibility hook")
-
-        wget_dir = plugins_dir / "wget"
-        (wget_dir / "config.json").write_text(
-            json.dumps(
-                {
-                    "type": "object",
-                    "required_plugins": [],
-                    "properties": {
-                        "WGET_ENABLED": {
-                            "type": "boolean",
-                            "default": True,
-                            "x-aliases": ["SAVE_WGET"],
-                        },
-                    },
-                },
-            ),
-        )
-
-        hook_names = run_plugin_discovery_subprocess(
-            tmp_path,
-            plugins_dir,
-            """
-            from archivebox.plugins import hooks as hooks_module
-
-            hooks = hooks_module.discover_hooks("Snapshot", config={"CHROME_ENABLED": False, "WGET_ENABLED": True})
-            emit([hook.parent.name for hook in hooks])
-            """,
-        )
+        hook_names = [hook.parent.name for hook in discover_hooks("Snapshot", config={"CHROME_ENABLED": False, "WGET_ENABLED": True})]
         assert "wget" in hook_names
         assert "chrome" not in hook_names
         assert "accessibility" not in hook_names
 
-    def test_get_plugins_includes_config_only_plugin_dirs(self, tmp_path):
-        """get_plugins() should include config-only plugins with standardized metadata."""
-        plugins_dir = tmp_path / "plugins"
-        create_test_plugin_structure(plugins_dir)
+    def test_get_plugins_includes_config_only_plugin_dirs(self):
+        """get_plugins() should include shipped plugin directories without hooks."""
+        from archivebox.plugins.discovery import BUILTIN_PLUGINS_DIR, get_plugins
 
-        helper_dir = plugins_dir / "helper"
-        helper_dir.mkdir()
-        (helper_dir / "config.json").write_text('{"type": "object", "properties": {}}')
+        plugins = get_plugins()
+        assert "base" in plugins
+        base_dir = BUILTIN_PLUGINS_DIR / "base"
+        assert (base_dir / "config.json").is_file()
+        assert list(base_dir.glob("on_*__*.*")) == []
 
-        plugins = run_plugin_discovery_subprocess(
-            tmp_path,
-            plugins_dir,
-            """
-            from archivebox.plugins import hooks as hooks_module
-
-            from archivebox.plugins.discovery import get_plugins
-            get_plugins.cache_clear()
-            emit(get_plugins())
-            """,
-        )
-        assert "helper" in plugins
-
-    def test_discover_binary_hooks_returns_empty(self, tmp_path):
+    def test_discover_binary_hooks_returns_empty(self):
         """Binary provider hooks are owned by abxpkg, not ArchiveBox plugin discovery."""
-        plugins_dir = tmp_path / "plugins"
-        create_test_plugin_structure(plugins_dir)
+        from archivebox.plugins.hooks import discover_hooks
 
-        hook_names = run_plugin_discovery_subprocess(
-            tmp_path,
-            plugins_dir,
-            """
-            from archivebox.plugins import hooks as hooks_module
-
-            from archivebox.plugins.discovery import get_plugins
-            get_plugins.cache_clear()
-            hooks = hooks_module.discover_hooks("BinaryRequest", filter_disabled=False)
-            emit([hook.name for hook in hooks])
-            """,
-        )
+        hook_names = [hook.name for hook in discover_hooks("BinaryRequest", filter_disabled=False)]
         assert hook_names == []
 
-    def test_discover_hooks_accepts_event_class_names(self, tmp_path):
+    def test_discover_hooks_accepts_event_class_names(self):
         """discover_hooks should accept CrawlSetupEvent / SnapshotEvent class names."""
-        plugins_dir = tmp_path / "plugins"
-        create_test_plugin_structure(plugins_dir)
-        chrome_dir = plugins_dir / "chrome"
-        (chrome_dir / "on_CrawlSetup__90_chrome_launch.daemon.bg.js").write_text("// crawl hook")
+        from archivebox.plugins.hooks import discover_hooks
 
-        hook_names = run_plugin_discovery_subprocess(
-            tmp_path,
-            plugins_dir,
-            """
-            from archivebox.plugins import hooks as hooks_module
-
-            from archivebox.plugins.discovery import get_plugins
-            get_plugins.cache_clear()
-            crawl_setup_hooks = hooks_module.discover_hooks("CrawlSetupEvent", filter_disabled=False)
-            snapshot_hooks = hooks_module.discover_hooks("SnapshotEvent", filter_disabled=False)
-            emit({
-                "crawl_setup": [hook.name for hook in crawl_setup_hooks],
-                "snapshot": [hook.name for hook in snapshot_hooks],
-            })
-            """,
-        )
+        hook_names = {
+            "crawl_setup": [hook.name for hook in discover_hooks("CrawlSetupEvent", filter_disabled=False)],
+            "snapshot": [hook.name for hook in discover_hooks("SnapshotEvent", filter_disabled=False)],
+        }
         assert "on_CrawlSetup__90_chrome_launch.daemon.bg.js" in hook_names["crawl_setup"]
-        assert "on_Snapshot__50_wget.py" in hook_names["snapshot"]
+        assert "on_Snapshot__06_wget.finite.bg.py" in hook_names["snapshot"]
 
-    def test_discover_hooks_returns_empty_for_non_hook_lifecycle_events(self, tmp_path):
+    def test_discover_hooks_returns_empty_for_non_hook_lifecycle_events(self):
         """Lifecycle events without a hook family should return no hooks."""
-        plugins_dir = tmp_path / "plugins"
-        create_test_plugin_structure(plugins_dir)
+        from archivebox.plugins.hooks import discover_hooks
 
-        hooks = run_plugin_discovery_subprocess(
-            tmp_path,
-            plugins_dir,
-            """
-            from archivebox.plugins import hooks as hooks_module
-
-            from archivebox.plugins.discovery import get_plugins
-            get_plugins.cache_clear()
-            emit({
-                "binary": [hook.name for hook in hooks_module.discover_hooks("BinaryEvent", filter_disabled=False)],
-                "crawl_cleanup": [
-                    hook.name for hook in hooks_module.discover_hooks("CrawlCleanupEvent", filter_disabled=False)
-                ],
-            })
-            """,
-        )
+        hooks = {
+            "binary": [hook.name for hook in discover_hooks("BinaryEvent", filter_disabled=False)],
+            "crawl_cleanup": [hook.name for hook in discover_hooks("CrawlCleanupEvent", filter_disabled=False)],
+        }
         assert hooks["binary"] == []
         assert hooks["crawl_cleanup"] == []
 
@@ -503,20 +333,28 @@ class TestHookExecution:
 
     def test_python_hook_execution(self, tmp_path):
         """Python hook should execute and output JSONL."""
-        hook_path = tmp_path / "test_hook.py"
-        hook_path.write_text("""#!/usr/bin/env python3
-import json
-print(json.dumps({"type": "ArchiveResult", "status": "succeeded", "output_str": "Test passed"}))
-""")
-
-        result = subprocess.run(
-            [sys.executable, str(hook_path)],
-            cwd=tmp_path,
-            capture_output=True,
-            text=True,
+        snap_dir = tmp_path / "snapshot"
+        output_dir = snap_dir / "hashes"
+        output_dir.mkdir(parents=True)
+        (snap_dir / "source.txt").write_text("real hook input", encoding="utf-8")
+        hook_path = Path(
+            str(
+                files("abx_plugins.plugins.hashes").joinpath(
+                    "on_Snapshot__93_hashes.py",
+                ),
+            ),
         )
 
-        assert result.returncode == 0
+        result = subprocess.run(
+            [str(hook_path), "--url=https://example.com"],
+            cwd=output_dir,
+            capture_output=True,
+            text=True,
+            env={**os.environ, "SNAP_DIR": str(snap_dir)},
+            timeout=30,
+        )
+
+        assert result.returncode == 0, result.stderr
         from archivebox.machine.models import Process
 
         records = Process.parse_records_from_text(result.stdout)
@@ -525,212 +363,213 @@ print(json.dumps({"type": "ArchiveResult", "status": "succeeded", "output_str": 
         assert records[0]["status"] == "succeeded"
 
     def test_js_hook_execution(self, tmp_path):
-        """JavaScript hook should execute and output JSONL."""
+        """A shipped JavaScript hook should execute through projected Node."""
         lib_dir = tmp_path / "lib"
-        node_env = resolve_abxpkg_binary_env(lib_dir, "node")
+        chrome_config = Path(
+            str(files("abx_plugins.plugins.chrome").joinpath("config.json")),
+        )
+        node_env = resolve_abxpkg_binary_env(
+            lib_dir,
+            deps_from=chrome_config,
+        )
         node_binary = lib_dir / "env" / "bin" / "node"
         assert node_binary.is_symlink()
 
-        hook_path = tmp_path / "test_hook.js"
-        hook_path.write_text("""#!/usr/bin/env node
-console.log(JSON.stringify({type: 'ArchiveResult', status: 'succeeded', output_str: 'JS test'}));
-""")
+        crawl_dir = tmp_path / "crawl"
+        output_dir = crawl_dir / "chrome"
+        output_dir.mkdir(parents=True)
+        hook_path = Path(
+            str(
+                files("abx_plugins.plugins.chrome").joinpath(
+                    "on_CrawlSetup__89_chrome_kill_zombies.js",
+                ),
+            ),
+        )
 
         result = subprocess.run(
             [str(node_binary), str(hook_path)],
-            cwd=tmp_path,
+            cwd=output_dir,
             capture_output=True,
             text=True,
-            env={**os.environ, **node_env},
+            env={
+                **os.environ,
+                **node_env,
+                "CRAWL_DIR": str(crawl_dir),
+                "SNAP_DIR": str(crawl_dir / "snapshot"),
+                "CHROME_USER_DATA_DIR": str(output_dir / "profile"),
+            },
+            timeout=30,
         )
 
-        assert result.returncode == 0
-        from archivebox.machine.models import Process
+        assert result.returncode == 0, result.stderr
+        assert "chrome zombies" in result.stdout
 
-        records = Process.parse_records_from_text(result.stdout)
-        assert records
-        assert records[0]["type"] == "ArchiveResult"
-        assert records[0]["status"] == "succeeded"
+    @pytest.mark.django_db(transaction=True)
+    def test_real_js_hook_runs_through_abxpkg_node_projection(self, tmp_path):
+        from archivebox.plugins.hooks import run_hook
+
+        lib_dir = tmp_path / "lib"
+        node_env = resolve_abxpkg_binary_env(lib_dir, deps_from=CHROME_CONFIG)
+        node_projection = lib_dir / "env" / "bin" / "node"
+        crawl_dir = tmp_path / "crawl"
+        snap_dir = crawl_dir / "snapshot"
+        hook_path = Path(str(files("abx_plugins.plugins.chrome").joinpath("on_CrawlSetup__89_chrome_kill_zombies.js")))
+
+        process = run_hook(
+            hook_path,
+            crawl_dir / "chrome",
+            config={
+                **node_env,
+                "ABXPKG_LIB_DIR": str(lib_dir),
+                "CRAWL_DIR": str(crawl_dir),
+                "SNAP_DIR": str(snap_dir),
+                "CHROME_USER_DATA_DIR": str(crawl_dir / "chrome" / "profile"),
+            },
+            timeout=30,
+        )
+        process.refresh_from_db()
+
+        assert process.cmd[0] == str(node_projection)
+        assert process.exit_code == 0, process.stderr
+        assert "chrome zombies" in process.stdout
 
     def test_hook_receives_cli_args(self, tmp_path):
         """Hook should receive CLI arguments."""
-        hook_path = tmp_path / "test_hook.py"
-        hook_path.write_text("""#!/usr/bin/env python3
-import sys
-import json
-# Simple arg parsing
-args = {}
-for arg in sys.argv[1:]:
-    if arg.startswith('--') and '=' in arg:
-        key, val = arg[2:].split('=', 1)
-        args[key.replace('-', '_')] = val
-print(json.dumps({"type": "ArchiveResult", "status": "succeeded", "url": args.get("url", "")}))
-""")
-
-        result = subprocess.run(
-            [sys.executable, str(hook_path), "--url=https://example.com"],
-            cwd=tmp_path,
-            capture_output=True,
-            text=True,
+        snap_dir = tmp_path / "snapshot"
+        output_dir = snap_dir / "hashes"
+        output_dir.mkdir(parents=True)
+        (snap_dir / "source.txt").write_text("real CLI argument input", encoding="utf-8")
+        hook_path = Path(
+            str(
+                files("abx_plugins.plugins.hashes").joinpath(
+                    "on_Snapshot__93_hashes.py",
+                ),
+            ),
         )
 
-        assert result.returncode == 0
+        result = subprocess.run(
+            [str(hook_path), "--url=https://example.com/real-hook-argument"],
+            cwd=output_dir,
+            capture_output=True,
+            text=True,
+            env={**os.environ, "SNAP_DIR": str(snap_dir)},
+            timeout=30,
+        )
+
+        assert result.returncode == 0, result.stderr
         from archivebox.machine.models import Process
 
         records = Process.parse_records_from_text(result.stdout)
-        assert records
-        assert records[0]["url"] == "https://example.com"
+        source_hash = hashlib.sha256(b"real CLI argument input").hexdigest()
+        assert records == [{"type": "ArchiveResult", "status": "succeeded", "output_str": f"0.0MB {source_hash[:12]}"}]
+        hashes = json.loads((output_dir / "hashes.json").read_text())
+        assert hashes["files"][0]["hash"] == source_hash
 
 
 class TestDependencyRecordOutput:
-    """Test dependency record output format compliance."""
+    """Test Binary JSONL emitted by the real CLI and persisted model."""
 
-    def test_dependency_record_outputs_binary(self):
-        """Dependency resolution should output Binary JSONL when binary is found."""
-        hook_output = json.dumps(
-            {
-                "type": "Binary",
-                "name": "wget",
-                "abspath": "/usr/bin/wget",
-                "version": "1.21.3",
-                "sha256": None,
-                "binprovider": "apt",
-            },
+    @pytest.mark.django_db(transaction=True)
+    def test_binary_cli_emits_resolved_dependency_record(self, initialized_archive, tmp_path):
+        wget_path = resolve_abxpkg_binary_env(tmp_path / "lib", deps_from=WGET_CONFIG)["WGET_BINARY"]
+        version = subprocess.run([wget_path, "--version"], capture_output=True, text=True, check=True).stdout.split()[2]
+        from archivebox.tests.conftest import parse_jsonl_output, run_archivebox_cmd
+
+        result = run_archivebox_cmd(
+            ["binary", "create", "--name=wget", f"--abspath={wget_path}", f"--version={version}"],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
+        assert result.returncode == 0, result.stderr
 
-        from archivebox.machine.models import Process
-
-        data = Process.parse_records_from_text(hook_output)[0]
+        data = parse_jsonl_output(result.stdout)[0]
         assert data["type"] == "Binary"
         assert data["name"] == "wget"
-        assert data["abspath"].startswith("/")
+        assert data["abspath"] == wget_path
+        assert data["version"] == version
 
-    def test_dependency_record_outputs_binary_jsonl(self):
-        """Dependency resolution should output Binary JSONL."""
-        hook_output = json.dumps(
-            {
-                "type": "Binary",
-                "name": "wget",
-                "abspath": "/usr/bin/wget",
-                "version": "1.21.3",
-                "binprovider": "env",
-            },
+        list_result = run_archivebox_cmd(
+            ["binary", "list", "--name=wget"],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
-
-        from archivebox.machine.models import Process
-
-        data = Process.parse_records_from_text(hook_output)[0]
-        assert data["type"] == "Binary"
-        assert data["name"] == "wget"
-        assert data["abspath"] == "/usr/bin/wget"
+        assert list_result.returncode == 0, list_result.stderr
+        listed = parse_jsonl_output(list_result.stdout)
+        assert any(record["id"] == data["id"] and record["abspath"] == wget_path for record in listed)
 
 
 class TestSnapshotHookOutput:
-    """Test snapshot hook output format compliance."""
+    """Test ArchiveResult records emitted by a shipped snapshot hook."""
 
-    def test_snapshot_hook_basic_output(self):
-        """Snapshot hook should output clean ArchiveResult JSONL."""
-        hook_output = json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": "succeeded",
-                "output_str": "Downloaded 5 files",
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.parametrize(
+        ("enabled", "expected_status"),
+        [(True, "succeeded"), (False, "skipped")],
+    )
+    def test_hashes_hook_emits_real_archive_result(self, tmp_path, enabled, expected_status):
+        from archivebox.plugins.hooks import extract_records_from_process, run_hook
+
+        snap_dir = tmp_path / f"snapshot-{expected_status}"
+        output_dir = snap_dir / "hashes"
+        output_dir.mkdir(parents=True)
+        (snap_dir / "source.txt").write_text("real hook protocol input", encoding="utf-8")
+        hook_path = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
+
+        process = run_hook(
+            hook_path,
+            output_dir,
+            config={
+                "ABXPKG_LIB_DIR": str(tmp_path / "lib"),
+                "SNAP_DIR": str(snap_dir),
+                "HASHES_ENABLED": enabled,
             },
+            timeout=30,
+            url="https://example.com/real-hook-record",
         )
+        process.refresh_from_db()
 
-        from archivebox.machine.models import Process
-
-        data = Process.parse_records_from_text(hook_output)[0]
-        assert data["type"] == "ArchiveResult"
-        assert data["status"] == "succeeded"
-        assert "output_str" in data
-
-    def test_snapshot_hook_with_cmd(self):
-        """Snapshot hook should include cmd for binary FK lookup."""
-        hook_output = json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": "succeeded",
-                "output_str": "Archived with wget",
-                "cmd": ["/usr/bin/wget", "-p", "-k", "https://example.com"],
-            },
-        )
-
-        from archivebox.machine.models import Process
-
-        data = Process.parse_records_from_text(hook_output)[0]
-        assert data["type"] == "ArchiveResult"
-        assert isinstance(data["cmd"], list)
-        assert data["cmd"][0] == "/usr/bin/wget"
-
-    def test_snapshot_hook_with_output_json(self):
-        """Snapshot hook can include structured metadata in output_json."""
-        hook_output = json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": "succeeded",
-                "output_str": "Got headers",
-                "output_json": {
-                    "content-type": "text/html",
-                    "server": "nginx",
-                    "status-code": 200,
-                },
-            },
-        )
-
-        from archivebox.machine.models import Process
-
-        data = Process.parse_records_from_text(hook_output)[0]
-        assert data["type"] == "ArchiveResult"
-        assert isinstance(data["output_json"], dict)
-        assert data["output_json"]["status-code"] == 200
-
-    def test_snapshot_hook_skipped_status(self):
-        """Snapshot hook should support skipped status."""
-        hook_output = json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": "skipped",
-                "output_str": "SAVE_WGET=False",
-            },
-        )
-
-        from archivebox.machine.models import Process
-
-        data = Process.parse_records_from_text(hook_output)[0]
-        assert data["status"] == "skipped"
-
-    def test_snapshot_hook_failed_status(self):
-        """Snapshot hook should support failed status."""
-        hook_output = json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": "failed",
-                "output_str": "404 Not Found",
-            },
-        )
-
-        from archivebox.machine.models import Process
-
-        data = Process.parse_records_from_text(hook_output)[0]
-        assert data["status"] == "failed"
+        assert process.exit_code == 0, process.stderr
+        records = extract_records_from_process(process)
+        assert len(records) == 1
+        assert records[0]["type"] == "ArchiveResult"
+        assert records[0]["status"] == expected_status
+        assert records[0]["plugin"] == "hashes"
+        assert records[0]["hook_name"] == hook_path.name
+        assert records[0]["plugin_hook"] == str(hook_path)
+        if enabled:
+            assert (output_dir / "hashes.json").is_file()
+        else:
+            assert records[0]["output_str"] == "HASHES_ENABLED=False"
 
 
 class TestPluginMetadata:
     """Test that plugin metadata is added to JSONL records."""
 
-    def test_plugin_name_added(self):
-        """run_hook() should add plugin name to records."""
-        # Simulate what run_hook() does
-        script = Path("/abx_plugins/plugins/wget/on_Snapshot__50_wget.py")
-        plugin_name = script.parent.name
+    @pytest.mark.django_db(transaction=True)
+    def test_python_hook_metadata_comes_from_executed_shipped_hook(self, tmp_path):
+        from archivebox.plugins.hooks import extract_records_from_process, run_hook
 
-        record = {"type": "ArchiveResult", "status": "succeeded"}
-        record["plugin"] = plugin_name
-        record["plugin_hook"] = str(script)
+        snap_dir = tmp_path / "snapshot-metadata"
+        output_dir = snap_dir / "hashes"
+        output_dir.mkdir(parents=True)
+        (snap_dir / "source.txt").write_text("metadata", encoding="utf-8")
+        script = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
+        process = run_hook(
+            script,
+            output_dir,
+            config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},
+            timeout=30,
+            url="https://example.com/metadata",
+        )
+        process.refresh_from_db()
 
-        assert record["plugin"] == "wget"
-        assert "on_Snapshot__50_wget.py" in record["plugin_hook"]
+        assert process.exit_code == 0, process.stderr
+        records = extract_records_from_process(process)
+        assert records[0]["plugin"] == "hashes"
+        assert records[0]["hook_name"] == script.name
+        assert records[0]["plugin_hook"] == str(script)
 
 
 @pytest.mark.django_db(transaction=True)
@@ -739,93 +578,67 @@ def test_run_hook_exports_singular_node_modules_dir_with_colon_node_path(tmp_pat
     from archivebox.plugins.hooks import run_hook
 
     lib_dir = tmp_path / "lib"
-    node_modules_dir = lib_dir / "pnpm" / "packages" / "chrome" / "node_modules"
-    configured_node_path = os.pathsep.join(
-        [
-            "/home/archivebox/.pnpm/packages/chrome/node_modules",
-            "/usr/lib/node_modules",
-            str(node_modules_dir),
-            "/usr/share/archivebox/lib/pnpm/packages/chrome/node_modules",
-        ],
+    chrome_config = Path(str(files("abx_plugins.plugins.chrome").joinpath("config.json")))
+    node_env = resolve_abxpkg_binary_env(
+        lib_dir,
+        deps_from=chrome_config,
     )
-
-    plugin_dir = tmp_path / "plugins" / "envprobe"
-    plugin_dir.mkdir(parents=True)
-    hook_path = plugin_dir / "on_Snapshot__99_envprobe.py"
-    hook_path.write_text(
-        """#!/usr/bin/env python3
-import json
-import os
-
-print(json.dumps({
-    "NODE_PATH": os.environ.get("NODE_PATH"),
-    "NODE_MODULES_DIR": os.environ.get("NODE_MODULES_DIR"),
-    "NODE_MODULE_DIR": os.environ.get("NODE_MODULE_DIR"),
-}))
-""",
-        encoding="utf-8",
-    )
-    hook_path.chmod(0o755)
-
-    output_dir = tmp_path / "archive" / "users" / "system" / "snapshots" / "20260513" / "example.com" / "test" / "envprobe"
+    configured_node_path = node_env["NODE_PATH"]
+    node_modules_dir = Path(node_env["NODE_MODULES_DIR"])
+    crawl_dir = tmp_path / "crawl"
+    output_dir = crawl_dir / "chrome"
+    hook_path = Path(str(files("abx_plugins.plugins.chrome").joinpath("on_CrawlSetup__89_chrome_kill_zombies.js")))
     process = run_hook(
         hook_path,
         output_dir,
         config={
+            **node_env,
             "ABXPKG_LIB_DIR": str(lib_dir),
-            "NODE_PATH": configured_node_path,
+            "CRAWL_DIR": str(crawl_dir),
+            "SNAP_DIR": str(crawl_dir / "snapshot"),
+            "CHROME_USER_DATA_DIR": str(output_dir / "profile"),
         },
-        timeout=10,
+        timeout=30,
     )
     process.refresh_from_db()
 
     assert process.exit_code == 0, process.stderr
-    payload = json.loads(process.stdout.strip())
-    assert payload["NODE_MODULES_DIR"] == str(node_modules_dir)
-    assert payload["NODE_MODULE_DIR"] == str(node_modules_dir)
-    assert payload["NODE_PATH"].split(os.pathsep) == configured_node_path.split(os.pathsep)
     assert process.env["NODE_MODULES_DIR"] == str(node_modules_dir)
+    assert process.env["NODE_MODULE_DIR"] == str(node_modules_dir)
+    assert process.env["NODE_PATH"].split(os.pathsep) == configured_node_path.split(os.pathsep)
+    assert "chrome zombies" in process.stdout
 
 
 @pytest.mark.django_db(transaction=True)
 def test_run_hook_executes_python_hooks_through_script_shebang(tmp_path):
-    """Python hooks must use their abxpkg script header instead of sys.executable."""
+    """Python hooks must execute through their abxpkg script header."""
     from archivebox.plugins.hooks import run_hook
 
-    plugin_dir = tmp_path / "plugins" / "shebangprobe"
-    plugin_dir.mkdir(parents=True)
-    hook_path = plugin_dir / "on_Snapshot__99_shebangprobe.py"
-    hook_path.write_text(
-        """#!/usr/bin/env -S abxpkg run --script python3
-# /// script
-# requires-python = ">=3.12"
-# ///
-import json
-import os
-import rich_click
-
-print(json.dumps({
-    "ABXPKG_FAST_SCRIPT": os.environ.get("ABXPKG_FAST_SCRIPT"),
-    "RICH_CLICK_FILE": rich_click.__file__,
-}))
-""",
-        encoding="utf-8",
-    )
-    hook_path.chmod(0o755)
-
-    output_dir = tmp_path / "archive" / "users" / "system" / "snapshots" / "20260603" / "example.com" / "test" / "shebangprobe"
+    snap_dir = tmp_path / "snapshot"
+    output_dir = snap_dir / "hashes"
+    output_dir.mkdir(parents=True)
+    (snap_dir / "source.txt").write_text("real shebang hook input", encoding="utf-8")
+    hook_path = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
     process = run_hook(
         hook_path,
         output_dir,
         config={
             "ABXPKG_LIB_DIR": str(tmp_path / "lib"),
+            "SNAP_DIR": str(snap_dir),
         },
-        timeout=10,
+        timeout=30,
+        url="https://example.com/shebang",
     )
     process.refresh_from_db()
 
     assert process.cmd[0] == str(hook_path)
     assert process.exit_code == 0, process.stderr
-    payload = json.loads(process.stdout.strip())
-    assert payload["ABXPKG_FAST_SCRIPT"] == "1"
-    assert Path(payload["RICH_CLICK_FILE"]).resolve() == Path(click.__file__).resolve()
+    assert process.env["ABXPKG_FAST_SCRIPT"] == "1"
+    records = process.parse_records_from_text(process.stdout)
+    source_hash = hashlib.sha256(b"real shebang hook input").hexdigest()
+    assert records == [{"type": "ArchiveResult", "status": "succeeded", "output_str": f"0.0MB {source_hash[:12]}"}]
+    hashes = json.loads((output_dir / "hashes.json").read_text())
+    source = hashes["files"][0]
+    assert source["path"] == "source.txt"
+    assert source["size"] == len("real shebang hook input")
+    assert source["hash"] == source_hash

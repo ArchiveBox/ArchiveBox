@@ -33,10 +33,6 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
 
     config = get_config()
 
-    # if os.access(out_dir / CONSTANTS.JSON_INDEX_FILENAME, os.F_OK):
-    #     print("[red]:warning: This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.[/red]", file=sys.stderr)
-    #     print("[red]    You can run `archivebox list --json --with-headers > static_index.json` to manually generate it.[/red]", file=sys.stderr)
-
     is_empty = not len(set(os.listdir(CONSTANTS.DATA_DIR)) - CONSTANTS.ALLOWED_IN_DATA_DIR)
     existing_index = os.path.isfile(CONSTANTS.DATABASE_FILE)
     if is_empty and not existing_index:
@@ -110,9 +106,6 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
     assert os.path.isfile(CONSTANTS.DATABASE_FILE) and os.access(CONSTANTS.DATABASE_FILE, os.R_OK)
     print()
     print(f"    √ {_display_data_path(CONSTANTS.DATABASE_FILE, CONSTANTS.DATA_DIR)}")
-
-    # from django.contrib.auth.models import User
-    #     call_command("createsuperuser", interactive=True)
 
     print()
     print("[dodger_blue3][*] Checking links from indexes and archive folders (safe to Ctrl+C)...[/dodger_blue3]")

@@ -43,7 +43,6 @@ from archivebox.core.permissions import (
 from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
 
 
-# GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': [], 'CAN_UPGRADE': False}
 GLOBAL_CONTEXT = {}
 
 SNAPSHOT_PERMISSION_META = PERMISSIONS_META
@@ -71,13 +70,6 @@ class SnapshotActionForm(ActionForm):
             return []
 
         return [name.strip() for name in tags_str.split(",") if name.strip()]
-
-    # TODO: allow selecting actions for specific extractor plugins? is this useful?
-    # plugin = forms.ChoiceField(
-    #     choices=ArchiveResult.PLUGIN_CHOICES,
-    #     required=False,
-    #     widget=forms.MultileChoiceField(attrs={'class': "form-control"})
-    # )
 
 
 class TagNameListFilter(admin.SimpleListFilter):
@@ -748,31 +740,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         html = Template("""{{bookmarked_date}} (<code>{{timestamp}}</code>)""")
         return mark_safe(html.render(context))
 
-        # pretty_time = obj.bookmarked.strftime('%Y-%m-%d %H:%M:%S')
-        # return f'{pretty_time} ({obj.timestamp})'
-
-    # TODO: figure out a different way to do this, you cant nest forms so this doenst work
-    # def action(self, obj):
-    #     # csrfmiddlewaretoken: Wa8UcQ4fD3FJibzxqHN3IYrrjLo4VguWynmbzzcPYoebfVUnDovon7GEMYFRgsh0
-    #     # action: update_snapshots
-    #     # select_across: 0
-    #     # _selected_action: 76d29b26-2a88-439e-877c-a7cca1b72bb3
-    #     return format_html(
-    #         '''
-    #             <form action="/admin/core/snapshot/" method="post" onsubmit="e => e.stopPropagation()">
-    #                 <input type="hidden" name="csrfmiddlewaretoken" value="{}">
-    #                 <input type="hidden" name="_selected_action" value="{}">
-    #                 <button name="update_snapshots">Check</button>
-    #                 <button name="update_titles">Pull title + favicon</button>
-    #                 <button name="update_snapshots">Update</button>
-    #                 <button name="overwrite_snapshots">Re-Archive (overwrite)</button>
-    #                 <button name="delete_snapshots">Permanently delete</button>
-    #             </form>
-    #         ''',
-    #         csrf.get_token(self.request),
-    #         obj.pk,
-    #     )
-
     @admin.display(description="")
     def admin_actions(self, obj):
         summary_url = self.get_snapshot_view_url(obj)
@@ -1149,9 +1116,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             mark_safe("".join(output)),
         )
 
-    @admin.display(
-        # ordering='archiveresult_count'
-    )
+    @admin.display()
     def size(self, obj):
         request = self.request
         config = request.archivebox_config
@@ -1400,11 +1365,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         extra_context = extra_context or {}
         extra_context["snapshot_is_grid_view"] = True
         return self.changelist_view(request, extra_context=extra_context)
-
-    # for debugging, uncomment this to print all requests:
-    # def changelist_view(self, request, extra_context=None):
-    #     print('[*] Got request', request.method, request.POST)
-    #     return super().changelist_view(request, extra_context=None)
 
     @admin.action(
         description="🔁 Redo Failed",

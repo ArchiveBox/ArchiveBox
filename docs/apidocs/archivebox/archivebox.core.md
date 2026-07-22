@@ -28,9 +28,9 @@ archivebox.core.admin_archiveresults
 archivebox.core.admin_tags
 archivebox.core.models
 archivebox.core.admin_users
-archivebox.core.host_util
 archivebox.core.asgi
 archivebox.core.settings_logging
+archivebox.core.routes_util
 archivebox.core.apps
 archivebox.core.widgets
 archivebox.core.admin_snapshots
@@ -39,6 +39,8 @@ archivebox.core.context_processors
 archivebox.core.tag_util
 archivebox.core.shutdown_util
 archivebox.core.admin
+archivebox.core.preview_util
+archivebox.core.snapshot_status
 archivebox.core.admin_site
 archivebox.core.settings
 archivebox.core.permissions

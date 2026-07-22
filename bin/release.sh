@@ -3,406 +3,137 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKSPACE_DIR="$(cd "${REPO_DIR}/.." && pwd)"
-cd "${REPO_DIR}"
+SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$SCRIPT_DIR" != "${BASH_SOURCE[0]}" ]] || SCRIPT_DIR=.
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_DIR"
 
-TAG_PREFIX="v"
-PYPI_PACKAGE="archivebox"
+for variable in UV_BINARY GH_BINARY GIT_BINARY JQ_BINARY CURL_BINARY RELEASE_SHA RELEASE_DISTRIBUTIONS_DIR; do
+    value="${!variable:-}"
+    [[ -n "$value" ]] || { echo "$variable must be set" >&2; exit 1; }
+done
+for variable in UV_BINARY GH_BINARY GIT_BINARY JQ_BINARY CURL_BINARY; do
+    [[ -x "${!variable}" ]] || { echo "$variable is not executable: ${!variable}" >&2; exit 1; }
+done
 
-source_optional_env() {
-    if [[ -f "${REPO_DIR}/.env" ]]; then
-        set -a
-        # shellcheck disable=SC1091
-        source "${REPO_DIR}/.env"
-        set +a
-    fi
-}
+TAG_PREFIX=v
+PYPI_PACKAGE=archivebox
 
-repo_slug() {
-    python3 - <<'PY'
-import re
-import subprocess
-
-remote = subprocess.check_output(
-    ['git', 'remote', 'get-url', 'origin'],
-    text=True,
-).strip()
-
-patterns = [
-    r'github\.com[:/](?P<slug>[^/]+/[^/.]+)(?:\.git)?$',
-    r'github\.com/(?P<slug>[^/]+/[^/.]+)(?:\.git)?$',
-]
-
-for pattern in patterns:
-    match = re.search(pattern, remote)
-    if match:
-        print(match.group('slug'))
-        raise SystemExit(0)
-
-raise SystemExit(f'Unable to parse GitHub repo slug from remote: {remote}')
-PY
-}
-
-default_branch() {
-    if [[ -n "${DEFAULT_BRANCH:-}" ]]; then
-        echo "${DEFAULT_BRANCH}"
-        return 0
-    fi
-    if git symbolic-ref refs/remotes/origin/HEAD >/dev/null 2>&1; then
-        git symbolic-ref refs/remotes/origin/HEAD | sed 's#^refs/remotes/origin/##'
-        return 0
-    fi
-    git remote show origin | sed -n '/HEAD branch/s/.*: //p' | head -n 1
-}
-
-current_version() {
-    python3 - <<'PY'
+VERSION="$($UV_BINARY run --no-project python - <<'PY'
 from pathlib import Path
 import json
 import re
 
-versions = []
-pyproject_text = Path('pyproject.toml').read_text()
-pyproject_match = re.search(r'^version = "([^"]+)"$', pyproject_text, re.MULTILINE)
-if pyproject_match:
-    versions.append(pyproject_match.group(1))
-
-package_json = json.loads(Path('etc/package.json').read_text())
-if 'version' in package_json:
-    versions.append(package_json['version'])
-
-def parse(version: str) -> tuple[int, int, int, int, int]:
-    match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-?rc(\d*))?$', version)
-    if not match:
-        raise SystemExit(f'Unsupported version format: {version}')
-    major, minor, patch, rc = match.groups()
-    rc_value = int(rc) if rc else (0 if 'rc' in version else 10_000)
-    return (int(major), int(minor), int(patch), 0 if 'rc' in version else 1, rc_value)
-
-print(max(versions, key=parse))
-PY
-}
-
-bump_version() {
-    python3 - <<'PY'
-from pathlib import Path
-import json
-import re
-
-def parse(version: str) -> tuple[int, int, int, int, int]:
-    match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-?rc(\d*))?$', version)
-    if not match:
-        raise SystemExit(f'Unsupported version format: {version}')
-    major, minor, patch, rc = match.groups()
-    rc_value = int(rc) if rc else (0 if 'rc' in version else 10_000)
-    return (int(major), int(minor), int(patch), 0 if 'rc' in version else 1, rc_value)
-
-pyproject_path = Path('pyproject.toml')
-pyproject_text = pyproject_path.read_text()
-pyproject_match = re.search(r'^version = "([^"]+)"$', pyproject_text, re.MULTILINE)
-if not pyproject_match:
-    raise SystemExit('Failed to find version in pyproject.toml')
-
-package_path = Path('etc/package.json')
-package_json = json.loads(package_path.read_text())
-if 'version' not in package_json:
-    raise SystemExit('Failed to find version in etc/package.json')
-
-current_version = max([pyproject_match.group(1), package_json['version']], key=parse)
-match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-?rc(\d*))?$', current_version)
-major, minor, patch, rc = match.groups()
-if 'rc' in current_version:
-    rc_number = int(rc or '0') + 1
-    next_version = f'{major}.{minor}.{patch}rc{rc_number}'
-else:
-    next_version = f'{major}.{minor}.{int(patch) + 1}'
-
-pyproject_path.write_text(
-    re.sub(r'^version = "[^"]+"$', f'version = "{next_version}"', pyproject_text, count=1, flags=re.MULTILINE)
-)
-package_json['version'] = next_version
-package_path.write_text(json.dumps(package_json, indent=2) + '\n')
-print(next_version)
-PY
-}
-
-read_repo_version() {
-    local repo_dir="$1"
-    if [[ ! -f "${repo_dir}/pyproject.toml" ]]; then
-        return 1
-    fi
-
-    python3 - "${repo_dir}/pyproject.toml" <<'PY'
-from pathlib import Path
-import re
-import sys
-
-text = Path(sys.argv[1]).read_text()
-match = re.search(r'^version = "([^"]+)"$', text, re.MULTILINE)
+match = re.search(r'^version = "([^"]+)"$', Path('pyproject.toml').read_text(), re.MULTILINE)
 if not match:
-    raise SystemExit('Failed to find version')
-print(match.group(1))
+    raise SystemExit('Failed to find version in pyproject.toml')
+version = match.group(1)
+package_version = json.loads(Path('etc/package.json').read_text())['version']
+if version != package_version:
+    raise SystemExit(f'Version mismatch: pyproject.toml={version}, etc/package.json={package_version}')
+print(version)
 PY
-}
+)"
+SLUG="$($GH_BINARY repo view --json nameWithOwner --jq .nameWithOwner)"
+TAG="${TAG_PREFIX}${VERSION}"
 
-update_internal_dependencies() {
-    local abxbus_version abxpkg_version abx_plugins_version abx_dl_version
-
-    abxbus_version="$(read_repo_version "${WORKSPACE_DIR}/abxbus" || true)"
-    abxpkg_version="$(read_repo_version "${WORKSPACE_DIR}/abxpkg" || true)"
-    abx_plugins_version="$(read_repo_version "${WORKSPACE_DIR}/abx-plugins" || true)"
-    abx_dl_version="$(read_repo_version "${WORKSPACE_DIR}/abx-dl" || true)"
-
-    python3 - "${abxbus_version}" "${abxpkg_version}" "${abx_plugins_version}" "${abx_dl_version}" <<'PY'
-from pathlib import Path
-import re
-import sys
-
-path = Path('pyproject.toml')
-text = path.read_text()
-for name, version in (
-    ('abxbus', sys.argv[1]),
-    ('abxpkg', sys.argv[2]),
-    ('abx-plugins', sys.argv[3]),
-    ('abx-dl', sys.argv[4]),
-):
-    if version:
-        text = re.sub(rf'("{re.escape(name)}>=)[^"]+(")', rf'\g<1>{version}\2', text)
-path.write_text(text)
-PY
-}
-
-compare_versions() {
-    python3 - "$1" "$2" <<'PY'
-import re
-import sys
-
-def parse(version: str) -> tuple[int, int, int, int, int]:
-    match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-?rc(\d*))?$', version)
-    if not match:
-        raise SystemExit(f'Unsupported version format: {version}')
-    major, minor, patch, rc = match.groups()
-    return (int(major), int(minor), int(patch), 0 if 'rc' in version else 1, int(rc or '0'))
-
-left, right = sys.argv[1], sys.argv[2]
-if parse(left) > parse(right):
-    print('gt')
-elif parse(left) == parse(right):
-    print('eq')
-else:
-    print('lt')
-PY
-}
-
-latest_release_version() {
-    local slug="$1"
-    local raw_tags
-    raw_tags="$(gh api "repos/${slug}/releases?per_page=100" --jq '.[].tag_name' || true)"
-    RELEASE_TAGS="${raw_tags}" TAG_PREFIX_VALUE="${TAG_PREFIX}" python3 - <<'PY'
+PYPI_VERSIONS="$($CURL_BINARY -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" | $JQ_BINARY -r '.releases | keys[]')"
+GITHUB_TAGS="$($GH_BINARY api "repos/${SLUG}/releases?per_page=100" --jq '.[].tag_name')"
+LATEST="$(PYPI_VERSIONS="$PYPI_VERSIONS" GITHUB_TAGS="$GITHUB_TAGS" TAG_PREFIX="$TAG_PREFIX" $UV_BINARY run --no-project python - <<'PY'
 import os
 import re
 
-def parse(version: str) -> tuple[int, int, int, int, int]:
-    match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-?rc(\d*))?$', version)
+def parse(version):
+    match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-?rc(\d*))?', version)
     if not match:
-        return (-1, -1, -1, -1, -1)
+        return -1, -1, -1, -1, -1
     major, minor, patch, rc = match.groups()
-    return (int(major), int(minor), int(patch), 0 if 'rc' in version else 1, int(rc or '0'))
+    return int(major), int(minor), int(patch), 0 if 'rc' in version else 1, int(rc or 0)
 
-prefix = os.environ.get('TAG_PREFIX_VALUE', '')
-versions = [line.strip() for line in os.environ.get('RELEASE_TAGS', '').splitlines() if line.strip()]
-if prefix:
-    versions = [version[len(prefix):] if version.startswith(prefix) else version for version in versions]
-if not versions:
-    print('')
-else:
-    print(max(versions, key=parse))
-PY
-}
-
-latest_pypi_version() {
-    local package_name="$1"
-    local releases_json
-    releases_json="$(curl -fsSL "https://pypi.org/pypi/${package_name}/json" | jq -r '.releases | keys[]' || true)"
-    RELEASE_TAGS="${releases_json}" python3 - <<'PY'
-import os
-import re
-
-def parse(version: str) -> tuple[int, int, int, int, int]:
-    match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-?rc(\d*))?$', version)
-    if not match:
-        return (-1, -1, -1, -1, -1)
-    major, minor, patch, rc = match.groups()
-    return (int(major), int(minor), int(patch), 0 if 'rc' in version else 1, int(rc or '0'))
-
-versions = [line.strip() for line in os.environ.get('RELEASE_TAGS', '').splitlines() if line.strip()]
+versions = set(os.environ['PYPI_VERSIONS'].splitlines())
+prefix = os.environ['TAG_PREFIX']
+versions.update(tag[len(prefix):] if tag.startswith(prefix) else tag for tag in os.environ['GITHUB_TAGS'].splitlines())
+versions = [version for version in versions if parse(version)[0] >= 0]
 print(max(versions, key=parse) if versions else '')
 PY
+)"
+if [[ -n "$LATEST" ]]; then
+    ORDER="$(CURRENT="$VERSION" LATEST="$LATEST" $UV_BINARY run --no-project python - <<'PY'
+import os
+import re
+
+def parse(version):
+    match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-?rc(\d*))?', version)
+    if not match:
+        raise SystemExit(f'Unsupported version format: {version}')
+    major, minor, patch, rc = match.groups()
+    return int(major), int(minor), int(patch), 0 if 'rc' in version else 1, int(rc or 0)
+
+print('lt' if parse(os.environ['CURRENT']) < parse(os.environ['LATEST']) else 'ok')
+PY
+)"
+    [[ "$ORDER" != lt ]] || { echo "Source version $VERSION is behind published version $LATEST" >&2; exit 1; }
+fi
+
+[[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+[[ "$($GIT_BINARY rev-parse HEAD)" == "$RELEASE_SHA" ]]
+[[ -z "$($GIT_BINARY status --short)" ]]
+$GIT_BINARY fetch --quiet --no-tags origin "+refs/heads/${RELEASE_BRANCH:-dev}:refs/remotes/origin/${RELEASE_BRANCH:-dev}"
+$GIT_BINARY merge-base --is-ancestor "$RELEASE_SHA" "refs/remotes/origin/${RELEASE_BRANCH:-dev}"
+
+[[ "$(<"$RELEASE_DISTRIBUTIONS_DIR/COMMIT_SHA")" == "$RELEASE_SHA" ]]
+$UV_BINARY run --no-project python - "$RELEASE_DISTRIBUTIONS_DIR" <<'PY'
+from hashlib import sha256
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1])
+for line in (root / 'SHA256SUMS').read_text().splitlines():
+    expected, separator, filename = line.partition('  ')
+    if not separator or len(expected) != 64:
+        raise SystemExit(f'Invalid SHA256SUMS line: {line!r}')
+    artifact = root / filename
+    actual = sha256(artifact.read_bytes()).hexdigest()
+    if actual != expected:
+        raise SystemExit(f'Checksum mismatch for {artifact}: expected {expected}, got {actual}')
+PY
+shopt -s nullglob
+WHEELS=("$RELEASE_DISTRIBUTIONS_DIR"/archivebox-*.whl)
+SDISTS=("$RELEASE_DISTRIBUTIONS_DIR"/archivebox-*.tar.gz)
+[[ "${#WHEELS[@]}" -eq 1 ]]
+[[ "${#SDISTS[@]}" -eq 1 ]]
+[[ "${WHEELS[0]##*/}" == archivebox-${VERSION}-*.whl ]]
+[[ "${SDISTS[0]##*/}" == archivebox-${VERSION}.tar.gz ]]
+
+TAG_TARGET="$($GIT_BINARY ls-remote origin "refs/tags/${TAG}^{}")"
+TAG_TARGET="${TAG_TARGET%%[[:space:]]*}"
+if [[ -z "$TAG_TARGET" ]]; then
+    TAG_TARGET="$($GIT_BINARY ls-remote origin "refs/tags/${TAG}")"
+    TAG_TARGET="${TAG_TARGET%%[[:space:]]*}"
+fi
+[[ -z "$TAG_TARGET" || "$TAG_TARGET" == "$RELEASE_SHA" ]] || {
+    echo "$TAG points to $TAG_TARGET, not $RELEASE_SHA" >&2
+    exit 1
 }
 
-github_release_enabled() {
-    local version="$1"
-    if [[ "${version}" == *rc* && "${CREATE_GITHUB_RC_RELEASES:-0}" != "1" ]]; then
-        return 1
-    fi
-    if [[ "${CREATE_GITHUB_RELEASES:-1}" == "0" ]]; then
-        return 1
-    fi
-    return 0
-}
+PYPI_EXISTS=false
+GITHUB_EXISTS=false
+$CURL_BINARY -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/${VERSION}/json" >/dev/null 2>&1 && PYPI_EXISTS=true
+$GH_BINARY release view "$TAG" --repo "$SLUG" >/dev/null 2>&1 && GITHUB_EXISTS=true
+if [[ ( "$PYPI_EXISTS" == true || "$GITHUB_EXISTS" == true ) && "$TAG_TARGET" != "$RELEASE_SHA" ]]; then
+    echo "Cannot recover partial release $VERSION without an exact-SHA tag" >&2
+    exit 1
+fi
 
-create_git_tag() {
-    local version="$1"
-    local tag="${TAG_PREFIX}${version}"
-    if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
-        if [[ "$(git rev-list -n1 "${tag}")" != "$(git rev-parse HEAD)" ]]; then
-            echo "Tag ${tag} already exists but does not point at HEAD" >&2
-            return 1
-        fi
-    else
-        git tag -a "${tag}" -m "release: ${tag}"
-    fi
-    git push origin "refs/tags/${tag}"
-}
+if [[ "$GITHUB_EXISTS" == false ]]; then
+    RELEASE_ARGS=()
+    [[ "$VERSION" == *rc* ]] && RELEASE_ARGS+=(--prerelease)
+    $GH_BINARY release create "$TAG" --repo "$SLUG" --target "$RELEASE_SHA" \
+        --title "$TAG" --generate-notes "${RELEASE_ARGS[@]}"
+fi
 
-run_checks() {
-    uv sync --extra sonic --extra debug --all-groups --no-cache --upgrade
-    uv build --all
-}
+if [[ "$PYPI_EXISTS" == false ]]; then
+    $UV_BINARY publish --trusted-publishing always "${WHEELS[@]}" "${SDISTS[@]}"
+fi
 
-validate_release_state() {
-    local slug="$1"
-    local branch="$2"
-    local current latest relation
-
-    if [[ "$(git branch --show-current)" != "${branch}" ]]; then
-        echo "Skipping release-state validation on non-default branch $(git branch --show-current)"
-        return 0
-    fi
-
-    current="$(current_version)"
-    latest="$(latest_release_version "${slug}")"
-    if [[ -z "${latest}" ]]; then
-        echo "No published releases found for ${slug}; release state is valid"
-        return 0
-    fi
-
-    relation="$(compare_versions "${current}" "${latest}")"
-    if [[ "${relation}" == "lt" ]]; then
-        echo "Current version ${current} is behind latest published version ${latest}" >&2
-        return 1
-    fi
-
-    echo "Release state is valid: local=${current} latest=${latest}"
-}
-
-create_release() {
-    local slug="$1"
-    local version="$2"
-    local prerelease_args=()
-    if ! github_release_enabled "${version}"; then
-        echo "Skipping GitHub release object for ${TAG_PREFIX}${version}; git tag will still be pushed."
-        return 0
-    fi
-    if [[ "${version}" == *rc* ]]; then
-        prerelease_args+=(--prerelease)
-    fi
-    if gh release view "${TAG_PREFIX}${version}" --repo "${slug}" >/dev/null 2>&1; then
-        echo "GitHub release ${TAG_PREFIX}${version} already exists"
-        return 0
-    fi
-
-    gh release create "${TAG_PREFIX}${version}" \
-        --repo "${slug}" \
-        --target "$(git rev-parse HEAD)" \
-        --title "${TAG_PREFIX}${version}" \
-        --generate-notes \
-        "${prerelease_args[@]}"
-}
-
-publish_artifacts() {
-    local version="$1"
-    local artifact_prefix="${PYPI_PACKAGE//-/_}"
-    local artifacts=()
-    local dist_dir
-
-    shopt -s nullglob
-    for dist_dir in "${WORKSPACE_DIR}/dist" "${REPO_DIR}/dist"; do
-        artifacts+=("${dist_dir}/${PYPI_PACKAGE}-${version}"*)
-        if [[ "${artifact_prefix}" != "${PYPI_PACKAGE}" ]]; then
-            artifacts+=("${dist_dir}/${artifact_prefix}-${version}"*)
-        fi
-    done
-    shopt -u nullglob
-
-    if curl -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" | jq -e --arg version "${version}" '.releases[$version] | length > 0' >/dev/null 2>&1; then
-        echo "${PYPI_PACKAGE} ${version} already published on PyPI"
-    else
-        if [[ "${#artifacts[@]}" -eq 0 ]]; then
-            echo "Missing build artifacts for ${PYPI_PACKAGE}==${version}" >&2
-            return 1
-        fi
-
-        uv publish --trusted-publishing always "${artifacts[@]}"
-    fi
-
-}
-
-main() {
-    local slug branch version latest pypi_latest relation
-
-    source_optional_env
-    slug="$(repo_slug)"
-    branch="$(default_branch)"
-
-    if [[ "$(git branch --show-current)" != "${branch}" ]]; then
-        echo "Release must run from ${branch}, found $(git branch --show-current)" >&2
-        return 1
-    fi
-
-    version="$(current_version)"
-    latest="$(latest_release_version "${slug}")"
-    pypi_latest="$(latest_pypi_version "${PYPI_PACKAGE}")"
-    if [[ -n "${pypi_latest}" && ( -z "${latest}" || "$(compare_versions "${pypi_latest}" "${latest}")" == "gt" ) ]]; then
-        latest="${pypi_latest}"
-    fi
-    if [[ -z "${latest}" ]]; then
-        relation="gt"
-    else
-        relation="$(compare_versions "${version}" "${latest}")"
-    fi
-
-    if [[ "${relation}" == "eq" ]]; then
-        update_internal_dependencies
-        version="$(bump_version)"
-        run_checks
-
-        git add -A
-        git commit -m "release: ${TAG_PREFIX}${version}"
-        git push origin "${branch}"
-    elif [[ "${relation}" == "gt" ]]; then
-        run_checks
-        if [[ -n "$(git status --short)" ]]; then
-            git add -A
-            git commit -m "release: ${TAG_PREFIX}${version}"
-            git push origin "${branch}"
-        fi
-    else
-        echo "Current version ${version} is behind latest GitHub release ${latest}" >&2
-        return 1
-    fi
-
-    publish_artifacts "${version}"
-    create_git_tag "${version}"
-    create_release "${slug}" "${version}"
-
-    if github_release_enabled "${version}" && ! gh release view "${TAG_PREFIX}${version}" --repo "${slug}" >/dev/null 2>&1; then
-        echo "GitHub release ${TAG_PREFIX}${version} was not found after creation" >&2
-        return 1
-    fi
-
-    echo "Released ${PYPI_PACKAGE} ${version}"
-}
-
-main "$@"
+echo "Released ${PYPI_PACKAGE} ${VERSION} from ${RELEASE_SHA} using CI run ${CI_RUN_ID:-unknown}"

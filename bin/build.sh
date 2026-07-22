@@ -14,7 +14,6 @@ REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && p
 
 cd "$REPO_DIR"
 
-# pipenv install --dev
 
 # the order matters
 ./bin/build_docs.sh

@@ -31,14 +31,62 @@ __package__ = "archivebox.cli"
 __command__ = "archivebox snapshot"
 
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from itertools import islice
 
 import rich_click as click
 from rich import print as rprint
 from django.db.models import QuerySet
 
 SNAPSHOT_FILTER_TYPE_CHOICES = ("exact", "substring", "regex", "domain", "tag", "timestamp")
-SNAPSHOT_LIST_CHUNK_SIZE = 100
+SNAPSHOT_LIST_CHUNK_SIZE = 5000
+
+
+def iter_snapshot_json(queryset: QuerySet) -> Iterator[dict[str, object]]:
+    from archivebox.config import VERSION
+    from archivebox.core.models import SnapshotTag
+
+    fields = (
+        "id",
+        "crawl_id",
+        "url",
+        "title",
+        "bookmarked_at",
+        "created_at",
+        "timestamp",
+        "depth",
+        "status",
+        "fs_version",
+        "output_size",
+    )
+    rows = queryset.values(*fields).iterator(chunk_size=SNAPSHOT_LIST_CHUNK_SIZE)
+    while batch := list(islice(rows, SNAPSHOT_LIST_CHUNK_SIZE)):
+        tags_by_snapshot = {row["id"]: [] for row in batch}
+        tag_rows = (
+            SnapshotTag.objects.filter(snapshot_id__in=tags_by_snapshot).order_by("tag__name").values_list("snapshot_id", "tag__name")
+        )
+        for snapshot_id, tag_name in tag_rows:
+            tags_by_snapshot[snapshot_id].append(tag_name)
+
+        for row in batch:
+            archive_size = int(row["output_size"] or 0)
+            yield {
+                "type": "Snapshot",
+                "schema_version": VERSION,
+                "id": str(row["id"]),
+                "crawl_id": str(row["crawl_id"]),
+                "url": row["url"],
+                "title": row["title"],
+                "tags": ",".join(sorted(tags_by_snapshot[row["id"]])),
+                "bookmarked_at": row["bookmarked_at"].isoformat() if row["bookmarked_at"] else None,
+                "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+                "timestamp": row["timestamp"],
+                "depth": row["depth"],
+                "status": row["status"],
+                "fs_version": row["fs_version"],
+                "archive_size": archive_size,
+                "output_size": archive_size,
+            }
 
 
 # =============================================================================
@@ -296,8 +344,8 @@ def list_snapshots(
         return 0
 
     if not is_tty:
-        for snapshot in queryset.prefetch_related("tags").iterator(chunk_size=SNAPSHOT_LIST_CHUNK_SIZE):
-            write_record(snapshot.to_json())
+        for snapshot_json in iter_snapshot_json(queryset):
+            write_record(snapshot_json)
             count += 1
         rprint(f"[dim]Listed {count} snapshots[/dim]", file=sys.stderr)
         return 0

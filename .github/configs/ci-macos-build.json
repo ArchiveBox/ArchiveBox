@@ -1,0 +1,44 @@
+{
+  "properties": {
+    "CLANG_BINARY": {
+      "default": "clang"
+    },
+    "LDAPVC_BINARY": {
+      "default": "ldapvc"
+    }
+  },
+  "required_binaries": [
+    {
+      "name": "{CLANG_BINARY}",
+      "binproviders": "env,brew",
+      "overrides": {
+        "brew": {
+          "install_args": [
+            "llvm"
+          ]
+        }
+      }
+    },
+    {
+      "name": "{LDAPVC_BINARY}",
+      "binproviders": "env,brew",
+      "overrides": {
+        "env": {
+          "version": [
+            "ldapvc",
+            "-VV"
+          ]
+        },
+        "brew": {
+          "install_args": [
+            "openldap"
+          ],
+          "version": [
+            "ldapvc",
+            "-VV"
+          ]
+        }
+      }
+    }
+  ]
+}

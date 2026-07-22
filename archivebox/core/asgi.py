@@ -73,16 +73,3 @@ _patch_thread_sensitive_context_shutdown()
 
 # Standard Django ASGI application (no websockets/channels needed)
 application = get_asgi_application()
-
-# If websocket support is needed later, install channels and use:
-# from channels.routing import ProtocolTypeRouter, URLRouter
-# from channels.auth import AuthMiddlewareStack
-# from channels.security.websocket import AllowedHostsOriginValidator
-# from archivebox.core.routing import websocket_urlpatterns
-#
-# application = ProtocolTypeRouter({
-#     "http": get_asgi_application(),
-#     "websocket": AllowedHostsOriginValidator(
-#         AuthMiddlewareStack(URLRouter(websocket_urlpatterns))
-#     ),
-# })

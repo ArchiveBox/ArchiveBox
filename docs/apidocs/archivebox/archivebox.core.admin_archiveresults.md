@@ -43,6 +43,10 @@
   - ```{autodoc2-docstring} archivebox.core.admin_archiveresults.get_plugin_admin_url
     :summary:
     ```
+* - {py:obj}`get_process_link_label <archivebox.core.admin_archiveresults.get_process_link_label>`
+  - ```{autodoc2-docstring} archivebox.core.admin_archiveresults.get_process_link_label
+    :summary:
+    ```
 * - {py:obj}`render_archiveresults_list <archivebox.core.admin_archiveresults.render_archiveresults_list>`
   - ```{autodoc2-docstring} archivebox.core.admin_archiveresults.render_archiveresults_list
     :summary:
@@ -80,6 +84,13 @@
 :canonical: archivebox.core.admin_archiveresults.get_plugin_admin_url
 
 ```{autodoc2-docstring} archivebox.core.admin_archiveresults.get_plugin_admin_url
+```
+````
+
+````{py:function} get_process_link_label(process) -> str
+:canonical: archivebox.core.admin_archiveresults.get_process_link_label
+
+```{autodoc2-docstring} archivebox.core.admin_archiveresults.get_process_link_label
 ```
 ````
 

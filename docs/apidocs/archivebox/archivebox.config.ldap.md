@@ -48,6 +48,17 @@ Bases: {py:obj}`archivebox.config.configset.BaseConfigSet`
 
 ````
 
+````{py:attribute} _scope
+:canonical: archivebox.config.ldap.LDAPConfig._scope
+:type: str
+:value: >
+   'PrivateAttr(...)'
+
+```{autodoc2-docstring} archivebox.config.ldap.LDAPConfig._scope
+```
+
+````
+
 ````{py:attribute} LDAP_ENABLED
 :canonical: archivebox.config.ldap.LDAPConfig.LDAP_ENABLED
 :type: bool

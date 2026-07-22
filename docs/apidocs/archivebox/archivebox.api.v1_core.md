@@ -1710,11 +1710,33 @@ Bases: {py:obj}`ninja.FilterSchema`
 
 ````{py:attribute} search
 :canonical: archivebox.api.v1_core.SnapshotFilterSchema.search
-:type: typing.Annotated[str | None, FilterLookup(['url__icontains', 'title__icontains', 'tags__name__icontains', 'id__istartswith', 'id__iendswith', 'timestamp__startswith'])]
+:type: str | None
 :value: >
    None
 
 ```{autodoc2-docstring} archivebox.api.v1_core.SnapshotFilterSchema.search
+```
+
+````
+
+````{py:attribute} search_mode
+:canonical: archivebox.api.v1_core.SnapshotFilterSchema.search_mode
+:type: str | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotFilterSchema.search_mode
+```
+
+````
+
+````{py:attribute} status
+:canonical: archivebox.api.v1_core.SnapshotFilterSchema.status
+:type: str | None
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotFilterSchema.status
 ```
 
 ````
@@ -1781,6 +1803,30 @@ Bases: {py:obj}`ninja.FilterSchema`
    None
 
 ```{autodoc2-docstring} archivebox.api.v1_core.SnapshotFilterSchema.bookmarked_at__lt
+```
+
+````
+
+````{py:method} filter_search(value: str | None) -> django.db.models.Q
+:canonical: archivebox.api.v1_core.SnapshotFilterSchema.filter_search
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotFilterSchema.filter_search
+```
+
+````
+
+````{py:method} filter_search_mode(value: str | None) -> django.db.models.Q
+:canonical: archivebox.api.v1_core.SnapshotFilterSchema.filter_search_mode
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotFilterSchema.filter_search_mode
+```
+
+````
+
+````{py:method} filter_status(value: str | None) -> django.db.models.Q
+:canonical: archivebox.api.v1_core.SnapshotFilterSchema.filter_status
+
+```{autodoc2-docstring} archivebox.api.v1_core.SnapshotFilterSchema.filter_status
 ```
 
 ````

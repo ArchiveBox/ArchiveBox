@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev]
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  packages: write
+  security-events: write
+
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.event_name == 'workflow_dispatch' && format('manual-{0}', github.run_id) || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+jobs:
+  lint:
+    name: Linters
+    uses: ./.github/workflows/lint.yml
+    secrets: inherit
+
+  complete-tests:
+    name: Complete test suite
+    uses: ./.github/workflows/test.yml
+    secrets: inherit
+
+  sharded-plugin-tests:
+    name: Sharded and plugin tests
+    uses: ./.github/workflows/test-parallel.yml
+    secrets: inherit
+
+  documentation:
+    name: Documentation and root tests
+    uses: ./.github/workflows/docs.yml
+    secrets: inherit
+
+  codeql:
+    name: CodeQL
+    uses: ./.github/workflows/codeql.yml
+    secrets: inherit
+
+  python-artifacts:
+    name: Tested Python artifacts
+    uses: ./.github/workflows/pip.yml
+    secrets: inherit
+
+  docker-digests:
+    name: Tested Docker images
+    uses: ./.github/workflows/docker.yml
+    with:
+      push_digests: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' }}
+    secrets: inherit
+
+  required:
+    name: All required CI lanes
+    needs:
+      - lint
+      - complete-tests
+      - sharded-plugin-tests
+      - documentation
+      - codeql
+      - python-artifacts
+      - docker-digests
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo 'All required CI lanes and tested release artifacts succeeded.'

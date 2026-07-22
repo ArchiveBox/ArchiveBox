@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from importlib.resources import files
 from pathlib import Path
 
 import pytest
@@ -66,6 +67,7 @@ def test_enqueue_discovered_snapshots_refreshes_crawl_limits(tmp_path):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
+    from archivebox.plugins.hooks import run_hook
     from archivebox.services.runner import CrawlRunner
 
     crawl = Crawl.objects.create(
@@ -80,17 +82,26 @@ def test_enqueue_discovered_snapshots_refreshes_crawl_limits(tmp_path):
         status=Snapshot.StatusChoices.SEALED,
         depth=0,
     )
-    parser_dir = Path(snapshot.output_dir) / "parse_html_urls"
+    snap_dir = Path(snapshot.output_dir)
+    staticfile_dir = snap_dir / "staticfile"
+    parser_dir = snap_dir / "parse_txt_urls"
+    staticfile_dir.mkdir(parents=True, exist_ok=True)
     parser_dir.mkdir(parents=True, exist_ok=True)
-    (parser_dir / "urls.jsonl").write_text(
-        "\n".join(
-            [
-                json.dumps({"type": "Snapshot", "url": "https://example.com/child-a", "depth": 1}),
-                json.dumps({"type": "Snapshot", "url": "https://example.com/child-b", "depth": 1}),
-                "",
-            ],
-        ),
+    (staticfile_dir / "input.txt").write_text(
+        "https://example.com/child-a\nhttps://example.com/child-b\n",
+        encoding="utf-8",
     )
+    hook_path = Path(str(files("abx_plugins.plugins.parse_txt_urls").joinpath("on_Snapshot__71_parse_txt_urls.py")))
+    process = run_hook(
+        hook_path,
+        parser_dir,
+        config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},
+        timeout=30,
+        url=snapshot.url,
+        depth=snapshot.depth,
+    )
+    process.refresh_from_db()
+    assert process.exit_code == 0, process.stderr
 
     runner = CrawlRunner(crawl)
     Crawl.objects.filter(id=crawl.id).update(max_depth=1)
@@ -220,7 +231,7 @@ def test_seal_snapshot_cancels_queued_descendants_after_crawl_max_size():
     )
 
     bus = create_bus(name=f"test_snapshot_limit_cancel_{str(crawl.id).replace('-', '_')}")
-    service = SnapshotService(bus, crawl_id=str(crawl.id), schedule_snapshot=lambda snapshot_id: None)
+    service = SnapshotService(bus, crawl_id=str(crawl.id))
     try:
 
         async def emit_event() -> None:

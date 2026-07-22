@@ -7,17 +7,53 @@ There are two ways to publish your archive: using the `archivebox server` or by 
 ## 1. Use the built-in web server
 
 ```bash
+set -euo pipefail
+publish_root="$(mktemp -d)"
+server_pid=""
+log_pid=""
+cleanup() {
+    if [ -n "$server_pid" ]; then
+        kill "$server_pid"
+        wait "$server_pid" || true
+    fi
+    if [ -n "$log_pid" ]; then
+        kill "$log_pid" 2>/dev/null || true
+    fi
+    rm -rf "$publish_root"
+}
+trap cleanup EXIT
+mkdir -p "$publish_root/data"
+cd "$publish_root/data"
+archivebox init
+
 # set the permissions depending on how public/locked down you want it to be
 archivebox config --set PUBLIC_INDEX=True
 archivebox config --set PUBLIC_ADD_VIEW=True
 archivebox config --set PERMISSIONS=public        # default visibility of newly created snapshots (was: PUBLIC_SNAPSHOTS=True)
 
-# create an admin username and password for yourself
-archivebox manage createsuperuser
+# create an admin username and password for yourself (set your own value first)
+: "${ARCHIVEBOX_PUBLISH_ADMIN_PASSWORD:?Set ARCHIVEBOX_PUBLISH_ADMIN_PASSWORD to a unique password}"
+DJANGO_SUPERUSER_USERNAME="${ADMIN_USERNAME:-archivebox-docs-admin}" \
+DJANGO_SUPERUSER_EMAIL="${ADMIN_EMAIL:-archivebox-docs@example.com}" \
+DJANGO_SUPERUSER_PASSWORD="$ARCHIVEBOX_PUBLISH_ADMIN_PASSWORD" \
+archivebox manage createsuperuser --noinput
 
 # then start the webserver and open the web UI in your browser
-archivebox server 0.0.0.0:8000
-open http://127.0.0.1:8000
+server_port="${ARCHIVEBOX_DOCS_ARCHIVEBOX_PORT:-8000}"
+server_log="$publish_root/archivebox-server.log"
+server_output_fifo="$publish_root/archivebox-server-output"
+server_ready_fifo="$publish_root/archivebox-server-ready"
+mkfifo "$server_output_fifo" "$server_ready_fifo"
+awk -v log="$server_log" -v ready_fifo="$server_ready_fifo" -v pattern="Listening on TCP" '
+    { print >> log; fflush(log) }
+    !ready && $0 ~ pattern { print "ready" > ready_fifo; close(ready_fifo); ready=1 }
+' <"$server_output_fifo" &
+log_pid=$!
+PYTHONUNBUFFERED=1 archivebox server "0.0.0.0:$server_port" >"$server_output_fifo" 2>&1 &
+server_pid=$!
+IFS= read -r readiness < "$server_ready_fifo"
+test "$readiness" = "ready"
+curl --fail --silent --show-error "http://127.0.0.1:$server_port/" >/dev/null
 ```
 
 This server is enabled out-of-the-box if you're using `docker-compose` to run ArchiveBox.
@@ -32,6 +68,26 @@ If hosting publicly, it's essential to place an SSL termination server in front 
 ## 2. Export and host it as static HTML
 
 ```bash
+set -euo pipefail
+publish_root="$(mktemp -d)"
+server_pid=""
+log_pid=""
+cleanup() {
+    if [ -n "$server_pid" ]; then
+        kill "$server_pid"
+        wait "$server_pid" || true
+    fi
+    if [ -n "$log_pid" ]; then
+        kill "$log_pid" 2>/dev/null || true
+    fi
+    rm -rf "$publish_root"
+}
+trap cleanup EXIT
+mkdir -p "$publish_root/data"
+cd "$publish_root/data"
+archivebox init
+archivebox add --index-only "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
+
 archivebox list --html --with-headers > index.html
 archivebox list --json --with-headers > index.json
 
@@ -39,8 +95,22 @@ archivebox list --json --with-headers > index.json
 # e.g. github pages or another static hosting provider
 
 # you can also serve it with the simple python HTTP server
-python3 -m http.server --bind 0.0.0.0 --directory . 8000
-open http://127.0.0.1:8000
+server_port="${ARCHIVEBOX_DOCS_STATIC_PORT:-8001}"
+server_log="$publish_root/static-server.log"
+server_output_fifo="$publish_root/static-server-output"
+server_ready_fifo="$publish_root/static-server-ready"
+mkfifo "$server_output_fifo" "$server_ready_fifo"
+awk -v log="$server_log" -v ready_fifo="$server_ready_fifo" -v pattern="Serving HTTP on" '
+    { print >> log; fflush(log) }
+    !ready && $0 ~ pattern { print "ready" > ready_fifo; close(ready_fifo); ready=1 }
+' <"$server_output_fifo" &
+log_pid=$!
+uv run --no-project python -u -m http.server --bind 0.0.0.0 --directory . "$server_port" >"$server_output_fifo" 2>&1 &
+server_pid=$!
+IFS= read -r readiness < "$server_ready_fifo"
+test "$readiness" = "ready"
+curl --fail --silent --show-error "http://127.0.0.1:$server_port/index.html" >/dev/null
+curl --fail --silent --show-error "http://127.0.0.1:$server_port/index.json" >/dev/null
 ```
 
 Here's a sample nginx configuration that works to serve your static archive folder:

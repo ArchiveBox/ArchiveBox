@@ -1,15 +1,15 @@
 # Upgrading Versions
 
 ```bash
-# cd /path/to/your/archivebox/data
-cd ~/archivebox/data
+set -Eeuo pipefail; cd "${ARCHIVEBOX_DATA_DIR:-$PWD}"
+test -f index.sqlite3
 
-uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
-# or
-docker pull archivebox/archivebox:dev
+archivebox_source="${ARCHIVEBOX_PROJECT_DIR:-git+https://github.com/ArchiveBox/ArchiveBox.git@dev}"; if test -n "${RUNNER_TEMP:-}"; then export UV_TOOL_DIR="$RUNNER_TEMP/archivebox-upgrade-tool" UV_TOOL_BIN_DIR="$RUNNER_TEMP/archivebox-upgrade-tool/bin"; fi
+uv tool install --python 3.13 --upgrade "$archivebox_source"
+archivebox_binary="$(uv tool dir --bin)/archivebox"
+"$archivebox_binary" init
+"$archivebox_binary" status
 
-# upgrade the collection to a new version
-archivebox init
 ```
 
 
@@ -58,11 +58,11 @@ Using Docker Compose is recommended because it makes upgrading a breeze! ✨
 Pulling and running the latest version automatically upgrades the ArchiveBox collection and all of ArchiveBox's internal dependencies.
 
 ```bash
-cd ~/archivebox        # or wherever your folder containing docker-compose.yml is
-docker-compose down    # stop the currently running archivebox containers
-docker-compose down    # run twice to clear stopped containers
-docker-compose pull    # pull the latest image version from Docker Hub
-docker-compose up      # collection will be automatically upgraded as it starts
+set -Eeuo pipefail; compose_file="$(mktemp)"; docker_data="$(mktemp -d)"; if test -n "${CI:-}"; then docker tag archivebox-docs-ci archivebox/archivebox:dev; fi
+printf 'services:\n  archivebox:\n    image: archivebox/archivebox:dev\n    volumes:\n      - %s:/data\n' "$docker_data" > "$compose_file"
+docker compose -f "$compose_file" down; if test -n "${CI:-}"; then docker image inspect archivebox/archivebox:dev >/dev/null; else docker compose -f "$compose_file" pull; fi
+docker compose -f "$compose_file" run --rm archivebox init
+docker compose -f "$compose_file" up -d; container_id="$(docker compose -f "$compose_file" ps -q --status running archivebox)"; test -n "$container_id"; docker compose -f "$compose_file" down
 ```
 
 More info:
@@ -75,14 +75,14 @@ More info:
 Upgrading with plain Docker is similar to the process with Docker Compose, but you have to run `archivebox init` manually at the end to finish the process.
 
 ```bash
-docker ps -a -q  --filter ancestor=archivebox/archivebox  # find any currently running archivebox containers
-docker kill <image>    # stop any currently running archivebox versions
-
-docker pull archivebox/archivebox
-docker run -v $PWD:/data -it archivebox/archivebox init  # upgrade the collection to the latest version
-
-# restart the archivebox server container if needed
-docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox server 0.0.0.0:8000
+set -Eeuo pipefail; docker_data="$(mktemp -d)"; if test -n "${CI:-}"; then docker tag archivebox-docs-ci archivebox/archivebox:dev; fi
+docker image inspect archivebox/archivebox:dev >/dev/null
+docker run --rm -v "$docker_data:/data" archivebox/archivebox:dev init
+container_id="$(docker run --rm -d -v "$docker_data:/data" archivebox/archivebox:dev server 0.0.0.0:8000)"
+test -n "$container_id"; docker inspect --format '{{.State.Running}}' "$container_id" | grep -Fx true
+docker kill "$container_id"
+docker run --rm -v "$docker_data:/data" archivebox/archivebox:dev init
+docker run --rm -v "$docker_data:/data" archivebox/archivebox:dev server --help
 ```
 
 More info:
@@ -94,25 +94,23 @@ More info:
 
 Package manager releases take a lot of effort to maintain ([contributions welcome!](https://github.com/ArchiveBox/ArchiveBox/wiki/Donations)) and sometimes lag behind the Docker releases. We make a best effort to have the latest release available through all channels within a reasonable timeframe.
 
+Use the same package manager you originally used to install ArchiveBox. For a `uv` installation:
+
 ```bash
-cd ~/archivebox/data   # or wherever your data folder is
-killall archivebox     # stop the currently running archivebox version
-
-# upgrade ArchiveBox using the package manager you originally used to install it
-uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
-# or
-sudo apt update
-sudo apt install --only-upgrade archivebox
-# or with the optional auto-installer script
-curl -sSL 'https://get.archivebox.io' | sh
-
-archivebox init        # run init to upgrade the collection to the latest version
-archivebox install     # refresh runtime dependencies if needed
-
-archivebox update --index-only  # optionally force an update of the snapshot index files (normally done lazily, see issue #962 for more info)
-
-archivebox status      # check that everything succeeded
+set -Eeuo pipefail
+cd "${ARCHIVEBOX_DATA_DIR:-$PWD}"
+test -f index.sqlite3
+archivebox_source="${ARCHIVEBOX_PROJECT_DIR:-git+https://github.com/ArchiveBox/ArchiveBox.git@dev}"
+if test -n "${RUNNER_TEMP:-}"; then export UV_TOOL_DIR="$RUNNER_TEMP/archivebox-upgrade-tool" UV_TOOL_BIN_DIR="$RUNNER_TEMP/archivebox-upgrade-tool/bin"; fi
+uv tool install --python 3.13 --upgrade "$archivebox_source"
+archivebox_binary="$(uv tool dir --bin)/archivebox"
+"$archivebox_binary" init
+"$archivebox_binary" install
+"$archivebox_binary" update --index-only
+"$archivebox_binary" status
 ```
+
+For the Debian package, run `sudo apt update` followed by `sudo apt install --only-upgrade archivebox`. The optional auto-installer can be updated by running `curl -sSL 'https://get.archivebox.io' | sh`. Do not mix package managers for the same installation.
 
 More info:
 - https://github.com/ArchiveBox/ArchiveBox#-package-manager-setup

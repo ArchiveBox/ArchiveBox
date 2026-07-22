@@ -323,21 +323,8 @@ def run_hook(
             # If Process.current() fails (e.g., not in a worker context), leave parent as None
             pass
 
-    if not script.exists():
-        # Create a failed Process record for hooks that don't exist
-        process = Process.objects.create(
-            machine=machine,
-            iface=iface,
-            parent=parent,
-            process_type=Process.TypeChoices.HOOK,
-            pwd=str(output_dir),
-            cmd=["echo", f"Hook script not found: {script}"],
-            timeout=timeout,
-            status=Process.StatusChoices.EXITED,
-            exit_code=1,
-            stderr=f"Hook script not found: {script}",
-        )
-        return process
+    if not script.is_file():
+        raise FileNotFoundError(f"Hook script not found: {script}")
 
     # Python hooks carry their runtime contract in the shebang
     # (usually `abxpkg run --script python3`), so execute them directly.
@@ -345,11 +332,18 @@ def run_hook(
     # interpreter because those hooks do not need per-script Python env setup.
     ext = script.suffix.lower()
     if ext == ".sh":
-        cmd = ["bash", str(script)]
+        bash_projection = Path(hook_config["ABXPKG_LIB_DIR"]).expanduser() / "env" / "bin" / "bash"
+        if not bash_projection.is_symlink() or not os.access(bash_projection, os.X_OK):
+            raise RuntimeError(f"Bash must be resolved by abxpkg into {bash_projection}")
+        cmd = [str(bash_projection), str(script)]
     elif ext == ".py":
         cmd = [str(script)]
     elif ext == ".js":
-        cmd = ["node", str(script)]
+        node_projection = Path(hook_config["ABXPKG_LIB_DIR"]).expanduser() / "env" / "bin" / "node"
+        if not node_projection.is_symlink() or not os.access(node_projection, os.X_OK):
+            raise RuntimeError(f"Node.js must be resolved by abxpkg into {node_projection}")
+        hook_config["NODE_BINARY"] = str(node_projection)
+        cmd = [str(node_projection), str(script)]
     else:
         # Try to execute directly (assumes shebang)
         cmd = [str(script)]
@@ -510,10 +504,12 @@ def extract_records_from_process(process: "Process") -> list[dict[str, Any]]:
     if not records:
         return []
 
-    # Extract plugin metadata from process.pwd and process.cmd
+    # Extract plugin metadata from process.pwd and the shipped hook path in cmd.
+    # Python hooks execute directly through their shebang, while JS and shell
+    # hooks have an interpreter in cmd[0].
     plugin_name = Path(process.pwd).name if process.pwd else "unknown"
-    hook_name = Path(process.cmd[1]).name if len(process.cmd) > 1 else "unknown"
-    plugin_hook = process.cmd[1] if len(process.cmd) > 1 else ""
+    plugin_hook = next((str(arg) for arg in process.cmd if Path(str(arg)).name.startswith("on_")), "")
+    hook_name = Path(plugin_hook).name if plugin_hook else "unknown"
 
     for record in records:
         # Add plugin metadata to record

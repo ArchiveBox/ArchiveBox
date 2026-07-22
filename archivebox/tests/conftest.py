@@ -5,6 +5,7 @@ import json
 import re
 import secrets
 import signal
+import select
 import socket
 import subprocess
 import sys
@@ -12,10 +13,11 @@ import tempfile
 import textwrap
 import time
 import shutil
+import ctypes
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from threading import Thread
+from threading import Event, Thread
 from types import SimpleNamespace
 from typing import Any
 from collections.abc import Callable
@@ -40,6 +42,8 @@ os.environ.pop("ARCHIVE_DIR", None)
 os.environ.pop("USERS_DIR", None)
 os.environ.pop("CRAWL_DIR", None)
 os.environ.pop("SNAP_DIR", None)
+
+_RUNTIME_GUARD_ACTIVE = False
 
 
 def _is_repo_path(path: Path) -> bool:
@@ -120,6 +124,25 @@ def _sync_archivebox_test_data_dir(data_dir: Path) -> None:
     )
 
 
+def _archivebox_test_audit_hook(event: str, args: tuple[Any, ...]) -> None:
+    """Enforce runtime path isolation through Python's native audit surface."""
+    if not _RUNTIME_GUARD_ACTIVE:
+        return
+    if event == "os.chdir":
+        path = Path(args[0])
+        _assert_not_repo_path(path, label="cwd")
+        _sync_archivebox_test_data_dir(path)
+    elif event == "subprocess.Popen":
+        cwd = args[2]
+        env = args[3]
+        if cwd is not None:
+            _assert_not_repo_path(Path(cwd), label="cwd")
+        _assert_safe_runtime_paths(cwd=Path(cwd) if cwd is not None else None, env=env)
+
+
+sys.addaudithook(_archivebox_test_audit_hook)
+
+
 # =============================================================================
 # CLI Helpers (defined before fixtures that use them)
 # =============================================================================
@@ -170,9 +193,6 @@ class ArchiveBoxCmdResult:
 
     def terminate(self) -> None:
         self._process.terminate()
-
-    def kill(self) -> None:
-        self._process.kill()
 
     def send_signal(self, sig: int) -> None:
         self._process.send_signal(sig)
@@ -263,8 +283,8 @@ def run_archivebox_cmd(
         try:
             result.communicate(input=input, timeout=timeout)
         except subprocess.TimeoutExpired:
-            process.kill()
-            result.communicate()
+            process.terminate()
+            process.wait(timeout=5)
             raise
         if check and result.returncode:
             raise subprocess.CalledProcessError(
@@ -305,7 +325,7 @@ def pytest_configure():
 
 
 @pytest.fixture(autouse=True)
-def isolate_test_runtime(tmp_path, monkeypatch):
+def isolate_test_runtime(tmp_path):
     """
     Run each pytest test from an isolated temp cwd and restore env mutations.
 
@@ -317,11 +337,11 @@ def isolate_test_runtime(tmp_path, monkeypatch):
     ArchiveBox derives DATA_DIR from cwd, so subprocess helpers pass the target
     collection as cwd instead of using DATA_DIR as an override.
     """
+    global _RUNTIME_GUARD_ACTIVE
+
     _assert_not_repo_path(tmp_path, label="tmp_path")
     original_cwd = Path.cwd()
     original_env = os.environ.copy()
-    original_chdir = os.chdir
-    original_popen = subprocess.Popen
     os.chdir(tmp_path)
     _sync_archivebox_test_data_dir(tmp_path)
     os.environ.pop("DATA_DIR", None)
@@ -334,28 +354,15 @@ def isolate_test_runtime(tmp_path, monkeypatch):
         machine_models._CURRENT_PROCESS = None
         machine_models._CURRENT_BINARIES.clear()
 
-    def guarded_chdir(path: os.PathLike[str] | str) -> None:
-        _assert_not_repo_path(Path(path), label="cwd")
-        original_chdir(path)
-        _sync_archivebox_test_data_dir(Path(path))
-
-    def guarded_popen(*args: Any, **kwargs: Any):
-        cwd = kwargs.get("cwd")
-        env = kwargs.get("env")
-        if cwd is not None:
-            _assert_not_repo_path(Path(cwd), label="cwd")
-        _assert_safe_runtime_paths(cwd=Path(cwd) if cwd is not None else None, env=env)
-        return original_popen(*args, **kwargs)
-
-    monkeypatch.setattr(os, "chdir", guarded_chdir)
-    monkeypatch.setattr(subprocess, "Popen", guarded_popen)
     reset_machine_model_caches()
+    _RUNTIME_GUARD_ACTIVE = True
     try:
         _assert_safe_runtime_paths(cwd=Path.cwd(), env=os.environ)
         yield
     finally:
+        _RUNTIME_GUARD_ACTIVE = False
         reset_machine_model_caches()
-        original_chdir(original_cwd)
+        os.chdir(original_cwd)
         _sync_archivebox_test_data_dir(original_cwd)
         os.environ.clear()
         os.environ.update(original_env)
@@ -378,7 +385,7 @@ def isolated_data_dir(tmp_path):
 
 
 @pytest.fixture
-def hermetic_lib_dir(tmp_path, monkeypatch):
+def hermetic_lib_dir(tmp_path):
     """
     Point ABXPKG_LIB_DIR at a temporary directory for isolated abxpkg resolution.
 
@@ -390,10 +397,27 @@ def hermetic_lib_dir(tmp_path, monkeypatch):
 
     lib_dir = tmp_path / "lib"
     lib_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setenv("ABXPKG_LIB_DIR", str(lib_dir))
+    original_lib_dir = os.environ.get("ABXPKG_LIB_DIR")
+    os.environ["ABXPKG_LIB_DIR"] = str(lib_dir)
     machine_models._CURRENT_MACHINE = None
     machine_models._CURRENT_PROCESS = None
-    return lib_dir
+    try:
+        yield lib_dir
+    finally:
+        if original_lib_dir is None:
+            os.environ.pop("ABXPKG_LIB_DIR", None)
+        else:
+            os.environ["ABXPKG_LIB_DIR"] = original_lib_dir
+        machine_models._CURRENT_MACHINE = None
+        machine_models._CURRENT_PROCESS = None
+
+
+@pytest.fixture
+def cached_abxpkg_lib_dir():
+    """Reuse the configured abxpkg cache when a test is not validating LIB_DIR isolation."""
+    from archivebox.config.common import get_config
+
+    return get_config().ABXPKG_LIB_DIR
 
 
 @pytest.fixture
@@ -509,8 +533,43 @@ def recursive_test_site():
         }
     finally:
         server.shutdown()
-        server.server_close()
-        thread.join(timeout=5)
+    server.server_close()
+    thread.join()
+
+
+@pytest.fixture
+def blocking_http_server():
+    """Serve one real request behind explicit start/release synchronization."""
+
+    request_started = Event()
+    release_response = Event()
+
+    class BlockingHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            request_started.set()
+            release_response.wait()
+            body = b"<html><head><title>Barrier</title></head><body>released</body></html>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), BlockingHandler)
+    thread = Thread(target=server.serve_forever, name="archivebox-test-http-barrier")
+    thread.start()
+    yield SimpleNamespace(
+        url=f"http://127.0.0.1:{server.server_port}/",
+        request_started=request_started,
+        release_response=release_response,
+    )
+    release_response.set()
+    server.shutdown()
+    server.server_close()
+    thread.join()
 
 
 @pytest.fixture
@@ -555,21 +614,18 @@ def archivebox_daemon_server(initialized_archive, free_tcp_port_factory):
             _stop_archivebox_supervisord(cwd, env)
 
 
-def wait_for_process(predicate: Callable[[psutil.Process, str], bool], *, timeout: float = 20.0) -> psutil.Process:
-    deadline = time.time() + timeout
+def find_process(predicate: Callable[[psutil.Process, str], bool]) -> psutil.Process:
+    """Locate a process after its native readiness signal has fired."""
     last_seen: list[str] = []
-    while time.time() < deadline:
-        last_seen = []
-        for proc in psutil.process_iter(["pid", "ppid", "cmdline"]):
-            try:
-                cmdline = proc.info.get("cmdline") or []
-                command = " ".join(cmdline)
-                last_seen.append(f"{proc.info.get('pid')} {proc.info.get('ppid')} {command}")
-                if predicate(proc, command):
-                    return proc
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                continue
-        time.sleep(0.2)
+    for proc in psutil.process_iter(["pid", "ppid", "cmdline"]):
+        try:
+            cmdline = proc.info.get("cmdline") or []
+            command = " ".join(cmdline)
+            last_seen.append(f"{proc.info.get('pid')} {proc.info.get('ppid')} {command}")
+            if predicate(proc, command):
+                return proc
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
     raise AssertionError("No matching live process found. Last seen:\n" + "\n".join(last_seen[-50:]))
 
 
@@ -583,31 +639,37 @@ def pid_is_alive(pid: int) -> bool:
 
 
 def wait_for_pid_to_disappear(pid: int, *, timeout: float = 20.0) -> None:
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        if not pid_is_alive(pid):
-            return
-        time.sleep(0.1)
-    raise AssertionError(f"PID {pid} is still running")
+    try:
+        psutil.Process(pid).wait(timeout=timeout)
+    except psutil.NoSuchProcess:
+        return
+    except psutil.TimeoutExpired as exc:
+        raise AssertionError(f"PID {pid} is still running") from exc
 
 
 def cleanup_process_group(group_pid: int | None, *child_pids: int | None) -> None:
+    processes: list[psutil.Process] = []
     if group_pid and pid_is_alive(group_pid):
         try:
-            os.killpg(group_pid, signal.SIGKILL)
+            os.killpg(group_pid, signal.SIGTERM)
         except ProcessLookupError:
             pass
         except OSError:
             try:
-                os.kill(group_pid, signal.SIGKILL)
+                os.kill(group_pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
+        processes.append(psutil.Process(group_pid))
     for pid in child_pids:
         if pid and pid_is_alive(pid):
             try:
-                os.kill(pid, signal.SIGKILL)
+                os.kill(pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
+            else:
+                processes.append(psutil.Process(pid))
+    _gone, alive = psutil.wait_procs(processes, timeout=10)
+    assert not alive, f"processes did not stop after SIGTERM: {[proc.pid for proc in alive]}"
 
 
 def cli_env(
@@ -685,52 +747,142 @@ def cli_env(
     return env
 
 
-def wait_for_port_open(host: str, port: int, *, timeout: float = 30.0) -> None:
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        try:
-            with socket.create_connection((host, port), timeout=0.25):
-                return
-        except OSError:
-            time.sleep(0.1)
-    raise AssertionError(f"server did not listen on {host}:{port}")
+def assert_port_open(host: str, port: int, *, timeout: float = 30.0) -> None:
+    """Verify a listening socket after the server emitted its readiness event."""
+    with socket.create_connection((host, port), timeout=timeout) as connection:
+        assert connection.getpeername() == (host, port)
+
+
+def _wait_for_log_match(log_path: Path, pattern: str, *, fixed: bool, count: int, timeout: float) -> str:
+    """Block on native filesystem notifications until the requested log event exists."""
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + timeout
+
+    if sys.platform == "darwin":
+        parent_fd = os.open(log_path.parent, os.O_RDONLY)
+        watched_fd: int | None = None
+        event_queue = select.kqueue()
+        event_queue.control(
+            [
+                select.kevent(
+                    parent_fd,
+                    filter=select.KQ_FILTER_VNODE,
+                    flags=select.KQ_EV_ADD | select.KQ_EV_CLEAR,
+                    fflags=select.KQ_NOTE_WRITE | select.KQ_NOTE_RENAME | select.KQ_NOTE_DELETE,
+                ),
+            ],
+            0,
+            0,
+        )
+
+        def refresh_file_watcher() -> None:
+            nonlocal watched_fd
+            if watched_fd is not None:
+                try:
+                    same_file = os.fstat(watched_fd).st_ino == log_path.stat().st_ino
+                except (FileNotFoundError, OSError):
+                    same_file = False
+                if same_file:
+                    return
+                try:
+                    event_queue.control(
+                        [
+                            select.kevent(
+                                watched_fd,
+                                filter=select.KQ_FILTER_VNODE,
+                                flags=select.KQ_EV_DELETE,
+                            ),
+                        ],
+                        0,
+                        0,
+                    )
+                except OSError:
+                    pass
+                os.close(watched_fd)
+                watched_fd = None
+            if log_path.exists():
+                try:
+                    watched_fd = os.open(log_path, os.O_RDONLY)
+                except FileNotFoundError:
+                    return
+                event_queue.control(
+                    [
+                        select.kevent(
+                            watched_fd,
+                            filter=select.KQ_FILTER_VNODE,
+                            flags=select.KQ_EV_ADD | select.KQ_EV_CLEAR,
+                            fflags=(
+                                select.KQ_NOTE_WRITE
+                                | select.KQ_NOTE_EXTEND
+                                | select.KQ_NOTE_ATTRIB
+                                | select.KQ_NOTE_RENAME
+                                | select.KQ_NOTE_DELETE
+                            ),
+                        ),
+                    ],
+                    0,
+                    0,
+                )
+
+        def wait_for_change(remaining: float) -> None:
+            events = event_queue.control(None, 1, remaining)
+            assert events, f"timed out waiting for filesystem event on {log_path}"
+            refresh_file_watcher()
+
+        def close_watcher() -> None:
+            event_queue.close()
+            if watched_fd is not None:
+                os.close(watched_fd)
+            os.close(parent_fd)
+
+        refresh_file_watcher()
+
+    else:
+        libc = ctypes.CDLL(None, use_errno=True)
+        inotify_fd = libc.inotify_init1(os.O_CLOEXEC)
+        assert inotify_fd >= 0, os.strerror(ctypes.get_errno())
+        watch_mask = 0x00000002 | 0x00000008 | 0x00000080 | 0x00000100
+        watch_descriptor = libc.inotify_add_watch(inotify_fd, os.fsencode(log_path.parent), watch_mask)
+        assert watch_descriptor >= 0, os.strerror(ctypes.get_errno())
+
+        def wait_for_change(remaining: float) -> None:
+            readable, _writable, _errors = select.select([inotify_fd], [], [], remaining)
+            assert readable, f"timed out waiting for filesystem event on {log_path}"
+            os.read(inotify_fd, 65536)
+
+        def close_watcher() -> None:
+            os.close(inotify_fd)
+
+    try:
+        while True:
+            content = log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
+            matches = content.count(pattern) if fixed else len(re.findall(pattern, content))
+            if matches >= count:
+                return content
+            remaining = deadline - time.monotonic()
+            assert remaining > 0, f"timed out waiting for {pattern!r} in {log_path}:\n{content}"
+            wait_for_change(remaining)
+    finally:
+        close_watcher()
 
 
 def wait_for_log(log_path: Path, text: str, *, timeout: float = 30.0) -> str:
-    deadline = time.time() + timeout
-    content = ""
-    while time.time() < deadline:
-        if log_path.exists():
-            content = log_path.read_text(encoding="utf-8", errors="replace")
-            if text in content:
-                return content
-        time.sleep(0.1)
-    raise AssertionError(f"timed out waiting for {text!r} in {log_path}:\n{content}")
+    content = _wait_for_log_match(log_path, text, fixed=True, count=1, timeout=timeout)
+    assert text in content, content
+    return content
 
 
 def wait_for_log_count(log_path: Path, text: str, count: int, *, timeout: float = 30.0) -> str:
-    deadline = time.time() + timeout
-    content = ""
-    while time.time() < deadline:
-        if log_path.exists():
-            content = log_path.read_text(encoding="utf-8", errors="replace")
-            if content.count(text) >= count:
-                return content
-        time.sleep(0.1)
-    raise AssertionError(f"timed out waiting for {count} occurrences of {text!r} in {log_path}:\n{content}")
+    content = _wait_for_log_match(log_path, text, fixed=True, count=count, timeout=timeout)
+    assert content.count(text) >= count, content
+    return content
 
 
 def wait_for_log_pattern(log_path: Path, pattern: str, *, timeout: float = 30.0) -> re.Match[str]:
-    deadline = time.time() + timeout
-    content = ""
-    while time.time() < deadline:
-        if log_path.exists():
-            content = log_path.read_text(encoding="utf-8", errors="replace")
-            match = re.search(pattern, content)
-            if match:
-                return match
-        time.sleep(0.1)
-    raise AssertionError(f"timed out waiting for pattern {pattern!r} in {log_path}:\n{content}")
+    content = _wait_for_log_match(log_path, pattern, fixed=False, count=1, timeout=timeout)
+    match = re.search(pattern, content)
+    assert match is not None, content
+    return match
 
 
 def supervisor_pid_from_log(log_path: Path) -> int:
@@ -748,20 +900,27 @@ def worker_pid_from_log(log_path: Path, worker_name: str) -> int:
 
 
 def wait_for_worker_pid_from_log(log_path: Path, worker_name: str, *, timeout: float = 45.0) -> int:
-    deadline = time.time() + timeout
-    last_error = ""
-    while time.time() < deadline:
-        try:
-            return worker_pid_from_log(log_path, worker_name)
-        except AssertionError as err:
-            last_error = str(err)
-            time.sleep(0.1)
-    raise AssertionError(last_error or f"timed out waiting for worker {worker_name!r} in {log_path}")
+    wait_for_log_pattern(
+        log_path,
+        rf"Worker {re.escape(worker_name)}: started RUNNING \(pid [0-9]+,",
+        timeout=timeout,
+    )
+    return worker_pid_from_log(log_path, worker_name)
 
 
 def pgrep_data_dir(data_dir: Path) -> list[str]:
-    result = subprocess.run(["pgrep", "-af", str(data_dir)], capture_output=True, text=True, timeout=5)
-    lines = [line for line in result.stdout.splitlines() if "pgrep -af" not in line]
+    lines: list[str] = []
+    seen_pids: set[int] = set()
+    for process in psutil.process_iter(["pid", "ppid", "cmdline"]):
+        try:
+            command = " ".join(process.info.get("cmdline") or [])
+            if str(data_dir) not in command:
+                continue
+            pid = int(process.info["pid"])
+            seen_pids.add(pid)
+            lines.append(f"{pid} {process.info.get('ppid') or 0} {command}")
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
 
     for runtime_root in (Path("/tmp/archivebox"), data_dir / "tmp"):
         for config_path in runtime_root.glob("*/supervisord.conf"):
@@ -778,30 +937,34 @@ def pgrep_data_dir(data_dir: Path) -> list[str]:
                 continue
             if not pid_is_alive(pid):
                 continue
-            ps_line = subprocess.run(
-                ["ps", "-p", str(pid), "-o", "pid=,ppid=,command="],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            ).stdout.strip()
-            if ps_line:
-                lines.append(ps_line)
+            if pid in seen_pids:
+                continue
+            try:
+                process = psutil.Process(pid)
+                lines.append(f"{pid} {process.ppid()} {' '.join(process.cmdline())}")
+                seen_pids.add(pid)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
 
     return sorted(set(lines))
 
 
 def assert_no_processes_for_data_dir(data_dir: Path, *, timeout: float = 10.0) -> None:
-    deadline = time.time() + timeout
-    remaining: list[str] = []
-    while time.time() < deadline:
-        remaining = pgrep_data_dir(data_dir)
-        if not remaining:
-            return
-        time.sleep(0.25)
-    raise AssertionError("processes still reference test DATA_DIR:\n" + "\n".join(remaining))
+    remaining = pgrep_data_dir(data_dir)
+    processes = []
+    for line in remaining:
+        pid = int(line.split(None, 1)[0])
+        try:
+            processes.append(psutil.Process(pid))
+        except psutil.NoSuchProcess:
+            continue
+    _gone, alive = psutil.wait_procs(processes, timeout=timeout)
+    final_remaining = pgrep_data_dir(data_dir)
+    assert not alive and not final_remaining, "processes still reference test DATA_DIR:\n" + "\n".join(final_remaining)
 
 
 def kill_processes_for_data_dir(data_dir: Path) -> None:
+    processes: list[psutil.Process] = []
     for line in pgrep_data_dir(data_dir):
         try:
             pid = int(line.split(None, 1)[0])
@@ -809,9 +972,13 @@ def kill_processes_for_data_dir(data_dir: Path) -> None:
             continue
         if pid != os.getpid():
             try:
-                os.kill(pid, signal.SIGKILL)
+                os.kill(pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
+            else:
+                processes.append(psutil.Process(pid))
+    _gone, alive = psutil.wait_procs(processes, timeout=10)
+    assert not alive, f"processes did not stop after SIGTERM: {[proc.pid for proc in alive]}"
 
 
 def start_archivebox_server(
@@ -821,7 +988,7 @@ def start_archivebox_server(
     env: dict[str, str] | None = None,
     daemonize: bool | None = None,
     log_name: str | None = None,
-    wait_for_log_text: str | None = "Tailing worker logs",
+    wait_for_log_text: str | None = "Listening on TCP",
 ):
     if daemonize is None:
         daemonize = log_name is None
@@ -848,34 +1015,22 @@ def start_archivebox_server(
     if daemonize:
         assert proc.returncode == 0, proc.stderr or proc.stdout
         return proc
-    wait_for_port_open("127.0.0.1", port)
     if log_path is not None and wait_for_log_text is not None:
         wait_for_log(log_path, wait_for_log_text, timeout=30.0)
+    assert_port_open("127.0.0.1", port)
     return proc
 
 
 def stop_archivebox_process(proc: subprocess.Popen[str], sig=signal.SIGTERM, *, timeout: float = 15.0) -> str:
-    if proc.poll() is None:
-        try:
-            os.killpg(proc.pid, sig)
-        except (ProcessLookupError, OSError):
-            try:
-                os.kill(proc.pid, sig)
-            except ProcessLookupError:
-                pass
     try:
-        stdout, _stderr = proc.communicate(timeout=timeout)
-        return stdout or ""
-    except subprocess.TimeoutExpired:
+        os.killpg(proc.pid, sig)
+    except (ProcessLookupError, OSError):
         try:
-            os.killpg(proc.pid, signal.SIGKILL)
-        except (ProcessLookupError, OSError):
-            try:
-                os.kill(proc.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        stdout, _stderr = proc.communicate(timeout=5)
-        return stdout or ""
+            os.kill(proc.pid, sig)
+        except ProcessLookupError:
+            pass
+    stdout, _stderr = proc.communicate(timeout=timeout)
+    return stdout or ""
 
 
 def run_queued_crawls(cwd: Path, env: dict[str, str] | None = None, timeout: int = 180) -> None:
@@ -933,24 +1088,24 @@ def _stop_archivebox_supervisord(cwd: Path, env: dict[str, str]) -> None:
 
 
 def _wait_for_archivebox_workers(cwd: Path, env: dict[str, str], names: tuple[str, ...] | list[str], timeout: int = 45) -> dict[str, Any]:
-    deadline = time.time() + timeout
-    state: dict[str, Any] = {}
-    while time.time() < deadline:
-        state = _archivebox_worker_state(cwd, env)
-        if all(isinstance(state.get(name), dict) and state[name].get("statename") == "RUNNING" for name in names):
-            return state
-        time.sleep(1)
+    supervisord_log = cwd / "logs" / "supervisord.log"
+    deadline = time.monotonic() + timeout
+    for name in names:
+        remaining = deadline - time.monotonic()
+        assert remaining > 0, f"timed out waiting for workers {names} in {supervisord_log}"
+        wait_for_log_pattern(
+            supervisord_log,
+            rf"success: {re.escape(name)} entered RUNNING state,",
+            timeout=remaining,
+        )
+    state = _archivebox_worker_state(cwd, env)
+    assert all(isinstance(state.get(name), dict) and state[name].get("statename") == "RUNNING" for name in names), state
     return state
 
 
 def stop_process(proc: subprocess.Popen[str]) -> tuple[str, str]:
-    if proc.poll() is None:
-        proc.terminate()
-        try:
-            return proc.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-    return proc.communicate()
+    proc.terminate()
+    return proc.communicate(timeout=5)
 
 
 def run_python_cwd(
@@ -1082,7 +1237,7 @@ def api_auth_headers(api_token: str, *, django_client: bool = False, port: int |
 
 
 def wait_for_live_api(port: int, *, path: str = "/api/v1/docs"):
-    return wait_for_http(port, host=f"api.archivebox.localhost:{port}", path=path)
+    return get_http_response(port, host=f"api.archivebox.localhost:{port}", path=path)
 
 
 def live_api_request(port: int, method: str, path: str, *, api_token: str, timeout: int = 30, **kwargs):
@@ -1146,32 +1301,25 @@ def stop_server(cwd: Path) -> None:
     run_python_cwd(script, cwd=cwd, timeout=30)
 
 
-def wait_for_http(
+def get_http_response(
     port: int,
     host: str,
     path: str = "/",
     timeout: float = 30.0,
     process: subprocess.Popen[str] | None = None,
 ) -> requests.Response:
-    deadline = time.time() + timeout
-    last_exc = None
-    while time.time() < deadline:
-        if process is not None and process.poll() is not None:
-            raise AssertionError(f"Server exited before becoming ready with code {process.returncode}")
-        try:
-            response = requests.get(
-                f"http://127.0.0.1:{port}{path}",
-                headers={"Host": host},
-                timeout=2,
-                allow_redirects=False,
-            )
-            if response.status_code < 500:
-                return response
-            last_exc = f"HTTP {response.status_code}"
-        except requests.RequestException as exc:
-            last_exc = exc
-        time.sleep(0.5)
-    raise AssertionError(f"Timed out waiting for HTTP on {host}: {last_exc}")
+    """Perform one blocking HTTP exchange after native server readiness."""
+    if process is not None:
+        returncode = process.poll()
+        assert returncode is None, f"Server exited before becoming ready with code {returncode}"
+    response = requests.get(
+        f"http://127.0.0.1:{port}{path}",
+        headers={"Host": host},
+        timeout=timeout,
+        allow_redirects=False,
+    )
+    assert response.status_code < 500, f"HTTP {response.status_code} from {host}{path}"
+    return response
 
 
 def make_latest_schedule_due(cwd: Path) -> None:
@@ -1244,15 +1392,19 @@ def get_snapshot_file_text(cwd: Path, url: str) -> str:
 
 
 def wait_for_snapshot_capture(cwd: Path, url: str, timeout: int = 180) -> str:
-    deadline = time.time() + timeout
-    last_error = None
-    while time.time() < deadline:
-        try:
-            return get_snapshot_file_text(cwd, url)
-        except AssertionError as err:
-            last_error = err
-            time.sleep(2)
-    raise AssertionError(f"timed out waiting for captured content for {url}: {last_error}")
+    script = textwrap.dedent(
+        f"""
+        from archivebox.core.models import Snapshot
+        snapshot = Snapshot.objects.filter(url={url!r}).order_by('-created_at').first()
+        assert snapshot is not None
+        print(snapshot.output_dir / 'index.jsonl')
+        """,
+    )
+    result = run_archivebox_cmd(["manage", "shell", "-c", script], cwd=cwd, timeout=30)
+    assert result.returncode == 0, result.stderr or result.stdout
+    index_path = Path(result.stdout.strip().splitlines()[-1])
+    _wait_for_log_match(index_path, ".", fixed=False, count=1, timeout=timeout)
+    return get_snapshot_file_text(cwd, url)
 
 
 def get_counts(cwd: Path, scheduled_url: str, one_shot_url: str) -> tuple[int, int, int]:
@@ -1358,8 +1510,8 @@ def wait_for_archive_outputs(
     cwd: Path,
     url: str,
     timeout: int = 120,
-    interval: float = 1.0,
 ) -> bool:
+    wait_for_snapshot_capture(cwd, url, timeout=timeout)
     script = textwrap.dedent(
         f"""\
         from pathlib import Path
@@ -1412,13 +1564,8 @@ def wait_for_archive_outputs(
         """,
     )
 
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        stdout, _stderr, returncode = run_python_cwd(script, cwd=cwd, timeout=30)
-        if returncode == 0 and "READY" in stdout:
-            return True
-        time.sleep(interval)
-    return False
+    stdout, _stderr, returncode = run_python_cwd(script, cwd=cwd, timeout=30)
+    return returncode == 0 and "READY" in stdout
 
 
 def _get_machine_type() -> str:
@@ -1439,8 +1586,7 @@ def resolve_abxpkg_binary_env(
     install: bool = True,
 ) -> dict[str, str]:
     """Resolve real test dependencies through abxpkg and return its exported env."""
-    command_env = os.environ.copy()
-    command_env.update(env or {})
+    command_env = dict(env) if env is not None else os.environ.copy()
     command_env["ABXPKG_LIB_DIR"] = str(lib_dir)
     command = [
         str(Path(sys.executable).with_name("abxpkg")),
@@ -1479,6 +1625,34 @@ def resolve_abxpkg_chrome_env(lib_dir: Path, env: dict[str, str] | None = None) 
     assert chrome_binary.is_file()
     assert node_binary.is_file()
     return payload
+
+
+def install_real_binary(
+    name: str,
+    *,
+    machine=None,
+    binproviders: str = "env",
+    overrides: dict[str, dict[str, Any]] | None = None,
+):
+    """Install and persist a real binary through the normal Binary state machine."""
+    from archivebox.machine.models import Binary, Machine
+
+    binary = Binary.objects.create(
+        machine=machine or Machine.current(refresh=True),
+        name=name,
+        binproviders=binproviders,
+        overrides=overrides or {},
+        status=Binary.StatusChoices.QUEUED,
+    )
+    assert binary.tick_claimed(lock_seconds=600)
+    binary.refresh_from_db()
+    assert binary.status == Binary.StatusChoices.INSTALLED
+    assert binary.retry_at is None
+    assert binary.binprovider in binary.binproviders.split(",")
+    assert binary.version
+    assert binary.abspath
+    assert Path(binary.abspath).exists()
+    return binary
 
 
 @pytest.fixture(scope="class")

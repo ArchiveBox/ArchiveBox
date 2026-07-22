@@ -8,10 +8,10 @@ import os
 import asyncio
 import json
 import signal
+import shlex
 import socket
 import subprocess
 import sys
-import time
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,15 +19,18 @@ from types import SimpleNamespace
 import pytest
 
 from archivebox.tests.conftest import (
+    _wait_for_archivebox_workers,
     assert_no_processes_for_data_dir,
+    assert_port_open,
+    find_process,
     get_free_port,
     kill_processes_for_data_dir,
     cli_env,
+    pid_is_alive,
     start_archivebox_server,
     stop_archivebox_process,
+    wait_for_log_count,
     wait_for_pid_to_disappear,
-    wait_for_port_open,
-    wait_for_process,
     run_archivebox_cmd,
     resolve_abxpkg_binary_env,
 )
@@ -42,12 +45,13 @@ def _resolve_sonic_env(data_dir: Path) -> dict[str, str]:
     return resolved
 
 
-def test_server_auth_secret_and_cookie_settings_are_restart_stable(tmp_path, monkeypatch):
+def test_server_auth_secret_and_cookie_settings_are_restart_stable(tmp_path):
     """Admin sessions must survive `archivebox server` restarts for a collection."""
     from archivebox.config.collection import write_config_file
 
     (tmp_path / ".archivebox_id").write_text("testcoll")
-    monkeypatch.setenv("BASE_URL", "http://archivebox.localhost:9292")
+    first_env = os.environ.copy()
+    first_env["BASE_URL"] = "http://archivebox.localhost:9292"
 
     first = subprocess.run(
         [
@@ -70,6 +74,8 @@ def test_server_auth_secret_and_cookie_settings_are_restart_stable(tmp_path, mon
         capture_output=True,
         text=True,
         check=True,
+        cwd=tmp_path,
+        env=first_env,
     )
     first_lines = first.stdout.strip().splitlines()
     assert first_lines[0], first.stderr
@@ -77,8 +83,9 @@ def test_server_auth_secret_and_cookie_settings_are_restart_stable(tmp_path, mon
     # Simulate the next `archivebox server` process, reading only persisted
     # collection config. If SECRET_KEY falls back to the random default_factory
     # here, Django will reject existing signed session cookies after restart.
-    monkeypatch.delenv("BASE_URL", raising=False)
     write_config_file({"BASE_URL": "http://archivebox.localhost:9292"})
+    second_env = os.environ.copy()
+    second_env.pop("BASE_URL", None)
     second = subprocess.run(
         [
             sys.executable,
@@ -100,6 +107,8 @@ def test_server_auth_secret_and_cookie_settings_are_restart_stable(tmp_path, mon
         capture_output=True,
         text=True,
         check=True,
+        cwd=tmp_path,
+        env=second_env,
     )
 
     assert second.stdout.strip().splitlines() == first_lines
@@ -181,13 +190,13 @@ def test_server_help_lists_runtime_options(initialized_archive):
     assert "--reload" in result.stdout
 
 
-def test_runner_worker_uses_current_interpreter():
-    """The supervised runner should use the active Python environment, not PATH."""
-    from archivebox.workers.supervisord_util import RUNNER_WORKER
+def test_runner_worker_uses_abxpkg_projected_archivebox():
+    from archivebox.workers.supervisord_util import RUNNER_WORKER, resolve_env_binary
 
-    assert RUNNER_WORKER["command"] == f"{sys.executable} -m archivebox run --daemon"
-    assert RUNNER_WORKER["autorestart"] == "true"
-    assert 'ARCHIVEBOX_RUNNER_DAEMON="1"' in RUNNER_WORKER["environment"]
+    worker = RUNNER_WORKER()
+    assert shlex.split(worker["command"]) == [str(resolve_env_binary("archivebox")), "run", "--daemon"]
+    assert worker["autorestart"] == "true"
+    assert 'ARCHIVEBOX_RUNNER_DAEMON="1"' in worker["environment"]
 
 
 def test_daphne_worker_uses_default_application_close_timeout():
@@ -199,20 +208,26 @@ def test_daphne_worker_uses_default_application_close_timeout():
     assert "--application-close-timeout=0" not in command
 
 
-def test_reload_workers_use_current_interpreter_and_supervisord_managed_runner():
-    from archivebox.workers.supervisord_util import RUNNER_WATCH_WORKER, RUNSERVER_WORKER
+def test_reload_workers_use_abxpkg_projected_archivebox():
+    from archivebox.workers.supervisord_util import RUNNER_WATCH_WORKER, RUNSERVER_WORKER, resolve_env_binary
 
     runserver = RUNSERVER_WORKER("127.0.0.1", "8000", reload=True)
     watcher = RUNNER_WATCH_WORKER("http://127.0.0.1:8000")
+    archivebox_binary = resolve_env_binary("archivebox")
 
     assert runserver["name"] == "worker_runserver"
-    assert runserver["command"] == f"{sys.executable} -m archivebox manage runserver 127.0.0.1:8000"
+    assert shlex.split(runserver["command"]) == [str(archivebox_binary), "manage", "runserver", "127.0.0.1:8000"]
     assert 'ARCHIVEBOX_RUNSERVER="1"' in runserver["environment"]
     assert 'ARCHIVEBOX_AUTORELOAD="1"' in runserver["environment"]
     assert 'ARCHIVEBOX_RUNSERVER_BIND_URL="http://127.0.0.1:8000"' in runserver["environment"]
 
     assert watcher["name"] == "worker_runner_watch"
-    assert watcher["command"] == f"{sys.executable} -m archivebox manage runner_watch --bind-url=http://127.0.0.1:8000"
+    assert shlex.split(watcher["command"]) == [
+        str(archivebox_binary),
+        "manage",
+        "runner_watch",
+        "--bind-url=http://127.0.0.1:8000",
+    ]
 
 
 def test_server_daemon_starts_real_plugin_owned_sonic_worker(initialized_archive, archivebox_daemon_server):
@@ -235,18 +250,17 @@ def test_server_daemon_restarts_runner_killed_by_signal(archivebox_daemon_server
     )
     state = server.wait_for_workers(("worker_daphne", "worker_runner"))
     old_runner_pid = state["worker_runner"]["pid"]
+    supervisord_log = server.data_dir / "logs" / "supervisord.log"
+    spawn_text = "spawned: 'worker_runner' with pid"
+    spawn_count = supervisord_log.read_text(encoding="utf-8", errors="replace").count(spawn_text)
 
     os.kill(old_runner_pid, signal.SIGTERM)
 
-    deadline = time.time() + 30
-    while time.time() < deadline:
-        state = server.worker_state()
-        runner = state.get("worker_runner", {})
-        if runner.get("statename") == "RUNNING" and runner.get("pid") and runner.get("pid") != old_runner_pid:
-            break
-        time.sleep(0.5)
-    else:
-        raise AssertionError(f"worker_runner did not restart after SIGTERM: {state}")
+    wait_for_log_count(supervisord_log, spawn_text, spawn_count + 1, timeout=30)
+    state = server.worker_state()
+    runner = state["worker_runner"]
+    assert runner["statename"] == "RUNNING", state
+    assert runner["pid"] != old_runner_pid, state
 
     assert state["worker_daphne"]["statename"] == "RUNNING", state
 
@@ -472,8 +486,7 @@ def test_supervisord_takeover_stops_all_live_process_rows(initialized_archive, d
             ).exists()
     finally:
         for proc in procs:
-            if proc.poll() is None:
-                os.killpg(proc.pid, signal.SIGKILL)
+            stop_archivebox_process(proc, signal.SIGTERM)
 
 
 @pytest.mark.timeout(300)
@@ -497,11 +510,7 @@ def test_live_server_signal_exit_and_resume_uses_existing_supervisor_state(initi
         server_log = server.log_path
 
         os.kill(server.pid, stop_signal)
-        try:
-            server.wait(timeout=20 if stop_signal != signal.SIGKILL else 5)
-        except subprocess.TimeoutExpired:
-            os.kill(server.pid, signal.SIGKILL)
-            server.wait(timeout=5)
+        server.wait(timeout=20)
 
         if expected_notice:
             log_text = server_log.read_text(encoding="utf-8", errors="replace")
@@ -523,8 +532,8 @@ def test_live_server_signal_exit_and_resume_uses_existing_supervisor_state(initi
         assert_no_processes_for_data_dir(initialized_archive, timeout=12)
     finally:
         for proc in (server, resumed):
-            if proc is not None and proc.poll() is None:
-                stop_archivebox_process(proc, signal.SIGKILL)
+            if proc is not None:
+                stop_archivebox_process(proc, signal.SIGTERM)
         kill_processes_for_data_dir(initialized_archive)
 
 
@@ -543,19 +552,20 @@ def test_live_daemonized_server_keeps_supervisord_owned_by_archivebox_parent(ini
         )
         stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
         assert returncode == 0, stderr or stdout
-        wait_for_port_open("127.0.0.1", port, timeout=30)
+        _wait_for_archivebox_workers(initialized_archive, env, ("worker_daphne", "worker_runner"), timeout=30)
+        assert_port_open("127.0.0.1", port, timeout=30)
 
-        server_process = wait_for_process(
+        server_process = find_process(
             lambda _proc, command: "archivebox" in command and " server " in f" {command} " and bind_url.replace("http://", "") in command,
         )
-        supervisord = wait_for_process(
+        supervisord = find_process(
             lambda proc, command: proc.ppid() == server_process.pid and "supervisord" in command,
         )
-        wait_for_process(
+        find_process(
             lambda proc, command: proc.ppid() == supervisord.pid and "supervisord_watchdog" in command,
         )
 
-        os.kill(server_process.pid, signal.SIGKILL)
+        os.kill(server_process.pid, signal.SIGTERM)
         wait_for_pid_to_disappear(server_process.pid, timeout=10)
         wait_for_pid_to_disappear(supervisord.pid, timeout=20)
         assert_no_processes_for_data_dir(initialized_archive, timeout=12)
@@ -608,7 +618,7 @@ def test_live_servers_in_different_data_dirs_do_not_interfere(initialized_archiv
 
         stop_archivebox_process(first, signal.SIGTERM)
         first = None
-        assert second.poll() is None, "stopping one DATA_DIR server must not stop another DATA_DIR server"
+        assert pid_is_alive(second.pid), "stopping one DATA_DIR server must not stop another DATA_DIR server"
 
         first_resumed = start_archivebox_server(
             first_data_dir,
@@ -616,10 +626,10 @@ def test_live_servers_in_different_data_dirs_do_not_interfere(initialized_archiv
             log_name="server-first-data-dir-resumed.log",
             env=cli_env(live=True),
         )
-        assert second.poll() is None, "restarting one DATA_DIR server must not take over another DATA_DIR supervisor"
+        assert pid_is_alive(second.pid), "restarting one DATA_DIR server must not take over another DATA_DIR supervisor"
     finally:
         for proc in (first, first_resumed, second):
-            if proc is not None and proc.poll() is None:
+            if proc is not None:
                 stop_archivebox_process(proc, signal.SIGTERM)
         kill_processes_for_data_dir(first_data_dir)
         kill_processes_for_data_dir(second_data_dir)

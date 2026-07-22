@@ -7,14 +7,12 @@ Tests cover:
 - pass-through output (for chaining)
 """
 
-import json
 import os
 import signal
 import subprocess
-import sys
-import time
 
 import pytest
+import psutil
 
 from archivebox.tests.conftest import (
     cleanup_process_group,
@@ -22,9 +20,8 @@ from archivebox.tests.conftest import (
     run_archivebox_cmd,
     parse_jsonl_output,
     create_test_url,
-    create_test_crawl_json,
-    create_test_snapshot_json,
     pid_is_alive,
+    wait_for_log,
     wait_for_pid_to_disappear,
 )
 
@@ -48,133 +45,72 @@ def _install_real_chrome_for_test(data_dir, env, *, isolation):
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.timeout(90)
-def test_cli_run_signal_cleans_background_hook_process_group(initialized_archive):
+@pytest.mark.timeout(660)
+def test_cli_run_signal_cleans_real_chrome_hook_process_group(initialized_archive, recursive_test_site):
+    from archivebox.core.models import Snapshot
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
 
-    plugins_root = initialized_archive / "runtime_plugins"
-    plugin_dir = plugins_root / "cancel_group"
-    plugin_dir.mkdir(parents=True)
-    daemon_hook = plugin_dir / "on_CrawlSetup__10_daemon.daemon.bg.sh"
-    foreground_hook = plugin_dir / "on_CrawlSetup__20_foreground.sh"
-    daemon_hook.write_text(
-        "\n".join(
-            [
-                "#!/usr/bin/env bash",
-                "set -euo pipefail",
-                'test_dir="${LEAK_TEST_DIR:?}"',
-                "sleep 600 &",
-                'echo $$ > "$test_dir/daemon.pid"',
-                'echo $! > "$test_dir/daemon-child.pid"',
-                'echo ready > "$test_dir/daemon.ready"',
-                "trap 'echo cleaned > \"$test_dir/daemon.cleaned\"; exit 0' TERM INT",
-                "wait",
-                "",
-            ],
-        ),
-    )
-    foreground_hook.write_text(
-        "\n".join(
-            [
-                "#!/usr/bin/env bash",
-                "set -euo pipefail",
-                'test_dir="${LEAK_TEST_DIR:?}"',
-                'echo $$ > "$test_dir/foreground.pid"',
-                'echo ready > "$test_dir/foreground.ready"',
-                "trap 'echo cleaned > \"$test_dir/foreground.cleaned\"; exit 0' TERM INT",
-                "while true; do sleep 1; done",
-                "",
-            ],
-        ),
-    )
-    daemon_hook.chmod(0o755)
-    foreground_hook.chmod(0o755)
-
-    leak_test_dir = initialized_archive / "leak-check"
-    leak_test_dir.mkdir()
-    env = os.environ.copy()
-    env.update(
-        {
-            "ABX_PLUGINS_DIR": str(plugins_root),
-            "LEAK_TEST_DIR": str(leak_test_dir),
-            "PLUGINS": "cancel_group",
-            "TIMEOUT": "30",
-            "USE_COLOR": "false",
-            "SHOW_PROGRESS": "false",
-        },
-    )
+    env = cli_env(live=True, PLUGINS="chrome", CHROME_ISOLATION="crawl", CHROME_HEADLESS="true", CHROME_SANDBOX="false")
+    _install_real_chrome_for_test(initialized_archive, env, isolation="crawl")
 
     _cmd_result = run_archivebox_cmd(
-        ["crawl", "create", "https://example.com"],
+        ["snapshot", "create", recursive_test_site["root_url"]],
         cwd=initialized_archive,
         env=env,
         timeout=60,
     )
     stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert returncode == 0, stderr or stdout
-    crawl_records = [json.loads(line) for line in stdout.splitlines() if line.strip().startswith("{")]
-    crawl_id = next(record["id"] for record in crawl_records if record.get("type") == "Crawl")
+    records = parse_jsonl_output(stdout)
+    snapshot_id = next(record["id"] for record in records if record.get("type") == "Snapshot")
+    with use_archivebox_db(initialized_archive):
+        browser_state = Snapshot.objects.get(id=snapshot_id).output_dir / "chrome" / "browser.json"
 
-    daemon_pid: int | None = None
-    daemon_child_pid: int | None = None
-    foreground_pid: int | None = None
+    run_log = initialized_archive / "run-signal-chrome.log"
+    run_log_handle = run_log.open("w", encoding="utf-8")
     run_process = run_archivebox_cmd(
-        ["run", f"--crawl-id={crawl_id}"],
+        ["run", f"--snapshot-id={snapshot_id}"],
         cwd=initialized_archive,
         env=env,
-        stdout=subprocess.PIPE,
+        stdout=run_log_handle,
         stderr=subprocess.STDOUT,
         start_new_session=True,
         wait=False,
     )
+    run_log_handle.close()
     try:
-        deadline = time.time() + 20
-        while time.time() < deadline:
-            if (leak_test_dir / "daemon.ready").exists() and (leak_test_dir / "foreground.ready").exists():
-                break
-            if run_process.poll() is not None:
-                output = run_process.communicate(timeout=1)[0]
-                raise AssertionError(f"archivebox run exited before hooks were ready:\n{output}")
-            time.sleep(0.05)
-        assert (leak_test_dir / "daemon.ready").exists()
-        assert (leak_test_dir / "foreground.ready").exists()
-
-        daemon_pid = int((leak_test_dir / "daemon.pid").read_text().strip())
-        daemon_child_pid = int((leak_test_dir / "daemon-child.pid").read_text().strip())
-        foreground_pid = int((leak_test_dir / "foreground.pid").read_text().strip())
-        assert pid_is_alive(daemon_pid)
-        assert pid_is_alive(daemon_child_pid)
-        assert pid_is_alive(foreground_pid)
+        wait_for_log(browser_state, '"ready": true', timeout=120)
+        child_pids = [child.pid for child in psutil.Process(run_process.pid).children(recursive=True)]
+        assert child_pids
+        assert all(pid_is_alive(pid) for pid in child_pids)
 
         run_process.send_signal(signal.SIGTERM)
-        output = run_process.communicate(timeout=20)[0]
+        run_process.wait(timeout=30)
+        output = run_log.read_text(encoding="utf-8", errors="replace")
         assert "Runner error" not in output
-
-        wait_for_pid_to_disappear(daemon_pid, timeout=5)
-        wait_for_pid_to_disappear(daemon_child_pid, timeout=5)
-        wait_for_pid_to_disappear(foreground_pid, timeout=5)
-        assert (leak_test_dir / "daemon.cleaned").read_text().strip() == "cleaned"
-        assert (leak_test_dir / "foreground.cleaned").read_text().strip() == "cleaned"
+        for pid in child_pids:
+            wait_for_pid_to_disappear(pid, timeout=15)
     finally:
-        if run_process.poll() is None:
-            try:
-                os.killpg(run_process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            run_process.communicate(timeout=5)
-        cleanup_process_group(daemon_pid, daemon_child_pid)
-        cleanup_process_group(foreground_pid)
+        cleanup_process_group(run_process.pid)
 
 
 class TestRunWithCrawl:
     """Tests for `archivebox run` with Crawl input."""
 
     def test_run_with_new_crawl(self, initialized_archive):
-        """Run creates and processes a new Crawl (no id)."""
-        crawl_record = create_test_crawl_json()
+        """Run processes a Crawl emitted by the public create command."""
+        create_result = run_archivebox_cmd(
+            ["crawl", "create", create_test_url()],
+            cwd=initialized_archive,
+            env=RUN_TEST_ENV,
+            default_cli_env=True,
+            disable_extractors=True,
+        )
+        assert create_result.returncode == 0, create_result.stderr
 
         _cmd_result = run_archivebox_cmd(
             ["run"],
-            stdin=json.dumps(crawl_record),
+            stdin=create_result.stdout,
             cwd=initialized_archive,
             timeout=120,
             env=RUN_TEST_ENV,
@@ -204,12 +140,10 @@ class TestRunWithCrawl:
             disable_extractors=True,
         )
         stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        crawl = parse_jsonl_output(stdout1)[0]
-
         # Run with the existing crawl
         _cmd_result = run_archivebox_cmd(
             ["run"],
-            stdin=json.dumps(crawl),
+            stdin=stdout1,
             cwd=initialized_archive,
             timeout=120,
             env=RUN_TEST_ENV,
@@ -227,12 +161,19 @@ class TestRunWithSnapshot:
     """Tests for `archivebox run` with Snapshot input."""
 
     def test_run_with_new_snapshot(self, initialized_archive):
-        """Run creates and processes a new Snapshot (no id, just url)."""
-        snapshot_record = create_test_snapshot_json()
+        """Run processes a Snapshot emitted by the public create command."""
+        create_result = run_archivebox_cmd(
+            ["snapshot", "create", create_test_url()],
+            cwd=initialized_archive,
+            env=RUN_TEST_ENV,
+            default_cli_env=True,
+            disable_extractors=True,
+        )
+        assert create_result.returncode == 0, create_result.stderr
 
         _cmd_result = run_archivebox_cmd(
             ["run"],
-            stdin=json.dumps(snapshot_record),
+            stdin=create_result.stdout,
             cwd=initialized_archive,
             timeout=120,
             env=RUN_TEST_ENV,
@@ -261,12 +202,10 @@ class TestRunWithSnapshot:
             disable_extractors=True,
         )
         stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        snapshot = parse_jsonl_output(stdout1)[0]
-
         # Run with the existing snapshot
         _cmd_result = run_archivebox_cmd(
             ["run"],
-            stdin=json.dumps(snapshot),
+            stdin=stdout1,
             cwd=initialized_archive,
             timeout=120,
             env=RUN_TEST_ENV,
@@ -282,11 +221,9 @@ class TestRunWithSnapshot:
     def test_run_with_plain_url(self, initialized_archive):
         """Run accepts plain URL records (no type field)."""
         url = create_test_url()
-        url_record = {"url": url}
-
         _cmd_result = run_archivebox_cmd(
             ["run"],
-            stdin=json.dumps(url_record),
+            stdin=url + "\n",
             cwd=initialized_archive,
             timeout=120,
             env=RUN_TEST_ENV,
@@ -316,34 +253,64 @@ class TestRunWithArchiveResult:
             disable_extractors=True,
         )
         stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        snapshot = parse_jsonl_output(stdout1)[0]
-
         _cmd_result = run_archivebox_cmd(
             ["archiveresult", "create", "--plugin=favicon"],
-            stdin=json.dumps(snapshot),
+            stdin=stdout1,
             cwd=initialized_archive,
             env=RUN_TEST_ENV,
             default_cli_env=True,
             disable_extractors=True,
         )
         stdout2, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        ar = next(r for r in parse_jsonl_output(stdout2) if r.get("type") == "ArchiveResult")
+        assert any(record.get("type") == "ArchiveResult" for record in parse_jsonl_output(stdout2))
 
-        # Update to failed
-        ar["status"] = "failed"
-        run_archivebox_cmd(
-            ["archiveresult", "update", "--status=failed"],
-            stdin=json.dumps(ar),
+        initial_run = run_archivebox_cmd(
+            ["run"],
+            stdin=stdout2,
+            cwd=initialized_archive,
+            timeout=120,
+            env=RUN_TEST_ENV,
+            default_cli_env=True,
+            disable_extractors=True,
+        )
+        assert initial_run.returncode == 0, initial_run.stderr
+        persisted_result = run_archivebox_cmd(
+            ["archiveresult", "list", "--plugin=favicon"],
             cwd=initialized_archive,
             env=RUN_TEST_ENV,
             default_cli_env=True,
             disable_extractors=True,
         )
+        assert persisted_result.returncode == 0, persisted_result.stderr
+        assert any(record.get("type") == "ArchiveResult" for record in parse_jsonl_output(persisted_result.stdout))
+
+        # Update to failed
+        update_result = run_archivebox_cmd(
+            ["archiveresult", "update", "--status=failed"],
+            stdin=persisted_result.stdout,
+            cwd=initialized_archive,
+            env=RUN_TEST_ENV,
+            default_cli_env=True,
+            disable_extractors=True,
+        )
+        assert update_result.returncode == 0, update_result.stderr
+        failed_result = run_archivebox_cmd(
+            ["archiveresult", "list", "--plugin=favicon"],
+            cwd=initialized_archive,
+            env=RUN_TEST_ENV,
+            default_cli_env=True,
+            disable_extractors=True,
+        )
+        assert failed_result.returncode == 0, failed_result.stderr
+        failed_records = [record for record in parse_jsonl_output(failed_result.stdout) if record.get("type") == "ArchiveResult"]
+        assert len(failed_records) == 1
+        assert failed_records[0]["status"] == "failed"
+        failed_jsonl = next(line for line in failed_result.stdout.splitlines() if failed_records[0]["id"] in line) + "\n"
 
         # Now run should re-queue it
         _cmd_result = run_archivebox_cmd(
             ["run"],
-            stdin=json.dumps(ar),
+            stdin=failed_jsonl,
             cwd=initialized_archive,
             timeout=120,
             env=RUN_TEST_ENV,
@@ -417,13 +384,20 @@ class TestRunRecovery:
 class TestRunPassThrough:
     """Tests for pass-through behavior in `archivebox run`."""
 
-    def test_run_passes_through_unknown_types(self, initialized_archive):
-        """Run passes through records with unknown types."""
-        unknown_record = {"type": "Unknown", "id": "fake-id", "data": "test"}
+    def test_run_passes_through_tag_emitted_by_cli(self, initialized_archive):
+        """Run passes through a real non-runnable Tag record."""
+        tag_result = run_archivebox_cmd(
+            ["tag", "create", "run-input-tag"],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
+        )
+        assert tag_result.returncode == 0, tag_result.stderr
+        tag_record = parse_jsonl_output(tag_result.stdout)[0]
 
         _cmd_result = run_archivebox_cmd(
             ["run"],
-            stdin=json.dumps(unknown_record),
+            stdin=tag_result.stdout,
             cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
@@ -432,18 +406,25 @@ class TestRunPassThrough:
 
         assert code == 0
         records = parse_jsonl_output(stdout)
-        unknown_records = [r for r in records if r.get("type") == "Unknown"]
-        assert len(unknown_records) == 1
-        assert unknown_records[0]["data"] == "test"
+        tag_records = [record for record in records if record.get("type") == "Tag"]
+        assert len(tag_records) == 1
+        assert tag_records[0]["id"] == tag_record["id"]
 
     def test_run_outputs_all_processed_records(self, initialized_archive):
         """Run outputs all processed records for chaining."""
         url = create_test_url()
-        crawl_record = create_test_crawl_json(urls=[url])
+        create_result = run_archivebox_cmd(
+            ["crawl", "create", url],
+            cwd=initialized_archive,
+            env=RUN_TEST_ENV,
+            default_cli_env=True,
+            disable_extractors=True,
+        )
+        assert create_result.returncode == 0, create_result.stderr
 
         _cmd_result = run_archivebox_cmd(
             ["run"],
-            stdin=json.dumps(crawl_record),
+            stdin=create_result.stdout,
             cwd=initialized_archive,
             timeout=120,
             env=RUN_TEST_ENV,
@@ -461,23 +442,34 @@ class TestRunPassThrough:
 class TestRunMixedInput:
     """Tests for `archivebox run` with mixed record types."""
 
-    def test_run_handles_mixed_types(self, initialized_archive):
-        """Run handles mixed Crawl/Snapshot/ArchiveResult input."""
-        crawl = create_test_crawl_json()
-        snapshot = create_test_snapshot_json()
-        unknown = {"type": "Tag", "id": "fake", "name": "test"}
-
-        stdin = "\n".join(
-            [
-                json.dumps(crawl),
-                json.dumps(snapshot),
-                json.dumps(unknown),
-            ],
+    def test_run_handles_mixed_records_emitted_by_cli(self, initialized_archive):
+        """Run handles real Crawl, Snapshot, and Tag records from CLI stages."""
+        tag_result = run_archivebox_cmd(
+            ["tag", "create", "mixed-run-tag"],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
+        assert tag_result.returncode == 0, tag_result.stderr
+        crawl_result = run_archivebox_cmd(
+            ["crawl", "create", create_test_url()],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
+        )
+        assert crawl_result.returncode == 0, crawl_result.stderr
+        snapshot_result = run_archivebox_cmd(
+            ["snapshot", "create"],
+            stdin=crawl_result.stdout,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
+        )
+        assert snapshot_result.returncode == 0, snapshot_result.stderr
 
         _cmd_result = run_archivebox_cmd(
             ["run"],
-            stdin=stdin,
+            stdin=tag_result.stdout + snapshot_result.stdout,
             cwd=initialized_archive,
             timeout=120,
             env=RUN_TEST_ENV,
@@ -489,9 +481,8 @@ class TestRunMixedInput:
         assert code == 0
         records = parse_jsonl_output(stdout)
 
-        types = {r.get("type") for r in records}
-        # Should have processed Crawl and Snapshot, passed through Tag
-        assert "Crawl" in types or "Snapshot" in types or "Tag" in types
+        types = {record.get("type") for record in records}
+        assert {"Crawl", "Snapshot", "Tag"}.issubset(types)
 
 
 class TestRunEmpty:
@@ -510,13 +501,19 @@ class TestRunEmpty:
 
         assert code == 0
 
-    def test_run_no_records_to_process(self, initialized_archive):
-        """Run with only pass-through records shows message."""
-        unknown = {"type": "Unknown", "id": "fake"}
+    def test_run_no_runnable_records_to_process(self, initialized_archive):
+        """Run with only a real non-runnable Tag reports no work."""
+        tag_result = run_archivebox_cmd(
+            ["tag", "create", "non-runnable-tag"],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
+        )
+        assert tag_result.returncode == 0, tag_result.stderr
 
         _cmd_result = run_archivebox_cmd(
             ["run"],
-            stdin=json.dumps(unknown),
+            stdin=tag_result.stdout,
             cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
@@ -537,72 +534,69 @@ class TestRunDaemonMode:
         snapshot_url = None
         if stdin_kind == "valid-snapshot":
             snapshot_url = create_test_url()
-            piped_stdin = json.dumps(create_test_snapshot_json(url=snapshot_url)) + "\n"
+            snapshot_result = run_archivebox_cmd(
+                ["snapshot", "create", snapshot_url],
+                cwd=initialized_archive,
+                default_cli_env=True,
+                disable_extractors=True,
+            )
+            assert snapshot_result.returncode == 0, snapshot_result.stderr
+            piped_stdin = snapshot_result.stdout
         else:
             piped_stdin = "{this is not jsonl}\n"
 
-        env = cli_env()
+        env = cli_env(PLUGINS="__archivebox_test_no_plugins__")
+        queued = run_archivebox_cmd(
+            ["crawl", "create", create_test_url()],
+            cwd=initialized_archive,
+            env=env,
+            timeout=60,
+        )
+        assert queued.returncode == 0, queued.stderr or queued.stdout
+        daemon_log = initialized_archive / f"run-daemon-{stdin_kind}.log"
+        daemon_log_handle = daemon_log.open("w", encoding="utf-8")
         proc = run_archivebox_cmd(
             ["run", "--daemon"],
             cwd=initialized_archive,
             env=env,
             stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=daemon_log_handle,
+            stderr=subprocess.STDOUT,
             start_new_session=True,
             wait=False,
         )
+        daemon_log_handle.close()
         assert proc.stdin is not None
-        assert proc.stdout is not None
-        assert proc.stderr is not None
 
         try:
             proc.stdin.write(piped_stdin)
             proc.stdin.close()
 
-            deadline = time.monotonic() + 20
-            started = False
-            while time.monotonic() < deadline:
-                if proc.poll() is not None:
-                    stdout = proc.stdout.read()
-                    stderr = proc.stderr.read()
-                    raise AssertionError(
-                        f"daemon exited before starting runner: code={proc.returncode}\nstdout={stdout}\nstderr={stderr}",
-                    )
-                with use_archivebox_db(initialized_archive):
-                    started = Process.objects.filter(
-                        process_type=Process.TypeChoices.ORCHESTRATOR,
-                        status=Process.StatusChoices.RUNNING,
-                        pid=proc.pid,
-                    ).exists()
-                if started:
-                    break
-                time.sleep(0.25)
-
-            assert started is True
+            wait_for_log(daemon_log, "[Crawl#", timeout=30)
+            with use_archivebox_db(initialized_archive):
+                started = Process.objects.filter(
+                    process_type=Process.TypeChoices.ORCHESTRATOR,
+                    status=Process.StatusChoices.RUNNING,
+                    pid=proc.pid,
+                ).exists()
+            assert started
             if snapshot_url is not None:
                 with use_archivebox_db(initialized_archive):
                     assert not Snapshot.objects.filter(url=snapshot_url).exists()
         finally:
-            if proc.poll() is None:
-                os.killpg(proc.pid, signal.SIGTERM)
-            try:
-                proc.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                os.killpg(proc.pid, signal.SIGKILL)
-                proc.wait(timeout=5)
+            os.kill(proc.pid, signal.SIGTERM)
+            proc.wait(timeout=15)
 
-        stdout = proc.stdout.read()
-        stderr = proc.stderr.read()
-        assert proc.returncode == 143, stdout + stderr
-        assert "No records to process" not in stderr
+        output = daemon_log.read_text(encoding="utf-8", errors="replace")
+        assert proc.returncode == 143, output
+        assert "No records to process" not in output
 
     def test_run_daemon_takeover_has_single_active_runner_gate(self, initialized_archive, db):
         from archivebox.machine.models import Process
         from archivebox.core.takeover_util import RUNNER_ACTIVE_WORKER_TYPE
         from archivebox.tests.test_orm_helpers import use_archivebox_db
 
-        env = cli_env()
+        env = cli_env(PLUGINS="__archivebox_test_no_plugins__")
 
         def active_runners():
             with use_archivebox_db(initialized_archive):
@@ -617,67 +611,65 @@ class TestRunDaemonMode:
                     if proc.is_running
                 ]
 
-        def wait_for_stable_single_active(*, timeout: float, stable_seconds: float = 1.0, exclude_pid: int | None = None):
-            deadline = time.monotonic() + timeout
-            stable_pid = None
-            stable_since = None
-            while time.monotonic() < deadline:
-                active = active_runners()
-                assert len(active) <= 1
-                if len(active) == 1 and active[0].pid != exclude_pid:
-                    pid = active[0].pid
-                    if pid != stable_pid:
-                        stable_pid = pid
-                        stable_since = time.monotonic()
-                    elif stable_since is not None and time.monotonic() - stable_since >= stable_seconds:
-                        return pid
-                else:
-                    stable_pid = None
-                    stable_since = None
-                time.sleep(0.25)
-            return None
-
-        procs = [
-            run_archivebox_cmd(
+        queued = run_archivebox_cmd(["crawl", "create", create_test_url()], cwd=initialized_archive, env=env, timeout=60)
+        assert queued.returncode == 0, queued.stderr or queued.stdout
+        procs = []
+        logs = []
+        for index in range(2):
+            log_path = initialized_archive / f"run-daemon-takeover-{index}.log"
+            log_handle = log_path.open("w", encoding="utf-8")
+            proc = run_archivebox_cmd(
                 ["run", "--daemon"],
                 cwd=initialized_archive,
                 env=env,
                 stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=log_handle,
+                stderr=subprocess.STDOUT,
                 start_new_session=True,
                 wait=False,
             )
-            for _ in range(2)
-        ]
+            log_handle.close()
+            procs.append(proc)
+            logs.append(log_path)
+            if index == 0:
+                wait_for_log(log_path, "[Crawl#", timeout=30)
         try:
-            active_pid = wait_for_stable_single_active(timeout=30)
-            assert active_pid is not None
+            wait_for_log(logs[1], "Stopping older ArchiveBox runner process", timeout=30)
+            queued = run_archivebox_cmd(["crawl", "create", create_test_url()], cwd=initialized_archive, env=env, timeout=60)
+            assert queued.returncode == 0, queued.stderr or queued.stdout
+            wait_for_log(logs[1], "[Crawl#", timeout=30)
+            active = active_runners()
+            assert len(active) == 1
+            active_pid = active[0].pid
+            assert active_pid == procs[1].pid
 
-            os.killpg(active_pid, signal.SIGKILL)
+            os.kill(active_pid, signal.SIGTERM)
+            wait_for_pid_to_disappear(active_pid, timeout=15)
+            replacement_log = initialized_archive / "run-daemon-takeover-replacement.log"
+            replacement_log_handle = replacement_log.open("w", encoding="utf-8")
             replacement = run_archivebox_cmd(
                 ["run", "--daemon"],
                 cwd=initialized_archive,
                 env=env,
                 stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=replacement_log_handle,
+                stderr=subprocess.STDOUT,
                 start_new_session=True,
                 wait=False,
             )
+            replacement_log_handle.close()
             procs.append(replacement)
-            recovered_pid = wait_for_stable_single_active(timeout=30, exclude_pid=active_pid)
-            assert recovered_pid is not None
+            queued = run_archivebox_cmd(["crawl", "create", create_test_url()], cwd=initialized_archive, env=env, timeout=60)
+            assert queued.returncode == 0, queued.stderr or queued.stdout
+            wait_for_log(replacement_log, "[Crawl#", timeout=30)
+            recovered = active_runners()
+            assert len(recovered) == 1
+            assert recovered[0].pid == replacement.pid
+            assert recovered[0].pid != active_pid
         finally:
             for proc in procs:
-                if proc.poll() is None:
-                    os.killpg(proc.pid, signal.SIGTERM)
-            for proc in procs:
-                try:
-                    proc.wait(timeout=15)
-                except subprocess.TimeoutExpired:
-                    os.killpg(proc.pid, signal.SIGKILL)
-                    proc.wait(timeout=5)
+                cleanup_process_group(proc.pid)
+                proc.wait(timeout=15)
 
 
 @pytest.mark.django_db
@@ -1114,24 +1106,18 @@ class TestRecoverOrchestratorState:
         sealed_crawl.cancel()
 
         paused_child.refresh_from_db()
+        paused_result.refresh_from_db()
         sealed_child.refresh_from_db()
         sealed_started_child.refresh_from_db()
-        assert paused_child.status == Snapshot.StatusChoices.STARTED
-        assert paused_child.retry_at is not None
-        assert paused_child.retry_at <= timezone.now()
+        assert paused_child.status == Snapshot.StatusChoices.PAUSED
+        assert paused_child.retry_at == RETRY_AT_MAX
+        assert paused_result.status == ArchiveResult.StatusChoices.PAUSED
         assert sealed_child.status == Snapshot.StatusChoices.PAUSED
         assert sealed_child.retry_at is not None
         assert sealed_child.retry_at <= timezone.now()
         assert sealed_started_child.status == Snapshot.StatusChoices.STARTED
         assert sealed_started_child.retry_at is not None
         assert sealed_started_child.retry_at <= timezone.now()
-
-        assert run_due_snapshot(paused_child, lock_seconds=60) is True
-        paused_child.refresh_from_db()
-        paused_result.refresh_from_db()
-        assert paused_child.status == Snapshot.StatusChoices.PAUSED
-        assert paused_child.retry_at == RETRY_AT_MAX
-        assert paused_result.status == ArchiveResult.StatusChoices.PAUSED
 
         assert run_due_snapshot(sealed_child, lock_seconds=60) is True
         sealed_child.refresh_from_db()
@@ -1243,7 +1229,7 @@ class TestRecoverOrchestratorState:
         assert crawl.retry_at < future
         assert snapshot.retry_at < future
 
-    def test_recover_orchestrator_state_preserves_future_started_snapshot_with_live_result_process(self):
+    def test_recover_orchestrator_state_preserves_future_started_snapshot_with_live_result_process(self, initialized_archive):
         from datetime import timedelta
 
         from django.utils import timezone
@@ -1254,13 +1240,19 @@ class TestRecoverOrchestratorState:
         from archivebox.machine.models import Machine, NetworkInterface, Process
         from archivebox.core.recovery_util import recover_orchestrator_state
 
-        worker = subprocess.Popen(
-            [sys.executable, "-c", "import time; time.sleep(60)"],
+        worker = run_archivebox_cmd(
+            ["manage", "shell"],
+            cwd=initialized_archive,
+            env=cli_env(live=True),
+            stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            text=True,
+            capture_output=False,
             start_new_session=True,
+            wait=False,
         )
+        assert worker.stdin is not None
+        assert pid_is_alive(worker.pid)
         try:
             future = timezone.now() + timedelta(seconds=45)
             crawl = Crawl.objects.create(
@@ -1303,13 +1295,9 @@ class TestRecoverOrchestratorState:
             assert snapshot.status == Snapshot.StatusChoices.STARTED
             assert snapshot.retry_at == future
         finally:
-            if worker.poll() is None:
-                os.killpg(worker.pid, signal.SIGTERM)
-            try:
-                worker.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                os.killpg(worker.pid, signal.SIGKILL)
-                worker.wait(timeout=5)
+            worker.stdin.close()
+            worker.wait(timeout=20)
+            assert not pid_is_alive(worker.pid)
 
     def test_recover_orchestrator_state_does_not_resume_paused_rows_with_max_retry_at(self):
         from archivebox.base_models.models import get_or_create_system_user_pk
@@ -1628,7 +1616,7 @@ class TestRecoverOrchestratorState:
 
         update_process = run_archivebox_cmd(
             ["archiveresult", "update", "--status=queued"],
-            stdin=json.dumps(wait_record) + "\n",
+            stdin=next(line for line in list_process.stdout.splitlines() if wait_record["id"] in line) + "\n",
             cwd=initialized_archive,
             env=env,
             timeout=60,
@@ -1649,47 +1637,27 @@ class TestRecoverOrchestratorState:
         run_process.stdin.write(update_process.stdout)
         run_process.stdin.close()
 
-        resumed_full_plugin = False
         try:
-            deadline = time.time() + 90
-            last_wait_status = None
-            last_tab_process_id = None
-            while time.time() < deadline:
-                with use_archivebox_db(initialized_archive):
-                    wait_result = ArchiveResult.objects.get(
-                        snapshot_id=snapshot_id,
-                        plugin="chrome",
-                        hook_name="on_Snapshot__11_chrome_wait",
-                    )
-                    tab_result = ArchiveResult.objects.get(
-                        snapshot_id=snapshot_id,
-                        plugin="chrome",
-                        hook_name="on_Snapshot__10_chrome_tab.daemon.bg",
-                    )
-                    last_wait_status = wait_result.status
-                    last_tab_process_id = tab_result.process_id
-                    if wait_result.status == ArchiveResult.StatusChoices.SUCCEEDED and tab_result.process_id != first_tab_process_id:
-                        resumed_full_plugin = True
-                        break
-                if run_process.poll() is not None:
-                    break
-                time.sleep(0.5)
-
-            if resumed_full_plugin:
-                try:
-                    run_process.wait(timeout=30)
-                except subprocess.TimeoutExpired:
-                    cleanup_process_group(run_process.pid)
-                    run_process.wait(timeout=10)
+            run_process.wait(timeout=120)
         finally:
-            if run_process.poll() is None:
-                cleanup_process_group(run_process.pid)
-                run_process.wait(timeout=10)
+            cleanup_process_group(run_process.pid)
+
+        with use_archivebox_db(initialized_archive):
+            wait_result = ArchiveResult.objects.get(
+                snapshot_id=snapshot_id,
+                plugin="chrome",
+                hook_name="on_Snapshot__11_chrome_wait",
+            )
+            tab_result = ArchiveResult.objects.get(
+                snapshot_id=snapshot_id,
+                plugin="chrome",
+                hook_name="on_Snapshot__10_chrome_tab.daemon.bg",
+            )
 
         assert run_process.returncode == 0
-        assert last_wait_status == ArchiveResult.StatusChoices.SUCCEEDED
-        assert last_tab_process_id is not None
-        assert last_tab_process_id != first_tab_process_id
+        assert wait_result.status == ArchiveResult.StatusChoices.SUCCEEDED
+        assert tab_result.process_id is not None
+        assert tab_result.process_id != first_tab_process_id
 
     def test_recover_orchestrator_state_ignores_sealed_downloaded_snapshot_without_results(self):
         from django.utils import timezone
@@ -1912,13 +1880,15 @@ class TestRunDueCrawlState:
         assert finished.output_files == {"favicon.ico": {"size": 1}}
 
     def test_finished_parser_result_projects_children_before_resume_seals_snapshot(self):
-        import json
+        from importlib.resources import files
+        from pathlib import Path
 
         from django.utils import timezone
 
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.crawls.models import Crawl
         from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.plugins.hooks import extract_records_from_process, run_hook
         from archivebox.services.runner import run_due_snapshot
 
         crawl = Crawl.objects.create(
@@ -1935,17 +1905,34 @@ class TestRunDueCrawlState:
             status=Snapshot.StatusChoices.STARTED,
             retry_at=timezone.now(),
         )
+        staticfile_dir = root.output_dir / "staticfile"
         parser_dir = root.output_dir / "parse_txt_urls"
+        staticfile_dir.mkdir(parents=True, exist_ok=True)
         parser_dir.mkdir(parents=True, exist_ok=True)
-        (parser_dir / "urls.jsonl").write_text(
-            json.dumps({"type": "Snapshot", "url": "https://example.org/"}) + "\n",
+        (staticfile_dir / "input.txt").write_text(
+            "Plain text import containing https://example.org/\n",
             encoding="utf-8",
         )
+        hook_path = Path(str(files("abx_plugins.plugins.parse_txt_urls").joinpath("on_Snapshot__71_parse_txt_urls.py")))
+        process = run_hook(
+            hook_path,
+            parser_dir,
+            config={"ABXPKG_LIB_DIR": str(root.output_dir.parent.parent / "lib"), "SNAP_DIR": str(root.output_dir)},
+            timeout=30,
+            url=root.url,
+            depth=root.depth,
+            snapshot_id=str(root.id),
+        )
+        process.refresh_from_db()
+        assert process.exit_code == 0, process.stderr
+        result_record = next(record for record in extract_records_from_process(process) if record.get("type") == "ArchiveResult")
         ArchiveResult.objects.create(
             snapshot=root,
-            plugin="parse_txt_urls",
-            hook_name="on_Snapshot__71_parse_txt_urls",
-            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            process=process,
+            plugin=result_record["plugin"],
+            hook_name=result_record["hook_name"],
+            status=result_record["status"],
+            output_str=result_record.get("output_str", ""),
             output_files={"urls.jsonl": {"size": (parser_dir / "urls.jsonl").stat().st_size}},
         )
 

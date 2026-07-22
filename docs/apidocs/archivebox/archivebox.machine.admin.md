@@ -636,6 +636,30 @@ Bases: {py:obj}`archivebox.base_models.admin.BaseModelAdmin`
 
 ````
 
+````{py:method} stdout_display(process)
+:canonical: archivebox.machine.admin.ProcessAdmin.stdout_display
+
+```{autodoc2-docstring} archivebox.machine.admin.ProcessAdmin.stdout_display
+```
+
+````
+
+````{py:method} stderr_display(process)
+:canonical: archivebox.machine.admin.ProcessAdmin.stderr_display
+
+```{autodoc2-docstring} archivebox.machine.admin.ProcessAdmin.stderr_display
+```
+
+````
+
+````{py:method} archiveresult_output_display(process)
+:canonical: archivebox.machine.admin.ProcessAdmin.archiveresult_output_display
+
+```{autodoc2-docstring} archivebox.machine.admin.ProcessAdmin.archiveresult_output_display
+```
+
+````
+
 `````
 
 ````{py:function} register_admin(admin_site)

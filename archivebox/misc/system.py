@@ -22,7 +22,6 @@ def atomic_write(path: Path | str, contents: dict | str | bytes, overwrite: bool
     mode = "wb+" if isinstance(contents, bytes) else "w"
     encoding = None if isinstance(contents, bytes) else "utf-8"  # enforce utf-8 on all text writes
 
-    # print('\n> Atomic Write:', mode, path, len(contents), f'overwrite={overwrite}')
     try:
         with lib_atomic_write(path, mode=mode, overwrite=overwrite, encoding=encoding) as f:
             if isinstance(contents, dict):

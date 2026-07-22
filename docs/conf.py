@@ -103,7 +103,6 @@ autodoc2_skip_module_regexes = [
     r".*\.conftest$",
     r".*\.fixtures$",
 ]
-# autodoc2_hidden_objects = ['inherited', 'dunder']
 autodoc2_hidden_regexes = [
     r".*__package__",
 ]

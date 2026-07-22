@@ -5,48 +5,56 @@ Two or more existing ArchiveBox collection dirs can be merged together by simply
 > [!WARNING]
 > Snapshot folders are identified by their timestamp (in milliseconds), this is normally not a problem for archives collected on one machine, but when merging archives from two different instances that ran at the same time it means there is a small chance of conflicts. Check the contents of `archive/` before merging, and backup any directories that may conflict before proceeding.
 
-1. Upgrade both old collections to the most recent ArchiveBox version (following instructions above)
+1. Run `archivebox init` and `archivebox status` in each existing collection to apply migrations and confirm that both collections use the current ArchiveBox version. The complete example below creates two temporary collections so the merge can be reproduced safely; replace those paths with your existing collection paths.
   ```bash
-  pip install --upgrade archivebox   # or follow instructions above for upgrading w/ Docker
+  set -euo pipefail
+  merge_root="$(mktemp -d)"
+  trap 'rm -rf "$merge_root"' EXIT
+  collection_one="$merge_root/archivebox1"
+  collection_two="$merge_root/archivebox2"
+  merged_collection="$merge_root/archivebox_new"
 
-  cd /path/to/archivebox1/data
+  mkdir -p "$collection_one" "$collection_two"
+  cd "$collection_one"
   archivebox init
+  archivebox add --plugins=wget "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/?collection=one}"
   archivebox status
 
-  cd /path/to/archivebox2/data
+  cd "$collection_two"
   archivebox init
+  archivebox add --plugins=wget "${ARCHIVEBOX_DOCS_URL_TWO:-https://example.com/?collection=two}"
   archivebox status
-
-  # ... repeat the same for each collection if merging more than two
   ```
 
 2. Create a new empty archivebox collection in a new folder somewhere, this will hold the new merged collection
+  <!--pytest-codeblocks:cont-->
   ```bash
-  mkdir /path/to/archivebox_new
-  cd /path/to/archivebox_new
+  mkdir -p "$merged_collection"
+  cd "$merged_collection"
   archivebox init
   ```
 
 3. Copy everything under `./archive/*` in each old collection into the new collection's `./archive/` folder
+  <!--pytest-codeblocks:cont-->
   ```bash
-  rsync --archive --info=progress2 /path/to/archivebox1/data/archive/ /path/to/archivebox_new/data/archive
-  rsync --archive --info=progress2 /path/to/archivebox2/data/archive/ /path/to/archivebox_new/data/archive
-  # ...repeat the same for each collection if merging more than two
+  rsync --archive "$collection_one/archive/" "$merged_collection/archive/"
+  rsync --archive "$collection_two/archive/" "$merged_collection/archive/"
   ```
 
-4. Run `archivebox init` in the new merged collection to regenerate the new index
+4. Run `archivebox update` in the new merged collection to import the copied Snapshot directories and regenerate the index
+  <!--pytest-codeblocks:cont-->
   ```bash
-  cd /path/to/archivebox_new
-  archivebox init
+  cd "$merged_collection"
+  archivebox update --index-only
   ```
 
 5. The new collection should now contain all the entries from the old collections combined
+  <!--pytest-codeblocks:cont-->
   ```bash
-  cd /path/to/archivebox_new
+  cd "$merged_collection"
   archivebox status
 
-  # optionally force an update of the snapshot index files (normally done lazily)
-  archivebox update --index-only
+  test "$(find archive/users/system/snapshots -name index.jsonl | wc -l | tr -d ' ')" -eq 2
   ```
   For more information about why Snapshot index files are usually updated lazily, see: https://github.com/ArchiveBox/ArchiveBox/issues/962
 
@@ -61,8 +69,12 @@ If you need to automate changes to the ArchiveBox DB (for example adding a User 
 Note, this is often unnecessary for modifying ArchiveBox on a host that doesn't have the CLI installed, as you can also copy the `index.sqlite3` to a local machine that has it, do the modifications locally, then copy the modified db back into place on the host. (Docker/CLI/GUI/Web ArchiveBox all share the same DB schema/format)
 
 ```bash
-cd ~/archivebox/data    # cd into your archivebox collection dir
-sqlite3 index.sqlite3   # open the db with sqlite3 shell
+set -euo pipefail
+collection="$(mktemp -d)"
+trap 'rm -rf "$collection"' EXIT
+cd "$collection"
+archivebox init
+sqlite3 index.sqlite3 'SELECT COUNT(*) FROM core_snapshot;'
 ```
 
 #### Example: Modifying an existing user's email
@@ -81,18 +93,25 @@ WHERE username = 'someUsernameHere';
 
 This can be done on any machine with Python 3+, it doesn't have to have ArchiveBox installed.
   ```bash
-pip3 install django==3.1.3   # install the django version used by ArchiveBox
-python3                      # open any python shell with django available, doesn't have to be the archivebox shell
+uv run python -c "from django.contrib.auth.hashers import PBKDF2PasswordHasher; print(PBKDF2PasswordHasher().encode('somePasswordHere', 'someSaltHere'))"
 ```
-```python3
->>> from django.contrib.auth.hashers import make_password
->>> make_password('somePasswordHere', 'someSaltHere', 'pbkdf2_sha256')         # choose a password and a salt (can be anything 12 chars long)
-'pbkdf2_sha256$216000$someSaltHere$styW1Uoy8SHp3zbSwGRp20C9mPjOHVjP9rl5a8/UOVE='
+```python
+from django.contrib.auth.hashers import PBKDF2PasswordHasher
+
+hasher = PBKDF2PasswordHasher()
+password_hash = hasher.encode("somePasswordHere", "someSaltHere")
+assert hasher.verify("somePasswordHere", password_hash)
 ```
 2. Use the generated hashed password to insert a new User row in the SQLite3 database directly:
   ```bash
-cd ~/archivebox/data    # cd into your archivebox collection dir
-sqlite3 index.sqlite3   # open the db with sqlite3 shell
+set -euo pipefail
+collection="$(mktemp -d)"
+trap 'rm -rf "$collection"' EXIT
+cd "$collection"
+archivebox init
+password_hash="$(uv run python -c "from django.contrib.auth.hashers import PBKDF2PasswordHasher; print(PBKDF2PasswordHasher().encode('somePasswordHere', 'someSaltHere'))")"
+sqlite3 index.sqlite3 "INSERT INTO auth_user (password, last_login, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined) VALUES ('$password_hash', NULL, 0, 'someUsername', '', '', 'someEmail@example.com', 0, 1, CURRENT_TIMESTAMP);"
+test "$(sqlite3 index.sqlite3 "SELECT COUNT(*) FROM auth_user WHERE username='someUsername';")" -eq 1
 ```
 ```sql
 INSERT INTO "auth_user" ("password", "last_login", "is_superuser", "username", "first_name", "last_name", "email", "is_staff", "is_active", "date_joined")

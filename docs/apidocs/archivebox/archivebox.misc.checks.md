@@ -15,6 +15,14 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`_migration_interrupt_message <archivebox.misc.checks._migration_interrupt_message>`
+  - ```{autodoc2-docstring} archivebox.misc.checks._migration_interrupt_message
+    :summary:
+    ```
+* - {py:obj}`_exit_on_migration_interrupt <archivebox.misc.checks._exit_on_migration_interrupt>`
+  - ```{autodoc2-docstring} archivebox.misc.checks._exit_on_migration_interrupt
+    :summary:
+    ```
 * - {py:obj}`check_data_folder <archivebox.misc.checks.check_data_folder>`
   - ```{autodoc2-docstring} archivebox.misc.checks.check_data_folder
     :summary:
@@ -50,6 +58,20 @@
 ````
 
 ### API
+
+````{py:function} _migration_interrupt_message(*, before_apply: bool = False) -> str
+:canonical: archivebox.misc.checks._migration_interrupt_message
+
+```{autodoc2-docstring} archivebox.misc.checks._migration_interrupt_message
+```
+````
+
+````{py:function} _exit_on_migration_interrupt()
+:canonical: archivebox.misc.checks._exit_on_migration_interrupt
+
+```{autodoc2-docstring} archivebox.misc.checks._exit_on_migration_interrupt
+```
+````
 
 ````{py:function} check_data_folder(config=None, **config_kwargs) -> None
 :canonical: archivebox.misc.checks.check_data_folder

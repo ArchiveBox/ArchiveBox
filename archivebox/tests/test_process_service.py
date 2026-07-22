@@ -5,60 +5,36 @@ pytestmark = pytest.mark.django_db
 
 
 @pytest.mark.django_db(transaction=True)
-def test_process_completed_persists_with_uncached_network_interface(tmp_path):
+def test_process_completed_persists_with_uncached_network_interface(tmp_path, recursive_test_site):
     import asyncio
 
-    from abx_dl.events import CrawlCleanupEvent, ProcessCompletedEvent
-    from abx_dl.orchestrator import create_bus
+    import archivebox.machine.models as machine_models
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
     from archivebox.machine.models import Machine, NetworkInterface, Process
-    from archivebox.services.process_service import ProcessService
+    from archivebox.services.runner import CrawlRunner
 
     machine = Machine.current()
     iface = NetworkInterface.current()
+    crawl = Crawl.objects.create(
+        urls=recursive_test_site["root_url"],
+        config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "PLUGINS": "headers"},
+        created_by_id=get_or_create_system_user_pk(),
+    )
 
-    output_dir = tmp_path / "headers"
-    output_dir.mkdir()
-    bus = create_bus(name="test_process_completed_uncached_iface")
-    ProcessService(bus)
+    machine_models._CURRENT_INTERFACE = None
+    runner = CrawlRunner(crawl, selected_plugins=["headers"], show_progress=False)
+    asyncio.run(runner.run())
 
-    async def run_event() -> None:
-        event = bus.emit(
-            ProcessCompletedEvent(
-                plugin_name="headers",
-                hook_name="on_Snapshot__27_headers.daemon.bg",
-                hook_path="/bin/echo",
-                hook_args=["--url=https://example.com"],
-                is_background=True,
-                output_dir=str(output_dir),
-                env={},
-                timeout=60,
-                pid=123,
-                stdout="",
-                stderr="",
-                exit_code=0,
-                status="succeeded",
-                output_files=[],
-                start_ts="2026-05-13T07:22:00+00:00",
-                end_ts="2026-05-13T07:22:01+00:00",
-            ),
-        )
-        await event.now()
-        await event.wait()
-        await event.event_results_list()
-        cleanup = bus.emit(
-            CrawlCleanupEvent(
-                url="https://example.com",
-                snapshot_id="test-snapshot",
-                output_dir=str(output_dir),
-            ),
-        )
-        await cleanup.now()
-        await cleanup.wait()
-
-    asyncio.run(run_event())
-
-    process = Process.objects.get(pwd=str(output_dir), cmd=["/bin/echo", "--url=https://example.com"])
+    process = next(
+        process
+        for process in Process.objects.filter(process_type=Process.TypeChoices.HOOK)
+        if process.cmd and "on_Snapshot__27_headers.daemon.bg.js" in str(process.cmd[0])
+    )
     assert process.machine_id == machine.id
     assert process.iface_id == iface.id
     assert process.process_type == Process.TypeChoices.HOOK
     assert process.status == Process.StatusChoices.EXITED
+    assert process.started_at is not None
+    assert process.ended_at is not None
+    assert process.pid is not None

@@ -15,6 +15,8 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`ArchiveBoxLoginView <archivebox.core.admin_site.ArchiveBoxLoginView>`
+  -
 * - {py:obj}`ArchiveBoxAdmin <archivebox.core.admin_site.ArchiveBoxAdmin>`
   -
 ````
@@ -44,6 +46,18 @@
 ````
 
 ### API
+
+`````{py:class} ArchiveBoxLoginView(**kwargs)
+:canonical: archivebox.core.admin_site.ArchiveBoxLoginView
+
+Bases: {py:obj}`django.contrib.auth.views.LoginView`
+
+````{py:method} get_redirect_url() -> str
+:canonical: archivebox.core.admin_site.ArchiveBoxLoginView.get_redirect_url
+
+````
+
+`````
 
 `````{py:class} ArchiveBoxAdmin(name='admin')
 :canonical: archivebox.core.admin_site.ArchiveBoxAdmin
@@ -122,6 +136,11 @@ Bases: {py:obj}`django.contrib.admin.AdminSite`
 
 ```{autodoc2-docstring} archivebox.core.admin_site.ArchiveBoxAdmin.admin_data_index_view
 ```
+
+````
+
+````{py:method} login(request: django.http.HttpRequest, extra_context: dict[str, typing.Any] | None = None) -> django.template.response.TemplateResponse
+:canonical: archivebox.core.admin_site.ArchiveBoxAdmin.login
 
 ````
 

@@ -25,6 +25,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`project_discovered_snapshots <archivebox.services.snapshot_service.project_discovered_snapshots>`
+  - ```{autodoc2-docstring} archivebox.services.snapshot_service.project_discovered_snapshots
+    :summary:
+    ```
 * - {py:obj}`finalize_completed_snapshot <archivebox.services.snapshot_service.finalize_completed_snapshot>`
   - ```{autodoc2-docstring} archivebox.services.snapshot_service.finalize_completed_snapshot
     :summary:
@@ -37,7 +41,14 @@
 
 ### API
 
-````{py:function} finalize_completed_snapshot(snapshot_id: str) -> None
+````{py:function} project_discovered_snapshots(snapshot_id: str) -> list
+:canonical: archivebox.services.snapshot_service.project_discovered_snapshots
+
+```{autodoc2-docstring} archivebox.services.snapshot_service.project_discovered_snapshots
+```
+````
+
+````{py:function} finalize_completed_snapshot(snapshot_id: str, *, output_dir=None, crawl_limit_stop_reason: str | None = None) -> None
 :canonical: archivebox.services.snapshot_service.finalize_completed_snapshot
 
 ```{autodoc2-docstring} archivebox.services.snapshot_service.finalize_completed_snapshot
@@ -51,7 +62,7 @@
 ```
 ````
 
-`````{py:class} SnapshotService(bus, *, crawl_id: str, schedule_snapshot)
+`````{py:class} SnapshotService(bus, *, crawl_id: str)
 :canonical: archivebox.services.snapshot_service.SnapshotService
 
 Bases: {py:obj}`abx_dl.services.base.BaseService`

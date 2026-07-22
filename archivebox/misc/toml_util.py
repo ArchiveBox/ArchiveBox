@@ -90,9 +90,6 @@ class JSONSchemaWithLambdas(GenerateJsonSchema):
             serialize_unknown=True,
         )
 
-    # for computed_field properties render them like this instead:
-    # inspect.getsource(field.wrapped_property.fget).split('def ', 1)[-1].split('\n', 1)[-1].strip().strip('return '),
-
 
 def better_toml_dump_str(val: Any) -> str:
     try:

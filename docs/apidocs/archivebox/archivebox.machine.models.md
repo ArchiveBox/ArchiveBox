@@ -59,6 +59,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`_default_exit_code_for_unowned_process <archivebox.machine.models._default_exit_code_for_unowned_process>`
+  - ```{autodoc2-docstring} archivebox.machine.models._default_exit_code_for_unowned_process
+    :summary:
+    ```
 * - {py:obj}`_find_existing_binary_for_reference <archivebox.machine.models._find_existing_binary_for_reference>`
   - ```{autodoc2-docstring} archivebox.machine.models._find_existing_binary_for_reference
     :summary:
@@ -260,6 +264,13 @@
 
 ````
 
+````{py:function} _default_exit_code_for_unowned_process(process_type: str) -> int
+:canonical: archivebox.machine.models._default_exit_code_for_unowned_process
+
+```{autodoc2-docstring} archivebox.machine.models._default_exit_code_for_unowned_process
+```
+````
+
 ````{py:function} _find_existing_binary_for_reference(machine: Machine, reference: str) -> Binary | None
 :canonical: archivebox.machine.models._find_existing_binary_for_reference
 
@@ -314,7 +325,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats`
 ````{py:attribute} id
 :canonical: archivebox.machine.models.Machine.id
 :value: >
-   'UUIDField(...)'
+   'CompactUUIDField(...)'
 
 ```{autodoc2-docstring} archivebox.machine.models.Machine.id
 ```
@@ -607,7 +618,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats`
 ````{py:attribute} id
 :canonical: archivebox.machine.models.NetworkInterface.id
 :value: >
-   'UUIDField(...)'
+   'CompactUUIDField(...)'
 
 ```{autodoc2-docstring} archivebox.machine.models.NetworkInterface.id
 ```
@@ -783,7 +794,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`
 ````{py:attribute} unique_together
 :canonical: archivebox.machine.models.NetworkInterface.Meta.unique_together
 :value: >
-   (('machine', 'ip_public', 'ip_local', 'mac_address', 'dns_server'),)
+   (('machine', 'ip_public', 'ip_local', 'dns_server'),)
 
 ```{autodoc2-docstring} archivebox.machine.models.NetworkInterface.Meta.unique_together
 ```
@@ -853,7 +864,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats`, {py:obj}`ar
 ```{autodoc2-docstring} archivebox.machine.models.Binary.__init__
 ```
 
-`````{py:class} StatusChoices()
+`````{py:class} StatusChoices(*args, **kwds)
 :canonical: archivebox.machine.models.Binary.StatusChoices
 
 Bases: {py:obj}`django.db.models.TextChoices`
@@ -883,7 +894,7 @@ Bases: {py:obj}`django.db.models.TextChoices`
 ````{py:attribute} id
 :canonical: archivebox.machine.models.Binary.id
 :value: >
-   'UUIDField(...)'
+   'CompactUUIDField(...)'
 
 ```{autodoc2-docstring} archivebox.machine.models.Binary.id
 ```
@@ -1059,6 +1070,16 @@ Bases: {py:obj}`django.db.models.TextChoices`
    None
 
 ```{autodoc2-docstring} archivebox.machine.models.Binary.active_state
+```
+
+````
+
+````{py:attribute} warn_on_save_outside_runner
+:canonical: archivebox.machine.models.Binary.warn_on_save_outside_runner
+:value: >
+   False
+
+```{autodoc2-docstring} archivebox.machine.models.Binary.warn_on_save_outside_runner
 ```
 
 ````
@@ -1258,7 +1279,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`dj
 ```{autodoc2-docstring} archivebox.machine.models.Process.__init__
 ```
 
-`````{py:class} StatusChoices()
+`````{py:class} StatusChoices(*args, **kwds)
 :canonical: archivebox.machine.models.Process.StatusChoices
 
 Bases: {py:obj}`django.db.models.TextChoices`
@@ -1295,7 +1316,7 @@ Bases: {py:obj}`django.db.models.TextChoices`
 
 `````
 
-`````{py:class} TypeChoices()
+`````{py:class} TypeChoices(*args, **kwds)
 :canonical: archivebox.machine.models.Process.TypeChoices
 
 Bases: {py:obj}`django.db.models.TextChoices`
@@ -1405,7 +1426,7 @@ Bases: {py:obj}`django.db.models.TextChoices`
 ````{py:attribute} id
 :canonical: archivebox.machine.models.Process.id
 :value: >
-   'UUIDField(...)'
+   'CompactUUIDField(...)'
 
 ```{autodoc2-docstring} archivebox.machine.models.Process.id
 ```

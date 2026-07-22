@@ -381,6 +381,40 @@ def _save_archiveresult_event_to_db(
                 snapshot.title = next_title
                 snapshot.save(update_fields=["title", "modified_at"])
 
+    # Parser output becomes durable when its ArchiveResult reaches a final
+    # state. Project at that same lifecycle boundary so every completed parser
+    # can enrich an already-discovered URL before Snapshot/Crawl completion.
+    # create_discovered_snapshots() owns cross-parser dedupe and metadata merge.
+    if (
+        result.status in (ArchiveResult.StatusChoices.SUCCEEDED, ArchiveResult.StatusChoices.NORESULTS)
+        and (plugin_dir / "urls.jsonl").exists()
+    ):
+        from .snapshot_service import project_discovered_snapshots
+
+        with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.project_discovered_snapshots"):
+            project_discovered_snapshots(str(snapshot.id))
+
+
+def mark_archiveresult_started(event: ProcessStartedEvent, *, snapshot_id: str, process_id: str) -> None:
+    """Advance an existing queued hook row after its OS process is persisted."""
+    from archivebox.core.models import ArchiveResult
+
+    started_at = parse_event_datetime(event.start_ts)
+    if started_at is None:
+        raise ValueError("ProcessStartedEvent.start_ts is required")
+    ArchiveResult.objects.filter(
+        snapshot_id=snapshot_id,
+        plugin=event.plugin_name,
+        hook_name=event.hook_name,
+        status=ArchiveResult.StatusChoices.QUEUED,
+    ).update(
+        status=ArchiveResult.StatusChoices.STARTED,
+        start_ts=started_at,
+        end_ts=None,
+        process_id=process_id,
+        modified_at=timezone.now(),
+    )
+
 
 class ArchiveResultService(BaseService):
     LISTENS_TO = [ArchiveResultEvent, ProcessCompletedEvent]

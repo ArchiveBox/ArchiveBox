@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
 Tests for archivebox machine command.
-
-TODO: expand beyond command discovery into list/filter behavior.
 """
 
 from archivebox.tests.conftest import run_archivebox_cmd

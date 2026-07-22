@@ -98,6 +98,14 @@ Bases: {py:obj}`django.forms.Widget`
 
 ````
 
+````{py:method} _json_for_inline_script(value)
+:canonical: archivebox.core.widgets.TagEditorWidget._json_for_inline_script
+
+```{autodoc2-docstring} archivebox.core.widgets.TagEditorWidget._json_for_inline_script
+```
+
+````
+
 ````{py:method} _tag_style(value)
 :canonical: archivebox.core.widgets.TagEditorWidget._tag_style
 

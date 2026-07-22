@@ -1,5 +1,41 @@
 #!/usr/bin/env bash
 
+set -Eeuo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-${LIB_DIR:-$HOME/.config/archivebox/lib}}"
+locked_abxpkg_version() {
+    local line package=""
+    while IFS= read -r line; do
+        case "$line" in
+            '[[package]]') package="" ;;
+            'name = "abxpkg"') package="abxpkg" ;;
+            'version = "'*'"')
+                [[ "$package" == "abxpkg" ]] || continue
+                line="${line#version = \"}"
+                printf '%s\n' "${line%\"}"
+                return 0
+                ;;
+        esac
+    done < "$REPO_DIR/uv.lock"
+    return 1
+}
+ABXPKG_VERSION="$(locked_abxpkg_version)"
+mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+    --install \
+    --lib="$ABXPKG_LIB_DIR" \
+    --deps-from="$REPO_DIR/.github/configs/ci-tooling.json:docker_debug_binaries" \
+    >/dev/null
+DOCKER_BINARY="$ABXPKG_LIB_DIR/env/bin/docker"
+PV_BINARY="$ABXPKG_LIB_DIR/env/bin/pv"
+TAR_BINARY="$ABXPKG_LIB_DIR/env/bin/tar"
+TREE_BINARY="$ABXPKG_LIB_DIR/env/bin/tree"
+test -x "$DOCKER_BINARY"
+test -x "$PV_BINARY"
+test -x "$TAR_BINARY"
+test -x "$TREE_BINARY"
+
 # This script takes a single Docker image tag (e.g. "ubuntu:latest") as input
 # and shows the contents of the filesystem for each layer in the image.
 
@@ -9,13 +45,12 @@ if [ $# -ne 1 ]; then
 fi
 
 IMAGE=$1
-# TMPDIR=$(mktemp -d) 
 mkdir -p "$PWD/tmp"
 TMPDIR="$PWD/tmp"
 
 # Save the Docker image to a tar archive
 echo "Saving Docker image '$IMAGE'..."
-if ! docker save "$IMAGE" | pv > "${TMPDIR}/image.tar"; then
+if ! "$DOCKER_BINARY" save "$IMAGE" | "$PV_BINARY" > "${TMPDIR}/image.tar"; then
     echo "Failed to save image '$IMAGE'. Make sure the image exists and Docker is running."
     rm -rf "${TMPDIR}"
     exit 1
@@ -26,7 +61,7 @@ cd "${TMPDIR}" || exit 1
 # Extract the top-level metadata of the image tar
 echo "Extracting image metadata..."
 pwd
-tar -xzf image.tar
+"$TAR_BINARY" -xf image.tar
 chmod -R 777 .
 cd blobs/sha256 || exit 1
 
@@ -36,13 +71,13 @@ for LAYERFILE in ./*; do
     if [ -f "${LAYERFILE}" ]; then
         mv "${LAYERFILE}" "${LAYERFILE}.tar"
         mkdir -p "${LAYERFILE}"
-        tar -xzf "${LAYERFILE}.tar" -C "${LAYERFILE}"
+        "$TAR_BINARY" -xf "${LAYERFILE}.tar" -C "${LAYERFILE}"
         rm "${LAYERFILE}.tar"
         echo "-----------------------------------------------------------------"
         echo "Contents of layer: ${LAYERFILE%/}"
         echo "-----------------------------------------------------------------"
         # List the files in the layer.tar without extracting
-        tree -L 2 "${LAYERFILE}"
+        "$TREE_BINARY" -L 2 "${LAYERFILE}"
         echo
     fi
 done

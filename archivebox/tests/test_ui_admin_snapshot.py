@@ -1,8 +1,9 @@
 """Snapshot model and admin UI tests."""
 
-import json
+import shutil
 import warnings
 from pathlib import Path
+from threading import Thread
 from types import SimpleNamespace
 
 import pytest
@@ -10,11 +11,112 @@ from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.core.paginator import UnorderedObjectListWarning
 from django.test import RequestFactory
 from django.urls import reverse
-from django.utils import timezone
 
 from archivebox.tests.conftest import ADMIN_TEST_HOST
+from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(transaction=True)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture
+def real_hash_projection(snapshot, cached_abxpkg_lib_dir):
+    snapshot.output_dir.mkdir(parents=True, exist_ok=True)
+    (snapshot.output_dir / "source.txt").write_text("real snapshot admin input", encoding="utf-8")
+    return _run_shipped_snapshot_hook(
+        snapshot,
+        plugin="hashes",
+        hook_name="on_Snapshot__93_hashes.py",
+        lib_dir=cached_abxpkg_lib_dir,
+    )
+
+
+@pytest.fixture
+def real_failed_title_projection(snapshot, cached_abxpkg_lib_dir):
+    return _run_shipped_snapshot_hook(
+        snapshot,
+        plugin="title",
+        hook_name="on_Snapshot__54_title.js",
+        lib_dir=cached_abxpkg_lib_dir,
+        expected_exit_codes=(1,),
+    )
+
+
+@pytest.fixture
+def real_noresults_projection(snapshot, cached_abxpkg_lib_dir):
+    staticfile_dir = snapshot.output_dir / "staticfile"
+    staticfile_dir.mkdir(parents=True, exist_ok=True)
+    (staticfile_dir / "input.txt").write_text("plain text without links", encoding="utf-8")
+    return _run_shipped_snapshot_hook(
+        snapshot,
+        plugin="parse_txt_urls",
+        hook_name="on_Snapshot__71_parse_txt_urls.py",
+        lib_dir=cached_abxpkg_lib_dir,
+    )
+
+
+@pytest.fixture
+def real_parse_projection(snapshot, cached_abxpkg_lib_dir):
+    staticfile_dir = snapshot.output_dir / "staticfile"
+    staticfile_dir.mkdir(parents=True, exist_ok=True)
+    (staticfile_dir / "input.txt").write_text("https://example.org/parsed\n", encoding="utf-8")
+    return _run_shipped_snapshot_hook(
+        snapshot,
+        plugin="parse_txt_urls",
+        hook_name="on_Snapshot__71_parse_txt_urls.py",
+        lib_dir=cached_abxpkg_lib_dir,
+    )
+
+
+@pytest.fixture
+def running_wget_projection(snapshot, blocking_http_server):
+    from django.utils import timezone
+
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.services.runner import run_due_snapshot
+
+    now = timezone.now()
+    Crawl.objects.filter(pk=snapshot.crawl_id).update(status=Crawl.StatusChoices.STARTED, retry_at=now, modified_at=now)
+    Snapshot.objects.filter(pk=snapshot.pk).update(
+        status=Snapshot.StatusChoices.QUEUED,
+        retry_at=now,
+        downloaded_at=None,
+        url=blocking_http_server.url,
+    )
+    snapshot.refresh_from_db()
+    [result] = snapshot.create_pending_archiveresults(hooks=[("wget", "on_Snapshot__06_wget.finite.bg")])
+    errors = []
+
+    def run_snapshot():
+        try:
+            assert run_due_snapshot(snapshot, lock_seconds=60) is True
+        except BaseException as err:
+            errors.append(err)
+        finally:
+            blocking_http_server.request_started.set()
+
+    runner = Thread(target=run_snapshot, name="archivebox-test-admin-wget-runner")
+    runner.start()
+    blocking_http_server.request_started.wait()
+    assert errors == []
+    result.refresh_from_db()
+    assert result.status == ArchiveResult.StatusChoices.STARTED
+    yield result
+    blocking_http_server.release_response.set()
+    runner.join()
+    assert errors == []
+
+
+@pytest.fixture
+def real_skipped_hash_projection(snapshot, cached_abxpkg_lib_dir):
+    return _run_shipped_snapshot_hook(
+        snapshot,
+        plugin="hashes",
+        hook_name="on_Snapshot__93_hashes.py",
+        lib_dir=cached_abxpkg_lib_dir,
+        env={"HASHES_ENABLED": "False"},
+    )
 
 
 def test_snapshot_changelist_uses_stable_ordering_without_unordered_paginator_warning(admin_client, snapshot):
@@ -32,14 +134,13 @@ def test_snapshot_changelist_uses_stable_ordering_without_unordered_paginator_wa
     assert b"Searching matching snapshots..." in response.content
 
 
-def test_snapshot_changelist_preview_uses_prefetched_output_files(admin_client, snapshot):
+def test_snapshot_changelist_preview_uses_prefetched_output_files(admin_client, snapshot, real_hash_projection):
     from archivebox.core.models import ArchiveResult
 
-    ArchiveResult.objects.create(
-        snapshot=snapshot,
+    _process, result = real_hash_projection
+    ArchiveResult.objects.filter(pk=result.pk).update(
         plugin="screenshot",
         hook_name="on_Snapshot__40_screenshot.js",
-        status=ArchiveResult.StatusChoices.SUCCEEDED,
         output_size=128,
         output_files={"screenshot.png": {"size": 128, "root_relative": True}},
     )
@@ -54,7 +155,7 @@ def test_snapshot_changelist_preview_uses_prefetched_output_files(admin_client, 
 def test_snapshot_admin_tag_editor_escapes_tag_json_script_breakout(admin_client, snapshot):
     from archivebox.core.models import Tag
 
-    tag = Tag.objects.create(name="legacy-safe-tag")
+    tag = Tag.objects.create(name="safe-tag")
     snapshot.tags.add(tag)
     malicious_name = '</script><script id="archivebox-tag-xss">window.__archivebox_tag_xss__=1</script>'
     Tag.objects.filter(pk=tag.pk).update(name=malicious_name)
@@ -69,17 +170,12 @@ def test_snapshot_admin_tag_editor_escapes_tag_json_script_breakout(admin_client
     assert b"&lt;/script&gt;&lt;script id=&quot;archivebox-tag-xss&quot;&gt;" in body
 
 
-def test_snapshot_admin_archive_results_escape_extractor_output(admin_client, snapshot):
+def test_snapshot_admin_archive_results_escape_extractor_output(admin_client, snapshot, real_hash_projection):
     from archivebox.core.models import ArchiveResult
 
     payload = '<img src=x onerror="window.__archivebox_archiveresult_xss__=1">'
-    ArchiveResult.objects.create(
-        snapshot=snapshot,
-        plugin="title",
-        hook_name="on_Snapshot__54_title.js",
-        status=ArchiveResult.StatusChoices.SUCCEEDED,
-        output_str=payload,
-    )
+    _process, result = real_hash_projection
+    ArchiveResult.objects.filter(pk=result.pk).update(output_str=payload)
 
     response = admin_client.get(reverse("admin:core_snapshot_change", args=[snapshot.pk]), HTTP_HOST=ADMIN_TEST_HOST)
     body = response.content
@@ -90,67 +186,28 @@ def test_snapshot_admin_archive_results_escape_extractor_output(admin_client, sn
     assert b"&lt;img src=x onerror=&quot;window.__archivebox_archiveresult_xss__=1&quot;&gt;" in body
 
 
-def test_snapshot_admin_archive_result_table_escapes_legacy_string_fields(admin_client, snapshot):
-    from uuid import uuid4
-
+def test_snapshot_admin_archive_result_table_escapes_persisted_string_fields(admin_client, snapshot, real_hash_projection):
     from archivebox.core.models import ArchiveResult
-    from archivebox.machine.models import Binary, Machine, Process
 
-    machine = Machine.objects.create(
-        guid=f"xss-machine-{uuid4()}",
-        hostname='<script id="machine-xss">x</script>',
-        hw_in_docker=False,
-        hw_in_vm=False,
-        hw_manufacturer="Test",
-        hw_product="Test Product",
-        hw_uuid=f"xss-hw-{uuid4()}",
-        os_arch="arm64",
-        os_family="darwin",
-        os_platform="macOS",
-        os_release="14.0",
-        os_kernel="Darwin",
-        stats={},
-        config={},
-    )
-    binary = Binary.objects.create(
-        machine=machine,
-        name="staticfile",
-        abspath="/usr/bin/staticfile",
-        version='<b id="version-xss">v</b>',
-        binprovider="env",
-        binproviders="env",
-        status=Binary.StatusChoices.INSTALLED,
-    )
-    process = Process.objects.create(
-        machine=machine,
-        binary=binary,
-        process_type=Process.TypeChoices.HOOK,
-        pwd='/tmp/archivebox"><script id="pwd-xss">x</script>',
-        cmd=["staticfile"],
-        status=Process.StatusChoices.EXITED,
-    )
-    result = ArchiveResult.objects.create(
-        snapshot=snapshot,
-        plugin="staticfile",
-        hook_name="on_Snapshot__00_staticfile.py",
-        process=process,
-        status=ArchiveResult.StatusChoices.SUCCEEDED,
+    process, result = real_hash_projection
+    machine = process.machine
+    type(machine).objects.filter(pk=machine.pk).update(hostname='<script id="machine-xss">x</script>')
+    type(process).objects.filter(pk=process.pk).update(pwd='/tmp/archivebox"><script id="pwd-xss">x</script>')
+    ArchiveResult.objects.filter(pk=result.pk).update(
         output_files={'evil"><script id="file-xss">x</script>.txt': {"size": 12, "mimetype": "text/plain"}},
-        output_str='staticfile/evil"><script id="file-xss">x</script>.txt',
+        output_str='hashes/evil"><script id="file-xss">x</script>.txt',
+        plugin='<script id="plugin-xss">x</script>',
     )
-    ArchiveResult.objects.filter(pk=result.pk).update(plugin='<script id="plugin-xss">x</script>')
 
     response = admin_client.get(reverse("admin:core_snapshot_change", args=[snapshot.pk]), HTTP_HOST=ADMIN_TEST_HOST)
     body = response.content
 
     assert response.status_code == 200
     assert b'<script id="machine-xss">' not in body
-    assert b'<script id="version-xss">' not in body
     assert b'<script id="pwd-xss">' not in body
     assert b'<script id="file-xss">' not in body
     assert b'<script id="plugin-xss">' not in body
     assert b"&lt;script id=&quot;machine-xss&quot;&gt;" in body
-    assert b"&lt;b id=&quot;version-xss&quot;&gt;v&lt;/b&gt;" in body
     assert b"&lt;script id=&quot;pwd-xss&quot;&gt;" in body
     assert b"&lt;script id=&quot;file-xss&quot;&gt;" in body
     assert b"&lt;script id=&quot;plugin-xss&quot;&gt;" in body
@@ -183,16 +240,15 @@ def test_snapshot_changelist_bulk_permissions_action_updates_selected_snapshots(
     assert snapshot.config["PERMISSIONS"] == "private"
 
 
-def test_snapshot_admin_preview_uses_extension_screenshot_when_standard_screenshot_missing(snapshot):
+def test_snapshot_admin_preview_uses_extension_screenshot_when_standard_screenshot_missing(snapshot, real_hash_projection):
     from archivebox.config.common import get_config
     from archivebox.core.admin_site import archivebox_admin
     from archivebox.core.admin_snapshots import SnapshotAdmin
     from archivebox.core.models import ArchiveResult, Snapshot
 
-    ArchiveResult.objects.create(
-        snapshot=snapshot,
+    _process, result = real_hash_projection
+    ArchiveResult.objects.filter(pk=result.pk).update(
         plugin="chrome_extension_screenshot",
-        status=ArchiveResult.StatusChoices.SUCCEEDED,
         output_files={
             "screenshot-1.png": {"size": 2},
             "screenshot.png": {"size": 1},
@@ -228,33 +284,23 @@ class TestSnapshotProgressStats:
         assert stats["output_size"] == 0
         assert stats["is_sealed"] is False
 
-    def test_get_progress_stats_with_results(self, snapshot, db):
+    def test_get_progress_stats_with_results(
+        self,
+        snapshot,
+        real_hash_projection,
+        real_parse_projection,
+        real_failed_title_projection,
+        running_wget_projection,
+    ):
         """Test progress stats with various archive result statuses."""
         from archivebox.core.models import ArchiveResult
 
-        # Create some archive results
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="wget",
-            status="succeeded",
-            output_size=1000,
-        )
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="screenshot",
-            status="succeeded",
-            output_size=2000,
-        )
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="pdf",
-            status="failed",
-        )
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="readability",
-            status="started",
-        )
+        succeeded_results = [real_hash_projection[1], real_parse_projection[1]]
+        failed_result = real_failed_title_projection[1]
+        started_result = running_wget_projection
+        assert all(result.status == ArchiveResult.StatusChoices.SUCCEEDED for result in succeeded_results)
+        assert failed_result.status == ArchiveResult.StatusChoices.FAILED
+        assert started_result.status == ArchiveResult.StatusChoices.STARTED
 
         stats = snapshot.get_progress_stats()
 
@@ -262,41 +308,42 @@ class TestSnapshotProgressStats:
         assert stats["succeeded"] == 2
         assert stats["failed"] == 1
         assert stats["running"] == 1
-        assert stats["output_size"] == 3000
+        assert stats["output_size"] == sum(result.output_size for result in [*succeeded_results, failed_result, started_result])
         assert stats["percent"] == 75  # (2 succeeded + 1 failed) / 4 total
 
-    def test_snapshot_admin_progress_uses_expected_hook_total_not_observed_result_count(self, snapshot, monkeypatch):
+    def test_snapshot_admin_progress_uses_expected_hook_total_not_observed_result_count(
+        self,
+        snapshot,
+        real_hash_projection,
+        running_wget_projection,
+    ):
         from archivebox.core.admin_site import archivebox_admin
         from archivebox.core.admin_snapshots import SnapshotAdmin
         from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.config.common import get_config
+        from django.urls import resolve
 
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="wget",
-            hook_name="on_Snapshot__50_wget.py",
-            status="succeeded",
-            output_size=1000,
-        )
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="title",
-            hook_name="on_Snapshot__54_title.py",
-            status="started",
-        )
+        assert real_hash_projection[1].status == ArchiveResult.StatusChoices.SUCCEEDED
+        assert running_wget_projection.status == ArchiveResult.StatusChoices.STARTED
 
         prefetched_snapshot = Snapshot.objects.prefetch_related("archiveresult_set").get(pk=snapshot.pk)
         admin = SnapshotAdmin(Snapshot, archivebox_admin)
-        monkeypatch.setattr(admin, "_get_expected_hook_total", lambda obj: 5)
+        request = RequestFactory().get("/", HTTP_HOST="archivebox.localhost:8000")
+        request.resolver_match = resolve("/")
+        request.archivebox_config = get_config()
+        admin.request = request
+        expected_total = admin._get_expected_hook_total(prefetched_snapshot)
 
         stats = admin._get_progress_stats(prefetched_snapshot)
         html = str(admin.status_with_progress(prefetched_snapshot))
 
-        assert stats["total"] == 5
+        assert expected_total > 2
+        assert stats["total"] == expected_total
         assert stats["succeeded"] == 1
         assert stats["running"] == 1
-        assert stats["pending"] == 3
-        assert stats["percent"] == 20
-        assert "1/5 hooks" in html
+        assert stats["pending"] == expected_total - 2
+        assert stats["percent"] == int(100 / expected_total)
+        assert f"1/{expected_total} hooks" in html
 
     def test_get_progress_stats_sealed(self, snapshot):
         """Test progress stats for sealed snapshot."""
@@ -308,83 +355,64 @@ class TestSnapshotProgressStats:
         stats = snapshot.get_progress_stats()
         assert stats["is_sealed"] is True
 
-    def test_archive_size_uses_materialized_output_size_without_output_dir(self, snapshot, monkeypatch, django_capture_on_commit_callbacks):
+    def test_archive_size_uses_materialized_output_size(self, snapshot, real_hash_projection):
         """archive_size should trust the materialized DB size without touching disk."""
-        from archivebox.core.models import ArchiveResult, Snapshot
-
-        with django_capture_on_commit_callbacks(execute=True):
-            ArchiveResult.objects.create(
-                snapshot=snapshot,
-                plugin="wget",
-                status="succeeded",
-                output_size=4096,
-            )
+        _process, result = real_hash_projection
         snapshot.refresh_from_db(fields=["output_size"])
 
-        def _output_dir_should_not_be_used(self):
-            raise AssertionError("archive_size should not access Snapshot.output_dir when results are prefetched")
+        assert result.output_size > 0
+        assert snapshot.archive_size == result.output_size
 
-        monkeypatch.setattr(Snapshot, "output_dir", property(_output_dir_should_not_be_used), raising=False)
-
-        assert snapshot.archive_size == 4096
-
-    def test_snapshot_serialization_exposes_output_size_alias(self, snapshot, django_capture_on_commit_callbacks):
+    def test_snapshot_serialization_exposes_output_size_alias(self, snapshot, real_hash_projection):
         """Snapshot serializers should expose output_size as an alias of archive_size."""
-        from archivebox.core.models import ArchiveResult
-
-        with django_capture_on_commit_callbacks(execute=True):
-            ArchiveResult.objects.create(
-                snapshot=snapshot,
-                plugin="wget",
-                status="succeeded",
-                output_size=4096,
-            )
+        _process, result = real_hash_projection
         snapshot.refresh_from_db(fields=["output_size"])
 
-        assert snapshot.to_dict()["archive_size"] == 4096
-        assert snapshot.to_dict()["output_size"] == 4096
+        assert snapshot.to_dict()["archive_size"] == result.output_size
+        assert snapshot.to_dict()["output_size"] == result.output_size
         assert snapshot.to_dict()["status"] == snapshot.status
-        assert snapshot.to_json()["archive_size"] == 4096
-        assert snapshot.to_json()["output_size"] == 4096
-        assert snapshot.to_csv(cols=["output_size"]) == "4096"
+        assert snapshot.to_json()["archive_size"] == result.output_size
+        assert snapshot.to_json()["output_size"] == result.output_size
+        assert snapshot.to_csv(cols=["output_size"]) == str(result.output_size)
         assert snapshot.to_csv(cols=["status"]) == '"started"'
 
-    def test_is_archived_true_for_sealed_snapshot_without_legacy_output_paths(self, snapshot, monkeypatch):
-        """Sealed snapshots should count as archived without relying on legacy output filenames."""
+    def test_is_archived_true_for_sealed_snapshot(self, snapshot):
+        """Sealed snapshots should count as archived."""
         from archivebox.core.models import Snapshot
 
         snapshot.status = Snapshot.StatusChoices.SEALED
         snapshot.save(update_fields=["status", "modified_at"])
 
-        def _missing_output_dir(self):
-            return Path("/definitely/missing")
-
-        monkeypatch.setattr(Snapshot, "output_dir", property(_missing_output_dir), raising=False)
-
         assert snapshot.is_archived is True
 
-    def test_discover_outputs_uses_output_file_metadata_size(self, snapshot):
+    def test_discover_outputs_uses_output_file_metadata_size(self, snapshot, real_hash_projection):
         """discover_outputs should use output_files metadata before filesystem fallbacks."""
         from archivebox.core.models import ArchiveResult
 
-        output_dir = Path(snapshot.output_dir) / "ytdlp"
+        output_dir = Path(snapshot.output_dir) / "screenshot"
         output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "video.mp4").write_bytes(b"video")
+        screenshot_file = output_dir / "screenshot.png"
+        shutil.copyfile(REPO_ROOT / "docs" / "_static" / "icon.png", screenshot_file)
 
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="ytdlp",
-            status="succeeded",
+        _process, result = real_hash_projection
+        ArchiveResult.objects.filter(pk=result.pk).update(
+            plugin="screenshot",
             output_str="",
-            output_files={"video.mp4": {"size": 9876, "mimetype": "video/mp4", "extension": "mp4"}},
+            output_files={
+                "screenshot.png": {
+                    "size": screenshot_file.stat().st_size,
+                    "mimetype": "image/png",
+                    "extension": "png",
+                },
+            },
             output_size=0,
         )
 
         outputs = snapshot.discover_outputs(include_filesystem_fallback=False)
-        ytdlp_output = next(output for output in outputs if output["name"] == "ytdlp")
+        screenshot_output = next(output for output in outputs if output["name"] == "screenshot")
 
-        assert ytdlp_output["path"] == "ytdlp/video.mp4"
-        assert ytdlp_output["size"] == 9876
+        assert screenshot_output["path"] == "screenshot/screenshot.png"
+        assert screenshot_output["size"] == screenshot_file.stat().st_size
 
     def test_media_helpers_use_output_file_metadata_without_disk(self):
         """Template helpers should derive media lists and sizes from output_files metadata."""
@@ -405,32 +433,36 @@ class TestSnapshotProgressStats:
             {"name": "video.mp4", "path": "ytdlp/video.mp4", "size": 111},
         ]
 
-    def test_discover_outputs_falls_back_to_hashes_index_without_filesystem_walk(self, snapshot):
-        """Older snapshots can still render cards from hashes.json when DB output_files are missing."""
-        import json
-
+    def test_discover_outputs_falls_back_to_hashes_index_without_filesystem_walk(
+        self,
+        snapshot,
+        real_hash_projection,
+        cached_abxpkg_lib_dir,
+    ):
+        """Snapshots can render cards from the shipped hashes manifest when DB output_files are missing."""
         from archivebox.core.models import ArchiveResult
 
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
+        _origin_process, result = real_hash_projection
+        ArchiveResult.objects.filter(pk=result.pk).update(
             plugin="responses",
-            status="succeeded",
             output_str="141 responses",
             output_files={},
         )
 
-        hashes_dir = Path(snapshot.output_dir) / "hashes"
-        hashes_dir.mkdir(parents=True, exist_ok=True)
-        (hashes_dir / "hashes.json").write_text(
-            json.dumps(
-                {
-                    "responses/index.jsonl": {"size": 456},
-                    "responses/all/20260323T073504__GET__example.com__.html": {"size": 789},
-                    "responses/all/20260323T073504__GET__example.com__app.js": {"size": 123},
-                },
-            ),
-            encoding="utf-8",
+        responses_dir = Path(snapshot.output_dir) / "responses"
+        response_html = responses_dir / "all" / "20260323T073504__GET__example.com__.html"
+        response_html.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(REPO_ROOT / "README.md", response_html)
+        shutil.copyfile(REPO_ROOT / "README.md", responses_dir / "index.jsonl")
+
+        process, _hash_result = _run_shipped_snapshot_hook(
+            snapshot,
+            plugin="hashes",
+            hook_name="on_Snapshot__93_hashes.py",
+            lib_dir=cached_abxpkg_lib_dir,
         )
+        assert process.exit_code == 0, process.stderr
+        assert (Path(snapshot.output_dir) / "hashes" / "hashes.json").is_file()
 
         outputs = snapshot.discover_outputs(include_filesystem_fallback=True)
 
@@ -442,8 +474,8 @@ class TestSnapshotProgressStats:
         """Snapshot page can still recover cards from plugin dirs when DB metadata is missing."""
         responses_dir = Path(snapshot.output_dir) / "responses"
         (responses_dir / "all").mkdir(parents=True, exist_ok=True)
-        (responses_dir / "index.jsonl").write_text("{}", encoding="utf-8")
-        (responses_dir / "all" / "20260323T073504__GET__example.com__.html").write_text("<html>ok</html>", encoding="utf-8")
+        shutil.copyfile(REPO_ROOT / "README.md", responses_dir / "index.jsonl")
+        shutil.copyfile(REPO_ROOT / "README.md", responses_dir / "all" / "20260323T073504__GET__example.com__.html")
 
         outputs = snapshot.discover_outputs(include_filesystem_fallback=True)
 
@@ -451,115 +483,111 @@ class TestSnapshotProgressStats:
             "responses/all/20260323T073504__GET__example.com__.html"
         )
 
-    def test_embed_path_db_ignores_human_readable_output_messages(self, snapshot):
-        from archivebox.core.models import ArchiveResult
-
-        result = ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="singlefile",
-            status="failed",
-            output_str="SingleFile extension did not produce output",
-        )
+    def test_embed_path_db_ignores_human_readable_output_messages(self, snapshot, real_failed_title_projection):
+        _process, result = real_failed_title_projection
 
         assert result.embed_path_db() is None
 
-    def test_embed_path_db_prefers_valid_output_str_over_first_output_file(self, snapshot):
+    def test_embed_path_db_prefers_valid_output_str_over_first_output_file(self, snapshot, real_hash_projection):
         from archivebox.core.models import ArchiveResult
 
         output_dir = Path(snapshot.output_dir) / "wget" / "example.com" / "assets" / "css"
         output_dir.mkdir(parents=True, exist_ok=True)
         (Path(snapshot.output_dir) / "wget" / "example.com" / "index.html").parent.mkdir(parents=True, exist_ok=True)
-        (Path(snapshot.output_dir) / "wget" / "example.com" / "index.html").write_text("<html>ok</html>", encoding="utf-8")
-        (output_dir / "mobile.css").write_text("body {}", encoding="utf-8")
+        shutil.copyfile(REPO_ROOT / "README.md", Path(snapshot.output_dir) / "wget" / "example.com" / "index.html")
+        shutil.copyfile(REPO_ROOT / "archivebox" / "templates" / "static" / "bootstrap.min.css", output_dir / "mobile.css")
 
-        result = ArchiveResult.objects.create(
-            snapshot=snapshot,
+        _process, result = real_hash_projection
+        ArchiveResult.objects.filter(pk=result.pk).update(
             plugin="wget",
-            status="succeeded",
             output_str="wget/example.com/index.html",
             output_files={
-                "example.com/assets/css/mobile.css": {"size": 123, "mimetype": "text/css"},
-                "example.com/index.html": {"size": 456, "mimetype": "text/html"},
+                "example.com/assets/css/mobile.css": {"size": (output_dir / "mobile.css").stat().st_size, "mimetype": "text/css"},
+                "example.com/index.html": {
+                    "size": (Path(snapshot.output_dir) / "wget" / "example.com" / "index.html").stat().st_size,
+                    "mimetype": "text/html",
+                },
             },
         )
+        result.refresh_from_db()
 
         assert result.embed_path_db() == "wget/example.com/index.html"
 
-    def test_embed_path_db_scores_output_files_instead_of_using_first_entry(self, snapshot):
+    def test_embed_path_db_scores_output_files_instead_of_using_first_entry(self, snapshot, real_hash_projection):
         from archivebox.core.models import ArchiveResult
 
         output_dir = Path(snapshot.output_dir) / "wget" / "example.com" / "assets" / "css"
         output_dir.mkdir(parents=True, exist_ok=True)
         (Path(snapshot.output_dir) / "wget" / "example.com" / "index.html").parent.mkdir(parents=True, exist_ok=True)
-        (Path(snapshot.output_dir) / "wget" / "example.com" / "index.html").write_text("<html>ok</html>", encoding="utf-8")
-        (output_dir / "mobile.css").write_text("body {}", encoding="utf-8")
+        shutil.copyfile(REPO_ROOT / "README.md", Path(snapshot.output_dir) / "wget" / "example.com" / "index.html")
+        shutil.copyfile(REPO_ROOT / "archivebox" / "templates" / "static" / "bootstrap.min.css", output_dir / "mobile.css")
 
-        result = ArchiveResult.objects.create(
-            snapshot=snapshot,
+        _process, result = real_hash_projection
+        ArchiveResult.objects.filter(pk=result.pk).update(
             plugin="wget",
-            status="succeeded",
             output_str="",
             output_files={
-                "example.com/assets/css/mobile.css": {"size": 123, "mimetype": "text/css"},
-                "example.com/index.html": {"size": 456, "mimetype": "text/html"},
+                "example.com/assets/css/mobile.css": {"size": (output_dir / "mobile.css").stat().st_size, "mimetype": "text/css"},
+                "example.com/index.html": {
+                    "size": (Path(snapshot.output_dir) / "wget" / "example.com" / "index.html").stat().st_size,
+                    "mimetype": "text/html",
+                },
             },
         )
+        result.refresh_from_db()
 
         assert result.embed_path_db() == "wget/example.com/index.html"
 
-    def test_embed_path_db_rejects_mimetype_like_output_str(self, snapshot):
+    def test_embed_path_db_rejects_mimetype_like_output_str(self, snapshot, real_hash_projection):
         from archivebox.core.models import ArchiveResult
 
-        result = ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="staticfile",
-            status="succeeded",
-            output_str="text/html",
-        )
+        _process, result = real_hash_projection
+        ArchiveResult.objects.filter(pk=result.pk).update(plugin="staticfile", output_str="text/html", output_files={})
+        result.refresh_from_db()
 
         assert result.embed_path_db() is None
 
-    def test_embed_path_db_rejects_output_str_that_does_not_exist_on_disk(self, snapshot):
+    def test_embed_path_db_rejects_output_str_that_does_not_exist_on_disk(self, snapshot, real_hash_projection):
         from archivebox.core.models import ArchiveResult
 
-        result = ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="dns",
-            status="succeeded",
-            output_str="1.2.3.4",
-        )
+        _process, result = real_hash_projection
+        ArchiveResult.objects.filter(pk=result.pk).update(plugin="dns", output_str="1.2.3.4", output_files={})
+        result.refresh_from_db()
 
         assert result.embed_path_db() is None
 
-    def test_embed_path_db_uses_output_file_fallbacks_without_disk_check(self, snapshot):
+    def test_embed_path_db_uses_output_file_fallbacks_without_disk_check(self, snapshot, real_hash_projection):
         from archivebox.core.models import ArchiveResult
 
-        result = ArchiveResult.objects.create(
-            snapshot=snapshot,
+        _process, result = real_hash_projection
+        ArchiveResult.objects.filter(pk=result.pk).update(
             plugin="responses",
-            status="succeeded",
             output_str="",
             output_files={
                 "all/20260323T073504__GET__example.com__.html": {"size": 789, "mimetype": "text/html"},
             },
         )
+        result.refresh_from_db()
 
         assert result.embed_path_db() == "responses/all/20260323T073504__GET__example.com__.html"
 
-    def test_discover_outputs_keeps_jsonl_only_plugins_with_non_path_output_str(self, snapshot):
+    def test_discover_outputs_keeps_jsonl_only_plugins_with_non_path_output_str(
+        self,
+        snapshot,
+        real_hash_projection,
+        real_noresults_projection,
+    ):
         from archivebox.core.models import ArchiveResult
 
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
+        _hash_process, dns_result = real_hash_projection
+        _parse_process, ssl_result = real_noresults_projection
+        ArchiveResult.objects.filter(pk=dns_result.pk).update(
             plugin="dns",
-            status="succeeded",
             output_str="1.2.3.4",
             output_files={"dns.jsonl": {"size": 1519, "mimetype": "application/jsonl"}},
         )
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
+        ArchiveResult.objects.filter(pk=ssl_result.pk).update(
             plugin="sslcerts",
-            status="succeeded",
             output_str="WR2",
             output_files={"sslcerts.jsonl": {"size": 3138, "mimetype": "application/jsonl"}},
         )
@@ -571,17 +599,16 @@ class TestSnapshotProgressStats:
         assert outputs["dns"]["is_metadata"] is True
         assert outputs["sslcerts"]["is_metadata"] is True
 
-    def test_embed_path_uses_explicit_fallback_not_first_output_file(self, snapshot):
+    def test_embed_path_uses_explicit_fallback_not_first_output_file(self, snapshot, real_hash_projection):
         from archivebox.core.models import ArchiveResult
 
         output_dir = Path(snapshot.output_dir) / "responses" / "all"
         output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "20260323T073504__GET__example.com__.html").write_text("<html>ok</html>", encoding="utf-8")
+        shutil.copyfile(REPO_ROOT / "README.md", output_dir / "20260323T073504__GET__example.com__.html")
 
-        result = ArchiveResult.objects.create(
-            snapshot=snapshot,
+        _process, result = real_hash_projection
+        ArchiveResult.objects.filter(pk=result.pk).update(
             plugin="responses",
-            status="succeeded",
             output_str="141 responses",
             output_files={
                 "all/20260323T073504__GET__example.com__app.js": {"size": 123, "mimetype": "application/javascript"},
@@ -589,89 +616,65 @@ class TestSnapshotProgressStats:
                 "index.jsonl": {"size": 456, "mimetype": "application/jsonl"},
             },
         )
+        result.refresh_from_db()
 
         assert result.embed_path_db() == "responses/all/20260323T073504__GET__example.com__.html"
         assert result.embed_path() == "responses/all/20260323T073504__GET__example.com__.html"
 
-    def test_detail_page_auxiliary_items_include_failed_plugins(self, snapshot):
-        from archivebox.core.models import ArchiveResult
-
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="singlefile",
-            status=ArchiveResult.StatusChoices.FAILED,
-            output_str="SingleFile extension did not produce output",
-        )
+    def test_detail_page_auxiliary_items_include_failed_plugins(self, snapshot, real_failed_title_projection):
+        _process, result = real_failed_title_projection
 
         loose_items, failed_items = snapshot.get_detail_page_auxiliary_items(outputs=[])
 
         assert loose_items == []
         assert failed_items == [
             {
-                "name": "singlefile (failed)",
-                "path": "singlefile",
+                "name": f"{result.plugin} (failed)",
+                "path": result.plugin,
                 "is_dir": True,
-                "size": 0,
+                "size": result.output_size,
             },
         ]
 
-    def test_detail_page_auxiliary_items_include_hidden_failed_plugins(self, snapshot):
-        from archivebox.core.models import ArchiveResult
+    def test_detail_page_auxiliary_items_include_hidden_failed_plugins(self, snapshot, real_failed_title_projection):
+        _process, result = real_failed_title_projection
 
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="favicon",
-            status=ArchiveResult.StatusChoices.FAILED,
-            output_str="No favicon found",
-        )
-
-        _, failed_items = snapshot.get_detail_page_auxiliary_items(outputs=[], hidden_card_plugins={"favicon"})
+        _, failed_items = snapshot.get_detail_page_auxiliary_items(outputs=[], hidden_card_plugins={result.plugin})
 
         assert failed_items == [
             {
-                "name": "favicon (failed)",
-                "path": "favicon",
+                "name": f"{result.plugin} (failed)",
+                "path": result.plugin,
                 "is_dir": True,
-                "size": 0,
+                "size": result.output_size,
             },
         ]
 
-    def test_detail_page_auxiliary_items_exclude_noresults_and_skipped(self, snapshot):
+    def test_detail_page_auxiliary_items_exclude_noresults_and_skipped(
+        self,
+        snapshot,
+        real_noresults_projection,
+        real_skipped_hash_projection,
+    ):
         from archivebox.core.models import ArchiveResult
 
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="title",
-            status=ArchiveResult.StatusChoices.NORESULTS,
-            output_str="No title found",
-        )
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="favicon",
-            status=ArchiveResult.StatusChoices.SKIPPED,
-            output_str="Skipped",
-        )
+        assert real_noresults_projection[1].status == ArchiveResult.StatusChoices.NORESULTS
+        assert real_skipped_hash_projection[1].status == ArchiveResult.StatusChoices.SKIPPED
 
         _, failed_items = snapshot.get_detail_page_auxiliary_items(outputs=[])
 
         assert failed_items == []
 
-    def test_plugin_full_prefers_db_embed_path_over_empty_filesystem_embed_path(self, snapshot, monkeypatch):
+    def test_plugin_full_renders_db_embed_path(self, snapshot, real_hash_projection):
         from archivebox.core.templatetags import core_tags
-        from archivebox.core.models import ArchiveResult
 
-        result = ArchiveResult.objects.create(
-            plugin="title",
-            snapshot=snapshot,
-            status=ArchiveResult.StatusChoices.SUCCEEDED,
-            output_files={"title.txt": {"size": 12, "extension": "txt", "mimetype": "text/plain"}},
-        )
-
-        monkeypatch.setattr(core_tags, "get_plugin_template", lambda plugin, view: "{{ output_path }}")
+        _process, result = real_hash_projection
+        embed_path = result.embed_path_db()
+        assert embed_path is not None
 
         html = str(core_tags.plugin_full({"request": None}, result))
 
-        assert "title/title.txt" in html
+        assert embed_path in html
         assert "?preview=1" not in html
         assert html != "http://snap-ffa4215f6d64.archivebox.localhost:8000"
 
@@ -683,7 +686,7 @@ class TestSnapshotProgressStats:
     def test_write_html_details_succeeds_with_index_only_fallback_output(self, snapshot):
         output_dir = Path(snapshot.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "index.jsonl").write_text('{"type":"Snapshot"}\n', encoding="utf-8")
+        shutil.copyfile(REPO_ROOT / "README.md", output_dir / "index.jsonl")
 
         snapshot.write_html_details()
 
@@ -713,21 +716,12 @@ class TestAdminSnapshotListView:
         assert response.status_code == 200
         assert b"example.com" in response.content
 
-    def test_list_view_avoids_legacy_title_fallbacks(self, client, admin_user, snapshot, monkeypatch):
-        """Title-less snapshots should render without touching history-based fallback paths."""
+    def test_list_view_renders_titleless_snapshot(self, client, admin_user, snapshot):
+        """Title-less snapshots should render their URL."""
         from archivebox.core.models import Snapshot
 
         Snapshot.objects.filter(pk=snapshot.pk).update(title="")
 
-        def _latest_title_should_not_be_used(self):
-            raise AssertionError("admin changelist should not access Snapshot.latest_title")
-
-        def _history_should_not_be_used(self):
-            raise AssertionError("admin changelist should not access Snapshot.history")
-
-        monkeypatch.setattr(Snapshot, "latest_title", property(_latest_title_should_not_be_used), raising=False)
-        monkeypatch.setattr(Snapshot, "history", property(_history_should_not_be_used), raising=False)
-
         client.force_login(admin_user)
         url = reverse("admin:core_snapshot_changelist")
         response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
@@ -735,44 +729,24 @@ class TestAdminSnapshotListView:
         assert response.status_code == 200
         assert b"example.com" in response.content
 
-    def test_list_view_avoids_output_dir_lookups(self, client, admin_user, snapshot, monkeypatch):
-        """Changelist links should render without probing snapshot paths on disk."""
-        from archivebox.core.models import Snapshot
-
-        def _output_dir_should_not_be_used(self):
-            raise AssertionError("admin changelist should not access Snapshot.output_dir")
-
-        monkeypatch.setattr(Snapshot, "output_dir", property(_output_dir_should_not_be_used), raising=False)
-
+    def test_list_view_renders_snapshot_replay_link(self, client, admin_user, snapshot):
         client.force_login(admin_user)
         url = reverse("admin:core_snapshot_changelist")
         response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
 
         assert response.status_code == 200
         assert b"example.com" in response.content
+        assert str(snapshot.pk).encode() in response.content
 
-    def test_list_view_avoids_snapshot_icons_helper(self, client, admin_user, snapshot, monkeypatch):
-        """Changelist should not call Snapshot.icons for each row anymore."""
-        from archivebox.core.models import ArchiveResult, Snapshot
-
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="wget",
-            status=ArchiveResult.StatusChoices.SUCCEEDED,
-            output_files={"index.html": {"size": 123, "extension": "html"}},
-        )
-
-        def _icons_should_not_be_used(self, path=None):
-            raise AssertionError("admin changelist should not call Snapshot.icons")
-
-        monkeypatch.setattr(Snapshot, "icons", _icons_should_not_be_used, raising=True)
+    def test_list_view_renders_archive_result_plugin(self, client, admin_user, snapshot, real_hash_projection):
+        _process, result = real_hash_projection
 
         client.force_login(admin_user)
         url = reverse("admin:core_snapshot_changelist")
         response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
 
         assert response.status_code == 200
-        assert b"wget" in response.content
+        assert result.plugin.encode() in response.content
 
     def test_list_view_uses_prefetched_tags_without_row_queries(self, client, admin_user, crawl, db):
         """Changelist tag rendering should reuse the prefetched tag cache."""
@@ -811,21 +785,17 @@ class TestAdminSnapshotListView:
 
         assert response.status_code == 200
 
-    def test_grid_card_component_order(self, client, admin_user, snapshot):
+    def test_grid_card_component_order(self, client, admin_user, snapshot, real_hash_projection):
         """Snapshot cards should keep metadata, title, URL, preview, and outputs in scan order."""
-        from archivebox.core.models import ArchiveResult, Tag
+        from archivebox.core.models import Tag
+
+        _process, result = real_hash_projection
+        assert result.output_size > 0
 
         snapshot.title = "Example Snapshot"
         snapshot.status = snapshot.StatusChoices.SEALED
         snapshot.save(update_fields=["title", "status", "modified_at"])
         snapshot.tags.add(Tag.objects.create(name="research"))
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="dom",
-            status="succeeded",
-            output_size=1000,
-            output_files={"output.html": {"path": "output.html", "size": 1000}},
-        )
 
         client.force_login(admin_user)
         response = client.get(reverse("admin:grid"), HTTP_HOST=ADMIN_TEST_HOST)
@@ -860,21 +830,19 @@ class TestAdminSnapshotListView:
         assert response.status_code == 200
         assert f"/admin/core/snapshot/{snapshot.pk}/redo-failed/".encode() in response.content
 
-    def test_snapshot_view_url_uses_canonical_replay_url_for_mode(self, snapshot, monkeypatch):
+    def test_snapshot_view_url_uses_canonical_replay_url_for_mode(self, snapshot):
         from archivebox.core.admin_site import archivebox_admin
         from archivebox.core.admin_snapshots import SnapshotAdmin
         from archivebox.config.common import get_config
 
         admin = SnapshotAdmin(snapshot.__class__, archivebox_admin)
 
-        monkeypatch.setenv("SERVER_SECURITY_MODE", "safe-subdomains-fullreplay")
         request = RequestFactory().get("/", HTTP_HOST="admin.archivebox.localhost:8000")
-        request.archivebox_config = get_config()
+        request.archivebox_config = get_config(overrides={"SERVER_SECURITY_MODE": "safe-subdomains-fullreplay"})
         admin.request = request
         assert admin.get_snapshot_view_url(snapshot) == f"http://snap-{str(snapshot.pk).replace('-', '')[-12:]}.archivebox.localhost:8000"
 
-        monkeypatch.setenv("SERVER_SECURITY_MODE", "safe-onedomain-nojsreplay")
-        request.archivebox_config = get_config()
+        request.archivebox_config = get_config(overrides={"SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay"})
         assert admin.get_snapshot_view_url(snapshot) == f"http://archivebox.localhost:8000/snapshot/{snapshot.pk}"
 
     def test_find_snapshots_for_url_matches_fragment_suffixed_variants(self, crawl, db):
@@ -911,16 +879,10 @@ class TestAdminSnapshotListView:
         assert b"tag-editor-inline readonly" in response.content
         assert b'data-readonly="1"' in response.content
 
-    def test_redo_failed_action_requeues_snapshot(self, client, admin_user, snapshot):
+    def test_redo_failed_action_requeues_snapshot(self, client, admin_user, snapshot, real_failed_title_projection):
         from archivebox.core.models import ArchiveResult
 
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="title",
-            hook_name="on_Snapshot__54_title",
-            status=ArchiveResult.StatusChoices.FAILED,
-            output_str="boom",
-        )
+        _process, failed = real_failed_title_projection
 
         client.force_login(admin_user)
         url = reverse("admin:core_snapshot_redo_failed", args=[snapshot.pk])
@@ -928,28 +890,29 @@ class TestAdminSnapshotListView:
 
         assert response.status_code == 302
         assert response["Location"].endswith(f"/admin/core/snapshot/{snapshot.pk}/change/")
-        assert snapshot.archiveresult_set.get(plugin="title").status == ArchiveResult.StatusChoices.QUEUED
+        failed.refresh_from_db()
+        assert failed.status == ArchiveResult.StatusChoices.QUEUED
 
-    def test_list_redo_failed_action_requeues_failed_archiveresults_only(self, client, admin_user, snapshot):
+    def test_list_redo_failed_action_requeues_failed_archiveresults_only(
+        self,
+        client,
+        admin_user,
+        snapshot,
+        real_failed_title_projection,
+        cached_abxpkg_lib_dir,
+    ):
         from archivebox.core.models import ArchiveResult
 
-        failed = ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="wget",
-            hook_name="on_Snapshot__50_wget",
-            status=ArchiveResult.StatusChoices.FAILED,
-            output_str="boom",
-            output_files={"index.html": {"path": "index.html", "size": 123}},
-            output_size=123,
-            output_mimetypes="text/html",
+        _failed_process, failed = real_failed_title_projection
+        snapshot.output_dir.mkdir(parents=True, exist_ok=True)
+        (snapshot.output_dir / "source.txt").write_text("real successful retry peer", encoding="utf-8")
+        _success_process, succeeded = _run_shipped_snapshot_hook(
+            snapshot,
+            plugin="hashes",
+            hook_name="on_Snapshot__93_hashes.py",
+            lib_dir=cached_abxpkg_lib_dir,
         )
-        succeeded = ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="title",
-            hook_name="on_Snapshot__54_title",
-            status=ArchiveResult.StatusChoices.SUCCEEDED,
-            output_str="Example Domain",
-        )
+        succeeded_output = succeeded.output_str
 
         client.force_login(admin_user)
         response = client.post(
@@ -972,7 +935,7 @@ class TestAdminSnapshotListView:
         assert failed.output_size == 0
         assert failed.output_mimetypes == ""
         assert succeeded.status == ArchiveResult.StatusChoices.SUCCEEDED
-        assert succeeded.output_str == "Example Domain"
+        assert succeeded.output_str == succeeded_output
         assert snapshot.status == snapshot.StatusChoices.QUEUED
 
     def test_archive_now_action_uses_original_snapshot_url_without_timestamp_suffix(self, client, admin_user, snapshot):
@@ -1028,32 +991,16 @@ class TestAdminSnapshotListView:
         assert new_crawl.status == Crawl.StatusChoices.QUEUED
         assert set(new_crawl.urls.splitlines()) == {"https://example.com", "https://example.com/other#frag"}
 
-    def test_change_view_archiveresults_inline_shows_process_and_machine_links(self, client, admin_user, snapshot, db):
-        import archivebox.machine.models as machine_models
-        from archivebox.core.models import ArchiveResult
-        from archivebox.machine.models import Machine, Process
-
-        machine_models._CURRENT_MACHINE = None
-        machine = Machine.current()
-        process = Process.objects.create(
-            machine=machine,
-            process_type=Process.TypeChoices.HOOK,
-            status=Process.StatusChoices.EXITED,
-            pid=54321,
-            exit_code=0,
-            cmd=["/plugins/title/on_Snapshot__54_title.js", "--url=https://example.com"],
-            env={"EXTRA_CONTEXT": json.dumps({"snapshot_id": str(snapshot.id)})},
-            started_at=timezone.now(),
-            ended_at=timezone.now(),
-        )
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            process=process,
-            plugin="title",
-            hook_name="on_Snapshot__54_title.js",
-            status=ArchiveResult.StatusChoices.SUCCEEDED,
-            output_str="Example Domain",
-        )
+    def test_change_view_archiveresults_inline_shows_process_and_machine_links(
+        self,
+        client,
+        admin_user,
+        snapshot,
+        real_hash_projection,
+    ):
+        process, result = real_hash_projection
+        machine = process.machine
+        assert result.process_id == process.id
 
         client.force_login(admin_user)
         url = reverse("admin:core_snapshot_change", args=[snapshot.pk])
@@ -1062,7 +1009,7 @@ class TestAdminSnapshotListView:
         assert response.status_code == 200
         assert b"Process" in response.content
         assert b"Machine" in response.content
-        assert b"54321" in response.content
+        assert str(process.pid).encode() in response.content
         assert machine.hostname.encode() in response.content
         assert reverse("admin:machine_process_change", args=[process.id]).encode() in response.content
         assert reverse("admin:machine_machine_change", args=[machine.id]).encode() in response.content

@@ -2,7 +2,10 @@ import os
 import sys
 import subprocess
 import textwrap
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
 
 import pytest
 
@@ -10,6 +13,20 @@ from archivebox.tests.conftest import run_archivebox_cmd
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+@pytest.fixture
+def checked_in_static_site():
+    handler = partial(SimpleHTTPRequestHandler, directory=str(REPO_ROOT))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
 
 
 def _merge_pythonpath(env: dict[str, str]) -> dict[str, str]:
@@ -195,6 +212,26 @@ class TestUrlRouting:
     def _set_config(self, *settings: str) -> None:
         result = run_archivebox_cmd(["config", "--set", *settings], cwd=self.data_dir)
         assert result.returncode == 0, result.stderr
+
+    def _install_archivewebpage_extension(self, lib_dir: Path) -> Path:
+        extensions_dir = lib_dir / "chromewebstore" / "extensions"
+        result = run_archivebox_cmd(
+            ["install", "archivewebpage"],
+            cwd=self.data_dir,
+            timeout=600,
+            env={
+                "ABXPKG_LIB_DIR": str(lib_dir),
+                "CHROMEWEBSTORE_EXTENSIONS_DIR": str(extensions_dir),
+                "SHOW_PROGRESS": "False",
+                "USE_COLOR": "False",
+            },
+        )
+        assert result.returncode == 0, result.stderr or result.stdout
+        installed = list(extensions_dir.glob("*__archivewebpage"))
+        assert len(installed) == 1, installed
+        assert (installed[0] / "ui.js").is_file()
+        assert (installed[0] / "sw.js").is_file()
+        return installed[0]
 
     def test_routes_util_and_web_public_redirect(self) -> None:
         self._run(
@@ -498,6 +535,15 @@ class TestUrlRouting:
             created_by_id = snapshot.crawl.created_by_id
             created_snapshots = []
             created_crawls = []
+            real_output_files = sorted({
+                Path(result.output_dir) / relative_path
+                for result in ArchiveResult.objects.filter(snapshot=snapshot)
+                for relative_path in (result.output_files or {})
+                if (Path(result.output_dir) / relative_path).is_file()
+            })
+            assert len(real_output_files) >= 4, real_output_files
+            real_output_bodies = [path.read_bytes() for path in real_output_files[:4]]
+            assert len(set(real_output_bodies)) == 4
 
             def make_snapshot(url):
                 crawl = Crawl.objects.create(urls=url, created_by_id=created_by_id)
@@ -508,10 +554,10 @@ class TestUrlRouting:
 
             try:
                 fixtures = (
-                    (make_snapshot("https://example.com"), now + timedelta(minutes=1), "old root"),
-                    (make_snapshot("https://example.com"), now + timedelta(minutes=2), "new root"),
-                    (make_snapshot("https://example.com/about.html"), now + timedelta(minutes=3), "old about"),
-                    (make_snapshot("https://example.com/about.html"), now + timedelta(minutes=4), "new about"),
+                    (make_snapshot("https://example.com"), now + timedelta(minutes=1), real_output_bodies[0]),
+                    (make_snapshot("https://example.com"), now + timedelta(minutes=2), real_output_bodies[1]),
+                    (make_snapshot("https://example.com/about.html"), now + timedelta(minutes=3), real_output_bodies[2]),
+                    (make_snapshot("https://example.com/about.html"), now + timedelta(minutes=4), real_output_bodies[3]),
                 )
 
                 for snap, stamp, content in fixtures:
@@ -522,19 +568,15 @@ class TestUrlRouting:
                     responses_root = Path(snap.output_dir) / "responses" / snap.domain
                     responses_root.mkdir(parents=True, exist_ok=True)
                     rel_path = "about.html" if snap.url.endswith("/about.html") else "index.html"
-                    (responses_root / rel_path).write_text(content, encoding="utf-8")
+                    (responses_root / rel_path).write_bytes(content)
 
                 resp = client.get("/", HTTP_HOST=original_host)
                 assert resp.status_code == 200
-                root_html = response_body(resp).decode("utf-8", "ignore")
-                assert "new root" in root_html
-                assert "old root" not in root_html
+                assert response_body(resp) == real_output_bodies[1]
 
                 resp = client.get("/about.html", HTTP_HOST=original_host)
                 assert resp.status_code == 200
-                about_html = response_body(resp).decode("utf-8", "ignore")
-                assert "new about" in about_html
-                assert "old about" not in about_html
+                assert response_body(resp) == real_output_bodies[3]
             finally:
                 for snap in created_snapshots:
                     shutil.rmtree(snap.output_dir, ignore_errors=True)
@@ -795,24 +837,23 @@ class TestUrlRouting:
 
     def test_subdomain_replay_assets_route_without_base_url(self) -> None:
         lib_dir = self.data_dir / "test-lib"
+        self._install_archivewebpage_extension(lib_dir)
         try:
             self._set_config("BIND_ADDR=127.0.0.1:8766", "BASE_URL=")
             self._run(
                 """
                 snapshot = get_snapshot()
                 snapshot_host = get_snapshot_host(str(snapshot.id))
-                extension_dir = Path(SERVER_CONFIG.ABXPKG_LIB_DIR) / "chromewebstore" / "extensions" / "test__archivewebpage"
-                extension_dir.mkdir(parents=True, exist_ok=True)
-                (extension_dir / "ui.js").write_text("window.__archivebox_replay_ui__ = true;\\n", encoding="utf-8")
-                (extension_dir / "sw.js").write_text("self.__archivebox_replay_sw__ = true;\\n", encoding="utf-8")
+                extensions_dir = Path(SERVER_CONFIG.ABXPKG_LIB_DIR) / "chromewebstore" / "extensions"
+                extension_dir = next(extensions_dir.glob("*__archivewebpage"))
 
                 client = Client()
                 resp = client.get("/replay/ui.js", HTTP_HOST=snapshot_host)
-                body = response_body(resp).decode("utf-8", "ignore")
+                body = response_body(resp)
 
                 assert resp.status_code == 200
                 assert resp["Content-Type"].startswith("application/javascript")
-                assert "window.__archivebox_replay_ui__" in body
+                assert body == (extension_dir / "ui.js").read_bytes()
 
                 print("OK")
                 """,
@@ -824,6 +865,7 @@ class TestUrlRouting:
 
     def test_subdomain_replay_assets_use_derived_chromewebstore_extensions_dir(self) -> None:
         lib_dir = self.data_dir / "test-lib"
+        self._install_archivewebpage_extension(lib_dir)
         try:
             self._set_config("BIND_ADDR=127.0.0.1:8766", "BASE_URL=")
             self._run(
@@ -832,18 +874,15 @@ class TestUrlRouting:
                 snapshot_host = get_snapshot_host(str(snapshot.id))
                 expected_extensions_dir = Path(SERVER_CONFIG.ABXPKG_LIB_DIR) / "chromewebstore" / "extensions"
 
-                extension_dir = expected_extensions_dir / "test__archivewebpage"
-                extension_dir.mkdir(parents=True, exist_ok=True)
-                (extension_dir / "ui.js").write_text("window.__archivebox_replay_ui_from_lib__ = true;\\n", encoding="utf-8")
-                (extension_dir / "sw.js").write_text("self.__archivebox_replay_sw_from_lib__ = true;\\n", encoding="utf-8")
+                extension_dir = next(expected_extensions_dir.glob("*__archivewebpage"))
 
                 client = Client()
                 resp = client.get("/replay/ui.js", HTTP_HOST=snapshot_host)
-                body = response_body(resp).decode("utf-8", "ignore")
+                body = response_body(resp)
 
                 assert resp.status_code == 200
                 assert resp["Content-Type"].startswith("application/javascript")
-                assert "window.__archivebox_replay_ui_from_lib__" in body
+                assert body == (extension_dir / "ui.js").read_bytes()
 
                 print("OK")
                 """,
@@ -1006,18 +1045,30 @@ class TestUrlRouting:
             """,
         )
 
-    def test_snapshot_pages_preview_filesystem_text_outputs(self) -> None:
+    def test_snapshot_pages_preview_filesystem_text_outputs(self, checked_in_static_site) -> None:
+        console_source_url = f"{checked_in_static_site}/archivebox/archivebox/templates/admin/base.html"
+        capture = run_archivebox_cmd(
+            [
+                "add",
+                "--depth=0",
+                "--plugins=consolelog,screenshot,chrome_mhtml",
+                console_source_url,
+            ],
+            cwd=self.data_dir,
+            timeout=600,
+            env={"SHOW_PROGRESS": "False", "USE_COLOR": "False"},
+        )
+        assert capture.returncode == 0, capture.stderr or capture.stdout
         self._run(
             """
             snapshot = get_snapshot()
             web_host = get_web_host()
             consolelog_dir = Path(snapshot.output_dir) / "consolelog"
-            consolelog_dir.mkdir(parents=True, exist_ok=True)
-            (consolelog_dir / "console.jsonl").write_text(
-                '{"level":"log","text":"console preview works"}\\n'
-                '{"level":"warn","text":"second line"}\\n',
-                encoding="utf-8",
-            )
+            consolelog_file = next(path for path in consolelog_dir.rglob("*.jsonl") if path.is_file())
+            consolelog_text = consolelog_file.read_text(encoding="utf-8")
+            assert consolelog_text.strip()
+            console_result = ArchiveResult.objects.get(snapshot=snapshot, plugin="consolelog")
+            assert consolelog_file.name in console_result.output_files
             snapshot.write_html_details()
 
             client = Client()
@@ -1025,36 +1076,27 @@ class TestUrlRouting:
             assert resp.status_code == 200
             live_html = response_body(resp).decode("utf-8", "ignore")
             assert 'data-plugin="consolelog" data-compact="1"' in live_html
-            assert "console preview works" in live_html
             snapshot_host = get_snapshot_host(str(snapshot.id))
-            resp = client.get("/consolelog/console.jsonl?preview=1", HTTP_HOST=snapshot_host)
+            consolelog_rel = consolelog_file.relative_to(snapshot.output_dir)
+            resp = client.get(f"/{consolelog_rel}?preview=1", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
             assert resp["Content-Type"].startswith("text/html")
             preview_html = response_body(resp).decode("utf-8", "ignore")
             assert "archivebox-text-preview" in preview_html
-            assert "console preview works" in preview_html
+            import html, json
+            first_console_record = json.loads(consolelog_text.splitlines()[0])
+            assert html.escape(first_console_record["text"]) in preview_html
 
             screenshot_dir = Path(snapshot.output_dir) / "screenshot"
-            screenshot_dir.mkdir(parents=True, exist_ok=True)
-            (screenshot_dir / "screenshot.png").write_bytes(
-                bytes.fromhex(
-                    "89504e470d0a1a0a"
-                    "0000000d49484452000000010000000108060000001f15c489"
-                    "0000000d49444154789c63f8ffffff7f0009fb03fd2a86e38a"
-                    "0000000049454e44ae426082",
-                ),
-            )
-            resp = client.get("/screenshot/screenshot.png?preview=1", HTTP_HOST=snapshot_host)
+            screenshot_file = next(path for path in screenshot_dir.rglob("*.png") if path.is_file())
+            screenshot_rel = screenshot_file.relative_to(snapshot.output_dir)
+            resp = client.get(f"/{screenshot_rel}?preview=1", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
             assert resp["Content-Type"].startswith("text/html")
 
-            root_screenshot = bytes.fromhex(
-                "89504e470d0a1a0a"
-                "0000000d49484452000000010000000108060000001f15c489"
-                "0000000d49444154789c63606060600000050001a5f64540"
-                "0000000049454e44ae426082"
-            )
-            (Path(snapshot.output_dir) / "screenshot.png").write_bytes(root_screenshot)
+            root_screenshot = screenshot_file.read_bytes()
+            import shutil
+            shutil.copyfile(screenshot_file, Path(snapshot.output_dir) / "screenshot.png")
             ArchiveResult.objects.update_or_create(
                 snapshot=snapshot,
                 plugin="screenshot",
@@ -1070,26 +1112,9 @@ class TestUrlRouting:
             assert response_body(resp) == root_screenshot
 
             mhtml_dir = Path(snapshot.output_dir) / "chrome_mhtml"
-            mhtml_dir.mkdir(parents=True, exist_ok=True)
-            (mhtml_dir / "snapshot.mhtml").write_text(
-                "From: <Saved by Blink>\\n"
-                "MIME-Version: 1.0\\n"
-                "Content-Type: multipart/related; type=\\"text/html\\"; boundary=\\"----abx-test\\"\\n"
-                "\\n"
-                "------abx-test\\n"
-                "Content-Type: text/html\\n"
-                "Content-Location: https://example.com/\\n"
-                "\\n"
-                "<!doctype html><html><head><link rel=\\"stylesheet\\" href=\\"cid:style-1\\"></head><body>Styled MHTML</body></html>\\n"
-                "------abx-test\\n"
-                "Content-Type: text/css\\n"
-                "Content-Location: cid:style-1\\n"
-                "\\n"
-                "body { color: red; }\\n"
-                "------abx-test--\\n",
-                encoding="utf-8",
-            )
-            resp = client.get("/chrome_mhtml/snapshot.mhtml?preview=1", HTTP_HOST=snapshot_host)
+            mhtml_file = next(path for path in mhtml_dir.rglob("*.mhtml") if path.is_file())
+            mhtml_rel = mhtml_file.relative_to(snapshot.output_dir)
+            resp = client.get(f"/{mhtml_rel}?preview=1", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
             assert resp["Content-Type"].startswith("text/html")
             assert "style-src 'unsafe-inline' data: blob:" in resp["Content-Security-Policy"]

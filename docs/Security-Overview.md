@@ -6,11 +6,11 @@
 ## Web UI Permissions
 
 ```bash
-archivebox config --set PUBLIC_INDEX=False      # require login to access the list of Snapshots
-archivebox config --set PUBLIC_ADD_VIEW=False   # require log-in to submit new URLs for archiving
-archivebox config --set PERMISSIONS=private     # default new snapshots to login-required (was: PUBLIC_SNAPSHOTS=False)
-
-archivebox manage [createsuperuser|changepassword] # create/modify admin UI users
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
+archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
+uv run --project "$project_dir" --no-sync archivebox config --set PUBLIC_INDEX=False && uv run --project "$project_dir" --no-sync archivebox config --set PUBLIC_ADD_VIEW=False
+uv run --project "$project_dir" --no-sync archivebox config --set PERMISSIONS=private
+uv run --project "$project_dir" --no-sync archivebox manage createsuperuser --help && uv run --project "$project_dir" --no-sync archivebox manage changepassword --help
 ```
 
 See [[Setting Up Authentication]] for more...
@@ -30,10 +30,10 @@ This is the default (lax) mode, intended for archiving public (non-secret) URLs 
 The default mode should not be used for archiving entire browser history or authenticated private content like Google Docs, paywalled content, invite-only subreddits, private photo share urls, etc.
 
 ```bash
-# (these are the defaults)
-archivebox config --set ARCHIVEDOTORG_ENABLED=True   # see https://archivebox.github.io/abx-plugins/#archivedotorg
-archivebox config --set CHROME_USER_DATA_DIR=None    # see https://archivebox.github.io/abx-plugins/#chrome
-archivebox config --set COOKIES_FILE=None
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
+uv run --project "$project_dir" --no-sync archivebox config --set ARCHIVEDOTORG_ENABLED=True
+uv run --project "$project_dir" --no-sync archivebox config --set CHROME_ISOLATION=snapshot
+uv run --project "$project_dir" --no-sync archivebox config --set COOKIES_FILE=None
 ```
 
 
@@ -44,9 +44,9 @@ archivebox config --set COOKIES_FILE=None
 ArchiveBox is able to archive content that requires authentication or cookies, but it comes with some caveats. Create dedicated logins for archiving to access paywalled content, private forums, LAN-only content, etc. then share them with ArchiveBox via Chrome profile + cookies.txt file.
 
 ```bash
-archivebox config --set ARCHIVEDOTORG_ENABLED=False
-archivebox config --set CHROME_USER_DATA_DIR=/path/to/chrome/profile
-archivebox config --set COOKIES_FILE=/path/to/cookies.txt
+project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cookies_file="$(mktemp)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox persona create personal
+uv run --project "$project_dir" --no-sync archivebox config --set ARCHIVEDOTORG_ENABLED=False && uv run --project "$project_dir" --no-sync archivebox config --set COOKIES_FILE="$cookies_file"
+uv run --project "$project_dir" --no-sync archivebox add --plugins=parse_txt_urls --persona=personal "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
 ```
 
 To get started, set [`CHROME_USER_DATA_DIR`](https://archivebox.github.io/abx-plugins/#chrome) and [`COOKIES_FILE`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#cookies_file) to point to a Chrome user folder that has your sessions and a wget `cookies.txt` file respectively.
@@ -138,11 +138,11 @@ Do not run ArchiveBox as root for a number of reasons:
 
 **Instead, you should run ArchiveBox under a separate user account with less privileged access:**
 ```bash
-useradd -r -g archivebox -G audio,video archivebox  # the audio & video groups are used by chrome
-mkdir -p /home/archivebox/data
-chown -R archivebox:archivebox /home/archivebox
-...
-sudo -u archivebox archivebox add ...
+getent group archivebox >/dev/null || groupadd --system archivebox
+created_archivebox_user=false; if ! id archivebox >/dev/null 2>&1; then useradd --system --gid archivebox --create-home archivebox; created_archivebox_user=true; fi; trap 'if [ "$created_archivebox_user" = true ]; then userdel --remove archivebox >/dev/null 2>&1 || true; fi' EXIT
+archivebox_home="$(getent passwd archivebox | cut -d: -f6)"; mkdir -p "$archivebox_home/data"; chown -R archivebox:archivebox "$archivebox_home"
+uv_binary="$(command -v uv)"; sudo -u archivebox env HOME="$archivebox_home" DATA_DIR="$archivebox_home/data" "$uv_binary" run --project "$ARCHIVEBOX_PROJECT_DIR" --no-sync archivebox init
+sudo -u archivebox env HOME="$archivebox_home" DATA_DIR="$archivebox_home/data" "$uv_binary" run --project "$ARCHIVEBOX_PROJECT_DIR" --no-sync archivebox add --plugins=parse_txt_urls "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
 ```
 
 ~~If you absolutely must run it as root for some reason, a footgun is provided: you can set `ALLOW_ROOT=True` via environment variable or in your ArchiveBox.conf file.~~ This footgun option was removed (I'm sorry, the support burden of helping people who messed up their systems by running everything as root was too high).

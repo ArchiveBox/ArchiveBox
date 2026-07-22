@@ -6,7 +6,6 @@ Verify add creates snapshots in DB, crawls, source files, and archive directorie
 
 import os
 import json
-import time
 from pathlib import Path
 
 import pytest
@@ -18,11 +17,8 @@ from archivebox.machine.models import Process
 from archivebox.tests.conftest import (
     cli_env,
     find_snapshot_dir,
-    get_free_port,
     run_archivebox_cmd,
     run_queued_crawls,
-    start_archivebox_server,
-    stop_server,
     resolve_abxpkg_chrome_env,
 )
 
@@ -158,43 +154,18 @@ IMPORT_FORMAT_ENV = {
 }
 
 
-def wait_for_import_processing(cwd: Path, expected_urls: set[str], *, timeout: float = 120.0) -> None:
-    import time
-
-    deadline = time.time() + timeout
-    counts = {url: 0 for url in expected_urls}
-    while time.time() < deadline:
-        with use_archivebox_db(cwd):
-            rows = list(Snapshot.objects.filter(url__in=expected_urls).values_list("url", flat=True))
-        counts = {url: 0 for url in expected_urls}
-        for url in rows:
-            counts[url] += 1
-        if all(count >= 1 for count in counts.values()):
-            return
-        time.sleep(1)
-    raise AssertionError(f"timed out waiting for import crawl processing to start, got counts={counts}")
-
-
-def wait_for_expected_import_snapshots(cwd: Path, expected_urls: set[str], *, timeout: float = 180.0) -> None:
-    import time
-
+def assert_expected_import_snapshots(cwd: Path, expected_urls: set[str]) -> None:
     allowed_statuses = {Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED, Snapshot.StatusChoices.SEALED}
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        with use_archivebox_db(cwd):
-            rows = list(Snapshot.objects.filter(url__in=expected_urls).values_list("url", "status"))
-        counts = {url: 0 for url in expected_urls}
-        bad_statuses = []
-        for url, status in rows:
-            counts[url] += 1
-            if status not in allowed_statuses:
-                bad_statuses.append((url, status))
-        if all(count == 1 for count in counts.values()) and not bad_statuses:
-            return
-        time.sleep(1)
-    raise AssertionError(
-        f"timed out waiting for one queued/started/sealed snapshot per URL, got counts={counts}, bad_statuses={bad_statuses}",
-    )
+    with use_archivebox_db(cwd):
+        rows = list(Snapshot.objects.filter(url__in=expected_urls).values_list("url", "status"))
+    counts = {url: 0 for url in expected_urls}
+    bad_statuses = []
+    for url, status in rows:
+        counts[url] += 1
+        if status not in allowed_statuses:
+            bad_statuses.append((url, status))
+    assert all(count == 1 for count in counts.values()), counts
+    assert not bad_statuses, bad_statuses
 
 
 def malicious_add_inputs(tmp_path: Path, *, safe_url: str) -> tuple[list[str], Path]:
@@ -263,8 +234,7 @@ def test_add_stdin_import_formats_preserve_metadata_and_crawl_inner_urls(initial
     """`archivebox add < import-file` should normalize rich import formats before crawling URLs."""
     import_files = write_import_format_files(initialized_archive)
     expected_urls = {case["url"] for case in IMPORT_FORMAT_EXPECTATIONS.values()}
-    port = get_free_port()
-    env = cli_env(port=port, server=True, **IMPORT_FORMAT_ENV)
+    env = cli_env(**IMPORT_FORMAT_ENV)
 
     for import_path in import_files.values():
         source_text = import_path.read_text(encoding="utf-8")
@@ -282,40 +252,26 @@ def test_add_stdin_import_formats_preserve_metadata_and_crawl_inner_urls(initial
             assert crawl.snapshot_set.count() == 0
         assert crawl.urls == source_text
 
-    try:
-        start_archivebox_server(initialized_archive, env=env, port=port)
-        deadline = time.time() + 120
-        root_counts = {}
-        while time.time() < deadline:
-            with use_archivebox_db(initialized_archive):
-                root_counts = {
-                    str(crawl.id): crawl.snapshot_set.filter(url=Snapshot.INTERNAL_INPUT_URL).count() for crawl in Crawl.objects.all()
-                }
-            if root_counts and all(count == 1 for count in root_counts.values()):
-                break
-            time.sleep(1)
-        assert root_counts and all(count == 1 for count in root_counts.values()), root_counts
-        with use_archivebox_db(initialized_archive):
-            for crawl in Crawl.objects.all():
-                root_snapshot = crawl.snapshot_set.get(url=Snapshot.INTERNAL_INPUT_URL)
-                root_input = (root_snapshot.output_dir / "staticfile" / "stdin.txt").read_text(encoding="utf-8")
-                assert root_input == crawl.urls
-        wait_for_import_processing(initialized_archive, expected_urls)
-        stop_server(initialized_archive)
-        start_archivebox_server(initialized_archive, env=env, port=port)
-        wait_for_expected_import_snapshots(initialized_archive, expected_urls)
+    run_queued_crawls(initialized_archive, env=env, timeout=240)
+    with use_archivebox_db(initialized_archive):
+        root_counts = {str(crawl.id): crawl.snapshot_set.filter(url=Snapshot.INTERNAL_INPUT_URL).count() for crawl in Crawl.objects.all()}
+    assert root_counts and all(count == 1 for count in root_counts.values()), root_counts
+    with use_archivebox_db(initialized_archive):
+        for crawl in Crawl.objects.all():
+            root_snapshot = crawl.snapshot_set.get(url=Snapshot.INTERNAL_INPUT_URL)
+            root_input = (root_snapshot.output_dir / "staticfile" / "stdin.txt").read_text(encoding="utf-8")
+            assert root_input == crawl.urls
+    assert_expected_import_snapshots(initialized_archive, expected_urls)
 
-        list_result = run_archivebox_cmd(
-            ["list", "--json"],
-            cwd=initialized_archive,
-            env=env,
-            timeout=60,
-        )
-        assert list_result.returncode == 0, list_result.stderr or list_result.stdout
-        for expected_url in expected_urls:
-            assert expected_url in list_result.stdout
-    finally:
-        stop_server(initialized_archive)
+    list_result = run_archivebox_cmd(
+        ["list", "--json"],
+        cwd=initialized_archive,
+        env=env,
+        timeout=60,
+    )
+    assert list_result.returncode == 0, list_result.stderr or list_result.stdout
+    for expected_url in expected_urls:
+        assert expected_url in list_result.stdout
 
     with use_archivebox_db(initialized_archive):
         crawls = list(Crawl.objects.order_by("created_at"))
@@ -345,8 +301,7 @@ def test_add_rejects_file_path_and_shell_injection_payloads(initialized_archive)
     """CLI add must not turn user-supplied local paths or shell payloads into snapshots."""
     safe_url = "https://example.com/?archivebox-cli-security=1"
     inputs, canary = malicious_add_inputs(initialized_archive, safe_url=safe_url)
-    port = get_free_port()
-    env = cli_env(port=port, server=True, **IMPORT_FORMAT_ENV)
+    env = cli_env(**IMPORT_FORMAT_ENV)
 
     result = run_archivebox_cmd(
         ["add", "--bg", "--depth=0", "--tag=cli-security"],
@@ -357,11 +312,8 @@ def test_add_rejects_file_path_and_shell_injection_payloads(initialized_archive)
     )
     assert result.returncode == 0, result.stderr or result.stdout
 
-    try:
-        start_archivebox_server(initialized_archive, env=env, port=port)
-        wait_for_expected_import_snapshots(initialized_archive, {safe_url}, timeout=120)
-    finally:
-        stop_server(initialized_archive)
+    run_queued_crawls(initialized_archive, env=env, timeout=120)
+    assert_expected_import_snapshots(initialized_archive, {safe_url})
 
     assert_no_file_or_shell_payload_snapshots(initialized_archive, canary=canary)
     with use_archivebox_db(initialized_archive):

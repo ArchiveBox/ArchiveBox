@@ -45,6 +45,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`normalize_config_json_values <archivebox.base_models.models.normalize_config_json_values>`
+  - ```{autodoc2-docstring} archivebox.base_models.models.normalize_config_json_values
+    :summary:
+    ```
 * - {py:obj}`get_or_create_system_user_pk <archivebox.base_models.models.get_or_create_system_user_pk>`
   - ```{autodoc2-docstring} archivebox.base_models.models.get_or_create_system_user_pk
     :summary:
@@ -52,6 +56,13 @@
 ````
 
 ### API
+
+````{py:function} normalize_config_json_values(config: typing.Any) -> typing.Any
+:canonical: archivebox.base_models.models.normalize_config_json_values
+
+```{autodoc2-docstring} archivebox.base_models.models.normalize_config_json_values
+```
+````
 
 ````{py:function} get_or_create_system_user_pk(username='system')
 :canonical: archivebox.base_models.models.get_or_create_system_user_pk
@@ -89,7 +100,7 @@ Bases: {py:obj}`django.db.models.Model`
 ````{py:attribute} id
 :canonical: archivebox.base_models.models.ModelWithUUID.id
 :value: >
-   'UUIDField(...)'
+   'CompactUUIDField(...)'
 
 ```{autodoc2-docstring} archivebox.base_models.models.ModelWithUUID.id
 ```
@@ -271,6 +282,15 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 
 `````
 
+````{py:property} admin_change_url
+:canonical: archivebox.base_models.models.ModelWithHealthStats.admin_change_url
+:type: str
+
+```{autodoc2-docstring} archivebox.base_models.models.ModelWithHealthStats.admin_change_url
+```
+
+````
+
 ````{py:property} health
 :canonical: archivebox.base_models.models.ModelWithHealthStats.health
 :type: int
@@ -330,6 +350,11 @@ Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
 ````
 
 `````
+
+````{py:method} save(*args, **kwargs)
+:canonical: archivebox.base_models.models.ModelWithConfig.save
+
+````
 
 ``````
 

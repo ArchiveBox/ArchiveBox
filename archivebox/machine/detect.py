@@ -18,6 +18,24 @@ PACKAGE_DIR = Path(__file__).parent
 DATA_DIR = Path(os.getcwd()).resolve()
 
 
+def _run_abxpkg_host_binary(name: str, *args: str) -> subprocess.CompletedProcess[str]:
+    from abxpkg import EnvProvider
+    from archivebox.config.constants import CONSTANTS
+
+    provider = EnvProvider(install_root=CONSTANTS.DEFAULT_ABXPKG_LIB_DIR / "env", PATH=os.environ["PATH"])
+    if name == "system_profiler":
+        provider = provider.get_provider_with_overrides(
+            overrides={name: {"version": platform.mac_ver()[0] or "0.0.0"}},
+        )
+    loaded = provider.load(name)
+    if loaded is None or loaded.loaded_abspath is None:
+        raise RuntimeError(f"abxpkg could not resolve {name}")
+    projection = Path(loaded.loaded_abspath)
+    if not projection.is_symlink() or not os.access(projection, os.X_OK):
+        raise RuntimeError(f"abxpkg did not project {name} into {projection}")
+    return subprocess.run([str(projection), *args], capture_output=True, text=True, check=True)
+
+
 def get_vm_info():
     hw_in_docker = bool(os.getenv("IN_DOCKER", False) in ("1", "true", "True", "TRUE"))
     hw_in_vm = False
@@ -49,7 +67,7 @@ def get_vm_info():
             #       Serial Number (system): M230YYTD77
             #       Hardware UUID: 39A12B50-1972-5910-8BEE-235AD20C8EE3
             #       ...
-            result = subprocess.run(["system_profiler", "SPHardwareDataType"], capture_output=True, text=True, check=True)
+            result = _run_abxpkg_host_binary("system_profiler", "SPHardwareDataType")
             for line in result.stdout.split("\n"):
                 if "Model Name:" in line:
                     hw_product = line.split(":", 1)[-1].strip()
@@ -73,7 +91,7 @@ def get_vm_info():
             #         UUID: fb65f41c-ec24-4539-beaf-f941903bdb2c
             #         ...
             #         Family: DigitalOcean_Droplet
-            dmidecode = subprocess.run(["dmidecode", "-t", "system"], capture_output=True, text=True, check=True)
+            dmidecode = _run_abxpkg_host_binary("dmidecode", "-t", "system")
             for line in dmidecode.stdout.split("\n"):
                 if "Manufacturer:" in line:
                     hw_manufacturer = line.split(":", 1)[-1].strip()
@@ -90,7 +108,7 @@ def get_vm_info():
 
     # Check for QEMU explicitly in pmap output
     try:
-        result = subprocess.run(["pmap", "1"], capture_output=True, text=True, check=True)
+        result = _run_abxpkg_host_binary("pmap", "1")
         if "qemu" in result.stdout.lower():
             hw_in_vm = True
     except Exception:
@@ -174,7 +192,7 @@ def get_isp_info(ip=None):
     # Get system DNS resolver servers
     dns_server = None
     try:
-        result = subprocess.run(["dig", "example.com", "A"], capture_output=True, text=True, check=True).stdout
+        result = _run_abxpkg_host_binary("dig", "example.com", "A").stdout
         dns_server = result.split(";; SERVER: ", 1)[-1].split("\n")[0].split("#")[0].strip()
     except Exception:
         try:
@@ -182,10 +200,6 @@ def get_isp_info(ip=None):
         except Exception:
             dns_server = "127.0.0.1"
             print(f"[red]:warning: WARNING: Could not determine DNS server, using {dns_server}[/red]")
-
-    # Get DNS resolver's ISP name
-    # url = f'https://ipapi.co/{dns_server}/json/'
-    # dns_isp = json.loads(urllib.request.urlopen(url).read().decode()).get('org', 'Unknown')
 
     return {
         "isp": isp,
@@ -225,7 +239,7 @@ def get_os_info() -> dict[str, Any]:
         os_release = "macOS " + platform.mac_ver()[0]
     else:
         try:
-            os_release = subprocess.run(["lsb_release", "-ds"], capture_output=True, text=True, check=True).stdout.strip()
+            os_release = _run_abxpkg_host_binary("lsb_release", "-ds").stdout.strip()
         except Exception:
             pass
 

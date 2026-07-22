@@ -43,7 +43,7 @@
 ``````{py:class} PersonaAdminForm(*args: typing.Any, **kwargs: typing.Any)
 :canonical: archivebox.personas.forms.PersonaAdminForm
 
-Bases: {py:obj}`archivebox.core.forms.PluginConfigFormMixin`, {py:obj}`django.forms.ModelForm`
+Bases: {py:obj}`archivebox.plugins.forms.PluginConfigFormMixin`, {py:obj}`django.forms.ModelForm`
 
 ````{py:attribute} permissions
 :canonical: archivebox.personas.forms.PersonaAdminForm.permissions

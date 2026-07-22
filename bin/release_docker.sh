@@ -3,7 +3,6 @@
 ### Bash Environment Setup
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/
 # https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
-# set -o xtrace
 set -o errexit
 set -o errtrace
 set -o nounset
@@ -13,38 +12,62 @@ IFS=$' '
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 cd "$REPO_DIR"
 
+ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-${LIB_DIR:-$HOME/.config/archivebox/lib}}"
+locked_abxpkg_version() {
+    local line package=""
+    while IFS= read -r line; do
+        case "$line" in
+            '[[package]]') package="" ;;
+            'name = "abxpkg"') package="abxpkg" ;;
+            'version = "'*'"')
+                [[ "$package" == "abxpkg" ]] || continue
+                line="${line#version = \"}"
+                printf '%s\n' "${line%\"}"
+                return 0
+                ;;
+        esac
+    done < "$REPO_DIR/uv.lock"
+    return 1
+}
+ABXPKG_VERSION="$(locked_abxpkg_version)"
+mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+    --install \
+    --lib="$ABXPKG_LIB_DIR" \
+    --deps-from="$REPO_DIR/.github/configs/ci-tooling.json:docker_binaries" \
+    >/dev/null
+DOCKER_BINARY="$ABXPKG_LIB_DIR/env/bin/docker"
+GIT_BINARY="$ABXPKG_LIB_DIR/env/bin/git"
+PYTHON_BINARY="$ABXPKG_LIB_DIR/env/bin/python"
+test -x "$DOCKER_BINARY"
+test -x "$GIT_BINARY"
+test -x "$PYTHON_BINARY"
+
 declare -a TAG_NAMES=("$@")
-BRANCH_NAME="${1:-$(git rev-parse --abbrev-ref HEAD)}"
-VERSION="$(grep '^version = ' "${REPO_DIR}/pyproject.toml" | awk -F'"' '{print $2}')"
-GIT_SHA=sha-"$(git rev-parse --short HEAD)"
+BRANCH_NAME="${1:-$("$GIT_BINARY" rev-parse --abbrev-ref HEAD)}"
+VERSION="$("$PYTHON_BINARY" -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+GIT_SHA=sha-"$("$GIT_BINARY" rev-parse --short HEAD)"
 SELECTED_PLATFORMS="${DOCKER_PLATFORMS:-${SELECTED_PLATFORMS:-linux/amd64,linux/arm64}}"
 DOCKER_IMAGE_REPOS="${DOCKER_IMAGE_REPOS:-archivebox/archivebox ghcr.io/archivebox/archivebox}"
-ABX_DL_VERSION="$(python3 - <<'PY'
-import re
-import tomllib
-
-with open("pyproject.toml", "rb") as f:
-    deps = tomllib.load(f)["project"]["dependencies"]
-
-for dep in deps:
-    match = re.match(r"abx-dl\s*(?:==|>=)\s*([^,;\s]+)", dep)
-    if match:
-        print(match.group(1))
-        break
-else:
-    raise SystemExit("Missing abx-dl dependency in pyproject.toml")
-PY
-)"
+ABX_DL_VERSION="$("$PYTHON_BINARY" -c 'import tomllib; lock=tomllib.load(open("uv.lock", "rb")); print(next(pkg["version"] for pkg in lock["package"] if pkg["name"] == "abx-dl"))')"
+test -n "$ABX_DL_VERSION"
 ABX_DL_IMAGE="${ABX_DL_IMAGE:-archivebox/abx-dl:${ABX_DL_VERSION}}"
 
-# if not already in TAG_NAMES, add GIT_SHA and BRANCH_NAME  
-if ! echo "${TAG_NAMES[@]}" | grep -q "$GIT_SHA"; then
+contains_tag() {
+    local candidate="$1" tag
+    for tag in "${TAG_NAMES[@]}"; do
+        [[ "$tag" == "$candidate" ]] && return 0
+    done
+    return 1
+}
+
+if ! contains_tag "$GIT_SHA"; then
    TAG_NAMES+=("$GIT_SHA")
 fi
-if ! echo "${TAG_NAMES[@]}" | grep -q "$BRANCH_NAME"; then
+if ! contains_tag "$BRANCH_NAME"; then
    TAG_NAMES+=("$BRANCH_NAME")
 fi
-if ! echo "${TAG_NAMES[@]}" | grep -q "$VERSION"; then
+if ! contains_tag "$VERSION"; then
    TAG_NAMES+=("$VERSION")
 fi
 
@@ -54,17 +77,17 @@ declare -a FULL_TAG_NAMES
 for TAG_NAME in "${TAG_NAMES[@]}"; do
     [[ "$TAG_NAME" == "" ]] && continue
     for IMAGE_REPO in $DOCKER_IMAGE_REPOS; do
-        FULL_TAG_NAMES+=("-t $IMAGE_REPO:$TAG_NAME")
+        FULL_TAG_NAMES+=("-t" "$IMAGE_REPO:$TAG_NAME")
     done
 done
 echo "${FULL_TAG_NAMES[@]}"
 
 function check_platforms() {
-    INSTALLED_PLATFORMS="$(docker buildx inspect | grep 'Platforms:' )"
+    INSTALLED_PLATFORMS="$("$DOCKER_BINARY" buildx inspect)"
 
     for REQUIRED_PLATFORM in ${SELECTED_PLATFORMS//,/$IFS}; do
         echo "[+] Checking for: $REQUIRED_PLATFORM..."
-        if ! (echo "$INSTALLED_PLATFORMS" | grep -q "$REQUIRED_PLATFORM"); then
+        if [[ "$INSTALLED_PLATFORMS" != *"$REQUIRED_PLATFORM"* ]]; then
             return 1
         fi
     done
@@ -73,54 +96,48 @@ function check_platforms() {
 }
 
 function remove_builder() {
-    docker buildx stop xbuilder || true
-    docker buildx rm xbuilder || true
+    "$DOCKER_BINARY" buildx stop xbuilder
+    "$DOCKER_BINARY" buildx rm xbuilder
 }
 
 function create_builder() {
-    docker buildx use xbuilder && return 0
+    "$DOCKER_BINARY" buildx use xbuilder && return 0
     echo "[+] Creating new xbuilder for: $SELECTED_PLATFORMS"
     echo
-    docker pull 'moby/buildkit:buildx-stable-1'
-    docker buildx create --name xbuilder --driver docker-container --bootstrap --use --platform "$SELECTED_PLATFORMS" || true
-    docker buildx inspect --bootstrap || true
+    "$DOCKER_BINARY" pull 'moby/buildkit:buildx-stable-1'
+    "$DOCKER_BINARY" buildx create --name xbuilder --driver docker-container --bootstrap --use --platform "$SELECTED_PLATFORMS"
+    "$DOCKER_BINARY" buildx inspect --bootstrap
 }
 
 function recreate_builder() {
-    docker run --privileged --rm 'tonistiigi/binfmt' --install all
+    "$DOCKER_BINARY" run --privileged --rm 'tonistiigi/binfmt' --install all
 
     remove_builder
     create_builder
 }
 
-docker buildx use xbuilder >/dev/null 2>&1 || create_builder
+"$DOCKER_BINARY" buildx use xbuilder >/dev/null 2>&1 || create_builder
 check_platforms || (recreate_builder && check_platforms) || exit 1
-
-# echo "[*] Logging in to Docker Hub & Github Container Registry"
-# docker login --username=nikisweeting
-# docker login ghcr.io --username=pirate
 
 echo "[^] Uploading docker image"
 mkdir -p "$HOME/.cache/docker/archivebox"
-docker buildx imagetools inspect "$ABX_DL_IMAGE"
+"$DOCKER_BINARY" buildx imagetools inspect "$ABX_DL_IMAGE"
 
-# https://docs.docker.com/build/cache/backends/
-# shellcheck disable=SC2068
-docker buildx build \
+"$DOCKER_BINARY" buildx build \
    --platform "$SELECTED_PLATFORMS" \
    --pull \
    --build-arg "ABX_DL_IMAGE=$ABX_DL_IMAGE" \
    --cache-from type=local,src="$HOME/.cache/docker/archivebox" \
    --cache-to type=local,compression=zstd,mode=min,oci-mediatypes=true,dest="$HOME/.cache/docker/archivebox" \
-   --push . ${FULL_TAG_NAMES[@]}   
+   --push . "${FULL_TAG_NAMES[@]}"
 
 echo "[^] Verifying pushed Docker manifests include: $SELECTED_PLATFORMS"
 for TAG_NAME in "${TAG_NAMES[@]}"; do
     [[ "$TAG_NAME" == "" ]] && continue
     for IMAGE_REPO in $DOCKER_IMAGE_REPOS; do
-        MANIFEST="$(docker buildx imagetools inspect "$IMAGE_REPO:$TAG_NAME")"
+        MANIFEST="$("$DOCKER_BINARY" buildx imagetools inspect "$IMAGE_REPO:$TAG_NAME")"
         for REQUIRED_PLATFORM in ${SELECTED_PLATFORMS//,/$IFS}; do
-            if ! echo "$MANIFEST" | grep -q "Platform:    $REQUIRED_PLATFORM"; then
+            if [[ "$MANIFEST" != *"Platform:    $REQUIRED_PLATFORM"* ]]; then
                 echo "[X] $IMAGE_REPO:$TAG_NAME is missing platform: $REQUIRED_PLATFORM" >&2
                 echo "$MANIFEST" >&2
                 exit 1

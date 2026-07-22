@@ -2,7 +2,6 @@ __package__ = "archivebox.config"
 
 import os
 import sys
-import subprocess
 
 from datetime import datetime, timezone
 
@@ -37,7 +36,6 @@ def setup_django(check_db=False, in_memory_db=False) -> None:
     global DJANGO_SET_UP
 
     if DJANGO_SET_UP:
-        # raise Exception('django is already set up!')
         # TODO: figure out why CLI entrypoints with init_pending are running this twice sometimes
         return
 
@@ -59,10 +57,10 @@ def setup_django(check_db=False, in_memory_db=False) -> None:
         with SudoPermission(uid=0):
             # running as root is a special case where it's ok to be a bit slower
             # make sure data dir is always owned by the correct user
-            subprocess.run(["chown", f"{ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}", str(CONSTANTS.DATA_DIR)], stderr=subprocess.DEVNULL)
+            os.chown(CONSTANTS.DATA_DIR, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP)
             if CONSTANTS.DATA_DIR.exists():
                 for child in CONSTANTS.DATA_DIR.iterdir():
-                    subprocess.run(["chown", f"{ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}", str(child)], stderr=subprocess.DEVNULL)
+                    os.chown(child, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP)
 
     # Suppress the "database access during app initialization" warning
     # This warning can be triggered during django.setup() but is safe to ignore
@@ -155,17 +153,6 @@ def setup_django(check_db=False, in_memory_db=False) -> None:
             assert os.access(sql_index_path, os.F_OK), (
                 f"No database file {sql_index_path} found in: {CONSTANTS.DATA_DIR} (Are you in an ArchiveBox collection directory?)"
             )
-
-            # https://docs.pydantic.dev/logfire/integrations/django/ Logfire Debugging
-            # if settings.DEBUG_LOGFIRE:
-            #     from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
-            #     SQLite3Instrumentor().instrument()
-
-            #     import logfire
-
-            #     logfire.configure()
-            #     logfire.instrument_django(is_sql_commentor_enabled=True)
-            #     logfire.info(f'Started ArchiveBox v{CONSTANTS.VERSION}', argv=sys.argv)
 
     except KeyboardInterrupt:
         raise

@@ -172,12 +172,12 @@ def test_search_backend_engine_derives_default_backend_enabled_without_entering_
     assert "DATABASE_NAME" not in runtime_config
 
 
-def test_plugin_selection_enabled_keys_are_derived_from_plugins_not_frozen_or_env_overridden(archivebox_db, monkeypatch):
-    from archivebox.config.common import get_config
+def test_plugin_selection_enabled_keys_are_derived_from_plugins_not_frozen_or_base_config_overridden(archivebox_db):
+    from archivebox.config.common import ArchiveBoxConfig, get_config
     from archivebox.crawls.models import Crawl
     from archivebox.plugins.discovery import get_plugin_special_config
 
-    monkeypatch.setenv("ARCHIVEDOTORG_ENABLED", "False")
+    process_defaults = ArchiveBoxConfig(ARCHIVEDOTORG_ENABLED=False)
     user = _user("frozen-config-enabled-admin")
     persona = _persona(user, name="Enabled Persona")
 
@@ -190,8 +190,8 @@ def test_plugin_selection_enabled_keys_are_derived_from_plugins_not_frozen_or_en
         retry_at=timezone.now(),
     )
     env_default_crawl.save()
-    env_default_config = get_config(crawl=env_default_crawl, include_machine=False)
-    assert env_default_config.ARCHIVEDOTORG_ENABLED is False
+    base_default_config = get_config(crawl=env_default_crawl, include_machine=False, base_config=process_defaults)
+    assert base_default_config.ARCHIVEDOTORG_ENABLED is False
 
     crawl = Crawl(
         urls="https://example.com/enabled",
@@ -206,13 +206,11 @@ def test_plugin_selection_enabled_keys_are_derived_from_plugins_not_frozen_or_en
     assert crawl.config["PLUGINS"] == "archivedotorg"
     assert "ARCHIVEDOTORG_ENABLED" not in crawl.config
     assert "DEFAULT_PERSONA" not in crawl.config
-    runtime_config = get_config(crawl=crawl, include_machine=False)
+    runtime_config = get_config(crawl=crawl, include_machine=False, base_config=process_defaults)
     assert runtime_config.ARCHIVEDOTORG_ENABLED is True
     assert runtime_config.WGET_ENABLED is False
     assert get_plugin_special_config("archivedotorg", runtime_config)["enabled"] is True
     assert get_plugin_special_config("wget", runtime_config)["enabled"] is False
-
-    monkeypatch.delenv("ARCHIVEDOTORG_ENABLED")
 
     Crawl.objects.filter(id=crawl.id).update(
         config={
@@ -223,7 +221,7 @@ def test_plugin_selection_enabled_keys_are_derived_from_plugins_not_frozen_or_en
         },
     )
     crawl.refresh_from_db()
-    stale_runtime_config = get_config(crawl=crawl, include_machine=False)
+    stale_runtime_config = get_config(crawl=crawl, include_machine=False, base_config=process_defaults)
     assert stale_runtime_config.ARCHIVEDOTORG_ENABLED is True
     assert stale_runtime_config.YTDLP_ENABLED is False
     assert stale_runtime_config.WGET_ENABLED is False

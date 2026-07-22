@@ -1,6 +1,7 @@
 import pytest
 import subprocess
 from datetime import datetime, timezone as dt_timezone
+from importlib.resources import files
 from pathlib import Path
 from django.contrib.admin.sites import AdminSite
 from django.contrib.messages import get_messages
@@ -10,8 +11,58 @@ from django.urls import reverse
 import html
 from uuid import uuid4
 
+from archivebox.tests.conftest import cli_env, run_archivebox_cmd
+from archivebox.tests.conftest import install_real_binary
+
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture
+def real_hook_result(tmp_path):
+    from archivebox.core.models import ArchiveResult
+    from archivebox.plugins.hooks import extract_records_from_process, run_hook
+
+    snapshot = _create_snapshot()
+    snap_dir = Path(snapshot.output_dir)
+    output_dir = snap_dir / "hashes"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (snap_dir / "source.txt").write_text("real admin link hook input", encoding="utf-8")
+    hook_path = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
+    process = run_hook(
+        hook_path,
+        output_dir,
+        config={
+            "ABXPKG_LIB_DIR": str(tmp_path / "lib"),
+            "SNAP_DIR": str(snap_dir),
+            "SAFE_FLAG": "1",
+            "API_KEY": "super-secret-key",
+            "ACCESS_TOKEN": "super-secret-token",
+            "SHARED_SECRET": "super-secret-secret",
+        },
+        timeout=30,
+        url=snapshot.url,
+    )
+    process.refresh_from_db()
+    assert process.exit_code == 0, process.stderr
+    record = extract_records_from_process(process)[0]
+    hashes_file = output_dir / "hashes.json"
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin=record["plugin"],
+        hook_name=record["hook_name"],
+        process=process,
+        status=record["status"],
+        output_str=record["output_str"],
+        output_files={
+            "hashes.json": {
+                "extension": "json",
+                "mimetype": "application/json",
+                "size": hashes_file.stat().st_size,
+            },
+        },
+    )
+    return snapshot, process, result
 
 
 def _create_snapshot():
@@ -85,22 +136,26 @@ def _admin_get_request(path="/"):
 
 
 @pytest.fixture
-def running_process_record():
+def running_process_record(initialized_archive):
     from archivebox.machine.models import Machine, Process, psutil
 
-    cmd = ["/bin/sleep", "60"]
-    popen = subprocess.Popen(
-        cmd,
-        cwd=Path.cwd(),
+    cmd = ["archivebox", "manage", "shell"]
+    popen = run_archivebox_cmd(
+        ["manage", "shell"],
+        cwd=initialized_archive,
+        env=cli_env(live=True),
+        stdin=subprocess.PIPE,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        capture_output=False,
+        wait=False,
     )
     try:
         os_process = psutil.Process(popen.pid)
         process = Process.objects.create(
             machine=Machine.current(refresh=True),
-            process_type=Process.TypeChoices.HOOK,
-            pwd=str(Path.cwd()),
+            process_type=Process.TypeChoices.ORCHESTRATOR,
+            pwd=str(initialized_archive),
             cmd=cmd,
             pid=popen.pid,
             started_at=datetime.fromtimestamp(os_process.create_time(), tz=dt_timezone.utc),
@@ -108,46 +163,27 @@ def running_process_record():
         )
         yield process
     finally:
-        if popen.poll() is None:
-            popen.terminate()
-            try:
-                popen.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                popen.kill()
-                popen.wait(timeout=5)
+        assert popen.stdin is not None
+        popen.stdin.close()
+        popen.wait(timeout=20)
 
 
-def test_archiveresult_admin_links_plugin_and_process():
+def test_archiveresult_admin_links_plugin_and_process(real_hook_result):
     from archivebox.core.admin_archiveresults import ArchiveResultAdmin, render_archiveresults_list
     from archivebox.core.models import ArchiveResult
-    from archivebox.machine.models import Process
 
-    snapshot = _create_snapshot()
-    iface = _create_iface(_create_machine())
-    process = Process.objects.create(
-        machine=iface.machine,
-        iface=iface,
-        process_type=Process.TypeChoices.HOOK,
-        pwd=str(snapshot.output_dir / "wget"),
-        cmd=["/tmp/on_Snapshot__06_wget.finite.bg.py", "--url=https://example.com"],
-        status=Process.StatusChoices.EXITED,
-    )
-    result = ArchiveResult.objects.create(
-        snapshot=snapshot,
-        plugin="wget",
-        hook_name="on_Snapshot__06_wget.finite.bg.py",
-        process=process,
-        status=ArchiveResult.StatusChoices.SUCCEEDED,
-    )
+    snapshot, process, result = real_hook_result
+    iface = process.iface
+    assert iface is not None
 
     admin = ArchiveResultAdmin(ArchiveResult, AdminSite())
 
     plugin_html = str(admin.plugin_with_icon(result))
     process_html = str(admin.process_link(result))
 
-    assert "/admin/environment/plugins/builtin.wget/" in plugin_html
+    assert "/admin/environment/plugins/builtin.hashes/" in plugin_html
     assert f"/admin/machine/process/{process.id}/change" in process_html
-    assert f"<code>{str(process.id)[-8:]}</code>" in process_html
+    assert f"<code>{process.pid}</code>" in process_html
     assert "<code>-</code>" not in process_html
 
     machine_html = str(admin.machine_link(result))
@@ -156,42 +192,21 @@ def test_archiveresult_admin_links_plugin_and_process():
 
     inline_html = str(render_archiveresults_list(ArchiveResult.objects.filter(id=result.id)))
     assert f"/admin/machine/process/{process.id}/change" in inline_html
-    assert f">{str(process.id)[-8:]}</a>" in inline_html
+    assert f">{process.pid}</a>" in inline_html
     assert ">-</a>" not in inline_html
 
 
-def test_deleting_binary_and_process_records_preserves_results():
+@pytest.mark.django_db(transaction=True)
+def test_deleting_binary_and_process_records_preserves_results(real_hook_result):
     from archivebox.core.admin_archiveresults import ArchiveResultAdmin, build_abx_dl_replay_command, render_archiveresults_list
     from archivebox.core.models import ArchiveResult
     from archivebox.machine.admin import ProcessAdmin
-    from archivebox.machine.models import Binary, Process
+    from archivebox.machine.models import Process
 
-    snapshot = _create_snapshot()
-    machine = _create_machine()
-    binary = Binary.objects.create(
-        machine=machine,
-        name="wget",
-        abspath="/usr/bin/wget",
-        version="1.21.2",
-        binprovider="env",
-        binproviders="env",
-        status=Binary.StatusChoices.INSTALLED,
-    )
-    process = Process.objects.create(
-        machine=machine,
-        binary=binary,
-        process_type=Process.TypeChoices.HOOK,
-        pwd=str(snapshot.output_dir / "wget"),
-        cmd=["/tmp/on_Snapshot__06_wget.finite.bg.py", "--url=https://example.com"],
-        status=Process.StatusChoices.EXITED,
-    )
-    result = ArchiveResult.objects.create(
-        snapshot=snapshot,
-        plugin="wget",
-        hook_name="on_Snapshot__06_wget.finite.bg.py",
-        process=process,
-        status=ArchiveResult.StatusChoices.SUCCEEDED,
-    )
+    snapshot, process, result = real_hook_result
+    binary = install_real_binary("python3", machine=process.machine)
+    process.binary = binary
+    process.save(update_fields=["binary"])
 
     binary.delete()
     process.refresh_from_db()
@@ -220,7 +235,7 @@ def test_deleting_binary_and_process_records_preserves_results():
     assert admin.process_link(result) == "-"
     assert admin.machine_link(result) == "-"
     assert "cd " in build_abx_dl_replay_command(result)
-    assert "wget" in render_archiveresults_list(ArchiveResult.objects.filter(id=result.id))
+    assert "hashes" in render_archiveresults_list(ArchiveResult.objects.filter(id=result.id))
 
 
 def test_snapshot_admin_zip_links():
@@ -273,35 +288,12 @@ def test_archiveresult_admin_zip_links():
     assert html.escape(zip_url, quote=True) in str(admin.admin_actions(result))
 
 
-def test_archiveresult_admin_copy_command_redacts_sensitive_env_keys():
+def test_archiveresult_admin_copy_command_redacts_sensitive_env_keys(real_hook_result):
     from archivebox.core.admin_archiveresults import ArchiveResultAdmin
     from archivebox.core.models import ArchiveResult
-    from archivebox.machine.models import Process
 
-    snapshot = _create_snapshot()
-    iface = _create_iface(_create_machine())
-    process = Process.objects.create(
-        machine=iface.machine,
-        iface=iface,
-        process_type=Process.TypeChoices.HOOK,
-        pwd=str(snapshot.output_dir / "wget"),
-        cmd=["/tmp/on_Snapshot__06_wget.finite.bg.py", "--url=https://example.com"],
-        env={
-            "SAFE_FLAG": "1",
-            "API_KEY": "super-secret-key",
-            "ACCESS_TOKEN": "super-secret-token",
-            "SHARED_SECRET": "super-secret-secret",
-        },
-        status=Process.StatusChoices.EXITED,
-        url="https://example.com",
-    )
-    result = ArchiveResult.objects.create(
-        snapshot=snapshot,
-        plugin="wget",
-        hook_name="on_Snapshot__06_wget.finite.bg.py",
-        process=process,
-        status=ArchiveResult.StatusChoices.SUCCEEDED,
-    )
+    _, process, result = real_hook_result
+    assert process.env["SAFE_FLAG"] == "1"
 
     admin = ArchiveResultAdmin(ArchiveResult, AdminSite())
     admin.request = _admin_get_request()
@@ -317,30 +309,17 @@ def test_archiveresult_admin_copy_command_redacts_sensitive_env_keys():
     assert "super-secret-secret" not in cmd_html
 
 
-def test_process_admin_links_binary_and_iface():
+@pytest.mark.django_db(transaction=True)
+def test_process_admin_links_binary_and_iface(real_hook_result):
     from archivebox.machine.admin import ProcessAdmin
-    from archivebox.machine.models import Binary, Process
+    from archivebox.machine.models import Process
 
-    machine = _create_machine()
-    iface = _create_iface(machine)
-    binary = Binary.objects.create(
-        machine=machine,
-        name="wget",
-        abspath="/usr/local/bin/wget",
-        version="1.21.2",
-        binprovider="env",
-        binproviders="env",
-        status=Binary.StatusChoices.INSTALLED,
-    )
-    process = Process.objects.create(
-        machine=machine,
-        iface=iface,
-        binary=binary,
-        process_type=Process.TypeChoices.HOOK,
-        pwd="/tmp/wget",
-        cmd=["/tmp/on_Snapshot__06_wget.finite.bg.py", "--url=https://example.com"],
-        status=Process.StatusChoices.EXITED,
-    )
+    _, process, _ = real_hook_result
+    iface = process.iface
+    assert iface is not None
+    binary = install_real_binary("python3", machine=process.machine)
+    process.binary = binary
+    process.save(update_fields=["binary"])
 
     admin = ProcessAdmin(Process, AdminSite())
 
@@ -358,9 +337,9 @@ def test_process_admin_kill_actions_only_terminate_running_processes(running_pro
     running = running_process_record
     exited = Process.objects.create(
         machine=Machine.current(),
-        process_type=Process.TypeChoices.HOOK,
-        pwd="/tmp/exited",
-        cmd=["/tmp/on_Snapshot__06_wget.finite.bg.py", "--url=https://example.com"],
+        process_type=Process.TypeChoices.ORCHESTRATOR,
+        pwd=running.pwd,
+        cmd=running.cmd,
         status=Process.StatusChoices.EXITED,
     )
 
@@ -377,17 +356,11 @@ def test_process_admin_kill_actions_only_terminate_running_processes(running_pro
     assert any("Skipped 1 process" in msg for msg in messages)
 
 
-def test_process_admin_object_kill_action_redirects_and_skips_exited():
+def test_process_admin_object_kill_action_redirects_and_skips_exited(real_hook_result):
     from archivebox.machine.admin import ProcessAdmin
-    from archivebox.machine.models import Machine, Process
+    from archivebox.machine.models import Process
 
-    process = Process.objects.create(
-        machine=Machine.current(refresh=True),
-        process_type=Process.TypeChoices.HOOK,
-        pwd="/tmp/exited",
-        cmd=["/tmp/on_Snapshot__06_wget.finite.bg.py", "--url=https://example.com"],
-        status=Process.StatusChoices.EXITED,
-    )
+    _, process, _ = real_hook_result
 
     admin = ProcessAdmin(Process, AdminSite())
     request = _admin_post_request(f"/admin/machine/process/{process.pk}/change/")
@@ -402,35 +375,17 @@ def test_process_admin_object_kill_action_redirects_and_skips_exited():
     assert any("Skipped 1 process" in msg for msg in messages)
 
 
-def test_process_admin_output_summary_uses_archiveresult_output_files():
-    from archivebox.core.models import ArchiveResult
+def test_process_admin_output_summary_uses_archiveresult_output_files(real_hook_result):
     from archivebox.machine.admin import ProcessAdmin
     from archivebox.machine.models import Process
+    from archivebox.misc.logging_util import printable_filesize
 
-    snapshot = _create_snapshot()
-    machine = _create_machine()
-    process = Process.objects.create(
-        machine=machine,
-        process_type=Process.TypeChoices.HOOK,
-        pwd=str(snapshot.output_dir / "wget"),
-        cmd=["/tmp/on_Snapshot__06_wget.finite.bg.py", "--url=https://example.com"],
-        status=Process.StatusChoices.EXITED,
-    )
-    ArchiveResult.objects.create(
-        snapshot=snapshot,
-        plugin="wget",
-        hook_name="on_Snapshot__06_wget.finite.bg.py",
-        process=process,
-        status=ArchiveResult.StatusChoices.SUCCEEDED,
-        output_files={
-            "index.html": {"extension": "html", "mimetype": "text/html", "size": 1024},
-            "title.txt": {"extension": "txt", "mimetype": "text/plain", "size": "512"},
-        },
-    )
+    _, process, result = real_hook_result
+    expected_size = sum(int(metadata["size"]) for metadata in result.output_files.values())
 
     admin = ProcessAdmin(Process, AdminSite())
 
     output_html = str(admin.output_summary(process))
 
-    assert "2 files" in output_html
-    assert "1.5 KB" in output_html
+    assert f"{len(result.output_files)} file" in output_html
+    assert printable_filesize(expected_size) in output_html

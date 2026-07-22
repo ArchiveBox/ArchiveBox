@@ -126,21 +126,31 @@ class TestArchiveResultCreate:
         assert "Snapshot" in types
         assert "ArchiveResult" in types
 
-    def test_create_pass_through_only_when_no_snapshots(self, initialized_archive):
-        """Only pass-through records but no new snapshots returns success."""
-        crawl_record = {"type": "Crawl", "id": "fake-id", "urls": "https://example.com"}
-
-        _cmd_result = run_archivebox_cmd(
-            ["archiveresult", "create"],
-            stdin=json.dumps(crawl_record),
+    def test_create_passes_through_cli_crawl_when_no_snapshots(self, initialized_archive):
+        """A real Crawl with no Snapshot input passes through successfully."""
+        crawl_result = run_archivebox_cmd(
+            ["crawl", "create", create_test_url()],
             cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
         )
-        _stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
+        assert crawl_result.returncode == 0, crawl_result.stderr
+        crawl_record = parse_jsonl_output(crawl_result.stdout)[0]
+
+        _cmd_result = run_archivebox_cmd(
+            ["archiveresult", "create"],
+            stdin=crawl_result.stdout,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
+        )
+        stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
         assert code == 0
         assert "Passed through" in stderr
+        records = parse_jsonl_output(stdout)
+        assert len(records) == 1
+        assert records[0]["id"] == crawl_record["id"]
 
 
 class TestArchiveResultList:

@@ -106,11 +106,18 @@ class TestCrawlCreate:
         records = parse_jsonl_output(stdout)
         assert "test-tag" in records[0].get("tags_str", "")
 
-    def test_create_pass_through_other_types(self, initialized_archive):
-        """Pass-through records of other types unchanged."""
-        tag_record = {"type": "Tag", "id": "fake-tag-id", "name": "test"}
+    def test_create_passes_through_tag_emitted_by_cli(self, initialized_archive):
+        """A real Tag emitted by the CLI remains available to the next stage."""
+        tag_result = run_archivebox_cmd(
+            ["tag", "create", "crawl-input-tag"],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
+        )
+        assert tag_result.returncode == 0, tag_result.stderr
+        tag_record = parse_jsonl_output(tag_result.stdout)[0]
         url = create_test_url()
-        stdin = json.dumps(tag_record) + "\n" + json.dumps({"url": url})
+        stdin = tag_result.stdout + json.dumps({"url": url}) + "\n"
 
         _cmd_result = run_archivebox_cmd(
             ["crawl", "create"],
@@ -124,10 +131,8 @@ class TestCrawlCreate:
         assert code == 0
         records = parse_jsonl_output(stdout)
 
-        # Should have both the passed-through Tag and the new Crawl
-        types = [r.get("type") for r in records]
-        assert "Tag" in types
-        assert "Crawl" in types
+        assert any(record.get("type") == "Tag" and record["id"] == tag_record["id"] for record in records)
+        assert any(record.get("type") == "Crawl" and url in record["urls"] for record in records)
 
     def test_create_pass_through_existing_crawl(self, initialized_archive):
         """Existing Crawl records (with id) are passed through."""

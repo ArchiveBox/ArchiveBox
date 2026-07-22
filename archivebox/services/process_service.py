@@ -8,7 +8,7 @@ from asgiref.sync import sync_to_async
 from django.utils import timezone
 
 from abxbus import BaseEvent
-from abx_dl.events import CrawlCleanupEvent, CrawlCompletedEvent, ProcessCompletedEvent, ProcessStartedEvent
+from abx_dl.events import CrawlCleanupEvent, CrawlCompletedEvent, ProcessCompletedEvent, ProcessStartedEvent, SnapshotEvent
 from abx_dl.services.base import BaseService
 
 
@@ -147,6 +147,21 @@ class ProcessService(BaseService):
             binary_id=process.binary_id,
             modified_at=timezone.now(),
         )
+        if event.hook_name.startswith("on_Snapshot"):
+            snapshot_event = await self.bus.find(
+                SnapshotEvent,
+                past=True,
+                future=False,
+                where=lambda candidate: self.bus.event_is_child_of(event, candidate),
+            )
+            if snapshot_event is not None:
+                from .archive_result_service import mark_archiveresult_started
+
+                await sync_to_async(mark_archiveresult_started, thread_sensitive=True)(
+                    event,
+                    snapshot_id=snapshot_event.snapshot_id,
+                    process_id=str(process.id),
+                )
 
     async def _completed_worker_loop(self) -> None:
         while True:

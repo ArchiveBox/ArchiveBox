@@ -634,7 +634,12 @@ def export_browser_state(
         return False, None, "abxpkg returned an invalid browser dependency environment."
     if not isinstance(resolved_env, dict):
         return False, None, "abxpkg returned an invalid browser dependency environment."
+    abxpkg_lib_dir = get_config().ABXPKG_LIB_DIR
+    node_projection = abxpkg_lib_dir / "env" / "bin" / "node"
+    if not node_projection.is_symlink() or not os.access(node_projection, os.X_OK):
+        return False, None, f"abxpkg did not resolve Node.js into {node_projection}."
     env.update({str(key): str(value) for key, value in resolved_env.items()})
+    env["NODE_BINARY"] = str(node_projection)
     env["ARCHIVEBOX_ABX_PLUGINS_DIR"] = str(chrome_plugin_dir)
 
     if user_data_dir:
@@ -683,7 +688,7 @@ def export_browser_state(
 
     try:
         result = subprocess.run(
-            ["node", str(state_script)],
+            [str(node_projection), str(state_script)],
             env=env,
             capture_output=True,
             text=True,

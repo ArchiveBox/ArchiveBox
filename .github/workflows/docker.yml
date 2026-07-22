@@ -1,23 +1,22 @@
 name: Build Docker image
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - '**'
-  # pull_request:
+  workflow_call:
+    inputs:
+      push_digests:
+        description: Push validated per-platform images by digest for the release workflow
+        required: false
+        default: false
+        type: boolean
 
 env:
   DOCKERHUB_IMAGE: archivebox/archivebox
   GHCR_IMAGE: ghcr.io/archivebox/archivebox
 
 permissions:
+  actions: read
   contents: read
   packages: write
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   build:
@@ -31,22 +30,78 @@ jobs:
             runner: ubuntu-24.04
             cache_scope: docker-amd64
             artifact_name: digest-linux-amd64
+            local_tag: archivebox-ci:amd64
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
             cache_scope: docker-arm64
             artifact_name: digest-linux-arm64
+            local_tag: archivebox-ci:arm64
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-        # with:
-        #   submodules: true
-        #   fetch-depth: 1
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+
+      - name: Resolve Docker through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ABXPKG_VERSION="$(uv run --no-project python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          packages = tomllib.loads(Path("uv.lock").read_text())["package"]
+          matches = [package["version"] for package in packages if package["name"] == "abxpkg"]
+          if len(matches) != 1:
+              raise SystemExit(f"Expected one locked abxpkg package, found {len(matches)}")
+          print(matches[0])
+          PY
+          )"
+          test -n "$ABXPKG_VERSION"
+          mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+          export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
+          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
+          echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
+
+          docker_env="$(
+            uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+              --install \
+              --json \
+              --lib="$ABXPKG_LIB_DIR" \
+              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:release_binaries" \
+              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:docker_binaries"
+          )"
+          JQ_BINARY="$ABXPKG_LIB_DIR/env/bin/jq"
+          "$JQ_BINARY" -r 'to_entries[] | "\(.key)=\(.value)"' \
+            <<< "$docker_env" >> "$GITHUB_ENV"
+
+          docker_binary="$ABXPKG_LIB_DIR/env/bin/docker"
+          UV_BINARY="$ABXPKG_LIB_DIR/env/bin/uv"
+          {
+            echo "DOCKER_BINARY=$docker_binary"
+            echo "JQ_BINARY=$JQ_BINARY"
+            echo "UV_BINARY=$UV_BINARY"
+          } >> "$GITHUB_ENV"
+          for binary in "$docker_binary" "$JQ_BINARY" "$UV_BINARY"; do
+            test -L "$binary"
+            test -x "$binary"
+          done
+          "$docker_binary" --version
 
       - name: Set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
         with:
-          version: latest
           install: true
 
       - name: Builder instance name
@@ -60,35 +115,45 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          ABX_DL_VERSION="$(python3 - <<'PY'
-          import re
+          ABX_DL_VERSION="$("$UV_BINARY" run --no-project python - <<'PY'
           import tomllib
+          from pathlib import Path
 
-          with open("pyproject.toml", "rb") as f:
-              deps = tomllib.load(f)["project"]["dependencies"]
-
-          for dep in deps:
-              match = re.match(r"abx-dl\s*(?:==|>=)\s*([^,;\s]+)", dep)
-              if match:
-                  print(match.group(1))
-                  break
-          else:
-              raise SystemExit("Missing abx-dl dependency in pyproject.toml")
+          packages = tomllib.loads(Path("uv.lock").read_text())["package"]
+          matches = [package["version"] for package in packages if package["name"] == "abx-dl"]
+          if len(matches) != 1:
+              raise SystemExit(f"Expected one locked abx-dl package, found {len(matches)}")
+          print(matches[0])
           PY
           )"
-          ABX_DL_IMAGE="${ABX_DL_IMAGE:-archivebox/abx-dl:${ABX_DL_VERSION}}"
+          test -n "$ABX_DL_VERSION"
+          ABX_DL_REFERENCE="${ABX_DL_IMAGE:-archivebox/abx-dl:${ABX_DL_VERSION}}"
+          INSPECT_OUTPUT="$("$DOCKER_BINARY" buildx imagetools inspect "$ABX_DL_REFERENCE")"
+          printf '%s\n' "$INSPECT_OUTPUT"
+          ABX_DL_DIGEST="$(INSPECT_OUTPUT="$INSPECT_OUTPUT" "$UV_BINARY" run --no-project python - <<'PY'
+          import os
+
+          digest = next(
+              (fields[1] for line in os.environ["INSPECT_OUTPUT"].splitlines() if (fields := line.split()) and fields[0] == "Digest:"),
+              "",
+          )
+          print(digest)
+          PY
+          )"
+          [[ "$ABX_DL_DIGEST" == sha256:* ]]
+          ABX_DL_IMAGE="${ABX_DL_REFERENCE%%@*}@${ABX_DL_DIGEST}"
           echo "image=${ABX_DL_IMAGE}" >> "$GITHUB_OUTPUT"
-          docker buildx imagetools inspect "${ABX_DL_IMAGE}"
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        if: github.event_name != 'pull_request'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        if: inputs.push_digests
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        if: inputs.push_digests
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -99,13 +164,14 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          VERSION="$(python3 - <<'PY'
+          VERSION="$("$UV_BINARY" run --no-project python - <<'PY'
           import tomllib
+          from pathlib import Path
 
-          with open("pyproject.toml", "rb") as f:
-              print(tomllib.load(f)["project"]["version"])
+          print(tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"])
           PY
           )"
+          test -n "$VERSION"
 
           {
             echo 'labels<<EOF'
@@ -121,12 +187,12 @@ jobs:
 
       - name: Build and push digest
         id: docker_build
-        uses: docker/build-push-action@v6
+        if: inputs.push_digests
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ./
           file: ./Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
-          push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ env.DOCKERHUB_IMAGE }}
             ${{ env.GHCR_IMAGE }}
@@ -140,40 +206,77 @@ jobs:
           platforms: ${{ matrix.platform }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
 
+      - name: Build pull request image
+        if: ${{ !inputs.push_digests }}
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ./
+          file: ./Dockerfile
+          builder: ${{ steps.buildx.outputs.name }}
+          load: true
+          tags: ${{ matrix.local_tag }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
+          build-args: |
+            ABX_DL_IMAGE=${{ steps.abx_dl_image.outputs.image }}
+            ARCHIVEBOX_COMMIT_HASH=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.cache_scope }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
+          pull: true
+          platforms: ${{ matrix.platform }}
+
       - name: Image digest
+        if: inputs.push_digests
         run: echo ${{ steps.docker_build.outputs.digest }}
 
       - name: Validate pushed image version, commit, and size
         shell: bash
         run: |
           set -Eeuo pipefail
-          IMAGE="${DOCKERHUB_IMAGE}@${{ steps.docker_build.outputs.digest }}"
+          if [[ "${{ inputs.push_digests }}" != "true" ]]; then
+            IMAGE="${{ matrix.local_tag }}"
+          else
+            IMAGE="${DOCKERHUB_IMAGE}@${{ steps.docker_build.outputs.digest }}"
+          fi
           SHORT_SHA="${GITHUB_SHA::7}"
 
           DATA_DIR="$(mktemp -d)"
-          docker run --rm --platform '${{ matrix.platform }}' -v "$DATA_DIR":/data "$IMAGE" archivebox init
-          docker run --rm --platform '${{ matrix.platform }}' -v "$DATA_DIR":/data "$IMAGE" archivebox version | tee /tmp/archivebox-version.out
-          docker run --rm --platform '${{ matrix.platform }}' -v "$DATA_DIR":/data "$IMAGE" archivebox status
-          docker run --rm --platform '${{ matrix.platform }}' --entrypoint cat "$IMAGE" /VERSION.txt > /tmp/archivebox-image-version.txt
-          grep -F "ArchiveBox v${{ steps.docker_meta.outputs.version }}" /tmp/archivebox-version.out
-          grep -F "COMMIT_HASH=${SHORT_SHA}" /tmp/archivebox-version.out
-          grep -Fx "COMMIT_HASH=${GITHUB_SHA}" /tmp/archivebox-image-version.txt
-
-          python3 - "$IMAGE" <<'PY'
-          import json
-          import subprocess
+          "$DOCKER_BINARY" run --rm --platform '${{ matrix.platform }}' -v "$DATA_DIR":/data "$IMAGE" archivebox init
+          ARCHIVEBOX_VERSION_OUTPUT="$("$DOCKER_BINARY" run --rm --platform '${{ matrix.platform }}' -v "$DATA_DIR":/data "$IMAGE" archivebox version)"
+          printf '%s\n' "$ARCHIVEBOX_VERSION_OUTPUT"
+          "$DOCKER_BINARY" run --rm --platform '${{ matrix.platform }}' -v "$DATA_DIR":/data "$IMAGE" archivebox status
+          IMAGE_VERSION_OUTPUT="$("$DOCKER_BINARY" run --rm --platform '${{ matrix.platform }}' --entrypoint cat "$IMAGE" /VERSION.txt)"
+          ARCHIVEBOX_VERSION_OUTPUT="$ARCHIVEBOX_VERSION_OUTPUT" IMAGE_VERSION_OUTPUT="$IMAGE_VERSION_OUTPUT" \
+            "$UV_BINARY" run --no-project python - \
+            "ArchiveBox v${{ steps.docker_meta.outputs.version }}" \
+            "COMMIT_HASH=${SHORT_SHA}" \
+            "COMMIT_HASH=${GITHUB_SHA}" <<'PY'
+          import os
           import sys
 
-          image = sys.argv[1]
-          limit = 780 * 1024 * 1024
-          manifest = json.loads(subprocess.check_output(["docker", "manifest", "inspect", image]))
-          total = manifest.get("config", {}).get("size", 0) + sum(layer.get("size", 0) for layer in manifest.get("layers", []))
-          print(f"{image} compressed_size={total / 1024 / 1024:.2f} MiB limit={limit / 1024 / 1024:.2f} MiB")
-          if total > limit:
-              raise SystemExit(f"{image} is over the compressed size limit")
+          version_output = os.environ["ARCHIVEBOX_VERSION_OUTPUT"]
+          image_version_lines = os.environ["IMAGE_VERSION_OUTPUT"].splitlines()
+          if sys.argv[1] not in version_output:
+              raise SystemExit(f"Missing version marker: {sys.argv[1]}")
+          if sys.argv[2] not in version_output:
+              raise SystemExit(f"Missing short commit marker: {sys.argv[2]}")
+          if sys.argv[3] not in image_version_lines:
+              raise SystemExit(f"Missing exact commit marker: {sys.argv[3]}")
           PY
 
+      - name: Validate compressed image size
+        if: inputs.push_digests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          IMAGE="${DOCKERHUB_IMAGE}@${{ steps.docker_build.outputs.digest }}"
+          LIMIT=$((780 * 1024 * 1024))
+          TOTAL="$("$DOCKER_BINARY" manifest inspect "$IMAGE" | "$JQ_BINARY" '[.config.size, (.layers[]?.size)] | add')"
+          printf '%s compressed_size=%s MiB limit=%s MiB\n' \
+            "$IMAGE" "$((TOTAL / 1024 / 1024))" "$((LIMIT / 1024 / 1024))"
+          [[ "$TOTAL" -le "$LIMIT" ]] || { echo "$IMAGE is over the compressed size limit" >&2; exit 1; }
+
       - name: Export digest
+        if: inputs.push_digests
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -182,151 +285,10 @@ jobs:
           touch "/tmp/digests/${digest#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@v4
+        if: inputs.push_digests
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.artifact_name }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
-
-  publish:
-    name: publish multiarch tags
-    runs-on: ubuntu-24.04
-    needs:
-      - build
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          version: latest
-          install: true
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        if: github.event_name != 'pull_request'
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download digests
-        uses: actions/download-artifact@v4
-        with:
-          path: /tmp/digests
-          pattern: digest-*
-          merge-multiple: true
-
-      - name: Collect Docker tags
-        id: docker_meta
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          VERSION="$(python3 - <<'PY'
-          import tomllib
-
-          with open("pyproject.toml", "rb") as f:
-              print(tomllib.load(f)["project"]["version"])
-          PY
-          )"
-          BRANCH_TAG="$(printf '%s' "${GITHUB_REF_NAME}" | tr -c 'A-Za-z0-9_.-' '-' | sed -E 's/^-+//; s/-+$//; s/-+/-/g' | cut -c1-128)"
-          SHORT_SHA="${GITHUB_SHA::12}"
-          test -n "$BRANCH_TAG"
-          test -n "$SHORT_SHA"
-
-          {
-            echo 'dockerhub_tags<<EOF'
-            if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
-              echo "${DOCKERHUB_IMAGE}:latest"
-            fi
-            echo "${DOCKERHUB_IMAGE}:${BRANCH_TAG}"
-            echo "${DOCKERHUB_IMAGE}:${VERSION}"
-            echo "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"
-            echo 'EOF'
-            echo 'ghcr_tags<<EOF'
-            if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
-              echo "${GHCR_IMAGE}:latest"
-            fi
-            echo "${GHCR_IMAGE}:${BRANCH_TAG}"
-            echo "${GHCR_IMAGE}:${VERSION}"
-            echo "${GHCR_IMAGE}:sha-${SHORT_SHA}"
-            echo 'EOF'
-            echo "version=${VERSION}"
-            echo "branch_tag=${BRANCH_TAG}"
-            echo "short_sha=${SHORT_SHA}"
-          } >> "$GITHUB_OUTPUT"
-
-          echo "[+] Publishing Docker Hub tags:"
-          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
-            printf '%s\n' "${DOCKERHUB_IMAGE}:latest"
-          fi
-          printf '%s\n' "${DOCKERHUB_IMAGE}:${BRANCH_TAG}" "${DOCKERHUB_IMAGE}:${VERSION}" "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"
-          echo "[+] Publishing GHCR tags:"
-          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
-            printf '%s\n' "${GHCR_IMAGE}:latest"
-          fi
-          printf '%s\n' "${GHCR_IMAGE}:${BRANCH_TAG}" "${GHCR_IMAGE}:${VERSION}" "${GHCR_IMAGE}:sha-${SHORT_SHA}"
-
-      - name: Create Docker Hub manifest
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          mapfile -t DIGESTS < <(find /tmp/digests -maxdepth 1 -type f -printf '%f\n' | sort)
-          [[ "${#DIGESTS[@]}" -gt 0 ]]
-
-          TAG_ARGS=()
-          while IFS= read -r tag; do
-            [[ -n "$tag" ]] && TAG_ARGS+=(--tag "$tag")
-          done <<< "${{ steps.docker_meta.outputs.dockerhub_tags }}"
-
-          REFS=()
-          for digest in "${DIGESTS[@]}"; do
-            REFS+=("${DOCKERHUB_IMAGE}@sha256:${digest}")
-          done
-
-          docker buildx imagetools create "${TAG_ARGS[@]}" "${REFS[@]}"
-
-      - name: Create GHCR manifest
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          mapfile -t DIGESTS < <(find /tmp/digests -maxdepth 1 -type f -printf '%f\n' | sort)
-          [[ "${#DIGESTS[@]}" -gt 0 ]]
-
-          TAG_ARGS=()
-          while IFS= read -r tag; do
-            [[ -n "$tag" ]] && TAG_ARGS+=(--tag "$tag")
-          done <<< "${{ steps.docker_meta.outputs.ghcr_tags }}"
-
-          REFS=()
-          for digest in "${DIGESTS[@]}"; do
-            REFS+=("${GHCR_IMAGE}@sha256:${digest}")
-          done
-
-          docker buildx imagetools create "${TAG_ARGS[@]}" "${REFS[@]}"
-
-      - name: Inspect published images
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          while IFS= read -r tag; do
-            [[ -n "$tag" ]] && docker buildx imagetools inspect "$tag"
-          done <<< "${{ steps.docker_meta.outputs.dockerhub_tags }}"
-          while IFS= read -r tag; do
-            [[ -n "$tag" ]] && docker buildx imagetools inspect "$tag"
-          done <<< "${{ steps.docker_meta.outputs.ghcr_tags }}"
-
-      - name: Update README
-        uses: peter-evans/dockerhub-description@v4
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          repository: archivebox/archivebox

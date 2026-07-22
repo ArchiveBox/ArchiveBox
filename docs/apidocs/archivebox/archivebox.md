@@ -16,12 +16,14 @@
 archivebox.misc
 archivebox.core
 archivebox.config
+archivebox.plugins
 archivebox.ldap
 archivebox.mcp
 archivebox.crawls
 archivebox.cli
 archivebox.search
 archivebox.personas
+archivebox.progressmonitor
 archivebox.machine
 archivebox.api
 archivebox.workers
@@ -35,7 +37,6 @@ archivebox.services
 :titlesonly:
 :maxdepth: 1
 
-archivebox.hooks
 archivebox.uuid_compat
 archivebox.manage
 archivebox.__main__

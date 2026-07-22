@@ -1746,8 +1746,6 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
                     find_config_default(key) or "See here...",
                 ),
             )
-            # rows['Documentation'].append(mark_safe(f'Wiki: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">{key}</a>'))
-            # rows['Aliases'].append(', '.join(find_config_aliases(key)))
 
     section = "CONSTANT"
     for key in CONSTANTS_CONFIG.keys():
@@ -1763,8 +1761,6 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
                 find_config_default(key) or "See here...",
             ),
         )
-        # rows['Documentation'].append(mark_safe(f'Wiki: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">{key}</a>'))
-        # rows['Aliases'].append('')
 
     return TableContext(
         title="Computed Configuration Values",
@@ -1820,7 +1816,6 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
         ((color, source, value) for source, value, color in sources_info),
     )
 
-    # aliases = USER_CONFIG.get(key, {}).get("aliases", [])
     aliases = []
 
     if key in CONSTANTS_CONFIG:

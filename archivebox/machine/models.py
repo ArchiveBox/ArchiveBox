@@ -400,9 +400,6 @@ class NetworkInterface(ModelWithHealthStats):
     city = models.CharField(max_length=63, default="", null=False)
     region = models.CharField(max_length=63, default="", null=False)
     country = models.CharField(max_length=63, default="", null=False)
-    # num_uses_failed = models.PositiveIntegerField(default=0)  # from ModelWithHealthStats
-    # num_uses_succeeded = models.PositiveIntegerField(default=0)  # from ModelWithHealthStats
-
     objects = NetworkInterfaceManager()  # pyright: ignore[reportIncompatibleVariableOverride]
     machine_id: uuid.UUID
 
@@ -1493,15 +1490,11 @@ class Process(ModelWithDeleteAfter, models.Model):
         ppid = os.getppid()
         machine = machine or Machine.current()
 
-        # Debug logging
-        # print(f"DEBUG _find_parent_process: my_pid={os.getpid()}, ppid={ppid}", file=sys.stderr)
-
         # Get parent process start time from OS
         try:
             os_parent = psutil.Process(ppid)
             os_parent_start = os_parent.create_time()
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            # print(f"DEBUG _find_parent_process: Parent process {ppid} not accessible", file=sys.stderr)
             return None  # Parent process doesn't exist
 
         # Find matching Process record
@@ -1512,18 +1505,13 @@ class Process(ModelWithDeleteAfter, models.Model):
             started_at__gte=timezone.now() - PID_REUSE_WINDOW,
         ).order_by("-started_at")
 
-        # print(f"DEBUG _find_parent_process: Found {candidates.count()} candidates for ppid={ppid}", file=sys.stderr)
-
         for candidate in candidates:
             if candidate.started_at:
                 db_start_time = candidate.started_at.timestamp()
                 time_diff = abs(db_start_time - os_parent_start)
-                # print(f"DEBUG _find_parent_process: Checking candidate id={candidate.id} time_diff={time_diff:.2f}s tolerance={START_TIME_TOLERANCE}s", file=sys.stderr)
                 if time_diff < START_TIME_TOLERANCE:
-                    # print(f"DEBUG _find_parent_process: MATCH! Returning parent id={candidate.id} pid={candidate.pid}", file=sys.stderr)
                     return candidate
 
-        # print(f"DEBUG _find_parent_process: No matching parent found for ppid={ppid}", file=sys.stderr)
         return None  # No matching ArchiveBox parent process
 
     @classmethod
@@ -2142,12 +2130,8 @@ class Process(ModelWithDeleteAfter, models.Model):
             # Process exited - read output and copy to DB
             if self.stdout_file and self.stdout_file.exists():
                 self.stdout = self.stdout_file.read_text(errors="replace")
-                # TODO: Uncomment to cleanup (keeping for debugging for now)
-                # self.stdout_file.unlink(missing_ok=True)
             if self.stderr_file and self.stderr_file.exists():
                 self.stderr = self.stderr_file.read_text(errors="replace")
-                # TODO: Uncomment to cleanup (keeping for debugging for now)
-                # self.stderr_file.unlink(missing_ok=True)
 
             self.exit_code = self.exit_code if self.exit_code is not None else _default_exit_code_for_unowned_process(self.process_type)
             if self.exit_code == -1:
@@ -2462,6 +2446,15 @@ class Process(ModelWithDeleteAfter, models.Model):
         if not chrome_utils.exists():
             return 0
 
+        node_binary = cast(BinaryManager, Binary.objects).get_valid_binary("node")
+        if node_binary is None or not node_binary.is_valid:
+            return 0
+        from archivebox.config.common import get_config
+
+        node_projection = get_config().ABXPKG_LIB_DIR / "env" / "bin" / "node"
+        if not node_projection.is_symlink() or not os.access(node_projection, os.X_OK):
+            return 0
+
         crawl_roots = [
             crawls_dir
             for user_dir in CONSTANTS.USERS_DIR.iterdir()
@@ -2476,7 +2469,7 @@ class Process(ModelWithDeleteAfter, models.Model):
         try:
             for crawl_root in crawl_roots:
                 result = subprocess.run(
-                    ["node", str(chrome_utils), "killZombieChrome", str(crawl_root)],
+                    [str(node_projection), str(chrome_utils), "killZombieChrome", str(crawl_root)],
                     capture_output=True,
                     timeout=30,
                     text=True,

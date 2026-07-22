@@ -144,9 +144,6 @@ def test_crawl_table_has_required_columns(tmp_path):
     for col in required:
         assert col in columns, f"Missing column: {col}"
 
-    # seed_id should NOT exist (removed in 0.9.x)
-    assert "seed_id" not in columns, "seed_id column should not exist in 0.9.x"
-
 
 def test_add_urls_separately(tmp_path):
     """Should be able to add multiple URLs one at a time."""

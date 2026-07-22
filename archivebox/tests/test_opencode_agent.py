@@ -52,8 +52,6 @@ def opencode_archive_config(initialized_archive):
     env = os.environ.copy()
     env.update(
         {
-            "ABXPKG_INSTALL_TIMEOUT": "900",
-            "ABXPKG_MIN_RELEASE_AGE": "0",
             "ARCHIVEBOX_ALLOW_NO_UNIX_SOCKETS": "true",
             "OPENCODE_ENABLED": "True",
             "OPENCODE_HOST": "127.0.0.1",
@@ -113,10 +111,7 @@ def live_opencode(opencode_archive_config):
     finally:
         if views._PROCESS and views._PROCESS.poll() is None:
             views._PROCESS.terminate()
-            try:
-                views._PROCESS.wait(timeout=10)
-            except Exception:
-                views._PROCESS.kill()
+            views._PROCESS.wait(timeout=10)
         views._PROCESS = None
 
 

@@ -43,6 +43,14 @@
   - ```{autodoc2-docstring} archivebox.api.auth.auth_using_token
     :summary:
     ```
+* - {py:obj}`token_from_request <archivebox.api.auth.token_from_request>`
+  - ```{autodoc2-docstring} archivebox.api.auth.token_from_request
+    :summary:
+    ```
+* - {py:obj}`authenticated_user_from_request <archivebox.api.auth.authenticated_user_from_request>`
+  - ```{autodoc2-docstring} archivebox.api.auth.authenticated_user_from_request
+    :summary:
+    ```
 * - {py:obj}`auth_using_password <archivebox.api.auth.auth_using_password>`
   - ```{autodoc2-docstring} archivebox.api.auth.auth_using_password
     :summary:
@@ -78,6 +86,20 @@
 :canonical: archivebox.api.auth.auth_using_token
 
 ```{autodoc2-docstring} archivebox.api.auth.auth_using_token
+```
+````
+
+````{py:function} token_from_request(request: django.http.HttpRequest) -> str
+:canonical: archivebox.api.auth.token_from_request
+
+```{autodoc2-docstring} archivebox.api.auth.token_from_request
+```
+````
+
+````{py:function} authenticated_user_from_request(request: django.http.HttpRequest) -> django.contrib.auth.models.User | None
+:canonical: archivebox.api.auth.authenticated_user_from_request
+
+```{autodoc2-docstring} archivebox.api.auth.authenticated_user_from_request
 ```
 ````
 

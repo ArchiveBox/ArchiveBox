@@ -43,6 +43,10 @@
   - ```{autodoc2-docstring} archivebox.api.v1_crawls.create_crawl
     :summary:
     ```
+* - {py:obj}`get_crawl_by_ref <archivebox.api.v1_crawls.get_crawl_by_ref>`
+  - ```{autodoc2-docstring} archivebox.api.v1_crawls.get_crawl_by_ref
+    :summary:
+    ```
 * - {py:obj}`get_crawl <archivebox.api.v1_crawls.get_crawl>`
   - ```{autodoc2-docstring} archivebox.api.v1_crawls.get_crawl
     :summary:
@@ -495,6 +499,13 @@ Bases: {py:obj}`ninja.Schema`
 :canonical: archivebox.api.v1_crawls.create_crawl
 
 ```{autodoc2-docstring} archivebox.api.v1_crawls.create_crawl
+```
+````
+
+````{py:function} get_crawl_by_ref(crawl_id: str)
+:canonical: archivebox.api.v1_crawls.get_crawl_by_ref
+
+```{autodoc2-docstring} archivebox.api.v1_crawls.get_crawl_by_ref
 ```
 ````
 

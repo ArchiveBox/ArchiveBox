@@ -9,7 +9,6 @@ from collections.abc import Iterable
 
 import rich_click as click
 
-from django.db import OperationalError
 from django.db.models import QuerySet
 
 from archivebox.config import CONSTANTS
@@ -92,12 +91,6 @@ def remove(
     # in ``base_models/models.py`` and runs AFTER its row's tx commits — so
     # rmtree doesn't hold the lock either.
     #
-    # The SQLite retry wrapper in core/sqlite_backend/base.py re-raises lock
-    # errors when called inside an atomic block (because it can't safely
-    # release+reacquire a transaction), so we wrap each row's delete in our
-    # own retry loop at this outer (non-atomic) level. Each attempt is a
-    # fresh atomic; an exception cleanly rolls it back before we sleep.
-    retry_interval = 1.0
     deleted_snapshot_pks = []
     timed_out = False
     timeout_error = ""
@@ -106,23 +99,9 @@ def remove(
             timed_out = True
             timeout_error = f"Remove timed out after {timeout:g}s with {len(snapshot_pks) - index} snapshots remaining."
             break
-        while True:
-            try:
-                deleted_count, _ = Snapshot.objects.filter(pk=pk).delete()
-                if deleted_count:
-                    deleted_snapshot_pks.append(pk)
-                break
-            except OperationalError as err:
-                if "database is locked" not in str(err):
-                    raise
-                remaining_time = deadline - time.monotonic() if deadline is not None else None
-                if remaining_time is not None and remaining_time <= 0:
-                    timed_out = True
-                    timeout_error = f"Remove timed out after {timeout:g}s while waiting for the database lock."
-                    break
-                time.sleep(min(retry_interval, remaining_time) if remaining_time is not None else retry_interval)
-        if timed_out:
-            break
+        deleted_count, _ = Snapshot.objects.filter(pk=pk).delete()
+        if deleted_count:
+            deleted_snapshot_pks.append(pk)
 
     all_snapshots = Snapshot.objects.all()
     remaining_count = all_snapshots.count()

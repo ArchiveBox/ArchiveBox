@@ -1,0 +1,243 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [dev]
+
+permissions:
+  actions: read
+  contents: write
+  id-token: write
+  packages: write
+
+concurrency:
+  group: release-dev
+  cancel-in-progress: false
+
+env:
+  DOCKERHUB_IMAGE: archivebox/archivebox
+  GHCR_IMAGE: ghcr.io/archivebox/archivebox
+  RELEASE_BRANCH: dev
+  RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+  CI_RUN_ID: ${{ github.event.workflow_run.id }}
+
+jobs:
+  python-release:
+    name: Publish tested Python artifacts
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-24.04
+    environment: pypi
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Checkout the tested commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          submodules: true
+          ref: ${{ env.RELEASE_SHA }}
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+          enable-cache: false
+
+      - name: Resolve release binaries through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ABXPKG_VERSION="$(uv run --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
+          mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+          uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env --install \
+            --lib="$ABXPKG_LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:release_binaries" >/dev/null
+          for name in uv gh git jq curl; do
+            test -L "$ABXPKG_LIB_DIR/env/bin/$name"
+            test -x "$ABXPKG_LIB_DIR/env/bin/$name"
+          done
+          {
+            echo "UV_BINARY=$ABXPKG_LIB_DIR/env/bin/uv"
+            echo "GH_BINARY=$ABXPKG_LIB_DIR/env/bin/gh"
+            echo "GIT_BINARY=$ABXPKG_LIB_DIR/env/bin/git"
+            echo "JQ_BINARY=$ABXPKG_LIB_DIR/env/bin/jq"
+            echo "CURL_BINARY=$ABXPKG_LIB_DIR/env/bin/curl"
+          } >> "$GITHUB_ENV"
+
+      - name: Download exact tested distributions
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: python-distributions
+          path: ${{ runner.temp }}/python-distributions
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.CI_RUN_ID }}
+
+      - name: Record release version
+        id: version
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          VERSION="$($UV_BINARY run --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the exact tested distributions
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_GH_TOKEN || github.token }}
+          RELEASE_DISTRIBUTIONS_DIR: ${{ runner.temp }}/python-distributions
+        run: ./bin/release.sh
+
+  docker-release:
+    name: Publish tested multiarch image
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    needs: python-release
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout the tested commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          ref: ${{ env.RELEASE_SHA }}
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+          enable-cache: false
+
+      - name: Resolve release and Docker binaries through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ABXPKG_VERSION="$(uv run --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
+          mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+          uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env --install \
+            --lib="$ABXPKG_LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:release_binaries" \
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:docker_binaries" >/dev/null
+          for name in uv git jq docker; do
+            test -L "$ABXPKG_LIB_DIR/env/bin/$name"
+            test -x "$ABXPKG_LIB_DIR/env/bin/$name"
+          done
+          {
+            echo "UV_BINARY=$ABXPKG_LIB_DIR/env/bin/uv"
+            echo "GIT_BINARY=$ABXPKG_LIB_DIR/env/bin/git"
+            echo "JQ_BINARY=$ABXPKG_LIB_DIR/env/bin/jq"
+            echo "DOCKER_BINARY=$ABXPKG_LIB_DIR/env/bin/docker"
+          } >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        with:
+          install: true
+
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Download exact tested image digests
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.CI_RUN_ID }}
+
+      - name: Verify digest set and collect tags
+        id: docker_meta
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mapfile -t DIGESTS < <($UV_BINARY run --no-project python -c 'from pathlib import Path; print("\n".join(sorted(path.name for path in Path("/tmp/digests").iterdir() if path.is_file())))')
+          [[ "${#DIGESTS[@]}" -eq 2 ]]
+          for digest in "${DIGESTS[@]}"; do [[ "$digest" =~ ^[0-9a-f]{64}$ ]]; done
+
+          VERSION='${{ needs.python-release.outputs.version }}'
+          SHORT_SHA="${RELEASE_SHA::12}"
+          TAG_TARGET="$($GIT_BINARY ls-remote origin "refs/tags/v${VERSION}^{}")"
+          TAG_TARGET="${TAG_TARGET%%[[:space:]]*}"
+          if [[ -z "$TAG_TARGET" ]]; then
+            TAG_TARGET="$($GIT_BINARY ls-remote origin "refs/tags/v${VERSION}")"
+            TAG_TARGET="${TAG_TARGET%%[[:space:]]*}"
+          fi
+          {
+            echo 'dockerhub_tags<<EOF'
+            echo "${DOCKERHUB_IMAGE}:dev"
+            echo "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"
+            [[ "$TAG_TARGET" == "$RELEASE_SHA" ]] && echo "${DOCKERHUB_IMAGE}:${VERSION}"
+            echo 'EOF'
+            echo 'ghcr_tags<<EOF'
+            echo "${GHCR_IMAGE}:dev"
+            echo "${GHCR_IMAGE}:sha-${SHORT_SHA}"
+            [[ "$TAG_TARGET" == "$RELEASE_SHA" ]] && echo "${GHCR_IMAGE}:${VERSION}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create Docker Hub manifest
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mapfile -t DIGESTS < <($UV_BINARY run --no-project python -c 'from pathlib import Path; print("\n".join(sorted(path.name for path in Path("/tmp/digests").iterdir() if path.is_file())))')
+          TAG_ARGS=()
+          while IFS= read -r tag; do [[ -n "$tag" ]] && TAG_ARGS+=(--tag "$tag"); done <<< '${{ steps.docker_meta.outputs.dockerhub_tags }}'
+          REFS=()
+          for digest in "${DIGESTS[@]}"; do REFS+=("${DOCKERHUB_IMAGE}@sha256:${digest}"); done
+          $DOCKER_BINARY buildx imagetools create "${TAG_ARGS[@]}" "${REFS[@]}"
+
+      - name: Create GHCR manifest
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mapfile -t DIGESTS < <($UV_BINARY run --no-project python -c 'from pathlib import Path; print("\n".join(sorted(path.name for path in Path("/tmp/digests").iterdir() if path.is_file())))')
+          TAG_ARGS=()
+          while IFS= read -r tag; do [[ -n "$tag" ]] && TAG_ARGS+=(--tag "$tag"); done <<< '${{ steps.docker_meta.outputs.ghcr_tags }}'
+          REFS=()
+          for digest in "${DIGESTS[@]}"; do REFS+=("${GHCR_IMAGE}@sha256:${digest}"); done
+          $DOCKER_BINARY buildx imagetools create "${TAG_ARGS[@]}" "${REFS[@]}"
+
+      - name: Inspect published images
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          while IFS= read -r tag; do [[ -n "$tag" ]] && $DOCKER_BINARY buildx imagetools inspect "$tag"; done <<< '${{ steps.docker_meta.outputs.dockerhub_tags }}'
+          while IFS= read -r tag; do [[ -n "$tag" ]] && $DOCKER_BINARY buildx imagetools inspect "$tag"; done <<< '${{ steps.docker_meta.outputs.ghcr_tags }}'
+
+      - name: Update Docker Hub README
+        uses: peter-evans/dockerhub-description@432a30c9e07499fd01da9f8a49f0faf9e0ca5b77 # v4
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          repository: archivebox/archivebox
+
+  downstream-packages:
+    name: Dispatch downstream packages
+    needs:
+      - python-release
+      - docker-release
+    uses: ./.github/workflows/update-homebrew-tap.yml
+    with:
+      release_tag: ${{ needs.python-release.outputs.tag }}
+      release_sha: ${{ github.event.workflow_run.head_sha }}
+    secrets: inherit

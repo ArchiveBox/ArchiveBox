@@ -10,10 +10,10 @@
 #       --build-context abx-plugins=../abx-plugins \
 #       -t archivebox/abx-dl:dev
 #   docker buildx build . -f Dockerfile \
-#       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:latest \
+#       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:1.11.263 \
 #       -t archivebox:multistage
 
-ARG ABX_DL_IMAGE=archivebox/abx-dl:latest
+ARG ABX_DL_IMAGE=archivebox/abx-dl:1.11.263
 
 FROM archivebox/sonic:1.4.9 AS sonic
 FROM ${ABX_DL_IMAGE} AS archivebox-runtime-base
@@ -66,9 +66,6 @@ ENV TMP_DIR=/tmp/archivebox \
 ENV HOME=/home/archivebox \
     XDG_CONFIG_HOME=/home/archivebox/.config \
     XDG_CACHE_HOME=/opt/archivebox/lib/cache \
-    ABXPKG_INSTALL_TIMEOUT=600 \
-    ABXPKG_POSTINSTALL_SCRIPTS=True \
-    ABXPKG_MIN_RELEASE_AGE=0 \
     TIMEOUT=600
 
 ENV UV_COMPILE_BYTECODE=false \

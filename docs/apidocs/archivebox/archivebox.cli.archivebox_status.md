@@ -49,7 +49,7 @@
 
 ````
 
-````{py:function} status(out_dir: pathlib.Path = DATA_DIR) -> None
+````{py:function} status(out_dir: pathlib.Path = CONSTANTS.DATA_DIR) -> None
 :canonical: archivebox.cli.archivebox_status.status
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_status.status

@@ -27,6 +27,10 @@
   - ```{autodoc2-docstring} archivebox.misc.db.sqlite_lock_holders
     :summary:
     ```
+* - {py:obj}`log_sqlite_lock_holders <archivebox.misc.db.log_sqlite_lock_holders>`
+  - ```{autodoc2-docstring} archivebox.misc.db.log_sqlite_lock_holders
+    :summary:
+    ```
 * - {py:obj}`sqlite_lock_error <archivebox.misc.db.sqlite_lock_error>`
   - ```{autodoc2-docstring} archivebox.misc.db.sqlite_lock_error
     :summary:
@@ -81,10 +85,17 @@
 ```
 ````
 
-````{py:function} sqlite_lock_holders(db_path: pathlib.Path = DATA_DIR / 'index.sqlite3') -> list[str]
+````{py:function} sqlite_lock_holders(db_path: pathlib.Path = CONSTANTS.DATABASE_FILE) -> list[str]
 :canonical: archivebox.misc.db.sqlite_lock_holders
 
 ```{autodoc2-docstring} archivebox.misc.db.sqlite_lock_holders
+```
+````
+
+````{py:function} log_sqlite_lock_holders(console: typing.Any, *, db_path: pathlib.Path = CONSTANTS.DATABASE_FILE, limit: int = 8) -> None
+:canonical: archivebox.misc.db.log_sqlite_lock_holders
+
+```{autodoc2-docstring} archivebox.misc.db.log_sqlite_lock_holders
 ```
 ````
 
@@ -120,21 +131,21 @@
 
 ````
 
-````{py:function} migration_state(out_dir: pathlib.Path = DATA_DIR) -> tuple[list[str], list[str], dict[str, str]]
+````{py:function} migration_state(out_dir: pathlib.Path = CONSTANTS.DATA_DIR) -> tuple[list[str], list[str], dict[str, str]]
 :canonical: archivebox.misc.db.migration_state
 
 ```{autodoc2-docstring} archivebox.misc.db.migration_state
 ```
 ````
 
-````{py:function} pending_migrations(out_dir: pathlib.Path = DATA_DIR) -> list[str]
+````{py:function} pending_migrations(out_dir: pathlib.Path = CONSTANTS.DATA_DIR) -> list[str]
 :canonical: archivebox.misc.db.pending_migrations
 
 ```{autodoc2-docstring} archivebox.misc.db.pending_migrations
 ```
 ````
 
-````{py:function} apply_migrations(out_dir: pathlib.Path = DATA_DIR, stdout: typing.TextIO | None = None, stderr: typing.TextIO | None = None, verbosity: int = 1) -> list[str]
+````{py:function} apply_migrations(out_dir: pathlib.Path = CONSTANTS.DATA_DIR, stdout: typing.TextIO | None = None, stderr: typing.TextIO | None = None, verbosity: int = 1) -> list[str]
 :canonical: archivebox.misc.db.apply_migrations
 
 ```{autodoc2-docstring} archivebox.misc.db.apply_migrations

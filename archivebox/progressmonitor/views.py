@@ -133,9 +133,12 @@ def live_progress_view(request):
         def process_label(cmd: list[str] | None) -> tuple[str, str, str, str]:
             hook_path = ""
             if isinstance(cmd, list) and cmd:
-                first = cmd[0]
-                if isinstance(first, str):
-                    hook_path = first
+                hook_path = next(
+                    (arg for arg in cmd if isinstance(arg, str) and Path(arg).name.startswith("on_") and "__" in Path(arg).name),
+                    "",
+                )
+                if not hook_path and isinstance(cmd[0], str):
+                    hook_path = cmd[0]
 
             if not hook_path:
                 return ("", "setup", "unknown", "")

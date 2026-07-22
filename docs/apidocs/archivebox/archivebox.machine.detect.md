@@ -27,6 +27,10 @@
   - ```{autodoc2-docstring} archivebox.machine.detect.get_local_ip
     :summary:
     ```
+* - {py:obj}`unknown_if_blank <archivebox.machine.detect.unknown_if_blank>`
+  - ```{autodoc2-docstring} archivebox.machine.detect.unknown_if_blank
+    :summary:
+    ```
 * - {py:obj}`get_isp_info <archivebox.machine.detect.get_isp_info>`
   - ```{autodoc2-docstring} archivebox.machine.detect.get_isp_info
     :summary:
@@ -134,6 +138,13 @@
 ```{autodoc2-docstring} archivebox.machine.detect.mac_addrs
 ```
 
+````
+
+````{py:function} unknown_if_blank(value)
+:canonical: archivebox.machine.detect.unknown_if_blank
+
+```{autodoc2-docstring} archivebox.machine.detect.unknown_if_blank
+```
 ````
 
 ````{py:function} get_isp_info(ip=None)

@@ -21,26 +21,43 @@
 #
 # Dependencies:
 #
-# * sqlite
+# * abxpkg (Python, sqlite3, and jq are resolved through it)
 # * jq (for chrome bookmarks)
 #
 
-set -eo pipefail
+set -Eeuo pipefail
 
 BROWSER_TO_EXPORT="${1?Please specify --chrome, --firefox, or --safari}"
 OUTPUT_DIR="$(pwd)"
+: "${ABXPKG_LIB_DIR:?Set ABXPKG_LIB_DIR to the ArchiveBox package library directory}"
+
+for binary in python sqlite3 jq; do
+    abxpkg install "$binary" --lib "$ABXPKG_LIB_DIR" --binproviders env,apt,brew
+done
+
+PYTHON_BINARY="$ABXPKG_LIB_DIR/env/bin/python"
+SQLITE3_BINARY="$ABXPKG_LIB_DIR/env/bin/sqlite3"
+JQ_BINARY="$ABXPKG_LIB_DIR/env/bin/jq"
+for binary_path in "$PYTHON_BINARY" "$SQLITE3_BINARY" "$JQ_BINARY"; do
+    test -L "$binary_path"
+    test -x "$binary_path"
+done
 
 is_linux() {
-    [[ "$(uname -s)" == "Linux" ]]
+    [[ "$OSTYPE" == linux* ]]
 }
 
 find_firefox_places_db() {
-    # shellcheck disable=SC2012  # `ls` with path expansion is good enough, don't need `find`
+    local candidates=()
+    shopt -s nullglob
     if is_linux; then
-        ls ~/.mozilla/firefox/*.default*/places.sqlite | head -n 1
+        candidates=(~/.mozilla/firefox/*.default*/places.sqlite)
     else
-        ls ~/Library/Application\ Support/Firefox/Profiles/*.default*/places.sqlite | head -n 1
+        candidates=(~/Library/Application\ Support/Firefox/Profiles/*.default*/places.sqlite)
     fi
+    shopt -u nullglob
+    [[ ${#candidates[@]} -gt 0 ]] || return 1
+    printf '%s\n' "${candidates[0]}"
 }
 
 find_chrome_history_db() {
@@ -64,42 +81,55 @@ find_chrome_history_db() {
 }
 
 export_chrome() {
-    if [[ -e "$2" ]]; then
-        cp "$2" "$OUTPUT_DIR/chrome_history.db.tmp"
+    local history_db="${2:-}"
+    if [[ -e "$history_db" ]]; then
+        if [[ "$history_db" != /* ]]; then
+            history_db="$(pwd)/$history_db"
+        fi
+        "$PYTHON_BINARY" -c 'import shutil, sys; shutil.copy2(sys.argv[1], sys.argv[2])' \
+            "$history_db" "$OUTPUT_DIR/chrome_history.db.tmp"
     else
-        default="$(find_chrome_history_db)"
+        history_db="$(find_chrome_history_db)"
+        if [[ "$history_db" != /* ]]; then
+            history_db="$(pwd)/$history_db"
+        fi
+        default="$history_db"
         echo "Defaulting to history db: $default"
         echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
-        cp "$default" "$OUTPUT_DIR/chrome_history.db.tmp"
+        "$PYTHON_BINARY" -c 'import shutil, sys; shutil.copy2(sys.argv[1], sys.argv[2])' \
+            "$default" "$OUTPUT_DIR/chrome_history.db.tmp"
     fi
 
-    sqlite3 "$OUTPUT_DIR/chrome_history.db.tmp" "
+    "$SQLITE3_BINARY" "$OUTPUT_DIR/chrome_history.db.tmp" "
     SELECT '[' || group_concat(
         json_object('timestamp', last_visit_time, 'description', title, 'href', url)
     ) || ']'
     FROM urls;" > "$OUTPUT_DIR/chrome_history.json"
 
-    jq '.roots.other.children[] | {href: .url, description: .name, timestamp: .date_added}' \
-       < "$(dirname "${2:-$default}")"/Bookmarks \
+    "$JQ_BINARY" '[.roots[]?.children[]? | select(.url) | {href: .url, description: .name, timestamp: .date_added}]' \
+       < "${history_db%/*}/Bookmarks" \
        > "$OUTPUT_DIR/chrome_bookmarks.json"
 
-    rm "$OUTPUT_DIR"/chrome_history.db.*
+    "$PYTHON_BINARY" -c 'import pathlib, sys; [pathlib.Path(path).unlink() for path in sys.argv[1:]]' \
+        "$OUTPUT_DIR"/chrome_history.db.*
     echo "Chrome history exported to:"
     echo "    $OUTPUT_DIR/chrome_history.json"
     echo "    $OUTPUT_DIR/chrome_bookmarks.json"
 }
 
 export_firefox() {
-    if [[ -e "$2" ]]; then
-        cp "$2" "$OUTPUT_DIR/firefox_history.db.tmp"
+    if [[ -e "${2:-}" ]]; then
+        "$PYTHON_BINARY" -c 'import shutil, sys; shutil.copy2(sys.argv[1], sys.argv[2])' \
+            "$2" "$OUTPUT_DIR/firefox_history.db.tmp"
     else
         default="$(find_firefox_places_db)"
         echo "Defaulting to history db: $default"
         echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
-        cp "$default" "$OUTPUT_DIR/firefox_history.db.tmp"
+        "$PYTHON_BINARY" -c 'import shutil, sys; shutil.copy2(sys.argv[1], sys.argv[2])' \
+            "$default" "$OUTPUT_DIR/firefox_history.db.tmp"
     fi
 
-    sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "
+    "$SQLITE3_BINARY" "$OUTPUT_DIR/firefox_history.db.tmp" "
     SELECT
         '[' || group_concat(
             json_object(
@@ -110,7 +140,7 @@ export_firefox() {
         ) || ']'
     FROM moz_places;" > "$OUTPUT_DIR/firefox_history.json"
 
-    sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "
+    "$SQLITE3_BINARY" "$OUTPUT_DIR/firefox_history.db.tmp" "
     with recursive tags AS (
           select id, title, '' AS tags
           FROM moz_bookmarks
@@ -128,25 +158,29 @@ export_firefox() {
         JOIN tags ON tags.id = b.parent
         WHERE f.url LIKE '%://%';" > "$OUTPUT_DIR/firefox_bookmarks.json"
 
-    rm "$OUTPUT_DIR"/firefox_history.db.*
+    "$PYTHON_BINARY" -c 'import pathlib, sys; [pathlib.Path(path).unlink() for path in sys.argv[1:]]' \
+        "$OUTPUT_DIR"/firefox_history.db.*
     echo "Firefox history exported to:"
     echo "    $OUTPUT_DIR/firefox_history.json"
     echo "    $OUTPUT_DIR/firefox_bookmarks.json"
 }
 
 export_safari() {
-    if [[ -e "$2" ]]; then
-        cp "$2" "$OUTPUT_DIR/safari_history.db.tmp"
+    if [[ -e "${2:-}" ]]; then
+        "$PYTHON_BINARY" -c 'import shutil, sys; shutil.copy2(sys.argv[1], sys.argv[2])' \
+            "$2" "$OUTPUT_DIR/safari_history.db.tmp"
     else
-        default=~"/Library/Safari/History.db"
+        default="$HOME/Library/Safari/History.db"
         echo "Defaulting to history db: $default"
         echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
-        cp "$default" "$OUTPUT_DIR/safari_history.db.tmp"
+        "$PYTHON_BINARY" -c 'import shutil, sys; shutil.copy2(sys.argv[1], sys.argv[2])' \
+            "$default" "$OUTPUT_DIR/safari_history.db.tmp"
     fi
 
-    sqlite3 "$OUTPUT_DIR/safari_history.db.tmp" "select url from history_items" > "$OUTPUT_DIR/safari_history.json"
+    "$SQLITE3_BINARY" "$OUTPUT_DIR/safari_history.db.tmp" "select url from history_items" > "$OUTPUT_DIR/safari_history.json"
 
-    rm "$OUTPUT_DIR"/safari_history.db.*
+    "$PYTHON_BINARY" -c 'import pathlib, sys; [pathlib.Path(path).unlink() for path in sys.argv[1:]]' \
+        "$OUTPUT_DIR"/safari_history.db.*
     echo "Safari history exported to:"
     echo "    $OUTPUT_DIR/safari_history.json"
 }

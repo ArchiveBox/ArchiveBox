@@ -1,13 +1,7 @@
 name: Run linters
 
 on:
-  workflow_dispatch:
-  push:
-    branches: ['**']
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_call:
 
 env:
   UV_NO_SOURCES: "1"
@@ -17,10 +11,22 @@ jobs:
   lint:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           submodules: true
           fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+          architecture: x64
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+          enable-cache: false
 
       - name: Clone abxpkg
         run: bash .github/scripts/clone_abx_repo.sh abxpkg
@@ -30,18 +36,6 @@ jobs:
 
       - name: Clone abx-dl
         run: bash .github/scripts/clone_abx_repo.sh abx-dl
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          architecture: x64
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          version: "0.10.6"
-          enable-cache: false
 
       - name: Install dependencies with uv
         run: |

@@ -47,8 +47,12 @@
   - ```{autodoc2-docstring} archivebox.services.runner._count_selected_hooks
     :summary:
     ```
-* - {py:obj}`_normalize_runtime_config <archivebox.services.runner._normalize_runtime_config>`
-  - ```{autodoc2-docstring} archivebox.services.runner._normalize_runtime_config
+* - {py:obj}`_is_nonfatal_setup_hook <archivebox.services.runner._is_nonfatal_setup_hook>`
+  - ```{autodoc2-docstring} archivebox.services.runner._is_nonfatal_setup_hook
+    :summary:
+    ```
+* - {py:obj}`_discover_archivebox_plugins <archivebox.services.runner._discover_archivebox_plugins>`
+  - ```{autodoc2-docstring} archivebox.services.runner._discover_archivebox_plugins
     :summary:
     ```
 * - {py:obj}`_runner_task_context <archivebox.services.runner._runner_task_context>`
@@ -75,6 +79,10 @@
   - ```{autodoc2-docstring} archivebox.services.runner.run_crawl
     :summary:
     ```
+* - {py:obj}`_run_crawl_locked <archivebox.services.runner._run_crawl_locked>`
+  - ```{autodoc2-docstring} archivebox.services.runner._run_crawl_locked
+    :summary:
+    ```
 * - {py:obj}`_run_binary <archivebox.services.runner._run_binary>`
   - ```{autodoc2-docstring} archivebox.services.runner._run_binary
     :summary:
@@ -83,12 +91,32 @@
   - ```{autodoc2-docstring} archivebox.services.runner.run_binary
     :summary:
     ```
-* - {py:obj}`_snapshot_hook_names_by_plugin <archivebox.services.runner._snapshot_hook_names_by_plugin>`
-  - ```{autodoc2-docstring} archivebox.services.runner._snapshot_hook_names_by_plugin
+* - {py:obj}`queued_plugins_and_hooks_for_snapshot <archivebox.services.runner.queued_plugins_and_hooks_for_snapshot>`
+  - ```{autodoc2-docstring} archivebox.services.runner.queued_plugins_and_hooks_for_snapshot
     :summary:
     ```
 * - {py:obj}`queued_plugins_for_snapshot <archivebox.services.runner.queued_plugins_for_snapshot>`
   - ```{autodoc2-docstring} archivebox.services.runner.queued_plugins_for_snapshot
+    :summary:
+    ```
+* - {py:obj}`config_overrides_for_queued_plugins <archivebox.services.runner.config_overrides_for_queued_plugins>`
+  - ```{autodoc2-docstring} archivebox.services.runner.config_overrides_for_queued_plugins
+    :summary:
+    ```
+* - {py:obj}`fail_unavailable_queued_hooks <archivebox.services.runner.fail_unavailable_queued_hooks>`
+  - ```{autodoc2-docstring} archivebox.services.runner.fail_unavailable_queued_hooks
+    :summary:
+    ```
+* - {py:obj}`skip_disabled_queued_plugins <archivebox.services.runner.skip_disabled_queued_plugins>`
+  - ```{autodoc2-docstring} archivebox.services.runner.skip_disabled_queued_plugins
+    :summary:
+    ```
+* - {py:obj}`include_background_prerequisite_hooks <archivebox.services.runner.include_background_prerequisite_hooks>`
+  - ```{autodoc2-docstring} archivebox.services.runner.include_background_prerequisite_hooks
+    :summary:
+    ```
+* - {py:obj}`snapshot_hooks_for_pending_archiveresults <archivebox.services.runner.snapshot_hooks_for_pending_archiveresults>`
+  - ```{autodoc2-docstring} archivebox.services.runner.snapshot_hooks_for_pending_archiveresults
     :summary:
     ```
 * - {py:obj}`run_snapshot_maintenance <archivebox.services.runner.run_snapshot_maintenance>`
@@ -99,8 +127,16 @@
   - ```{autodoc2-docstring} archivebox.services.runner.run_due_crawl
     :summary:
     ```
+* - {py:obj}`_run_due_crawl_locked <archivebox.services.runner._run_due_crawl_locked>`
+  - ```{autodoc2-docstring} archivebox.services.runner._run_due_crawl_locked
+    :summary:
+    ```
 * - {py:obj}`run_due_snapshot <archivebox.services.runner.run_due_snapshot>`
   - ```{autodoc2-docstring} archivebox.services.runner.run_due_snapshot
+    :summary:
+    ```
+* - {py:obj}`_run_due_snapshot_locked <archivebox.services.runner._run_due_snapshot_locked>`
+  - ```{autodoc2-docstring} archivebox.services.runner._run_due_snapshot_locked
     :summary:
     ```
 * - {py:obj}`run_due_binary <archivebox.services.runner.run_due_binary>`
@@ -131,12 +167,16 @@
   - ```{autodoc2-docstring} archivebox.services.runner._run_due_snapshot_id
     :summary:
     ```
-* - {py:obj}`_run_due_queued_download_result <archivebox.services.runner._run_due_queued_download_result>`
-  - ```{autodoc2-docstring} archivebox.services.runner._run_due_queued_download_result
+* - {py:obj}`_run_due_queued_plugin_result <archivebox.services.runner._run_due_queued_plugin_result>`
+  - ```{autodoc2-docstring} archivebox.services.runner._run_due_queued_plugin_result
     :summary:
     ```
 * - {py:obj}`_run_due_binary <archivebox.services.runner._run_due_binary>`
   - ```{autodoc2-docstring} archivebox.services.runner._run_due_binary
+    :summary:
+    ```
+* - {py:obj}`_fast_forward_same_path_snapshot_fs_versions <archivebox.services.runner._fast_forward_same_path_snapshot_fs_versions>`
+  - ```{autodoc2-docstring} archivebox.services.runner._fast_forward_same_path_snapshot_fs_versions
     :summary:
     ```
 * - {py:obj}`run_pending_crawls <archivebox.services.runner.run_pending_crawls>`
@@ -145,7 +185,29 @@
     ```
 ````
 
+### Data
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`QUEUED_PLUGIN_RESULT_BATCH_SIZE <archivebox.services.runner.QUEUED_PLUGIN_RESULT_BATCH_SIZE>`
+  - ```{autodoc2-docstring} archivebox.services.runner.QUEUED_PLUGIN_RESULT_BATCH_SIZE
+    :summary:
+    ```
+````
+
 ### API
+
+````{py:data} QUEUED_PLUGIN_RESULT_BATCH_SIZE
+:canonical: archivebox.services.runner.QUEUED_PLUGIN_RESULT_BATCH_SIZE
+:value: >
+   100
+
+```{autodoc2-docstring} archivebox.services.runner.QUEUED_PLUGIN_RESULT_BATCH_SIZE
+```
+
+````
 
 ````{py:function} _bus_name(prefix: str, identifier: str) -> str
 :canonical: archivebox.services.runner._bus_name
@@ -182,10 +244,17 @@
 ```
 ````
 
-````{py:function} _normalize_runtime_config(config: archivebox.config.configset.BaseConfigSet | collections.abc.Mapping[str, typing.Any] | str | None) -> dict[str, typing.Any]
-:canonical: archivebox.services.runner._normalize_runtime_config
+````{py:function} _is_nonfatal_setup_hook(plugin_name: str, hook_name: str) -> bool
+:canonical: archivebox.services.runner._is_nonfatal_setup_hook
 
-```{autodoc2-docstring} archivebox.services.runner._normalize_runtime_config
+```{autodoc2-docstring} archivebox.services.runner._is_nonfatal_setup_hook
+```
+````
+
+````{py:function} _discover_archivebox_plugins() -> dict[str, abx_dl.models.Plugin]
+:canonical: archivebox.services.runner._discover_archivebox_plugins
+
+```{autodoc2-docstring} archivebox.services.runner._discover_archivebox_plugins
 ```
 ````
 
@@ -219,14 +288,14 @@
 ```
 ````
 
-````{py:function} ensure_background_runner(*, allow_under_pytest: bool = False) -> bool
+````{py:function} ensure_background_runner() -> bool
 :canonical: archivebox.services.runner.ensure_background_runner
 
 ```{autodoc2-docstring} archivebox.services.runner.ensure_background_runner
 ```
 ````
 
-`````{py:class} CrawlRunner(crawl, *, snapshot_ids: list[str] | None = None, selected_plugins: list[str] | None = None, process_discovered_snapshots_inline: bool = True, show_progress: bool = True, interactive_interrupts: bool = False)
+`````{py:class} CrawlRunner(crawl, *, snapshot_ids: list[str] | None = None, selected_plugins: list[str] | None = None, process_discovered_snapshots_inline: bool = True, show_progress: bool = True, interactive_interrupts: bool = False, config_overrides: dict[str, typing.Any] | None = None, selected_plugins_are_explicit: bool = True)
 :canonical: archivebox.services.runner.CrawlRunner
 
 ```{autodoc2-docstring} archivebox.services.runner.CrawlRunner
@@ -361,6 +430,14 @@
 
 ````
 
+````{py:method} create_initial_snapshots() -> list
+:canonical: archivebox.services.runner.CrawlRunner.create_initial_snapshots
+
+```{autodoc2-docstring} archivebox.services.runner.CrawlRunner.create_initial_snapshots
+```
+
+````
+
 ````{py:method} finalize_run_state() -> None
 :canonical: archivebox.services.runner.CrawlRunner.finalize_run_state
 
@@ -422,10 +499,17 @@
 
 `````
 
-````{py:function} run_crawl(crawl_id: str, *, snapshot_ids: list[str] | None = None, selected_plugins: list[str] | None = None, process_discovered_snapshots_inline: bool = True, show_progress: bool = True, interactive_interrupts: bool = False) -> None
+````{py:function} run_crawl(crawl_id: str, *, snapshot_ids: list[str] | None = None, selected_plugins: list[str] | None = None, process_discovered_snapshots_inline: bool = True, show_progress: bool = True, interactive_interrupts: bool = False, config_overrides: dict[str, typing.Any] | None = None, selected_plugins_are_explicit: bool = True) -> None
 :canonical: archivebox.services.runner.run_crawl
 
 ```{autodoc2-docstring} archivebox.services.runner.run_crawl
+```
+````
+
+````{py:function} _run_crawl_locked(crawl_id: str, *, snapshot_ids: list[str] | None = None, selected_plugins: list[str] | None = None, process_discovered_snapshots_inline: bool = True, show_progress: bool = True, interactive_interrupts: bool = False, config_overrides: dict[str, typing.Any] | None = None, selected_plugins_are_explicit: bool = True) -> None
+:canonical: archivebox.services.runner._run_crawl_locked
+
+```{autodoc2-docstring} archivebox.services.runner._run_crawl_locked
 ```
 ````
 
@@ -444,10 +528,10 @@
 ```
 ````
 
-````{py:function} _snapshot_hook_names_by_plugin() -> dict[str, frozenset[str]]
-:canonical: archivebox.services.runner._snapshot_hook_names_by_plugin
+````{py:function} queued_plugins_and_hooks_for_snapshot(snapshot_id: str) -> tuple[list[str] | None, dict[str, set[str] | None] | None]
+:canonical: archivebox.services.runner.queued_plugins_and_hooks_for_snapshot
 
-```{autodoc2-docstring} archivebox.services.runner._snapshot_hook_names_by_plugin
+```{autodoc2-docstring} archivebox.services.runner.queued_plugins_and_hooks_for_snapshot
 ```
 ````
 
@@ -458,7 +542,42 @@
 ```
 ````
 
-````{py:function} run_snapshot_maintenance(snapshot_id: str) -> bool
+````{py:function} config_overrides_for_queued_plugins(selected_plugins: list[str], **overrides: typing.Any) -> dict[str, typing.Any]
+:canonical: archivebox.services.runner.config_overrides_for_queued_plugins
+
+```{autodoc2-docstring} archivebox.services.runner.config_overrides_for_queued_plugins
+```
+````
+
+````{py:function} fail_unavailable_queued_hooks(snapshot_id: str, selected_hooks_by_plugin: dict[str, set[str] | None], plugins: dict[str, abx_dl.models.Plugin]) -> None
+:canonical: archivebox.services.runner.fail_unavailable_queued_hooks
+
+```{autodoc2-docstring} archivebox.services.runner.fail_unavailable_queued_hooks
+```
+````
+
+````{py:function} skip_disabled_queued_plugins(snapshot_id: str, plugin_names: list[str]) -> None
+:canonical: archivebox.services.runner.skip_disabled_queued_plugins
+
+```{autodoc2-docstring} archivebox.services.runner.skip_disabled_queued_plugins
+```
+````
+
+````{py:function} include_background_prerequisite_hooks(selected_hooks_by_plugin: dict[str, set[str] | None], plugins: dict[str, abx_dl.models.Plugin]) -> dict[str, set[str] | None]
+:canonical: archivebox.services.runner.include_background_prerequisite_hooks
+
+```{autodoc2-docstring} archivebox.services.runner.include_background_prerequisite_hooks
+```
+````
+
+````{py:function} snapshot_hooks_for_pending_archiveresults(snapshot) -> list[tuple[str, str]]
+:canonical: archivebox.services.runner.snapshot_hooks_for_pending_archiveresults
+
+```{autodoc2-docstring} archivebox.services.runner.snapshot_hooks_for_pending_archiveresults
+```
+````
+
+````{py:function} run_snapshot_maintenance(snapshot_id: str, *, output_dir: pathlib.Path | None = None) -> bool
 :canonical: archivebox.services.runner.run_snapshot_maintenance
 
 ```{autodoc2-docstring} archivebox.services.runner.run_snapshot_maintenance
@@ -472,10 +591,24 @@
 ```
 ````
 
+````{py:function} _run_due_crawl_locked(crawl, *, lock_seconds: int, interactive_interrupts: bool = False) -> bool
+:canonical: archivebox.services.runner._run_due_crawl_locked
+
+```{autodoc2-docstring} archivebox.services.runner._run_due_crawl_locked
+```
+````
+
 ````{py:function} run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: bool = False, runtime_config=None) -> bool
 :canonical: archivebox.services.runner.run_due_snapshot
 
 ```{autodoc2-docstring} archivebox.services.runner.run_due_snapshot
+```
+````
+
+````{py:function} _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interrupts: bool = False, runtime_config=None) -> bool
+:canonical: archivebox.services.runner._run_due_snapshot_locked
+
+```{autodoc2-docstring} archivebox.services.runner._run_due_snapshot_locked
 ```
 ````
 
@@ -529,10 +662,10 @@
 ```
 ````
 
-````{py:function} _run_due_queued_download_result(download_plugin_names: frozenset[str], *, crawl_id: str | None, lock_seconds: int, interactive_interrupts: bool, runtime_config) -> bool
-:canonical: archivebox.services.runner._run_due_queued_download_result
+````{py:function} _run_due_queued_plugin_result(plugin_names: frozenset[str], *, crawl_id: str | None, lock_seconds: int, interactive_interrupts: bool, runtime_config, batch_size: int = QUEUED_PLUGIN_RESULT_BATCH_SIZE) -> bool
+:canonical: archivebox.services.runner._run_due_queued_plugin_result
 
-```{autodoc2-docstring} archivebox.services.runner._run_due_queued_download_result
+```{autodoc2-docstring} archivebox.services.runner._run_due_queued_plugin_result
 ```
 ````
 
@@ -543,7 +676,14 @@
 ```
 ````
 
-````{py:function} run_pending_crawls(*, daemon: bool = False, crawl_id: str | None = None, maintenance_only: bool = False, interactive_interrupts: bool = False) -> int
+````{py:function} _fast_forward_same_path_snapshot_fs_versions(batch_size: int = 10000) -> bool
+:canonical: archivebox.services.runner._fast_forward_same_path_snapshot_fs_versions
+
+```{autodoc2-docstring} archivebox.services.runner._fast_forward_same_path_snapshot_fs_versions
+```
+````
+
+````{py:function} run_pending_crawls(*, daemon: bool = False, crawl_id: str | None = None, maintenance_only: bool = False, interactive_interrupts: bool = False, maintenance_batch_size: int = QUEUED_PLUGIN_RESULT_BATCH_SIZE) -> int
 :canonical: archivebox.services.runner.run_pending_crawls
 
 ```{autodoc2-docstring} archivebox.services.runner.run_pending_crawls

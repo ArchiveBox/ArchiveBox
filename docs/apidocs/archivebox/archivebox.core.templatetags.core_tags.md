@@ -19,6 +19,10 @@
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._normalize_output_files
     :summary:
     ```
+* - {py:obj}`_snapshot_id <archivebox.core.templatetags.core_tags._snapshot_id>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._snapshot_id
+    :summary:
+    ```
 * - {py:obj}`_coerce_output_file_size <archivebox.core.templatetags.core_tags._coerce_output_file_size>`
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._coerce_output_file_size
     :summary:
@@ -127,6 +131,14 @@
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_url
     :summary:
     ```
+* - {py:obj}`snapshot_archiveresult_url <archivebox.core.templatetags.core_tags.snapshot_archiveresult_url>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_archiveresult_url
+    :summary:
+    ```
+* - {py:obj}`snapshot_index_row <archivebox.core.templatetags.core_tags.snapshot_index_row>`
+  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_index_row
+    :summary:
+    ```
 * - {py:obj}`snapshot_preview_url <archivebox.core.templatetags.core_tags.snapshot_preview_url>`
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_preview_url
     :summary:
@@ -177,10 +189,6 @@
     ```
 * - {py:obj}`_MHTML_PREVIEW_EXTS <archivebox.core.templatetags.core_tags._MHTML_PREVIEW_EXTS>`
   - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._MHTML_PREVIEW_EXTS
-    :summary:
-    ```
-* - {py:obj}`_WACZ_PREVIEW_EXTS <archivebox.core.templatetags.core_tags._WACZ_PREVIEW_EXTS>`
-  - ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._WACZ_PREVIEW_EXTS
     :summary:
     ```
 * - {py:obj}`_MEDIA_FILE_EXTS <archivebox.core.templatetags.core_tags._MEDIA_FILE_EXTS>`
@@ -251,16 +259,6 @@
 
 ````
 
-````{py:data} _WACZ_PREVIEW_EXTS
-:canonical: archivebox.core.templatetags.core_tags._WACZ_PREVIEW_EXTS
-:value: >
-   ('.wacz', '.warc', '.warc.gz')
-
-```{autodoc2-docstring} archivebox.core.templatetags.core_tags._WACZ_PREVIEW_EXTS
-```
-
-````
-
 ````{py:data} _MEDIA_FILE_EXTS
 :canonical: archivebox.core.templatetags.core_tags._MEDIA_FILE_EXTS
 :value: >
@@ -275,6 +273,13 @@
 :canonical: archivebox.core.templatetags.core_tags._normalize_output_files
 
 ```{autodoc2-docstring} archivebox.core.templatetags.core_tags._normalize_output_files
+```
+````
+
+````{py:function} _snapshot_id(value: typing.Any) -> typing.Any
+:canonical: archivebox.core.templatetags.core_tags._snapshot_id
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags._snapshot_id
 ```
 ````
 
@@ -515,6 +520,20 @@
 :canonical: archivebox.core.templatetags.core_tags.snapshot_url
 
 ```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_url
+```
+````
+
+````{py:function} snapshot_archiveresult_url(context, snapshot, plugin: str, filename: str) -> str
+:canonical: archivebox.core.templatetags.core_tags.snapshot_archiveresult_url
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_archiveresult_url
+```
+````
+
+````{py:function} snapshot_index_row(context, link) -> str
+:canonical: archivebox.core.templatetags.core_tags.snapshot_index_row
+
+```{autodoc2-docstring} archivebox.core.templatetags.core_tags.snapshot_index_row
 ```
 ````
 

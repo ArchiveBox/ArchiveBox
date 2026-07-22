@@ -78,9 +78,6 @@ class NinjaAPIWithIOCapture(NinjaAPI):
         response["X-ArchiveBox-Auth-User-Id"] = str(request.user.pk) if request.user.pk else "None"
         response["X-ArchiveBox-Auth-User-Username"] = request.user.username if isinstance(request.user, User) else "None"
 
-        # import ipdb; ipdb.set_trace()
-        # print('RESPONDING NOW', response)
-
         return response
 
 
@@ -91,8 +88,6 @@ api = NinjaAPIWithIOCapture(
     auth=API_AUTH_METHODS,
     urls_namespace="api-1",
     docs=Swagger(settings={"persistAuthorization": True}),
-    # docs_decorator=login_required,
-    # renderer=ORJSONRenderer(),
 )
 api = register_urls(api)
 urls = api.urls
@@ -113,24 +108,7 @@ def generic_exception_handler(request, err):
             "message": f"{err.__class__.__name__}: {err}",
             "errors": [
                 "".join(format_exception(err)),
-                # or send simpler parent-only traceback:
-                # *([str(err.__context__)] if getattr(err, '__context__', None) else []),
             ],
         },
         status=status,
     )
-
-
-# import orjson
-# from ninja.renderers import BaseRenderer
-# class ORJSONRenderer(BaseRenderer):
-#     media_type = "application/json"
-#     def render(self, request, data, *, response_status):
-#         return {
-#             "success": True,
-#             "errors": [],
-#             "result": data,
-#             "stdout": ansi_to_html(stdout.getvalue().strip()),
-#             "stderr": ansi_to_html(stderr.getvalue().strip()),
-#         }
-#         return orjson.dumps(data)

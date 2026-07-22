@@ -85,7 +85,6 @@ def check_data_folder(config=None, **config_kwargs) -> None:
     create_and_chown_dir(CONSTANTS.USERS_DIR)
     create_and_chown_dir(CONSTANTS.PERSONAS_DIR / "Default")
     create_and_chown_dir(CONSTANTS.LOGS_DIR)
-    # create_and_chown_dir(CONSTANTS.CACHE_DIR)
 
     # Create /tmp and /lib dirs if they don't exist
     get_or_create_working_tmp_dir(autofix=True, quiet=False, config=config)
@@ -182,18 +181,6 @@ def check_io_encoding():
         print('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8', file=sys.stderr)
         raise SystemExit(2)
 
-    # # hard errors: check python version
-    # if sys.version_info[:3] < (3, 10, 0):
-    #     print('[red][X] Python version is not new enough: {sys.version} (>3.10 is required)[/red]', file=sys.stderr)
-    #     print('    See https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.', file=sys.stderr)
-    #     raise SystemExit(2)
-
-    # # hard errors: check django version
-    # if int(django.VERSION[0]) < 5:
-    #     print('[red][X] Django version is not new enough: {django.VERSION[:3]} (>=5.0 is required)[/red]', file=sys.stderr)
-    #     print('    Upgrade django using pip or your system package manager: pip3 install --upgrade django', file=sys.stderr)
-    #     raise SystemExit(2)
-
 
 def check_not_root():
     from archivebox.config.permissions import IS_ROOT
@@ -227,7 +214,6 @@ def check_data_dir_permissions(config=None, **config_kwargs):
     data_dir_uid, data_dir_gid = data_dir_stat.st_uid, data_dir_stat.st_gid
     data_owned_by_root = data_dir_uid == 0
 
-    # data_owned_by_default_user = data_dir_uid == DEFAULT_UID or data_dir_gid == DEFAULT_GID
     data_owner_doesnt_match = (data_dir_uid != ARCHIVEBOX_USER and data_dir_gid != ARCHIVEBOX_GROUP) if not IS_ROOT else False
     data_not_writable = not (os.path.isdir(DATA_DIR) and os.access(DATA_DIR, os.W_OK))
     if data_not_writable:

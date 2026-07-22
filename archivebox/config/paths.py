@@ -5,7 +5,6 @@ import socket
 import hashlib
 import tempfile
 import platform
-import subprocess
 from pathlib import Path
 from functools import cache
 from datetime import datetime
@@ -69,9 +68,9 @@ def _get_collection_id(DATA_DIR=DATA_DIR, force_create=False) -> str:
             if IS_ROOT:
                 with SudoPermission(uid=0):
                     if ARCHIVEBOX_USER == 0:
-                        subprocess.run(["chmod", "777", str(collection_id_file)])
+                        collection_id_file.chmod(0o777)
                     else:
-                        subprocess.run(["chown", str(ARCHIVEBOX_USER), str(collection_id_file)])
+                        os.chown(collection_id_file, ARCHIVEBOX_USER, -1)
     except (OSError, FileNotFoundError, PermissionError):
         pass
     return collection_id
@@ -129,7 +128,7 @@ def dir_is_writable(dir_path: Path, uid: int | None = None, gid: int | None = No
         if chown:
             # try fixing it using sudo permissions
             with SudoPermission(uid=uid, fallback=fallback):
-                subprocess.run(["chown", f"{uid}:{gid}", str(dir_path)], stderr=subprocess.DEVNULL)
+                os.chown(dir_path, uid, gid)
             return dir_is_writable(dir_path, uid=uid, gid=gid, fallback=fallback, chown=False)
     return False
 
@@ -348,11 +347,6 @@ def get_data_locations(config: "ArchiveBoxConfig | None" = None, **config_kwargs
                 and os.access(tmp_dir, os.W_OK)
                 and tmp_dir_socket_path_is_short_enough(tmp_dir),
             },
-            # "CACHE_DIR": {
-            #     "path": CACHE_DIR.resolve(),
-            #     "enabled": True,
-            #     "is_valid": os.access(CACHE_DIR, os.R_OK) and os.access(CACHE_DIR, os.W_OK),                        # read + write
-            # },
         },
     )
 

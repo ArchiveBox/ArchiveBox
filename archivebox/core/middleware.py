@@ -73,7 +73,6 @@ def detect_timezone(request, activate: bool = True):
         tz = timezone.get_fixed_timezone(int(gmt_offset))
         if activate:
             timezone.activate(tz)
-    # print('GMT_OFFSET', gmt_offset, tz)
     return tz
 
 
@@ -153,7 +152,6 @@ def CacheControlMiddleware(get_response):
                     request.archivebox_config = config
                 policy = "private" if config.PERMISSIONS == "private" else "public"
                 response["Cache-Control"] = f"{policy}, max-age=60, stale-while-revalidate=300"
-                # print('Set Cache-Control header to', response['Cache-Control'])
         return response
 
     return middleware

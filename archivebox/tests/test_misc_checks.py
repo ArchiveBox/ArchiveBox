@@ -1,12 +1,14 @@
 import os
 import signal
+import subprocess
+import sys
+import textwrap
 
 import pytest
 
 from archivebox.core.shutdown_util import foreground_shutdown_signals
 from archivebox.core.shutdown_util import raise_if_shutdown_requested
 from archivebox.misc.checks import _migration_interrupt_message
-from archivebox.misc.checks import _exit_on_migration_interrupt
 
 
 def test_migration_interrupt_message_prints_resume_command_and_atomic_safety():
@@ -25,23 +27,37 @@ def test_migration_interrupt_message_before_apply_says_no_changes_applied():
     assert "archivebox init" in message
 
 
-def test_migration_interrupt_handler_exits_for_sigint_and_sigterm(monkeypatch):
-    def fake_exit(code):
-        raise SystemExit(code)
+@pytest.mark.parametrize("sig", [signal.SIGINT, signal.SIGTERM])
+def test_migration_interrupt_handler_exits_for_sigint_and_sigterm(sig):
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            textwrap.dedent(
+                """
+                import signal
 
-    monkeypatch.setattr("archivebox.misc.checks.os._exit", fake_exit)
+                from archivebox.misc.checks import _exit_on_migration_interrupt
 
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        previous_handler = signal.getsignal(sig)
-        try:
-            with _exit_on_migration_interrupt():
-                assert signal.getsignal(sig) != previous_handler
-                os.kill(os.getpid(), sig)
-        except SystemExit as err:
-            assert err.code == 130
-        else:
-            raise AssertionError(f"{sig.name} should exit during migration auto-apply")
-        assert signal.getsignal(sig) == previous_handler
+                with _exit_on_migration_interrupt():
+                    print("READY", flush=True)
+                    signal.pause()
+                """,
+            ),
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=os.environ.copy(),
+    )
+    assert process.stdout is not None
+    assert process.stdout.readline() == "READY\n"
+
+    process.send_signal(sig)
+    stdout, stderr = process.communicate(timeout=30)
+
+    assert process.returncode == 130, (stdout, stderr)
 
 
 def test_nested_foreground_signal_state_propagates_to_outer_context():

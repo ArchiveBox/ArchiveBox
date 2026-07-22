@@ -23,60 +23,12 @@
   - ```{autodoc2-docstring} archivebox.config.views.format_parsed_datetime
     :summary:
     ```
-* - {py:obj}`render_code_block <archivebox.config.views.render_code_block>`
-  - ```{autodoc2-docstring} archivebox.config.views.render_code_block
-    :summary:
-    ```
-* - {py:obj}`render_highlighted_json_block <archivebox.config.views.render_highlighted_json_block>`
-  - ```{autodoc2-docstring} archivebox.config.views.render_highlighted_json_block
-    :summary:
-    ```
-* - {py:obj}`get_plugin_docs_url <archivebox.config.views.get_plugin_docs_url>`
-  - ```{autodoc2-docstring} archivebox.config.views.get_plugin_docs_url
-    :summary:
-    ```
-* - {py:obj}`get_plugin_hook_source_url <archivebox.config.views.get_plugin_hook_source_url>`
-  - ```{autodoc2-docstring} archivebox.config.views.get_plugin_hook_source_url
-    :summary:
-    ```
-* - {py:obj}`get_live_config_url <archivebox.config.views.get_live_config_url>`
-  - ```{autodoc2-docstring} archivebox.config.views.get_live_config_url
-    :summary:
-    ```
 * - {py:obj}`get_environment_binary_url <archivebox.config.views.get_environment_binary_url>`
   - ```{autodoc2-docstring} archivebox.config.views.get_environment_binary_url
     :summary:
     ```
 * - {py:obj}`get_installed_binary_change_url <archivebox.config.views.get_installed_binary_change_url>`
   - ```{autodoc2-docstring} archivebox.config.views.get_installed_binary_change_url
-    :summary:
-    ```
-* - {py:obj}`get_machine_admin_url <archivebox.config.views.get_machine_admin_url>`
-  - ```{autodoc2-docstring} archivebox.config.views.get_machine_admin_url
-    :summary:
-    ```
-* - {py:obj}`render_code_tag_list <archivebox.config.views.render_code_tag_list>`
-  - ```{autodoc2-docstring} archivebox.config.views.render_code_tag_list
-    :summary:
-    ```
-* - {py:obj}`render_plugin_metadata_html <archivebox.config.views.render_plugin_metadata_html>`
-  - ```{autodoc2-docstring} archivebox.config.views.render_plugin_metadata_html
-    :summary:
-    ```
-* - {py:obj}`render_link_tag_list <archivebox.config.views.render_link_tag_list>`
-  - ```{autodoc2-docstring} archivebox.config.views.render_link_tag_list
-    :summary:
-    ```
-* - {py:obj}`render_property_links <archivebox.config.views.render_property_links>`
-  - ```{autodoc2-docstring} archivebox.config.views.render_property_links
-    :summary:
-    ```
-* - {py:obj}`render_config_properties_html <archivebox.config.views.render_config_properties_html>`
-  - ```{autodoc2-docstring} archivebox.config.views.render_config_properties_html
-    :summary:
-    ```
-* - {py:obj}`render_hook_links_html <archivebox.config.views.render_hook_links_html>`
-  - ```{autodoc2-docstring} archivebox.config.views.render_hook_links_html
     :summary:
     ```
 * - {py:obj}`render_binary_detail_description <archivebox.config.views.render_binary_detail_description>`
@@ -95,24 +47,12 @@
   - ```{autodoc2-docstring} archivebox.config.views.get_db_binaries_by_name
     :summary:
     ```
-* - {py:obj}`get_filesystem_plugins <archivebox.config.views.get_filesystem_plugins>`
-  - ```{autodoc2-docstring} archivebox.config.views.get_filesystem_plugins
-    :summary:
-    ```
 * - {py:obj}`binaries_list_view <archivebox.config.views.binaries_list_view>`
   - ```{autodoc2-docstring} archivebox.config.views.binaries_list_view
     :summary:
     ```
 * - {py:obj}`binary_detail_view <archivebox.config.views.binary_detail_view>`
   - ```{autodoc2-docstring} archivebox.config.views.binary_detail_view
-    :summary:
-    ```
-* - {py:obj}`plugins_list_view <archivebox.config.views.plugins_list_view>`
-  - ```{autodoc2-docstring} archivebox.config.views.plugins_list_view
-    :summary:
-    ```
-* - {py:obj}`plugin_detail_view <archivebox.config.views.plugin_detail_view>`
-  - ```{autodoc2-docstring} archivebox.config.views.plugin_detail_view
     :summary:
     ```
 * - {py:obj}`worker_list_view <archivebox.config.views.worker_list_view>`
@@ -139,18 +79,6 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`ABX_PLUGINS_DOCS_BASE_URL <archivebox.config.views.ABX_PLUGINS_DOCS_BASE_URL>`
-  - ```{autodoc2-docstring} archivebox.config.views.ABX_PLUGINS_DOCS_BASE_URL
-    :summary:
-    ```
-* - {py:obj}`ABX_PLUGINS_GITHUB_BASE_URL <archivebox.config.views.ABX_PLUGINS_GITHUB_BASE_URL>`
-  - ```{autodoc2-docstring} archivebox.config.views.ABX_PLUGINS_GITHUB_BASE_URL
-    :summary:
-    ```
-* - {py:obj}`LIVE_CONFIG_BASE_URL <archivebox.config.views.LIVE_CONFIG_BASE_URL>`
-  - ```{autodoc2-docstring} archivebox.config.views.LIVE_CONFIG_BASE_URL
-    :summary:
-    ```
 * - {py:obj}`ENVIRONMENT_BINARIES_BASE_URL <archivebox.config.views.ENVIRONMENT_BINARIES_BASE_URL>`
   - ```{autodoc2-docstring} archivebox.config.views.ENVIRONMENT_BINARIES_BASE_URL
     :summary:
@@ -159,43 +87,9 @@
   - ```{autodoc2-docstring} archivebox.config.views.INSTALLED_BINARIES_BASE_URL
     :summary:
     ```
-* - {py:obj}`JSON_TOKEN_RE <archivebox.config.views.JSON_TOKEN_RE>`
-  - ```{autodoc2-docstring} archivebox.config.views.JSON_TOKEN_RE
-    :summary:
-    ```
 ````
 
 ### API
-
-````{py:data} ABX_PLUGINS_DOCS_BASE_URL
-:canonical: archivebox.config.views.ABX_PLUGINS_DOCS_BASE_URL
-:value: >
-   'https://archivebox.github.io/abx-plugins/'
-
-```{autodoc2-docstring} archivebox.config.views.ABX_PLUGINS_DOCS_BASE_URL
-```
-
-````
-
-````{py:data} ABX_PLUGINS_GITHUB_BASE_URL
-:canonical: archivebox.config.views.ABX_PLUGINS_GITHUB_BASE_URL
-:value: >
-   'https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/'
-
-```{autodoc2-docstring} archivebox.config.views.ABX_PLUGINS_GITHUB_BASE_URL
-```
-
-````
-
-````{py:data} LIVE_CONFIG_BASE_URL
-:canonical: archivebox.config.views.LIVE_CONFIG_BASE_URL
-:value: >
-   '/admin/environment/config/'
-
-```{autodoc2-docstring} archivebox.config.views.LIVE_CONFIG_BASE_URL
-```
-
-````
 
 ````{py:data} ENVIRONMENT_BINARIES_BASE_URL
 :canonical: archivebox.config.views.ENVIRONMENT_BINARIES_BASE_URL
@@ -231,51 +125,6 @@
 ```
 ````
 
-````{py:data} JSON_TOKEN_RE
-:canonical: archivebox.config.views.JSON_TOKEN_RE
-:value: >
-   'compile(...)'
-
-```{autodoc2-docstring} archivebox.config.views.JSON_TOKEN_RE
-```
-
-````
-
-````{py:function} render_code_block(text: str, *, highlighted: bool = False) -> str
-:canonical: archivebox.config.views.render_code_block
-
-```{autodoc2-docstring} archivebox.config.views.render_code_block
-```
-````
-
-````{py:function} render_highlighted_json_block(value: typing.Any) -> str
-:canonical: archivebox.config.views.render_highlighted_json_block
-
-```{autodoc2-docstring} archivebox.config.views.render_highlighted_json_block
-```
-````
-
-````{py:function} get_plugin_docs_url(plugin_name: str) -> str
-:canonical: archivebox.config.views.get_plugin_docs_url
-
-```{autodoc2-docstring} archivebox.config.views.get_plugin_docs_url
-```
-````
-
-````{py:function} get_plugin_hook_source_url(plugin_name: str, hook_name: str) -> str
-:canonical: archivebox.config.views.get_plugin_hook_source_url
-
-```{autodoc2-docstring} archivebox.config.views.get_plugin_hook_source_url
-```
-````
-
-````{py:function} get_live_config_url(key: str) -> str
-:canonical: archivebox.config.views.get_live_config_url
-
-```{autodoc2-docstring} archivebox.config.views.get_live_config_url
-```
-````
-
 ````{py:function} get_environment_binary_url(name: str) -> str
 :canonical: archivebox.config.views.get_environment_binary_url
 
@@ -287,55 +136,6 @@
 :canonical: archivebox.config.views.get_installed_binary_change_url
 
 ```{autodoc2-docstring} archivebox.config.views.get_installed_binary_change_url
-```
-````
-
-````{py:function} get_machine_admin_url() -> str | None
-:canonical: archivebox.config.views.get_machine_admin_url
-
-```{autodoc2-docstring} archivebox.config.views.get_machine_admin_url
-```
-````
-
-````{py:function} render_code_tag_list(values: list[str]) -> str
-:canonical: archivebox.config.views.render_code_tag_list
-
-```{autodoc2-docstring} archivebox.config.views.render_code_tag_list
-```
-````
-
-````{py:function} render_plugin_metadata_html(config: dict[str, typing.Any]) -> str
-:canonical: archivebox.config.views.render_plugin_metadata_html
-
-```{autodoc2-docstring} archivebox.config.views.render_plugin_metadata_html
-```
-````
-
-````{py:function} render_link_tag_list(values: list[str], url_resolver: collections.abc.Callable[[str], str] | None = None) -> str
-:canonical: archivebox.config.views.render_link_tag_list
-
-```{autodoc2-docstring} archivebox.config.views.render_link_tag_list
-```
-````
-
-````{py:function} render_property_links(prop_name: str, prop_info: dict[str, typing.Any], machine_admin_url: str | None) -> str
-:canonical: archivebox.config.views.render_property_links
-
-```{autodoc2-docstring} archivebox.config.views.render_property_links
-```
-````
-
-````{py:function} render_config_properties_html(properties: dict[str, typing.Any], machine_admin_url: str | None) -> str
-:canonical: archivebox.config.views.render_config_properties_html
-
-```{autodoc2-docstring} archivebox.config.views.render_config_properties_html
-```
-````
-
-````{py:function} render_hook_links_html(plugin_name: str, hooks: list[str], source: str) -> str
-:canonical: archivebox.config.views.render_hook_links_html
-
-```{autodoc2-docstring} archivebox.config.views.render_hook_links_html
 ```
 ````
 
@@ -367,13 +167,6 @@
 ```
 ````
 
-````{py:function} get_filesystem_plugins() -> dict[str, dict[str, typing.Any]]
-:canonical: archivebox.config.views.get_filesystem_plugins
-
-```{autodoc2-docstring} archivebox.config.views.get_filesystem_plugins
-```
-````
-
 ````{py:function} binaries_list_view(request: django.http.HttpRequest, **kwargs) -> admin_data_views.typing.TableContext
 :canonical: archivebox.config.views.binaries_list_view
 
@@ -385,20 +178,6 @@
 :canonical: archivebox.config.views.binary_detail_view
 
 ```{autodoc2-docstring} archivebox.config.views.binary_detail_view
-```
-````
-
-````{py:function} plugins_list_view(request: django.http.HttpRequest, **kwargs) -> admin_data_views.typing.TableContext
-:canonical: archivebox.config.views.plugins_list_view
-
-```{autodoc2-docstring} archivebox.config.views.plugins_list_view
-```
-````
-
-````{py:function} plugin_detail_view(request: django.http.HttpRequest, key: str, **kwargs) -> admin_data_views.typing.ItemContext
-:canonical: archivebox.config.views.plugin_detail_view
-
-```{autodoc2-docstring} archivebox.config.views.plugin_detail_view
 ```
 ````
 

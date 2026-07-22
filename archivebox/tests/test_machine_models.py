@@ -14,7 +14,7 @@ Tests cover:
 import os
 import subprocess
 import sys
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import cast
 
@@ -38,7 +38,44 @@ from archivebox.machine.models import (
 from archivebox.machine.detect import unknown_if_blank
 from archivebox.tests.conftest import resolve_abxpkg_binary_env
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(transaction=True)
+
+
+def _current_process_started_at():
+    import psutil
+
+    return datetime.fromtimestamp(
+        psutil.Process(os.getpid()).create_time(),
+        tz=timezone.get_current_timezone(),
+    )
+
+
+def _spawn_blocked_process(binary_abspath: str):
+    import psutil
+
+    process = subprocess.Popen(
+        [binary_abspath, "-c", "print('READY', flush=True); input()"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    assert process.stdout is not None
+    assert process.stdout.readline() == "READY\n"
+    started_at = datetime.fromtimestamp(
+        psutil.Process(process.pid).create_time(),
+        tz=timezone.get_current_timezone(),
+    )
+    return process, started_at
+
+
+def _reaped_process_identity(binary_abspath: str) -> tuple[int, datetime]:
+    process, started_at = _spawn_blocked_process(binary_abspath)
+    assert process.stdin is not None
+    process.stdin.write("\n")
+    process.stdin.flush()
+    assert process.wait(timeout=5) == 0
+    return process.pid, started_at
 
 
 def _reset_machine_model_caches():
@@ -64,20 +101,37 @@ def machine():
 
 @pytest.fixture
 def binary(machine):
-    return Binary.objects.create(
+    from archivebox.tests.conftest import install_real_binary
+
+    return install_real_binary("python", machine=machine)
+
+
+@pytest.fixture
+def process(machine, binary, tmp_path):
+    return Process.objects.create(
         machine=machine,
-        name="test-binary",
-        binproviders="env",
+        binary=binary,
+        cmd=[binary.abspath, "--version"],
+        pwd=str(tmp_path),
     )
 
 
 @pytest.fixture
-def process(machine):
-    return Process.objects.create(
-        machine=machine,
-        cmd=["echo", "test"],
-        pwd="/tmp",
-    )
+def live_process_identity_factory(binary):
+    processes = []
+
+    def spawn() -> tuple[int, datetime]:
+        process, started_at = _spawn_blocked_process(binary.abspath)
+        processes.append(process)
+        return process.pid, started_at
+
+    yield spawn
+    for process in processes:
+        if process.poll() is None:
+            assert process.stdin is not None
+            process.stdin.write("\n")
+            process.stdin.flush()
+            assert process.wait(timeout=5) == 0
 
 
 @pytest.fixture
@@ -343,6 +397,7 @@ class TestNetworkInterfaceModel:
             )
 
 
+@pytest.mark.django_db(transaction=True)
 class TestBinaryModel:
     """Test the Binary model."""
 
@@ -351,52 +406,41 @@ class TestBinaryModel:
         self.machine = machine
 
     def test_binary_creation(self):
-        """Binary should be created with default values."""
-        binary = Binary.objects.create(
-            machine=self.machine,
-            name="wget",
-            binproviders="apt,brew,env",
-        )
+        """A resolved Binary should persist its detected installation."""
+        from archivebox.tests.conftest import install_real_binary
+
+        binary = install_real_binary("python", machine=self.machine)
 
         assert binary.id is not None
-        assert binary.name == "wget"
-        assert binary.status == Binary.StatusChoices.QUEUED
-        assert not binary.is_valid
+        assert binary.name == "python"
+        assert binary.status == Binary.StatusChoices.INSTALLED
+        assert binary.is_valid
 
     def test_binary_is_valid(self):
         """Binary.is_valid should be True for installed binaries with a resolved path."""
-        binary = Binary.objects.create(
-            machine=self.machine,
-            name="python",
-            abspath=sys.executable,
-            version=f"{sys.version_info.major}.{sys.version_info.minor}",
-            status=Binary.StatusChoices.INSTALLED,
-        )
+        from archivebox.tests.conftest import install_real_binary
+
+        binary = install_real_binary("python", machine=self.machine)
 
         assert binary.is_valid
 
     def test_binary_manager_get_valid_binary(self):
         """BinaryManager.get_valid_binary() should find valid binaries."""
-        # Create invalid binary (no abspath)
-        Binary.objects.create(machine=self.machine, name="python")
+        from archivebox.tests.conftest import install_real_binary
 
-        # Create valid binary
-        Binary.objects.create(
-            machine=self.machine,
-            name="python",
-            abspath=sys.executable,
-            version=f"{sys.version_info.major}.{sys.version_info.minor}",
-            status=Binary.StatusChoices.INSTALLED,
-        )
+        binary = install_real_binary("python", machine=self.machine)
 
         result = cast(BinaryManager, Binary.objects).get_valid_binary("python")
 
         assert result is not None
-        assert result.abspath == sys.executable
+        assert result.id == binary.id
+        assert Path(result.abspath).resolve() == Path(sys.executable).resolve()
 
     def test_binary_update_and_requeue(self):
         """Binary.update_and_requeue() should update fields and save."""
-        binary = Binary.objects.create(machine=self.machine, name="test")
+        from archivebox.tests.conftest import install_real_binary
+
+        binary = install_real_binary("python", machine=self.machine)
         old_modified = binary.modified_at
 
         binary.update_and_requeue(
@@ -416,86 +460,41 @@ class TestBinaryModel:
             "custom": {"install": "bash -lc 'echo ok'"},
         }
 
-        binary = Binary.from_json(
-            {
-                "name": "chrome",
-                "binproviders": "apt,pnpm,custom",
-                "overrides": overrides,
-            },
-        )
+        from archivebox.tests.conftest import install_real_binary
+
+        binary = install_real_binary("python", machine=self.machine, overrides=overrides)
 
         assert binary is not None
         assert binary.overrides == overrides
 
-    def test_binary_from_json_canonicalizes_path_like_names(self):
-        """Binary.from_json() should store command names, not path cache values."""
-        binary = Binary.from_json(
-            {
-                "name": "/tmp/old-lib/pip/venv/bin/trafilatura",
-                "binproviders": "env,pip",
-                "overrides": {"pip": {"install_args": ["trafilatura"]}},
-            },
-        )
+    def test_binary_from_json_preserves_provider_package_metadata(self):
+        """A real Binary install should preserve provider-specific package metadata."""
+        from archivebox.tests.conftest import install_real_binary
 
-        assert binary is not None
-        assert binary.name == "trafilatura"
-
-    def test_binary_from_json_does_not_coerce_legacy_override_shapes(self):
-        """Binary.from_json() should no longer translate legacy non-dict provider overrides."""
-        overrides = {
-            "apt": ["chromium"],
-            "pnpm": "puppeteer",
-        }
-
-        binary = Binary.from_json(
-            {
-                "name": "chrome",
-                "binproviders": "apt,pnpm",
-                "overrides": overrides,
-            },
-        )
-
-        assert binary is not None
-        assert binary.overrides == overrides
-
-    def test_binary_from_json_preserves_readability_package_metadata(self):
-        """Binary.from_json() should preserve readability's pnpm package metadata."""
-        binary = Binary.from_json(
-            {
-                "name": "readability-extractor",
-                "binproviders": "env,pnpm",
-                "overrides": {
-                    "pnpm": {
-                        "install_args": ["readability-extractor"],
-                    },
-                },
-            },
+        binary = install_real_binary(
+            "python",
+            machine=self.machine,
+            overrides={"pip": {"install_args": ["python"]}},
         )
 
         assert binary is not None
         assert binary.overrides == {
-            "pnpm": {
-                "install_args": ["readability-extractor"],
+            "pip": {
+                "install_args": ["python"],
             },
         }
 
     @pytest.mark.django_db(transaction=True)
     def test_binary_lib_bin_symlink_waits_for_outer_transaction_commit(self, tmp_path):
         """Binary DB projection writes can be direct, but convenience symlinks must run after commit."""
-        provider_lib = tmp_path / "provider"
-        resolve_abxpkg_binary_env(provider_lib, "node")
-        source = provider_lib / "env" / "bin" / "node"
+        from archivebox.tests.conftest import install_real_binary
+
+        binary = install_real_binary("python", machine=self.machine)
+        source = Path(binary.abspath)
         lib_bin_dir = tmp_path / "lib" / "bin"
-        symlink = lib_bin_dir / "abx-test-binary"
+        symlink = lib_bin_dir / "python"
 
         with transaction.atomic():
-            binary = Binary.objects.create(
-                machine=self.machine,
-                name="abx-test-binary",
-                abspath=str(source),
-                version="1.0.0",
-                status=Binary.StatusChoices.INSTALLED,
-            )
             binary.symlink_to_lib_bin_after_commit(lib_bin_dir)
             assert not symlink.exists()
 
@@ -530,19 +529,22 @@ class TestProcessModel:
     """Test the Process model."""
 
     @pytest.fixture(autouse=True)
-    def setup_machine(self, machine):
+    def setup_machine(self, machine, binary, tmp_path):
         self.machine = machine
+        self.binary = binary
+        self.pwd = str(tmp_path)
 
     def test_process_creation(self):
         """Process should be created with default values."""
         process = Process.objects.create(
             machine=self.machine,
-            cmd=["echo", "hello"],
-            pwd="/tmp",
+            binary=self.binary,
+            cmd=[self.binary.abspath, "--version"],
+            pwd=self.pwd,
         )
 
         assert process.id is not None
-        assert process.cmd == ["echo", "hello"]
+        assert process.cmd == [self.binary.abspath, "--version"]
         assert process.status == Process.StatusChoices.QUEUED
         assert process.pid is None
         assert process.exit_code is None
@@ -551,30 +553,36 @@ class TestProcessModel:
         """Process.to_json() should serialize correctly."""
         process = Process.objects.create(
             machine=self.machine,
-            cmd=["echo", "hello"],
-            pwd="/tmp",
+            binary=self.binary,
+            cmd=[self.binary.abspath, "--version"],
+            pwd=self.pwd,
             timeout=60,
         )
         json_data = process.to_json()
 
         assert json_data["type"] == "Process"
-        assert json_data["cmd"] == ["echo", "hello"]
-        assert json_data["pwd"] == "/tmp"
+        assert json_data["cmd"] == [self.binary.abspath, "--version"]
+        assert json_data["pwd"] == self.pwd
         assert json_data["timeout"] == 60
 
     def test_process_update_and_requeue(self):
         """Process.update_and_requeue() should update fields and save."""
-        process = Process.objects.create(machine=self.machine, cmd=["test"])
+        process = Process.objects.create(
+            machine=self.machine,
+            binary=self.binary,
+            cmd=[self.binary.abspath, "--version"],
+            pwd=self.pwd,
+        )
 
         process.update_and_requeue(
             status=Process.StatusChoices.RUNNING,
-            pid=12345,
-            started_at=timezone.now(),
+            pid=os.getpid(),
+            started_at=_current_process_started_at(),
         )
 
         process.refresh_from_db()
         assert process.status == Process.StatusChoices.RUNNING
-        assert process.pid == 12345
+        assert process.pid == os.getpid()
         assert process.started_at is not None
 
 
@@ -640,33 +648,23 @@ class TestProcessCurrent:
         finally:
             sys.argv = old_argv
 
-    def test_process_proc_allows_interpreter_wrapped_script(self, tmp_path):
+    def test_process_proc_allows_interpreter_wrapped_script(self, binary):
         """Process.proc should accept a script recorded in DB when wrapped by an interpreter in psutil."""
         import psutil
 
-        script = tmp_path / "on_CrawlSetup__90_chrome_launch.daemon.bg.py"
-        script.write_text("import time\ntime.sleep(30)\n", encoding="utf-8")
+        script = Path(__file__).parents[1] / "cli" / "archivebox_manage.py"
         process = subprocess.Popen(
-            [sys.executable, str(script), "--url=https://example.com/"],
-            stdin=subprocess.DEVNULL,
+            [binary.abspath, str(script), "shell"],
+            stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-
-        def cleanup_process():
-            if process.poll() is None:
-                process.terminate()
-                try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait(timeout=5)
 
         try:
             os_proc = psutil.Process(process.pid)
             proc = Process.objects.create(
                 machine=Machine.current(),
-                cmd=[str(script), "--url=https://example.com/"],
+                cmd=[str(script), "shell"],
                 pid=process.pid,
                 status=Process.StatusChoices.RUNNING,
                 started_at=timezone.datetime.fromtimestamp(os_proc.create_time(), tz=timezone.get_current_timezone()),
@@ -676,7 +674,9 @@ class TestProcessCurrent:
             assert resolved_proc is not None
             assert resolved_proc.pid == process.pid
         finally:
-            cleanup_process()
+            assert process.stdin is not None
+            process.stdin.close()
+            process.wait(timeout=30)
 
 
 class TestProcessHierarchy:
@@ -686,14 +686,16 @@ class TestProcessHierarchy:
     def setup_machine(self, machine):
         self.machine = machine
 
-    def test_process_parent_child(self):
+    def test_process_parent_child(self, live_process_identity_factory):
         """Process should track parent/child relationships."""
+        parent_pid, parent_started_at = live_process_identity_factory()
+        child_pid, child_started_at = live_process_identity_factory()
         parent = Process.objects.create(
             machine=self.machine,
             process_type=Process.TypeChoices.CLI,
             status=Process.StatusChoices.RUNNING,
-            pid=1,
-            started_at=timezone.now(),
+            pid=parent_pid,
+            started_at=parent_started_at,
         )
 
         child = Process.objects.create(
@@ -701,50 +703,60 @@ class TestProcessHierarchy:
             parent=parent,
             process_type=Process.TypeChoices.WORKER,
             status=Process.StatusChoices.RUNNING,
-            pid=2,
-            started_at=timezone.now(),
+            pid=child_pid,
+            started_at=child_started_at,
         )
 
         assert child.parent == parent
         assert child in parent.children.all()
 
-    def test_process_root(self):
+    def test_process_root(self, live_process_identity_factory):
         """Process.root should return the root of the hierarchy."""
+        root_pid, root_started_at = live_process_identity_factory()
+        child_pid, child_started_at = live_process_identity_factory()
+        grandchild_pid, grandchild_started_at = live_process_identity_factory()
         root = Process.objects.create(
             machine=self.machine,
             process_type=Process.TypeChoices.CLI,
             status=Process.StatusChoices.RUNNING,
-            started_at=timezone.now(),
+            pid=root_pid,
+            started_at=root_started_at,
         )
         child = Process.objects.create(
             machine=self.machine,
             parent=root,
             status=Process.StatusChoices.RUNNING,
-            started_at=timezone.now(),
+            pid=child_pid,
+            started_at=child_started_at,
         )
         grandchild = Process.objects.create(
             machine=self.machine,
             parent=child,
             status=Process.StatusChoices.RUNNING,
-            started_at=timezone.now(),
+            pid=grandchild_pid,
+            started_at=grandchild_started_at,
         )
 
         assert grandchild.root == root
         assert child.root == root
         assert root.root == root
 
-    def test_process_depth(self):
+    def test_process_depth(self, live_process_identity_factory):
         """Process.depth should return depth in tree."""
+        root_pid, root_started_at = live_process_identity_factory()
+        child_pid, child_started_at = live_process_identity_factory()
         root = Process.objects.create(
             machine=self.machine,
             status=Process.StatusChoices.RUNNING,
-            started_at=timezone.now(),
+            pid=root_pid,
+            started_at=root_started_at,
         )
         child = Process.objects.create(
             machine=self.machine,
             parent=root,
             status=Process.StatusChoices.RUNNING,
-            started_at=timezone.now(),
+            pid=child_pid,
+            started_at=child_started_at,
         )
 
         assert root.depth == 0
@@ -755,42 +767,41 @@ class TestProcessLifecycle:
     """Test Process lifecycle methods."""
 
     @pytest.fixture(autouse=True)
-    def setup_machine(self, machine):
+    def setup_machine(self, machine, binary):
         self.machine = machine
+        self.binary = binary
 
     def test_process_is_running_current_pid(self):
         """is_running should be True for current PID."""
-        import psutil
-        from datetime import datetime
-
-        proc_start = datetime.fromtimestamp(psutil.Process(os.getpid()).create_time(), tz=timezone.get_current_timezone())
         proc = Process.objects.create(
             machine=self.machine,
             status=Process.StatusChoices.RUNNING,
             pid=os.getpid(),
-            started_at=proc_start,
+            started_at=_current_process_started_at(),
         )
 
         assert proc.is_running
 
-    def test_process_is_running_fake_pid(self):
-        """is_running should be False for non-existent PID."""
+    def test_process_is_running_reaped_process(self):
+        """is_running should be False after the recorded OS process exits."""
+        pid, started_at = _reaped_process_identity(self.binary.abspath)
         proc = Process.objects.create(
             machine=self.machine,
             status=Process.StatusChoices.RUNNING,
-            pid=999999,
-            started_at=timezone.now(),
+            pid=pid,
+            started_at=started_at,
         )
 
         assert not proc.is_running
 
     def test_process_poll_detects_exit(self):
         """poll() should detect exited process."""
+        pid, started_at = _reaped_process_identity(self.binary.abspath)
         proc = Process.objects.create(
             machine=self.machine,
             status=Process.StatusChoices.RUNNING,
-            pid=999999,
-            started_at=timezone.now(),
+            pid=pid,
+            started_at=started_at,
         )
 
         exit_code = proc.poll()
@@ -801,12 +812,13 @@ class TestProcessLifecycle:
 
     def test_process_poll_normalizes_negative_exit_code(self):
         """poll() should normalize -1 exit codes to 137."""
+        pid, started_at = _reaped_process_identity(self.binary.abspath)
         proc = Process.objects.create(
             machine=self.machine,
             status=Process.StatusChoices.EXITED,
-            pid=999999,
+            pid=pid,
             exit_code=-1,
-            started_at=timezone.now(),
+            started_at=started_at,
         )
 
         exit_code = proc.poll()
@@ -817,11 +829,12 @@ class TestProcessLifecycle:
 
     def test_process_terminate_dead_process(self):
         """terminate() should handle already-dead process."""
+        pid, started_at = _reaped_process_identity(self.binary.abspath)
         proc = Process.objects.create(
             machine=self.machine,
             status=Process.StatusChoices.RUNNING,
-            pid=999999,
-            started_at=timezone.now(),
+            pid=pid,
+            started_at=started_at,
         )
 
         result = proc.terminate()
@@ -835,8 +848,9 @@ class TestProcessClassMethods:
     """Test Process class methods for querying."""
 
     @pytest.fixture(autouse=True)
-    def setup_machine(self, machine):
+    def setup_machine(self, machine, binary):
         self.machine = machine
+        self.binary = binary
 
     def test_get_running(self):
         """get_running should return running processes."""
@@ -844,8 +858,8 @@ class TestProcessClassMethods:
             machine=self.machine,
             process_type=Process.TypeChoices.HOOK,
             status=Process.StatusChoices.RUNNING,
-            pid=99999,
-            started_at=timezone.now(),
+            pid=os.getpid(),
+            started_at=_current_process_started_at(),
         )
 
         running = Process.get_running(process_type=Process.TypeChoices.HOOK)
@@ -859,8 +873,8 @@ class TestProcessClassMethods:
                 machine=self.machine,
                 process_type=Process.TypeChoices.HOOK,
                 status=Process.StatusChoices.RUNNING,
-                pid=99900 + i,
-                started_at=timezone.now(),
+                pid=os.getpid(),
+                started_at=_current_process_started_at(),
             )
 
         count = Process.get_running_count(process_type=Process.TypeChoices.HOOK)
@@ -868,10 +882,11 @@ class TestProcessClassMethods:
 
     def test_cleanup_stale_running(self):
         """cleanup_stale_running should mark stale processes as exited."""
+        pid, _started_at = _reaped_process_identity(self.binary.abspath)
         stale = Process.objects.create(
             machine=self.machine,
             status=Process.StatusChoices.RUNNING,
-            pid=999999,
+            pid=pid,
             started_at=timezone.now() - PID_REUSE_WINDOW - timedelta(hours=1),
         )
 
@@ -883,11 +898,12 @@ class TestProcessClassMethods:
 
     def test_cleanup_stale_running_marks_timed_out_rows_exited(self):
         """cleanup_stale_running should retire RUNNING rows that exceed timeout + grace."""
+        pid, _started_at = _reaped_process_identity(self.binary.abspath)
         stale = Process.objects.create(
             machine=self.machine,
             process_type=Process.TypeChoices.HOOK,
             status=Process.StatusChoices.RUNNING,
-            pid=999998,
+            pid=pid,
             timeout=5,
             started_at=timezone.now() - PROCESS_TIMEOUT_GRACE - timedelta(seconds=10),
         )
@@ -917,16 +933,13 @@ class TestProcessClassMethods:
 
     def test_cleanup_orphaned_workers_marks_dead_root_children_exited(self):
         """cleanup_orphaned_workers should retire rows whose CLI/orchestrator root is gone."""
-        import psutil
-        from datetime import datetime
-
-        started_at = datetime.fromtimestamp(psutil.Process(os.getpid()).create_time(), tz=timezone.get_current_timezone())
+        parent_pid, parent_started_at = _reaped_process_identity(self.binary.abspath)
         parent = Process.objects.create(
             machine=self.machine,
             process_type=Process.TypeChoices.CLI,
             status=Process.StatusChoices.RUNNING,
-            pid=999997,
-            started_at=timezone.now() - timedelta(minutes=5),
+            pid=parent_pid,
+            started_at=parent_started_at,
         )
         child = Process.objects.create(
             machine=self.machine,
@@ -934,7 +947,7 @@ class TestProcessClassMethods:
             process_type=Process.TypeChoices.HOOK,
             status=Process.StatusChoices.RUNNING,
             pid=os.getpid(),
-            started_at=started_at,
+            started_at=_current_process_started_at(),
         )
 
         cleaned = Process.cleanup_orphaned_workers()
@@ -945,12 +958,13 @@ class TestProcessClassMethods:
 
     def test_cleanup_orphaned_workers_marks_non_running_children_exited(self):
         """cleanup_orphaned_workers should retire child rows whose OS process is already gone."""
+        pid, started_at = _reaped_process_identity(self.binary.abspath)
         child = Process.objects.create(
             machine=self.machine,
             process_type=Process.TypeChoices.HOOK,
             status=Process.StatusChoices.RUNNING,
-            pid=999997,
-            started_at=timezone.now() - timedelta(minutes=5),
+            pid=pid,
+            started_at=started_at,
         )
 
         cleaned = Process.cleanup_orphaned_workers()

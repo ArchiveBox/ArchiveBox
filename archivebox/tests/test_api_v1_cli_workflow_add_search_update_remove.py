@@ -1,5 +1,3 @@
-import time
-
 import pytest
 
 from archivebox.core.models import Snapshot
@@ -64,19 +62,10 @@ def test_cli_api_add_search_update_remove_over_server(tmp_path):
         start_archivebox_server(tmp_path, env=env, port=port)
         wait_for_live_api(port)
 
-        deadline = time.time() + 180
-        snapshot_id = None
-        snapshot_status = None
-        while time.time() < deadline:
-            with use_archivebox_db(tmp_path):
-                snapshot = Snapshot.objects.filter(crawl_id=crawl_id, url=target_url).first()
-                if snapshot is not None:
-                    snapshot_id = str(snapshot.id)
-                    snapshot_status = snapshot.status
-                    break
-            time.sleep(1)
-        assert snapshot_id is not None
-        assert snapshot_status is not None
+        with use_archivebox_db(tmp_path):
+            snapshot = Snapshot.objects.get(crawl_id=crawl_id, url=target_url)
+            snapshot_id = str(snapshot.id)
+            snapshot_status = snapshot.status
 
         search_response = live_api_request(
             port,

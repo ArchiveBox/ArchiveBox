@@ -51,6 +51,10 @@
   - ```{autodoc2-docstring} archivebox.config.paths.tmp_dir_socket_path_is_short_enough
     :summary:
     ```
+* - {py:obj}`tmp_dir_candidates <archivebox.config.paths.tmp_dir_candidates>`
+  - ```{autodoc2-docstring} archivebox.config.paths.tmp_dir_candidates
+    :summary:
+    ```
 * - {py:obj}`get_or_create_working_tmp_dir <archivebox.config.paths.get_or_create_working_tmp_dir>`
   - ```{autodoc2-docstring} archivebox.config.paths.get_or_create_working_tmp_dir
     :summary:
@@ -81,6 +85,14 @@
     ```
 * - {py:obj}`DATA_DIR <archivebox.config.paths.DATA_DIR>`
   - ```{autodoc2-docstring} archivebox.config.paths.DATA_DIR
+    :summary:
+    ```
+* - {py:obj}`MAX_TMP_SOCKET_URL_LENGTH <archivebox.config.paths.MAX_TMP_SOCKET_URL_LENGTH>`
+  - ```{autodoc2-docstring} archivebox.config.paths.MAX_TMP_SOCKET_URL_LENGTH
+    :summary:
+    ```
+* - {py:obj}`SUPERVISORD_SOCKET_FILENAME <archivebox.config.paths.SUPERVISORD_SOCKET_FILENAME>`
+  - ```{autodoc2-docstring} archivebox.config.paths.SUPERVISORD_SOCKET_FILENAME
     :summary:
     ```
 * - {py:obj}`ARCHIVE_DIR <archivebox.config.paths.ARCHIVE_DIR>`
@@ -125,6 +137,26 @@
 
 ````
 
+````{py:data} MAX_TMP_SOCKET_URL_LENGTH
+:canonical: archivebox.config.paths.MAX_TMP_SOCKET_URL_LENGTH
+:value: >
+   90
+
+```{autodoc2-docstring} archivebox.config.paths.MAX_TMP_SOCKET_URL_LENGTH
+```
+
+````
+
+````{py:data} SUPERVISORD_SOCKET_FILENAME
+:canonical: archivebox.config.paths.SUPERVISORD_SOCKET_FILENAME
+:value: >
+   'supervisord.sock'
+
+```{autodoc2-docstring} archivebox.config.paths.SUPERVISORD_SOCKET_FILENAME
+```
+
+````
+
 ````{py:function} _env_path(key: str, default: pathlib.Path) -> pathlib.Path
 :canonical: archivebox.config.paths._env_path
 
@@ -136,7 +168,7 @@
 :canonical: archivebox.config.paths.ARCHIVE_DIR
 :type: pathlib.Path
 :value: >
-   '_env_path(...)'
+   None
 
 ```{autodoc2-docstring} archivebox.config.paths.ARCHIVE_DIR
 ```
@@ -147,7 +179,7 @@
 :canonical: archivebox.config.paths.USERS_DIR
 :type: pathlib.Path
 :value: >
-   '_env_path(...)'
+   None
 
 ```{autodoc2-docstring} archivebox.config.paths.USERS_DIR
 ```
@@ -227,6 +259,13 @@
 :canonical: archivebox.config.paths.tmp_dir_socket_path_is_short_enough
 
 ```{autodoc2-docstring} archivebox.config.paths.tmp_dir_socket_path_is_short_enough
+```
+````
+
+````{py:function} tmp_dir_candidates(config: archivebox.config.common.ArchiveBoxConfig) -> list[pathlib.Path]
+:canonical: archivebox.config.paths.tmp_dir_candidates
+
+```{autodoc2-docstring} archivebox.config.paths.tmp_dir_candidates
 ```
 ````
 

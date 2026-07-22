@@ -95,13 +95,13 @@ class Command(BaseCommand):
 
             supervisor = get_supervisor()
             try:
-                stop_worker(supervisor, RUNNER_WORKER["name"])
+                stop_worker(supervisor, RUNNER_WORKER()["name"])
             except Exception:
                 pass
-            start_worker(supervisor, RUNNER_WORKER)
+            start_worker(supervisor, RUNNER_WORKER())
 
         def runner_running() -> bool:
-            proc = get_worker(get_supervisor(), RUNNER_WORKER["name"])
+            proc = get_worker(get_supervisor(), RUNNER_WORKER()["name"])
             return bool(proc and proc.get("statename") == "RUNNING")
 
         while True:

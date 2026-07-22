@@ -53,7 +53,7 @@
 
 ````
 
-````{py:function} _collect_input_urls(args: tuple[str, ...]) -> list[str]
+````{py:function} _collect_input_urls(args: tuple[str, ...], *, parser: str = 'auto') -> list[str]
 :canonical: archivebox.cli.archivebox_add._collect_input_urls
 
 ```{autodoc2-docstring} archivebox.cli.archivebox_add._collect_input_urls

@@ -42,7 +42,7 @@ archivebox.services.machine_service
 ````{py:data} __all__
 :canonical: archivebox.services.__all__
 :value: >
-   ['ArchiveResultService', 'BinaryService', 'CrawlService', 'MachineService', 'ProcessService', 'Snaps...
+   ['ArchiveResultService', 'ArchiveBoxBinaryService', 'ArchiveBoxDBBinaryCacheBackend', 'CrawlService'...
 
 ```{autodoc2-docstring} archivebox.services.__all__
 ```

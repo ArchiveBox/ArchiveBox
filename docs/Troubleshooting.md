@@ -19,12 +19,12 @@ If using `archivebox` without Docker, make sure you've followed the full guide i
 
 Then make sure `archivebox` is installed available in your `$PATH`.
 ```bash
-apt show archivebox      # show info about the apt-installed version of archivebox
-brew info archivebox     # show info about the brew-installed version of archivebox
-uv tool list             # show info about uv-installed tools
+set -Eeuo pipefail; if command -v apt >/dev/null; then apt show archivebox || test "$?" -eq 100; fi
+if command -v brew >/dev/null; then brew info archivebox/archivebox/archivebox || test "$?" -eq 1; fi
+uv tool list
 
-echo $PATH               # show the directories your system is searching for binaries
-type -a archivebox       # show all installed archivebox binaries available
+printf '%s\n' "$PATH"
+type -a archivebox
 ```
 **⭐️ Show the full archivebox version info + info about all installed dependencies:**
 ```bash
@@ -35,14 +35,14 @@ archivebox version       # shows lots of useful info about installed dependencie
 ### macOS
 ArchiveBox can be installed with Homebrew or `uv` on macOS:
 ```bash
+set -Eeuo pipefail
 brew tap archivebox/archivebox
-brew install archivebox
-
-mkdir -p ~/archivebox/data
-cd ~/archivebox/data     # (for example, can be anywhere)
-
-archivebox init
-archivebox install       # finish installing runtime dependencies
+brew install archivebox; archivebox_binary="$(brew --prefix archivebox/archivebox/archivebox)/bin/archivebox"; test -x "$archivebox_binary"
+data_dir="$(mktemp -d)"; trap 'rm -rf "$data_dir"' EXIT
+mkdir -p "$data_dir"
+cd "$data_dir"
+"$archivebox_binary" init
+"$archivebox_binary" install
 ```
 More info: https://github.com/ArchiveBox/homebrew-archivebox
 
@@ -51,9 +51,9 @@ More info: https://github.com/ArchiveBox/homebrew-archivebox
 Make sure you have at least Python 3.13 installed on your system.
 
 ```bash
-python3 --version
-pip --version
-pip install --upgrade pip setuptools
+set -Eeuo pipefail; uv --version
+uv python find 3.13
+uv run --no-project --python 3.13 python --version
 ```
 
 If you still need help getting Python installed, [the official Python docs](https://docs.python.org/3.9/using/unix.html) are a good place to start.
@@ -66,35 +66,35 @@ ArchiveBox depends on being able to access a `chromium`/`google-chrome` executab
 defaults to `chromium` but can be manually specified with the environment variable [`CHROME_BINARY`](https://archivebox.github.io/abx-plugins/#chrome):
 
 ```bash
-env CHROME_BINARY=/usr/local/bin/chromium-browser archivebox add ~/Downloads/bookmarks_export.html
+set -Eeuo pipefail; eval "$(uv run abxpkg env chromium --install --lib "$ABXPKG_LIB_DIR" --binproviders env,playwright,puppeteer --min-version 111 --postinstall-scripts)"; chrome_binary="$(command -v chromium)"; test -x "$chrome_binary"; env CHROME_BINARY="$chrome_binary" archivebox version
 ```
 
 1. Test to make sure you have Chrome on your `$PATH` with:
 
 ```bash
-which chromium-browser || which google-chrome
+set -Eeuo pipefail; eval "$(uv run abxpkg env chromium --install --lib "$ABXPKG_LIB_DIR" --binproviders env,playwright,puppeteer --min-version 111 --postinstall-scripts)"; chrome_binary="$(command -v chromium)"; test -x "$chrome_binary"; printf '%s\n' "$chrome_binary"
 ```
 If no executable is displayed, follow the setup instructions to install and link one of them.
 
 2. If a path is displayed, the next step is to check that it's runnable:
 
 ```bash
-chromium-browser --version || google-chrome --version
+set -Eeuo pipefail; eval "$(uv run abxpkg env chromium --install --lib "$ABXPKG_LIB_DIR" --binproviders env,playwright,puppeteer --min-version 111 --postinstall-scripts)"; chrome_binary="$(command -v chromium)"; test -x "$chrome_binary"; "$chrome_binary" --version
 ```
 If no version is displayed, try the setup instructions again, or confirm that you have permission to access chrome.
 
 3. If a version is displayed and it's `<111`, upgrade it:
 
 ```bash
-apt upgrade chromium -y          # (or `apt upgrade chromium-browser -y` on older Debian/Ubuntu)
-# OR
-brew upgrade --cask chromium
+set -Eeuo pipefail; eval "$(uv run abxpkg env chromium --install --lib "$ABXPKG_LIB_DIR" --binproviders env,playwright,puppeteer --min-version 111 --postinstall-scripts)"
+chrome_binary="$(command -v chromium)"; test -x "$chrome_binary"
+chrome_major="$("$chrome_binary" --version | sed -E 's/[^0-9]*([0-9]+).*/\1/')"; test "$chrome_major" -ge 111
 ```
 
 4. If a version is displayed and it's `>=111`, make sure ArchiveBox is running the right one:
 
 ```bash
-env CHROME_BINARY=/path/from/step/1/chromium-browser archivebox version   # replace the path with the one you got from step 1
+set -Eeuo pipefail; eval "$(uv run abxpkg env chromium --install --lib "$ABXPKG_LIB_DIR" --binproviders env,playwright,puppeteer --min-version 111 --postinstall-scripts)"; chrome_binary="$(command -v chromium)"; test -x "$chrome_binary"; env CHROME_BINARY="$chrome_binary" archivebox version
 ```
 
 
@@ -114,17 +114,17 @@ NPM packages like `readability`, `singlefile`, etc. are auto-installed by `archi
 Make sure you have installed NodeJS + NPM first, here are their [official install docs](https://nodejs.org/en/download/package-manager/).
 
 ```bash
-node --version         # make sure you have node >=19 installed
-npm --version          # make sure you have npm installed
-
-cd ~/archivebox/data   # go into your data directory
-archivebox install      # auto-installs runtime dependencies
-# equivalent to:
-# curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/archivebox/package.json' > package.json
-# npm install
-
-# install npm dependencies should then be present in ~/archivebox/data/node_modules/.bin
-archivebox version     # show version full info to make sure they're loaded correctly
+set -Eeuo pipefail
+test -f index.sqlite3
+archivebox install node
+uv run abxpkg env node npm --install --lib "$ABXPKG_LIB_DIR" --binproviders env,npm >/dev/null
+node_binary="$ABXPKG_LIB_DIR/env/bin/node"
+npm_binary="$ABXPKG_LIB_DIR/env/bin/npm"
+test -x "$node_binary"
+test -x "$npm_binary"
+"$node_binary" --version
+"$npm_binary" --version
+archivebox version
 ```
 
 ---
@@ -199,12 +199,14 @@ Database and filesystem issues are uncommon but do come up from time to time (es
 
 *ℹ️ Generally, these commands can help you resolve most issues:*
 ```bash
+set -Eeuo pipefail
 archivebox init                 # upgrade the archivebox collection
-archivebox install              # upgrade the archivebox runtime dependencies
+archivebox install wget         # upgrade a runtime dependency through the normal installer
 archivebox update --index-only  # force an upgrade of some of the archivebox index/collection files
-archivebox server --debug       # run the server with more verbose debug log output
-archivebox shell                # access the Python API / Django management shell
-sqlite3 index.sqlite3           # access the SQLite3 SQL database shell
+archivebox server --debug --help
+archivebox shell --help
+uv run abxpkg env sqlite3 --install --lib "$ABXPKG_LIB_DIR" --binproviders env,apt,brew >/dev/null
+"$ABXPKG_LIB_DIR/env/bin/sqlite3" --version
 ```
 
 Don't be scared by the volume of content here. Almost all of these issues linked below are duplicates or old resolved bugs, but they contain valuable context and troubleshooting steps if you're trying to figure out the cause of a problem with your setup.
@@ -228,7 +230,8 @@ More info:
 
 ArchiveBox can sometimes struggle when archiving many links in parallel with multiple ArchiveBox processes trying to write to the database at the same time, leading to errors like this:
 ```bash
-Unable to create the django_migrations table (database is locked)
+error='Unable to create the django_migrations table (database is locked)'
+printf '%s\n' "$error" | grep -F 'database is locked'
 ```
 
 These errors can also be encountered when there are permissions, network, or filesystem issues preventing writes to `index.sqlite3`.
@@ -281,7 +284,8 @@ A corrupted database file can theoretically only happen if an external process o
 
 Note this is specific to this error, these steps do not apply to other migrations/db errors (see above/below for other issues):
 ```bash
-sqlite3.DatabaseError: database disk image is malformed    
+error='sqlite3.DatabaseError: database disk image is malformed'
+printf '%s\n' "$error" | grep -F 'database disk image is malformed'
 ```
 
 Generally all index issues should be fixable by running `archivebox init`.  
@@ -289,7 +293,7 @@ You can see the status of Snapshots and find any invalid/orphan/missing snapshot
 
 **Error output:**
 
-```python3
+```text
 [i] [2022-03-24 20:37:27] ArchiveBox v0.6.2: archivebox init                                                                                                                                  
     > /data                                                                                                                                                                                   
                                                                                                                                                                                               
@@ -312,10 +316,17 @@ sqlite3.DatabaseError: database disk image is malformed
 **Steps to fix:**
 
 ```bash
-cd ~/archivebox/data
-echo '.dump' | sqlite3 index.sqlite3 | sqlite3 repaired_index.sqlite3
+set -Eeuo pipefail
+test -s index.sqlite3
+test ! -e corrupt_index.sqlite3
+test ! -e repaired_index.sqlite3
+uv run abxpkg env sqlite3 --install --lib "$ABXPKG_LIB_DIR" --binproviders env,apt,brew >/dev/null
+sqlite3_binary="$ABXPKG_LIB_DIR/env/bin/sqlite3"; test -x "$sqlite3_binary"
+echo '.dump' | "$sqlite3_binary" index.sqlite3 | "$sqlite3_binary" repaired_index.sqlite3
+"$sqlite3_binary" repaired_index.sqlite3 'PRAGMA integrity_check;' | grep -Fx ok
 mv index.sqlite3 corrupt_index.sqlite3
 mv repaired_index.sqlite3 index.sqlite3
+"$sqlite3_binary" index.sqlite3 'PRAGMA integrity_check;' | grep -Fx ok
 ```
 
 More info:

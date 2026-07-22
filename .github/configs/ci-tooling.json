@@ -1,0 +1,321 @@
+{
+  "properties": {
+    "CURL_BINARY": {
+      "default": "curl"
+    },
+    "BASH_BINARY": {
+      "default": "bash"
+    },
+    "CHMOD_BINARY": {
+      "default": "chmod"
+    },
+    "DOCKER_BINARY": {
+      "default": "docker"
+    },
+    "GIT_BINARY": {
+      "default": "git"
+    },
+    "GREP_BINARY": {
+      "default": "grep"
+    },
+    "GH_BINARY": {
+      "default": "gh"
+    },
+    "EXPORTFS_BINARY": {
+      "default": "exportfs"
+    },
+    "JQ_BINARY": {
+      "default": "jq"
+    },
+    "MKDIR_BINARY": {
+      "default": "mkdir"
+    },
+    "MOUNT_CIFS_BINARY": {
+      "default": "mount.cifs"
+    },
+    "MOUNT_NFS_BINARY": {
+      "default": "mount.nfs"
+    },
+    "NODE_BINARY": {
+      "default": "node"
+    },
+    "PS_BINARY": {
+      "default": "ps"
+    },
+    "PYTHON_BINARY": {
+      "default": "python"
+    },
+    "PV_BINARY": {
+      "default": "pv"
+    },
+    "SSH_BINARY": {
+      "default": "ssh"
+    },
+    "SED_BINARY": {
+      "default": "sed"
+    },
+    "SMBD_BINARY": {
+      "default": "smbd"
+    },
+    "SUDO_BINARY": {
+      "default": "sudo"
+    },
+    "SYSTEMCTL_BINARY": {
+      "default": "systemctl"
+    },
+    "TAR_BINARY": {
+      "default": "tar"
+    },
+    "TREE_BINARY": {
+      "default": "tree"
+    },
+    "TR_BINARY": {
+      "default": "tr"
+    },
+    "RM_BINARY": {
+      "default": "rm"
+    },
+    "UMOUNT_BINARY": {
+      "default": "umount"
+    },
+    "UV_BINARY": {
+      "default": "uv"
+    },
+    "UNAME_BINARY": {
+      "default": "uname"
+    }
+  },
+  "ci_binaries": [
+    {
+      "name": "{PYTHON_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{JQ_BINARY}",
+      "binproviders": "env,apt,brew"
+    },
+    {
+      "name": "{UV_BINARY}",
+      "binproviders": "env"
+    }
+  ],
+  "docker_binaries": [
+    {
+      "name": "{DOCKER_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{GIT_BINARY}",
+      "binproviders": "env,apt,brew"
+    },
+    {
+      "name": "{PYTHON_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{UNAME_BINARY}",
+      "binproviders": "env"
+    }
+  ],
+  "deploy_binaries": [
+    {
+      "name": "{GIT_BINARY}",
+      "binproviders": "env,apt,brew"
+    },
+    {
+      "name": "{PYTHON_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{SSH_BINARY}",
+      "binproviders": "env"
+    }
+  ],
+  "docker_debug_binaries": [
+    {
+      "name": "{DOCKER_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{PV_BINARY}",
+      "binproviders": "env,apt,brew"
+    },
+    {
+      "name": "{TAR_BINARY}",
+      "binproviders": "env,apt,brew"
+    },
+    {
+      "name": "{TREE_BINARY}",
+      "binproviders": "env,apt,brew"
+    }
+  ],
+  "docker_validation_binaries": [
+    {
+      "name": "{DOCKER_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{GREP_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{MKDIR_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{RM_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{SED_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{SSH_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{TR_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{UNAME_BINARY}",
+      "binproviders": "env"
+    }
+  ],
+  "mount_validation_binaries": [
+    {
+      "name": "{BASH_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{CHMOD_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{EXPORTFS_BINARY}",
+      "binproviders": "env,apt",
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "nfs-kernel-server"
+          ]
+        }
+      }
+    },
+    {
+      "name": "{MKDIR_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{MOUNT_CIFS_BINARY}",
+      "binproviders": "env,apt",
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "cifs-utils"
+          ]
+        }
+      }
+    },
+    {
+      "name": "{MOUNT_NFS_BINARY}",
+      "binproviders": "env,apt",
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "nfs-common"
+          ]
+        }
+      }
+    },
+    {
+      "name": "{SMBD_BINARY}",
+      "binproviders": "env,apt",
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "samba"
+          ]
+        }
+      }
+    },
+    {
+      "name": "{SUDO_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{SYSTEMCTL_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{UMOUNT_BINARY}",
+      "binproviders": "env"
+    }
+  ],
+  "process_binaries": [
+    {
+      "name": "{PS_BINARY}",
+      "binproviders": "env"
+    }
+  ],
+  "docs_binaries": [
+    {
+      "name": "{CURL_BINARY}",
+      "binproviders": "env,apt,brew"
+    }
+  ],
+  "git_binaries": [
+    {
+      "name": "{GIT_BINARY}",
+      "binproviders": "env,apt,brew"
+    }
+  ],
+  "github_binaries": [
+    {
+      "name": "{GH_BINARY}",
+      "binproviders": "env,apt,brew"
+    }
+  ],
+  "node_binaries": [
+    {
+      "name": "{NODE_BINARY}",
+      "binproviders": "env,npm",
+      "min_version": "22.23.1",
+      "overrides": {
+        "npm": {
+          "install_args": [
+            "node@22.23.1"
+          ],
+          "postinstall_scripts": true
+        }
+      }
+    }
+  ],
+  "release_binaries": [
+    {
+      "name": "{UV_BINARY}",
+      "binproviders": "env,pip,brew"
+    },
+    {
+      "name": "{PYTHON_BINARY}",
+      "binproviders": "env"
+    },
+    {
+      "name": "{GH_BINARY}",
+      "binproviders": "env,apt,brew"
+    },
+    {
+      "name": "{GIT_BINARY}",
+      "binproviders": "env,apt,brew"
+    },
+    {
+      "name": "{JQ_BINARY}",
+      "binproviders": "env,apt,brew"
+    },
+    {
+      "name": "{CURL_BINARY}",
+      "binproviders": "env,apt,brew"
+    }
+  ]
+}

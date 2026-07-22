@@ -184,7 +184,7 @@
 ```
 ````
 
-````{py:function} get_matching_tags(query: str = '', sort: str = 'created_desc', created_by: str = '', year: str = '', has_snapshots: str = 'all', with_snapshot_counts: bool = True) -> django.db.models.QuerySet[archivebox.core.models.Tag]
+````{py:function} get_matching_tags(query: str = '', sort: str = 'created_desc', created_by: str = '', year: str = '', has_snapshots: str = 'all') -> django.db.models.QuerySet[archivebox.core.models.Tag]
 :canonical: archivebox.core.tag_util.get_matching_tags
 
 ```{autodoc2-docstring} archivebox.core.tag_util.get_matching_tags

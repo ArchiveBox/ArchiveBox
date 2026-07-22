@@ -15,6 +15,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`UngroupedSubquery <archivebox.core.models.UngroupedSubquery>`
+  - ```{autodoc2-docstring} archivebox.core.models.UngroupedSubquery
+    :summary:
+    ```
 * - {py:obj}`Tag <archivebox.core.models.Tag>`
   -
 * - {py:obj}`SnapshotTag <archivebox.core.models.SnapshotTag>`
@@ -38,6 +42,30 @@
 ````
 
 ### API
+
+`````{py:class} UngroupedSubquery(queryset, output_field=None, **extra)
+:canonical: archivebox.core.models.UngroupedSubquery
+
+Bases: {py:obj}`django.db.models.Subquery`
+
+```{autodoc2-docstring} archivebox.core.models.UngroupedSubquery
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} archivebox.core.models.UngroupedSubquery.__init__
+```
+
+````{py:method} get_group_by_cols()
+:canonical: archivebox.core.models.UngroupedSubquery.get_group_by_cols
+
+```{autodoc2-docstring} archivebox.core.models.UngroupedSubquery.get_group_by_cols
+```
+
+````
+
+`````
 
 ``````{py:class} Tag(*args, **kwargs)
 :canonical: archivebox.core.models.Tag
@@ -144,6 +172,11 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithUUID.Meta`
 
 ````{py:method} __str__()
 :canonical: archivebox.core.models.Tag.__str__
+
+````
+
+````{py:method} save(*args, **kwargs)
+:canonical: archivebox.core.models.Tag.save
 
 ````
 
@@ -273,6 +306,11 @@ Bases: {py:obj}`django.db.models.QuerySet`
 ```{autodoc2-docstring} archivebox.core.models.SnapshotQuerySet.__init__
 ```
 
+````{py:method} bulk_create(objs, *args, **kwargs)
+:canonical: archivebox.core.models.SnapshotQuerySet.bulk_create
+
+````
+
 ````{py:method} paged_iterator(chunk_size: int = 500)
 :canonical: archivebox.core.models.SnapshotQuerySet.paged_iterator
 
@@ -291,6 +329,36 @@ Bases: {py:obj}`django.db.models.QuerySet`
 
 ````
 
+````{py:attribute} FILTER_TYPE_CHOICES
+:canonical: archivebox.core.models.SnapshotQuerySet.FILTER_TYPE_CHOICES
+:value: >
+   'tuple(...)'
+
+```{autodoc2-docstring} archivebox.core.models.SnapshotQuerySet.FILTER_TYPE_CHOICES
+```
+
+````
+
+````{py:attribute} FILTER_ARG_KEYS
+:canonical: archivebox.core.models.SnapshotQuerySet.FILTER_ARG_KEYS
+:value: >
+   ('after', 'before', 'filter_type', 'filter_patterns', 'status', 'url__icontains', 'url__istartswith'...
+
+```{autodoc2-docstring} archivebox.core.models.SnapshotQuerySet.FILTER_ARG_KEYS
+```
+
+````
+
+````{py:attribute} SPECIAL_FILTER_ARG_KEYS
+:canonical: archivebox.core.models.SnapshotQuerySet.SPECIAL_FILTER_ARG_KEYS
+:value: >
+   'frozenset(...)'
+
+```{autodoc2-docstring} archivebox.core.models.SnapshotQuerySet.SPECIAL_FILTER_ARG_KEYS
+```
+
+````
+
 ````{py:method} filter_by_patterns(patterns: list[str], filter_type: str = 'exact') -> archivebox.core.models.SnapshotQuerySet
 :canonical: archivebox.core.models.SnapshotQuerySet.filter_by_patterns
 
@@ -299,7 +367,7 @@ Bases: {py:obj}`django.db.models.QuerySet`
 
 ````
 
-````{py:method} search(patterns: list[str]) -> archivebox.core.models.SnapshotQuerySet
+````{py:method} search(**kwargs) -> archivebox.core.models.SnapshotQuerySet
 :canonical: archivebox.core.models.SnapshotQuerySet.search
 
 ```{autodoc2-docstring} archivebox.core.models.SnapshotQuerySet.search
@@ -372,10 +440,20 @@ Bases: {py:obj}`models.Manager.from_queryset`\({py:obj}`SnapshotQuerySet`\)
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir`, {py:obj}`archivebox.base_models.models.ModelWithConfig`, {py:obj}`archivebox.base_models.models.ModelWithNotes`, {py:obj}`archivebox.base_models.models.ModelWithHealthStats`, {py:obj}`archivebox.workers.models.ModelWithStateMachine`
 
+````{py:attribute} INTERNAL_INPUT_URL
+:canonical: archivebox.core.models.Snapshot.INTERNAL_INPUT_URL
+:value: >
+   'archivebox://internal'
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.INTERNAL_INPUT_URL
+```
+
+````
+
 ````{py:attribute} id
 :canonical: archivebox.core.models.Snapshot.id
 :value: >
-   'UUIDField(...)'
+   'CompactUUIDField(...)'
 
 ```{autodoc2-docstring} archivebox.core.models.Snapshot.id
 ```
@@ -405,7 +483,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`ar
 ````{py:attribute} url
 :canonical: archivebox.core.models.Snapshot.url
 :value: >
-   'CharField(...)'
+   'TextField(...)'
 
 ```{autodoc2-docstring} archivebox.core.models.Snapshot.url
 ```
@@ -633,6 +711,26 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`ar
 
 ````
 
+````{py:attribute} RUNNABLE_STATES
+:canonical: archivebox.core.models.Snapshot.RUNNABLE_STATES
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.RUNNABLE_STATES
+```
+
+````
+
+````{py:attribute} OPEN_STATES
+:canonical: archivebox.core.models.Snapshot.OPEN_STATES
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.OPEN_STATES
+```
+
+````
+
 ````{py:attribute} crawl_id
 :canonical: archivebox.core.models.Snapshot.crawl_id
 :type: uuid.UUID
@@ -683,6 +781,14 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`ar
    None
 
 ```{autodoc2-docstring} archivebox.core.models.Snapshot.archiveresult_set
+```
+
+````
+
+````{py:method} add_tag_ids(tag_ids: collections.abc.Iterable[int | str]) -> None
+:canonical: archivebox.core.models.Snapshot.add_tag_ids
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.add_tag_ids
 ```
 
 ````
@@ -746,6 +852,33 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````{py:method} __str__()
 :canonical: archivebox.core.models.Snapshot.__str__
+
+````
+
+````{py:method} crawl_count_subquery(*, status: str | None = None, outer_ref: str = 'pk') -> django.db.models.QuerySet
+:canonical: archivebox.core.models.Snapshot.crawl_count_subquery
+:classmethod:
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.crawl_count_subquery
+```
+
+````
+
+````{py:method} crawl_count_expr(*, status: str | None = None, outer_ref: str = 'pk')
+:canonical: archivebox.core.models.Snapshot.crawl_count_expr
+:classmethod:
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.crawl_count_expr
+```
+
+````
+
+````{py:method} crawl_total_and_status_counts(crawl_ids: collections.abc.Iterable[typing.Any], *, status: str) -> dict[str, dict[str, int]]
+:canonical: archivebox.core.models.Snapshot.crawl_total_and_status_counts
+:classmethod:
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.crawl_total_and_status_counts
+```
 
 ````
 
@@ -838,7 +971,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} is_archivebox_internal_url(url: str) -> bool
+````{py:method} is_archivebox_internal_url(url: str, *, config: collections.abc.Mapping[str, typing.Any] | typing.Any | None = None) -> bool
 :canonical: archivebox.core.models.Snapshot.is_archivebox_internal_url
 :classmethod:
 
@@ -867,6 +1000,30 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 :canonical: archivebox.core.models.Snapshot.binary_set
 
 ```{autodoc2-docstring} archivebox.core.models.Snapshot.binary_set
+```
+
+````
+
+````{py:method} ensure_permissions_config(crawl_permissions: str | None = None) -> bool
+:canonical: archivebox.core.models.Snapshot.ensure_permissions_config
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.ensure_permissions_config
+```
+
+````
+
+````{py:method} validate_url_for_archiving(*, config: collections.abc.Mapping[str, typing.Any] | typing.Any | None = None) -> None
+:canonical: archivebox.core.models.Snapshot.validate_url_for_archiving
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.validate_url_for_archiving
+```
+
+````
+
+````{py:method} is_internal_input_url() -> bool
+:canonical: archivebox.core.models.Snapshot.is_internal_input_url
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.is_internal_input_url
 ```
 
 ````
@@ -935,6 +1092,14 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
+````{py:method} _fs_migrate_from_0_9_0_to_0_9_4(source_dir: pathlib.Path | None = None, config: ArchiveBoxBaseConfig | None = None)
+:canonical: archivebox.core.models.Snapshot._fs_migrate_from_0_9_0_to_0_9_4
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot._fs_migrate_from_0_9_0_to_0_9_4
+```
+
+````
+
 ````{py:method} _fs_migrate_legacy_to_0_9_0(source_dir: pathlib.Path | None = None, target_dir: pathlib.Path | None = None, config: ArchiveBoxBaseConfig | None = None)
 :canonical: archivebox.core.models.Snapshot._fs_migrate_legacy_to_0_9_0
 
@@ -960,7 +1125,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} get_storage_path_for_version(version: str, config: ArchiveBoxBaseConfig | None = None) -> pathlib.Path
+````{py:method} get_storage_path_for_version(version: str) -> pathlib.Path
 :canonical: archivebox.core.models.Snapshot.get_storage_path_for_version
 
 ```{autodoc2-docstring} archivebox.core.models.Snapshot.get_storage_path_for_version
@@ -1336,7 +1501,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} create_pending_archiveresults() -> list[archivebox.core.models.ArchiveResult]
+````{py:method} create_pending_archiveresults(hooks: collections.abc.Iterable[tuple[str, str]] | None = None) -> list[archivebox.core.models.ArchiveResult]
 :canonical: archivebox.core.models.Snapshot.create_pending_archiveresults
 
 ```{autodoc2-docstring} archivebox.core.models.Snapshot.create_pending_archiveresults
@@ -1739,9 +1904,9 @@ Bases: {py:obj}`archivebox.workers.models.BaseStateMachine`
 ``````{py:class} ArchiveResult(*args, **kwargs)
 :canonical: archivebox.core.models.ArchiveResult
 
-Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir`, {py:obj}`archivebox.base_models.models.ModelWithConfig`, {py:obj}`archivebox.base_models.models.ModelWithNotes`
+Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir`, {py:obj}`archivebox.base_models.models.ModelWithNotes`
 
-`````{py:class} StatusChoices()
+`````{py:class} StatusChoices(*args, **kwds)
 :canonical: archivebox.core.models.ArchiveResult.StatusChoices
 
 Bases: {py:obj}`django.db.models.TextChoices`
@@ -1905,10 +2070,73 @@ Bases: {py:obj}`django.db.models.TextChoices`
 
 ````
 
+````{py:method} snapshot_count_subquery(*, status: str | None = None, outer_ref: str = 'pk') -> django.db.models.QuerySet
+:canonical: archivebox.core.models.ArchiveResult.snapshot_count_subquery
+:classmethod:
+
+```{autodoc2-docstring} archivebox.core.models.ArchiveResult.snapshot_count_subquery
+```
+
+````
+
+````{py:method} snapshot_half_count_subquery(*, outer_ref: str = 'snapshot_id') -> django.db.models.QuerySet
+:canonical: archivebox.core.models.ArchiveResult.snapshot_half_count_subquery
+:classmethod:
+
+```{autodoc2-docstring} archivebox.core.models.ArchiveResult.snapshot_half_count_subquery
+```
+
+````
+
+````{py:method} snapshot_count_expr(*, status: str | None = None, outer_ref: str = 'pk')
+:canonical: archivebox.core.models.ArchiveResult.snapshot_count_expr
+:classmethod:
+
+```{autodoc2-docstring} archivebox.core.models.ArchiveResult.snapshot_count_expr
+```
+
+````
+
+````{py:method} status_counts(queryset: django.db.models.QuerySet | None = None, statuses: collections.abc.Iterable[str] | None = None) -> dict[str, int]
+:canonical: archivebox.core.models.ArchiveResult.status_counts
+:classmethod:
+
+```{autodoc2-docstring} archivebox.core.models.ArchiveResult.status_counts
+```
+
+````
+
+````{py:method} snapshot_ids_with_majority_status(status: str | collections.abc.Iterable[str]) -> django.db.models.QuerySet
+:canonical: archivebox.core.models.ArchiveResult.snapshot_ids_with_majority_status
+:classmethod:
+
+```{autodoc2-docstring} archivebox.core.models.ArchiveResult.snapshot_ids_with_majority_status
+```
+
+````
+
+````{py:method} cached_snapshot_ids_with_majority_status(status: str | collections.abc.Iterable[str], *, timeout: int = 60) -> tuple[str, ...]
+:canonical: archivebox.core.models.ArchiveResult.cached_snapshot_ids_with_majority_status
+:classmethod:
+
+```{autodoc2-docstring} archivebox.core.models.ArchiveResult.cached_snapshot_ids_with_majority_status
+```
+
+````
+
+````{py:method} clear_majority_status_cache() -> None
+:canonical: archivebox.core.models.ArchiveResult.clear_majority_status_cache
+:classmethod:
+
+```{autodoc2-docstring} archivebox.core.models.ArchiveResult.clear_majority_status_cache
+```
+
+````
+
 ````{py:attribute} id
 :canonical: archivebox.core.models.ArchiveResult.id
 :value: >
-   'UUIDField(...)'
+   'CompactUUIDField(...)'
 
 ```{autodoc2-docstring} archivebox.core.models.ArchiveResult.id
 ```
@@ -2101,7 +2329,7 @@ Bases: {py:obj}`django.db.models.TextChoices`
 `````{py:class} Meta
 :canonical: archivebox.core.models.ArchiveResult.Meta
 
-Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir.Meta`, {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`, {py:obj}`archivebox.base_models.models.ModelWithNotes.Meta`
+Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir.Meta`, {py:obj}`archivebox.base_models.models.ModelWithNotes.Meta`
 
 ````{py:attribute} app_label
 :canonical: archivebox.core.models.ArchiveResult.Meta.app_label
@@ -2202,7 +2430,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} to_json() -> dict
+````{py:method} to_json(*, snapshot_output_dir: pathlib.Path | None = None) -> dict
 :canonical: archivebox.core.models.ArchiveResult.to_json
 
 ```{autodoc2-docstring} archivebox.core.models.ArchiveResult.to_json

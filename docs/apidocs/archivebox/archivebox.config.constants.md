@@ -199,6 +199,28 @@
 
 ````
 
+````{py:attribute} DEFAULT_UID
+:canonical: archivebox.config.constants.ConstantsDict.DEFAULT_UID
+:type: int
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.config.constants.ConstantsDict.DEFAULT_UID
+```
+
+````
+
+````{py:attribute} DEFAULT_GID
+:canonical: archivebox.config.constants.ConstantsDict.DEFAULT_GID
+:type: int
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.config.constants.ConstantsDict.DEFAULT_GID
+```
+
+````
+
 ````{py:attribute} IS_INSIDE_VENV
 :canonical: archivebox.config.constants.ConstantsDict.IS_INSIDE_VENV
 :type: bool

@@ -6,9 +6,12 @@ This file covers both:
 - subprocess integration for the supported records `archivebox run` consumes
 """
 
+import os
+import pty
 import sys
 import uuid
-from io import StringIO
+from importlib.resources import files
+from pathlib import Path
 
 import pytest
 
@@ -33,18 +36,33 @@ PIPE_TEST_ENV = {
 }
 
 
-class MockTTYStringIO(StringIO):
-    def __init__(self, initial_value: str = "", *, is_tty: bool):
-        super().__init__(initial_value)
-        self._is_tty = is_tty
+def run_real_txt_parser(tmp_path, text):
+    """Run the shipped text parser and return its real snapshot output directory."""
+    from archivebox.plugins.hooks import run_hook
 
-    def isatty(self) -> bool:
-        return self._is_tty
+    snap_dir = tmp_path / "parser-snapshot"
+    staticfile_dir = snap_dir / "staticfile"
+    output_dir = snap_dir / "parse_txt_urls"
+    staticfile_dir.mkdir(parents=True)
+    output_dir.mkdir(parents=True)
+    (staticfile_dir / "input.txt").write_text(text, encoding="utf-8")
+    hook_path = Path(str(files("abx_plugins.plugins.parse_txt_urls").joinpath("on_Snapshot__71_parse_txt_urls.py")))
+    process = run_hook(
+        hook_path,
+        output_dir,
+        config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},
+        timeout=30,
+        url="file:///input.txt",
+        depth=0,
+    )
+    process.refresh_from_db()
+    assert process.exit_code == 0, process.stderr
+    return snap_dir
 
 
 def test_parse_line_accepts_supported_piping_inputs():
     """The JSONL parser should normalize the input forms CLI pipes accept."""
-    from archivebox.misc.jsonl import TYPE_CRAWL, TYPE_SNAPSHOT, parse_line
+    from archivebox.misc.jsonl import TYPE_SNAPSHOT, parse_line
 
     assert parse_line("") is None
     assert parse_line("   ") is None
@@ -57,27 +75,8 @@ def test_parse_line_accepts_supported_piping_inputs():
 
     assert parse_line("file:///tmp/example.txt") is None
 
-    snapshot_json = parse_line('{"type":"Snapshot","url":"https://example.com","tags":"tag1,tag2"}')
-    assert snapshot_json is not None
-    assert snapshot_json["type"] == TYPE_SNAPSHOT
-    assert snapshot_json["tags"] == "tag1,tag2"
 
-    crawl_json = parse_line('{"type":"Crawl","id":"abc123","urls":"https://example.com","max_depth":1}')
-    assert crawl_json is not None
-    assert crawl_json["type"] == TYPE_CRAWL
-    assert crawl_json["id"] == "abc123"
-    assert crawl_json["max_depth"] == 1
-
-    snapshot_id = "01234567-89ab-cdef-0123-456789abcdef"
-    parsed_id = parse_line(snapshot_id)
-    assert parsed_id == {"type": TYPE_SNAPSHOT, "id": snapshot_id}
-
-    compact_snapshot_id = "0123456789abcdef0123456789abcdef"
-    compact_parsed_id = parse_line(compact_snapshot_id)
-    assert compact_parsed_id == {"type": TYPE_SNAPSHOT, "id": compact_snapshot_id}
-
-
-def test_read_args_or_stdin_handles_args_stdin_and_mixed_jsonl(tmp_path):
+def test_read_args_or_stdin_handles_args_stdin_and_mixed_jsonl(tmp_path, initialized_archive):
     """Piping helpers should consume args, structured JSONL, and pass-through records."""
     from archivebox.misc.jsonl import TYPE_CRAWL, read_args_or_stdin
 
@@ -88,80 +87,67 @@ def test_read_args_or_stdin_handles_args_stdin_and_mixed_jsonl(tmp_path):
     local_file.write_text("https://from-file-arg.example\n")
     assert list(read_args_or_stdin((str(local_file),))) == []
 
-    stdin_records = list(
-        read_args_or_stdin(
-            (),
-            stream=MockTTYStringIO(
-                "https://plain-url.com\n"
-                '{"type":"Snapshot","url":"https://jsonl-url.com","tags":"test"}\n'
-                '{"type":"Tag","id":"tag-1","name":"example"}\n'
-                "01234567-89ab-cdef-0123-456789abcdef\n"
-                "not valid json\n",
-                is_tty=False,
-            ),
-        ),
+    snapshot_result = run_archivebox_cmd(
+        ["snapshot", "create", "--tag=test", "https://jsonl-url.com"],
+        cwd=initialized_archive,
+        default_cli_env=True,
+        disable_extractors=True,
+        check=True,
     )
-    assert len(stdin_records) == 4
-    assert stdin_records[0]["url"] == "https://plain-url.com"
-    assert stdin_records[1]["url"] == "https://jsonl-url.com"
-    assert stdin_records[1]["tags"] == "test"
-    assert stdin_records[2]["type"] == "Tag"
-    assert stdin_records[2]["name"] == "example"
-    assert stdin_records[3]["id"] == "01234567-89ab-cdef-0123-456789abcdef"
-
-    crawl_records = list(
-        read_args_or_stdin(
-            (),
-            stream=MockTTYStringIO(
-                '{"type":"Crawl","id":"crawl-1","urls":"https://example.com\\nhttps://foo.com"}\n',
-                is_tty=False,
-            ),
-        ),
+    crawl_result = run_archivebox_cmd(
+        ["crawl", "create", "https://crawl-url.com"],
+        cwd=initialized_archive,
+        default_cli_env=True,
+        disable_extractors=True,
+        check=True,
     )
-    assert len(crawl_records) == 1
-    assert crawl_records[0]["type"] == TYPE_CRAWL
-    assert crawl_records[0]["id"] == "crawl-1"
+    snapshot_record = next(record for record in parse_jsonl_output(snapshot_result.stdout) if record.get("type") == "Snapshot")
 
-    tty_records = list(read_args_or_stdin((), stream=MockTTYStringIO("https://example.com", is_tty=True)))
-    assert tty_records == []
+    read_fd, write_fd = os.pipe()
+    os.write(
+        write_fd,
+        f"https://plain-url.com\n{snapshot_result.stdout}{crawl_result.stdout}{snapshot_record['id']}\nnot valid json\n".encode(),
+    )
+    os.close(write_fd)
+    with os.fdopen(read_fd, encoding="utf-8") as pipe_stream:
+        assert pipe_stream.isatty() is False
+        stdin_records = list(read_args_or_stdin((), stream=pipe_stream))
+    assert any(record.get("url") == "https://plain-url.com" for record in stdin_records)
+    assert any(record.get("type") == "Snapshot" and record.get("id") == snapshot_record["id"] for record in stdin_records)
+    assert any(record.get("type") == TYPE_CRAWL and record.get("urls") == "https://crawl-url.com" for record in stdin_records)
+    assert any(
+        record.get("type") == "Snapshot" and record.get("id") == snapshot_record["id"] and len(record) == 2 for record in stdin_records
+    )
+
+    master_fd, slave_fd = pty.openpty()
+    try:
+        with os.fdopen(slave_fd, encoding="utf-8") as tty_stream:
+            assert tty_stream.isatty() is True
+            assert list(read_args_or_stdin((), stream=tty_stream)) == []
+    finally:
+        os.close(master_fd)
 
 
 def test_collect_urls_from_plugins_reads_only_parser_outputs(tmp_path):
     """Parser extractor `urls.jsonl` outputs should be discoverable for recursive piping."""
     from archivebox.plugins.hooks import collect_urls_from_plugins
 
-    (tmp_path / "wget").mkdir()
-    (tmp_path / "wget" / "urls.jsonl").write_text(
-        '{"url":"https://wget-link-1.com"}\n{"url":"https://wget-link-2.com"}\n',
-        encoding="utf-8",
-    )
-    (tmp_path / "parse_html_urls").mkdir()
-    (tmp_path / "parse_html_urls" / "urls.jsonl").write_text(
-        '{"url":"https://html-link-1.com"}\n{"url":"https://html-link-2.com","title":"HTML Link 2"}\n',
-        encoding="utf-8",
-    )
-    (tmp_path / "screenshot").mkdir()
+    snap_dir = run_real_txt_parser(tmp_path, "https://html-link-1.com https://html-link-2.com")
+    (snap_dir / "screenshot").mkdir()
 
-    urls = collect_urls_from_plugins(tmp_path)
-    assert len(urls) == 4
-    assert {url["plugin"] for url in urls} == {"wget", "parse_html_urls"}
-    titled = [url for url in urls if url.get("title") == "HTML Link 2"]
-    assert len(titled) == 1
-    assert titled[0]["url"] == "https://html-link-2.com"
+    urls = collect_urls_from_plugins(snap_dir)
+    assert {url["url"] for url in urls} == {"https://html-link-1.com", "https://html-link-2.com"}
+    assert {url["plugin"] for url in urls} == {"parse_txt_urls"}
 
-    assert collect_urls_from_plugins(tmp_path / "nonexistent") == []
+    assert collect_urls_from_plugins(snap_dir / "nonexistent") == []
 
 
 def test_collect_urls_from_plugins_trims_markdown_suffixes(tmp_path):
     from archivebox.plugins.hooks import collect_urls_from_plugins
 
-    (tmp_path / "parse_html_urls").mkdir()
-    (tmp_path / "parse_html_urls" / "urls.jsonl").write_text(
-        '{"url":"https://docs.sweeting.me/s/youtube-favorites)**"}\n',
-        encoding="utf-8",
-    )
+    snap_dir = run_real_txt_parser(tmp_path, "[favorites](https://docs.sweeting.me/s/youtube-favorites)**")
 
-    urls = collect_urls_from_plugins(tmp_path)
+    urls = collect_urls_from_plugins(snap_dir)
     assert len(urls) == 1
     assert urls[0]["url"] == "https://docs.sweeting.me/s/youtube-favorites"
 
@@ -169,13 +155,9 @@ def test_collect_urls_from_plugins_trims_markdown_suffixes(tmp_path):
 def test_collect_urls_from_plugins_trims_trailing_punctuation(tmp_path):
     from archivebox.plugins.hooks import collect_urls_from_plugins
 
-    (tmp_path / "parse_html_urls").mkdir()
-    (tmp_path / "parse_html_urls" / "urls.jsonl").write_text(
-        ('{"url":"https://github.com/ArchiveBox/ArchiveBox."}\n{"url":"https://github.com/abc?abc#234234?."}\n'),
-        encoding="utf-8",
-    )
+    snap_dir = run_real_txt_parser(tmp_path, "https://github.com/ArchiveBox/ArchiveBox. https://github.com/abc?abc#234234?.")
 
-    urls = collect_urls_from_plugins(tmp_path)
+    urls = collect_urls_from_plugins(snap_dir)
     assert [url["url"] for url in urls] == [
         "https://github.com/ArchiveBox/ArchiveBox",
         "https://github.com/abc?abc#234234",

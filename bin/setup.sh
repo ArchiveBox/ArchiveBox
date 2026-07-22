@@ -9,9 +9,6 @@
 ### Bash Environment Setup
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/
 # https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
-# set -o xtrace
-# set -x
-# shopt -s nullglob
 set -e
 set -u
 if (set -o pipefail) 2>/dev/null; then
@@ -20,8 +17,6 @@ fi
 if (set -o errtrace) 2>/dev/null; then
     set -o errtrace
 fi
-# IFS=$'\n'
-
 clear
 
 ARCHIVEBOX_BRANCH="${ARCHIVEBOX_BRANCH:-dev}"
@@ -30,6 +25,14 @@ ARCHIVEBOX_PYTHON="${ARCHIVEBOX_PYTHON:-3.13}"
 ARCHIVEBOX_PACKAGE="${ARCHIVEBOX_PACKAGE:-git+https://github.com/ArchiveBox/ArchiveBox.git@${ARCHIVEBOX_BRANCH}}"
 ARCHIVEBOX_PLATFORM="${ARCHIVEBOX_PLATFORM:-}"
 ARCHIVEBOX_COMPOSE_URL="${ARCHIVEBOX_COMPOSE_URL:-https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/${ARCHIVEBOX_BRANCH}/docker-compose.yml}"
+ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.11.280}"
+ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-$HOME/.cache/archivebox/setup-abxpkg}"
+BOOTSTRAP_UV_BINARY=""
+UV_BINARY=""
+DOCKER_BINARY=""
+CURL_BINARY=""
+OPEN_BINARY=""
+ARCHIVEBOX_BINARY=""
 DOCKER_PLATFORM_ARGS=""
 if [ -n "$ARCHIVEBOX_PLATFORM" ]; then
     DOCKER_PLATFORM_ARGS="--platform $ARCHIVEBOX_PLATFORM"
@@ -43,17 +46,17 @@ fi
 
 docker_pull_archivebox() {
     if [ -n "$ARCHIVEBOX_PLATFORM" ]; then
-        docker pull --platform "$ARCHIVEBOX_PLATFORM" "$ARCHIVEBOX_IMAGE"
+        "$DOCKER_BINARY" pull --platform "$ARCHIVEBOX_PLATFORM" "$ARCHIVEBOX_IMAGE"
     else
-        docker pull "$ARCHIVEBOX_IMAGE"
+        "$DOCKER_BINARY" pull "$ARCHIVEBOX_IMAGE"
     fi
 }
 
 docker_run_archivebox() {
     if [ -n "$ARCHIVEBOX_PLATFORM" ]; then
-        docker run --platform "$ARCHIVEBOX_PLATFORM" "$DOCKER_RUN_TTY_ARG" -v "$PWD":/data --rm "$ARCHIVEBOX_IMAGE" "$@"
+        "$DOCKER_BINARY" run --platform "$ARCHIVEBOX_PLATFORM" "$DOCKER_RUN_TTY_ARG" -v "$PWD":/data --rm "$ARCHIVEBOX_IMAGE" "$@"
     else
-        docker run "$DOCKER_RUN_TTY_ARG" -v "$PWD":/data --rm "$ARCHIVEBOX_IMAGE" "$@"
+        "$DOCKER_BINARY" run "$DOCKER_RUN_TTY_ARG" -v "$PWD":/data --rm "$ARCHIVEBOX_IMAGE" "$@"
     fi
 }
 
@@ -67,17 +70,17 @@ docker_run_archivebox_install() {
 
 docker_run_archivebox_server() {
     if [ -n "$ARCHIVEBOX_PLATFORM" ]; then
-        docker run --platform "$ARCHIVEBOX_PLATFORM" -v "$PWD":/data -d -p 8000:8000 --name=archivebox "$ARCHIVEBOX_IMAGE"
+        "$DOCKER_BINARY" run --platform "$ARCHIVEBOX_PLATFORM" -v "$PWD":/data -d -p 8000:8000 --name=archivebox "$ARCHIVEBOX_IMAGE"
     else
-        docker run -v "$PWD":/data -d -p 8000:8000 --name=archivebox "$ARCHIVEBOX_IMAGE"
+        "$DOCKER_BINARY" run -v "$PWD":/data -d -p 8000:8000 --name=archivebox "$ARCHIVEBOX_IMAGE"
     fi
 }
 
 docker_compose_run_archivebox() {
     if [ -n "$DOCKER_COMPOSE_RUN_TTY_ARG" ]; then
-        docker compose run "$DOCKER_COMPOSE_RUN_TTY_ARG" --rm archivebox "$@"
+        "$DOCKER_BINARY" compose run "$DOCKER_COMPOSE_RUN_TTY_ARG" --rm archivebox "$@"
     else
-        docker compose run --rm archivebox "$@"
+        "$DOCKER_BINARY" compose run --rm archivebox "$@"
     fi
 }
 
@@ -88,7 +91,7 @@ wait_for_archivebox() {
     attempt=1
 
     while [ "$attempt" -le "$attempts" ]; do
-        if curl -fsS -H "Host: ${host_header}" "$url" >/dev/null 2>&1; then
+        if "$CURL_BINARY" -fsS -H "Host: ${host_header}" "$url" >/dev/null 2>&1; then
             return 0
         fi
         sleep 1
@@ -97,12 +100,12 @@ wait_for_archivebox() {
 
     echo "[!] Server process started, but health check did not become ready at $url after ${attempts}s."
     echo "    Run the logs command below to inspect startup progress."
-    return 0
+    return 1
 }
 
 open_archivebox() {
-    if command -v open > /dev/null; then
-        open "http://127.0.0.1:8000" || true
+    if [ -n "$OPEN_BINARY" ]; then
+        "$OPEN_BINARY" "http://127.0.0.1:8000" || true
     fi
 }
 
@@ -110,6 +113,7 @@ ensure_uv() {
     export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
     if command -v uv > /dev/null 2>&1; then
+        BOOTSTRAP_UV_BINARY="$(command -v uv)"
         return 0
     fi
 
@@ -129,18 +133,61 @@ ensure_uv() {
         echo "    Add ~/.local/bin to PATH, then run this script again."
         exit 1
     fi
+    BOOTSTRAP_UV_BINARY="$(command -v uv)"
+}
+
+resolve_setup_binary() {
+    local binary_name="$1"
+    local binproviders="$2"
+    local install_binary="$3"
+    local resolved_binary
+    local -a abxpkg_args=(
+        env
+        --json
+        "--lib=$ABXPKG_LIB_DIR"
+        "--binproviders=$binproviders"
+    )
+    if [ "$install_binary" = "true" ]; then
+        abxpkg_args+=(--install)
+    fi
+    abxpkg_args+=("$binary_name")
+
+    "$BOOTSTRAP_UV_BINARY" tool run --from "$ABXPKG_PACKAGE" abxpkg "${abxpkg_args[@]}" >/dev/null
+
+    resolved_binary="$ABXPKG_LIB_DIR/env/bin/$binary_name"
+    test -L "$resolved_binary"
+    test -x "$resolved_binary"
+}
+
+prepare_abxpkg_environment() {
+    ensure_uv
+    mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+    export ABXPKG_LIB_DIR
+    export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
+
+    resolve_setup_binary uv env false
+    UV_BINARY="$ABXPKG_LIB_DIR/env/bin/uv"
+    BOOTSTRAP_UV_BINARY="$UV_BINARY"
+
+    if resolve_setup_binary open env false; then
+        OPEN_BINARY="$ABXPKG_LIB_DIR/env/bin/open"
+    fi
+}
+
+resolve_setup_curl() {
+    resolve_setup_binary curl env,apt,brew true
+    CURL_BINARY="$ABXPKG_LIB_DIR/env/bin/curl"
 }
 
 install_archivebox_with_uv() {
-    ensure_uv
-
     echo
     echo "[+] Installing ArchiveBox python tool using uv from $ARCHIVEBOX_PACKAGE..."
-    uv --no-config tool install --python "$ARCHIVEBOX_PYTHON" --upgrade "$ARCHIVEBOX_PACKAGE"
+    "$UV_BINARY" --no-config tool install --python "$ARCHIVEBOX_PYTHON" --upgrade "$ARCHIVEBOX_PACKAGE"
 
-    uv_tool_bin_dir="$(uv --no-config tool dir --bin)"
-    export PATH="$uv_tool_bin_dir:$PATH"
-    uv --no-config tool update-shell || true
+    uv_tool_bin_dir="$("$UV_BINARY" --no-config tool dir --bin)"
+    ARCHIVEBOX_BINARY="$uv_tool_bin_dir/archivebox"
+    test -x "$ARCHIVEBOX_BINARY"
+    "$UV_BINARY" --no-config tool update-shell || true
 }
 
 if [ "$(id -u)" -eq 0 ]; then
@@ -155,20 +202,26 @@ if [ "$(id -u)" -eq 0 ]; then
     exit 2
 fi
 
-if (command -v docker > /dev/null && docker compose version > /dev/null && docker_pull_archivebox); then
+prepare_abxpkg_environment
+if resolve_setup_binary docker env false; then
+    DOCKER_BINARY="$ABXPKG_LIB_DIR/env/bin/docker"
+fi
+
+if [ -n "$DOCKER_BINARY" ] && "$DOCKER_BINARY" compose version > /dev/null && docker_pull_archivebox; then
+    resolve_setup_curl
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker Compose..."
     mkdir -p ~/archivebox/data || exit 1
     cd ~/archivebox
     if [ -f "./index.sqlite3" ]; then
         mv -i ~/archivebox/* ~/archivebox/data/
     fi
-    curl -fsSL "$ARCHIVEBOX_COMPOSE_URL" > docker-compose.yml
+    "$CURL_BINARY" -fsSL "$ARCHIVEBOX_COMPOSE_URL" > docker-compose.yml
     export ARCHIVEBOX_IMAGE ARCHIVEBOX_PLATFORM
     docker_compose_run_archivebox init
     docker_compose_run_archivebox install
     echo
     echo "[+] Starting ArchiveBox server using: docker compose up -d..."
-    docker compose up -d
+    "$DOCKER_BINARY" compose up -d
     wait_for_archivebox
     open_archivebox
     echo
@@ -183,7 +236,8 @@ if (command -v docker > /dev/null && docker compose version > /dev/null && docke
     echo "    docker compose run archivebox list"
     echo "    docker compose run archivebox help"
     exit 0
-elif (command -v docker > /dev/null && docker_pull_archivebox); then
+elif [ -n "$DOCKER_BINARY" ] && docker_pull_archivebox; then
+    resolve_setup_curl
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker..."
     mkdir -p ~/archivebox/data || exit 1
     cd ~/archivebox
@@ -243,33 +297,10 @@ sleep 12 || exit 1
 echo "Proceeding to install ArchiveBox..."
 echo
 
-if ! command -v uv > /dev/null 2>&1 && ! command -v curl > /dev/null 2>&1 && ! command -v wget > /dev/null 2>&1; then
-    if command -v apt-get > /dev/null 2>&1; then
-        echo "[+] Installing curl and CA certificates to bootstrap uv using apt..."
-        sudo apt-get update -qq
-        sudo apt-get install -y curl ca-certificates
-    elif command -v brew > /dev/null 2>&1; then
-        echo "[+] Installing uv using Homebrew..."
-        brew install uv
-    elif command -v pkg > /dev/null 2>&1; then
-        echo "[+] Installing curl and CA certificates to bootstrap uv using pkg..."
-        sudo pkg install -y curl ca_root_nss
-    else
-        echo "[!] Warning: Could not find uv, curl, wget, apt, brew, or pkg."
-        echo
-        echo "See the README.md for Manual Setup & Troubleshooting instructions if you you're unable to run ArchiveBox after this script completes."
-    fi
-fi
-
 echo
 
+resolve_setup_curl
 install_archivebox_with_uv
-
-if ! command -v archivebox > /dev/null 2>&1; then
-    echo "[X] archivebox command was not found in PATH after installing!"
-    echo "    Check to see if a previous step failed."
-    exit 1
-fi
 
 echo
 echo "[+] Initializing ArchiveBox data folder at ~/archivebox/data..."
@@ -279,12 +310,12 @@ if [ -f "./index.sqlite3" ]; then
     mv -i ~/archivebox/* ~/archivebox/data/
 fi
 cd ./data
-: | archivebox init   # pipe in empty command to make sure stdin is closed
-archivebox install
+: | "$ARCHIVEBOX_BINARY" init   # pipe in empty command to make sure stdin is closed
+"$ARCHIVEBOX_BINARY" install
 # init shows version output at the end too
 echo
 echo "[+] Starting ArchiveBox server using: nohup archivebox server &..."
-nohup archivebox server 0.0.0.0:8000 > ./logs/server.log 2>&1 &
+nohup "$ARCHIVEBOX_BINARY" server 0.0.0.0:8000 > ./logs/server.log 2>&1 &
 wait_for_archivebox
 open_archivebox
 echo

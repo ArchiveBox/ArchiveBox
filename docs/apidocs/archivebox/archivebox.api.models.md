@@ -50,7 +50,7 @@ Bases: {py:obj}`django.db.models.Model`
 ````{py:attribute} id
 :canonical: archivebox.api.models.APIToken.id
 :value: >
-   'UUIDField(...)'
+   'CompactUUIDField(...)'
 
 ```{autodoc2-docstring} archivebox.api.models.APIToken.id
 ```
@@ -175,7 +175,7 @@ Bases: {py:obj}`signal_webhooks.models.WebhookBase`
 ````{py:attribute} id
 :canonical: archivebox.api.models.OutboundWebhook.id
 :value: >
-   'UUIDField(...)'
+   'CompactUUIDField(...)'
 
 ```{autodoc2-docstring} archivebox.api.models.OutboundWebhook.id
 ```

@@ -1,5 +1,4 @@
 import re
-import time
 import json
 from pathlib import Path
 
@@ -18,7 +17,7 @@ from .conftest import (
     run_archivebox_cmd,
     start_archivebox_server,
     stop_server,
-    wait_for_http,
+    get_http_response,
 )
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -140,37 +139,6 @@ def write_import_format_files(base_dir: Path) -> dict[str, Path]:
     return files
 
 
-def wait_for_import_processing(cwd: Path, expected_urls: set[str], *, timeout: float = 120.0) -> None:
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        with use_archivebox_db(cwd):
-            snapshot_started = Snapshot.objects.filter(url__in=expected_urls).exists()
-        if snapshot_started:
-            return
-        time.sleep(1)
-    raise AssertionError("timed out waiting for import crawl processing to start")
-
-
-def wait_for_expected_import_snapshots(cwd: Path, expected_urls: set[str], *, timeout: float = 180.0) -> None:
-    allowed_statuses = {Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED, Snapshot.StatusChoices.SEALED}
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        with use_archivebox_db(cwd):
-            rows = list(Snapshot.objects.filter(url__in=expected_urls).values_list("url", "status"))
-        counts = {url: 0 for url in expected_urls}
-        bad_statuses = []
-        for url, status in rows:
-            counts[url] += 1
-            if status not in allowed_statuses:
-                bad_statuses.append((url, status))
-        if all(count == 1 for count in counts.values()) and not bad_statuses:
-            return
-        time.sleep(1)
-    raise AssertionError(
-        f"timed out waiting for one queued/started/sealed snapshot per URL, got counts={counts}, bad_statuses={bad_statuses}",
-    )
-
-
 def malicious_add_inputs(tmp_path: Path, *, safe_url: str) -> tuple[list[str], Path]:
     other_crawl_source = tmp_path / "sources" / "other_crawl_source.txt"
     other_crawl_source.parent.mkdir(parents=True, exist_ok=True)
@@ -221,13 +189,12 @@ def test_add_view_restarts_stopped_supervisord_runner(tmp_path, recursive_test_s
         port=port,
         PLUGINS="wget",
         PUBLIC_ADD_VIEW="True",
-        PYTEST_CURRENT_TEST="",
     )
     create_admin_and_token(tmp_path)
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
-        _wait_for_worker_state(tmp_path, "worker_runner", "RUNNING")
+        assert _worker_state(tmp_path, "worker_runner") == "RUNNING"
         _stop_worker(tmp_path, "worker_runner")
         assert _worker_state(tmp_path, "worker_runner") != "RUNNING"
 
@@ -258,7 +225,7 @@ def test_add_view_restarts_stopped_supervisord_runner(tmp_path, recursive_test_s
         )
         assert response.status_code in (302, 303), response.text
 
-        _wait_for_worker_state(tmp_path, "worker_runner", "RUNNING")
+        assert _worker_state(tmp_path, "worker_runner") == "RUNNING"
         with use_archivebox_db(tmp_path):
             crawl = Crawl.objects.order_by("-created_at").first()
             assert crawl is not None
@@ -274,7 +241,7 @@ def test_add_view_restarts_stopped_supervisord_runner(tmp_path, recursive_test_s
 
 def _login_to_add_view(port: int) -> tuple[requests.Session, str]:
     session = requests.Session()
-    wait_for_http(port, host=f"admin.archivebox.localhost:{port}", path="/admin/login/")
+    get_http_response(port, host=f"admin.archivebox.localhost:{port}", path="/admin/login/")
     login_page = session.get(
         f"http://127.0.0.1:{port}/admin/login/",
         headers={"Host": f"admin.archivebox.localhost:{port}"},
@@ -296,7 +263,7 @@ def _login_to_add_view(port: int) -> tuple[requests.Session, str]:
         allow_redirects=False,
     )
     assert login_response.status_code in (302, 303), login_response.text
-    add_page = wait_for_http(port, host=f"admin.archivebox.localhost:{port}", path="/add/")
+    add_page = get_http_response(port, host=f"admin.archivebox.localhost:{port}", path="/add/")
     assert add_page.status_code == 200
     add_csrf_match = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', add_page.text)
     assert add_csrf_match, add_page.text[:500]
@@ -333,17 +300,6 @@ print("stopped")
     assert returncode == 0, stderr or stdout
 
 
-def _wait_for_worker_state(cwd, worker_name: str, statename: str, timeout: int = 45) -> None:
-    deadline = time.time() + timeout
-    state = None
-    while time.time() < deadline:
-        state = _worker_state(cwd, worker_name)
-        if state == statename:
-            return
-        time.sleep(1)
-    raise AssertionError(f"Timed out waiting for {worker_name}={statename}, last state={state}")
-
-
 @pytest.mark.timeout(240)
 def test_public_add_view_depth_one_crawl_skips_unreadable_persona_profile_entries(tmp_path, recursive_test_site):
     init_archive(tmp_path)
@@ -369,9 +325,10 @@ def test_public_add_view_depth_one_crawl_skips_unreadable_persona_profile_entrie
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
-        add_page = wait_for_http(port, host=f"web.archivebox.localhost:{port}", path="/add/")
+        add_page = get_http_response(port, host=f"web.archivebox.localhost:{port}", path="/add/")
         assert add_page.status_code == 200
         assert 'name="depth"' in add_page.text
+        _stop_worker(tmp_path, "worker_runner")
 
         response = requests.post(
             f"http://127.0.0.1:{port}/add/",
@@ -396,27 +353,11 @@ def test_public_add_view_depth_one_crawl_skips_unreadable_persona_profile_entrie
             allow_redirects=False,
         )
         assert response.status_code in (302, 303), response.text
-
-        deadline = time.time() + 180
-        while time.time() < deadline:
-            with use_archivebox_db(tmp_path):
-                crawl = Crawl.objects.order_by("-created_at").first()
-                depth_counts = get_depth_counts(tmp_path)
-                child_urls = set(Snapshot.objects.filter(depth=1).values_list("url", flat=True))
-                root_status = Snapshot.objects.filter(url=recursive_test_site["root_url"], depth=0).values_list("status", flat=True).first()
-                failed_results = list(
-                    ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.FAILED).values_list("plugin", "output_str"),
-                )
-            if (
-                depth_counts.get(0, 0) >= 1
-                and set(recursive_test_site["child_urls"]).issubset(child_urls)
-                and root_status == Snapshot.StatusChoices.SEALED
-            ):
-                break
-            assert not failed_results
-            time.sleep(2)
-        else:
-            raise AssertionError(f"timed out waiting for depth=1 crawl, got depth counts {get_depth_counts(tmp_path)}")
+        with use_archivebox_db(tmp_path):
+            submitted_crawl = Crawl.objects.order_by("-created_at").get()
+        stop_server(tmp_path)
+        run_result = run_archivebox_cmd(["run", f"--crawl-id={submitted_crawl.id}"], cwd=tmp_path, timeout=180, env=env)
+        assert run_result.returncode == 0, run_result.stderr or run_result.stdout
 
         with use_archivebox_db(tmp_path):
             crawl = Crawl.objects.order_by("-created_at").first()
@@ -462,10 +403,12 @@ def test_public_add_view_import_text_formats_preserve_metadata_and_resume_withou
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
-        add_page = wait_for_http(port, host=f"web.archivebox.localhost:{port}", path="/add/")
+        add_page = get_http_response(port, host=f"web.archivebox.localhost:{port}", path="/add/")
         assert add_page.status_code == 200
         assert 'name="url"' in add_page.text
+        _stop_worker(tmp_path, "worker_runner")
 
+        crawl_ids = []
         for import_path in import_files.values():
             source_text = import_path.read_text(encoding="utf-8")
             response = requests.post(
@@ -491,24 +434,24 @@ def test_public_add_view_import_text_formats_preserve_metadata_and_resume_withou
                 allow_redirects=False,
             )
             assert response.status_code in (302, 303), response.text
-            deadline = time.time() + 60
-            root_input = None
-            while time.time() < deadline:
-                with use_archivebox_db(tmp_path):
-                    crawl = Crawl.objects.order_by("-created_at").first()
-                    assert crawl is not None
-                    assert crawl.urls == source_text
-                    root_snapshot = crawl.snapshot_set.filter(url=Snapshot.INTERNAL_INPUT_URL).first()
-                    if root_snapshot:
-                        root_input = (root_snapshot.output_dir / "staticfile" / "stdin.txt").read_text(encoding="utf-8")
-                        break
-                time.sleep(1)
-            assert root_input == source_text
+            with use_archivebox_db(tmp_path):
+                crawl = Crawl.objects.order_by("-created_at").first()
+                assert crawl is not None
+                assert crawl.urls == source_text
+                crawl_ids.append(crawl.id)
 
-        wait_for_import_processing(tmp_path, expected_urls)
         stop_server(tmp_path)
+        for crawl_id in crawl_ids:
+            run_result = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=tmp_path, timeout=180, env=env)
+            assert run_result.returncode == 0, run_result.stderr or run_result.stdout
+
+        with use_archivebox_db(tmp_path):
+            for crawl in Crawl.objects.order_by("created_at"):
+                root_snapshot = crawl.snapshot_set.get(url=Snapshot.INTERNAL_INPUT_URL)
+                root_input = (root_snapshot.output_dir / "staticfile" / "stdin.txt").read_text(encoding="utf-8")
+                assert root_input == crawl.urls
+
         start_archivebox_server(tmp_path, env=env, port=port)
-        wait_for_expected_import_snapshots(tmp_path, expected_urls)
 
         public_index = requests.get(
             f"http://127.0.0.1:{port}/",
@@ -566,8 +509,9 @@ def test_public_add_view_rejects_file_path_and_shell_injection_payloads(tmp_path
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
-        add_page = wait_for_http(port, host=f"web.archivebox.localhost:{port}", path="/add/")
+        add_page = get_http_response(port, host=f"web.archivebox.localhost:{port}", path="/add/")
         assert add_page.status_code == 200
+        _stop_worker(tmp_path, "worker_runner")
 
         response = requests.post(
             f"http://127.0.0.1:{port}/add/",
@@ -593,10 +537,12 @@ def test_public_add_view_rejects_file_path_and_shell_injection_payloads(tmp_path
         )
         assert response.status_code in (302, 303), response.text
 
-        wait_for_import_processing(tmp_path, {safe_url})
+        with use_archivebox_db(tmp_path):
+            submitted_crawl = Crawl.objects.order_by("-created_at").get()
         stop_server(tmp_path)
+        run_result = run_archivebox_cmd(["run", f"--crawl-id={submitted_crawl.id}"], cwd=tmp_path, timeout=180, env=env)
+        assert run_result.returncode == 0, run_result.stderr or run_result.stdout
         start_archivebox_server(tmp_path, env=env, port=port)
-        wait_for_expected_import_snapshots(tmp_path, {safe_url}, timeout=120)
 
         public_index = requests.get(
             f"http://127.0.0.1:{port}/",
@@ -629,7 +575,7 @@ def test_add_view_post_creates_schedule_over_server(tmp_path, recursive_test_sit
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
         session = requests.Session()
-        wait_for_http(port, host=f"admin.archivebox.localhost:{port}", path="/admin/login/")
+        get_http_response(port, host=f"admin.archivebox.localhost:{port}", path="/admin/login/")
         login_page = session.get(
             f"http://admin.archivebox.localhost:{port}/admin/login/",
             timeout=10,
@@ -650,7 +596,7 @@ def test_add_view_post_creates_schedule_over_server(tmp_path, recursive_test_sit
             allow_redirects=False,
         )
         assert login_response.status_code in (302, 303), login_response.text
-        wait_for_http(port, host=f"admin.archivebox.localhost:{port}", path="/add/")
+        get_http_response(port, host=f"admin.archivebox.localhost:{port}", path="/add/")
 
         response = session.post(
             f"http://admin.archivebox.localhost:{port}/add/",
@@ -703,7 +649,7 @@ def test_add_view_depth_two_crawl_renders_outputs_over_server(tmp_path, recursiv
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
         session = requests.Session()
-        wait_for_http(port, host=f"admin.archivebox.localhost:{port}", path="/admin/login/")
+        get_http_response(port, host=f"admin.archivebox.localhost:{port}", path="/admin/login/")
         login_page = session.get(
             f"http://127.0.0.1:{port}/admin/login/",
             headers={"Host": f"admin.archivebox.localhost:{port}"},
@@ -725,10 +671,11 @@ def test_add_view_depth_two_crawl_renders_outputs_over_server(tmp_path, recursiv
             allow_redirects=False,
         )
         assert login_response.status_code in (302, 303), login_response.text
-        add_page = wait_for_http(port, host=f"admin.archivebox.localhost:{port}", path="/add/")
+        add_page = get_http_response(port, host=f"admin.archivebox.localhost:{port}", path="/add/")
         assert add_page.status_code == 200
         assert 'name="depth"' in add_page.text
         assert 'name="url"' in add_page.text
+        _stop_worker(tmp_path, "worker_runner")
 
         response = session.post(
             f"http://127.0.0.1:{port}/add/",
@@ -756,19 +703,12 @@ def test_add_view_depth_two_crawl_renders_outputs_over_server(tmp_path, recursiv
             allow_redirects=False,
         )
         assert response.status_code in (302, 303), response.text
-
-        deadline = time.time() + 180
-        while time.time() < deadline:
-            depth_counts = get_depth_counts(tmp_path)
-            if (
-                depth_counts.get(0, 0) >= 1
-                and depth_counts.get(1, 0) >= len(recursive_test_site["child_urls"])
-                and depth_counts.get(2, 0) >= len(recursive_test_site["deep_urls"])
-            ):
-                break
-            time.sleep(2)
-        else:
-            raise AssertionError(f"timed out waiting for depth=2 crawl, got depth counts {get_depth_counts(tmp_path)}")
+        with use_archivebox_db(tmp_path):
+            submitted_crawl = Crawl.objects.order_by("-created_at").get()
+        stop_server(tmp_path)
+        run_result = run_archivebox_cmd(["run", f"--crawl-id={submitted_crawl.id}"], cwd=tmp_path, timeout=180, env=env)
+        assert run_result.returncode == 0, run_result.stderr or run_result.stdout
+        start_archivebox_server(tmp_path, env=env, port=port)
 
         with use_archivebox_db(tmp_path):
             depth_counts = get_depth_counts(tmp_path)

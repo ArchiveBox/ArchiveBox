@@ -30,12 +30,11 @@ ArchiveBox search works by doing substring matches in `Snapshot` metadata fields
 
 ArchiveBox provides a number of "Search Backend Engines" to tune its performance & behavior for different use-cases.
 ```bash
-# this setting controls which search backend ArchiveBox uses
-archivebox config --set SEARCH_BACKEND_ENGINE=[ripgrep]|sonic|sqlite
-
-# to see information about the backend you are currently using, run:
-archivebox version
-archivebox config --get SEARCH_BACKEND_ENGINE
+set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"
+uv run --project "$project_dir" --no-sync archivebox init
+uv run --project "$project_dir" --no-sync archivebox config --set SEARCH_BACKEND_ENGINE=ripgrep
+uv run --project "$project_dir" --no-sync archivebox version
+uv run --project "$project_dir" --no-sync archivebox config --get SEARCH_BACKEND_ENGINE
 ```
 
 By default out-of-the-box, the selected engine is a simple but efficient tool similar to `grep -r` called [`ripgrep`](https://github.com/BurntSushi/ripgrep).
@@ -61,14 +60,14 @@ If you do not already have `ripgrep` installed, follow the [instructions here](h
 ArchiveBox will use `ripgrep` by default if it is found, however you can explicitly configure it to be used like so:
 
 ```bash
-archivebox config --set SEARCH_BACKEND_ENGINE=ripgrep
-archivebox config --set RIPGREP_BINARY=rg
-
-# check that archivebox detects the installed version:
-archivebox version
-
-# then try it out by searching via the Web UI or CLI:
-archivebox list --filter-type=search 'text to search for'
+set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"
+uv run --project "$project_dir" --no-sync archivebox init
+uv run --project "$project_dir" --no-sync archivebox install ripgrep
+uv run --project "$project_dir" --no-sync archivebox config --set SEARCH_BACKEND_ENGINE=ripgrep
+uv run --project "$project_dir" --no-sync archivebox version
+test -L "$ABXPKG_LIB_DIR/env/bin/rg"
+uv run --project "$project_dir" --no-sync archivebox add --plugins=wget "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
+search_result="$(uv run --project "$project_dir" --no-sync archivebox search --search contents:ripgrep 'ArchiveBox docs fixture')"; grep -q "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}" <<< "$search_result"
 ```
 
 #### Pros
@@ -94,14 +93,15 @@ The same as ripgrep except that it supports searching more binary filetypes like
 To use it, follow the [install instruction for your OS](https://github.com/phiresky/ripgrep-all#installation), then configure ArchiveBox to use it like so:
 
 ```bash
-archivebox config --set SEARCH_BACKEND_ENGINE=ripgrep
-archivebox config --set RIPGREP_BINARY=rga
-
-# check that archivebox detects the installed version:
-archivebox version
-
-# then try it out by searching via the Web UI or CLI:
-archivebox list --filter-type=search 'text to search for'
+set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
+archivebox_data="$(mktemp -d)"; cd "$archivebox_data"
+uv run --project "$project_dir" --no-sync archivebox init
+uv run --project "$project_dir" --no-sync abxpkg env --install --lib="$ABXPKG_LIB_DIR" --binproviders env,brew --overrides '{"brew":{"install_args":["rga"]}}' rga >/dev/null
+uv run --project "$project_dir" --no-sync archivebox config --set SEARCH_BACKEND_ENGINE=ripgrep
+uv run --project "$project_dir" --no-sync archivebox config --set RIPGREP_BINARY="$ABXPKG_LIB_DIR/env/bin/rga"
+test -L "$ABXPKG_LIB_DIR/env/bin/rga"; "$ABXPKG_LIB_DIR/env/bin/rga" --version
+uv run --project "$project_dir" --no-sync archivebox add --plugins=wget "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
+search_result="$(uv run --project "$project_dir" --no-sync archivebox search --search contents:ripgrep 'ArchiveBox docs fixture')"; grep -q "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}" <<< "$search_result"
 ```
 
 <br/>
@@ -117,7 +117,7 @@ Not tested by the ArchiveBox team but it's very similar to `ripgrep` and may wor
 https://github.com/Genivia/ugrep
 
 ```bash
-archivebox config --set RIPGREP_BINARY=ugrep+
+set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync abxpkg env --install --lib="$ABXPKG_LIB_DIR" --binproviders env,apt,brew ugrep >/dev/null; test -L "$ABXPKG_LIB_DIR/env/bin/ugrep"; "$ABXPKG_LIB_DIR/env/bin/ugrep" --version; uv run --project "$project_dir" --no-sync archivebox config --set SEARCH_BACKEND_ENGINE=ripgrep; uv run --project "$project_dir" --no-sync archivebox config --set RIPGREP_BINARY="$ABXPKG_LIB_DIR/env/bin/ugrep"; uv run --project "$project_dir" --no-sync archivebox add --plugins=wget "${ARCHIVEBOX_DOCS_URL_TWO:-https://example.com/}"; search_result="$(uv run --project "$project_dir" --no-sync archivebox search --search contents:ripgrep 'ArchiveBox docs fixture')"; grep -q "${ARCHIVEBOX_DOCS_URL_TWO:-https://example.com/}" <<< "$search_result"
 ```
 
 #### Pros
@@ -147,25 +147,25 @@ Internally it functions as an index store, storing only the original IDs of the 
 Using [sonic with ArchiveBox in Docker Compose](https://github.com/ArchiveBox/ArchiveBox/blob/dev/docker-compose.yml) is the easiest way to get started, though you can also use it without Docker by [installing it manually](https://github.com/valeriansaliou/sonic#installation) and then running `uv tool install --python 3.13 --upgrade 'archivebox[sonic] @ git+https://github.com/ArchiveBox/ArchiveBox.git@dev'`.
 
 ```bash
-# edit docker-compose.yml to uncomment the lines that enable sonic
-nano docker-compose.yml
-
-# make sure ArchiveBox is configured to use the Sonic backend
-docker compose run archivebox config --set SEARCH_BACKEND_ENGINE=sonic
-
-# restart the containers to apply changes and start the Sonic worker
-docker compose down
-docker compose up
-
-# check that the sonic container started without issues
-docker compose logs sonic
-docker compose run archivebox version
-
-# backfill any existing archivebox data into the Sonic index (may take an hour or longer depending on storage speed and collection size)
-docker compose run archivebox update --index-only
-
-# then test it out:
-docker compose run archivebox list --filter-type=search 'some text to search'
+set -euo pipefail; compose_dir="$(mktemp -d)"; compose_file="$compose_dir/docker-compose.yml"; mkdir -p "$compose_dir/data" "$compose_dir/fixture" "$compose_dir/sonic/store/kv" "$compose_dir/sonic/store/fst"; printf '<title>ArchiveBox docs fixture</title> sonic indexed body\n' > "$compose_dir/fixture/sonic-docs"
+printf '%s\n' '[server]' 'log_level = "error"' '[channel]' 'inet = "0.0.0.0:1491"' 'tcp_timeout = 300' 'auth_password = "SecretPassword"' '[channel.search]' 'query_limit_default = 10' 'query_limit_maximum = 100' 'query_alternates_try = 4' 'suggest_limit_default = 5' 'suggest_limit_maximum = 20' 'list_limit_default = 100' 'list_limit_maximum = 500' '[store]' '[store.kv]' 'path = "/var/lib/sonic/store/kv/"' 'retain_word_objects = 1000' '[store.kv.pool]' 'inactive_after = 1800' '[store.kv.database]' 'flush_after = 1' 'compress = true' 'parallelism = 2' 'max_files = 100' 'max_compactions = 1' 'max_flushes = 1' 'write_buffer = 16384' 'write_ahead_log = true' '[store.fst]' 'path = "/var/lib/sonic/store/fst/"' '[store.fst.pool]' 'inactive_after = 300' '[store.fst.graph]' 'consolidate_after = 1' 'max_size = 2048' 'max_words = 250000' > "$compose_dir/sonic.cfg"; printf 'services:\n  archivebox:\n    image: archivebox-docs-ci\n    environment:\n      SEARCH_BACKEND_ENGINE: sonic\n      SEARCH_BACKEND_SONIC_HOST_NAME: sonic\n      SEARCH_BACKEND_SONIC_PORT: 1491\n      SEARCH_BACKEND_SONIC_PASSWORD: SecretPassword\n    depends_on:\n      sonic:\n        condition: service_started\n      fixture:\n        condition: service_started\n    volumes:\n      - %s:/data\n  sonic:\n    image: valeriansaliou/sonic:v1.4.9\n    volumes:\n      - %s:/etc/sonic.cfg:ro\n      - %s:/var/lib/sonic/store\n  fixture:\n    image: python:3.13-alpine\n    command: python -m http.server 8000 --directory /fixture\n    volumes:\n      - %s:/fixture:ro\n' "$compose_dir/data" "$compose_dir/sonic.cfg" "$compose_dir/sonic/store" "$compose_dir/fixture" > "$compose_file"
+trap 'docker compose -f "$compose_file" down --remove-orphans' EXIT
+docker compose -f "$compose_file" up -d sonic fixture
+docker compose -f "$compose_file" run --rm archivebox init
+docker compose -f "$compose_file" run --rm archivebox add --plugins=wget 'http://fixture:8000/sonic-docs'
+docker compose -f "$compose_file" run --rm archivebox update --index-only
+sonic_ids="$(docker compose -f "$compose_file" run --rm archivebox shell -c "from archivebox.search.query import iter_query_search_ids; print(*iter_query_search_ids('sonic-docs', search_mode='contents:sonic'))")"; test -n "$sonic_ids"
+search_result="$(docker compose -f "$compose_file" run --rm archivebox search --search contents:sonic 'sonic-docs')"; grep -q 'http://fixture:8000/sonic-docs' <<< "$search_result"
+docker compose -f "$compose_file" logs sonic
+test -f "$compose_dir/data/index.sqlite3"
+test -n "$(find "$compose_dir/sonic/store" -type f -print -quit)"
+running_services="$(docker compose -f "$compose_file" ps --status running --services)"; grep -qx sonic <<< "$running_services"; grep -qx fixture <<< "$running_services"
+docker compose -f "$compose_file" down --remove-orphans
+trap - EXIT
+test -f "$compose_file"
+test -d "$compose_dir/data/archive"
+docker image inspect archivebox-docs-ci >/dev/null
+docker image inspect valeriansaliou/sonic:v1.4.9 >/dev/null
 ```
 
 *Fore more detailed instructions [see here](https://github.com/ArchiveBox/ArchiveBox/issues/956#issuecomment-1320587158)...*
@@ -192,27 +192,26 @@ docker compose run archivebox list --filter-type=search 'some text to search'
 This is a [recently added](https://github.com/ArchiveBox/ArchiveBox/pull/1241) experimental option that uses a separate SQLite3 Database (similar to the one ArchiveBox already uses for Snapshot metadata) to provide full-text search.
 
 ```bash
-archivebox config --set SEARCH_BACKEND_ENGINE=sqlite
-
-# add existing data to index by running update:
-archivebox update --index-only
-
-# test it out using the archivebox Web UI or CLI:
-archivebox list --filter-type=search 'some text to search'
-
-# or using SQLite3 directly;
-sqlite3 ./search.sqlite3
-
-> SELECT snapshot_id FROM snapshot_fts
-      INNER JOIN snapshot_id_fts ON snapshot_id_fts.rowid = snapshot_fts.rowid
-      WHERE snapshot_fts MATCH "some text to search";
+set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
+archivebox_data="$(mktemp -d)"; cd "$archivebox_data"
+uv run --project "$project_dir" --no-sync archivebox init
+uv run --project "$project_dir" --no-sync archivebox add --plugins=mercury "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
+uv run --project "$project_dir" --no-sync archivebox config --set SEARCH_BACKEND_ENGINE=sqlite
+uv run --project "$project_dir" --no-sync archivebox config --set SEARCH_BACKEND_SQLITE_SEPARATE_DATABASE=True
+uv run --project "$project_dir" --no-sync archivebox update --index-only
+search_result="$(uv run --project "$project_dir" --no-sync archivebox search --search contents:sqlite 'ArchiveBox docs fixture')"; grep -q "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}" <<< "$search_result"
+uv run --project "$project_dir" --no-sync abxpkg env --install --lib="$ABXPKG_LIB_DIR" --binproviders env,apt,brew sqlite3 >/dev/null
+test -x "$ABXPKG_LIB_DIR/env/bin/sqlite3"
+sqlite_tables="$("$ABXPKG_LIB_DIR/env/bin/sqlite3" ./search.sqlite3 '.tables')"; grep -q search_index <<< "$sqlite_tables"
+sqlite_count="$("$ABXPKG_LIB_DIR/env/bin/sqlite3" ./search.sqlite3 'SELECT COUNT(*) FROM search_index;')"; grep -Eq '^[1-9][0-9]*$' <<< "$sqlite_count"
 ```
 
 ```bash
-# optional advanced tuning:
-archivebox config --set FTS_SEPARATE_DATABASE=True
-archivebox config --set FTS_TOKENIZERS="porter unicode61 remove_diacritics 2"
-archivebox config --set FTS_SQLITE_MAX_LENGTH=1000000000
+set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"
+uv run --project "$project_dir" --no-sync archivebox init
+uv run --project "$project_dir" --no-sync archivebox config --set SEARCH_BACKEND_SQLITE_SEPARATE_DATABASE=True
+uv run --project "$project_dir" --no-sync archivebox config --set SEARCH_BACKEND_SQLITE_TOKENIZERS="porter unicode61 remove_diacritics 2"
+uv run --project "$project_dir" --no-sync archivebox config --get SEARCH_BACKEND_SQLITE_DB
 ```
 
 - https://www.sqlite.org/fts5.html

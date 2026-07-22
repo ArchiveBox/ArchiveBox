@@ -1,5 +1,3 @@
-import json
-
 import pytest
 
 from .conftest import (
@@ -41,44 +39,30 @@ def test_cli_update_api_accepts_empty_json_without_traceback(client, tmp_path, a
 
 @pytest.mark.timeout(180)
 def test_cli_update_api_supports_all_snapshot_list_filters_with_real_rows(tmp_path):
+    from archivebox.core.models import Snapshot
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
     env = cli_env(disable_extractors=True)
     init_archive(tmp_path)
 
-    records = [
-        {
-            "type": "Snapshot",
-            "url": "https://alpha.example.com/articles/needle",
-            "title": "Needle Alpha",
-            "tags": "api-keep",
-            "timestamp": "1700000000",
-            "bookmarked_at": "2023-11-14T22:13:20+00:00",
-        },
-        {
-            "type": "Snapshot",
-            "url": "https://beta.example.org/posts/haystack",
-            "title": "Haystack Beta",
-            "tags": "api-other",
-            "timestamp": "1710000000",
-            "bookmarked_at": "2024-03-09T16:00:00+00:00",
-        },
-        {
-            "type": "Snapshot",
-            "url": "https://docs.archivebox.io/manual",
-            "title": "Manual Gamma",
-            "tags": "api-docs",
-            "timestamp": "1720000000",
-            "bookmarked_at": "2024-07-03T09:46:40+00:00",
-        },
-    ]
-    stdin = "\n".join(json.dumps(record) for record in records) + "\n"
-    run_archivebox_cmd(["snapshot", "create"], cwd=tmp_path, stdin=stdin, env=env, check=True)
+    rows = (
+        ("https://alpha.example.com/articles/needle", "Needle Alpha", "api-keep", "1700000000", "2023-11-14T22:13:20+00:00"),
+        ("https://beta.example.org/posts/haystack", "Haystack Beta", "api-other", "1710000000", "2024-03-09T16:00:00+00:00"),
+        ("https://docs.archivebox.io/manual", "Manual Gamma", "api-docs", "1720000000", "2024-07-03T09:46:40+00:00"),
+    )
+    for url, _title, tag, _timestamp, _bookmarked_at in rows:
+        run_archivebox_cmd(["snapshot", "create", f"--tag={tag}", url], cwd=tmp_path, env=env, check=True)
+    with use_archivebox_db(tmp_path):
+        for url, title, _tag, timestamp, bookmarked_at in rows:
+            Snapshot.objects.filter(url=url).update(title=title, timestamp=timestamp, bookmarked_at=bookmarked_at)
     list_result = run_archivebox_cmd(["snapshot", "list", "--sort", "timestamp"], cwd=tmp_path, env=env, check=True)
     initial_snapshots = {record["url"]: record for record in parse_jsonl_output(list_result.stdout) if record.get("type") == "Snapshot"}
     alpha = initial_snapshots["https://alpha.example.com/articles/needle"]
+    alpha_jsonl = next(line for line in list_result.stdout.splitlines() if alpha["id"] in line) + "\n"
     run_archivebox_cmd(
         ["snapshot", "update", "--status=paused"],
         cwd=tmp_path,
-        stdin=json.dumps(alpha),
+        stdin=alpha_jsonl,
         env=env,
         check=True,
     )

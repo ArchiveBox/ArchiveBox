@@ -161,18 +161,18 @@ This will apply the config to all containers or archivebox instances that access
 If you're only running one container, or if you want to scope config options to only apply to a particular container, you can set them in that container's `environment:` section:
 
 ```yaml
-...
+# ...
 
 services:
     archivebox:
-        ...
+        # ...
         environment:
             - USE_COLOR=False
             - SHOW_PROGRESS=False
             - CHECK_SSL_VALIDITY=False
             - RESOLUTION=1900,1820
             - MEDIA_TIMEOUT=512000
-        ...
+        # ...
 ```
 
 You can also specify an env file via CLI when running compose using `docker compose --env-file=/path/to/config.env ...` although you must specify the variables in the `environment:` section that you want to have passed down to the ArchiveBox container from the passed env file.
