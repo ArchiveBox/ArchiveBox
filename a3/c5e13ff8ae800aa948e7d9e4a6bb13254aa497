@@ -1,0 +1,95 @@
+pyproject.toml
+  s_f8414d52051f83::t_64087e8eb87e76 3
+  s_f8414d52051f83::t_baf85f82bc2b01 81
+  s_f8414d52051f83::t_6a24d83c76f5e9 82
+  s_f8414d52051f83::t_53ca0f32d033ef 83
+  s_f8414d52051f83::t_219b1142fefb5a 354,370-372
+  s_f8414d52051f83::t_e2ba6a4e4b4ca4 359
+  s_f8414d52051f83::t_c8e73d4bcfe6a2 84
+bin/bumpver_update_lock.sh
+  s_f8414d52051f83::t_e2ba6a4e4b4ca4 1-3,5
+  s_f8414d52051f83::t_dec773405c7ee3 4,6-9
+  s_f8414d52051f83::t_97a68a514126bd 10
+bin/release.sh
+  s_f8414d52051f83::t_f2ae6534dc920c 85,88,92-102,105-109,111-118,129
+  s_f8414d52051f83::t_728b9fcc65e3ae 145-162,164-186,188-191,201-208
+  s_f8414d52051f83::t_4f571e669a4dc8 144,163
+  s_f8414d52051f83::t_435ea5a9261af5 143
+  s_f8414d52051f83::t_2045b3f63feff0 218-224,226-260
+  s_f8414d52051f83::t_6e0c3ddc9f7667 225
+.github/workflows/release.yml
+  s_f8414d52051f83::t_c8e73d4bcfe6a2 16
+.github/workflows/pip.yml
+  s_f8414d52051f83::t_be56eff420e4a9 45-50
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_09cfd2f10b0164 328
+archivebox/cli/archivebox_run.py
+  s_f8414d52051f83::t_0c04bb465f33b3 297-301
+archivebox/tests/test_version_metadata.py
+  s_f8414d52051f83::t_2ee5b07bebd80f 44
+archivebox/tests/test_cli_oneshot.py
+  s_f8414d52051f83::t_3e83756ee2bb94 1,3,8-11,13-17,19-23
+Dockerfile
+  s_f8414d52051f83::t_c8e73d4bcfe6a2 13,16
+  s_f8414d52051f83::t_986cef7920335d 158-165,169-170
+  s_f8414d52051f83::t_2045b3f63feff0 129-133,141
+  s_f8414d52051f83::t_ed765acc9ca906 166
+  s_f8414d52051f83::t_6aac7a44b6235f 168
+.github/workflows/codeql.yml
+  s_f8414d52051f83::t_219b1142fefb5a 9-10
+  s_f8414d52051f83::t_0d71b95d3cf2d2 8,11
+archivebox/tests/test_archive_result_service.py
+  s_f8414d52051f83::t_643e4c18c69c59 515-523
+archivebox/tests/test_auth_ldap.py
+  s_f8414d52051f83::t_2045b3f63feff0 100-127,129-131
+archivebox/tests/test_cli_run.py
+  s_f8414d52051f83::t_81bca46a3bb647 529-535,542-549,553
+.github/workflows/docs.yml
+  s_f8414d52051f83::t_ed8233a8f743f6 262
+  s_f8414d52051f83::t_219b1142fefb5a 81
+archivebox/tests/conftest.py
+  s_f8414d52051f83::t_23bc629a57fa3f 914-915,920-924
+  s_f8414d52051f83::t_ef90ff36877119 917-918
+.github/workflows/test.yml
+  s_f8414d52051f83::t_09cfd2f10b0164 212
+.github/workflows/ci.yml
+  s_f8414d52051f83::t_590656c4300174 73-79,81-91
+  s_f8414d52051f83::t_2045b3f63feff0 60,71-72,80,92
+archivebox/services/runner.py
+  s_f8414d52051f83::t_9feae55fa49c7d 24,1181-1184
+etc/package.json
+  s_f8414d52051f83::t_64087e8eb87e76 3
+.github/configs/ci-tooling.json
+  s_f8414d52051f83::t_0d71b95d3cf2d2 266-269
+archivebox/tests/test_opencode_agent.py
+  s_f8414d52051f83::t_c795fbbbf95b21 234
+  s_f8414d52051f83::t_c9dead4e70fd80 95-96
+  s_f8414d52051f83::t_9bbd5bb39a5b25 94
+.github/workflows/lint.yml
+  s_f8414d52051f83::t_219b1142fefb5a 31-33
+archivebox/tests/test_server_security_browser.py
+  s_f8414d52051f83::t_f3b23209da3921 202-212,245-249
+bin/setup.sh
+  s_f8414d52051f83::t_6a24d83c76f5e9 28
+archivebox/machine/detect.py
+  s_f8414d52051f83::t_63c939f8685520 23,26,35-37
+  s_f8414d52051f83::t_8333baf45ff7ea 25
+uv.lock
+  s_f8414d52051f83::t_99ccad160df1af 16,20,27,42,44,49,60,62,67,74,76,81,90,92,127,218,226-229,301,2483-2496
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a3c5e13ff8ae800aa948e7d9e4a6bb13254aa497",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
