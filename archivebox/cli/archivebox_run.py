@@ -294,17 +294,11 @@ def run_runner(
 
         crawl = Crawl.objects.filter(id=crawl_id, status__in=Crawl.RUNNABLE_STATES).first()
         now = timezone.now()
-        # Only re-lease when the row is unscheduled (retry_at IS NULL) or its
-        # existing lease has already expired. A future retry_at means another
-        # worker is already scheduled — don't clobber.
-        if crawl is not None and (crawl.retry_at is None or crawl.retry_at <= now):
-            # extra_filter pins the read-time retry_at so a concurrent worker
-            # that grabbed the lease between our SELECT and UPDATE wins.
-            crawl.safe_update(
-                {"retry_at": now},
-                refresh=False,
-                extra_filter={"retry_at": crawl.retry_at},
-            )
+        # Winning the single-runner gate terminates and waits for every older
+        # runner. Requeue the explicitly requested crawl so an abandoned
+        # future ownership lease cannot hide it from the unified scheduler.
+        if crawl is not None:
+            crawl.update_and_requeue(retry_at=now, refresh=False)
     # Only a foreground `archivebox add` gets the interactive "abort current
     # hook, continue/retry, second Ctrl+C exits" flow. Server/update/run owned
     # orchestrators should shut down immediately and cleanly on the first signal.

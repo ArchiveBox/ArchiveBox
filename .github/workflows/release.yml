@@ -13,7 +13,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: release-dev
+  group: release-${{ github.repository }}-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
 
 env:

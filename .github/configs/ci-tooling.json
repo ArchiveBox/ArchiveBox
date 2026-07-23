@@ -263,6 +263,10 @@
     {
       "name": "{CURL_BINARY}",
       "binproviders": "env,apt,brew"
+    },
+    {
+      "name": "{SUDO_BINARY}",
+      "binproviders": "env"
     }
   ],
   "git_binaries": [

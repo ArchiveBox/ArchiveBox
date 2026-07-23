@@ -78,7 +78,7 @@ jobs:
         with:
           version: "0.11.3"
       - name: Install ArchiveBox
-        run: uv sync --dev --all-extras
+        run: uv sync --locked --dev --all-extras
       - name: Prepare abxpkg environment
         shell: bash
         run: |
@@ -259,7 +259,7 @@ jobs:
           print(*(str(path) for path in sorted(docs_dir.rglob("*.md")) if not path.is_symlink()), sep="\n")
           PY
           )
-          sudo --preserve-env=PATH,ABXPKG_LIB_DIR,ARCHIVEBOX_DOCS_URL_ONE,ARCHIVEBOX_DOCS_URL_TWO,ARCHIVEBOX_DOCS_ARCHIVEBOX_PORT,ARCHIVEBOX_DOCS_STATIC_PORT,ARCHIVEBOX_PUBLISH_ADMIN_PASSWORD "$uv_bin" run --project "$GITHUB_WORKSPACE" --no-sync pytest -vv --tb=long "$GITHUB_WORKSPACE/README.md" "$GITHUB_WORKSPACE/AGENTS.md" "$GITHUB_WORKSPACE/skills" "${docs_paths[@]}" --docs-environment=${{ matrix.environment }}
+          "$SUDO_BINARY" --preserve-env=PATH,ABXPKG_LIB_DIR,ARCHIVEBOX_PROJECT_DIR,ARCHIVEBOX_DOCS_URL_ONE,ARCHIVEBOX_DOCS_URL_TWO,ARCHIVEBOX_DOCS_ARCHIVEBOX_PORT,ARCHIVEBOX_DOCS_STATIC_PORT,ARCHIVEBOX_PUBLISH_ADMIN_PASSWORD "$uv_bin" run --project "$GITHUB_WORKSPACE" --no-sync pytest -vv --tb=long "$GITHUB_WORKSPACE/README.md" "$GITHUB_WORKSPACE/AGENTS.md" "$GITHUB_WORKSPACE/skills" "${docs_paths[@]}" --docs-environment=${{ matrix.environment }}
       - name: Stop local documentation site
         if: always()
         run: kill "$ARCHIVEBOX_DOCS_SERVER_PID"

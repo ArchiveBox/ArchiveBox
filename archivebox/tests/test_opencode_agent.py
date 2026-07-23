@@ -1,6 +1,5 @@
 import os
 import socket
-import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import quote
@@ -92,12 +91,10 @@ def live_opencode(opencode_archive_config):
     settings["archivebox_base_url"] = "http://admin.archivebox.localhost:8000"
     settings["archivebox_admin_url"] = "http://admin.archivebox.localhost:8000/admin"
     settings["archivebox_api_url"] = "http://admin.archivebox.localhost:8000/api/"
-    binary, binary_env = views._resolve_binary(settings["binary"], settings["config"])
-    version = subprocess.run(
-        [binary, "--version"],
+    binary, _, binary_env = views._resolve_binary(settings["binary"], settings["config"])
+    version = binary.exec(
+        cmd=("--version",),
         env={**os.environ, **binary_env},
-        text=True,
-        capture_output=True,
         timeout=120,
     )
     assert version.returncode == 0, version.stderr or version.stdout
@@ -234,10 +231,10 @@ def test_opencode_starts_with_isolated_state(live_opencode):
     assert Path(live_opencode.settings["workdir"]).resolve() == Path(workdir)
     assert Path(str(project.json()["worktree"])).resolve() == Path(workdir)
     assert live_opencode.process.poll() is None
+    assert (live_opencode.config.data_dir / ".git").is_dir()
     assert (state_dir / "data" / "opencode" / "opencode.db").is_file()
     assert (state_dir / "SKILL.md").is_file()
     assert (state_dir / "config" / "opencode" / "skills" / "archivebox" / "SKILL.md").resolve() == state_dir / "SKILL.md"
-    assert not (live_opencode.config.data_dir / ".git" / "not-a-git").exists()
 
 
 def test_opencode_state_dir_is_separate_from_workdir(tmp_path):

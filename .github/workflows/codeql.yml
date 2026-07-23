@@ -5,6 +5,10 @@ on:
   schedule:
     - cron: '33 17 * * 6'
 
+concurrency:
+  group: codeql-${{ github.repository }}-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})

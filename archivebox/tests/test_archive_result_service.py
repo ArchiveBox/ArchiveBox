@@ -512,7 +512,15 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
         install=False,
     )
     mercury_path = Path(mercury_env["MERCURY_BINARY"])
-    assert Path(binary.abspath).resolve() == mercury_path.resolve()
+    provider_path = Path(binary.abspath)
+    assert binary.binprovider == "pnpm"
+    assert provider_path == lib_dir / "pnpm" / "packages" / "mercury" / "node_modules" / ".bin" / "postlight-parser"
+    assert provider_path.is_file()
+    assert os.access(provider_path, os.X_OK)
+    assert mercury_path == lib_dir / "env" / "bin" / "postlight-parser"
+    assert mercury_path.is_symlink()
+    assert mercury_path.resolve().is_file()
+    assert os.access(mercury_path, os.X_OK)
 
     hook_path = Path(str(files("abx_plugins.plugins.mercury").joinpath("on_Snapshot__57_mercury.py")))
     output_dir = tmp_path / "mercury"
@@ -534,7 +542,6 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
                 env={
                     **mercury_env,
                     "ABXPKG_LIB_DIR": str(lib_dir),
-                    "MERCURY_BINARY": binary.abspath,
                     "SNAP_DIR": str(tmp_path),
                 },
                 timeout=60,

@@ -82,16 +82,40 @@ $GIT_BINARY fetch --quiet --no-tags origin "+refs/heads/${RELEASE_BRANCH:-dev}:r
 $GIT_BINARY merge-base --is-ancestor "$RELEASE_SHA" "refs/remotes/origin/${RELEASE_BRANCH:-dev}"
 
 [[ "$(<"$RELEASE_DISTRIBUTIONS_DIR/COMMIT_SHA")" == "$RELEASE_SHA" ]]
-$UV_BINARY run --no-project python - "$RELEASE_DISTRIBUTIONS_DIR" <<'PY'
+$UV_BINARY run --no-project python - "$RELEASE_DISTRIBUTIONS_DIR" "$VERSION" <<'PY'
 from hashlib import sha256
 from pathlib import Path
+import re
 import sys
 
 root = Path(sys.argv[1])
+version = sys.argv[2]
+expected_names = {
+    "COMMIT_SHA",
+    f"archivebox-{version}-py3-none-any.whl",
+    f"archivebox-{version}.tar.gz",
+}
+files = {path.name for path in root.iterdir() if path.is_file()}
+if files != expected_names | {"SHA256SUMS"}:
+    raise SystemExit(f"Unexpected tested distribution set: {sorted(files)}")
+
+manifest = {}
 for line in (root / 'SHA256SUMS').read_text().splitlines():
     expected, separator, filename = line.partition('  ')
-    if not separator or len(expected) != 64:
+    if (
+        not separator
+        or not re.fullmatch(r'[0-9a-f]{64}', expected)
+        or Path(filename).name != filename
+    ):
         raise SystemExit(f'Invalid SHA256SUMS line: {line!r}')
+    if filename in manifest:
+        raise SystemExit(f'Duplicate SHA256SUMS entry: {filename}')
+    manifest[filename] = expected
+
+if set(manifest) != expected_names:
+    raise SystemExit(f'SHA256SUMS names the wrong files: {sorted(manifest)}')
+
+for filename, expected in manifest.items():
     artifact = root / filename
     actual = sha256(artifact.read_bytes()).hexdigest()
     if actual != expected:
@@ -102,7 +126,7 @@ WHEELS=("$RELEASE_DISTRIBUTIONS_DIR"/archivebox-*.whl)
 SDISTS=("$RELEASE_DISTRIBUTIONS_DIR"/archivebox-*.tar.gz)
 [[ "${#WHEELS[@]}" -eq 1 ]]
 [[ "${#SDISTS[@]}" -eq 1 ]]
-[[ "${WHEELS[0]##*/}" == archivebox-${VERSION}-*.whl ]]
+[[ "${WHEELS[0]##*/}" == "archivebox-${VERSION}-py3-none-any.whl" ]]
 [[ "${SDISTS[0]##*/}" == archivebox-${VERSION}.tar.gz ]]
 
 TAG_TARGET="$($GIT_BINARY ls-remote origin "refs/tags/${TAG}^{}")"
@@ -116,11 +140,55 @@ fi
     exit 1
 }
 
-PYPI_EXISTS=false
+PYPI_URLS="$($CURL_BINARY -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" | $JQ_BINARY -c --arg version "$VERSION" ".releases[\$version] // []")"
+PYPI_STATUS_OUTPUT="$(PYPI_URLS="$PYPI_URLS" RELEASE_DISTRIBUTIONS_DIR="$RELEASE_DISTRIBUTIONS_DIR" VERSION="$VERSION" $UV_BINARY run --no-project python - <<'PY'
+import json
+import os
+from pathlib import Path
+
+root = Path(os.environ["RELEASE_DISTRIBUTIONS_DIR"])
+version = os.environ["VERSION"]
+expected_names = {
+    f"archivebox-{version}-py3-none-any.whl",
+    f"archivebox-{version}.tar.gz",
+}
+manifest = {}
+for line in (root / "SHA256SUMS").read_text().splitlines():
+    digest, filename = line.split(maxsplit=1)
+    if filename in expected_names:
+        manifest[filename] = digest
+if set(manifest) != expected_names:
+    raise SystemExit("Tested manifest does not contain the exact PyPI artifacts")
+
+published_files = json.loads(os.environ["PYPI_URLS"])
+if not published_files:
+    print("absent")
+    for filename in sorted(expected_names):
+        print(filename)
+    raise SystemExit(0)
+published = {item["filename"]: item["digests"]["sha256"] for item in published_files}
+if len(published) != len(published_files) or not set(published).issubset(expected_names):
+    raise SystemExit("PyPI release contains duplicate or unexpected distributions")
+for filename, digest in published.items():
+    if manifest[filename] != digest:
+        raise SystemExit(f"PyPI digest mismatch for {filename}")
+
+missing = sorted(expected_names - set(published))
+print("partial" if missing else "complete")
+for filename in missing:
+    print(filename)
+PY
+)"
+mapfile -t PYPI_STATUS_LINES <<< "$PYPI_STATUS_OUTPUT"
+PYPI_STATE="${PYPI_STATUS_LINES[0]}"
+PYPI_MISSING=("${PYPI_STATUS_LINES[@]:1}")
+[[ "$PYPI_STATE" == absent || "$PYPI_STATE" == partial || "$PYPI_STATE" == complete ]]
+
 GITHUB_EXISTS=false
-$CURL_BINARY -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/${VERSION}/json" >/dev/null 2>&1 && PYPI_EXISTS=true
-$GH_BINARY release view "$TAG" --repo "$SLUG" >/dev/null 2>&1 && GITHUB_EXISTS=true
-if [[ ( "$PYPI_EXISTS" == true || "$GITHUB_EXISTS" == true ) && "$TAG_TARGET" != "$RELEASE_SHA" ]]; then
+if $GH_BINARY release view "$TAG" --repo "$SLUG" >/dev/null 2>&1; then
+    GITHUB_EXISTS=true
+fi
+if [[ ( "$PYPI_STATE" != absent || "$GITHUB_EXISTS" == true ) && "$TAG_TARGET" != "$RELEASE_SHA" ]]; then
     echo "Cannot recover partial release $VERSION without an exact-SHA tag" >&2
     exit 1
 fi
@@ -130,8 +198,14 @@ if [[ -z "$TAG_TARGET" ]]; then
     $GIT_BINARY push origin "refs/tags/${TAG}"
 fi
 
-if [[ "$PYPI_EXISTS" == false ]]; then
-    $UV_BINARY publish --trusted-publishing always "${WHEELS[@]}" "${SDISTS[@]}"
+if [[ "$PYPI_STATE" != complete ]]; then
+    PYPI_ARTIFACTS=()
+    for filename in "${PYPI_MISSING[@]}"; do
+        [[ "$filename" == "${filename##*/}" && -f "$RELEASE_DISTRIBUTIONS_DIR/$filename" ]]
+        PYPI_ARTIFACTS+=("$RELEASE_DISTRIBUTIONS_DIR/$filename")
+    done
+    [[ "${#PYPI_ARTIFACTS[@]}" -gt 0 ]]
+    $UV_BINARY publish --trusted-publishing always "${PYPI_ARTIFACTS[@]}"
 fi
 
 if [[ "$GITHUB_EXISTS" == false ]]; then
@@ -140,5 +214,48 @@ if [[ "$GITHUB_EXISTS" == false ]]; then
     $GH_BINARY release create "$TAG" --repo "$SLUG" --verify-tag \
         --title "$TAG" --generate-notes "${RELEASE_ARGS[@]}"
 fi
+
+$GH_BINARY release upload "$TAG" --repo "$SLUG" \
+    "$RELEASE_DISTRIBUTIONS_DIR/COMMIT_SHA" \
+    "${WHEELS[0]}" \
+    "${SDISTS[0]}" \
+    "$RELEASE_DISTRIBUTIONS_DIR/SHA256SUMS" \
+    --clobber
+
+RELEASE_JSON="$($GH_BINARY release view "$TAG" --repo "$SLUG" --json assets,tagName)"
+RELEASE_JSON="$RELEASE_JSON" RELEASE_DISTRIBUTIONS_DIR="$RELEASE_DISTRIBUTIONS_DIR" VERSION="$VERSION" TAG="$TAG" $UV_BINARY run --no-project python - <<'PY'
+from hashlib import sha256
+from pathlib import Path
+import json
+import os
+
+root = Path(os.environ["RELEASE_DISTRIBUTIONS_DIR"])
+version = os.environ["VERSION"]
+release = json.loads(os.environ["RELEASE_JSON"])
+expected_names = {
+    "COMMIT_SHA",
+    "SHA256SUMS",
+    f"archivebox-{version}-py3-none-any.whl",
+    f"archivebox-{version}.tar.gz",
+}
+if release["tagName"] != os.environ["TAG"]:
+    raise SystemExit("GitHub release tag does not match the source version")
+
+assets = release["assets"]
+published = {asset["name"]: asset.get("digest", "") for asset in assets}
+if len(published) != len(assets) or set(published) != expected_names:
+    raise SystemExit("GitHub release asset set is incomplete or contains extras")
+
+manifest = {}
+for line in (root / "SHA256SUMS").read_text().splitlines():
+    digest, filename = line.split(maxsplit=1)
+    manifest[filename] = digest
+for filename in expected_names:
+    local_digest = sha256((root / filename).read_bytes()).hexdigest()
+    if filename != "SHA256SUMS" and manifest.get(filename) != local_digest:
+        raise SystemExit(f"Local manifest mismatch for {filename}")
+    if published[filename] != f"sha256:{local_digest}":
+        raise SystemExit(f"GitHub release digest mismatch for {filename}")
+PY
 
 echo "Released ${PYPI_PACKAGE} ${VERSION} from ${RELEASE_SHA} using CI run ${CI_RUN_ID:-unknown}"

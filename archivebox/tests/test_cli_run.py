@@ -526,17 +526,31 @@ class TestRunEmpty:
 
 class TestRunDaemonMode:
     @pytest.mark.parametrize("stdin_kind", ["malformed", "valid-snapshot"])
-    def test_run_daemon_ignores_piped_stdin_and_starts_real_runner(self, initialized_archive, db, stdin_kind):
+    def test_run_daemon_ignores_piped_stdin_and_starts_real_runner(
+        self,
+        initialized_archive,
+        tmp_path_factory,
+        db,
+        stdin_kind,
+    ):
         from archivebox.machine.models import Process
         from archivebox.core.models import Snapshot
         from archivebox.tests.test_orm_helpers import use_archivebox_db
 
         snapshot_url = None
         if stdin_kind == "valid-snapshot":
+            piped_source_archive = tmp_path_factory.mktemp("daemon-piped-source")
+            init_result = run_archivebox_cmd(
+                ["init", "--quick"],
+                cwd=piped_source_archive,
+                default_cli_env=True,
+                disable_extractors=True,
+            )
+            assert init_result.returncode == 0, init_result.stderr
             snapshot_url = create_test_url()
             snapshot_result = run_archivebox_cmd(
                 ["snapshot", "create", snapshot_url],
-                cwd=initialized_archive,
+                cwd=piped_source_archive,
                 default_cli_env=True,
                 disable_extractors=True,
             )

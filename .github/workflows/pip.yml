@@ -42,11 +42,14 @@ jobs:
           import hashlib
           from pathlib import Path
 
-          artifacts = sorted(Path("dist").iterdir())
+          root = Path("dist")
+          wheels = list(root.glob("archivebox-*.whl"))
+          sdists = list(root.glob("archivebox-*.tar.gz"))
+          if len(wheels) != 1 or len(sdists) != 1:
+              raise SystemExit("Expected exactly one ArchiveBox wheel and one sdist")
+          artifacts = [root / "COMMIT_SHA", wheels[0], sdists[0]]
           checksum_lines = []
           for artifact in artifacts:
-              if artifact.name == "SHA256SUMS":
-                  continue
               digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
               line = f"{digest}  {artifact.name}"
               checksum_lines.append(line)

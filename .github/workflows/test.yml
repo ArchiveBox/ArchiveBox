@@ -209,7 +209,7 @@ jobs:
         if: matrix.os_name == 'macOS' || matrix.python == '3.14'
         run: |
           mkdir -p tests/out
-          uv run --no-sync --no-sources pytest -q archivebox/tests --basetemp="tests/out/${{ matrix.os_name }}-python-${{ matrix.python }}"
+          uv run --no-sync --no-sources pytest -q archivebox/tests --basetemp="$GITHUB_WORKSPACE/tests/out/${{ matrix.os_name }}-python-${{ matrix.python }}"
 
   docker_tests:
     runs-on: ubuntu-24.04

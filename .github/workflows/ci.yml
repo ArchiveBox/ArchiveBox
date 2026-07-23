@@ -57,6 +57,7 @@ jobs:
 
   required:
     name: All required CI lanes
+    if: ${{ always() }}
     needs:
       - lint
       - complete-tests
@@ -67,4 +68,25 @@ jobs:
       - docker-digests
     runs-on: ubuntu-24.04
     steps:
-      - run: echo 'All required CI lanes and tested release artifacts succeeded.'
+      - name: Verify every required lane succeeded
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          COMPLETE_TESTS_RESULT: ${{ needs.complete-tests.result }}
+          SHARDED_PLUGIN_TESTS_RESULT: ${{ needs.sharded-plugin-tests.result }}
+          DOCUMENTATION_RESULT: ${{ needs.documentation.result }}
+          CODEQL_RESULT: ${{ needs.codeql.result }}
+          PYTHON_ARTIFACTS_RESULT: ${{ needs.python-artifacts.result }}
+          DOCKER_DIGESTS_RESULT: ${{ needs.docker-digests.result }}
+        run: |
+          for result in \
+            "$LINT_RESULT" \
+            "$COMPLETE_TESTS_RESULT" \
+            "$SHARDED_PLUGIN_TESTS_RESULT" \
+            "$DOCUMENTATION_RESULT" \
+            "$CODEQL_RESULT" \
+            "$PYTHON_ARTIFACTS_RESULT" \
+            "$DOCKER_DIGESTS_RESULT"
+          do
+            [[ "$result" == success ]]
+          done
+          echo 'All required CI lanes and tested release artifacts succeeded.'

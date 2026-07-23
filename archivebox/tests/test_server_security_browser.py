@@ -199,6 +199,17 @@ async function readPreviewText(page, expectedText) {
   return {matched: false, frames: frameState};
 }
 
+async function waitForPreviewReady(frame) {
+  return await frame.evaluate(() => {
+    if (window.archiveboxReplayError) throw new Error(window.archiveboxReplayError);
+    if (window.archiveboxReplayReady) return window.archiveboxReplayReady;
+    return new Promise((resolve, reject) => {
+      window.addEventListener("archivebox-replay-ready", (event) => resolve(event.detail), {once: true});
+      window.addEventListener("archivebox-replay-error", (event) => reject(new Error(event.detail)), {once: true});
+    });
+  });
+}
+
 async function main() {
   const config = JSON.parse(fs.readFileSync(0, "utf8"));
   const browser = await puppeteer.launch({
@@ -231,7 +242,11 @@ async function main() {
     waitUntil: "domcontentloaded",
     timeout: 30000,
   });
-  await page.waitForNetworkIdle({idleTime: 500, timeout: 60000});
+  const previewFrame = await page.waitForFrame((frame) => {
+    const url = frame.url();
+    return url.includes("/archivewebpage/archivewebpage.wacz") && url.includes("preview=1");
+  });
+  await waitForPreviewReady(previewFrame);
   const previewResult = await readPreviewText(page, config.expectedText);
 
   console.log(JSON.stringify({

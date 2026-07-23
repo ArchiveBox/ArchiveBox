@@ -28,6 +28,9 @@ jobs:
           version: "0.11.3"
           enable-cache: false
 
+      - name: Verify checked dependency lock
+        run: uv lock --check
+
       - name: Clone abxpkg
         run: bash .github/scripts/clone_abx_repo.sh abxpkg
 

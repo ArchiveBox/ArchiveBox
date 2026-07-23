@@ -21,6 +21,7 @@ from rich.console import Console
 from rich.text import Text
 
 from abxpkg.binary_service import BinaryCacheService, BinaryRequestEvent, BinaryService
+from abx_dl.config import GlobalConfig, RuntimeConfig
 from abx_dl.events import (
     CrawlAbortEvent,
     CrawlCleanupEvent,
@@ -1177,6 +1178,10 @@ class CrawlRunner:
                 snapshot=abx_snapshot,
                 output_dir=output_dir,
                 plugins=plugins,
+                config=RuntimeConfig(
+                    user=GlobalConfig(**{**config, "ABX_RUNTIME": "archivebox"}),
+                    derived=derived_config,
+                ),
                 snapshot_phase_timeout=snapshot_phase_timeout,
                 snapshot_cleanup_enabled=True,
                 snapshot_cleanup_phase_timeout=snapshot_phase_timeout,

@@ -325,7 +325,7 @@ jobs:
           mapfile -t test_paths < <("$JQ_BINARY" -r '.[]' <<<"$TEST_PATHS_JSON")
           [[ "${#test_paths[@]}" -gt 0 ]]
           mkdir -p tests/out
-          uv run --no-sync --no-sources pytest -vs "${test_paths[@]}" --basetemp=tests/out
+          uv run --no-sync --no-sources pytest -vs "${test_paths[@]}" --basetemp="$GITHUB_WORKSPACE/tests/out"
 
   plugin-tests:
     name: ${{ matrix.plugin.name }}

@@ -20,9 +20,10 @@ DATA_DIR = Path(os.getcwd()).resolve()
 
 def _run_abxpkg_host_binary(name: str, *args: str) -> subprocess.CompletedProcess[str]:
     from abxpkg import EnvProvider
-    from archivebox.config.constants import CONSTANTS
+    from archivebox.config.common import get_config
 
-    provider = EnvProvider(install_root=CONSTANTS.DEFAULT_ABXPKG_LIB_DIR / "env", PATH=os.environ["PATH"])
+    env_root = get_config(include_machine=False).ABXPKG_LIB_DIR / "env"
+    provider = EnvProvider(install_root=env_root, PATH=os.environ["PATH"])
     if name == "system_profiler":
         provider = provider.get_provider_with_overrides(
             overrides={name: {"version": platform.mac_ver()[0] or "0.0.0"}},
@@ -31,8 +32,9 @@ def _run_abxpkg_host_binary(name: str, *args: str) -> subprocess.CompletedProces
     if loaded is None or loaded.loaded_abspath is None:
         raise RuntimeError(f"abxpkg could not resolve {name}")
     projection = Path(loaded.loaded_abspath)
-    if not projection.is_symlink() or not os.access(projection, os.X_OK):
-        raise RuntimeError(f"abxpkg did not project {name} into {projection}")
+    expected_projection = env_root / "bin" / name
+    if projection != expected_projection or not projection.is_symlink() or not os.access(projection, os.X_OK):
+        raise RuntimeError(f"abxpkg did not project {name} into {expected_projection}")
     return subprocess.run([str(projection), *args], capture_output=True, text=True, check=True)
 
 

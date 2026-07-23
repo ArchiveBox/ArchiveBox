@@ -41,6 +41,7 @@ def _create_git_repo(tmp_path: Path) -> tuple[Path, Path, str]:
     _git(git, repo, "init", "--initial-branch=dev")
     _git(git, repo, "config", "user.name", "ArchiveBox Tests")
     _git(git, repo, "config", "user.email", "tests@archivebox.io")
+    _git(git, repo, "config", "commit.gpgsign", "false")
     copied_version = repo / "archivebox" / "config" / "version.py"
     copied_version.parent.mkdir(parents=True)
     shutil.copyfile(version.__file__, copied_version)

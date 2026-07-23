@@ -911,10 +911,17 @@ def wait_for_worker_pid_from_log(log_path: Path, worker_name: str, *, timeout: f
 def pgrep_data_dir(data_dir: Path) -> list[str]:
     lines: list[str] = []
     seen_pids: set[int] = set()
-    for process in psutil.process_iter(["pid", "ppid", "cmdline"]):
+    resolved_data_dir = data_dir.resolve()
+    for process in psutil.process_iter(["pid", "ppid", "cmdline", "cwd"]):
         try:
+            if process.pid == os.getpid():
+                continue
             command = " ".join(process.info.get("cmdline") or [])
-            if str(data_dir) not in command:
+            process_cwd = process.info.get("cwd")
+            cwd_matches = bool(process_cwd and Path(process_cwd).resolve() == resolved_data_dir)
+            env_data_dir = None if cwd_matches else process.environ().get("DATA_DIR")
+            env_matches = bool(env_data_dir and Path(env_data_dir).resolve() == resolved_data_dir)
+            if str(data_dir) not in command and not cwd_matches and not env_matches:
                 continue
             pid = int(process.info["pid"])
             seen_pids.add(pid)

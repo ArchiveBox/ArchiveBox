@@ -10,10 +10,10 @@
 #       --build-context abx-plugins=../abx-plugins \
 #       -t archivebox/abx-dl:dev
 #   docker buildx build . -f Dockerfile \
-#       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:1.11.263 \
+#       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:1.11.268 \
 #       -t archivebox:multistage
 
-ARG ABX_DL_IMAGE=archivebox/abx-dl:1.11.263
+ARG ABX_DL_IMAGE=archivebox/abx-dl:1.11.268
 
 FROM archivebox/sonic:1.4.9 AS sonic
 FROM ${ABX_DL_IMAGE} AS archivebox-runtime-base
@@ -126,8 +126,11 @@ text = text.replace(
 # PyPI simple can lag the version JSON endpoints by tens of minutes. Generate a
 # Docker-only dependency view from the version JSON so the published package
 # metadata stays normal while image builds remain resumable after a release.
-for package in ("abxpkg", "abx-plugins", "abx-dl"):
-    match = re.search(rf'"{re.escape(package)}>=(?P<version>[^"]+)"', text)
+for package in ("abxbus", "abxpkg", "abx-plugins", "abx-dl"):
+    match = re.search(
+        rf'"{re.escape(package)}(?P<operator>==|>=)(?P<version>[^"]+)"',
+        text,
+    )
     if not match:
         continue
     version = match.group("version")
@@ -135,7 +138,7 @@ for package in ("abxpkg", "abx-plugins", "abx-dl"):
         data = json.load(response)
     wheel_url = next(url["url"] for url in data["urls"] if url["filename"].endswith(".whl"))
     text = re.sub(
-        rf'"{re.escape(package)}>=[^"]+"',
+        rf'"{re.escape(package)}(?:==|>=)[^"]+"',
         f'"{package} @ {wheel_url}"',
         text,
         count=1,
@@ -152,10 +155,19 @@ PY
     --no-install-project \
     --no-install-workspace \
     --no-sources
-(find /venv/lib/python3.*/site-packages -type f -name '*.so' -exec strip --strip-unneeded {} + 2>/dev/null || true)
+ABXPKG_NO_CACHE=True abxpkg env --install --binproviders=env,apt --lib="$ABXPKG_LIB_DIR" --overrides='{"apt":{"install_args":["binutils"]}}' strip >/dev/null
+"$ABXPKG_LIB_DIR/env/bin/find" /venv/lib/python3.*/site-packages -type f -name '*.so' -print0 > /tmp/archivebox-native-libraries
+while IFS= read -r -d '' native_library; do
+    magic=''
+    if IFS= read -r -N 4 magic < "$native_library" && [[ "$magic" == $'\x7fELF' ]]; then
+        "$ABXPKG_LIB_DIR/env/bin/strip" --strip-unneeded "$native_library" || exit $?
+    fi
+done < /tmp/archivebox-native-libraries
+rm -f /tmp/archivebox-native-libraries
 rm -f /venv/bin/uv /venv/bin/uvx
-apt-get purge -y build-essential gcc libldap2-dev libsasl2-dev libssl-dev
-apt-get autoremove -y
+abxpkg run --binproviders=env --lib="$ABXPKG_LIB_DIR" apt-get purge -y binutils build-essential gcc libldap2-dev libsasl2-dev libssl-dev
+abxpkg run --binproviders=env --lib="$ABXPKG_LIB_DIR" apt-get autoremove -y
+"$ABXPKG_LIB_DIR/env/bin/find" "$ABXPKG_LIB_DIR/env/bin" -maxdepth 1 -type l -name strip -delete
 rm -rf /var/lib/apt/lists/*
 EOF
 
