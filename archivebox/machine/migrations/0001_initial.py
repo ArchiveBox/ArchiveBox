@@ -32,7 +32,10 @@ def _pg_sync_schema(apps, schema_editor):
     from archivebox.misc.db import rebuild_models_from_migration_state
 
     rebuild_models_from_migration_state(
-        apps, schema_editor, "machine", ["Machine", "NetworkInterface", "Binary"]
+        apps,
+        schema_editor,
+        "machine",
+        ["Machine", "NetworkInterface", "Binary"],
     )
 
 

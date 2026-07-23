@@ -14,6 +14,10 @@ import archivebox
 from archivebox.config.constants import CONSTANTS
 from archivebox.config.common import get_config
 from archivebox.core.routes_util import get_api_base_url, get_admin_base_url, get_base_url, normalize_base_url
+
+# All sqlite-vs-postgres connection logic lives in archivebox.misc.db;
+# DATABASE_ENGINE config selects the backend (sqlite by default).
+from archivebox.misc.db import get_database_settings, get_sqlite_connection_options
 from .settings_logging import SETTINGS_LOGGING
 
 
@@ -211,10 +215,6 @@ TEMPLATES = [
 ################################################################################
 ### External Service Settings
 ################################################################################
-
-# All sqlite-vs-postgres connection logic lives in archivebox.misc.db;
-# DATABASE_ENGINE config selects the backend (sqlite by default).
-from archivebox.misc.db import get_database_settings, get_sqlite_connection_options
 
 DATABASE_NAME = CONFIG.DATABASE_NAME
 SQLITE_JOURNAL_MODE = CONFIG.SQLITE_JOURNAL_MODE

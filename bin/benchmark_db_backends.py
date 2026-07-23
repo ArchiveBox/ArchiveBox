@@ -129,7 +129,9 @@ def run_benchmarks(rows: int) -> dict[str, float]:
     benchmarks = {
         "exact_count": lambda: Snapshot.objects.count(),
         "approximate_row_counts": lambda: approximate_row_counts(connection),
-        "admin_list_page": lambda: list(Snapshot.objects.order_by("-bookmarked_at").values("id", "url", "title", "status", "bookmarked_at")[:40]),
+        "admin_list_page": lambda: list(
+            Snapshot.objects.order_by("-bookmarked_at").values("id", "url", "title", "status", "bookmarked_at")[:40],
+        ),
         "admin_list_page_offset_10k": lambda: list(Snapshot.objects.order_by("-bookmarked_at").values("id", "url", "title")[10_000:10_040]),
         "snapshot_detail_by_url": lambda: list(Snapshot.objects.filter(fragmentless_q(target_url))[:10]),
         "snapshot_detail_archiveresults": lambda: list(
@@ -137,7 +139,9 @@ def run_benchmarks(rows: int) -> dict[str, float]:
         ),
         "url_prefix_search": lambda: list(iter_url_prefix_search_ids("https://site500.example.org/", Snapshot.objects.all())),
         "worker_queue_scan": lambda: list(
-            Snapshot.objects.filter(status="queued", retry_at__lte=now).order_by("retry_at", "created_at").values_list("id", flat=True)[:100],
+            Snapshot.objects.filter(status="queued", retry_at__lte=now)
+            .order_by("retry_at", "created_at")
+            .values_list("id", flat=True)[:100],
         ),
         "status_facet_counts": lambda: dict(Snapshot.objects.values_list("status").annotate(n=Count("id")).values_list("status", "n")),
         "tag_join_filter": lambda: list(Snapshot.objects.filter(title__icontains="page 4242").values("id")[:20]),
@@ -152,7 +156,10 @@ def run_benchmarks(rows: int) -> dict[str, float]:
         snapshot = Snapshot.objects.filter(status="queued").order_by("retry_at").first()
         if snapshot is None:
             return 0
-        return Snapshot.objects.filter(pk=snapshot.pk, retry_at=snapshot.retry_at).update(retry_at=now + timedelta(seconds=60), modified_at=now)
+        return Snapshot.objects.filter(pk=snapshot.pk, retry_at=snapshot.retry_at).update(
+            retry_at=now + timedelta(seconds=60),
+            modified_at=now,
+        )
 
     median_ms, _ = timed(claim_one)
     results["worker_cas_claim"] = round(median_ms, 2)

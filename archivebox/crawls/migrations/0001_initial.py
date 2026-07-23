@@ -77,7 +77,10 @@ def _run_sqlite_only_sql(apps, schema_editor):
     if schema_editor.connection.vendor != "sqlite":
         return
     migrations.RunSQL(sql=INITIAL_SQL, reverse_sql=INITIAL_REVERSE_SQL).database_forwards(
-        "crawls", schema_editor, None, None,
+        "crawls",
+        schema_editor,
+        None,
+        None,
     )
 
 
@@ -85,7 +88,10 @@ def _run_sqlite_only_sql_reverse(apps, schema_editor):
     if schema_editor.connection.vendor != "sqlite":
         return
     migrations.RunSQL(sql=INITIAL_SQL, reverse_sql=INITIAL_REVERSE_SQL).database_backwards(
-        "crawls", schema_editor, None, None,
+        "crawls",
+        schema_editor,
+        None,
+        None,
     )
 
 
